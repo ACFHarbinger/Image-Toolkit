@@ -4,7 +4,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import java.security.cert.Certificate;
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.mock;
 
 class TrustedCertificateEntryDataTest {
 
@@ -12,9 +11,11 @@ class TrustedCertificateEntryDataTest {
     private Certificate certificate;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         alias = "trusted-cert-alias";
-        certificate = mock(Certificate.class); // Mocking is sufficient
+
+        PrivateKeyEntryData generatedData = KeyStoreManager.generatePrivateKeyEntry("temp-alias", "temp-pass".toCharArray());
+        certificate = generatedData.getCertificateChain()[0];
     }
 
     @Test

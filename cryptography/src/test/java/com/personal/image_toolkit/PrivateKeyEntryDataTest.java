@@ -8,7 +8,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.mock;
 
 class PrivateKeyEntryDataTest {
 
@@ -18,17 +17,13 @@ class PrivateKeyEntryDataTest {
     private char[] keyPassword;
 
     @BeforeEach
-    void setUp() throws NoSuchAlgorithmException {
+    void setUp() throws Exception {
         alias = "test-alias";
-        // Generate a dummy key pair
-        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
-        kpg.initialize(512); // Use 512 for speed in tests
-        KeyPair kp = kpg.generateKeyPair();
-        privateKey = kp.getPrivate();
-        
-        // Mock a certificate chain
-        certificateChain = new Certificate[]{mock(Certificate.class)};
         keyPassword = new char[]{'p', 'a', 's', 's'};
+
+        PrivateKeyEntryData generatedData = KeyStoreManager.generatePrivateKeyEntry(alias, keyPassword);
+        privateKey = generatedData.getPrivateKey();
+        certificateChain = generatedData.getCertificateChain();
     }
 
     @Test
