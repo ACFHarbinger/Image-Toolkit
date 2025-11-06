@@ -138,3 +138,6 @@ Note: you can also run all tests with the `pytests tests` command.
 
 ### C++
 To test the C++ portion of the project, you just need to do `bash scripts/test_cpp.sh`
+
+### Java
+To test the Java portion of the project, you just need to do `mvn test`

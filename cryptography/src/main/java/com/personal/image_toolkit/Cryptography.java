@@ -1,8 +1,10 @@
 package com.personal.image_toolkit;
 
 import java.security.KeyStore;
-
 import javax.crypto.SecretKey;
+
+import com.personal.image_toolkit.KeyStoreManager;
+import com.personal.image_toolkit.SecureJsonVault;
 
 /**
  * Hello world!
@@ -35,7 +37,7 @@ public class Cryptography
     public static void main(String[] args) {
         try {
             // 1. Load or create the keystore
-            KeyStore keyStore = loadKeyStore(KEYSTORE_FILE, KEYSTORE_PASSWORD);
+            KeyStore keyStore = KeyStoreManager.loadKeyStore(KEYSTORE_FILE, KEYSTORE_PASSWORD);
 
             // 2. Define an alias for our new key
             String secretKeyAlias = "my-secret-key";
@@ -43,10 +45,10 @@ public class Cryptography
             // 3. Store a secret key if it doesn't exist
             if (!keyStore.containsAlias(secretKeyAlias)) {
                 System.out.println("Generating and storing a new secret key...");
-                storeSecretKey(keyStore, secretKeyAlias, KEY_PASSWORD);
+                KeyStoreManager.storeSecretKey(keyStore, secretKeyAlias, KEY_PASSWORD);
                 
                 // 4. Save the keystore to persist the new key
-                saveKeyStore(keyStore, KEYSTORE_FILE, KEYSTORE_PASSWORD);
+                KeyStoreManager.saveKeyStore(keyStore, KEYSTORE_FILE, KEYSTORE_PASSWORD);
                 System.out.println("Secret key stored and keystore saved.");
             } else {
                 System.out.println("Secret key already exists.");
@@ -54,7 +56,7 @@ public class Cryptography
 
             // 5. Retrieve the secret key
             System.out.println("\nRetrieving secret key...");
-            SecretKey retrievedKey = getSecretKey(keyStore, secretKeyAlias, KEY_PASSWORD);
+            SecretKey retrievedKey = KeyStoreManager.getSecretKey(keyStore, secretKeyAlias, KEY_PASSWORD);
             if (retrievedKey == null) {
                 System.err.println("Could not retrieve secret key. Exiting.");
                 return;

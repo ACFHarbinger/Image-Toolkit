@@ -17,9 +17,10 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>17</maven.compiler.source>
-    <maven.compiler.target>17</maven.compiler.target>
-    <junit.jupiter.version>5.10.2</junit.jupiter.version>
+    <maven.compiler.source>18</maven.compiler.source>
+    <maven.compiler.target>18</maven.compiler.target>
+    <bouncycastle.version>1.82</bouncycastle.version>
+    <junit.jupiter.version>5.10.5</junit.jupiter.version>
     <assertj.version>3.25.3</assertj.version>
     <mockito.version>5.11.0</mockito.version>
   </properties>
@@ -28,22 +29,22 @@
     <dependencies>
       <dependency>
           <groupId>org.bouncycastle</groupId>
-          <artifactId>bcprov-jdk17on</artifactId>
-          <version>1.76</version>
+          <artifactId>bcprov-jdk18on</artifactId>
+          <version>${bouncycastle.version}</version>
       </dependency>
       <dependency>
           <groupId>org.bouncycastle</groupId>
-          <artifactId>bcpkix-jdk17on</artifactId>
-          <version>1.76</version>
+          <artifactId>bcpkix-jdk18on</artifactId>
+          <version>${bouncycastle.version}</version>
       </dependency>
 
       <dependency>
-          <groupId>org.junit.jupiter</groupId>
-          <artifactId>junit-jupiter-bom</artifactId>
-          <version>${junit.jupiter.version}</version>
-          <type>pom</type>
-          <scope>import</scope>
-      </dependency>
+        <groupId>org.junit</groupId>
+        <artifactId>junit-bom</artifactId>
+        <version>${junit.jupiter.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+    </dependency>
       <dependency>
           <groupId>org.junit.jupiter</groupId>
           <artifactId>junit-jupiter-api</artifactId>
