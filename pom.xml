@@ -10,6 +10,7 @@
 
     <modules>
         <module>cryptography</module>
+        <module>core</module>
         <module>api</module>
     </modules>
 
