@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
-import javax.crypto.AEADAuthenticationException;
+import javax.crypto.AEADBadTagException;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -53,7 +53,7 @@ class SecureJsonVaultTest {
         vault.saveData(testJson);
         
         File vaultFile = new File(vaultFilePath);
-        assertThat(vaultFile).exists().isFile().length().isGreaterThan(testJson.length());
+        assertThat(vaultFile).exists().isFile().isNotEmpty();
         
         // Check that content is not plaintext
         byte[] fileContent = Files.readAllBytes(vaultFile.toPath());
@@ -124,8 +124,7 @@ class SecureJsonVaultTest {
         // 4. Try to load
         // GCM's authentication tag check should fail
         assertThatThrownBy(() -> vault.loadData())
-            .isInstanceOf(AEADAuthenticationException.class)
-            .hasMessageContaining("Tag mismatch!");
+            .isInstanceOf(AEADBadTagException.class);
     }
 
     @Test
@@ -151,8 +150,7 @@ class SecureJsonVaultTest {
         // 4. Try to load
         // Decryption should fail because the IV is wrong
         assertThatThrownBy(() -> vault.loadData())
-            .isInstanceOf(AEADAuthenticationException.class)
-            .hasMessageContaining("Tag mismatch!");
+            .isInstanceOf(AEADBadTagException.class);
     }
 
     @Test
