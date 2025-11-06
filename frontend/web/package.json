@@ -1,0 +1,81 @@
+{
+  "name": "image-toolkit",
+  "version": "0.1.0",
+  "homepage": "./",
+  "proxy": "http://127.0.0.1:8000",
+  "author": "ACFHarbinger",
+  "description": "Image Database and Edit Toolkit",
+  "private": true,
+  "main": "public/electron.js",
+  "dependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^13.5.0",
+    "lucide-react": "^0.552.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-scripts": "5.0.1",
+    "web-vitals": "^2.1.4"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "cross-env": "^10.1.0",
+    "electron": "^28.1.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.acfharbinger.imagetoolkit",
+    "productName": "Image-Toolkit",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "build/**/*",
+      "public/electron.js",
+      "public/preload.js"
+    ],
+    "mac": {
+      "target": "dmg",
+      "icon": "public/icons/image_toolkit_icon.icns"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "public/icons/image_toolkit_icon.ico"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "public/icons/image_toolkit_icon.png"
+    }
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "electron": "cross-env NODE_ENV=development electron .",
+    "dev": "concurrently \"npm start\" \"npm run electron\"",
+    "start-electron": "npm run build && electron .",
+    "electron-dev": "concurrently \"npm start\" \"wait-on http://localhost:3000 && electron .\"",
+    "electron-build": "npm run build-react && electron-builder --config.npmRebuild=false",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}

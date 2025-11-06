@@ -1,0 +1,16 @@
+name: img_db
+channels:
+- conda-forge
+- conda
+- defaults
+dependencies:
+- flask
+- flask-cors
+- numpy
+- pillow
+- psycopg2-binary
+- pyside6
+- python
+- pytest
+- python-dotenv
+- pip

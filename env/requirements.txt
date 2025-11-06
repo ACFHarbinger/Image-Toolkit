@@ -1,0 +1,8 @@
+flask
+flask-cors
+numpy
+pillow
+psycopg2-binary
+pyside6
+pytest
+python-dotenv
