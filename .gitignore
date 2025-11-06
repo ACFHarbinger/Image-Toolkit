@@ -399,6 +399,7 @@ FodyWeavers.xsd
 *.sln.iml
 
 # Virtual environments
+/**/.gradle
 /**/?venv
 /**/img_db
 /**/?img_db

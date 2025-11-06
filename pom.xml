@@ -19,25 +19,56 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.source>17</maven.compiler.source>
     <maven.compiler.target>17</maven.compiler.target>
+    <junit.jupiter.version>5.10.2</junit.jupiter.version>
+    <assertj.version>3.25.3</assertj.version>
+    <mockito.version>5.11.0</mockito.version>
   </properties>
 
   <dependencyManagement>
     <dependencies>
       <dependency>
-        <groupId>junit</groupId>
-        <artifactId>junit</artifactId>
-        <version>4.11</version>
-        <scope>test</scope>
-      </dependency>
-      <dependency>
           <groupId>org.bouncycastle</groupId>
-          <artifactId>bcprov-jdk18on</artifactId>
+          <artifactId>bcprov-jdk17on</artifactId>
           <version>1.76</version>
       </dependency>
       <dependency>
           <groupId>org.bouncycastle</groupId>
-          <artifactId>bcpkix-jdk18on</artifactId>
+          <artifactId>bcpkix-jdk17on</artifactId>
           <version>1.76</version>
+      </dependency>
+
+      <dependency>
+          <groupId>org.junit.jupiter</groupId>
+          <artifactId>junit-jupiter-bom</artifactId>
+          <version>${junit.jupiter.version}</version>
+          <type>pom</type>
+          <scope>import</scope>
+      </dependency>
+      <dependency>
+          <groupId>org.junit.jupiter</groupId>
+          <artifactId>junit-jupiter-api</artifactId>
+          <version>${junit.jupiter.version}</version>
+          <scope>test</scope>
+      </dependency>
+      <dependency>
+          <groupId>org.junit.jupiter</groupId>
+          <artifactId>junit-jupiter-engine</artifactId>
+          <version>${junit.jupiter.version}</version>
+          <scope>test</scope>
+      </dependency>
+
+      <dependency>
+          <groupId>org.assertj</groupId>
+          <artifactId>assertj-core</artifactId>
+          <version>${assertj.version}</version>
+          <scope>test</scope>
+      </dependency>
+
+      <dependency>
+          <groupId>org.mockito</groupId>
+          <artifactId>mockito-core</artifactId>
+          <version>${mockito.version}</version>
+          <scope>test</scope>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -59,7 +90,7 @@
         </plugin>
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
-          <version>2.22.1</version>
+          <version>3.2.5</version>
         </plugin>
         <plugin>
           <artifactId>maven-jar-plugin</artifactId>
