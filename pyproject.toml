@@ -12,6 +12,7 @@ dependencies = [
     "djangorestframework>=3.16.1",
     "flask>=3.1.2",
     "flask-cors>=6.0.1",
+    "jpype1>=1.6.0",
     "numpy>=2.3.4",
     "pillow>=12.0.0",
     "psycopg2-binary>=2.9.11",
@@ -42,8 +43,8 @@ build-src = "setuptools.build_meta"
 
 # Tell setuptools EXACTLY what to package
 [tool.setuptools.packages.find]
-# 1. Tell setuptools to look INSIDE 'src' for packages
-where = ["src"]
+# 1. Tell setuptools to look INSIDE 'desktop/src' for packages
+where = ["desktop/src"]
 
 # 2. Include non-code files *inside* the packages
 [tool.setuptools.package-data]

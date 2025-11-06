@@ -13,9 +13,9 @@ rootProject.name = "image-toolkit-root"
 // The path must be relative to this root settings file.
 // We are mapping the "android" folder to the project name ":android".
 include(":android")
-project(":android").projectDir = file("frontend/android")
+project(":android").projectDir = file("android")
 
 // Include any sub-modules within the Android project, if they exist.
-// Example: If your app code is in frontend/android/app
+// Example: If your app code is in android/app
 include(":android:app")
-project(":android:app").projectDir = file("frontend/android/app")
+project(":android:app").projectDir = file("android/app")

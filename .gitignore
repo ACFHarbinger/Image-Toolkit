@@ -420,5 +420,5 @@ env/README.md
 CMakeFiles/
 
 # Build
-/**/image_database.egg-info
+/**/Image_Toolkit.egg-info
 /**/target

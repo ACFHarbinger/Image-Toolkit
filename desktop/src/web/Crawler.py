@@ -6,7 +6,7 @@ import atexit
 import tempfile
 import platform
 import subprocess
-import src.utils.definitions as udef
+import desktop.src.utils.definitions as udef
 
 from .FileLoader import WebFileLoader
 from selenium import webdriver

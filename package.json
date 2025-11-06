@@ -1,7 +1,7 @@
 {
   "name": "image-toolkit-root",
   "version": "1.0.0",
-  "description": "Root package for the Image Toolkit monorepo.",
+  "description": "Root package for the Image Toolkit repo.",
   "private": true,
   "license": "UNLICENSED",
   
@@ -16,7 +16,6 @@
   },
   
   "scripts": {
-    "start-all": "npm run dev -w web-app",
-    "install": "npm install"
+    "start-all": "npm run dev -w frontend"
   }
 }

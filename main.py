@@ -10,8 +10,8 @@ from pathlib import Path
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
-from backend.src.gui.MainWindow import MainWindow
-from backend.src import (
+from desktop.src.gui.MainWindow import MainWindow
+from desktop.src import (
     parse_args, FSETool, 
     ImageFormatConverter,
     PgvectorImageDatabase, 

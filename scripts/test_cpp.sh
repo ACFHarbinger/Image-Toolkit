@@ -1,6 +1,6 @@
-cmake -B backend/build
-cmake --build backend/build
-cd backend/build
+cmake -B desktop/build
+cmake --build desktop/build
+cd desktop/build
 ctest
 rm -rf _deps
 rm -rf bin
