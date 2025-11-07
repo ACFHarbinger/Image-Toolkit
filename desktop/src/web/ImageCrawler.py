@@ -14,20 +14,41 @@ class QtABCMeta(type(QObject), type(WebCrawler)):
 
 
 class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
-    """Downloads all images from a webpage with live Qt signals."""
+    """Downloads all images from one or more webpages with live Qt signals."""
     
     # === SIGNALS ===
-    on_progress = Signal(int, int)      # (current, total)
+    # on_progress = Signal(int, int) # Removed, using indeterminate progress bar
     on_status = Signal(str)            # status message
     on_image_saved = Signal(str)       # saved file path
 
-    def __init__(self, url, skip_first=0, skip_last=9, headless=False, download_dir=None, screenshot_dir=None, browser="brave"):
-        QObject.__init__(self)         # ← Initialize QObject
-        WebCrawler.__init__(self, headless, download_dir, screenshot_dir, browser)
-        self.target_url = url
-        self.skip_first = skip_first
-        self.skip_last = skip_last
-        print(f"ImageCrawler ready: {url}")
+    def __init__(self, config: dict):
+        QObject.__init__(self)
+        WebCrawler.__init__(
+            self, 
+            headless=config.get("headless", False), 
+            download_dir=config.get("download_dir"), 
+            screenshot_dir=config.get("screenshot_dir"), 
+            browser=config.get("browser", "brave")
+        )
+        
+        self.target_url = config.get("url")
+        self.skip_first = config.get("skip_first", 0)
+        self.skip_last = config.get("skip_last", 9)
+        
+        # --- NEW: Replacement logic ---
+        self.replace_str = config.get("replace_str")
+        self.replacements = config.get("replacements")
+        
+        self.urls_to_scrape = [self.target_url]
+        if self.replace_str and self.replacements:
+            for rep in self.replacements:
+                new_url = self.target_url.replace(self.replace_str, rep)
+                self.urls_to_scrape.append(new_url)
+        
+        self.total_pages = len(self.urls_to_scrape)
+        self.current_page_index = 0
+        
+        print(f"ImageCrawler ready: {self.total_pages} pages to scrape.")
 
     def login(self, credentials=None):
         self.on_status.emit("No login needed.")
@@ -43,11 +64,15 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
             counter += 1
         return new_path
 
-    def process_data(self): # 4 12
-        self.on_status.emit("Loading page...")
-        if not self.navigate_to_url(self.target_url, take_screenshot=False):
-            self.on_status.emit("Failed to load page.")
-            return
+    def process_data(self, url: str) -> int:
+        """
+        Processes a single URL, finds images, and downloads them.
+        Returns the count of successfully downloaded images.
+        """
+        self.on_status.emit(f"Loading page {self.current_page_index + 1}/{self.total_pages}: {url}")
+        if not self.navigate_to_url(url, take_screenshot=False):
+            self.on_status.emit(f"Failed to load page: {url}")
+            return 0
 
         self.wait_for_page_to_load(timeout=10)
         self.on_status.emit("Scanning for images...")
@@ -57,32 +82,38 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
             total_found = len(images)
             skip_total = self.skip_first + self.skip_last
             if skip_total >= total_found:
-                self.on_status.emit("Not enough images to skip.")
-                return
+                self.on_status.emit(f"Not enough images to skip on page {self.current_page_index + 1}.")
+                return 0
 
-            images_to_process = images[self.skip_first:-self.skip_last]  # ← SKIP LAST 5
-            total = len(images_to_process)
+            images_to_process = images[self.skip_first:-self.skip_last]
+            total_to_download = len(images_to_process)
 
-            self.on_progress.emit(0, total)
-            self.on_status.emit(f"Found {total_found} images. Skipping {skip_total}. Downloading {total}...")
+            self.on_status.emit(f"Found {total_found} images. Skipping {skip_total}. Downloading {total_to_download}...")
 
             urls = {
                 urljoin(self.driver.current_url, img.get_attribute("src"))
                 for img in images_to_process
                 if img.get_attribute("src") and not img.get_attribute("src").startswith("data:")
             }
+            
+            unique_total = len(urls)
+            self.on_status.emit(f"Downloading {unique_total} unique images from page {self.current_page_index + 1}...")
+            
+            download_count = 0
+            for i, img_url in enumerate(urls):
+                if self.driver is None: # Check if cancelled
+                    return download_count
+                    
+                self.on_status.emit(f"Page {self.current_page_index + 1}/{self.total_pages}: Downloading image {i + 1}/{unique_total}...")
+                if self._download_image_from_url(img_url):
+                    download_count += 1
+                time.sleep(0.1) # Be nice to the server
 
-            self.on_status.emit(f"Downloading {len(urls)} unique images...")
-
-            for i, url in enumerate(urls):
-                if self._download_image_from_url(url):
-                    self.on_progress.emit(i + 1, len(urls))
-                time.sleep(0.1)
-
-            self.on_status.emit(f"Downloaded {len(urls)} images! Skipped {skip_total}.")
+            return download_count
 
         except Exception as e:
-            self.on_status.emit(f"Error: {e}")
+            self.on_status.emit(f"Error on page {url}: {e}")
+            return 0
 
     def _download_image_from_url(self, url):
         try:
@@ -111,9 +142,33 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
             return False
 
     def run(self):
+        """
+        Main worker execution loop.
+        Generates all URLs and processes them sequentially.
+        """
+        total_downloaded = 0
         try:
             self.login()
-            self.process_data()
+            
+            for i, url in enumerate(self.urls_to_scrape):
+                self.current_page_index = i
+                
+                # Process the page and get the count of downloaded images
+                count = self.process_data(url)
+                total_downloaded += count
+                
+                # If driver is gone, it means 'close()' was called (likely by cancel_crawl)
+                if self.driver is None:
+                    break
+            
+            if self.driver is not None: # If not cancelled
+                self.on_status.emit(f"Crawl complete. Downloaded {total_downloaded} total images.")
+        
+        except Exception as e:
+            # Emit error if something outside process_data fails
+            self.on_status.emit(f"An unexpected error occurred: {e}")
+        
         finally:
             self.close()
-        return 0
+            
+        return total_downloaded # Return total count

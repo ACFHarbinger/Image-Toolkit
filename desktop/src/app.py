@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
-from ..src.gui.MainWindow import MainWindow
+from .gui.MainWindow import MainWindow
 
 
 def launch_app():

@@ -51,8 +51,18 @@ class ImageCrawlTab(BaseTab):
 
         # Target URL
         self.url_input = QLineEdit()
-        self.url_input.setPlaceholderText("https://example.com/gallery")
+        self.url_input.setPlaceholderText("https://example.com/gallery?page=1")
         form_layout.addRow("Target URL:", self.url_input)
+        
+        # --- NEW: URL Replacement Fields ---
+        self.replace_str_input = QLineEdit()
+        self.replace_str_input.setPlaceholderText("e.g., page=1 (optional)")
+        form_layout.addRow("String to Replace:", self.replace_str_input)
+        
+        self.replacements_input = QLineEdit()
+        self.replacements_input.setPlaceholderText("e.g., page=2, page=3, page=4 (comma-separated)")
+        form_layout.addRow("Replacements:", self.replacements_input)
+        # --- END NEW ---
 
         # Download Directory
         download_dir_layout = QHBoxLayout()
@@ -69,7 +79,7 @@ class ImageCrawlTab(BaseTab):
         download_dir_layout.addWidget(btn_browse_download)
         form_layout.addRow("Download Dir:", download_dir_layout)
         
-        # --- MODIFIED: Screenshot Directory as OptionalField ---
+        # Screenshot Directory
         screenshot_dir_layout = QHBoxLayout()
         self.screenshot_dir_path = QLineEdit()
         self.screenshot_dir_path.setPlaceholderText("Optional: directory for screenshots (None)")
@@ -86,9 +96,8 @@ class ImageCrawlTab(BaseTab):
         screenshot_container = QWidget()
         screenshot_container.setLayout(screenshot_dir_layout)
         
-        # Wrap the container in OptionalField
         self.screenshot_field = OptionalField("Screenshot Dir", screenshot_container, start_open=False)
-        form_layout.addRow(self.screenshot_field) # Add the optional field to the form
+        form_layout.addRow(self.screenshot_field) 
 
         # Browser
         self.browser_combo = QComboBox()
@@ -110,7 +119,7 @@ class ImageCrawlTab(BaseTab):
         """)
         form_layout.addRow("", self.headless_checkbox)
         
-        # --- Skip First/Last Images ---
+        # Image Skip Count
         skip_layout = QHBoxLayout()
         self.skip_first_input = QLineEdit("0")
         self.skip_first_input.setFixedWidth(50)
@@ -148,7 +157,7 @@ class ImageCrawlTab(BaseTab):
         self.button_layout = QVBoxLayout(self.button_container)
         self.button_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Run Button (Default State)
+        # Run Button
         self.run_button = QPushButton("Run Crawler")
         self.run_button.setStyleSheet("""
             QPushButton {
@@ -165,7 +174,7 @@ class ImageCrawlTab(BaseTab):
         self.run_button.clicked.connect(self.start_crawl)
         self.button_layout.addWidget(self.run_button, 0, Qt.AlignBottom)
 
-        # Cancel Button (Hidden by default)
+        # Cancel Button
         self.cancel_button = QPushButton("Cancel Crawl")
         self.cancel_button.setStyleSheet("""
             QPushButton {
@@ -193,7 +202,6 @@ class ImageCrawlTab(BaseTab):
             self.last_browsed_download_dir = directory
             self.download_dir_path.setText(directory)
 
-    # --- NEW METHOD: Browse Screenshot Directory ---
     def browse_screenshot_directory(self):
         directory = QFileDialog.getExistingDirectory(
             self, "Select Screenshot Directory", self.last_browsed_screenshot_dir
@@ -208,6 +216,11 @@ class ImageCrawlTab(BaseTab):
         screenshot_dir = self.screenshot_dir_path.text().strip()
         skip_first = self.skip_first_input.text().strip()
         skip_last = self.skip_last_input.text().strip()
+        
+        # --- NEW: Get replacement data ---
+        replace_str = self.replace_str_input.text().strip() or None
+        replacements_str = self.replacements_input.text().strip()
+        replacements_list = [r.strip() for r in replacements_str.split(',')] if replacements_str else None
 
         if not url:
             QMessageBox.warning(self, "Missing URL", "Please enter a target URL.")
@@ -217,6 +230,16 @@ class ImageCrawlTab(BaseTab):
             return
         if not download_dir:
             QMessageBox.warning(self, "Missing Path", "Please select a download directory.")
+            return
+            
+        if replace_str and not replacements_list:
+            QMessageBox.warning(self, "Invalid Input", "You provided a 'String to Replace' but no 'Replacements'.")
+            return
+        if not replace_str and replacements_list:
+            QMessageBox.warning(self, "Invalid Input", "You provided 'Replacements' but no 'String to Replace'.")
+            return
+        if replace_str and url.find(replace_str) == -1:
+            QMessageBox.warning(self, "Invalid Input", f"The 'String to Replace' ('{replace_str}') was not found in the Target URL.")
             return
 
         try:
@@ -229,25 +252,26 @@ class ImageCrawlTab(BaseTab):
         config = {
             "url": url,
             "download_dir": download_dir,
-            "screenshot_dir": screenshot_dir if screenshot_dir else None,  # Pass None if empty
+            "screenshot_dir": screenshot_dir if screenshot_dir else None,
             "headless": self.headless_checkbox.isChecked(),
             "browser": self.browser_combo.currentText(),
             "skip_first": skip_first,
             "skip_last": skip_last,
+            "replace_str": replace_str, # NEW
+            "replacements": replacements_list, # NEW
         }
 
         # UI: Show working state
-        self.run_button.hide() # Hide Run button
-        self.cancel_button.show() # Show Cancel button
+        self.run_button.hide() 
+        self.cancel_button.show() 
         self.status_label.setText("Initializing browser...")
         self.progress_bar.show()
-        self.progress_bar.setRange(0, 0)
+        self.progress_bar.setRange(0, 0) # Indeterminate progress
 
         # Start worker
         self.worker = ImageCrawlWorker(config)
         self.worker.status.connect(self.status_label.setText)
-        self.worker.progress.connect(self.progress_bar.setMaximum if self.progress_bar.maximum() == 0 else lambda c, t: None)
-        self.worker.progress.connect(lambda c, t: self.progress_bar.setValue(c))
+        # self.worker.progress.connect(...) # Removed, using indeterminate bar
         self.worker.finished.connect(self.on_crawl_done)
         self.worker.error.connect(self.on_crawl_error)
         self.worker.start()
@@ -255,25 +279,23 @@ class ImageCrawlTab(BaseTab):
     def cancel_crawl(self):
         """Attempts to stop the QThread worker."""
         if self.worker and self.worker.isRunning():
-            # Use terminate() if quit() is not sufficient to stop the blocking web crawling operation
             self.worker.terminate() 
             self.on_crawl_done(0, "Crawl **cancelled** by user.")
             QMessageBox.information(self, "Cancelled", "The image crawl has been stopped.")
 
     def on_crawl_done(self, count, message):
-        self.run_button.show() # Show Run button
-        self.cancel_button.hide() # Hide Cancel button
+        self.run_button.show() 
+        self.cancel_button.hide() 
         self.run_button.setText("Run Crawler")
         self.progress_bar.hide()
         self.status_label.setText(message)
         
-        # Only show the success/info box if it wasn't a cancellation
         if "cancelled" not in message.lower():
             QMessageBox.information(self, "Success", f"{message}\n\nSaved to:\n{self.download_dir_path.text()}")
 
     def on_crawl_error(self, msg):
-        self.run_button.show() # Show Run button
-        self.cancel_button.hide() # Hide Cancel button
+        self.run_button.show() 
+        self.cancel_button.hide() 
         self.run_button.setText("Run Crawler")
         self.progress_bar.hide()
         self.status_label.setText("Failed.")

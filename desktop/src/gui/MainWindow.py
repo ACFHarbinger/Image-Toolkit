@@ -5,8 +5,8 @@ import argparse
 import traceback
 
 from pathlib import Path
-from PySide6.QtGui import QIcon
 from PySide6.QtCore import QTimer, Qt
+from PySide6.QtGui import QIcon, QImageReader
 from PySide6.QtWidgets import (
     QLabel, QWidget, QTabWidget, QSizePolicy,
     QVBoxLayout, QHBoxLayout, QApplication,
@@ -18,6 +18,7 @@ from .tabs import (
     ImageCrawlTab, DriveSyncTab
 )
 from .styles import GLOBAL_QSS
+from .app_definitions import NEW_LIMIT_MB
 
 
 class MainWindow(QWidget):
@@ -26,6 +27,7 @@ class MainWindow(QWidget):
         self.setWindowTitle("Image Database & Edit Toolkit")
         self.setMinimumSize(1080, 900)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        QImageReader.setAllocationLimit(NEW_LIMIT_MB)
         
         # Apply the global style sheet
         QApplication.instance().setStyleSheet(GLOBAL_QSS)

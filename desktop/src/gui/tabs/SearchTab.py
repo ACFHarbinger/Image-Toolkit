@@ -40,18 +40,18 @@ class SearchTab(BaseTab):
         self.group_combo = QComboBox()
         self.group_combo.setEditable(True)
         self.group_combo.setPlaceholderText("e.g., Summer Trip (Optional)")
-        form_layout.addRow("Group Name:", self.group_combo)
+        form_layout.addRow("Group name:", self.group_combo)
         
         # Subgroup Name
         self.subgroup_combo = QComboBox()
         self.subgroup_combo.setEditable(True)
         self.subgroup_combo.setPlaceholderText("e.g., Beach Photos (Optional)")
-        form_layout.addRow("Subgroup Name:", self.subgroup_combo)
+        form_layout.addRow("Subgroup name:", self.subgroup_combo)
         
         # Filename
         self.filename_edit = QLineEdit()
         self.filename_edit.setPlaceholderText("e.g., *.png, img_001, etc (Optional)")
-        self.filename_field = OptionalField("Filename Pattern", self.filename_edit, start_open=False)
+        self.filename_field = OptionalField("Filename pattern", self.filename_edit, start_open=False)
         form_layout.addRow(self.filename_field)
         
         # --- NEW: Input formats (copied from Convert.py) ---
