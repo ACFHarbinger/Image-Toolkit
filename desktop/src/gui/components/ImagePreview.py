@@ -5,7 +5,6 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QMessageBox, QLabel, QApplication,
     QScrollArea, QVBoxLayout, QDialog,
-    # Removed QHBoxLayout, QPushButton, QWidget as they are no longer needed for custom controls
 )
 
 

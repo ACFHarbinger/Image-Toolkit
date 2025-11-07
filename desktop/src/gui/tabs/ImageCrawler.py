@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 from .BaseTab import BaseTab
 from ..helpers import ImageCrawlWorker
 from ..components import OptionalField
+from ..styles import apply_shadow_effect
 
 
 class ImageCrawlTab(BaseTab):
@@ -63,6 +64,7 @@ class ImageCrawlTab(BaseTab):
             QPushButton { background-color: #4f545c; padding: 6px 12px; }
             QPushButton:hover { background-color: #5865f2; }
         """)
+        apply_shadow_effect(btn_browse_download, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         download_dir_layout.addWidget(self.download_dir_path)
         download_dir_layout.addWidget(btn_browse_download)
         form_layout.addRow("Download Dir:", download_dir_layout)
@@ -77,6 +79,7 @@ class ImageCrawlTab(BaseTab):
             QPushButton { background-color: #4f545c; padding: 6px 12px; }
             QPushButton:hover { background-color: #5865f2; }
         """)
+        apply_shadow_effect(btn_browse_screenshot, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         screenshot_dir_layout.addWidget(self.screenshot_dir_path)
         screenshot_dir_layout.addWidget(btn_browse_screenshot)
         
@@ -158,6 +161,7 @@ class ImageCrawlTab(BaseTab):
                 stop:0 #764ba2, stop:1 #667eea); }
             QPushButton:disabled { background: #718096; }
         """)
+        apply_shadow_effect(self.run_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.run_button.clicked.connect(self.start_crawl)
         self.button_layout.addWidget(self.run_button, 0, Qt.AlignBottom)
 
@@ -171,6 +175,7 @@ class ImageCrawlTab(BaseTab):
             }
             QPushButton:hover { background-color: #ff4444; }
         """)
+        apply_shadow_effect(self.cancel_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.cancel_button.clicked.connect(self.cancel_crawl)
         self.cancel_button.hide()
         self.button_layout.addWidget(self.cancel_button, 0, Qt.AlignBottom)

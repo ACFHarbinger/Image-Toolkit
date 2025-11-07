@@ -10,6 +10,7 @@ from PySide6.QtCore import Qt
 from .BaseTab import BaseTab
 from ..helpers import DeletionWorker
 from ..components import OptionalField
+from ..styles import apply_shadow_effect
 from ...utils.definitions import SUPPORTED_IMG_FORMATS
 
 
@@ -28,8 +29,10 @@ class DeleteTab(BaseTab):
 
         h_buttons = QHBoxLayout()
         btn_target_file = QPushButton("Choose file...")
+        apply_shadow_effect(btn_target_file, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         btn_target_file.clicked.connect(self.browse_file)
         btn_target_dir = QPushButton("Choose directory...")
+        apply_shadow_effect(btn_target_dir, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         btn_target_dir.clicked.connect(self.browse_directory)
         h_buttons.addWidget(btn_target_file)
         h_buttons.addWidget(btn_target_dir)
@@ -47,6 +50,7 @@ class DeleteTab(BaseTab):
                 btn = QPushButton(ext)
                 btn.setCheckable(True)
                 btn.setStyleSheet("QPushButton:hover { background-color: #3498db; }")
+                apply_shadow_effect(btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
                 btn.clicked.connect(lambda checked, e=ext: self.toggle_extension(e, checked))
                 btn_layout.addWidget(btn)
                 self.extension_buttons[ext] = btn
@@ -55,9 +59,11 @@ class DeleteTab(BaseTab):
             all_btn_layout = QHBoxLayout()
             btn_add_all = QPushButton("Add All")
             btn_add_all.setStyleSheet("background-color: green; color: white;")
+            apply_shadow_effect(btn_add_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
             btn_add_all.clicked.connect(self.add_all_extensions)
             btn_remove_all = QPushButton("Remove All")
             btn_remove_all.setStyleSheet("background-color: red; color: white;")
+            apply_shadow_effect(btn_remove_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
             btn_remove_all.clicked.connect(self.remove_all_extensions)
             all_btn_layout.addWidget(btn_add_all)
             all_btn_layout.addWidget(btn_remove_all)
@@ -92,6 +98,7 @@ class DeleteTab(BaseTab):
             QPushButton:disabled { background: #718096; }
             QPushButton:pressed { background: #5a67d8; }
         """)
+        apply_shadow_effect(self.run_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.run_button.clicked.connect(self.start_deletion)
         layout.addRow("", self.run_button)
 
@@ -111,9 +118,11 @@ class DeleteTab(BaseTab):
                 QPushButton:checked { background-color: #3320b5; color: white; }
                 QPushButton:hover { background-color: #00838a; }
             """)
+            apply_shadow_effect(btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         else:
             self.selected_extensions.discard(ext)
             btn.setStyleSheet("QPushButton:hover { background-color: #3498db; }")
+            apply_shadow_effect(btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
 
     def add_all_extensions(self):
         for ext, btn in self.extension_buttons.items():

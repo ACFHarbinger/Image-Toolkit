@@ -9,6 +9,7 @@ from PySide6.QtCore import Qt
 from .BaseTab import BaseTab
 from ..helpers import ConversionWorker
 from ..components import OptionalField
+from ..styles import apply_shadow_effect
 from ...utils.definitions import SUPPORTED_IMG_FORMATS
 
 
@@ -32,8 +33,10 @@ class ConvertTab(BaseTab):
         h_buttons = QHBoxLayout()
         btn_input_file = QPushButton("Choose file...")
         btn_input_file.clicked.connect(self.browse_file_input)
+        apply_shadow_effect(btn_input_file, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         btn_input_dir = QPushButton("Choose directory...")
         btn_input_dir.clicked.connect(self.browse_directory_input)
+        apply_shadow_effect(btn_input_dir, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         h_buttons.addWidget(btn_input_file)
         h_buttons.addWidget(btn_input_dir)
         v_input_group.addLayout(h_buttons)
@@ -44,6 +47,7 @@ class ConvertTab(BaseTab):
         self.output_path = QLineEdit()
         btn_output = QPushButton("Browse...")
         btn_output.clicked.connect(self.browse_output)
+        apply_shadow_effect(btn_output, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         h_output.addWidget(self.output_path)
         h_output.addWidget(btn_output)
         if self.dropdown:
@@ -65,6 +69,7 @@ class ConvertTab(BaseTab):
                 btn = QPushButton(fmt)
                 btn.setCheckable(True)
                 btn.setStyleSheet("QPushButton:hover { background-color: #3498db; }")
+                apply_shadow_effect(btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
                 btn.clicked.connect(lambda checked, f=fmt: self.toggle_format(f, checked))
                 btn_layout.addWidget(btn)
                 self.format_buttons[fmt] = btn
@@ -73,9 +78,11 @@ class ConvertTab(BaseTab):
             all_btn_layout = QHBoxLayout()
             self.btn_add_all = QPushButton("Add All")
             self.btn_add_all.setStyleSheet("background-color: green; color: white;")
+            apply_shadow_effect(self.btn_add_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
             self.btn_add_all.clicked.connect(self.add_all_formats)
             self.btn_remove_all = QPushButton("Remove All")
             self.btn_remove_all.setStyleSheet("background-color: red; color: white;")
+            apply_shadow_effect(self.btn_remove_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
             self.btn_remove_all.clicked.connect(self.remove_all_formats)
             all_btn_layout.addWidget(self.btn_add_all)
             all_btn_layout.addWidget(self.btn_remove_all)
@@ -125,6 +132,7 @@ class ConvertTab(BaseTab):
             QPushButton:disabled { background: #555; }
             QPushButton:pressed { background: #5a67d8; }
         """)
+        apply_shadow_effect(self.run_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.run_button.clicked.connect(self.start_conversion)
         self.button_layout.addWidget(self.run_button)
         
@@ -138,6 +146,7 @@ class ConvertTab(BaseTab):
             }
             QPushButton:hover { background-color: #ff4444; }
         """)
+        apply_shadow_effect(self.cancel_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.cancel_button.clicked.connect(self.cancel_conversion)
         self.cancel_button.hide()
         self.button_layout.addWidget(self.cancel_button)
@@ -159,9 +168,11 @@ class ConvertTab(BaseTab):
                 QPushButton:checked { background-color: #3320b5; color: white; }
                 QPushButton:hover { background-color: #00838a; }
             """)
+            apply_shadow_effect(self.format_buttons[fmt], color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         else:
             self.selected_formats.discard(fmt)
             self.format_buttons[fmt].setStyleSheet("QPushButton:hover { background-color: #3498db; }")
+            apply_shadow_effect(self.format_buttons[fmt], color_hex="#000000", radius=8, x_offset=0, y_offset=3)
 
     def add_all_formats(self):
         for fmt, btn in self.format_buttons.items():

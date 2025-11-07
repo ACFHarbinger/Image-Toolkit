@@ -3,6 +3,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPalette
+from ..styles import apply_shadow_effect
 
 
 class OptionalField(QWidget):
@@ -22,6 +23,7 @@ class OptionalField(QWidget):
         self.toggle_btn.setObjectName("OptionalFieldToggleBtn") # Keep the object name
         self.toggle_btn.setFixedWidth(30)
         self.toggle_btn.setFlat(True)
+        apply_shadow_effect(self.toggle_btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
 
         self.label = QLabel(title)
         self.label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
@@ -57,7 +59,7 @@ class OptionalField(QWidget):
                 color: {text_color_name};
                 font-weight: 600;
             }}
-            /* FINAL ATTEMPT FIX: Target the button using the ID and set color and background to transparent */
+            /* Target the button using the ID and set color and background to transparent */
             QPushButton#OptionalFieldToggleBtn {{ 
                 color: {text_color_name}; /* Forcing the foreground color */
                 background-color: transparent; 

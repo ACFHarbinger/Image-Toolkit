@@ -7,15 +7,14 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QFormLayout, QHBoxLayout, QVBoxLayout, QGridLayout,
-    QLineEdit, QPushButton, QFileDialog, QComboBox,
-    QScrollArea, QGroupBox,
-    QApplication, QWidget, QLabel, QMessageBox
+    QScrollArea, QGroupBox, QApplication, 
+    QLineEdit, QPushButton, QComboBox,
+    QWidget, QLabel, QMessageBox
 )
 from .BaseTab import BaseTab
-# Import for the preview window
-from ..components import ImagePreviewWindow
-# --- MODIFICATION: Import OptionalField ---
 from ..components import OptionalField
+from ..components import ImagePreviewWindow
+from ..styles import apply_shadow_effect
 
 
 class SearchTab(BaseTab):
@@ -71,6 +70,7 @@ class SearchTab(BaseTab):
             QPushButton:disabled { background: #4f545c; color: #a0a0a0; }
             QPushButton:pressed { background: #5a67d8; }
         """)
+        apply_shadow_effect(self.search_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.search_button.clicked.connect(self.perform_search)
         layout.addWidget(self.search_button)
         
@@ -216,10 +216,12 @@ class SearchTab(BaseTab):
             btn_layout = QHBoxLayout()
             
             view_button = QPushButton("View")
+            apply_shadow_effect(view_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
             view_button.clicked.connect(lambda chk, p=file_path: self.open_file_preview(p))
             btn_layout.addWidget(view_button)
             
             folder_button = QPushButton("Folder")
+            apply_shadow_effect(folder_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
             folder_button.clicked.connect(lambda chk, p=file_path: self.open_file_directory(p))
             btn_layout.addWidget(folder_button)
             

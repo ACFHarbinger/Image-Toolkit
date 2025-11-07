@@ -3,16 +3,16 @@ import psycopg2 # Import for error handling
 from typing import Optional
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QMessageBox, QGridLayout, QComboBox,
+    QScrollArea, QGroupBox,
+    QMessageBox, QComboBox,
+    QAbstractItemView, QMenu,
     QFormLayout, QHBoxLayout, QVBoxLayout,
-    QScrollArea, QWidget, QGroupBox,
     QLineEdit, QPushButton, QLabel, QHeaderView,
     QTableWidget, QTableWidgetItem, QSizePolicy,
-    QAbstractItemView, QMenu # Added QMenu
 )
 from .BaseTab import BaseTab 
-# Use the new DB class name
 from ... import PgvectorImageDatabase as ImageDatabase
+from ..styles import apply_shadow_effect
 from dotenv import load_dotenv
 
 
@@ -54,11 +54,13 @@ class DatabaseTab(BaseTab):
         self.button_conn_layout = QHBoxLayout()
         self.btn_connect = QPushButton("Connect to PostgreSQL")
         self.btn_connect.setStyleSheet("background-color: #3498db; color: white; padding: 10px;")
+        apply_shadow_effect(self.btn_connect, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.btn_connect.clicked.connect(self.connect_database)
         self.button_conn_layout.addWidget(self.btn_connect)
         
         self.btn_disconnect = QPushButton("Disconnect from PostgreSQL")
         self.btn_disconnect.setStyleSheet("background-color: #e74c3c; color: white; padding: 10px;")
+        apply_shadow_effect(self.btn_disconnect, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.btn_disconnect.clicked.connect(self.disconnect_database)
         self.btn_disconnect.hide()
         self.button_conn_layout.addWidget(self.btn_disconnect)
@@ -84,6 +86,7 @@ class DatabaseTab(BaseTab):
         create_group_layout.addRow("Group Name(s):", self.new_group_name_edit)
         
         self.btn_create_group = QPushButton("Create Group(s)")
+        apply_shadow_effect(self.btn_create_group, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.btn_create_group.clicked.connect(self.create_new_group)
         create_group_layout.addRow(self.btn_create_group)
         
@@ -98,11 +101,13 @@ class DatabaseTab(BaseTab):
         
         groups_btn_layout = QHBoxLayout()
         self.btn_refresh_groups = QPushButton("Refresh List")
+        apply_shadow_effect(self.btn_refresh_groups, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.btn_refresh_groups.clicked.connect(self.refresh_groups_list)
         groups_btn_layout.addWidget(self.btn_refresh_groups)
         
         self.btn_remove_group = QPushButton("Remove Selected Group")
         self.btn_remove_group.setStyleSheet("background-color: #e74c3c; color: white;")
+        apply_shadow_effect(self.btn_remove_group, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.btn_remove_group.clicked.connect(self.remove_selected_group)
         groups_btn_layout.addWidget(self.btn_remove_group)
         existing_groups_layout.addLayout(groups_btn_layout)
@@ -154,6 +159,7 @@ class DatabaseTab(BaseTab):
         create_tag_layout.addRow("Tag Type (applies to all):", self.new_tag_type_combo)
         
         self.btn_create_tag = QPushButton("Create/Update Tag(s)")
+        apply_shadow_effect(self.btn_create_tag, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.btn_create_tag.clicked.connect(self.create_new_tag)
         create_tag_layout.addRow(self.btn_create_tag)
         
@@ -169,11 +175,13 @@ class DatabaseTab(BaseTab):
         
         tags_btn_layout = QHBoxLayout()
         self.btn_refresh_tags = QPushButton("Refresh List")
+        apply_shadow_effect(self.btn_refresh_tags, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.btn_refresh_tags.clicked.connect(self.refresh_tags_list)
         tags_btn_layout.addWidget(self.btn_refresh_tags)
         
         self.btn_remove_tag = QPushButton("Remove Selected Tag")
         self.btn_remove_tag.setStyleSheet("background-color: #e74c3c; color: white;")
+        apply_shadow_effect(self.btn_remove_tag, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.btn_remove_tag.clicked.connect(self.remove_selected_tag)
         tags_btn_layout.addWidget(self.btn_remove_tag)
         existing_tags_layout.addLayout(tags_btn_layout)

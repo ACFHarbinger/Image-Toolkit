@@ -17,125 +17,7 @@ from .tabs import (
     ScanFSETab, SearchTab, 
     ImageCrawlTab, DriveSyncTab
 )
-
-
-# --- GLOBAL STYLE SHEET (QSS) to mimic React/Tailwind Dark Mode ---
-GLOBAL_QSS = """
-    /* General Dark Mode Base */
-    QWidget, QMainWindow, QDialog {
-        background-color: #2c2f33; /* Dark background */
-        color: #f2f2f2; /* Light text */
-        font-family: Arial, sans-serif;
-    }
-    
-    /* Buttons - Modern, rounded style */
-    QPushButton {
-        background-color: #5865f2; /* Violet/Indigo base */
-        color: white;
-        border: none;
-        padding: 8px 16px;
-        border-radius: 8px; /* Rounded corners */
-        font-weight: bold;
-        /* REMOVED: transition: background-color 0.2s; */
-    }
-    QPushButton:hover {
-        background-color: #4754c4; /* Slightly darker violet on hover */
-    }
-    QPushButton:pressed {
-        background-color: #3f479a;
-    }
-    QPushButton:disabled {
-        background-color: #4f545c; /* Darker gray for disabled */
-        color: #a0a0a0;
-    }
-    
-    /* Tab Widget Styling */
-    QTabWidget::pane { /* The border around the tabs */
-        border: 1px solid #4f545c;
-        background-color: #2c2f33;
-        border-radius: 8px;
-    }
-    QTabBar::tab {
-        background: #36393f; /* Slightly lighter tab background */
-        color: #b9bbbe;
-        padding: 8px 15px;
-        border-top-left-radius: 8px;
-        border-top-right-radius: 8px;
-        margin-right: 2px;
-    }
-    QTabBar::tab:selected {
-        background: #4f545c; /* Highlight selected tab */
-        color: white;
-        font-weight: bold;
-    }
-    QTabBar::tab:hover {
-        background: #5865f2;
-        color: white;
-    }
-
-    /* Input Fields */
-    QLineEdit, QComboBox, QSpinBox, QTextEdit {
-        background-color: #36393f; /* Darker input background */
-        color: #f2f2f2;
-        border: 1px solid #4f545c;
-        padding: 6px;
-        border-radius: 4px;
-    }
-    
-    /* Group Boxes */
-    QGroupBox {
-        border: 1px solid #4f545c;
-        margin-top: 20px;
-        border-radius: 8px;
-        padding-top: 15px;
-    }
-    QGroupBox::title {
-        subcontrol-origin: margin;
-        subcontrol-position: top center; 
-        padding: 0 10px;
-        background-color: #5865f2; /* Violet title background */
-        color: white;
-        border-radius: 4px;
-    }
-    
-    /* Labels */
-    QLabel {
-        color: #f2f2f2;
-    }
-    
-    /* Scroll Area (for image gallery) */
-    QScrollArea {
-        border: 1px solid #4f545c;
-        border-radius: 8px;
-    }
-
-    /* --- SCROLL BAR STYLING FOR VISIBILITY --- */
-    QScrollBar:vertical, QScrollBar:horizontal {
-        border: 1px solid #36393f;
-        background: #36393f; /* Dark background color for the trough/track */
-        width: 10px; /* Width for vertical scrollbar */
-        height: 10px; /* Height for horizontal scrollbar */
-        margin: 0px 0px 0px 0px;
-    }
-
-    QScrollBar::handle:vertical, QScrollBar::handle:horizontal {
-        background: #b9bbbe; /* Light gray color for the handle (visible part) */
-        min-height: 20px;
-        min-width: 20px;
-        border-radius: 4px;
-    }
-    
-    QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover {
-        background: #f2f2f2; /* Brighter white on hover */
-    }
-    
-    /* Hide the buttons/arrows at the ends of the scrollbar */
-    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
-    QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
-        border: none;
-        background: none;
-    }
-"""
+from .styles import GLOBAL_QSS
 
 
 class MainWindow(QWidget):
@@ -152,6 +34,7 @@ class MainWindow(QWidget):
 
         # --- Application Header (Mimics React App Header) ---
         header_widget = QWidget()
+        header_widget.setObjectName("header_widget")
         header_widget.setStyleSheet("background-color: #4f545c; padding: 10px; border-bottom: 2px solid #5865f2;")
         header_layout = QHBoxLayout(header_widget)
         header_layout.setContentsMargins(10, 5, 10, 5)

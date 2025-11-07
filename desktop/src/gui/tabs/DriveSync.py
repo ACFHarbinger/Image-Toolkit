@@ -7,15 +7,14 @@ from PySide6.QtWidgets import (
     QFileDialog, QPushButton, QLabel, 
     QGroupBox, QCheckBox, QTextEdit,
 )
+from pathlib import Path
+from ..app_definitions import (
+    SERVICE_ACCOUNT_FILE, LOCAL_SOURCE_PATH, 
+    DRY_RUN, DRIVE_DESTINATION_FOLDER_NAME
+) 
 from ..helpers import GoogleDriveSyncWorker
 from .BaseTab import BaseTab
-from pathlib import Path
-
-# --- GLOBAL CONFIGURATION (MOCK DATA for QLineEdit defaults) ---
-SERVICE_ACCOUNT_FILE = os.path.join(Path.home(), "google_drive_key.json")
-LOCAL_SOURCE_PATH = str(Path.home() / "Documents" / "sync_folder")
-DRIVE_DESTINATION_FOLDER_NAME = "Automated_Backups/Monthly_Data"
-DRY_RUN = True
+from ..styles import apply_shadow_effect
 
 
 class DriveSyncTab(BaseTab):
@@ -54,6 +53,7 @@ class DriveSyncTab(BaseTab):
         self.key_file_path = QLineEdit(os.path.join(Path.home(), SERVICE_ACCOUNT_FILE))
         self.key_file_path.setPlaceholderText("Path to service_account_key.json")
         btn_browse_key = QPushButton("Browse Key File")
+        apply_shadow_effect(btn_browse_key, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         btn_browse_key.clicked.connect(self.browse_key_file)
         
         # Key File elements stored as attributes for later enabling/disabling
@@ -69,6 +69,7 @@ class DriveSyncTab(BaseTab):
         self.local_path = QLineEdit(LOCAL_SOURCE_PATH)
         self.local_path.setPlaceholderText("Local directory to synchronize")
         btn_browse_local = QPushButton("Browse Local Dir")
+        apply_shadow_effect(btn_browse_local, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         btn_browse_local.clicked.connect(self.browse_local_directory)
         local_layout.addWidget(self.local_path)
         local_layout.addWidget(btn_browse_local)
@@ -131,6 +132,7 @@ class DriveSyncTab(BaseTab):
                 color: #a0a0a0;
             }
         """)
+        apply_shadow_effect(self.sync_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.sync_button.clicked.connect(self.run_sync_now)
         
         # --- 2.3. Status Log Group ---

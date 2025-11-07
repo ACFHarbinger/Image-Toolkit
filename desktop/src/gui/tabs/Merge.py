@@ -1,16 +1,17 @@
 import os
 from pathlib import Path
 from typing import Dict, Any, Set, List
-from PySide6.QtCore import Qt, QTimer, QThread, QThreadPool, Signal, QObject
+from PySide6.QtCore import Qt, QTimer, QThread, QObject
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QLineEdit, QFileDialog, QWidget, QLabel, QPushButton,
     QComboBox, QSpinBox, QGroupBox, QFormLayout, QHBoxLayout,
-    QVBoxLayout, QMessageBox, QApplication, QGridLayout, QScrollArea
+    QVBoxLayout, QMessageBox, QApplication, QGridLayout,
 )
 from .BaseTab import BaseTab
 from ..helpers import MergeWorker, ImageScannerWorker, BatchThumbnailLoaderWorker
 from ..components import OptionalField, ClickableLabel, MarqueeScrollArea
+from ..styles import apply_shadow_effect
 from ...utils.definitions import SUPPORTED_IMG_FORMATS
 
 
@@ -87,9 +88,11 @@ class MergeTab(BaseTab):
         self.input_path_info.setStyleSheet("background-color: #333; color: #b9bbbe;")
 
         btn_input_files = QPushButton("Add Files")
+        apply_shadow_effect(btn_input_files, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         btn_input_files.clicked.connect(self._browse_files_logic) 
         
         btn_input_dir = QPushButton("Scan Directories")
+        apply_shadow_effect(btn_input_dir, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         btn_input_dir.clicked.connect(self._browse_directories_logic) 
 
         input_controls.addWidget(self.input_path_info)
@@ -127,6 +130,7 @@ class MergeTab(BaseTab):
         self.output_path = QLineEdit()
         self.output_path.setPlaceholderText("Select output merged file (.png or .jpg)")
         btn_output = QPushButton("Browse Output...")
+        apply_shadow_effect(btn_output, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         btn_output.clicked.connect(self._browse_output_logic) 
         h_output.addWidget(self.output_path)
         h_output.addWidget(btn_output)
@@ -150,6 +154,7 @@ class MergeTab(BaseTab):
                 btn = QPushButton(fmt)
                 btn.setCheckable(True)
                 btn.setStyleSheet("QPushButton:hover { background-color: #3498db; }")
+                apply_shadow_effect(btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
                 btn.clicked.connect(lambda checked, f=fmt: self.toggle_format(f, checked))
                 btn_layout.addWidget(btn)
                 self.format_buttons[fmt] = btn
@@ -157,9 +162,11 @@ class MergeTab(BaseTab):
             all_btn_layout = QHBoxLayout()
             btn_add_all = QPushButton("Select All")
             btn_add_all.setStyleSheet("background-color: #2ecc71; color: white;")
+            apply_shadow_effect(btn_add_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
             btn_add_all.clicked.connect(self.add_all_formats)
             btn_remove_all = QPushButton("Clear All")
             btn_remove_all.setStyleSheet("background-color: #e74c3c; color: white;")
+            apply_shadow_effect(btn_remove_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
             btn_remove_all.clicked.connect(self.remove_all_formats)
             all_btn_layout.addWidget(btn_add_all)
             all_btn_layout.addWidget(btn_remove_all)
@@ -180,6 +187,7 @@ class MergeTab(BaseTab):
             QPushButton:disabled { background: #718096; }
             QPushButton:pressed { background: #3f479a; }
         """)
+        apply_shadow_effect(self.run_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.run_button.clicked.connect(self.start_merge)
         action_vbox.addWidget(self.run_button)
 
@@ -552,9 +560,11 @@ class MergeTab(BaseTab):
         if checked:
             self.selected_formats.add(fmt)
             btn.setStyleSheet("QPushButton:checked { background-color: #3320b5; color: white; } QPushButton:hover { background-color: #00838a; }")
+            apply_shadow_effect(btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         else:
             self.selected_formats.discard(fmt)
             btn.setStyleSheet("QPushButton:hover { background-color: #3498db; }")
+            apply_shadow_effect(btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
 
     def add_all_formats(self):
         """Selects all supported input formats."""

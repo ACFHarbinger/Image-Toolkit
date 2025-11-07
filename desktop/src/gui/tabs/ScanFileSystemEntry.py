@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 from .BaseTab import BaseTab
 from ..components import ImagePreviewWindow, ClickableLabel, MarqueeScrollArea
 from ..helpers import ImageScannerWorker, BatchThumbnailLoaderWorker
-
+from ..styles import apply_shadow_effect
 
 
 class ScanFSETab(BaseTab):
@@ -66,7 +66,8 @@ class ScanFSETab(BaseTab):
         
         # Apply subtle style to the browse button
         btn_browse_scan.setStyleSheet("QPushButton { background-color: #4f545c; padding: 6px 12px; } QPushButton:hover { background-color: #5865f2; }")
-        
+        apply_shadow_effect(btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+
         scan_dir_layout.addWidget(self.scan_directory_path)
         scan_dir_layout.addWidget(btn_browse_scan)
         scan_layout.addLayout(scan_dir_layout)
@@ -107,6 +108,7 @@ class ScanFSETab(BaseTab):
                 color: #a0a0a0;
             }
         """)
+        apply_shadow_effect(self.scan_view_image_btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         scan_layout.addWidget(self.scan_view_image_btn)
 
         # --- MODIFIED: Scroll Area for image thumbnails ---
@@ -224,6 +226,7 @@ class ScanFSETab(BaseTab):
                 color: #a0a0a0;
             }
         """)
+        apply_shadow_effect(self.scan_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.scan_button.clicked.connect(self.scan_directory) 
 
         # 2. UPDATE Button (Blue - #3498db)
@@ -244,6 +247,7 @@ class ScanFSETab(BaseTab):
                 color: #a0a0a0;
             }
         """)
+        apply_shadow_effect(self.update_selected_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.update_selected_button.clicked.connect(self.update_selected_metadata)
 
         # 3. REFRESH Button (Yellow/Orange - #f1c40f)
@@ -264,6 +268,7 @@ class ScanFSETab(BaseTab):
                 color: #a0a0a0;
             }
         """)
+        apply_shadow_effect(self.refresh_image_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.refresh_image_button.clicked.connect(self.refresh_image_directory) 
 
         # 4. DELETE Button (Red - #e74c3c)
@@ -284,6 +289,7 @@ class ScanFSETab(BaseTab):
                 color: #a0a0a0;
             }
         """)
+        apply_shadow_effect(self.delete_selected_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.delete_selected_button.clicked.connect(self.delete_selected_images)
         
         scan_action_layout = QHBoxLayout()
