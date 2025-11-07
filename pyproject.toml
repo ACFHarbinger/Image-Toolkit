@@ -51,3 +51,6 @@ where = ["desktop/src"]
 # 2. Include non-code files *inside* the packages
 [tool.setuptools.package-data]
 # "*" = ["*.ui", "*.qrc", "*.png", "*.ico"]
+
+[tool.pyright]
+typeCheckingMode = "off"
