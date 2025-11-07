@@ -1,8 +1,8 @@
 import os
 import platform
 import subprocess
-from pathlib import Path
-from typing import Dict, Any, List
+
+from typing import Dict, Any, List, Optional
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
@@ -15,6 +15,7 @@ from .BaseTab import BaseTab
 from ..components import OptionalField
 from ..components import ImagePreviewWindow
 from ..styles import apply_shadow_effect
+from ...utils.definitions import SUPPORTED_IMG_FORMATS
 
 
 class SearchTab(BaseTab):
@@ -25,6 +26,7 @@ class SearchTab(BaseTab):
         self.dropdown = dropdown
         self.result_widgets = []
         self.open_preview_windows = [] # Track open preview windows
+        self.selected_formats = set() # NEW
         
         layout = QVBoxLayout(self)
         
@@ -35,19 +37,62 @@ class SearchTab(BaseTab):
         form_layout = QFormLayout(search_group)
         form_layout.setContentsMargins(10, 20, 10, 10)
         
-        # Group name (replaces Series)
+        # Group name
         self.group_combo = QComboBox()
         self.group_combo.setEditable(True)
         self.group_combo.setPlaceholderText("e.g., Summer Trip (Optional)")
         form_layout.addRow("Group Name:", self.group_combo)
         
-        # --- MODIFICATION: Filename as OptionalField ---
+        # Subgroup Name
+        self.subgroup_combo = QComboBox()
+        self.subgroup_combo.setEditable(True)
+        self.subgroup_combo.setPlaceholderText("e.g., Beach Photos (Optional)")
+        form_layout.addRow("Subgroup Name:", self.subgroup_combo)
+        
+        # Filename
         self.filename_edit = QLineEdit()
         self.filename_edit.setPlaceholderText("e.g., *.png, img_001, etc (Optional)")
-        # Wrap the QLineEdit in the OptionalField
         self.filename_field = OptionalField("Filename Pattern", self.filename_edit, start_open=False)
         form_layout.addRow(self.filename_field)
-        # --- END MODIFICATION ---
+        
+        # --- NEW: Input formats (copied from Convert.py) ---
+        if self.dropdown:
+            formats_layout = QVBoxLayout()
+            btn_layout = QHBoxLayout()
+            self.format_buttons = {}
+            for fmt in SUPPORTED_IMG_FORMATS:
+                btn = QPushButton(fmt)
+                btn.setCheckable(True)
+                btn.setStyleSheet("QPushButton:hover { background-color: #3498db; }")
+                apply_shadow_effect(btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+                btn.clicked.connect(lambda checked, f=fmt: self.toggle_format(f, checked))
+                btn_layout.addWidget(btn)
+                self.format_buttons[fmt] = btn
+            formats_layout.addLayout(btn_layout)
+
+            all_btn_layout = QHBoxLayout()
+            self.btn_add_all = QPushButton("Add All")
+            self.btn_add_all.setStyleSheet("background-color: green; color: white;")
+            apply_shadow_effect(self.btn_add_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+            self.btn_add_all.clicked.connect(self.add_all_formats)
+            self.btn_remove_all = QPushButton("Remove All")
+            self.btn_remove_all.setStyleSheet("background-color: red; color: white;")
+            apply_shadow_effect(self.btn_remove_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+            self.btn_remove_all.clicked.connect(self.remove_all_formats)
+            all_btn_layout.addWidget(self.btn_add_all)
+            all_btn_layout.addWidget(self.btn_remove_all)
+            formats_layout.addLayout(all_btn_layout)
+
+            formats_container = QWidget()
+            formats_container.setLayout(formats_layout)
+            self.formats_field = OptionalField("Input formats", formats_container, start_open=False)
+            form_layout.addRow(self.formats_field)
+        else:
+            self.selected_formats = None
+            self.input_formats_edit = QLineEdit()
+            self.input_formats_edit.setPlaceholderText("e.g. jpg png gif (optional)")
+            form_layout.addRow("Input formats:", self.input_formats_edit)
+        # --- END NEW ---
 
         # Tags
         self.tags_edit = QLineEdit()
@@ -76,8 +121,11 @@ class SearchTab(BaseTab):
         
         # Connect Enter key to search
         self.group_combo.lineEdit().returnPressed.connect(self.search_button.click)
+        self.subgroup_combo.lineEdit().returnPressed.connect(self.search_button.click)
         self.filename_edit.returnPressed.connect(self.search_button.click)
         self.tags_edit.returnPressed.connect(self.search_button.click)
+        if not self.dropdown:
+            self.input_formats_edit.returnPressed.connect(self.search_button.click)
         
         # Results area
         results_label = QLabel("Search Results:")
@@ -105,6 +153,31 @@ class SearchTab(BaseTab):
         # Update enabled state based on DB connection
         self.update_search_button_state()
 
+    # --- NEW: Helper methods copied from Convert.py ---
+    def toggle_format(self, fmt, checked):
+        if checked:
+            self.selected_formats.add(fmt)
+            self.format_buttons[fmt].setStyleSheet("""
+                QPushButton:checked { background-color: #3320b5; color: white; }
+                QPushButton:hover { background-color: #00838a; }
+            """)
+            apply_shadow_effect(self.format_buttons[fmt], color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        else:
+            self.selected_formats.discard(fmt)
+            self.format_buttons[fmt].setStyleSheet("QPushButton:hover { background-color: #3498db; }")
+            apply_shadow_effect(self.format_buttons[fmt], color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+
+    def add_all_formats(self):
+        for fmt, btn in self.format_buttons.items():
+            btn.setChecked(True)
+            self.toggle_format(fmt, True)
+
+    def remove_all_formats(self):
+        for fmt, btn in self.format_buttons.items():
+            btn.setChecked(False)
+            self.toggle_format(fmt, False)
+    # --- END NEW ---
+
     def update_search_button_state(self):
         """Disables search button if DB is not connected."""
         db_connected = self.db_tab_ref.db is not None
@@ -120,6 +193,19 @@ class SearchTab(BaseTab):
         if not tags_str:
             return None
         return [tag.strip().lower() for tag in tags_str.split(',') if tag.strip()]
+
+    # --- NEW: Helper to get selected formats ---
+    def get_selected_formats(self) -> Optional[List[str]]:
+        """Gets the list of selected formats."""
+        if self.dropdown:
+            if not self.selected_formats:
+                return None
+            return list(self.selected_formats)
+        else:
+            formats_str = self.input_formats_edit.text().strip()
+            if not formats_str:
+                return None
+            return [f.strip().lstrip('.').lower() for f in formats_str.replace(',', ' ').split() if f.strip()]
     
     def perform_search(self):
         """Perform the image search using the database."""
@@ -128,20 +214,20 @@ class SearchTab(BaseTab):
             QMessageBox.warning(self, "Error", "Please connect to the database first.")
             return
 
-        # Change button color to indicate search is running
         self.search_button.setEnabled(False)
         self.search_button.setText("Searching...")
         QApplication.processEvents()
     
-        # Clear previous results
         self.clear_results()
         
         # Get search criteria
         group = self.group_combo.currentText().strip() or None
+        subgroup = self.subgroup_combo.currentText().strip() or None
         filename = self.filename_edit.text().strip() or None
         tags = self.get_selected_tags()
+        formats = self.get_selected_formats() # NEW
         
-        if not group and not filename and not tags:
+        if not group and not subgroup and not filename and not tags and not formats: # MODIFIED
             self.results_count_label.setText("Please enter at least one search criterion.")
             self._reset_search_button()
             return
@@ -150,19 +236,19 @@ class SearchTab(BaseTab):
             # Perform database search
             matching_files = db.search_images(
                 group_name=group,
+                subgroup_name=subgroup,
                 tags=tags,
                 filename_pattern=filename,
-                limit=100 # Limit to 100 results for now
+                input_formats=formats, # NEW
+                limit=100 
             )
             
-            # Display results
             self.display_results(matching_files)
 
         except Exception as e:
             QMessageBox.critical(self, "Search Error", f"An error occurred during search:\n{str(e)}")
             self.results_count_label.setText(f"Error: {str(e)}")
         
-        # Reset button after a short delay
         QTimer.singleShot(200, self._reset_search_button)
     
     def _reset_search_button(self):
@@ -178,19 +264,17 @@ class SearchTab(BaseTab):
         if count == 0:
             return
         
-        columns = 4 # You can adjust this
+        columns = 4 
         for i, img_data in enumerate(results):
             row = i // columns
             col = i % columns
             
             file_path = img_data.get('file_path')
             
-            # Create container for each result
             result_container = QWidget()
             result_layout = QVBoxLayout(result_container)
             result_layout.setContentsMargins(5, 5, 5, 5)
             
-            # Image thumbnail
             image_label = QLabel()
             image_label.setFixedSize(150, 150)
             image_label.setAlignment(Qt.AlignCenter)
@@ -205,14 +289,12 @@ class SearchTab(BaseTab):
             
             result_layout.addWidget(image_label)
             
-            # Filename label
             filename_label = QLabel(img_data.get('filename', 'N/A'))
             filename_label.setWordWrap(True)
             filename_label.setAlignment(Qt.AlignCenter)
             filename_label.setStyleSheet("font-size: 10px;")
             result_layout.addWidget(filename_label)
             
-            # Buttons layout
             btn_layout = QHBoxLayout()
             
             view_button = QPushButton("View")
@@ -244,13 +326,11 @@ class SearchTab(BaseTab):
             QMessageBox.warning(self, "Invalid Path", f"File not found at path:\n{file_path}")
             return
 
-        # Check if already open
         for window in self.open_preview_windows:
             if window.image_path == file_path:
                 window.activateWindow() 
                 return
         
-        # Open new preview
         preview = ImagePreviewWindow(file_path, self.db_tab_ref, parent=self) 
         preview.finished.connect(lambda result, p=preview: self.remove_preview_window(p))
         preview.show() 
@@ -280,7 +360,6 @@ class SearchTab(BaseTab):
             widget.deleteLater()
         self.result_widgets.clear()
         
-        # Close any open preview windows from the previous search
         for window in self.open_preview_windows[:]:
             window.close()
         self.open_preview_windows.clear()
@@ -289,6 +368,8 @@ class SearchTab(BaseTab):
         """Collect search parameters"""
         return {
             "group_name": self.group_combo.currentText().strip() or None,
+            "subgroup_name": self.subgroup_combo.currentText().strip() or None, 
             "filename_pattern": self.filename_edit.text().strip() or None,
+            "input_formats": self.get_selected_formats() or None, # NEW
             "tags": self.get_selected_tags() or None
         }

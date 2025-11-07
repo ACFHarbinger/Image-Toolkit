@@ -63,6 +63,7 @@ class PgvectorImageDatabase:
                         width INTEGER,
                         height INTEGER,
                         group_name TEXT, 
+                        subgroup_name TEXT, 
                         date_added TIMESTAMP WITHOUT TIME ZONE NOT NULL,
                         date_modified TIMESTAMP WITHOUT TIME ZONE,
                         embedding vector({self.embedding_dim}) 
@@ -73,6 +74,15 @@ class PgvectorImageDatabase:
                     CREATE TABLE IF NOT EXISTS groups (
                         id SERIAL PRIMARY KEY,
                         name VARCHAR(255) UNIQUE NOT NULL
+                    )
+                """)
+                
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS subgroups (
+                        id SERIAL PRIMARY KEY,
+                        name VARCHAR(255) NOT NULL,
+                        group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
+                        UNIQUE(name, group_id) 
                     )
                 """)
 
@@ -93,6 +103,7 @@ class PgvectorImageDatabase:
                 """)
 
                 cur.execute("CREATE INDEX IF NOT EXISTS idx_images_group ON images(group_name)")
+                cur.execute("CREATE INDEX IF NOT EXISTS idx_images_subgroup ON images(subgroup_name)") 
                 cur.execute("CREATE INDEX IF NOT EXISTS idx_images_path ON images(file_path)")
                 cur.execute(f"""
                     CREATE INDEX IF NOT EXISTS idx_images_embedding ON images USING hnsw (embedding vector_l2_ops) WHERE embedding IS NOT NULL;
@@ -103,7 +114,8 @@ class PgvectorImageDatabase:
             finally:
                 self.conn.commit()
 
-
+    # ... [Rest of file from _get_or_create_entity to update_image is unchanged] ...
+    
     def _get_or_create_entity(self, table: str, name: str) -> int:
         """Generic function to get ID or create a new row using ON CONFLICT."""
         sql = f"""
@@ -131,6 +143,22 @@ class PgvectorImageDatabase:
         """
         with self.conn.cursor() as cur:
             cur.execute(sql, (name.strip(),))
+            
+    def add_subgroup(self, name: str, group_name: str):
+        """
+        Adds a new subgroup name to the 'subgroups' table, linked to a parent group.
+        """
+        if not name or not name.strip() or not group_name or not group_name.strip():
+            raise ValueError("Subgroup name and Group name cannot be empty")
+            
+        group_id = self._get_or_create_entity('groups', group_name.strip())
+            
+        sql = """
+            INSERT INTO subgroups (name, group_id) VALUES (%s, %s)
+            ON CONFLICT (name, group_id) DO NOTHING;
+        """
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (name.strip(), group_id))
 
     def add_tag(self, name: str, type: Optional[str] = None):
         """
@@ -150,34 +178,40 @@ class PgvectorImageDatabase:
             cur.execute(sql, (name.strip(), type_value))
 
     def delete_group(self, name: str):
-        """Deletes a group from the 'groups' table."""
+        """Deletes a group from the 'groups' table. This will cascade to subgroups."""
         with self.conn.cursor() as cur:
             cur.execute("DELETE FROM groups WHERE name = %s", (name,))
+
+    def delete_subgroup(self, name: str, group_name: str):
+        """Deletes a subgroup from the 'subgroups' table based on its name and parent group name."""
+        if not name or not group_name:
+             raise ValueError("Subgroup name and Group name cannot be empty")
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM subgroups s USING groups g WHERE s.group_id = g.id AND s.name = %s AND g.name = %s", 
+                (name, group_name)
+            )
 
     def delete_tag(self, name: str):
         """Deletes a tag from the 'tags' table. This will cascade to image_tags."""
         with self.conn.cursor() as cur:
             cur.execute("DELETE FROM tags WHERE name = %s", (name,))
 
-    # --- NEW METHOD: Rename Group ---
     def rename_group(self, old_name: str, new_name: str):
         """Renames a group. This is a transaction that updates both 'groups' and 'images' tables."""
         if not old_name or not new_name or not new_name.strip():
             raise ValueError("Group names cannot be empty")
         
         if old_name == new_name:
-            return # Nothing to do
+            return 
 
-        # Must run as a transaction
         self.conn.autocommit = False
         try:
             with self.conn.cursor() as cur:
-                # 1. Update all references in the 'images' table
                 cur.execute(
                     "UPDATE images SET group_name = %s WHERE group_name = %s",
                     (new_name, old_name)
                 )
-                # 2. Update the 'groups' table
                 cur.execute(
                     "UPDATE groups SET name = %s WHERE name = %s",
                     (new_name, old_name)
@@ -185,11 +219,36 @@ class PgvectorImageDatabase:
             self.conn.commit()
         except Exception as e:
             self.conn.rollback()
-            raise e # Re-raise the exception (e.g., UniqueViolation)
+            raise e 
         finally:
-            self.conn.autocommit = True # Restore default behavior
+            self.conn.autocommit = True 
 
-    # --- NEW METHOD: Rename Tag ---
+    def rename_subgroup(self, old_name: str, new_name: str, group_name: str):
+        """Renames a subgroup. This is a transaction that updates both 'subgroups' and 'images' tables."""
+        if not old_name or not new_name or not new_name.strip() or not group_name:
+            raise ValueError("Subgroup and Group names cannot be empty")
+        
+        if old_name == new_name:
+            return 
+
+        self.conn.autocommit = False
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE images SET subgroup_name = %s WHERE subgroup_name = %s AND group_name = %s",
+                    (new_name, old_name, group_name)
+                )
+                cur.execute(
+                    "UPDATE subgroups s SET name = %s FROM groups g WHERE s.group_id = g.id AND s.name = %s AND g.name = %s",
+                    (new_name, old_name, group_name)
+                )
+            self.conn.commit()
+        except Exception as e:
+            self.conn.rollback()
+            raise e
+        finally:
+            self.conn.autocommit = True
+
     def rename_tag(self, old_name: str, new_name: str):
         """Renames a tag in the 'tags' table."""
         if not old_name or not new_name or not new_name.strip():
@@ -204,7 +263,6 @@ class PgvectorImageDatabase:
                 (new_name, old_name)
             )
 
-    # --- NEW METHOD: Update Tag Type ---
     def update_tag_type(self, name: str, new_type: str):
         """Updates the 'type' of an existing tag."""
         type_value = new_type if new_type and new_type.strip() else None
@@ -227,6 +285,7 @@ class PgvectorImageDatabase:
                   file_path: str, 
                   embedding: Optional[List[float]] = None,
                   group_name: Optional[str] = None,
+                  subgroup_name: Optional[str] = None, 
                   tags: Optional[List[str]] = None,
                   width: Optional[int] = None,
                   height: Optional[int] = None) -> int:
@@ -240,23 +299,28 @@ class PgvectorImageDatabase:
         
         if group_name and group_name.strip():
             self.add_group(group_name)
+        
+        if group_name and group_name.strip() and subgroup_name and subgroup_name.strip():
+            self.add_subgroup(subgroup_name, group_name)
 
         try:
             with self.conn.cursor() as cur:
                 cur.execute("""
                     INSERT INTO images 
-                    (file_path, filename, file_size, width, height, group_name, date_added, date_modified, embedding)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    (file_path, filename, file_size, width, height, group_name, subgroup_name, date_added, date_modified, embedding)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (file_path) DO UPDATE SET
                         file_size = EXCLUDED.file_size, 
                         width = EXCLUDED.width,
                         height = EXCLUDED.height,
                         group_name = EXCLUDED.group_name,
+                        subgroup_name = EXCLUDED.subgroup_name, 
                         date_modified = %s,
                         embedding = EXCLUDED.embedding
                     RETURNING id
                 """, (
                     str(path.absolute()), filename, file_size, width, height, group_name,
+                    subgroup_name, 
                     date_added, date_added, embedding_value, date_added
                 ))
                 
@@ -309,20 +373,43 @@ class PgvectorImageDatabase:
                 return self._fetch_one_image_details(row[0])
             return None
 
-    def update_image(self, image_id: int, group_name: Optional[str] = None,
-                         tags: Optional[List[str]] = None):
+    def update_image(self, image_id: int, 
+                     group_name: Optional[str] = None,
+                     subgroup_name: Optional[str] = None, 
+                     tags: Optional[List[str]] = None):
         """Update image metadata."""
         date_modified = datetime.now()
         
-        if group_name and group_name.strip():
-            self.add_group(group_name)
-
         with self.conn.cursor() as cur:
+            
+            set_clauses = ["date_modified = %s"]
+            params = [date_modified]
+
             if group_name is not None:
-                cur.execute(
-                    "UPDATE images SET group_name = %s, date_modified = %s WHERE id = %s",
-                    (group_name, date_modified, image_id)
-                )
+                set_clauses.append("group_name = %s")
+                params.append(group_name)
+                if group_name and group_name.strip(): 
+                    self.add_group(group_name)
+            
+            if subgroup_name is not None:
+                set_clauses.append("subgroup_name = %s")
+                params.append(subgroup_name)
+            
+            if len(set_clauses) > 1: 
+                sql = f"UPDATE images SET {', '.join(set_clauses)} WHERE id = %s"
+                params.append(image_id)
+                cur.execute(sql, tuple(params))
+
+            if subgroup_name is not None:
+                final_group_name = group_name 
+                if final_group_name is None: 
+                    cur.execute("SELECT group_name FROM images WHERE id = %s", (image_id,))
+                    db_group_name = cur.fetchone()
+                    if db_group_name:
+                        final_group_name = db_group_name[0]
+                
+                if subgroup_name.strip() and final_group_name and final_group_name.strip():
+                    self.add_subgroup(subgroup_name, final_group_name)
             
             if tags is not None:
                 cur.execute("DELETE FROM image_tags WHERE image_id = %s", (image_id,))
@@ -334,10 +421,13 @@ class PgvectorImageDatabase:
                     )
     
     
+    # --- MODIFIED: Added input_formats parameter ---
     def search_images(self, 
                       group_name: Optional[str] = None,
+                      subgroup_name: Optional[str] = None, 
                       tags: Optional[List[str]] = None,
                       filename_pattern: Optional[str] = None,
+                      input_formats: Optional[List[str]] = None, # NEW
                       query_vector: Optional[List[float]] = None,
                       limit: int = 10) -> List[Dict[str, Any]]:
         
@@ -360,10 +450,25 @@ class PgvectorImageDatabase:
         if group_name:
             conditions.append("i.group_name ILIKE %s")
             params.append(f"%{group_name}%")
+        
+        if subgroup_name: 
+            conditions.append("i.subgroup_name ILIKE %s")
+            params.append(f"%{subgroup_name}%")
             
         if filename_pattern:
             conditions.append("i.filename ILIKE %s")
             params.append(f"%{filename_pattern}%")
+            
+        # --- NEW: Logic for input_formats ---
+        if input_formats:
+            ext_conditions = []
+            for ext in input_formats:
+                clean_ext = ext.strip().lstrip('.')
+                ext_conditions.append(f"i.filename ILIKE %s")
+                params.append(f"%.{clean_ext}")
+            if ext_conditions:
+                conditions.append(f"({' OR '.join(ext_conditions)})")
+        # --- END NEW ---
             
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
@@ -406,7 +511,26 @@ class PgvectorImageDatabase:
         with self.conn.cursor() as cur:
             cur.execute("SELECT name FROM groups ORDER BY name")
             return [row[0] for row in cur.fetchall()]
-    
+
+    def get_all_subgroups(self) -> List[str]:
+        """
+        Get list of all *unique* subgroup names from the 'subgroups' table.
+        """
+        with self.conn.cursor() as cur:
+            cur.execute("SELECT DISTINCT name FROM subgroups ORDER BY name")
+            return [row[0] for row in cur.fetchall()]
+
+    def get_subgroups_for_group(self, group_name: str) -> List[str]:
+        """
+        Get list of all subgroup names for a specific parent group.
+        """
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "SELECT s.name FROM subgroups s JOIN groups g ON s.group_id = g.id WHERE g.name = %s ORDER BY s.name",
+                (group_name,)
+            )
+            return [row[0] for row in cur.fetchall()]
+
     def delete_image(self, image_id: int):
         """Delete an image from the database."""
         with self.conn.cursor() as cur:
@@ -425,8 +549,34 @@ class PgvectorImageDatabase:
             cur.execute("SELECT COUNT(*) FROM groups")
             stats['total_groups'] = cur.fetchone()[0]
             
+            cur.execute("SELECT COUNT(*) FROM subgroups")
+            stats['total_subgroups'] = cur.fetchone()[0]
+            
         return stats
-    
+
+    def reset_database(self):
+        """
+        Drops all known tables (images, tags, groups, subgroups, image_tags)
+        and recreates the schema. THIS IS A DESTRUCTIVE OPERATION.
+        """
+        if not self.conn:
+            raise Exception("Not connected to the database.")
+
+        try:
+            with self.conn.cursor() as cur:
+                # Drop tables with cascade to handle dependencies
+                cur.execute("DROP TABLE IF EXISTS image_tags CASCADE;")
+                cur.execute("DROP TABLE IF EXISTS images CASCADE;")
+                cur.execute("DROP TABLE IF EXISTS tags CASCADE;")
+                cur.execute("DROP TABLE IF EXISTS groups CASCADE;")
+                cur.execute("DROP TABLE IF EXISTS subgroups CASCADE;")
+            
+            self._create_tables()
+            
+        except Exception as e:
+            self.conn.rollback() # Rollback on error
+            raise Exception(f"Error during database reset: {e}")
+
     def close(self):
         """Close database connection."""
         if self.conn:
