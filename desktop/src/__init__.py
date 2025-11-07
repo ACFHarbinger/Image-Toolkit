@@ -1,6 +1,4 @@
-from .core import FSETool, ImageFormatConverter, ImageMerger
-
-from .database import PgvectorImageDatabase
+from .core import FSETool, ImageFormatConverter, ImageMerger, PgvectorImageDatabase
 
 from .web import ImageCrawler
 

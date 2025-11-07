@@ -32,7 +32,6 @@ class SearchTab(BaseTab):
         
         # --- Search Criteria ---
         search_group = QGroupBox("Search Database")
-        search_group.setStyleSheet("QGroupBox { background-color: #2c2f33; border: none; padding-top: 0; margin-top: 0; } QGroupBox::title { background-color: #5865f2; }")
         
         form_layout = QFormLayout(search_group)
         form_layout.setContentsMargins(10, 20, 10, 10)

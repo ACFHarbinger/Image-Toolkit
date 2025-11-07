@@ -4,7 +4,7 @@ from typing import Dict, Any
 from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QCheckBox, QFileDialog,
     QFormLayout, QHBoxLayout, QVBoxLayout, QWidget,
-    QMessageBox, QLabel
+    QMessageBox, QLabel, QGroupBox # Added QGroupBox
 )
 from PySide6.QtCore import Qt
 from .BaseTab import BaseTab
@@ -20,7 +20,12 @@ class DeleteTab(BaseTab):
         self.dropdown = dropdown
         self.worker = None
 
-        layout = QFormLayout()
+        # --- Main Layout ---
+        main_layout = QVBoxLayout(self)
+
+        # --- Delete Targets Group ---
+        target_group = QGroupBox("Delete Targets")
+        target_layout = QFormLayout(target_group)
 
         # Target path
         v_target_group = QVBoxLayout()
@@ -37,7 +42,13 @@ class DeleteTab(BaseTab):
         h_buttons.addWidget(btn_target_file)
         h_buttons.addWidget(btn_target_dir)
         v_target_group.addLayout(h_buttons)
-        layout.addRow("Target path (file or dir):", v_target_group)
+        target_layout.addRow("Target path (file or dir):", v_target_group)
+        
+        main_layout.addWidget(target_group)
+
+        # --- Delete Settings Group ---
+        settings_group = QGroupBox("Delete Settings")
+        settings_layout = QFormLayout(settings_group)
 
         # Extensions
         if self.dropdown:
@@ -72,19 +83,24 @@ class DeleteTab(BaseTab):
             ext_container = QWidget()
             ext_container.setLayout(ext_layout)
             self.extensions_field = OptionalField("Target extensions", ext_container, start_open=False)
-            layout.addRow(self.extensions_field)
+            settings_layout.addRow(self.extensions_field)
         else:
             self.selected_extensions = None
             self.target_extensions = QLineEdit()
             self.target_extensions.setPlaceholderText("e.g. .txt .jpg or txt jpg")
-            layout.addRow("Target extensions (optional):", self.target_extensions)
+            settings_layout.addRow("Target extensions (optional):", self.target_extensions)
 
         # Confirmation
         self.confirm_checkbox = QCheckBox("Require confirmation before delete (recommended)")
         self.confirm_checkbox.setChecked(True)
-        layout.addRow("", self.confirm_checkbox)
+        settings_layout.addRow(self.confirm_checkbox)
 
-        # Run Button
+        main_layout.addWidget(settings_group)
+        
+        # Add a stretch to push button/status to the bottom
+        main_layout.addStretch(1)
+
+        # --- Run Button ---
         self.run_button = QPushButton("Run Deletion")
         self.run_button.setStyleSheet("""
             QPushButton {
@@ -100,15 +116,15 @@ class DeleteTab(BaseTab):
         """)
         apply_shadow_effect(self.run_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.run_button.clicked.connect(self.start_deletion)
-        layout.addRow("", self.run_button)
+        main_layout.addWidget(self.run_button)
 
-        # Status
+        # --- Status ---
         self.status_label = QLabel("Ready.")
         self.status_label.setAlignment(Qt.AlignCenter)
         self.status_label.setStyleSheet("color: #666; font-style: italic; padding: 10px;")
-        layout.addRow("", self.status_label)
+        main_layout.addWidget(self.status_label)
 
-        self.setLayout(layout)
+        self.setLayout(main_layout) # Set the main layout
 
     def toggle_extension(self, ext, checked):
         btn = self.extension_buttons[ext]

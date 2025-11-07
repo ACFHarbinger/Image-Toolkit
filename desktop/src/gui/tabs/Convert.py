@@ -3,7 +3,8 @@ import os
 from pathlib import Path
 from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QFileDialog, QFormLayout, QHBoxLayout,
-    QVBoxLayout, QWidget, QCheckBox, QMessageBox, QLabel
+    QVBoxLayout, QWidget, QCheckBox, QMessageBox, QLabel,
+    QGroupBox # Added QGroupBox
 )
 from PySide6.QtCore import Qt
 from .BaseTab import BaseTab
@@ -19,11 +20,12 @@ class ConvertTab(BaseTab):
         self.dropdown = dropdown
         self.worker = None
 
-        layout = QFormLayout()
+        # --- Main Layout ---
+        main_layout = QVBoxLayout(self)
 
-        # Output format
-        self.output_format = QLineEdit("png")
-        layout.addRow("Output format:", self.output_format)
+        # --- Convert Targets Group ---
+        target_group = QGroupBox("Convert Targets")
+        target_layout = QFormLayout(target_group)
 
         # Input path
         v_input_group = QVBoxLayout()
@@ -40,7 +42,17 @@ class ConvertTab(BaseTab):
         h_buttons.addWidget(btn_input_file)
         h_buttons.addWidget(btn_input_dir)
         v_input_group.addLayout(h_buttons)
-        layout.addRow("Input path (file or dir):", v_input_group)
+        target_layout.addRow("Input path (file or dir):", v_input_group)
+        
+        main_layout.addWidget(target_group)
+
+        # --- Convert Settings Group ---
+        settings_group = QGroupBox("Convert Settings")
+        settings_layout = QFormLayout(settings_group)
+
+        # Output format
+        self.output_format = QLineEdit("png")
+        settings_layout.addRow("Output format:", self.output_format)
 
         # Output path
         h_output = QHBoxLayout()
@@ -54,9 +66,9 @@ class ConvertTab(BaseTab):
             output_container = QWidget()
             output_container.setLayout(h_output)
             self.output_field = OptionalField("Output path", output_container, start_open=False)
-            layout.addRow(self.output_field)
+            settings_layout.addRow(self.output_field)
         else:
-            layout.addRow("Output path (optional):", h_output)
+            settings_layout.addRow("Output path (optional):", h_output)
 
         # Input formats
         if self.dropdown:
@@ -91,12 +103,12 @@ class ConvertTab(BaseTab):
             formats_container = QWidget()
             formats_container.setLayout(formats_layout)
             self.formats_field = OptionalField("Input formats", formats_container, start_open=False)
-            layout.addRow(self.formats_field)
+            settings_layout.addRow(self.formats_field)
         else:
             self.selected_formats = None
             self.input_formats = QLineEdit()
             self.input_formats.setPlaceholderText("e.g. jpg png gif — separate with commas or spaces")
-            layout.addRow("Input formats (optional):", self.input_formats)
+            settings_layout.addRow("Input formats (optional):", self.input_formats)
 
         # Delete checkbox
         self.delete_checkbox = QCheckBox("Delete original files after conversion")
@@ -111,7 +123,12 @@ class ConvertTab(BaseTab):
             }
         """)
         self.delete_checkbox.setChecked(True)
-        layout.addRow("", self.delete_checkbox)
+        settings_layout.addRow(self.delete_checkbox)
+
+        main_layout.addWidget(settings_group)
+        
+        # Add a stretch to push button/status to the bottom
+        main_layout.addStretch(1)
 
         # --- Button Container ---
         self.button_container = QWidget()
@@ -151,15 +168,15 @@ class ConvertTab(BaseTab):
         self.cancel_button.hide()
         self.button_layout.addWidget(self.cancel_button)
 
-        layout.addRow("", self.button_container)
+        main_layout.addWidget(self.button_container)
 
         # Status label
         self.status_label = QLabel("")
         self.status_label.setAlignment(Qt.AlignCenter)
         self.status_label.setStyleSheet("color: #666; font-style: italic; padding: 8px;")
-        layout.addRow("", self.status_label)
+        main_layout.addWidget(self.status_label)
 
-        self.setLayout(layout)
+        self.setLayout(main_layout)
 
     def toggle_format(self, fmt, checked):
         if checked:
@@ -276,4 +293,3 @@ class ConvertTab(BaseTab):
     @staticmethod
     def join_list_str(text):
         return [item.strip().lstrip('.') for item in text.replace(',', ' ').split() if item.strip()]
-    

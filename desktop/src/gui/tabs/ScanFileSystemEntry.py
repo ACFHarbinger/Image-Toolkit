@@ -2,7 +2,6 @@ import os
 
 from typing import Set
 from pathlib import Path
-# --- MODIFIED IMPORTS ---
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import (
     Qt, QThreadPool, QThread,
@@ -14,7 +13,6 @@ from PySide6.QtWidgets import (
     QPushButton, QLabel, QFormLayout,
     QWidget, QGroupBox, QCheckBox,
 )
-# --- END MODIFIED IMPORTS ---
 from .BaseTab import BaseTab
 from ..components import ImagePreviewWindow, ClickableLabel, MarqueeScrollArea
 from ..helpers import ImageScannerWorker, BatchThumbnailLoaderWorker
@@ -33,28 +31,36 @@ class ScanFSETab(BaseTab):
         self.dropdown = dropdown
         
         self.scan_image_list: list[str] = []
-        # Track multiple selected paths for batch operations
         self.selected_image_paths: Set[str] = set()
-        # Track the last clicked path for double-click viewing
         self.selected_scan_image_path: str = None
-        # Track open preview windows to prevent garbage collection
         self.open_preview_windows: list[ImagePreviewWindow] = []
 
-        # Fixed dimensions for dynamic layout calculation
-        self.thumbnail_size = 150  # Increased from 100
-        self.padding_width = 10    # Increased from 5 for better spacing
+        self.thumbnail_size = 150
+        self.padding_width = 10
         self.approx_item_width = self.thumbnail_size + self.padding_width
         
-        main_widget = QWidget()
-        main_layout = QVBoxLayout(main_widget)
+        # --- MODIFIED: Set main layout directly on the tab ---
+        main_layout = QVBoxLayout(self)
         
-        # --- Scan Directory Section ---
+        # --- Scan Directory Section (Settings Box) ---
         scan_group = QGroupBox("Scan Directory")
-        # Ensure consistent background color for the group box content
-        scan_group.setStyleSheet("QGroupBox { background-color: #2c2f33; border: none; padding-top: 0; margin-top: 0; } QGroupBox::title { background-color: #5865f2; }")
+        # --- NEW: Apply styling from ImageCrawlerTab ---
+        scan_group.setStyleSheet("""
+            QGroupBox {  
+                border: 1px solid #4f545c; 
+                border-radius: 8px;
+                margin-top: 10px;
+            }
+            QGroupBox::title { 
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 4px 10px;
+                color: white;
+                border-radius: 4px;
+            }
+        """)
         
         scan_layout = QVBoxLayout()
-        # --- FIX: Increase top spacing inside QGroupBox ---
         scan_layout.setContentsMargins(10, 20, 10, 10) 
         
         # Directory path selection
@@ -64,13 +70,16 @@ class ScanFSETab(BaseTab):
         btn_browse_scan = QPushButton("Browse...")
         btn_browse_scan.clicked.connect(self.browse_scan_directory)
         
-        # Apply subtle style to the browse button
         btn_browse_scan.setStyleSheet("QPushButton { background-color: #4f545c; padding: 6px 12px; } QPushButton:hover { background-color: #5865f2; }")
         apply_shadow_effect(btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
 
         scan_dir_layout.addWidget(self.scan_directory_path)
         scan_dir_layout.addWidget(btn_browse_scan)
         scan_layout.addLayout(scan_dir_layout)
+        
+        # --- MODIFIED: Set layout for group and add to main layout ---
+        scan_group.setLayout(scan_layout)
+        main_layout.addWidget(scan_group)
 
         self.threadpool = QThreadPool.globalInstance()
         self.scanned_dir = None
@@ -89,7 +98,9 @@ class ScanFSETab(BaseTab):
         self.current_thumbnail_loader_worker = None
         self.path_to_label_map = {}
 
-        # View Image button (Style: Indigo/Purple - like React's View button)
+        # --- MODIFIED: Add widgets directly to main_layout ---
+
+        # View Image button
         self.scan_view_image_btn = QPushButton("View Full Size Selected Image(s)")
         self.scan_view_image_btn.clicked.connect(self.view_selected_scan_image)
         self.scan_view_image_btn.setEnabled(False) 
@@ -109,34 +120,25 @@ class ScanFSETab(BaseTab):
             }
         """)
         apply_shadow_effect(self.scan_view_image_btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        scan_layout.addWidget(self.scan_view_image_btn)
+        main_layout.addWidget(self.scan_view_image_btn)
 
-        # --- MODIFIED: Scroll Area for image thumbnails ---
-        
-        # 1. Instantiate our new MarqueeScrollArea
+        # Scroll Area for image thumbnails
         self.scan_scroll_area = MarqueeScrollArea() 
         self.scan_scroll_area.setWidgetResizable(True)
         self.scan_scroll_area.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
 
-        # 2. The thumbnail widget is now a plain QWidget again.
-        #    Its *parent* (the scroll area) will handle selection.
         self.scan_thumbnail_widget = QWidget()
         self.scan_thumbnail_widget.setStyleSheet("QWidget { background-color: #2c2f33; }")
 
-        # 3. Create the layout for the plain QWidget
         self.scan_thumbnail_layout = QGridLayout(self.scan_thumbnail_widget)
         
-        # 4. Connect the signal from the *scroll area*
         self.scan_scroll_area.selection_changed.connect(self.handle_marquee_selection)
         
         self.scan_thumbnail_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         
-        # 5. Set the plain QWidget as the content for the MarqueeScrollArea
         self.scan_scroll_area.setWidget(self.scan_thumbnail_widget)
         
-        # 6. Add the scroll area to the main layout
-        scan_layout.addWidget(self.scan_scroll_area, 1)
-        # --- END MODIFICATION ---
+        main_layout.addWidget(self.scan_scroll_area, 1) # Add scroll area to main layout
         
         
         # --- Metadata Group Box (Initially hidden) ---
@@ -200,15 +202,12 @@ class ScanFSETab(BaseTab):
 
         form_layout.addRow("Tags:", tags_scroll)
         
-        # Add form layout to the metadata group box
         metadata_vbox.addLayout(form_layout)
         
-        # Add the hidden group box to the scan layout
-        scan_layout.addWidget(self.metadata_group)
+        main_layout.addWidget(self.metadata_group) # Add to main layout
 
         # Action buttons (Batch Operations)
         
-        # 1. ADD Button (Green - #2ecc71)
         self.scan_button = QPushButton("Add Images Data to Database")
         self.scan_button.setStyleSheet("""
             QPushButton { 
@@ -229,7 +228,6 @@ class ScanFSETab(BaseTab):
         apply_shadow_effect(self.scan_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.scan_button.clicked.connect(self.scan_directory) 
 
-        # 2. UPDATE Button (Blue - #3498db)
         self.update_selected_button = QPushButton("Update Images Data in Database")
         self.update_selected_button.setStyleSheet("""
             QPushButton { 
@@ -250,7 +248,6 @@ class ScanFSETab(BaseTab):
         apply_shadow_effect(self.update_selected_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.update_selected_button.clicked.connect(self.update_selected_metadata)
 
-        # 3. REFRESH Button (Yellow/Orange - #f1c40f)
         self.refresh_image_button = QPushButton("Refresh Image Directory")
         self.refresh_image_button.setStyleSheet("""
             QPushButton { 
@@ -271,7 +268,6 @@ class ScanFSETab(BaseTab):
         apply_shadow_effect(self.refresh_image_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.refresh_image_button.clicked.connect(self.refresh_image_directory) 
 
-        # 4. DELETE Button (Red - #e74c3c)
         self.delete_selected_button = QPushButton("Delete Images Data from Database")
         self.delete_selected_button.setStyleSheet("""
             QPushButton { 
@@ -298,19 +294,11 @@ class ScanFSETab(BaseTab):
         scan_action_layout.addWidget(self.refresh_image_button)
         scan_action_layout.addWidget(self.delete_selected_button)
         
-        scan_layout.addLayout(scan_action_layout)
+        main_layout.addLayout(scan_action_layout) # Add to main layout
 
-        scan_group.setLayout(scan_layout)
-        main_layout.addWidget(scan_group)
+        # --- REMOVED: Extra scroll area and top_layout wrappers ---
         
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(main_widget)
-        scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; border-radius: 8px; }")
-
-        top_layout = QVBoxLayout()
-        top_layout.addWidget(scroll)
-        self.setLayout(top_layout)
+        self.setLayout(main_layout)
         
         self.update_button_states(connected=False) 
     
@@ -335,12 +323,9 @@ class ScanFSETab(BaseTab):
             no_images_label.setAlignment(Qt.AlignCenter)
             no_images_label.setStyleSheet("color: #b9bbbe;")
             self.scan_thumbnail_layout.addWidget(no_images_label, 0, 0, 1, columns)
-            # self.scan_thumbnail_layout.setColumnStretch(columns, 1) # Removed to fix alignment
             return
 
-        # --- Progressive Asynchronous Thumbnail Loading ---
-        
-        # 2. Create ALL Placeholders immediately on the main thread
+        # 1. Create ALL Placeholders immediately on the main thread
         for i, path in enumerate(self.scan_image_list):
             row = i // columns
             col = i % columns
@@ -350,15 +335,13 @@ class ScanFSETab(BaseTab):
             clickable_label.setAlignment(Qt.AlignCenter)
             clickable_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
             clickable_label.setStyleSheet("border: 1px dashed #4f545c; color: #b9bbbe;") # Dark mode style
-            # Single click for selection/deselection toggle
             clickable_label.path_clicked.connect(self.select_scan_image)
-            # Double click for viewing 
             clickable_label.path_double_clicked.connect(self.view_selected_scan_image_from_double_click) 
 
             self.scan_thumbnail_layout.addWidget(clickable_label, row, col)
             self.path_to_label_map[path] = clickable_label 
 
-        # 3. Kick off the SINGLE asynchronous worker for batch loading
+        # 2. Kick off the SINGLE asynchronous worker for batch loading
         worker = BatchThumbnailLoaderWorker(self.scan_image_list, self.thumbnail_size)
         thread = QThread()
 
@@ -377,8 +360,6 @@ class ScanFSETab(BaseTab):
         
         thread.start()
         
-        # self.scan_thumbnail_layout.setColumnStretch(columns, 1) # Removed to fix alignment
-
     def _update_thumbnail_slot(self, index: int, pixmap: QPixmap, path: str):
         """
         Slot executed on the main thread to update a specific thumbnail widget
@@ -391,8 +372,6 @@ class ScanFSETab(BaseTab):
 
         is_selected = path in self.selected_image_paths
         
-        # --- Apply new styling rules ---
-        
         if not pixmap.isNull():
             scaled_pixmap = pixmap.scaled(
                 self.thumbnail_size, self.thumbnail_size, 
@@ -400,16 +379,13 @@ class ScanFSETab(BaseTab):
             )
             label.setPixmap(scaled_pixmap)
             label.setText("") 
-            # label.setFixedSize(scaled_pixmap.size()) # Removed to fix grid collapse
             
             if is_selected:
-                # Violet ring for selected (#5865f2)
                 label.setStyleSheet("border: 3px solid #5865f2;")
             else:
                 label.setStyleSheet("border: 1px solid #4f545c;")
         else:
             label.setText("Load Error")
-            # label.setFixedSize(self.thumbnail_size, self.thumbnail_size) # Already fixed size
             if is_selected:
                 label.setStyleSheet("border: 3px solid #5865f2; background-color: #4f545c; font-size: 8px;") 
             else:
@@ -441,7 +417,6 @@ class ScanFSETab(BaseTab):
         """Handles and displays errors that occurred during the background scan."""
         self.clear_scan_image_gallery() 
         QMessageBox.warning(self, "Error Scanning", message)
-        # Re-create the placeholder label
         ready_label = QLabel("Browse for a directory.")
         ready_label.setAlignment(Qt.AlignCenter)
         ready_label.setStyleSheet("color: #b9bbbe;")
@@ -460,11 +435,10 @@ class ScanFSETab(BaseTab):
         """Calculates the maximum number of thumbnail columns that fit in the widget."""
         widget_width = self.scan_thumbnail_widget.width()
         if widget_width <= 0:
-            # Fallback if widget isn't drawn: use the parent scroll area width
             widget_width = self.scan_thumbnail_widget.parentWidget().width()
         
         if widget_width <= 0:
-            return 4 # Absolute fallback
+            return 4 
         
         columns = widget_width // self.approx_item_width
         return max(1, columns)
@@ -494,7 +468,6 @@ class ScanFSETab(BaseTab):
         
         self.thread.start()
 
-    # --- REPLACED select_scan_image METHOD (from earlier step) ---
     def select_scan_image(self, file_path: str):
         """
         Handles the click on a thumbnail in the scan directory gallery,
@@ -510,19 +483,12 @@ class ScanFSETab(BaseTab):
         is_ctrl_pressed = bool(mods & Qt.ControlModifier)
 
         if not is_ctrl_pressed:
-            # No Ctrl: Deselect all others, select only this one
-            
-            # Find previously selected paths (excluding current one)
             paths_to_deselect = self.selected_image_paths - {file_path}
-            
-            # Update selection set
             self.selected_image_paths = {file_path}
             
-            # Update visuals for deselected items
             for path in paths_to_deselect:
                 label = self.path_to_label_map.get(path)
                 if label:
-                    # Apply deselected style
                     if not label.pixmap().isNull():
                         label.setStyleSheet("border: 1px solid #4f545c;")
                     else:
@@ -532,13 +498,11 @@ class ScanFSETab(BaseTab):
                              label.setStyleSheet("border: 1px dashed #4f545c; color: #b9bbbe;")
 
         else:
-            # Ctrl is pressed: Toggle this item
             if file_path in self.selected_image_paths:
                 self.selected_image_paths.remove(file_path)
             else:
                 self.selected_image_paths.add(file_path)
 
-        # Update the style for the *clicked* item
         is_selected = file_path in self.selected_image_paths
         if is_selected:
             if "Error" in clicked_widget.text():
@@ -546,7 +510,6 @@ class ScanFSETab(BaseTab):
             else:
                 clicked_widget.setStyleSheet("border: 3px solid #5865f2;")
         else:
-            # This case only happens on Ctrl-click toggle-off
             if not clicked_widget.pixmap().isNull():
                 clicked_widget.setStyleSheet("border: 1px solid #4f545c;")
             else:
@@ -555,36 +518,25 @@ class ScanFSETab(BaseTab):
                 else:
                      clicked_widget.setStyleSheet("border: 1px dashed #4f545c; color: #b9bbbe;") 
 
-        # 2. Update the single selection path (for double-click)
         self.selected_scan_image_path = file_path
-
-        # 3. Enable/Disable buttons based on selection count
         self.update_button_states(connected=(self.db_tab_ref.db is not None))
 
-    # --- handle_marquee_selection METHOD (from earlier step) ---
     def handle_marquee_selection(self, paths_from_marquee: set, is_ctrl_pressed: bool):
         """
         Handles the selection update from the MarqueeSelectionWidget.
         """
         if not is_ctrl_pressed:
-            # No modifier: Replace current selection
-            # Find paths that are *losing* selection
             paths_to_deselect = self.selected_image_paths - paths_from_marquee
-            # Find paths that are *gaining* selection
             paths_to_select = paths_from_marquee - self.selected_image_paths
             
             self.selected_image_paths = paths_from_marquee
             
-            # We only need to update visuals for things that changed state
             paths_to_update = paths_to_deselect.union(paths_to_select)
 
         else:
-            # Ctrl pressed: Add to current selection
-            # We only need to update visuals for the newly selected items
             paths_to_update = paths_from_marquee - self.selected_image_paths
             self.selected_image_paths.update(paths_from_marquee)
 
-        # Update the visual style for all affected labels
         for path in paths_to_update:
             label = self.path_to_label_map.get(path)
             if not label:
@@ -592,7 +544,6 @@ class ScanFSETab(BaseTab):
             
             is_selected = path in self.selected_image_paths
             
-            # This logic is copied from your select_scan_image method
             if is_selected:
                 if "Error" in label.text():
                     label.setStyleSheet("border: 3px solid #5865f2; background-color: #4f545c; font-size: 8px;")
@@ -607,7 +558,6 @@ class ScanFSETab(BaseTab):
                     else:
                          label.setStyleSheet("border: 1px dashed #4f545c; color: #b9bbbe;") 
 
-        # Refresh button states
         self.update_button_states(connected=(self.db_tab_ref.db is not None))
 
     def view_selected_scan_image_from_double_click(self, path: str):
@@ -615,14 +565,10 @@ class ScanFSETab(BaseTab):
         Special slot for double-click.
         Ensures the double-clicked item is selected, then opens previews.
         """
-        # 1. Ensure the double-clicked item is selected
         if path not in self.selected_image_paths:
             self.select_scan_image(path)
         
-        # 2. Set the 'last clicked' path
         self.selected_scan_image_path = path
-        
-        # 3. Call the main view function
         self.view_selected_scan_image()
 
     def remove_preview_window(self, window_instance: ImagePreviewWindow):
@@ -684,19 +630,15 @@ class ScanFSETab(BaseTab):
             return
 
         if not self.metadata_group.isVisible():
-            # First click: Show the metadata form and change button text
             self.metadata_group.setVisible(True)
             self.scan_button.setText(f"Confirm & Add {len(selected_paths)} Images with Metadata")
             return
             
-        # Second click (metadata form is visible): Execute the database addition
-
         self.scan_button.setText(f"Adding {len(selected_paths)}...")
         self.scan_button.setEnabled(False)
         QApplication.processEvents() 
         
         try:
-            # Collect Metadata / Perform Database Add
             count = 0
             series = self.series_combo.currentText().strip() or None
             characters = [c.strip() for c in self.characters_edit.text().split(',') if c.strip()] or None
@@ -705,14 +647,13 @@ class ScanFSETab(BaseTab):
             for path in selected_paths:
                 db.add_image(
                     file_path=path,
-                    embedding=None, # Add embedding logic later
+                    embedding=None, 
                     series_name=series,
                     characters=characters,
                     tags=tags
                 )
                 count += 1
             
-            # After successful addition, clear the selection and reload the gallery
             self.clear_scan_image_gallery()
             if self.scanned_dir:
                 self.populate_scan_image_gallery(self.scanned_dir)
@@ -770,13 +711,11 @@ class ScanFSETab(BaseTab):
             QMessageBox.warning(self, "Error", "No images selected for update operation.")
             return
 
-        # Show the metadata form on the first click (like scan_directory)
         if not self.metadata_group.isVisible():
             self.metadata_group.setVisible(True)
             self.update_selected_button.setText(f"Confirm & Update {len(selected_paths)} Images")
             return
 
-        # Second click: Execute the database update
         self.update_selected_button.setText(f"Updating {len(selected_paths)}...")
         self.update_selected_button.setEnabled(False)
         QApplication.processEvents() 
@@ -787,8 +726,6 @@ class ScanFSETab(BaseTab):
             characters = [c.strip() for c in self.characters_edit.text().split(',') if c.strip()] or None
             tags = [tag for tag, cb in self.tag_checkboxes.items() if cb.isChecked()] or None
             
-            # This is inefficient, but works for the logic.
-            # A better way would be a batch update.
             image_ids = []
             for path in selected_paths:
                 img_data = db.get_image_by_path(path)
@@ -840,8 +777,6 @@ class ScanFSETab(BaseTab):
             QApplication.processEvents() 
             
             try:
-                # This is inefficient, but works for the logic.
-                # A better way would be a batch delete.
                 image_ids = []
                 for path in selected_paths:
                     img_data = db.get_image_by_path(path)
@@ -866,42 +801,29 @@ class ScanFSETab(BaseTab):
         else:
             QMessageBox.information(self, "Aborted", "Delete operation aborted by user.")
 
-    # --- CORRECTED update_button_states ---
     def update_button_states(self, connected: bool):
         """Enable or disable buttons based on database connection status."""
         selection_count = len(self.selected_image_paths)
         
-        # 1. View Button (Only depends on selection)
         self.scan_view_image_btn.setEnabled(selection_count > 0)
         self.scan_view_image_btn.setText(f"View Full Size {selection_count} Selected Image(s)")
         
-        # 2. Refresh Button (Always enabled)
         self.refresh_image_button.setEnabled(True) 
 
-        # 3. ADD Button (Green)
-        # Set text based on state
         if self.metadata_group.isVisible() and self.scan_button.text().startswith("Confirm & Add"):
             self.scan_button.setText(f"Confirm & Add {selection_count} Images with Metadata")
         else:
             self.scan_button.setText(f"Add {selection_count} Selected Images to Database")
-        # Set enabled based on connection AND selection
         self.scan_button.setEnabled(connected and selection_count > 0)
 
-        # 4. UPDATE Button (Blue)
-        # Set text based on state
         if self.metadata_group.isVisible() and self.update_selected_button.text().startswith("Confirm & Update"):
             self.update_selected_button.setText(f"Confirm & Update {selection_count} Images")
         else:
             self.update_selected_button.setText(f"Update {selection_count} Selected Images")
-        # Set enabled based on connection AND selection
         self.update_selected_button.setEnabled(connected and selection_count > 0)
 
-        # 5. DELETE Button (Red)
-        # Set text
         self.delete_selected_button.setText(f"Delete {selection_count} Images from DB")
-        # Set enabled based on connection AND selection
         self.delete_selected_button.setEnabled(connected and selection_count > 0)
-    # --- END CORRECTION ---
 
     def collect(self) -> dict:
         """Collect current inputs from the Scan Directory tab as a dict."""

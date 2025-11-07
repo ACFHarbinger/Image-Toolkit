@@ -32,8 +32,8 @@ class DriveSyncTab(BaseTab):
         main_layout = QVBoxLayout(self)
         
         # --- 2.1. Configuration Group ---
-        config_group = QGroupBox("Cloud Sync Configuration") # <-- RENAMED GROUP BOX
-        config_group.setStyleSheet("QGroupBox { background-color: #36393f; border: 1px solid #4f545c; }")
+        config_group = QGroupBox("Cloud Sync Configuration")
+        config_group.setStyleSheet("QGroupBox { background-color: #2c2f33; } QGroupBox::title { background-color: #5865f2; }")
         config_layout = QVBoxLayout(config_group)
         
         # --- NEW: Cloud Provider Dropdown ---
@@ -137,6 +137,7 @@ class DriveSyncTab(BaseTab):
         
         # --- 2.3. Status Log Group ---
         status_group = QGroupBox("Synchronization Status Log")
+        status_group.setStyleSheet("QGroupBox { background-color: #2c2f33; } QGroupBox::title { background-color: #5865f2; }")
         status_layout = QVBoxLayout(status_group)
         self.log_output = QTextEdit()
         self.log_output.setReadOnly(True)
