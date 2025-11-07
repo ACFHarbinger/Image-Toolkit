@@ -30,7 +30,7 @@ class ImageCrawlTab(BaseTab):
         crawl_group = QGroupBox("Web Crawler Settings")
         crawl_group.setStyleSheet("""
             QGroupBox { 
-                background-color: #2c2f33; 
+                /* Removed specific dark background color for the group box itself */
                 border: 1px solid #4f545c; 
                 border-radius: 8px;
                 margin-top: 10px;
@@ -39,8 +39,7 @@ class ImageCrawlTab(BaseTab):
                 subcontrol-origin: margin;
                 subcontrol-position: top left;
                 padding: 4px 10px;
-                background-color: #5865f2;
-                color: white;
+                color: white; /* Text white for contrast */
                 border-radius: 4px;
             }
         """)
