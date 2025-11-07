@@ -34,7 +34,7 @@ def parse_args():
 
     # Image web crawler
     crawlers_parser = argparse.ArgumentParser(add_help=False)
-    crawlers_parser.add_argument('--browser', type=str, default='edge', choices=WC_BROWSERS, help="The browser to use for crawling the web")
+    crawlers_parser.add_argument('--browser', type=str, default='brave', choices=WC_BROWSERS, help="The browser to use for crawling the web")
     crawlers_parser.add_argument('--headless', action='store_true', help="Initialize browser in headless mode")
     crawlers_parser.add_argument('--download_dir', type=str, default='downloads', help="Name of the directory to save the download(s) to")
     crawlers_parser.add_argument('--screenshot_dir', type=str, default=None, help="Name of the directory to save the screenshot(s) to")

@@ -15,7 +15,7 @@ from .tabs import (
     MergeTab, DatabaseTab,
     ConvertTab, DeleteTab, 
     ScanFSETab, SearchTab, 
-    ImageCrawlTab
+    ImageCrawlTab, DriveSyncTab
 )
 
 
@@ -174,6 +174,7 @@ class MainWindow(QWidget):
         self.merge_tab = MergeTab(dropdown=dropdown)
         self.delete_tab = DeleteTab(dropdown=dropdown)
         self.crawler_tab = ImageCrawlTab(dropdown=dropdown)
+        self.drive_sync_tab = DriveSyncTab(dropdown=dropdown)
         
         # --- MODIFICATION: Set references *after* all tabs are created ---
         self.database_tab.scan_tab_ref = self.scan_fse_tab 
@@ -186,6 +187,7 @@ class MainWindow(QWidget):
         self.tabs.addTab(self.database_tab, "Database")
         self.tabs.addTab(self.scan_fse_tab, "Scan")
         self.tabs.addTab(self.crawler_tab, "Web Crawler")
+        self.tabs.addTab(self.drive_sync_tab, "Drive Sync")
 
         self.tabs.currentChanged.connect(self.on_tab_changed)
         

@@ -5,3 +5,4 @@ from .ImageCrawlerTab import ImageCrawlTab
 from .Merge import MergeTab
 from .ScanFileSystemEntry import ScanFSETab
 from .Search import SearchTab
+from .DriveSyncTab import DriveSyncTab

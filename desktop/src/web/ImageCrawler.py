@@ -21,7 +21,7 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
     on_status = Signal(str)            # status message
     on_image_saved = Signal(str)       # saved file path
 
-    def __init__(self, url, skip_first=0, skip_last=9, headless=False, download_dir=None, screenshot_dir=None, browser="chrome"):
+    def __init__(self, url, skip_first=0, skip_last=9, headless=False, download_dir=None, screenshot_dir=None, browser="brave"):
         QObject.__init__(self)         # ← Initialize QObject
         WebCrawler.__init__(self, headless, download_dir, screenshot_dir, browser)
         self.target_url = url

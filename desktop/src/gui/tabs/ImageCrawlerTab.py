@@ -90,7 +90,7 @@ class ImageCrawlTab(BaseTab):
         # Browser
         self.browser_combo = QComboBox()
         self.browser_combo.addItems(["chrome", "firefox", "edge", "brave"])
-        self.browser_combo.setCurrentText("chrome")
+        self.browser_combo.setCurrentText("brave")
         form_layout.addRow("Browser:", self.browser_combo)
 
         # Headless
