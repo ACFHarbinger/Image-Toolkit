@@ -1,4 +1,4 @@
-package com.personal.image_toolkit.tools;
+package com.personal.image_toolkit;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;

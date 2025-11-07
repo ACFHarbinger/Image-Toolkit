@@ -8,7 +8,7 @@ import platform
 import subprocess
 import desktop.src.utils.definitions as udef
 
-from .FileLoader import WebFileLoader
+from .WebFileLoader import WebFileLoader
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By

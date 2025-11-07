@@ -1,4 +1,4 @@
-package com.personal.image_toolkit.tools;
+package com.personal.image_toolkit;
 
 import java.io.File;
 import java.io.IOException;

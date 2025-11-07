@@ -4,6 +4,7 @@ import com.personal.image_toolkit.tools.FSETool;
 import com.personal.image_toolkit.tools.ImageFormatConverter;
 import com.personal.image_toolkit.tools.ImageMerger;
 import jakarta.enterprise.context.ApplicationScoped;
+
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -13,6 +14,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.ArrayList;
 
 /**
  * Main API Controller for all tool actions.
