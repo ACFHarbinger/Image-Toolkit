@@ -10,7 +10,6 @@
 
     <modules>
         <module>cryptography</module>
-        <module>core</module>
     </modules>
 
     <properties>

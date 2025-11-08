@@ -118,8 +118,8 @@ Note: if no --output_path argument is given, the new image will have the same na
 ### C++
 To build the C++ part of the project, run the following commands:
 ```bash
-cmake -B desktop/build
-cmake --build desktop/build
+cmake -B app/build
+cmake --build app/build
 ```
 
 ## Testing

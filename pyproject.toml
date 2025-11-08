@@ -45,8 +45,8 @@ build-src = "setuptools.build_meta"
 
 # Tell setuptools EXACTLY what to package
 [tool.setuptools.packages.find]
-# 1. Tell setuptools to look INSIDE 'desktop/src' for packages
-where = ["desktop/src"]
+# 1. Tell setuptools to look INSIDE 'app/src' for packages
+where = ["app/src"]
 
 # 2. Include non-code files *inside* the packages
 [tool.setuptools.package-data]
