@@ -1,22 +1,17 @@
-import os
 import sys
 
-from pathlib import Path
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 from .gui.MainWindow import MainWindow
+from .utils.definitions import ICON_FILE
 
 
 def launch_app():
     app = QApplication(sys.argv)
-    path = Path(os.getcwd())
-    parts = path.parts
-    icon_file_path = os.path.join(Path(*parts[:parts.index('Image-Toolkit') + 1]), 
-                                    'app', 'src', 'images', "image_toolkit_icon.png")
     try:
-        app_icon = QIcon(icon_file_path)
+        app_icon = QIcon(ICON_FILE)
         app.setWindowIcon(app_icon)
-    except Exception as e:
+    except Exception:
         pass 
     
     w = MainWindow(dropdown=True)

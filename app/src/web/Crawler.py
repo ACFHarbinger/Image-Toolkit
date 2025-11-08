@@ -6,7 +6,7 @@ import atexit
 import tempfile
 import platform
 import subprocess
-import app.src.utils.definitions as udef
+import src.utils.definitions as udef
 
 from .WebFileLoader import WebFileLoader
 from selenium import webdriver
@@ -48,7 +48,8 @@ class WebCrawler(abc.ABC):
             os.makedirs(self.download_dir, exist_ok=True)
             os.makedirs(self.screenshot_dir, exist_ok=True)
         except Exception as e:
-            raise Exception(f"Failed to create required directories: {e}")
+            print(f"Failed to create required directories: {e}")
+            raise
             
         self.driver = None # Will be set in setup_driver
         self.wait = None   # Will be set in setup_driver
@@ -111,7 +112,7 @@ class WebCrawler(abc.ABC):
                 print(f"❌ Fallback to {browser} failed: {e}")
                 continue
         
-        raise Exception("No available browser drivers found. Please install Chrome, Firefox, or Edge.")
+        raise ModuleNotFoundError("No available browser drivers found. Please install Chrome, Firefox, or Edge.")
 
     def _setup_firefox_driver(self, wait_time, headless=False, download_dir=None):
         profile_dir = tempfile.mkdtemp(prefix="firefox-profile-")
@@ -187,7 +188,7 @@ class WebCrawler(abc.ABC):
                     print(f.read())
             except:
                 pass
-            raise Exception(f"Failed to initialize Gecko driver: {e}")
+            raise OSError(f"Failed to initialize Gecko driver: {e}")
         finally:
             atexit.register(lambda: shutil.rmtree(profile_dir, ignore_errors=True))
             atexit.register(xvfb.terminate if 'xvfb' in locals() else lambda: None)
@@ -304,7 +305,7 @@ class WebCrawler(abc.ABC):
                 print("✅ Chrome initialized successfully with system driver")
             except Exception as e2:
                 print(f"❌ Chrome browser failed: {e2}")
-                raise Exception(f"Failed to initialize Chrome driver: {e2}")
+                raise OSError(f"Failed to initialize Chrome driver: {e2}")
 
         self.wait = WebDriverWait(self.driver, wait_time)
 
@@ -365,7 +366,7 @@ class WebCrawler(abc.ABC):
                 print("✅ EdgeDriver initialized successfully with system driver")
             except Exception as e2:
                 print(f"❌ Edge browser failed: {e2}")
-                raise Exception(f"Failed to initialize Edge driver: {e2}")
+                raise OSError(f"Failed to initialize Edge driver: {e2}")
 
         self.wait = WebDriverWait(self.driver, wait_time)
 
@@ -376,7 +377,7 @@ class WebCrawler(abc.ABC):
         
         if platform.system() != "Darwin":
             print("❌ Safari driver setup failed: Not running on macOS.")
-            raise Exception("Safari driver is only available on macOS")
+            raise OSError("Safari driver is only available on macOS")
         
         print("⚙️ Setting up Safari driver...")
         # Safari options are limited compared to other browsers
@@ -460,7 +461,7 @@ class WebCrawler(abc.ABC):
             except Exception as e2:
                 print(f"❌ Brave browser failed: {e2}")
                 self._print_brave_troubleshooting()
-                raise Exception(f"Failed to initialize Chrome driver: {e2}")
+                raise OSError(f"Failed to initialize Chrome driver: {e2}")
         
         self.wait = WebDriverWait(self.driver, wait_time)
 

@@ -110,7 +110,8 @@ class PgvectorImageDatabase:
                 """)
             
             except Exception as e:
-                raise Exception(f"Error during table creation: {e}")
+                print(f"Error during table creation: {e}")
+                raise
             finally:
                 self.conn.commit()
 
@@ -337,7 +338,8 @@ class PgvectorImageDatabase:
                 
                 return image_id
         except Exception as e:
-            raise Exception(f"Error adding image: {e}")
+            print(f"Error adding image: {e}")
+            raise
     
     
     def _fetch_one_image_details(self, image_id: int) -> Optional[Dict[str, Any]]:
@@ -493,7 +495,8 @@ class PgvectorImageDatabase:
                     image_data['tags'] = self.get_image_tags(image_id)
                     results.append(image_data)
         except Exception as e:
-            raise Exception(f"Error during search: {e}")
+            print(f"Error during search: {e}")
+            raise
         
         return results
     
@@ -560,7 +563,8 @@ class PgvectorImageDatabase:
         and recreates the schema. THIS IS A DESTRUCTIVE OPERATION.
         """
         if not self.conn:
-            raise Exception("Not connected to the database.")
+            print("Not connected to the database.")
+            raise
 
         try:
             with self.conn.cursor() as cur:
@@ -575,7 +579,8 @@ class PgvectorImageDatabase:
             
         except Exception as e:
             self.conn.rollback() # Rollback on error
-            raise Exception(f"Error during database reset: {e}")
+            print(f"Error during database reset: {e}")
+            raise
 
     def close(self):
         """Close database connection."""

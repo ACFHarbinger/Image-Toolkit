@@ -1,18 +1,19 @@
 import io
 import os
 import sys
+import jpype
+import jpype.imports
 import signal
 import pprint
 import traceback
 import psycopg2.extras
 
-from pathlib import Path
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
-from app.src.gui.MainWindow import MainWindow
-from app.src import (
-    parse_args, FSETool, 
+from app import (
+    parse_args, ICON_FILE,
+    MainWindow, FSETool, 
     ImageFormatConverter,
     PgvectorImageDatabase, 
     ImageMerger, ImageCrawler,
@@ -36,7 +37,8 @@ def _pretty_print_args(comm, opts, inner_comm=None):
             ": {\n" + "\n".join(f" {line}" for line in lines) + "\n}"
         print(formatted, end="\n\n")
     except Exception as e:
-        raise Exception(f"Failed to pretty print arguments: {e}")
+        print(f"Failed to pretty print arguments: {e}")
+        raise
 
 
 def main(comm, args):
@@ -76,19 +78,15 @@ def main(comm, args):
             timer.timeout.connect(lambda: None) # Do nothing, just wake up Python
 
             app = QApplication(sys.argv)
-            path = Path(os.getcwd())
-            parts = path.parts
-            icon_file_path = os.path.join(Path(*parts[:parts.index('Image-Toolkit') + 1]), 
-                                            'app', 'src', 'images', "image_toolkit_icon.png")
             try:
                 # 1. Create a QIcon instance from the image file
-                app_icon = QIcon(icon_file_path)
+                app_icon = QIcon(ICON_FILE)
                 
                 # 2. Set the icon for the entire application
                 # This ensures the icon appears in the taskbar and title bar.
                 app.setWindowIcon(app_icon)
             except Exception as e:
-                print(f"Warning: Failed to set application icon. Ensure '{icon_file_path}' exists. Error: {e}")
+                print(f"Warning: Failed to set application icon. Ensure '{ICON_FILE}' exists. Error: {e}")
             w = MainWindow(dropdown=args['dropdown'])
             w.show()
             exit_code = app.exec()

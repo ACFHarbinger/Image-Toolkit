@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QSizePolicy,
 )
 from .BaseTab import BaseTab 
-from ... import PgvectorImageDatabase as ImageDatabase
+from src.core import PgvectorImageDatabase as ImageDatabase
 from ..styles import apply_shadow_effect
 from dotenv import load_dotenv
 

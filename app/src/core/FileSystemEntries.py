@@ -52,7 +52,8 @@ class FSETool:
                     print(f"Created directory: '{directory}'.")
                     return True
                 except Exception as e:
-                    raise Exception(f"ERROR: could not create directory '{directory}' with exception {type(e)}.")
+                    print(f"ERROR: could not create directory '{directory}' with exception {type(e)}.")
+                    raise
             return False
         return inner
 
