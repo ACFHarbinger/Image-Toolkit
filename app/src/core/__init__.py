@@ -1,6 +1,6 @@
-from .FileSystemEntries import FSETool
-from .FormatConverter import ImageFormatConverter
-from .ImageMerger import ImageMerger
+from .file_system_entries import FSETool
+from .format_converter import ImageFormatConverter
+from .image_merger import ImageMerger
 
-from .ImageDatabase import PgvectorImageDatabase
-from .JavaVaultManager import JavaVaultManager
+from .image_database import PgvectorImageDatabase
+from .java_vault_manager import JavaVaultManager

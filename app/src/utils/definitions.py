@@ -14,6 +14,10 @@ KEYSTORE_FILE = os.path.join(ROOT_DIR, 'assets', "my_java_keystore.p12")
 VAULT_FILE = os.path.join(ROOT_DIR, 'assets', "my_secure_data.vault")
 KEY_ALIAS = os.path.join(ROOT_DIR, 'assets', "my-aes-key")
 
+SERVICE_ACCOUNT_FILE = os.path.join(ROOT_DIR, 'assets', "image-toolkit-477603-189147bd1fa9.json")
+LOCAL_SOURCE_PATH = os.path.join(ROOT_DIR, 'data')
+DRIVE_DESTINATION_FOLDER_NAME = "data"
+
 # Image manipulation
 SUPPORTED_IMG_FORMATS = ['webp', 'avif', 'png', 'jpg', 'jpeg', 'bmp', 'gif', 'tiff']
 
@@ -30,3 +34,7 @@ START_TAGS = sorted([
     "portrait", "full_body", "action", "close_up", "nsfw",
     "color", "monochrome", "sketch", "digital", "traditional"
 ])
+
+# Google Drive
+SCOPES = ['https://www.googleapis.com/auth/drive']
+SYNC_ERROR = "SyncFailed"

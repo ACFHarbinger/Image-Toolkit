@@ -2,7 +2,7 @@ import sys
 
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
-from .gui.MainWindow import MainWindow
+from .gui.main_window import MainWindow
 from .utils.definitions import ICON_FILE
 
 
