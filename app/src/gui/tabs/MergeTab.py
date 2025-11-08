@@ -139,7 +139,6 @@ class MergeTab(BaseTab):
         # Formats (OptionalField)
         if self.dropdown:
             self.selected_formats = set()
-            formats_layout = QVBoxLayout()
             formats_container = QWidget()
             self.formats_field = OptionalField("Filter Input Formats (Defaults to All)", formats_container, start_open=False)
             action_vbox.addWidget(self.formats_field)
@@ -441,27 +440,47 @@ class MergeTab(BaseTab):
 
     def _browse_directories_logic(self):
         """
-        Internal logic for 'Scan Directories' button. Prompts for multiple directories
-        and aggregates images from all of them.
+        Internal logic for 'Scan Directories' button. 
+        Prompts for a single directory and asks if the user wants to add another.
         """
         selected_directories = []
         last_dir = self.last_browsed_dir
         
-        # We use a loop, prompting the user repeatedly until they cancel
+        # Start a loop that runs until the user says "No" or cancels a directory selection
         while True:
             directory = QFileDialog.getExistingDirectory(
                 self, 
-                f"Select Directory {len(selected_directories) + 1} (Click Cancel when done)", 
+                f"Select Directory {len(selected_directories) + 1} to Scan", 
                 last_dir
             )
+            
             if directory:
                 if directory not in selected_directories:
                     selected_directories.append(directory)
                     last_dir = directory
                 else:
                     QMessageBox.information(self, "Directory Already Added", f"'{directory}' has already been selected.")
+                
+                # Ask the user if they want to select another one
+                reply = QMessageBox.question(
+                    self, 
+                    "Continue Selection?",
+                    f"Directory '{Path(directory).name}' added. Do you want to select **another** directory?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+                
+                if reply == QMessageBox.StandardButton.No:
+                    break # Exit the loop if the user says No
+
+            elif selected_directories:
+                # User clicked Cancel on the QFileDialog, but directories have been selected.
+                # Treat this as the end of the selection process.
+                break 
+
             else:
-                break # User clicked cancel
+                # User clicked Cancel on the first QFileDialog prompt.
+                self.input_path_info.setText("Use buttons to select images or scan multiple directories.")
+                return # Exit if nothing was selected
 
         if not selected_directories:
             return
@@ -469,7 +488,7 @@ class MergeTab(BaseTab):
         self.last_browsed_dir = selected_directories[-1]
         self.input_path_info.setText("Scanning directories, please wait...")
         
-        # --- Aggregation Logic ---
+        # --- Aggregation Logic (The rest remains the same) ---
         worker = ImageScannerWorker(selected_directories) 
         thread = QThread()
 

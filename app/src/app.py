@@ -12,7 +12,7 @@ def launch_app():
     path = Path(os.getcwd())
     parts = path.parts
     icon_file_path = os.path.join(Path(*parts[:parts.index('Image-Toolkit') + 1]), 
-                                    'src', 'images', "image_toolkit_icon.png")
+                                    'app', 'src', 'images', "image_toolkit_icon.png")
     try:
         app_icon = QIcon(icon_file_path)
         app.setWindowIcon(app_icon)

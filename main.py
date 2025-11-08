@@ -10,8 +10,8 @@ from pathlib import Path
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
-from desktop.src.gui.MainWindow import MainWindow
-from desktop.src import (
+from app.src.gui.MainWindow import MainWindow
+from app.src import (
     parse_args, FSETool, 
     ImageFormatConverter,
     PgvectorImageDatabase, 
@@ -79,7 +79,7 @@ def main(comm, args):
             path = Path(os.getcwd())
             parts = path.parts
             icon_file_path = os.path.join(Path(*parts[:parts.index('Image-Toolkit') + 1]), 
-                                            'src', 'images', "image_toolkit_icon.png")
+                                            'app', 'src', 'images', "image_toolkit_icon.png")
             try:
                 # 1. Create a QIcon instance from the image file
                 app_icon = QIcon(icon_file_path)
