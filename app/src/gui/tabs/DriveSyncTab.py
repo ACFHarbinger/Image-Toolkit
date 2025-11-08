@@ -1,4 +1,3 @@
-# app/src/gui/tabs/DriveSyncTab.py
 import os
 from pathlib import Path
 from typing import Optional
@@ -20,6 +19,20 @@ from ..styles import apply_shadow_effect
 
 class DriveSyncTab(BaseTab):
     """GUI tab for Google Drive one-way sync (QRunnable + QThreadPool)."""
+    
+    # Define primary button styles
+    STYLE_SYNC_RUN = """
+        QPushButton { background:#2ecc71; color:white; padding:12px 16px;
+                      font-size:14pt; border-radius:8px; font-weight:bold; }
+        QPushButton:hover { background:#1e8449; }
+        QPushButton:disabled { background:#4f545c; color:#a0a0a0; }
+    """
+    STYLE_SYNC_STOP = """
+        QPushButton { background:#e74c3c; color:white; padding:12px 16px;
+                      font-size:14pt; border-radius:8px; font-weight:bold; }
+        QPushButton:hover { background:#c0392b; }
+        QPushButton:disabled { background:#4f545c; color:#a0a0a0; }
+    """
 
     def __init__(self, dropdown=True, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -123,14 +136,10 @@ class DriveSyncTab(BaseTab):
 
         # ------------------ SYNC BUTTON ------------------
         self.sync_button = QPushButton("Run Synchronization Now")
-        self.sync_button.setStyleSheet("""
-            QPushButton { background:#2ecc71; color:white; padding:12px 16px;
-                          font-size:14pt; border-radius:8px; font-weight:bold; }
-            QPushButton:hover { background:#1e8449; }
-            QPushButton:disabled { background:#4f545c; color:#a0a0a0; }
-        """)
+        self.sync_button.setStyleSheet(self.STYLE_SYNC_RUN)
         apply_shadow_effect(self.sync_button, "#000000", 8, 0, 3)
-        self.sync_button.clicked.connect(self.run_sync_now)
+        # Connect to a toggle function instead of direct run
+        self.sync_button.clicked.connect(self.toggle_sync) 
 
         # ------------------ LOG AREA ------------------
         status_group = QGroupBox("Synchronization Status Log")
@@ -146,6 +155,26 @@ class DriveSyncTab(BaseTab):
         main_layout.addWidget(status_group, 1)
 
         self.load_configuration_defaults()
+        
+    # ------------------------------------------------------------------ #
+    #                         SYNC TOGGLE                              #
+    # ------------------------------------------------------------------ #
+    def toggle_sync(self):
+        """Starts the sync if idle, or stops it if running."""
+        if self.current_worker is None:
+            self.run_sync_now(clear_log=True) # Clear log only on start
+        else:
+            self.stop_sync_now()
+
+    def stop_sync_now(self):
+        """Initiates the graceful stop of the running worker and immediately resets UI."""
+        if self.current_worker:
+            self.current_worker.stop()
+            # Immediately reset the UI to 'Run' state, which allows re-running.
+            # The final log message will be added when the worker thread actually terminates.
+            self.unlock_ui()
+            self.log_output.append("\nManually interrupted. Resetting UI...")
+            self.current_worker = None # Crucial: Allows re-run immediately
 
     # ------------------------------------------------------------------ #
     #                          PROVIDER SWITCH                          #
@@ -185,6 +214,9 @@ class DriveSyncTab(BaseTab):
     # ------------------------------------------------------------------ #
     def view_remote_map(self):
         """Action to initialize a worker to log the remote file map."""
+        if self.current_worker:
+            return # Ignore if sync is running
+            
         if not self.provider_combo.currentText().startswith("Google Drive"):
             QMessageBox.warning(self, "Error", "Only Google Drive is supported.")
             return
@@ -201,10 +233,9 @@ class DriveSyncTab(BaseTab):
             return
 
         # ---- UI lock ----
-        self.lock_ui(message="Viewing Remote Map…")
+        self.lock_ui_minor(message="Viewing Remote Map…", clear_log=True)
         
         # Start worker. Use dry_run=True. Set local_path to current value. 
-        # The core logic will recognize the invalid local path and skip file sync after logging remote map.
         self.current_worker = GoogleDriveSyncWorker(
             key_file, 
             self.local_path.text().strip(), 
@@ -221,7 +252,7 @@ class DriveSyncTab(BaseTab):
     @Slot(bool, str)
     def handle_view_finished(self, success: bool, message: str):
         """Custom handler for the View Remote Map action."""
-        self.unlock_ui()
+        self.unlock_ui_minor()
 
         final = f"\nFINAL STATUS: Remote Map View {'Completed' if success else 'Failed'}. {message}"
         self.log_output.append(final)
@@ -236,6 +267,9 @@ class DriveSyncTab(BaseTab):
     # ------------------------------------------------------------------ #
     def share_remote_folder(self):
         """Action to initialize a worker to perform ONLY the sharing action."""
+        if self.current_worker:
+            return # Ignore if sync is running
+            
         if not self.provider_combo.currentText().startswith("Google Drive"):
             QMessageBox.warning(self, "Error", "Only Google Drive is supported.")
             return
@@ -256,9 +290,9 @@ class DriveSyncTab(BaseTab):
             return
 
         # ---- UI lock ----
-        self.lock_ui(message="Sharing Folder…")
+        self.lock_ui_minor(message="Sharing Folder…", clear_log=True)
         
-        # Start worker. The core logic handles the invalid local path gracefully after sharing.
+        # Start worker. 
         self.current_worker = GoogleDriveSyncWorker(
             key_file, 
             self.local_path.text().strip(), # Use the real, possibly invalid, local path
@@ -274,7 +308,7 @@ class DriveSyncTab(BaseTab):
     @Slot(bool, str)
     def handle_share_finished(self, success: bool, message: str):
         """Custom handler for the Share Folder action."""
-        self.unlock_ui()
+        self.unlock_ui_minor()
 
         # The message will indicate if the share was successful and that sync was skipped.
         final = f"\nFINAL STATUS: Share Action {'Completed' if success else 'Failed'}. {message}"
@@ -290,29 +324,32 @@ class DriveSyncTab(BaseTab):
     # ------------------------------------------------------------------ #
     #                           SYNC START                             #
     # ------------------------------------------------------------------ #
-    def run_sync_now(self):
+    def run_sync_now(self, clear_log: bool = True):
+        """Initializes and runs the main synchronization job."""
+        
         if not self.provider_combo.currentText().startswith("Google Drive"):
             QMessageBox.warning(self, "Error", "Only Google Drive is supported.")
             return
-
+            
         key_file = self.key_file_path.text().strip()
         local_path = self.local_path.text().strip()
         remote_path = self.remote_path.text().strip()
         dry_run = self.dry_run_checkbox.isChecked()
         share_email = self.share_email_input.text().strip()
-
+        
         # ---- validation ----
         if not os.path.isfile(key_file):
             QMessageBox.warning(self, "Error", f"Key file not found:\n{key_file}")
             return
-        # Note: We skip the local path validation here as it's handled in GDS.execute_sync 
-        # (It will return failure if local path is invalid AND no other actions like share/dry-run were requested)
+        if not os.path.isdir(local_path):
+            QMessageBox.warning(self, "Error", f"Local folder invalid:\n{local_path}")
+            return
         if not remote_path:
             QMessageBox.warning(self, "Error", "Remote path cannot be empty.")
             return
-
-        # ---- UI lock ----
-        self.lock_ui(message="Syncing…")
+        
+        # ---- UI lock & setup for STOP button ----
+        self.lock_ui(message="STOP", is_running=True, clear_log=clear_log)
 
         # ---- start worker (QRunnable) ----
         self.current_worker = GoogleDriveSyncWorker(
@@ -330,21 +367,51 @@ class DriveSyncTab(BaseTab):
     # ------------------------------------------------------------------ #
     #                           UI CONTROL                             #
     # ------------------------------------------------------------------ #
-    def lock_ui(self, message: str):
-        """Locks UI elements and updates button text."""
-        self.log_output.clear()
-        self.sync_button.setEnabled(False)
-        self.btn_view_remote.setEnabled(False)
-        self.btn_share_folder.setEnabled(False)
+    def lock_ui(self, message: str, is_running: bool = False, clear_log: bool = False):
+        """Locks UI elements and updates sync button text/style."""
+        # Main sync button control
         self.sync_button.setText(message)
+        self.sync_button.setStyleSheet(self.STYLE_SYNC_STOP if is_running else self.STYLE_SYNC_RUN)
+        self.sync_button.setEnabled(True) # Re-enable to allow STOP click
+
+        # Disable configuration inputs and minor buttons
+        config_enabled = not is_running
+        self.key_file_path.setEnabled(config_enabled)
+        self.local_path.setEnabled(config_enabled)
+        self.remote_path.setEnabled(config_enabled)
+        self.share_email_input.setEnabled(config_enabled)
+        self.dry_run_checkbox.setEnabled(config_enabled)
+        self.key_file_browse_button.setEnabled(config_enabled)
+        self.btn_view_remote.setEnabled(config_enabled)
+        self.btn_share_folder.setEnabled(config_enabled)
+        
+        if clear_log: # Only clear if explicitly requested (i.e., on START)
+            self.log_output.clear()
+
         QApplication.processEvents()
         
     def unlock_ui(self):
-        """Unlocks UI elements and resets button text."""
-        self.sync_button.setEnabled(True)
-        self.sync_button.setText("Run Synchronization Now")
+        """Unlocks all UI elements and resets sync button state."""
+        # Crucially, this must fully reset the UI so the next click starts a new worker.
+        self.lock_ui(message="Run Synchronization Now", is_running=False)
+        
+    def lock_ui_minor(self, message: str, clear_log: bool = False):
+        """Locks only minor action buttons while View/Share is running."""
+        if clear_log:
+            self.log_output.clear()
+            
+        self.btn_view_remote.setEnabled(False)
+        self.btn_share_folder.setEnabled(False)
+        self.sync_button.setEnabled(False)
+        QApplication.processEvents()
+
+    def unlock_ui_minor(self):
+        """Unlocks minor action buttons."""
         self.btn_view_remote.setEnabled(True)
         self.btn_share_folder.setEnabled(True)
+        self.sync_button.setEnabled(True)
+        QApplication.processEvents()
+
 
     # ------------------------------------------------------------------ #
     #                           LOGGING                                #
@@ -358,16 +425,18 @@ class DriveSyncTab(BaseTab):
     # ------------------------------------------------------------------ #
     @Slot(bool, str)
     def handle_sync_finished(self, success: bool, message: str):
+        # When a worker finishes (either sync completed or was manually stopped),
+        # this method is called, which resets the UI state.
         self.unlock_ui()
 
         final = f"\nFINAL STATUS: {message}"
         self.log_output.append(final)
 
-        if not success:
+        if not success and "manually cancelled" not in message:
             QMessageBox.critical(self, "Sync Failed", message)
 
-        self.current_worker = None   # QRunnable cleans itself up
-
+        self.current_worker = None   # THIS IS CRITICAL: Allows re-run
+        
     # ------------------------------------------------------------------ #
     #                           BROWSERS                               #
     # ------------------------------------------------------------------ #

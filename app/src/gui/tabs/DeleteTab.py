@@ -1,12 +1,13 @@
 import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+
 from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QCheckBox, QFileDialog,
     QFormLayout, QHBoxLayout, QVBoxLayout, QWidget,
-    QMessageBox, QLabel, QGroupBox # Added QGroupBox
+    QMessageBox, QLabel, QGroupBox, QApplication
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Slot
 from .BaseTab import BaseTab
 from ..helpers import DeletionWorker
 from ..components import OptionalField
@@ -18,7 +19,7 @@ class DeleteTab(BaseTab):
     def __init__(self, dropdown=True):
         super().__init__()
         self.dropdown = dropdown
-        self.worker = None
+        self.worker: Optional[DeletionWorker] = None
 
         # --- Main Layout ---
         main_layout = QVBoxLayout(self)
@@ -100,23 +101,38 @@ class DeleteTab(BaseTab):
         # Add a stretch to push button/status to the bottom
         main_layout.addStretch(1)
 
-        # --- Run Button ---
-        self.run_button = QPushButton("Run Deletion")
-        self.run_button.setStyleSheet("""
+        # --- Run Buttons Layout (Replaces single run_button) ---
+        run_buttons_layout = QHBoxLayout()
+
+        # Define the shared style for the gradient button
+        SHARED_BUTTON_STYLE = """
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #667eea, stop:1 #764ba2);
-                color: white; font-weight: bold; font-size: 16px;
-                padding: 14px; border-radius: 10px; min-height: 44px;
+                color: white; font-weight: bold; font-size: 14px;
+                padding: 14px 8px; border-radius: 10px; min-height: 44px;
             }
             QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                 stop:0 #764ba2, stop:1 #667eea); }
             QPushButton:disabled { background: #718096; }
             QPushButton:pressed { background: #5a67d8; }
-        """)
-        apply_shadow_effect(self.run_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        self.run_button.clicked.connect(self.start_deletion)
-        main_layout.addWidget(self.run_button)
+        """
+
+        # 1. Delete Files Only Button (Existing logic)
+        self.btn_delete_files = QPushButton("Delete Files Only")
+        self.btn_delete_files.setStyleSheet(SHARED_BUTTON_STYLE)
+        apply_shadow_effect(self.btn_delete_files, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        self.btn_delete_files.clicked.connect(lambda: self.start_deletion(mode='files'))
+        run_buttons_layout.addWidget(self.btn_delete_files)
+
+        # 2. Delete Directory & Contents Button (Now using the SHARED_BUTTON_STYLE)
+        self.btn_delete_directory = QPushButton("Delete Directory and Contents")
+        self.btn_delete_directory.setStyleSheet(SHARED_BUTTON_STYLE)
+        apply_shadow_effect(self.btn_delete_directory, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        self.btn_delete_directory.clicked.connect(lambda: self.start_deletion(mode='directory'))
+        run_buttons_layout.addWidget(self.btn_delete_directory)
+
+        main_layout.addLayout(run_buttons_layout)
 
         # --- Status ---
         self.status_label = QLabel("Ready.")
@@ -124,7 +140,7 @@ class DeleteTab(BaseTab):
         self.status_label.setStyleSheet("color: #666; font-style: italic; padding: 10px;")
         main_layout.addWidget(self.status_label)
 
-        self.setLayout(main_layout) # Set the main layout
+        self.setLayout(main_layout)
 
     def toggle_extension(self, ext, checked):
         btn = self.extension_buttons[ext]
@@ -150,64 +166,129 @@ class DeleteTab(BaseTab):
             btn.setChecked(False)
             self.toggle_extension(ext, False)
 
+    def _get_starting_dir(self) -> str:
+        """Helper to determine a reasonable starting directory."""
+        path = Path(os.getcwd())
+        parts = path.parts
+        try:
+            # Attempt to find a 'data' folder inside an 'Image-Toolkit' folder
+            start_dir = os.path.join(Path(*parts[:parts.index('Image-Toolkit') + 1]), 'data')
+            if not Path(start_dir).is_dir():
+                 return os.getcwd()
+            return start_dir
+        except ValueError:
+            return os.getcwd()
+
     def browse_file(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select file", "", "All Files (*)")
+        # Determine starting directory
+        start_dir = self._get_starting_dir()
+        
+        # Use getOpenFileName for selecting a file
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "Select File", 
+            start_dir, 
+            f"Image Files ({' '.join(['*' + ext for ext in SUPPORTED_IMG_FORMATS])});;All Files (*)"
+        )
         if file_path:
             self.target_path.setText(file_path)
 
     def browse_directory(self):
-        path = Path(os.getcwd())
-        parts = path.parts
-        start_dir = os.path.join(Path(*parts[:parts.index('Image-Toolkit') + 1]), 'data')
-        directory = QFileDialog.getExistingDirectory(self, "Select directory", start_dir)
+        start_dir = self._get_starting_dir()
+            
+        # Use getExistingDirectory, which is designed to select directories.
+        directory = QFileDialog.getExistingDirectory(
+            self, 
+            "Select Directory to Delete", 
+            start_dir,
+            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks
+        )
         if directory:
             self.target_path.setText(directory)
 
-    def is_valid(self):
+    def is_valid(self, mode: str):
         path = self.target_path.text().strip()
-        return path and os.path.exists(path)
-
-    def start_deletion(self):
-        if not self.is_valid():
+        if not path or not os.path.exists(path):
             QMessageBox.warning(self, "Invalid Path", "Please select a valid file or folder.")
+            return False
+        
+        # Directory mode requires the path to be a directory
+        if mode == 'directory' and not os.path.isdir(path):
+            QMessageBox.warning(self, "Invalid Target", "The 'Delete Directory & Contents' action requires a directory path.")
+            return False
+            
+        return True
+
+    def start_deletion(self, mode: str):
+        if not self.is_valid(mode):
             return
 
-        config = self.collect()
+        config = self.collect(mode)
         config["require_confirm"] = self.confirm_checkbox.isChecked()
 
-        self.run_button.setEnabled(False)
-        self.run_button.setText("Deleting...")
-        self.status_label.setText("Scanning files...")
+        # Disable both buttons
+        self.btn_delete_files.setEnabled(False)
+        self.btn_delete_directory.setEnabled(False)
+        self.status_label.setText(f"Starting {mode} deletion...")
+        QApplication.processEvents() # Ensure UI updates
 
         self.worker = DeletionWorker(config)
+        
+        # Connect signals for confirmation and results
+        self.worker.confirm_signal.connect(self.handle_confirmation_request)
         self.worker.progress.connect(self.update_progress)
         self.worker.finished.connect(self.on_deletion_done)
         self.worker.error.connect(self.on_deletion_error)
+        
         self.worker.start()
+
+    @Slot(str, int)
+    def handle_confirmation_request(self, message: str, total_items: int):
+        """Shows the QMessageBox on the main thread and sends the result back to the worker."""
+        # Determine the correct title based on the action
+        title = "Confirm Directory Deletion" if total_items == 1 and "directory" in message else "Confirm File Deletion"
+        
+        reply = QMessageBox.question(
+            self, title,
+            message,
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+        )
+        
+        # Send boolean result back to the worker's slot
+        response = (reply == QMessageBox.Yes)
+        self.worker.set_confirmation_response(response)
+
 
     def update_progress(self, deleted, total):
         self.status_label.setText(f"Deleted {deleted} of {total}...")
 
     def on_deletion_done(self, count, msg):
-        self.run_button.setEnabled(True)
-        self.run_button.setText("Run Deletion")
+        self.btn_delete_files.setEnabled(True)
+        self.btn_delete_directory.setEnabled(True)
         self.status_label.setText(msg)
         QMessageBox.information(self, "Complete", msg)
+        self.worker = None # Clear worker reference
 
     def on_deletion_error(self, msg):
-        self.run_button.setEnabled(True)
-        self.run_button.setText("Run Deletion")
+        self.btn_delete_files.setEnabled(True)
+        self.btn_delete_directory.setEnabled(True)
         self.status_label.setText("Failed.")
         QMessageBox.critical(self, "Error", msg)
+        self.worker = None # Clear worker reference
 
-    def collect(self) -> Dict[str, Any]:
-        extensions = (
-            list(self.selected_extensions) if self.dropdown and self.selected_extensions
-            else self.join_list_str(self.target_extensions.text().strip())
-            if not self.dropdown else SUPPORTED_IMG_FORMATS
-        )
+    def collect(self, mode: str) -> Dict[str, Any]:
+        extensions = []
+        if mode == 'files':
+            if self.dropdown and self.selected_extensions:
+                extensions = list(self.selected_extensions)
+            elif not self.dropdown:
+                extensions = self.join_list_str(self.target_extensions.text().strip())
+            else:
+                extensions = SUPPORTED_IMG_FORMATS
+        
         return {
             "target_path": self.target_path.text().strip(),
+            "mode": mode, 
             "target_extensions": [e.strip().lstrip('.') for e in extensions if e.strip()],
         }
 
