@@ -1,7 +1,10 @@
 import os
 
 from PySide6.QtCore import QThread, Signal
-from ...web.ImageCrawler import ImageCrawler
+try:
+    from app.src.web.image_crawler import ImageCrawler
+except:
+    from src.web.image_crawler import ImageCrawler
 
 
 class ImageCrawlWorker(QThread):

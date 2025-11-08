@@ -6,9 +6,12 @@ import atexit
 import tempfile
 import platform
 import subprocess
-import src.utils.definitions as udef
+try:
+    import app.src.utils.definitions as udef
+except:
+    import src.utils.definitions as udef
 
-from .WebFileLoader import WebFileLoader
+from .web_file_loader import WebFileLoader
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By

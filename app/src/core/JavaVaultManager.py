@@ -1,7 +1,10 @@
 import jpype
 import atexit
 import getpass
-import src.utils.definitions as udef
+try:
+    import app.src.utils.definitions as udef
+except:
+    import src.utils.definitions as udef
 
 from jpype.types import JArray, JChar
 

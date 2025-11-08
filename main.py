@@ -11,9 +11,10 @@ import psycopg2.extras
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
-from app import (
+from app.src import (
     parse_args, ICON_FILE,
-    MainWindow, FSETool, 
+    GoogleDriveSync,
+    MainWindow, FSETool,
     ImageFormatConverter,
     PgvectorImageDatabase, 
     ImageMerger, ImageCrawler,

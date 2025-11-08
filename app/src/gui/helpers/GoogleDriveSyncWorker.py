@@ -1,5 +1,8 @@
 import time
-import src.web.GoogleDriveSync as gds
+try:
+    import app.src.web.GoogleDriveSync as gds
+except:
+    import src.web.GoogleDriveSync as gds
 
 from PySide6.QtCore import QObject, Signal
 

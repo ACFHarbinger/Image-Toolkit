@@ -5,7 +5,7 @@ import requests
 from urllib.parse import urlparse, urljoin
 from selenium.webdriver.common.by import By
 from PySide6.QtCore import QObject, Signal
-from .Crawler import WebCrawler
+from .crawler import WebCrawler
 
 
 class QtABCMeta(type(QObject), type(WebCrawler)):

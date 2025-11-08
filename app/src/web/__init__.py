@@ -1,1 +1,1 @@
-from .ImageCrawler import ImageCrawler
+from .image_crawler import ImageCrawler

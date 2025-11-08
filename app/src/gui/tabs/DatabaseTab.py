@@ -10,8 +10,11 @@ from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QLabel, QHeaderView,
     QTableWidget, QTableWidgetItem, QSizePolicy,
 )
-from .BaseTab import BaseTab 
-from src.core import PgvectorImageDatabase as ImageDatabase
+from .BaseTab import BaseTab
+try:
+    from app.src.core import PgvectorImageDatabase as ImageDatabase
+except:
+    from src.core import PgvectorImageDatabase as ImageDatabase
 from ..styles import apply_shadow_effect
 from dotenv import load_dotenv
 
