@@ -261,9 +261,34 @@ class MergeTab(BaseTab):
         columns = widget_width // self.approx_item_width
         return max(1, columns)
 
+    def _create_thumbnail_placeholder(self, index: int, path: str):
+        """
+        Slot executed on the main thread to create and add a single placeholder
+        for an image path *before* it is loaded by the worker.
+        """
+        columns = self.calculate_columns()
+        row = index // columns
+        col = index % columns
+
+        clickable_label = ClickableLabel(path) 
+        clickable_label.setText("Loading...")
+        clickable_label.setAlignment(Qt.AlignCenter)
+        clickable_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
+        clickable_label.setStyleSheet("border: 1px dashed #4f545c; color: #b9bbbe;")
+        clickable_label.path_clicked.connect(self.select_merge_image) 
+        clickable_label.path_double_clicked.connect(lambda p: QMessageBox.information(self, "Image Path", p))
+        
+        # Add widget to layout
+        self.merge_thumbnail_layout.addWidget(clickable_label, row, col)
+        self.path_to_label_map[path] = clickable_label 
+        
+        # Ensure the layout is updated immediately to show the new placeholder
+        self.merge_thumbnail_widget.update()
+        QApplication.processEvents()
+
     def populate_merge_gallery(self, image_paths: list[str], source_desc: str):
         """
-        Receives image paths, creates placeholders, and starts 
+        Receives image paths, creates placeholders progressively, and starts 
         a single BatchThumbnailLoaderWorker to progressively load and display images.
         """
         # Ensure cleanup before repopulating
@@ -283,24 +308,7 @@ class MergeTab(BaseTab):
             self.merge_thumbnail_layout.addWidget(no_images_label, 0, 0, 1, columns)
             return
 
-        # 1. Create ALL Placeholders immediately
-        for i, path in enumerate(self.merge_image_list):
-            row = i // columns
-            col = i % columns
-
-            clickable_label = ClickableLabel(path) 
-            clickable_label.setText("Loading...")
-            clickable_label.setAlignment(Qt.AlignCenter)
-            clickable_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
-            clickable_label.setStyleSheet("border: 1px dashed #4f545c; color: #b9bbbe;")
-            # Single click for selection/deselection toggle
-            clickable_label.path_clicked.connect(self.select_merge_image) 
-            clickable_label.path_double_clicked.connect(lambda p: QMessageBox.information(self, "Image Path", p)) # Preview not implemented
-            
-            self.merge_thumbnail_layout.addWidget(clickable_label, row, col)
-            self.path_to_label_map[path] = clickable_label 
-
-        # 2. Kick off the SINGLE asynchronous worker for batch loading
+        # 1. Kick off the SINGLE asynchronous worker for batch loading
         worker = BatchThumbnailLoaderWorker(self.merge_image_list, self.thumbnail_size)
         thread = QThread()
         
@@ -310,11 +318,16 @@ class MergeTab(BaseTab):
         worker.moveToThread(thread)
         
         thread.started.connect(worker.run_load_batch)
+        
+        # Connect for progressive placeholder creation
+        worker.create_placeholder.connect(self._create_thumbnail_placeholder)
+        
+        # Existing connection to update the placeholder with the image
         worker.thumbnail_loaded.connect(self._update_thumbnail_slot)
         
-        # --- Robust Cleanup ---
+        # Robust Cleanup
         worker.loading_finished.connect(thread.quit)
-        thread.finished.connect(self._cleanup_thumbnail_thread_ref) # Triggers worker/thread deleteLater
+        thread.finished.connect(self._cleanup_thumbnail_thread_ref) 
         
         thread.start()
     
@@ -326,11 +339,7 @@ class MergeTab(BaseTab):
         is_selected = path in self.selected_image_paths
         
         if not pixmap.isNull():
-            scaled_pixmap = pixmap.scaled(
-                self.thumbnail_size, self.thumbnail_size, 
-                Qt.KeepAspectRatio, Qt.SmoothTransformation
-            )
-            label.setPixmap(scaled_pixmap)
+            label.setPixmap(pixmap) 
             label.setText("") 
             
             if is_selected:
@@ -360,13 +369,10 @@ class MergeTab(BaseTab):
             for path in paths_to_deselect:
                 label = self.path_to_label_map.get(path)
                 if label:
-                    # Apply deselected style (using helper logic for image vs error)
                     self._update_label_style(label, path, False)
 
-            # If not already selected, select it
             if not is_currently_selected:
                 self.selected_image_paths = {file_path}
-            # If already selected, leave it selected (single click without Ctrl means this is the sole selection)
             else:
                  self.selected_image_paths = {file_path}
 
@@ -425,10 +431,21 @@ class MergeTab(BaseTab):
     
     def _browse_files_logic(self):
         """Internal logic for 'Add Files' button."""
+        
+        # Ensure a fallback to a guaranteed path if last_browsed_dir is somehow unreliable
+        start_dir = self.last_browsed_dir if self.last_browsed_dir and os.path.exists(self.last_browsed_dir) else str(Path.home())
+        
+        # --- FIX: Ensure robust fallback for start_dir and pass options by keyword ---
+        options = QFileDialog.Option.DontResolveSymlinks
+
         files, _ = QFileDialog.getOpenFileNames(
-            self, "Select images to merge", self.last_browsed_dir,
-            "Images (*.png *.jpg *.jpeg *.bmp *.gif);;All Files (*)"
+            self, 
+            "Select images to merge", 
+            start_dir, 
+            "Images (*.png *.jpg *.jpeg *.bmp *.gif);;All Files (*)",
+            options=options # Pass options by keyword
         )
+        
         if files:
             self.last_browsed_dir = os.path.dirname(files[0]) if files else self.last_browsed_dir
             current_paths = set(self.merge_image_list)
@@ -444,14 +461,20 @@ class MergeTab(BaseTab):
         Prompts for a single directory and asks if the user wants to add another.
         """
         selected_directories = []
-        last_dir = self.last_browsed_dir
         
+        # Ensure a fallback to a guaranteed path
+        last_dir = self.last_browsed_dir if self.last_browsed_dir and os.path.exists(self.last_browsed_dir) else str(Path.home())
+        
+        # --- FIX: Ensure robust fallback for last_dir and explicit options ---
+        options = QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks
+
         # Start a loop that runs until the user says "No" or cancels a directory selection
         while True:
             directory = QFileDialog.getExistingDirectory(
                 self, 
                 f"Select Directory {len(selected_directories) + 1} to Scan", 
-                last_dir
+                last_dir,
+                options # Pass the options flag
             )
             
             if directory:
@@ -474,7 +497,6 @@ class MergeTab(BaseTab):
 
             elif selected_directories:
                 # User clicked Cancel on the QFileDialog, but directories have been selected.
-                # Treat this as the end of the selection process.
                 break 
 
             else:
@@ -488,11 +510,17 @@ class MergeTab(BaseTab):
         self.last_browsed_dir = selected_directories[-1]
         self.input_path_info.setText("Scanning directories, please wait...")
         
-        # --- Aggregation Logic (The rest remains the same) ---
+        # ------------------------------------------------------------------
+        # --- FIX: ADDED IMAGE SCANNER WORKER SETUP AND START ---
+        # ------------------------------------------------------------------
+        
+        # 1. Clear any previous scan/load state
+        self.clear_merge_gallery() 
+        
         worker = ImageScannerWorker(selected_directories) 
         thread = QThread()
 
-        # --- FIX: Use internal class members for thread/worker tracking ---
+        # Set class members for tracking and cleanup
         self._scan_worker = worker
         self._scan_thread = thread
         
@@ -500,19 +528,21 @@ class MergeTab(BaseTab):
         
         thread.started.connect(worker.run_scan)
         
-        # 2. The scan_finished signal returns the aggregated list of paths
+        # Connect success to populating the gallery (which starts thumbnail loading)
         worker.scan_finished.connect(
             lambda paths: self.populate_merge_gallery(
                 paths, 
                 f"Aggregated: {len(selected_directories)} directories"
             )
         )
+        
+        # Connect error handling
         worker.scan_error.connect(lambda msg: QMessageBox.critical(self, "Scan Error", msg))
         
-        # --- Robust Cleanup ---
+        # Robust thread cleanup connections
         worker.scan_finished.connect(thread.quit)
         worker.scan_error.connect(thread.quit)
-        thread.finished.connect(self._cleanup_scan_thread_ref) # Triggers worker/thread deleteLater
+        thread.finished.connect(self._cleanup_scan_thread_ref) # Call the cleanup method
         
         thread.start()
 

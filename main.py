@@ -12,7 +12,8 @@ from PySide6.QtGui import QIcon
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 from app.src import (
-    parse_args, ICON_FILE,
+    ICON_FILE, parse_args, 
+    log_uncaught_exceptions,
     GoogleDriveSync,
     MainWindow, FSETool,
     ImageFormatConverter,
@@ -72,6 +73,9 @@ def main(comm, args):
             )
             exit_code = crawler.run()
         elif comm == 'gui':
+            # Set the global exception hook at the very beginning
+            sys.excepthook = log_uncaught_exceptions
+            
             # This allows the Python interpreter to process signals (like SIGINT).
             signal.signal(signal.SIGINT, signal.SIG_DFL)
             timer = QTimer()

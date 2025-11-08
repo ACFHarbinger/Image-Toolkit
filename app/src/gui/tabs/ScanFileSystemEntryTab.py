@@ -307,6 +307,30 @@ class ScanFSETab(BaseTab):
         self.current_thumbnail_loader_thread = None
         self.current_thumbnail_loader_worker = None
 
+    def _create_thumbnail_placeholder(self, index: int, path: str):
+        """
+        Slot executed on the main thread to create and add a single placeholder
+        for an image path *before* it is loaded by the worker.
+        """
+        columns = self.calculate_columns()
+        row = index // columns
+        col = index % columns
+
+        clickable_label = ClickableLabel(path) 
+        clickable_label.setText("Loading...")
+        clickable_label.setAlignment(Qt.AlignCenter)
+        clickable_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
+        clickable_label.setStyleSheet("border: 1px dashed #4f545c; color: #b9bbbe;") # Dark mode style
+        clickable_label.path_clicked.connect(self.select_scan_image)
+        clickable_label.path_double_clicked.connect(self.view_selected_scan_image_from_double_click) 
+
+        self.scan_thumbnail_layout.addWidget(clickable_label, row, col)
+        self.path_to_label_map[path] = clickable_label 
+        
+        # Ensure the layout is updated immediately to show the new placeholder
+        self.scan_thumbnail_widget.update()
+        QApplication.processEvents()
+
     def display_scan_results(self, image_paths: list[str]):
         """
         Receives image paths from the worker thread, creates placeholders, and starts 
@@ -322,26 +346,14 @@ class ScanFSETab(BaseTab):
             no_images_label = QLabel("No supported images found.")
             no_images_label.setAlignment(Qt.AlignCenter)
             no_images_label.setStyleSheet("color: #b9bbbe;")
+            # Use self.scan_thumbnail_layout to place the message
             self.scan_thumbnail_layout.addWidget(no_images_label, 0, 0, 1, columns)
             return
 
-        # 1. Create ALL Placeholders immediately on the main thread
-        for i, path in enumerate(self.scan_image_list):
-            row = i // columns
-            col = i % columns
-
-            clickable_label = ClickableLabel(path) 
-            clickable_label.setText("Loading...")
-            clickable_label.setAlignment(Qt.AlignCenter)
-            clickable_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
-            clickable_label.setStyleSheet("border: 1px dashed #4f545c; color: #b9bbbe;") # Dark mode style
-            clickable_label.path_clicked.connect(self.select_scan_image)
-            clickable_label.path_double_clicked.connect(self.view_selected_scan_image_from_double_click) 
-
-            self.scan_thumbnail_layout.addWidget(clickable_label, row, col)
-            self.path_to_label_map[path] = clickable_label 
-
-        # 2. Kick off the SINGLE asynchronous worker for batch loading
+        # --- MODIFIED: Removed the loop that created all placeholders immediately. ---
+        # The placeholders will now be created one by one via the worker's signal.
+        
+        # 1. Kick off the SINGLE asynchronous worker for batch loading
         worker = BatchThumbnailLoaderWorker(self.scan_image_list, self.thumbnail_size)
         thread = QThread()
 
@@ -351,6 +363,11 @@ class ScanFSETab(BaseTab):
         worker.moveToThread(thread)
         
         thread.started.connect(worker.run_load_batch)
+        
+        # --- ADDED CONNECTION for progressive placeholder creation ---
+        worker.create_placeholder.connect(self._create_thumbnail_placeholder)
+        
+        # Existing connection to update the placeholder with the image
         worker.thumbnail_loaded.connect(self._update_thumbnail_slot)
         
         worker.loading_finished.connect(thread.quit)
@@ -368,16 +385,18 @@ class ScanFSETab(BaseTab):
         label = self.path_to_label_map.get(path)
         
         if label is None:
+            # If the placeholder hasn't been created yet (shouldn't happen with the new flow)
+            # or was somehow deleted, just return.
             return
 
         is_selected = path in self.selected_image_paths
         
         if not pixmap.isNull():
-            scaled_pixmap = pixmap.scaled(
-                self.thumbnail_size, self.thumbnail_size, 
-                Qt.KeepAspectRatio, Qt.SmoothTransformation
-            )
-            label.setPixmap(scaled_pixmap)
+            # NOTE: Scaling is now done on the worker thread, so we don't need to scale again.
+            # We use the loaded pixmap directly.
+            
+            # The worker is already emitting the SCALED pixmap, so we just set it.
+            label.setPixmap(pixmap) 
             label.setText("") 
             
             if is_selected:
@@ -390,7 +409,7 @@ class ScanFSETab(BaseTab):
                 label.setStyleSheet("border: 3px solid #5865f2; background-color: #4f545c; font-size: 8px;") 
             else:
                 label.setStyleSheet("border: 1px solid #e74c3c; background-color: #4f545c; font-size: 8px;")
-            
+
     def clear_scan_image_gallery(self):
         """Removes all widgets from the scan gallery layout and cleans up the single active thread."""
         
@@ -425,7 +444,17 @@ class ScanFSETab(BaseTab):
     def browse_scan_directory(self):
         """Select directory to scan and display image thumbnails."""
         start_dir = self.last_browsed_scan_dir
-        directory = QFileDialog.getExistingDirectory(self, "Select directory to scan", start_dir)
+        
+        # --- MODIFIED: Added QFileDialog.ShowDirsOnly option ---
+        options = QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks
+        
+        directory = QFileDialog.getExistingDirectory(
+            self, 
+            "Select directory to scan", 
+            start_dir, 
+            options  # Pass the options flag
+        )
+        
         if directory:
             self.last_browsed_scan_dir = directory
             self.scan_directory_path.setText(directory)

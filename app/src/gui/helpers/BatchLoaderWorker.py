@@ -1,3 +1,5 @@
+# BatchLoaderWorker.py
+
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import QObject, Signal, Slot, Qt
 
@@ -8,6 +10,10 @@ class BatchThumbnailLoaderWorker(QObject):
     Emits a signal for each completed thumbnail for progressive display.
     """
 
+    # Signal to create the placeholder on the main thread: (index, path)
+    # --- ADDED SIGNAL ---
+    create_placeholder = Signal(int, str)
+    
     # Signal to send the result: (index, QPixmap, path)
     thumbnail_loaded = Signal(int, QPixmap, str)
     
@@ -25,16 +31,20 @@ class BatchThumbnailLoaderWorker(QObject):
         
         for i, path in enumerate(self.paths):
             try:
-                # 1. Load the image using QPixmap (Blocking call on this worker thread)
+                # 1. Notify main thread to create placeholder before blocking load
+                # --- ADDED SIGNAL EMIT ---
+                self.create_placeholder.emit(i, path)
+                
+                # 2. Load the image using QPixmap (Blocking call on this worker thread)
                 pixmap = QPixmap(path)
                 
                 if not pixmap.isNull():
-                    # 2. Scale the QPixmap
+                    # 3. Scale the QPixmap
                     scaled = pixmap.scaled(
                         self.size, self.size, 
                         Qt.KeepAspectRatio, Qt.SmoothTransformation
                     )
-                    # 3. Emit the result back to the main thread immediately
+                    # 4. Emit the result back to the main thread immediately
                     self.thumbnail_loaded.emit(i, scaled, path)
                 else:
                     # Emit a null/empty pixmap for load errors
@@ -44,5 +54,5 @@ class BatchThumbnailLoaderWorker(QObject):
                 # Emit an empty pixmap on unexpected error
                 self.thumbnail_loaded.emit(i, QPixmap(), path)
         
-        # 4. Signal that the entire batch is done
+        # 5. Signal that the entire batch is done
         self.loading_finished.emit()
