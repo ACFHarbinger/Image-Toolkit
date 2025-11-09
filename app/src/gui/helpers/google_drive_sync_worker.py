@@ -3,7 +3,7 @@ from typing import Optional
 try:
     from app.src.web.google_drive_sync import GoogleDriveSync as GDS
 except:
-    from app.src.web.google_drive_sync import GoogleDriveSync as GDS
+    from src.web.google_drive_sync import GoogleDriveSync as GDS
 
 from PySide6.QtCore import QObject, Signal, QRunnable, QThreadPool, QMutex
 

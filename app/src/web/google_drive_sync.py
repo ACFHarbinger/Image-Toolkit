@@ -109,7 +109,6 @@ class GoogleDriveSync:
                 f"trashed=false"
             )
             try:
-                # FIX: Simplified query structure to avoid 403 supportsAllDrives conflict on personal drives
                 response = self.drive_service.files().list(
                     q=query, 
                     spaces='drive', 
@@ -155,7 +154,6 @@ class GoogleDriveSync:
             drive_url = f"https://drive.google.com/drive/folders/{current_parent_id}"
             self.logger(f"🔗 Destination Folder URL: {drive_url}")
         
-        # FIX: Guarantee the final ID is returned successfully
         return current_parent_id
             
     def _share_folder_with_user(self, file_id: str, user_email: str):

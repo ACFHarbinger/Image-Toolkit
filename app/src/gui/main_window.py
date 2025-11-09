@@ -132,5 +132,5 @@ def main(args):
 
 if __name__ =="__main__":
     gui_parser = argparse.ArgumentParser(add_help=False)
-    gui_parser.add_argument('--dropdown', type=bool, default=True, help="Use dropdown buttons for optional fields")
+    gui_parser.add_argument('--no_dropdown', action='store_false', help="Disable dropdown buttons for optional fields")
     main(vars(gui_parser.parse_args()))

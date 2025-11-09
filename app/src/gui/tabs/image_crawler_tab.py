@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QGroupBox, QCheckBox, QComboBox, QMessageBox,
     QFormLayout, QHBoxLayout, QVBoxLayout, QProgressBar, QWidget
 )
-from .BaseTab import BaseTab
+from .base_tab import BaseTab
 from ..helpers import ImageCrawlWorker
 from ..components import OptionalField
 from ..styles import apply_shadow_effect

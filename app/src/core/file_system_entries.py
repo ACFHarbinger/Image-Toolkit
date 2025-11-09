@@ -39,9 +39,6 @@ class FSETool:
             
             if path:
                 directory = os.path.dirname(path) if is_filepath else path
-                
-                # FIX 1: If directory is an empty string (e.g., os.path.dirname('output')), 
-                # it means the Current Working Directory, which should not be created.
                 if not directory:
                     return True
                 
@@ -75,7 +72,6 @@ class FSETool:
                     if isinstance(arg, str) and not os.path.isabs(arg):
                         # Simple rule: if path exists and is relative, make it absolute
                         if os.path.exists(arg):
-                            # FIX 2: Use os.path.abspath(arg) to correctly resolve relative path from CWD
                             normalized_args[id] = os.path.abspath(arg)
                         
                 # Normalize keyword arguments

@@ -1,8 +1,8 @@
-from .BatchLoaderWorker import BatchThumbnailLoaderWorker
-from .ImageScannerWorker import ImageScannerWorker
-from .ImageCrawlWorker import ImageCrawlWorker
+from .batch_loader_worker import BatchThumbnailLoaderWorker
+from .image_scanner_worker import ImageScannerWorker
+from .image_crawl_worker import ImageCrawlWorker
 
-from .GoogleDriveSyncWorker import GoogleDriveSyncWorker
-from .ConversionWorker import ConversionWorker
-from .DeletionWorker import DeletionWorker
-from .MergeWorker import MergeWorker
+from .google_drive_sync_worker import GoogleDriveSyncWorker
+from .conversion_worker import ConversionWorker
+from .deletion_worker import DeletionWorker
+from .merge_worker import MergeWorker

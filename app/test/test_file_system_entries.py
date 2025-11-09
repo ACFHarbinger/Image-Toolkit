@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 # Adjust path to import the module from the 'src' directory
 # This assumes the project structure is:
-# project_root/
+# app/
 # ├── src/
 # │   ├── FileSystemEntries.py
 # ├── tests/
@@ -15,7 +15,7 @@ from unittest.mock import patch
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from src.core.file_system_entries import FSETool
+from src.core import FSETool
 
 
 # --- TESTS ---
@@ -80,9 +80,6 @@ class FSEToolTest:
         
         # Get the inner function from the decorator (is_filepath=True)
         prefix_func = FSETool.prefix_create_directory(arg_id=1, is_filepath=True)
-        
-        # Directory part is '' (empty string), creation should be skipped/pass
-        # FIX: This tests the fix where os.path.dirname('output.png') == '' and should pass
         try:
             result = prefix_func(None, output_filepath)
             assert result is True

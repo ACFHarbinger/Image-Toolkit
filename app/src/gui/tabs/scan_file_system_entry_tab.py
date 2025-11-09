@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QPushButton, QLabel, QFormLayout,
     QWidget, QGroupBox, QCheckBox,
 )
-from .BaseTab import BaseTab
+from .base_tab import BaseTab
 from ..components import ImagePreviewWindow, ClickableLabel, MarqueeScrollArea
 from ..helpers import ImageScannerWorker, BatchThumbnailLoaderWorker
 from ..styles import apply_shadow_effect

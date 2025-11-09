@@ -44,7 +44,7 @@ def parse_args():
 
     # GUI
     gui_parser = argparse.ArgumentParser(add_help=False)
-    gui_parser.add_argument('--dropdown', type=bool, default=True, help="Use dropdown buttons for optional fields")
+    gui_parser.add_argument('--no_dropdown', action='store_false', help="Disable dropdown buttons for optional fields")
 
     # Main parser
     parser = argparse.ArgumentParser(description="Image database and edit toolkit.")
@@ -58,7 +58,12 @@ def parse_args():
     gui_subparser = subparsers.add_parser('gui', parents=[gui_parser], add_help=False)
 
     args = vars(parser.parse_args())
-    command = args.pop('command')
+    command = args.get('command', None)
+    if command is None:
+        parser.print_help()
+        raise SystemExit(1)
+    
+    args.pop('command')
     if command == 'convert':
         return command, args
     elif command == 'delete':
@@ -72,4 +77,4 @@ def parse_args():
     elif command == 'gui':
         return command, args
     
-    raise argparse.ArgumentError("Argument error: unknown command " + args['command'])
+    raise argparse.ArgumentError("Argument error: unknown command " + command)

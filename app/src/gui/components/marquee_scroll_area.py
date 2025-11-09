@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QRubberBand
 )
 # --- END MODIFIED IMPORTS ---
-from ..components import ClickableLabel
+from . import ClickableLabel
 
 
 # --- NEW MarqueeScrollArea CLASS ---
@@ -67,9 +67,8 @@ class MarqueeScrollArea(QScrollArea):
             # 2. Get selection rect (in viewport coordinates)
             selection_rect_viewport = self.rubber_band.geometry()
             
-            # 3. *** THE CRITICAL FIX ***
-            # Translate viewport rect to content widget coordinates
-            # by adding the current scroll offsets.
+            # 3. Translate viewport rect to content widget 
+            # coordinates by adding the current scroll offsets.
             h_offset = self.horizontalScrollBar().value()
             v_offset = self.verticalScrollBar().value()
             selection_rect_content = selection_rect_viewport.translated(h_offset, v_offset)

@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QLabel, QGroupBox, QApplication
 )
 from PySide6.QtCore import Qt, Slot
-from .BaseTab import BaseTab
+from .base_tab import BaseTab
 from ..helpers import DeletionWorker
 from ..components import OptionalField
 from ..styles import apply_shadow_effect

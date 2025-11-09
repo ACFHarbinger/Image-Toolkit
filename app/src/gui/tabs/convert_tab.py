@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QGroupBox # Added QGroupBox
 )
 from PySide6.QtCore import Qt
-from .BaseTab import BaseTab
+from .base_tab import BaseTab
 from ..helpers import ConversionWorker
 from ..components import OptionalField
 from ..styles import apply_shadow_effect

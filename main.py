@@ -12,7 +12,7 @@ from PySide6.QtGui import QIcon
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 from app.src import (
-    ICON_FILE, parse_args, 
+    ICON_FILE, parse_args,
     log_uncaught_exceptions,
     GoogleDriveSync,
     MainWindow, FSETool,

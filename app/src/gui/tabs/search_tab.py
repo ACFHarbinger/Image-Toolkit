@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QComboBox,
     QWidget, QLabel, QMessageBox
 )
-from .BaseTab import BaseTab
+from .base_tab import BaseTab
 from ..components import OptionalField
 from ..components import ImagePreviewWindow
 from ..styles import apply_shadow_effect

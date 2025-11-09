@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QComboBox, QSpinBox, QGroupBox, QFormLayout, QHBoxLayout,
     QVBoxLayout, QMessageBox, QApplication, QGridLayout,
 )
-from .BaseTab import BaseTab
+from .base_tab import BaseTab
 from ..helpers import MergeWorker, ImageScannerWorker, BatchThumbnailLoaderWorker
 from ..components import OptionalField, ClickableLabel, MarqueeScrollArea
 from ..styles import apply_shadow_effect
@@ -36,7 +36,6 @@ class MergeTab(BaseTab):
         self.path_to_label_map: Dict[str, ClickableLabel] = {}
         self.last_browsed_dir = str(Path.home())
 
-        # Fixed dimensions for dynamic layout calculation
         self.thumbnail_size = 150
         self.padding_width = 10
         self.approx_item_width = self.thumbnail_size + self.padding_width
@@ -434,8 +433,6 @@ class MergeTab(BaseTab):
         
         # Ensure a fallback to a guaranteed path if last_browsed_dir is somehow unreliable
         start_dir = self.last_browsed_dir if self.last_browsed_dir and os.path.exists(self.last_browsed_dir) else str(Path.home())
-        
-        # --- FIX: Ensure robust fallback for start_dir and pass options by keyword ---
         options = QFileDialog.Option.DontResolveSymlinks
 
         files, _ = QFileDialog.getOpenFileNames(
@@ -464,8 +461,6 @@ class MergeTab(BaseTab):
         
         # Ensure a fallback to a guaranteed path
         last_dir = self.last_browsed_dir if self.last_browsed_dir and os.path.exists(self.last_browsed_dir) else str(Path.home())
-        
-        # --- FIX: Ensure robust fallback for last_dir and explicit options ---
         options = QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks
 
         # Start a loop that runs until the user says "No" or cancels a directory selection
@@ -509,10 +504,6 @@ class MergeTab(BaseTab):
 
         self.last_browsed_dir = selected_directories[-1]
         self.input_path_info.setText("Scanning directories, please wait...")
-        
-        # ------------------------------------------------------------------
-        # --- FIX: ADDED IMAGE SCANNER WORKER SETUP AND START ---
-        # ------------------------------------------------------------------
         
         # 1. Clear any previous scan/load state
         self.clear_merge_gallery() 

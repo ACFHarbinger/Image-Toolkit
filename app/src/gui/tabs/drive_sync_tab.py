@@ -12,8 +12,8 @@ from ..app_definitions import DRY_RUN
 from ...utils.definitions import (
     SERVICE_ACCOUNT_FILE, LOCAL_SOURCE_PATH, DRIVE_DESTINATION_FOLDER_NAME
 )
-from ..helpers import GoogleDriveSyncWorker  # <-- QRunnable version
-from .BaseTab import BaseTab
+from .base_tab import BaseTab
+from ..helpers import GoogleDriveSyncWorker
 from ..styles import apply_shadow_effect
 
 

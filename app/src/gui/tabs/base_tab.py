@@ -1,7 +1,7 @@
 from typing import List
 from PySide6.QtCore import QObject
 from PySide6.QtWidgets import QWidget
-from abc import ABC, ABCMeta, abstractmethod
+from abc import ABCMeta, abstractmethod
 
 
 class MetaBaseTab(ABCMeta, type(QObject)):

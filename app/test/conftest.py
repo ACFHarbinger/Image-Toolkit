@@ -12,6 +12,8 @@ from unittest.mock import MagicMock
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
+import src.utils.arg_parser as arg_parser
+
 from src.core import FSETool
 
 
@@ -50,6 +52,16 @@ class MockSecureJsonVault:
 # --- Pytest Fixtures (Combined) ---
 
 # conftest.py
+
+@pytest.fixture(autouse=True)
+def mock_dependencies(monkeypatch):
+    """
+    Mocks external dependencies imported by arg_parser.py to isolate tests.
+    This fixture runs automatically for every test function.
+    """
+    # Mock WC_BROWSERS to a known list for testing 'choices'
+    monkeypatch.setattr(arg_parser, "WC_BROWSERS", ['brave', 'chrome', 'firefox'])
+
 
 @pytest.fixture
 def mock_jpype(monkeypatch):

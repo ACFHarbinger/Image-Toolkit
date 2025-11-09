@@ -1,8 +1,7 @@
-# Fixed test_java_vault_manager.py
 import pytest
 
-from unittest.mock import patch
 from src.core import JavaVaultManager 
+
 
 # --- Test Cases ---
 class JavaVaultManagerTest:
@@ -21,10 +20,6 @@ class JavaVaultManagerTest:
         JAR_PATH = "my_crypt.jar"
         KEYSTORE_PATH = "my.p12"
         KEY_ALIAS = "test-alias"
-        
-        # We no longer need to define MockKSM/MockSJV here, as the JavaVaultManager
-        # will receive the mock JClasses defined in conftest.py's mock_jclass function.
-        
         with JavaVaultManager(JAR_PATH) as manager:
             # 1. Load Keystore
             manager.load_keystore(KEYSTORE_PATH, "storepass")

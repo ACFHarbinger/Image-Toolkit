@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QLabel, QHeaderView,
     QTableWidget, QTableWidgetItem, QSizePolicy,
 )
-from .BaseTab import BaseTab
+from .base_tab import BaseTab
 try:
     from app.src.core import PgvectorImageDatabase as ImageDatabase
 except:
