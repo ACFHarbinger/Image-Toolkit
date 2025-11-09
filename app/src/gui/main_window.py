@@ -14,8 +14,9 @@ from PySide6.QtWidgets import (
 from .tabs import (
     MergeTab, DatabaseTab,
     ConvertTab, DeleteTab, 
-    ScanFSETab, SearchTab, 
-    ImageCrawlTab, DriveSyncTab
+    ScanMetadataTab, SearchTab, 
+    ImageCrawlTab, DriveSyncTab,
+    WallpaperTab,
 )
 from .styles import GLOBAL_QSS
 from .app_definitions import NEW_LIMIT_MB
@@ -54,15 +55,16 @@ class MainWindow(QWidget):
         # --- MODIFICATION: Create tabs in order ---
         self.database_tab = DatabaseTab(dropdown=dropdown)
         self.search_tab = SearchTab(self.database_tab, dropdown=dropdown)
-        self.scan_fse_tab = ScanFSETab(self.database_tab, dropdown=dropdown)
+        self.scan_metadata_tab = ScanMetadataTab(self.database_tab, dropdown=dropdown)
         self.convert_tab = ConvertTab(dropdown=dropdown)
         self.merge_tab = MergeTab(dropdown=dropdown)
         self.delete_tab = DeleteTab(dropdown=dropdown)
         self.crawler_tab = ImageCrawlTab(dropdown=dropdown)
         self.drive_sync_tab = DriveSyncTab(dropdown=dropdown)
+        self.wallpaper_tab = WallpaperTab(self.database_tab, dropdown=dropdown)
         
         # --- MODIFICATION: Set references *after* all tabs are created ---
-        self.database_tab.scan_tab_ref = self.scan_fse_tab 
+        self.database_tab.scan_tab_ref = self.scan_metadata_tab 
         self.database_tab.search_tab_ref = self.search_tab # This is the missing link
 
         self.tabs.addTab(self.convert_tab, "Convert")
@@ -70,9 +72,10 @@ class MainWindow(QWidget):
         self.tabs.addTab(self.delete_tab, "Delete")
         self.tabs.addTab(self.search_tab, "Search")
         self.tabs.addTab(self.database_tab, "Database")
-        self.tabs.addTab(self.scan_fse_tab, "Scan")
+        self.tabs.addTab(self.scan_metadata_tab, "Scan Metadata")
         self.tabs.addTab(self.crawler_tab, "Web Crawler")
         self.tabs.addTab(self.drive_sync_tab, "Drive Sync")
+        self.tabs.addTab(self.wallpaper_tab, "Wallpaper")
 
         self.tabs.currentChanged.connect(self.on_tab_changed)
         

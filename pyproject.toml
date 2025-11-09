@@ -21,6 +21,7 @@ dependencies = [
     "pyside6>=6.10.0",
     "pytest>=8.4.2",
     "python-dotenv>=1.2.1",
+    "screeninfo>=0.8.1",
     "selenium>=4.38.0",
     "webdriver-manager>=4.0.2",
 ]

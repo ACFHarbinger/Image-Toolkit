@@ -19,9 +19,9 @@ from ..helpers import ImageScannerWorker, BatchThumbnailLoaderWorker
 from ..styles import apply_shadow_effect
 
 
-class ScanFSETab(BaseTab):
+class ScanMetadataTab(BaseTab):
     """
-    Manages file and directory scanning, image preview gallery, and batch database operations.
+    Manages file and directory metadata scanning, image preview gallery, and batch database operations.
     Requires a reference to the main DatabaseTab for database connection access.
     """
     def __init__(self, db_tab_ref, dropdown=True):
