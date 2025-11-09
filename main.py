@@ -92,7 +92,7 @@ def main(comm, args):
                 app.setWindowIcon(app_icon)
             except Exception as e:
                 print(f"Warning: Failed to set application icon. Ensure '{ICON_FILE}' exists. Error: {e}")
-            w = MainWindow(dropdown=args['no_dropdown'])
+            w = MainWindow(dropdown=~args['no_dropdown'])
             w.show()
             exit_code = app.exec()
         elif comm == 'database':

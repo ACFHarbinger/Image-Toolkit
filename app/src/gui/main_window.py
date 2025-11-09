@@ -115,7 +115,7 @@ def main(args):
         except Exception as e:
             pass 
         
-        w = MainWindow(dropdown=args['dropdown'])
+        w = MainWindow(dropdown=~args['dropdown'])
         
         # --- MODIFICATION: Call showMaximized() to open in full size ---
         w.showMaximized()
@@ -135,5 +135,5 @@ def main(args):
 
 if __name__ =="__main__":
     gui_parser = argparse.ArgumentParser(add_help=False)
-    gui_parser.add_argument('--no_dropdown', action='store_false', help="Disable dropdown buttons for optional fields")
+    gui_parser.add_argument('--no_dropdown', action='store_true', help="Disable dropdown buttons for optional fields")
     main(vars(gui_parser.parse_args()))

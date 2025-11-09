@@ -44,7 +44,7 @@ def parse_args():
 
     # GUI
     gui_parser = argparse.ArgumentParser(add_help=False)
-    gui_parser.add_argument('--no_dropdown', action='store_false', help="Disable dropdown buttons for optional fields")
+    gui_parser.add_argument('--no_dropdown', action='store_true', help="Disable dropdown buttons for optional fields")
 
     # Main parser
     parser = argparse.ArgumentParser(description="Image database and edit toolkit.")
