@@ -7,7 +7,7 @@ import tempfile
 
 from PIL import Image
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
@@ -15,7 +15,58 @@ sys.path.insert(0, project_root)
 import src.utils.arg_parser as arg_parser
 
 from src.core import FSETool
+from src.web import ImageCrawler
 
+
+# --- Mocking External Dependencies ---
+# 1. Mock PyQt/PySide Objects
+class MockQObject:
+    """Mock the QObject base class and signals."""
+    def __init__(self, *args, **kwargs):
+        pass
+    class Signal(MagicMock):
+        def emit(self, *args, **kwargs):
+            pass
+
+class MockQtABCMeta(type):
+    """Simple mock for the custom metaclass."""
+    pass
+
+# 2. Mock the Base Class (WebCrawler)
+class MockWebCrawler:
+    """Mock WebCrawler to isolate ImageCrawler's logic."""
+    def __init__(self, headless, download_dir, screenshot_dir, browser):
+        # Mock core attributes ImageCrawler needs access to
+        self.driver = MagicMock()
+        self.wait = MagicMock()
+        self.download_dir = download_dir
+        self.screenshot_dir = screenshot_dir
+        self.browser = browser
+        # Mock methods called in __init__
+        self.setup_driver = MagicMock()
+        self.file_loader = MagicMock()
+        
+        print(f"✅ WebCrawler base initialized with {self.browser} (Mocked).")
+
+    # Mock abstract methods
+    def login(self, credentials=None):
+        pass
+    def process_data(self):
+        pass
+    def close(self):
+        self.driver = None # Simulate closing the driver
+        return True
+    
+    # Mock concrete methods used by ImageCrawler
+    def navigate_to_url(self, url, take_screenshot=False):
+        # Always return True for success in the mock
+        return True
+    def wait_for_page_to_load(self, timeout=3, selectors=[], screenshot_name=None):
+        return True
+    
+    # Mock the combination of metaclasses for the class definition
+    class QtABCMeta(MockQtABCMeta, type(MockQObject)):
+        pass
 
 # --- Mock Java Classes (Existing) ---
 # These mock classes simulate the behavior of your compiled Java code.
@@ -49,10 +100,9 @@ class MockSecureJsonVault:
         mock_java_string.__str__.return_value = '{"test": "loaded_data"}'
         return mock_java_string
 
-# --- Pytest Fixtures (Combined) ---
-
-# conftest.py
-
+# ----------------------------------------------------------------------
+# Pytest Fixtures
+# ----------------------------------------------------------------------
 @pytest.fixture(autouse=True)
 def mock_dependencies(monkeypatch):
     """
@@ -115,10 +165,27 @@ def mock_jpype(monkeypatch):
 
     return mock_start_jvm, mock_shutdown_jvm
 
-# ----------------------------------------------------------------------
-# Fixtures from test_format_converter.py and test_image_merger.py
-# ----------------------------------------------------------------------
 
+@pytest.fixture
+def mock_requests():
+    """Mock the requests.get method and its response."""
+    with patch('src.web.image_crawler.requests.get') as mock_get:
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.iter_content.return_value = [b"chunk1", b"chunk2"] # Mock file content
+        mock_get.return_value = mock_response
+        yield mock_get
+
+
+@pytest.fixture
+def mock_os_path():
+    """Mock os.path.exists for unique filename testing."""
+    with patch('src.web.image_crawler.os.path.exists', side_effect=[True, True, False]) as mock_exists:
+        yield mock_exists
+
+# ----------------------------------------------------------------------
+# Image Fixtures
+# ----------------------------------------------------------------------
 @pytest.fixture
 def sample_image():
     """Create a temporary test image (PNG)."""
@@ -189,15 +256,8 @@ def sample_images():
         yield temp_dir, image_paths
 
 # ----------------------------------------------------------------------
-# Fixtures from test_file_system_entries.py
+# File System Entries Fixtures
 # ----------------------------------------------------------------------
-
-# FSETool is not available in conftest, so we'll mock the decorated function manually, 
-# or note that the test depending on this fixture must import FSETool itself.
-# Since dummy_decorated_func uses a decorator from an imported module, 
-# it's best to keep that logic in the original test file (test_file_system_entries.py) 
-# unless the FileSystemEntries module is imported here.
-# For simplicity and isolation, we only move the setup fixture.
 
 @pytest.fixture
 def temp_test_setup():
@@ -242,3 +302,23 @@ def dummy_decorated_func():
     def target_func(path_arg_1, path_arg_2, non_path_arg, kwarg_path=None):
         return path_arg_1, path_arg_2, non_path_arg, kwarg_path
     return target_func
+
+# ----------------------------------------------------------------------
+# Image Crawler Fixtures
+# ----------------------------------------------------------------------
+
+@pytest.fixture
+def crawler_config():
+    return {
+        "url": "http://example.com/page-X.html",
+        "download_dir": "/tmp/test_downloads",
+        "skip_first": 1,
+        "skip_last": 1,
+        "browser": "brave",
+        "headless": True,
+    }
+
+
+@pytest.fixture
+def crawler(crawler_config):
+    return ImageCrawler(crawler_config)
