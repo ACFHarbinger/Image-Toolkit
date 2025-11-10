@@ -1,8 +1,9 @@
-flask
-flask-cors
+django
+django-cors-headers
 numpy
 pillow
 psycopg2-binary
 pyside6
-pytest
 python-dotenv
+selenium
+webdriver-manager

@@ -21,7 +21,7 @@ uv add --dev env/dev_requirements.txt
 
 You can also just do:
 ```bash
-uv sync
+uv sync [--no-dev]
 ```
 
 Afterwards, you can initialize the virtual environment by running one of the following commands:
@@ -116,28 +116,17 @@ Note: if no --output_path argument is given, the new image will have the same na
 
 ## Build
 ### C++
-To build the C++ part of the project, run the following commands:
+To build the desktop app part of the project, you just need to run the following command:
 ```bash
-cmake -B app/build
-cmake --build app/build
+pyinstaller --clean app.spec
 ```
 
 ## Testing
 ### Python
-You can run a test suite for each python functionality by simply running the following command:
+You can run a test suite for all python functionality by simply running the following command:
 ```bash
-pytest tests/<functionality_to_test>.py -v
+pytest 
 ```
-
-The functionalities currently available for testing (i.e., the value that should replace <functionality_to_test>) are:
-- test_image_merger
-- test_format_converter
-- test_file_system_entries
-
-Note: you can also run all tests with the `pytests tests` command.
-
-### C++
-To test the C++ portion of the project, you just need to do `bash scripts/test_cpp.sh`
 
 ### Java
 To test the Java portion of the project, you just need to do `mvn test`

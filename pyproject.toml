@@ -10,8 +10,6 @@ dependencies = [
     "django>=5.2.7",
     "django-cors-headers>=4.9.0",
     "djangorestframework>=3.16.1",
-    "flask>=3.1.2",
-    "flask-cors>=6.0.1",
     "google>=3.0.0",
     "google-api-python-client>=2.187.0",
     "jpype1>=1.6.0",
@@ -19,7 +17,6 @@ dependencies = [
     "pillow>=12.0.0",
     "psycopg2-binary>=2.9.11",
     "pyside6>=6.10.0",
-    "pytest>=8.4.2",
     "python-dotenv>=1.2.1",
     "screeninfo>=0.8.1",
     "selenium>=4.38.0",
@@ -32,10 +29,13 @@ dependencies = [
 image-toolkit = "app:launch_app"
 
 # Corrected 'dev' dependencies
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "black>=25.9.0",
+    "cryptography>=46.0.3",
     "mypy>=1.18.2",
+    "pyinstaller>=6.16.0",
+    "pytest>=8.4.2",
     "ruff>=0.14.3",
 ]
 
@@ -47,7 +47,7 @@ build-src = "setuptools.build_meta"
 # Tell setuptools EXACTLY what to package
 [tool.setuptools.packages.find]
 # 1. Tell setuptools to look INSIDE 'app' for packages
-where = ["app/src"]
+where = ["app"]
 
 # 2. Include non-code files *inside* the packages
 [tool.setuptools.package-data]

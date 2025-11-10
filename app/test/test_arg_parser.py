@@ -210,14 +210,14 @@ class ArgParserTest:
         command, args = arg_parser.parse_args()
         
         assert command == "gui"
-        # Note: type=bool with default=True is an unusual pattern.
-        # It means the default is True.
-        assert args['no_dropdown'] is True
+        # Note: type=bool with default=False is an unusual pattern.
+        # It means the default is False.
+        assert args['no_dropdown'] is False
 
-    def test_gui_command_store_false_action(self, monkeypatch):
+    def test_gui_command_store_true_action(self, monkeypatch):
         """
         Tests the 'gui' command when the '--no_dropdown' flag is present.
-        (Tests that action='store_false' sets the destination to False).
+        (Tests that action='store_true' sets the destination to True).
         """
         # Assuming the flag is named --no_dropdown and dest='dropdown'
         test_argv = ["script_name.py", "gui", "--no_dropdown"] 
@@ -226,5 +226,5 @@ class ArgParserTest:
         command, args = arg_parser.parse_args()
         
         assert command == "gui"
-        # Flag is present, action='store_false' sets args['dropdown'] to False.
-        assert args['no_dropdown'] is False
+        # Flag is present, action='store_true' sets args['dropdown'] to True.
+        assert args['no_dropdown'] is True

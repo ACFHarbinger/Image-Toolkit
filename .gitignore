@@ -421,4 +421,6 @@ CMakeFiles/
 
 # Build
 /**/Image_Toolkit.egg-info
+/**/build
+/**/dist
 /**/target
