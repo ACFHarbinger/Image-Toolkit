@@ -40,8 +40,12 @@ class JavaVaultManager:
         
         # Import the Java classes from your package
         try:
-            self.KeyStoreManager = jpype.JClass("com.personal.image_toolkit.KeyStoreManager")
+            KeyStoreManagerClass = jpype.JClass("com.personal.image_toolkit.KeyStoreManager")
             self.SecureJsonVault = jpype.JClass("com.personal.image_toolkit.SecureJsonVault")
+            
+            # 💡 FIX 1: Create an instance of the KeyStoreManager class
+            self.keystore_manager = KeyStoreManagerClass()
+            
         except jpype.JException as e:
             print("\n--- ERROR ---")
             print(f"Could not find Java class: {e}")
@@ -67,7 +71,8 @@ class JavaVaultManager:
         """
         try:
             print(f"Loading keystore: {keystore_path}")
-            self.keystore = self.KeyStoreManager.loadKeyStore(
+            # 💡 FIX 2: Call the method on the instance, not the class
+            self.keystore = self.keystore_manager.loadKeyStore(
                 keystore_path,
                 self._to_char_array(keystore_pass)
             )
@@ -86,7 +91,8 @@ class JavaVaultManager:
         
         try:
             print(f"Retrieving secret key for alias: {key_alias}")
-            self.secret_key = self.KeyStoreManager.getSecretKey(
+            # 💡 FIX 3: Call the method on the instance, not the class
+            self.secret_key = self.keystore_manager.getSecretKey(
                 self.keystore,
                 key_alias,
                 self._to_char_array(key_pass)

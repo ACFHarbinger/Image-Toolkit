@@ -71,34 +71,40 @@ class MockWebCrawler:
 # --- Mock Java Classes (Existing) ---
 # These mock classes simulate the behavior of your compiled Java code.
 class MockKeyStoreManager:
-    def loadKeyStore(self, path, char_array):
-        print(f"Mock: Loading keystore from {path}")
-        return MagicMock(name="JavaKeyStore")
+    """Mock the Java KeyStoreManager class."""
+    
+    # Store state to simulate keystore and key
+    keystore = MagicMock()
+    secret_key = MagicMock()
+    
+    # Instance methods (non-static) - Note the 'self' argument
+    def loadKeyStore(self, keystore_path, keystore_pass):
+        """Simulate the non-static loadKeyStore call."""
+        if "wrong.p12" in keystore_path:
+            # Simulate Java exception
+            raise Exception("java.io.IOException: Keystore was tampered with.")
+        return self.keystore
 
-    def getSecretKey(self, keystore, alias, password):
-        print(f"Mock: getSecretKey(alias='{alias}')")
-        if alias == "non_existent_key":
-            return None
-        mock_key = MagicMock()
-        mock_key.getAlgorithm.return_value = "AES"
-        return mock_key
-
+    def getSecretKey(self, keystore, key_alias, key_pass):
+        """Simulate the non-static getSecretKey call."""
+        if key_alias == "non_existent_key":
+            # Simulate Java returning null (None in Python)
+            return None 
+        return self.secret_key
 
 class MockSecureJsonVault:
-    """Mock for the Java SecureJsonVault class."""
+    """Mock the Java SecureJsonVault class."""
     def __init__(self, key, path):
-        pass # Initialization successful
-        
+        self.key = key
+        self.path = path
+        self.data = None
+
     def saveData(self, json_string):
-        # Simulate successful save
-        pass
+        self.data = json_string
 
     def loadData(self):
-        # Simulate successful load, return a mock object that acts like a Java String
-        mock_java_string = MagicMock(name="JavaString")
-        # Ensure the __str__ method (used by str() conversion in Python) returns Python data
-        mock_java_string.__str__.return_value = '{"test": "loaded_data"}'
-        return mock_java_string
+        return self.data
+
 
 # ----------------------------------------------------------------------
 # Pytest Fixtures
@@ -114,56 +120,20 @@ def mock_dependencies(monkeypatch):
 
 
 @pytest.fixture
-def mock_jpype(monkeypatch):
-    # STOP REAL JVM DEAD IN ITS TRACKS
-    monkeypatch.setattr("jpype._core._jpype", None)
-    monkeypatch.setattr("jpype._core._JVM_started", False)
-
-    mock_start_jvm = MagicMock()
-    mock_shutdown_jvm = MagicMock()
-    is_jvm_started = [False]
-
-    def mock_is_jvm_started():
-        return is_jvm_started[0]
-
-    def start_jvm_side_effect(*args, **kwargs):
-        print("MOCK: startJVM called")
-        is_jvm_started[0] = True
-
-    mock_start_jvm.side_effect = start_jvm_side_effect
-    mock_shutdown_jvm.side_effect = lambda: print("MOCK: shutdownJVM called")
-
-    # MOCK JCLASS
-    def mock_jclass(name):
-        print(f"MOCK: JClass('{name}')")
-        if name == "java.lang.String":
-            mock_str = MagicMock()
-            mock_inst = MagicMock()
-            mock_inst.toCharArray.return_value = "mocked_chars"
-            mock_str.return_value = mock_inst
-            return mock_str
-        if name == "com.personal.image_toolkit.KeyStoreManager":
-            return MockKeyStoreManager()
-        if name == "com.personal.image_toolkit.SecureJsonVault":
-            return MockSecureJsonVault
-        return MagicMock()
-
-    def fake_getClass(jc):
-        return mock_jclass(jc) if isinstance(jc, str) else jc
-
-    # MOCK EVERYTHING
-    monkeypatch.setattr(jpype, "startJVM", mock_start_jvm)
-    monkeypatch.setattr(jpype, "shutdownJVM", mock_shutdown_jvm)
-    monkeypatch.setattr(jpype, "isJVMStarted", mock_is_jvm_started)
-    monkeypatch.setattr(jpype, "JClass", mock_jclass)
-    monkeypatch.setattr("jpype._jclass._jpype._getClass", fake_getClass)
-
-    # Fake internal state
-    fake_jpype = MagicMock()
-    fake_jpype.isStarted.side_effect = mock_is_jvm_started
-    monkeypatch.setattr("jpype._core._jpype", fake_jpype)
-
-    return mock_start_jvm, mock_shutdown_jvm
+def mock_jpype():    
+    mock_jclass_map = {
+        "com.personal.image_toolkit.KeyStoreManager": MockKeyStoreManager,
+        "com.personal.image_toolkit.SecureJsonVault": MockSecureJsonVault,
+        "java.lang.String": MagicMock(),
+    }
+    
+    with patch(f"src.core.java_vault_manager.jpype.startJVM") as mock_start_jvm, \
+         patch(f"src.core.java_vault_manager.jpype.JClass", side_effect=lambda name: mock_jclass_map.get(name, MagicMock())) as mock_jclass, \
+         patch(f"src.core.java_vault_manager.jpype.isJVMStarted", side_effect=[False, True, True]), \
+         patch(f"src.core.java_vault_manager.jpype.shutdownJVM") as mock_shutdown_jvm, \
+         patch(f"src.core.java_vault_manager.atexit.register"):
+            
+        yield mock_start_jvm, mock_shutdown_jvm
 
 
 @pytest.fixture

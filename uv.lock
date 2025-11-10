@@ -494,7 +494,6 @@ name = "image-toolkit"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "cryptography" },
     { name = "django" },
     { name = "django-cors-headers" },
     { name = "djangorestframework" },
@@ -514,6 +513,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "black" },
+    { name = "cryptography" },
     { name = "mypy" },
     { name = "pyinstaller" },
     { name = "pytest" },
@@ -522,7 +522,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cryptography", specifier = ">=46.0.3" },
     { name = "django", specifier = ">=5.2.7" },
     { name = "django-cors-headers", specifier = ">=4.9.0" },
     { name = "djangorestframework", specifier = ">=3.16.1" },
@@ -542,6 +541,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "black", specifier = ">=25.9.0" },
+    { name = "cryptography", specifier = ">=46.0.3" },
     { name = "mypy", specifier = ">=1.18.2" },
     { name = "pyinstaller", specifier = ">=6.16.0" },
     { name = "pytest", specifier = ">=8.4.2" },

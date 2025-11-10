@@ -21,7 +21,8 @@ class KeyStoreManagerTest {
     private String keyStoreFile;
     private char[] keyStorePassword;
     private char[] keyPassword;
-    private KeyStoreManager keyStoreManager;
+    // Instance used for non-static method calls
+    private KeyStoreManager keyStoreManager; 
 
     // For capturing System.out and System.err
     private final ByteArrayOutputStream outContent = new ByteArrayOutputStream();
@@ -34,7 +35,7 @@ class KeyStoreManagerTest {
         keyStoreFile = tempDir.resolve("test.p12").toString();
         keyStorePassword = "storePassword".toCharArray();
         keyPassword = "keyPassword".toCharArray();
-        keyStoreManager = new KeyStoreManager(); // For non-static methods
+        keyStoreManager = new KeyStoreManager(); // Initialized instance
 
         // Redirect System.out and System.err
         System.setOut(new PrintStream(outContent));
@@ -50,7 +51,8 @@ class KeyStoreManagerTest {
 
     @Test
     void loadKeyStore_shouldCreateNewKeyStoreIfFileDoesNotExist() throws Exception {
-        KeyStore keyStore = KeyStoreManager.loadKeyStore(keyStoreFile, keyStorePassword);
+        // FIX: Use instance
+        KeyStore keyStore = keyStoreManager.loadKeyStore(keyStoreFile, keyStorePassword); 
         
         assertThat(keyStore).isNotNull();
         assertThat(Collections.list(keyStore.aliases())).isEmpty();
@@ -60,14 +62,18 @@ class KeyStoreManagerTest {
     @Test
     void saveAndLoadKeyStore_shouldPreserveEntries() throws Exception {
         // 1. Create and save a keystore
-        KeyStore keyStore = KeyStoreManager.loadKeyStore(keyStoreFile, keyStorePassword);
-        KeyStoreManager.storeSecretKey(keyStore, "my-secret-key", keyPassword);
-        KeyStoreManager.saveKeyStore(keyStore, keyStoreFile, keyStorePassword);
+        // FIX: Use instance
+        KeyStore keyStore = keyStoreManager.loadKeyStore(keyStoreFile, keyStorePassword); 
+        // FIX: Use instance
+        keyStoreManager.storeSecretKey(keyStore, "my-secret-key", keyPassword);
+        // FIX: Use instance
+        keyStoreManager.saveKeyStore(keyStore, keyStoreFile, keyStorePassword);
         
         assertThat(new File(keyStoreFile)).exists();
         
         // 2. Load the existing keystore
-        KeyStore loadedKeyStore = KeyStoreManager.loadKeyStore(keyStoreFile, keyStorePassword);
+        // FIX: Use instance
+        KeyStore loadedKeyStore = keyStoreManager.loadKeyStore(keyStoreFile, keyStorePassword);
         
         assertThat(loadedKeyStore).isNotNull();
         assertThat(loadedKeyStore.containsAlias("my-secret-key")).isTrue();
@@ -77,23 +83,29 @@ class KeyStoreManagerTest {
     @Test
     void loadKeyStore_shouldThrowExceptionForIncorrectPassword() throws Exception {
         // 1. Create and save a keystore
-        KeyStore keyStore = KeyStoreManager.loadKeyStore(keyStoreFile, keyStorePassword);
-        KeyStoreManager.saveKeyStore(keyStore, keyStoreFile, keyStorePassword);
+        // FIX: Use instance
+        KeyStore keyStore = keyStoreManager.loadKeyStore(keyStoreFile, keyStorePassword);
+        // FIX: Use instance
+        keyStoreManager.saveKeyStore(keyStore, keyStoreFile, keyStorePassword);
         
         // 2. Try to load with wrong password
         char[] wrongPassword = "wrong".toCharArray();
-        assertThatThrownBy(() -> KeyStoreManager.loadKeyStore(keyStoreFile, wrongPassword))
+        // FIX: Use instance
+        assertThatThrownBy(() -> keyStoreManager.loadKeyStore(keyStoreFile, wrongPassword))
             .isInstanceOf(IOException.class);
     }
 
     @Test
     void storeAndGetSecretKey_shouldRetrieveSameKey() throws Exception {
-        KeyStore keyStore = KeyStoreManager.loadKeyStore(keyStoreFile, keyStorePassword);
+        // FIX: Use instance
+        KeyStore keyStore = keyStoreManager.loadKeyStore(keyStoreFile, keyStorePassword);
         String alias = "aes-key";
         
-        KeyStoreManager.storeSecretKey(keyStore, alias, keyPassword);
+        // FIX: Use instance
+        keyStoreManager.storeSecretKey(keyStore, alias, keyPassword);
         
-        javax.crypto.SecretKey retrievedKey = KeyStoreManager.getSecretKey(keyStore, alias, keyPassword);
+        // FIX: Use instance
+        javax.crypto.SecretKey retrievedKey = keyStoreManager.getSecretKey(keyStore, alias, keyPassword);
         
         assertThat(retrievedKey).isNotNull();
         assertThat(retrievedKey.getAlgorithm()).isEqualTo("AES");
@@ -102,8 +114,10 @@ class KeyStoreManagerTest {
 
     @Test
     void getSecretKey_shouldReturnNullForNonExistentAlias() throws Exception {
-        KeyStore keyStore = KeyStoreManager.loadKeyStore(keyStoreFile, keyStorePassword);
-        javax.crypto.SecretKey retrievedKey = KeyStoreManager.getSecretKey(keyStore, "non-existent", keyPassword);
+        // FIX: Use instance
+        KeyStore keyStore = keyStoreManager.loadKeyStore(keyStoreFile, keyStorePassword);
+        // FIX: Use instance
+        javax.crypto.SecretKey retrievedKey = keyStoreManager.getSecretKey(keyStore, "non-existent", keyPassword);
         
         assertThat(retrievedKey).isNull();
         assertThat(errContent.toString()).contains("No entry found for alias: non-existent");
@@ -111,19 +125,23 @@ class KeyStoreManagerTest {
 
     @Test
     void getSecretKey_shouldThrowExceptionForIncorrectKeyPassword() throws Exception {
-        KeyStore keyStore = KeyStoreManager.loadKeyStore(keyStoreFile, keyStorePassword);
+        // FIX: Use instance
+        KeyStore keyStore = keyStoreManager.loadKeyStore(keyStoreFile, keyStorePassword);
         String alias = "aes-key";
-        KeyStoreManager.storeSecretKey(keyStore, alias, keyPassword);
+        // FIX: Use instance
+        keyStoreManager.storeSecretKey(keyStore, alias, keyPassword);
         
         char[] wrongKeyPassword = "wrong".toCharArray();
         
-        assertThatThrownBy(() -> KeyStoreManager.getSecretKey(keyStore, alias, wrongKeyPassword))
+        // FIX: Use instance
+        assertThatThrownBy(() -> keyStoreManager.getSecretKey(keyStore, alias, wrongKeyPassword))
             .isInstanceOf(UnrecoverableEntryException.class);
     }
     
     @Test
     void generatePrivateKeyEntry_shouldCreateValidEntry() throws Exception {
         String alias = "rsa-key";
+        // NOTE: generatePrivateKeyEntry is still static in KeyStoreManager.java
         PrivateKeyEntryData data = KeyStoreManager.generatePrivateKeyEntry(alias, keyPassword);
 
         assertThat(data).isNotNull();
@@ -137,10 +155,12 @@ class KeyStoreManagerTest {
 
     @Test
     void storePrivateKeyEntry_shouldStoreEntryAndClearPassword() throws Exception {
-        KeyStore keyStore = KeyStoreManager.loadKeyStore(keyStoreFile, keyStorePassword);
+        // FIX: Use instance
+        KeyStore keyStore = keyStoreManager.loadKeyStore(keyStoreFile, keyStorePassword);
         String alias = "rsa-key";
         char[] originalPassword = new char[]{'s', 'e', 'c', 'r', 'e', 't'};
         
+        // NOTE: generatePrivateKeyEntry is still static
         PrivateKeyEntryData data = KeyStoreManager.generatePrivateKeyEntry(alias, originalPassword);
         
         // Act
@@ -156,10 +176,11 @@ class KeyStoreManagerTest {
 
     @Test
     void storeTrustedCertificate_shouldStoreEntry() throws Exception {
-        KeyStore keyStore = KeyStoreManager.loadKeyStore(keyStoreFile, keyStorePassword);
+        // FIX: Use instance
+        KeyStore keyStore = keyStoreManager.loadKeyStore(keyStoreFile, keyStorePassword);
         String alias = "trusted-cert";
         
-        // Re-use generator to get a certificate
+        // NOTE: generatePrivateKeyEntry is still static
         PrivateKeyEntryData pkeData = KeyStoreManager.generatePrivateKeyEntry("temp", "temp".toCharArray());
         Certificate cert = pkeData.getCertificateChain()[0];
         
@@ -176,17 +197,21 @@ class KeyStoreManagerTest {
 
     @Test
     void listEntries_shouldListAllEntriesCorrectly() throws Exception {
-        KeyStore keyStore = KeyStoreManager.loadKeyStore(keyStoreFile, keyStorePassword);
+        // FIX: Use instance
+        KeyStore keyStore = keyStoreManager.loadKeyStore(keyStoreFile, keyStorePassword);
         
         // 1. Test empty keystore
+        // NOTE: listEntries is still static
         KeyStoreManager.listEntries(keyStore);
         assertThat(outContent.toString()).contains("Keystore is empty.");
         
         outContent.reset(); // Clear the output stream
         
         // 2. Add entries
-        KeyStoreManager.storeSecretKey(keyStore, "secret-key", keyPassword);
+        // FIX: Use instance
+        keyStoreManager.storeSecretKey(keyStore, "secret-key", keyPassword);
         
+        // NOTE: generatePrivateKeyEntry is still static
         PrivateKeyEntryData pkeData = KeyStoreManager.generatePrivateKeyEntry("private-key", keyPassword);
         keyStoreManager.storePrivateKeyEntry(keyStore, pkeData);
         
@@ -196,6 +221,7 @@ class KeyStoreManagerTest {
         outContent.reset(); // Clear output from store methods
         
         // 3. Test listing
+        // NOTE: listEntries is still static
         KeyStoreManager.listEntries(keyStore);
         String output = outContent.toString();
         

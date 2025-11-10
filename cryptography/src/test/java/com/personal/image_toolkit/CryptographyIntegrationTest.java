@@ -56,6 +56,9 @@ class CryptographyIntegrationTest {
 
     @Test
     void testKeyStoreToVaultEndToEndLifecycle() throws Exception {
+        // FIX: Instantiate KeyStoreManager for non-static method calls
+        KeyStoreManager manager = new KeyStoreManager();
+        
         // --- 1. KeyStore Creation and Key Storage ---
         // Mimics steps 1-4 of Cryptography.main()
 
@@ -63,25 +66,30 @@ class CryptographyIntegrationTest {
         File keyStoreFile = new File(keyStoreFilePath);
 
         // Load an empty keystore in memory
-        KeyStore keyStore = KeyStoreManager.loadKeyStore(keyStoreFilePath, keyStorePassword);
+        // FIX: Use instance
+        KeyStore keyStore = manager.loadKeyStore(keyStoreFilePath, keyStorePassword);
         assertThat(keyStoreFile).doesNotExist(); // loadKeyStore creates in memory first
 
         // Store a new secret key
-        KeyStoreManager.storeSecretKey(keyStore, secretKeyAlias, keyPassword);
+        // FIX: Use instance
+        manager.storeSecretKey(keyStore, secretKeyAlias, keyPassword);
         assertThat(keyStore.containsAlias(secretKeyAlias)).isTrue();
 
         // Save the keystore to disk
-        KeyStoreManager.saveKeyStore(keyStore, keyStoreFilePath, keyStorePassword);
+        // FIX: Use instance
+        manager.saveKeyStore(keyStore, keyStoreFilePath, keyStorePassword);
         assertThat(keyStoreFile).exists().isFile();
 
         // --- 2. Key Retrieval ---
         // Mimics step 5 of Cryptography.main()
 
         // Load the persistent keystore from disk to ensure it saved correctly
-        KeyStore loadedKeyStore = KeyStoreManager.loadKeyStore(keyStoreFilePath, keyStorePassword);
+        // FIX: Use instance
+        KeyStore loadedKeyStore = manager.loadKeyStore(keyStoreFilePath, keyStorePassword);
         
         // Retrieve the key
-        SecretKey retrievedKey = KeyStoreManager.getSecretKey(loadedKeyStore, secretKeyAlias, keyPassword);
+        // FIX: Use instance
+        SecretKey retrievedKey = manager.getSecretKey(loadedKeyStore, secretKeyAlias, keyPassword);
 
         assertThat(retrievedKey).isNotNull();
         assertThat(retrievedKey.getAlgorithm()).isEqualTo("AES");
@@ -125,6 +133,7 @@ class CryptographyIntegrationTest {
         assertThat(vaultFile).doesNotExist();
 
         // Act
+        // Cryptography.main() calls Cryptography.main() which now instantiates KeyStoreManager internally, so this is fine.
         Cryptography.main(null);
 
         // Assert

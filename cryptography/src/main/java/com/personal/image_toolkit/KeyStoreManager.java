@@ -34,7 +34,7 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
  * A comprehensive example for managing a Java KeyStore.
  * This class demonstrates loading, saving, storing keys, and retrieving keys.
  */
-public class KeyStoreManager {
+public class KeyStoreManager implements KeyStoreManagerInterface {
 
     /**
      * The type of KeyStore instance to use, typically "PKCS12".
@@ -60,7 +60,7 @@ public class KeyStoreManager {
      * @throws NoSuchAlgorithmException If the algorithm for checking the integrity of the KeyStore cannot be found.
      * @throws CertificateException If any of the certificates in the KeyStore could not be loaded.
      */
-    public static KeyStore loadKeyStore(String fileName, char[] password)
+    public KeyStore loadKeyStore(String fileName, char[] password)
             throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException {
 
         KeyStore keyStore = KeyStore.getInstance(KEYSTORE_TYPE);
@@ -89,7 +89,7 @@ public class KeyStoreManager {
      * @throws NoSuchAlgorithmException If the algorithm for creating the integrity protection of the KeyStore cannot be found.
      * @throws CertificateException If any of the certificates in the KeyStore could not be stored.
      */
-    public static void saveKeyStore(KeyStore keyStore, String fileName, char[] password)
+    public void saveKeyStore(KeyStore keyStore, String fileName, char[] password)
             throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException {
 
         try (FileOutputStream fos = new FileOutputStream(fileName)) {
@@ -106,7 +106,7 @@ public class KeyStoreManager {
      * @throws NoSuchAlgorithmException If the AES algorithm for key generation is not available.
      * @throws KeyStoreException If an error occurs while setting the key entry in the KeyStore.
      */
-    public static void storeSecretKey(KeyStore keyStore, String alias, char[] keyPassword)
+    public void storeSecretKey(KeyStore keyStore, String alias, char[] keyPassword)
             throws NoSuchAlgorithmException, KeyStoreException {
 
         KeyGenerator keyGen = KeyGenerator.getInstance("AES");
@@ -131,7 +131,7 @@ public class KeyStoreManager {
      * @throws UnrecoverableEntryException If the entry could not be recovered (e.g., incorrect key password).
      * @throws KeyStoreException If an error occurs while attempting to access the entry.
      */
-    public static SecretKey getSecretKey(KeyStore keyStore, String alias, char[] keyPassword)
+    public SecretKey getSecretKey(KeyStore keyStore, String alias, char[] keyPassword)
             throws NoSuchAlgorithmException, UnrecoverableEntryException, KeyStoreException {
 
         KeyStore.ProtectionParameter protParam = new KeyStore.PasswordProtection(keyPassword);
