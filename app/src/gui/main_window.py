@@ -5,25 +5,27 @@ import argparse
 import traceback
 
 from pathlib import Path
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QTimer, Qt, QSize
 from PySide6.QtGui import QIcon, QImageReader
 from PySide6.QtWidgets import (
-    QLabel, QWidget, QTabWidget, QSizePolicy,
+    QLabel, QWidget, QTabWidget, 
+    QSizePolicy, QPushButton, QStyle,
     QVBoxLayout, QHBoxLayout, QApplication,
 )
+from .windows import SettingsWindow
 from .tabs import (
+    WallpaperTab,
     MergeTab, DatabaseTab,
     ConvertTab, DeleteTab, 
     ScanMetadataTab, SearchTab, 
     ImageCrawlTab, DriveSyncTab,
-    WallpaperTab,
 )
 from .styles import GLOBAL_QSS
 from .app_definitions import NEW_LIMIT_MB
 
 
 class MainWindow(QWidget):
-    def __init__(self, dropdown=True):
+    def __init__(self, dropdown=True, app_icon=None):
         super().__init__()
         self.setWindowTitle("Image Database & Edit Toolkit")
         self.setMinimumSize(1080, 900)
@@ -34,6 +36,9 @@ class MainWindow(QWidget):
         QApplication.instance().setStyleSheet(GLOBAL_QSS)
 
         vbox = QVBoxLayout()
+        
+        # --- MODIFICATION: Initialize settings window to None ---
+        self.settings_window = None 
 
         # --- Application Header (Mimics React App Header) ---
         header_widget = QWidget()
@@ -47,12 +52,46 @@ class MainWindow(QWidget):
         header_layout.addWidget(title_label)
         header_layout.addStretch(1) 
         
+        # --- Settings (app icon) button ---
+        self.settings_button = QPushButton()
+        
+        # Use the application icon file path
+        if app_icon and os.path.exists(app_icon):
+            settings_icon = QIcon(app_icon)
+            self.settings_button.setIcon(settings_icon)
+        else:
+            # Fallback to a standard icon if the file path is not found/invalid
+            settings_icon = self.style().standardIcon(QStyle.StandardPixmap.SP_ToolBarHorizontalExtensionButton)
+            self.settings_button.setIcon(settings_icon)
+            
+        self.settings_button.setIconSize(QSize(24, 24))
+        self.settings_button.setFixedSize(QSize(36, 36))
+        self.settings_button.setObjectName("settings_button")
+        self.settings_button.setToolTip("Open Settings")
+        
+        # Style the button to be transparent and fit in
+        self.settings_button.setStyleSheet("""
+            QPushButton#settings_button {
+                background-color: transparent;
+                border: none;
+                padding: 5px;
+                border-radius: 18px; /* Make it circular */
+            }
+            QPushButton#settings_button:hover {
+                background-color: #5f646c; /* Slightly lighter shade */
+            }
+            QPushButton#settings_button:pressed {
+                background-color: #5865f2; /* Highlight color */
+            }
+        """)
+        header_layout.addWidget(self.settings_button)
+        
         vbox.addWidget(header_widget)
         
         # Tabs for subcommands
         self.tabs = QTabWidget()
         
-        # --- MODIFICATION: Create tabs in order ---
+        # --- Create tabs in order ---
         self.database_tab = DatabaseTab(dropdown=dropdown)
         self.search_tab = SearchTab(self.database_tab, dropdown=dropdown)
         self.scan_metadata_tab = ScanMetadataTab(self.database_tab, dropdown=dropdown)
@@ -63,9 +102,11 @@ class MainWindow(QWidget):
         self.drive_sync_tab = DriveSyncTab(dropdown=dropdown)
         self.wallpaper_tab = WallpaperTab(self.database_tab, dropdown=dropdown)
         
-        # --- MODIFICATION: Set references *after* all tabs are created ---
+        # --- MODIFICATION: SettingsTab instance is REMOVED from here ---
+
+        # --- Set references *after* all tabs are created ---
         self.database_tab.scan_tab_ref = self.scan_metadata_tab 
-        self.database_tab.search_tab_ref = self.search_tab # This is the missing link
+        self.database_tab.search_tab_ref = self.search_tab
 
         self.tabs.addTab(self.convert_tab, "Convert")
         self.tabs.addTab(self.merge_tab, "Merge")
@@ -76,12 +117,36 @@ class MainWindow(QWidget):
         self.tabs.addTab(self.crawler_tab, "Web Crawler")
         self.tabs.addTab(self.drive_sync_tab, "Drive Sync")
         self.tabs.addTab(self.wallpaper_tab, "Wallpaper")
+        
+        # --- MODIFICATION: Settings tab is REMOVED from here ---
 
         self.tabs.currentChanged.connect(self.on_tab_changed)
+        
+        # --- MODIFICATION: Connect settings button click to open_settings_window ---
+        self.settings_button.clicked.connect(self.open_settings_window)
         
         vbox.addWidget(self.tabs)
 
         self.setLayout(vbox)
+
+    def open_settings_window(self):
+        """
+        Instantiates and shows the SettingsWindow as a separate window.
+        Uses self.settings_window to track the instance and prevent opening duplicates.
+        """
+        if not self.settings_window:
+            # Pass 'self' as the parent so the settings window is centered over the main window
+            self.settings_window = SettingsWindow(self) 
+            self.settings_window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose) # Clean up when closed
+            # Connect the close signal to reset the reference
+            self.settings_window.destroyed.connect(lambda: self._reset_settings_window_ref())
+            
+        self.settings_window.show()
+        self.settings_window.activateWindow()
+
+    def _reset_settings_window_ref(self):
+        """Resets the settings window reference when it is closed."""
+        self.settings_window = None
 
     def on_tab_changed(self, index):
         pass
@@ -115,7 +180,7 @@ def main(args):
         except Exception as e:
             pass 
         
-        w = MainWindow(dropdown=~args['dropdown'])
+        w = MainWindow(dropdown=~args['dropdown'], app_icon=icon_file_path)
         
         # --- MODIFICATION: Call showMaximized() to open in full size ---
         w.showMaximized()

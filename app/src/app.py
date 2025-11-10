@@ -31,7 +31,7 @@ def launch_app():
     except Exception:
         pass 
     
-    w = MainWindow(dropdown=True)
+    w = MainWindow(dropdown=True, app_icon=ICON_FILE)
     w.show()
     app.exec()
 
