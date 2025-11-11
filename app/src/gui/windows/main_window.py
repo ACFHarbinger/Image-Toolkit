@@ -1,34 +1,38 @@
 import os
-import sys
-import signal
-import argparse
-import traceback
 
-from pathlib import Path
-from PySide6.QtCore import QTimer, Qt, QSize
+from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QIcon, QImageReader
 from PySide6.QtWidgets import (
     QLabel, QWidget, QTabWidget, 
     QSizePolicy, QPushButton, QStyle,
     QVBoxLayout, QHBoxLayout, QApplication,
 )
-from .windows import SettingsWindow
-from .tabs import (
+from . import SettingsWindow
+from ..tabs import (
     WallpaperTab,
     MergeTab, DatabaseTab,
     ConvertTab, DeleteTab, 
     ScanMetadataTab, SearchTab, 
     ImageCrawlTab, DriveSyncTab,
 )
-from .styles import DARK_QSS, LIGHT_QSS 
-from .app_definitions import NEW_LIMIT_MB
+from ..styles import DARK_QSS, LIGHT_QSS 
+from ..app_definitions import NEW_LIMIT_MB
+try:
+    from app.src.core.java_vault_manager import JavaVaultManager
+except:
+    from src.core.java_vault_manager import JavaVaultManager
 
 
 class MainWindow(QWidget):
-    def __init__(self, dropdown=True, app_icon=None):
+    # CRITICAL: Now requires an authenticated JavaVaultManager instance
+    def __init__(self, vault_manager: JavaVaultManager, dropdown=True, app_icon=None):
         super().__init__()
+        
+        # Store the authenticated vault manager instance
+        self.vault_manager = vault_manager
+        
         self.setWindowTitle("Image Database & Edit Toolkit")
-        self.setMinimumSize(1080, 900)
+        self.setMinimumSize(1000, 900)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         QImageReader.setAllocationLimit(NEW_LIMIT_MB)
         
@@ -47,7 +51,15 @@ class MainWindow(QWidget):
         header_layout = QHBoxLayout(header_widget)
         header_layout.setContentsMargins(10, 5, 10, 5)
         
-        title_label = QLabel("Image Database and Toolkit")
+        # Display the logged-in account name in the header
+        try:
+            # We assume the account data is in the vault. 
+            # We don't reload it here, but typically you'd cache the username.
+            account_name = self.vault_manager.load_account_credentials().get('account_name', 'Authenticated User')
+        except Exception:
+            account_name = 'Authenticated User'
+            
+        title_label = QLabel(f"Image Database and Toolkit - {account_name}")
         title_label.setStyleSheet(f"color: white; font-size: 18pt; font-weight: bold;")
         header_layout.addWidget(title_label)
         header_layout.addStretch(1) 
@@ -157,6 +169,13 @@ class MainWindow(QWidget):
             # --- Header Label (The 'Image Database and Toolkit' text) ---
             title_label = header_widget.findChild(QLabel)
             if title_label:
+                # Update the label to reflect the current account name
+                try:
+                    account_name = self.vault_manager.load_account_credentials().get('account_name', 'Authenticated User')
+                except Exception:
+                    account_name = 'Authenticated User'
+                    
+                title_label.setText(f"Image Database and Toolkit - Logged in as: {account_name}")
                 title_label.setStyleSheet(f"color: {header_label_color}; font-size: 18pt; font-weight: bold;")
 
         # Re-apply the settings button style
@@ -201,6 +220,15 @@ class MainWindow(QWidget):
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
+            # Ensure JVM shutdown on app exit
+            if self.vault_manager:
+                self.vault_manager.shutdown()
             QApplication.quit()
         else:
             super().keyPressEvent(event)
+
+    def closeEvent(self, event):
+        """Ensure JVM shutdown on main window close."""
+        if self.vault_manager:
+            self.vault_manager.shutdown()
+        super().closeEvent(event)

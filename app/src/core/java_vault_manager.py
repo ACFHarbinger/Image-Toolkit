@@ -1,6 +1,8 @@
 import jpype
-import atexit
-import getpass
+import json # Added for JSON serialization/deserialization
+import hashlib # Added for secure hashing
+import os # Added for secure salt and pepper generation
+
 try:
     import app.src.utils.definitions as udef
 except:
@@ -13,45 +15,64 @@ class JavaVaultManager:
     """
     A Python wrapper to manage the SecureJsonVault by calling
     the compiled Java code via Jpype.
-
-    This class is best used as a context manager:
-    with JavaVaultManager("path/to/my.jar") as manager:
-        manager.load_keystore(...)
-        manager.get_secret_key(...)
     """
+    @staticmethod
+    def _load_or_generate_pepper():
+        """
+        Checks for the pepper file. If it doesn't exist, it generates a new 
+        secure pepper and saves it.
+        """
+        # Ensure the directory for crypto files exists
+        os.makedirs(udef.CRYPTO_DIR, exist_ok=True)
+        
+        if os.path.exists(udef.PEPPER_FILE):
+            print(f"Loading existing pepper from: {udef.PEPPER_FILE}")
+            with open(udef.PEPPER_FILE, 'r') as f:
+                pepper = f.read().strip()
+                if not pepper:
+                    raise ValueError(f"Pepper file is empty: {udef.PEPPER_FILE}. Delete it to regenerate.")
+                return pepper
+        else:
+            print(f"Pepper file not found. Generating new pepper at: {udef.PEPPER_FILE}")
+            # Generate a strong, random pepper (32 bytes = 64 hex characters)
+            pepper = os.urandom(32).hex()
+            
+            # Save the new pepper to the file
+            with open(udef.PEPPER_FILE, 'w') as f:
+                f.write(pepper)
+            
+            # Set restrictive permissions (read-only for owner, if supported)
+            try:
+                os.chmod(udef.PEPPER_FILE, 0o400)
+            except OSError:
+                # Handle systems that don't support chmod (like some Windows systems)
+                print("Warning: Could not set restrictive file permissions on pepper file.")
+
+            return pepper
+
     def __init__(self, bc_provider_path: str = None):
         """
-        Initializes the wrapper and starts the JVM.
-
-        :param jar_path: Path to your compiled 'cryptography-1.0.0-SNAPSHOT.jar'.
-        :param bc_provider_path: (Optional) Path to the Bouncy Castle JAR 
-                                 if it's not included in an uber-jar.
+        Initializes the wrapper, starts the JVM, and loads the pepper.
         """
+        # --- Load or generate the secret pepper first ---
+        self.PEPPER = self._load_or_generate_pepper()
+
         if not jpype.isJVMStarted():
             classpath = [udef.JAR_FILE]
             if bc_provider_path:
-                # Add Bouncy Castle JARs if they are separate
                 classpath.append(f"{bc_provider_path}/*") 
                 
             print(f"Starting JVM with classpath: {classpath}")
-            jpype.startJVM(classpath=classpath)
-            # Ensure JVM shuts down when Python exits
-            atexit.register(self.shutdown)
-        
-        # Import the Java classes from your package
+            jpype.startJVM(classpath=classpath)        
         try:
             KeyStoreManagerClass = jpype.JClass("com.personal.image_toolkit.KeyStoreManager")
             self.SecureJsonVault = jpype.JClass("com.personal.image_toolkit.SecureJsonVault")
             
-            # 💡 FIX 1: Create an instance of the KeyStoreManager class
             self.keystore_manager = KeyStoreManagerClass()
             
         except jpype.JException as e:
             print("\n--- ERROR ---")
             print(f"Could not find Java class: {e}")
-            print("Did you build the 'uber-jar' with dependencies?")
-            print("Please see the 'maven-shade-plugin' example.")
-            print("-------------\n")
             raise
             
         self.JString = jpype.JClass("java.lang.String")
@@ -67,11 +88,9 @@ class JavaVaultManager:
     def load_keystore(self, keystore_path: str, keystore_pass: str):
         """
         Loads the Java KeyStore from a file.
-        Calls KeyStoreManager.loadKeyStore()
         """
         try:
             print(f"Loading keystore: {keystore_path}")
-            # 💡 FIX 2: Call the method on the instance, not the class
             self.keystore = self.keystore_manager.loadKeyStore(
                 keystore_path,
                 self._to_char_array(keystore_pass)
@@ -81,23 +100,63 @@ class JavaVaultManager:
             print(f"Java Error loading keystore: {e}")
             raise
 
+    def contains_alias(self, key_alias: str) -> bool:
+        """
+        Checks if the loaded KeyStore contains an entry for the given alias.
+        """
+        if self.keystore is None:
+            raise ValueError("Keystore is not loaded. Call load_keystore() first.")
+        
+        try:
+            return self.keystore.containsAlias(key_alias)
+        except Exception as e:
+            print(f"Java Error checking alias: {e}")
+            raise
+
+    def create_key_if_missing(self, key_alias: str, keystore_path: str, keystore_pass: str):
+        """
+        Checks if the secret key exists in the loaded KeyStore. If not,
+        it generates a new key, stores it, and saves the KeyStore file.
+        """
+        if self.keystore is None:
+            raise ValueError("Keystore is not loaded. Call load_keystore() first.")
+            
+        if not self.contains_alias(key_alias):
+            print(f"Key entry '{key_alias}' not found. Generating and storing new key...")
+            
+            # 1. Store the new key entry in the loaded keystore object (in memory)
+            self.keystore_manager.storeSecretKey(
+                self.keystore,
+                key_alias,
+                self._to_char_array(keystore_pass)
+            )
+            
+            # 2. Save the keystore to disk to persist the new key
+            self.keystore_manager.saveKeyStore(
+                self.keystore,
+                keystore_path,
+                self._to_char_array(keystore_pass)
+            )
+            print(f"Secret key created and KeyStore saved to {keystore_path}.")
+        else:
+            print(f"Key entry '{key_alias}' already exists. Skipping creation.")
+
     def get_secret_key(self, key_alias: str, key_pass: str):
         """
         Retrieves the AES SecretKey from the loaded KeyStore.
-        Calls KeyStoreManager.getSecretKey()
         """
         if self.keystore is None:
             raise ValueError("Keystore is not loaded. Call load_keystore() first.")
         
         try:
             print(f"Retrieving secret key for alias: {key_alias}")
-            # 💡 FIX 3: Call the method on the instance, not the class
             self.secret_key = self.keystore_manager.getSecretKey(
                 self.keystore,
                 key_alias,
                 self._to_char_array(key_pass)
             )
             if self.secret_key is None:
+                # This should only happen if the key type is wrong or password is bad
                 raise ValueError(f"No secret key found for alias '{key_alias}' or wrong password.")
             print("SecretKey retrieved.")
         except Exception as e:
@@ -118,7 +177,6 @@ class JavaVaultManager:
     def save_data(self, json_string: str):
         """
         Saves a JSON string to the encrypted vault.
-        Calls SecureJsonVault.saveData()
         """
         if self.vault is None:
             raise ValueError("Vault is not initialized. Call init_vault() first.")
@@ -133,17 +191,12 @@ class JavaVaultManager:
     def load_data(self) -> str:
         """
         Loads and decrypts the JSON string from the vault.
-        Calls SecureJsonVault.loadData()
-        
-        :return: The decrypted JSON as a Python string.
         """
         if self.vault is None:
             raise ValueError("Vault is not initialized. Call init_vault() first.")
             
         try:
             print("Loading data from vault...")
-            # loadData() returns a Java String, which Jpype
-            # automatically converts to a Python string.
             decrypted_data = self.vault.loadData()
             print("Data loaded and decrypted successfully.")
             return str(decrypted_data)
@@ -160,47 +213,56 @@ class JavaVaultManager:
             print("JVM shut down.")
 
     def __enter__(self):
-        """Allows use as a context manager."""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Shuts down the JVM when exiting the 'with' block."""
         self.shutdown()
         return False
+        
+    def save_account_credentials(self, account_name: str, raw_password: str):
+        """
+        Hashes and salts the raw password with the loaded pepper, then saves the 
+        account name, resulting hash, and salt to the encrypted vault.
+        """
+        # 1. Generate a secure, unique salt (16 bytes)
+        salt = os.urandom(16).hex()
+        
+        # 2. Combine all security components for hashing
+        password_combined = (raw_password + salt + self.PEPPER).encode('utf-8')
+        
+        # 3. Hash the combined string (SHA-256 is used for simplicity)
+        hashed_password = hashlib.sha256(password_combined).hexdigest()
 
+        data_to_save = {
+            "account_name": account_name,
+            "hashed_password": hashed_password,
+            "salt": salt
+        }
+        
+        json_string = json.dumps(data_to_save)
+        
+        print(f"Saving credentials for account: {account_name}")
+        self.save_data(json_string) # Uses the existing saveData() method
 
-def run_vault_operations():
-    try:
-        # Get passwords securely from user
-        keystore_pass = getpass.getpass(f"Enter password for keystore '{udef.KEYSTORE_FILE}': ")
-        key_entry_pass = getpass.getpass(f"Enter password for key alias '{udef.KEY_ALIAS}': ")
-
-        # Use the context manager to handle JVM start/stop
-        with JavaVaultManager(udef.JAR_FILE) as manager:
+    def load_account_credentials(self) -> dict:
+        """
+        Loads, decrypts, and parses the account name, hashed password, and salt
+        from the vault.
+        
+        :return: A dictionary containing the loaded credentials.
+        """
+        decrypted_json_string = self.load_data() # Uses the existing loadData() method
+        
+        try:
+            loaded_data = json.loads(decrypted_json_string)
             
-            # 1. Load the .p12 keystore
-            manager.load_keystore(udef.KEYSTORE_FILE, keystore_pass)
+            # Ensure the required keys are present
+            required_keys = ["account_name", "hashed_password", "salt"]
+            if not all(key in loaded_data for key in required_keys):
+                 raise KeyError(f"Decrypted JSON is missing one of the required keys: {required_keys}")
+                 
+            return loaded_data
             
-            # 2. Get the specific AES key
-            manager.get_secret_key(udef.KEY_ALIAS, key_entry_pass)
-            
-            # 3. Initialize the vault with that key
-            manager.init_vault(udef.VAULT_FILE)
-
-            # 4. Save data to the vault
-            json_to_save = '{"api_key": "abc-123", "secret_message": "This was encrypted by Java!"}'
-            print(f"\nSaving data to vault: {json_to_save}")
-            manager.save_data(json_to_save)
-
-            # 5. Load data back from the vault
-            print("\nLoading data from vault...")
-            loaded_data = manager.load_data()
-            print(f"Success! Decrypted data: {loaded_data}")
-            
-            assert json_to_save == loaded_data
-            print("\nVerification successful: Data matches.")
-
-    except Exception as e:
-        print(f"\n--- PYTHON ERROR ---")
-        print(f"An operation failed: {e}")
-        print("Please check your JAR path, file paths, and passwords.")
+        except (json.JSONDecodeError, KeyError) as e:
+            print(f"Error parsing loaded data: {e}")
+            raise ValueError("The vault file contains invalid or corrupted JSON data.")

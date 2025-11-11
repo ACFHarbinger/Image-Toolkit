@@ -9,12 +9,18 @@ parts = path.parts
 ROOT_DIR = Path(*parts[:parts.index('Image-Toolkit') + 1])
 
 JAR_FILE = os.path.join(ROOT_DIR, 'cryptography', 'target', 'cryptography-1.0.0-SNAPSHOT-uber.jar')
-KEYSTORE_FILE = os.path.join(ROOT_DIR, 'assets', "my_java_keystore.p12")
-VAULT_FILE = os.path.join(ROOT_DIR, 'assets', "my_secure_data.vault")
-KEY_ALIAS = os.path.join(ROOT_DIR, 'assets', "my-aes-key")
+CRYPTO_DIR = os.path.join(ROOT_DIR, 'assets', 'cryptography')
+KEYSTORE_FILE = os.path.join(CRYPTO_DIR, "my_java_keystore.p12")
+VAULT_FILE = os.path.join(CRYPTO_DIR, "my_secure_data.vault")
+PEPPER_FILE = os.path.join(CRYPTO_DIR, "pepper.txt")
+KEY_ALIAS = os.path.join("my-aes-key")
 
-ICON_FILE = os.path.join(ROOT_DIR, 'assets', 'images', "image_toolkit_icon.png")
-SERVICE_ACCOUNT_FILE = os.path.join(ROOT_DIR, 'assets', 'api', "image-toolkit-477603-189147bd1fa9.json")
+IMAGES_DIR = os.path.join(ROOT_DIR, 'assets', 'images')
+ICON_FILE = os.path.join(IMAGES_DIR, "image_toolkit_icon.png")
+
+API_DIR = os.path.join(ROOT_DIR, 'assets', 'api')
+SERVICE_ACCOUNT_FILE = os.path.join(API_DIR, "image-toolkit-477603-189147bd1fa9.json")
+
 LOCAL_SOURCE_PATH = os.path.join(ROOT_DIR, 'data')
 DRIVE_DESTINATION_FOLDER_NAME = "data"
 
