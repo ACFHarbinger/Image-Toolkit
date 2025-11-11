@@ -56,7 +56,6 @@ class DatabaseTab(BaseTab):
         
         self.button_conn_layout = QHBoxLayout()
         self.btn_connect = QPushButton("Connect to PostgreSQL")
-        self.btn_connect.setStyleSheet("background-color: #3498db; color: white; padding: 10px;")
         apply_shadow_effect(self.btn_connect, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.btn_connect.clicked.connect(self.connect_database)
         self.button_conn_layout.addWidget(self.btn_connect)

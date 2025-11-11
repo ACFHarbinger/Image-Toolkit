@@ -1,4 +1,4 @@
-from PySide6.QtGui import QColor # Required for shadow color
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QGraphicsDropShadowEffect 
 
 
@@ -20,139 +20,242 @@ def apply_shadow_effect(widget, color_hex="#000000", radius=10, x_offset=0, y_of
     return shadow
 
 
+# --- THEME DEFINITIONS ---
+# Dark Theme Accent (Cyan/Teal)
+DARK_ACCENT_COLOR = "#00bcd4"
+DARK_ACCENT_HOVER = "#0097a7"
+DARK_ACCENT_PRESSED = "#00838f"
+DARK_ACCENT_MUTED = "#3e3e3e"
 
-# --- GLOBAL STYLE SHEET (QSS) to mimic React/Tailwind Dark Mode ---
-GLOBAL_QSS = """
-    /* --- MODERN GLOBAL STYLE SHEET (QSS) - Corrected --- */
-    /* Accent Color: #00bcd4 (Cyan/Teal) */
-    /* Background Color: #1e1e1e (Soft Dark Gray) */
-    /* Secondary Background: #2d2d30 (Slightly Lighter) */
+# Dark Theme Backgrounds/Text
+DARK_BG = "#1e1e1e"
+DARK_SECONDARY_BG = "#2d2d30"
+DARK_TEXT = "#cccccc"
+DARK_MUTED_TEXT = "#888888"
+DARK_BORDER = "#3e3e3e"
 
-    QWidget, QMainWindow, QDialog {
-        background-color: #1e1e1e;
-        color: #cccccc;
+# Light Theme Accent (Professional Blue)
+LIGHT_ACCENT_COLOR = "#007AFF"
+LIGHT_ACCENT_HOVER = "#0056b3"
+LIGHT_ACCENT_PRESSED = "#004085"
+
+# Light Theme Backgrounds/Text
+LIGHT_BG = "#f5f5f5"
+LIGHT_SECONDARY_BG = "#ffffff"
+LIGHT_TEXT = "#1e1e1e"
+LIGHT_MUTED_TEXT = "#555555"
+LIGHT_BORDER = "#cccccc"
+
+
+# --- DARK THEME QSS ---
+DARK_QSS = f"""
+    /* --- DARK THEME STYLE SHEET (Cyan Accent) --- */
+    QWidget, QMainWindow, QDialog {{
+        background-color: {DARK_BG};
+        color: {DARK_TEXT};
         font-family: 'Segoe UI', 'Arial', sans-serif;
         font-size: 10pt;
-    }
+    }}
 
-    /* --- Buttons (Sleek, Lifted) --- */
-    QPushButton {
-        /* Subtle gradient for a modern look */
-        background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #00bcd4, stop: 1 #0097a7);
+    /* --- Buttons --- */
+    QPushButton {{
+        background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 {DARK_ACCENT_COLOR}, stop: 1 {DARK_ACCENT_HOVER});
         color: white;
         border: none;
         padding: 10px 18px;
         border-radius: 6px;
         font-weight: 600;
-    }
-    QPushButton:hover {
-        background: #00bcd4; /* Flat color on hover */
-    }
-    QPushButton:pressed {
-        background: #00838f; /* Darker teal when pressed */
-        padding-top: 12px; /* Simulate downward press */
+    }}
+    QPushButton:hover {{
+        background: {DARK_ACCENT_COLOR};
+    }}
+    QPushButton:pressed {{
+        background: {DARK_ACCENT_PRESSED};
+        padding-top: 12px;
         padding-bottom: 8px;
-    }
-    QPushButton:disabled {
-        background-color: #3e3e3e;
-        color: #888888;
-    }
+    }}
+    QPushButton:disabled {{
+        background-color: {DARK_ACCENT_MUTED};
+        color: {DARK_MUTED_TEXT};
+    }}
 
-    /* --- Tab Widget Styling (Minimalist) --- */
-    QTabWidget::pane {
-        border: 1px solid #3e3e3e;
-        background-color: #1e1e1e;
+    /* --- Tab Widget Styling --- */
+    QTabWidget::pane {{
+        border: 1px solid {DARK_BORDER};
+        background-color: {DARK_BG};
         border-radius: 8px;
-    }
-    QTabBar::tab {
-        background: #2d2d30;
+    }}
+    QTabBar::tab {{
+        background: {DARK_SECONDARY_BG};
         color: #aaaaaa;
         padding: 10px 20px;
         border: none;
         border-top-left-radius: 6px;
         border-top-right-radius: 6px;
         margin-right: 2px;
-    }
-    QTabBar::tab:selected {
-        background: #1e1e1e;
-        color: #00bcd4;
-        border-bottom: 2px solid #00bcd4;
+    }}
+    QTabBar::tab:selected {{
+        background: {DARK_BG};
+        color: {DARK_ACCENT_COLOR};
+        border-bottom: 2px solid {DARK_ACCENT_COLOR};
         font-weight: bold;
-    }
-    QTabBar::tab:hover:!selected {
-        background: #3e3e3e;
-        color: #cccccc;
-    }
+    }}
+    QTabBar::tab:hover:!selected {{
+        background: {DARK_BORDER};
+        color: {DARK_TEXT};
+    }}
 
-    /* --- Input Fields (Focus Highlighting) --- */
-    QLineEdit, QComboBox, QSpinBox, QTextEdit {
-        background-color: #2d2d30;
-        color: #cccccc;
-        border: 1px solid #3e3e3e;
+    /* --- Input Fields --- */
+    QLineEdit, QComboBox, QSpinBox, QTextEdit {{
+        background-color: {DARK_SECONDARY_BG};
+        color: {DARK_TEXT};
+        border: 1px solid {DARK_BORDER};
         padding: 8px;
         border-radius: 4px;
-        selection-background-color: #00bcd4;
+        selection-background-color: {DARK_ACCENT_COLOR};
         selection-color: white;
-    }
+    }}
 
-    QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QTextEdit:focus {
-        border: 1px solid #00bcd4;
+    QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QTextEdit:focus {{
+        border: 1px solid {DARK_ACCENT_COLOR};
         background-color: #363639;
-    }
+    }}
 
-    /* --- Group Boxes (Cleaner Accent) --- */
-    QGroupBox {
-        border: 1px solid #3e3e3e;
+    /* --- Group Boxes --- */
+    QGroupBox {{
+        border: 1px solid {DARK_BORDER};
         margin-top: 25px;
         border-radius: 8px;
         padding-top: 15px;
-    }
-    QGroupBox::title {
+    }}
+    QGroupBox::title {{
         subcontrol-origin: margin;
         subcontrol-position: top center;
         padding: 0 12px;
-        background-color: #00bcd4;
+        background-color: {DARK_ACCENT_COLOR};
         color: white;
         font-size: 11pt;
         border-radius: 4px;
-    }
+    }}
 
     /* --- Labels --- */
-    QLabel {
-        color: #cccccc;
+    QLabel {{
+        color: {DARK_TEXT};
         background-color: transparent;
-    }
-
-    /* --- Scroll Area --- */
-    QScrollArea {
-        border: 1px solid #3e3e3e;
-        border-radius: 8px;
-    }
-
-    /* --- Scroll Bar Styling (Subtle Dark Mode) --- */
-    QScrollBar:vertical, QScrollBar:horizontal {
-        border: none;
-        background: #1e1e1e;
-        width: 8px;
-        height: 8px;
-    }
-    QScrollBar::handle:vertical, QScrollBar::handle:horizontal {
-        background: #555555;
-        min-height: 20px;
-        min-width: 20px;
-        border-radius: 4px;
-    }
-    QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover {
-        background: #777777;
-    }
-    QScrollBar::add-line, QScrollBar::sub-line {
-        border: none;
-        background: none;
-    }
+    }}
 
     /* --- Header Widget Fix --- */
-    QWidget#header_widget {
-        background-color: #2d2d30;
-        border-bottom: 2px solid #00bcd4;
-    }
+    QWidget#header_widget {{
+        background-color: {DARK_SECONDARY_BG};
+        border-bottom: 2px solid {DARK_ACCENT_COLOR};
+    }}
 """
+
+
+# --- LIGHT THEME QSS ---
+LIGHT_QSS = f"""
+    /* --- LIGHT THEME STYLE SHEET (Blue Accent) --- */
+    QWidget, QMainWindow, QDialog {{
+        background-color: {LIGHT_BG};
+        color: {LIGHT_TEXT};
+        font-family: 'Segoe UI', 'Arial', sans-serif;
+        font-size: 10pt;
+    }}
+
+    /* --- Buttons --- */
+    QPushButton {{
+        background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 {LIGHT_ACCENT_COLOR}, stop: 1 {LIGHT_ACCENT_HOVER});
+        color: white;
+        border: 1px solid {LIGHT_ACCENT_HOVER};
+        padding: 10px 18px;
+        border-radius: 6px;
+        font-weight: 600;
+    }}
+    QPushButton:hover {{
+        background: {LIGHT_ACCENT_COLOR};
+    }}
+    QPushButton:pressed {{
+        background: {LIGHT_ACCENT_PRESSED};
+        padding-top: 12px;
+        padding-bottom: 8px;
+    }}
+    QPushButton:disabled {{
+        background-color: {LIGHT_BORDER};
+        color: {LIGHT_MUTED_TEXT};
+        border-color: {LIGHT_BORDER};
+    }}
+
+    /* --- Tab Widget Styling --- */
+    QTabWidget::pane {{
+        border: 1px solid {LIGHT_BORDER};
+        background-color: {LIGHT_BG};
+        border-radius: 8px;
+    }}
+    QTabBar::tab {{
+        background: {LIGHT_SECONDARY_BG};
+        color: {LIGHT_TEXT};
+        padding: 10px 20px;
+        border: none;
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+        margin-right: 2px;
+    }}
+    QTabBar::tab:selected {{
+        background: {LIGHT_BG};
+        color: {LIGHT_ACCENT_COLOR};
+        border-bottom: 2px solid {LIGHT_ACCENT_COLOR};
+        font-weight: bold;
+    }}
+    QTabBar::tab:hover:!selected {{
+        background: {LIGHT_BORDER};
+        color: {LIGHT_TEXT};
+    }}
+
+    /* --- Input Fields --- */
+    QLineEdit, QComboBox, QSpinBox, QTextEdit {{
+        background-color: {LIGHT_SECONDARY_BG};
+        color: {LIGHT_TEXT};
+        border: 1px solid {LIGHT_BORDER};
+        padding: 8px;
+        border-radius: 4px;
+        selection-background-color: {LIGHT_ACCENT_COLOR};
+        selection-color: white;
+    }}
+
+    QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QTextEdit:focus {{
+        border: 1px solid {LIGHT_ACCENT_COLOR};
+        background-color: {LIGHT_SECONDARY_BG};
+    }}
+
+    /* --- Group Boxes --- */
+    QGroupBox {{
+        border: 1px solid {LIGHT_BORDER};
+        margin-top: 25px;
+        border-radius: 8px;
+        padding-top: 15px;
+    }}
+    QGroupBox::title {{
+        subcontrol-origin: margin;
+        subcontrol-position: top center;
+        padding: 0 12px;
+        background-color: {LIGHT_ACCENT_COLOR};
+        color: white;
+        font-size: 11pt;
+        border-radius: 4px;
+    }}
+
+    /* --- Labels --- */
+    QLabel {{
+        color: {LIGHT_TEXT};
+        background-color: transparent;
+    }}
+
+    /* --- Header Widget Fix --- */
+    QWidget#header_widget {{
+        background-color: {DARK_SECONDARY_BG}; /* Keep dark header for contrast */
+        border-bottom: 2px solid {LIGHT_ACCENT_COLOR}; /* Use light theme accent color for border */
+    }}
+"""
+
+# Default export (for backward compatibility)
+GLOBAL_QSS = DARK_QSS

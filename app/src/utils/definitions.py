@@ -7,14 +7,14 @@ from pathlib import Path
 path = Path(os.getcwd())
 parts = path.parts
 ROOT_DIR = Path(*parts[:parts.index('Image-Toolkit') + 1])
-ICON_FILE = os.path.join(ROOT_DIR, 'app', 'src', 'images', "image_toolkit_icon.png")
 
 JAR_FILE = os.path.join(ROOT_DIR, 'cryptography', 'target', 'cryptography-1.0.0-SNAPSHOT-uber.jar')
 KEYSTORE_FILE = os.path.join(ROOT_DIR, 'assets', "my_java_keystore.p12")
 VAULT_FILE = os.path.join(ROOT_DIR, 'assets', "my_secure_data.vault")
 KEY_ALIAS = os.path.join(ROOT_DIR, 'assets', "my-aes-key")
 
-SERVICE_ACCOUNT_FILE = os.path.join(ROOT_DIR, 'assets', "image-toolkit-477603-189147bd1fa9.json")
+ICON_FILE = os.path.join(ROOT_DIR, 'assets', 'images', "image_toolkit_icon.png")
+SERVICE_ACCOUNT_FILE = os.path.join(ROOT_DIR, 'assets', 'api', "image-toolkit-477603-189147bd1fa9.json")
 LOCAL_SOURCE_PATH = os.path.join(ROOT_DIR, 'data')
 DRIVE_DESTINATION_FOLDER_NAME = "data"
 

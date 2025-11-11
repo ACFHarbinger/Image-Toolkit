@@ -20,7 +20,7 @@ from .tabs import (
     ScanMetadataTab, SearchTab, 
     ImageCrawlTab, DriveSyncTab,
 )
-from .styles import GLOBAL_QSS
+from .styles import DARK_QSS, LIGHT_QSS 
 from .app_definitions import NEW_LIMIT_MB
 
 
@@ -32,35 +32,33 @@ class MainWindow(QWidget):
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         QImageReader.setAllocationLimit(NEW_LIMIT_MB)
         
-        # Apply the global style sheet
-        QApplication.instance().setStyleSheet(GLOBAL_QSS)
+        # Initialize theme tracker
+        self.current_theme = "dark"
 
         vbox = QVBoxLayout()
         
-        # --- MODIFICATION: Initialize settings window to None ---
         self.settings_window = None 
 
         # --- Application Header (Mimics React App Header) ---
         header_widget = QWidget()
         header_widget.setObjectName("header_widget")
-        header_widget.setStyleSheet("background-color: #4f545c; padding: 10px; border-bottom: 2px solid #5865f2;")
+        # NOTE: Initial style is set for Dark Theme default
+        header_widget.setStyleSheet(f"background-color: #2d2d30; padding: 10px; border-bottom: 2px solid #00bcd4;")
         header_layout = QHBoxLayout(header_widget)
         header_layout.setContentsMargins(10, 5, 10, 5)
         
         title_label = QLabel("Image Database and Toolkit")
-        title_label.setStyleSheet("color: white; font-size: 18pt; font-weight: bold;")
+        title_label.setStyleSheet(f"color: white; font-size: 18pt; font-weight: bold;")
         header_layout.addWidget(title_label)
         header_layout.addStretch(1) 
         
-        # --- Settings (app icon) button ---
+        # --- Settings (app icon) button (self.settings_button is created here) ---
         self.settings_button = QPushButton()
         
-        # Use the application icon file path
         if app_icon and os.path.exists(app_icon):
             settings_icon = QIcon(app_icon)
             self.settings_button.setIcon(settings_icon)
         else:
-            # Fallback to a standard icon if the file path is not found/invalid
             settings_icon = self.style().standardIcon(QStyle.StandardPixmap.SP_ToolBarHorizontalExtensionButton)
             self.settings_button.setIcon(settings_icon)
             
@@ -69,20 +67,14 @@ class MainWindow(QWidget):
         self.settings_button.setObjectName("settings_button")
         self.settings_button.setToolTip("Open Settings")
         
-        # Style the button to be transparent and fit in
-        self.settings_button.setStyleSheet("""
-            QPushButton#settings_button {
+        # NOTE: Initial style will be overwritten by set_application_theme()
+        self.settings_button.setStyleSheet(f"""
+            QPushButton#settings_button {{
                 background-color: transparent;
                 border: none;
                 padding: 5px;
-                border-radius: 18px; /* Make it circular */
-            }
-            QPushButton#settings_button:hover {
-                background-color: #5f646c; /* Slightly lighter shade */
-            }
-            QPushButton#settings_button:pressed {
-                background-color: #5865f2; /* Highlight color */
-            }
+                border-radius: 18px; 
+            }}
         """)
         header_layout.addWidget(self.settings_button)
         
@@ -102,8 +94,6 @@ class MainWindow(QWidget):
         self.drive_sync_tab = DriveSyncTab(dropdown=dropdown)
         self.wallpaper_tab = WallpaperTab(self.database_tab, dropdown=dropdown)
         
-        # --- MODIFICATION: SettingsTab instance is REMOVED from here ---
-
         # --- Set references *after* all tabs are created ---
         self.database_tab.scan_tab_ref = self.scan_metadata_tab 
         self.database_tab.search_tab_ref = self.search_tab
@@ -118,27 +108,81 @@ class MainWindow(QWidget):
         self.tabs.addTab(self.drive_sync_tab, "Drive Sync")
         self.tabs.addTab(self.wallpaper_tab, "Wallpaper")
         
-        # --- MODIFICATION: Settings tab is REMOVED from here ---
-
         self.tabs.currentChanged.connect(self.on_tab_changed)
         
-        # --- MODIFICATION: Connect settings button click to open_settings_window ---
         self.settings_button.clicked.connect(self.open_settings_window)
         
         vbox.addWidget(self.tabs)
 
         self.setLayout(vbox)
+        
+        # --- CRITICAL FIX: Apply theme after all widgets are initialized ---
+        self.set_application_theme(self.current_theme)
+
+    # --- Theme Switching Logic ---
+    def set_application_theme(self, theme_name):
+        """Applies the selected theme (QSS) to the entire application."""
+        # Theme specific colors
+        if theme_name == "dark":
+            qss = DARK_QSS
+            self.current_theme = "dark"
+            # Settings button styles
+            hover_bg = "#5f646c"
+            pressed_bg = "#00bcd4"
+            accent_color = "#00bcd4"
+            # Header label styles (Dark theme header is always dark BG)
+            header_label_color = "white"
+            header_widget_bg = "#2d2d30"
+        elif theme_name == "light":
+            qss = LIGHT_QSS
+            self.current_theme = "light"
+            # Settings button styles
+            hover_bg = "#cccccc" 
+            pressed_bg = "#007AFF"
+            accent_color = "#007AFF"
+            # Header label styles (User request: Black text on White background)
+            header_label_color = "#1e1e1e" # Black text
+            header_widget_bg = "#ffffff" # White background
+        else:
+            return 
+            
+        QApplication.instance().setStyleSheet(qss)
+        
+        # --- Header Widget (The bar itself) ---
+        header_widget = self.findChild(QWidget, "header_widget")
+        if header_widget:
+            # Apply background and blue dash border
+            header_widget.setStyleSheet(f"background-color: {header_widget_bg}; padding: 10px; border-bottom: 2px solid {accent_color};")
+            
+            # --- Header Label (The 'Image Database and Toolkit' text) ---
+            title_label = header_widget.findChild(QLabel)
+            if title_label:
+                title_label.setStyleSheet(f"color: {header_label_color}; font-size: 18pt; font-weight: bold;")
+
+        # Re-apply the settings button style
+        self.settings_button.setStyleSheet(f"""
+            QPushButton#settings_button {{
+                background-color: transparent;
+                border: none;
+                padding: 5px;
+                border-radius: 18px; 
+            }}
+            QPushButton#settings_button:hover {{
+                background-color: {hover_bg}; 
+            }}
+            QPushButton#settings_button:pressed {{
+                background-color: {pressed_bg}; 
+            }}
+        """)
+
 
     def open_settings_window(self):
         """
         Instantiates and shows the SettingsWindow as a separate window.
-        Uses self.settings_window to track the instance and prevent opening duplicates.
         """
         if not self.settings_window:
-            # Pass 'self' as the parent so the settings window is centered over the main window
             self.settings_window = SettingsWindow(self) 
-            self.settings_window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose) # Clean up when closed
-            # Connect the close signal to reset the reference
+            self.settings_window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose) 
             self.settings_window.destroyed.connect(lambda: self._reset_settings_window_ref())
             
         self.settings_window.show()
@@ -160,45 +204,3 @@ class MainWindow(QWidget):
             QApplication.quit()
         else:
             super().keyPressEvent(event)
-
-
-def main(args):
-    app = QApplication(sys.argv)
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
-    timer = QTimer()
-    timer.start(100) 
-    timer.timeout.connect(lambda: None) 
-
-    path = Path(os.getcwd())
-    parts = path.parts
-    icon_file_path = os.path.join(Path(*parts[:parts.index('Image-Toolkit') + 1]), 
-                                    'src', 'images', "image_toolkit_icon.png")
-    try:
-        try:
-            app_icon = QIcon(icon_file_path)
-            app.setWindowIcon(app_icon)
-        except Exception as e:
-            pass 
-        
-        w = MainWindow(dropdown=~args['dropdown'], app_icon=icon_file_path)
-        
-        # --- MODIFICATION: Call showMaximized() to open in full size ---
-        w.showMaximized()
-        
-        exit_code = app.exec()
-    except KeyboardInterrupt:
-        print("\nExiting due to Ctrl+C...")
-        exit_code = 2
-    except Exception as e:
-        exit_code = 1
-        traceback.print_exc(file=sys.stdout)
-        print("###############" * 10)
-        print(e)
-    finally:
-        sys.exit(exit_code)
-
-
-if __name__ =="__main__":
-    gui_parser = argparse.ArgumentParser(add_help=False)
-    gui_parser.add_argument('--no_dropdown', action='store_true', help="Disable dropdown buttons for optional fields")
-    main(vars(gui_parser.parse_args()))
