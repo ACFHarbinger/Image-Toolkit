@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (
     QLabel, QWidget, QSizePolicy,
     QVBoxLayout, QGroupBox, QFormLayout,
     QLineEdit, QRadioButton, QHBoxLayout,
-    QPushButton
+    QPushButton, QMessageBox
 )
 
 
@@ -12,7 +12,6 @@ class SettingsWindow(QWidget):
     A standalone widget for the application settings, displayed as a modal window.
     """
     def __init__(self, parent=None):
-        # CRITICAL FIX: Removed 'parent' from super() call but kept Qt.Window
         super().__init__(None, Qt.Window) 
         
         # Store a reference to the main window to call theme switching
@@ -103,7 +102,7 @@ class SettingsWindow(QWidget):
         
         self.update_button = QPushButton("Update settings")
         self.update_button.setObjectName("update_button")
-        self.update_button.clicked.connect(self.update_settings)
+        self.update_button.clicked.connect(self.confirm_update_settings) # Connect to confirmation method
 
         actions_layout.addWidget(self.reset_button)
         actions_layout.addStretch(1) 
@@ -112,7 +111,19 @@ class SettingsWindow(QWidget):
         main_layout.addWidget(actions_widget)
 
 
-    def update_settings(self):
+    def confirm_update_settings(self):
+        """Shows a confirmation dialog before calling update_settings_logic."""
+        
+        # Use QMessageBox.question for confirmation
+        reply = QMessageBox.question(self, 'Confirm Update', 
+            "Are you sure you want to update the app's settings?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, 
+            QMessageBox.StandardButton.No)
+
+        if reply == QMessageBox.StandardButton.Yes:
+            self._update_settings_logic()
+
+    def _update_settings_logic(self):
         """Saves settings (account info, theme preference) and closes the window."""
         account = self.account_input.text()
         password = self.password_input.text()
@@ -122,12 +133,6 @@ class SettingsWindow(QWidget):
             selected_theme = "dark"
         elif self.light_theme_radio.isChecked():
             selected_theme = "light"
-
-        print(f"--- Settings Updated ---")
-        print(f"Account: {account}")
-        print(f"Password: {'*' * len(password)}")
-        print(f"Theme: {selected_theme}")
-        print(f"------------------------")
 
         # Apply the new theme if it changed
         if self.main_window_ref and selected_theme:
@@ -143,5 +148,3 @@ class SettingsWindow(QWidget):
         # Default theme is Dark
         self.dark_theme_radio.setChecked(True)
         self.light_theme_radio.setChecked(False)
-        
-        print("Settings fields reset to default.")
