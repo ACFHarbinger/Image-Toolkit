@@ -18,6 +18,11 @@ SERVICE_ACCOUNT_FILE = os.path.join(ROOT_DIR, 'assets', "image-toolkit-477603-18
 LOCAL_SOURCE_PATH = os.path.join(ROOT_DIR, 'data')
 DRIVE_DESTINATION_FOLDER_NAME = "data"
 
+# GUI settings
+CTRL_C_TIMEOUT = 2.0
+
+APP_STYLES = ['fusion', 'windows', 'windowsxp', 'macintosh']
+
 # Image manipulation
 SUPPORTED_IMG_FORMATS = ['webp', 'avif', 'png', 'jpg', 'jpeg', 'bmp', 'gif', 'tiff']
 

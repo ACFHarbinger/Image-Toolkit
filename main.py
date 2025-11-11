@@ -12,7 +12,7 @@ from PySide6.QtGui import QIcon
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 from app.src import (
-    ICON_FILE, parse_args,
+    launch_app, parse_args,
     log_uncaught_exceptions,
     GoogleDriveSync,
     MainWindow, FSETool,
@@ -75,26 +75,7 @@ def main(comm, args):
         elif comm == 'gui':
             # Set the global exception hook at the very beginning
             sys.excepthook = log_uncaught_exceptions
-            
-            # This allows the Python interpreter to process signals (like SIGINT).
-            signal.signal(signal.SIGINT, signal.SIG_DFL)
-            timer = QTimer()
-            timer.start(100) # Check every 100 milliseconds
-            timer.timeout.connect(lambda: None) # Do nothing, just wake up Python
-
-            app = QApplication(sys.argv)
-            try:
-                # 1. Create a QIcon instance from the image file
-                app_icon = QIcon(ICON_FILE)
-                
-                # 2. Set the icon for the entire application
-                # This ensures the icon appears in the taskbar and title bar.
-                app.setWindowIcon(app_icon)
-            except Exception as e:
-                print(f"Warning: Failed to set application icon. Ensure '{ICON_FILE}' exists. Error: {e}")
-            w = MainWindow(dropdown=~args['no_dropdown'], app_icon=ICON_FILE)
-            w.show()
-            exit_code = app.exec()
+            exit_code = launch_app(args)
         elif comm == 'database':
             return
     except KeyboardInterrupt:

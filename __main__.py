@@ -8,4 +8,4 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 
 if __name__ == "__main__":
-    launch_app()
+    launch_app({'no_dropdown': False})
