@@ -12,12 +12,27 @@ class SettingsWindow(QWidget):
     A standalone widget for the application settings, displayed as a modal window.
     """
     def __init__(self, parent=None):
-        super().__init__(None, Qt.Window) 
-        
         # Store a reference to the main window to call theme switching
         self.main_window_ref = parent 
         
+        super().__init__(None, Qt.Window) 
+        
         self.setWindowTitle("Application Settings") 
+        
+        # Reference to the Vault Manager from MainWindow
+        self.vault_manager = self.main_window_ref.vault_manager if self.main_window_ref else None
+
+        # Load initial credentials
+        self.current_account_name = "N/A"
+        if self.vault_manager:
+            try:
+                # Assuming load_account_credentials handles the initial decryption check
+                creds = self.vault_manager.load_account_credentials()
+                self.current_account_name = creds.get('account_name', 'N/A')
+            except Exception:
+                # Vault not initialized/loaded in some context, ignore for settings display
+                pass
+
 
         main_layout = QVBoxLayout(self)
 
@@ -52,17 +67,22 @@ class SettingsWindow(QWidget):
 
 
         # --- Login Information Section ---
-        login_groupbox = QGroupBox("Login information")
+        login_groupbox = QGroupBox("Account Information")
         login_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         login_layout = QFormLayout(login_groupbox)
         login_layout.setContentsMargins(10, 10, 10, 10)
         
         self.account_input = QLineEdit()
-        self.password_input = QLineEdit()
-        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.account_input.setReadOnly(True) # Account name cannot be changed
+        self.account_input.setText(self.current_account_name)
         
-        login_layout.addRow(QLabel("Account:"), self.account_input)
-        login_layout.addRow(QLabel("Password:"), self.password_input)
+        # Only New Password field is required for the reset
+        self.new_password_input = QLineEdit()
+        self.new_password_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.new_password_input.setPlaceholderText("Enter NEW Password to reset")
+        
+        login_layout.addRow(QLabel("Account Name:"), self.account_input)
+        login_layout.addRow(QLabel("New Password:"), self.new_password_input)
         
         content_layout.addWidget(login_groupbox)
         
@@ -124,15 +144,34 @@ class SettingsWindow(QWidget):
             self._update_settings_logic()
 
     def _update_settings_logic(self):
-        """Saves settings (account info, theme preference) and closes the window."""
-        account = self.account_input.text()
-        password = self.password_input.text()
+        """Saves settings (theme preference, and potentially new password) and closes the window."""
+        new_password = self.new_password_input.text().strip()
         
-        selected_theme = None
-        if self.dark_theme_radio.isChecked():
-            selected_theme = "dark"
-        elif self.light_theme_radio.isChecked():
-            selected_theme = "light"
+        # --- Handle Password Change ---
+        if new_password:
+            if not self.vault_manager:
+                QMessageBox.critical(self, "Update Failed", "Vault manager is not available.")
+                return
+
+            try:
+                # Call the data-preserving update method
+                self.vault_manager.update_account_password(
+                    self.current_account_name, 
+                    new_password
+                )
+                
+                # Update the MainWindow's account name display if necessary
+                if self.main_window_ref:
+                    self.main_window_ref.update_header()
+                    
+                QMessageBox.information(self, "Success", "Master password successfully updated! All data was preserved.")
+                
+            except Exception as e:
+                QMessageBox.critical(self, "Update Failed", f"Failed to update master password: {e}")
+                return
+        
+        # --- Handle Theme Change ---
+        selected_theme = "dark" if self.dark_theme_radio.isChecked() else "light"
 
         # Apply the new theme if it changed
         if self.main_window_ref and selected_theme:
@@ -142,8 +181,8 @@ class SettingsWindow(QWidget):
 
     def reset_settings(self):
         """Resets settings fields to hardcoded defaults (placeholder)."""
-        self.account_input.clear()
-        self.password_input.clear()
+        # Account field is read-only, only clear password inputs
+        self.new_password_input.clear()
         
         # Default theme is Dark
         self.dark_theme_radio.setChecked(True)

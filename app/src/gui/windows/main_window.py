@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QIcon, QImageReader
 from PySide6.QtWidgets import (
     QLabel, QWidget, QTabWidget, 
-    QSizePolicy, QPushButton, QStyle,
+    QSizePolicy, QPushButton, QStyle, QComboBox, # <-- QComboBox is now imported
     QVBoxLayout, QHBoxLayout, QApplication,
 )
 from . import SettingsWindow
@@ -15,7 +15,7 @@ from ..tabs import (
     ScanMetadataTab, SearchTab, 
     ImageCrawlTab, DriveSyncTab,
 )
-from ..styles import DARK_QSS, LIGHT_QSS 
+from ..styles import DARK_QSS, LIGHT_QSS
 from ..app_definitions import NEW_LIMIT_MB
 try:
     from app.src.core.java_vault_manager import JavaVaultManager
@@ -24,7 +24,6 @@ except:
 
 
 class MainWindow(QWidget):
-    # CRITICAL: Now requires an authenticated JavaVaultManager instance
     def __init__(self, vault_manager: JavaVaultManager, dropdown=True, app_icon=None):
         super().__init__()
         
@@ -32,7 +31,7 @@ class MainWindow(QWidget):
         self.vault_manager = vault_manager
         
         self.setWindowTitle("Image Database & Edit Toolkit")
-        self.setMinimumSize(1000, 900)
+        self.setMinimumSize(950, 950)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         QImageReader.setAllocationLimit(NEW_LIMIT_MB)
         
@@ -43,18 +42,15 @@ class MainWindow(QWidget):
         
         self.settings_window = None 
 
-        # --- Application Header (Mimics React App Header) ---
+        # --- Application Header ---
         header_widget = QWidget()
         header_widget.setObjectName("header_widget")
-        # NOTE: Initial style is set for Dark Theme default
         header_widget.setStyleSheet(f"background-color: #2d2d30; padding: 10px; border-bottom: 2px solid #00bcd4;")
         header_layout = QHBoxLayout(header_widget)
         header_layout.setContentsMargins(10, 5, 10, 5)
         
         # Display the logged-in account name in the header
         try:
-            # We assume the account data is in the vault. 
-            # We don't reload it here, but typically you'd cache the username.
             account_name = self.vault_manager.load_account_credentials().get('account_name', 'Authenticated User')
         except Exception:
             account_name = 'Authenticated User'
@@ -64,9 +60,8 @@ class MainWindow(QWidget):
         header_layout.addWidget(title_label)
         header_layout.addStretch(1) 
         
-        # --- Settings (app icon) button (self.settings_button is created here) ---
+        # --- Settings button ---
         self.settings_button = QPushButton()
-        
         if app_icon and os.path.exists(app_icon):
             settings_icon = QIcon(app_icon)
             self.settings_button.setIcon(settings_icon)
@@ -79,7 +74,6 @@ class MainWindow(QWidget):
         self.settings_button.setObjectName("settings_button")
         self.settings_button.setToolTip("Open Settings")
         
-        # NOTE: Initial style will be overwritten by set_application_theme()
         self.settings_button.setStyleSheet(f"""
             QPushButton#settings_button {{
                 background-color: transparent;
@@ -92,10 +86,27 @@ class MainWindow(QWidget):
         
         vbox.addWidget(header_widget)
         
-        # Tabs for subcommands
-        self.tabs = QTabWidget()
+        # ------------------------------------------------------------------
+        # --- NEW: Command Selection (QComboBox) ---
+        # ------------------------------------------------------------------
+        command_layout = QHBoxLayout()
+        command_label = QLabel("Select Category:")
+        command_label.setStyleSheet("font-weight: 600;")
+        command_layout.addWidget(command_label)
         
-        # --- Create tabs in order ---
+        self.command_combo = QComboBox()
+        # Define the high-level categories based on the user's request
+        self.command_combo.addItems(['System Tools', 'Database Management', 'Web Integration'])
+        self.command_combo.currentTextChanged.connect(self.on_command_changed)
+        self.command_combo.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        command_layout.addWidget(self.command_combo)
+        command_layout.addStretch()
+        vbox.addLayout(command_layout)
+        
+        # ------------------------------------------------------------------
+        # --- Tab Initialization and Mapping ---
+        # ------------------------------------------------------------------
+        # Instantiate all sub-command tabs once
         self.database_tab = DatabaseTab(dropdown=dropdown)
         self.search_tab = SearchTab(self.database_tab, dropdown=dropdown)
         self.scan_metadata_tab = ScanMetadataTab(self.database_tab, dropdown=dropdown)
@@ -105,31 +116,60 @@ class MainWindow(QWidget):
         self.crawler_tab = ImageCrawlTab(dropdown=dropdown)
         self.drive_sync_tab = DriveSyncTab(dropdown=dropdown)
         self.wallpaper_tab = WallpaperTab(self.database_tab, dropdown=dropdown)
-        
-        # --- Set references *after* all tabs are created ---
+
+        # Set references *after* all tabs are created
         self.database_tab.scan_tab_ref = self.scan_metadata_tab 
         self.database_tab.search_tab_ref = self.search_tab
 
-        self.tabs.addTab(self.convert_tab, "Convert")
-        self.tabs.addTab(self.merge_tab, "Merge")
-        self.tabs.addTab(self.delete_tab, "Delete")
-        self.tabs.addTab(self.search_tab, "Search")
-        self.tabs.addTab(self.database_tab, "Database")
-        self.tabs.addTab(self.scan_metadata_tab, "Scan Metadata")
-        self.tabs.addTab(self.crawler_tab, "Web Crawler")
-        self.tabs.addTab(self.drive_sync_tab, "Drive Sync")
-        self.tabs.addTab(self.wallpaper_tab, "Wallpaper")
+        # Define the hierarchical map based on the user's request
+        self.all_tabs = {
+            'System Tools': {
+                "Convert Format": self.convert_tab,
+                "Merge Images": self.merge_tab,
+                "Delete Images": self.delete_tab,
+                "Display Wallpaper": self.wallpaper_tab,
+            }, 
+            'Database Management': {
+                "Database Configuration": self.database_tab,
+                "Search Images": self.search_tab,
+                "Scan Metadata": self.scan_metadata_tab,
+            }, 
+            'Web Integration': {
+                "Web Crawler": self.crawler_tab,
+                "Cloud Synchronization": self.drive_sync_tab,
+            }
+        }
+        # --- End Tab Initialization ---
+
+        # Tabs container (This will now hold the currently selected command's sub-tabs)
+        self.tabs = QTabWidget()
+        vbox.addWidget(self.tabs)
         
-        self.tabs.currentChanged.connect(self.on_tab_changed)
-        
+        # Set initial content based on the first item in the QComboBox
+        self.on_command_changed(self.command_combo.currentText())
+
         self.settings_button.clicked.connect(self.open_settings_window)
         
-        vbox.addWidget(self.tabs)
-
         self.setLayout(vbox)
         
         # --- CRITICAL FIX: Apply theme after all widgets are initialized ---
         self.set_application_theme(self.current_theme)
+
+
+    def on_command_changed(self, new_command: str):
+        """
+        Dynamically changes the tabs displayed in the QTabWidget based on 
+        the selection in the QComboBox.
+        """
+        # Clear existing tabs
+        self.tabs.clear()
+        
+        # Get the map of tabs for the selected command category
+        tab_map = self.all_tabs.get(new_command, {})
+        
+        # Add the tabs to the QTabWidget
+        for tab_name, tab_widget in tab_map.items():
+            self.tabs.addTab(tab_widget, tab_name)
 
     # --- Theme Switching Logic ---
     def set_application_theme(self, theme_name):
@@ -175,7 +215,7 @@ class MainWindow(QWidget):
                 except Exception:
                     account_name = 'Authenticated User'
                     
-                title_label.setText(f"Image Database and Toolkit - Logged in as: {account_name}")
+                title_label.setText(f"Image Database and Toolkit - {account_name}")
                 title_label.setStyleSheet(f"color: {header_label_color}; font-size: 18pt; font-weight: bold;")
 
         # Re-apply the settings button style

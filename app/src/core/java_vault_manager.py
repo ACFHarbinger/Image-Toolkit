@@ -1,4 +1,5 @@
 import jpype
+import time
 import json # Added for JSON serialization/deserialization
 import hashlib # Added for secure hashing
 import os # Added for secure salt and pepper generation
@@ -201,9 +202,70 @@ class JavaVaultManager:
             print("Data loaded and decrypted successfully.")
             return str(decrypted_data)
         except Exception as e:
+            # Handle empty vault file as an empty JSON object string
+            if "file not found or empty" in str(e).lower():
+                 print("Vault file is empty or not found. Returning empty JSON object.")
+                 return "{}"
+                 
             print(f"Java Error loading data: {e}")
             print("This may be due to a wrong key or file tampering.")
             raise
+    
+    def update_account_password(self, account_name: str, new_raw_pass: str):
+        """
+        Updates the master password by replacing the keystore and re-encrypting 
+        the vault data with a new key derived from the new password.
+        
+        This method is non-destructive (preserves data).
+        """
+        print("Starting master password update process (data preserving)...")
+        
+        # 1. Retrieve ALL data from the currently open vault (encrypted with OLD key)
+        try:
+            # This loads everything, including the account hash/salt
+            old_vault_content_json = self.load_data()
+            old_vault_content = json.loads(old_vault_content_json)
+        except Exception as e:
+            raise RuntimeError(f"Failed to load data from old vault before reset: {e}")
+
+        # 2. Shutdown JVM to release file locks before deleting files
+        self.shutdown() 
+        time.sleep(0.1) # Small pause to ensure file system release
+
+        # 3. Delete Old Keystore and Vault
+        if os.path.exists(udef.KEYSTORE_FILE):
+            os.remove(udef.KEYSTORE_FILE)
+            print(f"Deleted old KeyStore: {udef.KEYSTORE_FILE}")
+        
+        if os.path.exists(udef.VAULT_FILE):
+            os.remove(udef.VAULT_FILE)
+            print(f"Deleted old Vault file: {udef.VAULT_FILE}")
+            
+        # 4. Restart JVM and Establish New Cryptographic Chain
+        self.__init__() # Re-initialize the manager (starts JVM, loads pepper, etc.)
+        
+        # 5. Create new KeyStore/Key Entry/Vault with the NEW password
+        self.load_keystore(udef.KEYSTORE_FILE, new_raw_pass)
+        self.create_key_if_missing(udef.KEY_ALIAS, udef.KEYSTORE_FILE, new_raw_pass)
+        self.get_secret_key(udef.KEY_ALIAS, new_raw_pass)
+        self.init_vault(udef.VAULT_FILE)
+
+        # 6. Re-hash and update the account credentials (hash/salt) within the data
+        new_salt = os.urandom(16).hex()
+        password_combined = (new_raw_pass + new_salt + self.PEPPER).encode('utf-8')
+        new_hashed_password = hashlib.sha256(password_combined).hexdigest()
+
+        old_vault_content.update({
+            "account_name": account_name,
+            "hashed_password": new_hashed_password,
+            "salt": new_salt
+        })
+
+        # 7. Encrypt and save the updated data (with new hash/salt) to the new vault
+        new_json_string = json.dumps(old_vault_content)
+        self.save_data(new_json_string) 
+        
+        print("Master password update complete. Data preserved and re-encrypted.")
 
     def shutdown(self):
         """Shuts down the JVM if it's running."""
