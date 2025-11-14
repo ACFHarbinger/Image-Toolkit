@@ -1,12 +1,12 @@
 import os
+
 from pathlib import Path
 from typing import Optional, Dict, Any
-
-from PySide6.QtCore import QThreadPool, Slot, Qt
+from PySide6.QtCore import QThreadPool, Slot
 from PySide6.QtWidgets import (
     QApplication, QMessageBox, QHBoxLayout, QVBoxLayout,
-    QLineEdit, QComboBox, QFileDialog, QPushButton, QLabel,
-    QGroupBox, QCheckBox, QTextEdit, QWidget
+    QPushButton, QLabel, QGroupBox, QCheckBox,
+    QLineEdit, QComboBox, QFileDialog, 
 )
 from ..utils.app_definitions import DRY_RUN
 from ...utils.definitions import (
@@ -15,66 +15,10 @@ from ...utils.definitions import (
     SERVICE_ACCOUNT_FILE, LOCAL_SOURCE_PATH, 
 )
 from .base_tab import BaseTab
+from ..windows import LogWindow
 from ..helpers import GoogleDriveSyncWorker
 from ..utils.styles import apply_shadow_effect, STYLE_SYNC_RUN, STYLE_SYNC_STOP
 
-
-import os
-from pathlib import Path
-from typing import Optional, Dict, Any
-
-from PySide6.QtCore import QThreadPool, Slot, Qt
-from PySide6.QtWidgets import (
-    QApplication, QMessageBox, QHBoxLayout, QVBoxLayout,
-    QLineEdit, QComboBox, QFileDialog, QPushButton, QLabel,
-    QGroupBox, QCheckBox, QTextEdit, QWidget
-)
-from ..utils.app_definitions import DRY_RUN
-from ...utils.definitions import (
-    DRIVE_DESTINATION_FOLDER_NAME,
-    CLIENT_SECRETS_FILE, TOKEN_FILE,
-    SERVICE_ACCOUNT_FILE, LOCAL_SOURCE_PATH, 
-)
-from .base_tab import BaseTab
-from ..helpers import GoogleDriveSyncWorker
-from ..utils.styles import apply_shadow_effect, STYLE_SYNC_RUN, STYLE_SYNC_STOP
-
-
-# ==============================================================================
-# 1. LOG WINDOW CLASS (Necessary for worker output)
-# ==============================================================================
-
-class LogWindow(QWidget):
-    """A dedicated window to display the synchronization log."""
-    def __init__(self, parent=None):
-        super().__init__(parent, Qt.Window) 
-        self.setWindowTitle("Synchronization Status Log")
-        self.setGeometry(100, 100, 700, 500)
-        
-        main_layout = QVBoxLayout(self)
-        self.log_output = QTextEdit()
-        self.log_output.setReadOnly(True)
-        self.log_output.setStyleSheet("background:#1e1e1e; color:#b9bbbe; border:none; font-family: monospace;")
-        
-        main_layout.addWidget(self.log_output)
-
-    def append_log(self, text: str):
-        """Method to safely append text to the log."""
-        self.log_output.append(text)
-
-    def clear_log(self):
-        """Method to clear the log content."""
-        self.log_output.clear()
-
-    def closeEvent(self, event):
-        """Ensure the window hides instead of closing completely."""
-        self.hide()
-        event.ignore()
-
-
-# ==============================================================================
-# 2. MODIFIED DRIVE SYNCHRONIZATION TAB
-# ==============================================================================
 
 class DriveSyncTab(BaseTab):
     """GUI tab for Google Drive one-way sync (QRunnable + QThreadPool)."""

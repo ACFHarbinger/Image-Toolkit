@@ -1,3 +1,4 @@
+from .log_window import LogWindow
 from .login_window import LoginWindow
 from .settings_window import SettingsWindow
 
