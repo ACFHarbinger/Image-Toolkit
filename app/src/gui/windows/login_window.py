@@ -1,4 +1,3 @@
-import getpass
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
@@ -67,6 +66,8 @@ class LoginWindow(QWidget):
         self.login_button = QPushButton("Login")
         self.login_button.setObjectName("LoginButton")
         self.login_button.clicked.connect(self.attempt_login)
+        # Set Login as the default button for the window
+        self.login_button.setDefault(True)
         button_layout.addWidget(self.login_button)
 
         main_layout.addLayout(button_layout)

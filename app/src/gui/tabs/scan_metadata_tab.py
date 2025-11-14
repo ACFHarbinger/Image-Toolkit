@@ -43,23 +43,21 @@ class ScanMetadataTab(BaseTab):
         self.selected_card_map = {} 
         
         main_layout = QVBoxLayout(self)
+
+        # ------------------------------------------------------------------
+        # --- NEW: Scrollable Content Setup ---
+        # ------------------------------------------------------------------
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("QScrollArea { border: none; }")
+        
+        scroll_content = QWidget()
+        scroll_content_layout = QVBoxLayout(scroll_content)
+        scroll_content_layout.setContentsMargins(0, 0, 0, 0)
         
         # --- Scan Directory Section ---
         scan_group = QGroupBox("Scan Directory")
-        scan_group.setStyleSheet("""
-            QGroupBox {  
-                border: 1px solid #4f545c; 
-                border-radius: 8px;
-                margin-top: 10px;
-            }
-            QGroupBox::title { 
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                padding: 4px 10px;
-                color: white;
-                border-radius: 4px;
-            }
-        """)
+        # Removed complex inline QGroupBox styling to avoid QSS parsing errors
         
         scan_layout = QVBoxLayout()
         scan_layout.setContentsMargins(10, 20, 10, 10) 
@@ -69,8 +67,7 @@ class ScanMetadataTab(BaseTab):
         self.scan_directory_path.setPlaceholderText("Select directory to scan...")
         btn_browse_scan = QPushButton("Browse...")
         btn_browse_scan.clicked.connect(self.browse_scan_directory)
-        
-        btn_browse_scan.setStyleSheet("QPushButton { background-color: #4f545c; padding: 6px 12px; } QPushButton:hover { background-color: #5865f2; }")
+
         apply_shadow_effect(btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
 
         scan_dir_layout.addWidget(self.scan_directory_path)
@@ -78,7 +75,7 @@ class ScanMetadataTab(BaseTab):
         scan_layout.addLayout(scan_dir_layout)
         
         scan_group.setLayout(scan_layout)
-        main_layout.addWidget(scan_group)
+        scroll_content_layout.addWidget(scan_group) # ADDED TO SCROLL CONTENT
 
         self.threadpool = QThreadPool.globalInstance()
         self.scanned_dir = None
@@ -91,7 +88,7 @@ class ScanMetadataTab(BaseTab):
             else:
                 self.last_browsed_scan_dir = str(Path.cwd() / 'data')
         except Exception:
-             self.last_browsed_scan_dir = os.getcwd() 
+            self.last_browsed_scan_dir = os.getcwd() 
         
         self.current_thumbnail_loader_thread = None
         self.current_thumbnail_loader_worker = None
@@ -117,12 +114,15 @@ class ScanMetadataTab(BaseTab):
             }
         """)
         apply_shadow_effect(self.scan_view_image_btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        main_layout.addWidget(self.scan_view_image_btn)
+        scroll_content_layout.addWidget(self.scan_view_image_btn) # ADDED TO SCROLL CONTENT
 
-        # Scroll Area for image thumbnails
+        # Scroll Area for image thumbnails (Main Gallery)
         self.scan_scroll_area = MarqueeScrollArea() 
         self.scan_scroll_area.setWidgetResizable(True)
         self.scan_scroll_area.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
+
+        # Set minimum height for the main gallery scroll area (half of 1200, matching merge_tab)
+        self.scan_scroll_area.setMinimumHeight(600) 
 
         self.scan_thumbnail_widget = QWidget()
         self.scan_thumbnail_widget.setStyleSheet("QWidget { background-color: #2c2f33; }")
@@ -135,28 +135,27 @@ class ScanMetadataTab(BaseTab):
         
         self.scan_scroll_area.setWidget(self.scan_thumbnail_widget)
         
-        main_layout.addWidget(self.scan_scroll_area, 1) 
+        scroll_content_layout.addWidget(self.scan_scroll_area, 1) # ADDED TO SCROLL CONTENT, with stretch
         
-        # --- Selected Images Area ---
-        # MODIFICATION: Use MarqueeScrollArea directly, styled like the scan_scroll_area
+        # --- Selected Images Area --- (Bottom Gallery)
         self.selected_images_area = MarqueeScrollArea() 
         self.selected_images_area.setWidgetResizable(True)
         self.selected_images_area.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
-        self.selected_images_area.selection_changed.connect(self.handle_marquee_selection) # Re-use marquee selection logic
-        # -----------------------------------------------------------------------------------------
+        self.selected_images_area.selection_changed.connect(self.handle_marquee_selection) 
+        
+        # Set minimum height for the selected images scroll area (half of 1200, matching merge_tab)
+        self.selected_images_area.setMinimumHeight(600)
 
         self.selected_images_widget = QWidget()
         self.selected_images_widget.setStyleSheet("background-color: #2c2f33;}")
         self.selected_grid_layout = QGridLayout(self.selected_images_widget)
         self.selected_grid_layout.setSpacing(10)
-        self.selected_grid_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter) # Aligns the grid itself
+        self.selected_grid_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter) 
         
         self.selected_images_area.setWidget(self.selected_images_widget)
         
-        # --- MODIFICATION: Set visibility on the scroll area itself ---
         self.selected_images_area.setVisible(True) 
-        # ------------------------------------------------------
-        main_layout.addWidget(self.selected_images_area, 1) 
+        scroll_content_layout.addWidget(self.selected_images_area, 1) # ADDED TO SCROLL CONTENT, with stretch
         
         # --- Metadata Group Box ---
         self.metadata_group = QGroupBox("Batch Metadata (Applies to ALL Selected Images)")
@@ -217,9 +216,14 @@ class ScanMetadataTab(BaseTab):
         
         metadata_vbox.addLayout(form_layout)
         
-        main_layout.addWidget(self.metadata_group) 
+        scroll_content_layout.addWidget(self.metadata_group) # ADDED TO SCROLL CONTENT
 
-        # --- Action buttons ---
+        # Add scroll content to scroll area
+        scroll_area.setWidget(scroll_content)
+        # Add scroll area to the main layout
+        main_layout.addWidget(scroll_area, 1)
+
+        # --- Action buttons (Fixed at the bottom) ---
         
         self.view_batch_button = QPushButton("View Selected")
         self.view_batch_button.setStyleSheet("""

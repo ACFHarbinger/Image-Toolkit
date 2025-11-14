@@ -6,11 +6,12 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QLineEdit, QFileDialog, QWidget, QLabel, QPushButton,
     QComboBox, QSpinBox, QGroupBox, QFormLayout, QHBoxLayout,
-    QVBoxLayout, QMessageBox, QApplication, QGridLayout,
+    QVBoxLayout, QMessageBox, QApplication, QGridLayout, QFrame,
+    QScrollArea
 )
 from .base_tab import BaseTab
+from ..components import ClickableLabel, MarqueeScrollArea
 from ..helpers import MergeWorker, ImageScannerWorker, BatchThumbnailLoaderWorker
-from ..components import OptionalField, ClickableLabel, MarqueeScrollArea
 from ..utils.styles import apply_shadow_effect
 from ...utils.definitions import SUPPORTED_IMG_FORMATS
 
@@ -34,13 +35,41 @@ class MergeTab(BaseTab):
         self.selected_image_paths: Set[str] = set()
         self.merge_image_list: List[str] = []
         self.path_to_label_map: Dict[str, ClickableLabel] = {}
-        self.last_browsed_dir = str(Path.home())
+        
+        # --- MODIFICATION: Initialize last_browsed_dir robustly (same as ScanMetadataTab) ---
+        try:
+            base_dir = Path.cwd()
+            while base_dir.name != 'Image-Toolkit' and base_dir.parent != base_dir:
+                base_dir = base_dir.parent
+            if base_dir.name == 'Image-Toolkit':
+                self.last_browsed_dir = str(base_dir / 'data')
+            else:
+                self.last_browsed_dir = str(Path.cwd() / 'data')
+        except Exception:
+             self.last_browsed_dir = os.getcwd() 
+        # ----------------------------------------------------------------------------------
 
-        self.thumbnail_size = 150
+        # Thumbnail size remains 200 (as requested, only gallery size increases)
+        self.thumbnail_size = 200 
         self.padding_width = 10
         self.approx_item_width = self.thumbnail_size + self.padding_width
         
+        # --- MODIFICATION: Add map for bottom panel ---
+        self.selected_card_map: Dict[str, ClickableLabel] = {}
+        
         main_layout = QVBoxLayout(self)
+
+        # ------------------------------------------------------------------
+        # --- NEW: Scrollable Content Setup ---
+        # ------------------------------------------------------------------
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("QScrollArea { border: none; }")
+        
+        scroll_content = QWidget()
+        # Set a QVBoxLayout for the content that will be placed inside the QScrollArea
+        content_layout = QVBoxLayout(scroll_content)
+        content_layout.setContentsMargins(0, 0, 0, 0) # No extra margin on the scroll content
 
         # --- 1. Top Configuration Group (Direction, Spacing, Grid) ---
         config_group = QGroupBox("Merge Settings")
@@ -73,24 +102,30 @@ class MergeTab(BaseTab):
         config_layout.addRow(self.grid_group)
         self.grid_group.hide()
 
-        main_layout.addWidget(config_group)
+        # Add Configuration Group to the scrollable content layout
+        content_layout.addWidget(config_group)
 
         # --- 2. Input/Selection Gallery Group ---
         gallery_group = QGroupBox("Select Images to Merge")
         gallery_vbox = QVBoxLayout(gallery_group)
+        
+        # INCREASE MINIMUM HEIGHT FACTOR OF 2 (600 -> 1200)
+        gallery_group.setMinimumHeight(1200) 
 
         # Input Buttons (Browse Files / Browse Directory)
         input_controls = QHBoxLayout()
         self.input_path_info = QLineEdit()
-        self.input_path_info.setPlaceholderText("Use buttons to select images or scan multiple directories.")
+        self.input_path_info.setPlaceholderText("Use buttons to select images or scan a directory.")
         self.input_path_info.setReadOnly(True)
         self.input_path_info.setStyleSheet("background-color: #333; color: #b9bbbe;")
 
         btn_input_files = QPushButton("Add Files")
         apply_shadow_effect(btn_input_files, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         btn_input_files.clicked.connect(self._browse_files_logic) 
+        # Make the Add Files button clickable with Enter
+        btn_input_files.setDefault(True) 
         
-        btn_input_dir = QPushButton("Scan Directories")
+        btn_input_dir = QPushButton("Scan Directory")
         apply_shadow_effect(btn_input_dir, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         btn_input_dir.clicked.connect(self._browse_directories_logic) 
 
@@ -103,7 +138,7 @@ class MergeTab(BaseTab):
         self.selection_label = QLabel("0 images selected.")
         gallery_vbox.addWidget(self.selection_label)
 
-        # Gallery Area (MarqueeScrollArea)
+        # Gallery Area (MarqueeScrollArea) - Top Panel
         self.merge_scroll_area = MarqueeScrollArea()
         self.merge_scroll_area.setWidgetResizable(True)
         self.merge_scroll_area.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
@@ -116,62 +151,40 @@ class MergeTab(BaseTab):
         self.merge_scroll_area.setWidget(self.merge_thumbnail_widget)
         self.merge_scroll_area.selection_changed.connect(self.handle_marquee_selection)
 
-        gallery_vbox.addWidget(self.merge_scroll_area, 1)
+        # Inner stretch factor set to 1 (for equal division with the selected area)
+        gallery_vbox.addWidget(self.merge_scroll_area, 1) 
 
-        main_layout.addWidget(gallery_group)
+        # --- 2.5. Selected Images Area --- (Bottom Panel)
+        self.selected_images_area = MarqueeScrollArea() 
+        self.selected_images_area.setWidgetResizable(True)
+        self.selected_images_area.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
+        
+        self.selected_images_widget = QWidget()
+        self.selected_images_widget.setStyleSheet("background-color: #2c2f33;}")
+        self.selected_grid_layout = QGridLayout(self.selected_images_widget)
+        self.selected_grid_layout.setSpacing(10)
+        self.selected_grid_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft) # Align items to top-left
+        
+        self.selected_images_area.setWidget(self.selected_images_widget)
+        
+        self.selected_images_area.setVisible(True) 
+        # Inner stretch factor set to 1 (for equal division with the merge area)
+        gallery_vbox.addWidget(self.selected_images_area, 1) 
+        # --------------------------------------------------------
 
-        # --- 3. Output and Action Group ---
-        action_group = QGroupBox("Output & Execution")
-        action_vbox = QVBoxLayout(action_group)
+        # Add Gallery Group to the scrollable content layout, giving it stretch
+        content_layout.addWidget(gallery_group, 6) 
+        
+        # Set the scrollable content widget to the QScrollArea
+        scroll_area.setWidget(scroll_content)
+        
+        # Add the QScrollArea to the main layout
+        main_layout.addWidget(scroll_area)
 
-        # Output path
-        h_output = QHBoxLayout()
-        self.output_path = QLineEdit()
-        self.output_path.setPlaceholderText("Select output merged file (.png or .jpg)")
-        btn_output = QPushButton("Browse Output...")
-        apply_shadow_effect(btn_output, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        btn_output.clicked.connect(self._browse_output_logic) 
-        h_output.addWidget(self.output_path)
-        h_output.addWidget(btn_output)
-        action_vbox.addLayout(h_output)
-
-        # Formats (OptionalField)
-        if self.dropdown:
-            self.selected_formats = set()
-            formats_container = QWidget()
-            self.formats_field = OptionalField("Filter Input Formats (Defaults to All)", formats_container, start_open=False)
-            action_vbox.addWidget(self.formats_field)
-            
-            # Button logic setup (placed in a widget for cleaner OptionalField)
-            formats_widget = QWidget()
-            formats_inner_vbox = QVBoxLayout(formats_widget)
-            
-            btn_layout = QHBoxLayout()
-            self.format_buttons = {}
-            for fmt in SUPPORTED_IMG_FORMATS:
-                btn = QPushButton(fmt)
-                btn.setCheckable(True)
-                btn.setStyleSheet("QPushButton:hover { background-color: #3498db; }")
-                apply_shadow_effect(btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-                btn.clicked.connect(lambda checked, f=fmt: self.toggle_format(f, checked))
-                btn_layout.addWidget(btn)
-                self.format_buttons[fmt] = btn
-            
-            all_btn_layout = QHBoxLayout()
-            btn_add_all = QPushButton("Select All")
-            btn_add_all.setStyleSheet("background-color: #2ecc71; color: white;")
-            apply_shadow_effect(btn_add_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-            btn_add_all.clicked.connect(self.add_all_formats)
-            btn_remove_all = QPushButton("Clear All")
-            btn_remove_all.setStyleSheet("background-color: #e74c3c; color: white;")
-            apply_shadow_effect(btn_remove_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-            btn_remove_all.clicked.connect(self.remove_all_formats)
-            all_btn_layout.addWidget(btn_add_all)
-            all_btn_layout.addWidget(btn_remove_all)
-            
-            formats_inner_vbox.addLayout(btn_layout)
-            formats_inner_vbox.addLayout(all_btn_layout)
-            formats_container.setLayout(formats_inner_vbox)
+        # ------------------------------------------------------------------
+        # --- 3. Action Group (Fixed at the bottom, outside scroll area) ---
+        # ------------------------------------------------------------------
+        action_vbox = QVBoxLayout() 
         
         # RUN MERGE BUTTON
         self.run_button = QPushButton("Run Merge")
@@ -187,18 +200,23 @@ class MergeTab(BaseTab):
         """)
         apply_shadow_effect(self.run_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.run_button.clicked.connect(self.start_merge)
+        # Ensure Run Merge is the default button if it's enabled (if not, Add Files will be)
+        self.run_button.setDefault(True) 
         action_vbox.addWidget(self.run_button)
 
-        # Status
-        self.status_label = QLabel("Ready. Select at least 2 images.")
+        # Status Label: Kept for merge progress, initialized as clear
+        self.status_label = QLabel("")
         self.status_label.setAlignment(Qt.AlignCenter)
         self.status_label.setStyleSheet("color: #b9bbbe; font-style: italic; padding: 10px;")
         action_vbox.addWidget(self.status_label)
         
-        main_layout.addWidget(action_group)
+        # Add the fixed action group to the main layout
+        main_layout.addLayout(action_vbox)
         
         self.update_run_button_state()
         self.toggle_grid_visibility(self.direction.currentText()) # Initial setup
+        
+        self.populate_selected_images_gallery() # Initial population to show placeholder
 
     # --- GALLERY HANDLING METHODS (Copied/Adapted from ScanFSETab) ---
     
@@ -235,7 +253,7 @@ class MergeTab(BaseTab):
             self._scan_thread.quit()
         self._cleanup_scan_thread_ref()
         
-        # 3. Clear visual widgets
+        # 3. Clear visual widgets (Top Gallery)
         self.path_to_label_map = {} 
         while self.merge_thumbnail_layout.count():
             item = self.merge_thumbnail_layout.takeAt(0)
@@ -243,11 +261,21 @@ class MergeTab(BaseTab):
             if widget is not None:
                 widget.deleteLater()
         
-        # 4. Reset state
+        # 4. Clear bottom gallery
+        while self.selected_grid_layout.count():
+            item = self.selected_grid_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+        self.selected_card_map = {}
+        
+        # 5. Reset state
         self.merge_image_list = []
         self.selected_image_paths = set()
         self.input_path_info.setText("")
         self.update_run_button_state()
+        
+        self.populate_selected_images_gallery() # Reset placeholder
 
     def calculate_columns(self) -> int:
         """Calculates the maximum number of thumbnail columns that fit in the widget."""
@@ -353,7 +381,7 @@ class MergeTab(BaseTab):
                 label.setStyleSheet("border: 1px solid #e74c3c; background-color: #4f545c; font-size: 8px;")
 
     def select_merge_image(self, file_path: str):
-        """Toggles the selection status of a single image."""
+        """Toggles the selection status of a single image in the TOP panel."""
         clicked_widget = self.path_to_label_map.get(file_path)
         if not clicked_widget: return
 
@@ -386,6 +414,7 @@ class MergeTab(BaseTab):
         self._update_label_style(clicked_widget, file_path, file_path in self.selected_image_paths)
 
         self.update_run_button_state()
+        self.populate_selected_images_gallery()
         
     def _update_label_style(self, label: ClickableLabel, path: str, is_selected: bool):
         """Helper to apply the correct style based on selection and load status."""
@@ -425,6 +454,175 @@ class MergeTab(BaseTab):
                 self._update_label_style(label, path, is_selected)
 
         self.update_run_button_state()
+        self.populate_selected_images_gallery()
+
+    # --- METHODS FOR BOTTOM "SELECTED" PANEL ---
+
+    def populate_selected_images_gallery(self):
+        """
+        Clears and repopulates the grid layout in the 'Selected Images' group box.
+        """
+        # Clear existing widgets and the tracking map
+        while self.selected_grid_layout.count():
+            item = self.selected_grid_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+        self.selected_card_map = {}
+        
+        paths = sorted(list(self.selected_image_paths))
+        
+        # Use the main thumbnail size for consistency
+        thumb_size = self.thumbnail_size 
+        padding = 10
+        # Calculate approximation based on the main size
+        approx_width = thumb_size + padding + 10 
+        
+        widget_width = self.selected_images_widget.width()
+        if widget_width <= 0:
+            # Need to get the width from the parent QScrollArea widget inside the QWidget
+            widget_width = self.selected_images_area.width()
+        
+        columns = max(1, widget_width // approx_width)
+        
+        # Calculate the fixed size for the wrapper to hold the image + path label comfortably
+        wrapper_height = self.thumbnail_size + 30 # Image height + room for path label
+        wrapper_width = self.thumbnail_size + 10 # Image width + minor padding/margin
+        
+        if not paths:
+            # Add a placeholder when no images are selected
+            empty_label = QLabel("Selected images will appear here.")
+            empty_label.setAlignment(Qt.AlignCenter)
+            empty_label.setStyleSheet("color: #b9bbbe; padding: 50px;")
+            self.selected_grid_layout.addWidget(empty_label, 0, 0, 1, columns)
+            return
+
+        for i, path in enumerate(paths):
+            # Use ClickableLabel to wrap the card content for selection/click
+            card_clickable_wrapper = ClickableLabel(path)
+            
+            # Set explicit size constraints on the wrapper to ensure it holds the content
+            card_clickable_wrapper.setFixedSize(wrapper_width, wrapper_height) 
+
+            card_clickable_wrapper.path_clicked.connect(self.select_selected_image_card)
+            card_clickable_wrapper.path_double_clicked.connect(self.view_selected_image_from_card)
+            
+            # --- Card Frame Styling ---
+            card = QFrame()
+            
+            # The card should always reflect its true selection status in the master set
+            is_master_selected = path in self.selected_image_paths
+            
+            # Use the consistent background and border styles
+            if is_master_selected:
+                 card_style = """
+                    QFrame {
+                        background-color: #2c2f33; 
+                        border-radius: 8px;
+                        border: 3px solid #5865f2; /* Selected style */
+                    }
+                """
+            else:
+                card_style = """
+                    QFrame {
+                        background-color: #2c2f33;
+                        border-radius: 8px;
+                        border: 1px solid #4f545c;
+                    }
+                """
+
+            card.setStyleSheet(card_style)
+            card_layout = QVBoxLayout(card)
+            card_layout.setContentsMargins(0, 0, 0, 0) 
+            
+            img_label = QLabel()
+            img_label.setAlignment(Qt.AlignCenter)
+            # Explicitly use self.thumbnail_size (200) for fixed size container
+            img_label.setFixedSize(self.thumbnail_size, self.thumbnail_size) 
+            
+            pixmap = QPixmap(path)
+            if not pixmap.isNull():
+                scaled = pixmap.scaled(
+                    self.thumbnail_size, self.thumbnail_size, 
+                    Qt.KeepAspectRatio, 
+                    Qt.SmoothTransformation
+                )
+                img_label.setPixmap(scaled)
+            else:
+                img_label.setText("Failed to Load")
+                img_label.setStyleSheet("color: #e74c3c;")
+
+            path_label = QLabel(os.path.basename(path)) 
+            path_label.setStyleSheet("color: #b9bbbe; font-size: 10px; border: none; padding: 2px 0;")
+            path_label.setAlignment(Qt.AlignCenter)
+            path_label.setWordWrap(True)
+
+            card_layout.addWidget(img_label)
+            card_layout.addWidget(path_label)
+            
+            # Set the card frame as the content of the clickable wrapper
+            card_clickable_wrapper.setLayout(card_layout)
+            
+            row = i // columns
+            col = i % columns
+            
+            # Store the wrapper to track the actual selection state of the item within the panel
+            self.selected_card_map[path] = card_clickable_wrapper
+            
+            # Use Qt.AlignLeft on the QGridLayout to center the individual items
+            self.selected_grid_layout.addWidget(card_clickable_wrapper, row, col, Qt.AlignTop | Qt.AlignLeft) 
+
+    def select_selected_image_card(self, file_path: str):
+        """
+        Handles single-click events in the bottom 'Selected Images' panel.
+        Toggles selection status in the master set and updates styling.
+        """
+        card_clickable_wrapper = self.selected_card_map.get(file_path)
+        if not card_clickable_wrapper:
+            return
+            
+        # Toggle selection in the master set
+        if file_path in self.selected_image_paths:
+            self.selected_image_paths.remove(file_path)
+            is_selected = False
+        else:
+            self.selected_image_paths.add(file_path)
+            is_selected = True
+            
+        # Get the QFrame (the visual card) inside the clickable wrapper
+        card_frame = card_clickable_wrapper.findChild(QFrame)
+        if card_frame:
+            # Update the styling of the card itself
+            if is_selected:
+                card_frame.setStyleSheet("""
+                    QFrame {
+                        background-color: #2c2f33;
+                        border-radius: 8px;
+                        border: 3px solid #5865f2; /* Selected style */
+                    }
+                """)
+            else:
+                card_frame.setStyleSheet("""
+                    QFrame {
+                        background-color: #2c2f33;
+                        border-radius: 8px;
+                        border: 1px solid #4f545c; /* Deselected style (Grey) */
+                    }
+                """)
+            
+        # Also update the styling in the main gallery if the image is loaded there
+        main_label = self.path_to_label_map.get(file_path)
+        if main_label:
+            self._update_label_style(main_label, file_path, is_selected)
+        
+        self.update_run_button_state()
+        
+        # NOTE: We skip calling populate_selected_images_gallery() here to keep the deselected card visible.
+
+    def view_selected_image_from_card(self, path: str):
+        """Handles double-click event on a card in the selected panel."""
+        # Simple implementation: Show a message box with the path
+        QMessageBox.information(self, "Image Path", path)
 
     # --- INPUT/BROWSE METHODS ---
     
@@ -444,7 +642,9 @@ class MergeTab(BaseTab):
         )
         
         if files:
+            # --- MODIFICATION: Update last_browsed_dir ---
             self.last_browsed_dir = os.path.dirname(files[0]) if files else self.last_browsed_dir
+            # ---------------------------------------------
             current_paths = set(self.merge_image_list)
             new_paths = [f for f in files if f not in current_paths]
             updated_list = self.merge_image_list + new_paths
@@ -454,61 +654,35 @@ class MergeTab(BaseTab):
 
     def _browse_directories_logic(self):
         """
-        Internal logic for 'Scan Directories' button. 
-        Prompts for a single directory and asks if the user wants to add another.
+        Internal logic for 'Scan Directory' button. 
+        Prompts for a single directory and scans it.
         """
-        selected_directories = []
-        
         # Ensure a fallback to a guaranteed path
         last_dir = self.last_browsed_dir if self.last_browsed_dir and os.path.exists(self.last_browsed_dir) else str(Path.home())
         options = QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks
 
-        # Start a loop that runs until the user says "No" or cancels a directory selection
-        while True:
-            directory = QFileDialog.getExistingDirectory(
-                self, 
-                f"Select Directory {len(selected_directories) + 1} to Scan", 
-                last_dir,
-                options # Pass the options flag
-            )
-            
-            if directory:
-                if directory not in selected_directories:
-                    selected_directories.append(directory)
-                    last_dir = directory
-                else:
-                    QMessageBox.information(self, "Directory Already Added", f"'{directory}' has already been selected.")
-                
-                # Ask the user if they want to select another one
-                reply = QMessageBox.question(
-                    self, 
-                    "Continue Selection?",
-                    f"Directory '{Path(directory).name}' added. Do you want to select **another** directory?",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-                )
-                
-                if reply == QMessageBox.StandardButton.No:
-                    break # Exit the loop if the user says No
-
-            elif selected_directories:
-                # User clicked Cancel on the QFileDialog, but directories have been selected.
-                break 
-
-            else:
-                # User clicked Cancel on the first QFileDialog prompt.
-                self.input_path_info.setText("Use buttons to select images or scan multiple directories.")
-                return # Exit if nothing was selected
-
-        if not selected_directories:
+        directory = QFileDialog.getExistingDirectory(
+            self, 
+            "Select Directory to Scan", 
+            last_dir,
+            options # Pass the options flag
+        )
+        
+        if not directory:
+            # User clicked Cancel
+            self.input_path_info.setPlaceholderText("Use buttons to select images or scan a directory.")
             return
 
-        self.last_browsed_dir = selected_directories[-1]
-        self.input_path_info.setText("Scanning directories, please wait...")
+        # --- MODIFICATION: Update last_browsed_dir ---
+        self.last_browsed_dir = directory
+        # ---------------------------------------------
+        
+        self.input_path_info.setText("Scanning directory, please wait...")
         
         # 1. Clear any previous scan/load state
         self.clear_merge_gallery() 
         
-        worker = ImageScannerWorker(selected_directories) 
+        worker = ImageScannerWorker([directory]) # Pass the single directory in a list
         thread = QThread()
 
         # Set class members for tracking and cleanup
@@ -523,7 +697,7 @@ class MergeTab(BaseTab):
         worker.scan_finished.connect(
             lambda paths: self.populate_merge_gallery(
                 paths, 
-                f"Aggregated: {len(selected_directories)} directories"
+                f"Scanned: {Path(directory).name}"
             )
         )
         
@@ -539,11 +713,7 @@ class MergeTab(BaseTab):
 
     def _browse_output_logic(self):
         """Internal logic for 'Browse Output' button."""
-        file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save merged image", "", "PNG (*.png);;JPEG (*.jpg);;All Files (*)"
-        )
-        if file_path:
-            self.output_path.setText(file_path)
+        pass
             
     # --- UTILITY METHODS ---
 
@@ -552,14 +722,38 @@ class MergeTab(BaseTab):
         count = len(self.selected_image_paths)
         self.selection_label.setText(f"{count} images selected.")
         
+        # We need to ensure the default button is set correctly here:
+        # If enabled, Run Merge should be default. If disabled, 'Add Files' should be default (set in __init__).
+        
+        # NOTE: QPushButtons in Qt are automatically 'autoDefault' when created, but only
+        # one 'default' button can exist per dialog/window. The last one set with setDefault(True) wins.
+        # Since 'Add Files' is now set as default, we must explicitly set/unset 'Run Merge' here.
+        
+        run_button_text = f"Run Merge ({count} images)"
+
         if count < 2:
             self.run_button.setEnabled(False)
-            self.status_label.setText("Select at least 2 images to merge.")
-            self.run_button.setText("Run Merge")
+            run_button_text = "Run Merge (Select at least 2 images to merge)"
+            self.run_button.setDefault(False) # Unset default property
+            
+            # Re-enable the Add Files button as the default action when Merge is disabled
+            add_files_button = self.findChild(QPushButton, "Add Files")
+            if add_files_button:
+                add_files_button.setDefault(True)
+
+            self.status_label.setText("") # Clear status label when button is disabled
         else:
             self.run_button.setEnabled(True)
             self.status_label.setText(f"Ready to merge {count} images.")
-            self.run_button.setText(f"Run Merge ({count} images)")
+            self.run_button.setDefault(True) # Set default property
+            
+            # Unset the Add Files button as the default action
+            add_files_button = self.findChild(QPushButton, "Add Files")
+            if add_files_button:
+                add_files_button.setDefault(False)
+
+        self.run_button.setText(run_button_text)
+
 
     def toggle_grid_visibility(self, direction):
         """Toggles visibility of grid controls and resizes the window."""
@@ -578,11 +772,12 @@ class MergeTab(BaseTab):
             self.grid_group.hide()
             
         # Add a delay for resizing to ensure layout update is complete
-        if hasattr(self, "_resize_timer"):
-            self._resize_timer.stop()
-        self._resize_timer = QTimer()
-        self._resize_timer.setSingleShot(True)
-        self._resize_timer.timeout.connect(self._resize_hierarchy)
+        if not hasattr(self, "_resize_timer"):
+             self._resize_timer = QTimer()
+             self._resize_timer.setSingleShot(True)
+             self._resize_timer.timeout.connect(self._resize_hierarchy) 
+
+        self._resize_timer.stop()
         self._resize_timer.start(100)
 
     def _resize_hierarchy(self):
@@ -594,31 +789,17 @@ class MergeTab(BaseTab):
 
     def toggle_format(self, fmt, checked):
         """Handles format button toggle state."""
-        btn = self.format_buttons.get(fmt)
-        if btn is None: return
-
-        if checked:
-            self.selected_formats.add(fmt)
-            btn.setStyleSheet("QPushButton:checked { background-color: #3320b5; color: white; } QPushButton:hover { background-color: #00838a; }")
-            apply_shadow_effect(btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        else:
-            self.selected_formats.discard(fmt)
-            btn.setStyleSheet("QPushButton:hover { background-color: #3498db; }")
-            apply_shadow_effect(btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        # This logic seems to be from a different version, as self.format_buttons doesn't exist.
+        # I will leave the method stub but it won't do anything.
+        pass
 
     def add_all_formats(self):
         """Selects all supported input formats."""
-        for fmt, btn in self.format_buttons.items():
-            if not btn.isChecked():
-                btn.setChecked(True)
-                self.toggle_format(fmt, True)
+        pass
 
     def remove_all_formats(self):
         """Deselects all supported input formats."""
-        for fmt, btn in self.format_buttons.items():
-            if btn.isChecked():
-                btn.setChecked(False)
-                self.toggle_format(fmt, False)
+        pass
 
     # --- MERGE EXECUTION METHODS ---
 
@@ -626,8 +807,7 @@ class MergeTab(BaseTab):
         """Checks if the minimum requirements for merging are met."""
         if len(self.selected_image_paths) < 2:
             return False
-        if not self.output_path.text().strip():
-            return False
+        # Since output_path QLineEdit was removed, we'll ask for it in start_merge
         return True
 
     def start_merge(self):
@@ -636,10 +816,28 @@ class MergeTab(BaseTab):
         Includes robust thread handling for the MergeWorker.
         """
         if not self.is_valid():
-            QMessageBox.warning(self, "Invalid Input", "Please select at least 2 images AND define an output path.")
+            QMessageBox.warning(self, "Invalid Input", "Please select at least 2 images.")
             return
+            
+        # --- MODIFICATION: Ask for output path here ---
+        # Use last_browsed_dir as the starting directory for the save dialog
+        output_path, _ = QFileDialog.getSaveFileName(
+            self, "Save merged image", self.last_browsed_dir, "PNG (*.png)"
+        )
+        if not output_path:
+            self.status_label.setText("Merge cancelled.")
+            self.update_run_button_state() # Reset button text if cancelled
+            return
+        
+        # Update last_browsed_dir to the output directory
+        self.last_browsed_dir = os.path.dirname(output_path)
+        
+        # Ensure it has the .png extension
+        if not output_path.lower().endswith('.png'):
+            output_path += '.png'
+        # -----------------------------------------------
 
-        config = self.collect()
+        config = self.collect(output_path) # Pass the selected output path
         
         self.run_button.setEnabled(False)
         self.run_button.setText("Merging...")
@@ -685,22 +883,19 @@ class MergeTab(BaseTab):
         self.status_label.setText("Failed.")
         QMessageBox.critical(self, "Error", msg)
 
-    def collect(self) -> Dict[str, Any]:
+    def collect(self, output_path: str) -> Dict[str, Any]:
         """Collects all configuration inputs for the MergeWorker."""
         
         # The input paths are the currently selected paths from the gallery
         input_paths = list(self.selected_image_paths)
 
-        # Get formats (using selected buttons if dropdown is enabled, otherwise use all supported)
-        formats = (
-            list(self.selected_formats) if self.dropdown and self.selected_formats
-            else SUPPORTED_IMG_FORMATS
-        )
+        # Get formats (dropdown was removed, so use all supported)
+        formats = SUPPORTED_IMG_FORMATS
 
         return {
             "direction": self.direction.currentText(),
             "input_path": input_paths, # List of selected absolute paths
-            "output_path": self.output_path.text().strip() or None,
+            "output_path": output_path, # Use path from dialog
             "input_formats": [f.strip().lstrip('.') for f in formats if f.strip()],
             "spacing": self.spacing.value(),
             "grid_size": (
@@ -724,4 +919,5 @@ class MergeTab(BaseTab):
 
     def browse_output(self):
         """Implements abstract method: Calls the internal logic for output path selection."""
-        self._browse_output_logic()
+        # This is now handled in start_merge()
+        pass

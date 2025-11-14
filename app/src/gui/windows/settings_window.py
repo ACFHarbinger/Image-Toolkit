@@ -143,7 +143,7 @@ class SettingsWindow(QWidget):
         # NEW: Set Selected Config Button
         self.btn_set_config = QPushButton("Set Selected Config")
         self.btn_set_config.clicked.connect(self._set_selected_tab_config)
-        # Ensure the button expands horizontally
+        # Set policy to expand horizontally
         self.btn_set_config.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         full_width_buttons_layout.addWidget(self.btn_set_config)
         
@@ -151,7 +151,7 @@ class SettingsWindow(QWidget):
         self.btn_delete_config = QPushButton("Delete Selected Config")
         self.btn_delete_config.setStyleSheet("background-color: #e74c3c; color: white;")
         self.btn_delete_config.clicked.connect(self._delete_selected_tab_config)
-        # Ensure the button expands horizontally
+        # Set policy to expand horizontally
         self.btn_delete_config.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         full_width_buttons_layout.addWidget(self.btn_delete_config)
         
@@ -208,6 +208,8 @@ class SettingsWindow(QWidget):
         self.update_button.clicked.connect(self.confirm_update_settings)
         # Set policy to expand horizontally
         self.update_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        # Set Update as the default button for the window
+        self.update_button.setDefault(True)
 
         actions_layout.addWidget(self.reset_button)
         actions_layout.addWidget(self.update_button)

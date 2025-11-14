@@ -74,6 +74,9 @@ class MainWindow(QWidget):
         self.settings_button.setObjectName("settings_button")
         self.settings_button.setToolTip("Open Settings")
         
+        # Set the button as the default button, making it clickable with the Enter key
+        self.settings_button.setDefault(True) 
+        
         self.settings_button.setStyleSheet(f"""
             QPushButton#settings_button {{
                 background-color: transparent;
