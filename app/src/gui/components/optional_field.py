@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPalette
-from ..styles import apply_shadow_effect
+from ..utils.styles import apply_shadow_effect
 
 
 class OptionalField(QWidget):

@@ -259,3 +259,17 @@ LIGHT_QSS = f"""
 
 # Default export (for backward compatibility)
 GLOBAL_QSS = DARK_QSS
+
+# Define primary button styles
+STYLE_SYNC_RUN = """
+    QPushButton { background:#2ecc71; color:white; padding:12px 16px;
+                    font-size:14pt; border-radius:8px; font-weight:bold; }
+    QPushButton:hover { background:#1e8449; }
+    QPushButton:disabled { background:#4f545c; color:#a0a0a0; }
+"""
+STYLE_SYNC_STOP = """
+    QPushButton { background:#e74c3c; color:white; padding:12px 16px;
+                    font-size:14pt; border-radius:8px; font-weight:bold; }
+    QPushButton:hover { background:#c0392b; }
+    QPushButton:disabled { background:#4f545c; color:#a0a0a0; }
+"""

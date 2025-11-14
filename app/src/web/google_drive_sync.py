@@ -1,47 +1,49 @@
 import os
-import sys
 
 from ..utils.definitions import SCOPES, SYNC_ERROR
 from datetime import datetime
-from google.oauth2 import service_account
+from typing import Callable, Dict, Any, Optional, List
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from googleapiclient.errors import HttpError
-from google.auth.exceptions import DefaultCredentialsError
-from typing import Callable, Dict, Any, Optional, List
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
+from google_auth_oauthlib.flow import InstalledAppFlow
 
 
 class GoogleDriveSync:
     """
     Manages one-way synchronization of a local directory to a specific folder in Google Drive 
-    using a Service Account.
+    using a Personal Account (OAuth 2.0).
     """
     
     def __init__(
         self,
-        service_account_file: str,
+        client_secrets_file: str,  # Path to client_secrets.json
+        token_file: str,           # Path to store/read token.json
         local_source_path: str,
         drive_destination_folder_name: str,
         dry_run: bool = False,
         logger: Callable[[str], None] = print,  # Default to print if no logger provided
-        user_email_to_share_with: Optional[str] = None
+        # user_email_to_share_with: Optional[str] = None <- REMOVED
     ):
         """
         Initializes the sync manager with configuration parameters.
         
-        :param service_account_file: Path to the Google Service Account JSON key file.
+        :param client_secrets_file: Path to the Google OAuth 2.0 Client ID JSON file.
+        :param token_file: Path to store the user's access/refresh token (e.g., "token.json").
         :param local_source_path: Local folder path to synchronize.
         :param drive_destination_folder_name: Destination folder path inside Google Drive (e.g., "Backups/Current").
         :param dry_run: If True, simulate actions without modifying Drive.
         :param logger: Function used for logging output (defaults to built-in print).
-        :param user_email_to_share_with: Optional email address to grant Editor access to the destination folder.
         """
-        self.key_file = service_account_file
+        self.client_secrets_file = client_secrets_file
+        self.token_file = token_file
         self.local_path = local_source_path
         self.remote_path = drive_destination_folder_name
         self.dry_run = dry_run
         self.logger = logger
-        self.share_email = user_email_to_share_with
+        # self.share_email = user_email_to_share_with <- REMOVED
         self.drive_service: Optional[Any] = None
         self.dest_folder_id: Optional[str] = None
         # Flag controlled by the worker thread's stop method
@@ -57,17 +59,45 @@ class GoogleDriveSync:
     # ==============================================================================
 
     def _get_drive_service(self):
-        """Authenticates using the Service Account key and sets the Google Drive service object."""
-        self.logger("🔑 Authenticating with Google Drive...")
+        """
+        Authenticates using the Personal Account OAuth 2.0 flow and sets the 
+        Google Drive service object.
+        """
+        self.logger("🔑 Authenticating with Google Drive (Personal Account)...")
+        creds: Optional[Credentials] = None
+        
         try:
-            credentials = service_account.Credentials.from_service_account_file(
-                self.key_file, scopes=SCOPES
-            )
-            self.drive_service = build('drive', 'v3', credentials=credentials)
+            # Check if a token file already exists from a previous login
+            if os.path.exists(self.token_file):
+                creds = Credentials.from_authorized_user_file(self.token_file, SCOPES)
+            
+            # If there are no (valid) credentials available, let the user log in.
+            if not creds or not creds.valid:
+                if creds and creds.expired and creds.refresh_token:
+                    self.logger("   Refreshing expired token...")
+                    creds.refresh(Request())
+                else:
+                    self.logger("   No valid token found. Starting OAuth flow...")
+                    if not os.path.exists(self.client_secrets_file):
+                        self.logger(f"❌ Authentication Error: Client secrets file not found at '{self.client_secrets_file}'")
+                        self.logger("   Please download 'client_secrets.json' from Google Cloud Console and place it at that path.")
+                        raise RuntimeError(SYNC_ERROR)
+                        
+                    flow = InstalledAppFlow.from_client_secrets_file(
+                        self.client_secrets_file, SCOPES
+                    )
+                    # This will open a browser window for the user to log in and grant permissions
+                    creds = flow.run_local_server(port=0)
+                
+                # Save the credentials for the next run
+                if not self.dry_run:
+                    with open(self.token_file, 'w') as token:
+                        token.write(creds.to_json())
+                    self.logger(f"   Token saved to {self.token_file}")
+
+            self.drive_service = build('drive', 'v3', credentials=creds)
             self.logger("✅ Authentication successful.")
-        except DefaultCredentialsError as e:
-            self.logger(f"❌ Authentication Error: The service account key file may be missing or invalid: {e}")
-            raise RuntimeError(SYNC_ERROR)
+        
         except Exception as e:
             self.logger(f"❌ An unexpected authentication error occurred: {e}")
             raise RuntimeError(SYNC_ERROR)
@@ -156,56 +186,9 @@ class GoogleDriveSync:
         
         return current_parent_id
             
-    def _share_folder_with_user(self, file_id: str, user_email: str):
-        """Shares a file/folder with a specific user email as an Editor."""
-        self.check_stop()
-        if not self.drive_service:
-            self.logger("Error: Drive service not initialized for sharing.")
-            return
-
-        self.logger(f"🔒 Attempting to share folder with user: {user_email}")
-        
-        # Check if permission already exists (simplified check)
-        try:
-            permissions = self.drive_service.permissions().list(
-                fileId=file_id,
-                fields='permissions(id, emailAddress, role)',
-                supportsAllDrives=True
-            ).execute()
-            
-            for p in permissions.get('permissions', []):
-                if p.get('emailAddress') == user_email and p.get('role') in ['writer', 'owner']:
-                    self.logger("   Access already granted (Editor/Owner role). Skipping share.")
-                    return True 
-
-        except HttpError as e:
-            self.logger(f"⚠️ Warning: Could not check existing permissions. Attempting to grant access: {e}")
-            
-        new_permission = {
-            'type': 'user',
-            'role': 'writer',  # 'writer' role corresponds to Editor permission level
-            'emailAddress': user_email
-        }
-
-        if self.dry_run:
-            self.logger(f"   [DRY RUN] Would have shared folder ID {file_id} with {user_email} as Editor.")
-            return True
-
-        try:
-            self.drive_service.permissions().create(
-                fileId=file_id,
-                body=new_permission,
-                sendNotificationEmail=False,
-                supportsAllDrives=True
-            ).execute()
-            self.logger(f"✅ Shared folder ID {file_id} with {user_email} as Editor.")
-            return True
-        except HttpError as e:
-            self.logger(f"❌ Error sharing folder with {user_email}. Access likely denied or already set: {e}")
-            return False
-        except Exception as e:
-            self.logger(f"❌ Unexpected error during sharing: {e}")
-            return False
+    #
+    # def _share_folder_with_user(...) <- METHOD ENTIRELY REMOVED
+    #
             
     def _get_local_files_map(self) -> Dict[str, Dict[str, Any]]:
         """Creates a map of relative_path -> (absolute_path, timestamp) for all local files/folders."""
@@ -248,8 +231,8 @@ class GoogleDriveSync:
                     q=query, 
                     spaces='drive', 
                     fields='nextPageToken, files(id, name, modifiedTime, mimeType, parents)',
-                    includeItemsFromAllDrives=True,
-                    supportsAllDrives=True,
+                    # includeItemsFromAllDrives=True, <- REMOVED
+                    # supportsAllDrives=True, <- REMOVED
                     pageToken=page_token
                 ).execute()
             except HttpError as e:
@@ -280,7 +263,11 @@ class GoogleDriveSync:
                 modified_time_iso = item.get('modifiedTime')
                 timestamp = 0
                 try:
-                    dt_object = datetime.strptime(modified_time_iso, "%Y-%m-%dT%H:%M:%S.%fZ")
+                    # Handle different timestamp formats (with or without fractional seconds)
+                    if '.' in modified_time_iso:
+                        dt_object = datetime.strptime(modified_time_iso, "%Y-%m-%dT%H:%M:%S.%fZ")
+                    else:
+                        dt_object = datetime.strptime(modified_time_iso, "%Y-%m-%dT%H:%M:%SZ")
                     timestamp = int(dt_object.timestamp())
                 except (ValueError, TypeError):
                     pass 
@@ -328,7 +315,7 @@ class GoogleDriveSync:
             folder = self.drive_service.files().create(
                 body=file_metadata, 
                 fields='id',
-                supportsAllDrives=True
+                # supportsAllDrives=True <- REMOVED
             ).execute()
             new_id = folder.get('id')
             self.logger(f"   Created remote folder: {rel_path} (ID: {new_id})")
@@ -368,7 +355,7 @@ class GoogleDriveSync:
                     body=file_metadata,
                     media_body=media,
                     addParents=parent_id, 
-                    supportsAllDrives=True
+                    # supportsAllDrives=True <- REMOVED
                 ).execute()
             else:
                 file_metadata['parents'] = [parent_id]
@@ -376,7 +363,7 @@ class GoogleDriveSync:
                     body=file_metadata, 
                     media_body=media, 
                     fields='id, parents', 
-                    supportsAllDrives=True,
+                    # supportsAllDrives=True, <- REMOVED
                 ).execute()
             return True
         except HttpError as e:
@@ -396,7 +383,10 @@ class GoogleDriveSync:
             return True
         
         try:
-            self.drive_service.files().delete(fileId=file_id, supportsAllDrives=True).execute()
+            self.drive_service.files().delete(
+                fileId=file_id, 
+                # supportsAllDrives=True <- REMOVED
+            ).execute()
             return True
         except HttpError as e:
             self.logger(f"❌ Error deleting '{remote_name}': {e}")
@@ -418,8 +408,9 @@ class GoogleDriveSync:
             local_path_exists = os.path.exists(self.local_path)
             local_path_is_dir = os.path.isdir(self.local_path)
             
-            if not os.path.exists(self.key_file):
-                return (False, f"Service Account key file '{self.key_file}' not found.")
+            # Modified check for client_secrets.json
+            if not os.path.exists(self.client_secrets_file):
+                return (False, f"OAuth client secrets file '{self.client_secrets_file}' not found.")
 
             # 2. Initialize Drive Service and Find Destination Folder
             self._get_drive_service()
@@ -431,17 +422,13 @@ class GoogleDriveSync:
                 self.logger("❌ Failed to secure destination folder ID.")
                 return (False, "Failed to secure destination folder ID.")
             
-            # 2a. Share the destination folder if email provided
-            if self.share_email and dest_folder_id and not dest_folder_id.startswith("DRY_RUN_ID"):
-                self._share_folder_with_user(dest_folder_id, self.share_email)
+            # 2a. Share the destination folder if email provided <- REMOVED
             
             if not self.check_stop_status(dest_folder_id): return (False, "Synchronization manually interrupted.")
 
             if not local_path_exists or not local_path_is_dir:
-                if self.share_email:
-                    return (True, "Share Action Completed. Local sync skipped due to invalid source path.")
-                else:
-                    return (False, f"Local source path '{self.local_path}' does not exist or is not a directory.")
+                # Removed check for self.share_email
+                return (False, f"Local source path '{self.local_path}' does not exist or is not a directory.")
 
             # 3. Get file maps
             self.logger("📋 Comparing local and remote files recursively...")

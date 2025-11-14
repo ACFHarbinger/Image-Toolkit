@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 from .base_tab import BaseTab
 from ..components import ImagePreviewWindow, ClickableLabel, MarqueeScrollArea
 from ..helpers import ImageScannerWorker, BatchThumbnailLoaderWorker
-from ..styles import apply_shadow_effect
+from ..utils.styles import apply_shadow_effect
 
 
 class ScanMetadataTab(BaseTab):

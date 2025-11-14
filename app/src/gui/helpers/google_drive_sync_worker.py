@@ -1,11 +1,11 @@
 import time
-from typing import Optional
+
+from typing import Optional, Dict, Any
+from PySide6.QtCore import QObject, Signal, QRunnable
 try:
     from app.src.web.google_drive_sync import GoogleDriveSync as GDS
 except:
     from src.web.google_drive_sync import GoogleDriveSync as GDS
-
-from PySide6.QtCore import QObject, Signal, QRunnable, QThreadPool, QMutex
 
 
 class GoogleDriveSyncWorkerSignals(QObject):
@@ -15,18 +15,20 @@ class GoogleDriveSyncWorkerSignals(QObject):
 
 class GoogleDriveSyncWorker(QRunnable):
     def __init__(self, 
-                 key_file: str, 
+                 auth_config: Dict[str, Any],
                  local_path: str, 
                  remote_path: str, 
                  dry_run: bool, 
-                 user_email_to_share_with: Optional[str] = None # NEW PARAMETER
+                 user_email_to_share_with: Optional[str] = None
     ):
         super().__init__()
-        self.key_file = key_file
+        self.auth_config = auth_config
+        self.auth_mode = auth_config.get("mode", "unknown")
         self.local_path = local_path
         self.remote_path = remote_path
         self.dry_run = dry_run
-        self.share_email = user_email_to_share_with # NEW ATTRIBUTE
+        # Share email is only used/relevant for Service Accounts
+        self.share_email = user_email_to_share_with 
         self.signals = GoogleDriveSyncWorkerSignals()
         self._is_running = True
 
@@ -39,23 +41,38 @@ class GoogleDriveSyncWorker(QRunnable):
     def run(self):
         self.signals.status_update.emit("\n" + "="*50)
         self._log(f"--- Google Drive Sync Initiated ---")
-        self._log(f"Mode: {'DRY RUN' if self.dry_run else 'LIVE'}")
+        self._log(f"Authentication Mode: {self.auth_mode.upper()}")
+        self._log(f"Sync Mode: {'DRY RUN' if self.dry_run else 'LIVE'}")
         self.signals.status_update.emit("="*50 + "\n")
 
         success = False
-        final_message = "Cancelled by user." # Default message if self._is_running is set to False
+        final_message = "Cancelled by user."
         
         try:
-            sync_manager = GDS(
-                service_account_file=self.key_file,
-                local_source_path=self.local_path,
-                drive_destination_folder_name=self.remote_path,
-                dry_run=self.dry_run,
-                logger=self._log,
-                # Pass new parameter to GDS
-                user_email_to_share_with=self.share_email
-            )
-            # Only execute sync if we haven't been asked to stop immediately
+            # --- CRITICAL CHANGE: DYNAMIC GDS INITIALIZATION ---
+            gds_kwargs = {
+                "local_source_path": self.local_path,
+                "drive_destination_folder_name": self.remote_path,
+                "dry_run": self.dry_run,
+                "logger": self._log,
+                "user_email_to_share_with": self.share_email # Only used by Service Account GDS
+            }
+
+            if self.auth_mode == "service_account":
+                gds_kwargs["service_account_file"] = self.auth_config.get("key_file")
+            
+            elif self.auth_mode == "personal_account":
+                # Remove sharing for personal account flow since it's redundant
+                gds_kwargs.pop("user_email_to_share_with", None) 
+                gds_kwargs["client_secrets_file"] = self.auth_config.get("client_secrets_file")
+                gds_kwargs["token_file"] = self.auth_config.get("token_file")
+            
+            else:
+                 raise ValueError(f"Unsupported authentication mode: {self.auth_mode}")
+
+            sync_manager = GDS(**gds_kwargs)
+            # --------------------------------------------------
+            
             if self._is_running:
                  success, final_message = sync_manager.execute_sync()
             
@@ -74,9 +91,6 @@ class GoogleDriveSyncWorker(QRunnable):
             self.signals.sync_finished.emit(success, final_message)
 
     def stop(self):
-        # Set the flag to False and emit a log message
         if self._is_running:
             self._is_running = False
-            # This is safe to emit as QRunnable signals are thread-safe (queued connection)
             self.signals.status_update.emit("\n!!! SYNCHRONIZATION INTERRUPTED !!!")
-            # Note: We rely on the GDS code checking this flag or finishing its current API call quickly.

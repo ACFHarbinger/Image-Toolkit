@@ -15,8 +15,8 @@ from ..tabs import (
     ScanMetadataTab, SearchTab, 
     ImageCrawlTab, DriveSyncTab,
 )
-from ..styles import DARK_QSS, LIGHT_QSS
-from ..app_definitions import NEW_LIMIT_MB
+from ..utils.styles import DARK_QSS, LIGHT_QSS
+from ..utils.app_definitions import NEW_LIMIT_MB
 try:
     from app.src.core.java_vault_manager import JavaVaultManager
 except:
