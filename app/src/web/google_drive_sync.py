@@ -1,41 +1,36 @@
 import os
+import io
 
-from ..utils.definitions import SCOPES, SYNC_ERROR
+
+from ..utils.definitions import SCOPES, SYNC_ERROR 
 from datetime import datetime
-from typing import Callable, Dict, Any, Optional, List
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
-from googleapiclient.errors import HttpError
-from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request
+from typing import Callable, Dict, Any, Optional
 from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload 
+from googleapiclient.errors import HttpError
 
 
 class GoogleDriveSync:
     """
-    Manages one-way synchronization of a local directory to a specific folder in Google Drive 
-    using a Personal Account (OAuth 2.0).
+    Manages synchronization where only missing files are transferred (Upload Missing and Download Missing).
+    No updates or deletions are performed.
     """
     
     def __init__(
         self,
-        client_secrets_file: str,  # Path to client_secrets.json
-        token_file: str,           # Path to store/read token.json
+        client_secrets_file: str,
+        token_file: str,
         local_source_path: str,
         drive_destination_folder_name: str,
         dry_run: bool = False,
-        logger: Callable[[str], None] = print,  # Default to print if no logger provided
-        # user_email_to_share_with: Optional[str] = None <- REMOVED
+        logger: Callable[[str], None] = print,
+        user_email_to_share_with: Optional[str] = None
     ):
         """
         Initializes the sync manager with configuration parameters.
-        
-        :param client_secrets_file: Path to the Google OAuth 2.0 Client ID JSON file.
-        :param token_file: Path to store the user's access/refresh token (e.g., "token.json").
-        :param local_source_path: Local folder path to synchronize.
-        :param drive_destination_folder_name: Destination folder path inside Google Drive (e.g., "Backups/Current").
-        :param dry_run: If True, simulate actions without modifying Drive.
-        :param logger: Function used for logging output (defaults to built-in print).
         """
         self.client_secrets_file = client_secrets_file
         self.token_file = token_file
@@ -43,10 +38,9 @@ class GoogleDriveSync:
         self.remote_path = drive_destination_folder_name
         self.dry_run = dry_run
         self.logger = logger
-        # self.share_email = user_email_to_share_with <- REMOVED
+        self.share_email = user_email_to_share_with
         self.drive_service: Optional[Any] = None
         self.dest_folder_id: Optional[str] = None
-        # Flag controlled by the worker thread's stop method
         self._is_running = True 
         
     def check_stop(self):
@@ -67,11 +61,9 @@ class GoogleDriveSync:
         creds: Optional[Credentials] = None
         
         try:
-            # Check if a token file already exists from a previous login
             if os.path.exists(self.token_file):
                 creds = Credentials.from_authorized_user_file(self.token_file, SCOPES)
             
-            # If there are no (valid) credentials available, let the user log in.
             if not creds or not creds.valid:
                 if creds and creds.expired and creds.refresh_token:
                     self.logger("   Refreshing expired token...")
@@ -80,20 +72,17 @@ class GoogleDriveSync:
                     self.logger("   No valid token found. Starting OAuth flow...")
                     if not os.path.exists(self.client_secrets_file):
                         self.logger(f"❌ Authentication Error: Client secrets file not found at '{self.client_secrets_file}'")
-                        self.logger("   Please download 'client_secrets.json' from Google Cloud Console and place it at that path.")
                         raise RuntimeError(SYNC_ERROR)
                         
                     flow = InstalledAppFlow.from_client_secrets_file(
                         self.client_secrets_file, SCOPES
                     )
-                    # This will open a browser window for the user to log in and grant permissions
                     creds = flow.run_local_server(port=0)
                 
-                # Save the credentials for the next run
-                if not self.dry_run:
-                    with open(self.token_file, 'w') as token:
-                        token.write(creds.to_json())
-                    self.logger(f"   Token saved to {self.token_file}")
+                # Save the credentials for the next run (regardless of dry_run status)
+                with open(self.token_file, 'w') as token:
+                    token.write(creds.to_json())
+                self.logger(f"   Token saved to {self.token_file}")
 
             self.drive_service = build('drive', 'v3', credentials=creds)
             self.logger("✅ Authentication successful.")
@@ -109,7 +98,6 @@ class GoogleDriveSync:
         """
         self.check_stop()
         
-        # Maps local relative paths (including the filename or folder name) to their remote ID
         self.remote_path_to_id: Dict[str, str] = {}
         
         path_components = [p for p in self.remote_path.split('/') if p]
@@ -125,13 +113,11 @@ class GoogleDriveSync:
         for folder_name in path_components:
             self.check_stop()
             
-            # Construct the relative path for the map
             if current_remote_path:
                 current_remote_path = f"{current_remote_path}/{folder_name}"
             else:
                 current_remote_path = folder_name
                 
-            # Query for the folder using the current parent ID
             query = (
                 f"name='{folder_name}' and "
                 f"mimeType='application/vnd.google-apps.folder' and "
@@ -166,7 +152,6 @@ class GoogleDriveSync:
                         current_parent_id = folder.get('id')
                         self.logger(f"   Created folder: {folder_name} (ID: {current_parent_id})")
                         
-                # Store path mapping
                 self.remote_path_to_id[current_remote_path] = current_parent_id
                         
             except HttpError as e:
@@ -179,16 +164,11 @@ class GoogleDriveSync:
         self.logger(f"✅ Destination Folder ID: {current_parent_id}")
         self.dest_folder_id = current_parent_id
         
-        # Log URL only after loop completes and ID is confirmed
         if current_parent_id and not self.dry_run and not current_parent_id.startswith("DRY_RUN_ID"):
             drive_url = f"https://drive.google.com/drive/folders/{current_parent_id}"
             self.logger(f"🔗 Destination Folder URL: {drive_url}")
         
         return current_parent_id
-            
-    #
-    # def _share_folder_with_user(...) <- METHOD ENTIRELY REMOVED
-    #
             
     def _get_local_files_map(self) -> Dict[str, Dict[str, Any]]:
         """Creates a map of relative_path -> (absolute_path, timestamp) for all local files/folders."""
@@ -212,78 +192,77 @@ class GoogleDriveSync:
         return local_items
 
     def _get_remote_files_map(self) -> Dict[str, Dict[str, Any]]:
-        """Creates a map of relative_path -> (file_id, timestamp, is_folder) for remote items."""
+        """
+        Creates a recursive map of relative_path -> (file_id, timestamp, is_folder) for remote items 
+        by using a queue (BFS).
+        """
         if not self.drive_service or not self.dest_folder_id:
             raise RuntimeError("Drive service or destination ID not set.")
 
         remote_items: Dict[str, Dict[str, Any]] = {}
-        id_to_rel_path: Dict[str, str] = {self.dest_folder_id: ''}
         
-        # Query items within the destination folder or shared with me
-        query = f"'{self.dest_folder_id}' in parents and trashed=false"
+        # Queue: (folder_id, relative_path_string)
+        folder_queue = [(self.dest_folder_id, '')]
         
-        items: List[Any] = []
-        page_token = None
-        while True:
+        while folder_queue:
             self.check_stop()
-            try:
-                response = self.drive_service.files().list(
-                    q=query, 
-                    spaces='drive', 
-                    fields='nextPageToken, files(id, name, modifiedTime, mimeType, parents)',
-                    # includeItemsFromAllDrives=True, <- REMOVED
-                    # supportsAllDrives=True, <- REMOVED
-                    pageToken=page_token
-                ).execute()
-            except HttpError as e:
-                self.logger(f"❌ Error listing remote files: {e}")
-                raise RuntimeError(SYNC_ERROR)
-                
-            items.extend(response.get('files', []))
-            page_token = response.get('nextPageToken', None)
-            if page_token is None:
-                break
-                
-        # Build path map from the retrieved files
-        for item in items:
-            self.check_stop()
-            # This logic assumes a file/folder has exactly one parent (the destination folder)
-            if item.get('parents'):
-                parent_id = item['parents'][0]
-                if parent_id in id_to_rel_path:
-                    parent_path = id_to_rel_path[parent_id]
-                    current_rel_path = os.path.join(parent_path, item['name']).replace(os.sep, '/')
-                    id_to_rel_path[item['id']] = current_rel_path
-
-        # Populate remote items map
-        for item in items:
-            self.check_stop()
-            item_id = item['id']
-            if item_id in id_to_rel_path and item_id != self.dest_folder_id:
-                modified_time_iso = item.get('modifiedTime')
-                timestamp = 0
+            current_folder_id, current_rel_path = folder_queue.pop(0)
+            
+            # Query for immediate children of the current folder
+            query = f"'{current_folder_id}' in parents and trashed=false"
+            
+            page_token = None
+            while True:
+                self.check_stop()
                 try:
-                    # Handle different timestamp formats (with or without fractional seconds)
-                    if '.' in modified_time_iso:
-                        dt_object = datetime.strptime(modified_time_iso, "%Y-%m-%dT%H:%M:%S.%fZ")
-                    else:
-                        dt_object = datetime.strptime(modified_time_iso, "%Y-%m-%dT%H:%M:%SZ")
-                    timestamp = int(dt_object.timestamp())
-                except (ValueError, TypeError):
-                    pass 
+                    response = self.drive_service.files().list(
+                        q=query, 
+                        spaces='drive', 
+                        fields='nextPageToken, files(id, name, modifiedTime, mimeType)',
+                        pageToken=page_token
+                    ).execute()
+                except HttpError as e:
+                    self.logger(f"❌ Error listing remote files: {e}")
+                    raise RuntimeError(SYNC_ERROR)
+                    
+                items = response.get('files', [])
                 
-                remote_items[id_to_rel_path[item_id]] = {
-                    'id': item_id, 
-                    'mtime': timestamp, 
-                    'is_folder': item['mimeType'] == 'application/vnd.google-apps.folder'
-                }
+                for item in items:
+                    item_name = item['name']
+                    full_path = os.path.join(current_rel_path, item_name).replace(os.sep, '/')
+                    item_id = item['id']
+
+                    is_folder = item['mimeType'] == 'application/vnd.google-apps.folder'
+
+                    if is_folder:
+                        folder_queue.append((item_id, full_path))
+                        self.remote_path_to_id[full_path] = item_id 
+                    
+                    modified_time_iso = item.get('modifiedTime')
+                    timestamp = 0
+                    try:
+                        if modified_time_iso and '.' in modified_time_iso:
+                            dt_object = datetime.strptime(modified_time_iso, "%Y-%m-%dT%H:%M:%S.%fZ")
+                        elif modified_time_iso:
+                            dt_object = datetime.strptime(modified_time_iso, "%Y-%m-%dT%H:%M:%SZ")
+                        timestamp = int(dt_object.timestamp())
+                    except (ValueError, TypeError):
+                        pass 
+                    
+                    remote_items[full_path] = {
+                        'id': item_id, 
+                        'mtime': timestamp, 
+                        'is_folder': is_folder
+                    }
+
+                page_token = response.get('nextPageToken', None)
+                if page_token is None:
+                    break
                 
-        # Debugging: Log items found in remote
         self.logger(f"\n--- Current Remote Files in Destination Folder ---")
         if not remote_items:
             self.logger("   (Folder is empty)")
         else:
-            # Log only file paths, not IDs
             for path in sorted(remote_items.keys()):
                 item = remote_items[path]
                 item_type = "[Folder]" if item['is_folder'] else "[File]"
@@ -314,8 +293,7 @@ class GoogleDriveSync:
         try:
             folder = self.drive_service.files().create(
                 body=file_metadata, 
-                fields='id',
-                # supportsAllDrives=True <- REMOVED
+                fields='id'
             ).execute()
             new_id = folder.get('id')
             self.logger(f"   Created remote folder: {rel_path} (ID: {new_id})")
@@ -327,7 +305,7 @@ class GoogleDriveSync:
 
 
     def _upload_file(self, local_file_path: str, file_name: str, remote_file_id: Optional[str], rel_path: str):
-        """Uploads or updates a file."""
+        """Uploads a new file (remote_file_id should be None in this sync mode)."""
         self.check_stop()
         if not self.drive_service or not self.dest_folder_id:
             raise RuntimeError("Drive service or destination ID not set.")
@@ -337,6 +315,7 @@ class GoogleDriveSync:
 
         file_metadata = {'name': file_name}
         
+        # Set modified time based on local file for metadata consistency
         local_mtime = os.path.getmtime(local_file_path)
         dt_object = datetime.fromtimestamp(local_mtime)
         file_metadata['modifiedTime'] = dt_object.isoformat("T") + "Z"
@@ -344,53 +323,61 @@ class GoogleDriveSync:
         media = MediaFileUpload(local_file_path, resumable=True)
 
         if self.dry_run:
-            action = "UPDATE" if remote_file_id else "UPLOAD"
-            self.logger(f"   [DRY RUN] {action}: {rel_path}")
+            self.logger(f"   [DRY RUN] UPLOAD: {rel_path}")
             return True
 
         try:
-            if remote_file_id:
-                self.drive_service.files().update(
-                    fileId=remote_file_id, 
-                    body=file_metadata,
-                    media_body=media,
-                    addParents=parent_id, 
-                    # supportsAllDrives=True <- REMOVED
-                ).execute()
-            else:
-                file_metadata['parents'] = [parent_id]
-                self.drive_service.files().create(
-                    body=file_metadata, 
-                    media_body=media, 
-                    fields='id, parents', 
-                    # supportsAllDrives=True, <- REMOVED
-                ).execute()
+            file_metadata['parents'] = [parent_id]
+            self.drive_service.files().create(
+                body=file_metadata, 
+                media_body=media, 
+                fields='id, parents'
+            ).execute()
             return True
         except HttpError as e:
-            self.logger(f"❌ Error during file operation for '{rel_path}': {e}")
+            self.logger(f"❌ Error during file upload for '{rel_path}': {e}")
             return False
 
-    def _delete_file(self, file_id: str, remote_name: str):
-        """Deletes a file or folder on Google Drive."""
+    def _download_file(self, file_id: str, local_destination_path: str) -> bool:
+        """Downloads a file's content and saves it to the local filesystem."""
         self.check_stop()
         if not self.drive_service:
             raise RuntimeError("Drive service not initialized.")
 
-        self.logger(f"   DELETING: {remote_name}")
-        
+        local_dir = os.path.dirname(local_destination_path)
+        if not os.path.exists(local_dir):
+            os.makedirs(local_dir)
+            
         if self.dry_run:
-            self.logger(f"   [DRY RUN] Would have deleted file/folder: {remote_name}")
+            self.logger(f"   [DRY RUN] Download: {os.path.basename(local_destination_path)}")
             return True
-        
+
         try:
-            self.drive_service.files().delete(
-                fileId=file_id, 
-                # supportsAllDrives=True <- REMOVED
-            ).execute()
+            request = self.drive_service.files().get(fileId=file_id, alt='media')
+            
+            # Use io.FileIO to write the content directly to the file
+            file_handle = io.FileIO(local_destination_path, 'wb')
+            
+            # Download the file content in chunks
+            downloader = MediaIoBaseDownload(file_handle, request)
+            done = False
+            while done is False:
+                status, done = downloader.next_chunk()
+                # If needed, add progress logging here
+                
+            file_handle.close()
             return True
+            
         except HttpError as e:
-            self.logger(f"❌ Error deleting '{remote_name}': {e}")
+            self.logger(f"❌ Error downloading file ID {file_id}: {e}")
             return False
+        except Exception as e:
+            self.logger(f"❌ Unexpected error during download: {e}")
+            return False
+            
+    def _delete_file(self, file_id: str, remote_name: str):
+        """This function is not used in the "Upload Missing / Download Missing" mode."""
+        pass # Deletion logic is intentionally disabled.
             
     # ==============================================================================
     # 3. CORE SYNCHRONIZATION EXECUTION
@@ -398,21 +385,17 @@ class GoogleDriveSync:
 
     def execute_sync(self) -> tuple[bool, str]:
         """
-        Main function to orchestrate the one-way sync logic.
-        Returns (success_status, final_message).
+        Main function to orchestrate the "Upload Missing and Download Missing" logic.
         """
         try:
-            # 1. Prerequisite Checks
             self.check_stop()
             
             local_path_exists = os.path.exists(self.local_path)
             local_path_is_dir = os.path.isdir(self.local_path)
             
-            # Modified check for client_secrets.json
             if not os.path.exists(self.client_secrets_file):
                 return (False, f"OAuth client secrets file '{self.client_secrets_file}' not found.")
 
-            # 2. Initialize Drive Service and Find Destination Folder
             self._get_drive_service()
             dest_folder_id = self._find_or_create_destination_folder()
             
@@ -422,15 +405,14 @@ class GoogleDriveSync:
                 self.logger("❌ Failed to secure destination folder ID.")
                 return (False, "Failed to secure destination folder ID.")
             
-            # 2a. Share the destination folder if email provided <- REMOVED
+            if self.share_email and dest_folder_id and not dest_folder_id.startswith("DRY_RUN_ID"):
+                self.logger("Skipping Share Action: Sharing logic for Personal Account flow is typically handled externally or disabled.")
             
             if not self.check_stop_status(dest_folder_id): return (False, "Synchronization manually interrupted.")
 
             if not local_path_exists or not local_path_is_dir:
-                # Removed check for self.share_email
                 return (False, f"Local source path '{self.local_path}' does not exist or is not a directory.")
 
-            # 3. Get file maps
             self.logger("📋 Comparing local and remote files recursively...")
             local_items = self._get_local_files_map()
             remote_items = self._get_remote_files_map()
@@ -439,58 +421,63 @@ class GoogleDriveSync:
 
             self.logger("\n--- Sync Operation Analysis & Execution ---")
             
-            items_to_sync = 0
-            items_to_delete = 0
-            remaining_remote = remote_items.copy()
+            items_uploaded = 0
+            items_downloaded = 0
+            items_skipped_matched = 0
+            items_skipped_remote = remote_items.copy() 
 
-            # A. Determine items to upload/update/create folder
+            # 1. Process Local Items (Upload Missing)
             for rel_path, local_data in local_items.items():
                 self.check_stop()
-                local_mtime = local_data['mtime']
                 
+                # --- FOLDERS: Find or Create Remote Folders ---
                 if local_data['is_folder']:
-                    if rel_path not in remaining_remote:
+                    if rel_path not in items_skipped_remote:
                         self.check_stop()
                         self._create_remote_folder(rel_path)
                     else:
-                        remaining_remote.pop(rel_path)
+                        items_skipped_remote.pop(rel_path)
                     continue
 
-                # --- Handle Files (Upload/Update) ---
-                remote_data = remaining_remote.get(rel_path)
+                # --- FILES: Upload or Skip ---
+                remote_data = items_skipped_remote.get(rel_path)
                 
                 if remote_data:
-                    remote_mtime = remote_data['mtime']
-                    remote_id = remote_data['id']
-                    
-                    if local_mtime > remote_mtime + 1:
-                        self.logger(f"   UPDATING: {rel_path} (Local newer)")
-                        self._upload_file(local_data['path'], os.path.basename(rel_path), remote_id, rel_path)
-                        items_to_sync += 1
-                    
-                    remaining_remote.pop(rel_path) 
+                    # File exists in both places. SKIP it entirely.
+                    self.logger(f"   SKIPPING: {rel_path} (File exists locally and remotely)")
+                    items_skipped_matched += 1
+                    items_skipped_remote.pop(rel_path) # Remove from remote list so it's not downloaded later
+                        
                 else:
-                    self.logger(f"   UPLOADING: {rel_path} (New item)")
+                    # File exists locally but not remotely. UPLOAD it.
+                    self.logger(f"   UPLOADING: {rel_path} (New local item)")
                     self._upload_file(local_data['path'], os.path.basename(rel_path), None, rel_path)
-                    items_to_sync += 1
+                    items_uploaded += 1
 
-            # B. Determine items to delete
-            for remote_name in sorted(remaining_remote.keys(), key=lambda x: x.count('/'), reverse=True):
+            # 2. Process Remaining Remote Items (Download Missing)
+            # Remaining items in items_skipped_remote exist *only* on the remote side.
+            for rel_path, remote_data in items_skipped_remote.items():
                 self.check_stop()
-                remote_data = remaining_remote[remote_name]
-                self._delete_file(remote_data['id'], remote_name)
-                items_to_delete += 1
-
-            total_actions = items_to_sync + items_to_delete
+                
+                # Skip folders—we only care about downloading missing files here.
+                if remote_data['is_folder']:
+                    continue
+                
+                # Item exists remotely but not locally. DOWNLOAD it.
+                self.logger(f"   DOWNLOADING: {rel_path} (New remote item)")
+                self._download_file(remote_data['id'], os.path.join(self.local_path, rel_path))
+                items_downloaded += 1
+                
+            total_actions = items_uploaded + items_downloaded
             
             self.logger("\n--- Sync Execution Summary ---")
             
             if total_actions == 0:
-                self.logger("✅ Sync successful! No changes required.")
+                self.logger(f"✅ Sync successful! No changes required. ({items_skipped_matched} files skipped)")
                 final_message = "No changes needed."
             else:
-                self.logger(f"✅ Sync successful! Total actions: {total_actions} (Upload/Update: {items_to_sync}, Delete: {items_to_delete})")
                 status_word = "Simulated" if self.dry_run else "Completed"
+                self.logger(f"✅ Sync successful! Total actions: {total_actions} (Uploads: {items_uploaded}, Downloads: {items_downloaded}, Skipped: {items_skipped_matched})")
                 final_message = f"{status_word} with {total_actions} actions."
             
             return (True, final_message)

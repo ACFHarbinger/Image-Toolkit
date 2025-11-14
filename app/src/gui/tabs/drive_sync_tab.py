@@ -2,11 +2,11 @@ import os
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-from PySide6.QtCore import QThreadPool, Slot
+from PySide6.QtCore import QThreadPool, Slot, Qt
 from PySide6.QtWidgets import (
     QApplication, QMessageBox, QHBoxLayout, QVBoxLayout,
     QLineEdit, QComboBox, QFileDialog, QPushButton, QLabel,
-    QGroupBox, QCheckBox, QTextEdit,
+    QGroupBox, QCheckBox, QTextEdit, QWidget
 )
 from ..utils.app_definitions import DRY_RUN
 from ...utils.definitions import (
@@ -19,12 +19,71 @@ from ..helpers import GoogleDriveSyncWorker
 from ..utils.styles import apply_shadow_effect, STYLE_SYNC_RUN, STYLE_SYNC_STOP
 
 
+import os
+from pathlib import Path
+from typing import Optional, Dict, Any
+
+from PySide6.QtCore import QThreadPool, Slot, Qt
+from PySide6.QtWidgets import (
+    QApplication, QMessageBox, QHBoxLayout, QVBoxLayout,
+    QLineEdit, QComboBox, QFileDialog, QPushButton, QLabel,
+    QGroupBox, QCheckBox, QTextEdit, QWidget
+)
+from ..utils.app_definitions import DRY_RUN
+from ...utils.definitions import (
+    DRIVE_DESTINATION_FOLDER_NAME,
+    CLIENT_SECRETS_FILE, TOKEN_FILE,
+    SERVICE_ACCOUNT_FILE, LOCAL_SOURCE_PATH, 
+)
+from .base_tab import BaseTab
+from ..helpers import GoogleDriveSyncWorker
+from ..utils.styles import apply_shadow_effect, STYLE_SYNC_RUN, STYLE_SYNC_STOP
+
+
+# ==============================================================================
+# 1. LOG WINDOW CLASS (Necessary for worker output)
+# ==============================================================================
+
+class LogWindow(QWidget):
+    """A dedicated window to display the synchronization log."""
+    def __init__(self, parent=None):
+        super().__init__(parent, Qt.Window) 
+        self.setWindowTitle("Synchronization Status Log")
+        self.setGeometry(100, 100, 700, 500)
+        
+        main_layout = QVBoxLayout(self)
+        self.log_output = QTextEdit()
+        self.log_output.setReadOnly(True)
+        self.log_output.setStyleSheet("background:#1e1e1e; color:#b9bbbe; border:none; font-family: monospace;")
+        
+        main_layout.addWidget(self.log_output)
+
+    def append_log(self, text: str):
+        """Method to safely append text to the log."""
+        self.log_output.append(text)
+
+    def clear_log(self):
+        """Method to clear the log content."""
+        self.log_output.clear()
+
+    def closeEvent(self, event):
+        """Ensure the window hides instead of closing completely."""
+        self.hide()
+        event.ignore()
+
+
+# ==============================================================================
+# 2. MODIFIED DRIVE SYNCHRONIZATION TAB
+# ==============================================================================
+
 class DriveSyncTab(BaseTab):
     """GUI tab for Google Drive one-way sync (QRunnable + QThreadPool)."""
     def __init__(self, dropdown=True, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.dropdown = dropdown
         self.current_worker: Optional[GoogleDriveSyncWorker] = None
+        
+        self.log_window = LogWindow() 
 
         main_layout = QVBoxLayout(self)
 
@@ -37,7 +96,7 @@ class DriveSyncTab(BaseTab):
         self.provider_combo = QComboBox()
         self.provider_combo.addItems([
             "Google Drive (Service Account)",
-            "Google Drive (Personal Account)", # <-- NEW OPTION
+            "Google Drive (Personal Account)",
             "Dropbox (Not Yet Implemented)",
             "OneDrive (Not Yet Implemented)"
         ])
@@ -46,7 +105,7 @@ class DriveSyncTab(BaseTab):
         provider_layout.addWidget(self.provider_combo)
         config_layout.addLayout(provider_layout)
 
-        # --- Service Account Key (Group 1) ---
+        # Service Account Key
         self.key_file_label = QLabel("Service Account Key File:")
         key_layout = QHBoxLayout()
         self.key_file_path = QLineEdit(os.path.join(Path.home(), SERVICE_ACCOUNT_FILE))
@@ -57,7 +116,7 @@ class DriveSyncTab(BaseTab):
         key_layout.addWidget(self.key_file_path)
         key_layout.addWidget(self.btn_browse_key)
 
-        # --- Personal Account: Client Secrets (Group 2) ---
+        # Personal Account: Client Secrets
         self.client_secrets_label = QLabel("Client Secrets File:")
         client_secrets_layout = QHBoxLayout()
         self.client_secrets_path = QLineEdit(os.path.join(Path.home(), CLIENT_SECRETS_FILE))
@@ -68,7 +127,7 @@ class DriveSyncTab(BaseTab):
         client_secrets_layout.addWidget(self.client_secrets_path)
         client_secrets_layout.addWidget(self.btn_browse_client_secrets)
         
-        # --- Personal Account: Token File (Group 2) ---
+        # Personal Account: Token File
         self.token_file_label = QLabel("Token File (auto-generated):")
         token_file_layout = QHBoxLayout()
         self.token_file_path = QLineEdit(os.path.join(Path.home(), TOKEN_FILE))
@@ -90,7 +149,7 @@ class DriveSyncTab(BaseTab):
         self.remote_path.setPlaceholderText("Drive folder (e.g. Backups/2025)")
         remote_layout.addWidget(self.remote_path)
         
-        # User Email to Share With (For Service Account)
+        # User Email to Share With
         share_layout = QHBoxLayout()
         self.share_email_label = QLabel("Share Folder With:")
         self.share_email_input = QLineEdit()
@@ -121,7 +180,6 @@ class DriveSyncTab(BaseTab):
         """)
 
         # --- Assemble config ---
-        # Add all widgets, then show/hide them in handle_provider_change
         config_layout.addWidget(self.key_file_label)
         config_layout.addLayout(key_layout)
         config_layout.addWidget(self.client_secrets_label)
@@ -146,21 +204,17 @@ class DriveSyncTab(BaseTab):
         apply_shadow_effect(self.sync_button, "#000000", 8, 0, 3)
         self.sync_button.clicked.connect(self.toggle_sync) 
 
-        # ------------------ LOG AREA ------------------
-        status_group = QGroupBox("Synchronization Status Log")
-        status_layout = QVBoxLayout(status_group)
-        self.log_output = QTextEdit()
-        self.log_output.setReadOnly(True)
-        self.log_output.setStyleSheet("background:#1e1e1e; color:#b9bbbe; border:none;")
-        status_layout.addWidget(self.log_output)
+        # ------------------ LOG ACCESS BUTTON (REMOVED) ------------------
+        # self.btn_show_log is removed
 
         # ------------------ LAYOUT ------------------
         main_layout.addWidget(config_group)
         main_layout.addWidget(self.sync_button)
-        main_layout.addWidget(status_group, 1)
+        # main_layout.addWidget(self.btn_show_log) <-- REMOVED
+        main_layout.addStretch(1)
 
         self.load_configuration_defaults()
-        self.handle_provider_change(0) # Initial UI setup
+        self.handle_provider_change(0)
         
     # ------------------------------------------------------------------ #
     #                         SYNC TOGGLE                              #
@@ -168,7 +222,7 @@ class DriveSyncTab(BaseTab):
     def toggle_sync(self):
         """Starts the sync if idle, or stops it if running."""
         if self.current_worker is None:
-            self.run_sync_now(clear_log=True) # Clear log only on start
+            self.run_sync_now(clear_log=True)
         else:
             self.stop_sync_now()
 
@@ -177,11 +231,11 @@ class DriveSyncTab(BaseTab):
         if self.current_worker:
             self.current_worker.stop()
             self.unlock_ui()
-            self.log_output.append("\nManually interrupted. Resetting UI...")
-            self.current_worker = None # Crucial: Allows re-run immediately
+            self.log_window.append_log("\nManually interrupted. Resetting UI...")
+            self.current_worker = None
 
     # ------------------------------------------------------------------ #
-    #                          PROVIDER SWITCH                          #
+    #                          PROVIDER SWITCH                         #
     # ------------------------------------------------------------------ #
     def handle_provider_change(self, index: int):
         provider_text = self.provider_combo.currentText()
@@ -278,7 +332,7 @@ class DriveSyncTab(BaseTab):
     def view_remote_map(self):
         """Action to initialize a worker to log the remote file map."""
         if self.current_worker:
-            return # Ignore if sync is running
+            return
             
         auth_config = self._build_auth_config()
         if not auth_config:
@@ -291,13 +345,14 @@ class DriveSyncTab(BaseTab):
 
         # ---- UI lock ----
         self.lock_ui_minor(message="Viewing Remote Map…", clear_log=True)
+        self.log_window.show()
         
         self.current_worker = GoogleDriveSyncWorker(
             auth_config=auth_config,
             local_path=self.local_path.text().strip(), 
             remote_path=remote_path, 
-            dry_run=True, # Force Dry Run for viewing
-            user_email_to_share_with=None # No sharing for this action
+            dry_run=True,
+            user_email_to_share_with=None
         )
         self.current_worker.signals.status_update.connect(self.handle_status_update)
         self.current_worker.signals.sync_finished.connect(self.handle_view_finished) 
@@ -309,7 +364,7 @@ class DriveSyncTab(BaseTab):
         """Custom handler for the View Remote Map action."""
         self.unlock_ui_minor()
         final = f"\nFINAL STATUS: Remote Map View {'Completed' if success else 'Failed'}. {message}"
-        self.log_output.append(final)
+        self.log_window.append_log(final)
         
         if not success and "Dry Run incomplete" not in message and "Local file sync skipped" not in message:
             QMessageBox.critical(self, "Map View Failed", message)
@@ -321,9 +376,8 @@ class DriveSyncTab(BaseTab):
     def share_remote_folder(self):
         """Action to initialize a worker to perform ONLY the sharing action."""
         if self.current_worker:
-            return # Ignore if sync is running
+            return
         
-        # This button is disabled for personal, but double-check
         auth_config = self._build_auth_config()
         if not auth_config or auth_config["mode"] != "service_account":
             QMessageBox.warning(self, "Error", "Sharing is only available for Service Accounts.")
@@ -341,6 +395,7 @@ class DriveSyncTab(BaseTab):
 
         # ---- UI lock ----
         self.lock_ui_minor(message="Sharing Folder…", clear_log=True)
+        self.log_window.show()
         
         self.current_worker = GoogleDriveSyncWorker(
             auth_config=auth_config,
@@ -359,7 +414,7 @@ class DriveSyncTab(BaseTab):
         """Custom handler for the Share Folder action."""
         self.unlock_ui_minor()
         final = f"\nFINAL STATUS: Share Action {'Completed' if success else 'Failed'}. {message}"
-        self.log_output.append(final)
+        self.log_window.append_log(final)
         
         if success:
             QMessageBox.information(self, "Share Success", "Folder sharing action completed.")
@@ -373,10 +428,8 @@ class DriveSyncTab(BaseTab):
     def run_sync_now(self, clear_log: bool = True):
         """Initializes and runs the main synchronization job."""
         
-        # 1. BUILD AUTH CONFIG AND VALIDATE AUTH FILES (MUST COME FIRST)
         auth_config = self._build_auth_config()
         if not auth_config:
-            # _build_auth_config already shows a QMessageBox, just return.
             return
             
         local_path = self.local_path.text().strip()
@@ -384,7 +437,6 @@ class DriveSyncTab(BaseTab):
         dry_run = self.dry_run_checkbox.isChecked()
         share_email = None
 
-        # 2. PERFORM PATH VALIDATION (STILL BEFORE UI LOCK)
         if not os.path.isdir(local_path):
             QMessageBox.warning(self, "Error", f"Local folder invalid:\n{local_path}")
             return
@@ -392,14 +444,14 @@ class DriveSyncTab(BaseTab):
             QMessageBox.warning(self, "Error", "Remote path cannot be empty.")
             return
         
-        # Only set share_email if it's a service account and the field is filled
         if auth_config["mode"] == "service_account":
             email_text = self.share_email_input.text().strip()
             if email_text:
                 share_email = email_text
         
-        # 3. UI LOCK & SETUP (ONLY AFTER ALL VALIDATION PASSES)
+        # 3. UI LOCK & SETUP 
         self.lock_ui(message="STOP", is_running=True, clear_log=clear_log)
+        self.log_window.show()
 
         # 4. START WORKER
         self.current_worker = GoogleDriveSyncWorker(
@@ -421,9 +473,8 @@ class DriveSyncTab(BaseTab):
         """Locks UI elements and updates sync button text/style."""
         self.sync_button.setText(message)
         self.sync_button.setStyleSheet(STYLE_SYNC_STOP if is_running else STYLE_SYNC_RUN)
-        self.sync_button.setEnabled(True) # Re-enable to allow STOP click
+        self.sync_button.setEnabled(True)
 
-        # Disable configuration inputs and minor buttons
         config_enabled = not is_running
         
         # Auth inputs
@@ -444,19 +495,18 @@ class DriveSyncTab(BaseTab):
         self.btn_share_folder.setEnabled(config_enabled)
         
         if clear_log: 
-            self.log_output.clear()
+            self.log_window.clear_log()
         QApplication.processEvents()
         
     def unlock_ui(self):
         """Unlocks all UI elements and resets sync button state."""
         self.lock_ui(message="Run Synchronization Now", is_running=False)
-        # Restore provider-specific UI state
         self.handle_provider_change(self.provider_combo.currentIndex())
         
     def lock_ui_minor(self, message: str, clear_log: bool = False):
         """Locks only minor action buttons while View/Share is running."""
         if clear_log:
-            self.log_output.clear()
+            self.log_window.clear_log()
         self.btn_view_remote.setEnabled(False)
         self.btn_share_folder.setEnabled(False)
         self.sync_button.setEnabled(False)
@@ -467,7 +517,6 @@ class DriveSyncTab(BaseTab):
         self.btn_view_remote.setEnabled(True)
         self.btn_share_folder.setEnabled(True)
         self.sync_button.setEnabled(True)
-        # Restore provider-specific UI state
         self.handle_provider_change(self.provider_combo.currentIndex())
 
 
@@ -476,7 +525,7 @@ class DriveSyncTab(BaseTab):
     # ------------------------------------------------------------------ #
     @Slot(str)
     def handle_status_update(self, msg: str):
-        self.log_output.append(msg)
+        self.log_window.append_log(msg)
 
     # ------------------------------------------------------------------ #
     #                           FINISHED                               #
@@ -485,7 +534,7 @@ class DriveSyncTab(BaseTab):
     def handle_sync_finished(self, success: bool, message: str):
         self.unlock_ui()
         final = f"\nFINAL STATUS: {message}"
-        self.log_output.append(final)
+        self.log_window.append_log(final)
         if not success and "manually cancelled" not in message:
             QMessageBox.critical(self, "Sync Failed", message)
         self.current_worker = None
@@ -523,7 +572,7 @@ class DriveSyncTab(BaseTab):
             line_edit.setText(dir_)
 
     # ------------------------------------------------------------------ #
-    #                     BaseTab abstract methods                      #
+    #                     BaseTab abstract methods                     #
     # ------------------------------------------------------------------ #
     def browse_files(self):      
         provider_text = self.provider_combo.currentText()
