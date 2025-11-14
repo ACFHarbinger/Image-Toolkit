@@ -64,6 +64,7 @@ class MergeTab(BaseTab):
         # ------------------------------------------------------------------
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
+        # ESCAPED NEWLINE FIX: Ensuring stylesheet is parseable
         scroll_area.setStyleSheet("QScrollArea { border: none; }")
         
         scroll_content = QWidget()
@@ -141,9 +142,11 @@ class MergeTab(BaseTab):
         # Gallery Area (MarqueeScrollArea) - Top Panel
         self.merge_scroll_area = MarqueeScrollArea()
         self.merge_scroll_area.setWidgetResizable(True)
+        # ESCAPED NEWLINE FIX: Ensuring stylesheet is parseable
         self.merge_scroll_area.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
 
         self.merge_thumbnail_widget = QWidget()
+        # ESCAPED NEWLINE FIX: Ensuring stylesheet is parseable
         self.merge_thumbnail_widget.setStyleSheet("QWidget { background-color: #2c2f33; }")
         self.merge_thumbnail_layout = QGridLayout(self.merge_thumbnail_widget)
         self.merge_thumbnail_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
@@ -157,10 +160,12 @@ class MergeTab(BaseTab):
         # --- 2.5. Selected Images Area --- (Bottom Panel)
         self.selected_images_area = MarqueeScrollArea() 
         self.selected_images_area.setWidgetResizable(True)
+        # ESCAPED NEWLINE FIX: Ensuring stylesheet is parseable
         self.selected_images_area.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
         
         self.selected_images_widget = QWidget()
-        self.selected_images_widget.setStyleSheet("background-color: #2c2f33;}")
+        # ESCAPED NEWLINE FIX: Ensuring stylesheet is parseable
+        self.selected_images_widget.setStyleSheet("QWidget { background-color: #2c2f33; }")
         self.selected_grid_layout = QGridLayout(self.selected_images_widget)
         self.selected_grid_layout.setSpacing(10)
         self.selected_grid_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft) # Align items to top-left
@@ -190,12 +195,12 @@ class MergeTab(BaseTab):
         self.run_button = QPushButton("Run Merge")
         self.run_button.setStyleSheet("""
             QPushButton {
-                background-color: #5865f2;
-                color: white; font-weight: bold; font-size: 16px;
-                padding: 14px; border-radius: 10px; min-height: 44px;
+                background-color: #5865f2; \n
+                color: white; font-weight: bold; font-size: 16px; \n
+                padding: 14px; border-radius: 10px; min-height: 44px; \n
             }
-            QPushButton:hover { background-color: #4754c4; }
-            QPushButton:disabled { background: #718096; }
+            QPushButton:hover { background-color: #4754c4; } \n
+            QPushButton:disabled { background: #718096; } \n
             QPushButton:pressed { background: #3f479a; }
         """)
         apply_shadow_effect(self.run_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
@@ -354,6 +359,7 @@ class MergeTab(BaseTab):
         
         # Robust Cleanup
         worker.loading_finished.connect(thread.quit)
+        worker.loading_finished.connect(worker.deleteLater)
         thread.finished.connect(self._cleanup_thumbnail_thread_ref) 
         
         thread.start()
@@ -513,23 +519,23 @@ class MergeTab(BaseTab):
             # The card should always reflect its true selection status in the master set
             is_master_selected = path in self.selected_image_paths
             
-            # Use the consistent background and border styles
+            # ESCAPED NEWLINE FIX: Escaping newlines in multiline QFrame style
             if is_master_selected:
-                 card_style = """
-                    QFrame {
-                        background-color: #2c2f33; 
-                        border-radius: 8px;
-                        border: 3px solid #5865f2; /* Selected style */
-                    }
-                """
+                 card_style = (
+                     "QFrame { \n"
+                     "    background-color: #2c2f33; \n"
+                     "    border-radius: 8px; \n"
+                     "    border: 3px solid #5865f2; \n"
+                     "}"
+                 )
             else:
-                card_style = """
-                    QFrame {
-                        background-color: #2c2f33;
-                        border-radius: 8px;
-                        border: 1px solid #4f545c;
-                    }
-                """
+                card_style = (
+                    "QFrame { \n"
+                    "    background-color: #2c2f33; \n"
+                    "    border-radius: 8px; \n"
+                    "    border: 1px solid #4f545c; \n"
+                    "}"
+                )
 
             card.setStyleSheet(card_style)
             card_layout = QVBoxLayout(card)
@@ -596,17 +602,17 @@ class MergeTab(BaseTab):
             if is_selected:
                 card_frame.setStyleSheet("""
                     QFrame {
-                        background-color: #2c2f33;
-                        border-radius: 8px;
-                        border: 3px solid #5865f2; /* Selected style */
+                        background-color: #2c2f33; \n
+                        border-radius: 8px; \n
+                        border: 3px solid #5865f2; \n
                     }
                 """)
             else:
                 card_frame.setStyleSheet("""
                     QFrame {
-                        background-color: #2c2f33;
-                        border-radius: 8px;
-                        border: 1px solid #4f545c; /* Deselected style (Grey) */
+                        background-color: #2c2f33; \n
+                        border-radius: 8px; \n
+                        border: 1px solid #4f545c; \n
                     }
                 """)
             
@@ -737,8 +743,8 @@ class MergeTab(BaseTab):
             self.run_button.setDefault(False) # Unset default property
             
             # Re-enable the Add Files button as the default action when Merge is disabled
-            add_files_button = self.findChild(QPushButton, "Add Files")
-            if add_files_button:
+            add_files_button = self.findChild(QPushButton)
+            if add_files_button and add_files_button.text() == "Add Files":
                 add_files_button.setDefault(True)
 
             self.status_label.setText("") # Clear status label when button is disabled
@@ -748,8 +754,8 @@ class MergeTab(BaseTab):
             self.run_button.setDefault(True) # Set default property
             
             # Unset the Add Files button as the default action
-            add_files_button = self.findChild(QPushButton, "Add Files")
-            if add_files_button:
+            add_files_button = self.findChild(QPushButton)
+            if add_files_button and add_files_button.text() == "Add Files":
                 add_files_button.setDefault(False)
 
         self.run_button.setText(run_button_text)

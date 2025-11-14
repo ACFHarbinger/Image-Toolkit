@@ -49,6 +49,7 @@ class ScanMetadataTab(BaseTab):
         # ------------------------------------------------------------------
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
+        # ESCAPED NEWLINE FIX: Ensuring stylesheet is parseable
         scroll_area.setStyleSheet("QScrollArea { border: none; }")
         
         scroll_content = QWidget()
@@ -57,7 +58,21 @@ class ScanMetadataTab(BaseTab):
         
         # --- Scan Directory Section ---
         scan_group = QGroupBox("Scan Directory")
-        # Removed complex inline QGroupBox styling to avoid QSS parsing errors
+        # ESCAPED NEWLINE FIX: Adding minimal QGroupBox styles
+        scan_group.setStyleSheet("""
+            QGroupBox {  
+                border: 1px solid #4f545c; \n
+                border-radius: 8px; \n
+                margin-top: 10px; \n
+            }
+            QGroupBox::title { 
+                subcontrol-origin: margin; \n
+                subcontrol-position: top left; \n
+                padding: 4px 10px; \n
+                color: white; \n
+                border-radius: 4px; \n
+            }
+        """)
         
         scan_layout = QVBoxLayout()
         scan_layout.setContentsMargins(10, 20, 10, 10) 
@@ -67,6 +82,9 @@ class ScanMetadataTab(BaseTab):
         self.scan_directory_path.setPlaceholderText("Select directory to scan...")
         btn_browse_scan = QPushButton("Browse...")
         btn_browse_scan.clicked.connect(self.browse_scan_directory)
+        
+        # NEW: Connect Enter key on Linedit to custom handler
+        self.scan_directory_path.returnPressed.connect(self.handle_scan_directory_return)
 
         apply_shadow_effect(btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
 
@@ -100,17 +118,17 @@ class ScanMetadataTab(BaseTab):
         self.scan_view_image_btn.setEnabled(False) 
         self.scan_view_image_btn.setStyleSheet("""
             QPushButton { 
-                background-color: #5865f2; 
-                color: white; 
-                padding: 10px;
-                border-radius: 8px;
+                background-color: #5865f2; \n
+                color: white; \n
+                padding: 10px; \n
+                border-radius: 8px; \n
             } 
             QPushButton:hover { 
-                background-color: #4754c4;
+                background-color: #4754c4; \n
             }
             QPushButton:disabled {
-                background-color: #4f545c;
-                color: #a0a0a0;
+                background-color: #4f545c; \n
+                color: #a0a0a0; \n
             }
         """)
         apply_shadow_effect(self.scan_view_image_btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
@@ -119,6 +137,7 @@ class ScanMetadataTab(BaseTab):
         # Scroll Area for image thumbnails (Main Gallery)
         self.scan_scroll_area = MarqueeScrollArea() 
         self.scan_scroll_area.setWidgetResizable(True)
+        # ESCAPED NEWLINE FIX: Ensuring stylesheet is parseable
         self.scan_scroll_area.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
 
         # Set minimum height for the main gallery scroll area (half of 1200, matching merge_tab)
@@ -140,6 +159,7 @@ class ScanMetadataTab(BaseTab):
         # --- Selected Images Area --- (Bottom Gallery)
         self.selected_images_area = MarqueeScrollArea() 
         self.selected_images_area.setWidgetResizable(True)
+        # ESCAPED NEWLINE FIX: Ensuring stylesheet is parseable
         self.selected_images_area.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
         self.selected_images_area.selection_changed.connect(self.handle_marquee_selection) 
         
@@ -147,7 +167,7 @@ class ScanMetadataTab(BaseTab):
         self.selected_images_area.setMinimumHeight(600)
 
         self.selected_images_widget = QWidget()
-        self.selected_images_widget.setStyleSheet("background-color: #2c2f33;}")
+        self.selected_images_widget.setStyleSheet("QWidget { background-color: #2c2f33; }")
         self.selected_grid_layout = QGridLayout(self.selected_images_widget)
         self.selected_grid_layout.setSpacing(10)
         self.selected_grid_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter) 
@@ -168,12 +188,16 @@ class ScanMetadataTab(BaseTab):
         self.series_combo = QComboBox()
         self.series_combo.setEditable(True)
         self.series_combo.setPlaceholderText("Enter or select series name...")
+        # NEW: Connect Enter key on combo box line edit to upsert button
+        self.series_combo.lineEdit().returnPressed.connect(lambda: self.upsert_button.click())
         series_layout.addWidget(self.series_combo)
         form_layout.addRow("Series Name:", series_layout)
         
         char_layout = QVBoxLayout()
         self.characters_edit = QLineEdit()
         self.characters_edit.setPlaceholderText("Enter character names (comma-separated)...")
+        # NEW: Connect Enter key
+        self.characters_edit.returnPressed.connect(lambda: self.upsert_button.click())
         char_layout.addWidget(self.characters_edit)
         self.char_suggestions = QLabel()
         self.char_suggestions.setStyleSheet("font-size: 9px; color: #b9bbbe;")
@@ -199,12 +223,12 @@ class ScanMetadataTab(BaseTab):
             checkbox = QCheckBox(tag.replace("_", " ").title())
             checkbox.setStyleSheet("""
                 QCheckBox::indicator {
-                    width: 16px; height: 16px; border: 1px solid #555;
-                    border-radius: 3px; background-color: #333;
+                    width: 16px; height: 16px; border: 1px solid #555; \n
+                    border-radius: 3px; background-color: #333; \n
                 }
                 QCheckBox::indicator:checked {
-                    background-color: #4CAF50; border: 1px solid #4CAF50;
-                    image: url(./src/gui/assets/check.png);
+                    background-color: #4CAF50; border: 1px solid #4CAF50; \n
+                    image: url(./src/gui/assets/check.png); \n
                 }
             """)
             self.tag_checkboxes[tag] = checkbox
@@ -228,18 +252,18 @@ class ScanMetadataTab(BaseTab):
         self.view_batch_button = QPushButton("View Selected")
         self.view_batch_button.setStyleSheet("""
             QPushButton { 
-                background-color: #3498db; 
-                color: white; 
-                padding: 10px 8px; 
-                border-radius: 8px;
-                font-weight: bold;
+                background-color: #3498db; \n
+                color: white; \n
+                padding: 10px 8px; \n
+                border-radius: 8px; \n
+                font-weight: bold; \n
             } 
             QPushButton:hover { 
-                background-color: #2980b9; 
+                background-color: #2980b9; \n
             }
             QPushButton:disabled {
-                background-color: #4f545c;
-                color: #a0a0a0;
+                background-color: #4f545c; \n
+                color: #a0a0a0; \n
             }
         """)
         apply_shadow_effect(self.view_batch_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
@@ -248,18 +272,18 @@ class ScanMetadataTab(BaseTab):
         self.upsert_button = QPushButton("Add/Update Database Data")
         self.upsert_button.setStyleSheet("""
             QPushButton { 
-                background-color: #2ecc71; 
-                color: white; 
-                padding: 10px 8px; 
-                border-radius: 8px;
-                font-weight: bold;
+                background-color: #2ecc71; \n
+                color: white; \n
+                padding: 10px 8px; \n
+                border-radius: 8px; \n
+                font-weight: bold; \n
             } 
             QPushButton:hover { 
-                background-color: #1e8449; 
+                background-color: #1e8449; \n
             }
             QPushButton:disabled {
-                background-color: #4f545c;
-                color: #a0a0a0;
+                background-color: #4f545c; \n
+                color: #a0a0a0; \n
             }
         """)
         apply_shadow_effect(self.upsert_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
@@ -268,18 +292,18 @@ class ScanMetadataTab(BaseTab):
         self.refresh_image_button = QPushButton("Refresh Image Directory")
         self.refresh_image_button.setStyleSheet("""
             QPushButton { 
-                background-color: #f1c40f; 
-                color: white; 
-                padding: 10px 8px; 
-                border-radius: 8px;
-                font-weight: bold;
+                background-color: #f1c40f; \n
+                color: white; \n
+                padding: 10px 8px; \n
+                border-radius: 8px; \n
+                font-weight: bold; \n
             } 
             QPushButton:hover { 
-                background-color: #d4ac0d; 
+                background-color: #d4ac0d; \n
             }
             QPushButton:disabled {
-                background-color: #4f545c;
-                color: #a0a0a0;
+                background-color: #4f545c; \n
+                color: #a0a0a0; \n
             }
         """)
         apply_shadow_effect(self.refresh_image_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
@@ -288,18 +312,18 @@ class ScanMetadataTab(BaseTab):
         self.delete_selected_button = QPushButton("Delete Images Data from Database")
         self.delete_selected_button.setStyleSheet("""
             QPushButton { 
-                background-color: #e74c3c; 
-                color: white; 
-                padding: 10px 8px; 
-                border-radius: 8px;
-                font-weight: bold;
+                background-color: #e74c3c; \n
+                color: white; \n
+                padding: 10px 8px; \n
+                border-radius: 8px; \n
+                font-weight: bold; \n
             } 
             QPushButton:hover { 
-                background-color: #c0392b; 
+                background-color: #c0392b; \n
             }
             QPushButton:disabled {
-                background-color: #4f545c;
-                color: #a0a0a0;
+                background-color: #4f545c; \n
+                color: #a0a0a0; \n
             }
         """)
         apply_shadow_effect(self.delete_selected_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
@@ -452,6 +476,15 @@ class ScanMetadataTab(BaseTab):
         ready_label.setStyleSheet("color: #b9bbbe;")
         self.scan_thumbnail_layout.addWidget(ready_label, 0, 0, 1, 1)
 
+    def handle_scan_directory_return(self):
+        """Custom handler for Enter key press on the scan directory path input."""
+        directory = self.scan_directory_path.text().strip()
+        if directory and Path(directory).is_dir():
+            self.populate_scan_image_gallery(directory)
+        else:
+            # If text is empty or invalid, behave like clicking the Browse... button
+            self.browse_scan_directory()
+
     def browse_scan_directory(self):
         start_dir = self.last_browsed_scan_dir
         options = QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks
@@ -577,20 +610,21 @@ class ScanMetadataTab(BaseTab):
         card_frame = card_clickable_wrapper.findChild(QFrame)
         if card_frame:
             # Update the styling of the card itself
+            # ESCAPED NEWLINE FIX: Escaping newlines in multiline QFrame style
             if is_selected:
                 card_frame.setStyleSheet("""
                     QFrame {
-                        background-color: #2c2f33;
-                        border-radius: 8px;
-                        border: 3px solid #5865f2; /* Selected style */
+                        background-color: #2c2f33; \n
+                        border-radius: 8px; \n
+                        border: 3px solid #5865f2; \n
                     }
                 """)
             else:
                 card_frame.setStyleSheet("""
                     QFrame {
-                        background-color: #2c2f33;
-                        border-radius: 8px;
-                        border: 1px solid #4f545c; /* Deselected style (Grey) */
+                        background-color: #2c2f33; \n
+                        border-radius: 8px; \n
+                        border: 1px solid #4f545c; \n
                     }
                 """)
             
@@ -774,23 +808,23 @@ class ScanMetadataTab(BaseTab):
             # The card should always reflect its true selection status in the master set
             is_master_selected = path in self.selected_image_paths
             
-            # Use the consistent background and border styles
+            # ESCAPED NEWLINE FIX: Escaping newlines in multiline QFrame style
             if is_master_selected:
-                 card_style = """
-                    QFrame {
-                        background-color: #2c2f33; 
-                        border-radius: 8px;
-                        border: 3px solid #5865f2; /* Selected style */
-                    }
-                """
+                 card_style = (
+                     "QFrame { \n"
+                     "    background-color: #2c2f33; \n"
+                     "    border-radius: 8px; \n"
+                     "    border: 3px solid #5865f2; \n"
+                     "}"
+                 )
             else:
-                card_style = """
-                    QFrame {
-                        background-color: #2c2f33;
-                        border-radius: 8px;
-                        border: 1px solid #4f545c;
-                    }
-                """
+                card_style = (
+                    "QFrame { \n"
+                    "    background-color: #2c2f33; \n"
+                    "    border-radius: 8px; \n"
+                    "    border: 1px solid #4f545c; \n"
+                    "}"
+                )
 
             card.setStyleSheet(card_style)
             card_layout = QVBoxLayout(card)
