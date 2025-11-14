@@ -1,74 +1,26 @@
 import os
+import ctypes
+import winreg
 import platform
 import subprocess
-import os
-from pathlib import Path
 
-# --- External Libs ---
 from PIL import Image
+from pathlib import Path
 from typing import Dict, List
 from screeninfo import get_monitors, Monitor
-
-# --- PySide6 Imports ---
-from PySide6.QtCore import (
-    Qt, QThreadPool, QThread, QMimeData, QUrl
-)
-from PySide6.QtGui import QPixmap, QDrag
+from PySide6.QtCore import Qt, QThreadPool, QThread
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QGroupBox,
     QWidget, QLabel, QPushButton, QMessageBox, QApplication,
     QLineEdit, QFileDialog, QScrollArea, QGridLayout
 )
-
-# --- Project Imports ---
 from .base_tab import BaseTab
-from ..components import MonitorDropWidget
+from ..components import MonitorDropWidget, DraggableImageLabel
+from ..helpers import ImageScannerWorker, BatchThumbnailLoaderWorker
 from ..utils.styles import apply_shadow_effect
-# Import workers from the same location as ScanFSETab
-try:
-    from ..helpers import ImageScannerWorker, BatchThumbnailLoaderWorker
-except ImportError:
-    print("WARNING: Could not import workers. Scanning in WallpaperTab will not work.")
-    ImageScannerWorker, BatchThumbnailLoaderWorker = None, None
 
 
-# --- NEW: Draggable Thumbnail Label ---
-class DraggableImageLabel(QLabel):
-    """
-    A simple QLabel that displays a thumbnail and can be dragged.
-    The drag operation carries the file path.
-    """
-    def __init__(self, path: str, size: int):
-        super().__init__()
-        self.file_path = path
-        self.setFixedSize(size, size)
-        self.setAlignment(Qt.AlignCenter)
-        self.setText("Loading...")
-        self.setStyleSheet("border: 1px dashed #4f545c; color: #b9bbbe;")
-
-    def mouseMoveEvent(self, event):
-        """Initiates a drag-and-drop operation."""
-        if not self.file_path or self.pixmap().isNull():
-            return # Don't drag if not a valid image
-
-        drag = QDrag(self)
-        mime_data = QMimeData()
-        
-        # Set the file path as a URL
-        mime_data.setUrls([QUrl.fromLocalFile(self.file_path)])
-        
-        drag.setMimeData(mime_data)
-        
-        # Set a pixmap for the drag preview
-        drag.setPixmap(self.pixmap().scaled(
-            self.width() // 2, self.height() // 2, 
-            Qt.KeepAspectRatio, Qt.SmoothTransformation
-        ))
-        
-        drag.exec(Qt.MoveAction)
-
-
-# --- Main Tab ---
 class WallpaperTab(BaseTab):
     def __init__(self, db_tab_ref, dropdown=True): # Keep signature consistent
         super().__init__()
@@ -77,7 +29,8 @@ class WallpaperTab(BaseTab):
         
         self.monitors: List[Monitor] = []
         self.monitor_widgets: Dict[str, MonitorDropWidget] = {}
-        self.monitor_image_paths: Dict[str, str] = {}
+        # Stores image path for the monitor ID (1-based index)
+        self.monitor_image_paths: Dict[str, str] = {} 
         
         layout = QVBoxLayout(self)
         
@@ -218,20 +171,14 @@ class WallpaperTab(BaseTab):
         self.check_dependencies()
         self.check_all_monitors_set() # Initially disable button
 
-    # --- Original Methods ---
+    # --- check_dependencies Method (Unchanged) ---
     def check_dependencies(self):
         """Checks for external dependencies and OS support."""
-        if platform.system() == "Windows":
-            QMessageBox.warning(self, "Unsupported OS",
-                                "This wallpaper tab currently only supports Linux with GNOME (gsettings).\n"
-                                "Setting wallpaper on Windows requires a different implementation (e.g., using ctypes).")
-            self.set_wallpaper_btn.setEnabled(False)
-            self.set_wallpaper_btn.setText("Unsupported OS")
         
-        elif Image is None:
+        if Image is None:
             QMessageBox.warning(self, "Missing Dependency",
                                 "The 'Pillow' (PIL) library is not installed.\n"
-                                "Cannot create spanned wallpaper.\n"
+                                "Cannot load or resize images.\n"
                                 "Please run: pip install Pillow")
             self.set_wallpaper_btn.setEnabled(False)
             self.set_wallpaper_btn.setText("Missing Pillow")
@@ -248,12 +195,18 @@ class WallpaperTab(BaseTab):
              QMessageBox.warning(self, "Missing Helpers",
                                 "The ImageScannerWorker or BatchThumbnailLoaderWorker could not be imported.\n"
                                 "Directory scanning will be disabled.")
+             
+        # Enable the button if all checks passed
+        if not self.set_wallpaper_btn.text() in ["Missing Pillow", "Missing screeninfo", "Missing Helpers"]:
+             self.set_wallpaper_btn.setText("Set Wallpaper")
+             self.set_wallpaper_btn.setEnabled(True) 
 
     
+    # --- REVISED populate_monitor_layout Method ---
     def populate_monitor_layout(self):
         """
         Clears and recreates the monitor drop widgets based on
-        the current system monitor layout.
+        the current system monitor layout, showing only one for Windows.
         """
         # Clear existing layout
         for i in reversed(range(self.monitor_layout.count())): 
@@ -263,7 +216,8 @@ class WallpaperTab(BaseTab):
         self.monitor_widgets.clear()
         
         try:
-            self.monitors = sorted(get_monitors(), key=lambda m: m.x)
+            # Sort by x-position to match left-to-right visual order
+            self.monitors = sorted(get_monitors(), key=lambda m: m.x) 
         except Exception as e:
              QMessageBox.critical(self, "Error", f"Could not get monitor info: {e}")
              self.monitors = []
@@ -272,11 +226,27 @@ class WallpaperTab(BaseTab):
             self.monitor_layout.addWidget(QLabel("Could not detect any monitors.\nIs 'screeninfo' installed?"))
             return
 
-        for i, monitor in enumerate(self.monitors):
-            monitor_id = str(i + 1) 
+        monitors_to_show = self.monitors
+
+        # CHECK 1: If Windows, only show the first monitor
+        if platform.system() == "Windows":
+             monitors_to_show = [self.monitors[0]]
+             # Show a message to explain the limitation
+             label = QLabel("Windows only supports one wallpaper across all screens.")
+             label.setStyleSheet("color: #7289da;")
+             self.monitor_layout.addWidget(label)
+
+
+        for i, monitor in enumerate(monitors_to_show):
+            # Monitor ID is 1-based index based on the sorted list
+            # Note: On Windows, i will always be 0, monitor_id will be '1'
+            monitor_index_in_original_list = self.monitors.index(monitor)
+            monitor_id = str(monitor_index_in_original_list + 1) 
+
             drop_widget = MonitorDropWidget(monitor, monitor_id)
             drop_widget.image_dropped.connect(self.on_image_dropped)
             
+            # Restore image path if available
             if monitor_id in self.monitor_image_paths:
                 drop_widget.set_image(self.monitor_image_paths[monitor_id])
                 
@@ -290,88 +260,171 @@ class WallpaperTab(BaseTab):
         self.monitor_image_paths[monitor_id] = image_path
         self.check_all_monitors_set()
         
+    # --- REVISED check_all_monitors_set Method ---
     def check_all_monitors_set(self):
-        """Enables the 'Set' button only if all monitors have an image."""
-        if not self.set_wallpaper_btn.text() in ["Unsupported OS", "Missing Pillow", "Missing screeninfo"]:
-            all_set = len(self.monitor_image_paths) == len(self.monitors)
+        """Enables the 'Set' button only if all *visible* monitors have an image."""
+        if not self.set_wallpaper_btn.text() in ["Missing Pillow", "Missing screeninfo", "Missing Helpers"]:
+            
+            # Use the number of currently visible widgets to determine the target count
+            target_monitor_ids = set(self.monitor_widgets.keys())
+            
+            # Check how many of the required monitors have paths
+            set_count = 0
+            for monitor_id in target_monitor_ids:
+                if monitor_id in self.monitor_image_paths and self.monitor_image_paths[monitor_id]:
+                    set_count += 1
+
+            all_set = set_count == len(target_monitor_ids)
             self.set_wallpaper_btn.setEnabled(all_set)
             
             if all_set:
                 self.set_wallpaper_btn.setText("Set Wallpaper")
             else:
-                missing = len(self.monitors) - len(self.monitor_image_paths)
+                missing = len(target_monitor_ids) - set_count
                 self.set_wallpaper_btn.setText(f"Set Wallpaper ({missing} more)")
-            
+
     def set_wallpaper(self):
         """
-        Gathers images, stitches them with Pillow, and uses gsettings
-        to apply the spanned wallpaper.
+        Applies a single image to all monitors on Windows (using Monitor 1's image), 
+        or attempts per-monitor application on Linux (KDE).
         """
-        if len(self.monitor_image_paths) != len(self.monitors):
-            QMessageBox.warning(self, "Incomplete", "Please drag an image onto every monitor.")
+        # Determine the number of targets based on visible widgets
+        # We check the keys of monitor_widgets, which accurately reflect the visible monitors
+        target_monitor_ids = list(self.monitor_widgets.keys()) 
+        set_count = 0
+        for monitor_id in target_monitor_ids:
+            if monitor_id in self.monitor_image_paths and self.monitor_image_paths[monitor_id]:
+                set_count += 1
+        
+        if set_count != len(target_monitor_ids):
+            QMessageBox.warning(self, "Incomplete", f"Please drag an image onto every visible monitor ({len(target_monitor_ids)} needed).")
             return
 
         self.set_wallpaper_btn.setEnabled(False)
         self.set_wallpaper_btn.setText("Applying...")
         QApplication.processEvents() 
         
+        # FIX: Prepare the list of image paths only for the required monitors
+        if platform.system() == "Windows":
+             # On Windows, only Monitor 1 is needed (key '1')
+             # We assume '1' is always in target_monitor_ids if set_count passed
+             required_image_paths = [self.monitor_image_paths['1']]
+        else:
+             # On Linux, all detected monitors are targets
+             required_image_paths = [self.monitor_image_paths[str(i+1)] for i in range(len(self.monitors))]
+        
         try:
-            monitors = self.monitors
-            image_paths = [self.monitor_image_paths[str(i+1)] for i in range(len(monitors))]
+            if platform.system() == "Windows":
+                # --- Windows Implementation (Single Wallpaper enforced) ---
+                
+                # Use the single image path (which is Monitor 1's)
+                single_image_path = required_image_paths[0] 
+                
+                # Ensure the path is fully resolved and converted to a string suitable for ctypes
+                save_path = str(Path(single_image_path).resolve())
 
-            images = []
-            total_width = 0
-            max_height = 0
-            
-            for i, monitor in enumerate(monitors):
-                img = Image.open(image_paths[i])
-                img = img.resize((monitor.width, monitor.height), Image.Resampling.LANCZOS)
-                images.append(img)
-                total_width += monitor.width
-                if monitor.height > max_height:
-                    max_height = monitor.height
+                QMessageBox.information(self, "Windows Note",
+                    "Windows only supports a single wallpaper file via this tool.\n"
+                    f"Applying the image assigned to Monitor 1: {Path(save_path).name}"
+                )
+                
+                # Set Windows Registry Keys to use 'Fill' or 'Stretch' for better scaling
+                # 0=Tile, 1=Center, 2=Stretch, 3=Fit, 4=Fill, 5=Span
+                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, 
+                                     "Control Panel\\Desktop", 0, winreg.KEY_SET_VALUE)
+                # Set to Fill (4) and Tile off (0) for a standard modern look
+                winreg.SetValueEx(key, "WallpaperStyle", 0, winreg.REG_SZ, "4") 
+                winreg.SetValueEx(key, "TileWallpaper", 0, winreg.REG_SZ, "0") 
+                winreg.CloseKey(key)
 
-            spanned_image = Image.new('RGB', (total_width, max_height))
-            
-            current_x = 0
-            for img in images:
-                spanned_image.paste(img, (current_x, 0))
-                current_x += img.width
+                # Constants for SystemParametersInfoW
+                SPI_SETDESKWALLPAPER = 20
+                SPIF_UPDATEINIFILE = 0x01
+                SPIF_SENDWININICHANGE = 0x02
+                
+                # Apply the single image
+                ctypes.windll.user32.SystemParametersInfoW(
+                    SPI_SETDESKWALLPAPER, 
+                    0, 
+                    save_path, 
+                    SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE
+                )
+                
+            elif platform.system() == "Linux":
+                
+                # --- Linux (KDE) Implementation (Per-Monitor) ---
+                try:
+                    # Check if 'qdbus' is available, which is the KDE way
+                    subprocess.run(["which", "qdbus6"], check=True, capture_output=True)
+                    
+                    # KDE Plasma per-monitor application using DBus script
+                    for i, path in enumerate(required_image_paths):
+                        
+                        file_uri = f"file://{Path(path).resolve()}"
+                        
+                        # Apply to the i-th desktop/monitor in KDE's list
+                        qdbus_command = (
+                            f"qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript \"desktops()[{i}].currentConfigGroup = Array(\"Wallpaper\", \"org.kde.image\", \"General\"); desktops()[{i}].writeConfig(\"Image\", \"{file_uri}\"); desktops()[{i}].writeConfig(\"FillMode\", 1); desktops()[{i}].reloadConfig();\""
+                        )
+                        subprocess.run(qdbus_command, shell=True, check=True, capture_output=True)
+                        
+                    
+                except FileNotFoundError:
+                    # --- Linux (GNOME/Other) Fallback (Reverting to Spanned) ---
+                    QMessageBox.warning(self, "Linux Note", 
+                                        "KDE Plasma ('qdbus6') not detected. Falling back to GNOME 'spanned' method.\n"
+                                        "This will stitch all images into a single file and apply it across all monitors.")
+                    
+                    # Stitching logic for GNOME spanning (needed because GNOME lacks a simple per-monitor API)
+                    total_width = sum(m.width for m in self.monitors)
+                    max_height = max(m.height for m in self.monitors)
+                    spanned_image = Image.new('RGB', (total_width, max_height))
+                    
+                    current_x = 0
+                    for i, monitor in enumerate(self.monitors):
+                        img = Image.open(required_image_paths[i]) # Use required_image_paths here
+                        img = img.resize((monitor.width, monitor.height), Image.Resampling.LANCZOS)
+                        spanned_image.paste(img, (current_x, 0))
+                        current_x += img.width
 
-            home_dir = os.path.expanduser('~')
-            save_path = os.path.join(home_dir, ".spanned_wallpaper.jpg")
-            spanned_image.save(save_path, "JPEG", quality=95)
-            
-            file_uri = f"file://{save_path}"
+                    home_dir = os.path.expanduser('~')
+                    save_path = os.path.join(home_dir, ".spanned_wallpaper.jpg")
+                    spanned_image.save(save_path, "JPEG", quality=95)
+                    file_uri = f"file://{save_path}"
 
-            subprocess.run(
-                ["gsettings", "set", "org.gnome.desktop.background", "picture-options", "'spanned'"],
-                check=True, capture_output=True, text=True, shell=True 
-            )
-            subprocess.run(
-                ["gsettings", "set", "org.gnome.desktop.background", "picture-uri", file_uri],
-                check=True, capture_output=True, text=True
-            )
-            subprocess.run(
-                ["gsettings", "set", "org.gnome.desktop.background", "picture-uri-dark", file_uri],
-                check=True, capture_output=True, text=True
-            )
-            
+                    # GNOME/gsettings
+                    subprocess.run(
+                        ["gsettings", "set", "org.gnome.desktop.background", "picture-options", "spanned"],
+                        check=True, capture_output=True, text=True
+                    )
+                    subprocess.run(
+                        ["gsettings", "set", "org.gnome.desktop.background", "picture-uri", file_uri],
+                        check=True, capture_output=True, text=True
+                    )
+                    subprocess.run(
+                        ["gsettings", "set", "org.gnome.desktop.background", "picture-uri-dark", file_uri],
+                        check=True, capture_output=True, text=True
+                    )
+                except subprocess.CalledProcessError as e:
+                    # Handle Linux errors
+                    QMessageBox.critical(self, "Error", 
+                                         f"Failed to set wallpaper on Linux.\nError: {e.stderr}")
+                    raise
+                
+            else:
+                 QMessageBox.warning(self, "Unsupported OS", 
+                                  f"Wallpaper setting for {platform.system()} is not supported.")
+                 return
+
             QMessageBox.information(self, "Success", "Wallpaper has been updated!")
 
-        except FileNotFoundError:
-             QMessageBox.critical(self, "Error", 
-                                  "Could not set wallpaper. Is 'gsettings' installed?\n"
-                                  "This is required for GNOME desktops.")
-        except subprocess.CalledProcessError as e:
-            QMessageBox.critical(self, "Error", f"Failed to set wallpaper via gsettings:\n{e.stderr}")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"An unexpected error occurred: {str(e)}")
         
         finally:
             self.check_all_monitors_set()
 
-    # --- NEW: Methods adapted from ScanFSETab ---
+    # --- Other Methods (Unchanged) ---
     def browse_scan_directory(self):
         """Select directory to scan and display image thumbnails."""
         if ImageScannerWorker is None:
