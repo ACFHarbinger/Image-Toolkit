@@ -34,6 +34,8 @@ class WallpaperTab(BaseTab):
         the same, non-zero number of images in their queue.
         Returns (is_ready, queue_length).
         """
+        # Get the IDs of the monitor widgets currently displayed
+        # These IDs are the system indices ("0", "1", "2"...)
         monitor_ids = list(self.monitor_widgets.keys())
         num_monitors = len(monitor_ids)
         
@@ -85,7 +87,7 @@ class WallpaperTab(BaseTab):
                  
         elif all_set_single:
             # Standard mode ready
-            self.set_wallpaper_btn.setText("Set Wallpaper")
+            self.set_wallpaper_btn.setText("Set & Rotate Wallpaper")
             self.set_wallpaper_btn.setEnabled(True)
         else:
             # Standard mode waiting
@@ -100,10 +102,10 @@ class WallpaperTab(BaseTab):
         super().__init__()
         self.db_tab_ref = db_tab_ref
         
-        self.monitors: List[Monitor] = []
+        self.monitors: List[Monitor] = [] # This will store the SYSTEM-ORDERED list
         self.monitor_widgets: Dict[str, MonitorDropWidget] = {}
         
-        # FIX: Initialize all required dictionaries here
+        # Note: All keys for these dicts will be the SYSTEM INDEX as a string (e.g., "0", "1")
         self.monitor_image_paths: Dict[str, str] = {}
         self.monitor_slideshow_queues: Dict[str, List[str]] = {} 
         self.monitor_current_index: Dict[str, int] = {}
@@ -435,17 +437,31 @@ class WallpaperTab(BaseTab):
 
     @Slot()
     def _cycle_slideshow_wallpaper(self):
-        """Advances the index for each monitor and applies the new set of images."""
+        """
+        Advances the index for each monitor, applies the new set of images,
+        and rotates the images between monitors as requested.
+        """
         
+        # Get the system IDs of the monitors we are controlling
         monitor_ids = list(self.monitor_widgets.keys())
         if not monitor_ids: return 
         
+        n = len(monitor_ids)
+        if n == 0:
+            self.stop_slideshow()
+            return
+
+        # Get the queue length (they are all validated to be the same)
         current_queue_length = len(self.monitor_slideshow_queues.get(monitor_ids[0], []))
+        if current_queue_length == 0:
+            self.stop_slideshow()
+            return
         
         try:
             # 1. Update the current image path dictionary and advance index
             new_monitor_paths = {}
             
+            # --- Iterate by system index (monitor_id is "0", "1", "2"...) ---
             for monitor_id in monitor_ids:
                 
                 # Get current index and queue
@@ -461,15 +477,20 @@ class WallpaperTab(BaseTab):
                 # Update the index tracker
                 self.monitor_current_index[monitor_id] = next_index
                  
-            # 2. Update the monitor_image_paths storage (used by set_wallpaper)
+            # 2. Update the monitor_image_paths storage
             self.monitor_image_paths = new_monitor_paths
                  
-            # 3. Apply the wallpaper and update visual drop zones (if possible)
+            # 3. Apply the wallpaper (this will handle rotation)
             self.set_wallpaper(slideshow_mode=True)
-            for monitor_id, path in new_monitor_paths.items():
-                 self.monitor_widgets[monitor_id].set_image(path)
             
-            # 4. Reset the countdown timer
+            # 4. Update visual drop zones
+            #    We must show the *rotated* state in the GUI
+            rotated_paths = self._get_rotated_path_map(new_monitor_paths)
+            for monitor_id, path in rotated_paths.items():
+                 if monitor_id in self.monitor_widgets:
+                    self.monitor_widgets[monitor_id].set_image(path)
+            
+            # 5. Reset the countdown timer
             self.time_remaining_sec = self.interval_sec
             
         except Exception as e:
@@ -523,10 +544,6 @@ class WallpaperTab(BaseTab):
             self.monitor_widgets[monitor_id].set_image(new_first_image)
         elif not new_first_image:
             self.monitor_widgets[monitor_id].update_text()
-        
-        # The following line was removed to stop the popup:
-        # monitor_name = self.monitor_widgets[monitor_id].monitor.name
-        # QMessageBox.information(self, "Queue Updated", f"Queue order for {monitor_name} has been updated.")
         
         # Re-check slideshow readiness (important if the queue became empty or uneven)
         self.check_all_monitors_set()
@@ -593,11 +610,15 @@ class WallpaperTab(BaseTab):
              self.set_wallpaper_btn.setEnabled(True) 
 
     
-    # --- populate_monitor_layout Method (Modified to connect double-click) ---
+    # --- populate_monitor_layout Method (Fixed physical vs. system index mapping) ---
     def populate_monitor_layout(self):
         """
         Clears and recreates the monitor drop widgets based on
-        the current system monitor layout, showing only one for Windows.
+        the current system monitor layout.
+        
+        Displays monitors in physical left-to-right order (sorted by x)
+        but assigns the internal 'monitor_id' based on the system's
+        priority index (0, 1, 2...) to ensure correct mapping.
         """
         # Clear existing layout
         for i in reversed(range(self.monitor_layout.count())): 
@@ -607,8 +628,17 @@ class WallpaperTab(BaseTab):
         self.monitor_widgets.clear()
         
         try:
-            # Sort by x-position to match left-to-right visual order
-            self.monitors = sorted(get_monitors(), key=lambda m: m.x) 
+            # 1. Get the list of monitors in their SYSTEM order (e.g., [MonA, MonB, MonC])
+            #    This order matches what KDE/GNOME use for desktops()[0], desktops()[1], etc.
+            system_monitors = get_monitors()
+            
+            # 2. Get the list of monitors in their PHYSICAL order (e.g., [MonB, MonC, MonA])
+            #    This is for displaying them left-to-right in the GUI.
+            physical_monitors = sorted(system_monitors, key=lambda m: m.x)
+            
+            # Store the system-ordered list for other functions
+            self.monitors = system_monitors
+
         except Exception as e:
              QMessageBox.critical(self, "Error", f"Could not get monitor info: {e}")
              self.monitors = []
@@ -617,28 +647,46 @@ class WallpaperTab(BaseTab):
             self.monitor_layout.addWidget(QLabel("Could not detect any monitors.\nIs 'screeninfo' installed?"))
             return
 
-        monitors_to_show = self.monitors
+        monitors_to_show = physical_monitors
 
-        # CHECK 1: If Windows, only show the first monitor
+        # CHECK 1: If Windows, only show the primary monitor's widget
         if platform.system() == "Windows":
-             monitors_to_show = [self.monitors[0]]
+             primary_monitor = next((m for m in system_monitors if m.is_primary), system_monitors[0])
+             monitors_to_show = [primary_monitor]
              label = QLabel("Windows only supports one wallpaper across all screens.")
              label.setStyleSheet("color: #7289da;")
              self.monitor_layout.addWidget(label)
 
 
-        for i, monitor in enumerate(monitors_to_show):
-            monitor_index_in_original_list = self.monitors.index(monitor)
-            monitor_id = str(monitor_index_in_original_list + 1) 
-
-            drop_widget = MonitorDropWidget(monitor, monitor_id)
-            # Connect single-click to standard drop/set logic
-            drop_widget.image_dropped.connect(self.on_image_dropped)
+        # 3. Create widgets based on PHYSICAL order
+        for monitor in monitors_to_show:
             
-            # Connect double-click to open queue window
+            # 4. Find this physical monitor's index in the SYSTEM list.
+            #    This index (0, 1, 2) is the ID the OS uses.
+            system_index = -1
+            for i, sys_mon in enumerate(system_monitors):
+                # Compare properties as monitor objects might be different instances
+                if (sys_mon.x == monitor.x and 
+                    sys_mon.y == monitor.y and
+                    sys_mon.width == monitor.width and 
+                    sys_mon.height == monitor.height):
+                    system_index = i
+                    break
+            
+            if system_index == -1:
+                print(f"Warning: Could not map physical monitor {monitor.name} to system index.")
+                continue # Should not happen
+
+            # 5. Use the SYSTEM index (0, 1, 2...) as the internal ID
+            monitor_id = str(system_index) 
+
+            # 6. Create the widget using the PHYSICAL monitor object
+            #    so it displays the correct name and resolution.
+            drop_widget = MonitorDropWidget(monitor, monitor_id)
+            drop_widget.image_dropped.connect(self.on_image_dropped)
             drop_widget.double_clicked.connect(self.handle_monitor_double_click)
             
-            # Restore image path if available (use the current displayed image path)
+            # 7. Restore image path using the SYSTEM index ID
             current_image = self.monitor_image_paths.get(monitor_id)
             if current_image:
                 drop_widget.set_image(current_image)
@@ -653,6 +701,7 @@ class WallpaperTab(BaseTab):
         """
         Slot to add the dropped image to the monitor's specific queue, 
         and display the last dropped image for visual confirmation.
+        The monitor_id is the SYSTEM INDEX ("0", "1", etc.)
         """
         if monitor_id not in self.monitor_slideshow_queues:
             self.monitor_slideshow_queues[monitor_id] = []
@@ -669,17 +718,44 @@ class WallpaperTab(BaseTab):
         # Update button text to show queue count
         self.check_all_monitors_set()
         
-    # --- set_wallpaper Method (Unchanged logic for setting wallpaper from self.monitor_image_paths) ---
+    def _get_rotated_path_map(self, source_paths: Dict[str, str]) -> Dict[str, str]:
+        """
+        Helper function to create the rotated path map based on user request.
+        Monitor 0 gets image from N-1
+        Monitor 1 gets image from 0
+        ...
+        """
+        n = len(self.monitors)
+        rotated_map = {}
+        
+        for i in range(n):
+            current_monitor_id = str(i)
+            
+            # Calculate previous monitor's index, wrapping around
+            prev_monitor_index = (i - 1 + n) % n
+            prev_monitor_id = str(prev_monitor_index)
+            
+            # Get the path from the *previous* monitor
+            path_from_prev = source_paths.get(prev_monitor_id)
+            
+            # Map the *current* monitor to that path
+            rotated_map[current_monitor_id] = path_from_prev
+            
+        return rotated_map
+        
+    # --- set_wallpaper Method (MODIFIED WITH ROTATION LOGIC) ---
     def set_wallpaper(self, slideshow_mode=False):
         """
         Applies a different image to each monitor based on self.monitor_image_paths.
-        """
-        target_monitor_ids = list(self.monitor_widgets.keys()) 
-        required_image_paths = [self.monitor_image_paths.get(mid) for mid in target_monitor_ids]
-        valid_image_paths = [p for p in required_image_paths if p]
         
-        if not slideshow_mode and len(valid_image_paths) != len(target_monitor_ids):
-            QMessageBox.warning(self, "Incomplete", "Not all monitors have valid images assigned.")
+        In standard mode, it rotates the images.
+        In slideshow mode, it applies the 1-to-1 mapping (rotation is
+        handled by _cycle_slideshow_wallpaper).
+        """
+        
+        if not any(self.monitor_image_paths.values()):
+            if not slideshow_mode:
+                QMessageBox.warning(self, "Incomplete", "No images have been dropped on the monitors.")
             return
 
         if not slideshow_mode:
@@ -689,13 +765,26 @@ class WallpaperTab(BaseTab):
         
         try:
             if platform.system() == "Windows":
-                 # --- Windows Implementation (Single Wallpaper enforced) ---
-                 if not valid_image_paths: return
-                 single_image_path = valid_image_paths[0] 
-                 save_path = str(Path(single_image_path).resolve())
+                 # --- Windows Implementation (Single Wallpaper enforced, NO ROTATION) ---
+                 primary_monitor = next((m for m in self.monitors if m.is_primary), self.monitors[0])
+                 primary_index = self.monitors.index(primary_monitor)
+                 primary_monitor_id = str(primary_index)
+                 
+                 path_to_set = self.monitor_image_paths.get(primary_monitor_id)
+
+                 if not path_to_set:
+                     path_to_set = next((p for p in self.monitor_image_paths.values() if p), None)
+
+                 if not path_to_set:
+                     if not slideshow_mode:
+                         QMessageBox.warning(self, "Incomplete", "No image set for the primary monitor.")
+                     self.check_all_monitors_set()
+                     return
+                 
+                 save_path = str(Path(path_to_set).resolve())
 
                  if not slideshow_mode:
-                     QMessageBox.information(self, "Windows Note", "Windows only supports a single wallpaper file via this tool.")
+                     QMessageBox.information(self, "Windows Note", "Windows only supports a single wallpaper file via this tool. Rotation is disabled.")
                  
                  key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, 
                                       "Control Panel\\Desktop", 0, winreg.KEY_SET_VALUE)
@@ -716,19 +805,44 @@ class WallpaperTab(BaseTab):
                     
             elif platform.system() == "Linux":
                 
+                # --- Create the path mapping ---
+                n = len(self.monitors)
+                path_map = {} # This will be { monitor_id_to_set: path_to_use }
+
+                if slideshow_mode:
+                    # Slideshow: Apply rotation
+                    # (The paths in monitor_image_paths are already advanced)
+                    path_map = self._get_rotated_path_map(self.monitor_image_paths)
+                else:
+                    # Standard mode: Apply rotation
+                    path_map = self._get_rotated_path_map(self.monitor_image_paths)
+                
                 # --- Linux (KDE) Implementation (Per-Monitor) ---
                 try:
                     subprocess.run(["which", "qdbus6"], check=True, capture_output=True)
                     
                     script_parts = []
-                    for i, path in enumerate(valid_image_paths):
-                        file_uri = f"file://{Path(path).resolve()}"
-                        script_parts.append(
-                            f'd = desktops()[{i}]; d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); d.writeConfig("Image", "{file_uri}"); d.writeConfig("FillMode", 1);'
-                        )
-                        
-                    full_script = "".join(script_parts)
                     
+                    # --- Iterate by system monitor index (i = 0, 1, 2...) ---
+                    for i in range(n):
+                        monitor_id = str(i)
+                        
+                        # Get the path from our new 'path_map'
+                        path = path_map.get(monitor_id)
+                        
+                        if path:
+                            file_uri = f"file://{Path(path).resolve()}"
+                            # Apply path to the correct desktop index
+                            script_parts.append(
+                                f'd = desktops()[{i}]; d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); d.writeConfig("Image", "{file_uri}"); d.writeConfig("FillMode", 1);'
+                            )
+                    
+                    if not script_parts and not slideshow_mode:
+                        QMessageBox.warning(self, "Incomplete", "No images were set for any monitor.")
+                        self.check_all_monitors_set()
+                        return
+
+                    full_script = "".join(script_parts)
                     if script_parts:
                          full_script += "d.reloadConfig();"
 
@@ -737,9 +851,6 @@ class WallpaperTab(BaseTab):
                     )
 
                     subprocess.run(qdbus_command, shell=True, check=True, capture_output=True, text=True)
-                    
-                    if not slideshow_mode:
-                        QMessageBox.information(self, "KDE Note", "Wallpaper configuration updated. The desktop should refresh shortly.")
                     
                 except FileNotFoundError:
                     # --- Linux (GNOME/Other) Fallback (Spanned, stitches all images) ---
@@ -751,12 +862,20 @@ class WallpaperTab(BaseTab):
                     spanned_image = Image.new('RGB', (total_width, max_height))
                     
                     current_x = 0
+                    
+                    # --- Iterate by system monitor index ---
                     for i, monitor in enumerate(self.monitors):
-                        if i < len(valid_image_paths):
-                            img = Image.open(valid_image_paths[i])
+                        monitor_id = str(i)
+                        
+                        # Get path from our 'path_map'
+                        path = path_map.get(monitor_id)
+
+                        if path: # Only add if a path is set
+                            img = Image.open(path)
                             img = img.resize((monitor.width, monitor.height), Image.Resampling.LANCZOS)
                             spanned_image.paste(img, (current_x, 0))
-                            current_x += img.width
+                        
+                        current_x += monitor.width
 
                     home_dir = os.path.expanduser('~')
                     save_path = os.path.join(home_dir, ".spanned_wallpaper.jpg")
@@ -787,7 +906,14 @@ class WallpaperTab(BaseTab):
                  return
 
             if not slideshow_mode:
-                QMessageBox.information(self, "Success", "Wallpaper has been updated!")
+                # --- VISUAL FEEDBACK: Update GUI to show the NON-ROTATED state ---
+                # The GUI should always reflect the user's *intent* (the images they dropped)
+                # not the *result* (the rotated wallpaper)
+                for monitor_id, path in self.monitor_image_paths.items():
+                    if path and monitor_id in self.monitor_widgets:
+                        self.monitor_widgets[monitor_id].set_image(path)
+                
+                QMessageBox.information(self, "Success", "Wallpaper has been rotated and updated!")
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"An unexpected error occurred: {str(e)}")
