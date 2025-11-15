@@ -4,3 +4,4 @@ from .image_merger import ImageMerger
 
 from .image_database import PgvectorImageDatabase
 from .java_vault_manager import JavaVaultManager
+from .wallpaper import WallpaperManager

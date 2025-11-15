@@ -6,3 +6,4 @@ from .google_drive_sync_worker import GoogleDriveSyncWorker
 from .conversion_worker import ConversionWorker
 from .deletion_worker import DeletionWorker
 from .merge_worker import MergeWorker
+from .wallpaper_worker import WallpaperWorker
