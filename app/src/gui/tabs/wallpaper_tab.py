@@ -219,7 +219,7 @@ class WallpaperTab(BaseTab):
         layout.addWidget(scan_group)
 
         # --- NEW: Thumbnail Gallery Scroll Area ---
-        self.thumbnail_size = 120
+        self.thumbnail_size = 150
         self.padding_width = 10
         self.approx_item_width = self.thumbnail_size + self.padding_width
 

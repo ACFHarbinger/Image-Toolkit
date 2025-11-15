@@ -57,7 +57,7 @@ class MergeTab(BaseTab):
             self.last_browsed_dir = os.getcwd()
 
         # --- UI Constants ---
-        self.thumbnail_size = 200
+        self.thumbnail_size = 150
         self.padding_width = 10
         self.approx_item_width = self.thumbnail_size + self.padding_width
 
@@ -155,7 +155,7 @@ class MergeTab(BaseTab):
         self.merge_thumbnail_widget = QWidget()
         self.merge_thumbnail_widget.setStyleSheet("background-color: #2c2f33;")
         self.merge_thumbnail_layout = QGridLayout(self.merge_thumbnail_widget)
-        self.merge_thumbnail_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.merge_thumbnail_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         self.merge_scroll_area.setWidget(self.merge_thumbnail_widget)
         self.merge_scroll_area.selection_changed.connect(self.handle_marquee_selection)
         gallery_vbox.addWidget(self.merge_scroll_area, 1)
@@ -171,7 +171,7 @@ class MergeTab(BaseTab):
         self.selected_images_widget.setStyleSheet("background-color: #2c2f33;")
         self.selected_grid_layout = QGridLayout(self.selected_images_widget)
         self.selected_grid_layout.setSpacing(10)
-        self.selected_grid_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.selected_grid_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         self.selected_images_area.setWidget(self.selected_images_widget)
         gallery_vbox.addWidget(self.selected_images_area, 1)
 
@@ -326,16 +326,22 @@ class MergeTab(BaseTab):
         self._clear_gallery(self.selected_grid_layout)
         self.selected_card_map.clear()
         
-        cols = max(1, self.selected_images_area.viewport().width() // 110)
+        # MODIFIED: Use the main 'approx_item_width' for column calculation
+        cols = max(1, self.selected_images_area.viewport().width() // self.approx_item_width)
 
         for i, path in enumerate(sorted(list(self.selected_image_paths))):
             src = self.path_to_label_map.get(path)
+            
+            # MODIFIED: Scale pixmap to the main 'thumbnail_size'
             pix = src.pixmap() if src and src.pixmap() else QPixmap(path).scaled(
-                100, 100, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                self.thumbnail_size, self.thumbnail_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
             card = ClickableLabel(path)
-            card.setFixedSize(100, 100)
+            
+            # MODIFIED: Set card size to the main 'thumbnail_size'
+            card.setFixedSize(self.thumbnail_size, self.thumbnail_size)
             card.setScaledContents(True)
+            
             if not pix.isNull():
                 card.setPixmap(pix)
             else:

@@ -34,8 +34,8 @@ class ScanMetadataTab(BaseTab):
         self.selected_scan_image_path: str = None
         self.open_preview_windows: list[ImagePreviewWindow] = [] 
 
-        # Current thumbnail size (200x200)
-        self.thumbnail_size = 200
+        # Current thumbnail size (150x150)
+        self.thumbnail_size = 150
         self.padding_width = 10
         self.approx_item_width = self.thumbnail_size + self.padding_width
         
@@ -832,7 +832,7 @@ class ScanMetadataTab(BaseTab):
             
             img_label = QLabel()
             img_label.setAlignment(Qt.AlignCenter)
-            # Explicitly use self.thumbnail_size (200) for fixed size container
+            # Explicitly use self.thumbnail_size for fixed size container
             img_label.setFixedSize(self.thumbnail_size, self.thumbnail_size) 
             
             pixmap = QPixmap(path)
