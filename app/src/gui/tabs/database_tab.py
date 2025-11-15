@@ -15,7 +15,7 @@ try:
     from app.src.core import PgvectorImageDatabase as ImageDatabase
 except:
     from src.core import PgvectorImageDatabase as ImageDatabase
-from ..utils.styles import apply_shadow_effect
+from ..styles.style import apply_shadow_effect
 from dotenv import load_dotenv
 
 

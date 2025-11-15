@@ -1,1 +1,2 @@
-from .windows import MainWindow, LoginWindow
+from .windows import LoginWindow
+from .main_window import MainWindow

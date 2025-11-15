@@ -11,7 +11,7 @@ from PySide6.QtCore import Qt, Slot
 from .base_tab import BaseTab
 from ..helpers import DeletionWorker
 from ..components import OptionalField
-from ..utils.styles import apply_shadow_effect
+from ..styles.style import apply_shadow_effect
 from ...utils.definitions import SUPPORTED_IMG_FORMATS
 
 

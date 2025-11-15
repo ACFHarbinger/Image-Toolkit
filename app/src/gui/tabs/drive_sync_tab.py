@@ -17,7 +17,7 @@ from ...utils.definitions import (
 from .base_tab import BaseTab
 from ..windows import LogWindow
 from ..helpers import GoogleDriveSyncWorker
-from ..utils.styles import apply_shadow_effect, STYLE_SYNC_RUN, STYLE_SYNC_STOP
+from ..styles.style import apply_shadow_effect, STYLE_SYNC_RUN, STYLE_SYNC_STOP
 
 
 class DriveSyncTab(BaseTab):

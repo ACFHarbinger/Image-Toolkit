@@ -4,19 +4,19 @@ from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QIcon, QImageReader
 from PySide6.QtWidgets import (
     QLabel, QWidget, QTabWidget, 
-    QSizePolicy, QPushButton, QStyle, QComboBox, # <-- QComboBox is now imported
+    QSizePolicy, QPushButton, QStyle, QComboBox,
     QVBoxLayout, QHBoxLayout, QApplication,
 )
-from . import SettingsWindow
-from ..tabs import (
+from .windows import SettingsWindow
+from .tabs import (
     WallpaperTab,
     MergeTab, DatabaseTab,
     ConvertTab, DeleteTab, 
     ScanMetadataTab, SearchTab, 
     ImageCrawlTab, DriveSyncTab,
 )
-from ..utils.styles import DARK_QSS, LIGHT_QSS
-from ..utils.app_definitions import NEW_LIMIT_MB
+from .styles.style import DARK_QSS, LIGHT_QSS
+from .utils.app_definitions import NEW_LIMIT_MB
 try:
     from app.src.core.java_vault_manager import JavaVaultManager
 except:

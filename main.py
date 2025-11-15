@@ -1,23 +1,14 @@
 import io
-import os
 import sys
-import jpype
-import jpype.imports
-import signal
 import pprint
 import traceback
-import psycopg2.extras
 
-from PySide6.QtGui import QIcon
-from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QApplication
 from app.src import (
     launch_app, parse_args,
     log_uncaught_exceptions,
-    GoogleDriveSync,
-    MainWindow, FSETool,
     ImageFormatConverter,
     PgvectorImageDatabase, 
+    GoogleDriveSync, FSETool,
     ImageMerger, ImageCrawler,
 )
 

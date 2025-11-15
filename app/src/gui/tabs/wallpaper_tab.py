@@ -20,7 +20,7 @@ from .base_tab import BaseTab
 from ..windows import SlideshowQueueWindow
 from ..components import MonitorDropWidget, DraggableImageLabel
 from ..helpers import ImageScannerWorker, BatchThumbnailLoaderWorker
-from ..utils.styles import apply_shadow_effect
+from ..styles.style import apply_shadow_effect
 
 
 class WallpaperTab(BaseTab):
