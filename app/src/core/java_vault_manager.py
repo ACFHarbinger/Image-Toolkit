@@ -81,6 +81,9 @@ class JavaVaultManager:
         self.keystore = None
         self.secret_key = None
         self.vault = None
+        
+        # --- THIS DICTIONARY WILL HOLD DECRYPTED API CREDENTIALS ---
+        self.api_credentials = {}
 
     def _to_char_array(self, py_string: str) -> 'JArray[JChar]':
         """Helper to convert a Python string to a Java char[]."""
