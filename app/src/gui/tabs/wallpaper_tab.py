@@ -5,37 +5,120 @@ import subprocess
 if platform.system() == "Windows": import winreg
 
 from PIL import Image
+from math import floor
 from pathlib import Path
-from typing import Dict, List
 from screeninfo import get_monitors, Monitor
-from PySide6.QtCore import Qt, QThreadPool, QThread
+from typing import Dict, List, Optional, Tuple
+from PySide6.QtCore import Qt, QThreadPool, QThread, QTimer, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QGroupBox,
     QWidget, QLabel, QPushButton, QMessageBox, QApplication,
-    QLineEdit, QFileDialog, QScrollArea, QGridLayout
+    QLineEdit, QFileDialog, QScrollArea, QGridLayout, QSpinBox, QCheckBox, 
 )
 from .base_tab import BaseTab
+from ..windows import SlideshowQueueWindow
 from ..components import MonitorDropWidget, DraggableImageLabel
 from ..helpers import ImageScannerWorker, BatchThumbnailLoaderWorker
 from ..utils.styles import apply_shadow_effect
 
 
 class WallpaperTab(BaseTab):
+    
+    # --- CORE METHODS MOVED TO TOP FOR INITIALIZATION SAFETY ---
+
+    @Slot()
+    def _is_slideshow_validation_ready(self) -> Tuple[bool, int]:
+        """
+        Checks if slideshow preconditions are met: all active monitors must have 
+        the same, non-zero number of images in their queue.
+        Returns (is_ready, queue_length).
+        """
+        monitor_ids = list(self.monitor_widgets.keys())
+        num_monitors = len(monitor_ids)
+        
+        if num_monitors == 0:
+            return False, 0
+            
+        queue_lengths = [len(self.monitor_slideshow_queues.get(mid, [])) for mid in monitor_ids]
+        
+        if not all(length > 0 for length in queue_lengths):
+            # One or more queues are empty
+            return False, 0
+
+        first_length = queue_lengths[0]
+        if not all(length == first_length for length in queue_lengths):
+            # Not all queue lengths are equal
+            return False, 0
+            
+        return True, first_length
+
+    @Slot()
+    def check_all_monitors_set(self):
+        """
+        Enables the 'Set Wallpaper' button based on either standard or slideshow mode requirements.
+        """
+        
+        if self.slideshow_timer and self.slideshow_timer.isActive():
+             return
+
+        if self.set_wallpaper_btn.text() in ["Missing Pillow", "Missing screeninfo", "Missing Helpers"]:
+             return
+            
+        target_monitor_ids = list(self.monitor_widgets.keys())
+        num_monitors = len(target_monitor_ids)
+        
+        # Check standard single-image requirement
+        set_count = sum(1 for mid in target_monitor_ids if mid in self.monitor_image_paths and self.monitor_image_paths[mid])
+        all_set_single = set_count == num_monitors
+
+        is_ready, queue_len = self._is_slideshow_validation_ready()
+
+        if self.slideshow_enabled_checkbox.isChecked():
+            # Slideshow mode active
+            if is_ready:
+                 self.set_wallpaper_btn.setEnabled(True)
+                 self.set_wallpaper_btn.setText(f"Start Slideshow ({queue_len} images per display)")
+            else:
+                 self.set_wallpaper_btn.setEnabled(False)
+                 self.set_wallpaper_btn.setText("Slideshow (Fix image counts)")
+                 
+        elif all_set_single:
+            # Standard mode ready
+            self.set_wallpaper_btn.setText("Set Wallpaper")
+            self.set_wallpaper_btn.setEnabled(True)
+        else:
+            # Standard mode waiting
+            missing = num_monitors - set_count
+            self.set_wallpaper_btn.setText(f"Set Wallpaper ({missing} more)")
+            self.set_wallpaper_btn.setEnabled(False)
+
+    # --- END CORE METHODS ---
+
+
     def __init__(self, db_tab_ref, dropdown=True): # Keep signature consistent
         super().__init__()
-        # Reference to the main DatabaseTab (in case it's needed later)
         self.db_tab_ref = db_tab_ref
         
         self.monitors: List[Monitor] = []
         self.monitor_widgets: Dict[str, MonitorDropWidget] = {}
-        # Stores image path for the monitor ID (1-based index)
-        self.monitor_image_paths: Dict[str, str] = {} 
+        
+        # FIX: Initialize all required dictionaries here
+        self.monitor_image_paths: Dict[str, str] = {}
+        self.monitor_slideshow_queues: Dict[str, List[str]] = {} 
+        self.monitor_current_index: Dict[str, int] = {}
+        
+        # --- Slideshow State ---
+        self.slideshow_timer: Optional[QTimer] = None
+        self.countdown_timer: Optional[QTimer] = None
+        self.time_remaining_sec: int = 0
+        self.interval_sec: int = 0
+        self.open_queue_windows: List[QWidget] = [] 
         
         layout = QVBoxLayout(self)
         
         # --- Monitor Layout Group ---
-        layout_group = QGroupBox("Monitor Layout (Drop images here)")
+        layout_group = QGroupBox("Monitor Layout (Drop images here, double-click to see queue)")
         layout_group.setStyleSheet("""
             QGroupBox {  
                 border: 1px solid #4f545c; 
@@ -57,10 +140,51 @@ class WallpaperTab(BaseTab):
         self.monitor_layout.setAlignment(Qt.AlignCenter)
         
         layout_group.setLayout(self.monitor_layout)
-        layout.addWidget(layout_group) # Removed stretch factor to balance layout
+        layout.addWidget(layout_group)
 
-        # --- NEW: Scan Directory Section (Copied from ScanFSETab) ---
-        scan_group = QGroupBox("Scan Directory (Drag images from here)")
+        # --- Slideshow Controls Group (UPDATED FOR SECONDS) ---
+        self.slideshow_group = QGroupBox("Slideshow Settings (Per-Monitor Cycle)")
+        self.slideshow_group.setStyleSheet(layout_group.styleSheet())
+        slideshow_layout = QHBoxLayout(self.slideshow_group)
+        slideshow_layout.setContentsMargins(10, 20, 10, 10)
+
+        # Slideshow Enabled Checkbox
+        self.slideshow_enabled_checkbox = QCheckBox("Enable Slideshow")
+        self.slideshow_enabled_checkbox.setToolTip("Cycles through dropped images on each monitor. All monitors must have the same number of dropped images.")
+        slideshow_layout.addWidget(self.slideshow_enabled_checkbox)
+
+        # Interval Spinboxes (Minutes and Seconds)
+        slideshow_layout.addWidget(QLabel("Interval:"))
+        
+        # Minutes Spinbox
+        self.interval_min_spinbox = QSpinBox()
+        self.interval_min_spinbox.setRange(0, 60)
+        self.interval_min_spinbox.setValue(5) # Default 5 minutes
+        self.interval_min_spinbox.setFixedWidth(50)
+        slideshow_layout.addWidget(self.interval_min_spinbox)
+        slideshow_layout.addWidget(QLabel("min"))
+
+        # Seconds Spinbox
+        self.interval_sec_spinbox = QSpinBox()
+        self.interval_sec_spinbox.setRange(0, 59) # Range 0 to 59 seconds
+        self.interval_sec_spinbox.setValue(0) 
+        self.interval_sec_spinbox.setFixedWidth(50)
+        slideshow_layout.addWidget(self.interval_sec_spinbox)
+        slideshow_layout.addWidget(QLabel("sec"))
+
+        slideshow_layout.addStretch(1)
+        
+        # Countdown Label (New UI element)
+        self.countdown_label = QLabel("Timer: --:--")
+        self.countdown_label.setStyleSheet("color: #2ecc71; font-weight: bold; font-size: 14px;")
+        self.countdown_label.setFixedWidth(100)
+        slideshow_layout.addWidget(self.countdown_label)
+
+        layout.addWidget(self.slideshow_group)
+        # -------------------------------------
+
+        # --- NEW: Scan Directory Section ---
+        scan_group = QGroupBox("Scan Directory (Image Source)")
         scan_group.setStyleSheet("""
             QGroupBox {  
                 border: 1px solid #4f545c; 
@@ -120,7 +244,7 @@ class WallpaperTab(BaseTab):
         self.refresh_btn = QPushButton("Refresh Layout")
         self.refresh_btn.setStyleSheet("background-color: #f1c40f; color: black; padding: 10px; border-radius: 8px; font-weight: bold;")
         apply_shadow_effect(self.refresh_btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        self.refresh_btn.clicked.connect(self.populate_monitor_layout)
+        self.refresh_btn.clicked.connect(self.handle_refresh_layout)
         action_layout.addWidget(self.refresh_btn)
         
         self.set_wallpaper_btn = QPushButton("Set Wallpaper")
@@ -137,7 +261,7 @@ class WallpaperTab(BaseTab):
             QPushButton:pressed { background: #5a67d8; }
         """)
         apply_shadow_effect(self.set_wallpaper_btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        self.set_wallpaper_btn.clicked.connect(self.set_wallpaper)
+        self.set_wallpaper_btn.clicked.connect(self.handle_set_wallpaper_click)
         action_layout.addWidget(self.set_wallpaper_btn, 1) # Give it stretch
         
         layout.addLayout(action_layout)
@@ -148,7 +272,6 @@ class WallpaperTab(BaseTab):
         self.threadpool = QThreadPool.globalInstance()
         self.scanned_dir = None
         try:
-            # Try to find a sensible default 'data' dir
             base_dir = Path.cwd()
             while base_dir.name != 'Image-Toolkit' and base_dir.parent != base_dir:
                 base_dir = base_dir.parent
@@ -157,7 +280,7 @@ class WallpaperTab(BaseTab):
             else:
                 self.last_browsed_scan_dir = str(Path.cwd() / 'data')
         except Exception:
-             self.last_browsed_scan_dir = os.getcwd() # Fallback
+             self.last_browsed_scan_dir = os.getcwd() 
         
         self.scan_image_list: list[str] = []
         self.current_thumbnail_loader_thread = None
@@ -167,7 +290,277 @@ class WallpaperTab(BaseTab):
         # Initial setup (Original)
         self.populate_monitor_layout()
         self.check_dependencies()
-        self.check_all_monitors_set() # Initially disable button
+        self.check_all_monitors_set()
+        self.stop_slideshow()
+
+    # --- Slideshow Handlers ---
+
+    @Slot()
+    def update_countdown(self):
+        """Updates the UI countdown label every second."""
+        if self.time_remaining_sec > 0:
+            self.time_remaining_sec -= 1
+            minutes = floor(self.time_remaining_sec / 60)
+            seconds = self.time_remaining_sec % 60
+            self.countdown_label.setText(f"Timer: {minutes:02d}:{seconds:02d}")
+        else:
+            self.countdown_label.setText("Timer: 00:00")
+    
+    @Slot()
+    def handle_set_wallpaper_click(self):
+        """Handles the click event for the main 'Set Wallpaper' button."""
+        if self.slideshow_timer and self.slideshow_timer.isActive():
+            self.stop_slideshow()
+        elif self.slideshow_enabled_checkbox.isChecked():
+            self.start_slideshow()
+        else:
+            self.stop_slideshow()
+            self.set_wallpaper()
+
+    @Slot()
+    def start_slideshow(self):
+        """Initializes the slideshow queues and starts the timers."""
+        
+        num_monitors = len(self.monitor_widgets)
+
+        # 1. Validation check for equal queue length
+        is_ready, queue_len = self._is_slideshow_validation_ready()
+        
+        if num_monitors == 0:
+            QMessageBox.warning(self, "Slideshow Error", "No monitors detected or configured.")
+            self.slideshow_enabled_checkbox.setChecked(False)
+            return
+            
+        if not is_ready:
+            QMessageBox.critical(self, "Slideshow Error", 
+                                 "To start the slideshow, all monitors must have the EXACT same, non-zero number of images dropped on them.")
+            self.slideshow_enabled_checkbox.setChecked(False)
+            return
+
+        # 2. Stop any existing timer
+        self.stop_slideshow() 
+        
+        # 3. Initialize current index for all monitors to -1 (so first cycle increments to 0)
+        for mid in self.monitor_widgets.keys():
+            self.monitor_current_index[mid] = -1 
+
+        # 4. Calculate interval and initialize timers
+        interval_minutes = self.interval_min_spinbox.value()
+        interval_seconds = self.interval_sec_spinbox.value()
+        
+        # Calculate total seconds
+        self.interval_sec = (interval_minutes * 60) + interval_seconds
+        
+        if self.interval_sec <= 0: # Ensure a non-zero interval
+            QMessageBox.critical(self, "Slideshow Error", "Slideshow interval must be greater than 0 seconds.")
+            self.slideshow_enabled_checkbox.setChecked(False)
+            return
+
+        interval_ms = self.interval_sec * 1000
+
+        self.time_remaining_sec = self.interval_sec
+
+        # Long interval timer (triggers wallpaper change)
+        self.slideshow_timer = QTimer(self)
+        self.slideshow_timer.timeout.connect(self._cycle_slideshow_wallpaper)
+        self.slideshow_timer.start(interval_ms)
+        
+        # Short interval timer (updates UI countdown)
+        self.countdown_timer = QTimer(self)
+        self.countdown_timer.timeout.connect(self.update_countdown)
+        self.countdown_timer.start(1000)
+
+        QMessageBox.information(self, "Slideshow Started", 
+                                f"Per-monitor slideshow started with {queue_len} images per monitor, cycling every {interval_minutes} minutes and {interval_seconds} seconds.")
+        
+        # Immediately set the first set of wallpapers (index 0)
+        self._cycle_slideshow_wallpaper()
+
+        # Update button text to reflect the running state
+        self.set_wallpaper_btn.setText(f"Slideshow Running (Stop)")
+        self.set_wallpaper_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c; /* Red color for stop */
+                color: white; font-weight: bold; font-size: 16px;
+                padding: 14px; border-radius: 10px; min-height: 44px;
+            }
+            QPushButton:hover { background-color: #c0392b; }
+            QPushButton:disabled { background: #718096; }
+            QPushButton:pressed { background: #a52a2a; }
+        """)
+        self.set_wallpaper_btn.setEnabled(True)
+
+
+    @Slot()
+    def stop_slideshow(self):
+        """Stops the QTimers and resets state."""
+        if self.slideshow_timer and self.slideshow_timer.isActive():
+            self.slideshow_timer.stop()
+            self.slideshow_timer.deleteLater()
+            self.slideshow_timer = None
+            QMessageBox.information(self, "Slideshow Stopped", "Wallpaper slideshow stopped.")
+        
+        if self.countdown_timer and self.countdown_timer.isActive():
+            self.countdown_timer.stop()
+            self.countdown_timer.deleteLater()
+            self.countdown_timer = None
+
+        # Close any open queue windows
+        for win in list(self.open_queue_windows):
+            if win.isVisible():
+                win.close()
+        self.open_queue_windows.clear()
+        
+        # Reset slideshow-specific state
+        self.monitor_current_index.clear()
+        self.time_remaining_sec = 0
+        self.countdown_label.setText("Timer: --:--")
+
+        # Reset UI
+        self.slideshow_enabled_checkbox.setChecked(False)
+        self.set_wallpaper_btn.setText("Set Wallpaper")
+        self.set_wallpaper_btn.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #667eea, stop:1 #764ba2);
+                color: white; font-weight: bold; font-size: 16px;
+                padding: 14px; border-radius: 10px; min-height: 44px;
+            }
+            QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                stop:0 #764ba2, stop:1 #667eea); }
+            QPushButton:disabled { background: #4f545c; color: #a0a000; }
+            QPushButton:pressed { background: #5a67d8; }
+        """)
+        self.check_all_monitors_set() 
+
+    @Slot()
+    def _cycle_slideshow_wallpaper(self):
+        """Advances the index for each monitor and applies the new set of images."""
+        
+        monitor_ids = list(self.monitor_widgets.keys())
+        if not monitor_ids: return 
+        
+        current_queue_length = len(self.monitor_slideshow_queues.get(monitor_ids[0], []))
+        
+        try:
+            # 1. Update the current image path dictionary and advance index
+            new_monitor_paths = {}
+            
+            for monitor_id in monitor_ids:
+                
+                # Get current index and queue
+                current_index = self.monitor_current_index.get(monitor_id, -1)
+                queue = self.monitor_slideshow_queues.get(monitor_id, [])
+
+                # Determine next index (cycle back to 0 if max queue length reached)
+                next_index = (current_index + 1) % current_queue_length
+                
+                # Assign the image path based on the new index
+                new_monitor_paths[monitor_id] = queue[next_index]
+                
+                # Update the index tracker
+                self.monitor_current_index[monitor_id] = next_index
+                 
+            # 2. Update the monitor_image_paths storage (used by set_wallpaper)
+            self.monitor_image_paths = new_monitor_paths
+                 
+            # 3. Apply the wallpaper and update visual drop zones (if possible)
+            self.set_wallpaper(slideshow_mode=True)
+            for monitor_id, path in new_monitor_paths.items():
+                 self.monitor_widgets[monitor_id].set_image(path)
+            
+            # 4. Reset the countdown timer
+            self.time_remaining_sec = self.interval_sec
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Slideshow Cycle Error", f"Failed to cycle wallpaper: {str(e)}")
+            self.stop_slideshow()
+    
+    @Slot(str)
+    def handle_monitor_double_click(self, monitor_id: str):
+        """Opens a new non-modal window to display the image queue for the clicked monitor."""
+        
+        queue = self.monitor_slideshow_queues.get(monitor_id, [])
+        monitor_name = self.monitor_widgets[monitor_id].monitor.name
+        
+        # Check if a window for this monitor is already open
+        for win in self.open_queue_windows:
+            if isinstance(win, SlideshowQueueWindow) and win.monitor_id == monitor_id:
+                win.activateWindow()
+                return
+
+        # Pass the current monitor ID to the window for callback purposes
+        window = SlideshowQueueWindow(monitor_name, monitor_id, queue)
+        window.setAttribute(Qt.WA_DeleteOnClose)
+        
+        # Connect the signal from the window to a slot in this class
+        window.queue_reordered.connect(self.on_queue_reordered)
+        
+        def remove_closed_win(event):
+            if window in self.open_queue_windows:
+                 self.open_queue_windows.remove(window)
+            event.accept()
+
+        window.closeEvent = remove_closed_win
+        
+        window.show()
+        self.open_queue_windows.append(window)
+
+    @Slot(str, list)
+    def on_queue_reordered(self, monitor_id: str, new_queue: List[str]):
+        """Slot to receive the updated queue from the SlideshowQueueWindow."""
+        self.monitor_slideshow_queues[monitor_id] = new_queue
+        
+        # Reset the index for this monitor to ensure it starts from the new top
+        self.monitor_current_index[monitor_id] = -1 
+        
+        # Update the currently displayed image path
+        new_first_image = new_queue[0] if new_queue else None
+        self.monitor_image_paths[monitor_id] = new_first_image
+        
+        # Update the visual drop widget
+        if new_first_image and self.monitor_widgets[monitor_id].image_path != new_first_image:
+            self.monitor_widgets[monitor_id].set_image(new_first_image)
+        elif not new_first_image:
+            self.monitor_widgets[monitor_id].update_text()
+        
+        # The following line was removed to stop the popup:
+        # monitor_name = self.monitor_widgets[monitor_id].monitor.name
+        # QMessageBox.information(self, "Queue Updated", f"Queue order for {monitor_name} has been updated.")
+        
+        # Re-check slideshow readiness (important if the queue became empty or uneven)
+        self.check_all_monitors_set()
+
+
+    # --- MODIFIED: Refresh Layout Handler ---
+    @Slot()
+    def handle_refresh_layout(self):
+        """
+        Refreshes monitor layout, clears dropped images, clears the scanned gallery,
+        and resets the scanned directory path.
+        """
+        self.stop_slideshow() 
+        
+        # Clear all state related to dropped/scanned images
+        self.monitor_slideshow_queues.clear()
+        self.monitor_current_index.clear()
+        self.monitor_image_paths.clear() 
+        
+        self.scan_directory_path.clear()
+        self.scanned_dir = None
+        self.scan_image_list = []
+        
+        self.clear_scan_image_gallery() 
+        
+        self.populate_monitor_layout() 
+        
+        self.check_all_monitors_set()
+        
+        columns = self.calculate_columns()
+        ready_label = QLabel("Layout Refreshed. Browse for a directory.")
+        ready_label.setAlignment(Qt.AlignCenter)
+        ready_label.setStyleSheet("color: #b9bbbe;")
+        self.scan_thumbnail_layout.addWidget(ready_label, 0, 0, 1, columns)
 
     # --- check_dependencies Method (Unchanged) ---
     def check_dependencies(self):
@@ -200,7 +593,7 @@ class WallpaperTab(BaseTab):
              self.set_wallpaper_btn.setEnabled(True) 
 
     
-    # --- REVISED populate_monitor_layout Method (Unchanged) ---
+    # --- populate_monitor_layout Method (Modified to connect double-click) ---
     def populate_monitor_layout(self):
         """
         Clears and recreates the monitor drop widgets based on
@@ -229,147 +622,113 @@ class WallpaperTab(BaseTab):
         # CHECK 1: If Windows, only show the first monitor
         if platform.system() == "Windows":
              monitors_to_show = [self.monitors[0]]
-             # Show a message to explain the limitation
              label = QLabel("Windows only supports one wallpaper across all screens.")
              label.setStyleSheet("color: #7289da;")
              self.monitor_layout.addWidget(label)
 
 
         for i, monitor in enumerate(monitors_to_show):
-            # Monitor ID is 1-based index based on the sorted list
-            # Note: On Windows, i will always be 0, monitor_id will be '1'
             monitor_index_in_original_list = self.monitors.index(monitor)
             monitor_id = str(monitor_index_in_original_list + 1) 
 
             drop_widget = MonitorDropWidget(monitor, monitor_id)
+            # Connect single-click to standard drop/set logic
             drop_widget.image_dropped.connect(self.on_image_dropped)
             
-            # Restore image path if available
-            if monitor_id in self.monitor_image_paths:
-                drop_widget.set_image(self.monitor_image_paths[monitor_id])
-                
+            # Connect double-click to open queue window
+            drop_widget.double_clicked.connect(self.handle_monitor_double_click)
+            
+            # Restore image path if available (use the current displayed image path)
+            current_image = self.monitor_image_paths.get(monitor_id)
+            if current_image:
+                drop_widget.set_image(current_image)
+            
             self.monitor_layout.addWidget(drop_widget)
             self.monitor_widgets[monitor_id] = drop_widget
         
         self.check_all_monitors_set()
 
+    # MODIFIED: on_image_dropped now manages the image queue
     def on_image_dropped(self, monitor_id: str, image_path: str):
-        """Slot to store the path of the dropped image."""
+        """
+        Slot to add the dropped image to the monitor's specific queue, 
+        and display the last dropped image for visual confirmation.
+        """
+        if monitor_id not in self.monitor_slideshow_queues:
+            self.monitor_slideshow_queues[monitor_id] = []
+        
+        # Add the new path to the queue
+        self.monitor_slideshow_queues[monitor_id].append(image_path)
+        
+        # For immediate visual feedback (non-slideshow mode)
         self.monitor_image_paths[monitor_id] = image_path
+        
+        # Update the visual drop zone to show the latest image
+        self.monitor_widgets[monitor_id].set_image(image_path)
+        
+        # Update button text to show queue count
         self.check_all_monitors_set()
         
-    # --- REVISED check_all_monitors_set Method (Unchanged) ---
-    def check_all_monitors_set(self):
-        """Enables the 'Set' button only if all *visible* monitors have an image."""
-        if not self.set_wallpaper_btn.text() in ["Missing Pillow", "Missing screeninfo", "Missing Helpers"]:
-            
-            # Use the number of currently visible widgets to determine the target count
-            target_monitor_ids = set(self.monitor_widgets.keys())
-            
-            # Check how many of the required monitors have paths
-            set_count = 0
-            for monitor_id in target_monitor_ids:
-                if monitor_id in self.monitor_image_paths and self.monitor_image_paths[monitor_id]:
-                    set_count += 1
-
-            all_set = set_count == len(target_monitor_ids)
-            self.set_wallpaper_btn.setEnabled(all_set)
-            
-            if all_set:
-                self.set_wallpaper_btn.setText("Set Wallpaper")
-            else:
-                missing = len(target_monitor_ids) - set_count
-                self.set_wallpaper_btn.setText(f"Set Wallpaper ({missing} more)")
-
-    # --- set_wallpaper Method (Unchanged from previous step) ---
-    def set_wallpaper(self):
+    # --- set_wallpaper Method (Unchanged logic for setting wallpaper from self.monitor_image_paths) ---
+    def set_wallpaper(self, slideshow_mode=False):
         """
-        Applies a single image to all monitors on Windows (using Monitor 1's image), 
-        or attempts per-monitor application on Linux (KDE).
+        Applies a different image to each monitor based on self.monitor_image_paths.
         """
-        # Determine the number of targets based on visible widgets
-        # We check the keys of monitor_widgets, which accurately reflect the visible monitors
         target_monitor_ids = list(self.monitor_widgets.keys()) 
-        set_count = 0
-        for monitor_id in target_monitor_ids:
-            if monitor_id in self.monitor_image_paths and self.monitor_image_paths[monitor_id]:
-                set_count += 1
+        required_image_paths = [self.monitor_image_paths.get(mid) for mid in target_monitor_ids]
+        valid_image_paths = [p for p in required_image_paths if p]
         
-        if set_count != len(target_monitor_ids):
-            QMessageBox.warning(self, "Incomplete", f"Please drag an image onto every visible monitor ({len(target_monitor_ids)} needed).")
+        if not slideshow_mode and len(valid_image_paths) != len(target_monitor_ids):
+            QMessageBox.warning(self, "Incomplete", "Not all monitors have valid images assigned.")
             return
 
-        self.set_wallpaper_btn.setEnabled(False)
-        self.set_wallpaper_btn.setText("Applying...")
-        QApplication.processEvents() 
-        
-        # FIX: Prepare the list of image paths only for the required monitors
-        if platform.system() == "Windows":
-             # On Windows, only Monitor 1 is needed (key '1')
-             # We assume '1' is always in target_monitor_ids if set_count passed
-             required_image_paths = [self.monitor_image_paths['1']]
-        else:
-             # On Linux, all detected monitors are targets
-             required_image_paths = [self.monitor_image_paths[str(i+1)] for i in range(len(self.monitors))]
+        if not slideshow_mode:
+             self.set_wallpaper_btn.setEnabled(False)
+             self.set_wallpaper_btn.setText("Applying...")
+             QApplication.processEvents() 
         
         try:
             if platform.system() == "Windows":
-                # --- Windows Implementation (Single Wallpaper enforced) ---
-                
-                # Use the single image path (which is Monitor 1's)
-                single_image_path = required_image_paths[0] 
-                
-                # Ensure the path is fully resolved and converted to a string suitable for ctypes
-                save_path = str(Path(single_image_path).resolve())
+                 # --- Windows Implementation (Single Wallpaper enforced) ---
+                 if not valid_image_paths: return
+                 single_image_path = valid_image_paths[0] 
+                 save_path = str(Path(single_image_path).resolve())
 
-                QMessageBox.information(self, "Windows Note",
-                    "Windows only supports a single wallpaper file via this tool.\n"
-                    f"Applying the image assigned to Monitor 1: {Path(save_path).name}"
-                )
-                
-                # Set Windows Registry Keys to use 'Fill' or 'Stretch' for better scaling
-                # 0=Tile, 1=Center, 2=Stretch, 3=Fit, 4=Fill, 5=Span
-                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, 
-                                     "Control Panel\\Desktop", 0, winreg.KEY_SET_VALUE)
-                # Set to Fill (4) and Tile off (0) for a standard modern look
-                winreg.SetValueEx(key, "WallpaperStyle", 0, winreg.REG_SZ, "4") 
-                winreg.SetValueEx(key, "TileWallpaper", 0, winreg.REG_SZ, "0") 
-                winreg.CloseKey(key)
+                 if not slideshow_mode:
+                     QMessageBox.information(self, "Windows Note", "Windows only supports a single wallpaper file via this tool.")
+                 
+                 key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, 
+                                      "Control Panel\\Desktop", 0, winreg.KEY_SET_VALUE)
+                 winreg.SetValueEx(key, "WallpaperStyle", 0, winreg.REG_SZ, "4") 
+                 winreg.SetValueEx(key, "TileWallpaper", 0, winreg.REG_SZ, "0") 
+                 winreg.CloseKey(key)
 
-                # Constants for SystemParametersInfoW
-                SPI_SETDESKWALLPAPER = 20
-                SPIF_UPDATEINIFILE = 0x01
-                SPIF_SENDWININICHANGE = 0x02
-                
-                # Apply the single image
-                ctypes.windll.user32.SystemParametersInfoW(
-                    SPI_SETDESKWALLPAPER, 
-                    0, 
-                    save_path, 
-                    SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE
-                )
-                
+                 SPI_SETDESKWALLPAPER = 20
+                 SPIF_UPDATEINIFILE = 0x01
+                 SPIF_SENDWININICHANGE = 0x02
+                 
+                 ctypes.windll.user32.SystemParametersInfoW(
+                     SPI_SETDESKWALLPAPER, 
+                     0, 
+                     save_path, 
+                     SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE
+                 )
+                    
             elif platform.system() == "Linux":
                 
                 # --- Linux (KDE) Implementation (Per-Monitor) ---
                 try:
-                    # Check if 'qdbus' is available, which is the KDE way
                     subprocess.run(["which", "qdbus6"], check=True, capture_output=True)
                     
-                    # Robust KDE D-Bus Script (combining all commands)
                     script_parts = []
-                    for i, path in enumerate(required_image_paths):
+                    for i, path in enumerate(valid_image_paths):
                         file_uri = f"file://{Path(path).resolve()}"
-                        
-                        # Set wallpaper image and fill mode for the i-th desktop
                         script_parts.append(
                             f'd = desktops()[{i}]; d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); d.writeConfig("Image", "{file_uri}"); d.writeConfig("FillMode", 1);'
                         )
                         
-                    # Re-join all commands into one single, safe script string
                     full_script = "".join(script_parts)
                     
-                    # Add a final, explicit reload command on the last desktop object to force a refresh
                     if script_parts:
                          full_script += "d.reloadConfig();"
 
@@ -379,33 +738,31 @@ class WallpaperTab(BaseTab):
 
                     subprocess.run(qdbus_command, shell=True, check=True, capture_output=True, text=True)
                     
-                    QMessageBox.information(self, "KDE Note", 
-                                            "Wallpaper configuration updated. The desktop should refresh shortly.")
+                    if not slideshow_mode:
+                        QMessageBox.information(self, "KDE Note", "Wallpaper configuration updated. The desktop should refresh shortly.")
                     
                 except FileNotFoundError:
-                    # --- Linux (GNOME/Other) Fallback (Reverting to Spanned) ---
-                    QMessageBox.warning(self, "Linux Note", 
-                                        "KDE Plasma ('qdbus6') not detected. Falling back to GNOME 'spanned' method.\n"
-                                        "This will stitch all images into a single file and apply it across all monitors.")
+                    # --- Linux (GNOME/Other) Fallback (Spanned, stitches all images) ---
+                    if not slideshow_mode:
+                        QMessageBox.warning(self, "Linux Note", "KDE Plasma ('qdbus6') not detected. Falling back to GNOME 'spanned' method.")
                     
-                    # Stitching logic for GNOME spanning (needed because GNOME lacks a simple per-monitor API)
                     total_width = sum(m.width for m in self.monitors)
                     max_height = max(m.height for m in self.monitors)
                     spanned_image = Image.new('RGB', (total_width, max_height))
                     
                     current_x = 0
                     for i, monitor in enumerate(self.monitors):
-                        img = Image.open(required_image_paths[i]) # Use required_image_paths here
-                        img = img.resize((monitor.width, monitor.height), Image.Resampling.LANCZOS)
-                        spanned_image.paste(img, (current_x, 0))
-                        current_x += img.width
+                        if i < len(valid_image_paths):
+                            img = Image.open(valid_image_paths[i])
+                            img = img.resize((monitor.width, monitor.height), Image.Resampling.LANCZOS)
+                            spanned_image.paste(img, (current_x, 0))
+                            current_x += img.width
 
                     home_dir = os.path.expanduser('~')
                     save_path = os.path.join(home_dir, ".spanned_wallpaper.jpg")
                     spanned_image.save(save_path, "JPEG", quality=95)
                     file_uri = f"file://{save_path}"
 
-                    # GNOME/gsettings
                     subprocess.run(
                         ["gsettings", "set", "org.gnome.desktop.background", "picture-options", "spanned"],
                         check=True, capture_output=True, text=True
@@ -419,33 +776,31 @@ class WallpaperTab(BaseTab):
                         check=True, capture_output=True, text=True
                     )
                 except subprocess.CalledProcessError as e:
-                    # Handle Linux errors
                     error_message = f"Failed to set wallpaper on Linux.\nError: {e.stderr}"
-                    # Check if the error is related to D-Bus service not running or script failure
-                    if e.stderr and (b"service not found" in e.stderr.lower() or b"error" in e.stderr.lower()):
-                         error_message += "\nSuggestion: The error might be due to a script failure (e.g., trying to access a non-existent desktop index or a bad file URI). The file URI is confirmed to be valid, so try running the command directly in your terminal to isolate the issue."
-                    
                     QMessageBox.critical(self, "Error", error_message)
                     raise
                 
             else:
-                 QMessageBox.warning(self, "Unsupported OS", 
-                                  f"Wallpaper setting for {platform.system()} is not supported.")
+                 if not slideshow_mode:
+                    QMessageBox.warning(self, "Unsupported OS", 
+                                     f"Wallpaper setting for {platform.system()} is not supported.")
                  return
 
-            QMessageBox.information(self, "Success", "Wallpaper has been updated!")
+            if not slideshow_mode:
+                QMessageBox.information(self, "Success", "Wallpaper has been updated!")
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"An unexpected error occurred: {str(e)}")
         
         finally:
-            self.check_all_monitors_set()
+            if not slideshow_mode:
+                self.check_all_monitors_set()
 
-    # --- Other Methods (Unchanged) ---
+    # --- Other Methods (Scan and Gallery Unchanged) ---
     def browse_scan_directory(self):
         """Select directory to scan and display image thumbnails."""
         if ImageScannerWorker is None:
-            self.check_dependencies() # Re-show warning
+            self.check_dependencies()
             return
             
         start_dir = self.last_browsed_scan_dir
@@ -495,6 +850,8 @@ class WallpaperTab(BaseTab):
         self.clear_scan_image_gallery() 
         self.scan_image_list = image_paths
         
+        self.check_all_monitors_set() 
+        
         columns = self.calculate_columns()
         
         if not self.scan_image_list:
@@ -514,45 +871,31 @@ class WallpaperTab(BaseTab):
         
         thread.started.connect(worker.run_load_batch)
         worker.create_placeholder.connect(self._create_thumbnail_placeholder)
-        worker.thumbnail_loaded.connect(self._update_thumbnail_slot)
+        worker.thumbnail_loaded.connect(self.update_thumbnail_slot)
         
         worker.loading_finished.connect(thread.quit)
         worker.loading_finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
         thread.finished.connect(self._cleanup_thumbnail_thread_ref)
 
-        # NEW: Connect to a slot to display the "loading complete" message
         worker.loading_finished.connect(self._display_load_complete_message)
         
         thread.start()
 
     def _create_thumbnail_placeholder(self, index: int, path: str):
-        """
-        Slot executed on the main thread to create and add a single placeholder.
-        Uses the new DraggableImageLabel.
-        """
         columns = self.calculate_columns()
         row = index // columns
         col = index % columns
-
-        # Use the NEW DraggableImageLabel
         draggable_label = DraggableImageLabel(path, self.thumbnail_size) 
-
         self.scan_thumbnail_layout.addWidget(draggable_label, row, col)
         self.path_to_label_map[path] = draggable_label 
-        
         self.scan_thumbnail_widget.update()
         QApplication.processEvents()
 
-    def _update_thumbnail_slot(self, index: int, pixmap: QPixmap, path: str):
-        """
-        Slot executed on the main thread to update a specific thumbnail widget
-        with the loaded image.
-        """
+    @Slot(int, QPixmap, str)
+    def update_thumbnail_slot(self, index: int, pixmap: QPixmap, path: str):
         label = self.path_to_label_map.get(path)
-        
-        if label is None:
-            return
+        if label is None: return
 
         if not pixmap.isNull():
             label.setPixmap(pixmap) 
@@ -563,14 +906,10 @@ class WallpaperTab(BaseTab):
             label.setStyleSheet("border: 1px solid #e74c3c; background-color: #4f545c; font-size: 8px;")
 
     def _cleanup_thumbnail_thread_ref(self):
-        """Slot to clear the QThread and QObject references after the thread finishes its work."""
         self.current_thumbnail_loader_thread = None
         self.current_thumbnail_loader_worker = None
 
     def _display_load_complete_message(self):
-        """
-        MODIFIED: Display message as a QMessageBox when thumbnail loading is complete.
-        """
         image_count = len(self.scan_image_list)
         if image_count > 0:
             QMessageBox.information(
@@ -580,10 +919,7 @@ class WallpaperTab(BaseTab):
                 QMessageBox.StandardButton.Ok
             )
 
-
     def clear_scan_image_gallery(self):
-        """Removes all widgets from the scan gallery layout and cleans up the single active thread."""
-        
         if self.current_thumbnail_loader_thread and self.current_thumbnail_loader_thread.isRunning():
             self.current_thumbnail_loader_thread.quit()
         
@@ -600,7 +936,6 @@ class WallpaperTab(BaseTab):
         self.scan_image_list = []
 
     def handle_scan_error(self, message: str):
-        """Handles and displays errors that occurred during the background scan."""
         self.clear_scan_image_gallery() 
         QMessageBox.warning(self, "Error Scanning", message)
         ready_label = QLabel("Browse for a directory.")
@@ -609,7 +944,6 @@ class WallpaperTab(BaseTab):
         self.scan_thumbnail_layout.addWidget(ready_label, 0, 0, 1, 1)
 
     def calculate_columns(self) -> int:
-        """Calculates the maximum number of thumbnail columns that fit in the widget."""
         widget_width = self.scan_thumbnail_widget.width()
         if widget_width <= 0:
             widget_width = self.scan_thumbnail_widget.parentWidget().width()
@@ -624,6 +958,5 @@ class WallpaperTab(BaseTab):
     def collect(self) -> dict:
         """Collect current state (for consistency with other tabs)."""
         return {
-            "monitor_images": self.monitor_image_paths,
-            "scan_directory": self.scan_directory_path.text().strip() or None
+            "monitor_queues": self.monitor_slideshow_queues,
         }

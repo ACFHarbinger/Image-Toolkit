@@ -4,7 +4,8 @@ from typing import Optional
 from screeninfo import Monitor
 from PySide6.QtCore import Qt, Signal, QMimeData
 from PySide6.QtGui import (
-    QPixmap, QDragEnterEvent, QDropEvent, QDragMoveEvent, QDragLeaveEvent
+    QPixmap, QDragEnterEvent, QDropEvent, QDragMoveEvent, QDragLeaveEvent,
+    QMouseEvent
 )
 from PySide6.QtWidgets import QLabel
 from ...utils.definitions import SUPPORTED_IMG_FORMATS
@@ -15,8 +16,11 @@ class MonitorDropWidget(QLabel):
     A custom QLabel that acts as a drop target for images,
     displays monitor info, and shows a preview of the dropped image.
     """
-    # Emits (monitor_id, image_path)
+    # Emits (monitor_id, image_path) when an image is successfully dropped
     image_dropped = Signal(str, str) 
+    
+    # Emits monitor_id when the widget is double-clicked
+    double_clicked = Signal(str)
 
     def __init__(self, monitor: Monitor, monitor_id: str):
         super().__init__()
@@ -46,6 +50,12 @@ class MonitorDropWidget(QLabel):
                 background-color: #40444b;
             }
         """)
+
+    def mouseDoubleClickEvent(self, event: QMouseEvent):
+        """Overrides the double-click event to emit the custom signal."""
+        if event.button() == Qt.LeftButton:
+            self.double_clicked.emit(self.monitor_id)
+        super().mouseDoubleClickEvent(event)
 
     def update_text(self):
         """Sets the default placeholder text."""
@@ -88,7 +98,7 @@ class MonitorDropWidget(QLabel):
             file_path = url.toLocalFile()
             
             if os.path.isfile(file_path):
-                self.set_image(file_path)
+                # wallpaper_tab.py's on_image_dropped handles queue logic
                 self.image_dropped.emit(self.monitor_id, file_path)
                 event.acceptProposedAction()
                 return
@@ -100,7 +110,7 @@ class MonitorDropWidget(QLabel):
         if not mime_data.hasUrls():
             return False
         if len(mime_data.urls()) > 1:
-            return False # Only one image at a time
+            pass # We only care about the first one in this context
         
         url = mime_data.urls()[0]
         if not url.isLocalFile():
