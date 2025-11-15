@@ -19,7 +19,7 @@ IMAGES_DIR = os.path.join(ROOT_DIR, 'assets', 'images')
 ICON_FILE = os.path.join(IMAGES_DIR, "image_toolkit_icon.png")
 
 API_DIR = os.path.join(ROOT_DIR, 'assets', 'api')
-SERVICE_ACCOUNT_FILE = os.path.join(API_DIR, "image-toolkit-477603-189147bd1fa9.json")
+SERVICE_ACCOUNT_FILE = os.path.join(API_DIR, "image_toolkit_service.json")
 CLIENT_SECRETS_FILE = os.path.join(API_DIR, 'client_secret.json')
 TOKEN_FILE = os.path.join(API_DIR, 'token.json')
 

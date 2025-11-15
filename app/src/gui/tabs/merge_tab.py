@@ -1,7 +1,8 @@
 import os
+
 from pathlib import Path
 from typing import Dict, Any, Set, List
-from PySide6.QtCore import Qt, QTimer, QThread, QObject
+from PySide6.QtCore import Qt, QTimer, QThread, QObject, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QLineEdit, QFileDialog, QWidget, QLabel, QPushButton,
@@ -58,6 +59,20 @@ class MergeTab(BaseTab):
         self.selected_card_map: Dict[str, ClickableLabel] = {}
         
         main_layout = QVBoxLayout(self)
+
+        # MODIFIED: Reduced padding and min-height to make the buttons smaller vertically
+        TARGET_BUTTON_STYLE = """
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #00bcd4, stop:1 #0097a7); /* Light to Dark Cyan/Teal */
+                color: white; font-weight: bold; font-size: 14px;
+                padding: 8px 8px; border-radius: 8px; min-height: 34px;
+            }
+            QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                stop:0 #0097a7, stop:1 #00bcd4); }
+            QPushButton:disabled { background: #718096; }
+            QPushButton:pressed { background: #00838a; }
+        """
 
         # ------------------------------------------------------------------
         # --- NEW: Scrollable Content Setup ---
@@ -120,15 +135,18 @@ class MergeTab(BaseTab):
         self.input_path_info.setReadOnly(True)
         self.input_path_info.setStyleSheet("background-color: #333; color: #b9bbbe;")
 
+        # MODIFIED: Applied the TARGET_BUTTON_STYLE
         btn_input_files = QPushButton("Add Files")
+        btn_input_files.setStyleSheet(TARGET_BUTTON_STYLE)
         apply_shadow_effect(btn_input_files, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         btn_input_files.clicked.connect(self._browse_files_logic) 
-        # Make the Add Files button clickable with Enter
         btn_input_files.setDefault(True) 
         
         btn_input_dir = QPushButton("Scan Directory")
+        btn_input_dir.setStyleSheet(TARGET_BUTTON_STYLE)
         apply_shadow_effect(btn_input_dir, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         btn_input_dir.clicked.connect(self._browse_directories_logic) 
+        # MODIFICATION END
 
         input_controls.addWidget(self.input_path_info)
         input_controls.addWidget(btn_input_files)
@@ -225,6 +243,7 @@ class MergeTab(BaseTab):
 
     # --- GALLERY HANDLING METHODS (Copied/Adapted from ScanFSETab) ---
     
+    @Slot()
     def _cleanup_thumbnail_thread_ref(self):
         """Slot to clear the QThread and QObject references after the thread finishes its work."""
         if self._load_thread:
@@ -235,6 +254,7 @@ class MergeTab(BaseTab):
         self._load_thread = None
         self._load_worker = None
         
+    @Slot()
     def _cleanup_scan_thread_ref(self):
         """Helper for cleaning up the ImageScannerWorker thread references."""
         if self._scan_thread:
@@ -292,6 +312,19 @@ class MergeTab(BaseTab):
         
         columns = widget_width // self.approx_item_width
         return max(1, columns)
+    
+    # NEW: Slot to display the completion message
+    @Slot()
+    def _display_load_complete_message(self):
+        """Displays a QMessageBox when thumbnail loading is complete."""
+        image_count = len(self.merge_image_list)
+        if image_count > 0:
+            QMessageBox.information(
+                self, 
+                "Loading Complete", 
+                f"Finished loading **{image_count}** images. They are now available in the gallery for selection.",
+                QMessageBox.StandardButton.Ok
+            )
 
     def _create_thumbnail_placeholder(self, index: int, path: str):
         """
@@ -356,6 +389,9 @@ class MergeTab(BaseTab):
         
         # Existing connection to update the placeholder with the image
         worker.thumbnail_loaded.connect(self._update_thumbnail_slot)
+        
+        # NEW: Connect the completion signal to the message box slot
+        worker.loading_finished.connect(self._display_load_complete_message)
         
         # Robust Cleanup
         worker.loading_finished.connect(thread.quit)
@@ -462,7 +498,7 @@ class MergeTab(BaseTab):
         self.update_run_button_state()
         self.populate_selected_images_gallery()
 
-    # --- METHODS FOR BOTTOM "SELECTED" PANEL ---
+    # --- METHODS FOR BOTTOM "SELECTED" PANEL (Unchanged) ---
 
     def populate_selected_images_gallery(self):
         """
@@ -630,7 +666,7 @@ class MergeTab(BaseTab):
         # Simple implementation: Show a message box with the path
         QMessageBox.information(self, "Image Path", path)
 
-    # --- INPUT/BROWSE METHODS ---
+    # --- INPUT/BROWSE METHODS (Unchanged) ---
     
     def _browse_files_logic(self):
         """Internal logic for 'Add Files' button."""
@@ -721,7 +757,7 @@ class MergeTab(BaseTab):
         """Internal logic for 'Browse Output' button."""
         pass
             
-    # --- UTILITY METHODS ---
+    # --- UTILITY METHODS (Unchanged) ---
 
     def update_run_button_state(self):
         """Updates the status label and merge button based on selection count."""
@@ -807,7 +843,7 @@ class MergeTab(BaseTab):
         """Deselects all supported input formats."""
         pass
 
-    # --- MERGE EXECUTION METHODS ---
+    # --- MERGE EXECUTION METHODS (Unchanged) ---
 
     def is_valid(self):
         """Checks if the minimum requirements for merging are met."""
@@ -909,7 +945,7 @@ class MergeTab(BaseTab):
             ) if self.direction.currentText() == "grid" else None
         }
 
-    # --- BASE TAB ABSTRACT METHOD IMPLEMENTATIONS (FIXED RECURSION) ---
+    # --- BASE TAB ABSTRACT METHOD IMPLEMENTATIONS (Unchanged) ---
 
     def browse_files(self):
         """Implements abstract method: Calls the internal logic for file selection."""

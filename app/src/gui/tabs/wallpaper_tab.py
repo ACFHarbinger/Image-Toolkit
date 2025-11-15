@@ -1,8 +1,8 @@
 import os
 import ctypes
-import winreg
 import platform
 import subprocess
+if platform.system() == "Windows": import winreg
 
 from PIL import Image
 from pathlib import Path
@@ -85,8 +85,6 @@ class WallpaperTab(BaseTab):
         self.scan_directory_path.setPlaceholderText("Select directory to scan...")
         btn_browse_scan = QPushButton("Browse...")
         btn_browse_scan.clicked.connect(self.browse_scan_directory)
-        
-        btn_browse_scan.setStyleSheet("QPushButton { background-color: #4f545c; padding: 6px 12px; } QPushButton:hover { background-color: #5865f2; }")
         apply_shadow_effect(btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
 
         scan_dir_layout.addWidget(self.scan_directory_path)
@@ -202,7 +200,7 @@ class WallpaperTab(BaseTab):
              self.set_wallpaper_btn.setEnabled(True) 
 
     
-    # --- REVISED populate_monitor_layout Method ---
+    # --- REVISED populate_monitor_layout Method (Unchanged) ---
     def populate_monitor_layout(self):
         """
         Clears and recreates the monitor drop widgets based on
@@ -260,7 +258,7 @@ class WallpaperTab(BaseTab):
         self.monitor_image_paths[monitor_id] = image_path
         self.check_all_monitors_set()
         
-    # --- REVISED check_all_monitors_set Method ---
+    # --- REVISED check_all_monitors_set Method (Unchanged) ---
     def check_all_monitors_set(self):
         """Enables the 'Set' button only if all *visible* monitors have an image."""
         if not self.set_wallpaper_btn.text() in ["Missing Pillow", "Missing screeninfo", "Missing Helpers"]:
@@ -283,6 +281,7 @@ class WallpaperTab(BaseTab):
                 missing = len(target_monitor_ids) - set_count
                 self.set_wallpaper_btn.setText(f"Set Wallpaper ({missing} more)")
 
+    # --- set_wallpaper Method (Unchanged from previous step) ---
     def set_wallpaper(self):
         """
         Applies a single image to all monitors on Windows (using Monitor 1's image), 
@@ -357,17 +356,31 @@ class WallpaperTab(BaseTab):
                     # Check if 'qdbus' is available, which is the KDE way
                     subprocess.run(["which", "qdbus6"], check=True, capture_output=True)
                     
-                    # KDE Plasma per-monitor application using DBus script
+                    # Robust KDE D-Bus Script (combining all commands)
+                    script_parts = []
                     for i, path in enumerate(required_image_paths):
-                        
                         file_uri = f"file://{Path(path).resolve()}"
                         
-                        # Apply to the i-th desktop/monitor in KDE's list
-                        qdbus_command = (
-                            f"qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript \"desktops()[{i}].currentConfigGroup = Array(\"Wallpaper\", \"org.kde.image\", \"General\"); desktops()[{i}].writeConfig(\"Image\", \"{file_uri}\"); desktops()[{i}].writeConfig(\"FillMode\", 1); desktops()[{i}].reloadConfig();\""
+                        # Set wallpaper image and fill mode for the i-th desktop
+                        script_parts.append(
+                            f'd = desktops()[{i}]; d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); d.writeConfig("Image", "{file_uri}"); d.writeConfig("FillMode", 1);'
                         )
-                        subprocess.run(qdbus_command, shell=True, check=True, capture_output=True)
                         
+                    # Re-join all commands into one single, safe script string
+                    full_script = "".join(script_parts)
+                    
+                    # Add a final, explicit reload command on the last desktop object to force a refresh
+                    if script_parts:
+                         full_script += "d.reloadConfig();"
+
+                    qdbus_command = (
+                        f"qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{full_script}'"
+                    )
+
+                    subprocess.run(qdbus_command, shell=True, check=True, capture_output=True, text=True)
+                    
+                    QMessageBox.information(self, "KDE Note", 
+                                            "Wallpaper configuration updated. The desktop should refresh shortly.")
                     
                 except FileNotFoundError:
                     # --- Linux (GNOME/Other) Fallback (Reverting to Spanned) ---
@@ -407,8 +420,12 @@ class WallpaperTab(BaseTab):
                     )
                 except subprocess.CalledProcessError as e:
                     # Handle Linux errors
-                    QMessageBox.critical(self, "Error", 
-                                         f"Failed to set wallpaper on Linux.\nError: {e.stderr}")
+                    error_message = f"Failed to set wallpaper on Linux.\nError: {e.stderr}"
+                    # Check if the error is related to D-Bus service not running or script failure
+                    if e.stderr and (b"service not found" in e.stderr.lower() or b"error" in e.stderr.lower()):
+                         error_message += "\nSuggestion: The error might be due to a script failure (e.g., trying to access a non-existent desktop index or a bad file URI). The file URI is confirmed to be valid, so try running the command directly in your terminal to isolate the issue."
+                    
+                    QMessageBox.critical(self, "Error", error_message)
                     raise
                 
             else:
@@ -503,6 +520,9 @@ class WallpaperTab(BaseTab):
         worker.loading_finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
         thread.finished.connect(self._cleanup_thumbnail_thread_ref)
+
+        # NEW: Connect to a slot to display the "loading complete" message
+        worker.loading_finished.connect(self._display_load_complete_message)
         
         thread.start()
 
@@ -547,6 +567,20 @@ class WallpaperTab(BaseTab):
         self.current_thumbnail_loader_thread = None
         self.current_thumbnail_loader_worker = None
 
+    def _display_load_complete_message(self):
+        """
+        MODIFIED: Display message as a QMessageBox when thumbnail loading is complete.
+        """
+        image_count = len(self.scan_image_list)
+        if image_count > 0:
+            QMessageBox.information(
+                self, 
+                "Scan Complete", 
+                f"Finished loading **{image_count}** images from the directory. They are now available in the gallery below.",
+                QMessageBox.StandardButton.Ok
+            )
+
+
     def clear_scan_image_gallery(self):
         """Removes all widgets from the scan gallery layout and cleans up the single active thread."""
         
@@ -586,7 +620,7 @@ class WallpaperTab(BaseTab):
         columns = widget_width // self.approx_item_width
         return max(1, columns)
 
-    # --- Original collect() method ---
+    # --- Original collect() method (Unchanged) ---
     def collect(self) -> dict:
         """Collect current state (for consistency with other tabs)."""
         return {

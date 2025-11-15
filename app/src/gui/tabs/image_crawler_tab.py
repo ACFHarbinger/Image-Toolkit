@@ -69,10 +69,6 @@ class ImageCrawlTab(BaseTab):
         self.download_dir_path.setText(self.last_browsed_download_dir)
         btn_browse_download = QPushButton("Browse...")
         btn_browse_download.clicked.connect(self.browse_download_directory)
-        btn_browse_download.setStyleSheet("""
-            QPushButton { background-color: #4f545c; padding: 6px 12px; }
-            QPushButton:hover { background-color: #5865f2; }
-        """)
         apply_shadow_effect(btn_browse_download, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         download_dir_layout.addWidget(self.download_dir_path)
         download_dir_layout.addWidget(btn_browse_download)
