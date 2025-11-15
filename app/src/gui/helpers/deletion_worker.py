@@ -1,9 +1,11 @@
 import os
-import shutil 
 
-from PySide6.QtWidgets import QMessageBox
-from PySide6.QtCore import QThread, Signal, QWaitCondition, QMutex # Added QWaitCondition, QMutex
+from PySide6.QtCore import QThread, Signal, QWaitCondition, QMutex
 from ...utils.definitions import SUPPORTED_IMG_FORMATS
+try:
+    from app.src.core import FSETool, FileDeleter
+except:
+    from src.core import FSETool, FileDeleter
 
 
 class DeletionWorker(QThread):
@@ -11,22 +13,20 @@ class DeletionWorker(QThread):
     finished = Signal(int, str)  # (count, message)
     error = Signal(str)
     
-    # NEW SIGNAL: Requests confirmation from the main thread
-    confirm_signal = Signal(str, int) # (message, total_items)
+    confirm_signal = Signal(str, int)
 
     def __init__(self, config):
         super().__init__()
         self.config = config
-        self.confirmation_response = False # Stores Yes/No reply
-        self.wait_condition = QWaitCondition() # Used to pause execution
-        self.mutex = QMutex() # Used to protect shared variables
+        self.confirmation_response = False
+        self.wait_condition = QWaitCondition()
+        self.mutex = QMutex()
 
-    # NEW: Slot to receive the user's decision from the main thread
     def set_confirmation_response(self, response: bool):
         self.mutex.lock()
         self.confirmation_response = response
         self.mutex.unlock()
-        self.wait_condition.wakeOne() # Resume the worker thread
+        self.wait_condition.wakeOne()
 
     def run(self):
         try:
@@ -48,38 +48,41 @@ class DeletionWorker(QThread):
                     msg = f"Permanently delete the directory and all its contents: \n\n{target_path}\n\nThis cannot be undone!"
                     
                     self.mutex.lock()
-                    self.confirm_signal.emit(msg, 1) # Emit signal to main thread
-                    self.wait_condition.wait(self.mutex) # PAUSE worker until main thread responds
+                    self.confirm_signal.emit(msg, 1)
+                    self.wait_condition.wait(self.mutex)
                     self.mutex.unlock()
 
                     if not self.confirmation_response:
                         self.finished.emit(0, "Directory deletion cancelled by user.")
                         return
 
-                self.progress.emit(0, 1) 
-                try:
-                    shutil.rmtree(target_path)
+                self.progress.emit(0, 1)
+                
+                # Core logic moved to FileDeleter
+                if FileDeleter.delete_path(target_path):
                     self.finished.emit(1, f"Successfully deleted directory and its contents: {target_path}")
-                except Exception as e:
-                    self.error.emit(f"Failed to delete directory {target_path}: {e}")
+                else:
+                    self.error.emit(f"Failed to delete directory {target_path}.")
                 
                 return 
 
-            # --- FILE DELETION MODE (Existing Logic) ---
+            # --- FILE DELETION MODE ---
             
             extensions = self.config["target_extensions"] or SUPPORTED_IMG_FORMATS
-            
             exts = {f".{ext.lstrip('.').lower()}" for ext in extensions}
+            
+            # Resolve files to delete upfront using FSETool
             files_to_delete = []
-
+            
             if os.path.isfile(target_path):
                 if any(target_path.lower().endswith(ext) for ext in exts):
                     files_to_delete.append(target_path)
             else:
-                for root, _, files in os.walk(target_path):
-                    for file in files:
-                        if any(file.lower().endswith(ext) for ext in exts):
-                            files_to_delete.append(os.path.join(root, file))
+                # Recursively search the directory
+                for ext in extensions:
+                    files_to_delete.extend(FSETool.get_files_by_extension(target_path, ext, recursive=True))
+                # Remove duplicates
+                files_to_delete = sorted(list(set(files_to_delete)))
 
             total = len(files_to_delete)
             if total == 0:
@@ -90,8 +93,8 @@ class DeletionWorker(QThread):
                 msg = f"Permanently delete {total} file(s) matching extensions?\n\nThis cannot be undone!"
                 
                 self.mutex.lock()
-                self.confirm_signal.emit(msg, total) # Emit signal to main thread
-                self.wait_condition.wait(self.mutex) # PAUSE worker until main thread responds
+                self.confirm_signal.emit(msg, total)
+                self.wait_condition.wait(self.mutex)
                 self.mutex.unlock()
 
                 if not self.confirmation_response:
@@ -100,13 +103,12 @@ class DeletionWorker(QThread):
 
             deleted = 0
             for file_path in files_to_delete:
-                try:
-                    os.remove(file_path)
+                # Core logic for single file deletion
+                if FileDeleter.delete_path(file_path):
                     deleted += 1
-                    self.progress.emit(deleted, total)
-                except Exception as e:
-                    print(f"Failed to delete {file_path}: {e}")
-
+                
+                self.progress.emit(deleted, total)
+                
             self.finished.emit(deleted, f"Deleted {deleted} file(s).")
             
         except Exception as e:

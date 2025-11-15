@@ -1,4 +1,4 @@
-from .file_system_entries import FSETool
+from .file_system_entries import FSETool, FileDeleter
 from .format_converter import ImageFormatConverter
 from .image_merger import ImageMerger
 

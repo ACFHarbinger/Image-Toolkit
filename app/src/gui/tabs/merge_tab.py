@@ -113,27 +113,12 @@ class MergeTab(BaseTab):
         self.input_path_info.setStyleSheet("background-color: #333; color: #b9bbbe;")
         self.input_path_info.returnPressed.connect(self.handle_scan_directory_return) # Added
 
-        TARGET_BUTTON_STYLE = """
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #00bcd4, stop:1 #0097a7);
-                color: white; font-weight: bold; font-size: 14px;
-                padding: 8px 8px; border-radius: 8px; min-height: 34px;
-            }
-            QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                stop:0 #0097a7, stop:1 #00bcd4); }
-            QPushButton:disabled { background: #718096; }
-            QPushButton:pressed { background: #00838a; }
-        """
-
         btn_add_files = QPushButton("Add Files")
-        btn_add_files.setStyleSheet(TARGET_BUTTON_STYLE)
         apply_shadow_effect(btn_add_files, "#000000", 8, 0, 3)
         btn_add_files.clicked.connect(self._browse_files_logic)
         btn_add_files.setDefault(True)
 
         btn_scan_dir = QPushButton("Scan Directory")
-        btn_scan_dir.setStyleSheet(TARGET_BUTTON_STYLE)
         apply_shadow_effect(btn_scan_dir, "#000000", 8, 0, 3)
         btn_scan_dir.clicked.connect(self.browse_scan_directory) # Changed
 

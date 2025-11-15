@@ -8,7 +8,7 @@ from pathlib import Path
 class FSETool:
     """
     A comprehensive tool for managing file system entries, including path 
-    resolution, directory creation, file searching, and deletion.
+    resolution, directory creation, file searching, and path manipulation.
     """
     # --- Utility Methods ---
     @staticmethod
@@ -70,7 +70,6 @@ class FSETool:
                 # Normalize positional arguments
                 for id, arg in enumerate(normalized_args):
                     if isinstance(arg, str) and not os.path.isabs(arg):
-                        # Simple rule: if path exists and is relative, make it absolute
                         if os.path.exists(arg):
                             normalized_args[id] = os.path.abspath(arg)
                         
@@ -90,35 +89,43 @@ class FSETool:
     # --- Core File System Methods ---
 
     @staticmethod
-    def delete_files_by_extensions(directory, extensions):
+    @ensure_absolute_paths()
+    def get_files_by_extension(directory, extension, recursive=False):
         """
-        Recursively delete files with extension(s) in directory and all subdirectories
+        Get all files with specific extension in directory.
+        
+        Args:
+            directory: Path to directory
+            extension: File extension (e.g., 'txt', '.jpeg')
+            recursive: Whether to search subdirectories
+        
+        Returns:
+            List of absolute file paths (strings).
         """
-        # Note: Decorator is applied externally below the class definition
         path = Path(directory)
-        deleted_count = 0
         
-        for extension in extensions:
-            if not extension.startswith('.'):
-                extension = '.' + extension
-            
-            for file_path in path.rglob(f'*{extension}'):
-                if file_path.is_file():
-                    try:
-                        file_path.unlink()
-                        print(f"Deleted: {file_path}")
-                        deleted_count += 1
-                    except OSError as e:
-                        print(f"ERROR: Could not delete file {file_path}. Reason: {e}")
+        if not extension.startswith('.'):
+            extension = '.' + extension
         
-        print(f"Deleted {deleted_count} files recursively.")
-        return deleted_count
+        if recursive:
+            pattern = f'**/*{extension}'
+        else:
+            pattern = f'*{extension}'
+        
+        files = [str(f.resolve()) for f in path.glob(pattern) if f.is_file()]
+        return files
+
+
+class FileDeleter:
+    """
+    A class dedicated to safely deleting files and directories, 
+    leveraging FSETool for path resolution.
+    """
 
     @staticmethod
-    def delete_path(path_to_delete):
+    @FSETool.ensure_absolute_paths()
+    def delete_path(path_to_delete: str) -> bool:
         """Deletes a file or directory recursively."""
-        # Note: Decorator is applied externally below the class definition
-        
         if not os.path.exists(path_to_delete):
             print(f"WARNING: specified path does not exist - did not delete '{path_to_delete}'.")
             return False
@@ -140,48 +147,26 @@ class FSETool:
         return True
 
     @staticmethod
-    def get_files_by_extension(directory, extension, recursive=False):
+    @FSETool.ensure_absolute_paths()
+    def delete_files_by_extensions(directory: str, extensions: list[str]) -> int:
         """
-        Get all files with specific extension in directory.
-        
-        Args:
-            directory: Path to directory
-            extension: File extension (e.g., 'txt', '.jpeg')
-            recursive: Whether to search subdirectories
-        
-        Returns:
-            List of absolute file paths (strings).
+        Recursively delete files with extension(s) in directory and all subdirectories.
         """
-        # Note: Decorator is applied externally below the class definition
         path = Path(directory)
+        deleted_count = 0
         
-        if not extension.startswith('.'):
-            extension = '.' + extension
+        for extension in extensions:
+            if not extension.startswith('.'):
+                extension = '.' + extension
+            
+            for file_path in path.rglob(f'*{extension}'):
+                if file_path.is_file():
+                    try:
+                        file_path.unlink()
+                        print(f"Deleted: {file_path}")
+                        deleted_count += 1
+                    except OSError as e:
+                        print(f"ERROR: Could not delete file {file_path}. Reason: {e}")
         
-        if recursive:
-            pattern = f'**/*{extension}'
-        else:
-            pattern = f'*{extension}'
-        
-        # Convert to absolute strings for consistency
-        files = [str(f.resolve()) for f in path.glob(pattern) if f.is_file()]
-        return files
-
-
-# --- Apply Decorators Externally (To emulate the original file's structure) ---
-# This is necessary in Python when decorators are complex factories defined 
-# within the class, but the methods are defined as static methods.
-FSETool.delete_files_by_extensions = \
-    FSETool.ensure_absolute_paths()(
-        FSETool.delete_files_by_extensions
-    )
-
-FSETool.delete_path = \
-    FSETool.ensure_absolute_paths()(
-        FSETool.delete_path
-    )
-
-FSETool.get_files_by_extension = \
-    FSETool.ensure_absolute_paths()(
-        FSETool.get_files_by_extension
-    )
+        print(f"Deleted {deleted_count} files recursively.")
+        return deleted_count
