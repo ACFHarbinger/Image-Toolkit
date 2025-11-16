@@ -123,17 +123,23 @@ class LoginWindow(QWidget):
             return
 
         try:
-            # 1. Initialize the Vault Manager
+            # --- START MODIFICATION ---
+            # 1. Update the global file paths in 'definitions' to be specific
+            #    to this account *before* initializing the vault.
+            udef.update_cryptographic_values(username)
+            # --- END MODIFICATION ---
+
+            # 2. Initialize the Vault Manager
             self.vault_manager = JavaVaultManager(udef.JAR_FILE) 
             
-            # 2. KeyStore Loading (using raw_password for KeyStore password)
+            # 3. KeyStore Loading (now uses suffixed udef.KEYSTORE_FILE)
             self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password)
             
-            # 3. Get the specific AES key (using raw_password for Key entry password)
+            # 4. Get the specific AES key
             self.vault_manager.get_secret_key(udef.KEY_ALIAS, raw_password)
             self.vault_manager.init_vault(udef.VAULT_FILE)
             
-            # 4. Load stored credentials (hash and salt)
+            # 5. Load stored credentials (hash and salt)
             stored_data = self.vault_manager.load_account_credentials()
             
             if stored_data.get("account_name") != username:
@@ -144,7 +150,7 @@ class LoginWindow(QWidget):
             stored_salt = stored_data.get("salt")
             pepper = self.vault_manager.PEPPER
             
-            # 5. Re-hash and verify
+            # 6. Re-hash and verify
             password_combined = (raw_password + stored_salt + pepper).encode('utf-8')
             import hashlib
             verification_hash = hashlib.sha256(password_combined).hexdigest()
@@ -162,63 +168,54 @@ class LoginWindow(QWidget):
                 QMessageBox.critical(self, "Login Failed", "Invalid password.")
             
         except FileNotFoundError:
-             QMessageBox.critical(self, "Configuration Error", "Vault or KeyStore files not found. Create account first.")
+             QMessageBox.critical(self, "Configuration Error", "Account files not found. Does this account exist?")
         except Exception as e:
-            QMessageBox.critical(self, "Vault Error", f"An error occurred during login: {e}")
+            QMessageBox.critical(self, "Vault Error", f"An error occurred during login: {e}\n(Is the password correct?)")
             if self.vault_manager:
                 self.vault_manager.shutdown()
 
     def create_account(self):
         """
-        Creates a new account, hashes the password, and saves it to the vault.
-        If a previous vault exists, the user is warned, and the files are
-        overwritten/deleted to ensure data integrity with the new key.
+        Creates a new account, hashes the password, and saves it to a new
+        account-specific vault.
         """
         username, raw_password = self._get_credentials()
         if not username:
             return
 
-        # Check if files already exist
-        keystore_exists = os.path.exists(udef.KEYSTORE_FILE)
-        vault_exists = os.path.exists(udef.VAULT_FILE)
-
-        if keystore_exists or vault_exists:
-            reply = QMessageBox.question(self, 'Confirm Overwrite', 
-                "Creating a new account will **PERMANENTLY OVERWRITE** any existing secure vault and keystore files, deleting all previous data. Do you wish to proceed?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, 
-                QMessageBox.StandardButton.No)
-
-            if reply == QMessageBox.StandardButton.No:
-                return
-
-            # Delete the old files if the user confirms overwrite
-            try:
-                if keystore_exists:
-                    os.remove(udef.KEYSTORE_FILE)
-                if vault_exists:
-                    os.remove(udef.VAULT_FILE)
-            except Exception as e:
-                QMessageBox.critical(self, "File Error", f"Failed to delete old files: {e}")
-                return
+        # --- START MODIFICATION ---
+        # 1. Update the global file paths in 'definitions' to be specific
+        #    to this account *before* initializing the vault.
+        try:
+            udef.update_cryptographic_values(username)
+        except Exception as e:
+            QMessageBox.critical(self, "Path Error", f"Failed to set account-specific paths: {e}")
+            return
+        
+        # 2. Check if files *for this specific account* already exist
+        #    This prevents accidental overwrites if "Create Account" is clicked twice
+        if os.path.exists(udef.KEYSTORE_FILE) or os.path.exists(udef.VAULT_FILE):
+            QMessageBox.warning(self, "Account Exists", f"An account named '{username}' already has files. Please try logging in instead.")
+            return
+        # --- END MODIFICATION ---
 
         try:
-            # 1. Initialize the Vault Manager
+            # 3. Initialize the Vault Manager
             self.vault_manager = JavaVaultManager(udef.JAR_FILE)
             
-            # 2. Load the KeyStore (Creates empty KeyStore in memory if file doesn't exist)
+            # 4. Load the KeyStore (Creates empty KeyStore in memory)
             self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password)
             
-            # 3. CRITICAL: Ensure Key Entry exists and save KeyStore file
+            # 5. CRITICAL: Ensure Key Entry exists and save KeyStore file
             self.vault_manager.create_key_if_missing(udef.KEY_ALIAS, udef.KEYSTORE_FILE, raw_password)
             
-            # 4. Retrieve the now-guaranteed secret key
+            # 6. Retrieve the now-guaranteed secret key
             self.vault_manager.get_secret_key(udef.KEY_ALIAS, raw_password)
             
-            # 5. Initialize the vault
-            # This creates a new, empty vault file (or overwrites if not deleted above)
+            # 7. Initialize the vault
             self.vault_manager.init_vault(udef.VAULT_FILE)
 
-            # 6. Save credentials (this handles hashing, salting, and saving to encrypted file)
+            # 8. Save credentials (this handles hashing, salting, and saving)
             self.vault_manager.save_account_credentials(username, raw_password)
             
             QMessageBox.information(self, "Success", f"Account '{username}' created and saved securely.")
@@ -255,8 +252,10 @@ class LoginWindow(QWidget):
                 return
 
             # --- First, encrypt any unencrypted .json files ---
+            # These are shared keys, so they use the account's key to encrypt
             for filename in os.listdir(udef.API_DIR):
-                if filename.endswith(".json"):
+                if filename.endswith(".json") and filename not in ["token.json", udef.TOKEN_FILE.split(os.sep)[-1]]:
+                    # ^ Don't encrypt the token file, it's handled differently
                     json_file_path = os.path.join(udef.API_DIR, filename)
                     enc_file_path = json_file_path + ".enc"
                     
@@ -286,8 +285,7 @@ class LoginWindow(QWidget):
                         # 2. Load and decrypt the data
                         java_string = temp_file_vault.loadData()
                         
-                        # 3. *** THE FIX ***
-                        #    Convert the java.lang.String to a Python str
+                        # 3. Convert the java.lang.String to a Python str
                         decrypted_json_string = str(java_string)
                         
                         # 4. Parse the Python str
