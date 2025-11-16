@@ -380,6 +380,16 @@ class MergeTab(BaseTab):
         self._clear_gallery(self.merge_thumbnail_layout)
         QMessageBox.warning(self, "Error Scanning", message)
         self._show_placeholder("Browse for a directory.")
+    
+    def _display_load_complete_message(self):
+        image_count = len(self.merge_image_list)
+        if image_count > 0:
+            QMessageBox.information(
+                self, 
+                "Scan Complete", 
+                f"Finished loading **{image_count}** images from the directory. They are now available in the gallery below.",
+                QMessageBox.StandardButton.Ok
+            )
 
     def populate_scan_gallery(self, directory: str):
         """
@@ -426,6 +436,8 @@ class MergeTab(BaseTab):
 
         thread.finished.connect(thread.deleteLater)
         thread.finished.connect(self._cleanup_scan_thread_ref)
+
+        worker.scan_finished.connect(self._display_load_complete_message)
         
         thread.start()
 

@@ -369,6 +369,16 @@ class ScanMetadataTab(BaseTab):
         self.scan_thumbnail_widget.update()
         QApplication.processEvents()
 
+    def _display_load_complete_message(self):
+        image_count = len(self.scan_image_list)
+        if image_count > 0:
+            QMessageBox.information(
+                self, 
+                "Scan Complete", 
+                f"Finished loading **{image_count}** images from the directory. They are now available in the gallery below.",
+                QMessageBox.StandardButton.Ok
+            )
+
     def display_scan_results(self, image_paths: list[str]):
         """Receives image paths from the worker thread, creates placeholders, and starts thumbnail loader."""
         
@@ -413,6 +423,8 @@ class ScanMetadataTab(BaseTab):
         worker.loading_finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
         thread.finished.connect(self._cleanup_thumbnail_thread_ref) 
+
+        worker.loading_finished.connect(self._display_load_complete_message)
         
         thread.start()
         
