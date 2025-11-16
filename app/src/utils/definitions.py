@@ -52,7 +52,7 @@ START_TAGS = sorted([
 SCOPES = ['https://www.googleapis.com/auth/drive']
 SYNC_ERROR = "SyncFailed"
 
-# Wallpaper style definitions (copied from wallpaper_tab for context)
+# Wallpaper style definitions
 WALLPAPER_STYLES = {
     "Windows": {
         "Fill": ("4", "0"),
@@ -63,11 +63,12 @@ WALLPAPER_STYLES = {
     },
     "KDE": {
         "Scaled, Keep Proportions": 1,
-        "Scaled": 0,
-        "Scaled and Cropped (Zoom)": 6,
-        "Centered": 3,
-        "Tiled": 4,
-        "Span (GNOME Fallback)": 2 
+        "Scaled": 2,
+        "Scaled and Cropped (Zoom)": 0,
+        "Centered": 6,
+        "Tiled": 3,
+        "Center Tiled": 4,
+        "Span (GNOME Fallback)": 5
     },
     "GNOME": {
         "Span (Only Option)": "spanned"

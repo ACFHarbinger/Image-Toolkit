@@ -18,7 +18,7 @@ from ..windows import SlideshowQueueWindow
 from ..components import MonitorDropWidget, DraggableImageLabel
 from ..helpers import ImageScannerWorker, BatchThumbnailLoaderWorker, WallpaperWorker
 from ..styles.style import apply_shadow_effect, STYLE_SYNC_RUN, STYLE_SYNC_STOP
-from ..utils.app_definitions import WALLPAPER_STYLES
+from ...utils.definitions import WALLPAPER_STYLES
 
 
 class WallpaperTab(BaseTab):
