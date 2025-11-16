@@ -6,8 +6,11 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QFileDialog, QLabel,
     QGroupBox, QCheckBox, QComboBox, QMessageBox,
-    QFormLayout, QHBoxLayout, QVBoxLayout, QProgressBar, QWidget
+    QFormLayout, QHBoxLayout, QVBoxLayout, QProgressBar, QWidget,
+    QListWidget, QMenu, QListWidgetItem
 )
+from PySide6.QtGui import QAction
+from PySide6.QtCore import QPoint
 from .base_tab import BaseTab
 from ..helpers import ImageCrawlWorker
 from ..components import OptionalField
@@ -22,7 +25,7 @@ class ImageCrawlTab(BaseTab):
         path = Path(os.getcwd())
         parts = path.parts
         self.last_browsed_download_dir = os.path.join(Path(*parts[:parts.index('Image-Toolkit') + 1]), 'data', 'tmp')
-        self.last_browsed_screenshot_dir = self.last_browsed_download_dir # Keep this initialized
+        self.last_browsed_screenshot_dir = self.last_browsed_download_dir 
 
         main_layout = QVBoxLayout(self)
 
@@ -30,7 +33,6 @@ class ImageCrawlTab(BaseTab):
         crawl_group = QGroupBox("Web Crawler Settings")
         crawl_group.setStyleSheet("""
             QGroupBox { 
-                /* Removed specific dark background color for the group box itself */
                 border: 1px solid #4f545c; 
                 border-radius: 8px;
                 margin-top: 10px;
@@ -39,7 +41,7 @@ class ImageCrawlTab(BaseTab):
                 subcontrol-origin: margin;
                 subcontrol-position: top left;
                 padding: 4px 10px;
-                color: white; /* Text white for contrast */
+                color: white;
                 border-radius: 4px;
             }
         """)
@@ -53,7 +55,7 @@ class ImageCrawlTab(BaseTab):
         self.url_input.setPlaceholderText("https://example.com/gallery?page=1")
         form_layout.addRow("Target URL:", self.url_input)
         
-        # --- NEW: URL Replacement Fields ---
+        # --- URL Replacement Fields ---
         self.replace_str_input = QLineEdit()
         self.replace_str_input.setPlaceholderText("e.g., page=1 (optional)")
         form_layout.addRow("String to Replace:", self.replace_str_input)
@@ -61,7 +63,6 @@ class ImageCrawlTab(BaseTab):
         self.replacements_input = QLineEdit()
         self.replacements_input.setPlaceholderText("e.g., page=2, page=3, page=4 (comma-separated)")
         form_layout.addRow("Replacements:", self.replacements_input)
-        # --- END NEW ---
 
         # Download Directory
         download_dir_layout = QHBoxLayout()
@@ -114,12 +115,21 @@ class ImageCrawlTab(BaseTab):
         """)
         form_layout.addRow("", self.headless_checkbox)
         
+        crawl_group.setLayout(form_layout)
+        main_layout.addWidget(crawl_group)
+        
+        # --- Actions Group ---
+        actions_group = QGroupBox("Actions (Executed for each image)")
+        actions_group.setStyleSheet(crawl_group.styleSheet())
+        actions_layout = QVBoxLayout()
+        actions_layout.setSpacing(10)
+
         # Image Skip Count
         skip_layout = QHBoxLayout()
         self.skip_first_input = QLineEdit("0")
         self.skip_first_input.setFixedWidth(50)
         self.skip_first_input.setAlignment(Qt.AlignCenter)
-        self.skip_last_input = QLineEdit("9")
+        self.skip_last_input = QLineEdit("0")
         self.skip_last_input.setFixedWidth(50)
         self.skip_last_input.setAlignment(Qt.AlignCenter)
 
@@ -129,11 +139,62 @@ class ImageCrawlTab(BaseTab):
         skip_layout.addWidget(QLabel("Skip Last:"))
         skip_layout.addWidget(self.skip_last_input)
         skip_layout.addStretch()
-        
-        form_layout.addRow("Image Skip Count:", skip_layout)
+        actions_layout.addLayout(skip_layout)
 
-        crawl_group.setLayout(form_layout)
-        main_layout.addWidget(crawl_group)
+        # Action Builder
+        action_builder_layout = QHBoxLayout()
+        self.action_combo = QComboBox()
+        # --- NEW ACTION LIST (FROM PREVIOUS TURN) ---
+        self.action_combo.addItems([
+            "Find Parent Link (<a>)",
+            "Download Simple Thumbnail (Legacy)",
+            "Extract High-Res Preview URL",
+            "Open Link in New Tab",
+            "Click Element by Text",
+            "Wait for Page Load",
+            "Switch to Last Tab",
+            "Find First <img> on Page",
+            "Download Image from Element",
+            "Download Current URL as Image",
+            "Wait for Gallery (Context Reset)"
+        ])
+        # --- END NEW ACTION LIST ---
+        self.action_param_input = QLineEdit()
+        self.action_param_input.setPlaceholderText("Parameter (e.g., text to click)")
+        self.add_action_button = QPushButton("Add")
+        self.add_action_button.clicked.connect(self.add_action)
+        
+        action_builder_layout.addWidget(self.action_combo, 2)
+        action_builder_layout.addWidget(self.action_param_input, 2)
+        action_builder_layout.addWidget(self.add_action_button, 1)
+        actions_layout.addLayout(action_builder_layout)
+        
+        # Action List
+        self.action_list_widget = QListWidget()
+        self.action_list_widget.setStyleSheet("QListWidget { border: 1px solid #4f545c; border-radius: 4px; }")
+        
+        # --- Context Menu Setup ---
+        self.action_list_widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.action_list_widget.customContextMenuRequested.connect(self.show_context_menu)
+        # --- End Context Menu Setup ---
+        
+        actions_layout.addWidget(self.action_list_widget)
+        
+        # List Controls
+        list_controls_layout = QHBoxLayout()
+        # The 'Remove Selected' button will now primarily call the remove_action method, 
+        # which is also linked to the right-click menu.
+        self.remove_action_button = QPushButton("Remove Selected")
+        self.remove_action_button.clicked.connect(self.remove_action)
+        self.clear_actions_button = QPushButton("Clear All")
+        self.clear_actions_button.clicked.connect(self.action_list_widget.clear)
+        list_controls_layout.addWidget(self.remove_action_button)
+        list_controls_layout.addWidget(self.clear_actions_button)
+        actions_layout.addLayout(list_controls_layout)
+
+        actions_group.setLayout(actions_layout)
+        main_layout.addWidget(actions_group)
+        # --- End Actions Group ---
 
         # --- Progress & Status ---
         self.status_label = QLabel("Ready.")
@@ -189,6 +250,73 @@ class ImageCrawlTab(BaseTab):
         main_layout.addStretch(1)
         self.setLayout(main_layout)
 
+    def show_context_menu(self, pos: QPoint):
+        """Displays the right-click menu for moving/removing items."""
+        # Find the item at the clicked position
+        item = self.action_list_widget.itemAt(pos)
+        if not item:
+            return
+
+        menu = QMenu()
+        
+        # --- Move Actions ---
+        move_up_action = QAction("Move Up ▲", self)
+        # We use lambda to pass the item (or just rely on currentRow for simplicity)
+        move_up_action.triggered.connect(self.move_action_up)
+        menu.addAction(move_up_action)
+
+        move_down_action = QAction("Move Down ▼", self)
+        move_down_action.triggered.connect(self.move_action_down)
+        menu.addAction(move_down_action)
+        
+        menu.addSeparator()
+
+        # --- Remove Action ---
+        remove_action = QAction("Remove 🗑️", self)
+        remove_action.triggered.connect(self.remove_action)
+        menu.addAction(remove_action)
+
+        # Show the menu at the cursor position
+        menu.exec(self.action_list_widget.mapToGlobal(pos))
+        
+    def move_action_up(self):
+        """Moves the selected item one position up."""
+        current_row = self.action_list_widget.currentRow()
+        if current_row > 0:
+            current_item = self.action_list_widget.takeItem(current_row)
+            self.action_list_widget.insertItem(current_row - 1, current_item)
+            self.action_list_widget.setCurrentRow(current_row - 1)
+
+    def move_action_down(self):
+        """Moves the selected item one position down."""
+        current_row = self.action_list_widget.currentRow()
+        if current_row < self.action_list_widget.count() - 1 and current_row != -1:
+            current_item = self.action_list_widget.takeItem(current_row)
+            self.action_list_widget.insertItem(current_row + 1, current_item)
+            self.action_list_widget.setCurrentRow(current_row + 1)
+
+
+    def add_action(self):
+        action_text = self.action_combo.currentText()
+        param = self.action_param_input.text().strip()
+        
+        if "Click Element by Text" in action_text and not param:
+            QMessageBox.warning(self, "Missing Parameter", "This action requires text in the parameter field.")
+            return
+            
+        display_text = f"{action_text}"
+        if param:
+            display_text += f" | Param: {param}"
+            
+        self.action_list_widget.addItem(display_text)
+        self.action_param_input.clear()
+
+    def remove_action(self):
+        """Removes the selected item."""
+        current_row = self.action_list_widget.currentRow()
+        if current_row >= 0:
+            self.action_list_widget.takeItem(current_row)
+
     def browse_download_directory(self):
         directory = QFileDialog.getExistingDirectory(
             self, "Select Download Directory", self.last_browsed_download_dir
@@ -212,7 +340,7 @@ class ImageCrawlTab(BaseTab):
         skip_first = self.skip_first_input.text().strip()
         skip_last = self.skip_last_input.text().strip()
         
-        # --- NEW: Get replacement data ---
+        # --- Get replacement data ---
         replace_str = self.replace_str_input.text().strip() or None
         replacements_str = self.replacements_input.text().strip()
         replacements_list = [r.strip() for r in replacements_str.split(',')] if replacements_str else None
@@ -243,6 +371,21 @@ class ImageCrawlTab(BaseTab):
         except ValueError:
             QMessageBox.warning(self, "Invalid Input", "Skip First and Skip Last must be integers.")
             return
+            
+        # --- Serialize Action List ---
+        actions = []
+        for i in range(self.action_list_widget.count()):
+            item_text = self.action_list_widget.item(i).text()
+            if " | Param: " in item_text:
+                action_type, param_str = item_text.split(" | Param: ", 1)
+                actions.append({"type": action_type, "param": param_str})
+            else:
+                actions.append({"type": item_text, "param": None})
+        
+        # If no actions are specified, default to simple download
+        if not actions:
+            actions.append({"type": "Extract High-Res Preview URL", "param": None})
+            print("No actions specified, defaulting to high-res preview extraction.")
 
         config = {
             "url": url,
@@ -252,8 +395,9 @@ class ImageCrawlTab(BaseTab):
             "browser": self.browser_combo.currentText(),
             "skip_first": skip_first,
             "skip_last": skip_last,
-            "replace_str": replace_str, # NEW
-            "replacements": replacements_list, # NEW
+            "replace_str": replace_str,
+            "replacements": replacements_list,
+            "actions": actions, 
         }
 
         # UI: Show working state
@@ -261,12 +405,11 @@ class ImageCrawlTab(BaseTab):
         self.cancel_button.show() 
         self.status_label.setText("Initializing browser...")
         self.progress_bar.show()
-        self.progress_bar.setRange(0, 0) # Indeterminate progress
+        self.progress_bar.setRange(0, 0)
 
         # Start worker
         self.worker = ImageCrawlWorker(config)
         self.worker.status.connect(self.status_label.setText)
-        # self.worker.progress.connect(...) # Removed, using indeterminate bar
         self.worker.finished.connect(self.on_crawl_done)
         self.worker.error.connect(self.on_crawl_error)
         self.worker.start()
