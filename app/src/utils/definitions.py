@@ -68,9 +68,15 @@ WALLPAPER_STYLES = {
         "Centered": 6,
         "Tiled": 3,
         "Center Tiled": 4,
-        "Span (GNOME Fallback)": 5
+        "Span": 5
     },
     "GNOME": {
-        "Span (Only Option)": "spanned"
+        "None": "none",
+        "Wallpaper": "wallpaper",
+        "Centered": "centered",
+        "Scalled": "scalled",
+        "Stretched": "stretched",
+        "Zoom": "zoom",
+        "Spanned": "spanned",
     }
 }

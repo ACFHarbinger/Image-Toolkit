@@ -1,8 +1,13 @@
 #ifndef DEFINITIONS_H
 #define DEFINITIONS_H
 
+#include <iostream>
 #include <string>
+#include <map>
+#include <utility>
 #include <vector>
+#include <algorithm>
+#include <cctype>
 #include <filesystem>
 
 namespace Definitions {
@@ -30,6 +35,14 @@ const std::string SERVICE_ACCOUNT_FILE = API_DIR + "/image_toolkit_service.json"
 const std::string CLIENT_SECRETS_FILE = API_DIR + "/client_secret.json";
 const std::string TOKEN_FILE = API_DIR + "/token.json";
 
+// Structure for Windows styles (string name -> pair<string, string>)
+using WindowsStyleMap = std::map<std::string, std::pair<std::string, std::string>>;
+
+// Structure for KDE styles (string name -> int)
+using KdeStyleMap = std::map<std::string, int>;
+
+// Structure for GNOME styles (string name -> string)
+using GnomeStyleMap = std::map<std::string, std::string>;
 
 // --- Settings ---
 
@@ -65,6 +78,49 @@ const std::vector<std::string> SCOPES = {
     "https://www.googleapis.com/auth/drive"
 };
 const std::string SYNC_ERROR = "SyncFailed";
+
+// Wallpaper style definitions
+const WindowsStyleMap WINDOWS_STYLES = {
+    {"Fill",    {"4", "0"}},
+    {"Fit",     {"6", "0"}},
+    {"Stretch", {"2", "0"}},
+    {"Center",  {"0", "0"}},
+    {"Tile",    {"0", "1"}}
+};
+
+const KdeStyleMap KDE_STYLES = {
+    {"Scaled, Keep Proportions", 1},
+    {"Scaled", 2},
+    {"Scaled and Cropped (Zoom)", 0},
+    {"Centered", 6},
+    {"Tiled", 3},
+    {"Center Tiled", 4},
+    {"Span", 5}
+};
+
+const GnomeStyleMap GNOME_STYLES = {
+    {"None", "none"},
+    {"Wallpaper", "wallpaper"},
+    {"Centered", "centered"},
+    {"Scalled", "scalled"},
+    {"Stretched", "stretched"},
+    {"Zoom", "zoom"},
+    {"Spanned", "spanned"}
+};
+
+// Wrapper struct to hold all style maps together
+struct WallpaperStyleDefinitions {
+    WindowsStyleMap windows;
+    KdeStyleMap kde;
+    GnomeStyleList gnome; // Changed to use the vector
+};
+
+// Final constant wrapper object
+const WallpaperStyleDefinitions WALLPAPER_STYLES = {
+    WINDOWS_STYLES,
+    KDE_STYLES,
+    GNOME_STYLES
+};
 
 } // namespace Definitions
 
