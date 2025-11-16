@@ -6,12 +6,12 @@ from math import floor
 from pathlib import Path
 from screeninfo import get_monitors, Monitor
 from typing import Dict, List, Optional, Tuple, Any
-from PySide6.QtCore import Qt, QThreadPool, QThread, QTimer, Slot, Signal
+from PySide6.QtCore import Qt, QThreadPool, QThread, QTimer, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QGroupBox, QComboBox,
     QWidget, QLabel, QPushButton, QMessageBox, QApplication,
-    QLineEdit, QFileDialog, QScrollArea, QGridLayout, QSpinBox, QCheckBox, 
+    QLineEdit, QFileDialog, QScrollArea, QGridLayout, QSpinBox, QCheckBox,
 )
 from .base_tab import BaseTab
 from ..windows import SlideshowQueueWindow
@@ -109,7 +109,7 @@ class WallpaperTab(BaseTab):
         self.time_remaining_sec: int = 0
         self.interval_sec: int = 0
         self.open_queue_windows: List[QWidget] = [] 
-        self.open_image_preview_windows: List[QWidget] = [] # NEW: To track opened image previewers
+        self.open_image_preview_windows: List[QWidget] = [] 
         
         self.wallpaper_style: str = "Fill" # Default style
 
@@ -522,6 +522,9 @@ class WallpaperTab(BaseTab):
         
         window.queue_reordered.connect(self.on_queue_reordered)
         
+        # This makes the right-click menu item (and double-click) functional.
+        window.image_preview_requested.connect(self.handle_full_image_preview)
+        
         def remove_closed_win(event: Any):
             if window in self.open_queue_windows:
                  self.open_queue_windows.remove(window)
@@ -531,6 +534,48 @@ class WallpaperTab(BaseTab):
         
         window.show()
         self.open_queue_windows.append(window)
+
+    @Slot(str)
+    def handle_full_image_preview(self, image_path: str):
+        """
+        Generic slot to open a full-size image preview. 
+        Called by both the scanned gallery and the slideshow queue window.
+        """
+        
+        # Check if the image is already open
+        for win in list(self.open_image_preview_windows):
+            # Check by filename (the window title contains the filename)
+            if isinstance(win, ImagePreviewWindow) and Path(image_path).name in win.windowTitle():
+                win.activateWindow()
+                return
+
+        # Instantiate the ImagePreviewWindow from the components module
+        window = ImagePreviewWindow(image_path)
+        window.setAttribute(Qt.WA_DeleteOnClose)
+        
+        def remove_closed_win(event: Any):
+            if window in self.open_image_preview_windows:
+                 self.open_image_preview_windows.remove(window)
+            event.accept()
+
+        window.closeEvent = remove_closed_win
+        
+        window.show()
+        self.open_image_preview_windows.append(window)
+
+    def _create_thumbnail_placeholder(self, index: int, path: str):
+        columns = self.calculate_columns()
+        row = index // columns
+        col = index % columns
+        draggable_label = DraggableImageLabel(path, self.thumbnail_size) 
+        
+        # UPDATED CONNECTION: Connect the double click signal to the generic preview slot
+        draggable_label.path_double_clicked.connect(self.handle_full_image_preview)
+        
+        self.scan_thumbnail_layout.addWidget(draggable_label, row, col)
+        self.path_to_label_map[path] = draggable_label 
+        self.scan_thumbnail_widget.update()
+        QApplication.processEvents()
 
     @Slot(str, list)
     def on_queue_reordered(self, monitor_id: str, new_queue: List[str]):
@@ -549,6 +594,34 @@ class WallpaperTab(BaseTab):
             self.monitor_widgets[monitor_id].update_text()
         
         self.check_all_monitors_set()
+        
+    # NEW SLOT: Handles right-click clear action from MonitorDropWidget
+    @Slot(str)
+    def handle_clear_monitor_queue(self, monitor_id: str):
+        """Clears the current image and slideshow queue for the specified monitor."""
+        
+        if monitor_id not in self.monitor_widgets:
+            return
+
+        monitor_name = self.monitor_widgets[monitor_id].monitor.name
+        
+        # 1. Clear state
+        if monitor_id in self.monitor_slideshow_queues:
+            self.monitor_slideshow_queues[monitor_id].clear()
+        if monitor_id in self.monitor_image_paths:
+            self.monitor_image_paths[monitor_id] = None
+        if monitor_id in self.monitor_current_index:
+            self.monitor_current_index[monitor_id] = -1
+
+        # 2. Update UI
+        self.monitor_widgets[monitor_id].set_image(None) # Clears the display image
+        self.monitor_widgets[monitor_id].update_text()
+        
+        # 3. Re-check buttons (which may stop slideshow if no monitors remain)
+        self.check_all_monitors_set()
+
+        QMessageBox.information(self, "Monitor Cleared", 
+                                f"All images and the slideshow queue for **{monitor_name}** have been cleared.")
 
 
     @Slot()
@@ -639,6 +712,13 @@ class WallpaperTab(BaseTab):
             drop_widget = MonitorDropWidget(monitor, monitor_id)
             drop_widget.image_dropped.connect(self.on_image_dropped)
             drop_widget.double_clicked.connect(self.handle_monitor_double_click)
+            
+            # NEW CONNECTION: Connect the right-click signal
+            # Assuming MonitorDropWidget has a signal called clear_requested_id(str)
+            try:
+                drop_widget.clear_requested_id.connect(self.handle_clear_monitor_queue)
+            except AttributeError:
+                 print(f"Warning: MonitorDropWidget is missing 'clear_requested_id' signal. Right-click clear will not work.")
             
             current_image = self.monitor_image_paths.get(monitor_id)
             if current_image:
@@ -923,7 +1003,7 @@ class WallpaperTab(BaseTab):
         col = index % columns
         draggable_label = DraggableImageLabel(path, self.thumbnail_size) 
         
-        # Connect the double click signal, assuming DraggableImageLabel emits `double_clicked_path(str)`
+        # Connect the double click signal, assuming DraggableImageLabel emits `path_double_clicked(str)`
         draggable_label.path_double_clicked.connect(self.handle_thumbnail_double_click)
         
         self.scan_thumbnail_layout.addWidget(draggable_label, row, col)

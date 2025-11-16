@@ -12,8 +12,11 @@ from ..components import QueueItemWidget
 class SlideshowQueueWindow(QWidget):
     """A window that displays a re-orderable list of image previews."""
     
-    # Signal: (monitor_id, new_queue_list)
+    # Signal: (monitor_id, new_queue_list) - Existing signal
     queue_reordered = Signal(str, list)
+    
+    # NEW RELAY SIGNAL: Emits the path of the image requested for full view
+    image_preview_requested = Signal(str) 
     
     def __init__(self, monitor_name: str, monitor_id: str, queue: List[str], parent=None):
         super().__init__(parent)
@@ -43,6 +46,9 @@ class SlideshowQueueWindow(QWidget):
         self.list_widget.setContextMenuPolicy(Qt.CustomContextMenu)
         self.list_widget.customContextMenuRequested.connect(self.show_context_menu)
         
+        # CONNECT NATIVE DOUBLE-CLICK SIGNAL to the handler
+        self.list_widget.itemDoubleClicked.connect(self.handle_list_item_action)
+        
         # Populate the list with custom widgets
         self.populate_list(queue)
             
@@ -66,12 +72,28 @@ class SlideshowQueueWindow(QWidget):
             # NOTE: Assuming QueueItemWidget class is available
             item_widget = QueueItemWidget(path, pixmap)
             
+            # The custom widget's double-click signal should no longer be connected here, 
+            # as the QListWidget's native signal is now used.
+            
             list_item = QListWidgetItem(self.list_widget)
             list_item.setSizeHint(item_widget.sizeHint())
+            # Store the path in the item data for easy retrieval on double-click
             list_item.setData(Qt.UserRole, path)
             
             self.list_widget.addItem(list_item)
             self.list_widget.setItemWidget(list_item, item_widget)
+            
+    @Slot(QListWidgetItem)
+    def handle_list_item_action(self, item: QListWidgetItem):
+        """
+        Handles both the native QListWidget double-click and the right-click
+        'View Full Image' action.
+        """
+        if item:
+            # Retrieve the path stored in the item's UserRole data
+            file_path = item.data(Qt.UserRole)
+            if file_path:
+                self.image_preview_requested.emit(file_path)
 
     @Slot(QPoint)
     def show_context_menu(self, pos: QPoint):
@@ -89,12 +111,20 @@ class SlideshowQueueWindow(QWidget):
         # Define Actions with standard icons
         move_up_action = menu.addAction(QIcon(QApplication.style().standardIcon(QStyle.SP_ArrowUp)), "Move Up")
         move_down_action = menu.addAction(QIcon(QApplication.style().standardIcon(QStyle.SP_ArrowDown)), "Move Down")
+        
+        # FIX: Replaced QStyle.SP_FileDialogDetailed with the standard QStyle.SP_FileIcon
+        view_action = menu.addAction(QIcon(QApplication.style().standardIcon(QStyle.SP_FileIcon)), "View Full Image") 
+        
         menu.addSeparator()
         remove_action = menu.addAction(QIcon(QApplication.style().standardIcon(QStyle.SP_DialogCancelButton)), "Remove from Queue")
         
         # Connect actions using lambda to pass the item instance
         move_up_action.triggered.connect(lambda: self.move_item_up(item))
         move_down_action.triggered.connect(lambda: self.move_item_down(item))
+        
+        # CONNECT NEW ACTION to the same item handler used for double-click
+        view_action.triggered.connect(lambda: self.handle_list_item_action(item)) 
+        
         remove_action.triggered.connect(lambda: self.remove_item(item))
         
         # Disable actions based on position
@@ -163,15 +193,15 @@ class SlideshowQueueWindow(QWidget):
 
     @Slot(QListWidgetItem)
     def remove_item(self, item: QListWidgetItem):
-        reply = QMessageBox.question(self, "Remove Image", 
-                                     f"Are you sure you want to remove '{Path(item.data(Qt.UserRole)).name}' from this monitor's queue?",
-                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        """Removes the selected item from the queue without a confirmation box."""
+        # Removed the QMessageBox confirmation block
+        current_row = self.list_widget.row(item)
         
-        if reply == QMessageBox.Yes:
-            current_row = self.list_widget.row(item)
-            # Delete both the QListWidgetItem and its contents
-            self.list_widget.takeItem(current_row) 
-            self.emit_new_queue_order()
+        # Delete both the QListWidgetItem and its contents
+        self.list_widget.takeItem(current_row) 
+        
+        # Emit the signal with the new queue order
+        self.emit_new_queue_order()
 
     @Slot()
     def emit_new_queue_order(self, *args): 

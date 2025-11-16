@@ -7,7 +7,7 @@ from PySide6.QtGui import (
     QPixmap, QDragEnterEvent, QDropEvent, QDragMoveEvent, QDragLeaveEvent,
     QMouseEvent
 )
-from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import QLabel, QMenu # QMenu is imported to handle context menus
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 
 
@@ -21,6 +21,9 @@ class MonitorDropWidget(QLabel):
     
     # Emits monitor_id when the widget is double-clicked
     double_clicked = Signal(str)
+
+    # NEW SIGNAL: Emits monitor_id when the 'Clear Monitor' right-click action is selected
+    clear_requested_id = Signal(str)
 
     def __init__(self, monitor: Monitor, monitor_id: str):
         super().__init__()
@@ -50,6 +53,20 @@ class MonitorDropWidget(QLabel):
                 background-color: #40444b;
             }
         """)
+
+    # NEW METHOD: Handles the right-click event to show a context menu
+    def contextMenuEvent(self, event):
+        """Creates and executes a context menu on right-click."""
+        menu = QMenu(self)
+        
+        # Action to clear the monitor
+        clear_action = menu.addAction("Clear All Images (Current and Queue)")
+        clear_action.triggered.connect(lambda: self.clear_requested_id.emit(self.monitor_id))
+        
+        # Only enable clearing if an image is currently set or if we want to allow clearing the queue anytime
+        # We enable it anytime to allow clearing empty queues as well.
+        
+        menu.exec(event.globalPos())
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
         """Overrides the double-click event to emit the custom signal."""
@@ -122,20 +139,29 @@ class MonitorDropWidget(QLabel):
             
         return True
 
-    def set_image(self, file_path: str):
+    def set_image(self, file_path: Optional[str]):
         """Sets the widget's pixmap to a scaled preview of the image."""
         self.image_path = file_path
-        pixmap = QPixmap(file_path)
-        if not pixmap.isNull():
-            scaled_pixmap = pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            self.setPixmap(scaled_pixmap)
-            self.setText("") # Clear text when image is shown
+        if file_path:
+            pixmap = QPixmap(file_path)
+            if not pixmap.isNull():
+                scaled_pixmap = pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                self.setPixmap(scaled_pixmap)
+                self.setText("") # Clear text when image is shown
+            else:
+                self.image_path = None
+                self.update_text()
+                self.setText(f"<b>Monitor {self.monitor_id}</b>\n"
+                             f"({self.monitor.width}x{self.monitor.height})\n\n"
+                             "<b>Error:</b> Could not load image.")
         else:
-            self.image_path = None
-            self.update_text()
-            self.setText(f"<b>Monitor {self.monitor_id}</b>\n"
-                         f"({self.monitor.width}x{self.monitor.height})\n\n"
-                         "<b>Error:</b> Could not load image.")
+             self.clear() # Call the internal clear for consistency
+             
+    def clear(self):
+        """Clears the displayed image and resets to placeholder text."""
+        self.image_path = None
+        self.setPixmap(QPixmap()) # Clear the pixmap
+        self.update_text()
                          
     def resizeEvent(self, event):
         """Rescales the pixmap when the widget is resized."""
