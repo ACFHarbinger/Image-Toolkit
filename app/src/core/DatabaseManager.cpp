@@ -142,26 +142,23 @@ int DatabaseManager::addImage(const std::string& filePath,
         }
         // ... (add subgroup logic) ...
 
+        // New SQL (NOW() used directly for date fields)
         std::string sql = "INSERT INTO images (file_path, filename, width, height, group_name, subgroup_name, date_added, date_modified, embedding) "
-                          "VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8) "
-                          "ON CONFLICT (file_path) DO UPDATE SET "
-                          "width = EXCLUDED.width, height = EXCLUDED.height, group_name = EXCLUDED.group_name, "
-                          "subgroup_name = EXCLUDED.subgroup_name, date_modified = $7, embedding = EXCLUDED.embedding "
-                          "RETURNING id";
+                        "VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW(), $7) "
+                        "ON CONFLICT (file_path) DO UPDATE SET "
+                        "width = EXCLUDED.width, height = EXCLUDED.height, group_name = EXCLUDED.group_name, "
+                        "subgroup_name = EXCLUDED.subgroup_name, date_modified = NOW(), embedding = EXCLUDED.embedding "
+                        "RETURNING id";
         
         pqxx::result res = txn.exec_params(sql,
-            filePath,
-            filename,
-            width.has_value() ? std::optional(width.value()) : std::nullopt,
-            height.has_value() ? std::optional(height.value()) : std::nullopt,
-            groupName.has_value() ? std::optional(groupName.value()) : std::nullopt,
-            subgroupName.has_value() ? std::optional(subgroupName.value()) : std::nullopt,
-            pqxx::null, // Using NULL placeholder, $7, which will be NOW()
-            embedding.has_value() ? std::optional(vectorToString(embedding.value())) : std::nullopt
+            filePath,                                                                             // $1
+            filename,                                                                             // $2
+            width.has_value() ? std::optional(width.value()) : std::nullopt,                      // $3
+            height.has_value() ? std::optional(height.value()) : std::nullopt,                    // $4
+            groupName.has_value() ? std::optional(groupName.value()) : std::nullopt,              // $5
+            subgroupName.has_value() ? std::optional(subgroupName.value()) : std::nullopt,        // $6
+            embedding.has_value() ? std::optional(vectorToString(embedding.value())) : std::nullopt // $7
         );
-        
-        // This is a workaround for pqxx not handling NOW() cleanly in prepared statements
-        sql = sql.replace("$7", "NOW()");
 
         int image_id = res[0][0].as<int>();
 

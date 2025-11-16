@@ -6,6 +6,66 @@
 namespace fs = std::filesystem;
 
 // --- ImageFormatConverter ---
+// Function to combine a vector of images into a single grid-like canvas
+cv::Mat ImageUtil::createGridCanvas(const std::vector<cv::Mat>& images, const cv::Size& canvasSize, int gridCols) {
+    if (images.empty() || gridCols <= 0) {
+        return cv::Mat();
+    }
+    
+    // Check for empty first image or inconsistent type before proceeding
+    if (images[0].empty()) {
+        std::cerr << "Error: First image in vector is empty." << std::endl;
+        return cv::Mat();
+    }
+    
+    // 1. Determine the size of each cell based on the first image's size
+    //    and the canvas size calculation logic from the original call.
+    //    The size of each cell is determined by how the canvasSize was calculated.
+    //    If canvasSize = (img[0].cols * gridCols, img[0].rows * rows), 
+    //    then cell_width = img[0].cols and cell_height = img[0].rows.
+    
+    int cell_width = images[0].cols;
+    int cell_height = images[0].rows;
+    
+    // 2. Create the final black canvas
+    cv::Mat canvas(canvasSize, images[0].type(), cv::Scalar(0, 0, 0));
+
+    // 3. Copy each image to its respective cell (ROI)
+    int num_images = images.size();
+    
+    for (int i = 0; i < num_images; ++i) {
+        const cv::Mat& src_img = images[i];
+        int row = i / gridCols;
+        int col = i % gridCols;
+
+        // Calculate the starting point (top-left) of the current cell
+        int start_x = col * cell_width;
+        int start_y = row * cell_height;
+        
+        // Define the bounds of the ROI on the canvas
+        int roi_x = start_x;
+        int roi_y = start_y;
+        int roi_w = std::min(cell_width, canvasSize.width - roi_x); // Clip to canvas boundary
+        int roi_h = std::min(cell_height, canvasSize.height - roi_y); // Clip to canvas boundary
+
+        // If the cell is completely outside the canvas, skip
+        if (roi_w <= 0 || roi_h <= 0) {
+            continue;
+        }
+
+        // Define the target ROI on the canvas
+        cv::Rect target_roi(roi_x, roi_y, roi_w, roi_h);
+        cv::Mat target_mat = canvas(target_roi);
+
+        // Define the source ROI on the input image
+        cv::Rect source_roi(0, 0, target_mat.cols, target_mat.rows);
+        
+        // Copy the source image (or a sub-region if clipped) to the target ROI
+        src_img(source_roi).copyTo(target_mat);
+    }
+
+    return canvas;
+}
 
 bool ImageUtil::convertCore(const fs::path& inPath, const fs::path& outPath, bool delOriginal) {
     try {
@@ -64,7 +124,7 @@ int ImageUtil::convertBatch(const fs::path& inputDir, const std::vector<std::str
 
     int convertedCount = 0;
     for (const auto& entry : fs::directory_iterator(inputDir)) {
-        if (entry.is_file()) {
+        if (entry.is_regular_file()) {
             std::string fileExt = entry.path().extension().string();
             
             // Check if this file format is in our set of formats to convert
@@ -127,7 +187,7 @@ bool ImageUtil::mergeImages(const std::vector<std::string>& imagePaths, const fs
             // and manually placing images on a new cv::Mat.
             // Using makeCanvas for simplicity.
             int rows = (int)std::ceil((double)images.size() / gridCols);
-            mergedImage = cv::makeCanvas(images, cv::Size(images[0].cols * gridCols, images[0].rows * rows), gridCols);
+            mergedImage = createGridCanvas(images, cv::Size(images[0].cols * gridCols, images[0].rows * rows), gridCols);
         } else {
             return false;
         }

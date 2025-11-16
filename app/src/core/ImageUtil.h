@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <algorithm>
 #include <filesystem>
 #include <opencv2/opencv.hpp> // Requires OpenCV dependency
 
@@ -52,6 +53,16 @@ public:
     static bool mergeImages(const std::vector<std::string>& imagePaths, const std::filesystem::path& outputPath, MergeDirection direction, int gridCols = 2, int spacing = 0);
 
 private:
+    /**
+     * @brief Creates a canvas by placing images into a grid structure.
+     *
+     * @param images The input vector of cv::Mat images.
+     * @param canvasSize The exact size of the output canvas (e.g., width x height).
+     * @param gridCols The number of columns in the grid.
+     * @return cv::Mat The merged canvas image.
+     */
+    static cv::Mat createGridCanvas(const std::vector<cv::Mat>& images, const cv::Size& canvasSize, int gridCols);
+
     /**
      * @brief Core logic for reading, converting, and saving an image.
      */

@@ -57,13 +57,13 @@ std::vector<std::string> FileSystemUtil::getFilesByExtension(const fs::path& dir
     try {
         if (recursive) {
             for (const auto& entry : fs::recursive_directory_iterator(dir)) {
-                if (entry.is_file() && entry.path().extension() == ext) {
+                if (entry.is_regular_file() && entry.path().extension() == ext) {
                     files.push_back(entry.path().string());
                 }
             }
         } else {
             for (const auto& entry : fs::directory_iterator(dir)) {
-                if (entry.is_file() && entry.path().extension() == ext) {
+                if (entry.is_regular_file() && entry.path().extension() == ext) {
                     files.push_back(entry.path().string());
                 }
             }
@@ -108,7 +108,7 @@ int FileSystemUtil::deleteFilesByExtensions(const fs::path& directory, const std
 
     try {
         for (const auto& entry : fs::recursive_directory_iterator(dir)) {
-            if (entry.is_file()) {
+            if (entry.is_regular_file()) {
                 std::string fileExt = entry.path().extension().string();
                 for (const auto& ext : exts) {
                     if (fileExt == ext) {

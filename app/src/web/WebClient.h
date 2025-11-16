@@ -6,10 +6,7 @@
 #include <set>
 #include <filesystem>
 #include <functional>
-
-// Forward declaration for Gumbo
-struct GumboOutput;
-struct GumboNode;
+#include <gumbo.h>
 
 /**
  * @brief Replaces the Python WebCrawler, ImageCrawler, and WebFileLoader.
@@ -60,7 +57,6 @@ public:
                  int skipFirst,
                  int skipLast);
 
-private:
     /**
      * @brief Downloads the content of a single URL.
      * @param url The URL to fetch.
@@ -77,6 +73,7 @@ private:
      */
     bool downloadImage(const std::string& url, const std::filesystem::path& savePath);
 
+private:
     /**
      * @brief Parses HTML and finds all image source URLs.
      * @param htmlContent The HTML to parse.

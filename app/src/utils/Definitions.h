@@ -41,8 +41,8 @@ using WindowsStyleMap = std::map<std::string, std::pair<std::string, std::string
 // Structure for KDE styles (string name -> int)
 using KdeStyleMap = std::map<std::string, int>;
 
-// Structure for GNOME styles (string name -> string)
-using GnomeStyleMap = std::map<std::string, std::string>;
+// Structure for GNOME styles (vector of strings)
+using GnomeStyleList = std::vector<std::string>;
 
 // --- Settings ---
 
@@ -98,14 +98,14 @@ const KdeStyleMap KDE_STYLES = {
     {"Span", 5}
 };
 
-const GnomeStyleMap GNOME_STYLES = {
-    {"None", "none"},
-    {"Wallpaper", "wallpaper"},
-    {"Centered", "centered"},
-    {"Scalled", "scalled"},
-    {"Stretched", "stretched"},
-    {"Zoom", "zoom"},
-    {"Spanned", "spanned"}
+const GnomeStyleList GNOME_STYLES = {
+    "None",
+    "Wallpaper",
+    "Centered",
+    "Scaled",
+    "Stretched",
+    "Zoom",
+    "Spanned"
 };
 
 // Wrapper struct to hold all style maps together

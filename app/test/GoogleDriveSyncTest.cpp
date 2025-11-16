@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
-#include "GoogleDriveSync.h"
-#include "FileSystemUtil.h"
+#include "../src/web/GoogleDriveSync.h"
+#include "../src/core/FileSystemUtil.h"
 #include <filesystem>
 #include <fstream>
 

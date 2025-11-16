@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
-#include "VaultManager.h"
-#include "FileSystemUtil.h"
+#include "../src/core/VaultManager.h"
+#include "../src/core/FileSystemUtil.h"
 #include <filesystem>
 
 namespace fs = std::filesystem;

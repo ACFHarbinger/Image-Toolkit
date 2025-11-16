@@ -1,5 +1,5 @@
 #include "gtest/gtest.h"
-#include "DatabaseManager.h"
+#include "../src/core/DatabaseManager.h"
 #include <iostream>
 
 // --- IMPORTANT ---
@@ -55,7 +55,7 @@ TEST_F(DatabaseManagerTest, AddAndGetImage) {
     if (!db) { GTEST_SKIP() << "Skipping test, no DB connection"; }
     
     std::string path = "/test/image.png";
-    int id = db->addImage(path, std::nullopt, "GroupA", "Sub1", {"tag1", "tag2"}, 100, 100);
+    int id = db->addImage(path, std::nullopt, "GroupA", "Sub1", std::vector<std::string>{"tag1", "tag2"}, 100, 100);
     ASSERT_GT(id, 0);
 
     // This test relies on get_image_by_path, which wasn't fully stubbed.
@@ -74,9 +74,9 @@ TEST_F(DatabaseManagerTest, AddAndGetImage) {
 TEST_F(DatabaseManagerTest, SearchImages) {
     if (!db) { GTEST_SKIP() << "Skipping test, no DB connection"; }
 
-    db->addImage("/img/1.png", std::nullopt, "GroupA", "Sub1", {"tag1", "tag2"}, 100, 100);
-    db->addImage("/img/2.png", std::nullopt, "GroupA", "Sub2", {"tag1", "tag3"}, 100, 100);
-    db->addImage("/img/3.png", std::nullopt, "GroupB", "Sub1", {"tag2", "tag4"}, 100, 100);
+    db->addImage("/img/1.png", std::nullopt, "GroupA", "Sub1", std::vector<std::string>{"tag1", "tag2"}, 100, 100);
+    db->addImage("/img/2.png", std::nullopt, "GroupA", "Sub2", std::vector<std::string>{"tag1", "tag3"}, 100, 100);
+    db->addImage("/img/3.png", std::nullopt, "GroupB", "Sub1", std::vector<std::string>{"tag2", "tag4"}, 100, 100);
 
     // Note: The C++ implementation of searchImages was omitted for brevity.
     // This test will fail until it's implemented.

@@ -69,7 +69,7 @@ add_library(ArgParser STATIC ../src/utils/ArgParser.cpp)
 target_link_libraries(ImageUtil PRIVATE FileSystemUtil ${OpenCV_LIBS})
 target_link_libraries(DatabaseManager PRIVATE ${LIBPQXX_LIBRARIES})
 target_link_libraries(WallpaperManager PRIVATE FileSystemUtil ${OpenCV_LIBS}) # For GNOME span
-target_link_libraries(VaultManager PRIVATE FileSystemUtil ${OpenSSL_LIBS} ${JNI_LIBS})
+target_link_libraries(VaultManager PRIVATE FileSystemUtil OpenSSL::Crypto ${JNI_LIBRARIES})
 target_link_libraries(WebClient PRIVATE FileSystemUtil ${CURL_LIBRARIES} ${GUMBO_LIBRARIES})
 target_link_libraries(GoogleDriveSync PRIVATE FileSystemUtil ${CURL_LIBRARIES})
 # ArgParser is self-contained (cxxopts is header-only)
@@ -109,7 +109,7 @@ add_test(NAME GoogleDriveSyncTest COMMAND GoogleDriveSyncTest)
 
 # VaultManager Test
 add_executable(VaultManagerTest VaultManagerTest.cpp)
-target_link_libraries(VaultManagerTest PRIVATE GTest::gtest_main VaultManager FileSystemUtil ${OpenSSL_LIBS} ${JNI_LIBS})
+target_link_libraries(VaultManagerTest PRIVATE GTest::gtest_main VaultManager)
 add_test(NAME VaultManagerTest COMMAND VaultManagerTest)
 
 # WallpaperManager Test

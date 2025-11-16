@@ -1,350 +1,301 @@
-#include "GoogleDriveSync.h"
+#include "WebClient.h"
+#include "../core/FileSystemUtil.h" // Assuming this exists from previous step
 #include <iostream>
 #include <fstream>
 #include <curl/curl.h>
-#include "FileSystemUtil.h" // Assumed from previous step
+#include <gumbo.h>
 
-// API Endpoints
-const std::string API_FILES_LIST = "https://www.googleapis.com/drive/v3/files";
-const std::string API_FILES_CREATE = "https://www.googleapis.com/drive/v3/files";
-const std::string API_FILES_UPLOAD = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
-const std::string API_FILES_GET = "https://www.googleapis.com/drive/v3/files/"; // Append {fileId}?alt=media
+namespace fs = std::filesystem;
 
-GoogleDriveSync::GoogleDriveSync(const std::string& accessToken,
-                                 const fs::path& localPath,
-                                 const std::string& remotePath,
-                                 bool dryRun,
-                                 LoggerCallback logger)
-    : m_accessToken(accessToken), m_localPath(localPath), m_remotePath(remotePath), m_dryRun(dryRun), m_logger(logger) {
-    
-    m_authHeader = "Authorization: Bearer " + m_accessToken;
+// A simple URI parser struct
+struct Uri {
+    std::string protocol, host, port, path, query;
+};
+
+// Basic URI parser to help with resolving relative URLs
+Uri parseUri(const std::string& url) {
+    Uri uri;
+    auto protocolEnd = url.find("://");
+    if (protocolEnd != std::string::npos) {
+        uri.protocol = url.substr(0, protocolEnd);
+        std::string rest = url.substr(protocolEnd + 3);
+        auto hostEnd = rest.find('/');
+        if (hostEnd == std::string::npos) {
+            hostEnd = rest.find('?');
+        }
+        
+        std::string hostPort = (hostEnd == std::string::npos) ? rest : rest.substr(0, hostEnd);
+        if (hostEnd != std::string::npos) {
+            rest = rest.substr(hostEnd);
+        } else {
+            rest = "";
+        }
+
+        auto portStart = hostPort.find(':');
+        if (portStart != std::string::npos) {
+            uri.host = hostPort.substr(0, portStart);
+            uri.port = hostPort.substr(portStart + 1);
+        } else {
+            uri.host = hostPort;
+        }
+
+        auto queryStart = rest.find('?');
+        if (queryStart != std::string::npos) {
+            uri.path = rest.substr(0, queryStart);
+            uri.query = rest.substr(queryStart + 1);
+        } else {
+            uri.path = rest;
+        }
+    }
+    return uri;
+}
+
+// --- WebClient Implementation ---
+
+WebClient::WebClient(const std::filesystem::path& downloadDir)
+    : m_downloadDir(downloadDir), m_statusCallback(nullptr), m_imageSavedCallback(nullptr) {
     curl_global_init(CURL_GLOBAL_ALL);
     m_curlHandle = curl_easy_init();
     if (!m_curlHandle) {
         throw std::runtime_error("Failed to initialize libcurl");
     }
-    log("GoogleDriveSync initialized.");
+    FileSystemUtil::createDirectory(m_downloadDir);
 }
 
-GoogleDriveSync::~GoogleDriveSync() {
+WebClient::~WebClient() {
     if (m_curlHandle) {
         curl_easy_cleanup(static_cast<CURL*>(m_curlHandle));
     }
     curl_global_cleanup();
 }
 
-void GoogleDriveSync::log(const std::string& message) {
-    if (m_logger) {
-        m_logger(message);
-    } else {
-        std::cout << message << std::endl;
-    }
+void WebClient::setStatusCallback(StatusCallback callback) {
+    m_statusCallback = callback;
 }
 
-size_t GoogleDriveSync::writeCallback(void* contents, size_t size, size_t nmemb, void* userp) {
+void WebClient::setImageSavedCallback(ImageSavedCallback callback) {
+    m_imageSavedCallback = callback;
+}
+
+// libcurl callback to write data to a std::string
+size_t WebClient::writeCallback(void* contents, size_t size, size_t nmemb, void* userp) {
     static_cast<std::string*>(userp)->append(static_cast<char*>(contents), size * nmemb);
     return size * nmemb;
 }
 
-// --- API Call Helpers ---
+// libcurl callback to write data to a FILE*
+size_t WebClient::writeFileCallback(void* contents, size_t size, size_t nmemb, void* userp) {
+    return fwrite(contents, size, nmemb, static_cast<FILE*>(userp));
+}
 
-bool GoogleDriveSync::apiRequest(const std::string& url, const std::string& method, const std::string& postData, const std::vector<std::string>& headers, std::string& response) {
+bool WebClient::httpGet(const std::string& url, std::string& output) {
     CURL* curl = static_cast<CURL*>(m_curlHandle);
     if (!curl) return false;
 
-    response.clear();
-    curl_slist* headerList = nullptr;
-    for (const auto& h : headers) {
-        headerList = curl_slist_append(headerList, h.c_str());
-    }
-
+    output.clear();
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method.c_str());
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerList);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-    
-    if (method == "POST" || method == "PATCH") {
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postData.c_str());
-    }
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &output);
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L); // Follow redirects
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
 
     CURLcode res = curl_easy_perform(curl);
-    curl_slist_free_all(headerList);
-
     if (res != CURLE_OK) {
-        log("curl_easy_perform() failed: " + std::string(curl_easy_strerror(res)));
-        return false;
-    }
-
-    long http_code = 0;
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-    if (http_code < 200 || http_code >= 300) {
-        log("HTTP Error " + std::to_string(http_code) + ": " + response);
+        std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
         return false;
     }
     return true;
 }
 
-json GoogleDriveSync::apiGet(const std::string& url) {
-    std::string response;
-    if (apiRequest(url, "GET", "", {m_authHeader}, response)) {
-        return json::parse(response);
+bool WebClient::downloadImage(const std::string& url, const std::filesystem::path& savePath) {
+    CURL* curl = static_cast<CURL*>(m_curlHandle);
+    if (!curl) return false;
+
+    FILE* fp = fopen(savePath.string().c_str(), "wb");
+    if (!fp) {
+        std::cerr << "Failed to open file for writing: " << savePath.string() << std::endl;
+        return false;
     }
-    return nullptr;
+
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeFileCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+
+    CURLcode res = curl_easy_perform(curl);
+    fclose(fp); // Always close the file handle
+
+    if (res != CURLE_OK) {
+        std::cerr << "curl_easy_perform() for image download failed: " << curl_easy_strerror(res) << std::endl;
+        fs::remove(savePath); // Delete partial file on error
+        return false;
+    }
+    return true;
 }
 
-json GoogleDriveSync::apiPost(const std::string& url, const json& data) {
-    std::string response;
-    std::vector<std::string> headers = {m_authHeader, "Content-Type: application/json"};
-    if (apiRequest(url, "POST", data.dump(), headers, response)) {
-        return json::parse(response);
+std::string WebClient::resolveUrl(const std::string& baseUrl, const std::string& relativeUrl) {
+    if (relativeUrl.rfind("http://", 0) == 0 || relativeUrl.rfind("https://", 0) == 0) {
+        return relativeUrl; // Already absolute
     }
-    return nullptr;
+
+    Uri base = parseUri(baseUrl);
+    std::string baseAddress = base.protocol + "://" + base.host;
+    if (!base.port.empty()) {
+        baseAddress += ":" + base.port;
+    }
+
+    if (relativeUrl.rfind("//", 0) == 0) {
+        return base.protocol + ":" + relativeUrl; // Protocol-relative
+    }
+
+    if (relativeUrl.rfind("/", 0) == 0) {
+        return baseAddress + relativeUrl; // Root-relative
+    }
+
+    // Path-relative
+    std::string path = base.path;
+    auto lastSlash = path.rfind('/');
+    if (lastSlash != std::string::npos) {
+        path = path.substr(0, lastSlash + 1);
+    } else {
+        path = "/";
+    }
+    return baseAddress + path + relativeUrl;
 }
 
-// ... Implementations for apiPostMedia and apiDownload are complex and omitted for brevity ...
-// They would involve setting up curl_formadd or read callbacks.
-// This is a placeholder for the upload logic.
-bool GoogleDriveSync::uploadFile(const fs::path& localPath, const std::string& remoteName, const std::string& parentId) {
-    if (m_dryRun) {
-        log("   [DRY RUN] UPLOAD: " + localPath.string());
-        return true;
-    }
-    log("   UPLOADING: " + localPath.string() + " (Full C++ upload logic is complex and omitted)");
-    // This requires a full multipart/form-data POST using libcurl,
-    // which is significantly more complex than the other requests.
-    return false; // Placeholder
-}
-
-bool GoogleDriveSync::apiDownload(const std::string& fileId, const fs::path& localDestination) {
-    if (m_dryRun) {
-        log("   [DRY RUN] DOWNLOAD: " + localDestination.filename().string());
-        return true;
-    }
-    log("   DOWNLOADING: " + localDestination.filename().string() + " (Full C++ download logic is omitted)");
-    // This would use curl to GET from API_FILES_GET + fileId + "?alt=media"
-    // and write the response to a file.
-    return false; // Placeholder
-}
-
-
-// --- Core Logic ---
-
-std::string GoogleDriveSync::createRemoteFolder(const std::string& name, const std::string& parentId) {
-    if (m_dryRun) {
-        std::string dryRunId = "DRY_RUN_ID_" + name;
-        log("   [DRY RUN] Would have created folder '" + name + "'");
-        return dryRunId;
+void WebClient::searchForImgTags(GumboNode* node, std::set<std::string>& foundUrls) {
+    if (node->type != GUMBO_NODE_ELEMENT) {
+        return;
     }
 
-    json metadata = {
-        {"name", name},
-        {"mimeType", "application/vnd.google-apps.folder"},
-        {"parents", {parentId}}
-    };
-    json result = apiPost(API_FILES_CREATE, metadata);
-    if (result != nullptr && result.contains("id")) {
-        std::string newId = result["id"];
-        log("   Created folder: " + name + " (ID: " + newId + ")");
-        return newId;
-    }
-    log("   ERROR: Failed to create folder " + name);
-    return "";
-}
-
-std::string GoogleDriveSync::findOrCreateDestinationFolder() {
-    std::string parentId = "root";
-    fs::path remotePath(m_remotePath);
-    std::string currentRemotePathStr;
-
-    for (const auto& part : remotePath) {
-        std::string folderName = part.string();
-        if (folderName == "/") continue;
-
-        if (currentRemotePathStr.empty()) {
-            currentRemotePathStr = folderName;
-        } else {
-            currentRemotePathStr += "/" + folderName;
-        }
-
-        std::string query = "name='" + folderName + "' and "
-                            "mimeType='application/vnd.google-apps.folder' and "
-                            "'" + parentId + "' in parents and "
-                            "trashed=false";
-        
-        std::string url = API_FILES_LIST + "?q=" + curl_easy_escape(static_cast<CURL*>(m_curlHandle), query.c_str(), 0) + "&fields=files(id,name)";
-        
-        json result = apiGet(url);
-        if (result == nullptr || !result.contains("files")) {
-            throw std::runtime_error("Failed to list files in Drive.");
-        }
-
-        if (result["files"].empty()) {
-            // Not found, create it
-            parentId = createRemoteFolder(folderName, parentId);
-            if (parentId.empty()) {
-                throw std::runtime_error("Failed to create remote folder " + folderName);
+    if (node->v.element.tag == GUMBO_TAG_IMG) {
+        GumboAttribute* src = gumbo_get_attribute(&node->v.element.attributes, "src");
+        if (src && src->value) {
+            std::string srcUrl = src->value;
+            if (srcUrl.rfind("data:", 0) != 0) { // Skip inline data URIs
+                foundUrls.insert(srcUrl);
             }
-        } else {
-            // Found, get its ID
-            parentId = result["files"][0]["id"];
         }
-        m_remotePathToId[currentRemotePathStr] = parentId;
     }
+
+    GumboVector* children = &node->v.element.children;
+    for (unsigned int i = 0; i < children->length; ++i) {
+        searchForImgTags(static_cast<GumboNode*>(children->data[i]), foundUrls);
+    }
+}
+
+void WebClient::findImageUrls(const std::string& htmlContent, const std::string& baseUrl, std::set<std::string>& foundUrls) {
+    GumboOutput* output = gumbo_parse(htmlContent.c_str());
+    if (!output) return;
+
+    std::set<std::string> relativeUrls;
+    searchForImgTags(output->root, relativeUrls);
+    gumbo_destroy_output(&kGumboDefaultOptions, output);
+
+    // Resolve all found URLs
+    for (const auto& relUrl : relativeUrls) {
+        foundUrls.insert(resolveUrl(baseUrl, relUrl));
+    }
+}
+
+std::filesystem::path WebClient::getUniqueFilename(const std::filesystem::path& filepath) {
+    if (!fs::exists(filepath)) {
+        return filepath;
+    }
+
+    fs::path base = filepath.parent_path() / filepath.stem();
+    std::string ext = filepath.extension().string();
+    int counter = 1;
+    fs::path newPath = base;
+    newPath += " (" + std::to_string(counter) + ")" + ext;
+
+    while (fs::exists(newPath)) {
+        counter++;
+        newPath = base;
+        newPath += " (" + std::to_string(counter) + ")" + ext;
+    }
+    return newPath;
+}
+
+int WebClient::runCrawl(const std::string& targetUrl,
+                        const std::string& replaceStr,
+                        const std::vector<std::string>& replacements,
+                        int skipFirst,
+                        int skipLast) {
     
-    log("✅ Destination Folder ID: " + parentId);
-    return parentId;
-}
+    std::vector<std::string> urlsToScrape;
+    urlsToScrape.push_back(targetUrl);
 
-std::map<std::string, FileData> GoogleDriveSync::getLocalFilesMap() {
-    std::map<std::string, FileData> localItems;
-    std::string basePath = fs::canonical(m_localPath).string();
-    size_t baseLen = basePath.length() + 1; // +1 for the separator
-
-    for (const auto& entry : fs::recursive_directory_iterator(m_localPath)) {
-        std::string absPath = fs::canonical(entry.path()).string();
-        std::string relPath = absPath.substr(baseLen);
-        std::replace(relPath.begin(), relPath.end(), '\\', '/'); // Normalize separators
-
-        FileData data;
-        data.path = absPath;
-        auto mtime = fs::last_write_time(entry);
-        data.mtime = std::chrono::duration_cast<std::chrono::seconds>(mtime.time_since_epoch()).count();
-        data.isFolder = entry.is_directory();
-        
-        localItems[relPath] = data;
-    }
-    return localItems;
-}
-
-std::map<std::string, FileData> GoogleDriveSync::getRemoteFilesMap(const std::string& rootFolderId) {
-    std::map<std::string, FileData> remoteItems;
-    std::vector<std::pair<std::string, std::string>> folderQueue = {{rootFolderId, ""}};
-    m_remotePathToId.clear(); // Clear and rebuild from root
-
-    while (!folderQueue.empty()) {
-        auto [currentFolderId, currentRelPath] = folderQueue.front();
-        folderQueue.erase(folderQueue.begin());
-
-        std::string pageToken = "";
-        do {
-            std::string query = "'" + currentFolderId + "' in parents and trashed=false";
-            std::string url = API_FILES_LIST + "?q=" + curl_easy_escape(static_cast<CURL*>(m_curlHandle), query.c_str(), 0)
-                            + "&fields=nextPageToken,files(id,name,modifiedTime,mimeType)";
-            if (!pageToken.empty()) {
-                url += "&pageToken=" + pageToken;
+    if (!replaceStr.empty() && !replacements.empty()) {
+        for (const auto& rep : replacements) {
+            std::string newUrl = targetUrl;
+            size_t pos = newUrl.find(replaceStr);
+            if (pos != std::string::npos) {
+                newUrl.replace(pos, replaceStr.length(), rep);
             }
-
-            json result = apiGet(url);
-            if (result == nullptr || !result.contains("files")) break;
-
-            for (const auto& item : result["files"]) {
-                std::string name = item["name"];
-                std::string id = item["id"];
-                std::string fullPath = currentRelPath.empty() ? name : currentRelPath + "/" + name;
-                bool isFolder = item["mimeType"] == "application/vnd.google-apps.folder";
-
-                FileData data;
-                data.id = id;
-                data.isFolder = isFolder;
-                
-                // Parse timestamp
-                std::string mtimeStr = item["modifiedTime"];
-                std::tm tm = {};
-                std::stringstream ss(mtimeStr);
-                ss >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%S");
-                data.mtime = std::mktime(&tm);
-
-                remoteItems[fullPath] = data;
-                if (isFolder) {
-                    folderQueue.push_back({id, fullPath});
-                    m_remotePathToId[fullPath] = id;
-                }
-            }
-            pageToken = result.contains("nextPageToken") ? result["nextPageToken"].get<std::string>() : "";
-        } while (!pageToken.empty());
+            urlsToScrape.push_back(newUrl);
+        }
     }
-    
-    log("\n--- Current Remote Files in Destination Folder ---");
-    // (Log dump omitted for brevity)
-    return remoteItems;
-}
 
+    int totalPages = urlsToScrape.size();
+    int totalDownloaded = 0;
 
-std::pair<bool, std::string> GoogleDriveSync::executeSync() {
-    try {
-        std::string destFolderId = findOrCreateDestinationFolder();
-        if (destFolderId.empty()) return {false, "Failed to secure destination folder."};
+    for (int i = 0; i < totalPages; ++i) {
+        const std::string& url = urlsToScrape[i];
+        if (m_statusCallback) m_statusCallback("Loading page " + std::to_string(i + 1) + "/" + std::to_string(totalPages) + ": " + url);
+
+        std::string htmlContent;
+        if (!httpGet(url, htmlContent)) {
+            if (m_statusCallback) m_statusCallback("Failed to load page: " + url);
+            continue;
+        }
+
+        if (m_statusCallback) m_statusCallback("Scanning for images...");
+        std::set<std::string> imageUrls;
+        findImageUrls(htmlContent, url, imageUrls);
+
+        if (imageUrls.empty()) {
+            if (m_statusCallback) m_statusCallback("No images found on page " + std::to_string(i + 1));
+            continue;
+        }
         
-        log("📋 Comparing local and remote files recursively...");
-        auto localItems = getLocalFilesMap();
-        auto remoteItems = getRemoteFilesMap(destFolderId);
-
-        log("\n--- Sync Operation Analysis & Execution ---");
-        int uploaded = 0;
-        int downloaded = 0;
-        int skipped = 0;
+        // Convert set to vector to apply skipping
+        std::vector<std::string> images(imageUrls.begin(), imageUrls.end());
         
-        std::map<std::string, FileData> remoteCopy = remoteItems;
+        int totalFound = images.size();
+        int skipTotal = skipFirst + skipLast;
+        if (skipTotal >= totalFound) {
+             if (m_statusCallback) m_statusCallback("Not enough images to skip on page " + std::to_string(i + 1));
+             continue;
+        }
 
-        // 1. Process Local Items (Upload Missing)
-        for (const auto& [relPath, localData] : localItems) {
-            auto it = remoteCopy.find(relPath);
+        int endIdx = totalFound - skipLast;
+        int startIdx = skipFirst;
+        int totalToDownload = endIdx - startIdx;
+        
+        if (m_statusCallback) m_statusCallback("Downloading " + std::to_string(totalToDownload) + " unique images from page " + std::to_string(i + 1) + "...");
+
+        for (int j = startIdx; j < endIdx; ++j) {
+            const std::string& imgUrl = images[j];
+            if (m_statusCallback) m_statusCallback("Page " + std::to_string(i + 1) + "/" + std::to_string(totalPages) + ": Downloading image " + std::to_string(j - startIdx + 1) + "/" + std::to_string(totalToDownload) + "...");
+
+            // Get filename from URL
+            Uri imgUri = parseUri(imgUrl);
+            std::string filename = std::filesystem::path(imgUri.path).filename().string();
+            if (filename.empty() || filename.find('.') == std::string::npos) {
+                filename = "image_" + std::to_string(std::hash<std::string>{}(imgUrl)) + ".jpg";
+            }
             
-            if (localData.isFolder) {
-                if (it == remoteCopy.end()) {
-                    // Create remote folder
-                    fs::path p(relPath);
-                    std::string parentId = (p.has_parent_path() && m_remotePathToId.count(p.parent_path().string()))
-                                           ? m_remotePathToId[p.parent_path().string()]
-                                           : destFolderId;
-                    std::string newId = createRemoteFolder(p.filename().string(), parentId);
-                    m_remotePathToId[relPath] = newId;
-                } else {
-                    remoteCopy.erase(it); // Mark as processed
-                }
-                continue;
-            }
-
-            // It's a file
-            if (it != remoteCopy.end()) {
-                // File exists in both. Skip.
-                log("   SKIPPING: " + relPath);
-                skipped++;
-                remoteCopy.erase(it);
-            } else {
-                // File only exists locally. Upload.
-                fs::path p(relPath);
-                std::string parentId = (p.has_parent_path() && m_remotePathToId.count(p.parent_path().string()))
-                                       ? m_remotePathToId[p.parent_path().string()]
-                                       : destFolderId;
-                if (uploadFile(localData.path, p.filename().string(), parentId)) {
-                    uploaded++;
-                }
+            fs::path savePath = getUniqueFilename(m_downloadDir / filename);
+            
+            if (downloadImage(imgUrl, savePath)) {
+                totalDownloaded++;
+                if (m_imageSavedCallback) m_imageSavedCallback(savePath.string());
             }
         }
-
-        // 2. Process Remaining Remote Items (Download Missing)
-        for (const auto& [relPath, remoteData] : remoteCopy) {
-            if (remoteData.isFolder) continue; // Skip folders
-
-            // File only exists remotely. Download.
-            fs::path localDest = m_localPath / relPath;
-            FileSystemUtil::createDirectory(localDest, true);
-            if (apiDownload(remoteData.id, localDest)) {
-                downloaded++;
-            }
-        }
-        
-        std::string finalMsg = "Sync " + std::string(m_dryRun ? "simulation" : "complete") + ". "
-                             + "Uploads: " + std::to_string(uploaded)
-                             + ", Downloads: " + std::to_string(downloaded)
-                             + ", Skipped: " + std::to_string(skipped);
-        log(finalMsg);
-        return {true, finalMsg};
-        
-    } catch (const std::exception& e) {
-        log("❌ Sync failed: " + std::string(e.what()));
-        return {false, "Sync failed: " + std::string(e.what())};
     }
+
+    if (m_statusCallback) m_statusCallback("Crawl complete. Downloaded " + std::to_string(totalDownloaded) + " total images.");
+    return totalDownloaded;
 }

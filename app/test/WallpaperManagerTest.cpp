@@ -1,5 +1,5 @@
 #include "gtest/gtest.h"
-#include "WallpaperManager.h"
+#include "../src/core/WallpaperManager.h"
 #include <map>
 #include <string>
 

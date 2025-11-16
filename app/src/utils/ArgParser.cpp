@@ -3,6 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include <algorithm>
+#include <stdexcept>
 
 using namespace std;
 namespace def = Definitions;
@@ -16,6 +17,14 @@ bool checkRequired(const cxxopts::ParseResult& result, const std::string& name, 
         cerr << "Argument error: --" << name << " is required for command '" << command << "'" << endl;
         return false;
     }
+    // For vectors, check non-empty
+    if constexpr (std::is_same_v<T, std::vector<std::string>> || std::is_same_v<T, std::vector<int>>) {
+        auto vec = result[name].as<std::vector<typename T::value_type>>();
+        if (vec.empty()) {
+            cerr << "Argument error: --" << name << " must not be empty for command '" << command << "'" << endl;
+            return false;
+        }
+    }
     return true;
 }
 
@@ -24,22 +33,27 @@ bool checkRequired(const cxxopts::ParseResult& result, const std::string& name, 
 ArgParser::ArgParser() 
     : m_options("Image Toolkit", "Image database and edit toolkit.") 
 {
-    // Cxxopts simplifies subparsers by letting the first unmatched argument determine the command.
-    // The main options object must capture this command argument first.
-    m_options.add_option("", "command", "Command to execute (convert, merge, delete, web_crawler, gui)", 
-                         cxxopts::value<std::string>(), "");
-    m_options.allow_unrecognised_options();
-    m_options.add_option("", "h", "help", cxxopts::value<bool>(), "Display this help menu");
+    m_options.add_options()
+        // Command (Implicit positional argument or required)
+        ("command", "Command to execute (convert, merge, delete, web_crawler, gui)",
+            cxxopts::value<std::string>())
+        
+        // Help menu
+        ("h,help", "Display this help menu", 
+            cxxopts::value<bool>()->default_value("false")) // Note the bool default
+        
+        // Input file/directory
+        ("i,input", "Input file or directory.", 
+            cxxopts::value<std::string>());
 }
 
 ArgParser::Arguments ArgParser::parseArgs(int argc, char** argv) {
+    Arguments args;
     try {
         auto result = m_options.parse(argc, argv);
 
         if (result.count("h")) {
-            // Re-show help using the specific command context if provided
             if (argc > 1) {
-                // Try to parse command if present
                 std::string command = argv[1];
                 cxxopts::Options commandOptions("Command " + command, "Arguments for " + command);
                 if (command == "convert") addConvertArgs(commandOptions);
@@ -50,7 +64,7 @@ ArgParser::Arguments ArgParser::parseArgs(int argc, char** argv) {
                 
                 std::cout << commandOptions.help() << std::endl;
             } else {
-                 std::cout << m_options.help() << std::endl;
+                std::cout << m_options.help() << std::endl;
             }
             throw std::runtime_error("Help displayed.");
         }
@@ -70,9 +84,8 @@ ArgParser::Arguments ArgParser::parseArgs(int argc, char** argv) {
         else if (command == "gui") addGuiArgs(commandOptions);
         else throw std::runtime_error("Unknown command: " + command);
         
-        // Re-parse remaining arguments for the specific command options
         auto finalResult = commandOptions.parse(argc, argv);
-        
+
         // --- Custom Requirement Checks ---
         if (command == "convert" && !checkRequired<std::string>(finalResult, "output_format", command)) throw std::runtime_error("Missing required args.");
         if (command == "convert" && !checkRequired<std::string>(finalResult, "input_path", command)) throw std::runtime_error("Missing required args.");
@@ -83,11 +96,8 @@ ArgParser::Arguments ArgParser::parseArgs(int argc, char** argv) {
 
         return mapResults(finalResult, command);
 
-    } catch (const cxxopts::OptionException& e) {
-        cerr << "Error parsing arguments: " << e.what() << endl;
-        throw;
     } catch (const std::exception& e) {
-        cerr << "Error: " << e.what() << endl;
+        cerr << "Error parsing arguments: " << e.what() << endl;
         throw;
     }
 }
@@ -108,7 +118,8 @@ void ArgParser::addMergeArgs(cxxopts::Options& options) {
         ("output_path", "The path to write the merged image to", cxxopts::value<std::string>()->default_value(""))
         ("input_formats", "Formats of the input images we want to transform (define when input_path is a directory)", cxxopts::value<std::vector<std::string>>()->default_value(""))
         ("spacing", "Spacing between images when merging", cxxopts::value<int>()->default_value("0"))
-        ("grid_size", "Size of the grid (define if direction is 'grid')", cxxopts::value<std::vector<int>>()->default_values({"0", "0"}));
+        // FIX 2: Changed 'default_values' to 'default_value' and updated vector format to string "0,0"
+        ("grid_size", "Size of the grid (define if direction is 'grid')", cxxopts::value<std::vector<int>>()->default_value("0,0")); 
 }
 
 void ArgParser::addDeleteArgs(cxxopts::Options& options) {

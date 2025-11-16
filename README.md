@@ -133,12 +133,7 @@ To build the core and web parts of the project, you need to run the following co
 mkdir build
 cd build
 cmake ..
-```
-
-### Desktop GUI
-To build the desktop GUI part of the project, you need to run the following commands:
-```bash
-qmake
+cmake --build . --clean-first
 make
 ```
 

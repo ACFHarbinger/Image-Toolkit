@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
-#include "ImageUtil.h"
-#include "FileSystemUtil.h"
+#include "../src/core/ImageUtil.h"
+#include "../src/core/FileSystemUtil.h"
 #include <filesystem>
 #include <opencv2/opencv.hpp>
 

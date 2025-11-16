@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
-#include "WebClient.h"
-#include "FileSystemUtil.h"
+#include "../src/web/WebClient.h"
+#include "../src/core/FileSystemUtil.h"
 #include <filesystem>
 #include <set>
 
@@ -82,7 +82,7 @@ TEST_F(WebClientTest, RunCrawl) {
     // Check if the file was downloaded
     int fileCount = 0;
     for (const auto& entry : fs::directory_iterator(testDir)) {
-        if (entry.is_file()) {
+        if (entry.is_regular_file()) {
             fileCount++;
         }
     }
