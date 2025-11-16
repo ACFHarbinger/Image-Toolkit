@@ -7,7 +7,7 @@ from urllib.parse import urlparse, urljoin
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait 
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
+from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException, TimeoutException
 from PySide6.QtCore import QObject, Signal
 from .crawler import WebCrawler
 
@@ -82,6 +82,10 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                 EC.presence_of_element_located((by, value))
             )
             return True
+        except TimeoutException as e:
+            # Handle selenium timeout exceptions separately
+            print(f"Wait for image element timed out: {e}")
+            return False
         except Exception as e:
             print(f"Wait for image element failed: {e}")
             return False
@@ -102,7 +106,8 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
         # --- FIX 1: Explicit JavaScript Wait Condition ---
         # We perform the wait here to ensure the gallery is ready
         self.on_status.emit("Waiting for gallery image articles to appear...")
-        if not self.wait_for_image_element(By.CSS_SELECTOR, "article[id^='post_']", timeout=20):
+        # Target a common gallery image element or link
+        if not self.wait_for_image_element(By.CSS_SELECTOR, "img[src]", timeout=20):
             self.on_status.emit("Timed out waiting for image gallery to load. Exiting process_data.")
             return 0
         # --------------------------------------------------
@@ -192,9 +197,11 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
 
             try:
                 if action_type == "Find Parent Link (<a>)":
+                    # Find the closest link parent of the current element and make it the new current_element
                     current_element = current_element.find_element(By.XPATH, "./ancestor::a")
                 
                 elif action_type == "Download Simple Thumbnail (Legacy)":
+                    # Downloads the SRC from the original image element (which is the element passed to this function)
                     url = element.get_attribute("src") 
                     if not url:
                         print("Action 'Legacy Download': No src found on original element.")
@@ -203,25 +210,19 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                 
                 elif action_type == "Wait for Gallery (Context Reset)":
                     self.on_status.emit("Awaiting gallery load after security challenge...")
-                    # Give a longer timeout (30s) for manual interaction
-                    if not self.wait_for_image_element(By.CSS_SELECTOR, "article[id^='post_']", timeout=30):
+                    if not self.wait_for_image_element(By.CSS_SELECTOR, "img[src]", timeout=30):
                          self.on_status.emit("Timed out waiting for image gallery to resume.")
                          return False 
                     self.on_status.emit("Gallery context confirmed.")
 
                 elif action_type == "Extract High-Res Preview URL":
-                    try:
-                        picture_tag = current_element.find_element(By.XPATH, "./ancestor::picture")
-                        source_tag = picture_tag.find_element(By.TAG_NAME, "source")
-                        srcset = source_tag.get_attribute("srcset")
-                        larger_url = srcset.split('2x')[0].split(',')[-1].strip()
-                        self.on_status.emit(f"Extracted preview URL: {larger_url}")
-                        return self._download_image_from_url(larger_url)
-                    except NoSuchElementException:
-                        url = current_element.get_attribute("src")
-                        self.on_status.emit("Preview source failed, falling back to standard <img> src.")
-                        return self._download_image_from_url(url)
-
+                    # This action now only attempts to click the element to navigate.
+                    # This is brittle and might be better served by 'Click Element by Text', but we keep it for now.
+                    # The goal is often to navigate to a new page to find the full image.
+                    current_element.click()
+                    self.wait_for_page_to_load(timeout=5)
+                    self.on_status.emit("Clicked element and navigating to new page...")
+                
                 elif action_type == "Open Link in New Tab":
                     href = current_element.get_attribute("href")
                     if not href:
@@ -245,12 +246,16 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                     self.driver.switch_to.window(self.driver.window_handles[-1])
                 
                 elif action_type == "Find First <img> on Page":
+                    # Set the new current element to the first image found on the page
                     current_element = self.driver.find_element(By.TAG_NAME, "img")
                 
                 elif action_type == "Download Image from Element":
-                    url = current_element.get_attribute("src")
+                    # Use the current element (which should be the high-res image or link)
+                    # Try to get the SRC attribute first, or the HREF if it's a direct link to the image
+                    url = current_element.get_attribute("src") or current_element.get_attribute("href")
+                    
                     if not url:
-                        print("Action 'Download Image': No src found on current element.")
+                        print("Action 'Download Image': No src or href found on current element.")
                         return False
                     return self._download_image_from_url(url)
                 
@@ -264,6 +269,10 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
 
             except NoSuchElementException:
                 self.on_status.emit(f"Action '{action_type}' failed: Element not found.")
+                # Important: If an element is not found, the sequence often needs to stop for this image.
+                return False 
+            except StaleElementReferenceException:
+                self.on_status.emit(f"Action '{action_type}' failed: Element is stale (page reloaded).")
                 return False
             except Exception as e:
                 print(f"Action '{action_type}' failed: {e}")
@@ -274,20 +283,23 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
 
     def _download_image_from_url(self, url):
         try:
+            # 1. Resolve URL relative to the current page
             url = urljoin(self.driver.current_url, url)
             
+            # 2. Extract clean filename
             parsed = urlparse(url)
             filename = os.path.basename(parsed.path).split('?')[0]
-            if not filename or '.' not in filename:
+            if not filename or '.' not in filename or len(filename) < 5: # Basic check for valid filename
                 filename = f"image_{int(time.time() * 1000)}.jpg"
 
             save_path = os.path.join(self.download_dir, filename)
             save_path = self.get_unique_filename(save_path)
 
+            # 3. Download using requests
             response = requests.get(url, stream=True, timeout=15, headers={
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             })
-            response.raise_for_status()
+            response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
 
             with open(save_path, 'wb') as f:
                 for chunk in response.iter_content(8192):
@@ -296,8 +308,11 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
             self.on_image_saved.emit(save_path)
             return True
 
+        except requests.exceptions.HTTPError as he:
+            print(f"Failed to download {url}: HTTP Error {he.response.status_code}")
+            return False
         except Exception as e:
-            print(f"Failed {url}: {e}")
+            print(f"Failed to download {url}: {e}")
             return False
 
     def run(self):

@@ -171,6 +171,9 @@ class ImageCrawlTab(BaseTab):
         
         # Action List
         self.action_list_widget = QListWidget()
+        # --- START FIX: Set minimum height for the action list ---
+        self.action_list_widget.setMinimumHeight(200) # Setting minimum height to 200px
+        # --- END FIX ---
         self.action_list_widget.setStyleSheet("QListWidget { border: 1px solid #4f545c; border-radius: 4px; }")
         
         # --- Context Menu Setup ---
@@ -443,7 +446,7 @@ class ImageCrawlTab(BaseTab):
         """Returns the default configuration values for this tab."""
         return {
             "url": "https://example.com/gallery?page=1",
-            "download_dir": "C:/path/to/downloads",
+            "download_dir": "C:/home/pkhunter/Repositories/Image-Toolkit/data/tmp",
             "screenshot_dir": None,
             "headless": True,
             "browser": "chrome",
