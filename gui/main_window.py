@@ -3,8 +3,8 @@ import os
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QIcon, QImageReader
 from PySide6.QtWidgets import (
-    QLabel, QWidget, QTabWidget, 
     QSizePolicy, QPushButton, QStyle, QComboBox,
+    QLabel, QWidget, QTabWidget, QScrollArea,
     QVBoxLayout, QHBoxLayout, QApplication,
 )
 from .windows import SettingsWindow
@@ -28,7 +28,7 @@ class MainWindow(QWidget):
         self.vault_manager = vault_manager
         
         self.setWindowTitle("Image Database & Edit Toolkit")
-        self.setMinimumSize(950, 950)
+        self.setMinimumWidth(800)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         QImageReader.setAllocationLimit(NEW_LIMIT_MB)
         
@@ -160,7 +160,7 @@ class MainWindow(QWidget):
     def on_command_changed(self, new_command: str):
         """
         Dynamically changes the tabs displayed in the QTabWidget based on 
-        the selection in the QComboBox.
+        the selection in the QComboBox, wrapping each tab in a QScrollArea.
         """
         # Clear existing tabs
         self.tabs.clear()
@@ -170,7 +170,23 @@ class MainWindow(QWidget):
         
         # Add the tabs to the QTabWidget
         for tab_name, tab_widget in tab_map.items():
-            self.tabs.addTab(tab_widget, tab_name)
+            
+            # --- START NEW SCROLLABLE WRAPPER ---
+            # 1. Create a QScrollArea instance
+            scroll_wrapper = QScrollArea()
+            # 2. Ensure the scroll area resizes to its content size hint
+            scroll_wrapper.setWidgetResizable(True)
+            # 3. Remove the scroll area border for a cleaner look
+            scroll_wrapper.setFrameShape(QScrollArea.Shape.NoFrame)
+            
+            # 4. Set the actual tab widget (e.g., DatabaseTab) as the scroll area's widget
+            # Note: We set the tab widget itself as the content to be scrolled.
+            scroll_wrapper.setWidget(tab_widget)
+            
+            # 5. Add the scroll area to the QTabWidget instead of the tab widget itself
+            self.tabs.addTab(scroll_wrapper, tab_name)
+            # --- END NEW SCROLLABLE WRAPPER ---
+
 
     # --- Theme Switching Logic ---
     def set_application_theme(self, theme_name):

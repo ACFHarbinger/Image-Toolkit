@@ -1,20 +1,20 @@
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QGraphicsDropShadowEffect 
+from PySide6.QtWidgets import QGraphicsDropShadowEffect
 
 
 def apply_shadow_effect(widget, color_hex="#000000", radius=10, x_offset=0, y_offset=4):
     """Creates and applies a QGraphicsDropShadowEffect to a given widget."""
     shadow = QGraphicsDropShadowEffect(widget)
-    
+
     # 1. Set the color (black with transparency)
     shadow.setColor(QColor(color_hex))
-    
+
     # 2. Set the blur radius (controls the softness/spread)
     shadow.setBlurRadius(radius)
-    
+
     # 3. Set the offset (controls the shadow position, similar to CSS x/y)
     shadow.setOffset(x_offset, y_offset)
-    
+
     # 4. Apply the effect to the widget
     widget.setGraphicsEffect(shadow)
     return shadow
@@ -149,6 +149,39 @@ DARK_QSS = f"""
         background-color: {DARK_SECONDARY_BG};
         border-bottom: 2px solid {DARK_ACCENT_COLOR};
     }}
+
+    /* --- NEW: Scroll Bar Styling for visibility --- */
+    QScrollBar:vertical, QScrollBar:horizontal {{
+        border: none;
+        background: {DARK_SECONDARY_BG}; /* Dark background groove */
+        width: 12px;
+        height: 12px;
+    }}
+
+    QScrollBar::handle:vertical {{
+        background: {DARK_ACCENT_COLOR}; /* Bright cyan handle */
+        min-height: 20px;
+        border-radius: 6px;
+        margin: 2px 2px 2px 2px;
+    }}
+
+    QScrollBar::handle:horizontal {{
+        background: {DARK_ACCENT_COLOR}; /* Bright cyan handle */
+        min-width: 20px;
+        border-radius: 6px;
+        margin: 2px 2px 2px 2px;
+    }}
+
+    QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover {{
+        background: {DARK_ACCENT_HOVER};
+    }}
+
+    /* Remove default arrows */
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
+    QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
+        border: none;
+        background: none;
+    }}
 """
 
 
@@ -254,6 +287,39 @@ LIGHT_QSS = f"""
     QWidget#header_widget {{
         background-color: {DARK_SECONDARY_BG}; /* Keep dark header for contrast */
         border-bottom: 2px solid {LIGHT_ACCENT_COLOR}; /* Use light theme accent color for border */
+    }}
+
+    /* --- NEW: Scroll Bar Styling for professional blue --- */
+    QScrollBar:vertical, QScrollBar:horizontal {{
+        border: none;
+        background: {LIGHT_SECONDARY_BG}; /* Light background groove */
+        width: 12px;
+        height: 12px;
+    }}
+
+    QScrollBar::handle:vertical {{
+        background: {LIGHT_ACCENT_COLOR}; /* Professional blue handle */
+        min-height: 20px;
+        border-radius: 6px;
+        margin: 2px 2px 2px 2px;
+    }}
+
+    QScrollBar::handle:horizontal {{
+        background: {LIGHT_ACCENT_COLOR}; /* Professional blue handle */
+        min-width: 20px;
+        border-radius: 6px;
+        margin: 2px 2px 2px 2px;
+    }}
+
+    QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover {{
+        background: {LIGHT_ACCENT_HOVER};
+    }}
+
+    /* Remove default arrows */
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
+    QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
+        border: none;
+        background: none;
     }}
 """
 
