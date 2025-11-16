@@ -1,7 +1,7 @@
 import os
-import ctypes
 import platform
-from PIL import Image
+import subprocess
+
 from math import floor
 from pathlib import Path
 from screeninfo import get_monitors, Monitor
@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Tuple
 from PySide6.QtCore import Qt, QThreadPool, QThread, QTimer, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QGroupBox,
+    QVBoxLayout, QHBoxLayout, QGroupBox, QComboBox,
     QWidget, QLabel, QPushButton, QMessageBox, QApplication,
     QLineEdit, QFileDialog, QScrollArea, QGridLayout, QSpinBox, QCheckBox, 
 )
@@ -18,6 +18,7 @@ from ..windows import SlideshowQueueWindow
 from ..components import MonitorDropWidget, DraggableImageLabel
 from ..helpers import ImageScannerWorker, BatchThumbnailLoaderWorker, WallpaperWorker
 from ..styles.style import apply_shadow_effect, STYLE_SYNC_RUN, STYLE_SYNC_STOP
+from ..utils.app_definitions import WALLPAPER_STYLES
 
 
 class WallpaperTab(BaseTab):
@@ -78,7 +79,7 @@ class WallpaperTab(BaseTab):
                  self.set_wallpaper_btn.setText("Slideshow (Fix image counts)")
                  
         elif all_set_single:
-            self.set_wallpaper_btn.setText("Set and Rotate Wallpaper")
+            self.set_wallpaper_btn.setText("Set Wallpaper")
             self.set_wallpaper_btn.setEnabled(True)
         else:
             missing = num_monitors - set_count
@@ -105,11 +106,12 @@ class WallpaperTab(BaseTab):
         self.interval_sec: int = 0
         self.open_queue_windows: List[QWidget] = [] 
         
+        self.wallpaper_style: str = "Fill" # Default style
+
         layout = QVBoxLayout(self)
         
-        # Monitor Layout Group
-        layout_group = QGroupBox("Monitor Layout (Drop images here, double-click to see queue)")
-        layout_group.setStyleSheet("""
+        # Style for all QGroupBoxes
+        group_box_style = """
             QGroupBox {  
                 border: 1px solid #4f545c; 
                 border-radius: 8px;
@@ -122,7 +124,11 @@ class WallpaperTab(BaseTab):
                 color: white;
                 border-radius: 4px;
             }
-        """)
+        """
+        
+        # Monitor Layout Group
+        layout_group = QGroupBox("Monitor Layout (Drop images here, double-click to see queue)")
+        layout_group.setStyleSheet(group_box_style)
         
         self.monitor_layout_container = QWidget()
         self.monitor_layout = QHBoxLayout(self.monitor_layout_container)
@@ -134,7 +140,7 @@ class WallpaperTab(BaseTab):
 
         # Slideshow Controls Group
         self.slideshow_group = QGroupBox("Slideshow Settings (Per-Monitor Cycle)")
-        self.slideshow_group.setStyleSheet(layout_group.styleSheet())
+        self.slideshow_group.setStyleSheet(group_box_style)
         slideshow_layout = QHBoxLayout(self.slideshow_group)
         slideshow_layout.setContentsMargins(10, 20, 10, 10)
 
@@ -172,27 +178,34 @@ class WallpaperTab(BaseTab):
 
         layout.addWidget(self.slideshow_group)
 
-        # Scan Directory Section
-        scan_group = QGroupBox("Scan Directory (Image Source)")
-        scan_group.setStyleSheet("""
-            QGroupBox {  
-                border: 1px solid #4f545c; 
-                border-radius: 8px;
-                margin-top: 10px;
-            }
-            QGroupBox::title { 
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                padding: 4px 10px;
-                color: white;
-                border-radius: 4px;
-            }
-        """)
         
-        scan_layout = QVBoxLayout()
-        scan_layout.setContentsMargins(10, 20, 10, 10) 
+        # START Combined Settings Group (Wallpaper Style + Scan Directory)
+        settings_group = QGroupBox("Settings")
+        settings_group.setStyleSheet(group_box_style)
+        settings_layout = QVBoxLayout(settings_group)
+        settings_layout.setContentsMargins(10, 20, 10, 10)
         
-        # Directory path selection
+        # Wallpaper Style Section (formerly style_group)
+        style_layout = QHBoxLayout()
+        self.style_combo = QComboBox()
+        self.style_combo.setStyleSheet("QComboBox { padding: 5px; border-radius: 4px; }")
+        
+        # Determine initial style options based on OS
+        initial_styles = self._get_relevant_styles()
+        self.style_combo.addItems(initial_styles.keys())
+        self.style_combo.setCurrentText(list(initial_styles.keys())[0])
+        self.wallpaper_style = list(initial_styles.keys())[0]
+        
+        # Connect the change handler
+        self.style_combo.currentTextChanged.connect(self._update_wallpaper_style)
+
+        style_layout.addWidget(QLabel("Global Style:"))
+        style_layout.addWidget(self.style_combo)
+        style_layout.addStretch(1)
+        settings_layout.addLayout(style_layout)
+
+        # Scan Directory Section (formerly scan_group)
+        settings_layout.addWidget(QLabel("Scan Directory (Image Source):"))
         scan_dir_layout = QHBoxLayout()
         self.scan_directory_path = QLineEdit()
         self.scan_directory_path.setPlaceholderText("Select directory to scan...")
@@ -202,10 +215,10 @@ class WallpaperTab(BaseTab):
 
         scan_dir_layout.addWidget(self.scan_directory_path)
         scan_dir_layout.addWidget(btn_browse_scan)
-        scan_layout.addLayout(scan_dir_layout)
+        settings_layout.addLayout(scan_dir_layout)
         
-        scan_group.setLayout(scan_layout)
-        layout.addWidget(scan_group)
+        layout.addWidget(settings_group)
+        # END Combined Settings Group
 
         # Thumbnail Gallery Scroll Area
         self.thumbnail_size = 150
@@ -269,6 +282,31 @@ class WallpaperTab(BaseTab):
         self.populate_monitor_layout()
         self.check_all_monitors_set()
         self.stop_slideshow()
+        
+    def _get_relevant_styles(self) -> Dict[str, str]:
+        """Returns the dictionary of relevant styles based on the current OS."""
+        system = platform.system()
+        if system == "Windows":
+            return WALLPAPER_STYLES["Windows"]
+        elif system == "Linux":
+            # Assume KDE/GNOME, check for KDE first
+            try:
+                subprocess.run(["which", "qdbus6"], check=True, capture_output=True)
+                return WALLPAPER_STYLES["KDE"]
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                # Fallback to GNOME/Spanned
+                return WALLPAPER_STYLES["GNOME"]
+            except:
+                return {"Default (System)": None}
+        else:
+            return {"Default (System)": None}
+
+
+    @Slot(str)
+    def _update_wallpaper_style(self, style_name: str):
+        """Updates the selected wallpaper style."""
+        self.wallpaper_style = style_name
+
 
     # --- Slideshow Handlers ---
 
@@ -523,6 +561,7 @@ class WallpaperTab(BaseTab):
         
         try:
             system_monitors = get_monitors()
+            # Sort by X coordinate for physical display in the UI
             physical_monitors = sorted(system_monitors, key=lambda m: m.x)
             
             self.monitors = system_monitors
@@ -547,6 +586,7 @@ class WallpaperTab(BaseTab):
 
         for monitor in monitors_to_show:
             
+            # Find the original system index (display priority)
             system_index = -1
             for i, sys_mon in enumerate(system_monitors):
                 if (sys_mon.x == monitor.x and 
@@ -560,6 +600,7 @@ class WallpaperTab(BaseTab):
                 print(f"Warning: Could not map physical monitor {monitor.name} to system index.")
                 continue
 
+            # The monitor_id is the system's priority index (0, 1, 2, ...)
             monitor_id = str(system_index) 
 
             drop_widget = MonitorDropWidget(monitor, monitor_id)
@@ -570,6 +611,7 @@ class WallpaperTab(BaseTab):
             if current_image:
                 drop_widget.set_image(current_image)
             
+            # Add to the layout in the physical order determined by the sort
             self.monitor_layout.addWidget(drop_widget)
             self.monitor_widgets[monitor_id] = drop_widget
         
@@ -595,6 +637,7 @@ class WallpaperTab(BaseTab):
         """
         Helper function to create the rotated path map.
         Monitor 0 gets image from N-1, Monitor 1 gets image from 0, etc.
+        This uses the monitor_id (system index) for rotation.
         """
         n = len(self.monitors)
         if n == 0:
@@ -640,18 +683,18 @@ class WallpaperTab(BaseTab):
         if not slideshow_mode:
             self.lock_ui_for_wallpaper()
         
-        self.current_wallpaper_worker = WallpaperWorker(path_map, monitors)
+        # Pass the selected wallpaper style
+        self.current_wallpaper_worker = WallpaperWorker(
+            path_map, 
+            monitors, 
+            wallpaper_style=self.wallpaper_style
+        )
         self.current_wallpaper_worker.signals.status_update.connect(self.handle_wallpaper_status)
         self.current_wallpaper_worker.signals.work_finished.connect(self.handle_wallpaper_finished)
         
         self.current_wallpaper_worker.signals.work_finished.connect(
             lambda: setattr(self, 'current_wallpaper_worker', None)
         )
-        
-        # REMOVED THE LINE CAUSING THE ERROR:
-        # self.current_wallpaper_worker.signals.work_finished.connect(
-        #     self.current_wallpaper_worker.deleteLater
-        # )
         
         QThreadPool.globalInstance().start(self.current_wallpaper_worker)
 
@@ -674,6 +717,8 @@ class WallpaperTab(BaseTab):
         self.refresh_btn.setEnabled(False)
         self.slideshow_group.setEnabled(False)
         self.scan_scroll_area.setEnabled(False)
+        self.scan_directory_path.setEnabled(False) # Disable path field
+        self.style_combo.setEnabled(False) # Disable style selection
         QApplication.processEvents()
         
     def unlock_ui_for_wallpaper(self):
@@ -684,6 +729,8 @@ class WallpaperTab(BaseTab):
         self.refresh_btn.setEnabled(True)
         self.slideshow_group.setEnabled(True)
         self.scan_scroll_area.setEnabled(True)
+        self.scan_directory_path.setEnabled(True) # Enable path field
+        self.style_combo.setEnabled(True) # Enable style selection
         
         self.check_all_monitors_set()
         QApplication.processEvents()
@@ -704,7 +751,7 @@ class WallpaperTab(BaseTab):
 
         if success:
             if not is_slideshow_active:
-                QMessageBox.information(self, "Success", "Wallpaper has been rotated and updated!")
+                QMessageBox.information(self, "Success", "Wallpaper has been updated!")
                 
                 for monitor_id, path in self.monitor_image_paths.items():
                     if path and monitor_id in self.monitor_widgets:
@@ -886,4 +933,5 @@ class WallpaperTab(BaseTab):
         """Collect current state (for consistency with other tabs)."""
         return {
             "monitor_queues": self.monitor_slideshow_queues,
+            "wallpaper_style": self.wallpaper_style,
         }

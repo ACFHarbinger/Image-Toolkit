@@ -7,6 +7,7 @@ from PIL import Image
 from pathlib import Path
 from typing import Dict, List
 from screeninfo import Monitor
+from ..utils.definitions import WALLPAPER_STYLES
 
 # Conditionally import winreg only on Windows
 if platform.system() == "Windows":
@@ -19,23 +20,28 @@ class WallpaperManager:
     """
 
     @staticmethod
-    def _set_wallpaper_windows(image_path: str):
+    def _set_wallpaper_windows(image_path: str, style_name: str):
         """
-        Sets the wallpaper for Windows.
-        Uses 'Fill' (4) style.
+        Sets the wallpaper for Windows using the specified style.
         
         :param image_path: The absolute path to the image to set.
+        :param style_name: The descriptive name of the style (e.g., "Fill").
         """
+        # Get OS-specific values for the selected style
+        style_values = WALLPAPER_STYLES["Windows"].get(style_name, WALLPAPER_STYLES["Windows"]["Fill"])
+        wallpaper_style_reg, tile_wallpaper_reg = style_values
+
         # Ensure path is absolute and resolved
         save_path = str(Path(image_path).resolve())
 
         try:
             key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, 
                                  "Control Panel\\Desktop", 0, winreg.KEY_SET_VALUE)
-            # Set style to "Fill" (4)
-            winreg.SetValueEx(key, "WallpaperStyle", 0, winreg.REG_SZ, "4") 
-            # Ensure tiling is off
-            winreg.SetValueEx(key, "TileWallpaper", 0, winreg.REG_SZ, "0") 
+            
+            # Set the WallpaperStyle (Position/Sizing)
+            winreg.SetValueEx(key, "WallpaperStyle", 0, winreg.REG_SZ, wallpaper_style_reg) 
+            # Set TileWallpaper (Tiling on/off)
+            winreg.SetValueEx(key, "TileWallpaper", 0, winreg.REG_SZ, tile_wallpaper_reg) 
             winreg.CloseKey(key)
 
             SPI_SETDESKWALLPAPER = 20
@@ -53,13 +59,17 @@ class WallpaperManager:
             raise RuntimeError(f"Error setting Windows wallpaper: {e}")
 
     @staticmethod
-    def _set_wallpaper_kde(path_map: Dict[str, str], num_monitors: int):
+    def _set_wallpaper_kde(path_map: Dict[str, str], num_monitors: int, style_name: str):
         """
-        Sets per-monitor wallpaper for KDE Plasma using qdbus6.
+        Sets per-monitor wallpaper for KDE Plasma using qdbus6 and the specified style.
         
         :param path_map: Dictionary mapping system monitor index (str) to image path.
         :param num_monitors: Total number of system monitors.
+        :param style_name: The descriptive name of the style (e.g., "Scaled, Keep Proportions").
         """
+        # Get the KDE FillMode integer for the selected style
+        fill_mode = WALLPAPER_STYLES["KDE"].get(style_name, WALLPAPER_STYLES["KDE"]["Scaled, Keep Proportions"])
+        
         script_parts = []
         
         # --- Iterate by system monitor index (i = 0, 1, 2...) ---
@@ -72,9 +82,8 @@ class WallpaperManager:
             if path:
                 file_uri = f"file://{Path(path).resolve()}"
                 # Apply path to the correct desktop index
-                # FillMode 1 is "Scaled, Keep Proportions" (aka "Fill")
                 script_parts.append(
-                    f'd = desktops()[{i}]; d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); d.writeConfig("Image", "{file_uri}"); d.writeConfig("FillMode", 1);'
+                    f'd = desktops()[{i}]; d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); d.writeConfig("Image", "{file_uri}"); d.writeConfig("FillMode", {fill_mode});'
                 )
         
         if not script_parts:
@@ -93,13 +102,14 @@ class WallpaperManager:
         subprocess.run(qdbus_command, shell=True, check=True, capture_output=True, text=True)
 
     @staticmethod
-    def _set_wallpaper_gnome_spanned(path_map: Dict[str, str], monitors: List[Monitor]):
+    def _set_wallpaper_gnome_spanned(path_map: Dict[str, str], monitors: List[Monitor], style_name: str):
         """
         Creates a single spanned wallpaper for GNOME/fallback.
-        Stitches images together based on physical monitor layout.
+        Note: GNOME only supports 'spanned' for the composed image in this multi-monitor context.
         
         :param path_map: Dictionary mapping system monitor index (str) to image path.
         :param monitors: List of Monitor objects in SYSTEM order.
+        :param style_name: The descriptive name of the style (currently ignored, always uses 'spanned').
         """
         # Sort monitors by physical x-position for correct spanning
         physical_monitors = sorted(monitors, key=lambda m: m.x)
@@ -156,7 +166,7 @@ class WallpaperManager:
         spanned_image.save(save_path, "JPEG", quality=95)
         file_uri = f"file://{save_path}"
 
-        # Set the wallpaper using gsettings
+        # Set the wallpaper using gsettings (always using 'spanned' picture-options here)
         subprocess.run(
             ["gsettings", "set", "org.gnome.desktop.background", "picture-options", "spanned"],
             check=True, capture_output=True, text=True
@@ -172,13 +182,13 @@ class WallpaperManager:
         )
 
     @staticmethod
-    def apply_wallpaper(path_map: Dict[str, str], monitors: List[Monitor]):
+    def apply_wallpaper(path_map: Dict[str, str], monitors: List[Monitor], style_name: str):
         """
-        Applies wallpaper based on the OS. This is the main function
-        to be called from other modules.
+        Applies wallpaper based on the OS and the selected style.
         
         :param path_map: A dictionary mapping monitor SYSTEM INDEX (str) to image path (str).
         :param monitors: The list of Monitor objects in SYSTEM order.
+        :param style_name: The user-selected wallpaper style (e.g., "Fill").
         """
         system = platform.system()
         
@@ -202,19 +212,19 @@ class WallpaperManager:
             if not path_to_set:
                 raise ValueError("No valid image path provided for Windows.")
             
-            WallpaperManager._set_wallpaper_windows(path_to_set)
+            WallpaperManager._set_wallpaper_windows(path_to_set, style_name)
                 
         elif system == "Linux":
             # --- Linux Implementation ---
             try:
                 # Try KDE qdbus6 method first
                 subprocess.run(["which", "qdbus6"], check=True, capture_output=True)
-                WallpaperManager._set_wallpaper_kde(path_map, len(monitors))
+                WallpaperManager._set_wallpaper_kde(path_map, len(monitors), style_name)
                 
             except (FileNotFoundError, subprocess.CalledProcessError):
                 # Fallback to GNOME (spanned) method
                 try:
-                    WallpaperManager._set_wallpaper_gnome_spanned(path_map, monitors)
+                    WallpaperManager._set_wallpaper_gnome_spanned(path_map, monitors, style_name)
                 except Exception as e:
                     raise RuntimeError(f"GNOME (fallback) method failed: {e}")
             except Exception as e:
