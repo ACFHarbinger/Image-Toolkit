@@ -37,6 +37,7 @@ class MainWindow(QWidget):
 
         vbox = QVBoxLayout()
         
+        # settings_window is tracked here
         self.settings_window = None 
 
         # --- Application Header ---
@@ -268,7 +269,29 @@ class MainWindow(QWidget):
             super().keyPressEvent(event)
 
     def closeEvent(self, event):
-        """Ensure JVM shutdown on main window close."""
+        """
+        Ensure JVM shutdown and close all child windows on main window close.
+        """
+        
+        # 1. Close the Settings window if open
+        if self.settings_window:
+            self.settings_window.close()
+            # Note: self.settings_window is cleared by its destroyed signal connection
+        
+        # 2. Close all Slideshow Queue windows
+        # Note: self.wallpaper_tab.open_queue_windows is the list we need to close
+        for win in list(self.wallpaper_tab.open_queue_windows):
+            if win.isVisible():
+                win.close()
+        
+        # 3. Close all Image Preview windows
+        # Note: self.wallpaper_tab.open_image_preview_windows is the list we need to close
+        for win in list(self.wallpaper_tab.open_image_preview_windows):
+            if win.isVisible():
+                win.close()
+                
+        # 4. Ensure JVM shutdown
         if self.vault_manager:
             self.vault_manager.shutdown()
+            
         super().closeEvent(event)

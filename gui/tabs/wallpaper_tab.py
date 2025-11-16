@@ -14,8 +14,8 @@ from PySide6.QtWidgets import (
     QLineEdit, QFileDialog, QScrollArea, QGridLayout, QSpinBox, QCheckBox,
 )
 from .base_tab import BaseTab
-from ..windows import SlideshowQueueWindow
-from ..components import MonitorDropWidget, DraggableImageLabel, ImagePreviewWindow 
+from ..windows import SlideshowQueueWindow, ImagePreviewWindow
+from ..components import MonitorDropWidget, DraggableImageLabel 
 from ..helpers import ImageScannerWorker, BatchThumbnailLoaderWorker, WallpaperWorker
 from ..styles.style import apply_shadow_effect, STYLE_SYNC_RUN, STYLE_SYNC_STOP
 from backend.src.utils.definitions import WALLPAPER_STYLES
@@ -200,7 +200,7 @@ class WallpaperTab(BaseTab):
 
         
         # START Combined Settings Group (Wallpaper Style + Scan Directory)
-        settings_group = QGroupBox("Settings")
+        settings_group = QGroupBox("Wallpaper Settings")
         settings_group.setStyleSheet(group_box_style)
         settings_layout = QVBoxLayout(settings_group)
         settings_layout.setContentsMargins(10, 20, 10, 10)

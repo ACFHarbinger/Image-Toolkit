@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 from .base_tab import BaseTab
 from ..components import OptionalField
-from ..components import ImagePreviewWindow
+from ..windows import ImagePreviewWindow
 from ..styles.style import apply_shadow_effect
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 

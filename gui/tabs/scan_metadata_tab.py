@@ -14,7 +14,8 @@ from PySide6.QtWidgets import (
     QWidget, QGroupBox, QCheckBox, QFrame,
 )
 from .base_tab import BaseTab
-from ..components import ImagePreviewWindow, ClickableLabel, MarqueeScrollArea
+from ..windows import ImagePreviewWindow
+from ..components import ClickableLabel, MarqueeScrollArea
 from ..helpers import ImageScannerWorker, BatchThumbnailLoaderWorker
 from ..styles.style import apply_shadow_effect
 
