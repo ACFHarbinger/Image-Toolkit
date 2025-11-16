@@ -130,7 +130,6 @@ class LoginWindow(QWidget):
             self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password)
             
             # 3. Get the specific AES key (using raw_password for Key entry password)
-            # NOTE: If this fails, it means the keystore wasn't created via "Create Account"
             self.vault_manager.get_secret_key(udef.KEY_ALIAS, raw_password)
             self.vault_manager.init_vault(udef.VAULT_FILE)
             
@@ -170,10 +169,37 @@ class LoginWindow(QWidget):
                 self.vault_manager.shutdown()
 
     def create_account(self):
-        """Creates a new account, hashes the password, and saves it to the vault."""
+        """
+        Creates a new account, hashes the password, and saves it to the vault.
+        If a previous vault exists, the user is warned, and the files are
+        overwritten/deleted to ensure data integrity with the new key.
+        """
         username, raw_password = self._get_credentials()
         if not username:
             return
+
+        # Check if files already exist
+        keystore_exists = os.path.exists(udef.KEYSTORE_FILE)
+        vault_exists = os.path.exists(udef.VAULT_FILE)
+
+        if keystore_exists or vault_exists:
+            reply = QMessageBox.question(self, 'Confirm Overwrite', 
+                "Creating a new account will **PERMANENTLY OVERWRITE** any existing secure vault and keystore files, deleting all previous data. Do you wish to proceed?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, 
+                QMessageBox.StandardButton.No)
+
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+            # Delete the old files if the user confirms overwrite
+            try:
+                if keystore_exists:
+                    os.remove(udef.KEYSTORE_FILE)
+                if vault_exists:
+                    os.remove(udef.VAULT_FILE)
+            except Exception as e:
+                QMessageBox.critical(self, "File Error", f"Failed to delete old files: {e}")
+                return
 
         try:
             # 1. Initialize the Vault Manager
@@ -182,13 +208,14 @@ class LoginWindow(QWidget):
             # 2. Load the KeyStore (Creates empty KeyStore in memory if file doesn't exist)
             self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password)
             
-            # 3. CRITICAL FIX: Ensure Key Entry exists and save KeyStore file
+            # 3. CRITICAL: Ensure Key Entry exists and save KeyStore file
             self.vault_manager.create_key_if_missing(udef.KEY_ALIAS, udef.KEYSTORE_FILE, raw_password)
             
             # 4. Retrieve the now-guaranteed secret key
             self.vault_manager.get_secret_key(udef.KEY_ALIAS, raw_password)
             
             # 5. Initialize the vault
+            # This creates a new, empty vault file (or overwrites if not deleted above)
             self.vault_manager.init_vault(udef.VAULT_FILE)
 
             # 6. Save credentials (this handles hashing, salting, and saving to encrypted file)
