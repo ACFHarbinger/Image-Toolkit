@@ -7,14 +7,27 @@ bool FileSystemUtil::pathContains(const fs::path& parentPath, const fs::path& ch
     try {
         fs::path parent = fs::canonical(parentPath);
         fs::path child = fs::canonical(childPath);
-
-        while (child.has_parent_path()) {
-            if (child == parent) {
+        
+        // Loop until the child path reaches the filesystem root or becomes empty.
+        fs::path current = child;
+        
+        while (!current.empty()) { 
+            if (current == parent) {
                 return true;
             }
-            child = child.parent_path();
+            
+            // Critical Change: Check if the parent path is the same as the current path.
+            // This prevents the infinite loop when 'current' is the root '/'.
+            fs::path next = current.parent_path();
+            if (next == current) {
+                break; // We have reached the root and cannot go up further.
+            }
+            current = next;
         }
-        return child == parent;
+        
+        // Final check in case parent and child were both the root or empty string.
+        return child == parent; 
+        
     } catch (const fs::filesystem_error& e) {
         std::cerr << "pathContains error: " << e.what() << std::endl;
         return false;

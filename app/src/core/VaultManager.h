@@ -7,6 +7,7 @@
 #include <jni.h> // Requires JNI headers (from JDK)
 #include <openssl/sha.h> // Requires OpenSSL dependency
 #include <openssl/rand.h>
+#include <openssl/evp.h>
 
 // Corresponds to JavaVaultManager
 class VaultManager {
