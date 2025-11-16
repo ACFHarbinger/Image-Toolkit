@@ -13,9 +13,7 @@ class ClickableLabel(QLabel):
 
     def __init__(self, file_path: str, parent=None):
         super().__init__(parent)
-        # --- RENAMED THIS ATTRIBUTE ---
         self.path = file_path 
-        # ---
         self.setCursor(Qt.PointingHandCursor)
         self.setAlignment(Qt.AlignCenter)
         self.setToolTip(os.path.basename(self.path)) # Use self.path

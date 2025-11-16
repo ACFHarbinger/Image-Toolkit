@@ -1,13 +1,17 @@
-from PySide6.QtGui import QDrag
 from PySide6.QtWidgets import QLabel
-from PySide6.QtCore import Qt, QMimeData, QUrl
+from PySide6.QtGui import QDrag, QMouseEvent
+from PySide6.QtCore import Qt, QMimeData, QUrl, Signal
 
 
 class DraggableImageLabel(QLabel):
     """
-    A simple QLabel that displays a thumbnail and can be dragged.
+    A QLabel that displays a thumbnail and can be dragged.
     The drag operation carries the file path.
     """
+    # Signal that emits the file path (Single Click)
+    path_clicked = Signal(str)
+    # Signal for Double Click
+    path_double_clicked = Signal(str) 
     def __init__(self, path: str, size: int):
         super().__init__()
         self.file_path = path
@@ -36,4 +40,15 @@ class DraggableImageLabel(QLabel):
         ))
         
         drag.exec(Qt.MoveAction)
+    
+    def mousePressEvent(self, event: QMouseEvent):
+        if event.button() == Qt.LeftButton:
+            self.path_clicked.emit(self.file_path)
+        super().mousePressEvent(event)
+
+    def mouseDoubleClickEvent(self, event: QMouseEvent):
+         """Emits the double-click signal."""
+         if event.button() == Qt.LeftButton:
+            self.path_double_clicked.emit(self.file_path)
+         super().mouseDoubleClickEvent(event)
     

@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 
 class ImagePreviewWindow(QDialog):
     """A dialog to display an image at its original size, with scrolling if needed."""
-    def __init__(self, image_path: str, db_tab_ref, parent=None):
+    def __init__(self, image_path: str, db_tab_ref=None, parent=None):
         super().__init__(parent)
         self.image_path = image_path
         self.setWindowTitle(f"Full-Size Image Preview: {os.path.basename(image_path)}")
