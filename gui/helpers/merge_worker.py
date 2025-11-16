@@ -3,11 +3,8 @@ import os
 from PIL import Image
 from typing import Dict, Any, List
 from PySide6.QtCore import QThread, Signal
-from ...utils.definitions import SUPPORTED_IMG_FORMATS
-try:
-    from app.src.core import FSETool, ImageMerger
-except:
-    from src.core import FSETool, ImageMerger
+from backend.src.core import FSETool, ImageMerger
+from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 
 
 class MergeWorker(QThread):

@@ -1,11 +1,8 @@
 import os
 
 from PySide6.QtCore import QThread, Signal, QWaitCondition, QMutex
-from ...utils.definitions import SUPPORTED_IMG_FORMATS
-try:
-    from app.src.core import FSETool, FileDeleter
-except:
-    from src.core import FSETool, FileDeleter
+from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
+from backend.src.core import FSETool, FileDeleter
 
 
 class DeletionWorker(QThread):

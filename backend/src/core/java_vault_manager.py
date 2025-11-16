@@ -5,7 +5,7 @@ import hashlib # Added for secure hashing
 import os # Added for secure salt and pepper generation
 
 try:
-    import app.src.utils.definitions as udef
+    import backend.src.utils.definitions as udef
 except:
     import src.utils.definitions as udef
 

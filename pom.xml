@@ -14,8 +14,8 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>25</maven.compiler.source>
-        <maven.compiler.target>25</maven.compiler.target>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
         <bouncycastle.version>1.82</bouncycastle.version>
         <junit.jupiter.version>5.10.5</junit.jupiter.version>
         <assertj.version>3.25.3</assertj.version>

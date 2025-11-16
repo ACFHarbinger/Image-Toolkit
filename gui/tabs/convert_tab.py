@@ -11,7 +11,7 @@ from .base_tab import BaseTab
 from ..helpers import ConversionWorker
 from ..components import OptionalField
 from ..styles.style import apply_shadow_effect
-from ...utils.definitions import SUPPORTED_IMG_FORMATS
+from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 
 
 class ConvertTab(BaseTab):

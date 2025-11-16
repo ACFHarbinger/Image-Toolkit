@@ -15,7 +15,7 @@ from .base_tab import BaseTab
 from ..components import OptionalField
 from ..components import ImagePreviewWindow
 from ..styles.style import apply_shadow_effect
-from ...utils.definitions import SUPPORTED_IMG_FORMATS
+from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 
 
 class SearchTab(BaseTab):

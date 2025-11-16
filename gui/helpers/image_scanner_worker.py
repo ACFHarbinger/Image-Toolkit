@@ -1,7 +1,7 @@
 import os
 from typing import List, Union
 from PySide6.QtCore import QObject, Signal, Slot
-from ...utils.definitions import SUPPORTED_IMG_FORMATS
+from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 
 
 class ImageScannerWorker(QObject):

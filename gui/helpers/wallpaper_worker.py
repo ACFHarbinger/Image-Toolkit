@@ -3,10 +3,7 @@ import time
 from typing import Dict, List
 from screeninfo import Monitor
 from PySide6.QtCore import QObject, Signal, QRunnable, Slot
-try:
-    from app.src.core import WallpaperManager
-except:
-    from src.core import WallpaperManager
+from backend.src.core import WallpaperManager
 
 
 class WallpaperWorkerSignals(QObject):

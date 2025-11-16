@@ -33,16 +33,16 @@ endif()
 # --- End JNI Fix 
 # ---
 
-# --- HARDCODED JNI PATHS FOR OPENJDK 25 (Resolves all missing components) ---
+# --- HARDCODED JNI PATHS FOR OPENJDK 21 (Resolves all missing components) ---
 # These paths are fixed based on your successful command-line configuration.
-set(JAVA_HOME                       "/usr/lib/jvm/java-25-openjdk-amd64" CACHE PATH "JDK base path")
-set(JAVA_INCLUDE_PATH               "/usr/lib/jvm/java-25-openjdk-amd64/include" CACHE PATH "JNI headers")
-set(JAVA_INCLUDE_PATH2              "/usr/lib/jvm/java-25-openjdk-amd64/include/linux" CACHE PATH "OS-specific JNI headers")
-set(JAVA_AWT_LIBRARY                "/usr/lib/jvm/java-25-openjdk-amd64/lib/libawt.so" CACHE FILEPATH "AWT library")
-set(JAVA_JVM_LIBRARY                "/usr/lib/jvm/java-25-openjdk-amd64/lib/server/libjvm.so" CACHE FILEPATH "JVM server library")
-set(JAVA_JAWT_LIBRARY               "/usr/lib/jvm/java-25-openjdk-amd64/lib/libjawt.so" CACHE FILEPATH "JAWT library")
-set(JAVA_JAVA_LIBRARY               "/usr/lib/jvm/java-25-openjdk-amd64/lib/libjava.so" CACHE FILEPATH "libjava library")
-set(JAVA_AWT_INCLUDE_PATH           "/usr/lib/jvm/java-25-openjdk-amd64/include" CACHE PATH "AWT include path")
+set(JAVA_HOME                       "/usr/lib/jvm/java-21-openjdk-amd64" CACHE PATH "JDK base path")
+set(JAVA_INCLUDE_PATH               "/usr/lib/jvm/java-21-openjdk-amd64/include" CACHE PATH "JNI headers")
+set(JAVA_INCLUDE_PATH2              "/usr/lib/jvm/java-21-openjdk-amd64/include/linux" CACHE PATH "OS-specific JNI headers")
+set(JAVA_AWT_LIBRARY                "/usr/lib/jvm/java-21-openjdk-amd64/lib/libawt.so" CACHE FILEPATH "AWT library")
+set(JAVA_JVM_LIBRARY                "/usr/lib/jvm/java-21-openjdk-amd64/lib/server/libjvm.so" CACHE FILEPATH "JVM server library")
+set(JAVA_JAWT_LIBRARY               "/usr/lib/jvm/java-21-openjdk-amd64/lib/libjawt.so" CACHE FILEPATH "JAWT library")
+set(JAVA_JAVA_LIBRARY               "/usr/lib/jvm/java-21-openjdk-amd64/lib/libjava.so" CACHE FILEPATH "libjava library")
+set(JAVA_AWT_INCLUDE_PATH           "/usr/lib/jvm/java-21-openjdk-amd64/include" CACHE PATH "AWT include path")
 # --- END HARDCODED JNI PATHS ---
 
 

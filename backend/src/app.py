@@ -5,7 +5,7 @@ import threading
 
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
-from .gui import MainWindow, LoginWindow
+from gui import MainWindow, LoginWindow
 from .utils.definitions import ICON_FILE, CTRL_C_TIMEOUT
 
 

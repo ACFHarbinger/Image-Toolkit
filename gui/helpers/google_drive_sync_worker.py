@@ -2,10 +2,7 @@ import time
 
 from typing import Optional, Dict, Any
 from PySide6.QtCore import QObject, Signal, QRunnable
-try:
-    from app.src.web.google_drive_sync import GoogleDriveSync as GDS
-except:
-    from src.web.google_drive_sync import GoogleDriveSync as GDS
+from backend.src.web.google_drive_sync import GoogleDriveSync as GDS
 
 
 class GoogleDriveSyncWorkerSignals(QObject):

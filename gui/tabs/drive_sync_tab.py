@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QLineEdit, QComboBox, QFileDialog, 
 )
 from ..utils.app_definitions import DRY_RUN
-from ...utils.definitions import (
+from backend.src.utils.definitions import (
     DRIVE_DESTINATION_FOLDER_NAME,
     CLIENT_SECRETS_FILE, TOKEN_FILE,
     SERVICE_ACCOUNT_FILE, LOCAL_SOURCE_PATH, 

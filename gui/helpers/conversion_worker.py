@@ -1,11 +1,8 @@
 import os
 from typing import Dict, Any
 from PySide6.QtCore import QThread, Signal
-from ...utils.definitions import SUPPORTED_IMG_FORMATS
-try:
-    from app.src.core import FSETool, ImageFormatConverter
-except:
-    from src.core import FSETool, ImageFormatConverter
+from backend.src.core import FSETool, ImageFormatConverter
+from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 
 
 class ConversionWorker(QThread):

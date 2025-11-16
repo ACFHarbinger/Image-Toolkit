@@ -3,7 +3,7 @@ import sys
 import pprint
 import traceback
 
-from app.src import (
+from backend.src import (
     launch_app, parse_args,
     log_uncaught_exceptions,
     ImageFormatConverter,

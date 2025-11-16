@@ -14,7 +14,7 @@ from .base_tab import BaseTab
 from ..components import ClickableLabel, MarqueeScrollArea
 from ..helpers import MergeWorker, ImageScannerWorker, BatchThumbnailLoaderWorker
 from ..styles.style import apply_shadow_effect
-from ...utils.definitions import SUPPORTED_IMG_FORMATS
+from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 
 
 class MergeTab(BaseTab):

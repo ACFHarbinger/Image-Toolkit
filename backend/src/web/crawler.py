@@ -7,7 +7,7 @@ import tempfile
 import platform
 import subprocess
 try:
-    import app.src.utils.definitions as udef
+    import backend.src.utils.definitions as udef
 except:
     import src.utils.definitions as udef
 

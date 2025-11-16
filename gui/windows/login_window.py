@@ -1,16 +1,13 @@
 import os
 import json
+import backend.src.utils.definitions as udef
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
     QLineEdit, QPushButton, QSizePolicy, QMessageBox,
 )
-try:
-    import app.src.utils.definitions as udef
-    from app.src.core.java_vault_manager import JavaVaultManager
-except:
-    import src.utils.definitions as udef
-    from src.core.java_vault_manager import JavaVaultManager
+from backend.src.core.java_vault_manager import JavaVaultManager
 
 
 class LoginWindow(QWidget):
