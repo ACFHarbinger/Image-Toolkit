@@ -292,6 +292,34 @@ class DeleteTab(BaseTab):
             "target_extensions": [e.strip().lstrip('.') for e in extensions if e.strip()],
         }
 
+    def get_default_config(self) -> dict:
+        """Returns the default configuration dictionary for this tab."""
+        return {
+            "target_path": "C:\\Default\\Target\\Path",
+            "mode": "files",
+            "target_extensions": ["jpg", "png"],
+            "require_confirm": True
+        }
+
+    def set_config(self, config: dict):
+        """Applies a configuration dictionary to the UI fields."""
+        try:
+            self.target_path.setText(config.get("target_path", ""))
+            self.confirm_checkbox.setChecked(config.get("require_confirm", True))
+
+            target_extensions = config.get("target_extensions", [])
+            if self.dropdown:
+                self.remove_all_extensions()
+                for ext in target_extensions:
+                    if ext in self.extension_buttons:
+                        self.extension_buttons[ext].setChecked(True)
+                        self.toggle_extension(ext, True)
+            else:
+                self.target_extensions.setText(", ".join(target_extensions))
+        except Exception as e:
+            print(f"Error applying DeleteTab config: {e}")
+            QMessageBox.warning(self, "Config Error", f"Failed to apply some settings: {e}")
+
     @staticmethod
     def join_list_str(text: str):
         return [item.strip().lstrip('.') for item in text.replace(',', ' ').split() if item.strip()]

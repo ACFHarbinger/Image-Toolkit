@@ -1083,3 +1083,41 @@ class WallpaperTab(BaseTab):
             "monitor_queues": self.monitor_slideshow_queues,
             "wallpaper_style": self.wallpaper_style,
         }
+
+    def get_default_config(self) -> Dict[str, Any]:
+        """Returns the default configuration dictionary for this tab."""
+        # Get the default style from the combo box
+        default_style = self.style_combo.itemText(0) if self.style_combo.count() > 0 else "Fill"
+        
+        return {
+            "scan_directory": "",
+            "wallpaper_style": default_style,
+            "slideshow_enabled": False,
+            "interval_minutes": 5,
+            "interval_seconds": 0
+        }
+    
+    def set_config(self, config: Dict[str, Any]):
+        """Applies a loaded configuration to the tab's UI elements."""
+        try:
+            if "scan_directory" in config:
+                self.scan_directory_path.setText(config.get("scan_directory", ""))
+                # Optionally auto-populate if directory is valid
+                if os.path.isdir(config["scan_directory"]):
+                    self.populate_scan_image_gallery(config["scan_directory"])
+            
+            if "wallpaper_style" in config:
+                self.style_combo.setCurrentText(config.get("wallpaper_style", "Fill"))
+            
+            if "slideshow_enabled" in config:
+                self.slideshow_enabled_checkbox.setChecked(config.get("slideshow_enabled", False))
+                
+            if "interval_minutes" in config:
+                self.interval_min_spinbox.setValue(config.get("interval_minutes", 5))
+
+            if "interval_seconds" in config:
+                self.interval_sec_spinbox.setValue(config.get("interval_seconds", 0))
+
+            QMessageBox.information(self, "Config Loaded", "Configuration applied successfully.")
+        except Exception as e:
+            QMessageBox.critical(self, "Config Error", f"Failed to apply configuration:\n{e}")

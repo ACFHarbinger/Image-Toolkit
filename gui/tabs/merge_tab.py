@@ -706,3 +706,40 @@ class MergeTab(BaseTab):
     def browse_directory(self): self.browse_scan_directory()
     def browse_input(self): self._browse_files_logic()
     def browse_output(self): pass
+
+    def get_default_config(self) -> dict:
+        """Returns the default configuration values for this tab."""
+        # Note: 'input_path' and 'output_path' are runtime-specific.
+        # The config should only store *settings*.
+        return {
+            "direction": "horizontal",
+            "spacing": 10,
+            "grid_size": [2, 2], # Use list for JSON
+            "scan_directory": "C:/path/to/images"
+        }
+
+    def set_config(self, config: dict):
+        """Applies a loaded configuration to the tab's UI."""
+        try:
+            direction = config.get("direction", "horizontal")
+            if self.direction.findText(direction) != -1:
+                self.direction.setCurrentText(direction)
+            
+            self.spacing.setValue(config.get("spacing", 10))
+            
+            grid_size = config.get("grid_size", [2, 2])
+            if isinstance(grid_size, list) and len(grid_size) == 2:
+                self.grid_rows.setValue(grid_size[0])
+                self.grid_cols.setValue(grid_size[1])
+
+            scan_dir = config.get("scan_directory")
+            if scan_dir:
+                self.scan_directory_path.setText(scan_dir)
+                if os.path.isdir(scan_dir):
+                    self.populate_scan_gallery(scan_dir)
+            
+            print(f"MergeTab configuration loaded.")
+            
+        except Exception as e:
+            print(f"Error applying MergeTab config: {e}")
+            QMessageBox.warning(self, "Config Error", f"Failed to apply some settings: {e}")

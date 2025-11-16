@@ -195,6 +195,8 @@ class JavaVaultManager:
     def load_data(self) -> str:
         """
         Loads and decrypts the JSON string from the vault.
+        
+        It now prints the decrypted data before returning it.
         """
         if self.vault is None:
             raise ValueError("Vault is not initialized. Call init_vault() first.")
@@ -203,7 +205,23 @@ class JavaVaultManager:
             print("Loading data from vault...")
             decrypted_data = self.vault.loadData()
             print("Data loaded and decrypted successfully.")
-            return str(decrypted_data)
+            
+            # --- START ADDED CODE ---
+            decrypted_json_string = str(decrypted_data)
+            print("-" * 30)
+            print("DECRYPTED VAULT CONTENT:")
+            # Use json.dumps for pretty printing if it's valid JSON
+            try:
+                pretty_data = json.dumps(json.loads(decrypted_json_string), indent=4)
+                print(pretty_data)
+            except json.JSONDecodeError:
+                # If it's not JSON (e.g., just a string), print raw
+                print(decrypted_json_string)
+            print("-" * 30)
+            # --- END ADDED CODE ---
+            
+            return decrypted_json_string
+            
         except Exception as e:
             # Handle empty vault file as an empty JSON object string
             if "file not found or empty" in str(e).lower():

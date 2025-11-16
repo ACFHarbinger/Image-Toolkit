@@ -290,8 +290,6 @@ class DatabaseTab(BaseTab):
         
         self.update_button_states(connected=False)
 
-    # ... [Rest of file is unchanged] ...
-
     # --- Connection and Statistics Methods ---
 
     def connect_database(self):
@@ -956,3 +954,26 @@ class DatabaseTab(BaseTab):
             "db_name": self.db_name.text().strip() or None,
         }
         return out
+
+    def get_default_config(self) -> dict:
+        """Returns the default configuration dictionary for this tab."""
+        return {
+            "db_host": "localhost",
+            "db_port": "5432",
+            "db_user": "postgres",
+            "db_name": "imagedb"
+        }
+
+    def set_config(self, config: dict):
+        """Applies a configuration dictionary to the UI fields."""
+        try:
+            self.db_host.setText(config.get("db_host", "localhost"))
+            self.db_port.setText(config.get("db_port", "5432"))
+            self.db_user.setText(config.get("db_user", "postgres"))
+            self.db_name.setText(config.get("db_name", "imagedb"))
+            
+            # Optionally, auto-connect if config is set
+            self.connect_database()
+        except Exception as e:
+            print(f"Error applying DatabaseTab config: {e}")
+            QMessageBox.warning(self, "Config Error", f"Failed to apply some settings: {e}")

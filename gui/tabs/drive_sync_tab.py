@@ -529,6 +529,7 @@ class DriveSyncTab(BaseTab):
     def browse_output(self):     pass
 
     def collect(self) -> dict:
+        """Collects current settings from the UI."""
         return {
             "provider": self.provider_combo.currentText(),
             "key_file": self.key_file_path.text().strip() or None,
@@ -539,3 +540,37 @@ class DriveSyncTab(BaseTab):
             "dry_run": self.dry_run_checkbox.isChecked(),
             "share_email": self.share_email_input.text().strip() or None,
         }
+
+    def get_default_config(self) -> dict:
+        """Returns the default configuration values for this tab."""
+        return {
+            "provider": "Google Drive (Service Account)",
+            "key_file": "C:/path/to/service_account_key.json",
+            "client_secrets_file": "C:/path/to/client_secrets.json",
+            "token_file": "C:/path/to/token.json",
+            "local_path": "C:/path/to/local_source_folder",
+            "remote_path": "My_App_Backups",
+            "dry_run": True,
+            "share_email": "user@example.com"
+        }
+
+    def set_config(self, config: dict):
+        """Applies a loaded configuration to the tab's UI."""
+        try:
+            provider = config.get("provider", "Google Drive (Service Account)")
+            if self.provider_combo.findText(provider) != -1:
+                self.provider_combo.setCurrentText(provider)
+            
+            self.key_file_path.setText(config.get("key_file", ""))
+            self.client_secrets_path.setText(config.get("client_secrets_file", ""))
+            self.token_file_path.setText(config.get("token_file", ""))
+            self.local_path.setText(config.get("local_path", ""))
+            self.remote_path.setText(config.get("remote_path", ""))
+            self.dry_run_checkbox.setChecked(config.get("dry_run", True))
+            self.share_email_input.setText(config.get("share_email", ""))
+            
+            print(f"DriveSyncTab configuration loaded.")
+            
+        except Exception as e:
+            print(f"Error applying DriveSyncTab config: {e}")
+            QMessageBox.warning(self, "Config Error", f"Failed to apply some settings: {e}")

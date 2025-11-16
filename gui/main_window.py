@@ -32,8 +32,22 @@ class MainWindow(QWidget):
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         QImageReader.setAllocationLimit(NEW_LIMIT_MB)
         
-        # Initialize theme tracker
-        self.current_theme = "dark"
+        # --- LOAD THEME AND ACCOUNT INFO FROM VAULT ---
+        account_name = 'Authenticated User'
+        initial_theme = "dark"
+        
+        if self.vault_manager:
+            try:
+                creds = self.vault_manager.load_account_credentials()
+                account_name = creds.get('account_name', 'Authenticated User')
+                initial_theme = creds.get('theme', 'dark')
+            except Exception as e:
+                # This will catch errors if the vault is missing, corrupted, or password fails
+                print(f"Warning: Failed to load account credentials or theme: {e}")
+                # Fallback values are already set above
+                
+        # Initialize theme tracker with the loaded value
+        self.current_theme = initial_theme
 
         vbox = QVBoxLayout()
         
@@ -43,19 +57,15 @@ class MainWindow(QWidget):
         # --- Application Header ---
         header_widget = QWidget()
         header_widget.setObjectName("header_widget")
+        # Note: Initial style is set here but will be immediately overwritten by set_application_theme
         header_widget.setStyleSheet(f"background-color: #2d2d30; padding: 10px; border-bottom: 2px solid #00bcd4;")
         header_layout = QHBoxLayout(header_widget)
         header_layout.setContentsMargins(10, 5, 10, 5)
         
-        # Display the logged-in account name in the header
-        try:
-            account_name = self.vault_manager.load_account_credentials().get('account_name', 'Authenticated User')
-        except Exception:
-            account_name = 'Authenticated User'
-            
-        title_label = QLabel(f"Image Database and Toolkit - {account_name}")
-        title_label.setStyleSheet(f"color: white; font-size: 18pt; font-weight: bold;")
-        header_layout.addWidget(title_label)
+        # Display the loaded account name in the header
+        self.title_label = QLabel(f"Image Database and Toolkit - {account_name}")
+        self.title_label.setStyleSheet(f"color: white; font-size: 18pt; font-weight: bold;")
+        header_layout.addWidget(self.title_label)
         header_layout.addStretch(1) 
         
         # --- Settings button ---
@@ -154,6 +164,7 @@ class MainWindow(QWidget):
         self.setLayout(vbox)
         
         # --- CRITICAL FIX: Apply theme after all widgets are initialized ---
+        # Use the theme loaded from the vault
         self.set_application_theme(self.current_theme)
 
 
@@ -186,6 +197,20 @@ class MainWindow(QWidget):
             # 5. Add the scroll area to the QTabWidget instead of the tab widget itself
             self.tabs.addTab(scroll_wrapper, tab_name)
             # --- END NEW SCROLLABLE WRAPPER ---
+            
+    def update_header(self):
+        """Updates the header text and style after a settings change (like password reset)."""
+        # Reload account name
+        try:
+            account_name = self.vault_manager.load_account_credentials().get('account_name', 'Authenticated User')
+        except Exception:
+            account_name = 'Authenticated User'
+            
+        # Update the label text
+        self.title_label.setText(f"Image Database and Toolkit - {account_name}")
+        
+        # Re-apply theme to ensure styles are correct after text update
+        self.set_application_theme(self.current_theme)
 
 
     # --- Theme Switching Logic ---
@@ -224,7 +249,7 @@ class MainWindow(QWidget):
             header_widget.setStyleSheet(f"background-color: {header_widget_bg}; padding: 10px; border-bottom: 2px solid {accent_color};")
             
             # --- Header Label (The 'Image Database and Toolkit' text) ---
-            title_label = header_widget.findChild(QLabel)
+            title_label = self.title_label # Use the stored reference
             if title_label:
                 # Update the label to reflect the current account name
                 try:

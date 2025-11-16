@@ -1,7 +1,7 @@
 import os
 
-from typing import Set
 from pathlib import Path
+from typing import Set, Dict, Any
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import (
     Qt, QThreadPool, QThread, Slot
@@ -1061,3 +1061,36 @@ class ScanMetadataTab(BaseTab):
             "selected_images": list(self.selected_image_paths) 
         }
         return out
+
+    def get_default_config(self) -> Dict[str, Any]:
+        """Returns the default configuration dictionary for this tab."""
+        return {
+            "scan_directory": "",
+            "batch_metadata": {
+                "series_name": "",
+                "characters": [],
+                "tags": []
+            }
+        }
+    
+    def set_config(self, config: Dict[str, Any]):
+        """Applies a loaded configuration to the tab's UI elements."""
+        try:
+            if "scan_directory" in config:
+                self.scan_directory_path.setText(config.get("scan_directory", ""))
+                # Optionally auto-populate if directory is valid
+                if os.path.isdir(config["scan_directory"]):
+                    self.populate_scan_image_gallery(config["scan_directory"])
+
+            if "batch_metadata" in config:
+                metadata = config.get("batch_metadata", {})
+                self.series_combo.setCurrentText(metadata.get("series_name", ""))
+                self.characters_edit.setText(", ".join(metadata.get("characters", [])))
+                
+                selected_tags = set(metadata.get("tags", []))
+                for tag, checkbox in self.tag_checkboxes.items():
+                    checkbox.setChecked(tag in selected_tags)
+                    
+            QMessageBox.information(self, "Config Loaded", "Configuration applied successfully.")
+        except Exception as e:
+            QMessageBox.critical(self, "Config Error", f"Failed to apply configuration:\n{e}")

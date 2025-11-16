@@ -1,7 +1,10 @@
 import os
 
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QPixmap, QKeySequence, QShortcut, QWheelEvent # Import QWheelEvent
+from PySide6.QtGui import (
+    QPixmap, QKeySequence, 
+    QShortcut, QWheelEvent
+)
 from PySide6.QtWidgets import (
     QMessageBox, QLabel, QApplication,
     QScrollArea, QVBoxLayout, QDialog,

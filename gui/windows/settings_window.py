@@ -1,12 +1,11 @@
+import json
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QLabel, QWidget, QSizePolicy,
     QVBoxLayout, QGroupBox, QFormLayout,
     QLineEdit, QRadioButton, QHBoxLayout,
+    QLabel, QWidget, QSizePolicy, QScrollArea,
     QPushButton, QMessageBox, QComboBox, QTextEdit,
-    QScrollArea
 )
-import json 
 
 
 class SettingsWindow(QWidget):
@@ -20,17 +19,19 @@ class SettingsWindow(QWidget):
         super().__init__(None, Qt.Window) 
         
         self.setWindowTitle("Application Settings")
-        self.setMinimumSize(950, 950)
+        self.setMinimumSize(800, 800)
         
         # Reference to the Vault Manager from MainWindow
         self.vault_manager = self.main_window_ref.vault_manager if self.main_window_ref else None
 
-        # Load initial credentials
+        # Load initial credentials and settings
         self.current_account_name = "N/A"
+        self.initial_theme = "dark" # Default theme
         if self.vault_manager:
             try:
                 creds = self.vault_manager.load_account_credentials()
                 self.current_account_name = creds.get('account_name', 'N/A')
+                self.initial_theme = creds.get('theme', 'dark')
             except Exception:
                 pass
         
@@ -40,8 +41,8 @@ class SettingsWindow(QWidget):
         
         main_layout = QVBoxLayout(self)
 
-        # Determine initial styles based on MainWindow's current theme
-        is_light_theme = self.main_window_ref and self.main_window_ref.current_theme == "light"
+        # Determine initial styles based on loaded vault theme
+        is_light_theme = self.initial_theme == "light"
         
         # Theme colors for the header
         header_widget_bg = "#ffffff" if is_light_theme else "#2d2d30"
@@ -100,7 +101,8 @@ class SettingsWindow(QWidget):
         self.dark_theme_radio = QRadioButton("Dark Theme")
         self.light_theme_radio = QRadioButton("Light Theme")
         
-        if self.main_window_ref and self.main_window_ref.current_theme == "light":
+        # Set the radio button based on the loaded initial theme
+        if self.initial_theme == "light":
             self.light_theme_radio.setChecked(True)
         else:
             self.dark_theme_radio.setChecked(True)
@@ -169,7 +171,7 @@ class SettingsWindow(QWidget):
         create_config_layout.addRow("Config Name:", self.config_name_input)
         
         self.default_config_editor = QTextEdit()
-        self.default_config_editor.setPlaceholderText("Enter current tab settings as JSON here...")
+        self.default_config_editor.setPlaceholderText("Select a Tab Class to see its default configuration...")
         self.default_config_editor.setMinimumHeight(200)
         create_config_layout.addRow("Configuration (JSON):", self.default_config_editor)
 
@@ -238,6 +240,16 @@ class SettingsWindow(QWidget):
                     
         return sorted(tab_map.keys())
 
+    def _get_tab_instance(self, tab_class_name: str):
+        """Finds the active instance of a tab by its class name."""
+        if not self.main_window_ref or not hasattr(self.main_window_ref, 'all_tabs') or not tab_class_name:
+            return None
+            
+        for category, sub_tabs in self.main_window_ref.all_tabs.items():
+            for tab_instance in sub_tabs.values():
+                if type(tab_instance).__name__ == tab_class_name:
+                    return tab_instance
+        return None
 
     def _load_tab_defaults_from_vault(self):
         """Loads all named tab configurations from the secure vault."""
@@ -245,33 +257,64 @@ class SettingsWindow(QWidget):
             return {}
         try:
             full_data = self.vault_manager.load_account_credentials()
-            tab_defaults_json = full_data.get('tab_defaults', '{}')
-            loaded_config = json.loads(tab_defaults_json)
-            if not isinstance(loaded_config, dict):
-                 return {}
-            return loaded_config
+            # We rely on load_account_credentials to provide a default empty dict 
+            # or handle missing 'tab_configurations' gracefully
+            return full_data.get('tab_configurations', {})
         except Exception as e:
             print(f"Warning: Failed to load tab defaults from vault: {e}")
             return {}
 
     
+    def _save_vault_data(self, data: dict):
+        """Helper function to save the full user data dictionary back to the vault."""
+        if not self.vault_manager:
+            QMessageBox.critical(self, "Save Error", "Vault manager is not available to save settings.")
+            return False
+        
+        try:
+            self.vault_manager.save_data(json.dumps(data)) 
+            return True
+        except Exception as e:
+            QMessageBox.critical(self, "Save Error", f"Failed to save data to vault:\n{e}")
+            return False
+
     def _save_tab_defaults_to_vault(self):
         """Saves the entire current tab configuration state back to the secure vault."""
         if not self.vault_manager:
             QMessageBox.critical(self, "Save Error", "Vault manager is not available to save settings.")
-            return
+            return False
 
         try:
             user_data = self.vault_manager.load_account_credentials()
-            user_data['tab_defaults'] = json.dumps(self.tab_defaults_config)
-            self.vault_manager.save_data(json.dumps(user_data)) 
-            return True
+            user_data['tab_configurations'] = self.tab_defaults_config
+            return self._save_vault_data(user_data)
         except Exception as e:
-            QMessageBox.critical(self, "Save Error", f"Failed to save tab configurations to vault:\n{e}")
+            QMessageBox.critical(self, "Save Error", f"Failed to prepare data for saving:\n{e}")
             return False
 
+    def _populate_default_config(self, tab_class_name: str):
+        """Populates the text editor with the default config from the selected tab class."""
+        self.config_name_input.clear() # Clear config name
+        tab_instance = self._get_tab_instance(tab_class_name)
+        
+        if tab_instance and hasattr(tab_instance, 'get_default_config'):
+            try:
+                default_config = tab_instance.get_default_config()
+                default_json = json.dumps(default_config, indent=4)
+                self.default_config_editor.setText(default_json)
+                self.default_config_editor.setPlaceholderText("Edit the default config below or create a new named config...")
+            except Exception as e:
+                self.default_config_editor.clear()
+                self.default_config_editor.setPlaceholderText(f"Error loading default config: {e}")
+        else:
+            self.default_config_editor.clear()
+            self.default_config_editor.setPlaceholderText("This tab does not have a 'get_default_config' method.")
+
     def _refresh_config_dropdown(self, tab_class_name: str):
-        """Populates the config dropdown based on the selected tab class."""
+        """
+        Populates the config dropdown based on the selected tab class AND
+        populates the editor with the default config for that tab.
+        """
         
         try:
             self.config_select_combo.currentTextChanged.disconnect(self._load_selected_tab_config)
@@ -279,34 +322,48 @@ class SettingsWindow(QWidget):
             pass
             
         self.config_select_combo.clear()
-        self.config_name_input.clear()
-        self.default_config_editor.clear()
         self.current_loaded_config_name = None
 
         if not tab_class_name:
             self.config_select_combo.setPlaceholderText("Select a Tab Class first.")
-            self.config_select_combo.currentTextChanged.connect(self._load_selected_tab_config)
-            return
+            self.config_name_input.clear()
+            self.default_config_editor.clear()
+            self.default_config_editor.setPlaceholderText("Select a Tab Class to see its default configuration...")
+        else:
+            # Populate the editor with the default config FIRST
+            self._populate_default_config(tab_class_name)
 
-        configs = self.tab_defaults_config.get(tab_class_name, {})
-        config_names = sorted(configs.keys())
-        
-        self.config_select_combo.addItems([""] + config_names)
-        self.config_select_combo.setPlaceholderText("Load/Edit Existing Config...")
+            # Now, populate the dropdown with saved configs
+            configs = self.tab_defaults_config.get(tab_class_name, {})
+            config_names = sorted(configs.keys())
+            
+            self.config_select_combo.addItems([""] + config_names)
+            self.config_select_combo.setPlaceholderText("Load/Edit Existing Config...")
 
+        # Reconnect the signal
         self.config_select_combo.currentTextChanged.connect(self._load_selected_tab_config)
 
 
     def _load_selected_tab_config(self, config_name: str):
-        """Loads a selected configuration's JSON into the editor."""
+        """
+        Loads a selected configuration's JSON into the editor.
+        If config_name is empty, it re-loads the default config.
+        """
         tab_class_name = self.tab_select_combo.currentText()
         
-        if not tab_class_name or not config_name:
+        if not tab_class_name:
             self.config_name_input.clear()
             self.default_config_editor.clear()
             self.current_loaded_config_name = None
             return
 
+        if not config_name:
+            # User selected the blank placeholder, so load the default config
+            self._populate_default_config(tab_class_name)
+            self.current_loaded_config_name = None
+            return
+
+        # User selected a specific, saved config
         configs = self.tab_defaults_config.get(tab_class_name, {})
         config = configs.get(config_name, {})
         
@@ -317,6 +374,9 @@ class SettingsWindow(QWidget):
             self.current_loaded_config_name = config_name
         except Exception as e:
             QMessageBox.critical(self, "Load Error", f"Failed to load config '{config_name}': {e}")
+            # On error, fall back to default
+            self._populate_default_config(tab_class_name)
+            self.current_loaded_config_name = None
 
 
     def _save_current_tab_config(self):
@@ -395,22 +455,15 @@ class SettingsWindow(QWidget):
         config_name = self.config_name_input.text().strip()
         json_text = self.default_config_editor.toPlainText().strip()
         
-        if not tab_class_name or not config_name or not json_text:
-            QMessageBox.warning(self, "Set Error", "Please load a configuration first.")
+        # We check config_name OR json_text, because user might want to apply the default (unnamed) config
+        if not tab_class_name or not (config_name or json_text):
+            QMessageBox.warning(self, "Set Error", "Please select a tab and ensure config JSON is loaded.")
             return
             
         try:
             config_data = json.loads(json_text)
             
-            target_tab_instance = None
-            if self.main_window_ref and hasattr(self.main_window_ref, 'all_tabs'):
-                for category, sub_tabs in self.main_window_ref.all_tabs.items():
-                    for tab_instance in sub_tabs.values():
-                        if type(tab_instance).__name__ == tab_class_name:
-                            target_tab_instance = tab_instance
-                            break
-                    if target_tab_instance:
-                        break
+            target_tab_instance = self._get_tab_instance(tab_class_name)
 
             if not target_tab_instance:
                 QMessageBox.critical(self, "Set Error", f"Could not find active instance of tab: {tab_class_name}.")
@@ -418,7 +471,9 @@ class SettingsWindow(QWidget):
 
             if hasattr(target_tab_instance, 'set_config') and callable(target_tab_instance.set_config):
                 target_tab_instance.set_config(config_data)
-                QMessageBox.information(self, "Success", f"Configuration '{config_name}' applied to {tab_class_name}.")
+                
+                config_display_name = f"'{config_name}'" if config_name else "'(Default)'"
+                QMessageBox.information(self, "Success", f"Configuration {config_display_name} applied to {tab_class_name}.")
             else:
                 QMessageBox.critical(self, "Set Error", f"Target tab '{tab_class_name}' does not have a 'set_config' method.")
 
@@ -445,18 +500,22 @@ class SettingsWindow(QWidget):
     def _update_settings_logic(self):
         """Saves settings (theme preference, and potentially new password) and closes the window."""
         new_password = self.new_password_input.text().strip()
+        selected_theme = "dark" if self.dark_theme_radio.isChecked() else "light"
         
+        if not self.vault_manager:
+            QMessageBox.critical(self, "Update Failed", "Vault manager is not available.")
+            return
+            
         # --- Handle Password Change (Master Reset) ---
         if new_password:
-            if not self.vault_manager:
-                QMessageBox.critical(self, "Update Failed", "Vault manager is not available.")
-                return
-
             try:
                 self.vault_manager.update_account_password(
                     self.current_account_name, 
                     new_password
                 )
+                
+                # Note: The theme update still needs to be saved after the password reset,
+                # which re-initializes the vault manager. We'll handle this below.
                 
                 if self.main_window_ref:
                     self.main_window_ref.update_header()
@@ -467,11 +526,24 @@ class SettingsWindow(QWidget):
                 QMessageBox.critical(self, "Update Failed", f"Failed to update master password: {e}")
                 return
         
-        # --- Handle Theme Change ---
-        selected_theme = "dark" if self.dark_theme_radio.isChecked() else "light"
-
-        if self.main_window_ref and selected_theme:
-            self.main_window_ref.set_application_theme(selected_theme)
+        # --- Handle Theme Change and save all preferences to the vault ---
+        try:
+            # 1. Load the current data from the (potentially reset) vault
+            user_data = self.vault_manager.load_account_credentials()
+            
+            # 2. Update the theme preference
+            user_data['theme'] = selected_theme
+            
+            # 3. Save the entire updated data dictionary back to the vault
+            if self._save_vault_data(user_data):
+                # 4. Apply the theme to the main application
+                if self.main_window_ref and selected_theme:
+                    self.main_window_ref.set_application_theme(selected_theme)
+                    QMessageBox.information(self, "Success", "Settings updated and saved successfully.")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Update Failed", f"Failed to save preferences to vault: {e}")
+            return
             
         self.close()
 

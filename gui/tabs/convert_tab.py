@@ -290,6 +290,37 @@ class ConvertTab(BaseTab):
             "delete": self.delete_checkbox.isChecked()
         }
 
+    def get_default_config(self) -> dict:
+        """Returns the default configuration dictionary for this tab."""
+        return {
+            "output_format": "png",
+            "input_path": "C:\\Default\\Input\\Path",
+            "output_path": "C:\\Default\\Output\\Path",
+            "input_formats": ["jpg", "png", "bmp"],
+            "delete": False
+        }
+
+    def set_config(self, config: dict):
+        """Applies a configuration dictionary to the UI fields."""
+        try:
+            self.output_format.setText(config.get("output_format", "png"))
+            self.input_path.setText(config.get("input_path", ""))
+            self.output_path.setText(config.get("output_path", ""))
+            self.delete_checkbox.setChecked(config.get("delete", False))
+
+            input_formats = config.get("input_formats", [])
+            if self.dropdown:
+                self.remove_all_formats()
+                for fmt in input_formats:
+                    if fmt in self.format_buttons:
+                        self.format_buttons[fmt].setChecked(True)
+                        self.toggle_format(fmt, True)
+            else:
+                self.input_formats.setText(", ".join(input_formats))
+        except Exception as e:
+            print(f"Error applying ConvertTab config: {e}")
+            QMessageBox.warning(self, "Config Error", f"Failed to apply some settings: {e}")
+
     @staticmethod
     def join_list_str(text):
         return [item.strip().lstrip('.') for item in text.replace(',', ' ').split() if item.strip()]

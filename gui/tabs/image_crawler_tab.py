@@ -438,3 +438,54 @@ class ImageCrawlTab(BaseTab):
         self.progress_bar.hide()
         self.status_label.setText("Failed.")
         QMessageBox.critical(self, "Error", msg)
+
+    def get_default_config(self) -> dict:
+        """Returns the default configuration values for this tab."""
+        return {
+            "url": "https://example.com/gallery?page=1",
+            "download_dir": "C:/path/to/downloads",
+            "screenshot_dir": None,
+            "headless": True,
+            "browser": "chrome",
+            "skip_first": 0,
+            "skip_last": 0,
+            "replace_str": "page=1",
+            "replacements": ["page=2", "page=3"],
+            "actions": [
+                {"type": "Find Parent Link (<a>)", "param": None},
+                {"type": "Extract High-Res Preview URL", "param": None},
+                {"type": "Download Image from Element", "param": None}
+            ]
+        }
+
+    def set_config(self, config: dict):
+        """Applies a loaded configuration to the tab's UI."""
+        try:
+            self.url_input.setText(config.get("url", ""))
+            self.download_dir_path.setText(config.get("download_dir", ""))
+            self.screenshot_dir_path.setText(config.get("screenshot_dir", ""))
+            self.headless_checkbox.setChecked(config.get("headless", True))
+            
+            browser = config.get("browser", "chrome")
+            if self.browser_combo.findText(browser) != -1:
+                self.browser_combo.setCurrentText(browser)
+                
+            self.skip_first_input.setText(str(config.get("skip_first", 0)))
+            self.skip_last_input.setText(str(config.get("skip_last", 0)))
+            self.replace_str_input.setText(config.get("replace_str", ""))
+            self.replacements_input.setText(", ".join(config.get("replacements", [])))
+            
+            self.action_list_widget.clear()
+            actions = config.get("actions", [])
+            for action in actions:
+                display_text = action.get("type", "Unknown Action")
+                param = action.get("param")
+                if param:
+                    display_text += f" | Param: {param}"
+                self.action_list_widget.addItem(display_text)
+            
+            print(f"ImageCrawlTab configuration loaded.")
+            
+        except Exception as e:
+            print(f"Error applying ImageCrawlTab config: {e}")
+            QMessageBox.warning(self, "Config Error", f"Failed to apply some settings: {e}")

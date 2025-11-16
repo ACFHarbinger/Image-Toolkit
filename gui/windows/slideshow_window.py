@@ -1,10 +1,9 @@
 from typing import List
-from pathlib import Path
-from PySide6.QtCore import Qt, Slot, QPoint, Signal
 from PySide6.QtGui import QPixmap, QIcon
+from PySide6.QtCore import Qt, Slot, QPoint, Signal
 from PySide6.QtWidgets import (
-    QWidget, QLabel, QVBoxLayout, QListWidget, QListWidgetItem,
-    QMenu, QMessageBox, QApplication, QStyle
+    QWidget, QLabel, QVBoxLayout, QListWidget,
+    QMenu, QListWidgetItem, QApplication, QStyle
 )
 from ..components import QueueItemWidget
 

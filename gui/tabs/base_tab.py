@@ -1,6 +1,6 @@
-from typing import List
 from PySide6.QtCore import QObject
 from PySide6.QtWidgets import QWidget
+from typing import List, Dict, Any
 from abc import ABCMeta, abstractmethod
 
 
@@ -30,7 +30,16 @@ class BaseTab(QWidget, metaclass=MetaBaseTab):
     def browse_output(self):
         pass
 
+    @abstractmethod
     def collect(self):
+        pass
+
+    @abstractmethod
+    def get_default_config(self) -> Dict[str, Any]:
+        pass
+
+    @abstractmethod
+    def set_config(self, config: Dict[str, Any]):
         pass
 
     @staticmethod

@@ -372,3 +372,37 @@ class SearchTab(BaseTab):
             "input_formats": self.get_selected_formats() or None, # NEW
             "tags": self.get_selected_tags() or None
         }
+
+    def get_default_config(self) -> Dict[str, Any]:
+        """Returns the default configuration dictionary for this tab."""
+        return {
+            "group_name": "",
+            "subgroup_name": "",
+            "filename_pattern": "",
+            "input_formats": [],
+            "tags": []
+        }
+
+    def set_config(self, config: Dict[str, Any]):
+        """Applies a loaded configuration to the tab's UI elements."""
+        try:
+            self.group_combo.setCurrentText(config.get("group_name", ""))
+            self.subgroup_combo.setCurrentText(config.get("subgroup_name", ""))
+            self.filename_edit.setText(config.get("filename_pattern", ""))
+            
+            tags = config.get("tags", [])
+            self.tags_edit.setText(", ".join(tags))
+            
+            formats = config.get("input_formats", [])
+            if self.dropdown:
+                self.remove_all_formats()
+                for fmt in formats:
+                    if fmt in self.format_buttons:
+                        self.format_buttons[fmt].setChecked(True)
+                        self.toggle_format(fmt, True)
+            else:
+                self.input_formats_edit.setText(" ".join(formats))
+                
+            QMessageBox.information(self, "Config Loaded", "Configuration applied successfully.")
+        except Exception as e:
+            QMessageBox.critical(self, "Config Error", f"Failed to apply configuration:\n{e}")
