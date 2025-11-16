@@ -1,7 +1,7 @@
 #include "windows/SettingsWindow.h" // Assumed path
 #include "MainWindow.h"
 #include "src/core/VaultManager.h"
-#include "utils/BaseTab.h" // <-- The required interface
+#include "utils/IBaseTab.h" // <-- The required interface
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>

@@ -13,11 +13,11 @@
  * Example:
  * class MyTab : public QWidget, public IBaseTab { ... }
  */
-class BaseTab
+class IBaseTab
 {
 public:
     // Virtual destructor is required for a base class
-    virtual ~BaseTab() {}
+    virtual ~IBaseTab() {}
 
     /**
      * @brief Applies a given configuration to the tab.
