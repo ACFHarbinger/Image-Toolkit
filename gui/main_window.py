@@ -32,19 +32,21 @@ class MainWindow(QWidget):
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         QImageReader.setAllocationLimit(NEW_LIMIT_MB)
         
-        # --- LOAD THEME AND ACCOUNT INFO FROM VAULT ---
+        # --- LOAD THEME AND ACCOUNT INFO FROM VAULT (LOAD 1 OF 1) ---
         account_name = 'Authenticated User'
         initial_theme = "dark"
         
+        # Cache the credentials for reuse throughout initialization
+        self.cached_creds = {}
+
         if self.vault_manager:
             try:
-                creds = self.vault_manager.load_account_credentials()
-                account_name = creds.get('account_name', 'Authenticated User')
-                initial_theme = creds.get('theme', 'dark')
+                # *** FIRST AND ONLY INITIAL LOAD OF VAULT DATA ***
+                self.cached_creds = self.vault_manager.load_account_credentials()
+                account_name = self.cached_creds.get('account_name', 'Authenticated User')
+                initial_theme = self.cached_creds.get('theme', 'dark')
             except Exception as e:
-                # This will catch errors if the vault is missing, corrupted, or password fails
                 print(f"Warning: Failed to load account credentials or theme: {e}")
-                # Fallback values are already set above
                 
         # Initialize theme tracker with the loaded value
         self.current_theme = initial_theme
@@ -200,9 +202,11 @@ class MainWindow(QWidget):
             
     def update_header(self):
         """Updates the header text and style after a settings change (like password reset)."""
-        # Reload account name
+        # Reload account name by forcing a reload of credentials
         try:
-            account_name = self.vault_manager.load_account_credentials().get('account_name', 'Authenticated User')
+            # Reload credentials to get the latest account name/theme/etc.
+            self.cached_creds = self.vault_manager.load_account_credentials()
+            account_name = self.cached_creds.get('account_name', 'Authenticated User')
         except Exception:
             account_name = 'Authenticated User'
             
@@ -251,11 +255,8 @@ class MainWindow(QWidget):
             # --- Header Label (The 'Image Database and Toolkit' text) ---
             title_label = self.title_label # Use the stored reference
             if title_label:
-                # Update the label to reflect the current account name
-                try:
-                    account_name = self.vault_manager.load_account_credentials().get('account_name', 'Authenticated User')
-                except Exception:
-                    account_name = 'Authenticated User'
+                # Retrieve account name from the cached credentials, avoiding a second vault load
+                account_name = self.cached_creds.get('account_name', 'Authenticated User')
                     
                 title_label.setText(f"Image Database and Toolkit - {account_name}")
                 title_label.setStyleSheet(f"color: {header_label_color}; font-size: 18pt; font-weight: bold;")

@@ -19,7 +19,7 @@ class SettingsWindow(QWidget):
         super().__init__(None, Qt.Window) 
         
         self.setWindowTitle("Application Settings")
-        self.setMinimumSize(800, 800)
+        self.setMinimumSize(800, 500)
         
         # Reference to the Vault Manager from MainWindow
         self.vault_manager = self.main_window_ref.vault_manager if self.main_window_ref else None
