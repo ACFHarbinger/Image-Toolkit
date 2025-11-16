@@ -56,15 +56,14 @@ include_directories(${CXXOPTS_INCLUDE_DIR})
 # --- 3. ADD OUR SOURCE LIBRARIES ---
 # Assume all .cpp files are in the parent directory (or add src/ prefix)
 # We build them as libraries to link against.
-
-add_library(FileSystemUtil STATIC FileSystemUtil.cpp)
-add_library(ImageUtil STATIC ImageUtil.cpp)
-add_library(DatabaseManager STATIC DatabaseManager.cpp)
-add_library(WallpaperManager STATIC WallpaperManager.cpp)
-add_library(VaultManager STATIC VaultManager.cpp)
-add_library(WebClient STATIC WebClient.cpp)
-add_library(GoogleDriveSync STATIC GoogleDriveSync.cpp)
-add_library(ArgParser STATIC ArgParser.cpp)
+add_library(FileSystemUtil STATIC ../src/core/FileSystemUtil.cpp)
+add_library(ImageUtil STATIC ../src/core/ImageUtil.cpp)
+add_library(DatabaseManager STATIC ../src/core/DatabaseManager.cpp)
+add_library(WallpaperManager STATIC ../src/core/WallpaperManager.cpp)
+add_library(VaultManager STATIC ../src/core/VaultManager.cpp)
+add_library(WebClient STATIC ../src/web/WebClient.cpp)
+add_library(GoogleDriveSync STATIC ../src/web/GoogleDriveSync.cpp)
+add_library(ArgParser STATIC ../src/utils/ArgParser.cpp)
 
 # Link dependencies to our libraries
 target_link_libraries(ImageUtil PRIVATE FileSystemUtil ${OpenCV_LIBS})
@@ -75,49 +74,48 @@ target_link_libraries(WebClient PRIVATE FileSystemUtil ${CURL_LIBRARIES} ${GUMBO
 target_link_libraries(GoogleDriveSync PRIVATE FileSystemUtil ${CURL_LIBRARIES})
 # ArgParser is self-contained (cxxopts is header-only)
 
-
 # --- 4. DEFINE TEST EXECUTABLES ---
 # We create a separate executable for each test file.
 
 # FileSystemUtil Test
 add_executable(FileSystemUtilTest FileSystemUtilTest.cpp)
 target_link_libraries(FileSystemUtilTest PRIVATE GTest::gtest_main FileSystemUtil)
+add_test(NAME FileSystemUtilTest COMMAND FileSystemUtilTest)
 
 # ArgParser Test
 add_executable(ArgParserTest ArgParserTest.cpp)
 target_link_libraries(ArgParserTest PRIVATE GTest::gtest_main ArgParser)
+add_test(NAME ArgParserTest COMMAND ArgParserTest)
 
 # ImageUtil Test
 add_executable(ImageUtilTest ImageUtilTest.cpp)
 target_link_libraries(ImageUtilTest PRIVATE GTest::gtest_main ImageUtil FileSystemUtil ${OpenCV_LIBS})
+add_test(NAME ImageUtilTest COMMAND ImageUtilTest)
 
 # WebClient Test
 add_executable(WebClientTest WebClientTest.cpp)
 target_link_libraries(WebClientTest PRIVATE GTest::gtest_main WebClient FileSystemUtil ${CURL_LIBRARIES} ${GUMBO_LIBRARIES})
+add_test(NAME WebClientTest COMMAND WebClientTest)
 
 # DatabaseManager Test
 add_executable(DatabaseManagerTest DatabaseManagerTest.cpp)
 target_link_libraries(DatabaseManagerTest PRIVATE GTest::gtest_main DatabaseManager ${LIBPQXX_LIBRARIES})
+add_test(NAME DatabaseManagerTest COMMAND DatabaseManagerTest)
 
 # GoogleDriveSync Test
 add_executable(GoogleDriveSyncTest GoogleDriveSyncTest.cpp)
 target_link_libraries(GoogleDriveSyncTest PRIVATE GTest::gtest_main GoogleDriveSync FileSystemUtil ${CURL_LIBRARIES})
+add_test(NAME GoogleDriveSyncTest COMMAND GoogleDriveSyncTest)
 
 # VaultManager Test
 add_executable(VaultManagerTest VaultManagerTest.cpp)
 target_link_libraries(VaultManagerTest PRIVATE GTest::gtest_main VaultManager FileSystemUtil ${OpenSSL_LIBS} ${JNI_LIBS})
+add_test(NAME VaultManagerTest COMMAND VaultManagerTest)
 
 # WallpaperManager Test
 add_executable(WallpaperManagerTest WallpaperManagerTest.cpp)
 target_link_libraries(WallpaperManagerTest PRIVATE GTest::gtest_main WallpaperManager FileSystemUtil)
+add_test(NAME WallpaperManagerTest COMMAND WallpaperManagerTest)
 
 # --- 5. ENABLE CTEST TO DISCOVER TESTS ---
 include(GoogleTest)
-gtest_discoverTests(FileSystemUtilTest)
-gtest_discoverTests(ArgParserTest)
-gtest_discoverTests(ImageUtilTest)
-gtest_discoverTests(WebClientTest)
-gtest_discoverTests(DatabaseManagerTest)
-gtest_discoverTests(GoogleDriveSyncTest)
-gtest_discoverTests(VaultManagerTest)
-gtest_discoverTests(WallpaperManagerTest)

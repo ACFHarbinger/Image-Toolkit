@@ -19,8 +19,10 @@ TEMPLATE  = app
 # Include Path
 #-------------------------------------------------
 # Add the project's root directory to the include path.
-# This allows you to use #include "components/ClickableLabel.h"
 INCLUDEPATH += .
+# JNI Headers
+INCLUDEPATH += /usr/lib/jvm/java-25-openjdk-amd64/include
+INCLUDEPATH += /usr/lib/jvm/java-25-openjdk-amd64/include/linux
 
 #-------------------------------------------------
 # Source Files
@@ -37,6 +39,8 @@ SOURCES += \
     components/QueueItemWidget.cpp \
     \
     styles/Style.cpp \
+    \
+    utils/ScreenInfo.cpp \
     \
     windows/LoginWindow.cpp \
     windows/LogWindow.cpp \
@@ -79,6 +83,7 @@ HEADERS += \
     \
     styles/Style.h \
     \
+    utils/ScreenInfo.h \
     utils/AppDefinitions.h \
     utils/IBaseTab.h \
     \

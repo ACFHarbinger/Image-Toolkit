@@ -424,3 +424,7 @@ CMakeFiles/
 /**/build
 /**/dist
 /**/target
+
+# Secret files
+/**/api/*.json
+/**/cryptography/*.txt

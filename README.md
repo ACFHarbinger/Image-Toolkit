@@ -4,7 +4,7 @@ Image database and edit toolkit.
 ## Tech Stack
 - [Python Programming Language](https://www.python.org/)
 
-## Setup Dependencies
+## Setup Python Dependencies
 You can choose to install this repository's dependencies using any of the following methods below.
 
 ### UV
@@ -84,6 +84,12 @@ deactivate
 rm -rf env/.img_db
 ```
 
+## Setup C++ Dependencies:
+You need to run the following command:
+```bash
+sudo apt install libgtest-dev libopencv-de libxext-dev libxt-dev libxrender-dev libpqxx-dev libgumbo-dev nlohmann-json3-dev libcxxopts-dev
+```
+
 ## Usage
 Before you start the program, you must initialize the PostgreSQL Database by running one of the following commands:
 - On the Linux CLI: `sudo systemctl start postgresql`
@@ -115,10 +121,25 @@ python main.py convert --output_format png --input_path <path_to_dir> --input_fo
 Note: if no --output_path argument is given, the new image will have the same name (or the images will be generated in the same directory, in the case of batch conversion), just with a different file extension.
 
 ## Build
-### C++
+### Python
 To build the desktop app part of the project, you just need to run the following command:
 ```bash
 pyinstaller --clean app.spec
+```
+
+### Core and Web
+To build the core and web parts of the project, you need to run the following commands:
+```bash
+mkdir build
+cd build
+cmake ..
+```
+
+### Desktop GUI
+To build the desktop GUI part of the project, you need to run the following commands:
+```bash
+qmake
+make
 ```
 
 ## Testing
