@@ -545,11 +545,12 @@ class WallpaperTab(BaseTab):
         ready_label.setStyleSheet("color: #b9bbbe;")
         self.scan_thumbnail_layout.addWidget(ready_label, 0, 0, 1, columns)
 
+    
     def populate_monitor_layout(self):
         """
         Clears and recreates the monitor drop widgets.
-        Visually displays the Primary Monitor first, followed by the rest,
-        sorted by their system priority index.
+        Visually displays monitors sorted by their physical X-coordinate (left to right),
+        while ensuring the internal assignment uses the correct system priority index.
         """
         for i in reversed(range(self.monitor_layout.count())): 
             widget = self.monitor_layout.takeAt(i).widget()
@@ -559,6 +560,9 @@ class WallpaperTab(BaseTab):
         
         try:
             system_monitors = get_monitors()
+            # Sort by X coordinate for physical display in the UI
+            physical_monitors = sorted(system_monitors, key=lambda m: m.x)
+            
             self.monitors = system_monitors
 
         except Exception as e:
@@ -569,46 +573,33 @@ class WallpaperTab(BaseTab):
             self.monitor_layout.addWidget(QLabel("Could not detect any monitors.\nIs 'screeninfo' installed?"))
             return
 
-        # 1. Identify the primary monitor and its index
-        primary_monitor = next((m for m in system_monitors if m.is_primary), None)
-        
-        # Create a list of (system_index, Monitor) tuples
-        indexed_monitors = []
-        primary_index = -1
-        
-        for i, m in enumerate(system_monitors):
-            if primary_monitor and m.x == primary_monitor.x and m.y == primary_monitor.y:
-                primary_index = i
-            indexed_monitors.append((i, m))
+        monitors_to_show = physical_monitors
 
-        # 2. Separate primary monitor and sort the rest by index
-        remaining_monitors = sorted([
-            (i, m) for i, m in indexed_monitors if i != primary_index
-        ], key=lambda item: item[0])
-        
-        monitors_to_show = []
-        if primary_monitor:
-            monitors_to_show.append((primary_index, primary_monitor))
-            
-        monitors_to_show.extend(remaining_monitors)
-
-        # Handle Windows specific restriction (only showing primary/single wallpaper)
         if platform.system() == "Windows":
-             # In Windows, we only apply to the primary monitor, regardless of others.
-             if primary_monitor:
-                 monitors_to_show = [(primary_index, primary_monitor)]
-             else:
-                 # Fallback if primary is not explicitly set but monitors exist
-                 monitors_to_show = [(0, system_monitors[0])]
-
-             label = QLabel("Windows typically sets one wallpaper across all screens (applied to primary).")
+             primary_monitor = next((m for m in system_monitors if m.is_primary), system_monitors[0])
+             monitors_to_show = [primary_monitor]
+             label = QLabel("Windows only supports one wallpaper across all screens.")
              label.setStyleSheet("color: #7289da;")
              self.monitor_layout.addWidget(label)
-        
-        # 3. Build the UI widgets in the desired order (Primary first, then by system index)
-        for system_index, monitor in monitors_to_show:
+
+
+        for monitor in monitors_to_show:
             
-            # The monitor_id is the system's priority index (0, 1, 2, ...)
+            # Find the original system index (display priority) associated with this physical monitor
+            system_index = -1
+            for i, sys_mon in enumerate(system_monitors):
+                if (sys_mon.x == monitor.x and 
+                    sys_mon.y == monitor.y and
+                    sys_mon.width == monitor.width and 
+                    sys_mon.height == monitor.height):
+                    system_index = i
+                    break
+            
+            if system_index == -1:
+                print(f"Warning: Could not map physical monitor {monitor.name} to system index.")
+                continue
+
+            # The monitor_id is the system's priority index (0, 1, 2, ...), which dictates wallpaper assignment
             monitor_id = str(system_index) 
 
             drop_widget = MonitorDropWidget(monitor, monitor_id)
@@ -619,7 +610,7 @@ class WallpaperTab(BaseTab):
             if current_image:
                 drop_widget.set_image(current_image)
             
-            # Add to the layout in the order determined by the list (Primary first)
+            # Add to the layout in the physical X-axis order
             self.monitor_layout.addWidget(drop_widget)
             self.monitor_widgets[monitor_id] = drop_widget
         
@@ -641,6 +632,36 @@ class WallpaperTab(BaseTab):
         
         self.check_all_monitors_set()
         
+    def _get_assignment_map(self, source_paths: Dict[str, str]) -> Dict[str, str]:
+        """
+        Reintroduces the corrective shift/rotation required by the underlying 
+        system/worker to ensure the image assigned to System ID N lands on Monitor N.
+        Monitor 0 gets image from N-1, Monitor 1 gets image from 0, etc.
+        """
+        n = len(self.monitors)
+        if n == 0:
+            return {}
+            
+        rotated_map = {}
+        
+        # Iterate over all system monitor IDs present in the paths dictionary
+        for current_monitor_id_str in source_paths.keys():
+            current_monitor_id = int(current_monitor_id_str)
+            
+            # The assignment logic requires Monitor 'i' to take the path intended for Monitor 'i-1'
+            # We use the length of the system_monitors list (n) for the modulo calculation.
+            prev_monitor_index = (current_monitor_id - 1 + n) % n
+            
+            # Use the previous monitor's system index (ID) to fetch the path
+            prev_monitor_id_str = str(prev_monitor_index)
+            
+            path_from_prev = source_paths.get(prev_monitor_id_str)
+            
+            rotated_map[current_monitor_id_str] = path_from_prev
+            
+        return rotated_map
+        
+    
     def run_wallpaper_worker(self, slideshow_mode=False):
         """
         Initializes and runs the wallpaper worker on a separate thread.
@@ -660,7 +681,8 @@ class WallpaperTab(BaseTab):
                                 "Directory scanning will be disabled.")
             return
 
-        path_map = self.monitor_image_paths
+        # Apply the necessary rotational map correction before passing to the worker
+        path_map = self._get_assignment_map(self.monitor_image_paths)
         monitors = self.monitors
         
         if not slideshow_mode:
