@@ -1,21 +1,21 @@
 import os
+
 from pathlib import Path
-from typing import Dict, Any, Set, List
-
-from PySide6.QtCore import Qt, QTimer, QThread, Slot
-from PySide6.QtGui import QPixmap
+from typing import Dict, Any, List
+from PySide6.QtCore import Qt, QTimer, QThread, Slot, QPoint
+from PySide6.QtGui import QPixmap, QAction
 from PySide6.QtWidgets import (
+    QFrame, QMenu, QApplication, QFormLayout,
+    QComboBox, QSpinBox, QGroupBox, QHBoxLayout,
+    QVBoxLayout, QMessageBox, QGridLayout, QScrollArea,
     QLineEdit, QFileDialog, QWidget, QLabel, QPushButton,
-    QComboBox, QSpinBox, QGroupBox, QFormLayout, QHBoxLayout,
-    QVBoxLayout, QMessageBox, QApplication, QGridLayout, QScrollArea,
-    QFrame
 )
-
 from .base_tab import BaseTab
+from ..windows import ImagePreviewWindow
 from ..components import ClickableLabel, MarqueeScrollArea
 from ..helpers import MergeWorker, ImageScannerWorker, BatchThumbnailLoaderWorker
-from ..styles.style import apply_shadow_effect
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
+from ..styles.style import apply_shadow_effect
 
 
 class MergeTab(BaseTab):
@@ -38,7 +38,8 @@ class MergeTab(BaseTab):
         self.path_to_label_map: Dict[str, ClickableLabel] = {}
         self.selected_card_map: Dict[str, ClickableLabel] = {}
         self.scanned_dir: str | None = None
-
+        self.open_preview_windows: list[ImagePreviewWindow] = [] # Track open windows
+        
         # --- Thread tracking (mimicking ScanMetadataTab) ---
         self.current_scan_thread: QThread | None = None
         self.current_scan_worker: ImageScannerWorker | None = None
@@ -220,6 +221,57 @@ class MergeTab(BaseTab):
         self.toggle_grid_visibility(self.direction.currentText())
         self._show_placeholder("No images loaded. Use buttons above to add files or scan a directory.")
 
+    # === NEW HANDLER: Double-Click Preview ===
+    @Slot(str)
+    def handle_full_image_preview(self, image_path: str):
+        """Opens a new non-modal window to display the full image for the MergeTab."""
+        
+        # Check if the image is already open
+        for win in list(self.open_preview_windows):
+            if isinstance(win, ImagePreviewWindow) and win.image_path == image_path:
+                win.activateWindow()
+                return
+
+        # Instantiate the ImagePreviewWindow 
+        # NOTE: Passing db_tab_ref=None since MergeTab doesn't interact with the DB
+        window = ImagePreviewWindow(image_path, db_tab_ref=None, parent=self) # Pass self as parent for context menu
+        window.setAttribute(Qt.WA_DeleteOnClose)
+        
+        # Add cleanup logic for tracking open windows
+        def remove_closed_win(event: Any):
+            if window in self.open_preview_windows:
+                 self.open_preview_windows.remove(window)
+            event.accept()
+
+        window.closeEvent = remove_closed_win
+        
+        window.show()
+        self.open_preview_windows.append(window)
+    # === END NEW HANDLER ===
+
+    # === NEW HANDLER: Right-Click Context Menu ===
+    @Slot(QPoint, str)
+    def show_image_context_menu(self, global_pos: QPoint, path: str):
+        """
+        Displays a context menu for the clicked image thumbnail, offering 
+        View, Select, and Remove options.
+        """
+        menu = QMenu(self)
+        
+        # 1. View Full Size
+        view_action = QAction("View Full Size Preview (Double Click)", self)
+        view_action.triggered.connect(lambda: self.handle_full_image_preview(path))
+        menu.addAction(view_action)
+        
+        # 2. Select/Deselect
+        is_selected = path in self.selected_image_paths
+        toggle_text = "Deselect Image (Remove from Merge List)" if is_selected else "Select Image (Add to Merge List)"
+        toggle_action = QAction(toggle_text, self)
+        toggle_action.triggered.connect(lambda: self._toggle_selection(path))
+        menu.addAction(toggle_action)
+        
+        menu.exec(global_pos)
+
     # === THREAD SAFETY CLEANUP ===
     @Slot()
     def _cleanup_scan_thread_ref(self):
@@ -261,7 +313,10 @@ class MergeTab(BaseTab):
 
     @Slot(int, str)
     def _create_thumbnail_placeholder(self, idx: int, path: str):
-        """Creates a ClickableLabel placeholder with loading text and ScanMetadataTab styling."""
+        """
+        Creates a ClickableLabel placeholder with loading text and ScanMetadataTab styling.
+        [MODIFIED] Connects all three click signals.
+        """
         columns = self._columns()
         row = idx // columns
         col = idx % columns
@@ -276,7 +331,11 @@ class MergeTab(BaseTab):
         self.path_to_label_map[path] = clickable_label
 
         clickable_label.path_clicked.connect(self._toggle_selection)
-        clickable_label.path_double_clicked.connect(lambda p: QMessageBox.information(self, "Path", p))
+        
+        # --- NEW: Connect Double Click and Right Click ---
+        clickable_label.path_double_clicked.connect(self.handle_full_image_preview)
+        clickable_label.path_right_clicked.connect(self.show_image_context_menu)
+        # --- END NEW ---
         
         self.merge_thumbnail_widget.update()
         QApplication.processEvents()
@@ -565,8 +624,6 @@ class MergeTab(BaseTab):
 
         thread.finished.connect(thread.deleteLater)
         thread.finished.connect(self._cleanup_scan_thread_ref)
-
-        worker.scan_finished.connect(self._display_load_complete_message)
         
         thread.start()
 
@@ -604,6 +661,8 @@ class MergeTab(BaseTab):
         loader.loading_finished.connect(loader.deleteLater)
         thread.finished.connect(thread.deleteLater)
         thread.finished.connect(self._cleanup_loader_thread_ref)
+
+        loader.loading_finished.connect(self._display_load_complete_message)
         
         thread.start()
 

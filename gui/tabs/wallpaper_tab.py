@@ -6,10 +6,10 @@ from math import floor
 from pathlib import Path
 from screeninfo import get_monitors, Monitor
 from typing import Dict, List, Optional, Tuple, Any
-from PySide6.QtCore import Qt, QThreadPool, QThread, QTimer, Slot
-from PySide6.QtGui import QPixmap
+from PySide6.QtCore import Qt, QThreadPool, QThread, QTimer, Slot, QPoint
+from PySide6.QtGui import QPixmap, QAction
 from PySide6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QGroupBox, QComboBox,
+    QVBoxLayout, QHBoxLayout, QGroupBox, QComboBox, QMenu,
     QWidget, QLabel, QPushButton, QMessageBox, QApplication,
     QLineEdit, QFileDialog, QScrollArea, QGridLayout, QSpinBox, QCheckBox,
 )
@@ -550,7 +550,7 @@ class WallpaperTab(BaseTab):
                 return
 
         # Instantiate the ImagePreviewWindow from the components module
-        window = ImagePreviewWindow(image_path)
+        window = ImagePreviewWindow(image_path, parent=self) # Pass self as parent for context menu
         window.setAttribute(Qt.WA_DeleteOnClose)
         
         def remove_closed_win(event: Any):
@@ -563,19 +563,37 @@ class WallpaperTab(BaseTab):
         window.show()
         self.open_image_preview_windows.append(window)
 
-    def _create_thumbnail_placeholder(self, index: int, path: str):
-        columns = self.calculate_columns()
-        row = index // columns
-        col = index % columns
-        draggable_label = DraggableImageLabel(path, self.thumbnail_size) 
+    # --- NEW METHOD: Context Menu Handler for DraggableImageLabel ---
+    @Slot(QPoint, str)
+    def show_image_context_menu(self, global_pos: QPoint, path: str):
+        """
+        Displays a context menu for the clicked image thumbnail, offering 
+        View and Add to Queue options.
+        """
+        menu = QMenu(self)
         
-        # UPDATED CONNECTION: Connect the double click signal to the generic preview slot
-        draggable_label.path_double_clicked.connect(self.handle_full_image_preview)
+        # 1. View Full Size
+        view_action = QAction("View Full Size Preview", self)
+        view_action.triggered.connect(lambda: self.handle_full_image_preview(path))
+        menu.addAction(view_action)
         
-        self.scan_thumbnail_layout.addWidget(draggable_label, row, col)
-        self.path_to_label_map[path] = draggable_label 
-        self.scan_thumbnail_widget.update()
-        QApplication.processEvents()
+        # 2. Add to Queue Submenu
+        if self.monitor_widgets:
+            menu.addSeparator()
+            
+            add_menu = menu.addMenu("Add to Monitor Queue")
+            
+            # Iterate through available monitors
+            for monitor_id, widget in self.monitor_widgets.items():
+                monitor_name = widget.monitor.name
+                action = QAction(f"{monitor_name} (ID: {monitor_id})", self)
+                # Use a lambda function to capture both the path and the monitor_id
+                action.triggered.connect(lambda checked, mid=monitor_id, img_path=path: self.on_image_dropped(mid, img_path))
+                add_menu.addAction(action)
+        
+        menu.exec(global_pos)
+    # --- END NEW METHOD ---
+
 
     @Slot(str, list)
     def on_queue_reordered(self, monitor_id: str, new_queue: List[str]):
@@ -1059,6 +1077,8 @@ class WallpaperTab(BaseTab):
         # Connect the double click signal, assuming DraggableImageLabel emits `path_double_clicked(str)`
         draggable_label.path_double_clicked.connect(self.handle_thumbnail_double_click)
         
+        # --- NEW: Connect Right Click ---
+        draggable_label.path_right_clicked.connect(self.show_image_context_menu)
         self.scan_thumbnail_layout.addWidget(draggable_label, row, col)
         self.path_to_label_map[path] = draggable_label 
         self.scan_thumbnail_widget.update()
