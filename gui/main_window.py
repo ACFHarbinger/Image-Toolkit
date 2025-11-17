@@ -9,11 +9,11 @@ from PySide6.QtWidgets import (
 )
 from .windows import SettingsWindow
 from .tabs import (
-    WallpaperTab,
     MergeTab, DatabaseTab,
     ConvertTab, DeleteTab, 
     ScanMetadataTab, SearchTab, 
     ImageCrawlTab, DriveSyncTab,
+    WallpaperTab, WebRequestsTab,
 )
 from .styles.style import DARK_QSS, LIGHT_QSS
 from .utils.app_definitions import NEW_LIMIT_MB
@@ -129,6 +129,7 @@ class MainWindow(QWidget):
         self.crawler_tab = ImageCrawlTab(dropdown=dropdown)
         self.drive_sync_tab = DriveSyncTab(dropdown=dropdown)
         self.wallpaper_tab = WallpaperTab(self.database_tab, dropdown=dropdown)
+        self.web_requests_tab = WebRequestsTab(dropdown=dropdown)
 
         # Set references *after* all tabs are created
         self.database_tab.scan_tab_ref = self.scan_metadata_tab 
@@ -149,6 +150,7 @@ class MainWindow(QWidget):
             }, 
             'Web Integration': {
                 "Web Crawler": self.crawler_tab,
+                "Web Requests": self.web_requests_tab,
                 "Cloud Synchronization": self.drive_sync_tab,
             }
         }
