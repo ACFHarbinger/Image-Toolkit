@@ -175,7 +175,6 @@ class ImageCrawlTab(BaseTab):
         # Action Builder
         action_builder_layout = QHBoxLayout()
         self.action_combo = QComboBox()
-        # --- UPDATED ACTION LIST ---
         self.action_combo.addItems([
             "Find Parent Link (<a>)",
             "Download Simple Thumbnail (Legacy)",
@@ -189,9 +188,9 @@ class ImageCrawlTab(BaseTab):
             "Find <img> Number X on Page",
             "Download Image from Element",
             "Download Current URL as Image",
-            "Wait for Gallery (Context Reset)"
+            "Wait for Gallery (Context Reset)",
+            "Scrape Text (Saves to JSON)"
         ])
-        # --- END UPDATED ACTION LIST ---
         self.action_param_input = QLineEdit()
         self.action_param_input.setPlaceholderText("Parameter (e.g., text to click, or CSS selector)")
         self.add_action_button = QPushButton("Add")
@@ -216,11 +215,6 @@ class ImageCrawlTab(BaseTab):
         
         # List Controls
         list_controls_layout = QHBoxLayout()
-        
-        self.view_log_button = QPushButton("View Log")
-        self.view_log_button.clicked.connect(self.log_window.show)
-        list_controls_layout.addWidget(self.view_log_button)
-        
         self.remove_action_button = QPushButton("Remove Selected")
         self.remove_action_button.clicked.connect(self.remove_action)
         self.clear_actions_button = QPushButton("Clear All")

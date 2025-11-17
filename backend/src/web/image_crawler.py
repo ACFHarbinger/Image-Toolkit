@@ -1,6 +1,6 @@
-# image_crawler.py
 import os
 import time
+import json
 import requests
 
 from urllib.parse import urlparse, urljoin
@@ -272,7 +272,7 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
         """
         current_element = element
         downloaded = False
-        
+        scraped_data = {}
         for action in self.actions:
             if self.driver is None:
                 return downloaded
@@ -345,6 +345,39 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                         raise ValueError("Action 'Find Element by CSS Selector': Missing selector parameter.")
                     current_element = self.driver.find_element(By.CSS_SELECTOR, param)
                 
+                elif action_type == "Scrape Text (Saves to JSON)":
+                    if not param or ':' not in param:
+                        raise ValueError("Action 'Scrape Text': Parameter must be in 'key_name:css_selector' format.")
+                    
+                    # Split param into key and selector
+                    try:
+                        json_key, selector = param.split(':', 1)
+                        json_key = json_key.strip()
+                        selector = selector.strip()
+                        
+                        if not json_key or not selector:
+                            raise ValueError("Invalid format.")
+
+                    except ValueError:
+                        raise ValueError(f"Action 'Scrape Text': Invalid parameter format: '{param}'. Must be 'key_name:css_selector'.")
+
+                    # 1. Find the element
+                    text_element = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    
+                    # 2. Get the text
+                    extracted_text = text_element.text.strip()
+                    
+                    # 3. Store in the dictionary
+                    scraped_data[json_key] = extracted_text
+                    
+                    # 4. Emit to log
+                    if extracted_text:
+                        self.on_status.emit(f"SCRAPED: {json_key} = {extracted_text[:100]}...")
+                    else:
+                        self.on_status.emit(f"SCRAPED: {json_key} = <Empty Result>")
+                    
+                    current_element = text_element
+                
                 # --- Download Actions ---
                 elif action_type == "Download Image from Element":
                     url = current_element.get_attribute("src") or current_element.get_attribute("href")
@@ -353,7 +386,6 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                         return downloaded 
                     downloaded = self._download_image_from_url(url)
                     return downloaded
-                
                 elif action_type == "Download Current URL as Image":
                     url = self.driver.current_url
                     if not any(url.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']):
@@ -361,9 +393,25 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                         return downloaded 
                     downloaded = self._download_image_from_url(url)
                     return downloaded
-
-                # If execution reaches here without an explicit return, it means the action succeeded.
-                
+                elif action_type == "Extract Element Text by CSS Selector":
+                    if not param:
+                        raise ValueError("Action 'Extract Element Text by CSS Selector': Missing selector parameter.")
+                    
+                    # 1. Find the element using the provided CSS selector
+                    text_element = self.driver.find_element(By.CSS_SELECTOR, param)
+                    
+                    # 2. Get the text from the element
+                    extracted_text = text_element.text.strip()
+                    
+                    # 3. Emit the scraped text to the log
+                    if extracted_text:
+                        self.on_status.emit(f"SCRAPED TEXT: {extracted_text}")
+                    else:
+                        self.on_status.emit(f"SCRAPED TEXT: <Empty Result>")
+                    
+                    # We don't return here, allowing the sequence to continue
+                    # We can also update current_element in case the next action needs it
+                    current_element = text_element
             except (NoSuchElementException, StaleElementReferenceException) as e:
                 # Non-critical failure: Log and continue to the next action
                 self.on_status.emit(f"Action '{action_type}' failed (Element not found/stale). Skipping to next action.")
