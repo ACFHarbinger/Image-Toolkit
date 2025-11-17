@@ -3,10 +3,10 @@ import os
 from pathlib import Path
 from PySide6.QtCore import Qt, QPoint
 from PySide6.QtWidgets import (
+    QListWidget, QMenu, QWidget, QInputDialog, 
     QLineEdit, QPushButton, QFileDialog, QLabel,
     QGroupBox, QCheckBox, QComboBox, QMessageBox,
-    QFormLayout, QHBoxLayout, QVBoxLayout, QWidget,
-    QListWidget, QMenu, QProgressBar, QInputDialog 
+    QFormLayout, QHBoxLayout, QVBoxLayout, QProgressBar,
 )
 from PySide6.QtGui import QAction
 from .base_tab import BaseTab
@@ -23,7 +23,7 @@ class ImageCrawlTab(BaseTab):
         self.worker = None
         
         # --- Log Window Initialization ---
-        self.log_window = LogWindow(tab_name="Web Crawler")
+        self.log_window = LogWindow()
         self.log_window.hide()
         # --- End Log Window Initialization ---
         
@@ -157,8 +157,9 @@ class ImageCrawlTab(BaseTab):
             "Open Link in New Tab",
             "Click Element by Text",
             "Wait for Page Load",
+            "Wait X Seconds", # NEW Action
             "Switch to Last Tab",
-            "Find Element by CSS Selector", # NEW Action
+            "Find Element by CSS Selector",
             "Find <img> Number X on Page",
             "Download Image from Element",
             "Download Current URL as Image",
@@ -189,6 +190,11 @@ class ImageCrawlTab(BaseTab):
         
         # List Controls
         list_controls_layout = QHBoxLayout()
+        
+        self.view_log_button = QPushButton("View Log")
+        self.view_log_button.clicked.connect(self.log_window.show)
+        list_controls_layout.addWidget(self.view_log_button)
+        
         self.remove_action_button = QPushButton("Remove Selected")
         self.remove_action_button.clicked.connect(self.remove_action)
         self.clear_actions_button = QPushButton("Clear All")
@@ -304,7 +310,8 @@ class ImageCrawlTab(BaseTab):
         action_type, param_str = full_text.split(" | Param: ", 1)
         
         # Determine the input mode and prompt based on the action type
-        is_number_mode = "Find <img> Number X on Page" in action_type
+        is_number_mode = ("Find <img> Number X on Page" in action_type or 
+                          "Wait X Seconds" in action_type)
         
         title = f"Edit Parameter for: {action_type}"
         prompt = "Enter new parameter value:"
@@ -312,22 +319,34 @@ class ImageCrawlTab(BaseTab):
         if is_number_mode:
             try:
                 # Try to get the initial integer value for QInputDialog
-                initial_value = int(param_str)
+                initial_value = int(float(param_str)) # Allow float parsing then int conversion
             except ValueError:
                 initial_value = 1 # Fallback if parsing fails
 
             # PySide6.QtWidgets.QInputDialog.getInt(parent, title, label, value, min, max, step, flags=0)
-            new_param, ok = QInputDialog.getInt(
-                self, 
-                title, 
-                prompt, 
-                initial_value, # value (positional argument 4)
-                1,             # min (positional argument 5)
-                99999,         # max (positional argument 6)
-                1              # step (positional argument 7)
-            )
+            # Use QInputDialog.getDouble for wait seconds to allow float input (e.g., 0.5s)
+            if "Wait X Seconds" in action_type:
+                 new_param, ok = QInputDialog.getDouble(
+                    self,
+                    title,
+                    prompt,
+                    initial_value, # value
+                    0.1,           # min
+                    300.0,         # max
+                    1              # decimals
+                 )
+            else: # Find <img> Number X on Page (integer mode)
+                 new_param, ok = QInputDialog.getInt(
+                    self, 
+                    title, 
+                    prompt, 
+                    initial_value, # value (positional argument 4)
+                    1,             # min (positional argument 5)
+                    99999,         # max (positional argument 6)
+                    1              # step (positional argument 7)
+                )
             
-            # Convert integer back to string for consistency
+            # Convert integer/float back to string for consistency
             if ok:
                  new_param = str(new_param)
             else:
@@ -376,15 +395,15 @@ class ImageCrawlTab(BaseTab):
         action_text = self.action_combo.currentText()
         param = self.action_param_input.text().strip()
         
-        # Validation for number input
-        if "Find <img> Number X on Page" in action_text:
+        # Validation for numerical input (Wait X Seconds or Find <img> Number X)
+        if "Seconds" in action_text or "Number X" in action_text:
             try:
-                num = int(param)
+                num = float(param)
                 if num <= 0:
-                    QMessageBox.warning(self, "Invalid Parameter", "Image number must be a positive integer (1 or greater).")
+                    QMessageBox.warning(self, "Invalid Parameter", "Wait time or Image number must be positive.")
                     return
             except ValueError:
-                QMessageBox.warning(self, "Invalid Parameter", "This action requires an image number (e.g., '2') in the parameter field.")
+                QMessageBox.warning(self, "Invalid Parameter", f"The action '{action_text}' requires a number (integer or float).")
                 return
 
         # Validation for text/selector input
@@ -469,15 +488,21 @@ class ImageCrawlTab(BaseTab):
             if " | Param: " in item_text:
                 action_type, param_str = item_text.split(" | Param: ", 1)
                 
-                # Special handling: convert parameter string back to integer if needed
-                if action_type == "Find <img> Number X on Page":
+                # Handle numerical parameters (Wait X Seconds, Find <img> Number X)
+                if "Seconds" in action_type:
+                    try:
+                        param = float(param_str)
+                    except ValueError:
+                         QMessageBox.warning(self, "Serialization Error", f"Wait time parameter '{param_str}' is invalid.")
+                         return
+                elif "Number X" in action_type:
                     try:
                         param = int(param_str)
                     except ValueError:
                         QMessageBox.warning(self, "Serialization Error", f"Image number parameter '{param_str}' is invalid.")
                         return
                 else:
-                    # For text parameters like "Click Element by Text"
+                    # For text parameters (CSS Selector, Click Text)
                     param = param_str 
             else:
                 action_type = item_text
@@ -567,6 +592,7 @@ class ImageCrawlTab(BaseTab):
                 {"type": "Find Parent Link (<a>)", "param": None},
                 {"type": "Open Link in New Tab", "param": None},
                 {"type": "Find Element by CSS Selector", "param": ".image-container img#image"},
+                {"type": "Wait X Seconds", "param": 3.0},
                 {"type": "Download Image from Element", "param": None}
             ]
         }
@@ -595,7 +621,11 @@ class ImageCrawlTab(BaseTab):
                 param = action.get("param")
                 
                 if param is not None:
-                    display_text += f" | Param: {param}"
+                    # Explicitly convert float to string for display if needed
+                    if "Seconds" in display_text:
+                        display_text += f" | Param: {float(param)}"
+                    else:
+                        display_text += f" | Param: {param}"
                 
                 self.action_list_widget.addItem(display_text)
             

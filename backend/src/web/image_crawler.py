@@ -1,3 +1,4 @@
+# image_crawler.py
 import os
 import time
 import requests
@@ -164,7 +165,7 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                 except Exception as e:
                     # Catch all exceptions during image processing cycle
                     print(f"Failed image cycle for image {i+1}: {e}")
-                    self.on_status.emit(f"Failed to process image {i+1} due to error, skipping.")
+                    self.on_status.emit(f"Failed to process image {i+1} due to error, skipping. Check console.")
                 
                 finally:
                     # Cleanup tabs to return to the original gallery page
@@ -198,10 +199,6 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
         """
         Runs the defined action list for a single target element.
         Returns True if a download was successful, False otherwise.
-        
-        Modification: If a non-download action fails, the sequence skips to the
-        next action for the same image (failover). If a download action fails,
-        the sequence stops for this image.
         """
         current_element = element
         downloaded = False
@@ -223,14 +220,13 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                     url = element.get_attribute("src") 
                     if not url:
                         self.on_status.emit("Download failed: No src found on original element.")
-                        return downloaded # Sequence stops here (return False)
+                        return downloaded 
                     downloaded = self._download_image_from_url(url)
                     return downloaded
                 
                 elif action_type == "Wait for Gallery (Context Reset)":
                     if not self.wait_for_image_element(By.TAG_NAME, "img", timeout=30):
                          self.on_status.emit("Wait failed: Timed out waiting for gallery to resume.")
-                         # If waiting fails, we should stop the sequence for this image
                          return downloaded 
                     self.on_status.emit("Gallery context confirmed.")
                 
@@ -257,6 +253,14 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                 elif action_type == "Wait for Page Load":
                     self.wait_for_page_to_load(timeout=5)
                 
+                # --- NEW ACTION IMPLEMENTATION ---
+                elif action_type == "Wait X Seconds":
+                    if not isinstance(param, (int, float)) or param < 0:
+                        raise ValueError(f"Action 'Wait X Seconds': Invalid parameter: {param}")
+                    self.on_status.emit(f"Waiting for {param} seconds...")
+                    time.sleep(param)
+                # --- END NEW ACTION IMPLEMENTATION ---
+
                 elif action_type == "Switch to Last Tab":
                     self.driver.switch_to.window(self.driver.window_handles[-1])
                 
@@ -264,6 +268,7 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                 elif action_type == "Find <img> Number X on Page":
                     if not isinstance(param, int) or param < 1:
                         raise ValueError(f"Action 'Find <img> Number X': Invalid parameter: {param}")
+                        
                     xpath_query = f"//img[{param}]"
                     current_element = self.driver.find_element(By.XPATH, xpath_query)
 
@@ -277,7 +282,7 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                     url = current_element.get_attribute("src") or current_element.get_attribute("href")
                     if not url:
                         self.on_status.emit("Download failed: No src/href found on current element.")
-                        return downloaded # Sequence stops here
+                        return downloaded 
                     downloaded = self._download_image_from_url(url)
                     return downloaded
                 
@@ -285,20 +290,20 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                     url = self.driver.current_url
                     if not any(url.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']):
                         self.on_status.emit(f"Download failed: Current URL doesn't look like an image: {url}")
-                        return downloaded # Sequence stops here
+                        return downloaded 
                     downloaded = self._download_image_from_url(url)
                     return downloaded
 
                 # If execution reaches here without an explicit return, it means the action succeeded.
                 
             except (NoSuchElementException, StaleElementReferenceException) as e:
-                # Log non-critical failure and attempt next action
+                # Non-critical failure: Log and continue to the next action
                 self.on_status.emit(f"Action '{action_type}' failed (Element not found/stale). Skipping to next action.")
                 print(f"Non-critical Failure in sequence: {action_type} - {e}")
                 continue
                 
             except (TimeoutException, ValueError, Exception) as e:
-                # Log critical failure (e.g., bad parameter, unexpected error) and stop sequence for this image.
+                # Critical failure: Log and stop the sequence for this image
                 self.on_status.emit(f"Action '{action_type}' failed critically. Stopping sequence for this image.")
                 print(f"Critical Failure in sequence: {action_type} - {e}")
                 return downloaded
