@@ -89,6 +89,17 @@ class MergeTab(BaseTab):
         self.spacing.setValue(10)
         config_layout.addRow("Spacing (px):", self.spacing)
 
+        self.align_mode = QComboBox()
+        self.align_mode.addItems([
+            "Default (Top/Center)", 
+            "Align Top/Left", 
+            "Align Bottom/Right", 
+            "Center", 
+            "Scaled (Grow Smallest)", 
+            "Squish (Shrink Largest)"
+        ])
+        config_layout.addRow("Alignment/Resize:", self.align_mode)
+
         self.grid_group = QGroupBox("Grid Size")
         grid_layout = QHBoxLayout()
         self.grid_rows = QSpinBox()
@@ -142,14 +153,8 @@ class MergeTab(BaseTab):
 
         scan_dir_layout.addWidget(self.scan_directory_path)
         scan_dir_layout.addWidget(btn_browse_scan)
-        
-        btn_add_files = QPushButton("Add Files Instead...")
-        apply_shadow_effect(btn_add_files, "#000000", 8, 0, 3)
-        btn_add_files.clicked.connect(self._browse_files_logic)
-        btn_add_files.setStyleSheet("max-width: 150px;")
 
         scan_layout.addLayout(scan_dir_layout)
-        scan_layout.addWidget(btn_add_files, alignment=Qt.AlignLeft)
         
         scan_group.setLayout(scan_layout)
         
@@ -702,12 +707,12 @@ class MergeTab(BaseTab):
         worker.progress.connect(self.update_progress)
         
         worker.finished.connect(self.on_merge_done)
-        worker.scan_error.connect(self.on_merge_error)
+        worker.error.connect(self.on_merge_error)
         
         worker.finished.connect(thread.quit)
         worker.finished.connect(worker.deleteLater)
-        worker.scan_error.connect(thread.quit)
-        worker.scan_error.connect(worker.deleteLater)
+        worker.error.connect(thread.quit)
+        worker.error.connect(worker.deleteLater)
         
         thread.finished.connect(thread.deleteLater)
         thread.finished.connect(self._cleanup_merge_thread_ref)
@@ -734,6 +739,7 @@ class MergeTab(BaseTab):
             "output_path": output_path,
             "input_formats": [f.strip().lstrip('.') for f in SUPPORTED_IMG_FORMATS if f.strip()],
             "spacing": self.spacing.value(),
+            "align_mode": self.align_mode.currentText(),
             "grid_size": (self.grid_rows.value(), self.grid_cols.value())
             if self.direction.currentText() == "grid" else None
         }
@@ -774,7 +780,8 @@ class MergeTab(BaseTab):
             "direction": "horizontal",
             "spacing": 10,
             "grid_size": [2, 2], # Use list for JSON
-            "scan_directory": "C:/path/to/images"
+            "scan_directory": "C:/path/to/images",
+            "align_mode": "Default (Top/Center)"
         }
 
     def set_config(self, config: dict):
@@ -785,6 +792,10 @@ class MergeTab(BaseTab):
                 self.direction.setCurrentText(direction)
             
             self.spacing.setValue(config.get("spacing", 10))
+
+            align_mode = config.get("align_mode", "Default (Top/Center)")
+            if self.align_mode.findText(align_mode) != -1:
+                self.align_mode.setCurrentText(align_mode)
             
             grid_size = config.get("grid_size", [2, 2])
             if isinstance(grid_size, list) and len(grid_size) == 2:
