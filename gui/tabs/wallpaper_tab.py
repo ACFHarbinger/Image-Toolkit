@@ -315,7 +315,7 @@ class WallpaperTab(BaseTab):
         elif system == "Linux":
             # Assume KDE/GNOME, check for KDE first
             try:
-                subprocess.run(["which", "qdbus6"], check=True, capture_output=True)
+                subprocess.run(["which", "qdbus"], check=True, capture_output=True)
                 return WALLPAPER_STYLES["KDE"]
             except (FileNotFoundError, subprocess.CalledProcessError):
                 # Fallback to GNOME/Spanned
@@ -656,8 +656,7 @@ class WallpaperTab(BaseTab):
     def populate_monitor_layout(self):
         """
         Clears and recreates the monitor drop widgets.
-        Visually displays monitors sorted by their physical X-coordinate (left to right),
-        while ensuring the internal assignment uses the correct system priority index.
+        Now shows ALL monitors on Windows for per-monitor assignment.
         """
         for i in reversed(range(self.monitor_layout.count())): 
             widget = self.monitor_layout.takeAt(i).widget()
@@ -680,16 +679,8 @@ class WallpaperTab(BaseTab):
             self.monitor_layout.addWidget(QLabel("Could not detect any monitors.\nIs 'screeninfo' installed?"))
             return
 
+        # Show all physical monitors for placement
         monitors_to_show = physical_monitors
-
-        if platform.system() == "Windows":
-             primary_monitor = next((m for m in system_monitors if m.is_primary), system_monitors[0])
-             monitors_to_show = [primary_monitor]
-             label = QLabel("Windows only supports one wallpaper across all screens.")
-             label.setStyleSheet("color: #7289da;")
-             self.monitor_layout.addWidget(label)
-
-
         for monitor in monitors_to_show:
             
             # Find the original system index (display priority) associated with this physical monitor
