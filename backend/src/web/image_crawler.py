@@ -39,10 +39,13 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
         )
         
         self.target_url = config.get("url")
-        # NOTE: Skip default changed to 0 for safer list slicing if user sends empty config
         self.skip_first = config.get("skip_first", 0)
         self.skip_last = config.get("skip_last", 0)
         
+        # --- NEW: Login Configuration ---
+        self.login_config = config.get("login_config", {})
+        # --- END NEW ---
+
         # --- Replacement logic ---
         self.replace_str = config.get("replace_str")
         self.replacements = config.get("replacements")
@@ -50,9 +53,7 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
         # --- Action Sequence ---
         self.actions = config.get("actions", [])
         if not self.actions:
-            # Default action: Simple Download (Legacy)
             self.actions = [{"type": "Download Simple Thumbnail (Legacy)", "param": None}] 
-        # --- END Action Sequence ---
         
         self.urls_to_scrape = [self.target_url]
         if self.replace_str and self.replacements:
@@ -65,10 +66,79 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
         
         print(f"ImageCrawler ready: {self.total_pages} pages to scrape.")
 
-    def login(self, credentials=None):
-        self.on_status.emit("No login needed.")
-        return True
-    
+    def login(self):
+        """
+        Performs a pre-crawl login sequence if credentials and URL are provided.
+        """
+        login_url = self.login_config.get("url")
+        username = self.login_config.get("username")
+        password = self.login_config.get("password")
+        
+        if not (login_url and username and password):
+            self.on_status.emit("No login configuration provided. Skipping authentication.")
+            return True
+
+        self.on_status.emit(f"Starting login sequence to: {login_url}")
+        
+        # 1. Navigate to the login page
+        if not self.navigate_to_url(login_url, take_screenshot=False):
+            self.on_status.emit("Failed to load login page.")
+            return False
+
+        self.wait_for_page_to_load(timeout=10)
+        
+        try:
+            # 2. Locate and fill the username/password fields
+            # We assume standard names/ids like 'username', 'email', 'login', 'password'
+            
+            # --- Attempt to find and fill Username/Email field ---
+            user_field = None
+            try:
+                # Common selectors for username/email fields
+                user_field = self.driver.find_element(By.CSS_SELECTOR, "input[name*='user'], input[name*='email'], input[id*='user'], input[id*='email'], input[id*='login']")
+            except NoSuchElementException:
+                self.on_status.emit("Warning: Could not locate standard username/email field.")
+            
+            if user_field:
+                user_field.send_keys(username)
+                self.on_status.emit("Entered username.")
+            
+            # --- Attempt to find and fill Password field ---
+            pass_field = None
+            try:
+                # Common selectors for password fields
+                pass_field = self.driver.find_element(By.CSS_SELECTOR, "input[name*='pass'], input[id*='pass']")
+            except NoSuchElementException:
+                self.on_status.emit("Warning: Could not locate standard password field.")
+                
+            if pass_field:
+                pass_field.send_keys(password)
+                self.on_status.emit("Entered password.")
+
+            # 3. Locate and click the submit button
+            submit_button = self.driver.find_element(By.CSS_SELECTOR, "button[type='submit'], input[type='submit'], a[type='submit']")
+            submit_button.click()
+            
+            self.on_status.emit("Submitted login form. Waiting for redirect...")
+            
+            # 4. Wait for redirection to complete
+            self.wait_for_page_to_load(timeout=15)
+            
+            # 5. Simple verification: Did we stay on the login page?
+            if login_url in self.driver.current_url:
+                self.on_status.emit("Login failed: Still on the login page.")
+                return False
+                
+            self.on_status.emit("**Login Successful!**")
+            return True
+            
+        except TimeoutException:
+            self.on_status.emit("Login timed out during submission/redirect.")
+            return False
+        except Exception as e:
+            self.on_status.emit(f"Login failed unexpectedly: {e}")
+            return False
+            
     def get_unique_filename(self, filepath):
         """Returns a unique filename like: cat.jpg → cat (1).jpg"""
         base, ext = os.path.splitext(filepath)
@@ -253,13 +323,11 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                 elif action_type == "Wait for Page Load":
                     self.wait_for_page_to_load(timeout=5)
                 
-                # --- NEW ACTION IMPLEMENTATION ---
                 elif action_type == "Wait X Seconds":
                     if not isinstance(param, (int, float)) or param < 0:
                         raise ValueError(f"Action 'Wait X Seconds': Invalid parameter: {param}")
                     self.on_status.emit(f"Waiting for {param} seconds...")
                     time.sleep(param)
-                # --- END NEW ACTION IMPLEMENTATION ---
 
                 elif action_type == "Switch to Last Tab":
                     self.driver.switch_to.window(self.driver.window_handles[-1])
@@ -310,6 +378,35 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
         
         return downloaded
 
+    def run(self):
+        total_downloaded = 0
+        try:
+            # --- MODIFIED: Login attempt occurs before the crawl loop starts ---
+            if not self.login():
+                 self.on_status.emit("Pre-crawl login failed. Stopping crawl.")
+                 return
+            # --- END MODIFIED ---
+            
+            for i, url in enumerate(self.urls_to_scrape):
+                self.current_page_index = i
+                
+                count = self.process_data(url)
+                total_downloaded += count
+                
+                if self.driver is None:
+                    break
+            
+            if self.driver is not None:
+                self.on_status.emit(f"Crawl complete. Downloaded {total_downloaded} total images.")
+        
+        except Exception as e:
+            self.on_status.emit(f"An unexpected error occurred: {e}")
+        
+        finally:
+            self.close()
+            
+        return total_downloaded
+
     def _download_image_from_url(self, url):
         try:
             # 1. Resolve URL relative to the current page
@@ -345,28 +442,3 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
             self.on_status.emit(f"Download failed: {e}")
             print(f"Failed to download {url}: {e}")
             return False
-
-    def run(self):
-        total_downloaded = 0
-        try:
-            self.login()
-            
-            for i, url in enumerate(self.urls_to_scrape):
-                self.current_page_index = i
-                
-                count = self.process_data(url)
-                total_downloaded += count
-                
-                if self.driver is None:
-                    break
-            
-            if self.driver is not None:
-                self.on_status.emit(f"Crawl complete. Downloaded {total_downloaded} total images.")
-        
-        except Exception as e:
-            self.on_status.emit(f"An unexpected error occurred: {e}")
-        
-        finally:
-            self.close()
-            
-        return total_downloaded

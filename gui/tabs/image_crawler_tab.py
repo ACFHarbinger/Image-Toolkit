@@ -3,10 +3,10 @@ import os
 from pathlib import Path
 from PySide6.QtCore import Qt, QPoint
 from PySide6.QtWidgets import (
-    QListWidget, QMenu, QWidget, QInputDialog, 
     QLineEdit, QPushButton, QFileDialog, QLabel,
     QGroupBox, QCheckBox, QComboBox, QMessageBox,
-    QFormLayout, QHBoxLayout, QVBoxLayout, QProgressBar,
+    QFormLayout, QHBoxLayout, QVBoxLayout, QWidget,
+    QListWidget, QMenu, QProgressBar, QInputDialog 
 )
 from PySide6.QtGui import QAction
 from .base_tab import BaseTab
@@ -23,7 +23,7 @@ class ImageCrawlTab(BaseTab):
         self.worker = None
         
         # --- Log Window Initialization ---
-        self.log_window = LogWindow()
+        self.log_window = LogWindow(tab_name="Web Crawler")
         self.log_window.hide()
         # --- End Log Window Initialization ---
         
@@ -34,9 +34,9 @@ class ImageCrawlTab(BaseTab):
 
         main_layout = QVBoxLayout(self)
 
-        # --- Crawler Settings Group ---
-        crawl_group = QGroupBox("Web Crawler Settings")
-        crawl_group.setStyleSheet("""
+        # --- Login Configuration Group (NEW) ---
+        login_group = QGroupBox("Login Configuration")
+        login_group.setStyleSheet("""
             QGroupBox { 
                 border: 1px solid #4f545c; 
                 border-radius: 8px;
@@ -50,6 +50,32 @@ class ImageCrawlTab(BaseTab):
                 border-radius: 4px;
             }
         """)
+
+        login_form = QFormLayout()
+        login_form.setContentsMargins(10, 20, 10, 10)
+        login_form.setSpacing(15)
+
+        self.login_url_input = QLineEdit()
+        self.login_url_input.setPlaceholderText("https://example.com/login")
+        login_form.addRow("Login URL:", self.login_url_input)
+
+        self.login_username_input = QLineEdit()
+        self.login_username_input.setPlaceholderText("Username or Email")
+        login_form.addRow("Username:", self.login_username_input)
+
+        self.login_password_input = QLineEdit()
+        self.login_password_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.login_password_input.setPlaceholderText("Password")
+        login_form.addRow("Password:", self.login_password_input)
+        
+        login_group.setLayout(login_form)
+        main_layout.addWidget(login_group)
+        # --- End Login Configuration Group ---
+
+        # --- Crawler Settings Group ---
+        crawl_group = QGroupBox("Web Crawler Settings")
+        crawl_group.setStyleSheet(login_group.styleSheet()) # Reusing the style
+        # ... (rest of crawl_group UI is unchanged) ...
 
         form_layout = QFormLayout()
         form_layout.setContentsMargins(10, 20, 10, 10)
@@ -125,7 +151,7 @@ class ImageCrawlTab(BaseTab):
         
         # --- Actions Group ---
         actions_group = QGroupBox("Actions (Executed for each image)")
-        actions_group.setStyleSheet(crawl_group.styleSheet())
+        actions_group.setStyleSheet(login_group.styleSheet()) # Reusing the style
         actions_layout = QVBoxLayout()
         actions_layout.setSpacing(10)
 
@@ -157,7 +183,7 @@ class ImageCrawlTab(BaseTab):
             "Open Link in New Tab",
             "Click Element by Text",
             "Wait for Page Load",
-            "Wait X Seconds", # NEW Action
+            "Wait X Seconds",
             "Switch to Last Tab",
             "Find Element by CSS Selector",
             "Find <img> Number X on Page",
@@ -330,7 +356,7 @@ class ImageCrawlTab(BaseTab):
                     self,
                     title,
                     prompt,
-                    initial_value, # value
+                    float(initial_value), # value (Need float here if initial value was int)
                     0.1,           # min
                     300.0,         # max
                     1              # decimals
@@ -442,11 +468,17 @@ class ImageCrawlTab(BaseTab):
             self.screenshot_dir_path.setText(directory)
 
     def start_crawl(self):
+        # ... (Input validation and config gathering) ...
         url = self.url_input.text().strip()
         download_dir = self.download_dir_path.text().strip()
         screenshot_dir = self.screenshot_dir_path.text().strip()
         skip_first = self.skip_first_input.text().strip()
         skip_last = self.skip_last_input.text().strip()
+        
+        # New Login Fields
+        login_url = self.login_url_input.text().strip() or None
+        login_username = self.login_username_input.text().strip() or None
+        login_password = self.login_password_input.text().strip() or None
         
         replace_str = self.replace_str_input.text().strip() or None
         replacements_str = self.replacements_input.text().strip()
@@ -526,6 +558,13 @@ class ImageCrawlTab(BaseTab):
             "replace_str": replace_str,
             "replacements": replacements_list,
             "actions": actions, 
+            # --- NEW LOGIN CONFIG ---
+            "login_config": {
+                "url": login_url,
+                "username": login_username,
+                "password": login_password
+            }
+            # --- END NEW LOGIN CONFIG ---
         }
 
         # UI: Show working state
@@ -594,7 +633,12 @@ class ImageCrawlTab(BaseTab):
                 {"type": "Find Element by CSS Selector", "param": ".image-container img#image"},
                 {"type": "Wait X Seconds", "param": 3.0},
                 {"type": "Download Image from Element", "param": None}
-            ]
+            ],
+            "login_config": {
+                "url": None,
+                "username": None,
+                "password": None
+            }
         }
 
     def set_config(self, config: dict):
@@ -614,6 +658,13 @@ class ImageCrawlTab(BaseTab):
             self.replace_str_input.setText(config.get("replace_str", ""))
             self.replacements_input.setText(", ".join(config.get("replacements", [])))
             
+            # Load Login Config
+            login_config = config.get("login_config", {})
+            self.login_url_input.setText(login_config.get("url", "") or "")
+            self.login_username_input.setText(login_config.get("username", "") or "")
+            self.login_password_input.setText(login_config.get("password", "") or "")
+            
+            # Load Actions
             self.action_list_widget.clear()
             actions = config.get("actions", [])
             for action in actions:
