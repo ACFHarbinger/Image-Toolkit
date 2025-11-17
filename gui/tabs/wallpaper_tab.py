@@ -737,7 +737,7 @@ class WallpaperTab(BaseTab):
         
         self.check_all_monitors_set()
         
-    def _get_assignment_map(self, source_paths: Dict[str, str]) -> Dict[str, str]:
+    def _get_gnome_assignment_map(self, source_paths: Dict[str, str]) -> Dict[str, str]:
         """
         Reintroduces the corrective shift/rotation required by the underlying 
         system/worker to ensure the image assigned to System ID N lands on Monitor N.
@@ -761,11 +761,51 @@ class WallpaperTab(BaseTab):
             prev_monitor_id_str = str(prev_monitor_index)
             
             path_from_prev = source_paths.get(prev_monitor_id_str)
-            
             rotated_map[current_monitor_id_str] = path_from_prev
-            
         return rotated_map
+
+    def _get_kde_assignment_map(self, source_paths: Dict[str, str]) -> Dict[str, str]:
+        """
+        Reintroduces the corrective shift/rotation required by the underlying 
+        system/worker to ensure the image assigned to System ID N lands on Monitor N.
+        Monitor 0 gets image from N-1, Monitor 1 gets image from 0, etc.
+        """
+        all_monitor_ids = sorted([int(k) for k in source_paths.keys()])
+        if not all_monitor_ids:
+            return {}
         
+        # The primary monitor ID is the one with the smallest index (usually 0)
+        #primary_monitor_id = str(all_monitor_ids[0])
+        
+        # Non-primary monitor IDs (as strings)
+        rotated_map = source_paths.copy()
+        non_primary_ids = [str(id_) for id_ in all_monitor_ids[1:]]
+        if len(non_primary_ids) > 1:
+            
+            # 2. Collect the paths intended for the non-primary monitors in order
+            non_primary_paths = [source_paths[id_] for id_ in non_primary_ids if id_ in source_paths]
+            
+            if len(non_primary_paths) != len(non_primary_ids):
+                print("Warning: Skipping KDE correction due to missing path entries.")
+            else:
+                # 3. Perform the circular shift: last becomes first
+                # Example: [P1, P2, P3] -> [P3, P1, P2]
+                rotated_paths = non_primary_paths[-1:] + non_primary_paths[:-1]
+                
+                # 4. Reassign the rotated paths to the non-primary IDs
+                for i, id_ in enumerate(non_primary_ids):
+                    rotated_map[id_] = rotated_paths[i]
+        return rotated_map
+    
+    def _get_windows_assignment_map(self, source_paths: Dict[str, str]) -> Dict[str, str]:
+        n = len(self.monitors)
+        rotated_map = source_paths.copy()
+        for current_monitor_id_str in source_paths.keys():
+            current_monitor_id = int(current_monitor_id_str)
+            prev_monitor_index = (current_monitor_id - 1 + n) % n
+            prev_monitor_id_str = str(prev_monitor_index)
+            rotated_map[current_monitor_id_str] = source_paths.get(prev_monitor_id_str)
+        return rotated_map
     
     def run_wallpaper_worker(self, slideshow_mode=False):
         """
@@ -787,9 +827,31 @@ class WallpaperTab(BaseTab):
             return
 
         # Apply the necessary rotational map correction before passing to the worker
-        path_map = self._get_assignment_map(self.monitor_image_paths)
-        monitors = self.monitors
+        system = platform.system()
+        if system == "Linux":
+            # Assume KDE/GNOME, check for KDE first
+            try:
+                subprocess.run(["which", "qdbus"], check=True, capture_output=True)
+                desktop = "KDE"
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                desktop = "Gnome"
+            except:
+                desktop = None
+        elif system == "Windows":
+            desktop = "Windows"
+        else:
+            desktop = None
         
+        if desktop == "Gnome":
+            path_map = self._get_gnome_assignment_map(self.monitor_image_paths)
+        elif desktop == "KDE":
+            path_map = self._get_kde_assignment_map(self.monitor_image_paths)
+        elif desktop == "Windows":
+            path_map = self._get_windows_assignment_map(self.monitor_image_paths)
+        else:
+            path_map = self.monitor_image_paths
+
+        monitors = self.monitors
         if not slideshow_mode:
             self.lock_ui_for_wallpaper()
         
