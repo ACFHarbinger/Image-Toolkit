@@ -26,7 +26,7 @@ dependencies = [
 
 # (Optional) entry-point so you can run `image-toolkit` from terminal
 [project.scripts]
-# The entry point is now 'app.py' (found in 'app/src')
+# The entry point is now 'app.py' (found in 'backend/src')
 image-toolkit = "app:launch_app"
 
 # Corrected 'dev' dependencies
@@ -47,8 +47,8 @@ build-src = "setuptools.build_meta"
 
 # Tell setuptools EXACTLY what to package
 [tool.setuptools.packages.find]
-# 1. Tell setuptools to look INSIDE 'app' for packages
-where = ["app"]
+# 1. Tell setuptools to look INSIDE 'backend' for packages
+where = ["backend"]
 
 # 2. Include non-code files *inside* the packages
 [tool.setuptools.package-data]
@@ -61,4 +61,4 @@ typeCheckingMode = "off"
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*", "*Test"]
 python_functions = ["test_*", "*_test"]
-testpaths = "app/test"
+testpaths = "backend/test"
