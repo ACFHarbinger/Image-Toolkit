@@ -176,7 +176,6 @@ class ImageCrawlTab(BaseTab):
         action_builder_layout = QHBoxLayout()
         self.action_combo = QComboBox()
         self.action_combo.addItems([
-            "Close Current Tab",
             "Find Parent Link (<a>)",
             "Download Simple Thumbnail (Legacy)",
             "Extract High-Res Preview URL",
@@ -190,10 +189,12 @@ class ImageCrawlTab(BaseTab):
             "Download Image from Element",
             "Download Current URL as Image",
             "Wait for Gallery (Context Reset)",
-            "Scrape Text (Saves to JSON)"
+            "Scrape Text (Saves to JSON)",
+            "Close Current Tab", 
+            "Refresh Current Element" 
         ])
         self.action_param_input = QLineEdit()
-        self.action_param_input.setPlaceholderText("Parameter (e.g., text to click, or CSS selector)")
+        self.action_param_input.setPlaceholderText("Parameter (e.g., key:selector or text)")
         self.add_action_button = QPushButton("Add")
         self.add_action_button.clicked.connect(self.add_action)
         
@@ -429,9 +430,20 @@ class ImageCrawlTab(BaseTab):
 
         # Validation for text/selector input
         if (("Click Element by Text" in action_text or 
-             "Find Element by CSS Selector" in action_text) and not param):
+             "Find Element by CSS Selector" in action_text or
+             "Refresh Current Element" in action_text) and not param):
             QMessageBox.warning(self, "Missing Parameter", f"The action '{action_text}' requires a parameter.")
             return
+            
+        # --- NEW VALIDATION for JSON Scraper ---
+        elif "Scrape Text (Saves to JSON)" in action_text:
+            if not param:
+                QMessageBox.warning(self, "Missing Parameter", "This action requires a parameter in 'key_name:css_selector' format.")
+                return
+            if ':' not in param:
+                QMessageBox.warning(self, "Invalid Parameter", "Parameter must be in 'key_name:css_selector' format. (e.g., 'tags: .tag-list')")
+                return
+        # --- END NEW VALIDATION ---
             
         display_text = f"{action_text}"
         if param:
@@ -529,7 +541,7 @@ class ImageCrawlTab(BaseTab):
                         QMessageBox.warning(self, "Serialization Error", f"Image number parameter '{param_str}' is invalid.")
                         return
                 else:
-                    # For text parameters (CSS Selector, Click Text)
+                    # For text parameters (CSS Selector, Click Text, Refresh Element)
                     param = param_str 
             else:
                 action_type = item_text

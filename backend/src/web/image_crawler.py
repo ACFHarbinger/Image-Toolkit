@@ -1,4 +1,3 @@
-# image_crawler.py
 import os
 import time
 import json 
@@ -64,6 +63,10 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
         
         self.total_pages = len(self.urls_to_scrape)
         self.current_page_index = 0
+        
+        # --- Tracks the last selector used for Find/Scrape, to allow refreshing ---
+        self._last_selector = None 
+        # --- END NEW ---
         
         print(f"ImageCrawler ready: {self.total_pages} pages to scrape.")
 
@@ -236,7 +239,7 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                     image_element = images_on_page[global_index]
                     
                     # Pass the FRESH element reference to the sequence
-                    downloaded = self.run_action_sequence(image_element, original_tab) # <-- original_tab is now passed
+                    downloaded = self.run_action_sequence(image_element, original_tab) 
                     
                     if downloaded:
                         download_count += 1
@@ -287,10 +290,21 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
         # Create a .json file with the same name as the base_filename
         json_path = os.path.splitext(base_filename)[0] + '.json'
         
-        # Add a timestamp if an image file was not created to ensure uniqueness
-        if not os.path.exists(json_path):
+        # If the file doesn't exist (i.e., we are saving metadata without an image), ensure uniqueness
+        if not os.path.exists(json_path) and 'metadata_' in os.path.basename(json_path):
              json_path = self.get_unique_filename(json_path)
              scraped_data['source_url'] = self.driver.current_url
+        
+        # If the file exists but we are adding more data (e.g., download + metadata scrape)
+        elif os.path.exists(json_path):
+             # Load existing data, update with new data, and save
+             try:
+                 with open(json_path, 'r', encoding='utf-8') as f:
+                     existing_data = json.load(f)
+                 existing_data.update(scraped_data)
+                 scraped_data = existing_data
+             except Exception as e:
+                 self.on_status.emit(f"Warning: Failed to load existing metadata, overwriting: {e}")
 
         try:
             with open(json_path, 'w', encoding='utf-8') as f:
@@ -347,18 +361,17 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                     self.driver.switch_to.window(self.driver.window_handles[-1])
                     self.wait_for_page_to_load(timeout=5)
                 
-                # --- MODIFIED ACTION: Close Current Tab ---
+                # --- MODIFIED ACTION: Close Current Tab (Now Saves JSON) ---
                 elif action_type == "Close Current Tab":
                     # Check if we are closing the original tab
                     if self.driver.current_window_handle == original_tab:
                          self.on_status.emit("Warning: Cannot close the original gallery tab.")
                          continue
                          
-                    # 1. Save JSON data before closing
+                    # 1. Save JSON data before closing if data was scraped
                     if scraped_data:
                         # Use a timestamp-based filename since no image was downloaded yet
                         base_filename = os.path.join(self.download_dir, f"metadata_{int(time.time() * 1000)}.json")
-                        # The helper will handle uniqueness
                         self._save_scraped_data_to_json(base_filename, scraped_data)
                         
                     # 2. Close the tab and switch back
@@ -390,6 +403,20 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                 elif action_type == "Switch to Last Tab":
                     self.driver.switch_to.window(self.driver.window_handles[-1])
                 
+                # --- NEW ACTION: Refresh Current Element ---
+                elif action_type == "Refresh Current Element":
+                    if not self._last_selector:
+                        self.on_status.emit("Warning: Cannot refresh element; no selector stored from prior action.")
+                        continue
+                        
+                    # Re-locate the element using the stored selector
+                    current_element = self.driver.find_element(
+                        By.CSS_SELECTOR, 
+                        self._last_selector
+                    )
+                    self.on_status.emit("Refreshed element context to prevent staleness.")
+                # --- END NEW ACTION ---
+
                 # --- Actions that find elements ---
                 elif action_type == "Find <img> Number X on Page":
                     if not isinstance(param, int) or param < 1:
@@ -401,6 +428,8 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                 elif action_type == "Find Element by CSS Selector":
                     if not param:
                         raise ValueError("Action 'Find Element by CSS Selector': Missing selector parameter.")
+                    # Store the selector before finding the element
+                    self._last_selector = param
                     current_element = self.driver.find_element(By.CSS_SELECTOR, param)
 
                 elif action_type == "Scrape Text (Saves to JSON)":
@@ -426,6 +455,9 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                         parent_selector = parent_selector.strip()
                         child_selector = child_selector.strip()
                         
+                        # Store the parent selector for refreshing
+                        self._last_selector = parent_selector 
+                        
                         # Find the element to be used as 'current_element' for chaining: the parent
                         element_to_chain = self.driver.find_element(By.CSS_SELECTOR, parent_selector)
                         
@@ -437,6 +469,7 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                         
                     else:
                         # Case 1: Single element scraping (Original behavior)
+                        self._last_selector = selector_raw # Store selector for refreshing
                         element_to_chain = self.driver.find_element(By.CSS_SELECTOR, selector_raw)
                         extracted_text = element_to_chain.text.strip()
                     # --- END LOGIC ---
@@ -450,9 +483,9 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                     else:
                         self.on_status.emit(f"SCRAPED: {json_key} = <Empty Result>")
                     
-                    current_element = element_to_chain # <--- FIX: Use the consistently defined variable
+                    current_element = element_to_chain # Use the consistently defined variable
                 
-                # --- Download Actions ---
+                # --- Download Actions (No longer return, allowing sequence continuation) ---
                 elif action_type == "Download Image from Element":
                     url = current_element.get_attribute("src") or current_element.get_attribute("href")
                     if not url:
