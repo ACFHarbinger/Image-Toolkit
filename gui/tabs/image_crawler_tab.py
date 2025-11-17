@@ -1,20 +1,19 @@
-# gui/tabs/ImageCrawlTab.py
 import os
 
 from pathlib import Path
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QPoint
 from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QFileDialog, QLabel,
     QGroupBox, QCheckBox, QComboBox, QMessageBox,
-    QFormLayout, QHBoxLayout, QVBoxLayout, QProgressBar, QWidget,
-    QListWidget, QMenu, QListWidgetItem
+    QFormLayout, QHBoxLayout, QVBoxLayout, QWidget,
+    QListWidget, QMenu, QProgressBar, QInputDialog 
 )
 from PySide6.QtGui import QAction
-from PySide6.QtCore import QPoint
 from .base_tab import BaseTab
 from ..helpers import ImageCrawlWorker
 from ..components import OptionalField
 from ..styles.style import apply_shadow_effect
+from ..windows import LogWindow 
 
 
 class ImageCrawlTab(BaseTab):
@@ -22,6 +21,12 @@ class ImageCrawlTab(BaseTab):
         super().__init__()
         self.dropdown = dropdown
         self.worker = None
+        
+        # --- Log Window Initialization ---
+        self.log_window = LogWindow(tab_name="Web Crawler")
+        self.log_window.hide()
+        # --- End Log Window Initialization ---
+        
         path = Path(os.getcwd())
         parts = path.parts
         self.last_browsed_download_dir = os.path.join(Path(*parts[:parts.index('Image-Toolkit') + 1]), 'data', 'tmp')
@@ -144,7 +149,7 @@ class ImageCrawlTab(BaseTab):
         # Action Builder
         action_builder_layout = QHBoxLayout()
         self.action_combo = QComboBox()
-        # --- NEW ACTION LIST (FROM PREVIOUS TURN) ---
+        # --- UPDATED ACTION LIST ---
         self.action_combo.addItems([
             "Find Parent Link (<a>)",
             "Download Simple Thumbnail (Legacy)",
@@ -153,14 +158,15 @@ class ImageCrawlTab(BaseTab):
             "Click Element by Text",
             "Wait for Page Load",
             "Switch to Last Tab",
-            "Find First <img> on Page",
+            "Find Element by CSS Selector", # NEW Action
+            "Find <img> Number X on Page",
             "Download Image from Element",
             "Download Current URL as Image",
             "Wait for Gallery (Context Reset)"
         ])
-        # --- END NEW ACTION LIST ---
+        # --- END UPDATED ACTION LIST ---
         self.action_param_input = QLineEdit()
-        self.action_param_input.setPlaceholderText("Parameter (e.g., text to click)")
+        self.action_param_input.setPlaceholderText("Parameter (e.g., text to click, or CSS selector)")
         self.add_action_button = QPushButton("Add")
         self.add_action_button.clicked.connect(self.add_action)
         
@@ -171,9 +177,7 @@ class ImageCrawlTab(BaseTab):
         
         # Action List
         self.action_list_widget = QListWidget()
-        # --- START FIX: Set minimum height for the action list ---
         self.action_list_widget.setMinimumHeight(200) # Setting minimum height to 200px
-        # --- END FIX ---
         self.action_list_widget.setStyleSheet("QListWidget { border: 1px solid #4f545c; border-radius: 4px; }")
         
         # --- Context Menu Setup ---
@@ -185,8 +189,6 @@ class ImageCrawlTab(BaseTab):
         
         # List Controls
         list_controls_layout = QHBoxLayout()
-        # The 'Remove Selected' button will now primarily call the remove_action method, 
-        # which is also linked to the right-click menu.
         self.remove_action_button = QPushButton("Remove Selected")
         self.remove_action_button.clicked.connect(self.remove_action)
         self.clear_actions_button = QPushButton("Clear All")
@@ -254,7 +256,7 @@ class ImageCrawlTab(BaseTab):
         self.setLayout(main_layout)
 
     def show_context_menu(self, pos: QPoint):
-        """Displays the right-click menu for moving/removing items."""
+        """Displays the right-click menu for moving/removing/editing items."""
         # Find the item at the clicked position
         item = self.action_list_widget.itemAt(pos)
         if not item:
@@ -264,7 +266,6 @@ class ImageCrawlTab(BaseTab):
         
         # --- Move Actions ---
         move_up_action = QAction("Move Up ▲", self)
-        # We use lambda to pass the item (or just rely on currentRow for simplicity)
         move_up_action.triggered.connect(self.move_action_up)
         menu.addAction(move_up_action)
 
@@ -274,6 +275,15 @@ class ImageCrawlTab(BaseTab):
         
         menu.addSeparator()
 
+        # --- Edit Parameter Action (NEW) ---
+        edit_action = QAction("Edit Parameter Value ✏️", self)
+        edit_action.triggered.connect(self.edit_action_parameter)
+        
+        # Only enable if the selected item has a parameter
+        if " | Param: " in item.text():
+            menu.addAction(edit_action)
+            menu.addSeparator()
+
         # --- Remove Action ---
         remove_action = QAction("Remove 🗑️", self)
         remove_action.triggered.connect(self.remove_action)
@@ -282,6 +292,69 @@ class ImageCrawlTab(BaseTab):
         # Show the menu at the cursor position
         menu.exec(self.action_list_widget.mapToGlobal(pos))
         
+    def edit_action_parameter(self):
+        """
+        Opens an input dialog to edit the parameter of the currently selected action.
+        """
+        current_item = self.action_list_widget.currentItem()
+        if not current_item or " | Param: " not in current_item.text():
+            return
+            
+        full_text = current_item.text()
+        action_type, param_str = full_text.split(" | Param: ", 1)
+        
+        # Determine the input mode and prompt based on the action type
+        is_number_mode = "Find <img> Number X on Page" in action_type
+        
+        title = f"Edit Parameter for: {action_type}"
+        prompt = "Enter new parameter value:"
+        
+        if is_number_mode:
+            try:
+                # Try to get the initial integer value for QInputDialog
+                initial_value = int(param_str)
+            except ValueError:
+                initial_value = 1 # Fallback if parsing fails
+
+            # PySide6.QtWidgets.QInputDialog.getInt(parent, title, label, value, min, max, step, flags=0)
+            new_param, ok = QInputDialog.getInt(
+                self, 
+                title, 
+                prompt, 
+                initial_value, # value (positional argument 4)
+                1,             # min (positional argument 5)
+                99999,         # max (positional argument 6)
+                1              # step (positional argument 7)
+            )
+            
+            # Convert integer back to string for consistency
+            if ok:
+                 new_param = str(new_param)
+            else:
+                 return # User cancelled
+                 
+        else:
+            # Default to text input
+            new_param, ok = QInputDialog.getText(
+                self, 
+                title, 
+                prompt, 
+                QLineEdit.EchoMode.Normal, 
+                param_str
+            )
+
+        if ok and new_param is not None:
+            new_param_str = str(new_param).strip()
+            
+            if new_param_str:
+                # Update the display text
+                new_display_text = f"{action_type} | Param: {new_param_str}"
+                current_item.setText(new_display_text)
+                QMessageBox.information(self, "Success", f"Parameter updated for '{action_type}'.")
+            else:
+                QMessageBox.warning(self, "Edit Failed", "Parameter value cannot be empty. Please remove the action if it requires no parameter.")
+
+
     def move_action_up(self):
         """Moves the selected item one position up."""
         current_row = self.action_list_widget.currentRow()
@@ -303,8 +376,21 @@ class ImageCrawlTab(BaseTab):
         action_text = self.action_combo.currentText()
         param = self.action_param_input.text().strip()
         
-        if "Click Element by Text" in action_text and not param:
-            QMessageBox.warning(self, "Missing Parameter", "This action requires text in the parameter field.")
+        # Validation for number input
+        if "Find <img> Number X on Page" in action_text:
+            try:
+                num = int(param)
+                if num <= 0:
+                    QMessageBox.warning(self, "Invalid Parameter", "Image number must be a positive integer (1 or greater).")
+                    return
+            except ValueError:
+                QMessageBox.warning(self, "Invalid Parameter", "This action requires an image number (e.g., '2') in the parameter field.")
+                return
+
+        # Validation for text/selector input
+        if (("Click Element by Text" in action_text or 
+             "Find Element by CSS Selector" in action_text) and not param):
+            QMessageBox.warning(self, "Missing Parameter", f"The action '{action_text}' requires a parameter.")
             return
             
         display_text = f"{action_text}"
@@ -343,7 +429,6 @@ class ImageCrawlTab(BaseTab):
         skip_first = self.skip_first_input.text().strip()
         skip_last = self.skip_last_input.text().strip()
         
-        # --- Get replacement data ---
         replace_str = self.replace_str_input.text().strip() or None
         replacements_str = self.replacements_input.text().strip()
         replacements_list = [r.strip() for r in replacements_str.split(',')] if replacements_str else None
@@ -379,13 +464,28 @@ class ImageCrawlTab(BaseTab):
         actions = []
         for i in range(self.action_list_widget.count()):
             item_text = self.action_list_widget.item(i).text()
+            param = None
+            
             if " | Param: " in item_text:
                 action_type, param_str = item_text.split(" | Param: ", 1)
-                actions.append({"type": action_type, "param": param_str})
+                
+                # Special handling: convert parameter string back to integer if needed
+                if action_type == "Find <img> Number X on Page":
+                    try:
+                        param = int(param_str)
+                    except ValueError:
+                        QMessageBox.warning(self, "Serialization Error", f"Image number parameter '{param_str}' is invalid.")
+                        return
+                else:
+                    # For text parameters like "Click Element by Text"
+                    param = param_str 
             else:
-                actions.append({"type": item_text, "param": None})
+                action_type = item_text
+                param = None
+
+            actions.append({"type": action_type, "param": param})
         
-        # If no actions are specified, default to simple download
+        # If no actions are specified, default to high-res preview extraction
         if not actions:
             actions.append({"type": "Extract High-Res Preview URL", "param": None})
             print("No actions specified, defaulting to high-res preview extraction.")
@@ -409,18 +509,27 @@ class ImageCrawlTab(BaseTab):
         self.status_label.setText("Initializing browser...")
         self.progress_bar.show()
         self.progress_bar.setRange(0, 0)
+        
+        # --- LOGGING: Clear and show log window ---
+        self.log_window.clear_log()
+        self.log_window.show()
 
         # Start worker
         self.worker = ImageCrawlWorker(config)
-        self.worker.status.connect(self.status_label.setText)
+        
+        # --- LOGGING: Connect worker signals to log window ---
+        self.worker.status.connect(self.log_window.append_log)
+        self.worker.error.connect(self.log_window.append_log)
+        # ----------------------------------------------------
+        
         self.worker.finished.connect(self.on_crawl_done)
-        self.worker.error.connect(self.on_crawl_error)
         self.worker.start()
 
     def cancel_crawl(self):
         """Attempts to stop the QThread worker."""
         if self.worker and self.worker.isRunning():
             self.worker.terminate() 
+            self.log_window.append_log("Crawl **cancelled** by user.")
             self.on_crawl_done(0, "Crawl **cancelled** by user.")
             QMessageBox.information(self, "Cancelled", "The image crawl has been stopped.")
 
@@ -449,14 +558,15 @@ class ImageCrawlTab(BaseTab):
             "download_dir": "C:/home/pkhunter/Repositories/Image-Toolkit/data/tmp",
             "screenshot_dir": None,
             "headless": True,
-            "browser": "chrome",
+            "browser": "brave",
             "skip_first": 0,
             "skip_last": 0,
             "replace_str": "page=1",
             "replacements": ["page=2", "page=3"],
             "actions": [
                 {"type": "Find Parent Link (<a>)", "param": None},
-                {"type": "Extract High-Res Preview URL", "param": None},
+                {"type": "Open Link in New Tab", "param": None},
+                {"type": "Find Element by CSS Selector", "param": ".image-container img#image"},
                 {"type": "Download Image from Element", "param": None}
             ]
         }
@@ -483,8 +593,10 @@ class ImageCrawlTab(BaseTab):
             for action in actions:
                 display_text = action.get("type", "Unknown Action")
                 param = action.get("param")
-                if param:
+                
+                if param is not None:
                     display_text += f" | Param: {param}"
+                
                 self.action_list_widget.addItem(display_text)
             
             print(f"ImageCrawlTab configuration loaded.")

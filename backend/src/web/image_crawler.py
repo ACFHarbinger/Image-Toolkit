@@ -1,4 +1,3 @@
-# image_crawler.py
 import os
 import time
 import requests
@@ -7,7 +6,11 @@ from urllib.parse import urlparse, urljoin
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait 
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException, TimeoutException
+from selenium.common.exceptions import (
+    TimeoutException,
+    NoSuchElementException, 
+    StaleElementReferenceException, 
+)
 from PySide6.QtCore import QObject, Signal
 from .crawler import WebCrawler
 
@@ -103,62 +106,73 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
 
         self.wait_for_page_to_load(timeout=10)
         
-        # --- FIX 1: Explicit JavaScript Wait Condition ---
-        # We perform the wait here to ensure the gallery is ready
-        self.on_status.emit("Waiting for gallery image articles to appear...")
+        self.on_status.emit("Waiting for image elements to appear...")
         # Target a common gallery image element or link
-        if not self.wait_for_image_element(By.CSS_SELECTOR, "img[src]", timeout=20):
+        if not self.wait_for_image_element(By.TAG_NAME, "img", timeout=20):
             self.on_status.emit("Timed out waiting for image gallery to load. Exiting process_data.")
             return 0
-        # --------------------------------------------------
 
         self.on_status.emit("Scanning for images...")
         
         try:
-            # --- CRITICAL LOOP FIX: Slice the list ONCE and iterate directly ---
+            # Re-locate ALL image elements to get the latest count
             images = self.driver.find_elements(By.TAG_NAME, "img")
             total_found = len(images)
-            skip_total = self.skip_first + self.skip_last
             
-            if skip_total >= total_found:
-                self.on_status.emit(f"Not enough images to skip on page {self.current_page_index + 1}.")
-                return 0
-            
-            # Slice the list correctly, resulting in the final list of elements to process
             start_index = self.skip_first
             end_index = total_found - self.skip_last
-            images_to_process_final = images[start_index:end_index]
-            total_to_process = len(images_to_process_final)
             
+            # --- CRITICAL FIX START: Iterate over the indices, not the elements ---
+            
+            # The indices we actually need to process
+            indices_to_process = range(start_index, end_index)
+            total_to_process = len(indices_to_process)
+
+            if total_to_process <= 0:
+                 self.on_status.emit(f"Found {total_found} images, but 0 left to process after skipping.")
+                 return 0
+                 
             self.on_status.emit(f"Found {total_found} images. Processing {total_to_process}...")
             
             download_count = 0
             original_tab = self.driver.current_window_handle
 
-            # Iterate directly over the stable, sliced list
-            for i, image_element in enumerate(images_to_process_final):
+            # Iterate over the valid indices
+            for i, global_index in enumerate(indices_to_process):
                 if self.driver is None:
                     return download_count
                 
-                self.on_status.emit(f"Page {self.current_page_index + 1}: Processing image {i + 1}/{total_to_process}...")
+                self.on_status.emit(f"Page {self.current_page_index + 1}: Processing image {i + 1}/{total_to_process} (Index: {global_index})...")
                 
                 try:
-                    # Pass the stable element directly to the sequence
+                    # RE-LOCATE THE ELEMENT JUST BEFORE USE
+                    # Find ALL <img> tags again and select the one at global_index
+                    images_on_page = self.driver.find_elements(By.TAG_NAME, "img")
+                    
+                    if global_index >= len(images_on_page):
+                        self.on_status.emit(f"Index {global_index} out of range after re-locating. Stopping.")
+                        break
+
+                    image_element = images_on_page[global_index]
+                    
+                    # Pass the FRESH element reference to the sequence
                     downloaded = self.run_action_sequence(image_element, original_tab)
+                    
                     if downloaded:
                         download_count += 1
                         
                 except Exception as e:
-                    # Catch all exceptions during action sequence
-                    print(f"Failed sequence for image {i+1}: {e}")
-                    self.on_status.emit(f"Failed to process image {i+1} due to error, skipping. Check console.")
+                    # Catch all exceptions during image processing cycle
+                    print(f"Failed image cycle for image {i+1}: {e}")
+                    self.on_status.emit(f"Failed to process image {i+1} due to error, skipping.")
                 
                 finally:
+                    # Cleanup tabs to return to the original gallery page
                     self.cleanup_tabs(original_tab)
                     time.sleep(0.1)
             
             return download_count
-            # --- END CRITICAL LOOP FIX ---
+            # --- CRITICAL FIX END ---
 
         except Exception as e:
             self.on_status.emit(f"Error on page {url}: {e}")
@@ -175,6 +189,7 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                     if handle != original_tab:
                         self.driver.switch_to.window(handle)
                         self.driver.close()
+            # Ensure we are back on the original tab before returning from the function
             self.driver.switch_to.window(original_tab)
         except Exception as e:
             print(f"Error cleaning up tabs: {e}")
@@ -183,12 +198,17 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
         """
         Runs the defined action list for a single target element.
         Returns True if a download was successful, False otherwise.
+        
+        Modification: If a non-download action fails, the sequence skips to the
+        next action for the same image (failover). If a download action fails,
+        the sequence stops for this image.
         """
         current_element = element
+        downloaded = False
         
         for action in self.actions:
             if self.driver is None:
-                return False
+                return downloaded
                 
             action_type = action["type"]
             param = action["param"]
@@ -197,45 +217,40 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
 
             try:
                 if action_type == "Find Parent Link (<a>)":
-                    # Find the closest link parent of the current element and make it the new current_element
                     current_element = current_element.find_element(By.XPATH, "./ancestor::a")
                 
                 elif action_type == "Download Simple Thumbnail (Legacy)":
-                    # Downloads the SRC from the original image element (which is the element passed to this function)
                     url = element.get_attribute("src") 
                     if not url:
-                        print("Action 'Legacy Download': No src found on original element.")
-                        return False
-                    return self._download_image_from_url(url)
+                        self.on_status.emit("Download failed: No src found on original element.")
+                        return downloaded # Sequence stops here (return False)
+                    downloaded = self._download_image_from_url(url)
+                    return downloaded
                 
                 elif action_type == "Wait for Gallery (Context Reset)":
-                    self.on_status.emit("Awaiting gallery load after security challenge...")
-                    if not self.wait_for_image_element(By.CSS_SELECTOR, "img[src]", timeout=30):
-                         self.on_status.emit("Timed out waiting for image gallery to resume.")
-                         return False 
+                    if not self.wait_for_image_element(By.TAG_NAME, "img", timeout=30):
+                         self.on_status.emit("Wait failed: Timed out waiting for gallery to resume.")
+                         # If waiting fails, we should stop the sequence for this image
+                         return downloaded 
                     self.on_status.emit("Gallery context confirmed.")
-
-                elif action_type == "Extract High-Res Preview URL":
-                    # This action now only attempts to click the element to navigate.
-                    # This is brittle and might be better served by 'Click Element by Text', but we keep it for now.
-                    # The goal is often to navigate to a new page to find the full image.
-                    current_element.click()
-                    self.wait_for_page_to_load(timeout=5)
-                    self.on_status.emit("Clicked element and navigating to new page...")
                 
+                # --- Actions that modify browser state ---
                 elif action_type == "Open Link in New Tab":
                     href = current_element.get_attribute("href")
                     if not href:
-                        print("Action 'Open Link': No href found on current element.")
-                        return False
+                        raise NoSuchElementException("Action 'Open Link': No href found on current element.")
                     self.driver.execute_script("window.open(arguments[0], '_blank');", href)
                     self.driver.switch_to.window(self.driver.window_handles[-1])
                     self.wait_for_page_to_load(timeout=5)
                 
+                elif action_type == "Extract High-Res Preview URL":
+                    current_element.click()
+                    self.wait_for_page_to_load(timeout=5)
+                    self.on_status.emit("Clicked element and navigating to new page...")
+                    
                 elif action_type == "Click Element by Text":
                     if not param:
-                        print("Action 'Click Element': Missing text parameter.")
-                        return False
+                        raise ValueError("Action 'Click Element': Missing text parameter.")
                     el = self.driver.find_element(By.PARTIAL_LINK_TEXT, param) 
                     el.click()
                 
@@ -245,41 +260,50 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                 elif action_type == "Switch to Last Tab":
                     self.driver.switch_to.window(self.driver.window_handles[-1])
                 
-                elif action_type == "Find First <img> on Page":
-                    # Set the new current element to the first image found on the page
-                    current_element = self.driver.find_element(By.TAG_NAME, "img")
+                # --- Actions that find elements ---
+                elif action_type == "Find <img> Number X on Page":
+                    if not isinstance(param, int) or param < 1:
+                        raise ValueError(f"Action 'Find <img> Number X': Invalid parameter: {param}")
+                    xpath_query = f"//img[{param}]"
+                    current_element = self.driver.find_element(By.XPATH, xpath_query)
+
+                elif action_type == "Find Element by CSS Selector":
+                    if not param:
+                        raise ValueError("Action 'Find Element by CSS Selector': Missing selector parameter.")
+                    current_element = self.driver.find_element(By.CSS_SELECTOR, param)
                 
+                # --- Download Actions ---
                 elif action_type == "Download Image from Element":
-                    # Use the current element (which should be the high-res image or link)
-                    # Try to get the SRC attribute first, or the HREF if it's a direct link to the image
                     url = current_element.get_attribute("src") or current_element.get_attribute("href")
-                    
                     if not url:
-                        print("Action 'Download Image': No src or href found on current element.")
-                        return False
-                    return self._download_image_from_url(url)
+                        self.on_status.emit("Download failed: No src/href found on current element.")
+                        return downloaded # Sequence stops here
+                    downloaded = self._download_image_from_url(url)
+                    return downloaded
                 
                 elif action_type == "Download Current URL as Image":
                     url = self.driver.current_url
                     if not any(url.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']):
-                        print(f"Action 'Download URL': Current URL doesn't look like an image: {url}")
-                        return False
-                    return self._download_image_from_url(url)
+                        self.on_status.emit(f"Download failed: Current URL doesn't look like an image: {url}")
+                        return downloaded # Sequence stops here
+                    downloaded = self._download_image_from_url(url)
+                    return downloaded
 
-
-            except NoSuchElementException:
-                self.on_status.emit(f"Action '{action_type}' failed: Element not found.")
-                # Important: If an element is not found, the sequence often needs to stop for this image.
-                return False 
-            except StaleElementReferenceException:
-                self.on_status.emit(f"Action '{action_type}' failed: Element is stale (page reloaded).")
-                return False
-            except Exception as e:
-                print(f"Action '{action_type}' failed: {e}")
-                self.on_status.emit(f"Action '{action_type}' failed, stopping sequence for this image.")
-                return False
+                # If execution reaches here without an explicit return, it means the action succeeded.
+                
+            except (NoSuchElementException, StaleElementReferenceException) as e:
+                # Log non-critical failure and attempt next action
+                self.on_status.emit(f"Action '{action_type}' failed (Element not found/stale). Skipping to next action.")
+                print(f"Non-critical Failure in sequence: {action_type} - {e}")
+                continue
+                
+            except (TimeoutException, ValueError, Exception) as e:
+                # Log critical failure (e.g., bad parameter, unexpected error) and stop sequence for this image.
+                self.on_status.emit(f"Action '{action_type}' failed critically. Stopping sequence for this image.")
+                print(f"Critical Failure in sequence: {action_type} - {e}")
+                return downloaded
         
-        return False
+        return downloaded
 
     def _download_image_from_url(self, url):
         try:
@@ -309,9 +333,11 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
             return True
 
         except requests.exceptions.HTTPError as he:
+            self.on_status.emit(f"Download failed: HTTP Error {he.response.status_code}")
             print(f"Failed to download {url}: HTTP Error {he.response.status_code}")
             return False
         except Exception as e:
+            self.on_status.emit(f"Download failed: {e}")
             print(f"Failed to download {url}: {e}")
             return False
 
