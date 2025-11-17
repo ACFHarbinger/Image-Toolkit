@@ -1,19 +1,19 @@
 # -- mode: python ; coding: utf-8 --
 
-# To build: pyinstaller [--clean] app.spec
+# To build: pyinstaller [--clean] ImageToolkit.spec
 
 import PySide6
 import os
 
 pyside_path = os.path.dirname(PySide6.__file__)
 
-# pathex=['.'] means it looks in the current directory (where app.spec is)
+# pathex=['.'] means it looks in the current directory (where ImageToolkit.spec is)
 
-pathex=['/app']
+pathex=['/backend', /gui]
 
 a = Analysis(
     ['__main__.py'],  # Your main entry point file
-    pathex=['/app'],
+    pathex=['/backend', /gui],
 
     binaries=[],
     datas=[],

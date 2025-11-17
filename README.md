@@ -7,6 +7,11 @@ Image database and edit toolkit.
 ## Setup Python Dependencies
 You can choose to install this repository's dependencies using any of the following methods below.
 
+You also need to install qdbus6 for setting wallpapers on KDE Plasma:
+```bash
+sudo apt install qdbus-qt6 qt6-base-dev-tools
+```
+
 ### UV
 To use the [UV Python package and project manager](https://github.com/astral-sh/uv) to setup the virtual environment, you first need to create the environment using the specified Python version (you can skip the next 2 steps if you dont want to build the project from scract, as the pyproject.toml file is already commited to the repository)
 ```bash
