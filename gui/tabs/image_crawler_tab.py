@@ -176,6 +176,7 @@ class ImageCrawlTab(BaseTab):
         action_builder_layout = QHBoxLayout()
         self.action_combo = QComboBox()
         self.action_combo.addItems([
+            "Close Current Tab",
             "Find Parent Link (<a>)",
             "Download Simple Thumbnail (Legacy)",
             "Extract High-Res Preview URL",

@@ -1,6 +1,7 @@
+# image_crawler.py
 import os
 import time
-import json
+import json 
 import requests
 
 from urllib.parse import urlparse, urljoin
@@ -89,7 +90,6 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
         
         try:
             # 2. Locate and fill the username/password fields
-            # We assume standard names/ids like 'username', 'email', 'login', 'password'
             
             # --- Attempt to find and fill Username/Email field ---
             user_field = None
@@ -116,8 +116,17 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                 self.on_status.emit("Entered password.")
 
             # 3. Locate and click the submit button
-            submit_button = self.driver.find_element(By.CSS_SELECTOR, "button[type='submit'], input[type='submit'], a[type='submit']")
+            # --- MODIFIED LOCATOR: Targets button/input with value/text 'Log in' ---
+            submit_button_xpath = "//input[@type='submit' and @value='Log in'] | //button[text()='Log in'] | //button[contains(text(), 'Log in')]"
+            
+            submit_button = self.driver.find_element(By.XPATH, submit_button_xpath)
+            
+            self.on_status.emit("Found and clicking the specific 'Log in' button...")
             submit_button.click()
+            
+            # Short wait to ensure the POST request is initiated
+            time.sleep(1)
+            # --------------------------------------------------------------------------
             
             self.on_status.emit("Submitted login form. Waiting for redirect...")
             
@@ -227,7 +236,7 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                     image_element = images_on_page[global_index]
                     
                     # Pass the FRESH element reference to the sequence
-                    downloaded = self.run_action_sequence(image_element, original_tab)
+                    downloaded = self.run_action_sequence(image_element, original_tab) # <-- original_tab is now passed
                     
                     if downloaded:
                         download_count += 1
@@ -238,8 +247,11 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                     self.on_status.emit(f"Failed to process image {i+1} due to error, skipping. Check console.")
                 
                 finally:
-                    # Cleanup tabs to return to the original gallery page
-                    self.cleanup_tabs(original_tab)
+                    # --- MODIFIED: Rely on user-defined actions for explicit tab closure ---
+                    # We only ensure we switch back if we are not on the original tab
+                    if self.driver and self.driver.current_window_handle != original_tab:
+                         self.driver.switch_to.window(original_tab)
+                    # --- END MODIFIED ---
                     time.sleep(0.1)
             
             return download_count
@@ -250,20 +262,46 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
             return 0
 
     def cleanup_tabs(self, original_tab):
-        """Closes all extra tabs and returns to the original_tab."""
+        """
+        MODIFIED: No longer closes extra tabs automatically. 
+        Only ensures we return to the original_tab if needed.
+        """
         try:
             if self.driver is None:
                 return
-            handles = self.driver.window_handles
-            if len(handles) > 1:
-                for handle in handles:
-                    if handle != original_tab:
-                        self.driver.switch_to.window(handle)
-                        self.driver.close()
-            # Ensure we are back on the original tab before returning from the function
-            self.driver.switch_to.window(original_tab)
+            
+            # Just ensure we are back on the original tab if multiple are open
+            if len(self.driver.window_handles) > 1 and self.driver.current_window_handle != original_tab:
+                self.driver.switch_to.window(original_tab)
+                self.on_status.emit("Returned to original gallery tab.")
+
         except Exception as e:
-            print(f"Error cleaning up tabs: {e}")
+            print(f"Error managing tabs: {e}")
+            
+    # --- NEW HELPER FUNCTION: Saves Scraped Data ---
+    def _save_scraped_data_to_json(self, base_filename, scraped_data: dict) -> bool:
+        """Saves scraped metadata to a JSON file."""
+        if not scraped_data:
+            return False
+            
+        # Create a .json file with the same name as the base_filename
+        json_path = os.path.splitext(base_filename)[0] + '.json'
+        
+        # Add a timestamp if an image file was not created to ensure uniqueness
+        if not os.path.exists(json_path):
+             json_path = self.get_unique_filename(json_path)
+             scraped_data['source_url'] = self.driver.current_url
+
+        try:
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(scraped_data, f, ensure_ascii=False, indent=4)
+            self.on_status.emit(f"Saved metadata to {os.path.basename(json_path)}")
+            return True
+        except Exception as e:
+            self.on_status.emit(f"Failed to save metadata: {e}")
+            print(f"Failed to save metadata for {json_path}: {e}")
+            return False
+    # --- END NEW HELPER FUNCTION ---
 
     def run_action_sequence(self, element, original_tab) -> bool:
         """
@@ -272,7 +310,8 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
         """
         current_element = element
         downloaded = False
-        scraped_data = {}
+        scraped_data = {} # <-- Initialized once per image sequence
+        
         for action in self.actions:
             if self.driver is None:
                 return downloaded
@@ -290,14 +329,13 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                     url = element.get_attribute("src") 
                     if not url:
                         self.on_status.emit("Download failed: No src found on original element.")
-                        return downloaded 
-                    downloaded = self._download_image_from_url(url)
-                    return downloaded
+                    else:
+                        downloaded = self._download_image_from_url(url, scraped_data) # <-- PASS DATA
                 
                 elif action_type == "Wait for Gallery (Context Reset)":
                     if not self.wait_for_image_element(By.TAG_NAME, "img", timeout=30):
-                         self.on_status.emit("Wait failed: Timed out waiting for gallery to resume.")
-                         return downloaded 
+                        self.on_status.emit("Wait failed: Timed out waiting for gallery to resume.")
+                        return downloaded 
                     self.on_status.emit("Gallery context confirmed.")
                 
                 # --- Actions that modify browser state ---
@@ -309,6 +347,26 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                     self.driver.switch_to.window(self.driver.window_handles[-1])
                     self.wait_for_page_to_load(timeout=5)
                 
+                # --- MODIFIED ACTION: Close Current Tab ---
+                elif action_type == "Close Current Tab":
+                    # Check if we are closing the original tab
+                    if self.driver.current_window_handle == original_tab:
+                         self.on_status.emit("Warning: Cannot close the original gallery tab.")
+                         continue
+                         
+                    # 1. Save JSON data before closing
+                    if scraped_data:
+                        # Use a timestamp-based filename since no image was downloaded yet
+                        base_filename = os.path.join(self.download_dir, f"metadata_{int(time.time() * 1000)}.json")
+                        # The helper will handle uniqueness
+                        self._save_scraped_data_to_json(base_filename, scraped_data)
+                        
+                    # 2. Close the tab and switch back
+                    self.driver.close()
+                    self.driver.switch_to.window(original_tab)
+                    self.on_status.emit("Closed current tab and switched back to the gallery.")
+                # --- END MODIFIED ACTION ---
+
                 elif action_type == "Extract High-Res Preview URL":
                     current_element.click()
                     self.wait_for_page_to_load(timeout=5)
@@ -344,29 +402,45 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                     if not param:
                         raise ValueError("Action 'Find Element by CSS Selector': Missing selector parameter.")
                     current_element = self.driver.find_element(By.CSS_SELECTOR, param)
-                
+
                 elif action_type == "Scrape Text (Saves to JSON)":
                     if not param or ':' not in param:
                         raise ValueError("Action 'Scrape Text': Parameter must be in 'key_name:css_selector' format.")
                     
-                    # Split param into key and selector
                     try:
-                        json_key, selector = param.split(':', 1)
+                        json_key, selector_raw = param.split(':', 1)
                         json_key = json_key.strip()
-                        selector = selector.strip()
+                        selector_raw = selector_raw.strip()
                         
-                        if not json_key or not selector:
+                        if not json_key or not selector_raw:
                             raise ValueError("Invalid format.")
 
                     except ValueError:
                         raise ValueError(f"Action 'Scrape Text': Invalid parameter format: '{param}'. Must be 'key_name:css_selector'.")
+                    
+                    
+                    # --- LOGIC: Handle single vs. multiple element scraping ---
+                    if '>' in selector_raw:
+                        # Case 2: Multi-element scraping (Parent > Child format)
+                        parent_selector, child_selector = selector_raw.split('>', 1)
+                        parent_selector = parent_selector.strip()
+                        child_selector = child_selector.strip()
+                        
+                        # Find the element to be used as 'current_element' for chaining: the parent
+                        element_to_chain = self.driver.find_element(By.CSS_SELECTOR, parent_selector)
+                        
+                        # Find all target child elements within the parent
+                        child_elements = element_to_chain.find_elements(By.CSS_SELECTOR, child_selector)
+                        
+                        # Extract text from all children and join them
+                        extracted_text = " ".join([el.text.strip() for el in child_elements if el.text.strip()])
+                        
+                    else:
+                        # Case 1: Single element scraping (Original behavior)
+                        element_to_chain = self.driver.find_element(By.CSS_SELECTOR, selector_raw)
+                        extracted_text = element_to_chain.text.strip()
+                    # --- END LOGIC ---
 
-                    # 1. Find the element
-                    text_element = self.driver.find_element(By.CSS_SELECTOR, selector)
-                    
-                    # 2. Get the text
-                    extracted_text = text_element.text.strip()
-                    
                     # 3. Store in the dictionary
                     scraped_data[json_key] = extracted_text
                     
@@ -376,42 +450,37 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                     else:
                         self.on_status.emit(f"SCRAPED: {json_key} = <Empty Result>")
                     
-                    current_element = text_element
+                    current_element = element_to_chain # <--- FIX: Use the consistently defined variable
                 
                 # --- Download Actions ---
                 elif action_type == "Download Image from Element":
                     url = current_element.get_attribute("src") or current_element.get_attribute("href")
                     if not url:
                         self.on_status.emit("Download failed: No src/href found on current element.")
-                        return downloaded 
-                    downloaded = self._download_image_from_url(url)
-                    return downloaded
+                    else:
+                        downloaded = self._download_image_from_url(url, scraped_data) 
+                
                 elif action_type == "Download Current URL as Image":
                     url = self.driver.current_url
                     if not any(url.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']):
                         self.on_status.emit(f"Download failed: Current URL doesn't look like an image: {url}")
-                        return downloaded 
-                    downloaded = self._download_image_from_url(url)
-                    return downloaded
+                    else: 
+                        downloaded = self._download_image_from_url(url, scraped_data) 
+                
                 elif action_type == "Extract Element Text by CSS Selector":
                     if not param:
                         raise ValueError("Action 'Extract Element Text by CSS Selector': Missing selector parameter.")
                     
-                    # 1. Find the element using the provided CSS selector
                     text_element = self.driver.find_element(By.CSS_SELECTOR, param)
-                    
-                    # 2. Get the text from the element
                     extracted_text = text_element.text.strip()
                     
-                    # 3. Emit the scraped text to the log
                     if extracted_text:
                         self.on_status.emit(f"SCRAPED TEXT: {extracted_text}")
                     else:
                         self.on_status.emit(f"SCRAPED TEXT: <Empty Result>")
                     
-                    # We don't return here, allowing the sequence to continue
-                    # We can also update current_element in case the next action needs it
                     current_element = text_element
+
             except (NoSuchElementException, StaleElementReferenceException) as e:
                 # Non-critical failure: Log and continue to the next action
                 self.on_status.emit(f"Action '{action_type}' failed (Element not found/stale). Skipping to next action.")
@@ -455,7 +524,7 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
             
         return total_downloaded
 
-    def _download_image_from_url(self, url):
+    def _download_image_from_url(self, url, scraped_data: dict): # <-- ACCEPTS scraped_data
         try:
             # 1. Resolve URL relative to the current page
             url = urljoin(self.driver.current_url, url)
@@ -480,6 +549,14 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                     f.write(chunk)
 
             self.on_image_saved.emit(save_path)
+            
+            # --- MODIFIED: Call helper function to save metadata ---
+            if scraped_data:
+                # Add image filename to the metadata for reference
+                scraped_data['image_filename'] = os.path.basename(save_path)
+                self._save_scraped_data_to_json(save_path, scraped_data)
+            # --- END MODIFIED ---
+
             return True
 
         except requests.exceptions.HTTPError as he:
