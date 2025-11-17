@@ -1,13 +1,14 @@
 import os
 
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QPoint
 from PySide6.QtGui import (
     QPixmap, QKeySequence, 
-    QShortcut, QWheelEvent
+    QShortcut, QWheelEvent, QAction
 )
 from PySide6.QtWidgets import (
     QMessageBox, QLabel, QApplication,
     QScrollArea, QVBoxLayout, QDialog,
+    QMenu
 )
 
 
@@ -21,6 +22,7 @@ class ImagePreviewWindow(QDialog):
         self.image_path = image_path
         self.setWindowTitle(f"Full-Size Image Preview: {os.path.basename(image_path)}")
         self.setMinimumSize(400, 300)
+        self.parent_tab = parent # Store the parent (MergeTab) for managing other windows
 
         # State tracking for zooming
         self.original_pixmap: QPixmap = QPixmap()
@@ -156,3 +158,44 @@ class ImagePreviewWindow(QDialog):
         else:
             # If Ctrl is not pressed, pass the event to the base class (allowing normal scrolling)
             super().wheelEvent(event)
+            
+    def contextMenuEvent(self, event):
+        """
+        Overrides the context menu event (right-click) to display management options.
+        """
+        menu = QMenu(self)
+
+        # 1. Close Current Window
+        close_action = QAction("Close This Preview (Ctrl+W)", self)
+        close_action.triggered.connect(self.close)
+        menu.addAction(close_action)
+        
+        # 2. Close All Others (Requires access to the parent's tracking list)
+        if self.parent_tab and hasattr(self.parent_tab, 'open_preview_windows'):
+            
+            # Check if there are other windows open besides this one
+            other_windows_count = len([w for w in self.parent_tab.open_preview_windows if w is not self])
+            
+            if other_windows_count > 0:
+                menu.addSeparator()
+                
+                close_all_action = QAction(f"Close All {other_windows_count} Other Previews", self)
+                close_all_action.triggered.connect(self._close_all_other_previews)
+                menu.addAction(close_all_action)
+                
+        menu.exec(event.globalPos())
+        
+    def _close_all_other_previews(self):
+        """
+        Helper method to close all other open ImagePreviewWindow instances 
+        managed by the parent tab.
+        """
+        if self.parent_tab and hasattr(self.parent_tab, 'open_preview_windows'):
+            # Iterate over a copy of the list to safely modify the original list
+            windows_to_close = [w for w in list(self.parent_tab.open_preview_windows) if w is not self and w.isVisible()]
+            
+            for window in windows_to_close:
+                # Use close() which triggers WA_DeleteOnClose and the parent's cleanup logic
+                window.close()
+                
+            QMessageBox.information(self.parent_tab, "Previews Closed", f"Closed {len(windows_to_close)} other preview windows.")

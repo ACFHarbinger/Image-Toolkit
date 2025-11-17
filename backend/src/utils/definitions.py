@@ -1,6 +1,7 @@
 import os
 
 from pathlib import Path
+from typing import Literal
 
 
 # --- Base Paths (Static) ---
@@ -76,6 +77,17 @@ WALLPAPER_STYLES = {
 }
 
 
+# Define the set of allowed alignment modes for clarity
+AlignMode = Literal[
+    "Default (Top/Center)", 
+    "Align Top/Left", 
+    "Align Bottom/Right", 
+    "Center", 
+    "Scaled (Grow Smallest)", 
+    "Squish (Shrink Largest)"
+]
+
+
 def _get_suffixed_path(base_path, suffix):
     """
     Helper function to create a new path with an account suffix.
@@ -102,7 +114,7 @@ def update_cryptographic_values(account_name):
     the JavaVaultManager.
     """
     # Use 'global' to modify the top-level variables in this module
-    global KEYSTORE_FILE, VAULT_FILE, PEPPER_FILE, TOKEN_FILE
+    global KEYSTORE_FILE, VAULT_FILE, PEPPER_FILE
 
     print(f"Updating cryptographic paths for account: {account_name}")
     
@@ -111,13 +123,9 @@ def update_cryptographic_values(account_name):
     KEYSTORE_FILE = _get_suffixed_path(BASE_KEYSTORE_FILE, account_name)
     VAULT_FILE = _get_suffixed_path(BASE_VAULT_FILE, account_name)
     PEPPER_FILE = _get_suffixed_path(BASE_PEPPER_FILE, account_name)
-    
-    # The Google OAuth token is also user-specific
-    TOKEN_FILE = _get_suffixed_path(BASE_TOKEN_FILE, account_name)
 
     print("--- DEFINITIONS UPDATED ---")
     print(f"KEYSTORE_FILE set to: {KEYSTORE_FILE}")
     print(f"VAULT_FILE set to: {VAULT_FILE}")
     print(f"PEPPER_FILE set to: {PEPPER_FILE}")
-    print(f"TOKEN_FILE set to: {TOKEN_FILE}")
     print("---------------------------")

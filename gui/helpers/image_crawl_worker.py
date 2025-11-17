@@ -21,9 +21,8 @@ class ImageCrawlWorker(QThread):
             if self.config.get("screenshot_dir"):
                 os.makedirs(self.config["screenshot_dir"], exist_ok=True)
                 
-            # --- FIX: Passing the entire config dictionary ---
+            # Passing the entire config dictionary
             crawler = ImageCrawler(self.config)
-            # --- END FIX ---
 
             downloaded = 0
             def on_saved(path):
@@ -38,7 +37,6 @@ class ImageCrawlWorker(QThread):
             self.status.emit("Starting crawl...")
             crawler.run()
 
-            self.finished.emit(downloaded, f"Downloaded {downloaded} image(s)!")
-
+            self.finished.emit(downloaded, f"Crawl finished. Downloaded **{downloaded}** image(s)!")
         except Exception as e:
-            self.error.emit(str(e))
+            self.error.emit(f"Critical Worker Error: {e}")

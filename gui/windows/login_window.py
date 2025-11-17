@@ -24,11 +24,14 @@ class LoginWindow(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Secure Login")
-        self.setFixedSize(400, 300)
+        self.setFixedSize(450, 300)
         
         # Vault Manager and Authentication State
         self.vault_manager = None
         self.is_authenticated = False
+        
+        # --- NEW: Theme state ---
+        self.current_theme = "dark"
         
         self.init_ui()
         self.apply_styles()
@@ -38,10 +41,27 @@ class LoginWindow(QWidget):
         main_layout.setSpacing(20)
         main_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
+        # --- NEW: Header Layout (Title + Theme Button) ---
+        header_layout = QHBoxLayout()
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        
         # Title Label
         title_label = QLabel("Welcome - Secure Toolkit Access")
         title_label.setObjectName("TitleLabel")
-        main_layout.addWidget(title_label, alignment=Qt.AlignmentFlag.AlignCenter)
+        header_layout.addWidget(title_label, alignment=Qt.AlignmentFlag.AlignLeft)
+
+        header_layout.addStretch(1)
+
+        # Theme Button
+        self.theme_button = QPushButton("🎨")
+        self.theme_button.setObjectName("ThemeButton")
+        self.theme_button.setFixedSize(30, 30)
+        self.theme_button.setToolTip("Toggle light/dark theme")
+        self.theme_button.clicked.connect(self.toggle_theme)
+        header_layout.addWidget(self.theme_button, alignment=Qt.AlignmentFlag.AlignRight)
+        
+        main_layout.addLayout(header_layout)
+        # --- End Header Layout ---
 
         # Input fields
         self.username_input = QLineEdit()
@@ -73,36 +93,79 @@ class LoginWindow(QWidget):
         
         self.setLayout(main_layout)
 
+    def toggle_theme(self):
+        """Switches the theme from dark to light and vice-versa."""
+        if self.current_theme == "dark":
+            self.current_theme = "light"
+        else:
+            self.current_theme = "dark"
+        self.apply_styles()
+
     def apply_styles(self):
-        """Applies basic dark mode styling."""
-        qss = """
-            QWidget {
-                background-color: #2d2d30;
-                color: #ffffff;
+        """Applies styling based on the current self.current_theme."""
+        
+        if self.current_theme == "dark":
+            # Dark theme colors
+            bg_color = "#2d2d30"
+            text_color = "#ffffff"
+            title_color = "#00bcd4"
+            input_bg = "#3e3e42"
+            input_border = "#5f646c"
+            btn_bg = "#00bcd4"
+            btn_hover = "#00e5ff"
+            theme_btn_color = title_color
+        else:
+            # Light theme colors
+            bg_color = "#f4f4f4"
+            text_color = "#2d2d30"
+            title_color = "#007AFF"
+            input_bg = "#ffffff"
+            input_border = "#cccccc"
+            btn_bg = "#007AFF"
+            btn_hover = "#0056b3"
+            theme_btn_color = title_color
+            
+        qss = f"""
+            QWidget {{
+                background-color: {bg_color};
+                color: {text_color};
                 font-family: Arial;
-            }
-            #TitleLabel {
+            }}
+            #TitleLabel {{
                 font-size: 16pt;
                 font-weight: bold;
-                color: #00bcd4;
-            }
-            QLineEdit {
-                background-color: #3e3e42;
-                border: 1px solid #5f646c;
+                color: {title_color};
+            }}
+            QLineEdit {{
+                background-color: {input_bg};
+                border: 1px solid {input_border};
                 padding: 8px;
                 border-radius: 5px;
-                color: #ffffff;
-            }
-            QPushButton {
-                background-color: #00bcd4;
+                color: {text_color};
+            }}
+            QPushButton {{
+                background-color: {btn_bg};
                 border: none;
                 padding: 10px 15px;
                 border-radius: 5px;
                 font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #00e5ff;
-            }
+                color: #ffffff;
+            }}
+            QPushButton:hover {{
+                background-color: {btn_hover};
+            }}
+            
+            /* Theme Button Specific Style */
+            #ThemeButton {{
+                background-color: transparent;
+                color: {theme_btn_color};
+                font-size: 16pt;
+                padding: 0;
+                border: none;
+            }}
+            #ThemeButton:hover {{
+                color: {btn_hover};
+            }}
         """
         self.setStyleSheet(qss)
 

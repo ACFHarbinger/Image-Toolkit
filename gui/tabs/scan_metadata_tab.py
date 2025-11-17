@@ -2,16 +2,16 @@ import os
 
 from pathlib import Path
 from typing import Set, Dict, Any
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QPixmap, QAction
 from PySide6.QtCore import (
-    Qt, QThreadPool, QThread, Slot
+    Qt, QThreadPool, QThread, Slot, QPoint
 )
 from PySide6.QtWidgets import (
-    QApplication, QMessageBox, QGridLayout,
-    QHBoxLayout, QVBoxLayout, QScrollArea, 
     QComboBox, QLineEdit, QFileDialog, 
-    QPushButton, QLabel, QFormLayout,
+    QHBoxLayout, QVBoxLayout, QScrollArea, 
     QWidget, QGroupBox, QCheckBox, QFrame,
+    QApplication, QMessageBox, QGridLayout,
+    QPushButton, QLabel, QFormLayout, QMenu,
 )
 from .base_tab import BaseTab
 from ..windows import ImagePreviewWindow
@@ -344,6 +344,34 @@ class ScanMetadataTab(BaseTab):
         # Initial population of the selected gallery to show a placeholder
         self.populate_selected_images_gallery()
     
+    # --- NEW METHOD: Context Menu Handler ---
+    @Slot(QPoint, str)
+    def show_image_context_menu(self, global_pos: QPoint, path: str):
+        """
+        Displays a context menu for the clicked image thumbnail, offering 
+        View and Select options.
+        """
+        menu = QMenu(self)
+        
+        # 1. View Full Size
+        view_action = QAction("View Full Size Preview (Double Click)", self)
+        view_action.triggered.connect(lambda: self.view_selected_scan_image_from_double_click(path))
+        menu.addAction(view_action)
+        
+        menu.addSeparator()
+
+        # 2. Select/Deselect
+        is_selected = path in self.selected_image_paths
+        toggle_text = "Deselect Image (Remove from Batch)" if is_selected else "Select Image (Add to Batch)"
+        toggle_action = QAction(toggle_text, self)
+        
+        # Connect to the single-click selection handler
+        toggle_action.triggered.connect(lambda: self.select_scan_image(path))
+        menu.addAction(toggle_action)
+        
+        menu.exec(global_pos)
+    # --- END NEW METHOD ---
+
     @Slot()
     def _cleanup_thumbnail_thread_ref(self):
         """Slot to clear the QThread and QObject references after the thread finishes its work."""
@@ -361,6 +389,11 @@ class ScanMetadataTab(BaseTab):
         clickable_label.setAlignment(Qt.AlignCenter)
         clickable_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
         clickable_label.setStyleSheet("border: 1px dashed #4f545c; color: #b9bbbe;") 
+        
+        # --- NEW: Connect Right Click ---
+        clickable_label.path_right_clicked.connect(self.show_image_context_menu)
+        # --- END NEW ---
+
         clickable_label.path_clicked.connect(self.select_scan_image)
         clickable_label.path_double_clicked.connect(self.view_selected_scan_image_from_double_click) 
 

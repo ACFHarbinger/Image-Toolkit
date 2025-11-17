@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QLabel
 from PySide6.QtGui import QDrag, QMouseEvent
-from PySide6.QtCore import Qt, QMimeData, QUrl, Signal
+from PySide6.QtCore import Qt, QMimeData, QUrl, Signal, QPoint
 
 
 class DraggableImageLabel(QLabel):
@@ -12,6 +12,9 @@ class DraggableImageLabel(QLabel):
     path_clicked = Signal(str)
     # Signal for Double Click
     path_double_clicked = Signal(str) 
+    # NEW: Signal for Right Click
+    path_right_clicked = Signal(QPoint, str) 
+
     def __init__(self, path: str, size: int):
         super().__init__()
         self.file_path = path
@@ -19,6 +22,19 @@ class DraggableImageLabel(QLabel):
         self.setAlignment(Qt.AlignCenter)
         self.setText("Loading...")
         self.setStyleSheet("border: 1px dashed #4f545c; color: #b9bbbe;")
+        self.setCursor(Qt.PointingHandCursor) # Ensure cursor hints at clickability
+        
+        # Set context menu policy to CustomContextMenu to enable right-click signal
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu) 
+        self.customContextMenuRequested.connect(self._emit_right_click_signal)
+
+    def _emit_right_click_signal(self, pos: QPoint):
+        """
+        Internal slot to emit the custom path_right_clicked signal 
+        when the native customContextMenuRequested signal fires.
+        """
+        # Emits the global position (required for QMenu.exec) and the file path
+        self.path_right_clicked.emit(self.mapToGlobal(pos), self.file_path)
 
     def mouseMoveEvent(self, event):
         """Initiates a drag-and-drop operation."""
@@ -42,6 +58,8 @@ class DraggableImageLabel(QLabel):
         drag.exec(Qt.MoveAction)
     
     def mousePressEvent(self, event: QMouseEvent):
+        # We only handle left click here, allowing right click to propagate 
+        # to the contextMenuEvent mechanism.
         if event.button() == Qt.LeftButton:
             self.path_clicked.emit(self.file_path)
         super().mousePressEvent(event)
@@ -51,4 +69,3 @@ class DraggableImageLabel(QLabel):
          if event.button() == Qt.LeftButton:
             self.path_double_clicked.emit(self.file_path)
          super().mouseDoubleClickEvent(event)
-    

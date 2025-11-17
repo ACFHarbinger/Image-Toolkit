@@ -9,11 +9,16 @@ from PySide6.QtWidgets import (
 )
 from .windows import SettingsWindow
 from .tabs import (
-    WallpaperTab,
     MergeTab, DatabaseTab,
     ConvertTab, DeleteTab, 
     ScanMetadataTab, SearchTab, 
     ImageCrawlTab, DriveSyncTab,
+    WallpaperTab, WebRequestsTab,
+)
+from .tabs.deep_learning import (
+    R3GANEvaluateTab, R3GANGenerateTab,
+    R3GANTrainTab, MetaCLIPInferenceTab,
+    SD3ControlNetTab, SD3TextToImageTab,
 )
 from .styles.style import DARK_QSS, LIGHT_QSS
 from .utils.app_definitions import NEW_LIMIT_MB
@@ -109,7 +114,7 @@ class MainWindow(QWidget):
         
         self.command_combo = QComboBox()
         # Define the high-level categories based on the user's request
-        self.command_combo.addItems(['System Tools', 'Database Management', 'Web Integration'])
+        self.command_combo.addItems(['System Tools', 'Database Management', 'Web Integration', 'Deep Learning'])
         self.command_combo.currentTextChanged.connect(self.on_command_changed)
         self.command_combo.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         command_layout.addWidget(self.command_combo)
@@ -129,6 +134,17 @@ class MainWindow(QWidget):
         self.crawler_tab = ImageCrawlTab(dropdown=dropdown)
         self.drive_sync_tab = DriveSyncTab(dropdown=dropdown)
         self.wallpaper_tab = WallpaperTab(self.database_tab, dropdown=dropdown)
+        self.web_requests_tab = WebRequestsTab(dropdown=dropdown)
+
+        # Instantiate the generative models tabs
+        self.r3gan_gen_tab = R3GANGenerateTab()
+        self.r3gan_train_tab = R3GANTrainTab()
+        self.r3gan_eval_tab = R3GANEvaluateTab()
+
+        self.metaclip_infer_tab = MetaCLIPInferenceTab()
+        
+        self.sd3_t2i_tab = SD3TextToImageTab()
+        self.sd3_controlnet_tab = SD3ControlNetTab()
 
         # Set references *after* all tabs are created
         self.database_tab.scan_tab_ref = self.scan_metadata_tab 
@@ -149,8 +165,17 @@ class MainWindow(QWidget):
             }, 
             'Web Integration': {
                 "Web Crawler": self.crawler_tab,
+                "Web Requests": self.web_requests_tab,
                 "Cloud Synchronization": self.drive_sync_tab,
-            }
+            },
+            'Deep Learning': {
+                "GAN Train": self.r3gan_train_tab,
+                "GAN Evaluate": self.r3gan_eval_tab,
+                "GAN Generate": self.r3gan_gen_tab,
+                "DGM Text-to-Image": self.sd3_t2i_tab,
+                "DGM ControlNet": self.sd3_controlnet_tab,
+                "CLIP Inference": self.metaclip_infer_tab,
+            },
         }
         # --- End Tab Initialization ---
 

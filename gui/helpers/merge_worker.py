@@ -22,6 +22,7 @@ class MergeWorker(QThread):
             output_path = self.config["output_path"]
             direction = self.config["direction"]
             spacing = self.config["spacing"]
+            align_mode = self.config["align_mode"]
             grid_size = self.config["grid_size"]
             formats = self.config["input_formats"] or SUPPORTED_IMG_FORMATS
 
@@ -39,10 +40,7 @@ class MergeWorker(QThread):
                     for fmt in formats:
                         image_files.extend(FSETool.get_files_by_extension(path, fmt, recursive=False))
             
-            # Remove duplicates and ensure paths are unique before merging
-            image_files = sorted(list(set(image_files)))
-
-
+            image_files = list(dict.fromkeys(input_paths))
             if not image_files:
                 self.error.emit("No images found to merge.")
                 return
@@ -61,6 +59,7 @@ class MergeWorker(QThread):
                 output_path=output_path,
                 direction=direction,
                 grid_size=grid_size,
+                align_mode=align_mode,
                 spacing=spacing
             )
             

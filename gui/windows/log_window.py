@@ -4,9 +4,9 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QTextEdit
 
 class LogWindow(QWidget):
     """A dedicated window to display the synchronization log."""
-    def __init__(self, parent=None):
+    def __init__(self, tab_name="Drive Sync", parent=None):
         super().__init__(parent, Qt.Window) 
-        self.setWindowTitle("Synchronization Status Log")
+        self.setWindowTitle(f"{tab_name} Status Log")
         self.setGeometry(100, 100, 700, 500)
         
         main_layout = QVBoxLayout(self)
