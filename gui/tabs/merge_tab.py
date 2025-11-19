@@ -22,9 +22,6 @@ class MergeTab(BaseTab):
     """
     GUI tab for merging images with a file/directory selection gallery.
     Uses safe threading, progressive loading, and dual-panel selection.
-    
-    Refactored to track selected images using an ordered list to ensure
-    the bottom gallery displays images in the selection order.
     """
 
     def __init__(self, dropdown=True):
@@ -32,15 +29,14 @@ class MergeTab(BaseTab):
         self.dropdown = dropdown
 
         # --- State ---
-        # MODIFIED: Changed Set[str] to List[str] to maintain selection order
         self.selected_image_paths: List[str] = [] 
         self.merge_image_list: List[str] = []
         self.path_to_label_map: Dict[str, ClickableLabel] = {}
         self.selected_card_map: Dict[str, ClickableLabel] = {}
         self.scanned_dir: str | None = None
-        self.open_preview_windows: list[ImagePreviewWindow] = [] # Track open windows
+        self.open_preview_windows: list[ImagePreviewWindow] = [] 
         
-        # --- Thread tracking (mimicking ScanMetadataTab) ---
+        # --- Thread tracking ---
         self.current_scan_thread: QThread | None = None
         self.current_scan_worker: ImageScannerWorker | None = None
         self.current_loader_thread: QThread | None = None
@@ -120,9 +116,8 @@ class MergeTab(BaseTab):
         gallery_group = QGroupBox("Select Images to Merge")
         gallery_vbox = QVBoxLayout(gallery_group)
 
-        # --- Scan Directory Group (Matching ScanMetadataTab) ---
+        # --- Scan Directory Group ---
         scan_group = QGroupBox("Scan Directory")
-        # ESCAPED NEWLINE FIX: Adding minimal QGroupBox styles
         scan_group.setStyleSheet("""
             QGroupBox {  
                 border: 1px solid #4f545c; \n
@@ -189,7 +184,10 @@ class MergeTab(BaseTab):
         self.selected_images_widget.setStyleSheet("background-color: #2c2f33;")
         self.selected_grid_layout = QGridLayout(self.selected_images_widget)
         self.selected_grid_layout.setSpacing(10)
-        self.selected_grid_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        
+        # Align selected grid layout to the left
+        self.selected_grid_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        
         self.selected_images_area.setWidget(self.selected_images_widget)
         gallery_vbox.addWidget(self.selected_images_area, 1)
 
@@ -238,11 +236,9 @@ class MergeTab(BaseTab):
                 return
 
         # Instantiate the ImagePreviewWindow 
-        # NOTE: Passing db_tab_ref=None since MergeTab doesn't interact with the DB
-        window = ImagePreviewWindow(image_path, db_tab_ref=None, parent=self) # Pass self as parent for context menu
+        window = ImagePreviewWindow(image_path, db_tab_ref=None, parent=self)
         window.setAttribute(Qt.WA_DeleteOnClose)
         
-        # Add cleanup logic for tracking open windows
         def remove_closed_win(event: Any):
             if window in self.open_preview_windows:
                  self.open_preview_windows.remove(window)
@@ -252,9 +248,8 @@ class MergeTab(BaseTab):
         
         window.show()
         self.open_preview_windows.append(window)
-    # === END NEW HANDLER ===
 
-    # === NEW HANDLER: Right-Click Context Menu ===
+    # === Context Menu ===
     @Slot(QPoint, str)
     def show_image_context_menu(self, global_pos: QPoint, path: str):
         """
@@ -280,19 +275,16 @@ class MergeTab(BaseTab):
     # === THREAD SAFETY CLEANUP ===
     @Slot()
     def _cleanup_scan_thread_ref(self):
-        """Slot to clear the QThread and QObject references after the scan thread finishes."""
         self.current_scan_thread = None
         self.current_scan_worker = None
 
     @Slot()
     def _cleanup_loader_thread_ref(self):
-        """Slot to clear the QThread and QObject references after the loader thread finishes."""
         self.current_loader_thread = None
         self.current_loader_worker = None
 
     @Slot()
     def _cleanup_merge_thread_ref(self):
-        """Slot to clear the QThread and QObject references after the merge thread finishes."""
         self.current_merge_thread = None
         self.current_merge_worker = None
 
@@ -302,6 +294,9 @@ class MergeTab(BaseTab):
             item = layout.takeAt(0)
             w = item.widget()
             if w:
+                # FIX: Hide and detach before deleting
+                w.hide()
+                w.setParent(None)
                 w.deleteLater()
 
     def _show_placeholder(self, text: str):
@@ -318,10 +313,6 @@ class MergeTab(BaseTab):
 
     @Slot(int, str)
     def _create_thumbnail_placeholder(self, idx: int, path: str):
-        """
-        Creates a ClickableLabel placeholder with loading text and ScanMetadataTab styling.
-        [MODIFIED] Connects all three click signals.
-        """
         columns = self._columns()
         row = idx // columns
         col = idx % columns
@@ -337,10 +328,9 @@ class MergeTab(BaseTab):
 
         clickable_label.path_clicked.connect(self._toggle_selection)
         
-        # --- NEW: Connect Double Click and Right Click ---
+        # Connect Double Click and Right Click
         clickable_label.path_double_clicked.connect(self.handle_full_image_preview)
         clickable_label.path_right_clicked.connect(self.show_image_context_menu)
-        # --- END NEW ---
         
         self.merge_thumbnail_widget.update()
         QApplication.processEvents()
@@ -348,12 +338,11 @@ class MergeTab(BaseTab):
 
     @Slot(int, QPixmap, str)
     def _update_thumbnail_slot(self, idx: int, pixmap: QPixmap, path: str):
-        """Updates the thumbnail with pixmap and applies consistent styling."""
         label = self.path_to_label_map.get(path)
         if label is None:
             return
 
-        is_selected = path in self.selected_image_paths # Check membership in list
+        is_selected = path in self.selected_image_paths 
         
         if not pixmap.isNull():
             label.setPixmap(pixmap) 
@@ -361,7 +350,6 @@ class MergeTab(BaseTab):
             self._update_label_style(label, path, is_selected)
         else:
             label.setText("Load Error")
-            # Apply error/selection style
             if is_selected:
                 label.setStyleSheet("border: 3px solid #5865f2; background-color: #4f545c; font-size: 8px;") 
             else:
@@ -369,7 +357,6 @@ class MergeTab(BaseTab):
 
 
     def _update_label_style(self, label: ClickableLabel, path: str, selected: bool):
-        """Handles styling for selected, unselected, and load error states consistently."""
         is_error = "Error" in label.text()
 
         if selected:
@@ -387,16 +374,11 @@ class MergeTab(BaseTab):
 
     # === SELECTION HANDLING ===
     def _toggle_selection(self, path: str):
-        """
-        MODIFIED: Handles selection using the list to preserve order.
-        """
         try:
-            # If path is already selected, remove it
             index = self.selected_image_paths.index(path)
             self.selected_image_paths.pop(index)
             selected = False
         except ValueError:
-            # If path is new, append it to the end
             self.selected_image_paths.append(path)
             selected = True
             
@@ -408,32 +390,18 @@ class MergeTab(BaseTab):
         self.update_run_button_state()
 
     def handle_marquee_selection(self, paths: set, ctrl_pressed: bool):
-        """
-        MODIFIED: Handles marquee selection using the list to preserve order.
-        """
-        
-        # Current paths in order
         ordered_paths = self.selected_image_paths.copy()
         
         if not ctrl_pressed:
-            # Non-additive selection: new list only contains paths from marquee in current order,
-            # plus new ones appended.
             new_ordered_paths = [p for p in ordered_paths if p in paths]
             newly_selected = [p for p in paths if p not in ordered_paths]
             self.selected_image_paths = new_ordered_paths + newly_selected
-            
-            # Paths that changed state are all paths that were either selected before or are selected now.
             paths_to_update = paths.union(set(ordered_paths))
-
         else:
-            # Additive selection: Add paths not already present to the end.
             paths_to_add = [p for p in paths if p not in ordered_paths]
             self.selected_image_paths.extend(paths_to_add)
-            
-            # Paths that changed state are only the newly added ones
             paths_to_update = set(paths_to_add)
 
-        # Update styles for all affected labels (needs to check the final state of each path)
         for path in paths_to_update:
             label = self.path_to_label_map.get(path)
             if label:
@@ -443,18 +411,20 @@ class MergeTab(BaseTab):
         self.update_run_button_state()
 
     def _refresh_selected_panel(self):
-        """
-        MODIFIED: Iterates over the ordered list self.selected_image_paths.
-        """
+        # --- FIX: Disable updates to prevent flickering artifacts
+        self.selected_images_widget.setUpdatesEnabled(False)
+
         # Clear existing widgets and the tracking map
         while self.selected_grid_layout.count():
             item = self.selected_grid_layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
+                # FIX: Hide and detach
+                widget.hide()
+                widget.setParent(None)
                 widget.deleteLater()
         self.selected_card_map = {}
         
-        # Use the ordered list directly
         paths = self.selected_image_paths 
         
         thumb_size = self.thumbnail_size 
@@ -464,47 +434,43 @@ class MergeTab(BaseTab):
         widget_width = self.selected_images_area.viewport().width()
         columns = max(1, widget_width // approx_width)
         
-        wrapper_height = self.thumbnail_size + 30 
+        # --- FIX: Reduced wrapper height since text is removed
+        wrapper_height = self.thumbnail_size + 10 
         wrapper_width = self.thumbnail_size + 10 
         
         if not paths:
-            # Add a placeholder when no images are selected
             empty_label = QLabel("Select images from the gallery above to view them here.")
             empty_label.setAlignment(Qt.AlignCenter)
             empty_label.setStyleSheet("color: #b9bbbe; padding: 50px;")
             self.selected_grid_layout.addWidget(empty_label, 0, 0, 1, columns)
+            
+            self.selected_images_widget.setUpdatesEnabled(True)
             return
 
-        for i, path in enumerate(paths): # Iterate through the ordered list
-            # Use ClickableLabel to wrap the card content for selection/click
+        for i, path in enumerate(paths): 
             card_clickable_wrapper = ClickableLabel(path)
-            
             card_clickable_wrapper.setFixedSize(wrapper_width, wrapper_height) 
 
-            # Clicking on the card toggles selection in the master set
             # Use a lambda function to pass the path correctly
             card_clickable_wrapper.path_clicked.connect(lambda checked, p=path: self._toggle_selection(p))
             
-            # --- Card Frame Styling ---
             card = QFrame()
-            
-            card_style = (
-                "QFrame { \n"
-                "    background-color: #2c2f33; \n"
-                "    border-radius: 8px; \n"
-                "    border: 3px solid #5865f2; \n"
-                "}"
-            )
+            card.setStyleSheet("background-color: transparent; border: none;")
 
-            card.setStyleSheet(card_style)
             card_layout = QVBoxLayout(card)
-            card_layout.setContentsMargins(5, 5, 5, 5) 
+            card_layout.setContentsMargins(0, 0, 0, 0) 
             
             img_label = QLabel()
             img_label.setAlignment(Qt.AlignCenter)
             img_label.setFixedSize(self.thumbnail_size, self.thumbnail_size) 
             
-            # Try to get the pixmap from the top gallery map for efficiency, otherwise load it.
+            # --- FIX: Apply Border Style to Image Label for Square Box Look ---
+            is_master_selected = path in self.selected_image_paths
+            if is_master_selected:
+                img_label.setStyleSheet("border: 3px solid #5865f2;")
+            else:
+                img_label.setStyleSheet("border: 1px solid #4f545c;")
+
             src_label = self.path_to_label_map.get(path)
             pixmap = src_label.pixmap() if src_label and src_label.pixmap() and not src_label.pixmap().isNull() else QPixmap(path)
             
@@ -515,18 +481,13 @@ class MergeTab(BaseTab):
                     Qt.SmoothTransformation
                 )
                 img_label.setPixmap(scaled)
-                img_label.setStyleSheet("border: none;")
             else:
-                img_label.setText("Load Error")
-                img_label.setStyleSheet("color: #e74c3c; border: 1px solid #e74c3c; background-color: #4f545c; font-size: 10px;")
+                img_label.setText("Error")
+                img_label.setStyleSheet("color: #e74c3c; border: 1px solid #e74c3c;")
 
-            path_label = QLabel(os.path.basename(path)) 
-            path_label.setStyleSheet("color: #b9bbbe; font-size: 10px; border: none; padding: 2px 0;")
-            path_label.setAlignment(Qt.AlignCenter)
-            path_label.setWordWrap(True)
+            # --- FIX: Path Label Removed ---
 
             card_layout.addWidget(img_label)
-            card_layout.addWidget(path_label)
             
             card_clickable_wrapper.setLayout(card_layout)
             
@@ -535,13 +496,16 @@ class MergeTab(BaseTab):
             
             self.selected_card_map[path] = card_clickable_wrapper
             
-            self.selected_grid_layout.addWidget(card_clickable_wrapper, row, col, Qt.AlignCenter) 
+            # Align individual widgets to the left
+            self.selected_grid_layout.addWidget(card_clickable_wrapper, row, col, Qt.AlignLeft | Qt.AlignTop) 
 
+        # --- FIX: Re-enable updates and adjust size to fix scroll artifacts
+        self.selected_images_widget.setUpdatesEnabled(True)
+        self.selected_images_widget.adjustSize()
 
     # === INPUT LOGIC ===
     
     def _browse_files_logic(self):
-        """Handles the 'Add Files' button click."""
         start_dir = self.last_browsed_dir or str(Path.home())
         files, _ = QFileDialog.getOpenFileNames(
             self, "Select Images", start_dir,
@@ -556,7 +520,6 @@ class MergeTab(BaseTab):
 
 
     def handle_scan_directory_return(self):
-        """Custom handler for Enter key press on the scan directory path input."""
         directory = self.scan_directory_path.text().strip()
         if directory and Path(directory).is_dir():
             self.populate_scan_gallery(directory)
@@ -564,7 +527,6 @@ class MergeTab(BaseTab):
             self.browse_scan_directory()
 
     def browse_scan_directory(self):
-        """Opens dialog to select scan directory and populates gallery."""
         directory = QFileDialog.getExistingDirectory(
             self, "Scan Directory", self.last_browsed_dir or str(Path.home())
         )
@@ -589,10 +551,8 @@ class MergeTab(BaseTab):
             )
 
     def populate_scan_gallery(self, directory: str):
-        """Initiates scanning."""
         self.scanned_dir = directory
         
-        # Stop active threads
         if self.current_scan_thread and self.current_scan_thread.isRunning():
             self.current_scan_thread.quit()
             self.current_scan_thread.wait(2000)
@@ -633,8 +593,6 @@ class MergeTab(BaseTab):
         thread.start()
 
     def display_scan_results(self, image_paths: list[str]):
-        """Receives image paths and starts thumbnail loader."""
-        
         self.merge_image_list = sorted(image_paths)
         if self.scanned_dir:
              self.scan_directory_path.setText(f"Source: {Path(self.scanned_dir).name} | {len(image_paths)} images")
@@ -646,7 +604,6 @@ class MergeTab(BaseTab):
             self._show_placeholder("No supported images found.")
             return
 
-        # Stop previous loader thread if any
         if self.current_loader_thread and self.current_loader_thread.isRunning():
             self.current_loader_thread.quit()
             self.current_loader_thread.wait(2000)
@@ -735,7 +692,7 @@ class MergeTab(BaseTab):
     def collect(self, output_path: str) -> Dict[str, Any]:
         return {
             "direction": self.direction.currentText(),
-            "input_path": self.selected_image_paths, # Uses the ordered list
+            "input_path": self.selected_image_paths,
             "output_path": output_path,
             "input_formats": [f.strip().lstrip('.') for f in SUPPORTED_IMG_FORMATS if f.strip()],
             "spacing": self.spacing.value(),
@@ -773,19 +730,15 @@ class MergeTab(BaseTab):
     def browse_output(self): pass
 
     def get_default_config(self) -> dict:
-        """Returns the default configuration values for this tab."""
-        # Note: 'input_path' and 'output_path' are runtime-specific.
-        # The config should only store *settings*.
         return {
             "direction": "horizontal",
             "spacing": 10,
-            "grid_size": [2, 2], # Use list for JSON
+            "grid_size": [2, 2], 
             "scan_directory": "C:/path/to/images",
             "align_mode": "Default (Top/Center)"
         }
 
     def set_config(self, config: dict):
-        """Applies a loaded configuration to the tab's UI."""
         try:
             direction = config.get("direction", "horizontal")
             if self.direction.findText(direction) != -1:
