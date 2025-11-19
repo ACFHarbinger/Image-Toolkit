@@ -194,6 +194,8 @@ class MainWindow(QWidget):
         # Use the theme loaded from the vault
         self.set_application_theme(self.current_theme)
 
+        self.showMaximized()
+
 
     def on_command_changed(self, new_command: str):
         """
