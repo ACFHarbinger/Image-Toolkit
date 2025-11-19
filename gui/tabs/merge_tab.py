@@ -229,14 +229,32 @@ class MergeTab(BaseTab):
     def handle_full_image_preview(self, image_path: str):
         """Opens a new non-modal window to display the full image for the MergeTab."""
         
+        # 1. Get the ordered list of selected paths
+        selected_paths_list = self.selected_image_paths.copy() # selected_image_paths is already a List[str]
+        
+        # 2. Find the index of the clicked image within the list
+        try:
+            start_index = selected_paths_list.index(image_path)
+        except ValueError:
+            # If the clicked image is not currently in the batch, open it standalone.
+            selected_paths_list = [image_path]
+            start_index = 0
+
         # Check if the image is already open
         for win in list(self.open_preview_windows):
             if isinstance(win, ImagePreviewWindow) and win.image_path == image_path:
                 win.activateWindow()
                 return
 
-        # Instantiate the ImagePreviewWindow 
-        window = ImagePreviewWindow(image_path, db_tab_ref=None, parent=self)
+        # 3. Instantiate the preview window, passing the full list and starting index
+        window = ImagePreviewWindow(
+            image_path=image_path, 
+            db_tab_ref=None, 
+            parent=self,
+            # NEW PARAMS:
+            all_paths=selected_paths_list,
+            start_index=start_index
+        )
         window.setAttribute(Qt.WA_DeleteOnClose)
         
         def remove_closed_win(event: Any):
@@ -258,8 +276,8 @@ class MergeTab(BaseTab):
         """
         menu = QMenu(self)
         
-        # 1. View Full Size
-        view_action = QAction("View Full Size Preview (Double Click)", self)
+        # 1. View Full Size (ONLY THE CLICKED IMAGE)
+        view_action = QAction("View Full Size Preview", self)
         view_action.triggered.connect(lambda: self.handle_full_image_preview(path))
         menu.addAction(view_action)
         
@@ -482,7 +500,7 @@ class MergeTab(BaseTab):
                 )
                 img_label.setPixmap(scaled)
             else:
-                img_label.setText("Error")
+                img_label.setText("Load Error")
                 img_label.setStyleSheet("color: #e74c3c; border: 1px solid #e74c3c;")
 
             # --- FIX: Path Label Removed ---

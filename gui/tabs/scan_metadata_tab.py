@@ -1,7 +1,7 @@
 import os
 
 from pathlib import Path
-from typing import Set, Dict, Any
+from typing import Set, Dict, Any, List
 from PySide6.QtGui import QPixmap, QAction
 from PySide6.QtCore import (
     Qt, QThreadPool, QThread, Slot, QPoint
@@ -372,18 +372,40 @@ class ScanMetadataTab(BaseTab):
     # --- NEW METHOD: Views only the single image clicked ---
     @Slot(str)
     def _view_single_image_preview(self, image_path: str):
-        """Opens a full-size preview window for the single image path provided."""
+        """Opens a full-size preview window for the single image path provided (DOUBLE/RIGHT CLICK)."""
         
+        # 1. Get the ordered list of selected paths (sorted list ensures consistency for navigation)
+        # We sort here to provide a consistent navigation order (e.g., by path name)
+        selected_paths_list = sorted(list(self.selected_image_paths))
+        
+        # 2. Find the index of the clicked image within the list
+        try:
+            start_index = selected_paths_list.index(image_path)
+        except ValueError:
+            # If the clicked image is not currently in the batch, open it standalone, 
+            # and navigation wraps around itself.
+            selected_paths_list = [image_path]
+            start_index = 0
+
         # Check if the image is already open
         for win in list(self.open_preview_windows):
             if isinstance(win, ImagePreviewWindow) and win.image_path == image_path:
                 win.activateWindow() 
                 return
         
-        preview = ImagePreviewWindow(image_path, self.db_tab_ref, parent=self)
+        # 3. Instantiate the preview window, passing the full list and starting index
+        preview = ImagePreviewWindow(
+            image_path=image_path, 
+            db_tab_ref=self.db_tab_ref, 
+            parent=self,
+            all_paths=selected_paths_list,
+            start_index=start_index
+        )
+        
         preview.finished.connect(lambda result, p=preview: self.remove_preview_window(p))
         preview.show() 
         self.open_preview_windows.append(preview)
+
 
     @Slot()
     def _cleanup_thumbnail_thread_ref(self):
@@ -762,31 +784,35 @@ class ScanMetadataTab(BaseTab):
 
     def view_selected_scan_image(self):
         """Opens non-modal, full-size image preview windows for ALL currently selected scan images (BUTTON)."""
-        if not self.selected_image_paths:
-            if self.selected_scan_image_path:
-                self.selected_image_paths.add(self.selected_scan_image_path)
-                self.update_button_states(connected=(self.db_tab_ref.db is not None))
-            else:
-                QMessageBox.warning(self, "No Images Selected", "Please select one or more image thumbnails from the gallery first.")
+        
+        # 1. Get the ordered list of selected paths
+        selected_paths_list = sorted(list(self.selected_image_paths))
+        
+        if not selected_paths_list:
+            QMessageBox.warning(self, "No Images Selected", "Please select one or more image thumbnails from the gallery first.")
+            return
+
+        # 2. Use the first selected image path to start the preview
+        start_path = selected_paths_list[0]
+        
+        # Check if the image is already open
+        for window in self.open_preview_windows:
+            if isinstance(window, ImagePreviewWindow) and window.image_path == start_path:
+                window.activateWindow() 
                 return
 
-        for path in self.selected_image_paths:
-            if not (path and os.path.exists(path) and os.path.isfile(path)):
-                QMessageBox.warning(self, "Invalid Path", f"The path '{path}' is invalid or not a file. Skipping.")
-                continue
-
-            already_open = False
-            for window in self.open_preview_windows:
-                if isinstance(window, ImagePreviewWindow) and window.image_path == path:
-                    window.activateWindow() 
-                    already_open = True
-                    break
-            
-            if not already_open:
-                preview = ImagePreviewWindow(path, self.db_tab_ref, parent=self) 
-                preview.finished.connect(lambda result, p=preview: self.remove_preview_window(p))
-                preview.show() 
-                self.open_preview_windows.append(preview)
+        # 3. Instantiate the preview window, passing the full list and starting index (0)
+        preview = ImagePreviewWindow(
+            image_path=start_path, 
+            db_tab_ref=self.db_tab_ref, 
+            parent=self, 
+            all_paths=selected_paths_list, 
+            start_index=0
+        )
+        
+        preview.finished.connect(lambda result, p=preview: self.remove_preview_window(p))
+        preview.show() 
+        self.open_preview_windows.append(preview)
 
     def toggle_selected_images_view(self):
         """Toggles the visibility of the selected images grid, populating it if it's being shown."""
@@ -894,7 +920,7 @@ class ScanMetadataTab(BaseTab):
 
             card_layout.addWidget(img_label)
             # card_layout.addWidget(path_label) # Removed
-
+            
             card_clickable_wrapper.setLayout(card_layout)
             
             row = i // columns

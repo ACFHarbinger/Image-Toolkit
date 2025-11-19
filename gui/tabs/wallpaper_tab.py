@@ -78,8 +78,9 @@ class WallpaperTab(BaseTab):
         num_monitors = len(target_monitor_ids)
         
         set_count = sum(1 for mid in target_monitor_ids if mid in self.monitor_image_paths and self.monitor_image_paths[mid])
-        all_set_single = set_count == num_monitors
-
+        
+        # --- MODIFIED: Removed the "all_set_single" check for standard mode. ---
+        # The button is now enabled if any image is set (set_count > 0) OR if the slideshow is ready.
         is_ready, total_images = self._is_slideshow_validation_ready()
 
         # --- NEW LOGIC: Solid Color takes precedence over image paths ---
@@ -99,12 +100,11 @@ class WallpaperTab(BaseTab):
                  self.set_wallpaper_btn.setEnabled(False)
                  self.set_wallpaper_btn.setText("Slideshow (Drop images)")
                  
-        elif all_set_single:
+        elif set_count > 0: # --- MODIFIED: Only require at least one image set ---
             self.set_wallpaper_btn.setText("Set Wallpaper")
             self.set_wallpaper_btn.setEnabled(True)
         else:
-            missing = num_monitors - set_count
-            self.set_wallpaper_btn.setText(f"Set Wallpaper ({missing} more)")
+            self.set_wallpaper_btn.setText("Set Wallpaper (0 images)")
             self.set_wallpaper_btn.setEnabled(False)
 
 
@@ -657,18 +657,35 @@ class WallpaperTab(BaseTab):
     def handle_full_image_preview(self, image_path: str):
         """
         Generic slot to open a full-size image preview. 
-        Called by both the scanned gallery and the slideshow queue window.
+        It uses the list of all scanned images for navigation.
         """
         
+        # 1. Prepare navigation list (all scanned images)
+        all_paths_list = sorted(self.scan_image_list)
+        
+        # 2. Find the index of the clicked image within the list
+        try:
+            start_index = all_paths_list.index(image_path)
+        except ValueError:
+            # If the clicked image isn't in the scan list (e.g., from a queue), open it standalone.
+            all_paths_list = [image_path]
+            start_index = 0
+            
         # Check if the image is already open
         for win in list(self.open_image_preview_windows):
-            # Check by filename (the window title contains the filename)
-            if isinstance(win, ImagePreviewWindow) and Path(image_path).name in win.windowTitle():
+            # Check by path for a unique identifier
+            if isinstance(win, ImagePreviewWindow) and win.image_path == image_path:
                 win.activateWindow()
                 return
 
         # Instantiate the ImagePreviewWindow from the components module
-        window = ImagePreviewWindow(image_path, parent=self) # Pass self as parent for context menu
+        window = ImagePreviewWindow(
+            image_path=image_path, 
+            db_tab_ref=None, 
+            parent=self, 
+            all_paths=all_paths_list, 
+            start_index=start_index
+        )
         window.setAttribute(Qt.WA_DeleteOnClose)
         
         def remove_closed_win(event: Any):
@@ -694,7 +711,7 @@ class WallpaperTab(BaseTab):
             
         menu = QMenu(self)
         
-        # 1. View Full Size
+        # 1. View Full Size (Triggers the new navigation-enabled handler)
         view_action = QAction("View Full Size Preview", self)
         view_action.triggered.connect(lambda: self.handle_full_image_preview(path))
         menu.addAction(view_action)
@@ -779,8 +796,11 @@ class WallpaperTab(BaseTab):
                 # Apply rotation to align KDE IDs with UI Physical Order
                 current_system_wallpaper_paths = self._get_rotated_map_for_ui(raw_paths)
                 
-            except (FileNotFoundError, subprocess.CalledProcessError, Exception):
-                pass
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                # Fallback or ignore for GNOME/other Linux
+                pass 
+            except Exception as e:
+                print(f"KDE retrieval failed unexpectedly: {e}")
         
         # 3. Update the specific MonitorDropWidget
         system_wallpaper_path = current_system_wallpaper_paths.get(monitor_id)
@@ -831,7 +851,7 @@ class WallpaperTab(BaseTab):
         ready_label.setStyleSheet("color: #b9bbbe;")
         self.scan_thumbnail_layout.addWidget(ready_label, 0, 0, 1, columns)
 
-    # --- NEW HELPER METHOD FOR ROTATION FIX (UI Display) ---
+    # --- HELPER METHOD FOR ROTATION FIX (UI Display) ---
     def _get_rotated_map_for_ui(self, source_paths: Dict[str, str]) -> Dict[str, str]:
         """
         Applies a rotational correction (Right Circular Shift) to retrieved 
@@ -1324,25 +1344,9 @@ class WallpaperTab(BaseTab):
     def handle_thumbnail_double_click(self, image_path: str):
         """Opens a non-modal window to display the full image using ImagePreviewWindow."""
         
-        # Check if the image is already open
-        for win in list(self.open_image_preview_windows):
-            if isinstance(win, ImagePreviewWindow) and win.windowTitle() == Path(image_path).name:
-                win.activateWindow()
-                return
+        # This handles the navigation setup for the double-click/right-click action
+        self.handle_full_image_preview(image_path)
 
-        # Assuming ImagePreviewWindow constructor takes the image path
-        window = ImagePreviewWindow(image_path)
-        window.setAttribute(Qt.WA_DeleteOnClose)
-        
-        def remove_closed_win(event: Any):
-            if window in self.open_image_preview_windows:
-                 self.open_image_preview_windows.remove(window)
-            event.accept()
-
-        window.closeEvent = remove_closed_win
-        
-        window.show()
-        self.open_image_preview_windows.append(window)
 
     def _create_thumbnail_placeholder(self, index: int, path: str):
         columns = self.calculate_columns()
