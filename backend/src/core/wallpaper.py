@@ -85,6 +85,76 @@ class WallpaperManager:
     """
 
     @staticmethod
+    def _set_wallpaper_solid_color_windows(color_hex: str):
+        """
+        Sets a solid color background for Windows by setting the TileWallpaper 
+        to 0 and WallpaperStyle to 0, then setting the background color registry key.
+        """
+        try:
+            # 1. Convert hex to RGB (e.g., #RRGGBB)
+            color_hex = color_hex.lstrip('#')
+            r, g, b = tuple(int(color_hex[i:i+2], 16) for i in (0, 2, 4))
+            
+            # 2. Set necessary registry values for solid color mode
+            key_desktop = winreg.OpenKey(winreg.HKEY_CURRENT_USER, 
+                                        "Control Panel\\Desktop", 0, winreg.KEY_SET_VALUE)
+            
+            # Set to 'Center' (0) and 'No Tile' (0) to force Solid Color. 
+            # The actual image path is ignored by the system, but we need to 
+            # force a wallpaper change via SystemParametersInfoW.
+            winreg.SetValueEx(key_desktop, "WallpaperStyle", 0, winreg.REG_SZ, "0") 
+            winreg.SetValueEx(key_desktop, "TileWallpaper", 0, winreg.REG_SZ, "0") 
+            winreg.CloseKey(key_desktop)
+
+            # 3. Set the Solid Color value (RGB as a string "R G B")
+            key_colors = winreg.OpenKey(winreg.HKEY_CURRENT_USER, 
+                                        "Control Panel\\Colors", 0, winreg.KEY_SET_VALUE)
+            winreg.SetValueEx(key_colors, "Background", 0, winreg.REG_SZ, f"{r} {g} {b}")
+            winreg.CloseKey(key_colors)
+
+            # 4. Trigger the wallpaper update (passing None for the path)
+            SPI_SETDESKWALLPAPER = 20
+            SPIF_UPDATEINIFILE = 0x01
+            SPIF_SENDWININICHANGE = 0x02
+            
+            # Calling SystemParametersInfoW with SPI_SETDESKWALLPAPER is often required 
+            # to refresh the background color, even though we're not setting an image.
+            ctypes.windll.user32.SystemParametersInfoW(
+                SPI_SETDESKWALLPAPER, 
+                0, 
+                None, # Pass None for the path to force the system to use the color.
+                SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE
+            )
+
+        except Exception as e:
+            raise RuntimeError(f"Error setting Windows solid color wallpaper: {e}")
+
+    @staticmethod
+    def _set_wallpaper_solid_color_gnome(color_hex: str):
+        """
+        Sets a solid color background for GNOME using gsettings.
+        """
+        try:
+            # Set the background to solid color mode
+            subprocess.run(
+                ["gsettings", "set", "org.gnome.desktop.background", "picture-options", "none"],
+                check=True, capture_output=True, text=True
+            )
+            # Set the color (hex format works)
+            subprocess.run(
+                ["gsettings", "set", "org.gnome.desktop.background", "primary-color", color_hex],
+                check=True, capture_output=True, text=True
+            )
+            # Set the color type to solid
+            subprocess.run(
+                ["gsettings", "set", "org.gnome.desktop.background", "color-shading-type", "solid"],
+                check=True, capture_output=True, text=True
+            )
+        except Exception as e:
+            # This covers issues with gsettings not existing or not working, e.g., on KDE/XFCE
+            raise RuntimeError(f"Error setting GNOME solid color: {e}")
+
+    @staticmethod
     def _set_wallpaper_windows_multi(path_map: Dict[str, str], monitors: List[Monitor], style_name: str):
         """
         Sets per-monitor wallpaper for Windows using the IDesktopWallpaper COM interface.
@@ -197,7 +267,7 @@ class WallpaperManager:
         full_script += "d.reloadConfig();"
 
         qdbus_command = (
-            f"qdbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{full_script}'"
+            f"qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{full_script}'"
         )
         subprocess.run(qdbus_command, shell=True, check=True, capture_output=True, text=True)
 
@@ -262,9 +332,59 @@ class WallpaperManager:
     @staticmethod
     def apply_wallpaper(path_map: Dict[str, str], monitors: List[Monitor], style_name: str):
         """
-        Applies wallpaper based on the OS and the selected style.
+        Applies wallpaper based on the OS and the selected style or solid color.
+        
+        path_map contains either image paths or solid color hex if style_name is "SolidColor".
         """
         system = platform.system()
+        
+        is_solid_color = (style_name == "SolidColor")
+        
+        if is_solid_color:
+            # The color hex is expected to be in the path_map for monitor '0'
+            color_hex = path_map.get(str(0), "#000000") 
+            
+            if system == "Windows":
+                WallpaperManager._set_wallpaper_solid_color_windows(color_hex)
+                
+            elif system == "Linux":
+                # Try KDE qdbus method first
+                try:
+                    # Check for KDE presence (qdbus6)
+                    subprocess.run(["which", "qdbus6"], check=True, capture_output=True) 
+                    
+                    # --- KDE Solid Color Implementation using a script ---
+                    # We iterate over all desktop configurations to ensure all monitors are set.
+                    script = f"""
+                    var d = desktops();
+                    for (var i = 0; i < d.length; i++) {{
+                        d[i].currentConfigGroup = Array("Color"); 
+                        d[i].writeConfig("Color", "{color_hex}");
+                        d[i].currentConfigGroup = Array("Wallpaper", "org.kde.color", "General");
+                        d[i].writeConfig("Color", "{color_hex}");
+                        d[i].writeConfig("FillMode", 1); // Fill mode 1 for solid color usually
+                    }}
+                    d[0].reloadConfig();
+                    """
+
+                    qdbus_command = (
+                        f"qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{script}'"
+                    )
+                    subprocess.run(qdbus_command, shell=True, check=True, capture_output=True, text=True)
+                    print("Set solid color via KDE qdbus.")
+                    
+                except (FileNotFoundError, subprocess.CalledProcessError):
+                    # Fallback to GNOME
+                    WallpaperManager._set_wallpaper_solid_color_gnome(color_hex)
+                except Exception as e:
+                    raise RuntimeError(f"Linux Solid Color method failed: {e}")
+            
+            else:
+                raise NotImplementedError(f"Solid Color setting for {system} is not supported.")
+            
+            return # Exit after setting solid color
+        
+        # --- Existing Image Setting Logic ---
         
         if system == "Windows":
             # Use the per-monitor method if COM is available, otherwise fall back.
@@ -291,7 +411,7 @@ class WallpaperManager:
             # --- Linux Implementation ---
             try:
                 # Try KDE qdbus method first
-                subprocess.run(["which", "qdbus"], check=True, capture_output=True) 
+                subprocess.run(["which", "qdbus6"], check=True, capture_output=True) 
                 WallpaperManager._set_wallpaper_kde(path_map, len(monitors), style_name)
                 
             except (FileNotFoundError, subprocess.CalledProcessError):
