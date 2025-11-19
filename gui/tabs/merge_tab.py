@@ -1,11 +1,11 @@
 import os
 
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 from PySide6.QtGui import QPixmap, QAction
 from PySide6.QtCore import Qt, QTimer, QThread, Slot, QPoint
 from PySide6.QtWidgets import (
-    QFrame, QMenu, QApplication, QFormLayout,
+    QFrame, QMenu, QProgressDialog, QFormLayout,
     QComboBox, QSpinBox, QGroupBox, QHBoxLayout,
     QVBoxLayout, QMessageBox, QGridLayout, QScrollArea,
     QLineEdit, QFileDialog, QWidget, QLabel, QPushButton,
@@ -35,6 +35,7 @@ class MergeTab(BaseTab):
         self.selected_card_map: Dict[str, ClickableLabel] = {}
         self.scanned_dir: str | None = None
         self.open_preview_windows: list[ImagePreviewWindow] = [] 
+        self.loading_dialog = None # --- ADDED STATE ---
         
         # --- Thread tracking ---
         self.current_scan_thread: QThread | None = None
@@ -227,31 +228,23 @@ class MergeTab(BaseTab):
     # === NEW HANDLER: Double-Click Preview ===
     @Slot(str)
     def handle_full_image_preview(self, image_path: str):
-        """Opens a new non-modal window to display the full image for the MergeTab."""
+        selected_paths_list = self.selected_image_paths.copy() 
         
-        # 1. Get the ordered list of selected paths
-        selected_paths_list = self.selected_image_paths.copy() # selected_image_paths is already a List[str]
-        
-        # 2. Find the index of the clicked image within the list
         try:
             start_index = selected_paths_list.index(image_path)
         except ValueError:
-            # If the clicked image is not currently in the batch, open it standalone.
             selected_paths_list = [image_path]
             start_index = 0
 
-        # Check if the image is already open
         for win in list(self.open_preview_windows):
             if isinstance(win, ImagePreviewWindow) and win.image_path == image_path:
                 win.activateWindow()
                 return
 
-        # 3. Instantiate the preview window, passing the full list and starting index
         window = ImagePreviewWindow(
             image_path=image_path, 
             db_tab_ref=None, 
             parent=self,
-            # NEW PARAMS:
             all_paths=selected_paths_list,
             start_index=start_index
         )
@@ -267,20 +260,14 @@ class MergeTab(BaseTab):
         window.show()
         self.open_preview_windows.append(window)
 
-    # --- NEW SLOT: Delete Image Handler ---
     @Slot(str)
     def handle_delete_image(self, path: str):
-        """
-        Prompts the user to confirm deletion and removes the file from disk,
-        then updates the UI and internal lists.
-        """
         if not path or not Path(path).exists():
             QMessageBox.warning(self, "Delete Error", "File not found or path is invalid.")
             return
 
         filename = os.path.basename(path)
         
-        # Confirmation Dialog
         reply = QMessageBox.question(
             self, 
             "Confirm Deletion",
@@ -293,26 +280,19 @@ class MergeTab(BaseTab):
             return
 
         try:
-            # 1. Delete the file from the file system
             os.remove(path)
             
-            # 2. Update internal lists and UI mapping
-            
-            # Remove from merge list
             if path in self.merge_image_list:
                 self.merge_image_list.remove(path)
             
-            # Remove from selection list (List[str] is mutable, so index removal is needed)
             try:
                 self.selected_image_paths.remove(path)
             except ValueError:
-                pass # Already removed or not present
+                pass 
             
-            # Remove from UI path map and delete the widget
             if path in self.path_to_label_map:
                 widget = self.path_to_label_map.pop(path)
                 
-                # Find the widget in the layout and remove it
                 for i in range(self.merge_thumbnail_layout.count()):
                     item = self.merge_thumbnail_layout.itemAt(i)
                     if item and item.widget() is widget:
@@ -320,7 +300,6 @@ class MergeTab(BaseTab):
                         widget.deleteLater()
                         break
             
-            # 3. Re-render the selected gallery to remove the item
             self._refresh_selected_panel()
             self.update_run_button_state()
             
@@ -329,32 +308,22 @@ class MergeTab(BaseTab):
         except Exception as e:
             QMessageBox.critical(self, "Deletion Failed", f"Could not delete the file: {e}")
             
-    # --- END NEW SLOT ---
-
-    # === Context Menu ===
     @Slot(QPoint, str)
     def show_image_context_menu(self, global_pos: QPoint, path: str):
-        """
-        Displays a context menu for the clicked image thumbnail, offering 
-        View, Select, and DELETE options.
-        """
         menu = QMenu(self)
         
-        # 1. View Full Size (ONLY THE CLICKED IMAGE)
         view_action = QAction("View Full Size Preview", self)
         view_action.triggered.connect(lambda: self.handle_full_image_preview(path))
         menu.addAction(view_action)
         
         menu.addSeparator()
 
-        # 2. Select/Deselect
         is_selected = path in self.selected_image_paths
         toggle_text = "Deselect Image (Remove from Merge List)" if is_selected else "Select Image (Add to Merge List)"
         toggle_action = QAction(toggle_text, self)
         toggle_action.triggered.connect(lambda: self._toggle_selection(path))
         menu.addAction(toggle_action)
         
-        # 3. DELETE IMAGE FILE ACTION (NEW)
         menu.addSeparator()
         delete_action = QAction("🗑️ Delete Image File (Permanent)", self)
         delete_action.triggered.connect(lambda: self.handle_delete_image(path))
@@ -384,7 +353,6 @@ class MergeTab(BaseTab):
             item = layout.takeAt(0)
             w = item.widget()
             if w:
-                # FIX: Hide and detach before deleting
                 w.hide()
                 w.setParent(None)
                 w.deleteLater()
@@ -400,51 +368,6 @@ class MergeTab(BaseTab):
     def _columns(self) -> int:
         w = self.merge_scroll_area.viewport().width()
         return max(1, w // self.approx_item_width)
-
-    @Slot(int, str)
-    def _create_thumbnail_placeholder(self, idx: int, path: str):
-        columns = self._columns()
-        row = idx // columns
-        col = idx % columns
-        
-        clickable_label = ClickableLabel(path) 
-        clickable_label.setText("Loading...")
-        clickable_label.setAlignment(Qt.AlignCenter)
-        clickable_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
-        clickable_label.setStyleSheet("border: 1px dashed #4f545c; color: #b9bbbe;") 
-
-        self.merge_thumbnail_layout.addWidget(clickable_label, row, col, Qt.AlignCenter)
-        self.path_to_label_map[path] = clickable_label
-
-        clickable_label.path_clicked.connect(self._toggle_selection)
-        
-        # Connect Double Click and Right Click
-        clickable_label.path_double_clicked.connect(self.handle_full_image_preview)
-        clickable_label.path_right_clicked.connect(self.show_image_context_menu)
-        
-        self.merge_thumbnail_widget.update()
-        QApplication.processEvents()
-
-
-    @Slot(int, QPixmap, str)
-    def _update_thumbnail_slot(self, idx: int, pixmap: QPixmap, path: str):
-        label = self.path_to_label_map.get(path)
-        if label is None:
-            return
-
-        is_selected = path in self.selected_image_paths 
-        
-        if not pixmap.isNull():
-            label.setPixmap(pixmap) 
-            label.setText("") 
-            self._update_label_style(label, path, is_selected)
-        else:
-            label.setText("Load Error")
-            if is_selected:
-                label.setStyleSheet("border: 3px solid #5865f2; background-color: #4f545c; font-size: 8px;") 
-            else:
-                label.setStyleSheet("border: 1px solid #e74c3c; background-color: #4f545c; font-size: 8px;")
-
 
     def _update_label_style(self, label: ClickableLabel, path: str, selected: bool):
         is_error = "Error" in label.text()
@@ -501,15 +424,12 @@ class MergeTab(BaseTab):
         self.update_run_button_state()
 
     def _refresh_selected_panel(self):
-        # --- FIX: Disable updates to prevent flickering artifacts
         self.selected_images_widget.setUpdatesEnabled(False)
 
-        # Clear existing widgets and the tracking map
         while self.selected_grid_layout.count():
             item = self.selected_grid_layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
-                # FIX: Hide and detach
                 widget.hide()
                 widget.setParent(None)
                 widget.deleteLater()
@@ -524,7 +444,6 @@ class MergeTab(BaseTab):
         widget_width = self.selected_images_area.viewport().width()
         columns = max(1, widget_width // approx_width)
         
-        # --- FIX: Reduced wrapper height since text is removed
         wrapper_height = self.thumbnail_size + 10 
         wrapper_width = self.thumbnail_size + 10 
         
@@ -541,7 +460,6 @@ class MergeTab(BaseTab):
             card_clickable_wrapper = ClickableLabel(path)
             card_clickable_wrapper.setFixedSize(wrapper_width, wrapper_height) 
 
-            # Use a lambda function to pass the path correctly
             card_clickable_wrapper.path_clicked.connect(lambda checked, p=path: self._toggle_selection(p))
             
             card = QFrame()
@@ -554,7 +472,6 @@ class MergeTab(BaseTab):
             img_label.setAlignment(Qt.AlignCenter)
             img_label.setFixedSize(self.thumbnail_size, self.thumbnail_size) 
             
-            # --- FIX: Apply Border Style to Image Label for Square Box Look ---
             is_master_selected = path in self.selected_image_paths
             if is_master_selected:
                 img_label.setStyleSheet("border: 3px solid #5865f2;")
@@ -575,8 +492,6 @@ class MergeTab(BaseTab):
                 img_label.setText("Load Error")
                 img_label.setStyleSheet("color: #e74c3c; border: 1px solid #e74c3c;")
 
-            # --- FIX: Path Label Removed ---
-
             card_layout.addWidget(img_label)
             
             card_clickable_wrapper.setLayout(card_layout)
@@ -586,10 +501,8 @@ class MergeTab(BaseTab):
             
             self.selected_card_map[path] = card_clickable_wrapper
             
-            # Align individual widgets to the left
             self.selected_grid_layout.addWidget(card_clickable_wrapper, row, col, Qt.AlignLeft | Qt.AlignTop) 
 
-        # --- FIX: Re-enable updates and adjust size to fix scroll artifacts
         self.selected_images_widget.setUpdatesEnabled(True)
         self.selected_images_widget.adjustSize()
 
@@ -626,6 +539,7 @@ class MergeTab(BaseTab):
             self.populate_scan_gallery(directory)
             
     def handle_scan_error(self, message: str):
+        if self.loading_dialog: self.loading_dialog.close()
         self._clear_gallery(self.merge_thumbnail_layout)
         QMessageBox.warning(self, "Error Scanning", message)
         self._show_placeholder("Browse for a directory.")
@@ -633,12 +547,8 @@ class MergeTab(BaseTab):
     def _display_load_complete_message(self):
         image_count = len(self.merge_image_list)
         if image_count > 0:
-            QMessageBox.information(
-                self, 
-                "Scan Complete", 
-                f"Finished loading **{image_count}** images from the directory. They are now available in the gallery below.",
-                QMessageBox.StandardButton.Ok
-            )
+            # Optional
+            pass
 
     def populate_scan_gallery(self, directory: str):
         self.scanned_dir = directory
@@ -655,10 +565,14 @@ class MergeTab(BaseTab):
         self.path_to_label_map.clear()
         self.merge_image_list = []
 
-        loading_label = QLabel("Scanning directory, please wait...")
-        loading_label.setAlignment(Qt.AlignCenter)
-        loading_label.setStyleSheet("color: #b9bbbe;")
-        self.merge_thumbnail_layout.addWidget(loading_label, 0, 0, 1, max(1, self._columns()))
+        # --- MODIFIED: Start Modal Progress Dialog ---
+        self.loading_dialog = QProgressDialog("Scanning directory...", "Cancel", 0, 0, self)
+        self.loading_dialog.setWindowModality(Qt.WindowModal)
+        self.loading_dialog.setWindowTitle("Please Wait")
+        self.loading_dialog.setMinimumDuration(0) 
+        self.loading_dialog.setCancelButton(None) 
+        self.loading_dialog.show()
+        # -------------------------------------------
         
         worker = ImageScannerWorker(directory)
         thread = QThread()
@@ -691,8 +605,12 @@ class MergeTab(BaseTab):
         self.path_to_label_map.clear()
 
         if not image_paths:
+            if self.loading_dialog: self.loading_dialog.close()
             self._show_placeholder("No supported images found.")
             return
+
+        if self.loading_dialog:
+            self.loading_dialog.setLabelText(f"Loading {len(image_paths)} images...")
 
         if self.current_loader_thread and self.current_loader_thread.isRunning():
             self.current_loader_thread.quit()
@@ -706,17 +624,60 @@ class MergeTab(BaseTab):
         
         loader.moveToThread(thread)
         thread.started.connect(loader.run_load_batch)
-        loader.create_placeholder.connect(self._create_thumbnail_placeholder)
-        loader.thumbnail_loaded.connect(self._update_thumbnail_slot)
         
-        loader.loading_finished.connect(thread.quit)
-        loader.loading_finished.connect(loader.deleteLater)
+        # --- MODIFIED: Connect to batch signal ---
+        loader.batch_finished.connect(self.handle_batch_finished)
+        
+        loader.batch_finished.connect(thread.quit)
+        loader.batch_finished.connect(loader.deleteLater)
         thread.finished.connect(thread.deleteLater)
         thread.finished.connect(self._cleanup_loader_thread_ref)
 
-        loader.loading_finished.connect(self._display_load_complete_message)
+        loader.batch_finished.connect(self._display_load_complete_message)
         
         thread.start()
+
+    @Slot(list)
+    def handle_batch_finished(self, loaded_results: List[Tuple[str, QPixmap]]):
+        """
+        Renders all loaded thumbnails at once and applies current selection styling.
+        """
+        columns = self._columns()
+        
+        for idx, (path, pixmap) in enumerate(loaded_results):
+            row = idx // columns
+            col = idx % columns
+            
+            clickable_label = ClickableLabel(path) 
+            clickable_label.setText("Loading...")
+            clickable_label.setAlignment(Qt.AlignCenter)
+            clickable_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
+            
+            clickable_label.path_clicked.connect(self._toggle_selection)
+            clickable_label.path_double_clicked.connect(self.handle_full_image_preview)
+            clickable_label.path_right_clicked.connect(self.show_image_context_menu)
+
+            self.merge_thumbnail_layout.addWidget(clickable_label, row, col, Qt.AlignCenter)
+            self.path_to_label_map[path] = clickable_label
+            
+            # Apply Pixmap and Style
+            is_selected = path in self.selected_image_paths 
+            if not pixmap.isNull():
+                clickable_label.setPixmap(pixmap) 
+                clickable_label.setText("") 
+                self._update_label_style(clickable_label, path, is_selected)
+            else:
+                clickable_label.setText("Load Error")
+                if is_selected:
+                    clickable_label.setStyleSheet("border: 3px solid #5865f2; background-color: #4f545c; font-size: 8px;") 
+                else:
+                    clickable_label.setStyleSheet("border: 1px solid #e74c3c; background-color: #4f545c; font-size: 8px;")
+
+        self.merge_thumbnail_widget.update()
+        
+        if self.loading_dialog:
+            self.loading_dialog.close()
+            self.loading_dialog = None
 
     # === MERGE EXECUTION ===
     def start_merge(self):

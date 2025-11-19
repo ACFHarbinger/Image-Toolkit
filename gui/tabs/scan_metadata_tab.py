@@ -1,7 +1,7 @@
 import os
 
 from pathlib import Path
-from typing import Set, Dict, Any
+from typing import Set, Dict, Any, List, Tuple
 from PySide6.QtGui import QPixmap, QAction
 from PySide6.QtCore import (
     Qt, QThreadPool, QThread, Slot, QPoint
@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QWidget, QGroupBox, QCheckBox, QFrame,
     QApplication, QMessageBox, QGridLayout,
     QPushButton, QLabel, QFormLayout, QMenu,
+    QProgressDialog # --- ADDED IMPORT ---
 )
 from .base_tab import BaseTab
 from ..windows import ImagePreviewWindow
@@ -34,6 +35,7 @@ class ScanMetadataTab(BaseTab):
         self.selected_image_paths: Set[str] = set()
         self.selected_scan_image_path: str = None
         self.open_preview_windows: list[ImagePreviewWindow] = [] 
+        self.loading_dialog = None # --- ADDED STATE ---
 
         # Current thumbnail size (150x150)
         self.thumbnail_size = 150
@@ -375,13 +377,8 @@ class ScanMetadataTab(BaseTab):
         
         menu.exec(global_pos)
 
-    # --- NEW SLOT: Delete Image Handler ---
     @Slot(str)
     def handle_delete_image(self, path: str):
-        """
-        Prompts the user to confirm deletion and removes the file from disk,
-        then updates the UI and internal lists.
-        """
         if not path or not Path(path).exists():
             QMessageBox.warning(self, "Delete Error", "File not found or path is invalid.")
             return
@@ -401,24 +398,17 @@ class ScanMetadataTab(BaseTab):
             return
 
         try:
-            # 1. Delete the file from the file system
             os.remove(path)
             
-            # 2. Update internal lists and UI mapping
-            
-            # Remove from scan list
             if path in self.scan_image_list:
                 self.scan_image_list.remove(path)
             
-            # Remove from selection list
             if path in self.selected_image_paths:
                 self.selected_image_paths.remove(path)
             
-            # Remove from UI path map and delete the widget
             if path in self.path_to_label_map:
                 widget = self.path_to_label_map.pop(path)
                 
-                # Find the widget in the layout and remove it
                 for i in range(self.scan_thumbnail_layout.count()):
                     item = self.scan_thumbnail_layout.itemAt(i)
                     if item and item.widget() is widget:
@@ -426,13 +416,9 @@ class ScanMetadataTab(BaseTab):
                         widget.deleteLater()
                         break
             
-            # 3. Re-render the gallery to shift items over
             if self.scanned_dir:
-                 # Re-scan or re-populate the gallery based on the remaining list
-                 # Re-populating the entire gallery is the safest way to rebuild the QGridLayout indices.
                  self.display_scan_results(self.scan_image_list)
             
-            # 4. Refresh selected panel if visible
             if self.selected_images_area.isVisible():
                 self.populate_selected_images_gallery()
 
@@ -442,34 +428,23 @@ class ScanMetadataTab(BaseTab):
             
         except Exception as e:
             QMessageBox.critical(self, "Deletion Failed", f"Could not delete the file: {e}")
-            
-    # --- END NEW SLOT ---
 
-    # --- NEW METHOD: Views only the single image clicked ---
     @Slot(str)
     def _view_single_image_preview(self, image_path: str):
         """Opens a full-size preview window for the single image path provided (DOUBLE/RIGHT CLICK)."""
-        
-        # 1. Get the ordered list of selected paths (sorted list ensures consistency for navigation)
-        # We sort here to provide a consistent navigation order (e.g., by path name)
         selected_paths_list = sorted(list(self.selected_image_paths))
         
-        # 2. Find the index of the clicked image within the list
         try:
             start_index = selected_paths_list.index(image_path)
         except ValueError:
-            # If the clicked image is not currently in the batch, open it standalone, 
-            # and navigation wraps around itself.
             selected_paths_list = [image_path]
             start_index = 0
 
-        # Check if the image is already open
         for win in list(self.open_preview_windows):
             if isinstance(win, ImagePreviewWindow) and win.image_path == image_path:
                 win.activateWindow() 
                 return
         
-        # 3. Instantiate the preview window, passing the full list and starting index
         preview = ImagePreviewWindow(
             image_path=image_path, 
             db_tab_ref=self.db_tab_ref, 
@@ -489,46 +464,15 @@ class ScanMetadataTab(BaseTab):
         self.current_thumbnail_loader_thread = None
         self.current_thumbnail_loader_worker = None
 
-    @Slot(int, str)
-    def _create_thumbnail_placeholder(self, index: int, path: str):
-        columns = self.calculate_columns()
-        row = index // columns
-        col = index % columns
-
-        clickable_label = ClickableLabel(path) 
-        clickable_label.setText("Loading...")
-        clickable_label.setAlignment(Qt.AlignCenter)
-        clickable_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
-        clickable_label.setStyleSheet("border: 1px dashed #4f545c; color: #b9bbbe;") 
-        
-        # Connect Right Click
-        clickable_label.path_right_clicked.connect(self.show_image_context_menu)
-
-        clickable_label.path_clicked.connect(self.select_scan_image)
-        # --- MODIFIED: Double click now calls single view ---
-        clickable_label.path_double_clicked.connect(self._view_single_image_preview) 
-        # --- END MODIFIED ---
-
-        self.scan_thumbnail_layout.addWidget(clickable_label, row, col)
-        self.path_to_label_map[path] = clickable_label 
-        
-        self.scan_thumbnail_widget.update()
-        QApplication.processEvents()
-
     def _display_load_complete_message(self):
         image_count = len(self.scan_image_list)
         if image_count > 0:
-            QMessageBox.information(
-                self, 
-                "Scan Complete", 
-                f"Finished loading **{image_count}** images from the directory. They are now available in the gallery below.",
-                QMessageBox.StandardButton.Ok
-            )
+            # Optional
+            pass
 
     def display_scan_results(self, image_paths: list[str]):
-        """Receives image paths from the worker thread, creates placeholders, and starts thumbnail loader."""
+        """Receives image paths from the worker thread, starts BatchThumbnailLoaderWorker using batch signals."""
         
-        # Clear only the top gallery, preserving selection state
         if self.current_thumbnail_loader_thread and self.current_thumbnail_loader_thread.isRunning():
             self.current_thumbnail_loader_thread.quit()
         
@@ -540,7 +484,6 @@ class ScanMetadataTab(BaseTab):
             item = self.scan_thumbnail_layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
-                # FIX: Hide and detach before deleting to prevent artifacts
                 widget.hide()
                 widget.setParent(None)
                 widget.deleteLater()
@@ -551,11 +494,15 @@ class ScanMetadataTab(BaseTab):
         columns = self.calculate_columns()
         
         if not self.scan_image_list:
+            if self.loading_dialog: self.loading_dialog.close()
             no_images_label = QLabel("No supported images found.")
             no_images_label.setAlignment(Qt.AlignCenter)
             no_images_label.setStyleSheet("color: #b9bbbe;")
             self.scan_thumbnail_layout.addWidget(no_images_label, 0, 0, 1, columns)
             return
+        
+        if self.loading_dialog:
+            self.loading_dialog.setLabelText(f"Loading {len(image_paths)} images...")
         
         worker = BatchThumbnailLoaderWorker(self.scan_image_list, self.thumbnail_size)
         thread = QThread()
@@ -565,39 +512,62 @@ class ScanMetadataTab(BaseTab):
         
         worker.moveToThread(thread)
         thread.started.connect(worker.run_load_batch)
-        worker.create_placeholder.connect(self._create_thumbnail_placeholder)
-        worker.thumbnail_loaded.connect(self._update_thumbnail_slot)
         
-        worker.loading_finished.connect(thread.quit)
-        worker.loading_finished.connect(worker.deleteLater)
+        # --- MODIFIED: Connect to batch signal ---
+        worker.batch_finished.connect(self.handle_batch_finished)
+        
+        worker.batch_finished.connect(thread.quit)
+        worker.batch_finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
         thread.finished.connect(self._cleanup_thumbnail_thread_ref) 
 
-        worker.loading_finished.connect(self._display_load_complete_message)
+        worker.batch_finished.connect(self._display_load_complete_message)
         
         thread.start()
         
-    @Slot(int, QPixmap, str)
-    def _update_thumbnail_slot(self, index: int, pixmap: QPixmap, path: str):
-        label = self.path_to_label_map.get(path)
-        if label is None:
-            return
-
-        is_selected = path in self.selected_image_paths
+    @Slot(list)
+    def handle_batch_finished(self, loaded_results: List[Tuple[str, QPixmap]]):
+        """
+        Renders all loaded thumbnails at once and applies current selection styling.
+        """
+        columns = self.calculate_columns()
         
-        if not pixmap.isNull():
-            label.setPixmap(pixmap) 
-            label.setText("") 
-            if is_selected:
-                label.setStyleSheet("border: 3px solid #5865f2;")
+        for index, (path, pixmap) in enumerate(loaded_results):
+            row = index // columns
+            col = index % columns
+
+            clickable_label = ClickableLabel(path) 
+            clickable_label.setAlignment(Qt.AlignCenter)
+            clickable_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
+            
+            clickable_label.path_right_clicked.connect(self.show_image_context_menu)
+            clickable_label.path_clicked.connect(self.select_scan_image)
+            clickable_label.path_double_clicked.connect(self._view_single_image_preview) 
+
+            is_selected = path in self.selected_image_paths
+            
+            if not pixmap.isNull():
+                clickable_label.setPixmap(pixmap) 
+                clickable_label.setText("") 
+                if is_selected:
+                    clickable_label.setStyleSheet("border: 3px solid #5865f2;")
+                else:
+                    clickable_label.setStyleSheet("border: 1px solid #4f545c;")
             else:
-                label.setStyleSheet("border: 1px solid #4f545c;")
-        else:
-            label.setText("Load Error")
-            if is_selected:
-                label.setStyleSheet("border: 3px solid #5865f2; background-color: #4f545c; font-size: 8px;") 
-            else:
-                label.setStyleSheet("border: 1px solid #e74c3c; background-color: #4f545c; font-size: 8px;")
+                clickable_label.setText("Load Error")
+                if is_selected:
+                    clickable_label.setStyleSheet("border: 3px solid #5865f2; background-color: #4f545c; font-size: 8px;") 
+                else:
+                    clickable_label.setStyleSheet("border: 1px solid #e74c3c; background-color: #4f545c; font-size: 8px;")
+
+            self.scan_thumbnail_layout.addWidget(clickable_label, row, col)
+            self.path_to_label_map[path] = clickable_label 
+        
+        self.scan_thumbnail_widget.update()
+        
+        if self.loading_dialog:
+            self.loading_dialog.close()
+            self.loading_dialog = None
 
     def clear_scan_image_gallery(self):
         """Performs a FULL clear of the gallery AND the selection state (used by DB ops)."""
@@ -612,7 +582,6 @@ class ScanMetadataTab(BaseTab):
             item = self.scan_thumbnail_layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
-                # FIX: Hide and detach
                 widget.hide()
                 widget.setParent(None)
                 widget.deleteLater()
@@ -621,7 +590,6 @@ class ScanMetadataTab(BaseTab):
             item = self.selected_grid_layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
-                # FIX: Hide and detach
                 widget.hide()
                 widget.setParent(None)
                 widget.deleteLater()
@@ -633,9 +601,10 @@ class ScanMetadataTab(BaseTab):
         self.selected_scan_image_path = None
         self.update_button_states(connected=(self.db_tab_ref.db is not None))
         self.metadata_group.setVisible(False) 
-        self.populate_selected_images_gallery() # Repopulate to show placeholder
+        self.populate_selected_images_gallery() 
 
     def handle_scan_error(self, message: str):
+        if self.loading_dialog: self.loading_dialog.close()
         self.clear_scan_image_gallery() 
         QMessageBox.warning(self, "Error Scanning", message)
         ready_label = QLabel("Browse for a directory.")
@@ -644,7 +613,6 @@ class ScanMetadataTab(BaseTab):
         self.scan_thumbnail_layout.addWidget(ready_label, 0, 0, 1, 1)
 
     def handle_scan_directory_return(self):
-        """Custom handler for Enter key press on the scan directory path input."""
         directory = self.scan_directory_path.text().strip()
         if directory and Path(directory).is_dir():
             self.populate_scan_image_gallery(directory)
@@ -678,7 +646,7 @@ class ScanMetadataTab(BaseTab):
         """
         self.scanned_dir = directory
         
-        # --- CLEAR TOP GALLERY ONLY START ---
+        # --- Clear Top Gallery ---
         if self.current_thumbnail_loader_thread and self.current_thumbnail_loader_thread.isRunning():
             self.current_thumbnail_loader_thread.quit()
         
@@ -690,19 +658,21 @@ class ScanMetadataTab(BaseTab):
             item = self.scan_thumbnail_layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
-                # FIX: Hide and detach
                 widget.hide()
                 widget.setParent(None)
                 widget.deleteLater()
         self.scan_image_list = []
-        # --- CLEAR TOP GALLERY ONLY END ---
         
         self.scan_view_image_btn.setEnabled(False)
         
-        loading_label = QLabel("Scanning directory, please wait...")
-        loading_label.setAlignment(Qt.AlignCenter)
-        loading_label.setStyleSheet("color: #b9bbbe;")
-        self.scan_thumbnail_layout.addWidget(loading_label, 0, 0, 1, 10) 
+        # --- MODIFIED: Start Modal Progress Dialog ---
+        self.loading_dialog = QProgressDialog("Scanning directory...", "Cancel", 0, 0, self)
+        self.loading_dialog.setWindowModality(Qt.WindowModal)
+        self.loading_dialog.setWindowTitle("Please Wait")
+        self.loading_dialog.setMinimumDuration(0) 
+        self.loading_dialog.setCancelButton(None) 
+        self.loading_dialog.show()
+        # -------------------------------------------
         
         self.worker = ImageScannerWorker(directory)
         self.thread = QThread() 
@@ -760,13 +730,11 @@ class ScanMetadataTab(BaseTab):
     def select_selected_image_card(self, file_path: str):
         """
         Handles single-click events in the bottom 'Selected Images' panel.
-        Toggles selection status in the master set and updates styling.
         """
         card_clickable_wrapper = self.selected_card_map.get(file_path)
         if not card_clickable_wrapper:
             return
             
-        # Toggle selection in the master set
         if file_path in self.selected_image_paths:
             self.selected_image_paths.remove(file_path)
             is_selected = False
@@ -774,14 +742,6 @@ class ScanMetadataTab(BaseTab):
             self.selected_image_paths.add(file_path)
             is_selected = True
             
-        # Get the QFrame (the visual card) inside the clickable wrapper
-        card_frame = card_clickable_wrapper.findChild(QFrame)
-        if card_frame:
-            # We don't style the QFrame based on selection anymore, we style the QLabel inside
-            # But we keep this block for potential future logic
-            pass
-            
-        # Also update the styling in the main gallery if the image is loaded there
         main_label = self.path_to_label_map.get(file_path)
         if main_label:
             if is_selected:
@@ -793,12 +753,9 @@ class ScanMetadataTab(BaseTab):
                     main_label.setStyleSheet("border: 1px dashed #4f545c; color: #b9bbbe;")
         
         self.update_button_states(connected=(self.db_tab_ref.db is not None))
-        
-        # --- FIX: Auto-refresh to remove deselected items immediately
         self.populate_selected_images_gallery()
 
     def view_selected_image_from_card(self, path: str):
-        """Handles double-click event on a card in the selected panel to open the full preview."""
         if path not in self.selected_image_paths:
             self.selected_image_paths.add(path)
             self.select_selected_image_card(path)
@@ -808,7 +765,6 @@ class ScanMetadataTab(BaseTab):
 
 
     def handle_marquee_selection(self, paths_from_marquee: set, is_ctrl_pressed: bool):
-        # Marquee selection logic
         if not is_ctrl_pressed:
             paths_to_deselect = self.selected_image_paths - paths_from_marquee
             paths_to_select = paths_from_marquee - self.selected_image_paths
@@ -818,7 +774,6 @@ class ScanMetadataTab(BaseTab):
             paths_to_update = paths_from_marquee - self.selected_image_paths
             self.selected_image_paths.update(paths_from_marquee)
 
-        # Update styling in the main gallery
         for path in paths_to_update:
             label = self.path_to_label_map.get(path)
             if not label:
@@ -841,17 +796,13 @@ class ScanMetadataTab(BaseTab):
 
         self.update_button_states(connected=(self.db_tab_ref.db is not None))
 
-        # Auto-refresh selected section if visible
         if self.selected_images_area.isVisible():
             self.populate_selected_images_gallery()
 
     def view_selected_scan_image_from_double_click(self, path: str):
-        # NOTE: This method is now obsolete as double-click is connected directly to _view_single_image_preview
-        # However, for robustness if other code calls it, we delegate to the single view.
         self._view_single_image_preview(path)
 
     def remove_preview_window(self, window_instance: ImagePreviewWindow):
-        """Removes a preview window from the tracking list when it's closed."""
         try:
             if window_instance in self.open_preview_windows:
                 self.open_preview_windows.remove(window_instance)
@@ -859,25 +810,19 @@ class ScanMetadataTab(BaseTab):
             pass
 
     def view_selected_scan_image(self):
-        """Opens non-modal, full-size image preview windows for ALL currently selected scan images (BUTTON)."""
-        
-        # 1. Get the ordered list of selected paths
         selected_paths_list = sorted(list(self.selected_image_paths))
         
         if not selected_paths_list:
             QMessageBox.warning(self, "No Images Selected", "Please select one or more image thumbnails from the gallery first.")
             return
 
-        # 2. Use the first selected image path to start the preview
         start_path = selected_paths_list[0]
         
-        # Check if the image is already open
         for window in self.open_preview_windows:
             if isinstance(window, ImagePreviewWindow) and window.image_path == start_path:
                 window.activateWindow() 
                 return
 
-        # 3. Instantiate the preview window, passing the full list and starting index (0)
         preview = ImagePreviewWindow(
             image_path=start_path, 
             db_tab_ref=self.db_tab_ref, 
@@ -891,10 +836,8 @@ class ScanMetadataTab(BaseTab):
         self.open_preview_windows.append(preview)
 
     def toggle_selected_images_view(self):
-        """Toggles the visibility of the selected images grid, populating it if it's being shown."""
         selection_count = len(self.selected_image_paths)
         if selection_count == 0:
-            # We don't hide the group automatically anymore, just update the button text
             self.update_button_states(connected=(self.db_tab_ref.db is not None))
             return
 
@@ -902,25 +845,17 @@ class ScanMetadataTab(BaseTab):
             self.selected_images_area.setVisible(False)
             self.view_batch_button.setText(f"View {selection_count} Selected")
         else:
-            # Always populate when showing to ensure fresh content
             self.populate_selected_images_gallery()
             self.selected_images_area.setVisible(True)
             self.view_batch_button.setText(f"Hide {selection_count} Selected")
             
     def populate_selected_images_gallery(self):
-        """
-        Clears and repopulates the grid layout in the 'Selected Images' group box.
-        Ensures consistent thumbnail size and centering.
-        """
-        # --- FIX: Disable updates to prevent flickering artifacts
         self.selected_images_widget.setUpdatesEnabled(False)
         
-        # Clear existing widgets and the tracking map
         while self.selected_grid_layout.count():
             item = self.selected_grid_layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
-                # FIX: Hide and detach
                 widget.hide()
                 widget.setParent(None)
                 widget.deleteLater()
@@ -928,10 +863,8 @@ class ScanMetadataTab(BaseTab):
         
         paths = sorted(list(self.selected_image_paths))
         
-        # Use the main thumbnail size for consistency
         thumb_size = self.thumbnail_size 
         padding = 10
-        # Calculate approximation based on the main size
         approx_width = thumb_size + padding + 10 
         
         widget_width = self.selected_images_widget.width()
@@ -940,12 +873,10 @@ class ScanMetadataTab(BaseTab):
         
         columns = max(1, widget_width // approx_width)
         
-        # --- FIX: Reduced wrapper height since text is removed
         wrapper_height = self.thumbnail_size + 10 
         wrapper_width = self.thumbnail_size + 10 
         
         if not paths:
-            # Add a placeholder when no images are selected
             empty_label = QLabel("Select images from the scan directory above to view them here.")
             empty_label.setAlignment(Qt.AlignCenter)
             empty_label.setStyleSheet("color: #b9bbbe; padding: 50px;")
@@ -955,14 +886,12 @@ class ScanMetadataTab(BaseTab):
             return
 
         for i, path in enumerate(paths):
-            # Use ClickableLabel to wrap the card content for selection/click
             card_clickable_wrapper = ClickableLabel(path)
             card_clickable_wrapper.setFixedSize(wrapper_width, wrapper_height) 
 
             card_clickable_wrapper.path_clicked.connect(self.select_selected_image_card)
             card_clickable_wrapper.path_double_clicked.connect(self.view_selected_image_from_card)
             
-            # --- Card Frame Styling ---
             card = QFrame()
             card.setStyleSheet("background-color: transparent; border: none;")
 
@@ -973,7 +902,6 @@ class ScanMetadataTab(BaseTab):
             img_label.setAlignment(Qt.AlignCenter)
             img_label.setFixedSize(self.thumbnail_size, self.thumbnail_size) 
             
-            # --- FIX: Apply Border Style to Image Label for Square Box Look ---
             is_master_selected = path in self.selected_image_paths
             if is_master_selected:
                 img_label.setStyleSheet("border: 3px solid #5865f2;")
@@ -992,10 +920,7 @@ class ScanMetadataTab(BaseTab):
                 img_label.setText("Failed to Load")
                 img_label.setStyleSheet("color: #e74c3c;")
 
-            # --- FIX: PATH LABEL REMOVED ---
-
             card_layout.addWidget(img_label)
-            # card_layout.addWidget(path_label) # Removed
             
             card_clickable_wrapper.setLayout(card_layout)
             
@@ -1004,15 +929,12 @@ class ScanMetadataTab(BaseTab):
             
             self.selected_card_map[path] = card_clickable_wrapper
             
-            # Align individual widgets to the left
             self.selected_grid_layout.addWidget(card_clickable_wrapper, row, col, Qt.AlignLeft | Qt.AlignTop) 
 
-        # --- FIX: Re-enable updates and adjust size to fix scroll artifacts
         self.selected_images_widget.setUpdatesEnabled(True)
         self.selected_images_widget.adjustSize()
 
     def perform_upsert_operation(self):
-        """Performs the Add/Update (Upsert) operation on selected image paths."""
         db = self.db_tab_ref.db
         if not db:
             QMessageBox.warning(self, "Error", "Please connect to a database first (in Database tab)")
@@ -1078,10 +1000,6 @@ class ScanMetadataTab(BaseTab):
             self.update_button_states(connected=True)
 
     def refresh_image_directory(self):
-        """
-        Clears the directory path and the main scan preview gallery, 
-        but preserves the selected images panel and selection list.
-        """
         self.scan_directory_path.clear()
         self.scanned_dir = None
         
@@ -1092,12 +1010,10 @@ class ScanMetadataTab(BaseTab):
         self.current_thumbnail_loader_worker = None
         self.path_to_label_map = {} 
 
-        # Clear only the top (scan) gallery layout
         while self.scan_thumbnail_layout.count():
             item = self.scan_thumbnail_layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
-                # FIX: Hide and detach
                 widget.hide()
                 widget.setParent(None)
                 widget.deleteLater()
@@ -1113,7 +1029,6 @@ class ScanMetadataTab(BaseTab):
         self.update_button_states(connected=(self.db_tab_ref.db is not None))
 
     def delete_selected_images(self):
-        """Confirms and performs the DELETE operation on selected image paths."""
         db = self.db_tab_ref.db
         if not db:
             QMessageBox.warning(self, "Error", "Please connect to a database first (in Database tab)")
@@ -1160,7 +1075,6 @@ class ScanMetadataTab(BaseTab):
             QMessageBox.information(self, "Aborted", "Delete operation aborted by user.")
 
     def update_button_states(self, connected: bool):
-        """Enable or disable buttons based on database connection status and current selection."""
         selection_count = len(self.selected_image_paths)
         
         self.scan_view_image_btn.setEnabled(selection_count > 0)
@@ -1186,7 +1100,6 @@ class ScanMetadataTab(BaseTab):
         self.delete_selected_button.setEnabled(connected and selection_count > 0)
 
     def collect(self) -> dict:
-        """Collect current inputs from the Scan Directory tab as a dict."""
         out = {
             "scan_directory": self.scan_directory_path.text().strip() or None,
             "selected_images": list(self.selected_image_paths) 
@@ -1194,7 +1107,6 @@ class ScanMetadataTab(BaseTab):
         return out
 
     def get_default_config(self) -> Dict[str, Any]:
-        """Returns the default configuration dictionary for this tab."""
         return {
             "scan_directory": "",
             "batch_metadata": {
@@ -1205,11 +1117,9 @@ class ScanMetadataTab(BaseTab):
         }
     
     def set_config(self, config: Dict[str, Any]):
-        """Applies a loaded configuration to the tab's UI elements."""
         try:
             if "scan_directory" in config:
                 self.scan_directory_path.setText(config.get("scan_directory", ""))
-                # Optionally auto-populate if directory is valid
                 if os.path.isdir(config["scan_directory"]):
                     self.populate_scan_image_gallery(config["scan_directory"])
 
