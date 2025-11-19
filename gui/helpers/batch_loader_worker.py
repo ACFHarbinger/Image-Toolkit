@@ -1,24 +1,16 @@
-# BatchLoaderWorker.py
-
+import os
+from typing import List, Tuple
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import QObject, Signal, Slot, Qt
 
-
 class BatchThumbnailLoaderWorker(QObject):
     """
-    Worker to load and scale a batch of images sequentially on a single separate thread.
-    Emits a signal for each completed thumbnail for progressive display.
+    Worker to load and scale ALL images on a background thread,
+    then return them all at once to prevent signal flooding (Seg Faults).
     """
 
-    # Signal to create the placeholder on the main thread: (index, path)
-    # --- ADDED SIGNAL ---
-    create_placeholder = Signal(int, str)
-    
-    # Signal to send the result: (index, QPixmap, path)
-    thumbnail_loaded = Signal(int, QPixmap, str)
-    
-    # Signal emitted when all images are processed
-    loading_finished = Signal()
+    # Signal to send ALL results at once: List of (path, QPixmap)
+    batch_finished = Signal(list)
 
     def __init__(self, paths: list[str], size: int):
         super().__init__()
@@ -27,32 +19,32 @@ class BatchThumbnailLoaderWorker(QObject):
 
     @Slot()
     def run_load_batch(self):
-        """Loads, scales, and emits the QPixmap for each image sequentially."""
+        """
+        Loads and scales all images into a local list, then emits once.
+        """
+        loaded_results: List[Tuple[str, QPixmap]] = []
         
-        for i, path in enumerate(self.paths):
+        for path in self.paths:
             try:
-                # 1. Notify main thread to create placeholder before blocking load
-                # --- ADDED SIGNAL EMIT ---
-                self.create_placeholder.emit(i, path)
-                
-                # 2. Load the image using QPixmap (Blocking call on this worker thread)
+                # Load the image
                 pixmap = QPixmap(path)
                 
                 if not pixmap.isNull():
-                    # 3. Scale the QPixmap
+                    # Scale the QPixmap
                     scaled = pixmap.scaled(
                         self.size, self.size, 
                         Qt.KeepAspectRatio, Qt.SmoothTransformation
                     )
-                    # 4. Emit the result back to the main thread immediately
-                    self.thumbnail_loaded.emit(i, scaled, path)
+                    loaded_results.append((path, scaled))
                 else:
-                    # Emit a null/empty pixmap for load errors
-                    self.thumbnail_loaded.emit(i, QPixmap(), path)
+                    # Handle corrupt images gracefully (optional: return empty pixmap)
+                    loaded_results.append((path, QPixmap()))
 
             except Exception:
-                # Emit an empty pixmap on unexpected error
-                self.thumbnail_loaded.emit(i, QPixmap(), path)
+                # Skip or handle files that cause read errors
+                loaded_results.append((path, QPixmap()))
         
-        # 5. Signal that the entire batch is done
-        self.loading_finished.emit()
+        # Emit EVERYTHING in one go.
+        # This prevents the Main Thread event loop from being flooded 
+        # by thousands of individual signals.
+        self.batch_finished.emit(loaded_results)
