@@ -16,7 +16,7 @@ a = Analysis(
     pathex=['/backend', '/gui'],
 
     binaries=[],
-    datas=[],
+    datas=[(os.path.join(os.getcwd(), 'assets', 'images', 'image_toolkit_icon.png'), 'ImageToolkit.png')],
 
     # Add hidden imports for modules that PyInstaller might miss, especially
     # components of your project structure (like the modules in your 'src' folder)

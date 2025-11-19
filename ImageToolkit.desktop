@@ -1,8 +1,9 @@
+#!/usr/bin/env xdg-open
 [Desktop Entry]
 Name=Image Toolkit
 Comment=Image database and edit toolkit
-Exec=/path/to/your/dist/ImageToolkit/dist/ImageToolkitApp # <--- Full path to the executable!
-Icon=/path/to/your/dist/ImageToolkit/assets/images/ImageToolkit.png # <--- Full path to the icon file!
+Exec=Image-Toolkit/dist/ImageToolkitApp # <--- Full path to the executable!
+Icon=Image-Toolkit/assets/images/ImageToolkit.png # <--- Full path to the icon file!
 Terminal=false
 Type=Application
 Categories=Utility;Graphics;
