@@ -1,6 +1,6 @@
 # -- mode: python ; coding: utf-8 --
 
-# To build: pyinstaller [--clean] ImageToolkit.spec
+# To build: pyinstaller ImageToolkit.spec [--clean]
 
 import PySide6
 import os

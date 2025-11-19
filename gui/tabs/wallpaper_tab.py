@@ -998,7 +998,9 @@ class WallpaperTab(BaseTab):
         if monitor_id not in self.monitor_slideshow_queues:
             self.monitor_slideshow_queues[monitor_id] = []
         
-        self.monitor_slideshow_queues[monitor_id].append(image_path)
+        # Prevent duplicates in non-slideshow mode when dropping
+        if self.slideshow_enabled_checkbox.isChecked() or image_path not in self.monitor_slideshow_queues[monitor_id]:
+            self.monitor_slideshow_queues[monitor_id].append(image_path)
         
         # When a new image is dropped, it becomes the current image
         self.monitor_image_paths[monitor_id] = image_path
@@ -1079,9 +1081,50 @@ class WallpaperTab(BaseTab):
             rotated_map[current_monitor_id_str] = source_paths.get(prev_monitor_id_str)
         return rotated_map
     
+    # --- NEW METHOD: Retrieve all current system wallpaper paths ---
+    def _get_current_system_image_paths_for_all(self) -> Dict[str, Optional[str]]:
+        """
+        Retrieves the current system wallpaper path for every monitor.
+        Uses KDE logic if available, otherwise returns an empty map for now.
+        """
+        system = platform.system()
+        num_monitors = len(self.monitors)
+        current_paths = {}
+        
+        if num_monitors == 0:
+            return current_paths
+            
+        if system == "Linux":
+            try:
+                # Check for KDE presence (qdbus6)
+                subprocess.run(["which", "qdbus6"], check=True, capture_output=True) 
+                
+                # Retrieve raw paths from KDE (keys are system indices 0, 1, 2...)
+                raw_paths = WallpaperManager.get_current_system_wallpaper_path_kde(num_monitors)
+                
+                # Apply the UI's physical order correction (rotation)
+                current_paths = self._get_rotated_map_for_ui(raw_paths)
+                
+            except (FileNotFoundError, subprocess.CalledProcessError, Exception):
+                # Fallback to empty if not KDE or retrieval fails
+                pass 
+                
+        elif system == "Windows":
+            # NOTE: Windows GetWallpaper API is unreliable for per-monitor paths, 
+            # so we only use the UI's state or the last single-set path.
+            # Returning an empty map is the safest default unless a reliable 
+            # COM retrieval method is fully implemented.
+            pass
+            
+        return current_paths
+    # --- END NEW METHOD ---
+    
     def run_wallpaper_worker(self, slideshow_mode=False):
         """
         Initializes and runs the wallpaper worker on a separate thread.
+        MODIFIED: Now includes logic to fill unset monitors with their
+        current system wallpaper path before running the worker in 
+        non-slideshow image mode.
         """
         if self.current_wallpaper_worker:
             print("Wallpaper worker is already running.")
@@ -1105,6 +1148,35 @@ class WallpaperTab(BaseTab):
                                     "Directory scanning will be disabled.")
                 return
 
+            # --- MODIFICATION START: Fill the path_map for non-slideshow mode ---
+            if not slideshow_mode:
+                # 1. Get the current system paths for all monitors (KDE/Linux only for now)
+                current_system_paths = self._get_current_system_image_paths_for_all()
+                
+                # 2. Start with the current system paths as the base path_map
+                # This ensures monitors without a dropped image keep their current wallpaper.
+                path_map = current_system_paths.copy()
+
+                # 3. Override with the user-dropped/slideshow-cycle path if available
+                for monitor_id in [str(i) for i in range(len(self.monitors))]:
+                    user_path = self.monitor_image_paths.get(monitor_id)
+                    if user_path:
+                        path_map[monitor_id] = user_path
+                    elif monitor_id not in path_map:
+                        # Fallback for systems where path retrieval failed (e.g. Windows non-COM/Gnome)
+                        # We use the path currently *displayed* in the drop widget if available
+                        widget = self.monitor_widgets.get(monitor_id)
+                        if widget and widget.image_path:
+                            path_map[monitor_id] = widget.image_path
+                        else:
+                            # Final fallback: if nothing is set or retrieved, ensure it's not present
+                            path_map[monitor_id] = None 
+            else:
+                # Slideshow mode only uses the latest cycled paths (self.monitor_image_paths)
+                path_map = self.monitor_image_paths.copy()
+            # --- MODIFICATION END ---
+
+
             # Apply the necessary rotational map correction before passing to the worker
             system = platform.system()
             if system == "Linux":
@@ -1121,14 +1193,28 @@ class WallpaperTab(BaseTab):
             else:
                 desktop = None
             
+            # NOTE: The rotational fix must be applied *after* filling the map.
             if desktop == "Gnome":
-                path_map = self._get_gnome_assignment_map(self.monitor_image_paths)
+                final_path_map = self._get_gnome_assignment_map(path_map)
             elif desktop == "KDE":
-                path_map = self._get_kde_assignment_map(self.monitor_image_paths)
+                final_path_map = self._get_kde_assignment_map(path_map)
             elif desktop == "Windows":
-                path_map = self._get_windows_assignment_map(self.monitor_image_paths)
+                # Only apply the rotation map for Windows multi-monitor COM call
+                # Windows COM API takes paths for ALL monitors
+                if WallpaperManager.COM_AVAILABLE:
+                    final_path_map = self._get_windows_assignment_map(path_map)
+                else:
+                    # Windows single monitor fallback handles the single path automatically, 
+                    # and the system handles the rest.
+                    # We must ensure only ONE valid path is in the map for single-monitor fallback
+                    path_to_set = next((p for p in path_map.values() if p), None)
+                    if path_to_set:
+                        # Only pass the path to the single-monitor setter
+                        final_path_map = {'0': path_to_set}
+                    else:
+                        final_path_map = {}
             else:
-                path_map = self.monitor_image_paths
+                final_path_map = path_map
 
             style_to_use = self.wallpaper_style
         # --- END NEW LOGIC ---
@@ -1137,9 +1223,9 @@ class WallpaperTab(BaseTab):
         if not slideshow_mode:
             self.lock_ui_for_wallpaper()
         
-        # Pass the selected style (or sentinel value)
+        # Pass the final, complete path map
         self.current_wallpaper_worker = WallpaperWorker(
-            path_map, 
+            final_path_map, # <-- Use the final path map
             monitors, 
             wallpaper_style=style_to_use
         )
