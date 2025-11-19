@@ -1,9 +1,13 @@
 import os
+import cv2
 import shutil
-import functools
 import hashlib
-from collections import defaultdict
+import imagehash
+import functools
+
+from PIL import Image
 from pathlib import Path
+from collections import defaultdict
 
 
 class FSETool:
@@ -14,10 +18,6 @@ class FSETool:
     # --- Utility Methods ---
     @staticmethod
     def path_contains(parent_path, child_path):
-        """
-        Check if parent_path contains child_path.
-        Returns True if child_path is within parent_path or equal to it.
-        """
         try:
             parent = Path(parent_path).resolve()
             child = Path(child_path).resolve()
@@ -28,105 +28,63 @@ class FSETool:
 
     @staticmethod
     def prefix_create_directory(arg_id=0, kwarg_name='', is_filepath=False):
-        """
-        Decorator factory that returns a function to create a directory 
-        based on a positional argument (arg_id) or keyword argument (kwarg_name).
-        """
         def inner(*args, **kwargs):
             path = kwargs.get(kwarg_name, None)
-            
             if path is None and len(args) > arg_id:
                 path = args[arg_id]
-            
             if path:
                 directory = os.path.dirname(path) if is_filepath else path
-                if not directory:
-                    return True
-                
-                if os.path.exists(directory): 
+                if not directory or os.path.exists(directory):
                     return True
                 try:
                     os.makedirs(directory, exist_ok=True)
                     print(f"Created directory: '{directory}'.")
                     return True
                 except Exception as e:
-                    print(f"ERROR: could not create directory '{directory}' with exception {type(e)}.")
+                    print(f"ERROR: could not create directory '{directory}': {e}")
                     raise
             return False
         return inner
 
     @staticmethod
     def ensure_absolute_paths(prefix_func=None, suffix_func=None):
-        """
-        Decorator factory to ensure paths are made absolute relative to 
-        the system path.
-        """
         def decorator(func):
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
-                if prefix_func is not None: prefix_func(*args, **kwargs)
-
+                if prefix_func: prefix_func(*args, **kwargs)
                 normalized_args = list(args)
-                
-                # Normalize positional arguments
                 for id, arg in enumerate(normalized_args):
-                    if isinstance(arg, str) and not os.path.isabs(arg):
-                        if os.path.exists(arg):
-                            normalized_args[id] = os.path.abspath(arg)
-                        
-                # Normalize keyword arguments
+                    if isinstance(arg, str) and not os.path.isabs(arg) and os.path.exists(arg):
+                        normalized_args[id] = os.path.abspath(arg)
                 for key, value in kwargs.items():
                     if isinstance(value, str) and not os.path.isabs(value) and os.path.exists(value):
                         kwargs[key] = os.path.abspath(value)
-
                 result = func(*tuple(normalized_args), **kwargs)
-
-                if suffix_func is not None: suffix_func(*normalized_args, **kwargs)
-                
+                if suffix_func: suffix_func(*normalized_args, **kwargs)
                 return result
             return wrapper
         return decorator
 
-    # --- Core File System Methods ---
-
     @staticmethod
     @ensure_absolute_paths()
     def get_files_by_extension(directory, extension, recursive=False):
-        """
-        Get all files with specific extension in directory.
-        """
         path = Path(directory)
-        
-        if not extension.startswith('.'):
-            extension = '.' + extension
-        
-        if recursive:
-            pattern = f'**/*{extension}'
-        else:
-            pattern = f'*{extension}'
-        
-        files = [str(f.resolve()) for f in path.glob(pattern) if f.is_file()]
-        return files
+        if not extension.startswith('.'): extension = '.' + extension
+        pattern = f'**/*{extension}' if recursive else f'*{extension}'
+        return [str(f.resolve()) for f in path.glob(pattern) if f.is_file()]
 
 
 class DuplicateFinder:
-    """
-    Tools for identifying duplicate files based on content hashing.
-    """
+    """Tools for identifying exact duplicate files based on content hashing."""
 
     @staticmethod
     def get_file_hash(filepath: str, hash_algorithm='sha256', chunk_size=65536) -> str | None:
-        """
-        Generates a cryptographic hash for a file's content.
-        Returns None if file cannot be read.
-        """
         hasher = hashlib.new(hash_algorithm)
         try:
             with open(filepath, 'rb') as f:
                 while True:
                     data = f.read(chunk_size)
-                    if not data:
-                        break
+                    if not data: break
                     hasher.update(data)
             return hasher.hexdigest()
         except (IOError, OSError):
@@ -135,28 +93,11 @@ class DuplicateFinder:
     @staticmethod
     @FSETool.ensure_absolute_paths()
     def find_duplicate_images(directory: str, extensions: list[str] = None, recursive: bool = True) -> dict:
-        """
-        Scans directory for images with identical content.
-        
-        Strategy:
-        1. Group by file size (fast).
-        2. Only hash files that share a size with another file (slow, but optimized).
-        
-        Returns:
-            dict: {hash_string: [list_of_absolute_file_paths]}
-        """
-        if extensions is None:
-            extensions = ['.jpg', '.jpeg', '.png', '.webp', '.bmp']
-        
-        # Normalize extensions
-        extensions = [e if e.startswith('.') else f'.{e}' for e in extensions]
-        extensions = [e.lower() for e in extensions]
+        if extensions is None: extensions = ['.jpg', '.jpeg', '.png', '.webp', '.bmp']
+        extensions = [e.lower() if e.startswith('.') else f'.{e.lower()}' for e in extensions]
 
-        # 1. Group by Size
         size_groups = defaultdict(list)
         path_obj = Path(directory)
-        
-        # Select iterator based on recursiveness
         iterator = path_obj.rglob('*') if recursive else path_obj.glob('*')
 
         for file_path in iterator:
@@ -167,79 +108,171 @@ class DuplicateFinder:
                 except (OSError, ValueError):
                     continue
 
-        # 2. Hash candidates
         duplicates = defaultdict(list)
-        
         for size, paths in size_groups.items():
-            if len(paths) < 2:
-                continue  # Unique size means unique file
+            if len(paths) < 2: continue
             
-            # If files have same size, compare hashes
             hash_groups = defaultdict(list)
             for p in paths:
                 file_hash = DuplicateFinder.get_file_hash(p)
-                if file_hash:
-                    hash_groups[file_hash].append(p)
+                if file_hash: hash_groups[file_hash].append(p)
             
-            # Add to final result only if we found actual duplicates
             for h, p_list in hash_groups.items():
-                if len(p_list) > 1:
-                    duplicates[h].extend(p_list)
+                if len(p_list) > 1: duplicates[h].extend(p_list)
 
         return dict(duplicates)
 
 
-class FileDeleter:
+class SimilarityFinder:
     """
-    A class dedicated to safely deleting files and directories, 
-    leveraging FSETool for path resolution.
+    Tools for finding similar images using Perceptual Hashing or Feature Matching.
     """
+    
+    @staticmethod
+    def get_images_list(directory: str, extensions: list[str] = None, recursive: bool = True) -> list[str]:
+        if extensions is None: extensions = ['.jpg', '.jpeg', '.png', '.webp', '.bmp']
+        extensions = [e.lower() if e.startswith('.') else f'.{e.lower()}' for e in extensions]
+        
+        path_obj = Path(directory)
+        iterator = path_obj.rglob('*') if recursive else path_obj.glob('*')
+        return [str(p.resolve()) for p in iterator if p.is_file() and p.suffix.lower() in extensions]
 
+    @staticmethod
+    def find_similar_phash(directory: str, extensions: list[str] = None, threshold: int = 5) -> dict:
+        """
+        Finds similar images using Average Hash (aHash). 
+        Good for resized or color-corrected duplicates.
+        """
+        images = SimilarityFinder.get_images_list(directory, extensions)
+        hashes = {}
+        
+        # 1. Calculate Hashes
+        for img_path in images:
+            try:
+                with Image.open(img_path) as img:
+                    hashes[img_path] = imagehash.average_hash(img)
+            except Exception:
+                continue
+        
+        # 2. Group by Similarity (Simplified O(N*M) Grouping)
+        # We pick a leader, find all close matches, remove them, repeat.
+        results = {}
+        ungrouped = list(hashes.keys())
+        group_id = 0
+
+        while ungrouped:
+            current_path = ungrouped.pop(0)
+            current_hash = hashes[current_path]
+            
+            group = [current_path]
+            to_remove = []
+            
+            for candidate_path in ungrouped:
+                candidate_hash = hashes[candidate_path]
+                if (current_hash - candidate_hash) <= threshold:
+                    group.append(candidate_path)
+                    to_remove.append(candidate_path)
+            
+            for r in to_remove:
+                ungrouped.remove(r)
+                
+            if len(group) > 1:
+                results[f"group_{group_id}"] = group
+                group_id += 1
+                
+        return results
+
+    @staticmethod
+    def find_similar_orb(directory: str, extensions: list[str] = None, match_threshold: float = 0.65) -> dict:
+        """
+        Finds similar images using ORB Feature Matching.
+        Good for cropped, rotated, or partially obscured images.
+        Note: This is computationally expensive.
+        """
+        images = SimilarityFinder.get_images_list(directory, extensions)
+        orb = cv2.ORB_create(nfeatures=500)
+        descriptors_cache = {}
+
+        # 1. Compute Descriptors
+        for img_path in images:
+            try:
+                img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+                if img is None: continue
+                kp, des = orb.detectAndCompute(img, None)
+                if des is not None and len(des) > 10:
+                    descriptors_cache[img_path] = des
+            except Exception:
+                continue
+
+        # 2. Match
+        bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
+        results = {}
+        ungrouped = list(descriptors_cache.keys())
+        group_id = 0
+
+        while ungrouped:
+            current_path = ungrouped.pop(0)
+            des1 = descriptors_cache[current_path]
+            
+            group = [current_path]
+            to_remove = []
+            
+            for candidate_path in ungrouped:
+                des2 = descriptors_cache[candidate_path]
+                
+                # KNN Match
+                try:
+                    matches = bf.knnMatch(des1, des2, k=2)
+                    good_matches = []
+                    for m, n in matches:
+                        if m.distance < 0.75 * n.distance:
+                            good_matches.append(m)
+                    
+                    # Ratio of matched features to total features in the base image
+                    similarity = len(good_matches) / len(des1)
+                    
+                    if similarity > 0.20: # Lower threshold for ORB as it's strict
+                         # Double check reverse
+                         if len(good_matches) > 10: # At least 10 strong points
+                            group.append(candidate_path)
+                            to_remove.append(candidate_path)
+                except Exception:
+                    continue
+
+            for r in to_remove:
+                ungrouped.remove(r)
+                
+            if len(group) > 1:
+                results[f"orb_group_{group_id}"] = group
+                group_id += 1
+                
+        return results
+
+
+class FileDeleter:
     @staticmethod
     @FSETool.ensure_absolute_paths()
     def delete_path(path_to_delete: str) -> bool:
-        """Deletes a file or directory recursively."""
-        if not os.path.exists(path_to_delete):
-            print(f"WARNING: specified path does not exist - did not delete '{path_to_delete}'.")
+        if not os.path.exists(path_to_delete): return False
+        try:
+            if os.path.isdir(path_to_delete): shutil.rmtree(path_to_delete)
+            elif os.path.isfile(path_to_delete): os.remove(path_to_delete)
+            return True
+        except OSError as e:
+            print(f"Delete Error: {e}")
             return False
-    
-        if os.path.isdir(path_to_delete):
-            try:
-                shutil.rmtree(path_to_delete)
-                print(f"Deleted directory: '{path_to_delete}'.")
-            except OSError as e:
-                print(f"ERROR: Could not delete directory {path_to_delete}. Reason: {e}")
-                return False
-        elif os.path.isfile(path_to_delete):
-            try:
-                os.remove(path_to_delete)
-                print(f"Deleted file: '{path_to_delete}'.")
-            except OSError as e:
-                print(f"ERROR: Could not delete file {path_to_delete}. Reason: {e}")
-                return False
-        return True
 
     @staticmethod
     @FSETool.ensure_absolute_paths()
     def delete_files_by_extensions(directory: str, extensions: list[str]) -> int:
-        """
-        Recursively delete files with extension(s) in directory and all subdirectories.
-        """
         path = Path(directory)
-        deleted_count = 0
-        
-        for extension in extensions:
-            if not extension.startswith('.'):
-                extension = '.' + extension
-            
-            for file_path in path.rglob(f'*{extension}'):
-                if file_path.is_file():
+        deleted = 0
+        for ext in extensions:
+            if not ext.startswith('.'): ext = '.' + ext
+            for f in path.rglob(f'*{ext}'):
+                if f.is_file():
                     try:
-                        file_path.unlink()
-                        print(f"Deleted: {file_path}")
-                        deleted_count += 1
-                    except OSError as e:
-                        print(f"ERROR: Could not delete file {file_path}. Reason: {e}")
-        
-        print(f"Deleted {deleted_count} files recursively.")
-        return deleted_count
+                        f.unlink()
+                        deleted += 1
+                    except OSError: pass
+        return deleted
