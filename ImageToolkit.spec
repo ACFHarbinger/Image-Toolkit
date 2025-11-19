@@ -9,11 +9,11 @@ pyside_path = os.path.dirname(PySide6.__file__)
 
 # pathex=['.'] means it looks in the current directory (where ImageToolkit.spec is)
 
-pathex=['/backend', /gui]
+pathex=['/backend', '/gui']
 
 a = Analysis(
     ['__main__.py'],  # Your main entry point file
-    pathex=['/backend', /gui],
+    pathex=['/backend', '/gui'],
 
     binaries=[],
     datas=[],
@@ -47,6 +47,7 @@ a = Analysis(
     upx=True,
     upx_exclude=[],
     runtime_clean_pkgname=[],
+    icon='assets/images/image_toolkit_icon.ico'
 )
 
 
@@ -78,6 +79,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon='assets/images/image_toolkit_icon.ico'
 )
 
 

@@ -4,15 +4,21 @@ Image database and edit toolkit.
 ## Tech Stack
 - [Python Programming Language](https://www.python.org/)
 
-## Setup Python Dependencies
-You can choose to install this repository's dependencies using any of the following methods below.
+## Setup Dependencies
+You need to have binuntils to install the app using pyinstaller:
+```bash
+sudo apt install binutils
+```
 
 You also need to install qdbus6 for setting wallpapers on KDE Plasma:
 ```bash
 sudo apt install qdbus-qt6 qt6-base-dev-tools
 ```
 
-### UV
+You can choose to install the rest of this repository's dependencies using any of the following methods below.
+
+### Setup Python Dependencies
+#### UV
 To use the [UV Python package and project manager](https://github.com/astral-sh/uv) to setup the virtual environment, you first need to create the environment using the specified Python version (you can skip the next 2 steps if you dont want to build the project from scract, as the pyproject.toml file is already commited to the repository)
 ```bash
 uv init --python 3.11 --name image-toolkit
@@ -40,11 +46,11 @@ deactivate
 rm -rf .venv
 ```
 
-#### UV Installation
+##### UV Installation
 To install uv, you simply need to execute the command `curl -LsSf https://astral.sh/uv/install.sh | sh` on the terminal (or `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"` on the Windows PowerShell).
 
 
-### Anaconda Environment
+#### Anaconda Environment
 To setup the environment for the project using the [Anaconda distribution](https://www.anaconda.com/), you just need to run the following commands in the main directory:
 ```bash
 conda env create --file env/environment.yml -y --name img_db
@@ -62,7 +68,7 @@ conda deactivate
 conda remove -n img_db --all -y
 ```
 
-#### Conda Installation
+##### Conda Installation
 If you need to install conda beforehand, you just need to run the following commands (while replacing the variables for the values you want to use, which determine your Anaconda version):
 ```bash
 curl -O https://repo.anaconda.com/archive/Anaconda3-<year>.<month>-<version_id>-Linux-x86_64.sh
@@ -70,7 +76,7 @@ bash Anaconda3-<year>.<month>-<version_id>-Linux-x86_64.sh
 ```
 For this project, we used Anaconda 3 with year=2024, month=10, version_id=1.
 
-### Virtual Environment
+#### Virtual Environment
 To setup the virtual environment for the project using the Pip package installer and Python's venv module:
 ```bash
 python3 -m venv env/.img_db
@@ -89,7 +95,7 @@ deactivate
 rm -rf env/.img_db
 ```
 
-## Setup C++ Dependencies:
+### Setup C++ Dependencies:
 You need to run the following command:
 ```bash
 sudo apt install libgtest-dev libopencv-de libxext-dev libxt-dev libxrender-dev libpqxx-dev libgumbo-dev nlohmann-json3-dev libcxxopts-dev
