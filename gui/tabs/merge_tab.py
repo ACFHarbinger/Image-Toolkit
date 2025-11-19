@@ -595,6 +595,13 @@ class MergeTab(BaseTab):
         thread.finished.connect(self._cleanup_scan_thread_ref)
         
         thread.start()
+    
+    @Slot(int, int)
+    def update_loading_progress(self, current: int, total: int):
+        """Updates the progress dialog with the current loading count."""
+        if self.loading_dialog:
+            self.loading_dialog.setValue(current)
+            self.loading_dialog.setLabelText(f"Loading images {current} of {total}...")
 
     def display_scan_results(self, image_paths: list[str]):
         self.merge_image_list = sorted(image_paths)
@@ -609,8 +616,13 @@ class MergeTab(BaseTab):
             self._show_placeholder("No supported images found.")
             return
 
+        # --- MODIFIED: Setup QProgressDialog range and initial text ---
+        total_images = len(image_paths)
         if self.loading_dialog:
-            self.loading_dialog.setLabelText(f"Loading {len(image_paths)} images...")
+            self.loading_dialog.setMaximum(total_images) # Set maximum value
+            self.loading_dialog.setValue(0) # Set initial value
+            self.loading_dialog.setLabelText(f"Loading images 0 of {total_images}...")
+        # ----------------------------------------------------------------------
 
         if self.current_loader_thread and self.current_loader_thread.isRunning():
             self.current_loader_thread.quit()
@@ -619,11 +631,17 @@ class MergeTab(BaseTab):
         loader = BatchThumbnailLoaderWorker(image_paths, self.thumbnail_size)
         thread = QThread()
         
+        # --- CHANGE: Removed premature disconnection line here ---
+        
         self.current_loader_worker = loader
         self.current_loader_thread = thread
         
         loader.moveToThread(thread)
         thread.started.connect(loader.run_load_batch)
+        
+        # --- NEW CONNECTION FOR PROGRESS UPDATE ---
+        loader.progress_updated.connect(self.update_loading_progress)
+        # ------------------------------------------
         
         # --- MODIFIED: Connect to batch signal ---
         loader.batch_finished.connect(self.handle_batch_finished)
@@ -643,7 +661,6 @@ class MergeTab(BaseTab):
         Renders all loaded thumbnails at once and applies current selection styling.
         """
         columns = self._columns()
-        
         for idx, (path, pixmap) in enumerate(loaded_results):
             row = idx // columns
             col = idx % columns
@@ -674,6 +691,16 @@ class MergeTab(BaseTab):
                     clickable_label.setStyleSheet("border: 1px solid #e74c3c; background-color: #4f545c; font-size: 8px;")
 
         self.merge_thumbnail_widget.update()
+        
+        # --- FIX: DISCONNECT PROGRESS SIGNAL BEFORE CLOSING DIALOG ---
+        if self.current_loader_worker:
+            try:
+                # Disconnect the progress signal to prevent the race condition
+                self.current_loader_worker.progress_updated.disconnect(self.update_loading_progress)
+            except RuntimeError:
+                # If the signal was already disconnected (e.g., thread error/cleanup), ignore
+                pass
+        # -------------------------------------------------------------
         
         if self.loading_dialog:
             self.loading_dialog.close()

@@ -11,6 +11,7 @@ class BatchThumbnailLoaderWorker(QObject):
 
     # Signal to send ALL results at once: List of (path, QPixmap)
     batch_finished = Signal(list)
+    progress_updated = Signal(int, int)
 
     def __init__(self, paths: list[str], size: int):
         super().__init__()
@@ -22,13 +23,14 @@ class BatchThumbnailLoaderWorker(QObject):
         """
         Loads and scales all images into a local list, then emits once.
         """
+        loaded_count = 0
+        total_count = len(self.paths)
         loaded_results: List[Tuple[str, QPixmap]] = []
-        
         for path in self.paths:
             try:
                 # Load the image
+                loaded_count += 1
                 pixmap = QPixmap(path)
-                
                 if not pixmap.isNull():
                     # Scale the QPixmap
                     scaled = pixmap.scaled(
@@ -39,7 +41,7 @@ class BatchThumbnailLoaderWorker(QObject):
                 else:
                     # Handle corrupt images gracefully (optional: return empty pixmap)
                     loaded_results.append((path, QPixmap()))
-
+                self.progress_updated.emit(loaded_count, total_count)
             except Exception:
                 # Skip or handle files that cause read errors
                 loaded_results.append((path, QPixmap()))
