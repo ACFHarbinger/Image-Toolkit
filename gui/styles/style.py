@@ -339,3 +339,14 @@ STYLE_SYNC_STOP = """
     QPushButton:hover { background:#c0392b; }
     QPushButton:disabled { background:#4f545c; color:#a0a0a0; }
 """
+
+# Define shared button styles for the Start/Cancel button
+STYLE_SCAN_START = """
+    QPushButton { background-color: #e67e22; color: white; font-weight: bold; padding: 8px; }
+    QPushButton:hover { background-color: #d35400; }
+"""
+
+STYLE_SCAN_CANCEL = """
+    QPushButton { background-color: #c0392b; color: white; font-weight: bold; padding: 8px; }
+    QPushButton:hover { background-color: #a93226; }
+"""
