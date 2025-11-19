@@ -1,7 +1,6 @@
 import os
 import platform
 import subprocess
-import json
 
 from math import floor
 from pathlib import Path
@@ -298,7 +297,6 @@ class WallpaperTab(BaseTab):
         settings_layout.addLayout(scan_dir_layout)
         
         content_layout.addWidget(settings_group) 
-        # END Combined Settings Group
 
         # Thumbnail Gallery Scroll Area
         self.thumbnail_size = 150
@@ -703,7 +701,7 @@ class WallpaperTab(BaseTab):
     def show_image_context_menu(self, global_pos: QPoint, path: str):
         """
         Displays a context menu for the clicked image thumbnail, offering 
-        View and Add to Queue options.
+        View, Add to Queue, and DELETE options.
         """
         # If solid color is selected, context menu doesn't apply
         if self.background_type == "Solid Color":
@@ -711,7 +709,7 @@ class WallpaperTab(BaseTab):
             
         menu = QMenu(self)
         
-        # 1. View Full Size (Triggers the new navigation-enabled handler)
+        # 1. View Full Size
         view_action = QAction("View Full Size Preview", self)
         view_action.triggered.connect(lambda: self.handle_full_image_preview(path))
         menu.addAction(view_action)
@@ -730,8 +728,81 @@ class WallpaperTab(BaseTab):
                 action.triggered.connect(lambda checked, mid=monitor_id, img_path=path: self.on_image_dropped(mid, img_path))
                 add_menu.addAction(action)
         
+        # 3. DELETE IMAGE ACTION
+        menu.addSeparator()
+        delete_action = QAction("🗑️ Delete Image File (Permanent)", self)
+        # Connect to the new handler
+        delete_action.triggered.connect(lambda: self.handle_delete_image(path))
+        menu.addAction(delete_action)
+        
         menu.exec(global_pos)
     # --- END NEW METHOD ---
+
+    # --- NEW SLOT: Delete Image Handler ---
+    @Slot(str)
+    def handle_delete_image(self, path: str):
+        """
+        Prompts the user to confirm deletion and removes the file from disk,
+        then updates the UI and internal lists.
+        """
+        if not path or not Path(path).exists():
+            QMessageBox.warning(self, "Delete Error", "File not found or path is invalid.")
+            return
+
+        filename = os.path.basename(path)
+        
+        # Confirmation Dialog
+        reply = QMessageBox.question(
+            self, 
+            "Confirm Deletion",
+            f"Are you sure you want to PERMANENTLY delete the file:\n\n**{filename}**\n\nThis action cannot be undone!",
+            QMessageBox.Yes | QMessageBox.No, 
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.No:
+            return
+
+        try:
+            # 1. Delete the file from the file system
+            os.remove(path)
+            
+            # 2. Update internal lists and UI mapping
+            
+            # Remove from scan list
+            if path in self.scan_image_list:
+                self.scan_image_list.remove(path)
+            
+            # Remove from UI path map and delete the widget
+            if path in self.path_to_label_map:
+                widget = self.path_to_label_map.pop(path)
+                
+                # Find the widget in the layout and remove it
+                for i in range(self.scan_thumbnail_layout.count()):
+                    item = self.scan_thumbnail_layout.itemAt(i)
+                    if item and item.widget() is widget:
+                        self.scan_thumbnail_layout.removeItem(item)
+                        widget.deleteLater()
+                        break
+            
+            # 3. Clean up other state that might reference the path
+            for mid in self.monitor_slideshow_queues:
+                self.monitor_slideshow_queues[mid] = [p for p in self.monitor_slideshow_queues[mid] if p != path]
+                
+            # If the deleted file was currently set on a monitor, clear that monitor's preview
+            for mid, current_path in self.monitor_image_paths.items():
+                if current_path == path:
+                    self.monitor_image_paths[mid] = None
+                    self.monitor_widgets[mid].clear() # Update monitor preview
+                    
+            self.check_all_monitors_set()
+            
+            QMessageBox.information(self, "Success", f"File deleted successfully: {filename}")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Deletion Failed", f"Could not delete the file: {e}")
+            
+    # --- END NEW SLOT ---
 
 
     @Slot(str, list)
@@ -755,6 +826,7 @@ class WallpaperTab(BaseTab):
     # NEW SLOT: Handles right-click clear action from MonitorDropWidget
     @Slot(str)
     def handle_clear_monitor_queue(self, monitor_id: str):
+        # ... (rest of handle_clear_monitor_queue remains unchanged)
         """
         Clears the image queue and local path for the specified monitor, 
         leaving the system's current wallpaper untouched, but restores 
@@ -822,6 +894,7 @@ class WallpaperTab(BaseTab):
 
     @Slot()
     def handle_refresh_layout(self):
+        # ... (rest of handle_refresh_layout remains unchanged)
         """
         Refreshes monitor layout, clears dropped images, clears the scanned gallery,
         and resets the scanned directory path.
@@ -853,6 +926,7 @@ class WallpaperTab(BaseTab):
 
     # --- HELPER METHOD FOR ROTATION FIX (UI Display) ---
     def _get_rotated_map_for_ui(self, source_paths: Dict[str, str]) -> Dict[str, str]:
+        # ... (rest of _get_rotated_map_for_ui remains unchanged)
         """
         Applies a rotational correction (Right Circular Shift) to retrieved 
         system paths to align them with the UI's physical monitor order. 
@@ -881,6 +955,7 @@ class WallpaperTab(BaseTab):
     # --- END NEW HELPER METHOD ---
     
     def populate_monitor_layout(self):
+        # ... (rest of populate_monitor_layout remains unchanged)
         """
         Clears and recreates the monitor drop widgets.
         Now queries the current system wallpaper path if no image has been dropped.
@@ -987,6 +1062,7 @@ class WallpaperTab(BaseTab):
         self.check_all_monitors_set()
 
     def on_image_dropped(self, monitor_id: str, image_path: str):
+        # ... (rest of on_image_dropped remains unchanged)
         """
         Slot to add the dropped image to the monitor's specific queue, 
         and display the last dropped image for visual confirmation.
@@ -1013,6 +1089,7 @@ class WallpaperTab(BaseTab):
         self.check_all_monitors_set()
         
     def _get_gnome_assignment_map(self, source_paths: Dict[str, str]) -> Dict[str, str]:
+        # ... (rest of _get_gnome_assignment_map remains unchanged)
         """
         Reintroduces the corrective shift/rotation required by the underlying 
         system/worker to ensure the image assigned to System ID N lands on Monitor N.
@@ -1040,6 +1117,7 @@ class WallpaperTab(BaseTab):
         return rotated_map
 
     def _get_kde_assignment_map(self, source_paths: Dict[str, str]) -> Dict[str, str]:
+        # ... (rest of _get_kde_assignment_map remains unchanged)
         """
         Applies a rotational correction to map the UI's monitor order (based on 
         screeninfo's system index) to the internal screen indices used by KDE.
@@ -1068,10 +1146,13 @@ class WallpaperTab(BaseTab):
         return rotated_map
     
     def _get_windows_assignment_map(self, source_paths: Dict[str, str]) -> Dict[str, str]:
-        # NOTE: This implementation performs the same right circular shift as Linux
-        # if the goal is to align the UI's physical order (sorted by X) with the OS's internal ID.
-        # This rotation logic is applied to Windows here to match the Linux fixes, 
-        # but the actual requirement for Windows COM API (IDesktopWallpaper) may vary.
+        # ... (rest of _get_windows_assignment_map remains unchanged)
+        """
+        NOTE: This implementation performs the same right circular shift as Linux
+        if the goal is to align the UI's physical order (sorted by X) with the OS's internal ID.
+        This rotation logic is applied to Windows here to match the Linux fixes, 
+        but the actual requirement for Windows COM API (IDesktopWallpaper) may vary.
+        """
         n = len(self.monitors)
         rotated_map = source_paths.copy()
         for current_monitor_id_str in source_paths.keys():
@@ -1083,6 +1164,7 @@ class WallpaperTab(BaseTab):
     
     # --- NEW METHOD: Retrieve all current system wallpaper paths ---
     def _get_current_system_image_paths_for_all(self) -> Dict[str, Optional[str]]:
+        # ... (rest of _get_current_system_image_paths_for_all remains unchanged)
         """
         Retrieves the current system wallpaper path for every monitor.
         Uses KDE logic if available, otherwise returns an empty map for now.
@@ -1120,6 +1202,7 @@ class WallpaperTab(BaseTab):
     # --- END NEW METHOD ---
     
     def run_wallpaper_worker(self, slideshow_mode=False):
+        # ... (rest of run_wallpaper_worker remains unchanged)
         """
         Initializes and runs the wallpaper worker on a separate thread.
         MODIFIED: Now includes logic to fill unset monitors with their
@@ -1239,6 +1322,7 @@ class WallpaperTab(BaseTab):
         QThreadPool.globalInstance().start(self.current_wallpaper_worker)
 
     def stop_wallpaper_worker(self):
+        # ... (rest of stop_wallpaper_worker remains unchanged)
         """
         Stops the currently running wallpaper worker, if any.
         """
@@ -1249,6 +1333,7 @@ class WallpaperTab(BaseTab):
             self.current_wallpaper_worker = None
 
     def lock_ui_for_wallpaper(self):
+        # ... (rest of lock_ui_for_wallpaper remains unchanged)
         """Locks the UI when the manual wallpaper worker is running."""
         self.set_wallpaper_btn.setText("Applying (Click to Stop)")
         self.set_wallpaper_btn.setStyleSheet(STYLE_SYNC_STOP)
@@ -1270,6 +1355,7 @@ class WallpaperTab(BaseTab):
         QApplication.processEvents()
         
     def unlock_ui_for_wallpaper(self):
+        # ... (rest of unlock_ui_for_wallpaper remains unchanged)
         """Unlocks the UI when the manual wallpaper worker is finished."""
         self.set_wallpaper_btn.setText("Set Wallpaper")
         self.set_wallpaper_btn.setStyleSheet(STYLE_SYNC_RUN)
@@ -1294,6 +1380,7 @@ class WallpaperTab(BaseTab):
 
     @Slot(str)
     def handle_wallpaper_status(self, msg: str):
+        # ... (rest of handle_wallpaper_status remains unchanged)
         """
         Handles status updates from the worker.
         """
@@ -1301,6 +1388,7 @@ class WallpaperTab(BaseTab):
 
     @Slot(bool, str)
     def handle_wallpaper_finished(self, success: bool, message: str):
+        # ... (rest of handle_wallpaper_finished remains unchanged)
         """
         Handles the finished signal from the worker.
         """
@@ -1329,6 +1417,7 @@ class WallpaperTab(BaseTab):
             self.unlock_ui_for_wallpaper()
     
     def browse_scan_directory(self):
+        # ... (rest of browse_scan_directory remains unchanged)
         """Select directory to scan and display image thumbnails."""
         # Check for solid color mode before scanning
         if self.background_type == "Solid Color":
@@ -1357,6 +1446,7 @@ class WallpaperTab(BaseTab):
             self.populate_scan_image_gallery(directory)
 
     def populate_scan_image_gallery(self, directory: str):
+        # ... (rest of populate_scan_image_gallery remains unchanged)
         """Initiates scanning on a separate thread and sets up the gallery structure."""
         if self.background_type == "Solid Color":
              return # Skip if in solid color mode
@@ -1384,6 +1474,7 @@ class WallpaperTab(BaseTab):
         self.thread.start()
 
     def display_scan_results(self, image_paths: list[str]):
+        # ... (rest of display_scan_results remains unchanged)
         """
         Receives image paths from the worker thread, creates placeholders, and starts 
         a single BatchThumbnailLoaderWorker to progressively load and display images.
@@ -1428,6 +1519,7 @@ class WallpaperTab(BaseTab):
         
     @Slot(str)
     def handle_thumbnail_double_click(self, image_path: str):
+        # ... (rest of handle_thumbnail_double_click remains unchanged)
         """Opens a non-modal window to display the full image using ImagePreviewWindow."""
         
         # This handles the navigation setup for the double-click/right-click action
@@ -1435,6 +1527,7 @@ class WallpaperTab(BaseTab):
 
 
     def _create_thumbnail_placeholder(self, index: int, path: str):
+        # ... (rest of _create_thumbnail_placeholder remains unchanged)
         columns = self.calculate_columns()
         row = index // columns
         col = index % columns
@@ -1452,6 +1545,7 @@ class WallpaperTab(BaseTab):
 
     @Slot(int, QPixmap, str)
     def update_thumbnail_slot(self, index: int, pixmap: QPixmap, path: str):
+        # ... (rest of update_thumbnail_slot remains unchanged)
         label = self.path_to_label_map.get(path)
         if label is None: return
 
@@ -1464,10 +1558,12 @@ class WallpaperTab(BaseTab):
             label.setStyleSheet("border: 1px solid #e74c3c; background-color: #4f545c; font-size: 8px;")
 
     def _cleanup_thumbnail_thread_ref(self):
+        # ... (rest of _cleanup_thumbnail_thread_ref remains unchanged)
         self.current_thumbnail_loader_thread = None
         self.current_thumbnail_loader_worker = None
 
     def _display_load_complete_message(self):
+        # ... (rest of _display_load_complete_message remains unchanged)
         image_count = len(self.scan_image_list)
         if image_count > 0:
             QMessageBox.information(
@@ -1478,6 +1574,7 @@ class WallpaperTab(BaseTab):
             )
 
     def clear_scan_image_gallery(self):
+        # ... (rest of clear_scan_image_gallery remains unchanged)
         if self.current_thumbnail_loader_thread and self.current_thumbnail_loader_thread.isRunning():
             self.current_thumbnail_loader_thread.quit()
         
@@ -1494,6 +1591,7 @@ class WallpaperTab(BaseTab):
         self.scan_image_list = []
 
     def handle_scan_error(self, message: str):
+        # ... (rest of handle_scan_error remains unchanged)
         self.clear_scan_image_gallery() 
         QMessageBox.warning(self, "Error Scanning", message)
         ready_label = QLabel("Browse for a directory.")
@@ -1502,6 +1600,7 @@ class WallpaperTab(BaseTab):
         self.scan_thumbnail_layout.addWidget(ready_label, 0, 0, 1, 1)
 
     def calculate_columns(self) -> int:
+        # ... (rest of calculate_columns remains unchanged)
         widget_width = self.scan_thumbnail_widget.width()
         if widget_width <= 0:
             try:
@@ -1517,6 +1616,7 @@ class WallpaperTab(BaseTab):
         return max(1, columns)
 
     def collect(self) -> dict:
+        # ... (rest of collect remains unchanged)
         """Collect current state (for consistency with other tabs)."""
         return {
             "monitor_queues": self.monitor_slideshow_queues,
@@ -1526,6 +1626,7 @@ class WallpaperTab(BaseTab):
         }
 
     def get_default_config(self) -> Dict[str, Any]:
+        # ... (rest of get_default_config remains unchanged)
         """Returns the default configuration dictionary for this tab."""
         # Get the default style from the combo box
         default_style = self.style_combo.itemText(0) if self.style_combo.count() > 0 else "Fill"
@@ -1541,6 +1642,7 @@ class WallpaperTab(BaseTab):
         }
     
     def set_config(self, config: Dict[str, Any]):
+        # ... (rest of set_config remains unchanged)
         """Applies a loaded configuration to the tab's UI elements."""
         try:
             if "scan_directory" in config:

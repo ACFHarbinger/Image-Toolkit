@@ -2,8 +2,8 @@ import os
 
 from pathlib import Path
 from typing import Dict, Any, List
-from PySide6.QtCore import Qt, QTimer, QThread, Slot, QPoint
 from PySide6.QtGui import QPixmap, QAction
+from PySide6.QtCore import Qt, QTimer, QThread, Slot, QPoint
 from PySide6.QtWidgets import (
     QFrame, QMenu, QApplication, QFormLayout,
     QComboBox, QSpinBox, QGroupBox, QHBoxLayout,
@@ -267,12 +267,76 @@ class MergeTab(BaseTab):
         window.show()
         self.open_preview_windows.append(window)
 
+    # --- NEW SLOT: Delete Image Handler ---
+    @Slot(str)
+    def handle_delete_image(self, path: str):
+        """
+        Prompts the user to confirm deletion and removes the file from disk,
+        then updates the UI and internal lists.
+        """
+        if not path or not Path(path).exists():
+            QMessageBox.warning(self, "Delete Error", "File not found or path is invalid.")
+            return
+
+        filename = os.path.basename(path)
+        
+        # Confirmation Dialog
+        reply = QMessageBox.question(
+            self, 
+            "Confirm Deletion",
+            f"Are you sure you want to PERMANENTLY delete the file:\n\n**{filename}**\n\nThis action cannot be undone!",
+            QMessageBox.Yes | QMessageBox.No, 
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.No:
+            return
+
+        try:
+            # 1. Delete the file from the file system
+            os.remove(path)
+            
+            # 2. Update internal lists and UI mapping
+            
+            # Remove from merge list
+            if path in self.merge_image_list:
+                self.merge_image_list.remove(path)
+            
+            # Remove from selection list (List[str] is mutable, so index removal is needed)
+            try:
+                self.selected_image_paths.remove(path)
+            except ValueError:
+                pass # Already removed or not present
+            
+            # Remove from UI path map and delete the widget
+            if path in self.path_to_label_map:
+                widget = self.path_to_label_map.pop(path)
+                
+                # Find the widget in the layout and remove it
+                for i in range(self.merge_thumbnail_layout.count()):
+                    item = self.merge_thumbnail_layout.itemAt(i)
+                    if item and item.widget() is widget:
+                        self.merge_thumbnail_layout.removeItem(item)
+                        widget.deleteLater()
+                        break
+            
+            # 3. Re-render the selected gallery to remove the item
+            self._refresh_selected_panel()
+            self.update_run_button_state()
+            
+            QMessageBox.information(self, "Success", f"File deleted successfully: {filename}")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Deletion Failed", f"Could not delete the file: {e}")
+            
+    # --- END NEW SLOT ---
+
     # === Context Menu ===
     @Slot(QPoint, str)
     def show_image_context_menu(self, global_pos: QPoint, path: str):
         """
         Displays a context menu for the clicked image thumbnail, offering 
-        View, Select, and Remove options.
+        View, Select, and DELETE options.
         """
         menu = QMenu(self)
         
@@ -281,12 +345,20 @@ class MergeTab(BaseTab):
         view_action.triggered.connect(lambda: self.handle_full_image_preview(path))
         menu.addAction(view_action)
         
+        menu.addSeparator()
+
         # 2. Select/Deselect
         is_selected = path in self.selected_image_paths
         toggle_text = "Deselect Image (Remove from Merge List)" if is_selected else "Select Image (Add to Merge List)"
         toggle_action = QAction(toggle_text, self)
         toggle_action.triggered.connect(lambda: self._toggle_selection(path))
         menu.addAction(toggle_action)
+        
+        # 3. DELETE IMAGE FILE ACTION (NEW)
+        menu.addSeparator()
+        delete_action = QAction("🗑️ Delete Image File (Permanent)", self)
+        delete_action.triggered.connect(lambda: self.handle_delete_image(path))
+        menu.addAction(delete_action)
         
         menu.exec(global_pos)
 
