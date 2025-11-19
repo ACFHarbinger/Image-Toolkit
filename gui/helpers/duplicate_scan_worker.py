@@ -83,9 +83,18 @@ class DuplicateScanWorker(QObject):
                     self._check_interrupt()
                     if i % 5 == 0: self.status.emit(f"Extracting {i}/{total}...")
                     try:
-                        # Robust load: PIL -> Numpy -> OpenCV
-                        pil_img = Image.open(path).convert('L')
+                        # --- MODIFIED ROBUST LOAD FOR TRANSPARENCY ---
+                        # 1. Load: Open and convert to RGBA first to handle palette transparency
+                        pil_img_rgba = Image.open(path).convert('RGBA')
+                        
+                        # 2. Grayscale: Convert the RGBA image to Luminance ('L')
+                        pil_img = pil_img_rgba.convert('L')
+                        
+                        # 3. Numpy: Convert the PIL image to a NumPy array for OpenCV
                         img_np = np.array(pil_img)
+                        # --- END MODIFIED ROBUST LOAD ---
+                        
+                        # Use the NumPy array (img_np) for feature detection
                         kp, des = orb.detectAndCompute(img_np, None)
                         if des is not None and len(des) > 10: cache[path] = des
                     except: continue

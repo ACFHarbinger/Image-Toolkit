@@ -1,4 +1,5 @@
 import os
+import sys
 
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QIcon, QImageReader
@@ -6,6 +7,7 @@ from PySide6.QtWidgets import (
     QSizePolicy, QPushButton, QStyle, QComboBox,
     QLabel, QWidget, QTabWidget, QScrollArea,
     QVBoxLayout, QHBoxLayout, QApplication,
+    QMessageBox
 )
 from .windows import SettingsWindow
 from .tabs import (
@@ -105,7 +107,7 @@ class MainWindow(QWidget):
         vbox.addWidget(header_widget)
         
         # ------------------------------------------------------------------
-        # --- NEW: Command Selection (QComboBox) ---
+        # --- Command Selection (QComboBox) ---
         # ------------------------------------------------------------------
         command_layout = QHBoxLayout()
         command_label = QLabel("Select Category:")
@@ -243,6 +245,26 @@ class MainWindow(QWidget):
         # Re-apply theme to ensure styles are correct after text update
         self.set_application_theme(self.current_theme)
 
+    def restart_application(self):
+        """
+        Shuts down the current application instance and attempts to restart 
+        the main script that launched it.
+        """
+        # 1. Close the current window and exit Qt event loop
+        self.close()
+        QApplication.instance().quit()
+
+        # 2. Execute the current Python script again (the entry point)
+        # sys.executable is the Python interpreter path
+        # sys.argv is the list of arguments (including the script name itself)
+        
+        print("Application attempting relaunch...")
+        try:
+            os.execv(sys.executable, ['python'] + sys.argv)
+        except OSError as e:
+            QMessageBox.critical(self, "Relaunch Error", f"Failed to execute relaunch command:\n{e}\nPlease restart the application manually.")
+            print(f"FATAL: os.execv failed: {e}")
+
 
     # --- Theme Switching Logic ---
     def set_application_theme(self, theme_name):
@@ -345,16 +367,13 @@ class MainWindow(QWidget):
         # 1. Close the Settings window if open
         if self.settings_window:
             self.settings_window.close()
-            # Note: self.settings_window is cleared by its destroyed signal connection
         
         # 2. Close all Slideshow Queue windows
-        # Note: self.wallpaper_tab.open_queue_windows is the list we need to close
         for win in list(self.wallpaper_tab.open_queue_windows):
             if win.isVisible():
                 win.close()
         
         # 3. Close all Image Preview windows
-        # Note: self.wallpaper_tab.open_image_preview_windows is the list we need to close
         for win in list(self.wallpaper_tab.open_image_preview_windows):
             if win.isVisible():
                 win.close()

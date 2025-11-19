@@ -268,8 +268,10 @@ class DeleteTab(BaseTab):
 
     @Slot()
     def cancel_scan(self):
-        """Terminates the running scan thread and resets UI elements."""
+        """Safely stops the running scan thread."""
         if self.scan_thread and self.scan_thread.isRunning():
+            self.status_label.setText("Stopping...")
+            
             self.scan_thread.requestInterruption()
             self.scan_thread.quit()
             self.scan_thread.wait() 
@@ -346,10 +348,8 @@ class DeleteTab(BaseTab):
                 props["Format"] = img.format
                 props["Mode"] = img.mode
                 img.close()
-            else:
-                props["Width"] = "N/A"
-        except Exception:
-            props["Width"] = "N/A"
+            else: props["Width"] = "N/A"
+        except Exception: props["Width"] = "N/A"
         return props
 
     # --- CONTEXT MENU ---
@@ -381,13 +381,10 @@ class DeleteTab(BaseTab):
     @Slot(str)
     def show_image_properties_dialog(self, path: str):
         properties = self.get_image_properties(path)
-        if "Error" in properties:
-            QMessageBox.critical(self, "Error Reading File", properties["Error"])
-            return
+        if "Error" in properties: QMessageBox.critical(self, "Error Reading File", properties["Error"]); return
         prop_text = f"**File:** {os.path.basename(path)}\n**Path:** {path}\n\n**Technical Details**\n"
         for key, value in properties.items():
-            if key not in ["Path", "File Name"]:
-                prop_text += f"  - **{key}:** {value}\n"
+            if key not in ["Path", "File Name"]: prop_text += f"  - **{key}:** {value}\n"
         msg = QMessageBox(self)
         msg.setWindowTitle("Image Properties")
         msg.setTextFormat(Qt.MarkdownText)
@@ -397,22 +394,16 @@ class DeleteTab(BaseTab):
 
     @Slot()
     def show_comparison_dialog(self):
-        if not self.selected_duplicates:
-            QMessageBox.warning(self, "No Selection", "Please select at least one image to compare.")
-            return
+        if not self.selected_duplicates: QMessageBox.warning(self, "No Selection", "Please select at least one image to compare."); return
         selected_paths = list(self.selected_duplicates)
         if len(selected_paths) > 10:
              reply = QMessageBox.question(self, "Large Selection", f"Selected {len(selected_paths)} images. Compare first 10?", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
-             if reply == QMessageBox.Yes:
-                 selected_paths = selected_paths[:10]
-             else:
-                 return
+             if reply == QMessageBox.Yes: selected_paths = selected_paths[:10];
+             else: return
         property_list = []
         for path in selected_paths:
-            if Path(path).exists():
-                property_list.append(self.get_image_properties(path))
-            else:
-                property_list.append({"File Name": os.path.basename(path), "Path": path, "Error": "File not found."})
+            if Path(path).exists(): property_list.append(self.get_image_properties(path))
+            else: property_list.append({"File Name": os.path.basename(path), "Path": path, "Error": "File not found."})
         dialog = PropertyComparisonDialog(property_list, self)
         dialog.exec()
 
@@ -424,26 +415,17 @@ class DeleteTab(BaseTab):
     def _clear_gallery(self, layout: QGridLayout):
         while layout.count():
             item = layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            if item.widget(): item.widget().deleteLater()
 
     # --- SELECTION HANDLING ---
     def toggle_duplicate_selection(self, path):
-        if not path:
-            self._update_action_buttons()
-            return
-        if path in self.selected_duplicates:
-            self.selected_duplicates.remove(path)
-            selected = False
-        else:
-            self.selected_duplicates.append(path)
-            selected = True
+        if not path: self._update_action_buttons(); return
+        if path in self.selected_duplicates: self.selected_duplicates.remove(path); selected = False
+        else: self.selected_duplicates.append(path); selected = True
         
         if path in self.path_to_wrapper_map:
-            wrapper = self.path_to_wrapper_map[path]
-            inner_label = wrapper.findChild(QLabel)
-            if inner_label:
-                self._update_card_style(inner_label, selected)
+            wrapper = self.path_to_wrapper_map[path]; inner_label = wrapper.findChild(QLabel)
+            if inner_label: self._update_card_style(inner_label, selected)
         
         self._refresh_selected_panel()
         self._update_action_buttons()
@@ -461,10 +443,8 @@ class DeleteTab(BaseTab):
             paths_to_update = set(newly_added)
         for path in paths_to_update:
              if path in self.path_to_wrapper_map:
-                wrapper = self.path_to_wrapper_map[path]
-                inner_label = wrapper.findChild(QLabel)
-                if inner_label:
-                    self._update_card_style(inner_label, path in self.selected_duplicates)
+                wrapper = self.path_to_wrapper_map[path]; inner_label = wrapper.findChild(QLabel)
+                if inner_label: self._update_card_style(inner_label, path in self.selected_duplicates)
         self._refresh_selected_panel()
         self._update_action_buttons()
 
@@ -495,10 +475,8 @@ class DeleteTab(BaseTab):
         for i, path in enumerate(paths):
             pixmap = None 
             if path in self.path_to_wrapper_map:
-                wrapper = self.path_to_wrapper_map[path]
-                inner_label = wrapper.findChild(QLabel)
-                if inner_label and inner_label.pixmap():
-                    pixmap = inner_label.pixmap()
+                wrapper = self.path_to_wrapper_map[path]; inner_label = wrapper.findChild(QLabel)
+                if inner_label and inner_label.pixmap(): pixmap = inner_label.pixmap()
             
             card = self._create_gallery_card(path, pixmap, is_selected=True)
             card.path_clicked.connect(lambda checked, p=path: self.toggle_duplicate_selection(p))
@@ -522,23 +500,14 @@ class DeleteTab(BaseTab):
             return
 
         extensions = []
-        if self.dropdown and self.selected_extensions:
-            extensions = list(self.selected_extensions)
-        elif not self.dropdown:
-            extensions = self.join_list_str(self.target_extensions.text().strip())
-        else:
-            extensions = SUPPORTED_IMG_FORMATS
+        if self.dropdown and self.selected_extensions: extensions = list(self.selected_extensions)
+        elif not self.dropdown: extensions = self.join_list_str(self.target_extensions.text().strip())
+        else: extensions = SUPPORTED_IMG_FORMATS
             
         method_text = self.scan_method_combo.currentText()
-        if "Exact Match" in method_text:
-            method = "exact"
-            status_msg = "Starting exact scan..."
-        elif "Perceptual Hash" in method_text:
-            method = "phash"
-            status_msg = "Starting similarity scan..."
-        else:
-            method = "orb"
-            status_msg = "Starting feature scan..."
+        if "Exact Match" in method_text: method = "exact"; status_msg = "Starting exact scan..."
+        elif "Perceptual Hash" in method_text: method = "phash"; status_msg = "Starting similarity scan..."
+        else: method = "orb"; status_msg = "Starting feature scan..."
 
         # UI: Switch button to Cancel mode
         self.btn_scan_dups.setEnabled(False) 
@@ -570,7 +539,7 @@ class DeleteTab(BaseTab):
 
     @Slot()
     def on_scan_thread_finished(self):
-        # Safe place to clear references
+        # Safe place to clear references, solving RuntimeError
         self.scan_thread = None
         self.scan_worker = None
 
@@ -581,8 +550,8 @@ class DeleteTab(BaseTab):
 
     @Slot(dict)
     def on_scan_finished(self, results: Dict[str, List[str]]):
-        # Do NOT set self.scan_thread = None here to avoid RuntimeError
         self._reset_scan_ui("Scan complete.")
+        
         self.duplicate_results = results
         self.duplicate_path_list = []
         
@@ -666,10 +635,8 @@ class DeleteTab(BaseTab):
             return
         try:
             os.remove(path)
-            if path in self.selected_duplicates:
-                self.selected_duplicates.remove(path)
-            if path in self.duplicate_path_list:
-                self.duplicate_path_list.remove(path)
+            if path in self.selected_duplicates: self.selected_duplicates.remove(path)
+            if path in self.duplicate_path_list: self.duplicate_path_list.remove(path)
             if path in self.path_to_wrapper_map:
                 wrapper = self.path_to_wrapper_map.pop(path)
                 wrapper.setParent(None)

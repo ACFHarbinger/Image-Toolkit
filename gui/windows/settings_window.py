@@ -1,10 +1,11 @@
 import json
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QVBoxLayout, QGroupBox, QFormLayout,
     QLineEdit, QRadioButton, QHBoxLayout,
     QLabel, QWidget, QSizePolicy, QScrollArea,
     QPushButton, QMessageBox, QComboBox, QTextEdit,
+    QVBoxLayout, QGroupBox, QFormLayout, QApplication,
 )
 
 
@@ -189,31 +190,36 @@ class SettingsWindow(QWidget):
         content_scroll.setWidget(content_container)
         main_layout.addWidget(content_scroll) 
 
-        
         # --- Action Buttons at the bottom (Full Width) ---
         actions_widget = QWidget()
-        # Set the parent widget to expand horizontally
         actions_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         
         actions_layout = QHBoxLayout(actions_widget)
         actions_layout.setContentsMargins(20, 10, 20, 20)
         actions_layout.setSpacing(10)
         
+        # 1. Reset Button
         self.reset_button = QPushButton("Reset to default")
         self.reset_button.setObjectName("reset_button")
         self.reset_button.clicked.connect(self.reset_settings)
-        # Set policy to expand horizontally
         self.reset_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         
+        # 2. Refresh Button (New) 🆕
+        self.refresh_button = QPushButton("Refresh Application (Relaunch) 🔄")
+        self.refresh_button.setObjectName("refresh_button")
+        self.refresh_button.setStyleSheet("background-color: #f1c40f; color: black; font-weight: bold;")
+        self.refresh_button.clicked.connect(self._refresh_application)
+        self.refresh_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        
+        # 3. Update Button
         self.update_button = QPushButton("Update settings")
         self.update_button.setObjectName("update_button")
         self.update_button.clicked.connect(self.confirm_update_settings)
-        # Set policy to expand horizontally
         self.update_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        # Set Update as the default button for the window
         self.update_button.setDefault(True)
 
         actions_layout.addWidget(self.reset_button)
+        actions_layout.addWidget(self.refresh_button) # Added refresh button
         actions_layout.addWidget(self.update_button)
         
         main_layout.addWidget(actions_widget)
@@ -257,8 +263,6 @@ class SettingsWindow(QWidget):
             return {}
         try:
             full_data = self.vault_manager.load_account_credentials()
-            # We rely on load_account_credentials to provide a default empty dict 
-            # or handle missing 'tab_configurations' gracefully
             return full_data.get('tab_configurations', {})
         except Exception as e:
             print(f"Warning: Failed to load tab defaults from vault: {e}")
@@ -455,7 +459,6 @@ class SettingsWindow(QWidget):
         config_name = self.config_name_input.text().strip()
         json_text = self.default_config_editor.toPlainText().strip()
         
-        # We check config_name OR json_text, because user might want to apply the default (unnamed) config
         if not tab_class_name or not (config_name or json_text):
             QMessageBox.warning(self, "Set Error", "Please select a tab and ensure config JSON is loaded.")
             return
@@ -483,8 +486,25 @@ class SettingsWindow(QWidget):
             QMessageBox.critical(self, "Error", f"An unexpected error occurred during configuration application: {e}")
 
     # ---------------------------------------------------------------------
-    # --- Other Settings Methods ---
+    # --- Relaunch / Other Settings Methods ---
     # ---------------------------------------------------------------------
+
+    def _refresh_application(self):
+        """Prompts for confirmation and triggers a full application relaunch."""
+        reply = QMessageBox.question(self, 'Confirm Relaunch', 
+            "Are you sure you want to refresh the application? This will close all windows and relaunch.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, 
+            QMessageBox.StandardButton.No)
+
+        if reply == QMessageBox.StandardButton.Yes:
+            if self.main_window_ref and hasattr(self.main_window_ref, 'restart_application'):
+                # Assuming restart_application handles closing the current instance and starting a new one
+                self.main_window_ref.restart_application()
+            else:
+                # Fallback solution: close current app and advise user to restart
+                QMessageBox.critical(self, "Relaunch Error", "Cannot automatically restart. Closing the application now. Please relaunch the main script manually.")
+                QApplication.quit()
+
 
     def confirm_update_settings(self):
         """Shows a confirmation dialog before calling update_settings_logic."""
@@ -514,35 +534,27 @@ class SettingsWindow(QWidget):
                     new_password
                 )
                 
-                # Note: The theme update still needs to be saved after the password reset,
-                # which re-initializes the vault manager. We'll handle this below.
-                
                 if self.main_window_ref:
                     self.main_window_ref.update_header()
                     
                 QMessageBox.information(self, "Success", "Master password successfully updated! All data was preserved.")
                 
             except Exception as e:
-                QMessageBox.critical(self, "Update Failed", f"Failed to update master password: {e}")
+                QMessageBox.critical(self, "Update Failed", f"Failed to update master password:\n{e}")
                 return
         
         # --- Handle Theme Change and save all preferences to the vault ---
         try:
-            # 1. Load the current data from the (potentially reset) vault
             user_data = self.vault_manager.load_account_credentials()
-            
-            # 2. Update the theme preference
             user_data['theme'] = selected_theme
             
-            # 3. Save the entire updated data dictionary back to the vault
             if self._save_vault_data(user_data):
-                # 4. Apply the theme to the main application
                 if self.main_window_ref and selected_theme:
                     self.main_window_ref.set_application_theme(selected_theme)
                     QMessageBox.information(self, "Success", "Settings updated and saved successfully.")
             
         except Exception as e:
-            QMessageBox.critical(self, "Update Failed", f"Failed to save preferences to vault: {e}")
+            QMessageBox.critical(self, "Update Failed", f"Failed to save preferences to vault:\n{e}")
             return
             
         self.close()
