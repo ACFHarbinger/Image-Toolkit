@@ -469,6 +469,13 @@ class ScanMetadataTab(BaseTab):
         if image_count > 0:
             # Optional
             pass
+    
+    @Slot(int, int)
+    def update_loading_progress(self, current: int, total: int):
+        """Updates the progress dialog with the current loading count."""
+        if self.loading_dialog:
+            self.loading_dialog.setValue(current)
+            self.loading_dialog.setLabelText(f"Loading images {current} of {total}...")
 
     def display_scan_results(self, image_paths: list[str]):
         """Receives image paths from the worker thread, starts BatchThumbnailLoaderWorker using batch signals."""
@@ -501,17 +508,28 @@ class ScanMetadataTab(BaseTab):
             self.scan_thumbnail_layout.addWidget(no_images_label, 0, 0, 1, columns)
             return
         
+        # --- MODIFIED: Setup QProgressDialog range and initial text ---
+        total_images = len(image_paths)
         if self.loading_dialog:
-            self.loading_dialog.setLabelText(f"Loading {len(image_paths)} images...")
+            self.loading_dialog.setMaximum(total_images) # Set maximum value
+            self.loading_dialog.setValue(0) # Set initial value
+            self.loading_dialog.setLabelText(f"Loading images 0 of {total_images}...")
+        # ----------------------------------------------------------------------
         
         worker = BatchThumbnailLoaderWorker(self.scan_image_list, self.thumbnail_size)
         thread = QThread()
+
+        # --- CHANGE: Removed the premature disconnection line here ---
 
         self.current_thumbnail_loader_worker = worker
         self.current_thumbnail_loader_thread = thread
         
         worker.moveToThread(thread)
         thread.started.connect(worker.run_load_batch)
+        
+        # --- NEW CONNECTION FOR PROGRESS UPDATE ---
+        worker.progress_updated.connect(self.update_loading_progress)
+        # ------------------------------------------
         
         # --- MODIFIED: Connect to batch signal ---
         worker.batch_finished.connect(self.handle_batch_finished)
@@ -564,6 +582,16 @@ class ScanMetadataTab(BaseTab):
             self.path_to_label_map[path] = clickable_label 
         
         self.scan_thumbnail_widget.update()
+        
+        # --- FIX: DISCONNECT PROGRESS SIGNAL BEFORE CLOSING DIALOG ---
+        if self.current_thumbnail_loader_worker:
+            try:
+                # Disconnect the progress signal using the worker reference
+                self.current_thumbnail_loader_worker.progress_updated.disconnect(self.update_loading_progress)
+            except RuntimeError:
+                # Signal may already be disconnected if the thread quit, ignore error
+                pass
+        # -------------------------------------------------------------
         
         if self.loading_dialog:
             self.loading_dialog.close()

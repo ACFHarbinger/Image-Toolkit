@@ -54,6 +54,13 @@ class WallpaperTab(BaseTab):
 
         return is_ready, total_images
 
+    @Slot(int, int)
+    def update_loading_progress(self, current: int, total: int):
+        """Updates the progress dialog with the current loading count."""
+        if self.loading_dialog:
+            self.loading_dialog.setValue(current)
+            self.loading_dialog.setLabelText(f"Loading images {current} of {total}...")
+
     @Slot()
     def check_all_monitors_set(self):
         """
@@ -1141,8 +1148,8 @@ class WallpaperTab(BaseTab):
         Modified to support the freeze-and-show-all behavior.
         """
         if self.background_type == "Solid Color":
-             if self.loading_dialog: self.loading_dialog.close()
-             return 
+            if self.loading_dialog: self.loading_dialog.close()
+            return 
 
         self.clear_scan_image_gallery() 
         self.scan_image_list = image_paths
@@ -1159,9 +1166,13 @@ class WallpaperTab(BaseTab):
             self.scan_thumbnail_layout.addWidget(no_images_label, 0, 0, 1, columns)
             return
         
-        # Update dialog text
+        # --- MODIFIED: Setup QProgressDialog range and initial text ---
+        total_images = len(image_paths)
         if self.loading_dialog:
-            self.loading_dialog.setLabelText(f"Loading {len(image_paths)} images...")
+            self.loading_dialog.setMaximum(total_images) # Set maximum value
+            self.loading_dialog.setValue(0) # Set initial value
+            self.loading_dialog.setLabelText(f"Loading images 0 of {total_images}...")
+        # ----------------------------------------------------------------------
 
         worker = BatchThumbnailLoaderWorker(self.scan_image_list, self.thumbnail_size)
         thread = QThread()
@@ -1172,6 +1183,15 @@ class WallpaperTab(BaseTab):
         worker.moveToThread(thread)
         
         thread.started.connect(worker.run_load_batch)
+        
+        # --- PROGRESS CONNECTION ---
+        worker.progress_updated.connect(self.update_loading_progress)
+        # ---------------------------
+        
+        # --- FIXED DISCONNECTION LOGIC (Prevents 'NoneType' Error) ---
+        # Disconnects progress signals once the worker finishes its job.
+        worker.batch_finished.connect(lambda: worker.progress_updated.disconnect(self.update_loading_progress))
+        # -------------------------------------------------------------
         
         # --- MODIFIED: Connect to the batch finished signal, not individual ones ---
         worker.batch_finished.connect(self.handle_batch_finished)
