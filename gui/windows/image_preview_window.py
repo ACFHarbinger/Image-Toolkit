@@ -114,6 +114,8 @@ class ImagePreviewWindow(QDialog):
         
         self._update_navigation_button_state()
 
+        self.showMaximized()
+
     # --- NEW: Resize Event Handler ---
     def resizeEvent(self, event):
         """
