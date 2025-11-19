@@ -7,13 +7,14 @@ from PySide6.QtWidgets import (
     QDialog, QSizePolicy
 )
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 
 
 class PropertyComparisonDialog(QDialog):
     def __init__(self, property_data: List[Dict[str, Any]], parent=None):
         super().__init__(parent)
         self.setWindowTitle("Image Property Comparison")
-        self.setMinimumSize(800, 400)
+        self.setMinimumSize(600, 600) # Increased height slightly for vertical scrolling
         self.layout = QVBoxLayout(self)
         
         self.property_data = property_data
@@ -31,44 +32,82 @@ class PropertyComparisonDialog(QDialog):
             table.setHorizontalHeaderLabels(["No Images Selected"])
             return table
 
-        # Get all unique property keys (features)
+        # 1. Determine which properties to display
         all_keys = set()
         for item in data:
             all_keys.update(item.keys())
+
+        # Define priority order
+        # Note: "File Name" is removed from here because it will be used as a column identifier
+        priority_order = ["File Size", "Width", "Height", "Format", "Mode", "Last Modified", "Created", "Path", "Error"]
         
-        # Define the order of keys for better readability
-        key_order = ["File Name", "File Size", "Width", "Height", "Format", "Mode", "Last Modified", "Created", "Path", "Error"]
-        final_keys = [k for k in key_order if k in all_keys] + sorted([k for k in all_keys if k not in key_order])
+        # Create final list of keys (sections) to iterate through
+        # We filter out 'File Name' from the keys list because it serves as the image identifier
+        section_keys = [k for k in priority_order if k in all_keys]
         
-        num_rows = len(final_keys)
-        num_cols = len(data)
+        # Add any remaining keys that weren't in the priority list (excluding File Name)
+        for k in sorted(list(all_keys)):
+            if k not in section_keys and k != "File Name":
+                section_keys.append(k)
+
+        # 2. Calculate Dimensions
+        # Rows = Number of Properties * Number of Images
+        num_rows = len(section_keys) * len(data)
+        num_cols = 3  # Columns: [Property Name, Image Name, Value]
 
         table = QTableWidget(num_rows, num_cols)
+        table.setHorizontalHeaderLabels(["Property", "Image File", "Value"])
         
-        # Set Row Headers (Properties)
-        table.setVerticalHeaderLabels(final_keys)
-        
-        # Set Column Headers (File Names)
-        column_headers = [os.path.basename(d.get("Path", f"File {i+1}")) for i, d in enumerate(data)]
-        table.setHorizontalHeaderLabels(column_headers)
+        # Hide vertical header (indices) as they aren't useful here
+        table.verticalHeader().setVisible(False)
 
-        # Populate the table
-        for col_idx, item in enumerate(data):
-            for row_idx, key in enumerate(final_keys):
-                value = str(item.get(key, 'N/A'))
-                table_item = QTableWidgetItem(value)
+        # 3. Populate Table
+        current_row = 0
+        
+        # Colors for visual section separation
+        section_color_1 = QColor("#2c2f33") # Dark Gray (or standard background)
+        section_color_2 = QColor("#23272a") # Slightly Darker Gray
+        
+        for i, key in enumerate(section_keys):
+            # Alternate background color for every property section
+            bg_color = section_color_1 if i % 2 == 0 else section_color_2
+            
+            for item in data:
+                # Get Image Name (Identifier)
+                img_name = item.get("File Name", os.path.basename(item.get("Path", "Unknown Image")))
                 
-                # Align file names to the left, others centrally for comparison
-                if key in ["Path", "File Name"]:
-                    table_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-                else:
-                    table_item.setTextAlignment(Qt.AlignCenter)
-                    
-                table.setItem(row_idx, col_idx, table_item)
+                # Get Value
+                val = str(item.get(key, 'N/A'))
 
-        # Styling and resizing
-        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-        table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+                # Col 0: Property Name
+                item_prop = QTableWidgetItem(key)
+                item_prop.setBackground(bg_color)
+                item_prop.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+                
+                # Col 1: Image Name
+                item_name = QTableWidgetItem(img_name)
+                item_name.setBackground(bg_color)
+                item_name.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+                
+                # Col 2: Value
+                item_val = QTableWidgetItem(val)
+                item_val.setBackground(bg_color)
+                item_val.setTextAlignment(Qt.AlignCenter)
+                
+                table.setItem(current_row, 0, item_prop)
+                table.setItem(current_row, 1, item_name)
+                table.setItem(current_row, 2, item_val)
+                
+                current_row += 1
+
+        # 4. Styling
+        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents) # Property
+        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Interactive)      # Image Name (User can resize)
+        table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)          # Value (Fills rest)
+        
+        # Set a reasonable width for the middle column
+        table.setColumnWidth(1, 200)
+        
         table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
         return table
