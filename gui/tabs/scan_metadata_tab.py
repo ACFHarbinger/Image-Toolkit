@@ -1,7 +1,7 @@
 import os
 
 from pathlib import Path
-from typing import Set, Dict, Any, List
+from typing import Set, Dict, Any
 from PySide6.QtGui import QPixmap, QAction
 from PySide6.QtCore import (
     Qt, QThreadPool, QThread, Slot, QPoint
@@ -347,7 +347,7 @@ class ScanMetadataTab(BaseTab):
     def show_image_context_menu(self, global_pos: QPoint, path: str):
         """
         Displays a context menu for the clicked image thumbnail, offering 
-        View and Select options.
+        View, Select, and DELETE options.
         """
         menu = QMenu(self)
         
@@ -367,7 +367,83 @@ class ScanMetadataTab(BaseTab):
         toggle_action.triggered.connect(lambda: self.select_scan_image(path))
         menu.addAction(toggle_action)
         
+        # 3. DELETE IMAGE FILE ACTION (NEW)
+        menu.addSeparator()
+        delete_action = QAction("🗑️ Delete Image File (Permanent)", self)
+        delete_action.triggered.connect(lambda: self.handle_delete_image(path))
+        menu.addAction(delete_action)
+        
         menu.exec(global_pos)
+
+    # --- NEW SLOT: Delete Image Handler ---
+    @Slot(str)
+    def handle_delete_image(self, path: str):
+        """
+        Prompts the user to confirm deletion and removes the file from disk,
+        then updates the UI and internal lists.
+        """
+        if not path or not Path(path).exists():
+            QMessageBox.warning(self, "Delete Error", "File not found or path is invalid.")
+            return
+
+        filename = os.path.basename(path)
+        
+        # Confirmation Dialog
+        reply = QMessageBox.question(
+            self, 
+            "Confirm Deletion",
+            f"Are you sure you want to PERMANENTLY delete the file:\n\n**{filename}**\n\nThis action cannot be undone!",
+            QMessageBox.Yes | QMessageBox.No, 
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.No:
+            return
+
+        try:
+            # 1. Delete the file from the file system
+            os.remove(path)
+            
+            # 2. Update internal lists and UI mapping
+            
+            # Remove from scan list
+            if path in self.scan_image_list:
+                self.scan_image_list.remove(path)
+            
+            # Remove from selection list
+            if path in self.selected_image_paths:
+                self.selected_image_paths.remove(path)
+            
+            # Remove from UI path map and delete the widget
+            if path in self.path_to_label_map:
+                widget = self.path_to_label_map.pop(path)
+                
+                # Find the widget in the layout and remove it
+                for i in range(self.scan_thumbnail_layout.count()):
+                    item = self.scan_thumbnail_layout.itemAt(i)
+                    if item and item.widget() is widget:
+                        self.scan_thumbnail_layout.removeItem(item)
+                        widget.deleteLater()
+                        break
+            
+            # 3. Re-render the gallery to shift items over
+            if self.scanned_dir:
+                 # Re-scan or re-populate the gallery based on the remaining list
+                 # Re-populating the entire gallery is the safest way to rebuild the QGridLayout indices.
+                 self.display_scan_results(self.scan_image_list)
+            
+            # 4. Refresh selected panel if visible
+            if self.selected_images_area.isVisible():
+                self.populate_selected_images_gallery()
+
+            self.update_button_states(connected=(self.db_tab_ref.db is not None))
+            
+            QMessageBox.information(self, "Success", f"File deleted successfully: {filename}")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Deletion Failed", f"Could not delete the file: {e}")
+            
+    # --- END NEW SLOT ---
 
     # --- NEW METHOD: Views only the single image clicked ---
     @Slot(str)
