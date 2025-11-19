@@ -418,6 +418,7 @@ env/README.md
 /**/temp/
 /**/data/
 CMakeFiles/
+/**/WSmartRoute
 
 # Build
 /**/Image_Toolkit.egg-info

@@ -1,7 +1,8 @@
 import os
 import shutil
 import functools
-
+import hashlib
+from collections import defaultdict
 from pathlib import Path
 
 
@@ -93,14 +94,6 @@ class FSETool:
     def get_files_by_extension(directory, extension, recursive=False):
         """
         Get all files with specific extension in directory.
-        
-        Args:
-            directory: Path to directory
-            extension: File extension (e.g., 'txt', '.jpeg')
-            recursive: Whether to search subdirectories
-        
-        Returns:
-            List of absolute file paths (strings).
         """
         path = Path(directory)
         
@@ -114,6 +107,86 @@ class FSETool:
         
         files = [str(f.resolve()) for f in path.glob(pattern) if f.is_file()]
         return files
+
+
+class DuplicateFinder:
+    """
+    Tools for identifying duplicate files based on content hashing.
+    """
+
+    @staticmethod
+    def get_file_hash(filepath: str, hash_algorithm='sha256', chunk_size=65536) -> str | None:
+        """
+        Generates a cryptographic hash for a file's content.
+        Returns None if file cannot be read.
+        """
+        hasher = hashlib.new(hash_algorithm)
+        try:
+            with open(filepath, 'rb') as f:
+                while True:
+                    data = f.read(chunk_size)
+                    if not data:
+                        break
+                    hasher.update(data)
+            return hasher.hexdigest()
+        except (IOError, OSError):
+            return None
+
+    @staticmethod
+    @FSETool.ensure_absolute_paths()
+    def find_duplicate_images(directory: str, extensions: list[str] = None, recursive: bool = True) -> dict:
+        """
+        Scans directory for images with identical content.
+        
+        Strategy:
+        1. Group by file size (fast).
+        2. Only hash files that share a size with another file (slow, but optimized).
+        
+        Returns:
+            dict: {hash_string: [list_of_absolute_file_paths]}
+        """
+        if extensions is None:
+            extensions = ['.jpg', '.jpeg', '.png', '.webp', '.bmp']
+        
+        # Normalize extensions
+        extensions = [e if e.startswith('.') else f'.{e}' for e in extensions]
+        extensions = [e.lower() for e in extensions]
+
+        # 1. Group by Size
+        size_groups = defaultdict(list)
+        path_obj = Path(directory)
+        
+        # Select iterator based on recursiveness
+        iterator = path_obj.rglob('*') if recursive else path_obj.glob('*')
+
+        for file_path in iterator:
+            if file_path.is_file() and file_path.suffix.lower() in extensions:
+                try:
+                    size = file_path.stat().st_size
+                    size_groups[size].append(str(file_path.resolve()))
+                except (OSError, ValueError):
+                    continue
+
+        # 2. Hash candidates
+        duplicates = defaultdict(list)
+        
+        for size, paths in size_groups.items():
+            if len(paths) < 2:
+                continue  # Unique size means unique file
+            
+            # If files have same size, compare hashes
+            hash_groups = defaultdict(list)
+            for p in paths:
+                file_hash = DuplicateFinder.get_file_hash(p)
+                if file_hash:
+                    hash_groups[file_hash].append(p)
+            
+            # Add to final result only if we found actual duplicates
+            for h, p_list in hash_groups.items():
+                if len(p_list) > 1:
+                    duplicates[h].extend(p_list)
+
+        return dict(duplicates)
 
 
 class FileDeleter:
