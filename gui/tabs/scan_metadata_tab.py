@@ -46,11 +46,10 @@ class ScanMetadataTab(BaseTab):
         main_layout = QVBoxLayout(self)
 
         # ------------------------------------------------------------------
-        # --- NEW: Scrollable Content Setup ---
+        # --- Scrollable Content Setup ---
         # ------------------------------------------------------------------
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        # ESCAPED NEWLINE FIX: Ensuring stylesheet is parseable
         scroll_area.setStyleSheet("QScrollArea { border: none; }")
         
         scroll_content = QWidget()
@@ -59,7 +58,6 @@ class ScanMetadataTab(BaseTab):
         
         # --- Scan Directory Section ---
         scan_group = QGroupBox("Scan Directory")
-        # ESCAPED NEWLINE FIX: Adding minimal QGroupBox styles
         scan_group.setStyleSheet("""
             QGroupBox {  
                 border: 1px solid #4f545c; \n
@@ -84,7 +82,7 @@ class ScanMetadataTab(BaseTab):
         btn_browse_scan = QPushButton("Browse...")
         btn_browse_scan.clicked.connect(self.browse_scan_directory)
         
-        # NEW: Connect Enter key on Linedit to custom handler
+        # Connect Enter key on Linedit to custom handler
         self.scan_directory_path.returnPressed.connect(self.handle_scan_directory_return)
 
         apply_shadow_effect(btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
@@ -94,7 +92,7 @@ class ScanMetadataTab(BaseTab):
         scan_layout.addLayout(scan_dir_layout)
         
         scan_group.setLayout(scan_layout)
-        scroll_content_layout.addWidget(scan_group) # ADDED TO SCROLL CONTENT
+        scroll_content_layout.addWidget(scan_group)
 
         self.threadpool = QThreadPool.globalInstance()
         self.scanned_dir = None
@@ -133,15 +131,14 @@ class ScanMetadataTab(BaseTab):
             }
         """)
         apply_shadow_effect(self.scan_view_image_btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        scroll_content_layout.addWidget(self.scan_view_image_btn) # ADDED TO SCROLL CONTENT
+        scroll_content_layout.addWidget(self.scan_view_image_btn)
 
         # Scroll Area for image thumbnails (Main Gallery)
         self.scan_scroll_area = MarqueeScrollArea() 
         self.scan_scroll_area.setWidgetResizable(True)
-        # ESCAPED NEWLINE FIX: Ensuring stylesheet is parseable
         self.scan_scroll_area.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
 
-        # Set minimum height for the main gallery scroll area (half of 1200, matching merge_tab)
+        # Set minimum height for the main gallery scroll area
         self.scan_scroll_area.setMinimumHeight(600) 
 
         self.scan_thumbnail_widget = QWidget()
@@ -155,28 +152,29 @@ class ScanMetadataTab(BaseTab):
         
         self.scan_scroll_area.setWidget(self.scan_thumbnail_widget)
         
-        scroll_content_layout.addWidget(self.scan_scroll_area, 1) # ADDED TO SCROLL CONTENT, with stretch
+        scroll_content_layout.addWidget(self.scan_scroll_area, 1)
         
         # --- Selected Images Area --- (Bottom Gallery)
         self.selected_images_area = MarqueeScrollArea() 
         self.selected_images_area.setWidgetResizable(True)
-        # ESCAPED NEWLINE FIX: Ensuring stylesheet is parseable
         self.selected_images_area.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
         self.selected_images_area.selection_changed.connect(self.handle_marquee_selection) 
         
-        # Set minimum height for the selected images scroll area (half of 1200, matching merge_tab)
+        # Set minimum height for the selected images scroll area
         self.selected_images_area.setMinimumHeight(600)
 
         self.selected_images_widget = QWidget()
         self.selected_images_widget.setStyleSheet("QWidget { background-color: #2c2f33; }")
         self.selected_grid_layout = QGridLayout(self.selected_images_widget)
         self.selected_grid_layout.setSpacing(10)
-        self.selected_grid_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter) 
+        
+        # Align selected grid layout to the left
+        self.selected_grid_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft) 
         
         self.selected_images_area.setWidget(self.selected_images_widget)
         
         self.selected_images_area.setVisible(True) 
-        scroll_content_layout.addWidget(self.selected_images_area, 1) # ADDED TO SCROLL CONTENT, with stretch
+        scroll_content_layout.addWidget(self.selected_images_area, 1)
         
         # --- Metadata Group Box ---
         self.metadata_group = QGroupBox("Batch Metadata (Applies to ALL Selected Images)")
@@ -189,7 +187,7 @@ class ScanMetadataTab(BaseTab):
         self.series_combo = QComboBox()
         self.series_combo.setEditable(True)
         self.series_combo.setPlaceholderText("Enter or select series name...")
-        # NEW: Connect Enter key on combo box line edit to upsert button
+        # Connect Enter key on combo box line edit to upsert button
         self.series_combo.lineEdit().returnPressed.connect(lambda: self.upsert_button.click())
         series_layout.addWidget(self.series_combo)
         form_layout.addRow("Series Name:", series_layout)
@@ -197,7 +195,7 @@ class ScanMetadataTab(BaseTab):
         char_layout = QVBoxLayout()
         self.characters_edit = QLineEdit()
         self.characters_edit.setPlaceholderText("Enter character names (comma-separated)...")
-        # NEW: Connect Enter key
+        # Connect Enter key
         self.characters_edit.returnPressed.connect(lambda: self.upsert_button.click())
         char_layout.addWidget(self.characters_edit)
         self.char_suggestions = QLabel()
@@ -241,7 +239,7 @@ class ScanMetadataTab(BaseTab):
         
         metadata_vbox.addLayout(form_layout)
         
-        scroll_content_layout.addWidget(self.metadata_group) # ADDED TO SCROLL CONTENT
+        scroll_content_layout.addWidget(self.metadata_group)
 
         # Add scroll content to scroll area
         scroll_area.setWidget(scroll_content)
@@ -344,7 +342,7 @@ class ScanMetadataTab(BaseTab):
         # Initial population of the selected gallery to show a placeholder
         self.populate_selected_images_gallery()
     
-    # --- NEW METHOD: Context Menu Handler ---
+    # --- Context Menu Handler ---
     @Slot(QPoint, str)
     def show_image_context_menu(self, global_pos: QPoint, path: str):
         """
@@ -353,9 +351,9 @@ class ScanMetadataTab(BaseTab):
         """
         menu = QMenu(self)
         
-        # 1. View Full Size
-        view_action = QAction("View Full Size Preview (Double Click)", self)
-        view_action.triggered.connect(lambda: self.view_selected_scan_image_from_double_click(path))
+        # 1. View Full Size (ONLY THE CLICKED IMAGE)
+        view_action = QAction("View Full Size Preview", self)
+        view_action.triggered.connect(lambda: self._view_single_image_preview(path))
         menu.addAction(view_action)
         
         menu.addSeparator()
@@ -370,7 +368,22 @@ class ScanMetadataTab(BaseTab):
         menu.addAction(toggle_action)
         
         menu.exec(global_pos)
-    # --- END NEW METHOD ---
+
+    # --- NEW METHOD: Views only the single image clicked ---
+    @Slot(str)
+    def _view_single_image_preview(self, image_path: str):
+        """Opens a full-size preview window for the single image path provided."""
+        
+        # Check if the image is already open
+        for win in list(self.open_preview_windows):
+            if isinstance(win, ImagePreviewWindow) and win.image_path == image_path:
+                win.activateWindow() 
+                return
+        
+        preview = ImagePreviewWindow(image_path, self.db_tab_ref, parent=self)
+        preview.finished.connect(lambda result, p=preview: self.remove_preview_window(p))
+        preview.show() 
+        self.open_preview_windows.append(preview)
 
     @Slot()
     def _cleanup_thumbnail_thread_ref(self):
@@ -390,12 +403,13 @@ class ScanMetadataTab(BaseTab):
         clickable_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
         clickable_label.setStyleSheet("border: 1px dashed #4f545c; color: #b9bbbe;") 
         
-        # --- NEW: Connect Right Click ---
+        # Connect Right Click
         clickable_label.path_right_clicked.connect(self.show_image_context_menu)
-        # --- END NEW ---
 
         clickable_label.path_clicked.connect(self.select_scan_image)
-        clickable_label.path_double_clicked.connect(self.view_selected_scan_image_from_double_click) 
+        # --- MODIFIED: Double click now calls single view ---
+        clickable_label.path_double_clicked.connect(self._view_single_image_preview) 
+        # --- END MODIFIED ---
 
         self.scan_thumbnail_layout.addWidget(clickable_label, row, col)
         self.path_to_label_map[path] = clickable_label 
@@ -428,6 +442,9 @@ class ScanMetadataTab(BaseTab):
             item = self.scan_thumbnail_layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
+                # FIX: Hide and detach before deleting to prevent artifacts
+                widget.hide()
+                widget.setParent(None)
                 widget.deleteLater()
         self.scan_image_list = []
         
@@ -497,15 +514,21 @@ class ScanMetadataTab(BaseTab):
             item = self.scan_thumbnail_layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
+                # FIX: Hide and detach
+                widget.hide()
+                widget.setParent(None)
                 widget.deleteLater()
         
         while self.selected_grid_layout.count():
             item = self.selected_grid_layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
+                # FIX: Hide and detach
+                widget.hide()
+                widget.setParent(None)
                 widget.deleteLater()
-        # self.selected_images_area.setVisible(False) # Keep visible
-        self.selected_card_map = {} # Clear map on full clear
+        
+        self.selected_card_map = {} 
         
         self.scan_image_list = []
         self.selected_image_paths = set()
@@ -528,7 +551,6 @@ class ScanMetadataTab(BaseTab):
         if directory and Path(directory).is_dir():
             self.populate_scan_image_gallery(directory)
         else:
-            # If text is empty or invalid, behave like clicking the Browse... button
             self.browse_scan_directory()
 
     def browse_scan_directory(self):
@@ -570,6 +592,9 @@ class ScanMetadataTab(BaseTab):
             item = self.scan_thumbnail_layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
+                # FIX: Hide and detach
+                widget.hide()
+                widget.setParent(None)
                 widget.deleteLater()
         self.scan_image_list = []
         # --- CLEAR TOP GALLERY ONLY END ---
@@ -638,7 +663,6 @@ class ScanMetadataTab(BaseTab):
         """
         Handles single-click events in the bottom 'Selected Images' panel.
         Toggles selection status in the master set and updates styling.
-        Does NOT automatically hide the image; allows users to see what they deselected.
         """
         card_clickable_wrapper = self.selected_card_map.get(file_path)
         if not card_clickable_wrapper:
@@ -655,24 +679,9 @@ class ScanMetadataTab(BaseTab):
         # Get the QFrame (the visual card) inside the clickable wrapper
         card_frame = card_clickable_wrapper.findChild(QFrame)
         if card_frame:
-            # Update the styling of the card itself
-            # ESCAPED NEWLINE FIX: Escaping newlines in multiline QFrame style
-            if is_selected:
-                card_frame.setStyleSheet("""
-                    QFrame {
-                        background-color: #2c2f33; \n
-                        border-radius: 8px; \n
-                        border: 3px solid #5865f2; \n
-                    }
-                """)
-            else:
-                card_frame.setStyleSheet("""
-                    QFrame {
-                        background-color: #2c2f33; \n
-                        border-radius: 8px; \n
-                        border: 1px solid #4f545c; \n
-                    }
-                """)
+            # We don't style the QFrame based on selection anymore, we style the QLabel inside
+            # But we keep this block for potential future logic
+            pass
             
         # Also update the styling in the main gallery if the image is loaded there
         main_label = self.path_to_label_map.get(file_path)
@@ -687,14 +696,13 @@ class ScanMetadataTab(BaseTab):
         
         self.update_button_states(connected=(self.db_tab_ref.db is not None))
         
-        # NOTE: We skip calling populate_selected_images_gallery() here to keep the deselected card visible.
+        # --- FIX: Auto-refresh to remove deselected items immediately
+        self.populate_selected_images_gallery()
 
     def view_selected_image_from_card(self, path: str):
         """Handles double-click event on a card in the selected panel to open the full preview."""
-        # Ensure the image is in the selection set (as we intend to view it)
         if path not in self.selected_image_paths:
             self.selected_image_paths.add(path)
-            # Update styling to reflect it is selected again
             self.select_selected_image_card(path)
             
         self.selected_scan_image_path = path
@@ -740,10 +748,9 @@ class ScanMetadataTab(BaseTab):
             self.populate_selected_images_gallery()
 
     def view_selected_scan_image_from_double_click(self, path: str):
-        if path not in self.selected_image_paths:
-            self.select_scan_image(path)
-        self.selected_scan_image_path = path
-        self.view_selected_scan_image()
+        # NOTE: This method is now obsolete as double-click is connected directly to _view_single_image_preview
+        # However, for robustness if other code calls it, we delegate to the single view.
+        self._view_single_image_preview(path)
 
     def remove_preview_window(self, window_instance: ImagePreviewWindow):
         """Removes a preview window from the tracking list when it's closed."""
@@ -754,7 +761,7 @@ class ScanMetadataTab(BaseTab):
             pass
 
     def view_selected_scan_image(self):
-        """Opens non-modal, full-size image preview windows for ALL currently selected scan images."""
+        """Opens non-modal, full-size image preview windows for ALL currently selected scan images (BUTTON)."""
         if not self.selected_image_paths:
             if self.selected_scan_image_path:
                 self.selected_image_paths.add(self.selected_scan_image_path)
@@ -803,11 +810,17 @@ class ScanMetadataTab(BaseTab):
         Clears and repopulates the grid layout in the 'Selected Images' group box.
         Ensures consistent thumbnail size and centering.
         """
+        # --- FIX: Disable updates to prevent flickering artifacts
+        self.selected_images_widget.setUpdatesEnabled(False)
+        
         # Clear existing widgets and the tracking map
         while self.selected_grid_layout.count():
             item = self.selected_grid_layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
+                # FIX: Hide and detach
+                widget.hide()
+                widget.setParent(None)
                 widget.deleteLater()
         self.selected_card_map = {}
         
@@ -825,24 +838,23 @@ class ScanMetadataTab(BaseTab):
         
         columns = max(1, widget_width // approx_width)
         
-        # Calculate the fixed size for the wrapper to hold the image + path label comfortably
-        wrapper_height = self.thumbnail_size + 30 # Image height + room for path label
-        wrapper_width = self.thumbnail_size + 10 # Image width + minor padding/margin
+        # --- FIX: Reduced wrapper height since text is removed
+        wrapper_height = self.thumbnail_size + 10 
+        wrapper_width = self.thumbnail_size + 10 
         
         if not paths:
-            # Add a placeholder when no images are selected, since the section is visible by default
+            # Add a placeholder when no images are selected
             empty_label = QLabel("Select images from the scan directory above to view them here.")
             empty_label.setAlignment(Qt.AlignCenter)
             empty_label.setStyleSheet("color: #b9bbbe; padding: 50px;")
             self.selected_grid_layout.addWidget(empty_label, 0, 0, 1, columns)
-            # self.selected_images_area.setTitle("Selected Images (0)") # No title
+            
+            self.selected_images_widget.setUpdatesEnabled(True)
             return
 
         for i, path in enumerate(paths):
             # Use ClickableLabel to wrap the card content for selection/click
             card_clickable_wrapper = ClickableLabel(path)
-            
-            # Set explicit size constraints on the wrapper to ensure it holds the content
             card_clickable_wrapper.setFixedSize(wrapper_width, wrapper_height) 
 
             card_clickable_wrapper.path_clicked.connect(self.select_selected_image_card)
@@ -850,37 +862,22 @@ class ScanMetadataTab(BaseTab):
             
             # --- Card Frame Styling ---
             card = QFrame()
-            
-            # The card should always reflect its true selection status in the master set
-            is_master_selected = path in self.selected_image_paths
-            
-            # ESCAPED NEWLINE FIX: Escaping newlines in multiline QFrame style
-            if is_master_selected:
-                 card_style = (
-                     "QFrame { \n"
-                     "    background-color: #2c2f33; \n"
-                     "    border-radius: 8px; \n"
-                     "    border: 3px solid #5865f2; \n"
-                     "}"
-                 )
-            else:
-                card_style = (
-                    "QFrame { \n"
-                    "    background-color: #2c2f33; \n"
-                    "    border-radius: 8px; \n"
-                    "    border: 1px solid #4f545c; \n"
-                    "}"
-                )
+            card.setStyleSheet("background-color: transparent; border: none;")
 
-            card.setStyleSheet(card_style)
             card_layout = QVBoxLayout(card)
             card_layout.setContentsMargins(0, 0, 0, 0) 
             
             img_label = QLabel()
             img_label.setAlignment(Qt.AlignCenter)
-            # Explicitly use self.thumbnail_size for fixed size container
             img_label.setFixedSize(self.thumbnail_size, self.thumbnail_size) 
             
+            # --- FIX: Apply Border Style to Image Label for Square Box Look ---
+            is_master_selected = path in self.selected_image_paths
+            if is_master_selected:
+                img_label.setStyleSheet("border: 3px solid #5865f2;")
+            else:
+                img_label.setStyleSheet("border: 1px solid #4f545c;")
+
             pixmap = QPixmap(path)
             if not pixmap.isNull():
                 scaled = pixmap.scaled(
@@ -893,25 +890,24 @@ class ScanMetadataTab(BaseTab):
                 img_label.setText("Failed to Load")
                 img_label.setStyleSheet("color: #e74c3c;")
 
-            path_label = QLabel(os.path.basename(path)) 
-            path_label.setStyleSheet("color: #b9bbbe; font-size: 10px; border: none; padding: 2px 0;")
-            path_label.setAlignment(Qt.AlignCenter)
-            path_label.setWordWrap(True)
+            # --- FIX: PATH LABEL REMOVED ---
 
             card_layout.addWidget(img_label)
-            card_layout.addWidget(path_label)
-            
-            # Set the card frame as the content of the clickable wrapper
+            # card_layout.addWidget(path_label) # Removed
+
             card_clickable_wrapper.setLayout(card_layout)
             
             row = i // columns
             col = i % columns
             
-            # Store the wrapper to track the actual selection state of the item within the panel
             self.selected_card_map[path] = card_clickable_wrapper
             
-            # Use Qt.AlignCenter on the QGridLayout to center the individual items
-            self.selected_grid_layout.addWidget(card_clickable_wrapper, row, col, Qt.AlignCenter) 
+            # Align individual widgets to the left
+            self.selected_grid_layout.addWidget(card_clickable_wrapper, row, col, Qt.AlignLeft | Qt.AlignTop) 
+
+        # --- FIX: Re-enable updates and adjust size to fix scroll artifacts
+        self.selected_images_widget.setUpdatesEnabled(True)
+        self.selected_images_widget.adjustSize()
 
     def perform_upsert_operation(self):
         """Performs the Add/Update (Upsert) operation on selected image paths."""
@@ -987,7 +983,6 @@ class ScanMetadataTab(BaseTab):
         self.scan_directory_path.clear()
         self.scanned_dir = None
         
-        # Stop any active thumbnail loading for the top gallery
         if self.current_thumbnail_loader_thread and self.current_thumbnail_loader_thread.isRunning():
             self.current_thumbnail_loader_thread.quit()
         
@@ -1000,6 +995,9 @@ class ScanMetadataTab(BaseTab):
             item = self.scan_thumbnail_layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
+                # FIX: Hide and detach
+                widget.hide()
+                widget.setParent(None)
                 widget.deleteLater()
         
         self.scan_image_list = []
@@ -1068,10 +1066,8 @@ class ScanMetadataTab(BaseTab):
         
         self.refresh_image_button.setEnabled(True) 
 
-        # Since the selected group is always visible, we just update the text and enable/disable the toggle button
         if self.selected_images_area.isVisible():
             self.view_batch_button.setText(f"Hide {selection_count} Selected")
-            # self.selected_images_area.setTitle(f"Selected Images ({selection_count})") # No title
         else:
             self.view_batch_button.setText(f"View {selection_count} Selected")
             
