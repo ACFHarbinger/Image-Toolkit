@@ -7,11 +7,12 @@ from pathlib import Path
 from screeninfo import get_monitors, Monitor
 from typing import Dict, List, Optional, Tuple, Any
 from PySide6.QtCore import Qt, QThreadPool, QThread, QTimer, Slot, QPoint
-from PySide6.QtGui import QPixmap, QAction
+from PySide6.QtGui import QPixmap, QAction, QColor # <-- NEW QColor Import
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QGroupBox, QComboBox, QMenu,
     QWidget, QLabel, QPushButton, QMessageBox, QApplication,
     QLineEdit, QFileDialog, QScrollArea, QGridLayout, QSpinBox, QCheckBox,
+    QColorDialog # <-- NEW QColorDialog Import
 )
 from .base_tab import BaseTab
 from ..windows import SlideshowQueueWindow, ImagePreviewWindow
@@ -53,7 +54,8 @@ class WallpaperTab(BaseTab):
     @Slot()
     def check_all_monitors_set(self):
         """
-        Enables the 'Set Wallpaper' button based on either standard or slideshow mode requirements.
+        Enables the 'Set Wallpaper' button based on either standard, slideshow, 
+        or solid color mode requirements.
         """
         
         if self.slideshow_timer and self.slideshow_timer.isActive():
@@ -72,6 +74,14 @@ class WallpaperTab(BaseTab):
         all_set_single = set_count == num_monitors
 
         is_ready, total_images = self._is_slideshow_validation_ready()
+
+        # --- NEW LOGIC: Solid Color takes precedence over image paths ---
+        if self.background_type == "Solid Color":
+            self.set_wallpaper_btn.setText(f"Set Solid Color ({self.solid_color_hex})")
+            # Solid color can always be set if monitors exist
+            self.set_wallpaper_btn.setEnabled(num_monitors > 0)
+            return
+        # --- END NEW LOGIC ---
 
         if self.slideshow_enabled_checkbox.isChecked():
             if is_ready:
@@ -112,6 +122,11 @@ class WallpaperTab(BaseTab):
         self.open_image_preview_windows: List[QWidget] = [] 
         
         self.wallpaper_style: str = "Fill" # Default style
+
+        # --- NEW STATE VARIABLES ---
+        self.background_type: str = "Image" # Image, Solid Color
+        self.solid_color_hex: str = "#000000" # Default to black
+        # --- END NEW STATE VARIABLES ---
 
         # --- MODIFICATION START: Create main content widget and scroll area ---
         # 1. Create the content widget to hold all UI elements
@@ -205,6 +220,41 @@ class WallpaperTab(BaseTab):
         settings_layout = QVBoxLayout(settings_group)
         settings_layout.setContentsMargins(10, 20, 10, 10)
         
+        # --- NEW: Background Type Selection ---
+        background_type_layout = QHBoxLayout()
+        self.background_type_combo = QComboBox()
+        self.background_type_combo.addItems(["Image", "Solid Color"])
+        self.background_type_combo.setCurrentText(self.background_type)
+        self.background_type_combo.currentTextChanged.connect(self._update_background_type)
+
+        background_type_layout.addWidget(QLabel("Background Type:"))
+        background_type_layout.addWidget(self.background_type_combo)
+        background_type_layout.addStretch(1)
+        settings_layout.addLayout(background_type_layout)
+
+        # NEW: Solid Color Selection (initially hidden)
+        self.solid_color_widget = QWidget()
+        self.solid_color_layout = QHBoxLayout(self.solid_color_widget)
+        self.solid_color_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.solid_color_preview = QLabel(" ")
+        self.solid_color_preview.setFixedSize(20, 20)
+        self.solid_color_preview.setStyleSheet(f"background-color: {self.solid_color_hex}; border: 1px solid #4f545c;")
+        
+        btn_select_color = QPushButton("Select Color...")
+        btn_select_color.clicked.connect(self.select_solid_color)
+        
+        self.solid_color_layout.addWidget(QLabel("Color:"))
+        self.solid_color_layout.addWidget(self.solid_color_preview)
+        self.solid_color_layout.addWidget(btn_select_color)
+        self.solid_color_layout.addStretch(1)
+        
+        settings_layout.addWidget(self.solid_color_widget)
+        self.solid_color_widget.setVisible(False) # Hide by default
+        
+        settings_layout.addWidget(QLabel("<hr>")) 
+        # --- END NEW: Background Type Selection ---
+
         # Wallpaper Style Section (formerly style_group)
         style_layout = QHBoxLayout()
         self.style_combo = QComboBox()
@@ -219,7 +269,7 @@ class WallpaperTab(BaseTab):
         # Connect the change handler
         self.style_combo.currentTextChanged.connect(self._update_wallpaper_style)
 
-        style_layout.addWidget(QLabel("Global Style:"))
+        style_layout.addWidget(QLabel("Image Style:"))
         style_layout.addWidget(self.style_combo)
         style_layout.addStretch(1)
         settings_layout.addLayout(style_layout)
@@ -315,7 +365,7 @@ class WallpaperTab(BaseTab):
         elif system == "Linux":
             # Assume KDE/GNOME, check for KDE first
             try:
-                subprocess.run(["which", "qdbus"], check=True, capture_output=True)
+                subprocess.run(["which", "qdbus6"], check=True, capture_output=True)
                 return WALLPAPER_STYLES["KDE"]
             except (FileNotFoundError, subprocess.CalledProcessError):
                 # Fallback to GNOME/Spanned
@@ -331,6 +381,43 @@ class WallpaperTab(BaseTab):
         """Updates the selected wallpaper style."""
         self.wallpaper_style = style_name
 
+    # --- NEW METHODS ---
+    @Slot(str)
+    def _update_background_type(self, type_name: str):
+        """Updates the selected background type and toggles control visibility."""
+        self.background_type = type_name
+        
+        is_solid_color = (type_name == "Solid Color")
+        
+        # Toggle visibility of color controls
+        self.solid_color_widget.setVisible(is_solid_color)
+        
+        # Toggle visibility/enablement of image-specific controls
+        style_enabled = not is_solid_color
+        self.style_combo.setEnabled(style_enabled)
+        
+        # Also toggle the scan directory group and the slideshow group
+        self.scan_directory_path.setEnabled(style_enabled)
+        self.scan_scroll_area.setEnabled(style_enabled)
+        self.slideshow_group.setEnabled(style_enabled)
+        
+        # If switching to solid color, stop slideshow if running
+        if is_solid_color and self.slideshow_timer and self.slideshow_timer.isActive():
+            self.stop_slideshow()
+            
+        self.check_all_monitors_set()
+
+
+    @Slot()
+    def select_solid_color(self):
+        """Opens the color dialog to select the solid background color."""
+        initial_color = QColor(self.solid_color_hex)
+        color = QColorDialog.getColor(initial_color, self, "Select Solid Background Color")
+
+        if color.isValid():
+            self.solid_color_hex = color.name().upper()
+            self.solid_color_preview.setStyleSheet(f"background-color: {self.solid_color_hex}; border: 1px solid #4f545c;")
+            self.check_all_monitors_set() # Update button text/state
 
     # --- Slideshow Handlers ---
 
@@ -348,6 +435,15 @@ class WallpaperTab(BaseTab):
     @Slot()
     def handle_set_wallpaper_click(self):
         """Handles the click event for the main 'Set Wallpaper' button."""
+        
+        # If solid color is selected, run worker regardless of slideshow state
+        if self.background_type == "Solid Color":
+             if self.current_wallpaper_worker:
+                 self.stop_wallpaper_worker()
+             else:
+                 self.run_wallpaper_worker()
+             return
+
         if self.slideshow_timer and self.slideshow_timer.isActive():
             self.stop_slideshow()
         elif self.slideshow_enabled_checkbox.isChecked():
@@ -363,6 +459,12 @@ class WallpaperTab(BaseTab):
         """Initializes the slideshow queues and starts the timers."""
         
         num_monitors = len(self.monitor_widgets)
+        
+        # Solid color mode cannot run slideshow
+        if self.background_type == "Solid Color":
+             QMessageBox.warning(self, "Slideshow Error", "Slideshow is disabled when Solid Color mode is selected.")
+             self.slideshow_enabled_checkbox.setChecked(False)
+             return
         
         # MODIFIED: Removed the check for equal queue length (is_ready only checks non-empty)
         is_ready, total_images = self._is_slideshow_validation_ready()
@@ -464,6 +566,11 @@ class WallpaperTab(BaseTab):
         monitor_ids = list(self.monitor_widgets.keys())
         if not monitor_ids: return 
         
+        # Solid color mode cannot run slideshow
+        if self.background_type == "Solid Color":
+             self.stop_slideshow()
+             return
+        
         try:
             new_monitor_paths = {}
             has_valid_path_to_set = False
@@ -509,6 +616,10 @@ class WallpaperTab(BaseTab):
     def handle_monitor_double_click(self, monitor_id: str):
         """Opens a new non-modal window to display the image queue for the clicked monitor."""
         
+        # If solid color is selected, double click does nothing
+        if self.background_type == "Solid Color":
+            return
+            
         queue = self.monitor_slideshow_queues.get(monitor_id, [])
         monitor_name = self.monitor_widgets[monitor_id].monitor.name
         
@@ -570,6 +681,10 @@ class WallpaperTab(BaseTab):
         Displays a context menu for the clicked image thumbnail, offering 
         View and Add to Queue options.
         """
+        # If solid color is selected, context menu doesn't apply
+        if self.background_type == "Solid Color":
+            return
+            
         menu = QMenu(self)
         
         # 1. View Full Size
@@ -660,6 +775,9 @@ class WallpaperTab(BaseTab):
         
         self.clear_scan_image_gallery() 
         
+        # Reset background type to default when refreshing
+        self.background_type_combo.setCurrentText("Image")
+        
         self.populate_monitor_layout() 
         
         self.check_all_monitors_set()
@@ -712,7 +830,7 @@ class WallpaperTab(BaseTab):
                     break
             
             if system_index == -1:
-                print(f"Warning: Could not map physical monitor {monitor.name} to system index.")
+                print(f"Warning: Could not map physical monitor {monitor.name} back to system index.")
                 continue
 
             # The monitor_id is the system's priority index (0, 1, 2, ...), which dictates wallpaper assignment
@@ -744,6 +862,10 @@ class WallpaperTab(BaseTab):
         Slot to add the dropped image to the monitor's specific queue, 
         and display the last dropped image for visual confirmation.
         """
+        # Automatically switch to Image mode if dropping an image
+        if self.background_type != "Image":
+            self.background_type_combo.setCurrentText("Image")
+            
         if monitor_id not in self.monitor_slideshow_queues:
             self.monitor_slideshow_queues[monitor_id] = []
         
@@ -784,35 +906,30 @@ class WallpaperTab(BaseTab):
 
     def _get_kde_assignment_map(self, source_paths: Dict[str, str]) -> Dict[str, str]:
         """
-        Reintroduces the corrective shift/rotation required by the underlying 
-        system/worker to ensure the image assigned to System ID N lands on Monitor N.
-        Monitor 0 gets image from N-1, Monitor 1 gets image from 0, etc.
+        Applies a rotational correction to map the UI's monitor order (based on 
+        screeninfo's system index) to the internal screen indices used by KDE.
+        It uses the same right circular shift as the GNOME implementation.
         """
-        all_monitor_ids = sorted([int(k) for k in source_paths.keys()])
-        if not all_monitor_ids:
+        n = len(self.monitors)
+        if n == 0:
             return {}
-        
-        # The primary monitor ID is the one with the smallest index (usually 0)
-        #primary_monitor_id = str(all_monitor_ids[0])
-        
-        # Non-primary monitor IDs (as strings)
-        rotated_map = source_paths.copy()
-        non_primary_ids = [str(id_) for id_ in all_monitor_ids[1:]]
-        if len(non_primary_ids) > 1:
             
-            # 2. Collect the paths intended for the non-primary monitors in order
-            non_primary_paths = [source_paths[id_] for id_ in non_primary_ids if id_ in source_paths]
+        rotated_map = {}
+        
+        # Iterate over all system monitor IDs present in the paths dictionary
+        for current_monitor_id_str in source_paths.keys():
+            current_monitor_id = int(current_monitor_id_str)
             
-            if len(non_primary_paths) != len(non_primary_ids):
-                print("Warning: Skipping KDE correction due to missing path entries.")
-            else:
-                # 3. Perform the circular shift: last becomes first
-                # Example: [P1, P2, P3] -> [P3, P1, P2]
-                rotated_paths = non_primary_paths[-1:] + non_primary_paths[:-1]
-                
-                # 4. Reassign the rotated paths to the non-primary IDs
-                for i, id_ in enumerate(non_primary_ids):
-                    rotated_map[id_] = rotated_paths[i]
+            # The assignment logic requires Monitor 'i' to take the path intended for Monitor 'i-1'
+            # (Right Circular Shift on Source Paths)
+            # Use n for the modulo calculation.
+            prev_monitor_index = (current_monitor_id - 1 + n) % n
+            
+            # Use the previous monitor's system index (ID) to fetch the path
+            prev_monitor_id_str = str(prev_monitor_index)
+            
+            path_from_prev = source_paths.get(prev_monitor_id_str)
+            rotated_map[current_monitor_id_str] = path_from_prev
         return rotated_map
     
     def _get_windows_assignment_map(self, source_paths: Dict[str, str]) -> Dict[str, str]:
@@ -833,51 +950,61 @@ class WallpaperTab(BaseTab):
             print("Wallpaper worker is already running.")
             return
 
-        if not any(self.monitor_image_paths.values()):
-            if not slideshow_mode:
-                QMessageBox.warning(self, "Incomplete", "No images have been dropped on the monitors.")
-            return
-            
-        if ImageScannerWorker is None:
-            QMessageBox.warning(self, "Missing Helpers",
-                                "The ImageScannerWorker or BatchThumbnailLoaderWorker could not be imported.\n"
-                                "Directory scanning will be disabled.")
-            return
+        # --- NEW LOGIC: Handle Solid Color mode ---
+        if self.background_type == "Solid Color":
+            # For solid color, the 'path_map' will contain the color hex for all monitors
+            path_map = {str(mid): self.solid_color_hex for mid in range(len(self.monitors))}
+            style_to_use = "SolidColor" # Sentinel value for the worker
+        else:
+            # Existing logic for image mode
+            if not any(self.monitor_image_paths.values()):
+                if not slideshow_mode:
+                    QMessageBox.warning(self, "Incomplete", "No images have been dropped on the monitors.")
+                return
+                
+            if ImageScannerWorker is None:
+                QMessageBox.warning(self, "Missing Helpers",
+                                    "The ImageScannerWorker or BatchThumbnailLoaderWorker could not be imported.\n"
+                                    "Directory scanning will be disabled.")
+                return
 
-        # Apply the necessary rotational map correction before passing to the worker
-        system = platform.system()
-        if system == "Linux":
-            # Assume KDE/GNOME, check for KDE first
-            try:
-                subprocess.run(["which", "qdbus"], check=True, capture_output=True)
-                desktop = "KDE"
-            except (FileNotFoundError, subprocess.CalledProcessError):
-                desktop = "Gnome"
-            except:
+            # Apply the necessary rotational map correction before passing to the worker
+            system = platform.system()
+            if system == "Linux":
+                # Assume KDE/GNOME, check for KDE first
+                try:
+                    subprocess.run(["which", "qdbus6"], check=True, capture_output=True)
+                    desktop = "KDE"
+                except (FileNotFoundError, subprocess.CalledProcessError):
+                    desktop = "Gnome"
+                except:
+                    desktop = None
+            elif system == "Windows":
+                desktop = "Windows"
+            else:
                 desktop = None
-        elif system == "Windows":
-            desktop = "Windows"
-        else:
-            desktop = None
-        
-        if desktop == "Gnome":
-            path_map = self._get_gnome_assignment_map(self.monitor_image_paths)
-        elif desktop == "KDE":
-            path_map = self._get_kde_assignment_map(self.monitor_image_paths)
-        elif desktop == "Windows":
-            path_map = self._get_windows_assignment_map(self.monitor_image_paths)
-        else:
-            path_map = self.monitor_image_paths
+            
+            if desktop == "Gnome":
+                path_map = self._get_gnome_assignment_map(self.monitor_image_paths)
+            elif desktop == "KDE":
+                path_map = self._get_kde_assignment_map(self.monitor_image_paths)
+            elif desktop == "Windows":
+                path_map = self._get_windows_assignment_map(self.monitor_image_paths)
+            else:
+                path_map = self.monitor_image_paths
+
+            style_to_use = self.wallpaper_style
+        # --- END NEW LOGIC ---
 
         monitors = self.monitors
         if not slideshow_mode:
             self.lock_ui_for_wallpaper()
         
-        # Pass the selected wallpaper style
+        # Pass the selected style (or sentinel value)
         self.current_wallpaper_worker = WallpaperWorker(
             path_map, 
             monitors, 
-            wallpaper_style=self.wallpaper_style
+            wallpaper_style=style_to_use
         )
         self.current_wallpaper_worker.signals.status_update.connect(self.handle_wallpaper_status)
         self.current_wallpaper_worker.signals.work_finished.connect(self.handle_wallpaper_finished)
@@ -905,10 +1032,18 @@ class WallpaperTab(BaseTab):
         self.set_wallpaper_btn.setEnabled(True)
         
         self.refresh_btn.setEnabled(False)
-        self.slideshow_group.setEnabled(False)
+        # Disable all UI elements that initiate a new worker or change state
+        self.slideshow_group.setEnabled(False) 
         self.scan_scroll_area.setEnabled(False)
-        self.scan_directory_path.setEnabled(False) # Disable path field
-        self.style_combo.setEnabled(False) # Disable style selection
+        self.scan_directory_path.setEnabled(False) 
+        self.style_combo.setEnabled(False)
+        self.background_type_combo.setEnabled(False) # <-- NEW
+        self.solid_color_widget.setEnabled(False)    # <-- NEW
+        
+        # Also disable monitor drop widgets during application
+        for widget in self.monitor_widgets.values():
+            widget.setEnabled(False)
+            
         QApplication.processEvents()
         
     def unlock_ui_for_wallpaper(self):
@@ -919,9 +1054,18 @@ class WallpaperTab(BaseTab):
         self.refresh_btn.setEnabled(True)
         self.slideshow_group.setEnabled(True)
         self.scan_scroll_area.setEnabled(True)
-        self.scan_directory_path.setEnabled(True) # Enable path field
-        self.style_combo.setEnabled(True) # Enable style selection
+        self.scan_directory_path.setEnabled(True)
+        self.style_combo.setEnabled(True)
+        self.background_type_combo.setEnabled(True) # <-- NEW
+        self.solid_color_widget.setEnabled(True) # <-- NEW
         
+        # Re-enable monitor drop widgets
+        for widget in self.monitor_widgets.values():
+            widget.setEnabled(True)
+            
+        # Re-apply visibility/enablement based on the current background type
+        self._update_background_type(self.background_type)
+
         self.check_all_monitors_set()
         QApplication.processEvents()
 
@@ -940,12 +1084,15 @@ class WallpaperTab(BaseTab):
         is_slideshow_active = (self.slideshow_timer and self.slideshow_timer.isActive())
 
         if success:
-            if not is_slideshow_active:
+            if not is_slideshow_active and self.background_type != "Solid Color":
                 QMessageBox.information(self, "Success", "Wallpaper has been updated!")
                 
                 for monitor_id, path in self.monitor_image_paths.items():
                     if path and monitor_id in self.monitor_widgets:
                         self.monitor_widgets[monitor_id].set_image(path)
+            elif self.background_type == "Solid Color":
+                 QMessageBox.information(self, "Success", f"Solid color background set to {self.solid_color_hex}!")
+                 
         else:
             if "manually cancelled" not in message.lower():
                 if is_slideshow_active:
@@ -959,6 +1106,11 @@ class WallpaperTab(BaseTab):
     
     def browse_scan_directory(self):
         """Select directory to scan and display image thumbnails."""
+        # Check for solid color mode before scanning
+        if self.background_type == "Solid Color":
+            QMessageBox.warning(self, "Mode Conflict", "Cannot browse directory while Solid Color background is selected.")
+            return
+
         if ImageScannerWorker is None:
             QMessageBox.warning(self, "Missing Helpers",
                                 "The ImageScannerWorker or BatchThumbnailLoaderWorker could not be imported.\n"
@@ -982,6 +1134,9 @@ class WallpaperTab(BaseTab):
 
     def populate_scan_image_gallery(self, directory: str):
         """Initiates scanning on a separate thread and sets up the gallery structure."""
+        if self.background_type == "Solid Color":
+             return # Skip if in solid color mode
+
         self.scanned_dir = directory
         self.clear_scan_image_gallery()
         
@@ -1009,6 +1164,9 @@ class WallpaperTab(BaseTab):
         Receives image paths from the worker thread, creates placeholders, and starts 
         a single BatchThumbnailLoaderWorker to progressively load and display images.
         """
+        if self.background_type == "Solid Color":
+             return # Skip if in solid color mode
+
         self.clear_scan_image_gallery() 
         self.scan_image_list = image_paths
         
@@ -1155,6 +1313,8 @@ class WallpaperTab(BaseTab):
         return {
             "monitor_queues": self.monitor_slideshow_queues,
             "wallpaper_style": self.wallpaper_style,
+            "background_type": self.background_type, # <-- NEW
+            "solid_color_hex": self.solid_color_hex, # <-- NEW
         }
 
     def get_default_config(self) -> Dict[str, Any]:
@@ -1167,7 +1327,9 @@ class WallpaperTab(BaseTab):
             "wallpaper_style": default_style,
             "slideshow_enabled": False,
             "interval_minutes": 5,
-            "interval_seconds": 0
+            "interval_seconds": 0,
+            "background_type": "Image", # <-- NEW
+            "solid_color_hex": "#000000" # <-- NEW
         }
     
     def set_config(self, config: Dict[str, Any]):
@@ -1190,6 +1352,16 @@ class WallpaperTab(BaseTab):
 
             if "interval_seconds" in config:
                 self.interval_sec_spinbox.setValue(config.get("interval_seconds", 0))
+
+            # --- NEW CONFIG LOADING ---
+            if "solid_color_hex" in config:
+                self.solid_color_hex = config.get("solid_color_hex", "#000000")
+                self.solid_color_preview.setStyleSheet(f"background-color: {self.solid_color_hex}; border: 1px solid #4f545c;")
+            
+            if "background_type" in config:
+                # Set background type last to trigger visibility logic
+                self.background_type_combo.setCurrentText(config.get("background_type", "Image"))
+            # --- END NEW CONFIG LOADING ---
 
             QMessageBox.information(self, "Config Loaded", "Configuration applied successfully.")
         except Exception as e:
