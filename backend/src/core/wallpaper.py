@@ -1,12 +1,13 @@
 import os
+import re
 import ctypes
 import platform
 import subprocess
 
 from PIL import Image
 from pathlib import Path
-from typing import Dict, List
 from screeninfo import Monitor
+from typing import Dict, List, Optional
 from ..utils.definitions import WALLPAPER_STYLES
 
 # Global Definitions for COM components
@@ -425,3 +426,69 @@ class WallpaperManager:
             
         else:
             raise NotImplementedError(f"Wallpaper setting for {system} is not supported.")
+
+    @staticmethod
+    def get_current_system_wallpaper_path_kde(num_monitors: int) -> Dict[str, Optional[str]]:
+        """
+        Retrieves the current wallpaper path for each monitor on KDE Plasma using qdbus.
+        
+        Args:
+            num_monitors: The count of monitors detected by screeninfo (0, 1, 2, ...).
+
+        Returns:
+            A dictionary mapping monitor ID ('0', '1', '2', ...) to its wallpaper file path.
+        """
+        path_map = {}
+        
+        # 1. Build the qdbus JavaScript command to get the path for each monitor index
+        script_parts = []
+        for i in range(num_monitors):
+            script_parts.append(
+                f"""
+                d = desktops()[{i}]; 
+                d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); 
+                print("MONITOR_{i}:" + d.readConfig("Image"));
+                """
+            )
+            
+        full_script = "".join(script_parts)
+
+        try:
+            # 2. Execute the qdbus command
+            qdbus_command = (
+                f"qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{full_script}'"
+            )
+            result = subprocess.run(
+                qdbus_command, 
+                shell=True, 
+                check=True, 
+                capture_output=True, 
+                text=True
+            )
+            output = result.stdout.strip()
+
+            # 3. Parse the output using Regex to find all occurrences
+            # Pattern: MONITOR_(ID):(file URI) - handles concatenated output
+            pattern = re.compile(r'MONITOR_(\d+):(file://[^\s]*?\.(?:png|jpg|jpeg))', re.IGNORECASE)
+            matches = pattern.findall(output) 
+            
+            for monitor_id, path_uri in matches:
+                try:
+                    # Convert file URI to local path and clean up
+                    if path_uri.startswith("file://"):
+                        local_path = str(Path(path_uri.replace("file://", "")).resolve())
+                    else:
+                        local_path = None
+                            
+                    if local_path and Path(local_path).exists():
+                        path_map[monitor_id] = local_path
+                    else:
+                        path_map[monitor_id] = None
+                except Exception:
+                    pass
+        
+        except (FileNotFoundError, subprocess.CalledProcessError) as e:
+            print(f"Error executing qdbus for KDE wallpaper retrieval: {e}")
+            return {}
+
+        return path_map

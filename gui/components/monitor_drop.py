@@ -7,7 +7,7 @@ from PySide6.QtGui import (
     QPixmap, QDragEnterEvent, QDropEvent, QDragMoveEvent, QDragLeaveEvent,
     QMouseEvent
 )
-from PySide6.QtWidgets import QLabel, QMenu # QMenu is imported to handle context menus
+from PySide6.QtWidgets import QLabel, QMenu
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 
 
@@ -15,6 +15,7 @@ class MonitorDropWidget(QLabel):
     """
     A custom QLabel that acts as a drop target for images,
     displays monitor info, and shows a preview of the dropped image.
+    When no image is set, it displays a simplified placeholder.
     """
     # Emits (monitor_id, image_path) when an image is successfully dropped
     image_dropped = Signal(str, str) 
@@ -63,7 +64,6 @@ class MonitorDropWidget(QLabel):
         clear_action = menu.addAction("Clear All Images (Current and Queue)")
         clear_action.triggered.connect(lambda: self.clear_requested_id.emit(self.monitor_id))
         
-        # Only enable clearing if an image is currently set or if we want to allow clearing the queue anytime
         # We enable it anytime to allow clearing empty queues as well.
         
         menu.exec(event.globalPos())
@@ -75,13 +75,16 @@ class MonitorDropWidget(QLabel):
         super().mouseDoubleClickEvent(event)
 
     def update_text(self):
-        """Sets the default placeholder text."""
+        """
+        Sets the default placeholder text, removing the monitor dimensions
+        to prioritize the current background image display via set_image().
+        """
         monitor_name = f"Monitor {self.monitor_id}"
         if self.monitor.name:
              monitor_name = f"{monitor_name} ({self.monitor.name})"
         
-        self.setText(f"<b>{monitor_name}</b>\n"
-                     f"({self.monitor.width}x{self.monitor.height})\n\n"
+        # MODIFICATION: Removed the line that displayed monitor dimensions (width x height)
+        self.setText(f"<b>{monitor_name}</b>\n\n"
                      "Drag & Drop Image Here")
 
     def dragEnterEvent(self, event: QDragEnterEvent):
@@ -151,8 +154,12 @@ class MonitorDropWidget(QLabel):
             else:
                 self.image_path = None
                 self.update_text()
-                self.setText(f"<b>Monitor {self.monitor_id}</b>\n"
-                             f"({self.monitor.width}x{self.monitor.height})\n\n"
+                # Use simplified error text since dimensions are removed from update_text
+                monitor_name = f"Monitor {self.monitor_id}"
+                if self.monitor.name:
+                     monitor_name = f"{monitor_name} ({self.monitor.name})"
+                
+                self.setText(f"<b>{monitor_name}</b>\n\n"
                              "<b>Error:</b> Could not load image.")
         else:
              self.clear() # Call the internal clear for consistency

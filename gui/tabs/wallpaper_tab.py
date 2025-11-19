@@ -1,18 +1,24 @@
 import os
 import platform
 import subprocess
+import json
 
 from math import floor
 from pathlib import Path
 from screeninfo import get_monitors, Monitor
 from typing import Dict, List, Optional, Tuple, Any
-from PySide6.QtCore import Qt, QThreadPool, QThread, QTimer, Slot, QPoint
-from PySide6.QtGui import QPixmap, QAction, QColor # <-- NEW QColor Import
+from PySide6.QtGui import QPixmap, QAction, QColor
+from PySide6.QtCore import (
+    QTimer, Slot, QPoint,
+    Qt, QThreadPool, QThread,
+) 
 from PySide6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QGroupBox, QComboBox, QMenu,
-    QWidget, QLabel, QPushButton, QMessageBox, QApplication,
-    QLineEdit, QFileDialog, QScrollArea, QGridLayout, QSpinBox, QCheckBox,
-    QColorDialog # <-- NEW QColorDialog Import
+    QVBoxLayout, QHBoxLayout, 
+    QGroupBox, QComboBox, QMenu,
+    QWidget, QLabel, QPushButton, 
+    QGridLayout, QSpinBox, QCheckBox,
+    QLineEdit, QFileDialog, QScrollArea, 
+    QMessageBox, QApplication, QColorDialog,
 )
 from .base_tab import BaseTab
 from ..windows import SlideshowQueueWindow, ImagePreviewWindow
@@ -20,6 +26,7 @@ from ..components import MonitorDropWidget, DraggableImageLabel
 from ..helpers import ImageScannerWorker, BatchThumbnailLoaderWorker, WallpaperWorker
 from ..styles.style import apply_shadow_effect, STYLE_SYNC_RUN, STYLE_SYNC_STOP
 from backend.src.utils.definitions import WALLPAPER_STYLES
+from backend.src.core import WallpaperManager
 
 
 class WallpaperTab(BaseTab):
@@ -724,37 +731,73 @@ class WallpaperTab(BaseTab):
         if new_first_image and self.monitor_widgets[monitor_id].image_path != new_first_image:
             self.monitor_widgets[monitor_id].set_image(new_first_image)
         elif not new_first_image:
-            self.monitor_widgets[monitor_id].update_text()
+            self.monitor_widgets[monitor_id].clear() # Use clear() for consistency
         
         self.check_all_monitors_set()
         
     # NEW SLOT: Handles right-click clear action from MonitorDropWidget
     @Slot(str)
     def handle_clear_monitor_queue(self, monitor_id: str):
-        """Clears the current image and slideshow queue for the specified monitor."""
+        """
+        Clears the image queue and local path for the specified monitor, 
+        leaving the system's current wallpaper untouched, but restores 
+        the system wallpaper image preview immediately.
+        """
         
         if monitor_id not in self.monitor_widgets:
             return
 
         monitor_name = self.monitor_widgets[monitor_id].monitor.name
         
-        # 1. Clear state
+        # 1. Clear state (Soft Clear)
         if monitor_id in self.monitor_slideshow_queues:
             self.monitor_slideshow_queues[monitor_id].clear()
+        
+        # Clear the local path (this is the key step for the soft clear)
         if monitor_id in self.monitor_image_paths:
             self.monitor_image_paths[monitor_id] = None
+            
         if monitor_id in self.monitor_current_index:
             self.monitor_current_index[monitor_id] = -1
-
-        # 2. Update UI
-        self.monitor_widgets[monitor_id].set_image(None) # Clears the display image
-        self.monitor_widgets[monitor_id].update_text()
         
-        # 3. Re-check buttons (which may stop slideshow if no monitors remain)
+        # 2. Re-read System Wallpaper and Update UI Immediately
+        
+        system = platform.system()
+        num_monitors_detected = len(self.monitors)
+        
+        current_system_wallpaper_paths = {}
+
+        # Only attempt to re-read and display the system background on Linux/KDE
+        if system == "Linux" and num_monitors_detected > 0:
+            try:
+                # Check for KDE presence (qdbus6)
+                subprocess.run(["which", "qdbus6"], check=True, capture_output=True) 
+                
+                # Retrieve raw paths
+                raw_paths = WallpaperManager.get_current_system_wallpaper_path_kde(num_monitors_detected)
+                
+                # Apply rotation to align KDE IDs with UI Physical Order
+                current_system_wallpaper_paths = self._get_rotated_map_for_ui(raw_paths)
+                
+            except (FileNotFoundError, subprocess.CalledProcessError, Exception):
+                pass
+        
+        # 3. Update the specific MonitorDropWidget
+        system_wallpaper_path = current_system_wallpaper_paths.get(monitor_id)
+
+        if system_wallpaper_path and Path(system_wallpaper_path).exists():
+            # If system wallpaper path is found, display it immediately
+            self.monitor_widgets[monitor_id].set_image(system_wallpaper_path)
+        else:
+            # Otherwise, clear the image and show the default text
+            self.monitor_widgets[monitor_id].clear() 
+
+        # 4. Check buttons (in case clearing the last queue affects slideshow readiness)
         self.check_all_monitors_set()
 
         QMessageBox.information(self, "Monitor Cleared", 
-                                f"All images and the slideshow queue for **{monitor_name}** have been cleared.")
+                                f"All pending images and the slideshow queue for **{monitor_name}** have been cleared.\n\n"
+                                f"The system's current background remains unchanged.")
 
 
     @Slot()
@@ -788,11 +831,39 @@ class WallpaperTab(BaseTab):
         ready_label.setStyleSheet("color: #b9bbbe;")
         self.scan_thumbnail_layout.addWidget(ready_label, 0, 0, 1, columns)
 
+    # --- NEW HELPER METHOD FOR ROTATION FIX (UI Display) ---
+    def _get_rotated_map_for_ui(self, source_paths: Dict[str, str]) -> Dict[str, str]:
+        """
+        Applies a rotational correction (Right Circular Shift) to retrieved 
+        system paths to align them with the UI's physical monitor order. 
+        This mirrors the logic in _get_kde_assignment_map for correction.
+        """
+        n = len(self.monitors)
+        if n == 0:
+            return {}
+            
+        rotated_map = {}
+        
+        # Iterate over all system monitor IDs (0, 1, 2...)
+        for current_monitor_id_str in [str(i) for i in range(n)]:
+            current_monitor_id = int(current_monitor_id_str)
+            
+            # The path for Monitor 'i' (UI's order) should come from Monitor 'i+1' in the map, 
+            # with the last monitor getting the path from the first monitor (index 0).
+            # Source path index is (current_index + 1) % n.
+            source_monitor_index = (current_monitor_id + 1) % n
+            source_monitor_id_str = str(source_monitor_index)
+            
+            path_from_source = source_paths.get(source_monitor_id_str)
+            rotated_map[current_monitor_id_str] = path_from_source
+            
+        return rotated_map
+    # --- END NEW HELPER METHOD ---
     
     def populate_monitor_layout(self):
         """
         Clears and recreates the monitor drop widgets.
-        Now shows ALL monitors on Windows for per-monitor assignment.
+        Now queries the current system wallpaper path if no image has been dropped.
         """
         for i in reversed(range(self.monitor_layout.count())): 
             widget = self.monitor_layout.takeAt(i).widget()
@@ -814,6 +885,30 @@ class WallpaperTab(BaseTab):
         if not self.monitors or "Mock" in self.monitors[0].name:
             self.monitor_layout.addWidget(QLabel("Could not detect any monitors.\nIs 'screeninfo' installed?"))
             return
+
+        # --- Check system and retrieve ALL current paths once ---
+        current_system_wallpaper_paths = {}
+        system = platform.system()
+        num_monitors_detected = len(self.monitors)
+
+        if system == "Linux" and num_monitors_detected > 0:
+            try:
+                # Check for KDE presence (qdbus6)
+                subprocess.run(["which", "qdbus6"], check=True, capture_output=True) 
+                
+                # Retrieve raw paths from KDE
+                raw_paths = WallpaperManager.get_current_system_wallpaper_path_kde(num_monitors_detected)
+                
+                # APPLY ROTATION to align KDE IDs (raw_paths) with UI Physical Order (monitor_id)
+                current_system_wallpaper_paths = self._get_rotated_map_for_ui(raw_paths)
+                
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                # Fallback or ignore for GNOME/other Linux
+                pass 
+            except Exception as e:
+                print(f"KDE retrieval failed unexpectedly: {e}")
+
+        # --- End System check and retrieval ---
 
         # Show all physical monitors for placement
         monitors_to_show = physical_monitors
@@ -841,15 +936,29 @@ class WallpaperTab(BaseTab):
             drop_widget.double_clicked.connect(self.handle_monitor_double_click)
             
             # NEW CONNECTION: Connect the right-click signal
-            # Assuming MonitorDropWidget has a signal called clear_requested_id(str)
             try:
                 drop_widget.clear_requested_id.connect(self.handle_clear_monitor_queue)
             except AttributeError:
                  print(f"Warning: MonitorDropWidget is missing 'clear_requested_id' signal. Right-click clear will not work.")
             
             current_image = self.monitor_image_paths.get(monitor_id)
-            if current_image:
-                drop_widget.set_image(current_image)
+            
+            # --- Load current system wallpaper if no image is dropped ---
+            image_path_to_display = current_image
+            
+            if not image_path_to_display:
+                # Use the path from the ROTATED map
+                system_wallpaper_path = current_system_wallpaper_paths.get(monitor_id)
+                
+                if system_wallpaper_path and Path(system_wallpaper_path).exists():
+                    image_path_to_display = system_wallpaper_path
+
+            if image_path_to_display:
+                drop_widget.set_image(image_path_to_display)
+            else:
+                 drop_widget.clear() 
+            
+            # --- End Load current system wallpaper ---
             
             # Add to the layout in the physical X-axis order
             self.monitor_layout.addWidget(drop_widget)
@@ -871,8 +980,12 @@ class WallpaperTab(BaseTab):
         
         self.monitor_slideshow_queues[monitor_id].append(image_path)
         
+        # When a new image is dropped, it becomes the current image
         self.monitor_image_paths[monitor_id] = image_path
         
+        # Reset current index so the slideshow starts from the newly dropped image
+        self.monitor_current_index[monitor_id] = -1 
+
         self.monitor_widgets[monitor_id].set_image(image_path)
         
         self.check_all_monitors_set()
@@ -933,6 +1046,10 @@ class WallpaperTab(BaseTab):
         return rotated_map
     
     def _get_windows_assignment_map(self, source_paths: Dict[str, str]) -> Dict[str, str]:
+        # NOTE: This implementation performs the same right circular shift as Linux
+        # if the goal is to align the UI's physical order (sorted by X) with the OS's internal ID.
+        # This rotation logic is applied to Windows here to match the Linux fixes, 
+        # but the actual requirement for Windows COM API (IDesktopWallpaper) may vary.
         n = len(self.monitors)
         rotated_map = source_paths.copy()
         for current_monitor_id_str in source_paths.keys():
@@ -1087,6 +1204,7 @@ class WallpaperTab(BaseTab):
             if not is_slideshow_active and self.background_type != "Solid Color":
                 QMessageBox.information(self, "Success", "Wallpaper has been updated!")
                 
+                # Update the displayed image using the last path that was set
                 for monitor_id, path in self.monitor_image_paths.items():
                     if path and monitor_id in self.monitor_widgets:
                         self.monitor_widgets[monitor_id].set_image(path)
