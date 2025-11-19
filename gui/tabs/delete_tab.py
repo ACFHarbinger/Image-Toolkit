@@ -141,7 +141,7 @@ class DeleteTab(BaseTab):
         
         self.btn_scan_dups = QPushButton("Scan Directory for Duplicate Images")
         self.btn_scan_dups.setStyleSheet("""
-            QPushButton { background-color: #e67e22; color: white; font-weight: bold; padding: 8px; }
+            QPushButton { background-color: #e67e22; color: white; font-weight: bold; }
             QPushButton:hover { background-color: #d35400; }
         """)
         apply_shadow_effect(self.btn_scan_dups, color_hex="#000000", radius=8, x_offset=0, y_offset=3)

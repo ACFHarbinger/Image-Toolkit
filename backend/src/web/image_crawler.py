@@ -416,6 +416,28 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                     )
                     self.on_status.emit("Refreshed element context to prevent staleness.")
                 # --- END NEW ACTION ---
+                
+                # --- NEW ACTION: Scan Page for Text & Skip ---
+                elif action_type == "Scan Page for Text & Skip if Found":
+                    if not param:
+                        raise ValueError("Action 'Scan Page for Text': Missing text parameter.")
+                    
+                    keyword = param.lower()
+                    page_text = self.driver.find_element(By.TAG_NAME, "body").text.lower()
+                    
+                    if keyword in page_text:
+                        self.on_status.emit(f"Found keyword '{param}'. Skipping this image and closing tab...")
+                        
+                        # Clean up tab if needed
+                        if self.driver.current_window_handle != original_tab:
+                            self.driver.close()
+                            self.driver.switch_to.window(original_tab)
+                            self.on_status.emit("Closed tab and returned to gallery.")
+                            
+                        return downloaded # Stop sequence, return current status (False)
+                    else:
+                        self.on_status.emit(f"Keyword '{param}' not found. Continuing...")
+                # --- END NEW ACTION ---
 
                 # --- Actions that find elements ---
                 elif action_type == "Find <img> Number X on Page":

@@ -190,6 +190,7 @@ class ImageCrawlTab(BaseTab):
             "Download Current URL as Image",
             "Wait for Gallery (Context Reset)",
             "Scrape Text (Saves to JSON)",
+            "Scan Page for Text & Skip if Found",  # --- NEW ACTION ---
             "Close Current Tab", 
             "Refresh Current Element" 
         ])
@@ -431,7 +432,8 @@ class ImageCrawlTab(BaseTab):
         # Validation for text/selector input
         if (("Click Element by Text" in action_text or 
              "Find Element by CSS Selector" in action_text or
-             "Refresh Current Element" in action_text) and not param):
+             "Refresh Current Element" in action_text or
+             "Scan Page for Text & Skip if Found" in action_text) and not param): # --- UPDATED ---
             QMessageBox.warning(self, "Missing Parameter", f"The action '{action_text}' requires a parameter.")
             return
             
@@ -541,7 +543,7 @@ class ImageCrawlTab(BaseTab):
                         QMessageBox.warning(self, "Serialization Error", f"Image number parameter '{param_str}' is invalid.")
                         return
                 else:
-                    # For text parameters (CSS Selector, Click Text, Refresh Element)
+                    # For text parameters (CSS Selector, Click Text, Refresh Element, Scan Page)
                     param = param_str 
             else:
                 action_type = item_text
