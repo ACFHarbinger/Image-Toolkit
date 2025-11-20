@@ -4,6 +4,7 @@ import shutil
 import hashlib
 import imagehash
 import functools
+import numpy as np
 
 from PIL import Image
 from pathlib import Path
@@ -179,6 +180,75 @@ class SimilarityFinder:
             if len(group) > 1:
                 results[f"group_{group_id}"] = group
                 group_id += 1
+                
+        return results
+
+    @staticmethod
+    def find_similar_ssim(directory: str, extensions: list[str] = None, threshold: float = 0.90) -> dict:
+        """
+        Finds similar images using Structural Similarity Index (SSIM).
+        Uses a fixed 256x256 resize for comparison.
+        """
+        images = SimilarityFinder.get_images_list(directory, extensions)
+        cache = {}
+        process_size = (256, 256)
+        
+        # 1. Preprocess
+        for img_path in images:
+            try:
+                with Image.open(img_path) as img:
+                    # Convert to standard gray numpy array
+                    img_gray = img.convert('L').resize(process_size, Image.Resampling.LANCZOS)
+                    cache[img_path] = np.array(img_gray).astype(np.float32)
+            except Exception:
+                continue
+
+        # 2. Compare (Sequential SSIM)
+        results = {}
+        ungrouped = list(cache.keys())
+        gid = 0
+        
+        # Constants
+        C1 = 6.5025
+        C2 = 58.5225
+        
+        while ungrouped:
+            curr = ungrouped.pop(0)
+            group = [curr]
+            to_remove = []
+            
+            img1 = cache[curr]
+            
+            # Calc stats for img1
+            mu1 = cv2.GaussianBlur(img1, (11, 11), 1.5)
+            mu1_sq = mu1 * mu1
+            sigma1_sq = cv2.GaussianBlur(img1 * img1, (11, 11), 1.5) - mu1_sq
+            
+            for candidate_path in ungrouped:
+                img2 = cache[candidate_path]
+                
+                mu2 = cv2.GaussianBlur(img2, (11, 11), 1.5)
+                mu2_sq = mu2 * mu2
+                sigma2_sq = cv2.GaussianBlur(img2 * img2, (11, 11), 1.5) - mu2_sq
+                
+                mu1_mu2 = mu1 * mu2
+                sigma12 = cv2.GaussianBlur(img1 * img2, (11, 11), 1.5) - mu1_mu2
+                
+                numerator = (2 * mu1_mu2 + C1) * (2 * sigma12 + C2)
+                denominator = (mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2)
+                
+                score = cv2.mean(numerator / denominator)[0]
+                
+                if score > threshold:
+                    group.append(candidate_path)
+                    to_remove.append(candidate_path)
+            
+            for r in to_remove:
+                ungrouped.remove(r)
+                
+            if len(group) > 1:
+                results[f"ssim_group_{gid}"] = group
+                gid += 1
                 
         return results
 

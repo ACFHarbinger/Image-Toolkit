@@ -166,8 +166,9 @@ class DeleteTab(BaseTab):
         self.scan_method_combo.addItems([
             "Exact Match (Same File - Fastest)",
             "Similar: Perceptual Hash (Resized/Color Edits - Fast)",
-            "Similar: ORB Feature Matching (Cropped/Rotated - Slow)",
-            "Similar: SIFT Feature Matching (Robust - Slowest)"
+            "Similar: ORB Feature Matching (Cropped/Rotated - Medium)",
+            "Similar: SIFT Feature Matching (Robust - Slow)",
+            "Similar: SSIM (High Quality - Slowest)"
         ])
         method_layout.addWidget(self.scan_method_combo, 1)
         dup_layout.addLayout(method_layout)
@@ -568,9 +569,12 @@ class DeleteTab(BaseTab):
         elif "Perceptual Hash" in method_text: 
             method = "phash"
             status_msg = "Starting similarity scan..."
+        elif "SSIM" in method_text:
+            method = "ssim"
+            status_msg = "Starting SSIM scan..."
         elif "SIFT" in method_text:
             method = "sift"
-            status_msg = "Starting SIFT scan (this may take a while)..."
+            status_msg = "Starting SIFT scan..."
         else: 
             method = "orb"
             status_msg = "Starting ORB scan..."

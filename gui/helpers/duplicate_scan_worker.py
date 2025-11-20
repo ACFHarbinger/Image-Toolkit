@@ -5,7 +5,7 @@ from PySide6.QtCore import (
     Slot, Signal, QObject, 
     QThread, QThreadPool, QEventLoop,
 )
-from .tasks import PhashTask, OrbTask, SiftTask
+from .tasks import PhashTask, OrbTask, SiftTask, SsimTask
 from backend.src.core.file_system_entries import DuplicateFinder, SimilarityFinder
 
 
@@ -60,7 +60,7 @@ class DuplicateScanWorker(QObject):
                 self._check_interrupt()
 
             # --- 2. PARALLEL PROCESSING (pHash / ORB) ---
-            elif self.method in ["phash", "orb", "sift"]:
+            elif self.method in ["phash", "orb", "sift", "ssim"]:
                 self.status.emit("Indexing images...")
                 images = SimilarityFinder.get_images_list(self.directory, self.extensions)
                 self.total_files = len(images)
@@ -79,6 +79,8 @@ class DuplicateScanWorker(QObject):
                     self._check_interrupt()
                     if self.method == "phash":
                         task = PhashTask(path)
+                    elif self.method == "ssim":
+                        task = SsimTask(path)
                     elif self.method == "sift":
                         task = SiftTask(path)
                     else:
@@ -97,6 +99,8 @@ class DuplicateScanWorker(QObject):
                 
                 if self.method == "phash":
                     results = self._compare_phash(self.scan_cache)
+                elif self.method == "ssim":
+                    results = self._compare_ssim(self.scan_cache)
                 elif self.method == "sift":
                     results = self._compare_sift(self.scan_cache)
                 else:
@@ -160,6 +164,64 @@ class DuplicateScanWorker(QObject):
             if len(group) > 1:
                 results[f"phash_{group_id}"] = group
                 group_id += 1
+                
+        return results
+
+    def _compare_ssim(self, cache: Dict[str, Any]) -> Dict[str, List[str]]:
+        """
+        Sequential comparison using Structural Similarity Index.
+        """
+        results = {}
+        ungrouped = list(cache.keys())
+        gid = 0
+        
+        # SSIM constants for data range 0-255
+        C1 = 6.5025  # (0.01 * 255)^2
+        C2 = 58.5225 # (0.03 * 255)^2
+        
+        while ungrouped:
+            self._check_interrupt()
+            curr = ungrouped.pop(0)
+            group = [curr]
+            to_rem = []
+            
+            img1 = cache[curr]
+            
+            # Pre-calculation for img1 to save time in the inner loop
+            mu1 = cv2.GaussianBlur(img1, (11, 11), 1.5)
+            mu1_sq = mu1 * mu1
+            sigma1_sq = cv2.GaussianBlur(img1 * img1, (11, 11), 1.5) - mu1_sq
+            
+            for cand in ungrouped:
+                img2 = cache[cand]
+                
+                # --- SSIM CALCULATION (OpenCV Optimized) ---
+                mu2 = cv2.GaussianBlur(img2, (11, 11), 1.5)
+                mu2_sq = mu2 * mu2
+                sigma2_sq = cv2.GaussianBlur(img2 * img2, (11, 11), 1.5) - mu2_sq
+                
+                mu1_mu2 = mu1 * mu2
+                sigma12 = cv2.GaussianBlur(img1 * img2, (11, 11), 1.5) - mu1_mu2
+                
+                # Formula: (2*mu1*mu2 + C1) * (2*sig12 + C2) / ((mu1^2 + mu2^2 + C1) * (sig1^2 + sig2^2 + C2))
+                numerator = (2 * mu1_mu2 + C1) * (2 * sigma12 + C2)
+                denominator = (mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2)
+                
+                ssim_map = numerator / denominator
+                score = cv2.mean(ssim_map)[0]
+                # -------------------------------------------
+
+                # Threshold: 0.90 is usually a very strong structural match
+                if score > 0.90:
+                    group.append(cand)
+                    to_rem.append(cand)
+                    
+            for r in to_rem: 
+                ungrouped.remove(r)
+                
+            if len(group) > 1:
+                results[f"ssim_{gid}"] = group
+                gid += 1
                 
         return results
 
