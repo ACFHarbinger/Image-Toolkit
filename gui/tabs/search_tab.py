@@ -5,23 +5,19 @@ import time
 
 from typing import Dict, Any, List, Optional
 from PySide6.QtGui import QPixmap, QAction, QCursor
-from PySide6.QtCore import Qt, QTimer, Signal, QPoint
+from PySide6.QtCore import Qt, Signal, QPoint, QThreadPool, Slot
 from PySide6.QtWidgets import (
-    QFormLayout, QHBoxLayout, QVBoxLayout, QGridLayout,
-    QScrollArea, QGroupBox, QApplication, 
-    QLineEdit, QPushButton, QComboBox, QCheckBox,
-    QWidget, QLabel, QMessageBox, QMenu
+    QLineEdit, QPushButton, QComboBox, QProgressBar,
+    QWidget, QLabel, QMessageBox, QMenu, QCheckBox,
+    QFormLayout, QHBoxLayout, QVBoxLayout, 
+    QGridLayout, QScrollArea, QGroupBox, 
 )
 from .base_tab import BaseTab
+from ..helpers import SearchWorker
 from ..windows import ImagePreviewWindow
-from ..components import OptionalField, ClickableLabel
+from ..components import OptionalField, ClickableLabel, MarqueeScrollArea
+from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 from ..styles.style import apply_shadow_effect
-
-# Safe import for supported formats
-try:
-    from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
-except ImportError:
-    SUPPORTED_IMG_FORMATS = [".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff"]
 
 
 class SearchTab(BaseTab):
@@ -30,17 +26,21 @@ class SearchTab(BaseTab):
 
     def __init__(self, db_tab_ref, dropdown=True):
         super().__init__()
-        # Reference to the main DatabaseTab to access the self.db connection object
         self.db_tab_ref = db_tab_ref
         self.dropdown = dropdown
         
         self.result_widgets = []
-        self.open_preview_windows = [] # Track open preview windows
+        self.open_preview_windows = [] 
         self.selected_formats = set() 
-        self.current_result_paths = [] # Store paths for navigation
-        self._db_was_connected = False # Track connection state for tag refresh
+        self.current_result_paths = [] 
+        self._db_was_connected = False 
+        
+        self.threadpool = QThreadPool.globalInstance()
+        self.current_worker: Optional[SearchWorker] = None
+        
+        self.selected_paths = set()
+        self.path_to_widget_map = {} 
 
-        # Layout / Thumbnail constants matching WallpaperTab
         self.thumbnail_size = 150
         self.padding_width = 10
         self.approx_item_width = self.thumbnail_size + self.padding_width
@@ -49,23 +49,19 @@ class SearchTab(BaseTab):
         
         # --- Search Criteria ---
         search_group = QGroupBox("Search Database")
-        
         form_layout = QFormLayout(search_group)
         form_layout.setContentsMargins(10, 20, 10, 10)
         
-        # Group name
         self.group_combo = QComboBox()
         self.group_combo.setEditable(True)
         self.group_combo.setPlaceholderText("e.g., Summer Trip (Optional)")
         form_layout.addRow("Group name:", self.group_combo)
         
-        # Subgroup Name
         self.subgroup_combo = QComboBox()
         self.subgroup_combo.setEditable(True)
         self.subgroup_combo.setPlaceholderText("e.g., Beach Photos (Optional)")
         form_layout.addRow("Subgroup name:", self.subgroup_combo)
         
-        # Filename
         self.filename_edit = QLineEdit()
         self.filename_edit.setPlaceholderText("e.g., *.png, img_001, etc (Optional)")
         self.filename_field = OptionalField("Filename pattern", self.filename_edit, start_open=False)
@@ -91,10 +87,12 @@ class SearchTab(BaseTab):
             self.btn_add_all.setStyleSheet("background-color: green; color: white;")
             apply_shadow_effect(self.btn_add_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
             self.btn_add_all.clicked.connect(self.add_all_formats)
+            
             self.btn_remove_all = QPushButton("Remove All")
             self.btn_remove_all.setStyleSheet("background-color: red; color: white;")
             apply_shadow_effect(self.btn_remove_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
             self.btn_remove_all.clicked.connect(self.remove_all_formats)
+            
             all_btn_layout.addWidget(self.btn_add_all)
             all_btn_layout.addWidget(self.btn_remove_all)
             formats_layout.addLayout(all_btn_layout)
@@ -119,10 +117,8 @@ class SearchTab(BaseTab):
         tags_scroll.setWidget(self.tags_widget)
         
         self.tag_checkboxes = {}
-        self._setup_tag_checkboxes() # Populate with defaults or DB tags
-
-        form_layout.addRow("Tags:", tags_scroll)
         
+        form_layout.addRow("Tags:", tags_scroll)
         layout.addWidget(search_group)
         
         # Search button
@@ -140,33 +136,72 @@ class SearchTab(BaseTab):
             QPushButton:pressed { background: #5a67d8; }
         """)
         apply_shadow_effect(self.search_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        self.search_button.clicked.connect(self.perform_search)
+        self.search_button.clicked.connect(self.toggle_search)
         layout.addWidget(self.search_button)
         
+        # --- NEW: Progress Bar (Indeterminate) ---
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 0) # Indeterminate mode
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.hide()
+        layout.addWidget(self.progress_bar)
+        
         # Connect Enter key to search
-        self.group_combo.lineEdit().returnPressed.connect(self.search_button.click)
-        self.subgroup_combo.lineEdit().returnPressed.connect(self.search_button.click)
-        self.filename_edit.returnPressed.connect(self.search_button.click)
+        self.group_combo.lineEdit().returnPressed.connect(self.toggle_search)
+        self.subgroup_combo.lineEdit().returnPressed.connect(self.toggle_search)
+        self.filename_edit.returnPressed.connect(self.toggle_search)
         if not self.dropdown:
-            self.input_formats_edit.returnPressed.connect(self.search_button.click)
+            self.input_formats_edit.returnPressed.connect(self.toggle_search)
         
         # Results area
+        results_header_layout = QHBoxLayout()
         results_label = QLabel("Search Results:")
         results_label.setStyleSheet("font-weight: bold; font-size: 12px; margin-top: 10px;")
-        layout.addWidget(results_label)
+        results_header_layout.addWidget(results_label)
+        
+        # --- NEW: Selection Actions ---
+        results_header_layout.addStretch()
+        
+        self.btn_select_all = QPushButton("Select All")
+        self.btn_select_all.setFixedWidth(120)
+        self.btn_select_all.setMinimumHeight(30)
+        apply_shadow_effect(self.btn_select_all, color_hex="#000000", radius=4, x_offset=0, y_offset=2)
+        self.btn_select_all.clicked.connect(self.select_all_results)
+        
+        self.btn_deselect_all = QPushButton("Deselect All")
+        self.btn_deselect_all.setFixedWidth(120)
+        self.btn_deselect_all.setMinimumHeight(30)
+        apply_shadow_effect(self.btn_deselect_all, color_hex="#000000", radius=4, x_offset=0, y_offset=2)
+        self.btn_deselect_all.clicked.connect(self.deselect_all_results)
+        
+        self.btn_send_to_scan = QPushButton("Open Selected in Scan Tab")
+        self.btn_send_to_scan.setMinimumHeight(30)
+        self.btn_send_to_scan.setStyleSheet("background-color: #2ecc71; color: white; font-weight: bold;")
+        apply_shadow_effect(self.btn_send_to_scan, color_hex="#000000", radius=4, x_offset=0, y_offset=2)
+        self.btn_send_to_scan.clicked.connect(self.send_selection_to_scan_tab)
+
+        results_header_layout.addWidget(self.btn_select_all)
+        results_header_layout.addWidget(self.btn_deselect_all)
+        results_header_layout.addWidget(self.btn_send_to_scan)
+        
+        layout.addLayout(results_header_layout)
         
         self.results_count_label = QLabel("Not connected to database.")
         self.results_count_label.setStyleSheet("color: #aaa; font-style: italic;")
         layout.addWidget(self.results_count_label)
         
-        # Scrollable area for image results
-        self.results_scroll = QScrollArea()
+        # --- MODIFIED: Use MarqueeScrollArea ---
+        self.results_scroll = MarqueeScrollArea()
         self.results_scroll.setWidgetResizable(True)
         self.results_scroll.setMinimumHeight(300)
         
         # Matching styles to WallpaperTab
         self.results_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
         
+        # --- Connect Marquee Selection ---
+        self.results_scroll.selection_changed.connect(self.handle_marquee_selection)
+        # ---------------------------------
+
         self.results_widget = QWidget()
         self.results_widget.setStyleSheet("QWidget { background-color: #2c2f33; }")
         
@@ -182,7 +217,86 @@ class SearchTab(BaseTab):
         # Update enabled state based on DB connection
         self.update_search_button_state()
 
-    # --- Helper methods ---
+    # --- Worker and Search Logic ---
+    
+    @Slot()
+    def toggle_search(self):
+        """Switches between starting and cancelling the search."""
+        if self.current_worker:
+            self.cancel_search()
+        else:
+            self.perform_search()
+
+    def perform_search(self):
+        """
+        Gathers parameters and starts the asynchronous search worker.
+        """
+        db = self.db_tab_ref.db
+        if not db:
+            QMessageBox.warning(self, "Error", "Please connect to the database first.")
+            return
+            
+        # Get search criteria
+        query_params = {
+            "group_name": self.group_combo.currentText().strip() or None,
+            "subgroup_name": self.subgroup_combo.currentText().strip() or None,
+            "filename_pattern": self.filename_edit.text().strip() or None,
+            "tags": self.get_selected_tags(),
+            "input_formats": self.get_selected_formats(),
+            "limit": 1000
+        }
+
+        # Clear previous UI state and results
+        self.clear_results()
+        self.search_button.setEnabled(False)
+        self.search_button.setText("Searching...")
+        self.progress_bar.show()
+        
+        # Create and start worker
+        self.current_worker = SearchWorker(db, query_params)
+        self.current_worker.signals.finished.connect(self.on_search_finished)
+        self.current_worker.signals.error.connect(self.on_search_error)
+        self.current_worker.signals.cancelled.connect(self.on_search_cancelled)
+        
+        self.threadpool.start(self.current_worker)
+
+    @Slot(list)
+    def on_search_finished(self, matching_files: list):
+        """Receives results from the worker and updates the UI."""
+        self.current_worker = None
+        self._reset_search_ui(f"Search Complete. Found {len(matching_files)} images.")
+        self.display_results(matching_files)
+
+    @Slot(str)
+    def on_search_error(self, error_msg: str):
+        """Handles errors from the worker and updates the UI."""
+        self.current_worker = None
+        self._reset_search_ui("Search Failed.")
+        QMessageBox.critical(self, "Search Error", f"An error occurred during search:\n{error_msg}")
+        self.results_count_label.setText(f"Error: {error_msg}")
+
+    @Slot()
+    def on_search_cancelled(self):
+        """Handles manual cancellation."""
+        self.current_worker = None
+        self._reset_search_ui("Search Cancelled.")
+        self.results_count_label.setText("Search cancelled by user.")
+
+    def cancel_search(self):
+        """Requests cancellation of the current search worker."""
+        if self.current_worker:
+            self.current_worker.cancel()
+            self.search_button.setText("Stopping...")
+            self.search_button.setEnabled(False) 
+
+    def _reset_search_ui(self, message: str):
+        """Resets the search button and hides the progress bar."""
+        self.search_button.setEnabled(True)
+        self.search_button.setText("Search Database")
+        self.progress_bar.hide()
+        self.results_count_label.setText(message)
+
+    # --- Format Selection Methods ---
     def toggle_format(self, fmt, checked):
         if checked:
             self.selected_formats.add(fmt)
@@ -196,15 +310,58 @@ class SearchTab(BaseTab):
             self.format_buttons[fmt].setStyleSheet("QPushButton:hover { background-color: #3498db; }")
             apply_shadow_effect(self.format_buttons[fmt], color_hex="#000000", radius=8, x_offset=0, y_offset=3)
 
+    @Slot()
     def add_all_formats(self):
         for fmt, btn in self.format_buttons.items():
             btn.setChecked(True)
             self.toggle_format(fmt, True)
 
+    @Slot()
     def remove_all_formats(self):
         for fmt, btn in self.format_buttons.items():
             btn.setChecked(False)
             self.toggle_format(fmt, False)
+    
+    # --- DB Tags Helper Methods ---
+
+    def _get_tags_from_db(self) -> List[str]:
+        """Fetches all tags from the connected database."""
+        db = self.db_tab_ref.db
+        if not db: 
+            return []
+            
+        try:
+            # Use get_all_tags_with_types and extract only the names
+            db_tags = [item['name'] for item in db.get_all_tags_with_types()]
+            if db_tags:
+                return sorted(list(set(db_tags)))
+        except Exception:
+            pass 
+        return []
+
+    @Slot()
+    def _setup_tag_checkboxes(self):
+        """
+        Clears and repopulates the tags grid layout with checkboxes.
+        Called by update_search_button_state.
+        """
+        # Clear existing checkboxes
+        while self.tags_layout.count():
+            item = self.tags_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        self.tag_checkboxes = {}
+        
+        tags_list = self._get_tags_from_db()
+
+        columns = 4
+        for i, tag in enumerate(tags_list):
+            checkbox = QCheckBox(tag.replace("_", " ").title())
+            self.tag_checkboxes[tag] = checkbox
+            self.tags_layout.addWidget(checkbox, i // columns, i % columns)
+            
+    # --- UI and Selection methods ---
 
     def update_search_button_state(self, connected: bool = None):
         """
@@ -230,40 +387,6 @@ class SearchTab(BaseTab):
         
         self._db_was_connected = db_connected
 
-    # --- DB TAGS UTILS ---
-    def _get_tags_from_db(self) -> List[str]:
-        """Fetches all tags from the connected database."""
-        db = self.db_tab_ref.db
-        if not db: 
-            return []
-            
-        try:
-            # Use get_all_tags_with_types and extract only the names
-            db_tags = [item['name'] for item in db.get_all_tags_with_types()]
-            if db_tags:
-                return sorted(list(set(db_tags)))
-        except Exception:
-            pass 
-        return []
-
-    def _setup_tag_checkboxes(self):
-        """Clears and repopulates the tags grid layout with checkboxes."""
-        # Clear existing checkboxes
-        while self.tags_layout.count():
-            item = self.tags_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        
-        self.tag_checkboxes = {}
-        
-        tags_list = self._get_tags_from_db()
-
-        columns = 4
-        for i, tag in enumerate(tags_list):
-            checkbox = QCheckBox(tag.replace("_", " ").title())
-            self.tag_checkboxes[tag] = checkbox
-            self.tags_layout.addWidget(checkbox, i // columns, i % columns)
-
     def get_selected_tags(self) -> List[str]:
         """Returns a list of tags selected via checkboxes."""
         return [tag for tag, cb in self.tag_checkboxes.items() if cb.isChecked()]
@@ -279,57 +402,8 @@ class SearchTab(BaseTab):
             if not formats_str:
                 return None
             return [f.strip().lstrip('.').lower() for f in formats_str.replace(',', ' ').split() if f.strip()]
-    
-    def perform_search(self):
-        """Perform the image search using the database."""
-        db = self.db_tab_ref.db
-        if not db:
-            QMessageBox.warning(self, "Error", "Please connect to the database first.")
-            return
 
-        self.search_button.setEnabled(False)
-        self.search_button.setText("Searching...")
-        QApplication.processEvents()
-    
-        self.clear_results()
-        
-        # Get search criteria
-        group = self.group_combo.currentText().strip() or None
-        subgroup = self.subgroup_combo.currentText().strip() or None
-        filename = self.filename_edit.text().strip() or None
-        tags = self.get_selected_tags()
-        formats = self.get_selected_formats()
-        
-        # Validate inputs
-        if not group and not subgroup and not filename and not tags and not formats:
-            self.results_count_label.setText("Please enter at least one search criterion.")
-            self._reset_search_button()
-            return
-        
-        try:
-            # Perform database search
-            matching_files = db.search_images(
-                group_name=group,
-                subgroup_name=subgroup,
-                tags=tags,
-                filename_pattern=filename,
-                input_formats=formats,
-                limit=1000
-            )
-            
-            self.display_results(matching_files)
-
-        except Exception as e:
-            QMessageBox.critical(self, "Search Error", f"An error occurred during search:\n{str(e)}")
-            self.results_count_label.setText(f"Error: {str(e)}")
-        
-        QTimer.singleShot(200, self._reset_search_button)
-    
-    def _reset_search_button(self):
-        """Reset search button to original style"""
-        self.search_button.setEnabled(True)
-        self.search_button.setText("Search Database")
-
+    @Slot()
     def calculate_columns(self) -> int:
         """
         Calculates the number of columns based on widget width, 
@@ -348,47 +422,173 @@ class SearchTab(BaseTab):
         columns = widget_width // self.approx_item_width
         return max(1, columns)
 
+    # --- Selection Logic Implementations ---
+
+    @Slot()
+    def select_all_results(self):
+        """Selects all currently displayed results."""
+        for path in self.current_result_paths:
+            if path not in self.selected_paths:
+                self.selected_paths.add(path)
+                self._update_widget_style(path)
+    
+    @Slot()
+    def deselect_all_results(self):
+        """Deselects all currently displayed results."""
+        self.selected_paths.clear()
+        for path in self.current_result_paths:
+            self._update_widget_style(path)
+
+    def toggle_selection(self, file_path: str):
+        """Toggles the selection state of a specific image."""
+        if file_path in self.selected_paths:
+            self.selected_paths.remove(file_path)
+        else:
+            self.selected_paths.add(file_path)
+        self._update_widget_style(file_path)
+
+    @Slot(set, bool)
+    def handle_marquee_selection(self, paths_from_marquee: set, is_ctrl_pressed: bool):
+        """Handles selection updates from the marquee tool."""
+        # Check for currently visible paths to avoid updating hidden or old items
+        visible_paths = set(self.current_result_paths)
+        
+        # Filter paths_from_marquee to only include currently visible results
+        valid_marquee_paths = paths_from_marquee.intersection(visible_paths)
+        
+        paths_to_update = self.selected_paths.union(valid_marquee_paths)
+        
+        if not is_ctrl_pressed:
+            # Exclusive selection: Start with the valid marquee selection
+            self.selected_paths = valid_marquee_paths
+        else:
+            # Additive selection: Add the valid marquee paths to the existing selection
+            self.selected_paths.update(valid_marquee_paths)
+
+        # Update styles for all affected items
+        for path in paths_to_update:
+            self._update_widget_style(path)
+            
+    def _update_widget_style(self, file_path: str):
+        """Updates the border style of the widget based on selection."""
+        widget = self.path_to_widget_map.get(file_path)
+        if widget:
+            if file_path in self.selected_paths:
+                # Selected Style: Blue Border
+                widget.setStyleSheet("border: 3px solid #5865f2; background-color: #36393f;")
+            else:
+                # Default Style: Grey Border
+                widget.setStyleSheet("border: 1px solid #4f545c;")
+
+    # --- TAB COMMUNICATION METHODS (remain unchanged) ---
+
+    def _get_target_selection(self, single_path=None):
+        """
+        Returns the list of paths to process.
+        Logic:
+        1. If multiple items are selected, return ALL selected paths.
+        2. If NO items are selected, but single_path is provided (right-click on non-selected item), return [single_path].
+        3. If single_path is provided AND it is inside the current selection, return ALL selected paths (bulk action).
+        """
+        paths = list(self.selected_paths)
+        
+        if single_path:
+            if single_path in self.selected_paths:
+                # Right-clicked on an item that is part of the selection -> Process whole selection
+                return sorted(paths)
+            else:
+                # Right-clicked on an item NOT in selection -> Process only that item
+                if not paths:
+                    return [single_path]
+                else:
+                    # Ambiguous case: User has selection but right-clicked outside it.
+                    # Here we return ONLY the right-clicked one to be safe/explicit.
+                    return [single_path]
+        
+        return sorted(paths)
+
+    def send_selection_to_scan_tab(self):
+        if not self.selected_paths:
+            QMessageBox.information(self, "No Selection", "Please select at least one image to open in the Scan Tab.")
+            return
+        if not self.db_tab_ref or not hasattr(self.db_tab_ref, 'scan_tab_ref') or not self.db_tab_ref.scan_tab_ref:
+            QMessageBox.warning(self, "Configuration Error", "Scan Metadata Tab reference not found.")
+            return
+        scan_tab = self.db_tab_ref.scan_tab_ref
+        sorted_selection = sorted(list(self.selected_paths))
+        scan_tab.process_scan_results(sorted_selection)
+        if hasattr(scan_tab, 'view_db_only_button'):
+            scan_tab.view_db_only_button.setChecked(False)
+        QMessageBox.information(self, "Images Sent", f"Successfully sent {len(sorted_selection)} images to the Scan Metadata Tab.")
+
+    def send_selection_to_merge_tab(self, single_path=None):
+        paths = self._get_target_selection(single_path)
+        if not paths:
+             QMessageBox.information(self, "No Selection", "No images selected.")
+             return
+        if not hasattr(self.db_tab_ref, 'merge_tab_ref') or not self.db_tab_ref.merge_tab_ref:
+            QMessageBox.warning(self, "Error", "Merge Tab reference not found.")
+            return
+        self.db_tab_ref.merge_tab_ref.display_scan_results(paths)
+        QMessageBox.information(self, "Images Sent", f"Sent {len(paths)} images to the Merge Tab.")
+
+    def send_selection_to_delete_tab(self, single_path=None):
+        paths = self._get_target_selection(single_path)
+        if not paths:
+             QMessageBox.information(self, "No Selection", "No images selected.")
+             return
+        if not hasattr(self.db_tab_ref, 'delete_tab_ref') or not self.db_tab_ref.delete_tab_ref:
+            QMessageBox.warning(self, "Error", "Delete Tab reference not found.")
+            return
+        delete_tab = self.db_tab_ref.delete_tab_ref
+        delete_tab.clear_gallery()
+        delete_tab.duplicate_path_list = paths
+        delete_tab.status_label.setText(f"Imported {len(paths)} files from Search.")
+        delete_tab.gallery_scroll.setVisible(True)
+        delete_tab.selected_scroll.setVisible(True)
+        delete_tab.load_thumbnails(paths)
+        QMessageBox.information(self, "Images Sent", f"Sent {len(paths)} images to the Delete Tab.")
+
+    def send_selection_to_wallpaper_tab(self, single_path=None):
+        paths = self._get_target_selection(single_path)
+        if not paths:
+             QMessageBox.information(self, "No Selection", "No images selected.")
+             return
+        if not hasattr(self.db_tab_ref, 'wallpaper_tab_ref') or not self.db_tab_ref.wallpaper_tab_ref:
+             QMessageBox.warning(self, "Error", "Wallpaper Tab reference not found.")
+             return
+        self.db_tab_ref.wallpaper_tab_ref.display_scan_results(paths)
+        QMessageBox.information(self, "Images Sent", f"Sent {len(paths)} images to the Wallpaper Tab.")
+
     def display_results(self, results: List[Dict[str, Any]]):
         """Display the search results (dictionaries) as thumbnails"""
         count = len(results)
         self.results_count_label.setText(f"Found {count} matching image(s)")
-        
-        # Store paths for navigation in the preview window
+        self.selected_paths.clear()
+        self.path_to_widget_map.clear()
         self.current_result_paths = [res.get('file_path') for res in results if res.get('file_path')]
-        
         if count == 0:
             return
-        
-        # Use dynamic column calculation
         columns = self.calculate_columns()
-        
         for i, img_data in enumerate(results):
             row = i // columns
             col = i % columns
-            
             file_path = img_data.get('file_path')
-            
             result_container = QWidget()
-            result_container.setStyleSheet("background: transparent;") # Ensure transparency
+            result_container.setStyleSheet("background: transparent;") 
             result_layout = QVBoxLayout(result_container)
             result_layout.setContentsMargins(0, 0, 0, 0)
             result_layout.setSpacing(1)
-            
-            # Image Label (Thumbnail)
             image_label = ClickableLabel(file_path)
             image_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
             image_label.setAlignment(Qt.AlignCenter)
-            
-            # Styling to match WallpaperTab (Dark border, no fill unless error)
             image_label.setStyleSheet("border: 1px solid #4f545c;")
-            
-            # Connect mouse events for preview and context menu
+            image_label.path_clicked.connect(lambda checked, p=file_path: self.toggle_selection(p))
             image_label.path_double_clicked.connect(self.open_file_preview)
             image_label.path_right_clicked.connect(
                 lambda pos, p=file_path, w=image_label: self.show_context_menu(pos, p, w)
             )
-
-            # Load thumbnail
+            self.path_to_widget_map[file_path] = image_label
             pixmap = QPixmap(str(file_path))
             if not pixmap.isNull():
                 scaled_pixmap = pixmap.scaled(
@@ -399,21 +599,15 @@ class SearchTab(BaseTab):
             else:
                 image_label.setText("Not Found")
                 image_label.setStyleSheet("border: 1px solid #e74c3c; background-color: #4f545c; font-size: 8px;")
-            
             result_layout.addWidget(image_label)
-            
             self.results_layout.addWidget(result_container, row, col)
             self.result_widgets.append(result_container)
 
     def handle_remove_from_db(self, file_path: str):
-        """
-        Removes the image entry from the database only (keeps the file).
-        """
         db = self.db_tab_ref.db
         if not db:
             QMessageBox.warning(self, "Database Error", "Please connect to the database first.")
             return
-
         filename = os.path.basename(file_path)
         reply = QMessageBox.question(
             self, 
@@ -422,44 +616,32 @@ class SearchTab(BaseTab):
             QMessageBox.Yes | QMessageBox.No, 
             QMessageBox.No
         )
-        
         if reply == QMessageBox.No:
             return
-
         try:
-            # 1. Look up image ID in the database
             image_data = db.get_image_by_path(file_path)
             image_id = image_data.get('id') if image_data else None
-
             if image_id is not None:
-                # 2. Delete the entry from the database
                 db.delete_image(image_id) 
-                
-                # 3. Update the UI list
                 if file_path in self.current_result_paths:
                     self.current_result_paths.remove(file_path)
+                if file_path in self.selected_paths:
+                    self.selected_paths.remove(file_path)
                 self.perform_search() 
-                
                 QMessageBox.information(self, "Success", f"Database entry for **{filename}** removed successfully.")
             else:
                 QMessageBox.warning(self, "Warning", f"No database entry found for file: {filename}")
-
         except Exception as e:
             QMessageBox.critical(self, "Removal Failed", f"Could not remove database entry:\n{e}")
 
     def handle_delete_image(self, file_path: str):
-        """
-        Handles the permanent deletion of the image file AND its database entry.
-        """
         if not file_path or not os.path.exists(file_path):
             QMessageBox.warning(self, "Delete Error", "File not found or path is invalid.")
             return
-        
         db = self.db_tab_ref.db
         if not db:
             QMessageBox.warning(self, "Delete Error", "Database connection required for file and DB deletion.")
             return
-
         filename = os.path.basename(file_path)
         reply = QMessageBox.question(
             self, 
@@ -468,70 +650,48 @@ class SearchTab(BaseTab):
             QMessageBox.Yes | QMessageBox.No, 
             QMessageBox.No
         )
-        
         if reply == QMessageBox.No:
             return
-
         try:
-            # 1. Look up image ID in the database
             image_data = db.get_image_by_path(file_path)
             image_id = image_data.get('id') if image_data else None
-
-            # 2. Close any open preview windows for this file
             for window in self.open_preview_windows[:]:
                 if window.image_path == file_path:
                     window.close()
                     break
-            
-            # 3. Delete the file from the filesystem
             os.remove(file_path)
-            
-            # 4. Delete the entry from the database
             if image_id is not None:
                 db.delete_image(image_id) 
             else:
                 print(f"Warning: Image file deleted, but no entry found in database for path: {file_path}")
-
-            # 5. Remove the image from current search results lists/widgets
             if file_path in self.current_result_paths:
                 self.current_result_paths.remove(file_path)
-
-            # Re-run search to update the grid cleanly
+            if file_path in self.selected_paths:
+                self.selected_paths.remove(file_path)
             self.perform_search() 
-
             QMessageBox.information(self, "Success", f"File and associated database entry deleted successfully: {filename}")
-            
         except Exception as e:
             QMessageBox.critical(self, "Deletion Failed", f"Could not delete the file:\n{e}")
 
-
     def show_image_properties(self, file_path: str):
-        """Gathers and displays the image file's properties in a QMessageBox."""
         if not file_path or not os.path.exists(file_path):
             QMessageBox.warning(self, "Invalid Path", f"File not found at path:\n{file_path}")
             return
-            
         try:
-            # 1. File System Properties
             stats = os.stat(file_path)
             file_size_bytes = stats.st_size
             last_modified = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(stats.st_mtime))
-            
-            # Helper for size formatting
             def format_size(size_bytes):
                 for unit in ['B', 'KB', 'MB', 'GB']:
                     if size_bytes < 1024.0:
                         return f"{size_bytes:.2f} {unit}"
                     size_bytes /= 1024.0
                 return f"{size_bytes:.2f} TB"
-
-            # 2. Image Dimensions (Attempt to load QPixmap to get size)
             pixmap = QPixmap(file_path)
             if not pixmap.isNull():
                 dimensions = f"{pixmap.width()} x {pixmap.height()} pixels"
             else:
                 dimensions = "N/A (Could not load image)"
-
             properties_text = (
                 f"**Filename:** {os.path.basename(file_path)}\n"
                 f"**Full Path:** {file_path}\n"
@@ -539,71 +699,56 @@ class SearchTab(BaseTab):
                 f"**Size:** {format_size(stats.st_size)} ({file_size_bytes} bytes)\n"
                 f"**Last Modified:** {last_modified}\n"
             )
-
             msg = QMessageBox(self)
             msg.setWindowTitle("Image Properties")
             msg.setText(properties_text)
             msg.setIcon(QMessageBox.Information)
-            msg.setStyleSheet("QLabel{min-width: 400px;}") # Adjust size for readability
+            msg.setStyleSheet("QLabel{min-width: 400px;}") 
             msg.exec()
-
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to retrieve properties: {e}")
 
-
     def show_context_menu(self, pos: QPoint, file_path: str, widget: QWidget):
-        """Displays a context menu with Send To options."""
         menu = QMenu(self)
-
-        # 1. Show Image Properties
         properties_action = QAction("🖼️ Show Image Properties", self)
         properties_action.triggered.connect(lambda: self.show_image_properties(file_path))
         menu.addAction(properties_action)
-
-        # 2. Open Full Preview
         preview_action = QAction("👁️ Open Full Preview", self)
         preview_action.triggered.connect(lambda: self.open_file_preview(file_path))
         menu.addAction(preview_action)
-        
         dir_action = QAction("📂 Open File Location", self)
         dir_action.triggered.connect(lambda: self.open_file_directory(file_path))
         menu.addAction(dir_action)
-        
         menu.addSeparator()
-
-        # 3. Database Removal (New Action)
         remove_db_action = QAction("❌ Remove from Database Only", self)
         remove_db_action.triggered.connect(lambda: self.handle_remove_from_db(file_path))
         menu.addAction(remove_db_action)
-        
-        # 4. Delete File and DB Entry
         delete_action = QAction("🗑️ Delete Image File (Permanent)", self)
         delete_action.triggered.connect(lambda: self.handle_delete_image(file_path))
         menu.addAction(delete_action)
-
         menu.addSeparator()
-        
-        # Send To Actions
         send_menu = menu.addMenu("Send To...")
-        
-        actions_data = [
-            ("Merge Tab", "merge"),
-            ("Wallpaper Tab", "wallpaper"),
-            ("Scan Metadata Tab", "scan"),
-            ("Delete Tab", "delete")
-        ]
-        
-        for name, code in actions_data:
-            action = QAction(name, self)
-            # emit signal with (tab_code, file_path)
-            action.triggered.connect(lambda chk, c=code, p=file_path: self.send_to_tab_signal.emit(c, p))
-            send_menu.addAction(action)
-
-        # Display menu at global position (next to cursor)
+        merge_action = QAction("Merge Tab", self)
+        merge_action.triggered.connect(lambda: self.send_selection_to_merge_tab(file_path))
+        send_menu.addAction(merge_action)
+        wallpaper_action = QAction("Wallpaper Tab", self)
+        wallpaper_action.triggered.connect(lambda: self.send_selection_to_wallpaper_tab(file_path))
+        send_menu.addAction(wallpaper_action)
+        scan_action = QAction("Scan Metadata Tab", self)
+        scan_action.triggered.connect(lambda: self.send_selection_to_scan_tab())
+        send_menu.addAction(scan_action)
+        delete_tab_action = QAction("Delete Tab", self)
+        delete_tab_action.triggered.connect(lambda: self.send_selection_to_delete_tab(file_path))
+        send_menu.addAction(delete_tab_action)
+        menu.addSeparator()
+        is_selected = file_path in self.selected_paths
+        toggle_text = "Deselect" if is_selected else "Select"
+        toggle_action = QAction(toggle_text, self)
+        toggle_action.triggered.connect(lambda: self.toggle_selection(file_path))
+        menu.addAction(toggle_action)
         menu.exec(QCursor.pos())
 
     def remove_preview_window(self, window_instance: ImagePreviewWindow):
-        """Removes a preview window from the tracking list when it's closed."""
         try:
             if window_instance in self.open_preview_windows:
                 self.open_preview_windows.remove(window_instance)
@@ -611,18 +756,13 @@ class SearchTab(BaseTab):
             pass
 
     def open_file_preview(self, file_path: str):
-        """Opens the full-size image preview window with navigation support."""
         if not file_path or not os.path.exists(file_path) or not os.path.isfile(file_path):
             QMessageBox.warning(self, "Invalid Path", f"File not found at path:\n{file_path}")
             return
-
-        # Focus existing window if open
         for window in self.open_preview_windows:
             if window.image_path == file_path:
                 window.activateWindow() 
                 return
-        
-        # Determine index for navigation
         if self.current_result_paths:
             try:
                 start_index = self.current_result_paths.index(file_path)
@@ -633,7 +773,6 @@ class SearchTab(BaseTab):
         else:
             start_index = 0
             all_paths = [file_path]
-
         preview = ImagePreviewWindow(
             image_path=file_path, 
             db_tab_ref=self.db_tab_ref, 
@@ -646,37 +785,33 @@ class SearchTab(BaseTab):
         self.open_preview_windows.append(preview)
 
     def open_file_directory(self, file_path: str):
-        """Open the file's parent directory with the default system application"""
         if not file_path or not os.path.exists(file_path):
             QMessageBox.warning(self, "Invalid Path", f"File not found at path:\n{file_path}")
             return
-            
         directory = os.path.dirname(file_path)
         system = platform.system()
         try:
             if system == "Windows":
                 os.startfile(directory)
-            elif system == "Darwin":  # macOS
+            elif system == "Darwin":
                 subprocess.run(['open', directory])
-            else:  # Linux/Unix
+            else:
                 subprocess.run(['xdg-open', directory])
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open directory:\n{e}")
     
     def clear_results(self):
-        """Clear all previous search results"""
         for widget in self.result_widgets:
             widget.deleteLater()
         self.result_widgets.clear()
         self.current_result_paths = []
-        
-        # Close previously opened previews
+        self.selected_paths.clear()
+        self.path_to_widget_map.clear()
         for window in self.open_preview_windows[:]:
             window.close()
         self.open_preview_windows.clear()
     
     def collect(self) -> Dict[str, Any]:
-        """Collect search parameters"""
         return {
             "group_name": self.group_combo.currentText().strip() or None,
             "subgroup_name": self.subgroup_combo.currentText().strip() or None, 
@@ -686,7 +821,6 @@ class SearchTab(BaseTab):
         }
 
     def get_default_config(self) -> Dict[str, Any]:
-        """Returns the default configuration dictionary for this tab."""
         return {
             "group_name": "",
             "subgroup_name": "",
@@ -696,18 +830,14 @@ class SearchTab(BaseTab):
         }
 
     def set_config(self, config: Dict[str, Any]):
-        """Applies a loaded configuration to the tab's UI elements."""
         try:
             self.group_combo.setCurrentText(config.get("group_name", ""))
             self.subgroup_combo.setCurrentText(config.get("subgroup_name", ""))
             self.filename_edit.setText(config.get("filename_pattern", ""))
-            
-            # Populate checkbox tags from config
-            self._setup_tag_checkboxes() # Ensure populated first
+            self._setup_tag_checkboxes()
             selected_tags = set(config.get("tags", []))
             for tag, checkbox in self.tag_checkboxes.items():
                 checkbox.setChecked(tag in selected_tags)
-            
             formats = config.get("input_formats", [])
             if self.dropdown:
                 self.remove_all_formats()
@@ -717,7 +847,6 @@ class SearchTab(BaseTab):
                         self.toggle_format(fmt, True)
             else:
                 self.input_formats_edit.setText(" ".join(formats))
-                
             QMessageBox.information(self, "Config Loaded", "Configuration applied successfully.")
         except Exception as e:
             QMessageBox.critical(self, "Config Error", f"Failed to apply configuration:\n{e}")
