@@ -117,8 +117,17 @@ class SearchTab(BaseTab):
         tags_scroll.setWidget(self.tags_widget)
         
         self.tag_checkboxes = {}
+
+        # --- Refresh Tags Button ---
+        self.btn_refresh_tags = QPushButton("Refresh Tags")
+        self.btn_refresh_tags.setFixedWidth(120)
+        apply_shadow_effect(self.btn_refresh_tags, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        self.btn_refresh_tags.clicked.connect(self._setup_tag_checkboxes)
         
+        # Add button row before the tags list
+        form_layout.addRow("", self.btn_refresh_tags)
         form_layout.addRow("Tags:", tags_scroll)
+        
         layout.addWidget(search_group)
         
         # Search button
@@ -317,17 +326,19 @@ class SearchTab(BaseTab):
     
     # --- DB Tags Helper Methods ---
 
-    def _get_tags_from_db(self) -> List[str]:
-        """Fetches all tags from the connected database."""
+    def _get_tags_from_db(self) -> List[Dict[str, str]]:
+        """
+        Fetches all tags and their types from the connected database.
+        Returns a list of dictionaries [{'name': ..., 'type': ...}].
+        """
         db = self.db_tab_ref.db
         if not db: 
             return []
             
         try:
-            # Use get_all_tags_with_types and extract only the names
-            db_tags = [item['name'] for item in db.get_all_tags_with_types()]
-            if db_tags:
-                return sorted(list(set(db_tags)))
+            db_tags = db.get_all_tags_with_types()
+            # Sort by name
+            return sorted(db_tags, key=lambda x: x['name'])
         except Exception:
             pass 
         return []
@@ -335,8 +346,8 @@ class SearchTab(BaseTab):
     @Slot()
     def _setup_tag_checkboxes(self):
         """
-        Clears and repopulates the tags grid layout with checkboxes.
-        Called by update_search_button_state.
+        Clears and repopulates the tags grid layout with checkboxes,
+        applying color based on tag type.
         """
         # Clear existing checkboxes
         while self.tags_layout.count():
@@ -346,12 +357,35 @@ class SearchTab(BaseTab):
         
         self.tag_checkboxes = {}
         
-        tags_list = self._get_tags_from_db()
+        tags_data = self._get_tags_from_db()
 
-        columns = 4
-        for i, tag in enumerate(tags_list):
-            checkbox = QCheckBox(tag.replace("_", " ").title())
-            self.tag_checkboxes[tag] = checkbox
+        # Define color scheme for tag types (using dark mode friendly colors)
+        color_map = {
+            'Artist': '#5865f2',    # Bright blue/purple
+            'Series': '#f1c40f',    # Yellow/Gold
+            'Character': '#2ecc71', # Emerald green
+            'General': '#e91e63',   # Pink/Magenta
+            'Meta': '#9b59b6',      # Amethyst purple
+            '': '#c7c7c7',          # Default grey (for untyped tags)
+            None: '#c7c7c7'         # Default grey
+        }
+        
+        columns = 8
+        
+        for i, tag_data in enumerate(tags_data):
+            tag_name = tag_data['name']
+            # Normalize type: use empty string if None
+            tag_type = tag_data['type'] if tag_data['type'] else '' 
+            
+            checkbox = QCheckBox(tag_name.replace("_", " ").title())
+            
+            # Determine color and apply styling
+            text_color = color_map.get(tag_type, color_map[''])
+            
+            # Apply styling. Note: QCheckBox text color is set via 'color' property
+            checkbox.setStyleSheet(f"QCheckBox {{ color: {text_color}; }}")
+            
+            self.tag_checkboxes[tag_name] = checkbox
             self.tags_layout.addWidget(checkbox, i // columns, i % columns)
             
     # --- UI and Selection methods ---
