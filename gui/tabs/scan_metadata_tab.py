@@ -473,9 +473,10 @@ class ScanMetadataTab(BaseTab):
     @Slot(int, int)
     def update_loading_progress(self, current: int, total: int):
         """Updates the progress dialog with the current loading count."""
-        if self.loading_dialog:
-            self.loading_dialog.setValue(current)
-            self.loading_dialog.setLabelText(f"Loading images {current} of {total}...")
+        dialog = self.loading_dialog 
+        if dialog:
+            dialog.setValue(current)
+            dialog.setLabelText(f"Loading {current} of {total}...")
 
     def display_scan_results(self, image_paths: list[str]):
         """Receives image paths from the worker thread, starts BatchThumbnailLoaderWorker using batch signals."""
