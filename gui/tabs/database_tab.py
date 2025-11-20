@@ -1,5 +1,5 @@
 import os
-import psycopg2 # Import for error handling
+import psycopg2
 
 from typing import Optional
 from PySide6.QtCore import Qt
@@ -25,9 +25,16 @@ class DatabaseTab(BaseTab):
         super().__init__()
         self.dropdown = dropdown
         self.db: Optional[ImageDatabase] = None
+        
+        # --- Tab References ---
+        # These are assigned by MainWindow after all tabs are initialized
         self.scan_tab_ref = None 
         self.search_tab_ref = None 
-        self.old_edit_value = None # Store the value of a cell before editing
+        self.merge_tab_ref = None      # <--- Added
+        self.delete_tab_ref = None     # <--- Added
+        self.wallpaper_tab_ref = None  # <--- Added
+        
+        self.old_edit_value = None
         
         main_layout = QVBoxLayout(self)
         
@@ -291,7 +298,6 @@ class DatabaseTab(BaseTab):
     # --- Connection and Statistics Methods ---
 
     def connect_database(self):
-        """Connect to the PostgreSQL database using fields."""
         try:
             db_host = self.db_host.text().strip()
             db_port = self.db_port.text().strip()
@@ -317,7 +323,6 @@ class DatabaseTab(BaseTab):
             self.refresh_groups_list() 
             self.refresh_subgroups_list() 
             
-            # Explicitly refresh ScanMetadataTab elements
             if self.scan_tab_ref:
                 self.scan_tab_ref._setup_tag_checkboxes() 
             
@@ -329,10 +334,8 @@ class DatabaseTab(BaseTab):
             self.stats_label.setStyleSheet("padding: 10px; background-color: #e74c3c; color: white; border-radius: 5px; font-weight: bold;")
 
     def disconnect_database(self):
-        """Disconnects from the PostgreSQL database."""
         if not self.db:
             return
-        
         try:
             self.db.close()
             self.db = None
@@ -354,7 +357,6 @@ class DatabaseTab(BaseTab):
                 if hasattr(self.search_tab_ref, 'subgroup_combo'): 
                     self.search_tab_ref.subgroup_combo.clear()
                     
-            # Explicitly refresh ScanMetadataTab elements (clear tags)
             if self.scan_tab_ref:
                 self.scan_tab_ref._setup_tag_checkboxes() 
             
@@ -363,10 +365,6 @@ class DatabaseTab(BaseTab):
             QMessageBox.critical(self, "Error", f"Error during disconnection:\n{str(e)}")
     
     def reset_database(self):
-        """
-        Handles the button click to reset the database.
-        Requires two confirmations.
-        """
         if not self.db:
             QMessageBox.warning(self, "Error", "Please connect to a database first")
             return
@@ -401,7 +399,6 @@ class DatabaseTab(BaseTab):
             self.db.reset_database()
             QMessageBox.information(self, "Success", "Database has been reset successfully.")
             
-            # Refresh everything
             self.update_statistics()
             self._refresh_all_group_combos() 
             self.refresh_subgroup_autocomplete()
@@ -409,7 +406,6 @@ class DatabaseTab(BaseTab):
             self.refresh_groups_list()
             self.refresh_subgroups_list()
             
-            # Explicitly refresh ScanMetadataTab elements
             if self.scan_tab_ref:
                 self.scan_tab_ref._setup_tag_checkboxes() 
 
@@ -417,7 +413,6 @@ class DatabaseTab(BaseTab):
             QMessageBox.critical(self, "Error", f"Failed to reset database:\n{str(e)}")
     
     def update_statistics(self):
-        """Update database statistics display"""
         if not self.db: return
         try:
             stats = self.db.get_statistics()
@@ -435,7 +430,6 @@ class DatabaseTab(BaseTab):
             self.stats_label.setStyleSheet("padding: 10px; background-color: #e74c3c; color: white; border-radius: 5px; font-weight: bold;")
     
     def _refresh_all_group_combos(self):
-        """Refreshes all QComboBoxes that list groups."""
         if not self.db: return
         try:
             group_list = self.db.get_all_groups()
@@ -456,13 +450,9 @@ class DatabaseTab(BaseTab):
             QMessageBox.critical(self, "Error", f"Failed to refresh group dropdowns:\n{str(e)}")
 
     def refresh_subgroup_autocomplete(self):
-        """Refresh subgroup autocomplete suggestions (flat list) in the Search tab."""
         if not self.db: return
-        
         if not self.search_tab_ref or not hasattr(self.search_tab_ref, 'subgroup_combo'):
-            print("Warning: SearchTab reference not set or 'subgroup_combo' not found.")
             return
-            
         try:
             subgroup_list = self.db.get_all_subgroups()
             self.search_tab_ref.subgroup_combo.clear()
@@ -472,8 +462,6 @@ class DatabaseTab(BaseTab):
             print(f"Error refreshing subgroup autocomplete data: {e}")
 
     def update_button_states(self, connected: bool):
-        """Enable or disable buttons based on database connection status."""
-        
         self.btn_connect.setVisible(not connected)
         self.btn_disconnect.setVisible(connected)
         self.btn_reset_db.setVisible(connected) 
@@ -493,133 +481,103 @@ class DatabaseTab(BaseTab):
         if self.scan_tab_ref:
              self.scan_tab_ref.update_button_states(connected)
         
-        # Update Search Tab buttons
         if self.search_tab_ref:
             self.search_tab_ref.update_search_button_state(connected)
              
     # --- Tag and Group Management Methods ---
 
     def create_new_group(self):
-        """Creates new groups in the database from a comma-separated list."""
         if not self.db:
             QMessageBox.warning(self, "Error", "Please connect to a database first")
             return
-            
         group_names_str = self.new_group_name_edit.text().strip()
         group_names = [name.strip() for name in group_names_str.split(',') if name.strip()]
-        
         if not group_names:
             QMessageBox.warning(self, "Error", "Group Name(s) cannot be empty.")
             return
-        
         try:
             count = 0
             for name in group_names:
                 self.db.add_group(name)
                 count += 1
-            
             QMessageBox.information(self, "Success", f"Successfully created {count} group(s).")
             self.new_group_name_edit.clear()
-            self.refresh_groups_list() # This will also refresh group combos
+            self.refresh_groups_list()
             self.update_statistics()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to create groups:\n{str(e)}")
 
     def create_new_subgroup(self):
-        """Creates new subgroups in the database, linked to the selected parent group."""
         if not self.db:
             QMessageBox.warning(self, "Error", "Please connect to a database first")
             return
-            
         parent_group = self.new_subgroup_parent_combo.currentText().strip()
         if not parent_group:
             QMessageBox.warning(self, "Error", "You must select or enter a Parent Group.")
             return
-            
         subgroup_names_str = self.new_subgroup_name_edit.text().strip()
         subgroup_names = [name.strip() for name in subgroup_names_str.split(',') if name.strip()]
-        
         if not subgroup_names:
             QMessageBox.warning(self, "Error", "Subgroup Name(s) cannot be empty.")
             return
-        
         try:
             self.db.add_group(parent_group)
-            
             count = 0
             for name in subgroup_names:
                 self.db.add_subgroup(name, parent_group)
                 count += 1
-            
             QMessageBox.information(self, "Success", f"Successfully created {count} subgroup(s) for '{parent_group}'.")
             self.new_subgroup_name_edit.clear()
-            
             self._refresh_all_group_combos()
             self.new_subgroup_parent_combo.setCurrentText(parent_group) 
-            
             if self.existing_subgroups_filter_combo.currentText() == parent_group:
                 self.refresh_subgroups_list() 
-                
             self.refresh_subgroup_autocomplete() 
             self.update_statistics()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to create subgroups:\n{str(e)}")
 
     def create_new_tag(self):
-        """Creates new tags in the database from a comma-separated list."""
         if not self.db:
             QMessageBox.warning(self, "Error", "Please connect to a database first")
             return
-            
         tag_names_str = self.new_tag_name_edit.text().strip()
         tag_type = self.new_tag_type_combo.currentText().strip().title()
-        
         tag_names = [name.strip() for name in tag_names_str.split(',') if name.strip()]
-        
         if not tag_names:
             QMessageBox.warning(self, "Error", "Tag Name(s) cannot be empty.")
             return
-        
         try:
             count = 0
             for name in tag_names:
                 self.db.add_tag(name, tag_type if tag_type else None)
                 count += 1
-                
             QMessageBox.information(self, "Success", f"Successfully created/updated {count} tag(s).")
             self.new_tag_name_edit.clear()
             self.new_tag_type_combo.setCurrentIndex(0) 
             self.refresh_tags_list() 
             self.update_statistics()
-            
-            # Trigger tag refresh in scan tab after creating new tags
             if self.scan_tab_ref:
                 self.scan_tab_ref._setup_tag_checkboxes()
-            
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to create tags:\n{str(e)}")
 
     def remove_selected_group(self):
-        """Removes the selected group from the 'groups' table."""
         if not self.db:
             QMessageBox.warning(self, "Error", "Please connect to a database first")
             return
-        
         current_row = self.groups_table.currentRow()
         if current_row < 0:
             QMessageBox.warning(self, "Error", "Please select a group from the list to remove.")
             return
-            
         item = self.groups_table.item(current_row, 0)
         group_name = item.text()
-        
         confirm = QMessageBox.question(
             self, "Confirm Delete",
             f"Are you sure you want to delete the group '{group_name}'?\n\n"
             f"WARNING: This will also delete ALL associated subgroups.",
             QMessageBox.Yes | QMessageBox.No
         )
-        
         if confirm == QMessageBox.Yes:
             try:
                 self.db.delete_group(group_name)
@@ -632,28 +590,23 @@ class DatabaseTab(BaseTab):
                 QMessageBox.critical(self, "Error", f"Failed to remove group:\n{str(e)}")
 
     def remove_selected_subgroup(self):
-        """Removes the selected subgroup from the 'subgroups' table."""
         if not self.db:
             QMessageBox.warning(self, "Error", "Please connect to a database first")
             return
-        
         current_row = self.subgroups_table.currentRow()
         if current_row < 0:
             QMessageBox.warning(self, "Error", "Please select a subgroup from the list to remove.")
             return
-            
         item_subgroup = self.subgroups_table.item(current_row, 0)
         item_group = self.subgroups_table.item(current_row, 1)
         subgroup_name = item_subgroup.text()
         group_name = item_group.text()
-        
         confirm = QMessageBox.question(
             self, "Confirm Delete",
             f"Are you sure you want to delete the subgroup '{subgroup_name}' from group '{group_name}'?\n\n"
             f"(Note: This only removes the subgroup from this list. Images already using this name will not be affected.)",
             QMessageBox.Yes | QMessageBox.No
         )
-        
         if confirm == QMessageBox.Yes:
             try:
                 self.db.delete_subgroup(subgroup_name, group_name)
@@ -665,110 +618,84 @@ class DatabaseTab(BaseTab):
                 QMessageBox.critical(self, "Error", f"Failed to remove subgroup:\n{str(e)}")
 
     def remove_selected_tag(self):
-        """Removes the selected tag from the 'tags' table."""
         if not self.db:
             QMessageBox.warning(self, "Error", "Please connect to a database first")
             return
-
         current_row = self.tags_table.currentRow()
         if current_row < 0:
             QMessageBox.warning(self, "Error", "Please select a tag from the list to remove.")
             return
-            
         item = self.tags_table.item(current_row, 0)
         tag_name = item.text()
-
         confirm = QMessageBox.question(
             self, "Confirm Delete",
             f"Are you sure you want to delete the tag '{tag_name}'?\n\n"
             f"WARNING: This will also remove this tag from ALL images that use it.",
             QMessageBox.Yes | QMessageBox.No
         )
-        
         if confirm == QMessageBox.Yes:
             try:
                 self.db.delete_tag(tag_name)
                 self.refresh_tags_list()
                 self.update_statistics() 
-                
-                # Trigger tag refresh in scan tab after removing a tag
                 if self.scan_tab_ref:
                     self.scan_tab_ref._setup_tag_checkboxes()
-                
                 QMessageBox.information(self, "Success", f"Tag '{tag_name}' removed.")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to remove tag:\n{str(e)}")
 
     def refresh_groups_list(self):
-        """Fetches all groups from the DB and populates the table."""
         if not self.db:
             self.groups_table.setRowCount(0)
             return
-            
         try:
             groups = self.db.get_all_groups() 
             self.groups_table.setRowCount(len(groups))
-            
             for row, group_name in enumerate(groups):
                 name_item = QTableWidgetItem(group_name)
                 self.groups_table.setItem(row, 0, name_item)
-            
             self._refresh_all_group_combos() 
             self.update_statistics()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load groups list:\n{str(e)}")
 
     def refresh_subgroups_list(self):
-        """Fetches subgroups from the DB based on the filter combo."""
         if not self.db:
             self.subgroups_table.setRowCount(0)
             return
-            
         parent_group = self.existing_subgroups_filter_combo.currentText()
         if not parent_group:
             self.subgroups_table.setRowCount(0)
             return 
-            
         try:
             subgroups = self.db.get_subgroups_for_group(parent_group) 
             self.subgroups_table.setRowCount(len(subgroups))
-            
             for row, subgroup_name in enumerate(subgroups):
                 name_item = QTableWidgetItem(subgroup_name)
                 group_item = QTableWidgetItem(parent_group)
                 group_item.setFlags(group_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                
                 self.subgroups_table.setItem(row, 0, name_item)
                 self.subgroups_table.setItem(row, 1, group_item)
-            
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load subgroups list:\n{str(e)}")
 
     def refresh_tags_list(self):
-        """Fetches all tags from the DB and populates the table."""
         if not self.db:
             self.tags_table.setRowCount(0)
             return
-            
         try:
             tags = self.db.get_all_tags_with_types()
             self.tags_table.setRowCount(len(tags))
-            
             for row, tag_data in enumerate(tags):
                 name_item = QTableWidgetItem(tag_data['name'])
                 type_item = QTableWidgetItem(tag_data['type'])
-                
                 self.tags_table.setItem(row, 0, name_item)
                 self.tags_table.setItem(row, 1, type_item)
-            
             self.update_statistics()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load tags list:\n{str(e)}")
             
-    # --- Context Menu and Edit Handlers ---
-    
     def store_old_value(self, row, col):
-        """Stores the value of a cell *before* an edit begins."""
         table = self.sender()
         if not table:
             return
@@ -777,22 +704,17 @@ class DatabaseTab(BaseTab):
             self.old_edit_value = item.text()
 
     def handle_group_edited(self, item: QTableWidgetItem):
-        """Handles the renaming of a group after its cell is edited."""
         if not self.db or self.old_edit_value is None:
             return
-
         new_name = item.text().strip()
         old_name = self.old_edit_value
         self.old_edit_value = None 
-
         if not new_name:
             QMessageBox.warning(self, "Error", "Group name cannot be empty.")
             item.setText(old_name) 
             return
-        
         if new_name == old_name:
             return 
-
         try:
             self.db.rename_group(old_name, new_name)
             self.refresh_groups_list() 
@@ -806,32 +728,25 @@ class DatabaseTab(BaseTab):
             item.setText(old_name) 
 
     def handle_subgroup_edited(self, item: QTableWidgetItem):
-        """Handles the renaming of a subgroup after its cell is edited."""
         if not self.db or self.old_edit_value is None:
             return
-            
         col = item.column()
         if col != 0:
             if item.text() != self.old_edit_value:
                 item.setText(self.old_edit_value) 
             self.old_edit_value = None
             return
-
         new_name = item.text().strip()
         old_name = self.old_edit_value
         self.old_edit_value = None
-
         if new_name == old_name:
             return 
-            
         row = item.row()
         parent_group = self.subgroups_table.item(row, 1).text() 
-
         if not new_name:
             QMessageBox.warning(self, "Error", "Subgroup name cannot be empty.")
             item.setText(old_name) 
             return
-        
         try:
             self.db.rename_subgroup(old_name, new_name, parent_group)
             self.refresh_subgroup_autocomplete() 
@@ -844,50 +759,38 @@ class DatabaseTab(BaseTab):
             item.setText(old_name) 
             
     def handle_tag_edited(self, item: QTableWidgetItem):
-        """Handles the renaming of a tag or its type after its cell is edited."""
         if not self.db or self.old_edit_value is None:
             return
-
         new_value = item.text().strip()
         old_value = self.old_edit_value
         self.old_edit_value = None 
-        
         if new_value == old_value:
             return
-
         row = item.row()
         col = item.column()
-
         if col == 0: 
             old_name = old_value
             new_name = new_value
-            
             if not new_name:
                 QMessageBox.warning(self, "Error", "Tag name cannot be empty.")
                 item.setText(old_name)
                 return
-
             try:
                 self.db.rename_tag(old_name, new_name)
                 if item.text() != new_name:
                     item.setText(new_name)
                 self.update_statistics()
-                
-                # Trigger tag refresh in scan tab after renaming a tag
                 if self.scan_tab_ref:
                     self.scan_tab_ref._setup_tag_checkboxes()
-                
             except psycopg2.errors.UniqueViolation:
                 QMessageBox.warning(self, "Error", f"A tag named '{new_name}' already exists.")
                 item.setText(old_name)
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to rename tag:\n{str(e)}")
                 item.setText(old_name)
-
         elif col == 1: 
             tag_name = self.tags_table.item(row, 0).text()
             new_type = new_value.title() 
-
             try:
                 self.db.update_tag_type(tag_name, new_type)
                 if item.text() != new_type:
@@ -897,85 +800,66 @@ class DatabaseTab(BaseTab):
                 item.setText(old_value)
 
     def show_group_context_menu(self, pos):
-        """Shows a right-click context menu for the groups table."""
         item = self.groups_table.itemAt(pos)
         if not item:
             return
-
         menu = QMenu()
         edit_action = menu.addAction("Edit Group")
         remove_action = menu.addAction("Remove Group")
-        
         action = menu.exec(self.groups_table.mapToGlobal(pos))
-        
         if action == edit_action:
             self.edit_selected_group_cell()
         elif action == remove_action:
             self.remove_selected_group()
 
     def edit_selected_group_cell(self):
-        """Triggers the editor for the currently selected group cell."""
         item = self.groups_table.currentItem()
         if item:
             self.groups_table.editItem(item)
 
     def show_subgroup_context_menu(self, pos):
-        """Shows a right-click context menu for the subgroups table."""
         item = self.subgroups_table.itemAt(pos)
         if not item:
             return
-
         menu = QMenu()
-        
         if item.column() == 0:
             edit_action = menu.addAction("Edit Subgroup")
         else:
             edit_action = None
-            
         remove_action = menu.addAction("Remove Subgroup")
-        
         action = menu.exec(self.subgroups_table.mapToGlobal(pos))
-        
         if action == edit_action:
             self.edit_selected_subgroup_cell()
         elif action == remove_action:
             self.remove_selected_subgroup()
 
     def edit_selected_subgroup_cell(self):
-        """Triggers the editor for the currently selected subgroup cell (col 0)."""
         current_row = self.subgroups_table.currentRow()
         if current_row < 0:
             return
-        
         item_to_edit = self.subgroups_table.item(current_row, 0)
         if item_to_edit:
             self.subgroups_table.editItem(item_to_edit)
 
     def show_tag_context_menu(self, pos):
-        """Shows a right-click context menu for the tags table."""
         item = self.tags_table.itemAt(pos)
         if not item:
             return
-
         menu = QMenu()
         edit_action = menu.addAction("Edit Cell")
         remove_action = menu.addAction("Remove Tag")
-        
         action = menu.exec(self.tags_table.mapToGlobal(pos))
-        
         if action == edit_action:
             self.edit_selected_tag_cell()
         elif action == remove_action:
             self.remove_selected_tag()
 
     def edit_selected_tag_cell(self):
-        """Triggers the editor for the currently selected tag cell."""
         item = self.tags_table.currentItem()
         if item:
             self.tags_table.editItem(item)
             
     def collect(self) -> dict:
-        """Collect current inputs from the Database tab as a dict."""
         out = {
             "db_host": self.db_host.text().strip() or None,
             "db_port": self.db_port.text().strip() or None,
@@ -985,7 +869,6 @@ class DatabaseTab(BaseTab):
         return out
 
     def get_default_config(self) -> dict:
-        """Returns the default configuration dictionary for this tab."""
         return {
             "db_host": "localhost",
             "db_port": "5432",
@@ -994,14 +877,11 @@ class DatabaseTab(BaseTab):
         }
 
     def set_config(self, config: dict):
-        """Applies a configuration dictionary to the UI fields."""
         try:
             self.db_host.setText(config.get("db_host", "localhost"))
             self.db_port.setText(config.get("db_port", "5432"))
             self.db_user.setText(config.get("db_user", "postgres"))
             self.db_name.setText(config.get("db_name", "imagedb"))
-            
-            # Optionally, auto-connect if config is set
             self.connect_database()
         except Exception as e:
             print(f"Error applying DatabaseTab config: {e}")
