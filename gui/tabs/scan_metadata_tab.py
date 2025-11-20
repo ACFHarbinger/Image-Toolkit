@@ -206,6 +206,28 @@ class ScanMetadataTab(BaseTab):
         self.update_button_states(connected=False) 
         self.populate_selected_images_gallery()
 
+    # --- THREAD SAFETY CLEANUP METHOD ---
+    def _stop_running_threads(self):
+        """Safely interrupts and cleans up any active scanner or loader threads."""
+        if self.scan_thread and self.scan_thread.isRunning():
+            self.scan_thread.requestInterruption()
+            self.scan_thread.quit()
+            self.scan_thread.wait(1000) # Wait a bit for graceful termination
+            self.scan_worker = None
+            self.scan_thread = None
+            
+        if self.loader_thread and self.loader_thread.isRunning():
+            self.loader_thread.requestInterruption()
+            self.loader_thread.quit()
+            self.loader_thread.wait(1000)
+            self.loader_worker = None
+            self.loader_thread = None
+            
+        if self.loading_dialog and self.loading_dialog.isVisible():
+            self.loading_dialog.close()
+            self.loading_dialog = None
+    # ------------------------------------
+
     # --- RESIZE & REFLOW LOGIC ---
     
     def resizeEvent(self, event: QResizeEvent):
@@ -214,7 +236,7 @@ class ScanMetadataTab(BaseTab):
         super().resizeEvent(event)
 
     def showEvent(self, event):
-        """Ensure grid is correct when tab is shown."""
+        """Trigger grid reflow when tab is shown."""
         self._repack_galleries()
         super().showEvent(event)
 
@@ -244,7 +266,16 @@ class ScanMetadataTab(BaseTab):
         for idx, widget in enumerate(items):
             row = idx // columns
             col = idx % columns
-            layout.addWidget(widget, row, col, Qt.AlignLeft | Qt.AlignTop)
+            
+            align = Qt.AlignLeft | Qt.AlignTop
+            # Handle placeholder alignment for the main gallery
+            if isinstance(widget, QLabel) and ("No supported images" in widget.text() or "No scanned images" in widget.text()):
+                 align = Qt.AlignCenter
+                 # For placeholders, span all columns and stay centered at the top
+                 layout.addWidget(widget, 0, 0, 1, columns, align)
+                 return
+                 
+            layout.addWidget(widget, row, col, align)
             
     # ---------------------------------------------------------
 
@@ -417,13 +448,12 @@ class ScanMetadataTab(BaseTab):
     def populate_scan_image_gallery(self, directory: str, is_refresh: bool = False):
         self.scanned_dir = directory
         
+        # --- FIX: Stop all running threads before starting a new scan/load ---
+        self._stop_running_threads()
+        # -------------------------------------------------------------------
+        
         if not is_refresh or not self.scan_image_list:
-            if self.loader_thread and self.loader_thread.isRunning():
-                self.loader_thread.quit()
-                self.loader_thread.wait()
             
-            self.loader_thread = None
-            self.loader_worker = None
             self.path_to_wrapper_map = {} 
             self._clear_gallery(self.scan_thumbnail_layout)
             self._clear_gallery(self.selected_grid_layout) 
@@ -454,6 +484,7 @@ class ScanMetadataTab(BaseTab):
             self.scan_thread.start()
             return
         
+        # If performing a refresh (toggling view_db_only)
         self.display_scan_results(self.scan_image_list)
 
     @Slot()
@@ -541,6 +572,10 @@ class ScanMetadataTab(BaseTab):
             self.scan_thumbnail_layout.addWidget(card, row, col, Qt.AlignLeft | Qt.AlignTop)
             self.path_to_wrapper_map[path] = card 
         
+        # --- FIX: Force content widget to adjust size so scroll area updates ---
+        self.scan_thumbnail_widget.adjustSize()
+        # ----------------------------------------------------------------------
+        
         if self.loading_dialog:
             self.loading_dialog.close()
             self.loading_dialog = None
@@ -568,6 +603,7 @@ class ScanMetadataTab(BaseTab):
             self.view_db_only_button.setStyleSheet("") 
             
         if hasattr(self, 'scanned_dir') and self.scanned_dir:
+            # This triggers a new load, which now safely stops the old thread first
             self.populate_scan_image_gallery(self.scanned_dir, is_refresh=True)
 
     def update_button_states(self, connected: bool):
