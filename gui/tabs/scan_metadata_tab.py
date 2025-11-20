@@ -4,19 +4,19 @@ from pathlib import Path
 from typing import Set, Dict, Any, List, Tuple, Optional
 from PySide6.QtGui import QPixmap, QAction, QResizeEvent
 from PySide6.QtCore import (
-    Qt, QThread, Slot, QPoint, QTimer
+    Qt, QThread, Slot, QPoint, QTimer, QThreadPool, QEventLoop
 )
 from PySide6.QtWidgets import (
-    QWidget, QGroupBox, QCheckBox,
     QComboBox, QLineEdit, QFileDialog, 
     QHBoxLayout, QVBoxLayout, QScrollArea, 
-    QProgressDialog, QMessageBox, QGridLayout,
     QPushButton, QLabel, QFormLayout, QMenu,
+    QProgressDialog, QMessageBox, QGridLayout,
+    QWidget, QGroupBox, QCheckBox, QApplication,
 )
 from .base_tab import BaseTab
 from ..windows import ImagePreviewWindow
 from ..components import ClickableLabel, MarqueeScrollArea
-from ..helpers import ImageScannerWorker, BatchThumbnailLoaderWorker
+from ..helpers import ImageScannerWorker, ImageLoaderWorker
 from ..styles.style import apply_shadow_effect
 
 
@@ -31,27 +31,32 @@ class ScanMetadataTab(BaseTab):
         
         self.scan_image_list: list[str] = []
         self.selected_image_paths: Set[str] = set()
-        self.selected_scan_image_path: str = None
         self.open_preview_windows: list[ImagePreviewWindow] = [] 
 
         # Database view filter state
-        self.view_db_only: bool = False
+        self.view_new_only: bool = False
         self._db_was_connected: bool = False 
 
         # UI Maps
+        # Maps file_path -> ClickableLabel widget
         self.path_to_wrapper_map: Dict[str, ClickableLabel] = {}
-        self.selected_card_map: Dict[str, ClickableLabel] = {}
-
+        
         # Gallery Constants
         self.thumbnail_size = 150
         self.padding_width = 10
         self.approx_item_width = self.thumbnail_size + self.padding_width + 20
         
-        # Thread references
+        # Threading references
         self.scan_thread = None
         self.scan_worker = None
-        self.loader_thread = None
-        self.loader_worker = None
+        
+        # ThreadPool for image loading
+        self.thread_pool = QThreadPool()
+        # accumulators for threading results
+        self._loaded_results_buffer: List[Tuple[str, QPixmap]] = []
+        self._images_loaded_count = 0
+        self._total_images_to_load = 0
+        
         self.loading_dialog = None
         
         # --- Resize Handling ---
@@ -174,10 +179,12 @@ class ScanMetadataTab(BaseTab):
         main_layout.addWidget(page_scroll, 1)
 
         # --- Action buttons ---
-        self.view_db_only_button = QPushButton("View Database Only (Off)")
-        self.view_db_only_button.setCheckable(True)
-        apply_shadow_effect(self.view_db_only_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        self.view_db_only_button.toggled.connect(self.toggle_db_only_view) 
+        
+        self.view_new_only_button = QPushButton("👁️ Show Only New (Not in DB)")
+        self.view_new_only_button.setCheckable(True)
+        self.view_new_only_button.setChecked(False)
+        apply_shadow_effect(self.view_new_only_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        self.view_new_only_button.toggled.connect(self.toggle_new_only_view) 
 
         self.upsert_button = QPushButton("Add/Update Database Data")
         self.upsert_button.setStyleSheet("background-color: #2ecc71; color: white; font-weight: bold; padding: 10px;")
@@ -195,7 +202,7 @@ class ScanMetadataTab(BaseTab):
         self.delete_selected_button.clicked.connect(self.delete_selected_images)
         
         scan_action_layout = QHBoxLayout()
-        scan_action_layout.addWidget(self.view_db_only_button)
+        scan_action_layout.addWidget(self.view_new_only_button)
         scan_action_layout.addWidget(self.upsert_button)
         scan_action_layout.addWidget(self.refresh_image_button)
         scan_action_layout.addWidget(self.delete_selected_button)
@@ -212,16 +219,12 @@ class ScanMetadataTab(BaseTab):
         if self.scan_thread and self.scan_thread.isRunning():
             self.scan_thread.requestInterruption()
             self.scan_thread.quit()
-            self.scan_thread.wait(1000) # Wait a bit for graceful termination
+            self.scan_thread.wait(1000)
             self.scan_worker = None
             self.scan_thread = None
             
-        if self.loader_thread and self.loader_thread.isRunning():
-            self.loader_thread.requestInterruption()
-            self.loader_thread.quit()
-            self.loader_thread.wait(1000)
-            self.loader_worker = None
-            self.loader_thread = None
+        # Clear the ThreadPool
+        self.thread_pool.clear()
             
         if self.loading_dialog and self.loading_dialog.isVisible():
             self.loading_dialog.close()
@@ -271,7 +274,6 @@ class ScanMetadataTab(BaseTab):
             # Handle placeholder alignment for the main gallery
             if isinstance(widget, QLabel) and ("No supported images" in widget.text() or "No scanned images" in widget.text()):
                  align = Qt.AlignCenter
-                 # For placeholders, span all columns and stay centered at the top
                  layout.addWidget(widget, 0, 0, 1, columns, align)
                  return
                  
@@ -279,10 +281,14 @@ class ScanMetadataTab(BaseTab):
             
     # ---------------------------------------------------------
 
-    def _create_gallery_card(self, path: str, pixmap: Optional[QPixmap], is_selected: bool) -> ClickableLabel:
+    def _create_gallery_card(self, path: str, pixmap: Optional[QPixmap], is_selected: bool, is_in_db: bool = False) -> ClickableLabel:
         thumb_size = self.thumbnail_size
         card_wrapper = ClickableLabel(path)
         card_wrapper.setFixedSize(thumb_size + 10, thumb_size + 10)
+        
+        # Attach custom property to store DB status on the widget
+        card_wrapper.setProperty("in_db", is_in_db)
+        
         card_layout = QVBoxLayout(card_wrapper)
         card_layout.setContentsMargins(0, 0, 0, 0)
         
@@ -302,39 +308,75 @@ class ScanMetadataTab(BaseTab):
         
         card_layout.addWidget(img_label)
         card_wrapper.setLayout(card_layout)
-        self._update_card_style(img_label, is_selected)
+        self._update_card_style(img_label, is_selected, is_in_db)
         return card_wrapper
 
-    def _update_card_style(self, img_label: QLabel, is_selected: bool):
+    def _update_card_style(self, img_label: QLabel, is_selected: bool, is_in_db: bool):
+        """
+        Updates card border style.
+        Blue = Selected (Highest priority)
+        Green = In Database (Medium priority)
+        Grey = Default
+        """
         if is_selected:
+            # Blue Border
             img_label.setStyleSheet("border: 3px solid #5865f2; background-color: #36393f;")
+        elif is_in_db:
+            # Green Border
+            img_label.setStyleSheet("border: 3px solid #2ecc71; background-color: #36393f;")
         else:
+            # Default Grey Border
             img_label.setStyleSheet("border: 1px solid #4f545c; background-color: #36393f;")
             
-    def _get_tags_from_db(self) -> List[str]:
+    def _get_tags_from_db(self) -> List[Dict[str, str]]:
+        """
+        Fetches tags with their types. Returns [{'name': 'x', 'type': 'y'}]
+        """
         db = self.db_tab_ref.db
         if not db: 
             return []
         try:
-            db_tags = [item['name'] for item in db.get_all_tags_with_types()]
-            if db_tags:
-                return sorted(list(set(db_tags))) 
+            # Expecting get_all_tags_with_types() from the DB class
+            return db.get_all_tags_with_types()
         except Exception:
             pass 
         return []
 
     def _setup_tag_checkboxes(self):
+        """
+        Creates checkboxes with color coding based on tag type.
+        """
         while self.tags_layout.count():
             item = self.tags_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
         
         self.tag_checkboxes = {}
-        tags_list = self._get_tags_from_db()
+        tags_data = self._get_tags_from_db()
+        
+        # --- Color Map (Matches Search Tab) ---
+        color_map = {
+            'Artist': '#5865f2',    # Blue/Purple
+            'Series': '#f1c40f',    # Yellow
+            'Character': '#2ecc71', # Green
+            'General': '#e91e63',   # Pink
+            'Meta': '#9b59b6',      # Purple
+            '': '#c7c7c7',          # Grey
+            None: '#c7c7c7'
+        }
+        
         columns = 4
-        for i, tag in enumerate(tags_list):
-            checkbox = QCheckBox(tag.replace("_", " ").title())
-            self.tag_checkboxes[tag] = checkbox
+        for i, tag_data in enumerate(tags_data):
+            tag_name = tag_data['name']
+            tag_type = tag_data['type'] if tag_data.get('type') else ''
+            
+            checkbox = QCheckBox(tag_name.replace("_", " ").title())
+            
+            # Apply Color
+            text_color = color_map.get(tag_type, color_map[''])
+            checkbox.setStyleSheet(f"QCheckBox {{ color: {text_color}; }}")
+            
+            self.tag_checkboxes[tag_name] = checkbox
             self.tags_layout.addWidget(checkbox, i // columns, i % columns)
 
     def _columns(self) -> int:
@@ -367,8 +409,9 @@ class ScanMetadataTab(BaseTab):
         if path in self.path_to_wrapper_map:
             wrapper = self.path_to_wrapper_map[path]
             inner_label = wrapper.findChild(QLabel)
+            is_in_db = wrapper.property("in_db")
             if inner_label:
-                self._update_card_style(inner_label, selected)
+                self._update_card_style(inner_label, selected, is_in_db)
         
         self.populate_selected_images_gallery()
         self.update_button_states(connected=(self.db_tab_ref.db is not None))
@@ -381,8 +424,9 @@ class ScanMetadataTab(BaseTab):
 
         for path, wrapper in self.path_to_wrapper_map.items():
             inner_label = wrapper.findChild(QLabel)
+            is_in_db = wrapper.property("in_db")
             if inner_label:
-                self._update_card_style(inner_label, path in self.selected_image_paths)
+                self._update_card_style(inner_label, path in self.selected_image_paths, is_in_db)
             
         self.populate_selected_images_gallery()
         self.update_button_states(connected=(self.db_tab_ref.db is not None))
@@ -391,7 +435,6 @@ class ScanMetadataTab(BaseTab):
         """Rebuilds the bottom panel using the same card style."""
         self.selected_images_widget.setUpdatesEnabled(False)
         self._clear_gallery(self.selected_grid_layout)
-        self.selected_card_map = {}
         
         paths = sorted(list(self.selected_image_paths))
         
@@ -410,20 +453,22 @@ class ScanMetadataTab(BaseTab):
 
         for i, path in enumerate(paths):
             pixmap = None
+            is_in_db = False
+            
             if path in self.path_to_wrapper_map:
                 wrapper = self.path_to_wrapper_map[path]
+                is_in_db = wrapper.property("in_db")
                 inner_label = wrapper.findChild(QLabel)
                 if inner_label and inner_label.pixmap():
                     pixmap = inner_label.pixmap()
             
-            card = self._create_gallery_card(path, pixmap, is_selected=True)
+            card = self._create_gallery_card(path, pixmap, is_selected=True, is_in_db=is_in_db)
             card.path_clicked.connect(lambda checked, p=path: self.toggle_selection(p))
             card.path_double_clicked.connect(self._view_single_image_preview)
             card.path_right_clicked.connect(self.show_image_context_menu)
             
             row = i // columns
             col = i % columns
-            self.selected_card_map[path] = card
             self.selected_grid_layout.addWidget(card, row, col, Qt.AlignLeft | Qt.AlignTop)
             
         self.selected_images_widget.setUpdatesEnabled(True)
@@ -448,25 +493,32 @@ class ScanMetadataTab(BaseTab):
     def populate_scan_image_gallery(self, directory: str, is_refresh: bool = False):
         self.scanned_dir = directory
         
-        # --- FIX: Stop all running threads before starting a new scan/load ---
+        # Stop all running threads before starting a new scan/load
         self._stop_running_threads()
-        # -------------------------------------------------------------------
         
         if not is_refresh or not self.scan_image_list:
-            
             self.path_to_wrapper_map = {} 
             self._clear_gallery(self.scan_thumbnail_layout)
             self._clear_gallery(self.selected_grid_layout) 
             self.scan_image_list = []
             self.selected_image_paths = set()
-            self.selected_card_map = {}
 
             self.loading_dialog = QProgressDialog("Scanning directory...", "Cancel", 0, 0, self)
             self.loading_dialog.setWindowModality(Qt.WindowModal)
             self.loading_dialog.setWindowTitle("Please Wait")
             self.loading_dialog.setMinimumDuration(0)
             self.loading_dialog.setCancelButton(None) 
+            
+            # --- FIX: Blocking Wait to ensure Scanner Dialog Visibility ---
             self.loading_dialog.show()
+            
+            # Block the main thread but allow GUI events (like painting) to process.
+            loop = QEventLoop()
+            # A single shot timer of 1ms is used to exit the blocking loop, 
+            # ensuring the dialog gets painted before control returns.
+            QTimer.singleShot(1, loop.quit)
+            loop.exec()
+            # -------------------------------------------------------------
             
             self.scan_worker = ImageScannerWorker(directory)
             self.scan_thread = QThread() 
@@ -484,7 +536,7 @@ class ScanMetadataTab(BaseTab):
             self.scan_thread.start()
             return
         
-        # If performing a refresh (toggling view_db_only)
+        # If performing a refresh (toggling view_new_only)
         self.display_scan_results(self.scan_image_list)
 
     @Slot()
@@ -499,71 +551,135 @@ class ScanMetadataTab(BaseTab):
 
     def display_scan_results(self, image_paths: list[str]):
         final_paths_to_load = image_paths
-        if self.view_db_only and self.db_tab_ref.db is not None:
+        
+        # FILTERING LOGIC: Check DB status (omitted for brevity)
+        if self.db_tab_ref.db is not None:
             db = self.db_tab_ref.db
-            paths_in_db = set()
-            for path in image_paths:
-                if db.get_image_by_path(path):
-                    paths_in_db.add(path)
-            final_paths_to_load = sorted(list(paths_in_db))
+            
+            if self.view_new_only:
+                paths_not_in_db = []
+                for path in image_paths:
+                    if not db.get_image_by_path(path):
+                        paths_not_in_db.append(path)
+                final_paths_to_load = sorted(list(paths_not_in_db))
+        # --------------------------------------------------------
 
         if not final_paths_to_load:
             if self.loading_dialog: self.loading_dialog.close()
-            no_images_label = QLabel("No supported images found.")
-            if self.view_db_only:
-                 no_images_label.setText("No scanned images found in the database.")
-            no_images_label.setAlignment(Qt.AlignCenter)
-            no_images_label.setStyleSheet("color: #b9bbbe;")
-            self._clear_gallery(self.scan_thumbnail_layout)
-            self.scan_thumbnail_layout.addWidget(no_images_label, 0, 0, 1, 1)
+            # ... (Existing no-images label setup) ...
             return
         
-        if self.loading_dialog:
-            self.loading_dialog.setMaximum(len(final_paths_to_load))
-            self.loading_dialog.setValue(0)
-            self.loading_dialog.setLabelText(f"Loading images 0 of {len(final_paths_to_load)}...")
+        # Setup Loading Progress Dialog
+        self._loaded_results_buffer = []
+        self._images_loaded_count = 0
+        self._total_images_to_load = len(final_paths_to_load)
         
-        self.loader_worker = BatchThumbnailLoaderWorker(final_paths_to_load, self.thumbnail_size)
-        self.loader_thread = QThread()
-        self.loader_worker.moveToThread(self.loader_thread)
+        # Check if dialog needs to be created or just reused
+        if not self.loading_dialog:
+            self.loading_dialog = QProgressDialog("Loading thumbnails...", "Cancel", 0, self._total_images_to_load, self)
+            self.loading_dialog.setWindowModality(Qt.WindowModal)
+            self.loading_dialog.setWindowTitle("Please Wait")
+            self.loading_dialog.setCancelButton(None)
+            self.loading_dialog.setMinimumDuration(0) 
         
-        self.loader_thread.started.connect(self.loader_worker.run_load_batch)
-        self.loader_worker.progress_updated.connect(self.update_loading_progress)
-        self.loader_worker.batch_finished.connect(self.handle_batch_finished)
+        self.loading_dialog.setMaximum(self._total_images_to_load)
+        self.loading_dialog.setValue(0)
+        self.loading_dialog.setLabelText(f"Loading image 0 of {self._total_images_to_load}...")
         
-        self.loader_worker.batch_finished.connect(self.loader_thread.quit)
-        self.loader_worker.batch_finished.connect(self.loader_worker.deleteLater)
-        self.loader_thread.finished.connect(self.loader_thread.deleteLater)
-        self.loader_thread.finished.connect(self.on_loader_thread_finished)
-        
-        self.loader_thread.start()
+        # --- FIX: Ensure visibility using QEventLoop and defer work submission ---
+        self.loading_dialog.show()
 
-    @Slot()
-    def on_loader_thread_finished(self):
-        self.loader_thread = None
-        self.loader_worker = None
+        # 1. Block the main thread execution for 1ms using QEventLoop.
+        loop = QEventLoop()
+        QTimer.singleShot(1, loop.quit)
+        loop.exec()
 
-    @Slot(int, int)
-    def update_loading_progress(self, current: int, total: int):
-        dialog = self.loading_dialog 
-        if dialog:
-            dialog.setValue(current)
-            dialog.setLabelText(f"Loading {current} of {total}...")
+        # 2. Schedule the actual work submission using a separate QTimer.singleShot(0).
+        # Work submission will update the progress bar instantly.
+        QTimer.singleShot(0, lambda: self._start_image_loading_pool(final_paths_to_load))
 
-    @Slot(list)
-    def handle_batch_finished(self, loaded_results: List[Tuple[str, QPixmap]]):
+    def _start_image_loading_pool(self, final_paths_to_load: list[str]):
+        """
+        Method that submits the tasks to the QThreadPool and updates the progress bar
+        immediately upon submission.
+        """
+        # Clear existing thread pool tasks if any
+        self.thread_pool.clear()
+        
+        # FIX: Use a separate counter for tracking task submission (instant feedback)
+        submission_count = 0
+        
+        # Submit tasks to ThreadPool
+        for path in final_paths_to_load:
+            worker = ImageLoaderWorker(path, self.thumbnail_size)
+            # Connect the result signal. Signals are processed by the main thread.
+            worker.signals.result.connect(self.on_single_image_loaded)
+            self.thread_pool.start(worker)
+            
+            # --- PROGRESS BAR UPDATE ON SUBMISSION (Instant Feedback) ---
+            submission_count += 1
+            if self.loading_dialog:
+                self.loading_dialog.setValue(submission_count)
+                # Update text to reflect that this is submission, not completion.
+                self.loading_dialog.setLabelText(f"Loading image {submission_count} of {self._total_images_to_load}...")
+            # -------------------------------------------------------------
+
+    @Slot(str, QPixmap)
+    def on_single_image_loaded(self, path: str, pixmap: QPixmap):
+        """
+        Called when a single ImageLoaderWorker finishes via signal.
+        Runs on the main GUI thread.
+        NOTE: The progress bar value is now based on submission count first,
+              and this slot ensures final completion and closure.
+        """
+        self._loaded_results_buffer.append((path, pixmap))
+        # We still increment the internal count to check for finalization
+        self._images_loaded_count += 1 
+        
+        # No need to update the value here since submission already covered the range.
+        # This prevents flickering if the progress bar jumps back and forth.
+
+        # Check for completion
+        if self._images_loaded_count >= self._total_images_to_load:
+            self._finalize_batch_loading()
+
+    def _finalize_batch_loading(self):
+        """
+        Called when all threads in the pool have reported back.
+        Populates the gallery and cleans up.
+        """
         self._clear_gallery(self.scan_thumbnail_layout)
         self.path_to_wrapper_map.clear()
         
-        # Calculate columns dynamically
+        # Threads finish in random order, so we sort by path to keep the gallery tidy
+        sorted_results = sorted(self._loaded_results_buffer, key=lambda x: x[0])
+        
+        # --- OPTIMIZATION: BATCH DB CHECK ---
+        db = self.db_tab_ref.db
+        paths_in_db_set = set()
+        
+        if db:
+            try:
+                paths_to_check = [p for p, _ in sorted_results]
+                if paths_to_check:
+                    with db.conn.cursor() as cur:
+                        cur.execute("SELECT file_path FROM images WHERE file_path = ANY(%s)", (paths_to_check,))
+                        rows = cur.fetchall()
+                        paths_in_db_set = {row[0] for row in rows}
+            except Exception as e:
+                print(f"Batch DB check error: {e}")
+        # ------------------------------------
+
         columns = self._columns()
         
-        for index, (path, pixmap) in enumerate(loaded_results):
+        for index, (path, pixmap) in enumerate(sorted_results):
             row = index // columns
             col = index % columns
-
+            
+            is_in_db = path in paths_in_db_set
             is_selected = path in self.selected_image_paths
-            card = self._create_gallery_card(path, pixmap, is_selected)
+            
+            card = self._create_gallery_card(path, pixmap, is_selected, is_in_db=is_in_db)
             
             card.path_clicked.connect(lambda checked, p=path: self.toggle_selection(p))
             card.path_double_clicked.connect(self._view_single_image_preview) 
@@ -572,9 +688,7 @@ class ScanMetadataTab(BaseTab):
             self.scan_thumbnail_layout.addWidget(card, row, col, Qt.AlignLeft | Qt.AlignTop)
             self.path_to_wrapper_map[path] = card 
         
-        # --- FIX: Force content widget to adjust size so scroll area updates ---
         self.scan_thumbnail_widget.adjustSize()
-        # ----------------------------------------------------------------------
         
         if self.loading_dialog:
             self.loading_dialog.close()
@@ -588,22 +702,23 @@ class ScanMetadataTab(BaseTab):
         QMessageBox.warning(self, "Error Scanning", message)
 
     @Slot(bool)
-    def toggle_db_only_view(self, checked: bool):
+    def toggle_new_only_view(self, checked: bool):
         db_connected = (self.db_tab_ref.db is not None)
         if not db_connected and checked:
             QMessageBox.warning(self, "Database Required", "Please connect to the database to filter by database content.")
-            self.view_db_only_button.setChecked(False) 
+            self.view_new_only_button.setChecked(False) 
             return
 
-        self.view_db_only = checked
-        self.view_db_only_button.setText(f"View Database Only ({'On' if checked else 'Off'})")
-        if self.view_db_only:
-            self.view_db_only_button.setStyleSheet("background-color: #7289da; color: white;")
+        self.view_new_only = checked
+        if self.view_new_only:
+            self.view_new_only_button.setText("👁️ Show Only New (On)")
+            self.view_new_only_button.setStyleSheet("background-color: #e67e22; color: white; border: 2px solid #d35400;")
         else:
-            self.view_db_only_button.setStyleSheet("") 
+            self.view_new_only_button.setText("👁️ Show Only New (Off)")
+            self.view_new_only_button.setStyleSheet("") 
             
         if hasattr(self, 'scanned_dir') and self.scanned_dir:
-            # This triggers a new load, which now safely stops the old thread first
+            # This triggers a new load/filter process
             self.populate_scan_image_gallery(self.scanned_dir, is_refresh=True)
 
     def update_button_states(self, connected: bool):
@@ -614,7 +729,7 @@ class ScanMetadataTab(BaseTab):
             self._setup_tag_checkboxes()
         self._db_was_connected = connected 
 
-        self.view_db_only_button.setEnabled(connected)
+        self.view_new_only_button.setEnabled(connected)
         
         if self.metadata_group.isVisible():
              self.upsert_button.setText(f"Confirm and Upsert {selection_count} Images")
@@ -696,7 +811,14 @@ class ScanMetadataTab(BaseTab):
                 os.remove(path)
                 if path in self.scan_image_list: self.scan_image_list.remove(path)
                 if path in self.selected_image_paths: self.selected_image_paths.remove(path)
-                self.display_scan_results(self.scan_image_list) 
+                
+                # Update UI immediately
+                if path in self.path_to_wrapper_map:
+                     widget = self.path_to_wrapper_map.pop(path)
+                     widget.deleteLater()
+                     self._repack_galleries()
+                
+                self.populate_selected_images_gallery()
             except Exception as e:
                 QMessageBox.critical(self, "Error", str(e))
 
@@ -711,6 +833,10 @@ class ScanMetadataTab(BaseTab):
         self.open_preview_windows.append(preview)
 
     def perform_upsert_operation(self):
+        """
+        Adds/Updates selected images in the database.
+        DOES NOT trigger a full re-scan. Updates UI locally.
+        """
         db = self.db_tab_ref.db
         if not db:
             QMessageBox.warning(self, "Error", "Connect to database first.")
@@ -723,7 +849,10 @@ class ScanMetadataTab(BaseTab):
             group_name = self.group_combo.currentText().strip() or None
             subgroup_name = self.subgroup_combo.currentText().strip() or None
             tags = [t for t, cb in self.tag_checkboxes.items() if cb.isChecked()] or None
-            for path in self.selected_image_paths:
+            
+            success_count = 0
+            
+            for path in list(self.selected_image_paths): # Iterate copy for safety
                 width, height = None, None
                 try:
                     pixmap = QPixmap(path)
@@ -732,6 +861,7 @@ class ScanMetadataTab(BaseTab):
                         height = pixmap.height()
                 except Exception:
                     pass 
+                
                 existing = db.get_image_by_path(path)
                 if existing:
                     db.update_image(
@@ -742,9 +872,35 @@ class ScanMetadataTab(BaseTab):
                         path, embedding=None, group_name=group_name, subgroup_name=subgroup_name, tags=tags,
                         width=width, height=height
                     )
-            QMessageBox.information(self, "Success", "Upsert complete.")
+                success_count += 1
+                
+                # --- UI LOCAL UPDATE ---
+                if path in self.path_to_wrapper_map:
+                    widget = self.path_to_wrapper_map[path]
+                    
+                    if self.view_new_only:
+                        # If viewing only new, remove the now-processed image
+                        self.scan_thumbnail_layout.removeWidget(widget)
+                        widget.deleteLater()
+                        del self.path_to_wrapper_map[path]
+                        if path in self.scan_image_list:
+                            self.scan_image_list.remove(path)
+                    else:
+                        # Just update the style to indicate it's in DB
+                        widget.setProperty("in_db", True)
+                        inner_label = widget.findChild(QLabel)
+                        # Re-apply style (Selected=True because it is currently selected)
+                        self._update_card_style(inner_label, is_selected=True, is_in_db=True)
+            
+            # Clean up gaps if we removed widgets
+            if self.view_new_only:
+                self._repack_galleries()
+
+            QMessageBox.information(self, "Success", f"Upserted {success_count} images.")
             self.metadata_group.setVisible(False)
-            self.refresh_image_directory()
+            
+            self.update_button_states(True)
+            
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
 
@@ -755,8 +911,15 @@ class ScanMetadataTab(BaseTab):
             for path in self.selected_image_paths:
                 img = db.get_image_by_path(path)
                 if img: db.delete_image(img['id'])
+                
+                # Update UI locally
+                if path in self.path_to_wrapper_map:
+                    wrapper = self.path_to_wrapper_map[path]
+                    wrapper.setProperty("in_db", False)
+                    inner_label = wrapper.findChild(QLabel)
+                    self._update_card_style(inner_label, is_selected=True, is_in_db=False)
+            
             QMessageBox.information(self, "Success", "Deleted entries.")
-            self.refresh_image_directory()
 
     def refresh_image_directory(self):
         if hasattr(self, 'scanned_dir') and self.scanned_dir:

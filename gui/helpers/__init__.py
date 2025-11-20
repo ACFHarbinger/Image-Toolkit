@@ -1,5 +1,6 @@
 from .batch_loader_worker import BatchThumbnailLoaderWorker
 from .image_scanner_worker import ImageScannerWorker
+from .image_loader_worker import ImageLoaderWorker
 from .image_crawl_worker import ImageCrawlWorker
 
 from .google_drive_sync_worker import GoogleDriveSyncWorker
