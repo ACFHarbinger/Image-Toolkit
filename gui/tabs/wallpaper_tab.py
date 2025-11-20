@@ -57,9 +57,10 @@ class WallpaperTab(BaseTab):
     @Slot(int, int)
     def update_loading_progress(self, current: int, total: int):
         """Updates the progress dialog with the current loading count."""
-        if self.loading_dialog:
-            self.loading_dialog.setValue(current)
-            self.loading_dialog.setLabelText(f"Loading images {current} of {total}...")
+        dialog = self.loading_dialog 
+        if dialog:
+            dialog.setValue(current)
+            dialog.setLabelText(f"Loading {current} of {total}...")
 
     @Slot()
     def check_all_monitors_set(self):
