@@ -663,19 +663,35 @@ class DatabaseTab(BaseTab):
         if not self.db:
             self.subgroups_table.setRowCount(0)
             return
-        parent_group = self.existing_subgroups_filter_combo.currentText()
-        if not parent_group:
-            self.subgroups_table.setRowCount(0)
-            return 
+            
+        parent_group_filter = self.existing_subgroups_filter_combo.currentText()
+        
+        results = []
         try:
-            subgroups = self.db.get_subgroups_for_group(parent_group) 
-            self.subgroups_table.setRowCount(len(subgroups))
-            for row, subgroup_name in enumerate(subgroups):
-                name_item = QTableWidgetItem(subgroup_name)
-                group_item = QTableWidgetItem(parent_group)
+            if not parent_group_filter:
+                # CASE 1: No filter selected -> Show ALL subgroups with their parents
+                #
+                raw_data = self.db.get_all_subgroups_detailed()
+                results = raw_data # List of (subgroup_name, group_name)
+            else:
+                # CASE 2: Filter selected -> Show only specific subgroups
+                #
+                subgroup_names = self.db.get_subgroups_for_group(parent_group_filter)
+                # format as list of tuples to match Case 1
+                results = [(name, parent_group_filter) for name in subgroup_names]
+
+            # Populate the Table
+            self.subgroups_table.setRowCount(len(results))
+            for row, (sub_name, grp_name) in enumerate(results):
+                name_item = QTableWidgetItem(sub_name)
+                group_item = QTableWidgetItem(grp_name)
+                
+                # Lock the parent group cell so it can't be edited here (only subgroup name is editable)
                 group_item.setFlags(group_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                
                 self.subgroups_table.setItem(row, 0, name_item)
                 self.subgroups_table.setItem(row, 1, group_item)
+                
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load subgroups list:\n{str(e)}")
 
