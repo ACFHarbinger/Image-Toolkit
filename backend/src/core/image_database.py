@@ -537,6 +537,19 @@ class PgvectorImageDatabase:
                 (group_name,)
             )
             return [row[0] for row in cur.fetchall()]
+        
+    def get_all_subgroups_detailed(self) -> List[tuple]:
+        """
+        Get list of ALL (subgroup_name, group_name) pairs.
+        """
+        with self.conn.cursor() as cur:
+            cur.execute("""
+                SELECT s.name, g.name 
+                FROM subgroups s 
+                JOIN groups g ON s.group_id = g.id 
+                ORDER BY g.name, s.name
+            """)
+            return cur.fetchall()
 
     def delete_image(self, image_id: int):
         """Delete an image from the database."""
