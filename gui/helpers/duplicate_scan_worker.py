@@ -1,11 +1,12 @@
 import cv2
+import numpy as np
 
 from typing import Dict, Any, List, Tuple
 from PySide6.QtCore import (
     Slot, Signal, QObject, 
     QThread, QThreadPool, QEventLoop,
 )
-from .tasks import PhashTask, OrbTask, SiftTask, SsimTask
+from .tasks import PhashTask, OrbTask, SiftTask, SsimTask, SiameseTask
 from backend.src.core.file_system_entries import DuplicateFinder, SimilarityFinder
 
 
@@ -60,7 +61,7 @@ class DuplicateScanWorker(QObject):
                 self._check_interrupt()
 
             # --- 2. PARALLEL PROCESSING (pHash / ORB) ---
-            elif self.method in ["phash", "orb", "sift", "ssim"]:
+            elif self.method in ["phash", "orb", "sift", "ssim", "siamese"]:
                 self.status.emit("Indexing images...")
                 images = SimilarityFinder.get_images_list(self.directory, self.extensions)
                 self.total_files = len(images)
@@ -83,6 +84,8 @@ class DuplicateScanWorker(QObject):
                         task = SsimTask(path)
                     elif self.method == "sift":
                         task = SiftTask(path)
+                    elif self.method == "siamese":
+                        task = SiameseTask(path)
                     else:
                         task = OrbTask(path)
                     
@@ -306,4 +309,56 @@ class DuplicateScanWorker(QObject):
                 results[f"sift_{gid}"] = group
                 gid += 1
                 
+        return results
+
+    def _compare_siamese(self, cache: Dict[str, Any]) -> Dict[str, List[str]]:
+        """
+        Matrix-based Cosine Similarity comparison for Embeddings.
+        """
+        results = {}
+        paths = list(cache.keys())
+        if not paths:
+            return {}
+
+        # 1. Convert dictionary to Matrix (N images x 512 dimensions)
+        # Stacking arrays is much faster than looping manually
+        matrix = np.array([cache[p] for p in paths])
+        
+        # 2. Normalize vectors (L2 norm)
+        # Cosine Similarity = (A . B) / (||A|| * ||B||)
+        # If we normalize A and B beforehand, Cosine Sim is just the Dot Product.
+        norm = np.linalg.norm(matrix, axis=1, keepdims=True)
+        normalized_matrix = matrix / (norm + 1e-10) # Avoid div by zero
+
+        # 3. Compute Similarity Matrix (N x N)
+        # Result is a square matrix where [i][j] is the similarity between img i and j
+        sim_matrix = np.dot(normalized_matrix, normalized_matrix.T)
+        
+        # 4. Grouping Logic
+        # We zero out the lower triangle and diagonal to avoid self-matches and duplicates
+        processed_indices = set()
+        
+        # Threshold: 0.95 is a good baseline for "Semantic Duplicate"
+        # 1.0 = Exact, 0.0 = No similarity
+        THRESHOLD = 0.95 
+
+        for i in range(len(paths)):
+            if i in processed_indices:
+                continue
+                
+            group = [paths[i]]
+            processed_indices.add(i)
+            
+            # Look at row i, columns i+1 to end
+            for j in range(i + 1, len(paths)):
+                if j in processed_indices:
+                    continue
+                
+                if sim_matrix[i][j] >= THRESHOLD:
+                    group.append(paths[j])
+                    processed_indices.add(j)
+            
+            if len(group) > 1:
+                results[f"ai_group_{i}"] = group
+
         return results

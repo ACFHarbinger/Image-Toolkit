@@ -24,6 +24,8 @@ dependencies = [
     "python-dotenv>=1.2.1",
     "screeninfo>=0.8.1",
     "selenium>=4.38.0",
+    "torch>=2.9.1",
+    "torchvision>=0.24.1",
     "webdriver-manager>=4.0.2",
 ]
 

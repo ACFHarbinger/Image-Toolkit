@@ -1,7 +1,6 @@
 import os
 import io
 
-
 from ..utils.definitions import SCOPES, SYNC_ERROR 
 from datetime import datetime
 from typing import Callable, Dict, Any, Optional
