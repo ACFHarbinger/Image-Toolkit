@@ -35,8 +35,9 @@ class ScanMetadataTab(BaseTab):
         self.selected_scan_image_path: str = None
         self.open_preview_windows: list[ImagePreviewWindow] = [] 
 
-        # NEW STATE: Database view filter
+        # Database view filter state
         self.view_db_only: bool = False
+        self._db_was_connected: bool = False # For tag refresh hook
 
         # UI Maps
         self.path_to_wrapper_map: Dict[str, ClickableLabel] = {}
@@ -134,6 +135,24 @@ class ScanMetadataTab(BaseTab):
         metadata_vbox = QVBoxLayout(self.metadata_group)
         
         form_layout = QFormLayout()
+        
+        # --- MODIFIED: ADDED Group Name Input ---
+        group_layout = QHBoxLayout()
+        self.group_combo = QComboBox()
+        self.group_combo.setEditable(True)
+        self.group_combo.setPlaceholderText("Enter or select Group/Series name...")
+        self.group_combo.lineEdit().returnPressed.connect(lambda: self.upsert_button.click())
+        group_layout.addWidget(self.group_combo)
+        form_layout.addRow("Group Name:", group_layout)
+        
+        # --- MODIFIED: ADDED Subgroup Name Input ---
+        subgroup_layout = QHBoxLayout()
+        self.subgroup_combo = QComboBox()
+        self.subgroup_combo.setEditable(True)
+        self.subgroup_combo.setPlaceholderText("Enter or select Subgroup name...")
+        self.subgroup_combo.lineEdit().returnPressed.connect(lambda: self.upsert_button.click())
+        subgroup_layout.addWidget(self.subgroup_combo)
+        form_layout.addRow("Subgroup Name:", subgroup_layout)
         
         tags_scroll = QScrollArea()
         tags_scroll.setMinimumHeight(400) 
@@ -376,13 +395,8 @@ class ScanMetadataTab(BaseTab):
     def populate_scan_image_gallery(self, directory: str, is_refresh: bool = False):
         self.scanned_dir = directory
         
-        # --- Apply DB Filter on Refresh ---
-        if is_refresh and self.scan_image_list:
-            image_paths_to_load = self.scan_image_list
-        else:
-            # If not a refresh, proceed with full new scan
-            
-            # --- Clear Top Gallery ---
+        # --- NEW: Clear all visual elements immediately on fresh scan/refresh ---
+        if not is_refresh or not self.scan_image_list:
             if self.loader_thread and self.loader_thread.isRunning():
                 self.loader_thread.quit()
                 self.loader_thread.wait()
@@ -391,9 +405,12 @@ class ScanMetadataTab(BaseTab):
             self.loader_worker = None
             self.path_to_wrapper_map = {} 
             self._clear_gallery(self.scan_thumbnail_layout)
+            self._clear_gallery(self.selected_grid_layout) # Clear selected gallery too
             self.scan_image_list = []
-            
-            # --- Modal Progress Dialog ---
+            self.selected_image_paths = set()
+            self.selected_card_map = {}
+
+            # --- Modal Progress Dialog for full scan ---
             self.loading_dialog = QProgressDialog("Scanning directory...", "Cancel", 0, 0, self)
             self.loading_dialog.setWindowModality(Qt.WindowModal)
             self.loading_dialog.setWindowTitle("Please Wait")
@@ -417,9 +434,9 @@ class ScanMetadataTab(BaseTab):
             
             self.scan_thread.start()
             return # Exit, wait for scan to finish and call process_scan_results
-
-        # If it was a refresh and scan_image_list exists, apply filter immediately:
-        self.display_scan_results(image_paths_to_load)
+        
+        # If it was a filter-only refresh, apply filter immediately:
+        self.display_scan_results(self.scan_image_list)
 
     @Slot()
     def on_scan_thread_finished(self):
@@ -551,9 +568,19 @@ class ScanMetadataTab(BaseTab):
             self.populate_scan_image_gallery(self.scanned_dir, is_refresh=True)
 
     def update_button_states(self, connected: bool):
+        """
+        Updates button states based on connection status and selected count.
+        Also triggers tag refresh if connection state changes from disconnected to connected.
+        """
         selection_count = len(self.selected_image_paths)
         self.refresh_image_button.setEnabled(True) 
         
+        # --- FIX: Dynamic Tag Refresh Hook ---
+        if connected and not self._db_was_connected:
+            self._setup_tag_checkboxes()
+        self._db_was_connected = connected # Update state for next call
+        # ------------------------------------
+
         # Control the DB button enable state based on DB connection status
         self.view_db_only_button.setEnabled(connected)
         
@@ -604,11 +631,22 @@ class ScanMetadataTab(BaseTab):
         file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
         file_mtime = os.path.getmtime(file_path) if os.path.exists(file_path) else 'N/A'
         
+        # Use QPixmap for quick dimension retrieval
+        width, height = 'N/A', 'N/A'
+        try:
+            pixmap = QPixmap(file_path)
+            if not pixmap.isNull():
+                width = pixmap.width()
+                height = pixmap.height()
+        except Exception:
+            pass
+            
         file_info = f"""
         --- **FILE SYSTEM PROPERTIES** ---
         **Filename:** {path.name}
         **Directory:** {path.parent}
         **Size:** {file_size / (1024 * 1024):.2f} MB ({file_size} bytes)
+        **Dimensions:** {width} x {height} pixels
         **Modified:** {file_mtime}
         """
         
@@ -623,8 +661,8 @@ class ScanMetadataTab(BaseTab):
         **Group:** {db_record.get('group_name') or 'N/A'}
         **Subgroup:** {db_record.get('subgroup_name') or 'N/A'}
         **Tags:** {', '.join(db_record.get('tags', [])) or 'None'}
-        **Width:** {db_record.get('width') or 'N/A'}
-        **Height:** {db_record.get('height') or 'N/A'}
+        **DB Width:** {db_record.get('width') or 'N/A'}
+        **DB Height:** {db_record.get('height') or 'N/A'}
         **Added:** {db_record.get('date_added')}
         """
                 else:
@@ -675,17 +713,46 @@ class ScanMetadataTab(BaseTab):
         
         # Upsert logic...
         try:
+            # --- MODIFIED: COLLECT GROUP/SUBGROUP NAMES ---
+            group_name = self.group_combo.currentText().strip() or None
+            subgroup_name = self.subgroup_combo.currentText().strip() or None
+            
             tags = [t for t, cb in self.tag_checkboxes.items() if cb.isChecked()] or None
             
             for path in self.selected_image_paths:
+                
+                # --- NEW LOGIC: Collect Width and Height from QPixmap ---
+                width, height = None, None
+                try:
+                    pixmap = QPixmap(path)
+                    if not pixmap.isNull():
+                        width = pixmap.width()
+                        height = pixmap.height()
+                except Exception:
+                    pass 
+                # ---------------------------------------------------------
+
                 existing = db.get_image_by_path(path)
                 
-                final_tags = tags
-
                 if existing:
-                    db.update_image(existing['id'], group_name=None, tags=final_tags)
+                    db.update_image(
+                        existing['id'], 
+                        group_name=group_name, 
+                        subgroup_name=subgroup_name,
+                        tags=tags
+                        # Width/Height are typically not updated here, 
+                        # as update_image in the database class doesn't support them.
+                    )
                 else:
-                    db.add_image(path, None, group_name=None, tags=final_tags)
+                    db.add_image(
+                        path, 
+                        embedding=None, 
+                        group_name=group_name, 
+                        subgroup_name=subgroup_name, 
+                        tags=tags,
+                        width=width,    # <-- NEW
+                        height=height   # <-- NEW
+                    )
             
             QMessageBox.information(self, "Success", "Upsert complete.")
             self.metadata_group.setVisible(False)
@@ -704,9 +771,10 @@ class ScanMetadataTab(BaseTab):
             self.refresh_image_directory()
 
     def refresh_image_directory(self):
+        # --- NEW: Full cleanup before starting scan/filter ---
         if hasattr(self, 'scanned_dir') and self.scanned_dir:
-             # Refresh scan without running the slow filesystem scan again
-            self.populate_scan_image_gallery(self.scanned_dir, is_refresh=True)
+             # Force a refresh to clear galleries, then start the population process
+            self.populate_scan_image_gallery(self.scanned_dir, is_refresh=False)
         else:
              # Fallback to the return key logic if no directory is set
              self.handle_scan_directory_return()
@@ -714,7 +782,12 @@ class ScanMetadataTab(BaseTab):
     def collect(self) -> dict:
         out = {
             "scan_directory": self.scan_directory_path.text().strip() or None,
-            "selected_images": list(self.selected_image_paths) 
+            "selected_images": list(self.selected_image_paths),
+            "batch_metadata": { # Include batch metadata for saving config
+                "group_name": self.group_combo.currentText().strip() or "",
+                "subgroup_name": self.subgroup_combo.currentText().strip() or "",
+                "tags": [t for t, cb in self.tag_checkboxes.items() if cb.isChecked()]
+            }
         }
         return out
 
@@ -722,6 +795,8 @@ class ScanMetadataTab(BaseTab):
         return {
             "scan_directory": "",
             "batch_metadata": {
+                "group_name": "",
+                "subgroup_name": "",
                 "tags": []
             }
         }
@@ -735,6 +810,11 @@ class ScanMetadataTab(BaseTab):
 
             if "batch_metadata" in config:
                 metadata = config.get("batch_metadata", {})
+                
+                # --- MODIFIED: Load Group/Subgroup ---
+                self.group_combo.setCurrentText(metadata.get("group_name", ""))
+                self.subgroup_combo.setCurrentText(metadata.get("subgroup_name", ""))
+                # ------------------------------------
                 
                 # Ensure tags are populated from DB before setting configuration
                 self._setup_tag_checkboxes()

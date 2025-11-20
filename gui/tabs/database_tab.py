@@ -317,11 +317,9 @@ class DatabaseTab(BaseTab):
             self.refresh_groups_list() 
             self.refresh_subgroups_list() 
             
-            # --- FIX: Explicitly refresh ScanMetadataTab elements ---
+            # Explicitly refresh ScanMetadataTab elements
             if self.scan_tab_ref:
-                # Assuming ScanMetadataTab has _setup_tag_checkboxes() method
                 self.scan_tab_ref._setup_tag_checkboxes() 
-            # --------------------------------------------------------
             
             QMessageBox.information(self, "Success", f"Connected to PostgreSQL DB: {db_name}")
         except Exception as e:
@@ -356,10 +354,9 @@ class DatabaseTab(BaseTab):
                 if hasattr(self.search_tab_ref, 'subgroup_combo'): 
                     self.search_tab_ref.subgroup_combo.clear()
                     
-            # --- FIX: Explicitly refresh ScanMetadataTab elements (clear tags) ---
+            # Explicitly refresh ScanMetadataTab elements (clear tags)
             if self.scan_tab_ref:
                 self.scan_tab_ref._setup_tag_checkboxes() 
-            # ---------------------------------------------------------------------
             
             QMessageBox.information(self, "Disconnected", "Successfully disconnected from the database.")
         except Exception as e:
@@ -412,10 +409,9 @@ class DatabaseTab(BaseTab):
             self.refresh_groups_list()
             self.refresh_subgroups_list()
             
-            # --- FIX: Explicitly refresh ScanMetadataTab elements ---
+            # Explicitly refresh ScanMetadataTab elements
             if self.scan_tab_ref:
                 self.scan_tab_ref._setup_tag_checkboxes() 
-            # --------------------------------------------------------
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to reset database:\n{str(e)}")
@@ -496,6 +492,10 @@ class DatabaseTab(BaseTab):
         
         if self.scan_tab_ref:
              self.scan_tab_ref.update_button_states(connected)
+        
+        # Update Search Tab buttons
+        if self.search_tab_ref:
+            self.search_tab_ref.update_search_button_state(connected)
              
     # --- Tag and Group Management Methods ---
 
@@ -592,10 +592,9 @@ class DatabaseTab(BaseTab):
             self.refresh_tags_list() 
             self.update_statistics()
             
-            # --- FIX: Trigger tag refresh in scan tab after creating new tags ---
+            # Trigger tag refresh in scan tab after creating new tags
             if self.scan_tab_ref:
                 self.scan_tab_ref._setup_tag_checkboxes()
-            # ---------------------------------------------------------------------
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to create tags:\n{str(e)}")
@@ -692,10 +691,9 @@ class DatabaseTab(BaseTab):
                 self.refresh_tags_list()
                 self.update_statistics() 
                 
-                # --- FIX: Trigger tag refresh in scan tab after removing a tag ---
+                # Trigger tag refresh in scan tab after removing a tag
                 if self.scan_tab_ref:
                     self.scan_tab_ref._setup_tag_checkboxes()
-                # ------------------------------------------------------------------
                 
                 QMessageBox.information(self, "Success", f"Tag '{tag_name}' removed.")
             except Exception as e:
@@ -875,10 +873,9 @@ class DatabaseTab(BaseTab):
                     item.setText(new_name)
                 self.update_statistics()
                 
-                # --- FIX: Trigger tag refresh in scan tab after renaming a tag ---
+                # Trigger tag refresh in scan tab after renaming a tag
                 if self.scan_tab_ref:
                     self.scan_tab_ref._setup_tag_checkboxes()
-                # ------------------------------------------------------------------
                 
             except psycopg2.errors.UniqueViolation:
                 QMessageBox.warning(self, "Error", f"A tag named '{new_name}' already exists.")

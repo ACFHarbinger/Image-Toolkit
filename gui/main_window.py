@@ -374,7 +374,7 @@ class MainWindow(QWidget):
                 # 2. Check if the object is still valid (not deleted)
                 # We use QObject.isNull() to check the underlying C++ object's validity
                 # This explicitly checks if the C++ side has already been cleaned up.
-                if win and not QObject.isNull(win): 
+                if win: 
                     try:
                         win.close()
                     except RuntimeError:
@@ -385,15 +385,15 @@ class MainWindow(QWidget):
 
         # 2. Close all Slideshow Queue windows
         if hasattr(self.wallpaper_tab, 'open_queue_windows'):
-             safe_close_windows(self.wallpaper_tab.open_queue_windows)
+            safe_close_windows(self.wallpaper_tab.open_queue_windows)
         
         # 3. Close all Image Preview windows managed by WallpaperTab
         if hasattr(self.wallpaper_tab, 'open_image_preview_windows'):
-             safe_close_windows(self.wallpaper_tab.open_image_preview_windows)
+            safe_close_windows(self.wallpaper_tab.open_image_preview_windows)
                 
         # 4. Close all Image Preview windows managed by ScanMetadataTab
         if hasattr(self.scan_metadata_tab, 'open_preview_windows'):
-             safe_close_windows(self.scan_metadata_tab.open_preview_windows)
+            safe_close_windows(self.scan_metadata_tab.open_preview_windows)
             
         # 5. Ensure JVM shutdown
         if self.vault_manager:
