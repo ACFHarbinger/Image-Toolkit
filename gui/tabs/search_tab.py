@@ -173,16 +173,9 @@ class SearchTab(BaseTab):
         self.btn_deselect_all.setMinimumHeight(30)
         apply_shadow_effect(self.btn_deselect_all, color_hex="#000000", radius=4, x_offset=0, y_offset=2)
         self.btn_deselect_all.clicked.connect(self.deselect_all_results)
-        
-        self.btn_send_to_scan = QPushButton("Open Selected in Scan Tab")
-        self.btn_send_to_scan.setMinimumHeight(30)
-        self.btn_send_to_scan.setStyleSheet("background-color: #2ecc71; color: white; font-weight: bold;")
-        apply_shadow_effect(self.btn_send_to_scan, color_hex="#000000", radius=4, x_offset=0, y_offset=2)
-        self.btn_send_to_scan.clicked.connect(self.send_selection_to_scan_tab)
 
         results_header_layout.addWidget(self.btn_select_all)
         results_header_layout.addWidget(self.btn_deselect_all)
-        results_header_layout.addWidget(self.btn_send_to_scan)
         
         layout.addLayout(results_header_layout)
         
