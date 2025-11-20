@@ -405,13 +405,59 @@ class SearchTab(BaseTab):
             self.results_layout.addWidget(result_container, row, col)
             self.result_widgets.append(result_container)
 
+    def handle_remove_from_db(self, file_path: str):
+        """
+        Removes the image entry from the database only (keeps the file).
+        """
+        db = self.db_tab_ref.db
+        if not db:
+            QMessageBox.warning(self, "Database Error", "Please connect to the database first.")
+            return
+
+        filename = os.path.basename(file_path)
+        reply = QMessageBox.question(
+            self, 
+            "Confirm Database Removal",
+            f"Are you sure you want to remove the entry for **{filename}** from the database?\n\nThe physical image file WILL NOT be deleted.",
+            QMessageBox.Yes | QMessageBox.No, 
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.No:
+            return
+
+        try:
+            # 1. Look up image ID in the database
+            image_data = db.get_image_by_path(file_path)
+            image_id = image_data.get('id') if image_data else None
+
+            if image_id is not None:
+                # 2. Delete the entry from the database
+                db.delete_image(image_id) 
+                
+                # 3. Update the UI list
+                if file_path in self.current_result_paths:
+                    self.current_result_paths.remove(file_path)
+                self.perform_search() 
+                
+                QMessageBox.information(self, "Success", f"Database entry for **{filename}** removed successfully.")
+            else:
+                QMessageBox.warning(self, "Warning", f"No database entry found for file: {filename}")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Removal Failed", f"Could not remove database entry:\n{e}")
+
     def handle_delete_image(self, file_path: str):
         """
-        Handles the permanent deletion of the image file and updates the UI.
-        This function implements the actual deletion logic.
+        Handles the permanent deletion of the image file AND its database entry.
         """
         if not file_path or not os.path.exists(file_path):
             QMessageBox.warning(self, "Delete Error", "File not found or path is invalid.")
+            return
+        
+        db = self.db_tab_ref.db
+        if not db:
+            QMessageBox.warning(self, "Delete Error", "Database connection required for file and DB deletion.")
             return
 
         filename = os.path.basename(file_path)
@@ -427,37 +473,37 @@ class SearchTab(BaseTab):
             return
 
         try:
-            # 1. Close any open preview windows for this file
+            # 1. Look up image ID in the database
+            image_data = db.get_image_by_path(file_path)
+            image_id = image_data.get('id') if image_data else None
+
+            # 2. Close any open preview windows for this file
             for window in self.open_preview_windows[:]:
                 if window.image_path == file_path:
                     window.close()
                     break
             
-            # 2. Delete the file from the filesystem
+            # 3. Delete the file from the filesystem
             os.remove(file_path)
             
-            # 3. If connected, attempt to remove it from the database
-            db = self.db_tab_ref.db
-            if db:
-                try:
-                    # Assuming db has a method to delete by path/filename
-                    # Note: Actual DB implementation depends on external 'backend' code.
-                    db.delete_image_by_path(file_path) 
-                except Exception as db_e:
-                    # Log DB failure but continue, file is already gone
-                    print(f"Warning: Failed to remove image from database: {db_e}")
+            # 4. Delete the entry from the database
+            if image_id is not None:
+                db.delete_image(image_id) 
+            else:
+                print(f"Warning: Image file deleted, but no entry found in database for path: {file_path}")
 
-            # 4. Remove the image from current search results lists/widgets
+            # 5. Remove the image from current search results lists/widgets
             if file_path in self.current_result_paths:
                 self.current_result_paths.remove(file_path)
 
             # Re-run search to update the grid cleanly
             self.perform_search() 
 
-            QMessageBox.information(self, "Success", f"File and associated database entry (if applicable) deleted successfully: {filename}")
+            QMessageBox.information(self, "Success", f"File and associated database entry deleted successfully: {filename}")
             
         except Exception as e:
             QMessageBox.critical(self, "Deletion Failed", f"Could not delete the file:\n{e}")
+
 
     def show_image_properties(self, file_path: str):
         """Gathers and displays the image file's properties in a QMessageBox."""
@@ -509,12 +555,12 @@ class SearchTab(BaseTab):
         """Displays a context menu with Send To options."""
         menu = QMenu(self)
 
-        # 1. Show Image Properties (New Separate Action)
+        # 1. Show Image Properties
         properties_action = QAction("🖼️ Show Image Properties", self)
         properties_action.triggered.connect(lambda: self.show_image_properties(file_path))
         menu.addAction(properties_action)
 
-        # 2. Open Full Preview (Existing functionality)
+        # 2. Open Full Preview
         preview_action = QAction("👁️ Open Full Preview", self)
         preview_action.triggered.connect(lambda: self.open_file_preview(file_path))
         menu.addAction(preview_action)
@@ -525,20 +571,26 @@ class SearchTab(BaseTab):
         
         menu.addSeparator()
 
-        # 3. Delete Image File (Direct action, now calling local deletion handler)
+        # 3. Database Removal (New Action)
+        remove_db_action = QAction("❌ Remove from Database Only", self)
+        remove_db_action.triggered.connect(lambda: self.handle_remove_from_db(file_path))
+        menu.addAction(remove_db_action)
+        
+        # 4. Delete File and DB Entry
         delete_action = QAction("🗑️ Delete Image File (Permanent)", self)
         delete_action.triggered.connect(lambda: self.handle_delete_image(file_path))
         menu.addAction(delete_action)
 
         menu.addSeparator()
         
-        # Send To Actions (Removed redundant "Delete Tab" entry)
+        # Send To Actions
         send_menu = menu.addMenu("Send To...")
         
         actions_data = [
             ("Merge Tab", "merge"),
             ("Wallpaper Tab", "wallpaper"),
-            ("Scan Metadata Tab", "scan")
+            ("Scan Metadata Tab", "scan"),
+            ("Delete Tab", "delete")
         ]
         
         for name, code in actions_data:
