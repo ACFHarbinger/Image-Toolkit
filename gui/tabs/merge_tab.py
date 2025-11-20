@@ -35,7 +35,11 @@ class MergeTab(BaseTab):
         self.selected_card_map: Dict[str, ClickableLabel] = {}
         self.scanned_dir: str | None = None
         self.open_preview_windows: list[ImagePreviewWindow] = [] 
-        self.loading_dialog = None # --- ADDED STATE ---
+        self.loading_dialog = None 
+        
+        # Column tracking
+        self._current_gallery_cols = 1
+        self._current_selected_cols = 1
         
         # --- Thread tracking ---
         self.current_scan_thread: QThread | None = None
@@ -187,7 +191,7 @@ class MergeTab(BaseTab):
         self.selected_grid_layout.setSpacing(10)
         
         # Align selected grid layout to the left
-        self.selected_grid_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.selected_grid_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         
         self.selected_images_area.setWidget(self.selected_images_widget)
         gallery_vbox.addWidget(self.selected_images_area, 1)
@@ -224,6 +228,80 @@ class MergeTab(BaseTab):
         self.update_run_button_state()
         self.toggle_grid_visibility(self.direction.currentText())
         self._show_placeholder("No images loaded. Use buttons above to add files or scan a directory.")
+
+    # --- MERGE SETTINGS HELPER ---
+    @Slot(str)
+    def toggle_grid_visibility(self, direction):
+        """Toggles the visibility of the grid size input based on the merge direction."""
+        self.grid_group.setVisible(direction == "grid")
+        
+        # Force a quick recalculation after visibility change
+        if not hasattr(self, "_resize_timer"):
+            self._resize_timer = QTimer()
+            self._resize_timer.setSingleShot(True)
+            self._resize_timer.timeout.connect(lambda: None)
+        self._resize_timer.start(100)
+
+    # === NEW: RESIZE REFLOW LOGIC ===
+    def resizeEvent(self, event):
+        """Handle resize events to reflow the gallery grid."""
+        super().resizeEvent(event)
+        
+        # Use the shared robust calculation
+        new_gallery_cols = self._calculate_columns(self.merge_scroll_area)
+        if new_gallery_cols != self._current_gallery_cols:
+            self._current_gallery_cols = new_gallery_cols
+            self._reflow_layout(self.merge_thumbnail_layout, new_gallery_cols)
+
+        new_selected_cols = self._calculate_columns(self.selected_images_area)
+        if new_selected_cols != self._current_selected_cols:
+            self._current_selected_cols = new_selected_cols
+            self._reflow_layout(self.selected_grid_layout, new_selected_cols)
+            
+    def showEvent(self, event):
+        """Trigger reflow when tab is shown."""
+        super().showEvent(event)
+        # Force update columns
+        self._current_gallery_cols = self._calculate_columns(self.merge_scroll_area)
+        self._reflow_layout(self.merge_thumbnail_layout, self._current_gallery_cols)
+        
+        self._current_selected_cols = self._calculate_columns(self.selected_images_area)
+        self._reflow_layout(self.selected_grid_layout, self._current_selected_cols)
+
+    def _calculate_columns(self, scroll_area) -> int:
+        """Calculates columns based on the actual viewport width."""
+        width = scroll_area.viewport().width()
+        if width <= 0: width = scroll_area.width()
+        
+        # Important: If width is still 0 (e.g. unshown tab), assume a reasonable default width
+        # to prevent 1-column layouts on background load.
+        if width <= 0: width = 800 
+            
+        columns = width // self.approx_item_width
+        return max(1, columns)
+
+    def _reflow_layout(self, layout: QGridLayout, columns: int):
+        """Removes all items from layout and re-adds them with new column count."""
+        if not layout: return
+        items = []
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget():
+                items.append(item.widget())
+        
+        for i, widget in enumerate(items):
+            row = i // columns
+            col = i % columns
+            align = Qt.AlignLeft | Qt.AlignTop
+            # Special check for placeholder label which should be centered
+            if isinstance(widget, QLabel) and "No images loaded" in widget.text():
+                 align = Qt.AlignCenter
+                 # If placeholder, span all columns
+                 layout.addWidget(widget, 0, 0, 1, columns, align)
+                 return
+                 
+            layout.addWidget(widget, row, col, align)
+    # --------------------------------
 
     # === NEW HANDLER: Double-Click Preview ===
     @Slot(str)
@@ -300,6 +378,7 @@ class MergeTab(BaseTab):
                         widget.deleteLater()
                         break
             
+            self._reflow_layout(self.merge_thumbnail_layout, self._current_gallery_cols) # Reflow gallery after delete
             self._refresh_selected_panel()
             self.update_run_button_state()
             
@@ -362,12 +441,11 @@ class MergeTab(BaseTab):
         lbl = QLabel(text)
         lbl.setAlignment(Qt.AlignCenter)
         lbl.setStyleSheet("color: #b9bbbe; font-style: italic;")
-        columns = max(1, self._columns())
+        columns = max(1, self._calculate_columns(self.merge_scroll_area))
         self.merge_thumbnail_layout.addWidget(lbl, 0, 0, 1, columns, Qt.AlignCenter)
 
     def _columns(self) -> int:
-        w = self.merge_scroll_area.viewport().width()
-        return max(1, w // self.approx_item_width)
+        return self._calculate_columns(self.merge_scroll_area)
 
     def _update_label_style(self, label: ClickableLabel, path: str, selected: bool):
         is_error = "Error" in label.text()
@@ -441,8 +519,7 @@ class MergeTab(BaseTab):
         padding = 10
         approx_width = thumb_size + padding + 10 
         
-        widget_width = self.selected_images_area.viewport().width()
-        columns = max(1, widget_width // approx_width)
+        columns = self._calculate_columns(self.selected_images_area)
         
         wrapper_height = self.thumbnail_size + 10 
         wrapper_width = self.thumbnail_size + 10 
@@ -547,7 +624,6 @@ class MergeTab(BaseTab):
     def _display_load_complete_message(self):
         image_count = len(self.merge_image_list)
         if image_count > 0:
-            # Optional
             pass
 
     def populate_scan_gallery(self, directory: str):
@@ -565,14 +641,12 @@ class MergeTab(BaseTab):
         self.path_to_label_map.clear()
         self.merge_image_list = []
 
-        # --- MODIFIED: Start Modal Progress Dialog ---
         self.loading_dialog = QProgressDialog("Scanning directory...", "Cancel", 0, 0, self)
         self.loading_dialog.setWindowModality(Qt.WindowModal)
         self.loading_dialog.setWindowTitle("Please Wait")
         self.loading_dialog.setMinimumDuration(0) 
         self.loading_dialog.setCancelButton(None) 
         self.loading_dialog.show()
-        # -------------------------------------------
         
         worker = ImageScannerWorker(directory)
         thread = QThread()
@@ -598,7 +672,6 @@ class MergeTab(BaseTab):
     
     @Slot(int, int)
     def update_loading_progress(self, current: int, total: int):
-        """Updates the progress dialog with the current loading count."""
         dialog = self.loading_dialog 
         if dialog:
             dialog.setValue(current)
@@ -617,13 +690,11 @@ class MergeTab(BaseTab):
             self._show_placeholder("No supported images found.")
             return
 
-        # --- MODIFIED: Setup QProgressDialog range and initial text ---
         total_images = len(image_paths)
         if self.loading_dialog:
-            self.loading_dialog.setMaximum(total_images) # Set maximum value
-            self.loading_dialog.setValue(0) # Set initial value
+            self.loading_dialog.setMaximum(total_images)
+            self.loading_dialog.setValue(0)
             self.loading_dialog.setLabelText(f"Loading images 0 of {total_images}...")
-        # ----------------------------------------------------------------------
 
         if self.current_loader_thread and self.current_loader_thread.isRunning():
             self.current_loader_thread.quit()
@@ -632,19 +703,14 @@ class MergeTab(BaseTab):
         loader = BatchThumbnailLoaderWorker(image_paths, self.thumbnail_size)
         thread = QThread()
         
-        # --- CHANGE: Removed premature disconnection line here ---
-        
         self.current_loader_worker = loader
         self.current_loader_thread = thread
         
         loader.moveToThread(thread)
         thread.started.connect(loader.run_load_batch)
         
-        # --- NEW CONNECTION FOR PROGRESS UPDATE ---
         loader.progress_updated.connect(self.update_loading_progress)
-        # ------------------------------------------
         
-        # --- MODIFIED: Connect to batch signal ---
         loader.batch_finished.connect(self.handle_batch_finished)
         
         loader.batch_finished.connect(thread.quit)
@@ -658,10 +724,9 @@ class MergeTab(BaseTab):
 
     @Slot(list)
     def handle_batch_finished(self, loaded_results: List[Tuple[str, QPixmap]]):
-        """
-        Renders all loaded thumbnails at once and applies current selection styling.
-        """
-        columns = self._columns()
+        # Use robust column calculation
+        columns = self._calculate_columns(self.merge_scroll_area)
+        
         for idx, (path, pixmap) in enumerate(loaded_results):
             row = idx // columns
             col = idx % columns
@@ -678,7 +743,6 @@ class MergeTab(BaseTab):
             self.merge_thumbnail_layout.addWidget(clickable_label, row, col, Qt.AlignCenter)
             self.path_to_label_map[path] = clickable_label
             
-            # Apply Pixmap and Style
             is_selected = path in self.selected_image_paths 
             if not pixmap.isNull():
                 clickable_label.setPixmap(pixmap) 
@@ -693,21 +757,16 @@ class MergeTab(BaseTab):
 
         self.merge_thumbnail_widget.update()
         
-        # --- FIX: DISCONNECT PROGRESS SIGNAL BEFORE CLOSING DIALOG ---
         if self.current_loader_worker:
             try:
-                # Disconnect the progress signal to prevent the race condition
                 self.current_loader_worker.progress_updated.disconnect(self.update_loading_progress)
             except RuntimeError:
-                # If the signal was already disconnected (e.g., thread error/cleanup), ignore
                 pass
-        # -------------------------------------------------------------
         
         if self.loading_dialog:
             self.loading_dialog.close()
             self.loading_dialog = None
 
-    # === MERGE EXECUTION ===
     def start_merge(self):
         if len(self.selected_image_paths) < 2:
             QMessageBox.warning(self, "Invalid", "Select at least 2 images.")

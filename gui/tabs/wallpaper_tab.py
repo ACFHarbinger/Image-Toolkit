@@ -129,6 +129,9 @@ class WallpaperTab(BaseTab):
         self.background_type: str = "Image" 
         self.solid_color_hex: str = "#000000" 
 
+        # Column tracking for resize
+        self._current_gallery_cols = 1
+
         # --- UI SETUP ---
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
@@ -331,13 +334,67 @@ class WallpaperTab(BaseTab):
         self.current_thumbnail_loader_thread = None
         self.current_thumbnail_loader_worker = None
         self.path_to_label_map = {}
-        self.loading_dialog = None # To hold the progress dialog reference
+        self.loading_dialog = None 
         
         # Initial setup
         self.populate_monitor_layout()
         self.check_all_monitors_set()
         self.stop_slideshow()
         
+    # === NEW: RESIZE REFLOW LOGIC ===
+    def resizeEvent(self, event):
+        """Handle resize events to reflow the gallery grid."""
+        super().resizeEvent(event)
+        new_cols = self.calculate_columns()
+        if new_cols != self._current_gallery_cols:
+            self._current_gallery_cols = new_cols
+            self._reflow_layout(self.scan_thumbnail_layout, new_cols)
+            
+    def showEvent(self, event):
+        """Trigger reflow when tab is shown."""
+        super().showEvent(event)
+        self._current_gallery_cols = self.calculate_columns()
+        self._reflow_layout(self.scan_thumbnail_layout, self._current_gallery_cols)
+
+    def calculate_columns(self) -> int:
+        """
+        Calculates the number of columns based on the current width of the gallery viewport.
+        Uses a more resilient approach for width retrieval.
+        """
+        width = self.scan_scroll_area.viewport().width()
+        if width <= 0: 
+            width = self.scan_scroll_area.width()
+        
+        if width <= 0:
+            return 4 # Default fallback
+
+        columns = width // self.approx_item_width
+        return max(1, columns)
+
+    def _reflow_layout(self, layout: QGridLayout, columns: int):
+        """Removes all items from layout and re-adds them with new column count."""
+        if not layout: return
+        
+        items = []
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget():
+                items.append(item.widget())
+        
+        for i, widget in enumerate(items):
+            row = i // columns
+            col = i % columns
+            
+            align = Qt.AlignLeft | Qt.AlignTop
+            # Check for placeholder label which should be centered
+            if isinstance(widget, QLabel) and "No supported images" in widget.text():
+                 align = Qt.AlignCenter
+                 layout.addWidget(widget, 0, 0, 1, columns, align)
+                 return
+
+            layout.addWidget(widget, row, col, align)
+    # --------------------------------
+
     def _get_relevant_styles(self) -> Dict[str, str]:
         """Returns the dictionary of relevant styles based on the current OS."""
         system = platform.system()
@@ -630,6 +687,22 @@ class WallpaperTab(BaseTab):
                 add_menu.addAction(action)
         
         menu.addSeparator()
+        
+        # --- Send To Actions ---
+        send_menu = menu.addMenu("Send To...")
+        actions_data = [
+            ("Merge Tab", "merge"),
+            ("Delete Tab", "delete"),
+            ("Scan Metadata Tab", "scan")
+        ]
+        for name, code in actions_data:
+            action = QAction(name, self)
+            # emit signal with (tab_code, file_path)
+            action.triggered.connect(lambda chk, c=code, p=path: self.send_to_tab_signal.emit(c, p))
+            send_menu.addAction(action)
+            
+        menu.addSeparator()
+        
         delete_action = QAction("🗑️ Delete Image File (Permanent)", self)
         delete_action.triggered.connect(lambda: self.handle_delete_image(path))
         menu.addAction(delete_action)
@@ -676,7 +749,8 @@ class WallpaperTab(BaseTab):
                 if current_path == path:
                     self.monitor_image_paths[mid] = None
                     self.monitor_widgets[mid].clear()
-                    
+            
+            self._reflow_layout(self.scan_thumbnail_layout, self._current_gallery_cols)
             self.check_all_monitors_set()
             QMessageBox.information(self, "Success", f"File deleted successfully: {filename}")
             
@@ -1282,17 +1356,24 @@ class WallpaperTab(BaseTab):
         self.scan_thumbnail_layout.addWidget(ready_label, 0, 0, 1, 1)
 
     def calculate_columns(self) -> int:
-        widget_width = self.scan_thumbnail_widget.width()
-        if widget_width <= 0:
-            try:
-                widget_width = self.scan_scroll_area.width()
-            except AttributeError:
-                 widget_width = 800
+        """
+        Calculates the number of columns based on the current width of the gallery viewport.
+        Uses a more resilient approach for width retrieval.
+        """
+        # Prioritize getting the actual width of the scroll area's viewport
+        width = self.scan_scroll_area.viewport().width()
         
-        if widget_width <= 0:
-            return 4 
+        # Fallback if the viewport hasn't been painted yet (rare)
+        if width <= 0:
+            width = self.scan_scroll_area.width()
+            
+        if width <= 0:
+            return 4 # Default fallback
+
+        # Calculate columns (integer division ensures we fit only whole cards)
+        columns = width // self.approx_item_width
         
-        columns = widget_width // self.approx_item_width
+        # Ensure at least 1 column is displayed
         return max(1, columns)
 
     def collect(self) -> dict:

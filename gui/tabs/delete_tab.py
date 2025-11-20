@@ -52,6 +52,10 @@ class DeleteTab(BaseTab):
         self.thumbnail_size = 150
         self.padding_width = 10
         self.approx_item_width = self.thumbnail_size + self.padding_width + 20 
+
+        # State for resize recalculation
+        self._current_gallery_cols = 1
+        self._current_selected_cols = 1
         
         self.open_preview_windows: List[ImagePreviewWindow] = [] 
         
@@ -182,7 +186,7 @@ class DeleteTab(BaseTab):
         self.gallery_widget = QWidget()
         self.gallery_widget.setStyleSheet("background-color: #2c2f33;")
         self.gallery_layout = QGridLayout(self.gallery_widget)
-        self.gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         self.gallery_scroll.setWidget(self.gallery_widget)
         self.gallery_scroll.setVisible(False)
         self.gallery_scroll.selection_changed.connect(self.handle_marquee_selection)
@@ -197,7 +201,7 @@ class DeleteTab(BaseTab):
         self.selected_widget = QWidget()
         self.selected_widget.setStyleSheet("background-color: #2c2f33;")
         self.selected_layout = QGridLayout(self.selected_widget)
-        self.selected_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.selected_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         self.selected_scroll.setWidget(self.selected_widget)
         dup_layout.addWidget(self.selected_scroll)
 
@@ -256,11 +260,59 @@ class DeleteTab(BaseTab):
         main_layout.addWidget(page_scroll)
         self.setLayout(main_layout)
 
-    # --- NEW: TOGGLE AND CANCEL LOGIC ---
+    # --- NEW: RESIZE REFLOW LOGIC ---
+    def resizeEvent(self, event):
+        """Handle resize events to reflow the gallery grid."""
+        super().resizeEvent(event)
+        
+        new_gallery_cols = self._calculate_columns(self.gallery_scroll)
+        if new_gallery_cols != self._current_gallery_cols:
+            self._current_gallery_cols = new_gallery_cols
+            self._reflow_layout(self.gallery_layout, new_gallery_cols)
 
+        new_selected_cols = self._calculate_columns(self.selected_scroll)
+        if new_selected_cols != self._current_selected_cols:
+            self._current_selected_cols = new_selected_cols
+            self._reflow_layout(self.selected_layout, new_selected_cols)
+            
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._current_gallery_cols = self._calculate_columns(self.gallery_scroll)
+        self._reflow_layout(self.gallery_layout, self._current_gallery_cols)
+        
+        self._current_selected_cols = self._calculate_columns(self.selected_scroll)
+        self._reflow_layout(self.selected_layout, self._current_selected_cols)
+
+    def _calculate_columns(self, scroll_area) -> int:
+        """Calculates columns based on the actual viewport width."""
+        width = scroll_area.viewport().width()
+        if width <= 0: width = scroll_area.width()
+        if width <= 0: width = 800 # Default fallback
+        
+        return max(1, width // self.approx_item_width)
+
+    def _reflow_layout(self, layout: QGridLayout, columns: int):
+        """Removes all items from layout and re-adds them with new column count."""
+        if not layout: return
+        
+        items = []
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget():
+                items.append(item.widget())
+        
+        for i, widget in enumerate(items):
+            row = i // columns
+            col = i % columns
+            layout.addWidget(widget, row, col, Qt.AlignLeft | Qt.AlignTop)
+    # --------------------------------
+
+    # ... (Rest of the methods: toggle_scan, cancel_scan, _reset_scan_ui, 
+    #      _create_gallery_card, _update_card_style, get_image_properties,
+    #      show_image_context_menu, etc. remain unchanged) ...
+    
     @Slot()
     def toggle_scan(self):
-        """Switches between starting and canceling the scan."""
         if self.scan_thread and self.scan_thread.isRunning():
             self.cancel_scan()
         else:
@@ -268,41 +320,32 @@ class DeleteTab(BaseTab):
 
     @Slot()
     def cancel_scan(self):
-        """Safely stops the running scan thread."""
         if self.scan_thread and self.scan_thread.isRunning():
             self.status_label.setText("Stopping...")
-            
             self.scan_thread.requestInterruption()
             self.scan_thread.quit()
             self.scan_thread.wait() 
-            
             self.scan_worker = None
             self.scan_thread = None
-            
             QMessageBox.information(self, "Scan Cancelled", "The image scanning process was manually cancelled.")
             self._reset_scan_ui("Scan cancelled.")
             
     def _reset_scan_ui(self, status_message: str):
-        """Resets the button, status label, and hides the progress bar."""
         self.btn_scan_dups.setText("Start Scan")
         self.btn_scan_dups.setStyleSheet(STYLE_SCAN_START)
         self.btn_scan_dups.setEnabled(True)
         self.scan_progress_bar.hide()
         self.status_label.setText(status_message)
 
-
-    # --- HELPER: Create Uniform Gallery Card ---
     def _create_gallery_card(self, path: str, pixmap: Optional[QPixmap], is_selected: bool) -> ClickableLabel:
         thumb_size = self.thumbnail_size
         card_wrapper = ClickableLabel(path)
         card_wrapper.setFixedSize(thumb_size + 10, thumb_size + 10)
         card_layout = QVBoxLayout(card_wrapper)
         card_layout.setContentsMargins(0, 0, 0, 0)
-        
         img_label = QLabel()
         img_label.setAlignment(Qt.AlignCenter)
         img_label.setFixedSize(thumb_size, thumb_size)
-        
         if pixmap and not pixmap.isNull():
             if pixmap.width() > thumb_size or pixmap.height() > thumb_size:
                  scaled = pixmap.scaled(thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
@@ -312,7 +355,6 @@ class DeleteTab(BaseTab):
         else:
             img_label.setText("Error")
             img_label.setStyleSheet("color: #e74c3c; border: 1px solid #e74c3c;")
-        
         card_layout.addWidget(img_label)
         card_wrapper.setLayout(card_layout)
         self._update_card_style(img_label, is_selected)
@@ -324,11 +366,9 @@ class DeleteTab(BaseTab):
         else:
             img_label.setStyleSheet("border: 1px solid #4f545c; background-color: #36393f;")
 
-    # --- HELPER: Get Image Properties ---
     def get_image_properties(self, file_path: str) -> Dict[str, Any]:
         if not Path(file_path).exists():
             return {"Error": "File not found."}
-
         props = {"Path": file_path, "File Name": os.path.basename(file_path)}
         try:
             stat = os.stat(file_path)
@@ -339,7 +379,6 @@ class DeleteTab(BaseTab):
             props["File Size"] = "N/A"
             props["Last Modified"] = "N/A"
             props["Created"] = "N/A"
-
         try:
             if 'Image' in globals():
                 img = Image.open(file_path)
@@ -352,7 +391,6 @@ class DeleteTab(BaseTab):
         except Exception: props["Width"] = "N/A"
         return props
 
-    # --- CONTEXT MENU ---
     @Slot(QPoint, str)
     def show_image_context_menu(self, global_pos: QPoint, path: str):
         menu = QMenu(self)
@@ -372,6 +410,17 @@ class DeleteTab(BaseTab):
         toggle_action = QAction(toggle_text, self)
         toggle_action.triggered.connect(lambda: self.toggle_duplicate_selection(path))
         menu.addAction(toggle_action)
+        menu.addSeparator()
+        send_menu = menu.addMenu("Send To...")
+        actions_data = [
+            ("Merge Tab", "merge"),
+            ("Wallpaper Tab", "wallpaper"),
+            ("Scan Metadata Tab", "scan")
+        ]
+        for name, code in actions_data:
+            action = QAction(name, self)
+            action.triggered.connect(lambda chk, c=code, p=path: self.send_to_tab_signal.emit(c, p))
+            send_menu.addAction(action)
         menu.addSeparator()
         delete_action = QAction("🗑️ Delete This File (Permanent)", self)
         delete_action.triggered.connect(lambda: self.delete_single_file(path))
@@ -409,8 +458,7 @@ class DeleteTab(BaseTab):
 
     # --- GALLERY UTILS ---
     def _columns(self) -> int:
-        w = self.gallery_scroll.viewport().width()
-        return max(1, w // self.approx_item_width)
+        return self._calculate_columns(self.gallery_scroll)
 
     def _clear_gallery(self, layout: QGridLayout):
         while layout.count():
@@ -463,7 +511,7 @@ class DeleteTab(BaseTab):
         self._clear_gallery(self.selected_layout)
         self.selected_card_map = {}
         paths = self.selected_duplicates
-        columns = max(1, self.selected_scroll.viewport().width() // self.approx_item_width)
+        columns = self._calculate_columns(self.selected_scroll) 
         if not paths:
             empty_label = QLabel("Select images from the scan results above to mark them for deletion.")
             empty_label.setAlignment(Qt.AlignCenter)
@@ -491,8 +539,8 @@ class DeleteTab(BaseTab):
         self.selected_widget.setUpdatesEnabled(True)
         self.selected_widget.adjustSize()
 
-    # --- DUPLICATE SCAN LOGIC ---
-
+    # ... (Scanning and deletion logic remains the same) ...
+    
     def start_duplicate_scan(self):
         target_dir = self.target_path.text().strip()
         if not target_dir or not os.path.isdir(target_dir):
@@ -509,7 +557,6 @@ class DeleteTab(BaseTab):
         elif "Perceptual Hash" in method_text: method = "phash"; status_msg = "Starting similarity scan..."
         else: method = "orb"; status_msg = "Starting feature scan..."
 
-        # UI: Switch button to Cancel mode
         self.btn_scan_dups.setEnabled(False) 
         self.btn_scan_dups.setText("Cancel Scan")
         self.btn_scan_dups.setStyleSheet(STYLE_SCAN_CANCEL)
@@ -531,15 +578,13 @@ class DeleteTab(BaseTab):
         self.scan_worker.finished.connect(self.scan_thread.quit)
         self.scan_worker.finished.connect(self.scan_worker.deleteLater)
         
-        # FIX: Only clear references after thread finishes
         self.scan_thread.finished.connect(self.on_scan_thread_finished)
         self.scan_thread.finished.connect(self.scan_thread.deleteLater)
         
         self.scan_thread.start()
-
+        
     @Slot()
     def on_scan_thread_finished(self):
-        # Safe place to clear references, solving RuntimeError
         self.scan_thread = None
         self.scan_worker = None
 
@@ -551,23 +596,17 @@ class DeleteTab(BaseTab):
     @Slot(dict)
     def on_scan_finished(self, results: Dict[str, List[str]]):
         self._reset_scan_ui("Scan complete.")
-        
         self.duplicate_results = results
         self.duplicate_path_list = []
-        
         for gid, paths in results.items():
             if len(paths) > 1:
                 self.duplicate_path_list.extend(paths)
-
         if not self.duplicate_path_list:
             QMessageBox.information(self, "No Matches", "No duplicate or similar images found.")
             return
-
         self.status_label.setText(f"Found {len(results)} groups ({len(self.duplicate_path_list)} files).")
-        
         self.gallery_scroll.setVisible(True)
         self.selected_scroll.setVisible(True)
-        
         self._update_action_buttons()
         self.load_thumbnails(self.duplicate_path_list)
 
@@ -606,7 +645,10 @@ class DeleteTab(BaseTab):
     def handle_batch_finished(self, loaded_results: List[Tuple[str, QPixmap]]):
         self._clear_gallery(self.gallery_layout)
         self.path_to_wrapper_map.clear()
-        columns = self._columns()
+        
+        # Use dynamic column calculation
+        columns = self._calculate_columns(self.gallery_scroll)
+        
         for idx, (path, pixmap) in enumerate(loaded_results):
             row = idx // columns
             col = idx % columns
@@ -650,7 +692,8 @@ class DeleteTab(BaseTab):
             QMessageBox.critical(self, "Deletion Failed", f"Error: {e}")
 
     def _repack_gallery(self):
-        columns = self._columns()
+        # Also use dynamic columns on repack
+        columns = self._calculate_columns(self.gallery_scroll)
         items = []
         while self.gallery_layout.count():
             item = self.gallery_layout.takeAt(0)
@@ -710,7 +753,6 @@ class DeleteTab(BaseTab):
         self.selected_scroll.setVisible(False)
         self._update_action_buttons()
 
-    # --- STANDARD DELETION LOGIC ---
     def start_deletion(self, mode: str):
         if not self.is_valid(mode):
             return
