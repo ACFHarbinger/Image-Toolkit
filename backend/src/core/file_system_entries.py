@@ -247,6 +247,67 @@ class SimilarityFinder:
                 group_id += 1
                 
         return results
+    
+    @staticmethod
+    def find_similar_sift(directory: str, extensions: list[str] = None) -> dict:
+        """
+        Finds similar images using SIFT Feature Matching.
+        More robust to scale/rotation than ORB, but slower.
+        """
+        images = SimilarityFinder.get_images_list(directory, extensions)
+        sift = cv2.SIFT_create(nfeatures=1000)
+        descriptors_cache = {}
+
+        # 1. Compute Descriptors
+        for img_path in images:
+            try:
+                img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+                if img is None: continue
+                kp, des = sift.detectAndCompute(img, None)
+                if des is not None and len(des) > 10:
+                    descriptors_cache[img_path] = des
+            except Exception:
+                continue
+
+        # 2. Match (L2 Norm)
+        bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
+        results = {}
+        ungrouped = list(descriptors_cache.keys())
+        group_id = 0
+
+        while ungrouped:
+            current_path = ungrouped.pop(0)
+            des1 = descriptors_cache[current_path]
+            
+            group = [current_path]
+            to_remove = []
+            
+            for candidate_path in ungrouped:
+                des2 = descriptors_cache[candidate_path]
+                
+                try:
+                    matches = bf.knnMatch(des1, des2, k=2)
+                    good_matches = []
+                    for m, n in matches:
+                        if m.distance < 0.75 * n.distance:
+                            good_matches.append(m)
+                    
+                    similarity = len(good_matches) / len(des1)
+                    
+                    if similarity > 0.20: 
+                        group.append(candidate_path)
+                        to_remove.append(candidate_path)
+                except Exception:
+                    continue
+
+            for r in to_remove:
+                ungrouped.remove(r)
+                
+            if len(group) > 1:
+                results[f"sift_group_{group_id}"] = group
+                group_id += 1
+                
+        return results
 
 
 class FileDeleter:
