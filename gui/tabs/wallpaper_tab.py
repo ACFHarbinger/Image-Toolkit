@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QGridLayout, QSpinBox, QCheckBox,
     QLineEdit, QFileDialog, QScrollArea, 
     QMessageBox, QApplication, QColorDialog,
-    QProgressDialog  # --- ADDED IMPORT ---
+    QProgressDialog
 )
 from .base_tab import BaseTab
 from ..windows import SlideshowQueueWindow, ImagePreviewWindow
