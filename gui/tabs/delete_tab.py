@@ -168,7 +168,8 @@ class DeleteTab(BaseTab):
             "Similar: Perceptual Hash (Resized/Color Edits - Fast)",
             "Similar: ORB Feature Matching (Cropped/Rotated - Medium)",
             "Similar: SIFT Feature Matching (Robust - Slow)",
-            "Similar: SSIM (High Quality - Slowest)"
+            "Similar: SSIM (High Quality - Slowest)",
+            "Similar: Siamese Network (Semantic Match)"
         ])
         method_layout.addWidget(self.scan_method_combo, 1)
         dup_layout.addLayout(method_layout)
@@ -575,6 +576,9 @@ class DeleteTab(BaseTab):
         elif "SIFT" in method_text:
             method = "sift"
             status_msg = "Starting SIFT scan..."
+        elif "Siamese" in method_text:
+            method = "siamese"
+            status_msg = "Initializing Siamese Network..."
         else: 
             method = "orb"
             status_msg = "Starting ORB scan..."
