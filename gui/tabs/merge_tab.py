@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from typing import Dict, Any, List, Tuple
 from PySide6.QtGui import QPixmap, QAction
-from PySide6.QtCore import Qt, QTimer, QThread, Slot, QPoint
+from PySide6.QtCore import Qt, QTimer, QThread, Slot, QPoint, QThreadPool, QEventLoop
 from PySide6.QtWidgets import (
     QFrame, QMenu, QProgressDialog, QFormLayout,
     QComboBox, QSpinBox, QGroupBox, QHBoxLayout,
@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 from .base_tab import BaseTab
 from ..windows import ImagePreviewWindow
 from ..components import ClickableLabel, MarqueeScrollArea
-from ..helpers import MergeWorker, ImageScannerWorker, BatchThumbnailLoaderWorker
+from ..helpers import MergeWorker, ImageScannerWorker, ImageLoaderWorker 
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 from ..styles.style import apply_shadow_effect
 
@@ -21,7 +21,7 @@ from ..styles.style import apply_shadow_effect
 class MergeTab(BaseTab):
     """
     GUI tab for merging images with a file/directory selection gallery.
-    Uses safe threading, progressive loading, and dual-panel selection.
+    Uses safe threading, concurrent loading via QThreadPool, and dual-panel selection.
     """
 
     def __init__(self, dropdown=True):
@@ -41,11 +41,17 @@ class MergeTab(BaseTab):
         self._current_gallery_cols = 1
         self._current_selected_cols = 1
         
+        # --- Concurrent Loading State (QThreadPool) ---
+        self.thread_pool = QThreadPool.globalInstance()
+        self._loaded_results_buffer: List[Tuple[str, QPixmap]] = []
+        self._images_loaded_count = 0
+        self._total_images_to_load = 0
+        # ----------------------------------------------
+        
         # --- Thread tracking ---
         self.current_scan_thread: QThread | None = None
         self.current_scan_worker: ImageScannerWorker | None = None
-        self.current_loader_thread: QThread | None = None
-        self.current_loader_worker: BatchThumbnailLoaderWorker | None = None
+        # Removed current_loader_thread/worker as QThreadPool manages them.
         self.current_merge_thread: QThread | None = None
         self.current_merge_worker: MergeWorker | None = None
 
@@ -274,7 +280,6 @@ class MergeTab(BaseTab):
         if width <= 0: width = scroll_area.width()
         
         # Important: If width is still 0 (e.g. unshown tab), assume a reasonable default width
-        # to prevent 1-column layouts on background load.
         if width <= 0: width = 800 
             
         columns = width // self.approx_item_width
@@ -415,11 +420,6 @@ class MergeTab(BaseTab):
     def _cleanup_scan_thread_ref(self):
         self.current_scan_thread = None
         self.current_scan_worker = None
-
-    @Slot()
-    def _cleanup_loader_thread_ref(self):
-        self.current_loader_thread = None
-        self.current_loader_worker = None
 
     @Slot()
     def _cleanup_merge_thread_ref(self):
@@ -633,9 +633,8 @@ class MergeTab(BaseTab):
             self.current_scan_thread.quit()
             self.current_scan_thread.wait(2000)
     
-        if self.current_loader_thread and self.current_loader_thread.isRunning():
-            self.current_loader_thread.quit()
-            self.current_loader_thread.wait(2000)
+        # No need to stop the loader thread, as QThreadPool manages its workers, 
+        # and we clear the pool before starting new submissions in display_scan_results.
 
         self._clear_gallery(self.merge_thumbnail_layout)
         self.path_to_label_map.clear()
@@ -647,6 +646,11 @@ class MergeTab(BaseTab):
         self.loading_dialog.setMinimumDuration(0) 
         self.loading_dialog.setCancelButton(None) 
         self.loading_dialog.show()
+        
+        # Block to ensure scanner dialog visibility
+        loop = QEventLoop()
+        QTimer.singleShot(1, loop.quit)
+        loop.exec()
         
         worker = ImageScannerWorker(directory)
         thread = QThread()
@@ -670,12 +674,16 @@ class MergeTab(BaseTab):
         
         thread.start()
     
-    @Slot(int, int)
-    def update_loading_progress(self, current: int, total: int):
-        dialog = self.loading_dialog 
-        if dialog:
-            dialog.setValue(current)
-            dialog.setLabelText(f"Loading {current} of {total}...")
+    @Slot(str, QPixmap)
+    def _on_single_image_loaded(self, path: str, pixmap: QPixmap):
+        """Aggregates results and checks for batch completion."""
+        self._loaded_results_buffer.append((path, pixmap))
+        self._images_loaded_count += 1
+            
+        if self._images_loaded_count >= self._total_images_to_load:
+            # Sort results before handing them to the finalization method
+            sorted_results = sorted(self._loaded_results_buffer, key=lambda x: x[0])
+            self.handle_batch_finished(sorted_results)
 
     def display_scan_results(self, image_paths: list[str]):
         self.merge_image_list = sorted(image_paths)
@@ -690,37 +698,31 @@ class MergeTab(BaseTab):
             self._show_placeholder("No supported images found.")
             return
 
-        total_images = len(image_paths)
+        # --- Thread Pool Setup ---
+        self.thread_pool.clear()
+        self._loaded_results_buffer = []
+        self._images_loaded_count = 0
+        self._total_images_to_load = len(image_paths)
+
         if self.loading_dialog:
-            self.loading_dialog.setMaximum(total_images)
+            self.loading_dialog.setMaximum(self._total_images_to_load)
             self.loading_dialog.setValue(0)
-            self.loading_dialog.setLabelText(f"Loading images 0 of {total_images}...")
+            self.loading_dialog.setLabelText(f"Loading image 0 of {self._total_images_to_load}...")
 
-        if self.current_loader_thread and self.current_loader_thread.isRunning():
-            self.current_loader_thread.quit()
-            self.current_loader_thread.wait(2000)
-
-        loader = BatchThumbnailLoaderWorker(image_paths, self.thumbnail_size)
-        thread = QThread()
+        loop = QEventLoop()
+        QTimer.singleShot(1, loop.quit)
+        loop.exec()
         
-        self.current_loader_worker = loader
-        self.current_loader_thread = thread
-        
-        loader.moveToThread(thread)
-        thread.started.connect(loader.run_load_batch)
-        
-        loader.progress_updated.connect(self.update_loading_progress)
-        
-        loader.batch_finished.connect(self.handle_batch_finished)
-        
-        loader.batch_finished.connect(thread.quit)
-        loader.batch_finished.connect(loader.deleteLater)
-        thread.finished.connect(thread.deleteLater)
-        thread.finished.connect(self._cleanup_loader_thread_ref)
-
-        loader.batch_finished.connect(self._display_load_complete_message)
-        
-        thread.start()
+        # Submit tasks
+        for path in image_paths:
+            worker = ImageLoaderWorker(path, self.thumbnail_size)
+            worker.signals.result.connect(self._on_single_image_loaded)
+            self.thread_pool.start(worker)
+            
+            # --- PROGRESS BAR UPDATE ON SUBMISSION (Instant Feedback) ---
+            if self.loading_dialog:
+                self.loading_dialog.setValue(self.loading_dialog.value() + 1)
+                self.loading_dialog.setLabelText(f"Loading image {self.loading_dialog.value()} of {self._total_images_to_load}...")
 
     @Slot(list)
     def handle_batch_finished(self, loaded_results: List[Tuple[str, QPixmap]]):
@@ -757,15 +759,12 @@ class MergeTab(BaseTab):
 
         self.merge_thumbnail_widget.update()
         
-        if self.current_loader_worker:
-            try:
-                self.current_loader_worker.progress_updated.disconnect(self.update_loading_progress)
-            except RuntimeError:
-                pass
-        
         if self.loading_dialog:
             self.loading_dialog.close()
             self.loading_dialog = None
+            
+        self._display_load_complete_message()
+        self._refresh_selected_panel()
 
     def start_merge(self):
         if len(self.selected_image_paths) < 2:

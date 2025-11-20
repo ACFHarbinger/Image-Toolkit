@@ -12,8 +12,11 @@ from PySide6.QtWidgets import (
     QProgressBar, QMenu, QFileDialog, 
     QLabel, QGroupBox, QWidget,
 )
+from PySide6.QtCore import (
+    Qt, Slot, QThread, QPoint, 
+    QThreadPool, QEventLoop, QTimer
+)
 from PySide6.QtGui import QPixmap, QAction
-from PySide6.QtCore import Qt, Slot, QThread, QPoint
 from .base_tab import BaseTab
 from ..components import (
     OptionalField, MarqueeScrollArea, 
@@ -21,8 +24,8 @@ from ..components import (
 )
 from ..helpers import (
     DeletionWorker, 
+    ImageLoaderWorker, 
     DuplicateScanWorker,
-    BatchThumbnailLoaderWorker, 
 )
 from ..styles.style import apply_shadow_effect
 from ..windows import ImagePreviewWindow
@@ -60,11 +63,15 @@ class DeleteTab(BaseTab):
         self.open_preview_windows: List[ImagePreviewWindow] = [] 
         
         # Thread references
-        self.scan_thread = None
-        self.scan_worker = None
+        self.thread_pool = QThreadPool.globalInstance()
+        self._loaded_results_buffer: List[Tuple[str, QPixmap]] = []
+        self._images_loaded_count = 0
+        self._total_images_to_load = 0
         self.loader_thread = None
         self.loader_worker = None
         self.loading_dialog = None
+        self.scan_thread = None
+        self.scan_worker = None
 
         # --- Main Layout ---
         main_layout = QVBoxLayout(self)
@@ -616,39 +623,59 @@ class DeleteTab(BaseTab):
         QMessageBox.critical(self, "Scan Error", f"Error during scan: {error_msg}")
 
     def load_thumbnails(self, paths: list[str]):
-        self.loading_dialog = QProgressDialog("Loading thumbnails...", "Cancel", 0, 0, self)
+        """Starts concurrent loading using QThreadPool."""
+        
+        # Clear previous state
+        self.thread_pool.clear()
+        self._loaded_results_buffer = []
+        self._images_loaded_count = 0
+        self._total_images_to_load = len(paths)
+        
+        # Setup dialog
+        self.loading_dialog = QProgressDialog("Loading thumbnails...", "Cancel", 0, self._total_images_to_load, self)
         self.loading_dialog.setWindowModality(Qt.WindowModal)
         self.loading_dialog.setWindowTitle("Please Wait")
         self.loading_dialog.setMinimumDuration(0)
         self.loading_dialog.setCancelButton(None)
-        self.loading_dialog.setMaximum(len(paths))
         self.loading_dialog.show()
-        self.loader_thread = QThread()
-        self.loader_worker = BatchThumbnailLoaderWorker(paths, self.thumbnail_size)
-        self.loader_worker.moveToThread(self.loader_thread)
-        self.loader_thread.started.connect(self.loader_worker.run_load_batch)
-        self.loader_worker.progress_updated.connect(self.update_loading_progress)
-        self.loader_worker.batch_finished.connect(self.handle_batch_finished)
-        self.loader_worker.batch_finished.connect(self.loader_thread.quit)
-        self.loader_worker.batch_finished.connect(self.loader_worker.deleteLater)
-        self.loader_thread.finished.connect(self.loader_thread.deleteLater)
-        self.loader_thread.start()
 
-    @Slot(int, int)
-    def update_loading_progress(self, current, total):
-        dialog = self.loading_dialog 
-        if dialog:
-            dialog.setValue(current)
-            dialog.setLabelText(f"Loading {current} of {total}...")
+        # Block to ensure dialog is rendered before starting heavy work
+        loop = QEventLoop()
+        QTimer.singleShot(1, loop.quit)
+        loop.exec()
 
+        # Submit tasks
+        for path in paths:
+            worker = ImageLoaderWorker(path, self.thumbnail_size)
+            worker.signals.result.connect(self._on_single_image_loaded)
+            self.thread_pool.start(worker)
+
+    @Slot(str, QPixmap)
+    def _on_single_image_loaded(self, path: str, pixmap: QPixmap):
+        """Aggregates results and updates progress."""
+        self._loaded_results_buffer.append((path, pixmap))
+        self._images_loaded_count += 1
+        
+        if self.loading_dialog:
+            self.loading_dialog.setValue(self._images_loaded_count)
+            self.loading_dialog.setLabelText(f"Loading {self._images_loaded_count} of {self._total_images_to_load}...")
+            
+        if self._images_loaded_count >= self._total_images_to_load:
+            # Sort results before handing them to the finalization method
+            sorted_results = sorted(self._loaded_results_buffer, key=lambda x: x[0])
+            self.handle_batch_finished(sorted_results)
+
+    # --- MODIFIED: handle_batch_finished ---
     @Slot(list)
     def handle_batch_finished(self, loaded_results: List[Tuple[str, QPixmap]]):
+        """Receives final, sorted results and populates the gallery."""
         self._clear_gallery(self.gallery_layout)
         self.path_to_wrapper_map.clear()
         
         # Use dynamic column calculation
         columns = self._calculate_columns(self.gallery_scroll)
         
+        # Since the ThreadPool returns results out of order, we received them pre-sorted
         for idx, (path, pixmap) in enumerate(loaded_results):
             row = idx // columns
             col = idx % columns
@@ -659,14 +686,12 @@ class DeleteTab(BaseTab):
             card.path_right_clicked.connect(self.show_image_context_menu)
             self.gallery_layout.addWidget(card, row, col, Qt.AlignLeft | Qt.AlignTop)
             self.path_to_wrapper_map[path] = card
-        if self.loader_worker:
-            try:
-                self.loader_worker.progress_updated.disconnect(self.update_loading_progress)
-            except RuntimeError:
-                pass
+            
+        # Clean up dialog and finish UI updates
         if self.loading_dialog:
             self.loading_dialog.close()
             self.loading_dialog = None
+            
         self._refresh_selected_panel()
 
     @Slot(str)

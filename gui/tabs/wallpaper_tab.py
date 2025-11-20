@@ -8,8 +8,8 @@ from screeninfo import get_monitors, Monitor
 from typing import Dict, List, Optional, Tuple, Any
 from PySide6.QtGui import QPixmap, QAction, QColor
 from PySide6.QtCore import (
-    QTimer, Slot, QPoint,
     Qt, QThreadPool, QThread,
+    QTimer, Slot, QPoint, QEventLoop,
 ) 
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, 
@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 from .base_tab import BaseTab
 from ..windows import SlideshowQueueWindow, ImagePreviewWindow
 from ..components import MonitorDropWidget, DraggableImageLabel 
-from ..helpers import ImageScannerWorker, BatchThumbnailLoaderWorker, WallpaperWorker
+from ..helpers import ImageScannerWorker, ImageLoaderWorker, WallpaperWorker
 from ..styles.style import apply_shadow_effect, STYLE_SYNC_RUN, STYLE_SYNC_STOP
 from backend.src.utils.definitions import WALLPAPER_STYLES
 from backend.src.core import WallpaperManager
@@ -316,8 +316,16 @@ class WallpaperTab(BaseTab):
         
         content_layout.addLayout(action_layout) 
 
-        # State for scanner
+        # Column tracking for resize
+        self._current_gallery_cols = 1
+
+        # --- Thread Pool State for Concurrent Loading ---
         self.threadpool = QThreadPool.globalInstance()
+        self._loaded_results_buffer: List[Tuple[str, QPixmap]] = []
+        self._images_loaded_count = 0
+        self._total_images_to_load = 0
+
+        # State for scanner
         self.scanned_dir = None
         try:
             base_dir = Path.cwd()
@@ -1190,7 +1198,7 @@ class WallpaperTab(BaseTab):
 
     def populate_scan_image_gallery(self, directory: str):
         if self.background_type == "Solid Color":
-             return 
+            return 
 
         self.scanned_dir = directory
         self.clear_scan_image_gallery()
@@ -1203,6 +1211,11 @@ class WallpaperTab(BaseTab):
         self.loading_dialog.setCancelButton(None) # Disable cancel for simplicity/stability
         self.loading_dialog.show()
         # --------------------------------------------------------------
+        
+        # Block to ensure scanner dialog visibility (copied from scan_metadata_tab)
+        loop = QEventLoop()
+        QTimer.singleShot(1, loop.quit)
+        loop.exec()
 
         self.worker = ImageScannerWorker(directory)
         self.thread = QThread() 
@@ -1219,9 +1232,6 @@ class WallpaperTab(BaseTab):
         self.thread.start()
 
     def display_scan_results(self, image_paths: list[str]):
-        """
-        Modified to support the freeze-and-show-all behavior.
-        """
         if self.background_type == "Solid Color":
             if self.loading_dialog: self.loading_dialog.close()
             return 
@@ -1241,49 +1251,48 @@ class WallpaperTab(BaseTab):
             self.scan_thumbnail_layout.addWidget(no_images_label, 0, 0, 1, columns)
             return
         
-        # --- MODIFIED: Setup QProgressDialog range and initial text ---
-        total_images = len(image_paths)
+        # --- Thread Pool Setup ---
+        self.threadpool.clear()
+        self._loaded_results_buffer = []
+        self._images_loaded_count = 0
+        self._total_images_to_load = len(image_paths)
+        
         if self.loading_dialog:
-            self.loading_dialog.setMaximum(total_images) # Set maximum value
-            self.loading_dialog.setValue(0) # Set initial value
-            self.loading_dialog.setLabelText(f"Loading images 0 of {total_images}...")
-        # ----------------------------------------------------------------------
+            self.loading_dialog.setMaximum(self._total_images_to_load) 
+            self.loading_dialog.setValue(0) 
+            self.loading_dialog.setLabelText(f"Loading image 0 of {self._total_images_to_load}...")
 
-        worker = BatchThumbnailLoaderWorker(self.scan_image_list, self.thumbnail_size)
-        thread = QThread()
+        # Block to ensure loader dialog visibility (copied from scan_metadata_tab)
+        loop = QEventLoop()
+        QTimer.singleShot(1, loop.quit)
+        loop.exec()
+        
+        # Submit tasks
+        for path in image_paths:
+            worker = ImageLoaderWorker(path, self.thumbnail_size)
+            worker.signals.result.connect(self._on_single_image_loaded)
+            self.threadpool.start(worker)
+            
+            # --- PROGRESS BAR UPDATE ON SUBMISSION (Instant Feedback) ---
+            if self.loading_dialog:
+                self.loading_dialog.setValue(self.loading_dialog.value() + 1)
+                self.loading_dialog.setLabelText(f"Loading image {self.loading_dialog.value()} of {self._total_images_to_load}...")
+            # -------------------------------------------------------------
 
-        self.current_thumbnail_loader_worker = worker
-        self.current_thumbnail_loader_thread = thread
+    @Slot(str, QPixmap)
+    def _on_single_image_loaded(self, path: str, pixmap: QPixmap):
+        """Aggregates results and checks for batch completion."""
+        self._loaded_results_buffer.append((path, pixmap))
+        self._images_loaded_count += 1
         
-        worker.moveToThread(thread)
-        
-        thread.started.connect(worker.run_load_batch)
-        
-        # --- PROGRESS CONNECTION ---
-        worker.progress_updated.connect(self.update_loading_progress)
-        # ---------------------------
-        
-        # --- FIXED DISCONNECTION LOGIC (Prevents 'NoneType' Error) ---
-        # Disconnects progress signals once the worker finishes its job.
-        worker.batch_finished.connect(lambda: worker.progress_updated.disconnect(self.update_loading_progress))
-        # -------------------------------------------------------------
-        
-        # --- MODIFIED: Connect to the batch finished signal, not individual ones ---
-        worker.batch_finished.connect(self.handle_batch_finished)
-        
-        worker.batch_finished.connect(thread.quit)
-        worker.batch_finished.connect(worker.deleteLater)
-        thread.finished.connect(thread.deleteLater)
-        thread.finished.connect(self._cleanup_thumbnail_thread_ref)
-        
-        thread.start()
-        
+        if self._images_loaded_count >= self._total_images_to_load:
+            # Sort results before handing them to the finalization method
+            sorted_results = sorted(self._loaded_results_buffer, key=lambda x: x[0])
+            self.handle_batch_finished(sorted_results)
+
     @Slot(list)
     def handle_batch_finished(self, loaded_results: List[Tuple[str, QPixmap]]):
-        """
-        NEW SLOT: Receives all images at once, renders them in a loop, 
-        then closes the progress dialog.
-        """
+        """Receives final, sorted results and populates the gallery."""
         columns = self.calculate_columns()
         
         # Render all widgets in one go on the main thread
