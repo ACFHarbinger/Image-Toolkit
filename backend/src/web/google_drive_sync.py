@@ -419,7 +419,7 @@ class GoogleDriveSync:
             
             if not self.check_stop_status(dest_folder_id): return (False, "Synchronization manually interrupted.")
 
-            self.logger("\n--- Sync Operation Analysis & Execution ---")
+            self.logger("\n--- Sync Operation Analysis and Execution ---")
             
             items_uploaded = 0
             items_downloaded = 0

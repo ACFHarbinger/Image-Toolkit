@@ -1,5 +1,6 @@
 import os
 import psycopg2 # Import for error handling
+
 from typing import Optional
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -110,7 +111,6 @@ class DatabaseTab(BaseTab):
         groups_btn_layout.addWidget(self.btn_refresh_groups)
         
         self.btn_remove_group = QPushButton("Remove Selected Group")
-        # --- MODIFIED: Changed background-color to orange ---
         self.btn_remove_group.setStyleSheet("background-color: #f39c12; color: white;")
         apply_shadow_effect(self.btn_remove_group, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.btn_remove_group.clicked.connect(self.remove_selected_group)
@@ -190,7 +190,6 @@ class DatabaseTab(BaseTab):
         subgroups_btn_layout.addWidget(self.btn_refresh_subgroups)
         
         self.btn_remove_subgroup = QPushButton("Remove Selected Subgroup")
-        # --- MODIFIED: Changed background-color to orange ---
         self.btn_remove_subgroup.setStyleSheet("background-color: #f39c12; color: white;")
         apply_shadow_effect(self.btn_remove_subgroup, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.btn_remove_subgroup.clicked.connect(self.remove_selected_subgroup)
@@ -253,7 +252,6 @@ class DatabaseTab(BaseTab):
         tags_btn_layout.addWidget(self.btn_refresh_tags)
         
         self.btn_remove_tag = QPushButton("Remove Selected Tag")
-        # --- MODIFIED: Changed background-color to orange ---
         self.btn_remove_tag.setStyleSheet("background-color: #f39c12; color: white;")
         apply_shadow_effect(self.btn_remove_tag, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.btn_remove_tag.clicked.connect(self.remove_selected_tag)
@@ -319,6 +317,12 @@ class DatabaseTab(BaseTab):
             self.refresh_groups_list() 
             self.refresh_subgroups_list() 
             
+            # --- FIX: Explicitly refresh ScanMetadataTab elements ---
+            if self.scan_tab_ref:
+                # Assuming ScanMetadataTab has _setup_tag_checkboxes() method
+                self.scan_tab_ref._setup_tag_checkboxes() 
+            # --------------------------------------------------------
+            
             QMessageBox.information(self, "Success", f"Connected to PostgreSQL DB: {db_name}")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to connect to database:\n{str(e)}")
@@ -351,6 +355,11 @@ class DatabaseTab(BaseTab):
                     self.search_tab_ref.group_combo.clear()
                 if hasattr(self.search_tab_ref, 'subgroup_combo'): 
                     self.search_tab_ref.subgroup_combo.clear()
+                    
+            # --- FIX: Explicitly refresh ScanMetadataTab elements (clear tags) ---
+            if self.scan_tab_ref:
+                self.scan_tab_ref._setup_tag_checkboxes() 
+            # ---------------------------------------------------------------------
             
             QMessageBox.information(self, "Disconnected", "Successfully disconnected from the database.")
         except Exception as e:
@@ -402,6 +411,11 @@ class DatabaseTab(BaseTab):
             self.refresh_tags_list()
             self.refresh_groups_list()
             self.refresh_subgroups_list()
+            
+            # --- FIX: Explicitly refresh ScanMetadataTab elements ---
+            if self.scan_tab_ref:
+                self.scan_tab_ref._setup_tag_checkboxes() 
+            # --------------------------------------------------------
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to reset database:\n{str(e)}")
@@ -577,6 +591,12 @@ class DatabaseTab(BaseTab):
             self.new_tag_type_combo.setCurrentIndex(0) 
             self.refresh_tags_list() 
             self.update_statistics()
+            
+            # --- FIX: Trigger tag refresh in scan tab after creating new tags ---
+            if self.scan_tab_ref:
+                self.scan_tab_ref._setup_tag_checkboxes()
+            # ---------------------------------------------------------------------
+            
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to create tags:\n{str(e)}")
 
@@ -671,6 +691,12 @@ class DatabaseTab(BaseTab):
                 self.db.delete_tag(tag_name)
                 self.refresh_tags_list()
                 self.update_statistics() 
+                
+                # --- FIX: Trigger tag refresh in scan tab after removing a tag ---
+                if self.scan_tab_ref:
+                    self.scan_tab_ref._setup_tag_checkboxes()
+                # ------------------------------------------------------------------
+                
                 QMessageBox.information(self, "Success", f"Tag '{tag_name}' removed.")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to remove tag:\n{str(e)}")
@@ -848,6 +874,12 @@ class DatabaseTab(BaseTab):
                 if item.text() != new_name:
                     item.setText(new_name)
                 self.update_statistics()
+                
+                # --- FIX: Trigger tag refresh in scan tab after renaming a tag ---
+                if self.scan_tab_ref:
+                    self.scan_tab_ref._setup_tag_checkboxes()
+                # ------------------------------------------------------------------
+                
             except psycopg2.errors.UniqueViolation:
                 QMessageBox.warning(self, "Error", f"A tag named '{new_name}' already exists.")
                 item.setText(old_name)

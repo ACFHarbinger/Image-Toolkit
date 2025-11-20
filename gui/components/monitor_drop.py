@@ -85,7 +85,7 @@ class MonitorDropWidget(QLabel):
         
         # MODIFICATION: Removed the line that displayed monitor dimensions (width x height)
         self.setText(f"<b>{monitor_name}</b>\n\n"
-                     "Drag & Drop Image Here")
+                     "Drag and Drop Image Here")
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         """Event when a dragged item enters the widget."""

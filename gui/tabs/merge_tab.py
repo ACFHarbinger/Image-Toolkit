@@ -180,7 +180,7 @@ class MergeTab(BaseTab):
         self.selected_images_area.setStyleSheet(
             "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
         )
-        self.selected_images_area.setMinimumHeight(600)
+        self.selected_images_area.setMinimumHeight(400)
         self.selected_images_widget = QWidget()
         self.selected_images_widget.setStyleSheet("background-color: #2c2f33;")
         self.selected_grid_layout = QGridLayout(self.selected_images_widget)

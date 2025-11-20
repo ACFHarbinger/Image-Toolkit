@@ -4,7 +4,7 @@ from typing import List, Any
 from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtGui import (
     QShortcut, QWheelEvent, QAction,
-    QPixmap, QKeySequence, QKeyEvent, 
+    QPixmap, QKeySequence, QKeyEvent, QMovie
 )
 from PySide6.QtWidgets import (
     QMenu, QMessageBox, QLabel, QApplication,
@@ -17,8 +17,7 @@ class ImagePreviewWindow(QDialog):
     A dialog to display an image with zooming, scrolling, and navigation
     between images in a selected batch.
     
-    All images are initially scaled to fit the window upon load/navigation,
-    and resized automatically upon window resize.
+    Now supports GIF animation via QMovie.
     """
     
     ZOOM_STEP = 0.1  # 10% change per zoom step
@@ -35,6 +34,11 @@ class ImagePreviewWindow(QDialog):
         self.db_tab_ref = db_tab_ref
         self.parent_tab = parent
         
+        # State trackers for animation and scaling
+        self.current_movie: QMovie = None # NEW: QMovie object for GIFs
+        self.original_pixmap: QPixmap = QPixmap() # QPixmap object for static images
+        self.is_animated: bool = False # NEW: Flag if current file is a GIF
+
         # Flag to prevent recursion/initial noise during setup
         self._is_handling_resize = False 
 
@@ -46,7 +50,6 @@ class ImagePreviewWindow(QDialog):
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
 
         # Zoom State
-        self.original_pixmap: QPixmap = QPixmap()
         self.current_zoom_factor: float = 1.0 
         self.image_label: QLabel = QLabel()
         self.image_label.setAlignment(Qt.AlignCenter)
@@ -116,7 +119,7 @@ class ImagePreviewWindow(QDialog):
 
         self.showMaximized()
 
-    # --- NEW: Resize Event Handler ---
+    # --- MODIFIED: Resize Event Handler ---
     def resizeEvent(self, event):
         """
         Overrides the resize event to automatically rescale the image to fit the new window size.
@@ -135,15 +138,24 @@ class ImagePreviewWindow(QDialog):
 
         # Reset flag after processing
         self._is_handling_resize = False 
-    # --- END NEW ---
+    # --- END MODIFIED ---
 
+    # --- MODIFIED: Get Original Size based on Image Type ---
+    def _get_original_size(self) -> QSize:
+        """Returns the size of the static pixmap or the QMovie base size."""
+        if self.is_animated and self.current_movie:
+            return self.current_movie.currentPixmap().size()
+        return self.original_pixmap.size()
+    # --- END MODIFIED ---
 
     def _calculate_fit_scale(self) -> float:
         """
-        Calculates the zoom factor needed to fit the original image within the 
+        Calculates the zoom factor needed to fit the image within the 
         current window size (minus margins for controls).
         """
-        if self.original_pixmap.isNull() or self.original_pixmap.width() == 0:
+        original_size = self._get_original_size()
+
+        if original_size.isNull() or original_size.width() == 0:
             return 1.0
 
         # Approximate usable area of the scroll area within the window (subtracting arrow buttons/margins)
@@ -153,8 +165,8 @@ class ImagePreviewWindow(QDialog):
         if current_inner_width <= 0 or current_inner_height <= 0:
             return 1.0 
 
-        width_ratio = current_inner_width / self.original_pixmap.width()
-        height_ratio = current_inner_height / self.original_pixmap.height()
+        width_ratio = current_inner_width / original_size.width()
+        height_ratio = current_inner_height / original_size.height()
         
         # The new factor is the maximum ratio that keeps the whole image visible (always <= 1.0)
         return min(width_ratio, height_ratio, 1.0)
@@ -163,55 +175,89 @@ class ImagePreviewWindow(QDialog):
     def _initial_scale_and_layout(self):
         """Initializes the display size and layout structure based on the first image."""
         
-        # 4. Setup the image label
+        # Setup the image label
         self.image_label.setAlignment(Qt.AlignCenter)
         
-        # 5. Use QScrollArea
+        # Use QScrollArea
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setWidget(self.image_label)
         
         # Apply initial scale (Fit-to-window zoom)
         self.update_image_display()
-
+        
         # Get screen size bounds
         screen = QApplication.primaryScreen()
         screen_geo = screen.availableGeometry()
         self.max_width = int(screen_geo.width() * 0.95)
         self.max_height = int(screen_geo.height() * 0.95)
         
-        # --- FIX: Determine initial size based on the SCALED (fit-to-window) size ---
+        # --- Determine initial size based on the SCALED (fit-to-window) size ---
         
-        scaled_pixmap = self.image_label.pixmap()
+        # Use size from the currently displayed content (pixmap or movie)
+        current_size = self.image_label.size()
         
         # Calculate target window size (Scaled Image size + padding for arrows/margins)
-        target_width = min(scaled_pixmap.width() + 100, self.max_width) # 100 is padding + arrows
-        target_height = min(scaled_pixmap.height() + 50, self.max_height) # 50 is padding/title bar
+        target_width = min(current_size.width() + 100, self.max_width) # 100 is padding + arrows
+        target_height = min(current_size.height() + 50, self.max_height) # 50 is padding/title bar
         
         # Schedule the resize to ensure it happens after the layout is fully built
         QTimer.singleShot(0, lambda: self.resize(QSize(target_width, target_height)))
 
 
+    # --- MODIFIED: load_image supports GIF ---
     def load_image(self, path: str, initial_load: bool = False) -> bool:
         """
-        Loads and displays the image from the given path.
+        Loads and displays the image or GIF from the given path.
         Sets the zoom factor to 'fit-to-window' for all loads.
         Returns True on success, False on failure.
         """
-        new_pixmap = QPixmap(path)
+        file_extension = os.path.splitext(path)[1].lower()
+        self.is_animated = (file_extension == '.gif')
         
-        if new_pixmap.isNull():
-             self.setWindowTitle(f"Image Preview - Error Loading {os.path.basename(path)}")
-             return False
+        # Stop and clear any previous movie
+        if self.current_movie:
+            self.current_movie.stop()
+            self.current_movie.deleteLater()
+            self.current_movie = None
+            self.image_label.clear()
 
+        if self.is_animated:
+            # --- Handle GIF (QMovie) ---
+            new_movie = QMovie(path)
+            
+            if not new_movie.isValid():
+                self.setWindowTitle(f"Image Preview - Error Loading {os.path.basename(path)}")
+                return False
+                
+            self.current_movie = new_movie
+            self.image_label.setMovie(self.current_movie)
+            
+            # Since QMovie scaling is handled differently, we start it now
+            self.current_movie.start() 
+            
+            # Get the base size of the GIF for scaling calculation
+            self.original_pixmap = QPixmap() # Clear static pixmap state
+            
+        else:
+            # --- Handle Static Image (QPixmap) ---
+            new_pixmap = QPixmap(path)
+            
+            if new_pixmap.isNull():
+                 self.setWindowTitle(f"Image Preview - Error Loading {os.path.basename(path)}")
+                 return False
+
+            self.original_pixmap = new_pixmap
+            self.current_movie = None # Clear movie state
+            
         self.image_path = path
-        self.original_pixmap = new_pixmap
 
-        # FIX: All images, regardless of initial_load or navigation, must fit the preview window
+        # All images, regardless of initial_load or navigation, must fit the preview window
         self.current_zoom_factor = self._calculate_fit_scale()
             
         self.update_image_display()
         return True
+    # --- END MODIFIED load_image ---
 
 
     def adjust_zoom(self, delta: float):
@@ -228,25 +274,36 @@ class ImagePreviewWindow(QDialog):
         self.current_zoom_factor = new_zoom
         self.update_image_display()
 
+    # --- MODIFIED: update_image_display supports GIF ---
     def update_image_display(self):
-        """Applies the current zoom factor to the original pixmap and updates the label."""
+        """Applies the current zoom factor to the image (Pixmap or Movie) and updates the label."""
         
-        if self.original_pixmap.isNull():
+        original_size = self._get_original_size()
+
+        if original_size.isNull() or original_size.width() == 0:
             return
             
         # Calculate new dimensions based on the original size and zoom factor
-        new_width = int(self.original_pixmap.width() * self.current_zoom_factor)
-        new_height = int(self.original_pixmap.height() * self.current_zoom_factor)
+        new_width = int(original_size.width() * self.current_zoom_factor)
+        new_height = int(original_size.height() * self.current_zoom_factor)
         
-        # Scale the original pixmap
-        scaled_pixmap = self.original_pixmap.scaled(
-            QSize(new_width, new_height),
-            Qt.KeepAspectRatio, 
-            Qt.SmoothTransformation
-        )
+        new_size = QSize(new_width, new_height)
         
-        self.image_label.setPixmap(scaled_pixmap)
-        self.image_label.setFixedSize(scaled_pixmap.size()) # Set fixed size to allow scrolling
+        if self.is_animated and self.current_movie:
+            # --- GIF Scaling ---
+            self.current_movie.setScaledSize(new_size)
+            self.image_label.setFixedSize(new_size)
+            
+        elif not self.original_pixmap.isNull():
+            # --- Static Image Scaling ---
+            scaled_pixmap = self.original_pixmap.scaled(
+                new_size,
+                Qt.KeepAspectRatio, 
+                Qt.SmoothTransformation
+            )
+            
+            self.image_label.setPixmap(scaled_pixmap)
+            self.image_label.setFixedSize(scaled_pixmap.size()) # Set fixed size to allow scrolling
         
         # Update title with zoom level and navigation index
         zoom_percent = int(self.current_zoom_factor * 100)
@@ -256,6 +313,7 @@ class ImagePreviewWindow(QDialog):
             nav_info = f" ({self.current_index + 1}/{len(self.all_paths)})"
             
         self.setWindowTitle(f"Full-Size Image Preview: {os.path.basename(self.image_path)} [{zoom_percent}%]{nav_info}")
+    # --- END MODIFIED update_image_display ---
 
     def _update_navigation_button_state(self):
         """Enables/Disables navigation buttons based on batch size."""

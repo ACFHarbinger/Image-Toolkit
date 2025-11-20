@@ -1,7 +1,7 @@
 import os
 import sys
 
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QObject
 from PySide6.QtGui import QIcon, QImageReader
 from PySide6.QtWidgets import (
     QSizePolicy, QPushButton, QStyle, QComboBox,
@@ -34,7 +34,7 @@ class MainWindow(QWidget):
         # Store the authenticated vault manager instance
         self.vault_manager = vault_manager
         
-        self.setWindowTitle("Image Database & Edit Toolkit")
+        self.setWindowTitle("Image Database and Edit Toolkit")
         self.setMinimumWidth(800)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         QImageReader.setAllocationLimit(NEW_LIMIT_MB)
@@ -361,24 +361,41 @@ class MainWindow(QWidget):
 
     def closeEvent(self, event):
         """
-        Ensure JVM shutdown and close all child windows on main window close.
+        Ensure JVM shutdown and safely close all child windows on main window close.
         """
-        
         # 1. Close the Settings window if open
         if self.settings_window:
             self.settings_window.close()
         
+        # --- Safe Cleanup Loop Function ---
+        def safe_close_windows(window_list):
+            # 1. Iterate over a COPY of the list
+            for win in list(window_list):
+                # 2. Check if the object is still valid (not deleted)
+                # We use QObject.isNull() to check the underlying C++ object's validity
+                # This explicitly checks if the C++ side has already been cleaned up.
+                if win and not QObject.isNull(win): 
+                    try:
+                        win.close()
+                    except RuntimeError:
+                        # Catch the exact error just in case, though the check should prevent it
+                        pass
+        # -----------------------------------
+
+
         # 2. Close all Slideshow Queue windows
-        for win in list(self.wallpaper_tab.open_queue_windows):
-            if win.isVisible():
-                win.close()
+        if hasattr(self.wallpaper_tab, 'open_queue_windows'):
+             safe_close_windows(self.wallpaper_tab.open_queue_windows)
         
-        # 3. Close all Image Preview windows
-        for win in list(self.wallpaper_tab.open_image_preview_windows):
-            if win.isVisible():
-                win.close()
+        # 3. Close all Image Preview windows managed by WallpaperTab
+        if hasattr(self.wallpaper_tab, 'open_image_preview_windows'):
+             safe_close_windows(self.wallpaper_tab.open_image_preview_windows)
                 
-        # 4. Ensure JVM shutdown
+        # 4. Close all Image Preview windows managed by ScanMetadataTab
+        if hasattr(self.scan_metadata_tab, 'open_preview_windows'):
+             safe_close_windows(self.scan_metadata_tab.open_preview_windows)
+            
+        # 5. Ensure JVM shutdown
         if self.vault_manager:
             self.vault_manager.shutdown()
             
