@@ -190,7 +190,7 @@ class ImageCrawlTab(BaseTab):
             "Download Current URL as Image",
             "Wait for Gallery (Context Reset)",
             "Scrape Text (Saves to JSON)",
-            "Scan Page for Text & Skip if Found",  # --- NEW ACTION ---
+            "Scan Page for Text and Skip if Found",  # --- NEW ACTION ---
             "Close Current Tab", 
             "Refresh Current Element" 
         ])
@@ -433,7 +433,7 @@ class ImageCrawlTab(BaseTab):
         if (("Click Element by Text" in action_text or 
              "Find Element by CSS Selector" in action_text or
              "Refresh Current Element" in action_text or
-             "Scan Page for Text & Skip if Found" in action_text) and not param): # --- UPDATED ---
+             "Scan Page for Text and Skip if Found" in action_text) and not param): # --- UPDATED ---
             QMessageBox.warning(self, "Missing Parameter", f"The action '{action_text}' requires a parameter.")
             return
             

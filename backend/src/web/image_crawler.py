@@ -418,7 +418,7 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                 # --- END NEW ACTION ---
                 
                 # --- NEW ACTION: Scan Page for Text & Skip ---
-                elif action_type == "Scan Page for Text & Skip if Found":
+                elif action_type == "Scan Page for Text and Skip if Found":
                     if not param:
                         raise ValueError("Action 'Scan Page for Text': Missing text parameter.")
                     
