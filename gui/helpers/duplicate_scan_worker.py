@@ -1,16 +1,21 @@
 import cv2
-import imagehash
-import numpy as np
 
-from PIL import Image
-from PySide6.QtCore import Slot, Signal, QObject, QThread
+from typing import Dict, Any, List, Tuple
+from PySide6.QtCore import (
+    Slot, Signal, QObject, 
+    QThread, QThreadPool, QEventLoop,
+)
+from .tasks import PhashTask, OrbTask, SiftTask
 from backend.src.core.file_system_entries import DuplicateFinder, SimilarityFinder
 
 
 class DuplicateScanWorker(QObject):
     """
-    Worker thread for scanning duplicates/similar images.
-    Handles cancellation and robust image loading.
+    Worker orchestrator for scanning duplicates.
+    - Runs in a background QThread (provided by DeleteTab).
+    - Spawns QRunnables into QThreadPool for heavy processing.
+    - Aggregates results using a QEventLoop.
+    - Performs final comparison logic sequentially (fast enough in memory).
     """
     finished = Signal(dict)
     error = Signal(str)
@@ -21,18 +26,32 @@ class DuplicateScanWorker(QObject):
         self.directory = directory
         self.extensions = extensions
         self.method = method
+        
+        self.thread_pool = QThreadPool.globalInstance()
+        self.scan_cache = {}
+        self.processed_count = 0
+        self.total_files = 0
+        
+        # Event loop to pause the Worker thread while Pool threads work
+        self.aggregator_loop = None 
 
     def _check_interrupt(self):
         if QThread.currentThread().isInterruptionRequested():
+            if self.aggregator_loop and self.aggregator_loop.isRunning():
+                self.aggregator_loop.quit()
             raise InterruptedError("Scan cancelled by user.")
 
     @Slot()
     def run(self):
         try:
             results = {}
+            self.scan_cache = {}
+            self.processed_count = 0
 
+            # --- 1. EXACT MATCH (Standard Sequential) ---
             if self.method == "exact":
-                self.status.emit("Scanning for exact matches...")
+                self.status.emit("Scanning for exact matches (hashing)...")
+                # Exact match is typically I/O bound, usually fast enough without granular threading.
                 results = DuplicateFinder.find_duplicate_images(
                     self.directory, 
                     self.extensions, 
@@ -40,93 +59,189 @@ class DuplicateScanWorker(QObject):
                 )
                 self._check_interrupt()
 
-            elif self.method == "phash":
+            # --- 2. PARALLEL PROCESSING (pHash / ORB) ---
+            elif self.method in ["phash", "orb", "sift"]:
                 self.status.emit("Indexing images...")
                 images = SimilarityFinder.get_images_list(self.directory, self.extensions)
-                hashes = {}
+                self.total_files = len(images)
                 
-                total = len(images)
-                for i, img_path in enumerate(images):
-                    self._check_interrupt()
-                    if i % 10 == 0: self.status.emit(f"Hashing {i}/{total}...")
-                    try:
-                        with Image.open(img_path) as img:
-                            hashes[img_path] = imagehash.average_hash(img)
-                    except: continue
+                if self.total_files == 0:
+                    self.finished.emit({})
+                    return
 
-                self.status.emit("Comparing hashes...")
-                ungrouped = list(hashes.keys())
-                group_id = 0
-                while ungrouped:
-                    self._check_interrupt()
-                    curr = ungrouped.pop(0)
-                    group = [curr]
-                    to_rem = []
-                    for cand in ungrouped:
-                        if hashes[curr] - hashes[cand] <= 5:
-                            group.append(cand)
-                            to_rem.append(cand)
-                    for r in to_rem: ungrouped.remove(r)
-                    if len(group) > 1:
-                        results[f"phash_{group_id}"] = group
-                        group_id += 1
-
-            elif self.method == "orb":
-                self.status.emit("Initializing ORB...")
-                images = SimilarityFinder.get_images_list(self.directory, self.extensions)
-                orb = cv2.ORB_create(nfeatures=500)
-                cache = {}
+                # Start the Aggregation Loop
+                self.aggregator_loop = QEventLoop()
                 
-                # Compute
-                total = len(images)
-                for i, path in enumerate(images):
+                self.status.emit(f"Queueing {self.total_files} images for processing...")
+                
+                # Submit all tasks
+                for path in images:
                     self._check_interrupt()
-                    if i % 5 == 0: self.status.emit(f"Extracting {i}/{total}...")
-                    try:
-                        # --- MODIFIED ROBUST LOAD FOR TRANSPARENCY ---
-                        # 1. Load: Open and convert to RGBA first to handle palette transparency
-                        pil_img_rgba = Image.open(path).convert('RGBA')
-                        
-                        # 2. Grayscale: Convert the RGBA image to Luminance ('L')
-                        pil_img = pil_img_rgba.convert('L')
-                        
-                        # 3. Numpy: Convert the PIL image to a NumPy array for OpenCV
-                        img_np = np.array(pil_img)
-                        # --- END MODIFIED ROBUST LOAD ---
-                        
-                        # Use the NumPy array (img_np) for feature detection
-                        kp, des = orb.detectAndCompute(img_np, None)
-                        if des is not None and len(des) > 10: cache[path] = des
-                    except: continue
+                    if self.method == "phash":
+                        task = PhashTask(path)
+                    elif self.method == "sift":
+                        task = SiftTask(path)
+                    else:
+                        task = OrbTask(path)
+                    
+                    task.signals.result.connect(self._on_task_result)
+                    self.thread_pool.start(task)
 
-                # Match
-                self.status.emit("Matching features...")
-                bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
-                ungrouped = list(cache.keys())
-                gid = 0
-                while ungrouped:
-                    self._check_interrupt()
-                    curr = ungrouped.pop(0)
-                    group = [curr]
-                    to_rem = []
-                    for cand in ungrouped:
-                        try:
-                            matches = bf.knnMatch(cache[curr], cache[cand], k=2)
-                            good = [m for m, n in matches if m.distance < 0.75 * n.distance]
-                            if len(good) > 10 and (len(good) / len(cache[curr])) > 0.25:
-                                group.append(cand)
-                                to_rem.append(cand)
-                        except: continue
-                    for r in to_rem: ungrouped.remove(r)
-                    if len(group) > 1:
-                        results[f"orb_{gid}"] = group
-                        gid += 1
+                # Block execution here until all tasks report back via signals
+                self.aggregator_loop.exec()
+                
+                self._check_interrupt()
 
-            else: raise ValueError("Unknown method")
+                # --- COMPARISON PHASE (Sequential on aggregated data) ---
+                self.status.emit("Comparing indexed data...")
+                
+                if self.method == "phash":
+                    results = self._compare_phash(self.scan_cache)
+                elif self.method == "sift":
+                    results = self._compare_sift(self.scan_cache)
+                else:
+                    results = self._compare_orb(self.scan_cache)
+
+            else: 
+                raise ValueError("Unknown method")
 
             self.finished.emit(results)
 
         except InterruptedError:
+            self.thread_pool.clear() # Clear pending
             self.status.emit("Scan cancelled.")
         except Exception as e:
             self.error.emit(str(e))
+
+    @Slot(object)
+    def _on_task_result(self, data: Tuple[str, Any]):
+        """
+        Called when a thread finishes processing an image.
+        """
+        path, result_data = data
+        
+        if result_data is not None:
+            self.scan_cache[path] = result_data
+            
+        self.processed_count += 1
+        
+        # Update status sparingly to avoid flooding the event loop
+        if self.processed_count % 5 == 0 or self.processed_count == self.total_files:
+            self.status.emit(f"Processed {self.processed_count}/{self.total_files}...")
+
+        # If all tasks are accounted for, quit the blocking loop
+        if self.processed_count >= self.total_files:
+            if self.aggregator_loop and self.aggregator_loop.isRunning():
+                self.aggregator_loop.quit()
+
+    def _compare_phash(self, hashes: Dict[str, Any]) -> Dict[str, List[str]]:
+        """
+        Sequential comparison of cached hashes.
+        """
+        results = {}
+        ungrouped = list(hashes.keys())
+        group_id = 0
+        
+        while ungrouped:
+            self._check_interrupt()
+            curr = ungrouped.pop(0)
+            group = [curr]
+            to_rem = []
+            
+            for cand in ungrouped:
+                # Check hamming distance
+                if hashes[curr] - hashes[cand] <= 5:
+                    group.append(cand)
+                    to_rem.append(cand)
+            
+            for r in to_rem: 
+                ungrouped.remove(r)
+                
+            if len(group) > 1:
+                results[f"phash_{group_id}"] = group
+                group_id += 1
+                
+        return results
+
+    def _compare_orb(self, cache: Dict[str, Any]) -> Dict[str, List[str]]:
+        """
+        Sequential comparison of cached descriptors.
+        """
+        results = {}
+        bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
+        ungrouped = list(cache.keys())
+        gid = 0
+        
+        while ungrouped:
+            self._check_interrupt()
+            curr = ungrouped.pop(0)
+            group = [curr]
+            to_rem = []
+            
+            for cand in ungrouped:
+                try:
+                    matches = bf.knnMatch(cache[curr], cache[cand], k=2)
+                    good = [m for m, n in matches if m.distance < 0.75 * n.distance]
+                    
+                    if len(good) > 10 and (len(good) / len(cache[curr])) > 0.25:
+                        group.append(cand)
+                        to_rem.append(cand)
+                except: 
+                    continue
+                    
+            for r in to_rem: 
+                ungrouped.remove(r)
+                
+            if len(group) > 1:
+                results[f"orb_{gid}"] = group
+                gid += 1
+                
+        return results
+
+    def _compare_sift(self, cache: Dict[str, Any]) -> Dict[str, List[str]]:
+        """
+        Sequential comparison of SIFT descriptors using L2 Norm.
+        """
+        results = {}
+        # SIFT uses Euclidean Distance (NORM_L2), not Hamming
+        bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
+        
+        ungrouped = list(cache.keys())
+        gid = 0
+        
+        while ungrouped:
+            self._check_interrupt()
+            curr = ungrouped.pop(0)
+            group = [curr]
+            to_rem = []
+            
+            des1 = cache[curr]
+            
+            for cand in ungrouped:
+                des2 = cache[cand]
+                try:
+                    # K-Nearest Neighbors Match
+                    matches = bf.knnMatch(des1, des2, k=2)
+                    
+                    # Lowe's Ratio Test
+                    good = []
+                    for m, n in matches:
+                        if m.distance < 0.75 * n.distance:
+                            good.append(m)
+                    
+                    # Similarity Threshold
+                    # SIFT creates more features than ORB usually, so we look for a decent ratio match
+                    if len(good) > 10 and (len(good) / len(des1)) > 0.20:
+                        group.append(cand)
+                        to_rem.append(cand)
+                except: 
+                    continue
+                    
+            for r in to_rem: 
+                ungrouped.remove(r)
+                
+            if len(group) > 1:
+                results[f"sift_{gid}"] = group
+                gid += 1
+                
+        return results

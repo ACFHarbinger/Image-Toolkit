@@ -618,10 +618,11 @@ class ScanMetadataTab(BaseTab):
             
             # --- PROGRESS BAR UPDATE ON SUBMISSION (Instant Feedback) ---
             submission_count += 1
-            if self.loading_dialog:
-                self.loading_dialog.setValue(submission_count)
+            dialog_box = self.loading_dialog
+            if dialog_box:
+                dialog_box.setValue(submission_count)
                 # Update text to reflect that this is submission, not completion.
-                self.loading_dialog.setLabelText(f"Loading image {submission_count} of {self._total_images_to_load}...")
+                dialog_box.setLabelText(f"Loading image {submission_count} of {self._total_images_to_load}...")
             # -------------------------------------------------------------
 
     @Slot(str, QPixmap)

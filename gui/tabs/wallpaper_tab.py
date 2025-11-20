@@ -1274,9 +1274,10 @@ class WallpaperTab(BaseTab):
             self.threadpool.start(worker)
             
             # --- PROGRESS BAR UPDATE ON SUBMISSION (Instant Feedback) ---
-            if self.loading_dialog:
-                self.loading_dialog.setValue(self.loading_dialog.value() + 1)
-                self.loading_dialog.setLabelText(f"Loading image {self.loading_dialog.value()} of {self._total_images_to_load}...")
+            dialog_box = self.loading_dialog
+            if dialog_box:
+                dialog_box.setValue(dialog_box.value() + 1)
+                dialog_box.setLabelText(f"Loading image {dialog_box.value()} of {self._total_images_to_load}...")
             # -------------------------------------------------------------
 
     @Slot(str, QPixmap)

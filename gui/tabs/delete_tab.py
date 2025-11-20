@@ -164,9 +164,10 @@ class DeleteTab(BaseTab):
         method_layout.addWidget(QLabel("Scan Method:"))
         self.scan_method_combo = QComboBox()
         self.scan_method_combo.addItems([
-            "Exact Match (Fastest, Same File)",
-            "Similar: Perceptual Hash (Resized/Color Edits)",
-            "Similar: Feature Matching (Cropped/Rotated - Slow)"
+            "Exact Match (Same File - Fastest)",
+            "Similar: Perceptual Hash (Resized/Color Edits - Fast)",
+            "Similar: ORB Feature Matching (Cropped/Rotated - Slow)",
+            "Similar: SIFT Feature Matching (Robust - Slowest)"
         ])
         method_layout.addWidget(self.scan_method_combo, 1)
         dup_layout.addLayout(method_layout)
@@ -560,9 +561,19 @@ class DeleteTab(BaseTab):
         else: extensions = SUPPORTED_IMG_FORMATS
             
         method_text = self.scan_method_combo.currentText()
-        if "Exact Match" in method_text: method = "exact"; status_msg = "Starting exact scan..."
-        elif "Perceptual Hash" in method_text: method = "phash"; status_msg = "Starting similarity scan..."
-        else: method = "orb"; status_msg = "Starting feature scan..."
+        # Map dropdown text to method string
+        if "Exact Match" in method_text: 
+            method = "exact"
+            status_msg = "Starting exact scan..."
+        elif "Perceptual Hash" in method_text: 
+            method = "phash"
+            status_msg = "Starting similarity scan..."
+        elif "SIFT" in method_text:
+            method = "sift"
+            status_msg = "Starting SIFT scan (this may take a while)..."
+        else: 
+            method = "orb"
+            status_msg = "Starting ORB scan..."
 
         self.btn_scan_dups.setEnabled(False) 
         self.btn_scan_dups.setText("Cancel Scan")
@@ -656,9 +667,10 @@ class DeleteTab(BaseTab):
         self._loaded_results_buffer.append((path, pixmap))
         self._images_loaded_count += 1
         
-        if self.loading_dialog:
-            self.loading_dialog.setValue(self._images_loaded_count)
-            self.loading_dialog.setLabelText(f"Loading {self._images_loaded_count} of {self._total_images_to_load}...")
+        dialog_box = self.loading_dialog
+        if dialog_box:
+            dialog_box.setValue(self._images_loaded_count)
+            dialog_box.setLabelText(f"Loading image {self._images_loaded_count} of {self._total_images_to_load}...")
             
         if self._images_loaded_count >= self._total_images_to_load:
             # Sort results before handing them to the finalization method
