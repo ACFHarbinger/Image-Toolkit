@@ -281,6 +281,10 @@ class PgvectorImageDatabase:
             cur.execute("SELECT name, type FROM tags ORDER BY name")
             return [{'name': row['name'], 'type': row['type'] or ''} for row in cur.fetchall()]
 
+    def delete_image(self, image_id: int):
+        """Delete an image from the database."""
+        with self.conn.cursor() as cur:
+            cur.execute("DELETE FROM images WHERE id = %s", (image_id,))
     
     def add_image(self, 
                   file_path: str, 
