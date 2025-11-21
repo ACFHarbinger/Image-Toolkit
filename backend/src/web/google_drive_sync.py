@@ -1,29 +1,32 @@
 import os
 import io
+import datetime
 
-from ..utils.definitions import SCOPES, SYNC_ERROR 
-from datetime import datetime
 from typing import Callable, Dict, Any, Optional
-from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+from google.oauth2 import service_account
+from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload 
+from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from googleapiclient.errors import HttpError
+from ..utils.definitions import SCOPES, SYNC_ERROR
 
 
 class GoogleDriveSync:
     """
     Manages synchronization where only missing files are transferred (Upload Missing and Download Missing).
-    No updates or deletions are performed.
+    Supports both Service Account and Personal Account (OAuth) flows using in-memory credentials.
     """
-    
+
     def __init__(
         self,
-        client_secrets_file: str,
-        token_file: str,
         local_source_path: str,
         drive_destination_folder_name: str,
+        # Auth Data (Dictionaries, not paths)
+        service_account_data: Optional[Dict[str, Any]] = None,
+        client_secrets_data: Optional[Dict[str, Any]] = None,
+        token_file: Optional[str] = None, # Path needed for persistence of OAuth tokens
         dry_run: bool = False,
         logger: Callable[[str], None] = print,
         user_email_to_share_with: Optional[str] = None
@@ -31,13 +34,18 @@ class GoogleDriveSync:
         """
         Initializes the sync manager with configuration parameters.
         """
-        self.client_secrets_file = client_secrets_file
-        self.token_file = token_file
         self.local_path = local_source_path
         self.remote_path = drive_destination_folder_name
+        
+        # Authentication Data
+        self.sa_data = service_account_data
+        self.cs_data = client_secrets_data
+        self.token_file = token_file
+        
         self.dry_run = dry_run
         self.logger = logger
         self.share_email = user_email_to_share_with
+        
         self.drive_service: Optional[Any] = None
         self.dest_folder_id: Optional[str] = None
         self._is_running = True 
@@ -53,32 +61,76 @@ class GoogleDriveSync:
 
     def _get_drive_service(self):
         """
-        Authenticates using the Personal Account OAuth 2.0 flow and sets the 
-        Google Drive service object.
+        Authenticates using either Service Account or Personal Account OAuth 2.0 flow.
+        """
+        if self.sa_data:
+            self._auth_service_account()
+        elif self.cs_data:
+            self._auth_personal_account()
+        else:
+            self.logger("❌ Authentication Error: Missing both Service Account data and Client Secrets data.")
+            raise RuntimeError(SYNC_ERROR)
+
+    def _auth_service_account(self):
+        """
+        Authenticates using the Service Account flow with decrypted credentials.
+        """
+        self.logger("🔑 Authenticating with Google Drive (Service Account)...")
+        try:
+            # Check for required keys using literals directly
+            if 'client_email' not in self.sa_data or 'private_key' not in self.sa_data:
+                self.logger("❌ Authentication Error: Service account data is malformed.")
+                raise RuntimeError(SYNC_ERROR)
+            
+            # Create credentials directly from the dictionary
+            creds = service_account.Credentials.from_service_account_info(
+                self.sa_data, scopes=SCOPES
+            )
+            
+            self.drive_service = build('drive', 'v3', credentials=creds)
+            self.logger("✅ Authentication successful.")
+
+        except Exception as e:
+            self.logger(f"❌ An unexpected authentication error occurred (Service Account): {e}")
+            raise RuntimeError(SYNC_ERROR)
+
+    def _auth_personal_account(self):
+        """
+        Authenticates using the Personal Account OAuth 2.0 flow with decrypted secrets.
+        Uses InstalledAppFlow.from_client_config to avoid writing temp files.
         """
         self.logger("🔑 Authenticating with Google Drive (Personal Account)...")
         creds: Optional[Credentials] = None
         
+        if not self.token_file:
+            self.logger("❌ Authentication Error: Token file path is required for Personal Account.")
+            raise RuntimeError(SYNC_ERROR)
+
         try:
+            # 1. Try to load existing token
             if os.path.exists(self.token_file):
                 creds = Credentials.from_authorized_user_file(self.token_file, SCOPES)
             
+            # 2. Refresh or Login if invalid
             if not creds or not creds.valid:
                 if creds and creds.expired and creds.refresh_token:
                     self.logger("   Refreshing expired token...")
                     creds.refresh(Request())
                 else:
                     self.logger("   No valid token found. Starting OAuth flow...")
-                    if not os.path.exists(self.client_secrets_file):
-                        self.logger(f"❌ Authentication Error: Client secrets file not found at '{self.client_secrets_file}'")
+                    
+                    # Validate client secrets data structure
+                    if 'installed' not in self.cs_data and 'web' not in self.cs_data:
+                        self.logger("❌ Authentication Error: Client secrets data invalid (missing 'installed' or 'web' key).")
                         raise RuntimeError(SYNC_ERROR)
-                        
-                    flow = InstalledAppFlow.from_client_secrets_file(
-                        self.client_secrets_file, SCOPES
+
+                    # Initialize flow from dictionary
+                    flow = InstalledAppFlow.from_client_config(
+                        self.cs_data, SCOPES
                     )
                     creds = flow.run_local_server(port=0)
                 
-                # Save the credentials for the next run (regardless of dry_run status)
+                # Save the credentials for the next run
                 with open(self.token_file, 'w') as token:
                     token.write(creds.to_json())
                 self.logger(f"   Token saved to {self.token_file}")
@@ -93,7 +145,7 @@ class GoogleDriveSync:
     def _find_or_create_destination_folder(self) -> Optional[str]:
         """
         Finds the ID of the destination folder by traversing the path, 
-        creating subfolders if they don't exist, and stores the ID in self.dest_folder_id.
+        creating subfolders if they don't exist.
         """
         self.check_stop()
         
@@ -241,9 +293,9 @@ class GoogleDriveSync:
                     timestamp = 0
                     try:
                         if modified_time_iso and '.' in modified_time_iso:
-                            dt_object = datetime.strptime(modified_time_iso, "%Y-%m-%dT%H:%M:%S.%fZ")
+                            dt_object = datetime.datetime.strptime(modified_time_iso, "%Y-%m-%dT%H:%M:%S.%fZ")
                         elif modified_time_iso:
-                            dt_object = datetime.strptime(modified_time_iso, "%Y-%m-%dT%H:%M:%SZ")
+                            dt_object = datetime.datetime.strptime(modified_time_iso, "%Y-%m-%dT%H:%M:%SZ")
                         timestamp = int(dt_object.timestamp())
                     except (ValueError, TypeError):
                         pass 
@@ -265,7 +317,7 @@ class GoogleDriveSync:
             for path in sorted(remote_items.keys()):
                 item = remote_items[path]
                 item_type = "[Folder]" if item['is_folder'] else "[File]"
-                self.logger(f"   {item_type} {path} (Modified: {datetime.fromtimestamp(item['mtime']).strftime('%Y-%m-%d %H:%M:%S')})")
+                self.logger(f"   {item_type} {path} (Modified: {datetime.datetime.fromtimestamp(item['mtime']).strftime('%Y-%m-%d %H:%M:%S')})")
         self.logger("--------------------------------------------------")
 
         return remote_items
@@ -316,7 +368,7 @@ class GoogleDriveSync:
         
         # Set modified time based on local file for metadata consistency
         local_mtime = os.path.getmtime(local_file_path)
-        dt_object = datetime.fromtimestamp(local_mtime)
+        dt_object = datetime.datetime.fromtimestamp(local_mtime)
         file_metadata['modifiedTime'] = dt_object.isoformat("T") + "Z"
 
         media = MediaFileUpload(local_file_path, resumable=True)
@@ -362,7 +414,6 @@ class GoogleDriveSync:
             done = False
             while done is False:
                 status, done = downloader.next_chunk()
-                # If needed, add progress logging here
                 
             file_handle.close()
             return True
@@ -373,10 +424,6 @@ class GoogleDriveSync:
         except Exception as e:
             self.logger(f"❌ Unexpected error during download: {e}")
             return False
-            
-    def _delete_file(self, file_id: str, remote_name: str):
-        """This function is not used in the "Upload Missing / Download Missing" mode."""
-        pass # Deletion logic is intentionally disabled.
             
     # ==============================================================================
     # 3. CORE SYNCHRONIZATION EXECUTION
@@ -392,9 +439,6 @@ class GoogleDriveSync:
             local_path_exists = os.path.exists(self.local_path)
             local_path_is_dir = os.path.isdir(self.local_path)
             
-            if not os.path.exists(self.client_secrets_file):
-                return (False, f"OAuth client secrets file '{self.client_secrets_file}' not found.")
-
             self._get_drive_service()
             dest_folder_id = self._find_or_create_destination_folder()
             
@@ -404,8 +448,14 @@ class GoogleDriveSync:
                 self.logger("❌ Failed to secure destination folder ID.")
                 return (False, "Failed to secure destination folder ID.")
             
+            # --- Share Logic (Only for Service Accounts) ---
             if self.share_email and dest_folder_id and not dest_folder_id.startswith("DRY_RUN_ID"):
-                self.logger("Skipping Share Action: Sharing logic for Personal Account flow is typically handled externally or disabled.")
+                if self.sa_data:
+                    self.logger(f"ℹ️  [Note] Sharing functionality with {self.share_email} is pending implementation.")
+                    # To implement: drive_service.permissions().create(fileId=dest_folder_id, body={'role':'writer', 'type':'user', 'emailAddress': self.share_email}).execute()
+                else:
+                    self.logger("Skipping Share Action: Sharing is only relevant for Service Account flow.")
+            # -----------------------------------------------
             
             if not self.check_stop_status(dest_folder_id): return (False, "Synchronization manually interrupted.")
 

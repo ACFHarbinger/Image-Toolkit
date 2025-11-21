@@ -25,7 +25,6 @@ LOCAL_SOURCE_PATH = os.path.join(ROOT_DIR, 'data')
 BASE_KEYSTORE_FILE = os.path.join(CRYPTO_DIR, "my_java_keystore.p12")
 BASE_VAULT_FILE = os.path.join(CRYPTO_DIR, "my_secure_data.vault")
 BASE_PEPPER_FILE = os.path.join(CRYPTO_DIR, "pepper.txt")
-BASE_TOKEN_FILE = os.path.join(API_DIR, 'token.json')
 
 # --- Static Files (Not account-specific) ---
 # These files are shared across all accounts
@@ -40,7 +39,9 @@ CLIENT_SECRETS_FILE = os.path.join(API_DIR, 'client_secret.json')
 KEYSTORE_FILE = BASE_KEYSTORE_FILE
 VAULT_FILE = BASE_VAULT_FILE
 PEPPER_FILE = BASE_PEPPER_FILE
-TOKEN_FILE = BASE_TOKEN_FILE
+
+# Dynamic file not to be shared
+TOKEN_FILE = os.path.join(API_DIR, 'token.json')
 
 # --- Constants ---
 KEY_ALIAS = "my-aes-key" # This is an alias *inside* the keystore
@@ -76,7 +77,6 @@ WALLPAPER_STYLES = {
     }
 }
 
-
 # Define the set of allowed alignment modes for clarity
 AlignMode = Literal[
     "Default (Top/Center)", 
@@ -87,7 +87,7 @@ AlignMode = Literal[
     "Squish (Shrink Largest)"
 ]
 
-
+# Functions
 def _get_suffixed_path(base_path, suffix):
     """
     Helper function to create a new path with an account suffix.

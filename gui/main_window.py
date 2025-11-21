@@ -119,7 +119,7 @@ class MainWindow(QWidget):
         self.merge_tab = MergeTab(dropdown=dropdown)
         self.delete_tab = DeleteTab(dropdown=dropdown)
         self.crawler_tab = ImageCrawlTab(dropdown=dropdown)
-        self.drive_sync_tab = DriveSyncTab(dropdown=dropdown)
+        self.drive_sync_tab = DriveSyncTab(vault_manager, dropdown=dropdown)
         self.wallpaper_tab = WallpaperTab(self.database_tab, dropdown=dropdown)
         self.web_requests_tab = WebRequestsTab(dropdown=dropdown)
 
