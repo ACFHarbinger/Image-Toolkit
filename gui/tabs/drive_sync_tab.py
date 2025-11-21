@@ -1,4 +1,5 @@
 import os
+import backend.src.utils.definitions as udef
 
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -9,11 +10,6 @@ from PySide6.QtWidgets import (
     QLineEdit, QComboBox, QFileDialog, 
 )
 from ..utils.app_definitions import DRY_RUN
-from backend.src.utils.definitions import (
-    DRIVE_DESTINATION_FOLDER_NAME,
-    CLIENT_SECRETS_FILE, TOKEN_FILE,
-    SERVICE_ACCOUNT_FILE, LOCAL_SOURCE_PATH, 
-)
 from .base_tab import BaseTab
 from ..windows import LogWindow
 from ..helpers import GoogleDriveSyncWorker
@@ -22,9 +18,10 @@ from ..styles.style import apply_shadow_effect, STYLE_SYNC_RUN, STYLE_SYNC_STOP
 
 class DriveSyncTab(BaseTab):
     """GUI tab for Google Drive one-way sync (QRunnable + QThreadPool)."""
-    def __init__(self, dropdown=True, *args, **kwargs):
+    def __init__(self, vault_manager, dropdown=True, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.dropdown = dropdown
+        self.vault_manager = vault_manager
         self.current_worker: Optional[GoogleDriveSyncWorker] = None
         
         self.log_window = LogWindow() 
@@ -52,7 +49,7 @@ class DriveSyncTab(BaseTab):
         # Service Account Key
         self.key_file_label = QLabel("Service Account Key File:")
         key_layout = QHBoxLayout()
-        self.key_file_path = QLineEdit(os.path.join(Path.home(), SERVICE_ACCOUNT_FILE))
+        self.key_file_path = QLineEdit(os.path.join(Path.home(), udef.SERVICE_ACCOUNT_FILE))
         self.key_file_path.setPlaceholderText("Path to service_account_key.json")
         self.btn_browse_key = QPushButton("Browse")
         apply_shadow_effect(self.btn_browse_key, "#000000", 8, 0, 3)
@@ -63,7 +60,7 @@ class DriveSyncTab(BaseTab):
         # Personal Account: Client Secrets
         self.client_secrets_label = QLabel("Client Secrets File:")
         client_secrets_layout = QHBoxLayout()
-        self.client_secrets_path = QLineEdit(os.path.join(Path.home(), CLIENT_SECRETS_FILE))
+        self.client_secrets_path = QLineEdit(os.path.join(Path.home(), udef.CLIENT_SECRETS_FILE))
         self.client_secrets_path.setPlaceholderText("Path to client_secrets.json")
         self.btn_browse_client_secrets = QPushButton("Browse")
         apply_shadow_effect(self.btn_browse_client_secrets, "#000000", 8, 0, 3)
@@ -74,13 +71,13 @@ class DriveSyncTab(BaseTab):
         # Personal Account: Token File
         self.token_file_label = QLabel("Token File (auto-generated):")
         token_file_layout = QHBoxLayout()
-        self.token_file_path = QLineEdit(os.path.join(Path.home(), TOKEN_FILE))
+        self.token_file_path = QLineEdit(os.path.join(Path.home(), udef.TOKEN_FILE))
         self.token_file_path.setPlaceholderText("Path to store token.json")
         token_file_layout.addWidget(self.token_file_path)
 
         # Local & Remote paths
         local_layout = QHBoxLayout()
-        self.local_path = QLineEdit(LOCAL_SOURCE_PATH)
+        self.local_path = QLineEdit(udef.LOCAL_SOURCE_PATH)
         self.local_path.setPlaceholderText("Local directory to synchronize")
         btn_browse_local = QPushButton("Browse Local Dir")
         apply_shadow_effect(btn_browse_local, "#000000", 8, 0, 3)
@@ -89,7 +86,7 @@ class DriveSyncTab(BaseTab):
         local_layout.addWidget(btn_browse_local)
 
         remote_layout = QHBoxLayout()
-        self.remote_path = QLineEdit(DRIVE_DESTINATION_FOLDER_NAME)
+        self.remote_path = QLineEdit(udef.DRIVE_DESTINATION_FOLDER_NAME)
         self.remote_path.setPlaceholderText("Drive folder (e.g. Backups/2025)")
         remote_layout.addWidget(self.remote_path)
         
@@ -148,13 +145,9 @@ class DriveSyncTab(BaseTab):
         apply_shadow_effect(self.sync_button, "#000000", 8, 0, 3)
         self.sync_button.clicked.connect(self.toggle_sync) 
 
-        # ------------------ LOG ACCESS BUTTON (REMOVED) ------------------
-        # self.btn_show_log is removed
-
         # ------------------ LAYOUT ------------------
         main_layout.addWidget(config_group)
         main_layout.addWidget(self.sync_button)
-        # main_layout.addWidget(self.btn_show_log) <-- REMOVED
         main_layout.addStretch(1)
 
         self.load_configuration_defaults()
@@ -220,36 +213,59 @@ class DriveSyncTab(BaseTab):
     def _build_auth_config(self) -> Optional[Dict[str, Any]]:
         """
         Builds a configuration dictionary for the worker based on the
-        selected provider.
+        selected provider, retrieving decrypted credential data directly from 
+        the vault manager's memory.
         """
         provider_text = self.provider_combo.currentText()
         auth_config = {}
 
+        # Keys in self.vault_manager.api_credentials are the base file names (e.g., 'service_account_key')
+        SA_KEY_NAME = Path(udef.SERVICE_ACCOUNT_FILE).stem
+        CS_KEY_NAME = Path(udef.CLIENT_SECRETS_FILE).stem
+        
         if provider_text.startswith("Google Drive (Service Account)"):
-            key_file = self.key_file_path.text().strip()
-            if not os.path.isfile(key_file):
-                QMessageBox.warning(self, "Error", f"Service Account Key file not found:\n{key_file}")
+            
+            # Check if the decrypted data is available in the vault manager
+            sa_data = self.vault_manager.api_credentials.get(SA_KEY_NAME)
+            
+            if not sa_data:
+                QMessageBox.warning(
+                    self, "Error", 
+                    f"Service Account Key data not loaded. Please ensure the encrypted file is present in the API directory and you have logged in."
+                )
                 return None
             
+            # Use the decrypted data, but ALSO include the expected key_file path 
+            # with the actual decrypted data object. The worker must be updated to handle this.
             auth_config = {
                 "mode": "service_account",
-                "key_file": key_file
+                "key_file": "VAULT_DATA_LOADED", # Placeholder for the worker's compatibility
+                "service_account_data": sa_data # Actual decrypted data
             }
             
         elif provider_text.startswith("Google Drive (Personal Account)"):
-            client_secrets = self.client_secrets_path.text().strip()
+            
+            # Check if the decrypted data is available in the vault manager
+            cs_data = self.vault_manager.api_credentials.get(CS_KEY_NAME)
             token_file = self.token_file_path.text().strip()
             
-            if not os.path.isfile(client_secrets):
-                QMessageBox.warning(self, "Error", f"Client Secrets file not found:\n{client_secrets}")
+            if not cs_data:
+                QMessageBox.warning(
+                    self, "Error", 
+                    f"Client Secrets data not loaded. Please ensure the encrypted file is present in the API directory and you have logged in."
+                )
                 return None
+
             if not token_file:
                 QMessageBox.warning(self, "Error", "Token File path cannot be empty.")
                 return None
             
+            # Use the decrypted data, but ALSO include the expected client_secrets_file key 
+            # with the actual decrypted data object.
             auth_config = {
                 "mode": "personal_account",
-                "client_secrets_file": client_secrets,
+                "client_secrets_file": "VAULT_DATA_LOADED", # Placeholder for the worker's compatibility
+                "client_secrets_data": cs_data, # Actual decrypted data
                 "token_file": token_file
             }
             
@@ -263,11 +279,11 @@ class DriveSyncTab(BaseTab):
     #                           DEFAULTS                               #
     # ------------------------------------------------------------------ #
     def load_configuration_defaults(self):
-        self.key_file_path.setText(SERVICE_ACCOUNT_FILE)
-        self.client_secrets_path.setText(CLIENT_SECRETS_FILE)
-        self.token_file_path.setText(TOKEN_FILE)
-        self.local_path.setText(LOCAL_SOURCE_PATH)
-        self.remote_path.setText(DRIVE_DESTINATION_FOLDER_NAME)
+        self.key_file_path.setText(udef.SERVICE_ACCOUNT_FILE)
+        self.client_secrets_path.setText(udef.CLIENT_SECRETS_FILE)
+        self.token_file_path.setText(udef.TOKEN_FILE)
+        self.local_path.setText(udef.LOCAL_SOURCE_PATH)
+        self.remote_path.setText(udef.DRIVE_DESTINATION_FOLDER_NAME)
         self.share_email_input.setText("")
 
     # ------------------------------------------------------------------ #

@@ -44,34 +44,40 @@ class GoogleDriveSyncWorker(QRunnable):
 
         success = False
         final_message = "Cancelled by user."
-        
         try:
-            # --- CRITICAL CHANGE: DYNAMIC GDS INITIALIZATION ---
+            # --- CRITICAL CHANGE: PASS DECRYPTED DATA ---
             gds_kwargs = {
                 "local_source_path": self.local_path,
                 "drive_destination_folder_name": self.remote_path,
                 "dry_run": self.dry_run,
                 "logger": self._log,
-                "user_email_to_share_with": self.share_email # Only used by Service Account GDS
+                # share_email is always passed, GDS handles relevance check
+                "user_email_to_share_with": self.share_email 
             }
 
             if self.auth_mode == "service_account":
-                gds_kwargs["service_account_file"] = self.auth_config.get("key_file")
+                # Pass the decrypted data object
+                gds_kwargs["service_account_data"] = self.auth_config.get("service_account_data")
+                # Remove personal account keys just in case
+                gds_kwargs["client_secrets_data"] = None
+                gds_kwargs["token_file"] = None 
             
             elif self.auth_mode == "personal_account":
-                # Remove sharing for personal account flow since it's redundant
-                gds_kwargs.pop("user_email_to_share_with", None) 
-                gds_kwargs["client_secrets_file"] = self.auth_config.get("client_secrets_file")
+                # Pass the decrypted data object and the token file path
+                gds_kwargs["client_secrets_data"] = self.auth_config.get("client_secrets_data")
                 gds_kwargs["token_file"] = self.auth_config.get("token_file")
-            
+                # Remove service account keys just in case
+                gds_kwargs["service_account_data"] = None
+                
             else:
-                 raise ValueError(f"Unsupported authentication mode: {self.auth_mode}")
+                raise ValueError(f"Unsupported authentication mode: {self.auth_mode}")
 
+            # Instantiate GDS with the new argument structure
             sync_manager = GDS(**gds_kwargs)
-            # --------------------------------------------------
+            # ---------------------------------------------
             
             if self._is_running:
-                 success, final_message = sync_manager.execute_sync()
+                success, final_message = sync_manager.execute_sync()
             
         except Exception as e:
             success = False
