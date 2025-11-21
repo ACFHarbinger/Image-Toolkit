@@ -29,8 +29,8 @@ from ..helpers import (
 )
 from ..styles.style import apply_shadow_effect
 from ..windows import ImagePreviewWindow
+from ..styles.style import STYLE_SCAN_CANCEL
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
-from ..styles.style import STYLE_SCAN_START, STYLE_SCAN_CANCEL
 
 
 class DeleteTab(BaseTab):
@@ -87,30 +87,92 @@ class DeleteTab(BaseTab):
         # --- 1. Delete Targets Group ---
         target_group = QGroupBox("Delete Targets")
         target_layout = QFormLayout(target_group)
-
         v_target_group = QVBoxLayout()
+
+        browse_layout = QHBoxLayout()
         self.target_path = QLineEdit()
         self.target_path.setPlaceholderText("Path to delete OR scan for duplicates...")
-        v_target_group.addWidget(self.target_path)
+        browse_layout.addWidget(self.target_path)
 
-        h_buttons = QHBoxLayout()
-        btn_target_file = QPushButton("Choose file...")
-        apply_shadow_effect(btn_target_file, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        btn_target_file.clicked.connect(self.browse_file)
-        btn_target_dir = QPushButton("Choose directory...")
-        apply_shadow_effect(btn_target_dir, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        btn_target_dir.clicked.connect(self.browse_directory)
-        h_buttons.addWidget(btn_target_file)
-        h_buttons.addWidget(btn_target_dir)
-        v_target_group.addLayout(h_buttons)
+        btn_browse_scan = QPushButton("Browse...")
+        btn_browse_scan.clicked.connect(self.browse_directory)
+        apply_shadow_effect(btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        browse_layout.addWidget(btn_browse_scan)
+
+        v_target_group.addLayout(browse_layout)
         target_layout.addRow("Target path:", v_target_group)
-        
         content_layout.addWidget(target_group)
 
         # --- 2. Options Group ---
-        settings_group = QGroupBox("Options")
+        settings_group = QGroupBox("Delete Settings")
         settings_layout = QFormLayout(settings_group)
 
+        # --- Scan Method (Moved from Dup Group) ---
+        self.scan_method_combo = QComboBox()
+        self.scan_method_combo.addItems([
+            "Exact Match (Same File - Fastest)",
+            "Similar: Perceptual Hash (Resized/Color Edits - Fast)",
+            "Similar: ORB Feature Matching (Cropped/Rotated - Medium)",
+            "Similar: SIFT Feature Matching (Robust - Slow)",
+            "Similar: SSIM (High Quality - Slowest)",
+            "Similar: Siamese Network (Semantic Match)"
+        ])
+        settings_layout.addRow("Scan Method:", self.scan_method_combo)
+
+        content_layout.addWidget(settings_group)
+
+        # --- 3. Galleries (Now placed directly in content_layout) ---
+        
+        # Progress Bar
+        self.scan_progress_bar = QProgressBar()
+        self.scan_progress_bar.setRange(0, 0) 
+        self.scan_progress_bar.setTextVisible(False)
+        self.scan_progress_bar.hide()
+        content_layout.addWidget(self.scan_progress_bar)
+        
+        # A. Top Gallery: Found Duplicates (Preview)
+        self.gallery_scroll = MarqueeScrollArea()
+        self.gallery_scroll.setWidgetResizable(True)
+        self.gallery_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
+        self.gallery_scroll.setMinimumHeight(400)
+        self.gallery_widget = QWidget()
+        self.gallery_widget.setStyleSheet("background-color: #2c2f33;")
+        self.gallery_layout = QGridLayout(self.gallery_widget)
+        self.gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.gallery_scroll.setWidget(self.gallery_widget)
+        self.gallery_scroll.selection_changed.connect(self.handle_marquee_selection)
+        content_layout.addWidget(self.gallery_scroll, 1) # Added directly to content_layout
+        
+        # B. Bottom Gallery: Selected for Deletion
+        self.selected_scroll = MarqueeScrollArea()
+        self.selected_scroll.setWidgetResizable(True)
+        self.selected_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
+        self.selected_scroll.setMinimumHeight(200)
+        self.selected_widget = QWidget()
+        self.selected_widget.setStyleSheet("background-color: #2c2f33;")
+        self.selected_layout = QGridLayout(self.selected_widget)
+        self.selected_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.selected_scroll.setWidget(self.selected_widget)
+        content_layout.addWidget(self.selected_scroll, 1) # Added directly to content_layout
+
+        # Actions for Duplicates (Need a container for actions)
+        dup_actions_layout = QHBoxLayout()
+        self.btn_compare_properties = QPushButton("Compare Properties (0)")
+        apply_shadow_effect(self.btn_compare_properties, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        self.btn_compare_properties.clicked.connect(self.show_comparison_dialog)
+        self.btn_compare_properties.setVisible(False)
+        dup_actions_layout.addWidget(self.btn_compare_properties)
+
+        self.btn_delete_selected_dups = QPushButton("Delete Selected Duplicates")
+        self.btn_delete_selected_dups.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold; padding: 8px;")
+        apply_shadow_effect(self.btn_delete_selected_dups, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        self.btn_delete_selected_dups.clicked.connect(self.delete_selected_duplicates)
+        self.btn_delete_selected_dups.setVisible(False)
+        dup_actions_layout.addWidget(self.btn_delete_selected_dups)
+
+        content_layout.addLayout(dup_actions_layout)
+
+        # Other options
         if self.dropdown:
             self.selected_extensions = set()
             ext_layout = QVBoxLayout()
@@ -153,86 +215,6 @@ class DeleteTab(BaseTab):
         self.confirm_checkbox.setChecked(True)
         settings_layout.addRow(self.confirm_checkbox)
 
-        content_layout.addWidget(settings_group)
-
-        # --- 3. Duplicate/Similar Scanner Group ---
-        self.dup_group = QGroupBox("Duplicate/Similar Image Scanner")
-        dup_layout = QVBoxLayout(self.dup_group)
-        
-        # --- Method Selection ---
-        method_layout = QHBoxLayout()
-        method_layout.addWidget(QLabel("Scan Method:"))
-        self.scan_method_combo = QComboBox()
-        self.scan_method_combo.addItems([
-            "Exact Match (Same File - Fastest)",
-            "Similar: Perceptual Hash (Resized/Color Edits - Fast)",
-            "Similar: ORB Feature Matching (Cropped/Rotated - Medium)",
-            "Similar: SIFT Feature Matching (Robust - Slow)",
-            "Similar: SSIM (High Quality - Slowest)",
-            "Similar: Siamese Network (Semantic Match)"
-        ])
-        method_layout.addWidget(self.scan_method_combo, 1)
-        dup_layout.addLayout(method_layout)
-        
-        # Start/Cancel Button
-        self.btn_scan_dups = QPushButton("Start Scan")
-        self.btn_scan_dups.setStyleSheet(STYLE_SCAN_START)
-        apply_shadow_effect(self.btn_scan_dups, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        self.btn_scan_dups.clicked.connect(self.toggle_scan)
-        dup_layout.addWidget(self.btn_scan_dups)
-
-        # Progress Bar
-        self.scan_progress_bar = QProgressBar()
-        self.scan_progress_bar.setRange(0, 0) 
-        self.scan_progress_bar.setTextVisible(False)
-        self.scan_progress_bar.hide()
-        dup_layout.addWidget(self.scan_progress_bar)
-        
-        # A. Top Gallery: Found Duplicates (Preview)
-        self.gallery_scroll = MarqueeScrollArea()
-        self.gallery_scroll.setWidgetResizable(True)
-        self.gallery_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
-        self.gallery_scroll.setMinimumHeight(400)
-        self.gallery_widget = QWidget()
-        self.gallery_widget.setStyleSheet("background-color: #2c2f33;")
-        self.gallery_layout = QGridLayout(self.gallery_widget)
-        self.gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
-        self.gallery_scroll.setWidget(self.gallery_widget)
-        self.gallery_scroll.setVisible(False)
-        self.gallery_scroll.selection_changed.connect(self.handle_marquee_selection)
-        dup_layout.addWidget(self.gallery_scroll)
-        
-        # B. Bottom Gallery: Selected for Deletion
-        self.selected_scroll = MarqueeScrollArea()
-        self.selected_scroll.setWidgetResizable(True)
-        self.selected_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
-        self.selected_scroll.setMinimumHeight(200)
-        self.selected_scroll.setVisible(False)
-        self.selected_widget = QWidget()
-        self.selected_widget.setStyleSheet("background-color: #2c2f33;")
-        self.selected_layout = QGridLayout(self.selected_widget)
-        self.selected_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
-        self.selected_scroll.setWidget(self.selected_widget)
-        dup_layout.addWidget(self.selected_scroll)
-
-        # Actions for Duplicates
-        dup_actions_layout = QHBoxLayout()
-        self.btn_compare_properties = QPushButton("Compare Properties (0)")
-        apply_shadow_effect(self.btn_compare_properties, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        self.btn_compare_properties.clicked.connect(self.show_comparison_dialog)
-        self.btn_compare_properties.setVisible(False)
-        dup_actions_layout.addWidget(self.btn_compare_properties)
-
-        self.btn_delete_selected_dups = QPushButton("Delete Selected Duplicates")
-        self.btn_delete_selected_dups.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold; padding: 8px;")
-        apply_shadow_effect(self.btn_delete_selected_dups, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        self.btn_delete_selected_dups.clicked.connect(self.delete_selected_duplicates)
-        self.btn_delete_selected_dups.setVisible(False)
-        dup_actions_layout.addWidget(self.btn_delete_selected_dups)
-
-        dup_layout.addLayout(dup_actions_layout)
-        content_layout.addWidget(self.dup_group)
-
         # --- 4. Standard Delete Buttons ---
         content_layout.addStretch(1)
         run_buttons_layout = QHBoxLayout()
@@ -247,10 +229,12 @@ class DeleteTab(BaseTab):
             QPushButton:pressed { background: #5a67d8; }
         """
 
-        self.btn_delete_files = QPushButton("Delete Files Only")
+        # RENAMED BUTTON: "Delete Files Only" -> "Scan Directory"
+        # Functionality changed from start_deletion to toggle_scan
+        self.btn_delete_files = QPushButton("Scan Directory")
         self.btn_delete_files.setStyleSheet(SHARED_BUTTON_STYLE)
         apply_shadow_effect(self.btn_delete_files, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        self.btn_delete_files.clicked.connect(lambda: self.start_deletion(mode='files'))
+        self.btn_delete_files.clicked.connect(self.toggle_scan)
         run_buttons_layout.addWidget(self.btn_delete_files)
 
         self.btn_delete_directory = QPushButton("Delete Directory and Contents")
@@ -269,6 +253,9 @@ class DeleteTab(BaseTab):
         page_scroll.setWidget(content_widget)
         main_layout.addWidget(page_scroll)
         self.setLayout(main_layout)
+        
+        # Initialize galleries with placeholders (new behavior)
+        self.clear_gallery()
 
     # --- NEW: RESIZE REFLOW LOGIC ---
     def resizeEvent(self, event):
@@ -314,13 +301,17 @@ class DeleteTab(BaseTab):
         for i, widget in enumerate(items):
             row = i // columns
             col = i % columns
-            layout.addWidget(widget, row, col, Qt.AlignLeft | Qt.AlignTop)
+            align = Qt.AlignLeft | Qt.AlignTop
+            
+            # Check for placeholder label
+            if isinstance(widget, QLabel) and "Scan a directory" in widget.text():
+                 align = Qt.AlignCenter
+                 layout.addWidget(widget, 0, 0, 1, columns, align)
+                 return
+                 
+            layout.addWidget(widget, row, col, align)
     # --------------------------------
 
-    # ... (Rest of the methods: toggle_scan, cancel_scan, _reset_scan_ui, 
-    #      _create_gallery_card, _update_card_style, get_image_properties,
-    #      show_image_context_menu, etc. remain unchanged) ...
-    
     @Slot()
     def toggle_scan(self):
         if self.scan_thread and self.scan_thread.isRunning():
@@ -341,9 +332,19 @@ class DeleteTab(BaseTab):
             self._reset_scan_ui("Scan cancelled.")
             
     def _reset_scan_ui(self, status_message: str):
-        self.btn_scan_dups.setText("Start Scan")
-        self.btn_scan_dups.setStyleSheet(STYLE_SCAN_START)
-        self.btn_scan_dups.setEnabled(True)
+        # Revert button state to "Scan Directory"
+        self.btn_delete_files.setText("Scan Directory")
+        # SHARED_BUTTON_STYLE is needed here but is not globally defined in this file. Using explicit style.
+        SHARED_BUTTON_STYLE = """
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #667eea, stop:1 #764ba2);
+                color: white; font-weight: bold; font-size: 14px;
+                padding: 14px 8px; border-radius: 10px; min-height: 44px;
+            }
+            QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #764ba2, stop:1 #667eea); }
+        """
+        self.btn_delete_files.setStyleSheet(SHARED_BUTTON_STYLE)
+        self.btn_delete_files.setEnabled(True)
         self.scan_progress_bar.hide()
         self.status_label.setText(status_message)
 
@@ -358,10 +359,10 @@ class DeleteTab(BaseTab):
         img_label.setFixedSize(thumb_size, thumb_size)
         if pixmap and not pixmap.isNull():
             if pixmap.width() > thumb_size or pixmap.height() > thumb_size:
-                 scaled = pixmap.scaled(thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                 img_label.setPixmap(scaled)
+                scaled = pixmap.scaled(thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                img_label.setPixmap(scaled)
             else:
-                 img_label.setPixmap(pixmap)
+                img_label.setPixmap(pixmap)
         else:
             img_label.setText("Error")
             img_label.setStyleSheet("color: #e74c3c; border: 1px solid #e74c3c;")
@@ -408,9 +409,9 @@ class DeleteTab(BaseTab):
         prop_action.triggered.connect(lambda: self.show_image_properties_dialog(path))
         menu.addAction(prop_action)
         if len(self.selected_duplicates) > 1:
-             cmp_action = QAction("📊 Compare Selected Properties", self)
-             cmp_action.triggered.connect(self.show_comparison_dialog)
-             menu.addAction(cmp_action)
+            cmp_action = QAction("📊 Compare Selected Properties", self)
+            cmp_action.triggered.connect(self.show_comparison_dialog)
+            menu.addAction(cmp_action)
         menu.addSeparator()
         view_action = QAction("🔍 View Full Size Preview", self)
         view_action.triggered.connect(lambda: self.open_full_preview(path))
@@ -557,6 +558,7 @@ class DeleteTab(BaseTab):
             QMessageBox.warning(self, "Invalid Path", "Please select a valid directory in the 'Target path' field to scan.")
             return
 
+        # Extensions are gathered here (as requested, this logic already filters by extension)
         extensions = []
         if self.dropdown and self.selected_extensions: extensions = list(self.selected_extensions)
         elif not self.dropdown: extensions = self.join_list_str(self.target_extensions.text().strip())
@@ -583,10 +585,11 @@ class DeleteTab(BaseTab):
             method = "orb"
             status_msg = "Starting ORB scan..."
 
-        self.btn_scan_dups.setEnabled(False) 
-        self.btn_scan_dups.setText("Cancel Scan")
-        self.btn_scan_dups.setStyleSheet(STYLE_SCAN_CANCEL)
-        self.btn_scan_dups.setEnabled(True)
+        # Update the new Scan Directory button state
+        self.btn_delete_files.setEnabled(False) 
+        self.btn_delete_files.setText("Cancel Scan")
+        self.btn_delete_files.setStyleSheet(STYLE_SCAN_CANCEL)
+        self.btn_delete_files.setEnabled(True)
         self.scan_progress_bar.show()
         
         self.status_label.setText(status_msg)
@@ -631,8 +634,9 @@ class DeleteTab(BaseTab):
             QMessageBox.information(self, "No Matches", "No duplicate or similar images found.")
             return
         self.status_label.setText(f"Found {len(results)} groups ({len(self.duplicate_path_list)} files).")
-        self.gallery_scroll.setVisible(True)
-        self.selected_scroll.setVisible(True)
+        # Clear placeholders from galleries
+        self._clear_gallery(self.gallery_layout)
+        self._clear_gallery(self.selected_layout)
         self._update_action_buttons()
         self.load_thumbnails(self.duplicate_path_list)
 
@@ -642,7 +646,7 @@ class DeleteTab(BaseTab):
         QMessageBox.critical(self, "Scan Error", f"Error during scan: {error_msg}")
 
     def load_thumbnails(self, paths: list[str]):
-        """Starts concurrent loading using QThreadPool."""
+        """Starts concurrent loading using QThreadPool with instant progress feedback."""
         
         # Clear previous state
         self.thread_pool.clear()
@@ -650,7 +654,7 @@ class DeleteTab(BaseTab):
         self._images_loaded_count = 0
         self._total_images_to_load = len(paths)
         
-        # Setup dialog
+        # 1. Setup dialog
         self.loading_dialog = QProgressDialog("Loading thumbnails...", "Cancel", 0, self._total_images_to_load, self)
         self.loading_dialog.setWindowModality(Qt.WindowModal)
         self.loading_dialog.setWindowTitle("Please Wait")
@@ -658,16 +662,31 @@ class DeleteTab(BaseTab):
         self.loading_dialog.setCancelButton(None)
         self.loading_dialog.show()
 
-        # Block to ensure dialog is rendered before starting heavy work
-        loop = QEventLoop()
-        QTimer.singleShot(1, loop.quit)
-        loop.exec()
+        # CRITICAL FIX: Force UI refresh immediately after showing the dialog
+        QApplication.processEvents()
 
-        # Submit tasks
+        # Initialize dialog state
+        self.loading_dialog.setLabelText(f"Loading image 0 of {self._total_images_to_load}...")
+        self.loading_dialog.setValue(0) 
+        
+        submitted_count = 0
+
+        # 2. Submit tasks and update progress simultaneously on the main thread (instant feedback)
         for path in paths:
             worker = ImageLoaderWorker(path, self.thumbnail_size)
             worker.signals.result.connect(self._on_single_image_loaded)
             self.thread_pool.start(worker)
+            
+            submitted_count += 1
+            self.loading_dialog.setValue(submitted_count)
+            self.loading_dialog.setLabelText(f"Submitting task {submitted_count} of {self._total_images_to_load}...")
+            # Force repaint during submission
+            QApplication.processEvents()
+            
+        # 3. Reset the dialog to track *completion* rather than submission
+        if self.loading_dialog:
+            self.loading_dialog.setValue(0)
+            self.loading_dialog.setLabelText(f"Processing results 0 of {self._total_images_to_load}...")
 
     @Slot(str, QPixmap)
     def _on_single_image_loaded(self, path: str, pixmap: QPixmap):
@@ -677,8 +696,9 @@ class DeleteTab(BaseTab):
         
         dialog_box = self.loading_dialog
         if dialog_box:
+            # We track the count of COMPLETED images here
             dialog_box.setValue(self._images_loaded_count)
-            dialog_box.setLabelText(f"Loading image {self._images_loaded_count} of {self._total_images_to_load}...")
+            dialog_box.setLabelText(f"Processing results {self._images_loaded_count} of {self._total_images_to_load}...")
             
         if self._images_loaded_count >= self._total_images_to_load:
             # Sort results before handing them to the finalization method
@@ -790,12 +810,25 @@ class DeleteTab(BaseTab):
         QMessageBox.information(self, "Deletion Complete", msg)
 
     def clear_gallery(self):
+        """Clears galleries and adds initial placeholders."""
         self.selected_duplicates.clear()
         self.duplicate_path_list.clear()
+        
         self._clear_gallery(self.gallery_layout)
         self._clear_gallery(self.selected_layout)
-        self.gallery_scroll.setVisible(False)
-        self.selected_scroll.setVisible(False)
+        
+        # Add placeholders to empty galleries
+        columns = self._calculate_columns(self.gallery_scroll)
+        empty_label_gallery = QLabel("Scan a directory to find duplicate images.")
+        empty_label_gallery.setAlignment(Qt.AlignCenter)
+        empty_label_gallery.setStyleSheet("color: #b9bbbe; padding: 50px;")
+        self.gallery_layout.addWidget(empty_label_gallery, 0, 0, 1, columns)
+        
+        empty_label_selected = QLabel("Select images from the results above to mark them for deletion.")
+        empty_label_selected.setAlignment(Qt.AlignCenter)
+        empty_label_selected.setStyleSheet("color: #b9bbbe; padding: 50px;")
+        self.selected_layout.addWidget(empty_label_selected, 0, 0, 1, columns)
+
         self._update_action_buttons()
 
     def start_deletion(self, mode: str):
