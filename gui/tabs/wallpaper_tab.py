@@ -22,8 +22,8 @@ from PySide6.QtWidgets import (
 )
 from .base_tab import BaseTab
 from ..windows import SlideshowQueueWindow, ImagePreviewWindow
-from ..components import MonitorDropWidget, DraggableImageLabel 
 from ..helpers import ImageScannerWorker, ImageLoaderWorker, WallpaperWorker
+from ..components import MonitorDropWidget, DraggableImageLabel, MarqueeScrollArea
 from ..styles.style import apply_shadow_effect, STYLE_SYNC_RUN, STYLE_SYNC_STOP
 from backend.src.utils.definitions import WALLPAPER_STYLES
 from backend.src.core import WallpaperManager
@@ -69,13 +69,13 @@ class WallpaperTab(BaseTab):
         """
         
         if self.slideshow_timer and self.slideshow_timer.isActive():
-             return
+            return
 
         if self.current_wallpaper_worker:
             return
 
         if self.set_wallpaper_btn.text() in ["Missing Pillow", "Missing screeninfo", "Missing Helpers", "Missing Wallpaper Module"]:
-             self.set_wallpaper_btn.setText("Set Wallpaper")
+            self.set_wallpaper_btn.setText("Set Wallpaper")
             
         target_monitor_ids = list(self.monitor_widgets.keys())
         num_monitors = len(target_monitor_ids)
@@ -91,11 +91,11 @@ class WallpaperTab(BaseTab):
 
         if self.slideshow_enabled_checkbox.isChecked():
             if is_ready:
-                 self.set_wallpaper_btn.setEnabled(True)
-                 self.set_wallpaper_btn.setText(f"Start Slideshow ({total_images} total images)")
+                self.set_wallpaper_btn.setEnabled(True)
+                self.set_wallpaper_btn.setText(f"Start Slideshow ({total_images} total images)")
             else:
-                 self.set_wallpaper_btn.setEnabled(False)
-                 self.set_wallpaper_btn.setText("Slideshow (Drop images)")
+                self.set_wallpaper_btn.setEnabled(False)
+                self.set_wallpaper_btn.setText("Slideshow (Drop images)")
                  
         elif set_count > 0: 
             self.set_wallpaper_btn.setText("Set Wallpaper")
@@ -242,8 +242,6 @@ class WallpaperTab(BaseTab):
         
         settings_layout.addWidget(self.solid_color_widget)
         self.solid_color_widget.setVisible(False) 
-        
-        settings_layout.addWidget(QLabel("<hr>")) 
 
         style_layout = QHBoxLayout()
         self.style_combo = QComboBox()
@@ -282,7 +280,7 @@ class WallpaperTab(BaseTab):
         self.padding_width = 10
         self.approx_item_width = self.thumbnail_size + self.padding_width
 
-        self.scan_scroll_area = QScrollArea() 
+        self.scan_scroll_area = MarqueeScrollArea() 
         self.scan_scroll_area.setWidgetResizable(True)
         self.scan_scroll_area.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
 
@@ -465,9 +463,9 @@ class WallpaperTab(BaseTab):
     def handle_set_wallpaper_click(self):
         if self.background_type == "Solid Color":
              if self.current_wallpaper_worker:
-                 self.stop_wallpaper_worker()
+                self.stop_wallpaper_worker()
              else:
-                 self.run_wallpaper_worker()
+                self.run_wallpaper_worker()
              return
 
         if self.slideshow_timer and self.slideshow_timer.isActive():
@@ -1018,7 +1016,8 @@ class WallpaperTab(BaseTab):
 
         if self.background_type == "Solid Color":
             path_map = {str(mid): self.solid_color_hex for mid in range(len(self.monitors))}
-            style_to_use = "SolidColor" 
+            style_to_use = "SolidColor"
+            final_path_map = path_map 
         else:
             if not any(self.monitor_image_paths.values()):
                 if not slideshow_mode:
@@ -1158,7 +1157,7 @@ class WallpaperTab(BaseTab):
                     if path and monitor_id in self.monitor_widgets:
                         self.monitor_widgets[monitor_id].set_image(path)
             elif self.background_type == "Solid Color":
-                 QMessageBox.information(self, "Success", f"Solid color background set to {self.solid_color_hex}!")
+                QMessageBox.information(self, "Success", f"Solid color background set to {self.solid_color_hex}!")
                  
         else:
             if "manually cancelled" not in message.lower():
@@ -1242,7 +1241,6 @@ class WallpaperTab(BaseTab):
         self.check_all_monitors_set() 
         
         columns = self.calculate_columns()
-        
         if not self.scan_image_list:
             if self.loading_dialog: self.loading_dialog.close() # Close dialog if no images
             no_images_label = QLabel("No supported images found.")

@@ -1,7 +1,7 @@
-import os
 from typing import List, Tuple
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import QObject, Signal, Slot, Qt
+
 
 class BatchThumbnailLoaderWorker(QObject):
     """
