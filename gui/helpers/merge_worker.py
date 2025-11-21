@@ -1,6 +1,5 @@
 import os
 
-from PIL import Image
 from typing import Dict, Any, List
 from PySide6.QtCore import QThread, Signal
 from backend.src.core import FSETool, ImageMerger
