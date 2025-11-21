@@ -350,3 +350,14 @@ STYLE_SCAN_CANCEL = """
     QPushButton { background-color: #c0392b; color: white; font-weight: bold; padding: 8px; }
     QPushButton:hover { background-color: #a93226; }
 """
+
+SHARED_BUTTON_STYLE = """
+    QPushButton {
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #667eea, stop:1 #764ba2);
+        color: white; font-weight: bold; font-size: 14px;
+        padding: 14px 8px; border-radius: 10px; min-height: 44px;
+    }
+    QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #764ba2, stop:1 #667eea); }
+    QPushButton:disabled { background: #718096; }
+    QPushButton:pressed { background: #5a67d8; }
+"""
