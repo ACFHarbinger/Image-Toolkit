@@ -12,7 +12,7 @@ except:
 from jpype.types import JArray, JChar
 
 
-class JavaVaultManager:
+class VaultManager:
     """
     A Python wrapper to manage the SecureJsonVault by calling
     the compiled Java code via Jpype.

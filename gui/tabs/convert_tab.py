@@ -98,7 +98,7 @@ class ConvertTab(BaseTab):
         output_path_container = QWidget()
         output_path_container.setLayout(h_output)
         # Wrapping output path in OptionalField
-        self.output_field = OptionalField("Output path (optional)", output_path_container, start_open=False)
+        self.output_field = OptionalField("Output path", output_path_container, start_open=False)
         settings_layout.addRow(self.output_field)
         
         # Input formats 

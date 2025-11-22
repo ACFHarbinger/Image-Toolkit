@@ -1,9 +1,9 @@
 /*
- * This file configures the root project and defines all sub-modules (including Android).
+ * This file configures the root project and defines all sub-modules.
  */
 
 pluginManagement {
-    // CRITICAL FIX: Tell the plugin resolution mechanism where to find AGP (com.android.*)
+    // CRITICAL: Tells Gradle where to look for plugins (like Android Gradle Plugin)
     repositories {
         google()
         mavenCentral()
@@ -18,16 +18,10 @@ plugins {
 
 rootProject.name = "image-toolkit"
 
-// Project submodules
+// Core Java/Kotlin module
 include("cryptography")
 
-// Include the main App project as a submodule.
-// The path must be relative to this root settings file.
-// We are mapping the "app" folder to the project name ":app".
+// Android Application Module
 include(":app")
+// Maps the ":app" project to the "app" directory (standard structure)
 project(":app").projectDir = file("app")
-
-// Include any sub-modules within the Android project, if they exist.
-// Example: If your android code is in app/android
-include(":app:android")
-project(":app:android").projectDir = file("app/android")
