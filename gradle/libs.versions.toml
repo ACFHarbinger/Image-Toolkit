@@ -1,0 +1,32 @@
+[versions]
+
+java = "21"
+bouncycastle = "1.82"
+junit = "5.10.5"
+assertj = "3.25.3"
+mockito = "5.11.0"
+
+[libraries]
+
+# Bouncy Castle
+
+bc-provider = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+bc-pki = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
+
+# Testing
+
+test-junit-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit" }
+test-junit-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }
+test-assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+test-mockito = { module = "org.mockito:mockito-core", version.ref = "mockito" }
+
+[bundles]
+
+# Grouping related test dependencies
+
+test-libraries = [
+"test-junit-api",
+"test-junit-engine",
+"test-assertj",
+"test-mockito"
+]

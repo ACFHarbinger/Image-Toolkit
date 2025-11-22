@@ -3,26 +3,20 @@ plugins {
     id("com.github.johnrengelman.shadow")
 }
 
-// Access versions defined in root build.gradle.kts
-val bouncycastleVersion: String by project.extra
-val junitVersion: String by project.extra
-val assertjVersion: String by project.extra
-val mockitoVersion: String by project.extra
-
 dependencies {
-    // Bouncy Castle Dependencies
-    implementation("org.bouncycastle:bcprov-jdk18on:$bouncycastleVersion")
-    implementation("org.bouncycastle:bcpkix-jdk18on:$bouncycastleVersion")
+    // Bouncy Castle Dependencies using version catalog aliases
+    implementation(libs.bc.provider)
+    implementation(libs.bc.pki)
 
-    // Test Dependencies
-    testImplementation("org.junit.jupiter:junit-jupiter-api:$junitVersion")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
-    testImplementation("org.assertj:assertj-core:$assertjVersion")
-    testImplementation("org.mockito:mockito-core:$mockitoVersion")
+    // Test Dependencies using the bundle alias
+    testImplementation(libs.bundles.test.libraries)
+
+    // Note: If you need to scope test dependencies individually, you can do this:
+    // testImplementation(libs.test.junit.api)
+    // testRuntimeOnly(libs.test.junit.engine)
 }
 
 tasks.shadowJar {
-    // Matches <shadedClassifierName>uber</shadedClassifierName>
     archiveClassifier.set("uber")
 
     // Filters: Matches the <excludes> in the POM
@@ -30,14 +24,13 @@ tasks.shadowJar {
     exclude("META-INF/*.DSA")
     exclude("META-INF/*.RSA")
 
-    // Transformers: Matches <transformer implementation="...ServicesResourceTransformer"/>
+    // Transformers
     mergeServiceFiles()
 
-    // Relocations: Matches the <relocation> tag
+    // Relocations
     relocate("org.bouncycastle", "com.personal.image_toolkit.shaded.org.bouncycastle")
 }
 
-// Ensure the shadow jar is built when running 'assemble' or 'build'
 tasks.assemble {
     dependsOn(tasks.shadowJar)
 }
