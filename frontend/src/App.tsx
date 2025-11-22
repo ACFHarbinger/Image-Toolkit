@@ -1,39 +1,70 @@
-// src/App.jsx
+// src/App.tsx
 import React, { useState, useRef } from 'react';
 import { 
   Database, 
-  Image, 
+  Image as ImageIcon, 
   Trash2, 
   Search, 
   LayoutGrid,
   FolderOpen,
-  // Removed: Play
+  LucideIcon
 } from 'lucide-react';
 
-import Modal from './components/Modal';
-import ConvertTab from './tabs/ConvertTab';
-import MergeTab from './tabs/MergeTab';
-import DeleteTab from './tabs/DeleteTab';
-import SearchTab from './tabs/SearchTab';
-import DatabaseTab from './tabs/DatabaseTab';
-import ScanFSETab from './tabs/ScanFSETab';
+import ConvertTab from './tabs/ConvertTab.tsx';
+import MergeTab from './tabs/MergeTab.tsx';
+import DeleteTab from './tabs/DeleteTab.tsx';
+import SearchTab from './tabs/SearchTab.tsx';
+import DatabaseTab from './tabs/DatabaseTab.tsx';
+import ScanFSETab from './tabs/ScanFSETab.tsx';
 
-const App = () => {
+// --- Interfaces ---
+
+type TabId = 'convert' | 'merge' | 'delete' | 'search' | 'database' | 'scan';
+
+interface TabConfig {
+  id: TabId;
+  label: string;
+  icon: LucideIcon;
+  component: React.ComponentType<any>; // Using any for refs/props if child components aren't strictly typed yet
+}
+
+interface ModalData {
+  show: boolean;
+  message: string;
+  type: 'info' | 'error' | 'success';
+  duration: number;
+  content: React.ReactNode | null;
+}
+
+// Type for the props passed to tabs
+interface TabComponentProps {
+  ref: React.RefObject<any>;
+  showModal: (message: string | React.ReactNode, type?: 'info' | 'error' | 'success', duration?: number) => void;
+  onAddImagesToDb?: (imagePaths: string[]) => void;
+}
+
+const App: React.FC = () => {
   // --- Global State ---
-  const [activeTab, setActiveTab] = useState('convert');
-  const [modalState, setModalState] = useState({ isVisible: false, content: '', type: 'info' });
-  const scanFSETabRef = useRef();
-  const [modal, setModal] = useState({ show: false, message: '', type: 'info', duration: 0, content: null });
+  const [activeTab, setActiveTab] = useState<TabId>('convert');
+  const [modal, setModal] = useState<ModalData>({ 
+    show: false, 
+    message: '', 
+    type: 'info', 
+    duration: 0, 
+    content: null 
+  });
 
   // --- Refs to access data from children (using useImperativeHandle) ---
-  const ConvertRef = useRef(null);
-  const MergeRef = useRef(null);
-  const DeleteRef = useRef(null);
-  const SearchRef = useRef(null);
-  const DatabaseRef = useRef(null);
-  const ScanFSERef = useRef(null);
+  // Typing these as 'any' for now since we don't have the specific types 
+  // exported from the child components (ConvertTab, MergeTab, etc.)
+  const ConvertRef = useRef<any>(null);
+  const MergeRef = useRef<any>(null);
+  const DeleteRef = useRef<any>(null);
+  const SearchRef = useRef<any>(null);
+  const DatabaseRef = useRef<any>(null);
+  const ScanFSERef = useRef<any>(null);
 
-  const tabRefs = {
+  const tabRefs: Record<TabId, React.RefObject<any>> = {
     convert: ConvertRef,
     merge: MergeRef,
     delete: DeleteRef,
@@ -43,23 +74,28 @@ const App = () => {
   };
   
   // Function to show the modal from any child component
-  const showModal = (message, type = 'info', duration = 0) => {
-    setModal({ show: true, message, type, duration, content: (typeof message !== 'string' ? message : null) });
+  const showModal = (message: string | React.ReactNode, type: 'info' | 'error' | 'success' = 'info', duration: number = 0) => {
+    setModal({ 
+      show: true, 
+      message: typeof message === 'string' ? message : '', 
+      type, 
+      duration, 
+      content: typeof message !== 'string' ? message : null 
+    });
+
     if (duration > 0) {
       setTimeout(() => setModal(prev => ({ ...prev, show: false })), duration);
     }
   };
 
-  const handleAddImagesToDb = (imagePaths) => {
+  const handleAddImagesToDb = (imagePaths: string[]) => {
     // This is where you would integrate with your database logic
     console.log("Images to add to DB:", imagePaths);
     showModal(`Attempting to add ${imagePaths.length} images to the database...`, 'info');
   };
   
-  // Removed: handleRunAction function
-  
-  const TABS = [
-    { id: 'convert', label: 'Convert', icon: Image, component: ConvertTab },
+  const TABS: TabConfig[] = [
+    { id: 'convert', label: 'Convert', icon: ImageIcon, component: ConvertTab },
     { id: 'merge', label: 'Merge', icon: LayoutGrid, component: MergeTab },
     { id: 'delete', label: 'Delete', icon: Trash2, component: DeleteTab },
     { id: 'search', label: 'Search', icon: Search, component: SearchTab },
@@ -74,7 +110,7 @@ const App = () => {
       
       <div className="max-w-4xl mx-auto bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-700">
         
-        {/* Header: Removed the button and changed 'justify-between' to 'justify-start' */}
+        {/* Header */}
         <header className="flex items-center justify-start p-4 bg-violet-700 text-white shadow-lg">
           <h1 className="text-2xl font-extrabold tracking-tight">
             Image Database and Toolkit
@@ -110,8 +146,7 @@ const App = () => {
         </main>
       </div>
 
-      {/* Global Modal - Note: modalState needs to be handled outside of this snippet for full functionality */}
-      {/* Assuming Modal component is functional as is */}
+      {/* Global Modal */}
       <div 
         className={`fixed inset-0 z-50 ${modal.show ? 'block' : 'hidden'} flex items-center justify-center`}
         onClick={() => setModal(prev => ({ ...prev, show: false }))}
@@ -120,7 +155,11 @@ const App = () => {
           className="p-6 bg-white rounded-xl shadow-2xl max-w-sm w-full dark:bg-gray-800"
           onClick={e => e.stopPropagation()} // Prevent closing when clicking inside
         >
-          {modal.content || <p className={`text-center ${modal.type === 'error' ? 'text-red-500' : 'text-gray-900 dark:text-gray-100'}`}>{modal.message}</p>}
+          {modal.content || (
+            <p className={`text-center ${modal.type === 'error' ? 'text-red-500' : 'text-gray-900 dark:text-gray-100'}`}>
+              {modal.message}
+            </p>
+          )}
           <button 
             onClick={() => setModal(prev => ({ ...prev, show: false }))}
             className="mt-4 w-full py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600 transition"

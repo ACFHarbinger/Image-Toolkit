@@ -1,11 +1,25 @@
-// src/components/Modal.jsx
-import React from 'react';
-import { Check, AlertCircle, X } from 'lucide-react';
+import React, { ReactNode } from 'react';
+import { Check, AlertCircle, X, LucideIcon } from 'lucide-react';
 
-const Modal = ({ isVisible, content, type, onClose }) => {
+type ModalType = 'success' | 'error' | 'info' | 'custom';
+
+interface ModalProps {
+  isVisible: boolean;
+  content: string | ReactNode;
+  type: ModalType;
+  onClose: () => void;
+}
+
+interface ModalStyle {
+  icon: LucideIcon | null;
+  color: string;
+  title: string;
+}
+
+const Modal: React.FC<ModalProps> = ({ isVisible, content, type, onClose }) => {
   if (!isVisible) return null;
 
-  const getStyle = () => {
+  const getStyle = (): ModalStyle => {
     switch (type) {
       case 'success':
         return { icon: Check, color: 'bg-green-500', title: 'Success' };
@@ -41,7 +55,7 @@ const Modal = ({ isVisible, content, type, onClose }) => {
           {isStringContent ? (
             <p className="text-gray-700 dark:text-gray-300">{content}</p>
           ) : (
-            content // Render JSX content directly
+            content
           )}
         </div>
 

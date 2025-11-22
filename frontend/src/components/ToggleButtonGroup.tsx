@@ -1,7 +1,16 @@
-// src/components/ToggleButtonGroup.jsx
 import React from 'react';
 
-const ToggleButtonGroup = ({ items, selectedItems, onToggle }) => {
+interface ToggleButtonGroupProps {
+  items: string[];
+  selectedItems: Set<string>;
+  onToggle: (item: string) => void;
+}
+
+const ToggleButtonGroup: React.FC<ToggleButtonGroupProps> = ({ 
+  items, 
+  selectedItems, 
+  onToggle 
+}) => {
   return (
     <div className="flex flex-wrap gap-2">
       {items.map((item) => {

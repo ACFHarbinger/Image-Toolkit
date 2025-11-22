@@ -1,19 +1,32 @@
-// src/tabs/MergeTab.jsx
 import React, { forwardRef, useState, useImperativeHandle } from 'react';
-import FormRow from '../components/FormRow';
-import PathInput from '../components/PathInput';
-import CollapsibleSection from '../components/CollapsibleSection';
-import ToggleButtonGroup from '../components/ToggleButtonGroup';
-import { SUPPORTED_IMG_FORMATS } from '../constants';
+import FormRow from '../components/FormRow.tsx';
+import PathInput from '../components/PathInput.tsx';
+import CollapsibleSection from '../components/CollapsibleSection.tsx';
+import ToggleButtonGroup from '../components/ToggleButtonGroup.tsx';
+import { SUPPORTED_IMG_FORMATS } from '../constants.ts';
 
-const MergeTab = forwardRef((props, ref) => {
-  const [direction, setDirection] = useState('horizontal');
-  const [inputPath, setInputPath] = useState('');
-  const [outputPath, setOutputPath] = useState('');
-  const [inputFormats, setInputFormats] = useState(new Set());
-  const [spacing, setSpacing] = useState(0);
-  const [gridRows, setGridRows] = useState(2);
-  const [gridCols, setGridCols] = useState(2);
+interface MergeTabProps {}
+
+export interface MergeTabHandle {
+  getData: () => {
+    action: string;
+    direction: string;
+    input_paths: string[];
+    output_path: string;
+    input_formats: string[];
+    spacing: number;
+    grid_size: [number, number] | null;
+  };
+}
+
+const MergeTab = forwardRef<MergeTabHandle, MergeTabProps>((props, ref) => {
+  const [direction, setDirection] = useState<string>('horizontal');
+  const [inputPath, setInputPath] = useState<string>('');
+  const [outputPath, setOutputPath] = useState<string>('');
+  const [inputFormats, setInputFormats] = useState<Set<string>>(new Set());
+  const [spacing, setSpacing] = useState<number>(0);
+  const [gridRows, setGridRows] = useState<number>(2);
+  const [gridCols, setGridCols] = useState<number>(2);
 
   useImperativeHandle(ref, () => ({
     getData: () => ({
@@ -27,7 +40,7 @@ const MergeTab = forwardRef((props, ref) => {
     }),
   }));
 
-  const toggleFormat = (format) => {
+  const toggleFormat = (format: string) => {
     setInputFormats((prev) => {
       const next = new Set(prev);
       if (next.has(format)) {

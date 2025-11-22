@@ -1,8 +1,17 @@
-// src/components/CollapsibleSection.jsx
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { ChevronsUpDown } from 'lucide-react';
 
-const CollapsibleSection = ({ title, children, startOpen = false }) => {
+interface CollapsibleSectionProps {
+  title: string;
+  children: ReactNode;
+  startOpen?: boolean;
+}
+
+const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ 
+  title, 
+  children, 
+  startOpen = false 
+}) => {
   return (
     <details 
       open={startOpen} 

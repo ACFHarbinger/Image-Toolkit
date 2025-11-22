@@ -1,12 +1,23 @@
-// src/tabs/SearchTab.jsx
 import React, { forwardRef, useState, useImperativeHandle } from 'react';
-import FormRow from '../components/FormRow';
-import ToggleButtonGroup from '../components/ToggleButtonGroup';
-import { ALL_COMMON_TAGS } from '../constants';
+import FormRow from '../components/FormRow.tsx';
+import ToggleButtonGroup from '../components/ToggleButtonGroup.tsx';
+import { ALL_COMMON_TAGS } from '../constants.ts';
 
-const SearchTab = forwardRef(({ showModal }, ref) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTags, setSelectedTags] = useState(new Set());
+interface SearchTabProps {
+  showModal: (message: string, type: 'info' | 'success' | 'error' | 'custom') => void;
+}
+
+export interface SearchTabHandle {
+  getData: () => {
+    action: string;
+    query: string;
+    tags: string[];
+  };
+}
+
+const SearchTab = forwardRef<SearchTabHandle, SearchTabProps>(({ showModal }, ref) => {
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
 
   useImperativeHandle(ref, () => ({
     getData: () => ({
@@ -16,7 +27,7 @@ const SearchTab = forwardRef(({ showModal }, ref) => {
     }),
   }));
 
-  const toggleTag = (tag) => {
+  const toggleTag = (tag: string) => {
     setSelectedTags((prev) => {
       const next = new Set(prev);
       if (next.has(tag)) {
