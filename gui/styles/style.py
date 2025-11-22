@@ -361,3 +361,27 @@ SHARED_BUTTON_STYLE = """
     QPushButton:disabled { background: #718096; }
     QPushButton:pressed { background: #5a67d8; }
 """
+
+# --- Consistent Main Action Button Styles ---
+
+STYLE_START_ACTION = """
+    QPushButton {
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #667eea, stop:1 #764ba2);
+        color: white; font-weight: bold; font-size: 14px;
+        padding: 14px 8px; border-radius: 10px; min-height: 44px;
+    }
+    QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #764ba2, stop:1 #667eea); }
+    QPushButton:disabled { background: #718096; }
+    QPushButton:pressed { background: #5a67d8; }
+"""
+
+STYLE_STOP_ACTION = """
+    QPushButton {
+        background-color: #cc3333; color: white; font-weight: bold; font-size: 14px;
+        padding: 14px 8px; border-radius: 10px; min-height: 44px;
+    }
+    QPushButton:hover { background-color: #ff4444; }
+    QPushButton:disabled { background: #718096; }
+    QPushButton:pressed { background-color: #992222; }
+"""
+# -------------------------------------------
