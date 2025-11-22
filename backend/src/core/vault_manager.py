@@ -1,9 +1,7 @@
+import os
+import json
 import jpype
-import time
-import json # Added for JSON serialization/deserialization
-import hashlib # Added for secure hashing
-import os # Added for secure salt and pepper generation
-
+import hashlib
 try:
     import backend.src.utils.definitions as udef
 except:
@@ -15,7 +13,7 @@ from jpype.types import JArray, JChar
 class VaultManager:
     """
     A Python wrapper to manage the SecureJsonVault by calling
-    the compiled Java code via Jpype.
+    the compiled Java/Kotlin code via Jpype.
     """
     @staticmethod
     def _load_or_generate_pepper():
@@ -58,22 +56,30 @@ class VaultManager:
         # --- Load or generate the secret pepper first ---
         self.PEPPER = self._load_or_generate_pepper()
 
+        # Check if JVM is already running to avoid crash on re-initialization
         if not jpype.isJVMStarted():
+            # NOTE: Ensure udef.JAR_FILE points to the new Gradle build output 
+            # (e.g., backend/cryptography/build/libs/cryptography-1.0.0-SNAPSHOT-uber.jar)
             classpath = [udef.JAR_FILE]
             if bc_provider_path:
                 classpath.append(f"{bc_provider_path}/*") 
                 
             print(f"Starting JVM with classpath: {classpath}")
             jpype.startJVM(classpath=classpath)        
+        
         try:
+            # Load Kotlin classes (Same package structure as Java)
             KeyStoreManagerClass = jpype.JClass("com.personal.image_toolkit.KeyStoreManager")
+            KeyInitializerClass = jpype.JClass("com.personal.image_toolkit.KeyInitializer")
             self.SecureJsonVault = jpype.JClass("com.personal.image_toolkit.SecureJsonVault")
             
             self.keystore_manager = KeyStoreManagerClass()
+            self.key_initializer = KeyInitializerClass()
             
         except jpype.JException as e:
             print("\n--- ERROR ---")
-            print(f"Could not find Java class: {e}")
+            print(f"Could not find Java/Kotlin class: {e}")
+            print("Ensure the JAR file path in definitions.py is correct and the project is built.")
             raise
             
         self.JString = jpype.JClass("java.lang.String")
@@ -91,7 +97,7 @@ class VaultManager:
 
     def load_keystore(self, keystore_path: str, keystore_pass: str):
         """
-        Loads the Java KeyStore from a file.
+        Loads the Java KeyStore from a file using the KeyStoreManager.
         """
         try:
             print(f"Loading keystore: {keystore_path}")
@@ -119,31 +125,28 @@ class VaultManager:
 
     def create_key_if_missing(self, key_alias: str, keystore_path: str, keystore_pass: str):
         """
-        Checks if the secret key exists in the loaded KeyStore. If not,
-        it generates a new key, stores it, and saves the KeyStore file.
+        Uses the KeyInitializer to ensure the keystore exists and contains
+        the required secret key.
         """
-        if self.keystore is None:
-            raise ValueError("Keystore is not loaded. Call load_keystore() first.")
-            
-        if not self.contains_alias(key_alias):
-            print(f"Key entry '{key_alias}' not found. Generating and storing new key...")
-            
-            # 1. Store the new key entry in the loaded keystore object (in memory)
-            self.keystore_manager.storeSecretKey(
-                self.keystore,
-                key_alias,
-                self._to_char_array(keystore_pass)
-            )
-            
-            # 2. Save the keystore to disk to persist the new key
-            self.keystore_manager.saveKeyStore(
-                self.keystore,
+        print(f"Checking/Initializing KeyStore at {keystore_path} for alias '{key_alias}'...")
+        
+        try:
+            # Delegate the check-and-create logic to the KeyInitializer.
+            # This is safer as it handles the file IO and key generation atomically on the JVM side.
+            self.key_initializer.initializeKeystore(
                 keystore_path,
-                self._to_char_array(keystore_pass)
+                key_alias,
+                self._to_char_array(keystore_pass),
+                self._to_char_array(keystore_pass) # Using same pass for store and key for simplicity
             )
-            print(f"Secret key created and KeyStore saved to {keystore_path}.")
-        else:
-            print(f"Key entry '{key_alias}' already exists. Skipping creation.")
+            
+            # CRITICAL: After KeyInitializer potentially modifies the file on disk,
+            # we must reload it into our Python memory object to get the new key.
+            self.load_keystore(keystore_path, keystore_pass)
+            
+        except Exception as e:
+            print(f"Java Error in KeyInitializer: {e}")
+            raise
 
     def get_secret_key(self, key_alias: str, key_pass: str):
         """
@@ -195,8 +198,6 @@ class VaultManager:
     def load_data(self) -> str:
         """
         Loads and decrypts the JSON string from the vault.
-        
-        It now prints the decrypted data before returning it.
         """
         if self.vault is None:
             raise ValueError("Vault is not initialized. Call init_vault() first.")
@@ -210,9 +211,9 @@ class VaultManager:
             
         except Exception as e:
             # Handle empty vault file as an empty JSON object string
-            if "file not found or empty" in str(e).lower():
-                 print("Vault file is empty or not found. Returning empty JSON object.")
-                 return "{}"
+            if "file not found" in str(e).lower() or "vault file not found" in str(e).lower():
+                print("Vault file is empty or not found. Returning empty JSON object.")
+                return "{}"
                  
             print(f"Java Error loading data: {e}")
             print("This may be due to a wrong key or file tampering.")
@@ -236,9 +237,11 @@ class VaultManager:
             raise RuntimeError(f"Failed to load data from old vault before reset: {e}")
 
         # 2. Shutdown JVM to release file locks before deleting files
-        self.shutdown() 
-        time.sleep(0.1) # Small pause to ensure file system release
-
+        # NOTE: JPype cannot restart the JVM in the same process. 
+        # This method assumes the script will exit or the architecture supports this constraint.
+        # For a long-running app, replacing files without full JVM restart is safer.
+        # However, Java file locks might persist if streams aren't closed (Kotlin 'use' block handles this).
+        
         # 3. Delete Old Keystore and Vault
         if os.path.exists(udef.KEYSTORE_FILE):
             os.remove(udef.KEYSTORE_FILE)
@@ -248,12 +251,18 @@ class VaultManager:
             os.remove(udef.VAULT_FILE)
             print(f"Deleted old Vault file: {udef.VAULT_FILE}")
             
-        # 4. Restart JVM and Establish New Cryptographic Chain
-        self.__init__() # Re-initialize the manager (starts JVM, loads pepper, etc.)
+        # 4. Re-initialize internal objects (JVM remains running)
+        # We don't need to call __init__ again because JVM is already up.
+        # We just need to clear the python state references.
+        self.keystore = None
+        self.secret_key = None
+        self.vault = None
         
         # 5. Create new KeyStore/Key Entry/Vault with the NEW password
-        self.load_keystore(udef.KEYSTORE_FILE, new_raw_pass)
+        # Uses the updated create_key_if_missing logic which uses KeyInitializer
         self.create_key_if_missing(udef.KEY_ALIAS, udef.KEYSTORE_FILE, new_raw_pass)
+        
+        # Get the new key reference
         self.get_secret_key(udef.KEY_ALIAS, new_raw_pass)
         self.init_vault(udef.VAULT_FILE)
 
@@ -328,7 +337,9 @@ class VaultManager:
             # Ensure the required keys are present
             required_keys = ["account_name", "hashed_password", "salt"]
             if not all(key in loaded_data for key in required_keys):
-                 raise KeyError(f"Decrypted JSON is missing one of the required keys: {required_keys}")
+                # Handle empty init case
+                if loaded_data == {}: return {}
+                raise KeyError(f"Decrypted JSON is missing one of the required keys: {required_keys}")
                  
             return loaded_data
             
