@@ -470,9 +470,9 @@ class WallpaperTab(BaseTab):
         num_monitors = len(self.monitor_widgets)
         
         if self.background_type == "Solid Color":
-             QMessageBox.warning(self, "Slideshow Error", "Slideshow is disabled when Solid Color mode is selected.")
-             self.slideshow_enabled_checkbox.setChecked(False)
-             return
+            QMessageBox.warning(self, "Slideshow Error", "Slideshow is disabled when Solid Color mode is selected.")
+            self.slideshow_enabled_checkbox.setChecked(False)
+            return
         
         is_ready, total_images = self._is_slideshow_validation_ready()
         
