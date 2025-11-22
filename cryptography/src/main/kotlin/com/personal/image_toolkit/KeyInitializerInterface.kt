@@ -1,17 +1,16 @@
-package com.personal.image_toolkit;
+package com.personal.image_toolkit
 
-import java.io.IOException;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
-import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.operator.OperatorCreationException
+import java.io.IOException
+import java.security.KeyStoreException
+import java.security.NoSuchAlgorithmException
+import java.security.cert.CertificateException
 
 /**
  * Defines the contract for a component responsible for ensuring the KeyStore file
  * and its required SecretKey entry are initialized and persisted.
  */
-public interface KeyInitializerInterface {
-
+interface KeyInitializerInterface {
     /**
      * Loads the keystore, checks if the SecretKey exists under the given alias,
      * and creates/saves a new SecretKey if it is missing.
@@ -26,6 +25,17 @@ public interface KeyInitializerInterface {
      * @throws CertificateException If certificate issues arise during KeyStore loading.
      * @throws OperatorCreationException If Bouncy Castle operator issues occur.
      */
-    void initializeKeystore(String keystoreFile, String keyAlias, char[] keystorePassword, char[] keyPassword)
-            throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException, OperatorCreationException;
+    @Throws(
+        KeyStoreException::class,
+        IOException::class,
+        NoSuchAlgorithmException::class,
+        CertificateException::class,
+        OperatorCreationException::class
+    )
+    fun initializeKeystore(
+        keystoreFile: String,
+        keyAlias: String,
+        keystorePassword: CharArray,
+        keyPassword: CharArray
+    )
 }

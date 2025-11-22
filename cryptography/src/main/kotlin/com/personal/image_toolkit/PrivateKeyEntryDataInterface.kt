@@ -1,35 +1,34 @@
-package com.personal.image_toolkit;
+package com.personal.image_toolkit
 
-import java.security.PrivateKey;
-import java.security.cert.Certificate;
+import java.security.PrivateKey
+import java.security.cert.Certificate
 
 /**
  * Defines the contract for accessing data related to a PrivateKeyEntry.
  */
-public interface PrivateKeyEntryDataInterface {
-
+interface PrivateKeyEntryDataInterface {
     /**
      * @return The alias of the key entry.
      */
-    String getAlias();
+    val alias: String
 
     /**
      * @return The private key.
      */
-    PrivateKey getPrivateKey();
+    val privateKey: PrivateKey
 
     /**
      * @return The certificate chain.
      */
-    Certificate[] getCertificateChain();
+    val certificateChain: Array<Certificate>
 
     /**
      * @return The password for the key.
      */
-    char[] getKeyPassword();
+    val keyPassword: CharArray
 
     /**
      * Clears the key password from the internal array for security best practice.
      */
-    void clearPassword();
+    fun clearPassword()
 }

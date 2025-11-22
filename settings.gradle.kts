@@ -7,7 +7,10 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
-rootProject.name = "image-toolkit-root"
+rootProject.name = "image-toolkit"
+
+// Project submodules
+include("cryptography")
 
 // Include the main Android project as a submodule.
 // The path must be relative to this root settings file.
