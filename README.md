@@ -3,6 +3,10 @@ Image database and edit toolkit.
 
 ## Tech Stack
 - [Python Programming Language](https://www.python.org/)
+- [PySide Framework](https://doc.qt.io/qtforpython-6/gettingstarted.html#getting-started)
+- [Kotlin Programming Language](https://kotlinlang.org/)
+- [TypeScript Programming Language](https://www.typescriptlang.org/)
+- [React Framework](https://react.dev/)
 
 ## Setup Dependencies
 You need to have binuntils to install the app using pyinstaller:

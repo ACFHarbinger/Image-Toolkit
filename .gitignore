@@ -398,8 +398,10 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 
-# Virtual environments
+# Ignore Gradle project-specific cache directory
 /**/.gradle
+
+# Virtual environments
 /**/?venv
 /**/img_db
 /**/?img_db
@@ -420,7 +422,7 @@ env/README.md
 CMakeFiles/
 /**/WSmartRoute
 
-# Build
+# Build directories
 /**/Image_Toolkit.egg-info
 /**/build
 /**/dist
