@@ -1,11 +1,22 @@
-// src/tabs/DatabaseTab.jsx
 import React, { forwardRef, useState, useImperativeHandle } from 'react';
-import FormRow from '../components/FormRow';
-import PathInput from '../components/PathInput';
+import FormRow from '../components/FormRow.tsx';
+import PathInput from '../components/PathInput.tsx';
 
-const DatabaseTab = forwardRef(({ showModal }, ref) => {
-  const [dbPath, setDbPath] = useState('');
-  const [imagePath, setImagePath] = useState('');
+interface DatabaseTabProps {
+  showModal: (message: string, type: 'info' | 'success' | 'error' | 'custom') => void;
+}
+
+export interface DatabaseTabHandle {
+  getData: () => {
+    action: string;
+    db_path: string;
+    image_path: string;
+  };
+}
+
+const DatabaseTab = forwardRef<DatabaseTabHandle, DatabaseTabProps>(({ showModal }, ref) => {
+  const [dbPath, setDbPath] = useState<string>('');
+  const [imagePath, setImagePath] = useState<string>('');
 
   useImperativeHandle(ref, () => ({
     getData: () => ({

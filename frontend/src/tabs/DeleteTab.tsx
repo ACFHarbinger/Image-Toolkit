@@ -1,10 +1,20 @@
-// src/tabs/DeleteTab.jsx
 import React, { forwardRef, useState, useImperativeHandle } from 'react';
-import FormRow from '../components/FormRow';
-import PathInput from '../components/PathInput';
+import FormRow from '../components/FormRow.tsx';
+import PathInput from '../components/PathInput.tsx';
 
-const DeleteTab = forwardRef(({ showModal }, ref) => {
-  const [deletePath, setDeletePath] = useState('');
+interface DeleteTabProps {
+  showModal: (message: string, type: 'info' | 'success' | 'error' | 'custom') => void;
+}
+
+export interface DeleteTabHandle {
+  getData: () => {
+    action: string;
+    delete_path: string;
+  };
+}
+
+const DeleteTab = forwardRef<DeleteTabHandle, DeleteTabProps>(({ showModal }, ref) => {
+  const [deletePath, setDeletePath] = useState<string>('');
 
   useImperativeHandle(ref, () => ({
     getData: () => ({

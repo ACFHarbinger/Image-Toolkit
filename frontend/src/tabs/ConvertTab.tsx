@@ -1,16 +1,28 @@
-// src/tabs/ConvertTab.jsx
 import React, { forwardRef, useState, useImperativeHandle } from 'react';
-import FormRow from '../components/FormRow';
-import PathInput from '../components/PathInput';
-import CollapsibleSection from '../components/CollapsibleSection';
-import ToggleButtonGroup from '../components/ToggleButtonGroup';
-import { SUPPORTED_IMG_FORMATS } from '../constants';
+import FormRow from '../components/FormRow.tsx';
+import PathInput from '../components/PathInput.tsx';
+import CollapsibleSection from '../components/CollapsibleSection.tsx';
+import ToggleButtonGroup from '../components/ToggleButtonGroup.tsx';
+import { SUPPORTED_IMG_FORMATS } from '../constants.ts';
 
-const ConvertTab = forwardRef((props, ref) => {
-  const [outputFormat, setOutputFormat] = useState('png');
-  const [inputPath, setInputPath] = useState('');
-  const [outputPath, setOutputPath] = useState('');
-  const [inputFormats, setInputFormats] = useState(new Set());
+// Props interface (empty if no props are passed, but kept for consistency)
+interface ConvertTabProps {}
+
+export interface ConvertTabHandle {
+  getData: () => {
+    action: string;
+    output_format: string;
+    input_path: string;
+    output_path: string;
+    input_formats: string[];
+  };
+}
+
+const ConvertTab = forwardRef<ConvertTabHandle, ConvertTabProps>((props, ref) => {
+  const [outputFormat, setOutputFormat] = useState<string>('png');
+  const [inputPath, setInputPath] = useState<string>('');
+  const [outputPath, setOutputPath] = useState<string>('');
+  const [inputFormats, setInputFormats] = useState<Set<string>>(new Set());
 
   useImperativeHandle(ref, () => ({
     getData: () => ({
@@ -22,7 +34,7 @@ const ConvertTab = forwardRef((props, ref) => {
     }),
   }));
 
-  const toggleFormat = (format) => {
+  const toggleFormat = (format: string) => {
     setInputFormats((prev) => {
       const next = new Set(prev);
       if (next.has(format)) {
