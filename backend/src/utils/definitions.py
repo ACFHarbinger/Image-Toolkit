@@ -14,7 +14,7 @@ except ValueError:
     print("Warning: 'Image-Toolkit' not in path. Using current working directory as root.")
     ROOT_DIR = path
 
-JAR_FILE = os.path.join(ROOT_DIR, 'cryptography', 'target', 'cryptography-1.0.0-SNAPSHOT-uber.jar')
+JAR_FILE = os.path.join(ROOT_DIR, 'cryptography', 'build', 'libs', 'cryptography-1.0.0-SNAPSHOT.jar')
 CRYPTO_DIR = os.path.join(ROOT_DIR, 'assets', 'cryptography')
 IMAGES_DIR = os.path.join(ROOT_DIR, 'assets', 'images')
 API_DIR = os.path.join(ROOT_DIR, 'assets', 'api')
@@ -22,7 +22,7 @@ LOCAL_SOURCE_PATH = os.path.join(ROOT_DIR, 'data')
 
 # --- Base File Definitions ---
 # These are the "templates" or defaults
-BASE_KEYSTORE_FILE = os.path.join(CRYPTO_DIR, "my_java_keystore.p12")
+BASE_KEYSTORE_FILE = os.path.join(CRYPTO_DIR, "my_keystore.p12")
 BASE_VAULT_FILE = os.path.join(CRYPTO_DIR, "my_secure_data.vault")
 BASE_PEPPER_FILE = os.path.join(CRYPTO_DIR, "pepper.txt")
 

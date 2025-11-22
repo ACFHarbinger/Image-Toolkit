@@ -7,6 +7,7 @@ bouncycastle = "1.82"
 junit = "5.10.5"
 assertj = "3.25.3"
 mockito = "5.11.0"
+shadow = "9.0.0"
 
 # Android Build Tools
 
@@ -83,3 +84,6 @@ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
 android-library = { id = "com.android.library", version.ref = "androidGradlePlugin" }
+
+# Other Plugins
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }

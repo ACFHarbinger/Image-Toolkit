@@ -24,11 +24,11 @@ from .tabs.deep_learning import (
 )
 from .styles.style import DARK_QSS, LIGHT_QSS
 from .utils.app_definitions import NEW_LIMIT_MB
-from backend.src.core.java_vault_manager import JavaVaultManager
+from src.core.vault_manager import VaultManager
 
 
 class MainWindow(QWidget):
-    def __init__(self, vault_manager: JavaVaultManager, dropdown=True, app_icon=None):
+    def __init__(self, vault_manager: VaultManager, dropdown=True, app_icon=None):
         super().__init__()
         
         # Store the authenticated vault manager instance

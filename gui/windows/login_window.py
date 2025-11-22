@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
     QLineEdit, QPushButton, QSizePolicy, QMessageBox,
 )
-from backend.src.core.java_vault_manager import JavaVaultManager
+from src.core.vault_manager import VaultManager
 
 
 class LoginWindow(QWidget):
@@ -15,11 +15,11 @@ class LoginWindow(QWidget):
     A window for user authentication, handling login and account creation.
     
     Emits a signal upon successful login, passing the initialized 
-    JavaVaultManager instance.
+    VaultManager instance.
     """
     
     # Signal emitted on successful login or account creation
-    login_successful = Signal(JavaVaultManager) 
+    login_successful = Signal(VaultManager) 
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -193,7 +193,7 @@ class LoginWindow(QWidget):
             # --- END MODIFICATION ---
 
             # 2. Initialize the Vault Manager
-            self.vault_manager = JavaVaultManager(udef.JAR_FILE) 
+            self.vault_manager = VaultManager(udef.JAR_FILE) 
             
             # 3. KeyStore Loading (now uses suffixed udef.KEYSTORE_FILE)
             self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password)
@@ -264,7 +264,7 @@ class LoginWindow(QWidget):
 
         try:
             # 3. Initialize the Vault Manager
-            self.vault_manager = JavaVaultManager(udef.JAR_FILE)
+            self.vault_manager = VaultManager(udef.JAR_FILE)
             
             # 4. Load the KeyStore (Creates empty KeyStore in memory)
             self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password)

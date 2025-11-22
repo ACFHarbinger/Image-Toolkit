@@ -1,7 +1,7 @@
 import os
 import sys
 
-from backend.src import launch_app, log_uncaught_exceptions
+from backend.src.app import launch_app, log_uncaught_exceptions
 
 # Ensure that your root directory is on the path if needed
 sys.path.insert(0, os.path.dirname(__file__))

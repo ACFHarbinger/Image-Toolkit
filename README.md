@@ -7,6 +7,7 @@ Image database and edit toolkit.
 - [Kotlin Programming Language](https://kotlinlang.org/)
 - [TypeScript Programming Language](https://www.typescriptlang.org/)
 - [React Framework](https://react.dev/)
+- [Swift Programming Language](https://www.swift.org/)
 
 ## Setup Dependencies
 You need to have binuntils to install the app using pyinstaller:
