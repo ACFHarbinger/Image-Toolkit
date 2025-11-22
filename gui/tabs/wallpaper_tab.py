@@ -24,7 +24,7 @@ from .base_tab import BaseTab
 from ..windows import SlideshowQueueWindow, ImagePreviewWindow
 from ..helpers import ImageScannerWorker, ImageLoaderWorker, WallpaperWorker
 from ..components import MonitorDropWidget, DraggableImageLabel, MarqueeScrollArea
-from ..styles.style import apply_shadow_effect, STYLE_SYNC_RUN, STYLE_SYNC_STOP
+from ..styles.style import apply_shadow_effect, STYLE_START_ACTION, STYLE_STOP_ACTION
 from backend.src.utils.definitions import WALLPAPER_STYLES
 from backend.src.core import WallpaperManager
 
@@ -74,8 +74,8 @@ class WallpaperTab(BaseTab):
         if self.current_wallpaper_worker:
             return
 
-        if self.set_wallpaper_btn.text() in ["Missing Pillow", "Missing screeninfo", "Missing Helpers", "Missing Wallpaper Module"]:
-            self.set_wallpaper_btn.setText("Set Wallpaper")
+        # Use generic style setter
+        self.set_wallpaper_btn.setStyleSheet(STYLE_START_ACTION)
             
         target_monitor_ids = list(self.monitor_widgets.keys())
         num_monitors = len(target_monitor_ids)
@@ -300,17 +300,14 @@ class WallpaperTab(BaseTab):
         action_layout = QHBoxLayout()
         action_layout.setSpacing(10)
         
-        self.refresh_btn = QPushButton("Refresh Layout")
-        self.refresh_btn.setStyleSheet("background-color: #f1c40f; color: black; padding: 10px; border-radius: 8px; font-weight: bold;")
-        apply_shadow_effect(self.refresh_btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        self.refresh_btn.clicked.connect(self.handle_refresh_layout)
-        action_layout.addWidget(self.refresh_btn)
+        # --- REMOVED refresh_btn ---
         
         self.set_wallpaper_btn = QPushButton("Set Wallpaper")
-        self.set_wallpaper_btn.setStyleSheet(STYLE_SYNC_RUN)
+        # --- MODIFIED: Use consistent main action style ---
+        self.set_wallpaper_btn.setStyleSheet(STYLE_START_ACTION)
         apply_shadow_effect(self.set_wallpaper_btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.set_wallpaper_btn.clicked.connect(self.handle_set_wallpaper_click)
-        action_layout.addWidget(self.set_wallpaper_btn, 1)
+        action_layout.addWidget(self.set_wallpaper_btn, 1) # Use space for the only button
         
         content_layout.addLayout(action_layout) 
 
@@ -450,16 +447,6 @@ class WallpaperTab(BaseTab):
             self.check_all_monitors_set()
 
     @Slot()
-    def update_countdown(self):
-        if self.time_remaining_sec > 0:
-            self.time_remaining_sec -= 1
-            minutes = floor(self.time_remaining_sec / 60)
-            seconds = self.time_remaining_sec % 60
-            self.countdown_label.setText(f"Timer: {minutes:02d}:{seconds:02d}")
-        else:
-            self.countdown_label.setText("Timer: 00:00")
-    
-    @Slot()
     def handle_set_wallpaper_click(self):
         if self.background_type == "Solid Color":
              if self.current_wallpaper_worker:
@@ -532,7 +519,7 @@ class WallpaperTab(BaseTab):
         self._cycle_slideshow_wallpaper()
 
         self.set_wallpaper_btn.setText(f"Slideshow Running (Stop)")
-        self.set_wallpaper_btn.setStyleSheet(STYLE_SYNC_STOP)
+        self.set_wallpaper_btn.setStyleSheet(STYLE_STOP_ACTION)
         self.set_wallpaper_btn.setEnabled(True)
 
     @Slot()
@@ -822,31 +809,7 @@ class WallpaperTab(BaseTab):
                                 f"The system's current background remains unchanged.")
 
 
-    @Slot()
-    def handle_refresh_layout(self):
-        self.stop_slideshow() 
-        
-        self.monitor_slideshow_queues.clear()
-        self.monitor_current_index.clear()
-        self.monitor_image_paths.clear() 
-        
-        self.scan_directory_path.clear()
-        self.scanned_dir = None
-        self.scan_image_list = []
-        
-        self.clear_scan_image_gallery() 
-        
-        self.background_type_combo.setCurrentText("Image")
-        
-        self.populate_monitor_layout() 
-        
-        self.check_all_monitors_set()
-        
-        columns = self.calculate_columns()
-        ready_label = QLabel("Layout Refreshed. Browse for a directory.")
-        ready_label.setAlignment(Qt.AlignCenter)
-        ready_label.setStyleSheet("color: #b9bbbe;")
-        self.scan_thumbnail_layout.addWidget(ready_label, 0, 0, 1, columns)
+    # --- REMOVED handle_refresh_layout METHOD ---
 
     def _get_rotated_map_for_ui(self, source_paths: Dict[str, str]) -> Dict[str, str]:
         n = len(self.monitors)
@@ -1105,10 +1068,10 @@ class WallpaperTab(BaseTab):
 
     def lock_ui_for_wallpaper(self):
         self.set_wallpaper_btn.setText("Applying (Click to Stop)")
-        self.set_wallpaper_btn.setStyleSheet(STYLE_SYNC_STOP)
+        self.set_wallpaper_btn.setStyleSheet(STYLE_STOP_ACTION)
         self.set_wallpaper_btn.setEnabled(True)
         
-        self.refresh_btn.setEnabled(False)
+        # Removed refresh_btn reference
         self.slideshow_group.setEnabled(False) 
         self.scan_scroll_area.setEnabled(False)
         self.scan_directory_path.setEnabled(False) 
@@ -1123,9 +1086,9 @@ class WallpaperTab(BaseTab):
         
     def unlock_ui_for_wallpaper(self):
         self.set_wallpaper_btn.setText("Set Wallpaper")
-        self.set_wallpaper_btn.setStyleSheet(STYLE_SYNC_RUN)
+        self.set_wallpaper_btn.setStyleSheet(STYLE_START_ACTION)
         
-        self.refresh_btn.setEnabled(True)
+        # Removed refresh_btn reference
         self.slideshow_group.setEnabled(True)
         self.scan_scroll_area.setEnabled(True)
         self.scan_directory_path.setEnabled(True)
@@ -1275,7 +1238,7 @@ class WallpaperTab(BaseTab):
             dialog_box = self.loading_dialog
             if dialog_box:
                 dialog_box.setValue(dialog_box.value() + 1)
-                dialog_box.setLabelText(f"Loading image {dialog_box.value()} of {self._total_images_to_load}...")
+                dialog_box.setLabelText(f"Submitting task {dialog_box.value()} of {self._total_images_to_load}...")
             # -------------------------------------------------------------
 
     @Slot(str, QPixmap)
@@ -1283,7 +1246,7 @@ class WallpaperTab(BaseTab):
         """Aggregates results and checks for batch completion."""
         self._loaded_results_buffer.append((path, pixmap))
         self._images_loaded_count += 1
-        
+            
         if self._images_loaded_count >= self._total_images_to_load:
             # Sort results before handing them to the finalization method
             sorted_results = sorted(self._loaded_results_buffer, key=lambda x: x[0])
@@ -1320,8 +1283,6 @@ class WallpaperTab(BaseTab):
         if self.loading_dialog:
             self.loading_dialog.close()
             self.loading_dialog = None
-            
-        self._display_load_complete_message()
 
     @Slot(str)
     def handle_thumbnail_double_click(self, image_path: str):
@@ -1330,13 +1291,6 @@ class WallpaperTab(BaseTab):
     def _cleanup_thumbnail_thread_ref(self):
         self.current_thumbnail_loader_thread = None
         self.current_thumbnail_loader_worker = None
-
-    def _display_load_complete_message(self):
-        image_count = len(self.scan_image_list)
-        if image_count > 0:
-            # Optional: You can remove this message box if the logic is now synchronous-feeling
-            # But keeping it confirms the action.
-            pass 
 
     def clear_scan_image_gallery(self):
         if self.current_thumbnail_loader_thread and self.current_thumbnail_loader_thread.isRunning():
