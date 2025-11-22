@@ -1,18 +1,21 @@
+import org.gradle.api.JavaVersion
+import org.gradle.api.plugins.JavaPluginExtension
+import org.gradle.api.tasks.testing.Test
+import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
-    // Apply common plugins
-    id("java") apply false
-    id("java-library") apply false
-    alias(libs.plugins.kotlin.jvm) apply false
+    // 1. Plugins managed here for application in subprojects
     
-    // Shadow plugin for the cryptography module
     id("com.github.johnrengelman.shadow") version "8.1.1" apply false
 
-    // Android Gradle Plugin (Apply to root, manage for subprojects)
     alias(libs.plugins.android.application) apply false 
     alias(libs.plugins.android.library) apply false
     
-    // Enable the Version Catalog feature
-    id("org.gradle.version-catalog") version "8.5"
+    id("org.gradle.version-catalog") 
+    
+    alias(libs.plugins.kotlin.jvm) apply false 
 }
 
 allprojects {
@@ -20,40 +23,45 @@ allprojects {
     version = "1.0.0-SNAPSHOT"
 
     repositories {
-        google() // Essential for Android dependencies (androidx, etc.)
+        google()
         mavenCentral()
     }
 }
 
 subprojects {
-    // Shared configurations for all subprojects
-    
-    // Java 21 Configuration (Used by 'cryptography' module)
-    java {
-        toolchain {
-            languageVersion.set(JavaLanguageVersion.of(21))
-        }
-    }
-    
-    // Kotlin JVM (Used by both Java and Android modules)
-    apply(plugin = "org.jetbrains.kotlin.jvm")
-
-    // UTF-8 encoding
-    tasks.withType<JavaCompile> {
-        options.encoding = "UTF-8"
-    }
-
-    // Shared Test Configuration
-    tasks.withType<Test> {
-        useJUnitPlatform()
-    }
-    
-    // Define shared dependencies/bom for use across JVM and Android tests
-    dependencies {
-        // Use Kotlin standard library
-        implementation(libs.kotlin.stdlib)
+    // 2. Shared configuration for the Cryptography module
+    // We target only ":cryptography" to avoid applying Java/Kotlin library plugins 
+    // to the Android App, which manages its own plugins.
+    if (path == ":cryptography") {
         
-        // Inherit the test bundle/libraries for JVM modules or Android unit tests
-        testImplementation(libs.bundles.test.libraries)
+        // Apply plugins needed for the Java Library
+        apply(plugin = "java-library") 
+        apply(plugin = "org.jetbrains.kotlin.jvm")
+
+        // Configure the Java Toolchain
+        configure<JavaPluginExtension> {
+            toolchain {
+                languageVersion.set(JavaLanguageVersion.of(libs.versions.java.get().toInt()))
+            }
+        }
+        
+        // FIX: The 'dependencies' block is removed from here.
+        // The dependencies are already defined in 'cryptography/build.gradle.kts',
+        // which is the correct and most stable place for them.
+
+        // Configure Task Defaults
+        tasks.withType<JavaCompile> {
+            options.encoding = "UTF-8"
+        }
+        
+        tasks.withType<KotlinCompile> {
+            kotlinOptions {
+                jvmTarget = JavaVersion.VERSION_21.toString()
+            }
+        }
+
+        tasks.withType<Test> {
+            useJUnitPlatform()
+        }
     }
 }
