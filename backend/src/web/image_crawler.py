@@ -281,21 +281,22 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
         except Exception as e:
             print(f"Error managing tabs: {e}")
             
-    # --- NEW HELPER FUNCTION: Saves Scraped Data ---
     def _save_scraped_data_to_json(self, base_filename, scraped_data: dict) -> bool:
         """Saves scraped metadata to a JSON file."""
         if not scraped_data:
             return False
             
-        # Create a .json file with the same name as the base_filename
+        # Create a .json file with the same name as the base_filename (image.jpg -> image.json)
+        # This guarantees the JSON name matches the final, unique image name.
         json_path = os.path.splitext(base_filename)[0] + '.json'
         
-        # If the file doesn't exist (i.e., we are saving metadata without an image), ensure uniqueness
+        # --- Logic for handling metadata-only scrape (when base_filename is already a timestamped .json) ---
         if not os.path.exists(json_path) and 'metadata_' in os.path.basename(json_path):
+             # This means an image was NOT downloaded, and the base_filename is temporary/timestamped
              json_path = self.get_unique_filename(json_path)
              scraped_data['source_url'] = self.driver.current_url
         
-        # If the file exists but we are adding more data (e.g., download + metadata scrape)
+        # If the file exists, it means we are updating existing metadata (usually after a download)
         elif os.path.exists(json_path):
              # Load existing data, update with new data, and save
              try:
@@ -309,13 +310,13 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
         try:
             with open(json_path, 'w', encoding='utf-8') as f:
                 json.dump(scraped_data, f, ensure_ascii=False, indent=4)
-            self.on_status.emit(f"Saved metadata to {os.path.basename(json_path)}")
+            # LOG MODIFICATION: Confirm the saved file name
+            self.on_status.emit(f"Saved metadata to match: {os.path.basename(json_path)}")
             return True
         except Exception as e:
             self.on_status.emit(f"Failed to save metadata: {e}")
             print(f"Failed to save metadata for {json_path}: {e}")
             return False
-    # --- END NEW HELPER FUNCTION ---
 
     def run_action_sequence(self, element, original_tab) -> bool:
         """
@@ -470,38 +471,37 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
                         raise ValueError(f"Action 'Scrape Text': Invalid parameter format: '{param}'. Must be 'key_name:css_selector'.")
                     
                     
-                    # --- LOGIC: Handle single vs. multiple element scraping ---
-                    if '>' in selector_raw:
-                        # Case 2: Multi-element scraping (Parent > Child format)
-                        parent_selector, child_selector = selector_raw.split('>', 1)
-                        parent_selector = parent_selector.strip()
-                        child_selector = child_selector.strip()
+                    # --- LOGIC: Use find_elements if the selector is complex (contains spaces or brackets) ---
+                    
+                    if ' ' in selector_raw or '>' in selector_raw or '[' in selector_raw:
+                        # Case 2: Multi-element scrape (e.g., '.tag-list li a[href*="post"]')
                         
-                        # Store the parent selector for refreshing
-                        self._last_selector = parent_selector 
+                        # Find all matching elements in the document
+                        child_elements = self.driver.find_elements(By.CSS_SELECTOR, selector_raw)
                         
-                        # Find the element to be used as 'current_element' for chaining: the parent
-                        element_to_chain = self.driver.find_element(By.CSS_SELECTOR, parent_selector)
+                        # Extract text from all children and store as a LIST of strings
+                        extracted_list = [el.text.strip() for el in child_elements if el.text.strip()]
                         
-                        # Find all target child elements within the parent
-                        child_elements = element_to_chain.find_elements(By.CSS_SELECTOR, child_selector)
+                        # The element to chain to is the body, but for visual context, we use the first matching element if available
+                        element_to_chain = child_elements[0] if child_elements else self.driver.find_element(By.TAG_NAME, 'body')
                         
-                        # Extract text from all children and join them
-                        extracted_text = " ".join([el.text.strip() for el in child_elements if el.text.strip()])
+                        extracted_text_display = f"[{len(extracted_list)} items]"
                         
                     else:
-                        # Case 1: Single element scraping (Original behavior)
-                        self._last_selector = selector_raw # Store selector for refreshing
+                        # Case 1: Single element scrape (Original behavior for simple ID/Class names)
                         element_to_chain = self.driver.find_element(By.CSS_SELECTOR, selector_raw)
                         extracted_text = element_to_chain.text.strip()
+                        extracted_list = extracted_text # Still treat as a single item for storage if not complex
+                        extracted_text_display = extracted_text[:100] if extracted_text else "<Empty Result>"
+                        
                     # --- END LOGIC ---
 
-                    # 3. Store in the dictionary
-                    scraped_data[json_key] = extracted_text
+                    # 3. Store in the dictionary (Stores LIST of strings for complex selectors)
+                    scraped_data[json_key] = extracted_list
                     
                     # 4. Emit to log
-                    if extracted_text:
-                        self.on_status.emit(f"SCRAPED: {json_key} = {extracted_text[:100]}...")
+                    if extracted_list:
+                        self.on_status.emit(f"SCRAPED: {json_key} = {extracted_text_display}")
                     else:
                         self.on_status.emit(f"SCRAPED: {json_key} = <Empty Result>")
                     
@@ -592,6 +592,9 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
 
             save_path = os.path.join(self.download_dir, filename)
             save_path = self.get_unique_filename(save_path)
+            
+            # LOGGING: Confirm the final unique filename
+            self.on_status.emit(f"Downloading as: {os.path.basename(save_path)}")
 
             # 3. Download using requests
             response = requests.get(url, stream=True, timeout=15, headers={
@@ -609,7 +612,8 @@ class ImageCrawler(WebCrawler, QObject, metaclass=QtABCMeta):
             if scraped_data:
                 # Add image filename to the metadata for reference
                 scraped_data['image_filename'] = os.path.basename(save_path)
-                self._save_scraped_data_to_json(save_path, scraped_data)
+                # Pass the final image path to ensure JSON name matches
+                self._save_scraped_data_to_json(save_path, scraped_data) 
             # --- END MODIFIED ---
 
             return True

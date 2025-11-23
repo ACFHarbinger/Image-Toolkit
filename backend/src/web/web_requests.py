@@ -67,12 +67,12 @@ class WebRequestsLogic(QObject):
                 
                 elif action_type == "Print Response Headers":
                     headers_str = "\n".join(f"    {k}: {v}" for k, v in response.headers.items())
-                    self.on_status.emit(f"  > Action: Response Headers:\n{headers_str}")
+                    self.on_status.emit(f"  > Action: Response Headers:\n {headers_str}")
                 
                 elif action_type == "Print Response Content (Text)":
                     # Truncate to avoid flooding the log
-                    content_preview = response.text[:500].strip()
-                    self.on_status.emit(f"  > Action: Response Content (First 500 chars):\n    {content_preview}...")
+                    content_preview = response.text.strip()
+                    self.on_status.emit(f"  > Action: Response Content:\n {content_preview}")
 
                 elif action_type == "Save Response Content (Binary)":
                     if not param:
