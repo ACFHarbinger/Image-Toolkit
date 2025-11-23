@@ -169,7 +169,7 @@ class ConvertTab(BaseTab):
         self.gallery_scroll = MarqueeScrollArea()
         self.gallery_scroll.setWidgetResizable(True)
         self.gallery_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
-        self.gallery_scroll.setMinimumHeight(300)
+        self.gallery_scroll.setMinimumHeight(600)
         
         self.gallery_widget = QWidget()
         self.gallery_widget.setStyleSheet("background-color: #2c2f33;")
@@ -183,7 +183,7 @@ class ConvertTab(BaseTab):
         self.selected_scroll = MarqueeScrollArea()
         self.selected_scroll.setWidgetResizable(True)
         self.selected_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
-        self.selected_scroll.setMinimumHeight(200)
+        self.selected_scroll.setMinimumHeight(400)
 
         self.selected_widget = QWidget()
         self.selected_widget.setStyleSheet("background-color: #2c2f33;")
