@@ -49,6 +49,27 @@ class DuplicateScanWorker(QObject):
             self.scan_cache = {}
             self.processed_count = 0
 
+            # --- NEW: ALL FILES (List Directory Contents) ---
+            if self.method == "all_files":
+                self.status.emit("Listing all supported files...")
+                
+                # Reusing the image listing utility from SimilarityFinder
+                images = SimilarityFinder.get_images_list(self.directory, self.extensions)
+                
+                if not images:
+                    self.finished.emit({})
+                    return
+                
+                results = {}
+                for i, path in enumerate(images):
+                    # For the DeleteTab logic to display it, we must simulate a 'group'.
+                    # We create a group of size 1 for each file, using the index as the group ID.
+                    results[str(i)] = [path] 
+                    
+                self.status.emit(f"Found {len(images)} files. Completed.")
+                self.finished.emit(results)
+                return
+
             # --- 1. EXACT MATCH (Standard Sequential) ---
             if self.method == "exact":
                 self.status.emit("Scanning for exact matches (hashing)...")
