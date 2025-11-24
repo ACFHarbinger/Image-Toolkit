@@ -45,23 +45,22 @@ TOKEN_FILE = os.path.join(API_DIR, 'token.json')
 
 # --- Constants ---
 KEY_ALIAS = "my-aes-key" # This is an alias *inside* the keystore
-DRIVE_DESTINATION_FOLDER_NAME = "data"
 CTRL_C_TIMEOUT = 2.0
 APP_STYLES = ['fusion', 'windows', 'windowsxp', 'macintosh']
 SUPPORTED_IMG_FORMATS = ['webp', 'avif', 'png', 'jpg', 'jpeg', 'bmp', 'gif', 'tiff']
+
+# Crawler constants
 WC_BROWSERS = ["brave", "firefox", "chrome", "edge", "safari"]
 CRAWLER_TIME_OPEN = 120
 CRAWLER_SETUP_WAIT_TIME = 15
+
+# Drive synchronization constants 
+DRIVE_DESTINATION_FOLDER_NAME = "data"
 SCOPES = ['https://www.googleapis.com/auth/drive']
 SYNC_ERROR = "SyncFailed"
+GRAPH_API_ENDPOINT = 'https://graph.microsoft.com/v1.0'
 
-START_TAGS = sorted([
-    "landscape", "night", "day", "indoor", "outdoor",
-    "solo", "multiple", "fanart", "official", "cosplay",
-    "portrait", "full_body", "action", "close_up", "nsfw",
-    "color", "monochrome", "sketch", "digital", "traditional"
-])
-
+# Other constants
 WALLPAPER_STYLES = {
     "Windows": {
         "Fill": ("4", "0"), "Fit": ("6", "0"), "Stretch": ("2", "0"),
