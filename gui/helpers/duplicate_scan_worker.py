@@ -6,8 +6,12 @@ from PySide6.QtCore import (
     Slot, Signal, QObject, 
     QThread, QThreadPool, QEventLoop,
 )
-from .tasks import PhashTask, OrbTask, SiftTask, SsimTask, SiameseTask
-from backend.src.core.file_system_entries import DuplicateFinder, SimilarityFinder
+from .tasks import (
+    PhashTask, OrbTask, 
+    SiftTask, SsimTask, 
+    SiameseTask
+)
+from backend.src.core import DuplicateFinder, SimilarityFinder
 
 
 class DuplicateScanWorker(QObject):

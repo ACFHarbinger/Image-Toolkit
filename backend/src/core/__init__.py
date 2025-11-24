@@ -1,5 +1,6 @@
 from .file_system_entries import FSETool, FileDeleter
 from .format_converter import ImageFormatConverter
+from .image_finder import DuplicateFinder, SimilarityFinder
 from .image_merger import ImageMerger
 
 from .image_database import PgvectorImageDatabase
