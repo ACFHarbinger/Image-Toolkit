@@ -170,11 +170,11 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
             worker = ImageLoaderWorker(path, self.thumbnail_size)
             worker.signals.result.connect(self._on_single_image_loaded)
             self.thread_pool.start(worker)
-            
-            if self.loading_dialog:
+            dialog = self.loading_dialog
+            if dialog:
                 submission_count += 1
-                self.loading_dialog.setValue(submission_count)
-                self.loading_dialog.setLabelText(f"Submitting {submission_count}/{self._total_images_to_load}...")
+                dialog.setValue(submission_count)
+                dialog.setLabelText(f"Submitting {submission_count}/{self._total_images_to_load}...")
                 QApplication.processEvents()
                 
         if self.loading_dialog:
