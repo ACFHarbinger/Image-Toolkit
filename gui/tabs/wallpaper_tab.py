@@ -989,7 +989,7 @@ class WallpaperTab(BaseTab):
                 
             if ImageScannerWorker is None:
                 QMessageBox.warning(self, "Missing Helpers",
-                                    "The ImageScannerWorker or BatchThumbnailLoaderWorker could not be imported.")
+                                    "The ImageScannerWorker or ImageLoaderWorker could not be imported.")
                 return
 
             if not slideshow_mode:
@@ -1140,7 +1140,7 @@ class WallpaperTab(BaseTab):
 
         if ImageScannerWorker is None:
             QMessageBox.warning(self, "Missing Helpers",
-                                "The ImageScannerWorker or BatchThumbnailLoaderWorker could not be imported.")
+                                "The ImageScannerWorker or ImageLoaderWorker could not be imported.")
             return
             
         start_dir = self.last_browsed_scan_dir
