@@ -7,7 +7,7 @@ from PySide6.QtCore import QThreadPool, Slot
 from PySide6.QtWidgets import (
     QApplication, QMessageBox, QHBoxLayout, QVBoxLayout,
     QPushButton, QLabel, QGroupBox, QCheckBox,
-    QLineEdit, QComboBox, QFileDialog, 
+    QLineEdit, QComboBox, QFileDialog, QRadioButton, QButtonGroup
 )
 from ..utils.app_definitions import DRY_RUN
 from .base_tab import BaseTab
@@ -133,6 +133,63 @@ class DriveSyncTab(BaseTab):
         config_layout.addWidget(QLabel("Remote Destination Path:"))
         config_layout.addLayout(remote_layout)
         config_layout.addLayout(share_layout)
+        
+        # ------------------ SYNC BEHAVIOR GROUP ------------------
+        behavior_group = QGroupBox("Sync Behavior")
+        behavior_layout = QVBoxLayout(behavior_group)
+        
+        # 1. Local Orphans Action
+        lbl_local_orphans = QLabel("Action for files found ONLY Locally (Local Orphans):")
+        lbl_local_orphans.setStyleSheet("font-weight: bold; color: #3498db;")
+        behavior_layout.addWidget(lbl_local_orphans)
+        
+        self.bg_local_orphans = QButtonGroup(self)
+        self.rb_upload = QRadioButton("Upload to Drive (Merge)")
+        self.rb_upload.setChecked(True) # Default
+        self.rb_delete_local = QRadioButton("Delete from Local (Mirror Remote)")
+        self.rb_delete_local.setStyleSheet("color: #e74c3c;")
+        self.rb_ignore_local = QRadioButton("Do Nothing (Ignore)")
+        self.rb_ignore_local.setStyleSheet("color: #95a5a6;")
+        
+        self.bg_local_orphans.addButton(self.rb_upload)
+        self.bg_local_orphans.addButton(self.rb_delete_local)
+        self.bg_local_orphans.addButton(self.rb_ignore_local)
+        
+        lo_layout = QHBoxLayout()
+        lo_layout.addWidget(self.rb_upload)
+        lo_layout.addWidget(self.rb_delete_local)
+        lo_layout.addWidget(self.rb_ignore_local)
+        lo_layout.addStretch()
+        behavior_layout.addLayout(lo_layout)
+        
+        # 2. Remote Orphans Action
+        behavior_layout.addSpacing(10)
+        lbl_remote_orphans = QLabel("Action for files found ONLY on Drive (Remote Orphans):")
+        lbl_remote_orphans.setStyleSheet("font-weight: bold; color: #2ecc71;")
+        behavior_layout.addWidget(lbl_remote_orphans)
+        
+        self.bg_remote_orphans = QButtonGroup(self)
+        self.rb_download = QRadioButton("Download to Local (Merge)")
+        self.rb_download.setChecked(True) # Default
+        self.rb_delete_remote = QRadioButton("Delete from Drive (Mirror Local)")
+        self.rb_delete_remote.setStyleSheet("color: #e74c3c;")
+        self.rb_ignore_remote = QRadioButton("Do Nothing (Ignore)")
+        self.rb_ignore_remote.setStyleSheet("color: #95a5a6;")
+        
+        self.bg_remote_orphans.addButton(self.rb_download)
+        self.bg_remote_orphans.addButton(self.rb_delete_remote)
+        self.bg_remote_orphans.addButton(self.rb_ignore_remote)
+        
+        ro_layout = QHBoxLayout()
+        ro_layout.addWidget(self.rb_download)
+        ro_layout.addWidget(self.rb_delete_remote)
+        ro_layout.addWidget(self.rb_ignore_remote)
+        ro_layout.addStretch()
+        behavior_layout.addLayout(ro_layout)
+        
+        config_layout.addWidget(behavior_group)
+        # ---------------------------------------------------------
+
         config_layout.addLayout(control_buttons_layout)
         config_layout.addWidget(self.dry_run_checkbox)
         config_layout.addStretch(1)
@@ -312,7 +369,10 @@ class DriveSyncTab(BaseTab):
             local_path=self.local_path.text().strip(), 
             remote_path=remote_path, 
             dry_run=True,
-            user_email_to_share_with=None
+            user_email_to_share_with=None,
+            # Map view ignores these options, but required by init
+            action_local_orphans="upload",
+            action_remote_orphans="download"
         )
         self.current_worker.signals.status_update.connect(self.handle_status_update)
         self.current_worker.signals.sync_finished.connect(self.handle_view_finished) 
@@ -362,7 +422,9 @@ class DriveSyncTab(BaseTab):
             local_path=self.local_path.text().strip(), 
             remote_path=remote_path, 
             dry_run=self.dry_run_checkbox.isChecked(), 
-            user_email_to_share_with=share_email 
+            user_email_to_share_with=share_email,
+            action_local_orphans="upload",
+            action_remote_orphans="download"
         )
         self.current_worker.signals.status_update.connect(self.handle_status_update)
         self.current_worker.signals.sync_finished.connect(self.handle_share_finished) 
@@ -409,6 +471,23 @@ class DriveSyncTab(BaseTab):
             if email_text:
                 share_email = email_text
         
+        # DETERMINE SYNC ACTIONS
+        # Local Orphans
+        if self.rb_delete_local.isChecked():
+            act_local = "delete_local"
+        elif self.rb_ignore_local.isChecked():
+            act_local = "ignore_local"
+        else:
+            act_local = "upload"
+            
+        # Remote Orphans
+        if self.rb_delete_remote.isChecked():
+            act_remote = "delete_remote"
+        elif self.rb_ignore_remote.isChecked():
+            act_remote = "ignore_remote"
+        else:
+            act_remote = "download"
+
         # 3. UI LOCK & SETUP 
         self.lock_ui(message="STOP", is_running=True, clear_log=clear_log)
         self.log_window.show()
@@ -419,7 +498,9 @@ class DriveSyncTab(BaseTab):
             local_path=local_path, 
             remote_path=remote_path, 
             dry_run=dry_run, 
-            user_email_to_share_with=share_email
+            user_email_to_share_with=share_email,
+            action_local_orphans=act_local,
+            action_remote_orphans=act_remote
         )
         self.current_worker.signals.status_update.connect(self.handle_status_update)
         self.current_worker.signals.sync_finished.connect(self.handle_sync_finished)
@@ -449,6 +530,15 @@ class DriveSyncTab(BaseTab):
         self.remote_path.setEnabled(config_enabled)
         self.share_email_input.setEnabled(config_enabled)
         self.dry_run_checkbox.setEnabled(config_enabled)
+        
+        # Behavior inputs
+        self.rb_upload.setEnabled(config_enabled)
+        self.rb_delete_local.setEnabled(config_enabled)
+        self.rb_ignore_local.setEnabled(config_enabled)
+        
+        self.rb_download.setEnabled(config_enabled)
+        self.rb_delete_remote.setEnabled(config_enabled)
+        self.rb_ignore_remote.setEnabled(config_enabled)
         
         # Buttons
         self.btn_view_remote.setEnabled(config_enabled)
