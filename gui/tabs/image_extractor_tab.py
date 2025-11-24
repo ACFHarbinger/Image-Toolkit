@@ -23,7 +23,6 @@ from ..helpers import FrameExtractorWorker, VideoScanWorker
 class ImageExtractorTab(AbstractClassSingleGallery):
     def __init__(self):
         super().__init__()
-
         self.video_path: Optional[str] = None
         self.current_extracted_paths: List[str] = []
         self.selected_paths: Set[str] = set()
@@ -38,6 +37,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         
         self.extraction_dir = Path(os.getcwd()) / "data" / "Frames"
         self.extraction_dir.mkdir(parents=True, exist_ok=True)
+        self.last_browsed_extraction_dir = str(self.extraction_dir)
 
         # --- UI Setup ---
         self.root_layout = QVBoxLayout(self)
@@ -53,7 +53,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.main_layout = QVBoxLayout(self.content_widget)
         self.tab_scroll_area.setWidget(self.content_widget)
         
-        # 1. Directory Selection Section
+        # 1. Directory Selection Section (Source Directory)
         dir_select_group = QGroupBox("Source Directory")
         dir_layout = QHBoxLayout(dir_select_group)
         
@@ -68,6 +68,23 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         dir_layout.addWidget(self.btn_browse)
         
         self.main_layout.addWidget(dir_select_group)
+
+        # --- MODIFICATION START (Move Extraction Directory UI here) ---
+        # 1.5. Extraction Target Directory Section (Placed right after Source Directory)
+        dir_set_group = QGroupBox("Output Directory") # Renamed for clarity
+        dir_set_layout = QHBoxLayout(dir_set_group)
+        
+        self.line_edit_extract_dir = QLineEdit(str(self.extraction_dir))
+        self.line_edit_extract_dir.setReadOnly(True)
+        
+        self.btn_browse_extract = QPushButton("Change Dir")
+        self.btn_browse_extract.clicked.connect(self.browse_extraction_directory)
+        
+        dir_set_layout.addWidget(self.line_edit_extract_dir)
+        dir_set_layout.addWidget(self.btn_browse_extract)
+        
+        self.main_layout.addWidget(dir_set_group) # Add to the main layout here
+        # --- MODIFICATION END ---
 
         # 2. Source Gallery (Thumbnails of Videos/GIFs)
         self.source_group = QGroupBox("Available Media")
@@ -179,7 +196,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         # 4. Extraction Controls
         self.extract_group = QGroupBox("Extraction Settings")
         extract_layout = QHBoxLayout(self.extract_group)
-
+        
         self.btn_snapshot = QPushButton("📸 Snapshot Frame")
         self.btn_snapshot.clicked.connect(self.extract_single_frame)
         self.btn_snapshot.setEnabled(False)
@@ -203,6 +220,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         extract_layout.addWidget(self.btn_extract_range)
         self.main_layout.addWidget(self.extract_group)
         self.extract_group.setVisible(False) 
+
+        # 5. Results Gallery Section
+        self.gallery_scroll_area = MarqueeScrollArea()
 
         # 5. Results Gallery Section
         self.gallery_scroll_area = MarqueeScrollArea()
@@ -337,17 +357,34 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.btn_set_end.setEnabled(True)
             self._apply_player_mode()
 
-    # --- ADD NEW METHOD TO CLEAR THE GALLERY ---
+    @Slot()
+    def browse_extraction_directory(self):
+        """Opens a dialog to select the directory for extracted frames."""
+        d = QFileDialog.getExistingDirectory(
+            self, 
+            "Select Extraction Directory", 
+            self.last_browsed_extraction_dir
+        )
+        if d:
+            new_path = Path(d)
+            # Ensure the directory exists (it should if selected, but good practice)
+            new_path.mkdir(parents=True, exist_ok=True)
+            
+            self.extraction_dir = new_path
+            self.last_browsed_extraction_dir = str(new_path)
+            self.line_edit_extract_dir.setText(str(self.extraction_dir))
+            
+            # Optional: Clear the gallery if the extraction path changes
+            self._clear_gallery()
+
     def _clear_gallery(self):
         """Clears the extracted frames gallery and resets related state."""
         self.current_extracted_paths.clear()
         self.selected_paths.clear()
         
-        # Remove all widgets from the QGridLayout
-        while self.gallery_layout.count():
-            item = self.gallery_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        # Reset the Abstract Class Gallery state
+        self.gallery_image_paths.clear()
+        self.clear_gallery_widgets()
         
         # Reset extraction range buttons
         self.start_time_ms = 0
@@ -668,10 +705,19 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         if not new_paths:
             QMessageBox.information(self, "Info", "No frames extracted.")
             return
+        
+        # 1. Update the local full list tracking
         self.current_extracted_paths.extend(new_paths)
-        unique_paths = list(dict.fromkeys(self.current_extracted_paths)) 
-        self.current_extracted_paths = unique_paths
-        self.start_loading_gallery(self.current_extracted_paths)
+        
+        # 2. Filter duplicates locally if needed (though usually extraction creates unique filenames)
+        # Note: If we just extend, we rely on the logic that extraction creates new files.
+        # If you want to ensure uniqueness in the UI list:
+        # self.current_extracted_paths = list(dict.fromkeys(self.current_extracted_paths))
+        
+        # 3. Call the gallery loader with ONLY the new paths and append=True
+        # This prevents reloading existing images.
+        self.start_loading_gallery(new_paths, append=True)
+        
         QMessageBox.information(self, "Success", f"Extracted {len(new_paths)} images. Total: {len(self.current_extracted_paths)}")
 
     def _format_time(self, ms: int) -> str:
