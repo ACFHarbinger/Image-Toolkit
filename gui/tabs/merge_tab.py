@@ -26,7 +26,7 @@ class MergeTab(AbstractClassTwoGalleries):
     def __init__(self, dropdown=True):
         super().__init__()
         self.dropdown = dropdown
-        self.thumbnail_size = 150 # Override base default
+        self.thumbnail_size = 150 
 
         # --- State ---
         self.scanned_dir: str | None = None
@@ -47,12 +47,11 @@ class MergeTab(AbstractClassTwoGalleries):
         content_layout = QVBoxLayout(scroll_content)
         content_layout.setContentsMargins(0, 0, 0, 0)
 
-        # === 1. Merge Targets Group (New/Restored Section) ===
+        # === 1. Merge Targets Group ===
         target_group = QGroupBox("Merge Targets")
         target_layout = QFormLayout(target_group)
         v_input_group = QVBoxLayout()
 
-        # Directory Path Input and Browse Button
         scan_dir_layout = QHBoxLayout()
         self.scan_directory_path = QLineEdit() 
         self.scan_directory_path.setPlaceholderText("Path to directory containing images for merging...")
@@ -75,21 +74,25 @@ class MergeTab(AbstractClassTwoGalleries):
         config_layout = QFormLayout(config_group)
 
         self.direction = QComboBox()
-        self.direction.addItems(["horizontal", "vertical", "grid"])
-        self.direction.currentTextChanged.connect(self.toggle_grid_visibility)
+        # ADDED "panorama" option here
+        self.direction.addItems(["horizontal", "vertical", "grid", "panorama", "stitch"])
+        self.direction.currentTextChanged.connect(self.handle_direction_change)
         config_layout.addRow("Direction:", self.direction)
 
+        # Spacing and Align are grouped so they can be hidden for panorama
+        self.lbl_spacing = QLabel("Spacing (px):")
         self.spacing = QSpinBox()
         self.spacing.setRange(0, 1000)
         self.spacing.setValue(10)
-        config_layout.addRow("Spacing (px):", self.spacing)
+        config_layout.addRow(self.lbl_spacing, self.spacing)
 
+        self.lbl_align = QLabel("Alignment/Resize:")
         self.align_mode = QComboBox()
         self.align_mode.addItems([
             "Default (Top/Center)", "Align Top/Left", "Align Bottom/Right", 
             "Center", "Scaled (Grow Smallest)", "Squish (Shrink Largest)"
         ])
-        config_layout.addRow("Alignment/Resize:", self.align_mode)
+        config_layout.addRow(self.lbl_align, self.align_mode)
 
         self.grid_group = QGroupBox("Grid Size")
         grid_layout = QHBoxLayout()
@@ -106,13 +109,12 @@ class MergeTab(AbstractClassTwoGalleries):
         self.grid_group.hide()
         content_layout.addWidget(config_group)
 
-        # === 3. Galleries and Selection Label ===
+        # === 3. Galleries ===
         
         self.selection_label = QLabel("0 images selected.")
         self.selection_label.setStyleSheet("padding: 5px 0; font-weight: bold;")
         content_layout.addWidget(self.selection_label)
 
-        # Found Files (Top) - Found/Source Gallery
         self.found_gallery_scroll = MarqueeScrollArea()
         self.found_gallery_scroll.setWidgetResizable(True)
         self.found_gallery_scroll.setStyleSheet(
@@ -128,7 +130,6 @@ class MergeTab(AbstractClassTwoGalleries):
         self.found_gallery_scroll.selection_changed.connect(self.handle_marquee_selection)
         content_layout.addWidget(self.found_gallery_scroll, 1)
 
-        # Selected Files (Bottom) - Target Gallery
         self.selected_gallery_scroll = MarqueeScrollArea()
         self.selected_gallery_scroll.setWidgetResizable(True)
         self.selected_gallery_scroll.setStyleSheet(
@@ -163,13 +164,11 @@ class MergeTab(AbstractClassTwoGalleries):
         main_layout.addLayout(action_vbox)
 
         self.on_selection_changed()
-        self.toggle_grid_visibility(self.direction.currentText())
+        self.handle_direction_change(self.direction.currentText())
         self.clear_galleries()
 
     # --- IMPLEMENTING ABSTRACT METHODS ---
-
     def create_card_widget(self, path: str, pixmap: Optional[QPixmap], is_selected: bool) -> QWidget:
-        # Card creation logic remains the same
         thumb_size = self.thumbnail_size
         clickable_label = ClickableLabel(path) 
         clickable_label.setFixedSize(thumb_size + 10, thumb_size + 10)
@@ -224,7 +223,6 @@ class MergeTab(AbstractClassTwoGalleries):
         self.status_label.setText("" if count < 2 else f"Ready to merge {count} images.")
 
     # --- INPUT LOGIC ---
-    
     @Slot()
     def handle_scan_directory_return(self):
         d = self.scan_directory_path.text().strip()
@@ -243,7 +241,6 @@ class MergeTab(AbstractClassTwoGalleries):
             
     def populate_scan_gallery(self, directory: str):
         self.scanned_dir = directory
-        
         if self.current_scan_thread and self.current_scan_thread.isRunning():
             self.current_scan_thread.quit()
             self.current_scan_thread.wait(2000)
@@ -270,10 +267,8 @@ class MergeTab(AbstractClassTwoGalleries):
 
         thread.started.connect(worker.run_scan)
         worker.scan_finished.connect(self.on_scan_finished)
-        
         worker.scan_finished.connect(thread.quit)
         thread.finished.connect(self.cleanup_scan_thread_ref)
-        
         thread.start()
 
     @Slot()
@@ -294,9 +289,7 @@ class MergeTab(AbstractClassTwoGalleries):
         self.start_loading_thumbnails(sorted(paths))
         self.status_label.setText(f"Scan complete. Loaded {len(paths)} files.")
 
-
     # --- MERGING ---
-
     @Slot(str)
     def handle_full_image_preview(self, image_path: str):
         selected_paths_list = self.selected_files.copy() 
@@ -321,18 +314,15 @@ class MergeTab(AbstractClassTwoGalleries):
             event.accept()
 
         window.closeEvent = remove_closed_win
-        
         window.show()
         self.open_preview_windows.append(window)
 
     @Slot(QPoint, str)
     def show_image_context_menu(self, global_pos: QPoint, path: str):
         menu = QMenu(self)
-        
         view_action = QAction("View Full Size Preview", self)
         view_action.triggered.connect(lambda: self.handle_full_image_preview(path))
         menu.addAction(view_action)
-        
         menu.addSeparator()
 
         is_selected = path in self.selected_files
@@ -340,9 +330,6 @@ class MergeTab(AbstractClassTwoGalleries):
         toggle_action = QAction(toggle_text, self)
         toggle_action.triggered.connect(lambda: self.toggle_selection(path))
         menu.addAction(toggle_action)
-        
-        menu.addSeparator()
-        
         menu.exec(global_pos)
         
     def start_merge(self):
@@ -362,6 +349,7 @@ class MergeTab(AbstractClassTwoGalleries):
         
         worker = MergeWorker(self.collect(out))
         thread = QThread()
+        self.current_merge_worker = worker
         self.current_merge_thread = thread
         worker.moveToThread(thread)
         
@@ -397,8 +385,17 @@ class MergeTab(AbstractClassTwoGalleries):
             if self.direction.currentText() == "grid" else None
         }
 
-    def toggle_grid_visibility(self, direction):
-        self.grid_group.setVisible(direction == "grid")
+    def handle_direction_change(self, direction):
+        # Update visibility of settings based on direction
+        is_grid = direction == "grid"
+        is_complex_stitch = direction in ["panorama", "stitch"]
+        
+        self.grid_group.setVisible(is_grid)
+        
+        self.lbl_spacing.setVisible(not is_complex_stitch)
+        self.spacing.setVisible(not is_complex_stitch)
+        self.lbl_align.setVisible(not is_complex_stitch)
+        self.align_mode.setVisible(not is_complex_stitch)
     
     def get_default_config(self) -> dict:
         return {
