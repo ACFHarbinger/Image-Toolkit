@@ -1,6 +1,7 @@
 import os
 import io
 import datetime
+import shutil
 
 from typing import Callable, Dict, Any, Optional
 from google.auth.transport.requests import Request
@@ -15,8 +16,8 @@ from ..utils.definitions import SCOPES, SYNC_ERROR
 
 class GoogleDriveSync:
     """
-    Manages synchronization where only missing files are transferred (Upload Missing and Download Missing).
-    Supports both Service Account and Personal Account (OAuth) flows using in-memory credentials.
+    Manages synchronization with configurable strategies for missing files.
+    Supports both Service Account and Personal Account (OAuth) flows.
     """
 
     def __init__(
@@ -29,7 +30,9 @@ class GoogleDriveSync:
         token_file: Optional[str] = None, # Path needed for persistence of OAuth tokens
         dry_run: bool = False,
         logger: Callable[[str], None] = print,
-        user_email_to_share_with: Optional[str] = None
+        user_email_to_share_with: Optional[str] = None,
+        action_local_orphans: str = "upload", # "upload", "delete_local", or "ignore_local"
+        action_remote_orphans: str = "download" # "download", "delete_remote", or "ignore_remote"
     ):
         """
         Initializes the sync manager with configuration parameters.
@@ -45,6 +48,10 @@ class GoogleDriveSync:
         self.dry_run = dry_run
         self.logger = logger
         self.share_email = user_email_to_share_with
+        
+        # Sync Behavior
+        self.action_local = action_local_orphans
+        self.action_remote = action_remote_orphans
         
         self.drive_service: Optional[Any] = None
         self.dest_folder_id: Optional[str] = None
@@ -424,14 +431,51 @@ class GoogleDriveSync:
         except Exception as e:
             self.logger(f"❌ Unexpected error during download: {e}")
             return False
+
+    def _delete_local_content(self, path: str) -> bool:
+        """Deletes a file or folder from the local filesystem."""
+        self.check_stop()
+        if not os.path.exists(path):
+            return True
             
+        if self.dry_run:
+            self.logger(f"   [DRY RUN] DELETE LOCAL: {path}")
+            return True
+            
+        try:
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            else:
+                os.remove(path)
+            return True
+        except Exception as e:
+            self.logger(f"❌ Error deleting local path '{path}': {e}")
+            return False
+
+    def _delete_remote_content(self, file_id: str, rel_path: str) -> bool:
+        """Deletes a file or folder from Google Drive."""
+        self.check_stop()
+        if not self.drive_service:
+            raise RuntimeError("Drive service not initialized.")
+            
+        if self.dry_run:
+            self.logger(f"   [DRY RUN] DELETE REMOTE: {rel_path} (ID: {file_id})")
+            return True
+            
+        try:
+            self.drive_service.files().delete(fileId=file_id).execute()
+            return True
+        except HttpError as e:
+            self.logger(f"❌ Error deleting remote file ID {file_id}: {e}")
+            return False
+
     # ==============================================================================
     # 3. CORE SYNCHRONIZATION EXECUTION
     # ==============================================================================
 
     def execute_sync(self) -> tuple[bool, str]:
         """
-        Main function to orchestrate the "Upload Missing and Download Missing" logic.
+        Main function to orchestrate the synchronization logic based on selected actions.
         """
         try:
             self.check_stop()
@@ -452,10 +496,8 @@ class GoogleDriveSync:
             if self.share_email and dest_folder_id and not dest_folder_id.startswith("DRY_RUN_ID"):
                 if self.sa_data:
                     self.logger(f"ℹ️  [Note] Sharing functionality with {self.share_email} is pending implementation.")
-                    # To implement: drive_service.permissions().create(fileId=dest_folder_id, body={'role':'writer', 'type':'user', 'emailAddress': self.share_email}).execute()
                 else:
                     self.logger("Skipping Share Action: Sharing is only relevant for Service Account flow.")
-            # -----------------------------------------------
             
             if not self.check_stop_status(dest_folder_id): return (False, "Synchronization manually interrupted.")
 
@@ -472,61 +514,95 @@ class GoogleDriveSync:
             
             items_uploaded = 0
             items_downloaded = 0
-            items_skipped_matched = 0
+            items_deleted_local = 0
+            items_deleted_remote = 0
+            items_skipped = 0
+            items_ignored = 0
+            
+            # Tracker for remote items to know which have been processed/matched against local
             items_skipped_remote = remote_items.copy() 
 
-            # 1. Process Local Items (Upload Missing)
+            # 1. Process Local Items (Upload or Delete Local)
             for rel_path, local_data in local_items.items():
                 self.check_stop()
                 
-                # --- FOLDERS: Find or Create Remote Folders ---
+                # --- FOLDERS ---
                 if local_data['is_folder']:
                     if rel_path not in items_skipped_remote:
-                        self.check_stop()
-                        self._create_remote_folder(rel_path)
+                        # Folder exists locally but not remotely
+                        if self.action_local == "upload":
+                            self.check_stop()
+                            self._create_remote_folder(rel_path)
+                        elif self.action_local == "delete_local":
+                            self.logger(f"   DELETING LOCAL: {rel_path} (Recursive folder delete)")
+                            if self._delete_local_content(local_data['path']):
+                                items_deleted_local += 1
+                        elif self.action_local == "ignore_local":
+                            self.logger(f"   IGNORING LOCAL: {rel_path} (Action set to 'Do Nothing')")
+                            items_ignored += 1
                     else:
+                        # Folder exists in both
                         items_skipped_remote.pop(rel_path)
                     continue
 
-                # --- FILES: Upload or Skip ---
+                # --- FILES ---
                 remote_data = items_skipped_remote.get(rel_path)
                 
                 if remote_data:
-                    # File exists in both places. SKIP it entirely.
+                    # File exists in both places. Match found.
                     self.logger(f"   SKIPPING: {rel_path} (File exists locally and remotely)")
-                    items_skipped_matched += 1
-                    items_skipped_remote.pop(rel_path) # Remove from remote list so it's not downloaded later
-                        
+                    items_skipped += 1
+                    items_skipped_remote.pop(rel_path)
                 else:
-                    # File exists locally but not remotely. UPLOAD it.
-                    self.logger(f"   UPLOADING: {rel_path} (New local item)")
-                    self._upload_file(local_data['path'], os.path.basename(rel_path), None, rel_path)
-                    items_uploaded += 1
+                    # File exists LOCALLY but not REMOTELY (Local Orphan)
+                    if self.action_local == "upload":
+                        self.logger(f"   UPLOADING: {rel_path}")
+                        if self._upload_file(local_data['path'], os.path.basename(rel_path), None, rel_path):
+                            items_uploaded += 1
+                    elif self.action_local == "delete_local":
+                        self.logger(f"   DELETING LOCAL: {rel_path} (Orphaned file)")
+                        if self._delete_local_content(local_data['path']):
+                            items_deleted_local += 1
+                    elif self.action_local == "ignore_local":
+                        self.logger(f"   IGNORING LOCAL: {rel_path} (Action set to 'Do Nothing')")
+                        items_ignored += 1
 
-            # 2. Process Remaining Remote Items (Download Missing)
+            # 2. Process Remaining Remote Items (Download or Delete Remote)
             # Remaining items in items_skipped_remote exist *only* on the remote side.
             for rel_path, remote_data in items_skipped_remote.items():
                 self.check_stop()
                 
-                # Skip folders—we only care about downloading missing files here.
-                if remote_data['is_folder']:
-                    continue
+                # Remote Orphan
+                if self.action_remote == "download":
+                    if remote_data['is_folder']:
+                        continue # Folders handled by file paths creation, or ignored
+                    
+                    self.logger(f"   DOWNLOADING: {rel_path}")
+                    if self._download_file(remote_data['id'], os.path.join(self.local_path, rel_path)):
+                        items_downloaded += 1
+                        
+                elif self.action_remote == "delete_remote":
+                    self.logger(f"   DELETING REMOTE: {rel_path}")
+                    if self._delete_remote_content(remote_data['id'], rel_path):
+                        items_deleted_remote += 1
                 
-                # Item exists remotely but not locally. DOWNLOAD it.
-                self.logger(f"   DOWNLOADING: {rel_path} (New remote item)")
-                self._download_file(remote_data['id'], os.path.join(self.local_path, rel_path))
-                items_downloaded += 1
+                elif self.action_remote == "ignore_remote":
+                    self.logger(f"   IGNORING REMOTE: {rel_path} (Action set to 'Do Nothing')")
+                    items_ignored += 1
                 
-            total_actions = items_uploaded + items_downloaded
+            total_actions = items_uploaded + items_downloaded + items_deleted_local + items_deleted_remote
             
             self.logger("\n--- Sync Execution Summary ---")
             
-            if total_actions == 0:
-                self.logger(f"✅ Sync successful! No changes required. ({items_skipped_matched} files skipped)")
+            if total_actions == 0 and items_ignored == 0:
+                self.logger(f"✅ Sync successful! No changes required. ({items_skipped} items matched)")
                 final_message = "No changes needed."
             else:
                 status_word = "Simulated" if self.dry_run else "Completed"
-                self.logger(f"✅ Sync successful! Total actions: {total_actions} (Uploads: {items_uploaded}, Downloads: {items_downloaded}, Skipped: {items_skipped_matched})")
+                self.logger(f"✅ Sync successful! Total actions: {total_actions}")
+                self.logger(f"   Uploads: {items_uploaded}, Downloads: {items_downloaded}")
+                self.logger(f"   Local Deletes: {items_deleted_local}, Remote Deletes: {items_deleted_remote}")
+                self.logger(f"   Items Ignored: {items_ignored}, Items Skipped (Matched): {items_skipped}")
                 final_message = f"{status_word} with {total_actions} actions."
             
             return (True, final_message)

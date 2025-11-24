@@ -16,7 +16,9 @@ class GoogleDriveSyncWorker(QRunnable):
                  local_path: str, 
                  remote_path: str, 
                  dry_run: bool, 
-                 user_email_to_share_with: Optional[str] = None
+                 user_email_to_share_with: Optional[str] = None,
+                 action_local_orphans: str = "upload",
+                 action_remote_orphans: str = "download"
     ):
         super().__init__()
         self.auth_config = auth_config
@@ -26,6 +28,9 @@ class GoogleDriveSyncWorker(QRunnable):
         self.dry_run = dry_run
         # Share email is only used/relevant for Service Accounts
         self.share_email = user_email_to_share_with 
+        self.action_local = action_local_orphans
+        self.action_remote = action_remote_orphans
+        
         self.signals = GoogleDriveSyncWorkerSignals()
         self._is_running = True
 
@@ -40,6 +45,8 @@ class GoogleDriveSyncWorker(QRunnable):
         self._log(f"--- Google Drive Sync Initiated ---")
         self._log(f"Authentication Mode: {self.auth_mode.upper()}")
         self._log(f"Sync Mode: {'DRY RUN' if self.dry_run else 'LIVE'}")
+        self._log(f"Action for Local Orphans: {self.action_local.upper()}")
+        self._log(f"Action for Remote Orphans: {self.action_remote.upper()}")
         self.signals.status_update.emit("="*50 + "\n")
 
         success = False
@@ -52,7 +59,10 @@ class GoogleDriveSyncWorker(QRunnable):
                 "dry_run": self.dry_run,
                 "logger": self._log,
                 # share_email is always passed, GDS handles relevance check
-                "user_email_to_share_with": self.share_email 
+                "user_email_to_share_with": self.share_email,
+                # New behaviors
+                "action_local_orphans": self.action_local,
+                "action_remote_orphans": self.action_remote
             }
 
             if self.auth_mode == "service_account":
