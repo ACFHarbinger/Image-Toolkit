@@ -4,20 +4,19 @@ import psycopg2
 from typing import Optional
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QScrollArea, QGroupBox,
+    QScrollArea, QGroupBox, QWidget,
     QMessageBox, QComboBox, QInputDialog, 
     QAbstractItemView, QMenu,
     QFormLayout, QHBoxLayout, QVBoxLayout,
     QLineEdit, QPushButton, QLabel, QHeaderView,
     QTableWidget, QTableWidgetItem, QSizePolicy,
 )
-from .base_tab import BaseTab
 from backend.src.core import PgvectorImageDatabase as ImageDatabase
 from ..styles.style import apply_shadow_effect
 from dotenv import load_dotenv
 
 
-class DatabaseTab(BaseTab):
+class DatabaseTab(QWidget):
     """
     Manages PostgreSQL connection, statistics display, and tag/group population.
     """

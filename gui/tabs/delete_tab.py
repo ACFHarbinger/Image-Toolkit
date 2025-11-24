@@ -3,40 +3,35 @@ import os
 from PIL import Image
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, List
 from PySide6.QtWidgets import (
-    QScrollArea, QGridLayout, QProgressDialog,
     QFormLayout, QHBoxLayout, QVBoxLayout,
     QApplication, QComboBox, QMessageBox,
     QLineEdit, QPushButton, QCheckBox,
     QProgressBar, QMenu, QFileDialog, 
     QLabel, QGroupBox, QWidget,
+    QScrollArea, QGridLayout,
 )
-from PySide6.QtCore import (
-    Qt, Slot, QThread, 
-    QPoint, QThreadPool
-)
+from PySide6.QtCore import Qt, Slot, QThread, QPoint
 from PySide6.QtGui import QPixmap, QAction
-from .base_tab import BaseTab
+from ..classes import AbstractClassTwoGalleries
 from ..components import (
     OptionalField, MarqueeScrollArea, 
     ClickableLabel, PropertyComparisonDialog
 )
 from ..helpers import (
     DeletionWorker, 
-    ImageLoaderWorker, 
     DuplicateScanWorker,
 )
-from ..styles.style import apply_shadow_effect
+from ..styles.style import apply_shadow_effect, STYLE_SCAN_CANCEL
 from ..windows import ImagePreviewWindow
-from ..styles.style import STYLE_SCAN_CANCEL
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 
 
-class DeleteTab(BaseTab):
+class DeleteTab(AbstractClassTwoGalleries):
     """
     DeleteTab with identical split-panel galleries for Scan Results and Selected Duplicates.
-    Supports finding Exact Duplicates, Similar Images (pHash), and Feature Matching (ORB).
+    Inherits core gallery and selection logic from BaseTwoGalleriesTab.
     """
     def __init__(self, dropdown=True):
         super().__init__()
@@ -45,34 +40,14 @@ class DeleteTab(BaseTab):
         
         # --- State for duplicate handling ---
         self.duplicate_results: Dict[str, List[str]] = {}
-        self.duplicate_path_list: List[str] = []
-        self.selected_duplicates: List[str] = [] 
-        
-        # UI Maps
-        self.path_to_wrapper_map: Dict[str, ClickableLabel] = {}
-        self.selected_card_map: Dict[str, ClickableLabel] = {}
-        
-        self.thumbnail_size = 150
-        self.padding_width = 10
-        self.approx_item_width = self.thumbnail_size + self.padding_width + 20 
-
-        # State for resize recalculation
-        self._current_gallery_cols = 1
-        self._current_selected_cols = 1
+        # Note: Base class uses self.found_files and self.selected_files 
+        # instead of duplicate_path_list and selected_duplicates
         
         self.open_preview_windows: List[ImagePreviewWindow] = [] 
         
         # Thread references
-        self.thread_pool = QThreadPool.globalInstance()
-        self._loaded_results_buffer: List[Tuple[str, QPixmap]] = []
-        self._images_loaded_count = 0
-        self._total_images_to_load = 0
-        self.loader_thread = None
-        self.loader_worker = None
-        self.loading_dialog = None
         self.scan_thread = None
         self.scan_worker = None
-        self._loading_cancelled = False # Added flag
 
         # --- Main Layout ---
         main_layout = QVBoxLayout(self)
@@ -108,7 +83,6 @@ class DeleteTab(BaseTab):
         settings_group = QGroupBox("Delete Settings")
         settings_layout = QFormLayout(settings_group)
 
-        # --- Scan Method (Moved from Dup Group) ---
         self.scan_method_combo = QComboBox()
         self.scan_method_combo.addItems([
             "All Files (List Directory Contents)",
@@ -120,10 +94,9 @@ class DeleteTab(BaseTab):
             "Similar: Siamese Network (Semantic Match)"
         ])
         settings_layout.addRow("Scan Method:", self.scan_method_combo)
-
         content_layout.addWidget(settings_group)
 
-        # --- 3. Galleries (Now placed directly in content_layout) ---
+        # --- 3. Galleries ---
         
         # Progress Bar
         self.scan_progress_bar = QProgressBar()
@@ -132,32 +105,34 @@ class DeleteTab(BaseTab):
         self.scan_progress_bar.hide()
         content_layout.addWidget(self.scan_progress_bar)
         
-        # A. Top Gallery: Found Duplicates (Preview)
-        self.gallery_scroll = MarqueeScrollArea()
-        self.gallery_scroll.setWidgetResizable(True)
-        self.gallery_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
-        self.gallery_scroll.setMinimumHeight(600)
+        # A. Top Gallery: Found Duplicates
+        self.found_gallery_scroll = MarqueeScrollArea()
+        self.found_gallery_scroll.setWidgetResizable(True)
+        self.found_gallery_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
+        self.found_gallery_scroll.setMinimumHeight(600)
+        
         self.gallery_widget = QWidget()
         self.gallery_widget.setStyleSheet("background-color: #2c2f33;")
-        self.gallery_layout = QGridLayout(self.gallery_widget)
-        self.gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
-        self.gallery_scroll.setWidget(self.gallery_widget)
-        self.gallery_scroll.selection_changed.connect(self.handle_marquee_selection)
-        content_layout.addWidget(self.gallery_scroll, 1) # Added directly to content_layout
+        self.found_gallery_layout = QGridLayout(self.gallery_widget)
+        self.found_gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.found_gallery_scroll.setWidget(self.gallery_widget)
+        self.found_gallery_scroll.selection_changed.connect(self.handle_marquee_selection)
+        content_layout.addWidget(self.found_gallery_scroll, 1)
         
         # B. Bottom Gallery: Selected for Deletion
-        self.selected_scroll = MarqueeScrollArea()
-        self.selected_scroll.setWidgetResizable(True)
-        self.selected_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
-        self.selected_scroll.setMinimumHeight(400)
+        self.selected_gallery_scroll = MarqueeScrollArea()
+        self.selected_gallery_scroll.setWidgetResizable(True)
+        self.selected_gallery_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
+        self.selected_gallery_scroll.setMinimumHeight(400)
+        
         self.selected_widget = QWidget()
         self.selected_widget.setStyleSheet("background-color: #2c2f33;")
-        self.selected_layout = QGridLayout(self.selected_widget)
-        self.selected_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
-        self.selected_scroll.setWidget(self.selected_widget)
-        content_layout.addWidget(self.selected_scroll, 1) # Added directly to content_layout
+        self.selected_gallery_layout = QGridLayout(self.selected_widget)
+        self.selected_gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.selected_gallery_scroll.setWidget(self.selected_widget)
+        content_layout.addWidget(self.selected_gallery_scroll, 1)
 
-        # Actions for Duplicates (Need a container for actions)
+        # Actions for Duplicates
         dup_actions_layout = QHBoxLayout()
         self.btn_compare_properties = QPushButton("Compare Properties (0)")
         apply_shadow_effect(self.btn_compare_properties, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
@@ -231,8 +206,6 @@ class DeleteTab(BaseTab):
             QPushButton:pressed { background: #5a67d8; }
         """
 
-        # RENAMED BUTTON: "Delete Files Only" -> "Scan Directory"
-        # Functionality changed from start_deletion to toggle_scan
         self.btn_delete_files = QPushButton("Scan Directory")
         self.btn_delete_files.setStyleSheet(SHARED_BUTTON_STYLE)
         apply_shadow_effect(self.btn_delete_files, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
@@ -256,63 +229,61 @@ class DeleteTab(BaseTab):
         main_layout.addWidget(page_scroll)
         self.setLayout(main_layout)
         
-        # Initialize galleries with placeholders (new behavior)
-        self.clear_gallery()
+        self.clear_galleries()
 
-    # --- NEW: RESIZE REFLOW LOGIC ---
-    def resizeEvent(self, event):
-        """Handle resize events to reflow the gallery grid."""
-        super().resizeEvent(event)
+    # --- IMPLEMENTING ABSTRACT METHODS ---
+
+    def create_card_widget(self, path: str, pixmap: Optional[QPixmap], is_selected: bool) -> QWidget:
+        thumb_size = self.thumbnail_size
+        card_wrapper = ClickableLabel(path)
+        card_wrapper.setFixedSize(thumb_size + 10, thumb_size + 10)
         
-        new_gallery_cols = self._calculate_columns(self.gallery_scroll)
-        if new_gallery_cols != self._current_gallery_cols:
-            self._current_gallery_cols = new_gallery_cols
-            self._reflow_layout(self.gallery_layout, new_gallery_cols)
+        # Base class requirements
+        card_wrapper.get_pixmap = lambda: img_label.pixmap()
+        card_wrapper.set_selected_style = lambda s: self._update_card_style(img_label, s)
 
-        new_selected_cols = self._calculate_columns(self.selected_scroll)
-        if new_selected_cols != self._current_selected_cols:
-            self._current_selected_cols = new_selected_cols
-            self._reflow_layout(self.selected_layout, new_selected_cols)
+        card_layout = QVBoxLayout(card_wrapper)
+        card_layout.setContentsMargins(0, 0, 0, 0)
+        
+        img_label = QLabel()
+        img_label.setAlignment(Qt.AlignCenter)
+        img_label.setFixedSize(thumb_size, thumb_size)
+        
+        if pixmap and not pixmap.isNull():
+            scaled = pixmap.scaled(thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            img_label.setPixmap(scaled)
+        else:
+            img_label.setText("Error")
+            img_label.setStyleSheet("color: #e74c3c; border: 1px solid #e74c3c;")
             
-    def showEvent(self, event):
-        super().showEvent(event)
-        self._current_gallery_cols = self._calculate_columns(self.gallery_scroll)
-        self._reflow_layout(self.gallery_layout, self._current_gallery_cols)
+        card_layout.addWidget(img_label)
+        card_wrapper.setLayout(card_layout)
         
-        self._current_selected_cols = self._calculate_columns(self.selected_scroll)
-        self._reflow_layout(self.selected_layout, self._current_selected_cols)
+        # Interaction
+        card_wrapper.path_double_clicked.connect(self.open_full_preview)
+        card_wrapper.path_right_clicked.connect(self.show_image_context_menu)
+        
+        self._update_card_style(img_label, is_selected)
+        return card_wrapper
 
-    def _calculate_columns(self, scroll_area) -> int:
-        """Calculates columns based on the actual viewport width."""
-        width = scroll_area.viewport().width()
-        if width <= 0: width = scroll_area.width()
-        if width <= 0: width = 800 # Default fallback
-        
-        return max(1, width // self.approx_item_width)
+    def _update_card_style(self, img_label: QLabel, is_selected: bool):
+        if is_selected:
+            img_label.setStyleSheet("border: 3px solid #5865f2; background-color: #36393f;")
+        else:
+            img_label.setStyleSheet("border: 1px solid #4f545c; background-color: #36393f;")
 
-    def _reflow_layout(self, layout: QGridLayout, columns: int):
-        """Removes all items from layout and re-adds them with new column count."""
-        if not layout: return
+    def on_selection_changed(self):
+        count = len(self.selected_files)
+        self.btn_delete_selected_dups.setText(f"Delete Selected ({count})")
+        self.btn_compare_properties.setText(f"Compare Properties ({count})")
         
-        items = []
-        while layout.count():
-            item = layout.takeAt(0)
-            if item.widget():
-                items.append(item.widget())
-        
-        for i, widget in enumerate(items):
-            row = i // columns
-            col = i % columns
-            align = Qt.AlignLeft | Qt.AlignTop
-            
-            # Check for placeholder label
-            if isinstance(widget, QLabel) and "Scan a directory" in widget.text():
-                 align = Qt.AlignCenter
-                 layout.addWidget(widget, 0, 0, 1, columns, align)
-                 return
-                 
-            layout.addWidget(widget, row, col, align)
-    # --------------------------------
+        has_dups = len(self.found_files) > 0
+        self.btn_delete_selected_dups.setVisible(has_dups)
+        self.btn_compare_properties.setVisible(has_dups)
+        self.btn_delete_selected_dups.setEnabled(count > 0)
+        self.btn_compare_properties.setEnabled(count > 0)
+
+    # --- SCANNING LOGIC ---
 
     @Slot()
     def toggle_scan(self):
@@ -334,9 +305,8 @@ class DeleteTab(BaseTab):
             self._reset_scan_ui("Scan cancelled.")
             
     def _reset_scan_ui(self, status_message: str):
-        # Revert button state to "Scan Directory"
         self.btn_delete_files.setText("Scan Directory")
-        # SHARED_BUTTON_STYLE is needed here but is not globally defined in this file. Using explicit style.
+        # Reuse local style definition or import it
         SHARED_BUTTON_STYLE = """
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #667eea, stop:1 #764ba2);
@@ -350,224 +320,18 @@ class DeleteTab(BaseTab):
         self.scan_progress_bar.hide()
         self.status_label.setText(status_message)
 
-    def _create_gallery_card(self, path: str, pixmap: Optional[QPixmap], is_selected: bool) -> ClickableLabel:
-        thumb_size = self.thumbnail_size
-        card_wrapper = ClickableLabel(path)
-        card_wrapper.setFixedSize(thumb_size + 10, thumb_size + 10)
-        card_layout = QVBoxLayout(card_wrapper)
-        card_layout.setContentsMargins(0, 0, 0, 0)
-        img_label = QLabel()
-        img_label.setAlignment(Qt.AlignCenter)
-        img_label.setFixedSize(thumb_size, thumb_size)
-        if pixmap and not pixmap.isNull():
-            if pixmap.width() > thumb_size or pixmap.height() > thumb_size:
-                scaled = pixmap.scaled(thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                img_label.setPixmap(scaled)
-            else:
-                img_label.setPixmap(pixmap)
-        else:
-            img_label.setText("Error")
-            img_label.setStyleSheet("color: #e74c3c; border: 1px solid #e74c3c;")
-        card_layout.addWidget(img_label)
-        card_wrapper.setLayout(card_layout)
-        self._update_card_style(img_label, is_selected)
-        return card_wrapper
-
-    def _update_card_style(self, img_label: QLabel, is_selected: bool):
-        if is_selected:
-            img_label.setStyleSheet("border: 3px solid #5865f2; background-color: #36393f;")
-        else:
-            img_label.setStyleSheet("border: 1px solid #4f545c; background-color: #36393f;")
-
-    def get_image_properties(self, file_path: str) -> Dict[str, Any]:
-        if not Path(file_path).exists():
-            return {"Error": "File not found."}
-        props = {"Path": file_path, "File Name": os.path.basename(file_path)}
-        try:
-            stat = os.stat(file_path)
-            props["File Size"] = f"{stat.st_size / (1024 * 1024):.2f} MB ({stat.st_size} bytes)"
-            props["Last Modified"] = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
-            props["Created"] = datetime.fromtimestamp(stat.st_ctime).strftime("%Y-%m-%d %H:%M:%S")
-        except OSError:
-            props["File Size"] = "N/A"
-            props["Last Modified"] = "N/A"
-            props["Created"] = "N/A"
-        try:
-            if 'Image' in globals():
-                img = Image.open(file_path)
-                props["Width"] = f"{img.width} px"
-                props["Height"] = f"{img.height} px"
-                props["Format"] = img.format
-                props["Mode"] = img.mode
-                img.close()
-            else: props["Width"] = "N/A"
-        except Exception: props["Width"] = "N/A"
-        return props
-
-    @Slot(QPoint, str)
-    def show_image_context_menu(self, global_pos: QPoint, path: str):
-        menu = QMenu(self)
-        prop_action = QAction("🖼️ Show Image Properties", self)
-        prop_action.triggered.connect(lambda: self.show_image_properties_dialog(path))
-        menu.addAction(prop_action)
-        if len(self.selected_duplicates) > 1:
-            cmp_action = QAction("📊 Compare Selected Properties", self)
-            cmp_action.triggered.connect(self.show_comparison_dialog)
-            menu.addAction(cmp_action)
-        menu.addSeparator()
-        view_action = QAction("🔍 View Full Size Preview", self)
-        view_action.triggered.connect(lambda: self.open_full_preview(path))
-        menu.addAction(view_action)
-        is_selected = path in self.selected_duplicates
-        toggle_text = "Deselect (Keep)" if is_selected else "Select (Mark for Delete)"
-        toggle_action = QAction(toggle_text, self)
-        toggle_action.triggered.connect(lambda: self.toggle_duplicate_selection(path))
-        menu.addAction(toggle_action)
-        menu.addSeparator()
-        send_menu = menu.addMenu("Send To...")
-        actions_data = [
-            ("Merge Tab", "merge"),
-            ("Wallpaper Tab", "wallpaper"),
-            ("Scan Metadata Tab", "scan")
-        ]
-        for name, code in actions_data:
-            action = QAction(name, self)
-            action.triggered.connect(lambda chk, c=code, p=path: self.send_to_tab_signal.emit(c, p))
-            send_menu.addAction(action)
-        menu.addSeparator()
-        delete_action = QAction("🗑️ Delete This File (Permanent)", self)
-        delete_action.triggered.connect(lambda: self.delete_single_file(path))
-        menu.addAction(delete_action)
-        menu.exec(global_pos)
-        
-    @Slot(str)
-    def show_image_properties_dialog(self, path: str):
-        properties = self.get_image_properties(path)
-        if "Error" in properties: QMessageBox.critical(self, "Error Reading File", properties["Error"]); return
-        prop_text = f"**File:** {os.path.basename(path)}\n**Path:** {path}\n\n**Technical Details**\n"
-        for key, value in properties.items():
-            if key not in ["Path", "File Name"]: prop_text += f"  - **{key}:** {value}\n"
-        msg = QMessageBox(self)
-        msg.setWindowTitle("Image Properties")
-        msg.setTextFormat(Qt.MarkdownText)
-        msg.setText(prop_text)
-        msg.setIcon(QMessageBox.Information)
-        msg.exec()
-
-    @Slot()
-    def show_comparison_dialog(self):
-        if not self.selected_duplicates: QMessageBox.warning(self, "No Selection", "Please select at least one image to compare."); return
-        selected_paths = list(self.selected_duplicates)
-        if len(selected_paths) > 10:
-             reply = QMessageBox.question(self, "Large Selection", f"Selected {len(selected_paths)} images. Compare first 10?", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
-             if reply == QMessageBox.Yes: selected_paths = selected_paths[:10];
-             else: return
-        property_list = []
-        for path in selected_paths:
-            if Path(path).exists(): property_list.append(self.get_image_properties(path))
-            else: property_list.append({"File Name": os.path.basename(path), "Path": path, "Error": "File not found."})
-        dialog = PropertyComparisonDialog(property_list, self)
-        dialog.exec()
-
-    # --- GALLERY UTILS ---
-    def _columns(self) -> int:
-        return self._calculate_columns(self.gallery_scroll)
-
-    def _clear_gallery(self, layout: QGridLayout):
-        while layout.count():
-            item = layout.takeAt(0)
-            if item.widget(): item.widget().deleteLater()
-
-    # --- SELECTION HANDLING ---
-    def toggle_duplicate_selection(self, path):
-        if not path: self._update_action_buttons(); return
-        if path in self.selected_duplicates: self.selected_duplicates.remove(path); selected = False
-        else: self.selected_duplicates.append(path); selected = True
-        
-        if path in self.path_to_wrapper_map:
-            wrapper = self.path_to_wrapper_map[path]; inner_label = wrapper.findChild(QLabel)
-            if inner_label: self._update_card_style(inner_label, selected)
-        
-        self._refresh_selected_panel()
-        self._update_action_buttons()
-
-    def handle_marquee_selection(self, paths_from_marquee: set, is_ctrl_pressed: bool):
-        ordered_current = self.selected_duplicates.copy()
-        if not is_ctrl_pressed:
-            new_ordered = [p for p in ordered_current if p in paths_from_marquee]
-            newly_added = [p for p in paths_from_marquee if p not in ordered_current]
-            self.selected_duplicates = new_ordered + newly_added
-            paths_to_update = paths_from_marquee.union(set(ordered_current))
-        else:
-            newly_added = [p for p in paths_from_marquee if p not in ordered_current]
-            self.selected_duplicates.extend(newly_added)
-            paths_to_update = set(newly_added)
-        for path in paths_to_update:
-             if path in self.path_to_wrapper_map:
-                wrapper = self.path_to_wrapper_map[path]; inner_label = wrapper.findChild(QLabel)
-                if inner_label: self._update_card_style(inner_label, path in self.selected_duplicates)
-        self._refresh_selected_panel()
-        self._update_action_buttons()
-
-    def _update_action_buttons(self):
-        count = len(self.selected_duplicates)
-        self.btn_delete_selected_dups.setText(f"Delete Selected ({count})")
-        self.btn_compare_properties.setText(f"Compare Properties ({count})")
-        has_dups = len(self.duplicate_path_list) > 0
-        self.btn_delete_selected_dups.setVisible(has_dups)
-        self.btn_compare_properties.setVisible(has_dups)
-        self.btn_delete_selected_dups.setEnabled(count > 0)
-        self.btn_compare_properties.setEnabled(count > 0)
-
-    def _refresh_selected_panel(self):
-        self.selected_widget.setUpdatesEnabled(False)
-        self._clear_gallery(self.selected_layout)
-        self.selected_card_map = {}
-        paths = self.selected_duplicates
-        columns = self._calculate_columns(self.selected_scroll) 
-        if not paths:
-            empty_label = QLabel("Select images from the scan results above to mark them for deletion.")
-            empty_label.setAlignment(Qt.AlignCenter)
-            empty_label.setStyleSheet("color: #b9bbbe; padding: 50px;")
-            self.selected_layout.addWidget(empty_label, 0, 0, 1, columns)
-            self.selected_widget.setUpdatesEnabled(True)
-            return
-
-        for i, path in enumerate(paths):
-            pixmap = None 
-            if path in self.path_to_wrapper_map:
-                wrapper = self.path_to_wrapper_map[path]; inner_label = wrapper.findChild(QLabel)
-                if inner_label and inner_label.pixmap(): pixmap = inner_label.pixmap()
-            
-            card = self._create_gallery_card(path, pixmap, is_selected=True)
-            card.path_clicked.connect(lambda checked, p=path: self.toggle_duplicate_selection(p))
-            card.path_double_clicked.connect(self.open_full_preview)
-            card.path_right_clicked.connect(self.show_image_context_menu)
-            
-            row = i // columns
-            col = i % columns
-            self.selected_card_map[path] = card
-            self.selected_layout.addWidget(card, row, col, Qt.AlignLeft | Qt.AlignTop)
-            
-        self.selected_widget.setUpdatesEnabled(True)
-        self.selected_widget.adjustSize()
-
-    # ... (Scanning and deletion logic remains the same) ...
-    
     def start_duplicate_scan(self):
         target_dir = self.target_path.text().strip()
         if not target_dir or not os.path.isdir(target_dir):
             QMessageBox.warning(self, "Invalid Path", "Please select a valid directory in the 'Target path' field to scan.")
             return
 
-        # Extensions are gathered here (as requested, this logic already filters by extension)
         extensions = []
         if self.dropdown and self.selected_extensions: extensions = list(self.selected_extensions)
         elif not self.dropdown: extensions = self.join_list_str(self.target_extensions.text().strip())
         else: extensions = SUPPORTED_IMG_FORMATS
             
         method_text = self.scan_method_combo.currentText()
-        # Map dropdown text to method string
         if "All Files" in method_text:
             method = "all_files"
             status_msg = "Listing all supported files in directory..."
@@ -590,7 +354,6 @@ class DeleteTab(BaseTab):
             method = "orb"
             status_msg = "Starting ORB scan..."
 
-        # Update the new Scan Directory button state
         self.btn_delete_files.setEnabled(False) 
         self.btn_delete_files.setText("Cancel Scan")
         self.btn_delete_files.setStyleSheet(STYLE_SCAN_CANCEL)
@@ -598,7 +361,7 @@ class DeleteTab(BaseTab):
         self.scan_progress_bar.show()
         
         self.status_label.setText(status_msg)
-        self.clear_gallery() 
+        self.clear_galleries() 
         
         self.scan_thread = QThread()
         self.scan_worker = DuplicateScanWorker(target_dir, extensions, method=method)
@@ -611,7 +374,6 @@ class DeleteTab(BaseTab):
         
         self.scan_worker.finished.connect(self.scan_thread.quit)
         self.scan_worker.finished.connect(self.scan_worker.deleteLater)
-        
         self.scan_thread.finished.connect(self.on_scan_thread_finished)
         self.scan_thread.finished.connect(self.scan_thread.deleteLater)
         
@@ -631,146 +393,65 @@ class DeleteTab(BaseTab):
     def on_scan_finished(self, results: Dict[str, List[str]]):
         self._reset_scan_ui("Scan complete.")
         self.duplicate_results = results
-        self.duplicate_path_list = []
+        
+        flattened_paths = []
 
-        # Check if we were running the "All Files" scan
         is_all_files_scan = "All Files" in self.scan_method_combo.currentText()
         for gid, paths in results.items():
             if len(paths) > 1 or is_all_files_scan:
-                self.duplicate_path_list.extend(paths)
-        if not self.duplicate_path_list:
+                flattened_paths.extend(paths)
+        
+        if not flattened_paths:
             QMessageBox.information(self, "No Matches", "No duplicate or similar images found.")
             return
-        self.status_label.setText(f"Found {len(results)} groups ({len(self.duplicate_path_list)} files).")
-        # Clear placeholders from galleries
-        self._clear_gallery(self.gallery_layout)
-        self._clear_gallery(self.selected_layout)
-        self._update_action_buttons()
-        self.load_thumbnails(self.duplicate_path_list)
+            
+        self.status_label.setText(f"Found {len(results)} groups ({len(flattened_paths)} files).")
+        
+        # Use Base Class method to load thumbnails into top gallery
+        self.start_loading_thumbnails(flattened_paths)
 
     @Slot(str)
     def on_scan_error(self, error_msg):
         self._reset_scan_ui("Scan failed.")
         QMessageBox.critical(self, "Scan Error", f"Error during scan: {error_msg}")
-        
-    def _stop_running_threads(self):
-        """Safely interrupts and cleans up any active scanner or loader threads."""
-        self._loading_cancelled = True
-        
-        # Clear the ThreadPool
-        self.thread_pool.clear()
-            
-        if self.loading_dialog and self.loading_dialog.isVisible():
-            self.loading_dialog.close()
-            self.loading_dialog = None
-            
-    def cancel_loading(self):
-        """Slot for cancelling operation via ProgressDialog."""
-        self._stop_running_threads()
-        self._loaded_results_buffer.clear()
-        print("Loading cancelled by user.")
 
-    def load_thumbnails(self, paths: list[str]):
-        """Starts concurrent loading using QThreadPool with instant progress feedback."""
-        
-        # Clear previous state
-        self.thread_pool.clear()
-        self._loaded_results_buffer = []
-        self._images_loaded_count = 0
-        self._total_images_to_load = len(paths)
-        self._loading_cancelled = False # Reset flag
-        
-        # 1. Setup dialog
-        self.loading_dialog = QProgressDialog("Loading thumbnails...", "Cancel", 0, self._total_images_to_load, self)
-        self.loading_dialog.setWindowModality(Qt.WindowModal)
-        self.loading_dialog.setWindowTitle("Please Wait")
-        self.loading_dialog.setMinimumDuration(0)
-        # Enable cancellation
-        self.loading_dialog.canceled.connect(self.cancel_loading)
-        self.loading_dialog.show()
+    # --- ACTION LOGIC ---
 
-        # CRITICAL FIX: Force UI refresh immediately after showing the dialog
-        QApplication.processEvents()
-
-        # Initialize dialog state
-        self.loading_dialog.setLabelText(f"Loading image 0 of {self._total_images_to_load}...")
-        self.loading_dialog.setValue(0) 
-        
-        submitted_count = 0
-
-        # 2. Submit tasks and update progress simultaneously on the main thread (instant feedback)
-        for path in paths:
-            if self._loading_cancelled:
-                break
+    def delete_selected_duplicates(self):
+        if not self.selected_files:
+            return
+        count = len(self.selected_files)
+        reply = QMessageBox.question(self, "Confirm Batch Delete", f"Permanently delete **{count}** selected files?", QMessageBox.Yes | QMessageBox.No)
+        if reply == QMessageBox.No:
+            return
+        deleted_count = 0
+        errors = []
+        for path in list(self.selected_files):
+            try:
+                os.remove(path)
+                deleted_count += 1
+                self.selected_files.remove(path)
+                if path in self.found_files:
+                    self.found_files.remove(path)
                 
-            worker = ImageLoaderWorker(path, self.thumbnail_size)
-            worker.signals.result.connect(self._on_single_image_loaded)
-            self.thread_pool.start(worker)
-            
-            submitted_count += 1
-            self.loading_dialog.setValue(submitted_count)
-            self.loading_dialog.setLabelText(f"Submitting task {submitted_count} of {self._total_images_to_load}...")
-            # Force repaint during submission
-            QApplication.processEvents()
-            
-        # 3. Reset the dialog to track *completion* rather than submission
-        if self.loading_dialog:
-            self.loading_dialog.setValue(0)
-            self.loading_dialog.setLabelText(f"Processing results 0 of {self._total_images_to_load}...")
-
-    @Slot(str, QPixmap)
-    def _on_single_image_loaded(self, path: str, pixmap: QPixmap):
-        """Aggregates results and updates progress."""
-        if self._loading_cancelled:
-            return
-            
-        self._loaded_results_buffer.append((path, pixmap))
-        self._images_loaded_count += 1
+                # Update visual widgets immediately
+                if path in self.path_to_label_map:
+                    wrapper = self.path_to_label_map.pop(path)
+                    wrapper.deleteLater()
+                    
+            except Exception as e:
+                errors.append(f"{os.path.basename(path)}: {str(e)}")
         
-        dialog_box = self.loading_dialog
-        if dialog_box:
-            # We track the count of COMPLETED images here
-            dialog_box.setValue(self._images_loaded_count)
-            dialog_box.setLabelText(f"Processing results {self._images_loaded_count} of {self._total_images_to_load}...")
-            
-        if self._images_loaded_count >= self._total_images_to_load:
-            # Sort results before handing them to the finalization method
-            sorted_results = sorted(self._loaded_results_buffer, key=lambda x: x[0])
-            self.handle_batch_finished(sorted_results)
-
-    # --- MODIFIED: handle_batch_finished ---
-    @Slot(list)
-    def handle_batch_finished(self, loaded_results: List[Tuple[str, QPixmap]]):
-        """Receives final, sorted results and populates the gallery."""
-        if self._loading_cancelled:
-            return
-            
-        self._clear_gallery(self.gallery_layout)
-        self.path_to_wrapper_map.clear()
+        # Reflow base layouts
+        self._reflow_layout(self.found_gallery_layout, self._current_found_cols)
+        self.refresh_selected_panel()
+        self.on_selection_changed()
         
-        # Use dynamic column calculation
-        columns = self._calculate_columns(self.gallery_scroll)
-        
-        # Since the ThreadPool returns results out of order, we received them pre-sorted
-        for idx, (path, pixmap) in enumerate(loaded_results):
-            row = idx // columns
-            col = idx % columns
-            is_selected = path in self.selected_duplicates
-            card = self._create_gallery_card(path, pixmap, is_selected)
-            card.path_clicked.connect(self.toggle_duplicate_selection)
-            card.path_double_clicked.connect(self.open_full_preview)
-            card.path_right_clicked.connect(self.show_image_context_menu)
-            self.gallery_layout.addWidget(card, row, col, Qt.AlignLeft | Qt.AlignTop)
-            self.path_to_wrapper_map[path] = card
-            
-        # Clean up dialog and finish UI updates
-        if self.loading_dialog:
-            self.loading_dialog.close()
-            self.loading_dialog = None
-            
-        self._refresh_selected_panel()
+        msg = f"Deleted {deleted_count} files."
+        if errors:
+            msg += f"\nErrors:\n" + "\n".join(errors[:5])
+        QMessageBox.information(self, "Deletion Complete", msg)
 
-    @Slot(str)
     def delete_single_file(self, path: str):
         filename = os.path.basename(path)
         reply = QMessageBox.question(self, "Confirm Single Deletion", f"Are you sure you want to PERMANENTLY delete:\n**{filename}**?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
@@ -778,94 +459,113 @@ class DeleteTab(BaseTab):
             return
         try:
             os.remove(path)
-            if path in self.selected_duplicates: self.selected_duplicates.remove(path)
-            if path in self.duplicate_path_list: self.duplicate_path_list.remove(path)
-            if path in self.path_to_wrapper_map:
-                wrapper = self.path_to_wrapper_map.pop(path)
-                wrapper.setParent(None)
+            if path in self.selected_files: self.selected_files.remove(path)
+            if path in self.found_files: self.found_files.remove(path)
+            
+            if path in self.path_to_label_map:
+                wrapper = self.path_to_label_map.pop(path)
                 wrapper.deleteLater()
-            self._repack_gallery()
-            self._refresh_selected_panel()
-            self._update_action_buttons()
+
+            self._reflow_layout(self.found_gallery_layout, self._current_found_cols)
+            self.refresh_selected_panel()
+            self.on_selection_changed()
             self.status_label.setText(f"File deleted: {filename}")
             QMessageBox.information(self, "Success", f"Deleted: {filename}")
         except Exception as e:
             QMessageBox.critical(self, "Deletion Failed", f"Error: {e}")
 
-    def _repack_gallery(self):
-        # Also use dynamic columns on repack
-        columns = self._calculate_columns(self.gallery_scroll)
-        items = []
-        while self.gallery_layout.count():
-            item = self.gallery_layout.takeAt(0)
-            if item.widget():
-                items.append(item.widget())
-        for idx, widget in enumerate(items):
-            row = idx // columns
-            col = idx % columns
-            self.gallery_layout.addWidget(widget, row, col, Qt.AlignLeft | Qt.AlignTop)
+    # --- PREVIEWS & PROPERTIES ---
+
+    def get_image_properties(self, file_path: str) -> Dict[str, Any]:
+        if not Path(file_path).exists():
+            return {"Error": "File not found."}
+        props = {"Path": file_path, "File Name": os.path.basename(file_path)}
+        try:
+            stat = os.stat(file_path)
+            props["File Size"] = f"{stat.st_size / (1024 * 1024):.2f} MB ({stat.st_size} bytes)"
+            props["Last Modified"] = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+        except OSError:
+            props["File Size"] = "N/A"
+        try:
+            if 'Image' in globals():
+                img = Image.open(file_path)
+                props["Width"] = f"{img.width} px"
+                props["Height"] = f"{img.height} px"
+                props["Format"] = img.format
+                img.close()
+            else: props["Width"] = "N/A"
+        except Exception: props["Width"] = "N/A"
+        return props
+
+    @Slot(QPoint, str)
+    def show_image_context_menu(self, global_pos: QPoint, path: str):
+        menu = QMenu(self)
+        prop_action = QAction("🖼️ Show Image Properties", self)
+        prop_action.triggered.connect(lambda: self.show_image_properties_dialog(path))
+        menu.addAction(prop_action)
+        if len(self.selected_files) > 1:
+            cmp_action = QAction("📊 Compare Selected Properties", self)
+            cmp_action.triggered.connect(self.show_comparison_dialog)
+            menu.addAction(cmp_action)
+        menu.addSeparator()
+        view_action = QAction("🔍 View Full Size Preview", self)
+        view_action.triggered.connect(lambda: self.open_full_preview(path))
+        menu.addAction(view_action)
+        
+        is_selected = path in self.selected_files
+        toggle_text = "Deselect (Keep)" if is_selected else "Select (Mark for Delete)"
+        toggle_action = QAction(toggle_text, self)
+        toggle_action.triggered.connect(lambda: self.toggle_selection(path))
+        menu.addAction(toggle_action)
+        
+        menu.addSeparator()
+        # send_to_tab_signal needs to be defined if used, removing for now as not in snippet scope
+        
+        delete_action = QAction("🗑️ Delete This File (Permanent)", self)
+        delete_action.triggered.connect(lambda: self.delete_single_file(path))
+        menu.addAction(delete_action)
+        menu.exec(global_pos)
+        
+    @Slot(str)
+    def show_image_properties_dialog(self, path: str):
+        properties = self.get_image_properties(path)
+        if "Error" in properties: QMessageBox.critical(self, "Error Reading File", properties["Error"]); return
+        prop_text = f"**File:** {os.path.basename(path)}\n**Path:** {path}\n\n**Technical Details**\n"
+        for key, value in properties.items():
+            if key not in ["Path", "File Name"]: prop_text += f"  - **{key}:** {value}\n"
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Image Properties")
+        msg.setTextFormat(Qt.MarkdownText)
+        msg.setText(prop_text)
+        msg.setIcon(QMessageBox.Information)
+        msg.exec()
+
+    @Slot()
+    def show_comparison_dialog(self):
+        if not self.selected_files: QMessageBox.warning(self, "No Selection", "Please select at least one image to compare."); return
+        selected_paths = list(self.selected_files)
+        if len(selected_paths) > 10:
+             reply = QMessageBox.question(self, "Large Selection", f"Selected {len(selected_paths)} images. Compare first 10?", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+             if reply == QMessageBox.Yes: selected_paths = selected_paths[:10];
+             else: return
+        property_list = []
+        for path in selected_paths:
+            if Path(path).exists(): property_list.append(self.get_image_properties(path))
+            else: property_list.append({"File Name": os.path.basename(path), "Path": path, "Error": "File not found."})
+        dialog = PropertyComparisonDialog(property_list, self)
+        dialog.exec()
 
     def open_full_preview(self, path):
         try:
-            start_index = self.duplicate_path_list.index(path)
+            start_index = self.found_files.index(path)
         except ValueError:
             start_index = 0
-        window = ImagePreviewWindow(image_path=path, db_tab_ref=None, parent=self, all_paths=self.duplicate_path_list, start_index=start_index)
+        window = ImagePreviewWindow(image_path=path, db_tab_ref=None, parent=self, all_paths=self.found_files, start_index=start_index)
         window.setAttribute(Qt.WA_DeleteOnClose)
         window.show()
         self.open_preview_windows.append(window)
 
-    def delete_selected_duplicates(self):
-        if not self.selected_duplicates:
-            return
-        count = len(self.selected_duplicates)
-        reply = QMessageBox.question(self, "Confirm Batch Delete", f"Permanently delete **{count}** selected files?", QMessageBox.Yes | QMessageBox.No)
-        if reply == QMessageBox.No:
-            return
-        deleted_count = 0
-        errors = []
-        for path in list(self.selected_duplicates):
-            try:
-                os.remove(path)
-                deleted_count += 1
-                self.selected_duplicates.remove(path)
-                if path in self.duplicate_path_list:
-                    self.duplicate_path_list.remove(path)
-                if path in self.path_to_wrapper_map:
-                    wrapper = self.path_to_wrapper_map.pop(path)
-                    wrapper.setParent(None)
-                    wrapper.deleteLater()
-            except Exception as e:
-                errors.append(f"{os.path.basename(path)}: {str(e)}")
-        self._repack_gallery()
-        self._refresh_selected_panel()
-        self._update_action_buttons()
-        msg = f"Deleted {deleted_count} files."
-        if errors:
-            msg += f"\nErrors:\n" + "\n".join(errors[:5])
-        QMessageBox.information(self, "Deletion Complete", msg)
-
-    def clear_gallery(self):
-        """Clears galleries and adds initial placeholders."""
-        self.selected_duplicates.clear()
-        self.duplicate_path_list.clear()
-        
-        self._clear_gallery(self.gallery_layout)
-        self._clear_gallery(self.selected_layout)
-        
-        # Add placeholders to empty galleries
-        columns = self._calculate_columns(self.gallery_scroll)
-        empty_label_gallery = QLabel("Scan a directory to find duplicate images.")
-        empty_label_gallery.setAlignment(Qt.AlignCenter)
-        empty_label_gallery.setStyleSheet("color: #b9bbbe; padding: 50px;")
-        self.gallery_layout.addWidget(empty_label_gallery, 0, 0, 1, columns)
-        
-        empty_label_selected = QLabel("Select images from the results above to mark them for deletion.")
-        empty_label_selected.setAlignment(Qt.AlignCenter)
-        empty_label_selected.setStyleSheet("color: #b9bbbe; padding: 50px;")
-        self.selected_layout.addWidget(empty_label_selected, 0, 0, 1, columns)
-
-        self._update_action_buttons()
+    # --- STANDARD DELETION LOGIC (Directory/File) ---
 
     def start_deletion(self, mode: str):
         if not self.is_valid(mode):
@@ -906,25 +606,11 @@ class DeleteTab(BaseTab):
         QMessageBox.critical(self, "Error", msg)
         self.worker = None
 
-    def _get_starting_dir(self) -> str:
-        try:
-            path = Path(os.getcwd())
-            parts = path.parts
-            idx = parts.index('Image-Toolkit')
-            start_dir = os.path.join(Path(*parts[:idx + 1]), 'data')
-            return start_dir if Path(start_dir).is_dir() else os.getcwd()
-        except ValueError:
-            return os.getcwd()
-
-    def browse_file(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select File", self._get_starting_dir(), f"Images ({' '.join(['*'+e for e in SUPPORTED_IMG_FORMATS])});;All (*)")
-        if file_path:
-            self.target_path.setText(file_path)
-
     def browse_directory(self):
-        d = QFileDialog.getExistingDirectory(self, "Select Directory", self._get_starting_dir())
+        d = QFileDialog.getExistingDirectory(self, "Select Directory", self.last_browsed_dir)
         if d:
             self.target_path.setText(d)
+            self.last_browsed_dir = d
         
     def is_valid(self, mode: str):
         p = self.target_path.text().strip()
