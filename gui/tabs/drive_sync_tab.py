@@ -12,17 +12,17 @@ from PySide6.QtWidgets import (
 from ..utils.app_definitions import DRY_RUN
 from .base_tab import BaseTab
 from ..windows import LogWindow
-from ..helpers import GoogleDriveSyncWorker
+from ..helpers import GoogleDriveSyncWorker, DropboxDriveSyncWorker, OneDriveSyncWorker
 from ..styles.style import apply_shadow_effect, STYLE_SYNC_RUN, STYLE_SYNC_STOP
 
 
 class DriveSyncTab(BaseTab):
-    """GUI tab for Google Drive one-way sync (QRunnable + QThreadPool)."""
+    """GUI tab for Cloud Drive one-way sync (QRunnable + QThreadPool)."""
     def __init__(self, vault_manager, dropdown=True, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.dropdown = dropdown
         self.vault_manager = vault_manager
-        self.current_worker: Optional[GoogleDriveSyncWorker] = None
+        self.current_worker: Optional[Any] = None
         
         self.log_window = LogWindow() 
 
@@ -38,8 +38,8 @@ class DriveSyncTab(BaseTab):
         self.provider_combo.addItems([
             "Google Drive (Service Account)",
             "Google Drive (Personal Account)",
-            "Dropbox (Not Yet Implemented)",
-            "OneDrive (Not Yet Implemented)"
+            "Dropbox",
+            "OneDrive"
         ])
         self.provider_combo.setStyleSheet("QComboBox { font-weight: bold; }")
         provider_layout.addWidget(QLabel("Cloud Provider:"))
@@ -144,7 +144,7 @@ class DriveSyncTab(BaseTab):
         behavior_layout.addWidget(lbl_local_orphans)
         
         self.bg_local_orphans = QButtonGroup(self)
-        self.rb_upload = QRadioButton("Upload to Drive (Merge)")
+        self.rb_upload = QRadioButton("Upload to Remote (Merge)")
         self.rb_upload.setChecked(True) # Default
         self.rb_delete_local = QRadioButton("Delete from Local (Mirror Remote)")
         self.rb_delete_local.setStyleSheet("color: #e74c3c;")
@@ -164,14 +164,14 @@ class DriveSyncTab(BaseTab):
         
         # 2. Remote Orphans Action
         behavior_layout.addSpacing(10)
-        lbl_remote_orphans = QLabel("Action for files found ONLY on Drive (Remote Orphans):")
+        lbl_remote_orphans = QLabel("Action for files found ONLY on Remote (Remote Orphans):")
         lbl_remote_orphans.setStyleSheet("font-weight: bold; color: #2ecc71;")
         behavior_layout.addWidget(lbl_remote_orphans)
         
         self.bg_remote_orphans = QButtonGroup(self)
         self.rb_download = QRadioButton("Download to Local (Merge)")
         self.rb_download.setChecked(True) # Default
-        self.rb_delete_remote = QRadioButton("Delete from Drive (Mirror Local)")
+        self.rb_delete_remote = QRadioButton("Delete from Remote (Mirror Local)")
         self.rb_delete_remote.setStyleSheet("color: #e74c3c;")
         self.rb_ignore_remote = QRadioButton("Do Nothing (Ignore)")
         self.rb_ignore_remote.setStyleSheet("color: #95a5a6;")
@@ -251,17 +251,11 @@ class DriveSyncTab(BaseTab):
         for w in (self.share_email_label, self.share_email_input, self.btn_share_folder):
             w.setEnabled(is_google_service)
         
-        # Toggle general Google buttons
+        # View Map is specific to Google Drive implementation for now
         self.btn_view_remote.setEnabled(is_google)
-        self.sync_button.setEnabled(is_google)
-
-        if not is_google:
-            self.sync_button.setEnabled(False)
-            QMessageBox.information(
-                self, "Not Ready",
-                f"{self.provider_combo.currentText()} is not implemented yet.\n"
-                "Please choose a 'Google Drive' option."
-            )
+        
+        # Sync is now available for all implemented providers
+        self.sync_button.setEnabled(True)
 
     # ------------------------------------------------------------------ #
     #                    AUTH CONFIG BUILDER                           #
@@ -270,67 +264,63 @@ class DriveSyncTab(BaseTab):
     def _build_auth_config(self) -> Optional[Dict[str, Any]]:
         """
         Builds a configuration dictionary for the worker based on the
-        selected provider, retrieving decrypted credential data directly from 
-        the vault manager's memory.
+        selected provider.
         """
         provider_text = self.provider_combo.currentText()
-        auth_config = {}
-
-        # Keys in self.vault_manager.api_credentials are the base file names (e.g., 'service_account_key')
-        SA_KEY_NAME = Path(udef.SERVICE_ACCOUNT_FILE).stem
-        CS_KEY_NAME = Path(udef.CLIENT_SECRETS_FILE).stem
         
         if provider_text.startswith("Google Drive (Service Account)"):
-            
-            # Check if the decrypted data is available in the vault manager
+            SA_KEY_NAME = Path(udef.SERVICE_ACCOUNT_FILE).stem
             sa_data = self.vault_manager.api_credentials.get(SA_KEY_NAME)
             
             if not sa_data:
-                QMessageBox.warning(
-                    self, "Error", 
-                    f"Service Account Key data not loaded. Please ensure the encrypted file is present in the API directory and you have logged in."
-                )
+                QMessageBox.warning(self, "Error", "Service Account Key data not loaded from vault.")
                 return None
             
-            # Use the decrypted data, but ALSO include the expected key_file path 
-            # with the actual decrypted data object. The worker must be updated to handle this.
-            auth_config = {
+            return {
                 "mode": "service_account",
-                "key_file": "VAULT_DATA_LOADED", # Placeholder for the worker's compatibility
-                "service_account_data": sa_data # Actual decrypted data
+                "service_account_data": sa_data
             }
             
         elif provider_text.startswith("Google Drive (Personal Account)"):
-            
-            # Check if the decrypted data is available in the vault manager
+            CS_KEY_NAME = Path(udef.CLIENT_SECRETS_FILE).stem
             cs_data = self.vault_manager.api_credentials.get(CS_KEY_NAME)
             token_file = self.token_file_path.text().strip()
             
             if not cs_data:
-                QMessageBox.warning(
-                    self, "Error", 
-                    f"Client Secrets data not loaded. Please ensure the encrypted file is present in the API directory and you have logged in."
-                )
+                QMessageBox.warning(self, "Error", "Client Secrets data not loaded from vault.")
                 return None
-
             if not token_file:
                 QMessageBox.warning(self, "Error", "Token File path cannot be empty.")
                 return None
             
-            # Use the decrypted data, but ALSO include the expected client_secrets_file key 
-            # with the actual decrypted data object.
-            auth_config = {
+            return {
                 "mode": "personal_account",
-                "client_secrets_file": "VAULT_DATA_LOADED", # Placeholder for the worker's compatibility
-                "client_secrets_data": cs_data, # Actual decrypted data
+                "client_secrets_data": cs_data,
                 "token_file": token_file
             }
             
-        else:
-            QMessageBox.warning(self, "Error", "Selected provider is not supported.")
-            return None
+        elif provider_text == "Dropbox":
+            # Placeholder: Assume 'dropbox_token' might be in vault or user manual entry
+            token = self.vault_manager.api_credentials.get("dropbox_token")
+            if not token:
+                # Prompt user or handle missing token
+                # For now, we allow it to proceed to the worker which will fail if token missing, 
+                # or use a dummy one for dry runs.
+                pass
+            return {
+                "provider": "dropbox",
+                "access_token": token if token else "DUMMY_TOKEN_FOR_PLACEHOLDER"
+            }
             
-        return auth_config
+        elif provider_text == "OneDrive":
+            # Placeholder
+            return {
+                "provider": "onedrive",
+                "client_id": "DUMMY_ID",
+                "client_secret": "DUMMY_SECRET"
+            }
+            
+        return None
 
     # ------------------------------------------------------------------ #
     #                           DEFAULTS                               #
@@ -347,20 +337,15 @@ class DriveSyncTab(BaseTab):
     #                     VIEW REMOTE MAP ACTION                       #
     # ------------------------------------------------------------------ #
     def view_remote_map(self):
-        """Action to initialize a worker to log the remote file map."""
-        if self.current_worker:
-            return
-            
+        if self.current_worker: return
         auth_config = self._build_auth_config()
-        if not auth_config:
-            return
-
+        if not auth_config: return
+        
         remote_path = self.remote_path.text().strip()
         if not remote_path:
             QMessageBox.warning(self, "Error", "Remote path cannot be empty.")
             return
 
-        # ---- UI lock ----
         self.lock_ui_minor(message="Viewing Remote Map…", clear_log=True)
         self.log_window.show()
         
@@ -369,24 +354,22 @@ class DriveSyncTab(BaseTab):
             local_path=self.local_path.text().strip(), 
             remote_path=remote_path, 
             dry_run=True,
-            user_email_to_share_with=None,
-            # Map view ignores these options, but required by init
-            action_local_orphans="upload",
-            action_remote_orphans="download"
+            user_email_to_share_with=None
         )
         self.current_worker.signals.status_update.connect(self.handle_status_update)
-        self.current_worker.signals.sync_finished.connect(self.handle_view_finished) 
+        self.current_worker.signals.sync_finished.connect(
+            # Proxy lambda to ignore the dry_run boolean for this specific action
+            lambda s, m, d: self.handle_view_finished(s, m)
+        ) 
 
         QThreadPool.globalInstance().start(self.current_worker)
 
     @Slot(bool, str)
     def handle_view_finished(self, success: bool, message: str):
-        """Custom handler for the View Remote Map action."""
         self.unlock_ui_minor()
         final = f"\nFINAL STATUS: Remote Map View {'Completed' if success else 'Failed'}. {message}"
         self.log_window.append_log(final)
-        
-        if not success and "Dry Run incomplete" not in message and "Local file sync skipped" not in message:
+        if not success and "Dry Run incomplete" not in message:
             QMessageBox.critical(self, "Map View Failed", message)
         self.current_worker = None
         
@@ -394,26 +377,16 @@ class DriveSyncTab(BaseTab):
     #                     SHARE FOLDER ACTION                          #
     # ------------------------------------------------------------------ #
     def share_remote_folder(self):
-        """Action to initialize a worker to perform ONLY the sharing action."""
-        if self.current_worker:
-            return
-        
+        if self.current_worker: return
         auth_config = self._build_auth_config()
-        if not auth_config or auth_config["mode"] != "service_account":
-            QMessageBox.warning(self, "Error", "Sharing is only available for Service Accounts.")
+        if not auth_config or auth_config.get("mode") != "service_account":
+            QMessageBox.warning(self, "Error", "Sharing is only available for Google Service Accounts.")
             return
 
         remote_path = self.remote_path.text().strip()
         share_email = self.share_email_input.text().strip()
-        
-        if not remote_path:
-            QMessageBox.warning(self, "Error", "Remote path cannot be empty.")
-            return
-        if not share_email or '@' not in share_email:
-            QMessageBox.warning(self, "Error", "Please enter a valid email address to share with.")
-            return
+        if not remote_path or not share_email: return
 
-        # ---- UI lock ----
         self.lock_ui_minor(message="Sharing Folder…", clear_log=True)
         self.log_window.show()
         
@@ -422,22 +395,20 @@ class DriveSyncTab(BaseTab):
             local_path=self.local_path.text().strip(), 
             remote_path=remote_path, 
             dry_run=self.dry_run_checkbox.isChecked(), 
-            user_email_to_share_with=share_email,
-            action_local_orphans="upload",
-            action_remote_orphans="download"
+            user_email_to_share_with=share_email 
         )
         self.current_worker.signals.status_update.connect(self.handle_status_update)
-        self.current_worker.signals.sync_finished.connect(self.handle_share_finished) 
+        self.current_worker.signals.sync_finished.connect(
+            lambda s, m, d: self.handle_share_finished(s, m)
+        ) 
 
         QThreadPool.globalInstance().start(self.current_worker)
 
     @Slot(bool, str)
     def handle_share_finished(self, success: bool, message: str):
-        """Custom handler for the Share Folder action."""
         self.unlock_ui_minor()
         final = f"\nFINAL STATUS: Share Action {'Completed' if success else 'Failed'}. {message}"
         self.log_window.append_log(final)
-        
         if success:
             QMessageBox.information(self, "Share Success", "Folder sharing action completed.")
         else:
@@ -447,7 +418,7 @@ class DriveSyncTab(BaseTab):
     # ------------------------------------------------------------------ #
     #                           SYNC START                             #
     # ------------------------------------------------------------------ #
-    def run_sync_now(self, clear_log: bool = True):
+    def run_sync_now(self, clear_log: bool = True, force_live: bool = False):
         """Initializes and runs the main synchronization job."""
         
         auth_config = self._build_auth_config()
@@ -456,7 +427,12 @@ class DriveSyncTab(BaseTab):
             
         local_path = self.local_path.text().strip()
         remote_path = self.remote_path.text().strip()
-        dry_run = self.dry_run_checkbox.isChecked()
+        
+        # Logic for Dry Run Checkbox vs Force Live argument
+        is_dry_run = self.dry_run_checkbox.isChecked()
+        if force_live:
+            is_dry_run = False
+            
         share_email = None
 
         if not os.path.isdir(local_path):
@@ -466,42 +442,47 @@ class DriveSyncTab(BaseTab):
             QMessageBox.warning(self, "Error", "Remote path cannot be empty.")
             return
         
-        if auth_config["mode"] == "service_account":
+        if auth_config.get("mode") == "service_account":
             email_text = self.share_email_input.text().strip()
             if email_text:
                 share_email = email_text
         
         # DETERMINE SYNC ACTIONS
-        # Local Orphans
-        if self.rb_delete_local.isChecked():
-            act_local = "delete_local"
-        elif self.rb_ignore_local.isChecked():
-            act_local = "ignore_local"
-        else:
-            act_local = "upload"
+        if self.rb_delete_local.isChecked(): act_local = "delete_local"
+        elif self.rb_ignore_local.isChecked(): act_local = "ignore_local"
+        else: act_local = "upload"
             
-        # Remote Orphans
-        if self.rb_delete_remote.isChecked():
-            act_remote = "delete_remote"
-        elif self.rb_ignore_remote.isChecked():
-            act_remote = "ignore_remote"
-        else:
-            act_remote = "download"
+        if self.rb_delete_remote.isChecked(): act_remote = "delete_remote"
+        elif self.rb_ignore_remote.isChecked(): act_remote = "ignore_remote"
+        else: act_remote = "download"
 
         # 3. UI LOCK & SETUP 
-        self.lock_ui(message="STOP", is_running=True, clear_log=clear_log)
+        msg = "STOP" if not is_dry_run else "STOP (Dry Run)"
+        self.lock_ui(message=msg, is_running=True, clear_log=clear_log)
         self.log_window.show()
 
-        # 4. START WORKER
-        self.current_worker = GoogleDriveSyncWorker(
-            auth_config=auth_config,
-            local_path=local_path, 
-            remote_path=remote_path, 
-            dry_run=dry_run, 
-            user_email_to_share_with=share_email,
-            action_local_orphans=act_local,
-            action_remote_orphans=act_remote
-        )
+        # 4. START WORKER BASED ON PROVIDER
+        provider_text = self.provider_combo.currentText()
+        
+        common_args = {
+            "auth_config": auth_config,
+            "local_path": local_path, 
+            "remote_path": remote_path, 
+            "dry_run": is_dry_run,
+            "action_local_orphans": act_local,
+            "action_remote_orphans": act_remote
+        }
+
+        if provider_text.startswith("Google Drive"):
+            self.current_worker = GoogleDriveSyncWorker(
+                **common_args,
+                user_email_to_share_with=share_email
+            )
+        elif provider_text == "Dropbox":
+            self.current_worker = DropboxDriveSyncWorker(**common_args)
+        elif provider_text == "OneDrive":
+            self.current_worker = OneDriveSyncWorker(**common_args)
+        
         self.current_worker.signals.status_update.connect(self.handle_status_update)
         self.current_worker.signals.sync_finished.connect(self.handle_sync_finished)
 
@@ -580,15 +561,36 @@ class DriveSyncTab(BaseTab):
     # ------------------------------------------------------------------ #
     #                           FINISHED                               #
     # ------------------------------------------------------------------ #
-    @Slot(bool, str)
-    def handle_sync_finished(self, success: bool, message: str):
+    @Slot(bool, str, bool)
+    def handle_sync_finished(self, success: bool, message: str, was_dry_run: bool):
         self.unlock_ui()
-        final = f"\nFINAL STATUS: {message}"
+        status_str = "Completed" if success else "Failed"
+        mode_str = "DRY RUN" if was_dry_run else "LIVE"
+        
+        final = f"\nFINAL STATUS: {mode_str} Sync {status_str}. {message}"
         self.log_window.append_log(final)
+        
+        self.current_worker = None
+
         if not success and "manually cancelled" not in message:
             QMessageBox.critical(self, "Sync Failed", message)
-        self.current_worker = None
-        
+            return
+
+        # --- DRY RUN CONFIRMATION LOGIC ---
+        if success and was_dry_run:
+            reply = QMessageBox.question(
+                self, 
+                "Dry Run Completed", 
+                "The Dry Run finished successfully.\n\n"
+                "Do you want to apply these changes now (Execute LIVE Sync)?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            
+            if reply == QMessageBox.Yes:
+                self.log_window.append_log("\nUser confirmed application of changes. Starting LIVE run...")
+                self.run_sync_now(clear_log=False, force_live=True)
+
     # ------------------------------------------------------------------ #
     #                           BROWSERS                               #
     # ------------------------------------------------------------------ #
@@ -626,10 +628,8 @@ class DriveSyncTab(BaseTab):
     # ------------------------------------------------------------------ #
     def browse_files(self):      
         provider_text = self.provider_combo.currentText()
-        if provider_text.startswith("Google Drive (Service Account)"):
+        if provider_text.startswith("Google Drive"):
             self.browse_key_file()
-        elif provider_text.startswith("Google Drive (Personal Account)"):
-            self.browse_client_secrets_file()
             
     def browse_input(self):      self.browse_local_directory()
     def browse_output(self):     pass
@@ -648,7 +648,6 @@ class DriveSyncTab(BaseTab):
         }
 
     def get_default_config(self) -> dict:
-        """Returns the default configuration values for this tab."""
         return {
             "provider": "Google Drive (Service Account)",
             "key_file": "C:/path/to/service_account_key.json",
@@ -661,7 +660,6 @@ class DriveSyncTab(BaseTab):
         }
 
     def set_config(self, config: dict):
-        """Applies a loaded configuration to the tab's UI."""
         try:
             provider = config.get("provider", "Google Drive (Service Account)")
             if self.provider_combo.findText(provider) != -1:

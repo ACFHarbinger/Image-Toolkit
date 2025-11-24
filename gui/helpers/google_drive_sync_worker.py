@@ -1,13 +1,9 @@
 import time
 
 from typing import Optional, Dict, Any
-from PySide6.QtCore import QObject, Signal, QRunnable
-from backend.src.web.google_drive_sync import GoogleDriveSync as GDS
-
-
-class GoogleDriveSyncWorkerSignals(QObject):
-    status_update = Signal(str)
-    sync_finished = Signal(bool, str)
+from PySide6.QtCore import QRunnable
+from backend.src.web import GoogleDriveSync
+from .cloud_drive_sync_signals import CloudDriveSyncWorkerSignals
 
 
 class GoogleDriveSyncWorker(QRunnable):
@@ -31,7 +27,7 @@ class GoogleDriveSyncWorker(QRunnable):
         self.action_local = action_local_orphans
         self.action_remote = action_remote_orphans
         
-        self.signals = GoogleDriveSyncWorkerSignals()
+        self.signals = CloudDriveSyncWorkerSignals()
         self._is_running = True
 
     def _log(self, message: str):
@@ -52,39 +48,30 @@ class GoogleDriveSyncWorker(QRunnable):
         success = False
         final_message = "Cancelled by user."
         try:
-            # --- CRITICAL CHANGE: PASS DECRYPTED DATA ---
             gds_kwargs = {
                 "local_source_path": self.local_path,
                 "drive_destination_folder_name": self.remote_path,
                 "dry_run": self.dry_run,
                 "logger": self._log,
-                # share_email is always passed, GDS handles relevance check
                 "user_email_to_share_with": self.share_email,
-                # New behaviors
                 "action_local_orphans": self.action_local,
                 "action_remote_orphans": self.action_remote
             }
 
             if self.auth_mode == "service_account":
-                # Pass the decrypted data object
                 gds_kwargs["service_account_data"] = self.auth_config.get("service_account_data")
-                # Remove personal account keys just in case
                 gds_kwargs["client_secrets_data"] = None
                 gds_kwargs["token_file"] = None 
             
             elif self.auth_mode == "personal_account":
-                # Pass the decrypted data object and the token file path
                 gds_kwargs["client_secrets_data"] = self.auth_config.get("client_secrets_data")
                 gds_kwargs["token_file"] = self.auth_config.get("token_file")
-                # Remove service account keys just in case
                 gds_kwargs["service_account_data"] = None
-                
+            
             else:
                 raise ValueError(f"Unsupported authentication mode: {self.auth_mode}")
 
-            # Instantiate GDS with the new argument structure
-            sync_manager = GDS(**gds_kwargs)
-            # ---------------------------------------------
+            sync_manager = GoogleDriveSync(**gds_kwargs)
             
             if self._is_running:
                 success, final_message = sync_manager.execute_sync()
@@ -94,14 +81,13 @@ class GoogleDriveSyncWorker(QRunnable):
             final_message = f"Critical error: {e}"
             self._log(f"ERROR: {final_message}")
         
-        # Check if the process was cancelled by stop()
         if not self._is_running and success:
             success = False
             final_message = "Synchronization manually cancelled."
 
-        # Emit result if still alive
         if self._is_running:
-            self.signals.sync_finished.emit(success, final_message)
+            # Pass self.dry_run status back to UI
+            self.signals.sync_finished.emit(success, final_message, self.dry_run)
 
     def stop(self):
         if self._is_running:
