@@ -16,6 +16,7 @@ from .tabs import (
     ScanMetadataTab, SearchTab, 
     ImageCrawlTab, DriveSyncTab,
     WallpaperTab, WebRequestsTab,
+    ImageExtractorTab,
 )
 from .tabs.deep_learning import (
     R3GANEvaluateTab, R3GANGenerateTab,
@@ -122,6 +123,7 @@ class MainWindow(QWidget):
         self.drive_sync_tab = DriveSyncTab(vault_manager, dropdown=dropdown)
         self.wallpaper_tab = WallpaperTab(self.database_tab, dropdown=dropdown)
         self.web_requests_tab = WebRequestsTab(dropdown=dropdown)
+        self.image_extractor_tab = ImageExtractorTab()
 
         # Deep Learning Tabs
         self.r3gan_gen_tab = R3GANGenerateTab()
@@ -144,6 +146,7 @@ class MainWindow(QWidget):
                 "Merge Images": self.merge_tab,
                 "Delete Images": self.delete_tab,
                 "Display Wallpaper": self.wallpaper_tab,
+                "Image Extractor": self.image_extractor_tab,
             }, 
             'Database Management': {
                 "Database Configuration": self.database_tab,

@@ -8,3 +8,4 @@ from .search_tab import SearchTab
 from .drive_sync_tab import DriveSyncTab
 from .wallpaper_tab import WallpaperTab
 from .web_requests_tab import WebRequestsTab
+from .image_extractor_tab import ImageExtractorTab

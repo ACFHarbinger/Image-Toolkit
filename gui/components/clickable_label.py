@@ -37,9 +37,9 @@ class ClickableLabel(QLabel):
         super().mousePressEvent(event)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
-         if event.button() == Qt.LeftButton:
+        if event.button() == Qt.LeftButton:
             self.path_double_clicked.emit(self.path)
-         super().mouseDoubleClickEvent(event)
+        super().mouseDoubleClickEvent(event)
 
     def _emit_right_click_signal(self, pos: QPoint):
         """
