@@ -96,6 +96,12 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.wallpaper_style: str = "Fill" 
         self.background_type: str = "Image" 
         self.solid_color_hex: str = "#000000" 
+
+        # --- Scanner References ---
+        self.scanner_worker: Optional[Any] = None
+        self.scanner_thread: Optional[QThread] = None
+        self.scan_dialog: Optional[QProgressDialog] = None
+        # --------------------------
         
         # --- UI SETUP ---
         content_widget = QWidget()
@@ -277,7 +283,6 @@ class WallpaperTab(AbstractClassSingleGallery):
         
         # NOTE: self.loading_dialog is provided by BaseSingleGalleryTab. 
         # We need a separate reference for the *Scanning* dialog or reuse it carefully.
-        self.scan_dialog = None
         
         # Initial setup
         self.populate_monitor_layout()
@@ -871,7 +876,7 @@ class WallpaperTab(AbstractClassSingleGallery):
                 else:
                     QMessageBox.critical(self, "Error", f"Failed to set wallpaper:\n{message}")
         if not is_slideshow_active: self.unlock_ui_for_wallpaper()
-    
+        
     def browse_scan_directory(self):
         if self.background_type == "Solid Color":
             QMessageBox.warning(self, "Mode Conflict", "Cannot browse directory while Solid Color background is selected.")
@@ -909,6 +914,14 @@ class WallpaperTab(AbstractClassSingleGallery):
         loop.exec()
 
         self.scanner_worker = ImageScannerWorker(directory)
+        
+        # --- FIX: Ensure the thread is set and connected for clean up ---
+        if self.scanner_thread and self.scanner_thread.isRunning():
+             self.scanner_thread.quit()
+             self.scanner_thread.wait() # Wait for the old thread to finish
+             self.scanner_thread.deleteLater()
+             self.scanner_thread = None
+
         self.scanner_thread = QThread() 
         self.scanner_worker.moveToThread(self.scanner_thread) 
         
@@ -920,12 +933,17 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.scanner_worker.scan_finished.connect(self.scanner_worker.deleteLater)
         self.scanner_thread.finished.connect(self.scanner_thread.deleteLater)
         
+        # Clear thread reference when finished/deleted
+        self.scanner_thread.finished.connect(lambda: setattr(self, 'scanner_thread', None))
+        
         self.scanner_thread.start()
 
     def cancel_scanning(self):
         # Specific cancellation for the scanner thread
-        if hasattr(self, 'scanner_thread') and self.scanner_thread.isRunning():
+        if self.scanner_thread is not None and self.scanner_thread.isRunning():
             self.scanner_thread.quit()
+            # The finished signal will trigger deleteLater and set the reference to None.
+            
         if self.scan_dialog:
             self.scan_dialog.close()
 
