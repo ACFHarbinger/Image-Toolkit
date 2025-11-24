@@ -3,21 +3,21 @@ import os
 from pathlib import Path
 from typing import Optional, List, Set
 from PySide6.QtWidgets import (
+    QLabel, QComboBox, QStyle, 
     QSlider, QFileDialog, QGroupBox, 
+    QWidget, QVBoxLayout, QHBoxLayout, 
     QMenu, QGraphicsView, QGraphicsScene,
     QScrollArea, QGridLayout, QMessageBox,
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-    QComboBox, QStyle, QPushButton, QApplication,
+    QPushButton, QApplication, QLineEdit,
 )
 from PySide6.QtGui import QPixmap, QResizeEvent, QAction
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtCore import Qt, QUrl, Slot, QThreadPool, QPoint, QEvent
-
 from ..windows import ImagePreviewWindow
-from ..helpers import FrameExtractorWorker
 from ..classes import AbstractClassSingleGallery
 from ..components import ClickableLabel, MarqueeScrollArea
+from ..helpers import FrameExtractorWorker, VideoScanWorker
 
 
 class ImageExtractorTab(AbstractClassSingleGallery):
@@ -37,11 +37,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.extraction_dir.mkdir(parents=True, exist_ok=True)
 
         # --- UI Setup ---
-        
         self.root_layout = QVBoxLayout(self)
         self.root_layout.setContentsMargins(0, 0, 0, 0)
         
-        # 1. Main Tab Scroll Area
+        # Main Tab Scroll Area
         self.tab_scroll_area = QScrollArea()
         self.tab_scroll_area.setWidgetResizable(True)
         self.tab_scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
@@ -51,15 +50,41 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.main_layout = QVBoxLayout(self.content_widget)
         self.tab_scroll_area.setWidget(self.content_widget)
         
-        # --- File Selection ---
-        file_selection_layout = QHBoxLayout()
-        self.btn_open = QPushButton("Open Video File")
-        self.btn_open.clicked.connect(self.open_video_file)
-        file_selection_layout.addWidget(self.btn_open)
-        file_selection_layout.addStretch(1)
-        self.main_layout.addLayout(file_selection_layout) 
+        # 1. Directory Selection Section
+        dir_select_group = QGroupBox("Source Directory")
+        dir_layout = QHBoxLayout(dir_select_group)
         
-        # --- Video Player ---
+        self.line_edit_dir = QLineEdit()
+        self.line_edit_dir.setPlaceholderText("Select a folder containing videos or GIFs...")
+        self.line_edit_dir.returnPressed.connect(lambda: self.scan_directory(self.line_edit_dir.text()))
+        
+        self.btn_browse = QPushButton("Browse Folder")
+        self.btn_browse.clicked.connect(self.browse_directory)
+        
+        dir_layout.addWidget(self.line_edit_dir)
+        dir_layout.addWidget(self.btn_browse)
+        
+        self.main_layout.addWidget(dir_select_group)
+
+        # 2. Source Gallery (Thumbnails of Videos/GIFs)
+        self.source_group = QGroupBox("Available Media")
+        source_layout = QVBoxLayout(self.source_group)
+        
+        self.source_scroll = MarqueeScrollArea() 
+        self.source_scroll.setWidgetResizable(True)
+        self.source_scroll.setMinimumHeight(220) 
+        self.source_scroll.setMaximumHeight(220)
+        
+        self.source_container = QWidget()
+        self.source_grid = QGridLayout(self.source_container)
+        self.source_grid.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignTop)
+        self.source_scroll.setWidget(self.source_container)
+        
+        source_layout.addWidget(self.source_scroll)
+        
+        self.main_layout.addWidget(self.source_group)
+
+        # 3. Video Player Section
         self.video_container_widget = QWidget() 
         video_container_layout = QVBoxLayout(self.video_container_widget)
         
@@ -84,7 +109,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.media_player.setAudioOutput(self.audio_output)
         self.media_player.setVideoOutput(self.video_item) 
         
-        # Player Controls
         controls_top_layout = QHBoxLayout()
         self.btn_toggle_mode = QPushButton("Switch to External Player")
         self.btn_toggle_mode.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon))
@@ -111,15 +135,24 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.volume_slider = QSlider(Qt.Orientation.Horizontal)
         self.volume_slider.setRange(0, 100)
         self.volume_slider.setValue(50)
-        self.volume_slider.setFixedWidth(80)
+        
+        # 1. DECREASE VOLUME BAR SIZE
+        self.volume_slider.setFixedWidth(60) 
+        
         self.volume_slider.valueChanged.connect(lambda v: self.audio_output.setVolume(v / 100.0))
         self.volume_slider.setVisible(True)
 
         self.lbl_current_time = QLabel("00:00")
+        
+        # 2. TIME SLIDER gets the gained width
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setRange(0, 0)
         self.slider.sliderMoved.connect(self.set_position)
         self.slider.sliderPressed.connect(self.media_player.pause)
+        
+        # 3. DIRECT SEEKING: Connect slider release to position update
+        self.slider.sliderReleased.connect(self.set_position_on_release)
+        
         self.lbl_total_time = QLabel("00:00")
 
         controls_layout.addWidget(self.lbl_vol)
@@ -140,7 +173,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.main_layout.addWidget(self.video_container_widget)
         self.video_container_widget.setVisible(False) 
 
-        # --- Extraction Controls ---
+        # 4. Extraction Controls
         self.extract_group = QGroupBox("Extraction Settings")
         extract_layout = QHBoxLayout(self.extract_group)
 
@@ -168,10 +201,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.main_layout.addWidget(self.extract_group)
         self.extract_group.setVisible(False) 
 
-        # --- Gallery Section ---
+        # 5. Results Gallery Section
         self.gallery_scroll_area = MarqueeScrollArea()
         self.gallery_scroll_area.setWidgetResizable(True)
-        self.gallery_scroll_area.setMinimumHeight(600)
+        self.gallery_scroll_area.setMinimumHeight(400)
         
         self.gallery_container = QWidget()
         self.gallery_layout = QGridLayout(self.gallery_container)
@@ -185,6 +218,116 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.media_player.positionChanged.connect(self.position_changed)
         self.media_player.durationChanged.connect(self.duration_changed)
         self.media_player.errorOccurred.connect(self.handle_player_error)
+
+    # --- NEW METHOD for Direct Seeking ---
+    @Slot()
+    def set_position_on_release(self):
+        """
+        Sets the media position when the slider is released (allowing click-to-seek) 
+        without automatically restarting playback.
+        """
+        position = self.slider.value()
+        self.media_player.setPosition(position)
+        # Note: The video remains paused if sliderPressed was triggered while playing.
+
+    # --- Directory Browsing & Scanning ---
+    @Slot()
+    def browse_directory(self):
+        d = QFileDialog.getExistingDirectory(self, "Select Source Directory", self.last_browsed_scan_dir)
+        if d:
+            self.last_browsed_scan_dir = d
+            self.scan_directory(d)
+
+    def scan_directory(self, path: str):
+        if not os.path.isdir(path):
+            return
+        
+        self.line_edit_dir.setText(path)
+        
+        while self.source_grid.count():
+            item = self.source_grid.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        worker = VideoScanWorker(path)
+        worker.signals.thumbnail_ready.connect(self.add_source_thumbnail)
+        worker.signals.finished.connect(lambda: self.scan_progress_complete())
+        QThreadPool.globalInstance().start(worker)
+
+    def scan_progress_complete(self):
+        pass
+
+    @Slot(str, QPixmap)
+    def add_source_thumbnail(self, path: str, pixmap: QPixmap):
+        thumb_size = 120
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(5, 5, 5, 5)
+        
+        clickable_label = ClickableLabel(file_path=path)
+        clickable_label.setFixedSize(thumb_size, thumb_size)
+        
+        if not pixmap.isNull():
+            scaled = pixmap.scaled(thumb_size, thumb_size, 
+                                 Qt.AspectRatioMode.KeepAspectRatioByExpanding, 
+                                 Qt.TransformationMode.SmoothTransformation)
+            diff_x = (scaled.width() - thumb_size) // 2
+            diff_y = (scaled.height() - thumb_size) // 2
+            cropped = scaled.copy(diff_x, diff_y, thumb_size, thumb_size)
+            clickable_label.setPixmap(cropped)
+        
+        clickable_label.setStyleSheet("border: 2px solid #4f545c; border-radius: 4px;")
+        
+        clickable_label.path_clicked.connect(self.load_media)
+        clickable_label.path_right_clicked.connect(self.show_source_context_menu)
+        
+        layout.addWidget(clickable_label)
+        
+        count = self.source_grid.count()
+        row = count // 12 
+        col = count % 12
+        self.source_grid.addWidget(container, row, col)
+
+    @Slot(QPoint, str)
+    def show_source_context_menu(self, global_pos: QPoint, path: str):
+        """Context menu for the Source Gallery."""
+        menu = QMenu(self)
+        view_action = QAction("View Preview", self)
+        view_action.triggered.connect(lambda: self.handle_thumbnail_double_click(path))
+        menu.addAction(view_action)
+        menu.exec(global_pos)
+
+    @Slot(str)
+    def load_media(self, file_path: str):
+        self.video_path = file_path
+        ext = Path(file_path).suffix.lower()
+        
+        for i in range(self.source_grid.count()):
+            container = self.source_grid.itemAt(i).widget()
+            if container:
+                label = container.findChild(ClickableLabel)
+                if label:
+                    if label.path == file_path:
+                        label.setStyleSheet("border: 3px solid #3498db; border-radius: 4px;")
+                    else:
+                        label.setStyleSheet("border: 2px solid #4f545c; border-radius: 4px;")
+
+        if ext == ".gif":
+            self.video_container_widget.setVisible(False)
+            self.extract_group.setVisible(False)
+            
+            self.media_player.stop()
+            self.media_player.setSource(QUrl())
+            
+            self._run_extraction(0, -1, is_range=True)
+            
+        else:
+            self.video_container_widget.setVisible(True) 
+            self.extract_group.setVisible(True)
+            self.btn_snapshot.setEnabled(True)
+            self.btn_set_start.setEnabled(True)
+            self.btn_set_end.setEnabled(True)
+            self._apply_player_mode()
 
     # --- Event Filters & Resizing ---
     def eventFilter(self, obj: QWidget, event: QEvent) -> bool:
@@ -213,7 +356,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.video_item.setSize(rect.size())
             self.video_view.fitInView(self.video_item, Qt.AspectRatioMode.KeepAspectRatio)
 
-    # --- Gallery & Selection Logic ---
+    # --- Gallery & Selection Logic (Extracted Frames) ---
 
     def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
         container = QWidget()
@@ -239,15 +382,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         clickable_label.path_double_clicked.connect(self.handle_thumbnail_double_click)
         clickable_label.path_right_clicked.connect(self.show_image_context_menu)
         
-        # --- REMOVED FILENAME LABEL START ---
-        # Removed: lbl_name = QLabel(Path(path).name)
-        # Removed: lbl_name.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        # Removed: lbl_name.setStyleSheet("color: #ccc; font-size: 10px;")
-        # Removed: lbl_name.setWordWrap(True)
-        # --- REMOVED FILENAME LABEL END ---
-        
         layout.addWidget(clickable_label)
-        # Removed: layout.addWidget(lbl_name)
         
         return container
 
@@ -375,23 +510,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.selected_paths = {path}
         self.delete_selected_images()
 
-    # --- Video & Player Logic ---
-    @Slot()
-    def open_video_file(self):
-        file_dialog = QFileDialog(self)
-        file_dialog.setNameFilters(["Video files (*.mp4 *.avi *.mkv *.mov)"])
-        if file_dialog.exec():
-            files = file_dialog.selectedFiles()
-            if files:
-                self.video_path = files[0]
-                self.btn_open.setText(f"Change Video File (Current: {Path(files[0]).name})")
-                self.video_container_widget.setVisible(True) 
-                self.extract_group.setVisible(True)
-                self.btn_snapshot.setEnabled(True)
-                self.btn_set_start.setEnabled(True)
-                self.btn_set_end.setEnabled(True)
-                self._apply_player_mode()
-
     @Slot()
     def toggle_player_mode(self):
         self.use_internal_player = not self.use_internal_player
@@ -399,6 +517,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     def _apply_player_mode(self):
         if not self.video_path: return
+        ext = Path(self.video_path).suffix.lower()
+        if ext == ".gif": return
+
         self.media_player.setSource(QUrl.fromLocalFile(self.video_path))
 
         if self.use_internal_player:
@@ -426,9 +547,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.media_player.setVideoOutput(None)
             self.media_player.setAudioOutput(None)
             self.media_player.pause()
-            self.launch_external_player()
 
-    # ... (Rest of Video & Extraction Logic remains unchanged) ...
     @Slot()
     def toggle_playback(self):
         if self.media_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:

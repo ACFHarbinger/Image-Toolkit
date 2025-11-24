@@ -1,5 +1,6 @@
 from .image_scanner_worker import ImageScannerWorker
 from .image_loader_worker import ImageLoaderWorker
+from .video_scan_worker import VideoScanWorker
 
 from .image_crawl_worker import ImageCrawlWorker
 from .web_requests_worker import WebRequestsWorker
