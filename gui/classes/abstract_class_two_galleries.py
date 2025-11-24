@@ -282,9 +282,9 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
 
         self._loaded_results_buffer.append((path, pixmap))
         self._images_loaded_count += 1
-        
-        if self.loading_dialog:
-            self.loading_dialog.setValue(self._images_loaded_count)
+        dialog = self.loading_dialog
+        if dialog:
+            dialog.setValue(self._images_loaded_count)
             
         if self._images_loaded_count >= self._total_images_to_load:
             # Sort by path to maintain order

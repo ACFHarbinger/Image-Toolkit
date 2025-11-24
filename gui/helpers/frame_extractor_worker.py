@@ -4,6 +4,7 @@ import time
 
 from pathlib import Path
 from PySide6.QtCore import QRunnable, Signal, QObject
+from typing import Optional, Tuple
 
 
 # --- Worker Signals ---
@@ -20,13 +21,14 @@ class FrameExtractorWorker(QRunnable):
     Background worker to extract frames using OpenCV to ensure 
     frame-accurate extraction without freezing the UI.
     """
-    def __init__(self, video_path: str, output_dir: str, start_ms: int, end_ms: int = -1, is_range: bool = False):
+    def __init__(self, video_path: str, output_dir: str, start_ms: int, end_ms: int = -1, is_range: bool = False, target_resolution: Optional[Tuple[int, int]] = None):
         super().__init__()
         self.video_path = video_path
         self.output_dir = output_dir
         self.start_ms = start_ms
         self.end_ms = end_ms
         self.is_range = is_range
+        self.target_resolution = target_resolution  # (width, height)
         self.signals = ExtractorSignals()
         self._is_cancelled = False
 
@@ -55,6 +57,11 @@ class FrameExtractorWorker(QRunnable):
                 if not ret:
                     break
 
+                # --- RESIZE LOGIC ---
+                if self.target_resolution:
+                    # Resize the frame to the requested dimensions
+                    frame = cv2.resize(frame, self.target_resolution, interpolation=cv2.INTER_AREA)
+
                 current_ms = cap.get(cv2.CAP_PROP_POS_MSEC)
                 
                 # Save Frame
@@ -79,4 +86,3 @@ class FrameExtractorWorker(QRunnable):
 
     def cancel(self):
         self._is_cancelled = True
-    

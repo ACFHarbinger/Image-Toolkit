@@ -1,7 +1,7 @@
 import os
 
 from pathlib import Path
-from typing import Optional, List, Set
+from typing import Optional, List, Set, Tuple
 from PySide6.QtWidgets import (
     QLabel, QComboBox, QStyle, 
     QSlider, QFileDialog, QGroupBox, 
@@ -32,6 +32,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.open_image_preview_windows: List[QWidget] = [] 
         
         self.use_internal_player = True 
+
+        # Defined resolutions corresponding to the Combo Box items
+        self.available_resolutions = [(1280, 720), (1920, 1080), (2560, 1440), (3840, 2160)]
         
         self.extraction_dir = Path(os.getcwd()) / "data" / "Frames"
         self.extraction_dir.mkdir(parents=True, exist_ok=True)
@@ -299,6 +302,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     @Slot(str)
     def load_media(self, file_path: str):
+        # --- NEW CODE: Reset extracted gallery when a new file is loaded ---
+        if self.video_path != file_path:
+            self._clear_gallery()
+        # --- END NEW CODE ---
+        
         self.video_path = file_path
         ext = Path(file_path).suffix.lower()
         
@@ -329,6 +337,27 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.btn_set_end.setEnabled(True)
             self._apply_player_mode()
 
+    # --- ADD NEW METHOD TO CLEAR THE GALLERY ---
+    def _clear_gallery(self):
+        """Clears the extracted frames gallery and resets related state."""
+        self.current_extracted_paths.clear()
+        self.selected_paths.clear()
+        
+        # Remove all widgets from the QGridLayout
+        while self.gallery_layout.count():
+            item = self.gallery_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        # Reset extraction range buttons
+        self.start_time_ms = 0
+        self.end_time_ms = 0
+        self.btn_set_start.setText("Set Start [00:00]")
+        self.btn_set_end.setText("Set End [00:00]")
+        self.btn_extract_range.setEnabled(False)
+        self.btn_extract_range.setText("🎞️ Extract Range")
+
+
     # --- Event Filters & Resizing ---
     def eventFilter(self, obj: QWidget, event: QEvent) -> bool:
         if obj is self.video_view:
@@ -348,9 +377,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     @Slot(int)
     def change_resolution(self, index: int):
-        resolutions = [(1280, 720), (1920, 1080), (2560, 1440), (3840, 2160)]
-        if 0 <= index < len(resolutions):
-            w, h = resolutions[index]
+        if 0 <= index < len(self.available_resolutions):
+            w, h = self.available_resolutions[index]
             self.video_view.setFixedSize(w, h)
             rect = self.video_view.viewport().rect()
             self.video_item.setSize(rect.size())
@@ -617,12 +645,19 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self._run_extraction(self.start_time_ms, self.end_time_ms, is_range=True)
 
     def _run_extraction(self, start: int, end: int, is_range: bool):
+        # Determine target resolution from the combo box
+        current_res_idx = self.combo_resolution.currentIndex()
+        target_size: Optional[Tuple[int, int]] = None
+        if 0 <= current_res_idx < len(self.available_resolutions):
+            target_size = self.available_resolutions[current_res_idx]
+
         self.extractor_worker = FrameExtractorWorker(
             video_path=self.video_path,
             output_dir=str(self.extraction_dir),
             start_ms=start,
             end_ms=end,
-            is_range=is_range
+            is_range=is_range,
+            target_resolution=target_size # Pass resolution tuple
         )
         self.extractor_worker.signals.finished.connect(self._on_extraction_finished)
         self.extractor_worker.signals.error.connect(lambda e: QMessageBox.warning(self, "Extraction Error", e))
