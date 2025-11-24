@@ -1,5 +1,4 @@
 import os
-
 from pathlib import Path
 from abc import abstractmethod
 from typing import List, Tuple, Optional, Dict
@@ -12,24 +11,13 @@ from PySide6.QtGui import QPixmap, QResizeEvent
 from .meta_abstract_class import MetaAbstractClass
 from ..helpers import ImageLoaderWorker
 
-
 class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
-    """
-    Abstract base class for tabs that contain a single, resizeable image gallery 
-    loaded asynchronously (e.g., SearchTab, WallpaperTab).
-    
-    Handles:
-    - Asynchronous Image Loading (QThreadPool)
-    - Progress Dialog management
-    - Responsive Grid Layout (Reflow on resize)
-    - Placeholder management
-    """
-
+    # ... (init remains the same) ...
     def __init__(self):
         super().__init__()
         
         # --- Data State ---
-        self.gallery_image_paths: List[str] = [] # Main list of paths in the gallery
+        self.gallery_image_paths: List[str] = [] 
         self.path_to_card_widget: Dict[str, QWidget] = {}
         
         # --- UI Configuration ---
@@ -39,20 +27,22 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
         self._current_cols = 1
 
         # --- Threading & Loading State ---
-        # Using a local ThreadPool to avoid conflicts with global tasks (e.g., during app init)
         self.thread_pool = QThreadPool()
         self._loaded_results_buffer: List[Tuple[str, QPixmap]] = []
         self._images_loaded_count = 0
         self._total_images_to_load = 0
         self.loading_dialog: Optional[QProgressDialog] = None
         self._loading_cancelled = False
+        
+        # New flag to track if we are adding to existing or replacing
+        self._is_appending = False 
 
         # --- Resize Debouncing ---
         self._resize_timer = QTimer()
         self._resize_timer.setSingleShot(True)
         self._resize_timer.timeout.connect(self._on_resize_timeout)
 
-        # --- UI References (Subclasses MUST assign these in their __init__) ---
+        # --- UI References ---
         self.gallery_scroll_area: Optional[QScrollArea] = None
         self.gallery_layout: Optional[QGridLayout] = None
 
@@ -62,31 +52,22 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
         except Exception:
             self.last_browsed_scan_dir = Path(os.getcwd())
 
-    # --- ABSTRACT METHODS ---
+    # ... (abstract methods and geometry logic remain the same) ...
 
     @abstractmethod
     def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
-        """
-        Create the specific widget to display for an image (e.g., ClickableLabel vs DraggableImageLabel).
-        Should handle its own signal connections (clicks, context menus).
-        """
         pass
 
-    # --- GEOMETRY & LAYOUT LOGIC ---
-
     def resizeEvent(self, event: QResizeEvent):
-        """Override resizeEvent to trigger debounced reflow."""
         QWidget.resizeEvent(self, event)
         self._resize_timer.start(150)
 
     def showEvent(self, event):
-        """Trigger immediate reflow when tab is shown."""
         super().showEvent(event)
         self._on_resize_timeout()
 
     @Slot()
     def _on_resize_timeout(self):
-        """Reflows the gallery grid based on current width."""
         if self.gallery_scroll_area and self.gallery_layout:
             new_cols = self.calculate_columns()
             if new_cols != self._current_cols:
@@ -96,20 +77,14 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
     def calculate_columns(self) -> int:
         if not self.gallery_scroll_area: 
             return 1
-            
-        # Try viewport width first, fallback to widget width
         width = self.gallery_scroll_area.viewport().width()
         if width <= 0: 
             width = self.gallery_scroll_area.width()
-        
-        # Default fallback if not yet visible
         if width <= 0: 
             return 4 
-            
         return max(1, width // self.approx_item_width)
 
     def _reflow_layout(self, columns: int):
-        """Repacks widgets into the new column configuration."""
         if not self.gallery_layout: return
         
         items = []
@@ -122,26 +97,36 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
             row = i // columns
             col = i % columns
             
-            # Handle centered placeholders
             if isinstance(widget, QLabel) and getattr(widget, "is_placeholder", False):
                  self.gallery_layout.addWidget(widget, 0, 0, 1, columns, Qt.AlignCenter)
                  return
                  
             self.gallery_layout.addWidget(widget, row, col, Qt.AlignLeft | Qt.AlignTop)
 
-    # --- LOADING LOGIC ---
+    # --- UPDATED LOADING LOGIC ---
 
-    def start_loading_gallery(self, paths: List[str], show_progress: bool = True):
+    def start_loading_gallery(self, paths: List[str], show_progress: bool = True, append: bool = False):
         """
-        Starts the async loading process for the provided paths.
+        Starts the async loading process.
+        :param paths: List of image paths to load.
+        :param show_progress: Whether to show the QProgressDialog.
+        :param append: If True, adds to existing gallery. If False, clears it first.
         """
-        self.cancel_loading() # Stop any previous loads
+        self.cancel_loading()
         
-        self.gallery_image_paths = paths
-        self.clear_gallery_widgets()
+        self._is_appending = append
+
+        if not append:
+            self.gallery_image_paths = paths
+            self.clear_gallery_widgets()
+        else:
+            # Check if we have a placeholder to remove before appending
+            self._remove_placeholder()
+            self.gallery_image_paths.extend(paths)
         
         if not paths:
-            self.show_placeholder("No images to display.")
+            if not append:
+                self.show_placeholder("No images to display.")
             return
 
         self._loaded_results_buffer = []
@@ -151,18 +136,17 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
 
         # Setup Progress Dialog
         if show_progress:
-            self.loading_dialog = QProgressDialog("Loading gallery...", "Cancel", 0, self._total_images_to_load, self)
+            title = "Adding images..." if append else "Loading gallery..."
+            self.loading_dialog = QProgressDialog(title, "Cancel", 0, self._total_images_to_load, self)
             self.loading_dialog.setWindowModality(Qt.WindowModal)
             self.loading_dialog.setMinimumDuration(0)
             self.loading_dialog.canceled.connect(self.cancel_loading)
             self.loading_dialog.show()
             
-            # Process events to render dialog immediately
             loop = QEventLoop()
             QTimer.singleShot(1, loop.quit)
             loop.exec()
 
-        # Submit Tasks
         submission_count = 0
         for path in paths:
             if self._loading_cancelled: break
@@ -170,48 +154,55 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
             worker = ImageLoaderWorker(path, self.thumbnail_size)
             worker.signals.result.connect(self._on_single_image_loaded)
             self.thread_pool.start(worker)
-            dialog = self.loading_dialog
-            if dialog:
+            
+            if self.loading_dialog:
                 submission_count += 1
-                dialog.setValue(submission_count)
-                dialog.setLabelText(f"Submitting {submission_count}/{self._total_images_to_load}...")
+                self.loading_dialog.setValue(submission_count)
+                self.loading_dialog.setLabelText(f"Submitting {submission_count}/{self._total_images_to_load}...")
                 QApplication.processEvents()
-                
-        if self.loading_dialog:
-            self.loading_dialog.setValue(0)
-            self.loading_dialog.setLabelText(f"Processing 0/{self._total_images_to_load}...")
 
     @Slot(str, QPixmap)
     def _on_single_image_loaded(self, path: str, pixmap: QPixmap):
-        """Accumulates loaded images and updates progress."""
         if self._loading_cancelled: return
 
         self._loaded_results_buffer.append((path, pixmap))
         self._images_loaded_count += 1
-        dialog = self.loading_dialog
-        if dialog:
-            dialog.setValue(self._images_loaded_count)
-            dialog.setLabelText(f"Processing {self._images_loaded_count}/{self._total_images_to_load}")
+        
+        if self.loading_dialog:
+            self.loading_dialog.setValue(self._images_loaded_count)
+            self.loading_dialog.setLabelText(f"Processing {self._images_loaded_count}/{self._total_images_to_load}")
             
         if self._images_loaded_count >= self._total_images_to_load:
-            # Sort results to match original list order
-            path_index_map = {p: i for i, p in enumerate(self.gallery_image_paths)}
+            # We only sort the *current batch* to match the order they were passed in
+            # We do not re-sort the entire gallery here
+            input_subset = self.gallery_image_paths[-self._total_images_to_load:] if self._is_appending else self.gallery_image_paths
+            
+            path_index_map = {p: i for i, p in enumerate(input_subset)}
             sorted_results = sorted(self._loaded_results_buffer, key=lambda x: path_index_map.get(x[0], float('inf')))
             self.handle_batch_finished(sorted_results)
 
     def handle_batch_finished(self, loaded_results: List[Tuple[str, QPixmap]]):
-        """Populates the gallery with the final sorted images."""
+        """Populates the gallery with the loaded images."""
         if self._loading_cancelled: return
         
-        self.clear_gallery_widgets()
+        if not self._is_appending:
+            self.clear_gallery_widgets()
+            start_index = 0
+        else:
+            # Calculate where to start adding in the grid
+            start_index = len(self.path_to_card_widget)
+
         cols = self.calculate_columns()
         
         for i, (path, pixmap) in enumerate(loaded_results):
             card = self.create_card_widget(path, pixmap)
             self.path_to_card_widget[path] = card
             
-            row = i // cols
-            col = i % cols
+            # Calculate absolute index for the grid
+            absolute_index = start_index + i
+            row = absolute_index // cols
+            col = absolute_index % cols
+            
             self.gallery_layout.addWidget(card, row, col, Qt.AlignLeft | Qt.AlignTop)
             
         if self.loading_dialog:
@@ -236,6 +227,17 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
             if item.widget():
                 item.widget().deleteLater()
 
+    def _remove_placeholder(self):
+        """Helper to remove only the placeholder widget if it exists."""
+        if not self.gallery_layout: return
+        
+        # Check usually the first item
+        if self.gallery_layout.count() > 0:
+            item = self.gallery_layout.itemAt(0)
+            widget = item.widget()
+            if isinstance(widget, QLabel) and getattr(widget, "is_placeholder", False):
+                widget.deleteLater()
+
     def show_placeholder(self, text: str):
         self.clear_gallery_widgets()
         if not self.gallery_layout: return
@@ -243,7 +245,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
         lbl = QLabel(text)
         lbl.setAlignment(Qt.AlignCenter)
         lbl.setStyleSheet("color: #b9bbbe; padding: 20px; font-style: italic;")
-        lbl.is_placeholder = True # Mark for reflow logic
+        lbl.is_placeholder = True 
         
         cols = self.calculate_columns()
         self.gallery_layout.addWidget(lbl, 0, 0, 1, cols, Qt.AlignCenter)
