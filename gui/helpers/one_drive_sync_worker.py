@@ -42,13 +42,11 @@ class OneDriveSyncWorker(QRunnable):
         
         try:
             client_id = self.auth_config.get("client_id")
-            client_secret = self.auth_config.get("client_secret")
             
             self.sync_manager = OneDriveSync(
                 local_source_path=self.local_path,
                 drive_destination_folder_name=self.remote_path,
                 client_id=client_id,
-                client_secret=client_secret,
                 dry_run=self.dry_run,
                 logger=self._log,
                 action_local_orphans=self.action_local,

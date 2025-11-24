@@ -132,7 +132,10 @@ class DriveSyncTab(BaseTab):
         config_layout.addLayout(local_layout)
         config_layout.addWidget(QLabel("Remote Destination Path:"))
         config_layout.addLayout(remote_layout)
-        config_layout.addLayout(share_layout)
+        
+        # Add share widgets directly to layout so we can toggle visibility
+        config_layout.addWidget(self.share_email_label)
+        config_layout.addWidget(self.share_email_input)
         
         # ------------------ SYNC BEHAVIOR GROUP ------------------
         behavior_group = QGroupBox("Sync Behavior")
@@ -249,7 +252,7 @@ class DriveSyncTab(BaseTab):
 
         # Toggle Sharing widgets (only for Service Account)
         for w in (self.share_email_label, self.share_email_input, self.btn_share_folder):
-            w.setEnabled(is_google_service)
+            w.setVisible(is_google_service) # Changed from setEnabled to setVisible
         
         # View Map is specific to Google Drive implementation for now
         self.btn_view_remote.setEnabled(is_google)
