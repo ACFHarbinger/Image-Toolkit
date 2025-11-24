@@ -1,58 +1,47 @@
 import os
+import time
 import platform
 import subprocess
-import time
 
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 from PySide6.QtGui import QPixmap, QAction, QCursor
-from PySide6.QtCore import Qt, Signal, QPoint, QThreadPool, Slot
+from PySide6.QtCore import Qt, Signal, QPoint, Slot, QThreadPool
 from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QComboBox, QProgressBar,
     QWidget, QLabel, QMessageBox, QMenu, QCheckBox,
     QFormLayout, QHBoxLayout, QVBoxLayout, 
     QGridLayout, QScrollArea, QGroupBox, 
-    QProgressDialog, QApplication
 )
-from .base_tab import BaseTab
-from ..helpers import SearchWorker, ImageLoaderWorker
+from ..helpers import SearchWorker
 from ..windows import ImagePreviewWindow
+from ..classes import AbstractClassSingleGallery
 from ..components import OptionalField, ClickableLabel, MarqueeScrollArea
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 from ..styles.style import apply_shadow_effect
 
 
-class SearchTab(BaseTab):
+class SearchTab(AbstractClassSingleGallery):
     # Signal to send image to another tab: (target_tab_name, image_path)
     send_to_tab_signal = Signal(str, str)
 
     def __init__(self, db_tab_ref, dropdown=True):
+        # Initialize Base Class
         super().__init__()
+        
         self.db_tab_ref = db_tab_ref
         self.dropdown = dropdown
         
-        self.result_widgets = []
         self.open_preview_windows = [] 
         self.selected_formats = set() 
-        self.current_result_paths = [] 
         self._db_was_connected = False 
         
-        self.threadpool = QThreadPool.globalInstance()
-        self.current_worker: Optional[SearchWorker] = None
+        # Search specific worker (Base class handles Image Loading worker)
+        self.current_search_worker: Optional[SearchWorker] = None
         
         self.selected_paths = set()
         self.path_to_widget_map = {} 
 
-        self.thumbnail_size = 150
-        self.padding_width = 10
-        self.approx_item_width = self.thumbnail_size + self.padding_width
-        
-        # --- Image Loading State ---
-        self._loaded_results_buffer: List[Tuple[str, QPixmap]] = []
-        self._images_loaded_count = 0
-        self._total_images_to_load = 0
-        self.loading_dialog: Optional[QProgressDialog] = None
-        self._loading_cancelled = False # Flag for cancellation
-        
+        # --- UI SETUP ---
         layout = QVBoxLayout(self)
         
         # --- Search Criteria ---
@@ -156,7 +145,7 @@ class SearchTab(BaseTab):
         self.search_button.clicked.connect(self.toggle_search)
         layout.addWidget(self.search_button)
         
-        # --- NEW: Progress Bar (Indeterminate) ---
+        # Progress Bar (for search query, not image loading)
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 0) # Indeterminate mode
         self.progress_bar.setTextVisible(False)
@@ -176,7 +165,6 @@ class SearchTab(BaseTab):
         results_label.setStyleSheet("font-weight: bold; font-size: 12px; margin-top: 10px;")
         results_header_layout.addWidget(results_label)
         
-        # --- NEW: Selection Actions ---
         results_header_layout.addStretch()
         
         self.btn_select_all = QPushButton("Select All")
@@ -200,17 +188,12 @@ class SearchTab(BaseTab):
         self.results_count_label.setStyleSheet("color: #aaa; font-style: italic;")
         layout.addWidget(self.results_count_label)
         
-        # --- MODIFIED: Use MarqueeScrollArea ---
+        # --- Gallery Setup for Base Class ---
         self.results_scroll = MarqueeScrollArea()
         self.results_scroll.setWidgetResizable(True)
         self.results_scroll.setMinimumHeight(300)
-        
-        # Matching styles to WallpaperTab
         self.results_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
-        
-        # --- Connect Marquee Selection ---
         self.results_scroll.selection_changed.connect(self.handle_marquee_selection)
-        # ---------------------------------
 
         self.results_widget = QWidget()
         self.results_widget.setStyleSheet("QWidget { background-color: #2c2f33; }")
@@ -222,31 +205,66 @@ class SearchTab(BaseTab):
         
         layout.addWidget(self.results_scroll)
         
+        # **Assign Base Class References**
+        self.gallery_scroll_area = self.results_scroll
+        self.gallery_layout = self.results_layout
+        
         self.setLayout(layout)
 
         # Update enabled state based on DB connection
         self.update_search_button_state()
 
+    # --- IMPLEMENT ABSTRACT METHOD ---
+
+    def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
+        """
+        Creates a ClickableLabel for the Search Tab gallery.
+        """
+        container = QWidget()
+        container.setStyleSheet("background: transparent;") 
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(1)
+        
+        image_label = ClickableLabel(path)
+        image_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
+        image_label.setAlignment(Qt.AlignCenter)
+        image_label.setStyleSheet("border: 1px solid #4f545c;")
+        
+        # Connect signals
+        image_label.path_clicked.connect(lambda checked, p=path: self.toggle_selection(p))
+        image_label.path_double_clicked.connect(self.open_file_preview)
+        image_label.path_right_clicked.connect(
+            lambda pos, p=path, w=image_label: self.show_context_menu(pos, p, w)
+        )
+        
+        # Map path to widget for selection styling
+        self.path_to_widget_map[path] = image_label
+        
+        if pixmap and not pixmap.isNull():
+            image_label.setPixmap(pixmap)
+        else:
+            image_label.setText("Not Found")
+            image_label.setStyleSheet("border: 1px solid #e74c3c; background-color: #4f545c; font-size: 8px;")
+        
+        layout.addWidget(image_label)
+        return container
+
     # --- Worker and Search Logic ---
     
     @Slot()
     def toggle_search(self):
-        """Switches between starting and cancelling the search."""
-        if self.current_worker:
+        if self.current_search_worker:
             self.cancel_search()
         else:
             self.perform_search()
 
     def perform_search(self):
-        """
-        Gathers parameters and starts the asynchronous search worker.
-        """
         db = self.db_tab_ref.db
         if not db:
             QMessageBox.warning(self, "Error", "Please connect to the database first.")
             return
             
-        # Get search criteria
         query_params = {
             "group_name": self.group_combo.currentText().strip() or None,
             "subgroup_name": self.subgroup_combo.currentText().strip() or None,
@@ -256,57 +274,74 @@ class SearchTab(BaseTab):
             "limit": 1000
         }
 
-        # Clear previous UI state and results
-        self.clear_results()
+        self.clear_search_data()
         self.search_button.setEnabled(False)
         self.search_button.setText("Searching...")
         self.progress_bar.show()
         
-        # Create and start worker
-        self.current_worker = SearchWorker(db, query_params)
-        self.current_worker.signals.finished.connect(self.on_search_finished)
-        self.current_worker.signals.error.connect(self.on_search_error)
-        self.current_worker.signals.cancelled.connect(self.on_search_cancelled)
+        self.current_search_worker = SearchWorker(db, query_params)
+        self.current_search_worker.signals.finished.connect(self.on_search_finished)
+        self.current_search_worker.signals.error.connect(self.on_search_error)
+        self.current_search_worker.signals.cancelled.connect(self.on_search_cancelled)
         
-        self.threadpool.start(self.current_worker)
+        # Use global threadpool for search worker, separate from base class gallery loader
+        QThreadPool.globalInstance().start(self.current_search_worker)
 
     @Slot(list)
     def on_search_finished(self, matching_files: list):
-        """Receives results from the worker and updates the UI."""
-        self.current_worker = None
+        self.current_search_worker = None
         self._reset_search_ui(f"Search Complete. Found {len(matching_files)} images.")
         self.display_results(matching_files)
 
     @Slot(str)
     def on_search_error(self, error_msg: str):
-        """Handles errors from the worker and updates the UI."""
-        self.current_worker = None
+        self.current_search_worker = None
         self._reset_search_ui("Search Failed.")
         QMessageBox.critical(self, "Search Error", f"An error occurred during search:\n{error_msg}")
         self.results_count_label.setText(f"Error: {error_msg}")
 
     @Slot()
     def on_search_cancelled(self):
-        """Handles manual cancellation."""
-        self.current_worker = None
+        self.current_search_worker = None
         self._reset_search_ui("Search Cancelled.")
         self.results_count_label.setText("Search cancelled by user.")
 
     def cancel_search(self):
-        """Requests cancellation of the current search worker."""
-        if self.current_worker:
-            self.current_worker.cancel()
+        if self.current_search_worker:
+            self.current_search_worker.cancel()
             self.search_button.setText("Stopping...")
             self.search_button.setEnabled(False) 
 
     def _reset_search_ui(self, message: str):
-        """Resets the search button and hides the progress bar."""
         self.search_button.setEnabled(True)
         self.search_button.setText("Search Database")
         self.progress_bar.hide()
         self.results_count_label.setText(message)
 
-    # --- Format Selection Methods ---
+    def display_results(self, results: List[Dict[str, Any]]):
+        """
+        Extracts paths and delegates loading to BaseSingleGalleryTab.
+        """
+        paths = [res.get('file_path') for res in results if res.get('file_path')]
+        
+        count = len(paths)
+        self.results_count_label.setText(f"Found {count} matching image(s)")
+        
+        # This calls the BaseSingleGalleryTab logic
+        self.start_loading_gallery(paths)
+
+    def clear_search_data(self):
+        """Clears local selection data and widgets."""
+        self.selected_paths.clear()
+        self.path_to_widget_map.clear()
+        for window in self.open_preview_windows[:]:
+            window.close()
+        self.open_preview_windows.clear()
+        
+        # Call base class to clear UI
+        self.clear_gallery_widgets()
+
+    # --- Format & Tag Logic (Unchanged) ---
     def toggle_format(self, fmt, checked):
         if checked:
             self.selected_formats.add(fmt)
@@ -332,20 +367,11 @@ class SearchTab(BaseTab):
             btn.setChecked(False)
             self.toggle_format(fmt, False)
     
-    # --- DB Tags Helper Methods ---
-
     def _get_tags_from_db(self) -> List[Dict[str, str]]:
-        """
-        Fetches all tags and their types from the connected database.
-        Returns a list of dictionaries [{'name': ..., 'type': ...}].
-        """
         db = self.db_tab_ref.db
-        if not db: 
-            return []
-            
+        if not db: return []
         try:
             db_tags = db.get_all_tags_with_types()
-            # Sort by name
             return sorted(db_tags, key=lambda x: x['name'])
         except Exception:
             pass 
@@ -353,61 +379,33 @@ class SearchTab(BaseTab):
 
     @Slot()
     def _setup_tag_checkboxes(self):
-        """
-        Clears and repopulates the tags grid layout with checkboxes,
-        applying color based on tag type.
-        """
-        # Clear existing checkboxes
         while self.tags_layout.count():
             item = self.tags_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
         
         self.tag_checkboxes = {}
-        
         tags_data = self._get_tags_from_db()
-
-        # Define color scheme for tag types (using dark mode friendly colors)
         color_map = {
-            'Artist': '#5865f2',    # Bright blue/purple
-            'Series': '#f1c40f',    # Yellow/Gold
-            'Character': '#2ecc71', # Emerald green
-            'General': '#e91e63',   # Pink/Magenta
-            'Meta': '#9b59b6',      # Amethyst purple
-            '': '#c7c7c7',          # Default grey (for untyped tags)
-            None: '#c7c7c7'         # Default grey
+            'Artist': '#5865f2', 'Series': '#f1c40f', 
+            'Character': '#2ecc71', 'General': '#e91e63', 
+            'Meta': '#9b59b6', '': '#c7c7c7', None: '#c7c7c7'
         }
-        
         columns = 8
-        
         for i, tag_data in enumerate(tags_data):
             tag_name = tag_data['name']
-            # Normalize type: use empty string if None
             tag_type = tag_data['type'] if tag_data['type'] else '' 
-            
             checkbox = QCheckBox(tag_name.replace("_", " ").title())
-            
-            # Determine color and apply styling
             text_color = color_map.get(tag_type, color_map[''])
-            
-            # Apply styling. Note: QCheckBox text color is set via 'color' property
             checkbox.setStyleSheet(f"QCheckBox {{ color: {text_color}; }}")
-            
             self.tag_checkboxes[tag_name] = checkbox
             self.tags_layout.addWidget(checkbox, i // columns, i % columns)
-            
-    # --- UI and Selection methods ---
 
     def update_search_button_state(self, connected: bool = None):
-        """
-        Disables search button if DB is not connected.
-        Triggers tag refresh if DB connection is newly established.
-        """
         if connected is None:
             db_connected = self.db_tab_ref.db is not None
         else:
             db_connected = connected
-            
         self.search_button.setEnabled(db_connected)
         
         if not db_connected:
@@ -416,18 +414,14 @@ class SearchTab(BaseTab):
             if self.results_count_label.text() == "Not connected to database.":
                 self.results_count_label.setText("Ready to search.")
         
-        # Refresh tags if we just connected
         if db_connected and not self._db_was_connected:
             self._setup_tag_checkboxes()
-        
         self._db_was_connected = db_connected
 
     def get_selected_tags(self) -> List[str]:
-        """Returns a list of tags selected via checkboxes."""
         return [tag for tag, cb in self.tag_checkboxes.items() if cb.isChecked()]
 
     def get_selected_formats(self) -> Optional[List[str]]:
-        """Gets the list of selected formats."""
         if self.dropdown:
             if not self.selected_formats:
                 return None
@@ -438,44 +432,23 @@ class SearchTab(BaseTab):
                 return None
             return [f.strip().lstrip('.').lower() for f in formats_str.replace(',', ' ').split() if f.strip()]
 
-    @Slot()
-    def calculate_columns(self) -> int:
-        """
-        Calculates the number of columns based on widget width, 
-        matching logic from WallpaperTab.
-        """
-        widget_width = self.results_widget.width()
-        if widget_width <= 0:
-            try:
-                widget_width = self.results_scroll.width()
-            except AttributeError:
-                 widget_width = 800
-        
-        if widget_width <= 0:
-            return 4 
-        
-        columns = widget_width // self.approx_item_width
-        return max(1, columns)
-
-    # --- Selection Logic Implementations ---
+    # --- Selection Logic ---
 
     @Slot()
     def select_all_results(self):
-        """Selects all currently displayed results."""
-        for path in self.current_result_paths:
+        # Access Base Class data: self.gallery_image_paths
+        for path in self.gallery_image_paths:
             if path not in self.selected_paths:
                 self.selected_paths.add(path)
                 self._update_widget_style(path)
     
     @Slot()
     def deselect_all_results(self):
-        """Deselects all currently displayed results."""
         self.selected_paths.clear()
-        for path in self.current_result_paths:
+        for path in self.gallery_image_paths:
             self._update_widget_style(path)
 
     def toggle_selection(self, file_path: str):
-        """Toggles the selection state of a specific image."""
         if file_path in self.selected_paths:
             self.selected_paths.remove(file_path)
         else:
@@ -484,62 +457,37 @@ class SearchTab(BaseTab):
 
     @Slot(set, bool)
     def handle_marquee_selection(self, paths_from_marquee: set, is_ctrl_pressed: bool):
-        """Handles selection updates from the marquee tool."""
-        # Check for currently visible paths to avoid updating hidden or old items
-        visible_paths = set(self.current_result_paths)
-        
-        # Filter paths_from_marquee to only include currently visible results
+        visible_paths = set(self.gallery_image_paths)
         valid_marquee_paths = paths_from_marquee.intersection(visible_paths)
-        
         paths_to_update = self.selected_paths.union(valid_marquee_paths)
         
         if not is_ctrl_pressed:
-            # Exclusive selection: Start with the valid marquee selection
             self.selected_paths = valid_marquee_paths
         else:
-            # Additive selection: Add the valid marquee paths to the existing selection
             self.selected_paths.update(valid_marquee_paths)
 
-        # Update styles for all affected items
         for path in paths_to_update:
             self._update_widget_style(path)
             
     def _update_widget_style(self, file_path: str):
-        """Updates the border style of the widget based on selection."""
         widget = self.path_to_widget_map.get(file_path)
         if widget:
             if file_path in self.selected_paths:
-                # Selected Style: Blue Border
                 widget.setStyleSheet("border: 3px solid #5865f2; background-color: #36393f;")
             else:
-                # Default Style: Grey Border
                 widget.setStyleSheet("border: 1px solid #4f545c;")
 
-    # --- TAB COMMUNICATION METHODS (remain unchanged) ---
+    # --- TAB COMMUNICATION & FILE ACTIONS (Maintained from original) ---
 
     def _get_target_selection(self, single_path=None):
-        """
-        Returns the list of paths to process.
-        Logic:
-        1. If multiple items are selected, return ALL selected paths.
-        2. If NO items are selected, but single_path is provided (right-click on non-selected item), return [single_path].
-        3. If single_path is provided AND it is inside the current selection, return ALL selected paths (bulk action).
-        """
         paths = list(self.selected_paths)
-        
         if single_path:
             if single_path in self.selected_paths:
-                # Right-clicked on an item that is part of the selection -> Process whole selection
                 return sorted(paths)
             else:
-                # Right-clicked on an item NOT in selection -> Process only that item
                 if not paths:
                     return [single_path]
-                else:
-                    # Ambiguous case: User has selection but right-clicked outside it.
-                    # Here we return ONLY the right-clicked one to be safe/explicit.
-                    return [single_path]
-        
+                return [single_path]
         return sorted(paths)
 
     def send_selection_to_scan_tab(self):
@@ -595,135 +543,6 @@ class SearchTab(BaseTab):
         self.db_tab_ref.wallpaper_tab_ref.display_scan_results(paths)
         QMessageBox.information(self, "Images Sent", f"Sent {len(paths)} images to the Wallpaper Tab.")
 
-    def display_results(self, results: List[Dict[str, Any]]):
-        """Display the search results using threaded loading for responsiveness."""
-        # 1. Clear previous results
-        self.clear_results()
-        
-        # 2. Extract paths
-        self.current_result_paths = [res.get('file_path') for res in results if res.get('file_path')]
-        count = len(self.current_result_paths)
-        self.results_count_label.setText(f"Found {count} matching image(s)")
-        
-        if count == 0:
-            return
-
-        # 3. Setup Thread Pool for Loading
-        self.threadpool.clear()
-        self._loaded_results_buffer = []
-        self._images_loaded_count = 0
-        self._total_images_to_load = count
-        self._loading_cancelled = False # Reset flag
-        
-        # 4. Show Modal Progress Dialog
-        self.loading_dialog = QProgressDialog("Loading results...", "Cancel", 0, self._total_images_to_load, self)
-        self.loading_dialog.setWindowModality(Qt.WindowModal)
-        self.loading_dialog.setWindowTitle("Please Wait")
-        self.loading_dialog.setMinimumDuration(0)
-        self.loading_dialog.canceled.connect(self.cancel_loading)
-        self.loading_dialog.show()
-        
-        QApplication.processEvents()
-
-        self.loading_dialog.setLabelText(f"Loading image 0 of {self._total_images_to_load}...")
-        self.loading_dialog.setValue(0)
-        
-        submitted_count = 0
-        
-        # 5. Submit tasks
-        for path in self.current_result_paths:
-            if self._loading_cancelled:
-                break
-                
-            worker = ImageLoaderWorker(path, self.thumbnail_size)
-            worker.signals.result.connect(self._on_single_image_loaded)
-            self.threadpool.start(worker)
-            
-            submitted_count += 1
-            self.loading_dialog.setValue(submitted_count)
-            self.loading_dialog.setLabelText(f"Submitting task {submitted_count} of {self._total_images_to_load}...")
-            QApplication.processEvents()
-            
-        if self.loading_dialog:
-            self.loading_dialog.setValue(0)
-            self.loading_dialog.setLabelText(f"Processing results 0 of {self._total_images_to_load}...")
-
-    @Slot(str, QPixmap)
-    def _on_single_image_loaded(self, path: str, pixmap: QPixmap):
-        """Aggregates results and updates progress."""
-        if self._loading_cancelled:
-            return
-            
-        self._loaded_results_buffer.append((path, pixmap))
-        self._images_loaded_count += 1
-        
-        if self.loading_dialog:
-             self.loading_dialog.setValue(self._images_loaded_count)
-             self.loading_dialog.setLabelText(f"Processing results {self._images_loaded_count} of {self._total_images_to_load}...")
-
-        if self._images_loaded_count >= self._total_images_to_load:
-            # Sort results to maintain order (though order comes from DB, thread finish order is random)
-            # We want to match the order of self.current_result_paths
-            # Create a lookup for sorting index
-            path_index_map = {p: i for i, p in enumerate(self.current_result_paths)}
-            sorted_results = sorted(self._loaded_results_buffer, key=lambda x: path_index_map.get(x[0], 999999))
-            self.handle_batch_finished(sorted_results)
-
-    @Slot(list)
-    def handle_batch_finished(self, loaded_results: List[Tuple[str, QPixmap]]):
-        """Populates the grid with loaded images."""
-        if self._loading_cancelled:
-            return
-
-        columns = self.calculate_columns()
-        
-        for i, (file_path, pixmap) in enumerate(loaded_results):
-            row = i // columns
-            col = i % columns
-            
-            result_container = QWidget()
-            result_container.setStyleSheet("background: transparent;") 
-            result_layout = QVBoxLayout(result_container)
-            result_layout.setContentsMargins(0, 0, 0, 0)
-            result_layout.setSpacing(1)
-            
-            image_label = ClickableLabel(file_path)
-            image_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
-            image_label.setAlignment(Qt.AlignCenter)
-            image_label.setStyleSheet("border: 1px solid #4f545c;")
-            
-            image_label.path_clicked.connect(lambda checked, p=file_path: self.toggle_selection(p))
-            image_label.path_double_clicked.connect(self.open_file_preview)
-            image_label.path_right_clicked.connect(
-                lambda pos, p=file_path, w=image_label: self.show_context_menu(pos, p, w)
-            )
-            
-            self.path_to_widget_map[file_path] = image_label
-            
-            if not pixmap.isNull():
-                 image_label.setPixmap(pixmap)
-            else:
-                image_label.setText("Not Found")
-                image_label.setStyleSheet("border: 1px solid #e74c3c; background-color: #4f545c; font-size: 8px;")
-            
-            result_layout.addWidget(image_label)
-            self.results_layout.addWidget(result_container, row, col)
-            self.result_widgets.append(result_container)
-            
-        if self.loading_dialog:
-            self.loading_dialog.close()
-            self.loading_dialog = None
-
-    def cancel_loading(self):
-        """Slot for cancelling image loading."""
-        self._loading_cancelled = True
-        self.threadpool.clear()
-        self._loaded_results_buffer.clear()
-        if self.loading_dialog:
-            self.loading_dialog.close()
-            self.loading_dialog = None
-        print("Image loading cancelled by user.")
-
     def handle_remove_from_db(self, file_path: str):
         db = self.db_tab_ref.db
         if not db:
@@ -731,21 +550,18 @@ class SearchTab(BaseTab):
             return
         filename = os.path.basename(file_path)
         reply = QMessageBox.question(
-            self, 
-            "Confirm Database Removal",
+            self, "Confirm Database Removal",
             f"Are you sure you want to remove the entry for **{filename}** from the database?\n\nThe physical image file WILL NOT be deleted.",
-            QMessageBox.Yes | QMessageBox.No, 
-            QMessageBox.No
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
         )
-        if reply == QMessageBox.No:
-            return
+        if reply == QMessageBox.No: return
         try:
             image_data = db.get_image_by_path(file_path)
             image_id = image_data.get('id') if image_data else None
             if image_id is not None:
                 db.delete_image(image_id) 
-                if file_path in self.current_result_paths:
-                    self.current_result_paths.remove(file_path)
+                if file_path in self.gallery_image_paths:
+                    self.gallery_image_paths.remove(file_path)
                 if file_path in self.selected_paths:
                     self.selected_paths.remove(file_path)
                 self.perform_search() 
@@ -765,14 +581,11 @@ class SearchTab(BaseTab):
             return
         filename = os.path.basename(file_path)
         reply = QMessageBox.question(
-            self, 
-            "Confirm Deletion",
+            self, "Confirm Deletion",
             f"Are you sure you want to PERMANENTLY delete the file:\n\n**{filename}**\n\nThis action cannot be undone!",
-            QMessageBox.Yes | QMessageBox.No, 
-            QMessageBox.No
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
         )
-        if reply == QMessageBox.No:
-            return
+        if reply == QMessageBox.No: return
         try:
             image_data = db.get_image_by_path(file_path)
             image_id = image_data.get('id') if image_data else None
@@ -783,14 +596,14 @@ class SearchTab(BaseTab):
             os.remove(file_path)
             if image_id is not None:
                 db.delete_image(image_id) 
-            else:
-                print(f"Warning: Image file deleted, but no entry found in database for path: {file_path}")
-            if file_path in self.current_result_paths:
-                self.current_result_paths.remove(file_path)
+            
+            if file_path in self.gallery_image_paths:
+                self.gallery_image_paths.remove(file_path)
             if file_path in self.selected_paths:
                 self.selected_paths.remove(file_path)
+            
             self.perform_search() 
-            QMessageBox.information(self, "Success", f"File and associated database entry deleted successfully: {filename}")
+            QMessageBox.information(self, "Success", f"File deleted: {filename}")
         except Exception as e:
             QMessageBox.critical(self, "Deletion Failed", f"Could not delete the file:\n{e}")
 
@@ -804,20 +617,16 @@ class SearchTab(BaseTab):
             last_modified = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(stats.st_mtime))
             def format_size(size_bytes):
                 for unit in ['B', 'KB', 'MB', 'GB']:
-                    if size_bytes < 1024.0:
-                        return f"{size_bytes:.2f} {unit}"
+                    if size_bytes < 1024.0: return f"{size_bytes:.2f} {unit}"
                     size_bytes /= 1024.0
                 return f"{size_bytes:.2f} TB"
             pixmap = QPixmap(file_path)
-            if not pixmap.isNull():
-                dimensions = f"{pixmap.width()} x {pixmap.height()} pixels"
-            else:
-                dimensions = "N/A (Could not load image)"
+            dimensions = f"{pixmap.width()} x {pixmap.height()} pixels" if not pixmap.isNull() else "N/A"
             properties_text = (
                 f"**Filename:** {os.path.basename(file_path)}\n"
                 f"**Full Path:** {file_path}\n"
                 f"**Dimensions:** {dimensions}\n"
-                f"**Size:** {format_size(stats.st_size)} ({file_size_bytes} bytes)\n"
+                f"**Size:** {format_size(stats.st_size)}\n"
                 f"**Last Modified:** {last_modified}\n"
             )
             msg = QMessageBox(self)
@@ -877,23 +686,26 @@ class SearchTab(BaseTab):
             pass
 
     def open_file_preview(self, file_path: str):
-        if not file_path or not os.path.exists(file_path) or not os.path.isfile(file_path):
+        if not file_path or not os.path.exists(file_path):
             QMessageBox.warning(self, "Invalid Path", f"File not found at path:\n{file_path}")
             return
         for window in self.open_preview_windows:
             if window.image_path == file_path:
                 window.activateWindow() 
                 return
-        if self.current_result_paths:
+        
+        # Use gallery_image_paths from Base class
+        if self.gallery_image_paths:
             try:
-                start_index = self.current_result_paths.index(file_path)
-                all_paths = self.current_result_paths
+                start_index = self.gallery_image_paths.index(file_path)
+                all_paths = self.gallery_image_paths
             except ValueError:
                 start_index = 0
                 all_paths = [file_path]
         else:
             start_index = 0
             all_paths = [file_path]
+            
         preview = ImagePreviewWindow(
             image_path=file_path, 
             db_tab_ref=self.db_tab_ref, 
@@ -912,25 +724,11 @@ class SearchTab(BaseTab):
         directory = os.path.dirname(file_path)
         system = platform.system()
         try:
-            if system == "Windows":
-                os.startfile(directory)
-            elif system == "Darwin":
-                subprocess.run(['open', directory])
-            else:
-                subprocess.run(['xdg-open', directory])
+            if system == "Windows": os.startfile(directory)
+            elif system == "Darwin": subprocess.run(['open', directory])
+            else: subprocess.run(['xdg-open', directory])
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open directory:\n{e}")
-    
-    def clear_results(self):
-        for widget in self.result_widgets:
-            widget.deleteLater()
-        self.result_widgets.clear()
-        self.current_result_paths = []
-        self.selected_paths.clear()
-        self.path_to_widget_map.clear()
-        for window in self.open_preview_windows[:]:
-            window.close()
-        self.open_preview_windows.clear()
     
     def collect(self) -> Dict[str, Any]:
         return {
@@ -943,10 +741,10 @@ class SearchTab(BaseTab):
 
     def get_default_config(self) -> Dict[str, Any]:
         return {
-            "group_name": "",
+            "group_name": "", 
             "subgroup_name": "",
-            "filename_pattern": "",
-            "input_formats": [],
+            "filename_pattern": "", 
+            "input_formats": [], 
             "tags": []
         }
 

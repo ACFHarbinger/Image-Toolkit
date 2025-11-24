@@ -9,14 +9,13 @@ from PySide6.QtWidgets import (
     QListWidget, QMenu, QProgressBar, QInputDialog 
 )
 from PySide6.QtGui import QAction
-from .base_tab import BaseTab
 from ..helpers import ImageCrawlWorker
 from ..components import OptionalField
 from ..styles.style import apply_shadow_effect
 from ..windows import LogWindow 
 
 
-class ImageCrawlTab(BaseTab):
+class ImageCrawlTab(QWidget):
     def __init__(self, dropdown=True):
         super().__init__()
         self.dropdown = dropdown

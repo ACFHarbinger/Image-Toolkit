@@ -13,14 +13,13 @@ from PySide6.QtWidgets import (
     QPushButton, QLabel, QFormLayout, QMenu,
     QProgressDialog, QMessageBox, QGridLayout,
 )
-from .base_tab import BaseTab
 from ..windows import ImagePreviewWindow
 from ..components import ClickableLabel, MarqueeScrollArea
 from ..helpers import ImageScannerWorker, ImageLoaderWorker
 from ..styles.style import apply_shadow_effect
 
 
-class ScanMetadataTab(BaseTab):
+class ScanMetadataTab(QWidget):
     """
     Manages file and directory metadata scanning, image preview gallery, and batch database operations.
     """
