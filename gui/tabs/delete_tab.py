@@ -72,6 +72,7 @@ class DeleteTab(BaseTab):
         self.loading_dialog = None
         self.scan_thread = None
         self.scan_worker = None
+        self._loading_cancelled = False # Added flag
 
         # --- Main Layout ---
         main_layout = QVBoxLayout(self)
@@ -651,6 +652,23 @@ class DeleteTab(BaseTab):
     def on_scan_error(self, error_msg):
         self._reset_scan_ui("Scan failed.")
         QMessageBox.critical(self, "Scan Error", f"Error during scan: {error_msg}")
+        
+    def _stop_running_threads(self):
+        """Safely interrupts and cleans up any active scanner or loader threads."""
+        self._loading_cancelled = True
+        
+        # Clear the ThreadPool
+        self.thread_pool.clear()
+            
+        if self.loading_dialog and self.loading_dialog.isVisible():
+            self.loading_dialog.close()
+            self.loading_dialog = None
+            
+    def cancel_loading(self):
+        """Slot for cancelling operation via ProgressDialog."""
+        self._stop_running_threads()
+        self._loaded_results_buffer.clear()
+        print("Loading cancelled by user.")
 
     def load_thumbnails(self, paths: list[str]):
         """Starts concurrent loading using QThreadPool with instant progress feedback."""
@@ -660,13 +678,15 @@ class DeleteTab(BaseTab):
         self._loaded_results_buffer = []
         self._images_loaded_count = 0
         self._total_images_to_load = len(paths)
+        self._loading_cancelled = False # Reset flag
         
         # 1. Setup dialog
         self.loading_dialog = QProgressDialog("Loading thumbnails...", "Cancel", 0, self._total_images_to_load, self)
         self.loading_dialog.setWindowModality(Qt.WindowModal)
         self.loading_dialog.setWindowTitle("Please Wait")
         self.loading_dialog.setMinimumDuration(0)
-        self.loading_dialog.setCancelButton(None)
+        # Enable cancellation
+        self.loading_dialog.canceled.connect(self.cancel_loading)
         self.loading_dialog.show()
 
         # CRITICAL FIX: Force UI refresh immediately after showing the dialog
@@ -680,6 +700,9 @@ class DeleteTab(BaseTab):
 
         # 2. Submit tasks and update progress simultaneously on the main thread (instant feedback)
         for path in paths:
+            if self._loading_cancelled:
+                break
+                
             worker = ImageLoaderWorker(path, self.thumbnail_size)
             worker.signals.result.connect(self._on_single_image_loaded)
             self.thread_pool.start(worker)
@@ -698,6 +721,9 @@ class DeleteTab(BaseTab):
     @Slot(str, QPixmap)
     def _on_single_image_loaded(self, path: str, pixmap: QPixmap):
         """Aggregates results and updates progress."""
+        if self._loading_cancelled:
+            return
+            
         self._loaded_results_buffer.append((path, pixmap))
         self._images_loaded_count += 1
         
@@ -716,6 +742,9 @@ class DeleteTab(BaseTab):
     @Slot(list)
     def handle_batch_finished(self, loaded_results: List[Tuple[str, QPixmap]]):
         """Receives final, sorted results and populates the gallery."""
+        if self._loading_cancelled:
+            return
+            
         self._clear_gallery(self.gallery_layout)
         self.path_to_wrapper_map.clear()
         

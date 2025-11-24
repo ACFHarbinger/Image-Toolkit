@@ -131,6 +131,9 @@ class WallpaperTab(BaseTab):
 
         # Column tracking for resize
         self._current_gallery_cols = 1
+        
+        # --- Loading State ---
+        self._loading_cancelled = False # Flag for cancellation
 
         # --- UI SETUP ---
         content_widget = QWidget()
@@ -1164,13 +1167,14 @@ class WallpaperTab(BaseTab):
 
         self.scanned_dir = directory
         self.clear_scan_image_gallery()
+        self._loading_cancelled = False # Reset cancel flag
         
         # --- MODIFIED: Create the modal progress dialog immediately ---
         self.loading_dialog = QProgressDialog("Scanning directory...", "Cancel", 0, 0, self)
         self.loading_dialog.setWindowModality(Qt.WindowModal)
         self.loading_dialog.setWindowTitle("Please Wait")
         self.loading_dialog.setMinimumDuration(0) # Show immediately
-        self.loading_dialog.setCancelButton(None) # Disable cancel for simplicity/stability
+        self.loading_dialog.canceled.connect(self.cancel_loading) # Connect cancel signal
         self.loading_dialog.show()
         # --------------------------------------------------------------
         
@@ -1194,6 +1198,10 @@ class WallpaperTab(BaseTab):
         self.thread.start()
 
     def display_scan_results(self, image_paths: list[str]):
+        if self._loading_cancelled:
+            if self.loading_dialog: self.loading_dialog.close()
+            return
+            
         if self.background_type == "Solid Color":
             if self.loading_dialog: self.loading_dialog.close()
             return 
@@ -1222,6 +1230,9 @@ class WallpaperTab(BaseTab):
             self.loading_dialog.setMaximum(self._total_images_to_load) 
             self.loading_dialog.setValue(0) 
             self.loading_dialog.setLabelText(f"Loading image 0 of {self._total_images_to_load}...")
+            # Reconnect cancel just in case
+            self.loading_dialog.canceled.disconnect()
+            self.loading_dialog.canceled.connect(self.cancel_loading)
 
         # Block to ensure loader dialog visibility (copied from scan_metadata_tab)
         loop = QEventLoop()
@@ -1230,6 +1241,8 @@ class WallpaperTab(BaseTab):
         
         # Submit tasks
         for path in image_paths:
+            if self._loading_cancelled:
+                break
             worker = ImageLoaderWorker(path, self.thumbnail_size)
             worker.signals.result.connect(self._on_single_image_loaded)
             self.threadpool.start(worker)
@@ -1244,6 +1257,9 @@ class WallpaperTab(BaseTab):
     @Slot(str, QPixmap)
     def _on_single_image_loaded(self, path: str, pixmap: QPixmap):
         """Aggregates results and checks for batch completion."""
+        if self._loading_cancelled:
+            return
+            
         self._loaded_results_buffer.append((path, pixmap))
         self._images_loaded_count += 1
             
@@ -1255,6 +1271,9 @@ class WallpaperTab(BaseTab):
     @Slot(list)
     def handle_batch_finished(self, loaded_results: List[Tuple[str, QPixmap]]):
         """Receives final, sorted results and populates the gallery."""
+        if self._loading_cancelled:
+            return
+            
         columns = self.calculate_columns()
         
         # Render all widgets in one go on the main thread
@@ -1283,6 +1302,26 @@ class WallpaperTab(BaseTab):
         if self.loading_dialog:
             self.loading_dialog.close()
             self.loading_dialog = None
+            
+    def _stop_running_threads(self):
+        """Safely interrupts and cleans up any active scanner or loader threads."""
+        self._loading_cancelled = True
+        
+        # Clear the ThreadPool
+        self.threadpool.clear()
+        
+        if self.current_thumbnail_loader_thread and self.current_thumbnail_loader_thread.isRunning():
+            self.current_thumbnail_loader_thread.quit()
+            
+        if self.loading_dialog and self.loading_dialog.isVisible():
+            self.loading_dialog.close()
+            self.loading_dialog = None
+
+    def cancel_loading(self):
+        """Slot for cancelling operation via ProgressDialog."""
+        self._stop_running_threads()
+        self._loaded_results_buffer.clear()
+        print("Loading cancelled by user.")
 
     @Slot(str)
     def handle_thumbnail_double_click(self, image_path: str):

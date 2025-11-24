@@ -7,11 +7,11 @@ from PySide6.QtCore import (
     Qt, QThread, Slot, QPoint, QTimer, QThreadPool, QEventLoop
 )
 from PySide6.QtWidgets import (
+    QWidget, QGroupBox, QCheckBox,
     QComboBox, QLineEdit, QFileDialog, 
     QHBoxLayout, QVBoxLayout, QScrollArea, 
     QPushButton, QLabel, QFormLayout, QMenu,
     QProgressDialog, QMessageBox, QGridLayout,
-    QWidget, QGroupBox, QCheckBox, QApplication,
 )
 from .base_tab import BaseTab
 from ..windows import ImagePreviewWindow
@@ -36,6 +36,9 @@ class ScanMetadataTab(BaseTab):
         # Database view filter state
         self.view_new_only: bool = False
         self._db_was_connected: bool = False 
+        
+        # Cancellation flag
+        self._loading_cancelled = False
 
         # UI Maps
         # Maps file_path -> ClickableLabel widget
@@ -216,6 +219,8 @@ class ScanMetadataTab(BaseTab):
     # --- THREAD SAFETY CLEANUP METHOD ---
     def _stop_running_threads(self):
         """Safely interrupts and cleans up any active scanner or loader threads."""
+        self._loading_cancelled = True
+        
         if self.scan_thread and self.scan_thread.isRunning():
             self.scan_thread.requestInterruption()
             self.scan_thread.quit()
@@ -229,6 +234,12 @@ class ScanMetadataTab(BaseTab):
         if self.loading_dialog and self.loading_dialog.isVisible():
             self.loading_dialog.close()
             self.loading_dialog = None
+    
+    def cancel_loading(self):
+        """Slot for cancelling operation via ProgressDialog."""
+        self._stop_running_threads()
+        self._loaded_results_buffer.clear()
+        print("Loading cancelled by user.")
     # ------------------------------------
 
     # --- RESIZE & REFLOW LOGIC ---
@@ -495,6 +506,7 @@ class ScanMetadataTab(BaseTab):
         
         # Stop all running threads before starting a new scan/load
         self._stop_running_threads()
+        self._loading_cancelled = False
         
         if not is_refresh or not self.scan_image_list:
             self.path_to_wrapper_map = {} 
@@ -507,7 +519,7 @@ class ScanMetadataTab(BaseTab):
             self.loading_dialog.setWindowModality(Qt.WindowModal)
             self.loading_dialog.setWindowTitle("Please Wait")
             self.loading_dialog.setMinimumDuration(0)
-            self.loading_dialog.setCancelButton(None) 
+            self.loading_dialog.canceled.connect(self.cancel_loading)
             
             # --- FIX: Blocking Wait to ensure Scanner Dialog Visibility ---
             self.loading_dialog.show()
@@ -546,6 +558,8 @@ class ScanMetadataTab(BaseTab):
 
     @Slot(list)
     def process_scan_results(self, image_paths: list[str]):
+        if self._loading_cancelled:
+            return
         self.scan_image_list = image_paths
         self.display_scan_results(image_paths)
 
@@ -579,8 +593,8 @@ class ScanMetadataTab(BaseTab):
             self.loading_dialog = QProgressDialog("Loading thumbnails...", "Cancel", 0, self._total_images_to_load, self)
             self.loading_dialog.setWindowModality(Qt.WindowModal)
             self.loading_dialog.setWindowTitle("Please Wait")
-            self.loading_dialog.setCancelButton(None)
             self.loading_dialog.setMinimumDuration(0) 
+            self.loading_dialog.canceled.connect(self.cancel_loading)
         
         self.loading_dialog.setMaximum(self._total_images_to_load)
         self.loading_dialog.setValue(0)
@@ -603,6 +617,9 @@ class ScanMetadataTab(BaseTab):
         Method that submits the tasks to the QThreadPool and updates the progress bar
         immediately upon submission.
         """
+        if self._loading_cancelled:
+            return
+            
         # Clear existing thread pool tasks if any
         self.thread_pool.clear()
         
@@ -611,6 +628,7 @@ class ScanMetadataTab(BaseTab):
         
         # Submit tasks to ThreadPool
         for path in final_paths_to_load:
+            if self._loading_cancelled: break
             worker = ImageLoaderWorker(path, self.thumbnail_size)
             # Connect the result signal. Signals are processed by the main thread.
             worker.signals.result.connect(self.on_single_image_loaded)
@@ -630,16 +648,13 @@ class ScanMetadataTab(BaseTab):
         """
         Called when a single ImageLoaderWorker finishes via signal.
         Runs on the main GUI thread.
-        NOTE: The progress bar value is now based on submission count first,
-              and this slot ensures final completion and closure.
         """
+        if self._loading_cancelled: return
+        
         self._loaded_results_buffer.append((path, pixmap))
         # We still increment the internal count to check for finalization
         self._images_loaded_count += 1 
         
-        # No need to update the value here since submission already covered the range.
-        # This prevents flickering if the progress bar jumps back and forth.
-
         # Check for completion
         if self._images_loaded_count >= self._total_images_to_load:
             self._finalize_batch_loading()
@@ -649,6 +664,8 @@ class ScanMetadataTab(BaseTab):
         Called when all threads in the pool have reported back.
         Populates the gallery and cleans up.
         """
+        if self._loading_cancelled: return
+        
         self._clear_gallery(self.scan_thumbnail_layout)
         self.path_to_wrapper_map.clear()
         

@@ -41,6 +41,7 @@ class ConvertTab(BaseTab):
         self._images_loaded_count = 0
         self._total_images_to_load = 0
         self.loading_dialog: Optional[QProgressDialog] = None
+        self._loading_cancelled = False  # Added cancellation flag
 
         # --- Main Layout ---
         main_layout = QVBoxLayout(self)
@@ -436,6 +437,15 @@ class ConvertTab(BaseTab):
             
     # --- END DUAL GALLERY LOGIC ---
 
+    # --- LOADING CANCELLATION ---
+    def cancel_loading(self):
+        """Slot for cancelling operation via ProgressDialog."""
+        self._loading_cancelled = True
+        self.thread_pool.clear()
+        if self.loading_dialog and self.loading_dialog.isVisible():
+            self.loading_dialog.close()
+            self.loading_dialog = None
+        print("Loading cancelled by user.")
 
     # --- REST OF CLASS METHODS ---
     
@@ -549,13 +559,15 @@ class ConvertTab(BaseTab):
         self._loaded_results_buffer = []
         self._images_loaded_count = 0
         self._total_images_to_load = len(paths)
+        self._loading_cancelled = False # Reset cancel flag
         
         # --- 1. Setup dialog ---
         self.loading_dialog = QProgressDialog("Submitting tasks...", "Cancel", 0, self._total_images_to_load, self)
         self.loading_dialog.setWindowModality(Qt.WindowModal)
         self.loading_dialog.setWindowTitle("Please Wait")
         self.loading_dialog.setMinimumDuration(0)
-        self.loading_dialog.setCancelButton(None) 
+        # Enable the cancel button and connect it
+        self.loading_dialog.canceled.connect(self.cancel_loading)
         self.loading_dialog.show()
         
         QApplication.processEvents()
@@ -569,6 +581,8 @@ class ConvertTab(BaseTab):
         
         # Submit tasks and update progress simultaneously on the main thread
         for path in paths:
+            if self._loading_cancelled:
+                break
             worker = ImageLoaderWorker(path, self.thumbnail_size)
             worker.signals.result.connect(self._on_single_image_loaded)
             self.thread_pool.start(worker)
@@ -581,6 +595,9 @@ class ConvertTab(BaseTab):
     @Slot(str, QPixmap)
     def _on_single_image_loaded(self, path: str, pixmap: QPixmap):
         """Aggregates results and checks for batch completion. Updates progress dialog."""
+        if self._loading_cancelled:
+            return
+
         self._loaded_results_buffer.append((path, pixmap))
         self._images_loaded_count += 1
             
@@ -590,6 +607,9 @@ class ConvertTab(BaseTab):
 
     @Slot(list)
     def handle_batch_finished(self, loaded_results: List[Tuple[str, QPixmap]]):
+        if self._loading_cancelled:
+            return
+
         self.clear_gallery(include_paths=False) # Clear widgets but keep self.files_to_convert
         columns = self._calculate_columns(self.gallery_scroll)
         

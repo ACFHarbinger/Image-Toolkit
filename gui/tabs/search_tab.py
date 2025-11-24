@@ -3,7 +3,7 @@ import platform
 import subprocess
 import time
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from PySide6.QtGui import QPixmap, QAction, QCursor
 from PySide6.QtCore import Qt, Signal, QPoint, QThreadPool, Slot
 from PySide6.QtWidgets import (
@@ -11,9 +11,10 @@ from PySide6.QtWidgets import (
     QWidget, QLabel, QMessageBox, QMenu, QCheckBox,
     QFormLayout, QHBoxLayout, QVBoxLayout, 
     QGridLayout, QScrollArea, QGroupBox, 
+    QProgressDialog, QApplication
 )
 from .base_tab import BaseTab
-from ..helpers import SearchWorker
+from ..helpers import SearchWorker, ImageLoaderWorker
 from ..windows import ImagePreviewWindow
 from ..components import OptionalField, ClickableLabel, MarqueeScrollArea
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
@@ -44,6 +45,13 @@ class SearchTab(BaseTab):
         self.thumbnail_size = 150
         self.padding_width = 10
         self.approx_item_width = self.thumbnail_size + self.padding_width
+        
+        # --- Image Loading State ---
+        self._loaded_results_buffer: List[Tuple[str, QPixmap]] = []
+        self._images_loaded_count = 0
+        self._total_images_to_load = 0
+        self.loading_dialog: Optional[QProgressDialog] = None
+        self._loading_cancelled = False # Flag for cancellation
         
         layout = QVBoxLayout(self)
         
@@ -588,47 +596,133 @@ class SearchTab(BaseTab):
         QMessageBox.information(self, "Images Sent", f"Sent {len(paths)} images to the Wallpaper Tab.")
 
     def display_results(self, results: List[Dict[str, Any]]):
-        """Display the search results (dictionaries) as thumbnails"""
-        count = len(results)
-        self.results_count_label.setText(f"Found {count} matching image(s)")
-        self.selected_paths.clear()
-        self.path_to_widget_map.clear()
+        """Display the search results using threaded loading for responsiveness."""
+        # 1. Clear previous results
+        self.clear_results()
+        
+        # 2. Extract paths
         self.current_result_paths = [res.get('file_path') for res in results if res.get('file_path')]
+        count = len(self.current_result_paths)
+        self.results_count_label.setText(f"Found {count} matching image(s)")
+        
         if count == 0:
             return
+
+        # 3. Setup Thread Pool for Loading
+        self.threadpool.clear()
+        self._loaded_results_buffer = []
+        self._images_loaded_count = 0
+        self._total_images_to_load = count
+        self._loading_cancelled = False # Reset flag
+        
+        # 4. Show Modal Progress Dialog
+        self.loading_dialog = QProgressDialog("Loading results...", "Cancel", 0, self._total_images_to_load, self)
+        self.loading_dialog.setWindowModality(Qt.WindowModal)
+        self.loading_dialog.setWindowTitle("Please Wait")
+        self.loading_dialog.setMinimumDuration(0)
+        self.loading_dialog.canceled.connect(self.cancel_loading)
+        self.loading_dialog.show()
+        
+        QApplication.processEvents()
+
+        self.loading_dialog.setLabelText(f"Loading image 0 of {self._total_images_to_load}...")
+        self.loading_dialog.setValue(0)
+        
+        submitted_count = 0
+        
+        # 5. Submit tasks
+        for path in self.current_result_paths:
+            if self._loading_cancelled:
+                break
+                
+            worker = ImageLoaderWorker(path, self.thumbnail_size)
+            worker.signals.result.connect(self._on_single_image_loaded)
+            self.threadpool.start(worker)
+            
+            submitted_count += 1
+            self.loading_dialog.setValue(submitted_count)
+            self.loading_dialog.setLabelText(f"Submitting task {submitted_count} of {self._total_images_to_load}...")
+            QApplication.processEvents()
+            
+        if self.loading_dialog:
+            self.loading_dialog.setValue(0)
+            self.loading_dialog.setLabelText(f"Processing results 0 of {self._total_images_to_load}...")
+
+    @Slot(str, QPixmap)
+    def _on_single_image_loaded(self, path: str, pixmap: QPixmap):
+        """Aggregates results and updates progress."""
+        if self._loading_cancelled:
+            return
+            
+        self._loaded_results_buffer.append((path, pixmap))
+        self._images_loaded_count += 1
+        
+        if self.loading_dialog:
+             self.loading_dialog.setValue(self._images_loaded_count)
+             self.loading_dialog.setLabelText(f"Processing results {self._images_loaded_count} of {self._total_images_to_load}...")
+
+        if self._images_loaded_count >= self._total_images_to_load:
+            # Sort results to maintain order (though order comes from DB, thread finish order is random)
+            # We want to match the order of self.current_result_paths
+            # Create a lookup for sorting index
+            path_index_map = {p: i for i, p in enumerate(self.current_result_paths)}
+            sorted_results = sorted(self._loaded_results_buffer, key=lambda x: path_index_map.get(x[0], 999999))
+            self.handle_batch_finished(sorted_results)
+
+    @Slot(list)
+    def handle_batch_finished(self, loaded_results: List[Tuple[str, QPixmap]]):
+        """Populates the grid with loaded images."""
+        if self._loading_cancelled:
+            return
+
         columns = self.calculate_columns()
-        for i, img_data in enumerate(results):
+        
+        for i, (file_path, pixmap) in enumerate(loaded_results):
             row = i // columns
             col = i % columns
-            file_path = img_data.get('file_path')
+            
             result_container = QWidget()
             result_container.setStyleSheet("background: transparent;") 
             result_layout = QVBoxLayout(result_container)
             result_layout.setContentsMargins(0, 0, 0, 0)
             result_layout.setSpacing(1)
+            
             image_label = ClickableLabel(file_path)
             image_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
             image_label.setAlignment(Qt.AlignCenter)
             image_label.setStyleSheet("border: 1px solid #4f545c;")
+            
             image_label.path_clicked.connect(lambda checked, p=file_path: self.toggle_selection(p))
             image_label.path_double_clicked.connect(self.open_file_preview)
             image_label.path_right_clicked.connect(
                 lambda pos, p=file_path, w=image_label: self.show_context_menu(pos, p, w)
             )
+            
             self.path_to_widget_map[file_path] = image_label
-            pixmap = QPixmap(str(file_path))
+            
             if not pixmap.isNull():
-                scaled_pixmap = pixmap.scaled(
-                    self.thumbnail_size, self.thumbnail_size, 
-                    Qt.KeepAspectRatio, Qt.SmoothTransformation
-                )
-                image_label.setPixmap(scaled_pixmap)
+                 image_label.setPixmap(pixmap)
             else:
                 image_label.setText("Not Found")
                 image_label.setStyleSheet("border: 1px solid #e74c3c; background-color: #4f545c; font-size: 8px;")
+            
             result_layout.addWidget(image_label)
             self.results_layout.addWidget(result_container, row, col)
             self.result_widgets.append(result_container)
+            
+        if self.loading_dialog:
+            self.loading_dialog.close()
+            self.loading_dialog = None
+
+    def cancel_loading(self):
+        """Slot for cancelling image loading."""
+        self._loading_cancelled = True
+        self.threadpool.clear()
+        self._loaded_results_buffer.clear()
+        if self.loading_dialog:
+            self.loading_dialog.close()
+            self.loading_dialog = None
+        print("Image loading cancelled by user.")
 
     def handle_remove_from_db(self, file_path: str):
         db = self.db_tab_ref.db

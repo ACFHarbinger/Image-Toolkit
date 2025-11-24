@@ -36,6 +36,7 @@ class MergeTab(BaseTab):
         self.scanned_dir: str | None = None
         self.open_preview_windows: list[ImagePreviewWindow] = [] 
         self.loading_dialog = None 
+        self._loading_cancelled = False # Added flag
         
         # Column tracking
         self._current_gallery_cols = 1
@@ -425,6 +426,23 @@ class MergeTab(BaseTab):
     def _cleanup_merge_thread_ref(self):
         self.current_merge_thread = None
         self.current_merge_worker = None
+        
+    def _stop_running_threads(self):
+        """Safely interrupts and cleans up any active scanner or loader threads."""
+        self._loading_cancelled = True
+        
+        # Clear the ThreadPool
+        self.thread_pool.clear()
+            
+        if self.loading_dialog and self.loading_dialog.isVisible():
+            self.loading_dialog.close()
+            self.loading_dialog = None
+            
+    def cancel_loading(self):
+        """Slot for cancelling operation via ProgressDialog."""
+        self._stop_running_threads()
+        self._loaded_results_buffer.clear()
+        print("Loading cancelled by user.")
 
     # === GALLERY MANAGEMENT ===
     def _clear_gallery(self, layout: QGridLayout):
@@ -632,6 +650,9 @@ class MergeTab(BaseTab):
         if self.current_scan_thread and self.current_scan_thread.isRunning():
             self.current_scan_thread.quit()
             self.current_scan_thread.wait(2000)
+        
+        self._stop_running_threads()
+        self._loading_cancelled = False
     
         # No need to stop the loader thread, as QThreadPool manages its workers, 
         # and we clear the pool before starting new submissions in display_scan_results.
@@ -643,8 +664,9 @@ class MergeTab(BaseTab):
         self.loading_dialog = QProgressDialog("Scanning directory...", "Cancel", 0, 0, self)
         self.loading_dialog.setWindowModality(Qt.WindowModal)
         self.loading_dialog.setWindowTitle("Please Wait")
-        self.loading_dialog.setMinimumDuration(0) 
-        self.loading_dialog.setCancelButton(None) 
+        self.loading_dialog.setMinimumDuration(0)
+        # Enable cancellation for the scanner phase too
+        self.loading_dialog.canceled.connect(self.cancel_loading) 
         self.loading_dialog.show()
         
         # Block to ensure scanner dialog visibility
@@ -677,6 +699,9 @@ class MergeTab(BaseTab):
     @Slot(str, QPixmap)
     def _on_single_image_loaded(self, path: str, pixmap: QPixmap):
         """Aggregates results and checks for batch completion."""
+        if self._loading_cancelled:
+            return
+            
         self._loaded_results_buffer.append((path, pixmap))
         self._images_loaded_count += 1
             
@@ -686,6 +711,9 @@ class MergeTab(BaseTab):
             self.handle_batch_finished(sorted_results)
 
     def display_scan_results(self, image_paths: list[str]):
+        if self._loading_cancelled:
+            return
+            
         self.merge_image_list = sorted(image_paths)
         if self.scanned_dir:
              self.scan_directory_path.setText(f"Source: {Path(self.scanned_dir).name} | {len(image_paths)} images")
@@ -708,6 +736,9 @@ class MergeTab(BaseTab):
             self.loading_dialog.setMaximum(self._total_images_to_load)
             self.loading_dialog.setValue(0)
             self.loading_dialog.setLabelText(f"Loading image 0 of {self._total_images_to_load}...")
+            # Reconnect cancel just in case
+            self.loading_dialog.canceled.disconnect()
+            self.loading_dialog.canceled.connect(self.cancel_loading)
 
         loop = QEventLoop()
         QTimer.singleShot(1, loop.quit)
@@ -715,6 +746,9 @@ class MergeTab(BaseTab):
         
         # Submit tasks
         for path in image_paths:
+            if self._loading_cancelled:
+                break
+                
             worker = ImageLoaderWorker(path, self.thumbnail_size)
             worker.signals.result.connect(self._on_single_image_loaded)
             self.thread_pool.start(worker)
@@ -727,6 +761,9 @@ class MergeTab(BaseTab):
 
     @Slot(list)
     def handle_batch_finished(self, loaded_results: List[Tuple[str, QPixmap]]):
+        if self._loading_cancelled:
+            return
+            
         # Use robust column calculation
         columns = self._calculate_columns(self.merge_scroll_area)
         
