@@ -659,8 +659,49 @@ class DeleteTab(AbstractClassTwoGalleries):
     def join_list_str(text: str):
         return [item.strip().lstrip('.') for item in text.replace(',', ' ').split() if item.strip()]
 
-    def get_default_config(self):
-        return {}
+    def get_default_config(self) -> dict:
+        """Returns the default configuration dictionary for the DeleteTab."""
+        extensions = SUPPORTED_IMG_FORMATS if self.dropdown else "jpg png"
+        return {
+            "target_path": "",
+            "scan_method": "All Files (List Directory Contents)",
+            "target_extensions": extensions,
+            "require_confirm": True,
+        }
 
-    def set_config(self, config):
-        pass
+    def set_config(self, config: dict):
+        """Applies the configuration dictionary to the DeleteTab UI elements."""
+        try:
+            # 1. Target Path
+            target_path = config.get("target_path", "")
+            self.target_path.setText(target_path)
+            
+            # 2. Scan Method
+            scan_method = config.get("scan_method", "All Files (List Directory Contents)")
+            index = self.scan_method_combo.findText(scan_method)
+            if index != -1:
+                self.scan_method_combo.setCurrentIndex(index)
+            
+            # 3. Target Extensions (Handling Dropdown vs. LineEdit)
+            extensions = config.get("target_extensions", [])
+            if self.dropdown:
+                self.remove_all_extensions()
+                for ext in extensions:
+                    if ext in self.extension_buttons:
+                        self.extension_buttons[ext].setChecked(True)
+                        self.toggle_extension(ext, True)
+                if extensions and len(extensions) < len(SUPPORTED_IMG_FORMATS):
+                    self.extensions_field.set_open(True)
+            elif hasattr(self, 'target_extensions'):
+                self.target_extensions.setText(" ".join(extensions))
+                if extensions:
+                    self.extensions_field.set_open(True)
+            
+            # 4. Confirmation Checkbox
+            self.confirm_checkbox.setChecked(config.get("require_confirm", True))
+            
+            print(f"DeleteTab configuration loaded.")
+
+        except Exception as e:
+            print(f"Error applying DeleteTab config: {e}")
+            QMessageBox.warning(self, "Config Error", f"Failed to apply some settings: {e}")

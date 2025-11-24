@@ -398,17 +398,57 @@ class ConvertTab(AbstractClassTwoGalleries):
             "delete": self.delete_checkbox.isChecked(),
         }
     
-    def get_default_config(self):
-        return {}
+    def get_default_config(self) -> dict:
+        """Returns the default configuration dictionary for the ConvertTab."""
+        formats = SUPPORTED_IMG_FORMATS if self.dropdown else "jpg png"
+        return {
+            "input_path": "",
+            "output_format": "png",
+            "output_path": "",
+            "input_formats": formats,
+            "delete_original": False,
+        }
 
-    def set_config(self, config):
-        # Find index and set output format
-        output_fmt = config.get("output_format", "png")
-        index = self.output_format_combo.findText(output_fmt.lower())
-        if index != -1:
-            self.output_format_combo.setCurrentIndex(index)
-        
-        # [Remaining set_config logic would go here, updating input_path, output_path, etc.]
-        # Since the user didn't provide the original set_config logic, I'll omit the rest
-        # to avoid breaking other functionality. Assume only output_format is handled.
-        pass
+    def set_config(self, config: dict):
+        """Applies the configuration dictionary to the ConvertTab UI elements."""
+        try:
+            # 1. Paths
+            input_path = config.get("input_path", "")
+            self.input_path.setText(input_path)
+            output_path = config.get("output_path", "")
+            self.output_path.setText(output_path)
+            if output_path:
+                self.output_field.set_open(True)
+
+            # 2. Output Format
+            output_fmt = config.get("output_format", "png")
+            index = self.output_format_combo.findText(output_fmt.lower())
+            if index != -1:
+                self.output_format_combo.setCurrentIndex(index)
+            
+            # 3. Input Formats (Handling Dropdown vs. LineEdit)
+            formats = config.get("input_formats", [])
+            if self.dropdown:
+                self.remove_all_formats()
+                for fmt in formats:
+                    if fmt in self.format_buttons:
+                        self.format_buttons[fmt].setChecked(True)
+                        self.toggle_format(fmt, True)
+                if formats and len(formats) < len(SUPPORTED_IMG_FORMATS):
+                    self.formats_field.set_open(True)
+            elif hasattr(self, 'input_formats'):
+                self.input_formats.setText(" ".join(formats))
+                if formats:
+                    self.formats_field.set_open(True)
+
+            # 4. Delete Checkbox
+            self.delete_checkbox.setChecked(config.get("delete_original", False))
+
+            # 5. Load data into gallery if path is valid
+            if os.path.isdir(input_path):
+                self.scan_directory_visual() # Will load thumbnails
+
+            print(f"ConvertTab configuration loaded.")
+        except Exception as e:
+            print(f"Error applying ConvertTab config: {e}")
+            QMessageBox.warning(self, "Config Error", f"Failed to apply some settings: {e}")
