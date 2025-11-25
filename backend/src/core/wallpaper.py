@@ -240,7 +240,7 @@ class WallpaperManager:
             raise RuntimeError(f"Error setting Windows single wallpaper: {e}")
 
     @staticmethod
-    def _set_wallpaper_kde(path_map: Dict[str, str], num_monitors: int, style_name: str):
+    def _set_wallpaper_kde(path_map: Dict[str, str], num_monitors: int, style_name: str, qdbus: str):
         """
         Sets per-monitor wallpaper for KDE Plasma using qdbus and the specified style.
         """
@@ -268,7 +268,7 @@ class WallpaperManager:
         full_script += "d.reloadConfig();"
 
         qdbus_command = (
-            f"qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{full_script}'"
+            f"{qdbus} org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{full_script}'"
         )
         subprocess.run(qdbus_command, shell=True, check=True, capture_output=True, text=True)
 
@@ -331,7 +331,7 @@ class WallpaperManager:
         )
 
     @staticmethod
-    def apply_wallpaper(path_map: Dict[str, str], monitors: List[Monitor], style_name: str):
+    def apply_wallpaper(path_map: Dict[str, str], monitors: List[Monitor], style_name: str, qdbus: str):
         """
         Applies wallpaper based on the OS and the selected style or solid color.
         
@@ -351,8 +351,8 @@ class WallpaperManager:
             elif system == "Linux":
                 # Try KDE qdbus method first
                 try:
-                    # Check for KDE presence (qdbus6)
-                    subprocess.run(["which", "qdbus6"], check=True, capture_output=True) 
+                    # Check for KDE presence (qdbus)
+                    subprocess.run(["which", qdbus], check=True, capture_output=True) 
                     
                     # --- KDE Solid Color Implementation using a script ---
                     # We iterate over all desktop configurations to ensure all monitors are set.
@@ -369,7 +369,7 @@ class WallpaperManager:
                     """
 
                     qdbus_command = (
-                        f"qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{script}'"
+                        f"{qdbus} org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{script}'"
                     )
                     subprocess.run(qdbus_command, shell=True, check=True, capture_output=True, text=True)
                     print("Set solid color via KDE qdbus.")
@@ -412,8 +412,8 @@ class WallpaperManager:
             # --- Linux Implementation ---
             try:
                 # Try KDE qdbus method first
-                subprocess.run(["which", "qdbus6"], check=True, capture_output=True) 
-                WallpaperManager._set_wallpaper_kde(path_map, len(monitors), style_name)
+                subprocess.run(["which", qdbus], check=True, capture_output=True) 
+                WallpaperManager._set_wallpaper_kde(path_map, len(monitors), style_name, qdbus)
                 
             except (FileNotFoundError, subprocess.CalledProcessError):
                 # Fallback to GNOME (spanned) method
@@ -428,7 +428,7 @@ class WallpaperManager:
             raise NotImplementedError(f"Wallpaper setting for {system} is not supported.")
 
     @staticmethod
-    def get_current_system_wallpaper_path_kde(num_monitors: int) -> Dict[str, Optional[str]]:
+    def get_current_system_wallpaper_path_kde(num_monitors: int, qdbus: str) -> Dict[str, Optional[str]]:
         """
         Retrieves the current wallpaper path for each monitor on KDE Plasma using qdbus.
         
@@ -456,7 +456,7 @@ class WallpaperManager:
         try:
             # 2. Execute the qdbus command
             qdbus_command = (
-                f"qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{full_script}'"
+                f"{qdbus} org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{full_script}'"
             )
             result = subprocess.run(
                 qdbus_command, 
