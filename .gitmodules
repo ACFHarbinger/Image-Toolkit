@@ -1,9 +1,9 @@
-[submodule "models/R3GAN"]
-	path = models/R3GAN
+[submodule "backend/src/models/R3GAN"]
+	path = backend/src/models/R3GAN
 	url = https://github.com/brownvc/R3GAN.git
-[submodule "models/sd3.5"]
-	path = models/sd3.5
+[submodule "backend/src/models/sd3.5"]
+	path = backend/src/models/sd3.5
 	url = https://github.com/Stability-AI/sd3.5.git
-[submodule "models/MetaCLIP"]
-	path = models/MetaCLIP
+[submodule "backend/src/models/MetaCLIP"]
+	path = backend/src/models/MetaCLIP
 	url = https://github.com/facebookresearch/MetaCLIP.git

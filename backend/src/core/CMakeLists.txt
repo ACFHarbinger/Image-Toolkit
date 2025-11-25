@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(ImageToolsCpp LANGUAGES CXX)
+project(Core LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,7 +29,7 @@ find_package(PostgreSQL REQUIRED)
 
 # --- Define Executable ---
 
-add_executable(ImageTool 
+add_executable(Core 
     main.cpp
     # File System
     FileSystemTool.cpp
@@ -54,7 +54,7 @@ add_executable(ImageTool
 
 # --- Include Directories ---
 
-target_include_directories(ImageTool PRIVATE
+target_include_directories(Core PRIVATE
     ${JNI_INCLUDE_DIRS}
     ${PostgreSQL_INCLUDE_DIRS}
     # libpqxx include dirs are handled by the PkgConfig imported target usually, 
@@ -63,7 +63,7 @@ target_include_directories(ImageTool PRIVATE
 
 # --- Link Libraries ---
 
-target_link_libraries(ImageTool PRIVATE 
+target_link_libraries(Core PRIVATE 
     ${OpenCV_LIBS} 
     OpenSSL::Crypto
     ${JNI_LIBRARIES}
