@@ -1,7 +1,7 @@
 import os
-from typing import List, Any
 
-from PySide6.QtCore import Qt, QSize, QTimer
+from typing import List
+from PySide6.QtCore import Qt, QSize, QTimer, Signal
 from PySide6.QtGui import (
     QShortcut, QWheelEvent, QAction,
     QPixmap, QKeySequence, QKeyEvent, QMovie
@@ -19,6 +19,8 @@ class ImagePreviewWindow(QDialog):
     
     Now supports GIF animation via QMovie.
     """
+    # --- Define a signal to notify the parent when the path changes ---
+    path_changed = Signal(str, str)
     
     ZOOM_STEP = 0.1  # 10% change per zoom step
 
@@ -392,6 +394,9 @@ class ImagePreviewWindow(QDialog):
         """Cycles the current image index and loads the new image."""
         if len(self.all_paths) <= 1:
             return
+        
+        # --- Capture the path we are navigating AWAY from ---
+        old_path = self.image_path
             
         new_index = self.current_index + direction
         
@@ -404,4 +409,8 @@ class ImagePreviewWindow(QDialog):
         if new_index != self.current_index:
             self.current_index = new_index
             new_path = self.all_paths[self.current_index]
+            
+            # --- EMIT Signal: Notify parent of the change ---
+            self.path_changed.emit(old_path, new_path) 
+            
             self.load_image(new_path)
