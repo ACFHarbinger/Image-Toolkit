@@ -9,13 +9,20 @@ find_package(Qt6 REQUIRED COMPONENTS Core Network NetworkAuth)
 
 add_executable(CppCloudSync
     main.cpp
-    abstract_sync.h
-    one_drive_sync.cpp
-    one_drive_sync.h
-    dropbox_sync.cpp
-    dropbox_sync.h
-    google_drive_sync.cpp
-    google_drive_sync.h
+    # Cloud Synchronization
+    AbstractCloudSync.hpp
+    OneDriveSync.cpp
+    OneDriveSync.hpp
+    DropboxSync.cpp
+    DropboxSync.hpp
+    GoogleDriveSync.cpp
+    GoogleDriveSync.hpp
+    # Web Browser
+    WebDriverClient.hpp
+    WebRequests.cpp
+    WebRequests.hpp
+    ImageCrawler.cpp
+    ImageCrawler.hpp
 )
 
 target_link_libraries(CppCloudSync PRIVATE
