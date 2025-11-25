@@ -73,10 +73,21 @@ class WallpaperTab(AbstractClassSingleGallery):
 
     def __init__(self, db_tab_ref, dropdown=True):
         # Initialize Base Class
-        super().__init__()
-        
+        super().__init__()    
         self.db_tab_ref = db_tab_ref
-        
+        if os.environ.get("DESKTOP_SESSION").lower() in ["plasma", "kde"]:
+            try:
+                subprocess.run(["which", "qdbus6"], check=True, capture_output=True)
+                self.qdbus = "qdbus6"
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                try:
+                    subprocess.run(["which", "qdbus"], check=True, capture_output=True)
+                    self.qdbus = "qdbus"
+                except (FileNotFoundError, subprocess.CalledProcessError):
+                    QMessageBox.warning(self, "System Error", "You need qdbus configured on KDE Plasma to access wallpaper functionality.")
+        else:
+            self.qdbus = None
+
         self.monitors: List[Monitor] = []
         self.monitor_widgets: Dict[str, MonitorDropWidget] = {}
         
@@ -320,7 +331,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             return WALLPAPER_STYLES["Windows"]
         elif system == "Linux":
             try:
-                subprocess.run(["which", "qdbus6"], check=True, capture_output=True)
+                subprocess.run(["which", self.qdbus], check=True, capture_output=True)
                 return WALLPAPER_STYLES["KDE"]
             except (FileNotFoundError, subprocess.CalledProcessError):
                 return WALLPAPER_STYLES["GNOME"]
@@ -618,8 +629,8 @@ class WallpaperTab(AbstractClassSingleGallery):
         current_system_wallpaper_paths = {}
         if system == "Linux" and num_monitors_detected > 0:
             try:
-                subprocess.run(["which", "qdbus6"], check=True, capture_output=True) 
-                raw_paths = WallpaperManager.get_current_system_wallpaper_path_kde(num_monitors_detected)
+                subprocess.run(["which", self.qdbus], check=True, capture_output=True) 
+                raw_paths = WallpaperManager.get_current_system_wallpaper_path_kde(num_monitors_detected, self.qdbus)
                 current_system_wallpaper_paths = self._get_rotated_map_for_ui(raw_paths)
             except (FileNotFoundError, subprocess.CalledProcessError): pass 
             except Exception as e: print(f"KDE retrieval failed unexpectedly: {e}")
@@ -666,8 +677,8 @@ class WallpaperTab(AbstractClassSingleGallery):
         num_monitors_detected = len(self.monitors)
         if system == "Linux" and num_monitors_detected > 0:
             try:
-                subprocess.run(["which", "qdbus6"], check=True, capture_output=True) 
-                raw_paths = WallpaperManager.get_current_system_wallpaper_path_kde(num_monitors_detected)
+                subprocess.run(["which", self.qdbus], check=True, capture_output=True) 
+                raw_paths = WallpaperManager.get_current_system_wallpaper_path_kde(num_monitors_detected, self.qdbus)
                 current_system_wallpaper_paths = self._get_rotated_map_for_ui(raw_paths)
             except (FileNotFoundError, subprocess.CalledProcessError): pass 
             except Exception as e: print(f"KDE retrieval failed unexpectedly: {e}")
@@ -751,8 +762,8 @@ class WallpaperTab(AbstractClassSingleGallery):
         if num_monitors == 0: return current_paths
         if system == "Linux":
             try:
-                subprocess.run(["which", "qdbus6"], check=True, capture_output=True) 
-                raw_paths = WallpaperManager.get_current_system_wallpaper_path_kde(num_monitors)
+                subprocess.run(["which", self.qdbus], check=True, capture_output=True) 
+                raw_paths = WallpaperManager.get_current_system_wallpaper_path_kde(num_monitors, self.qdbus)
                 current_paths = self._get_rotated_map_for_ui(raw_paths)
             except (FileNotFoundError, subprocess.CalledProcessError, Exception): pass 
         return current_paths
@@ -793,7 +804,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             system = platform.system()
             if system == "Linux":
                 try:
-                    subprocess.run(["which", "qdbus6"], check=True, capture_output=True)
+                    subprocess.run(["which", self.qdbus], check=True, capture_output=True)
                     desktop = "KDE"
                 except (FileNotFoundError, subprocess.CalledProcessError): desktop = "Gnome"
                 except: desktop = None
@@ -813,7 +824,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         monitors = self.monitors
         if not slideshow_mode: self.lock_ui_for_wallpaper()
         
-        self.current_wallpaper_worker = WallpaperWorker(final_path_map, monitors, wallpaper_style=style_to_use)
+        self.current_wallpaper_worker = WallpaperWorker(final_path_map, monitors, self.qdbus, wallpaper_style=style_to_use)
         self.current_wallpaper_worker.signals.status_update.connect(self.handle_wallpaper_status)
         self.current_wallpaper_worker.signals.work_finished.connect(self.handle_wallpaper_finished)
         self.current_wallpaper_worker.signals.work_finished.connect(lambda: setattr(self, 'current_wallpaper_worker', None))

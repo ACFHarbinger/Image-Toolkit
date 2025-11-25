@@ -28,11 +28,12 @@ class WallpaperWorker(QRunnable):
     """
     Worker thread to apply wallpaper using WallpaperManager.
     """
-    def __init__(self, path_map: Dict[str, str], monitors: List[Monitor], wallpaper_style: str = "Fill"):
+    def __init__(self, path_map: Dict[str, str], monitors: List[Monitor], qdbus: str, wallpaper_style: str = "Fill"):
         super().__init__()
         if WallpaperManager is None:
             raise ImportError("WallpaperManager class could not be imported.")
             
+        self.qdbus = qdbus
         self.path_map = path_map
         self.monitors = monitors
         self.wallpaper_style = wallpaper_style # Store the selected style
@@ -72,7 +73,7 @@ class WallpaperWorker(QRunnable):
 
         try:
             # --- Main Task ---
-            WallpaperManager.apply_wallpaper(self.path_map, self.monitors, self.wallpaper_style)
+            WallpaperManager.apply_wallpaper(self.path_map, self.monitors, self.wallpaper_style, self.qdbus)
             
             if not self.is_running:
                 raise InterruptedError("Work manually cancelled.")
