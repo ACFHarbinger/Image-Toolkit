@@ -22,10 +22,12 @@ find_package(nlohmann_json REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBPQXX REQUIRED IMPORTED_TARGET libpqxx)
 find_package(PostgreSQL REQUIRED)
+# Machine learning
+find_package(Torch REQUIRED)
 
 # --- Add Subdirectories ---
 
-# Directory 1: Core application logic (contains ImageTool executable)
+# Directory 1: Core application logic (contains Core executable)
 # This directory is assumed to contain the detailed CMakeLists.txt from the Canvas.
 add_subdirectory(backend/src/core)
 
@@ -34,5 +36,8 @@ add_subdirectory(backend/src/core)
 # those will be included here.
 add_subdirectory(backend/src/web)
 
-# Directory 3: Utils classes
+# Directory 3: Machine learning models
+add_subdirectory(backend/src/models)
+
+# Directory 4: Utils classes
 add_subdirectory(backend/src/utils)
