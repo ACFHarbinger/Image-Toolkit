@@ -2,7 +2,7 @@ from PySide6.QtWidgets import (
     QFormLayout, QLineEdit,
     QSpinBox, QComboBox, QCheckBox
 )
-from .base_generative_tab import BaseGenerativeTab
+from ..base_generative_tab import BaseGenerativeTab
 
 
 class R3GANTrainTab(BaseGenerativeTab):

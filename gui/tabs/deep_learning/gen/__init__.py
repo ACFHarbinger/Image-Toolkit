@@ -1,0 +1,3 @@
+from .ddm_generate_tab import SD3GenerateTab
+from .gan_generate_tab import R3GANGenerateTab
+from .lora_generate_tab import AnythingGenerateTab

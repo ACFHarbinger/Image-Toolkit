@@ -19,9 +19,8 @@ from .tabs import (
     ImageExtractorTab,
 )
 from .tabs.deep_learning import (
-    R3GANEvaluateTab, R3GANGenerateTab,
-    R3GANTrainTab, MetaCLIPInferenceTab,
-    SD3ControlNetTab, SD3TextToImageTab,
+    UnifiedTrainTab, UnifiedGenerateTab,
+    R3GANEvaluateTab, MetaCLIPInferenceTab,
 )
 from .styles.style import DARK_QSS, LIGHT_QSS
 from .utils.app_definitions import NEW_LIMIT_MB
@@ -126,12 +125,10 @@ class MainWindow(QWidget):
         self.image_extractor_tab = ImageExtractorTab()
 
         # Deep Learning Tabs
-        self.r3gan_gen_tab = R3GANGenerateTab()
-        self.r3gan_train_tab = R3GANTrainTab()
-        self.r3gan_eval_tab = R3GANEvaluateTab()
-        self.metaclip_infer_tab = MetaCLIPInferenceTab()
-        self.sd3_t2i_tab = SD3TextToImageTab()
-        self.sd3_controlnet_tab = SD3ControlNetTab()
+        self.train_tab = UnifiedTrainTab()
+        self.generate_tab = UnifiedGenerateTab()
+        self.eval_tab = R3GANEvaluateTab()
+        self.inference_tab = MetaCLIPInferenceTab()
 
         # --- LINK TABS (Critical for Cross-Tab Communication) ---
         self.database_tab.scan_tab_ref = self.scan_metadata_tab 
@@ -159,12 +156,10 @@ class MainWindow(QWidget):
                 "Cloud Synchronization": self.drive_sync_tab,
             },
             'Deep Learning': {
-                "GAN Train": self.r3gan_train_tab,
-                "GAN Evaluate": self.r3gan_eval_tab,
-                "GAN Generate": self.r3gan_gen_tab,
-                "DGM Text-to-Image": self.sd3_t2i_tab,
-                "DGM ControlNet": self.sd3_controlnet_tab,
-                "CLIP Inference": self.metaclip_infer_tab,
+                "Training": self.train_tab,
+                "Generation": self.generate_tab,
+                "Evaluation": self.eval_tab,
+                "Inference": self.inference_tab,
             },
         }
 
