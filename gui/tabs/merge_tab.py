@@ -292,30 +292,110 @@ class MergeTab(AbstractClassTwoGalleries):
     # --- MERGING ---
     @Slot(str)
     def handle_full_image_preview(self, image_path: str):
-        selected_paths_list = self.selected_files.copy() 
+        # 1. Prepare Navigation List
+        full_list = self.found_files 
+        target_list = full_list if full_list else self.selected_files.copy()
+        
+        if not target_list:
+            target_list = [image_path]
+        elif image_path not in target_list:
+            target_list.append(image_path)
+
         try:
-            start_index = selected_paths_list.index(image_path)
+            start_index = target_list.index(image_path)
         except ValueError:
-            selected_paths_list = [image_path]
             start_index = 0
             
+        # --- Track Current Path for Update Logic ---
+        # This reference will track the path currently shown in the preview window
+        current_preview_path = image_path 
+
+        # --- Apply Temporary Highlight Style to the starting card ---
+        target_card = self.path_to_label_map.get(image_path)
+        if target_card:
+            # 1. Ensure the card is in its canonical (non-highlight) state first.
+            self.update_card_style(target_card, image_path in self.selected_files)
+            
+            # 2. Store the resulting canonical style on the card itself
+            target_card.setProperty("original_style", target_card.styleSheet())
+            
+            # 3. Apply a distinctive blue border style for viewing
+            target_card.setStyleSheet(f"{target_card.styleSheet().strip()}; border: 4px solid #3498db;")
+
+
+        # 2. Create Preview Window
         window = ImagePreviewWindow(
             image_path=image_path, 
             db_tab_ref=None, 
             parent=self,
-            all_paths=selected_paths_list,
+            all_paths=target_list, 
             start_index=start_index
         )
+        
+        # --- NEW CONNECTION ---
+        # Connect the preview window's internal navigation signal to our external update slot
+        window.path_changed.connect(self.update_preview_highlight)
+        # ----------------------
+        
         window.setAttribute(Qt.WA_DeleteOnClose)
         
+        # 4. Handle Closure and Reset Style (inside handle_full_image_preview)
         def remove_closed_win(event: Any):
+            # Restore the style of the image that was VISIBLE when the window closed
+            last_card = self.path_to_label_map.get(current_preview_path)
+            if last_card:
+                # Retrieve the original style stored as a property
+                original_style = last_card.property("original_style")
+                if original_style:
+                    last_card.setStyleSheet(original_style)
+                else:
+                    # Fallback to general style update if property wasn't set correctly
+                    self.update_card_style(last_card, current_preview_path in self.selected_files)
+
             if window in self.open_preview_windows:
                  self.open_preview_windows.remove(window)
             event.accept()
 
         window.closeEvent = remove_closed_win
         window.show()
+        
+        window.activateWindow()
+        window.setFocus()
+        
         self.open_preview_windows.append(window)
+
+    @Slot(str, str)
+    def update_preview_highlight(self, old_path: str, new_path: str):
+        """
+        Updates the highlight style on the main gallery cards when navigation occurs in the preview window.
+        """
+        # --- Reset Old Card Style (Use saved original_style property) ---
+        old_card = self.path_to_label_map.get(old_path)
+        if old_card:
+            # 1. Retrieve the original style saved when it was highlighted
+            original_style = old_card.property("original_style")
+            if original_style:
+                old_card.setStyleSheet(original_style)
+            else:
+                # Fallback to standard style reset
+                self.update_card_style(old_card, old_path in self.selected_files)
+            
+            # Clear the property to signal it's no longer highlighted
+            old_card.setProperty("original_style", None)
+
+        # --- Apply Highlight to New Card ---
+        new_card = self.path_to_label_map.get(new_path)
+        if new_card:
+            # 1. Ensure the card is in its canonical (non-highlight) state first.
+            # This calls _update_label_style based on its current selection state.
+            self.update_card_style(new_card, new_path in self.selected_files)
+            
+            # 2. Save this canonical style to the property for future reset/closure.
+            # This prevents saving the blue style as the "original."
+            new_card.setProperty("original_style", new_card.styleSheet())
+            
+            # 3. Apply the temporary blue highlight.
+            new_card.setStyleSheet(f"{new_card.styleSheet().strip()}; border: 4px solid #3498db;")
 
     @Slot(QPoint, str)
     def show_image_context_menu(self, global_pos: QPoint, path: str):
