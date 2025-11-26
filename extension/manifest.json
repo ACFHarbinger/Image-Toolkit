@@ -21,7 +21,8 @@
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png"
     },
-    "default_title": "Save Folder Settings"
+    "default_title": "Set Save Directory",
+    "default_popup": "options.html"
   },
 
   "background": {
