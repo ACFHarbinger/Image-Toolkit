@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: sans-serif; padding: 15px; min-width: 300px; }
+        label { font-weight: bold; display: block; margin-bottom: 5px; }
+        input { width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; }
+        button { background-color: #0060df; color: white; border: none; padding: 8px 16px; cursor: pointer; border-radius: 4px; }
+        button:hover { background-color: #003eaa; }
+        #status { margin-top: 10px; color: green; font-size: 0.9em; }
+        .note { font-size: 0.8em; color: #666; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <label for="folder">Target Directory Name:</label>
+    <input type="text" id="folder" placeholder="e.g. MyVacationPhotos">
+    <div class="note">Files will be saved to: Downloads/YourDirectory</div>
+    
+    <button id="save">Save Settings</button>
+    <div id="status"></div>
+
+    <script src="options.js"></script>
+</body>
+</html>
