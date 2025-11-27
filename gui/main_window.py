@@ -136,8 +136,8 @@ class MainWindow(QWidget):
         self.all_tabs = {
             'System Tools': {
                 "Convert Format": self.convert_tab,
-                "Merge Images": self.merge_tab,
-                "Delete Images": self.delete_tab,
+                "Merge": self.merge_tab,
+                "Delete": self.delete_tab,
                 "Image Extractor": self.image_extractor_tab,
                 "Display Wallpaper": self.wallpaper_tab,
             }, 

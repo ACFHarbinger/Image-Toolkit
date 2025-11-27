@@ -104,10 +104,6 @@ class DeleteTab(AbstractClassTwoGalleries):
         content_layout.addWidget(self.scan_progress_bar)
         
         # A. Top Gallery: Found Duplicates
-        # Add Pagination Widget
-        if hasattr(self, 'found_pagination_widget'):
-            content_layout.addWidget(self.found_pagination_widget)
-
         self.found_gallery_scroll = MarqueeScrollArea()
         self.found_gallery_scroll.setWidgetResizable(True)
         self.found_gallery_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
@@ -120,12 +116,12 @@ class DeleteTab(AbstractClassTwoGalleries):
         self.found_gallery_scroll.setWidget(self.gallery_widget)
         self.found_gallery_scroll.selection_changed.connect(self.handle_marquee_selection)
         content_layout.addWidget(self.found_gallery_scroll, 1)
+
+        # Add Pagination Widget (Found) - Moved to Bottom
+        if hasattr(self, 'found_pagination_widget'):
+            content_layout.addWidget(self.found_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter)
         
         # B. Bottom Gallery: Selected for Deletion
-        # Add Pagination Widget
-        if hasattr(self, 'selected_pagination_widget'):
-            content_layout.addWidget(self.selected_pagination_widget)
-
         self.selected_gallery_scroll = MarqueeScrollArea()
         self.selected_gallery_scroll.setWidgetResizable(True)
         self.selected_gallery_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
@@ -137,6 +133,10 @@ class DeleteTab(AbstractClassTwoGalleries):
         self.selected_gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         self.selected_gallery_scroll.setWidget(self.selected_widget)
         content_layout.addWidget(self.selected_gallery_scroll, 1)
+
+        # Add Pagination Widget (Selected) - Moved to Bottom
+        if hasattr(self, 'selected_pagination_widget'):
+            content_layout.addWidget(self.selected_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter)
 
         # Actions for Duplicates
         dup_actions_layout = QHBoxLayout()

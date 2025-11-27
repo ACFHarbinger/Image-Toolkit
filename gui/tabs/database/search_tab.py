@@ -158,27 +158,25 @@ class SearchTab(AbstractClassTwoGalleries):
         
         # --- GALLERY AREA ---
         
-        # 1. Search Results (Found Gallery)
-        found_group = QGroupBox("Search Results (Ctrl+A: Select All | Ctrl+D: Deselect All)")
-        found_layout = QVBoxLayout(found_group)
-        
+        # 1. Search Results (Found Gallery) - Direct Layout
         results_header_layout = QHBoxLayout()
+        
+        # Title Label (Replacing GroupBox title)
+        results_title_label = QLabel("Search Results (Ctrl+A: Select All | Ctrl+D: Deselect All)")
+        results_title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        results_header_layout.addWidget(results_title_label)
+
+        results_header_layout.addStretch()
+        
         self.results_count_label = QLabel("Not connected to database.")
         self.results_count_label.setStyleSheet("color: #aaa; font-style: italic;")
         results_header_layout.addWidget(self.results_count_label)
-        results_header_layout.addStretch()
         
-        # --- REMOVED SELECT/DESELECT BUTTONS ---
-        
-        found_layout.addLayout(results_header_layout)
-        
-        # Pagination Widget (Found)
-        if hasattr(self, 'found_pagination_widget'):
-            found_layout.addWidget(self.found_pagination_widget)
+        layout.addLayout(results_header_layout)
         
         self.results_scroll = MarqueeScrollArea()
         self.results_scroll.setWidgetResizable(True)
-        self.results_scroll.setMinimumHeight(300)
+        self.results_scroll.setMinimumHeight(600)
         self.results_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
         # Connect Marquee Selection
         self.results_scroll.selection_changed.connect(self.handle_marquee_selection)
@@ -191,20 +189,24 @@ class SearchTab(AbstractClassTwoGalleries):
         self.results_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         self.results_scroll.setWidget(self.results_widget)
         
-        found_layout.addWidget(self.results_scroll)
-        layout.addWidget(found_group, stretch=1) # Results take more space
+        # Add directly to main layout with stretch
+        layout.addWidget(self.results_scroll, stretch=1)
+
+        # Pagination Widget (Found)
+        if hasattr(self, 'found_pagination_widget'):
+            layout.addWidget(self.found_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter)
         
-        # 2. Selected Images Gallery
-        selected_group = QGroupBox("Selected Images")
-        selected_layout = QVBoxLayout(selected_group)
+        # 2. Selected Images Gallery - Direct Layout
+        selected_header_layout = QHBoxLayout()
+        selected_title_label = QLabel("Selected Images")
+        selected_title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        selected_header_layout.addWidget(selected_title_label)
+        selected_header_layout.addStretch()
+        layout.addLayout(selected_header_layout)
         
-        # Pagination Widget (Selected)
-        if hasattr(self, 'selected_pagination_widget'):
-            selected_layout.addWidget(self.selected_pagination_widget)
-            
         self.selected_scroll = MarqueeScrollArea()
         self.selected_scroll.setWidgetResizable(True)
-        self.selected_scroll.setMinimumHeight(200)
+        self.selected_scroll.setMinimumHeight(400)
         self.selected_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
         
         self.selected_widget_container = QWidget()
@@ -214,8 +216,12 @@ class SearchTab(AbstractClassTwoGalleries):
         self.selected_layout_grid.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         self.selected_scroll.setWidget(self.selected_widget_container)
         
-        selected_layout.addWidget(self.selected_scroll)
-        layout.addWidget(selected_group, stretch=1)
+        # Add directly to main layout with stretch
+        layout.addWidget(self.selected_scroll, stretch=1)
+
+        # Pagination Widget (Selected)
+        if hasattr(self, 'selected_pagination_widget'):
+            layout.addWidget(self.selected_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter)
         
         # **Assign Base Class References**
         self.found_gallery_scroll = self.results_scroll

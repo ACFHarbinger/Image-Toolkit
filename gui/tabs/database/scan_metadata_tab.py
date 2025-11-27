@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QPushButton, QLabel, QFormLayout,
     QComboBox, QLineEdit, QFileDialog, 
     QHBoxLayout, QVBoxLayout, QScrollArea, 
+    QToolButton,
 )
 from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassTwoGalleries
@@ -55,11 +56,11 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         self.approx_item_width = self.thumbnail_size + self.padding_width + 20
         
         # Pagination State
-        self.scan_page_size = 50
+        self.scan_page_size = 1000
         self.scan_current_page = 0
         self.scan_total_pages = 1
 
-        self.selected_page_size = 50
+        self.selected_page_size = 1000
         self.selected_current_page = 0
         self.selected_total_pages = 1
 
@@ -89,6 +90,14 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
         content_layout.setContentsMargins(0, 0, 0, 0)
+
+        # --- Lazy Loading State ---
+        self.loaded_paths: Set[str] = set()
+        self.loading_paths: Set[str] = set()
+        self._lazy_load_timer = QTimer()
+        self._lazy_load_timer.setSingleShot(True)
+        self._lazy_load_timer.setInterval(150) # Wait 150ms after scroll stops
+        self._lazy_load_timer.timeout.connect(self._process_visible_items)
         
         # --- Scan Directory Section ---
         scan_group = QGroupBox("Scan Directory")
@@ -129,14 +138,18 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         
         self.scan_scroll_area.setWidget(self.scan_thumbnail_widget)
         self.scan_scroll_area.selection_changed.connect(self.handle_marquee_selection)
+
+        # Connect Scroll Bar for Lazy Loading
+        self.scan_scroll_area.verticalScrollBar().valueChanged.connect(self._on_scroll_event)
         
         # Scan Pagination Controls
-        (self.scan_pag_layout, self.scan_pag_combo, 
+        (self.scan_pag_widget, self.scan_pag_combo, 
          self.scan_pag_prev, self.scan_pag_next, 
-         self.scan_pag_selector) = self._create_pagination_controls("scan")
+         self.scan_pag_btn) = self._create_pagination_controls("scan")
 
         content_layout.addWidget(self.scan_scroll_area, 1)
-        content_layout.addLayout(self.scan_pag_layout)
+        # Fix: Add alignment flag to center the widget itself
+        content_layout.addWidget(self.scan_pag_widget, 0, Qt.AlignmentFlag.AlignCenter)
         
         # B. Bottom Gallery: Selected Images
         self.selected_images_area = MarqueeScrollArea() 
@@ -154,12 +167,13 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         self.selected_images_area.setWidget(self.selected_images_widget)
         
         # Selected Pagination Controls
-        (self.sel_pag_layout, self.sel_pag_combo, 
+        (self.sel_pag_widget, self.sel_pag_combo, 
          self.sel_pag_prev, self.sel_pag_next, 
-         self.sel_pag_selector) = self._create_pagination_controls("selected")
+         self.sel_pag_btn) = self._create_pagination_controls("selected")
 
         content_layout.addWidget(self.selected_images_area, 1)
-        content_layout.addLayout(self.sel_pag_layout)
+        # Fix: Add alignment flag to center the widget itself
+        content_layout.addWidget(self.sel_pag_widget, 0, Qt.AlignmentFlag.AlignCenter)
         
         # --- Metadata Group Box ---
         self.metadata_group = QGroupBox("Batch Metadata (Applies to ALL Selected Images)")
@@ -239,44 +253,44 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         self.populate_selected_images_gallery()
 
     def _create_pagination_controls(self, prefix: str):
-        layout = QHBoxLayout()
-        layout.setAlignment(Qt.AlignCenter)
+        # Use the common method from AbstractClassTwoGalleries to ensure consistent styling
+        container, controls = self.common_create_pagination_ui()
         
-        lbl_per_page = QLabel("Images per page:")
-        combo = QComboBox()
-        combo.addItems(["20", "50", "100", "All"])
+        # Center alignment: Explicitly set horizontal center alignment
+        if container.layout():
+            container.layout().setAlignment(Qt.AlignHCenter)
+            
+        combo = controls['combo']
+        btn_prev = controls['btn_prev']
+        btn_next = controls['btn_next']
+        btn_page = controls['btn_page']
+
+        # FIX: Force the button to display as a dropdown (InstantPopup style).
+        # We also set a dummy menu immediately. This forces the UI to render the 
+        # dropdown arrow and reserve the correct spacing/size even before data is loaded.
+        try:
+            btn_page.setPopupMode(QToolButton.InstantPopup)
+        except AttributeError:
+            pass # Ignore if it is a QPushButton
+        
+        # Explicitly attaching a menu ensures the arrow style appears
+        btn_page.setMenu(QMenu(self))
+        
+        # Set default values
         combo.setCurrentText("100")
         
-        btn_prev = QPushButton("< Prev")
-        btn_prev.setFixedWidth(80)
-        
-        # New: Selector instead of label
-        selector = QComboBox()
-        selector.setFixedWidth(140)
-        
-        btn_next = QPushButton("Next >")
-        btn_next.setFixedWidth(80)
-        
-        layout.addWidget(lbl_per_page)
-        layout.addWidget(combo)
-        layout.addSpacing(20)
-        layout.addWidget(btn_prev)
-        layout.addWidget(selector)
-        layout.addWidget(btn_next)
-        
-        # Connect signals locally to dispatchers
+        # Connect signals locally
         if prefix == "scan":
             combo.currentTextChanged.connect(self._on_scan_page_size_changed)
             btn_prev.clicked.connect(self._on_scan_prev)
             btn_next.clicked.connect(self._on_scan_next)
-            selector.currentIndexChanged.connect(self._on_scan_page_selector_changed)
+            # The page button uses a menu, managed in _update_pagination_ui
         else:
             combo.currentTextChanged.connect(self._on_sel_page_size_changed)
             btn_prev.clicked.connect(self._on_sel_prev)
             btn_next.clicked.connect(self._on_sel_next)
-            selector.currentIndexChanged.connect(self._on_sel_page_selector_changed)
             
-        return layout, combo, btn_prev, btn_next, selector
+        return container, combo, btn_prev, btn_next, btn_page
 
     # --- PAGINATION HANDLERS ---
     
@@ -298,7 +312,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             self.scan_current_page += 1
             self._load_current_scan_page()
             
-    def _on_scan_page_selector_changed(self, index):
+    def _on_scan_page_selected(self, index):
         if index >= 0 and index != self.scan_current_page:
             self.scan_current_page = index
             self._load_current_scan_page()
@@ -321,7 +335,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             self.selected_current_page += 1
             self.populate_selected_images_gallery()
             
-    def _on_sel_page_selector_changed(self, index):
+    def _on_sel_page_selected(self, index):
         if index >= 0 and index != self.selected_current_page:
             self.selected_current_page = index
             self.populate_selected_images_gallery()
@@ -331,7 +345,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             total = len(self.scan_filtered_list)
             size = self.scan_page_size
             current = self.scan_current_page
-            selector = self.scan_pag_selector
+            btn_page = self.scan_pag_btn
             
             if size == float('inf'):
                 self.scan_total_pages = 1
@@ -342,23 +356,28 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             if self.scan_current_page >= self.scan_total_pages:
                 self.scan_current_page = max(0, self.scan_total_pages - 1)
                 current = self.scan_current_page
-
-            # Update selector items
-            selector.blockSignals(True)
-            selector.clear()
-            items = [f"Page {i+1} of {self.scan_total_pages}" for i in range(self.scan_total_pages)]
-            selector.addItems(items)
-            selector.setCurrentIndex(current)
-            selector.blockSignals(False)
-
+            
+            # Common State Update logic (reusing base class helper logic manually since state is separate)
+            btn_page.setText(f"Page {current + 1} / {self.scan_total_pages}")
+            
             self.scan_pag_prev.setEnabled(current > 0)
             self.scan_pag_next.setEnabled(current < self.scan_total_pages - 1)
+            
+            # Rebuild Menu
+            menu = QMenu(self)
+            for i in range(self.scan_total_pages):
+                action = QAction(f"Page {i + 1}", self)
+                action.setCheckable(True)
+                action.setChecked(i == current)
+                action.triggered.connect(lambda checked=False, idx=i: self._on_scan_page_selected(idx))
+                menu.addAction(action)
+            btn_page.setMenu(menu)
             
         else:
             total = len(self.selected_image_paths)
             size = self.selected_page_size
             current = self.selected_current_page
-            selector = self.sel_pag_selector
+            btn_page = self.sel_pag_btn
             
             if size == float('inf'):
                 self.selected_total_pages = 1
@@ -370,16 +389,20 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                 self.selected_current_page = max(0, self.selected_total_pages - 1)
                 current = self.selected_current_page
 
-            # Update selector items
-            selector.blockSignals(True)
-            selector.clear()
-            items = [f"Page {i+1} of {self.selected_total_pages}" for i in range(self.selected_total_pages)]
-            selector.addItems(items)
-            selector.setCurrentIndex(current)
-            selector.blockSignals(False)
+            btn_page.setText(f"Page {current + 1} / {self.selected_total_pages}")
 
             self.sel_pag_prev.setEnabled(current > 0)
             self.sel_pag_next.setEnabled(current < self.selected_total_pages - 1)
+            
+            # Rebuild Menu
+            menu = QMenu(self)
+            for i in range(self.selected_total_pages):
+                action = QAction(f"Page {i + 1}", self)
+                action.setCheckable(True)
+                action.setChecked(i == current)
+                action.triggered.connect(lambda checked=False, idx=i: self._on_sel_page_selected(idx))
+                menu.addAction(action)
+            btn_page.setMenu(menu)
 
     # --- KEYBOARD SHORTCUTS ---
 
@@ -470,8 +493,9 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
     # --- RESIZE & REFLOW LOGIC ---
     
     def resizeEvent(self, event: QResizeEvent):
-        """Trigger grid reflow when window is resized."""
-        self._resize_timer.start(150) # Debounce resize
+        """Trigger grid reflow and lazy load check when window is resized."""
+        self._resize_timer.start(150) # existing debounce for layout repack
+        self._lazy_load_timer.start(200) # trigger visibility check slightly after layout repack
         super().resizeEvent(event)
 
     def showEvent(self, event):
@@ -533,10 +557,10 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         
         if pixmap and not pixmap.isNull():
             if pixmap.width() > thumb_size or pixmap.height() > thumb_size:
-                 scaled = pixmap.scaled(thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                 img_label.setPixmap(scaled)
+                scaled = pixmap.scaled(thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.FastTransformation)
+                img_label.setPixmap(scaled)
             else:
-                 img_label.setPixmap(pixmap)
+                img_label.setPixmap(pixmap)
         else:
             # Modified to show Loading if passed as None, or Error if null/failed
             if pixmap is None:
@@ -810,13 +834,18 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         self._load_current_scan_page()
 
     def _load_current_scan_page(self):
-        """Calculates the slice for the current page and initiates loading."""
+        """Calculates the slice for the current page and initiates layout (images load lazily)."""
         
         # 1. Update Pagination UI
         self._update_pagination_ui("scan")
         
         self._clear_gallery(self.scan_thumbnail_layout)
         self.path_to_wrapper_map.clear()
+        
+        # Reset Lazy Load State for new page
+        self.loaded_paths.clear()
+        self.loading_paths.clear()
+        self.thread_pool.clear()
         
         if not self.scan_filtered_list:
             return
@@ -829,10 +858,10 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             end_idx = start_idx + self.scan_page_size
             paths_to_load = self.scan_filtered_list[start_idx:end_idx]
             
-        # 3. Create Placeholders immediately (Show loading state)
+        # 3. Create Placeholders immediately
         columns = self._columns()
         
-        # Batch DB Check (Pre-fetch db status for all on page)
+        # Batch DB Check
         db = self.db_tab_ref.db
         paths_in_db_set = set()
         if db:
@@ -845,7 +874,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             except Exception as e:
                 print(f"Batch DB check error: {e}")
 
-        # Populate Grid with "Loading..." cards
+        # Populate Grid with Placeholders
         for index, path in enumerate(paths_to_load):
             row = index // columns
             col = index % columns
@@ -853,10 +882,9 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             is_in_db = path in paths_in_db_set
             is_selected = path in self.selected_image_paths
             
-            # Pass pixmap=None to create a "Loading..." placeholder
+            # Create card with pixmap=None (Loading state)
             card = self._create_gallery_card(path, None, is_selected, is_in_db=is_in_db)
             
-            # Wire up signals (even before image loads, user can select)
             card.path_clicked.connect(lambda checked, p=path: self.toggle_selection(p))
             card.path_double_clicked.connect(self._view_single_image_preview) 
             card.path_right_clicked.connect(self.show_image_context_menu)
@@ -866,13 +894,66 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
 
         self.scan_thumbnail_widget.adjustSize()
 
-        # 4. Start Loading in Background
-        self._loaded_results_buffer = []
-        self._images_loaded_count = 0
-        self._total_images_to_load = len(paths_to_load)
+        # 4. Trigger Initial Lazy Load (Check what is visible immediately)
+        # We give the layout a small moment to stabilize coordinates
+        QTimer.singleShot(50, self._process_visible_items)
+    
+    def _on_scroll_event(self, value):
+        """Called whenever the user scrolls. Debounces the heavy calculation."""
+        self._lazy_load_timer.start()
+
+    def _process_visible_items(self):
+        """Determines which widgets are in the viewport and triggers loading for them."""
+        if self._loading_cancelled:
+            return
+
+        # 1. Get Viewport Geometry relative to the content widget
+        # The visible area starts at the scroll bar value and extends for the viewport height
+        scroll_y = self.scan_scroll_area.verticalScrollBar().value()
+        viewport_height = self.scan_scroll_area.viewport().height()
         
-        # Defer starting thread pool slightly to let UI render the placeholders
-        QTimer.singleShot(10, lambda: self._start_image_loading_pool(paths_to_load))
+        # Define a "buffer" so images start loading slightly before they enter the screen
+        buffer_y = 200 
+        min_y = scroll_y - buffer_y
+        max_y = scroll_y + viewport_height + buffer_y
+
+        paths_to_fetch = []
+
+        # 2. Iterate through managed widgets
+        # (Using items ensures we don't crash if widgets were deleted)
+        for path, widget in self.path_to_wrapper_map.items():
+            
+            # Skip if already loaded or currently loading
+            if path in self.loaded_paths or path in self.loading_paths:
+                continue
+                
+            # Get geometry relative to the parent widget (self.scan_thumbnail_widget)
+            # widget.y() and widget.height() are lightweight calls
+            y = widget.y()
+            height = widget.height()
+            
+            # Check intersection
+            # If the bottom of the widget is below min_y AND the top is above max_y
+            if (y + height > min_y) and (y < max_y):
+                paths_to_fetch.append(path)
+                self.loading_paths.add(path)
+
+        # 3. Batch start threads
+        if paths_to_fetch:
+            self._start_lazy_batch(paths_to_fetch)
+
+    def _start_lazy_batch(self, paths: list[str]):
+        """Starts workers for the identified visible paths."""
+        for path in paths:
+            if self._loading_cancelled: break
+            
+            # Re-verify logic to prevent race conditions
+            if path in self.loaded_paths: 
+                continue
+
+            worker = ImageLoaderWorker(path, self.thumbnail_size)
+            worker.signals.result.connect(self.on_single_image_loaded)
+            self.thread_pool.start(worker)
 
     def _start_image_loading_pool(self, paths_to_load: list[str]):
         if self._loading_cancelled:
@@ -889,10 +970,15 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
     @Slot(str, QPixmap)
     def on_single_image_loaded(self, path: str, pixmap: QPixmap):
         if self._loading_cancelled: return
-        self._loaded_results_buffer.append((path, pixmap))
-        self._images_loaded_count += 1 
         
-        # --- NEW: Update the specific card immediately ---
+        # Mark as fully loaded
+        self.loaded_paths.add(path)
+        if path in self.loading_paths:
+            self.loading_paths.remove(path)
+            
+        self._loaded_results_buffer.append((path, pixmap))
+        
+        # --- Update the specific card ---
         if path in self.path_to_wrapper_map:
             wrapper = self.path_to_wrapper_map[path]
             inner_label = wrapper.findChild(QLabel)
@@ -901,22 +987,18 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                 if pixmap and not pixmap.isNull():
                     thumb_size = self.thumbnail_size
                     if pixmap.width() > thumb_size or pixmap.height() > thumb_size:
-                         scaled = pixmap.scaled(thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                         inner_label.setPixmap(scaled)
+                        scaled = pixmap.scaled(thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.FastTransformation)
+                        inner_label.setPixmap(scaled)
                     else:
-                         inner_label.setPixmap(pixmap)
+                        inner_label.setPixmap(pixmap)
                 else:
                     inner_label.setText("Error")
                     inner_label.setStyleSheet("color: #e74c3c; border: 1px solid #e74c3c;")
                 
-                # Update border style now that image is loaded (remove dashed loading border)
+                # Update border style
                 is_selected = path in self.selected_image_paths
                 is_in_db = wrapper.property("in_db")
                 self._update_card_style(inner_label, is_selected, is_in_db)
-        # -------------------------------------------------
-
-        if self._images_loaded_count >= self._total_images_to_load:
-            self._finalize_batch_loading()
 
     def _finalize_batch_loading(self):
         """Called when all threads in the pool have reported back."""
@@ -950,14 +1032,17 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
 
     def update_button_states(self, connected: bool):
         selection_count = len(self.selected_image_paths)
-        self.refresh_image_button.setEnabled(True) 
+        
+        # Logic: Refresh and Show New Only should be disabled if we haven't scanned a directory yet.
+        has_directory = hasattr(self, 'scanned_dir') and bool(self.scanned_dir)
+        
+        self.refresh_image_button.setEnabled(has_directory)
+        self.view_new_only_button.setEnabled(connected and has_directory)
         
         if connected and not self._db_was_connected:
             self._setup_tag_checkboxes()
         self._db_was_connected = connected 
 
-        self.view_new_only_button.setEnabled(connected)
-        
         if self.metadata_group.isVisible():
              self.upsert_button.setText(f"Confirm and Upsert {selection_count} Images")
         else:
@@ -1162,7 +1247,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         }
         return out
 
-    def get_default_config(self) -> Dict[str, Any]:
+    def get_default_config() -> Dict[str, Any]:
         return {
             "scan_directory": "",
             "batch_metadata": {
