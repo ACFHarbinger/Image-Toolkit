@@ -1,7 +1,7 @@
 import os
 
 from PySide6.QtCore import QThread, Signal
-from backend.src.web import ImageCrawler, DanbooruCrawler, GelbooruCrawler
+from backend.src.web import ImageCrawler, DanbooruCrawler, GelbooruCrawler, SankakuCrawler
 
 
 class ImageCrawlWorker(QThread):
@@ -27,6 +27,8 @@ class ImageCrawlWorker(QThread):
                 board_type = self.config.get("board_type", "danbooru")
                 if board_type == "gelbooru":
                     crawler = GelbooruCrawler(self.config)
+                elif board_type == "sankaku":
+                    crawler = SankakuCrawler(self.config)
                 else: # defaults to danbooru
                     crawler = DanbooruCrawler(self.config)
             else:
