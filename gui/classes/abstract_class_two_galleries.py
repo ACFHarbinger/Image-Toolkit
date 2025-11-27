@@ -3,23 +3,20 @@ import math
 
 from pathlib import Path
 from abc import abstractmethod
-from typing import List, Tuple, Dict, Optional, Set
-from PySide6.QtWidgets import (
-    QWidget, QGridLayout, QApplication, QLabel, QScrollArea,
-    QHBoxLayout, QPushButton, QComboBox, QGroupBox, QVBoxLayout, QMenu
-)
-from PySide6.QtCore import Qt, Slot, QThreadPool, QPoint, QRect, QTimer
+from typing import List, Dict, Optional, Set
+from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QMenu
+from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer
 from PySide6.QtGui import QPixmap, QAction
-from .meta_abstract_class import MetaAbstractClass
+
+from .meta_abstract_class_gallery import MetaAbstractClassGallery
 from ..components import MarqueeScrollArea, ClickableLabel
 from ..helpers import ImageLoaderWorker
 
 
-class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
+class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
     """
-    Abstract base class for tabs with:
-    1. A 'Found/Scanned' gallery (Lazy Loaded & Paginated).
-    2. A 'Selected' gallery (Immediate Load & Paginated).
+    Abstract base class for tabs with Found/Selected galleries.
+    Uses MetaAbstractClassGallery to access shared logic for layout and pagination.
     """
 
     def __init__(self):
@@ -31,8 +28,6 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
         
         self.path_to_label_map: Dict[str, QWidget] = {} 
         self.selected_card_map: Dict[str, QWidget] = {}
-        
-        # Cache to prevent reloading selected images when refreshing layout
         self._selected_pixmap_cache: Dict[str, QPixmap] = {}
 
         # --- Lazy Loading State (For Found Gallery) ---
@@ -56,10 +51,8 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
         # --- UI References ---
         self.found_gallery_scroll: Optional[MarqueeScrollArea] = None
         self.found_gallery_layout: Optional[QGridLayout] = None
-        self.found_pagination_layout: Optional[QHBoxLayout] = None
         self.selected_gallery_scroll: Optional[MarqueeScrollArea] = None
         self.selected_gallery_layout: Optional[QGridLayout] = None
-        self.selected_pagination_layout: Optional[QHBoxLayout] = None
         self.status_label: Optional[QLabel] = None
 
         # --- Threading ---
@@ -70,7 +63,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
         except Exception:
             self.last_browsed_dir = Path(os.getcwd())
 
-        # Initialize Pagination Widgets (to be added to layout by subclasses)
+        # Initialize Pagination Widgets using Shared Logic
         self.found_pagination_widget = self.create_pagination_controls(is_found_gallery=True)
         self.selected_pagination_widget = self.create_pagination_controls(is_found_gallery=False)
 
@@ -91,48 +84,31 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
     # --- PAGINATION UI HELPERS ---
 
     def create_pagination_controls(self, is_found_gallery: bool) -> QWidget:
-        """Creates a widget containing pagination controls."""
-        container = QWidget()
-        layout = QHBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)
+        """Creates pagination using shared logic, then binds contextual signals."""
+        container, controls = self.common_create_pagination_ui()
         
-        # Page Size Combo
-        lbl = QLabel(f"Images per page:")
-        combo = QComboBox()
-        combo.addItems(["20", "50", "100", "All"])
-        combo.setCurrentText("100")
-        combo.currentTextChanged.connect(lambda text: self._on_page_size_changed(text, is_found_gallery))
-        
-        # Navigation Buttons
-        btn_prev = QPushButton("< Prev")
-        btn_prev.clicked.connect(lambda: self._change_page(-1, is_found_gallery))
-        
-        # Dropdown Button for Page Selection
-        btn_page = QPushButton("Page 1 / 1")
-        btn_page.setFixedWidth(120)
-        # The menu is set dynamically in _update_pagination_ui
-        
-        btn_next = QPushButton("Next >")
-        btn_next.clicked.connect(lambda: self._change_page(1, is_found_gallery))
+        # Bind signals depending on context
+        controls['combo'].currentTextChanged.connect(
+            lambda text: self._on_page_size_changed(text, is_found_gallery)
+        )
+        controls['btn_prev'].clicked.connect(
+            lambda: self._change_page(-1, is_found_gallery)
+        )
+        controls['btn_next'].clicked.connect(
+            lambda: self._change_page(1, is_found_gallery)
+        )
 
-        # Store references for later updates
+        # Store references
         if is_found_gallery:
-            self.found_page_combo = combo
-            self.found_prev_btn = btn_prev
-            self.found_next_btn = btn_next
-            self.found_page_button = btn_page
+            self.found_page_combo = controls['combo']
+            self.found_prev_btn = controls['btn_prev']
+            self.found_next_btn = controls['btn_next']
+            self.found_page_button = controls['btn_page']
         else:
-            self.selected_page_combo = combo
-            self.selected_prev_btn = btn_prev
-            self.selected_next_btn = btn_next
-            self.selected_page_button = btn_page
-
-        layout.addWidget(lbl)
-        layout.addWidget(combo)
-        layout.addStretch()
-        layout.addWidget(btn_prev)
-        layout.addWidget(btn_page)
-        layout.addWidget(btn_next)
+            self.selected_page_combo = controls['combo']
+            self.selected_prev_btn = controls['btn_prev']
+            self.selected_next_btn = controls['btn_next']
+            self.selected_page_button = controls['btn_page']
         
         return container
 
@@ -141,7 +117,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
         if is_found:
             self.found_page_size = size
             self.found_current_page = 0
-            self.refresh_found_gallery() # Refresh current view
+            self.refresh_found_gallery()
         else:
             self.selected_page_size = size
             self.selected_current_page = 0
@@ -149,22 +125,21 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
 
     def _change_page(self, delta: int, is_found: bool):
         if is_found:
-            total_items = len(self.found_files)
-            max_page = math.ceil(total_items / self.found_page_size) - 1
-            new_page = max(0, min(self.found_current_page + delta, max_page))
-            if new_page != self.found_current_page:
-                self.found_current_page = new_page
+            total = len(self.found_files)
+            max_p = math.ceil(total / self.found_page_size) - 1
+            new_p = max(0, min(self.found_current_page + delta, max_p))
+            if new_p != self.found_current_page:
+                self.found_current_page = new_p
                 self.refresh_found_gallery()
         else:
-            total_items = len(self.selected_files)
-            max_page = math.ceil(total_items / self.selected_page_size) - 1
-            new_page = max(0, min(self.selected_current_page + delta, max_page))
-            if new_page != self.selected_current_page:
-                self.selected_current_page = new_page
+            total = len(self.selected_files)
+            max_p = math.ceil(total / self.selected_page_size) - 1
+            new_p = max(0, min(self.selected_current_page + delta, max_p))
+            if new_p != self.selected_current_page:
+                self.selected_current_page = new_p
                 self.refresh_selected_panel()
 
     def _jump_to_page(self, page_index: int, is_found: bool):
-        """Jump directly to a specific page index."""
         if is_found:
             if page_index != self.found_current_page:
                 self.found_current_page = page_index
@@ -175,124 +150,72 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
                 self.refresh_selected_panel()
 
     def _update_pagination_ui(self, is_found: bool):
-        # Check if controls exist before updating to avoid AttributeError
         if is_found:
             if not hasattr(self, 'found_page_button'): return
+            controls = {
+                'btn_page': self.found_page_button,
+                'btn_prev': self.found_prev_btn,
+                'btn_next': self.found_next_btn
+            }
             total = len(self.found_files)
             size = self.found_page_size
             current = self.found_current_page
-            btn_page = self.found_page_button
-            btn_prev = self.found_prev_btn
-            btn_next = self.found_next_btn
         else:
             if not hasattr(self, 'selected_page_button'): return
+            controls = {
+                'btn_page': self.selected_page_button,
+                'btn_prev': self.selected_prev_btn,
+                'btn_next': self.selected_next_btn
+            }
             total = len(self.selected_files)
             size = self.selected_page_size
             current = self.selected_current_page
-            btn_page = self.selected_page_button
-            btn_prev = self.selected_prev_btn
-            btn_next = self.selected_next_btn
 
-        if total == 0:
-            btn_page.setText("Page 0 / 0")
-            btn_page.setEnabled(False)
-            btn_prev.setEnabled(False)
-            btn_next.setEnabled(False)
-            return
+        # Shared State Update Logic
+        corrected_page, total_pages = self.common_update_pagination_state(
+            total, size, current, controls
+        )
+        
+        if is_found: self.found_current_page = corrected_page
+        else: self.selected_current_page = corrected_page
 
-        total_pages = math.ceil(total / size)
-        # Ensure current page is valid
-        if current >= total_pages:
-            current = max(0, total_pages - 1)
-            if is_found: self.found_current_page = current
-            else: self.selected_current_page = current
-
-        btn_page.setText(f"Page {current + 1} / {total_pages}")
-        btn_page.setEnabled(True)
-        btn_prev.setEnabled(current > 0)
-        btn_next.setEnabled(current < total_pages - 1)
-
-        # --- Populate Dropdown Menu ---
+        # Update Menu
         menu = QMenu(self)
-        # Limit menu size if excessively large, or implement a scrollable view custom widget.
-        # For standard use (< 100 pages), QMenu is fine.
         for i in range(total_pages):
-            page_num = i + 1
-            action = QAction(f"Page {page_num}", self)
+            action = QAction(f"Page {i + 1}", self)
             action.setCheckable(True)
-            action.setChecked(i == current)
-            # Use default argument to capture loop variable 'i'
+            action.setChecked(i == corrected_page)
             action.triggered.connect(lambda checked=False, p=i, f=is_found: self._jump_to_page(p, f))
             menu.addAction(action)
-        
-        btn_page.setMenu(menu)
-
-    def _get_paginated_slice(self, items: List[str], is_found: bool) -> List[str]:
-        if is_found:
-            start = self.found_current_page * self.found_page_size
-            end = start + self.found_page_size
-        else:
-            start = self.selected_current_page * self.selected_page_size
-            end = start + self.selected_page_size
-        return items[start:end]
+        controls['btn_page'].setMenu(menu)
 
     # --- GEOMETRY & LAYOUT LOGIC ---
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        # Recalculate columns and check visibility
+        
+        # Shared Calculation
         if self.found_gallery_scroll:
-            new_cols = self._calculate_columns(self.found_gallery_scroll)
+            new_cols = self.common_calculate_columns(self.found_gallery_scroll, self.approx_item_width)
             if new_cols != self._current_found_cols:
                 self._current_found_cols = new_cols
-                self._reflow_layout(self.found_gallery_layout, new_cols)
-            # Check visibility after resize
+                self.common_reflow_layout(self.found_gallery_layout, new_cols)
             QTimer.singleShot(100, self._process_visible_found_items)
 
         if self.selected_gallery_scroll:
-            new_cols = self._calculate_columns(self.selected_gallery_scroll)
+            new_cols = self.common_calculate_columns(self.selected_gallery_scroll, self.approx_item_width)
             if new_cols != self._current_selected_cols:
                 self._current_selected_cols = new_cols
-                self._reflow_layout(self.selected_gallery_layout, new_cols)
+                self.common_reflow_layout(self.selected_gallery_layout, new_cols)
 
     def showEvent(self, event):
         super().showEvent(event)
-        # Trigger visibility check when tab is shown
         QTimer.singleShot(100, self._process_visible_found_items)
 
     def _setup_lazy_connections(self):
-        """Call this after creating found_gallery_scroll in subclass."""
         if self.found_gallery_scroll:
             vbar = self.found_gallery_scroll.verticalScrollBar()
             vbar.valueChanged.connect(lambda val: self._process_visible_found_items())
-
-    def _calculate_columns(self, scroll_area: QScrollArea) -> int:
-        width = scroll_area.viewport().width()
-        if width <= 0: width = scroll_area.width()
-        if width <= 0: width = 800
-        return max(1, width // self.approx_item_width)
-
-    def _reflow_layout(self, layout: QGridLayout, columns: int):
-        if not layout: return
-        items = []
-        placeholder = None
-        
-        while layout.count():
-            item = layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                if isinstance(widget, QLabel) and getattr(widget, "is_placeholder", False):
-                    placeholder = widget
-                else:
-                    items.append(widget)
-        
-        if placeholder:
-             layout.addWidget(placeholder, 0, 0, 1, columns, Qt.AlignCenter)
-        else:
-            for i, widget in enumerate(items):
-                row = i // columns
-                col = i % columns
-                layout.addWidget(widget, row, col, Qt.AlignLeft | Qt.AlignTop)
 
     # --- SELECTION LOGIC ---
 
@@ -314,7 +237,6 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
         self.on_selection_changed()
 
     def handle_marquee_selection(self, paths_from_marquee: set, is_ctrl_pressed: bool):
-        # Note: Marquee only returns paths from currently VISIBLE page in scroll area
         ordered_current = self.selected_files.copy()
         paths_to_update = set()
         
@@ -348,10 +270,8 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
             widget.setStyleSheet(f"border: {width} solid {color};")
 
     def refresh_selected_panel(self):
-        """Refreshes the bottom panel with pagination."""
         if not self.selected_gallery_layout: return
 
-        # 1. Capture existing pixmaps from the current widgets before clearing
         for path, widget in self.selected_card_map.items():
             if hasattr(widget, "get_pixmap"):
                 pixmap = widget.get_pixmap()
@@ -362,23 +282,18 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
         self.selected_card_map = {}
         self._update_pagination_ui(is_found=False)
         
-        all_paths = self.selected_files
-        if not all_paths:
-            self.show_placeholder(self.selected_gallery_layout, "Selected files will appear here.")
+        if not self.selected_files:
+            self.common_show_placeholder(self.selected_gallery_layout, "Selected files will appear here.", 1)
             return
 
-        paginated_paths = self._get_paginated_slice(all_paths, is_found=False)
-        columns = self._calculate_columns(self.selected_gallery_scroll) 
+        # Shared Slice
+        paginated_paths = self.common_get_paginated_slice(
+            self.selected_files, self.selected_current_page, self.selected_page_size
+        )
+        columns = self.common_calculate_columns(self.selected_gallery_scroll, self.approx_item_width)
         
         for i, path in enumerate(paginated_paths):
-            # Try to grab the already loaded pixmap from multiple sources
-            pixmap = None
-            
-            # Source 1: The selected gallery cache (highest priority)
-            if path in self._selected_pixmap_cache:
-                pixmap = self._selected_pixmap_cache[path]
-            
-            # Source 2: The top gallery widgets (if visible/loaded there)
+            pixmap = self._selected_pixmap_cache.get(path)
             if pixmap is None:
                 top_widget = self.path_to_label_map.get(path)
                 if top_widget and hasattr(top_widget, "get_pixmap"):
@@ -386,7 +301,6 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
             
             card = self.create_card_widget(path, pixmap, is_selected=True)
             
-            # If still no pixmap, trigger load
             if pixmap is None:
                 self._trigger_priority_load(path, card)
 
@@ -400,7 +314,6 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
 
     def _trigger_priority_load(self, path: str, target_widget: QWidget):
         worker = ImageLoaderWorker(path, self.thumbnail_size)
-        # When loaded, also update cache
         worker.signals.result.connect(lambda p, px: self._on_selected_image_loaded(p, px, target_widget))
         self.thread_pool.start(worker)
 
@@ -412,38 +325,31 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
     # --- LAZY LOADING (Found Gallery) ---
 
     def start_loading_thumbnails(self, paths: list[str]):
-        """Initialize loading. Resets to Page 0."""
         self.cancel_loading()
-        
         self.found_files = paths
-        self.found_current_page = 0 # Reset page
-        
+        self.found_current_page = 0 
         self.refresh_found_gallery()
 
     def refresh_found_gallery(self):
-        """Reloads the found gallery layout based on current page."""
-        self.cancel_loading() # Clear lazy load queues for previous page
+        self.cancel_loading()
         self.path_to_label_map.clear()
-        self.pending_found_paths.clear()
-        self.loaded_found_paths.clear()
         self.loading_found_paths.clear()
 
         self._clear_layout(self.found_gallery_layout)
         self._update_pagination_ui(is_found=True)
 
         if not self.found_files:
-            self.show_placeholder(self.found_gallery_layout, "No images found.")
+            self.common_show_placeholder(self.found_gallery_layout, "No images found.", 1)
             if self.status_label: self.status_label.setText("Found 0 files.")
             return
 
-        # Get slice
-        paginated_paths = self._get_paginated_slice(self.found_files, is_found=True)
-        columns = self._calculate_columns(self.found_gallery_scroll)
+        paginated_paths = self.common_get_paginated_slice(
+            self.found_files, self.found_current_page, self.found_page_size
+        )
+        columns = self.common_calculate_columns(self.found_gallery_scroll, self.approx_item_width)
         
         for idx, path in enumerate(paginated_paths):
             is_selected = path in self.selected_files
-            
-            # Create with None pixmap
             card = self.create_card_widget(path, None, is_selected)
             
             if isinstance(card, ClickableLabel):
@@ -468,20 +374,13 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
         viewport = self.found_gallery_scroll.viewport()
         visible_rect = viewport.rect().adjusted(0, -200, 0, 200)
 
-        # 1. Load Visible
         for path in list(self.pending_found_paths):
             widget = self.path_to_label_map.get(path)
             if not widget: continue
 
-            if self._is_visible(widget, viewport, visible_rect):
+            # Shared Visibility Check
+            if self.common_is_visible(widget, viewport, visible_rect):
                 self._trigger_found_load(path)
-
-        # UNLOADING LOGIC REMOVED
-
-    def _is_visible(self, widget, viewport, visible_rect):
-        if not widget.isVisible(): return False
-        p = widget.mapTo(viewport, QPoint(0,0))
-        return visible_rect.intersects(QRect(p, widget.size()))
 
     def _trigger_found_load(self, path: str):
         if path in self.loading_found_paths or path in self.loaded_found_paths: return
@@ -500,7 +399,6 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
             self.loading_found_paths.remove(path)
         self.loaded_found_paths.add(path)
 
-        # Only update if widget still exists (might have changed page)
         widget = self.path_to_label_map.get(path)
         if widget:
             self.update_card_pixmap(widget, pixmap)
@@ -524,11 +422,11 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
         self.loaded_found_paths.clear()
 
         self._clear_layout(self.found_gallery_layout)
-        self.show_placeholder(self.found_gallery_layout, "No images found/loaded.")
+        self.common_show_placeholder(self.found_gallery_layout, "No images found/loaded.", 1)
         self._update_pagination_ui(is_found=True)
         
         self._clear_layout(self.selected_gallery_layout)
-        self.show_placeholder(self.selected_gallery_layout, "Selected files will appear here.")
+        self.common_show_placeholder(self.selected_gallery_layout, "Selected files will appear here.", 1)
         self._update_pagination_ui(is_found=False)
         
         self.on_selection_changed()
@@ -539,13 +437,3 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
             item = layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
-
-    def show_placeholder(self, layout: QGridLayout, text: str):
-        if not layout: return
-        lbl = QLabel(text)
-        lbl.setAlignment(Qt.AlignCenter)
-        lbl.setStyleSheet("color: #b9bbbe; padding: 20px; font-style: italic;")
-        lbl.is_placeholder = True
-        
-        cols = 1
-        layout.addWidget(lbl, 0, 0, 1, 3, Qt.AlignCenter)
