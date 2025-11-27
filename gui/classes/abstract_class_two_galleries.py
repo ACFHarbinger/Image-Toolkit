@@ -6,10 +6,10 @@ from abc import abstractmethod
 from typing import List, Tuple, Dict, Optional, Set
 from PySide6.QtWidgets import (
     QWidget, QGridLayout, QApplication, QLabel, QScrollArea,
-    QHBoxLayout, QPushButton, QComboBox, QGroupBox, QVBoxLayout
+    QHBoxLayout, QPushButton, QComboBox, QGroupBox, QVBoxLayout, QMenu
 )
 from PySide6.QtCore import Qt, Slot, QThreadPool, QPoint, QRect, QTimer
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QPixmap, QAction
 from .meta_abstract_class import MetaAbstractClass
 from ..components import MarqueeScrollArea, ClickableLabel
 from ..helpers import ImageLoaderWorker
@@ -31,6 +31,9 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
         
         self.path_to_label_map: Dict[str, QWidget] = {} 
         self.selected_card_map: Dict[str, QWidget] = {}
+        
+        # Cache to prevent reloading selected images when refreshing layout
+        self._selected_pixmap_cache: Dict[str, QPixmap] = {}
 
         # --- Lazy Loading State (For Found Gallery) ---
         self.pending_found_paths: Set[str] = set()
@@ -104,9 +107,10 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
         btn_prev = QPushButton("< Prev")
         btn_prev.clicked.connect(lambda: self._change_page(-1, is_found_gallery))
         
-        lbl_page = QLabel("Page 1 / 1")
-        lbl_page.setAlignment(Qt.AlignCenter)
-        lbl_page.setFixedWidth(100)
+        # Dropdown Button for Page Selection
+        btn_page = QPushButton("Page 1 / 1")
+        btn_page.setFixedWidth(120)
+        # The menu is set dynamically in _update_pagination_ui
         
         btn_next = QPushButton("Next >")
         btn_next.clicked.connect(lambda: self._change_page(1, is_found_gallery))
@@ -116,18 +120,18 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
             self.found_page_combo = combo
             self.found_prev_btn = btn_prev
             self.found_next_btn = btn_next
-            self.found_page_label = lbl_page
+            self.found_page_button = btn_page
         else:
             self.selected_page_combo = combo
             self.selected_prev_btn = btn_prev
             self.selected_next_btn = btn_next
-            self.selected_page_label = lbl_page
+            self.selected_page_button = btn_page
 
         layout.addWidget(lbl)
         layout.addWidget(combo)
         layout.addStretch()
         layout.addWidget(btn_prev)
-        layout.addWidget(lbl_page)
+        layout.addWidget(btn_page)
         layout.addWidget(btn_next)
         
         return container
@@ -159,27 +163,39 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
                 self.selected_current_page = new_page
                 self.refresh_selected_panel()
 
+    def _jump_to_page(self, page_index: int, is_found: bool):
+        """Jump directly to a specific page index."""
+        if is_found:
+            if page_index != self.found_current_page:
+                self.found_current_page = page_index
+                self.refresh_found_gallery()
+        else:
+            if page_index != self.selected_current_page:
+                self.selected_current_page = page_index
+                self.refresh_selected_panel()
+
     def _update_pagination_ui(self, is_found: bool):
         # Check if controls exist before updating to avoid AttributeError
         if is_found:
-            if not hasattr(self, 'found_page_label'): return
+            if not hasattr(self, 'found_page_button'): return
             total = len(self.found_files)
             size = self.found_page_size
             current = self.found_current_page
-            label = self.found_page_label
+            btn_page = self.found_page_button
             btn_prev = self.found_prev_btn
             btn_next = self.found_next_btn
         else:
-            if not hasattr(self, 'selected_page_label'): return
+            if not hasattr(self, 'selected_page_button'): return
             total = len(self.selected_files)
             size = self.selected_page_size
             current = self.selected_current_page
-            label = self.selected_page_label
+            btn_page = self.selected_page_button
             btn_prev = self.selected_prev_btn
             btn_next = self.selected_next_btn
 
         if total == 0:
-            label.setText("Page 0 / 0")
+            btn_page.setText("Page 0 / 0")
+            btn_page.setEnabled(False)
             btn_prev.setEnabled(False)
             btn_next.setEnabled(False)
             return
@@ -191,9 +207,25 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
             if is_found: self.found_current_page = current
             else: self.selected_current_page = current
 
-        label.setText(f"Page {current + 1} / {total_pages}")
+        btn_page.setText(f"Page {current + 1} / {total_pages}")
+        btn_page.setEnabled(True)
         btn_prev.setEnabled(current > 0)
         btn_next.setEnabled(current < total_pages - 1)
+
+        # --- Populate Dropdown Menu ---
+        menu = QMenu(self)
+        # Limit menu size if excessively large, or implement a scrollable view custom widget.
+        # For standard use (< 100 pages), QMenu is fine.
+        for i in range(total_pages):
+            page_num = i + 1
+            action = QAction(f"Page {page_num}", self)
+            action.setCheckable(True)
+            action.setChecked(i == current)
+            # Use default argument to capture loop variable 'i'
+            action.triggered.connect(lambda checked=False, p=i, f=is_found: self._jump_to_page(p, f))
+            menu.addAction(action)
+        
+        btn_page.setMenu(menu)
 
     def _get_paginated_slice(self, items: List[str], is_found: bool) -> List[str]:
         if is_found:
@@ -319,6 +351,13 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
         """Refreshes the bottom panel with pagination."""
         if not self.selected_gallery_layout: return
 
+        # 1. Capture existing pixmaps from the current widgets before clearing
+        for path, widget in self.selected_card_map.items():
+            if hasattr(widget, "get_pixmap"):
+                pixmap = widget.get_pixmap()
+                if pixmap and not pixmap.isNull():
+                    self._selected_pixmap_cache[path] = pixmap
+
         self._clear_layout(self.selected_gallery_layout)
         self.selected_card_map = {}
         self._update_pagination_ui(is_found=False)
@@ -332,15 +371,23 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
         columns = self._calculate_columns(self.selected_gallery_scroll) 
         
         for i, path in enumerate(paginated_paths):
-            # Try to grab the already loaded pixmap from the top gallery
+            # Try to grab the already loaded pixmap from multiple sources
             pixmap = None
-            top_widget = self.path_to_label_map.get(path)
-            if top_widget and hasattr(top_widget, "get_pixmap"):
-                 pixmap = top_widget.get_pixmap()
+            
+            # Source 1: The selected gallery cache (highest priority)
+            if path in self._selected_pixmap_cache:
+                pixmap = self._selected_pixmap_cache[path]
+            
+            # Source 2: The top gallery widgets (if visible/loaded there)
+            if pixmap is None:
+                top_widget = self.path_to_label_map.get(path)
+                if top_widget and hasattr(top_widget, "get_pixmap"):
+                    pixmap = top_widget.get_pixmap()
             
             card = self.create_card_widget(path, pixmap, is_selected=True)
+            
+            # If still no pixmap, trigger load
             if pixmap is None:
-                # Force load for selected item if not available
                 self._trigger_priority_load(path, card)
 
             if isinstance(card, ClickableLabel):
@@ -353,8 +400,14 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
 
     def _trigger_priority_load(self, path: str, target_widget: QWidget):
         worker = ImageLoaderWorker(path, self.thumbnail_size)
-        worker.signals.result.connect(lambda p, px: self.update_card_pixmap(target_widget, px))
+        # When loaded, also update cache
+        worker.signals.result.connect(lambda p, px: self._on_selected_image_loaded(p, px, target_widget))
         self.thread_pool.start(worker)
+
+    def _on_selected_image_loaded(self, path: str, pixmap: QPixmap, widget: QWidget):
+        if pixmap and not pixmap.isNull():
+            self._selected_pixmap_cache[path] = pixmap
+        self.update_card_pixmap(widget, pixmap)
 
     # --- LAZY LOADING (Found Gallery) ---
 
@@ -464,6 +517,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
             self.path_to_label_map.clear()
             self.found_current_page = 0
             self.selected_current_page = 0
+            self._selected_pixmap_cache.clear()
         
         self.pending_found_paths.clear()
         self.loading_found_paths.clear()
