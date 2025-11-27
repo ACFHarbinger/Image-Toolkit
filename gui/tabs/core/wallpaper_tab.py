@@ -262,26 +262,26 @@ class WallpaperTab(AbstractClassSingleGallery):
         content_layout.addWidget(settings_group) 
 
         # --- Gallery Setup for Base Class ---
-        self.scan_scroll_area = MarqueeScrollArea() 
-        self.scan_scroll_area.setWidgetResizable(True)
-        self.scan_scroll_area.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
-        self.scan_scroll_area.setMinimumHeight(600) 
+        self.gallery_scroll_area = MarqueeScrollArea() 
+        self.gallery_scroll_area.setWidgetResizable(True)
+        self.gallery_scroll_area.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
+        self.gallery_scroll_area.setMinimumHeight(600) 
 
         self.scan_thumbnail_widget = QWidget()
         self.scan_thumbnail_widget.setStyleSheet("QWidget { background-color: #2c2f33; }")
 
         self.scan_thumbnail_layout = QGridLayout(self.scan_thumbnail_widget)
         self.scan_thumbnail_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
-        self.scan_scroll_area.setWidget(self.scan_thumbnail_widget)
+        self.gallery_scroll_area.setWidget(self.scan_thumbnail_widget)
         
-        content_layout.addWidget(self.scan_scroll_area, 1) 
+        content_layout.addWidget(self.gallery_scroll_area, 1) 
         
         # --- PAGINATION WIDGET MOVED HERE ---
         # Added with stretch 0 and Alignment Center
         content_layout.addWidget(self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter)
         
         # **Assign Base Class References**
-        self.gallery_scroll_area = self.scan_scroll_area
+        self.gallery_scroll_area = self.gallery_scroll_area
         self.gallery_layout = self.scan_thumbnail_layout
 
         # Action Buttons
@@ -299,10 +299,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         # State for scanner
         self.scanned_dir = None
         self.path_to_label_map = {}
-        
-        # NOTE: self.loading_dialog is provided by BaseSingleGalleryTab. 
-        # We need a separate reference for the *Scanning* dialog or reuse it carefully.
-        
+
         # Initial setup
         self.populate_monitor_layout()
         self.check_all_monitors_set()
@@ -374,7 +371,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         style_enabled = not is_solid_color
         self.style_combo.setEnabled(style_enabled)
         self.scan_directory_path.setEnabled(style_enabled)
-        self.scan_scroll_area.setEnabled(style_enabled)
+        self.gallery_scroll_area.setEnabled(style_enabled)
         self.slideshow_group.setEnabled(style_enabled)
         if is_solid_color and self.slideshow_timer and self.slideshow_timer.isActive():
             self.stop_slideshow()
@@ -864,7 +861,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.set_wallpaper_btn.setStyleSheet(STYLE_STOP_ACTION)
         self.set_wallpaper_btn.setEnabled(True)
         self.slideshow_group.setEnabled(False) 
-        self.scan_scroll_area.setEnabled(False)
+        self.gallery_scroll_area.setEnabled(False)
         self.scan_directory_path.setEnabled(False) 
         self.style_combo.setEnabled(False)
         self.background_type_combo.setEnabled(False) 
@@ -876,7 +873,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.set_wallpaper_btn.setText("Set Wallpaper")
         self.set_wallpaper_btn.setStyleSheet(STYLE_START_ACTION)
         self.slideshow_group.setEnabled(True)
-        self.scan_scroll_area.setEnabled(True)
+        self.gallery_scroll_area.setEnabled(True)
         self.scan_directory_path.setEnabled(True)
         self.style_combo.setEnabled(True)
         self.background_type_combo.setEnabled(True) 
