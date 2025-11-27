@@ -19,11 +19,11 @@ from PySide6.QtWidgets import (
     QMessageBox, QApplication, QColorDialog,
     QProgressDialog
 )
-from ..classes import AbstractClassSingleGallery
-from ..windows import SlideshowQueueWindow, ImagePreviewWindow
-from ..helpers import ImageScannerWorker, WallpaperWorker
-from ..components import MonitorDropWidget, DraggableImageLabel, MarqueeScrollArea
-from ..styles.style import apply_shadow_effect, STYLE_START_ACTION, STYLE_STOP_ACTION
+from ...classes import AbstractClassSingleGallery
+from ...windows import SlideshowQueueWindow, ImagePreviewWindow
+from ...helpers import ImageScannerWorker, WallpaperWorker
+from ...components import MonitorDropWidget, DraggableImageLabel, MarqueeScrollArea
+from ...styles.style import apply_shadow_effect, STYLE_START_ACTION, STYLE_STOP_ACTION
 from backend.src.utils.definitions import WALLPAPER_STYLES
 from backend.src.core import WallpaperManager
 
@@ -71,7 +71,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.set_wallpaper_btn.setText("Set Wallpaper (0 images)")
             self.set_wallpaper_btn.setEnabled(False)
 
-    def __init__(self, db_tab_ref, dropdown=True):
+    def __init__(self, db_tab_ref):
         # Initialize Base Class
         super().__init__()    
         self.db_tab_ref = db_tab_ref

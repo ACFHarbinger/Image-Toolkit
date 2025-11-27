@@ -14,17 +14,17 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Slot, QThread, QPoint
 from PySide6.QtGui import QPixmap, QAction
-from ..classes import AbstractClassTwoGalleries
-from ..components import (
+from ...classes import AbstractClassTwoGalleries
+from ...components import (
     OptionalField, MarqueeScrollArea, 
     ClickableLabel, PropertyComparisonDialog
 )
-from ..helpers import (
+from ...helpers import (
     DeletionWorker, 
     DuplicateScanWorker,
 )
-from ..styles.style import apply_shadow_effect, STYLE_SCAN_CANCEL
-from ..windows import ImagePreviewWindow
+from ...styles.style import apply_shadow_effect, STYLE_SCAN_CANCEL
+from ...windows import ImagePreviewWindow
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 
 

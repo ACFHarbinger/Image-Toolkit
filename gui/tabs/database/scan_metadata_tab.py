@@ -15,11 +15,11 @@ from PySide6.QtWidgets import (
     QComboBox, QLineEdit, QFileDialog, 
     QHBoxLayout, QVBoxLayout, QScrollArea, 
 )
-from ..windows import ImagePreviewWindow
-from ..classes import AbstractClassTwoGalleries
-from ..components import ClickableLabel, MarqueeScrollArea
-from ..helpers import ImageScannerWorker, ImageLoaderWorker
-from ..styles.style import apply_shadow_effect
+from ...windows import ImagePreviewWindow
+from ...classes import AbstractClassTwoGalleries
+from ...components import ClickableLabel, MarqueeScrollArea
+from ...helpers import ImageScannerWorker, ImageLoaderWorker
+from ...styles.style import apply_shadow_effect
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH
 
 
@@ -27,10 +27,9 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
     """
     Manages file and directory metadata scanning, image preview gallery, and batch database operations.
     """
-    def __init__(self, db_tab_ref, dropdown=True):
+    def __init__(self, db_tab_ref):
         super().__init__()
         self.db_tab_ref = db_tab_ref
-        self.dropdown = dropdown
         
         self.scan_image_list: list[str] = []
         # Holds the list currently being viewed (filtered by "New Only" if active)

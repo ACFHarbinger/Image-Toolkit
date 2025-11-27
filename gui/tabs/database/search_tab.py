@@ -12,12 +12,12 @@ from PySide6.QtWidgets import (
     QFormLayout, QHBoxLayout, QVBoxLayout, 
     QGridLayout, QScrollArea, QGroupBox, 
 )
-from ..helpers import SearchWorker
-from ..windows import ImagePreviewWindow
-from ..classes import AbstractClassTwoGalleries
-from ..components import OptionalField, ClickableLabel, MarqueeScrollArea
+from ...helpers import SearchWorker
+from ...windows import ImagePreviewWindow
+from ...classes import AbstractClassTwoGalleries
+from ...components import OptionalField, ClickableLabel, MarqueeScrollArea
+from ...styles.style import apply_shadow_effect
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
-from ..styles.style import apply_shadow_effect
 
 
 class SearchTab(AbstractClassTwoGalleries):

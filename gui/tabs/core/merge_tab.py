@@ -10,12 +10,12 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QMessageBox, QGridLayout, QScrollArea,
     QLineEdit, QFileDialog, QWidget, QLabel, QPushButton,
 )
-from ..classes import AbstractClassTwoGalleries
-from ..windows import ImagePreviewWindow
-from ..components import ClickableLabel, MarqueeScrollArea
-from ..helpers import MergeWorker, ImageScannerWorker
+from ...classes import AbstractClassTwoGalleries
+from ...windows import ImagePreviewWindow
+from ...components import ClickableLabel, MarqueeScrollArea
+from ...helpers import MergeWorker, ImageScannerWorker
+from ...styles.style import apply_shadow_effect, SHARED_BUTTON_STYLE
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
-from ..styles.style import apply_shadow_effect, SHARED_BUTTON_STYLE
 
 
 class MergeTab(AbstractClassTwoGalleries):
@@ -23,9 +23,8 @@ class MergeTab(AbstractClassTwoGalleries):
     GUI tab for merging images, now structured with a clear 'Merge Targets' section.
     Inherits core gallery and threading logic from BaseTwoGalleriesTab.
     """
-    def __init__(self, dropdown=True):
+    def __init__(self):
         super().__init__()
-        self.dropdown = dropdown
         self.thumbnail_size = 150 
 
         # --- State ---

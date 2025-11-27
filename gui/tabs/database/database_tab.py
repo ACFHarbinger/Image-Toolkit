@@ -6,27 +6,25 @@ from pathlib import Path
 from typing import Optional
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QScrollArea, QGroupBox, QWidget,
     QMessageBox, QComboBox, QInputDialog, 
-    QAbstractItemView, QMenu,
     QFormLayout, QHBoxLayout, QVBoxLayout,
+    QAbstractItemView, QMenu, QProgressDialog,
     QLineEdit, QPushButton, QLabel, QHeaderView,
     QTableWidget, QTableWidgetItem, QSizePolicy,
-    QProgressDialog, QFileDialog # <--- QFileDialog added
+    QScrollArea, QGroupBox, QWidget, QFileDialog,
 )
+from dotenv import load_dotenv
 from backend.src.core import PgvectorImageDatabase as ImageDatabase
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH
-from ..styles.style import apply_shadow_effect
-from dotenv import load_dotenv
+from ...styles.style import apply_shadow_effect
 
 
 class DatabaseTab(QWidget):
     """
     Manages PostgreSQL connection, statistics display, and tag/group population.
     """
-    def __init__(self, dropdown=True, env_path='env/vars.env'):
+    def __init__(self, env_path='env/vars.env'):
         super().__init__()
-        self.dropdown = dropdown
         self.db: Optional[ImageDatabase] = None
         
         # --- Tab References ---
