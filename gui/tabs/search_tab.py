@@ -5,7 +5,7 @@ import subprocess
 
 from typing import Dict, Any, List, Optional
 from PySide6.QtGui import QPixmap, QAction, QCursor
-from PySide6.QtCore import Qt, Signal, QPoint, Slot, QThreadPool
+from PySide6.QtCore import Qt, Signal, QPoint, Slot, QThreadPool, QEvent
 from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QComboBox, QProgressBar,
     QWidget, QLabel, QMessageBox, QMenu, QCheckBox,
@@ -14,18 +14,18 @@ from PySide6.QtWidgets import (
 )
 from ..helpers import SearchWorker
 from ..windows import ImagePreviewWindow
-from ..classes import AbstractClassSingleGallery
+from ..classes import AbstractClassTwoGalleries
 from ..components import OptionalField, ClickableLabel, MarqueeScrollArea
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 from ..styles.style import apply_shadow_effect
 
 
-class SearchTab(AbstractClassSingleGallery):
+class SearchTab(AbstractClassTwoGalleries):
     # Signal to send image to another tab: (target_tab_name, image_path)
     send_to_tab_signal = Signal(str, str)
 
     def __init__(self, db_tab_ref, dropdown=True):
-        # Initialize Base Class
+        # Initialize Base Class (Two Galleries)
         super().__init__()
         
         self.db_tab_ref = db_tab_ref
@@ -35,16 +35,9 @@ class SearchTab(AbstractClassSingleGallery):
         self.selected_formats = set() 
         self._db_was_connected = False 
         
-        # Search specific worker (Base class handles Image Loading worker)
+        # Search specific worker
         self.current_search_worker: Optional[SearchWorker] = None
         
-        self.selected_paths = set()
-        self.path_to_widget_map = {} 
-
-        # --- Initialize Pagination ---
-        # Created by AbstractClassSingleGallery
-        self.pagination_widget = self.create_pagination_controls()
-
         # --- UI SETUP ---
         layout = QVBoxLayout(self)
         
@@ -163,43 +156,31 @@ class SearchTab(AbstractClassSingleGallery):
         if not self.dropdown:
             self.input_formats_edit.returnPressed.connect(self.toggle_search)
         
-        # Results area
+        # --- GALLERY AREA ---
+        
+        # 1. Search Results (Found Gallery)
+        found_group = QGroupBox("Search Results (Ctrl+A: Select All | Ctrl+D: Deselect All)")
+        found_layout = QVBoxLayout(found_group)
+        
         results_header_layout = QHBoxLayout()
-        results_label = QLabel("Search Results:")
-        results_label.setStyleSheet("font-weight: bold; font-size: 12px; margin-top: 10px;")
-        results_header_layout.addWidget(results_label)
-        
-        results_header_layout.addStretch()
-        
-        self.btn_select_all = QPushButton("Select All")
-        self.btn_select_all.setFixedWidth(120)
-        self.btn_select_all.setMinimumHeight(30)
-        apply_shadow_effect(self.btn_select_all, color_hex="#000000", radius=4, x_offset=0, y_offset=2)
-        self.btn_select_all.clicked.connect(self.select_all_results)
-        
-        self.btn_deselect_all = QPushButton("Deselect All")
-        self.btn_deselect_all.setFixedWidth(120)
-        self.btn_deselect_all.setMinimumHeight(30)
-        apply_shadow_effect(self.btn_deselect_all, color_hex="#000000", radius=4, x_offset=0, y_offset=2)
-        self.btn_deselect_all.clicked.connect(self.deselect_all_results)
-
-        results_header_layout.addWidget(self.btn_select_all)
-        results_header_layout.addWidget(self.btn_deselect_all)
-        
-        layout.addLayout(results_header_layout)
-        
-        # --- PAGINATION WIDGET ADDED HERE ---
-        layout.addWidget(self.pagination_widget)
-        
         self.results_count_label = QLabel("Not connected to database.")
         self.results_count_label.setStyleSheet("color: #aaa; font-style: italic;")
-        layout.addWidget(self.results_count_label)
+        results_header_layout.addWidget(self.results_count_label)
+        results_header_layout.addStretch()
         
-        # --- Gallery Setup for Base Class ---
+        # --- REMOVED SELECT/DESELECT BUTTONS ---
+        
+        found_layout.addLayout(results_header_layout)
+        
+        # Pagination Widget (Found)
+        if hasattr(self, 'found_pagination_widget'):
+            found_layout.addWidget(self.found_pagination_widget)
+        
         self.results_scroll = MarqueeScrollArea()
         self.results_scroll.setWidgetResizable(True)
         self.results_scroll.setMinimumHeight(300)
         self.results_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
+        # Connect Marquee Selection
         self.results_scroll.selection_changed.connect(self.handle_marquee_selection)
 
         self.results_widget = QWidget()
@@ -210,32 +191,84 @@ class SearchTab(AbstractClassSingleGallery):
         self.results_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         self.results_scroll.setWidget(self.results_widget)
         
-        layout.addWidget(self.results_scroll)
+        found_layout.addWidget(self.results_scroll)
+        layout.addWidget(found_group, stretch=1) # Results take more space
+        
+        # 2. Selected Images Gallery
+        selected_group = QGroupBox("Selected Images")
+        selected_layout = QVBoxLayout(selected_group)
+        
+        # Pagination Widget (Selected)
+        if hasattr(self, 'selected_pagination_widget'):
+            selected_layout.addWidget(self.selected_pagination_widget)
+            
+        self.selected_scroll = MarqueeScrollArea()
+        self.selected_scroll.setWidgetResizable(True)
+        self.selected_scroll.setMinimumHeight(200)
+        self.selected_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
+        
+        self.selected_widget_container = QWidget()
+        self.selected_widget_container.setStyleSheet("QWidget { background-color: #2c2f33; }")
+        self.selected_layout_grid = QGridLayout(self.selected_widget_container)
+        self.selected_layout_grid.setSpacing(3)
+        self.selected_layout_grid.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.selected_scroll.setWidget(self.selected_widget_container)
+        
+        selected_layout.addWidget(self.selected_scroll)
+        layout.addWidget(selected_group, stretch=1)
         
         # **Assign Base Class References**
-        self.gallery_scroll_area = self.results_scroll
-        self.gallery_layout = self.results_layout
+        self.found_gallery_scroll = self.results_scroll
+        self.found_gallery_layout = self.results_layout
+        
+        self.selected_gallery_scroll = self.selected_scroll
+        self.selected_gallery_layout = self.selected_layout_grid
         
         self.setLayout(layout)
 
+        # Enable widget to receive keyboard events for shortcuts
+        self.setFocusPolicy(Qt.StrongFocus)
+
         # Update enabled state based on DB connection
         self.update_search_button_state()
+        
+        # Initial cleanup
+        self.clear_galleries()
+
+    # --- KEYBOARD SHORTCUTS ---
+    def keyPressEvent(self, event: QEvent):
+        # Check for Ctrl + A (Select All)
+        if event.key() == Qt.Key.Key_A and event.modifiers() & Qt.ControlModifier:
+            self.select_all_items() # Calls inherited method
+            event.accept()
+        # Check for Ctrl + D (Deselect All)
+        elif event.key() == Qt.Key.Key_D and event.modifiers() & Qt.ControlModifier:
+            self.deselect_all_items() # Calls inherited method
+            event.accept()
+        else:
+            super().keyPressEvent(event)
 
     # --- IMPLEMENT ABSTRACT METHODS ---
 
-    def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
+    def create_card_widget(self, path: str, pixmap: Optional[QPixmap], is_selected: bool) -> QWidget:
         """
         Creates a ClickableLabel for the Search Tab gallery.
         """
         container = QWidget()
         container.setStyleSheet("background: transparent;") 
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(0, 0, 0, 0) # FIX: Corrected method name
         layout.setSpacing(1)
         
+        # Use Base Class thumbnail size
         image_label = ClickableLabel(path)
         image_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
         image_label.setAlignment(Qt.AlignCenter)
+        
+        # Helper to get pixmap for base class caching
+        container.get_pixmap = lambda: image_label.pixmap()
+        # Helper to set style for base class updates
+        container.set_selected_style = lambda s: self._update_card_style(image_label, s)
         
         # Connect signals
         image_label.path_clicked.connect(lambda checked, p=path: self.toggle_selection(p))
@@ -244,37 +277,56 @@ class SearchTab(AbstractClassSingleGallery):
             lambda pos, p=path, w=image_label: self.show_context_menu(pos, p, w)
         )
         
-        # Map path to widget for selection styling
-        self.path_to_widget_map[path] = image_label
-        
         if pixmap and not pixmap.isNull():
+            # Scale if needed (though ImageLoaderWorker usually handles this)
+            if pixmap.width() > self.thumbnail_size or pixmap.height() > self.thumbnail_size:
+                pixmap = pixmap.scaled(self.thumbnail_size, self.thumbnail_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             image_label.setPixmap(pixmap)
-            image_label.setStyleSheet("border: 1px solid #4f545c;")
         else:
-            # Lazy Loading Placeholder
+            # Placeholder
             image_label.setText("Loading...")
-            image_label.setStyleSheet("border: 1px solid #4f545c; color: #888; font-size: 10px;")
+            image_label.setStyleSheet("color: #888; font-size: 10px;")
         
         layout.addWidget(image_label)
+        
+        # Apply Initial Style
+        self._update_card_style(image_label, is_selected)
+        
         return container
 
     def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
         """
         Called by lazy loader when pixmap is ready or unloaded.
+        'widget' here is the container returned by create_card_widget.
         """
         image_label = widget.findChild(ClickableLabel)
         if image_label:
             if pixmap and not pixmap.isNull():
+                if pixmap.width() > self.thumbnail_size or pixmap.height() > self.thumbnail_size:
+                    pixmap = pixmap.scaled(self.thumbnail_size, self.thumbnail_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
                 image_label.setPixmap(pixmap)
-                # Apply selection style if needed, otherwise default
-                if image_label.path in self.selected_paths:
-                    image_label.setStyleSheet("border: 3px solid #5865f2; background-color: #36393f;")
-                else:
-                    image_label.setStyleSheet("border: 1px solid #4f545c;")
+                image_label.setText("")
             else:
                 image_label.clear()
                 image_label.setText("Loading...")
-                image_label.setStyleSheet("border: 1px dashed #666; color: #888;")
+            
+            # Re-apply selection style logic
+            # Check if this widget represents a selected path
+            is_selected = image_label.path in self.selected_files
+            self._update_card_style(image_label, is_selected)
+
+    def on_selection_changed(self):
+        # The base class method is sufficient here.
+        pass
+
+    def _update_card_style(self, label: QLabel, is_selected: bool):
+        if is_selected:
+            label.setStyleSheet("border: 3px solid #5865f2; background-color: #36393f;")
+        else:
+            if label.text() == "Loading...":
+                label.setStyleSheet("border: 1px dashed #666; color: #888;")
+            else:
+                label.setStyleSheet("border: 1px solid #4f545c;")
 
     # --- Worker and Search Logic ---
     
@@ -310,7 +362,7 @@ class SearchTab(AbstractClassSingleGallery):
         self.current_search_worker.signals.error.connect(self.on_search_error)
         self.current_search_worker.signals.cancelled.connect(self.on_search_cancelled)
         
-        # Use global threadpool for search worker, separate from base class gallery loader
+        # Use global threadpool for search worker
         QThreadPool.globalInstance().start(self.current_search_worker)
 
     @Slot(list)
@@ -346,26 +398,24 @@ class SearchTab(AbstractClassSingleGallery):
 
     def display_results(self, results: List[Dict[str, Any]]):
         """
-        Extracts paths and delegates loading to BaseSingleGalleryTab.
+        Extracts paths and delegates loading to AbstractClassTwoGalleries logic.
         """
         paths = [res.get('file_path') for res in results if res.get('file_path')]
         
         count = len(paths)
         self.results_count_label.setText(f"Found {count} matching image(s)")
         
-        # This calls the BaseSingleGalleryTab logic
-        self.start_loading_gallery(paths)
+        # Call Base Class method to populate the Found Gallery
+        self.start_loading_thumbnails(sorted(paths))
 
     def clear_search_data(self):
         """Clears local selection data and widgets."""
-        self.selected_paths.clear()
-        self.path_to_widget_map.clear()
         for window in self.open_preview_windows[:]:
             window.close()
         self.open_preview_windows.clear()
         
-        # Call base class to clear UI
-        self.clear_gallery_widgets()
+        # Call base class to clear galleries
+        self.clear_galleries(clear_data=True)
 
     # --- Format & Tag Logic (Unchanged) ---
     def toggle_format(self, fmt, checked):
@@ -458,74 +508,49 @@ class SearchTab(AbstractClassSingleGallery):
                 return None
             return [f.strip().lstrip('.').lower() for f in formats_str.replace(',', ' ').split() if f.strip()]
 
-    # --- Selection Logic ---
+    # --- Selection Logic Overrides/Helpers ---
 
     @Slot()
     def select_all_results(self):
-        # Access Base Class data: self.gallery_image_paths
-        for path in self.gallery_image_paths:
-            if path not in self.selected_paths:
-                self.selected_paths.add(path)
-                self._update_widget_style(path)
+        # Calls the inherited select_all_items which handles state update and UI refresh
+        self.select_all_items()
     
     @Slot()
     def deselect_all_results(self):
-        self.selected_paths.clear()
-        for path in self.gallery_image_paths:
-            self._update_widget_style(path)
+        # Calls the inherited deselect_all_items which handles state update and UI refresh
+        self.deselect_all_items()
 
-    def toggle_selection(self, file_path: str):
-        if file_path in self.selected_paths:
-            self.selected_paths.remove(file_path)
-        else:
-            self.selected_paths.add(file_path)
-        self._update_widget_style(file_path)
-
-    @Slot(set, bool)
-    def handle_marquee_selection(self, paths_from_marquee: set, is_ctrl_pressed: bool):
-        # Note: Only visible items are returned by marquee, which is correct for paginated view
-        visible_paths = set(self.path_to_widget_map.keys())
-        valid_marquee_paths = paths_from_marquee.intersection(visible_paths)
-        paths_to_update = self.selected_paths.union(valid_marquee_paths)
-        
-        if not is_ctrl_pressed:
-            self.selected_paths = valid_marquee_paths
-        else:
-            self.selected_paths.update(valid_marquee_paths)
-
-        for path in paths_to_update:
-            self._update_widget_style(path)
-            
-    def _update_widget_style(self, file_path: str):
-        widget = self.path_to_widget_map.get(file_path)
-        if widget:
-            if file_path in self.selected_paths:
-                widget.setStyleSheet("border: 3px solid #5865f2; background-color: #36393f;")
-            else:
-                widget.setStyleSheet("border: 1px solid #4f545c;")
-
-    # --- TAB COMMUNICATION & FILE ACTIONS (Maintained from original) ---
+    def _update_found_card_styles(self):
+        """Helper to re-evaluate and apply style to all currently loaded/visible found cards."""
+        for path, widget in self.path_to_label_map.items():
+            if widget:
+                # Find the ClickableLabel to extract the path and the internal QLabel for styling
+                image_label = widget.findChild(QLabel)
+                if image_label:
+                    is_selected = path in self.selected_files
+                    self._update_card_style(image_label, is_selected)
+    
+    # --- TAB COMMUNICATION & FILE ACTIONS ---
 
     def _get_target_selection(self, single_path=None):
-        paths = list(self.selected_paths)
+        # Use self.selected_files instead of self.selected_paths
+        paths = list(self.selected_files)
         if single_path:
-            if single_path in self.selected_paths:
+            if single_path in paths:
                 return sorted(paths)
             else:
-                if not paths:
-                    return [single_path]
                 return [single_path]
         return sorted(paths)
 
     def send_selection_to_scan_tab(self):
-        if not self.selected_paths:
+        if not self.selected_files:
             QMessageBox.information(self, "No Selection", "Please select at least one image to open in the Scan Tab.")
             return
         if not self.db_tab_ref or not hasattr(self.db_tab_ref, 'scan_tab_ref') or not self.db_tab_ref.scan_tab_ref:
             QMessageBox.warning(self, "Configuration Error", "Scan Metadata Tab reference not found.")
             return
         scan_tab = self.db_tab_ref.scan_tab_ref
-        sorted_selection = sorted(list(self.selected_paths))
+        sorted_selection = sorted(list(self.selected_files))
         scan_tab.process_scan_results(sorted_selection)
         if hasattr(scan_tab, 'view_db_only_button'):
             scan_tab.view_db_only_button.setChecked(False)
@@ -551,12 +576,10 @@ class SearchTab(AbstractClassSingleGallery):
             QMessageBox.warning(self, "Error", "Delete Tab reference not found.")
             return
         delete_tab = self.db_tab_ref.delete_tab_ref
-        delete_tab.clear_gallery()
-        delete_tab.duplicate_path_list = paths
+        delete_tab.clear_galleries()
+        delete_tab.duplicate_results = {"imported": paths} # Adapt data structure for delete tab
         delete_tab.status_label.setText(f"Imported {len(paths)} files from Search.")
-        delete_tab.gallery_scroll.setVisible(True)
-        delete_tab.selected_scroll.setVisible(True)
-        delete_tab.load_thumbnails(paths)
+        delete_tab.start_loading_thumbnails(paths)
         QMessageBox.information(self, "Images Sent", f"Sent {len(paths)} images to the Delete Tab.")
 
     def send_selection_to_wallpaper_tab(self, single_path=None):
@@ -587,10 +610,10 @@ class SearchTab(AbstractClassSingleGallery):
             image_id = image_data.get('id') if image_data else None
             if image_id is not None:
                 db.delete_image(image_id) 
-                if file_path in self.gallery_image_paths:
-                    self.gallery_image_paths.remove(file_path)
-                if file_path in self.selected_paths:
-                    self.selected_paths.remove(file_path)
+                if file_path in self.found_files:
+                    self.found_files.remove(file_path)
+                if file_path in self.selected_files:
+                    self.selected_files.remove(file_path)
                 self.perform_search() 
                 QMessageBox.information(self, "Success", f"Database entry for **{filename}** removed successfully.")
             else:
@@ -624,10 +647,10 @@ class SearchTab(AbstractClassSingleGallery):
             if image_id is not None:
                 db.delete_image(image_id) 
             
-            if file_path in self.gallery_image_paths:
-                self.gallery_image_paths.remove(file_path)
-            if file_path in self.selected_paths:
-                self.selected_paths.remove(file_path)
+            if file_path in self.found_files:
+                self.found_files.remove(file_path)
+            if file_path in self.selected_files:
+                self.selected_files.remove(file_path)
             
             self.perform_search() 
             QMessageBox.information(self, "Success", f"File deleted: {filename}")
@@ -640,7 +663,6 @@ class SearchTab(AbstractClassSingleGallery):
             return
         try:
             stats = os.stat(file_path)
-            file_size_bytes = stats.st_size
             last_modified = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(stats.st_mtime))
             def format_size(size_bytes):
                 for unit in ['B', 'KB', 'MB', 'GB']:
@@ -698,7 +720,8 @@ class SearchTab(AbstractClassSingleGallery):
         delete_tab_action.triggered.connect(lambda: self.send_selection_to_delete_tab(file_path))
         send_menu.addAction(delete_tab_action)
         menu.addSeparator()
-        is_selected = file_path in self.selected_paths
+        
+        is_selected = file_path in self.selected_files
         toggle_text = "Deselect" if is_selected else "Select"
         toggle_action = QAction(toggle_text, self)
         toggle_action.triggered.connect(lambda: self.toggle_selection(file_path))
@@ -721,11 +744,11 @@ class SearchTab(AbstractClassSingleGallery):
                 window.activateWindow() 
                 return
         
-        # Use gallery_image_paths from Base class
-        if self.gallery_image_paths:
+        # Use self.found_files from Base class
+        if self.found_files:
             try:
-                start_index = self.gallery_image_paths.index(file_path)
-                all_paths = self.gallery_image_paths
+                start_index = self.found_files.index(file_path)
+                all_paths = self.found_files
             except ValueError:
                 start_index = 0
                 all_paths = [file_path]

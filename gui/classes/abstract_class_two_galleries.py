@@ -6,7 +6,7 @@ from typing import List, Dict, Optional
 from PySide6.QtWidgets import (
     QWidget, QGridLayout, QLabel, QMenu, QApplication
 )
-from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer
+from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer, QEvent
 from PySide6.QtGui import QPixmap, QAction
 from .meta_abstract_class_gallery import MetaAbstractClassGallery
 from ..components import MarqueeScrollArea, ClickableLabel
@@ -17,6 +17,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
     """
     Abstract base class for tabs with Found/Selected galleries.
     Lazy loading replaced with Sequential Loading: Images appear one by one.
+    Includes Select All / Deselect All logic.
     """
 
     def __init__(self):
@@ -68,6 +69,50 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         # Initialize Pagination Widgets using Shared Logic
         self.found_pagination_widget = self.create_pagination_controls(is_found_gallery=True)
         self.selected_pagination_widget = self.create_pagination_controls(is_found_gallery=False)
+
+        # Enable keyboard focus for shortcuts
+        self.setFocusPolicy(Qt.StrongFocus)
+
+    # --- KEYBOARD SHORTCUTS (Shared) ---
+    def keyPressEvent(self, event: QEvent):
+        # Check for Ctrl + A (Select All)
+        if event.key() == Qt.Key.Key_A and event.modifiers() & Qt.ControlModifier:
+            self.select_all_items()
+            event.accept()
+        # Check for Ctrl + D (Deselect All)
+        elif event.key() == Qt.Key.Key_D and event.modifiers() & Qt.ControlModifier:
+            self.deselect_all_items()
+            event.accept()
+        else:
+            super().keyPressEvent(event)
+
+    @Slot()
+    def select_all_items(self):
+        """Selects all items currently in the found_files list."""
+        changed = False
+        for path in self.found_files:
+            if path not in self.selected_files:
+                self.selected_files.append(path)
+                changed = True
+        
+        if changed:
+            self.refresh_selected_panel()
+            self._update_found_card_styles()
+
+    @Slot()
+    def deselect_all_items(self):
+        """Clears the selection."""
+        if self.selected_files:
+            self.selected_files.clear()
+            self.refresh_selected_panel()
+            self._update_found_card_styles()
+
+    def _update_found_card_styles(self):
+        """Helper to re-evaluate and apply style to all currently loaded/visible found cards."""
+        for path, widget in self.path_to_label_map.items():
+            if widget:
+                is_selected = path in self.selected_files
+                self.update_card_style(widget, is_selected)
 
     # --- ABSTRACT METHODS ---
 
@@ -252,8 +297,6 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         else:
             # Standard selection (No Modifiers): 
             # Replaces selection with what is currently in the marquee.
-            # This creates the "deselect as they leave the square" effect because
-            # paths_from_marquee contains ONLY what is currently inside the square.
             paths_to_update = set(self.selected_files).union(paths_from_marquee)
             self.selected_files = list(paths_from_marquee)
 

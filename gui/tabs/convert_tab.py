@@ -320,7 +320,7 @@ class ConvertTab(AbstractClassTwoGalleries):
             self.clear_galleries()
             return
         
-        self.start_loading_thumbnails(paths)
+        self.start_loading_thumbnails(sorted(paths))
 
     # --- FORMAT BUTTONS ---
     @Slot(str, bool)
