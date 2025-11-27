@@ -39,6 +39,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.extraction_dir.mkdir(parents=True, exist_ok=True)
         self.last_browsed_extraction_dir = str(self.extraction_dir)
 
+        # --- Initialize Pagination ---
+        self.pagination_widget = self.create_pagination_controls()
+
         # --- UI Setup ---
         self.root_layout = QVBoxLayout(self)
         self.root_layout.setContentsMargins(0, 0, 0, 0)
@@ -69,9 +72,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         
         self.main_layout.addWidget(dir_select_group)
 
-        # --- MODIFICATION START (Move Extraction Directory UI here) ---
         # 1.5. Extraction Target Directory Section (Placed right after Source Directory)
-        dir_set_group = QGroupBox("Output Directory") # Renamed for clarity
+        dir_set_group = QGroupBox("Output Directory") 
         dir_set_layout = QHBoxLayout(dir_set_group)
         
         self.line_edit_extract_dir = QLineEdit(str(self.extraction_dir))
@@ -83,8 +85,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         dir_set_layout.addWidget(self.line_edit_extract_dir)
         dir_set_layout.addWidget(self.btn_browse_extract)
         
-        self.main_layout.addWidget(dir_set_group) # Add to the main layout here
-        # --- MODIFICATION END ---
+        self.main_layout.addWidget(dir_set_group) 
 
         # 2. Source Gallery (Thumbnails of Videos/GIFs)
         self.source_group = QGroupBox("Available Media")
@@ -155,22 +156,16 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.volume_slider = QSlider(Qt.Orientation.Horizontal)
         self.volume_slider.setRange(0, 100)
         self.volume_slider.setValue(50)
-        
-        # 1. DECREASE VOLUME BAR SIZE
         self.volume_slider.setFixedWidth(60) 
-        
         self.volume_slider.valueChanged.connect(lambda v: self.audio_output.setVolume(v / 100.0))
         self.volume_slider.setVisible(True)
 
         self.lbl_current_time = QLabel("00:00")
         
-        # 2. TIME SLIDER gets the gained width
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setRange(0, 0)
         self.slider.sliderMoved.connect(self.set_position)
         self.slider.sliderPressed.connect(self.media_player.pause)
-        
-        # 3. DIRECT SEEKING: Connect slider release to position update
         self.slider.sliderReleased.connect(self.set_position_on_release)
         
         self.lbl_total_time = QLabel("00:00")
@@ -222,9 +217,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.extract_group.setVisible(False) 
 
         # 5. Results Gallery Section
-        self.gallery_scroll_area = MarqueeScrollArea()
+        
+        # --- ADDED PAGINATION WIDGET ---
+        self.main_layout.addWidget(self.pagination_widget)
+        # -------------------------------
 
-        # 5. Results Gallery Section
         self.gallery_scroll_area = MarqueeScrollArea()
         self.gallery_scroll_area.setWidgetResizable(True)
         self.gallery_scroll_area.setMinimumHeight(400)
@@ -242,16 +239,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.media_player.durationChanged.connect(self.duration_changed)
         self.media_player.errorOccurred.connect(self.handle_player_error)
 
-    # --- NEW METHOD for Direct Seeking ---
     @Slot()
     def set_position_on_release(self):
-        """
-        Sets the media position when the slider is released (allowing click-to-seek) 
-        without automatically restarting playback.
-        """
         position = self.slider.value()
         self.media_player.setPosition(position)
-        # Note: The video remains paused if sliderPressed was triggered while playing.
 
     # --- Directory Browsing & Scanning ---
     @Slot()
@@ -322,10 +313,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     @Slot(str)
     def load_media(self, file_path: str):
-        # --- NEW CODE: Reset extracted gallery when a new file is loaded ---
         if self.video_path != file_path:
             self._clear_gallery()
-        # --- END NEW CODE ---
         
         self.video_path = file_path
         ext = Path(file_path).suffix.lower()
@@ -367,14 +356,12 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         )
         if d:
             new_path = Path(d)
-            # Ensure the directory exists (it should if selected, but good practice)
             new_path.mkdir(parents=True, exist_ok=True)
             
             self.extraction_dir = new_path
             self.last_browsed_extraction_dir = str(new_path)
             self.line_edit_extract_dir.setText(str(self.extraction_dir))
             
-            # Optional: Clear the gallery if the extraction path changes
             self._clear_gallery()
 
     def _clear_gallery(self):
@@ -382,11 +369,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.current_extracted_paths.clear()
         self.selected_paths.clear()
         
-        # Reset the Abstract Class Gallery state
         self.gallery_image_paths.clear()
         self.clear_gallery_widgets()
         
-        # Reset extraction range buttons
         self.start_time_ms = 0
         self.end_time_ms = 0
         self.btn_set_start.setText("Set Start [00:00]")
@@ -439,7 +424,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             clickable_label.setPixmap(scaled)
             clickable_label.setText("") 
         else:
-             clickable_label.setText("Load Error")
+             clickable_label.setText("Loading...")
+             clickable_label.setStyleSheet("border: 1px dashed #666; font-size: 10px;")
         
         self._style_label(clickable_label, selected=(path in self.selected_paths))
 
@@ -451,11 +437,27 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         
         return container
 
+    def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
+        """
+        Updates the ClickableLabel inside the container with the loaded pixmap.
+        """
+        clickable_label = widget.findChild(ClickableLabel)
+        if clickable_label:
+            if pixmap and not pixmap.isNull():
+                scaled = pixmap.scaled(self.thumbnail_size, self.thumbnail_size, 
+                                    Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                clickable_label.setPixmap(scaled)
+                clickable_label.setText("")
+            else:
+                clickable_label.clear()
+                clickable_label.setText("Loading...")
+            self._style_label(clickable_label, selected=(clickable_label.path in self.selected_paths))
+
     def _style_label(self, label: ClickableLabel, selected: bool):
         if selected:
             label.setStyleSheet("border: 3px solid #3498db; background-color: #000;")
         else:
-            if label.text() == "Load Error":
+            if label.text() in ["Load Error", "Loading..."]:
                 label.setStyleSheet("border: 1px solid #e74c3c; background-color: #4f545c; color: white;")
             else:
                 label.setStyleSheet("border: 1px solid #555; background-color: #000;")

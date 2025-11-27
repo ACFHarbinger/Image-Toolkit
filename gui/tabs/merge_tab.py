@@ -115,6 +115,11 @@ class MergeTab(AbstractClassTwoGalleries):
         self.selection_label.setStyleSheet("padding: 5px 0; font-weight: bold;")
         content_layout.addWidget(self.selection_label)
 
+        # --- Found Gallery ---
+        # Add Pagination Widget (Created in Base Class)
+        if hasattr(self, 'found_pagination_widget'):
+            content_layout.addWidget(self.found_pagination_widget)
+
         self.found_gallery_scroll = MarqueeScrollArea()
         self.found_gallery_scroll.setWidgetResizable(True)
         self.found_gallery_scroll.setStyleSheet(
@@ -129,6 +134,11 @@ class MergeTab(AbstractClassTwoGalleries):
         self.found_gallery_scroll.setWidget(self.found_thumbnail_widget)
         self.found_gallery_scroll.selection_changed.connect(self.handle_marquee_selection)
         content_layout.addWidget(self.found_gallery_scroll, 1)
+
+        # --- Selected Gallery ---
+        # Add Pagination Widget (Created in Base Class)
+        if hasattr(self, 'selected_pagination_widget'):
+            content_layout.addWidget(self.selected_pagination_widget)
 
         self.selected_gallery_scroll = MarqueeScrollArea()
         self.selected_gallery_scroll.setWidgetResizable(True)
@@ -188,8 +198,8 @@ class MergeTab(AbstractClassTwoGalleries):
             scaled = pixmap.scaled(thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             img_label.setPixmap(scaled)
         else:
-            img_label.setText("Error")
-            img_label.setStyleSheet("color: #e74c3c; border: 1px solid #e74c3c;")
+            img_label.setText("Loading...")
+            img_label.setStyleSheet("color: #999; border: 1px dashed #666;")
 
         self._update_label_style(img_label, path, is_selected)
 
@@ -198,16 +208,42 @@ class MergeTab(AbstractClassTwoGalleries):
         
         return clickable_label
 
+    def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
+        """Lazy loading callback for MergeTab. Unloads image if pixmap is None."""
+        if not isinstance(widget, ClickableLabel): return
+        
+        img_label = widget.findChild(QLabel)
+        if not img_label: return
+
+        if pixmap and not pixmap.isNull():
+            # Load Image
+            thumb_size = self.thumbnail_size
+            scaled = pixmap.scaled(thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            img_label.setPixmap(scaled)
+            img_label.setText("") 
+        else:
+            # Unload/Placeholder
+            img_label.clear()
+            img_label.setText("Loading...")
+            
+        # Reapply style
+        is_selected = widget.path in self.selected_files
+        self._update_label_style(img_label, widget.path, is_selected)
+
     def _update_label_style(self, label: QLabel, path: str, selected: bool):
-        is_error = label.text() == "Error"
+        is_error = (label.text() == "Error")
+        is_loading = (label.text() == "Loading...")
+        
         if selected:
             if is_error:
                 label.setStyleSheet("border: 3px solid #5865f2; background-color: #4f545c;")
             else:
-                label.setStyleSheet("border: 3px solid #5865f2;")
+                label.setStyleSheet("border: 3px solid #5865f2; background-color: #36393f;")
         else:
             if is_error:
                 label.setStyleSheet("border: 1px solid #e74c3c; background-color: #4f545c;")
+            elif is_loading:
+                label.setStyleSheet("border: 1px dashed #666; color: #999;")
             else:
                 label.setStyleSheet("border: 1px solid #4f545c;")
 

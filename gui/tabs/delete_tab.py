@@ -40,8 +40,6 @@ class DeleteTab(AbstractClassTwoGalleries):
         
         # --- State for duplicate handling ---
         self.duplicate_results: Dict[str, List[str]] = {}
-        # Note: Base class uses self.found_files and self.selected_files 
-        # instead of duplicate_path_list and selected_duplicates
         
         self.open_preview_windows: List[ImagePreviewWindow] = [] 
         
@@ -106,6 +104,10 @@ class DeleteTab(AbstractClassTwoGalleries):
         content_layout.addWidget(self.scan_progress_bar)
         
         # A. Top Gallery: Found Duplicates
+        # Add Pagination Widget
+        if hasattr(self, 'found_pagination_widget'):
+            content_layout.addWidget(self.found_pagination_widget)
+
         self.found_gallery_scroll = MarqueeScrollArea()
         self.found_gallery_scroll.setWidgetResizable(True)
         self.found_gallery_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
@@ -120,6 +122,10 @@ class DeleteTab(AbstractClassTwoGalleries):
         content_layout.addWidget(self.found_gallery_scroll, 1)
         
         # B. Bottom Gallery: Selected for Deletion
+        # Add Pagination Widget
+        if hasattr(self, 'selected_pagination_widget'):
+            content_layout.addWidget(self.selected_pagination_widget)
+
         self.selected_gallery_scroll = MarqueeScrollArea()
         self.selected_gallery_scroll.setWidgetResizable(True)
         self.selected_gallery_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
@@ -253,8 +259,8 @@ class DeleteTab(AbstractClassTwoGalleries):
             scaled = pixmap.scaled(thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             img_label.setPixmap(scaled)
         else:
-            img_label.setText("Error")
-            img_label.setStyleSheet("color: #e74c3c; border: 1px solid #e74c3c;")
+            img_label.setText("Loading...")
+            img_label.setStyleSheet("color: #999; border: 1px dashed #666;")
             
         card_layout.addWidget(img_label)
         card_wrapper.setLayout(card_layout)
@@ -266,11 +272,34 @@ class DeleteTab(AbstractClassTwoGalleries):
         self._update_card_style(img_label, is_selected)
         return card_wrapper
 
+    def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
+        """Lazy loading callback."""
+        if not isinstance(widget, ClickableLabel): return
+        
+        img_label = widget.findChild(QLabel)
+        if not img_label: return
+
+        if pixmap and not pixmap.isNull():
+            thumb_size = self.thumbnail_size
+            scaled = pixmap.scaled(thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            img_label.setPixmap(scaled)
+            img_label.setText("") # Clear Loading text
+        else:
+            img_label.clear()
+            img_label.setText("Loading...")
+            
+        # Reapply style (removes dashed border)
+        is_selected = widget.path in self.selected_files
+        self._update_card_style(img_label, is_selected)
+
     def _update_card_style(self, img_label: QLabel, is_selected: bool):
         if is_selected:
             img_label.setStyleSheet("border: 3px solid #5865f2; background-color: #36393f;")
         else:
-            img_label.setStyleSheet("border: 1px solid #4f545c; background-color: #36393f;")
+            if img_label.pixmap() and not img_label.pixmap().isNull():
+                img_label.setStyleSheet("border: 1px solid #4f545c; background-color: #36393f;")
+            else:
+                img_label.setStyleSheet("border: 1px dashed #666; color: #999;")
 
     def on_selection_changed(self):
         count = len(self.selected_files)
