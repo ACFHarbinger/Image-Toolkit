@@ -5,7 +5,8 @@ from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QFileDialog, QLabel,
     QGroupBox, QCheckBox, QComboBox, QMessageBox,
     QFormLayout, QHBoxLayout, QVBoxLayout, QWidget,
-    QListWidget, QMenu, QProgressBar, QInputDialog 
+    QListWidget, QMenu, QProgressBar, QInputDialog,
+    QStackedWidget
 )
 from PySide6.QtGui import QAction
 from ..windows import LogWindow
@@ -25,75 +26,48 @@ class ImageCrawlTab(QWidget):
         # --- Log Window Initialization ---
         self.log_window = LogWindow(tab_name="Web Crawler")
         self.log_window.hide()
-        # --- End Log Window Initialization ---
         
         self.last_browsed_download_dir = LOCAL_SOURCE_PATH
         self.last_browsed_screenshot_dir = SCREENSHOTS_DIR
 
         main_layout = QVBoxLayout(self)
 
-        # --- Login Configuration Group (NEW) ---
-        login_group = QGroupBox("Login Configuration")
-        login_group.setStyleSheet("""
-            QGroupBox { 
-                border: 1px solid #4f545c; 
-                border-radius: 8px;
-                margin-top: 10px;
-            }
-            QGroupBox::title { 
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                padding: 4px 10px;
-                color: white;
-                border-radius: 4px;
-            }
-        """)
-
-        login_form = QFormLayout()
-        login_form.setContentsMargins(10, 20, 10, 10)
-        login_form.setSpacing(15)
-
-        self.login_url_input = QLineEdit()
-        self.login_url_input.setPlaceholderText("https://example.com/login")
-        login_form.addRow("Login URL:", self.login_url_input)
-
-        self.login_username_input = QLineEdit()
-        self.login_username_input.setPlaceholderText("Username or Email")
-        login_form.addRow("Username:", self.login_username_input)
-
-        self.login_password_input = QLineEdit()
-        self.login_password_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.login_password_input.setPlaceholderText("Password")
-        login_form.addRow("Password:", self.login_password_input)
+        # --- 1. Crawler Type Selection ---
+        type_layout = QHBoxLayout()
+        type_layout.addWidget(QLabel("<b>Crawler Type:</b>"))
         
-        login_group.setLayout(login_form)
-        main_layout.addWidget(login_group)
-        # --- End Login Configuration Group ---
-
-        # --- Crawler Settings Group ---
-        crawl_group = QGroupBox("Web Crawler Settings")
-        crawl_group.setStyleSheet(login_group.styleSheet()) # Reusing the style
-        # ... (rest of crawl_group UI is unchanged) ...
-
-        form_layout = QFormLayout()
-        form_layout.setContentsMargins(10, 20, 10, 10)
-        form_layout.setSpacing(15)
-
-        # Target URL
-        self.url_input = QLineEdit()
-        self.url_input.setPlaceholderText("https://example.com/gallery?page=1")
-        form_layout.addRow("Target URL:", self.url_input)
+        self.crawler_type_combo = QComboBox()
+        self.crawler_type_combo.addItems([
+            "General Web Crawler", 
+            "Image Board Crawler (Danbooru API)",
+            "Image Board Crawler (Gelbooru API)"
+        ])
+        self.crawler_type_combo.currentIndexChanged.connect(self.on_crawler_type_changed)
+        type_layout.addWidget(self.crawler_type_combo, 1)
         
-        # --- URL Replacement Fields ---
-        self.replace_str_input = QLineEdit()
-        self.replace_str_input.setPlaceholderText("e.g., page=1 (optional)")
-        form_layout.addRow("String to Replace:", self.replace_str_input)
-        
-        self.replacements_input = QLineEdit()
-        self.replacements_input.setPlaceholderText("e.g., page=2, page=3, page=4 (comma-separated)")
-        form_layout.addRow("Replacements:", self.replacements_input)
+        main_layout.addLayout(type_layout)
 
-        # Download Directory
+        # --- 2. Stacked Widget for Specific Settings ---
+        self.settings_stack = QStackedWidget()
+        
+        # PAGE 1: General Crawler Settings
+        self.page_general = QWidget()
+        self.setup_general_page()
+        self.settings_stack.addWidget(self.page_general)
+        
+        # PAGE 2: Image Board Settings
+        self.page_board = QWidget()
+        self.setup_board_page()
+        self.settings_stack.addWidget(self.page_board)
+        
+        main_layout.addWidget(self.settings_stack)
+
+        # --- 3. Shared Download Settings ---
+        download_group = QGroupBox("Output Configuration")
+        download_group.setStyleSheet(self._get_group_style())
+        download_layout = QFormLayout(download_group)
+        download_layout.setContentsMargins(10, 20, 10, 10)
+
         download_dir_layout = QHBoxLayout()
         self.download_dir_path = QLineEdit()
         self.download_dir_path.setText(self.last_browsed_download_dir)
@@ -102,133 +76,27 @@ class ImageCrawlTab(QWidget):
         apply_shadow_effect(btn_browse_download, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         download_dir_layout.addWidget(self.download_dir_path)
         download_dir_layout.addWidget(btn_browse_download)
-        form_layout.addRow("Download Dir:", download_dir_layout)
+        download_layout.addRow("Download Dir:", download_dir_layout)
         
-        # Screenshot Directory
+        # Screenshot (General only mostly, but kept shared for simplicity)
         screenshot_dir_layout = QHBoxLayout()
         self.screenshot_dir_path = QLineEdit()
-        self.screenshot_dir_path.setPlaceholderText("Optional: directory for screenshots (None)")
+        self.screenshot_dir_path.setPlaceholderText("Optional: directory for screenshots")
         btn_browse_screenshot = QPushButton("Browse...")
         btn_browse_screenshot.clicked.connect(self.browse_screenshot_directory)
-        btn_browse_screenshot.setStyleSheet("""
-            QPushButton { background-color: #4f545c; padding: 6px 12px; }
-            QPushButton:hover { background-color: #5865f2; }
-        """)
         apply_shadow_effect(btn_browse_screenshot, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         screenshot_dir_layout.addWidget(self.screenshot_dir_path)
         screenshot_dir_layout.addWidget(btn_browse_screenshot)
         
         screenshot_container = QWidget()
         screenshot_container.setLayout(screenshot_dir_layout)
-        
         self.screenshot_field = OptionalField("Screenshot Dir", screenshot_container, start_open=False)
-        form_layout.addRow(self.screenshot_field) 
-
-        # Browser
-        self.browser_combo = QComboBox()
-        self.browser_combo.addItems(["chrome", "firefox", "edge", "brave"])
-        self.browser_combo.setCurrentText("brave")
-        form_layout.addRow("Browser:", self.browser_combo)
-
-        # Headless
-        self.headless_checkbox = QCheckBox("Run in headless mode")
-        self.headless_checkbox.setChecked(True)
-        self.headless_checkbox.setStyleSheet("""
-            QCheckBox::indicator {
-                width: 16px; height: 16px; border: 1px solid #555;
-                border-radius: 3px; background-color: #333;
-            }
-            QCheckBox::indicator:checked {
-                background-color: #4CAF50; border: 1px solid #4CAF50;
-            }
-        """)
-        form_layout.addRow("", self.headless_checkbox)
+        download_layout.addRow(self.screenshot_field)
         
-        crawl_group.setLayout(form_layout)
-        main_layout.addWidget(crawl_group)
-        
-        # --- Actions Group ---
-        actions_group = QGroupBox("Actions (Executed for each image)")
-        actions_group.setStyleSheet(login_group.styleSheet()) # Reusing the style
-        actions_layout = QVBoxLayout()
-        actions_layout.setSpacing(10)
+        main_layout.addWidget(download_group)
 
-        # Image Skip Count
-        skip_layout = QHBoxLayout()
-        self.skip_first_input = QLineEdit("0")
-        self.skip_first_input.setFixedWidth(50)
-        self.skip_first_input.setAlignment(Qt.AlignCenter)
-        self.skip_last_input = QLineEdit("0")
-        self.skip_last_input.setFixedWidth(50)
-        self.skip_last_input.setAlignment(Qt.AlignCenter)
-
-        skip_layout.addWidget(QLabel("Skip First:"))
-        skip_layout.addWidget(self.skip_first_input)
-        skip_layout.addSpacing(20)
-        skip_layout.addWidget(QLabel("Skip Last:"))
-        skip_layout.addWidget(self.skip_last_input)
-        skip_layout.addStretch()
-        actions_layout.addLayout(skip_layout)
-
-        # Action Builder
-        action_builder_layout = QHBoxLayout()
-        self.action_combo = QComboBox()
-        self.action_combo.addItems([
-            "Find Parent Link (<a>)",
-            "Download Simple Thumbnail (Legacy)",
-            "Extract High-Res Preview URL",
-            "Open Link in New Tab",
-            "Click Element by Text",
-            "Wait for Page Load",
-            "Wait X Seconds",
-            "Switch to Last Tab",
-            "Find Element by CSS Selector",
-            "Find <img> Number X on Page",
-            "Download Image from Element",
-            "Download Current URL as Image",
-            "Wait for Gallery (Context Reset)",
-            "Scrape Text (Saves to JSON)",
-            "Scan Page for Text and Skip if Found",  # --- NEW ACTION ---
-            "Close Current Tab", 
-            "Refresh Current Element" 
-        ])
-        self.action_param_input = QLineEdit()
-        self.action_param_input.setPlaceholderText("Parameter (e.g., key:selector or text)")
-        self.add_action_button = QPushButton("Add")
-        self.add_action_button.clicked.connect(self.add_action)
-        
-        action_builder_layout.addWidget(self.action_combo, 2)
-        action_builder_layout.addWidget(self.action_param_input, 2)
-        action_builder_layout.addWidget(self.add_action_button, 1)
-        actions_layout.addLayout(action_builder_layout)
-        
-        # Action List
-        self.action_list_widget = QListWidget()
-        self.action_list_widget.setMinimumHeight(200) # Setting minimum height to 200px
-        self.action_list_widget.setStyleSheet("QListWidget { border: 1px solid #4f545c; border-radius: 4px; }")
-        
-        # --- Context Menu Setup ---
-        self.action_list_widget.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.action_list_widget.customContextMenuRequested.connect(self.show_context_menu)
-        # --- End Context Menu Setup ---
-        
-        actions_layout.addWidget(self.action_list_widget)
-        
-        # List Controls
-        list_controls_layout = QHBoxLayout()
-        self.remove_action_button = QPushButton("Remove Selected")
-        self.remove_action_button.clicked.connect(self.remove_action)
-        self.clear_actions_button = QPushButton("Clear All")
-        self.clear_actions_button.clicked.connect(self.action_list_widget.clear)
-        list_controls_layout.addWidget(self.remove_action_button)
-        list_controls_layout.addWidget(self.clear_actions_button)
-        actions_layout.addLayout(list_controls_layout)
-
-        actions_group.setLayout(actions_layout)
-        main_layout.addWidget(actions_group)
-        # --- End Actions Group ---
-
-        # --- Progress & Status ---
+        # --- 4. Run Controls ---
+        # Progress & Status
         self.status_label = QLabel("Ready.")
         self.status_label.setAlignment(Qt.AlignCenter)
         self.status_label.setStyleSheet("color: #aaa; font-style: italic; padding: 8px;")
@@ -240,89 +108,262 @@ class ImageCrawlTab(QWidget):
         self.progress_bar.hide()
         main_layout.addWidget(self.progress_bar)
 
-        # --- Run/Cancel Button Container ---
+        # Run/Cancel Button Container
         self.button_container = QWidget()
         self.button_layout = QVBoxLayout(self.button_container)
         self.button_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Run Button
         self.run_button = QPushButton("Run Crawler")
-        self.run_button.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #667eea, stop:1 #764ba2);
-                color: white; font-weight: bold; font-size: 16px;
-                padding: 14px; border-radius: 10px; min-height: 44px;
-            }
-            QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                stop:0 #764ba2, stop:1 #667eea); }
-            QPushButton:disabled { background: #718096; }
-        """)
+        self.run_button.setStyleSheet(self._get_run_btn_style())
         apply_shadow_effect(self.run_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.run_button.clicked.connect(self.start_crawl)
         self.button_layout.addWidget(self.run_button, 0, Qt.AlignBottom)
 
-        # Cancel Button
         self.cancel_button = QPushButton("Cancel Crawl")
-        self.cancel_button.setStyleSheet("""
-            QPushButton {
-                background-color: #cc3333; /* Red color for cancellation */
-                color: white; font-weight: bold; font-size: 16px;
-                padding: 14px; border-radius: 10px; min-height: 44px;
-            }
-            QPushButton:hover { background-color: #ff4444; }
-        """)
+        self.cancel_button.setStyleSheet(self._get_cancel_btn_style())
         apply_shadow_effect(self.cancel_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.cancel_button.clicked.connect(self.cancel_crawl)
         self.cancel_button.hide()
         self.button_layout.addWidget(self.cancel_button, 0, Qt.AlignBottom)
 
         main_layout.addWidget(self.button_container)
-
         main_layout.addStretch(1)
-        self.setLayout(main_layout)
+        
+        # Initial State
+        self.on_crawler_type_changed(self.crawler_type_combo.currentIndex()) 
 
+    # --- UI Setup Helpers ---
+
+    def _get_group_style(self):
+        return """
+            QGroupBox { border: 1px solid #4f545c; border-radius: 8px; margin-top: 10px; }
+            QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 4px 10px; color: white; border-radius: 4px; }
+        """
+    def _get_run_btn_style(self):
+        return """
+            QPushButton { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #667eea, stop:1 #764ba2); color: white; font-weight: bold; padding: 14px; border-radius: 10px; }
+            QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #764ba2, stop:1 #667eea); }
+        """
+    def _get_cancel_btn_style(self):
+        return """
+            QPushButton { background-color: #cc3333; color: white; font-weight: bold; padding: 14px; border-radius: 10px; }
+            QPushButton:hover { background-color: #ff4444; }
+        """
+
+    def setup_general_page(self):
+        layout = QVBoxLayout(self.page_general)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        # Login Group
+        login_group = QGroupBox("General Login Configuration")
+        login_group.setStyleSheet(self._get_group_style())
+        login_form = QFormLayout()
+        login_form.setContentsMargins(10, 20, 10, 10)
+        
+        self.gen_login_url = QLineEdit()
+        self.gen_login_url.setPlaceholderText("https://example.com/login")
+        login_form.addRow("Login URL:", self.gen_login_url)
+        self.gen_username = QLineEdit()
+        self.gen_username.setPlaceholderText("Username/Email")
+        login_form.addRow("Username:", self.gen_username)
+        self.gen_password = QLineEdit()
+        self.gen_password.setEchoMode(QLineEdit.EchoMode.Password)
+        login_form.addRow("Password:", self.gen_password)
+        login_group.setLayout(login_form)
+        layout.addWidget(login_group)
+
+        # General Settings Group
+        crawl_group = QGroupBox("Web Scraper Settings")
+        crawl_group.setStyleSheet(self._get_group_style())
+        form = QFormLayout()
+        form.setContentsMargins(10, 20, 10, 10)
+        
+        self.url_input = QLineEdit()
+        self.url_input.setPlaceholderText("https://example.com/gallery?page=1")
+        form.addRow("Target URL:", self.url_input)
+        
+        self.replace_str_input = QLineEdit()
+        self.replace_str_input.setPlaceholderText("e.g., page=1")
+        form.addRow("String to Replace:", self.replace_str_input)
+        
+        self.replacements_input = QLineEdit()
+        self.replacements_input.setPlaceholderText("e.g., page=2, page=3")
+        form.addRow("Replacements:", self.replacements_input)
+        
+        self.browser_combo = QComboBox()
+        self.browser_combo.addItems(["chrome", "firefox", "edge", "brave"])
+        self.browser_combo.setCurrentText("brave")
+        form.addRow("Browser:", self.browser_combo)
+        
+        self.headless_checkbox = QCheckBox("Run in headless mode")
+        self.headless_checkbox.setChecked(True)
+        form.addRow("", self.headless_checkbox)
+        
+        crawl_group.setLayout(form)
+        layout.addWidget(crawl_group)
+
+        # Actions Group
+        actions_group = QGroupBox("Actions")
+        actions_group.setStyleSheet(self._get_group_style())
+        act_layout = QVBoxLayout()
+        
+        # Skip settings
+        skip_layout = QHBoxLayout()
+        self.skip_first_input = QLineEdit("0")
+        self.skip_first_input.setFixedWidth(50)
+        self.skip_last_input = QLineEdit("0")
+        self.skip_last_input.setFixedWidth(50)
+        skip_layout.addWidget(QLabel("Skip First:"))
+        skip_layout.addWidget(self.skip_first_input)
+        skip_layout.addSpacing(20)
+        skip_layout.addWidget(QLabel("Skip Last:"))
+        skip_layout.addWidget(self.skip_last_input)
+        skip_layout.addStretch()
+        act_layout.addLayout(skip_layout)
+
+        # Action Builder
+        ab_layout = QHBoxLayout()
+        self.action_combo = QComboBox()
+        self.action_combo.addItems([
+            "Find Parent Link (<a>)", "Download Simple Thumbnail (Legacy)", 
+            "Extract High-Res Preview URL", "Open Link in New Tab", "Click Element by Text",
+            "Wait for Page Load", "Wait X Seconds", "Switch to Last Tab",
+            "Find Element by CSS Selector", "Find <img> Number X on Page",
+            "Download Image from Element", "Download Current URL as Image",
+            "Wait for Gallery (Context Reset)", "Scrape Text (Saves to JSON)",
+            "Scan Page for Text and Skip if Found", "Close Current Tab", "Refresh Current Element"
+        ])
+        self.action_param = QLineEdit()
+        self.action_param.setPlaceholderText("Parameter")
+        self.add_act_btn = QPushButton("Add")
+        self.add_act_btn.clicked.connect(self.add_action)
+        ab_layout.addWidget(self.action_combo, 2)
+        ab_layout.addWidget(self.action_param, 2)
+        ab_layout.addWidget(self.add_act_btn, 1)
+        act_layout.addLayout(ab_layout)
+
+        self.action_list_widget = QListWidget()
+        self.action_list_widget.setMinimumHeight(150)
+        self.action_list_widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.action_list_widget.customContextMenuRequested.connect(self.show_context_menu)
+        act_layout.addWidget(self.action_list_widget)
+        
+        # List controls
+        lc_layout = QHBoxLayout()
+        self.rem_act_btn = QPushButton("Remove Selected")
+        self.rem_act_btn.clicked.connect(self.remove_action)
+        self.clr_act_btn = QPushButton("Clear All")
+        self.clr_act_btn.clicked.connect(self.action_list_widget.clear)
+        lc_layout.addWidget(self.rem_act_btn)
+        lc_layout.addWidget(self.clr_act_btn)
+        act_layout.addLayout(lc_layout)
+
+        actions_group.setLayout(act_layout)
+        layout.addWidget(actions_group)
+
+    def setup_board_page(self):
+        layout = QVBoxLayout(self.page_board)
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Board API Settings
+        api_group = QGroupBox("API Configuration")
+        api_group.setStyleSheet(self._get_group_style())
+        form = QFormLayout()
+        form.setContentsMargins(10, 20, 10, 10)
+        
+        self.board_url = QLineEdit("https://danbooru.donmai.us")
+        self.board_url.setPlaceholderText("Board URL")
+        form.addRow("Board URL:", self.board_url)
+        
+        # --- NEW: Resource Selection ---
+        self.board_resource = QLineEdit("posts")
+        self.board_resource.setPlaceholderText("Resource (e.g. posts, tags, comments)")
+        form.addRow("Resource:", self.board_resource)
+        # -------------------------------
+        
+        self.board_tags = QLineEdit()
+        self.board_tags.setPlaceholderText("e.g. 1girl scenic original")
+        form.addRow("Tags:", self.board_tags)
+        
+        self.board_limit = QLineEdit("20")
+        self.board_limit.setPlaceholderText("Images per page")
+        form.addRow("Limit (per page):", self.board_limit)
+        
+        self.board_max_pages = QLineEdit("5")
+        self.board_max_pages.setPlaceholderText("Number of pages to crawl")
+        form.addRow("Max Pages:", self.board_max_pages)
+        
+        # --- NEW: Extra Parameters ---
+        self.board_extra_params = QLineEdit()
+        self.board_extra_params.setPlaceholderText("e.g. deleted=show&order=count")
+        form.addRow("Extra Query Params:", self.board_extra_params)
+        # -----------------------------
+        
+        api_group.setLayout(form)
+        layout.addWidget(api_group)
+        
+        # Auth Group
+        auth_group = QGroupBox("Authentication (Optional)")
+        auth_group.setStyleSheet(self._get_group_style())
+        a_form = QFormLayout()
+        a_form.setContentsMargins(10, 20, 10, 10)
+        
+        self.board_username_label = QLabel("Username:")
+        self.board_username = QLineEdit()
+        a_form.addRow(self.board_username_label, self.board_username)
+        
+        self.board_apikey_label = QLabel("API Key:")
+        self.board_apikey = QLineEdit()
+        self.board_apikey.setEchoMode(QLineEdit.EchoMode.Password)
+        a_form.addRow(self.board_apikey_label, self.board_apikey)
+        
+        auth_group.setLayout(a_form)
+        layout.addWidget(auth_group)
+        
+        layout.addStretch(1)
+
+    # --- Event Handlers ---
+
+    def update_board_auth_labels(self, index: int):
+        if not hasattr(self, 'board_username_label'):
+             return
+
+        if index == 1: # Danbooru
+            self.board_username_label.setText("Username:")
+            self.board_username.setPlaceholderText("Danbooru Username")
+            self.board_url.setText("https://danbooru.donmai.us")
+            self.board_resource.setText("posts")
+            self.board_limit.setText("20")
+        elif index == 2: # Gelbooru
+            self.board_username_label.setText("User ID:")
+            self.board_username.setPlaceholderText("Gelbooru User ID")
+            self.board_url.setText("https://gelbooru.com")
+            self.board_resource.setText("post")
+            self.board_limit.setText("100")
+        
+    def on_crawler_type_changed(self, index):
+        # Map combo box index to stack index
+        stack_index = 0 if index == 0 else 1
+        self.settings_stack.setCurrentIndex(stack_index)
+        
+        if index in (1, 2):
+            self.update_board_auth_labels(index)
+        
     def show_context_menu(self, pos: QPoint):
-        """Displays the right-click menu for moving/removing/editing items."""
-        # Find the item at the clicked position
         item = self.action_list_widget.itemAt(pos)
-        if not item:
-            return
-
+        if not item: return
         menu = QMenu()
         
-        # --- Move Actions ---
-        move_up_action = QAction("Move Up ▲", self)
-        move_up_action.triggered.connect(self.move_action_up)
-        menu.addAction(move_up_action)
-
-        move_down_action = QAction("Move Down ▼", self)
-        move_down_action.triggered.connect(self.move_action_down)
-        menu.addAction(move_down_action)
-        
-        menu.addSeparator()
-
-        # --- Edit Parameter Action (NEW) ---
-        edit_action = QAction("Edit Parameter Value ✏️", self)
+        edit_action = QAction("Edit Parameter ✏️", self)
         edit_action.triggered.connect(self.edit_action_parameter)
+        if " | Param: " in item.text(): menu.addAction(edit_action)
         
-        # Only enable if the selected item has a parameter
-        if " | Param: " in item.text():
-            menu.addAction(edit_action)
-            menu.addSeparator()
-
-        # --- Remove Action ---
         remove_action = QAction("Remove 🗑️", self)
         remove_action.triggered.connect(self.remove_action)
         menu.addAction(remove_action)
-
-        # Show the menu at the cursor position
         menu.exec(self.action_list_widget.mapToGlobal(pos))
-        
+
     def edit_action_parameter(self):
-        """
-        Opens an input dialog to edit the parameter of the currently selected action.
-        """
         current_item = self.action_list_widget.currentItem()
         if not current_item or " | Param: " not in current_item.text():
             return
@@ -330,7 +371,6 @@ class ImageCrawlTab(QWidget):
         full_text = current_item.text()
         action_type, param_str = full_text.split(" | Param: ", 1)
         
-        # Determine the input mode and prompt based on the action type
         is_number_mode = ("Find <img> Number X on Page" in action_type or 
                           "Wait X Seconds" in action_type)
         
@@ -339,356 +379,173 @@ class ImageCrawlTab(QWidget):
         
         if is_number_mode:
             try:
-                # Try to get the initial integer value for QInputDialog
-                initial_value = int(float(param_str)) # Allow float parsing then int conversion
+                initial_value = int(float(param_str)) 
             except ValueError:
-                initial_value = 1 # Fallback if parsing fails
+                initial_value = 1 
 
-            # PySide6.QtWidgets.QInputDialog.getInt(parent, title, label, value, min, max, step, flags=0)
-            # Use QInputDialog.getDouble for wait seconds to allow float input (e.g., 0.5s)
             if "Wait X Seconds" in action_type:
-                 new_param, ok = QInputDialog.getDouble(
-                    self,
-                    title,
-                    prompt,
-                    float(initial_value), # value (Need float here if initial value was int)
-                    0.1,           # min
-                    300.0,         # max
-                    1              # decimals
-                 )
-            else: # Find <img> Number X on Page (integer mode)
-                 new_param, ok = QInputDialog.getInt(
-                    self, 
-                    title, 
-                    prompt, 
-                    initial_value, # value (positional argument 4)
-                    1,             # min (positional argument 5)
-                    99999,         # max (positional argument 6)
-                    1              # step (positional argument 7)
-                )
+                 new_param, ok = QInputDialog.getDouble(self, title, prompt, float(initial_value), 0.1, 300.0, 1)
+            else: 
+                 new_param, ok = QInputDialog.getInt(self, title, prompt, initial_value, 1, 99999, 1)
             
-            # Convert integer/float back to string for consistency
-            if ok:
-                 new_param = str(new_param)
-            else:
-                 return # User cancelled
+            if ok: new_param = str(new_param)
+            else: return 
                  
         else:
-            # Default to text input
-            new_param, ok = QInputDialog.getText(
-                self, 
-                title, 
-                prompt, 
-                QLineEdit.EchoMode.Normal, 
-                param_str
-            )
+            new_param, ok = QInputDialog.getText(self, title, prompt, QLineEdit.EchoMode.Normal, param_str)
 
         if ok and new_param is not None:
             new_param_str = str(new_param).strip()
-            
             if new_param_str:
-                # Update the display text
-                new_display_text = f"{action_type} | Param: {new_param_str}"
-                current_item.setText(new_display_text)
+                current_item.setText(f"{action_type} | Param: {new_param_str}")
                 QMessageBox.information(self, "Success", f"Parameter updated for '{action_type}'.")
             else:
-                QMessageBox.warning(self, "Edit Failed", "Parameter value cannot be empty. Please remove the action if it requires no parameter.")
-
-
-    def move_action_up(self):
-        """Moves the selected item one position up."""
-        current_row = self.action_list_widget.currentRow()
-        if current_row > 0:
-            current_item = self.action_list_widget.takeItem(current_row)
-            self.action_list_widget.insertItem(current_row - 1, current_item)
-            self.action_list_widget.setCurrentRow(current_row - 1)
-
-    def move_action_down(self):
-        """Moves the selected item one position down."""
-        current_row = self.action_list_widget.currentRow()
-        if current_row < self.action_list_widget.count() - 1 and current_row != -1:
-            current_item = self.action_list_widget.takeItem(current_row)
-            self.action_list_widget.insertItem(current_row + 1, current_item)
-            self.action_list_widget.setCurrentRow(current_row + 1)
-
+                QMessageBox.warning(self, "Edit Failed", "Parameter value cannot be empty.")
 
     def add_action(self):
         action_text = self.action_combo.currentText()
-        param = self.action_param_input.text().strip()
-        
-        # Validation for numerical input (Wait X Seconds or Find <img> Number X)
-        if "Seconds" in action_text or "Number X" in action_text:
-            try:
-                num = float(param)
-                if num <= 0:
-                    QMessageBox.warning(self, "Invalid Parameter", "Wait time or Image number must be positive.")
-                    return
-            except ValueError:
-                QMessageBox.warning(self, "Invalid Parameter", f"The action '{action_text}' requires a number (integer or float).")
-                return
-
-        # Validation for text/selector input
-        if (("Click Element by Text" in action_text or 
-             "Find Element by CSS Selector" in action_text or
-             "Refresh Current Element" in action_text or
-             "Scan Page for Text and Skip if Found" in action_text) and not param): # --- UPDATED ---
-            QMessageBox.warning(self, "Missing Parameter", f"The action '{action_text}' requires a parameter.")
-            return
-            
-        # --- NEW VALIDATION for JSON Scraper ---
-        elif "Scrape Text (Saves to JSON)" in action_text:
-            if not param:
-                QMessageBox.warning(self, "Missing Parameter", "This action requires a parameter in 'key_name:css_selector' format.")
-                return
-            if ':' not in param:
-                QMessageBox.warning(self, "Invalid Parameter", "Parameter must be in 'key_name:css_selector' format. (e.g., 'tags: .tag-list')")
-                return
-        # --- END NEW VALIDATION ---
-            
-        display_text = f"{action_text}"
-        if param:
-            display_text += f" | Param: {param}"
-            
-        self.action_list_widget.addItem(display_text)
-        self.action_param_input.clear()
+        param = self.action_param.text().strip()
+        if param: action_text += f" | Param: {param}"
+        self.action_list_widget.addItem(action_text)
+        self.action_param.clear()
 
     def remove_action(self):
-        """Removes the selected item."""
-        current_row = self.action_list_widget.currentRow()
-        if current_row >= 0:
-            self.action_list_widget.takeItem(current_row)
+        row = self.action_list_widget.currentRow()
+        if row >= 0: self.action_list_widget.takeItem(row)
 
     def browse_download_directory(self):
-        directory = QFileDialog.getExistingDirectory(
-            self, "Select Download Directory", self.last_browsed_download_dir
-        )
-        if directory:
-            self.last_browsed_download_dir = directory
-            self.download_dir_path.setText(directory)
+        d = QFileDialog.getExistingDirectory(self, "Download Dir", self.last_browsed_download_dir)
+        if d:
+            self.last_browsed_download_dir = d
+            self.download_dir_path.setText(d)
 
     def browse_screenshot_directory(self):
-        directory = QFileDialog.getExistingDirectory(
-            self, "Select Screenshot Directory", self.last_browsed_screenshot_dir
-        )
-        if directory:
-            self.last_browsed_screenshot_dir = directory
-            self.screenshot_dir_path.setText(directory)
+        d = QFileDialog.getExistingDirectory(self, "Screenshot Dir", self.last_browsed_screenshot_dir)
+        if d:
+            self.last_browsed_screenshot_dir = d
+            self.screenshot_dir_path.setText(d)
 
     def start_crawl(self):
-        # ... (Input validation and config gathering) ...
-        url = self.url_input.text().strip()
         download_dir = self.download_dir_path.text().strip()
-        screenshot_dir = self.screenshot_dir_path.text().strip()
-        skip_first = self.skip_first_input.text().strip()
-        skip_last = self.skip_last_input.text().strip()
-        
-        # New Login Fields
-        login_url = self.login_url_input.text().strip() or None
-        login_username = self.login_username_input.text().strip() or None
-        login_password = self.login_password_input.text().strip() or None
-        
-        replace_str = self.replace_str_input.text().strip() or None
-        replacements_str = self.replacements_input.text().strip()
-        replacements_list = [r.strip() for r in replacements_str.split(',')] if replacements_str else None
-
-        if not url:
-            QMessageBox.warning(self, "Missing URL", "Please enter a target URL.")
-            return
-        if not url.startswith(("http://", "https://")):
-            QMessageBox.warning(self, "Invalid URL", "URL must start with http:// or https://")
-            return
         if not download_dir:
-            QMessageBox.warning(self, "Missing Path", "Please select a download directory.")
-            return
-            
-        if replace_str and not replacements_list:
-            QMessageBox.warning(self, "Invalid Input", "You provided a 'String to Replace' but no 'Replacements'.")
-            return
-        if not replace_str and replacements_list:
-            QMessageBox.warning(self, "Invalid Input", "You provided 'Replacements' but no 'String to Replace'.")
-            return
-        if replace_str and url.find(replace_str) == -1:
-            QMessageBox.warning(self, "Invalid Input", f"The 'String to Replace' ('{replace_str}') was not found in the Target URL.")
+            QMessageBox.warning(self, "Error", "Please select a download directory.")
             return
 
-        try:
-            skip_first = int(skip_first)
-            skip_last = int(skip_last)
-        except ValueError:
-            QMessageBox.warning(self, "Invalid Input", "Skip First and Skip Last must be integers.")
-            return
+        crawler_type_idx = self.crawler_type_combo.currentIndex()
+        config = {"download_dir": download_dir}
+
+        if crawler_type_idx == 0:
+            config["type"] = "general"
+            config["url"] = self.url_input.text().strip()
+            config["browser"] = self.browser_combo.currentText()
+            config["headless"] = self.headless_checkbox.isChecked()
+            config["screenshot_dir"] = self.screenshot_dir_path.text().strip() or None
             
-        # --- Serialize Action List ---
-        actions = []
-        for i in range(self.action_list_widget.count()):
-            item_text = self.action_list_widget.item(i).text()
-            param = None
+            rep_str = self.replace_str_input.text().strip()
+            reps = self.replacements_input.text().strip()
+            config["replace_str"] = rep_str or None
+            config["replacements"] = [r.strip() for r in reps.split(',')] if reps else None
             
-            if " | Param: " in item_text:
-                action_type, param_str = item_text.split(" | Param: ", 1)
+            actions = []
+            for i in range(self.action_list_widget.count()):
+                txt = self.action_list_widget.item(i).text()
+                atype = txt.split(" | Param: ")[0]
+                param = txt.split(" | Param: ")[1] if " | Param: " in txt else None
                 
-                # Handle numerical parameters (Wait X Seconds, Find <img> Number X)
-                if "Seconds" in action_type:
-                    try:
-                        param = float(param_str)
-                    except ValueError:
-                         QMessageBox.warning(self, "Serialization Error", f"Wait time parameter '{param_str}' is invalid.")
-                         return
-                elif "Number X" in action_type:
-                    try:
-                        param = int(param_str)
-                    except ValueError:
-                        QMessageBox.warning(self, "Serialization Error", f"Image number parameter '{param_str}' is invalid.")
-                        return
-                else:
-                    # For text parameters (CSS Selector, Click Text, Refresh Element, Scan Page)
-                    param = param_str 
-            else:
-                action_type = item_text
-                param = None
+                if param and ("Seconds" in atype):
+                    try: param = float(param)
+                    except: pass
+                elif param and ("Number X" in atype):
+                    try: param = int(param)
+                    except: pass
 
-            actions.append({"type": action_type, "param": param})
-        
-        # If no actions are specified, default to high-res preview extraction
-        if not actions:
-            actions.append({"type": "Extract High-Res Preview URL", "param": None})
-            print("No actions specified, defaulting to high-res preview extraction.")
-
-        config = {
-            "url": url,
-            "download_dir": download_dir,
-            "screenshot_dir": screenshot_dir if screenshot_dir else None,
-            "headless": self.headless_checkbox.isChecked(),
-            "browser": self.browser_combo.currentText(),
-            "skip_first": skip_first,
-            "skip_last": skip_last,
-            "replace_str": replace_str,
-            "replacements": replacements_list,
-            "actions": actions, 
-            # --- NEW LOGIN CONFIG ---
-            "login_config": {
-                "url": login_url,
-                "username": login_username,
-                "password": login_password
+                actions.append({"type": atype, "param": param})
+            
+            if not actions: actions.append({"type": "Extract High-Res Preview URL", "param": None})
+            config["actions"] = actions
+            
+            config["login_config"] = {
+                "url": self.gen_login_url.text().strip() or None,
+                "username": self.gen_username.text().strip() or None,
+                "password": self.gen_password.text().strip() or None
             }
-            # --- END NEW LOGIN CONFIG ---
-        }
+            
+            try:
+                config["skip_first"] = int(self.skip_first_input.text())
+                config["skip_last"] = int(self.skip_last_input.text())
+            except: 
+                config["skip_first"] = 0
+                config["skip_last"] = 0
 
-        # UI: Show working state
-        self.run_button.hide() 
-        self.cancel_button.show() 
-        self.status_label.setText("Initializing browser...")
+        elif crawler_type_idx in (1, 2):
+            board_type = "gelbooru" if crawler_type_idx == 2 else "danbooru"
+            
+            config["type"] = "board"
+            config["board_type"] = board_type 
+            config["url"] = self.board_url.text().strip()
+            config["tags"] = self.board_tags.text().strip()
+            
+            # --- NEW: Resource & Extra Params ---
+            config["resource"] = self.board_resource.text().strip() or "posts"
+            
+            extra_params_str = self.board_extra_params.text().strip()
+            config["extra_params"] = {}
+            if extra_params_str:
+                try:
+                    # Simple parsing of "key=value&key2=value2"
+                    pairs = extra_params_str.split('&')
+                    for p in pairs:
+                        if '=' in p:
+                            k, v = p.split('=', 1)
+                            config["extra_params"][k.strip()] = v.strip()
+                except:
+                    print("Error parsing extra params")
+            # -------------------------------------
+            
+            try:
+                config["limit"] = int(self.board_limit.text().strip())
+                config["max_pages"] = int(self.board_max_pages.text().strip())
+            except ValueError:
+                QMessageBox.warning(self, "Error", "Limit and Max Pages must be integers.")
+                return
+                
+            config["login_config"] = {
+                "username": self.board_username.text().strip() or None, 
+                "password": self.board_apikey.text().strip() or None
+            }
+            
+            if not config["url"].startswith("http"):
+                config["url"] = "https://" + config["url"]
+            
+            config["screenshot_dir"] = None 
+            config["skip_first"] = 0 
+            config["skip_last"] = 0
+
+        # Start UI state
+        self.run_button.hide()
+        self.cancel_button.show()
+        self.status_label.setText("Initializing...")
         self.progress_bar.show()
         self.progress_bar.setRange(0, 0)
-        
-        # --- LOGGING: Clear and show log window ---
         self.log_window.clear_log()
         self.log_window.show()
 
-        # Start worker
+        # Worker
         self.worker = ImageCrawlWorker(config)
-        
-        # --- LOGGING: Connect worker signals to log window ---
         self.worker.status.connect(self.log_window.append_log)
         self.worker.error.connect(self.log_window.append_log)
-        # ----------------------------------------------------
-        
         self.worker.finished.connect(self.on_crawl_done)
         self.worker.start()
 
     def cancel_crawl(self):
-        """Attempts to stop the QThread worker."""
         if self.worker and self.worker.isRunning():
-            self.worker.terminate() 
-            self.log_window.append_log("Crawl **cancelled** by user.")
-            self.on_crawl_done(0, "Crawl **cancelled** by user.")
-            QMessageBox.information(self, "Cancelled", "The image crawl has been stopped.")
+            self.worker.terminate()
+            self.on_crawl_done(0, "Cancelled by user.")
 
     def on_crawl_done(self, count, message):
-        self.run_button.show() 
-        self.cancel_button.hide() 
-        self.run_button.setText("Run Crawler")
+        self.run_button.show()
+        self.cancel_button.hide()
         self.progress_bar.hide()
         self.status_label.setText(message)
-        
-        if "cancelled" not in message.lower():
-            QMessageBox.information(self, "Success", f"{message}\n\nSaved to:\n{self.download_dir_path.text()}")
-
-    def on_crawl_error(self, msg):
-        self.run_button.show() 
-        self.cancel_button.hide() 
-        self.run_button.setText("Run Crawler")
-        self.progress_bar.hide()
-        self.status_label.setText("Failed.")
-        QMessageBox.critical(self, "Error", msg)
-
-    def get_default_config(self) -> dict:
-        """Returns the default configuration values for this tab."""
-        return {
-            "url": "https://example.com/gallery?page=1",
-            "download_dir": "C:/home/pkhunter/Repositories/Image-Toolkit/data/tmp",
-            "screenshot_dir": None,
-            "headless": True,
-            "browser": "brave",
-            "skip_first": 0,
-            "skip_last": 0,
-            "replace_str": "page=1",
-            "replacements": ["page=2", "page=3"],
-            "actions": [
-                {"type": "Find Parent Link (<a>)", "param": None},
-                {"type": "Open Link in New Tab", "param": None},
-                {"type": "Find Element by CSS Selector", "param": ".image-container img#image"},
-                {"type": "Wait X Seconds", "param": 3.0},
-                {"type": "Download Image from Element", "param": None}
-            ],
-            "login_config": {
-                "url": None,
-                "username": None,
-                "password": None
-            }
-        }
-
-    def set_config(self, config: dict):
-        """Applies a loaded configuration to the tab's UI."""
-        try:
-            self.url_input.setText(config.get("url", ""))
-            self.download_dir_path.setText(config.get("download_dir", ""))
-            self.screenshot_dir_path.setText(config.get("screenshot_dir", ""))
-            self.headless_checkbox.setChecked(config.get("headless", True))
-            
-            browser = config.get("browser", "chrome")
-            if self.browser_combo.findText(browser) != -1:
-                self.browser_combo.setCurrentText(browser)
-                
-            self.skip_first_input.setText(str(config.get("skip_first", 0)))
-            self.skip_last_input.setText(str(config.get("skip_last", 0)))
-            self.replace_str_input.setText(config.get("replace_str", ""))
-            self.replacements_input.setText(", ".join(config.get("replacements", [])))
-            
-            # Load Login Config
-            login_config = config.get("login_config", {})
-            self.login_url_input.setText(login_config.get("url", "") or "")
-            self.login_username_input.setText(login_config.get("username", "") or "")
-            self.login_password_input.setText(login_config.get("password", "") or "")
-            
-            # Load Actions
-            self.action_list_widget.clear()
-            actions = config.get("actions", [])
-            for action in actions:
-                display_text = action.get("type", "Unknown Action")
-                param = action.get("param")
-                
-                if param is not None:
-                    # Explicitly convert float to string for display if needed
-                    if "Seconds" in display_text:
-                        display_text += f" | Param: {float(param)}"
-                    else:
-                        display_text += f" | Param: {param}"
-                
-                self.action_list_widget.addItem(display_text)
-            
-            print(f"ImageCrawlTab configuration loaded.")
-            
-        except Exception as e:
-            print(f"Error applying ImageCrawlTab config: {e}")
-            QMessageBox.warning(self, "Config Error", f"Failed to apply some settings: {e}")
+        if "Cancelled" not in message:
+            QMessageBox.information(self, "Done", f"{message}\nSaved to: {self.download_dir_path.text()}")
