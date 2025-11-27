@@ -18,7 +18,7 @@ from ..helpers import ImageLoaderWorker
 class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
     """
     Abstract base class for tabs with:
-    1. A 'Found/Scanned' gallery (Lazy Loaded & Unloaded & Paginated).
+    1. A 'Found/Scanned' gallery (Lazy Loaded & Paginated).
     2. A 'Selected' gallery (Immediate Load & Paginated).
     """
 
@@ -423,13 +423,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
             if self._is_visible(widget, viewport, visible_rect):
                 self._trigger_found_load(path)
 
-        # 2. Unload Invisible
-        for path in list(self.loaded_found_paths):
-            widget = self.path_to_label_map.get(path)
-            if not widget: continue
-
-            if not self._is_visible(widget, viewport, visible_rect):
-                self._unload_found_image(path, widget)
+        # UNLOADING LOGIC REMOVED
 
     def _is_visible(self, widget, viewport, visible_rect):
         if not widget.isVisible(): return False
@@ -446,12 +440,6 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClass):
         worker = ImageLoaderWorker(path, self.thumbnail_size)
         worker.signals.result.connect(self._on_found_image_loaded)
         self.thread_pool.start(worker)
-
-    def _unload_found_image(self, path: str, widget: QWidget):
-        if path in self.loaded_found_paths:
-            self.loaded_found_paths.remove(path)
-        self.pending_found_paths.add(path)
-        self.update_card_pixmap(widget, None)
 
     @Slot(str, QPixmap)
     def _on_found_image_loaded(self, path: str, pixmap: QPixmap):
