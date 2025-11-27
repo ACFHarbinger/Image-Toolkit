@@ -1,7 +1,6 @@
 import os
 import psycopg2
-import psycopg2.extras # Import extras for DictCursor
-import numpy as np
+import psycopg2.extras
 
 from pathlib import Path
 from datetime import datetime
