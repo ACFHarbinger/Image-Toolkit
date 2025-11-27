@@ -437,7 +437,7 @@ class DeleteTab(AbstractClassTwoGalleries):
         self.status_label.setText(f"Found {len(results)} groups ({len(flattened_paths)} files).")
         
         # Use Base Class method to load thumbnails into top gallery
-        self.start_loading_thumbnails(flattened_paths)
+        self.start_loading_thumbnails(sorted(flattened_paths))
 
     @Slot(str)
     def on_scan_error(self, error_msg):

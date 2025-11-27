@@ -60,7 +60,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.main_layout = QVBoxLayout(self.content_widget)
         self.tab_scroll_area.setWidget(self.content_widget)
         
-        # 1. Directory Selection Section
+        # 1. Directory Selection Section (Source Directory)
         dir_select_group = QGroupBox("Source Directory")
         dir_layout = QHBoxLayout(dir_select_group)
         
@@ -76,7 +76,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         
         self.main_layout.addWidget(dir_select_group)
 
-        # 1.5. Output Directory Section
+        # 1.5. Extraction Target Directory Section (Placed right after Source Directory)
         dir_set_group = QGroupBox("Output Directory") 
         dir_set_layout = QHBoxLayout(dir_set_group)
         
@@ -91,7 +91,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         
         self.main_layout.addWidget(dir_set_group) 
 
-        # 2. Source Gallery
+        # 2. Source Gallery (Thumbnails of Videos/GIFs)
         self.source_group = QGroupBox("Available Media")
         source_layout = QVBoxLayout(self.source_group)
         
@@ -100,12 +100,17 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.source_scroll.setMinimumHeight(220) 
         self.source_scroll.setMaximumHeight(220)
         
+        self.source_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
+        
         self.source_container = QWidget()
+        self.source_container.setStyleSheet("QWidget { background-color: #2c2f33; }")
+
         self.source_grid = QGridLayout(self.source_container)
         self.source_grid.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignTop)
         self.source_scroll.setWidget(self.source_container)
         
         source_layout.addWidget(self.source_scroll)
+        
         self.main_layout.addWidget(self.source_group)
 
         # 3. Video Player Section
@@ -117,9 +122,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.player_layout_container = QVBoxLayout(player_group) # The layout of the GroupBox
         
         # --- PLAYER CONTAINER (Holds View + Controls) ---
-        # We wrap video and controls here so we can maximize THIS widget
         self.player_container = QWidget()
-        # Set a background color (optional, prevents transparency issues in fullscreen)
         self.player_container.setStyleSheet("background-color: #2b2d31;") 
         self.player_inner_layout = QVBoxLayout(self.player_container)
         self.player_inner_layout.setContentsMargins(0, 0, 0, 0)
@@ -136,7 +139,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.video_view.setVisible(True) 
         self.video_view.installEventFilter(self)
         
-        # Add Video View to Inner Layout (Stretch factor 1 to take up space)
         self.player_inner_layout.addWidget(self.video_view, 1, Qt.AlignmentFlag.AlignCenter)
         
         self.media_player = QMediaPlayer()
@@ -146,7 +148,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         
         # Controls Row 1 (Top)
         controls_top_layout = QHBoxLayout()
-        controls_top_layout.setContentsMargins(10, 5, 10, 0) # Add padding for fullscreen look
+        controls_top_layout.setContentsMargins(10, 5, 10, 0) 
         
         self.btn_toggle_mode = QPushButton("Switch to External Player")
         self.btn_toggle_mode.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon))
@@ -165,7 +167,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         # Controls Row 2 (Bottom - Slider, Play, etc)
         controls_layout = QHBoxLayout()
-        controls_layout.setContentsMargins(10, 0, 10, 10) # Add padding
+        controls_layout.setContentsMargins(10, 0, 10, 10)
         
         self.btn_play = QPushButton()
         self.btn_play.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
@@ -207,10 +209,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.info_label.setVisible(False)
         self.player_inner_layout.addWidget(self.info_label)
 
-        # Add the Container to the GroupBox
         self.player_layout_container.addWidget(self.player_container)
         
-        # Install event filter on container to handle fullscreen resizing and ESC
         self.player_container.installEventFilter(self)
 
         video_container_layout.addWidget(player_group)
@@ -250,20 +250,46 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         self.gallery_scroll_area = MarqueeScrollArea()
         self.gallery_scroll_area.setWidgetResizable(True)
-        self.gallery_scroll_area.setMinimumHeight(400)
+        self.gallery_scroll_area.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
+        self.gallery_scroll_area.setMinimumHeight(600)
         
         self.gallery_container = QWidget()
+        self.gallery_container.setStyleSheet("QWidget { background-color: #2c2f33; }")
+        
         self.gallery_layout = QGridLayout(self.gallery_container)
+        self.gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        # Set spacing to match Search Tab
+        self.gallery_layout.setSpacing(3)
         self.gallery_scroll_area.setWidget(self.gallery_container)
         
         self.gallery_scroll_area.selection_changed.connect(self.handle_marquee_selection)
 
-        self.main_layout.addWidget(self.gallery_scroll_area)
+        self.main_layout.addWidget(self.gallery_scroll_area, 1)
         
         # --- Connections ---
         self.media_player.positionChanged.connect(self.position_changed)
         self.media_player.durationChanged.connect(self.duration_changed)
         self.media_player.errorOccurred.connect(self.handle_player_error)
+
+        # --- Initial Load of Output Directory ---
+        self._load_existing_output_images()
+
+    def _load_existing_output_images(self):
+        """Scans the extraction directory and loads existing images into the gallery."""
+        valid_extensions = {".jpg", ".jpeg", ".png", ".bmp"}
+        found_paths = []
+        
+        if self.extraction_dir.exists():
+            for entry in self.extraction_dir.iterdir():
+                if entry.is_file() and entry.suffix.lower() in valid_extensions:
+                    found_paths.append(str(entry.absolute()))
+        
+        # Sort files so they don't appear randomly
+        found_paths.sort()
+
+        if found_paths:
+            self.current_extracted_paths = found_paths
+            self.start_loading_gallery(self.current_extracted_paths)
 
     @Slot()
     def set_position_on_release(self):
@@ -301,6 +327,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def add_source_thumbnail(self, path: str, pixmap: QPixmap):
         thumb_size = 120
         container = QWidget()
+        container.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(container)
         layout.setContentsMargins(5, 5, 5, 5)
         
@@ -338,9 +365,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     @Slot(str)
     def load_media(self, file_path: str):
-        if self.video_path != file_path:
-            self._clear_gallery()
-        
         self.video_path = file_path
         ext = Path(file_path).suffix.lower()
         
@@ -359,7 +383,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.extract_group.setVisible(False)
             self.media_player.stop()
             self.media_player.setSource(QUrl())
-            self._run_extraction(0, -1, is_range=True)
+            # For GIF, we might not auto-extract immediately unless requested
+            # self._run_extraction(0, -1, is_range=True) 
             
         else:
             self.video_container_widget.setVisible(True) 
@@ -378,7 +403,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.extraction_dir = new_path
             self.last_browsed_extraction_dir = str(new_path)
             self.line_edit_extract_dir.setText(str(self.extraction_dir))
+            
+            # Clear existing items and load from new folder
             self._clear_gallery()
+            self._load_existing_output_images()
 
     def _clear_gallery(self):
         self.current_extracted_paths.clear()
@@ -392,65 +420,47 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.btn_extract_range.setEnabled(False)
         self.btn_extract_range.setText("🎞️ Extract Range")
 
-
     # --- Event Filters & Resizing ---
     def eventFilter(self, obj: QWidget, event: QEvent) -> bool:
         if obj is self.video_view:
             if self.use_internal_player:
-                # Play/Pause on Click
                 if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
                     self.toggle_playback()
                     return True
-                # Fullscreen Toggle on Double Click
                 if event.type() == QEvent.Type.MouseButtonDblClick:
                     self.toggle_fullscreen()
                     return True
 
-        # --- CONTAINER EVENTS (For Fullscreen logic) ---
         if obj is self.player_container:
-            # Handle ESC key to exit fullscreen
             if event.type() == QEvent.Type.KeyPress:
                 if event.key() == Qt.Key.Key_Escape:
                     if self.player_container.isFullScreen():
                         self.toggle_fullscreen()
                         return True
-            # Handle Resize to keep Video Aspect Ratio correct in Fullscreen
             if event.type() == QEvent.Type.Resize:
                 if self.video_view.isVisible():
-                    # Fit video in view
                     self.fit_video_in_view()
         
         return super().eventFilter(obj, event)
 
     def fit_video_in_view(self):
-        """Helper to fit video item in current view size."""
         rect = self.video_view.viewport().rect()
         self.video_item.setSize(rect.size())
         self.video_view.fitInView(self.video_item, Qt.AspectRatioMode.KeepAspectRatio)
 
     def toggle_fullscreen(self):
-        """Toggles the Player Container (Video + Controls) between fullscreen and normal."""
         if self.player_container.isFullScreen():
-            # EXIT FULLSCREEN
             self.player_container.setWindowFlags(Qt.Widget)
             self.player_container.showNormal()
-            
-            # Add back to the main layout
             self.player_layout_container.addWidget(self.player_container)
-            
-            # Restore constraints defined by the dropdown
             self.change_resolution(self.combo_resolution.currentIndex())
         else:
-            # ENTER FULLSCREEN
             self.player_container.setWindowFlags(Qt.WindowType.Window)
             self.player_container.showFullScreen()
-            
-            # Remove fixed size constraint so it fills the screen
-            self.video_view.setFixedSize(16777215, 16777215) # Max size effectively
+            self.video_view.setFixedSize(16777215, 16777215) 
             self.video_view.setMinimumSize(0, 0)
             self.video_view.setMaximumSize(16777215, 16777215)
-            
-            self.player_container.setFocus() # Focus needed to capture ESC key
+            self.player_container.setFocus() 
 
     @Slot(QResizeEvent)
     def resizeEvent(self, event: QResizeEvent):
@@ -461,7 +471,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     @Slot(int)
     def change_resolution(self, index: int):
-        # Only apply resolution constraints if NOT in fullscreen
         if not self.player_container.isFullScreen() and 0 <= index < len(self.available_resolutions):
             w, h = self.available_resolutions[index]
             self.video_view.setFixedSize(w, h)
@@ -470,11 +479,16 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     # --- Gallery & Selection Logic (Extracted Frames) ---
     def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
         container = QWidget()
+        container.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(5, 5, 5, 5)
+        # --- FIXED: Margins set to 0, Spacing set to 1 to match Search Tab style ---
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(1)
         
         clickable_label = ClickableLabel(file_path=path)
         clickable_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
+        # Use Alignment Center like search tab
+        clickable_label.setAlignment(Qt.AlignCenter)
         clickable_label.path = path 
         
         if pixmap and not pixmap.isNull():
@@ -482,9 +496,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                                  Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
             clickable_label.setPixmap(scaled)
             clickable_label.setText("") 
+            # Match default border from search tab
+            clickable_label.setStyleSheet("border: 1px solid #4f545c;")
         else:
              clickable_label.setText("Loading...")
-             clickable_label.setStyleSheet("border: 1px dashed #666; font-size: 10px;")
+             clickable_label.setStyleSheet("border: 1px solid #4f545c; color: #888; font-size: 10px;")
         
         self._style_label(clickable_label, selected=(path in self.selected_paths))
 
@@ -509,13 +525,14 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self._style_label(clickable_label, selected=(clickable_label.path in self.selected_paths))
 
     def _style_label(self, label: ClickableLabel, selected: bool):
+        # --- FIXED: Styles matching search_tab.py ---
         if selected:
-            label.setStyleSheet("border: 3px solid #3498db; background-color: #000;")
+            label.setStyleSheet("border: 3px solid #5865f2; background-color: #36393f;")
         else:
             if label.text() in ["Load Error", "Loading..."]:
-                label.setStyleSheet("border: 1px solid #e74c3c; background-color: #4f545c; color: white;")
+                label.setStyleSheet("border: 1px solid #4f545c; color: #888; font-size: 10px;")
             else:
-                label.setStyleSheet("border: 1px solid #555; background-color: #000;")
+                label.setStyleSheet("border: 1px solid #4f545c;")
 
     @Slot(str)
     def handle_thumbnail_single_click(self, image_path: str):
