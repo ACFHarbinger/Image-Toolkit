@@ -1,5 +1,3 @@
-import os
-
 from PySide6.QtCore import Qt, QPoint
 from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QFileDialog, QLabel,
@@ -40,7 +38,8 @@ class ImageCrawlTab(QWidget):
         self.crawler_type_combo.addItems([
             "General Web Crawler", 
             "Image Board Crawler (Danbooru API)",
-            "Image Board Crawler (Gelbooru API)"
+            "Image Board Crawler (Gelbooru API)",
+            "Image Board Crawler (Sankaku Complex API)"
         ])
         self.crawler_type_combo.currentIndexChanged.connect(self.on_crawler_type_changed)
         type_layout.addWidget(self.crawler_type_combo, 1)
@@ -275,11 +274,10 @@ class ImageCrawlTab(QWidget):
         self.board_url.setPlaceholderText("Board URL")
         form.addRow("Board URL:", self.board_url)
         
-        # --- NEW: Resource Selection ---
+        # --- Resource Selection ---
         self.board_resource = QLineEdit("posts")
         self.board_resource.setPlaceholderText("Resource (e.g. posts, tags, comments)")
         form.addRow("Resource:", self.board_resource)
-        # -------------------------------
         
         self.board_tags = QLineEdit()
         self.board_tags.setPlaceholderText("e.g. 1girl scenic original")
@@ -293,15 +291,20 @@ class ImageCrawlTab(QWidget):
         self.board_max_pages.setPlaceholderText("Number of pages to crawl")
         form.addRow("Max Pages:", self.board_max_pages)
         
-        # --- NEW: Extra Parameters ---
+        # --- Extra Parameters ---
         self.board_extra_params = QLineEdit()
         self.board_extra_params.setPlaceholderText("e.g. deleted=show&order=count")
         form.addRow("Extra Query Params:", self.board_extra_params)
-        # -----------------------------
         
         api_group.setLayout(form)
         layout.addWidget(api_group)
         
+        # API Doc Link Label (to be placed dynamically)
+        self.api_doc_link = QLabel("")
+        self.api_doc_link.setOpenExternalLinks(True)
+        self.api_doc_link.setStyleSheet("padding: 5px; font-size: 10px; color: #aaa;")
+        layout.addWidget(self.api_doc_link) # Add here initially
+
         # Auth Group
         auth_group = QGroupBox("Authentication (Optional)")
         auth_group.setStyleSheet(self._get_group_style())
@@ -325,28 +328,51 @@ class ImageCrawlTab(QWidget):
     # --- Event Handlers ---
 
     def update_board_auth_labels(self, index: int):
+        """Dynamically updates labels/placeholders based on selected board type."""
+        # Ensure elements exist before trying to update them
         if not hasattr(self, 'board_username_label'):
              return
 
         if index == 1: # Danbooru
             self.board_username_label.setText("Username:")
             self.board_username.setPlaceholderText("Danbooru Username")
+            self.board_apikey_label.setText("API Key:")
             self.board_url.setText("https://danbooru.donmai.us")
             self.board_resource.setText("posts")
             self.board_limit.setText("20")
+            link = '<a href="https://danbooru.donmai.us/wiki_pages/help:api">Danbooru API Documentation</a>'
+            self.api_doc_link.setText(link)
+            
         elif index == 2: # Gelbooru
             self.board_username_label.setText("User ID:")
             self.board_username.setPlaceholderText("Gelbooru User ID")
+            self.board_apikey_label.setText("API Key:")
             self.board_url.setText("https://gelbooru.com")
-            self.board_resource.setText("post")
+            self.board_resource.setText("post") 
             self.board_limit.setText("100")
+            link = '<a href="https://gelbooru.com/index.php?page=wiki&s=view&id=18780">Gelbooru API Documentation</a>'
+            self.api_doc_link.setText(link)
+        
+        elif index == 3: # Sankaku Complex
+            self.board_username_label.setText("Username/Email:")
+            self.board_username.setPlaceholderText("Sankaku Username or Email")
+            self.board_apikey_label.setText("Password:")
+            self.board_url.setText("https://capi-v2.sankakucomplex.com")
+            self.board_resource.setText("posts") 
+            self.board_limit.setText("40")
+            link = '<a href="https://sankaku.app/">Sankaku Complex API Info</a>'
+            self.api_doc_link.setText(link)
         
     def on_crawler_type_changed(self, index):
         # Map combo box index to stack index
+        # Combo: 0=General, 1=Danbooru, 2=Gelbooru, 3=Sankaku
+        # Stack: 0=General Page, 1=Board Page (Shared)
+        
+        # If index is 0, show page 0. If index is >= 1, show page 1.
         stack_index = 0 if index == 0 else 1
         self.settings_stack.setCurrentIndex(stack_index)
         
-        if index in (1, 2):
+        if index >= 1:
             self.update_board_auth_labels(index)
         
     def show_context_menu(self, pos: QPoint):
@@ -477,22 +503,25 @@ class ImageCrawlTab(QWidget):
                 config["skip_first"] = 0
                 config["skip_last"] = 0
 
-        elif crawler_type_idx in (1, 2):
-            board_type = "gelbooru" if crawler_type_idx == 2 else "danbooru"
+        elif crawler_type_idx >= 1:
+            if crawler_type_idx == 2:
+                board_type = "gelbooru"
+            elif crawler_type_idx == 3:
+                board_type = "sankaku"
+            else:
+                board_type = "danbooru"
             
             config["type"] = "board"
             config["board_type"] = board_type 
             config["url"] = self.board_url.text().strip()
             config["tags"] = self.board_tags.text().strip()
             
-            # --- NEW: Resource & Extra Params ---
             config["resource"] = self.board_resource.text().strip() or "posts"
             
             extra_params_str = self.board_extra_params.text().strip()
             config["extra_params"] = {}
             if extra_params_str:
                 try:
-                    # Simple parsing of "key=value&key2=value2"
                     pairs = extra_params_str.split('&')
                     for p in pairs:
                         if '=' in p:
@@ -500,7 +529,6 @@ class ImageCrawlTab(QWidget):
                             config["extra_params"][k.strip()] = v.strip()
                 except:
                     print("Error parsing extra params")
-            # -------------------------------------
             
             try:
                 config["limit"] = int(self.board_limit.text().strip())

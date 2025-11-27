@@ -6,6 +6,7 @@ import json
 from urllib.parse import urljoin, urlparse
 from PySide6.QtCore import QObject, Signal
 
+
 class ImageBoardCrawler(QObject):
     """
     Abstract Base Class for Image Board Crawlers.
