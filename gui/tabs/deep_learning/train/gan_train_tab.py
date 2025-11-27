@@ -3,6 +3,7 @@ from PySide6.QtWidgets import (
     QSpinBox, QComboBox, QCheckBox
 )
 from ..base_generative_tab import BaseGenerativeTab
+from backend.src.utils.definitions import LOCAL_SOURCE_PATH
 
 
 class R3GANTrainTab(BaseGenerativeTab):
@@ -14,7 +15,7 @@ class R3GANTrainTab(BaseGenerativeTab):
     def init_ui(self):
         layout = QFormLayout()
         self.add_param_widget(layout, "Output Directory:", QLineEdit("./training-runs"), "outdir")
-        self.add_param_widget(layout, "Dataset (.zip):", QLineEdit(), "data")
+        self.add_param_widget(layout, "Dataset (.zip):", QLineEdit(), LOCAL_SOURCE_PATH)
         
         presets = ["CIFAR10", "FFHQ-64", "FFHQ-256", "ImageNet-32", "ImageNet-64"]
         self.add_param_widget(layout, "Preset:", QComboBox(), "preset")

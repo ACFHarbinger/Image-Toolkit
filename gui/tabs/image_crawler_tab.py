@@ -1,6 +1,5 @@
 import os
 
-from pathlib import Path
 from PySide6.QtCore import Qt, QPoint
 from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QFileDialog, QLabel,
@@ -9,10 +8,12 @@ from PySide6.QtWidgets import (
     QListWidget, QMenu, QProgressBar, QInputDialog 
 )
 from PySide6.QtGui import QAction
+from ..windows import LogWindow
 from ..helpers import ImageCrawlWorker
 from ..components import OptionalField
 from ..styles.style import apply_shadow_effect
-from ..windows import LogWindow 
+from ..utils.app_definitions import SCREENSHOTS_DIR
+from backend.src.utils.definitions import LOCAL_SOURCE_PATH
 
 
 class ImageCrawlTab(QWidget):
@@ -26,10 +27,8 @@ class ImageCrawlTab(QWidget):
         self.log_window.hide()
         # --- End Log Window Initialization ---
         
-        path = Path(os.getcwd())
-        parts = path.parts
-        self.last_browsed_download_dir = os.path.join(Path(*parts[:parts.index('Image-Toolkit') + 1]), 'data', 'tmp')
-        self.last_browsed_screenshot_dir = self.last_browsed_download_dir 
+        self.last_browsed_download_dir = LOCAL_SOURCE_PATH
+        self.last_browsed_screenshot_dir = SCREENSHOTS_DIR
 
         main_layout = QVBoxLayout(self)
 

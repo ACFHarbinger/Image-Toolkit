@@ -261,9 +261,6 @@ class WallpaperTab(AbstractClassSingleGallery):
         
         content_layout.addWidget(settings_group) 
 
-        # --- PAGINATION WIDGET ADDED HERE ---
-        content_layout.addWidget(self.pagination_widget)
-
         # --- Gallery Setup for Base Class ---
         self.scan_scroll_area = MarqueeScrollArea() 
         self.scan_scroll_area.setWidgetResizable(True)
@@ -278,6 +275,10 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.scan_scroll_area.setWidget(self.scan_thumbnail_widget)
         
         content_layout.addWidget(self.scan_scroll_area, 1) 
+        
+        # --- PAGINATION WIDGET MOVED HERE ---
+        # Added with stretch 0 and Alignment Center
+        content_layout.addWidget(self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter)
         
         # **Assign Base Class References**
         self.gallery_scroll_area = self.scan_scroll_area

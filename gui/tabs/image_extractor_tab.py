@@ -19,6 +19,7 @@ from ..windows import ImagePreviewWindow
 from ..classes import AbstractClassSingleGallery
 from ..components import ClickableLabel, MarqueeScrollArea
 from ..helpers import FrameExtractorWorker, VideoScanWorker
+from backend.src.utils.definitions import LOCAL_SOURCE_PATH
 
 
 class ImageExtractorTab(AbstractClassSingleGallery):
@@ -39,7 +40,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         # Defined resolutions corresponding to the Combo Box items
         self.available_resolutions = [(1280, 720), (1920, 1080), (2560, 1440), (3840, 2160)]
         
-        self.extraction_dir = Path(os.getcwd()) / "data" / "Frames"
+        self.extraction_dir = Path(LOCAL_SOURCE_PATH) / "Frames"
         self.extraction_dir.mkdir(parents=True, exist_ok=True)
         self.last_browsed_extraction_dir = str(self.extraction_dir)
 
@@ -246,8 +247,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.extract_group.setVisible(False) 
 
         # 5. Results Gallery Section
-        self.main_layout.addWidget(self.pagination_widget)
-
         self.gallery_scroll_area = MarqueeScrollArea()
         self.gallery_scroll_area.setWidgetResizable(True)
         self.gallery_scroll_area.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
@@ -265,6 +264,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.gallery_scroll_area.selection_changed.connect(self.handle_marquee_selection)
 
         self.main_layout.addWidget(self.gallery_scroll_area, 1)
+
+        # --- PAGINATION WIDGET MOVED HERE ---
+        # Added with stretch 0 and Alignment Center
+        self.main_layout.addWidget(self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter)
         
         # --- Connections ---
         self.media_player.positionChanged.connect(self.position_changed)
