@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QMenu, QGraphicsView, QGraphicsScene,
     QScrollArea, QGridLayout, QMessageBox,
     QPushButton, QApplication, QLineEdit,
+    QProgressDialog
 )
 from PySide6.QtGui import QPixmap, QResizeEvent, QAction
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
@@ -29,6 +30,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.duration_ms = 0
         self.extractor_worker: Optional[FrameExtractorWorker] = None
         self.open_image_preview_windows: List[QWidget] = [] 
+        
+        # Reference for the progress dialog
+        self.progress_dialog: Optional[QProgressDialog] = None
         
         self.use_internal_player = True 
 
@@ -56,7 +60,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.main_layout = QVBoxLayout(self.content_widget)
         self.tab_scroll_area.setWidget(self.content_widget)
         
-        # 1. Directory Selection Section (Source Directory)
+        # 1. Directory Selection Section
         dir_select_group = QGroupBox("Source Directory")
         dir_layout = QHBoxLayout(dir_select_group)
         
@@ -72,7 +76,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         
         self.main_layout.addWidget(dir_select_group)
 
-        # 1.5. Extraction Target Directory Section (Placed right after Source Directory)
+        # 1.5. Output Directory Section
         dir_set_group = QGroupBox("Output Directory") 
         dir_set_layout = QHBoxLayout(dir_set_group)
         
@@ -87,7 +91,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         
         self.main_layout.addWidget(dir_set_group) 
 
-        # 2. Source Gallery (Thumbnails of Videos/GIFs)
+        # 2. Source Gallery
         self.source_group = QGroupBox("Available Media")
         source_layout = QVBoxLayout(self.source_group)
         
@@ -102,16 +106,25 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.source_scroll.setWidget(self.source_container)
         
         source_layout.addWidget(self.source_scroll)
-        
         self.main_layout.addWidget(self.source_group)
 
         # 3. Video Player Section
         self.video_container_widget = QWidget() 
         video_container_layout = QVBoxLayout(self.video_container_widget)
         
+        # GroupBox to hold the player
         player_group = QGroupBox("Video Player")
-        player_layout = QVBoxLayout(player_group)
+        self.player_layout_container = QVBoxLayout(player_group) # The layout of the GroupBox
         
+        # --- PLAYER CONTAINER (Holds View + Controls) ---
+        # We wrap video and controls here so we can maximize THIS widget
+        self.player_container = QWidget()
+        # Set a background color (optional, prevents transparency issues in fullscreen)
+        self.player_container.setStyleSheet("background-color: #2b2d31;") 
+        self.player_inner_layout = QVBoxLayout(self.player_container)
+        self.player_inner_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Video Item & Scene
         self.video_item = QGraphicsVideoItem()
         self.graphics_scene = QGraphicsScene(self)
         self.graphics_scene.addItem(self.video_item)
@@ -123,14 +136,18 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.video_view.setVisible(True) 
         self.video_view.installEventFilter(self)
         
-        player_layout.addWidget(self.video_view, 0, Qt.AlignmentFlag.AlignCenter)
+        # Add Video View to Inner Layout (Stretch factor 1 to take up space)
+        self.player_inner_layout.addWidget(self.video_view, 1, Qt.AlignmentFlag.AlignCenter)
         
         self.media_player = QMediaPlayer()
         self.audio_output = QAudioOutput()
         self.media_player.setAudioOutput(self.audio_output)
         self.media_player.setVideoOutput(self.video_item) 
         
+        # Controls Row 1 (Top)
         controls_top_layout = QHBoxLayout()
+        controls_top_layout.setContentsMargins(10, 5, 10, 0) # Add padding for fullscreen look
+        
         self.btn_toggle_mode = QPushButton("Switch to External Player")
         self.btn_toggle_mode.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon))
         self.btn_toggle_mode.clicked.connect(self.toggle_player_mode)
@@ -143,9 +160,13 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.combo_resolution.currentIndexChanged.connect(self.change_resolution)
         controls_top_layout.addWidget(self.combo_resolution)
         controls_top_layout.addStretch()
-        player_layout.addLayout(controls_top_layout)
+        
+        self.player_inner_layout.addLayout(controls_top_layout)
 
+        # Controls Row 2 (Bottom - Slider, Play, etc)
         controls_layout = QHBoxLayout()
+        controls_layout.setContentsMargins(10, 0, 10, 10) # Add padding
+        
         self.btn_play = QPushButton()
         self.btn_play.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
         self.btn_play.clicked.connect(self.toggle_playback)
@@ -176,13 +197,21 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         controls_layout.addWidget(self.lbl_current_time)
         controls_layout.addWidget(self.slider)
         controls_layout.addWidget(self.lbl_total_time)
-        player_layout.addLayout(controls_layout)
         
+        self.player_inner_layout.addLayout(controls_layout)
+        
+        # Info Label (External Player Mode)
         self.info_label = QLabel("Video is playing externally. Use slider to select timestamps.")
         self.info_label.setStyleSheet("color: #aaa; font-style: italic; font-size: 11px;")
         self.info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.info_label.setVisible(False)
-        player_layout.addWidget(self.info_label)
+        self.player_inner_layout.addWidget(self.info_label)
+
+        # Add the Container to the GroupBox
+        self.player_layout_container.addWidget(self.player_container)
+        
+        # Install event filter on container to handle fullscreen resizing and ESC
+        self.player_container.installEventFilter(self)
 
         video_container_layout.addWidget(player_group)
         self.main_layout.addWidget(self.video_container_widget)
@@ -217,10 +246,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.extract_group.setVisible(False) 
 
         # 5. Results Gallery Section
-        
-        # --- ADDED PAGINATION WIDGET ---
         self.main_layout.addWidget(self.pagination_widget)
-        # -------------------------------
 
         self.gallery_scroll_area = MarqueeScrollArea()
         self.gallery_scroll_area.setWidgetResizable(True)
@@ -304,7 +330,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     @Slot(QPoint, str)
     def show_source_context_menu(self, global_pos: QPoint, path: str):
-        """Context menu for the Source Gallery."""
         menu = QMenu(self)
         view_action = QAction("View Preview", self)
         view_action.triggered.connect(lambda: self.handle_thumbnail_double_click(path))
@@ -332,10 +357,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         if ext == ".gif":
             self.video_container_widget.setVisible(False)
             self.extract_group.setVisible(False)
-            
             self.media_player.stop()
             self.media_player.setSource(QUrl())
-            
             self._run_extraction(0, -1, is_range=True)
             
         else:
@@ -348,30 +371,20 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     @Slot()
     def browse_extraction_directory(self):
-        """Opens a dialog to select the directory for extracted frames."""
-        d = QFileDialog.getExistingDirectory(
-            self, 
-            "Select Extraction Directory", 
-            self.last_browsed_extraction_dir
-        )
+        d = QFileDialog.getExistingDirectory(self, "Select Extraction Directory", self.last_browsed_extraction_dir)
         if d:
             new_path = Path(d)
             new_path.mkdir(parents=True, exist_ok=True)
-            
             self.extraction_dir = new_path
             self.last_browsed_extraction_dir = str(new_path)
             self.line_edit_extract_dir.setText(str(self.extraction_dir))
-            
             self._clear_gallery()
 
     def _clear_gallery(self):
-        """Clears the extracted frames gallery and resets related state."""
         self.current_extracted_paths.clear()
         self.selected_paths.clear()
-        
         self.gallery_image_paths.clear()
         self.clear_gallery_widgets()
-        
         self.start_time_ms = 0
         self.end_time_ms = 0
         self.btn_set_start.setText("Set Start [00:00]")
@@ -383,31 +396,78 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     # --- Event Filters & Resizing ---
     def eventFilter(self, obj: QWidget, event: QEvent) -> bool:
         if obj is self.video_view:
-            if self.use_internal_player and event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
-                self.toggle_playback()
-                return True
+            if self.use_internal_player:
+                # Play/Pause on Click
+                if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
+                    self.toggle_playback()
+                    return True
+                # Fullscreen Toggle on Double Click
+                if event.type() == QEvent.Type.MouseButtonDblClick:
+                    self.toggle_fullscreen()
+                    return True
+
+        # --- CONTAINER EVENTS (For Fullscreen logic) ---
+        if obj is self.player_container:
+            # Handle ESC key to exit fullscreen
+            if event.type() == QEvent.Type.KeyPress:
+                if event.key() == Qt.Key.Key_Escape:
+                    if self.player_container.isFullScreen():
+                        self.toggle_fullscreen()
+                        return True
+            # Handle Resize to keep Video Aspect Ratio correct in Fullscreen
+            if event.type() == QEvent.Type.Resize:
+                if self.video_view.isVisible():
+                    # Fit video in view
+                    self.fit_video_in_view()
+        
         return super().eventFilter(obj, event)
+
+    def fit_video_in_view(self):
+        """Helper to fit video item in current view size."""
+        rect = self.video_view.viewport().rect()
+        self.video_item.setSize(rect.size())
+        self.video_view.fitInView(self.video_item, Qt.AspectRatioMode.KeepAspectRatio)
+
+    def toggle_fullscreen(self):
+        """Toggles the Player Container (Video + Controls) between fullscreen and normal."""
+        if self.player_container.isFullScreen():
+            # EXIT FULLSCREEN
+            self.player_container.setWindowFlags(Qt.Widget)
+            self.player_container.showNormal()
+            
+            # Add back to the main layout
+            self.player_layout_container.addWidget(self.player_container)
+            
+            # Restore constraints defined by the dropdown
+            self.change_resolution(self.combo_resolution.currentIndex())
+        else:
+            # ENTER FULLSCREEN
+            self.player_container.setWindowFlags(Qt.WindowType.Window)
+            self.player_container.showFullScreen()
+            
+            # Remove fixed size constraint so it fills the screen
+            self.video_view.setFixedSize(16777215, 16777215) # Max size effectively
+            self.video_view.setMinimumSize(0, 0)
+            self.video_view.setMaximumSize(16777215, 16777215)
+            
+            self.player_container.setFocus() # Focus needed to capture ESC key
 
     @Slot(QResizeEvent)
     def resizeEvent(self, event: QResizeEvent):
         super().resizeEvent(event)
         self._resize_timer.start(150) 
         if self.video_view.isVisible():
-            rect = self.video_view.viewport().rect()
-            self.video_item.setSize(rect.size())
-            self.video_view.fitInView(self.video_item, Qt.AspectRatioMode.KeepAspectRatio)
+            self.fit_video_in_view()
 
     @Slot(int)
     def change_resolution(self, index: int):
-        if 0 <= index < len(self.available_resolutions):
+        # Only apply resolution constraints if NOT in fullscreen
+        if not self.player_container.isFullScreen() and 0 <= index < len(self.available_resolutions):
             w, h = self.available_resolutions[index]
             self.video_view.setFixedSize(w, h)
-            rect = self.video_view.viewport().rect()
-            self.video_item.setSize(rect.size())
-            self.video_view.fitInView(self.video_item, Qt.AspectRatioMode.KeepAspectRatio)
+            self.fit_video_in_view()
 
     # --- Gallery & Selection Logic (Extracted Frames) ---
-
     def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
         container = QWidget()
         layout = QVBoxLayout(container)
@@ -415,7 +475,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         
         clickable_label = ClickableLabel(file_path=path)
         clickable_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
-        
         clickable_label.path = path 
         
         if pixmap and not pixmap.isNull():
@@ -434,13 +493,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         clickable_label.path_right_clicked.connect(self.show_image_context_menu)
         
         layout.addWidget(clickable_label)
-        
         return container
 
     def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
-        """
-        Updates the ClickableLabel inside the container with the loaded pixmap.
-        """
         clickable_label = widget.findChild(ClickableLabel)
         if clickable_label:
             if pixmap and not pixmap.isNull():
@@ -466,7 +521,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def handle_thumbnail_single_click(self, image_path: str):
         mods = QApplication.keyboardModifiers()
         is_ctrl = bool(mods & Qt.KeyboardModifier.ControlModifier)
-        
         if is_ctrl:
             if image_path in self.selected_paths:
                 self.selected_paths.remove(image_path)
@@ -475,7 +529,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         else:
             self.selected_paths.clear()
             self.selected_paths.add(image_path)
-            
         self.update_visual_selection()
 
     @Slot(set, bool)
@@ -484,13 +537,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.selected_paths.update(marquee_selection)
         else:
             self.selected_paths = marquee_selection
-        
         self.update_visual_selection()
 
     def update_visual_selection(self):
-        if not self.gallery_container:
-            return
-            
+        if not self.gallery_container: return
         for label in self.gallery_container.findChildren(ClickableLabel):
             if hasattr(label, 'path'):
                 is_selected = label.path in self.selected_paths
@@ -530,7 +580,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         count = len(self.selected_paths)
         menu = QMenu(self)
-        
         if count == 1:
             view_action = QAction("View Full Size", self)
             view_action.triggered.connect(lambda: self.handle_thumbnail_double_click(path))
@@ -541,23 +590,18 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         delete_action = QAction(del_text, self)
         delete_action.triggered.connect(self.delete_selected_images)
         menu.addAction(delete_action)
-        
         menu.exec(global_pos)
 
     def delete_selected_images(self):
-        if not self.selected_paths:
-            return
-
+        if not self.selected_paths: return
         confirm = QMessageBox.question(
             self, "Confirm Deletion", 
             f"Are you sure you want to delete {len(self.selected_paths)} images?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
-        
         if confirm == QMessageBox.StandardButton.Yes:
             failed = []
             paths_to_delete = list(self.selected_paths)
-            
             for path in paths_to_delete:
                 try:
                     os.remove(path)
@@ -565,10 +609,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                         self.current_extracted_paths.remove(path)
                 except Exception as e:
                     failed.append(f"{Path(path).name}: {e}")
-            
             self.selected_paths.clear()
             self.start_loading_gallery(self.current_extracted_paths)
-            
             if failed:
                 QMessageBox.warning(self, "Partial Deletion Failure", "\n".join(failed))
 
@@ -586,7 +628,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         if not self.video_path: return
         ext = Path(self.video_path).suffix.lower()
         if ext == ".gif": return
-
         self.media_player.setSource(QUrl.fromLocalFile(self.video_path))
 
         if self.use_internal_player:
@@ -684,11 +725,16 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self._run_extraction(self.start_time_ms, self.end_time_ms, is_range=True)
 
     def _run_extraction(self, start: int, end: int, is_range: bool):
-        # Determine target resolution from the combo box
         current_res_idx = self.combo_resolution.currentIndex()
         target_size: Optional[Tuple[int, int]] = None
         if 0 <= current_res_idx < len(self.available_resolutions):
             target_size = self.available_resolutions[current_res_idx]
+
+        self.progress_dialog = QProgressDialog("Extracting and processing frames...", "Cancel", 0, 0, self)
+        self.progress_dialog.setWindowTitle("Processing")
+        self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        self.progress_dialog.setMinimumDuration(0)
+        self.progress_dialog.show()
 
         self.extractor_worker = FrameExtractorWorker(
             video_path=self.video_path,
@@ -696,7 +742,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             start_ms=start,
             end_ms=end,
             is_range=is_range,
-            target_resolution=target_size # Pass resolution tuple
+            target_resolution=target_size
         )
         self.extractor_worker.signals.finished.connect(self._on_extraction_finished)
         self.extractor_worker.signals.error.connect(lambda e: QMessageBox.warning(self, "Extraction Error", e))
@@ -704,22 +750,19 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     @Slot(list)
     def _on_extraction_finished(self, new_paths: List[str]):
+        if self.progress_dialog:
+            self.progress_dialog.setLabelText(f"Loading {len(new_paths)} images...")
         if not new_paths:
+            if self.progress_dialog: self.progress_dialog.close()
             QMessageBox.information(self, "Info", "No frames extracted.")
             return
         
-        # 1. Update the local full list tracking
         self.current_extracted_paths.extend(new_paths)
-        
-        # 2. Filter duplicates locally if needed (though usually extraction creates unique filenames)
-        # Note: If we just extend, we rely on the logic that extraction creates new files.
-        # If you want to ensure uniqueness in the UI list:
-        # self.current_extracted_paths = list(dict.fromkeys(self.current_extracted_paths))
-        
-        # 3. Call the gallery loader with ONLY the new paths and append=True
-        # This prevents reloading existing images.
         self.start_loading_gallery(new_paths, append=True)
         
+        if self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
         QMessageBox.information(self, "Success", f"Extracted {len(new_paths)} images. Total: {len(self.current_extracted_paths)}")
 
     def _format_time(self, ms: int) -> str:
