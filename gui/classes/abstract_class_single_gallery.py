@@ -12,10 +12,11 @@ from PySide6.QtGui import QPixmap, QResizeEvent
 from .meta_abstract_class import MetaAbstractClass
 from ..helpers import ImageLoaderWorker
 
+
 class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
     """
-    Abstract base class for a single gallery with Lazy Loading, Unloading, and Pagination.
-    Images are loaded when visible and unloaded when they scroll out of view.
+    Abstract base class for a single gallery with Lazy Loading and Pagination.
+    Images are loaded when visible and remain loaded (no unloading).
     """
 
     def __init__(self):
@@ -28,7 +29,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
         # --- Lazy Loading State ---
         self.pending_paths: Set[str] = set()   # Paths waiting to be checked/loaded
         self.loading_paths: Set[str] = set()   # Paths currently in a thread
-        self.loaded_paths: Set[str] = set()    # Paths currently held in memory (visible)
+        self.loaded_paths: Set[str] = set()    # Paths currently held in memory (visible or previously visible)
         
         # --- Pagination State ---
         self.page_size = 100
@@ -263,7 +264,8 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
 
     def _process_visible_items(self):
         """
-        Determines which widgets are visible to LOAD, and which are invisible to UNLOAD.
+        Determines which widgets are visible to LOAD.
+        Once loaded, they are NOT unloaded until the page is changed.
         """
         if not self.gallery_scroll_area:
             return
@@ -280,13 +282,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
             if self._is_visible(widget, viewport, visible_rect):
                 self._trigger_image_load(path)
 
-        # 2. Check Loaded (Unload if NOT visible)
-        for path in list(self.loaded_paths):
-            widget = self.path_to_card_widget.get(path)
-            if not widget: continue
-
-            if not self._is_visible(widget, viewport, visible_rect):
-                self._unload_image(path, widget)
+        # UNLOADING LOGIC REMOVED: Images stay loaded.
 
     def _is_visible(self, widget, viewport, visible_rect):
         """Check if widget intersects with the visible viewport rect."""
@@ -311,24 +307,11 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
         worker.signals.result.connect(self._on_single_image_loaded)
         self.thread_pool.start(worker)
 
-    def _unload_image(self, path: str, widget: QWidget):
-        """Release memory for an image that scrolled out of view."""
-        if path in self.loaded_paths:
-            self.loaded_paths.remove(path)
-        
-        # Add back to pending so it reloads if scrolled back
-        self.pending_paths.add(path)
-        
-        # Tell subclass to clear the pixmap
-        self.update_card_pixmap(widget, None)
-
     @Slot(str, QPixmap)
     def _on_single_image_loaded(self, path: str, pixmap: QPixmap):
         if path in self.loading_paths:
             self.loading_paths.remove(path)
         
-        # Only apply if it's still supposed to be loaded (didn't scroll away fast)
-        # But simplest is to add to loaded, and let next scroll check unload it if needed
         self.loaded_paths.add(path)
 
         widget = self.path_to_card_widget.get(path)

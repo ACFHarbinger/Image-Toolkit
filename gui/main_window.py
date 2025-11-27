@@ -133,17 +133,17 @@ class MainWindow(QWidget):
         # --- LINK TABS (Critical for Cross-Tab Communication) ---
         self.database_tab.scan_tab_ref = self.scan_metadata_tab 
         self.database_tab.search_tab_ref = self.search_tab
-        self.database_tab.merge_tab_ref = self.merge_tab       # <--- NEW
-        self.database_tab.delete_tab_ref = self.delete_tab     # <--- NEW
-        self.database_tab.wallpaper_tab_ref = self.wallpaper_tab # <--- NEW
+        self.database_tab.merge_tab_ref = self.merge_tab 
+        self.database_tab.delete_tab_ref = self.delete_tab
+        self.database_tab.wallpaper_tab_ref = self.wallpaper_tab
 
         self.all_tabs = {
             'System Tools': {
                 "Convert Format": self.convert_tab,
                 "Merge Images": self.merge_tab,
                 "Delete Images": self.delete_tab,
-                "Display Wallpaper": self.wallpaper_tab,
                 "Image Extractor": self.image_extractor_tab,
+                "Display Wallpaper": self.wallpaper_tab,
             }, 
             'Database Management': {
                 "Database Configuration": self.database_tab,
