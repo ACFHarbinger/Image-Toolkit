@@ -5,10 +5,10 @@ from abc import abstractmethod
 from typing import List, Tuple, Optional, Dict, Set
 from PySide6.QtWidgets import (
     QWidget, QGridLayout, QApplication, QLabel, QScrollArea,
-    QHBoxLayout, QPushButton, QComboBox
+    QHBoxLayout, QPushButton, QComboBox, QMenu
 )
 from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer, QPoint, QRect
-from PySide6.QtGui import QPixmap, QResizeEvent
+from PySide6.QtGui import QPixmap, QResizeEvent, QAction
 from .meta_abstract_class import MetaAbstractClass
 from ..helpers import ImageLoaderWorker
 
@@ -100,9 +100,9 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
         btn_prev = QPushButton("< Prev")
         btn_prev.clicked.connect(lambda: self._change_page(-1))
         
-        lbl_page = QLabel("Page 1 / 1")
-        lbl_page.setAlignment(Qt.AlignCenter)
-        lbl_page.setFixedWidth(100)
+        # Dropdown Button
+        btn_page = QPushButton("Page 1 / 1")
+        btn_page.setFixedWidth(120)
         
         btn_next = QPushButton("Next >")
         btn_next.clicked.connect(lambda: self._change_page(1))
@@ -111,13 +111,13 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
         self.page_combo = combo
         self.prev_btn = btn_prev
         self.next_btn = btn_next
-        self.page_label = lbl_page
+        self.page_button = btn_page
 
         layout.addWidget(lbl)
         layout.addWidget(combo)
         layout.addStretch()
         layout.addWidget(btn_prev)
-        layout.addWidget(lbl_page)
+        layout.addWidget(btn_page)
         layout.addWidget(btn_next)
         
         return container
@@ -139,12 +139,18 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
             self.current_page = new_page
             self.refresh_gallery_view()
 
+    def _jump_to_page(self, page_index: int):
+        if page_index != self.current_page:
+            self.current_page = page_index
+            self.refresh_gallery_view()
+
     def _update_pagination_ui(self):
-        if not hasattr(self, 'page_label'): return # Pagination controls not created
+        if not hasattr(self, 'page_button'): return # Pagination controls not created
 
         total = len(self.gallery_image_paths)
         if total == 0:
-            self.page_label.setText("Page 0 / 0")
+            self.page_button.setText("Page 0 / 0")
+            self.page_button.setEnabled(False)
             self.prev_btn.setEnabled(False)
             self.next_btn.setEnabled(False)
             return
@@ -153,9 +159,21 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
         if self.current_page >= total_pages:
             self.current_page = max(0, total_pages - 1)
 
-        self.page_label.setText(f"Page {self.current_page + 1} / {total_pages}")
+        self.page_button.setText(f"Page {self.current_page + 1} / {total_pages}")
+        self.page_button.setEnabled(True)
         self.prev_btn.setEnabled(self.current_page > 0)
         self.next_btn.setEnabled(self.current_page < total_pages - 1)
+
+        # Update Menu
+        menu = QMenu(self)
+        for i in range(total_pages):
+            page_num = i + 1
+            action = QAction(f"Page {page_num}", self)
+            action.setCheckable(True)
+            action.setChecked(i == self.current_page)
+            action.triggered.connect(lambda checked=False, p=i: self._jump_to_page(p))
+            menu.addAction(action)
+        self.page_button.setMenu(menu)
 
     def _get_paginated_slice(self) -> List[str]:
         start = self.current_page * self.page_size
