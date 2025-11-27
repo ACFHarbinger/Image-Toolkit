@@ -1,4 +1,6 @@
 from .image_crawler import ImageCrawler
+from .danbooru_crawler import DanbooruCrawler
+from .gelbooru_crawler import GelbooruCrawler
 from .web_requests import WebRequestsLogic
 
 from .dropbox_drive_sync import DropboxDriveSync

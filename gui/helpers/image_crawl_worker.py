@@ -1,7 +1,7 @@
 import os
 
 from PySide6.QtCore import QThread, Signal
-from backend.src.web.image_crawler import ImageCrawler
+from backend.src.web import ImageCrawler, DanbooruCrawler, GelbooruCrawler
 
 
 class ImageCrawlWorker(QThread):
@@ -20,9 +20,17 @@ class ImageCrawlWorker(QThread):
             os.makedirs(self.config["download_dir"], exist_ok=True)
             if self.config.get("screenshot_dir"):
                 os.makedirs(self.config["screenshot_dir"], exist_ok=True)
-                
-            # Passing the entire config dictionary
-            crawler = ImageCrawler(self.config)
+            
+            crawler_type = self.config.get("type", "general")
+            
+            if crawler_type == "board":
+                board_type = self.config.get("board_type", "danbooru")
+                if board_type == "gelbooru":
+                    crawler = GelbooruCrawler(self.config)
+                else: # defaults to danbooru
+                    crawler = DanbooruCrawler(self.config)
+            else:
+                crawler = ImageCrawler(self.config)
 
             downloaded = 0
             def on_saved(path):
@@ -30,13 +38,20 @@ class ImageCrawlWorker(QThread):
                 downloaded += 1
                 self.status.emit(f"Saved: {os.path.basename(path)}")
 
-            # Note: on_progress signal removed from crawler logic, only using status
+            # Connect signals
             crawler.on_status.connect(self.status.emit)
             crawler.on_image_saved.connect(on_saved)
 
-            self.status.emit("Starting crawl...")
-            crawler.run()
+            self.status.emit(f"Starting {crawler_type.title()} Crawl...")
+            
+            # Run the crawler
+            final_count = crawler.run()
+            
+            # Fallback if the crawler doesn't return a count
+            if final_count is None: 
+                final_count = downloaded
 
-            self.finished.emit(downloaded, f"Crawl finished. Downloaded **{downloaded}** image(s)!")
+            self.finished.emit(final_count, f"Crawl finished. Downloaded **{final_count}** image(s)!")
+            
         except Exception as e:
             self.error.emit(f"Critical Worker Error: {e}")
