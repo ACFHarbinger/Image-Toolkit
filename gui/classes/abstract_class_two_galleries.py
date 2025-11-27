@@ -1,13 +1,12 @@
 import os
 import math
-from pathlib import Path
+
 from abc import abstractmethod
 from typing import List, Dict, Optional
-from PySide6.QtWidgets import (
-    QWidget, QGridLayout, QLabel, QMenu, QApplication
-)
+from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QMenu, QApplication
 from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer, QEvent
 from PySide6.QtGui import QPixmap, QAction
+from backend.src.utils.definitions import LOCAL_SOURCE_PATH
 from .meta_abstract_class_gallery import MetaAbstractClassGallery
 from ..components import MarqueeScrollArea, ClickableLabel
 from ..helpers import ImageLoaderWorker
@@ -62,9 +61,9 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         self._populating_found_index = 0
 
         try:
-            self.last_browsed_dir = str(Path(os.getcwd()) / 'data')
+            self.last_browsed_dir = LOCAL_SOURCE_PATH
         except Exception:
-            self.last_browsed_dir = Path(os.getcwd())
+            self.last_browsed_dir = os.getcwd()
 
         # Initialize Pagination Widgets using Shared Logic
         self.found_pagination_widget = self.create_pagination_controls(is_found_gallery=True)
@@ -133,6 +132,10 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
     def create_pagination_controls(self, is_found_gallery: bool) -> QWidget:
         """Creates pagination using shared logic, then binds contextual signals."""
         container, controls = self.common_create_pagination_ui()
+
+        # Center the controls horizontally (User request: bottom center)
+        if container.layout():
+            container.layout().setAlignment(Qt.AlignCenter)
         
         # Bind signals depending on context
         controls['combo'].currentTextChanged.connect(

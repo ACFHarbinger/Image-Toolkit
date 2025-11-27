@@ -1,13 +1,12 @@
 import os
 import math
-from pathlib import Path
+
 from abc import abstractmethod
 from typing import List, Optional, Dict
-from PySide6.QtWidgets import (
-    QWidget, QGridLayout, QScrollArea, QMenu
-)
+from PySide6.QtWidgets import QWidget, QGridLayout, QScrollArea, QMenu
 from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer
 from PySide6.QtGui import QPixmap, QResizeEvent, QAction
+from backend.src.utils.definitions import LOCAL_SOURCE_PATH
 from .meta_abstract_class_gallery import MetaAbstractClassGallery
 from ..helpers import ImageLoaderWorker
 
@@ -56,9 +55,9 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         
         # Starting directory
         try:
-            self.last_browsed_scan_dir = str(Path(os.getcwd()) / 'data')
+            self.last_browsed_scan_dir = str(LOCAL_SOURCE_PATH)
         except Exception:
-            self.last_browsed_scan_dir = Path(os.getcwd())
+            self.last_browsed_scan_dir = os.getcwd()
 
         # Initialize Pagination Widgets using Shared Logic
         self.pagination_widget = self.create_pagination_controls()

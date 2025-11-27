@@ -18,7 +18,7 @@ JAR_FILE = os.path.join(ROOT_DIR, 'cryptography', 'build', 'libs', 'cryptography
 CRYPTO_DIR = os.path.join(ROOT_DIR, 'assets', 'cryptography')
 IMAGES_DIR = os.path.join(ROOT_DIR, 'assets', 'images')
 API_DIR = os.path.join(ROOT_DIR, 'assets', 'api')
-LOCAL_SOURCE_PATH = os.path.join(ROOT_DIR, 'data')
+LOCAL_SOURCE_PATH = os.path.join(os.path.dirname(os.path.dirname(ROOT_DIR)), 'Downloads', 'data')
 
 # --- Base File Definitions ---
 # These are the "templates" or defaults
