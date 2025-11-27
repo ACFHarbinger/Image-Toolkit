@@ -118,10 +118,6 @@ class MergeTab(AbstractClassTwoGalleries):
         content_layout.addWidget(self.selection_label)
 
         # --- Found Gallery ---
-        # Add Pagination Widget (Created in Base Class)
-        if hasattr(self, 'found_pagination_widget'):
-            content_layout.addWidget(self.found_pagination_widget)
-
         self.found_gallery_scroll = MarqueeScrollArea()
         self.found_gallery_scroll.setWidgetResizable(True)
         self.found_gallery_scroll.setStyleSheet(
@@ -137,11 +133,11 @@ class MergeTab(AbstractClassTwoGalleries):
         self.found_gallery_scroll.selection_changed.connect(self.handle_marquee_selection)
         content_layout.addWidget(self.found_gallery_scroll, 1)
 
-        # --- Selected Gallery ---
         # Add Pagination Widget (Created in Base Class)
-        if hasattr(self, 'selected_pagination_widget'):
-            content_layout.addWidget(self.selected_pagination_widget)
+        if hasattr(self, 'found_pagination_widget'):
+            content_layout.addWidget(self.found_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter)
 
+        # --- Selected Gallery ---
         self.selected_gallery_scroll = MarqueeScrollArea()
         self.selected_gallery_scroll.setWidgetResizable(True)
         self.selected_gallery_scroll.setStyleSheet(
@@ -154,9 +150,12 @@ class MergeTab(AbstractClassTwoGalleries):
         self.selected_gallery_layout = QGridLayout(self.selected_images_widget)
         self.selected_gallery_layout.setSpacing(10)
         self.selected_gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
-        
         self.selected_gallery_scroll.setWidget(self.selected_images_widget)
         content_layout.addWidget(self.selected_gallery_scroll, 1)
+
+        # Add Pagination Widget (Created in Base Class)
+        if hasattr(self, 'selected_pagination_widget'):
+            content_layout.addWidget(self.selected_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter)
 
         scroll_area.setWidget(scroll_content)
         main_layout.addWidget(scroll_area)

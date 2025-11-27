@@ -20,7 +20,7 @@ def _common_create_pagination_ui(self):
     lbl = QLabel(f"Images per page:")
     combo = QComboBox()
     combo.addItems(["20", "50", "100", "1000", "All"])
-    combo.setCurrentText("1000")
+    combo.setCurrentText("100")
     
     btn_prev = QPushButton("< Prev")
     
