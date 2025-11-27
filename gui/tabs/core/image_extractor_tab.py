@@ -249,7 +249,48 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         # 5. Results Gallery Section
         self.gallery_scroll_area = MarqueeScrollArea()
         self.gallery_scroll_area.setWidgetResizable(True)
-        self.gallery_scroll_area.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
+        self.gallery_scroll_area.setStyleSheet("""
+            QScrollArea { 
+                border: 1px solid #4f545c; 
+                background-color: #2c2f33; 
+                border-radius: 8px; 
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: #2c2f33;
+                width: 12px;
+                margin: 0px 0px 0px 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #00BCD4; /* CHANGED TO CYAN BLUE */
+                min-height: 20px;
+                border-radius: 6px;
+                margin: 0 2px;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+                subcontrol-position: none;
+            }
+            QScrollBar:horizontal {
+                border: none;
+                background: #2c2f33; 
+                height: 12px;
+                margin: 0px 0px 0px 0px;
+            }
+            QScrollBar::handle:horizontal {
+                background: #00BCD4; /* CHANGED TO CYAN BLUE */
+                min-width: 20px;
+                border-radius: 6px;
+                margin: 2px 0;
+            }
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                width: 0px;
+                subcontrol-position: none;
+            }
+        """)
         self.gallery_scroll_area.setMinimumHeight(600)
         
         self.gallery_container = QWidget()
@@ -622,15 +663,50 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         if confirm == QMessageBox.StandardButton.Yes:
             failed = []
             paths_to_delete = list(self.selected_paths)
+            layout_changed = False
+            
+            # Use a list to hold widgets that will be destroyed
+            widgets_to_delete = []
+
             for path in paths_to_delete:
                 try:
                     os.remove(path)
+                    
+                    # 1. Update Data lists (Crucial for correct pagination count)
                     if path in self.current_extracted_paths:
                         self.current_extracted_paths.remove(path)
+                    if path in self.gallery_image_paths: 
+                        self.gallery_image_paths.remove(path)
+                    
+                    # 2. Collect the widget for removal/deletion
+                    if path in self.path_to_card_widget:
+                        widget = self.path_to_card_widget.pop(path)
+                        if widget:
+                            widgets_to_delete.append(widget)
+                            layout_changed = True
+                            
                 except Exception as e:
                     failed.append(f"{Path(path).name}: {e}")
+            
             self.selected_paths.clear()
-            self.start_loading_gallery(self.current_extracted_paths)
+
+            # 3. Perform immediate visual removal from layout and destroy widget
+            if layout_changed:
+                for widget in widgets_to_delete:
+                    # Remove from layout *before* deleting it
+                    self.gallery_layout.removeWidget(widget)
+                    widget.deleteLater()
+            
+                # 4. Reflow the Grid to fill empty spaces (avoids full gallery clear/repopulation)
+                cols = self.common_calculate_columns(self.gallery_scroll_area, self.approx_item_width)
+                self.common_reflow_layout(self.gallery_layout, cols)
+                
+                # 5. Update Pagination Text/Controls
+                self._update_pagination_ui()
+                
+            # REMOVED: self.start_loading_gallery(...) 
+            # This line caused the full reset and is now safely removed.
+            
             if failed:
                 QMessageBox.warning(self, "Partial Deletion Failure", "\n".join(failed))
 

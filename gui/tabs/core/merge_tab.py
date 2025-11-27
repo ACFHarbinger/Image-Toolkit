@@ -1,14 +1,16 @@
 import os
+import cv2
+import shutil
+import tempfile
 
-from pathlib import Path
 from typing import Dict, Any, Optional
 from PySide6.QtGui import QPixmap, QAction
 from PySide6.QtCore import Qt, QTimer, QThread, Slot, QPoint, QEventLoop
 from PySide6.QtWidgets import (
-    QMenu, QProgressDialog, QFormLayout,
+    QMenu, QPushButton, QFormLayout,
+    QLineEdit, QFileDialog, QWidget, QLabel,
     QComboBox, QSpinBox, QGroupBox, QHBoxLayout,
     QVBoxLayout, QMessageBox, QGridLayout, QScrollArea,
-    QLineEdit, QFileDialog, QWidget, QLabel, QPushButton,
 )
 from ...classes import AbstractClassTwoGalleries
 from ...windows import ImagePreviewWindow
@@ -35,6 +37,7 @@ class MergeTab(AbstractClassTwoGalleries):
         self.current_scan_worker: ImageScannerWorker | None = None
         self.current_merge_thread: QThread | None = None
         self.current_merge_worker: MergeWorker | None = None
+        self.temp_file_path: Optional[str] = None
 
         # --- UI Setup ---
         main_layout = QVBoxLayout(self)
@@ -282,13 +285,6 @@ class MergeTab(AbstractClassTwoGalleries):
             
         self.cancel_loading()
         
-        self.loading_dialog = QProgressDialog("Scanning directory...", "Cancel", 0, 0, self)
-        self.loading_dialog.setWindowModality(Qt.WindowModal)
-        self.loading_dialog.setWindowTitle("Please Wait")
-        self.loading_dialog.setMinimumDuration(0)
-        self.loading_dialog.canceled.connect(self.cancel_loading) 
-        self.loading_dialog.show()
-        
         loop = QEventLoop()
         QTimer.singleShot(1, loop.quit)
         loop.exec()
@@ -313,8 +309,6 @@ class MergeTab(AbstractClassTwoGalleries):
         
     @Slot(list)
     def on_scan_finished(self, paths):
-        if self.loading_dialog: self.loading_dialog.close()
-        
         if not paths:
             QMessageBox.information(self, "No Files", f"No supported images found in {self.scanned_dir}")
             self.clear_galleries()
@@ -452,17 +446,26 @@ class MergeTab(AbstractClassTwoGalleries):
             QMessageBox.warning(self, "Invalid", "Select at least 2 images.")
             return
         
-        out, _ = QFileDialog.getSaveFileName(self, "Save Merged Image", self.last_browsed_dir, "PNG (*.png)")
-        if not out: 
-            self.status_label.setText("Cancelled.")
-            return
-        if not out.lower().endswith('.png'): out += '.png'
+        # --- NEW: Create Temporary Output File Path ---
+        temp_dir = tempfile.gettempdir()
+        temp_filename = next(tempfile._get_candidate_names()) + ".png" 
+        self.temp_file_path = os.path.join(temp_dir, temp_filename)
         
-        self.last_browsed_dir = os.path.dirname(out)
+        # Worker config must use the temporary path
+        temp_output_config = self.collect(self.temp_file_path)
+        
+        # Lock UI
         self.run_button.setEnabled(False)
         self.run_button.setText("Merging...")
         
-        worker = MergeWorker(self.collect(out))
+        # --- NEW: Force OpenCL Cleanup ---
+        # This attempts to force the GPU to finish all pending tasks and flush buffers, 
+        # which can resolve lazy allocation/eviction issues when switching gallery pages.
+        if cv2.ocl.haveOpenCL():
+            cv2.ocl.finish()
+        # --- END NEW ---
+        
+        worker = MergeWorker(temp_output_config)
         thread = QThread()
         self.current_merge_worker = worker
         self.current_merge_thread = thread
@@ -470,7 +473,10 @@ class MergeTab(AbstractClassTwoGalleries):
         
         thread.started.connect(worker.run)
         worker.progress.connect(lambda c, t: self.status_label.setText(f"Merging {c}/{t}"))
-        worker.finished.connect(self.on_merge_done)
+        
+        # --- NEW CONNECTION ---
+        worker.finished.connect(self.show_preview_and_confirm) 
+        
         worker.error.connect(self.on_merge_error)
         
         worker.finished.connect(thread.quit)
@@ -483,7 +489,83 @@ class MergeTab(AbstractClassTwoGalleries):
         self.status_label.setText("Done.")
         QMessageBox.information(self, "Success", f"Saved to {path}")
 
+    def cleanup_temp_file(self):
+        """Safely removes the temporary merged file."""
+        if self.temp_file_path and os.path.exists(self.temp_file_path):
+            try:
+                os.remove(self.temp_file_path)
+            except Exception as e:
+                print(f"Error cleaning up temp file {self.temp_file_path}: {e}")
+        self.temp_file_path = None
+
+    @Slot(str)
+    def show_preview_and_confirm(self, temp_path: str):
+        self.on_selection_changed() # Unlock UI
+        self.temp_file_path = temp_path # Worker confirmed the file exists here
+        
+        if not os.path.exists(temp_path):
+            self.on_merge_error(f"Failed to create temporary merge file at: {temp_path}")
+            return
+
+        self.status_label.setText("Merge complete. Showing preview...")
+
+        # 1. Show Preview Window (Must allow user to interact with QMessageBox)
+        preview_window = ImagePreviewWindow(
+            image_path=temp_path, 
+            db_tab_ref=None, 
+            parent=self, 
+            all_paths=[temp_path], 
+            start_index=0,
+        )
+        preview_window.setWindowTitle("Merged Image Preview")
+        preview_window.show()
+        preview_window.activateWindow()
+
+        # 2. Get Confirmation Dialog (using custom buttons)
+        confirm = QMessageBox(self)
+        confirm.setWindowTitle("Save Merged Image?")
+        confirm.setText("The merged image is ready. Do you want to save it to a final location?")
+        
+        save_btn = confirm.addButton("Save and Choose Location", QMessageBox.ButtonRole.AcceptRole)
+        discard_btn = confirm.addButton("Discard Image", QMessageBox.ButtonRole.DestructiveRole)
+        confirm.addButton(QMessageBox.StandardButton.Cancel)
+
+        confirm.exec()
+        
+        # 3. Handle Confirmation Result
+        clicked_button = confirm.clickedButton()
+        
+        saved_successfully = False
+
+        if clicked_button == save_btn:
+            out, _ = QFileDialog.getSaveFileName(self, "Save Merged Image", self.last_browsed_dir, "PNG (*.png)")
+            if out:
+                if not out.lower().endswith('.png'): out += '.png'
+                try:
+                    # Move the temporary file to the final destination
+                    os.rename(temp_path, out)
+                    self.last_browsed_dir = os.path.dirname(out)
+                    saved_successfully = True
+                    QMessageBox.information(self, "Success", f"Saved to {out}")
+                except Exception as e:
+                    QMessageBox.critical(self, "Save Error", f"Failed to save image: {e}")
+        
+        if saved_successfully:
+            self.temp_file_path = None # File saved, no need for cleanup
+        else:
+            self.cleanup_temp_file()
+            if clicked_button == discard_btn:
+                QMessageBox.information(self, "Discarded", "Merged image discarded.")
+            elif clicked_button == save_btn:
+                # If save failed or dialog cancelled, notify the discard.
+                QMessageBox.warning(self, "Cancelled", "Image save cancelled/failed. Merged image discarded.")
+
+        # 4. Close Preview Window
+        if preview_window.isVisible(): preview_window.close()
+        self.status_label.setText("Ready to merge.")
+
     def on_merge_error(self, msg):
+        self.cleanup_temp_file() # Clean up temp file on worker error
         self.on_selection_changed()
         self.status_label.setText("Failed.")
         QMessageBox.critical(self, "Error", msg)
