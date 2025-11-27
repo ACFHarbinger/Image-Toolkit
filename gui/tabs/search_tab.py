@@ -41,6 +41,10 @@ class SearchTab(AbstractClassSingleGallery):
         self.selected_paths = set()
         self.path_to_widget_map = {} 
 
+        # --- Initialize Pagination ---
+        # Created by AbstractClassSingleGallery
+        self.pagination_widget = self.create_pagination_controls()
+
         # --- UI SETUP ---
         layout = QVBoxLayout(self)
         
@@ -184,6 +188,9 @@ class SearchTab(AbstractClassSingleGallery):
         
         layout.addLayout(results_header_layout)
         
+        # --- PAGINATION WIDGET ADDED HERE ---
+        layout.addWidget(self.pagination_widget)
+        
         self.results_count_label = QLabel("Not connected to database.")
         self.results_count_label.setStyleSheet("color: #aaa; font-style: italic;")
         layout.addWidget(self.results_count_label)
@@ -214,7 +221,7 @@ class SearchTab(AbstractClassSingleGallery):
         # Update enabled state based on DB connection
         self.update_search_button_state()
 
-    # --- IMPLEMENT ABSTRACT METHOD ---
+    # --- IMPLEMENT ABSTRACT METHODS ---
 
     def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
         """
@@ -229,7 +236,6 @@ class SearchTab(AbstractClassSingleGallery):
         image_label = ClickableLabel(path)
         image_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
         image_label.setAlignment(Qt.AlignCenter)
-        image_label.setStyleSheet("border: 1px solid #4f545c;")
         
         # Connect signals
         image_label.path_clicked.connect(lambda checked, p=path: self.toggle_selection(p))
@@ -243,12 +249,32 @@ class SearchTab(AbstractClassSingleGallery):
         
         if pixmap and not pixmap.isNull():
             image_label.setPixmap(pixmap)
+            image_label.setStyleSheet("border: 1px solid #4f545c;")
         else:
-            image_label.setText("Not Found")
-            image_label.setStyleSheet("border: 1px solid #e74c3c; background-color: #4f545c; font-size: 8px;")
+            # Lazy Loading Placeholder
+            image_label.setText("Loading...")
+            image_label.setStyleSheet("border: 1px solid #4f545c; color: #888; font-size: 10px;")
         
         layout.addWidget(image_label)
         return container
+
+    def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
+        """
+        Called by lazy loader when pixmap is ready or unloaded.
+        """
+        image_label = widget.findChild(ClickableLabel)
+        if image_label:
+            if pixmap and not pixmap.isNull():
+                image_label.setPixmap(pixmap)
+                # Apply selection style if needed, otherwise default
+                if image_label.path in self.selected_paths:
+                    image_label.setStyleSheet("border: 3px solid #5865f2; background-color: #36393f;")
+                else:
+                    image_label.setStyleSheet("border: 1px solid #4f545c;")
+            else:
+                image_label.clear()
+                image_label.setText("Loading...")
+                image_label.setStyleSheet("border: 1px dashed #666; color: #888;")
 
     # --- Worker and Search Logic ---
     
@@ -271,7 +297,7 @@ class SearchTab(AbstractClassSingleGallery):
             "filename_pattern": self.filename_edit.text().strip() or None,
             "tags": self.get_selected_tags(),
             "input_formats": self.get_selected_formats(),
-            "limit": 1000
+            "limit": 10000 # Increased limit since we have pagination now
         }
 
         self.clear_search_data()
@@ -457,7 +483,8 @@ class SearchTab(AbstractClassSingleGallery):
 
     @Slot(set, bool)
     def handle_marquee_selection(self, paths_from_marquee: set, is_ctrl_pressed: bool):
-        visible_paths = set(self.gallery_image_paths)
+        # Note: Only visible items are returned by marquee, which is correct for paginated view
+        visible_paths = set(self.path_to_widget_map.keys())
         valid_marquee_paths = paths_from_marquee.intersection(visible_paths)
         paths_to_update = self.selected_paths.union(valid_marquee_paths)
         

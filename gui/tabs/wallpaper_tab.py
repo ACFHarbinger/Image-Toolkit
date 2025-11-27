@@ -114,6 +114,10 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.scan_dialog: Optional[QProgressDialog] = None
         # --------------------------
         
+        # --- Initialize Pagination ---
+        # Created by AbstractClassSingleGallery
+        self.pagination_widget = self.create_pagination_controls()
+
         # --- UI SETUP ---
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
@@ -257,6 +261,9 @@ class WallpaperTab(AbstractClassSingleGallery):
         
         content_layout.addWidget(settings_group) 
 
+        # --- PAGINATION WIDGET ADDED HERE ---
+        content_layout.addWidget(self.pagination_widget)
+
         # --- Gallery Setup for Base Class ---
         self.scan_scroll_area = MarqueeScrollArea() 
         self.scan_scroll_area.setWidgetResizable(True)
@@ -300,7 +307,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.check_all_monitors_set()
         self.stop_slideshow()
         
-    # --- IMPLEMENT ABSTRACT METHOD ---
+    # --- IMPLEMENT ABSTRACT METHODS ---
 
     def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
         """
@@ -317,11 +324,25 @@ class WallpaperTab(AbstractClassSingleGallery):
             draggable_label.setText("") 
             draggable_label.setStyleSheet("border: 1px solid #4f545c;")
         else:
-            draggable_label.setText("Load Error")
-            draggable_label.setStyleSheet("border: 1px solid #e74c3c; background-color: #4f545c; font-size: 8px;")
+            draggable_label.setText("Loading...")
+            draggable_label.setStyleSheet("border: 1px dashed #666; color: #888; font-size: 10px;")
             
         self.path_to_label_map[path] = draggable_label
         return draggable_label
+
+    def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
+        """
+        Updates the DraggableImageLabel with the loaded pixmap.
+        """
+        if isinstance(widget, DraggableImageLabel):
+            if pixmap and not pixmap.isNull():
+                widget.setPixmap(pixmap)
+                widget.setText("")
+                widget.setStyleSheet("border: 1px solid #4f545c;")
+            else:
+                widget.clear()
+                widget.setText("Loading...")
+                widget.setStyleSheet("border: 1px dashed #666; color: #888;")
 
     # --- Logic ---
 

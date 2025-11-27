@@ -1,18 +1,23 @@
 import os
+import math
 from pathlib import Path
 from abc import abstractmethod
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple, Optional, Dict, Set
 from PySide6.QtWidgets import (
-    QWidget, QGridLayout, QProgressDialog, 
-    QApplication, QLabel, QScrollArea
+    QWidget, QGridLayout, QApplication, QLabel, QScrollArea,
+    QHBoxLayout, QPushButton, QComboBox
 )
-from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer, QEventLoop
+from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer, QPoint, QRect
 from PySide6.QtGui import QPixmap, QResizeEvent
 from .meta_abstract_class import MetaAbstractClass
 from ..helpers import ImageLoaderWorker
 
 class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
-    # ... (init remains the same) ...
+    """
+    Abstract base class for a single gallery with Lazy Loading, Unloading, and Pagination.
+    Images are loaded when visible and unloaded when they scroll out of view.
+    """
+
     def __init__(self):
         super().__init__()
         
@@ -20,31 +25,36 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
         self.gallery_image_paths: List[str] = [] 
         self.path_to_card_widget: Dict[str, QWidget] = {}
         
+        # --- Lazy Loading State ---
+        self.pending_paths: Set[str] = set()   # Paths waiting to be checked/loaded
+        self.loading_paths: Set[str] = set()   # Paths currently in a thread
+        self.loaded_paths: Set[str] = set()    # Paths currently held in memory (visible)
+        
+        # --- Pagination State ---
+        self.page_size = 100
+        self.current_page = 0
+
         # --- UI Configuration ---
-        self.thumbnail_size = 150
+        self.thumbnail_size = 180
         self.padding_width = 10
         self.approx_item_width = self.thumbnail_size + self.padding_width + 20
         self._current_cols = 1
 
-        # --- Threading & Loading State ---
-        self.thread_pool = QThreadPool()
-        self._loaded_results_buffer: List[Tuple[str, QPixmap]] = []
-        self._images_loaded_count = 0
-        self._total_images_to_load = 0
-        self.loading_dialog: Optional[QProgressDialog] = None
-        self._loading_cancelled = False
+        # --- Threading ---
+        self.thread_pool = QThreadPool.globalInstance()
         
         # New flag to track if we are adding to existing or replacing
         self._is_appending = False 
 
-        # --- Resize Debouncing ---
+        # --- Resize/Scroll Debouncing ---
         self._resize_timer = QTimer()
         self._resize_timer.setSingleShot(True)
-        self._resize_timer.timeout.connect(self._on_resize_timeout)
+        self._resize_timer.timeout.connect(self._on_layout_change)
 
         # --- UI References ---
         self.gallery_scroll_area: Optional[QScrollArea] = None
         self.gallery_layout: Optional[QGridLayout] = None
+        self.pagination_layout: Optional[QHBoxLayout] = None # Subclasses should assign this if they want controls
 
         # Starting directory
         try:
@@ -52,36 +62,139 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
         except Exception:
             self.last_browsed_scan_dir = Path(os.getcwd())
 
-    # ... (abstract methods and geometry logic remain the same) ...
+    # --- ABSTRACT METHODS ---
 
     @abstractmethod
     def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
+        """
+        Create the widget. 
+        IMPORTANT: Subclasses must handle `pixmap` being None by showing a placeholder/loading spinner.
+        """
         pass
+    
+    @abstractmethod
+    def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
+        """
+        Update an existing card widget.
+        If pixmap is None, revert to placeholder/unloaded state.
+        """
+        pass
+
+    # --- PAGINATION UI HELPERS ---
+
+    def create_pagination_controls(self) -> QWidget:
+        """Creates a widget containing pagination controls."""
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Page Size Combo
+        lbl = QLabel(f"Images per page:")
+        combo = QComboBox()
+        combo.addItems(["20", "50", "100", "All"])
+        combo.setCurrentText("100")
+        combo.currentTextChanged.connect(self._on_page_size_changed)
+        
+        # Navigation Buttons
+        btn_prev = QPushButton("< Prev")
+        btn_prev.clicked.connect(lambda: self._change_page(-1))
+        
+        lbl_page = QLabel("Page 1 / 1")
+        lbl_page.setAlignment(Qt.AlignCenter)
+        lbl_page.setFixedWidth(100)
+        
+        btn_next = QPushButton("Next >")
+        btn_next.clicked.connect(lambda: self._change_page(1))
+
+        # Store references
+        self.page_combo = combo
+        self.prev_btn = btn_prev
+        self.next_btn = btn_next
+        self.page_label = lbl_page
+
+        layout.addWidget(lbl)
+        layout.addWidget(combo)
+        layout.addStretch()
+        layout.addWidget(btn_prev)
+        layout.addWidget(lbl_page)
+        layout.addWidget(btn_next)
+        
+        return container
+
+    def _on_page_size_changed(self, text: str):
+        size = 999999 if text == "All" else int(text)
+        self.page_size = size
+        self.current_page = 0
+        self.refresh_gallery_view()
+
+    def _change_page(self, delta: int):
+        total_items = len(self.gallery_image_paths)
+        if total_items == 0: return
+        
+        max_page = math.ceil(total_items / self.page_size) - 1
+        new_page = max(0, min(self.current_page + delta, max_page))
+        
+        if new_page != self.current_page:
+            self.current_page = new_page
+            self.refresh_gallery_view()
+
+    def _update_pagination_ui(self):
+        if not hasattr(self, 'page_label'): return # Pagination controls not created
+
+        total = len(self.gallery_image_paths)
+        if total == 0:
+            self.page_label.setText("Page 0 / 0")
+            self.prev_btn.setEnabled(False)
+            self.next_btn.setEnabled(False)
+            return
+
+        total_pages = math.ceil(total / self.page_size)
+        if self.current_page >= total_pages:
+            self.current_page = max(0, total_pages - 1)
+
+        self.page_label.setText(f"Page {self.current_page + 1} / {total_pages}")
+        self.prev_btn.setEnabled(self.current_page > 0)
+        self.next_btn.setEnabled(self.current_page < total_pages - 1)
+
+    def _get_paginated_slice(self) -> List[str]:
+        start = self.current_page * self.page_size
+        end = start + self.page_size
+        return self.gallery_image_paths[start:end]
+
+    # --- GEOMETRY & EVENTS ---
 
     def resizeEvent(self, event: QResizeEvent):
         QWidget.resizeEvent(self, event)
-        self._resize_timer.start(150)
+        self._resize_timer.start(100) # Debounce
 
     def showEvent(self, event):
         super().showEvent(event)
-        self._on_resize_timeout()
+        self._on_layout_change()
+
+    def _setup_scroll_connections(self):
+        """Must be called after gallery_scroll_area is instantiated in subclass."""
+        if self.gallery_scroll_area:
+            # Check visibility whenever the user scrolls
+            vbar = self.gallery_scroll_area.verticalScrollBar()
+            vbar.valueChanged.connect(lambda val: self._process_visible_items())
 
     @Slot()
-    def _on_resize_timeout(self):
+    def _on_layout_change(self):
+        """Called on resize or show."""
         if self.gallery_scroll_area and self.gallery_layout:
             new_cols = self.calculate_columns()
             if new_cols != self._current_cols:
                 self._current_cols = new_cols
                 self._reflow_layout(new_cols)
+            
+            # After reflow/resize, items might have moved into/out of view
+            self._process_visible_items()
 
     def calculate_columns(self) -> int:
-        if not self.gallery_scroll_area: 
-            return 1
+        if not self.gallery_scroll_area: return 1
         width = self.gallery_scroll_area.viewport().width()
-        if width <= 0: 
-            width = self.gallery_scroll_area.width()
-        if width <= 0: 
-            return 4 
+        if width <= 0: width = self.gallery_scroll_area.width()
+        if width <= 0: return 4 
         return max(1, width // self.approx_item_width)
 
     def _reflow_layout(self, columns: int):
@@ -96,144 +209,155 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
         for i, widget in enumerate(items):
             row = i // columns
             col = i % columns
-            
             if isinstance(widget, QLabel) and getattr(widget, "is_placeholder", False):
                  self.gallery_layout.addWidget(widget, 0, 0, 1, columns, Qt.AlignCenter)
                  return
-                 
             self.gallery_layout.addWidget(widget, row, col, Qt.AlignLeft | Qt.AlignTop)
 
-    # --- UPDATED LOADING LOGIC ---
+    # --- LAZY LOADING LOGIC ---
 
     def start_loading_gallery(self, paths: List[str], show_progress: bool = True, append: bool = False):
         """
-        Starts the async loading process.
-        :param paths: List of image paths to load.
-        :param show_progress: Whether to show the QProgressDialog.
-        :param append: If True, adds to existing gallery. If False, clears it first.
+        Initialize loading.
         """
-        self.cancel_loading()
-        
         self._is_appending = append
-
+        
         if not append:
             self.gallery_image_paths = paths
-            self.clear_gallery_widgets()
+            self.current_page = 0
         else:
-            # Check if we have a placeholder to remove before appending
-            self._remove_placeholder()
             self.gallery_image_paths.extend(paths)
+            # Stay on current page unless it was empty/invalid before
         
-        if not paths:
-            if not append:
-                self.show_placeholder("No images to display.")
+        self.refresh_gallery_view()
+
+    def refresh_gallery_view(self):
+        """Refreshes the view based on current page slice."""
+        self.cancel_loading() # Clear queues
+        self.clear_gallery_widgets() # Clear widgets from layout
+        self._update_pagination_ui()
+
+        if not self.gallery_image_paths:
+            self.show_placeholder("No images to display.")
             return
 
-        self._loaded_results_buffer = []
-        self._images_loaded_count = 0
-        self._total_images_to_load = len(paths)
-        self._loading_cancelled = False
+        # Get slice for current page
+        paginated_paths = self._get_paginated_slice()
+        cols = self.calculate_columns()
 
-        # Setup Progress Dialog
-        if show_progress:
-            title = "Adding images..." if append else "Loading gallery..."
-            self.loading_dialog = QProgressDialog(title, "Cancel", 0, self._total_images_to_load, self)
-            self.loading_dialog.setWindowModality(Qt.WindowModal)
-            self.loading_dialog.setMinimumDuration(0)
-            self.loading_dialog.canceled.connect(self.cancel_loading)
-            self.loading_dialog.show()
-            
-            loop = QEventLoop()
-            QTimer.singleShot(1, loop.quit)
-            loop.exec()
+        # Add placeholders for this page's items
+        for i, path in enumerate(paginated_paths):
+            card = self.create_card_widget(path, None)
+            self.path_to_card_widget[path] = card
+            self.pending_paths.add(path)
 
-        submission_count = 0
-        for path in paths:
-            if self._loading_cancelled: break
+            row = i // cols
+            col = i % cols
             
-            worker = ImageLoaderWorker(path, self.thumbnail_size)
-            worker.signals.result.connect(self._on_single_image_loaded)
-            self.thread_pool.start(worker)
-            
-            dialog = self.loading_dialog
-            if dialog:
-                submission_count += 1
-                dialog.setValue(submission_count)
-                dialog.setLabelText(f"Submitting {submission_count}/{self._total_images_to_load}...")
-                QApplication.processEvents()
+            if self.gallery_layout:
+                self.gallery_layout.addWidget(card, row, col, Qt.AlignLeft | Qt.AlignTop)
+
+        # Setup scroll listener and check visibility
+        self._setup_scroll_connections()
+        QTimer.singleShot(50, self._process_visible_items)
+
+    def _process_visible_items(self):
+        """
+        Determines which widgets are visible to LOAD, and which are invisible to UNLOAD.
+        """
+        if not self.gallery_scroll_area:
+            return
+
+        viewport = self.gallery_scroll_area.viewport()
+        # Add a buffer margin so images don't vanish instantly on the edge
+        visible_rect = viewport.rect().adjusted(0, -200, 0, 200)
+
+        # 1. Check Pending (Load if visible)
+        for path in list(self.pending_paths):
+            widget = self.path_to_card_widget.get(path)
+            if not widget: continue
+
+            if self._is_visible(widget, viewport, visible_rect):
+                self._trigger_image_load(path)
+
+        # 2. Check Loaded (Unload if NOT visible)
+        for path in list(self.loaded_paths):
+            widget = self.path_to_card_widget.get(path)
+            if not widget: continue
+
+            if not self._is_visible(widget, viewport, visible_rect):
+                self._unload_image(path, widget)
+
+    def _is_visible(self, widget, viewport, visible_rect):
+        """Check if widget intersects with the visible viewport rect."""
+        if not widget.isVisible(): 
+            return False
+        
+        # Map widget position to viewport coordinates
+        p = widget.mapTo(viewport, QPoint(0,0))
+        widget_rect = QRect(p, widget.size())
+        
+        return visible_rect.intersects(widget_rect)
+
+    def _trigger_image_load(self, path: str):
+        if path in self.loading_paths or path in self.loaded_paths:
+            return
+
+        if path in self.pending_paths:
+            self.pending_paths.remove(path)
+        self.loading_paths.add(path)
+
+        worker = ImageLoaderWorker(path, self.thumbnail_size)
+        worker.signals.result.connect(self._on_single_image_loaded)
+        self.thread_pool.start(worker)
+
+    def _unload_image(self, path: str, widget: QWidget):
+        """Release memory for an image that scrolled out of view."""
+        if path in self.loaded_paths:
+            self.loaded_paths.remove(path)
+        
+        # Add back to pending so it reloads if scrolled back
+        self.pending_paths.add(path)
+        
+        # Tell subclass to clear the pixmap
+        self.update_card_pixmap(widget, None)
 
     @Slot(str, QPixmap)
     def _on_single_image_loaded(self, path: str, pixmap: QPixmap):
-        if self._loading_cancelled: return
-
-        self._loaded_results_buffer.append((path, pixmap))
-        self._images_loaded_count += 1
+        if path in self.loading_paths:
+            self.loading_paths.remove(path)
         
-        dialog = self.loading_dialog
-        if dialog:
-            dialog.setValue(self._images_loaded_count)
-            dialog.setLabelText(f"Processing {self._images_loaded_count}/{self._total_images_to_load}")
-            
-        if self._images_loaded_count >= self._total_images_to_load:
-            # We only sort the *current batch* to match the order they were passed in
-            # We do not re-sort the entire gallery here
-            input_subset = self.gallery_image_paths[-self._total_images_to_load:] if self._is_appending else self.gallery_image_paths
-            
-            path_index_map = {p: i for i, p in enumerate(input_subset)}
-            sorted_results = sorted(self._loaded_results_buffer, key=lambda x: path_index_map.get(x[0], float('inf')))
-            self.handle_batch_finished(sorted_results)
+        # Only apply if it's still supposed to be loaded (didn't scroll away fast)
+        # But simplest is to add to loaded, and let next scroll check unload it if needed
+        self.loaded_paths.add(path)
 
-    def handle_batch_finished(self, loaded_results: List[Tuple[str, QPixmap]]):
-        """Populates the gallery with the loaded images."""
-        if self._loading_cancelled: return
-        
-        if not self._is_appending:
-            self.clear_gallery_widgets()
-            start_index = 0
-        else:
-            # Calculate where to start adding in the grid
-            start_index = len(self.path_to_card_widget)
-
-        cols = self.calculate_columns()
-        
-        for i, (path, pixmap) in enumerate(loaded_results):
-            card = self.create_card_widget(path, pixmap)
-            self.path_to_card_widget[path] = card
-            
-            # Calculate absolute index for the grid
-            absolute_index = start_index + i
-            row = absolute_index // cols
-            col = absolute_index % cols
-            
-            self.gallery_layout.addWidget(card, row, col, Qt.AlignLeft | Qt.AlignTop)
-            
-        if self.loading_dialog:
-            self.loading_dialog.close()
-            self.loading_dialog = None
+        widget = self.path_to_card_widget.get(path)
+        if widget:
+            self.update_card_pixmap(widget, pixmap)
 
     # --- HELPERS ---
 
     def cancel_loading(self):
-        self._loading_cancelled = True
-        self.thread_pool.clear()
-        if self.loading_dialog:
-            self.loading_dialog.close()
-            self.loading_dialog = None
+        """
+        Clear queues. 
+        """
+        self.pending_paths.clear()
+        # We don't clear loading_paths or loaded_paths here usually unless we are clearing the gallery.
 
     def clear_gallery_widgets(self):
         self.path_to_card_widget.clear()
-        if not self.gallery_layout: return
+        self.pending_paths.clear()
+        self.loaded_paths.clear()
+        self.loading_paths.clear()
         
+        if not self.gallery_layout: return
         while self.gallery_layout.count():
             item = self.gallery_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
     def _remove_placeholder(self):
-        """Helper to remove only the placeholder widget if it exists."""
         if not self.gallery_layout: return
-        
-        # Check usually the first item
         if self.gallery_layout.count() > 0:
             item = self.gallery_layout.itemAt(0)
             widget = item.widget()
