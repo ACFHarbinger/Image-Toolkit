@@ -9,10 +9,10 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import Qt, Slot
-from ..classes import AbstractClassTwoGalleries
-from ..helpers import ConversionWorker
-from ..components import OptionalField, MarqueeScrollArea, ClickableLabel
-from ..styles.style import apply_shadow_effect, SHARED_BUTTON_STYLE
+from ...classes import AbstractClassTwoGalleries
+from ...helpers import ConversionWorker
+from ...components import OptionalField, MarqueeScrollArea, ClickableLabel
+from ...styles.style import apply_shadow_effect, SHARED_BUTTON_STYLE
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 
 

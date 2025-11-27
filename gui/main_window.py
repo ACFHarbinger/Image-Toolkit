@@ -11,16 +11,14 @@ from PySide6.QtWidgets import (
 )
 from .windows import SettingsWindow
 from .tabs import (
-    MergeTab, DatabaseTab,
+    DatabaseTab,
     ConvertTab, DeleteTab, 
     ScanMetadataTab, SearchTab, 
-    ImageCrawlTab, DriveSyncTab,
+    ImageExtractorTab, MergeTab,
     WallpaperTab, WebRequestsTab,
-    ImageExtractorTab,
-)
-from .tabs.deep_learning import (
+    ImageCrawlTab, DriveSyncTab,
     UnifiedTrainTab, UnifiedGenerateTab,
-    R3GANEvaluateTab, MetaCLIPInferenceTab,
+    R3GANEvaluateTab, MetaCLIPInferenceTab
 )
 from .styles.style import DARK_QSS, LIGHT_QSS
 from .utils.app_definitions import NEW_LIMIT_MB
@@ -112,19 +110,17 @@ class MainWindow(QWidget):
         vbox.addLayout(command_layout)
         
         # --- Tab Initialization ---
-        self.database_tab = DatabaseTab(dropdown=dropdown)
+        self.database_tab = DatabaseTab()
         self.search_tab = SearchTab(self.database_tab, dropdown=dropdown)
-        self.scan_metadata_tab = ScanMetadataTab(self.database_tab, dropdown=dropdown)
+        self.scan_metadata_tab = ScanMetadataTab(self.database_tab)
         self.convert_tab = ConvertTab(dropdown=dropdown)
-        self.merge_tab = MergeTab(dropdown=dropdown)
+        self.merge_tab = MergeTab()
         self.delete_tab = DeleteTab(dropdown=dropdown)
-        self.crawler_tab = ImageCrawlTab(dropdown=dropdown)
-        self.drive_sync_tab = DriveSyncTab(vault_manager, dropdown=dropdown)
-        self.wallpaper_tab = WallpaperTab(self.database_tab, dropdown=dropdown)
-        self.web_requests_tab = WebRequestsTab(dropdown=dropdown)
+        self.crawler_tab = ImageCrawlTab()
+        self.drive_sync_tab = DriveSyncTab(vault_manager)
+        self.wallpaper_tab = WallpaperTab(self.database_tab)
+        self.web_requests_tab = WebRequestsTab()
         self.image_extractor_tab = ImageExtractorTab()
-
-        # Deep Learning Tabs
         self.train_tab = UnifiedTrainTab()
         self.generate_tab = UnifiedGenerateTab()
         self.eval_tab = R3GANEvaluateTab()

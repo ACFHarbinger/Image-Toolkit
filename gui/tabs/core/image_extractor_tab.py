@@ -15,10 +15,10 @@ from PySide6.QtGui import QPixmap, QResizeEvent, QAction
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtCore import Qt, QUrl, Slot, QThreadPool, QPoint, QEvent
-from ..windows import ImagePreviewWindow
-from ..classes import AbstractClassSingleGallery
-from ..components import ClickableLabel, MarqueeScrollArea
-from ..helpers import FrameExtractorWorker, VideoScanWorker
+from ...windows import ImagePreviewWindow
+from ...classes import AbstractClassSingleGallery
+from ...components import ClickableLabel, MarqueeScrollArea
+from ...helpers import FrameExtractorWorker, VideoScanWorker
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH
 
 

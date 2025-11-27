@@ -7,18 +7,17 @@ from PySide6.QtWidgets import (
     QStackedWidget
 )
 from PySide6.QtGui import QAction
-from ..windows import LogWindow
-from ..helpers import ImageCrawlWorker
-from ..components import OptionalField
-from ..styles.style import apply_shadow_effect
-from ..utils.app_definitions import SCREENSHOTS_DIR
+from ...windows import LogWindow
+from ...helpers import ImageCrawlWorker
+from ...components import OptionalField
+from ...styles.style import apply_shadow_effect
+from ...utils.app_definitions import SCREENSHOTS_DIR
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH
 
 
 class ImageCrawlTab(QWidget):
-    def __init__(self, dropdown=True):
+    def __init__(self):
         super().__init__()
-        self.dropdown = dropdown
         self.worker = None
         
         # --- Log Window Initialization ---

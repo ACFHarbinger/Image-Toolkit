@@ -9,17 +9,16 @@ from PySide6.QtWidgets import (
     QPushButton, QLabel, QGroupBox, QCheckBox, QWidget,
     QLineEdit, QComboBox, QFileDialog, QRadioButton, QButtonGroup
 )
-from ..utils.app_definitions import DRY_RUN
-from ..windows import LogWindow
-from ..helpers import GoogleDriveSyncWorker, DropboxDriveSyncWorker, OneDriveSyncWorker
-from ..styles.style import apply_shadow_effect, STYLE_SYNC_RUN, STYLE_SYNC_STOP
+from ...utils.app_definitions import DRY_RUN
+from ...windows import LogWindow
+from ...helpers import GoogleDriveSyncWorker, DropboxDriveSyncWorker, OneDriveSyncWorker
+from ...styles.style import apply_shadow_effect, STYLE_SYNC_RUN, STYLE_SYNC_STOP
 
 
 class DriveSyncTab(QWidget):
     """GUI tab for Cloud Drive one-way sync (QRunnable + QThreadPool)."""
-    def __init__(self, vault_manager, dropdown=True, *args, **kwargs):
+    def __init__(self, vault_manager, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.dropdown = dropdown
         self.vault_manager = vault_manager
         self.current_worker: Optional[Any] = None
         

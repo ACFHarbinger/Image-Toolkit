@@ -5,14 +5,13 @@ from PySide6.QtWidgets import (
     QComboBox, QMessageBox, QFormLayout, QHBoxLayout,
     QVBoxLayout, QListWidget, QMenu, QProgressBar, QWidget
 )
-from ..windows import LogWindow
-from ..helpers import WebRequestsWorker
+from ...windows import LogWindow
+from ...helpers import WebRequestsWorker
 
 
 class WebRequestsTab(QWidget):
-    def __init__(self, dropdown=True):
+    def __init__(self):
         super().__init__()
-        self.dropdown = dropdown
         self.worker = None
 
         # --- Log Window Initialization ---
