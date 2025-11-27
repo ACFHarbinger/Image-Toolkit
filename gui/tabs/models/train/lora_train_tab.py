@@ -38,9 +38,14 @@ class LoRATrainTab(BaseGenerativeTab):
         # --- Model Selection ---
         self.model_selector = QComboBox()
         models = [
+            # FIX: Replace single-file checkpoints with a functional Diffusers base model ID for training configuration.
+            ("Illustrious XL V2.0 (Base SDXL)", "stabilityai/stable-diffusion-xl-base-1.0"),
+            ("Illustrious Lumina (Base SDXL)", "stabilityai/stable-diffusion-xl-base-1.0"),
+            ("Anything V3", "ckpt/anything-v3.0"),
+            ("Anything V4.5", "ckpt/anything-v4.5"),
             ("Anything V5", "stablediffusionapi/anything-v5"),
-            ("Waifu Diffusion v1.4", "hakurei/waifu-diffusion-v1-4"),
-            ("Counterfeit V3.0", "gsdf/Counterfeit-V3.0"),
+            ("Waifu Diffusion v1.4", "hakurei/waifu-diffusion"),
+            ("Counterfeit V2.5", "gsdf/Counterfeit-V2.5"),
             ("Animagine XL 3.1", "cagliostrolab/animagine-xl-3.1"), 
             ("Animagine XL 4.0", "cagliostrolab/animagine-xl-4.0"),
             ("AnimeGANv2", "animegan_v2"), 
