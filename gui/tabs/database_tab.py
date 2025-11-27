@@ -1,5 +1,7 @@
 import os
 import psycopg2
+import json # <--- Added for JSON parsing
+from pathlib import Path
 
 from typing import Optional
 from PySide6.QtCore import Qt
@@ -10,8 +12,10 @@ from PySide6.QtWidgets import (
     QFormLayout, QHBoxLayout, QVBoxLayout,
     QLineEdit, QPushButton, QLabel, QHeaderView,
     QTableWidget, QTableWidgetItem, QSizePolicy,
+    QProgressDialog, QFileDialog # <--- QFileDialog added
 )
 from backend.src.core import PgvectorImageDatabase as ImageDatabase
+from backend.src.utils.definitions import LOCAL_SOURCE_PATH
 from ..styles.style import apply_shadow_effect
 from dotenv import load_dotenv
 
@@ -29,9 +33,9 @@ class DatabaseTab(QWidget):
         # These are assigned by MainWindow after all tabs are initialized
         self.scan_tab_ref = None 
         self.search_tab_ref = None 
-        self.merge_tab_ref = None      # <--- Added
-        self.delete_tab_ref = None     # <--- Added
-        self.wallpaper_tab_ref = None  # <--- Added
+        self.merge_tab_ref = None
+        self.delete_tab_ref = None
+        self.wallpaper_tab_ref = None
         
         self.old_edit_value = None
         
@@ -89,6 +93,25 @@ class DatabaseTab(QWidget):
         # --- Populate Database Section ---
         self.populate_group = QGroupBox("Populate Database")
         populate_layout = QVBoxLayout(self.populate_group)
+
+        # -------------------------------------------------------------
+        # Auto-Populate Button
+        # -------------------------------------------------------------
+        auto_pop_group = QGroupBox("Automatic Population")
+        auto_pop_layout = QVBoxLayout(auto_pop_group)
+        
+        lbl_auto_info = QLabel(f"Scans <b>{LOCAL_SOURCE_PATH}</b>.<br>Top-level folders become Groups. Second-level folders become Subgroups.")
+        lbl_auto_info.setStyleSheet("color: #aaa; font-style: italic;")
+        auto_pop_layout.addWidget(lbl_auto_info)
+
+        self.btn_auto_populate = QPushButton("Auto-Sync Groups & Subgroups from Source")
+        self.btn_auto_populate.setStyleSheet("background-color: #2ecc71; color: white; padding: 8px; font-weight: bold;")
+        apply_shadow_effect(self.btn_auto_populate, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        self.btn_auto_populate.clicked.connect(self.auto_populate_from_source)
+        auto_pop_layout.addWidget(self.btn_auto_populate)
+        
+        populate_layout.addWidget(auto_pop_group)
+        # -------------------------------------------------------------
         
         # --- Create New Group section ---
         create_group_group = QGroupBox("Create Group(s)")
@@ -247,6 +270,38 @@ class DatabaseTab(QWidget):
         
         populate_layout.addWidget(create_tag_group)
 
+        # -------------------------------------------------------------
+        # Bulk Tag Import Section
+        # -------------------------------------------------------------
+        bulk_import_group = QGroupBox("Bulk Tag Import from JSON")
+        bulk_import_layout = QFormLayout(bulk_import_group)
+
+        self.bulk_tag_type_combo = QComboBox()
+        self.bulk_tag_type_combo.setEditable(True)
+        self.bulk_tag_type_combo.addItems(["", "Artist", "Series", "Character", "General", "Meta"])
+        self.bulk_tag_type_combo.setPlaceholderText("Tag Type to apply (e.g., Artist)")
+        bulk_import_layout.addRow("Tag Type:", self.bulk_tag_type_combo)
+
+        self.json_file_path_edit = QLineEdit()
+        self.json_file_path_edit.setPlaceholderText("Select JSON file containing a 'tags' array...")
+        
+        btn_browse_json = QPushButton("Browse JSON")
+        btn_browse_json.clicked.connect(self.browse_json_file)
+        
+        json_h_layout = QHBoxLayout()
+        json_h_layout.addWidget(self.json_file_path_edit)
+        json_h_layout.addWidget(btn_browse_json)
+        bulk_import_layout.addRow("JSON File:", json_h_layout)
+
+        self.btn_import_tags = QPushButton("Import Tags from JSON")
+        self.btn_import_tags.setStyleSheet("background-color: #3498db; color: white; padding: 8px;")
+        apply_shadow_effect(self.btn_import_tags, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        self.btn_import_tags.clicked.connect(self.import_tags_from_json)
+        bulk_import_layout.addRow(self.btn_import_tags)
+        
+        populate_layout.addWidget(bulk_import_group)
+        # -------------------------------------------------------------
+
         # --- Existing Tags section ---
         existing_tags_group = QGroupBox("Existing Tags")
         existing_tags_layout = QVBoxLayout(existing_tags_group)
@@ -293,7 +348,7 @@ class DatabaseTab(QWidget):
         main_layout.addWidget(populate_scroll_area)
         
         self.update_button_states(connected=False)
-
+        
     # --- Connection and Statistics Methods ---
 
     def connect_database(self):
@@ -472,6 +527,8 @@ class DatabaseTab(QWidget):
         self.db_name.setEnabled(not connected)
 
         self.populate_group.setEnabled(connected)
+        self.btn_auto_populate.setEnabled(connected) 
+        self.btn_import_tags.setEnabled(connected) 
         
         self.btn_remove_group.setEnabled(connected)
         self.btn_remove_subgroup.setEnabled(connected) 
@@ -482,6 +539,92 @@ class DatabaseTab(QWidget):
         
         if self.search_tab_ref:
             self.search_tab_ref.update_search_button_state(connected)
+
+    # --- New Bulk Tag Import Methods ---
+
+    def browse_json_file(self):
+        """Opens a file dialog to select a JSON file."""
+        initial_dir = Path(os.getcwd())
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "Select JSON Tags File", 
+            str(initial_dir), 
+            "JSON Files (*.json);;All Files (*.*)"
+        )
+        if file_path:
+            self.json_file_path_edit.setText(file_path)
+
+    def import_tags_from_json(self):
+        """Reads the selected JSON file and imports tags into the database."""
+        if not self.db:
+            QMessageBox.warning(self, "Error", "Please connect to a database first")
+            return
+
+        file_path = self.json_file_path_edit.text().strip()
+        tag_type = self.bulk_tag_type_combo.currentText().strip().title()
+        
+        if not file_path or not Path(file_path).is_file():
+            QMessageBox.warning(self, "Error", "Please select a valid JSON file.")
+            return
+
+        imported_tags = 0
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            if isinstance(data, dict) and 'tags' in data and isinstance(data['tags'], list):
+                tag_list = data['tags']
+            elif isinstance(data, list):
+                # Allow a direct array of strings as a fallback
+                tag_list = [item for item in data if isinstance(item, str)]
+            else:
+                QMessageBox.critical(
+                    self, "JSON Format Error",
+                    "JSON file must be an object with a 'tags' key containing a list of strings, "
+                    "or a direct list of strings."
+                )
+                return
+
+            if not tag_list:
+                QMessageBox.information(self, "Import Info", "No valid tags found in the JSON file.")
+                return
+
+            progress = QProgressDialog("Importing tags...", "Cancel", 0, len(tag_list), self)
+            progress.setWindowModality(Qt.WindowModal)
+            progress.setMinimumDuration(0)
+            progress.show()
+            
+            for i, tag_name_raw in enumerate(tag_list):
+                if progress.wasCanceled(): break
+                progress.setValue(i)
+                progress.setLabelText(f"Importing tag {i + 1}/{len(tag_list)}: {tag_name_raw[:40]}...")
+
+                tag_name = str(tag_name_raw).strip()
+                if tag_name:
+                    self.db.add_tag(tag_name, tag_type if tag_type else None)
+                    imported_tags += 1
+            
+            progress.close()
+
+            # Final refresh and update
+            self.refresh_tags_list()
+            if self.scan_tab_ref:
+                self.scan_tab_ref._setup_tag_checkboxes()
+            self.update_statistics()
+
+            QMessageBox.information(
+                self, "Import Success", 
+                f"Successfully imported and updated {imported_tags} tags with type '{tag_type if tag_type else 'None'}'."
+            )
+
+        except json.JSONDecodeError:
+            QMessageBox.critical(self, "File Error", "The selected file is not a valid JSON file.")
+        except Exception as e:
+            QMessageBox.critical(self, "Database Error", f"An error occurred during tag import:\n{str(e)}")
+        finally:
+            if 'progress' in locals() and progress.isVisible():
+                progress.close()
              
     # --- Tag and Group Management Methods ---
 
@@ -901,3 +1044,97 @@ class DatabaseTab(QWidget):
         except Exception as e:
             print(f"Error applying DatabaseTab config: {e}")
             QMessageBox.warning(self, "Config Error", f"Failed to apply some settings: {e}")
+
+    def auto_populate_from_source(self):
+        """
+        Scans LOCAL_SOURCE_PATH. 
+        Level 1 Directories -> Groups
+        Level 2 Directories -> Subgroups for that Group
+        """
+        if not self.db:
+            QMessageBox.warning(self, "Error", "Please connect to a database first")
+            return
+
+        # Resolve to absolute path to avoid ambiguity
+        source_path = Path(LOCAL_SOURCE_PATH).resolve()
+        
+        if not source_path.exists():
+            QMessageBox.critical(self, "Path Error", f"The source path does not exist:\n{source_path}")
+            return
+
+        # Simple confirmation
+        confirm = QMessageBox.question(
+            self, "Confirm Sync",
+            f"This will scan the following directory:\n\n{source_path}\n\n"
+            "Top-level folders will be added as Groups.\n"
+            "Folders inside those will be added as Subgroups.\n"
+            "Existing entries will be skipped.\n\nProceed?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if confirm == QMessageBox.No: return
+
+        # Progress Dialog
+        progress = QProgressDialog("Scanning directories...", "Cancel", 0, 0, self)
+        progress.setWindowModality(Qt.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.show()
+
+        groups_added = 0
+        subgroups_added = 0
+        errors = []
+        
+        try:
+            # Iterate Level 1 (Groups)
+            for group_dir in source_path.iterdir():
+                if progress.wasCanceled(): break
+                
+                if group_dir.is_dir() and not group_dir.name.startswith('.'):
+                    group_name = group_dir.name.strip()
+                    if not group_name: continue
+
+                    try:
+                        # Add Group to DB (ImageDatabase handles "ON CONFLICT DO NOTHING")
+                        self.db.add_group(group_name)
+                        groups_added += 1
+                        
+                        # Iterate Level 2 (Subgroups)
+                        for subgroup_dir in group_dir.iterdir():
+                            if subgroup_dir.is_dir() and not subgroup_dir.name.startswith('.'):
+                                subgroup_name = subgroup_dir.name.strip()
+                                if not subgroup_name: continue
+                                
+                                try:
+                                    # Add Subgroup to DB
+                                    self.db.add_subgroup(subgroup_name, group_name)
+                                    subgroups_added += 1
+                                except Exception as e_sub:
+                                    print(f"Error adding subgroup {subgroup_name}: {e_sub}")
+                                    # Don't stop the whole process for one subgroup error
+                                    pass
+
+                    except Exception as e_group:
+                         errors.append(f"Group '{group_name}': {str(e_group)}")
+
+            progress.close()
+            
+            # Refresh UIs
+            self.refresh_groups_list()
+            self._refresh_all_group_combos()
+            self.refresh_subgroup_autocomplete()
+            self.refresh_subgroups_list()
+            self.update_statistics()
+
+            msg = (f"Scan Finished.\n\n"
+                   f"Processed Groups: {groups_added}\n"
+                   f"Processed Subgroups: {subgroups_added}\n\n"
+                   f"(Note: Numbers indicate processed folders, duplicates were skipped).")
+            
+            if errors:
+                msg += "\n\nErrors encountered:\n" + "\n".join(errors[:5])
+                if len(errors) > 5: msg += "\n..."
+
+            QMessageBox.information(self, "Sync Complete", msg)
+
+        except Exception as e:
+            progress.close()
+            QMessageBox.critical(self, "Sync Error", f"An error occurred during scanning:\n{str(e)}")
