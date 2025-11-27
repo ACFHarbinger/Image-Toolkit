@@ -1,22 +1,21 @@
 import os
 import math
+
 from pathlib import Path
 from abc import abstractmethod
-from typing import List, Tuple, Optional, Dict, Set
-from PySide6.QtWidgets import (
-    QWidget, QGridLayout, QApplication, QLabel, QScrollArea,
-    QHBoxLayout, QPushButton, QComboBox, QMenu
-)
-from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer, QPoint, QRect
+from typing import List, Optional, Dict, Set
+from PySide6.QtWidgets import QWidget, QGridLayout, QScrollArea, QMenu
+from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer
 from PySide6.QtGui import QPixmap, QResizeEvent, QAction
-from .meta_abstract_class import MetaAbstractClass
+
 from ..helpers import ImageLoaderWorker
+from .meta_abstract_class_gallery import MetaAbstractClassGallery
 
 
-class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
+class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
     """
-    Abstract base class for a single gallery with Lazy Loading and Pagination.
-    Images are loaded when visible and remain loaded (no unloading).
+    Abstract base class for a single gallery using MetaAbstractClassGallery.
+    Uses injected common methods for layout and pagination.
     """
 
     def __init__(self):
@@ -27,9 +26,9 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
         self.path_to_card_widget: Dict[str, QWidget] = {}
         
         # --- Lazy Loading State ---
-        self.pending_paths: Set[str] = set()   # Paths waiting to be checked/loaded
-        self.loading_paths: Set[str] = set()   # Paths currently in a thread
-        self.loaded_paths: Set[str] = set()    # Paths currently held in memory (visible or previously visible)
+        self.pending_paths: Set[str] = set()
+        self.loading_paths: Set[str] = set()
+        self.loaded_paths: Set[str] = set()
         
         # --- Pagination State ---
         self.page_size = 100
@@ -43,11 +42,9 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
 
         # --- Threading ---
         self.thread_pool = QThreadPool.globalInstance()
-        
-        # New flag to track if we are adding to existing or replacing
         self._is_appending = False 
 
-        # --- Resize/Scroll Debouncing ---
+        # --- Resize Debouncing ---
         self._resize_timer = QTimer()
         self._resize_timer.setSingleShot(True)
         self._resize_timer.timeout.connect(self._on_layout_change)
@@ -55,8 +52,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
         # --- UI References ---
         self.gallery_scroll_area: Optional[QScrollArea] = None
         self.gallery_layout: Optional[QGridLayout] = None
-        self.pagination_layout: Optional[QHBoxLayout] = None # Subclasses should assign this if they want controls
-
+        
         # Starting directory
         try:
             self.last_browsed_scan_dir = str(Path(os.getcwd()) / 'data')
@@ -67,58 +63,28 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
 
     @abstractmethod
     def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
-        """
-        Create the widget. 
-        IMPORTANT: Subclasses must handle `pixmap` being None by showing a placeholder/loading spinner.
-        """
         pass
     
     @abstractmethod
     def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
-        """
-        Update an existing card widget.
-        If pixmap is None, revert to placeholder/unloaded state.
-        """
         pass
 
     # --- PAGINATION UI HELPERS ---
 
     def create_pagination_controls(self) -> QWidget:
-        """Creates a widget containing pagination controls."""
-        container = QWidget()
-        layout = QHBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)
+        """Uses shared logic to create UI, then binds signals."""
+        container, controls = self.common_create_pagination_ui()
         
-        # Page Size Combo
-        lbl = QLabel(f"Images per page:")
-        combo = QComboBox()
-        combo.addItems(["20", "50", "100", "All"])
-        combo.setCurrentText("100")
-        combo.currentTextChanged.connect(self._on_page_size_changed)
-        
-        # Navigation Buttons
-        btn_prev = QPushButton("< Prev")
-        btn_prev.clicked.connect(lambda: self._change_page(-1))
-        
-        # Dropdown Button
-        btn_page = QPushButton("Page 1 / 1")
-        btn_page.setFixedWidth(120)
-        
-        btn_next = QPushButton("Next >")
-        btn_next.clicked.connect(lambda: self._change_page(1))
+        # Bind Controls
+        self.page_combo = controls['combo']
+        self.prev_btn = controls['btn_prev']
+        self.next_btn = controls['btn_next']
+        self.page_button = controls['btn_page']
 
-        # Store references
-        self.page_combo = combo
-        self.prev_btn = btn_prev
-        self.next_btn = btn_next
-        self.page_button = btn_page
-
-        layout.addWidget(lbl)
-        layout.addWidget(combo)
-        layout.addStretch()
-        layout.addWidget(btn_prev)
-        layout.addWidget(btn_page)
-        layout.addWidget(btn_next)
+        # Signal Connections
+        self.page_combo.currentTextChanged.connect(self._on_page_size_changed)
+        self.prev_btn.clicked.connect(lambda: self._change_page(-1))
+        self.next_btn.clicked.connect(lambda: self._change_page(1))
         
         return container
 
@@ -145,26 +111,24 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
             self.refresh_gallery_view()
 
     def _update_pagination_ui(self):
-        if not hasattr(self, 'page_button'): return # Pagination controls not created
+        if not hasattr(self, 'page_button'): return
 
-        total = len(self.gallery_image_paths)
-        if total == 0:
-            self.page_button.setText("Page 0 / 0")
-            self.page_button.setEnabled(False)
-            self.prev_btn.setEnabled(False)
-            self.next_btn.setEnabled(False)
-            return
+        controls = {
+            'btn_page': self.page_button,
+            'btn_prev': self.prev_btn,
+            'btn_next': self.next_btn
+        }
 
-        total_pages = math.ceil(total / self.page_size)
-        if self.current_page >= total_pages:
-            self.current_page = max(0, total_pages - 1)
+        # Use shared logic to update buttons and validate current page
+        corrected_page, total_pages = self.common_update_pagination_state(
+            len(self.gallery_image_paths), 
+            self.page_size, 
+            self.current_page, 
+            controls
+        )
+        self.current_page = corrected_page
 
-        self.page_button.setText(f"Page {self.current_page + 1} / {total_pages}")
-        self.page_button.setEnabled(True)
-        self.prev_btn.setEnabled(self.current_page > 0)
-        self.next_btn.setEnabled(self.current_page < total_pages - 1)
-
-        # Update Menu
+        # Update Menu (Specific to this class implementation)
         menu = QMenu(self)
         for i in range(total_pages):
             page_num = i + 1
@@ -175,96 +139,62 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
             menu.addAction(action)
         self.page_button.setMenu(menu)
 
-    def _get_paginated_slice(self) -> List[str]:
-        start = self.current_page * self.page_size
-        end = start + self.page_size
-        return self.gallery_image_paths[start:end]
-
     # --- GEOMETRY & EVENTS ---
 
     def resizeEvent(self, event: QResizeEvent):
         QWidget.resizeEvent(self, event)
-        self._resize_timer.start(100) # Debounce
+        self._resize_timer.start(100) 
 
     def showEvent(self, event):
         super().showEvent(event)
         self._on_layout_change()
 
     def _setup_scroll_connections(self):
-        """Must be called after gallery_scroll_area is instantiated in subclass."""
         if self.gallery_scroll_area:
-            # Check visibility whenever the user scrolls
             vbar = self.gallery_scroll_area.verticalScrollBar()
             vbar.valueChanged.connect(lambda val: self._process_visible_items())
 
     @Slot()
     def _on_layout_change(self):
-        """Called on resize or show."""
         if self.gallery_scroll_area and self.gallery_layout:
-            new_cols = self.calculate_columns()
+            # Shared Calculation
+            new_cols = self.common_calculate_columns(self.gallery_scroll_area, self.approx_item_width)
+            
             if new_cols != self._current_cols:
                 self._current_cols = new_cols
-                self._reflow_layout(new_cols)
+                # Shared Reflow
+                self.common_reflow_layout(self.gallery_layout, new_cols)
             
-            # After reflow/resize, items might have moved into/out of view
             self._process_visible_items()
-
-    def calculate_columns(self) -> int:
-        if not self.gallery_scroll_area: return 1
-        width = self.gallery_scroll_area.viewport().width()
-        if width <= 0: width = self.gallery_scroll_area.width()
-        if width <= 0: return 4 
-        return max(1, width // self.approx_item_width)
-
-    def _reflow_layout(self, columns: int):
-        if not self.gallery_layout: return
-        
-        items = []
-        while self.gallery_layout.count():
-            item = self.gallery_layout.takeAt(0)
-            if item.widget():
-                items.append(item.widget())
-        
-        for i, widget in enumerate(items):
-            row = i // columns
-            col = i % columns
-            if isinstance(widget, QLabel) and getattr(widget, "is_placeholder", False):
-                 self.gallery_layout.addWidget(widget, 0, 0, 1, columns, Qt.AlignCenter)
-                 return
-            self.gallery_layout.addWidget(widget, row, col, Qt.AlignLeft | Qt.AlignTop)
 
     # --- LAZY LOADING LOGIC ---
 
     def start_loading_gallery(self, paths: List[str], show_progress: bool = True, append: bool = False):
-        """
-        Initialize loading.
-        """
         self._is_appending = append
-        
         if not append:
             self.gallery_image_paths = paths
             self.current_page = 0
         else:
             self.gallery_image_paths.extend(paths)
-            # Stay on current page unless it was empty/invalid before
         
         self.refresh_gallery_view()
 
     def refresh_gallery_view(self):
-        """Refreshes the view based on current page slice."""
-        self.cancel_loading() # Clear queues
-        self.clear_gallery_widgets() # Clear widgets from layout
+        self.cancel_loading()
+        self.clear_gallery_widgets() 
         self._update_pagination_ui()
 
         if not self.gallery_image_paths:
-            self.show_placeholder("No images to display.")
+            self.common_show_placeholder(self.gallery_layout, "No images to display.", self.calculate_columns())
             return
 
-        # Get slice for current page
-        paginated_paths = self._get_paginated_slice()
-        cols = self.calculate_columns()
+        # Shared Slice Logic
+        paginated_paths = self.common_get_paginated_slice(
+            self.gallery_image_paths, self.current_page, self.page_size
+        )
+        
+        cols = self.calculate_columns() # Helper wrapper
 
-        # Add placeholders for this page's items
         for i, path in enumerate(paginated_paths):
             card = self.create_card_widget(path, None)
             self.path_to_card_widget[path] = card
@@ -276,46 +206,28 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
             if self.gallery_layout:
                 self.gallery_layout.addWidget(card, row, col, Qt.AlignLeft | Qt.AlignTop)
 
-        # Setup scroll listener and check visibility
         self._setup_scroll_connections()
         QTimer.singleShot(50, self._process_visible_items)
 
+    def calculate_columns(self):
+        return self.common_calculate_columns(self.gallery_scroll_area, self.approx_item_width)
+
     def _process_visible_items(self):
-        """
-        Determines which widgets are visible to LOAD.
-        Once loaded, they are NOT unloaded until the page is changed.
-        """
-        if not self.gallery_scroll_area:
-            return
+        if not self.gallery_scroll_area: return
 
         viewport = self.gallery_scroll_area.viewport()
-        # Add a buffer margin so images don't vanish instantly on the edge
         visible_rect = viewport.rect().adjusted(0, -200, 0, 200)
 
-        # 1. Check Pending (Load if visible)
         for path in list(self.pending_paths):
             widget = self.path_to_card_widget.get(path)
             if not widget: continue
 
-            if self._is_visible(widget, viewport, visible_rect):
+            # Shared Visibility Check
+            if self.common_is_visible(widget, viewport, visible_rect):
                 self._trigger_image_load(path)
 
-        # UNLOADING LOGIC REMOVED: Images stay loaded.
-
-    def _is_visible(self, widget, viewport, visible_rect):
-        """Check if widget intersects with the visible viewport rect."""
-        if not widget.isVisible(): 
-            return False
-        
-        # Map widget position to viewport coordinates
-        p = widget.mapTo(viewport, QPoint(0,0))
-        widget_rect = QRect(p, widget.size())
-        
-        return visible_rect.intersects(widget_rect)
-
     def _trigger_image_load(self, path: str):
-        if path in self.loading_paths or path in self.loaded_paths:
-            return
+        if path in self.loading_paths or path in self.loaded_paths: return
 
         if path in self.pending_paths:
             self.pending_paths.remove(path)
@@ -329,7 +241,6 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
     def _on_single_image_loaded(self, path: str, pixmap: QPixmap):
         if path in self.loading_paths:
             self.loading_paths.remove(path)
-        
         self.loaded_paths.add(path)
 
         widget = self.path_to_card_widget.get(path)
@@ -339,11 +250,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
     # --- HELPERS ---
 
     def cancel_loading(self):
-        """
-        Clear queues. 
-        """
         self.pending_paths.clear()
-        # We don't clear loading_paths or loaded_paths here usually unless we are clearing the gallery.
 
     def clear_gallery_widgets(self):
         self.path_to_card_widget.clear()
@@ -356,23 +263,3 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClass):
             item = self.gallery_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
-
-    def _remove_placeholder(self):
-        if not self.gallery_layout: return
-        if self.gallery_layout.count() > 0:
-            item = self.gallery_layout.itemAt(0)
-            widget = item.widget()
-            if isinstance(widget, QLabel) and getattr(widget, "is_placeholder", False):
-                widget.deleteLater()
-
-    def show_placeholder(self, text: str):
-        self.clear_gallery_widgets()
-        if not self.gallery_layout: return
-        
-        lbl = QLabel(text)
-        lbl.setAlignment(Qt.AlignCenter)
-        lbl.setStyleSheet("color: #b9bbbe; padding: 20px; font-style: italic;")
-        lbl.is_placeholder = True 
-        
-        cols = self.calculate_columns()
-        self.gallery_layout.addWidget(lbl, 0, 0, 1, cols, Qt.AlignCenter)
