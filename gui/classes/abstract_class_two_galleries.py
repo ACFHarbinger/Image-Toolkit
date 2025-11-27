@@ -1,13 +1,13 @@
 import os
 import math
-
 from pathlib import Path
 from abc import abstractmethod
-from typing import List, Dict, Optional, Set
-from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QMenu
+from typing import List, Dict, Optional
+from PySide6.QtWidgets import (
+    QWidget, QGridLayout, QLabel, QMenu, QApplication
+)
 from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer
 from PySide6.QtGui import QPixmap, QAction
-
 from .meta_abstract_class_gallery import MetaAbstractClassGallery
 from ..components import MarqueeScrollArea, ClickableLabel
 from ..helpers import ImageLoaderWorker
@@ -16,7 +16,7 @@ from ..helpers import ImageLoaderWorker
 class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
     """
     Abstract base class for tabs with Found/Selected galleries.
-    Uses MetaAbstractClassGallery to access shared logic for layout and pagination.
+    Lazy loading replaced with Sequential Loading: Images appear one by one.
     """
 
     def __init__(self):
@@ -29,11 +29,6 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         self.path_to_label_map: Dict[str, QWidget] = {} 
         self.selected_card_map: Dict[str, QWidget] = {}
         self._selected_pixmap_cache: Dict[str, QPixmap] = {}
-
-        # --- Lazy Loading State (For Found Gallery) ---
-        self.pending_found_paths: Set[str] = set()
-        self.loading_found_paths: Set[str] = set()
-        self.loaded_found_paths: Set[str] = set()
 
         # --- Pagination State ---
         self.found_page_size = 116
@@ -57,6 +52,13 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
         # --- Threading ---
         self.thread_pool = QThreadPool.globalInstance()
+
+        # --- Population Timer (Sequential Loading) ---
+        self._populate_found_timer = QTimer()
+        self._populate_found_timer.setSingleShot(True)
+        self._populate_found_timer.timeout.connect(self._populate_found_step)
+        self._paginated_found_paths: List[str] = []
+        self._populating_found_index = 0
 
         try:
             self.last_browsed_dir = str(Path(os.getcwd()) / 'data')
@@ -200,22 +202,12 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             if new_cols != self._current_found_cols:
                 self._current_found_cols = new_cols
                 self.common_reflow_layout(self.found_gallery_layout, new_cols)
-            QTimer.singleShot(100, self._process_visible_found_items)
 
         if self.selected_gallery_scroll:
             new_cols = self.common_calculate_columns(self.selected_gallery_scroll, self.approx_item_width)
             if new_cols != self._current_selected_cols:
                 self._current_selected_cols = new_cols
                 self.common_reflow_layout(self.selected_gallery_layout, new_cols)
-
-    def showEvent(self, event):
-        super().showEvent(event)
-        QTimer.singleShot(100, self._process_visible_found_items)
-
-    def _setup_lazy_connections(self):
-        if self.found_gallery_scroll:
-            vbar = self.found_gallery_scroll.verticalScrollBar()
-            vbar.valueChanged.connect(lambda val: self._process_visible_found_items())
 
     # --- SELECTION LOGIC ---
 
@@ -237,24 +229,36 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         self.on_selection_changed()
 
     def handle_marquee_selection(self, paths_from_marquee: set, is_ctrl_pressed: bool):
+        # Check for Shift modifier explicitly
+        modifiers = QApplication.keyboardModifiers()
+        is_shift_pressed = bool(modifiers & Qt.ShiftModifier)
+        
         ordered_current = self.selected_files.copy()
         paths_to_update = set()
-        
-        if not is_ctrl_pressed:
-            new_ordered = [p for p in ordered_current if p in paths_from_marquee]
-            newly_added = [p for p in paths_from_marquee if p not in ordered_current]
-            paths_to_update = paths_from_marquee.union(set(ordered_current))
-            self.selected_files = new_ordered + newly_added
-        else:
+
+        if is_ctrl_pressed:
+            # Subtractive selection (CTRL): Remove items in marquee from selection
             for path in paths_from_marquee:
                 if path in self.selected_files:
                     self.selected_files.remove(path)
-                elif path in self.found_files:
-                    self.selected_files.append(path)
-                paths_to_update.add(path)
+                    paths_to_update.add(path)
+        
+        elif is_shift_pressed:
+            # Additive selection (SHIFT): Keep current selection, add new items from marquee
+            newly_added = [p for p in paths_from_marquee if p not in ordered_current]
+            self.selected_files = ordered_current + newly_added
+            paths_to_update = set(newly_added)
+            
+        else:
+            # Standard selection (No Modifiers): 
+            # Replaces selection with what is currently in the marquee.
+            # This creates the "deselect as they leave the square" effect because
+            # paths_from_marquee contains ONLY what is currently inside the square.
+            paths_to_update = set(self.selected_files).union(paths_from_marquee)
+            self.selected_files = list(paths_from_marquee)
 
         for path in paths_to_update:
-             if path in self.path_to_label_map:
+            if path in self.path_to_label_map:
                 widget = self.path_to_label_map[path]
                 self.update_card_style(widget, path in self.selected_files)
                 
@@ -322,7 +326,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             self._selected_pixmap_cache[path] = pixmap
         self.update_card_pixmap(widget, pixmap)
 
-    # --- LAZY LOADING (Found Gallery) ---
+    # --- SEQUENTIAL LOADING (Found Gallery) ---
 
     def start_loading_thumbnails(self, paths: list[str]):
         self.cancel_loading()
@@ -333,8 +337,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
     def refresh_found_gallery(self):
         self.cancel_loading()
         self.path_to_label_map.clear()
-        self.loading_found_paths.clear()
-
+        
         self._clear_layout(self.found_gallery_layout)
         self._update_pagination_ui(is_found=True)
 
@@ -343,62 +346,59 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             if self.status_label: self.status_label.setText("Found 0 files.")
             return
 
-        paginated_paths = self.common_get_paginated_slice(
+        # Setup batch population
+        self._paginated_found_paths = self.common_get_paginated_slice(
             self.found_files, self.found_current_page, self.found_page_size
         )
-        columns = self.common_calculate_columns(self.found_gallery_scroll, self.approx_item_width)
+        self._populating_found_index = 0
         
-        for idx, path in enumerate(paginated_paths):
+        if self.status_label:
+            self.status_label.setText(f"Found {len(self.found_files)} files. Showing page {self.found_current_page + 1}.")
+
+        # Start population loop
+        self._populate_found_step()
+
+    def _populate_found_step(self):
+        if not hasattr(self, '_paginated_found_paths') or self._populating_found_index >= len(self._paginated_found_paths):
+            return
+
+        cols = self.common_calculate_columns(self.found_gallery_scroll, self.approx_item_width)
+        batch_size = 5
+        limit = min(self._populating_found_index + batch_size, len(self._paginated_found_paths))
+
+        for i in range(self._populating_found_index, limit):
+            path = self._paginated_found_paths[i]
             is_selected = path in self.selected_files
+            
+            # Create widget (placeholder initially)
             card = self.create_card_widget(path, None, is_selected)
             
             if isinstance(card, ClickableLabel):
                 card.path_clicked.connect(self.toggle_selection)
 
-            row = idx // columns
-            col = idx % columns
-            self.found_gallery_layout.addWidget(card, row, col, Qt.AlignLeft | Qt.AlignTop)
+            row = i // cols
+            col = i % cols
+            if self.found_gallery_layout:
+                self.found_gallery_layout.addWidget(card, row, col, Qt.AlignLeft | Qt.AlignTop)
             
             self.path_to_label_map[path] = card
-            self.pending_found_paths.add(path)
+            
+            # Trigger load
+            self._trigger_found_load(path)
 
-        if self.status_label:
-            self.status_label.setText(f"Found {len(self.found_files)} files. Showing page {self.found_current_page + 1}.")
+        self._populating_found_index = limit
 
-        self._setup_lazy_connections()
-        QTimer.singleShot(50, self._process_visible_found_items)
-
-    def _process_visible_found_items(self):
-        if not self.found_gallery_scroll: return
-
-        viewport = self.found_gallery_scroll.viewport()
-        visible_rect = viewport.rect().adjusted(0, -200, 0, 200)
-
-        for path in list(self.pending_found_paths):
-            widget = self.path_to_label_map.get(path)
-            if not widget: continue
-
-            # Shared Visibility Check
-            if self.common_is_visible(widget, viewport, visible_rect):
-                self._trigger_found_load(path)
+        # Schedule next batch
+        if self._populating_found_index < len(self._paginated_found_paths):
+            self._populate_found_timer.start(0)
 
     def _trigger_found_load(self, path: str):
-        if path in self.loading_found_paths or path in self.loaded_found_paths: return
-        
-        if path in self.pending_found_paths:
-            self.pending_found_paths.remove(path)
-        self.loading_found_paths.add(path)
-
         worker = ImageLoaderWorker(path, self.thumbnail_size)
         worker.signals.result.connect(self._on_found_image_loaded)
         self.thread_pool.start(worker)
 
     @Slot(str, QPixmap)
     def _on_found_image_loaded(self, path: str, pixmap: QPixmap):
-        if path in self.loading_found_paths:
-            self.loading_found_paths.remove(path)
-        self.loaded_found_paths.add(path)
-
         widget = self.path_to_label_map.get(path)
         if widget:
             self.update_card_pixmap(widget, pixmap)
@@ -406,7 +406,8 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
     # --- HELPERS ---
 
     def cancel_loading(self):
-        self.pending_found_paths.clear()
+        if self._populate_found_timer.isActive():
+            self._populate_found_timer.stop()
 
     def clear_galleries(self, clear_data=True):
         if clear_data:
@@ -416,11 +417,8 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             self.found_current_page = 0
             self.selected_current_page = 0
             self._selected_pixmap_cache.clear()
-        
-        self.pending_found_paths.clear()
-        self.loading_found_paths.clear()
-        self.loaded_found_paths.clear()
 
+        self.cancel_loading()
         self._clear_layout(self.found_gallery_layout)
         self.common_show_placeholder(self.found_gallery_layout, "No images found/loaded.", 1)
         self._update_pagination_ui(is_found=True)
