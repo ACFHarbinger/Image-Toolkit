@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (
     QLabel, QFormLayout
 )
 from .base_generative_tab import BaseGenerativeTab
-from .gen import R3GANGenerateTab, AnythingGenerateTab, SD3GenerateTab
+from .gen import R3GANGenerateTab, LoRAGenerateTab, SD3GenerateTab
 
 
 class UnifiedGenerateTab(BaseGenerativeTab):
@@ -20,7 +20,7 @@ class UnifiedGenerateTab(BaseGenerativeTab):
 
         # 1. Model Selector
         self.model_selector = QComboBox()
-        self.model_selector.addItem("Anything V5 (Diffusers)", "anything")
+        self.model_selector.addItem("LoRA (Diffusion and GANs)", "anything")
         self.model_selector.addItem("Stable Diffusion 3.5", "sd3")
         if R3GANGenerateTab:
             self.model_selector.addItem("R3GAN (NVLabs)", "r3gan")
@@ -32,7 +32,7 @@ class UnifiedGenerateTab(BaseGenerativeTab):
         # 2. Stacked Widget
         self.stack = QStackedWidget()
         
-        self.anything_tab = AnythingGenerateTab()
+        self.anything_tab = LoRAGenerateTab()
         self.stack.addWidget(self.anything_tab)
         
         self.sd3_tab = SD3GenerateTab()

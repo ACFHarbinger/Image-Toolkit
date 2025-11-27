@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (
     QLabel, QFormLayout
 )
 from .base_generative_tab import BaseGenerativeTab
-from .train import R3GANTrainTab, AnythingTrainTab
+from .train import R3GANTrainTab, LoRATrainTab
 
 
 class UnifiedTrainTab(BaseGenerativeTab):
@@ -20,7 +20,7 @@ class UnifiedTrainTab(BaseGenerativeTab):
 
         # 1. Model Selector
         self.model_selector = QComboBox()
-        self.model_selector.addItem("Anything V5 (Diffusers LoRA)", "anything")
+        self.model_selector.addItem("LoRA (Diffusion and GANs)", "anything")
         if R3GANTrainTab:
             self.model_selector.addItem("R3GAN (NVLabs)", "r3gan")
         
@@ -32,7 +32,7 @@ class UnifiedTrainTab(BaseGenerativeTab):
         self.stack = QStackedWidget()
         
         # Initialize sub-tabs
-        self.anything_tab = AnythingTrainTab()
+        self.anything_tab = LoRATrainTab()
         self.stack.addWidget(self.anything_tab)
         
         if R3GANTrainTab:
