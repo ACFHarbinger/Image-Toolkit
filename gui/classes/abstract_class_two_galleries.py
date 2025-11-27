@@ -31,9 +31,9 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         self._selected_pixmap_cache: Dict[str, QPixmap] = {}
 
         # --- Pagination State ---
-        self.found_page_size = 116
+        self.found_page_size = 100
         self.found_current_page = 0
-        self.selected_page_size = 116
+        self.selected_page_size = 100
         self.selected_current_page = 0
 
         # --- UI Configuration ---

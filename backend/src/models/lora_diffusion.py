@@ -15,6 +15,7 @@ from diffusers import (
 )
 from transformers import CLIPTextModel, CLIPTokenizer, CLIPTextModelWithProjection
 from torch.utils.data import Dataset, DataLoader
+from huggingface_hub import hf_hub_download
 from peft import LoraConfig, get_peft_model
 from tqdm.auto import tqdm
 
@@ -33,6 +34,13 @@ class LoRATuner:
         os.makedirs(self.output_dir, exist_ok=True)
         self.accelerator = Accelerator(gradient_accumulation_steps=1, mixed_precision="fp16")
         LoRATuner.is_cancelled = False 
+        
+        # --- NEW: Training Guardrail ---
+        if os.path.exists(model_id) and model_id.lower().endswith(('.safetensors', '.ckpt')):
+            raise ValueError(
+                f"LoRA training requires a Diffusers-format folder structure (e.g., a Hugging Face repository ID), "
+                f"not a single file: {model_id}. Please select a HF model for training."
+            )
         
         print(f"Loading base model: {model_id}...")
         
@@ -119,7 +127,7 @@ class LoRATuner:
 
         dataset = SimpleImageDataset(data_dir, main_tokenizer, size=resolution)
         if len(dataset) == 0:
-             raise ValueError(f"No valid images (.png, .jpg, .jpeg) found in {data_dir}")
+            raise ValueError(f"No valid images (.png, .jpg, .jpeg) found in {data_dir}")
 
         return DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
 
@@ -233,6 +241,10 @@ class LoRATuner:
         self.unet = self.accelerator.unwrap_model(self.unet)
         self.unet.save_pretrained(self.output_dir)
 
+    # In backend/src/models/lora_diffusion.py
+
+# ... inside LoRATuner.generate_anime_image static method:
+
     @staticmethod
     def generate_anime_image(
         prompt, 
@@ -249,14 +261,65 @@ class LoRATuner:
         print(f"Loading model: {model_id}...")
         
         PipelineClass = StableDiffusionPipeline
-        if "xl" in model_id.lower() or "animagine" in model_id.lower():
+        # Note: Added 'illustrious' to the SDXL detection logic
+        if "xl" in model_id.lower() or "animagine" in model_id.lower() or "illustrious" in model_id.lower():
             PipelineClass = StableDiffusionXLPipeline
 
         try:
-            pipe = PipelineClass.from_pretrained(
-                model_id, 
-                torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32
-            )
+            # 1. Handle the specific Illustrious Lumina single-file checkpoint 
+            if model_id == "OnomaAIResearch/Illustrious-Lumina-v0.03":
+                # This checkpoint is known to be a single file requiring 'from_single_file'
+                checkpoint_filename = "Illustrious_Lumina_2b_22100_ema_unified_fp32.safetensors"
+                
+                print(f"Downloading single checkpoint file: {checkpoint_filename}...")
+                
+                # Download the single safetensors file from the repo
+                downloaded_file_path = hf_hub_download(repo_id=model_id, filename=checkpoint_filename)
+                
+                # Load using from_single_file, using the repo ID as the config source
+                pipe = PipelineClass.from_single_file(
+                    downloaded_file_path, 
+                    config=model_id,
+                    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+                    safety_checker=None, 
+                    requires_safety_checker=False
+                )
+                
+            # 2. Handle the specific Illustrious XL v2.0 single-file checkpoint (NEW FIX)
+            elif model_id == "OnomaAIResearch/Illustrious-XL-v2.0":
+                checkpoint_filename = "Illustrious-XL-v2.0.safetensors" #
+                
+                print(f"Downloading single checkpoint file: {checkpoint_filename}...")
+                downloaded_file_path = hf_hub_download(repo_id=model_id, filename=checkpoint_filename)
+                
+                pipe = PipelineClass.from_single_file(
+                    downloaded_file_path, 
+                    config=model_id,
+                    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+                    safety_checker=None, 
+                    requires_safety_checker=False
+                )
+            
+            # 3. Handle local single file (from previous fix)
+            elif os.path.exists(model_id) and model_id.lower().endswith(('.safetensors', '.ckpt')):
+                print(f"Loading local single-file model: {model_id}...")
+                pipe = PipelineClass.from_single_file(
+                    model_id,
+                    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+                    safety_checker=None, 
+                    requires_safety_checker=False
+                )
+
+            # 4. Standard Hugging Face multi-folder load (from_pretrained)
+            else:
+                print(f"Loading Hugging Face model (multi-folder): {model_id}...")
+                pipe = PipelineClass.from_pretrained(
+                    model_id, 
+                    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+                    safety_checker=None, 
+                    requires_safety_checker=False
+                )
+            
         except Exception as e:
             print(f"Error loading model: {e}")
             raise e
