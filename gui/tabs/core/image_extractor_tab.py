@@ -821,10 +821,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self._run_extraction(self.start_time_ms, self.end_time_ms, is_range=True)
 
     def _run_extraction(self, start: int, end: int, is_range: bool):
-        current_res_idx = self.combo_resolution.currentIndex()
-        target_size: Optional[Tuple[int, int]] = None
-        if 0 <= current_res_idx < len(self.available_resolutions):
-            target_size = self.available_resolutions[current_res_idx]
+        # --- FIXED: Force target_size to 4K (3840, 2160) ---
+        target_size: Optional[Tuple[int, int]] = (3840, 2160)
+        # ----------------------------------------------------
 
         self.progress_dialog = QProgressDialog("Extracting and processing frames...", "Cancel", 0, 0, self)
         self.progress_dialog.setWindowTitle("Processing")

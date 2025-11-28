@@ -4,10 +4,10 @@ import shutil
 import tempfile
 
 from typing import Dict, Any, Optional
-from PySide6.QtGui import QPixmap, QAction
+from PySide6.QtGui import QPixmap, QAction, QClipboard, QImage
 from PySide6.QtCore import Qt, QTimer, QThread, Slot, QPoint, QEventLoop
 from PySide6.QtWidgets import (
-    QMenu, QPushButton, QFormLayout,
+    QMenu, QPushButton, QFormLayout, QApplication,
     QLineEdit, QFileDialog, QWidget, QLabel,
     QComboBox, QSpinBox, QGroupBox, QHBoxLayout,
     QVBoxLayout, QMessageBox, QGridLayout, QScrollArea,
@@ -38,6 +38,9 @@ class MergeTab(AbstractClassTwoGalleries):
         self.current_merge_thread: QThread | None = None
         self.current_merge_worker: MergeWorker | None = None
         self.temp_file_path: Optional[str] = None
+        
+        # Reference to the merged pixmap for clipboard operations
+        self._last_merged_pixmap: Optional[QPixmap] = None
 
         # --- UI Setup ---
         main_layout = QVBoxLayout(self)
@@ -354,7 +357,7 @@ class MergeTab(AbstractClassTwoGalleries):
         window = ImagePreviewWindow(
             image_path=image_path, 
             db_tab_ref=None, 
-            parent=self,
+            parent=self, 
             all_paths=target_list, 
             start_index=start_index
         )
@@ -432,6 +435,12 @@ class MergeTab(AbstractClassTwoGalleries):
         menu.addAction(view_action)
         menu.addSeparator()
 
+        # Add COPY action
+        copy_action = QAction("Copy Image to Clipboard", self)
+        copy_action.triggered.connect(lambda: self._copy_image_path_to_clipboard(path))
+        menu.addAction(copy_action)
+        menu.addSeparator()
+
         is_selected = path in self.selected_files
         toggle_text = "Deselect Image (Remove from Merge List)" if is_selected else "Select Image (Add to Merge List)"
         toggle_action = QAction(toggle_text, self)
@@ -457,6 +466,22 @@ class MergeTab(AbstractClassTwoGalleries):
         menu.addAction(delete_action)
         
         menu.exec(global_pos)
+
+    def _copy_image_path_to_clipboard(self, path: str):
+        """Loads image from path and copies to system clipboard."""
+        if os.path.exists(path):
+            try:
+                img = QImage(path)
+                if not img.isNull():
+                    clipboard = QApplication.clipboard()
+                    clipboard.setImage(img)
+                    # Use a non-blocking toast or status message if possible, otherwise standard msg box
+                    # Using status label here to be less intrusive
+                    self.status_label.setText(f"Copied image to clipboard: {os.path.basename(path)}")
+                else:
+                    QMessageBox.warning(self, "Copy Error", "Failed to load image for copying.")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Copy failed: {e}")
 
     def _move_selected_image_up(self, path: str):
         """Moves the given path one position earlier in the selected_files list."""
@@ -573,9 +598,10 @@ class MergeTab(AbstractClassTwoGalleries):
 
         self.status_label.setText("Merge complete. Showing preview...")
 
+        # Load pixmap from the temporary file for display and copying
+        self._last_merged_pixmap = QPixmap(temp_path)
+        
         # 1. Show Preview Window
-        # Note: We do NOT set WA_DeleteOnClose because we need to check isVisible() later.
-        # We will manually close/delete it.
         preview_window = ImagePreviewWindow(
             image_path=temp_path, 
             db_tab_ref=None, 
@@ -587,13 +613,27 @@ class MergeTab(AbstractClassTwoGalleries):
         preview_window.show()
         preview_window.activateWindow()
 
+        # --- Copy Pixmap Function ---
+        def copy_pixmap_to_clipboard():
+            if self._last_merged_pixmap and not self._last_merged_pixmap.isNull():
+                clipboard = QApplication.clipboard()
+                clipboard.setPixmap(self._last_merged_pixmap)
+                # Show explicit feedback for this action as it happens in a modal flow
+                QMessageBox.information(self, "Copied", "Merged image copied to clipboard.")
+            else:
+                QMessageBox.warning(self, "Error", "Merged image failed to load or is invalid.")
+
         # 2. Get Confirmation Dialog (using custom buttons)
         confirm = QMessageBox(self)
         confirm.setWindowTitle("Save Merged Image?")
         confirm.setText("The merged image is ready. Choose an action:")
         
+        # Add Copy Button
+        copy_btn = confirm.addButton("Copy to Clipboard", QMessageBox.ButtonRole.ActionRole)
+        # We handle the click logic manually below based on the returned button
+        
         save_btn = confirm.addButton("Save Only", QMessageBox.ButtonRole.AcceptRole)
-        save_add_btn = confirm.addButton("Save & Add to Selection", QMessageBox.ButtonRole.AcceptRole)
+        save_add_btn = confirm.addButton("Save and Add to Selection", QMessageBox.ButtonRole.AcceptRole)
         discard_btn = confirm.addButton("Discard Image", QMessageBox.ButtonRole.DestructiveRole)
         confirm.addButton(QMessageBox.StandardButton.Cancel)
 
@@ -605,7 +645,14 @@ class MergeTab(AbstractClassTwoGalleries):
         
         saved_path = None
 
-        if clicked_button == save_btn or clicked_button == save_add_btn:
+        if clicked_button == copy_btn:
+            copy_pixmap_to_clipboard()
+            # After copying, we don't automatically discard. We treat it like a 'cancel' regarding file saving,
+            # but we clean up the temp file unless the user explicitly wants to save it too.
+            # Actually, standard behavior for "Copy" often implies "I'm done with this dialog".
+            self.cleanup_temp_file()
+
+        elif clicked_button == save_btn or clicked_button == save_add_btn:
             out, _ = QFileDialog.getSaveFileName(self, "Save Merged Image", self.last_browsed_dir, "PNG (*.png)")
             if out:
                 if not out.lower().endswith('.png'): out += '.png'
@@ -624,16 +671,16 @@ class MergeTab(AbstractClassTwoGalleries):
             # Logic for "Save & Add to Selection"
             if clicked_button == save_add_btn:
                 self._inject_new_image(saved_path)
-        else:
+        elif clicked_button == discard_btn:
             self.cleanup_temp_file()
-            if clicked_button == discard_btn:
-                QMessageBox.information(self, "Discarded", "Merged image discarded.")
-            elif clicked_button in [save_btn, save_add_btn]:
-                # If save failed or dialog cancelled, notify the discard.
-                QMessageBox.warning(self, "Cancelled", "Image save cancelled/failed. Merged image discarded.")
-
+            QMessageBox.information(self, "Discarded", "Merged image discarded.")
+        elif clicked_button in [save_btn, save_add_btn, confirm.button(QMessageBox.StandardButton.Cancel)]:
+            # If save failed, was canceled, or cancelled via standard button, cleanup the temp file.
+            # Note: We already handled copy_btn cleanup above
+            if not saved_path and clicked_button != copy_btn: 
+                self.cleanup_temp_file()
+                
         # 4. Close Preview Window safely
-        # Use try-except to avoid RuntimeError if C++ object is gone (though without WA_DeleteOnClose it should remain)
         try:
             if preview_window.isVisible(): 
                 preview_window.close()
@@ -641,6 +688,8 @@ class MergeTab(AbstractClassTwoGalleries):
         except RuntimeError:
             pass # Window already deleted
 
+        # Clear the internal pixmap cache
+        self._last_merged_pixmap = None 
         self.status_label.setText("Ready to merge.")
 
     def _inject_new_image(self, path: str):
