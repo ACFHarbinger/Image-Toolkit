@@ -344,6 +344,13 @@ class ImagePreviewWindow(QDialog):
         """
         menu = QMenu(self)
 
+        # --- COPY ACTION ---
+        copy_action = QAction("Copy Image (Ctrl+C)", self)
+        copy_action.triggered.connect(self.copy_image_to_clipboard)
+        menu.addAction(copy_action)
+        menu.addSeparator()
+        # -------------------
+
         close_action = QAction("Close This Preview (Ctrl+W)", self)
         close_action.triggered.connect(self.close)
         menu.addAction(close_action)
@@ -374,9 +381,20 @@ class ImagePreviewWindow(QDialog):
                 
             QMessageBox.information(self.parent_tab, "Previews Closed", f"Closed {len(windows_to_close)} other preview windows.")
 
+    def copy_image_to_clipboard(self):
+        """Copies the currently displayed image frame to the system clipboard."""
+        target_pixmap = None
+        if self.is_animated and self.current_movie:
+            target_pixmap = self.current_movie.currentPixmap()
+        elif not self.original_pixmap.isNull():
+            target_pixmap = self.original_pixmap
+            
+        if target_pixmap and not target_pixmap.isNull():
+            QApplication.clipboard().setPixmap(target_pixmap)
+
     def keyPressEvent(self, event: QKeyEvent):
         """
-        Handles key presses for navigation (Left/Right) and closing (Ctrl+W).
+        Handles key presses for navigation (Left/Right), closing (Ctrl+W), and Copy (Ctrl+C).
         """
         if event.key() == Qt.Key.Key_Right:
             self._navigate(1)
@@ -386,6 +404,9 @@ class ImagePreviewWindow(QDialog):
             event.accept()
         elif event.key() == Qt.Key.Key_W and event.modifiers() & Qt.ControlModifier:
             self.close()
+            event.accept()
+        elif event.key() == Qt.Key.Key_C and event.modifiers() & Qt.ControlModifier:
+            self.copy_image_to_clipboard()
             event.accept()
         else:
             super().keyPressEvent(event)
