@@ -76,8 +76,8 @@ class MergeTab(AbstractClassTwoGalleries):
         config_layout = QFormLayout(config_group)
 
         self.direction = QComboBox()
-        # ADDED "panorama" option here
-        self.direction.addItems(["horizontal", "vertical", "grid", "panorama", "stitch"])
+        # ADDED "panorama" and "sequential" options here
+        self.direction.addItems(["horizontal", "vertical", "grid", "panorama", "stitch", "sequential"])
         self.direction.currentTextChanged.connect(self.handle_direction_change)
         config_layout.addRow("Direction:", self.direction)
 
@@ -438,12 +438,51 @@ class MergeTab(AbstractClassTwoGalleries):
         toggle_action.triggered.connect(lambda: self.toggle_selection(path))
         menu.addAction(toggle_action)
         
+        # Check if the context menu is being shown in the Selected Gallery (Bottom)
+        if is_selected: 
+            menu.addSeparator()
+            
+            # Add Move Up/Down actions
+            move_up_action = QAction("⬆️ Move Up in Merge Order", self)
+            move_up_action.triggered.connect(lambda: self._move_selected_image_up(path))
+            menu.addAction(move_up_action)
+            
+            move_down_action = QAction("⬇️ Move Down in Merge Order", self)
+            move_down_action.triggered.connect(lambda: self._move_selected_image_down(path))
+            menu.addAction(move_down_action)
+        
         menu.addSeparator()
         delete_action = QAction("🗑️ Delete Image File (Permanent)", self)
         delete_action.triggered.connect(lambda: self.handle_delete_image(path))
         menu.addAction(delete_action)
         
         menu.exec(global_pos)
+
+    def _move_selected_image_up(self, path: str):
+        """Moves the given path one position earlier in the selected_files list."""
+        try:
+            current_index = self.selected_files.index(path)
+            if current_index > 0:
+                # Swap elements
+                self.selected_files[current_index], self.selected_files[current_index - 1] = \
+                    self.selected_files[current_index - 1], self.selected_files[current_index]
+                self.refresh_selected_panel()
+                self.on_selection_changed() # Update button states if necessary (e.g., if re-ordering changed visibility)
+        except ValueError:
+            pass # Path not found
+
+    def _move_selected_image_down(self, path: str):
+        """Moves the given path one position later in the selected_files list."""
+        try:
+            current_index = self.selected_files.index(path)
+            if current_index < len(self.selected_files) - 1:
+                # Swap elements
+                self.selected_files[current_index], self.selected_files[current_index + 1] = \
+                    self.selected_files[current_index + 1], self.selected_files[current_index]
+                self.refresh_selected_panel()
+                self.on_selection_changed() # Update button states if necessary
+        except ValueError:
+            pass # Path not found
 
     def handle_delete_image(self, path: str):
         if QMessageBox.question(self, "Delete", f"Permanently delete {os.path.basename(path)}?") == QMessageBox.Yes:
@@ -534,7 +573,9 @@ class MergeTab(AbstractClassTwoGalleries):
 
         self.status_label.setText("Merge complete. Showing preview...")
 
-        # 1. Show Preview Window (Must allow user to interact with QMessageBox)
+        # 1. Show Preview Window
+        # Note: We do NOT set WA_DeleteOnClose because we need to check isVisible() later.
+        # We will manually close/delete it.
         preview_window = ImagePreviewWindow(
             image_path=temp_path, 
             db_tab_ref=None, 
@@ -552,10 +593,11 @@ class MergeTab(AbstractClassTwoGalleries):
         confirm.setText("The merged image is ready. Choose an action:")
         
         save_btn = confirm.addButton("Save Only", QMessageBox.ButtonRole.AcceptRole)
-        save_add_btn = confirm.addButton("Save and Add to Selection", QMessageBox.ButtonRole.AcceptRole)
+        save_add_btn = confirm.addButton("Save & Add to Selection", QMessageBox.ButtonRole.AcceptRole)
         discard_btn = confirm.addButton("Discard Image", QMessageBox.ButtonRole.DestructiveRole)
         confirm.addButton(QMessageBox.StandardButton.Cancel)
 
+        # Block here until user chooses
         confirm.exec()
         
         # 3. Handle Confirmation Result
@@ -590,8 +632,15 @@ class MergeTab(AbstractClassTwoGalleries):
                 # If save failed or dialog cancelled, notify the discard.
                 QMessageBox.warning(self, "Cancelled", "Image save cancelled/failed. Merged image discarded.")
 
-        # 4. Close Preview Window
-        if preview_window.isVisible(): preview_window.close()
+        # 4. Close Preview Window safely
+        # Use try-except to avoid RuntimeError if C++ object is gone (though without WA_DeleteOnClose it should remain)
+        try:
+            if preview_window.isVisible(): 
+                preview_window.close()
+                preview_window.deleteLater()
+        except RuntimeError:
+            pass # Window already deleted
+
         self.status_label.setText("Ready to merge.")
 
     def _inject_new_image(self, path: str):
@@ -623,12 +672,7 @@ class MergeTab(AbstractClassTwoGalleries):
             self.path_to_label_map[path] = card_top
 
         # 4. Add to Bottom Gallery (Selected)
-        s_count = self.selected_gallery_layout.count()
-        s_row = s_count // cols 
-        s_col = s_count % cols
-        
-        card_bottom = self.create_card_widget(path, pixmap, is_selected=True)
-        self.selected_gallery_layout.addWidget(card_bottom, s_row, s_col, Qt.AlignLeft | Qt.AlignTop)
+        self.refresh_selected_panel()
         
         self.on_selection_changed()
 
@@ -653,7 +697,7 @@ class MergeTab(AbstractClassTwoGalleries):
     def handle_direction_change(self, direction):
         # Update visibility of settings based on direction
         is_grid = direction == "grid"
-        is_complex_stitch = direction in ["panorama", "stitch"]
+        is_complex_stitch = direction in ["panorama", "stitch", "sequential"]
         
         self.grid_group.setVisible(is_grid)
         

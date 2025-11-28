@@ -232,7 +232,7 @@ class ImageMerger:
 
         # 3. Setting Registration Resol (higher value = more keypoints for small diffs)
         # Default is usually 0.6, increasing helps with small overlaps
-        stitcher.setRegistrationResol(0.6) 
+        stitcher.setRegistrationResol(0.8) 
 
         # 4. Perform Stitching
         status, pano = stitcher.stitch(cv_images)
@@ -253,6 +253,174 @@ class ImageMerger:
         merged_image.save(output_path)
         return merged_image
 
+    @staticmethod
+    def _merge_images_sequential(image_paths: List[str], output_path: str) -> Image.Image:
+        """
+        Sequentially stitches images (A->B) vertically using template matching.
+        Ideal for webtoons, chat logs, or vertical screenshots with overlap.
+        Uses bidirectional matching (A->B and B->A) for robustness and sub-pixel refinement.
+        Applies gradient blending (cross-dissolve) at the seam to hide transition lines.
+        """
+        import cv2
+        
+        cv_images = []
+        for p in image_paths:
+            img = cv2.imread(p)
+            if img is not None: cv_images.append(img)
+        
+        if len(cv_images) < 2:
+            raise ValueError("Need 2+ images for sequential merge.")
+
+        # 1. Normalize widths to the first image
+        target_w = cv_images[0].shape[1]
+        resized = []
+        for img in cv_images:
+            h, w = img.shape[:2]
+            if w != target_w:
+                scale = target_w / w
+                new_h = int(h * scale)
+                img = cv2.resize(img, (target_w, new_h))
+            resized.append(img)
+
+        # 2. Accumulate Vertically
+        canvas = resized[0]
+        prev_h = canvas.shape[0] # Track height of the last added segment
+        
+        for i in range(1, len(resized)):
+            next_img = resized[i]
+            h_canvas, w_canvas = canvas.shape[:2]
+            h_next = next_img.shape[:2][0]
+            
+            # Match the bottom strip of 'canvas' with the top of 'next_img'
+            # SEARCH RANGE: Increased to 90% of image height to catch massive overlaps
+            max_search_px = int(min(h_next * 0.90, 5000))
+            overlap_search = min(h_canvas, max_search_px)
+            slice_h = 64
+            
+            best_match_val = 0
+            best_pixel_y_in_roi = -1
+            match_type = None # 'A' or 'B'
+            
+            # --- Sub-pixel refinement helper ---
+            def calculate_subpixel_y(res, max_loc):
+                """Uses weighted average of max_loc and its vertical neighbors for sub-pixel estimation."""
+                y = max_loc[1]
+                x = max_loc[0]
+                
+                # Check bounds for y-neighbors
+                if y > 0 and y < res.shape[0] - 1:
+                    # Parabola approximation to estimate the true peak position
+                    y_sub = (res[y - 1, x] - res[y + 1, x]) / (2 * res[y - 1, x] - 4 * res[y, x] + 2 * res[y + 1, x])
+                    return y + y_sub
+                return y
+            # -----------------------------------
+            
+            # --- Method A: Forward Match (Find Bottom of Canvas inside Top of Next) ---
+            if overlap_search > slice_h:
+                template_a = canvas[-slice_h:, :]
+                if np.std(template_a) > 5.0: # Variance check
+                    roi_a = next_img[:overlap_search, :]
+                    res_a = cv2.matchTemplate(roi_a, template_a, cv2.TM_CCOEFF_NORMED)
+                    _, max_val_a, _, max_loc_a = cv2.minMaxLoc(res_a)
+                    
+                    subpixel_y_a = calculate_subpixel_y(res_a, max_loc_a)
+                    
+                    # Cut point: Canvas end - slice height - distance into next image
+                    cut_y_a = (h_canvas - slice_h) - int(round(subpixel_y_a))
+                    
+                    min_safe_y = h_canvas - prev_h
+                    if max_val_a > 0.6 and min_safe_y < cut_y_a < h_canvas:
+                        if max_val_a > best_match_val:
+                            best_match_val = max_val_a
+                            best_pixel_y_in_roi = subpixel_y_a
+                            match_type = 'A'
+
+            # --- Method B: Reverse Match (Find Top of Next inside Bottom of Canvas) ---
+            if overlap_search > slice_h:
+                template_b = next_img[:slice_h, :]
+                if np.std(template_b) > 5.0: # Variance check
+                    roi_b = canvas[-overlap_search:, :]
+                    res_b = cv2.matchTemplate(roi_b, template_b, cv2.TM_CCOEFF_NORMED)
+                    _, max_val_b, _, max_loc_b = cv2.minMaxLoc(res_b)
+                    
+                    subpixel_y_b = calculate_subpixel_y(res_b, max_loc_b)
+                    
+                    # Cut point: ROI start + match Y
+                    roi_start_y = h_canvas - overlap_search
+                    cut_y_b = roi_start_y + int(round(subpixel_y_b))
+                    
+                    min_safe_y = h_canvas - prev_h
+                    if max_val_b > 0.6 and min_safe_y < cut_y_b < h_canvas:
+                        if max_val_b > best_match_val:
+                            best_match_val = max_val_b
+                            best_pixel_y_in_roi = subpixel_y_b
+                            match_type = 'B'
+            
+            # --- Apply Best Match with BLENDING ---
+            if match_type:
+                # Calculate final integer cut point based on the best subpixel match
+                if match_type == 'A':
+                    final_cut_y = (h_canvas - slice_h) - int(round(best_pixel_y_in_roi))
+                else: # match_type == 'B'
+                    roi_start_y = h_canvas - overlap_search
+                    final_cut_y = roi_start_y + int(round(best_pixel_y_in_roi))
+                
+                # Apply overlap bias to ensure we have content to blend
+                overlap_bias = 0
+                final_cut_y = final_cut_y - overlap_bias
+
+                # Boundary check
+                min_safe_y = h_canvas - prev_h
+                final_cut_y = min(final_cut_y, h_canvas)
+                final_cut_y = max(final_cut_y, min_safe_y)
+                
+                # --- Blending Logic ---
+                # overlap_h: Amount of 'canvas' that extends beyond the cut point.
+                # Since final_cut_y is where we would ideally start next_img, 
+                # any canvas existing below this point is overlap.
+                overlap_h = h_canvas - final_cut_y
+                
+                # Only blend if we have a decent overlap to work with
+                if overlap_h > 0:
+                    # Limit blending height to avoid ghosting on large misalignments
+                    # 64px max blend, or whatever overlap we have
+                    blend_h = min(overlap_h, 64)
+                    
+                    # 1. Top (unblended)
+                    top_part = canvas[:final_cut_y, :]
+                    
+                    # 2. Middle (blended)
+                    # Canvas strip: starts at final_cut_y, height blend_h
+                    img1_strip = canvas[final_cut_y : final_cut_y + blend_h].astype(float)
+                    
+                    # Next Img strip: starts at 0, height blend_h
+                    img2_strip = next_img[0 : blend_h].astype(float)
+                    
+                    # Alpha mask: 1.0 at top (canvas), 0.0 at bottom (next_img)
+                    alpha = np.linspace(1, 0, blend_h).reshape(-1, 1, 1)
+                    blended = (img1_strip * alpha + img2_strip * (1.0 - alpha)).astype(np.uint8)
+                    
+                    # 3. Bottom (unblended)
+                    bottom_part = next_img[blend_h:, :]
+                    
+                    canvas = np.vstack([top_part, blended, bottom_part])
+                else:
+                    # Fallback to hard cut if calculation says 0 overlap
+                    canvas = np.vstack([canvas[:final_cut_y, :], next_img])
+                
+                prev_h = h_next
+            else:
+                # Append with no overlap
+                canvas = np.vstack([canvas, next_img])
+                prev_h = h_next
+
+        # Convert to PIL
+        rgb = cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB)
+        merged_image = Image.fromarray(rgb)
+        
+        merged_image.save(output_path)
+        return merged_image
+
     @classmethod
     @FSETool.ensure_absolute_paths(prefix_func=MERGE_IMAGES_PREFIX)
     def merge_images(self, 
@@ -264,7 +432,7 @@ class ImageMerger:
                      align_mode: AlignMode="Default (Top/Center)") -> Image.Image:
         """
         Merge images based on direction.
-        Options: 'horizontal', 'vertical', 'grid', 'panorama', 'stitch'.
+        Options: 'horizontal', 'vertical', 'grid', 'panorama', 'stitch', 'sequential'.
         """
         if direction == 'horizontal':
             merged_img = self._merge_images_horizontal(image_paths, output_path, spacing, align_mode)
@@ -278,6 +446,8 @@ class ImageMerger:
             merged_img = self._merge_images_panorama(image_paths, output_path)
         elif direction == 'stitch':
             merged_img = self._merge_images_scan_stitch(image_paths, output_path)
+        elif direction == 'sequential':
+            merged_img = self._merge_images_sequential(image_paths, output_path)
         else:
             raise ValueError(f"ERROR: invalid direction '{direction}'")
         
