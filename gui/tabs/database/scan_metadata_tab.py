@@ -56,11 +56,11 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         self.approx_item_width = self.thumbnail_size + self.padding_width + 20
         
         # Pagination State
-        self.scan_page_size = 1000
+        self.scan_page_size = 100
         self.scan_current_page = 0
         self.scan_total_pages = 1
 
-        self.selected_page_size = 1000
+        self.selected_page_size = 100
         self.selected_current_page = 0
         self.selected_total_pages = 1
 

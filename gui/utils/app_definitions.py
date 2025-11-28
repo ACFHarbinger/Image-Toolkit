@@ -18,4 +18,4 @@ SCREENSHOTS_DIR = os.path.join(ROOT_DIR, 'screenshots')
 DRY_RUN = False
 
 # New image size limit
-NEW_LIMIT_MB = 1024
+NEW_LIMIT_MB = 2048

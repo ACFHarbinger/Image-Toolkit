@@ -313,7 +313,6 @@ class MergeTab(AbstractClassTwoGalleries):
             self.clear_galleries()
             return
             
-        self.selected_files.clear()
         self.start_loading_thumbnails(sorted(paths))
         self.status_label.setText(f"Scan complete. Loaded {len(paths)} files.")
 
@@ -438,7 +437,34 @@ class MergeTab(AbstractClassTwoGalleries):
         toggle_action = QAction(toggle_text, self)
         toggle_action.triggered.connect(lambda: self.toggle_selection(path))
         menu.addAction(toggle_action)
+        
+        menu.addSeparator()
+        delete_action = QAction("🗑️ Delete Image File (Permanent)", self)
+        delete_action.triggered.connect(lambda: self.handle_delete_image(path))
+        menu.addAction(delete_action)
+        
         menu.exec(global_pos)
+
+    def handle_delete_image(self, path: str):
+        if QMessageBox.question(self, "Delete", f"Permanently delete {os.path.basename(path)}?") == QMessageBox.Yes:
+            try:
+                os.remove(path)
+                
+                # Update Data Lists in parent class
+                if hasattr(self, 'found_files') and path in self.found_files:
+                    self.found_files.remove(path)
+                if hasattr(self, 'selected_files') and path in self.selected_files:
+                    self.selected_files.remove(path)
+                
+                # Update UI: Remove from internal map and layout
+                if hasattr(self, 'path_to_label_map') and path in self.path_to_label_map:
+                     widget = self.path_to_label_map.pop(path)
+                     widget.deleteLater()
+                     
+                self.on_selection_changed()
+                
+            except Exception as e:
+                QMessageBox.critical(self, "Error", str(e))
         
     def start_merge(self):
         if len(self.selected_files) < 2: 
@@ -523,9 +549,10 @@ class MergeTab(AbstractClassTwoGalleries):
         # 2. Get Confirmation Dialog (using custom buttons)
         confirm = QMessageBox(self)
         confirm.setWindowTitle("Save Merged Image?")
-        confirm.setText("The merged image is ready. Do you want to save it to a final location?")
+        confirm.setText("The merged image is ready. Choose an action:")
         
-        save_btn = confirm.addButton("Save and Choose Location", QMessageBox.ButtonRole.AcceptRole)
+        save_btn = confirm.addButton("Save Only", QMessageBox.ButtonRole.AcceptRole)
+        save_add_btn = confirm.addButton("Save and Add to Selection", QMessageBox.ButtonRole.AcceptRole)
         discard_btn = confirm.addButton("Discard Image", QMessageBox.ButtonRole.DestructiveRole)
         confirm.addButton(QMessageBox.StandardButton.Cancel)
 
@@ -534,34 +561,76 @@ class MergeTab(AbstractClassTwoGalleries):
         # 3. Handle Confirmation Result
         clicked_button = confirm.clickedButton()
         
-        saved_successfully = False
+        saved_path = None
 
-        if clicked_button == save_btn:
+        if clicked_button == save_btn or clicked_button == save_add_btn:
             out, _ = QFileDialog.getSaveFileName(self, "Save Merged Image", self.last_browsed_dir, "PNG (*.png)")
             if out:
                 if not out.lower().endswith('.png'): out += '.png'
                 try:
                     # Move the temporary file to the final destination
-                    os.rename(temp_path, out)
+                    shutil.move(temp_path, out)
                     self.last_browsed_dir = os.path.dirname(out)
-                    saved_successfully = True
+                    saved_path = out
                     QMessageBox.information(self, "Success", f"Saved to {out}")
                 except Exception as e:
                     QMessageBox.critical(self, "Save Error", f"Failed to save image: {e}")
         
-        if saved_successfully:
+        if saved_path:
             self.temp_file_path = None # File saved, no need for cleanup
+            
+            # Logic for "Save & Add to Selection"
+            if clicked_button == save_add_btn:
+                self._inject_new_image(saved_path)
         else:
             self.cleanup_temp_file()
             if clicked_button == discard_btn:
                 QMessageBox.information(self, "Discarded", "Merged image discarded.")
-            elif clicked_button == save_btn:
+            elif clicked_button in [save_btn, save_add_btn]:
                 # If save failed or dialog cancelled, notify the discard.
                 QMessageBox.warning(self, "Cancelled", "Image save cancelled/failed. Merged image discarded.")
 
         # 4. Close Preview Window
         if preview_window.isVisible(): preview_window.close()
         self.status_label.setText("Ready to merge.")
+
+    def _inject_new_image(self, path: str):
+        """Adds a newly created image to the galleries and selection."""
+        # 1. Update Data Models
+        if hasattr(self, 'found_files') and isinstance(self.found_files, list):
+            self.found_files.append(path)
+        
+        self.selected_files.append(path)
+        
+        # 2. Prepare Widget
+        pixmap = QPixmap(path)
+        if pixmap.isNull():
+            return 
+
+        # 3. Add to Top Gallery (Found)
+        count = self.found_gallery_layout.count()
+        width = self.found_gallery_scroll.viewport().width()
+        item_w = self.thumbnail_size + 20
+        cols = max(1, width // item_w) if width > 0 else 4
+        
+        row = count // cols
+        col = count % cols
+        
+        card_top = self.create_card_widget(path, pixmap, is_selected=True)
+        self.found_gallery_layout.addWidget(card_top, row, col, Qt.AlignLeft | Qt.AlignTop)
+        
+        if hasattr(self, 'path_to_label_map'):
+            self.path_to_label_map[path] = card_top
+
+        # 4. Add to Bottom Gallery (Selected)
+        s_count = self.selected_gallery_layout.count()
+        s_row = s_count // cols 
+        s_col = s_count % cols
+        
+        card_bottom = self.create_card_widget(path, pixmap, is_selected=True)
+        self.selected_gallery_layout.addWidget(card_bottom, s_row, s_col, Qt.AlignLeft | Qt.AlignTop)
+        
+        self.on_selection_changed()
 
     def on_merge_error(self, msg):
         self.cleanup_temp_file() # Clean up temp file on worker error

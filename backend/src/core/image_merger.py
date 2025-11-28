@@ -37,7 +37,6 @@ class ImageMerger:
     # --- Core Merging Logic (Private Static Methods) ---
     @staticmethod
     def _merge_images_horizontal(image_paths: List[str], output_path: str, spacing: int=0, align_mode: AlignMode="Default (Top/Center)") -> Image.Image:
-        # ... (Existing implementation remains unchanged) ...
         images = [Image.open(img) for img in image_paths]
         
         widths, heights = zip(*(img.size for img in images))
@@ -83,7 +82,6 @@ class ImageMerger:
 
     @staticmethod
     def _merge_images_vertical(image_paths: List[str], output_path: str, spacing: int=0, align_mode: AlignMode="Default (Top/Center)") -> Image.Image:
-        # ... (Existing implementation remains unchanged) ...
         images = [Image.open(img) for img in image_paths]
         
         widths, heights = zip(*(img.size for img in images))
@@ -130,7 +128,6 @@ class ImageMerger:
 
     @staticmethod
     def _merge_images_grid(image_paths: List[str], output_path: str, grid_size: Tuple[int, int], spacing: int=0) -> Image.Image:
-        # ... (Existing implementation remains unchanged) ...
         images = [Image.open(img) for img in image_paths]
         rows, cols = grid_size
         
@@ -161,6 +158,51 @@ class ImageMerger:
         return merged_image
 
     @staticmethod
+    def _merge_images_panorama(image_paths: List[str], output_path: str) -> Image.Image:
+        """
+        Stitches images into a panorama using OpenCV's default PANORAMA mode.
+        Good for rotating camera shots (perspective transformation).
+        """
+        import cv2
+        
+        cv_images = []
+        for path in image_paths:
+            img = cv2.imread(path)
+            if img is not None:
+                cv_images.append(img)
+            else:
+                 print(f"Warning: Could not read image for panorama: {path}")
+
+        if len(cv_images) < 2:
+            raise ValueError("Need at least 2 valid images to create a panorama.")
+            
+        # Initialize Stitcher in PANORAMA mode (Mode 0)
+        try:
+            stitcher = cv2.Stitcher_create(mode=0)
+        except AttributeError:
+             # Fallback for older OpenCV versions
+             stitcher = cv2.createStitcher(False) 
+        
+        # Perform stitching
+        status, pano = stitcher.stitch(cv_images)
+
+        if status != cv2.Stitcher_OK:
+            error_map = {
+                cv2.Stitcher_ERR_NEED_MORE_IMGS: "Need more images",
+                cv2.Stitcher_ERR_HOMOGRAPHY_EST_FAIL: "Homography estimation failed",
+                cv2.Stitcher_ERR_CAMERA_PARAMS_ADJUST_FAIL: "Camera params failed"
+            }
+            err_msg = error_map.get(status, f"Error code {status}")
+            raise RuntimeError(f"Panorama stitching failed: {err_msg}")
+
+        # Convert BGR (OpenCV) to RGB (PIL)
+        pano_rgb = cv2.cvtColor(pano, cv2.COLOR_BGR2RGB)
+        merged_image = Image.fromarray(pano_rgb)
+        
+        merged_image.save(output_path)
+        return merged_image
+
+    @staticmethod
     def _merge_images_scan_stitch(image_paths: List[str], output_path: str) -> Image.Image:
         """
         Stitches a large number of images with small differences (flat scans).
@@ -185,12 +227,12 @@ class ImageMerger:
         try:
             stitcher = cv2.Stitcher_create(mode=1) 
         except AttributeError:
-             # Fallback: older OpenCV versions might not accept mode arg in create
-             stitcher = cv2.createStitcher(True) # True often maps to scans/try_use_gpu
+            # Fallback: older OpenCV versions might not accept mode arg in create
+            stitcher = cv2.createStitcher(True) # True often maps to scans/try_use_gpu
 
         # 3. Setting Registration Resol (higher value = more keypoints for small diffs)
         # Default is usually 0.6, increasing helps with small overlaps
-        stitcher.setRegistrationResol(0.8) 
+        stitcher.setRegistrationResol(0.6) 
 
         # 4. Perform Stitching
         status, pano = stitcher.stitch(cv_images)
@@ -235,7 +277,6 @@ class ImageMerger:
         elif direction == 'panorama':
             merged_img = self._merge_images_panorama(image_paths, output_path)
         elif direction == 'stitch':
-            # NEW: Scan Stitching mode
             merged_img = self._merge_images_scan_stitch(image_paths, output_path)
         else:
             raise ValueError(f"ERROR: invalid direction '{direction}'")
