@@ -411,18 +411,22 @@ class GoogleDriveSync:
             return True
 
         try:
-            request = self.drive_service.files().get(fileId=file_id, alt='media')
+            # 1. Prepare Request 
+            # Changed to use files().get_media() which is specialized for content download
+            request = self.drive_service.files().get_media(fileId=file_id)
             
-            # Use io.FileIO to write the content directly to the file
-            file_handle = io.FileIO(local_destination_path, 'wb')
+            # 2. Use in-memory buffer (BytesIO) to download the whole file stream first
+            buffer = io.BytesIO()
+            downloader = MediaIoBaseDownload(buffer, request)
             
-            # Download the file content in chunks
-            downloader = MediaIoBaseDownload(file_handle, request)
             done = False
             while done is False:
                 status, done = downloader.next_chunk()
-                
-            file_handle.close()
+
+            # 3. Write the complete buffer content to disk only upon successful download
+            with open(local_destination_path, 'wb') as file_handle:
+                file_handle.write(buffer.getvalue())
+            
             return True
             
         except HttpError as e:
@@ -453,7 +457,7 @@ class GoogleDriveSync:
             return False
 
     def _delete_remote_content(self, file_id: str, rel_path: str) -> bool:
-        """Deletes a file or folder from Google Drive."""
+        """Deletes a file or folder from Google Drive, and verifies the deletion."""
         self.check_stop()
         if not self.drive_service:
             raise RuntimeError("Drive service not initialized.")
@@ -463,10 +467,27 @@ class GoogleDriveSync:
             return True
             
         try:
+            # 1. Execute deletion
             self.drive_service.files().delete(fileId=file_id).execute()
-            return True
+            
+            # 2. Verify deletion (check if file still exists and is not trashed)
+            # Use minimal fields to save bandwidth
+            try:
+                self.drive_service.files().get(fileId=file_id, fields='trashed').execute()
+                # If GET succeeds, deletion failed or file was just trashed (Drive default behavior)
+                self.logger(f"   ⚠️ WARNING: Deletion of {rel_path} failed verification (File ID {file_id} still exists).")
+                return False
+            except HttpError as e:
+                # Expected error 404 (File not found) indicates successful permanent deletion
+                if e.resp.status == 404:
+                    return True
+                
+                # If we get another error status, log it but assume deletion failed verification
+                self.logger(f"❌ Verification error for file ID {file_id}: {e}")
+                return False
+            
         except HttpError as e:
-            self.logger(f"❌ Error deleting remote file ID {file_id}: {e}")
+            self.logger(f"❌ Error during remote deletion of file ID {file_id}: {e}")
             return False
 
     # ==============================================================================
@@ -569,13 +590,19 @@ class GoogleDriveSync:
 
             # 2. Process Remaining Remote Items (Download or Delete Remote)
             # Remaining items in items_skipped_remote exist *only* on the remote side.
-            for rel_path, remote_data in items_skipped_remote.items():
+            # We iterate over a list of paths sorted longest-first to ensure files are processed
+            # before their parent folders are considered (for recursive consistency, though Drive handles folder deletion recursively).
+            
+            # Sort remote orphans reverse alphabetically (deepest paths first)
+            sorted_remote_orphans = sorted(items_skipped_remote.items(), key=lambda item: item[0], reverse=True)
+            
+            for rel_path, remote_data in sorted_remote_orphans:
                 self.check_stop()
                 
                 # Remote Orphan
                 if self.action_remote == "download":
                     if remote_data['is_folder']:
-                        continue # Folders handled by file paths creation, or ignored
+                        continue 
                     
                     self.logger(f"   DOWNLOADING: {rel_path}")
                     if self._download_file(remote_data['id'], os.path.join(self.local_path, rel_path)):
