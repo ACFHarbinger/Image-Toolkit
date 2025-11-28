@@ -31,9 +31,9 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         self._selected_pixmap_cache: Dict[str, QPixmap] = {}
 
         # --- Pagination State ---
-        self.found_page_size = 1000
+        self.found_page_size = 100
         self.found_current_page = 0
-        self.selected_page_size = 1000
+        self.selected_page_size = 100
         self.selected_current_page = 0
 
         # --- UI Configuration ---
@@ -87,9 +87,14 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
     @Slot()
     def select_all_items(self):
-        """Selects all items currently in the found_files list."""
+        """Selects all items currently visible on the current page."""
+        # Calculate the slice for the current page using the common helper
+        current_page_paths = self.common_get_paginated_slice(
+            self.found_files, self.found_current_page, self.found_page_size
+        )
+
         changed = False
-        for path in self.found_files:
+        for path in current_page_paths:
             if path not in self.selected_files:
                 self.selected_files.append(path)
                 changed = True

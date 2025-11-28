@@ -25,7 +25,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         self.path_to_card_widget: Dict[str, QWidget] = {}
         
         # --- Pagination State ---
-        self.page_size = 1000
+        self.page_size = 100
         self.current_page = 0
 
         # --- UI Configuration ---

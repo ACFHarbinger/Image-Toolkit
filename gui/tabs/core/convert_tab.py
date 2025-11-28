@@ -1,18 +1,19 @@
 import os
 
-from typing import Optional
+from typing import Optional, List
 from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QFileDialog, QFormLayout, QHBoxLayout,
     QVBoxLayout, QWidget, QCheckBox, QMessageBox, 
     QLabel, QGroupBox, QScrollArea, QGridLayout, 
-    QProgressBar, QComboBox
+    QProgressBar, QComboBox, QMenu
 )
-from PySide6.QtGui import QPixmap
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtGui import QPixmap, QAction
+from PySide6.QtCore import Qt, Slot, QPoint
 from ...classes import AbstractClassTwoGalleries
 from ...helpers import ConversionWorker
 from ...components import OptionalField, MarqueeScrollArea, ClickableLabel
 from ...styles.style import apply_shadow_effect, SHARED_BUTTON_STYLE
+from ...windows import ImagePreviewWindow
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 
 
@@ -21,6 +22,7 @@ class ConvertTab(AbstractClassTwoGalleries):
         super().__init__()
         self.dropdown = dropdown
         self.worker = None
+        self.open_preview_windows: List[ImagePreviewWindow] = []
         
         # --- UI Setup ---
         main_layout = QVBoxLayout(self)
@@ -238,6 +240,11 @@ class ConvertTab(AbstractClassTwoGalleries):
         
         # Apply initial style
         self._update_card_style(img_label, is_selected)
+        
+        # --- Connect Signals for Double Click and Context Menu ---
+        card_wrapper.path_double_clicked.connect(self.handle_full_image_preview)
+        card_wrapper.path_right_clicked.connect(self.show_image_context_menu)
+        
         return card_wrapper
 
     def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
@@ -277,6 +284,86 @@ class ConvertTab(AbstractClassTwoGalleries):
         count = len(self.selected_files)
         self.btn_convert_contents.setText(f"Convert Selected Files ({count})")
         self.btn_convert_contents.setEnabled(count > 0)
+
+    # --- INTERACTION HANDLERS ---
+
+    @Slot(str)
+    def handle_full_image_preview(self, image_path: str):
+        if not os.path.exists(image_path): return
+        
+        # Build navigation list. Default to found files, fallback to selected, or just single.
+        target_list = self.found_files if hasattr(self, 'found_files') and self.found_files else []
+        
+        # If the double-clicked image isn't in found_files (e.g. was filtered out but still in selection), check selected
+        if image_path not in target_list:
+             if hasattr(self, 'selected_files') and image_path in self.selected_files:
+                 target_list = sorted(list(self.selected_files))
+             else:
+                 target_list = [image_path]
+
+        try:
+            start_index = target_list.index(image_path)
+        except ValueError:
+            start_index = 0
+
+        preview = ImagePreviewWindow(
+            image_path=image_path, 
+            db_tab_ref=None, 
+            parent=self, 
+            all_paths=target_list, 
+            start_index=start_index
+        )
+        preview.setAttribute(Qt.WA_DeleteOnClose)
+        preview.show() 
+        self.open_preview_windows.append(preview)
+
+    @Slot(QPoint, str)
+    def show_image_context_menu(self, global_pos: QPoint, path: str):
+        menu = QMenu(self)
+        
+        view_action = QAction("View Full Size Preview", self)
+        view_action.triggered.connect(lambda: self.handle_full_image_preview(path))
+        menu.addAction(view_action)
+        
+        menu.addSeparator()
+        
+        # Add Select/Deselect options
+        is_selected = path in self.selected_files
+        toggle_text = "Deselect image from conversion" if is_selected else "Select image to convert"
+        toggle_action = QAction(toggle_text, self)
+        toggle_action.triggered.connect(lambda: self.toggle_selection(path))
+        menu.addAction(toggle_action)
+        
+        menu.addSeparator()
+        
+        delete_action = QAction("🗑️ Delete Image File (Permanent)", self)
+        delete_action.triggered.connect(lambda: self.handle_delete_image(path))
+        menu.addAction(delete_action)
+        
+        menu.exec(global_pos)
+
+    def handle_delete_image(self, path: str):
+        if QMessageBox.question(self, "Delete", f"Permanently delete {os.path.basename(path)}?") == QMessageBox.Yes:
+            try:
+                os.remove(path)
+                
+                # Update Data Lists in parent class
+                if hasattr(self, 'found_files') and path in self.found_files:
+                    self.found_files.remove(path)
+                if hasattr(self, 'selected_files') and path in self.selected_files:
+                    self.selected_files.remove(path)
+                
+                # Update UI: Remove from internal map and layout
+                if hasattr(self, 'path_to_label_map') and path in self.path_to_label_map:
+                     widget = self.path_to_label_map.pop(path)
+                     widget.deleteLater()
+                     # If using pagination, triggering a refresh might be cleaner, 
+                     # but removing the widget directly is instant.
+                     
+                self.on_selection_changed()
+                
+            except Exception as e:
+                QMessageBox.critical(self, "Error", str(e))
 
     # --- INPUT LOGIC ---
 
