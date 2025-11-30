@@ -66,6 +66,9 @@ class DeleteTab(AbstractClassTwoGalleries):
         browse_layout = QHBoxLayout()
         self.target_path = QLineEdit()
         self.target_path.setPlaceholderText("Path to delete OR scan for duplicates...")
+        # Auto-scan on enter
+        self.target_path.returnPressed.connect(self.start_duplicate_scan)
+        
         browse_layout.addWidget(self.target_path)
 
         btn_browse_scan = QPushButton("Browse...")
@@ -146,13 +149,10 @@ class DeleteTab(AbstractClassTwoGalleries):
         self.btn_compare_properties.setVisible(False)
         dup_actions_layout.addWidget(self.btn_compare_properties)
 
+        # Redundant button removed/hidden since logic is moved to main button
         self.btn_delete_selected_dups = QPushButton("Delete Selected Duplicates")
-        self.btn_delete_selected_dups.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold; padding: 8px;")
-        apply_shadow_effect(self.btn_delete_selected_dups, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        self.btn_delete_selected_dups.clicked.connect(self.delete_selected_duplicates)
-        self.btn_delete_selected_dups.setVisible(False)
-        dup_actions_layout.addWidget(self.btn_delete_selected_dups)
-
+        self.btn_delete_selected_dups.setVisible(False) 
+        
         content_layout.addLayout(dup_actions_layout)
 
         # Other options
@@ -212,17 +212,25 @@ class DeleteTab(AbstractClassTwoGalleries):
             QPushButton:pressed { background: #5a67d8; }
         """
 
-        self.btn_delete_files = QPushButton("Scan Directory")
+        # MODIFIED: Changed from "Scan Directory" to "Delete Selected Files"
+        self.btn_delete_files = QPushButton("Delete Selected Files (0)")
         self.btn_delete_files.setStyleSheet(SHARED_BUTTON_STYLE)
         apply_shadow_effect(self.btn_delete_files, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        self.btn_delete_files.clicked.connect(self.toggle_scan)
-        run_buttons_layout.addWidget(self.btn_delete_files)
-
+        
+        # Connect to delete functionality instead of scan toggle
+        self.btn_delete_files.clicked.connect(self.delete_selected_duplicates)
+        
+        # Disabled initially until a scan happens or items are selected
+        self.btn_delete_files.setEnabled(False) 
+        
         self.btn_delete_directory = QPushButton("Delete Directory and Contents")
         self.btn_delete_directory.setStyleSheet(SHARED_BUTTON_STYLE)
         apply_shadow_effect(self.btn_delete_directory, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.btn_delete_directory.clicked.connect(lambda: self.start_deletion(mode='directory'))
+        
+        # SWAPPED POSITIONS
         run_buttons_layout.addWidget(self.btn_delete_directory)
+        run_buttons_layout.addWidget(self.btn_delete_files) 
 
         content_layout.addLayout(run_buttons_layout)
 
@@ -303,19 +311,23 @@ class DeleteTab(AbstractClassTwoGalleries):
 
     def on_selection_changed(self):
         count = len(self.selected_files)
-        self.btn_delete_selected_dups.setText(f"Delete Selected ({count})")
+        
+        # Update the main delete button
+        self.btn_delete_files.setText(f"Delete Selected Files ({count})")
+        self.btn_delete_files.setEnabled(count > 0)
+        
         self.btn_compare_properties.setText(f"Compare Properties ({count})")
         
         has_dups = len(self.found_files) > 0
-        self.btn_delete_selected_dups.setVisible(has_dups)
         self.btn_compare_properties.setVisible(has_dups)
-        self.btn_delete_selected_dups.setEnabled(count > 0)
         self.btn_compare_properties.setEnabled(count > 0)
 
     # --- SCANNING LOGIC ---
 
     @Slot()
     def toggle_scan(self):
+        # Used by the old button, kept for compatibility if needed, 
+        # but the new flow uses start_duplicate_scan directly.
         if self.scan_thread and self.scan_thread.isRunning():
             self.cancel_scan()
         else:
@@ -334,18 +346,27 @@ class DeleteTab(AbstractClassTwoGalleries):
             self._reset_scan_ui("Scan cancelled.")
             
     def _reset_scan_ui(self, status_message: str):
-        self.btn_delete_files.setText("Scan Directory")
-        # Reuse local style definition or import it
-        SHARED_BUTTON_STYLE = """
+        # Restore button to Delete mode
+        self.btn_delete_files.setText(f"Delete Selected Files ({len(self.selected_files)})")
+        
+        # Disconnect any cancel slots and reconnect delete slots
+        try:
+            self.btn_delete_files.clicked.disconnect()
+        except RuntimeError: pass
+        
+        self.btn_delete_files.clicked.connect(self.delete_selected_duplicates)
+        
+        self.btn_delete_files.setEnabled(len(self.selected_files) > 0)
+        self.btn_delete_files.setStyleSheet("""
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #667eea, stop:1 #764ba2);
                 color: white; font-weight: bold; font-size: 14px;
                 padding: 14px 8px; border-radius: 10px; min-height: 44px;
             }
             QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #764ba2, stop:1 #667eea); }
-        """
-        self.btn_delete_files.setStyleSheet(SHARED_BUTTON_STYLE)
-        self.btn_delete_files.setEnabled(True)
+            QPushButton:disabled { background: #718096; }
+        """)
+        
         self.scan_progress_bar.hide()
         self.status_label.setText(status_message)
 
@@ -383,9 +404,15 @@ class DeleteTab(AbstractClassTwoGalleries):
             method = "orb"
             status_msg = "Starting ORB scan..."
 
+        # Temporarily repurpose button for cancelling
         self.btn_delete_files.setEnabled(False) 
         self.btn_delete_files.setText("Cancel Scan")
         self.btn_delete_files.setStyleSheet(STYLE_SCAN_CANCEL)
+        
+        try: self.btn_delete_files.clicked.disconnect()
+        except RuntimeError: pass
+        self.btn_delete_files.clicked.connect(self.cancel_scan)
+        
         self.btn_delete_files.setEnabled(True)
         self.scan_progress_bar.show()
         
@@ -420,7 +447,6 @@ class DeleteTab(AbstractClassTwoGalleries):
 
     @Slot(dict)
     def on_scan_finished(self, results: Dict[str, List[str]]):
-        self._reset_scan_ui("Scan complete.")
         self.duplicate_results = results
         
         flattened_paths = []
@@ -431,9 +457,11 @@ class DeleteTab(AbstractClassTwoGalleries):
                 flattened_paths.extend(paths)
         
         if not flattened_paths:
+            self._reset_scan_ui("Scan complete. No matches.")
             QMessageBox.information(self, "No Matches", "No duplicate or similar images found.")
             return
             
+        self._reset_scan_ui("Scan complete.")
         self.status_label.setText(f"Found {len(results)} groups ({len(flattened_paths)} files).")
         
         # Use Base Class method to load thumbnails into top gallery
@@ -622,7 +650,7 @@ class DeleteTab(AbstractClassTwoGalleries):
         self.status_label.setText(f"Deleted {deleted} of {total}...")
 
     def on_deletion_done(self, count, msg):
-        self.btn_delete_files.setEnabled(True)
+        self.btn_delete_files.setEnabled(len(self.selected_files) > 0)
         self.btn_delete_directory.setEnabled(True)
         self.status_label.setText(msg)
         QMessageBox.information(self, "Complete", msg)
@@ -640,6 +668,8 @@ class DeleteTab(AbstractClassTwoGalleries):
         if d:
             self.target_path.setText(d)
             self.last_browsed_dir = d
+            # Auto-Scan triggered immediately
+            self.start_duplicate_scan()
         
     def is_valid(self, mode: str):
         p = self.target_path.text().strip()

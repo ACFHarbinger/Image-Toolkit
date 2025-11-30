@@ -102,7 +102,7 @@ class DatabaseTab(QWidget):
         lbl_auto_info.setStyleSheet("color: #aaa; font-style: italic;")
         auto_pop_layout.addWidget(lbl_auto_info)
 
-        self.btn_auto_populate = QPushButton("Auto-Sync Groups & Subgroups from Source")
+        self.btn_auto_populate = QPushButton("Auto-Sync Groups and Subgroups from Source")
         self.btn_auto_populate.setStyleSheet("background-color: #2ecc71; color: white; padding: 8px; font-weight: bold;")
         apply_shadow_effect(self.btn_auto_populate, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.btn_auto_populate.clicked.connect(self.auto_populate_from_source)
