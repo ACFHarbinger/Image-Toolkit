@@ -11,21 +11,24 @@ from PySide6.QtCore import (
     QTimer, Slot, QPoint, QEventLoop,
 ) 
 from PySide6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, 
     QGroupBox, QComboBox, QMenu,
     QWidget, QLabel, QPushButton, 
     QGridLayout, QSpinBox, QCheckBox,
     QLineEdit, QFileDialog, QScrollArea, 
     QMessageBox, QApplication, QColorDialog,
-    QProgressDialog
+    QVBoxLayout, QHBoxLayout, QProgressDialog,
 )
 from ...classes import AbstractClassSingleGallery
-from ...windows import SlideshowQueueWindow, ImagePreviewWindow
 from ...helpers import ImageScannerWorker, WallpaperWorker
-from ...components import MonitorDropWidget, DraggableImageLabel, MarqueeScrollArea
+from ...windows import SlideshowQueueWindow, ImagePreviewWindow
+from ...components import (
+    MonitorDropWidget, DraggableImageLabel, 
+    MarqueeScrollArea, DraggableMonitorContainer
+)
 from ...styles.style import apply_shadow_effect, STYLE_START_ACTION, STYLE_STOP_ACTION
 from backend.src.utils.definitions import WALLPAPER_STYLES
 from backend.src.core import WallpaperManager
+
 
 
 class WallpaperTab(AbstractClassSingleGallery):
@@ -147,15 +150,18 @@ class WallpaperTab(AbstractClassSingleGallery):
         """
         
         # Monitor Layout Group
-        layout_group = QGroupBox("Monitor Layout (Drop images here, double-click to see queue)")
+        layout_group = QGroupBox("Monitor Layout (Drag to Reorder, Drop images to set)")
         layout_group.setStyleSheet(group_box_style)
         
-        self.monitor_layout_container = QWidget()
-        self.monitor_layout = QHBoxLayout(self.monitor_layout_container)
-        self.monitor_layout.setSpacing(15)
-        self.monitor_layout.setAlignment(Qt.AlignCenter)
+        # --- MODIFIED: Use DraggableMonitorContainer ---
+        self.monitor_layout_container = DraggableMonitorContainer()
+        self.monitor_layout = self.monitor_layout_container.layout_hbox
+        # -----------------------------------------------
         
-        layout_group.setLayout(self.monitor_layout)
+        # Wrap in a standard VBox for the groupbox
+        gb_layout = QVBoxLayout(layout_group)
+        gb_layout.addWidget(self.monitor_layout_container)
+        
         content_layout.addWidget(layout_group) 
 
         # Slideshow Controls Group
@@ -276,8 +282,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         
         content_layout.addWidget(self.gallery_scroll_area, 1) 
         
-        # --- PAGINATION WIDGET MOVED HERE ---
-        # Added with stretch 0 and Alignment Center
+        # --- PAGINATION WIDGET ---
         content_layout.addWidget(self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter)
         
         # **Assign Base Class References**
@@ -308,9 +313,6 @@ class WallpaperTab(AbstractClassSingleGallery):
     # --- IMPLEMENT ABSTRACT METHODS ---
 
     def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
-        """
-        Creates a DraggableImageLabel for the Wallpaper Tab gallery.
-        """
         draggable_label = DraggableImageLabel(path, self.thumbnail_size)
         
         # Connect signals
@@ -329,9 +331,6 @@ class WallpaperTab(AbstractClassSingleGallery):
         return draggable_label
 
     def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
-        """
-        Updates the DraggableImageLabel with the loaded pixmap.
-        """
         if isinstance(widget, DraggableImageLabel):
             if pixmap and not pixmap.isNull():
                 widget.setPixmap(pixmap)
@@ -676,9 +675,14 @@ class WallpaperTab(AbstractClassSingleGallery):
         return rotated_map
     
     def populate_monitor_layout(self):
-        for i in reversed(range(self.monitor_layout.count())): 
-            widget = self.monitor_layout.takeAt(i).widget()
-            if widget is not None: widget.deleteLater()
+        # Use new custom clearer
+        if isinstance(self.monitor_layout_container, DraggableMonitorContainer):
+            self.monitor_layout_container.clear_widgets()
+        else:
+            for i in reversed(range(self.monitor_layout.count())): 
+                widget = self.monitor_layout.takeAt(i).widget()
+                if widget is not None: widget.deleteLater()
+
         self.monitor_widgets.clear()
         try:
             system_monitors = get_monitors()
@@ -726,7 +730,10 @@ class WallpaperTab(AbstractClassSingleGallery):
                     image_path_to_display = system_wallpaper_path
             if image_path_to_display: drop_widget.set_image(image_path_to_display)
             else: drop_widget.clear() 
-            self.monitor_layout.addWidget(drop_widget)
+
+            # Direct add (no wrapper)
+            self.monitor_layout_container.addWidget(drop_widget)
+
             self.monitor_widgets[monitor_id] = drop_widget
         self.check_all_monitors_set()
 

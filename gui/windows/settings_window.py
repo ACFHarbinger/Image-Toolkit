@@ -177,7 +177,7 @@ class SettingsWindow(QWidget):
         create_config_layout.addRow("Configuration (JSON):", self.default_config_editor)
 
         # Button to save/create the current JSON config
-        self.btn_create_default = QPushButton("Save/Update Named Configuration")
+        self.btn_create_default = QPushButton("Save Named Configuration")
         self.btn_create_default.clicked.connect(self._save_current_tab_config)
         create_config_layout.addRow(self.btn_create_default)
         
