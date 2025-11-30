@@ -1,11 +1,13 @@
 import os
+import cv2
+import shutil
 import platform
 import subprocess
 
 from pathlib import Path
 from screeninfo import get_monitors, Monitor
 from typing import Dict, List, Optional, Tuple, Any
-from PySide6.QtGui import QPixmap, QAction, QColor
+from PySide6.QtGui import QPixmap, QAction, QColor, QImage
 from PySide6.QtCore import (
     Qt, QThreadPool, QThread,
     QTimer, Slot, QPoint,
@@ -59,13 +61,22 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.set_wallpaper_btn.setEnabled(num_monitors > 0)
             return
 
-        if self.slideshow_enabled_checkbox.isChecked():
+        if self.background_type == "Slideshow":
             if is_ready:
                 self.set_wallpaper_btn.setEnabled(True)
                 self.set_wallpaper_btn.setText(f"Start Slideshow ({total_images} total items)")
             else:
                 self.set_wallpaper_btn.setEnabled(False)
                 self.set_wallpaper_btn.setText("Slideshow (Drop images/videos)")
+        
+        elif self.background_type == "Smart Video Wallpaper Reborn":
+            if set_count > 0:
+                self.set_wallpaper_btn.setText("Set Video Wallpaper")
+                self.set_wallpaper_btn.setEnabled(True)
+            else:
+                self.set_wallpaper_btn.setText("Set Video (0 items)")
+                self.set_wallpaper_btn.setEnabled(False)
+
         elif set_count > 0: 
             self.set_wallpaper_btn.setText("Set Wallpaper")
             self.set_wallpaper_btn.setEnabled(True)
@@ -74,19 +85,19 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.set_wallpaper_btn.setEnabled(False)
 
     def __init__(self, db_tab_ref):
-        # Initialize Base Class
         super().__init__()    
         self.db_tab_ref = db_tab_ref
-        if os.environ.get("DESKTOP_SESSION").lower() in ["plasma", "kde"]:
+        if os.environ.get("DESKTOP_SESSION", "").lower() in ["plasma", "kde"]:
             try:
-                subprocess.run(["which", "qdbus6"], check=True, capture_output=True)
-                self.qdbus = "qdbus6"
-            except (FileNotFoundError, subprocess.CalledProcessError):
-                try:
-                    subprocess.run(["which", "qdbus"], check=True, capture_output=True)
+                if shutil.which("qdbus6"):
+                    self.qdbus = "qdbus6"
+                elif shutil.which("qdbus"):
                     self.qdbus = "qdbus"
-                except (FileNotFoundError, subprocess.CalledProcessError):
-                    QMessageBox.warning(self, "System Error", "You need qdbus configured on KDE Plasma to access wallpaper functionality.")
+                else:
+                    self.qdbus = None
+                    print("Warning: qdbus not found.")
+            except Exception:
+                self.qdbus = None
         else:
             self.qdbus = None
 
@@ -97,6 +108,8 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.monitor_slideshow_queues: Dict[str, List[str]] = {} 
         self.monitor_current_index: Dict[str, int] = {}
         
+        self._initial_pixmap_cache: Dict[str, QPixmap] = {}
+
         self.current_wallpaper_worker: Optional[WallpaperWorker] = None
         
         self.slideshow_timer: Optional[QTimer] = None
@@ -110,20 +123,15 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.background_type: str = "Image" 
         self.solid_color_hex: str = "#000000" 
 
-        # --- Scanner References ---
         self.img_scanner_worker: Optional[Any] = None
         self.img_scanner_thread: Optional[QThread] = None
         self.vid_scanner_worker: Optional[VideoScannerWorker] = None
         
-        # State for manual addition (mimicking ImageExtractorTab)
         self.scanned_dir = None
         self.path_to_label_map = {}
-        # --------------------------
         
-        # --- Initialize Pagination ---
         self.pagination_widget = self.create_pagination_controls()
 
-        # --- UI SETUP ---
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
         
@@ -151,11 +159,9 @@ class WallpaperTab(AbstractClassSingleGallery):
             }
         """
         
-        # Monitor Layout Group
         layout_group = QGroupBox("Monitor Layout (Drag to Reorder, Drop images/videos to set)")
         layout_group.setStyleSheet(group_box_style)
         
-        # Use DraggableMonitorContainer
         self.monitor_layout_container = DraggableMonitorContainer()
         self.monitor_layout = self.monitor_layout_container.layout_hbox
         
@@ -164,14 +170,25 @@ class WallpaperTab(AbstractClassSingleGallery):
         
         content_layout.addWidget(layout_group) 
 
-        # Slideshow Controls Group
-        self.slideshow_group = QGroupBox("Slideshow Settings (Per-Monitor Cycle)")
-        self.slideshow_group.setStyleSheet(group_box_style)
-        slideshow_layout = QHBoxLayout(self.slideshow_group)
-        slideshow_layout.setContentsMargins(10, 20, 10, 10)
+        settings_group = QGroupBox("Wallpaper Settings")
+        settings_group.setStyleSheet(group_box_style)
+        settings_layout = QVBoxLayout(settings_group)
+        settings_layout.setContentsMargins(10, 20, 10, 10)
+        
+        background_type_layout = QHBoxLayout()
+        self.background_type_combo = QComboBox()
+        self.background_type_combo.addItems(["Image", "Slideshow", "Smart Video Wallpaper Reborn", "Solid Color"])
+        self.background_type_combo.setCurrentText(self.background_type)
+        self.background_type_combo.currentTextChanged.connect(self._update_background_type)
 
-        self.slideshow_enabled_checkbox = QCheckBox("Enable Slideshow")
-        slideshow_layout.addWidget(self.slideshow_enabled_checkbox)
+        background_type_layout.addWidget(QLabel("Background Type:"))
+        background_type_layout.addWidget(self.background_type_combo)
+        background_type_layout.addStretch(1)
+        settings_layout.addLayout(background_type_layout)
+
+        self.slideshow_group = QWidget()
+        slideshow_layout = QHBoxLayout(self.slideshow_group)
+        slideshow_layout.setContentsMargins(0, 10, 0, 10)
 
         slideshow_layout.addWidget(QLabel("Interval:"))
         self.interval_min_spinbox = QSpinBox()
@@ -194,25 +211,9 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.countdown_label.setStyleSheet("color: #2ecc71; font-weight: bold; font-size: 14px;")
         self.countdown_label.setFixedWidth(100)
         slideshow_layout.addWidget(self.countdown_label)
-
-        content_layout.addWidget(self.slideshow_group) 
-
-        # Combined Settings Group
-        settings_group = QGroupBox("Wallpaper Settings")
-        settings_group.setStyleSheet(group_box_style)
-        settings_layout = QVBoxLayout(settings_group)
-        settings_layout.setContentsMargins(10, 20, 10, 10)
         
-        background_type_layout = QHBoxLayout()
-        self.background_type_combo = QComboBox()
-        self.background_type_combo.addItems(["Image", "Solid Color"])
-        self.background_type_combo.setCurrentText(self.background_type)
-        self.background_type_combo.currentTextChanged.connect(self._update_background_type)
-
-        background_type_layout.addWidget(QLabel("Background Type:"))
-        background_type_layout.addWidget(self.background_type_combo)
-        background_type_layout.addStretch(1)
-        settings_layout.addLayout(background_type_layout)
+        settings_layout.addWidget(self.slideshow_group)
+        self.slideshow_group.setVisible(False)
 
         self.solid_color_widget = QWidget()
         self.solid_color_layout = QHBoxLayout(self.solid_color_widget)
@@ -233,7 +234,10 @@ class WallpaperTab(AbstractClassSingleGallery):
         settings_layout.addWidget(self.solid_color_widget)
         self.solid_color_widget.setVisible(False) 
 
-        style_layout = QHBoxLayout()
+        self.style_layout_widget = QWidget()
+        style_layout = QHBoxLayout(self.style_layout_widget)
+        style_layout.setContentsMargins(0, 0, 0, 0)
+
         self.style_combo = QComboBox()
         self.style_combo.setStyleSheet("QComboBox { padding: 5px; border-radius: 4px; }")
         
@@ -247,7 +251,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         style_layout.addWidget(QLabel("Image Style:"))
         style_layout.addWidget(self.style_combo)
         style_layout.addStretch(1)
-        settings_layout.addLayout(style_layout)
+        settings_layout.addWidget(self.style_layout_widget)
         
         settings_layout.addWidget(QLabel("<hr>")) 
 
@@ -265,7 +269,6 @@ class WallpaperTab(AbstractClassSingleGallery):
         
         content_layout.addWidget(settings_group) 
 
-        # --- Gallery Setup ---
         self.gallery_scroll_area = MarqueeScrollArea() 
         self.gallery_scroll_area.setWidgetResizable(True)
         self.gallery_scroll_area.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
@@ -280,14 +283,11 @@ class WallpaperTab(AbstractClassSingleGallery):
         
         content_layout.addWidget(self.gallery_scroll_area, 1) 
         
-        # --- PAGINATION WIDGET ---
         content_layout.addWidget(self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter)
         
-        # **Assign Base Class References**
         self.gallery_scroll_area = self.gallery_scroll_area
         self.gallery_layout = self.scan_thumbnail_layout
 
-        # Action Buttons
         action_layout = QHBoxLayout()
         action_layout.setSpacing(10)
         
@@ -299,24 +299,55 @@ class WallpaperTab(AbstractClassSingleGallery):
         
         content_layout.addLayout(action_layout) 
 
-        # Initial setup
         self.populate_monitor_layout()
         self.check_all_monitors_set()
         self.stop_slideshow()
         
-    # --- Logic ---
+    def _generate_video_thumbnail(self, file_path: str) -> Optional[QPixmap]:
+        """Generates a thumbnail for a single video file using OpenCV."""
+        if not file_path or not os.path.exists(file_path):
+            return None
+            
+        try:
+            cap = cv2.VideoCapture(file_path)
+            if not cap.isOpened():
+                return None
+            
+            # Try to grab a frame at 1.0 second
+            cap.set(cv2.CAP_PROP_POS_MSEC, 1000) 
+            ret, frame = cap.read()
+            
+            # Fallback to the first frame
+            if not ret:
+                cap.set(cv2.CAP_PROP_POS_MSEC, 0)
+                ret, frame = cap.read()
+            
+            cap.release()
+            
+            if ret and frame is not None:
+                # Convert BGR (OpenCV) to RGB (Qt)
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                h, w, ch = frame.shape
+                bytes_per_line = ch * w
+                
+                q_img = QImage(frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
+                # Keep a copy to prevent garbage collection issues
+                return QPixmap.fromImage(q_img.copy())
+                
+        except Exception as e:
+            print(f"Error generating video thumbnail for {file_path}: {e}")
+            
+        return None
+
     def _get_relevant_styles(self) -> Dict[str, str]:
         system = platform.system()
         if system == "Windows":
             return WALLPAPER_STYLES["Windows"]
         elif system == "Linux":
-            try:
-                subprocess.run(["which", self.qdbus], check=True, capture_output=True)
+            if self.qdbus:
                 return WALLPAPER_STYLES["KDE"]
-            except (FileNotFoundError, subprocess.CalledProcessError):
+            else:
                 return WALLPAPER_STYLES["GNOME"]
-            except:
-                return {"Default (System)": None}
         else:
             return {"Default (System)": None}
 
@@ -327,15 +358,24 @@ class WallpaperTab(AbstractClassSingleGallery):
     @Slot(str)
     def _update_background_type(self, type_name: str):
         self.background_type = type_name
+        
         is_solid_color = (type_name == "Solid Color")
+        is_slideshow = (type_name == "Slideshow")
+        is_video = (type_name == "Smart Video Wallpaper Reborn")
+        is_image = (type_name == "Image")
+
         self.solid_color_widget.setVisible(is_solid_color)
-        style_enabled = not is_solid_color
-        self.style_combo.setEnabled(style_enabled)
-        self.scan_directory_path.setEnabled(style_enabled)
-        self.gallery_scroll_area.setEnabled(style_enabled)
-        self.slideshow_group.setEnabled(style_enabled)
+        self.slideshow_group.setVisible(is_slideshow)
+        
+        main_controls_enabled = not is_solid_color
+        
+        self.style_layout_widget.setVisible(main_controls_enabled and not is_video)
+        self.scan_directory_path.setEnabled(main_controls_enabled)
+        self.gallery_scroll_area.setEnabled(main_controls_enabled)
+        
         if is_solid_color and self.slideshow_timer and self.slideshow_timer.isActive():
             self.stop_slideshow()
+            
         self.check_all_monitors_set()
 
     @Slot()
@@ -358,7 +398,7 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         if self.slideshow_timer and self.slideshow_timer.isActive():
             self.stop_slideshow()
-        elif self.slideshow_enabled_checkbox.isChecked():
+        elif self.background_type == "Slideshow":
             self.start_slideshow()
         else:
             if self.current_wallpaper_worker:
@@ -371,16 +411,13 @@ class WallpaperTab(AbstractClassSingleGallery):
         num_monitors = len(self.monitor_widgets)
         if self.background_type == "Solid Color":
             QMessageBox.warning(self, "Slideshow Error", "Slideshow is disabled when Solid Color mode is selected.")
-            self.slideshow_enabled_checkbox.setChecked(False)
             return
         is_ready, total_images = self._is_slideshow_validation_ready()
         if num_monitors == 0:
             QMessageBox.warning(self, "Slideshow Error", "No monitors detected or configured.")
-            self.slideshow_enabled_checkbox.setChecked(False)
             return
         if not is_ready:
             QMessageBox.critical(self, "Slideshow Error", "To start the slideshow, at least one monitor must have images dropped on it.")
-            self.slideshow_enabled_checkbox.setChecked(False)
             return
         self.stop_slideshow() 
         for mid in self.monitor_widgets.keys(): self.monitor_current_index[mid] = -1 
@@ -389,7 +426,6 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.interval_sec = (interval_minutes * 60) + interval_seconds
         if self.interval_sec <= 0:
             QMessageBox.critical(self, "Slideshow Error", "Slideshow interval must be greater than 0 seconds.")
-            self.slideshow_enabled_checkbox.setChecked(False)
             return
         interval_ms = self.interval_sec * 1000
         self.time_remaining_sec = self.interval_sec
@@ -440,8 +476,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.monitor_current_index.clear()
         self.time_remaining_sec = 0
         self.countdown_label.setText("Timer: --:--")
-
-        self.slideshow_enabled_checkbox.setChecked(False)
+        
         self.unlock_ui_for_wallpaper()
 
     @Slot()
@@ -474,7 +509,9 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.run_wallpaper_worker(slideshow_mode=True)
             for monitor_id, path in new_monitor_paths.items():
                 if monitor_id in self.monitor_widgets and path:
-                    self.monitor_widgets[monitor_id].set_image(path)
+                    # Pass the cached thumbnail if available, otherwise just path
+                    thumb = self._initial_pixmap_cache.get(path)
+                    self.monitor_widgets[monitor_id].set_image(path, thumb)
             self.time_remaining_sec = self.interval_sec
         except Exception as e:
             QMessageBox.critical(self, "Slideshow Cycle Error", f"Failed to cycle wallpaper: {str(e)}")
@@ -489,7 +526,12 @@ class WallpaperTab(AbstractClassSingleGallery):
             if isinstance(win, SlideshowQueueWindow) and win.monitor_id == monitor_id:
                 win.activateWindow()
                 return
-        window = SlideshowQueueWindow(monitor_name, monitor_id, queue)
+        
+        # Pass the global pixmap cache so the QueueWindow can show videos too
+        window = SlideshowQueueWindow(
+            monitor_name, monitor_id, queue, 
+            pixmap_cache=self._initial_pixmap_cache
+        )
         window.setAttribute(Qt.WA_DeleteOnClose)
         window.queue_reordered.connect(self.on_queue_reordered)
         window.image_preview_requested.connect(self.handle_full_image_preview)
@@ -502,7 +544,6 @@ class WallpaperTab(AbstractClassSingleGallery):
 
     @Slot(str)
     def handle_full_image_preview(self, image_path: str):
-        # Handle Video Preview separately (Launch system player)
         if image_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
             try:
                 if platform.system() == "Windows":
@@ -510,12 +551,11 @@ class WallpaperTab(AbstractClassSingleGallery):
                 elif platform.system() == "Linux":
                     subprocess.call(['xdg-open', image_path])
                 else:
-                    subprocess.call(['open', image_path]) # Mac fallback
+                    subprocess.call(['open', image_path]) 
             except Exception as e:
                 QMessageBox.warning(self, "Video Error", f"Could not launch video player: {e}")
             return
 
-        # Use gallery_image_paths from Base Class
         all_paths_list = sorted(self.gallery_image_paths) if self.gallery_image_paths else [image_path]
         try:
             start_index = all_paths_list.index(image_path)
@@ -580,11 +620,9 @@ class WallpaperTab(AbstractClassSingleGallery):
         try:
             os.remove(path)
             
-            # Remove from base list
             if path in self.gallery_image_paths:
                 self.gallery_image_paths.remove(path)
             
-            # Remove widget manually
             if path in self.path_to_label_map:
                 widget = self.path_to_label_map.pop(path)
                 widget.deleteLater()
@@ -596,7 +634,7 @@ class WallpaperTab(AbstractClassSingleGallery):
                     self.monitor_image_paths[mid] = None
                     self.monitor_widgets[mid].clear()
             
-            self._reflow_layout(self._current_cols) # Base class method
+            self._reflow_layout(self._current_cols) 
             self.check_all_monitors_set()
             QMessageBox.information(self, "Success", f"File deleted successfully: {filename}")
         except Exception as e:
@@ -608,9 +646,12 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.monitor_current_index[monitor_id] = -1 
         new_first_image = new_queue[0] if new_queue else None
         self.monitor_image_paths[monitor_id] = new_first_image
-        if new_first_image and self.monitor_widgets[monitor_id].image_path != new_first_image:
-            self.monitor_widgets[monitor_id].set_image(new_first_image)
-        elif not new_first_image:
+        
+        if new_first_image:
+             # Try to get thumbnail from cache
+            thumb = self._initial_pixmap_cache.get(new_first_image)
+            self.monitor_widgets[monitor_id].set_image(new_first_image, thumb)
+        else:
             self.monitor_widgets[monitor_id].clear() 
         self.check_all_monitors_set()
         
@@ -627,15 +668,15 @@ class WallpaperTab(AbstractClassSingleGallery):
         current_system_wallpaper_paths = {}
         if system == "Linux" and num_monitors_detected > 0:
             try:
-                subprocess.run(["which", self.qdbus], check=True, capture_output=True) 
-                raw_paths = WallpaperManager.get_current_system_wallpaper_path_kde(num_monitors_detected, self.qdbus)
-                current_system_wallpaper_paths = self._get_rotated_map_for_ui(raw_paths)
-            except (FileNotFoundError, subprocess.CalledProcessError): pass 
+                if self.qdbus: 
+                    raw_paths = WallpaperManager.get_current_system_wallpaper_path_kde(num_monitors_detected, self.qdbus)
+                    current_system_wallpaper_paths = self._get_rotated_map_for_ui(raw_paths)
             except Exception as e: print(f"KDE retrieval failed unexpectedly: {e}")
         
         system_wallpaper_path = current_system_wallpaper_paths.get(monitor_id)
         if system_wallpaper_path and Path(system_wallpaper_path).exists():
-            self.monitor_widgets[monitor_id].set_image(system_wallpaper_path)
+            thumb = self._initial_pixmap_cache.get(system_wallpaper_path)
+            self.monitor_widgets[monitor_id].set_image(system_wallpaper_path, thumb)
         else:
             self.monitor_widgets[monitor_id].clear() 
         self.check_all_monitors_set()
@@ -655,7 +696,6 @@ class WallpaperTab(AbstractClassSingleGallery):
         return rotated_map
     
     def populate_monitor_layout(self):
-        # Use new custom clearer
         if isinstance(self.monitor_layout_container, DraggableMonitorContainer):
             self.monitor_layout_container.clear_widgets()
         else:
@@ -669,8 +709,8 @@ class WallpaperTab(AbstractClassSingleGallery):
             physical_monitors = sorted(system_monitors, key=lambda m: m.x)
             self.monitors = system_monitors
         except Exception as e:
-             QMessageBox.critical(self, "Error", f"Could not get monitor info: {e}")
-             self.monitors = []
+            QMessageBox.critical(self, "Error", f"Could not get monitor info: {e}")
+            self.monitors = []
         if not self.monitors or "Mock" in self.monitors[0].name:
             self.monitor_layout.addWidget(QLabel("Could not detect any monitors.\nIs 'screeninfo' installed?"))
             return
@@ -680,20 +720,13 @@ class WallpaperTab(AbstractClassSingleGallery):
         num_monitors_detected = len(self.monitors)
         if system == "Linux" and num_monitors_detected > 0:
             try:
-                subprocess.run(["which", self.qdbus], check=True, capture_output=True) 
-                raw_paths = WallpaperManager.get_current_system_wallpaper_path_kde(num_monitors_detected, self.qdbus)
-                current_system_wallpaper_paths = self._get_rotated_map_for_ui(raw_paths)
-            except (FileNotFoundError, subprocess.CalledProcessError): pass 
+                if self.qdbus: 
+                    raw_paths = WallpaperManager.get_current_system_wallpaper_path_kde(num_monitors_detected, self.qdbus)
+                    current_system_wallpaper_paths = self._get_rotated_map_for_ui(raw_paths)
             except Exception as e: print(f"KDE retrieval failed unexpectedly: {e}")
 
         monitors_to_show = physical_monitors
         
-        # Determine order for initial population based on current order in the UI/Layout
-        # The logic here is complex because the logical monitor order (based on X coordinate)
-        # might not match the desired UI order. For initial load, we must respect the physical X-sort.
-        # But for reordering after load, we must respect the saved order.
-        
-        # Temporary storage for widgets, indexed by monitor ID
         monitor_id_to_widget = {}
         for monitor in monitors_to_show:
             system_index = -1
@@ -712,17 +745,33 @@ class WallpaperTab(AbstractClassSingleGallery):
             
             current_image = self.monitor_image_paths.get(monitor_id)
             image_path_to_display = current_image
+            
+            # Fallback to system wallpaper if app hasn't set one yet
             if not image_path_to_display:
                 system_wallpaper_path = current_system_wallpaper_paths.get(monitor_id)
                 if system_wallpaper_path and Path(system_wallpaper_path).exists():
                     image_path_to_display = system_wallpaper_path
-            if image_path_to_display: drop_widget.set_image(image_path_to_display)
-            else: drop_widget.clear() 
+            
+            if image_path_to_display: 
+                # 1. Try to get thumbnail from cache
+                thumb = self._initial_pixmap_cache.get(image_path_to_display)
+                
+                # 2. If not in cache and it is a VIDEO, generate it now
+                if not thumb and image_path_to_display.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                    # This function uses OpenCV to grab a frame
+                    thumb = self._generate_video_thumbnail(image_path_to_display)
+                    if thumb:
+                        # Cache it so we don't lag next time we refresh
+                        self._initial_pixmap_cache[image_path_to_display] = thumb
+                
+                # 3. Set the image/thumbnail to the widget
+                drop_widget.set_image(image_path_to_display, thumb)
+            else: 
+                drop_widget.clear() 
 
             monitor_id_to_widget[monitor_id] = drop_widget
             self.monitor_widgets[monitor_id] = drop_widget
         
-        # Add widgets to the layout based on physical X-sort (initial order)
         for monitor in monitors_to_show:
             system_index = -1
             for i, sys_mon in enumerate(system_monitors):
@@ -738,13 +787,29 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.check_all_monitors_set()
 
     def on_image_dropped(self, monitor_id: str, image_path: str):
-        if self.background_type != "Image": self.background_type_combo.setCurrentText("Image")
+        is_video = image_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+        if is_video and self.background_type == "Image":
+            self.background_type_combo.setCurrentText("Smart Video Wallpaper Reborn")
+        elif not is_video and self.background_type == "Smart Video Wallpaper Reborn":
+             pass
+            
+        if self.background_type == "Solid Color": self.background_type_combo.setCurrentText("Image")
+
         if monitor_id not in self.monitor_slideshow_queues: self.monitor_slideshow_queues[monitor_id] = []
-        if self.slideshow_enabled_checkbox.isChecked() or image_path not in self.monitor_slideshow_queues[monitor_id]:
-            self.monitor_slideshow_queues[monitor_id].append(image_path)
+        if image_path not in self.monitor_slideshow_queues[monitor_id]:
+             self.monitor_slideshow_queues[monitor_id].append(image_path)
+             
         self.monitor_image_paths[monitor_id] = image_path
         self.monitor_current_index[monitor_id] = -1 
-        self.monitor_widgets[monitor_id].set_image(image_path)
+        
+        # --- UPDATE: Check/Generate Thumbnail ---
+        thumb = self._initial_pixmap_cache.get(image_path)
+        if not thumb and is_video:
+            thumb = self._generate_video_thumbnail(image_path)
+            if thumb:
+                self._initial_pixmap_cache[image_path] = thumb
+
+        self.monitor_widgets[monitor_id].set_image(image_path, thumb)
         self.check_all_monitors_set()
         
     def _get_gnome_assignment_map(self, source_paths: Dict[str, str]) -> Dict[str, str]:
@@ -788,10 +853,10 @@ class WallpaperTab(AbstractClassSingleGallery):
         if num_monitors == 0: return current_paths
         if system == "Linux":
             try:
-                subprocess.run(["which", self.qdbus], check=True, capture_output=True) 
-                raw_paths = WallpaperManager.get_current_system_wallpaper_path_kde(num_monitors, self.qdbus)
-                current_paths = self._get_rotated_map_for_ui(raw_paths)
-            except (FileNotFoundError, subprocess.CalledProcessError, Exception): pass 
+                if self.qdbus: 
+                    raw_paths = WallpaperManager.get_current_system_wallpaper_path_kde(num_monitors, self.qdbus)
+                    current_paths = self._get_rotated_map_for_ui(raw_paths)
+            except Exception: pass 
         return current_paths
     
     def run_wallpaper_worker(self, slideshow_mode=False):
@@ -806,10 +871,9 @@ class WallpaperTab(AbstractClassSingleGallery):
         else:
             if not any(self.monitor_image_paths.values()):
                 if not slideshow_mode:
-                    QMessageBox.warning(self, "Incomplete", "No images have been dropped on the monitors.")
+                    QMessageBox.warning(self, "Incomplete", "No images/videos have been dropped on the monitors.")
                 return
             
-            # Using imported helper
             if ImageScannerWorker is None:
                 QMessageBox.warning(self, "Missing Helpers", "The ImageScannerWorker or ImageLoaderWorker could not be imported.")
                 return
@@ -830,13 +894,17 @@ class WallpaperTab(AbstractClassSingleGallery):
             system = platform.system()
             if system == "Linux":
                 try:
-                    subprocess.run(["which", self.qdbus], check=True, capture_output=True)
-                    desktop = "KDE"
-                except (FileNotFoundError, subprocess.CalledProcessError): desktop = "Gnome"
+                    if self.qdbus: desktop = "KDE"
+                    else: desktop = "Gnome"
                 except: desktop = None
             elif system == "Windows": desktop = "Windows"
             else: desktop = None
             
+            if self.background_type == "Smart Video Wallpaper Reborn":
+                style_to_use = "SmartVideoWallpaperReborn" 
+            else:
+                style_to_use = self.wallpaper_style
+
             if desktop == "Gnome": final_path_map = self._get_gnome_assignment_map(path_map)
             elif desktop == "KDE": final_path_map = self._get_kde_assignment_map(path_map)
             elif desktop == "Windows":
@@ -845,7 +913,6 @@ class WallpaperTab(AbstractClassSingleGallery):
                     path_to_set = next((p for p in path_map.values() if p), None)
                     final_path_map = {'0': path_to_set} if path_to_set else {}
             else: final_path_map = path_map
-            style_to_use = self.wallpaper_style
 
         monitors = self.monitors
         if not slideshow_mode: self.lock_ui_for_wallpaper()
@@ -902,7 +969,8 @@ class WallpaperTab(AbstractClassSingleGallery):
                 QMessageBox.information(self, "Success", "Wallpaper has been updated!")
                 for monitor_id, path in self.monitor_image_paths.items():
                     if path and monitor_id in self.monitor_widgets:
-                        self.monitor_widgets[monitor_id].set_image(path)
+                        thumb = self._initial_pixmap_cache.get(path)
+                        self.monitor_widgets[monitor_id].set_image(path, thumb)
             elif self.background_type == "Solid Color":
                 QMessageBox.information(self, "Success", f"Solid color background set to {self.solid_color_hex}!")
         else:
@@ -932,7 +1000,6 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.scan_directory_path.setText(directory)
             self.populate_scan_image_gallery(directory)
     
-    # --- IMPLEMENT ABSTRACT METHODS ---
     def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
         container = QWidget()
         layout = QVBoxLayout(container)
@@ -947,22 +1014,18 @@ class WallpaperTab(AbstractClassSingleGallery):
         
         is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
 
-        # --- REVISED FIX: Focus purely on image presence vs. placeholder ---
         if pixmap and not pixmap.isNull():
-            # Image is present: Display it and clear all conflicting text/backgrounds.
             scaled = pixmap.scaled(self.thumbnail_size, self.thumbnail_size, 
                                  Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
             draggable_label.setPixmap(scaled)
-            draggable_label.setText("") # Crucial: Clear the text that hides the image
+            draggable_label.setText("") 
             draggable_label.setScaledContents(False)
             
             if is_video:
-                # Use border as the main visual indicator for video
                 draggable_label.setStyleSheet("border: 2px solid #3498db; background-color: transparent;")
             else:
                 draggable_label.setStyleSheet("border: 1px solid #4f545c; background-color: transparent;")
         else:
-            # Placeholder State: Pixmap is null (VideoScannerWorker failed, or image is loading)
             draggable_label.setPixmap(QPixmap()) 
             draggable_label.setScaledContents(False)
             
@@ -973,7 +1036,7 @@ class WallpaperTab(AbstractClassSingleGallery):
                         border: 2px solid #3498db; 
                         color: #3498db; 
                         font-weight: bold; 
-                        background-color: #2c2f33; /* Use non-black background matching the container */
+                        background-color: #2c2f33;
                     }
                 """)
             else:
@@ -981,15 +1044,12 @@ class WallpaperTab(AbstractClassSingleGallery):
                 draggable_label.setStyleSheet("border: 1px dashed #666; color: #888; font-size: 10px; background-color: #2c2f33;")
             
         self.path_to_label_map[path] = draggable_label
-        layout.addWidget(draggable_label) # Add the label to the container
-        return container # Return the container widget
+        layout.addWidget(draggable_label) 
+        return container 
 
     def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
-        # FIX: The 'widget' passed here is now the Container QWidget created in create_card_widget.
-        # We must find the DraggableLabel child inside it.
         clickable_label = widget.findChild(DraggableLabel)
         
-        # Fallback: If for some reason the widget IS the label (legacy safety)
         if not clickable_label and isinstance(widget, DraggableLabel):
             clickable_label = widget
 
@@ -1001,7 +1061,6 @@ class WallpaperTab(AbstractClassSingleGallery):
                                     Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
                 clickable_label.setPixmap(scaled)
                 
-                # Apply specific styles based on content type
                 if is_video:
                     clickable_label.setText("VIDEO")
                     clickable_label.setStyleSheet("""
@@ -1017,42 +1076,27 @@ class WallpaperTab(AbstractClassSingleGallery):
                     clickable_label.setStyleSheet("border: 1px solid #4f545c; background-color: transparent;")
             
             elif not is_video:
-                # Only show error/loading if it's an image and loading failed
                 clickable_label.clear()
                 clickable_label.setText("Load Failed")
                 clickable_label.setStyleSheet("border: 1px dashed #e74c3c; color: #e74c3c;")
 
-    # --- Scanning & Population Logic (REWRITTEN to be Manual) ---
     def populate_scan_image_gallery(self, directory: str):
         if self.background_type == "Solid Color": return 
 
         self.scanned_dir = directory
-        
-        # 1. Clear gallery completely
         self.clear_gallery_widgets()
         self.path_to_label_map.clear()
-        
-        # Stop base class pagination timer if active
         self.cancel_loading()
-        
-        # Reset internal lists
         self.gallery_image_paths = []
         
-        # --- FIX: ROBUST THREAD CLEANUP ---
-        # We must verify the thread exists and is running before trying to stop it.
-        # Crucially, we must .wait() for it to finish to avoid the "Destroyed while running" crash.
         if self.img_scanner_thread is not None:
             if self.img_scanner_thread.isRunning():
-                # Signal the worker to stop (if your worker supports it)
-                # self.img_scanner_worker.stop() 
-                
                 self.img_scanner_thread.quit()
-                self.img_scanner_thread.wait() # <--- THIS PREVENTS THE CRASH
+                self.img_scanner_thread.wait() 
             
             self.img_scanner_thread.deleteLater()
             self.img_scanner_thread = None
 
-        # 2. Start Image Scan
         self.img_scanner_worker = ImageScannerWorker(directory)
         self.img_scanner_thread = QThread() 
         self.img_scanner_worker.moveToThread(self.img_scanner_thread) 
@@ -1061,7 +1105,6 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.img_scanner_worker.scan_finished.connect(self._on_image_scan_finished)
         self.img_scanner_worker.scan_error.connect(self.handle_scan_error)
         
-        # Clean up thread when finished
         self.img_scanner_worker.scan_finished.connect(self.img_scanner_thread.quit)
         self.img_scanner_thread.finished.connect(self.img_scanner_thread.deleteLater)
         self.img_scanner_thread.finished.connect(lambda: setattr(self, 'img_scanner_thread', None))
@@ -1070,23 +1113,11 @@ class WallpaperTab(AbstractClassSingleGallery):
 
     @Slot(list)
     def _on_image_scan_finished(self, image_paths: list[str]):
-        """
-        Step 1: Images found. Register paths and start the base class loading mechanism.
-        Step 2: Start Video Scan.
-        """
-        
-        # 1. Register ONLY the image paths and trigger the full gallery load/refresh.
-        # This clears old widgets, creates new "Loading..." placeholders, and starts 
-        # the ImageLoaderWorker threads via AbstractClassSingleGallery._populate_step().
         if image_paths:
-            # Note: The base class will use this list to populate and trigger loads.
             self.start_loading_gallery(image_paths, show_progress=False, append=False)
         else:
-            # Still refresh to clear any old state/placeholders, showing "No items".
             self.refresh_gallery_view()
 
-        # 2. Start Video Scan (Start AFTER image paths are registered in the gallery).
-        # Videos will be manually added to the paths/cache as they are found.
         if self.scanned_dir:
             self.vid_scanner_worker = VideoScannerWorker(self.scanned_dir)
             self.vid_scanner_worker.signals.thumbnail_ready.connect(self._add_video_thumbnail_manual)
@@ -1095,39 +1126,24 @@ class WallpaperTab(AbstractClassSingleGallery):
 
     @Slot()
     def _on_video_scan_finished(self):
-        print("Video scan worker finished.")
-        # The worker is a QRunnable, the thread pool handles its destruction.
-        # We don't need to do anything else.
         pass
 
     @Slot(str, QPixmap)
     def _add_video_thumbnail_manual(self, path: str, pixmap: QPixmap):
-        """
-        Manually adds a video thumbnail to the gallery and caches the result.
-        """
         if path in self.gallery_image_paths: return
-        
-        # 1. Register Data
         self.gallery_image_paths.append(path)
-        
-        # CRITICAL: Store in cache so pagination/reflows don't lose the thumbnail
         self._initial_pixmap_cache[path] = pixmap 
-
-        # 2. Update Pagination UI (page counts, etc)
         self._update_pagination_ui()
 
-        # 3. Append to View (Only if the new item belongs on the current page)
         total_items = len(self.gallery_image_paths)
         start_index = self.current_page * self.page_size
         end_index = start_index + self.page_size
         item_index = total_items - 1
 
-        # Only add the widget if we are currently viewing the page where this item belongs
         if start_index <= item_index < end_index:
             card = self.create_card_widget(path, pixmap)
             
             if self.gallery_layout:
-                # Calculate the next visual position
                 current_count = self.gallery_layout.count()
                 cols = self.calculate_columns()
                 row = current_count // cols
@@ -1144,7 +1160,6 @@ class WallpaperTab(AbstractClassSingleGallery):
 
     @Slot(list)
     def display_scan_results(self, image_paths: list[str]):
-        # Fallback method if needed, but logic is moved to _on_image_scan_finished
         if self.background_type == "Solid Color": return 
         self.clear_gallery_widgets() 
         self.path_to_label_map.clear()
@@ -1163,7 +1178,6 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.show_placeholder("Browse for a directory.")
 
     def collect(self) -> dict:
-        # Capture the current visual order of monitors in the DraggableMonitorContainer
         monitor_order = []
         if isinstance(self.monitor_layout_container, DraggableMonitorContainer):
             layout = self.monitor_layout_container.layout_hbox
@@ -1176,12 +1190,12 @@ class WallpaperTab(AbstractClassSingleGallery):
         return {
             "scan_directory": self.scan_directory_path.text(),
             "wallpaper_style": self.wallpaper_style,
-            "slideshow_enabled": self.slideshow_enabled_checkbox.isChecked(),
+            "slideshow_enabled": (self.background_type == "Slideshow"),
             "interval_minutes": self.interval_min_spinbox.value(),
             "interval_seconds": self.interval_sec_spinbox.value(),
             "background_type": self.background_type, 
             "solid_color_hex": self.solid_color_hex, 
-            "monitor_order": monitor_order,  # <-- Save the alignment
+            "monitor_order": monitor_order,
         }
 
     def get_default_config(self) -> Dict[str, Any]:
@@ -1194,20 +1208,23 @@ class WallpaperTab(AbstractClassSingleGallery):
             "interval_seconds": 0,
             "background_type": "Image", 
             "solid_color_hex": "#000000",
-            "monitor_order": [],  # <-- NEW: Default monitor order is empty (will use physical sort)
+            "monitor_order": [],
         }
     
     def set_config(self, config: Dict[str, Any]):
         try:
-            # 1. Update basic fields
             if "scan_directory" in config:
                 self.scan_directory_path.setText(config.get("scan_directory", ""))
                 if os.path.isdir(config["scan_directory"]):
                     self.populate_scan_image_gallery(config["scan_directory"])
             if "wallpaper_style" in config:
                 self.style_combo.setCurrentText(config.get("wallpaper_style", "Fill"))
+            
             if "slideshow_enabled" in config:
-                self.slideshow_enabled_checkbox.setChecked(config.get("slideshow_enabled", False))
+                enabled = config.get("slideshow_enabled", False)
+                if enabled:
+                    self.background_type_combo.setCurrentText("Slideshow")
+            
             if "interval_minutes" in config:
                 self.interval_min_spinbox.setValue(config.get("interval_minutes", 5))
             if "interval_seconds" in config:
@@ -1215,40 +1232,29 @@ class WallpaperTab(AbstractClassSingleGallery):
             if "solid_color_hex" in config:
                 self.solid_color_hex = config.get("solid_color_hex", "#000000")
                 self.solid_color_preview.setStyleSheet(f"background-color: {self.solid_color_hex}; border: 1px solid #4f545c;")
+            
             if "background_type" in config:
                 self.background_type_combo.setCurrentText(config.get("background_type", "Image"))
             
-            # 2. Handle monitor reordering (if DraggableMonitorContainer is used and order is saved)
             if "monitor_order" in config and config["monitor_order"]:
                 target_order = config["monitor_order"]
-                
-                # Check if all monitors required by config are currently present
                 present_monitor_ids = set(self.monitor_widgets.keys())
                 valid_order = [mid for mid in target_order if mid in present_monitor_ids]
                 
                 if isinstance(self.monitor_layout_container, DraggableMonitorContainer):
                     layout = self.monitor_layout_container.layout_hbox
-                    
-                    # Store existing widgets indexed by ID
                     widget_map = {mid: self.monitor_widgets[mid] for mid in valid_order}
-                    
-                    # Remove all widgets from the layout (they are still in self.monitor_widgets)
                     widgets_to_remove = []
                     for i in range(layout.count()):
                         item = layout.itemAt(i)
                         widget = item.widget()
                         if widget and isinstance(widget, MonitorDropWidget):
                             widgets_to_remove.append(widget)
-                    
                     for widget in widgets_to_remove:
                         layout.removeWidget(widget)
-
-                    # Re-add widgets in the saved order
                     for monitor_id in valid_order:
                         if monitor_id in widget_map:
                             layout.addWidget(widget_map[monitor_id])
-                            
-                    # Add any newly detected monitors not in the saved list (should appear at the end)
                     for monitor_id in present_monitor_ids:
                         if monitor_id not in valid_order:
                             layout.addWidget(self.monitor_widgets[monitor_id])

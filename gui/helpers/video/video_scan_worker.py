@@ -46,9 +46,12 @@ class VideoScannerWorker(QRunnable):
             # Try to grab a frame at 10 second mark (approx 300 frames)
             cap.set(cv2.CAP_PROP_POS_FRAMES, 300) 
             ret, frame = cap.read()
-            if not ret: # Fallback to start
-                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            if not ret: # Fallback to 1 second (approx 30 frames)
+                cap.set(cv2.CAP_PROP_POS_FRAMES, 30)
                 ret, frame = cap.read()
+                if not ret: # Fallback to start
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    ret, frame = cap.read()
             
             cap.release()
             if ret:

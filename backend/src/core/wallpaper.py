@@ -8,7 +8,11 @@ from PIL import Image
 from pathlib import Path
 from screeninfo import Monitor
 from typing import Dict, List, Optional
-from ..utils.definitions import WALLPAPER_STYLES, SUPPORTED_VIDEO_FORMATS
+from ..utils.definitions import (
+    WALLPAPER_STYLES, 
+    SUPPORTED_IMG_FORMATS, 
+    SUPPORTED_VIDEO_FORMATS,
+)
 
 # Global Definitions for COM components
 IDesktopWallpaperInstance = None 
@@ -212,7 +216,7 @@ class WallpaperManager:
         Original single-monitor method (kept as a functional fallback).
         """
         if Path(image_path).suffix.lower() in SUPPORTED_VIDEO_FORMATS:
-             raise ValueError("Video wallpapers are not supported on Windows via the standard API.")
+            raise ValueError("Video wallpapers are not supported on Windows via the standard API.")
 
         # Get OS-specific values for the selected style
         style_values = WALLPAPER_STYLES["Windows"].get(style_name, WALLPAPER_STYLES["Windows"]["Fill"])
@@ -266,14 +270,23 @@ class WallpaperManager:
                 ext = Path(path).suffix.lower()
                 
                 if ext in SUPPORTED_VIDEO_FORMATS:
-                    # Logic for Video (Smart Video Wallpaper)
-                    # We switch the plugin to smartvideowallpaper and set the 'Video' config
-                    script_parts.append(
-                        f'd = desktops()[{i}]; d.wallpaperPlugin = "com.github.zren.smartvideowallpaper"; d.currentConfigGroup = Array("Wallpaper", "com.github.zren.smartvideowallpaper", "General"); d.writeConfig("Video", "{file_uri}");'
-                    )
+                    # --- Smart Video Wallpaper Reborn ---
+                    video_plugin = "luisbocanegra.smart.video.wallpaper.reborn"  # Your exact plugin
+
+                    # Set video + FORCE blur background
+                    script_parts.append(f'''
+                    d = desktops()[{i}];
+                    d.wallpaperPlugin = "{video_plugin}";
+                    d.currentConfigGroup = Array("Wallpaper", "{video_plugin}", "General");
+                    d.writeConfig("VideoUrls", "{file_uri}");
+
+                    // === CRITICAL: Force blurred background (not white!) ===
+                    d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General");
+                    d.writeConfig("FillMode", 2);           // 2 = Blurred
+                    d.writeConfig("Color", "#00000000");    // Transparent color (required for blur)
+                    d.writeConfig("Image", "file:///usr/share/wallpapers/Next/contents/images/1920x1080.jpg"); // Dummy image (can be any)
+                    ''')
                 else:
-                    # Logic for Image (org.kde.image)
-                    # We switch the plugin to org.kde.image and set the 'Image' config
                     script_parts.append(
                         f'd = desktops()[{i}]; d.wallpaperPlugin = "org.kde.image"; d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); d.writeConfig("Image", "{file_uri}"); d.writeConfig("FillMode", {fill_mode});'
                     )
@@ -454,67 +467,109 @@ class WallpaperManager:
     @staticmethod
     def get_current_system_wallpaper_path_kde(num_monitors: int, qdbus: str) -> Dict[str, Optional[str]]:
         """
-        Retrieves the current wallpaper path for each monitor on KDE Plasma using qdbus.
-        Supports both org.kde.image and com.github.zren.smartvideowallpaper.
+        Retrieves the current wallpaper path from KDE Plasma.
+        Improved to dynamically detect the active plugin ID and try multiple config keys.
         """
-        path_map = {}
-        
-        # 1. Build the qdbus JavaScript command to get the path for each monitor index
-        # We try to read "Image" first, then "Video" if Image is empty/default.
-        script_parts = []
+        path_map: Dict[str, Optional[str]] = {}
+
+        # We construct a JS script to run inside Plasma's shell
+        script = "var out = [];\n"
         for i in range(num_monitors):
-            script_parts.append(
-                f"""
-                d = desktops()[{i}]; 
-                d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); 
-                var img = d.readConfig("Image");
-                if (!img) {{
-                    d.currentConfigGroup = Array("Wallpaper", "com.github.zren.smartvideowallpaper", "General");
-                    img = d.readConfig("Video");
+            script += f'''
+            (function() {{
+                try {{
+                    var d = desktops()[{i}];
+                    var plugin = d.wallpaperPlugin; // Get the actual active plugin ID
+                    var path = "";
+
+                    // Set the config group to the ACTIVE plugin
+                    d.currentConfigGroup = Array("Wallpaper", plugin, "General");
+
+                    // 1. Try "Image" (Standard Image & many others)
+                    path = d.readConfig("Image");
+
+                    // 2. If empty, try "VideoUrls" (Smart Video Wallpaper Reborn)
+                    if (!path || path == "" || path == "null") {{
+                        path = d.readConfig("VideoUrls");
+                    }}
+
+                    // 3. If empty, try "Video" (Legacy Zren / other video plugins)
+                    if (!path || path == "" || path == "null") {{
+                        path = d.readConfig("Video");
+                    }}
+
+                    // Clean up: If it's a list (comma sep), take the first one
+                    if (path && path.indexOf(",") !== -1) {{
+                        path = path.split(",")[0];
+                    }}
+
+                    out.push("MONITOR_{i}:" + (path || "NONE"));
+                }} catch (e) {{
+                    out.push("MONITOR_{i}:NONE");
                 }}
-                print("MONITOR_{i}:" + img);
-                """
-            )
-            
-        full_script = "".join(script_parts)
+            }})();
+            '''
+        script += '\nprint(out.join("\\n===SEP===\\n"));'
 
         try:
-            # 2. Execute the qdbus command
-            qdbus_command = (
-                f"{qdbus} org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{full_script}'"
-            )
-            result = subprocess.run(
-                qdbus_command, 
-                shell=True, 
-                check=True, 
-                capture_output=True, 
-                text=True
-            )
-            output = result.stdout.strip()
+            cmd = [
+                qdbus,                              
+                "org.kde.plasmashell",              
+                "/PlasmaShell",
+                "org.kde.PlasmaShell.evaluateScript", 
+                script
+            ]
 
-            # 3. Parse the output using Regex to find all occurrences
-            # Pattern: MONITOR_(ID):(file URI) - handles concatenated output
-            # Updated regex to support video extensions as well
-            pattern = re.compile(r'MONITOR_(\d+):(file://[^\s]*?\.(?:png|jpg|jpeg|mp4|mkv|webm|avi|mov))', re.IGNORECASE)
-            matches = pattern.findall(output) 
-            
-            for monitor_id, path_uri in matches:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=12, check=False)
+
+            if result.returncode != 0:
+                print(f"[WallpaperManager] qdbus failed: {result.stderr.strip()}")
+                return path_map
+
+            output = result.stdout.strip()
+            if not output:
+                return path_map
+
+            # Parse the output
+            for line in output.split("===SEP==="):
+                line = line.strip()
+                if not line.startswith("MONITOR_"):
+                    continue
+
+                # Format: MONITOR_0:file:///path/to/video.mp4
+                parts = line.split(":", 1)
+                if len(parts) < 2: continue
+                
+                monitor_id_str, raw_path = parts
+                monitor_id = monitor_id_str.split("_")[1]
+                raw_path = raw_path.strip()
+
+                if not raw_path or raw_path == "NONE" or raw_path == "null":
+                    path_map[monitor_id] = None
+                    continue
+
+                # Fix file URI formatting
+                if raw_path.startswith("file:/") and not raw_path.startswith("file://"):
+                    raw_path = "file://" + raw_path[5:]
+
                 try:
-                    # Convert file URI to local path and clean up
-                    if path_uri.startswith("file://"):
-                        local_path = str(Path(path_uri.replace("file://", "")).resolve())
+                    if raw_path.startswith("file://"):
+                        local_path = Path(raw_path[7:]).resolve()
                     else:
-                        local_path = None
-                            
-                    if local_path and Path(local_path).exists():
-                        path_map[monitor_id] = local_path
+                        local_path = Path(raw_path).resolve()
+
+                    if local_path.exists():
+                        path_map[monitor_id] = str(local_path)
+                        print(f"[WallpaperManager] Detected → Monitor {monitor_id}: {local_path}")
                     else:
+                        # Sometimes relative paths or special schemes are returned
+                        print(f"[WallpaperManager] Path found for Monitor {monitor_id} but file missing: {local_path}")
                         path_map[monitor_id] = None
-                except Exception:
-                    pass
-        
-        except (FileNotFoundError, subprocess.CalledProcessError) as e:
-            print(f"Error executing qdbus for KDE wallpaper retrieval: {e}")
-            return {}
+                except Exception as e:
+                    print(f"[WallpaperManager] Error resolving path for Monitor {monitor_id}: {e}")
+                    path_map[monitor_id] = None
+
+        except Exception as e:
+            print(f"[WallpaperManager] Exception in get_current_system_wallpaper_path_kde: {e}")
 
         return path_map
