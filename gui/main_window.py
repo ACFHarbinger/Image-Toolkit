@@ -139,7 +139,7 @@ class MainWindow(QWidget):
                 "Convert Format": self.convert_tab,
                 "Merge": self.merge_tab,
                 "Delete": self.delete_tab,
-                "Image Extractor": self.image_extractor_tab,
+                "Extractor": self.image_extractor_tab,
                 "Display Wallpaper": self.wallpaper_tab,
             }, 
             'Database Management': {

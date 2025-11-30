@@ -19,6 +19,7 @@ dependencies = [
     "google-auth-oauthlib>=1.2.3",
     "imagehash>=4.3.2",
     "jpype1>=1.6.0",
+    "moviepy>=1.0.3",
     "msal>=1.34.0",
     "numpy>=2.3.4",
     "opencv-python>=4.11.0.86",
