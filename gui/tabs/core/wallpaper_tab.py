@@ -396,42 +396,6 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.btn_daemon_toggle.setChecked(False)
             self.btn_daemon_toggle.setStyleSheet("background-color: #27ae60; color: white; padding: 5px;")
             QMessageBox.information(self, "Daemon Stopped", "Background slideshow stopped.")
-        
-    def _generate_video_thumbnail(self, file_path: str) -> Optional[QPixmap]:
-        """Generates a thumbnail for a single video file using OpenCV."""
-        if not file_path or not os.path.exists(file_path):
-            return None
-            
-        try:
-            cap = cv2.VideoCapture(file_path)
-            if not cap.isOpened():
-                return None
-            
-            # Try to grab a frame at 1.0 second
-            cap.set(cv2.CAP_PROP_POS_MSEC, 1000) 
-            ret, frame = cap.read()
-            
-            # Fallback to the first frame
-            if not ret:
-                cap.set(cv2.CAP_PROP_POS_MSEC, 0)
-                ret, frame = cap.read()
-            
-            cap.release()
-            
-            if ret and frame is not None:
-                # Convert BGR (OpenCV) to RGB (Qt)
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                h, w, ch = frame.shape
-                bytes_per_line = ch * w
-                
-                q_img = QImage(frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
-                # Keep a copy to prevent garbage collection issues
-                return QPixmap.fromImage(q_img.copy())
-                
-        except Exception as e:
-            print(f"Error generating video thumbnail for {file_path}: {e}")
-            
-        return None
 
     def _get_relevant_styles(self) -> Dict[str, str]:
         system = platform.system()
@@ -849,16 +813,6 @@ class WallpaperTab(AbstractClassSingleGallery):
             if image_path_to_display: 
                 # 1. Try to get thumbnail from cache
                 thumb = self._initial_pixmap_cache.get(image_path_to_display)
-                
-                # 2. If not in cache and it is a VIDEO, generate it now
-                if not thumb and image_path_to_display.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
-                    # This function uses OpenCV to grab a frame
-                    thumb = self._generate_video_thumbnail(image_path_to_display)
-                    if thumb:
-                        # Cache it so we don't lag next time we refresh
-                        self._initial_pixmap_cache[image_path_to_display] = thumb
-                
-                # 3. Set the image/thumbnail to the widget
                 drop_widget.set_image(image_path_to_display, thumb)
             else: 
                 drop_widget.clear() 
@@ -898,11 +852,6 @@ class WallpaperTab(AbstractClassSingleGallery):
         
         # --- UPDATE: Check/Generate Thumbnail ---
         thumb = self._initial_pixmap_cache.get(image_path)
-        if not thumb and is_video:
-            thumb = self._generate_video_thumbnail(image_path)
-            if thumb:
-                self._initial_pixmap_cache[image_path] = thumb
-
         self.monitor_widgets[monitor_id].set_image(image_path, thumb)
         self.check_all_monitors_set()
         

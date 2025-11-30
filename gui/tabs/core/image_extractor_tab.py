@@ -1,4 +1,5 @@
 import os
+import cv2
 import datetime
 
 from pathlib import Path
@@ -12,7 +13,7 @@ from PySide6.QtWidgets import (
     QPushButton, QApplication, QLineEdit,
     QProgressDialog, QSpinBox, QCheckBox
 )
-from PySide6.QtGui import QPixmap, QResizeEvent, QAction
+from PySide6.QtGui import QPixmap, QResizeEvent, QAction, QImage
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtCore import Qt, QUrl, Slot, QThreadPool, QPoint, QEvent
@@ -20,7 +21,7 @@ from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassSingleGallery
 from ...components import ClickableLabel, MarqueeScrollArea
 from ...helpers import VideoScannerWorker, GifCreationWorker, FrameExtractionWorker, VideoExtractionWorker
-from backend.src.utils.definitions import LOCAL_SOURCE_PATH
+from backend.src.utils.definitions import LOCAL_SOURCE_PATH, SUPPORTED_VIDEO_FORMATS
 
 
 class ImageExtractorTab(AbstractClassSingleGallery):
@@ -37,6 +38,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.progress_dialog: Optional[QProgressDialog] = None
         
         self.use_internal_player = True 
+        
+        # Cache for generated thumbnails (video frames)
+        self._initial_pixmap_cache: Dict[str, QPixmap] = {}
 
         # Defined resolutions corresponding to the Combo Box items
         self.available_resolutions = [(1280, 720), (1920, 1080), (2560, 1440), (3840, 2160)]
@@ -318,7 +322,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 margin: 0px 0px 0px 0px;
             }
             QScrollBar::handle:vertical {
-                background: #00BCD4; /* CHANGED TO CYAN BLUE */
+                background: #00BCD4; 
                 min-height: 20px;
                 border-radius: 6px;
                 margin: 0 2px;
@@ -337,7 +341,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 margin: 0px 0px 0px 0px;
             }
             QScrollBar::handle:horizontal {
-                background: #00BCD4; /* CHANGED TO CYAN BLUE */
+                background: #00BCD4; 
                 min-width: 20px;
                 border-radius: 6px;
                 margin: 2px 0;
@@ -383,14 +387,17 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         if self.extraction_dir.exists():
             for entry in self.extraction_dir.iterdir():
                 if entry.is_file() and entry.suffix.lower() in valid_extensions:
-                    found_paths.append(str(entry.absolute()))
+                    full_path = str(entry.absolute())
+                    found_paths.append(full_path)
+                    self.start_loading_gallery(self.current_extracted_paths, pixmap_cache=self._initial_pixmap_cache)
         
         # Sort files so they don't appear randomly
         found_paths.sort()
 
         if found_paths:
             self.current_extracted_paths = found_paths
-            self.start_loading_gallery(self.current_extracted_paths)
+            # Pass the cache to start_loading_gallery
+            self.start_loading_gallery(self.current_extracted_paths, pixmap_cache=self._initial_pixmap_cache)
 
     @Slot()
     def set_position_on_release(self):
@@ -426,6 +433,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     @Slot(str, QPixmap)
     def add_source_thumbnail(self, path: str, pixmap: QPixmap):
+        # If pixmap is null (e.g. scanner failed or it's a video handled differently), try manual generation
+        if pixmap.isNull() and path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+             thumb = self._generate_video_thumbnail(path)
+             if thumb: pixmap = thumb
+
         thumb_size = 120
         container = QWidget()
         container.setStyleSheet("background: transparent;")
@@ -443,8 +455,13 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             diff_y = (scaled.height() - thumb_size) // 2
             cropped = scaled.copy(diff_x, diff_y, thumb_size, thumb_size)
             clickable_label.setPixmap(cropped)
+        else:
+            clickable_label.setText("No Preview")
+            clickable_label.setStyleSheet("border: 1px dashed #666; color: #888;")
         
-        clickable_label.setStyleSheet("border: 2px solid #4f545c; border-radius: 4px;")
+        # Apply border style (unless it was "No Preview" styled above)
+        if not pixmap.isNull():
+            clickable_label.setStyleSheet("border: 2px solid #4f545c; border-radius: 4px;")
         
         clickable_label.path_clicked.connect(self.load_media)
         clickable_label.path_right_clicked.connect(self.show_source_context_menu)
@@ -511,6 +528,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.current_extracted_paths.clear()
         self.selected_paths.clear()
         self.gallery_image_paths.clear()
+        self._initial_pixmap_cache.clear() # Clear cache too
         self.clear_gallery_widgets()
         self.start_time_ms = 0
         self.end_time_ms = 0
@@ -583,32 +601,30 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         container = QWidget()
         container.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(container)
-        # --- FIXED: Margins set to 0, Spacing set to 1 to match Search Tab style ---
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(1)
         
         clickable_label = ClickableLabel(file_path=path)
         clickable_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
-        # Use Alignment Center like search tab
         clickable_label.setAlignment(Qt.AlignCenter)
         clickable_label.path = path 
         
-        # Check if video file (mp4) and handle thumbnail
-        if path.lower().endswith(".mp4"):
-             # For video files in gallery, we might not have a direct pixmap immediately if not generated.
-             # But ImageLoader usually handles it. 
-             pass
+        is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
 
         if pixmap and not pixmap.isNull():
             scaled = pixmap.scaled(self.thumbnail_size, self.thumbnail_size, 
                                  Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
             clickable_label.setPixmap(scaled)
             clickable_label.setText("") 
-            # Match default border from search tab
-            clickable_label.setStyleSheet("border: 1px solid #4f545c;")
+            
+            if is_video:
+                # Video border style
+                clickable_label.setStyleSheet("border: 2px solid #3498db;")
+            else:
+                # Standard border style
+                clickable_label.setStyleSheet("border: 1px solid #4f545c;")
         else:
-             # If it's a video file, maybe show an icon? 
-             if path.lower().endswith(".mp4"):
+             if is_video:
                  clickable_label.setText("VIDEO")
                  clickable_label.setStyleSheet("border: 1px solid #2980b9; color: #2980b9; font-weight: bold;")
              else:
@@ -627,24 +643,40 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
         clickable_label = widget.findChild(ClickableLabel)
         if clickable_label:
+            is_video = clickable_label.path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+            
             if pixmap and not pixmap.isNull():
                 scaled = pixmap.scaled(self.thumbnail_size, self.thumbnail_size, 
                                     Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
                 clickable_label.setPixmap(scaled)
                 clickable_label.setText("")
+                
+                if is_video:
+                    clickable_label.setStyleSheet("border: 2px solid #3498db;")
             else:
-                if not clickable_label.path.lower().endswith(".mp4"):
+                if not is_video:
                     clickable_label.clear()
                     clickable_label.setText("Loading...")
+            
             self._style_label(clickable_label, selected=(clickable_label.path in self.selected_paths))
 
     def _style_label(self, label: ClickableLabel, selected: bool):
-        # --- FIXED: Styles matching search_tab.py ---
+        is_video = label.path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+        
         if selected:
             label.setStyleSheet("border: 3px solid #5865f2; background-color: #36393f;")
         else:
-            if label.text() in ["Load Error", "Loading...", "VIDEO"]:
-                # Keep specific style if text is present
+            # Revert to appropriate unselected state
+            if is_video:
+                # Keep blue border for videos even when not selected to distinguish them?
+                # Or just standard if you prefer. Let's keep it standard unless special text.
+                if label.text() == "VIDEO":
+                     label.setStyleSheet("border: 1px solid #2980b9; color: #2980b9; font-weight: bold;")
+                else:
+                     # If thumb loaded, maybe a slight blue tint or just normal?
+                     # Let's use blue border for videos to make them stand out
+                     label.setStyleSheet("border: 2px solid #3498db;")
+            elif label.text() in ["Load Error", "Loading..."]:
                 pass
             else:
                 label.setStyleSheet("border: 1px solid #4f545c;")
@@ -680,13 +712,16 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     @Slot(str)
     def handle_thumbnail_double_click(self, image_path: str):
-        # If video, maybe open externally or handle specifically
-        if image_path.lower().endswith(".mp4"):
+        # If video, open externally or play
+        if image_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
             try:
-                os.startfile(image_path)
-            except AttributeError:
-                import subprocess
-                subprocess.call(['xdg-open', image_path])
+                if os.name == 'nt':
+                    os.startfile(image_path)
+                else:
+                    import subprocess
+                    subprocess.call(['xdg-open', image_path])
+            except Exception as e:
+                print(f"Error opening video: {e}")
             return
 
         for win in self.open_image_preview_windows:
@@ -722,7 +757,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         count = len(self.selected_paths)
         menu = QMenu(self)
         if count == 1:
-            if not path.lower().endswith(".mp4"):
+            if not path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
                 view_action = QAction("View Full Size", self)
                 view_action.triggered.connect(lambda: self.handle_thumbnail_double_click(path))
                 menu.addAction(view_action)
@@ -1023,7 +1058,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         if new_path and os.path.exists(new_path):
             # Wrap in list to reuse existing list-based loader
             self.current_extracted_paths.append(new_path)
-            self.start_loading_gallery([new_path], append=True)
+                    
+            self.start_loading_gallery([new_path], append=True, pixmap_cache=self._initial_pixmap_cache)
             QMessageBox.information(self, "Success", f"Media created successfully:\n{Path(new_path).name}")
 
     @Slot(str)
