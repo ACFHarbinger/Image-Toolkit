@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict, Optional
 from PySide6.QtGui import QPixmap, QIcon
 from PySide6.QtCore import Qt, Slot, QPoint, Signal
 from PySide6.QtWidgets import (
@@ -11,126 +11,99 @@ from ..components import QueueItemWidget
 class SlideshowQueueWindow(QWidget):
     """A window that displays a re-orderable list of image previews."""
     
-    # Signal: (monitor_id, new_queue_list) - Existing signal
     queue_reordered = Signal(str, list)
-    
-    # NEW RELAY SIGNAL: Emits the path of the image requested for full view
     image_preview_requested = Signal(str) 
     
-    def __init__(self, monitor_name: str, monitor_id: str, queue: List[str], parent=None):
+    # Updated Init to accept pixmap_cache
+    def __init__(self, monitor_name: str, monitor_id: str, queue: List[str], 
+                 pixmap_cache: Optional[Dict[str, QPixmap]] = None, parent=None):
         super().__init__(parent)
         self.monitor_name = monitor_name
         self.monitor_id = monitor_id
+        self.pixmap_cache = pixmap_cache if pixmap_cache is not None else {}
         
         self.setWindowTitle(f"Queue for {monitor_name}")
         self.setMinimumSize(400, 500)
         
         layout = QVBoxLayout(self)
         
-        # Title Label
         title_label = QLabel(f"Queue: {len(queue)} Images (Drag or Right-click to modify)")
         title_label.setStyleSheet("font-size: 14px; font-weight: bold; padding: 5px;")
         layout.addWidget(title_label)
         
-        # The List Widget
         self.list_widget = QListWidget()
         self.list_widget.setStyleSheet("QListWidget { border: 1px solid #4f545c; border-radius: 8px; }")
         
-        # Enable Drag and Drop
         self.list_widget.setDragDropMode(QListWidget.InternalMove)
         self.list_widget.setSelectionMode(QListWidget.SingleSelection)
         self.list_widget.setDefaultDropAction(Qt.MoveAction)
         
-        # Enable Context Menu
         self.list_widget.setContextMenuPolicy(Qt.CustomContextMenu)
         self.list_widget.customContextMenuRequested.connect(self.show_context_menu)
-        
-        # CONNECT NATIVE DOUBLE-CLICK SIGNAL to the handler
         self.list_widget.itemDoubleClicked.connect(self.handle_list_item_action)
         
-        # Populate the list with custom widgets
         self.populate_list(queue)
             
         layout.addWidget(self.list_widget)
-        
-        # Connect the model's signal for when rows are moved (Drag & Drop finished)
         self.list_widget.model().rowsMoved.connect(self.emit_new_queue_order)
-        
         self.setLayout(layout)
 
     def populate_list(self, queue: List[str]):
-        """Clears and repopulates the QListWidget with custom items."""
+        """Clears and repopulates the QListWidget with custom items, using cache for videos."""
         self.list_widget.clear()
         
         for path in queue:
-            pixmap = QPixmap(path)
+            # 1. Try Cache First (Crucial for Video Thumbnails)
+            pixmap = self.pixmap_cache.get(path)
+            
+            # 2. Fallback to loading from file
+            if not pixmap or pixmap.isNull():
+                pixmap = QPixmap(path)
+                
+            # 3. Final Fallback placeholder
             if pixmap.isNull():
-                pixmap = QPixmap(80, 60) # Placeholder
+                pixmap = QPixmap(80, 60)
                 pixmap.fill(Qt.darkGray)
 
-            # NOTE: Assuming QueueItemWidget class is available
             item_widget = QueueItemWidget(path, pixmap)
-            
-            # The custom widget's double-click signal should no longer be connected here, 
-            # as the QListWidget's native signal is now used.
             
             list_item = QListWidgetItem(self.list_widget)
             list_item.setSizeHint(item_widget.sizeHint())
-            # Store the path in the item data for easy retrieval on double-click
             list_item.setData(Qt.UserRole, path)
             
             self.list_widget.addItem(list_item)
             self.list_widget.setItemWidget(list_item, item_widget)
             
+    # ... (Rest of the class methods: handle_list_item_action, show_context_menu, etc. remain unchanged)
     @Slot(QListWidgetItem)
     def handle_list_item_action(self, item: QListWidgetItem):
-        """
-        Handles both the native QListWidget double-click and the right-click
-        'View Full Image' action.
-        """
         if item:
-            # Retrieve the path stored in the item's UserRole data
             file_path = item.data(Qt.UserRole)
             if file_path:
                 self.image_preview_requested.emit(file_path)
 
     @Slot(QPoint)
     def show_context_menu(self, pos: QPoint):
-        """Shows a context menu to move or remove the selected item."""
-        # Get the item at the position where the right-click occurred
         item = self.list_widget.itemAt(pos)
-        if not item:
-            return
+        if not item: return
 
         self.list_widget.setCurrentItem(item)
         current_row = self.list_widget.row(item)
         
         menu = QMenu(self)
-        
-        # Define Actions with standard icons
         move_up_action = menu.addAction(QIcon(QApplication.style().standardIcon(QStyle.SP_ArrowUp)), "Move Up")
         move_down_action = menu.addAction(QIcon(QApplication.style().standardIcon(QStyle.SP_ArrowDown)), "Move Down")
-        
-        # FIX: Replaced QStyle.SP_FileDialogDetailed with the standard QStyle.SP_FileIcon
         view_action = menu.addAction(QIcon(QApplication.style().standardIcon(QStyle.SP_FileIcon)), "View Full Image") 
-        
         menu.addSeparator()
         remove_action = menu.addAction(QIcon(QApplication.style().standardIcon(QStyle.SP_DialogCancelButton)), "Remove from Queue")
         
-        # Connect actions using lambda to pass the item instance
         move_up_action.triggered.connect(lambda: self.move_item_up(item))
         move_down_action.triggered.connect(lambda: self.move_item_down(item))
-        
-        # CONNECT NEW ACTION to the same item handler used for double-click
         view_action.triggered.connect(lambda: self.handle_list_item_action(item)) 
-        
         remove_action.triggered.connect(lambda: self.remove_item(item))
         
-        # Disable actions based on position
-        if current_row == 0:
-            move_up_action.setEnabled(False)
-        if current_row == self.list_widget.count() - 1:
-            move_down_action.setEnabled(False)
+        if current_row == 0: move_up_action.setEnabled(False)
+        if current_row == self.list_widget.count() - 1: move_down_action.setEnabled(False)
             
         menu.exec(self.list_widget.mapToGlobal(pos))
 
@@ -138,83 +111,41 @@ class SlideshowQueueWindow(QWidget):
     def move_item_up(self, item: QListWidgetItem):
         current_row = self.list_widget.row(item)
         if current_row > 0:
-            # 1. Get the item's custom widget BEFORE removing the item
             widget = self.list_widget.itemWidget(item)
-            
-            # 2. Take the item out (this detaches the widget)
             taken_item = self.list_widget.takeItem(current_row)
-            
-            # 3. Re-insert the item one position higher
-            new_row = current_row - 1
-            self.list_widget.insertItem(new_row, taken_item)
-            
-            # 4. Re-associate the custom widget with the item
+            self.list_widget.insertItem(current_row - 1, taken_item)
             self.list_widget.setItemWidget(taken_item, widget)
-            
-            # 5. NEW FIX: Re-apply the size hint to force a full layout re-evaluation
             taken_item.setSizeHint(widget.sizeHint())
-            
             self.list_widget.setCurrentItem(taken_item)
-            
-            # 6. Process events and update the view
-            QApplication.processEvents()
-            self.list_widget.model().layoutChanged.emit() # Force model change signal
-            
             self.emit_new_queue_order()
 
     @Slot(QListWidgetItem)
     def move_item_down(self, item: QListWidgetItem):
         current_row = self.list_widget.row(item)
         if current_row < self.list_widget.count() - 1:
-            # 1. Get the item's custom widget BEFORE removing the item
             widget = self.list_widget.itemWidget(item)
-
-            # 2. Take the item out (this detaches the widget)
             taken_item = self.list_widget.takeItem(current_row)
-            
-            # 3. Re-insert it one position lower
-            new_row = current_row + 1
-            self.list_widget.insertItem(new_row, taken_item)
-            
-            # 4. Re-associate the custom widget with the item
+            self.list_widget.insertItem(current_row + 1, taken_item)
             self.list_widget.setItemWidget(taken_item, widget)
-            
-            # 5. NEW FIX: Re-apply the size hint to force a full layout re-evaluation
             taken_item.setSizeHint(widget.sizeHint())
-            
             self.list_widget.setCurrentItem(taken_item)
-            
-            # 6. Process events and update the view
-            QApplication.processEvents()
-            self.list_widget.model().layoutChanged.emit() # Force model change signal
-            
             self.emit_new_queue_order()
 
     @Slot(QListWidgetItem)
     def remove_item(self, item: QListWidgetItem):
-        """Removes the selected item from the queue without a confirmation box."""
-        # Removed the QMessageBox confirmation block
         current_row = self.list_widget.row(item)
-        
-        # Delete both the QListWidgetItem and its contents
         self.list_widget.takeItem(current_row) 
-        
-        # Emit the signal with the new queue order
         self.emit_new_queue_order()
 
     @Slot()
     def emit_new_queue_order(self, *args): 
-        """Helper to build and emit the new list order after drag/context menu action."""
         new_queue = []
         for i in range(self.list_widget.count()):
             item = self.list_widget.item(i)
-            # Ensure the list is built from the item's stored path data
             new_queue.append(item.data(Qt.UserRole))
         
-        # Update the title
         title_label = self.findChild(QLabel)
         if title_label:
              title_label.setText(f"Queue: {len(new_queue)} Images (Drag or Right-click to modify)")
         
-        # Emit the signal with the new path order
         self.queue_reordered.emit(self.monitor_id, new_queue)

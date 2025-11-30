@@ -109,8 +109,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         
         self.source_scroll = MarqueeScrollArea() 
         self.source_scroll.setWidgetResizable(True)
-        self.source_scroll.setMinimumHeight(220) 
-        self.source_scroll.setMaximumHeight(220)
+        self.source_scroll.setMinimumHeight(300) 
+        self.source_scroll.setMaximumHeight(300)
         
         self.source_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
         
