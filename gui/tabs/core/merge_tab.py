@@ -4,7 +4,7 @@ import shutil
 import tempfile
 
 from typing import Dict, Any, Optional
-from PySide6.QtGui import QPixmap, QAction, QClipboard, QImage
+from PySide6.QtGui import QPixmap, QAction, QImage
 from PySide6.QtCore import Qt, QTimer, QThread, Slot, QPoint, QEventLoop
 from PySide6.QtWidgets import (
     QMenu, QPushButton, QFormLayout, QApplication,
@@ -79,12 +79,12 @@ class MergeTab(AbstractClassTwoGalleries):
         config_layout = QFormLayout(config_group)
 
         self.direction = QComboBox()
-        # ADDED "panorama" and "sequential" options here
-        self.direction.addItems(["horizontal", "vertical", "grid", "panorama", "stitch", "sequential"])
+        # ADDED "panorama", "stitch", "sequential" and now "gif"
+        self.direction.addItems(["horizontal", "vertical", "grid", "panorama", "stitch", "sequential", "gif"])
         self.direction.currentTextChanged.connect(self.handle_direction_change)
         config_layout.addRow("Direction:", self.direction)
 
-        # Spacing and Align are grouped so they can be hidden for panorama
+        # Spacing and Align are grouped so they can be hidden for panorama/gif
         self.lbl_spacing = QLabel("Spacing (px):")
         self.spacing = QSpinBox()
         self.spacing.setRange(0, 1000)
@@ -98,6 +98,17 @@ class MergeTab(AbstractClassTwoGalleries):
             "Center", "Scaled (Grow Smallest)", "Squish (Shrink Largest)"
         ])
         config_layout.addRow(self.lbl_align, self.align_mode)
+
+        # --- GIF Duration Control ---
+        self.lbl_duration = QLabel("Duration (ms/frame):")
+        self.duration_spin = QSpinBox()
+        self.duration_spin.setRange(10, 10000) # 10ms to 10 seconds
+        self.duration_spin.setValue(500) # Default 0.5s
+        self.duration_spin.setSingleStep(50)
+        config_layout.addRow(self.lbl_duration, self.duration_spin)
+        self.lbl_duration.hide()
+        self.duration_spin.hide()
+        # ----------------------------
 
         self.grid_group = QGroupBox("Grid Size")
         grid_layout = QHBoxLayout()
@@ -336,23 +347,6 @@ class MergeTab(AbstractClassTwoGalleries):
         except ValueError:
             start_index = 0
             
-        # --- Track Current Path for Update Logic ---
-        # This reference will track the path currently shown in the preview window
-        current_preview_path = image_path 
-
-        # --- Apply Temporary Highlight Style to the starting card ---
-        target_card = self.path_to_label_map.get(image_path)
-        if target_card:
-            # 1. Ensure the card is in its canonical (non-highlight) state first.
-            self.update_card_style(target_card, image_path in self.selected_files)
-            
-            # 2. Store the resulting canonical style on the card itself
-            target_card.setProperty("original_style", target_card.styleSheet())
-            
-            # 3. Apply a distinctive blue border style for viewing
-            target_card.setStyleSheet(f"{target_card.styleSheet().strip()}; border: 4px solid #3498db;")
-
-
         # 2. Create Preview Window
         window = ImagePreviewWindow(
             image_path=image_path, 
@@ -369,26 +363,10 @@ class MergeTab(AbstractClassTwoGalleries):
         
         window.setAttribute(Qt.WA_DeleteOnClose)
         
-        # 4. Handle Closure and Reset Style (inside handle_full_image_preview)
-        def remove_closed_win(event: Any):
-            # Restore the style of the image that was VISIBLE when the window closed
-            last_card = self.path_to_label_map.get(current_preview_path)
-            if last_card:
-                # Retrieve the original style stored as a property
-                original_style = last_card.property("original_style")
-                if original_style:
-                    last_card.setStyleSheet(original_style)
-                else:
-                    # Fallback to general style update if property wasn't set correctly
-                    self.update_card_style(last_card, current_preview_path in self.selected_files)
-
-            if window in self.open_preview_windows:
-                 self.open_preview_windows.remove(window)
-            event.accept()
-
-        window.closeEvent = remove_closed_win
-        window.show()
+        # Note: We do NOT override window.closeEvent here anymore.
+        # We rely on ImagePreviewWindow emitting path_changed(..., 'WINDOW_CLOSED')
         
+        window.show()
         window.activateWindow()
         window.setFocus()
         
@@ -397,34 +375,46 @@ class MergeTab(AbstractClassTwoGalleries):
     @Slot(str, str)
     def update_preview_highlight(self, old_path: str, new_path: str):
         """
-        Updates the highlight style on the main gallery cards when navigation occurs in the preview window.
+        Updates the highlight style on the main gallery cards when navigation or closing occurs in the preview window.
         """
-        # --- Reset Old Card Style (Use saved original_style property) ---
+        # --- Check for cleanup signal ---
+        # WINDOW_CLOSED is the cleanup signal sent by the preview window's closeEvent.
+        is_closing = (new_path == 'WINDOW_CLOSED')
+        
+        # 1. Reset Old Path Style (target the thumbnail that was just highlighted)
         old_card = self.path_to_label_map.get(old_path)
+        
         if old_card:
-            # 1. Retrieve the original style saved when it was highlighted
+            # Retrieve the style saved *before* the blue highlight was applied
             original_style = old_card.property("original_style")
+            
             if original_style:
+                # Use the saved style property to reset the visual appearance
                 old_card.setStyleSheet(original_style)
             else:
-                # Fallback to standard style reset
+                # Fallback: Just ensure the style reflects the correct selection state
                 self.update_card_style(old_card, old_path in self.selected_files)
             
-            # Clear the property to signal it's no longer highlighted
+            # Clear the property flag
             old_card.setProperty("original_style", None)
 
-        # --- Apply Highlight to New Card ---
+        if is_closing:
+            # Remove window from list
+            sender_win = self.sender()
+            if sender_win in self.open_preview_windows:
+                self.open_preview_windows.remove(sender_win)
+            return
+
+        # --- 2. Apply Highlight to New Path (Navigation or Initial Load) ---
         new_card = self.path_to_label_map.get(new_path)
         if new_card:
-            # 1. Ensure the card is in its canonical (non-highlight) state first.
-            # This calls _update_label_style based on its current selection state.
+            # 1. Ensure the card is in its canonical (non-highlight) state first, and save that style.
             self.update_card_style(new_card, new_path in self.selected_files)
             
-            # 2. Save this canonical style to the property for future reset/closure.
-            # This prevents saving the blue style as the "original."
+            # Save the clean style
             new_card.setProperty("original_style", new_card.styleSheet())
             
-            # 3. Apply the temporary blue highlight.
+            # 2. Apply the distinctive BLUE viewing highlight
             new_card.setStyleSheet(f"{new_card.styleSheet().strip()}; border: 4px solid #3498db;")
 
     @Slot(QPoint, str)
@@ -537,7 +527,11 @@ class MergeTab(AbstractClassTwoGalleries):
         
         # --- NEW: Create Temporary Output File Path ---
         temp_dir = tempfile.gettempdir()
-        temp_filename = next(tempfile._get_candidate_names()) + ".png" 
+        
+        # Change extension to .gif if direction is gif
+        ext = ".gif" if self.direction.currentText() == "gif" else ".png"
+        temp_filename = next(tempfile._get_candidate_names()) + ext 
+        
         self.temp_file_path = os.path.join(temp_dir, temp_filename)
         
         # Worker config must use the temporary path
@@ -653,9 +647,16 @@ class MergeTab(AbstractClassTwoGalleries):
             self.cleanup_temp_file()
 
         elif clicked_button == save_btn or clicked_button == save_add_btn:
-            out, _ = QFileDialog.getSaveFileName(self, "Save Merged Image", self.last_browsed_dir, "PNG (*.png)")
+            
+            # --- Auto-detect extension logic ---
+            filter_str = "GIF (*.gif)" if temp_path.lower().endswith(".gif") else "PNG (*.png)"
+            
+            out, _ = QFileDialog.getSaveFileName(self, "Save Merged Image", self.last_browsed_dir, filter_str)
             if out:
-                if not out.lower().endswith('.png'): out += '.png'
+                # Enforce correct extension
+                target_ext = ".gif" if temp_path.lower().endswith(".gif") else ".png"
+                if not out.lower().endswith(target_ext): out += target_ext
+                    
                 try:
                     # Move the temporary file to the final destination
                     shutil.move(temp_path, out)
@@ -740,20 +741,27 @@ class MergeTab(AbstractClassTwoGalleries):
             "spacing": self.spacing.value(),
             "align_mode": self.align_mode.currentText(),
             "grid_size": (self.grid_rows.value(), self.grid_cols.value())
-            if self.direction.currentText() == "grid" else None
+            if self.direction.currentText() == "grid" else None,
+            "duration": self.duration_spin.value() # Added duration for GIFs
         }
 
     def handle_direction_change(self, direction):
         # Update visibility of settings based on direction
         is_grid = direction == "grid"
         is_complex_stitch = direction in ["panorama", "stitch", "sequential"]
+        is_gif = direction == "gif"
         
         self.grid_group.setVisible(is_grid)
         
-        self.lbl_spacing.setVisible(not is_complex_stitch)
-        self.spacing.setVisible(not is_complex_stitch)
-        self.lbl_align.setVisible(not is_complex_stitch)
-        self.align_mode.setVisible(not is_complex_stitch)
+        # Toggle Spacing/Align
+        self.lbl_spacing.setVisible(not (is_complex_stitch or is_gif))
+        self.spacing.setVisible(not (is_complex_stitch or is_gif))
+        self.lbl_align.setVisible(not (is_complex_stitch or is_gif))
+        self.align_mode.setVisible(not (is_complex_stitch or is_gif))
+        
+        # Toggle GIF specific controls
+        self.lbl_duration.setVisible(is_gif)
+        self.duration_spin.setVisible(is_gif)
     
     def get_default_config(self) -> dict:
         return {

@@ -20,7 +20,7 @@ MERGE_DIR_IMAGES_PREFIX = FSETool.prefix_create_directory(
 class ImageMerger:
     """
     A comprehensive tool for merging and transforming images, 
-    supporting horizontal, vertical, grid layouts, and panoramic stitching.
+    supporting horizontal, vertical, grid layouts, panoramic stitching, and GIFs.
     """
     
     # --- Helper Static Method for Image Preparation ---
@@ -163,8 +163,6 @@ class ImageMerger:
         Stitches images into a panorama using OpenCV's default PANORAMA mode.
         Good for rotating camera shots (perspective transformation).
         """
-        import cv2
-        
         cv_images = []
         for path in image_paths:
             img = cv2.imread(path)
@@ -208,8 +206,6 @@ class ImageMerger:
         Stitches a large number of images with small differences (flat scans).
         Uses OpenCV's SCANS mode which optimizes for affine/flat transformations.
         """
-        import cv2
-        
         # 1. Read images
         cv_images = []
         for path in image_paths:
@@ -260,9 +256,7 @@ class ImageMerger:
         Ideal for webtoons, chat logs, or vertical screenshots with overlap.
         Uses bidirectional matching (A->B and B->A) for robustness and sub-pixel refinement.
         Applies gradient blending (cross-dissolve) at the seam to hide transition lines.
-        """
-        import cv2
-        
+        """    
         cv_images = []
         for p in image_paths:
             img = cv2.imread(p)
@@ -420,6 +414,48 @@ class ImageMerger:
         
         merged_image.save(output_path)
         return merged_image
+    
+    @staticmethod
+    def _create_gif(image_paths: List[str], output_path: str, duration: int = 500) -> Image.Image:
+        """
+        Creates an animated GIF from the provided images. 
+        Resizes all images to match the size of the first image to ensure consistency.
+        """
+        if not image_paths:
+            raise ValueError("No images provided for GIF creation.")
+            
+        # Open all images
+        images = [Image.open(p) for p in image_paths]
+        
+        # Use first image as base size
+        base_size = images[0].size
+        
+        # Normalize all frames to the base size
+        frames = []
+        for img in images:
+            if img.size != base_size:
+                # Resize using Lanczos for quality
+                frames.append(img.resize(base_size, Image.Resampling.LANCZOS))
+            else:
+                frames.append(img)
+                
+        # Save GIF
+        # append_images takes the rest of the list (frames[1:])
+        # loop=0 means infinite loop
+        if output_path.lower().endswith('.png'):
+            output_path = output_path[:-4] + '.gif'
+            
+        frames[0].save(
+            output_path,
+            format='GIF',
+            append_images=frames[1:],
+            save_all=True,
+            duration=duration,
+            loop=0,
+            optimize=True
+        )
+        
+        return frames[0]
 
     @classmethod
     @FSETool.ensure_absolute_paths(prefix_func=MERGE_IMAGES_PREFIX)
@@ -429,10 +465,11 @@ class ImageMerger:
                      direction: str, 
                      grid_size: Optional[Tuple[int, int]]=None, 
                      spacing: int=0, 
-                     align_mode: AlignMode="Default (Top/Center)") -> Image.Image:
+                     align_mode: AlignMode="Default (Top/Center)",
+                     duration: int = 500) -> Image.Image:
         """
         Merge images based on direction.
-        Options: 'horizontal', 'vertical', 'grid', 'panorama', 'stitch', 'sequential'.
+        Options: 'horizontal', 'vertical', 'grid', 'panorama', 'stitch', 'sequential', 'gif'.
         """
         if direction == 'horizontal':
             merged_img = self._merge_images_horizontal(image_paths, output_path, spacing, align_mode)
@@ -448,6 +485,8 @@ class ImageMerger:
             merged_img = self._merge_images_scan_stitch(image_paths, output_path)
         elif direction == 'sequential':
             merged_img = self._merge_images_sequential(image_paths, output_path)
+        elif direction == 'gif':
+            merged_img = self._create_gif(image_paths, output_path, duration)
         else:
             raise ValueError(f"ERROR: invalid direction '{direction}'")
         
@@ -463,7 +502,8 @@ class ImageMerger:
                                direction: str='horizontal', 
                                grid_size: Optional[Tuple[int, int]]=None, 
                                spacing: int=0, 
-                               align_mode: AlignMode="Default (Top/Center)") -> Optional[Image.Image]:
+                               align_mode: AlignMode="Default (Top/Center)",
+                               duration: int = 500) -> Optional[Image.Image]:
         
         image_paths = []
         for fmt in input_formats:
@@ -473,4 +513,4 @@ class ImageMerger:
             print(f"WARNING: No images found in directory '{directory}' with formats {input_formats}.")
             return None
         
-        return self.merge_images(image_paths, output_path, direction, grid_size, spacing, align_mode)
+        return self.merge_images(image_paths, output_path, direction, grid_size, spacing, align_mode, duration)
