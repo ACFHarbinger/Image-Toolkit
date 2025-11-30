@@ -92,7 +92,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         
         self.main_layout.addWidget(dir_select_group)
 
-        # 1.5. Extraction Target Directory Section (Placed right after Source Directory)
+        # 1.5. Extraction Target Directory Section
         dir_set_group = QGroupBox("Output Directory") 
         dir_set_layout = QHBoxLayout(dir_set_group)
         
@@ -107,7 +107,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         
         self.main_layout.addWidget(dir_set_group) 
 
-        # 2. Source Gallery (Thumbnails of Videos/GIFs)
+        # 2. Source Gallery
         self.source_group = QGroupBox("Available Media")
         source_layout = QVBoxLayout(self.source_group)
         
@@ -115,7 +115,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.source_scroll.setWidgetResizable(True)
         self.source_scroll.setMinimumHeight(300) 
         self.source_scroll.setMaximumHeight(300)
-        
         self.source_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
         
         self.source_container = QWidget()
@@ -126,24 +125,20 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.source_scroll.setWidget(self.source_container)
         
         source_layout.addWidget(self.source_scroll)
-        
         self.main_layout.addWidget(self.source_group)
 
         # 3. Video Player Section
         self.video_container_widget = QWidget() 
         video_container_layout = QVBoxLayout(self.video_container_widget)
         
-        # GroupBox to hold the player
         player_group = QGroupBox("Video Player")
-        self.player_layout_container = QVBoxLayout(player_group) # The layout of the GroupBox
+        self.player_layout_container = QVBoxLayout(player_group) 
         
-        # --- PLAYER CONTAINER (Holds View + Controls) ---
         self.player_container = QWidget()
         self.player_container.setStyleSheet("background-color: #2b2d31;") 
         self.player_inner_layout = QVBoxLayout(self.player_container)
         self.player_inner_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Video Item & Scene
         self.video_item = QGraphicsVideoItem()
         self.graphics_scene = QGraphicsScene(self)
         self.graphics_scene.addItem(self.video_item)
@@ -175,13 +170,20 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.combo_resolution = QComboBox()
         self.combo_resolution.addItems(["720p", "1080p", "1440p", "4K"])
         self.combo_resolution.setCurrentIndex(1)
-        self.combo_resolution.currentIndexChanged.connect(self.change_resolution)
+        self.combo_resolution.currentIndexChanged.connect(lambda: self.change_resolution(self.combo_resolution.currentIndex()))
         controls_top_layout.addWidget(self.combo_resolution)
-        controls_top_layout.addStretch()
         
+        # --- NEW: Vertical Checkbox for Player ---
+        self.check_player_vertical = QCheckBox("Vertical")
+        self.check_player_vertical.setToolTip("Swap width/height for vertical displays")
+        self.check_player_vertical.toggled.connect(lambda: self.change_resolution(self.combo_resolution.currentIndex()))
+        controls_top_layout.addWidget(self.check_player_vertical)
+        # ----------------------------------------
+        
+        controls_top_layout.addStretch()
         self.player_inner_layout.addLayout(controls_top_layout)
 
-        # Controls Row 2 (Bottom - Slider, Play, etc)
+        # Controls Row 2 (Bottom)
         controls_layout = QHBoxLayout()
         controls_layout.setContentsMargins(10, 0, 10, 10)
         
@@ -218,7 +220,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         
         self.player_inner_layout.addLayout(controls_layout)
         
-        # Info Label (External Player Mode)
         self.info_label = QLabel("Video is playing externally. Use slider to select timestamps.")
         self.info_label.setStyleSheet("color: #aaa; font-style: italic; font-size: 11px;")
         self.info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -226,7 +227,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.player_inner_layout.addWidget(self.info_label)
 
         self.player_layout_container.addWidget(self.player_container)
-        
         self.player_container.installEventFilter(self)
 
         video_container_layout.addWidget(player_group)
@@ -235,7 +235,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         # 4. Extraction Controls
         self.extract_group = QGroupBox("Extraction Settings")
-        # Change to VBox to hold settings row AND buttons row
         extract_main_layout = QVBoxLayout(self.extract_group)
         
         # -- Row 1: Configuration --
@@ -244,8 +243,14 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         extract_config_layout.addWidget(QLabel("Output Size:"))
         self.combo_extract_size = QComboBox()
         self.combo_extract_size.addItems(list(self.extraction_res_map.keys()))
-        self.combo_extract_size.setCurrentText("Original") # Default
+        self.combo_extract_size.setCurrentText("Original") 
         extract_config_layout.addWidget(self.combo_extract_size)
+        
+        # --- NEW: Vertical Checkbox for Extraction ---
+        self.check_extract_vertical = QCheckBox("Vertical Output")
+        self.check_extract_vertical.setToolTip("Swap width/height for vertical output resolution")
+        extract_config_layout.addWidget(self.check_extract_vertical)
+        # ---------------------------------------------
         
         extract_config_layout.addSpacing(20)
         
@@ -256,7 +261,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         extract_config_layout.addWidget(self.spin_gif_fps)
 
         self.check_mute_audio = QCheckBox("Mute Audio in MP4/GIF")
-        self.check_mute_audio.setChecked(False) # Default to include audio
+        self.check_mute_audio.setChecked(False) 
         extract_config_layout.addWidget(self.check_mute_audio)
         
         extract_config_layout.addStretch()
@@ -283,13 +288,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.btn_extract_range.clicked.connect(self.extract_range)
         self.btn_extract_range.setEnabled(False)
 
-        # --- VIDEO BUTTON ---
         self.btn_extract_video = QPushButton("MP4 Extract as Video")
         self.btn_extract_video.setStyleSheet("QPushButton { background-color: #2980b9; color: white; font-weight: bold; }")
         self.btn_extract_video.clicked.connect(self.extract_range_as_video)
         self.btn_extract_video.setEnabled(False)
 
-        # --- GIF BUTTON ---
         self.btn_extract_gif = QPushButton("GIF Extract as GIF")
         self.btn_extract_gif.setStyleSheet("QPushButton { background-color: #8e44ad; color: white; font-weight: bold; }")
         self.btn_extract_gif.clicked.connect(self.extract_range_as_gif)
@@ -358,16 +361,12 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         
         self.gallery_layout = QGridLayout(self.gallery_container)
         self.gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
-        # Set spacing to match Search Tab
         self.gallery_layout.setSpacing(3)
         self.gallery_scroll_area.setWidget(self.gallery_container)
         
         self.gallery_scroll_area.selection_changed.connect(self.handle_marquee_selection)
 
         self.main_layout.addWidget(self.gallery_scroll_area, 1)
-
-        # --- PAGINATION WIDGET MOVED HERE ---
-        # Added with stretch 0 and Alignment Center
         self.main_layout.addWidget(self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter)
         
         # --- Connections ---
@@ -375,12 +374,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.media_player.durationChanged.connect(self.duration_changed)
         self.media_player.errorOccurred.connect(self.handle_player_error)
 
-        # --- Initial Load of Output Directory ---
         self._load_existing_output_images()
 
     def _load_existing_output_images(self):
-        """Scans the extraction directory and loads existing images into the gallery."""
-        # Added .gif and .mp4 to valid extensions for preview
         valid_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".mp4"}
         found_paths = []
         
@@ -389,14 +385,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 if entry.is_file() and entry.suffix.lower() in valid_extensions:
                     full_path = str(entry.absolute())
                     found_paths.append(full_path)
-                    self.start_loading_gallery(self.current_extracted_paths, pixmap_cache=self._initial_pixmap_cache)
         
-        # Sort files so they don't appear randomly
         found_paths.sort()
 
         if found_paths:
             self.current_extracted_paths = found_paths
-            # Pass the cache to start_loading_gallery
             self.start_loading_gallery(self.current_extracted_paths, pixmap_cache=self._initial_pixmap_cache)
 
     @Slot()
@@ -433,7 +426,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     @Slot(str, QPixmap)
     def add_source_thumbnail(self, path: str, pixmap: QPixmap):
-        # If pixmap is null (e.g. scanner failed or it's a video handled differently), try manual generation
         if pixmap.isNull() and path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
              thumb = self._generate_video_thumbnail(path)
              if thumb: pixmap = thumb
@@ -459,7 +451,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             clickable_label.setText("No Preview")
             clickable_label.setStyleSheet("border: 1px dashed #666; color: #888;")
         
-        # Apply border style (unless it was "No Preview" styled above)
         if not pixmap.isNull():
             clickable_label.setStyleSheet("border: 2px solid #4f545c; border-radius: 4px;")
         
@@ -519,8 +510,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.extraction_dir = new_path
             self.last_browsed_extraction_dir = str(new_path)
             self.line_edit_extract_dir.setText(str(self.extraction_dir))
-            
-            # Clear existing items and load from new folder
             self._clear_gallery()
             self._load_existing_output_images()
 
@@ -528,7 +517,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.current_extracted_paths.clear()
         self.selected_paths.clear()
         self.gallery_image_paths.clear()
-        self._initial_pixmap_cache.clear() # Clear cache too
+        self._initial_pixmap_cache.clear() 
         self.clear_gallery_widgets()
         self.start_time_ms = 0
         self.end_time_ms = 0
@@ -584,8 +573,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     @Slot(QResizeEvent)
     def resizeEvent(self, event: QResizeEvent):
         super().resizeEvent(event)
-        # Assuming _resize_timer is defined in the base class and connected to a resize handler
-        # self._resize_timer.start(150) 
         if self.video_view.isVisible():
             self.fit_video_in_view()
 
@@ -593,6 +580,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def change_resolution(self, index: int):
         if not self.player_container.isFullScreen() and 0 <= index < len(self.available_resolutions):
             w, h = self.available_resolutions[index]
+            # --- NEW: Swap dimensions if vertical checkbox is checked ---
+            if self.check_player_vertical.isChecked():
+                w, h = h, w
+            # -----------------------------------------------------------
             self.video_view.setFixedSize(w, h)
             self.fit_video_in_view()
 
@@ -618,10 +609,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             clickable_label.setText("") 
             
             if is_video:
-                # Video border style
                 clickable_label.setStyleSheet("border: 2px solid #3498db;")
             else:
-                # Standard border style
                 clickable_label.setStyleSheet("border: 1px solid #4f545c;")
         else:
              if is_video:
@@ -666,15 +655,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         if selected:
             label.setStyleSheet("border: 3px solid #5865f2; background-color: #36393f;")
         else:
-            # Revert to appropriate unselected state
             if is_video:
-                # Keep blue border for videos even when not selected to distinguish them?
-                # Or just standard if you prefer. Let's keep it standard unless special text.
                 if label.text() == "VIDEO":
                      label.setStyleSheet("border: 1px solid #2980b9; color: #2980b9; font-weight: bold;")
                 else:
-                     # If thumb loaded, maybe a slight blue tint or just normal?
-                     # Let's use blue border for videos to make them stand out
                      label.setStyleSheet("border: 2px solid #3498db;")
             elif label.text() in ["Load Error", "Loading..."]:
                 pass
@@ -712,7 +696,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     @Slot(str)
     def handle_thumbnail_double_click(self, image_path: str):
-        # If video, open externally or play
         if image_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
             try:
                 if os.name == 'nt':
@@ -781,20 +764,16 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             paths_to_delete = list(self.selected_paths)
             layout_changed = False
             
-            # Use a list to hold widgets that will be destroyed
             widgets_to_delete = []
 
             for path in paths_to_delete:
                 try:
                     os.remove(path)
-                    
-                    # 1. Update Data lists (Crucial for correct pagination count)
                     if path in self.current_extracted_paths:
                         self.current_extracted_paths.remove(path)
                     if path in self.gallery_image_paths: 
                         self.gallery_image_paths.remove(path)
                     
-                    # 2. Collect the widget for removal/deletion
                     if path in self.path_to_card_widget:
                         widget = self.path_to_card_widget.pop(path)
                         if widget:
@@ -806,18 +785,13 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             
             self.selected_paths.clear()
 
-            # 3. Perform immediate visual removal from layout and destroy widget
             if layout_changed:
                 for widget in widgets_to_delete:
-                    # Remove from layout *before* deleting it
                     self.gallery_layout.removeWidget(widget)
                     widget.deleteLater()
             
-                # 4. Reflow the Grid to fill empty spaces (avoids full gallery clear/repopulation)
                 cols = self.common_calculate_columns(self.gallery_scroll_area, self.approx_item_width)
                 self.common_reflow_layout(self.gallery_layout, cols)
-                
-                # 5. Update Pagination Text/Controls
                 self._update_pagination_ui()
                 
             if failed:
@@ -913,23 +887,27 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             duration_str = self._format_time(self.end_time_ms - self.start_time_ms)
             self.btn_extract_range.setEnabled(True)
             self.btn_extract_range.setText(f"Extract Range ({duration_str})")
-            
-            # Enable GIF extraction
             self.btn_extract_gif.setEnabled(True)
             self.btn_extract_gif.setText(f"GIF Extract as GIF ({duration_str})")
-            
-            # Enable Video extraction
             self.btn_extract_video.setEnabled(True)
             self.btn_extract_video.setText(f"MP4 Extract as Video ({duration_str})")
         else:
             self.btn_extract_range.setEnabled(False)
             self.btn_extract_range.setText("🎞️ Extract Range")
-            
             self.btn_extract_gif.setEnabled(False)
             self.btn_extract_gif.setText("GIF Extract as GIF")
-
             self.btn_extract_video.setEnabled(False)
             self.btn_extract_video.setText("MP4 Extract as Video")
+
+    # --- NEW HELPER: Resolution Swapping ---
+    def _get_target_size(self) -> Optional[Tuple[int, int]]:
+        selected_key = self.combo_extract_size.currentText()
+        target_size = self.extraction_res_map.get(selected_key)
+        # If vertical output is checked, flip dimensions
+        if target_size and self.check_extract_vertical.isChecked():
+            return (target_size[1], target_size[0])
+        return target_size
+    # ---------------------------------------
 
     @Slot()
     def extract_single_frame(self):
@@ -954,7 +932,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         if self.use_internal_player:
              self.media_player.pause()
              self.btn_play.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
-             
         self._run_gif_extraction(self.start_time_ms, self.end_time_ms)
 
     @Slot()
@@ -963,13 +940,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         if self.use_internal_player:
             self.media_player.pause()
             self.btn_play.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
-             
         self._run_video_extraction(self.start_time_ms, self.end_time_ms)
 
     def _run_extraction(self, start: int, end: int, is_range: bool):
-        # Fetch resolution from combo box
-        selected_key = self.combo_extract_size.currentText()
-        target_size: Optional[Tuple[int, int]] = self.extraction_res_map.get(selected_key)
+        target_size = self._get_target_size()
         
         self.progress_dialog = QProgressDialog("Extracting and processing frames...", "Cancel", 0, 0, self)
         self.progress_dialog.setWindowTitle("Processing")
@@ -990,11 +964,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         QThreadPool.globalInstance().start(self.extractor_worker)
 
     def _run_gif_extraction(self, start: int, end: int):
-        """Prepares and launches the GifCreationWorker."""
-        
-        # Get Settings
-        selected_key = self.combo_extract_size.currentText()
-        target_size: Optional[Tuple[int, int]] = self.extraction_res_map.get(selected_key)
+        target_size = self._get_target_size()
         fps = self.spin_gif_fps.value()
 
         self.progress_dialog = QProgressDialog("Generating GIF... This may take a moment.", "Cancel", 0, 0, self)
@@ -1020,11 +990,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         QThreadPool.globalInstance().start(worker)
 
     def _run_video_extraction(self, start: int, end: int):
-        """Prepares and launches the VideoExtractionWorker."""
-        
-        # Get Settings
-        selected_key = self.combo_extract_size.currentText()
-        target_size: Optional[Tuple[int, int]] = self.extraction_res_map.get(selected_key)
+        target_size = self._get_target_size()
         mute_audio = self.check_mute_audio.isChecked()
         
         self.progress_dialog = QProgressDialog("Generating Video... This may take a moment.", "Cancel", 0, 0, self)
@@ -1056,16 +1022,15 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.progress_dialog = None
         
         if new_path and os.path.exists(new_path):
-            # Pre-generate thumbnail for video so it shows up immediately in gallery
             if new_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
                 thumb = self._generate_video_thumbnail(new_path)
                 if thumb:
                     self._initial_pixmap_cache[new_path] = thumb
-                    
-            # 1. Base class adds [new_path] to self.gallery_image_paths
+            
+            # Base class handles list management and loading
             self.start_loading_gallery([new_path], append=True, pixmap_cache=self._initial_pixmap_cache)
             
-            # 2. Sync local tracking list to the official base list (Fixes duplicate entries)
+            # Keep local list synced
             self.current_extracted_paths = self.gallery_image_paths[:] 
             
             QMessageBox.information(self, "Success", f"Media created successfully:\n{Path(new_path).name}")
@@ -1086,10 +1051,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             QMessageBox.information(self, "Info", "No frames extracted.")
             return
         
-        # 1. Base class adds new_paths to self.gallery_image_paths
         self.start_loading_gallery(new_paths, append=True)
-        
-        # 2. Sync local tracking list to the official base list
         self.current_extracted_paths = self.gallery_image_paths[:] 
         
         if self.progress_dialog:
@@ -1105,53 +1067,53 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     # --- Configuration Methods for SettingsWindow ---
 
     def get_default_config(self) -> Dict[str, Any]:
-        """Returns the default settings for this tab."""
         return {
             "source_directory": str(Path.home()),
             "extraction_directory": str(self.extraction_dir),
             "player_mode_internal": True,
-            "player_resolution_index": 1, # 1080p
+            "player_resolution_index": 1,
+            "player_vertical": False, # NEW
+            "extract_vertical": False, # NEW
         }
 
     def collect(self) -> Dict[str, Any]:
-        """Collects the current input values from the UI fields."""
         return {
             "source_directory": self.line_edit_dir.text(),
             "extraction_directory": self.line_edit_extract_dir.text(),
             "player_mode_internal": self.use_internal_player,
             "player_resolution_index": self.combo_resolution.currentIndex(),
+            "player_vertical": self.check_player_vertical.isChecked(), # NEW
+            "extract_vertical": self.check_extract_vertical.isChecked(), # NEW
         }
 
     def set_config(self, config: Dict[str, Any]):
-        """Applies the provided configuration dictionary to the UI fields."""
         try:
-            # 1. Source Directory (Triggers scan if valid path)
             source_dir = config.get("source_directory", "")
             self.line_edit_dir.setText(source_dir)
             if os.path.isdir(source_dir):
                 self.scan_directory(source_dir)
             
-            # 2. Extraction Directory
             extract_dir_str = config.get("extraction_directory")
             if extract_dir_str and os.path.isdir(extract_dir_str):
                 new_path = Path(extract_dir_str)
                 self.extraction_dir = new_path
                 self.last_browsed_extraction_dir = str(new_path)
                 self.line_edit_extract_dir.setText(str(new_path))
-                self._load_existing_output_images() # Refresh gallery from new path
+                self._load_existing_output_images()
                 
-            # 3. Player Resolution
+            # --- Restore Checkboxes ---
+            self.check_player_vertical.setChecked(config.get("player_vertical", False))
+            self.check_extract_vertical.setChecked(config.get("extract_vertical", False))
+            
             res_index = config.get("player_resolution_index")
             if res_index is not None and 0 <= res_index < self.combo_resolution.count():
                 self.combo_resolution.setCurrentIndex(res_index)
                 self.change_resolution(res_index)
                 
-            # 4. Player Mode
             mode = config.get("player_mode_internal")
             if mode is not None:
                 if mode != self.use_internal_player:
-                    self.toggle_player_mode() # Toggles the mode
-                # Ensure the mode is correctly applied after load
+                    self.toggle_player_mode()
                 self._apply_player_mode() 
                 
             QMessageBox.information(self, "Config Loaded", "Image Extractor configuration applied successfully.")

@@ -1,5 +1,4 @@
 import os
-import re
 import ctypes
 import platform
 import subprocess
@@ -10,7 +9,6 @@ from screeninfo import Monitor
 from typing import Dict, List, Optional
 from ..utils.definitions import (
     WALLPAPER_STYLES, 
-    SUPPORTED_IMG_FORMATS, 
     SUPPORTED_VIDEO_FORMATS,
 )
 
@@ -73,6 +71,7 @@ if platform.system() == "Windows":
         COM_AVAILABLE = True
 
     except ImportError:
+        # Fallback if comtypes is not installed
         COM_AVAILABLE = False
         print("Warning: 'comtypes' library not found. Multi-monitor support is disabled.")
 
@@ -219,95 +218,98 @@ class WallpaperManager:
     @staticmethod
     def _set_wallpaper_kde(path_map: Dict[str, str], num_monitors: int, style_name: str, qdbus: str):
         """
-        Fully working with Smart Video Wallpaper Reborn 2.7.0+
-        Correctly respects the new 'Positioning' dropdown.
+        Sets per-monitor wallpaper for KDE Plasma using qdbus.
+        Corrected Video FillMode mapping for Smart Video Wallpaper Reborn.
         """
-
-        video_mode_active = style_name.startswith("SmartVideoWallpaperReborn::")
-
-        # Map our internal → Reborn Positioning value
-        if video_mode_active:
+        
+        # --- FIX: Correct Mapping for Qt6 VideoOutput.FillMode ---
+        # 0 = Stretch
+        # 1 = PreserveAspectFit (Keep Proportions)
+        # 2 = PreserveAspectCrop (Scaled and Cropped) -- DEFAULT
+        video_fill_mode = 2 
+        video_mode_active = False
+        
+        if style_name.startswith("SmartVideoWallpaperReborn::"):
+            video_mode_active = True
             try:
-                mode = style_name.split("::", 1)[1]
-                if mode == "Keep Proportions":
-                    positioning_value = 0
-                elif mode == "Scaled and Cropped":
-                    positioning_value = 1
-                elif mode == "Stretch":
-                    positioning_value = 2
-                else:
-                    positioning_value = 1  # fallback
-            except:
-                positioning_value = 1
-        else:
-            positioning_value = None  # not a video mode
+                parts = style_name.split("::")
+                if len(parts) > 1:
+                    v_style_str = parts[1]
+                    if v_style_str == "Keep Proportions":
+                        video_fill_mode = 1 # Fit
+                    elif v_style_str == "Scaled and Cropped":
+                        video_fill_mode = 2 # Crop
+                    elif v_style_str == "Stretch":
+                        video_fill_mode = 0 # Stretch
+            except Exception as e:
+                print(f"Error parsing video style: {e}")
+            
+            style_name = "Fill" # Fallback for image layers
 
-        image_fill_mode = WALLPAPER_STYLES["KDE"].get(
-            style_name if not video_mode_active else "Fill",
-            WALLPAPER_STYLES["KDE"]["Scaled, Keep Proportions"]
-        )
-
+        # Get KDE FillMode for standard images
+        fill_mode = WALLPAPER_STYLES["KDE"].get(style_name, WALLPAPER_STYLES["KDE"]["Scaled, Keep Proportions"])
+        
         REBORN_PLUGIN = "luisbocanegra.smart.video.wallpaper.reborn"
-        ZREN_PLUGIN   = "com.github.zren.smartvideowallpaper"
-
+        ZREN_PLUGIN = "com.github.zren.smartvideowallpaper"
+        
         script_parts = []
-
+        
         for i in range(num_monitors):
-            path = path_map.get(str(i))
-            if not path:
-                continue
-
-            file_uri = f"file://{Path(path).resolve()}"
-            is_video = Path(path).suffix.lower() in SUPPORTED_VIDEO_FORMATS
-
-            if video_mode_active and is_video:
-                script_parts.append(f'''
+            monitor_id = str(i)
+            path = path_map.get(monitor_id)
+            
+            if path:
+                file_uri = f"file://{Path(path).resolve()}"
+                ext = Path(path).suffix.lower()
+                
+                if ext in SUPPORTED_VIDEO_FORMATS and video_mode_active:
+                    
+                    # We use the standard approach (Set Plugin -> Write Config -> Reload)
+                    # This proved more reliable than the "Reset-Switch" method.
+                    
+                    script_parts.append(f'''
                     var d = desktops()[{i}];
+                    var currentPlugin = d.wallpaperPlugin;
+                    var targetPlugin = "{REBORN_PLUGIN}";
+                    var altPlugin = "{ZREN_PLUGIN}";
 
-                    // Detect current plugin (prefer Reborn)
-                    var plugin = "{REBORN_PLUGIN}";
-                    if (d.wallpaperPlugin === "{ZREN_PLUGIN}") plugin = "{ZREN_PLUGIN}";
+                    // Prefer active video plugin to avoid unnecessary reloading
+                    if (currentPlugin === targetPlugin || currentPlugin === altPlugin) {{
+                        targetPlugin = currentPlugin;
+                    }} else {{
+                        d.wallpaperPlugin = targetPlugin; 
+                    }}
 
-                    // 1. Reset by switching to image plugin
-                    d.wallpaperPlugin = "org.kde.image";
-                    d.currentConfigGroup = ["Wallpaper", "org.kde.image", "General"];
-                    d.writeConfig("Image", "file:///usr/share/wallpapers/Next/contents/images/1920x1080.jpg");
-
-                    // 2. Write video settings while plugin is inactive
-                    d.currentConfigGroup = ["Wallpaper", plugin, "General"];
+                    d.currentConfigGroup = Array("Wallpaper", targetPlugin, "General");
                     d.writeConfig("VideoUrls", "{file_uri}");
-                    d.writeConfig("Volume", 0);
-                    d.writeConfig("Positioning", {positioning_value});   // This is the key that matters now!
-                    d.writeConfig("Resize", {positioning_value});        // Keep for old versions
+                    
+                    // --- FIX: Write to FillMode (Correct Key) ---
+                    d.writeConfig("FillMode", {video_fill_mode});
 
-                    // 3. Activate video plugin → forces full reload
-                    d.wallpaperPlugin = plugin;
-                ''')
-            else:
-                # Regular image wallpaper
-                script_parts.append(f'''
-                    var d = desktops()[{i}];
-                    d.wallpaperPlugin = "org.kde.image";
-                    d.currentConfigGroup = ["Wallpaper", "org.kde.image", "General"];
-                    d.writeConfig("Image", "{file_uri}");
-                    d.writeConfig("FillMode", {image_fill_mode});
-                ''')
+                    // Ensure background image layer is transparent (blur effect)
+                    d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General");
+                    d.writeConfig("FillMode", 2);
+                    d.writeConfig("Color", "#00000000");
+                    d.writeConfig("Image", "file:///usr/share/wallpapers/Next/contents/images/1920x1080.jpg");
+                    
+                    d.reloadConfig();
+                    ''')
+                else:
+                    script_parts.append(
+                        f'd = desktops()[{i}]; d.wallpaperPlugin = "org.kde.image"; d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); d.writeConfig("Image", "{file_uri}"); d.writeConfig("FillMode", {fill_mode}); d.reloadConfig();'
+                    )
+        
+        if not script_parts: return
 
-        if not script_parts:
-            return
-
-        full_script = "\n".join(script_parts)
-        full_script += "\nfor(var i=0; i<desktops().length; i++) desktops()[i].reloadConfig();"
-
-        print(f"[Smart Video Wallpaper Reborn] Using Positioning = {positioning_value}")
-
-        subprocess.run([
-            qdbus,
-            "org.kde.plasmashell",
-            "/PlasmaShell",
-            "org.kde.PlasmaShell.evaluateScript",
-            full_script
-        ], check=True, capture_output=True, text=True)
+        full_script = "".join(script_parts)
+        
+        # Debug Print for verification
+        print(f"[DEBUG KDE] Video FillMode set to: {video_fill_mode}")
+        
+        qdbus_command = (
+            f"{qdbus} org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{full_script}'"
+        )
+        subprocess.run(qdbus_command, shell=True, check=False, capture_output=True, text=True)
 
     @staticmethod
     def _set_wallpaper_gnome_spanned(path_map: Dict[str, str], monitors: List[Monitor], style_name: str):
@@ -346,17 +348,9 @@ class WallpaperManager:
         subprocess.run(["gsettings", "set", "org.gnome.desktop.background", "picture-options", "spanned"], check=True)
         subprocess.run(["gsettings", "set", "org.gnome.desktop.background", "picture-uri", file_uri], check=True)
         
-        # --- FIX: Make picture-uri-dark setting optional ---
         try:
-            subprocess.run(
-                ["gsettings", "set", "org.gnome.desktop.background", "picture-uri-dark", file_uri], 
-                check=True, capture_output=True, text=True
-            )
-        except subprocess.CalledProcessError as e:
-            # Ignore "No such key" error from systems without dark mode support
-            if "No such key" not in e.stderr:
-                raise
-        # ---------------------------------------------------
+            subprocess.run(["gsettings", "set", "org.gnome.desktop.background", "picture-uri-dark", file_uri], check=True)
+        except: pass
 
     @staticmethod
     def apply_wallpaper(path_map: Dict[str, str], monitors: List[Monitor], style_name: str, qdbus: str):
@@ -365,13 +359,11 @@ class WallpaperManager:
         
         if is_solid_color:
             color_hex = path_map.get(str(0), "#000000") 
-            
             if system == "Windows":
                 WallpaperManager._set_wallpaper_solid_color_windows(color_hex)
             elif system == "Linux":
                 try:
                     subprocess.run(["which", qdbus], check=True, capture_output=True) 
-                    
                     script = f"""
                     var d = desktops();
                     for (var i = 0; i < d.length; i++) {{
@@ -403,14 +395,10 @@ class WallpaperManager:
                 WallpaperManager._set_wallpaper_windows_single(path_to_set, style_name)
                 
         elif system == "Linux":
-            # --- Linux Implementation ---
             try:
-                # Try KDE qdbus method first
                 subprocess.run(["which", qdbus], check=True, capture_output=True) 
                 WallpaperManager._set_wallpaper_kde(path_map, len(monitors), style_name, qdbus)
-                
             except (FileNotFoundError, subprocess.CalledProcessError):
-                # Fallback to GNOME (spanned) method
                 try:
                     WallpaperManager._set_wallpaper_gnome_spanned(path_map, monitors, style_name)
                 except Exception as e:
@@ -431,15 +419,11 @@ class WallpaperManager:
                     var d = desktops()[{i}];
                     var plugin = d.wallpaperPlugin;
                     var path = "";
-
                     d.currentConfigGroup = Array("Wallpaper", plugin, "General");
                     path = d.readConfig("Image");
-
                     if (!path || path == "" || path == "null") {{ path = d.readConfig("VideoUrls"); }}
                     if (!path || path == "" || path == "null") {{ path = d.readConfig("Video"); }}
-                    
                     if (path && path.indexOf(",") !== -1) {{ path = path.split(",")[0]; }}
-
                     out.push("MONITOR_{i}:" + (path || "NONE"));
                 }} catch (e) {{ out.push("MONITOR_{i}:NONE"); }}
             }})();
@@ -449,7 +433,6 @@ class WallpaperManager:
         try:
             cmd = [qdbus, "org.kde.plasmashell", "/PlasmaShell", "org.kde.PlasmaShell.evaluateScript", script]
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=12, check=False)
-
             if result.returncode != 0: return path_map
             output = result.stdout.strip()
             if not output: return path_map
@@ -467,7 +450,6 @@ class WallpaperManager:
                     continue
                 if raw_path.startswith("file:/") and not raw_path.startswith("file://"):
                     raw_path = "file://" + raw_path[5:]
-
                 try:
                     if raw_path.startswith("file://"): local_path = Path(raw_path[7:]).resolve()
                     else: local_path = Path(raw_path).resolve()
