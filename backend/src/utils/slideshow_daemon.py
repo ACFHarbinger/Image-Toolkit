@@ -1,18 +1,17 @@
+import sys
 import time
 import json
-import sys
 
-from pathlib import Path
-from backend.src.core import WallpaperManager 
 from screeninfo import get_monitors
+from backend.src.core import WallpaperManager 
+from backend.src.utils.definitions import DAEMON_CONFIG_PATH
 
-CONFIG_PATH = Path.home() / ".myapp_slideshow_config.json"
 
 def load_config():
-    if not CONFIG_PATH.exists():
+    if not DAEMON_CONFIG_PATH.exists():
         return None
     try:
-        with open(CONFIG_PATH, 'r') as f:
+        with open(DAEMON_CONFIG_PATH, 'r') as f:
             return json.load(f)
     except Exception:
         return None
@@ -82,7 +81,7 @@ def main():
                 
                 # Update config file with new current state so we resume correctly next time
                 config['current_paths'] = current_paths
-                with open(CONFIG_PATH, 'w') as f:
+                with open(DAEMON_CONFIG_PATH, 'w') as f:
                     json.dump(config, f)
                     
             except Exception as e:

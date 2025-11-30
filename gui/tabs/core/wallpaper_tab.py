@@ -1,5 +1,7 @@
 import os
+import sys
 import cv2
+import json
 import shutil
 import platform
 import subprocess
@@ -15,10 +17,10 @@ from PySide6.QtCore import (
 from PySide6.QtWidgets import (
     QGroupBox, QComboBox, QMenu,
     QWidget, QLabel, QPushButton, 
-    QGridLayout, QSpinBox, QCheckBox,
+    QGridLayout, QSpinBox, QHBoxLayout,
     QLineEdit, QFileDialog, QScrollArea, 
     QMessageBox, QApplication, QColorDialog,
-    QVBoxLayout, QHBoxLayout,
+    QVBoxLayout
 )
 from ...classes import AbstractClassSingleGallery
 from ...helpers import ImageScannerWorker, WallpaperWorker, VideoScannerWorker
@@ -28,7 +30,7 @@ from ...components import (
     MarqueeScrollArea, DraggableMonitorContainer
 )
 from ...styles.style import apply_shadow_effect, STYLE_START_ACTION, STYLE_STOP_ACTION
-from backend.src.utils.definitions import WALLPAPER_STYLES, SUPPORTED_VIDEO_FORMATS
+from backend.src.utils.definitions import WALLPAPER_STYLES, SUPPORTED_VIDEO_FORMATS, DAEMON_CONFIG_PATH, ROOT_DIR
 from backend.src.core import WallpaperManager
 
 
@@ -211,6 +213,23 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.countdown_label.setStyleSheet("color: #2ecc71; font-weight: bold; font-size: 14px;")
         self.countdown_label.setFixedWidth(100)
         slideshow_layout.addWidget(self.countdown_label)
+
+        # Add Daemon Button
+        self.btn_daemon_toggle = QPushButton("Start Background Daemon")
+        self.btn_daemon_toggle.setCheckable(True)
+        self.btn_daemon_toggle.clicked.connect(self.toggle_slideshow_daemon)
+        self.btn_daemon_toggle.setStyleSheet("background-color: #2c3e50; color: white; padding: 5px;")
+        slideshow_layout.addWidget(self.btn_daemon_toggle)
+        
+        # Check initial state
+        if self._is_daemon_running_config():
+            self.btn_daemon_toggle.setText("Stop Background Daemon")
+            self.btn_daemon_toggle.setChecked(True)
+            self.btn_daemon_toggle.setStyleSheet("background-color: #c0392b; color: white; padding: 5px;")
+        else:
+            self.btn_daemon_toggle.setText("Start Background Daemon")
+            self.btn_daemon_toggle.setChecked(False)
+            self.btn_daemon_toggle.setStyleSheet("background-color: #27ae60; color: white; padding: 5px;")
         
         settings_layout.addWidget(self.slideshow_group)
         self.slideshow_group.setVisible(False)
@@ -302,6 +321,81 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.populate_monitor_layout()
         self.check_all_monitors_set()
         self.stop_slideshow()
+
+    def _get_daemon_script_path(self):
+        # Assumption: repo root is 3 levels up from this file (gui/tabs/wallpaper_tab.py)
+        # Adjust based on actual structure if needed, or search.
+        # Trying to find 'backend' package.
+        script_path = ROOT_DIR / "backend" / "src" / "utils" / "slideshow_daemon.py"
+        if script_path.exists(): return str(script_path)
+
+        current_dir = Path(__file__).resolve().parent
+        # Go up until we find 'backend' folder
+        root = current_dir
+        while not (root / "backend").exists() and root != root.parent:
+            root = root.parent
+        
+        script_path = root / "backend" / "src" / "utils" / "slideshow_daemon.py"
+        if not script_path.exists():
+            # Fallback try
+            script_path = root / "slideshow_daemon.py"
+        
+        return str(script_path)
+
+    def _is_daemon_running_config(self):
+        if not DAEMON_CONFIG_PATH.exists(): return False
+        try:
+            with open(DAEMON_CONFIG_PATH, 'r') as f:
+                data = json.load(f)
+                return data.get('running', False)
+        except: return False
+
+    def toggle_slideshow_daemon(self):
+        start = not self._is_daemon_running_config()
+        
+        config = {
+            "running": start,
+            "interval_seconds": (self.interval_min_spinbox.value() * 60) + self.interval_sec_spinbox.value(),
+            "style": self.wallpaper_style,
+            "monitor_queues": self.monitor_slideshow_queues,
+            "current_paths": self.monitor_image_paths
+        }
+        
+        # Save config
+        try:
+            with open(DAEMON_CONFIG_PATH, 'w') as f:
+                json.dump(config, f, indent=4)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save daemon config: {e}")
+            return
+
+        if start:
+            # Launch process
+            script_path = self._get_daemon_script_path()
+            if not os.path.exists(script_path):
+                QMessageBox.critical(self, "Error", f"Daemon script not found at:\n{script_path}")
+                return
+
+            try:
+                # Launch detached process
+                if platform.system() == "Windows":
+                    subprocess.Popen([sys.executable, script_path], creationflags=subprocess.CREATE_NO_WINDOW)
+                else:
+                    subprocess.Popen([sys.executable, script_path], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                
+                self.btn_daemon_toggle.setText("Stop Background Daemon")
+                self.btn_daemon_toggle.setChecked(True)
+                self.btn_daemon_toggle.setStyleSheet("background-color: #c0392b; color: white; padding: 5px;")
+                QMessageBox.information(self, "Daemon Started", "Background slideshow started. It will continue running even if you close this app.")
+                
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to launch daemon: {e}")
+        else:
+            # Stopping is handled by the daemon reading the config 'running': False
+            self.btn_daemon_toggle.setText("Start Background Daemon")
+            self.btn_daemon_toggle.setChecked(False)
+            self.btn_daemon_toggle.setStyleSheet("background-color: #27ae60; color: white; padding: 5px;")
+            QMessageBox.information(self, "Daemon Stopped", "Background slideshow stopped.")
         
     def _generate_video_thumbnail(self, file_path: str) -> Optional[QPixmap]:
         """Generates a thumbnail for a single video file using OpenCV."""
