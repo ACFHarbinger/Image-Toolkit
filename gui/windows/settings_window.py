@@ -98,6 +98,7 @@ class SettingsWindow(QWidget):
         prefs_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         prefs_layout = QVBoxLayout(prefs_groupbox)
         prefs_layout.setContentsMargins(10, 10, 10, 10)
+        prefs_layout.addWidget(QLabel("<b>App Theme:</b>"))
         
         self.dark_theme_radio = QRadioButton("Dark Theme")
         self.light_theme_radio = QRadioButton("Light Theme")
@@ -110,6 +111,61 @@ class SettingsWindow(QWidget):
         
         prefs_layout.addWidget(self.dark_theme_radio)
         prefs_layout.addWidget(self.light_theme_radio)
+
+        # --- Active Default Configuration Selection ---
+        prefs_layout.addSpacing(15)
+        prefs_layout.addWidget(QLabel("<b>Startup Tab Configurations:</b>"))
+        
+        # Get categorized tab structure
+        categorized_tabs = self._get_all_tab_names_categorized()
+        self.startup_config_combos = {}
+        
+        # Load currently active default selections
+        self.active_tab_configs = {}
+        if self.vault_manager:
+            try:
+                creds = self.vault_manager.load_account_credentials()
+                self.active_tab_configs = creds.get('active_tab_configs', {})
+            except Exception:
+                pass
+
+        # Use a top-level VBox for all categories
+        all_categories_layout = QVBoxLayout()
+        all_categories_layout.setSpacing(10)
+        
+        for category_name, tab_names in categorized_tabs.items():
+            if not tab_names:
+                continue
+
+            # Add category label
+            category_label = QLabel(f"--- {category_name} ---")
+            category_label.setStyleSheet("font-weight: bold; margin-top: 5px;")
+            all_categories_layout.addWidget(category_label)
+
+            # Create a FormLayout for tabs within this category
+            category_form_layout = QFormLayout()
+            category_form_layout.setContentsMargins(10, 0, 0, 0)
+            
+            for tab_name in tab_names:
+                combo = QComboBox()
+                combo.addItem("None (Default)")
+                
+                # Populate with available saved configs for this tab
+                configs_for_tab = self.tab_defaults_config.get(tab_name, {})
+                config_names = sorted(configs_for_tab.keys())
+                combo.addItems(config_names)
+                
+                # Select the currently active config if it exists
+                active_config = self.active_tab_configs.get(tab_name)
+                if active_config and active_config in configs_for_tab:
+                    combo.setCurrentText(active_config)
+                    
+                self.startup_config_combos[tab_name] = combo
+                category_form_layout.addRow(f"{tab_name}:", combo)
+            
+            all_categories_layout.addLayout(category_form_layout)
+            
+        prefs_layout.addLayout(all_categories_layout)
         
         content_layout.addWidget(prefs_groupbox)
 
@@ -125,8 +181,9 @@ class SettingsWindow(QWidget):
         tab_select_layout = QFormLayout()
         self.tab_select_combo = QComboBox()
         self.tab_select_combo.setPlaceholderText("Select a Tab...")
-        tab_names = self._get_all_tab_names()
-        self.tab_select_combo.addItems([""] + tab_names)
+        # Populate with all unique tab names (non-categorized for this single combobox)
+        all_unique_tab_names = sorted(self._get_all_tab_names_uncategorized())
+        self.tab_select_combo.addItems([""] + all_unique_tab_names)
         self.tab_select_combo.currentTextChanged.connect(self._refresh_config_dropdown)
         tab_select_layout.addRow("Select Tab Class:", self.tab_select_combo)
         defaults_layout.addLayout(tab_select_layout)
@@ -176,10 +233,22 @@ class SettingsWindow(QWidget):
         self.default_config_editor.setMinimumHeight(200)
         create_config_layout.addRow("Configuration (JSON):", self.default_config_editor)
 
-        # Button to save/create the current JSON config
+        # Buttons to save/create config
+        save_buttons_layout = QHBoxLayout()
+        
         self.btn_create_default = QPushButton("Save Named Configuration")
+        self.btn_create_default.setToolTip("Save the JSON currently in the editor as a new configuration")
         self.btn_create_default.clicked.connect(self._save_current_tab_config)
-        create_config_layout.addRow(self.btn_create_default)
+        
+        self.btn_save_current = QPushButton("Save Current Configuration")
+        self.btn_save_current.setToolTip("Capture current values from the active tab and save them")
+        self.btn_save_current.setStyleSheet("background-color: #007AFF; color: white; font-weight: bold;")
+        self.btn_save_current.clicked.connect(self._capture_and_save_current_config)
+        
+        save_buttons_layout.addWidget(self.btn_create_default)
+        save_buttons_layout.addWidget(self.btn_save_current)
+
+        create_config_layout.addRow(save_buttons_layout)
         
         defaults_layout.addWidget(create_config_group)
         content_layout.addWidget(defaults_groupbox)
@@ -228,30 +297,51 @@ class SettingsWindow(QWidget):
     # --- Configuration Management Methods ---
     # ---------------------------------------------------------------------
 
-    def _get_all_tab_names(self):
+    def _get_tab_mapping(self):
         """
-        Helper to flatten the MainWindow's tab structure into a list of unique 
+        Retrieves the tab structure from the main window reference, if available.
+        This defines the category -> tab_name -> tab_instance mapping.
+        """
+        if not self.main_window_ref or not hasattr(self.main_window_ref, 'all_tabs'):
+            return {}
+        return self.main_window_ref.all_tabs
+
+    def _get_all_tab_names_uncategorized(self):
+        """
+        Helper to flatten the MainWindow's tab structure into a sorted list of unique 
         tab class names.
         """
-        
         tab_map = {}
-        if not self.main_window_ref or not hasattr(self.main_window_ref, 'all_tabs'):
-            return []
-            
-        for command_category, sub_tabs in self.main_window_ref.all_tabs.items():
+        for category, sub_tabs in self._get_tab_mapping().items():
             for tab_instance in sub_tabs.values(): 
                 class_name = type(tab_instance).__name__
                 if class_name not in tab_map:
                     tab_map[class_name] = True
-                    
         return sorted(tab_map.keys())
+
+
+    def _get_all_tab_names_categorized(self):
+        """
+        Helper to return a dictionary of {Category Name: [Tab Class Names]}
+        """
+        categorized_tabs = {}
+        for category, sub_tabs in self._get_tab_mapping().items():
+            tab_class_names = []
+            for tab_instance in sub_tabs.values():
+                tab_class_names.append(type(tab_instance).__name__)
+            
+            # Sort the class names alphabetically within the category for consistent display
+            categorized_tabs[category] = sorted(list(set(tab_class_names)))
+            
+        return categorized_tabs
+
 
     def _get_tab_instance(self, tab_class_name: str):
         """Finds the active instance of a tab by its class name."""
-        if not self.main_window_ref or not hasattr(self.main_window_ref, 'all_tabs') or not tab_class_name:
+        if not tab_class_name:
             return None
             
-        for category, sub_tabs in self.main_window_ref.all_tabs.items():
+        for category, sub_tabs in self._get_tab_mapping().items():
             for tab_instance in sub_tabs.values():
                 if type(tab_instance).__name__ == tab_class_name:
                     return tab_instance
@@ -418,6 +508,39 @@ class SettingsWindow(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"An unexpected error occurred during save: {e}")
 
+    def _capture_and_save_current_config(self):
+        """
+        Captures the current values from the active tab instance, 
+        populates the JSON editor, and triggers the save workflow.
+        """
+        tab_class_name = self.tab_select_combo.currentText()
+        if not tab_class_name:
+            QMessageBox.warning(self, "Error", "Please select a Tab Class first.")
+            return
+
+        tab_instance = self._get_tab_instance(tab_class_name)
+        if not tab_instance:
+             QMessageBox.warning(self, "Error", "Could not find active tab instance to capture from.")
+             return
+
+        if not hasattr(tab_instance, 'collect'):
+             QMessageBox.warning(self, "Error", f"The tab '{tab_class_name}' does not support capturing current configuration (missing 'collect' method).")
+             return
+
+        try:
+            # Capture data from the live tab
+            config_data = tab_instance.collect()
+            
+            # Populate editor
+            json_str = json.dumps(config_data, indent=4)
+            self.default_config_editor.setText(json_str)
+            
+            # If the user has already entered a name, we can try to save immediately.
+            # If not, _save_current_tab_config will show the validation warning.
+            self._save_current_tab_config()
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Capture Error", f"Failed to capture configuration: {e}")
 
     def _delete_selected_tab_config(self):
         """Deletes the currently selected configuration from the in-memory state and the vault."""
@@ -543,10 +666,20 @@ class SettingsWindow(QWidget):
                 QMessageBox.critical(self, "Update Failed", f"Failed to update master password:\n{e}")
                 return
         
-        # --- Handle Theme Change and save all preferences to the vault ---
+        # --- Handle Theme Change and Preferences ---
         try:
             user_data = self.vault_manager.load_account_credentials()
             user_data['theme'] = selected_theme
+            
+            # --- New: Save active startup configs ---
+            new_active_configs = {}
+            for tab_name, combo in self.startup_config_combos.items():
+                selected = combo.currentText()
+                if selected != "None (Default)":
+                    new_active_configs[tab_name] = selected
+            
+            user_data['active_tab_configs'] = new_active_configs
+            # ----------------------------------------
             
             if self._save_vault_data(user_data):
                 if self.main_window_ref and selected_theme:
@@ -565,3 +698,7 @@ class SettingsWindow(QWidget):
         
         self.dark_theme_radio.setChecked(True)
         self.light_theme_radio.setChecked(False)
+        
+        # Reset combo boxes
+        for combo in self.startup_config_combos.values():
+            combo.setCurrentIndex(0) # None (Default)

@@ -30,7 +30,6 @@ from backend.src.utils.definitions import WALLPAPER_STYLES
 from backend.src.core import WallpaperManager
 
 
-
 class WallpaperTab(AbstractClassSingleGallery):
     
     @Slot()
@@ -707,6 +706,14 @@ class WallpaperTab(AbstractClassSingleGallery):
             except Exception as e: print(f"KDE retrieval failed unexpectedly: {e}")
 
         monitors_to_show = physical_monitors
+        
+        # Determine order for initial population based on current order in the UI/Layout
+        # The logic here is complex because the logical monitor order (based on X coordinate)
+        # might not match the desired UI order. For initial load, we must respect the physical X-sort.
+        # But for reordering after load, we must respect the saved order.
+        
+        # Temporary storage for widgets, indexed by monitor ID
+        monitor_id_to_widget = {}
         for monitor in monitors_to_show:
             system_index = -1
             for i, sys_mon in enumerate(system_monitors):
@@ -731,10 +738,22 @@ class WallpaperTab(AbstractClassSingleGallery):
             if image_path_to_display: drop_widget.set_image(image_path_to_display)
             else: drop_widget.clear() 
 
-            # Direct add (no wrapper)
-            self.monitor_layout_container.addWidget(drop_widget)
-
+            monitor_id_to_widget[monitor_id] = drop_widget
             self.monitor_widgets[monitor_id] = drop_widget
+        
+        # Add widgets to the layout based on physical X-sort (initial order)
+        for monitor in monitors_to_show:
+            system_index = -1
+            for i, sys_mon in enumerate(system_monitors):
+                if (sys_mon.x == monitor.x and sys_mon.y == monitor.y and
+                    sys_mon.width == monitor.width and sys_mon.height == monitor.height):
+                    system_index = i
+                    break
+            if system_index != -1:
+                monitor_id = str(system_index)
+                if monitor_id in monitor_id_to_widget:
+                    self.monitor_layout_container.addWidget(monitor_id_to_widget[monitor_id])
+
         self.check_all_monitors_set()
 
     def on_image_dropped(self, monitor_id: str, image_path: str):
@@ -1013,11 +1032,25 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.show_placeholder("Browse for a directory.")
 
     def collect(self) -> dict:
+        # Capture the current visual order of monitors in the DraggableMonitorContainer
+        monitor_order = []
+        if isinstance(self.monitor_layout_container, DraggableMonitorContainer):
+            layout = self.monitor_layout_container.layout_hbox
+            for i in range(layout.count()):
+                item = layout.itemAt(i)
+                widget = item.widget()
+                if isinstance(widget, MonitorDropWidget):
+                    monitor_order.append(widget.monitor_id)
+        
         return {
-            "monitor_queues": self.monitor_slideshow_queues,
+            "scan_directory": self.scan_directory_path.text(),
             "wallpaper_style": self.wallpaper_style,
+            "slideshow_enabled": self.slideshow_enabled_checkbox.isChecked(),
+            "interval_minutes": self.interval_min_spinbox.value(),
+            "interval_seconds": self.interval_sec_spinbox.value(),
             "background_type": self.background_type, 
             "solid_color_hex": self.solid_color_hex, 
+            "monitor_order": monitor_order,  # <-- Save the alignment
         }
 
     def get_default_config(self) -> Dict[str, Any]:
@@ -1029,11 +1062,13 @@ class WallpaperTab(AbstractClassSingleGallery):
             "interval_minutes": 5,
             "interval_seconds": 0,
             "background_type": "Image", 
-            "solid_color_hex": "#000000" 
+            "solid_color_hex": "#000000",
+            "monitor_order": [],  # <-- NEW: Default monitor order is empty (will use physical sort)
         }
     
     def set_config(self, config: Dict[str, Any]):
         try:
+            # 1. Update basic fields
             if "scan_directory" in config:
                 self.scan_directory_path.setText(config.get("scan_directory", ""))
                 if os.path.isdir(config["scan_directory"]):
@@ -1051,6 +1086,42 @@ class WallpaperTab(AbstractClassSingleGallery):
                 self.solid_color_preview.setStyleSheet(f"background-color: {self.solid_color_hex}; border: 1px solid #4f545c;")
             if "background_type" in config:
                 self.background_type_combo.setCurrentText(config.get("background_type", "Image"))
+            
+            # 2. Handle monitor reordering (if DraggableMonitorContainer is used and order is saved)
+            if "monitor_order" in config and config["monitor_order"]:
+                target_order = config["monitor_order"]
+                
+                # Check if all monitors required by config are currently present
+                present_monitor_ids = set(self.monitor_widgets.keys())
+                valid_order = [mid for mid in target_order if mid in present_monitor_ids]
+                
+                if isinstance(self.monitor_layout_container, DraggableMonitorContainer):
+                    layout = self.monitor_layout_container.layout_hbox
+                    
+                    # Store existing widgets indexed by ID
+                    widget_map = {mid: self.monitor_widgets[mid] for mid in valid_order}
+                    
+                    # Remove all widgets from the layout (they are still in self.monitor_widgets)
+                    widgets_to_remove = []
+                    for i in range(layout.count()):
+                        item = layout.itemAt(i)
+                        widget = item.widget()
+                        if widget and isinstance(widget, MonitorDropWidget):
+                            widgets_to_remove.append(widget)
+                    
+                    for widget in widgets_to_remove:
+                        layout.removeWidget(widget)
+
+                    # Re-add widgets in the saved order
+                    for monitor_id in valid_order:
+                        if monitor_id in widget_map:
+                            layout.addWidget(widget_map[monitor_id])
+                            
+                    # Add any newly detected monitors not in the saved list (should appear at the end)
+                    for monitor_id in present_monitor_ids:
+                        if monitor_id not in valid_order:
+                            layout.addWidget(self.monitor_widgets[monitor_id])
+
             QMessageBox.information(self, "Config Loaded", "Configuration applied successfully.")
         except Exception as e:
             QMessageBox.critical(self, "Config Error", f"Failed to apply configuration:\n{e}")
