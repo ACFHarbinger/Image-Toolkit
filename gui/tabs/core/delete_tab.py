@@ -672,16 +672,19 @@ class DeleteTab(AbstractClassTwoGalleries):
             btn.setChecked(False)
             self.toggle_extension(ext, False)
 
-    def collect(self, mode: str) -> Dict[str, Any]:
+    def collect(self, mode: str = "files") -> Dict[str, Any]:
         exts = []
-        if mode == 'files':
-            if self.dropdown:
-                exts = list(self.selected_extensions)
-            else:
-                exts = self.join_list_str(self.target_extensions.text().strip())
+        if self.dropdown and self.selected_extensions is not None:
+            exts = list(self.selected_extensions)
+        elif not self.dropdown and hasattr(self, 'target_extensions'):
+            exts = self.join_list_str(self.target_extensions.text().strip())
+            
         return {
-            "target_path": self.target_path.text().strip(), "mode": mode,
-            "target_extensions": [e.strip().lstrip('.') for e in exts if e.strip()]
+            "target_path": self.target_path.text().strip(), 
+            "mode": mode,
+            "target_extensions": [e.strip().lstrip('.') for e in exts if e.strip()],
+            "scan_method": self.scan_method_combo.currentText(),
+            "require_confirm": self.confirm_checkbox.isChecked(),
         }
 
     @staticmethod

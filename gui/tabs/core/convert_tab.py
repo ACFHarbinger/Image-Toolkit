@@ -117,7 +117,7 @@ class ConvertTab(AbstractClassTwoGalleries):
         else:
             self.selected_formats = None
             self.input_formats = QLineEdit()
-            self.input_formats.setPlaceholderText("e.g. jpg png gif — separate with commas or spaces")
+            self.input_formats.setPlaceholderText("e.g. .jpg .png .gif")
             settings_layout.addRow("Input formats (optional):", self.input_formats)
         
         self.delete_checkbox = QCheckBox("Delete original files after conversion")
@@ -518,7 +518,7 @@ class ConvertTab(AbstractClassTwoGalleries):
             "input_path": self.input_path.text().strip(),
             "output_path": self.output_path.text().strip() or None,
             "input_formats": [f.strip().lstrip('.').lower() for f in input_formats if f.strip()],
-            "delete": self.delete_checkbox.isChecked(),
+            "delete_original": self.delete_checkbox.isChecked(), # Use consistent key
         }
     
     def get_default_config(self) -> dict:

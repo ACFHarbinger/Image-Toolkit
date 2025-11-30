@@ -732,19 +732,6 @@ class MergeTab(AbstractClassTwoGalleries):
         self.status_label.setText("Failed.")
         QMessageBox.critical(self, "Error", msg)
 
-    def collect(self, output_path: str) -> Dict[str, Any]:
-        return {
-            "direction": self.direction.currentText(),
-            "input_path": self.selected_files,
-            "output_path": output_path,
-            "input_formats": [f.strip().lstrip('.') for f in SUPPORTED_IMG_FORMATS if f.strip()],
-            "spacing": self.spacing.value(),
-            "align_mode": self.align_mode.currentText(),
-            "grid_size": (self.grid_rows.value(), self.grid_cols.value())
-            if self.direction.currentText() == "grid" else None,
-            "duration": self.duration_spin.value() # Added duration for GIFs
-        }
-
     def handle_direction_change(self, direction):
         # Update visibility of settings based on direction
         is_grid = direction == "grid"
@@ -762,6 +749,20 @@ class MergeTab(AbstractClassTwoGalleries):
         # Toggle GIF specific controls
         self.lbl_duration.setVisible(is_gif)
         self.duration_spin.setVisible(is_gif)
+
+    def collect(self, output_path: str = "") -> Dict[str, Any]:
+        return {
+            "direction": self.direction.currentText(),
+            "scan_directory": self.scan_directory_path.text().strip(), 
+            "input_path": self.selected_files,
+            "output_path": output_path,
+            "input_formats": [f.strip().lstrip('.') for f in SUPPORTED_IMG_FORMATS if f.strip()],
+            "spacing": self.spacing.value(),
+            "align_mode": self.align_mode.currentText(),
+            "grid_size": (self.grid_rows.value(), self.grid_cols.value())
+            if self.direction.currentText() == "grid" else None,
+            "duration": self.duration_spin.value()
+        }
     
     def get_default_config(self) -> dict:
         return {
