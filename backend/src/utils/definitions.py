@@ -62,6 +62,8 @@ SYNC_ERROR = "SyncFailed"
 GRAPH_API_ENDPOINT = 'https://graph.microsoft.com/v1.0'
 
 # Other constants
+DAEMON_CONFIG_PATH = Path.home() / ".myapp_slideshow_config.json"
+
 WALLPAPER_STYLES = {
     "Windows": {
         "Fill": ("4", "0"), "Fit": ("6", "0"), "Stretch": ("2", "0"),
