@@ -33,7 +33,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         self.db_tab_ref = db_tab_ref
         
         self.scan_image_list: list[str] = []
-        # Holds the list currently being viewed (filtered by "New Only" if active)
+        # Holds the list currently being viewed (filtered by "New Only" or "In DB Only" if active)
         self.scan_filtered_list: list[str] = [] 
         
         self.selected_image_paths: Set[str] = set()
@@ -41,6 +41,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
 
         # Database view filter state
         self.view_new_only: bool = False
+        self.view_in_db_only: bool = False
         self._db_was_connected: bool = False 
         
         # Cancellation flag
@@ -222,16 +223,17 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         self.view_new_only_button.setChecked(False)
         apply_shadow_effect(self.view_new_only_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.view_new_only_button.toggled.connect(self.toggle_new_only_view) 
+        
+        self.view_in_db_only_button = QPushButton("💾 Show Only In DB")
+        self.view_in_db_only_button.setCheckable(True)
+        self.view_in_db_only_button.setChecked(False)
+        apply_shadow_effect(self.view_in_db_only_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        self.view_in_db_only_button.toggled.connect(self.toggle_in_db_only_view)
 
         self.upsert_button = QPushButton("Add/Update Database Data")
         self.upsert_button.setStyleSheet("background-color: #2ecc71; color: white; font-weight: bold; padding: 10px;")
         apply_shadow_effect(self.upsert_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.upsert_button.clicked.connect(self.perform_upsert_operation)
-
-        self.refresh_image_button = QPushButton("Refresh Image Directory")
-        self.refresh_image_button.setStyleSheet("background-color: #f1c40f; color: white; font-weight: bold; padding: 10px;")
-        apply_shadow_effect(self.refresh_image_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        self.refresh_image_button.clicked.connect(self.refresh_image_directory) 
 
         self.delete_selected_button = QPushButton("Delete Images Data from Database")
         self.delete_selected_button.setStyleSheet("background-color: #e74c3c; color: white; font-weight: bold; padding: 10px;")
@@ -240,8 +242,8 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         
         scan_action_layout = QHBoxLayout()
         scan_action_layout.addWidget(self.view_new_only_button)
+        scan_action_layout.addWidget(self.view_in_db_only_button)
         scan_action_layout.addWidget(self.upsert_button)
-        scan_action_layout.addWidget(self.refresh_image_button)
         scan_action_layout.addWidget(self.delete_selected_button)
         
         main_layout.addLayout(scan_action_layout) 
@@ -821,13 +823,22 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         self.scan_filtered_list = list(self.scan_image_list) # Copy
         
         # FILTERING LOGIC
-        if self.db_tab_ref.db is not None and self.view_new_only:
-            db = self.db_tab_ref.db
-            paths_not_in_db = []
-            for path in self.scan_image_list:
-                if not db.get_image_by_path(path):
-                    paths_not_in_db.append(path)
-            self.scan_filtered_list = sorted(paths_not_in_db)
+        if self.db_tab_ref.db is not None:
+            if self.view_new_only:
+                db = self.db_tab_ref.db
+                paths_not_in_db = []
+                for path in self.scan_image_list:
+                    if not db.get_image_by_path(path):
+                        paths_not_in_db.append(path)
+                self.scan_filtered_list = sorted(paths_not_in_db)
+            
+            elif self.view_in_db_only:
+                db = self.db_tab_ref.db
+                paths_in_db = []
+                for path in self.scan_image_list:
+                    if db.get_image_by_path(path):
+                        paths_in_db.append(path)
+                self.scan_filtered_list = sorted(paths_in_db)
         
         # Reset to page 0 whenever filter changes or new scan happens
         self.scan_current_page = 0
@@ -1020,12 +1031,39 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             return
 
         self.view_new_only = checked
+        if checked:
+            # Mutually exclusive: turn off "In DB Only"
+            self.view_in_db_only_button.setChecked(False)
+
         if self.view_new_only:
             self.view_new_only_button.setText("👁️ Show Only New (On)")
             self.view_new_only_button.setStyleSheet("background-color: #e67e22; color: white; border: 2px solid #d35400;")
         else:
-            self.view_new_only_button.setText("👁️ Show Only New (Off)")
+            self.view_new_only_button.setText("👁️ Show Only New (Not in DB)")
             self.view_new_only_button.setStyleSheet("") 
+            
+        if hasattr(self, 'scanned_dir') and self.scanned_dir:
+            self.apply_scan_filters()
+
+    @Slot(bool)
+    def toggle_in_db_only_view(self, checked: bool):
+        db_connected = (self.db_tab_ref.db is not None)
+        if not db_connected and checked:
+            QMessageBox.warning(self, "Database Required", "Please connect to the database to filter by database content.")
+            self.view_in_db_only_button.setChecked(False) 
+            return
+
+        self.view_in_db_only = checked
+        if checked:
+             # Mutually exclusive: turn off "New Only"
+            self.view_new_only_button.setChecked(False)
+
+        if self.view_in_db_only:
+            self.view_in_db_only_button.setText("💾 Show Only In DB (On)")
+            self.view_in_db_only_button.setStyleSheet("background-color: #3498db; color: white; border: 2px solid #2980b9;")
+        else:
+            self.view_in_db_only_button.setText("💾 Show Only In DB")
+            self.view_in_db_only_button.setStyleSheet("") 
             
         if hasattr(self, 'scanned_dir') and self.scanned_dir:
             self.apply_scan_filters()
@@ -1033,11 +1071,8 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
     def update_button_states(self, connected: bool):
         selection_count = len(self.selected_image_paths)
         
-        # Logic: Refresh and Show New Only should be disabled if we haven't scanned a directory yet.
+        # Logic: Upsert and Delete actions depend on valid selection and DB connection
         has_directory = hasattr(self, 'scanned_dir') and bool(self.scanned_dir)
-        
-        self.refresh_image_button.setEnabled(has_directory)
-        self.view_new_only_button.setEnabled(connected and has_directory)
         
         if connected and not self._db_was_connected:
             self._setup_tag_checkboxes()

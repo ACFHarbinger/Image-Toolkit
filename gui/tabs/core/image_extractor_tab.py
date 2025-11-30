@@ -1,4 +1,5 @@
 import os
+import datetime
 
 from pathlib import Path
 from typing import Optional, List, Set, Tuple, Any, Dict
@@ -9,7 +10,7 @@ from PySide6.QtWidgets import (
     QMenu, QGraphicsView, QGraphicsScene,
     QScrollArea, QGridLayout, QMessageBox,
     QPushButton, QApplication, QLineEdit,
-    QProgressDialog
+    QProgressDialog, QSpinBox
 )
 from PySide6.QtGui import QPixmap, QResizeEvent, QAction
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
@@ -18,7 +19,7 @@ from PySide6.QtCore import Qt, QUrl, Slot, QThreadPool, QPoint, QEvent
 from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassSingleGallery
 from ...components import ClickableLabel, MarqueeScrollArea
-from ...helpers import FrameExtractorWorker, VideoScanWorker
+from ...helpers import FrameExtractorWorker, VideoScanWorker, GifCreationWorker
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH
 
 
@@ -39,6 +40,16 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         # Defined resolutions corresponding to the Combo Box items
         self.available_resolutions = [(1280, 720), (1920, 1080), (2560, 1440), (3840, 2160)]
+        
+        # Mapping for Extraction Resolutions
+        self.extraction_res_map = {
+            "Original": None,
+            "480p": (854, 480),
+            "720p": (1280, 720),
+            "1080p": (1920, 1080),
+            "1440p": (2560, 1440),
+            "4K": (3840, 2160)
+        }
         
         self.extraction_dir = Path(LOCAL_SOURCE_PATH) / "Frames"
         self.extraction_dir.mkdir(parents=True, exist_ok=True)
@@ -220,13 +231,37 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         # 4. Extraction Controls
         self.extract_group = QGroupBox("Extraction Settings")
-        extract_layout = QHBoxLayout(self.extract_group)
+        # Change to VBox to hold settings row AND buttons row
+        extract_main_layout = QVBoxLayout(self.extract_group)
+        
+        # -- Row 1: Configuration --
+        extract_config_layout = QHBoxLayout()
+        
+        extract_config_layout.addWidget(QLabel("Output Size:"))
+        self.combo_extract_size = QComboBox()
+        self.combo_extract_size.addItems(list(self.extraction_res_map.keys()))
+        self.combo_extract_size.setCurrentText("Original") # Default
+        extract_config_layout.addWidget(self.combo_extract_size)
+        
+        extract_config_layout.addSpacing(20)
+        
+        extract_config_layout.addWidget(QLabel("GIF FPS:"))
+        self.spin_gif_fps = QSpinBox()
+        self.spin_gif_fps.setRange(1, 60)
+        self.spin_gif_fps.setValue(15)
+        extract_config_layout.addWidget(self.spin_gif_fps)
+        
+        extract_config_layout.addStretch()
+        extract_main_layout.addLayout(extract_config_layout)
+
+        # -- Row 2: Actions --
+        extract_actions_layout = QHBoxLayout()
         
         self.btn_snapshot = QPushButton("📸 Snapshot Frame")
         self.btn_snapshot.clicked.connect(self.extract_single_frame)
         self.btn_snapshot.setEnabled(False)
-        extract_layout.addWidget(self.btn_snapshot)
-        extract_layout.addWidget(QLabel("|")) 
+        extract_actions_layout.addWidget(self.btn_snapshot)
+        extract_actions_layout.addWidget(QLabel("|")) 
         
         self.start_time_ms = 0
         self.end_time_ms = 0
@@ -240,9 +275,19 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.btn_extract_range.clicked.connect(self.extract_range)
         self.btn_extract_range.setEnabled(False)
 
-        extract_layout.addWidget(self.btn_set_start)
-        extract_layout.addWidget(self.btn_set_end)
-        extract_layout.addWidget(self.btn_extract_range)
+        # --- GIF BUTTON ---
+        self.btn_extract_gif = QPushButton("GIF Extract as GIF")
+        self.btn_extract_gif.setStyleSheet("QPushButton { background-color: #8e44ad; color: white; font-weight: bold; }")
+        self.btn_extract_gif.clicked.connect(self.extract_range_as_gif)
+        self.btn_extract_gif.setEnabled(False)
+
+        extract_actions_layout.addWidget(self.btn_set_start)
+        extract_actions_layout.addWidget(self.btn_set_end)
+        extract_actions_layout.addWidget(self.btn_extract_range)
+        extract_actions_layout.addWidget(self.btn_extract_gif) 
+        
+        extract_main_layout.addLayout(extract_actions_layout)
+
         self.main_layout.addWidget(self.extract_group)
         self.extract_group.setVisible(False) 
 
@@ -320,7 +365,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     def _load_existing_output_images(self):
         """Scans the extraction directory and loads existing images into the gallery."""
-        valid_extensions = {".jpg", ".jpeg", ".png", ".bmp"}
+        # Added .gif to valid extensions
+        valid_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".gif"}
         found_paths = []
         
         if self.extraction_dir.exists():
@@ -427,8 +473,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.extract_group.setVisible(False)
             self.media_player.stop()
             self.media_player.setSource(QUrl())
-            # For GIF, we might not auto-extract immediately unless requested
-            # self._run_extraction(0, -1, is_range=True) 
             
         else:
             self.video_container_widget.setVisible(True) 
@@ -462,6 +506,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.btn_set_start.setText("Set Start [00:00]")
         self.btn_set_end.setText("Set End [00:00]")
         self.btn_extract_range.setEnabled(False)
+        self.btn_extract_gif.setEnabled(False)
         self.btn_extract_range.setText("🎞️ Extract Range")
 
     # --- Event Filters & Resizing ---
@@ -798,11 +843,19 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     def _validate_range(self):
         if self.end_time_ms > self.start_time_ms:
+            duration_str = self._format_time(self.end_time_ms - self.start_time_ms)
             self.btn_extract_range.setEnabled(True)
-            self.btn_extract_range.setText(f"Extract Range ({self._format_time(self.end_time_ms - self.start_time_ms)})")
+            self.btn_extract_range.setText(f"Extract Range ({duration_str})")
+            
+            # Enable GIF extraction
+            self.btn_extract_gif.setEnabled(True)
+            self.btn_extract_gif.setText(f"GIF Extract as GIF ({duration_str})")
         else:
             self.btn_extract_range.setEnabled(False)
             self.btn_extract_range.setText("🎞️ Extract Range")
+            
+            self.btn_extract_gif.setEnabled(False)
+            self.btn_extract_gif.setText("GIF Extract as GIF")
 
     @Slot()
     def extract_single_frame(self):
@@ -821,11 +874,20 @@ class ImageExtractorTab(AbstractClassSingleGallery):
              self.btn_play.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
         self._run_extraction(self.start_time_ms, self.end_time_ms, is_range=True)
 
-    def _run_extraction(self, start: int, end: int, is_range: bool):
-        # --- FIXED: Force target_size to 4K (3840, 2160) ---
-        target_size: Optional[Tuple[int, int]] = (3840, 2160)
-        # ----------------------------------------------------
+    @Slot()
+    def extract_range_as_gif(self):
+        if not self.video_path: return
+        if self.use_internal_player:
+             self.media_player.pause()
+             self.btn_play.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
+             
+        self._run_gif_extraction(self.start_time_ms, self.end_time_ms)
 
+    def _run_extraction(self, start: int, end: int, is_range: bool):
+        # Fetch resolution from combo box
+        selected_key = self.combo_extract_size.currentText()
+        target_size: Optional[Tuple[int, int]] = self.extraction_res_map.get(selected_key)
+        
         self.progress_dialog = QProgressDialog("Extracting and processing frames...", "Cancel", 0, 0, self)
         self.progress_dialog.setWindowTitle("Processing")
         self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
@@ -843,6 +905,55 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.extractor_worker.signals.finished.connect(self._on_extraction_finished)
         self.extractor_worker.signals.error.connect(lambda e: QMessageBox.warning(self, "Extraction Error", e))
         QThreadPool.globalInstance().start(self.extractor_worker)
+
+    def _run_gif_extraction(self, start: int, end: int):
+        """Prepares and launches the GifCreationWorker."""
+        
+        # Get Settings
+        selected_key = self.combo_extract_size.currentText()
+        target_size: Optional[Tuple[int, int]] = self.extraction_res_map.get(selected_key)
+        fps = self.spin_gif_fps.value()
+
+        self.progress_dialog = QProgressDialog("Generating GIF... This may take a moment.", "Cancel", 0, 0, self)
+        self.progress_dialog.setWindowTitle("Processing GIF")
+        self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        self.progress_dialog.setMinimumDuration(0)
+        self.progress_dialog.show()
+
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_name = f"GIF_{Path(self.video_path).stem}_{timestamp}.gif"
+        output_path = str(self.extraction_dir / output_name)
+
+        worker = GifCreationWorker(
+            video_path=self.video_path, 
+            start_ms=start, 
+            end_ms=end, 
+            output_path=output_path, 
+            target_size=target_size, 
+            fps=fps
+        )
+        worker.signals.finished.connect(self._on_gif_finished)
+        worker.signals.error.connect(self._on_gif_error)
+        QThreadPool.globalInstance().start(worker)
+
+    @Slot(str)
+    def _on_gif_finished(self, new_path: str):
+        if self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
+        
+        if new_path and os.path.exists(new_path):
+             # Wrap in list to reuse existing list-based loader
+            self.current_extracted_paths.append(new_path)
+            self.start_loading_gallery([new_path], append=True)
+            QMessageBox.information(self, "Success", f"GIF created successfully:\n{Path(new_path).name}")
+
+    @Slot(str)
+    def _on_gif_error(self, error_msg: str):
+        if self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
+        QMessageBox.warning(self, "GIF Extraction Error", error_msg)
 
     @Slot(list)
     def _on_extraction_finished(self, new_paths: List[str]):
