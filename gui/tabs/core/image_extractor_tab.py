@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QMenu, QGraphicsView, QGraphicsScene,
     QScrollArea, QGridLayout, QMessageBox,
     QPushButton, QApplication, QLineEdit,
-    QProgressDialog, QSpinBox
+    QProgressDialog, QSpinBox, QCheckBox
 )
 from PySide6.QtGui import QPixmap, QResizeEvent, QAction
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
@@ -250,6 +250,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.spin_gif_fps.setRange(1, 60)
         self.spin_gif_fps.setValue(15)
         extract_config_layout.addWidget(self.spin_gif_fps)
+
+        self.check_mute_audio = QCheckBox("Mute Audio in MP4/GIF")
+        self.check_mute_audio.setChecked(False) # Default to include audio
+        extract_config_layout.addWidget(self.check_mute_audio)
         
         extract_config_layout.addStretch()
         extract_main_layout.addLayout(extract_config_layout)
@@ -922,8 +926,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def extract_range_as_video(self):
         if not self.video_path: return
         if self.use_internal_player:
-             self.media_player.pause()
-             self.btn_play.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
+            self.media_player.pause()
+            self.btn_play.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
              
         self._run_video_extraction(self.start_time_ms, self.end_time_ms)
 
@@ -986,6 +990,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         # Get Settings
         selected_key = self.combo_extract_size.currentText()
         target_size: Optional[Tuple[int, int]] = self.extraction_res_map.get(selected_key)
+        # --- NEW: Get Mute Setting ---
+        mute_audio = self.check_mute_audio.isChecked()
+        # -----------------------------
         
         self.progress_dialog = QProgressDialog("Generating Video... This may take a moment.", "Cancel", 0, 0, self)
         self.progress_dialog.setWindowTitle("Processing Video")
@@ -1002,7 +1009,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             start_ms=start, 
             end_ms=end, 
             output_path=output_path, 
-            target_size=target_size
+            target_size=target_size,
+            # --- NEW: Pass the setting ---
+            mute_audio=mute_audio 
+            # -----------------------------
         )
         worker.signals.finished.connect(self._on_export_finished)
         worker.signals.error.connect(self._on_export_error)
