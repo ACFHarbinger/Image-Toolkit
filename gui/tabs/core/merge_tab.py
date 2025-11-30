@@ -5,7 +5,10 @@ import tempfile
 
 from typing import Dict, Any, Optional
 from PySide6.QtGui import QPixmap, QAction, QImage
-from PySide6.QtCore import Qt, QTimer, QThread, Slot, QPoint, QEventLoop
+from PySide6.QtCore import (
+    Qt, QTimer, QThread, Slot, QPoint, 
+    QEventLoop, QMetaObject, Q_ARG, Signal
+)
 from PySide6.QtWidgets import (
     QMenu, QPushButton, QFormLayout, QApplication,
     QLineEdit, QFileDialog, QWidget, QLabel,
@@ -21,16 +24,20 @@ from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 
 
 class MergeTab(AbstractClassTwoGalleries):
-    """
-    GUI tab for merging images, now structured with a clear 'Merge Targets' section.
-    Inherits core gallery and threading logic from BaseTwoGalleriesTab.
-    """
+    # --- RETAIN THE SIGNAL BRIDGE FOR SAFETY ---
+    preview_ready = Signal(str)
+    # ------------------------------------------
+
     def __init__(self):
         super().__init__()
         self.thumbnail_size = 150 
 
         # --- State ---
         self.scanned_dir: str | None = None
+        self.output_dir: str | None = None 
+        
+        self.last_output_dir: str | None = None
+        
         self.open_preview_windows: list[ImagePreviewWindow] = [] 
         
         self.current_scan_thread: QThread | None = None
@@ -39,7 +46,7 @@ class MergeTab(AbstractClassTwoGalleries):
         self.current_merge_worker: MergeWorker | None = None
         self.temp_file_path: Optional[str] = None
         
-        # Reference to the merged pixmap for clipboard operations
+        self.pending_save_path: Optional[str] = None
         self._last_merged_pixmap: Optional[QPixmap] = None
 
         # --- UI Setup ---
@@ -52,8 +59,8 @@ class MergeTab(AbstractClassTwoGalleries):
         content_layout = QVBoxLayout(scroll_content)
         content_layout.setContentsMargins(0, 0, 0, 0)
 
-        # === 1. Merge Targets Group ===
-        target_group = QGroupBox("Merge Targets")
+        # === 1. Merge Targets Group (Inputs) ===
+        target_group = QGroupBox("Input Configuration")
         target_layout = QFormLayout(target_group)
         v_input_group = QVBoxLayout()
 
@@ -62,7 +69,7 @@ class MergeTab(AbstractClassTwoGalleries):
         self.scan_directory_path.setPlaceholderText("Path to directory containing images for merging...")
         self.scan_directory_path.returnPressed.connect(self.handle_scan_directory_return)
         
-        btn_browse_scan = QPushButton("Browse...")
+        btn_browse_scan = QPushButton("Browse Input...")
         btn_browse_scan.clicked.connect(self.browse_and_scan_directory)
         apply_shadow_effect(btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
 
@@ -70,21 +77,42 @@ class MergeTab(AbstractClassTwoGalleries):
         scan_dir_layout.addWidget(btn_browse_scan)
         
         v_input_group.addLayout(scan_dir_layout)
-        
         target_layout.addRow("Input path:", v_input_group)
         content_layout.addWidget(target_group)
         
+        # === 1.5 Output Configuration ===
+        output_group = QGroupBox("Output Configuration")
+        output_layout = QFormLayout(output_group)
+        
+        out_dir_layout = QHBoxLayout()
+        self.output_directory_path = QLineEdit()
+        self.output_directory_path.setPlaceholderText("(Optional) Select output folder. If empty, you will be prompted to save after merge.")
+        self.output_directory_path.textChanged.connect(self._update_output_dir_state)
+        
+        btn_browse_out = QPushButton("Browse Output...")
+        btn_browse_out.clicked.connect(self.browse_output_directory)
+        apply_shadow_effect(btn_browse_out, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        
+        out_dir_layout.addWidget(self.output_directory_path)
+        out_dir_layout.addWidget(btn_browse_out)
+        
+        output_layout.addRow("Output Folder:", out_dir_layout)
+        
+        self.output_filename_input = QLineEdit()
+        self.output_filename_input.setPlaceholderText("merged_image (Extension added automatically)")
+        output_layout.addRow("Filename:", self.output_filename_input)
+        
+        content_layout.addWidget(output_group)
+
         # === 2. Merge Settings ===
         config_group = QGroupBox("Merge Settings")
         config_layout = QFormLayout(config_group)
 
         self.direction = QComboBox()
-        # ADDED "panorama", "stitch", "sequential" and now "gif"
         self.direction.addItems(["horizontal", "vertical", "grid", "panorama", "stitch", "sequential", "gif"])
         self.direction.currentTextChanged.connect(self.handle_direction_change)
         config_layout.addRow("Direction:", self.direction)
 
-        # Spacing and Align are grouped so they can be hidden for panorama/gif
         self.lbl_spacing = QLabel("Spacing (px):")
         self.spacing = QSpinBox()
         self.spacing.setRange(0, 1000)
@@ -99,16 +127,14 @@ class MergeTab(AbstractClassTwoGalleries):
         ])
         config_layout.addRow(self.lbl_align, self.align_mode)
 
-        # --- GIF Duration Control ---
         self.lbl_duration = QLabel("Duration (ms/frame):")
         self.duration_spin = QSpinBox()
-        self.duration_spin.setRange(10, 10000) # 10ms to 10 seconds
-        self.duration_spin.setValue(500) # Default 0.5s
+        self.duration_spin.setRange(10, 10000)
+        self.duration_spin.setValue(500)
         self.duration_spin.setSingleStep(50)
         config_layout.addRow(self.lbl_duration, self.duration_spin)
         self.lbl_duration.hide()
         self.duration_spin.hide()
-        # ----------------------------
 
         self.grid_group = QGroupBox("Grid Size")
         grid_layout = QHBoxLayout()
@@ -147,7 +173,6 @@ class MergeTab(AbstractClassTwoGalleries):
         self.found_gallery_scroll.selection_changed.connect(self.handle_marquee_selection)
         content_layout.addWidget(self.found_gallery_scroll, 1)
 
-        # Add Pagination Widget (Created in Base Class)
         if hasattr(self, 'found_pagination_widget'):
             content_layout.addWidget(self.found_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter)
 
@@ -167,20 +192,36 @@ class MergeTab(AbstractClassTwoGalleries):
         self.selected_gallery_scroll.setWidget(self.selected_images_widget)
         content_layout.addWidget(self.selected_gallery_scroll, 1)
 
-        # Add Pagination Widget (Created in Base Class)
         if hasattr(self, 'selected_pagination_widget'):
             content_layout.addWidget(self.selected_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter)
 
         scroll_area.setWidget(scroll_content)
         main_layout.addWidget(scroll_area)
 
-        # === 4. Action Buttons ===
+        # === 4. Action Buttons (Updated for Cancel) ===
         action_vbox = QVBoxLayout()
+        
+        # Horizontal layout for buttons to allow swapping visibility
+        btns_layout = QHBoxLayout()
+        
         self.run_button = QPushButton("Run Merge")
         self.run_button.setStyleSheet(SHARED_BUTTON_STYLE)
         apply_shadow_effect(self.run_button, "#000000", 8, 0, 3)
         self.run_button.clicked.connect(self.start_merge)
-        action_vbox.addWidget(self.run_button)
+        
+        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.setStyleSheet("""
+            QPushButton { background-color: #c0392b; color: white; font-weight: bold; padding: 12px; border-radius: 8px; }
+            QPushButton:hover { background-color: #e74c3c; }
+        """)
+        apply_shadow_effect(self.cancel_button, "#000000", 8, 0, 3)
+        self.cancel_button.clicked.connect(self.cancel_merge)
+        self.cancel_button.setVisible(False) # Hidden by default
+        
+        btns_layout.addWidget(self.run_button)
+        btns_layout.addWidget(self.cancel_button)
+        
+        action_vbox.addLayout(btns_layout)
 
         self.status_label = QLabel("")
         self.status_label.setAlignment(Qt.AlignCenter)
@@ -192,7 +233,40 @@ class MergeTab(AbstractClassTwoGalleries):
         self.handle_direction_change(self.direction.currentText())
         self.clear_galleries()
 
-    # --- IMPLEMENTING ABSTRACT METHODS ---
+    # --- HELPER: RESET UI STATE ---
+    def reset_ui_state(self):
+        """Restores buttons to default 'Run' state and clears worker refs."""
+        self.cancel_button.setVisible(False)
+        self.run_button.setVisible(True)
+        self.run_button.setEnabled(True)
+        self.current_merge_worker = None
+        self.current_merge_thread = None
+        # Re-check selection to ensure correct text (e.g. "Select 2+ images")
+        self.on_selection_changed()
+
+    # --- CANCEL SLOT ---
+    @Slot()
+    def cancel_merge(self):
+        """Interrupts the merge process."""
+        self.status_label.setText("Cancelling...")
+        if self.current_merge_thread:
+            # 1. Disconnect signals so we don't get the success dialog
+            try:
+                if self.current_merge_worker:
+                    self.current_merge_worker.finished.disconnect()
+                    self.current_merge_worker.error.disconnect()
+            except Exception: pass
+            
+            # 2. Request Stop
+            self.current_merge_thread.requestInterruption()
+            self.current_merge_thread.quit()
+            self.current_merge_thread.wait(500) # Wait briefly
+            
+        self.cleanup_temp_file()
+        self.status_label.setText("Merge cancelled.")
+        self.reset_ui_state()
+
+    # --- ABSTRACT IMPL ---
     def create_card_widget(self, path: str, pixmap: Optional[QPixmap], is_selected: bool) -> QWidget:
         thumb_size = self.thumbnail_size
         clickable_label = ClickableLabel(path) 
@@ -224,24 +298,20 @@ class MergeTab(AbstractClassTwoGalleries):
         return clickable_label
 
     def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
-        """Lazy loading callback for MergeTab. Unloads image if pixmap is None."""
         if not isinstance(widget, ClickableLabel): return
         
         img_label = widget.findChild(QLabel)
         if not img_label: return
 
         if pixmap and not pixmap.isNull():
-            # Load Image
             thumb_size = self.thumbnail_size
             scaled = pixmap.scaled(thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             img_label.setPixmap(scaled)
             img_label.setText("") 
         else:
-            # Unload/Placeholder
             img_label.clear()
             img_label.setText("Loading...")
             
-        # Reapply style
         is_selected = widget.path in self.selected_files
         self._update_label_style(img_label, widget.path, is_selected)
 
@@ -290,6 +360,20 @@ class MergeTab(AbstractClassTwoGalleries):
             self.last_browsed_dir = d
             self.populate_scan_gallery(d)
             
+    # --- OUTPUT LOGIC ---
+    @Slot()
+    def browse_output_directory(self):
+        start_dir = self.last_output_dir if self.last_output_dir else self.last_browsed_dir
+        d = QFileDialog.getExistingDirectory(self, "Select Output Directory", start_dir)
+        if d:
+            self.output_directory_path.setText(d)
+            self.output_dir = d
+            self.last_output_dir = d 
+
+    @Slot(str)
+    def _update_output_dir_state(self, path: str):
+        self.output_dir = path.strip() if path.strip() else None
+
     def populate_scan_gallery(self, directory: str):
         self.scanned_dir = directory
         if self.current_scan_thread and self.current_scan_thread.isRunning():
@@ -330,91 +414,46 @@ class MergeTab(AbstractClassTwoGalleries):
         self.start_loading_thumbnails(sorted(paths))
         self.status_label.setText(f"Scan complete. Loaded {len(paths)} files.")
 
-    # --- MERGING ---
+    # --- MERGING & PREVIEW ---
     @Slot(str)
     def handle_full_image_preview(self, image_path: str):
-        # 1. Prepare Navigation List
         full_list = self.found_files 
         target_list = full_list if full_list else self.selected_files.copy()
         
-        if not target_list:
-            target_list = [image_path]
-        elif image_path not in target_list:
-            target_list.append(image_path)
+        if not target_list: target_list = [image_path]
+        elif image_path not in target_list: target_list.append(image_path)
 
-        try:
-            start_index = target_list.index(image_path)
-        except ValueError:
-            start_index = 0
+        try: start_index = target_list.index(image_path)
+        except ValueError: start_index = 0
             
-        # 2. Create Preview Window
         window = ImagePreviewWindow(
-            image_path=image_path, 
-            db_tab_ref=None, 
-            parent=self, 
-            all_paths=target_list, 
-            start_index=start_index
+            image_path=image_path, db_tab_ref=None, parent=self, 
+            all_paths=target_list, start_index=start_index
         )
-        
-        # --- NEW CONNECTION ---
-        # Connect the preview window's internal navigation signal to our external update slot
         window.path_changed.connect(self.update_preview_highlight)
-        # ----------------------
-        
         window.setAttribute(Qt.WA_DeleteOnClose)
-        
-        # Note: We do NOT override window.closeEvent here anymore.
-        # We rely on ImagePreviewWindow emitting path_changed(..., 'WINDOW_CLOSED')
-        
         window.show()
-        window.activateWindow()
-        window.setFocus()
-        
         self.open_preview_windows.append(window)
 
     @Slot(str, str)
     def update_preview_highlight(self, old_path: str, new_path: str):
-        """
-        Updates the highlight style on the main gallery cards when navigation or closing occurs in the preview window.
-        """
-        # --- Check for cleanup signal ---
-        # WINDOW_CLOSED is the cleanup signal sent by the preview window's closeEvent.
         is_closing = (new_path == 'WINDOW_CLOSED')
-        
-        # 1. Reset Old Path Style (target the thumbnail that was just highlighted)
         old_card = self.path_to_label_map.get(old_path)
-        
         if old_card:
-            # Retrieve the style saved *before* the blue highlight was applied
             original_style = old_card.property("original_style")
-            
-            if original_style:
-                # Use the saved style property to reset the visual appearance
-                old_card.setStyleSheet(original_style)
-            else:
-                # Fallback: Just ensure the style reflects the correct selection state
-                self.update_card_style(old_card, old_path in self.selected_files)
-            
-            # Clear the property flag
+            if original_style: old_card.setStyleSheet(original_style)
+            else: self.update_card_style(old_card, old_path in self.selected_files)
             old_card.setProperty("original_style", None)
 
         if is_closing:
-            # Remove window from list
             sender_win = self.sender()
-            if sender_win in self.open_preview_windows:
-                self.open_preview_windows.remove(sender_win)
+            if sender_win in self.open_preview_windows: self.open_preview_windows.remove(sender_win)
             return
 
-        # --- 2. Apply Highlight to New Path (Navigation or Initial Load) ---
         new_card = self.path_to_label_map.get(new_path)
         if new_card:
-            # 1. Ensure the card is in its canonical (non-highlight) state first, and save that style.
             self.update_card_style(new_card, new_path in self.selected_files)
-            
-            # Save the clean style
             new_card.setProperty("original_style", new_card.styleSheet())
-            
-            # 2. Apply the distinctive BLUE viewing highlight
             new_card.setStyleSheet(f"{new_card.styleSheet().strip()}; border: 4px solid #3498db;")
 
     @Slot(QPoint, str)
@@ -425,7 +464,6 @@ class MergeTab(AbstractClassTwoGalleries):
         menu.addAction(view_action)
         menu.addSeparator()
 
-        # Add COPY action
         copy_action = QAction("Copy Image to Clipboard", self)
         copy_action.triggered.connect(lambda: self._copy_image_path_to_clipboard(path))
         menu.addAction(copy_action)
@@ -437,15 +475,11 @@ class MergeTab(AbstractClassTwoGalleries):
         toggle_action.triggered.connect(lambda: self.toggle_selection(path))
         menu.addAction(toggle_action)
         
-        # Check if the context menu is being shown in the Selected Gallery (Bottom)
         if is_selected: 
             menu.addSeparator()
-            
-            # Add Move Up/Down actions
             move_up_action = QAction("⬆️ Move Up in Merge Order", self)
             move_up_action.triggered.connect(lambda: self._move_selected_image_up(path))
             menu.addAction(move_up_action)
-            
             move_down_action = QAction("⬇️ Move Down in Merge Order", self)
             move_down_action.triggered.connect(lambda: self._move_selected_image_down(path))
             menu.addAction(move_down_action)
@@ -454,19 +488,14 @@ class MergeTab(AbstractClassTwoGalleries):
         delete_action = QAction("🗑️ Delete Image File (Permanent)", self)
         delete_action.triggered.connect(lambda: self.handle_delete_image(path))
         menu.addAction(delete_action)
-        
         menu.exec(global_pos)
 
     def _copy_image_path_to_clipboard(self, path: str):
-        """Loads image from path and copies to system clipboard."""
         if os.path.exists(path):
             try:
                 img = QImage(path)
                 if not img.isNull():
-                    clipboard = QApplication.clipboard()
-                    clipboard.setImage(img)
-                    # Use a non-blocking toast or status message if possible, otherwise standard msg box
-                    # Using status label here to be less intrusive
+                    QApplication.clipboard().setImage(img)
                     self.status_label.setText(f"Copied image to clipboard: {os.path.basename(path)}")
                 else:
                     QMessageBox.warning(self, "Copy Error", "Failed to load image for copying.")
@@ -474,81 +503,84 @@ class MergeTab(AbstractClassTwoGalleries):
                 QMessageBox.critical(self, "Error", f"Copy failed: {e}")
 
     def _move_selected_image_up(self, path: str):
-        """Moves the given path one position earlier in the selected_files list."""
         try:
             current_index = self.selected_files.index(path)
             if current_index > 0:
-                # Swap elements
                 self.selected_files[current_index], self.selected_files[current_index - 1] = \
                     self.selected_files[current_index - 1], self.selected_files[current_index]
                 self.refresh_selected_panel()
-                self.on_selection_changed() # Update button states if necessary (e.g., if re-ordering changed visibility)
-        except ValueError:
-            pass # Path not found
+                self.on_selection_changed()
+        except ValueError: pass
 
     def _move_selected_image_down(self, path: str):
-        """Moves the given path one position later in the selected_files list."""
         try:
             current_index = self.selected_files.index(path)
             if current_index < len(self.selected_files) - 1:
-                # Swap elements
                 self.selected_files[current_index], self.selected_files[current_index + 1] = \
                     self.selected_files[current_index + 1], self.selected_files[current_index]
                 self.refresh_selected_panel()
-                self.on_selection_changed() # Update button states if necessary
-        except ValueError:
-            pass # Path not found
+                self.on_selection_changed() 
+        except ValueError: pass
 
     def handle_delete_image(self, path: str):
         if QMessageBox.question(self, "Delete", f"Permanently delete {os.path.basename(path)}?") == QMessageBox.Yes:
             try:
                 os.remove(path)
-                
-                # Update Data Lists in parent class
                 if hasattr(self, 'found_files') and path in self.found_files:
                     self.found_files.remove(path)
                 if hasattr(self, 'selected_files') and path in self.selected_files:
                     self.selected_files.remove(path)
-                
-                # Update UI: Remove from internal map and layout
                 if hasattr(self, 'path_to_label_map') and path in self.path_to_label_map:
                      widget = self.path_to_label_map.pop(path)
                      widget.deleteLater()
-                     
                 self.on_selection_changed()
-                
             except Exception as e:
                 QMessageBox.critical(self, "Error", str(e))
+    
+    # --- UPDATED CLEANUP SLOT (Called safely by QMetaObject) ---
+    @Slot(str)
+    def _cleanup_merge_worker_and_show_dialog(self, result_path: str):
+        """
+        Slot executed on the main thread ONLY. Cleans up thread references 
+        and then calls the final dialog method.
+        """
+        self.reset_ui_state() # Restore buttons
         
+        # Proceed with the dialog logic
+        self.show_preview_and_confirm(result_path)
+
+    # --- UPDATED start_merge METHOD (CRITICAL FIX) ---
     def start_merge(self):
         if len(self.selected_files) < 2: 
             QMessageBox.warning(self, "Invalid", "Select at least 2 images.")
             return
         
-        # --- NEW: Create Temporary Output File Path ---
+        # --- PATH CALCULATION ---
         temp_dir = tempfile.gettempdir()
-        
-        # Change extension to .gif if direction is gif
         ext = ".gif" if self.direction.currentText() == "gif" else ".png"
+        
         temp_filename = next(tempfile._get_candidate_names()) + ext 
+        target_path = os.path.join(temp_dir, temp_filename)
+        self.temp_file_path = target_path 
         
-        self.temp_file_path = os.path.join(temp_dir, temp_filename)
+        self.pending_save_path = None
+        if self.output_dir and os.path.isdir(self.output_dir):
+            filename = self.output_filename_input.text().strip()
+            if not filename: filename = next(tempfile._get_candidate_names())
+            if not filename.lower().endswith(ext): filename += ext
+            self.pending_save_path = os.path.join(self.output_dir, filename)
+
+        # Worker config
+        merge_config = self.collect(self.temp_file_path)
         
-        # Worker config must use the temporary path
-        temp_output_config = self.collect(self.temp_file_path)
+        # UI Update
+        self.run_button.setVisible(False)
+        self.cancel_button.setVisible(True)
+        self.status_label.setText("Merging...")
         
-        # Lock UI
-        self.run_button.setEnabled(False)
-        self.run_button.setText("Merging...")
+        if cv2.ocl.haveOpenCL(): cv2.ocl.finish()
         
-        # --- NEW: Force OpenCL Cleanup ---
-        # This attempts to force the GPU to finish all pending tasks and flush buffers, 
-        # which can resolve lazy allocation/eviction issues when switching gallery pages.
-        if cv2.ocl.haveOpenCL():
-            cv2.ocl.finish()
-        # --- END NEW ---
-        
-        worker = MergeWorker(temp_output_config)
+        worker = MergeWorker(merge_config)
         thread = QThread()
         self.current_merge_worker = worker
         self.current_merge_thread = thread
@@ -557,13 +589,20 @@ class MergeTab(AbstractClassTwoGalleries):
         thread.started.connect(worker.run)
         worker.progress.connect(lambda c, t: self.status_label.setText(f"Merging {c}/{t}"))
         
-        # --- NEW CONNECTION ---
-        worker.finished.connect(self.show_preview_and_confirm) 
-        
-        worker.error.connect(self.on_merge_error)
+        # --- FIX 1: Use thread.finished to trigger final, safe main-thread cleanup ---
+        try: worker.finished.disconnect() 
+        except: pass
         
         worker.finished.connect(thread.quit)
+        worker.error.connect(self.on_merge_error)
         worker.error.connect(thread.quit)
+        
+        # Store the path to be used by the main thread cleanup slot
+        def invoke_cleanup(path):
+            QMetaObject.invokeMethod(self, "_cleanup_merge_worker_and_show_dialog", Qt.QueuedConnection, Q_ARG(str, path))
+        
+        worker.finished.connect(invoke_cleanup)
+
         thread.finished.connect(thread.deleteLater)
         thread.start()
 
@@ -573,144 +612,126 @@ class MergeTab(AbstractClassTwoGalleries):
         QMessageBox.information(self, "Success", f"Saved to {path}")
 
     def cleanup_temp_file(self):
-        """Safely removes the temporary merged file."""
         if self.temp_file_path and os.path.exists(self.temp_file_path):
-            try:
-                os.remove(self.temp_file_path)
-            except Exception as e:
-                print(f"Error cleaning up temp file {self.temp_file_path}: {e}")
+            try: os.remove(self.temp_file_path)
+            except Exception as e: print(f"Error cleaning up temp file: {e}")
         self.temp_file_path = None
 
     @Slot(str)
-    def show_preview_and_confirm(self, temp_path: str):
-        self.on_selection_changed() # Unlock UI
-        self.temp_file_path = temp_path # Worker confirmed the file exists here
+    def show_preview_and_confirm(self, result_path: str):
+        # We assume self.reset_ui_state() was called by the cleanup wrapper
         
-        if not os.path.exists(temp_path):
-            self.on_merge_error(f"Failed to create temporary merge file at: {temp_path}")
+        if not os.path.exists(result_path):
+            self.on_merge_error(f"Failed to create merge file at: {result_path}")
             return
 
-        self.status_label.setText("Merge complete. Showing preview...")
-
-        # Load pixmap from the temporary file for display and copying
-        self._last_merged_pixmap = QPixmap(temp_path)
+        self.status_label.setText("Merge complete.")
+        self._last_merged_pixmap = QPixmap(result_path)
         
         # 1. Show Preview Window
         preview_window = ImagePreviewWindow(
-            image_path=temp_path, 
-            db_tab_ref=None, 
-            parent=self, 
-            all_paths=[temp_path], 
-            start_index=0,
+            image_path=result_path, db_tab_ref=None, parent=self, 
+            all_paths=[result_path], start_index=0,
         )
         preview_window.setWindowTitle("Merged Image Preview")
         preview_window.show()
         preview_window.activateWindow()
 
-        # --- Copy Pixmap Function ---
-        def copy_pixmap_to_clipboard():
-            if self._last_merged_pixmap and not self._last_merged_pixmap.isNull():
-                clipboard = QApplication.clipboard()
-                clipboard.setPixmap(self._last_merged_pixmap)
-                # Show explicit feedback for this action as it happens in a modal flow
-                QMessageBox.information(self, "Copied", "Merged image copied to clipboard.")
-            else:
-                QMessageBox.warning(self, "Error", "Merged image failed to load or is invalid.")
-
-        # 2. Get Confirmation Dialog (using custom buttons)
+        # 2. Confirmation Dialog
         confirm = QMessageBox(self)
         confirm.setWindowTitle("Save Merged Image?")
-        confirm.setText("The merged image is ready. Choose an action:")
         
-        # Add Copy Button
+        if self.pending_save_path:
+            confirm.setText(f"Merge successful. Save to configured output?\n\n{self.pending_save_path}")
+            save_text = "Save"
+        else:
+            confirm.setText("Merge successful. Choose an action:")
+            save_text = "Save As..."
+            
         copy_btn = confirm.addButton("Copy to Clipboard", QMessageBox.ButtonRole.ActionRole)
-        # We handle the click logic manually below based on the returned button
-        
-        save_btn = confirm.addButton("Save Only", QMessageBox.ButtonRole.AcceptRole)
+        save_btn = confirm.addButton(save_text, QMessageBox.ButtonRole.AcceptRole)
         save_add_btn = confirm.addButton("Save and Add to Selection", QMessageBox.ButtonRole.AcceptRole)
-        discard_btn = confirm.addButton("Discard Image", QMessageBox.ButtonRole.DestructiveRole)
+        discard_btn = confirm.addButton("Discard", QMessageBox.ButtonRole.DestructiveRole)
         confirm.addButton(QMessageBox.StandardButton.Cancel)
 
-        # Block here until user chooses
         confirm.exec()
+        clicked = confirm.clickedButton()
         
-        # 3. Handle Confirmation Result
-        clicked_button = confirm.clickedButton()
-        
-        saved_path = None
+        saved_final_path = None
 
-        if clicked_button == copy_btn:
-            copy_pixmap_to_clipboard()
-            # After copying, we don't automatically discard. We treat it like a 'cancel' regarding file saving,
-            # but we clean up the temp file unless the user explicitly wants to save it too.
-            # Actually, standard behavior for "Copy" often implies "I'm done with this dialog".
+        # --- Handle Actions ---
+        if clicked == copy_btn:
+            if self._last_merged_pixmap: QApplication.clipboard().setPixmap(self._last_merged_pixmap)
             self.cleanup_temp_file()
-
-        elif clicked_button == save_btn or clicked_button == save_add_btn:
             
-            # --- Auto-detect extension logic ---
-            filter_str = "GIF (*.gif)" if temp_path.lower().endswith(".gif") else "PNG (*.png)"
+        elif clicked == save_btn or clicked == save_add_btn:
             
-            out, _ = QFileDialog.getSaveFileName(self, "Save Merged Image", self.last_browsed_dir, filter_str)
-            if out:
-                # Enforce correct extension
-                target_ext = ".gif" if temp_path.lower().endswith(".gif") else ".png"
-                if not out.lower().endswith(target_ext): out += target_ext
-                    
+            # CASE A: Pre-configured output path
+            if self.pending_save_path:
                 try:
-                    # Move the temporary file to the final destination
-                    shutil.move(temp_path, out)
-                    self.last_browsed_dir = os.path.dirname(out)
-                    saved_path = out
-                    QMessageBox.information(self, "Success", f"Saved to {out}")
-                except Exception as e:
-                    QMessageBox.critical(self, "Save Error", f"Failed to save image: {e}")
-        
-        if saved_path:
-            self.temp_file_path = None # File saved, no need for cleanup
-            
-            # Logic for "Save & Add to Selection"
-            if clicked_button == save_add_btn:
-                self._inject_new_image(saved_path)
-        elif clicked_button == discard_btn:
-            self.cleanup_temp_file()
-            QMessageBox.information(self, "Discarded", "Merged image discarded.")
-        elif clicked_button in [save_btn, save_add_btn, confirm.button(QMessageBox.StandardButton.Cancel)]:
-            # If save failed, was canceled, or cancelled via standard button, cleanup the temp file.
-            # Note: We already handled copy_btn cleanup above
-            if not saved_path and clicked_button != copy_btn: 
-                self.cleanup_temp_file()
-                
-        # 4. Close Preview Window safely
-        try:
-            if preview_window.isVisible(): 
-                preview_window.close()
-                preview_window.deleteLater()
-        except RuntimeError:
-            pass # Window already deleted
+                    if os.path.exists(self.pending_save_path):
+                        overwrite = QMessageBox.question(
+                            self, "Overwrite?", 
+                            f"File already exists:\n{self.pending_save_path}\nOverwrite?", 
+                            QMessageBox.Yes | QMessageBox.No
+                        )
+                        if overwrite != QMessageBox.Yes:
+                            self.cleanup_temp_file()
+                            return
 
-        # Clear the internal pixmap cache
+                    shutil.move(result_path, self.pending_save_path)
+                    saved_final_path = self.pending_save_path
+                    self.temp_file_path = None
+                    
+                    # Update tracker
+                    self.last_output_dir = os.path.dirname(saved_final_path)
+                    QMessageBox.information(self, "Success", f"Saved to {saved_final_path}")
+                except Exception as e:
+                    QMessageBox.critical(self, "Save Error", f"Failed to move file: {e}")
+                    self.cleanup_temp_file()
+            
+            # CASE B: No config, use File Dialog
+            else:
+                filter_str = "GIF (*.gif)" if result_path.lower().endswith(".gif") else "PNG (*.png)"
+                start_dir = self.last_output_dir if self.last_output_dir else self.last_browsed_dir
+                
+                out, _ = QFileDialog.getSaveFileName(self, "Save Merged Image", start_dir, filter_str)
+                if out:
+                    try:
+                        shutil.move(result_path, out)
+                        saved_final_path = out
+                        self.temp_file_path = None
+                        self.last_output_dir = os.path.dirname(out)
+                        QMessageBox.information(self, "Success", f"Saved to {out}")
+                    except Exception as e:
+                        QMessageBox.critical(self, "Error", f"Move failed: {e}")
+                        self.cleanup_temp_file()
+                else:
+                    self.cleanup_temp_file() 
+
+            if saved_final_path and clicked == save_add_btn:
+                self._inject_new_image(saved_final_path)
+
+        else: 
+            self.cleanup_temp_file()
+
         self._last_merged_pixmap = None 
+        if self.temp_file_path is None and not os.path.exists(result_path):
+             preview_window.close()
+        
         self.status_label.setText("Ready to merge.")
 
     def _inject_new_image(self, path: str):
-        """Adds a newly created image to the galleries and selection."""
-        # 1. Update Data Models
         if hasattr(self, 'found_files') and isinstance(self.found_files, list):
             self.found_files.append(path)
-        
         self.selected_files.append(path)
         
-        # 2. Prepare Widget
         pixmap = QPixmap(path)
-        if pixmap.isNull():
-            return 
+        if pixmap.isNull(): return 
 
-        # 3. Add to Top Gallery (Found)
         count = self.found_gallery_layout.count()
         width = self.found_gallery_scroll.viewport().width()
-        item_w = self.thumbnail_size + 20
-        cols = max(1, width // item_w) if width > 0 else 4
+        cols = max(1, width // (self.thumbnail_size + 20)) if width > 0 else 4
         
         row = count // cols
         col = count % cols
@@ -721,32 +742,26 @@ class MergeTab(AbstractClassTwoGalleries):
         if hasattr(self, 'path_to_label_map'):
             self.path_to_label_map[path] = card_top
 
-        # 4. Add to Bottom Gallery (Selected)
         self.refresh_selected_panel()
-        
         self.on_selection_changed()
 
     def on_merge_error(self, msg):
-        self.cleanup_temp_file() # Clean up temp file on worker error
+        self.cleanup_temp_file() 
         self.on_selection_changed()
+        self.reset_ui_state() # Ensure cancel button is gone
         self.status_label.setText("Failed.")
         QMessageBox.critical(self, "Error", msg)
 
     def handle_direction_change(self, direction):
-        # Update visibility of settings based on direction
         is_grid = direction == "grid"
-        is_complex_stitch = direction in ["panorama", "stitch", "sequential"]
+        is_complex = direction in ["panorama", "stitch", "sequential"]
         is_gif = direction == "gif"
         
         self.grid_group.setVisible(is_grid)
-        
-        # Toggle Spacing/Align
-        self.lbl_spacing.setVisible(not (is_complex_stitch or is_gif))
-        self.spacing.setVisible(not (is_complex_stitch or is_gif))
-        self.lbl_align.setVisible(not (is_complex_stitch or is_gif))
-        self.align_mode.setVisible(not (is_complex_stitch or is_gif))
-        
-        # Toggle GIF specific controls
+        self.lbl_spacing.setVisible(not (is_complex or is_gif))
+        self.spacing.setVisible(not (is_complex or is_gif))
+        self.lbl_align.setVisible(not (is_complex or is_gif))
+        self.align_mode.setVisible(not (is_complex or is_gif))
         self.lbl_duration.setVisible(is_gif)
         self.duration_spin.setVisible(is_gif)
 
@@ -770,6 +785,8 @@ class MergeTab(AbstractClassTwoGalleries):
             "spacing": 10,
             "grid_size": [2, 2], 
             "scan_directory": "C:/path/to/images",
+            "output_directory": "",
+            "output_filename": "",
             "align_mode": "Default (Top/Center)"
         }
 
@@ -795,6 +812,15 @@ class MergeTab(AbstractClassTwoGalleries):
                 self.scan_directory_path.setText(scan_dir)
                 if os.path.isdir(scan_dir):
                     self.populate_scan_gallery(scan_dir)
+            
+            out_dir = config.get("output_directory")
+            if out_dir:
+                self.output_directory_path.setText(out_dir)
+                self.output_dir = out_dir
+            
+            out_fname = config.get("output_filename")
+            if out_fname:
+                self.output_filename_input.setText(out_fname)
             
             print(f"MergeTab configuration loaded.")
             

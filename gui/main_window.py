@@ -11,12 +11,12 @@ from PySide6.QtWidgets import (
 )
 from .windows import SettingsWindow
 from .tabs import (
-    DatabaseTab,
     ConvertTab, DeleteTab, 
     ScanMetadataTab, SearchTab, 
     ImageExtractorTab, MergeTab,
-    WallpaperTab, WebRequestsTab,
     ImageCrawlTab, DriveSyncTab,
+    WallpaperTab, WebRequestsTab,
+    DatabaseTab, ReverseImageSearchTab,
     UnifiedTrainTab, UnifiedGenerateTab,
     R3GANEvaluateTab, MetaCLIPInferenceTab
 )
@@ -119,6 +119,7 @@ class MainWindow(QWidget):
         self.merge_tab = MergeTab()
         self.delete_tab = DeleteTab(dropdown=dropdown)
         self.crawler_tab = ImageCrawlTab()
+        self.reverse_search_tab = ReverseImageSearchTab()
         self.drive_sync_tab = DriveSyncTab(vault_manager)
         self.wallpaper_tab = WallpaperTab(self.database_tab)
         self.web_requests_tab = WebRequestsTab()
@@ -152,6 +153,7 @@ class MainWindow(QWidget):
                 "Web Crawler": self.crawler_tab,
                 "Web Requests": self.web_requests_tab,
                 "Cloud Synchronization": self.drive_sync_tab,
+                "Reverse Search": self.reverse_search_tab
             },
             'Deep Learning': {
                 "Training": self.train_tab,
