@@ -34,6 +34,7 @@ class MainWindow(QWidget):
         
         self.setWindowTitle("Image Database and Edit Toolkit")
         self.setMinimumWidth(800)
+        self.setMinimumHeight(700)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         QImageReader.setAllocationLimit(NEW_LIMIT_MB)
         

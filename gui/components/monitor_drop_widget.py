@@ -5,9 +5,9 @@ from screeninfo import Monitor
 from PySide6.QtCore import Qt, Signal, QMimeData
 from PySide6.QtGui import (
     QPixmap, QDragEnterEvent, QDropEvent, QDragMoveEvent, QDragLeaveEvent,
-    QMouseEvent
+    QMouseEvent, QDrag
 )
-from PySide6.QtWidgets import QLabel, QMenu
+from PySide6.QtWidgets import QLabel, QMenu, QApplication
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 
 
@@ -15,7 +15,8 @@ class MonitorDropWidget(QLabel):
     """
     A custom QLabel that acts as a drop target for images,
     displays monitor info, and shows a preview of the dropped image.
-    When no image is set, it displays a simplified placeholder.
+    
+    Now supports being dragged itself for reordering.
     """
     # Emits (monitor_id, image_path) when an image is successfully dropped
     image_dropped = Signal(str, str) 
@@ -23,7 +24,7 @@ class MonitorDropWidget(QLabel):
     # Emits monitor_id when the widget is double-clicked
     double_clicked = Signal(str)
 
-    # NEW SIGNAL: Emits monitor_id when the 'Clear Monitor' right-click action is selected
+    # Emits monitor_id when the 'Clear Monitor' right-click action is selected
     clear_requested_id = Signal(str)
 
     def __init__(self, monitor: Monitor, monitor_id: str):
@@ -31,6 +32,7 @@ class MonitorDropWidget(QLabel):
         self.monitor = monitor
         self.monitor_id = monitor_id
         self.image_path: Optional[str] = None
+        self.drag_start_position = None  # Track start position for reordering drag
         
         self.setAcceptDrops(True)
         self.setAlignment(Qt.AlignCenter)
@@ -55,17 +57,11 @@ class MonitorDropWidget(QLabel):
             }
         """)
 
-    # NEW METHOD: Handles the right-click event to show a context menu
     def contextMenuEvent(self, event):
         """Creates and executes a context menu on right-click."""
         menu = QMenu(self)
-        
-        # Action to clear the monitor
         clear_action = menu.addAction("Clear All Images (Current and Queue)")
         clear_action.triggered.connect(lambda: self.clear_requested_id.emit(self.monitor_id))
-        
-        # We enable it anytime to allow clearing empty queues as well.
-        
         menu.exec(event.globalPos())
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
@@ -74,21 +70,55 @@ class MonitorDropWidget(QLabel):
             self.double_clicked.emit(self.monitor_id)
         super().mouseDoubleClickEvent(event)
 
+    # --- DRAG INITIATION LOGIC (Reordering) ---
+
+    def mousePressEvent(self, event: QMouseEvent):
+        if event.button() == Qt.LeftButton:
+            self.drag_start_position = event.pos()
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QMouseEvent):
+        if not (event.buttons() & Qt.LeftButton):
+            return
+        if not self.drag_start_position:
+            return
+
+        # Ensure we've moved far enough to consider it a drag (prevents accidental drags on clicks)
+        if (event.pos() - self.drag_start_position).manhattanLength() < QApplication.startDragDistance():
+            return
+
+        # Create the drag object
+        drag = QDrag(self)
+        mime_data = QMimeData()
+        mime_data.setText(self.monitor_id) # Identify this widget by monitor ID
+        drag.setMimeData(mime_data)
+
+        # Create a visual ghost of the widget
+        pixmap = self.grab()
+        drag.setPixmap(pixmap.scaledToWidth(200, Qt.SmoothTransformation))
+        # Center the hot spot roughly where the click was, or center of widget
+        drag.setHotSpot(event.pos())
+
+        drag.exec(Qt.MoveAction)
+
+    # --- DROP TARGET LOGIC (Receiving Images) ---
+
     def update_text(self):
-        """
-        Sets the default placeholder text, removing the monitor dimensions
-        to prioritize the current background image display via set_image().
-        """
         monitor_name = f"Monitor {self.monitor_id}"
         if self.monitor.name:
              monitor_name = f"{monitor_name} ({self.monitor.name})"
         
-        # MODIFICATION: Removed the line that displayed monitor dimensions (width x height)
         self.setText(f"<b>{monitor_name}</b>\n\n"
                      "Drag and Drop Image Here")
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         """Event when a dragged item enters the widget."""
+        # CRITICAL: If this is a reorder drag (MonitorDropWidget source), 
+        # IGNORE it so it bubbles up to the parent container.
+        if event.source() and isinstance(event.source(), MonitorDropWidget):
+            event.ignore()
+            return
+
         if self.has_valid_image_url(event.mimeData()):
             event.acceptProposedAction()
             self.setProperty("dragging", True)
@@ -98,6 +128,10 @@ class MonitorDropWidget(QLabel):
 
     def dragMoveEvent(self, event: QDragMoveEvent):
         """Event when a dragged item moves over the widget."""
+        if event.source() and isinstance(event.source(), MonitorDropWidget):
+            event.ignore()
+            return
+
         if self.has_valid_image_url(event.mimeData()):
             event.acceptProposedAction()
         else:
@@ -118,7 +152,6 @@ class MonitorDropWidget(QLabel):
             file_path = url.toLocalFile()
             
             if os.path.isfile(file_path):
-                # wallpaper_tab.py's on_image_dropped handles queue logic
                 self.image_dropped.emit(self.monitor_id, file_path)
                 event.acceptProposedAction()
                 return
@@ -129,8 +162,6 @@ class MonitorDropWidget(QLabel):
         """Checks if the MimeData contains a single, valid, local image file."""
         if not mime_data.hasUrls():
             return False
-        if len(mime_data.urls()) > 1:
-            pass # We only care about the first one in this context
         
         url = mime_data.urls()[0]
         if not url.isLocalFile():
@@ -150,11 +181,10 @@ class MonitorDropWidget(QLabel):
             if not pixmap.isNull():
                 scaled_pixmap = pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
                 self.setPixmap(scaled_pixmap)
-                self.setText("") # Clear text when image is shown
+                self.setText("") 
             else:
                 self.image_path = None
                 self.update_text()
-                # Use simplified error text since dimensions are removed from update_text
                 monitor_name = f"Monitor {self.monitor_id}"
                 if self.monitor.name:
                      monitor_name = f"{monitor_name} ({self.monitor.name})"
@@ -162,12 +192,12 @@ class MonitorDropWidget(QLabel):
                 self.setText(f"<b>{monitor_name}</b>\n\n"
                              "<b>Error:</b> Could not load image.")
         else:
-             self.clear() # Call the internal clear for consistency
+             self.clear() 
              
     def clear(self):
         """Clears the displayed image and resets to placeholder text."""
         self.image_path = None
-        self.setPixmap(QPixmap()) # Clear the pixmap
+        self.setPixmap(QPixmap()) 
         self.update_text()
                          
     def resizeEvent(self, event):

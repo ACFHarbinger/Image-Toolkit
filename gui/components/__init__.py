@@ -1,8 +1,10 @@
 from .clickable_label import ClickableLabel
 from .draggable_image_label import DraggableImageLabel
-from .monitor_drop_widget import MonitorDropWidget
 from .opaque_viewport import OpaqueViewport
 from .marquee_scroll_area import MarqueeScrollArea
 from .optional_field import OptionalField
 from .property_comparison_dialog import PropertyComparisonDialog
 from .queue_item_widget import QueueItemWidget
+
+from .monitor_drop_widget import MonitorDropWidget
+from .draggable_monitor_container import DraggableMonitorContainer
