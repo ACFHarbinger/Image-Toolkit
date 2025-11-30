@@ -5,10 +5,7 @@ import tempfile
 
 from typing import Dict, Any, Optional
 from PySide6.QtGui import QPixmap, QAction, QImage
-from PySide6.QtCore import (
-    Qt, QTimer, QThread, Slot, QPoint, 
-    QEventLoop, QMetaObject, Q_ARG, Signal
-)
+from PySide6.QtCore import Qt, QTimer, QThread, Slot, QPoint, QEventLoop, QMetaObject, Signal, Q_ARG
 from PySide6.QtWidgets import (
     QMenu, QPushButton, QFormLayout, QApplication,
     QLineEdit, QFileDialog, QWidget, QLabel,
@@ -45,6 +42,9 @@ class MergeTab(AbstractClassTwoGalleries):
         self.current_merge_thread: QThread | None = None
         self.current_merge_worker: MergeWorker | None = None
         self.temp_file_path: Optional[str] = None
+        
+        # Keep references to threads that are cancelling so they don't get GC'd prematurely
+        self._zombie_threads: list[QThread] = [] 
         
         self.pending_save_path: Optional[str] = None
         self._last_merged_pixmap: Optional[QPixmap] = None
@@ -198,10 +198,9 @@ class MergeTab(AbstractClassTwoGalleries):
         scroll_area.setWidget(scroll_content)
         main_layout.addWidget(scroll_area)
 
-        # === 4. Action Buttons (Updated for Cancel) ===
+        # === 4. Action Buttons ===
         action_vbox = QVBoxLayout()
         
-        # Horizontal layout for buttons to allow swapping visibility
         btns_layout = QHBoxLayout()
         
         self.run_button = QPushButton("Run Merge")
@@ -216,7 +215,7 @@ class MergeTab(AbstractClassTwoGalleries):
         """)
         apply_shadow_effect(self.cancel_button, "#000000", 8, 0, 3)
         self.cancel_button.clicked.connect(self.cancel_merge)
-        self.cancel_button.setVisible(False) # Hidden by default
+        self.cancel_button.setVisible(False) 
         
         btns_layout.addWidget(self.run_button)
         btns_layout.addWidget(self.cancel_button)
@@ -241,30 +240,55 @@ class MergeTab(AbstractClassTwoGalleries):
         self.run_button.setEnabled(True)
         self.current_merge_worker = None
         self.current_merge_thread = None
-        # Re-check selection to ensure correct text (e.g. "Select 2+ images")
         self.on_selection_changed()
 
-    # --- CANCEL SLOT ---
+    # --- CANCEL SLOT (FIXED) ---
     @Slot()
     def cancel_merge(self):
-        """Interrupts the merge process."""
+        """Interrupts the merge process safely without crashing thread."""
         self.status_label.setText("Cancelling...")
-        if self.current_merge_thread:
-            # 1. Disconnect signals so we don't get the success dialog
+        
+        thread_to_kill = self.current_merge_thread
+        worker_to_kill = self.current_merge_worker
+
+        if thread_to_kill:
+            # 1. Disconnect signals to prevent callbacks (UI updates/popups)
             try:
-                if self.current_merge_worker:
-                    self.current_merge_worker.finished.disconnect()
-                    self.current_merge_worker.error.disconnect()
+                if worker_to_kill:
+                    worker_to_kill.finished.disconnect()
+                    worker_to_kill.error.disconnect()
+                    worker_to_kill.progress.disconnect()
+                # Disconnect all signals from the thread
+                thread_to_kill.started.disconnect()
+                thread_to_kill.finished.disconnect() 
             except Exception: pass
             
-            # 2. Request Stop
-            self.current_merge_thread.requestInterruption()
-            self.current_merge_thread.quit()
-            self.current_merge_thread.wait(500) # Wait briefly
+            # 2. Tell thread to stop
+            thread_to_kill.requestInterruption()
+            thread_to_kill.quit()
+            
+            # 3. Handle deletion safely
+            if thread_to_kill.isRunning():
+                print("Merge thread running. Detaching to background cleanup.")
+                self._zombie_threads.append(thread_to_kill)
+                
+                # Connect cleanup to the finished signal using the safe slot
+                thread_to_kill.finished.connect(self._cleanup_zombie_thread)
+            else:
+                thread_to_kill.deleteLater()
             
         self.cleanup_temp_file()
         self.status_label.setText("Merge cancelled.")
         self.reset_ui_state()
+
+    @Slot()
+    def _cleanup_zombie_thread(self):
+        """Removes a finished thread from the zombie list using sender()."""
+        thread = self.sender()
+        if thread:
+            if thread in self._zombie_threads:
+                self._zombie_threads.remove(thread)
+            thread.deleteLater()
 
     # --- ABSTRACT IMPL ---
     def create_card_widget(self, path: str, pixmap: Optional[QPixmap], is_selected: bool) -> QWidget:
@@ -387,7 +411,7 @@ class MergeTab(AbstractClassTwoGalleries):
         loop.exec()
         
         worker = ImageScannerWorker(directory)
-        thread = QThread()
+        thread = QThread(self) # Parent thread to self
         
         self.current_scan_worker = worker
         self.current_scan_thread = thread
@@ -537,7 +561,6 @@ class MergeTab(AbstractClassTwoGalleries):
             except Exception as e:
                 QMessageBox.critical(self, "Error", str(e))
     
-    # --- UPDATED CLEANUP SLOT (Called safely by QMetaObject) ---
     @Slot(str)
     def _cleanup_merge_worker_and_show_dialog(self, result_path: str):
         """
@@ -545,11 +568,8 @@ class MergeTab(AbstractClassTwoGalleries):
         and then calls the final dialog method.
         """
         self.reset_ui_state() # Restore buttons
-        
-        # Proceed with the dialog logic
         self.show_preview_and_confirm(result_path)
 
-    # --- UPDATED start_merge METHOD (CRITICAL FIX) ---
     def start_merge(self):
         if len(self.selected_files) < 2: 
             QMessageBox.warning(self, "Invalid", "Select at least 2 images.")
@@ -573,7 +593,6 @@ class MergeTab(AbstractClassTwoGalleries):
         # Worker config
         merge_config = self.collect(self.temp_file_path)
         
-        # UI Update
         self.run_button.setVisible(False)
         self.cancel_button.setVisible(True)
         self.status_label.setText("Merging...")
@@ -581,7 +600,10 @@ class MergeTab(AbstractClassTwoGalleries):
         if cv2.ocl.haveOpenCL(): cv2.ocl.finish()
         
         worker = MergeWorker(merge_config)
-        thread = QThread()
+        # --- CRITICAL FIX: Parent the QThread to self ---
+        thread = QThread(self)
+        # ------------------------------------------------
+        
         self.current_merge_worker = worker
         self.current_merge_thread = thread
         worker.moveToThread(thread)
@@ -589,7 +611,7 @@ class MergeTab(AbstractClassTwoGalleries):
         thread.started.connect(worker.run)
         worker.progress.connect(lambda c, t: self.status_label.setText(f"Merging {c}/{t}"))
         
-        # --- FIX 1: Use thread.finished to trigger final, safe main-thread cleanup ---
+        # Clear old connections if any
         try: worker.finished.disconnect() 
         except: pass
         
@@ -597,13 +619,16 @@ class MergeTab(AbstractClassTwoGalleries):
         worker.error.connect(self.on_merge_error)
         worker.error.connect(thread.quit)
         
-        # Store the path to be used by the main thread cleanup slot
+        # Cleanup slot invocation
         def invoke_cleanup(path):
             QMetaObject.invokeMethod(self, "_cleanup_merge_worker_and_show_dialog", Qt.QueuedConnection, Q_ARG(str, path))
         
         worker.finished.connect(invoke_cleanup)
 
+        # Ensure worker is deleted when thread finishes
+        thread.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
+        
         thread.start()
 
     def on_merge_done(self, path):
@@ -650,7 +675,7 @@ class MergeTab(AbstractClassTwoGalleries):
             
         copy_btn = confirm.addButton("Copy to Clipboard", QMessageBox.ButtonRole.ActionRole)
         save_btn = confirm.addButton(save_text, QMessageBox.ButtonRole.AcceptRole)
-        save_add_btn = confirm.addButton("Save and Add to Selection", QMessageBox.ButtonRole.AcceptRole)
+        save_add_btn = confirm.addButton("Save & Add to Selection", QMessageBox.ButtonRole.AcceptRole)
         discard_btn = confirm.addButton("Discard", QMessageBox.ButtonRole.DestructiveRole)
         confirm.addButton(QMessageBox.StandardButton.Cancel)
 
@@ -659,7 +684,6 @@ class MergeTab(AbstractClassTwoGalleries):
         
         saved_final_path = None
 
-        # --- Handle Actions ---
         if clicked == copy_btn:
             if self._last_merged_pixmap: QApplication.clipboard().setPixmap(self._last_merged_pixmap)
             self.cleanup_temp_file()
@@ -682,8 +706,6 @@ class MergeTab(AbstractClassTwoGalleries):
                     shutil.move(result_path, self.pending_save_path)
                     saved_final_path = self.pending_save_path
                     self.temp_file_path = None
-                    
-                    # Update tracker
                     self.last_output_dir = os.path.dirname(saved_final_path)
                     QMessageBox.information(self, "Success", f"Saved to {saved_final_path}")
                 except Exception as e:

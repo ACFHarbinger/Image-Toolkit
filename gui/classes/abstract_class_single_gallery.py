@@ -1,12 +1,13 @@
 import os
 import math
+import cv2  # Needed for video processing
 
 from abc import abstractmethod
 from typing import List, Optional, Dict
 from PySide6.QtWidgets import QWidget, QGridLayout, QScrollArea, QMenu
 from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer
-from PySide6.QtGui import QPixmap, QResizeEvent, QAction
-from backend.src.utils.definitions import LOCAL_SOURCE_PATH
+from PySide6.QtGui import QPixmap, QResizeEvent, QAction, QImage
+from backend.src.utils.definitions import LOCAL_SOURCE_PATH, SUPPORTED_VIDEO_FORMATS
 from .meta_abstract_class_gallery import MetaAbstractClassGallery
 from ..helpers import ImageLoaderWorker
 
@@ -14,7 +15,7 @@ from ..helpers import ImageLoaderWorker
 class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
     """
     Abstract base class for a single gallery using MetaAbstractClassGallery.
-    Lazy loading removed: Images load immediately upon pagination.
+    Includes built-in support for video thumbnail generation.
     """
 
     def __init__(self):
@@ -23,7 +24,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         # --- Data State ---
         self.gallery_image_paths: List[str] = [] 
         self.path_to_card_widget: Dict[str, QWidget] = {}
-        # CORRECT: Initialize the cache. It will be populated by start_loading_gallery.
+        # Stores pre-generated or cached thumbnails
         self._initial_pixmap_cache: Dict[str, QPixmap] = {}
         
         # --- Pagination State ---
@@ -44,7 +45,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         self._resize_timer.setSingleShot(True)
         self._resize_timer.timeout.connect(self._on_layout_change)
 
-        # --- Population Timer (for one-by-one/batched loading) ---
+        # --- Population Timer ---
         self._populate_timer = QTimer()
         self._populate_timer.setSingleShot(True)
         self._populate_timer.timeout.connect(self._populate_step)
@@ -74,6 +75,43 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
     def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
         pass
 
+    # --- NEW: SHARED VIDEO THUMBNAIL GENERATOR ---
+    def _generate_video_thumbnail(self, file_path: str) -> Optional[QPixmap]:
+        """Generates a thumbnail for a single video file using OpenCV."""
+        if not file_path or not os.path.exists(file_path):
+            return None
+            
+        try:
+            cap = cv2.VideoCapture(file_path)
+            if not cap.isOpened():
+                return None
+            
+            # Try to grab a frame at 1.0 second to avoid black startup frames
+            cap.set(cv2.CAP_PROP_POS_MSEC, 1000) 
+            ret, frame = cap.read()
+            
+            # Fallback to the first frame
+            if not ret:
+                cap.set(cv2.CAP_PROP_POS_MSEC, 0)
+                ret, frame = cap.read()
+            
+            cap.release()
+            
+            if ret and frame is not None:
+                # Convert BGR (OpenCV) to RGB (Qt)
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                h, w, ch = frame.shape
+                bytes_per_line = ch * w
+                
+                q_img = QImage(frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
+                # Keep a copy to prevent garbage collection issues
+                return QPixmap.fromImage(q_img.copy())
+                
+        except Exception as e:
+            print(f"Error generating video thumbnail for {file_path}: {e}")
+            
+        return None
+
     # --- PAGINATION UI HELPERS ---
 
     def create_pagination_controls(self) -> QWidget:
@@ -91,7 +129,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         self.prev_btn.clicked.connect(lambda: self._change_page(-1))
         self.next_btn.clicked.connect(lambda: self._change_page(1))
         
-        # Initial UI update to ensure correct state (greyed out if empty)
+        # Initial UI update
         self._update_pagination_ui()
         
         return container
@@ -127,7 +165,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
             'btn_next': self.next_btn
         }
 
-        # Use shared logic to update buttons and validate current page
+        # Use shared logic
         corrected_page, total_pages = self.common_update_pagination_state(
             len(self.gallery_image_paths), 
             self.page_size, 
@@ -136,7 +174,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         )
         self.current_page = corrected_page
 
-        # Update Menu (Specific to this class implementation)
+        # Update Menu
         menu = QMenu(self)
         for i in range(total_pages):
             page_num = i + 1
@@ -168,7 +206,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
                 # Shared Reflow
                 self.common_reflow_layout(self.gallery_layout, new_cols)
 
-    # --- LOADING LOGIC (Immediate & Sequential) ---
+    # --- LOADING LOGIC ---
 
     def start_loading_gallery(self, paths: List[str], show_progress: bool = True, append: bool = False, pixmap_cache: Optional[Dict[str, QPixmap]] = None):
         """
@@ -177,7 +215,6 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         if not append:
             self.gallery_image_paths = paths
             self.current_page = 0
-            # Ensure the cache is *replaced*
             self._initial_pixmap_cache = pixmap_cache if pixmap_cache is not None else {}
         else:
             self.gallery_image_paths.extend(paths)
@@ -195,55 +232,63 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
             self.common_show_placeholder(self.gallery_layout, "No images to display.", self.calculate_columns())
             return
 
-        # Prepare for sequential loading of the current page
+        # Prepare for sequential loading
         self._paginated_paths = self.common_get_paginated_slice(
             self.gallery_image_paths, self.current_page, self.page_size
         )
         self._populating_index = 0
         
-        # Start the population loop immediately
+        # Start population
         self._populate_step()
 
     def _populate_step(self):
-        """Adds a small batch of widgets to the layout to prevent UI freezing."""
+        """Adds a small batch of widgets to the layout."""
         if not hasattr(self, '_paginated_paths') or self._populating_index >= len(self._paginated_paths):
             return
 
         cols = self.calculate_columns()
-
-        # Batch size: add 5 images per tick for a smooth "one by one" feel without being too slow
         batch_size = 5
         limit = min(self._populating_index + batch_size, len(self._paginated_paths))
 
         for i in range(self._populating_index, limit):
             path = self._paginated_paths[i]
 
-            # NEW LOGIC: Check for cached pixmap before creating the card
+            # 1. Check Cache
             initial_pixmap = self._initial_pixmap_cache.get(path, None)
+            
+            # 2. Check for Video if no cache exists
+            is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+            if initial_pixmap is None and is_video:
+                # Generate on the fly (synchronous for small batch, safer than async for OpenCV sometimes)
+                # For better performance on large video folders, this should ideally be threaded, 
+                # but the populate step is already incremental.
+                initial_pixmap = self._generate_video_thumbnail(path)
+                if initial_pixmap:
+                    self._initial_pixmap_cache[path] = initial_pixmap
 
-            # 1. Create Placeholder (pass cached pixmap if found)
+            # 3. Create Widget
             card = self.create_card_widget(path, initial_pixmap)
             self.path_to_card_widget[path] = card
 
-            # 2. Add to Layout immediately
+            # 4. Add to Layout
             row = i // cols
             col = i % cols
             if self.gallery_layout:
                 self.gallery_layout.addWidget(card, row, col, Qt.AlignLeft | Qt.AlignTop)
 
-            # 3. Trigger Load ONLY if pixmap was NOT cached
-            # If the thumbnail is already drawn, skip the worker.
-            if initial_pixmap is None:
+            # 5. Trigger Async Load only if it's an IMAGE and we don't have a pixmap yet
+            # (We assume videos were handled by the generation block above)
+            if initial_pixmap is None and not is_video:
                 self._trigger_image_load(path)
-            # Delete cache entry after use to save memory
             elif path in self._initial_pixmap_cache:
-                del self._initial_pixmap_cache[path]
+                # Optional: Clear cache to save RAM if not needed anymore
+                # del self._initial_pixmap_cache[path] 
+                pass
 
         self._populating_index = limit
 
-        # Schedule next batch if items remain
         if self._populating_index < len(self._paginated_paths):
-            self._populate_timer.start(0) # 0ms delay yields to event loop
+            self._populate_timer.start(0) 
 
     def calculate_columns(self):
         return self.common_calculate_columns(self.gallery_scroll_area, self.approx_item_width)
