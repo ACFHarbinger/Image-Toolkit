@@ -3,6 +3,7 @@ from .danbooru_crawler import DanbooruCrawler
 from .gelbooru_crawler import GelbooruCrawler
 from .sankaku_crawler import SankakuCrawler
 from .web_requests import WebRequestsLogic
+from .reverse_image_search_crawler import ReverseImageSearchCrawler
 
 from .dropbox_drive_sync import DropboxDriveSync
 from .google_drive_sync import GoogleDriveSync

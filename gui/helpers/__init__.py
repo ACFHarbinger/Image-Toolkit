@@ -15,6 +15,7 @@ from .core.wallpaper_worker import WallpaperWorker
 
 from .web.image_crawl_worker import ImageCrawlWorker
 from .web.web_requests_worker import WebRequestsWorker
+from .web.reverse_search_worker import ReverseSearchWorker
 from .web.dropbox_drive_sync_worker import DropboxDriveSyncWorker
 from .web.google_drive_sync_worker import GoogleDriveSyncWorker
 from .web.one_drive_sync_worker import OneDriveSyncWorker
