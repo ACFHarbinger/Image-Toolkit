@@ -14,7 +14,6 @@ class MetaCLIPInferenceTab(BaseGenerativeTab):
     def init_ui(self):
         layout = QFormLayout()
         
-        # Model Selection
         models = [
             "Meta CLIP 2 (ViT-H-14, Worldwide)", 
             "Meta CLIP 2 (ViT-bigG-14, Worldwide)",
@@ -24,10 +23,8 @@ class MetaCLIPInferenceTab(BaseGenerativeTab):
         self.add_param_widget(layout, "Model Version:", QComboBox(), "model_version")
         self.widgets["model_version"].addItems(models)
 
-        # Inputs
         self.add_param_widget(layout, "Image Path:", QLineEdit(), "image_path")
         
-        # Use QVBoxLayout for multi-line text edit
         prompts_layout = QVBoxLayout()
         prompts_label = QLabel("Text Prompts (one per line):")
         self.widgets["text_prompts"] = QTextEdit("a diagram\na dog\na cat")
@@ -38,8 +35,11 @@ class MetaCLIPInferenceTab(BaseGenerativeTab):
         self.setLayout(layout)
 
     def get_params(self):
-        # Custom get_params for QTextEdit
-        params = super().get_params()
-        if "text_prompts" in self.widgets:
-            params["text_prompts"] = self.widgets["text_prompts"].toPlainText().splitlines()
+        # Override Base.get_params to format for worker
+        params = self.collect()
+        if "text_prompts" in params:
+            # Worker expects list of strings, UI returns single string
+            params["text_prompts"] = params["text_prompts"].splitlines()
         return params
+        
+    # collect/set_config are handled by BaseGenerativeTab for QTextEdit strings

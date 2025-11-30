@@ -46,18 +46,32 @@ class UnifiedTrainTab(BaseGenerativeTab):
         
         self.setLayout(main_layout)
 
-    def get_params(self):
-        """
-        Returns a dict containing the selected model type and the specific params
-        of the active tab.
-        """
-        model_type = self.model_selector.currentData()
-        
-        # Get params from the currently visible widget
+    def collect(self) -> dict:
+        active_index = self.stack.currentIndex()
         active_widget = self.stack.currentWidget()
-        specific_params = active_widget.get_params() if hasattr(active_widget, 'get_params') else {}
         
+        sub_config = {}
+        if hasattr(active_widget, 'collect'):
+            sub_config = active_widget.collect()
+            
         return {
-            "model_type": model_type,
-            **specific_params
+            "selected_model_index": active_index,
+            "sub_config": sub_config
+        }
+
+    def set_config(self, config: dict):
+        if "selected_model_index" in config:
+            idx = config["selected_model_index"]
+            if 0 <= idx < self.model_selector.count():
+                self.model_selector.setCurrentIndex(idx)
+        
+        if "sub_config" in config:
+            active_widget = self.stack.currentWidget()
+            if hasattr(active_widget, 'set_config'):
+                active_widget.set_config(config["sub_config"])
+
+    def get_default_config(self) -> dict:
+        return {
+            "selected_model_index": 0,
+            "sub_config": self.anything_tab.get_default_config()
         }

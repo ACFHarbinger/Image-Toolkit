@@ -242,41 +242,7 @@ class WebRequestsTab(QWidget):
             QMessageBox.warning(self, "No Actions", "Please add at least one action to perform on the response.")
             return
 
-        # --- Serialize Request List ---
-        requests = []
-        for i in range(self.request_list_widget.count()):
-            item_text = self.request_list_widget.item(i).text()
-            req_type = "GET"
-            param = None
-            
-            if "[POST]" in item_text:
-                req_type = "POST"
-                if " | Data: " in item_text:
-                    param = item_text.split(" | Data: ", 1)[1]
-            elif "[GET]" in item_text:
-                if " | Suffix: " in item_text:
-                    param = item_text.split(" | Suffix: ", 1)[1]
-            
-            requests.append({"type": req_type, "param": param})
-
-        # --- Serialize Action List ---
-        actions = []
-        for i in range(self.action_list_widget.count()):
-            item_text = self.action_list_widget.item(i).text()
-            param = None
-            
-            if " | Param: " in item_text:
-                action_type, param = item_text.split(" | Param: ", 1)
-            else:
-                action_type = item_text
-            
-            actions.append({"type": action_type, "param": param})
-        
-        config = {
-            "base_url": url,
-            "requests": requests,
-            "actions": actions
-        }
+        config = self.collect() # Use collect to build the config
 
         # UI: Show working state
         self.run_button.hide()
@@ -329,7 +295,44 @@ class WebRequestsTab(QWidget):
         if "cancelled" not in message.lower() and "Error" not in message:
             QMessageBox.information(self, "Success", "All requests finished!")
 
-    # --- Config Management (Empty stubs, can be filled later) ---
+    # --- Config Management ---
+
+    def collect(self) -> dict:
+        """Collects current configuration for execution or saving."""
+        # --- Serialize Request List ---
+        requests = []
+        for i in range(self.request_list_widget.count()):
+            item_text = self.request_list_widget.item(i).text()
+            req_type = "GET"
+            param = None
+            
+            if "[POST]" in item_text:
+                req_type = "POST"
+                if " | Data: " in item_text:
+                    param = item_text.split(" | Data: ", 1)[1]
+            elif "[GET]" in item_text:
+                if " | Suffix: " in item_text:
+                    param = item_text.split(" | Suffix: ", 1)[1]
+            
+            requests.append({"type": req_type, "param": param})
+
+        # --- Serialize Action List ---
+        actions = []
+        for i in range(self.action_list_widget.count()):
+            item_text = self.action_list_widget.item(i).text()
+            param = None
+            action_type = item_text
+            
+            if " | Param: " in item_text:
+                action_type, param = item_text.split(" | Param: ", 1)
+            
+            actions.append({"type": action_type, "param": param})
+            
+        return {
+            "base_url": self.url_input.text().strip(),
+            "requests": requests,
+            "actions": actions
+        }
 
     def get_default_config(self) -> dict:
         """Returns the default configuration values for this tab."""
@@ -365,9 +368,10 @@ class WebRequestsTab(QWidget):
             self.action_list_widget.clear()
             actions = config.get("actions", [])
             for action in actions:
-                display_text = action.get("type", "Unknown Action")
+                atype = action.get("type", "Unknown Action")
                 param = action.get("param")
-                if param is not None:
+                display_text = atype
+                if param:
                     display_text += f" | Param: {param}"
                 self.action_list_widget.addItem(display_text)
             

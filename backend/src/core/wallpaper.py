@@ -290,7 +290,9 @@ class WallpaperManager:
         
         # --- Iterate by PHYSICAL monitor order ---
         for monitor in physical_monitors:
-            system_index = next((i for i, sys_mon in enumerate(monitors) if sys_mon.x == monitor.x and sys_mon.y == monitor.y and sys_mon.width == monitor.width and sys_mon.height == monitor.height), -1)
+            system_index = next((i for i, sys_mon in enumerate(monitors) 
+                                if sys_mon.x == monitor.x and sys_mon.y == monitor.y and 
+                                sys_mon.width == monitor.width and sys_mon.height == monitor.height), -1)
             
             if system_index == -1:
                 print(f"Warning: Could not map physical monitor {monitor.name} back to system index.")

@@ -1,8 +1,8 @@
 import os
+import json
 import psycopg2
-import json # <--- Added for JSON parsing
-from pathlib import Path
 
+from pathlib import Path
 from typing import Optional
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -1020,6 +1020,7 @@ class DatabaseTab(QWidget):
             "db_host": self.db_host.text().strip() or None,
             "db_port": self.db_port.text().strip() or None,
             "db_user": self.db_user.text().strip() or None,
+            "db_password": self.db_password.text() or None, # Included password for saving
             "db_name": self.db_name.text().strip() or None,
         }
         return out
@@ -1029,7 +1030,8 @@ class DatabaseTab(QWidget):
             "db_host": "localhost",
             "db_port": "5432",
             "db_user": "postgres",
-            "db_name": "imagedb"
+            "db_name": "imagedb",
+            "db_password": ""
         }
 
     def set_config(self, config: dict):
@@ -1038,6 +1040,11 @@ class DatabaseTab(QWidget):
             self.db_port.setText(config.get("db_port", "5432"))
             self.db_user.setText(config.get("db_user", "postgres"))
             self.db_name.setText(config.get("db_name", "imagedb"))
+            
+            # Restore password if present
+            if "db_password" in config:
+                self.db_password.setText(config.get("db_password", ""))
+                
             self.connect_database()
         except Exception as e:
             print(f"Error applying DatabaseTab config: {e}")

@@ -1,7 +1,7 @@
 import os
 
 from pathlib import Path
-from typing import Optional, List, Set, Tuple
+from typing import Optional, List, Set, Tuple, Any, Dict
 from PySide6.QtWidgets import (
     QLabel, QComboBox, QStyle, 
     QSlider, QFileDialog, QGroupBox, 
@@ -509,7 +509,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     @Slot(QResizeEvent)
     def resizeEvent(self, event: QResizeEvent):
         super().resizeEvent(event)
-        self._resize_timer.start(150) 
+        # Assuming _resize_timer is defined in the base class and connected to a resize handler
+        # self._resize_timer.start(150) 
         if self.video_view.isVisible():
             self.fit_video_in_view()
 
@@ -801,7 +802,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.btn_extract_range.setText(f"Extract Range ({self._format_time(self.end_time_ms - self.start_time_ms)})")
         else:
             self.btn_extract_range.setEnabled(False)
-            self.btn_extract_range.setText("Extract Range")
+            self.btn_extract_range.setText("🎞️ Extract Range")
 
     @Slot()
     def extract_single_frame(self):
@@ -864,3 +865,60 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         seconds = (ms // 1000) % 60
         minutes = (ms // 60000) % 60
         return f"{minutes:02}:{seconds:02}"
+    
+    # --- Configuration Methods for SettingsWindow ---
+
+    def get_default_config(self) -> Dict[str, Any]:
+        """Returns the default settings for this tab."""
+        return {
+            "source_directory": str(Path.home()),
+            "extraction_directory": str(self.extraction_dir),
+            "player_mode_internal": True,
+            "player_resolution_index": 1, # 1080p
+        }
+
+    def collect(self) -> Dict[str, Any]:
+        """Collects the current input values from the UI fields."""
+        return {
+            "source_directory": self.line_edit_dir.text(),
+            "extraction_directory": self.line_edit_extract_dir.text(),
+            "player_mode_internal": self.use_internal_player,
+            "player_resolution_index": self.combo_resolution.currentIndex(),
+        }
+
+    def set_config(self, config: Dict[str, Any]):
+        """Applies the provided configuration dictionary to the UI fields."""
+        try:
+            # 1. Source Directory (Triggers scan if valid path)
+            source_dir = config.get("source_directory", "")
+            self.line_edit_dir.setText(source_dir)
+            if os.path.isdir(source_dir):
+                self.scan_directory(source_dir)
+            
+            # 2. Extraction Directory
+            extract_dir_str = config.get("extraction_directory")
+            if extract_dir_str and os.path.isdir(extract_dir_str):
+                new_path = Path(extract_dir_str)
+                self.extraction_dir = new_path
+                self.last_browsed_extraction_dir = str(new_path)
+                self.line_edit_extract_dir.setText(str(new_path))
+                self._load_existing_output_images() # Refresh gallery from new path
+                
+            # 3. Player Resolution
+            res_index = config.get("player_resolution_index")
+            if res_index is not None and 0 <= res_index < self.combo_resolution.count():
+                self.combo_resolution.setCurrentIndex(res_index)
+                self.change_resolution(res_index)
+                
+            # 4. Player Mode
+            mode = config.get("player_mode_internal")
+            if mode is not None:
+                if mode != self.use_internal_player:
+                    self.toggle_player_mode() # Toggles the mode
+                # Ensure the mode is correctly applied after load
+                self._apply_player_mode() 
+                
+            QMessageBox.information(self, "Config Loaded", "Image Extractor configuration applied successfully.")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Config Error", f"Failed to apply configuration:\n{e}")

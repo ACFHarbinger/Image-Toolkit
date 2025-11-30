@@ -1236,20 +1236,20 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
              self.handle_scan_directory_return()
 
     def collect(self) -> dict:
-        out = {
+        return {
             "scan_directory": self.scan_directory_path.text().strip() or None,
-            "selected_images": list(self.selected_image_paths),
+            "view_new_only": self.view_new_only, # Added
             "batch_metadata": { 
                 "group_name": self.group_combo.currentText().strip() or "",
                 "subgroup_name": self.subgroup_combo.currentText().strip() or "",
                 "tags": [t for t, cb in self.tag_checkboxes.items() if cb.isChecked()]
             }
         }
-        return out
 
-    def get_default_config() -> Dict[str, Any]:
+    def get_default_config(self) -> Dict[str, Any]:
         return {
             "scan_directory": "",
+            "view_new_only": False,
             "batch_metadata": {
                 "group_name": "",
                 "subgroup_name": "",
@@ -1259,6 +1259,10 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
     
     def set_config(self, config: Dict[str, Any]):
         try:
+            # View New Only toggle
+            if "view_new_only" in config:
+                self.view_new_only_button.setChecked(config["view_new_only"])
+
             if "scan_directory" in config:
                 self.scan_directory_path.setText(config.get("scan_directory", ""))
                 if os.path.isdir(config["scan_directory"]):
