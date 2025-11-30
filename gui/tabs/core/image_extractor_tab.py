@@ -19,7 +19,7 @@ from PySide6.QtCore import Qt, QUrl, Slot, QThreadPool, QPoint, QEvent
 from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassSingleGallery
 from ...components import ClickableLabel, MarqueeScrollArea
-from ...helpers import VideoScanWorker, GifCreationWorker, FrameExtractionWorker, VideoExtractionWorker
+from ...helpers import VideoScannerWorker, GifCreationWorker, FrameExtractionWorker, VideoExtractionWorker
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH
 
 
@@ -412,7 +412,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             if item.widget():
                 item.widget().deleteLater()
         
-        worker = VideoScanWorker(path)
+        worker = VideoScannerWorker(path)
         worker.signals.thumbnail_ready.connect(self.add_source_thumbnail)
         worker.signals.finished.connect(lambda: self.scan_progress_complete())
         QThreadPool.globalInstance().start(worker)
@@ -1015,7 +1015,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.progress_dialog = None
         
         if new_path and os.path.exists(new_path):
-             # Wrap in list to reuse existing list-based loader
+            # Wrap in list to reuse existing list-based loader
             self.current_extracted_paths.append(new_path)
             self.start_loading_gallery([new_path], append=True)
             QMessageBox.information(self, "Success", f"Media created successfully:\n{Path(new_path).name}")

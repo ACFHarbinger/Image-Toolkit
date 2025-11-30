@@ -8,11 +8,9 @@ from PIL import Image
 from pathlib import Path
 from screeninfo import Monitor
 from typing import Dict, List, Optional
-from ..utils.definitions import WALLPAPER_STYLES
+from ..utils.definitions import WALLPAPER_STYLES, SUPPORTED_VIDEO_FORMATS
 
 # Global Definitions for COM components
-# NOTE: We keep IDesktopWallpaperInstance as None and COM_AVAILABLE as False
-# We will define IDesktopWallpaper class here, but NOT instantiate the object globally.
 IDesktopWallpaperInstance = None 
 COM_AVAILABLE = False 
 
@@ -194,6 +192,11 @@ class WallpaperManager:
 
                 if path and Path(path).exists():
                     resolved_path = str(Path(path).resolve())
+                    # Check for video support on Windows (Not supported in this manager yet)
+                    if Path(resolved_path).suffix.lower() in SUPPORTED_VIDEO_FORMATS:
+                        print(f"Skipping monitor {i}: Video wallpapers not supported on Windows natively.")
+                        continue
+                         
                     desktop_wallpaper.SetWallpaper(monitor_id_path, resolved_path)
                     print(f"Set wallpaper for Monitor Index {i} ({monitor_id_path}) to {resolved_path}")
                 elif str(i) in path_map:
@@ -208,6 +211,9 @@ class WallpaperManager:
         """
         Original single-monitor method (kept as a functional fallback).
         """
+        if Path(image_path).suffix.lower() in SUPPORTED_VIDEO_FORMATS:
+             raise ValueError("Video wallpapers are not supported on Windows via the standard API.")
+
         # Get OS-specific values for the selected style
         style_values = WALLPAPER_STYLES["Windows"].get(style_name, WALLPAPER_STYLES["Windows"]["Fill"])
         wallpaper_style_reg, tile_wallpaper_reg = style_values
@@ -243,6 +249,7 @@ class WallpaperManager:
     def _set_wallpaper_kde(path_map: Dict[str, str], num_monitors: int, style_name: str, qdbus: str):
         """
         Sets per-monitor wallpaper for KDE Plasma using qdbus and the specified style.
+        Supports automatic switching to 'com.github.zren.smartvideowallpaper' for video files.
         """
         # Get the KDE FillMode integer for the selected style
         fill_mode = WALLPAPER_STYLES["KDE"].get(style_name, WALLPAPER_STYLES["KDE"]["Scaled, Keep Proportions"])
@@ -256,12 +263,23 @@ class WallpaperManager:
             
             if path:
                 file_uri = f"file://{Path(path).resolve()}"
-                script_parts.append(
-                    f'd = desktops()[{i}]; d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); d.writeConfig("Image", "{file_uri}"); d.writeConfig("FillMode", {fill_mode});'
-                )
+                ext = Path(path).suffix.lower()
+                
+                if ext in SUPPORTED_VIDEO_FORMATS:
+                    # Logic for Video (Smart Video Wallpaper)
+                    # We switch the plugin to smartvideowallpaper and set the 'Video' config
+                    script_parts.append(
+                        f'd = desktops()[{i}]; d.wallpaperPlugin = "com.github.zren.smartvideowallpaper"; d.currentConfigGroup = Array("Wallpaper", "com.github.zren.smartvideowallpaper", "General"); d.writeConfig("Video", "{file_uri}");'
+                    )
+                else:
+                    # Logic for Image (org.kde.image)
+                    # We switch the plugin to org.kde.image and set the 'Image' config
+                    script_parts.append(
+                        f'd = desktops()[{i}]; d.wallpaperPlugin = "org.kde.image"; d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); d.writeConfig("Image", "{file_uri}"); d.writeConfig("FillMode", {fill_mode});'
+                    )
         
         if not script_parts:
-            print("KDE: No image paths provided to set.")
+            print("KDE: No image/video paths provided to set.")
             return
 
         full_script = "".join(script_parts)
@@ -303,14 +321,18 @@ class WallpaperManager:
             path = path_map.get(monitor_id)
 
             if path: 
-                try:
-                    img = Image.open(path)
-                    img = img.resize((monitor.width, monitor.height), Image.Resampling.LANCZOS)
-                    spanned_image.paste(img, (current_x, 0))
-                except FileNotFoundError:
-                    print(f"Warning: Image not found at {path}. Skipping for monitor {monitor_id}.")
-                except Exception as e:
-                    print(f"Warning: Could not process image {path}. Skipping. Error: {e}")
+                # Video not supported in spanned mode (PIL cannot open video)
+                if Path(path).suffix.lower() in SUPPORTED_VIDEO_FORMATS:
+                    print(f"Warning: Video wallpapers ({Path(path).name}) not supported in GNOME spanned mode. Skipping.")
+                else:
+                    try:
+                        img = Image.open(path)
+                        img = img.resize((monitor.width, monitor.height), Image.Resampling.LANCZOS)
+                        spanned_image.paste(img, (current_x, 0))
+                    except FileNotFoundError:
+                        print(f"Warning: Image not found at {path}. Skipping for monitor {monitor_id}.")
+                    except Exception as e:
+                        print(f"Warning: Could not process image {path}. Skipping. Error: {e}")
             
             current_x += monitor.width
 
@@ -433,23 +455,24 @@ class WallpaperManager:
     def get_current_system_wallpaper_path_kde(num_monitors: int, qdbus: str) -> Dict[str, Optional[str]]:
         """
         Retrieves the current wallpaper path for each monitor on KDE Plasma using qdbus.
-        
-        Args:
-            num_monitors: The count of monitors detected by screeninfo (0, 1, 2, ...).
-
-        Returns:
-            A dictionary mapping monitor ID ('0', '1', '2', ...) to its wallpaper file path.
+        Supports both org.kde.image and com.github.zren.smartvideowallpaper.
         """
         path_map = {}
         
         # 1. Build the qdbus JavaScript command to get the path for each monitor index
+        # We try to read "Image" first, then "Video" if Image is empty/default.
         script_parts = []
         for i in range(num_monitors):
             script_parts.append(
                 f"""
                 d = desktops()[{i}]; 
                 d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); 
-                print("MONITOR_{i}:" + d.readConfig("Image"));
+                var img = d.readConfig("Image");
+                if (!img) {{
+                    d.currentConfigGroup = Array("Wallpaper", "com.github.zren.smartvideowallpaper", "General");
+                    img = d.readConfig("Video");
+                }}
+                print("MONITOR_{i}:" + img);
                 """
             )
             
@@ -471,7 +494,8 @@ class WallpaperManager:
 
             # 3. Parse the output using Regex to find all occurrences
             # Pattern: MONITOR_(ID):(file URI) - handles concatenated output
-            pattern = re.compile(r'MONITOR_(\d+):(file://[^\s]*?\.(?:png|jpg|jpeg))', re.IGNORECASE)
+            # Updated regex to support video extensions as well
+            pattern = re.compile(r'MONITOR_(\d+):(file://[^\s]*?\.(?:png|jpg|jpeg|mp4|mkv|webm|avi|mov))', re.IGNORECASE)
             matches = pattern.findall(output) 
             
             for monitor_id, path_uri in matches:
