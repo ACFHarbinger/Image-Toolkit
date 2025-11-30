@@ -1056,10 +1056,18 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.progress_dialog = None
         
         if new_path and os.path.exists(new_path):
-            # Wrap in list to reuse existing list-based loader
-            self.current_extracted_paths.append(new_path)
+            # Pre-generate thumbnail for video so it shows up immediately in gallery
+            if new_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                thumb = self._generate_video_thumbnail(new_path)
+                if thumb:
+                    self._initial_pixmap_cache[new_path] = thumb
                     
+            # 1. Base class adds [new_path] to self.gallery_image_paths
             self.start_loading_gallery([new_path], append=True, pixmap_cache=self._initial_pixmap_cache)
+            
+            # 2. Sync local tracking list to the official base list (Fixes duplicate entries)
+            self.current_extracted_paths = self.gallery_image_paths[:] 
+            
             QMessageBox.information(self, "Success", f"Media created successfully:\n{Path(new_path).name}")
 
     @Slot(str)
@@ -1078,8 +1086,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             QMessageBox.information(self, "Info", "No frames extracted.")
             return
         
-        self.current_extracted_paths.extend(new_paths)
+        # 1. Base class adds new_paths to self.gallery_image_paths
         self.start_loading_gallery(new_paths, append=True)
+        
+        # 2. Sync local tracking list to the official base list
+        self.current_extracted_paths = self.gallery_image_paths[:] 
         
         if self.progress_dialog:
             self.progress_dialog.close()

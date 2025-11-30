@@ -122,6 +122,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.open_image_preview_windows: List[QWidget] = [] 
         
         self.wallpaper_style: str = "Fill" 
+        self.video_style: str = "Scaled and Cropped" # Default for video
         self.background_type: str = "Image" 
         self.solid_color_hex: str = "#000000" 
 
@@ -257,18 +258,33 @@ class WallpaperTab(AbstractClassSingleGallery):
         style_layout = QHBoxLayout(self.style_layout_widget)
         style_layout.setContentsMargins(0, 0, 0, 0)
 
+        # --- IMAGE STYLE COMBO ---
         self.style_combo = QComboBox()
         self.style_combo.setStyleSheet("QComboBox { padding: 5px; border-radius: 4px; }")
-        
         initial_styles = self._get_relevant_styles()
         self.style_combo.addItems(initial_styles.keys())
         self.style_combo.setCurrentText(list(initial_styles.keys())[0])
         self.wallpaper_style = list(initial_styles.keys())[0]
-        
         self.style_combo.currentTextChanged.connect(self._update_wallpaper_style)
-
-        style_layout.addWidget(QLabel("Image Style:"))
+        
+        self.style_label = QLabel("Image Style:")
+        style_layout.addWidget(self.style_label)
         style_layout.addWidget(self.style_combo)
+        
+        # --- NEW: VIDEO STYLE COMBO ---
+        self.video_style_combo = QComboBox()
+        self.video_style_combo.setStyleSheet("QComboBox { padding: 5px; border-radius: 4px; }")
+        # Video options: Stretch, Keep Proportions, Scaled and Cropped
+        self.video_style_combo.addItems(["Stretch", "Keep Proportions", "Scaled and Cropped"])
+        self.video_style_combo.setCurrentText(self.video_style)
+        self.video_style_combo.currentTextChanged.connect(self._update_video_style)
+        self.video_style_combo.setVisible(False) # Hidden by default
+        
+        self.video_style_label = QLabel("Video Style:")
+        self.video_style_label.setVisible(False)
+        style_layout.addWidget(self.video_style_label)
+        style_layout.addWidget(self.video_style_combo)
+        
         style_layout.addStretch(1)
         settings_layout.addWidget(self.style_layout_widget)
         
@@ -414,6 +430,10 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.wallpaper_style = style_name
 
     @Slot(str)
+    def _update_video_style(self, style_name: str):
+        self.video_style = style_name
+
+    @Slot(str)
     def _update_background_type(self, type_name: str):
         self.background_type = type_name
         
@@ -427,7 +447,20 @@ class WallpaperTab(AbstractClassSingleGallery):
         
         main_controls_enabled = not is_solid_color
         
-        self.style_layout_widget.setVisible(main_controls_enabled and not is_video)
+        # Toggle Image Style vs Video Style UI
+        self.style_layout_widget.setVisible(main_controls_enabled)
+        
+        if is_video:
+            self.style_combo.setVisible(False)
+            self.style_label.setVisible(False)
+            self.video_style_combo.setVisible(True)
+            self.video_style_label.setVisible(True)
+        else:
+            self.style_combo.setVisible(True)
+            self.style_label.setVisible(True)
+            self.video_style_combo.setVisible(False)
+            self.video_style_label.setVisible(False)
+
         self.scan_directory_path.setEnabled(main_controls_enabled)
         self.gallery_scroll_area.setEnabled(main_controls_enabled)
         
@@ -813,6 +846,15 @@ class WallpaperTab(AbstractClassSingleGallery):
             if image_path_to_display: 
                 # 1. Try to get thumbnail from cache
                 thumb = self._initial_pixmap_cache.get(image_path_to_display)
+                
+                # --- ADDED: Check for video if thumb is missing ---
+                if not thumb and image_path_to_display.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                     # Use shared generator from base class
+                     thumb = self._generate_video_thumbnail(image_path_to_display)
+                     if thumb:
+                         self._initial_pixmap_cache[image_path_to_display] = thumb
+                # ---------------------------------------------------
+                
                 drop_widget.set_image(image_path_to_display, thumb)
             else: 
                 drop_widget.clear() 
@@ -850,8 +892,14 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.monitor_image_paths[monitor_id] = image_path
         self.monitor_current_index[monitor_id] = -1 
         
-        # --- UPDATE: Check/Generate Thumbnail ---
         thumb = self._initial_pixmap_cache.get(image_path)
+        
+        # --- ADDED: Check for video if thumb is missing ---
+        if not thumb and is_video:
+             thumb = self._generate_video_thumbnail(image_path)
+             if thumb: self._initial_pixmap_cache[image_path] = thumb
+        # ---------------------------------------------------
+        
         self.monitor_widgets[monitor_id].set_image(image_path, thumb)
         self.check_all_monitors_set()
         
@@ -944,7 +992,8 @@ class WallpaperTab(AbstractClassSingleGallery):
             else: desktop = None
             
             if self.background_type == "Smart Video Wallpaper Reborn":
-                style_to_use = "SmartVideoWallpaperReborn" 
+                # --- CHANGE: Pass the selected VIDEO STYLE here ---
+                style_to_use = f"SmartVideoWallpaperReborn::{self.video_style}" 
             else:
                 style_to_use = self.wallpaper_style
 
@@ -981,6 +1030,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.gallery_scroll_area.setEnabled(False)
         self.scan_directory_path.setEnabled(False) 
         self.style_combo.setEnabled(False)
+        self.video_style_combo.setEnabled(False) # Disable video style too
         self.background_type_combo.setEnabled(False) 
         self.solid_color_widget.setEnabled(False)    
         for widget in self.monitor_widgets.values(): widget.setEnabled(False)
@@ -993,6 +1043,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.gallery_scroll_area.setEnabled(True)
         self.scan_directory_path.setEnabled(True)
         self.style_combo.setEnabled(True)
+        self.video_style_combo.setEnabled(True)
         self.background_type_combo.setEnabled(True) 
         self.solid_color_widget.setEnabled(True) 
         for widget in self.monitor_widgets.values(): widget.setEnabled(True)
@@ -1233,6 +1284,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         return {
             "scan_directory": self.scan_directory_path.text(),
             "wallpaper_style": self.wallpaper_style,
+            "video_style": self.video_style, # Capture the new video style
             "slideshow_enabled": (self.background_type == "Slideshow"),
             "interval_minutes": self.interval_min_spinbox.value(),
             "interval_seconds": self.interval_sec_spinbox.value(),
@@ -1246,6 +1298,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         return {
             "scan_directory": "",
             "wallpaper_style": default_style,
+            "video_style": "Scaled and Cropped", # Default
             "slideshow_enabled": False,
             "interval_minutes": 5,
             "interval_seconds": 0,
@@ -1262,6 +1315,10 @@ class WallpaperTab(AbstractClassSingleGallery):
                     self.populate_scan_image_gallery(config["scan_directory"])
             if "wallpaper_style" in config:
                 self.style_combo.setCurrentText(config.get("wallpaper_style", "Fill"))
+            
+            # --- Restore video style ---
+            if "video_style" in config:
+                self.video_style_combo.setCurrentText(config.get("video_style", "Scaled and Cropped"))
             
             if "slideshow_enabled" in config:
                 enabled = config.get("slideshow_enabled", False)
