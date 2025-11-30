@@ -1,20 +1,20 @@
 from .image_scanner_worker import ImageScannerWorker
 from .image_loader_worker import ImageLoaderWorker
-from .video_scan_worker import VideoScanWorker
 
-from .image_crawl_worker import ImageCrawlWorker
-from .web_requests_worker import WebRequestsWorker
+from .core.conversion_worker import ConversionWorker
+from .core.deletion_worker import DeletionWorker
+from .core.duplicate_scan_worker import DuplicateScanWorker
+from .core.merge_worker import MergeWorker
+from .core.search_worker import SearchWorker
+from .core.wallpaper_worker import WallpaperWorker
 
-from .frame_extractor_worker import FrameExtractorWorker
-from .gif_extraction_worker import GifCreationWorker
+from .video.video_scan_worker import VideoScanWorker
+from .video.frame_extractor_worker import FrameExtractionWorker
+from .video.gif_extractor_worker import GifCreationWorker
+from .video.video_extractor_worker import VideoExtractionWorker
 
-from .dropbox_drive_sync_worker import DropboxDriveSyncWorker
-from .google_drive_sync_worker import GoogleDriveSyncWorker
-from .one_drive_sync_worker import OneDriveSyncWorker
-
-from .conversion_worker import ConversionWorker
-from .deletion_worker import DeletionWorker
-from .duplicate_scan_worker import DuplicateScanWorker
-from .merge_worker import MergeWorker
-from .search_worker import SearchWorker
-from .wallpaper_worker import WallpaperWorker
+from .web.image_crawl_worker import ImageCrawlWorker
+from .web.web_requests_worker import WebRequestsWorker
+from .web.dropbox_drive_sync_worker import DropboxDriveSyncWorker
+from .web.google_drive_sync_worker import GoogleDriveSyncWorker
+from .web.one_drive_sync_worker import OneDriveSyncWorker

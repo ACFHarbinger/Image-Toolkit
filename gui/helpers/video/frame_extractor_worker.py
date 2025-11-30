@@ -16,7 +16,7 @@ class ExtractorSignals(QObject):
 
 
 # --- Worker Logic (OpenCV) ---
-class FrameExtractorWorker(QRunnable):
+class FrameExtractionWorker(QRunnable):
     """
     Background worker to extract frames using OpenCV to ensure 
     frame-accurate extraction without freezing the UI.

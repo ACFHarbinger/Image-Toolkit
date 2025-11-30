@@ -19,7 +19,7 @@ from PySide6.QtCore import Qt, QUrl, Slot, QThreadPool, QPoint, QEvent
 from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassSingleGallery
 from ...components import ClickableLabel, MarqueeScrollArea
-from ...helpers import FrameExtractorWorker, VideoScanWorker, GifCreationWorker
+from ...helpers import VideoScanWorker, GifCreationWorker, FrameExtractionWorker, VideoExtractionWorker
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH
 
 
@@ -30,7 +30,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.current_extracted_paths: List[str] = []
         self.selected_paths: Set[str] = set()
         self.duration_ms = 0
-        self.extractor_worker: Optional[FrameExtractorWorker] = None
+        self.extractor_worker: Optional[FrameExtractionWorker] = None
         self.open_image_preview_windows: List[QWidget] = [] 
         
         # Reference for the progress dialog
@@ -275,6 +275,12 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.btn_extract_range.clicked.connect(self.extract_range)
         self.btn_extract_range.setEnabled(False)
 
+        # --- VIDEO BUTTON ---
+        self.btn_extract_video = QPushButton("MP4 Extract as Video")
+        self.btn_extract_video.setStyleSheet("QPushButton { background-color: #2980b9; color: white; font-weight: bold; }")
+        self.btn_extract_video.clicked.connect(self.extract_range_as_video)
+        self.btn_extract_video.setEnabled(False)
+
         # --- GIF BUTTON ---
         self.btn_extract_gif = QPushButton("GIF Extract as GIF")
         self.btn_extract_gif.setStyleSheet("QPushButton { background-color: #8e44ad; color: white; font-weight: bold; }")
@@ -284,6 +290,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         extract_actions_layout.addWidget(self.btn_set_start)
         extract_actions_layout.addWidget(self.btn_set_end)
         extract_actions_layout.addWidget(self.btn_extract_range)
+        extract_actions_layout.addWidget(self.btn_extract_video) 
         extract_actions_layout.addWidget(self.btn_extract_gif) 
         
         extract_main_layout.addLayout(extract_actions_layout)
@@ -365,8 +372,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     def _load_existing_output_images(self):
         """Scans the extraction directory and loads existing images into the gallery."""
-        # Added .gif to valid extensions
-        valid_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".gif"}
+        # Added .gif and .mp4 to valid extensions for preview
+        valid_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".mp4"}
         found_paths = []
         
         if self.extraction_dir.exists():
@@ -507,6 +514,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.btn_set_end.setText("Set End [00:00]")
         self.btn_extract_range.setEnabled(False)
         self.btn_extract_gif.setEnabled(False)
+        self.btn_extract_video.setEnabled(False)
         self.btn_extract_range.setText("🎞️ Extract Range")
 
     # --- Event Filters & Resizing ---
@@ -581,6 +589,12 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         clickable_label.setAlignment(Qt.AlignCenter)
         clickable_label.path = path 
         
+        # Check if video file (mp4) and handle thumbnail
+        if path.lower().endswith(".mp4"):
+             # For video files in gallery, we might not have a direct pixmap immediately if not generated.
+             # But ImageLoader usually handles it. 
+             pass
+
         if pixmap and not pixmap.isNull():
             scaled = pixmap.scaled(self.thumbnail_size, self.thumbnail_size, 
                                  Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
@@ -589,8 +603,13 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             # Match default border from search tab
             clickable_label.setStyleSheet("border: 1px solid #4f545c;")
         else:
-             clickable_label.setText("Loading...")
-             clickable_label.setStyleSheet("border: 1px solid #4f545c; color: #888; font-size: 10px;")
+             # If it's a video file, maybe show an icon? 
+             if path.lower().endswith(".mp4"):
+                 clickable_label.setText("VIDEO")
+                 clickable_label.setStyleSheet("border: 1px solid #2980b9; color: #2980b9; font-weight: bold;")
+             else:
+                 clickable_label.setText("Loading...")
+                 clickable_label.setStyleSheet("border: 1px solid #4f545c; color: #888; font-size: 10px;")
         
         self._style_label(clickable_label, selected=(path in self.selected_paths))
 
@@ -610,8 +629,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 clickable_label.setPixmap(scaled)
                 clickable_label.setText("")
             else:
-                clickable_label.clear()
-                clickable_label.setText("Loading...")
+                if not clickable_label.path.lower().endswith(".mp4"):
+                    clickable_label.clear()
+                    clickable_label.setText("Loading...")
             self._style_label(clickable_label, selected=(clickable_label.path in self.selected_paths))
 
     def _style_label(self, label: ClickableLabel, selected: bool):
@@ -619,8 +639,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         if selected:
             label.setStyleSheet("border: 3px solid #5865f2; background-color: #36393f;")
         else:
-            if label.text() in ["Load Error", "Loading..."]:
-                label.setStyleSheet("border: 1px solid #4f545c; color: #888; font-size: 10px;")
+            if label.text() in ["Load Error", "Loading...", "VIDEO"]:
+                # Keep specific style if text is present
+                pass
             else:
                 label.setStyleSheet("border: 1px solid #4f545c;")
 
@@ -655,6 +676,15 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     @Slot(str)
     def handle_thumbnail_double_click(self, image_path: str):
+        # If video, maybe open externally or handle specifically
+        if image_path.lower().endswith(".mp4"):
+            try:
+                os.startfile(image_path)
+            except AttributeError:
+                import subprocess
+                subprocess.call(['xdg-open', image_path])
+            return
+
         for win in self.open_image_preview_windows:
             if isinstance(win, ImagePreviewWindow) and win.image_path == image_path:
                 win.activateWindow()
@@ -688,12 +718,13 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         count = len(self.selected_paths)
         menu = QMenu(self)
         if count == 1:
-            view_action = QAction("View Full Size", self)
-            view_action.triggered.connect(lambda: self.handle_thumbnail_double_click(path))
-            menu.addAction(view_action)
-            menu.addSeparator()
+            if not path.lower().endswith(".mp4"):
+                view_action = QAction("View Full Size", self)
+                view_action.triggered.connect(lambda: self.handle_thumbnail_double_click(path))
+                menu.addAction(view_action)
+                menu.addSeparator()
 
-        del_text = f"Delete {count} Images" if count > 1 else "Delete Image"
+        del_text = f"Delete {count} Items" if count > 1 else "Delete Item"
         delete_action = QAction(del_text, self)
         delete_action.triggered.connect(self.delete_selected_images)
         menu.addAction(delete_action)
@@ -703,7 +734,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         if not self.selected_paths: return
         confirm = QMessageBox.question(
             self, "Confirm Deletion", 
-            f"Are you sure you want to delete {len(self.selected_paths)} images?",
+            f"Are you sure you want to delete {len(self.selected_paths)} items?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if confirm == QMessageBox.StandardButton.Yes:
@@ -750,9 +781,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 # 5. Update Pagination Text/Controls
                 self._update_pagination_ui()
                 
-            # REMOVED: self.start_loading_gallery(...) 
-            # This line caused the full reset and is now safely removed.
-            
             if failed:
                 QMessageBox.warning(self, "Partial Deletion Failure", "\n".join(failed))
 
@@ -850,12 +878,19 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             # Enable GIF extraction
             self.btn_extract_gif.setEnabled(True)
             self.btn_extract_gif.setText(f"GIF Extract as GIF ({duration_str})")
+            
+            # Enable Video extraction
+            self.btn_extract_video.setEnabled(True)
+            self.btn_extract_video.setText(f"MP4 Extract as Video ({duration_str})")
         else:
             self.btn_extract_range.setEnabled(False)
             self.btn_extract_range.setText("🎞️ Extract Range")
             
             self.btn_extract_gif.setEnabled(False)
             self.btn_extract_gif.setText("GIF Extract as GIF")
+
+            self.btn_extract_video.setEnabled(False)
+            self.btn_extract_video.setText("MP4 Extract as Video")
 
     @Slot()
     def extract_single_frame(self):
@@ -883,6 +918,15 @@ class ImageExtractorTab(AbstractClassSingleGallery):
              
         self._run_gif_extraction(self.start_time_ms, self.end_time_ms)
 
+    @Slot()
+    def extract_range_as_video(self):
+        if not self.video_path: return
+        if self.use_internal_player:
+             self.media_player.pause()
+             self.btn_play.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
+             
+        self._run_video_extraction(self.start_time_ms, self.end_time_ms)
+
     def _run_extraction(self, start: int, end: int, is_range: bool):
         # Fetch resolution from combo box
         selected_key = self.combo_extract_size.currentText()
@@ -894,7 +938,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.progress_dialog.setMinimumDuration(0)
         self.progress_dialog.show()
 
-        self.extractor_worker = FrameExtractorWorker(
+        self.extractor_worker = FrameExtractionWorker(
             video_path=self.video_path,
             output_dir=str(self.extraction_dir),
             start_ms=start,
@@ -932,12 +976,40 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             target_size=target_size, 
             fps=fps
         )
-        worker.signals.finished.connect(self._on_gif_finished)
-        worker.signals.error.connect(self._on_gif_error)
+        worker.signals.finished.connect(self._on_export_finished)
+        worker.signals.error.connect(self._on_export_error)
+        QThreadPool.globalInstance().start(worker)
+
+    def _run_video_extraction(self, start: int, end: int):
+        """Prepares and launches the VideoExtractionWorker."""
+        
+        # Get Settings
+        selected_key = self.combo_extract_size.currentText()
+        target_size: Optional[Tuple[int, int]] = self.extraction_res_map.get(selected_key)
+        
+        self.progress_dialog = QProgressDialog("Generating Video... This may take a moment.", "Cancel", 0, 0, self)
+        self.progress_dialog.setWindowTitle("Processing Video")
+        self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        self.progress_dialog.setMinimumDuration(0)
+        self.progress_dialog.show()
+
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_name = f"CLIP_{Path(self.video_path).stem}_{timestamp}.mp4"
+        output_path = str(self.extraction_dir / output_name)
+
+        worker = VideoExtractionWorker(
+            video_path=self.video_path, 
+            start_ms=start, 
+            end_ms=end, 
+            output_path=output_path, 
+            target_size=target_size
+        )
+        worker.signals.finished.connect(self._on_export_finished)
+        worker.signals.error.connect(self._on_export_error)
         QThreadPool.globalInstance().start(worker)
 
     @Slot(str)
-    def _on_gif_finished(self, new_path: str):
+    def _on_export_finished(self, new_path: str):
         if self.progress_dialog:
             self.progress_dialog.close()
             self.progress_dialog = None
@@ -946,14 +1018,14 @@ class ImageExtractorTab(AbstractClassSingleGallery):
              # Wrap in list to reuse existing list-based loader
             self.current_extracted_paths.append(new_path)
             self.start_loading_gallery([new_path], append=True)
-            QMessageBox.information(self, "Success", f"GIF created successfully:\n{Path(new_path).name}")
+            QMessageBox.information(self, "Success", f"Media created successfully:\n{Path(new_path).name}")
 
     @Slot(str)
-    def _on_gif_error(self, error_msg: str):
+    def _on_export_error(self, error_msg: str):
         if self.progress_dialog:
             self.progress_dialog.close()
             self.progress_dialog = None
-        QMessageBox.warning(self, "GIF Extraction Error", error_msg)
+        QMessageBox.warning(self, "Export Error", error_msg)
 
     @Slot(list)
     def _on_extraction_finished(self, new_paths: List[str]):
