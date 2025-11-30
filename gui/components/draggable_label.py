@@ -1,9 +1,9 @@
 from PySide6.QtWidgets import QLabel
-from PySide6.QtGui import QDrag, QMouseEvent
 from PySide6.QtCore import Qt, QMimeData, QUrl, Signal, QPoint
+from PySide6.QtGui import QDrag, QMouseEvent, QPixmap, QPainter, QColor
 
 
-class DraggableImageLabel(QLabel):
+class DraggableLabel(QLabel):
     """
     A QLabel that displays a thumbnail and can be dragged.
     The drag operation carries the file path.
@@ -38,8 +38,10 @@ class DraggableImageLabel(QLabel):
 
     def mouseMoveEvent(self, event):
         """Initiates a drag-and-drop operation."""
-        if not self.file_path or self.pixmap().isNull():
-            return # Don't drag if not a valid image
+        # CHANGE 1: Remove self.pixmap().isNull() check. 
+        # Allow drag as long as file_path exists.
+        if not self.file_path:
+            return 
 
         drag = QDrag(self)
         mime_data = QMimeData()
@@ -49,11 +51,27 @@ class DraggableImageLabel(QLabel):
         
         drag.setMimeData(mime_data)
         
-        # Set a pixmap for the drag preview
-        drag.setPixmap(self.pixmap().scaled(
-            self.width() // 2, self.height() // 2, 
-            Qt.KeepAspectRatio, Qt.SmoothTransformation
-        ))
+        # CHANGE 2: Handle drag preview generation
+        if self.pixmap() and not self.pixmap().isNull():
+            # If we have an image, use it as the drag preview
+            drag.setPixmap(self.pixmap().scaled(
+                self.width() // 2, self.height() // 2, 
+                Qt.KeepAspectRatio, Qt.SmoothTransformation
+            ))
+        else:
+            # If no image (e.g., Video Placeholder), draw a generic "VIDEO" icon
+            preview = QPixmap(100, 100)
+            preview.fill(QColor("#3498db")) # Blue background
+            
+            painter = QPainter(preview)
+            painter.setPen(Qt.white)
+            font = painter.font()
+            font.setBold(True)
+            painter.setFont(font)
+            painter.drawText(preview.rect(), Qt.AlignCenter, "VIDEO")
+            painter.end()
+            
+            drag.setPixmap(preview)
         
         drag.exec(Qt.MoveAction)
     

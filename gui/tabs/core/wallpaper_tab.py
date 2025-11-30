@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Tuple, Any
 from PySide6.QtGui import QPixmap, QAction, QColor
 from PySide6.QtCore import (
     Qt, QThreadPool, QThread,
-    QTimer, Slot, QPoint, QEventLoop,
+    QTimer, Slot, QPoint,
 ) 
 from PySide6.QtWidgets import (
     QGroupBox, QComboBox, QMenu,
@@ -16,17 +16,17 @@ from PySide6.QtWidgets import (
     QGridLayout, QSpinBox, QCheckBox,
     QLineEdit, QFileDialog, QScrollArea, 
     QMessageBox, QApplication, QColorDialog,
-    QVBoxLayout, QHBoxLayout, QProgressDialog,
+    QVBoxLayout, QHBoxLayout,
 )
 from ...classes import AbstractClassSingleGallery
-from ...helpers import ImageScannerWorker, WallpaperWorker
+from ...helpers import ImageScannerWorker, WallpaperWorker, VideoScannerWorker
 from ...windows import SlideshowQueueWindow, ImagePreviewWindow
 from ...components import (
-    MonitorDropWidget, DraggableImageLabel, 
+    MonitorDropWidget, DraggableLabel, 
     MarqueeScrollArea, DraggableMonitorContainer
 )
 from ...styles.style import apply_shadow_effect, STYLE_START_ACTION, STYLE_STOP_ACTION
-from backend.src.utils.definitions import WALLPAPER_STYLES
+from backend.src.utils.definitions import WALLPAPER_STYLES, SUPPORTED_VIDEO_FORMATS
 from backend.src.core import WallpaperManager
 
 
@@ -62,15 +62,15 @@ class WallpaperTab(AbstractClassSingleGallery):
         if self.slideshow_enabled_checkbox.isChecked():
             if is_ready:
                 self.set_wallpaper_btn.setEnabled(True)
-                self.set_wallpaper_btn.setText(f"Start Slideshow ({total_images} total images)")
+                self.set_wallpaper_btn.setText(f"Start Slideshow ({total_images} total items)")
             else:
                 self.set_wallpaper_btn.setEnabled(False)
-                self.set_wallpaper_btn.setText("Slideshow (Drop images)")
+                self.set_wallpaper_btn.setText("Slideshow (Drop images/videos)")
         elif set_count > 0: 
             self.set_wallpaper_btn.setText("Set Wallpaper")
             self.set_wallpaper_btn.setEnabled(True)
         else:
-            self.set_wallpaper_btn.setText("Set Wallpaper (0 images)")
+            self.set_wallpaper_btn.setText("Set Wallpaper (0 items)")
             self.set_wallpaper_btn.setEnabled(False)
 
     def __init__(self, db_tab_ref):
@@ -111,13 +111,16 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.solid_color_hex: str = "#000000" 
 
         # --- Scanner References ---
-        self.scanner_worker: Optional[Any] = None
-        self.scanner_thread: Optional[QThread] = None
-        self.scan_dialog: Optional[QProgressDialog] = None
+        self.img_scanner_worker: Optional[Any] = None
+        self.img_scanner_thread: Optional[QThread] = None
+        self.vid_scanner_worker: Optional[VideoScannerWorker] = None
+        
+        # State for manual addition (mimicking ImageExtractorTab)
+        self.scanned_dir = None
+        self.path_to_label_map = {}
         # --------------------------
         
         # --- Initialize Pagination ---
-        # Created by AbstractClassSingleGallery
         self.pagination_widget = self.create_pagination_controls()
 
         # --- UI SETUP ---
@@ -149,15 +152,13 @@ class WallpaperTab(AbstractClassSingleGallery):
         """
         
         # Monitor Layout Group
-        layout_group = QGroupBox("Monitor Layout (Drag to Reorder, Drop images to set)")
+        layout_group = QGroupBox("Monitor Layout (Drag to Reorder, Drop images/videos to set)")
         layout_group.setStyleSheet(group_box_style)
         
-        # --- MODIFIED: Use DraggableMonitorContainer ---
+        # Use DraggableMonitorContainer
         self.monitor_layout_container = DraggableMonitorContainer()
         self.monitor_layout = self.monitor_layout_container.layout_hbox
-        # -----------------------------------------------
         
-        # Wrap in a standard VBox for the groupbox
         gb_layout = QVBoxLayout(layout_group)
         gb_layout.addWidget(self.monitor_layout_container)
         
@@ -170,11 +171,9 @@ class WallpaperTab(AbstractClassSingleGallery):
         slideshow_layout.setContentsMargins(10, 20, 10, 10)
 
         self.slideshow_enabled_checkbox = QCheckBox("Enable Slideshow")
-        self.slideshow_enabled_checkbox.setToolTip("Cycles through dropped images on each monitor.")
         slideshow_layout.addWidget(self.slideshow_enabled_checkbox)
 
         slideshow_layout.addWidget(QLabel("Interval:"))
-        
         self.interval_min_spinbox = QSpinBox()
         self.interval_min_spinbox.setRange(0, 60)
         self.interval_min_spinbox.setValue(5)
@@ -266,7 +265,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         
         content_layout.addWidget(settings_group) 
 
-        # --- Gallery Setup for Base Class ---
+        # --- Gallery Setup ---
         self.gallery_scroll_area = MarqueeScrollArea() 
         self.gallery_scroll_area.setWidgetResizable(True)
         self.gallery_scroll_area.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
@@ -300,48 +299,12 @@ class WallpaperTab(AbstractClassSingleGallery):
         
         content_layout.addLayout(action_layout) 
 
-        # State for scanner
-        self.scanned_dir = None
-        self.path_to_label_map = {}
-
         # Initial setup
         self.populate_monitor_layout()
         self.check_all_monitors_set()
         self.stop_slideshow()
         
-    # --- IMPLEMENT ABSTRACT METHODS ---
-
-    def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
-        draggable_label = DraggableImageLabel(path, self.thumbnail_size)
-        
-        # Connect signals
-        draggable_label.path_double_clicked.connect(self.handle_thumbnail_double_click)
-        draggable_label.path_right_clicked.connect(self.show_image_context_menu)
-        
-        if pixmap and not pixmap.isNull():
-            draggable_label.setPixmap(pixmap) 
-            draggable_label.setText("") 
-            draggable_label.setStyleSheet("border: 1px solid #4f545c;")
-        else:
-            draggable_label.setText("Loading...")
-            draggable_label.setStyleSheet("border: 1px dashed #666; color: #888; font-size: 10px;")
-            
-        self.path_to_label_map[path] = draggable_label
-        return draggable_label
-
-    def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
-        if isinstance(widget, DraggableImageLabel):
-            if pixmap and not pixmap.isNull():
-                widget.setPixmap(pixmap)
-                widget.setText("")
-                widget.setStyleSheet("border: 1px solid #4f545c;")
-            else:
-                widget.clear()
-                widget.setText("Loading...")
-                widget.setStyleSheet("border: 1px dashed #666; color: #888;")
-
     # --- Logic ---
-
     def _get_relevant_styles(self) -> Dict[str, str]:
         system = platform.system()
         if system == "Windows":
@@ -437,7 +400,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.countdown_timer.timeout.connect(self.update_countdown)
         self.countdown_timer.start(1000)
         QMessageBox.information(self, "Slideshow Started", 
-                                f"Per-monitor slideshow started with {total_images} total images, cycling every {interval_minutes} minutes and {interval_seconds} seconds.")
+                                f"Per-monitor slideshow started with {total_images} total items, cycling every {interval_minutes} minutes and {interval_seconds} seconds.")
         self._cycle_slideshow_wallpaper()
         self.set_wallpaper_btn.setText(f"Slideshow Running (Stop)")
         self.set_wallpaper_btn.setStyleSheet(STYLE_STOP_ACTION)
@@ -539,6 +502,19 @@ class WallpaperTab(AbstractClassSingleGallery):
 
     @Slot(str)
     def handle_full_image_preview(self, image_path: str):
+        # Handle Video Preview separately (Launch system player)
+        if image_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+            try:
+                if platform.system() == "Windows":
+                    os.startfile(image_path)
+                elif platform.system() == "Linux":
+                    subprocess.call(['xdg-open', image_path])
+                else:
+                    subprocess.call(['open', image_path]) # Mac fallback
+            except Exception as e:
+                QMessageBox.warning(self, "Video Error", f"Could not launch video player: {e}")
+            return
+
         # Use gallery_image_paths from Base Class
         all_paths_list = sorted(self.gallery_image_paths) if self.gallery_image_paths else [image_path]
         try:
@@ -567,9 +543,14 @@ class WallpaperTab(AbstractClassSingleGallery):
     def show_image_context_menu(self, global_pos: QPoint, path: str):
         if self.background_type == "Solid Color": return
         menu = QMenu(self)
-        view_action = QAction("View Full Size Preview", self)
+        
+        is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+        view_text = "Play Video" if is_video else "View Full Size Preview"
+        
+        view_action = QAction(view_text, self)
         view_action.triggered.connect(lambda: self.handle_full_image_preview(path))
         menu.addAction(view_action)
+        
         if self.monitor_widgets:
             menu.addSeparator()
             add_menu = menu.addMenu("Add to Monitor Queue")
@@ -579,7 +560,7 @@ class WallpaperTab(AbstractClassSingleGallery):
                 action.triggered.connect(lambda checked, mid=monitor_id, img_path=path: self.on_image_dropped(mid, img_path))
                 add_menu.addAction(action)
         menu.addSeparator()
-        delete_action = QAction("🗑️ Delete Image File (Permanent)", self)
+        delete_action = QAction("🗑️ Delete File (Permanent)", self)
         delete_action.triggered.connect(lambda: self.handle_delete_image(path))
         menu.addAction(delete_action)
         menu.exec(global_pos)
@@ -659,7 +640,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.monitor_widgets[monitor_id].clear() 
         self.check_all_monitors_set()
         QMessageBox.information(self, "Monitor Cleared", 
-                                f"All pending images and the slideshow queue for **{monitor_name}** have been cleared.\n\nThe system's current background remains unchanged.")
+                                f"All pending items and the slideshow queue for **{monitor_name}** have been cleared.\n\nThe system's current background remains unchanged.")
 
     def _get_rotated_map_for_ui(self, source_paths: Dict[str, str]) -> Dict[str, str]:
         n = len(self.monitors)
@@ -950,83 +931,233 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.last_browsed_scan_dir = directory
             self.scan_directory_path.setText(directory)
             self.populate_scan_image_gallery(directory)
+    
+    # --- IMPLEMENT ABSTRACT METHODS ---
+    def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(1)
+        
+        draggable_label = DraggableLabel(path, self.thumbnail_size)
+        draggable_label.setAlignment(Qt.AlignCenter)
+        
+        draggable_label.path_double_clicked.connect(self.handle_thumbnail_double_click)
+        draggable_label.path_right_clicked.connect(self.show_image_context_menu)
+        
+        is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
 
+        # --- REVISED FIX: Focus purely on image presence vs. placeholder ---
+        if pixmap and not pixmap.isNull():
+            # Image is present: Display it and clear all conflicting text/backgrounds.
+            scaled = pixmap.scaled(self.thumbnail_size, self.thumbnail_size, 
+                                 Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            draggable_label.setPixmap(scaled)
+            draggable_label.setText("") # Crucial: Clear the text that hides the image
+            draggable_label.setScaledContents(False)
+            
+            if is_video:
+                # Use border as the main visual indicator for video
+                draggable_label.setStyleSheet("border: 2px solid #3498db; background-color: transparent;")
+            else:
+                draggable_label.setStyleSheet("border: 1px solid #4f545c; background-color: transparent;")
+        else:
+            # Placeholder State: Pixmap is null (VideoScannerWorker failed, or image is loading)
+            draggable_label.setPixmap(QPixmap()) 
+            draggable_label.setScaledContents(False)
+            
+            if is_video:
+                draggable_label.setText("VIDEO") 
+                draggable_label.setStyleSheet("""
+                    QLabel { 
+                        border: 2px solid #3498db; 
+                        color: #3498db; 
+                        font-weight: bold; 
+                        background-color: #2c2f33; /* Use non-black background matching the container */
+                    }
+                """)
+            else:
+                draggable_label.setText("Loading...")
+                draggable_label.setStyleSheet("border: 1px dashed #666; color: #888; font-size: 10px; background-color: #2c2f33;")
+            
+        self.path_to_label_map[path] = draggable_label
+        layout.addWidget(draggable_label) # Add the label to the container
+        return container # Return the container widget
+
+    def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
+        # FIX: The 'widget' passed here is now the Container QWidget created in create_card_widget.
+        # We must find the DraggableLabel child inside it.
+        clickable_label = widget.findChild(DraggableLabel)
+        
+        # Fallback: If for some reason the widget IS the label (legacy safety)
+        if not clickable_label and isinstance(widget, DraggableLabel):
+            clickable_label = widget
+
+        if clickable_label:
+            is_video = clickable_label.file_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+            
+            if pixmap and not pixmap.isNull():
+                scaled = pixmap.scaled(self.thumbnail_size, self.thumbnail_size, 
+                                    Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                clickable_label.setPixmap(scaled)
+                
+                # Apply specific styles based on content type
+                if is_video:
+                    clickable_label.setText("VIDEO")
+                    clickable_label.setStyleSheet("""
+                        QLabel { 
+                            border: 2px solid #3498db; 
+                            color: #3498db; 
+                            font-weight: bold; 
+                            background-color: transparent; 
+                        }
+                    """)
+                else:
+                    clickable_label.setText("")
+                    clickable_label.setStyleSheet("border: 1px solid #4f545c; background-color: transparent;")
+            
+            elif not is_video:
+                # Only show error/loading if it's an image and loading failed
+                clickable_label.clear()
+                clickable_label.setText("Load Failed")
+                clickable_label.setStyleSheet("border: 1px dashed #e74c3c; color: #e74c3c;")
+
+    # --- Scanning & Population Logic (REWRITTEN to be Manual) ---
     def populate_scan_image_gallery(self, directory: str):
         if self.background_type == "Solid Color": return 
 
         self.scanned_dir = directory
         
-        # We need a separate dialog for the "Scanning" phase (before loading)
-        self.scan_dialog = QProgressDialog("Scanning directory...", "Cancel", 0, 0, self)
-        self.scan_dialog.setWindowModality(Qt.WindowModal)
-        self.scan_dialog.setWindowTitle("Please Wait")
-        self.scan_dialog.setMinimumDuration(0) 
-        self.scan_dialog.canceled.connect(self.cancel_scanning) 
-        self.scan_dialog.show()
+        # 1. Clear gallery completely
+        self.clear_gallery_widgets()
+        self.path_to_label_map.clear()
         
-        # Ensure dialog visibility
-        loop = QEventLoop()
-        QTimer.singleShot(1, loop.quit)
-        loop.exec()
+        # Stop base class pagination timer if active
+        self.cancel_loading()
+        
+        # Reset internal lists
+        self.gallery_image_paths = []
+        
+        # --- FIX: ROBUST THREAD CLEANUP ---
+        # We must verify the thread exists and is running before trying to stop it.
+        # Crucially, we must .wait() for it to finish to avoid the "Destroyed while running" crash.
+        if self.img_scanner_thread is not None:
+            if self.img_scanner_thread.isRunning():
+                # Signal the worker to stop (if your worker supports it)
+                # self.img_scanner_worker.stop() 
+                
+                self.img_scanner_thread.quit()
+                self.img_scanner_thread.wait() # <--- THIS PREVENTS THE CRASH
+            
+            self.img_scanner_thread.deleteLater()
+            self.img_scanner_thread = None
 
-        self.scanner_worker = ImageScannerWorker(directory)
+        # 2. Start Image Scan
+        self.img_scanner_worker = ImageScannerWorker(directory)
+        self.img_scanner_thread = QThread() 
+        self.img_scanner_worker.moveToThread(self.img_scanner_thread) 
         
-        # --- FIX: Ensure the thread is set and connected for clean up ---
-        if self.scanner_thread and self.scanner_thread.isRunning():
-             self.scanner_thread.quit()
-             self.scanner_thread.wait() # Wait for the old thread to finish
-             self.scanner_thread.deleteLater()
-             self.scanner_thread = None
+        self.img_scanner_thread.started.connect(self.img_scanner_worker.run_scan)
+        self.img_scanner_worker.scan_finished.connect(self._on_image_scan_finished)
+        self.img_scanner_worker.scan_error.connect(self.handle_scan_error)
+        
+        # Clean up thread when finished
+        self.img_scanner_worker.scan_finished.connect(self.img_scanner_thread.quit)
+        self.img_scanner_thread.finished.connect(self.img_scanner_thread.deleteLater)
+        self.img_scanner_thread.finished.connect(lambda: setattr(self, 'img_scanner_thread', None))
+        
+        self.img_scanner_thread.start()
 
-        self.scanner_thread = QThread() 
-        self.scanner_worker.moveToThread(self.scanner_thread) 
+    @Slot(list)
+    def _on_image_scan_finished(self, image_paths: list[str]):
+        """
+        Step 1: Images found. Register paths and start the base class loading mechanism.
+        Step 2: Start Video Scan.
+        """
         
-        self.scanner_thread.started.connect(self.scanner_worker.run_scan)
-        self.scanner_worker.scan_finished.connect(self.display_scan_results)
-        self.scanner_worker.scan_error.connect(self.handle_scan_error)
+        # 1. Register ONLY the image paths and trigger the full gallery load/refresh.
+        # This clears old widgets, creates new "Loading..." placeholders, and starts 
+        # the ImageLoaderWorker threads via AbstractClassSingleGallery._populate_step().
+        if image_paths:
+            # Note: The base class will use this list to populate and trigger loads.
+            self.start_loading_gallery(image_paths, show_progress=False, append=False)
+        else:
+            # Still refresh to clear any old state/placeholders, showing "No items".
+            self.refresh_gallery_view()
+
+        # 2. Start Video Scan (Start AFTER image paths are registered in the gallery).
+        # Videos will be manually added to the paths/cache as they are found.
+        if self.scanned_dir:
+            self.vid_scanner_worker = VideoScannerWorker(self.scanned_dir)
+            self.vid_scanner_worker.signals.thumbnail_ready.connect(self._add_video_thumbnail_manual)
+            self.vid_scanner_worker.signals.finished.connect(self._on_video_scan_finished)
+            QThreadPool.globalInstance().start(self.vid_scanner_worker)
+
+    @Slot()
+    def _on_video_scan_finished(self):
+        print("Video scan worker finished.")
+        # The worker is a QRunnable, the thread pool handles its destruction.
+        # We don't need to do anything else.
+        pass
+
+    @Slot(str, QPixmap)
+    def _add_video_thumbnail_manual(self, path: str, pixmap: QPixmap):
+        """
+        Manually adds a video thumbnail to the gallery and caches the result.
+        """
+        if path in self.gallery_image_paths: return
         
-        self.scanner_worker.scan_finished.connect(self.scanner_thread.quit)
-        self.scanner_worker.scan_finished.connect(self.scanner_worker.deleteLater)
-        self.scanner_thread.finished.connect(self.scanner_thread.deleteLater)
+        # 1. Register Data
+        self.gallery_image_paths.append(path)
         
-        # Clear thread reference when finished/deleted
-        self.scanner_thread.finished.connect(lambda: setattr(self, 'scanner_thread', None))
-        
-        self.scanner_thread.start()
+        # CRITICAL: Store in cache so pagination/reflows don't lose the thumbnail
+        self._initial_pixmap_cache[path] = pixmap 
+
+        # 2. Update Pagination UI (page counts, etc)
+        self._update_pagination_ui()
+
+        # 3. Append to View (Only if the new item belongs on the current page)
+        total_items = len(self.gallery_image_paths)
+        start_index = self.current_page * self.page_size
+        end_index = start_index + self.page_size
+        item_index = total_items - 1
+
+        # Only add the widget if we are currently viewing the page where this item belongs
+        if start_index <= item_index < end_index:
+            card = self.create_card_widget(path, pixmap)
+            
+            if self.gallery_layout:
+                # Calculate the next visual position
+                current_count = self.gallery_layout.count()
+                cols = self.calculate_columns()
+                row = current_count // cols
+                col = current_count % cols
+                
+                self.gallery_layout.addWidget(card, row, col, Qt.AlignLeft | Qt.AlignTop)
+            
+            self.path_to_card_widget[path] = card
+            self.path_to_label_map[path] = card
 
     def cancel_scanning(self):
-        # Specific cancellation for the scanner thread
-        if self.scanner_thread is not None and self.scanner_thread.isRunning():
-            self.scanner_thread.quit()
-            # The finished signal will trigger deleteLater and set the reference to None.
-            
-        if self.scan_dialog:
-            self.scan_dialog.close()
+        if self.img_scanner_thread and self.img_scanner_thread.isRunning():
+            self.img_scanner_thread.quit()
 
     @Slot(list)
     def display_scan_results(self, image_paths: list[str]):
-        if self.scan_dialog: self.scan_dialog.close()
-        
+        # Fallback method if needed, but logic is moved to _on_image_scan_finished
         if self.background_type == "Solid Color": return 
-
         self.clear_gallery_widgets() 
         self.path_to_label_map.clear()
-        
         self.check_all_monitors_set() 
-        
-        if not image_paths:
-            self.show_placeholder("No supported images found.")
-            return
-        
-        # Hand over to Base Class to load the images
-        self.start_loading_gallery(image_paths)
+        final_paths = sorted(list(set(image_paths)))
+        if not final_paths: return
+        self.start_loading_gallery(final_paths)
 
     @Slot(str)
     def handle_thumbnail_double_click(self, image_path: str):
         self.handle_full_image_preview(image_path)
 
     def handle_scan_error(self, message: str):
-        if self.scan_dialog: self.scan_dialog.close()
         self.clear_gallery_widgets()
         QMessageBox.warning(self, "Error Scanning", message)
         self.show_placeholder("Browse for a directory.")

@@ -4,11 +4,11 @@ from typing import Optional
 from screeninfo import Monitor
 from PySide6.QtCore import Qt, Signal, QMimeData
 from PySide6.QtGui import (
-    QPixmap, QDragEnterEvent, QDropEvent, QDragMoveEvent, QDragLeaveEvent,
-    QMouseEvent, QDrag
+    QPixmap, QDragEnterEvent, QDropEvent, QDragMoveEvent, 
+    QDragLeaveEvent, QMouseEvent, QDrag
 )
 from PySide6.QtWidgets import QLabel, QMenu, QApplication
-from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
+from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
 
 
 class MonitorDropWidget(QLabel):
@@ -159,7 +159,7 @@ class MonitorDropWidget(QLabel):
         event.ignore()
 
     def has_valid_image_url(self, mime_data: QMimeData) -> bool:
-        """Checks if the MimeData contains a single, valid, local image file."""
+        """Checks if the MimeData contains a single, valid, local image OR VIDEO file."""
         if not mime_data.hasUrls():
             return False
         
@@ -168,31 +168,67 @@ class MonitorDropWidget(QLabel):
             return False
             
         file_path = url.toLocalFile().lower()
-        if not any(file_path.endswith(fmt) for fmt in SUPPORTED_IMG_FORMATS):
-            return False
+        
+        # Combine image and video extensions for validation
+        valid_exts = set(SUPPORTED_IMG_FORMATS).union(SUPPORTED_VIDEO_FORMATS)
+        
+        # Get extension correctly (including the dot)
+        _, ext = os.path.splitext(file_path)
+        
+        # NOTE: We need to ensure the SUPPORTED_*_FORMATS lists contain extensions 
+        # with the leading dot (e.g., '.jpg') or handle the dot removal here.
+        
+        # Assuming the definition lists DO NOT contain the dot:
+        if ext.lstrip('.') in valid_exts:
+            return True
+        
+        # Assuming the definition lists DO contain the dot: (If your lists are like ['.jpg', '.png'])
+        if ext in valid_exts:
+            return True
+             
+        # SAFEST CHECK: Convert the file extension to the expected format for your definitions list
+        ext_no_dot = ext.lstrip('.')
+
+        # Use the combined check:
+        if ext_no_dot in valid_exts or ext in valid_exts:
+            return True
             
-        return True
+        return False
 
     def set_image(self, file_path: Optional[str]):
-        """Sets the widget's pixmap to a scaled preview of the image."""
+        """Sets the widget's pixmap to a scaled preview or a video icon."""
         self.image_path = file_path
-        if file_path:
-            pixmap = QPixmap(file_path)
-            if not pixmap.isNull():
-                scaled_pixmap = pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                self.setPixmap(scaled_pixmap)
-                self.setText("") 
-            else:
-                self.image_path = None
-                self.update_text()
-                monitor_name = f"Monitor {self.monitor_id}"
-                if self.monitor.name:
-                     monitor_name = f"{monitor_name} ({self.monitor.name})"
-                
-                self.setText(f"<b>{monitor_name}</b>\n\n"
-                             "<b>Error:</b> Could not load image.")
+        
+        if not file_path:
+            self.clear()
+            return
+
+        is_video = file_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+
+        # Try to load as image first (works for images)
+        pixmap = QPixmap(file_path)
+        
+        if not pixmap.isNull():
+            scaled_pixmap = pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.setPixmap(scaled_pixmap)
+            self.setText("") 
+        elif is_video:
+            # If it's a video and pixmap load failed (expected), draw a placeholder
+            self.setPixmap(QPixmap()) # Clear any existing
+            monitor_name = f"Monitor {self.monitor_id}"
+            if self.monitor.name:
+                 monitor_name = f"{monitor_name} ({self.monitor.name})"
+            
+            # Show filename + Video Indicator
+            filename = os.path.basename(file_path)
+            self.setText(f"<b>{monitor_name}</b>\n\n"
+                         f"🎥 VIDEO SET:\n{filename}")
+            self.setStyleSheet("QLabel { background-color: #2c3e50; border: 2px solid #3498db; color: #ecf0f1; font-size: 13px; }")
         else:
-             self.clear() 
+            # Genuine Error
+            self.image_path = None
+            self.update_text()
+            self.setText(self.text() + "\n\n<b>Error:</b> File load failed.")
              
     def clear(self):
         """Clears the displayed image and resets to placeholder text."""
