@@ -4,7 +4,7 @@ from typing import List
 from PySide6.QtCore import Qt, QSize, QTimer, Signal
 from PySide6.QtGui import (
     QShortcut, QWheelEvent, QAction,
-    QPixmap, QKeySequence, QKeyEvent, QMovie
+    QPixmap, QKeySequence, QKeyEvent, QMovie, QMouseEvent
 )
 from PySide6.QtWidgets import (
     QMenu, QMessageBox, QLabel, QApplication,
@@ -56,6 +56,9 @@ class ImagePreviewWindow(QDialog):
         self.image_label: QLabel = QLabel()
         self.image_label.setAlignment(Qt.AlignCenter)
         
+        # --- FIX: Prevent image label from stealing focus ---
+        self.image_label.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        
         # 1. Load initial image (handles error checks)
         if not self.load_image(self.image_path, initial_load=True):
              QMessageBox.critical(self, "Error", f"Could not load initial image file: {self.image_path}")
@@ -68,6 +71,10 @@ class ImagePreviewWindow(QDialog):
         # 3. Navigation Buttons (Arrows)
         self.btn_prev = QPushButton("◀")
         self.btn_next = QPushButton("▶")
+        
+        # --- FIX: Prevent buttons from stealing focus ---
+        self.btn_prev.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.btn_next.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         
         # New Arrow Design (Larger, more visible, but minimally intrusive)
         arrow_style = """
@@ -120,6 +127,12 @@ class ImagePreviewWindow(QDialog):
         self._update_navigation_button_state()
 
         self.showMaximized()
+        self.setFocusPolicy(Qt.StrongFocus) # Ensure window can receive focus
+        
+        # --- FIX: Emit the deferred signal emission for initial highlighting ---
+        QTimer.singleShot(100, lambda: self.path_changed.emit('INITIAL_LOAD_TRIGGER', self.image_path))
+        
+        self.setFocus() # Initial focus 
 
     # --- MODIFIED: Resize Event Handler ---
     def resizeEvent(self, event):
@@ -184,6 +197,9 @@ class ImagePreviewWindow(QDialog):
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setWidget(self.image_label)
+        
+        # --- FIX: Prevent scroll area from stealing focus ---
+        self.scroll_area.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         
         # Apply initial scale (Fit-to-window zoom)
         self.update_image_display()
@@ -337,7 +353,30 @@ class ImagePreviewWindow(QDialog):
             event.accept()
         else:
             super().wheelEvent(event)
+    
+    # --- FIX: Override mousePressEvent to restore focus explicitly ---
+    def mousePressEvent(self, event: QMouseEvent):
+        """
+        Overrides mouse click event to ensure the dialog immediately regains focus.
+        This is a necessary workaround for focus propagation issues when controls lose focus.
+        """
+        super().mousePressEvent(event)
+        
+        # Defer the focus call slightly to allow the mouse event chain to complete
+        QTimer.singleShot(0, self.setFocus)
+    # --- END FIX ---
             
+    def closeEvent(self, event):
+        """
+        Overrides the close event to emit a cleanup signal to the parent tab.
+        """
+        # --- FIX: Emit signal to de-highlight the current image in the parent gallery ---
+        # Ensure synchronous emission to guarantee the parent processes the style reset
+        # before this object is destroyed (by WA_DeleteOnClose).
+        self.path_changed.emit(self.image_path, 'WINDOW_CLOSED')
+
+        super().closeEvent(event)
+        
     def contextMenuEvent(self, event):
         """
         Overrides the context menu event (right-click) to display management options.
@@ -396,6 +435,7 @@ class ImagePreviewWindow(QDialog):
         """
         Handles key presses for navigation (Left/Right), closing (Ctrl+W), and Copy (Ctrl+C).
         """
+        # Ensure that if we press an arrow key, we navigate and accept the event.
         if event.key() == Qt.Key.Key_Right:
             self._navigate(1)
             event.accept()
@@ -435,3 +475,6 @@ class ImagePreviewWindow(QDialog):
             self.path_changed.emit(old_path, new_path) 
             
             self.load_image(new_path)
+        
+        # --- FIX: Restore focus after navigation ---
+        QTimer.singleShot(0, self.setFocus)

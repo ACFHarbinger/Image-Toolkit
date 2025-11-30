@@ -69,7 +69,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.line_edit_dir.setPlaceholderText("Select a folder containing videos or GIFs...")
         self.line_edit_dir.returnPressed.connect(lambda: self.scan_directory(self.line_edit_dir.text()))
         
-        self.btn_browse = QPushButton("Browse Folder")
+        self.btn_browse = QPushButton("Browse...")
         self.btn_browse.clicked.connect(self.browse_directory)
         
         dir_layout.addWidget(self.line_edit_dir)
@@ -84,7 +84,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.line_edit_extract_dir = QLineEdit(str(self.extraction_dir))
         self.line_edit_extract_dir.setReadOnly(True)
         
-        self.btn_browse_extract = QPushButton("Change Dir")
+        self.btn_browse_extract = QPushButton("Change...")
         self.btn_browse_extract.clicked.connect(self.browse_extraction_directory)
         
         dir_set_layout.addWidget(self.line_edit_extract_dir)
