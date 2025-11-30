@@ -1,7 +1,7 @@
 import os
 import sys
 
-from PySide6.QtCore import Qt, QSize, QObject
+from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QIcon, QImageReader
 from PySide6.QtWidgets import (
     QSizePolicy, QPushButton, QStyle, QComboBox,
@@ -42,6 +42,7 @@ class MainWindow(QWidget):
         account_name = 'Authenticated User'
         initial_theme = "dark"
         
+        # Load credentials once to get theme and account name
         self.cached_creds = {}
 
         if self.vault_manager:
@@ -160,6 +161,33 @@ class MainWindow(QWidget):
             },
         }
 
+        # --- APPLY ACTIVE DEFAULT CONFIGURATIONS ---
+        # 1. Retrieve the saved active configurations and the repository of all configs
+        active_configs = self.cached_creds.get('active_tab_configs', {})
+        saved_tab_configs = self.cached_creds.get('tab_configurations', {})
+        
+        # 2. Iterate through all instantiated tabs
+        for category, tabs_in_category in self.all_tabs.items():
+            for tab_instance in tabs_in_category.values():
+                tab_class_name = type(tab_instance).__name__
+                
+                # 3. Check if there is an active config set for this tab class
+                if tab_class_name in active_configs:
+                    config_name = active_configs[tab_class_name]
+                    
+                    # 4. Retrieve the actual config data (JSON)
+                    # The structure is { 'TabClassName': { 'ConfigName': { ...data... } } }
+                    if tab_class_name in saved_tab_configs and config_name in saved_tab_configs[tab_class_name]:
+                        config_data = saved_tab_configs[tab_class_name][config_name]
+                        
+                        # 5. Apply it if the tab supports set_config
+                        if hasattr(tab_instance, 'set_config') and callable(tab_instance.set_config):
+                            try:
+                                tab_instance.set_config(config_data)
+                                print(f"Applied active config '{config_name}' to {tab_class_name}")
+                            except Exception as e:
+                                print(f"Error applying config to {tab_class_name}: {e}")
+
         self.tabs = QTabWidget()
         vbox.addWidget(self.tabs)
         
@@ -175,12 +203,8 @@ class MainWindow(QWidget):
     def on_command_changed(self, new_command: str):
         """
         Dynamically changes the tabs. 
-        CRITICAL: Rescues widgets from ScrollAreas before clearing to prevent Segfaults.
+        Rescues widgets from ScrollAreas before clearing to prevent Segfaults.
         """
-        # --- FIX START: Rescue widgets from deletion ---
-        # QScrollArea takes ownership of its widget. If we clear self.tabs,
-        # the QScrollArea is deleted, and it deletes our reusable Tab object (SearchTab, etc).
-        # We must take the widget back before clearing.
         count = self.tabs.count()
         for i in range(count):
             scroll_area = self.tabs.widget(i)
@@ -188,7 +212,6 @@ class MainWindow(QWidget):
                 # takeWidget() unparents the widget and passes ownership back to us
                 # preventing it from being destroyed.
                 scroll_area.takeWidget()
-        # --- FIX END ---
 
         self.tabs.clear()
         

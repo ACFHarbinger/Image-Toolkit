@@ -20,7 +20,7 @@ class SettingsWindow(QWidget):
         super().__init__(None, Qt.Window) 
         
         self.setWindowTitle("Application Settings")
-        self.setMinimumSize(800, 500)
+        self.setMinimumSize(800, 600) # Increased height slightly
         
         # Reference to the Vault Manager from MainWindow
         self.vault_manager = self.main_window_ref.vault_manager if self.main_window_ref else None
@@ -28,11 +28,16 @@ class SettingsWindow(QWidget):
         # Load initial credentials and settings
         self.current_account_name = "N/A"
         self.initial_theme = "dark" # Default theme
+        self.active_tab_configs = {}
+        self.system_profiles = {} # Store loaded profiles
+
         if self.vault_manager:
             try:
                 creds = self.vault_manager.load_account_credentials()
                 self.current_account_name = creds.get('account_name', 'N/A')
                 self.initial_theme = creds.get('theme', 'dark')
+                self.active_tab_configs = creds.get('active_tab_configs', {})
+                self.system_profiles = creds.get('system_preference_profiles', {})
             except Exception:
                 pass
         
@@ -120,15 +125,6 @@ class SettingsWindow(QWidget):
         categorized_tabs = self._get_all_tab_names_categorized()
         self.startup_config_combos = {}
         
-        # Load currently active default selections
-        self.active_tab_configs = {}
-        if self.vault_manager:
-            try:
-                creds = self.vault_manager.load_account_credentials()
-                self.active_tab_configs = creds.get('active_tab_configs', {})
-            except Exception:
-                pass
-
         # Use a top-level VBox for all categories
         all_categories_layout = QVBoxLayout()
         all_categories_layout.setSpacing(10)
@@ -169,7 +165,53 @@ class SettingsWindow(QWidget):
         
         content_layout.addWidget(prefs_groupbox)
 
+        # ---------------------------------------------------------------------
+        # --- NEW: System Preference Profiles Section ---
+        # ---------------------------------------------------------------------
+        profiles_groupbox = QGroupBox("System Preference Profiles")
+        profiles_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        profiles_layout = QVBoxLayout(profiles_groupbox)
         
+        # Row 1: Select Profile to Load or Delete
+        profile_select_layout = QHBoxLayout()
+        self.profile_combo = QComboBox()
+        self.profile_combo.setPlaceholderText("Select Profile...")
+        self._refresh_profile_combo()
+        
+        self.btn_load_profile = QPushButton("Load Profile")
+        self.btn_load_profile.setToolTip("Apply the selected profile's settings to the fields above")
+        self.btn_load_profile.clicked.connect(self._load_selected_profile)
+        
+        self.btn_delete_profile = QPushButton("Delete Profile")
+        self.btn_delete_profile.setStyleSheet("background-color: #e74c3c; color: white;")
+        self.btn_delete_profile.clicked.connect(self._delete_selected_profile)
+        
+        profile_select_layout.addWidget(QLabel("Profile:"))
+        profile_select_layout.addWidget(self.profile_combo, 1)
+        profile_select_layout.addWidget(self.btn_load_profile)
+        profile_select_layout.addWidget(self.btn_delete_profile)
+        
+        profiles_layout.addLayout(profile_select_layout)
+        
+        # Row 2: Create New Profile
+        profile_create_layout = QHBoxLayout()
+        self.profile_name_input = QLineEdit()
+        self.profile_name_input.setPlaceholderText("New Profile Name (e.g., Work Laptop)")
+        
+        self.btn_save_profile = QPushButton("Save Current Settings as Profile")
+        self.btn_save_profile.setToolTip("Save the current state of Theme and Tab Configs above as a new profile")
+        self.btn_save_profile.setStyleSheet("background-color: #2ecc71; color: white;")
+        self.btn_save_profile.clicked.connect(self._save_current_as_profile)
+        
+        profile_create_layout.addWidget(QLabel("Name:"))
+        profile_create_layout.addWidget(self.profile_name_input, 1)
+        profile_create_layout.addWidget(self.btn_save_profile)
+        
+        profiles_layout.addLayout(profile_create_layout)
+        
+        content_layout.addWidget(profiles_groupbox)
+
+
         # ---------------------------------------------------------------------
         # --- Tab Default Configuration Section ---
         # ---------------------------------------------------------------------
@@ -292,6 +334,109 @@ class SettingsWindow(QWidget):
         actions_layout.addWidget(self.update_button)
         
         main_layout.addWidget(actions_widget)
+
+    # ---------------------------------------------------------------------
+    # --- Profile Management Methods ---
+    # ---------------------------------------------------------------------
+    
+    def _refresh_profile_combo(self):
+        """Updates the profile selection dropdown."""
+        self.profile_combo.clear()
+        if self.system_profiles:
+            self.profile_combo.addItems(sorted(self.system_profiles.keys()))
+            
+    def _get_current_ui_preferences(self):
+        """Helper to gather current theme and tab config selections."""
+        theme = "light" if self.light_theme_radio.isChecked() else "dark"
+        
+        current_tab_configs = {}
+        for tab_name, combo in self.startup_config_combos.items():
+            selected = combo.currentText()
+            if selected != "None (Default)":
+                current_tab_configs[tab_name] = selected
+                
+        return {
+            "theme": theme,
+            "active_tab_configs": current_tab_configs
+        }
+
+    def _save_current_as_profile(self):
+        """Saves current UI preferences as a new profile."""
+        name = self.profile_name_input.text().strip()
+        if not name:
+            QMessageBox.warning(self, "Error", "Please enter a profile name.")
+            return
+            
+        profile_data = self._get_current_ui_preferences()
+        
+        try:
+            # 1. Update in-memory
+            self.system_profiles[name] = profile_data
+            
+            # 2. Update vault
+            creds = self.vault_manager.load_account_credentials()
+            creds['system_preference_profiles'] = self.system_profiles
+            if self._save_vault_data(creds):
+                QMessageBox.information(self, "Success", f"Profile '{name}' saved.")
+                self.profile_name_input.clear()
+                self._refresh_profile_combo()
+                self.profile_combo.setCurrentText(name)
+        except Exception as e:
+            QMessageBox.critical(self, "Save Error", f"Failed to save profile: {e}")
+
+    def _load_selected_profile(self):
+        """Loads the selected profile into the UI elements."""
+        name = self.profile_combo.currentText()
+        if not name or name not in self.system_profiles:
+            return
+            
+        profile_data = self.system_profiles[name]
+        
+        # Apply Theme
+        theme = profile_data.get("theme", "dark")
+        if theme == "light":
+            self.light_theme_radio.setChecked(True)
+        else:
+            self.dark_theme_radio.setChecked(True)
+            
+        # Apply Tab Configs
+        saved_configs = profile_data.get("active_tab_configs", {})
+        for tab_name, combo in self.startup_config_combos.items():
+            if tab_name in saved_configs:
+                # Check if the config actually exists in the options
+                index = combo.findText(saved_configs[tab_name])
+                if index >= 0:
+                    combo.setCurrentIndex(index)
+                else:
+                    combo.setCurrentIndex(0) # Default
+            else:
+                combo.setCurrentIndex(0) # Default
+                
+        QMessageBox.information(self, "Profile Loaded", f"Settings from '{name}' loaded into the form. Click 'Update settings' to apply them to the app.")
+
+    def _delete_selected_profile(self):
+        """Deletes the selected profile."""
+        name = self.profile_combo.currentText()
+        if not name: return
+        
+        reply = QMessageBox.question(self, 'Confirm Deletion', 
+            f"Are you sure you want to delete profile '{name}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, 
+            QMessageBox.StandardButton.No)
+            
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                del self.system_profiles[name]
+                
+                # Update vault
+                creds = self.vault_manager.load_account_credentials()
+                creds['system_preference_profiles'] = self.system_profiles
+                if self._save_vault_data(creds):
+                    QMessageBox.information(self, "Success", f"Profile '{name}' deleted.")
+                    self._refresh_profile_combo()
+            except Exception as e:
+                QMessageBox.critical(self, "Delete Error", f"Failed to delete profile: {e}")
+
 
     # ---------------------------------------------------------------------
     # --- Configuration Management Methods ---
@@ -671,7 +816,6 @@ class SettingsWindow(QWidget):
             user_data = self.vault_manager.load_account_credentials()
             user_data['theme'] = selected_theme
             
-            # --- New: Save active startup configs ---
             new_active_configs = {}
             for tab_name, combo in self.startup_config_combos.items():
                 selected = combo.currentText()
@@ -679,8 +823,7 @@ class SettingsWindow(QWidget):
                     new_active_configs[tab_name] = selected
             
             user_data['active_tab_configs'] = new_active_configs
-            # ----------------------------------------
-            
+            user_data['system_preference_profiles'] = self.system_profiles
             if self._save_vault_data(user_data):
                 if self.main_window_ref and selected_theme:
                     self.main_window_ref.set_application_theme(selected_theme)

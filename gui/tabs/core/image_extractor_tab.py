@@ -990,9 +990,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         # Get Settings
         selected_key = self.combo_extract_size.currentText()
         target_size: Optional[Tuple[int, int]] = self.extraction_res_map.get(selected_key)
-        # --- NEW: Get Mute Setting ---
         mute_audio = self.check_mute_audio.isChecked()
-        # -----------------------------
         
         self.progress_dialog = QProgressDialog("Generating Video... This may take a moment.", "Cancel", 0, 0, self)
         self.progress_dialog.setWindowTitle("Processing Video")
@@ -1010,9 +1008,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             end_ms=end, 
             output_path=output_path, 
             target_size=target_size,
-            # --- NEW: Pass the setting ---
             mute_audio=mute_audio 
-            # -----------------------------
         )
         worker.signals.finished.connect(self._on_export_finished)
         worker.signals.error.connect(self._on_export_error)

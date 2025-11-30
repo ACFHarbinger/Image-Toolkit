@@ -5,7 +5,7 @@ import backend.src.utils.definitions as udef
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-    QLineEdit, QPushButton, QSizePolicy, QMessageBox,
+    QLineEdit, QPushButton, QSizePolicy, QMessageBox, QInputDialog
 )
 from src.core.vault_manager import VaultManager
 
@@ -219,6 +219,29 @@ class LoginWindow(QWidget):
             verification_hash = hashlib.sha256(password_combined).hexdigest()
             
             if verification_hash == stored_hash:
+                # --- NEW: Preference Profile Selection ---
+                profiles = stored_data.get('system_preference_profiles', {})
+                if profiles:
+                    items = ["Keep Current Settings"] + sorted(profiles.keys())
+                    item, ok = QInputDialog.getItem(
+                        self, 
+                        "Select Preference Profile", 
+                        "Choose a system preference setup to apply:", 
+                        items, 
+                        0, 
+                        False
+                    )
+                    
+                    if ok and item and item != "Keep Current Settings":
+                        # Apply selected profile
+                        profile_data = profiles[item]
+                        stored_data['theme'] = profile_data.get('theme', 'dark')
+                        stored_data['active_tab_configs'] = profile_data.get('active_tab_configs', {})
+                        
+                        # Save back to vault so MainWindow picks it up
+                        self.vault_manager.save_data(json.dumps(stored_data))
+                # -----------------------------------------
+
                 QMessageBox.information(self, "Success", f"Login successful for {username}.")
                 self.is_authenticated = True
                 
