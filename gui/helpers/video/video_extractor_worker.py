@@ -3,7 +3,11 @@ import os
 from typing import Optional, Tuple
 from moviepy.editor import VideoFileClip
 from PySide6.QtCore import QObject, Signal, QRunnable
-from moviepy.audio.io.AudioFileClip import AudioFileClip
+# Ensure this import matches your MoviePy version
+try:
+    from moviepy.audio.io.AudioFileClip import AudioFileClip
+except ImportError:
+    from moviepy.editor import AudioFileClip
 
 
 class VideoWorkerSignals(QObject):
@@ -25,8 +29,7 @@ class VideoExtractionWorker(QRunnable):
     def run(self):
         temp_audio_path = 'temp-audio.m4a'
         clip = None
-        # Ensure AudioFileClip is accessible if needed
-        AudioFileClip_is_available = 'AudioFileClip' in globals() or 'AudioFileClip' in locals()
+        original_audio_clip = None # Track the audio resource separately
         
         try:
             t_start = self.start_ms / 1000.0
@@ -46,15 +49,16 @@ class VideoExtractionWorker(QRunnable):
                 if os.path.exists(temp_audio_path):
                     os.remove(temp_audio_path)
             else:
-                # --- CRITICAL FIX: Use the imported AudioFileClip for pre-decoding ---
-                if AudioFileClip_is_available:
+                # --- FIX: Open AudioFileClip but DO NOT close it immediately ---
+                # We keep original_audio_clip alive so write_videofile can read from it.
+                try:
                     original_audio_clip = AudioFileClip(self.video_path)
                     clip.audio = original_audio_clip.subclip(t_start, t_end)
-                    original_audio_clip.close()
-                else:
-                    # Fallback if the import failed (unlikely if the user corrects it)
-                    print("Warning: AudioFileClip not found for pre-decoding. Reverting to direct write.")
-                # ----------------------------------------------------------------------
+                except Exception as audio_e:
+                    print(f"Warning: Failed to separate audio stream: {audio_e}")
+                    # Fallback: use default clip audio (might fail with Broken Pipe on some systems)
+                    pass
+                # -------------------------------------------------------------
             
             ffmpeg_params = ['-movflags', 'faststart'] 
             if audio_codec is not None:
@@ -79,9 +83,12 @@ class VideoExtractionWorker(QRunnable):
                 try: os.remove(temp_audio_path)
                 except OSError: pass
             
-            error_message = f"Failed to create video (Broken Pipe/Audio Error). Try checking the 'Mute Audio' box.\nDetails: {e}"
+            error_message = f"Failed to create video. Try checking the 'Mute Audio' box if this persists.\nDetails: {e}"
             self.signals.error.emit(error_message)
         finally:
+             # Clean up resources in the correct order
+             if original_audio_clip:
+                original_audio_clip.close()
              if clip:
                 clip.close()
              if os.path.exists(temp_audio_path):

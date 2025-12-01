@@ -7,10 +7,7 @@ from PIL import Image
 from pathlib import Path
 from screeninfo import Monitor
 from typing import Dict, List, Optional
-from ..utils.definitions import (
-    WALLPAPER_STYLES, 
-    SUPPORTED_VIDEO_FORMATS,
-)
+from ..utils.definitions import WALLPAPER_STYLES, SUPPORTED_VIDEO_FORMATS
 
 # Global Definitions for COM components
 IDesktopWallpaperInstance = None 
