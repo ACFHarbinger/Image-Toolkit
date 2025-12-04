@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QFormLayout, QSpinBox, QLineEdit
-from ..base_generative_tab import BaseGenerativeTab
+from ....classes.base_generative_tab import BaseGenerativeTab
 
 
 class R3GANGenerateTab(BaseGenerativeTab):
