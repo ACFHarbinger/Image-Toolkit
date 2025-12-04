@@ -1180,6 +1180,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.scanned_dir = directory
         self.clear_gallery_widgets()
         self.path_to_label_map.clear()
+        self._initial_pixmap_cache.clear()
         self.cancel_loading()
         self.gallery_image_paths = []
         
