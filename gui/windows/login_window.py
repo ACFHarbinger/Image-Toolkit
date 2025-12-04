@@ -221,6 +221,8 @@ class LoginWindow(QWidget):
             if verification_hash == stored_hash:
                 # --- NEW: Preference Profile Selection ---
                 profiles = stored_data.get('system_preference_profiles', {})
+                save_required = False # <--- NEW FLAG
+
                 if profiles:
                     items = ["Keep Current Settings"] + sorted(profiles.keys())
                     item, ok = QInputDialog.getItem(
@@ -233,13 +235,26 @@ class LoginWindow(QWidget):
                     )
                     
                     if ok and item and item != "Keep Current Settings":
-                        # Apply selected profile
+                        # Apply selected profile to the temporary dictionary
                         profile_data = profiles[item]
-                        stored_data['theme'] = profile_data.get('theme', 'dark')
-                        stored_data['active_tab_configs'] = profile_data.get('active_tab_configs', {})
+                        new_theme = profile_data.get('theme', 'dark')
+                        new_configs = profile_data.get('active_tab_configs', {})
                         
-                        # Save back to vault so MainWindow picks it up
-                        self.vault_manager.save_data(json.dumps(stored_data))
+                        # 1. Check if the theme or active configs are changing
+                        current_theme = stored_data.get('theme', 'dark')
+                        current_configs = stored_data.get('active_tab_configs', {})
+
+                        if new_theme != current_theme or new_configs != current_configs:
+                            # 2. Update the data and set the flag
+                            stored_data['theme'] = new_theme
+                            stored_data['active_tab_configs'] = new_configs
+                            save_required = True # <--- SET FLAG
+
+                # === CRITICAL MODIFICATION: Check flag before saving ===
+                if save_required:
+                    # Save back to vault only if settings have changed
+                    self.vault_manager.save_data(json.dumps(stored_data))
+                
                 # -----------------------------------------
 
                 QMessageBox.information(self, "Success", f"Login successful for {username}.")
