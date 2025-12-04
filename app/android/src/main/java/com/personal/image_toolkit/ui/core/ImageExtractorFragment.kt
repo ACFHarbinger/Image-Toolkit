@@ -107,7 +107,7 @@ class ImageExtractorFragment : BaseSingleGalleryFragment() {
     override fun createCardView(context: Context, path: String): View {
         // This handles the "Results" gallery items (bottom)
         return ClickableItemView(context).apply {
-            setFilePath(path)
+            filePath = path
             // Styling for extracted frames
             setBackgroundColor(Color.parseColor("#2c2f33"))
         }
@@ -128,7 +128,7 @@ class ImageExtractorFragment : BaseSingleGalleryFragment() {
         for (i in 1..5) {
             val vidPath = "$path/video_$i.mp4"
             val card = ClickableItemView(requireContext()).apply {
-                setFilePath(vidPath)
+                filePath = vidPath
                 text = "VIDEO $i" // Simplified since we can't gen thumbnails easily in mock
                 setBackgroundColor(Color.parseColor("#34495e"))
                 onPathClicked = { p -> loadVideo(p) }

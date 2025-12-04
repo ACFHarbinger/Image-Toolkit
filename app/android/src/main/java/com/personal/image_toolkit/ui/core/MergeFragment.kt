@@ -63,7 +63,7 @@ class MergeFragment : BaseTwoGalleriesFragment() {
 
     override fun createCardView(context: Context, path: String, isSelected: Boolean): View {
         return ClickableItemView(context).apply {
-            setFilePath(path)
+            filePath = path
             if (isSelected) {
                 setBackgroundColor(Color.parseColor("#27ae60")) // Green for merge
             } else {

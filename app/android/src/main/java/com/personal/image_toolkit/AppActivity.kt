@@ -14,6 +14,7 @@ import com.google.android.material.navigation.NavigationView
 import com.google.android.material.snackbar.Snackbar
 import com.personal.image_toolkit.databinding.ActivityAppBinding
 import com.personal.image_toolkit.ui.windows.LoginFragment
+import com.personal.image_toolkit.R // Ensure R is imported
 
 class AppActivity : AppCompatActivity() {
 
@@ -35,7 +36,7 @@ class AppActivity : AppCompatActivity() {
         }
 
         // --- AUTHENTICATION CHECK ---
-        // In a real app, check VaultManager state here. 
+        // In a real app, check VaultManager state here.
         // If not logged in, show LoginFragment instead of NavHost.
         // For this example, we assume we proceed to the main UI.
 
@@ -44,6 +45,7 @@ class AppActivity : AppCompatActivity() {
         val navController = navHostFragment.navController
 
         // Update AppBarConfig with the new IDs defined in mobile_navigation.xml
+        // Including all categories from PySide6: System Tools, Database, Web, Deep Learning
         val topLevelDestinations = setOf(
             R.id.nav_system_tools,
             R.id.nav_web_integration,
@@ -68,13 +70,15 @@ class AppActivity : AppCompatActivity() {
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.main, menu) // Ensure you have a main.xml menu
+        // Assume R.menu.overflow contains the items or is the intended overflow menu.
+        menuInflater.inflate(R.menu.overflow, menu)
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        // The menu item ID for navigation must match the destination ID.
         return when (item.itemId) {
-            R.id.action_settings -> { // Ensure this ID exists in R.menu.main
+            R.id.nav_settings -> {
                 val navController = findNavController(R.id.nav_host_fragment_content_app)
                 navController.navigate(R.id.nav_settings)
                 true

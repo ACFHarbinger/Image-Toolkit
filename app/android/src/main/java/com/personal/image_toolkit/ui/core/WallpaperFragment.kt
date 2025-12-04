@@ -13,7 +13,7 @@ import androidx.appcompat.widget.AppCompatSpinner
 import androidx.core.view.setPadding
 import com.personal.image_toolkit.ui.DraggableContainer
 import com.personal.image_toolkit.ui.DraggableItemView
-import com.personal.image_toolkit.ui.MonitorDropWidget
+import com.personal.image_toolkit.ui.MonitorDropTarget
 import com.personal.image_toolkit.ui.OptionalField
 
 /**
@@ -40,11 +40,11 @@ class WallpaperFragment : BaseSingleGalleryFragment() {
         
         monitorContainer = DraggableContainer(context).apply {
             // Add some mock monitors
-            val mon1 = MonitorDropWidget(context).apply {
+            val mon1 = MonitorDropTarget(context).apply {
                 monitorId = "1"
                 layoutParams = LinearLayout.LayoutParams(300, 200).apply { marginEnd = 16 }
             }
-            val mon2 = MonitorDropWidget(context).apply {
+            val mon2 = MonitorDropTarget(context).apply {
                 monitorId = "2"
                 layoutParams = LinearLayout.LayoutParams(300, 200)
             }
