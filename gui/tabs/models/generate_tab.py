@@ -3,13 +3,13 @@ from PySide6.QtWidgets import (
     QLabel, QFormLayout
 )
 from .base_generative_tab import BaseGenerativeTab
-from .gen import R3GANGenerateTab, LoRAGenerateTab, SD3GenerateTab
+from .gen import R3GANGenerateTab, LoRAGenerateTab, SD3GenerateTab, GANGenerateTab
 
 
 class UnifiedGenerateTab(BaseGenerativeTab):
     """
-    Master tab that allows selecting the Model Architecture (Anything V5 vs R3GAN vs SD3)
-    for image generation.
+    Master tab that allows selecting the Model Architecture 
+    (Anything V5 vs R3GAN vs SD3 vs Basic GAN) for image generation.
     """
     def __init__(self):
         super().__init__()
@@ -24,6 +24,8 @@ class UnifiedGenerateTab(BaseGenerativeTab):
         self.model_selector.addItem("Stable Diffusion 3.5", "sd3")
         if R3GANGenerateTab:
             self.model_selector.addItem("R3GAN (NVLabs)", "r3gan")
+        # ADD BASIC GAN OPTION
+        self.model_selector.addItem("Basic GAN (Custom)", "basic_gan")
         
         selector_layout = QFormLayout()
         selector_layout.addRow(QLabel("<b>Model Architecture:</b>"), self.model_selector)
@@ -42,6 +44,10 @@ class UnifiedGenerateTab(BaseGenerativeTab):
             self.r3gan_tab = R3GANGenerateTab()
             self.stack.addWidget(self.r3gan_tab)
 
+        # ADD CUSTOM GAN GENERATE TAB TO STACK
+        self.basic_gan_gen_tab = GANGenerateTab()
+        self.stack.addWidget(self.basic_gan_gen_tab)
+
         main_layout.addWidget(self.stack)
         
         # Connect signal
@@ -50,9 +56,6 @@ class UnifiedGenerateTab(BaseGenerativeTab):
         self.setLayout(main_layout)
 
     def collect(self) -> dict:
-        """
-        Returns the config of the ACTIVE tab, plus the selector state.
-        """
         active_index = self.stack.currentIndex()
         active_widget = self.stack.currentWidget()
         
@@ -66,9 +69,6 @@ class UnifiedGenerateTab(BaseGenerativeTab):
         }
 
     def set_config(self, config: dict):
-        """
-        Restores the selector state, then passes the sub-config to the active tab.
-        """
         if "selected_model_index" in config:
             idx = config["selected_model_index"]
             if 0 <= idx < self.model_selector.count():

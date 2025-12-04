@@ -6,6 +6,8 @@ from .video.frame_extractor_worker import FrameExtractionWorker
 from .video.gif_extractor_worker import GifCreationWorker
 from .video.video_extractor_worker import VideoExtractionWorker
 
+from .models.training_worker import TrainingWorker
+
 from .core.conversion_worker import ConversionWorker
 from .core.deletion_worker import DeletionWorker
 from .core.duplicate_scan_worker import DuplicateScanWorker
