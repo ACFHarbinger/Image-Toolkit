@@ -3,12 +3,12 @@ from PySide6.QtWidgets import (
     QLabel, QFormLayout
 )
 from .base_generative_tab import BaseGenerativeTab
-from .train import R3GANTrainTab, LoRATrainTab
+from .train import R3GANTrainTab, LoRATrainTab, GANTrainTab
 
 
 class UnifiedTrainTab(BaseGenerativeTab):
     """
-    Master tab that allows selecting the Model Architecture (Anything V5 vs R3GAN)
+    Master tab that allows selecting the Model Architecture (Anything V5 vs R3GAN vs Basic GAN)
     and switches the interface accordingly.
     """
     def __init__(self):
@@ -23,12 +23,14 @@ class UnifiedTrainTab(BaseGenerativeTab):
         self.model_selector.addItem("LoRA (Diffusion and GANs)", "anything")
         if R3GANTrainTab:
             self.model_selector.addItem("R3GAN (NVLabs)", "r3gan")
+        # ADD BASIC GAN OPTION
+        self.model_selector.addItem("Basic GAN (Custom)", "basic_gan")
         
         selector_layout = QFormLayout()
         selector_layout.addRow(QLabel("<b>Model Architecture:</b>"), self.model_selector)
         main_layout.addLayout(selector_layout)
 
-        # 2. Stacked Widget (The container for the changing tabs)
+        # 2. Stacked Widget
         self.stack = QStackedWidget()
         
         # Initialize sub-tabs
@@ -38,6 +40,10 @@ class UnifiedTrainTab(BaseGenerativeTab):
         if R3GANTrainTab:
             self.r3gan_tab = R3GANTrainTab()
             self.stack.addWidget(self.r3gan_tab)
+
+        # ADD CUSTOM GAN TAB TO STACK
+        self.basic_gan_tab = GANTrainTab()
+        self.stack.addWidget(self.basic_gan_tab)
 
         main_layout.addWidget(self.stack)
         
