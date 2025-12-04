@@ -1,9 +1,9 @@
 import React, { forwardRef, useState, useImperativeHandle } from 'react';
-import FormRow from '../components/FormRow.tsx';
-import PathInput from '../components/PathInput.tsx';
-import CollapsibleSection from '../components/CollapsibleSection.tsx';
-import ToggleButtonGroup from '../components/ToggleButtonGroup.tsx';
-import { SUPPORTED_IMG_FORMATS } from '../constants.ts';
+import FormRow from '../../components/FormRow.tsx';
+import PathInput from '../../components/PathInput.tsx';
+import CollapsibleSection from '../../components/CollapsibleSection.tsx';
+import ToggleButtonGroup from '../../components/ToggleButtonGroup.tsx';
+import { SUPPORTED_IMG_FORMATS } from '../../constants.ts';
 
 interface MergeTabProps {}
 

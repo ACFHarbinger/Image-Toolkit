@@ -1,7 +1,7 @@
 import React, { forwardRef, useState, useImperativeHandle } from 'react';
-import FormRow from '../components/FormRow.tsx';
-import ToggleButtonGroup from '../components/ToggleButtonGroup.tsx';
-import { ALL_COMMON_TAGS } from '../constants.ts';
+import FormRow from '../../components/FormRow.tsx';
+import ToggleButtonGroup from '../../components/ToggleButtonGroup.tsx';
+import { ALL_COMMON_TAGS } from '../../constants.ts';
 
 interface SearchTabProps {
   showModal: (message: string, type: 'info' | 'success' | 'error' | 'custom') => void;
