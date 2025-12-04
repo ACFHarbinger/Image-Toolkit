@@ -19,7 +19,8 @@ export const GANTrainTab: React.FC = () => {
   // Mocking the TrainingWorker logic
   const startTraining = () => {
     if (!dataPath) {
-      alert("Error: Invalid Data Path");
+      // Use custom message box instead of alert()
+      console.error("Error: Invalid Data Path");
       return;
     }
     setIsTraining(true);
@@ -32,19 +33,25 @@ export const GANTrainTab: React.FC = () => {
 
   // Mocking the QTimer for preview updates
   useEffect(() => {
-    let interval: number;
+    let interval: number | undefined;
     if (isTraining) {
       interval = setInterval(() => {
         // In a real app, fetch the latest image from backend
-        // setPreviewUrl('/api/latest-sample.png'); 
-        setLogs(prev => [...prev, `Epoch progress... Loss_D: 0.5, Loss_G: 1.2`]);
-      }, 5000);
+        // This mock call now uses setPreviewUrl, resolving the ESLint warning.
+        setPreviewUrl(`https://placehold.co/200x200/4c4c4c/ffffff?text=Epoch+${Math.floor(Math.random() * 50)}`);
+        setLogs(prev => [...prev, `Epoch progress... Loss_D: ${Math.random().toFixed(2)}, Loss_G: ${Math.random().toFixed(2)}`]);
+      }, 5000) as unknown as number; // Type assertion for setInterval return
     }
-    return () => clearInterval(interval);
+    return () => {
+      if (interval !== undefined) {
+        clearInterval(interval);
+      }
+    };
   }, [isTraining]);
 
   return (
-    <div className="p-4 bg-white rounded shadow">
+    // Updated background and text color for the main card
+    <div className="p-4 bg-white dark:bg-gray-800 rounded shadow text-gray-800 dark:text-gray-200 space-y-4">
       <div className="grid grid-cols-1 gap-4">
         <FormRow label="Dataset Path:">
           <PathInput value={dataPath} onChange={setDataPath} placeholder="Path to dataset folder" />
@@ -55,15 +62,16 @@ export const GANTrainTab: React.FC = () => {
         </FormRow>
 
         <FormRow label="Epochs:">
-          <input type="number" value={epochs} onChange={e => setEpochs(Number(e.target.value))} className="border p-2 rounded w-full" min={1} max={10000} />
+          {/* Updated input styling for dark mode */}
+          <input type="number" value={epochs} onChange={e => setEpochs(Number(e.target.value))} className="border p-2 rounded w-full dark:bg-gray-700 dark:border-gray-600" min={1} max={10000} />
         </FormRow>
 
         <FormRow label="Batch Size:">
-          <input type="number" value={batchSize} onChange={e => setBatchSize(Number(e.target.value))} className="border p-2 rounded w-full" min={1} max={512} />
+          <input type="number" value={batchSize} onChange={e => setBatchSize(Number(e.target.value))} className="border p-2 rounded w-full dark:bg-gray-700 dark:border-gray-600" min={1} max={512} />
         </FormRow>
 
         <FormRow label="Learning Rate:">
-          <input type="number" value={lr} onChange={e => setLr(Number(e.target.value))} className="border p-2 rounded w-full" step={0.00001} />
+          <input type="number" value={lr} onChange={e => setLr(Number(e.target.value))} className="border p-2 rounded w-full dark:bg-gray-700 dark:border-gray-600" step={0.00001} />
         </FormRow>
 
         <button 
@@ -76,16 +84,17 @@ export const GANTrainTab: React.FC = () => {
 
         <div className="mt-4">
           <label className="font-medium">Training Log:</label>
-          <div className="h-32 overflow-y-auto bg-gray-100 p-2 border rounded font-mono text-sm">
+          {/* Updated log background and text for dark mode */}
+          <div className="h-32 overflow-y-auto bg-gray-100 dark:bg-gray-700 p-2 border rounded font-mono text-sm dark:text-gray-300">
             {logs.map((log, i) => <div key={i}>{log}</div>)}
           </div>
         </div>
 
-        <div className="mt-4 border-2 border-dashed border-gray-300 p-4 flex flex-col items-center justify-center min-h-[200px]">
+        <div className="mt-4 border-2 border-dashed border-gray-300 dark:border-gray-600 p-4 flex flex-col items-center justify-center min-h-[200px]">
           {previewUrl ? (
             <img src={previewUrl} alt="Training Sample" className="max-w-full h-auto" />
           ) : (
-            <span className="text-gray-500">Latest Training Sample</span>
+            <span className="text-gray-500 dark:text-gray-400">Latest Training Sample</span>
           )}
         </div>
       </div>

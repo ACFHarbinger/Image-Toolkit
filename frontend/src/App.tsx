@@ -11,7 +11,13 @@ import {
   Wand2,
   ChevronDown,
   ChevronRight,
-  MonitorPlay // Icon for Video/Extractor
+  MonitorPlay,
+  Cloud,
+  Globe,
+  ScanSearch,
+  Network,
+  ScanEye,
+  BarChart3
 } from 'lucide-react';
 
 // --- Core Tabs ---
@@ -25,27 +31,34 @@ import SearchTab from './tabs/database/SearchTab.tsx';
 import DatabaseTab from './tabs/database/DatabaseTab.tsx';
 import ScanMetadataTab from './tabs/database/ScanMetadataTab.tsx';
 
-// --- Import Unified Tabs ---
+// --- Web Integration Tabs ---
+import DriveSyncTab from './tabs/web/DriveSyncTab.tsx';
+import ImageCrawlerTab from './tabs/web/ImageCrawlerTab.tsx';
+import ReverseSearchTab from './tabs/web/ReverseSearchTab.tsx';
+import WebRequestsTab from './tabs/web/WebRequestsTab.tsx';
+
+// --- Model Tabs ---
 import { UnifiedTrainTab } from './tabs/models/UnifiedTrainTab.tsx';
 import { UnifiedGenerateTab } from './tabs/models/UnifiedGenerateTab.tsx';
+import { MetaCLIPInferenceTab } from './tabs/models/MetaCLIPInferenceTab.tsx';
+import { R3GANEvaluateTab } from './tabs/models/R3GANEvaluateTab.tsx';
 
 // --- Interfaces ---
 
-// UPDATED: Added 'extractor' TabId
-type TabId = 'convert' | 'merge' | 'delete' | 'extractor' | 'search' | 'database' | 'scan' | 'train' | 'generate';
+type TabId = 
+  | 'convert' | 'merge' | 'delete' | 'extractor' 
+  | 'search' | 'database' | 'scan' 
+  | 'train' | 'generate' | 'inference' | 'evaluate'
+  | 'drive' | 'crawler' | 'revsearch' | 'webreq';
 
-// 1. Define the shared props interface that ALL tabs receive.
 interface BaseTabProps {
   showModal: (message: string | ReactNode, type?: 'info' | 'error' | 'success', duration?: number) => void;
-  // All other common props would go here (e.g., isAuthenticated)
 }
 
-// 2. Update TabConfig to use a generic ComponentType
 interface TabConfig {
   id: TabId;
   label: string;
   icon: LucideIcon;
-  // Use generic ComponentType which accepts the base props
   component: ComponentType<any>; 
 }
 
@@ -65,9 +78,8 @@ interface ModalData {
 const App: React.FC = () => {
   // --- Global State ---
   const [activeTab, setActiveTab] = useState<TabId>('convert');
-  // Changed openDropdown to track the open group *within* the single primary dropdown
   const [openDropdown, setOpenDropdown] = useState<string | null>(null); 
-  const [isPrimaryDropdownOpen, setIsPrimaryDropdownOpen] = useState(false); // New state for the main button
+  const [isPrimaryDropdownOpen, setIsPrimaryDropdownOpen] = useState(false);
   
   const [modal, setModal] = useState<ModalData>({ 
     show: false, 
@@ -81,25 +93,37 @@ const App: React.FC = () => {
   const ConvertRef = useRef<any>(null);
   const MergeRef = useRef<any>(null);
   const DeleteRef = useRef<any>(null);
-  const ExtractorRef = useRef<any>(null); // NEW REF
+  const ExtractorRef = useRef<any>(null);
   const SearchRef = useRef<any>(null);
   const DatabaseRef = useRef<any>(null);
   const ScanMetadataRef = useRef<any>(null);
   const TrainRef = useRef<any>(null);
   const GenerateRef = useRef<any>(null);
-  const primaryDropdownRef = useRef<HTMLDivElement>(null); // Ref for click outside logic
+  const MetaClipRef = useRef<any>(null);
+  const EvaluateRef = useRef<any>(null);
+  const DriveRef = useRef<any>(null);
+  const CrawlerRef = useRef<any>(null);
+  const RevSearchRef = useRef<any>(null);
+  const WebReqRef = useRef<any>(null);
+  
+  const primaryDropdownRef = useRef<HTMLDivElement>(null);
 
-  // UPDATED: Added extractor ref
   const tabRefs: Record<TabId, RefObject<any>> = {
     convert: ConvertRef,
     merge: MergeRef,
     delete: DeleteRef,
-    extractor: ExtractorRef, // Mapped new ref
+    extractor: ExtractorRef,
     search: SearchRef,
     database: DatabaseRef,
     scan: ScanMetadataRef,
     train: TrainRef,
     generate: GenerateRef,
+    inference: MetaClipRef,
+    evaluate: EvaluateRef,
+    drive: DriveRef,
+    crawler: CrawlerRef,
+    revsearch: RevSearchRef,
+    webreq: WebReqRef
   };
   
   const showModal = (message: string | ReactNode, type: 'info' | 'error' | 'success' = 'info', duration: number = 0) => {
@@ -129,7 +153,7 @@ const App: React.FC = () => {
         { id: 'convert', label: 'Convert', icon: ImageIcon, component: ConvertTab },
         { id: 'merge', label: 'Merge', icon: LayoutGrid, component: MergeTab },
         { id: 'delete', label: 'Delete', icon: Trash2, component: DeleteTab },
-        { id: 'extractor', label: 'Extractor', icon: MonitorPlay, component: ImageExtractorTab }, // ADDED EXTRACTOR
+        { id: 'extractor', label: 'Extractor', icon: MonitorPlay, component: ImageExtractorTab },
       ]
     },
     {
@@ -141,35 +165,40 @@ const App: React.FC = () => {
       ]
     },
     {
+      title: 'Web Integration',
+      tabs: [
+        { id: 'drive', label: 'Drive Sync', icon: Cloud, component: DriveSyncTab },
+        { id: 'crawler', label: 'Image Crawler', icon: Globe, component: ImageCrawlerTab },
+        { id: 'revsearch', label: 'Reverse Search', icon: ScanSearch, component: ReverseSearchTab },
+        { id: 'webreq', label: 'Web Requests', icon: Network, component: WebRequestsTab },
+      ]
+    },
+    {
       title: 'Deep Learning',
       tabs: [
         { id: 'train', label: 'Train Model', icon: BrainCircuit, component: UnifiedTrainTab },
         { id: 'generate', label: 'Generate', icon: Wand2, component: UnifiedGenerateTab },
+        { id: 'inference', label: 'Inference', icon: ScanEye, component: MetaCLIPInferenceTab },
+        { id: 'evaluate', label: 'Evaluate', icon: BarChart3, component: R3GANEvaluateTab },
       ]
     }
   ];
 
-  // Flatten tabs for lookup
   const ALL_TABS = TAB_GROUPS.flatMap(group => group.tabs);
-  
   const CurrentTabConfig = ALL_TABS.find(tab => tab.id === activeTab);
   const CurrentTabComponent = CurrentTabConfig?.component || ConvertTab;
   const CurrentGroupName = TAB_GROUPS.find(group => group.tabs.some(t => t.id === activeTab))?.title || 'Navigate';
 
-
-  // 3. Define props shared by all components
   const commonProps: BaseTabProps = {
     showModal: showModal,
   };
 
-  // 4. Define conditional props
-  // Note: 'scan' is the only tab needing onAddImagesToDb.
   const conditionalProps = activeTab === 'scan' ? { onAddImagesToDb: handleAddImagesToDb } : {};
   
   const handleTabClick = (tabId: TabId) => {
     setActiveTab(tabId);
     setIsPrimaryDropdownOpen(false);
-    setOpenDropdown(null); // Close nested dropdown
+    setOpenDropdown(null);
   };
 
   const handleDocumentClick = (event: MouseEvent) => {
@@ -188,7 +217,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-8 font-sans transition-colors duration-300">
-      
       <div className="max-w-6xl mx-auto bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-700">
         
         {/* Header */}
@@ -198,29 +226,25 @@ const App: React.FC = () => {
           </h1>
         </header>
 
-        {/* Tab Navigation - Single Dropdown Menu Style */}
+        {/* Tab Navigation */}
         <nav className="flex p-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
           <div ref={primaryDropdownRef} className="relative">
-            {/* Primary Button showing Current Tab or Group */}
             <button
               onClick={() => setIsPrimaryDropdownOpen(prev => !prev)}
               className={`flex items-center px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-300 
                 bg-violet-500 text-white shadow-md hover:bg-violet-600
               `}
             >
-              {/* FIX (1): Use capitalized variable 'Icon' for component rendering */}
               {CurrentTabConfig?.icon && 
                 React.createElement(CurrentTabConfig.icon, { size: 16, className: "mr-2" })}
               {CurrentTabConfig?.label || CurrentGroupName}
               <ChevronDown size={16} className={`ml-2 transition-transform duration-200 ${isPrimaryDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            {/* Main Dropdown Container */}
             {isPrimaryDropdownOpen && (
               <div className="absolute top-full left-0 mt-1 w-72 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
                 {TAB_GROUPS.map(group => (
                   <div key={group.title}>
-                    {/* Group Header (acts as toggle for nested menu) */}
                     <button
                       onClick={() => setOpenDropdown(prev => prev === group.title ? null : group.title)}
                       className={`w-full text-left px-4 py-3 text-sm flex items-center justify-between font-bold border-b dark:border-gray-700
@@ -234,11 +258,9 @@ const App: React.FC = () => {
                       <ChevronRight size={16} className={`transition-transform ${openDropdown === group.title ? 'rotate-90' : ''}`} />
                     </button>
 
-                    {/* Nested Tabs */}
                     {openDropdown === group.title && (
                       <div className="bg-gray-50 dark:bg-gray-900/50">
                         {group.tabs.map(tab => {
-                           // FIX (2): Destructure and capitalize the Icon reference for JSX rendering
                            const TabIcon = tab.icon;
                            return (
                              <button
@@ -267,7 +289,6 @@ const App: React.FC = () => {
 
         {/* Tab Content */}
         <main className="min-h-[600px] overflow-y-auto">
-          {/* 5. Pass Props using a spread operator and combining common/conditional props */}
           <CurrentTabComponent 
             ref={tabRefs[activeTab]} 
             {...commonProps}

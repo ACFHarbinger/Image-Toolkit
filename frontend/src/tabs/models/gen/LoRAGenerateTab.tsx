@@ -22,9 +22,15 @@ export const LoRAGenerateTab: React.FC = () => {
   const isGan = modelId === "animegan_v2";
 
   return (
-    <div className="p-4 bg-white rounded shadow">
+    // Updated background and text color for the main card
+    <div className="p-4 bg-white dark:bg-gray-800 rounded shadow text-gray-800 dark:text-gray-200">
       <FormRow label="Select Model:">
-        <select value={modelId} onChange={(e) => setModelId(e.target.value)} className="w-full border p-2 rounded">
+        <select 
+          value={modelId} 
+          onChange={(e) => setModelId(e.target.value)} 
+          // Updated select styling for dark mode
+          className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+        >
           {MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
       </FormRow>
@@ -33,20 +39,21 @@ export const LoRAGenerateTab: React.FC = () => {
       {!isGan ? (
         <div className="space-y-2 border-l-4 border-blue-500 pl-4 my-4">
           <FormRow label="Prompt:">
-            <input type="text" value={prompt} onChange={e => setPrompt(e.target.value)} className="w-full border p-2 rounded" />
+            {/* Updated input styling for dark mode */}
+            <input type="text" value={prompt} onChange={e => setPrompt(e.target.value)} className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" />
           </FormRow>
           <FormRow label="Negative Prompt:">
-            <input type="text" value={negPrompt} onChange={e => setNegPrompt(e.target.value)} className="w-full border p-2 rounded" />
+            <input type="text" value={negPrompt} onChange={e => setNegPrompt(e.target.value)} className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" />
           </FormRow>
           <FormRow label="LoRA Path:">
-            <input type="text" value={loraPath} onChange={e => setLoraPath(e.target.value)} className="w-full border p-2 rounded" />
+            <input type="text" value={loraPath} onChange={e => setLoraPath(e.target.value)} className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" />
           </FormRow>
           <div className="grid grid-cols-2 gap-4">
             <FormRow label="Steps:">
-              <input type="number" value={steps} onChange={e => setSteps(Number(e.target.value))} className="w-full border p-2 rounded" />
+              <input type="number" value={steps} onChange={e => setSteps(Number(e.target.value))} className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" />
             </FormRow>
             <FormRow label="Guidance:">
-              <input type="number" value={guidance} onChange={e => setGuidance(Number(e.target.value))} className="w-full border p-2 rounded" step={0.1} />
+              <input type="number" value={guidance} onChange={e => setGuidance(Number(e.target.value))} className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" step={0.1} />
             </FormRow>
           </div>
         </div>
@@ -58,12 +65,13 @@ export const LoRAGenerateTab: React.FC = () => {
         </div>
       )}
 
-      <div className="border-t pt-4 mt-4">
+      {/* Added border-gray-600 for dark mode divider */}
+      <div className="border-t border-gray-200 dark:border-gray-600 pt-4 mt-4">
         <FormRow label="Output Filename:">
-           <input type="text" defaultValue="Generated/output.png" className="w-full border p-2 rounded" />
+           <input type="text" defaultValue="Generated/output.png" className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" />
         </FormRow>
         <FormRow label="Batch Size:">
-           <input type="number" defaultValue={1} className="w-full border p-2 rounded" max={8} />
+           <input type="number" defaultValue={1} className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" max={8} />
         </FormRow>
       </div>
 
@@ -71,7 +79,8 @@ export const LoRAGenerateTab: React.FC = () => {
         <button className="flex-1 bg-purple-600 text-white py-2 rounded hover:bg-purple-700">
           {isGan ? "Transfer Style" : "Generate Image"}
         </button>
-        <button disabled className="flex-1 bg-gray-300 text-gray-500 py-2 rounded">Cancel</button>
+        {/* Updated disabled button style for dark mode */}
+        <button disabled className="flex-1 bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 py-2 rounded">Cancel</button>
       </div>
     </div>
   );

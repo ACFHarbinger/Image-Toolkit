@@ -17,7 +17,8 @@ export const GANGenerateTab: React.FC = () => {
   };
 
   return (
-    <div className="p-4 bg-white rounded shadow">
+    // Updated background and text color for the main card
+    <div className="p-4 bg-white dark:bg-gray-800 rounded shadow text-gray-800 dark:text-gray-200">
       <FormRow label="Checkpoint:">
         <PathInput value={checkpoint} onChange={setCheckpoint} type="file" placeholder="Path to .pth checkpoint" />
       </FormRow>
@@ -28,7 +29,8 @@ export const GANGenerateTab: React.FC = () => {
           type="number" 
           value={count} 
           onChange={e => setCount(Number(e.target.value))} 
-          className="border p-2 rounded w-20" 
+          // Updated input styling for dark mode
+          className="border p-2 rounded w-20 dark:bg-gray-700 dark:border-gray-600" 
           min={1} max={64} 
         />
         <button 
@@ -39,10 +41,12 @@ export const GANGenerateTab: React.FC = () => {
         </button>
       </div>
 
-      <div className="h-96 overflow-y-auto border rounded p-4 bg-gray-50">
+      {/* Updated image grid background and border for dark mode */}
+      <div className="h-96 overflow-y-auto border dark:border-gray-600 rounded p-4 bg-gray-50 dark:bg-gray-700">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {images.map((src, idx) => (
-            <div key={idx} className="border p-1 bg-white shadow-sm">
+            // Updated preview item background for dark mode
+            <div key={idx} className="border dark:border-gray-600 p-1 bg-white dark:bg-gray-800 shadow-sm">
               <img src={src} alt={`Generated ${idx}`} className="w-full h-auto" />
             </div>
           ))}

@@ -25,12 +25,14 @@ export const LoRATrainTab: React.FC = () => {
   const isGan = modelId === "animegan_v2";
 
   return (
-    <div className="p-4 bg-white rounded shadow space-y-4">
+    // Updated background and text color for the main card
+    <div className="p-4 bg-white dark:bg-gray-800 rounded shadow space-y-4 text-gray-800 dark:text-gray-200">
       <FormRow label="Base Model:">
         <select 
           value={modelId} 
           onChange={(e) => setModelId(e.target.value)}
-          className="w-full border p-2 rounded"
+          // Updated select styling for dark mode
+          className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
         >
           {MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
@@ -41,38 +43,40 @@ export const LoRATrainTab: React.FC = () => {
       </FormRow>
 
       <FormRow label="Output Name:">
-        <input type="text" value={outputName} onChange={e => setOutputName(e.target.value)} className="w-full border p-2 rounded" />
+        <input type="text" value={outputName} onChange={e => setOutputName(e.target.value)} className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" />
       </FormRow>
 
       {/* Conditional visibility based on model selection */}
       {!isGan && (
-        <div className="bg-gray-50 p-4 rounded border">
-          <h4 className="font-bold mb-2 text-sm text-gray-500 uppercase">LoRA Configuration</h4>
+        // Updated inner container for dark mode
+        <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded border dark:border-gray-600">
+          <h4 className="font-bold mb-2 text-sm text-gray-500 dark:text-gray-400 uppercase">LoRA Configuration</h4>
           <FormRow label="Trigger Word:">
-            <input type="text" value={triggerPrompt} onChange={e => setTriggerPrompt(e.target.value)} className="w-full border p-2 rounded" />
+            <input type="text" value={triggerPrompt} onChange={e => setTriggerPrompt(e.target.value)} className="w-full border p-2 rounded dark:bg-gray-600 dark:border-gray-500" />
           </FormRow>
           <FormRow label="LoRA Rank:">
-            <input type="number" value={rank} onChange={e => setRank(Number(e.target.value))} className="w-full border p-2 rounded" />
+            <input type="number" value={rank} onChange={e => setRank(Number(e.target.value))} className="w-full border p-2 rounded dark:bg-gray-600 dark:border-gray-500" />
           </FormRow>
         </div>
       )}
 
       <SectionHeader title="Training Parameters" />
       <FormRow label="Epochs:">
-        <input type="number" value={epochs} onChange={e => setEpochs(Number(e.target.value))} className="w-full border p-2 rounded" />
+        <input type="number" value={epochs} onChange={e => setEpochs(Number(e.target.value))} className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" />
       </FormRow>
       <FormRow label="Batch Size:">
-        <input type="number" value={batchSize} onChange={e => setBatchSize(Number(e.target.value))} className="w-full border p-2 rounded" />
+        <input type="number" value={batchSize} onChange={e => setBatchSize(Number(e.target.value))} className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" />
       </FormRow>
       <FormRow label="Learning Rate:">
-        <input type="number" value={lr} onChange={e => setLr(Number(e.target.value))} step={0.000001} className="w-full border p-2 rounded" />
+        <input type="number" value={lr} onChange={e => setLr(Number(e.target.value))} step={0.000001} className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" />
       </FormRow>
 
       <div className="flex gap-2 pt-4">
         <button className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Start Training</button>
-        <button disabled className="flex-1 bg-gray-300 text-gray-500 py-2 rounded cursor-not-allowed">Cancel</button>
+        {/* Updated disabled button style for dark mode */}
+        <button disabled className="flex-1 bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 py-2 rounded cursor-not-allowed">Cancel</button>
       </div>
-      <div className="text-center text-sm text-gray-500 mt-2">Ready</div>
+      <div className="text-center text-sm text-gray-500 dark:text-gray-400 mt-2">Ready</div>
     </div>
   );
 };
