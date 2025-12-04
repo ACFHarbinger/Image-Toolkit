@@ -1,11 +1,12 @@
-// This file assumes it is placed in the 'app' directory, 
-// and the root project applies the necessary Android plugins.
+// This file assumes it is placed in the 'app/android' directory.
+
+import org.gradle.api.JavaVersion
 
 plugins {
     // Apply the Android Application plugin
     alias(libs.plugins.android.application)
     // Kotlin Android plugin
-    alias(libs.plugins.kotlin.android) 
+    alias(libs.plugins.kotlin.android)
 }
 
 android {
@@ -33,7 +34,7 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
-    
+
     // Java/Kotlin configuration for the Android compile step
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
@@ -55,30 +56,32 @@ android {
 dependencies {
     // --- Link the Cryptography module to the Android application ---
     // The Android app needs access to the cryptography logic
-    implementation(project(":cryptography")) 
+    implementation(project(":cryptography"))
 
     // --- Android/Compose Dependencies (from uploaded file) ---
     implementation(libs.androidx.core.ktx) // Using version reference from Version Catalog (assumed)
-    implementation(libs.androidx.lifecycle.runtime.ktx) 
-    implementation(libs.androidx.activity.compose) 
-    
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.activity.compose)
+
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    
+
     // Image loading (Coil)
     implementation(libs.coil.compose)
-    
+
     // Testing and Debug
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.espresso.core)
-    
+
     // Compose Testing
     androidTestImplementation(platform(libs.androidx.compose.bom))
+    // FIX: Reverting to the official alias, which is now defined in libs.versions.toml
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

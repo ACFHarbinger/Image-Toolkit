@@ -23,5 +23,5 @@ include("cryptography")
 
 // Android Application Module
 include(":app")
-// Maps the ":app" project to the "app" directory (standard structure)
-project(":app").projectDir = file("app")
+// Maps the ":app" project to the actual Android source directory: "app/android"
+project(":app").projectDir = file("app/android")

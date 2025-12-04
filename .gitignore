@@ -398,6 +398,9 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 
+# JetBrains Idea
+/**/.idea
+
 # Ignore Gradle project-specific cache directory
 /**/.gradle
 
