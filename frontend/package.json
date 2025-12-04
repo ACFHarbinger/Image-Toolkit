@@ -19,6 +19,7 @@
     "web-vitals": "^2.1.4"
   },
   "devDependencies": {
+    "@types/react": "^19.2.7",
     "concurrently": "^8.2.2",
     "cross-env": "^10.1.0",
     "electron": "^28.1.0",
