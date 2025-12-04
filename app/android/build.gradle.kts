@@ -1,87 +1,54 @@
-// This file assumes it is placed in the 'app/android' directory.
-
-import org.gradle.api.JavaVersion
-
 plugins {
-    // Apply the Android Application plugin
     alias(libs.plugins.android.application)
-    // Kotlin Android plugin
     alias(libs.plugins.kotlin.android)
 }
 
 android {
-    // Configuration common across your Android targets
-    namespace = "com.personal.image_toolkit.app"
-    compileSdk = 34 // Use a recent version
+    namespace = "com.personal.image_toolkit"
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.personal.image_toolkit.app"
+        applicationId = "com.personal.image_toolkit"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // Required for Compose
-        vectorDrawables {
-            useSupportLibrary = true
-        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
-
-    // Java/Kotlin configuration for the Android compile step
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "11"
     }
-
-    // Compose configuration
     buildFeatures {
-        compose = true
-    }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.11" // Use version compatible with AGP/Kotlin
+        viewBinding = true
     }
 }
 
 dependencies {
-    // --- Link the Cryptography module to the Android application ---
-    // The Android app needs access to the cryptography logic
-    implementation(project(":cryptography"))
-
-    // --- Android/Compose Dependencies (from uploaded file) ---
-    implementation(libs.androidx.core.ktx) // Using version reference from Version Catalog (assumed)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.activity.compose)
-
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.compose.ui.graphics)
-    implementation(libs.androidx.compose.ui.tooling.preview)
-    implementation(libs.androidx.compose.material3)
-
-    // Image loading (Coil)
-    implementation(libs.coil.compose)
-
-    // Testing and Debug
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.material)
+    implementation(libs.androidx.recyclerview)
+    implementation(libs.androidx.constraintlayout)
+    implementation(libs.androidx.lifecycle.livedata.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.androidx.navigation.fragment.ktx)
+    implementation(libs.androidx.navigation.ui.ktx)
     testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.test.ext.junit)
-    androidTestImplementation(libs.androidx.test.espresso.core)
-
-    // Compose Testing
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    // FIX: Reverting to the official alias, which is now defined in libs.versions.toml
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
-
-    debugImplementation(libs.androidx.compose.ui.tooling)
-    debugImplementation(libs.androidx.compose.ui.test.manifest)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
 }
