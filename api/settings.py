@@ -79,9 +79,13 @@ WSGI_APPLICATION = "api.wsgi.application"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'img_db',
+        'USER': 'image_toolkit',
+        'PASSWORD': 'Ratchet123!',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
 
@@ -126,3 +130,13 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# --- CELERY CONFIGURATION ---
+# Use Redis as the message broker (ensure Redis server is running)
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
+
+# Optional: store results in Django's database, or another backend like Redis
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0' 
+
+# Celery timezone configuration
+CELERY_TIMEZONE = "Europe/Lisbon" # Use your local timezone
