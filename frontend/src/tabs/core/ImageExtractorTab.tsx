@@ -17,7 +17,8 @@ import {
 // Components
 import { ClickableLabel, VIDEO_PLACEHOLDER_CONST } from '../../components/ClickableLabel.tsx';
 import { MarqueeScrollArea } from '../../components/MarqueeScrollArea.tsx';
-import { useGallery, GalleryItem } from '../../hooks/useGallery.ts';
+import { useGallery } from '../../hooks/useGallery.ts';
+import { GalleryItem } from '../../hooks/galleryItem.ts';
 
 // --- Types & Constants ---
 const RESOLUTIONS = [
