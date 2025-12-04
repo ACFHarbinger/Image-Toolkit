@@ -20,10 +20,4 @@ plugins {
 allprojects {
     group = "com.personal.image_toolkit"
     version = "1.0.0-SNAPSHOT"
-
-    // Defines Maven repositories for dependencies (same as in settings.gradle.kts)
-    repositories {
-        google()
-        mavenCentral()
-    }
 }

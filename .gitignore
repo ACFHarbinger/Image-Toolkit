@@ -400,6 +400,7 @@ FodyWeavers.xsd
 
 # JetBrains Idea
 /**/.idea
+/**/res
 
 # Ignore Gradle project-specific cache directory
 /**/.gradle
