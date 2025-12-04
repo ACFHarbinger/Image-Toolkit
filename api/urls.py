@@ -21,6 +21,6 @@ from django.urls import path, include
 urlpatterns = [
     path('admin/', admin.site.urls),
     
-    # Route all API endpoints starting with 'api/' to the core_tasks app
-    path('api/', include('core_tasks.urls')), 
+    # Route all API endpoints starting with 'api/' to the tasks app
+    path('api/', include('tasks.urls')), 
 ]
