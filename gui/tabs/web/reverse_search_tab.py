@@ -9,10 +9,9 @@ from PySide6.QtWidgets import (
     QMessageBox, QFileDialog, QComboBox, QScrollArea
 )
 
-from ...components import ClickableLabel
+from ...components import ClickableLabel, MarqueeScrollArea
 from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassSingleGallery
-# --- IMPORTS FROM HELPERS AS REQUESTED ---
 from ...helpers import ImageScannerWorker, ReverseSearchWorker, ImageLoaderWorker
 from ...styles.style import apply_shadow_effect
 
@@ -24,7 +23,6 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
     """
 
     def __init__(self):
-        # 1. Initialize Parent (Sets up pagination logic, data structures)
         super().__init__()
         
         # --- Data State ---
@@ -32,12 +30,12 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         self.search_results: List[Dict[str, str]] = []
         self.open_preview_windows = []
         
-        # Thread reference for scanning (to prevent garbage collection)
         self.scan_thread: Optional[QThread] = None
         self.scan_worker: Optional[ImageScannerWorker] = None
 
         # --- UI Setup ---
         self.root_layout = QVBoxLayout(self)
+        self.root_layout.setContentsMargins(10, 10, 10, 10)
         
         # 2. Configuration Controls
         controls_group = QGroupBox("Configuration")
@@ -77,6 +75,14 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         self.browser_combo = QComboBox()
         self.browser_combo.addItems(["brave", "chrome", "firefox", "edge"])
         
+        self.mode_combo = QComboBox()
+        self.mode_combo.addItems(["All", "Visual matches", "Exact matches"])
+        self.mode_combo.setToolTip("Select which Google Lens page to scrape")
+        
+        self.check_keep_open = QCheckBox("Keep Browser Open")
+        self.check_keep_open.setChecked(True)
+        self.check_keep_open.setToolTip("If checked, the browser will not close automatically after searching.")
+
         # Selected Image Label
         self.lbl_selected_path = QLabel("No image selected")
         self.lbl_selected_path.setStyleSheet("color: #aaa; font-style: italic;")
@@ -91,9 +97,15 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         search_settings_layout.addWidget(self.input_width)
         search_settings_layout.addWidget(QLabel("x"))
         search_settings_layout.addWidget(self.input_height)
-        search_settings_layout.addSpacing(20)
+        search_settings_layout.addSpacing(10)
+        search_settings_layout.addWidget(QLabel("Mode:"))
+        search_settings_layout.addWidget(self.mode_combo) 
+        search_settings_layout.addSpacing(10)
+        search_settings_layout.addWidget(self.check_keep_open)
+        search_settings_layout.addSpacing(10)
         search_settings_layout.addWidget(QLabel("Browser:"))
         search_settings_layout.addWidget(self.browser_combo)
+        
         search_settings_layout.addStretch()
         search_settings_layout.addWidget(self.lbl_selected_path)
         search_settings_layout.addWidget(self.btn_search)
@@ -107,27 +119,66 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         self.status_label.setAlignment(Qt.AlignCenter)
         self.root_layout.addWidget(self.status_label)
 
-        # 4. Gallery Area 
-        # We explicitly create the layout and scroll area here so they appear immediately
-        self.gallery_layout = QGridLayout()
-        self.gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
-        
-        gallery_container = QWidget()
-        gallery_container.setLayout(self.gallery_layout)
-        
-        self.gallery_scroll_area = QScrollArea()
+        # 4. Gallery Area (UPDATED STYLE TO MATCH IMAGE EXTRACTOR)
+        self.gallery_scroll_area = MarqueeScrollArea()
         self.gallery_scroll_area.setWidgetResizable(True)
-        self.gallery_scroll_area.setWidget(gallery_container)
+        self.gallery_scroll_area.setStyleSheet("""
+            QScrollArea { 
+                border: 1px solid #4f545c; 
+                background-color: #2c2f33; 
+                border-radius: 8px; 
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: #2c2f33;
+                width: 12px;
+                margin: 0px 0px 0px 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #00BCD4; 
+                min-height: 20px;
+                border-radius: 6px;
+                margin: 0 2px;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+                subcontrol-position: none;
+            }
+            QScrollBar:horizontal {
+                border: none;
+                background: #2c2f33; 
+                height: 12px;
+                margin: 0px 0px 0px 0px;
+            }
+            QScrollBar::handle:horizontal {
+                background: #00BCD4; 
+                min-width: 20px;
+                border-radius: 6px;
+                margin: 2px 0;
+            }
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                width: 0px;
+                subcontrol-position: none;
+            }
+        """)
         
-        # Add Pagination (from parent) and Gallery to layout
-        self.root_layout.addWidget(self.pagination_widget, 0, Qt.AlignCenter)
+        self.gallery_container = QWidget()
+        self.gallery_container.setStyleSheet("QWidget { background-color: #2c2f33; }")
+        
+        self.gallery_layout = QGridLayout(self.gallery_container)
+        self.gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.gallery_layout.setSpacing(3)
+        self.gallery_scroll_area.setWidget(self.gallery_container)
+        
         self.root_layout.addWidget(self.gallery_scroll_area, 1)
+        self.root_layout.addWidget(self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter)
 
-        # Enable Drag & Drop
         self.setAcceptDrops(True)
 
     # --- Directory Scanning Logic ---
-
     def browse_scan_directory(self):
         start_dir = self.last_browsed_scan_dir
         d = QFileDialog.getExistingDirectory(self, "Select Image Directory", start_dir)
@@ -137,14 +188,15 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
             self.start_scanning(d)
 
     def start_scanning(self, directory: str):
-        # 1. Clear previous gallery
         self.clear_gallery_widgets()
         self.gallery_image_paths = []
         self._initial_pixmap_cache = {}
+        self.selected_source_path = None
+        self.btn_search.setEnabled(False)
+        self.lbl_selected_path.setText("No image selected")
         
         self.status_label.setText(f"Scanning directory: {directory}...")
         
-        # 2. Cleanup old thread if exists
         if self.scan_thread is not None:
             if self.scan_thread.isRunning():
                 self.scan_thread.quit()
@@ -152,82 +204,57 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
             self.scan_thread.deleteLater()
             self.scan_thread = None
 
-        # 3. Setup Worker and Thread
-        # This prevents the "Stuck" UI by moving file I/O to a background thread
         self.scan_worker = ImageScannerWorker(directory)
         self.scan_thread = QThread()
         self.scan_worker.moveToThread(self.scan_thread)
         
-        # 4. Connect Signals
         self.scan_thread.started.connect(self.scan_worker.run_scan)
         self.scan_worker.scan_finished.connect(self.on_scan_finished)
-        
-        # Cleanup when done
         self.scan_worker.scan_finished.connect(self.scan_thread.quit)
         self.scan_thread.finished.connect(self.scan_thread.deleteLater)
         self.scan_thread.finished.connect(lambda: setattr(self, 'scan_thread', None))
         
-        # 5. Start
         self.scan_thread.start()
 
     @Slot(list)
     def on_scan_finished(self, paths: list):
-        """
-        Called when the threaded scanner finishes finding all files.
-        We then pass these paths to the parent's `start_loading_gallery`
-        which handles the visual rendering incrementally.
-        """
         count = len(paths)
         self.status_label.setText(f"Scan complete. Found {count} images.")
         
         if count == 0:
             self.show_placeholder("No images found in directory.")
         else:
-            # Sort paths for consistency
             paths.sort()
-            # This triggers the batched/incremental UI creation from AbstractClassSingleGallery
             self.start_loading_gallery(paths)
 
-    # --- Overriding Image Loading to use the IMPORTED Class ---
-
     def _trigger_image_load(self, path: str):
-        """
-        Overrides parent method to use the IMPORTED ImageLoaderWorker.
-        """
-        # Create the worker from helpers
         worker = ImageLoaderWorker(path, self.thumbnail_size)
-        
-        # Connect to the parent class's slot which handles the UI update
-        # Ensure signals.result matches (str, QPixmap) signature
         worker.signals.result.connect(self._on_single_image_loaded)
-        
-        # Start in global thread pool
         QThreadPool.globalInstance().start(worker)
 
-    # --- Gallery Item Creation (Abstract Implementation) ---
-
+    # --- Card Widget & Styling (Matched to ImageExtractorTab) ---
     def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
-        """Creates a clickable thumbnail card for the gallery."""
         container = QWidget()
+        container.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(2, 2, 2, 2)
-        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(1)
         
         lbl = ClickableLabel(path, parent=self)
         lbl.setFixedSize(self.thumbnail_size, self.thumbnail_size)
         lbl.setAlignment(Qt.AlignCenter)
+        lbl.path = path # Explicitly set path attribute for helper access
         
-        # Styling based on selection
-        is_selected = (path == self.selected_source_path)
-        border_color = "#007AFF" if is_selected else "#4f545c"
-        bg_color = "#3a3a3a" if is_selected else "#2c2f33"
-        lbl.setStyleSheet(f"border: 2px solid {border_color}; background-color: {bg_color};")
-
-        if pixmap:
+        if pixmap and not pixmap.isNull():
             scaled = pixmap.scaled(self.thumbnail_size, self.thumbnail_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             lbl.setPixmap(scaled)
+            lbl.setText("")
         else:
             lbl.setText("Loading...")
+            lbl.setStyleSheet("border: 1px solid #4f545c; color: #888; font-size: 10px;")
+
+        # Apply initial selection style
+        self._style_label(lbl, selected=(path == self.selected_source_path))
 
         lbl.path_clicked.connect(self.handle_image_selection)
         lbl.path_double_clicked.connect(self.handle_image_double_click)
@@ -243,8 +270,16 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
             scaled = pixmap.scaled(self.thumbnail_size, self.thumbnail_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             lbl.setPixmap(scaled)
             lbl.setText("")
+            self._style_label(lbl, selected=(lbl.path == self.selected_source_path))
 
-    # --- Selection & Interaction ---
+    def _style_label(self, label: ClickableLabel, selected: bool):
+        if selected:
+            label.setStyleSheet("border: 3px solid #5865f2; background-color: #36393f;")
+        else:
+            if label.text() == "Loading...":
+                label.setStyleSheet("border: 1px solid #4f545c; color: #888; font-size: 10px;")
+            else:
+                label.setStyleSheet("border: 1px solid #4f545c;")
 
     def handle_image_selection(self, path: str):
         self.selected_source_path = path
@@ -253,22 +288,15 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         self.update_visual_selection()
 
     def update_visual_selection(self):
-        """Refreshes the border style of all visible widgets to show selection."""
         for path, widget in self.path_to_card_widget.items():
             lbl = widget.findChild(ClickableLabel)
             if lbl:
-                if path == self.selected_source_path:
-                    lbl.setStyleSheet("border: 3px solid #007AFF; background-color: #3a3a3a;")
-                else:
-                    lbl.setStyleSheet("border: 1px solid #4f545c; background-color: #2c2f33;")
+                self._style_label(lbl, selected=(path == self.selected_source_path))
 
     def handle_image_double_click(self, path: str):
-        # Open large preview
         window = ImagePreviewWindow(path, parent=self, all_paths=self.gallery_image_paths)
         window.show()
         self.open_preview_windows.append(window)
-
-    # --- Search Logic ---
 
     def start_search(self):
         if not self.selected_source_path: return
@@ -276,11 +304,20 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         min_w = int(self.input_width.text()) if self.check_filter_res.isChecked() else 0
         min_h = int(self.input_height.text()) if self.check_filter_res.isChecked() else 0
         
+        mode = self.mode_combo.currentText()
+        keep_open = self.check_keep_open.isChecked()
+        
         self.btn_search.setEnabled(False)
         self.status_label.setText("Starting browser...")
         
-        # Use Imported ReverseSearchWorker
-        worker = ReverseSearchWorker(self.selected_source_path, min_w, min_h, self.browser_combo.currentText())
+        worker = ReverseSearchWorker(
+            image_path=self.selected_source_path, 
+            min_width=min_w, 
+            min_height=min_h, 
+            browser=self.browser_combo.currentText(),
+            search_mode=mode, 
+            keep_open=keep_open
+        )
         worker.signals.status.connect(self.status_label.setText)
         worker.signals.finished.connect(self.on_search_finished)
         worker.signals.error.connect(self.on_search_error)
@@ -292,7 +329,7 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         self.status_label.setText(f"Search complete. Found {len(results)} results.")
         
         if not results:
-            QMessageBox.information(self, "No Results", "No matching images found matching your criteria.")
+            QMessageBox.information(self, "No Results", "No matching images found matching your criteria, or browser was closed.")
             return
 
         result_text = "\n".join([f"{r['resolution']} - {r['url']}" for r in results])
@@ -313,7 +350,6 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         self.input_width.setEnabled(enabled)
         self.input_height.setEnabled(enabled)
 
-    # --- Drag & Drop ---
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
@@ -326,15 +362,15 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
                 self.scan_dir_input.setText(path)
                 self.start_scanning(path)
 
-    # --- Config Management ---
-
     def collect(self) -> dict:
         return {
             "scan_dir": self.scan_dir_input.text(),
             "browser": self.browser_combo.currentText(),
             "filter_res": self.check_filter_res.isChecked(),
             "min_w": self.input_width.text(),
-            "min_h": self.input_height.text()
+            "min_h": self.input_height.text(),
+            "search_mode": self.mode_combo.currentText(), 
+            "keep_open": self.check_keep_open.isChecked() 
         }
 
     def set_config(self, config: dict):
@@ -347,6 +383,8 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         if "filter_res" in config: self.check_filter_res.setChecked(config["filter_res"])
         if "min_w" in config: self.input_width.setText(config["min_w"])
         if "min_h" in config: self.input_height.setText(config["min_h"])
+        if "search_mode" in config: self.mode_combo.setCurrentText(config["search_mode"])
+        if "keep_open" in config: self.check_keep_open.setChecked(config["keep_open"])
 
     def get_default_config(self) -> dict:
         return {
@@ -354,5 +392,7 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
             "browser": "brave",
             "filter_res": False,
             "min_w": "1920",
-            "min_h": "1080"
+            "min_h": "1080",
+            "search_mode": "All",
+            "keep_open": True
         }
