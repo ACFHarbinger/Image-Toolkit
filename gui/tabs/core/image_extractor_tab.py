@@ -542,12 +542,35 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def eventFilter(self, obj: QWidget, event: QEvent) -> bool:
         if obj is self.video_view:
             if self.use_internal_player:
+                # toggle play on click
                 if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
                     self.toggle_playback()
                     return True
+                
+                # toggle fullscreen on double click
                 if event.type() == QEvent.Type.MouseButtonDblClick:
                     self.toggle_fullscreen()
                     return True
+
+                # --- NEW: Seek on Mouse Wheel ---
+                if event.type() == QEvent.Type.Wheel:
+                    if self.media_player.duration() > 0:
+                        delta = event.angleDelta().y()
+                        # Determine direction: positive is forward, negative is backward
+                        # Seek 10 microsecond (10ms) per scroll tick (usually 120 delta)
+                        step = 10 if delta > 0 else -10
+                        
+                        # Calculate new position ensuring it stays within bounds
+                        current_pos = self.media_player.position()
+                        new_pos = max(0, min(current_pos + step, self.media_player.duration()))
+                        
+                        self.media_player.setPosition(new_pos)
+                        
+                        # Display the time briefly in the console or UI (optional, but good for feedback)
+                        # self.lbl_current_time.setText(self._format_time(new_pos)) 
+                        
+                        return True
+                # --------------------------------
 
         if obj is self.player_container:
             if event.type() == QEvent.Type.KeyPress:
@@ -941,7 +964,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         target_ms = self.start_time_ms
         
         # Define a small offset to correct for player/extractor lag
-        LAG_COMPENSATION_MS = 75 
+        LAG_COMPENSATION_MS = 26 
         
         # Adjust the target time backward, ensuring it doesn't go below zero
         corrected_ms = max(0, target_ms - LAG_COMPENSATION_MS)

@@ -22,7 +22,10 @@ class VideoScannerWorker(QRunnable):
 
     def run(self):
         if not os.path.isdir(self.directory):
-            self.signals.finished.emit()
+            try: # Added try-except block
+                self.signals.finished.emit()
+            except RuntimeError:
+                pass
             return
 
         # Sort for consistent order
@@ -34,11 +37,19 @@ class VideoScannerWorker(QRunnable):
                     if ext in SUPPORTED_VIDEO_FORMATS:
                         pixmap = self.generate_thumbnail(entry.path)
                         if pixmap:
-                            self.signals.thumbnail_ready.emit(entry.path, pixmap)
+                            # Also wrap this signal, as it's emitted repeatedly
+                            try:
+                                self.signals.thumbnail_ready.emit(entry.path, pixmap)
+                            except RuntimeError:
+                                return # If thumbnail_ready fails, the window is closing, so stop
+
         except Exception:
             pass
-        
-        self.signals.finished.emit()
+
+        try: # Added try-except block
+            self.signals.finished.emit()
+        except RuntimeError:
+            pass # Ignore if the signal source (window) has been deleted
 
     def generate_thumbnail(self, path):
         try:
