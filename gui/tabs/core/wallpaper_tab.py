@@ -724,8 +724,8 @@ class WallpaperTab(AbstractClassSingleGallery):
                 if current_path == path:
                     self.monitor_image_paths[mid] = None
                     self.monitor_widgets[mid].clear()
-            
-            self._reflow_layout(self._current_cols) 
+        
+            self.refresh_gallery_view()
             self.check_all_monitors_set()
             QMessageBox.information(self, "Success", f"File deleted successfully: {filename}")
         except Exception as e:
