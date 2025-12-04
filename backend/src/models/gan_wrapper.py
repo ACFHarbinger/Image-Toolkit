@@ -13,31 +13,39 @@ from tqdm import tqdm
 class GanWrapper:
     # --- Cancellation Flag ---
     is_cancelled = False
-    
+
     @staticmethod
     def cancel_process():
         GanWrapper.is_cancelled = True
         print("[CANCELLED] GAN process cancellation requested.")
-        
-    def __init__(self, model_name="bryandlee/animegan2-pytorch:main", device="cuda" if torch.cuda.is_available() else "cpu"):
+
+    def __init__(
+        self,
+        model_name="bryandlee/animegan2-pytorch:main",
+        device="cuda" if torch.cuda.is_available() else "cpu",
+    ):
         self.device = device
-        GanWrapper.is_cancelled = False # Reset flag on new instance creation
-        
+        GanWrapper.is_cancelled = False  # Reset flag on new instance creation
+
         print(f"Initializing GAN Wrapper on {self.device}...")
-        
+
         try:
             # We assume this is fast and does not need cancellation checks.
-            self.netG = torch.hub.load(model_name, "generator", device=device, pretrained="face_paint_512_v2")
+            self.netG = torch.hub.load(
+                model_name, "generator", device=device, pretrained="face_paint_512_v2"
+            )
             self.netG.eval()
         except Exception as e:
             print(f"Error loading AnimeGAN: {e}")
             self.netG = None
 
-        self.transform = transforms.Compose([
-            transforms.Resize((512, 512)),
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-        ])
+        self.transform = transforms.Compose(
+            [
+                transforms.Resize((512, 512)),
+                transforms.ToTensor(),
+                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            ]
+        )
 
     def generate(self, input_image_path, output_path):
         if GanWrapper.is_cancelled:
@@ -54,7 +62,7 @@ class GanWrapper:
 
         with torch.no_grad():
             output = self.netG(image_tensor)
-            
+
         if GanWrapper.is_cancelled:
             print("Generation stopped before save due to cancellation.")
             return
@@ -73,13 +81,13 @@ class GanWrapper:
                 self.image_paths = []
                 for root, _, files in os.walk(root_dir):
                     for file in files:
-                        if file.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp')):
+                        if file.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
                             self.image_paths.append(os.path.join(root, file))
                 self.transform = transform
-            
+
             def __len__(self):
                 return len(self.image_paths)
-            
+
             def __getitem__(self, idx):
                 try:
                     img = Image.open(self.image_paths[idx]).convert("RGB")
@@ -91,8 +99,10 @@ class GanWrapper:
         if len(dataset) == 0:
             print("No images found.")
             return
-            
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+
+        dataloader = DataLoader(
+            dataset, batch_size=batch_size, shuffle=True, num_workers=0
+        )
 
         self.netG.train()
         optimizer = optim.Adam(self.netG.parameters(), lr=lr)
@@ -102,23 +112,23 @@ class GanWrapper:
             if GanWrapper.is_cancelled:
                 print("Training stopped by cancellation.")
                 return
-                
+
             progress = tqdm(dataloader, desc=f"Epoch {epoch+1}/{epochs}")
-            
+
             for batch_imgs in progress:
                 if GanWrapper.is_cancelled:
                     progress.close()
                     print("Training stopped by cancellation.")
                     return
-                    
+
                 batch_imgs = batch_imgs.to(self.device)
-                
+
                 optimizer.zero_grad()
                 output = self.netG(batch_imgs)
                 loss = criterion(output, batch_imgs)
                 loss.backward()
                 optimizer.step()
-                
+
                 progress.set_postfix({"Loss": round(loss.item(), 4)})
 
         torch.save(self.netG.state_dict(), "custom_animegan.pt")

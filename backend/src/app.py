@@ -11,7 +11,9 @@ from .utils.definitions import ICON_FILE, CTRL_C_TIMEOUT
 
 def log_uncaught_exceptions(ex_type, ex_value, ex_traceback):
     """Handler for uncaught exceptions that prints traceback to console."""
-    sys.__excepthook__(ex_type, ex_value, ex_traceback) # Call the default handler first
+    sys.__excepthook__(
+        ex_type, ex_value, ex_traceback
+    )  # Call the default handler first
     print("\n--- Uncaught Python Exception ---")
     traceback.print_exception(ex_type, ex_value, ex_traceback)
     print("-----------------------------------")
@@ -23,11 +25,11 @@ def launch_app(opts):
         app_icon = QIcon(ICON_FILE)
         app.setWindowIcon(app_icon)
     except Exception:
-        print(f"WARNING: Failed to set application icon. Ensure '{ICON_FILE}' exists.") 
+        print(f"WARNING: Failed to set application icon. Ensure '{ICON_FILE}' exists.")
 
     # We will track the active window (either login or main)
-    active_window = None 
-    
+    active_window = None
+
     # Create a custom signal handler that works with Qt
     def handle_interrupt(signum, frame):
         """Handle Ctrl+C signal by gracefully closing the application"""
@@ -37,30 +39,30 @@ def launch_app(opts):
         app.quit()
         # Force exit if app doesn't quit quickly
         threading.Timer(CTRL_C_TIMEOUT, lambda: sys.exit(1)).start()
-    
+
     # Set up signal handler for Ctrl+C
     signal.signal(signal.SIGINT, handle_interrupt)
-    
-    def launch_main_gui(vault_manager): 
+
+    def launch_main_gui(vault_manager):
         """
         Creates and shows the MainWindow after successful authentication.
         Replaces the LoginWindow.
         """
         nonlocal active_window
-        
+
         # 1. Close the login window if it's still around
         if active_window and isinstance(active_window, LoginWindow):
             # The LoginWindow's closeEvent handles JVM shutdown if needed
-            active_window.close() 
+            active_window.close()
 
         # 2. Create the new main window instance
         active_window = MainWindow(
-            vault_manager=vault_manager, # Pass the authenticated manager
-            dropdown=~opts['no_dropdown'], 
+            vault_manager=vault_manager,  # Pass the authenticated manager
+            dropdown=~opts["no_dropdown"],
             app_icon=ICON_FILE,
         )
         active_window.show()
-    
+
     # Create and show the Login Window
     login_window = LoginWindow()
     # Connect the success signal to the function that launches the main app
@@ -68,7 +70,7 @@ def launch_app(opts):
     active_window = login_window
     active_window.show()
     # --- END OF NEW LOGIN FLOW ---
-    
+
     # Install a custom event filter to catch the interrupt
     old_handler = signal.signal(signal.SIGINT, signal.SIG_DFL)
     try:
@@ -78,9 +80,9 @@ def launch_app(opts):
         signal.signal(signal.SIGINT, old_handler)
 
 
-if __name__ =="__main__":
+if __name__ == "__main__":
     # Ensure all exceptions are logged before crashing
     sys.excepthook = log_uncaught_exceptions
-    
+
     # Simplified opts for direct launch
-    launch_app({'no_dropdown': False})
+    launch_app({"no_dropdown": False})

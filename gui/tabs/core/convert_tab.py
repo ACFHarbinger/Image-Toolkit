@@ -2,10 +2,22 @@ import os
 
 from typing import Optional, List
 from PySide6.QtWidgets import (
-    QLineEdit, QPushButton, QFileDialog, QFormLayout, QHBoxLayout,
-    QVBoxLayout, QWidget, QCheckBox, QMessageBox, 
-    QLabel, QGroupBox, QScrollArea, QGridLayout, 
-    QProgressBar, QComboBox, QMenu
+    QLineEdit,
+    QPushButton,
+    QFileDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QVBoxLayout,
+    QWidget,
+    QCheckBox,
+    QMessageBox,
+    QLabel,
+    QGroupBox,
+    QScrollArea,
+    QGridLayout,
+    QProgressBar,
+    QComboBox,
+    QMenu,
 )
 from PySide6.QtGui import QPixmap, QAction
 from PySide6.QtCore import Qt, Slot, QPoint
@@ -23,7 +35,7 @@ class ConvertTab(AbstractClassTwoGalleries):
         self.dropdown = dropdown
         self.worker = None
         self.open_preview_windows: List[ImagePreviewWindow] = []
-        
+
         # --- UI Setup ---
         main_layout = QVBoxLayout(self)
 
@@ -31,7 +43,7 @@ class ConvertTab(AbstractClassTwoGalleries):
         page_scroll = QScrollArea()
         page_scroll.setWidgetResizable(True)
         page_scroll.setStyleSheet("QScrollArea { border: none; }")
-        
+
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
 
@@ -43,12 +55,16 @@ class ConvertTab(AbstractClassTwoGalleries):
         # Input path
         input_layout = QHBoxLayout()
         self.input_path = QLineEdit()
-        self.input_path.setPlaceholderText("Path to directory containing images for conversion...")
+        self.input_path.setPlaceholderText(
+            "Path to directory containing images for conversion..."
+        )
         input_layout.addWidget(self.input_path)
 
         btn_browse_scan = QPushButton("Browse...")
         btn_browse_scan.clicked.connect(self.browse_directory_and_scan)
-        apply_shadow_effect(btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        apply_shadow_effect(
+            btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        )
         input_layout.addWidget(btn_browse_scan)
 
         v_input_group.addLayout(input_layout)
@@ -69,19 +85,25 @@ class ConvertTab(AbstractClassTwoGalleries):
         # Output path
         h_output = QHBoxLayout()
         self.output_path = QLineEdit()
-        self.output_path.setPlaceholderText("Leave blank to save in the input directory")
+        self.output_path.setPlaceholderText(
+            "Leave blank to save in the input directory"
+        )
         btn_output = QPushButton("Browse...")
         btn_output.clicked.connect(self.browse_output)
-        apply_shadow_effect(btn_output, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        apply_shadow_effect(
+            btn_output, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        )
         h_output.addWidget(self.output_path)
         h_output.addWidget(btn_output)
-        
+
         output_path_container = QWidget()
         output_path_container.setLayout(h_output)
-        self.output_field = OptionalField("Output path", output_path_container, start_open=False)
+        self.output_field = OptionalField(
+            "Output path", output_path_container, start_open=False
+        )
         settings_layout.addRow(self.output_field)
-        
-        # Input formats 
+
+        # Input formats
         if self.dropdown:
             self.selected_formats = set()
             formats_layout = QVBoxLayout()
@@ -91,8 +113,12 @@ class ConvertTab(AbstractClassTwoGalleries):
                 btn = QPushButton(fmt)
                 btn.setCheckable(True)
                 btn.setStyleSheet("QPushButton:hover { background-color: #3498db; }")
-                apply_shadow_effect(btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-                btn.clicked.connect(lambda checked, f=fmt: self.toggle_format(f, checked))
+                apply_shadow_effect(
+                    btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+                )
+                btn.clicked.connect(
+                    lambda checked, f=fmt: self.toggle_format(f, checked)
+                )
                 btn_layout.addWidget(btn)
                 self.format_buttons[fmt] = btn
             formats_layout.addLayout(btn_layout)
@@ -100,11 +126,19 @@ class ConvertTab(AbstractClassTwoGalleries):
             all_btn_layout = QHBoxLayout()
             self.btn_add_all = QPushButton("Add All")
             self.btn_add_all.setStyleSheet("background-color: green; color: white;")
-            apply_shadow_effect(self.btn_add_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+            apply_shadow_effect(
+                self.btn_add_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            )
             self.btn_add_all.clicked.connect(self.add_all_formats)
             self.btn_remove_all = QPushButton("Remove All")
             self.btn_remove_all.setStyleSheet("background-color: red; color: white;")
-            apply_shadow_effect(self.btn_remove_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+            apply_shadow_effect(
+                self.btn_remove_all,
+                color_hex="#000000",
+                radius=8,
+                x_offset=0,
+                y_offset=3,
+            )
             self.btn_remove_all.clicked.connect(self.remove_all_formats)
             all_btn_layout.addWidget(self.btn_add_all)
             all_btn_layout.addWidget(self.btn_remove_all)
@@ -112,26 +146,30 @@ class ConvertTab(AbstractClassTwoGalleries):
 
             formats_container = QWidget()
             formats_container.setLayout(formats_layout)
-            self.formats_field = OptionalField("Input formats to filter", formats_container, start_open=False)
+            self.formats_field = OptionalField(
+                "Input formats to filter", formats_container, start_open=False
+            )
             settings_layout.addRow(self.formats_field)
         else:
             self.selected_formats = None
             self.input_formats = QLineEdit()
             self.input_formats.setPlaceholderText("e.g. .jpg .png .gif")
             settings_layout.addRow("Input formats (optional):", self.input_formats)
-        
+
         self.delete_checkbox = QCheckBox("Delete original files after conversion")
-        self.delete_checkbox.setStyleSheet("""
+        self.delete_checkbox.setStyleSheet(
+            """
             QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid #555; border-radius: 3px; background-color: #333; }
             QCheckBox::indicator:checked { background-color: #4CAF50; border: 1px solid #4CAF50; image: url(./src/gui/assets/check.png); }
-        """)
+        """
+        )
         self.delete_checkbox.setChecked(False)
         settings_layout.addRow(self.delete_checkbox)
 
         content_layout.addWidget(settings_group)
-        
+
         # --- 3. Galleries ---
-        
+
         # Progress Bar
         self.scan_progress_bar = QProgressBar()
         self.scan_progress_bar.setTextVisible(False)
@@ -141,27 +179,35 @@ class ConvertTab(AbstractClassTwoGalleries):
         # Found Files (Top)
         self.found_gallery_scroll = MarqueeScrollArea()
         self.found_gallery_scroll.setWidgetResizable(True)
-        self.found_gallery_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
+        self.found_gallery_scroll.setStyleSheet(
+            "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
+        )
         self.found_gallery_scroll.setMinimumHeight(600)
-        
+
         self.gallery_widget = QWidget()
         self.gallery_widget.setStyleSheet("background-color: #2c2f33;")
         self.found_gallery_layout = QGridLayout(self.gallery_widget)
         self.found_gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         self.found_gallery_scroll.setWidget(self.gallery_widget)
-        
+
         # Connect Base logic
-        self.found_gallery_scroll.selection_changed.connect(self.handle_marquee_selection)
+        self.found_gallery_scroll.selection_changed.connect(
+            self.handle_marquee_selection
+        )
         content_layout.addWidget(self.found_gallery_scroll, 1)
 
         # Add Pagination Widget (Found) - Moved to Bottom
-        if hasattr(self, 'found_pagination_widget'):
-            content_layout.addWidget(self.found_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter)
-        
+        if hasattr(self, "found_pagination_widget"):
+            content_layout.addWidget(
+                self.found_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
+            )
+
         # Selected Files (Bottom)
         self.selected_gallery_scroll = MarqueeScrollArea()
         self.selected_gallery_scroll.setWidgetResizable(True)
-        self.selected_gallery_scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
+        self.selected_gallery_scroll.setStyleSheet(
+            "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
+        )
         self.selected_gallery_scroll.setMinimumHeight(400)
 
         self.selected_widget = QWidget()
@@ -172,8 +218,10 @@ class ConvertTab(AbstractClassTwoGalleries):
         content_layout.addWidget(self.selected_gallery_scroll, 1)
 
         # Add Pagination Widget (Selected) - Moved to Bottom
-        if hasattr(self, 'selected_pagination_widget'):
-            content_layout.addWidget(self.selected_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter)
+        if hasattr(self, "selected_pagination_widget"):
+            content_layout.addWidget(
+                self.selected_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
+            )
 
         content_layout.addStretch(1)
 
@@ -181,24 +229,38 @@ class ConvertTab(AbstractClassTwoGalleries):
         button_container = QWidget()
         button_layout = QHBoxLayout(button_container)
         button_layout.setContentsMargins(0, 0, 0, 0)
-        
+
         self.btn_convert_all = QPushButton("Convert All in Directory")
         self.btn_convert_all.setStyleSheet(SHARED_BUTTON_STYLE)
-        apply_shadow_effect(self.btn_convert_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        self.btn_convert_all.clicked.connect(lambda: self.start_conversion_worker(use_selection=False))
+        apply_shadow_effect(
+            self.btn_convert_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        )
+        self.btn_convert_all.clicked.connect(
+            lambda: self.start_conversion_worker(use_selection=False)
+        )
         button_layout.addWidget(self.btn_convert_all)
 
         self.btn_convert_contents = QPushButton("Convert Selected Files (0)")
         self.btn_convert_contents.setStyleSheet(SHARED_BUTTON_STYLE)
-        apply_shadow_effect(self.btn_convert_contents, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        self.btn_convert_contents.clicked.connect(lambda: self.start_conversion_worker(use_selection=True))
+        apply_shadow_effect(
+            self.btn_convert_contents,
+            color_hex="#000000",
+            radius=8,
+            x_offset=0,
+            y_offset=3,
+        )
+        self.btn_convert_contents.clicked.connect(
+            lambda: self.start_conversion_worker(use_selection=True)
+        )
         button_layout.addWidget(self.btn_convert_contents)
 
         content_layout.addWidget(button_container)
 
         self.status_label = QLabel("Ready.")
         self.status_label.setAlignment(Qt.AlignCenter)
-        self.status_label.setStyleSheet("color: #666; font-style: italic; padding: 8px;")
+        self.status_label.setStyleSheet(
+            "color: #666; font-style: italic; padding: 8px;"
+        )
         content_layout.addWidget(self.status_label)
 
         page_scroll.setWidget(content_widget)
@@ -209,73 +271,87 @@ class ConvertTab(AbstractClassTwoGalleries):
 
     # --- IMPLEMENTING ABSTRACT METHODS ---
 
-    def create_card_widget(self, path: str, pixmap: Optional[QPixmap], is_selected: bool) -> QWidget:
+    def create_card_widget(
+        self, path: str, pixmap: Optional[QPixmap], is_selected: bool
+    ) -> QWidget:
         thumb_size = self.thumbnail_size
         card_wrapper = ClickableLabel(path)
         card_wrapper.setFixedSize(thumb_size + 10, thumb_size + 10)
-        
+
         # Required for Base class to fetch pixmap later if needed
         card_wrapper.get_pixmap = lambda: img_label.pixmap()
-        
+
         card_layout = QVBoxLayout(card_wrapper)
         card_layout.setContentsMargins(0, 0, 0, 0)
-        
+
         img_label = QLabel()
         img_label.setAlignment(Qt.AlignCenter)
         img_label.setFixedSize(thumb_size, thumb_size)
 
         if pixmap and not pixmap.isNull():
-            scaled = pixmap.scaled(thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            scaled = pixmap.scaled(
+                thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
             img_label.setPixmap(scaled)
         else:
             # Show loading state if pixmap is None
-            img_label.setText("Loading...") 
+            img_label.setText("Loading...")
             img_label.setStyleSheet("color: #999; border: 1px dashed #666;")
-            
+
         card_layout.addWidget(img_label)
         card_wrapper.setLayout(card_layout)
-        
+
         # Assign custom styling method for the Base class to call
-        card_wrapper.set_selected_style = lambda selected: self._update_card_style(img_label, selected)
-        
+        card_wrapper.set_selected_style = lambda selected: self._update_card_style(
+            img_label, selected
+        )
+
         # Apply initial style
         self._update_card_style(img_label, is_selected)
-        
+
         # --- Connect Signals for Double Click and Context Menu ---
         card_wrapper.path_double_clicked.connect(self.handle_full_image_preview)
         card_wrapper.path_right_clicked.connect(self.show_image_context_menu)
-        
+
         return card_wrapper
 
     def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
         """Lazy loading callback. Unloads image if pixmap is None."""
         # widget is the ClickableLabel wrapper
-        if not isinstance(widget, ClickableLabel): return
-        
+        if not isinstance(widget, ClickableLabel):
+            return
+
         # Find the inner QLabel that holds the image
         img_label = widget.findChild(QLabel)
-        if not img_label: return
+        if not img_label:
+            return
 
         if pixmap and not pixmap.isNull():
             thumb_size = self.thumbnail_size
-            scaled = pixmap.scaled(thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            scaled = pixmap.scaled(
+                thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
             img_label.setPixmap(scaled)
-            img_label.setText("") # Clear 'Loading...' text
+            img_label.setText("")  # Clear 'Loading...' text
         else:
             img_label.clear()
             img_label.setText("Loading...")
-            
+
         # Re-apply style to remove dashed border if present
         is_selected = widget.path in self.selected_files
         self._update_card_style(img_label, is_selected)
 
     def _update_card_style(self, img_label: QLabel, is_selected: bool):
         if is_selected:
-            img_label.setStyleSheet("border: 3px solid #5865f2; background-color: #36393f;")
+            img_label.setStyleSheet(
+                "border: 3px solid #5865f2; background-color: #36393f;"
+            )
         else:
             # If it's still loading/text, keep dashed/simple border, else solid
             if img_label.pixmap() and not img_label.pixmap().isNull():
-                img_label.setStyleSheet("border: 1px solid #4f545c; background-color: #36393f;")
+                img_label.setStyleSheet(
+                    "border: 1px solid #4f545c; background-color: #36393f;"
+                )
             else:
                 # Loading style
                 img_label.setStyleSheet("border: 1px dashed #666; color: #999;")
@@ -289,17 +365,22 @@ class ConvertTab(AbstractClassTwoGalleries):
 
     @Slot(str)
     def handle_full_image_preview(self, image_path: str):
-        if not os.path.exists(image_path): return
-        
+        if not os.path.exists(image_path):
+            return
+
         # Build navigation list. Default to found files, fallback to selected, or just single.
-        target_list = self.found_files if hasattr(self, 'found_files') and self.found_files else []
-        
+        target_list = (
+            self.found_files
+            if hasattr(self, "found_files") and self.found_files
+            else []
+        )
+
         # If the double-clicked image isn't in found_files (e.g. was filtered out but still in selection), check selected
         if image_path not in target_list:
-             if hasattr(self, 'selected_files') and image_path in self.selected_files:
-                 target_list = sorted(list(self.selected_files))
-             else:
-                 target_list = [image_path]
+            if hasattr(self, "selected_files") and image_path in self.selected_files:
+                target_list = sorted(list(self.selected_files))
+            else:
+                target_list = [image_path]
 
         try:
             start_index = target_list.index(image_path)
@@ -307,61 +388,73 @@ class ConvertTab(AbstractClassTwoGalleries):
             start_index = 0
 
         preview = ImagePreviewWindow(
-            image_path=image_path, 
-            db_tab_ref=None, 
-            parent=self, 
-            all_paths=target_list, 
-            start_index=start_index
+            image_path=image_path,
+            db_tab_ref=None,
+            parent=self,
+            all_paths=target_list,
+            start_index=start_index,
         )
         preview.setAttribute(Qt.WA_DeleteOnClose)
-        preview.show() 
+        preview.show()
         self.open_preview_windows.append(preview)
 
     @Slot(QPoint, str)
     def show_image_context_menu(self, global_pos: QPoint, path: str):
         menu = QMenu(self)
-        
+
         view_action = QAction("View Full Size Preview", self)
         view_action.triggered.connect(lambda: self.handle_full_image_preview(path))
         menu.addAction(view_action)
-        
+
         menu.addSeparator()
-        
+
         # Add Select/Deselect options
         is_selected = path in self.selected_files
-        toggle_text = "Deselect image from conversion" if is_selected else "Select image to convert"
+        toggle_text = (
+            "Deselect image from conversion"
+            if is_selected
+            else "Select image to convert"
+        )
         toggle_action = QAction(toggle_text, self)
         toggle_action.triggered.connect(lambda: self.toggle_selection(path))
         menu.addAction(toggle_action)
-        
+
         menu.addSeparator()
-        
+
         delete_action = QAction("🗑️ Delete Image File (Permanent)", self)
         delete_action.triggered.connect(lambda: self.handle_delete_image(path))
         menu.addAction(delete_action)
-        
+
         menu.exec(global_pos)
 
     def handle_delete_image(self, path: str):
-        if QMessageBox.question(self, "Delete", f"Permanently delete {os.path.basename(path)}?") == QMessageBox.Yes:
+        if (
+            QMessageBox.question(
+                self, "Delete", f"Permanently delete {os.path.basename(path)}?"
+            )
+            == QMessageBox.Yes
+        ):
             try:
                 os.remove(path)
-                
+
                 # Update Data Lists in parent class
-                if hasattr(self, 'found_files') and path in self.found_files:
+                if hasattr(self, "found_files") and path in self.found_files:
                     self.found_files.remove(path)
-                if hasattr(self, 'selected_files') and path in self.selected_files:
+                if hasattr(self, "selected_files") and path in self.selected_files:
                     self.selected_files.remove(path)
-                
+
                 # Update UI: Remove from internal map and layout
-                if hasattr(self, 'path_to_label_map') and path in self.path_to_label_map:
-                     widget = self.path_to_label_map.pop(path)
-                     widget.deleteLater()
-                     # If using pagination, triggering a refresh might be cleaner, 
-                     # but removing the widget directly is instant.
-                     
+                if (
+                    hasattr(self, "path_to_label_map")
+                    and path in self.path_to_label_map
+                ):
+                    widget = self.path_to_label_map.pop(path)
+                    widget.deleteLater()
+                    # If using pagination, triggering a refresh might be cleaner,
+                    # but removing the widget directly is instant.
+
                 self.on_selection_changed()
-                
+
             except Exception as e:
                 QMessageBox.critical(self, "Error", str(e))
 
@@ -369,7 +462,9 @@ class ConvertTab(AbstractClassTwoGalleries):
 
     @Slot()
     def browse_directory_and_scan(self):
-        directory = QFileDialog.getExistingDirectory(self, "Select input directory", self.last_browsed_dir)
+        directory = QFileDialog.getExistingDirectory(
+            self, "Select input directory", self.last_browsed_dir
+        )
         if directory:
             self.input_path.setText(directory)
             self.last_browsed_dir = directory
@@ -377,24 +472,31 @@ class ConvertTab(AbstractClassTwoGalleries):
 
     @Slot()
     def browse_output(self):
-        directory = QFileDialog.getExistingDirectory(self, "Select output directory", "")
+        directory = QFileDialog.getExistingDirectory(
+            self, "Select output directory", ""
+        )
         if directory:
             self.output_path.setText(directory)
 
     def collect_paths(self) -> list[str]:
         p = self.input_path.text().strip()
-        if not p or not os.path.isdir(p): return []
-        
+        if not p or not os.path.isdir(p):
+            return []
+
         input_formats = (
-            list(self.selected_formats) if self.dropdown and self.selected_formats
-            else self.join_list_str(self.input_formats.text().strip()) if not self.dropdown and hasattr(self, 'input_formats')
-            else SUPPORTED_IMG_FORMATS
+            list(self.selected_formats)
+            if self.dropdown and self.selected_formats
+            else (
+                self.join_list_str(self.input_formats.text().strip())
+                if not self.dropdown and hasattr(self, "input_formats")
+                else SUPPORTED_IMG_FORMATS
+            )
         )
-        
+
         paths = []
         for root, _, files in os.walk(p):
             for file in files:
-                file_ext = os.path.splitext(file)[1].lstrip('.').lower()
+                file_ext = os.path.splitext(file)[1].lstrip(".").lower()
                 if not input_formats or file_ext in input_formats:
                     paths.append(os.path.join(root, file))
         return paths
@@ -406,7 +508,7 @@ class ConvertTab(AbstractClassTwoGalleries):
             QMessageBox.information(self, "No Files", "No matching files found.")
             self.clear_galleries()
             return
-        
+
         self.start_loading_thumbnails(sorted(paths))
 
     # --- FORMAT BUTTONS ---
@@ -415,15 +517,21 @@ class ConvertTab(AbstractClassTwoGalleries):
         btn = self.format_buttons[fmt]
         if checked:
             self.selected_formats.add(fmt)
-            btn.setStyleSheet("""
+            btn.setStyleSheet(
+                """
                 QPushButton:checked { background-color: #3320b5; color: white; }
                 QPushButton:hover { background-color: #00838a; }
-            """)
-            apply_shadow_effect(btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+            """
+            )
+            apply_shadow_effect(
+                btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            )
         else:
             self.selected_formats.discard(fmt)
             btn.setStyleSheet("QPushButton:hover { background-color: #3498db; }")
-            apply_shadow_effect(btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+            apply_shadow_effect(
+                btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            )
 
     @Slot()
     def add_all_formats(self):
@@ -450,26 +558,32 @@ class ConvertTab(AbstractClassTwoGalleries):
             QMessageBox.warning(self, "Invalid", "Please select a valid directory.")
             return
 
-        files_for_conversion = self.selected_files if use_selection else self.collect_paths()
+        files_for_conversion = (
+            self.selected_files if use_selection else self.collect_paths()
+        )
 
         if not files_for_conversion:
             QMessageBox.warning(self, "No Files", "No files to convert.")
             return
-            
+
         config = self.collect()
         config["files_to_convert"] = files_for_conversion
-        
+
         # UI Updates
         self.btn_convert_all.setEnabled(False)
-        self.btn_convert_contents.setEnabled(False) 
-        
-        button_to_cancel = self.btn_convert_contents if use_selection else self.btn_convert_all
+        self.btn_convert_contents.setEnabled(False)
+
+        button_to_cancel = (
+            self.btn_convert_contents if use_selection else self.btn_convert_all
+        )
         button_to_cancel.setEnabled(True)
         button_to_cancel.setText("Cancel Conversion")
-        button_to_cancel.setStyleSheet("""
+        button_to_cancel.setStyleSheet(
+            """
             QPushButton { background-color: #cc3333; color: white; font-weight: bold; }
-        """)
-        
+        """
+        )
+
         self.status_label.setText(f"Converting {len(files_for_conversion)} files...")
 
         self.worker = ConversionWorker(config)
@@ -493,8 +607,8 @@ class ConvertTab(AbstractClassTwoGalleries):
         self.btn_convert_all.setEnabled(True)
         self.btn_convert_all.setText("Convert All in Directory")
         self.btn_convert_all.setStyleSheet(SHARED_BUTTON_STYLE)
-        
-        self.on_selection_changed() # Reset selected button text/state
+
+        self.on_selection_changed()  # Reset selected button text/state
         self.btn_convert_contents.setStyleSheet(SHARED_BUTTON_STYLE)
 
         self.status_label.setText(f"{msg}")
@@ -509,18 +623,24 @@ class ConvertTab(AbstractClassTwoGalleries):
 
     def collect(self) -> dict:
         input_formats = (
-            list(self.selected_formats) if self.dropdown and self.selected_formats
-            else self.join_list_str(self.input_formats.text().strip()) if not self.dropdown and hasattr(self, 'input_formats')
-            else SUPPORTED_IMG_FORMATS
+            list(self.selected_formats)
+            if self.dropdown and self.selected_formats
+            else (
+                self.join_list_str(self.input_formats.text().strip())
+                if not self.dropdown and hasattr(self, "input_formats")
+                else SUPPORTED_IMG_FORMATS
+            )
         )
         return {
             "output_format": self.output_format_combo.currentText().lower(),
             "input_path": self.input_path.text().strip(),
             "output_path": self.output_path.text().strip() or None,
-            "input_formats": [f.strip().lstrip('.').lower() for f in input_formats if f.strip()],
-            "delete_original": self.delete_checkbox.isChecked(), # Use consistent key
+            "input_formats": [
+                f.strip().lstrip(".").lower() for f in input_formats if f.strip()
+            ],
+            "delete_original": self.delete_checkbox.isChecked(),  # Use consistent key
         }
-    
+
     def get_default_config(self) -> dict:
         """Returns the default configuration dictionary for the ConvertTab."""
         formats = SUPPORTED_IMG_FORMATS if self.dropdown else "jpg png"
@@ -548,7 +668,7 @@ class ConvertTab(AbstractClassTwoGalleries):
             index = self.output_format_combo.findText(output_fmt.lower())
             if index != -1:
                 self.output_format_combo.setCurrentIndex(index)
-            
+
             # 3. Input Formats (Handling Dropdown vs. LineEdit)
             formats = config.get("input_formats", [])
             if self.dropdown:
@@ -559,7 +679,7 @@ class ConvertTab(AbstractClassTwoGalleries):
                         self.toggle_format(fmt, True)
                 if formats and len(formats) < len(SUPPORTED_IMG_FORMATS):
                     self.formats_field.set_open(True)
-            elif hasattr(self, 'input_formats'):
+            elif hasattr(self, "input_formats"):
                 self.input_formats.setText(" ".join(formats))
                 if formats:
                     self.formats_field.set_open(True)
@@ -569,9 +689,11 @@ class ConvertTab(AbstractClassTwoGalleries):
 
             # 5. Load data into gallery if path is valid
             if os.path.isdir(input_path):
-                self.scan_directory_visual() # Will load thumbnails
+                self.scan_directory_visual()  # Will load thumbnails
 
             print(f"ConvertTab configuration loaded.")
         except Exception as e:
             print(f"Error applying ConvertTab config: {e}")
-            QMessageBox.warning(self, "Config Error", f"Failed to apply some settings: {e}")
+            QMessageBox.warning(
+                self, "Config Error", f"Failed to apply some settings: {e}"
+            )

@@ -9,6 +9,7 @@ class PhashTask(QRunnable):
     """
     Task to compute perceptual hash for a single image.
     """
+
     def __init__(self, path: str):
         super().__init__()
         self.path = path

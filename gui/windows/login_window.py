@@ -4,8 +4,15 @@ import backend.src.utils.definitions as udef
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-    QLineEdit, QPushButton, QSizePolicy, QMessageBox, QInputDialog
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QSizePolicy,
+    QMessageBox,
+    QInputDialog,
 )
 from src.core.vault_manager import VaultManager
 
@@ -13,26 +20,26 @@ from src.core.vault_manager import VaultManager
 class LoginWindow(QWidget):
     """
     A window for user authentication, handling login and account creation.
-    
-    Emits a signal upon successful login, passing the initialized 
+
+    Emits a signal upon successful login, passing the initialized
     VaultManager instance.
     """
-    
+
     # Signal emitted on successful login or account creation
-    login_successful = Signal(VaultManager) 
+    login_successful = Signal(VaultManager)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Secure Login")
         self.setFixedSize(450, 300)
-        
+
         # Vault Manager and Authentication State
         self.vault_manager = None
         self.is_authenticated = False
-        
+
         # --- NEW: Theme state ---
         self.current_theme = "dark"
-        
+
         self.init_ui()
         self.apply_styles()
 
@@ -44,7 +51,7 @@ class LoginWindow(QWidget):
         # --- NEW: Header Layout (Title + Theme Button) ---
         header_layout = QHBoxLayout()
         header_layout.setContentsMargins(0, 0, 0, 0)
-        
+
         # Title Label
         title_label = QLabel("Welcome - Secure Toolkit Access")
         title_label.setObjectName("TitleLabel")
@@ -58,23 +65,29 @@ class LoginWindow(QWidget):
         self.theme_button.setFixedSize(30, 30)
         self.theme_button.setToolTip("Toggle light/dark theme")
         self.theme_button.clicked.connect(self.toggle_theme)
-        header_layout.addWidget(self.theme_button, alignment=Qt.AlignmentFlag.AlignRight)
-        
+        header_layout.addWidget(
+            self.theme_button, alignment=Qt.AlignmentFlag.AlignRight
+        )
+
         main_layout.addLayout(header_layout)
         # --- End Header Layout ---
 
         # Input fields
         self.username_input = QLineEdit()
         self.username_input.setPlaceholderText("Account Name (e.g., user_id_123)")
-        self.username_input.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.username_input.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
         main_layout.addWidget(self.username_input)
 
         self.password_input = QLineEdit()
         self.password_input.setPlaceholderText("Password")
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.password_input.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.password_input.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
         main_layout.addWidget(self.password_input)
-        
+
         # Button container
         button_layout = QHBoxLayout()
 
@@ -90,7 +103,7 @@ class LoginWindow(QWidget):
         button_layout.addWidget(self.login_button)
 
         main_layout.addLayout(button_layout)
-        
+
         self.setLayout(main_layout)
 
     def toggle_theme(self):
@@ -103,7 +116,7 @@ class LoginWindow(QWidget):
 
     def apply_styles(self):
         """Applies styling based on the current self.current_theme."""
-        
+
         if self.current_theme == "dark":
             # Dark theme colors
             bg_color = "#2d2d30"
@@ -124,7 +137,7 @@ class LoginWindow(QWidget):
             btn_bg = "#007AFF"
             btn_hover = "#0056b3"
             theme_btn_color = title_color
-            
+
         qss = f"""
             QWidget {{
                 background-color: {bg_color};
@@ -173,9 +186,11 @@ class LoginWindow(QWidget):
         """Helper to retrieve and validate input fields."""
         username = self.username_input.text().strip()
         password = self.password_input.text().strip()
-        
+
         if not username or not password:
-            QMessageBox.warning(self, "Input Error", "Please enter both account name and password.")
+            QMessageBox.warning(
+                self, "Input Error", "Please enter both account name and password."
+            )
             return None, None
         return username, password
 
@@ -193,85 +208,98 @@ class LoginWindow(QWidget):
             # --- END MODIFICATION ---
 
             # 2. Initialize the Vault Manager
-            self.vault_manager = VaultManager(udef.JAR_FILE) 
-            
+            self.vault_manager = VaultManager(udef.JAR_FILE)
+
             # 3. KeyStore Loading (now uses suffixed udef.KEYSTORE_FILE)
             self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password)
-            
+
             # 4. Get the specific AES key
             self.vault_manager.get_secret_key(udef.KEY_ALIAS, raw_password)
             self.vault_manager.init_vault(udef.VAULT_FILE)
-            
+
             # 5. Load stored credentials (hash and salt)
             stored_data = self.vault_manager.load_account_credentials()
-            
+
             if stored_data.get("account_name") != username:
-                QMessageBox.critical(self, "Login Failed", "Account name does not match stored account.")
+                QMessageBox.critical(
+                    self, "Login Failed", "Account name does not match stored account."
+                )
                 return
 
             stored_hash = stored_data.get("hashed_password")
             stored_salt = stored_data.get("salt")
             pepper = self.vault_manager.PEPPER
-            
+
             # 6. Re-hash and verify
-            password_combined = (raw_password + stored_salt + pepper).encode('utf-8')
+            password_combined = (raw_password + stored_salt + pepper).encode("utf-8")
             import hashlib
+
             verification_hash = hashlib.sha256(password_combined).hexdigest()
-            
+
             if verification_hash == stored_hash:
                 # --- NEW: Preference Profile Selection ---
-                profiles = stored_data.get('system_preference_profiles', {})
-                save_required = False # <--- NEW FLAG
+                profiles = stored_data.get("system_preference_profiles", {})
+                save_required = False  # <--- NEW FLAG
 
                 if profiles:
                     items = ["Keep Current Settings"] + sorted(profiles.keys())
                     item, ok = QInputDialog.getItem(
-                        self, 
-                        "Select Preference Profile", 
-                        "Choose a system preference setup to apply:", 
-                        items, 
-                        0, 
-                        False
+                        self,
+                        "Select Preference Profile",
+                        "Choose a system preference setup to apply:",
+                        items,
+                        0,
+                        False,
                     )
-                    
+
                     if ok and item and item != "Keep Current Settings":
                         # Apply selected profile to the temporary dictionary
                         profile_data = profiles[item]
-                        new_theme = profile_data.get('theme', 'dark')
-                        new_configs = profile_data.get('active_tab_configs', {})
-                        
+                        new_theme = profile_data.get("theme", "dark")
+                        new_configs = profile_data.get("active_tab_configs", {})
+
                         # 1. Check if the theme or active configs are changing
-                        current_theme = stored_data.get('theme', 'dark')
-                        current_configs = stored_data.get('active_tab_configs', {})
+                        current_theme = stored_data.get("theme", "dark")
+                        current_configs = stored_data.get("active_tab_configs", {})
 
                         if new_theme != current_theme or new_configs != current_configs:
                             # 2. Update the data and set the flag
-                            stored_data['theme'] = new_theme
-                            stored_data['active_tab_configs'] = new_configs
-                            save_required = True # <--- SET FLAG
+                            stored_data["theme"] = new_theme
+                            stored_data["active_tab_configs"] = new_configs
+                            save_required = True  # <--- SET FLAG
 
                 # === CRITICAL MODIFICATION: Check flag before saving ===
                 if save_required:
                     # Save back to vault only if settings have changed
                     self.vault_manager.save_data(json.dumps(stored_data))
-                
+
                 # -----------------------------------------
 
-                QMessageBox.information(self, "Success", f"Login successful for {username}.")
+                QMessageBox.information(
+                    self, "Success", f"Login successful for {username}."
+                )
                 self.is_authenticated = True
-                
+
                 # --- LOAD/DECRYPT API FILES ---
                 self._load_api_files()
-                
+
                 self.login_successful.emit(self.vault_manager)
                 self.close()
             else:
                 QMessageBox.critical(self, "Login Failed", "Invalid password.")
-            
+
         except FileNotFoundError:
-             QMessageBox.critical(self, "Configuration Error", "Account files not found. Does this account exist?")
+            QMessageBox.critical(
+                self,
+                "Configuration Error",
+                "Account files not found. Does this account exist?",
+            )
         except Exception as e:
-            QMessageBox.critical(self, "Vault Error", f"An error occurred during login: {e}\n(Is the password correct?)")
+            QMessageBox.critical(
+                self,
+                "Vault Error",
+                f"An error occurred during login: {e}\n(Is the password correct?)",
+            )
             if self.vault_manager:
                 self.vault_manager.shutdown()
 
@@ -290,46 +318,58 @@ class LoginWindow(QWidget):
         try:
             udef.update_cryptographic_values(username)
         except Exception as e:
-            QMessageBox.critical(self, "Path Error", f"Failed to set account-specific paths: {e}")
+            QMessageBox.critical(
+                self, "Path Error", f"Failed to set account-specific paths: {e}"
+            )
             return
-        
+
         # 2. Check if files *for this specific account* already exist
         #    This prevents accidental overwrites if "Create Account" is clicked twice
         if os.path.exists(udef.KEYSTORE_FILE) or os.path.exists(udef.VAULT_FILE):
-            QMessageBox.warning(self, "Account Exists", f"An account named '{username}' already has files. Please try logging in instead.")
+            QMessageBox.warning(
+                self,
+                "Account Exists",
+                f"An account named '{username}' already has files. Please try logging in instead.",
+            )
             return
         # --- END MODIFICATION ---
 
         try:
             # 3. Initialize the Vault Manager
             self.vault_manager = VaultManager(udef.JAR_FILE)
-            
+
             # 4. Load the KeyStore (Creates empty KeyStore in memory)
             self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password)
-            
+
             # 5. CRITICAL: Ensure Key Entry exists and save KeyStore file
-            self.vault_manager.create_key_if_missing(udef.KEY_ALIAS, udef.KEYSTORE_FILE, raw_password)
-            
+            self.vault_manager.create_key_if_missing(
+                udef.KEY_ALIAS, udef.KEYSTORE_FILE, raw_password
+            )
+
             # 6. Retrieve the now-guaranteed secret key
             self.vault_manager.get_secret_key(udef.KEY_ALIAS, raw_password)
-            
+
             # 7. Initialize the vault
             self.vault_manager.init_vault(udef.VAULT_FILE)
 
             # 8. Save credentials (this handles hashing, salting, and saving)
             self.vault_manager.save_account_credentials(username, raw_password)
-            
-            QMessageBox.information(self, "Success", f"Account '{username}' created and saved securely.")
+
+            QMessageBox.information(
+                self, "Success", f"Account '{username}' created and saved securely."
+            )
             self.is_authenticated = True
-            
+
             # --- LOAD/DECRYPT API FILES ---
             self._load_api_files()
-            
+
             self.login_successful.emit(self.vault_manager)
             self.close()
 
         except Exception as e:
-            QMessageBox.critical(self, "Creation Error", f"Failed to create account: {e}")
+            QMessageBox.critical(
+                self, "Creation Error", f"Failed to create account: {e}"
+            )
             if self.vault_manager:
                 self.vault_manager.shutdown()
 
@@ -343,11 +383,11 @@ class LoginWindow(QWidget):
             return
 
         print("Checking for API files to encrypt/decrypt...")
-        
+
         try:
             SecureJsonVault = self.vault_manager.SecureJsonVault
             secret_key = self.vault_manager.secret_key
-            
+
             if not os.path.exists(udef.API_DIR):
                 print(f"API directory not found, skipping: {udef.API_DIR}")
                 return
@@ -355,20 +395,23 @@ class LoginWindow(QWidget):
             # --- First, encrypt any unencrypted .json files ---
             # These are shared keys, so they use the account's key to encrypt
             for filename in os.listdir(udef.API_DIR):
-                if filename.endswith(".json") and filename not in ["token.json", udef.TOKEN_FILE.split(os.sep)[-1]]:
+                if filename.endswith(".json") and filename not in [
+                    "token.json",
+                    udef.TOKEN_FILE.split(os.sep)[-1],
+                ]:
                     # ^ Don't encrypt the token file, it's handled differently
                     json_file_path = os.path.join(udef.API_DIR, filename)
                     enc_file_path = json_file_path + ".enc"
-                    
+
                     if not os.path.exists(enc_file_path):
                         print(f"Encrypting new file: {filename} -> {filename}.enc")
                         try:
-                            with open(json_file_path, 'r', encoding='utf-8') as f:
+                            with open(json_file_path, "r", encoding="utf-8") as f:
                                 json_content = f.read()
-                            
+
                             temp_file_vault = SecureJsonVault(secret_key, enc_file_path)
                             temp_file_vault.saveData(json_content)
-                            
+
                         except Exception as e:
                             print(f"Failed to encrypt {filename}: {e}")
 
@@ -378,23 +421,25 @@ class LoginWindow(QWidget):
                     enc_file_path = os.path.join(udef.API_DIR, filename)
                     # Use filename without .json.enc or .enc as the key
                     key_name = filename.replace(".json.enc", "").replace(".enc", "")
-                    
+
                     try:
                         # 1. Create a temp vault instance for this file
                         temp_file_vault = SecureJsonVault(secret_key, enc_file_path)
-                        
+
                         # 2. Load and decrypt the data
                         java_string = temp_file_vault.loadData()
-                        
+
                         # 3. Convert the java.lang.String to a Python str
                         decrypted_json_string = str(java_string)
-                        
+
                         # 4. Parse the Python str
                         api_data = json.loads(decrypted_json_string)
-                        
+
                         # 5. Store it in the vault_manager's dictionary
                         self.vault_manager.api_credentials[key_name] = api_data
-                        print(f"Successfully decrypted and loaded credentials for: {key_name}")
+                        print(
+                            f"Successfully decrypted and loaded credentials for: {key_name}"
+                        )
 
                     except Exception as e:
                         print(f"Failed to decrypt or parse {filename}: {e}")

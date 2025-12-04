@@ -9,4 +9,4 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 if __name__ == "__main__":
     sys.excepthook = log_uncaught_exceptions
-    launch_app({'no_dropdown': False})
+    launch_app({"no_dropdown": False})

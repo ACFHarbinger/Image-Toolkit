@@ -3,9 +3,9 @@ from backend.src.web import WebRequestsLogic
 
 
 class WebRequestsWorker(QThread):
-    status = Signal(str)             # status message
-    finished = Signal(str)           # (message)
-    error = Signal(str)              # error message
+    status = Signal(str)  # status message
+    finished = Signal(str)  # (message)
+    error = Signal(str)  # error message
 
     def __init__(self, config: dict):
         super().__init__()
@@ -22,7 +22,7 @@ class WebRequestsWorker(QThread):
             self.logic.on_finished.connect(self.finished.emit)
 
             self.status.emit("Starting requests...")
-            
+
             # Run the main logic
             self.logic.run()
 

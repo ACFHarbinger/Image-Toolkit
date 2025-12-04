@@ -5,25 +5,47 @@ from typing import Optional
 
 
 class Normalization(nn.Module):
-    def __init__(self, 
-                size: int, 
-                norm_name: str='batch', 
-                eps_alpha: float=1e-05, 
-                learn_affine: Optional[bool]=True, 
-                track_stats: Optional[bool]=False,  
-                mbval: Optional[float]=None, 
-                n_groups: Optional[int]=1, 
-                kval: Optional[float]=None,
-                bias: Optional[bool]=True):
+    def __init__(
+        self,
+        size: int,
+        norm_name: str = "batch",
+        eps_alpha: float = 1e-05,
+        learn_affine: Optional[bool] = True,
+        track_stats: Optional[bool] = False,
+        mbval: Optional[float] = None,
+        n_groups: Optional[int] = 1,
+        kval: Optional[float] = None,
+        bias: Optional[bool] = True,
+    ):
         super(Normalization, self).__init__()
         self.normalizer = {
-            'instance': nn.InstanceNorm2d(size, eps=eps_alpha, affine=learn_affine, track_running_stats=track_stats, momentum=mbval),
-            'batch': nn.BatchNorm2d(size, eps=eps_alpha, affine=learn_affine, track_running_stats=track_stats, momentum=mbval),
-            'layer': nn.LayerNorm(size, eps=eps_alpha, elementwise_affine=learn_affine, bias=bias),
-            'group': nn.GroupNorm(n_groups, eps=eps_alpha, num_channels=size, affine=learn_affine),
-            'local_response': nn.LocalResponseNorm(size, alpha=eps_alpha, beta=mbval, k=kval)
+            "instance": nn.InstanceNorm2d(
+                size,
+                eps=eps_alpha,
+                affine=learn_affine,
+                track_running_stats=track_stats,
+                momentum=mbval,
+            ),
+            "batch": nn.BatchNorm2d(
+                size,
+                eps=eps_alpha,
+                affine=learn_affine,
+                track_running_stats=track_stats,
+                momentum=mbval,
+            ),
+            "layer": nn.LayerNorm(
+                size, eps=eps_alpha, elementwise_affine=learn_affine, bias=bias
+            ),
+            "group": nn.GroupNorm(
+                n_groups, eps=eps_alpha, num_channels=size, affine=learn_affine
+            ),
+            "local_response": nn.LocalResponseNorm(
+                size, alpha=eps_alpha, beta=mbval, k=kval
+            ),
         }.get(norm_name, None)
-        assert self.normalizer is not None, "Unknown normalization method: {}".format(norm_name)
+        assert self.normalizer is not None, "Unknown normalization method: {}".format(
+            norm_name
+        )
 
         # Normalization by default initializes affine parameters with bias 0 and weight unif(0, 1) which is too large!
         if learn_affine:
@@ -31,7 +53,7 @@ class Normalization(nn.Module):
 
     def init_parameters(self):
         for param in self.parameters():
-            stdv = 1. / math.sqrt(param.size(-1))
+            stdv = 1.0 / math.sqrt(param.size(-1))
             param.data.uniform_(-stdv, stdv)
 
     def forward(self, input, mask=None):

@@ -1,6 +1,8 @@
 import time
 import platform
-if platform.system() == "Windows": import comtypes
+
+if platform.system() == "Windows":
+    import comtypes
 
 from typing import Dict, List
 from screeninfo import Monitor
@@ -12,15 +14,17 @@ class WallpaperWorkerSignals(QObject):
     """
     Defines the signals available from a running WallpaperWorker.
     """
+
     # Signal emitted with status updates (str)
     status_update = Signal(str)
-    
+
     # Signal emitted when work is finished (bool success, str message)
     work_finished = Signal(bool, str)
 
 
 class InterruptedError(Exception):
     """Custom exception to indicate manual cancellation."""
+
     pass
 
 
@@ -28,15 +32,22 @@ class WallpaperWorker(QRunnable):
     """
     Worker thread to apply wallpaper using WallpaperManager.
     """
-    def __init__(self, path_map: Dict[str, str], monitors: List[Monitor], qdbus: str, wallpaper_style: str = "Fill"):
+
+    def __init__(
+        self,
+        path_map: Dict[str, str],
+        monitors: List[Monitor],
+        qdbus: str,
+        wallpaper_style: str = "Fill",
+    ):
         super().__init__()
         if WallpaperManager is None:
             raise ImportError("WallpaperManager class could not be imported.")
-            
+
         self.qdbus = qdbus
         self.path_map = path_map
         self.monitors = monitors
-        self.wallpaper_style = wallpaper_style # Store the selected style
+        self.wallpaper_style = wallpaper_style  # Store the selected style
         self.signals = WallpaperWorkerSignals()
         self.is_running = True
 
@@ -53,8 +64,8 @@ class WallpaperWorker(QRunnable):
         Initializes and uninitializes the COM apartment if on Windows.
         """
         if not self.is_running:
-            return 
-            
+            return
+
         self._log("Wallpaper set worker started...")
         success = False
         message = "Worker did not run."
@@ -73,11 +84,13 @@ class WallpaperWorker(QRunnable):
 
         try:
             # --- Main Task ---
-            WallpaperManager.apply_wallpaper(self.path_map, self.monitors, self.wallpaper_style, self.qdbus)
-            
+            WallpaperManager.apply_wallpaper(
+                self.path_map, self.monitors, self.wallpaper_style, self.qdbus
+            )
+
             if not self.is_running:
                 raise InterruptedError("Work manually cancelled.")
-                
+
             success = True
             message = "Wallpaper applied successfully."
 
@@ -85,12 +98,12 @@ class WallpaperWorker(QRunnable):
             success = False
             message = str(e)
             self._log(f"Warning: {message}")
-            
+
         except Exception as e:
             success = False
             message = f"Critical error: {e}"
             self._log(f"ERROR: {message}")
-        
+
         finally:
             # Uninitialize COM on the worker thread if it was initialized
             if com_initialized:

@@ -5,6 +5,7 @@ from PySide6.QtGui import QPainter, QColor
 
 class OpaqueViewport(QWidget):
     """A viewport that explicitly paints its background to prevent artifacts."""
+
     def __init__(self, parent=None, color_hex="#2c2f33"):
         super().__init__(parent)
         self.background_color = QColor(color_hex)

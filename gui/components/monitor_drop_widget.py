@@ -4,8 +4,14 @@ from typing import Optional
 from screeninfo import Monitor
 from PySide6.QtCore import Qt, Signal, QMimeData
 from PySide6.QtGui import (
-    QPixmap, QDragEnterEvent, QDropEvent, QDragMoveEvent, 
-    QDragLeaveEvent, QMouseEvent, QDrag, QResizeEvent
+    QPixmap,
+    QDragEnterEvent,
+    QDropEvent,
+    QDragMoveEvent,
+    QDragLeaveEvent,
+    QMouseEvent,
+    QDrag,
+    QResizeEvent,
 )
 from PySide6.QtWidgets import QLabel, QMenu, QApplication
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
@@ -16,9 +22,10 @@ class MonitorDropWidget(QLabel):
     A custom QLabel that acts as a drop target for images,
     displays monitor info, and shows a preview of the dropped image.
     """
+
     # Emits (monitor_id, image_path) when an image is successfully dropped
-    image_dropped = Signal(str, str) 
-    
+    image_dropped = Signal(str, str)
+
     # Emits monitor_id when the widget is double-clicked
     double_clicked = Signal(str)
 
@@ -31,9 +38,9 @@ class MonitorDropWidget(QLabel):
         self.monitor_id = monitor_id
         self.image_path: Optional[str] = None
         self.drag_start_position = None
-        
+
         # --- NEW STATE TRACKERS ---
-        self._current_pixmap: Optional[QPixmap] = None 
+        self._current_pixmap: Optional[QPixmap] = None
         # Stores the original QPixmap (thumbnail or image) to enable proper resizing.
         # --- END NEW STATE TRACKERS ---
 
@@ -42,7 +49,7 @@ class MonitorDropWidget(QLabel):
         self.setMinimumSize(220, 160)
         self.setWordWrap(True)
         self.setFixedHeight(160)
-        
+
         self.update_text()
         self.default_style = """
             QLabel {
@@ -62,7 +69,9 @@ class MonitorDropWidget(QLabel):
     def contextMenuEvent(self, event):
         menu = QMenu(self)
         clear_action = menu.addAction("Clear All Images (Current and Queue)")
-        clear_action.triggered.connect(lambda: self.clear_requested_id.emit(self.monitor_id))
+        clear_action.triggered.connect(
+            lambda: self.clear_requested_id.emit(self.monitor_id)
+        )
         menu.exec(event.globalPos())
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
@@ -76,9 +85,14 @@ class MonitorDropWidget(QLabel):
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent):
-        if not (event.buttons() & Qt.LeftButton): return
-        if not self.drag_start_position: return
-        if (event.pos() - self.drag_start_position).manhattanLength() < QApplication.startDragDistance(): return
+        if not (event.buttons() & Qt.LeftButton):
+            return
+        if not self.drag_start_position:
+            return
+        if (
+            event.pos() - self.drag_start_position
+        ).manhattanLength() < QApplication.startDragDistance():
+            return
 
         drag = QDrag(self)
         mime_data = QMimeData()
@@ -93,7 +107,7 @@ class MonitorDropWidget(QLabel):
     def update_text(self):
         monitor_name = f"Monitor {self.monitor_id}"
         if self.monitor.name:
-             monitor_name = f"{monitor_name} ({self.monitor.name})"
+            monitor_name = f"{monitor_name} ({self.monitor.name})"
         self.setText(f"<b>{monitor_name}</b>\n\nDrag and Drop Image Here")
 
     def dragEnterEvent(self, event: QDragEnterEvent):
@@ -133,23 +147,26 @@ class MonitorDropWidget(QLabel):
         event.ignore()
 
     def has_valid_image_url(self, mime_data: QMimeData) -> bool:
-        if not mime_data.hasUrls(): return False
+        if not mime_data.hasUrls():
+            return False
         url = mime_data.urls()[0]
-        if not url.isLocalFile(): return False
+        if not url.isLocalFile():
+            return False
         file_path = url.toLocalFile().lower()
         valid_exts = set(SUPPORTED_IMG_FORMATS).union(SUPPORTED_VIDEO_FORMATS)
         _, ext = os.path.splitext(file_path)
-        ext_no_dot = ext.lstrip('.')
-        if ext_no_dot in valid_exts or ext in valid_exts: return True
+        ext_no_dot = ext.lstrip(".")
+        if ext_no_dot in valid_exts or ext in valid_exts:
+            return True
         return False
 
     def set_image(self, file_path: Optional[str], thumbnail: Optional[QPixmap] = None):
         """
-        Sets the widget's pixmap. 
+        Sets the widget's pixmap.
         Prioritizes the provided 'thumbnail' QPixmap if available (useful for videos).
         """
         self.image_path = file_path
-        
+
         if not file_path:
             self.clear()
             return
@@ -158,7 +175,7 @@ class MonitorDropWidget(QLabel):
 
         # 1. Determine the source pixmap
         source_pixmap = None
-        
+
         if thumbnail and not thumbnail.isNull():
             # Source 1: Provided thumbnail (Async result or cache hit)
             source_pixmap = thumbnail
@@ -172,39 +189,45 @@ class MonitorDropWidget(QLabel):
         # 2. Update internal state and display
         if source_pixmap and not source_pixmap.isNull():
             # Success: Store original pixmap and scale it for display
-            self._current_pixmap = source_pixmap 
-            scaled_pixmap = source_pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            
+            self._current_pixmap = source_pixmap
+            scaled_pixmap = source_pixmap.scaled(
+                self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
+
             self.setPixmap(scaled_pixmap)
-            self.setText("") # <--- CRITICAL: Clears any previous text, including "Loading..."
-            
+            self.setText(
+                ""
+            )  # <--- CRITICAL: Clears any previous text, including "Loading..."
+
             # Apply border style
             if is_video:
-                self.setStyleSheet("""
+                self.setStyleSheet(
+                    """
                     QLabel { 
                         background-color: #36393f; 
                         border: 2px solid #3498db; 
                         border-radius: 8px;
                     }
-                """)
+                """
+                )
             else:
                 self.setStyleSheet(self.default_style)
             return
 
         # 3. Fallback (No thumbnail/image found)
         self._current_pixmap = None
-        self.setPixmap(QPixmap()) 
+        self.setPixmap(QPixmap())
 
         if is_video:
             # Video Fallback (If thumbnail is None, or generation failed)
             monitor_name = f"Monitor {self.monitor_id}"
             if self.monitor.name:
-                 monitor_name = f"{monitor_name} ({self.monitor.name})"
-            
+                monitor_name = f"{monitor_name} ({self.monitor.name})"
+
             filename = os.path.basename(file_path)
-            self.setText(f"<b>{monitor_name}</b>\n\n"
-                         f"🎥 VIDEO SET:\n{filename}")
-            self.setStyleSheet("""
+            self.setText(f"<b>{monitor_name}</b>\n\n" f"🎥 VIDEO SET:\n{filename}")
+            self.setStyleSheet(
+                """
                 QLabel { 
                     background-color: #2c3e50; 
                     border: 2px solid #3498db; 
@@ -212,25 +235,28 @@ class MonitorDropWidget(QLabel):
                     font-size: 13px; 
                     border-radius: 8px;
                 }
-            """)
+            """
+            )
         else:
             # Error State or Default Drag and Drop text
             self.image_path = None
-            self.update_text() # Sets the default "Drag and Drop Image Here" text
+            self.update_text()  # Sets the default "Drag and Drop Image Here" text
             self.setStyleSheet(self.default_style)
-             
+
     def clear(self):
         self.image_path = None
-        self._current_pixmap = None # Clear cached pixmap
-        self.setPixmap(QPixmap()) 
+        self._current_pixmap = None  # Clear cached pixmap
+        self.setPixmap(QPixmap())
         self.update_text()
         self.setStyleSheet(self.default_style)
-                         
+
     def resizeEvent(self, event: QResizeEvent):
         super().resizeEvent(event)
-        
+
         # --- CRITICAL FIX: Rescale internal pixmap without reloading ---
         if self._current_pixmap and not self._current_pixmap.isNull():
-            scaled_pixmap = self._current_pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            scaled_pixmap = self._current_pixmap.scaled(
+                self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
             self.setPixmap(scaled_pixmap)
         # --- END CRITICAL FIX ---
