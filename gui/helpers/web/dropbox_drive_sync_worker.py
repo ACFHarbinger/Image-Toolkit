@@ -7,13 +7,14 @@ from .cloud_drive_sync_signals import CloudDriveSyncWorkerSignals
 
 
 class DropboxDriveSyncWorker(QRunnable):
-    def __init__(self, 
-                 auth_config: Dict[str, Any],
-                 local_path: str, 
-                 remote_path: str, 
-                 dry_run: bool, 
-                 action_local_orphans: str = "upload",
-                 action_remote_orphans: str = "download"
+    def __init__(
+        self,
+        auth_config: Dict[str, Any],
+        local_path: str,
+        remote_path: str,
+        dry_run: bool,
+        action_local_orphans: str = "upload",
+        action_remote_orphans: str = "download",
     ):
         super().__init__()
         self.auth_config = auth_config
@@ -32,17 +33,17 @@ class DropboxDriveSyncWorker(QRunnable):
             self.signals.status_update.emit(f"{timestamp} {message}")
 
     def run(self):
-        self.signals.status_update.emit("\n" + "="*50)
+        self.signals.status_update.emit("\n" + "=" * 50)
         self._log(f"--- Dropbox Sync Initiated ---")
         self._log(f"Sync Mode: {'DRY RUN' if self.dry_run else 'LIVE'}")
-        self.signals.status_update.emit("="*50 + "\n")
+        self.signals.status_update.emit("=" * 50 + "\n")
 
         success = False
         final_message = "Cancelled by user."
-        
+
         try:
             token = self.auth_config.get("access_token")
-            
+
             self.sync_manager = DropboxDriveSync(
                 local_source_path=self.local_path,
                 drive_destination_folder_name=self.remote_path,
@@ -50,12 +51,12 @@ class DropboxDriveSyncWorker(QRunnable):
                 dry_run=self.dry_run,
                 logger=self._log,
                 action_local_orphans=self.action_local,
-                action_remote_orphans=self.action_remote
+                action_remote_orphans=self.action_remote,
             )
-            
+
             if self._is_running:
                 success, final_message = self.sync_manager.execute_sync()
-                
+
         except Exception as e:
             success = False
             final_message = f"Critical Error: {e}"

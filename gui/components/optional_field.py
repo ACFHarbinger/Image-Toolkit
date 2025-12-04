@@ -1,5 +1,11 @@
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QApplication
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QFrame,
+    QApplication,
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPalette
@@ -20,10 +26,12 @@ class OptionalField(QWidget):
 
         # Header bar
         self.toggle_btn = QPushButton("➕" if not start_open else "➖")
-        self.toggle_btn.setObjectName("OptionalFieldToggleBtn") # Keep the object name
+        self.toggle_btn.setObjectName("OptionalFieldToggleBtn")  # Keep the object name
         self.toggle_btn.setFixedWidth(30)
         self.toggle_btn.setFlat(True)
-        apply_shadow_effect(self.toggle_btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        apply_shadow_effect(
+            self.toggle_btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        )
 
         self.label = QLabel(title)
         self.label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
@@ -43,13 +51,18 @@ class OptionalField(QWidget):
         base_color = palette.color(QPalette.Base)
         text_color = palette.color(QPalette.Text)
         border_color = palette.color(QPalette.Mid)
-        hover_color = base_color.lighter(110) if base_color.value() < 128 else base_color.darker(110)
-        
+        hover_color = (
+            base_color.lighter(110)
+            if base_color.value() < 128
+            else base_color.darker(110)
+        )
+
         # Use the name strings for CSS
         text_color_name = text_color.name()
 
         # Apply the style to the QFrame
-        header_frame.setStyleSheet(f"""
+        header_frame.setStyleSheet(
+            f"""
             QFrame {{
                 background-color: {base_color.name()};
                 border: 1px solid {border_color.name()};
@@ -75,7 +88,8 @@ class OptionalField(QWidget):
             QFrame:hover {{
                 background-color: {hover_color.name()};
             }}
-        """)
+        """
+        )
 
         # Main layout
         main_layout = QVBoxLayout()

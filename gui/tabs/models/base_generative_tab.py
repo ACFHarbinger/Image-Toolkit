@@ -1,22 +1,31 @@
 from PySide6.QtWidgets import (
-    QWidget, QFormLayout, QLabel, QComboBox, 
-    QCheckBox, QSpinBox, QDoubleSpinBox, 
-    QLineEdit, QTextEdit
+    QWidget,
+    QFormLayout,
+    QLabel,
+    QComboBox,
+    QCheckBox,
+    QSpinBox,
+    QDoubleSpinBox,
+    QLineEdit,
+    QTextEdit,
 )
 
 
 class BaseGenerativeTab(QWidget):
     """Base class for all Generative Model parameter tabs"""
+
     def __init__(self):
         super().__init__()
         self.params = {}
         self.widgets = {}
-        
-    def add_param_widget(self, layout: QFormLayout, label: str, widget: QWidget, param_name: str):
+
+    def add_param_widget(
+        self, layout: QFormLayout, label: str, widget: QWidget, param_name: str
+    ):
         """Helper to add a parameter widget to layout"""
         layout.addRow(QLabel(label), widget)
         self.widgets[param_name] = widget
-        
+
     def collect(self) -> dict:
         """Collects the current values from all registered widgets."""
         params = {}
@@ -41,12 +50,15 @@ class BaseGenerativeTab(QWidget):
                 if isinstance(widget, QComboBox):
                     # Try setting by text, fail silently if not found
                     index = widget.findText(str(value))
-                    if index >= 0: widget.setCurrentIndex(index)
+                    if index >= 0:
+                        widget.setCurrentIndex(index)
                 elif isinstance(widget, QCheckBox):
                     widget.setChecked(bool(value))
                 elif isinstance(widget, (QSpinBox, QDoubleSpinBox)):
-                    try: widget.setValue(float(value))
-                    except: pass
+                    try:
+                        widget.setValue(float(value))
+                    except:
+                        pass
                 elif isinstance(widget, QLineEdit):
                     widget.setText(str(value))
                 elif isinstance(widget, QTextEdit):

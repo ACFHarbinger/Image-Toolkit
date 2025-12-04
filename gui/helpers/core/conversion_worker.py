@@ -25,7 +25,7 @@ class ConversionWorker(QThread):
             if not input_path or not os.path.exists(input_path):
                 self.error.emit("Input path does not exist.")
                 return
-            
+
             is_dir = os.path.isdir(input_path)
 
             if is_dir:
@@ -33,19 +33,25 @@ class ConversionWorker(QThread):
                 converted_images = ImageFormatConverter.convert_batch(
                     input_dir=input_path,
                     inputs_formats=input_formats,
-                    output_dir=output_path if output_path and os.path.isdir(output_path) else input_path,
+                    output_dir=(
+                        output_path
+                        if output_path and os.path.isdir(output_path)
+                        else input_path
+                    ),
                     output_format=output_format,
-                    delete=delete_original
+                    delete=delete_original,
                 )
                 converted = len(converted_images)
 
             else:
                 # Single file conversion (needs directory setup before calling core logic)
                 output_name = output_path
-                
+
                 # If output_path is provided and is a directory, use the input filename
                 if output_path and os.path.isdir(output_path):
-                    output_name = os.path.join(output_path, os.path.splitext(os.path.basename(input_path))[0])
+                    output_name = os.path.join(
+                        output_path, os.path.splitext(os.path.basename(input_path))[0]
+                    )
 
                 if FSETool.path_contains(input_path, output_path):
                     # Handle scenario where output path is a sub-directory of the input file
@@ -53,12 +59,11 @@ class ConversionWorker(QThread):
                         prefix_func=ImageFormatConverter.SINGLE_CONVERSION_PREFIX
                     )(output_name)
 
-
                 result = ImageFormatConverter.convert_single_image(
                     image_path=input_path,
                     output_name=output_name,
                     format=output_format,
-                    delete=delete_original
+                    delete=delete_original,
                 )
                 converted = 1 if result is not None else 0
 

@@ -9,12 +9,13 @@ class MarqueeScrollArea(QScrollArea):
     A custom QScrollArea that enables marquee (rubber-band) selection.
     Fixes nested widget selection by mapping coordinates correctly.
     """
+
     # Signal: (set_of_selected_paths, is_ctrl_modifier_pressed)
     selection_changed = Signal(set, bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        
+
         # Use custom viewport for cleaner rendering
         self.setViewport(OpaqueViewport(self))
         self.viewport().setMouseTracking(True)
@@ -22,9 +23,11 @@ class MarqueeScrollArea(QScrollArea):
         self.rubber_band = QRubberBand(QRubberBand.Rectangle, self.viewport())
         self.origin = QPoint()
         self.last_selected_paths = set()
-        
+
         # Apply style to viewport
-        self.setStyleSheet("QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }")
+        self.setStyleSheet(
+            "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
+        )
 
     def mousePressEvent(self, event: QMouseEvent):
         content_widget = self.widget()
@@ -55,28 +58,30 @@ class MarqueeScrollArea(QScrollArea):
             self.last_selected_paths = set()
             event.accept()
         else:
-            super().mousePressEvent(event) 
+            super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent):
         if self.rubber_band.isVisible():
             # 1. Update RubberBand geometry
             self.rubber_band.setGeometry(QRect(self.origin, event.pos()).normalized())
-            
+
             # 2. Calculate selection rect in Content Coordinates
             selection_rect_viewport = self.rubber_band.geometry()
             h_offset = self.horizontalScrollBar().value()
             v_offset = self.verticalScrollBar().value()
-            selection_rect_content = selection_rect_viewport.translated(h_offset, v_offset)
+            selection_rect_content = selection_rect_viewport.translated(
+                h_offset, v_offset
+            )
 
             current_selected_paths = set()
             content_widget = self.widget()
-            
+
             if content_widget:
                 # 3. Iterate over all ClickableLabels
                 for label in content_widget.findChildren(ClickableLabel):
                     if not label.isVisible():
                         continue
-                        
+
                     # --- CRITICAL FIX START ---
                     # Map the label's (0,0) to the content_widget's coordinate system.
                     # This handles cases where labels are nested inside other layout widgets.
@@ -85,16 +90,16 @@ class MarqueeScrollArea(QScrollArea):
                     # --- CRITICAL FIX END ---
 
                     if selection_rect_content.intersects(label_rect):
-                        if hasattr(label, 'path'):
+                        if hasattr(label, "path"):
                             current_selected_paths.add(label.path)
-            
+
             mods = QApplication.keyboardModifiers()
             is_ctrl_pressed = bool(mods & Qt.ControlModifier)
-            
+
             if current_selected_paths != self.last_selected_paths:
                 self.selection_changed.emit(current_selected_paths, is_ctrl_pressed)
                 self.last_selected_paths = current_selected_paths
-            
+
             event.accept()
         else:
             super().mouseMoveEvent(event)

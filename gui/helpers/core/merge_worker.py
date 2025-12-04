@@ -8,7 +8,7 @@ from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 
 class MergeWorker(QThread):
     progress = Signal(int, int)  # (current, total)
-    finished = Signal(str)      # output path
+    finished = Signal(str)  # output path
     error = Signal(str)
 
     def __init__(self, config: Dict[str, Any]):
@@ -27,8 +27,8 @@ class MergeWorker(QThread):
 
             # 1. Resolve all image files into a single absolute list
             image_files: List[str] = []
-            
-            # The original logic handled mixed files/directories. We emulate that 
+
+            # The original logic handled mixed files/directories. We emulate that
             # using FSETool to resolve paths from directories.
             for path in input_paths:
                 if os.path.isfile(path):
@@ -37,8 +37,10 @@ class MergeWorker(QThread):
                 elif os.path.isdir(path):
                     # Get files using FSETool for path normalization and recursion (if needed)
                     for fmt in formats:
-                        image_files.extend(FSETool.get_files_by_extension(path, fmt, recursive=False))
-            
+                        image_files.extend(
+                            FSETool.get_files_by_extension(path, fmt, recursive=False)
+                        )
+
             image_files = list(dict.fromkeys(input_paths))
             if not image_files:
                 self.error.emit("No images found to merge.")
@@ -49,7 +51,7 @@ class MergeWorker(QThread):
                 return
 
             # 2. Update progress signals (This is tricky for ImageMerger, we skip full loop)
-            # The core merge operation is a single blocking call. 
+            # The core merge operation is a single blocking call.
             self.progress.emit(0, len(image_files))
 
             # 3. Perform the merge using the core class
@@ -59,12 +61,12 @@ class MergeWorker(QThread):
                 direction=direction,
                 grid_size=grid_size,
                 align_mode=align_mode,
-                spacing=spacing
+                spacing=spacing,
             )
-            
+
             # 4. Final progress update
             self.progress.emit(len(image_files), len(image_files))
-            
+
             # 5. Emit output path (ImageMerger saves and returns the image object)
             self.finished.emit(output_path)
 

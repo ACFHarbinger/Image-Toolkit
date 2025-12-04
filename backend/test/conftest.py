@@ -22,19 +22,25 @@ from src.web import ImageCrawler
 # 1. Mock PyQt/PySide Objects
 class MockQObject:
     """Mock the QObject base class and signals."""
+
     def __init__(self, *args, **kwargs):
         pass
+
     class Signal(MagicMock):
         def emit(self, *args, **kwargs):
             pass
 
+
 class MockQtABCMeta(type):
     """Simple mock for the custom metaclass."""
+
     pass
+
 
 # 2. Mock the Base Class (WebCrawler)
 class MockWebCrawler:
     """Mock WebCrawler to isolate ImageCrawler's logic."""
+
     def __init__(self, headless, download_dir, screenshot_dir, browser):
         # Mock core attributes ImageCrawler needs access to
         self.driver = MagicMock()
@@ -45,38 +51,42 @@ class MockWebCrawler:
         # Mock methods called in __init__
         self.setup_driver = MagicMock()
         self.file_loader = MagicMock()
-        
+
         print(f"✅ WebCrawler base initialized with {self.browser} (Mocked).")
 
     # Mock abstract methods
     def login(self, credentials=None):
         pass
+
     def process_data(self):
         pass
+
     def close(self):
-        self.driver = None # Simulate closing the driver
+        self.driver = None  # Simulate closing the driver
         return True
-    
+
     # Mock concrete methods used by ImageCrawler
     def navigate_to_url(self, url, take_screenshot=False):
         # Always return True for success in the mock
         return True
+
     def wait_for_page_to_load(self, timeout=3, selectors=[], screenshot_name=None):
         return True
-    
+
     # Mock the combination of metaclasses for the class definition
     class QtABCMeta(MockQtABCMeta, type(MockQObject)):
         pass
+
 
 # --- Mock Java Classes (Existing) ---
 # These mock classes simulate the behavior of your compiled Java code.
 class MockKeyStoreManager:
     """Mock the Java KeyStoreManager class."""
-    
+
     # Store state to simulate keystore and key
     keystore = MagicMock()
     secret_key = MagicMock()
-    
+
     # Instance methods (non-static) - Note the 'self' argument
     def loadKeyStore(self, keystore_path, keystore_pass):
         """Simulate the non-static loadKeyStore call."""
@@ -89,11 +99,13 @@ class MockKeyStoreManager:
         """Simulate the non-static getSecretKey call."""
         if key_alias == "non_existent_key":
             # Simulate Java returning null (None in Python)
-            return None 
+            return None
         return self.secret_key
+
 
 class MockSecureJsonVault:
     """Mock the Java SecureJsonVault class."""
+
     def __init__(self, key, path):
         self.key = key
         self.path = path
@@ -116,33 +128,44 @@ def mock_dependencies(monkeypatch):
     This fixture runs automatically for every test function.
     """
     # Mock WC_BROWSERS to a known list for testing 'choices'
-    monkeypatch.setattr(arg_parser, "WC_BROWSERS", ['brave', 'chrome', 'firefox'])
+    monkeypatch.setattr(arg_parser, "WC_BROWSERS", ["brave", "chrome", "firefox"])
 
 
 @pytest.fixture
-def mock_jpype():    
+def mock_jpype():
     mock_jclass_map = {
         "com.personal.image_toolkit.KeyStoreManager": MockKeyStoreManager,
         "com.personal.image_toolkit.SecureJsonVault": MockSecureJsonVault,
         "java.lang.String": MagicMock(),
     }
-    
-    with patch(f"src.core.java_vault_manager.jpype.startJVM") as mock_start_jvm, \
-         patch(f"src.core.java_vault_manager.jpype.JClass", side_effect=lambda name: mock_jclass_map.get(name, MagicMock())) as mock_jclass, \
-         patch(f"src.core.java_vault_manager.jpype.isJVMStarted", side_effect=[False, True, True]), \
-         patch(f"src.core.java_vault_manager.jpype.shutdownJVM") as mock_shutdown_jvm, \
-         patch(f"src.core.java_vault_manager.atexit.register"):
-            
+
+    with (
+        patch(f"src.core.java_vault_manager.jpype.startJVM") as mock_start_jvm,
+        patch(
+            f"src.core.java_vault_manager.jpype.JClass",
+            side_effect=lambda name: mock_jclass_map.get(name, MagicMock()),
+        ) as mock_jclass,
+        patch(
+            f"src.core.java_vault_manager.jpype.isJVMStarted",
+            side_effect=[False, True, True],
+        ),
+        patch(f"src.core.java_vault_manager.jpype.shutdownJVM") as mock_shutdown_jvm,
+        patch(f"src.core.java_vault_manager.atexit.register"),
+    ):
+
         yield mock_start_jvm, mock_shutdown_jvm
 
 
 @pytest.fixture
 def mock_requests():
     """Mock the requests.get method and its response."""
-    with patch('src.web.image_crawler.requests.get') as mock_get:
+    with patch("src.web.image_crawler.requests.get") as mock_get:
         mock_response = MagicMock()
         mock_response.raise_for_status = MagicMock()
-        mock_response.iter_content.return_value = [b"chunk1", b"chunk2"] # Mock file content
+        mock_response.iter_content.return_value = [
+            b"chunk1",
+            b"chunk2",
+        ]  # Mock file content
         mock_get.return_value = mock_response
         yield mock_get
 
@@ -150,8 +173,11 @@ def mock_requests():
 @pytest.fixture
 def mock_os_path():
     """Mock os.path.exists for unique filename testing."""
-    with patch('src.web.image_crawler.os.path.exists', side_effect=[True, True, False]) as mock_exists:
+    with patch(
+        "src.web.image_crawler.os.path.exists", side_effect=[True, True, False]
+    ) as mock_exists:
         yield mock_exists
+
 
 # ----------------------------------------------------------------------
 # Image Fixtures
@@ -162,8 +188,8 @@ def sample_image():
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create a sample PNG image
         img_path = os.path.join(temp_dir, "test_image.png")
-        img = Image.new('RGB', (100, 100), (255, 0, 0))  # Red image
-        img.save(img_path, 'PNG')
+        img = Image.new("RGB", (100, 100), (255, 0, 0))  # Red image
+        img.save(img_path, "PNG")
         yield img_path
 
 
@@ -173,8 +199,8 @@ def sample_transparent_image():
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create a sample PNG image with transparency
         img_path = os.path.join(temp_dir, "test_transparent.png")
-        img = Image.new('RGBA', (100, 100), (255, 0, 0, 128))  # Semi-transparent red
-        img.save(img_path, 'PNG')
+        img = Image.new("RGBA", (100, 100), (255, 0, 0, 128))  # Semi-transparent red
+        img.save(img_path, "PNG")
         yield img_path
 
 
@@ -183,15 +209,15 @@ def sample_images_directory():
     """Create a directory with multiple test images (PNG, JPEG, WEBP)."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create multiple sample images with different formats
-        formats = ['png', 'jpeg', 'webp']
+        formats = ["png", "jpeg", "webp"]
         image_paths = []
-        
+
         for i, fmt in enumerate(formats):
             img_path = os.path.join(temp_dir, f"test_image_{i}.{fmt}")
-            img = Image.new('RGB', (50 + i*10, 50 + i*10), (i*80, i*60, i*40))
+            img = Image.new("RGB", (50 + i * 10, 50 + i * 10), (i * 80, i * 60, i * 40))
             img.save(img_path, fmt.upper())
             image_paths.append(img_path)
-        
+
         # Yield the directory path and the list of absolute image paths
         yield temp_dir, image_paths
 
@@ -212,29 +238,36 @@ def sample_images():
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create sample images
         image_paths = []
-        
+
         # Create 4 different colored images
-        colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0)]  # Red, Green, Blue, Yellow
+        colors = [
+            (255, 0, 0),
+            (0, 255, 0),
+            (0, 0, 255),
+            (255, 255, 0),
+        ]  # Red, Green, Blue, Yellow
         sizes = [(100, 100), (150, 100), (100, 150), (120, 120)]  # Different sizes
-        
+
         for i, (color, size) in enumerate(zip(colors, sizes)):
             img_path = os.path.join(temp_dir, f"test_image_{i}.png")
-            img = Image.new('RGB', size, color)
+            img = Image.new("RGB", size, color)
             img.save(img_path)
             image_paths.append(img_path)
-        
+
         yield temp_dir, image_paths
+
 
 # ----------------------------------------------------------------------
 # File System Entries Fixtures
 # ----------------------------------------------------------------------
+
 
 @pytest.fixture
 def temp_test_setup():
     """
     Creates a temporary directory with a structured set of files and subdirectories
     for testing file system operations (used by test_file_system_entries.py).
-    
+
     Structure:
     /temp_dir
     ├── file_a.txt
@@ -250,17 +283,18 @@ def temp_test_setup():
         Path(temp_dir, "file_a.txt").touch()
         Path(temp_dir, "file_b.log").touch()
         Path(temp_dir, "image_1.png").touch()
-        
+
         # Create subdirectory and its contents
         subdir = Path(temp_dir, "subdirectory")
         subdir.mkdir()
         Path(subdir, "file_c.txt").touch()
         Path(subdir, "image_2.jpg").touch()
-        
+
         # Create an empty subdirectory
         Path(temp_dir, "empty_subdir").mkdir()
 
         yield temp_dir
+
 
 @pytest.fixture
 def dummy_decorated_func():
@@ -268,14 +302,18 @@ def dummy_decorated_func():
     A simple function decorated with ensure_absolute_paths to test its behavior.
     The dummy function just returns its arguments.
     """
+
     @FSETool.ensure_absolute_paths()
     def target_func(path_arg_1, path_arg_2, non_path_arg, kwarg_path=None):
         return path_arg_1, path_arg_2, non_path_arg, kwarg_path
+
     return target_func
+
 
 # ----------------------------------------------------------------------
 # Image Crawler Fixtures
 # ----------------------------------------------------------------------
+
 
 @pytest.fixture
 def crawler_config():

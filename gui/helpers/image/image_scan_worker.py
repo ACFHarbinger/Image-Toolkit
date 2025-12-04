@@ -11,13 +11,13 @@ class ImageScannerWorker(QObject):
     Optimized using os.scandir for faster directory traversal and
     skips hidden directories for efficiency.
     """
-    
+
     scan_finished = Signal(list)
     scan_error = Signal(str)
 
     def __init__(self, directories: Union[str, List[str]]):
         super().__init__()
-        
+
         # Handle single string or list input
         if isinstance(directories, (str, os.PathLike)):
             self.directories = [str(directories)]
@@ -25,7 +25,7 @@ class ImageScannerWorker(QObject):
             self.directories = [d for d in directories if d and os.path.isdir(d)]
         else:
             self.directories = []
-            
+
         # Pre-calculate extensions once during init to save time in the loop
         # Ensure formats are lowercased and have the dot prefix
         self.extensions: Tuple[str, ...] = tuple(
@@ -43,9 +43,9 @@ class ImageScannerWorker(QObject):
             with os.scandir(path) as it:
                 for entry in it:
                     # Skip hidden directories/files (starts with dot)
-                    if entry.name.startswith('.'):
+                    if entry.name.startswith("."):
                         continue
-                        
+
                     if entry.is_dir(follow_symlinks=False):
                         # Recursive call
                         found_images.extend(self._scan_recursive(entry.path))
@@ -58,7 +58,7 @@ class ImageScannerWorker(QObject):
             print(f"Permission denied: {path}")
         except OSError as e:
             print(f"OS Error scanning {path}: {e}")
-            
+
         return found_images
 
     @Slot()
@@ -67,7 +67,7 @@ class ImageScannerWorker(QObject):
         Iterates through all provided directories and aggregates image paths.
         """
         all_image_paths = []
-        
+
         if not self.directories:
             self.scan_error.emit("No valid directories provided for scanning.")
             return
@@ -76,14 +76,14 @@ class ImageScannerWorker(QObject):
             for directory in self.directories:
                 if not os.path.isdir(directory):
                     self.scan_error.emit(f"Skipping invalid directory: {directory}")
-                    continue # Continue to next dir instead of aborting
+                    continue  # Continue to next dir instead of aborting
 
                 # Use the optimized recursive scanner
                 images_in_dir = self._scan_recursive(directory)
                 all_image_paths.extend(images_in_dir)
-            
+
             # Sort strictly at the end to minimize overhead
             self.scan_finished.emit(sorted(all_image_paths))
-            
+
         except Exception as e:
             self.scan_error.emit(f"Critical error during scan: {e}")
