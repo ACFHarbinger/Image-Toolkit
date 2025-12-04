@@ -11,8 +11,8 @@ shadow = "9.0.0"
 
 # Android Build Tools
 
-androidGradlePlugin = "8.2.2" # Current stable AGP version
-kotlin = "1.9.22" # Kotlin version for AGP
+androidGradlePlugin = "8.2.2"
+kotlin = "1.9.22"
 targetSdk = "34"
 minSdk = "24"
 
@@ -23,6 +23,7 @@ androidxCore = "1.13.1"
 androidxLifecycle = "2.8.6"
 androidxActivity = "1.9.2"
 coil = "2.6.0"
+androidxComposeTesting = "1.5.4" # New version reference for Compose testing libraries
 
 [libraries]
 
@@ -53,6 +54,7 @@ androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling
 androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
 androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
+androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4", version.ref = "androidxComposeTesting" }
 
 # Third Party
 
@@ -76,12 +78,10 @@ test-libraries = [
 [plugins]
 
 # Core Plugins
-
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 
 # Android Plugins
-
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
 android-library = { id = "com.android.library", version.ref = "androidGradlePlugin" }
 
