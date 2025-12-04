@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QHBoxLayout,
 )
-from ..base_generative_tab import BaseGenerativeTab
+from ....classes.base_generative_tab import BaseGenerativeTab
 from backend.src.models.lora_diffusion import LoRATuner
 from backend.src.models.gan_wrapper import GanWrapper
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH

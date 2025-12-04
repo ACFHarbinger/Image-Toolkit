@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QFormLayout, QLineEdit, QSpinBox, QComboBox, QCheckBox
-from ..base_generative_tab import BaseGenerativeTab
+from ....classes.base_generative_tab import BaseGenerativeTab
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH
 
 

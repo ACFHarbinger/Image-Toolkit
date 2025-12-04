@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QFormLayout, QLabel, QLineEdit, QCheckBox
-from .base_generative_tab import BaseGenerativeTab
+from ...classes.base_generative_tab import BaseGenerativeTab
 
 
 class R3GANEvaluateTab(BaseGenerativeTab):

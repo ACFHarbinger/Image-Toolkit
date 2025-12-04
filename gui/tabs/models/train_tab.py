@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QFormLayout,
 )
-from .base_generative_tab import BaseGenerativeTab
+from ...classes.base_generative_tab import BaseGenerativeTab
 from .train import R3GANTrainTab, LoRATrainTab, GANTrainTab
 
 
