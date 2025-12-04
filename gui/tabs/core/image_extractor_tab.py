@@ -476,7 +476,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def load_media(self, file_path: str):
         self.video_path = file_path
         ext = Path(file_path).suffix.lower()
-        
         for i in range(self.source_grid.count()):
             container = self.source_grid.itemAt(i).widget()
             if container:
@@ -496,7 +495,12 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         else:
             self.video_container_widget.setVisible(True) 
             self.extract_group.setVisible(True)
-            self.btn_snapshot.setEnabled(True)
+            
+            # --- MODIFIED: Disable snapshot until start is set ---
+            self.btn_snapshot.setEnabled(False) 
+            self.btn_snapshot.setText("📸 Snapshot (Set Start First)")
+            # -----------------------------------------------------
+            
             self.btn_set_start.setEnabled(True)
             self.btn_set_end.setEnabled(True)
             self._apply_player_mode()
@@ -521,8 +525,14 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.clear_gallery_widgets()
         self.start_time_ms = 0
         self.end_time_ms = 0
-        self.btn_set_start.setText("Set Start [00:00]")
-        self.btn_set_end.setText("Set End [00:00]")
+        
+        # --- MODIFIED: Reset Snapshot button ---
+        self.btn_snapshot.setEnabled(False)
+        self.btn_snapshot.setText("📸 Snapshot Frame")
+        # ---------------------------------------
+        
+        self.btn_set_start.setText("Set Start [00:00:000]")
+        self.btn_set_end.setText("Set End [00:00:000]")
         self.btn_extract_range.setEnabled(False)
         self.btn_extract_gif.setEnabled(False)
         self.btn_extract_video.setEnabled(False)
@@ -873,7 +883,14 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     @Slot()
     def set_range_start(self):
         self.start_time_ms = self.media_player.position()
-        self.btn_set_start.setText(f"Start: {self._format_time(self.start_time_ms)}")
+        time_str = self._format_time(self.start_time_ms)
+        self.btn_set_start.setText(f"Start: {time_str}")
+        
+        # --- MODIFIED: Enable snapshot and update text ---
+        self.btn_snapshot.setEnabled(True)
+        self.btn_snapshot.setText(f"📸 Snapshot at {time_str}")
+        # -------------------------------------------------
+        
         self._validate_range()
 
     @Slot()
@@ -912,11 +929,24 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     @Slot()
     def extract_single_frame(self):
         if not self.video_path: return
+        
+        # Pause player if running
         if self.use_internal_player and self.media_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             self.media_player.pause()
             self.btn_play.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
-        current_ms = self.media_player.position()
-        self._run_extraction(current_ms, -1, is_range=False)
+            
+        # --- MODIFIED: Apply a small negative offset ---
+        
+        # We use self.start_time_ms which was set by set_range_start
+        target_ms = self.start_time_ms
+        
+        # Define a small offset to correct for player/extractor lag
+        LAG_COMPENSATION_MS = 75 
+        
+        # Adjust the target time backward, ensuring it doesn't go below zero
+        corrected_ms = max(0, target_ms - LAG_COMPENSATION_MS)
+        
+        self._run_extraction(corrected_ms, -1, is_range=False)
 
     @Slot()
     def extract_range(self):
@@ -1062,7 +1092,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def _format_time(self, ms: int) -> str:
         seconds = (ms // 1000) % 60
         minutes = (ms // 60000) % 60
-        return f"{minutes:02}:{seconds:02}"
+        milliseconds = ms % 1000
+        return f"{minutes:02}:{seconds:02}:{milliseconds:03}"
     
     # --- Configuration Methods for SettingsWindow ---
 
