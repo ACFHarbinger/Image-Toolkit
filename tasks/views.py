@@ -2,15 +2,28 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .serializers import (
+    FrameExtractionSerializer, DbAutoPopulateSerializer,
+    DatabaseConfigSerializer, DbAddGroupSerializer,
+    DbAddSubgroupSerializer, DbAddTagSerializer,
+    SearchSerializer, TrainingSerializer, 
     ConversionSerializer, MergeSerializer, 
+    CloudSyncSerializer, ImageCrawlSerializer,
     DeletionSerializer, DuplicateScanSerializer,
-    WallpaperSerializer, SearchSerializer
+    ReverseSearchSerializer, WebRequestSerializer,
+    GifExtractionSerializer, VideoExtractionSerializer,
 )
 from .tasks import (
     task_convert_images, task_merge_images, 
-    task_delete_files, task_scan_duplicates
+    task_delete_files, task_scan_duplicates,
+    task_train_gan, task_extract_frames,
+    task_create_gif, task_extract_video_clip,
+    task_cloud_sync, task_crawl_images,
+    task_reverse_search, task_web_request,
+    task_db_test_connection, task_db_add_group,
+    task_db_add_subgroup, task_db_add_tag,
+    task_db_auto_populate, task_db_reset
 )
-from backend.src.core import WallpaperManager
+
 
 class CoreTaskView(APIView):
     """
@@ -64,21 +77,59 @@ class SearchView(APIView):
             return Response({"results": results})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class WallpaperView(APIView):
+class TrainingView(CoreTaskView):
     def post(self, request):
-        serializer = WallpaperSerializer(data=request.data)
-        if serializer.is_valid():
-            try:
-                # Running directly as it interacts with OS display settings
-                # WARNING: This sets the wallpaper on the SERVER hosting Django
-                d = serializer.validated_data
-                WallpaperManager.apply_wallpaper(
-                    d['path_map'], 
-                    [], # Monitor detection might fail on server, provide defaults if needed
-                    d['style'], 
-                    "qdbus_placeholder" 
-                )
-                return Response({"status": "success"})
-            except Exception as e:
-                return Response({"status": "error", "message": str(e)}, status=500)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return self.launch_task(TrainingSerializer, task_train_gan, request.data)
+
+class FrameExtractionView(CoreTaskView):
+    def post(self, request):
+        return self.launch_task(FrameExtractionSerializer, task_extract_frames, request.data)
+
+class GifExtractionView(CoreTaskView):
+    def post(self, request):
+        return self.launch_task(GifExtractionSerializer, task_create_gif, request.data)
+
+class VideoExtractionView(CoreTaskView):
+    def post(self, request):
+        return self.launch_task(VideoExtractionSerializer, task_extract_video_clip, request.data)
+
+class CloudSyncView(CoreTaskView):
+    def post(self, request):
+        return self.launch_task(CloudSyncSerializer, task_cloud_sync, request.data)
+
+class ImageCrawlView(CoreTaskView):
+    def post(self, request):
+        return self.launch_task(ImageCrawlSerializer, task_crawl_images, request.data)
+
+class ReverseSearchView(CoreTaskView):
+    def post(self, request):
+        return self.launch_task(ReverseSearchSerializer, task_reverse_search, request.data)
+
+class WebRequestView(CoreTaskView):
+    def post(self, request):
+        return self.launch_task(WebRequestSerializer, task_web_request, request.data)
+    
+class DatabaseConnectView(CoreTaskView):
+    """Test connection and get stats"""
+    def post(self, request):
+        return self.launch_task(DatabaseConfigSerializer, task_db_test_connection, request.data)
+
+class DatabaseAddGroupView(CoreTaskView):
+    def post(self, request):
+        return self.launch_task(DbAddGroupSerializer, task_db_add_group, request.data)
+
+class DatabaseAddSubgroupView(CoreTaskView):
+    def post(self, request):
+        return self.launch_task(DbAddSubgroupSerializer, task_db_add_subgroup, request.data)
+
+class DatabaseAddTagView(CoreTaskView):
+    def post(self, request):
+        return self.launch_task(DbAddTagSerializer, task_db_add_tag, request.data)
+
+class DatabaseAutoPopulateView(CoreTaskView):
+    def post(self, request):
+        return self.launch_task(DbAutoPopulateSerializer, task_db_auto_populate, request.data)
+
+class DatabaseResetView(CoreTaskView):
+    def post(self, request):
+        return self.launch_task(DatabaseConfigSerializer, task_db_reset, request.data)
