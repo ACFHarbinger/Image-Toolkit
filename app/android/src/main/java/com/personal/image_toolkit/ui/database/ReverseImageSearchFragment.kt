@@ -90,7 +90,7 @@ class ReverseImageSearchFragment : BaseSingleGalleryFragment() {
 
     override fun createCardView(context: Context, path: String): View {
         return ClickableItemView(context).apply {
-            setFilePath(path)
+            filePath = path
             if (path == selectedImagePath) {
                 setBackgroundColor(Color.parseColor("#007AFF")) // Blue Selection
             } else {

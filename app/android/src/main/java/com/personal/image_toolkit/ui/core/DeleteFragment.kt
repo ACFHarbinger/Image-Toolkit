@@ -81,7 +81,7 @@ class DeleteFragment : BaseTwoGalleriesFragment() {
 
     override fun createCardView(context: Context, path: String, isSelected: Boolean): View {
         return ClickableItemView(context).apply {
-            setFilePath(path)
+            filePath = path
             if (isSelected) {
                 // Red border styling ideally
                 setBackgroundColor(Color.parseColor("#e74c3c")) 

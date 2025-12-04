@@ -74,7 +74,8 @@ class GenerateFragment : BaseGenerativeFragment() {
         mainLayout.addView(View(context).apply {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 2)
             setBackgroundColor(Color.DKGRAY)
-            setMargins(0, 16, 0, 16)
+            // Fix: Use setMargins on LayoutParams object
+            (layoutParams as ViewGroup.MarginLayoutParams).setMargins(0, 16, 0, 16)
         })
 
         // 2. Dynamic Settings
@@ -85,7 +86,7 @@ class GenerateFragment : BaseGenerativeFragment() {
         val resGroup = OptionalField(context).apply { setTitle("Generated Results") }
         resultsGrid = GridLayout(context).apply { columnCount = 2 }
         resGroup.setContent(resultsGrid)
-        
+
         mainLayout.addView(resGroup)
 
         // Status
@@ -122,10 +123,10 @@ class GenerateFragment : BaseGenerativeFragment() {
         addParamWidget(context, diffGroup, "Prompt:", createEditText(context, "1girl, solo..."), "prompt")
         addParamWidget(context, diffGroup, "Neg. Prompt:", createEditText(context, "lowres, bad anatomy"), "neg_prompt")
         addParamWidget(context, diffGroup, "LoRA Path:", createEditText(context, "output_lora"), "lora_path")
-        
+
         addParamWidget(context, diffGroup, "Steps:", createEditText(context, "25", "25"), "steps")
         addParamWidget(context, diffGroup, "Guidance:", createEditText(context, "7.0", "7.0"), "cfg")
-        
+
         contentContainer.addView(diffGroup)
 
         val btnGen = createStyledButton(context, "Generate Image", "#2980b9")
@@ -137,11 +138,11 @@ class GenerateFragment : BaseGenerativeFragment() {
     private fun setupSD3UI(context: Context) {
         val baseModels = arrayOf("sd3.5_large.safetensors", "sd3.5_medium.safetensors")
         addParamWidget(context, contentContainer, "Base Model:", createSpinner(context, baseModels), "sd3_model")
-        
+
         addParamWidget(context, contentContainer, "Prompt:", createEditText(context, "cute cat"), "prompt")
         addParamWidget(context, contentContainer, "Width:", createEditText(context, "1024", "1024"), "width")
         addParamWidget(context, contentContainer, "Height:", createEditText(context, "1024", "1024"), "height")
-        
+
         val cnModels = arrayOf("None", "canny.safetensors", "depth.safetensors")
         addParamWidget(context, contentContainer, "ControlNet:", createSpinner(context, cnModels), "cn_model")
 
@@ -154,7 +155,7 @@ class GenerateFragment : BaseGenerativeFragment() {
     private fun setupR3GANUI(context: Context) {
         addParamWidget(context, contentContainer, "Network (.pkl):", createEditText(context, ""), "network")
         addParamWidget(context, contentContainer, "Seeds:", createEditText(context, "0-7"), "seeds")
-        
+
         val btnGen = createStyledButton(context, "Generate R3GAN", "#8e44ad")
         btnGen.setOnClickListener { mockGeneration() }
         contentContainer.addView(btnGen)
@@ -167,7 +168,7 @@ class GenerateFragment : BaseGenerativeFragment() {
         val btnBrowse = Button(context).apply { text = "Browse" }
         row.addView(editPath, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         row.addView(btnBrowse)
-        
+
         addParamWidget(context, contentContainer, "Checkpoint:", row, "ckpt")
         addParamWidget(context, contentContainer, "Count:", createEditText(context, "8", "8"), "count")
 
@@ -179,7 +180,11 @@ class GenerateFragment : BaseGenerativeFragment() {
     private fun mockGeneration() {
         statusLabel.text = "Generating..."
         resultsGrid.removeAllViews()
-        
+
+        // Convert DP to PX (8dp to px)
+        val density = resources.displayMetrics.density
+        val marginPx = (8 * density).toInt()
+
         // Mock Result
         for (i in 1..4) {
             val img = ImageView(requireContext()).apply {
@@ -188,7 +193,11 @@ class GenerateFragment : BaseGenerativeFragment() {
                 layoutParams = GridLayout.LayoutParams().apply {
                     width = 300
                     height = 300
-                    setMargins(8, 8, 8, 8)
+                    // Fix: Directly set margins properties
+                    this.topMargin = marginPx
+                    this.bottomMargin = marginPx
+                    this.leftMargin = marginPx
+                    this.rightMargin = marginPx
                 }
             }
             resultsGrid.addView(img)

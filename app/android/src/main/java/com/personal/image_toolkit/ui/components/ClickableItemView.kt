@@ -18,6 +18,18 @@ class ClickableItemView @JvmOverloads constructor(
 ) : AppCompatTextView(context, attrs, defStyleAttr) {
 
     var filePath: String? = null
+        set(value) {
+            field = value // Updates the internal backing field
+
+            // Perform the UI updates immediately when the property is set
+            if (value != null) {
+                text = File(value).name
+                contentDescription = value
+            } else {
+                text = ""
+                contentDescription = null
+            }
+        }
     var onPathClicked: ((String) -> Unit)? = null
     var onPathDoubleClicked: ((String) -> Unit)? = null
     // Android uses OnLongClickListener for context menu/right-click equivalent
@@ -57,12 +69,5 @@ class ClickableItemView @JvmOverloads constructor(
             }
             true // Consume the event
         }
-    }
-    
-    fun setFilePath(path: String) {
-        this.filePath = path
-        // Set the file name as text, and the full path as the content description/tooltip
-        text = File(path).name
-        contentDescription = path
     }
 }

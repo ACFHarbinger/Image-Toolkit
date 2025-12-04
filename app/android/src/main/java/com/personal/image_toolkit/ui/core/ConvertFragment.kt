@@ -77,14 +77,16 @@ class ConvertFragment : BaseTwoGalleriesFragment() {
 
     override fun createCardView(context: Context, path: String, isSelected: Boolean): View {
         return ClickableItemView(context).apply {
-            setFilePath(path)
+            // FIX: Use property assignment instead of method call
+            filePath = path
+
             // Visual style for selection
             if (isSelected) {
                 setBackgroundColor(Color.parseColor("#3498db"))
             } else {
                 setBackgroundColor(Color.parseColor("#2c2f33"))
             }
-            
+
             onPathClicked = { p -> toggleSelection(p) }
             onPathDoubleClicked = { p -> /* Open Preview logic */ }
         }
