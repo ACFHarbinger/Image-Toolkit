@@ -1,10 +1,5 @@
 import { useState, useMemo } from 'react';
-
-export interface GalleryItem {
-  path: string;
-  thumbnail?: string; // URL or base64
-  isVideo?: boolean;
-}
+import { GalleryItem } from './galleryItem.ts';
 
 export function useGallery(pageSize = 100) {
   // --- Data State ---

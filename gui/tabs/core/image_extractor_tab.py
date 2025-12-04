@@ -1,5 +1,4 @@
 import os
-import cv2
 import datetime
 
 from pathlib import Path
@@ -13,7 +12,7 @@ from PySide6.QtWidgets import (
     QPushButton, QApplication, QLineEdit,
     QProgressDialog, QSpinBox, QCheckBox
 )
-from PySide6.QtGui import QPixmap, QResizeEvent, QAction, QImage
+from PySide6.QtGui import QPixmap, QResizeEvent, QAction
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtCore import Qt, QUrl, Slot, QThreadPool, QPoint, QEvent

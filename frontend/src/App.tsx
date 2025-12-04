@@ -23,7 +23,7 @@ import { ImageExtractorTab } from './tabs/core/ImageExtractorTab.tsx';
 // --- Database Tabs ---
 import SearchTab from './tabs/database/SearchTab.tsx';
 import DatabaseTab from './tabs/database/DatabaseTab.tsx';
-import ScanFSETab from './tabs/database/ScanFSETab.tsx';
+import ScanMetadataTab from './tabs/database/ScanMetadataTab.tsx';
 
 // --- Import Unified Tabs ---
 import { UnifiedTrainTab } from './tabs/models/UnifiedTrainTab.tsx';
@@ -38,10 +38,6 @@ type TabId = 'convert' | 'merge' | 'delete' | 'extractor' | 'search' | 'database
 interface BaseTabProps {
   showModal: (message: string | ReactNode, type?: 'info' | 'error' | 'success', duration?: number) => void;
   // All other common props would go here (e.g., isAuthenticated)
-}
-
-interface ScanTabProps extends BaseTabProps {
-  onAddImagesToDb: (imagePaths: string[]) => void;
 }
 
 // 2. Update TabConfig to use a generic ComponentType
@@ -88,7 +84,7 @@ const App: React.FC = () => {
   const ExtractorRef = useRef<any>(null); // NEW REF
   const SearchRef = useRef<any>(null);
   const DatabaseRef = useRef<any>(null);
-  const ScanFSERef = useRef<any>(null);
+  const ScanMetadataRef = useRef<any>(null);
   const TrainRef = useRef<any>(null);
   const GenerateRef = useRef<any>(null);
   const primaryDropdownRef = useRef<HTMLDivElement>(null); // Ref for click outside logic
@@ -101,7 +97,7 @@ const App: React.FC = () => {
     extractor: ExtractorRef, // Mapped new ref
     search: SearchRef,
     database: DatabaseRef,
-    scan: ScanFSERef,
+    scan: ScanMetadataRef,
     train: TrainRef,
     generate: GenerateRef,
   };
@@ -141,7 +137,7 @@ const App: React.FC = () => {
       tabs: [
         { id: 'search', label: 'Search', icon: Search, component: SearchTab },
         { id: 'database', label: 'Database', icon: Database, component: DatabaseTab },
-        { id: 'scan', label: 'Scan', icon: FolderOpen, component: ScanFSETab },
+        { id: 'scan', label: 'Scan', icon: FolderOpen, component: ScanMetadataTab },
       ]
     },
     {
@@ -212,8 +208,9 @@ const App: React.FC = () => {
                 bg-violet-500 text-white shadow-md hover:bg-violet-600
               `}
             >
-              {/* FIX: Conditional rendering of icon */}
-              {CurrentTabConfig?.icon && <CurrentTabConfig.icon size={16} className="mr-2" />}
+              {/* FIX (1): Use capitalized variable 'Icon' for component rendering */}
+              {CurrentTabConfig?.icon && 
+                React.createElement(CurrentTabConfig.icon, { size: 16, className: "mr-2" })}
               {CurrentTabConfig?.label || CurrentGroupName}
               <ChevronDown size={16} className={`ml-2 transition-transform duration-200 ${isPrimaryDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -240,21 +237,25 @@ const App: React.FC = () => {
                     {/* Nested Tabs */}
                     {openDropdown === group.title && (
                       <div className="bg-gray-50 dark:bg-gray-900/50">
-                        {group.tabs.map(tab => (
-                          <button
-                            key={tab.id}
-                            onClick={() => handleTabClick(tab.id)}
-                            className={`w-full text-left pl-10 pr-4 py-2 text-xs flex items-center border-l-4 transition-colors
-                              ${activeTab === tab.id 
-                                ? 'border-violet-500 bg-violet-100 dark:bg-violet-900/20 text-violet-700 font-medium' 
-                                : 'border-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                              }`
-                            }
-                          >
-                            <tab.icon size={14} className="mr-2" />
-                            {tab.label}
-                          </button>
-                        ))}
+                        {group.tabs.map(tab => {
+                           // FIX (2): Destructure and capitalize the Icon reference for JSX rendering
+                           const TabIcon = tab.icon;
+                           return (
+                             <button
+                               key={tab.id}
+                               onClick={() => handleTabClick(tab.id)}
+                               className={`w-full text-left pl-10 pr-4 py-2 text-xs flex items-center border-l-4 transition-colors
+                                 ${activeTab === tab.id 
+                                   ? 'border-violet-500 bg-violet-100 dark:bg-violet-900/20 text-violet-700 font-medium' 
+                                   : 'border-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                 }`
+                               }
+                             >
+                               <TabIcon size={14} className="mr-2" />
+                               {tab.label}
+                             </button>
+                           );
+                        })}
                       </div>
                     )}
                   </div>
