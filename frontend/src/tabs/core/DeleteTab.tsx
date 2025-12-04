@@ -1,6 +1,6 @@
 import React, { forwardRef, useState, useImperativeHandle } from 'react';
-import FormRow from '../components/FormRow.tsx';
-import PathInput from '../components/PathInput.tsx';
+import FormRow from '../../components/FormRow.tsx';
+import PathInput from '../../components/PathInput.tsx';
 
 interface DeleteTabProps {
   showModal: (message: string, type: 'info' | 'success' | 'error' | 'custom') => void;

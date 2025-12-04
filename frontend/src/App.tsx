@@ -1,4 +1,4 @@
-import React, { useState, useRef, ReactNode, ComponentType, RefObject } from 'react'; // Added ReactNode, RefObject, ComponentType
+import React, { useState, useRef, ReactNode, ComponentType, RefObject } from 'react';
 import { 
   Database, 
   Image as ImageIcon, 
@@ -10,15 +10,20 @@ import {
   BrainCircuit, 
   Wand2,
   ChevronDown,
-  ChevronRight // Added ChevronRight for nested menu
+  ChevronRight,
+  MonitorPlay // Icon for Video/Extractor
 } from 'lucide-react';
 
-import ConvertTab from './tabs/ConvertTab.tsx';
-import MergeTab from './tabs/MergeTab.tsx';
-import DeleteTab from './tabs/DeleteTab.tsx';
-import SearchTab from './tabs/SearchTab.tsx';
-import DatabaseTab from './tabs/DatabaseTab.tsx';
-import ScanFSETab from './tabs/ScanFSETab.tsx';
+// --- Core Tabs ---
+import ConvertTab from './tabs/core/ConvertTab.tsx';
+import MergeTab from './tabs/core/MergeTab.tsx';
+import DeleteTab from './tabs/core/DeleteTab.tsx';
+import { ImageExtractorTab } from './tabs/core/ImageExtractorTab.tsx';
+
+// --- Database Tabs ---
+import SearchTab from './tabs/database/SearchTab.tsx';
+import DatabaseTab from './tabs/database/DatabaseTab.tsx';
+import ScanFSETab from './tabs/database/ScanFSETab.tsx';
 
 // --- Import Unified Tabs ---
 import { UnifiedTrainTab } from './tabs/models/UnifiedTrainTab.tsx';
@@ -26,7 +31,8 @@ import { UnifiedGenerateTab } from './tabs/models/UnifiedGenerateTab.tsx';
 
 // --- Interfaces ---
 
-type TabId = 'convert' | 'merge' | 'delete' | 'search' | 'database' | 'scan' | 'train' | 'generate';
+// UPDATED: Added 'extractor' TabId
+type TabId = 'convert' | 'merge' | 'delete' | 'extractor' | 'search' | 'database' | 'scan' | 'train' | 'generate';
 
 // 1. Define the shared props interface that ALL tabs receive.
 interface BaseTabProps {
@@ -79,6 +85,7 @@ const App: React.FC = () => {
   const ConvertRef = useRef<any>(null);
   const MergeRef = useRef<any>(null);
   const DeleteRef = useRef<any>(null);
+  const ExtractorRef = useRef<any>(null); // NEW REF
   const SearchRef = useRef<any>(null);
   const DatabaseRef = useRef<any>(null);
   const ScanFSERef = useRef<any>(null);
@@ -86,10 +93,12 @@ const App: React.FC = () => {
   const GenerateRef = useRef<any>(null);
   const primaryDropdownRef = useRef<HTMLDivElement>(null); // Ref for click outside logic
 
+  // UPDATED: Added extractor ref
   const tabRefs: Record<TabId, RefObject<any>> = {
     convert: ConvertRef,
     merge: MergeRef,
     delete: DeleteRef,
+    extractor: ExtractorRef, // Mapped new ref
     search: SearchRef,
     database: DatabaseRef,
     scan: ScanFSERef,
@@ -124,6 +133,7 @@ const App: React.FC = () => {
         { id: 'convert', label: 'Convert', icon: ImageIcon, component: ConvertTab },
         { id: 'merge', label: 'Merge', icon: LayoutGrid, component: MergeTab },
         { id: 'delete', label: 'Delete', icon: Trash2, component: DeleteTab },
+        { id: 'extractor', label: 'Extractor', icon: MonitorPlay, component: ImageExtractorTab }, // ADDED EXTRACTOR
       ]
     },
     {
@@ -157,6 +167,7 @@ const App: React.FC = () => {
   };
 
   // 4. Define conditional props
+  // Note: 'scan' is the only tab needing onAddImagesToDb.
   const conditionalProps = activeTab === 'scan' ? { onAddImagesToDb: handleAddImagesToDb } : {};
   
   const handleTabClick = (tabId: TabId) => {
