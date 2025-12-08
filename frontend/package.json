@@ -59,7 +59,8 @@
     "start-electron": "npm run build && electron .",
     "electron-dev": "concurrently \"npm start\" \"wait-on http://localhost:3000 && electron .\"",
     "electron-build": "npm run build-react && electron-builder --config.npmRebuild=false",
-    "postinstall": "electron-builder install-app-deps"
+    "manual-postinstall": "electron-builder install-app-deps",
+    "build-electron-deps": "npm run manual-postinstall"
   },
   "eslintConfig": {
     "extends": [
