@@ -103,8 +103,10 @@ class WallpaperTab(AbstractClassSingleGallery):
                 self.set_wallpaper_btn.setText("Slideshow (Drop images/videos)")
 
         elif self.background_type == "Smart Video Wallpaper Reborn":
-            if set_count > 0:
-                self.set_wallpaper_btn.setText("Set Video Wallpaper")
+            if is_ready:
+                self.set_wallpaper_btn.setText(
+                    f"Start Video Slideshow ({total_images} items)"
+                )
                 self.set_wallpaper_btn.setEnabled(True)
             else:
                 self.set_wallpaper_btn.setText("Set Video (0 items)")
@@ -439,11 +441,17 @@ class WallpaperTab(AbstractClassSingleGallery):
     def toggle_slideshow_daemon(self):
         start = not self._is_daemon_running_config()
 
+        style_to_use = (
+            f"SmartVideoWallpaperReborn::{self.video_style}"
+            if self.background_type == "Smart Video Wallpaper Reborn"
+            else self.wallpaper_style
+        )
+
         config = {
             "running": start,
             "interval_seconds": (self.interval_min_spinbox.value() * 60)
             + self.interval_sec_spinbox.value(),
-            "style": self.wallpaper_style,
+            "style": style_to_use,
             "monitor_queues": self.monitor_slideshow_queues,
             "current_paths": self.monitor_image_paths,
         }
@@ -534,7 +542,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         is_image = type_name == "Image"
 
         self.solid_color_widget.setVisible(is_solid_color)
-        self.slideshow_group.setVisible(is_slideshow)
+        self.slideshow_group.setVisible(is_slideshow or is_video)
 
         main_controls_enabled = not is_solid_color
 
@@ -584,7 +592,7 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         if self.slideshow_timer and self.slideshow_timer.isActive():
             self.stop_slideshow()
-        elif self.background_type == "Slideshow":
+        elif self.background_type in ["Slideshow", "Smart Video Wallpaper Reborn"]:
             self.start_slideshow()
         else:
             if self.current_wallpaper_worker:
