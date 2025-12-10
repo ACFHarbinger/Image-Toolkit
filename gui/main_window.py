@@ -166,7 +166,7 @@ class MainWindow(QWidget):
 
         self.all_tabs = {
             "System Tools": {
-                "Convert Format": self.convert_tab,
+                "Convert": self.convert_tab,
                 "Merge": self.merge_tab,
                 "Delete": self.delete_tab,
                 "Extractor": self.image_extractor_tab,
