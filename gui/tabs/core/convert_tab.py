@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QComboBox,
     QMenu,
+    QSpinBox,
 )
 from PySide6.QtGui import QPixmap, QAction
 from PySide6.QtCore import Qt, Slot, QPoint
@@ -168,7 +169,64 @@ class ConvertTab(AbstractClassTwoGalleries):
 
         content_layout.addWidget(settings_group)
 
-        # --- 3. Galleries ---
+        # --- 3. Aspect Ratio Group (UPDATED) ---
+        ar_group = QGroupBox("Aspect Ratio")
+        ar_layout = QFormLayout(ar_group)
+
+        self.enable_ar_checkbox = QCheckBox("Change Aspect Ratio")
+        self.enable_ar_checkbox.setToolTip("Enable to resize, crop, or pad images to a specific aspect ratio.")
+        self.enable_ar_checkbox.toggled.connect(self.toggle_ar_controls)
+        ar_layout.addRow(self.enable_ar_checkbox)
+
+        # AR Controls
+        ar_controls_layout = QHBoxLayout()
+        
+        # Mode Selection
+        self.ar_mode_combo = QComboBox()
+        self.ar_mode_combo.addItems(["Crop", "Pad", "Stretch"])
+        self.ar_mode_combo.setToolTip(
+            "Crop: Cuts the image to fit.\n"
+            "Pad: Adds background bars (Letterbox).\n"
+            "Stretch: Distorts image to fit."
+        )
+        ar_controls_layout.addWidget(QLabel("Mode:"))
+        ar_controls_layout.addWidget(self.ar_mode_combo)
+
+        # Preset Selection
+        self.ar_combo = QComboBox()
+        self.ar_combo.addItems(["16:9", "4:3", "1:1", "9:16", "3:2", "Custom"])
+        self.ar_combo.currentTextChanged.connect(self.on_ar_combo_change)
+        ar_controls_layout.addWidget(QLabel("Ratio:"))
+        ar_controls_layout.addWidget(self.ar_combo)
+
+        # Custom W/H
+        self.ar_w = QSpinBox()
+        self.ar_w.setRange(1, 99999)
+        self.ar_w.setValue(16)
+        self.ar_h = QSpinBox()
+        self.ar_h.setRange(1, 99999)
+        self.ar_h.setValue(9)
+        
+        self.ar_custom_container = QWidget()
+        custom_layout = QHBoxLayout(self.ar_custom_container)
+        custom_layout.setContentsMargins(0, 0, 0, 0)
+        custom_layout.addWidget(QLabel("W:"))
+        custom_layout.addWidget(self.ar_w)
+        custom_layout.addWidget(QLabel("H:"))
+        custom_layout.addWidget(self.ar_h)
+        
+        ar_controls_layout.addWidget(self.ar_custom_container)
+        ar_controls_layout.addStretch()
+
+        self.ar_controls_widget = QWidget()
+        self.ar_controls_widget.setLayout(ar_controls_layout)
+        self.ar_controls_widget.setEnabled(False) # Start disabled
+        self.ar_custom_container.setVisible(False) # Start hidden (preset 16:9 selected)
+
+        ar_layout.addRow(self.ar_controls_widget)
+        content_layout.addWidget(ar_group)
+
+        # --- 4. Galleries ---
 
         # Progress Bar
         self.scan_progress_bar = QProgressBar()
@@ -196,7 +254,7 @@ class ConvertTab(AbstractClassTwoGalleries):
         )
         content_layout.addWidget(self.found_gallery_scroll, 1)
 
-        # Add Pagination Widget (Found) - Moved to Bottom
+        # Add Pagination Widget (Found)
         if hasattr(self, "found_pagination_widget"):
             content_layout.addWidget(
                 self.found_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
@@ -217,7 +275,7 @@ class ConvertTab(AbstractClassTwoGalleries):
         self.selected_gallery_scroll.setWidget(self.selected_widget)
         content_layout.addWidget(self.selected_gallery_scroll, 1)
 
-        # Add Pagination Widget (Selected) - Moved to Bottom
+        # Add Pagination Widget (Selected)
         if hasattr(self, "selected_pagination_widget"):
             content_layout.addWidget(
                 self.selected_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
@@ -317,11 +375,9 @@ class ConvertTab(AbstractClassTwoGalleries):
 
     def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
         """Lazy loading callback. Unloads image if pixmap is None."""
-        # widget is the ClickableLabel wrapper
         if not isinstance(widget, ClickableLabel):
             return
 
-        # Find the inner QLabel that holds the image
         img_label = widget.findChild(QLabel)
         if not img_label:
             return
@@ -337,7 +393,6 @@ class ConvertTab(AbstractClassTwoGalleries):
             img_label.clear()
             img_label.setText("Loading...")
 
-        # Re-apply style to remove dashed border if present
         is_selected = widget.path in self.selected_files
         self._update_card_style(img_label, is_selected)
 
@@ -347,13 +402,11 @@ class ConvertTab(AbstractClassTwoGalleries):
                 "border: 3px solid #5865f2; background-color: #36393f;"
             )
         else:
-            # If it's still loading/text, keep dashed/simple border, else solid
             if img_label.pixmap() and not img_label.pixmap().isNull():
                 img_label.setStyleSheet(
                     "border: 1px solid #4f545c; background-color: #36393f;"
                 )
             else:
-                # Loading style
                 img_label.setStyleSheet("border: 1px dashed #666; color: #999;")
 
     def on_selection_changed(self):
@@ -368,14 +421,12 @@ class ConvertTab(AbstractClassTwoGalleries):
         if not os.path.exists(image_path):
             return
 
-        # Build navigation list. Default to found files, fallback to selected, or just single.
         target_list = (
             self.found_files
             if hasattr(self, "found_files") and self.found_files
             else []
         )
 
-        # If the double-clicked image isn't in found_files (e.g. was filtered out but still in selection), check selected
         if image_path not in target_list:
             if hasattr(self, "selected_files") and image_path in self.selected_files:
                 target_list = sorted(list(self.selected_files))
@@ -408,7 +459,6 @@ class ConvertTab(AbstractClassTwoGalleries):
 
         menu.addSeparator()
 
-        # Add Select/Deselect options
         is_selected = path in self.selected_files
         toggle_text = (
             "Deselect image from conversion"
@@ -437,21 +487,17 @@ class ConvertTab(AbstractClassTwoGalleries):
             try:
                 os.remove(path)
 
-                # Update Data Lists in parent class
                 if hasattr(self, "found_files") and path in self.found_files:
                     self.found_files.remove(path)
                 if hasattr(self, "selected_files") and path in self.selected_files:
                     self.selected_files.remove(path)
 
-                # Update UI: Remove from internal map and layout
                 if (
                     hasattr(self, "path_to_label_map")
                     and path in self.path_to_label_map
                 ):
                     widget = self.path_to_label_map.pop(path)
                     widget.deleteLater()
-                    # If using pagination, triggering a refresh might be cleaner,
-                    # but removing the widget directly is instant.
 
                 self.on_selection_changed()
 
@@ -545,6 +591,26 @@ class ConvertTab(AbstractClassTwoGalleries):
             btn.setChecked(False)
             self.toggle_format(fmt, False)
 
+    # --- ASPECT RATIO LOGIC ---
+
+    @Slot(bool)
+    def toggle_ar_controls(self, checked: bool):
+        self.ar_controls_widget.setEnabled(checked)
+
+    @Slot(str)
+    def on_ar_combo_change(self, text):
+        if text == "Custom":
+            self.ar_custom_container.setVisible(True)
+        else:
+            self.ar_custom_container.setVisible(False)
+            try:
+                if ":" in text:
+                    w, h = map(int, text.split(":"))
+                    self.ar_w.setValue(w)
+                    self.ar_h.setValue(h)
+            except:
+                pass
+
     # --- CONVERSION WORKER ---
 
     @Slot(bool)
@@ -587,7 +653,6 @@ class ConvertTab(AbstractClassTwoGalleries):
         self.status_label.setText(f"Converting {len(files_for_conversion)} files...")
 
         self.worker = ConversionWorker(config)
-        self.worker.progress.connect(self.update_progress)
         self.worker.finished.connect(self.on_conversion_done)
         self.worker.error.connect(self.on_conversion_error)
         self.worker.start()
@@ -608,7 +673,7 @@ class ConvertTab(AbstractClassTwoGalleries):
         self.btn_convert_all.setText("Convert All in Directory")
         self.btn_convert_all.setStyleSheet(SHARED_BUTTON_STYLE)
 
-        self.on_selection_changed()  # Reset selected button text/state
+        self.on_selection_changed()
         self.btn_convert_contents.setStyleSheet(SHARED_BUTTON_STYLE)
 
         self.status_label.setText(f"{msg}")
@@ -631,6 +696,20 @@ class ConvertTab(AbstractClassTwoGalleries):
                 else SUPPORTED_IMG_FORMATS
             )
         )
+
+        # Calculate Aspect Ratio
+        ar_val = None
+        ar_mode = "crop" # default
+        if self.enable_ar_checkbox.isChecked():
+            try:
+                w = self.ar_w.value()
+                h = self.ar_h.value()
+                if h != 0:
+                    ar_val = w / h
+                    ar_mode = self.ar_mode_combo.currentText().lower()
+            except:
+                pass
+
         return {
             "output_format": self.output_format_combo.currentText().lower(),
             "input_path": self.input_path.text().strip(),
@@ -638,7 +717,9 @@ class ConvertTab(AbstractClassTwoGalleries):
             "input_formats": [
                 f.strip().lstrip(".").lower() for f in input_formats if f.strip()
             ],
-            "delete_original": self.delete_checkbox.isChecked(),  # Use consistent key
+            "delete_original": self.delete_checkbox.isChecked(),
+            "aspect_ratio": ar_val,
+            "aspect_ratio_mode": ar_mode # NEW
         }
 
     def get_default_config(self) -> dict:
@@ -650,6 +731,8 @@ class ConvertTab(AbstractClassTwoGalleries):
             "output_path": "",
             "input_formats": formats,
             "delete_original": False,
+            "aspect_ratio": None,
+            "aspect_ratio_mode": "crop",
         }
 
     def set_config(self, config: dict):
@@ -669,7 +752,7 @@ class ConvertTab(AbstractClassTwoGalleries):
             if index != -1:
                 self.output_format_combo.setCurrentIndex(index)
 
-            # 3. Input Formats (Handling Dropdown vs. LineEdit)
+            # 3. Input Formats
             formats = config.get("input_formats", [])
             if self.dropdown:
                 self.remove_all_formats()
@@ -687,9 +770,35 @@ class ConvertTab(AbstractClassTwoGalleries):
             # 4. Delete Checkbox
             self.delete_checkbox.setChecked(config.get("delete_original", False))
 
-            # 5. Load data into gallery if path is valid
+            # 5. Aspect Ratio
+            aspect_ratio = config.get("aspect_ratio")
+            ar_mode = config.get("aspect_ratio_mode", "crop")
+            
+            if aspect_ratio:
+                self.enable_ar_checkbox.setChecked(True)
+                
+                # Set Mode
+                mode_index = self.ar_mode_combo.findText(ar_mode.capitalize())
+                if mode_index != -1:
+                    self.ar_mode_combo.setCurrentIndex(mode_index)
+
+                # Set Ratio
+                ratios = {"16:9": 16/9, "4:3": 4/3, "1:1": 1.0, "9:16": 9/16, "3:2": 3/2}
+                matched = False
+                for label, val in ratios.items():
+                    if abs(aspect_ratio - val) < 0.01:
+                        self.ar_combo.setCurrentText(label)
+                        matched = True
+                        break
+                
+                if not matched:
+                    self.ar_combo.setCurrentText("Custom")
+            else:
+                self.enable_ar_checkbox.setChecked(False)
+
+            # 6. Load data
             if os.path.isdir(input_path):
-                self.scan_directory_visual()  # Will load thumbnails
+                self.scan_directory_visual()
 
             print(f"ConvertTab configuration loaded.")
         except Exception as e:
