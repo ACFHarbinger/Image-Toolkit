@@ -2,7 +2,7 @@ import os
 import glob
 
 from PIL import Image, ImageSequence
-from typing import List, Optional
+from typing import List, Optional, Callable
 from ..utils.definitions import SUPPORTED_IMG_FORMATS
 from . import FSETool
 
@@ -83,8 +83,6 @@ class ImageFormatConverter:
         
         if current_ratio > target_ratio:
             # Current is wider than target.
-            # To match target, we can either Shrink Width or Grow Height.
-            # Growing Height preserves more pixel data.
             new_h = int(w / target_ratio)
             new_w = w
         else:
@@ -161,8 +159,6 @@ class ImageFormatConverter:
                 if is_jpeg_or_jpg(target_format):
                     if img.mode in ("RGBA", "LA", "P"):
                         rgb_img = Image.new("RGB", img.size, (255, 255, 255))
-                        # If P mode, convert to RGBA first to get alpha mask for paste if needed,
-                        # or just convert directly to RGB.
                         if img.mode == 'P':
                             img = img.convert('RGBA')
                             
@@ -184,9 +180,6 @@ class ImageFormatConverter:
                         optimize=False,
                         duration=img.info.get("duration", 100),
                         loop=img.info.get("loop", 0),
-                        transparency=0 if ar_mode == 'pad' and img.mode == 'P' else None 
-                        # Hint for transparency if we padded gifs? 
-                        # PIL handles this automatically usually if data is prepared right.
                     )
                 else:
                     img.save(output_path, target_format.upper())
@@ -224,6 +217,7 @@ class ImageFormatConverter:
                 os.path.dirname(image_path), f"{filename_only}.{format}"
             )
         else:
+            # output_name is the path/basename provided by the worker (e.g., /dir/processed_)
             output_path = f"{output_name}.{format}"
 
         return self._convert_img_core(
@@ -241,6 +235,8 @@ class ImageFormatConverter:
         delete: bool = False,
         aspect_ratio: Optional[float] = None,
         ar_mode: str = "crop",
+        output_filename_prefix: str = "",
+        progress_callback: Optional[Callable[[int], None]] = None,
     ) -> List[Image.Image]:
         """
         Converts all images in a directory matching input_formats.
@@ -253,28 +249,63 @@ class ImageFormatConverter:
         
         input_formats = [f.lower() for f in inputs_formats]
         
-        # If not modifying image content (AR), we can skip same-format files
-        if aspect_ratio is None:
-            input_formats = [
-                f for f in input_formats
-                if not (
-                    f == output_fmt
-                    or (is_jpeg_or_jpg(f) and is_jpeg_or_jpg(output_fmt))
-                )
-            ]
-
-        new_images = []
+        # --- Collect all paths to get a total count for the progress bar ---
+        all_paths = []
         for input_format in input_formats:
-            for input_file in glob.glob(os.path.join(input_dir, f"*.{input_format}")):
-                filename = os.path.splitext(os.path.basename(input_file))[0]
-                output_path = os.path.join(output_dir, f"{filename}.{output_format}")
+            all_paths.extend(glob.glob(os.path.join(input_dir, f"*.{input_format}")))
 
-                if not os.path.isfile(output_path) or aspect_ratio is not None:
-                    img = self._convert_img_core(
-                        input_file, output_path, output_format, delete, aspect_ratio, ar_mode
-                    )
-                    if img is not None:
-                        new_images.append(img)
+        # Filter paths if no AR change is requested
+        if aspect_ratio is None:
+            filtered_paths = []
+            for input_file in all_paths:
+                file_ext = os.path.splitext(input_file)[1].lstrip(".").lower()
+                # Check if file format requires conversion
+                if not (
+                    file_ext == output_fmt
+                    or (is_jpeg_or_jpg(file_ext) and is_jpeg_or_jpg(output_fmt))
+                ):
+                    filtered_paths.append(input_file)
+            all_paths = filtered_paths
 
+        total_files = len(all_paths)
+        new_images = []
+        
+        # --- Main Processing Loop ---
+        for idx, input_file in enumerate(all_paths):
+            
+            # --- Filename Logic (Updated for single file handling) ---
+            filename_base = os.path.splitext(os.path.basename(input_file))[0]
+            
+            if output_filename_prefix:
+                if total_files > 1:
+                    # Multiple files: Use prefix + index (1-based index)
+                    output_filename = f"{output_filename_prefix}{idx + 1}"
+                else:
+                    # Single file: Use prefix without numbering
+                    output_filename = output_filename_prefix
+            else:
+                # Use original filename base
+                output_filename = filename_base
+                
+            output_path = os.path.join(output_dir, f"{output_filename}.{output_format}")
+            # ------------------------------
+
+            # Calculate and report progress
+            if progress_callback and total_files > 0:
+                progress = int((idx / total_files) * 100)
+                progress_callback(progress)
+
+            # Proceed if filename prefix is used OR if it passes standard overwrite check
+            if output_filename_prefix or (not os.path.isfile(output_path) or aspect_ratio is not None):
+                img = self._convert_img_core(
+                    input_file, output_path, output_format, delete, aspect_ratio, ar_mode
+                )
+                if img is not None:
+                    new_images.append(img)
+            
+        # Report 100% completion
+        if progress_callback and total_files > 0:
+            progress_callback(100)
+        
         print(f"\nBatch processing complete! Processed {len(new_images)} images.")
         return new_images

@@ -83,8 +83,11 @@ class ConvertTab(AbstractClassTwoGalleries):
         self.output_format_combo.setCurrentText("png")
         settings_layout.addRow("Output format:", self.output_format_combo)
 
-        # Output path
-        h_output = QHBoxLayout()
+        # Output path and Filename Prefix (UPDATED LAYOUT)
+        output_settings_container = QVBoxLayout()
+
+        # Output Directory Path
+        h_output_dir = QHBoxLayout()
         self.output_path = QLineEdit()
         self.output_path.setPlaceholderText(
             "Leave blank to save in the input directory"
@@ -94,13 +97,25 @@ class ConvertTab(AbstractClassTwoGalleries):
         apply_shadow_effect(
             btn_output, color_hex="#000000", radius=8, x_offset=0, y_offset=3
         )
-        h_output.addWidget(self.output_path)
-        h_output.addWidget(btn_output)
+        h_output_dir.addWidget(self.output_path)
+        h_output_dir.addWidget(btn_output)
+        output_settings_container.addLayout(h_output_dir)
+
+        # Output Filename Prefix (NEW)
+        h_output_name = QHBoxLayout()
+        self.output_filename_prefix = QLineEdit()
+        self.output_filename_prefix.setPlaceholderText(
+            "e.g. 'processed_' (Files will be named processed_1.png, processed_2.png...)"
+        )
+        h_output_name.addWidget(QLabel("Filename Prefix:"))
+        h_output_name.addWidget(self.output_filename_prefix)
+        output_settings_container.addLayout(h_output_name)
+
 
         output_path_container = QWidget()
-        output_path_container.setLayout(h_output)
+        output_path_container.setLayout(output_settings_container)
         self.output_field = OptionalField(
-            "Output path", output_path_container, start_open=False
+            "Output Directory & Filename", output_path_container, start_open=False
         )
         settings_layout.addRow(self.output_field)
 
@@ -169,7 +184,7 @@ class ConvertTab(AbstractClassTwoGalleries):
 
         content_layout.addWidget(settings_group)
 
-        # --- 3. Aspect Ratio Group (UPDATED) ---
+        # --- 3. Aspect Ratio Group ---
         ar_group = QGroupBox("Aspect Ratio")
         ar_layout = QFormLayout(ar_group)
 
@@ -228,7 +243,21 @@ class ConvertTab(AbstractClassTwoGalleries):
 
         # --- 4. Galleries ---
 
-        # Progress Bar
+        # Conversion Progress Bar
+        self.convert_progress_bar = QProgressBar()
+        self.convert_progress_bar.setTextVisible(True)
+        self.convert_progress_bar.setAlignment(Qt.AlignCenter)
+        self.convert_progress_bar.setStyleSheet(
+            "QProgressBar { background-color: #36393f; color: white; border: 1px solid #4f545c; border-radius: 4px; padding: 2px; }"
+            "QProgressBar::chunk { background-color: #5865f2; border-radius: 4px; }"
+        )
+        self.convert_progress_bar.setMinimum(0)
+        self.convert_progress_bar.setMaximum(100)
+        self.convert_progress_bar.setValue(0)
+        self.convert_progress_bar.hide()
+        content_layout.addWidget(self.convert_progress_bar)
+        
+        # Scan Progress Bar (Existing)
         self.scan_progress_bar = QProgressBar()
         self.scan_progress_bar.setTextVisible(False)
         self.scan_progress_bar.hide()
@@ -651,10 +680,12 @@ class ConvertTab(AbstractClassTwoGalleries):
         )
 
         self.status_label.setText(f"Converting {len(files_for_conversion)} files...")
+        self.convert_progress_bar.show() # Show the new progress bar
 
         self.worker = ConversionWorker(config)
         self.worker.finished.connect(self.on_conversion_done)
         self.worker.error.connect(self.on_conversion_error)
+        self.worker.progress_update.connect(self.update_progress_bar)
         self.worker.start()
 
     def cancel_conversion(self):
@@ -663,19 +694,23 @@ class ConvertTab(AbstractClassTwoGalleries):
             self.on_conversion_done(0, "**Conversion cancelled**")
             self.worker = None
 
-    @Slot(str)
-    def update_progress(self, progress_message: str):
-        self.status_label.setText(progress_message)
+    @Slot(int) # Accepts an integer for percentage
+    def update_progress_bar(self, percentage: int):
+        self.convert_progress_bar.setValue(percentage)
+        self.status_label.setText(f"Converting... {percentage}% complete")
 
     @Slot(int, str)
     def on_conversion_done(self, count, msg):
+        # Reset UI elements
         self.btn_convert_all.setEnabled(True)
         self.btn_convert_all.setText("Convert All in Directory")
         self.btn_convert_all.setStyleSheet(SHARED_BUTTON_STYLE)
 
         self.on_selection_changed()
         self.btn_convert_contents.setStyleSheet(SHARED_BUTTON_STYLE)
-
+        
+        self.convert_progress_bar.hide()
+        self.convert_progress_bar.setValue(0) # Reset value
         self.status_label.setText(f"{msg}")
         self.worker = None
         if "cancelled" not in msg.lower():
@@ -714,12 +749,13 @@ class ConvertTab(AbstractClassTwoGalleries):
             "output_format": self.output_format_combo.currentText().lower(),
             "input_path": self.input_path.text().strip(),
             "output_path": self.output_path.text().strip() or None,
+            "output_filename_prefix": self.output_filename_prefix.text().strip(),
             "input_formats": [
                 f.strip().lstrip(".").lower() for f in input_formats if f.strip()
             ],
             "delete_original": self.delete_checkbox.isChecked(),
             "aspect_ratio": ar_val,
-            "aspect_ratio_mode": ar_mode # NEW
+            "aspect_ratio_mode": ar_mode
         }
 
     def get_default_config(self) -> dict:
@@ -729,6 +765,7 @@ class ConvertTab(AbstractClassTwoGalleries):
             "input_path": "",
             "output_format": "png",
             "output_path": "",
+            "output_filename_prefix": "",
             "input_formats": formats,
             "delete_original": False,
             "aspect_ratio": None,
@@ -743,7 +780,11 @@ class ConvertTab(AbstractClassTwoGalleries):
             self.input_path.setText(input_path)
             output_path = config.get("output_path", "")
             self.output_path.setText(output_path)
-            if output_path:
+            
+            # Set Filename Prefix (NEW)
+            self.output_filename_prefix.setText(config.get("output_filename_prefix", ""))
+
+            if output_path or config.get("output_filename_prefix"):
                 self.output_field.set_open(True)
 
             # 2. Output Format
