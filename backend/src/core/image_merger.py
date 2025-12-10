@@ -200,6 +200,9 @@ class ImageMerger:
         Stitches images into a panorama using OpenCV's default PANORAMA mode.
         Good for rotating camera shots (perspective transformation).
         """
+        # Disable OpenCL to prevent memory corruption/malloc errors during stitching
+        cv2.ocl.setUseOpenCL(False)
+
         cv_images = []
         for path in image_paths:
             img = cv2.imread(path)
@@ -220,6 +223,9 @@ class ImageMerger:
 
         # Perform stitching
         status, pano = stitcher.stitch(cv_images)
+
+        # Force cleanup of any internal highgui/Qt resources before we return
+        cv2.destroyAllWindows() 
 
         if status != cv2.Stitcher_OK:
             error_map = {
@@ -245,6 +251,9 @@ class ImageMerger:
         Stitches a large number of images with small differences (flat scans).
         Uses OpenCV's SCANS mode which optimizes for affine/flat transformations.
         """
+        # Disable OpenCL to prevent memory corruption/malloc errors during stitching
+        cv2.ocl.setUseOpenCL(False)
+
         # 1. Read images
         cv_images = []
         for path in image_paths:
@@ -271,6 +280,9 @@ class ImageMerger:
 
         # 4. Perform Stitching
         status, pano = stitcher.stitch(cv_images)
+
+        # Force cleanup of any internal highgui/Qt resources before we return
+        cv2.destroyAllWindows()
 
         if status != cv2.Stitcher_OK:
             error_map = {
