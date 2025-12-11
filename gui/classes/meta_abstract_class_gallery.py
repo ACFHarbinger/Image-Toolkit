@@ -2,7 +2,7 @@ import math
 
 from abc import ABCMeta, abstractmethod
 from PySide6.QtCore import QObject, Qt, QPoint, QRect
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QComboBox, QPushButton
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QComboBox, QPushButton, QLineEdit
 
 # --- SHARED LOGIC IMPLEMENTATIONS ---
 # These functions will be injected into the classes by the Metaclass.
@@ -159,6 +159,42 @@ def _common_show_placeholder(self, layout, text, columns=1):
     layout.addWidget(lbl, 0, 0, 1, columns, Qt.AlignCenter)
 
 
+
+def _common_create_search_input(self, placeholder_text="Search..."):
+    """
+    Creates a standardized search input widget.
+    """
+    search_input = QLineEdit()
+    search_input.setPlaceholderText(placeholder_text)
+    search_input.setStyleSheet(
+        """
+        QLineEdit {
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #4f545c;
+            background-color: #202225;
+            color: white;
+        }
+        QLineEdit:focus {
+            border: 1px solid #5865f2;
+        }
+        """
+    )
+    return search_input
+
+
+def _common_filter_string_list(self, full_list, query):
+    """
+    Filters a list of strings case-insensitively.
+    Returns the filtered list.
+    """
+    if not query:
+        return full_list
+
+    query = query.lower().strip()
+    return [item for item in full_list if query in item.lower()]
+
+
 class MetaAbstractClassGallery(ABCMeta, type(QObject)):
     """
     A metaclass combining ABCMeta and Qt's metaclass.
@@ -178,6 +214,8 @@ class MetaAbstractClassGallery(ABCMeta, type(QObject)):
             "common_is_visible": _common_is_visible,
             "common_get_paginated_slice": _common_get_paginated_slice,
             "common_show_placeholder": _common_show_placeholder,
+            "common_create_search_input": _common_create_search_input,
+            "common_filter_string_list": _common_filter_string_list,
         }
 
         for method_name, func in injectables.items():

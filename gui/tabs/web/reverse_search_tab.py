@@ -189,6 +189,9 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         self.gallery_layout.setSpacing(3)
         self.gallery_scroll_area.setWidget(self.gallery_container)
 
+        # Add shared search input (Lazy Search)
+        self.root_layout.addWidget(self.search_input)
+
         self.root_layout.addWidget(self.gallery_scroll_area, 1)
         self.root_layout.addWidget(
             self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter

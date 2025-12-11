@@ -427,6 +427,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.handle_marquee_selection
         )
 
+        # Add shared search input (Lazy Search)
+        self.main_layout.addWidget(self.search_input)
+
         self.main_layout.addWidget(self.gallery_scroll_area, 1)
         self.main_layout.addWidget(
             self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
@@ -1345,5 +1348,5 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         except Exception as e:
             QMessageBox.critical(
-                self, "Config Error", f"Failed to apply configuration:\n{e}"
+                self, "Config Error", f"Failed to apply image extractor configuration:\n{e}"
             )

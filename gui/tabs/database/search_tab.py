@@ -226,6 +226,9 @@ class SearchTab(AbstractClassTwoGalleries):
         self.results_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         self.results_scroll.setWidget(self.results_widget)
 
+        # Add shared search input (Lazy Search) for Found Results
+        layout.addWidget(self.found_search_input)
+
         # Add directly to main layout with stretch
         layout.addWidget(self.results_scroll, stretch=1)
 
@@ -1000,9 +1003,9 @@ class SearchTab(AbstractClassTwoGalleries):
             else:
                 self.input_formats_edit.setText(" ".join(formats))
             QMessageBox.information(
-                self, "Config Loaded", "Configuration applied successfully."
+                self, "Config Loaded", "Search configuration applied successfully."
             )
         except Exception as e:
             QMessageBox.critical(
-                self, "Config Error", f"Failed to apply configuration:\n{e}"
+                self, "Config Error", f"Failed to apply search configuration:\n{e}"
             )
