@@ -220,9 +220,11 @@ class MergeTab(AbstractClassTwoGalleries):
         self.found_gallery_layout = QGridLayout(self.found_thumbnail_widget)
         self.found_gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         self.found_gallery_scroll.setWidget(self.found_thumbnail_widget)
+
         self.found_gallery_scroll.selection_changed.connect(
             self.handle_marquee_selection
         )
+        content_layout.addWidget(self.found_search_input)
         content_layout.addWidget(self.found_gallery_scroll, 1)
 
         if hasattr(self, "found_pagination_widget"):

@@ -4,7 +4,7 @@ import cv2  # Needed for video processing
 
 from abc import abstractmethod
 from typing import List, Optional, Dict
-from PySide6.QtWidgets import QWidget, QGridLayout, QScrollArea, QMenu
+from PySide6.QtWidgets import QWidget, QGridLayout, QScrollArea, QMenu, QLineEdit
 from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer
 from PySide6.QtGui import QPixmap, QResizeEvent, QAction, QImage
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH, SUPPORTED_VIDEO_FORMATS
@@ -52,15 +52,28 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         self._paginated_paths: List[str] = []
         self._populating_index = 0
 
+
         # --- UI References ---
         self.gallery_scroll_area: Optional[QScrollArea] = None
         self.gallery_layout: Optional[QGridLayout] = None
+
+        # --- Lazy Loading State ---
+        self._loading_paths = set()
 
         # Starting directory
         try:
             self.last_browsed_scan_dir = str(LOCAL_SOURCE_PATH)
         except Exception:
             self.last_browsed_scan_dir = os.getcwd()
+
+        # --- Search State ---
+        self.master_image_paths: List[str] = []
+        self.search_input = self.common_create_search_input()
+        self.search_debounce_timer = QTimer()
+        self.search_debounce_timer.setSingleShot(True)
+        self.search_debounce_timer.setInterval(300)
+        self.search_debounce_timer.timeout.connect(self._perform_search)
+        self.search_input.textChanged.connect(self.search_debounce_timer.start)
 
         # Initialize Pagination Widgets using Shared Logic
         self.pagination_widget = self.create_pagination_controls()
@@ -207,6 +220,35 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
                 # Shared Reflow
                 self.common_reflow_layout(self.gallery_layout, new_cols)
 
+
+    def _perform_search(self):
+        query = self.search_input.text()
+        filtered = self.common_filter_string_list(self.master_image_paths, query)
+        self.gallery_image_paths = filtered
+        self.current_page = 0
+        self.refresh_gallery_view()
+
+
+    def _on_scroll(self, value):
+        self._load_visible_images()
+
+    def _load_visible_images(self):
+        if not self.gallery_scroll_area:
+            return
+
+        viewport = self.gallery_scroll_area.viewport()
+        visible_rect = viewport.rect()
+
+        for path, widget in self.path_to_card_widget.items():
+            if path in self._initial_pixmap_cache:
+                continue
+            if path in self._loading_paths:
+                continue
+
+            # Check visibility
+            if self.common_is_visible(widget, viewport, visible_rect):
+                self._trigger_image_load(path)
+
     # --- LOADING LOGIC ---
 
     def start_loading_gallery(
@@ -220,22 +262,37 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         Starts the loading process. Accepts an optional pixmap_cache for pre-generated thumbnails.
         """
         if not append:
-            self.gallery_image_paths = paths
-            self.current_page = 0
+            self.master_image_paths = paths
+            # Reset search when loading new directory (optional, but good UX)
+            # self.search_input.clear() # Commented out to persist search if needed, but usually we want reset
+            # Ideally we re-apply current search:
+            self._perform_search()
+            
             self._initial_pixmap_cache = (
                 pixmap_cache if pixmap_cache is not None else {}
             )
+            self._loading_paths.clear()
         else:
-            self.gallery_image_paths.extend(paths)
+            self.master_image_paths.extend(paths)
             if pixmap_cache:
                 self._initial_pixmap_cache.update(pixmap_cache)
+            # Re-apply search to include new appended items
+            self._perform_search()
 
-        self.refresh_gallery_view()
+        # self.refresh_gallery_view() # _perform_search calls this
 
     def refresh_gallery_view(self):
         self.cancel_loading()
         self.clear_gallery_widgets()
         self._update_pagination_ui()
+
+        # Re-bind scroll listener if needed (safe to do multiple times or check connection)
+        if self.gallery_scroll_area:
+            try:
+                self.gallery_scroll_area.verticalScrollBar().valueChanged.disconnect(self._on_scroll)
+            except Exception:
+                pass
+            self.gallery_scroll_area.verticalScrollBar().valueChanged.connect(self._on_scroll)
 
         if not self.gallery_image_paths:
             self.common_show_placeholder(
@@ -257,6 +314,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         if not hasattr(self, "_paginated_paths") or self._populating_index >= len(
             self._paginated_paths
         ):
+            self._load_visible_images()
             return
 
         cols = self.calculate_columns()
@@ -291,16 +349,15 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
                     card, row, col, Qt.AlignLeft | Qt.AlignTop
                 )
 
-            # 5. Trigger Async Load only if it's an IMAGE and we don't have a pixmap yet
-            # (We assume videos were handled by the generation block above)
-            if initial_pixmap is None and not is_video:
-                self._trigger_image_load(path)
-            elif path in self._initial_pixmap_cache:
-                # Optional: Clear cache to save RAM if not needed anymore
-                # del self._initial_pixmap_cache[path]
-                pass
+            # 5. DEFER Async Load (Visibility Check)
+            # Remove immediate load call
+            # if initial_pixmap is None and not is_video:
+            #     self._trigger_image_load(path)
 
         self._populating_index = limit
+
+        # Check visibility for the batch added
+        self._load_visible_images()
 
         if self._populating_index < len(self._paginated_paths):
             self._populate_timer.start(0)
@@ -311,12 +368,19 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         )
 
     def _trigger_image_load(self, path: str):
+        self._loading_paths.add(path)
         worker = ImageLoaderWorker(path, self.thumbnail_size)
         worker.signals.result.connect(self._on_single_image_loaded)
         self.thread_pool.start(worker)
 
     @Slot(str, QPixmap)
     def _on_single_image_loaded(self, path: str, pixmap: QPixmap):
+        if path in self._loading_paths:
+            self._loading_paths.remove(path)
+        
+        if pixmap and not pixmap.isNull():
+            self._initial_pixmap_cache[path] = pixmap
+
         widget = self.path_to_card_widget.get(path)
         if widget:
             self.update_card_pixmap(widget, pixmap)

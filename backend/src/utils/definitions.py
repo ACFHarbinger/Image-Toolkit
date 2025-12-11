@@ -54,7 +54,7 @@ KEY_ALIAS = "my-aes-key"  # This is an alias *inside* the keystore
 CTRL_C_TIMEOUT = 2.0
 APP_STYLES = ["fusion", "windows", "windowsxp", "macintosh"]
 SUPPORTED_IMG_FORMATS = ["webp", "avif", "png", "jpg", "jpeg", "bmp", "gif", "tiff"]
-SUPPORTED_VIDEO_FORMATS = {".mp4", ".mkv", ".webm", ".mov", ".avi", ".gif"}
+SUPPORTED_VIDEO_FORMATS = {".mp4", ".mkv", ".webm", ".mov", ".avi", ".wmv"}
 
 # Crawler constants
 WC_BROWSERS = ["brave", "firefox", "chrome", "edge", "safari"]

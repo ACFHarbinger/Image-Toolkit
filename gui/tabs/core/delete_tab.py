@@ -140,6 +140,10 @@ class DeleteTab(AbstractClassTwoGalleries):
         self.found_gallery_scroll.selection_changed.connect(
             self.handle_marquee_selection
         )
+        
+        # Add shared search input (Lazy Search) for Found/Scanned Gallery
+        content_layout.addWidget(self.found_search_input)
+
         content_layout.addWidget(self.found_gallery_scroll, 1)
 
         # Add Pagination Widget (Found) - Moved to Bottom

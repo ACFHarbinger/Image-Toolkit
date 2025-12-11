@@ -168,6 +168,9 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             self.scan_pag_btn,
         ) = self._create_pagination_controls("scan")
 
+        # Add shared search input (Lazy Search) for Scan Results
+        content_layout.addWidget(self.found_search_input)
+
         content_layout.addWidget(self.scan_scroll_area, 1)
         # Fix: Add alignment flag to center the widget itself
         content_layout.addWidget(self.scan_pag_widget, 0, Qt.AlignmentFlag.AlignCenter)
@@ -1486,9 +1489,9 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                 for tag, checkbox in self.tag_checkboxes.items():
                     checkbox.setChecked(tag in selected_tags)
             QMessageBox.information(
-                self, "Config Loaded", "Configuration applied successfully."
+                self, "Config Loaded", "Scan metadata configuration applied successfully."
             )
         except Exception as e:
             QMessageBox.critical(
-                self, "Config Error", f"Failed to apply configuration:\n{e}"
+                self, "Config Error", f"Failed to apply scan metadata configuration:\n{e}"
             )

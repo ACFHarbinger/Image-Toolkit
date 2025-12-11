@@ -3,7 +3,7 @@ import math
 
 from abc import abstractmethod
 from typing import List, Dict, Optional
-from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QMenu, QApplication
+from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QMenu, QApplication, QLineEdit
 from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer, QEvent
 from PySide6.QtGui import QPixmap, QAction
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH
@@ -60,10 +60,20 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         self._paginated_found_paths: List[str] = []
         self._populating_found_index = 0
 
+
         try:
             self.last_browsed_dir = LOCAL_SOURCE_PATH
         except Exception:
             self.last_browsed_dir = os.getcwd()
+
+        # --- Search State ---
+        self.master_found_files: List[str] = []
+        self.found_search_input = self.common_create_search_input("Search found images...")
+        self.found_search_timer = QTimer()
+        self.found_search_timer.setSingleShot(True)
+        self.found_search_timer.setInterval(300)
+        self.found_search_timer.timeout.connect(self._perform_found_search)
+        self.found_search_input.textChanged.connect(self.found_search_timer.start)
 
         # Initialize Pagination Widgets using Shared Logic
         self.found_pagination_widget = self.create_pagination_controls(
@@ -404,20 +414,80 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             self._selected_pixmap_cache[path] = pixmap
         self.update_card_pixmap(widget, pixmap)
 
+
+
     # --- SEQUENTIAL LOADING (Found Gallery) ---
+
+    def _perform_found_search(self):
+        query = self.found_search_input.text()
+        filtered = self.common_filter_string_list(self.master_found_files, query)
+        self.found_files = filtered
+        self.found_current_page = 0
+        self.refresh_found_gallery()
 
     def start_loading_thumbnails(self, paths: list[str]):
         self.cancel_loading()
-        self.found_files = paths
-        self.found_current_page = 0
-        self.refresh_found_gallery()
+        self.master_found_files = paths
+        # Apply search immediately
+        self._perform_found_search()
+        # self.refresh_found_gallery() # Called by search
+
+    def _on_found_scroll(self, value):
+        self._load_visible_found_images()
+
+    def _load_visible_found_images(self):
+        if not self.found_gallery_scroll:
+            return
+
+        viewport = self.found_gallery_scroll.viewport()
+        visible_rect = viewport.rect()
+
+        # We need a loading tracking set here too, ideally self.found_loading_paths
+        if not hasattr(self, "found_loading_paths"):
+            self.found_loading_paths = set()
+
+        for path, widget in self.path_to_label_map.items():
+            if hasattr(widget, "get_pixmap") and widget.get_pixmap() and not widget.get_pixmap().isNull():
+                continue # Already has pixmap
+            
+            # Simple check: if widget has style but no pixmap, it might be loading or placeholder
+            # Better check: abstract_two_galleries doesn't rely on pixmap cache for found gallery directly as much?
+            # It updates widget directly. We can check if widget has placeholder text or something.
+            # But the best way is tracking loading state.
+            
+            if path in self.found_loading_paths:
+                continue
+
+            if self.common_is_visible(widget, viewport, visible_rect):
+                # Check if it really needs loading (e.g. is it still a placeholder?)
+                # We assume if it's in path_to_label_map it was created.
+                # If we haven't loaded it, trigger.
+                # How do we know if it's already loaded?
+                # The widget itself holds the state.
+                # Let's rely on card state or just re-trigger (worker handles cache/dedupe usually?)
+                # Actually, duplicate loads are bad.
+                # Let's check against a 'loaded' set or similar?
+                # AbstractTwoGalleries doesn't have a unified cache for found files, it relies on widget.
+                # Let's replicate single gallery behavior: track loading paths.
+                self._trigger_found_load(path)
 
     def refresh_found_gallery(self):
         self.cancel_loading()
         self.path_to_label_map.clear()
+        if not hasattr(self, "found_loading_paths"):
+            self.found_loading_paths = set()
+        self.found_loading_paths.clear()
 
         self._clear_layout(self.found_gallery_layout)
         self._update_pagination_ui(is_found=True)
+
+        # Re-bind scroll listener
+        if self.found_gallery_scroll:
+            try:
+                self.found_gallery_scroll.verticalScrollBar().valueChanged.disconnect(self._on_found_scroll)
+            except Exception:
+                pass
+            self.found_gallery_scroll.verticalScrollBar().valueChanged.connect(self._on_found_scroll)
 
         if not self.found_files:
             self.common_show_placeholder(
@@ -445,6 +515,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         if not hasattr(
             self, "_paginated_found_paths"
         ) or self._populating_found_index >= len(self._paginated_found_paths):
+            self._load_visible_found_images()
             return
 
         cols = self.common_calculate_columns(
@@ -474,22 +545,31 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
             self.path_to_label_map[path] = card
 
-            # Trigger load
-            self._trigger_found_load(path)
+            # DEFER Trigger load
+            # self._trigger_found_load(path)
 
         self._populating_found_index = limit
+
+        self._load_visible_found_images()
 
         # Schedule next batch
         if self._populating_found_index < len(self._paginated_found_paths):
             self._populate_found_timer.start(0)
 
     def _trigger_found_load(self, path: str):
+        if not hasattr(self, "found_loading_paths"):
+            self.found_loading_paths = set()
+        
+        self.found_loading_paths.add(path)
         worker = ImageLoaderWorker(path, self.thumbnail_size)
         worker.signals.result.connect(self._on_found_image_loaded)
         self.thread_pool.start(worker)
 
     @Slot(str, QPixmap)
     def _on_found_image_loaded(self, path: str, pixmap: QPixmap):
+        if hasattr(self, "found_loading_paths") and path in self.found_loading_paths:
+            self.found_loading_paths.remove(path)
+
         widget = self.path_to_label_map.get(path)
         if widget:
             self.update_card_pixmap(widget, pixmap)

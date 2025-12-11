@@ -377,6 +377,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.scan_thumbnail_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         self.gallery_scroll_area.setWidget(self.scan_thumbnail_widget)
 
+        content_layout.addWidget(self.search_input)
         content_layout.addWidget(self.gallery_scroll_area, 1)
 
         content_layout.addWidget(
@@ -1667,9 +1668,9 @@ class WallpaperTab(AbstractClassSingleGallery):
                             layout.addWidget(self.monitor_widgets[monitor_id])
 
             QMessageBox.information(
-                self, "Config Loaded", "Configuration applied successfully."
+                self, "Config Loaded", "Wallpaper configuration applied successfully."
             )
         except Exception as e:
             QMessageBox.critical(
-                self, "Config Error", f"Failed to apply configuration:\n{e}"
+                self, "Config Error", f"Failed to apply wallpaper configuration:\n{e}"
             )
