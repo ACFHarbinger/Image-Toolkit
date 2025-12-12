@@ -87,3 +87,56 @@ class TestMarqueeScrollArea:
         QTestUtils.mousePress(viewport, Qt.LeftButton, pos=QPoint(10, 10))
         QTestUtils.mouseMove(viewport, pos=QPoint(50, 50))
         QTestUtils.mouseRelease(viewport, Qt.LeftButton)
+
+# --- Additional Component Tests ---
+
+import pytest
+from PySide6.QtWidgets import QWidget
+
+from gui.components.draggable_monitor_container import DraggableMonitorContainer
+from gui.components.opaque_viewport import OpaqueViewport
+from gui.components.optional_field import OptionalField
+from gui.components.property_comparison_dialog import PropertyComparisonDialog
+from gui.components.queue_item_widget import QueueItemWidget
+
+class TestDraggableMonitorContainer:
+    def test_initialization(self, q_app):
+        monitor = type('M', (), {'name': 'TestMonitor'})()
+        container = DraggableMonitorContainer(monitor, "1")
+        assert container.monitor_id == "1"
+        assert monitor.name in container.text()
+
+class TestOpaqueViewport:
+    def test_default_opacity(self, q_app):
+        viewport = OpaqueViewport()
+        # Verify the default window opacity set by the component (approximate)
+        import pytest
+        assert viewport.windowOpacity() == pytest.approx(0.5, rel=1e-2)
+
+class TestOptionalField:
+    def test_initial_state(self, q_app):
+        # Provide a simple inner widget for the optional field
+        inner = QWidget()
+        field = OptionalField("Label", inner, start_open=False)
+        assert field.label.text() == "Label"
+        # The inner widget does not expose an input attribute directly; ensure it is set up
+        # No direct assertion on input text needed for this test
+
+class TestPropertyComparisonDialog:
+    def test_diff_generation(self, q_app):
+        # PropertyComparisonDialog expects a list of property dictionaries
+        data = [
+            {"File Name": "img1.jpg", "Path": "/tmp/img1.jpg", "Width": 100},
+            {"File Name": "img2.jpg", "Path": "/tmp/img2.jpg", "Width": 200},
+        ]
+        dialog = PropertyComparisonDialog(data)
+        # The dialog should contain a table widget
+        assert hasattr(dialog, 'table')
+        assert dialog.table.rowCount() > 0
+
+class TestQueueItemWidget:
+    def test_display_text(self, q_app, mock_pixmap):
+        # QueueItemWidget requires a pixmap for preview
+        widget = QueueItemWidget("/tmp/task1.png", mock_pixmap)
+        # Verify that the filename label displays the basename
+        assert widget.layout().itemAt(1).widget().text() == "task1.png"
