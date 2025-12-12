@@ -219,6 +219,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
                 self._current_cols = new_cols
                 # Shared Reflow
                 self.common_reflow_layout(self.gallery_layout, new_cols)
+                self._load_visible_images()
 
 
     def _perform_search(self):
@@ -361,6 +362,15 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
 
         if self._populating_index < len(self._paginated_paths):
             self._populate_timer.start(0)
+        else:
+            self._refresh_visibility_delayed()
+
+    def _refresh_visibility_delayed(self):
+        """
+        Safety check: triggers a visibility check after a short delay
+        to ensure the layout system has fully settled.
+        """
+        QTimer.singleShot(100, self._load_visible_images)
 
     def calculate_columns(self):
         return self.common_calculate_columns(
