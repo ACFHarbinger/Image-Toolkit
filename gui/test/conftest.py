@@ -1,19 +1,32 @@
 import sys
+import pytest
+
+from pathlib import Path
 from unittest.mock import MagicMock
+from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QObject, Signal, QRunnable
 
 # --- BLOCK HEAVY IMPORTS ---
 sys.modules["backend.src.models"] = MagicMock()
 sys.modules["backend.src.models.lora_diffusion"] = MagicMock()
 sys.modules["backend.src.models.stable_diffusion"] = MagicMock()
 sys.modules["backend.src.models.gen"] = MagicMock()
+sys.modules["backend.src.models.gan"] = MagicMock()
+sys.modules["backend.src.models.siamese_network"] = MagicMock()
+sys.modules["backend.src.models.gan_wrapper"] = MagicMock()
 sys.modules["diffusers"] = MagicMock()
-sys.modules["torch"] = MagicMock()
+sys.modules["torch.hub"] = MagicMock()
 sys.modules["cv2"] = MagicMock()
 
-import pytest
-from PySide6.QtWidgets import QApplication
-from PySide6.QtGui import QPixmap
-from PySide6.QtCore import QObject, Signal, QRunnable
+# The project root is THREE levels up from conftest.py:
+# conftest.py -> test -> gui -> Image-Toolkit (Project Root)
+project_root = Path(__file__).resolve().parent.parent.parent
+
+# Add the project root to sys.path. This allows 'import gui.src...' 
+# to resolve 'gui' as a package within Image-Toolkit/.
+sys.path.insert(0, str(project_root))
+
 
 @pytest.fixture(scope="session")
 def q_app():

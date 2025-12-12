@@ -17,33 +17,33 @@ from PySide6.QtWidgets import (
     QApplication,
     QMessageBox,
 )
-from .windows import SettingsWindow
-from .tabs import (
-    ConvertTab,
-    DeleteTab,
-    ScanMetadataTab,
-    SearchTab,
-    ImageExtractorTab,
-    MergeTab,
-    ImageCrawlTab,
-    DriveSyncTab,
-    WallpaperTab,
-    WebRequestsTab,
-    DatabaseTab,
-    ReverseImageSearchTab,
-    UnifiedTrainTab,
-    UnifiedGenerateTab,
-    R3GANEvaluateTab,
-    MetaCLIPInferenceTab,
-)
-from .styles.style import DARK_QSS, LIGHT_QSS
-from .utils.app_definitions import NEW_LIMIT_MB
-from src.core.vault_manager import VaultManager
+from .settings_window import SettingsWindow
+from ..styles.style import DARK_QSS, LIGHT_QSS
+from ..utils.app_definitions import NEW_LIMIT_MB
+from backend.src.core.vault_manager import VaultManager
 
 
 class MainWindow(QWidget):
     def __init__(self, vault_manager: VaultManager, dropdown=True, app_icon=None):
         super().__init__()
+        from ..tabs import (
+            ConvertTab,
+            DeleteTab,
+            ScanMetadataTab,
+            SearchTab,
+            ImageExtractorTab,
+            MergeTab,
+            ImageCrawlTab,
+            DriveSyncTab,
+            WallpaperTab,
+            WebRequestsTab,
+            DatabaseTab,
+            ReverseImageSearchTab,
+            UnifiedTrainTab,
+            UnifiedGenerateTab,
+            R3GANEvaluateTab,
+            MetaCLIPInferenceTab,
+        )
 
         # Store the authenticated vault manager instance
         self.vault_manager = vault_manager

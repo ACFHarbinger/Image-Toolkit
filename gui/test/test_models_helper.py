@@ -1,5 +1,3 @@
-import pytest
-import sys
 from unittest.mock import MagicMock, patch
 
 # Ensure we mock modules BEFORE importing the worker
@@ -8,7 +6,7 @@ from unittest.mock import MagicMock, patch
 # However, the worker module imports them at top level. 
 # So we rely on conftest.py mocks OR we patch where they are used.
 
-from gui.helpers.models.training_worker import TrainingWorker
+from gui.src.helpers.models.training_worker import TrainingWorker
 
 class TestTrainingWorker:
     def test_run_success(self, q_app):
@@ -18,10 +16,10 @@ class TestTrainingWorker:
         # 3. DataLoader
         # 4. GAN
         
-        with patch("gui.helpers.models.training_worker.torch") as mock_torch, \
-             patch("gui.helpers.models.training_worker.datasets") as mock_datasets, \
-             patch("gui.helpers.models.training_worker.DataLoader") as mock_loader, \
-             patch("gui.helpers.models.training_worker.GAN") as MockGAN:
+        with patch("gui.src.helpers.models.training_worker.torch") as mock_torch, \
+             patch("gui.src.helpers.models.training_worker.datasets") as mock_datasets, \
+             patch("gui.src.helpers.models.training_worker.DataLoader") as mock_loader, \
+             patch("gui.src.helpers.models.training_worker.GAN") as MockGAN:
              
             # Setup mocks
             mock_datasets.ImageFolder.return_value = "dummy_dataset"
@@ -56,10 +54,10 @@ class TestTrainingWorker:
             assert "Training complete." in logs[-1]
 
     def test_run_dataset_error(self, q_app):
-         with patch("gui.helpers.models.training_worker.torch"), \
-              patch("gui.helpers.models.training_worker.datasets") as mock_datasets, \
-              patch("gui.helpers.models.training_worker.DataLoader"), \
-              patch("gui.helpers.models.training_worker.GAN"):
+         with patch("gui.src.helpers.models.training_worker.torch"), \
+              patch("gui.src.helpers.models.training_worker.datasets") as mock_datasets, \
+              patch("gui.src.helpers.models.training_worker.DataLoader"), \
+              patch("gui.src.helpers.models.training_worker.GAN"):
               
             mock_datasets.ImageFolder.side_effect = Exception("Folder structure bad")
             

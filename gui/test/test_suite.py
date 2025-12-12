@@ -7,9 +7,10 @@ Based on backend/test/test_suite.py
 
 import subprocess
 import argparse
+
 from pathlib import Path
 from typing import List, Optional
-from test_definitions import TEST_MODULES
+from .test_definitions import TEST_MODULES
 
 
 class PyTestRunner:

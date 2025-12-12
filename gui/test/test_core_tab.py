@@ -2,18 +2,18 @@ import pytest
 from unittest.mock import MagicMock, patch
 from PySide6.QtWidgets import QWidget
 
-from gui.tabs.core.convert_tab import ConvertTab
-from gui.tabs.core.delete_tab import DeleteTab
-from gui.tabs.core.image_extractor_tab import ImageExtractorTab
-from gui.tabs.core.merge_tab import MergeTab
-from gui.tabs.core.wallpaper_tab import WallpaperTab
+from gui.src.tabs.core.convert_tab import ConvertTab
+from gui.src.tabs.core.delete_tab import DeleteTab
+from gui.src.tabs.core.image_extractor_tab import ImageExtractorTab
+from gui.src.tabs.core.merge_tab import MergeTab
+from gui.src.tabs.core.wallpaper_tab import WallpaperTab
 
 # --- ConvertTab Tests ---
 
 class TestConvertTab:
     @pytest.fixture
     def mock_worker(self):
-        with patch("gui.tabs.core.convert_tab.ConversionWorker") as mock:
+        with patch("gui.src.tabs.core.convert_tab.ConversionWorker") as mock:
             yield mock
 
     def test_init(self, q_app):
@@ -23,7 +23,7 @@ class TestConvertTab:
 
     def test_start_conversion_no_files(self, q_app, mock_worker):
         # Mock message box to avoid blocking
-        with patch("gui.tabs.core.convert_tab.QMessageBox") as mock_mb:
+        with patch("gui.src.tabs.core.convert_tab.QMessageBox") as mock_mb:
             tab = ConvertTab()
             tab.collect_paths = MagicMock(return_value=[])
             
@@ -33,7 +33,7 @@ class TestConvertTab:
             mock_mb.warning.assert_called()
 
     def test_start_conversion_success(self, q_app, mock_worker):
-        with patch("gui.tabs.core.convert_tab.os.path.isdir", return_value=True):
+        with patch("gui.src.tabs.core.convert_tab.os.path.isdir", return_value=True):
             tab = ConvertTab()
             tab.input_path.setText("/tmp/in")
             tab.collect_paths = MagicMock(return_value=["/tmp/in/a.jpg"])
@@ -52,10 +52,10 @@ class TestConvertTab:
 class TestWallpaperTab:
     @pytest.fixture
     def mock_deps(self):
-        with patch("gui.tabs.core.wallpaper_tab.WallpaperWorker"), \
-             patch("gui.tabs.core.wallpaper_tab.ImageScannerWorker"), \
-             patch("gui.tabs.core.wallpaper_tab.VideoScannerWorker"), \
-             patch("gui.tabs.core.wallpaper_tab.get_monitors", return_value=[MagicMock(name="Monitor1")]):
+        with patch("gui.src.tabs.core.wallpaper_tab.WallpaperWorker"), \
+             patch("gui.src.tabs.core.wallpaper_tab.ImageScannerWorker"), \
+             patch("gui.src.tabs.core.wallpaper_tab.VideoScannerWorker"), \
+             patch("gui.src.tabs.core.wallpaper_tab.get_monitors", return_value=[MagicMock(name="Monitor1")]):
             yield
 
     def test_init(self, q_app, mock_deps):
@@ -77,8 +77,8 @@ class TestWallpaperTab:
 
 class TestDeleteTab:
     def test_init(self, q_app):
-        with patch("gui.tabs.core.delete_tab.DeletionWorker"), \
-             patch("gui.tabs.core.delete_tab.DuplicateScanWorker"):
+        with patch("gui.src.tabs.core.delete_tab.DeletionWorker"), \
+             patch("gui.src.tabs.core.delete_tab.DuplicateScanWorker"):
             tab = DeleteTab()
             assert isinstance(tab, QWidget)
 

@@ -1,11 +1,9 @@
 import pytest
-import cv2  # This is already a mock from conftest.py
 import numpy as np
-from unittest.mock import MagicMock, patch
-from PySide6.QtGui import QPixmap
 
-from gui.helpers.video.frame_extractor_worker import FrameExtractionWorker
-from gui.helpers.video.video_scan_worker import VideoScannerWorker
+from unittest.mock import MagicMock, patch
+from gui.src.helpers.video.frame_extractor_worker import FrameExtractionWorker
+from gui.src.helpers.video.video_scan_worker import VideoScannerWorker
 
 # --- FrameExtractionWorker Tests ---
 
@@ -22,7 +20,7 @@ class TestFrameExtractionWorker:
         mock_cap.get.return_value = 30.0 # FPS
         
         # Patch cv2 in the WORKER module
-        with patch("gui.helpers.video.frame_extractor_worker.cv2") as mock_cv2:
+        with patch("gui.src.helpers.video.frame_extractor_worker.cv2") as mock_cv2:
              mock_cv2.VideoCapture.return_value = mock_cap
              mock_cv2.resize.return_value = frame_mock
              
@@ -50,7 +48,7 @@ class TestFrameExtractionWorker:
              mock_cap.release.assert_called()
 
     def test_run_error(self, q_app):
-        with patch("gui.helpers.video.frame_extractor_worker.cv2") as mock_cv2:
+        with patch("gui.src.helpers.video.frame_extractor_worker.cv2") as mock_cv2:
             mock_cap = MagicMock()
             mock_cv2.VideoCapture.return_value = mock_cap
             mock_cap.isOpened.return_value = False
@@ -81,7 +79,7 @@ class TestVideoScannerWorker:
         mock_cap = MagicMock()
         mock_cap.read.return_value = (True, frame_mock)
         
-        with patch("gui.helpers.video.video_scan_worker.cv2") as mock_cv2:
+        with patch("gui.src.helpers.video.video_scan_worker.cv2") as mock_cv2:
             mock_cv2.VideoCapture.return_value = mock_cap
             mock_cv2.cvtColor.return_value = frame_mock
             

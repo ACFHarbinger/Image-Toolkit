@@ -1,13 +1,17 @@
 import pytest
-import os
-from PySide6.QtCore import Qt, QPoint, QMimeData, QUrl, QSize
-from PySide6.QtGui import QMouseEvent, QPixmap
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 
-from gui.components.clickable_label import ClickableLabel
-from gui.components.draggable_label import DraggableLabel
-from gui.components.monitor_drop_widget import MonitorDropWidget
-from gui.components.marquee_scroll_area import MarqueeScrollArea
+from PySide6.QtCore import Qt, QPoint
+from PySide6.QtWidgets import QWidget, QVBoxLayout
+
+from gui.src.components.clickable_label import ClickableLabel
+from gui.src.components.draggable_label import DraggableLabel
+from gui.src.components.monitor_drop_widget import MonitorDropWidget
+from gui.src.components.marquee_scroll_area import MarqueeScrollArea
+from gui.src.components.draggable_monitor_container import DraggableMonitorContainer
+from gui.src.components.opaque_viewport import OpaqueViewport
+from gui.src.components.optional_field import OptionalField
+from gui.src.components.property_comparison_dialog import PropertyComparisonDialog
+from gui.src.components.queue_item_widget import QueueItemWidget
 
 # --- ClickableLabel Tests ---
 
@@ -87,17 +91,6 @@ class TestMarqueeScrollArea:
         QTestUtils.mousePress(viewport, Qt.LeftButton, pos=QPoint(10, 10))
         QTestUtils.mouseMove(viewport, pos=QPoint(50, 50))
         QTestUtils.mouseRelease(viewport, Qt.LeftButton)
-
-# --- Additional Component Tests ---
-
-import pytest
-from PySide6.QtWidgets import QWidget
-
-from gui.components.draggable_monitor_container import DraggableMonitorContainer
-from gui.components.opaque_viewport import OpaqueViewport
-from gui.components.optional_field import OptionalField
-from gui.components.property_comparison_dialog import PropertyComparisonDialog
-from gui.components.queue_item_widget import QueueItemWidget
 
 class TestDraggableMonitorContainer:
     def test_initialization(self, q_app):
