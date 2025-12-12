@@ -36,7 +36,7 @@ class MarqueeScrollArea(QScrollArea):
             return
 
         # Map click to content coordinates to check if we clicked blank space or an item
-        mapped_pos = content_widget.mapFrom(self.viewport(), event.pos())
+        mapped_pos = content_widget.mapFrom(self.viewport(), event.position().toPoint())
         child = content_widget.childAt(mapped_pos)
 
         # Start marquee only if left-clicking on empty space (not on a ClickableLabel)
@@ -52,7 +52,7 @@ class MarqueeScrollArea(QScrollArea):
                 curr = curr.parentWidget()
 
         if event.button() == Qt.LeftButton and not is_on_item:
-            self.origin = event.pos()
+            self.origin = event.position().toPoint()
             self.rubber_band.setGeometry(QRect(self.origin, QSize()))
             self.rubber_band.show()
             self.last_selected_paths = set()
@@ -63,7 +63,7 @@ class MarqueeScrollArea(QScrollArea):
     def mouseMoveEvent(self, event: QMouseEvent):
         if self.rubber_band.isVisible():
             # 1. Update RubberBand geometry
-            self.rubber_band.setGeometry(QRect(self.origin, event.pos()).normalized())
+            self.rubber_band.setGeometry(QRect(self.origin, event.position().toPoint()).normalized())
 
             # 2. Calculate selection rect in Content Coordinates
             selection_rect_viewport = self.rubber_band.geometry()
