@@ -2,10 +2,10 @@ import pytest
 from unittest.mock import MagicMock, patch
 from PySide6.QtWidgets import QWidget, QComboBox
 
-from gui.tabs.models.generate_tab import UnifiedGenerateTab
-from gui.tabs.models.train_tab import UnifiedTrainTab
-from gui.tabs.models.meta_clip_inference_tab import MetaCLIPInferenceTab
-from gui.tabs.models.r3gan_evaluate_tab import R3GANEvaluateTab
+from gui.src.tabs.models.generate_tab import UnifiedGenerateTab
+from gui.src.tabs.models.train_tab import UnifiedTrainTab
+from gui.src.tabs.models.meta_clip_inference_tab import MetaCLIPInferenceTab
+from gui.src.tabs.models.r3gan_evaluate_tab import R3GANEvaluateTab
 
 # Helper class for mocking tabs that need to be widgets
 class MockTab(QWidget):
@@ -20,10 +20,10 @@ class MockTab(QWidget):
 class TestUnifiedGenerateTab:
     @pytest.fixture
     def mock_subtabs(self):
-        with patch("gui.tabs.models.generate_tab.LoRAGenerateTab") as mock_lora, \
-             patch("gui.tabs.models.generate_tab.SD3GenerateTab") as mock_sd3, \
-             patch("gui.tabs.models.generate_tab.R3GANGenerateTab") as mock_r3gan, \
-             patch("gui.tabs.models.generate_tab.GANGenerateTab") as mock_gan:
+        with patch("gui.src.tabs.models.generate_tab.LoRAGenerateTab") as mock_lora, \
+             patch("gui.src.tabs.models.generate_tab.SD3GenerateTab") as mock_sd3, \
+             patch("gui.src.tabs.models.generate_tab.R3GANGenerateTab") as mock_r3gan, \
+             patch("gui.src.tabs.models.generate_tab.GANGenerateTab") as mock_gan:
             
             # Make sure constructors return our MockTab (which is a valid QWidget)
             mock_lora.return_value = MockTab()
@@ -76,9 +76,9 @@ class TestUnifiedGenerateTab:
 class TestUnifiedTrainTab:
     @pytest.fixture
     def mock_subtabs(self):
-        with patch("gui.tabs.models.train_tab.LoRATrainTab") as mock_lora, \
-             patch("gui.tabs.models.train_tab.R3GANTrainTab") as mock_r3gan, \
-             patch("gui.tabs.models.train_tab.GANTrainTab") as mock_gan:
+        with patch("gui.src.tabs.models.train_tab.LoRATrainTab") as mock_lora, \
+             patch("gui.src.tabs.models.train_tab.R3GANTrainTab") as mock_r3gan, \
+             patch("gui.src.tabs.models.train_tab.GANTrainTab") as mock_gan:
             
             mock_lora.return_value = MockTab()
             mock_r3gan.return_value = MockTab()

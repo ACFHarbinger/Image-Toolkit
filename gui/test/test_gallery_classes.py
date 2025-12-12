@@ -1,11 +1,10 @@
 import pytest
-from PySide6.QtWidgets import QWidget, QLabel, QGridLayout, QScrollArea
-from PySide6.QtGui import QPixmap
-from PySide6.QtCore import QObject
 
-from gui.classes.abstract_class_single_gallery import AbstractClassSingleGallery
-from gui.classes.abstract_class_two_galleries import AbstractClassTwoGalleries
-from gui.classes.meta_abstract_class_gallery import MetaAbstractClassGallery
+from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import QWidget, QLabel, QGridLayout, QScrollArea
+from gui.src.classes.abstract_class_single_gallery import AbstractClassSingleGallery
+from gui.src.classes.abstract_class_two_galleries import AbstractClassTwoGalleries
+from gui.src.classes.meta_abstract_class_gallery import MetaAbstractClassGallery
 
 # --- Concrete Implementations / Mocks ---
 
@@ -72,12 +71,12 @@ class DummyGallery(QWidget, metaclass=MetaAbstractClassGallery):
 
 @pytest.fixture
 def gallery(q_app, mock_image_loader_worker, monkeypatch):
-    monkeypatch.setattr("gui.classes.abstract_class_single_gallery.ImageLoaderWorker", mock_image_loader_worker)
+    monkeypatch.setattr("gui.src.classes.abstract_class_single_gallery.ImageLoaderWorker", mock_image_loader_worker)
     return ConcreteSingleGallery()
 
 @pytest.fixture
 def two_galleries(q_app, mock_image_loader_worker, monkeypatch):
-    monkeypatch.setattr("gui.classes.abstract_class_two_galleries.ImageLoaderWorker", mock_image_loader_worker)
+    monkeypatch.setattr("gui.src.classes.abstract_class_two_galleries.ImageLoaderWorker", mock_image_loader_worker)
     return ConcreteTwoGalleries()
 
 @pytest.fixture

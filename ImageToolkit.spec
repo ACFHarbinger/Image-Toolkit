@@ -26,8 +26,8 @@ a = Analysis(
         'PySide6.QtXml',
 
         # Add your own module imports explicitly if they are not in __main__.py:
-        # e.g., 'src.gui.tabs.wallpaper_tab',
-        # e.g., 'src.gui.tabs.search_tab',
+        # e.g., 'src.gui.src.tabs.wallpaper_tab',
+        # e.g., 'src.gui.src.tabs.search_tab',
         # If your modules are correctly packaged and imported in __main__.py,
         # PyInstaller usually finds them. If the build fails later, add them here.
     ],

@@ -1,21 +1,19 @@
 import pytest
-import os
-from unittest.mock import MagicMock, patch
-from PySide6.QtCore import QObject
 
-from gui.helpers.core.conversion_worker import ConversionWorker
-from gui.helpers.core.deletion_worker import DeletionWorker
-from gui.helpers.core.duplicate_scan_worker import DuplicateScanWorker
-from gui.helpers.core.merge_worker import MergeWorker
-from gui.helpers.core.search_worker import SearchWorker
-from gui.helpers.core.wallpaper_worker import WallpaperWorker
+from unittest.mock import MagicMock, patch
+from gui.src.helpers.core.conversion_worker import ConversionWorker
+from gui.src.helpers.core.deletion_worker import DeletionWorker
+from gui.src.helpers.core.duplicate_scan_worker import DuplicateScanWorker
+from gui.src.helpers.core.merge_worker import MergeWorker
+from gui.src.helpers.core.search_worker import SearchWorker
+from gui.src.helpers.core.wallpaper_worker import WallpaperWorker
 
 # --- ConversionWorker Tests ---
 
 class TestConversionWorker:
     @pytest.fixture
     def mock_converter(self):
-        with patch("gui.helpers.core.conversion_worker.ImageFormatConverter") as mock:
+        with patch("gui.src.helpers.core.conversion_worker.ImageFormatConverter") as mock:
             yield mock
 
     def test_run_single_file(self, mock_converter, q_app):
@@ -70,8 +68,8 @@ class TestConversionWorker:
 class TestDeletionWorker:
     @pytest.fixture
     def mock_tools(self):
-        with patch("gui.helpers.core.deletion_worker.FileDeleter") as fd, \
-             patch("gui.helpers.core.deletion_worker.FSETool") as fse:
+        with patch("gui.src.helpers.core.deletion_worker.FileDeleter") as fd, \
+             patch("gui.src.helpers.core.deletion_worker.FSETool") as fse:
             yield fd, fse
 
     def test_delete_file(self, mock_tools, q_app):
@@ -128,8 +126,8 @@ class TestDeletionWorker:
 class TestDuplicateScanWorker:
     @pytest.fixture
     def mock_finders(self):
-        with patch("gui.helpers.core.duplicate_scan_worker.DuplicateFinder") as df, \
-             patch("gui.helpers.core.duplicate_scan_worker.SimilarityFinder") as sf:
+        with patch("gui.src.helpers.core.duplicate_scan_worker.DuplicateFinder") as df, \
+             patch("gui.src.helpers.core.duplicate_scan_worker.SimilarityFinder") as sf:
             yield df, sf
 
     def test_exact_scan(self, mock_finders, q_app):
@@ -184,7 +182,7 @@ class TestSearchWorker:
 class TestWallpaperWorker:
     def test_run(self, q_app):
         # This one interacts with system, so just check basic connection logic
-        with patch("gui.helpers.core.wallpaper_worker.WallpaperManager") as mock_wm:
+        with patch("gui.src.helpers.core.wallpaper_worker.WallpaperManager") as mock_wm:
             # Provide dummy monitors and qdbus
             worker = WallpaperWorker("/tmp/img.jpg", [], None)
             

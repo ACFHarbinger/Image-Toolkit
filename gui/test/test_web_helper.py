@@ -1,9 +1,9 @@
 import pytest
-from unittest.mock import MagicMock, patch
 
-from gui.helpers.web.web_requests_worker import WebRequestsWorker
-from gui.helpers.web.reverse_search_worker import ReverseSearchWorker
-from gui.helpers.web.google_drive_sync_worker import GoogleDriveSyncWorker
+from unittest.mock import MagicMock, patch
+from gui.src.helpers.web.web_requests_worker import WebRequestsWorker
+from gui.src.helpers.web.reverse_search_worker import ReverseSearchWorker
+from gui.src.helpers.web.google_drive_sync_worker import GoogleDriveSyncWorker
 
 # --- WebRequestsWorker Tests ---
 
@@ -12,9 +12,9 @@ class TestWebRequestsWorker:
         # web_requests_worker.py imports WebRequestsLogic from backend.src.web
         # We need to patch where it is used.
         # But wait, imports in python are weird if we patch sys.modules.
-        # Let's patch "gui.helpers.web.web_requests_worker.WebRequestsLogic"
+        # Let's patch "gui.src.helpers.web.web_requests_worker.WebRequestsLogic"
         
-        with patch("gui.helpers.web.web_requests_worker.WebRequestsLogic") as MockLogic:
+        with patch("gui.src.helpers.web.web_requests_worker.WebRequestsLogic") as MockLogic:
             mock_inst = MagicMock()
             MockLogic.return_value = mock_inst
             
@@ -54,7 +54,7 @@ class TestWebRequestsWorker:
 class TestReverseSearchWorker:
     def test_run(self, q_app):
         # Imports ReverseImageSearchCrawler from backend
-        with patch("gui.helpers.web.reverse_search_worker.ReverseImageSearchCrawler") as MockCrawler:
+        with patch("gui.src.helpers.web.reverse_search_worker.ReverseImageSearchCrawler") as MockCrawler:
             mock_inst = MagicMock()
             MockCrawler.return_value = mock_inst
             
@@ -70,7 +70,7 @@ class TestReverseSearchWorker:
 class TestGoogleDriveSyncWorker:
     def test_run(self, q_app):
         # Imports GoogleDriveSync from backend
-        with patch("gui.helpers.web.google_drive_sync_worker.GoogleDriveSync") as MockLogic:
+        with patch("gui.src.helpers.web.google_drive_sync_worker.GoogleDriveSync") as MockLogic:
             mock_inst = MagicMock()
             MockLogic.return_value = mock_inst
             

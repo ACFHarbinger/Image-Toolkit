@@ -1,6 +1,6 @@
 import pytest
 from PySide6.QtWidgets import QWidget, QFormLayout, QComboBox, QCheckBox, QSpinBox, QLineEdit
-from gui.classes.base_generative_tab import BaseGenerativeTab
+from gui.src.classes.base_generative_tab import BaseGenerativeTab
 
 @pytest.fixture
 def gen_tab(q_app):

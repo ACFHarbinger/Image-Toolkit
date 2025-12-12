@@ -3,8 +3,8 @@ from unittest.mock import MagicMock, patch
 from PySide6.QtCore import QThreadPool
 from PySide6.QtGui import QPixmap
 
-from gui.helpers.image.image_loader_worker import ImageLoaderWorker
-from gui.helpers.image.image_scan_worker import ImageScannerWorker
+from gui.src.helpers.image.image_loader_worker import ImageLoaderWorker
+from gui.src.helpers.image.image_scan_worker import ImageScannerWorker
 
 # --- ImageLoaderWorker Tests ---
 
@@ -13,7 +13,7 @@ class TestImageLoaderWorker:
         # We can test the actual logic or mocking QPixmap if needed.
         # Since we shouldn't rely on existing files, let's patch QPixmap
         
-        with patch("gui.helpers.image.image_loader_worker.QPixmap") as MockPixmap:
+        with patch("gui.src.helpers.image.image_loader_worker.QPixmap") as MockPixmap:
             # Setup mock pixmap behavior
             mock_inst = MagicMock()
             MockPixmap.return_value = mock_inst
@@ -33,7 +33,7 @@ class TestImageLoaderWorker:
             mock_inst.scaled.assert_called()
 
     def test_run_failure(self, q_app):
-        with patch("gui.helpers.image.image_loader_worker.QPixmap") as MockPixmap:
+        with patch("gui.src.helpers.image.image_loader_worker.QPixmap") as MockPixmap:
             mock_inst = MagicMock()
             MockPixmap.return_value = mock_inst
             mock_inst.isNull.return_value = True # Load failed
