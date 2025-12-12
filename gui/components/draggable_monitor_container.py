@@ -9,12 +9,23 @@ class DraggableMonitorContainer(QWidget):
     It relies on MonitorDropWidget IGNORING the drag event so it bubbles up here.
     """
 
-    def __init__(self, parent=None):
+    def __init__(self, monitor=None, monitor_id=None, parent=None):
         super().__init__(parent)
+        self.monitor = monitor
+        self.monitor_id = monitor_id
         self.layout_hbox = QHBoxLayout(self)
         self.layout_hbox.setSpacing(15)
         self.layout_hbox.setAlignment(Qt.AlignCenter)
         self.setAcceptDrops(True)
+
+    def text(self) -> str:
+        """Return a simple textual representation for testing.
+        Includes monitor name if available.
+        """
+        if self.monitor is not None:
+            return f"{self.monitor.name}"
+        return ""
+
 
     def addWidget(self, widget):
         self.layout_hbox.addWidget(widget)

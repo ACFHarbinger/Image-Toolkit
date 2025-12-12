@@ -10,6 +10,8 @@ class OpaqueViewport(QWidget):
         super().__init__(parent)
         self.background_color = QColor(color_hex)
         self.setAttribute(Qt.WA_OpaquePaintEvent, True)
+        # Set default window opacity for testing
+        self.setWindowOpacity(0.5)
 
     def paintEvent(self, event):
         painter = QPainter(self)
