@@ -1,8 +1,10 @@
 import os
 import sys
 import pytest
+import numpy as np
 
 from PIL import Image
+from unittest.mock import patch, MagicMock, call
 
 # Add project root to Python path to import modules
 project_root = sys.path.append(
@@ -380,3 +382,115 @@ class ImageMergerTest:
         )
         assert os.path.exists(grid_output)
         assert isinstance(result, Image.Image)
+    @patch("src.core.image_merger.cv2")
+    def test_merge_images_panorama(self, mock_cv2, sample_images, output_dir):
+        """Test panorama stitching (mocked)"""
+        temp_dir, image_paths = sample_images
+        output_path = os.path.join(output_dir, "panorama.png")
+
+        # Mock Stitcher
+        mock_stitcher = MagicMock()
+        # Create method needs to return the stitcher instance
+        mock_cv2.Stitcher_create.return_value = mock_stitcher
+        mock_cv2.createStitcher.return_value = mock_stitcher  # Fallback
+
+        # Mock successful stitch
+        # stitch returns (status, pano_image)
+        # Create a dummy pano image (numpy array)
+        mock_pano = np.zeros((100, 200, 3), dtype=np.uint8)
+        mock_stitcher.stitch.return_value = (0, mock_pano)  # 0 is usually OK
+
+        # Mock constants
+        mock_cv2.Stitcher_OK = 0
+        mock_cv2.COLOR_BGR2RGB = 4
+
+        # Mock imread to return valid images
+        mock_cv2.imread.return_value = np.zeros((100, 100, 3), dtype=np.uint8)
+
+        # Mock cvtColor
+        mock_cv2.cvtColor.return_value = mock_pano
+
+        # Execute
+        result = ImageMerger.merge_images(image_paths, output_path, "panorama")
+
+        # Verify
+        assert os.path.exists(output_path)
+        assert isinstance(result, Image.Image)
+        mock_cv2.Stitcher_create.assert_called()
+        mock_stitcher.stitch.assert_called()
+
+    @patch("src.core.image_merger.cv2")
+    def test_merge_images_scan_stitch(self, mock_cv2, sample_images, output_dir):
+        """Test scan stitching (mocked)"""
+        temp_dir, image_paths = sample_images
+        output_path = os.path.join(output_dir, "scan_stitch.png")
+
+        # Mock Stitcher
+        mock_stitcher = MagicMock()
+        mock_cv2.Stitcher_create.return_value = mock_stitcher
+
+        # Mock successful stitch
+        mock_pano = np.zeros((100, 200, 3), dtype=np.uint8)
+        mock_stitcher.stitch.return_value = (0, mock_pano)
+
+        # Mock constants
+        mock_cv2.Stitcher_OK = 0
+        mock_cv2.COLOR_BGR2RGB = 4
+
+        # Mock imread
+        mock_cv2.imread.return_value = np.zeros((100, 100, 3), dtype=np.uint8)
+        mock_cv2.cvtColor.return_value = mock_pano
+
+        # Execute
+        result = ImageMerger.merge_images(image_paths, output_path, "stitch")
+
+        # Verify
+        assert os.path.exists(output_path)
+        assert isinstance(result, Image.Image)
+        # Verify mode 1 (SCANS) was used
+        mock_cv2.Stitcher_create.assert_called_with(mode=1)
+        mock_stitcher.setRegistrationResol.assert_called()
+
+    @patch("src.core.image_merger.cv2")
+    def test_merge_images_sequential(self, mock_cv2, sample_images, output_dir):
+        """Test sequential stitching (mocked w/ template matching)"""
+        temp_dir, image_paths = sample_images
+        output_path = os.path.join(output_dir, "sequential.png")
+
+        # Mock imread - Create 2 dummy images with variance (random noise)
+        # Variance is needed to pass the np.std(template) > 5.0 check
+        # Img 1: 100x100
+        # Img 2: 100x100
+        img1 = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
+        img2 = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
+        mock_cv2.imread.side_effect = [img1, img2, None]
+
+        # Mock resize (just return the input or a resized clone)
+        mock_cv2.resize.side_effect = lambda src, dsize: np.zeros(
+            (dsize[1], dsize[0], 3), dtype=np.uint8
+        )
+
+        # Mock matchTemplate
+        # Return a result map where match is good enough
+        mock_res = np.zeros((50, 50), dtype=np.float32)
+        mock_res[0, 0] = 0.9  # Good match at 0,0
+        mock_cv2.matchTemplate.return_value = mock_res
+        mock_cv2.TM_CCOEFF_NORMED = 5
+
+        # Mock minMaxLoc -> min_val, max_val, min_loc, max_loc
+        # Return max_val=0.9 at (0,0)
+        mock_cv2.minMaxLoc.return_value = (0, 0.9, (0, 0), (0, 0))
+
+        # Mock COLOR conversion
+        mock_cv2.COLOR_BGR2RGB = 4
+        # Just return input as is for color conversion mock, needs to be array compatible
+        mock_cv2.cvtColor.return_value = np.zeros((200, 100, 3), dtype=np.uint8)
+
+        # Execute
+        result = ImageMerger.merge_images(image_paths[:2], output_path, "sequential")
+
+        # Verify
+        assert os.path.exists(output_path)
+        assert isinstance(result, Image.Image)
+        # Verify matchTemplate was called to check overlap
+        assert mock_cv2.matchTemplate.called

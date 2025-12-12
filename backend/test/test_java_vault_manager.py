@@ -1,8 +1,8 @@
 import pytest
 
-from unittest.mock import MagicMock
-from src.core import JavaVaultManager
-from .conftest import MockKeyStoreManager
+from unittest.mock import MagicMock, patch
+from conftest import MockKeyStoreManager
+from src.core.vault_manager import VaultManager as JavaVaultManager
 
 
 class JavaVaultManagerTest:

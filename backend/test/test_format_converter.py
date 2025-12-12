@@ -21,7 +21,7 @@ class ImageFormatConverterTest:
         output_base_name = os.path.join(output_dir, "converted_image")
 
         # Call the class method
-        result = ImageFormatConverter.convert_img_format(
+        result = ImageFormatConverter.convert_single_image(
             sample_image, output_base_name, "jpeg"
         )
 
@@ -43,7 +43,7 @@ class ImageFormatConverterTest:
         output_base_name = os.path.join(output_dir, "same_format")
 
         # Call the class method
-        result = ImageFormatConverter.convert_img_format(
+        result = ImageFormatConverter.convert_single_image(
             sample_image, output_base_name, "png"
         )
 
@@ -60,7 +60,7 @@ class ImageFormatConverterTest:
         output_base_name = os.path.join(output_dir, "transparent_converted")
 
         # Call the class method
-        result = ImageFormatConverter.convert_img_format(
+        result = ImageFormatConverter.convert_single_image(
             sample_transparent_image, output_base_name, "jpeg"
         )
 
@@ -77,7 +77,7 @@ class ImageFormatConverterTest:
     def test_convert_img_format_no_output_name(self, sample_image):
         """Test conversion without specifying output name (saves to same directory)"""
         # Call the class method
-        result = ImageFormatConverter.convert_img_format(sample_image, format="jpeg")
+        result = ImageFormatConverter.convert_single_image(sample_image, format="jpeg")
 
         assert result is not None
         assert isinstance(result, Image.Image)
@@ -97,14 +97,14 @@ class ImageFormatConverterTest:
 
         # The class logic now raises ValueError
         with pytest.raises(ValueError, match="Invalid input file extension"):
-            ImageFormatConverter.convert_img_format(
+            ImageFormatConverter.convert_single_image(
                 unsupported_path, "test_output", "png"
             )
 
     def test_convert_img_format_invalid_file(self):
         """Test conversion with non-existent file"""
         # Call the class method
-        result = ImageFormatConverter.convert_img_format(
+        result = ImageFormatConverter.convert_single_image(
             "/nonexistent/path/image.png", "output", "jpeg"
         )
         assert result is None
@@ -120,7 +120,7 @@ class ImageFormatConverterTest:
         output_base_name = os.path.join(output_dir, f"test_{output_format}")
 
         # Call the class method
-        result = ImageFormatConverter.convert_img_format(
+        result = ImageFormatConverter.convert_single_image(
             sample_image, output_base_name, output_format
         )
 
@@ -137,7 +137,7 @@ class ImageFormatConverterTest:
 
         # Convert only PNG and JPEG files
         # Call the class method
-        result = ImageFormatConverter.batch_convert_img_format(
+        result = ImageFormatConverter.convert_batch(
             input_dir=input_dir,
             inputs_formats=["png", "jpeg"],
             output_dir=batch_output_dir,
@@ -161,7 +161,7 @@ class ImageFormatConverterTest:
         input_dir, image_paths = sample_images_directory
 
         # Call the class method
-        result = ImageFormatConverter.batch_convert_img_format(
+        result = ImageFormatConverter.convert_batch(
             input_dir=input_dir,
             inputs_formats=["png"],
             output_dir=None,  # Should use input_dir
@@ -180,7 +180,7 @@ class ImageFormatConverterTest:
         empty_dir = str(tmp_path)
 
         # Call the class method
-        result = ImageFormatConverter.batch_convert_img_format(
+        result = ImageFormatConverter.convert_batch(
             input_dir=empty_dir,
             inputs_formats=["png"],
             output_dir=os.path.join(empty_dir, "output"),
@@ -202,7 +202,7 @@ class ImageFormatConverterTest:
 
         with pytest.raises(PermissionError) as excinfo:
             # Call the class method
-            ImageFormatConverter.batch_convert_img_format(
+            ImageFormatConverter.convert_batch(
                 input_dir=str(non_existent_dir),
                 inputs_formats=["png"],
                 output_dir="/some/valid/output",  # Output dir existence might be checked later
@@ -220,7 +220,7 @@ class ImageFormatConverterTest:
 
         # This should create the nested directories via the decorator
         # Call the class method
-        result = ImageFormatConverter.batch_convert_img_format(
+        result = ImageFormatConverter.convert_batch(
             input_dir=input_dir,
             inputs_formats=["png"],
             output_dir=nested_output,
@@ -244,7 +244,7 @@ class ImageFormatConverterTest:
         # Convert and verify basic properties
         original_img = Image.open(sample_image)
         # Call the class method
-        result = ImageFormatConverter.convert_img_format(
+        result = ImageFormatConverter.convert_single_image(
             sample_image, output_base_name, "jpeg"
         )
 
@@ -265,7 +265,7 @@ class ImageFormatConverterTest:
         input_dir, image_paths = sample_images_directory
 
         # Call the class method
-        result = ImageFormatConverter.batch_convert_img_format(
+        result = ImageFormatConverter.convert_batch(
             input_dir=input_dir,
             inputs_formats=["jpeg", "webp", "png"],
             output_dir=output_dir,
@@ -299,7 +299,7 @@ class ImageFormatConverterTest:
         output_base_name = os.path.join(output_dir, "decorator_test")
         try:
             # Call the class method with a relative path
-            result = ImageFormatConverter.convert_img_format(
+            result = ImageFormatConverter.convert_single_image(
                 rel_path, output_base_name, "jpeg"
             )
 
@@ -340,7 +340,7 @@ class ImageFormatConverterTest:
 
         if expected_success:
             # Call the class method
-            result = ImageFormatConverter.batch_convert_img_format(
+            result = ImageFormatConverter.convert_batch(
                 input_dir=input_dir,
                 inputs_formats=[input_format],
                 output_dir=output_dir,
@@ -355,6 +355,6 @@ class ImageFormatConverterTest:
 
             with pytest.raises(ValueError, match="Unsupported output format"):
                 # Call the class method
-                ImageFormatConverter.convert_img_format(
+                ImageFormatConverter.convert_single_image(
                     test_file, output_base_name, output_format
                 )

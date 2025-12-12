@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-import src.utils.arg_parser as arg_parser
+import src.utils.definitions as udef
 
 from src.core import FSETool
 from src.web import ImageCrawler
@@ -27,8 +27,7 @@ class MockQObject:
         pass
 
     class Signal(MagicMock):
-        def emit(self, *args, **kwargs):
-            pass
+        pass
 
 
 class MockQtABCMeta(type):
@@ -124,11 +123,11 @@ class MockSecureJsonVault:
 @pytest.fixture(autouse=True)
 def mock_dependencies(monkeypatch):
     """
-    Mocks external dependencies imported by arg_parser.py to isolate tests.
+    Mocks external dependencies imported by definitions.py or others to isolate tests.
     This fixture runs automatically for every test function.
     """
-    # Mock WC_BROWSERS to a known list for testing 'choices'
-    monkeypatch.setattr(arg_parser, "WC_BROWSERS", ["brave", "chrome", "firefox"])
+    # Mock WC_BROWSERS in definitions
+    monkeypatch.setattr(udef, "WC_BROWSERS", ["brave", "chrome", "firefox"])
 
 
 @pytest.fixture
@@ -140,17 +139,16 @@ def mock_jpype():
     }
 
     with (
-        patch(f"src.core.java_vault_manager.jpype.startJVM") as mock_start_jvm,
+        patch(f"src.core.vault_manager.jpype.startJVM") as mock_start_jvm,
         patch(
-            f"src.core.java_vault_manager.jpype.JClass",
+            f"src.core.vault_manager.jpype.JClass",
             side_effect=lambda name: mock_jclass_map.get(name, MagicMock()),
         ) as mock_jclass,
         patch(
-            f"src.core.java_vault_manager.jpype.isJVMStarted",
+            f"src.core.vault_manager.jpype.isJVMStarted",
             side_effect=[False, True, True],
         ),
-        patch(f"src.core.java_vault_manager.jpype.shutdownJVM") as mock_shutdown_jvm,
-        patch(f"src.core.java_vault_manager.atexit.register"),
+        patch(f"src.core.vault_manager.jpype.shutdownJVM") as mock_shutdown_jvm,
     ):
 
         yield mock_start_jvm, mock_shutdown_jvm
@@ -329,4 +327,28 @@ def crawler_config():
 
 @pytest.fixture
 def crawler(crawler_config):
-    return ImageCrawler(crawler_config)
+    # Instantiate the crawler
+    c = ImageCrawler(crawler_config)
+    
+    # Mock the signals (since patching class-level Signal doesn't affect existing class)
+    c.on_status = MagicMock()
+    c.on_image_saved = MagicMock()
+    
+    # Mock driver explicitly if missing (though Base MockWebCrawler usually handles it, 
+    # but ImageCrawler inheritance structure makes it tricky)
+    if not hasattr(c, "driver") or c.driver is None:
+        c.driver = MagicMock()
+
+    # Mock Base Class methods to ensure isolation from Real WebCrawler
+    # This is necessary because ImageCrawler class inherits from Real WebCrawler 
+    # (imported before tests patched it)
+    def mock_close():
+        c.driver = None
+        return True
+
+    c.close = MagicMock(side_effect=mock_close)
+    c.login = MagicMock(return_value=True)
+    c.navigate_to_url = MagicMock(return_value=True)
+    c.wait_for_page_to_load = MagicMock(return_value=True)
+        
+    return c

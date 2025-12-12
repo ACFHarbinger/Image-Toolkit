@@ -153,7 +153,12 @@ class ImageFormatConverter:
                     if current_format == target_format or (
                         is_jpeg_or_jpg(current_format) and is_jpeg_or_jpg(target_format)
                     ):
-                        return img
+                        if os.path.abspath(image_path) != os.path.abspath(output_path):
+                            # Same format but different path: Check if we need to copy
+                            # But simply letting it fall through to save() is safer/easier
+                            pass 
+                        else:
+                            return img
 
                 # Handle JPEG transparency (Convert to RGB)
                 if is_jpeg_or_jpg(target_format):
