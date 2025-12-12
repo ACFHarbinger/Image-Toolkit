@@ -4,9 +4,9 @@ import cv2  # Needed for video processing
 
 from abc import abstractmethod
 from typing import List, Optional, Dict
-from PySide6.QtWidgets import QWidget, QGridLayout, QScrollArea, QMenu, QLineEdit
 from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer
 from PySide6.QtGui import QPixmap, QResizeEvent, QAction, QImage
+from PySide6.QtWidgets import QWidget, QGridLayout, QScrollArea, QMenu
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH, SUPPORTED_VIDEO_FORMATS
 from .meta_abstract_class_gallery import MetaAbstractClassGallery
 from ..helpers import ImageLoaderWorker
@@ -290,10 +290,12 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         # Re-bind scroll listener if needed (safe to do multiple times or check connection)
         if self.gallery_scroll_area:
             try:
-                self.gallery_scroll_area.verticalScrollBar().valueChanged.disconnect(self._on_scroll)
+                self.gallery_scroll_area.verticalScrollBar().valueChanged.connect(
+                    self._on_scroll, Qt.UniqueConnection
+                )
             except Exception:
+                # Already connected or other issue, safe to ignore for UniqueConnection
                 pass
-            self.gallery_scroll_area.verticalScrollBar().valueChanged.connect(self._on_scroll)
 
         if not self.gallery_image_paths:
             self.common_show_placeholder(

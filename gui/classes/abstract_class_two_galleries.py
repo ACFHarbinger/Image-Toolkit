@@ -3,7 +3,7 @@ import math
 
 from abc import abstractmethod
 from typing import List, Dict, Optional
-from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QMenu, QApplication, QLineEdit
+from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QMenu, QApplication
 from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer, QEvent
 from PySide6.QtGui import QPixmap, QAction
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH
@@ -116,6 +116,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         if changed:
             self.refresh_selected_panel()
             self._update_found_card_styles()
+            self.on_selection_changed()
 
     @Slot()
     def deselect_all_items(self):
@@ -124,6 +125,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             self.selected_files.clear()
             self.refresh_selected_panel()
             self._update_found_card_styles()
+            self.on_selection_changed()
 
     def _update_found_card_styles(self):
         """Helper to re-evaluate and apply style to all currently loaded/visible found cards."""
@@ -485,10 +487,11 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         # Re-bind scroll listener
         if self.found_gallery_scroll:
             try:
-                self.found_gallery_scroll.verticalScrollBar().valueChanged.disconnect(self._on_found_scroll)
+                self.found_gallery_scroll.verticalScrollBar().valueChanged.connect(
+                    self._on_found_scroll, Qt.UniqueConnection
+                )
             except Exception:
                 pass
-            self.found_gallery_scroll.verticalScrollBar().valueChanged.connect(self._on_found_scroll)
 
         if not self.found_files:
             self.common_show_placeholder(
