@@ -31,10 +31,10 @@ Usage:
 """
 
 import subprocess
+
 from pathlib import Path
 from typing import List, Optional
-
-from .test_definitions import TEST_MODULES
+from test_definitions import TEST_MODULES
 
 
 class PyTestRunner:
