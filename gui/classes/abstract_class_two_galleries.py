@@ -279,6 +279,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             if new_cols != self._current_found_cols:
                 self._current_found_cols = new_cols
                 self.common_reflow_layout(self.found_gallery_layout, new_cols)
+                self._load_visible_found_images()
 
         if self.selected_gallery_scroll:
             new_cols = self.common_calculate_columns(
@@ -555,6 +556,15 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         # Schedule next batch
         if self._populating_found_index < len(self._paginated_found_paths):
             self._populate_found_timer.start(0)
+        else:
+            self._trigger_delayed_visibility_check()
+
+    def _trigger_delayed_visibility_check(self):
+        """
+        Safety check: triggers a visibility check after a short delay
+        to ensure the layout system has fully settled (especially for small result sets).
+        """
+        QTimer.singleShot(100, self._load_visible_found_images)
 
     def _trigger_found_load(self, path: str):
         if not hasattr(self, "found_loading_paths"):
