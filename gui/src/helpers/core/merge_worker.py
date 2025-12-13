@@ -1,12 +1,12 @@
 import os
 
 from typing import Dict, Any, List
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QObject, Signal, QThread
 from backend.src.core import FSETool, ImageMerger
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 
 
-class MergeWorker(QThread):
+class MergeWorker(QObject):
     progress = Signal(int, int)  # (current, total)
     finished = Signal(str)  # output path
     error = Signal(str)

@@ -769,7 +769,7 @@ class MergeTab(AbstractClassTwoGalleries):
         worker.finished.connect(invoke_cleanup)
 
         # Ensure worker is deleted when thread finishes
-        thread.finished.connect(worker.deleteLater)
+        # thread.finished.connect(worker.deleteLater)  <-- REMOVED: Rely on Python GC to delete worker when ref is cleared
         thread.finished.connect(thread.deleteLater)
 
         thread.start()
@@ -828,7 +828,7 @@ class MergeTab(AbstractClassTwoGalleries):
         )
         save_btn = confirm.addButton(save_text, QMessageBox.ButtonRole.AcceptRole)
         save_add_btn = confirm.addButton(
-            "Save & Add to Selection", QMessageBox.ButtonRole.AcceptRole
+            "Save and Add to Selection", QMessageBox.ButtonRole.AcceptRole
         )
         discard_btn = confirm.addButton(
             "Discard", QMessageBox.ButtonRole.DestructiveRole
