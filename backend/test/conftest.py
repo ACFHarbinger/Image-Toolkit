@@ -199,7 +199,35 @@ def sample_transparent_image():
         img_path = os.path.join(temp_dir, "test_transparent.png")
         img = Image.new("RGBA", (100, 100), (255, 0, 0, 128))  # Semi-transparent red
         img.save(img_path, "PNG")
+        img.save(img_path, "PNG")
         yield img_path
+
+
+@pytest.fixture
+def sample_video():
+    """Create a temporary test video file (dummy content)."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        vid_path = os.path.join(temp_dir, "test_video.mp4")
+        # Create a dummy file with video extension
+        with open(vid_path, "wb") as f:
+            f.write(b"fake video content")
+        yield vid_path
+
+
+@pytest.fixture
+def sample_video_directory():
+    """Create a directory with multiple test videos (MP4, AVI, MKV)."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        formats = ["mp4", "avi", "mkv"]
+        video_paths = []
+        
+        for i, fmt in enumerate(formats):
+            vid_path = os.path.join(temp_dir, f"test_video_{i}.{fmt}")
+            with open(vid_path, "wb") as f:
+                f.write(b"fake video content")
+            video_paths.append(vid_path)
+            
+        yield temp_dir, video_paths
 
 
 @pytest.fixture

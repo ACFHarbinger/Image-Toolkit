@@ -22,12 +22,12 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QPixmap, QAction
 from PySide6.QtCore import Qt, Slot, QPoint
-from ...classes import AbstractClassTwoGalleries
 from ...helpers import ConversionWorker
+from ...windows import ImagePreviewWindow
+from ...classes import AbstractClassTwoGalleries
 from ...components import OptionalField, MarqueeScrollArea, ClickableLabel
 from ...styles.style import apply_shadow_effect, SHARED_BUTTON_STYLE
-from ...windows import ImagePreviewWindow
-from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
+from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
 
 
 class ConvertTab(AbstractClassTwoGalleries):
@@ -78,10 +78,24 @@ class ConvertTab(AbstractClassTwoGalleries):
 
         # Output format
         self.output_format_combo = QComboBox()
+        self.output_format_combo.addItems(["--- Images ---"])
         formatted_formats = [f for f in SUPPORTED_IMG_FORMATS]
         self.output_format_combo.addItems(formatted_formats)
+        
+        self.output_format_combo.addItems(["--- Videos ---"])
+        video_formats = [f.lstrip(".") for f in SUPPORTED_VIDEO_FORMATS]
+        self.output_format_combo.addItems(video_formats)
+
         self.output_format_combo.setCurrentText("png")
+        self.output_format_combo.currentTextChanged.connect(self.on_output_format_changed)
         settings_layout.addRow("Output format:", self.output_format_combo)
+        
+        # New Video Engine Selection
+        self.engine_combo = QComboBox()
+        self.engine_combo.addItems(["Auto (Recommended)", "FFmpeg", "MoviePy"])
+        self.engine_combo.setToolTip("Select the engine used for video conversion.")
+        self.engine_label = QLabel("Video Engine:") # Keep ref to hide/show
+        settings_layout.addRow(self.engine_label, self.engine_combo)
 
         # Output path and Filename Prefix (UPDATED LAYOUT)
         output_settings_container = QVBoxLayout()
@@ -126,18 +140,10 @@ class ConvertTab(AbstractClassTwoGalleries):
             btn_layout = QHBoxLayout()
             self.format_buttons = {}
             for fmt in SUPPORTED_IMG_FORMATS:
-                btn = QPushButton(fmt)
-                btn.setCheckable(True)
-                btn.setStyleSheet("QPushButton:hover { background-color: #3498db; }")
-                apply_shadow_effect(
-                    btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-                )
-                btn.clicked.connect(
-                    lambda checked, f=fmt: self.toggle_format(f, checked)
-                )
-                btn_layout.addWidget(btn)
-                self.format_buttons[fmt] = btn
+                self._add_format_button(fmt, btn_layout)
             formats_layout.addLayout(btn_layout)
+            self.formats_layout_ref = formats_layout # Store ref to clear later if needed
+            self.format_btn_layout = btn_layout
 
             all_btn_layout = QHBoxLayout()
             self.btn_add_all = QPushButton("Add All")
@@ -359,6 +365,56 @@ class ConvertTab(AbstractClassTwoGalleries):
 
         # Initial Clear
         self.clear_galleries()
+        
+        # Trigger initial state
+        self.on_output_format_changed(self.output_format_combo.currentText())
+
+    def _add_format_button(self, fmt, layout):
+        btn = QPushButton(fmt)
+        btn.setCheckable(True)
+        btn.setStyleSheet("QPushButton:hover { background-color: #3498db; }")
+        apply_shadow_effect(
+            btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        )
+        btn.clicked.connect(
+            lambda checked, f=fmt: self.toggle_format(f, checked)
+        )
+        layout.addWidget(btn)
+        self.format_buttons[fmt] = btn
+
+    @Slot(str)
+    def on_output_format_changed(self, text: str):
+        text = text.lower()
+        vid_formats = [f.lstrip(".") for f in SUPPORTED_VIDEO_FORMATS]
+        is_video = text in vid_formats or 'videos' in text
+
+        # 1. Toggle Engine Visibility
+        self.engine_combo.setVisible(is_video)
+        self.engine_label.setVisible(is_video)
+
+        # 2. Update Input Formats Buttons (only if dropdown mode)
+        if self.dropdown and hasattr(self, "format_btn_layout"):
+            # Clear existing
+            for btn in self.format_buttons.values():
+                self.format_btn_layout.removeWidget(btn)
+                btn.deleteLater()
+            self.format_buttons.clear()
+            self.selected_formats.clear()
+
+            # Populate new
+            target_formats = SUPPORTED_VIDEO_FORMATS if is_video else SUPPORTED_IMG_FORMATS
+            # Helper to strip dots if needed, though IMG_FORMATS usually has no dots in definitions?
+            # definitions.py: SUPPORTED_IMG_FORMATS = ["webp", ...] (no dots)
+            # definitions.py: SUPPORTED_VIDEO_FORMATS = {".mp4", ...} (has dots)
+            
+            clean_formats = []
+            if is_video:
+                clean_formats = sorted([f.lstrip(".") for f in target_formats])
+            else:
+                clean_formats = target_formats
+
+            for fmt in clean_formats:
+                self._add_format_button(fmt, self.format_btn_layout)
 
     # --- IMPLEMENTING ABSTRACT METHODS ---
 
@@ -759,7 +815,8 @@ class ConvertTab(AbstractClassTwoGalleries):
             ],
             "delete_original": self.delete_checkbox.isChecked(),
             "aspect_ratio": ar_val,
-            "aspect_ratio_mode": ar_mode
+            "aspect_ratio_mode": ar_mode,
+            "video_engine": self.engine_combo.currentText().split(" ")[0].lower()
         }
 
     def get_default_config(self) -> dict:
@@ -774,6 +831,7 @@ class ConvertTab(AbstractClassTwoGalleries):
             "delete_original": False,
             "aspect_ratio": None,
             "aspect_ratio_mode": "crop",
+            "video_engine": "auto"
         }
 
     def set_config(self, config: dict):
