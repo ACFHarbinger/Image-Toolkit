@@ -391,10 +391,6 @@ class WallpaperManager:
             return
 
         full_script = "".join(script_parts)
-
-        # Debug Print for verification
-        print(f"[DEBUG KDE] Video FillMode set to: {video_fill_mode}")
-
         qdbus_command = f"{qdbus} org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{full_script}'"
         subprocess.run(
             qdbus_command, shell=True, check=False, capture_output=True, text=True
