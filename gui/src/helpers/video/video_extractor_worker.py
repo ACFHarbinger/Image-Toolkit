@@ -1,4 +1,5 @@
 import os
+import subprocess
 
 from typing import Optional, Tuple
 from moviepy.editor import VideoFileClip
@@ -25,6 +26,7 @@ class VideoExtractionWorker(QRunnable):
         output_path: str,
         target_size: Optional[Tuple[int, int]] = None,
         mute_audio: bool = False,
+        use_ffmpeg: bool = False,
     ):
         super().__init__()
         self.video_path = video_path
@@ -33,17 +35,73 @@ class VideoExtractionWorker(QRunnable):
         self.output_path = output_path
         self.target_size = target_size
         self.mute_audio = mute_audio
+        self.use_ffmpeg = use_ffmpeg
         self.signals = VideoWorkerSignals()
 
     def run(self):
+        t_start = self.start_ms / 1000.0
+        t_end = self.end_ms / 1000.0
+
+        if self.use_ffmpeg:
+            try:
+                # Build FFmpeg command
+                # Use fast seeking (input option) for performance.
+                # Since we are re-encoding (libx264), this is still frame-accurate.
+                
+                duration = t_end - t_start
+                cmd = ["ffmpeg", "-y"]
+                
+                # Input with fast seek
+                cmd.extend(["-ss", str(t_start)])
+                cmd.extend(["-t", str(duration)])
+                cmd.extend(["-i", self.video_path])
+                
+                # Filters (Scaling)
+                filters = []
+                if self.target_size:
+                    w, h = self.target_size
+                    filters.append(f"scale={w}:{h}")
+                
+                if filters:
+                    cmd.extend(["-vf", ",".join(filters)])
+                
+                # Codecs & Audio
+                cmd.extend(["-c:v", "libx264", "-movflags", "+faststart"])
+                
+                if self.mute_audio:
+                    cmd.append("-an")
+                else:
+                    cmd.extend(["-c:a", "aac", "-b:a", "128k"])
+                
+                cmd.append(self.output_path)
+                
+                print(f"FFmpeg Video CMD: {cmd}")
+                
+                # Run command
+                # capture_output to hide console window on some OS, but also check errors
+                process = subprocess.run(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    stdin=subprocess.DEVNULL,
+                    text=True
+                )
+                
+                if process.returncode != 0:
+                    raise RuntimeError(f"FFmpeg failed with return code {process.returncode}\n{process.stderr}")
+                    
+                self.signals.finished.emit(self.output_path)
+
+            except Exception as e:
+                self.signals.error.emit(f"FFmpeg Error: {str(e)}")
+            return
+
+        # --- MoviePy Implementation ---
         temp_audio_path = "temp-audio.m4a"
         clip = None
         original_audio_clip = None  # Track the audio resource separately
 
         try:
-            t_start = self.start_ms / 1000.0
-            t_end = self.end_ms / 1000.0
-
             # 1. Load the main clip
             clip = VideoFileClip(self.video_path).subclip(t_start, t_end)
 

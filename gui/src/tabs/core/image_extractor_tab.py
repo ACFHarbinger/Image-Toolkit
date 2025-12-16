@@ -317,6 +317,12 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.check_mute_audio.setChecked(False)
         extract_config_layout.addWidget(self.check_mute_audio)
 
+        extract_config_layout.addSpacing(20)
+        extract_config_layout.addWidget(QLabel("Engine:"))
+        self.combo_engine = QComboBox()
+        self.combo_engine.addItems(["MoviePy", "FFmpeg"])
+        extract_config_layout.addWidget(self.combo_engine)
+
         extract_config_layout.addStretch()
         extract_main_layout.addLayout(extract_config_layout)
 
@@ -334,9 +340,20 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.btn_set_start = QPushButton("Set Start [00:00]")
         self.btn_set_start.clicked.connect(self.set_range_start)
         self.btn_set_start.setEnabled(False)
+
+        self.btn_jump_start = QPushButton("Go")
+        self.btn_jump_start.setFixedWidth(40)
+        self.btn_jump_start.clicked.connect(self.jump_to_range_start)
+        self.btn_jump_start.setEnabled(False)
+
         self.btn_set_end = QPushButton("Set End [00:00]")
         self.btn_set_end.clicked.connect(self.set_range_end)
         self.btn_set_end.setEnabled(False)
+
+        self.btn_jump_end = QPushButton("Go")
+        self.btn_jump_end.setFixedWidth(40)
+        self.btn_jump_end.clicked.connect(self.jump_to_range_end)
+        self.btn_jump_end.setEnabled(False)
         self.btn_extract_range = QPushButton("🎞️ Extract Range")
         self.btn_extract_range.clicked.connect(self.extract_range)
         self.btn_extract_range.setEnabled(False)
@@ -356,7 +373,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.btn_extract_gif.setEnabled(False)
 
         extract_actions_layout.addWidget(self.btn_set_start)
+        extract_actions_layout.addWidget(self.btn_jump_start)
         extract_actions_layout.addWidget(self.btn_set_end)
+        extract_actions_layout.addWidget(self.btn_jump_end)
         extract_actions_layout.addWidget(self.btn_extract_range)
         extract_actions_layout.addWidget(self.btn_extract_video)
         extract_actions_layout.addWidget(self.btn_extract_gif)
@@ -617,8 +636,12 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.btn_set_end.setText("Set End [00:00:000]")
         self.btn_extract_range.setEnabled(False)
         self.btn_extract_gif.setEnabled(False)
+        self.btn_extract_gif.setEnabled(False)
         self.btn_extract_video.setEnabled(False)
         self.btn_extract_range.setText("🎞️ Extract Range")
+
+        self.btn_jump_start.setEnabled(False)
+        self.btn_jump_end.setEnabled(False)
 
     # --- Event Filters & Resizing ---
     def eventFilter(self, obj: QWidget, event: QEvent) -> bool:
@@ -1046,6 +1069,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         # --- MODIFIED: Enable snapshot and update text ---
         self.btn_snapshot.setEnabled(True)
         self.btn_snapshot.setText(f"📸 Snapshot at {time_str}")
+        self.btn_jump_start.setEnabled(True)
         # -------------------------------------------------
 
         self._validate_range()
@@ -1054,6 +1078,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def set_range_end(self):
         self.end_time_ms = self.media_player.position()
         self.btn_set_end.setText(f"End: {self._format_time(self.end_time_ms)}")
+        self.btn_jump_end.setEnabled(True)
         self._validate_range()
 
     def _validate_range(self):
@@ -1071,7 +1096,26 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.btn_extract_gif.setEnabled(False)
             self.btn_extract_gif.setText("GIF Extract as GIF")
             self.btn_extract_video.setEnabled(False)
+            self.btn_extract_video.setEnabled(False)
             self.btn_extract_video.setText("MP4 Extract as Video")
+
+    @Slot()
+    def jump_to_range_start(self):
+        self.media_player.setPosition(self.start_time_ms)
+        # Pause to let user see exactly where they are? Or keep playing?
+        # Usually pausing is better when jumping to specific frame.
+        self.media_player.pause()
+        self.btn_play.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
+        )
+
+    @Slot()
+    def jump_to_range_end(self):
+        self.media_player.setPosition(self.end_time_ms)
+        self.media_player.pause()
+        self.btn_play.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
+        )
 
     # --- NEW HELPER: Resolution Swapping ---
     def _get_target_size(self) -> Optional[Tuple[int, int]]:
@@ -1194,6 +1238,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             output_path=output_path,
             target_size=target_size,
             fps=fps,
+            use_ffmpeg=(self.combo_engine.currentText() == "FFmpeg"),
         )
         worker.signals.finished.connect(self._on_export_finished)
         worker.signals.error.connect(self._on_export_error)
@@ -1222,6 +1267,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             output_path=output_path,
             target_size=target_size,
             mute_audio=mute_audio,
+            use_ffmpeg=(self.combo_engine.currentText() == "FFmpeg"),
         )
         worker.signals.finished.connect(self._on_export_finished)
         worker.signals.error.connect(self._on_export_error)
@@ -1296,6 +1342,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             "player_resolution_index": 1,
             "player_vertical": False,  # NEW
             "extract_vertical": False,  # NEW
+            "extraction_engine": "MoviePy",
         }
 
     def collect(self) -> Dict[str, Any]:
@@ -1306,6 +1353,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             "player_resolution_index": self.combo_resolution.currentIndex(),
             "player_vertical": self.check_player_vertical.isChecked(),  # NEW
             "extract_vertical": self.check_extract_vertical.isChecked(),  # NEW
+            "extraction_engine": self.combo_engine.currentText(),
         }
 
     def set_config(self, config: Dict[str, Any]):
@@ -1339,6 +1387,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 if mode != self.use_internal_player:
                     self.toggle_player_mode()
                 self._apply_player_mode()
+
+            engine = config.get("extraction_engine")
+            if engine in ["MoviePy", "FFmpeg"]:
+                self.combo_engine.setCurrentText(engine)
 
             QMessageBox.information(
                 self,
