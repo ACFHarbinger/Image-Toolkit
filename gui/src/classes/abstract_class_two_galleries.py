@@ -305,7 +305,10 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
         label = self.path_to_label_map.get(path)
         if label:
-            self.update_card_style(label, selected)
+            try:
+                self.update_card_style(label, selected)
+            except RuntimeError:
+                pass
 
         self.refresh_selected_panel()
         self.on_selection_changed()
@@ -358,10 +361,14 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             return
 
         for path, widget in self.selected_card_map.items():
-            if hasattr(widget, "get_pixmap"):
-                pixmap = widget.get_pixmap()
-                if pixmap and not pixmap.isNull():
-                    self._selected_pixmap_cache[path] = pixmap
+            try:
+                if hasattr(widget, "get_pixmap"):
+                    pixmap = widget.get_pixmap()
+                    if pixmap and not pixmap.isNull():
+                        self._selected_pixmap_cache[path] = pixmap
+            except RuntimeError:
+                # Widget C++ object already deleted
+                continue
 
         self._clear_layout(self.selected_gallery_layout)
         self.selected_card_map = {}
@@ -385,8 +392,12 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             pixmap = self._selected_pixmap_cache.get(path)
             if pixmap is None:
                 top_widget = self.path_to_label_map.get(path)
-                if top_widget and hasattr(top_widget, "get_pixmap"):
-                    pixmap = top_widget.get_pixmap()
+                if top_widget:
+                    try:
+                        if hasattr(top_widget, "get_pixmap"):
+                            pixmap = top_widget.get_pixmap()
+                    except RuntimeError:
+                        pixmap = None
 
             card = self.create_card_widget(path, pixmap, is_selected=True)
 
@@ -450,8 +461,13 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             self.found_loading_paths = set()
 
         for path, widget in self.path_to_label_map.items():
-            if hasattr(widget, "get_pixmap") and widget.get_pixmap() and not widget.get_pixmap().isNull():
-                continue # Already has pixmap
+            try:
+                if hasattr(widget, "get_pixmap"):
+                    px = widget.get_pixmap()
+                    if px and not px.isNull():
+                        continue # Already has pixmap
+            except RuntimeError:
+                continue
             
             # Simple check: if widget has style but no pixmap, it might be loading or placeholder
             # Better check: abstract_two_galleries doesn't rely on pixmap cache for found gallery directly as much?
@@ -585,7 +601,11 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
         widget = self.path_to_label_map.get(path)
         if widget:
-            self.update_card_pixmap(widget, pixmap)
+            try:
+                self.update_card_pixmap(widget, pixmap)
+            except RuntimeError:
+                # Widget was deleted while loading
+                pass
 
     # --- HELPERS ---
 

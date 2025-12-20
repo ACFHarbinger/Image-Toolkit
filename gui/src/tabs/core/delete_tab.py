@@ -317,10 +317,20 @@ class DeleteTab(AbstractClassTwoGalleries):
         card_wrapper.setFixedSize(thumb_size + 10, thumb_size + 10)
 
         # Base class requirements
-        card_wrapper.get_pixmap = lambda: img_label.pixmap()
-        card_wrapper.set_selected_style = lambda s: self._update_card_style(
-            img_label, s
-        )
+        def safe_get_pixmap():
+            try:
+                return img_label.pixmap()
+            except RuntimeError:
+                return None
+
+        def safe_set_style(s):
+            try:
+                self._update_card_style(img_label, s)
+            except RuntimeError:
+                pass
+
+        card_wrapper.get_pixmap = safe_get_pixmap
+        card_wrapper.set_selected_style = safe_set_style
 
         card_layout = QVBoxLayout(card_wrapper)
         card_layout.setContentsMargins(0, 0, 0, 0)
@@ -350,27 +360,30 @@ class DeleteTab(AbstractClassTwoGalleries):
 
     def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
         """Lazy loading callback."""
-        if not isinstance(widget, ClickableLabel):
-            return
+        try:
+            if not isinstance(widget, ClickableLabel):
+                return
 
-        img_label = widget.findChild(QLabel)
-        if not img_label:
-            return
+            img_label = widget.findChild(QLabel)
+            if not img_label:
+                return
 
-        if pixmap and not pixmap.isNull():
-            thumb_size = self.thumbnail_size
-            scaled = pixmap.scaled(
-                thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
-            )
-            img_label.setPixmap(scaled)
-            img_label.setText("")  # Clear Loading text
-        else:
-            img_label.clear()
-            img_label.setText("Loading...")
+            if pixmap and not pixmap.isNull():
+                thumb_size = self.thumbnail_size
+                scaled = pixmap.scaled(
+                    thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                )
+                img_label.setPixmap(scaled)
+                img_label.setText("")  # Clear Loading text
+            else:
+                img_label.clear()
+                img_label.setText("Loading...")
 
-        # Reapply style (removes dashed border)
-        is_selected = widget.path in self.selected_files
-        self._update_card_style(img_label, is_selected)
+            # Reapply style (removes dashed border)
+            is_selected = widget.path in self.selected_files
+            self._update_card_style(img_label, is_selected)
+        except RuntimeError:
+            pass
 
     def _update_card_style(self, img_label: QLabel, is_selected: bool):
         if is_selected:
@@ -378,12 +391,16 @@ class DeleteTab(AbstractClassTwoGalleries):
                 "border: 3px solid #5865f2; background-color: #36393f;"
             )
         else:
-            if img_label.pixmap() and not img_label.pixmap().isNull():
-                img_label.setStyleSheet(
-                    "border: 1px solid #4f545c; background-color: #36393f;"
-                )
-            else:
-                img_label.setStyleSheet("border: 1px dashed #666; color: #999;")
+            try:
+                px = img_label.pixmap()
+                if px and not px.isNull():
+                    img_label.setStyleSheet(
+                        "border: 1px solid #4f545c; background-color: #36393f;"
+                    )
+                else:
+                    img_label.setStyleSheet("border: 1px dashed #666; color: #999;")
+            except RuntimeError:
+                pass
 
     def on_selection_changed(self):
         count = len(self.selected_files)
@@ -603,7 +620,7 @@ class DeleteTab(AbstractClassTwoGalleries):
                 errors.append(f"{os.path.basename(path)}: {str(e)}")
 
         # Reflow base layouts
-        self._reflow_layout(self.found_gallery_layout, self._current_found_cols)
+        self.common_reflow_layout(self.found_gallery_layout, self._current_found_cols)
         self.refresh_selected_panel()
         self.on_selection_changed()
 
@@ -634,7 +651,7 @@ class DeleteTab(AbstractClassTwoGalleries):
                 wrapper = self.path_to_label_map.pop(path)
                 wrapper.deleteLater()
 
-            self._reflow_layout(self.found_gallery_layout, self._current_found_cols)
+            self.common_reflow_layout(self.found_gallery_layout, self._current_found_cols)
             self.refresh_selected_panel()
             self.on_selection_changed()
             self.status_label.setText(f"File deleted: {filename}")
