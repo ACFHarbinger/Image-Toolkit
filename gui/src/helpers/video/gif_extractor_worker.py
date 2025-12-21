@@ -6,6 +6,7 @@ from PySide6.QtCore import QObject, Signal, QRunnable
 
 
 class GifWorkerSignals(QObject):
+    progress = Signal(int)
     finished = Signal(str)
     error = Signal(str)
 
@@ -65,6 +66,7 @@ class GifCreationWorker(QRunnable):
                 
                 print(f"FFmpeg CMD: {cmd}")
 
+                self.signals.progress.emit(0)
                 process = subprocess.run(
                     cmd,
                     stdout=subprocess.PIPE,
@@ -76,6 +78,7 @@ class GifCreationWorker(QRunnable):
                 if process.returncode != 0:
                      raise RuntimeError(f"FFmpeg failed with return code {process.returncode}\n{process.stderr}")
                 
+                self.signals.progress.emit(100)
                 self.signals.finished.emit(self.output_path)
                 
             except Exception as e:
@@ -84,17 +87,17 @@ class GifCreationWorker(QRunnable):
 
         # --- MoviePy Implementation ---
         try:
+            self.signals.progress.emit(10)
             clip = VideoFileClip(self.video_path).subclip(t_start, t_end)
 
             # Resize if target_size is provided (width, height)
             if self.target_size:
-                # moviepy resize often prefers just width or just height to maintain aspect ratio,
-                # or a tuple. If we pass the full tuple from our UI (e.g. 1920, 1080),
-                # moviepy attempts to force that size.
                 clip = clip.resize(newsize=self.target_size)
 
-            clip.write_gif(self.output_path, fps=self.fps)
-
+            self.signals.progress.emit(30)
+            clip.write_gif(self.output_path, fps=self.fps, logger=None) # logger=None to avoid stdout clutter
+            
+            self.signals.progress.emit(100)
             self.signals.finished.emit(self.output_path)
 
         except ImportError:

@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QProgressDialog,
     QSpinBox,
     QCheckBox,
+    QProgressBar,
 )
 from PySide6.QtGui import QPixmap, QResizeEvent, QAction
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
@@ -453,6 +454,28 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.main_layout.addWidget(
             self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
         )
+        
+        # --- Extraction Progress Bar (Integrated) ---
+        self.extraction_progress_bar = QProgressBar()
+        self.extraction_progress_bar.setTextVisible(True)
+        self.extraction_progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.extraction_progress_bar.setStyleSheet(
+            "QProgressBar { background-color: #36393f; color: white; border: 1px solid #4f545c; border-radius: 4px; padding: 2px; }"
+            "QProgressBar::chunk { background-color: #5865f2; border-radius: 4px; }"
+        )
+        self.extraction_progress_bar.setMinimum(0)
+        self.extraction_progress_bar.setMaximum(100)
+        self.extraction_progress_bar.setValue(0)
+        self.extraction_progress_bar.hide()
+        self.main_layout.addWidget(self.extraction_progress_bar)
+
+        self.extraction_status_label = QLabel("Ready.")
+        self.extraction_status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.extraction_status_label.setStyleSheet(
+            "color: #666; font-style: italic; padding: 8px;"
+        )
+        self.extraction_status_label.hide()
+        self.main_layout.addWidget(self.extraction_status_label)
 
         # --- Connections ---
         self.media_player.positionChanged.connect(self.position_changed)
@@ -1157,6 +1180,20 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         self._run_extraction(corrected_ms, -1, is_range=False)
 
+    def _set_extraction_buttons_enabled(self, enabled: bool):
+        """Helper to enable/disable all extraction-related buttons."""
+        self.btn_snapshot.setEnabled(enabled and self.video_path is not None)
+        self.btn_set_start.setEnabled(enabled and self.video_path is not None)
+        self.btn_set_end.setEnabled(enabled and self.video_path is not None)
+        self.btn_extract_range.setEnabled(enabled and self.end_time_ms > self.start_time_ms)
+        self.btn_extract_gif.setEnabled(enabled and self.end_time_ms > self.start_time_ms)
+        self.btn_extract_video.setEnabled(enabled and self.end_time_ms > self.start_time_ms)
+        
+        # Also disable browsing while extracting to avoid path changes
+        self.btn_browse.setEnabled(enabled)
+        self.btn_browse_extract.setEnabled(enabled)
+        self.line_edit_dir.setEnabled(enabled)
+
     @Slot()
     def extract_range(self):
         if not self.video_path:
@@ -1193,13 +1230,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def _run_extraction(self, start: int, end: int, is_range: bool):
         target_size = self._get_target_size()
 
-        self.progress_dialog = QProgressDialog(
-            "Extracting and processing frames...", "Cancel", 0, 0, self
-        )
-        self.progress_dialog.setWindowTitle("Processing")
-        self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
-        self.progress_dialog.setMinimumDuration(0)
-        self.progress_dialog.show()
+        self._set_extraction_buttons_enabled(False)
+        self.extraction_progress_bar.setValue(0)
+        self.extraction_progress_bar.show()
+        self.extraction_status_label.setText("Extracting frames...")
+        self.extraction_status_label.show()
 
         self.extractor_worker = FrameExtractionWorker(
             video_path=self.video_path,
@@ -1209,23 +1244,28 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             is_range=is_range,
             target_resolution=target_size,
         )
+        self.extractor_worker.signals.progress.connect(self.extraction_progress_bar.setValue)
         self.extractor_worker.signals.finished.connect(self._on_extraction_finished)
         self.extractor_worker.signals.error.connect(
-            lambda e: QMessageBox.warning(self, "Extraction Error", e)
+            lambda e: self._on_extraction_error(e)
         )
         QThreadPool.globalInstance().start(self.extractor_worker)
+
+    def _on_extraction_error(self, error_msg: str):
+        self._set_extraction_buttons_enabled(True)
+        self.extraction_progress_bar.hide()
+        self.extraction_status_label.hide()
+        QMessageBox.warning(self, "Extraction Error", error_msg)
 
     def _run_gif_extraction(self, start: int, end: int):
         target_size = self._get_target_size()
         fps = self.spin_gif_fps.value()
 
-        self.progress_dialog = QProgressDialog(
-            "Generating GIF... This may take a moment.", "Cancel", 0, 0, self
-        )
-        self.progress_dialog.setWindowTitle("Processing GIF")
-        self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
-        self.progress_dialog.setMinimumDuration(0)
-        self.progress_dialog.show()
+        self._set_extraction_buttons_enabled(False)
+        self.extraction_progress_bar.setValue(0)
+        self.extraction_progress_bar.show()
+        self.extraction_status_label.setText("Generating GIF... This may take a moment.")
+        self.extraction_status_label.show()
 
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         output_name = f"GIF_{Path(self.video_path).stem}_{timestamp}.gif"
@@ -1240,6 +1280,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             fps=fps,
             use_ffmpeg=(self.combo_engine.currentText() == "FFmpeg"),
         )
+        worker.signals.progress.connect(self.extraction_progress_bar.setValue)
         worker.signals.finished.connect(self._on_export_finished)
         worker.signals.error.connect(self._on_export_error)
         QThreadPool.globalInstance().start(worker)
@@ -1248,13 +1289,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         target_size = self._get_target_size()
         mute_audio = self.check_mute_audio.isChecked()
 
-        self.progress_dialog = QProgressDialog(
-            "Generating Video... This may take a moment.", "Cancel", 0, 0, self
-        )
-        self.progress_dialog.setWindowTitle("Processing Video")
-        self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
-        self.progress_dialog.setMinimumDuration(0)
-        self.progress_dialog.show()
+        self._set_extraction_buttons_enabled(False)
+        self.extraction_progress_bar.setValue(0)
+        self.extraction_progress_bar.show()
+        self.extraction_status_label.setText("Generating Video... This may take a moment.")
+        self.extraction_status_label.show()
 
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         output_name = f"CLIP_{Path(self.video_path).stem}_{timestamp}.mp4"
@@ -1269,15 +1308,16 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             mute_audio=mute_audio,
             use_ffmpeg=(self.combo_engine.currentText() == "FFmpeg"),
         )
+        worker.signals.progress.connect(self.extraction_progress_bar.setValue)
         worker.signals.finished.connect(self._on_export_finished)
         worker.signals.error.connect(self._on_export_error)
         QThreadPool.globalInstance().start(worker)
 
     @Slot(str)
     def _on_export_finished(self, new_path: str):
-        if self.progress_dialog:
-            self.progress_dialog.close()
-            self.progress_dialog = None
+        self._set_extraction_buttons_enabled(True)
+        self.extraction_progress_bar.hide()
+        self.extraction_status_label.hide()
 
         if new_path and os.path.exists(new_path):
             if new_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
@@ -1299,27 +1339,24 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     @Slot(str)
     def _on_export_error(self, error_msg: str):
-        if self.progress_dialog:
-            self.progress_dialog.close()
-            self.progress_dialog = None
+        self._set_extraction_buttons_enabled(True)
+        self.extraction_progress_bar.hide()
+        self.extraction_status_label.hide()
         QMessageBox.warning(self, "Export Error", error_msg)
 
     @Slot(list)
     def _on_extraction_finished(self, new_paths: List[str]):
-        if self.progress_dialog:
-            self.progress_dialog.setLabelText(f"Loading {len(new_paths)} images...")
+        self._set_extraction_buttons_enabled(True)
+        self.extraction_progress_bar.hide()
+        self.extraction_status_label.hide()
+
         if not new_paths:
-            if self.progress_dialog:
-                self.progress_dialog.close()
             QMessageBox.information(self, "Info", "No frames extracted.")
             return
 
         self.start_loading_gallery(new_paths, append=True)
         self.current_extracted_paths = self.gallery_image_paths[:]
 
-        if self.progress_dialog:
-            self.progress_dialog.close()
-            self.progress_dialog = None
         QMessageBox.information(
             self,
             "Success",
