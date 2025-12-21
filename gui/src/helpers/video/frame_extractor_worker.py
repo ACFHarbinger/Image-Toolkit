@@ -62,10 +62,24 @@ class FrameExtractionWorker(QRunnable):
             video_name = Path(self.video_path).stem
             timestamp = int(time.time())
 
+            total_frames = -1
+            if self.is_range and self.end_ms != -1:
+                total_duration_ms = self.end_ms - self.start_ms
+            else:
+                total_duration_ms = -1
+
             while not self._is_cancelled:
                 ret, frame = cap.read()
                 if not ret:
                     break
+
+                current_ms = cap.get(cv2.CAP_PROP_POS_MSEC)
+                
+                # --- PROGRESS LOGIC ---
+                if total_duration_ms > 0:
+                    progress = int(((current_ms - self.start_ms) / total_duration_ms) * 100)
+                    self.signals.progress.emit(min(100, max(0, progress)))
+                # ----------------------
 
                 # --- RESIZE LOGIC ---
                 if self.target_resolution:
@@ -73,8 +87,6 @@ class FrameExtractionWorker(QRunnable):
                     frame = cv2.resize(
                         frame, self.target_resolution, interpolation=cv2.INTER_AREA
                     )
-
-                current_ms = cap.get(cv2.CAP_PROP_POS_MSEC)
 
                 # Save Frame
                 filename = f"{video_name}_{timestamp}_{int(current_ms)}ms.jpg"
@@ -91,6 +103,7 @@ class FrameExtractionWorker(QRunnable):
                     break
 
             cap.release()
+            self.signals.progress.emit(100)
             self.signals.finished.emit(saved_files)
 
         except Exception as e:

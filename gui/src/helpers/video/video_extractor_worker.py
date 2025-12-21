@@ -13,6 +13,7 @@ except ImportError:
 
 
 class VideoWorkerSignals(QObject):
+    progress = Signal(int)
     finished = Signal(str)
     error = Signal(str)
 
@@ -77,6 +78,7 @@ class VideoExtractionWorker(QRunnable):
                 
                 print(f"FFmpeg Video CMD: {cmd}")
                 
+                self.signals.progress.emit(0)
                 # Run command
                 # capture_output to hide console window on some OS, but also check errors
                 process = subprocess.run(
@@ -90,6 +92,7 @@ class VideoExtractionWorker(QRunnable):
                 if process.returncode != 0:
                     raise RuntimeError(f"FFmpeg failed with return code {process.returncode}\n{process.stderr}")
                     
+                self.signals.progress.emit(100)
                 self.signals.finished.emit(self.output_path)
 
             except Exception as e:
@@ -102,6 +105,7 @@ class VideoExtractionWorker(QRunnable):
         original_audio_clip = None  # Track the audio resource separately
 
         try:
+            self.signals.progress.emit(10)
             # 1. Load the main clip
             clip = VideoFileClip(self.video_path).subclip(t_start, t_end)
 
@@ -131,6 +135,7 @@ class VideoExtractionWorker(QRunnable):
             if audio_codec is not None:
                 ffmpeg_params.extend(["-b:a", "128k"])
 
+            self.signals.progress.emit(30)
             clip.write_videofile(
                 self.output_path,
                 codec="libx264",
@@ -139,8 +144,10 @@ class VideoExtractionWorker(QRunnable):
                 remove_temp=True,
                 ffmpeg_params=ffmpeg_params,
                 verbose=False,
+                logger=None,
             )
 
+            self.signals.progress.emit(100)
             self.signals.finished.emit(self.output_path)
 
         except ImportError:
