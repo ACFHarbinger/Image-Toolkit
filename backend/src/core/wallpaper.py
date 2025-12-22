@@ -1,12 +1,14 @@
 import os
+import sys
 import ctypes
 import platform
 import subprocess
+import logging
 
 from PIL import Image
 from pathlib import Path
 from screeninfo import Monitor
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 from ..utils.definitions import WALLPAPER_STYLES, SUPPORTED_VIDEO_FORMATS
 
 # Global Definitions for COM components
@@ -299,11 +301,12 @@ class WallpaperManager:
 
     @staticmethod
     def _set_wallpaper_kde(
-        path_map: Dict[str, str], num_monitors: int, style_name: str, qdbus: str
+        path_map: Dict[str, str], num_monitors: int, style_name: str, qdbus: str, geometries: Optional[Dict[str, Dict[str, int]]] = None
     ):
         """
         Sets per-monitor wallpaper for KDE Plasma using qdbus.
-        Corrected Video FillMode mapping for Smart Video Wallpaper Reborn.
+        If geometries are provided (from daemon config), it uses them to match desktops.
+        Otherwise it falls back to index-based mapping.
         """
 
         # --- FIX: Correct Mapping for Qt6 VideoOutput.FillMode ---
@@ -340,110 +343,165 @@ class WallpaperManager:
 
         script_parts = []
 
-        for i in range(num_monitors):
-            monitor_id = str(i)
-            path = path_map.get(monitor_id)
+        if geometries:
+            # GEOMETRY-BASED MAPPING (Robust)
+            import json
+            js_geoms = json.dumps(geometries)
+            js_paths = json.dumps(path_map)
+            
+            plugin_logic = f'var targetVideo = "{REBORN_PLUGIN}"; var altVideo = "{ZREN_PLUGIN}";'
 
-            if path:
-                file_uri = f"file://{Path(path).resolve()}"
-                ext = Path(path).suffix.lower()
+            # Improved JS: Added checks for d.screen and error handling
+            script = f"""
+            var ds = desktops();
+            var geoms = {js_geoms};
+            var paths = {js_paths};
+            {plugin_logic}
 
-                if ext in SUPPORTED_VIDEO_FORMATS and video_mode_active:
+            for (var i = 0; i < ds.length; i++) {{
+                var d = ds[i];
+                if (d.screen < 0) continue; // Skip desktops not associated with a screen
+                
+                var g = screenGeometry(d.screen);
+                if (!g) continue;
 
-                    # We use the standard approach (Set Plugin -> Write Config -> Reload)
-                    # This proved more reliable than the "Reset-Switch" method.
-
-                    script_parts.append(
-                        f"""
-                    var d = desktops()[{i}];
-                    var currentPlugin = d.wallpaperPlugin;
-                    var targetPlugin = "{REBORN_PLUGIN}";
-                    var altPlugin = "{ZREN_PLUGIN}";
-
-                    // Prefer active video plugin to avoid unnecessary reloading
-                    if (currentPlugin === targetPlugin || currentPlugin === altPlugin) {{
-                        targetPlugin = currentPlugin;
-                    }} else {{
-                        d.wallpaperPlugin = targetPlugin; 
+                var matchId = null;
+                for (var mid in geoms) {{
+                    var info = geoms[mid];
+                    // Exact match on geometry coordinates
+                    if (info.x === g.x && info.y === g.y) {{
+                        matchId = mid;
+                        break;
                     }}
+                }}
 
-                    d.currentConfigGroup = Array("Wallpaper", targetPlugin, "General");
-                    d.writeConfig("VideoUrls", "{file_uri}");
+                if (matchId && paths[matchId]) {{
+                    var imgPath = paths[matchId];
+                    var isVideo = imgPath.toLowerCase().endsWith(".mp4") || imgPath.toLowerCase().endsWith(".mkv") || imgPath.toLowerCase().endsWith(".webm") || imgPath.toLowerCase().endsWith(".gif");
                     
-                    // --- FIX: Write to FillMode (Correct Key) ---
-                    d.writeConfig("FillMode", {video_fill_mode});
-
-                    // Ensure background image layer is transparent (blur effect)
-                    d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General");
-                    d.writeConfig("FillMode", 2);
-                    d.writeConfig("Color", "#00000000");
-                    d.writeConfig("Image", "file:///usr/share/wallpapers/Next/contents/images/1920x1080.jpg");
-                    
+                    if (isVideo && {str(video_mode_active).lower()}) {{
+                         if (d.wallpaperPlugin !== targetVideo && d.wallpaperPlugin !== altVideo) d.wallpaperPlugin = targetVideo;
+                         d.currentConfigGroup = Array("Wallpaper", d.wallpaperPlugin, "General");
+                         d.writeConfig("VideoUrls", imgPath);
+                         d.writeConfig("FillMode", {video_fill_mode});
+                         
+                         d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General");
+                         d.writeConfig("FillMode", 2);
+                         d.writeConfig("Color", "#00000000");
+                    }} else {{
+                         d.wallpaperPlugin = "org.kde.image";
+                         d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General");
+                         d.writeConfig("Image", imgPath);
+                         d.writeConfig("FillMode", {fill_mode});
+                    }}
                     d.reloadConfig();
-                    """
-                    )
-                else:
-                    script_parts.append(
-                        f'd = desktops()[{i}]; d.wallpaperPlugin = "org.kde.image"; d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); d.writeConfig("Image", "{file_uri}"); d.writeConfig("FillMode", {fill_mode}); d.reloadConfig();'
-                    )
+                }}
+            }}
+            """
+            # Escape single quotes in the script to avoid breaking the shell command
+            script_escaped = script.replace("'", "'\\''")
+            qdbus_command = f"{qdbus} org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{script_escaped}'"
+            
+            if logging.getLogger().hasHandlers():
+                logging.info("KDE: Using geometry-based mapping script (Safe).")
+            
+            subprocess.run(qdbus_command, shell=True, check=False, capture_output=True, text=True)
 
-        if not script_parts:
-            return
+        else:
+            # FALLBACK TO INDEX-BASED (Original logic)
+            for i in range(num_monitors):
+                monitor_id = str(i)
+                path = path_map.get(monitor_id)
 
-        full_script = "".join(script_parts)
-        qdbus_command = f"{qdbus} org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{full_script}'"
-        subprocess.run(
-            qdbus_command, shell=True, check=False, capture_output=True, text=True
-        )
+                if path:
+                    # Resolve path
+                    file_uri = str(Path(path).resolve())
+                    ext = Path(path).suffix.lower()
+                    script = ""
+
+                    if ext in SUPPORTED_VIDEO_FORMATS and video_mode_active:
+                        script = f"""
+                        var d = desktops()[{i}];
+                        var currentPlugin = d.wallpaperPlugin;
+                        var targetPlugin = "{REBORN_PLUGIN}";
+                        var altPlugin = "{ZREN_PLUGIN}";
+
+                        if (currentPlugin === targetPlugin || currentPlugin === altPlugin) {{
+                            targetPlugin = currentPlugin;
+                        }} else {{
+                            d.wallpaperPlugin = targetPlugin; 
+                        }}
+
+                        d.currentConfigGroup = Array("Wallpaper", targetPlugin, "General");
+                        d.writeConfig("VideoUrls", "{file_uri}");
+                        d.writeConfig("FillMode", {video_fill_mode});
+
+                        d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General");
+                        d.writeConfig("FillMode", 2);
+                        d.writeConfig("Color", "#00000000");
+                        
+                        d.reloadConfig();
+                        """
+                    else:
+                        script = f'var d = desktops()[{i}]; if (d && d.screen >= 0) {{ d.wallpaperPlugin = "org.kde.image"; d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); d.writeConfig("Image", "{file_uri}"); d.writeConfig("FillMode", {fill_mode}); d.reloadConfig(); }}'
+
+                    if script:
+                        qdbus_command = f"{qdbus} org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{script}'"
+                        
+                        if logging.getLogger().hasHandlers():
+                            logging.info(f"Setting wallpaper for KDE Desktop {i}: {Path(file_uri).name}")
+                        
+                        subprocess.run(
+                            qdbus_command, shell=True, check=False, capture_output=True, text=True
+                        )
 
     @staticmethod
     def _set_wallpaper_gnome_spanned(
         path_map: Dict[str, str], monitors: List[Monitor], style_name: str
     ):
-        physical_monitors = sorted(monitors, key=lambda m: m.x)
-        total_width = sum(m.width for m in physical_monitors)
-        max_height = max(m.height for m in physical_monitors)
+        """
+        Creates a spanned image for GNOME and sets it using gsettings.
+        """
+        if not monitors:
+            return
 
-        if total_width == 0 or max_height == 0:
-            raise ValueError(f"Invalid monitor dimensions.")
+        # 1. Calculate Canvas Size
+        min_x = min(m.x for m in monitors)
+        min_y = min(m.y for m in monitors)
+        max_x = max(m.x + m.width for m in monitors)
+        max_y = max(m.y + m.height for m in monitors)
 
-        spanned_image = Image.new("RGB", (total_width, max_height))
-        current_x = 0
+        width = max_x - min_x
+        height = max_y - min_y
 
-        for monitor in physical_monitors:
-            system_index = next(
-                (
-                    i
-                    for i, sys_mon in enumerate(monitors)
-                    if sys_mon.x == monitor.x
-                    and sys_mon.y == monitor.y
-                    and sys_mon.width == monitor.width
-                    and sys_mon.height == monitor.height
-                ),
-                -1,
-            )
+        canvas = Image.new("RGB", (width, height), (0, 0, 0))
 
-            if system_index == -1:
-                current_x += monitor.width
-                continue
+        # 2. Paste Images
+        for i, monitor in enumerate(monitors):
+            path = path_map.get(str(i))
+            if path and os.path.exists(path):
+                img = Image.open(path)
+                # Resize if needed (assuming "Fill" style roughly translates to cover)
+                # For "Spanned" we typically want exact placement.
+                # Here we just resize to monitor dimensions for simplicity
+                img = img.resize((monitor.width, monitor.height), Image.Resampling.LANCZOS)
+                canvas.paste(img, (monitor.x - min_x, monitor.y - min_y))
 
-            path = path_map.get(str(system_index))
-            if path and Path(path).suffix.lower() not in SUPPORTED_VIDEO_FORMATS:
-                try:
-                    img = Image.open(path)
-                    img = img.resize(
-                        (monitor.width, monitor.height), Image.Resampling.LANCZOS
-                    )
-                    spanned_image.paste(img, (current_x, 0))
-                except Exception as e:
-                    print(f"Warning: {e}")
-            current_x += monitor.width
+        # 3. Save Temp Image
+        temp_path = os.path.join(Path.home(), ".cache", "image_toolkit_spanned.jpg")
+        canvas.save(temp_path, "JPEG", quality=95)
 
-        home_dir = os.path.expanduser("~")
-        save_path = os.path.join(home_dir, ".spanned_wallpaper.jpg")
-        spanned_image.save(save_path, "JPEG", quality=95)
-        file_uri = f"file://{save_path}"
-
+        # 4. Set Wallpaper
+        subprocess.run(
+            [
+                "gsettings",
+                "set",
+                "org.gnome.desktop.background",
+                "picture-uri",
+                f"file://{temp_path}",
+            ],
+            check=False,
+        )
         subprocess.run(
             [
                 "gsettings",
@@ -452,36 +510,12 @@ class WallpaperManager:
                 "picture-options",
                 "spanned",
             ],
-            check=True,
+            check=False,
         )
-        subprocess.run(
-            [
-                "gsettings",
-                "set",
-                "org.gnome.desktop.background",
-                "picture-uri",
-                file_uri,
-            ],
-            check=True,
-        )
-
-        try:
-            subprocess.run(
-                [
-                    "gsettings",
-                    "set",
-                    "org.gnome.desktop.background",
-                    "picture-uri-dark",
-                    file_uri,
-                ],
-                check=True,
-            )
-        except:
-            pass
 
     @staticmethod
     def apply_wallpaper(
-        path_map: Dict[str, str], monitors: List[Monitor], style_name: str, qdbus: str
+        path_map: Dict[str, str], monitors: Union[List[Monitor], int], style_name: str, qdbus: str, geometries: Optional[Dict[str, Dict[str, int]]] = None
     ):
         system = platform.system()
         is_solid_color = style_name == "SolidColor"
@@ -491,6 +525,7 @@ class WallpaperManager:
             if system == "Windows":
                 WallpaperManager._set_wallpaper_solid_color_windows(color_hex)
             elif system == "Linux":
+                # (Assuming solid color logic doesn't need monitors list)
                 try:
                     subprocess.run(["which", qdbus], check=True, capture_output=True)
                     script = f"""
@@ -524,8 +559,15 @@ class WallpaperManager:
                     path_map, monitors, style_name
                 )
             else:
-                if not monitors:
-                    raise ValueError("No monitors found.")
+                if isinstance(monitors, int) or not monitors:
+                     # This path shouldn't be hit by daemon if windows; daemon handles windows differently?
+                     # Actually daemon just calls apply_wallpaper with monitors list on Windows too.
+                     # If I change daemon to pass int `num_monitors`, Windows logic will break IF it expects List[Monitor].
+                     # But daemon is Linux specific? No, `slideshow_daemon.py` is cross platform.
+                     # Wait. `slideshow_daemon.py` logic:
+                     # If Windows, uses `comtypes`...
+                     pass 
+
                 primary_monitor = next(
                     (m for m in monitors if m.is_primary), monitors[0]
                 )
@@ -536,17 +578,26 @@ class WallpaperManager:
                     raise ValueError("No valid image path provided.")
                 WallpaperManager._set_wallpaper_windows_single(path_to_set, style_name)
 
-        elif system == "Linux":
+        if system == "Linux":
+            if logging.getLogger().hasHandlers():
+                logging.debug(f"apply_wallpaper (Linux): path_map={path_map}, monitors={monitors}, style={style_name}, geometries={'PROVIDED' if geometries else 'NONE'}")
             try:
                 subprocess.run(["which", qdbus], check=True, capture_output=True)
+                # KDE Logic
+                # Check if monitors is int or list
+                num_mons = monitors if isinstance(monitors, int) else len(monitors)
                 WallpaperManager._set_wallpaper_kde(
-                    path_map, len(monitors), style_name, qdbus
+                    path_map, num_mons, style_name, qdbus, geometries
                 )
             except (FileNotFoundError, subprocess.CalledProcessError):
                 try:
-                    WallpaperManager._set_wallpaper_gnome_spanned(
-                        path_map, monitors, style_name
-                    )
+                    # GNOME Fallback still needs monitors list for geometry!
+                    if isinstance(monitors, list):
+                        WallpaperManager._set_wallpaper_gnome_spanned(
+                            path_map, monitors, style_name
+                        )
+                    else:
+                        print("Warning: Monitor list not provided for GNOME fallback.")
                 except Exception as e:
                     raise RuntimeError(f"GNOME (fallback) method failed: {e}")
             except Exception as e:

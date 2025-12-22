@@ -182,9 +182,11 @@ class MonitorDropWidget(QLabel):
         else:
             # Source 2: Try to load from file (Only useful for non-video files)
             if not is_video:
-                temp_pixmap = QPixmap(file_path)
-                if not temp_pixmap.isNull():
-                    source_pixmap = temp_pixmap
+                # Use QImageReader logic or simple QPixmap but check file existence first
+                if os.path.exists(file_path):
+                    temp_pixmap = QPixmap(file_path)
+                    if not temp_pixmap.isNull():
+                        source_pixmap = temp_pixmap
 
         # 2. Update internal state and display
         if source_pixmap and not source_pixmap.isNull():
