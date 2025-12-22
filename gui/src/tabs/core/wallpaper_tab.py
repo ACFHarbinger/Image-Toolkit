@@ -9,7 +9,6 @@ import subprocess
 from pathlib import Path
 from screeninfo import get_monitors, Monitor
 from typing import Dict, List, Optional, Tuple, Any
-from PySide6.QtGui import QPixmap, QAction, QColor, QImage
 from PySide6.QtCore import (
     Qt,
     QThreadPool,
@@ -17,7 +16,10 @@ from PySide6.QtCore import (
     QTimer,
     Slot,
     QPoint,
+    QEvent,
+    QRect,
 )
+from PySide6.QtGui import QPixmap, QAction, QColor, QImage, QCursor
 from PySide6.QtWidgets import (
     QGroupBox,
     QComboBox,
@@ -171,14 +173,21 @@ class WallpaperTab(AbstractClassSingleGallery):
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
 
-        main_scroll_area = QScrollArea()
-        main_scroll_area.setWidgetResizable(True)
-        main_scroll_area.setWidget(content_widget)
+        self.main_scroll_area = QScrollArea()
+        self.main_scroll_area.setWidgetResizable(True)
+        self.main_scroll_area.setWidget(content_widget)
+
+        # Install global event filter to handle wheel and autoscrolling during drag
+        QApplication.instance().installEventFilter(self)
+        self.main_scroll_area.viewport().setAcceptDrops(True)
 
         main_tab_layout = QVBoxLayout(self)
         main_tab_layout.setContentsMargins(0, 0, 0, 0)
-        main_tab_layout.addWidget(main_scroll_area)
+        main_tab_layout.addWidget(self.main_scroll_area)
         self.setLayout(main_tab_layout)
+
+        # Enable drops to handle autoscrolling during drag
+        self.setAcceptDrops(True)
 
         group_box_style = """
             QGroupBox {  
@@ -1481,6 +1490,65 @@ class WallpaperTab(AbstractClassSingleGallery):
 
             self.path_to_card_widget[path] = card
             self.path_to_label_map[path] = card
+
+    def _handle_autoscroll(self, global_pos: QPoint):
+        """Scrolls the main scroll area if the drag is near the top or bottom edges."""
+        if not hasattr(self, "main_scroll_area") or not self.isVisible():
+            return
+
+        vbar = self.main_scroll_area.verticalScrollBar()
+        if not vbar or not vbar.isVisible():
+            return
+
+        # Get viewport rect in global coordinates
+        viewport = self.main_scroll_area.viewport()
+        vp_global_pos = viewport.mapToGlobal(QPoint(0, 0))
+        vp_global_rect = QRect(vp_global_pos, viewport.size())
+        
+        # Relaxed Bounds Check:
+        # Check if X is within valid range (with some buffer)
+        # We don't strictly check Y because user might drag below the viewport to scroll down
+        buffer = 50
+        if (global_pos.x() < vp_global_rect.left() - buffer) or \
+           (global_pos.x() > vp_global_rect.right() + buffer):
+            # print(f"[DEBUG] Autoscroll Ignored: Out of X bounds. Pos: {global_pos.x()}, Rect: {vp_global_rect}")
+            return
+
+        # Threshold and speed
+        height = vp_global_rect.height()
+        threshold = 120 
+        scroll_step = 20
+
+        # Relative Y to the TOP of the viewport
+        rel_y = global_pos.y() - vp_global_rect.top()
+        
+        if rel_y < threshold:
+            vbar.setValue(vbar.value() - scroll_step)
+        elif rel_y > height - threshold:
+            vbar.setValue(vbar.value() + scroll_step)
+
+    def eventFilter(self, watched, event):
+        # We catch events globally but only act if we are visible
+        if not self.isVisible():
+            return super().eventFilter(watched, event)
+
+        if event.type() == QEvent.Wheel:
+            # Note: Wheel events are typically suppressed by QDrag.exec() on many platforms.
+            # This handler is kept in case the platform allows it.
+            if QApplication.mouseButtons() & Qt.LeftButton:
+                global_pos = QCursor.pos()
+                if self.rect().contains(self.mapFromGlobal(global_pos)):
+                    vbar = self.main_scroll_area.verticalScrollBar()
+                    if vbar and vbar.isVisible():
+                        delta = event.angleDelta().y()
+                        vbar.setValue(vbar.value() - delta)
+                        return True
+
+        elif event.type() in (QEvent.DragMove, QEvent.DragEnter):
+            # Globally catch drag moves to handle autoscroll even over child widgets
+            self._handle_autoscroll(QCursor.pos())
+
+        return super().eventFilter(watched, event)
 
     def cancel_scanning(self):
         if self.img_scanner_thread and self.img_scanner_thread.isRunning():
