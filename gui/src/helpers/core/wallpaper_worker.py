@@ -39,7 +39,6 @@ class WallpaperWorker(QRunnable):
         monitors: List[Monitor],
         qdbus: str,
         wallpaper_style: str = "Fill",
-        geometries: Optional[Dict[str, Dict[str, int]]] = None,
     ):
         super().__init__()
         if WallpaperManager is None:
@@ -49,7 +48,6 @@ class WallpaperWorker(QRunnable):
         self.path_map = path_map
         self.monitors = monitors
         self.wallpaper_style = wallpaper_style  # Store the selected style
-        self.geometries = geometries
         self.signals = WallpaperWorkerSignals()
         self.is_running = True
 
@@ -87,7 +85,7 @@ class WallpaperWorker(QRunnable):
         try:
             # --- Main Task ---
             WallpaperManager.apply_wallpaper(
-                self.path_map, self.monitors, self.wallpaper_style, self.qdbus, self.geometries
+                self.path_map, self.monitors, self.wallpaper_style, self.qdbus
             )
 
             if not self.is_running:

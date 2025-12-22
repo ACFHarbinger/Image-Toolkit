@@ -255,6 +255,49 @@ class WallpaperManager:
             )
 
     @staticmethod
+    def get_kde_desktops(qdbus: str) -> List[Dict[str, int]]:
+        """
+        Returns a list of KDE desktops with their index, screen ID, and geometry.
+        Filters out desktops with invalid screens (screen < 0).
+        """
+        script = """
+        var ds = desktops();
+        var output = [];
+        for (var i = 0; i < ds.length; i++) {
+            var d = ds[i];
+            var s = d.screen;
+            if (s < 0) continue; 
+            try {
+                var rect = screenGeometry(s);
+                output.push(i + ":" + s + ":" + rect.x + ":" + rect.y);
+            } catch(e) {}
+        }
+        print(output.join("\\n"));
+        """
+        cmd = [qdbus, "org.kde.plasmashell", "/PlasmaShell", "org.kde.PlasmaShell.evaluateScript", script]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            if result.returncode != 0:
+                return []
+            
+            desktops = []
+            for line in result.stdout.strip().split("\n"):
+                if not line.strip(): continue
+                parts = line.split(":")
+                if len(parts) >= 4:
+                    desktops.append({
+                        "index": int(parts[0]),
+                        "screen": int(parts[1]),
+                        "x": int(parts[2]),
+                        "y": int(parts[3])
+                    })
+            return desktops
+        except Exception as e:
+            if logging.getLogger().hasHandlers():
+                logging.error(f"Failed to get KDE desktops: {e}")
+            return []
+
+    @staticmethod
     def _set_wallpaper_windows_single(image_path: str, style_name: str):
         """
         Original single-monitor method.
@@ -301,12 +344,10 @@ class WallpaperManager:
 
     @staticmethod
     def _set_wallpaper_kde(
-        path_map: Dict[str, str], num_monitors: int, style_name: str, qdbus: str, geometries: Optional[Dict[str, Dict[str, int]]] = None
+        path_map: Dict[str, str], style_name: str, qdbus: str
     ):
         """
         Sets per-monitor wallpaper for KDE Plasma using qdbus.
-        If geometries are provided (from daemon config), it uses them to match desktops.
-        Otherwise it falls back to index-based mapping.
         """
 
         # --- FIX: Correct Mapping for Qt6 VideoOutput.FillMode ---
@@ -342,118 +383,51 @@ class WallpaperManager:
         ZREN_PLUGIN = "com.github.zren.smartvideowallpaper"
 
         script_parts = []
+        for monitor_id, path in path_map.items():
+            try:
+                i = int(monitor_id)
+            except ValueError:
+                continue
 
-        if geometries:
-            # GEOMETRY-BASED MAPPING (Robust)
-            import json
-            js_geoms = json.dumps(geometries)
-            js_paths = json.dumps(path_map)
-            
-            plugin_logic = f'var targetVideo = "{REBORN_PLUGIN}"; var altVideo = "{ZREN_PLUGIN}";'
+            if path:
+                # Resolve path
+                file_uri = str(Path(path).resolve())
+                ext = Path(path).suffix.lower()
 
-            # Improved JS: Added checks for d.screen and error handling
-            script = f"""
-            var ds = desktops();
-            var geoms = {js_geoms};
-            var paths = {js_paths};
-            {plugin_logic}
-
-            for (var i = 0; i < ds.length; i++) {{
-                var d = ds[i];
-                if (d.screen < 0) continue; // Skip desktops not associated with a screen
-                
-                var g = screenGeometry(d.screen);
-                if (!g) continue;
-
-                var matchId = null;
-                for (var mid in geoms) {{
-                    var info = geoms[mid];
-                    // Exact match on geometry coordinates
-                    if (info.x === g.x && info.y === g.y) {{
-                        matchId = mid;
-                        break;
-                    }}
-                }}
-
-                if (matchId && paths[matchId]) {{
-                    var imgPath = paths[matchId];
-                    var isVideo = imgPath.toLowerCase().endsWith(".mp4") || imgPath.toLowerCase().endsWith(".mkv") || imgPath.toLowerCase().endsWith(".webm") || imgPath.toLowerCase().endsWith(".gif");
-                    
-                    if (isVideo && {str(video_mode_active).lower()}) {{
-                         if (d.wallpaperPlugin !== targetVideo && d.wallpaperPlugin !== altVideo) d.wallpaperPlugin = targetVideo;
-                         d.currentConfigGroup = Array("Wallpaper", d.wallpaperPlugin, "General");
-                         d.writeConfig("VideoUrls", imgPath);
-                         d.writeConfig("FillMode", {video_fill_mode});
-                         
-                         d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General");
-                         d.writeConfig("FillMode", 2);
-                         d.writeConfig("Color", "#00000000");
-                    }} else {{
-                         d.wallpaperPlugin = "org.kde.image";
-                         d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General");
-                         d.writeConfig("Image", imgPath);
-                         d.writeConfig("FillMode", {fill_mode});
-                    }}
-                    d.reloadConfig();
-                }}
-            }}
-            """
-            # Escape single quotes in the script to avoid breaking the shell command
-            script_escaped = script.replace("'", "'\\''")
-            qdbus_command = f"{qdbus} org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{script_escaped}'"
-            
-            if logging.getLogger().hasHandlers():
-                logging.info("KDE: Using geometry-based mapping script (Safe).")
-            
-            subprocess.run(qdbus_command, shell=True, check=False, capture_output=True, text=True)
-
-        else:
-            # FALLBACK TO INDEX-BASED (Original logic)
-            for i in range(num_monitors):
-                monitor_id = str(i)
-                path = path_map.get(monitor_id)
-
-                if path:
-                    # Resolve path
-                    file_uri = str(Path(path).resolve())
-                    ext = Path(path).suffix.lower()
-                    script = ""
-
-                    if ext in SUPPORTED_VIDEO_FORMATS and video_mode_active:
-                        script = f"""
-                        var d = desktops()[{i}];
-                        var currentPlugin = d.wallpaperPlugin;
+                if ext in SUPPORTED_VIDEO_FORMATS and video_mode_active:
+                    script_parts.append(
+                        f"""
+                    var d = desktops()[{i}];
+                    if (d && d.screen >= 0) {{
                         var targetPlugin = "{REBORN_PLUGIN}";
-                        var altPlugin = "{ZREN_PLUGIN}";
-
-                        if (currentPlugin === targetPlugin || currentPlugin === altPlugin) {{
-                            targetPlugin = currentPlugin;
-                        }} else {{
-                            d.wallpaperPlugin = targetPlugin; 
-                        }}
-
-                        d.currentConfigGroup = Array("Wallpaper", targetPlugin, "General");
+                        if (d.wallpaperPlugin !== targetPlugin && d.wallpaperPlugin !== "{ZREN_PLUGIN}") d.wallpaperPlugin = targetPlugin;
+                        d.currentConfigGroup = Array("Wallpaper", d.wallpaperPlugin, "General");
                         d.writeConfig("VideoUrls", "{file_uri}");
                         d.writeConfig("FillMode", {video_fill_mode});
-
                         d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General");
                         d.writeConfig("FillMode", 2);
                         d.writeConfig("Color", "#00000000");
-                        
                         d.reloadConfig();
-                        """
-                    else:
-                        script = f'var d = desktops()[{i}]; if (d && d.screen >= 0) {{ d.wallpaperPlugin = "org.kde.image"; d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); d.writeConfig("Image", "{file_uri}"); d.writeConfig("FillMode", {fill_mode}); d.reloadConfig(); }}'
+                    }}
+                    """
+                    )
+                else:
+                    script_parts.append(
+                        f'var d = desktops()[{i}]; if (d && d.screen >= 0) {{ d.wallpaperPlugin = "org.kde.image"; d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); d.writeConfig("Image", "{file_uri}"); d.writeConfig("FillMode", {fill_mode}); d.reloadConfig(); }}'
+                    )
 
-                    if script:
-                        qdbus_command = f"{qdbus} org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{script}'"
-                        
-                        if logging.getLogger().hasHandlers():
-                            logging.info(f"Setting wallpaper for KDE Desktop {i}: {Path(file_uri).name}")
-                        
-                        subprocess.run(
-                            qdbus_command, shell=True, check=False, capture_output=True, text=True
-                        )
+        if not script_parts:
+            return
+
+        full_script = "".join(script_parts)
+        # Escape single quotes
+        full_script_escaped = full_script.replace("'", "'\\''")
+        qdbus_command = f"{qdbus} org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{full_script_escaped}'"
+        
+        if logging.getLogger().hasHandlers():
+            logging.info("KDE: Using index-based mapping script (Safe).")
+        
+        subprocess.run(qdbus_command, shell=True, check=False, capture_output=True, text=True)
 
     @staticmethod
     def _set_wallpaper_gnome_spanned(
@@ -515,7 +489,7 @@ class WallpaperManager:
 
     @staticmethod
     def apply_wallpaper(
-        path_map: Dict[str, str], monitors: Union[List[Monitor], int], style_name: str, qdbus: str, geometries: Optional[Dict[str, Dict[str, int]]] = None
+        path_map: Dict[str, str], monitors: Union[List[Monitor], int], style_name: str, qdbus: str
     ):
         system = platform.system()
         is_solid_color = style_name == "SolidColor"
@@ -560,12 +534,6 @@ class WallpaperManager:
                 )
             else:
                 if isinstance(monitors, int) or not monitors:
-                     # This path shouldn't be hit by daemon if windows; daemon handles windows differently?
-                     # Actually daemon just calls apply_wallpaper with monitors list on Windows too.
-                     # If I change daemon to pass int `num_monitors`, Windows logic will break IF it expects List[Monitor].
-                     # But daemon is Linux specific? No, `slideshow_daemon.py` is cross platform.
-                     # Wait. `slideshow_daemon.py` logic:
-                     # If Windows, uses `comtypes`...
                      pass 
 
                 primary_monitor = next(
@@ -580,14 +548,59 @@ class WallpaperManager:
 
         if system == "Linux":
             if logging.getLogger().hasHandlers():
-                logging.debug(f"apply_wallpaper (Linux): path_map={path_map}, monitors={monitors}, style={style_name}, geometries={'PROVIDED' if geometries else 'NONE'}")
+                logging.debug(f"apply_wallpaper (Linux): path_map={path_map}, monitors={monitors}, style={style_name}")
             try:
                 subprocess.run(["which", qdbus], check=True, capture_output=True)
-                # KDE Logic
-                # Check if monitors is int or list
-                num_mons = monitors if isinstance(monitors, int) else len(monitors)
+                
+                # --- NEW MAPPING LOGIC ---
+                # 1. Ensure we have screeninfo monitors to compare geometry
+                target_monitors = []
+                if isinstance(monitors, list):
+                    target_monitors = monitors
+                else:
+                    try:
+                        from screeninfo import get_monitors
+                        target_monitors = get_monitors()
+                    except ImportError:
+                        pass # Fallback to 1:1 if screeninfo missing
+
+                # 2. Get KDE Desktop info
+                kde_desktops = WallpaperManager.get_kde_desktops(qdbus)
+                
+                # 3. Build Mapping: GUI ID (Index in target_monitors) -> KDE Desktop Index
+                mapped_path_map = {}
+                
+                if target_monitors and kde_desktops:
+                    if logging.getLogger().hasHandlers():
+                         logging.info(f"Mapping Monitors. GUI: {len(target_monitors)}, KDE: {len(kde_desktops)}")
+
+                    for gui_id_str, path in path_map.items():
+                        try:
+                            gui_idx = int(gui_id_str)
+                            if 0 <= gui_idx < len(target_monitors):
+                                monitor = target_monitors[gui_idx]
+                                # Find matching KDE desktop by geometry (x, y)
+                                match = next(
+                                    (d for d in kde_desktops if d["x"] == monitor.x and d["y"] == monitor.y),
+                                    None
+                                )
+                                if match:
+                                    # Use KDE Index as key
+                                    mapped_path_map[str(match["index"])] = path
+                                else:
+                                    logging.warning(f"No KDE match for Monitor {gui_idx} at {monitor.x},{monitor.y}")
+                                    mapped_path_map[gui_id_str] = path # Fallback
+                            else:
+                                mapped_path_map[gui_id_str] = path
+                        except ValueError:
+                             mapped_path_map[gui_id_str] = path
+                else:
+                    # Fallback to direct mapping if detection failed
+                    mapped_path_map = path_map
+
+                # KDE Logic use MAPPED map
                 WallpaperManager._set_wallpaper_kde(
-                    path_map, num_mons, style_name, qdbus, geometries
+                    mapped_path_map, style_name, qdbus
                 )
             except (FileNotFoundError, subprocess.CalledProcessError):
                 try:

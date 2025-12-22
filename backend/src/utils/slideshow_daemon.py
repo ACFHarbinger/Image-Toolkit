@@ -83,26 +83,9 @@ def main():
         current_paths = config.get("current_paths", {})  # State tracking
 
         # 1. Detect Monitors Count from Config
-        # We rely on the keys in monitor_queues (e.g., "0", "1", "2") to know how many monitors we are managing.
-        # This avoids using screeninfo in the daemon, ensuring we respect variables set by the main GUI.
         monitor_ids = sorted(monitor_queues.keys(), key=lambda x: int(x) if x.isdigit() else x)
         
-        # Calculate num_monitors based on the highest ID found (assuming 0-indexed contiguous IDs)
-        if monitor_ids:
-            try:
-                num_monitors = max(int(mid) for mid in monitor_ids if mid.isdigit()) + 1
-            except ValueError:
-                num_monitors = len(monitor_ids)
-        else:
-            num_monitors = 0
-
-        logging.info(f"Managing {num_monitors} monitors with IDs: {monitor_ids}")
-        current_paths = config.get("current_paths", {})
-        
-        # Ensure we have entries for all managed monitors
-        for mid in monitor_ids:
-            if mid not in current_paths:
-                current_paths[mid] = ""
+        logging.info(f"Managing {len(monitor_ids)} monitors with IDs: {monitor_ids}")
 
         # 2. Update Wallpaper for each managed monitor
         new_paths_map = {}
@@ -113,28 +96,23 @@ def main():
             current_img = current_paths.get(mid)
             
             if not queue:
-                # No queue for this monitor, keep current or skip
                 continue
 
             # Determine next image
             next_img = get_next_image(queue, current_img)
             
-            if next_img != current_img:
-                current_paths[mid] = next_img
-                state_changed = True
-            
-            # Add to map for application
+            current_paths[mid] = next_img
             new_paths_map[mid] = next_img
+            state_changed = True # Always apply full map for consistency
         
         # 3. Apply if changed
         if state_changed:
             try:
-                # We pass geometries to help KDE mapping
-                geometries = config.get("monitor_geometries", {})
-                logging.info(f"Applying wallpaper to {num_monitors} monitors. Map: {new_paths_map}")
-                WallpaperManager.apply_wallpaper(new_paths_map, num_monitors, style, qdbus, geometries)
+                logging.info(f"Applying wallpaper to monitors: {list(new_paths_map.keys())}")
+                # Pass 0 for num_monitors since KDE logic now uses path_map keys
+                WallpaperManager.apply_wallpaper(new_paths_map, 0, style, qdbus)
 
-                # Update config file with new current state so we resume correctly next time
+                # Update config file with new current state
                 config["current_paths"] = current_paths
                 with open(DAEMON_CONFIG_PATH, "w") as f:
                     json.dump(config, f)

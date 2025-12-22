@@ -448,10 +448,6 @@ class WallpaperTab(AbstractClassSingleGallery):
             else self.wallpaper_style
         )
 
-        monitor_geometries = {
-            str(i): {"x": m.x, "y": m.y} for i, m in enumerate(self.monitors)
-        }
-
         config = {
             "running": start,
             "interval_seconds": (self.interval_min_spinbox.value() * 60)
@@ -459,7 +455,6 @@ class WallpaperTab(AbstractClassSingleGallery):
             "style": style_to_use,
             "monitor_queues": self.monitor_slideshow_queues,
             "current_paths": self.monitor_image_paths,
-            "monitor_geometries": monitor_geometries,
         }
 
         # Save config
@@ -953,18 +948,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             f"All pending items and the slideshow queue for **{monitor_name}** have been cleared.\n\nThe system's current background remains unchanged.",
         )
 
-    def _get_rotated_map_for_ui(self, source_paths: Dict[str, str]) -> Dict[str, str]:
-        n = len(self.monitors)
-        if n == 0:
-            return {}
-        rotated_map = {}
-        for current_monitor_id_str in [str(i) for i in range(n)]:
-            current_monitor_id = int(current_monitor_id_str)
-            source_monitor_index = (current_monitor_id + 1) % n
-            source_monitor_id_str = str(source_monitor_index)
-            path_from_source = source_paths.get(source_monitor_id_str)
-            rotated_map[current_monitor_id_str] = path_from_source
-        return rotated_map
+
 
     def populate_monitor_layout(self):
         if isinstance(self.monitor_layout_container, DraggableMonitorContainer):
@@ -995,11 +979,8 @@ class WallpaperTab(AbstractClassSingleGallery):
         if system == "Linux" and num_monitors_detected > 0:
             try:
                 if self.qdbus:
-                    raw_paths = WallpaperManager.get_current_system_wallpaper_path_kde(
+                    current_system_wallpaper_paths = WallpaperManager.get_current_system_wallpaper_path_kde(
                         num_monitors_detected, self.qdbus
-                    )
-                    current_system_wallpaper_paths = self._get_rotated_map_for_ui(
-                        raw_paths
                     )
             except Exception as e:
                 print(f"KDE retrieval failed unexpectedly: {e}")
@@ -1092,43 +1073,12 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.monitor_widgets[monitor_id].set_image(image_path, thumb)
         self.check_all_monitors_set()
 
-    def _get_gnome_assignment_map(self, source_paths: Dict[str, str]) -> Dict[str, str]:
-        n = len(self.monitors)
-        if n == 0:
-            return {}
-        rotated_map = {}
-        for current_monitor_id_str in source_paths.keys():
-            current_monitor_id = int(current_monitor_id_str)
-            prev_monitor_index = (current_monitor_id - 1 + n) % n
-            prev_monitor_id_str = str(prev_monitor_index)
-            path_from_prev = source_paths.get(prev_monitor_id_str)
-            rotated_map[current_monitor_id_str] = path_from_prev
-        return rotated_map
+        # Auto-save changes to daemon config if it exists/is running
+        # This ensures the background daemon picks up the new queue immediately
+        if self._is_daemon_running_config():
+            self.toggle_slideshow_daemon()  # Re-saves config and restarts/keeps running
 
-    def _get_kde_assignment_map(self, source_paths: Dict[str, str]) -> Dict[str, str]:
-        n = len(self.monitors)
-        if n == 0:
-            return {}
-        rotated_map = {}
-        for current_monitor_id_str in source_paths.keys():
-            current_monitor_id = int(current_monitor_id_str)
-            prev_monitor_index = (current_monitor_id - 1 + n) % n
-            prev_monitor_id_str = str(prev_monitor_index)
-            path_from_prev = source_paths.get(prev_monitor_id_str)
-            rotated_map[current_monitor_id_str] = path_from_prev
-        return rotated_map
 
-    def _get_windows_assignment_map(
-        self, source_paths: Dict[str, str]
-    ) -> Dict[str, str]:
-        n = len(self.monitors)
-        rotated_map = source_paths.copy()
-        for current_monitor_id_str in source_paths.keys():
-            current_monitor_id = int(current_monitor_id_str)
-            prev_monitor_index = (current_monitor_id - 1 + n) % n
-            prev_monitor_id_str = str(prev_monitor_index)
-            rotated_map[current_monitor_id_str] = source_paths.get(prev_monitor_id_str)
-        return rotated_map
 
     def _get_current_system_image_paths_for_all(self) -> Dict[str, Optional[str]]:
         system = platform.system()
@@ -1212,16 +1162,9 @@ class WallpaperTab(AbstractClassSingleGallery):
             else:
                 style_to_use = self.wallpaper_style
 
-            if desktop == "Gnome":
-                final_path_map = self._get_gnome_assignment_map(path_map)
-            elif desktop == "KDE":
-                final_path_map = self._get_kde_assignment_map(path_map)
-            elif desktop == "Windows":
-                if WallpaperManager.COM_AVAILABLE:
-                    final_path_map = self._get_windows_assignment_map(path_map)
-                else:
-                    path_to_set = next((p for p in path_map.values() if p), None)
-                    final_path_map = {"0": path_to_set} if path_to_set else {}
+            if desktop == "Windows" and not WallpaperManager.COM_AVAILABLE:
+                path_to_set = next((p for p in path_map.values() if p), None)
+                final_path_map = {"0": path_to_set} if path_to_set else {}
             else:
                 final_path_map = path_map
 
@@ -1238,7 +1181,6 @@ class WallpaperTab(AbstractClassSingleGallery):
             monitors,
             self.qdbus,
             wallpaper_style=style_to_use,
-            geometries=monitor_geometries,
         )
         self.current_wallpaper_worker.signals.status_update.connect(
             self.handle_wallpaper_status
