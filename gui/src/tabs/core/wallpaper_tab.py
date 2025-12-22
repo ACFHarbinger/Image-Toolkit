@@ -448,6 +448,10 @@ class WallpaperTab(AbstractClassSingleGallery):
             else self.wallpaper_style
         )
 
+        monitor_geometries = {
+            str(i): {"x": m.x, "y": m.y} for i, m in enumerate(self.monitors)
+        }
+
         config = {
             "running": start,
             "interval_seconds": (self.interval_min_spinbox.value() * 60)
@@ -455,6 +459,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             "style": style_to_use,
             "monitor_queues": self.monitor_slideshow_queues,
             "current_paths": self.monitor_image_paths,
+            "monitor_geometries": monitor_geometries,
         }
 
         # Save config
@@ -999,30 +1004,17 @@ class WallpaperTab(AbstractClassSingleGallery):
             except Exception as e:
                 print(f"KDE retrieval failed unexpectedly: {e}")
 
-        monitors_to_show = physical_monitors
+        # Reverting strict sorting to respect User's original order / requests
+        monitors_to_show = self.monitors
 
         monitor_id_to_widget = {}
-        for monitor in monitors_to_show:
-            system_index = -1
-            for i, sys_mon in enumerate(system_monitors):
-                if (
-                    sys_mon.x == monitor.x
-                    and sys_mon.y == monitor.y
-                    and sys_mon.width == monitor.width
-                    and sys_mon.height == monitor.height
-                ):
-                    system_index = i
-                    break
-            if system_index == -1:
-                continue
-            monitor_id = str(system_index)
+        for i, monitor in enumerate(self.monitors):
+            monitor_id = str(i)
             drop_widget = MonitorDropWidget(monitor, monitor_id)
             drop_widget.image_dropped.connect(self.on_image_dropped)
             drop_widget.double_clicked.connect(self.handle_monitor_double_click)
-            try:
-                drop_widget.clear_requested_id.connect(self.handle_clear_monitor_queue)
-            except AttributeError:
-                pass
+            drop_widget.clear_requested_id.connect(self.handle_clear_monitor_queue)
+            self.monitor_widgets[monitor_id] = drop_widget
 
             current_image = self.monitor_image_paths.get(monitor_id)
             image_path_to_display = current_image
@@ -1038,16 +1030,12 @@ class WallpaperTab(AbstractClassSingleGallery):
                 thumb = self._initial_pixmap_cache.get(image_path_to_display)
 
                 # --- ADDED: Check for video if thumb is missing ---
-                if not thumb and image_path_to_display.lower().endswith(
-                    tuple(SUPPORTED_VIDEO_FORMATS)
-                ):
-                    # Use shared generator from base class
-                    thumb = self._generate_video_thumbnail(image_path_to_display)
-                    if thumb:
-                        self._initial_pixmap_cache[image_path_to_display] = thumb
+                if thumb is None and image_path_to_display.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                    # For video files, we can just pass the path; the widget handles thumbnail generation/preview
+                    pass 
+                drop_widget.set_image(image_path_to_display, thumb)
                 # ---------------------------------------------------
 
-                drop_widget.set_image(image_path_to_display, thumb)
             else:
                 drop_widget.clear()
 
@@ -1241,8 +1229,16 @@ class WallpaperTab(AbstractClassSingleGallery):
         if not slideshow_mode:
             self.lock_ui_for_wallpaper()
 
+        monitor_geometries = {
+            str(i): {"x": m.x, "y": m.y} for i, m in enumerate(self.monitors)
+        }
+
         self.current_wallpaper_worker = WallpaperWorker(
-            final_path_map, monitors, self.qdbus, wallpaper_style=style_to_use
+            final_path_map,
+            monitors,
+            self.qdbus,
+            wallpaper_style=style_to_use,
+            geometries=monitor_geometries,
         )
         self.current_wallpaper_worker.signals.status_update.connect(
             self.handle_wallpaper_status
