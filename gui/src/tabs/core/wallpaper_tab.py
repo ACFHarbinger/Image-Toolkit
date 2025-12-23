@@ -210,7 +210,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         layout_group.setStyleSheet(group_box_style)
 
         self.monitor_layout_container = DraggableMonitorContainer()
-        self.monitor_layout = self.monitor_layout_container.layout_hbox
+        # self.monitor_layout is deprecated; communicate with container directly
 
         gb_layout = QVBoxLayout(layout_group)
         gb_layout.addWidget(self.monitor_layout_container)
@@ -960,13 +960,7 @@ class WallpaperTab(AbstractClassSingleGallery):
 
 
     def populate_monitor_layout(self):
-        if isinstance(self.monitor_layout_container, DraggableMonitorContainer):
-            self.monitor_layout_container.clear_widgets()
-        else:
-            for i in reversed(range(self.monitor_layout.count())):
-                widget = self.monitor_layout.takeAt(i).widget()
-                if widget is not None:
-                    widget.deleteLater()
+        self.monitor_layout_container.clear_widgets()
 
         self.monitor_widgets.clear()
         try:
@@ -977,7 +971,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             QMessageBox.critical(self, "Error", f"Could not get monitor info: {e}")
             self.monitors = []
         if not self.monitors or "Mock" in self.monitors[0].name:
-            self.monitor_layout.addWidget(
+            self.monitor_layout_container.addWidget(
                 QLabel("Could not detect any monitors.\nIs 'screeninfo' installed?")
             )
             return
@@ -1088,6 +1082,17 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.toggle_slideshow_daemon()  # Re-saves config and restarts/keeps running
 
 
+
+    def _get_rotated_map_for_ui(self, raw_paths: Dict[int, str]) -> Dict[str, str]:
+        """
+        Maps the raw (int indices) paths from KDE into the UI's (str indices) map.
+        In the future, complex rotation/reordering logic can go here.
+        For now, we map str(i) -> path.
+        """
+        mapped = {}
+        for idx, path in raw_paths.items():
+             mapped[str(idx)] = path
+        return mapped
 
     def _get_current_system_image_paths_for_all(self) -> Dict[str, Optional[str]]:
         system = platform.system()
@@ -1578,12 +1583,11 @@ class WallpaperTab(AbstractClassSingleGallery):
     def collect(self) -> dict:
         monitor_order = []
         if isinstance(self.monitor_layout_container, DraggableMonitorContainer):
-            layout = self.monitor_layout_container.layout_hbox
-            for i in range(layout.count()):
-                item = layout.itemAt(i)
-                widget = item.widget()
-                if isinstance(widget, MonitorDropWidget):
-                    monitor_order.append(widget.monitor_id)
+            # Iterate through rows and columns to preserve visual order (flattened)
+            for row in self.monitor_layout_container.rows:
+                for widget in row:
+                    if isinstance(widget, MonitorDropWidget):
+                        monitor_order.append(widget.monitor_id)
 
         return {
             "scan_directory": self.scan_directory_path.text(),
@@ -1656,22 +1660,18 @@ class WallpaperTab(AbstractClassSingleGallery):
                 ]
 
                 if isinstance(self.monitor_layout_container, DraggableMonitorContainer):
-                    layout = self.monitor_layout_container.layout_hbox
-                    widget_map = {mid: self.monitor_widgets[mid] for mid in valid_order}
-                    widgets_to_remove = []
-                    for i in range(layout.count()):
-                        item = layout.itemAt(i)
-                        widget = item.widget()
-                        if widget and isinstance(widget, MonitorDropWidget):
-                            widgets_to_remove.append(widget)
-                    for widget in widgets_to_remove:
-                        layout.removeWidget(widget)
-                    for monitor_id in valid_order:
-                        if monitor_id in widget_map:
-                            layout.addWidget(widget_map[monitor_id])
-                    for monitor_id in present_monitor_ids:
-                        if monitor_id not in valid_order:
-                            layout.addWidget(self.monitor_widgets[monitor_id])
+                    # Note: This resets 2D layout to a single row (flattened)
+                    self.monitor_layout_container.clear_widgets()
+
+                    # Insert in order
+                    for mid in valid_order:
+                        if mid in self.monitor_widgets:
+                            self.monitor_layout_container.addWidget(self.monitor_widgets[mid])
+
+                    # Add back any that weren't in the order
+                    for mid, w in self.monitor_widgets.items():
+                        if mid not in valid_order:
+                            self.monitor_layout_container.addWidget(w)
 
             QMessageBox.information(
                 self, "Config Loaded", "Wallpaper configuration applied successfully."
