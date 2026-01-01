@@ -343,6 +343,38 @@ class WallpaperManager:
             raise RuntimeError(f"Error setting Windows single wallpaper: {e}")
 
     @staticmethod
+    def get_best_video_plugin() -> str:
+        """
+        Detects which smart video wallpaper plugin is installed.
+        Priority: SmartER > Reborn > Old Smart Video
+        """
+        REBORN_PLUGIN = "luisbocanegra.smart.video.wallpaper.reborn"
+        ZREN_PLUGIN = "com.github.zren.smartvideowallpaper"
+        SMARTER_PLUGIN = "smartervideowallpaper"
+
+        search_paths = [
+            Path.home() / ".local/share/plasma/wallpapers",
+            Path("/usr/share/plasma/wallpapers"),
+        ]
+
+        # Check SmartER first
+        for base in search_paths:
+            if (base / SMARTER_PLUGIN).exists():
+                return SMARTER_PLUGIN
+
+        # Check Reborn
+        for base in search_paths:
+            if (base / REBORN_PLUGIN).exists():
+                return REBORN_PLUGIN
+
+        # Check Zren
+        for base in search_paths:
+            if (base / ZREN_PLUGIN).exists():
+                return ZREN_PLUGIN
+
+        return REBORN_PLUGIN  # Final fallback
+
+    @staticmethod
     def _set_wallpaper_kde(
         path_map: Dict[str, str], style_name: str, qdbus: str
     ):
@@ -357,7 +389,7 @@ class WallpaperManager:
         video_fill_mode = 2
         video_mode_active = False
 
-        if style_name.startswith("SmartVideoWallpaperReborn::"):
+        if style_name.startswith("SmartVideoWallpaper") and "::" in style_name:
             video_mode_active = True
             try:
                 parts = style_name.split("::")
@@ -379,8 +411,7 @@ class WallpaperManager:
             style_name, WALLPAPER_STYLES["KDE"]["Scaled, Keep Proportions"]
         )
 
-        REBORN_PLUGIN = "luisbocanegra.smart.video.wallpaper.reborn"
-        ZREN_PLUGIN = "com.github.zren.smartvideowallpaper"
+        target_plugin = WallpaperManager.get_best_video_plugin()
 
         script_parts = []
         for monitor_id, path in path_map.items():
@@ -395,15 +426,23 @@ class WallpaperManager:
                 ext = Path(path).suffix.lower()
 
                 if ext in SUPPORTED_VIDEO_FORMATS and video_mode_active:
+                    # SmartER uses 'VideoWallpaperBackgroundVideo', Reborn/Zren use 'VideoUrls'
+                    is_smarter = target_plugin == "smartervideowallpaper"
+                    video_key = "VideoWallpaperBackgroundVideo" if is_smarter else "VideoUrls"
+                    
+                    # Ensure file:// prefix
+                    if not file_uri.startswith("file://"):
+                        file_uri = "file://" + file_uri
+
                     script_parts.append(
                         f"""
                     var d = desktops()[{i}];
                     if (d && d.screen >= 0) {{
-                        var targetPlugin = "{REBORN_PLUGIN}";
-                        if (d.wallpaperPlugin !== targetPlugin && d.wallpaperPlugin !== "{ZREN_PLUGIN}") d.wallpaperPlugin = targetPlugin;
+                        if (d.wallpaperPlugin !== "{target_plugin}") d.wallpaperPlugin = "{target_plugin}";
                         d.currentConfigGroup = Array("Wallpaper", d.wallpaperPlugin, "General");
-                        d.writeConfig("VideoUrls", "{file_uri}");
+                        d.writeConfig("{video_key}", "{file_uri}");
                         d.writeConfig("FillMode", {video_fill_mode});
+                        {"d.writeConfig('overridePause', true);" if is_smarter else ""}
                         d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General");
                         d.writeConfig("FillMode", 2);
                         d.writeConfig("Color", "#00000000");
@@ -634,9 +673,11 @@ class WallpaperManager:
                     var plugin = d.wallpaperPlugin;
                     var path = "";
                     d.currentConfigGroup = Array("Wallpaper", plugin, "General");
-                    path = d.readConfig("Image");
-                    if (!path || path == "" || path == "null") {{ path = d.readConfig("VideoUrls"); }}
-                    if (!path || path == "" || path == "null") {{ path = d.readConfig("Video"); }}
+                    var keys = ["Image", "VideoUrls", "VideoWallpaperBackgroundVideo", "Video"];
+                    for (var k=0; k < keys.length; k++) {{
+                        path = d.readConfig(keys[k]);
+                        if (path && path != "" && path != "null") break;
+                    }}
                     if (path && path.indexOf(",") !== -1) {{ path = path.split(",")[0]; }}
                     out.push("MONITOR_{i}:" + (path || "NONE"));
                 }} catch (e) {{ out.push("MONITOR_{i}:NONE"); }}
