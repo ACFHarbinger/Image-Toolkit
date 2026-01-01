@@ -20,8 +20,16 @@ class VideoScannerWorker(QRunnable):
         super().__init__()
         self.directory = directory
         self.signals = VideoScanSignals()
+        self.is_cancelled = False
+
+    def stop(self):
+        """Signals the worker to stop scanning."""
+        self.is_cancelled = True
 
     def run(self):
+        if self.is_cancelled:
+            return
+
         if not os.path.isdir(self.directory):
             try:  # Added try-except block
                 self.signals.finished.emit()
@@ -33,6 +41,9 @@ class VideoScannerWorker(QRunnable):
         try:
             entries = sorted(os.scandir(self.directory), key=lambda e: e.name.lower())
             for entry in entries:
+                if self.is_cancelled:
+                    return
+
                 if entry.is_file():
                     ext = Path(entry.path).suffix.lower()
                     if ext in SUPPORTED_VIDEO_FORMATS:

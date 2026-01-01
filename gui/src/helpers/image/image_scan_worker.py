@@ -42,6 +42,9 @@ class ImageScannerWorker(QObject):
             # os.scandir is faster than os.walk as it uses cached DirEntry objects
             with os.scandir(path) as it:
                 for entry in it:
+                    if self.thread() and self.thread().isInterruptionRequested():
+                        return found_images
+
                     # Skip hidden directories/files (starts with dot)
                     if entry.name.startswith("."):
                         continue

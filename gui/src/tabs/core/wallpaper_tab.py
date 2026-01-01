@@ -104,7 +104,7 @@ class WallpaperTab(AbstractClassSingleGallery):
                 self.set_wallpaper_btn.setEnabled(False)
                 self.set_wallpaper_btn.setText("Slideshow (Drop images/videos)")
 
-        elif self.background_type == "Smart Video Wallpaper Reborn":
+        elif self.background_type == "Smart Video Wallpaper":
             if is_ready:
                 self.set_wallpaper_btn.setText(
                     f"Start Video Slideshow ({total_images} items)"
@@ -225,7 +225,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         background_type_layout = QHBoxLayout()
         self.background_type_combo = QComboBox()
         self.background_type_combo.addItems(
-            ["Image", "Slideshow", "Smart Video Wallpaper Reborn", "Solid Color"]
+            ["Image", "Slideshow", "Smart Video Wallpaper", "Solid Color"]
         )
         self.background_type_combo.setCurrentText(self.background_type)
         self.background_type_combo.currentTextChanged.connect(
@@ -452,8 +452,8 @@ class WallpaperTab(AbstractClassSingleGallery):
         start = not self._is_daemon_running_config()
 
         style_to_use = (
-            f"SmartVideoWallpaperReborn::{self.video_style}"
-            if self.background_type == "Smart Video Wallpaper Reborn"
+            f"SmartVideoWallpaper::{self.video_style}"
+            if self.background_type == "Smart Video Wallpaper"
             else self.wallpaper_style
         )
 
@@ -548,7 +548,7 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         is_solid_color = type_name == "Solid Color"
         is_slideshow = type_name == "Slideshow"
-        is_video = type_name == "Smart Video Wallpaper Reborn"
+        is_video = type_name == "Smart Video Wallpaper"
         is_image = type_name == "Image"
 
         self.solid_color_widget.setVisible(is_solid_color)
@@ -602,7 +602,7 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         if self.slideshow_timer and self.slideshow_timer.isActive():
             self.stop_slideshow()
-        elif self.background_type in ["Slideshow", "Smart Video Wallpaper Reborn"]:
+        elif self.background_type in ["Slideshow", "Smart Video Wallpaper"]:
             self.start_slideshow()
         else:
             if self.current_wallpaper_worker:
@@ -1049,8 +1049,8 @@ class WallpaperTab(AbstractClassSingleGallery):
     def on_image_dropped(self, monitor_id: str, image_path: str):
         is_video = image_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
         if is_video and self.background_type == "Image":
-            self.background_type_combo.setCurrentText("Smart Video Wallpaper Reborn")
-        elif not is_video and self.background_type == "Smart Video Wallpaper Reborn":
+            self.background_type_combo.setCurrentText("Smart Video Wallpaper")
+        elif not is_video and self.background_type == "Smart Video Wallpaper":
             pass
 
         if self.background_type == "Solid Color":
@@ -1170,9 +1170,9 @@ class WallpaperTab(AbstractClassSingleGallery):
             else:
                 desktop = None
 
-            if self.background_type == "Smart Video Wallpaper Reborn":
+            if self.background_type == "Smart Video Wallpaper":
                 # --- CHANGE: Pass the selected VIDEO STYLE here ---
-                style_to_use = f"SmartVideoWallpaperReborn::{self.video_style}"
+                style_to_use = f"SmartVideoWallpaper::{self.video_style}"
             else:
                 style_to_use = self.wallpaper_style
 
@@ -1424,11 +1424,16 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         if self.img_scanner_thread is not None:
             if self.img_scanner_thread.isRunning():
+                self.img_scanner_thread.requestInterruption()
                 self.img_scanner_thread.quit()
                 self.img_scanner_thread.wait()
 
             self.img_scanner_thread.deleteLater()
             self.img_scanner_thread = None
+
+        if self.vid_scanner_worker is not None:
+            self.vid_scanner_worker.stop()
+            self.vid_scanner_worker = None
 
         self.img_scanner_worker = ImageScannerWorker(directory)
         self.img_scanner_thread = QThread()
