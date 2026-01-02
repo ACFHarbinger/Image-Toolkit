@@ -34,3 +34,4 @@ default = ["extension-module"]
 
 [dev-dependencies]
 tempfile = "3"
+mockito = "1.4"

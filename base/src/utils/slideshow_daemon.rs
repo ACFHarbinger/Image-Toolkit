@@ -14,23 +14,23 @@ use std::time::Duration;
 use base::core::wallpaper;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct Config {
+pub struct Config {
     #[serde(default)]
-    running: bool,
+    pub running: bool,
     #[serde(default = "default_interval")]
-    interval_seconds: u64,
+    pub interval_seconds: u64,
     #[serde(default = "default_style")]
-    style: String,
+    pub style: String,
     #[serde(default)]
-    monitor_queues: HashMap<String, Vec<String>>,
+    pub monitor_queues: HashMap<String, Vec<String>>,
     #[serde(default)]
-    current_paths: HashMap<String, String>,
+    pub current_paths: HashMap<String, String>,
 }
 
-fn default_interval() -> u64 {
+pub fn default_interval() -> u64 {
     300
 }
-fn default_style() -> String {
+pub fn default_style() -> String {
     "Fill".to_string()
 }
 
@@ -60,7 +60,7 @@ fn save_config(path: &PathBuf, config: &Config) -> Result<()> {
     Ok(())
 }
 
-fn get_next_image(queue: &[String], current: Option<&String>) -> Option<String> {
+pub fn get_next_image(queue: &[String], current: Option<&String>) -> Option<String> {
     if queue.is_empty() {
         return None;
     }
@@ -197,4 +197,65 @@ fn main() -> Result<()> {
         thread::sleep(Duration::from_secs(config.interval_seconds));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_config_defaults() {
+        let json = r#"{}"#;
+        let config: Config = serde_json::from_str(json).unwrap();
+        assert_eq!(config.running, false);
+        assert_eq!(config.interval_seconds, 300);
+        assert_eq!(config.style, "Fill");
+        assert!(config.monitor_queues.is_empty());
+    }
+
+    #[test]
+    fn test_config_parsing() {
+        let json = r#"{
+            "running": true,
+            "interval_seconds": 60,
+            "style": "Fit",
+            "monitor_queues": {
+                "0": ["/path/a.jpg", "/path/b.jpg"]
+            }
+        }"#;
+        let config: Config = serde_json::from_str(json).unwrap();
+        assert!(config.running);
+        assert_eq!(config.interval_seconds, 60);
+        assert_eq!(config.style, "Fit");
+        assert_eq!(config.monitor_queues["0"].len(), 2);
+    }
+
+    #[test]
+    fn test_get_next_image_logic() {
+        let queue = vec![
+            "img1.jpg".to_string(),
+            "img2.jpg".to_string(),
+            "img3.jpg".to_string(),
+        ];
+
+        // Initial -> first
+        let next = get_next_image(&queue, None);
+        assert_eq!(next, Some("img1.jpg".to_string()));
+
+        // From img1 -> img2
+        let next = get_next_image(&queue, Some(&"img1.jpg".to_string()));
+        assert_eq!(next, Some("img2.jpg".to_string()));
+
+        // From img2 -> img3
+        let next = get_next_image(&queue, Some(&"img2.jpg".to_string()));
+        assert_eq!(next, Some("img3.jpg".to_string()));
+
+        // From img3 -> img1 (cycle)
+        let next = get_next_image(&queue, Some(&"img3.jpg".to_string()));
+        assert_eq!(next, Some("img1.jpg".to_string()));
+
+        // Unknown current -> first
+        let next = get_next_image(&queue, Some(&"imgX.jpg".to_string()));
+        assert_eq!(next, Some("img1.jpg".to_string()));
+    }
 }

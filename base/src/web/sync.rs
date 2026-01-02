@@ -265,3 +265,54 @@ fn emit_status(py: Python<'_>, obj: &PyObject, msg: &str) -> PyResult<()> {
     obj.call_method1(py, "on_status_emitted", (msg,))?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_sync_runner_config_parsing() {
+        let config = json!({
+            "local_path": "/local",
+            "remote_path": "/remote",
+            "action_local": "delete",
+            "action_remote": "delete",
+            "dry_run": true
+        });
+        let runner = SyncRunner::new(&config);
+        assert_eq!(runner.local_path, "/local");
+        assert_eq!(runner.remote_path, "/remote");
+        assert_eq!(runner.action_local, "delete");
+        assert_eq!(runner.action_remote, "delete");
+        assert_eq!(runner.dry_run, true);
+    }
+
+    #[test]
+    fn test_sync_runner_defaults() {
+        let config = json!({});
+        let runner = SyncRunner::new(&config);
+        assert_eq!(runner.local_path, "");
+        assert_eq!(runner.remote_path, "");
+        assert_eq!(runner.action_local, "upload");
+        assert_eq!(runner.action_remote, "download");
+        assert_eq!(runner.dry_run, false);
+    }
+
+    #[test]
+    fn test_sync_item_serialization() {
+        let item = SyncItem {
+            rel_path: "foo.txt".to_string(),
+            abs_path_or_id: "id_1".to_string(),
+            mtime: 100,
+            is_folder: false,
+        };
+        let serialized = serde_json::to_string(&item).unwrap();
+        assert!(serialized.contains("foo.txt"));
+        assert!(serialized.contains("id_1"));
+
+        let deserialized: SyncItem = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(deserialized.rel_path, "foo.txt");
+        assert_eq!(deserialized.mtime, 100);
+    }
+}

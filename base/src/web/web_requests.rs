@@ -292,7 +292,7 @@ fn run_actions(
                     let _ = emit_status(
                         py,
                         callback_obj,
-                        &format!("  > Action: Response content saved to {:?}", filepath),
+                        &format!("  > Action: Save Response content saved to {:?}", filepath),
                     );
                 }
             }
@@ -301,4 +301,19 @@ fn run_actions(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_post_data() {
+        let input = "foo:bar, baz: qux,  a : b ";
+        let data = parse_post_data(input);
+        assert_eq!(data.get("foo"), Some(&"bar".to_string()));
+        assert_eq!(data.get("baz"), Some(&"qux".to_string()));
+        assert_eq!(data.get("a"), Some(&"b".to_string()));
+        assert_eq!(data.len(), 3);
+    }
 }

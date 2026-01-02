@@ -64,3 +64,20 @@ impl CrawlerBase {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_webdriver_config() {
+        let config = WebDriverConfig {
+            headless: true,
+            browser: "chrome".to_string(),
+            download_dir: "/tmp".to_string(),
+        };
+        assert_eq!(config.headless, true);
+        assert_eq!(config.browser, "chrome");
+        assert_eq!(config.download_dir, "/tmp");
+    }
+}

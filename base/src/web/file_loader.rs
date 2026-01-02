@@ -133,3 +133,29 @@ impl WebFileLoaderRust {
         Ok(files)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_file_loader_new() {
+        let loader = WebFileLoaderRust::new("/tmp/test");
+        assert_eq!(loader.download_dir, PathBuf::from("/tmp/test"));
+    }
+
+    #[test]
+    fn test_get_initial_files() {
+        let temp = tempdir().unwrap();
+        let dir = temp.path();
+        std::fs::write(dir.join("a.txt"), "a").unwrap();
+        std::fs::write(dir.join("b.txt"), "b").unwrap();
+
+        let loader = WebFileLoaderRust::new(dir.to_str().unwrap());
+        let files = loader.get_initial_files();
+        assert!(files.contains("a.txt"));
+        assert!(files.contains("b.txt"));
+        assert_eq!(files.len(), 2);
+    }
+}

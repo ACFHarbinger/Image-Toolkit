@@ -276,3 +276,21 @@ impl CloudSync for GoogleDriveSyncImpl {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_gdrive_new() {
+        let config = json!({
+            "access_token": "abc",
+            "remote_path": "Backup"
+        });
+        let sync = GoogleDriveSyncImpl::new(&config);
+        assert_eq!(sync.access_token, "abc");
+        assert_eq!(sync.remote_path, "Backup");
+        assert_eq!(sync.name(), "Google Drive");
+    }
+}

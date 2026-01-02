@@ -228,3 +228,21 @@ impl CloudSync for DropboxSyncImpl {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_dropbox_new() {
+        let config = json!({
+            "access_token": "abc",
+            "remote_path": "photos"
+        });
+        let sync = DropboxSyncImpl::new(&config);
+        assert_eq!(sync.access_token, "abc");
+        assert_eq!(sync.remote_path, "/photos");
+        assert_eq!(sync.name(), "Dropbox");
+    }
+}
