@@ -9,7 +9,7 @@ from PySide6.QtGui import QPixmap, QResizeEvent, QAction, QImage
 from PySide6.QtWidgets import QWidget, QGridLayout, QScrollArea, QMenu
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH, SUPPORTED_VIDEO_FORMATS
 from .meta_abstract_class_gallery import MetaAbstractClassGallery
-from ..helpers import ImageLoaderWorker
+from ..helpers import ImageLoaderWorker, BatchImageLoaderWorker
 
 
 class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
@@ -240,6 +240,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         viewport = self.gallery_scroll_area.viewport()
         visible_rect = viewport.rect()
 
+        paths_to_load = []
         for path, widget in self.path_to_card_widget.items():
             if path in self._initial_pixmap_cache:
                 continue
@@ -248,9 +249,35 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
 
             # Check visibility
             if self.common_is_visible(widget, viewport, visible_rect):
-                self._trigger_image_load(path)
+                paths_to_load.append(path)
+
+        if paths_to_load:
+            # If only one image, use single loader for simplicity or batch of 1
+            if len(paths_to_load) == 1:
+                self._trigger_image_load(paths_to_load[0])
+            else:
+                self._trigger_batch_load(paths_to_load)
 
     # --- LOADING LOGIC ---
+    
+    def _trigger_batch_load(self, paths: List[str]):
+        self._loading_paths.update(paths)
+        worker = BatchImageLoaderWorker(paths, self.thumbnail_size)
+        worker.signals.batch_result.connect(self._on_batch_images_loaded)
+        self.thread_pool.start(worker)
+
+    @Slot(list)
+    def _on_batch_images_loaded(self, results: List[tuple]):
+        for path, pixmap in results:
+            if path in self._loading_paths:
+                self._loading_paths.remove(path)
+            
+            if pixmap and not pixmap.isNull():
+                self._initial_pixmap_cache[path] = pixmap
+
+            widget = self.path_to_card_widget.get(path)
+            if widget:
+                self.update_card_pixmap(widget, pixmap)
 
     def start_loading_gallery(
         self,

@@ -9,7 +9,7 @@ from PySide6.QtGui import QPixmap, QAction
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH
 from .meta_abstract_class_gallery import MetaAbstractClassGallery
 from ..components import MarqueeScrollArea, ClickableLabel
-from ..helpers import ImageLoaderWorker
+from ..helpers import ImageLoaderWorker, BatchImageLoaderWorker
 
 
 class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
@@ -57,8 +57,12 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         self._populate_found_timer = QTimer()
         self._populate_found_timer.setSingleShot(True)
         self._populate_found_timer.timeout.connect(self._populate_found_step)
-        self._paginated_found_paths: List[str] = []
         self._populating_found_index = 0
+        
+        # --- Resize Debouncing ---
+        self._resize_timer = QTimer()
+        self._resize_timer.setSingleShot(True)
+        self._resize_timer.timeout.connect(self._on_layout_change)
 
 
         try:
@@ -173,15 +177,13 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
         # Store references
         if is_found_gallery:
-            self.found_page_combo = controls["combo"]
+            self.found_page_button = controls["btn_page"]
             self.found_prev_btn = controls["btn_prev"]
             self.found_next_btn = controls["btn_next"]
-            self.found_page_button = controls["btn_page"]
         else:
-            self.selected_page_combo = controls["combo"]
+            self.selected_page_button = controls["btn_page"]
             self.selected_prev_btn = controls["btn_prev"]
             self.selected_next_btn = controls["btn_next"]
-            self.selected_page_button = controls["btn_page"]
 
         return container
 
@@ -272,7 +274,9 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        self._resize_timer.start(100) # 100ms debounce
 
+    def _on_layout_change(self):
         # Shared Calculation
         if self.found_gallery_scroll:
             new_cols = self.common_calculate_columns(
@@ -387,6 +391,9 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         columns = self.common_calculate_columns(
             self.selected_gallery_scroll, self.approx_item_width
         )
+        
+        paths_to_load = []
+        target_widgets = {}
 
         for i, path in enumerate(paginated_paths):
             pixmap = self._selected_pixmap_cache.get(path)
@@ -402,7 +409,8 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             card = self.create_card_widget(path, pixmap, is_selected=True)
 
             if pixmap is None:
-                self._trigger_priority_load(path, card)
+                paths_to_load.append(path)
+                target_widgets[path] = card
 
             if isinstance(card, ClickableLabel):
                 card.path_clicked.connect(
@@ -415,6 +423,27 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             self.selected_gallery_layout.addWidget(
                 card, row, col, Qt.AlignLeft | Qt.AlignTop
             )
+
+        if paths_to_load:
+            self._trigger_batch_selected_load(paths_to_load, target_widgets)
+
+    def _trigger_batch_selected_load(self, paths: List[str], widgets: Dict[str, QWidget]):
+        worker = BatchImageLoaderWorker(paths, self.thumbnail_size)
+        worker.signals.batch_result.connect(
+            lambda results: self._on_batch_selected_loaded(results, widgets)
+        )
+        self.thread_pool.start(worker)
+
+    def _on_batch_selected_loaded(self, results: List[tuple], widgets: Dict[str, QWidget]):
+        for path, pixmap in results:
+            if pixmap and not pixmap.isNull():
+                self._selected_pixmap_cache[path] = pixmap
+            widget = widgets.get(path)
+            if widget:
+                try:
+                    self.update_card_pixmap(widget, pixmap)
+                except RuntimeError:
+                    pass
 
     def _trigger_priority_load(self, path: str, target_widget: QWidget):
         worker = ImageLoaderWorker(path, self.thumbnail_size)
@@ -460,6 +489,8 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         if not hasattr(self, "found_loading_paths"):
             self.found_loading_paths = set()
 
+        paths_to_load = []
+
         for path, widget in self.path_to_label_map.items():
             try:
                 if hasattr(widget, "get_pixmap"):
@@ -478,17 +509,34 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
                 continue
 
             if self.common_is_visible(widget, viewport, visible_rect):
-                # Check if it really needs loading (e.g. is it still a placeholder?)
-                # We assume if it's in path_to_label_map it was created.
-                # If we haven't loaded it, trigger.
-                # How do we know if it's already loaded?
-                # The widget itself holds the state.
-                # Let's rely on card state or just re-trigger (worker handles cache/dedupe usually?)
-                # Actually, duplicate loads are bad.
-                # Let's check against a 'loaded' set or similar?
-                # AbstractTwoGalleries doesn't have a unified cache for found files, it relies on widget.
-                # Let's replicate single gallery behavior: track loading paths.
-                self._trigger_found_load(path)
+                paths_to_load.append(path)
+
+        if paths_to_load:
+            if len(paths_to_load) == 1:
+                self._trigger_found_load(paths_to_load[0])
+            else:
+                self._trigger_batch_found_load(paths_to_load)
+
+    def _trigger_batch_found_load(self, paths: List[str]):
+        if not hasattr(self, "found_loading_paths"):
+            self.found_loading_paths = set()
+        self.found_loading_paths.update(paths)
+        worker = BatchImageLoaderWorker(paths, self.thumbnail_size)
+        worker.signals.batch_result.connect(self._on_batch_found_loaded)
+        self.thread_pool.start(worker)
+
+    @Slot(list)
+    def _on_batch_found_loaded(self, results: List[tuple]):
+        for path, pixmap in results:
+            if hasattr(self, "found_loading_paths") and path in self.found_loading_paths:
+                self.found_loading_paths.remove(path)
+
+            widget = self.path_to_label_map.get(path)
+            if widget:
+                try:
+                    self.update_card_pixmap(widget, pixmap)
+                except RuntimeError:
+                    pass
 
     def refresh_found_gallery(self):
         self.cancel_loading()

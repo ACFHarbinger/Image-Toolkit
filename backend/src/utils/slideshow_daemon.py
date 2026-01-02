@@ -12,19 +12,6 @@ backend_dir = backend_src_dir.parent  # backend
 project_root = backend_dir.parent  # Image-Toolkit
 sys.path.append(str(project_root))
 
-import logging
-
-# Set up file-based logging
-log_file = project_root / "daemon.log"
-logging.basicConfig(
-    filename=log_file,
-    level=logging.DEBUG,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-)
-
-logging.info(f"Slideshow daemon initializing from: {current_dir}")
-logging.info(f"Project root added to path: {project_root}")
-
 
 from screeninfo import get_monitors
 from backend.src.core import WallpaperManager
@@ -57,7 +44,6 @@ def get_next_image(queue, current_path):
 
 def main():
     print("Slideshow Daemon Started.")
-    logging.info("Slideshow Daemon Started.")
 
     # Detect qdbus
     qdbus = "qdbus"
@@ -65,9 +51,6 @@ def main():
         qdbus = "qdbus6"
     elif shutil.which("qdbus-qt5"):
         qdbus = "qdbus-qt5"
-    
-    logging.info(f"Using qdbus executable: {qdbus}")
-
 
     while True:
         config = load_config()
@@ -84,8 +67,6 @@ def main():
 
         # 1. Detect Monitors Count from Config
         monitor_ids = sorted(monitor_queues.keys(), key=lambda x: int(x) if x.isdigit() else x)
-        
-        logging.info(f"Managing {len(monitor_ids)} monitors with IDs: {monitor_ids}")
 
         # 2. Update Wallpaper for each managed monitor
         new_paths_map = {}
@@ -108,7 +89,6 @@ def main():
         # 3. Apply if changed
         if state_changed:
             try:
-                logging.info(f"Applying wallpaper to monitors: {list(new_paths_map.keys())}")
                 # Pass 0 for num_monitors since KDE logic now uses path_map keys
                 WallpaperManager.apply_wallpaper(new_paths_map, 0, style, qdbus)
 
@@ -116,11 +96,9 @@ def main():
                 config["current_paths"] = current_paths
                 with open(DAEMON_CONFIG_PATH, "w") as f:
                     json.dump(config, f)
-                logging.info(f"Wallpaper updated for {len(new_paths_map)} monitors.")
 
             except Exception as e:
                 print(f"Error setting wallpaper: {e}")
-                logging.error(f"Error setting wallpaper: {e}", exc_info=True)
 
         # 4. Sleep
         time.sleep(interval)
