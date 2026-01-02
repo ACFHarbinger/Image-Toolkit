@@ -2,7 +2,7 @@ import cv2
 import hashlib
 import imagehash
 import numpy as np
-
+import base
 from PIL import Image
 from pathlib import Path
 from collections import defaultdict
@@ -16,6 +16,7 @@ class DuplicateFinder:
     def get_file_hash(
         filepath: str, hash_algorithm="sha256", chunk_size=65536
     ) -> str | None:
+        # Fallback helper, or for single file use
         hasher = hashlib.new(hash_algorithm)
         try:
             with open(filepath, "rb") as f:
@@ -35,38 +36,17 @@ class DuplicateFinder:
     ) -> dict:
         if extensions is None:
             extensions = [".jpg", ".jpeg", ".png", ".webp", ".bmp"]
-        extensions = [
-            e.lower() if e.startswith(".") else f".{e.lower()}" for e in extensions
-        ]
-
-        size_groups = defaultdict(list)
-        path_obj = Path(directory)
-        iterator = path_obj.rglob("*") if recursive else path_obj.glob("*")
-
-        for file_path in iterator:
-            if file_path.is_file() and file_path.suffix.lower() in extensions:
-                try:
-                    size = file_path.stat().st_size
-                    size_groups[size].append(str(file_path.resolve()))
-                except (OSError, ValueError):
-                    continue
-
-        duplicates = defaultdict(list)
-        for size, paths in size_groups.items():
-            if len(paths) < 2:
-                continue
-
-            hash_groups = defaultdict(list)
-            for p in paths:
-                file_hash = DuplicateFinder.get_file_hash(p)
-                if file_hash:
-                    hash_groups[file_hash].append(p)
-
-            for h, p_list in hash_groups.items():
-                if len(p_list) > 1:
-                    duplicates[h].extend(p_list)
-
-        return dict(duplicates)
+        
+        try:
+            # Rust returns HashMap<hash, Vec<path>>
+            # Python expects dict
+            duplicates = base.find_duplicate_images(
+                directory, extensions, recursive
+            )
+            return duplicates
+        except Exception as e:
+            print(f"Error in find_duplicate_images (Rust): {e}")
+            return {}
 
 
 class SimilarityFinder:
@@ -78,6 +58,7 @@ class SimilarityFinder:
     def get_images_list(
         directory: str, extensions: list[str] = None, recursive: bool = True
     ) -> list[str]:
+        # Helper for Python-side algos (SSIM/ORB/SIFT)
         if extensions is None:
             extensions = [".jpg", ".jpeg", ".png", ".webp", ".bmp"]
         extensions = [
@@ -97,47 +78,17 @@ class SimilarityFinder:
         directory: str, extensions: list[str] = None, threshold: int = 5
     ) -> dict:
         """
-        Finds similar images using Average Hash (aHash).
-        Good for resized or color-corrected duplicates.
+        Finds similar images using Average Hash (aHash) via Rust Backend.
         """
-        images = SimilarityFinder.get_images_list(directory, extensions)
-        hashes = {}
-
-        # 1. Calculate Hashes
-        for img_path in images:
-            try:
-                with Image.open(img_path) as img:
-                    hashes[img_path] = imagehash.average_hash(img)
-            except Exception:
-                continue
-
-        # 2. Group by Similarity (Simplified O(N*M) Grouping)
-        # We pick a leader, find all close matches, remove them, repeat.
-        results = {}
-        ungrouped = list(hashes.keys())
-        group_id = 0
-
-        while ungrouped:
-            current_path = ungrouped.pop(0)
-            current_hash = hashes[current_path]
-
-            group = [current_path]
-            to_remove = []
-
-            for candidate_path in ungrouped:
-                candidate_hash = hashes[candidate_path]
-                if (current_hash - candidate_hash) <= threshold:
-                    group.append(candidate_path)
-                    to_remove.append(candidate_path)
-
-            for r in to_remove:
-                ungrouped.remove(r)
-
-            if len(group) > 1:
-                results[f"group_{group_id}"] = group
-                group_id += 1
-
-        return results
+        if extensions is None:
+            extensions = [".jpg", ".jpeg", ".png", ".webp", ".bmp"]
+            
+        try:
+             # Rust returns HashMap<group_name, Vec<path>>
+             return base.find_similar_images_phash(directory, extensions, threshold)
+        except Exception as e:
+             print(f"Error in find_similar_phash (Rust): {e}")
+             return {}
 
     @staticmethod
     def find_similar_ssim(
@@ -146,6 +97,7 @@ class SimilarityFinder:
         """
         Finds similar images using Structural Similarity Index (SSIM).
         Uses a fixed 256x256 resize for comparison.
+        (Kept in Python for now as it relies on OpenCV structural similarity)
         """
         images = SimilarityFinder.get_images_list(directory, extensions)
         cache = {}
@@ -217,9 +169,7 @@ class SimilarityFinder:
         directory: str, extensions: list[str] = None, match_threshold: float = 0.65
     ) -> dict:
         """
-        Finds similar images using ORB Feature Matching.
-        Good for cropped, rotated, or partially obscured images.
-        Note: This is computationally expensive.
+        Finds similar images using ORB. (Python/OpenCV)
         """
         images = SimilarityFinder.get_images_list(directory, extensions)
         orb = cv2.ORB_create(nfeatures=500)
@@ -284,8 +234,7 @@ class SimilarityFinder:
     @staticmethod
     def find_similar_sift(directory: str, extensions: list[str] = None) -> dict:
         """
-        Finds similar images using SIFT Feature Matching.
-        More robust to scale/rotation than ORB, but slower.
+        Finds similar images using SIFT. (Python/OpenCV)
         """
         images = SimilarityFinder.get_images_list(directory, extensions)
         sift = cv2.SIFT_create(nfeatures=1000)

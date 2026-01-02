@@ -231,10 +231,41 @@ fn extract_video_thumbnails_batch(
     Ok(py_results)
 }
 
+mod core;
+
+use core::file_system::*;
+use core::image_converter::*;
+use core::image_finder::*;
+use core::image_merger::*;
+use core::video_converter::*;
+use core::wallpaper::*;
+
 #[pymodule]
-fn native_imaging(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn base(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(load_image_batch, m)?)?;
     m.add_function(wrap_pyfunction!(scan_files, m)?)?;
     m.add_function(wrap_pyfunction!(extract_video_thumbnails_batch, m)?)?;
+
+    // Core Functions
+    m.add_function(wrap_pyfunction!(convert_single_image, m)?)?;
+    m.add_function(wrap_pyfunction!(convert_image_batch, m)?)?;
+    m.add_function(wrap_pyfunction!(convert_video, m)?)?;
+    m.add_function(wrap_pyfunction!(set_wallpaper_gnome, m)?)?;
+    m.add_function(wrap_pyfunction!(run_qdbus_command, m)?)?;
+
+    // File System
+    m.add_function(wrap_pyfunction!(get_files_by_extension, m)?)?;
+    m.add_function(wrap_pyfunction!(delete_files_by_extensions, m)?)?;
+    m.add_function(wrap_pyfunction!(delete_path, m)?)?;
+
+    // Image Finder
+    m.add_function(wrap_pyfunction!(find_duplicate_images, m)?)?;
+    m.add_function(wrap_pyfunction!(find_similar_images_phash, m)?)?;
+
+    // Image Merger
+    m.add_function(wrap_pyfunction!(merge_images_horizontal, m)?)?;
+    m.add_function(wrap_pyfunction!(merge_images_vertical, m)?)?;
+    m.add_function(wrap_pyfunction!(merge_images_grid, m)?)?;
+
     Ok(())
 }

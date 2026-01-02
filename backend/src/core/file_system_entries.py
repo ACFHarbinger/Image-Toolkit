@@ -1,7 +1,7 @@
 import os
 import shutil
 import functools
-
+import base
 from pathlib import Path
 
 
@@ -9,6 +9,7 @@ class FSETool:
     """
     A comprehensive tool for managing file system entries, including path
     resolution, directory creation, file searching, and path manipulation.
+    Wrapper for Rust 'base' extension for heavy operations.
     """
 
     # --- Utility Methods ---
@@ -77,42 +78,37 @@ class FSETool:
     @staticmethod
     @ensure_absolute_paths()
     def get_files_by_extension(directory, extension, recursive=False):
-        path = Path(directory)
-        if not extension.startswith("."):
-            extension = "." + extension
-        pattern = f"**/*{extension}" if recursive else f"*{extension}"
-        return [str(f.resolve()) for f in path.glob(pattern) if f.is_file()]
+        """
+        Uses Rust backend to find files.
+        """
+        try:
+            # Rust extension expects string args
+            return base.get_files_by_extension(str(directory), str(extension), recursive)
+        except Exception as e:
+            print(f"Error in FSETool.get_files_by_extension (Rust): {e}")
+            # Fallback (though ideally we shouldn't fail)
+            path = Path(directory)
+            if not extension.startswith("."):
+                extension = "." + extension
+            pattern = f"**/*{extension}" if recursive else f"*{extension}"
+            return [str(f.resolve()) for f in path.glob(pattern) if f.is_file()]
 
 
 class FileDeleter:
     @staticmethod
     @FSETool.ensure_absolute_paths()
     def delete_path(path_to_delete: str) -> bool:
-        if not os.path.exists(path_to_delete):
-            return False
         try:
-            if os.path.isdir(path_to_delete):
-                shutil.rmtree(path_to_delete)
-            elif os.path.isfile(path_to_delete):
-                os.remove(path_to_delete)
-            return True
-        except OSError as e:
-            print(f"Delete Error: {e}")
+            return base.delete_path(path_to_delete)
+        except Exception as e:
+            print(f"Delete Error (Rust): {e}")
             return False
 
     @staticmethod
     @FSETool.ensure_absolute_paths()
     def delete_files_by_extensions(directory: str, extensions: list[str]) -> int:
-        path = Path(directory)
-        deleted = 0
-        for ext in extensions:
-            if not ext.startswith("."):
-                ext = "." + ext
-            for f in path.rglob(f"*{ext}"):
-                if f.is_file():
-                    try:
-                        f.unlink()
-                        deleted += 1
-                    except OSError:
-                        pass
-        return deleted
+        try:
+            return base.delete_files_by_extensions(directory, extensions)
+        except Exception as e:
+            print(f"Delete Files Error (Rust): {e}")
+            return 0

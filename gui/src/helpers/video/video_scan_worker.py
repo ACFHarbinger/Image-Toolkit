@@ -7,7 +7,7 @@ from PySide6.QtCore import Signal, QRunnable, QObject
 from backend.src.utils.definitions import SUPPORTED_VIDEO_FORMATS
 
 try:
-    import native_imaging
+    import base
     HAS_NATIVE_IMAGING = True
 except ImportError:
     HAS_NATIVE_IMAGING = False
@@ -44,7 +44,7 @@ class VideoScannerWorker(QRunnable):
 
         try:
             if HAS_NATIVE_IMAGING:
-                video_paths = native_imaging.scan_files(
+                video_paths = base.scan_files(
                     [self.directory], list(SUPPORTED_VIDEO_FORMATS), False
                 )
             else:
@@ -67,7 +67,7 @@ class VideoScannerWorker(QRunnable):
                     
                     batch = video_paths[i : i + self.batch_size]
                     
-                    results = native_imaging.extract_video_thumbnails_batch(batch, 180)
+                    results = base.extract_video_thumbnails_batch(batch, 180)
                     for path, buf, w, h in results:
                         if self.is_cancelled:
                             return
