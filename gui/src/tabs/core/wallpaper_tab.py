@@ -784,9 +784,9 @@ class WallpaperTab(AbstractClassSingleGallery):
                 if platform.system() == "Windows":
                     os.startfile(image_path)
                 elif platform.system() == "Linux":
-                    subprocess.call(["xdg-open", image_path])
+                    subprocess.Popen(["xdg-open", image_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 else:
-                    subprocess.call(["open", image_path])
+                    subprocess.Popen(["open", image_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             except Exception as e:
                 QMessageBox.warning(
                     self, "Video Error", f"Could not launch video player: {e}"
