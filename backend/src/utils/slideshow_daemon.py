@@ -1,108 +1,53 @@
+import os
 import sys
-import time
-import shutil
-import json
+import sysconfig
+import subprocess
 
 from pathlib import Path
 
-# --- FIX: Ensure we can import backend packages ---
-current_dir = Path(__file__).resolve().parent  # backend/src/utils
-backend_src_dir = current_dir.parent  # backend/src
-backend_dir = backend_src_dir.parent  # backend
-project_root = backend_dir.parent  # Image-Toolkit
-sys.path.append(str(project_root))
-
-
-from screeninfo import get_monitors
-from backend.src.core import WallpaperManager
-from backend.src.utils.definitions import DAEMON_CONFIG_PATH
-
-
-def load_config():
-    if not DAEMON_CONFIG_PATH.exists():
-        return None
-    try:
-        with open(DAEMON_CONFIG_PATH, "r") as f:
-            return json.load(f)
-    except Exception:
-        return None
-
-
-def get_next_image(queue, current_path):
-    """Logic to determine the next image in the list."""
-    if not queue:
-        return None
-
-    try:
-        idx = queue.index(current_path)
-        next_idx = (idx + 1) % len(queue)
-    except ValueError:
-        next_idx = 0
-
-    return queue[next_idx]
-
 
 def main():
-    print("Slideshow Daemon Started.")
+    """
+    Wrapper for the Rust implementation of the slideshow daemon.
+    """
+    # Find project root
+    current_file = Path(__file__).resolve()
+    # backend/src/utils/slideshow_daemon.py -> backend/src/utils -> backend/src -> backend -> Image-Toolkit
+    project_root = current_file.parent.parent.parent.parent
+    
+    # Path to the Rust binary
+    # We check debug first, then release
+    bin_name = "slideshow_daemon"
+    debug_bin = project_root / "target" / "debug" / bin_name
+    release_bin = project_root / "target" / "release" / bin_name
+    
+    if release_bin.exists():
+        bin_path = release_bin
+    elif debug_bin.exists():
+        bin_path = debug_bin
+    else:
+        print(f"Error: Rust binary not found at {debug_bin} or {release_bin}.")
+        print("Please build the Rust project first using 'cargo build --bin slideshow_daemon'.")
+        sys.exit(1)
 
-    # Detect qdbus
-    qdbus = "qdbus"
-    if shutil.which("qdbus6"):
-        qdbus = "qdbus6"
-    elif shutil.which("qdbus-qt5"):
-        qdbus = "qdbus-qt5"
+    # Set up environment (LD_LIBRARY_PATH for Python linking)
+    env = os.environ.copy()
+    lib_dir = sysconfig.get_config_var('LIBDIR')
+    if lib_dir:
+        current_ld = env.get("LD_LIBRARY_PATH", "")
+        env["LD_LIBRARY_PATH"] = f"{lib_dir}:{current_ld}".strip(":")
 
-    while True:
-        config = load_config()
-
-        # If config is deleted or disabled, stop the daemon
-        if not config or not config.get("running", False):
-            print("Slideshow disabled. Exiting.")
-            sys.exit(0)
-
-        interval = config.get("interval_seconds", 300)
-        style = config.get("style", "Fill")
-        monitor_queues = config.get("monitor_queues", {})
-        current_paths = config.get("current_paths", {})  # State tracking
-
-        # 1. Detect Monitors Count from Config
-        monitor_ids = sorted(monitor_queues.keys(), key=lambda x: int(x) if x.isdigit() else x)
-
-        # 2. Update Wallpaper for each managed monitor
-        new_paths_map = {}
-        state_changed = False
-
-        for mid in monitor_ids:
-            queue = monitor_queues.get(mid, [])
-            current_img = current_paths.get(mid)
-            
-            if not queue:
-                continue
-
-            # Determine next image
-            next_img = get_next_image(queue, current_img)
-            
-            current_paths[mid] = next_img
-            new_paths_map[mid] = next_img
-            state_changed = True # Always apply full map for consistency
-        
-        # 3. Apply if changed
-        if state_changed:
-            try:
-                # Pass 0 for num_monitors since KDE logic now uses path_map keys
-                WallpaperManager.apply_wallpaper(new_paths_map, 0, style, qdbus)
-
-                # Update config file with new current state
-                config["current_paths"] = current_paths
-                with open(DAEMON_CONFIG_PATH, "w") as f:
-                    json.dump(config, f)
-
-            except Exception as e:
-                print(f"Error setting wallpaper: {e}")
-
-        # 4. Sleep
-        time.sleep(interval)
-
+    print(f"Launching Rust Slideshow Daemon: {bin_path}")
+    
+    try:
+        # Run the binary, passing through any arguments
+        subprocess.run([str(bin_path)] + sys.argv[1:], env=env, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Slideshow Daemon exited with error: {e}")
+        sys.exit(e.returncode)
+    except KeyboardInterrupt:
+        print("\nSlideshow Daemon stopped by user.")
+        sys.exit(0)
 
 if __name__ == "__main__":
     main()

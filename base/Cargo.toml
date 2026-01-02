@@ -7,6 +7,10 @@ edition = "2021"
 name = "base"
 crate-type = ["cdylib", "rlib"]
 
+[[bin]]
+name = "slideshow_daemon"
+path = "src/utils/slideshow_daemon.rs"
+
 [dependencies]
 pyo3 = { version = "0.23", features = ["abi3-py311"] }
 image = "0.25"
@@ -18,6 +22,11 @@ serde_json = "1.0"
 anyhow = "1.0"
 sha2 = "0.10"
 hex = "0.4"
+chrono = "0.4"
+directories = "5.0"
+reqwest = { version = "0.12", features = ["blocking", "json"] }
+thirtyfour = "0.31"
+tokio = { version = "1", features = ["full"] }
 
 [features]
 extension-module = ["pyo3/extension-module"]
