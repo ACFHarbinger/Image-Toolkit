@@ -1,5 +1,6 @@
 import os
 import datetime
+import subprocess
 
 from pathlib import Path
 from typing import Optional, List, Set, Tuple, Any, Dict
@@ -888,9 +889,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 if os.name == "nt":
                     os.startfile(image_path)
                 else:
-                    import subprocess
-
-                    subprocess.call(["xdg-open", image_path])
+                    subprocess.Popen(["xdg-open", image_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             except Exception as e:
                 print(f"Error opening video: {e}")
             return
