@@ -2,7 +2,6 @@ use fast_image_resize as fr;
 use image::{DynamicImage, ImageReader, RgbaImage};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use std::path::Path;
 
 // Re-use logic from image_converter would be ideal, but for now I'll duplicate the simple load/resize helpers to keep modules decoupled or I could make them public in image_converters.
 // To avoid complexity, I'll inline a simple resize helper here.
@@ -67,10 +66,10 @@ pub fn merge_images_horizontal(
         // Resize all to max_h (or min_h? Python used max for stretch, min for squish. Let's simplify to max for Rust MVP)
         for img in images {
             final_images.push(fast_resize(&img, img.width(), max_h)); // Stretch height only? No, usually expect aspect ratio logic.
-            // ImageMerger python logic:
-            // Scaled (Grow Smallest) -> target_h = max_h.
-            // Python's resize was simple resize(target_size).
-            // Let's implement full 'max height' resize for everything if 'stretch'.
+                                                                      // ImageMerger python logic:
+                                                                      // Scaled (Grow Smallest) -> target_h = max_h.
+                                                                      // Python's resize was simple resize(target_size).
+                                                                      // Let's implement full 'max height' resize for everything if 'stretch'.
         }
     } else {
         final_images = images;
@@ -212,4 +211,83 @@ pub fn merge_images_grid(
         .save(output_path)
         .map_err(|e| PyValueError::new_err(format!("Failed to save: {}", e)))?;
     Ok(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{Rgb, RgbImage};
+    use tempfile::tempdir;
+
+    fn create_test_image(path: &str, w: u32, h: u32, color: [u8; 3]) {
+        let mut img = RgbImage::new(w, h);
+        for x in 0..w {
+            for y in 0..h {
+                img.put_pixel(x, y, Rgb(color));
+            }
+        }
+        img.save(path).unwrap();
+    }
+
+    #[test]
+    fn test_merge_horizontal() {
+        let dir = tempdir().unwrap();
+        let p1 = dir.path().join("1.png");
+        let p2 = dir.path().join("2.png");
+        let out = dir.path().join("out.png");
+
+        create_test_image(p1.to_str().unwrap(), 100, 100, [255, 0, 0]);
+        create_test_image(p2.to_str().unwrap(), 50, 50, [0, 255, 0]);
+
+        // horizontal merge: width should be 100+50 = 150, height max(100,50) = 100
+        let paths = vec![
+            p1.to_str().unwrap().to_string(),
+            p2.to_str().unwrap().to_string(),
+        ];
+
+        match merge_images_horizontal(
+            paths,
+            out.to_str().unwrap().to_string(),
+            0,
+            "top".to_string(),
+        ) {
+            Ok(res) => assert!(res),
+            Err(e) => panic!("Merge failed: {}", e),
+        }
+
+        let res_img = image::open(&out).unwrap();
+        assert_eq!(res_img.width(), 150);
+        assert_eq!(res_img.height(), 100);
+    }
+
+    #[test]
+    fn test_merge_vertical() {
+        let dir = tempdir().unwrap();
+        let p1 = dir.path().join("1.png");
+        let p2 = dir.path().join("2.png");
+        let out = dir.path().join("out_v.png");
+
+        create_test_image(p1.to_str().unwrap(), 100, 100, [255, 0, 0]);
+        create_test_image(p2.to_str().unwrap(), 50, 50, [0, 255, 0]);
+
+        // vertical merge: width max(100,50)=100, height 100+50=150
+        let paths = vec![
+            p1.to_str().unwrap().to_string(),
+            p2.to_str().unwrap().to_string(),
+        ];
+
+        match merge_images_vertical(
+            paths,
+            out.to_str().unwrap().to_string(),
+            0,
+            "left".to_string(),
+        ) {
+            Ok(res) => assert!(res),
+            Err(e) => panic!("Merge failed: {}", e),
+        }
+
+        let res_img = image::open(&out).unwrap();
+        assert_eq!(res_img.width(), 100);
+        assert_eq!(res_img.height(), 150);
+    }
 }

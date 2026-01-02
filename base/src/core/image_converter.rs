@@ -1,10 +1,9 @@
 use fast_image_resize as fr;
-use image::{DynamicImage, GenericImageView, ImageFormat, ImageReader};
+use image::{DynamicImage, ImageFormat, ImageReader};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use rayon::prelude::*;
 use std::fs;
-use std::path::Path;
 
 // Helper function to load image
 fn load_image(path: &str) -> PyResult<DynamicImage> {
@@ -203,4 +202,131 @@ pub fn convert_image_batch(
     });
 
     Ok(results.into_iter().flatten().collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{Rgb, RgbImage};
+    use tempfile::tempdir;
+
+    fn create_test_image(path: &str, w: u32, h: u32) {
+        let mut img = RgbImage::new(w, h);
+        for x in 0..w {
+            for y in 0..h {
+                img.put_pixel(x, y, Rgb([255, 0, 0]));
+            }
+        }
+        img.save(path).unwrap();
+    }
+
+    #[test]
+    fn test_crop() {
+        let dir = tempdir().unwrap();
+        let in_path = dir.path().join("in.png");
+        let out_path = dir.path().join("out.png");
+
+        // 200x100 (2:1)
+        create_test_image(in_path.to_str().unwrap(), 200, 100);
+
+        // Target 1:1 (Square) - Should crop to 100x100
+        convert_single_image(
+            in_path.to_str().unwrap().to_string(),
+            out_path.to_str().unwrap().to_string(),
+            "png".to_string(),
+            false,
+            Some(1.0),
+            Some("crop".to_string()),
+        )
+        .unwrap();
+
+        let res = image::open(&out_path).unwrap();
+        assert_eq!(res.width(), 100);
+        assert_eq!(res.height(), 100);
+    }
+
+    #[test]
+    fn test_pad() {
+        let dir = tempdir().unwrap();
+        let in_path = dir.path().join("in_pad.png");
+        let out_path = dir.path().join("out_pad.png");
+
+        // 200x100 (2:1)
+        create_test_image(in_path.to_str().unwrap(), 200, 100);
+
+        // Target 1:1 (Square) - Should pad to 200x200
+        convert_single_image(
+            in_path.to_str().unwrap().to_string(),
+            out_path.to_str().unwrap().to_string(),
+            "png".to_string(),
+            false,
+            Some(1.0),
+            Some("pad".to_string()),
+        )
+        .unwrap();
+
+        let res = image::open(&out_path).unwrap();
+        assert_eq!(res.width(), 200);
+        assert_eq!(res.height(), 200);
+    }
+
+    #[test]
+    fn test_stretch() {
+        let dir = tempdir().unwrap();
+        let in_path = dir.path().join("in_str.png");
+        let out_path = dir.path().join("out_str.png");
+
+        // 100x100 (1:1)
+        create_test_image(in_path.to_str().unwrap(), 100, 100);
+
+        // Target 2:1 -> Should stretch width to 200 or height?
+        // Logic: if current ratio (1.0) < target (2.0) -> current taller. Grow Width?
+        // Yes, make it 200x100.
+
+        convert_single_image(
+            in_path.to_str().unwrap().to_string(),
+            out_path.to_str().unwrap().to_string(),
+            "png".to_string(),
+            false,
+            Some(2.0),
+            Some("stretch".to_string()),
+        )
+        .unwrap();
+
+        let res = image::open(&out_path).unwrap();
+        assert_eq!(res.width(), 200);
+        assert_eq!(res.height(), 100);
+    }
+
+    #[test]
+    fn test_convert_batch() {
+        let dir = tempdir().unwrap();
+        let p1 = dir.path().join("1.png");
+        let p2 = dir.path().join("2.png");
+        let o1 = dir.path().join("out1.png");
+        let o2 = dir.path().join("out2.png");
+
+        create_test_image(p1.to_str().unwrap(), 50, 50);
+        create_test_image(p2.to_str().unwrap(), 50, 50);
+
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let pairs = vec![
+                (
+                    p1.to_str().unwrap().to_string(),
+                    o1.to_str().unwrap().to_string(),
+                ),
+                (
+                    p2.to_str().unwrap().to_string(),
+                    o2.to_str().unwrap().to_string(),
+                ),
+            ];
+
+            let res = convert_image_batch(py, pairs, "png".to_string(), false, None, None).unwrap();
+
+            assert_eq!(res.len(), 2);
+            assert!(o1.exists());
+            assert!(o2.exists());
+        });
+    }
 }

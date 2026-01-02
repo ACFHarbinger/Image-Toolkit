@@ -95,3 +95,92 @@ pub fn delete_path(py: Python, path: String) -> PyResult<bool> {
         }
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pyo3::Python;
+    use std::fs::File;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_get_files_by_extension() {
+        // Setup
+        let dir = tempdir().unwrap();
+        let file1 = dir.path().join("test1.txt");
+        let file2 = dir.path().join("test2.png");
+        let sub_dir = dir.path().join("sub");
+        fs::create_dir(&sub_dir).unwrap();
+        let file3 = sub_dir.join("test3.txt");
+
+        File::create(&file1).unwrap();
+        File::create(&file2).unwrap();
+        File::create(&file3).unwrap();
+
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            // Test non-recursive
+            let files = get_files_by_extension(
+                py,
+                dir.path().to_str().unwrap().to_string(),
+                "txt".to_string(),
+                false,
+            )
+            .unwrap();
+            assert_eq!(files.len(), 1);
+            assert!(files[0].contains("test1.txt"));
+
+            // Test recursive
+            let files_rec = get_files_by_extension(
+                py,
+                dir.path().to_str().unwrap().to_string(),
+                ".txt".to_string(),
+                true,
+            )
+            .unwrap();
+            assert_eq!(files_rec.len(), 2);
+        });
+    }
+
+    #[test]
+    fn test_delete_path() {
+        let dir = tempdir().unwrap();
+        let file = dir.path().join("delete_me.txt");
+        File::create(&file).unwrap();
+
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let res = delete_path(py, file.to_str().unwrap().to_string()).unwrap();
+            assert!(res);
+            assert!(!file.exists());
+
+            let res_fail = delete_path(py, file.to_str().unwrap().to_string()).unwrap();
+            assert!(!res_fail);
+        });
+    }
+
+    #[test]
+    fn test_delete_files_by_extensions() {
+        let dir = tempdir().unwrap();
+        let f1 = dir.path().join("a.tmp");
+        let f2 = dir.path().join("b.tmp");
+        let f3 = dir.path().join("c.keep");
+        File::create(&f1).unwrap();
+        File::create(&f2).unwrap();
+        File::create(&f3).unwrap();
+
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let count = delete_files_by_extensions(
+                py,
+                dir.path().to_str().unwrap().to_string(),
+                vec!["tmp".to_string()],
+            )
+            .unwrap();
+            assert_eq!(count, 2);
+            assert!(!f1.exists());
+            assert!(!f2.exists());
+            assert!(f3.exists());
+        });
+    }
+}
