@@ -6,21 +6,29 @@ from PySide6.QtGui import QPixmap, QImage
 from PySide6.QtCore import Signal, QRunnable, QObject
 from backend.src.utils.definitions import SUPPORTED_VIDEO_FORMATS
 
+try:
+    import native_imaging
+    HAS_NATIVE_IMAGING = True
+except ImportError:
+    HAS_NATIVE_IMAGING = False
 
-# --- Helper Worker for Asynchronous Video Scanning ---
+
 class VideoScanSignals(QObject):
     thumbnail_ready = Signal(str, QPixmap)  # path, pixmap
     finished = Signal()
 
 
 class VideoScannerWorker(QRunnable):
-    """Scans a directory for videos/gifs and generates thumbnails."""
+    """
+    Scans a directory for videos/gifs and generates thumbnails.
+    """
 
     def __init__(self, directory):
         super().__init__()
         self.directory = directory
         self.signals = VideoScanSignals()
         self.is_cancelled = False
+        self.batch_size = 8  # Process 8 videos at a time in Rust
 
     def stop(self):
         """Signals the worker to stop scanning."""
@@ -31,60 +39,74 @@ class VideoScannerWorker(QRunnable):
             return
 
         if not os.path.isdir(self.directory):
-            try:  # Added try-except block
-                self.signals.finished.emit()
-            except RuntimeError:
-                pass
+            self.signals.finished.emit()
             return
 
-        # Sort for consistent order
         try:
-            entries = sorted(os.scandir(self.directory), key=lambda e: e.name.lower())
-            for entry in entries:
-                if self.is_cancelled:
-                    return
+            if HAS_NATIVE_IMAGING:
+                video_paths = native_imaging.scan_files(
+                    [self.directory], list(SUPPORTED_VIDEO_FORMATS), False
+                )
+            else:
+                entries = sorted(os.scandir(self.directory), key=lambda e: e.name.lower())
+                video_paths = [
+                    e.path
+                    for e in entries
+                    if e.is_file() and Path(e.path).suffix.lower() in SUPPORTED_VIDEO_FORMATS
+                ]
 
-                if entry.is_file():
-                    ext = Path(entry.path).suffix.lower()
-                    if ext in SUPPORTED_VIDEO_FORMATS:
-                        pixmap = self.generate_thumbnail(entry.path)
-                        if pixmap:
-                            # Also wrap this signal, as it's emitted repeatedly
-                            try:
-                                self.signals.thumbnail_ready.emit(entry.path, pixmap)
-                            except RuntimeError:
-                                return  # If thumbnail_ready fails, the window is closing, so stop
+            if not video_paths:
+                self.signals.finished.emit()
+                return
+
+            if HAS_NATIVE_IMAGING:
+                # Process in batches using the new Rust worker
+                for i in range(0, len(video_paths), self.batch_size):
+                    if self.is_cancelled:
+                        return
+                    
+                    batch = video_paths[i : i + self.batch_size]
+                    
+                    results = native_imaging.extract_video_thumbnails_batch(batch, 180)
+                    for path, buf, w, h in results:
+                        if self.is_cancelled:
+                            return
+                        
+                        q_img = QImage(buf, w, h, QImage.Format_RGBA8888)
+                        pixmap = QPixmap.fromImage(q_img.copy())
+                        self.signals.thumbnail_ready.emit(path, pixmap)
+            else:
+                # Fallback to sequential OpenCV
+                for path in video_paths:
+                    if self.is_cancelled:
+                        return
+                    pixmap = self._generate_thumbnail_opencv(path)
+                    if pixmap:
+                        self.signals.thumbnail_ready.emit(path, pixmap)
 
         except Exception:
             pass
 
-        try:  # Added try-except block
-            self.signals.finished.emit()
-        except RuntimeError:
-            pass  # Ignore if the signal source (window) has been deleted
+        self.signals.finished.emit()
 
-    def generate_thumbnail(self, path):
+    def _generate_thumbnail_opencv(self, path):
         try:
             cap = cv2.VideoCapture(path)
-            # Try to grab a frame at 10 second mark (approx 300 frames)
             cap.set(cv2.CAP_PROP_POS_FRAMES, 300)
             ret, frame = cap.read()
-            if not ret:  # Fallback to 1 second (approx 30 frames)
+            if not ret:
                 cap.set(cv2.CAP_PROP_POS_FRAMES, 30)
                 ret, frame = cap.read()
-                if not ret:  # Fallback to start
+                if not ret:
                     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     ret, frame = cap.read()
-
             cap.release()
+            
             if ret:
-                # Convert BGR (OpenCV) to RGB (Qt)
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 h, w, ch = frame.shape
                 bytes_per_line = ch * w
-                q_img = QImage(
-                    frame.data, w, h, bytes_per_line, QImage.Format.Format_RGB888
-                )
+                q_img = QImage(frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
                 return QPixmap.fromImage(q_img)
         except Exception:
             pass
