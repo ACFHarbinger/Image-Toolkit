@@ -232,6 +232,7 @@ fn extract_video_thumbnails_batch(
 }
 
 pub mod core;
+pub mod web;
 
 use core::file_system::*;
 use core::image_converter::*;
@@ -239,6 +240,8 @@ use core::image_finder::*;
 use core::image_merger::*;
 use core::video_converter::*;
 use core::wallpaper::*;
+use web::web_requests::*;
+use web::*;
 
 #[pymodule]
 fn base(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -252,6 +255,10 @@ fn base(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(convert_video, m)?)?;
     m.add_function(wrap_pyfunction!(set_wallpaper_gnome, m)?)?;
     m.add_function(wrap_pyfunction!(run_qdbus_command, m)?)?;
+    m.add_function(wrap_pyfunction!(run_web_requests_sequence, m)?)?;
+    m.add_function(wrap_pyfunction!(run_board_crawler, m)?)?;
+    m.add_function(wrap_pyfunction!(run_reverse_image_search, m)?)?;
+    m.add_function(wrap_pyfunction!(run_sync, m)?)?;
 
     // File System
     m.add_function(wrap_pyfunction!(get_files_by_extension, m)?)?;
