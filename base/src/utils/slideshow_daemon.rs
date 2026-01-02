@@ -25,6 +25,16 @@ pub struct Config {
     pub monitor_queues: HashMap<String, Vec<String>>,
     #[serde(default)]
     pub current_paths: HashMap<String, String>,
+    #[serde(default)]
+    pub monitor_geometries: HashMap<String, Geometry>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Geometry {
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
 }
 
 pub fn default_interval() -> u64 {
@@ -47,6 +57,7 @@ fn load_config(path: &PathBuf) -> Result<Config> {
             style: "Fill".to_string(),
             monitor_queues: HashMap::new(),
             current_paths: HashMap::new(),
+            monitor_geometries: HashMap::new(),
         });
     }
     let content = fs::read_to_string(path).context("Failed to read config file")?;
@@ -75,7 +86,11 @@ pub fn get_next_image(queue: &[String], current: Option<&String>) -> Option<Stri
     Some(queue[idx].clone())
 }
 
-fn apply_wallpaper_kde(path_map: &HashMap<String, String>, style: &str) -> Result<()> {
+fn apply_wallpaper_kde(
+    path_map: &HashMap<String, String>,
+    style: &str,
+    geometries: &HashMap<String, Geometry>,
+) -> Result<()> {
     let mut script = String::new();
 
     let fill_mode = match style {
@@ -89,13 +104,43 @@ fn apply_wallpaper_kde(path_map: &HashMap<String, String>, style: &str) -> Resul
         _ => 2, // Default to Scaled
     };
 
+    println!("Fetching KDE desktops for mapping...");
+    let kde_desktops = match wallpaper::get_kde_desktops_core("qdbus") {
+        Ok(ds) => ds,
+        Err(e) => {
+            eprintln!("Failed to get KDE desktops: {}", e);
+            Vec::new()
+        }
+    };
+
     for (monitor_id, path) in path_map {
-        let i: u32 = monitor_id.parse().unwrap_or(0);
-        let abs_path = fs::canonicalize(path).context("Invalid path")?;
-        let file_uri = abs_path.to_string_lossy().to_string();
+        let mut target_index: Option<u32> = None;
+
+        // Try mapping by geometry
+        if let Some(geom) = geometries.get(monitor_id) {
+            if let Some(match_desktop) =
+                kde_desktops.iter().find(|d| d.x == geom.x && d.y == geom.y)
+            {
+                target_index = Some(match_desktop.index);
+            }
+        }
+
+        // Fallback to direct parse
+        let i = target_index.unwrap_or_else(|| monitor_id.parse().unwrap_or(0));
+
+        println!(
+            "Monitor {} -> KDE Desktop {} (Path: {})",
+            monitor_id, i, path
+        );
+
+        let file_uri = if path.starts_with("file://") {
+            path.clone()
+        } else {
+            format!("file://{}", path)
+        };
 
         script.push_str(&format!(
-            "var d = desktops()[{}]; if (d && d.screen >= 0) {{ d.wallpaperPlugin = \"org.kde.image\"; d.currentConfigGroup = Array(\"Wallpaper\", \"org.kde.image\", \"General\"); d.writeConfig(\"Image\", \"{}\"); d.writeConfig(\"FillMode\", {}); d.reloadConfig(); }}",
+            "{{ var d = desktops()[{}]; if (d && d.screen >= 0) {{ d.wallpaperPlugin = \"org.kde.image\"; d.currentConfigGroup = Array(\"Wallpaper\", \"org.kde.image\", \"General\"); d.writeConfig(\"Image\", \"{}\"); d.writeConfig(\"FillMode\", {}); d.reloadConfig(); }} }}",
             i, file_uri, fill_mode
         ));
     }
@@ -104,13 +149,7 @@ fn apply_wallpaper_kde(path_map: &HashMap<String, String>, style: &str) -> Resul
         return Ok(());
     }
 
-    let escaped_script = script.replace("'", "'\\''");
-    let qdbus_cmd = format!(
-        "qdbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{}'",
-        escaped_script
-    );
-
-    wallpaper::run_qdbus_command(qdbus_cmd)
+    wallpaper::evaluate_kde_script_core("qdbus", &script)
         .map_err(|e| anyhow::anyhow!("KDE qdbus error: {}", e))?;
 
     Ok(())
@@ -126,28 +165,31 @@ fn apply_wallpaper_gnome(path_map: &HashMap<String, String>, style: &str) -> Res
             }
             _ => "zoom".to_string(),
         };
-        wallpaper::set_wallpaper_gnome(file_uri, mode)
+        wallpaper::set_wallpaper_gnome_core(&file_uri, &mode)
             .map_err(|e| anyhow::anyhow!("GNOME error: {}", e))?;
     }
     Ok(())
 }
 
 fn main() -> Result<()> {
-    println!("Slideshow Daemon (Rust) Started.");
+    eprintln!("Slideshow Daemon (Rust) Started.");
     let config_path = get_config_path()?;
+    eprintln!("Config path: {:?}", config_path);
+
+    let mut is_first_run = true;
 
     loop {
         let mut config = match load_config(&config_path) {
             Ok(c) => c,
             Err(e) => {
-                eprintln!("Warning: Failed to load config: {}. Waiting...", e);
+                eprintln!("Error: Failed to load config: {}. Waiting...", e);
                 thread::sleep(Duration::from_secs(10));
                 continue;
             }
         };
 
         if !config.running {
-            println!("Slideshow disabled. Exiting.");
+            eprintln!("Slideshow disabled in config. Exiting.");
             break;
         }
 
@@ -161,7 +203,7 @@ fn main() -> Result<()> {
             if let Some(queue) = config.monitor_queues.get(&mid) {
                 let current = config.current_paths.get(&mid);
                 if let Some(next) = get_next_image(queue, current) {
-                    if current != Some(&next) {
+                    if is_first_run || current != Some(&next) {
                         next_paths.insert(mid.clone(), next.clone());
                         config.current_paths.insert(mid.clone(), next);
                         changed = true;
@@ -169,18 +211,22 @@ fn main() -> Result<()> {
                 }
             }
         }
+        is_first_run = false;
 
         if changed {
             let desktop_env = std::env::var("XDG_CURRENT_DESKTOP")
+                .or_else(|_| std::env::var("XDG_SESSION_DESKTOP"))
+                .or_else(|_| std::env::var("DESKTOP_SESSION"))
                 .unwrap_or_default()
                 .to_lowercase();
-            let res = if desktop_env.contains("kde") {
-                apply_wallpaper_kde(&next_paths, &config.style)
+
+            let res = if desktop_env.contains("kde") || desktop_env.contains("plasma") {
+                apply_wallpaper_kde(&next_paths, &config.style, &config.monitor_geometries)
             } else if desktop_env.contains("gnome") || desktop_env.contains("unity") {
                 apply_wallpaper_gnome(&next_paths, &config.style)
             } else {
                 Err(anyhow::anyhow!(
-                    "Unsupported desktop environment: {}",
+                    "Unsupported or undetected desktop environment: '{}'. Please ensure XDG_CURRENT_DESKTOP is set.",
                     desktop_env
                 ))
             };
