@@ -146,3 +146,54 @@ impl Crawler for SankakuCrawlerImpl {
             .map(|s| s.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_sankaku_config() {
+        let config = json!({
+            "tags": "cat",
+            "limit": 50
+        });
+        let crawler = SankakuCrawlerImpl::new(&config);
+        assert_eq!(crawler.tags, "cat");
+        assert_eq!(crawler.limit, 50);
+        assert_eq!(crawler.base_url, "https://capi-v2.sankakucomplex.com");
+    }
+
+    #[test]
+    fn test_sankaku_extract_file_url_priority() {
+        let config = json!({});
+        let crawler = SankakuCrawlerImpl::new(&config);
+
+        let p1 = json!({
+            "file_url": "original.jpg",
+            "sample_url": "sample.jpg",
+            "preview_url": "preview.jpg"
+        });
+        assert_eq!(
+            crawler.extract_file_url(&p1),
+            Some("original.jpg".to_string())
+        );
+
+        let p2 = json!({
+            "sample_url": "sample.jpg",
+            "preview_url": "preview.jpg"
+        });
+        assert_eq!(
+            crawler.extract_file_url(&p2),
+            Some("sample.jpg".to_string())
+        );
+
+        let p3 = json!({
+            "preview_url": "preview.jpg"
+        });
+        assert_eq!(
+            crawler.extract_file_url(&p3),
+            Some("preview.jpg".to_string())
+        );
+    }
+}

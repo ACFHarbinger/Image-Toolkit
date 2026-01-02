@@ -234,3 +234,25 @@ pub fn run_reverse_image_search(
     let search = ReverseImageSearchRust::new(&config);
     search.run(py, config_json, callback_obj)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_reverse_search_config() {
+        let config = json!({
+            "browser": "brave"
+        });
+        let search = ReverseImageSearchRust::new(&config);
+        assert_eq!(search.browser_name, "brave");
+    }
+
+    #[test]
+    fn test_reverse_search_defaults() {
+        let config = json!({});
+        let search = ReverseImageSearchRust::new(&config);
+        assert_eq!(search.browser_name, "brave");
+    }
+}

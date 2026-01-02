@@ -7,7 +7,7 @@ use std::process::Command;
 use walkdir::WalkDir;
 
 #[pyfunction]
-fn load_image_batch(
+pub fn load_image_batch(
     py: Python,
     paths: Vec<String>,
     thumbnail_size: u32,
@@ -73,7 +73,7 @@ fn load_image_batch(
 }
 
 #[pyfunction]
-fn scan_files(
+pub fn scan_files(
     py: Python,
     directories: Vec<String>,
     extensions: Vec<String>,
@@ -127,7 +127,7 @@ fn scan_files(
 }
 
 #[pyfunction]
-fn extract_video_thumbnails_batch(
+pub fn extract_video_thumbnails_batch(
     py: Python,
     paths: Vec<String>,
     thumbnail_size: u32,

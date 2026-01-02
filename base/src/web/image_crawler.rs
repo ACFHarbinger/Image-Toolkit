@@ -344,3 +344,31 @@ pub fn run_image_crawler(
     let crawler = ImageCrawlerRust::new(&config);
     crawler.run(py, config_json, callback_obj)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_image_crawler_config() {
+        let config = json!({
+            "download_dir": "/tmp/img",
+            "screenshot_dir": "/tmp/scr",
+            "browser": "firefox"
+        });
+        let crawler = ImageCrawlerRust::new(&config);
+        assert_eq!(crawler.download_dir, "/tmp/img");
+        assert_eq!(crawler.screenshot_dir, "/tmp/scr");
+        assert_eq!(crawler.browser_name, "firefox");
+    }
+
+    #[test]
+    fn test_image_crawler_defaults() {
+        let config = json!({});
+        let crawler = ImageCrawlerRust::new(&config);
+        assert_eq!(crawler.download_dir, "downloads");
+        assert_eq!(crawler.screenshot_dir, "screenshots");
+        assert_eq!(crawler.browser_name, "brave");
+    }
+}

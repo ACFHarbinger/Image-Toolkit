@@ -198,3 +198,21 @@ impl CloudSync for OneDriveSyncImpl {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_onedrive_new() {
+        let config = json!({
+            "access_token": "xyz",
+            "remote_path": "Images"
+        });
+        let sync = OneDriveSyncImpl::new(&config);
+        assert_eq!(sync.access_token, "xyz");
+        assert_eq!(sync.remote_path, "Images");
+        assert_eq!(sync.name(), "OneDrive");
+    }
+}

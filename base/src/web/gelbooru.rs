@@ -135,3 +135,31 @@ impl Crawler for GelbooruCrawlerImpl {
             .map(|s| s.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_gelbooru_config() {
+        let config = json!({
+            "url": "https://test.gelbooru",
+            "tags": "dog",
+            "limit": 50
+        });
+        let crawler = GelbooruCrawlerImpl::new(&config);
+        assert_eq!(crawler.base_url, "https://test.gelbooru");
+        assert_eq!(crawler.tags, "dog");
+        assert_eq!(crawler.limit, 50);
+    }
+
+    #[test]
+    fn test_gelbooru_defaults() {
+        let config = json!({});
+        let crawler = GelbooruCrawlerImpl::new(&config);
+        assert_eq!(crawler.base_url, "https://gelbooru.com");
+        assert_eq!(crawler.tags, "");
+        assert_eq!(crawler.limit, 100);
+    }
+}

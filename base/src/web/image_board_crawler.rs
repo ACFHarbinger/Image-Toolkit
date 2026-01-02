@@ -220,3 +220,73 @@ fn emit_error(py: Python<'_>, obj: &PyObject, msg: &str) -> PyResult<()> {
     obj.call_method1(py, "on_error_emitted", (msg,))?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    struct TestCrawler;
+    impl Crawler for TestCrawler {
+        fn name(&self) -> &str {
+            "test"
+        }
+        fn base_url(&self) -> &str {
+            "http://test"
+        }
+        fn fetch_posts(&self, _client: &Client, _page: u32) -> Result<Vec<Value>> {
+            Ok(vec![])
+        }
+        fn extract_file_url(&self, _post: &Value) -> Option<String> {
+            None
+        }
+    }
+
+    #[test]
+    fn test_extract_id() {
+        let crawler = TestCrawler;
+        let p1 = json!({"id": 123});
+        assert_eq!(crawler.extract_id(&p1), "123");
+
+        let p2 = json!({"id": "456"});
+        assert_eq!(crawler.extract_id(&p2), "456");
+
+        let p3 = json!({});
+        assert_eq!(crawler.extract_id(&p3), "unknown");
+    }
+
+    #[test]
+    fn test_extract_md5() {
+        let crawler = TestCrawler;
+        let p1 = json!({"md5": "abc"});
+        assert_eq!(crawler.extract_md5(&p1), "abc");
+
+        let p2 = json!({});
+        assert_eq!(crawler.extract_md5(&p2), "none");
+    }
+
+    #[test]
+    fn test_board_crawler_config() {
+        let config = json!({
+            "download_dir": "/tmp/test",
+            "max_pages": 10,
+            "limit": 50,
+            "tags": "cat"
+        });
+        let bc = BoardCrawler::new(&config);
+        assert_eq!(bc.download_dir, "/tmp/test");
+        assert_eq!(bc.max_pages, 10);
+        assert_eq!(bc.limit, 50);
+        assert_eq!(bc.tags, "cat");
+    }
+
+    #[test]
+    fn test_board_crawler_defaults() {
+        let config = json!({});
+        let bc = BoardCrawler::new(&config);
+        assert_eq!(bc.download_dir, "downloads");
+        assert_eq!(bc.max_pages, 5);
+        assert_eq!(bc.limit, 20);
+        assert_eq!(bc.tags, "");
+    }
+}

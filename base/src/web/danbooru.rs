@@ -123,3 +123,55 @@ impl Crawler for DanbooruCrawlerImpl {
             .map(|s| s.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_danbooru_config() {
+        let config = json!({
+            "url": "https://test.booru",
+            "resource": "tags",
+            "tags": "cat",
+            "limit": 50,
+            "login_config": {
+                "username": "user",
+                "password": "key"
+            }
+        });
+        let crawler = DanbooruCrawlerImpl::new(&config);
+        assert_eq!(crawler.base_url, "https://test.booru");
+        assert_eq!(crawler.resource, "tags");
+        assert_eq!(crawler.tags, "cat");
+        assert_eq!(crawler.limit, 50);
+        assert_eq!(crawler.username, Some("user".to_string()));
+        assert_eq!(crawler.api_key, Some("key".to_string()));
+    }
+
+    #[test]
+    fn test_danbooru_defaults() {
+        let config = json!({});
+        let crawler = DanbooruCrawlerImpl::new(&config);
+        assert_eq!(crawler.base_url, "https://danbooru.donmai.us");
+        assert_eq!(crawler.resource, "posts");
+        assert_eq!(crawler.limit, 20);
+    }
+
+    #[test]
+    fn test_danbooru_extract_file_url() {
+        let config = json!({});
+        let crawler = DanbooruCrawlerImpl::new(&config);
+        let post = json!({
+            "file_url": "https://example.com/img.jpg"
+        });
+        assert_eq!(
+            crawler.extract_file_url(&post),
+            Some("https://example.com/img.jpg".to_string())
+        );
+
+        let empty = json!({});
+        assert_eq!(crawler.extract_file_url(&empty), None);
+    }
+}
