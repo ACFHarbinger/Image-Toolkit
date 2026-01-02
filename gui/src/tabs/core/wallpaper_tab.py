@@ -73,6 +73,23 @@ class WallpaperTab(AbstractClassSingleGallery):
             total_images += queue_len
         return not all_queues_empty, total_images
 
+    def _start_daemon_countdown_if_active(self):
+        if self._is_daemon_running_config():
+            try:
+                with open(DAEMON_CONFIG_PATH, "r") as f:
+                    data = json.load(f)
+                    self.interval_sec = data.get("interval_seconds", 300)
+                    self.time_remaining_sec = self.interval_sec
+                    
+                    if not hasattr(self, "countdown_timer") or not self.countdown_timer:
+                        self.countdown_timer = QTimer(self)
+                        self.countdown_timer.timeout.connect(self.update_countdown)
+                    
+                    if not self.countdown_timer.isActive():
+                        self.countdown_timer.start(1000)
+            except:
+                pass
+
     @Slot()
     def check_all_monitors_set(self):
         if self.slideshow_timer and self.slideshow_timer.isActive():
@@ -282,6 +299,8 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.btn_daemon_toggle.setStyleSheet(
                 "background-color: #c0392b; color: white; padding: 5px;"
             )
+            # Start visual countdown for daemon
+            QTimer.singleShot(1000, self._start_daemon_countdown_if_active)
         else:
             self.btn_daemon_toggle.setText("Start Background Daemon")
             self.btn_daemon_toggle.setChecked(False)
@@ -465,6 +484,10 @@ class WallpaperTab(AbstractClassSingleGallery):
             "style": style_to_use,
             "monitor_queues": self.monitor_slideshow_queues,
             "current_paths": self.monitor_image_paths,
+            "monitor_geometries": {
+                str(i): {"x": m.x, "y": m.y, "width": m.width, "height": m.height}
+                for i, m in enumerate(self.monitors)
+            },
         }
 
         # Save config
@@ -504,6 +527,17 @@ class WallpaperTab(AbstractClassSingleGallery):
                 self.btn_daemon_toggle.setStyleSheet(
                     "background-color: #c0392b; color: white; padding: 5px;"
                 )
+                
+                # Start countdown
+                self.interval_sec = config["interval_seconds"]
+                self.time_remaining_sec = self.interval_sec
+                if not hasattr(self, "countdown_timer") or not self.countdown_timer:
+                    self.countdown_timer = QTimer(self)
+                    self.countdown_timer.timeout.connect(self.update_countdown)
+                
+                if not self.countdown_timer.isActive():
+                    self.countdown_timer.start(1000)
+
                 QMessageBox.information(
                     self,
                     "Daemon Started",
@@ -511,14 +545,20 @@ class WallpaperTab(AbstractClassSingleGallery):
                 )
 
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to launch daemon: {e}")
+                QMessageBox.critical(self, "Error", f"Failed to start daemon: {e}")
         else:
-            # Stopping is handled by the daemon reading the config 'running': False
+            # Stopping is handled by the daemon itself watching the config "running": false
             self.btn_daemon_toggle.setText("Start Background Daemon")
             self.btn_daemon_toggle.setChecked(False)
             self.btn_daemon_toggle.setStyleSheet(
                 "background-color: #27ae60; color: white; padding: 5px;"
             )
+            
+            # Stop visual countdown if no local slideshow is running
+            if (not self.slideshow_timer or not self.slideshow_timer.isActive()) and \
+               self.countdown_timer and self.countdown_timer.isActive():
+                self.countdown_timer.stop()
+                self.countdown_label.setText("Timer: --:--")
             QMessageBox.information(
                 self, "Daemon Stopped", "Background slideshow stopped."
             )

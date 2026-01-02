@@ -4,7 +4,8 @@ import ctypes
 import platform
 import subprocess
 import logging
-import base # Native extension
+import base  # Native extension
+import re
 
 from PIL import Image
 from pathlib import Path
@@ -13,26 +14,21 @@ from typing import Dict, List, Optional, Union
 from ..utils.definitions import WALLPAPER_STYLES, SUPPORTED_VIDEO_FORMATS
 
 # Global Definitions for COM components
-IDesktopWallpaperInstance = None
+IDESKTOPWALLPAPER_IID = "{B92B56A9-8B55-4E14-9A89-0199BBB6F93B}"
+DESKTOPWALLPAPER_CLSID = "{C2CF3110-460E-4fc1-B9D0-8A1C0C9CC4BD}"
 COM_AVAILABLE = False
 
 # Conditionally import comtypes and winreg only on Windows
 if platform.system() == "Windows":
     import winreg
-
     try:
         import comtypes
         from comtypes import IUnknown, GUID, COMMETHOD, HRESULT, POINTER
         from ctypes.wintypes import LPCWSTR, UINT, LPWSTR
         from ctypes import pointer
-        
-        # Define the GUIDs for the COM interface (Keep Python COM for Windows for now)
-        # ... (Same as before since we didn't port Windows COM to Rust yet)
-        IDESKTOPWALLPAPER_IID = GUID("{B92B56A9-8B55-4E14-9A89-0199BBB6F93B}")
-        DESKTOPWALLPAPER_CLSID = GUID("{C2CF3110-460E-4fc1-B9D0-8A1C0C9CC4BD}")
 
         class IDesktopWallpaper(IUnknown):
-            _iid_ = IDESKTOPWALLPAPER_IID
+            _iid_ = GUID(IDESKTOPWALLPAPER_IID)
             _methods_ = [
                 COMMETHOD([], HRESULT, "SetWallpaper", (["in"], LPCWSTR, "monitorID"), (["in"], LPCWSTR, "wallpaper")),
                 COMMETHOD([], HRESULT, "GetWallpaper", (["in"], LPCWSTR, "monitorID"), (["out"], POINTER(LPWSTR), "wallpaper")),
@@ -51,10 +47,8 @@ if platform.system() == "Windows":
                 return count.value
 
         COM_AVAILABLE = True
-
     except ImportError:
         COM_AVAILABLE = False
-        print("Warning: 'comtypes' library not found. Multi-monitor support is disabled.")
 
 
 class WallpaperManager:
@@ -65,7 +59,6 @@ class WallpaperManager:
 
     @staticmethod
     def _set_wallpaper_solid_color_windows(color_hex: str):
-         # ... Keep existing Windows logic ...
         try:
             color_hex = color_hex.lstrip("#")
             r, g, b = tuple(int(color_hex[i : i + 2], 16) for i in (0, 2, 4))
@@ -82,19 +75,7 @@ class WallpaperManager:
 
     @staticmethod
     def _set_wallpaper_solid_color_gnome(color_hex: str):
-        """
-        Sets a solid color background for GNOME using Rust extension.
-        """
         try:
-            # We can use run_qdbus_command for generic command running? 
-            # Or assume we just use python subprocess for simple things?
-            # Let's use python subprocess for simple things unless we implemented specific wrappers.
-            # I implemented set_wallpaper_gnome(uri, mode)
-            # This is solid color setting which gsettings also handles.
-            # But set_wallpaper_gnome only sets picture-uri and picture-options.
-            # I'll stick to subprocess here or implement generic gsettings in Rust?
-            # Using subprocess here is fine for now, or update Rust to handle it.
-            # Given constraints, I'll leave this as subprocess to avoid scope creep on Rust.
             subprocess.run(["gsettings", "set", "org.gnome.desktop.background", "picture-options", "none"], check=True)
             subprocess.run(["gsettings", "set", "org.gnome.desktop.background", "primary-color", color_hex], check=True)
             subprocess.run(["gsettings", "set", "org.gnome.desktop.background", "color-shading-type", "solid"], check=True)
@@ -103,7 +84,6 @@ class WallpaperManager:
 
     @staticmethod
     def get_best_video_plugin() -> str:
-        # ... Keep existing ...
         REBORN_PLUGIN = "luisbocanegra.smart.video.wallpaper.reborn"
         ZREN_PLUGIN = "com.github.zren.smartvideowallpaper"
         SMARTER_PLUGIN = "smartervideowallpaper"
@@ -117,10 +97,41 @@ class WallpaperManager:
         return REBORN_PLUGIN
 
     @staticmethod
+    def get_kde_desktops(qdbus: str) -> List[Dict[str, int]]:
+        script = """
+        var ds = desktops();
+        var output = [];
+        for (var i = 0; i < ds.length; i++) {
+            var d = ds[i];
+            var s = d.screen;
+            if (s < 0) continue; 
+            try {
+                var rect = screenGeometry(s);
+                output.push(i + ":" + s + ":" + rect.x + ":" + rect.y);
+            } catch(e) {}
+        }
+        print(output.join("\\n"));
+        """
+        try:
+            result = base.evaluate_kde_script(qdbus, script)
+            desktops = []
+            for line in result.strip().split("\n"):
+                if not line.strip(): continue
+                parts = line.split(":")
+                if len(parts) >= 4:
+                    desktops.append({
+                        "index": int(parts[0]),
+                        "screen": int(parts[1]),
+                        "x": int(parts[2]),
+                        "y": int(parts[3])
+                    })
+            return desktops
+        except Exception as e:
+            logging.error(f"Failed to get KDE desktops: {e}")
+            return []
+
+    @staticmethod
     def _set_wallpaper_kde(path_map: Dict[str, str], style_name: str, qdbus: str):
-        # ... Logic is complex, constructing a script.
-        # Can we run the script via Rust? Yes, run_qdbus_command.
-        
         video_fill_mode = 2
         video_mode_active = False
 
@@ -141,20 +152,23 @@ class WallpaperManager:
 
         script_parts = []
         for monitor_id, path in path_map.items():
+            if not path: continue
             try:
                 i = int(monitor_id)
             except ValueError: continue
 
-            if path:
-                file_uri = str(Path(path).resolve())
-                ext = Path(path).suffix.lower()
+            file_uri = str(Path(path).resolve())
+            if not file_uri.startswith("file://"):
+                file_uri = "file://" + file_uri
+            
+            ext = Path(path).suffix.lower()
 
-                if ext in SUPPORTED_VIDEO_FORMATS and video_mode_active:
-                    is_smarter = target_plugin == "smartervideowallpaper"
-                    video_key = "VideoWallpaperBackgroundVideo" if is_smarter else "VideoUrls"
-                    if not file_uri.startswith("file://"): file_uri = "file://" + file_uri
-                    
-                    script_parts.append(f"""
+            if ext in SUPPORTED_VIDEO_FORMATS and video_mode_active:
+                is_smarter = target_plugin == "smartervideowallpaper"
+                video_key = "VideoWallpaperBackgroundVideo" if is_smarter else "VideoUrls"
+                
+                script_parts.append(f"""
+                {{
                     var d = desktops()[{i}];
                     if (d && d.screen >= 0) {{
                         if (d.wallpaperPlugin !== "{target_plugin}") d.wallpaperPlugin = "{target_plugin}";
@@ -167,46 +181,163 @@ class WallpaperManager:
                         d.writeConfig("Color", "#00000000");
                         d.reloadConfig();
                     }}
-                    """)
-                else:
-                    script_parts.append(f'var d = desktops()[{i}]; if (d && d.screen >= 0) {{ d.wallpaperPlugin = "org.kde.image"; d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); d.writeConfig("Image", "{file_uri}"); d.writeConfig("FillMode", {fill_mode}); d.reloadConfig(); }}')
+                }}
+                """)
+            else:
+                script_parts.append(f'{{ var d = desktops()[{i}]; if (d && d.screen >= 0) {{ d.wallpaperPlugin = "org.kde.image"; d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); d.writeConfig("Image", "{file_uri}"); d.writeConfig("FillMode", {fill_mode}); d.reloadConfig(); }} }}')
 
         if not script_parts: return
-
         full_script = "".join(script_parts)
-        full_script_escaped = full_script.replace("'", "'\\''")
-        
-        # USE RUST HERE
-        qdbus_command = f"{qdbus} org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '{full_script_escaped}'"
         try:
-             # Using sh -c via Rust
-             base.run_qdbus_command(qdbus_command)
+            base.evaluate_kde_script(qdbus, full_script)
         except Exception as e:
-             raise RuntimeError(f"KDE method failed (Rust): {e}")
+            raise RuntimeError(f"KDE method failed (Rust): {e}")
 
     @staticmethod
     def _set_wallpaper_gnome_spanned(path_map: Dict[str, str], monitors: List[Monitor], style_name: str):
-        # ... Keep complex image generation in Python, use Rust for gsettings calls?
-        # Rust set_wallpaper_gnome is meant for single URI.
-        # This one generates `temp_path`.
+        if not monitors: return
+        min_x = min(m.x for m in monitors)
+        min_y = min(m.y for m in monitors)
+        max_x = max(m.x + m.width for m in monitors)
+        max_y = max(m.y + m.height for m in monitors)
+        canvas = Image.new("RGB", (max_x - min_x, max_y - min_y), (0, 0, 0))
+
+        for i, monitor in enumerate(monitors):
+            path = path_map.get(str(i))
+            if path and os.path.exists(path):
+                img = Image.open(path).resize((monitor.width, monitor.height), Image.Resampling.LANCZOS)
+                canvas.paste(img, (monitor.x - min_x, monitor.y - min_y))
+
+        temp_path = os.path.join(Path.home(), ".cache", "image_toolkit_spanned.jpg")
+        canvas.save(temp_path, "JPEG", quality=95)
         
-        # ... Image Gen Code (omitted for brevity, assume retained) ...
-        # After generating `temp_path`:
-        
-        # Call Rust
-        # base.set_wallpaper_gnome(f"file://{temp_path}", "spanned")
-        # But set_wallpaper_gnome separates calls.
-        # subprocess.run(["gsettings", "set", "org.gnome.desktop.background", "picture-uri", val])
-        # subprocess.run(["gsettings", "set", "org.gnome.desktop.background", "picture-options", "spanned"])
-        pass
+        base.set_wallpaper_gnome(f"file://{temp_path}", "spanned")
+
+    @staticmethod
+    def _set_wallpaper_windows_single(image_path: str, style_name: str):
+        if Path(image_path).suffix.lower() in SUPPORTED_VIDEO_FORMATS:
+            raise ValueError("Video wallpapers not supported on Windows natively.")
+        style_values = WALLPAPER_STYLES["Windows"].get(style_name, WALLPAPER_STYLES["Windows"]["Fill"])
+        wallpaper_style_reg, tile_wallpaper_reg = style_values
+        save_path = str(Path(image_path).resolve())
+
+        try:
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Control Panel\\Desktop", 0, winreg.KEY_SET_VALUE)
+            winreg.SetValueEx(key, "WallpaperStyle", 0, winreg.REG_SZ, wallpaper_style_reg)
+            winreg.SetValueEx(key, "TileWallpaper", 0, winreg.REG_SZ, tile_wallpaper_reg)
+            winreg.CloseKey(key)
+            ctypes.windll.user32.SystemParametersInfoW(20, 0, save_path, 3)
+        except Exception as e:
+            raise RuntimeError(f"Error setting Windows single wallpaper: {e}")
+
+    @staticmethod
+    def _set_wallpaper_windows_multi(path_map: Dict[str, str], monitors: List[Monitor], style_name: str):
+        if not COM_AVAILABLE: raise ImportError("Multi-monitor requires 'comtypes'.")
+        style_values = WALLPAPER_STYLES["Windows"].get("Fill", WALLPAPER_STYLES["Windows"]["Fill"])
+        wallpaper_style_reg, tile_wallpaper_reg = style_values
+        try:
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Control Panel\\Desktop", 0, winreg.KEY_SET_VALUE)
+            winreg.SetValueEx(key, "WallpaperStyle", 0, winreg.REG_SZ, wallpaper_style_reg)
+            winreg.SetValueEx(key, "TileWallpaper", 0, winreg.REG_SZ, tile_wallpaper_reg)
+            winreg.CloseKey(key)
+            desktop_wallpaper = comtypes.CoCreateInstance(GUID(DESKTOPWALLPAPER_CLSID), interface=IDesktopWallpaper)
+            monitor_count = desktop_wallpaper.GetMonitorDevicePathCount()
+            for i in range(monitor_count):
+                monitor_id_path = desktop_wallpaper.GetMonitorDevicePathAt(i)
+                path = path_map.get(str(i))
+                if path and Path(path).exists():
+                    desktop_wallpaper.SetWallpaper(monitor_id_path, str(Path(path).resolve()))
+        except Exception as e:
+            raise RuntimeError(f"Windows multi-monitor failed: {e}")
 
     @staticmethod
     def apply_wallpaper(path_map: Dict[str, str], monitors: Union[List[Monitor], int], style_name: str, qdbus: str):
-        # Wrapper logic mostly same, just delegating to _set_wallpaper methods
         system = platform.system()
-        # ... logic ...
-        # This function orchestrates. I need to keep the orchestration logic.
-        # I will just write the simplified version here that calls the updated helpers.
-        pass
+        if style_name == "SolidColor":
+            color_hex = path_map.get(str(0), "#000000")
+            if system == "Windows": WallpaperManager._set_wallpaper_solid_color_windows(color_hex)
+            elif system == "Linux":
+                script = f"""
+                var d = desktops();
+                for (var i = 0; i < d.length; i++) {{
+                    d[i].currentConfigGroup = Array("Color"); 
+                    d[i].writeConfig("Color", "{color_hex}");
+                    d[i].currentConfigGroup = Array("Wallpaper", "org.kde.color", "General");
+                    d[i].writeConfig("Color", "{color_hex}");
+                    d[i].writeConfig("FillMode", 1);
+                }}
+                d[0].reloadConfig();
+                """
+                try: base.evaluate_kde_script(qdbus, script)
+                except: WallpaperManager._set_wallpaper_solid_color_gnome(color_hex)
+            return
 
-    # ... get_current_system_wallpaper_path_kde ...
+        if system == "Windows":
+            if COM_AVAILABLE and isinstance(monitors, list):
+                WallpaperManager._set_wallpaper_windows_multi(path_map, monitors, style_name)
+            else:
+                path = path_map.get("0") or next(iter(path_map.values()))
+                WallpaperManager._set_wallpaper_windows_single(path, style_name)
+
+        elif system == "Linux":
+            kde_desktops = WallpaperManager.get_kde_desktops(qdbus)
+            if kde_desktops and isinstance(monitors, list):
+                mapped_map = {}
+                for gid, path in path_map.items():
+                    try:
+                        m = monitors[int(gid)]
+                        match = next((d for d in kde_desktops if d["x"] == m.x and d["y"] == m.y), None)
+                        if match: mapped_map[str(match["index"])] = path
+                        else: mapped_map[gid] = path
+                    except: mapped_map[gid] = path
+                WallpaperManager._set_wallpaper_kde(mapped_map, style_name, qdbus)
+            else: # GNOME or Fallback
+                if style_name == "Spanned" and isinstance(monitors, list):
+                    WallpaperManager._set_wallpaper_gnome_spanned(path_map, monitors, style_name)
+                else:
+                    path = path_map.get("0") or next(iter(path_map.values()))
+                    mode = WALLPAPER_STYLES["GNOME"].get(style_name, "zoom")
+                    base.set_wallpaper_gnome(f"file://{Path(path).resolve()}", mode)
+
+    @staticmethod
+    def get_current_system_wallpaper_path_kde(num_monitors: int, qdbus: str) -> Dict[str, Optional[str]]:
+        path_map = {}
+        script = "var out = [];\n"
+        for i in range(num_monitors):
+            script += f"""
+            (function() {{
+                try {{
+                    var d = desktops()[{i}];
+                    var plugin = d.wallpaperPlugin;
+                    d.currentConfigGroup = Array("Wallpaper", plugin, "General");
+                    var path = d.readConfig("Image") || d.readConfig("VideoUrls") || d.readConfig("Video") || "NONE";
+                    if (path.indexOf(",") !== -1) path = path.split(",")[0];
+                    out.push("MONITOR_{i}:" + path);
+                }} catch (e) {{ out.push("MONITOR_{i}:NONE"); }}
+            }})();
+            """
+        script += '\nprint(out.join("\\n===SEP===\\n"));'
+        try:
+            result = base.evaluate_kde_script(qdbus, script)
+            for line in result.split("===SEP==="):
+                line = line.strip()
+                m = re.match(r"MONITOR_(\d+):(.+)", line)
+                if m:
+                    mid, path = m.groups()
+                    if path != "NONE":
+                        # Fix file URI formatting
+                        if path.startswith("file:/") and not path.startswith("file://"): 
+                            path = "file://" + path[5:]
+                        
+                        if path.startswith("file://"): 
+                            path = path[7:]
+                        
+                        # Use resolved absolute path if possible
+                        try:
+                            abs_path = str(Path(path).resolve())
+                            path_map[mid] = abs_path
+                        except:
+                            path_map[mid] = path
+        except Exception as e:
+            print(f"[WallpaperManager] Error in get_current: {e}")
+        return path_map
