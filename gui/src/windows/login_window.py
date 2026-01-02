@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QInputDialog,
 )
-from src.core.vault_manager import VaultManager
+from backend.src.core.vault_manager import VaultManager
 
 
 class LoginWindow(QWidget):

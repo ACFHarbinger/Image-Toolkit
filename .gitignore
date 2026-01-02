@@ -435,3 +435,6 @@ CMakeFiles/
 # Secret files
 /**/api/*.json
 /**/cryptography/*.txt
+
+# Added by cargo
+/target

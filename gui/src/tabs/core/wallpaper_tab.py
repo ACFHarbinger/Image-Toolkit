@@ -167,6 +167,7 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         self.scanned_dir = None
         self.path_to_label_map = {}
+        self._filtering_event = False
 
         self.pagination_widget = self.create_pagination_controls()
 
@@ -1538,9 +1539,16 @@ class WallpaperTab(AbstractClassSingleGallery):
             vbar.setValue(vbar.value() + scroll_step)
 
     def eventFilter(self, watched, event):
+        if self._filtering_event:
+            return False
+            
         # We catch events globally but only act if we are visible
-        if not self.isVisible():
-            return super().eventFilter(watched, event)
+        self._filtering_event = True
+        try:
+            if not self.isVisible():
+                return False
+        finally:
+            self._filtering_event = False
 
         if event.type() == QEvent.Wheel:
             # Note: Wheel events are typically suppressed by QDrag.exec() on many platforms.

@@ -1,5 +1,5 @@
 from .image.image_scan_worker import ImageScannerWorker
-from .image.image_loader_worker import ImageLoaderWorker
+from .image.image_loader_worker import ImageLoaderWorker, BatchImageLoaderWorker
 
 from .video.video_scan_worker import VideoScannerWorker
 from .video.frame_extractor_worker import FrameExtractionWorker
