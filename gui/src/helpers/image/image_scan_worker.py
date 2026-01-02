@@ -1,8 +1,13 @@
 import os
-
 from typing import List, Union, Tuple
 from PySide6.QtCore import QObject, Signal, Slot
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
+
+try:
+    import native_imaging
+    HAS_NATIVE_IMAGING = True
+except ImportError:
+    HAS_NATIVE_IMAGING = False
 
 
 class ImageScannerWorker(QObject):
@@ -76,6 +81,12 @@ class ImageScannerWorker(QObject):
             return
 
         try:
+            if HAS_NATIVE_IMAGING:
+                # rust-based parallel scan
+                all_image_paths = native_imaging.scan_files(self.directories, list(SUPPORTED_IMG_FORMATS), True)
+                self.scan_finished.emit(all_image_paths)
+                return
+
             for directory in self.directories:
                 if not os.path.isdir(directory):
                     self.scan_error.emit(f"Skipping invalid directory: {directory}")
