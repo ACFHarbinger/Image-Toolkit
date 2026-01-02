@@ -1,3 +1,17 @@
+# Image Toolkit Agents
+
+This repository is split into three main modules, each with its own set of "Agents" (functional components). You can find a detailed map of the project structure in the `project_map.txt` file.
+
+| Module | Directory | Description |
+| :--- | :--- | :--- |
+| **Base** | [`base/`](base/AGENTS.md) | **Rust Core**. Contains the high-performance implementation of image processing, crawling, and sync logic. |
+| **Backend** | [`backend/`](backend/AGENTS.md) | **Python Orchestrator**. Wraps the Rust core, handles Database (PostgreSQL) interactions, and Machine Learning models. |
+| **GUI** | [`gui/`](gui/AGENTS.md) | **PySide6 Frontend**. The desktop interface that allows users to interact with the toolkit. |
+
+Please refer to the specific `AGENTS.md` file in each directory for detailed architecture and coding standards.
+
+---
+
 # AGENTS.md - Instructions for Coding Assistant LLMs
 
 ## 1. Project Overview & Mission
@@ -12,18 +26,23 @@ The project mission is to provide a unified environment for managing massive ima
     * **Computer Vision/ML**: PyTorch (AnimeGAN2, Siamese Networks, LoRA) and OpenCV (Structural Similarity, Feature Matching).
     * **Web Automation**: Selenium WebDriver (supporting Brave, Firefox, Chrome, and Edge).
     * **Mobile/External**: Kotlin (Android), Swift (iOS), and React (Web/Frontend).
-* **Quality Control**: Compliance with `pytest` for all Python functionality and Maven (`mvn test`) for Java components.
+    * **Core Logic**: Rust (via PyO3/Maturin) modules for high-performance file IO and image processing.
+* **Quality Control**: Compliance with `pytest` for all Python functionality and `cargo test` for Rust components.
 
 ## 3. Core Architectural Boundaries
 Maintain strict separation of concerns across these primary modules:
+* **Base Module (`base/src/`)**:
+    *   **`core/`**: High-performance Rust implementations for image resizing, format conversion, and file system scanning.
+    *   **`web/`**: Rust-based implementations of crawlers and cloud sync providers.
+    *   **`utils/`**: Standalone Rust binaries (e.g., `slideshow_daemon`).
 * **Backend Logic (`backend/src/`)**:
-    * **`core/`**: Critical engines for database interaction, file conversion, vault security, and system-level operations (e.g., wallpaper management).
-    * **`models/`**: Neural architecture implementations, including GAN wrappers, diffusion models, and siamese networks for similarity indexing.
-    * **`web/`**: Automated crawlers for image boards and cloud synchronization agents (Google Drive, Dropbox, OneDrive).
+    *   **`core/`**: Python wrappers for Rust functions, plus `image_database.py` (pgvector) and `vault_manager.py` (security).
+    *   **`models/`**: Neural architecture implementations (Python/PyTorch).
+    *   **`web/`**: Python wrappers for Rust crawlers.
 * **GUI Layer (`gui/src/`)**:
-    * **`tabs/`**: Module-specific UI views (Convert, Search, Database, Model Training/Generation).
-    * **`helpers/`**: Threaded workers (e.g., `DuplicateScanWorker`, `ConversionWorker`) that ensure non-blocking UI during heavy I/O or ML tasks.
-    * **`windows/`**: Management for main, login, preview, and log windows.
+    *   **`tabs/`**: Module-specific UI views (Convert, Search, Database, Model Training/Generation).
+    *   **`helpers/`**: Threaded workers (e.g., `DuplicateScanWorker`, `ConversionWorker`) that ensure non-blocking UI during heavy I/O or ML tasks.
+    *   **`windows/`**: Management for main, login, preview, and log windows.
 
 ## 4. Key CLI Entry Points (Operational Playbook)
 Always reference these commands when proposing code changes:
@@ -34,7 +53,8 @@ Always reference these commands when proposing code changes:
 | **Single Conversion** | `python main.py convert --output_format png --input_path <path_to_img>` |
 | **Batch Conversion** | `python main.py convert --output_format png --input_path <dir> --input_formats webp` |
 | **Build Desktop App** | `pyinstaller --clean app.spec` |
-| **Run Tests** | `pytest` |
+| **Run Python Tests** | `pytest` |
+| **Run Rust Tests** | `cd base && cargo test` |
 
 ## 5. External Access and Browser Usage Rules
 The agent is authorized to use the following external tools to assist in development:
