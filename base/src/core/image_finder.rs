@@ -1,4 +1,3 @@
-use image::GenericImageView;
 use image::ImageReader;
 use pyo3::prelude::*;
 use rayon::prelude::*;
@@ -184,4 +183,117 @@ pub fn find_similar_images_phash(
     });
 
     Ok(groups)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{Rgb, RgbImage};
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_find_duplicates() {
+        let dir = tempdir().unwrap();
+        let p1 = dir.path().join("img1.png");
+        let p2 = dir.path().join("img2.png");
+        let p3 = dir.path().join("unique.png");
+
+        fn create_test_image(path: &str, color: [u8; 3]) {
+            let mut img = RgbImage::new(100, 100);
+            for x in 0..100 {
+                for y in 0..100 {
+                    img.put_pixel(x, y, Rgb(color));
+                }
+            }
+            img.save(path).unwrap();
+        }
+
+        // Same content
+        create_test_image(p1.to_str().unwrap(), [255, 0, 0]);
+        create_test_image(p2.to_str().unwrap(), [255, 0, 0]);
+        // Different content
+        create_test_image(p3.to_str().unwrap(), [0, 255, 0]);
+
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let dups = find_duplicate_images(
+                py,
+                dir.path().to_str().unwrap().to_string(),
+                vec!["png".to_string()],
+                false,
+            )
+            .unwrap();
+            assert_eq!(dups.len(), 1);
+            let paths = dups.values().next().unwrap();
+            assert_eq!(paths.len(), 2);
+        });
+    }
+
+    #[test]
+    fn test_find_similar() {
+        let dir = tempdir().unwrap();
+        let p1 = dir.path().join("base.png");
+        let p2 = dir.path().join("similar.png");
+        let p3 = dir.path().join("diff.png");
+
+        // Helper to create split image
+        fn create_split_image(path: &str, horizontal: bool) {
+            let mut img = RgbImage::new(100, 100);
+            for x in 0..100 {
+                for y in 0..100 {
+                    let is_white = if horizontal { y < 50 } else { x < 50 };
+                    let color = if is_white { [255, 255, 255] } else { [0, 0, 0] };
+                    img.put_pixel(x, y, Rgb(color));
+                }
+            }
+            img.save(path).unwrap();
+        }
+
+        // p1: Vertical Split (Left White, Right Black)
+        create_split_image(p1.to_str().unwrap(), false);
+
+        // p2: Same as p1 but with a small modification (noise pixel)
+        {
+            let mut img = image::open(&p1).unwrap().to_rgb8();
+            img.put_pixel(0, 0, Rgb([128, 128, 128])); // Change one pixel
+            img.save(p2.to_str().unwrap()).unwrap();
+        }
+
+        // p3: Horizontal Split (Top White, Bottom Black) - Should be very different hash
+        create_split_image(p3.to_str().unwrap(), true);
+
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            // Threshold of 5 bits. 64 bits total.
+            let sims = find_similar_images_phash(
+                py,
+                dir.path().to_str().unwrap().to_string(),
+                vec!["png".to_string()],
+                5,
+            )
+            .unwrap();
+
+            // Check we have a group with p1 and p2
+            let mut found_pair = false;
+            for group in sims.values() {
+                if group.len() == 2 {
+                    // Verify elements are p1 and p2 (checking filenames since order might vary)
+                    let s1 = p1.file_name().unwrap().to_str().unwrap();
+                    let s2 = p2.file_name().unwrap().to_str().unwrap();
+
+                    let has_p1 = group.iter().any(|s| s.contains(s1));
+                    let has_p2 = group.iter().any(|s| s.contains(s2));
+
+                    if has_p1 && has_p2 {
+                        found_pair = true;
+                    }
+                }
+                // Verify p3 is NOT in this group (implicit if len==2 and we found p1,p2)
+            }
+            assert!(
+                found_pair,
+                "Did not find the expected pair of similar images (p1, p2)"
+            );
+        });
+    }
 }

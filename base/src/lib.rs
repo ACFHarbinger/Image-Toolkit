@@ -231,7 +231,7 @@ fn extract_video_thumbnails_batch(
     Ok(py_results)
 }
 
-mod core;
+pub mod core;
 
 use core::file_system::*;
 use core::image_converter::*;
