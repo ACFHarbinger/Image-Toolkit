@@ -68,7 +68,7 @@ impl BoardCrawler {
         }
     }
 
-    pub fn check_rate_limit(&self, py: Python<'_>, callback_obj: &PyObject) -> PyResult<()> {
+    pub fn check_rate_limit(&self, py: Python<'_>, callback_obj: &Py<PyAny>) -> PyResult<()> {
         let count = self.current_request_count.get() + 1;
         self.current_request_count.set(count);
         if count % self.request_limit == 0 {
@@ -87,7 +87,7 @@ impl BoardCrawler {
         py: Python<'_>,
         crawler: &T,
         client: &Client,
-        callback_obj: PyObject,
+        callback_obj: Py<PyAny>,
     ) -> PyResult<u32> {
         let mut total_downloaded = 0;
         emit_status(
@@ -211,12 +211,12 @@ fn save_metadata(image_path: &Path, post: &Value) {
     }
 }
 
-fn emit_status(py: Python<'_>, obj: &PyObject, msg: &str) -> PyResult<()> {
+fn emit_status(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     obj.call_method1(py, "on_status_emitted", (msg,))?;
     Ok(())
 }
 
-fn emit_error(py: Python<'_>, obj: &PyObject, msg: &str) -> PyResult<()> {
+fn emit_error(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     obj.call_method1(py, "on_error_emitted", (msg,))?;
     Ok(())
 }

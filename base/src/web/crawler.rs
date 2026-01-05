@@ -23,10 +23,10 @@ impl CrawlerBase {
         } else {
             let mut caps = DesiredCapabilities::chrome();
             if config.headless {
-                caps.add_chrome_arg("--headless")?;
+                caps.add_arg("--headless")?;
             }
-            caps.add_chrome_arg("--no-sandbox")?;
-            caps.add_chrome_arg("--disable-dev-shm-usage")?;
+            caps.add_arg("--no-sandbox")?;
+            caps.add_arg("--disable-dev-shm-usage")?;
             WebDriver::new("http://localhost:9515", caps).await?
         };
         let file_loader = WebFileLoaderRust::new(&config.download_dir);

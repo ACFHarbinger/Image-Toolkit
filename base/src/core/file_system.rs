@@ -13,7 +13,7 @@ pub fn get_files_by_extension(
 ) -> PyResult<Vec<String>> {
     let ext = extension.trim_start_matches('.').to_lowercase();
 
-    let results: Vec<String> = py.allow_threads(|| {
+    let results: Vec<String> = py.detach(|| {
         let walker = if recursive {
             WalkDir::new(&directory).into_iter()
         } else {
@@ -48,7 +48,7 @@ pub fn delete_files_by_extensions(
         .map(|e| e.trim_start_matches('.').to_lowercase())
         .collect();
 
-    let count = py.allow_threads(|| {
+    let count = py.detach(|| {
         WalkDir::new(&directory)
             .into_iter()
             .filter_map(|e| e.ok())
@@ -76,7 +76,7 @@ pub fn delete_files_by_extensions(
 
 #[pyfunction]
 pub fn delete_path(py: Python, path: String) -> PyResult<bool> {
-    py.allow_threads(|| {
+    py.detach(|| {
         let p = Path::new(&path);
         if !p.exists() {
             return Ok(false);
@@ -117,8 +117,8 @@ mod tests {
         File::create(&file2).unwrap();
         File::create(&file3).unwrap();
 
-        pyo3::prepare_freethreaded_python();
-        Python::with_gil(|py| {
+        Python::initialize();
+        Python::attach(|py| {
             // Test non-recursive
             let files = get_files_by_extension(
                 py,
@@ -148,8 +148,8 @@ mod tests {
         let file = dir.path().join("delete_me.txt");
         File::create(&file).unwrap();
 
-        pyo3::prepare_freethreaded_python();
-        Python::with_gil(|py| {
+        Python::initialize();
+        Python::attach(|py| {
             let res = delete_path(py, file.to_str().unwrap().to_string()).unwrap();
             assert!(res);
             assert!(!file.exists());
@@ -169,8 +169,8 @@ mod tests {
         File::create(&f2).unwrap();
         File::create(&f3).unwrap();
 
-        pyo3::prepare_freethreaded_python();
-        Python::with_gil(|py| {
+        Python::initialize();
+        Python::attach(|py| {
             let count = delete_files_by_extensions(
                 py,
                 dir.path().to_str().unwrap().to_string(),

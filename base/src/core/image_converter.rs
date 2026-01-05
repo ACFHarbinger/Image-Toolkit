@@ -180,7 +180,7 @@ pub fn convert_image_batch(
 ) -> PyResult<Vec<String>> {
     let mode = ar_mode.unwrap_or_else(|| "crop".to_string());
 
-    let results: Vec<Option<String>> = py.allow_threads(|| {
+    let results: Vec<Option<String>> = py.detach(|| {
         image_pairs
             .par_iter()
             .map(|(path, out_path)| match load_image(path) {
@@ -309,8 +309,8 @@ mod tests {
         create_test_image(p1.to_str().unwrap(), 50, 50);
         create_test_image(p2.to_str().unwrap(), 50, 50);
 
-        pyo3::prepare_freethreaded_python();
-        Python::with_gil(|py| {
+        Python::initialize();
+        Python::attach(|py| {
             let pairs = vec![
                 (
                     p1.to_str().unwrap().to_string(),

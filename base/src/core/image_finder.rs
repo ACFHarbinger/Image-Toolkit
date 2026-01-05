@@ -80,7 +80,7 @@ pub fn find_duplicate_images(
         .map(|e| e.trim_start_matches('.').to_lowercase())
         .collect();
 
-    let duplicates: HashMap<String, Vec<String>> = py.allow_threads(|| {
+    let duplicates: HashMap<String, Vec<String>> = py.detach(|| {
         let walker = if recursive {
             WalkDir::new(&directory).into_iter()
         } else {
@@ -128,7 +128,7 @@ pub fn find_similar_images_phash(
         .map(|e| e.trim_start_matches('.').to_lowercase())
         .collect();
 
-    let groups: HashMap<String, Vec<String>> = py.allow_threads(|| {
+    let groups: HashMap<String, Vec<String>> = py.detach(|| {
         let paths: Vec<String> = WalkDir::new(&directory)
             .into_iter()
             .filter_map(|e| e.ok())
@@ -214,8 +214,8 @@ mod tests {
         // Different content
         create_test_image(p3.to_str().unwrap(), [0, 255, 0]);
 
-        pyo3::prepare_freethreaded_python();
-        Python::with_gil(|py| {
+        Python::initialize();
+        Python::attach(|py| {
             let dups = find_duplicate_images(
                 py,
                 dir.path().to_str().unwrap().to_string(),
@@ -262,8 +262,8 @@ mod tests {
         // p3: Horizontal Split (Top White, Bottom Black) - Should be very different hash
         create_split_image(p3.to_str().unwrap(), true);
 
-        pyo3::prepare_freethreaded_python();
-        Python::with_gil(|py| {
+        Python::initialize();
+        Python::attach(|py| {
             // Threshold of 5 bits. 64 bits total.
             let sims = find_similar_images_phash(
                 py,

@@ -177,16 +177,18 @@ class VideoScannerWorker(QRunnable):
                                 for item in result:
                                     if item:
                                         r_path, r_buf, r_w, r_h = item
+                                        # Use QImage constructor directly with buffer
                                         q_img = QImage(r_buf, r_w, r_h, QImage.Format_RGBA8888)
-                                        pixmap = QPixmap.fromImage(q_img.copy())
-                                        self.signals.thumbnail_ready.emit(r_path, pixmap)
+                                        # We might still need a copy if the buffer is from Rust and might be freed
+                                        # BUT r_buf is a PyBytes which stay alive as long as q_img keeps a reference
+                                        # To be safe and avoid crashes if the reference is lost, we copy into QPixmap
+                                        self.signals.thumbnail_ready.emit(r_path, QPixmap.fromImage(q_img))
                                         
                             elif res_type == "single":
                                  if result:
                                     path, data, w, h, bpl = result
                                     q_img = QImage(data, w, h, bpl, QImage.Format_RGB888)
-                                    pixmap = QPixmap.fromImage(q_img)
-                                    self.signals.thumbnail_ready.emit(path, pixmap)
+                                    self.signals.thumbnail_ready.emit(path, QPixmap.fromImage(q_img))
                         except Exception:
                             pass
                         
@@ -201,33 +203,6 @@ class VideoScannerWorker(QRunnable):
                                 pending_futures[new_fut] = "single"
                         except StopIteration:
                             pass
-                    if self.is_cancelled:
-                        return
-                    
-                    try:
-                        res_type = futures[future]
-                        result = future.result()
-                        
-                        if res_type == "batch":
-                            # result is list of tuples
-                            for item in result:
-                                if item:
-                                    # Rust returns (path, buffer, w, h)
-                                    # buffer is strictly raw bytes or bytearray
-                                    r_path, r_buf, r_w, r_h = item
-                                    q_img = QImage(r_buf, r_w, r_h, QImage.Format_RGBA8888)
-                                    pixmap = QPixmap.fromImage(q_img.copy())
-                                    self.signals.thumbnail_ready.emit(r_path, pixmap)
-                                    
-                        elif res_type == "single":
-                             if result:
-                                path, data, w, h, bpl = result
-                                q_img = QImage(data, w, h, bpl, QImage.Format_RGB888)
-                                pixmap = QPixmap.fromImage(q_img)
-                                self.signals.thumbnail_ready.emit(path, pixmap)
-                            
-                    except Exception:
-                        pass
         
         except Exception:
             pass

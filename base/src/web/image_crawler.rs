@@ -38,7 +38,7 @@ impl ImageCrawlerRust {
         &self,
         py: Python<'_>,
         config_json: String,
-        callback_obj: PyObject,
+        callback_obj: Py<PyAny>,
     ) -> PyResult<u32> {
         let config: Value = serde_json::from_str(&config_json).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid JSON: {}", e))
@@ -64,7 +64,7 @@ impl ImageCrawlerRust {
         &self,
         py: Python<'_>,
         config: Value,
-        callback_obj: PyObject,
+        callback_obj: Py<PyAny>,
     ) -> Result<u32> {
         let headless = config
             .get("headless")
@@ -74,10 +74,10 @@ impl ImageCrawlerRust {
 
         let mut caps = DesiredCapabilities::chrome();
         if headless {
-            caps.add_chrome_arg("--headless")?;
+            caps.add_arg("--headless")?;
         }
-        caps.add_chrome_arg("--no-sandbox")?;
-        caps.add_chrome_arg("--disable-dev-shm-usage")?;
+        caps.add_arg("--no-sandbox")?;
+        caps.add_arg("--disable-dev-shm-usage")?;
 
         // Note: Assuming chromedriver is running on localhost:9515
         let driver = WebDriver::new("http://localhost:9515", caps).await?;
@@ -188,7 +188,7 @@ impl ImageCrawlerRust {
         actions: &[Value],
         original_handle: &WindowHandle,
         py: Python<'_>,
-        callback_obj: &PyObject,
+        callback_obj: &Py<PyAny>,
     ) -> Result<bool> {
         let mut current_element = element.clone();
         let mut downloaded = false;
@@ -252,7 +252,7 @@ impl ImageCrawlerRust {
                     driver.switch_to_window(original_handle.clone()).await?;
                 }
                 "Click Element by Text" => {
-                    let el = driver.find(By::LinkText(&param)).await?;
+                    let el = driver.find(By::LinkText(param)).await?;
                     el.click().await?;
                     tokio::time::sleep(Duration::from_secs(2)).await;
                 }
@@ -269,7 +269,7 @@ impl ImageCrawlerRust {
         url: &str,
         metadata: &serde_json::Map<String, Value>,
         py: Python<'_>,
-        callback_obj: &PyObject,
+        callback_obj: &Py<PyAny>,
     ) -> Result<bool> {
         // Resolve relative URL if needed (we should ideally get full URL from thirtyfour)
         // Use reqwest to download
@@ -322,12 +322,12 @@ impl ImageCrawlerRust {
     }
 }
 
-fn emit_status(py: Python<'_>, obj: &PyObject, msg: &str) -> PyResult<()> {
+fn emit_status(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     obj.call_method1(py, "on_status_emitted", (msg,))?;
     Ok(())
 }
 
-fn emit_error(py: Python<'_>, obj: &PyObject, msg: &str) -> PyResult<()> {
+fn emit_error(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     obj.call_method1(py, "on_error_emitted", (msg,))?;
     Ok(())
 }
@@ -336,7 +336,7 @@ fn emit_error(py: Python<'_>, obj: &PyObject, msg: &str) -> PyResult<()> {
 pub fn run_image_crawler(
     py: Python<'_>,
     config_json: String,
-    callback_obj: PyObject,
+    callback_obj: Py<PyAny>,
 ) -> PyResult<u32> {
     let config: Value = serde_json::from_str(&config_json).map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid JSON: {}", e))

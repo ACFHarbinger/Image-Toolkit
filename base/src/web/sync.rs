@@ -77,7 +77,7 @@ impl SyncRunner {
         py: Python<'_>,
         sync: &mut T,
         client: &Client,
-        callback_obj: PyObject,
+        callback_obj: Py<PyAny>,
     ) -> Result<SyncStats> {
         emit_status(
             py,
@@ -251,7 +251,7 @@ impl SyncRunner {
         Ok(items)
     }
 
-    fn check_stop(&self, py: Python<'_>, callback_obj: &PyObject) -> Result<()> {
+    fn check_stop(&self, py: Python<'_>, callback_obj: &Py<PyAny>) -> Result<()> {
         if let Ok(is_running) = callback_obj.getattr(py, "_is_running") {
             if !is_running.extract::<bool>(py)? {
                 return Err(anyhow::anyhow!("Synchronization manually interrupted."));
@@ -261,7 +261,7 @@ impl SyncRunner {
     }
 }
 
-fn emit_status(py: Python<'_>, obj: &PyObject, msg: &str) -> PyResult<()> {
+fn emit_status(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     obj.call_method1(py, "on_status_emitted", (msg,))?;
     Ok(())
 }

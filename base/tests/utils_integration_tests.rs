@@ -7,8 +7,8 @@ use tempfile::tempdir;
 
 #[test]
 fn test_scan_files_integration() {
-    pyo3::prepare_freethreaded_python();
-    Python::with_gil(|py| {
+    Python::initialize();
+    Python::attach(|py| {
         let dir = tempdir().unwrap();
         // Create a non-hidden subdirectory to scan
         let sub = dir.path().join("data");
@@ -47,8 +47,8 @@ fn test_scan_files_integration() {
 
 #[test]
 fn test_load_image_batch_integration() {
-    pyo3::prepare_freethreaded_python();
-    Python::with_gil(|py| {
+    Python::initialize();
+    Python::attach(|py| {
         let dir = tempdir().unwrap();
         let p1 = dir.path().join("test.png");
 
@@ -76,8 +76,8 @@ fn test_load_image_batch_integration() {
 #[test]
 fn test_extract_video_thumbnails_integration_failure() {
     // Tests that function runs but returns empty for non-video file (or handles ffmpeg fail)
-    pyo3::prepare_freethreaded_python();
-    Python::with_gil(|py| {
+    Python::initialize();
+    Python::attach(|py| {
         let dir = tempdir().unwrap();
         let p1 = dir.path().join("not_a_video.txt");
         std::fs::write(&p1, "dummy").unwrap();
