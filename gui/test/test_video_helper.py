@@ -79,7 +79,9 @@ class TestVideoScannerWorker:
         mock_cap = MagicMock()
         mock_cap.read.return_value = (True, frame_mock)
         
-        with patch("gui.src.helpers.video.video_scan_worker.cv2") as mock_cv2:
+        with patch("gui.src.helpers.video.video_scan_worker.cv2") as mock_cv2, \
+             patch("gui.src.helpers.video.video_scan_worker.HAS_NATIVE_IMAGING", False):
+            
             mock_cv2.VideoCapture.return_value = mock_cap
             mock_cv2.cvtColor.return_value = frame_mock
             

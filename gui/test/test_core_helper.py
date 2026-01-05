@@ -46,13 +46,15 @@ class TestConversionWorker:
             "output_format": "webp",
             "output_path": "/tmp/output",
             "input_formats": [".jpg"],
-            "delete_original": False
+            "delete_original": False,
+            "files_to_convert": ["/tmp/images/1.jpg", "/tmp/images/2.jpg"]
         }
         
         with patch("os.path.exists", return_value=True), \
-             patch("os.path.isdir", return_value=True):
+             patch("os.path.isdir", return_value=False): # Treat as files
              
-            mock_converter.convert_batch.return_value = ["a", "b"]
+            # worker.run uses convert_single_image for images
+            mock_converter.convert_single_image.return_value = "success"
             
             worker = ConversionWorker(config)
             finished_signals = []
@@ -60,7 +62,8 @@ class TestConversionWorker:
             
             worker.run()
             
-            mock_converter.convert_batch.assert_called_once()
+            # Should be called twice, once for each file
+            assert mock_converter.convert_single_image.call_count == 2
             assert finished_signals[0][0] == 2
 
 # --- DeletionWorker Tests ---
