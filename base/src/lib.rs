@@ -12,14 +12,14 @@ pub fn load_image_batch(
     paths: Vec<String>,
     thumbnail_size: u32,
 ) -> PyResult<Vec<(String, Py<PyBytes>, u32, u32)>> {
-    let results: Vec<(String, Option<(Vec<u8>, u32, u32)>)> = py.allow_threads(|| {
+    let results: Vec<(String, Option<(Vec<u8>, u32, u32)>)> = py.detach(|| {
         paths
             .par_iter()
             .map(|path| {
                 let res =
                     (|| -> Result<(Vec<u8>, u32, u32), Box<dyn std::error::Error + Send + Sync>> {
                         // 1. Load and decode image
-                        let img = ImageReader::open(path)?.decode()?;
+                        let img = ImageReader::open(path)?.with_guessed_format()?.decode()?;
                         let width = img.width();
                         let height = img.height();
 
@@ -45,7 +45,8 @@ pub fn load_image_batch(
                             fr::PixelType::U8x4,
                         )?;
 
-                        let mut dst_image = fr::images::Image::new(new_w, new_h, fr::PixelType::U8x4);
+                        let mut dst_image =
+                            fr::images::Image::new(new_w, new_h, fr::PixelType::U8x4);
 
                         let mut resizer = fr::Resizer::new();
                         resizer.resize(&src_image, &mut dst_image, None)?;
@@ -79,7 +80,7 @@ pub fn scan_files(
     extensions: Vec<String>,
     recursive: bool,
 ) -> PyResult<Vec<String>> {
-    py.allow_threads(|| {
+    py.detach(|| {
         let extensions: Vec<String> = extensions
             .iter()
             .map(|e| e.to_lowercase().replace(".", ""))
@@ -132,7 +133,7 @@ pub fn extract_video_thumbnails_batch(
     paths: Vec<String>,
     thumbnail_size: u32,
 ) -> PyResult<Vec<(String, Py<PyBytes>, u32, u32)>> {
-    let results: Vec<(String, Option<(Vec<u8>, u32, u32)>)> = py.allow_threads(|| {
+    let results: Vec<(String, Option<(Vec<u8>, u32, u32)>)> = py.detach(|| {
         paths
             .par_iter()
             .map(|path| {
@@ -203,8 +204,10 @@ pub fn extract_video_thumbnails_batch(
                                     ));
                                 }
                                 Err(e) => {
-                                    last_err =
-                                        Some(format!("Failed to execute ffmpeg for {}: {}", path, e));
+                                    last_err = Some(format!(
+                                        "Failed to execute ffmpeg for {}: {}",
+                                        path, e
+                                    ));
                                 }
                             }
                         }

@@ -33,8 +33,8 @@ class LoaderSignals(QObject):
 
     # Emits (file_path, loaded_pixmap)
     result = Signal(str, QPixmap)
-    # Emits list of (file_path, loaded_pixmap)
-    batch_result = Signal(list)
+    # Emits list of (file_path, loaded_pixmap), and list of requested_paths
+    batch_result = Signal(list, list)
 
 
 class ImageLoaderWorker(QRunnable):
@@ -124,11 +124,11 @@ class BatchImageLoaderWorker(QRunnable):
                     pix = QPixmap.fromImage(q_img.copy())
                     processed_results.append((path, pix))
             
-            self.signals.batch_result.emit(processed_results)
+            self.signals.batch_result.emit(processed_results, self.paths)
 
         except Exception as e:
             print(f"BatchImageLoaderWorker error: {e}")
-            self.signals.batch_result.emit([])
+            self.signals.batch_result.emit([], self.paths)
 
     def _run_fallback(self):
         """Fallback: load one by one using QPixmap (slow but safe)"""
@@ -146,4 +146,4 @@ class BatchImageLoaderWorker(QRunnable):
                     results.append((path, QPixmap()))
             except Exception:
                 results.append((path, QPixmap()))
-        self.signals.batch_result.emit(results)
+        self.signals.batch_result.emit(results, self.paths)

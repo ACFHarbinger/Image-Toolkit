@@ -8,8 +8,8 @@ use tempfile::tempdir;
 
 #[test]
 fn test_full_workflow_integration() {
-    pyo3::prepare_freethreaded_python();
-    Python::with_gil(|py| {
+    Python::initialize();
+    Python::attach(|py| {
         let dir = tempdir().unwrap();
         let dir_path = dir.path().to_str().unwrap().to_string();
 

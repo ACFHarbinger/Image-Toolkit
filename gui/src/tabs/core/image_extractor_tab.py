@@ -699,12 +699,28 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                         )
 
                         self.media_player.setPosition(new_pos)
-
-                        # Display the time briefly in the console or UI (optional, but good for feedback)
-                        # self.lbl_current_time.setText(self._format_time(new_pos))
-
                         return True
-                # --------------------------------
+                
+                # --- NEW: Arrow Keys for Video Seeking (When video has focus) ---
+                if event.type() == QEvent.Type.KeyPress:
+                    if event.key() == Qt.Key.Key_Right:
+                        # Seek forward 2 seconds
+                        pos = self.media_player.position()
+                        duration = self.media_player.duration()
+                        new_pos = min(pos + 100, duration)
+                        self.media_player.setPosition(new_pos)
+                        return True
+                    elif event.key() == Qt.Key.Key_Left:
+                        # Seek backward 2 seconds
+                        pos = self.media_player.position()
+                        new_pos = max(0, pos - 100)
+                        self.media_player.setPosition(new_pos)
+                        return True
+                    elif event.key() == Qt.Key.Key_Escape:
+                        if self.player_container.isFullScreen():
+                            self.toggle_fullscreen()
+                            return True
+                # ----------------------------------------------------------------
 
         if obj is self.player_container:
             if event.type() == QEvent.Type.KeyPress:

@@ -89,9 +89,9 @@ class WallpaperManager:
         SMARTER_PLUGIN = "smartervideowallpaper"
         search_paths = [Path.home() / ".local/share/plasma/wallpapers", Path("/usr/share/plasma/wallpapers")]
         for base_path in search_paths:
-            if (base_path / SMARTER_PLUGIN).exists(): return SMARTER_PLUGIN
-        for base_path in search_paths:
             if (base_path / REBORN_PLUGIN).exists(): return REBORN_PLUGIN
+        for base_path in search_paths:
+            if (base_path / SMARTER_PLUGIN).exists(): return SMARTER_PLUGIN
         for base_path in search_paths:
             if (base_path / ZREN_PLUGIN).exists(): return ZREN_PLUGIN
         return REBORN_PLUGIN

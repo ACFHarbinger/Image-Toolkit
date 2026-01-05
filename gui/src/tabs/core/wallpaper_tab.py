@@ -186,6 +186,12 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.path_to_label_map = {}
         self._filtering_event = False
 
+        # --- FIX: Debounce pagination updates to avoid OOM from millions of QActions ---
+        self._pagination_debounce_timer = QTimer()
+        self._pagination_debounce_timer.setSingleShot(True)
+        self._pagination_debounce_timer.setInterval(200) # 200ms debounce
+        self._pagination_debounce_timer.timeout.connect(self._update_pagination_ui)
+
         self.pagination_widget = self.create_pagination_controls()
 
         content_widget = QWidget()
@@ -1519,7 +1525,8 @@ class WallpaperTab(AbstractClassSingleGallery):
             return
         self.gallery_image_paths.append(path)
         self._initial_pixmap_cache[path] = pixmap
-        self._update_pagination_ui()
+        # self._update_pagination_ui() # REPLACED with debounced call below
+        self._pagination_debounce_timer.start()
 
         total_items = len(self.gallery_image_paths)
         start_index = self.current_page * self.page_size

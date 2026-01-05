@@ -9,7 +9,7 @@ pub fn convert_video(
     output_path: String,
     delete_original: bool,
 ) -> PyResult<bool> {
-    py.allow_threads(|| {
+    py.detach(|| {
         let status = Command::new("ffmpeg")
             .args(&[
                 "-y", // Overwrite output files

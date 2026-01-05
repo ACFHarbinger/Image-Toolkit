@@ -33,7 +33,7 @@ pub fn run_board_crawler(
     py: Python<'_>,
     crawler_name: String,
     config_json: String,
-    callback_obj: PyObject,
+    callback_obj: Py<PyAny>,
 ) -> PyResult<u32> {
     let config_val: Value = serde_json::from_str(&config_json).map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid JSON: {}", e))
@@ -72,7 +72,7 @@ pub fn run_sync(
     py: Python<'_>,
     provider_name: String,
     config_json: String,
-    callback_obj: PyObject,
+    callback_obj: Py<PyAny>,
 ) -> PyResult<String> {
     let config_val: Value = serde_json::from_str(&config_json).map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid JSON: {}", e))

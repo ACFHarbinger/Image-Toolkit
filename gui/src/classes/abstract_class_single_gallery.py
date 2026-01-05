@@ -199,6 +199,14 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         )
         self.current_page = corrected_page
 
+        # --- FIX: Prevent memory leak by deleting the old menu and its actions ---
+        old_menu = self.page_button.menu()
+        if old_menu:
+            # Clear actions explicitly although deleteLater should handle it,
+            # this is safer in some Qt versions to ensure immediate release of child objects.
+            old_menu.clear()
+            old_menu.deleteLater()
+
         # Update Menu
         menu = QMenu(self)
         for i in range(total_pages):
@@ -206,6 +214,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
             action = QAction(f"Page {page_num}", self)
             action.setCheckable(True)
             action.setChecked(i == self.current_page)
+            # Use a slightly safer way to connect signals to avoid capturing by reference issues
             action.triggered.connect(lambda checked=False, p=i: self._jump_to_page(p))
             menu.addAction(action)
         self.page_button.setMenu(menu)
@@ -286,8 +295,12 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
             self.process_executor.shutdown(wait=False, cancel_futures=True)
         super().closeEvent(event)
 
-    @Slot(list)
-    def _on_batch_images_loaded(self, results: List[tuple]):
+    @Slot(list, list)
+    def _on_batch_images_loaded(self, results: List[tuple], requested_paths: List[str]):
+        # 'results' contains (path, pixmap) for SUCCEEDED loads
+        # 'requested_paths' contains ALL paths that were attempted
+
+        # 1. Update Successful Loads
         for path, pixmap in results:
             if path in self._loading_paths:
                 self._loading_paths.remove(path)
@@ -298,6 +311,20 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
             widget = self.path_to_card_widget.get(path)
             if widget:
                 self.update_card_pixmap(widget, pixmap)
+
+        # 2. Cleanup Failures (Paths requested but not in results)
+        processed_paths = set(p for p, _ in results)
+        for path in requested_paths:
+            # If path was requested but not returned in results, it failed.
+            if path not in processed_paths:
+                if path in self._loading_paths:
+                    self._loading_paths.remove(path)
+                
+                # Update widget to show failure state
+                widget = self.path_to_card_widget.get(path)
+                if widget:
+                     # Passing None/Null pixmap triggers "Load Failed" style in update_card_pixmap
+                    self.update_card_pixmap(widget, QPixmap())
 
     def start_loading_gallery(
         self,

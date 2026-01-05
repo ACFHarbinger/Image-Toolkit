@@ -113,8 +113,8 @@ impl MockCallback {
 
 #[test]
 fn test_sync_runner_upload() {
-    pyo3::prepare_freethreaded_python();
-    Python::with_gil(|py| {
+    Python::initialize();
+    Python::attach(|py| {
         let temp = tempdir().unwrap();
         let local_dir = temp.path().join("local");
         std::fs::create_dir(&local_dir).unwrap();
@@ -157,8 +157,8 @@ fn test_sync_runner_upload() {
 
 #[test]
 fn test_sync_runner_download() {
-    pyo3::prepare_freethreaded_python();
-    Python::with_gil(|py| {
+    Python::initialize();
+    Python::attach(|py| {
         let temp = tempdir().unwrap();
         let local_dir = temp.path().join("local");
         std::fs::create_dir(&local_dir).unwrap();
@@ -242,8 +242,8 @@ async fn test_file_loader_wait() {
 
 #[test]
 fn test_board_crawler_run() {
-    pyo3::prepare_freethreaded_python();
-    Python::with_gil(|py| {
+    Python::initialize();
+    Python::attach(|py| {
         let mut server = Server::new();
         let _m1 = server
             .mock("GET", "/posts")

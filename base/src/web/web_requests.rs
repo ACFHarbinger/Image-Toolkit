@@ -11,7 +11,7 @@ use std::time::Duration;
 pub fn run_web_requests_sequence(
     py: Python<'_>,
     config: String,
-    callback_obj: PyObject,
+    callback_obj: Py<PyAny>,
 ) -> PyResult<String> {
     let config_val: Value = serde_json::from_str(&config).map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid JSON: {}", e))
@@ -149,12 +149,12 @@ pub fn run_web_requests_sequence(
     Ok("All requests finished.".to_string())
 }
 
-fn emit_status(py: Python<'_>, obj: &PyObject, msg: &str) -> PyResult<()> {
+fn emit_status(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     obj.call_method1(py, "on_status_emitted", (msg,))?;
     Ok(())
 }
 
-fn emit_error(py: Python<'_>, obj: &PyObject, msg: &str) -> PyResult<()> {
+fn emit_error(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     obj.call_method1(py, "on_error_emitted", (msg,))?;
     Ok(())
 }
@@ -174,7 +174,7 @@ fn parse_post_data(param_str: &str) -> HashMap<String, String> {
 
 fn run_actions(
     py: Python<'_>,
-    callback_obj: &PyObject,
+    callback_obj: &Py<PyAny>,
     response: Response,
     actions: &Vec<Value>,
 ) -> Result<()> {

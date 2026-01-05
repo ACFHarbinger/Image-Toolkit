@@ -25,7 +25,7 @@ impl ReverseImageSearchRust {
         &self,
         py: Python<'_>,
         config_json: String,
-        callback_obj: PyObject,
+        callback_obj: Py<PyAny>,
     ) -> PyResult<String> {
         let config: Value = serde_json::from_str(&config_json).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid JSON: {}", e))
@@ -51,7 +51,7 @@ impl ReverseImageSearchRust {
         &self,
         py: Python<'_>,
         config: Value,
-        callback_obj: PyObject,
+        callback_obj: Py<PyAny>,
     ) -> Result<String> {
         let headless = config
             .get("headless")
@@ -72,10 +72,10 @@ impl ReverseImageSearchRust {
 
         let mut caps = DesiredCapabilities::chrome();
         if headless {
-            caps.add_chrome_arg("--headless")?;
+            caps.add_arg("--headless")?;
         }
-        caps.add_chrome_arg("--no-sandbox")?;
-        caps.add_chrome_arg("--disable-dev-shm-usage")?;
+        caps.add_arg("--no-sandbox")?;
+        caps.add_arg("--disable-dev-shm-usage")?;
 
         let driver = WebDriver::new("http://localhost:9515", caps).await?;
 
@@ -217,7 +217,7 @@ impl ReverseImageSearchRust {
     }
 }
 
-fn emit_status(py: Python<'_>, obj: &PyObject, msg: &str) -> PyResult<()> {
+fn emit_status(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     obj.call_method1(py, "on_status_emitted", (msg,))?;
     Ok(())
 }
@@ -226,7 +226,7 @@ fn emit_status(py: Python<'_>, obj: &PyObject, msg: &str) -> PyResult<()> {
 pub fn run_reverse_image_search(
     py: Python<'_>,
     config_json: String,
-    callback_obj: PyObject,
+    callback_obj: Py<PyAny>,
 ) -> PyResult<String> {
     let config: Value = serde_json::from_str(&config_json).map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid JSON: {}", e))
