@@ -336,6 +336,124 @@ class DraggableMonitorContainer(QWidget):
         if self.layout_vbox.count() == 0:
             self._add_new_row()
 
+    @property
+    def rows(self):
+        """
+        Backward compatibility for accessing rows of widgets.
+        Returns a list of lists, where each inner list contains all MonitorDropWidgets 
+        in that visual row (aggregated from all columns).
+        """
+        result = []
+        for i in range(self.layout_vbox.count()):
+            row_widget = self.layout_vbox.itemAt(i).widget()
+            if not row_widget:
+                continue
+                
+            row_monitors = []
+            row_layout = row_widget.layout()
+            if not row_layout:
+                continue
+                
+            for j in range(row_layout.count()):
+                col_widget = row_layout.itemAt(j).widget()
+                if isinstance(col_widget, MonitorColumn):
+                    row_monitors.extend(col_widget.get_widgets())
+            
+            if row_monitors:
+                result.append(row_monitors)
+        return result
+
+    def get_layout_structure(self) -> list:
+        """
+        Returns the current layout as a nested list:
+        [
+            [ # Row 1
+                [MonitorID1, MonitorID2], # Col 1
+                [MonitorID3],             # Col 2
+            ],
+            [ # Row 2
+                ...
+            ]
+        ]
+        """
+        structure = []
+        for i in range(self.layout_vbox.count()):
+            row_widget = self.layout_vbox.itemAt(i).widget()
+            if not row_widget:
+                continue
+            
+            row_structure = []
+            row_layout = row_widget.layout()
+            if not row_layout:
+                continue
+            
+            for j in range(row_layout.count()):
+                col_widget = row_layout.itemAt(j).widget()
+                if isinstance(col_widget, MonitorColumn):
+                    col_monitor_ids = [w.monitor_id for w in col_widget.get_widgets()]
+                    if col_monitor_ids:
+                        row_structure.append(col_monitor_ids)
+            
+            if row_structure:
+                structure.append(row_structure)
+        return structure
+
+    def set_layout_structure(self, structure: list, monitor_widgets_map: dict):
+        """
+        Reconstructs the layout from a structure list.
+        monitor_widgets_map: Dict connecting monitor_id -> MonitorDropWidget
+        """
+        self.clear_widgets()
+        
+        used_monitor_ids = set()
+        
+        for row_data in structure:
+            if not row_data:
+                continue
+                
+            row_widget = self._add_new_row()
+            row_layout = row_widget.layout()
+            
+            for col_data in row_data:
+                if not col_data:
+                    continue
+                
+                new_col = MonitorColumn()
+                has_widgets = False
+                for monitor_id in col_data:
+                    if monitor_id in monitor_widgets_map:
+                        widget = monitor_widgets_map[monitor_id]
+                        new_col.add_monitor(widget)
+                        used_monitor_ids.add(monitor_id)
+                        has_widgets = True
+                
+                if has_widgets:
+                    row_layout.addWidget(new_col)
+                    
+            # If row ended up empty (e.g. monitors disconnected), cleanup?
+            if row_layout.count() == 0:
+                self.layout_vbox.removeWidget(row_widget)
+                row_widget.deleteLater()
+
+        # Handle orphaned monitors (connected but not in config)
+        orphans = []
+        for m_id, widget in monitor_widgets_map.items():
+            if m_id not in used_monitor_ids:
+                orphans.append(widget)
+        
+        if orphans:
+            # Create a new row for orphans at the bottom
+            orphan_row = self._add_new_row()
+            # Spread them out or stack them? Let's spread them as single-item columns
+            for widget in orphans:
+                new_col = MonitorColumn()
+                new_col.add_monitor(widget)
+                orphan_row.layout().addWidget(new_col)
+        
+        self._cleanup()
+
+
+
     def clear_widgets(self):
         # Clear everything
         while self.layout_vbox.count():

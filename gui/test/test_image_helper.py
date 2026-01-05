@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 from PySide6.QtCore import QThreadPool
 from PySide6.QtGui import QPixmap
 
-from gui.src.helpers.image.image_loader_worker import ImageLoaderWorker
+from gui.src.helpers.image.image_loader_worker import ImageLoaderWorker, BatchImageLoaderWorker
 from gui.src.helpers.image.image_scan_worker import ImageScannerWorker
 
 # --- ImageLoaderWorker Tests ---
@@ -84,3 +84,58 @@ class TestImageScannerWorker:
         
         assert len(error_signals) == 1
         assert "No valid directories" in error_signals[0]
+        assert len(error_signals) == 1
+        assert "No valid directories" in error_signals[0]
+
+class TestBatchImageLoaderWorker:
+    def test_run_fallback(self, q_app):
+        # Force fallback by mocking HAS_NATIVE_IMAGING = False
+        with patch("gui.src.helpers.image.image_loader_worker.HAS_NATIVE_IMAGING", False):
+            with patch("gui.src.helpers.image.image_loader_worker.QPixmap") as MockPixmap:
+                mock_inst = MagicMock()
+                MockPixmap.return_value = mock_inst
+                mock_inst.isNull.return_value = False
+                mock_inst.scaled.return_value = MagicMock()
+                
+                paths = ["/tmp/1.jpg", "/tmp/2.jpg"]
+                worker = BatchImageLoaderWorker(paths, 100)
+                
+                results = []
+                # batch_result emits list of (path, pixmap)
+                worker.signals.batch_result.connect(lambda res: results.append(res))
+                
+                worker.run()
+                
+                assert len(results) == 1
+                batch = results[0]
+                assert len(batch) == 2
+                assert batch[0][0] == "/tmp/1.jpg"
+                assert batch[1][0] == "/tmp/2.jpg"
+
+    def test_run_multiprocessing(self, q_app):
+        # Test executor path
+        with patch("gui.src.helpers.image.image_loader_worker.HAS_NATIVE_IMAGING", True):
+             # Mock executor
+             mock_executor = MagicMock()
+             mock_future = MagicMock()
+             mock_executor.submit.return_value = mock_future
+             
+             # Fake return from process_image_batch: (path, buffer, w, h)
+             # Buffer must be bytes
+             mock_future.result.return_value = [("/tmp/mp.jpg", b"fakebytes", 10, 10)]
+             
+             paths = ["/tmp/mp.jpg"]
+             worker = BatchImageLoaderWorker(paths, 100, executor=mock_executor)
+             
+             results = []
+             worker.signals.batch_result.connect(lambda res: results.append(res))
+             
+             with patch("gui.src.helpers.image.image_loader_worker.QImage") as MockQImage:
+                 with patch("gui.src.helpers.image.image_loader_worker.QPixmap") as MockQPixmap:
+                     worker.run()
+                     
+                     mock_executor.submit.assert_called()
+                     assert len(results) == 1
+                     batch = results[0]
+                     assert len(batch) == 1
+                     assert batch[0][0] == "/tmp/mp.jpg"
