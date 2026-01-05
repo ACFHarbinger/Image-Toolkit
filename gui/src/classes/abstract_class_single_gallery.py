@@ -1,6 +1,8 @@
 import os
 import math
 import cv2  # Needed for video processing
+import multiprocessing
+from concurrent.futures import ProcessPoolExecutor
 
 from abc import abstractmethod
 from typing import List, Optional, Dict
@@ -37,8 +39,19 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         self.approx_item_width = self.thumbnail_size + self.padding_width + 20
         self._current_cols = 1
 
-        # --- Threading ---
+        # --- Threading & Multiprocessing ---
         self.thread_pool = QThreadPool.globalInstance()
+        
+        # Initialize ProcessPoolExecutor for Rust-based image loading
+        # Use 'spawn' to ensure safe import of native modules in child processes
+        try:
+            ctx = multiprocessing.get_context('spawn')
+            # Limit workers to avoid OOM
+            max_workers = 4
+            self.process_executor = ProcessPoolExecutor(max_workers=max_workers, mp_context=ctx)
+        except Exception as e:
+            print(f"Failed to initialize ProcessPoolExecutor: {e}")
+            self.process_executor = None
 
         # --- Resize Debouncing ---
         self._resize_timer = QTimer()
@@ -262,9 +275,16 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
     
     def _trigger_batch_load(self, paths: List[str]):
         self._loading_paths.update(paths)
-        worker = BatchImageLoaderWorker(paths, self.thumbnail_size)
+        # Pass the persistent process executor to each worker
+        worker = BatchImageLoaderWorker(paths, self.thumbnail_size, getattr(self, "process_executor", None))
         worker.signals.batch_result.connect(self._on_batch_images_loaded)
         self.thread_pool.start(worker)
+
+    def closeEvent(self, event):
+        """Cleanup processes on close."""
+        if hasattr(self, "process_executor") and self.process_executor:
+            self.process_executor.shutdown(wait=False, cancel_futures=True)
+        super().closeEvent(event)
 
     @Slot(list)
     def _on_batch_images_loaded(self, results: List[tuple]):

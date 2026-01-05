@@ -1635,12 +1635,17 @@ class WallpaperTab(AbstractClassSingleGallery):
 
     def collect(self) -> dict:
         monitor_order = []
+        monitor_layout = []
         if isinstance(self.monitor_layout_container, DraggableMonitorContainer):
+            # Legacy flat order
             # Iterate through rows and columns to preserve visual order (flattened)
             for row in self.monitor_layout_container.rows:
                 for widget in row:
                     if isinstance(widget, MonitorDropWidget):
                         monitor_order.append(widget.monitor_id)
+            
+            # New structured layout
+            monitor_layout = self.monitor_layout_container.get_layout_structure()
 
         return {
             "scan_directory": self.scan_directory_path.text(),
@@ -1652,6 +1657,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             "background_type": self.background_type,
             "solid_color_hex": self.solid_color_hex,
             "monitor_order": monitor_order,
+            "monitor_layout": monitor_layout,
         }
 
     def get_default_config(self) -> Dict[str, Any]:
@@ -1668,6 +1674,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             "background_type": "Image",
             "solid_color_hex": "#000000",
             "monitor_order": [],
+            "monitor_layout": [],
         }
 
     def set_config(self, config: Dict[str, Any]):
@@ -1704,8 +1711,16 @@ class WallpaperTab(AbstractClassSingleGallery):
                 self.background_type_combo.setCurrentText(
                     config.get("background_type", "Image")
                 )
+            
+            layout_restored = False
+            if "monitor_layout" in config and config["monitor_layout"]:
+                if isinstance(self.monitor_layout_container, DraggableMonitorContainer):
+                    self.monitor_layout_container.set_layout_structure(
+                        config["monitor_layout"], self.monitor_widgets
+                    )
+                    layout_restored = True
 
-            if "monitor_order" in config and config["monitor_order"]:
+            if not layout_restored and "monitor_order" in config and config["monitor_order"]:
                 target_order = config["monitor_order"]
                 present_monitor_ids = set(self.monitor_widgets.keys())
                 valid_order = [
