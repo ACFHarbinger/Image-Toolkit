@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QProgressBar,
 )
-from PySide6.QtGui import QPixmap, QResizeEvent, QAction
+from PySide6.QtGui import QPixmap, QResizeEvent, QAction, QImage
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtCore import Qt, QUrl, Slot, QThreadPool, QPoint, QEvent
@@ -61,6 +61,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         # Cache for generated thumbnails (video frames)
         self._initial_pixmap_cache: Dict[str, QPixmap] = {}
+        
+        # Map to track source widgets for alphabetical updates
+        self.source_path_to_widget: Dict[str, QWidget] = {}
 
         # Defined resolutions corresponding to the Combo Box items
         self.available_resolutions = [
@@ -185,7 +188,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
         self.video_view.setVisible(True)
+        
+        # Install event filters on the view AND its viewport for robust wheel capture
         self.video_view.installEventFilter(self)
+        self.video_view.viewport().installEventFilter(self)
 
         self.player_inner_layout.addWidget(
             self.video_view, 1, Qt.AlignmentFlag.AlignCenter
@@ -524,26 +530,40 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         self.line_edit_dir.setText(path)
 
+        # Clear grid and path tracking
         while self.source_grid.count():
             item = self.source_grid.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+        self.source_path_to_widget.clear()
 
+        # 1. Alphabetical Directory Read (Quickly get names for placeholders)
+        try:
+            entries = sorted(os.scandir(path), key=lambda e: e.name.lower())
+            video_paths = [
+                e.path
+                for e in entries
+                if e.is_file() and Path(e.path).suffix.lower() in SUPPORTED_VIDEO_FORMATS
+            ]
+        except Exception:
+            video_paths = []
+
+        # 2. Pre-populate grid with "Loading..." items in alphabetical order
+        for i, v_path in enumerate(video_paths):
+            widget = self._create_source_placeholder_widget(v_path)
+            self.source_path_to_widget[v_path] = widget
+            row = i // 12
+            col = i % 12
+            self.source_grid.addWidget(widget, row, col)
+
+        # 3. Start the intensive thumbnailing worker
         worker = VideoScannerWorker(path)
         worker.signals.thumbnail_ready.connect(self.add_source_thumbnail)
         worker.signals.finished.connect(lambda: self.scan_progress_complete())
         QThreadPool.globalInstance().start(worker)
 
-    def scan_progress_complete(self):
-        pass
-
-    @Slot(str, QPixmap)
-    def add_source_thumbnail(self, path: str, pixmap: QPixmap):
-        if pixmap.isNull() and path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
-            thumb = self._generate_video_thumbnail(path)
-            if thumb:
-                pixmap = thumb
-
+    def _create_source_placeholder_widget(self, path: str) -> QWidget:
+        """Creates a placeholder widget with 'Loading...' state for the source gallery."""
         thumb_size = 120
         container = QWidget()
         container.setStyleSheet("background: transparent;")
@@ -552,7 +572,59 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         clickable_label = ClickableLabel(file_path=path)
         clickable_label.setFixedSize(thumb_size, thumb_size)
+        clickable_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        clickable_label.setText("Loading...")
+        clickable_label.setStyleSheet("border: 1px dashed #666; color: #888; font-size: 10px;")
 
+        clickable_label.path_clicked.connect(self.load_media)
+        clickable_label.path_right_clicked.connect(self.show_source_context_menu)
+
+        layout.addWidget(clickable_label)
+
+        # File Name Label (Alphabetical position preserved here)
+        file_name = Path(path).name
+        name_label = QLabel(file_name)
+        name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        name_label.setFixedWidth(thumb_size)
+        fm = name_label.fontMetrics()
+        elided_text = fm.elidedText(file_name, Qt.TextElideMode.ElideMiddle, thumb_size - 8)
+        name_label.setText(elided_text)
+        name_label.setToolTip(file_name)
+        name_label.setStyleSheet("color: #bbb; font-size: 10px; border: none; padding-top: 2px;")
+        
+        layout.addWidget(name_label)
+        return container
+
+    def scan_progress_complete(self):
+        pass
+
+    @Slot(str, object)
+    def add_source_thumbnail(self, path: str, image_or_pixmap: Any):
+        """Updates an existing alphabetical placeholder with the actual generated thumbnail."""
+        # 1. Resolve to Pixmap
+        if isinstance(image_or_pixmap, QPixmap):
+            pixmap = image_or_pixmap
+        elif isinstance(image_or_pixmap, QImage):
+            pixmap = QPixmap.fromImage(image_or_pixmap)
+        else:
+            pixmap = QPixmap()
+
+        if pixmap.isNull() and path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+            if hasattr(self, "_generate_video_thumbnail"):
+                thumb = self._generate_video_thumbnail(path)
+                if thumb:
+                    pixmap = thumb
+
+        # 2. Find and update the existing widget
+        container = self.source_path_to_widget.get(path)
+        if not container:
+            return
+
+        clickable_label = container.findChild(ClickableLabel)
+        if not clickable_label:
+            return
+
+        thumb_size = 120
         if not pixmap.isNull():
             scaled = pixmap.scaled(
                 thumb_size,
@@ -563,25 +635,14 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             diff_x = (scaled.width() - thumb_size) // 2
             diff_y = (scaled.height() - thumb_size) // 2
             cropped = scaled.copy(diff_x, diff_y, thumb_size, thumb_size)
+            
             clickable_label.setPixmap(cropped)
+            clickable_label.setText("") # Remove "Loading..." text
+            clickable_label.setStyleSheet("border: 2px solid #4f545c; border-radius: 4px;")
         else:
+            # Fallback if processing totally fails
             clickable_label.setText("No Preview")
             clickable_label.setStyleSheet("border: 1px dashed #666; color: #888;")
-
-        if not pixmap.isNull():
-            clickable_label.setStyleSheet(
-                "border: 2px solid #4f545c; border-radius: 4px;"
-            )
-
-        clickable_label.path_clicked.connect(self.load_media)
-        clickable_label.path_right_clicked.connect(self.show_source_context_menu)
-
-        layout.addWidget(clickable_label)
-
-        count = self.source_grid.count()
-        row = count // 12
-        col = count % 12
-        self.source_grid.addWidget(container, row, col)
 
     @Slot(QPoint, str)
     def show_source_context_menu(self, global_pos: QPoint, path: str):
@@ -595,19 +656,17 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def load_media(self, file_path: str):
         self.video_path = file_path
         ext = Path(file_path).suffix.lower()
-        for i in range(self.source_grid.count()):
-            container = self.source_grid.itemAt(i).widget()
-            if container:
-                label = container.findChild(ClickableLabel)
-                if label:
-                    if label.path == file_path:
-                        label.setStyleSheet(
-                            "border: 3px solid #3498db; border-radius: 4px;"
-                        )
-                    else:
-                        label.setStyleSheet(
-                            "border: 2px solid #4f545c; border-radius: 4px;"
-                        )
+        for path, widget in self.source_path_to_widget.items():
+            label = widget.findChild(ClickableLabel)
+            if label:
+                if path == file_path:
+                    label.setStyleSheet(
+                        "border: 3px solid #3498db; border-radius: 4px;"
+                    )
+                else:
+                    label.setStyleSheet(
+                        "border: 2px solid #4f545c; border-radius: 4px;"
+                    )
 
         if ext == ".gif":
             self.video_container_widget.setVisible(False)
@@ -669,6 +728,28 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     # --- Event Filters & Resizing ---
     def eventFilter(self, obj: QWidget, event: QEvent) -> bool:
+        # MANDATORY: Intercept mouse wheel events over any player-related object
+        # This performs seeking AND locks the page position by consuming the event.
+        if event.type() == QEvent.Type.Wheel:
+            is_view = (obj is self.video_view)
+            is_viewport = (hasattr(self.video_view, 'viewport') and obj is self.video_view.viewport())
+            is_container = (obj is self.player_container)
+            
+            if is_view or is_viewport or is_container:
+                # Only perform seek logic if the video is loaded and we are in internal player mode
+                if self.use_internal_player and self.media_player.duration() > 0:
+                    delta = event.angleDelta().y()
+                    # Jump by 100ms per scroll tick
+                    step = 100 if delta > 0 else -100
+                    current_pos = self.media_player.position()
+                    new_pos = max(0, min(current_pos + step, self.media_player.duration()))
+                    self.media_player.setPosition(new_pos)
+                
+                # ALWAYS accept the event and return True.
+                # This explicitly blocks the parent QScrollArea from shifting the player's alignment.
+                event.accept()
+                return True
+
         if obj is self.video_view:
             if self.use_internal_player:
                 # toggle play on click
@@ -683,25 +764,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 if event.type() == QEvent.Type.MouseButtonDblClick:
                     self.toggle_fullscreen()
                     return True
-
-                # --- NEW: Seek on Mouse Wheel ---
-                if event.type() == QEvent.Type.Wheel:
-                    if self.media_player.duration() > 0:
-                        delta = event.angleDelta().y()
-                        # Determine direction: positive is forward, negative is backward
-                        # Seek 10 microsecond (10ms) per scroll tick (usually 120 delta)
-                        step = 10 if delta > 0 else -10
-
-                        # Calculate new position ensuring it stays within bounds
-                        current_pos = self.media_player.position()
-                        new_pos = max(
-                            0, min(current_pos + step, self.media_player.duration())
-                        )
-
-                        self.media_player.setPosition(new_pos)
-                        return True
                 
-                # --- NEW: Arrow Keys for Video Seeking (When video has focus) ---
+                # --- Arrow Keys for Video Seeking (When video has focus) ---
                 if event.type() == QEvent.Type.KeyPress:
                     if event.key() == Qt.Key.Key_Right:
                         # Seek forward 2 seconds
@@ -720,7 +784,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                         if self.player_container.isFullScreen():
                             self.toggle_fullscreen()
                             return True
-                # ----------------------------------------------------------------
 
         if obj is self.player_container:
             if event.type() == QEvent.Type.KeyPress:
@@ -794,7 +857,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation,
             )
-            clickable_label.setPixmap(scaled)
+            clickable_label.setPixmap(QPixmap.fromImage(scaled))
             clickable_label.setText("")
 
             if is_video:
@@ -836,7 +899,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                     Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation,
                 )
-                clickable_label.setPixmap(scaled)
+                clickable_label.setPixmap(QPixmap.fromImage(scaled))
                 clickable_label.setText("")
 
                 if is_video:
