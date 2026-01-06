@@ -8,7 +8,7 @@ ApplicationWindow {
     id: window
     width: 800
     height: 500
-    visible: true
+    visible: false
     title: "System Logs"
     color: Style.background
 
@@ -27,8 +27,16 @@ ApplicationWindow {
                 background: Rectangle { color: Style.secondaryBackground; border.color: Style.border; radius: 4 }
                 color: Style.text
             }
-            AppButton { text: "Clear"; Layout.preferredWidth: 80 }
-            AppButton { text: "Save to File"; Layout.preferredWidth: 120 }
+            AppButton {
+                text: "Clear"
+                Layout.preferredWidth: 80
+                onClicked: backend.clear_log()
+            }
+            AppButton {
+                text: "Save to File"
+                Layout.preferredWidth: 120
+                onClicked: backend.save_logs_to_file()
+            }
         }
 
         ScrollView {
@@ -43,10 +51,9 @@ ApplicationWindow {
                 font.family: "Monospace"
                 font.pixelSize: 13
                 color: Style.text
-                text: "[INFO] Application started.\n[DEBUG] Initializing QML engine...\n[INFO] Connected to PostgreSQL.\n[WARNING] Drive Sync: Offline.\n[INFO] Loading tabs...\n[INFO] UI Ready."
+                text: backend.logText
                 wrapMode: TextEdit.WrapAnywhere
             }
         }
     }
 }
-

@@ -4,7 +4,7 @@ import psycopg2
 
 from pathlib import Path
 from typing import Optional
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Slot, Property, Signal, QObject
 from PySide6.QtWidgets import (
     QMessageBox,
     QComboBox,
@@ -34,6 +34,8 @@ from ...styles.style import apply_shadow_effect
 
 
 class DatabaseTab(QWidget):
+    stats_changed = Signal(str)
+
     """
     Manages PostgreSQL connection, statistics display, and tag/group population.
     """
@@ -41,6 +43,7 @@ class DatabaseTab(QWidget):
     def __init__(self, env_path="env/vars.env"):
         super().__init__()
         self.db: Optional[ImageDatabase] = None
+        self._stats_text = "Not connected to database"
 
         # --- Tab References ---
         # These are assigned by MainWindow after all tabs are initialized
@@ -634,19 +637,28 @@ class DatabaseTab(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to reset database:\n{str(e)}")
 
+    @Property(str, notify=stats_changed)
+    def statsText(self):
+        return self._stats_text
+
+    @Slot()
+    def connect_database_default(self):
+        """Helper for QML to connect using env vars"""
+        self.connect_database()
+
     def update_statistics(self):
         if not self.db:
             return
         try:
             stats = self.db.get_statistics()
-            stats_text = (
-                f"📊 Database Statistics:\n"
+            self._stats_text = (
                 f"Images: {stats.get('total_images', 0)} | "
                 f"Tags: {stats.get('total_tags', 0)} | "
                 f"Groups: {stats.get('total_groups', 0)} | "
                 f"Subgroups: {stats.get('total_subgroups', 0)}"
             )
-            self.stats_label.setText(stats_text)
+            self.stats_changed.emit(self._stats_text)
+            self.stats_label.setText(f"📊 Database Statistics:\n{self._stats_text}")
             self.stats_label.setStyleSheet(
                 "padding: 10px; background-color: #27ae60; color: white; border-radius: 5px; font-weight: bold;"
             )

@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
     QSpinBox,
 )
 from PySide6.QtGui import QPixmap, QAction
-from PySide6.QtCore import Qt, Slot, QPoint
+from PySide6.QtCore import Qt, Slot, QPoint, QObject, Property, Signal
 from ...helpers import ConversionWorker
 from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassTwoGalleries
@@ -31,11 +31,36 @@ from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO
 
 
 class ConvertTab(AbstractClassTwoGalleries):
+    input_path_changed = Signal(str)
+    output_path_changed = Signal(str)
+
     def __init__(self, dropdown=True):
         super().__init__()
         self.dropdown = dropdown
+        self._input_path_text = ""
+        self._output_path_text = ""
         self.worker = None
         self.open_preview_windows: List[ImagePreviewWindow] = []
+
+    @Property(str, notify=input_path_changed)
+    def input_path_text(self):
+        return self._input_path_text
+
+    @input_path_text.setter
+    def input_path_text(self, value):
+        if self._input_path_text != value:
+            self._input_path_text = value
+            self.input_path_changed.emit(value)
+
+    @Property(str, notify=output_path_changed)
+    def output_path_text(self):
+        return self._output_path_text
+
+    @output_path_text.setter
+    def output_path_text(self, value):
+        if self._output_path_text != value:
+            self._output_path_text = value
+            self.output_path_changed.emit(value)
 
         # --- UI Setup ---
         main_layout = QVBoxLayout(self)
@@ -597,11 +622,12 @@ class ConvertTab(AbstractClassTwoGalleries):
 
     @Slot()
     def browse_directory_and_scan(self):
+        from PySide6.QtWidgets import QFileDialog
         directory = QFileDialog.getExistingDirectory(
-            self, "Select input directory", self.last_browsed_dir
+            None, "Select input directory", self.last_browsed_dir
         )
         if directory:
-            self.input_path.setText(directory)
+            self.input_path_text = directory
             self.last_browsed_dir = directory
             self.scan_directory_visual()
 
@@ -611,10 +637,10 @@ class ConvertTab(AbstractClassTwoGalleries):
             self, "Select output directory", ""
         )
         if directory:
-            self.output_path.setText(directory)
+            self.output_path_text = directory
 
     def collect_paths(self) -> list[str]:
-        p = self.input_path.text().strip()
+        p = self.input_path_text.strip()
         if not p or not os.path.isdir(p):
             return []
 

@@ -6,115 +6,53 @@ import ".."
 
 ApplicationWindow {
     id: window
-    width: 450
-    height: 600
+    width: 400
+    height: 500
     visible: true
-    title: "Image Toolkit - Login"
+    title: "Login"
     color: Style.background
 
     ColumnLayout {
         anchors.centerIn: parent
-        width: parent.width * 0.85
-        spacing: 25
+        width: parent.width * 0.8
+        spacing: 20
 
-        // Header
-        ColumnLayout {
+        Text {
+            text: "Authentication"
+            color: Style.accent
+            font.pixelSize: 28
+            font.bold: true
             Layout.alignment: Qt.AlignHCenter
-            spacing: 5
-            Text {
-                text: "IMAGE TOOLKIT"
-                font.pixelSize: 28
-                font.bold: true
-                color: Style.accent
-                Layout.alignment: Qt.AlignHCenter
-            }
-            Text {
-                text: isLoginMode ? "Welcome Back" : "Create Account"
-                font.pixelSize: 16
-                color: Style.text
-                opacity: 0.7
-                Layout.alignment: Qt.AlignHCenter
-            }
         }
 
-        // Form
-        ColumnLayout {
+        TextField {
+            id: usernameField
+            placeholderText: "Username"
             Layout.fillWidth: true
-            spacing: 15
-
-            TextField {
-                id: usernameField
-                placeholderText: "Username"
-                Layout.fillWidth: true
-                background: Rectangle { color: Style.secondaryBackground; border.color: Style.border; radius: 8 }
-                color: Style.text
-                padding: 12
-            }
-
-            TextField {
-                id: passwordField
-                placeholderText: "Password"
-                echoMode: TextInput.Password
-                Layout.fillWidth: true
-                background: Rectangle { color: Style.secondaryBackground; border.color: Style.border; radius: 8 }
-                color: Style.text
-                padding: 12
-            }
-
-            TextField {
-                id: confirmPasswordField
-                placeholderText: "Confirm Password"
-                echoMode: TextInput.Password
-                visible: !isLoginMode
-                Layout.fillWidth: true
-                background: Rectangle { color: Style.secondaryBackground; border.color: Style.border; radius: 8 }
-                color: Style.text
-                padding: 12
-            }
         }
 
-        // Actions
-        ColumnLayout {
+        TextField {
+            id: passwordField
+            placeholderText: "Password"
+            echoMode: TextInput.Password
             Layout.fillWidth: true
-            spacing: 15
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
+            
+            AppButton {
+                text: "Create Account"
+                Layout.fillWidth: true
+                onClicked: backend.create_account(usernameField.text, passwordField.text)
+            }
 
             AppButton {
-                text: isLoginMode ? "Login" : "Register"
+                text: "Login"
                 Layout.fillWidth: true
-                Layout.preferredHeight: 50
-                background: Rectangle {
-                    color: Style.accent
-                    radius: 8
-                }
+                onClicked: backend.attempt_login(usernameField.text, passwordField.text)
             }
-
-            Text {
-                text: isLoginMode ? "Don't have an account? <b>Sign Up</b>" : "Already have an account? <b>Login</b>"
-                color: Style.text
-                Layout.alignment: Qt.AlignHCenter
-                font.pixelSize: 14
-                
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: isLoginMode = !isLoginMode
-                }
-            }
-        }
-    }
-
-    property bool isLoginMode: true
-
-    footer: RowLayout {
-        width: parent.width
-        height: 40
-        anchors.margins: 10
-        Item { Layout.fillWidth: true }
-        Text {
-            text: "v1.2.0"
-            color: Style.text
-            opacity: 0.4
-            font.pixelSize: 12
         }
     }
 }

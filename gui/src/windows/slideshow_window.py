@@ -1,6 +1,8 @@
+import os
 from typing import List, Dict, Optional
 from PySide6.QtGui import QPixmap, QIcon
-from PySide6.QtCore import Qt, Slot, QPoint, Signal
+from PySide6.QtCore import Qt, Slot, QPoint, Signal, QObject, Property, QUrl
+from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtWidgets import (
     QWidget,
     QLabel,
@@ -180,3 +182,83 @@ class SlideshowQueueWindow(QWidget):
             )
 
         self.queue_reordered.emit(self.monitor_id, new_queue)
+
+
+class SlideshowWindow(QObject):
+    """
+    A logic provider for the fullscreen Slideshow QML window.
+    """
+    image_changed = Signal()
+    state_changed = Signal()
+    interval_changed = Signal()
+
+    def __init__(self, image_paths: List[str], interval: int = 5000, start_index: int = 0, parent=None):
+        super().__init__(parent)
+        self.image_paths = image_paths if image_paths else []
+        self.current_index = start_index if 0 <= start_index < len(self.image_paths) else 0
+        self._interval = interval
+        self._is_playing = True
+        
+        # QML Setup
+        self.engine = QQmlApplicationEngine()
+        self.engine.rootContext().setContextProperty("backend", self)
+        
+        qml_path = os.path.join(os.path.dirname(__file__), "..", "..", "qml", "windows", "SlideshowWindow.qml")
+        self.engine.load(QUrl.fromLocalFile(os.path.abspath(qml_path)))
+        
+        if not self.engine.rootObjects():
+            print("Error: Could not load SlideshowWindow.qml")
+            return
+            
+        self.root = self.engine.rootObjects()[0]
+
+    def show(self):
+        if hasattr(self, 'root'):
+            self.root.showFullScreen()
+
+    def close(self):
+        if hasattr(self, 'root'):
+            self.root.close()
+
+    # --- Properties ---
+
+    @Property(str, notify=image_changed)
+    def currentImagePath(self):
+        if not self.image_paths: return ""
+        if 0 <= self.current_index < len(self.image_paths):
+            return self.image_paths[self.current_index]
+        return ""
+
+    @Property(bool, notify=state_changed)
+    def isPlaying(self):
+        return self._is_playing
+
+    @Property(int, notify=interval_changed)
+    def interval(self):
+        return self._interval
+
+    # --- Slots ---
+
+    @Slot()
+    def next(self):
+        if not self.image_paths: return
+        self.current_index = (self.current_index + 1) % len(self.image_paths)
+        self.image_changed.emit()
+
+    @Slot()
+    def previous(self):
+        if not self.image_paths: return
+        self.current_index = (self.current_index - 1) % len(self.image_paths)
+        self.image_changed.emit()
+    
+    @Slot(bool)
+    def setPlaying(self, playing):
+        if self._is_playing != playing:
+            self._is_playing = playing
+            self.state_changed.emit()
+
+    @Slot(int)
+    def setInterval(self, interval_ms):
+        if self._interval != interval_ms:
+            self._interval = interval_ms
+            self.interval_changed.emit()
