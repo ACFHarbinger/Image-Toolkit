@@ -1519,10 +1519,12 @@ class WallpaperTab(AbstractClassSingleGallery):
     def _on_video_scan_finished(self):
         pass
 
-    @Slot(str, QPixmap)
-    def _add_video_thumbnail_manual(self, path: str, pixmap: QPixmap):
+    @Slot(str, QImage)
+    def _add_video_thumbnail_manual(self, path: str, q_image: QImage):
         if path in self.gallery_image_paths:
             return
+        
+        pixmap = QPixmap.fromImage(q_image)
         self.gallery_image_paths.append(path)
         self._initial_pixmap_cache[path] = pixmap
         # self._update_pagination_ui() # REPLACED with debounced call below

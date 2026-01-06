@@ -135,7 +135,7 @@ pub fn extract_video_thumbnails_batch(
 ) -> PyResult<Vec<(String, Py<PyBytes>, u32, u32)>> {
     let results: Vec<(String, Option<(Vec<u8>, u32, u32)>)> = py.detach(|| {
         paths
-            .par_iter()
+            .iter()
             .map(|path| {
                 let res =
                     (|| -> Result<(Vec<u8>, u32, u32), Box<dyn std::error::Error + Send + Sync>> {

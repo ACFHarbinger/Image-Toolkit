@@ -18,7 +18,7 @@ except ImportError:
 
 
 class VideoScanSignals(QObject):
-    thumbnail_ready = Signal(str, QPixmap)  # path, pixmap
+    thumbnail_ready = Signal(str, QImage)  # path, QImage
     finished = Signal()
 
 
@@ -49,8 +49,10 @@ def extract_thumbnail_process(path):
         if frame is not None:
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             h, w, ch = frame_rgb.shape
-            # We return raw bytes.
-            return (path, frame_rgb.tobytes(), w, h, ch * w)
+            bytes_per_line = ch * w
+            q_img = QImage(frame_rgb.data, w, h, bytes_per_line, QImage.Format_RGB888)
+            # Return QImage (copied to own buffer)
+            return (path, q_img.copy(), w, h, bytes_per_line)
             
     except Exception:
         pass
@@ -179,16 +181,15 @@ class VideoScannerWorker(QRunnable):
                                         r_path, r_buf, r_w, r_h = item
                                         # Use QImage constructor directly with buffer
                                         q_img = QImage(r_buf, r_w, r_h, QImage.Format_RGBA8888)
-                                        # We might still need a copy if the buffer is from Rust and might be freed
-                                        # BUT r_buf is a PyBytes which stay alive as long as q_img keeps a reference
-                                        # To be safe and avoid crashes if the reference is lost, we copy into QPixmap
-                                        self.signals.thumbnail_ready.emit(r_path, QPixmap.fromImage(q_img))
+                                        # Emit QImage, NOT QPixmap (must be done on main thread)
+                                        self.signals.thumbnail_ready.emit(r_path, q_img.copy())
                                         
                             elif res_type == "single":
                                  if result:
-                                    path, data, w, h, bpl = result
-                                    q_img = QImage(data, w, h, bpl, QImage.Format_RGB888)
-                                    self.signals.thumbnail_ready.emit(path, QPixmap.fromImage(q_img))
+                                    path, q_img_ready, w, h, bpl = result
+                                    # path, data, w, h, bpl = result
+                                    # q_img = QImage(data, w, h, bpl, QImage.Format_RGB888)
+                                    self.signals.thumbnail_ready.emit(path, q_img_ready)
                         except Exception:
                             pass
                         
@@ -210,12 +211,10 @@ class VideoScannerWorker(QRunnable):
             self.signals.finished.emit()
 
     def _generate_thumbnail_opencv(self, path):
-         # Kept for compatibility if called directly or strictly needed, but run() uses ProcessPool
-         # Re-implementing essentially what extract_thumbnail_process does but returning QPixmap
+         # Returns QImage now (main thread handles pixmap)
          res = extract_thumbnail_process(path)
          if res:
-             path, data, w, h, bpl = res
-             q_img = QImage(data, w, h, bpl, QImage.Format_RGB888)
-             return QPixmap.fromImage(q_img)
+             path, q_img, w, h, bpl = res
+             return q_img
          return None
 
