@@ -130,8 +130,8 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
                 bytes_per_line = ch * w
 
                 q_img = QImage(frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
-                # Keep a copy to prevent garbage collection issues
-                return QPixmap.fromImage(q_img.copy())
+                # Return a copy of the QImage to ensure ownership of buffer
+                return q_img.copy()
 
         except Exception as e:
             print(f"Error generating video thumbnail for {file_path}: {e}")
@@ -301,11 +301,12 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         # 'requested_paths' contains ALL paths that were attempted
 
         # 1. Update Successful Loads
-        for path, pixmap in results:
+        for path, q_image in results:
             if path in self._loading_paths:
                 self._loading_paths.remove(path)
             
-            if pixmap and not pixmap.isNull():
+            pixmap = QPixmap.fromImage(q_image)
+            if not pixmap.isNull():
                 self._initial_pixmap_cache[path] = pixmap
 
             widget = self.path_to_card_widget.get(path)
@@ -459,12 +460,13 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         worker.signals.result.connect(self._on_single_image_loaded)
         self.thread_pool.start(worker)
 
-    @Slot(str, QPixmap)
-    def _on_single_image_loaded(self, path: str, pixmap: QPixmap):
+    @Slot(str, QImage)
+    def _on_single_image_loaded(self, path: str, q_image: QImage):
         if path in self._loading_paths:
             self._loading_paths.remove(path)
         
-        if pixmap and not pixmap.isNull():
+        pixmap = QPixmap.fromImage(q_image)
+        if not pixmap.isNull():
             self._initial_pixmap_cache[path] = pixmap
 
         widget = self.path_to_card_widget.get(path)

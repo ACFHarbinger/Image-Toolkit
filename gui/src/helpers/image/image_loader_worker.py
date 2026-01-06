@@ -31,9 +31,9 @@ class LoaderSignals(QObject):
     Must be a separate QObject because QRunnable does not inherit QObject.
     """
 
-    # Emits (file_path, loaded_pixmap)
-    result = Signal(str, QPixmap)
-    # Emits list of (file_path, loaded_pixmap), and list of requested_paths
+    # Emits (file_path, loaded_QImage)
+    result = Signal(str, QImage)
+    # Emits list of (file_path, loaded_QImage), and list of requested_paths
     batch_result = Signal(list, list)
 
 
@@ -60,22 +60,21 @@ class ImageLoaderWorker(QRunnable):
                 if results:
                     path, buffer, w, h = results[0]
                     q_img = QImage(buffer, w, h, QImage.Format_RGBA8888)
-                    pix = QPixmap.fromImage(q_img.copy())
-                    self.signals.result.emit(self.path, pix)
+                    self.signals.result.emit(self.path, q_img.copy())
                     return
 
-            pixmap = QPixmap(self.path)
-            if not pixmap.isNull():
-                scaled = pixmap.scaled(
+            # Fallback using QImage instead of QPixmap
+            q_img = QImage(self.path)
+            if not q_img.isNull():
+                scaled = q_img.scaled(
                     self.target_size,
                     self.target_size,
                     Qt.KeepAspectRatio,
                     Qt.SmoothTransformation,
                 )
-                scaled_copy = scaled.copy()
-                self.signals.result.emit(self.path, scaled_copy)
+                self.signals.result.emit(self.path, scaled)
             else:
-                self.signals.result.emit(self.path, QPixmap())
+                self.signals.result.emit(self.path, QImage())
         except Exception:
             self.signals.result.emit(self.path, QPixmap())
 
@@ -112,17 +111,13 @@ class BatchImageLoaderWorker(QRunnable):
                 # 3. In-Thread Path (if no executor provided)
                 raw_results = base.load_image_batch(self.paths, self.target_size)
             
-            # Process raw results into QPixmaps (Must be done in this thread/process, not the child)
+            # Process raw results into QImages (Must be done in this thread/process, not the child)
             processed_results = []
             if raw_results:
                 for path, buffer, w, h in raw_results:
                     # QImage.Format_RGBA8888 is 4 bytes per pixel
                     q_img = QImage(buffer, w, h, QImage.Format_RGBA8888)
-                    # Need to copy because buffer might be GC'd or modified?
-                    # Actually, PyBytes is immutable, allowing QImage to reference it. 
-                    # But QPixmap.fromImage makes a deep copy anyway.
-                    pix = QPixmap.fromImage(q_img.copy())
-                    processed_results.append((path, pix))
+                    processed_results.append((path, q_img.copy()))
             
             self.signals.batch_result.emit(processed_results, self.paths)
 
@@ -131,19 +126,19 @@ class BatchImageLoaderWorker(QRunnable):
             self.signals.batch_result.emit([], self.paths)
 
     def _run_fallback(self):
-        """Fallback: load one by one using QPixmap (slow but safe)"""
+        """Fallback: load one by one using QImage (slow but safe)"""
         results = []
         for path in self.paths:
             try:
-                pix = QPixmap(path)
-                if not pix.isNull():
-                    scaled = pix.scaled(
+                q_img = QImage(path)
+                if not q_img.isNull():
+                    scaled = q_img.scaled(
                         self.target_size, self.target_size,
                         Qt.KeepAspectRatio, Qt.SmoothTransformation
                     )
                     results.append((path, scaled))
                 else:
-                    results.append((path, QPixmap()))
+                    results.append((path, QImage()))
             except Exception:
-                results.append((path, QPixmap()))
+                results.append((path, QImage()))
         self.signals.batch_result.emit(results, self.paths)
