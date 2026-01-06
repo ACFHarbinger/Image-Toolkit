@@ -1,89 +1,105 @@
-# Image Toolkit Agents
-
-This repository is split into three main modules, each with its own set of "Agents" (functional components). You can find a detailed map of the project structure in the `project_map.txt` file.
-
-| Module | Directory | Description |
-| :--- | :--- | :--- |
-| **Base** | [`base/`](base/AGENTS.md) | **Rust Core**. Contains the high-performance implementation of image processing, crawling, and sync logic. |
-| **Backend** | [`backend/`](backend/AGENTS.md) | **Python Orchestrator**. Wraps the Rust core, handles Database (PostgreSQL) interactions, and Machine Learning models. |
-| **GUI** | [`gui/`](gui/AGENTS.md) | **PySide6 Frontend**. The desktop interface that allows users to interact with the toolkit. |
-
-Please refer to the specific `AGENTS.md` file in each directory for detailed architecture and coding standards.
-
----
-
 # AGENTS.md - Instructions for Coding Assistant LLMs
 
 ## 1. Project Overview & Mission
-**Image-Toolkit** is an integrated image database and editing framework that bridges high-performance computer vision (PyTorch, OpenCV) with robust web automation (Selenium) and cross-platform accessibility. 
+**Image-Toolkit** is an integrated image database and editing framework that bridges high-performance computer vision (PyTorch, OpenCV) with robust web automation (Selenium) and cross-platform accessibility.
 The project mission is to provide a unified environment for managing massive image libraries, performing semantic vector searches, and automating stylized content generation.
 
-## 2. Technical Stack & Environmental Governance
-* **Runtime**: Python 3.11+ managed via `uv` (preferred), `conda`, or standard `venv`.
-* **Primary Frameworks**:
-    * **GUI**: PySide6 (Qt for Python) for the desktop interface.
-    * **Database**: PostgreSQL with the `pgvector` extension for semantic and vector similarity search.
-    * **Computer Vision/ML**: PyTorch (AnimeGAN2, Siamese Networks, LoRA) and OpenCV (Structural Similarity, Feature Matching).
-    * **Web Automation**: Selenium WebDriver (supporting Brave, Firefox, Chrome, and Edge).
-    * **Mobile/External**: Kotlin (Android), Swift (iOS), and React (Web/Frontend).
-    * **Core Logic**: Rust (via PyO3/Maturin) modules for high-performance file IO and image processing.
-* **Quality Control**: Compliance with `pytest` for all Python functionality and `cargo test` for Rust components.
+## 2. Technical Stack & Governance
+* **Runtime**: Python 3.11+ (managed via `uv`, `conda`, or `venv`).
+* **Core Logic**: Rust (via PyO3/Maturin) for high-performance IO and processing.
+* **Backend**: Python Orchestrator, PostgreSQL (`pgvector`), PyTorch, OpenCV.
+* **GUI**: PySide6 (Qt for Python).
+* **Frontend/Mobile**: React, Kotlin (Android), Swift (iOS).
+* **Web Automation**: Selenium WebDriver.
 
-## 3. Core Architectural Boundaries
-Maintain strict separation of concerns across these primary modules:
-* **Base Module (`base/src/`)**:
-    *   **`core/`**: High-performance Rust implementations for image resizing, format conversion, and file system scanning.
-    *   **`web/`**: Rust-based implementations of crawlers and cloud sync providers.
-    *   **`utils/`**: Standalone Rust binaries (e.g., `slideshow_daemon`).
-* **Backend Logic (`backend/src/`)**:
-    *   **`core/`**: Python wrappers for Rust functions, plus `image_database.py` (pgvector) and `vault_manager.py` (security).
-    *   **`models/`**: Neural architecture implementations (Python/PyTorch).
-    *   **`web/`**: Python wrappers for Rust crawlers.
-* **GUI Layer (`gui/src/`)**:
-    *   **`tabs/`**: Module-specific UI views (Convert, Search, Database, Model Training/Generation).
-    *   **`helpers/`**: Threaded workers (e.g., `DuplicateScanWorker`, `ConversionWorker`) that ensure non-blocking UI during heavy I/O or ML tasks.
-    *   **`windows/`**: Management for main, login, preview, and log windows.
+## 3. Global Operational Playbook
 
-## 4. Key CLI Entry Points (Operational Playbook)
-Always reference these commands when proposing code changes:
+### Key CLI Entry Points
 | Action | Command |
 | :--- | :--- |
 | **Sync Environment** | `uv sync` |
 | **Launch Desktop App** | `python main.py` |
-| **Single Conversion** | `python main.py convert --output_format png --input_path <path_to_img>` |
+| **Single Conversion** | `python main.py convert --output_format png --input_path <path>` |
 | **Batch Conversion** | `python main.py convert --output_format png --input_path <dir> --input_formats webp` |
 | **Build Desktop App** | `pyinstaller --clean app.spec` |
 | **Run Python Tests** | `pytest` |
 | **Run Rust Tests** | `cd base && cargo test` |
 
-## 5. External Access and Browser Usage Rules
-The agent is authorized to use the following external tools to assist in development:
-* **Web Search and Documentation**: Use Google Search to retrieve the latest documentation for **PySide6**, **pgvector** SQL syntax, **OpenCV** descriptor best practices, and **PyTorch Hub** model updates.
-* **Web Automation Debugging**: If a crawler fails in `backend/src/web/crawler.py`, search for relevant WebDriver version conflicts or browser-specific headless mode flags (e.g., for Brave or Firefox-ESR).
+### External Access Rules
+*   **Docs**: Use Google Search for PySide6, pgvector, OpenCV, PyTorch Hub.
+*   **Debugging**: Search for WebDriver conflicts if crawlers fail.
 
-## 6. Domain-Specific Coding Standards
-### Database & Vector Integrity
-* **Schema Consistency**: Any modification to `image_database.py` must ensure the `images` table remains compatible with `vector(128)` embeddings and the `hnsw` index.
-* **Transaction Safety**: Use transaction blocks (commit/rollback) when renaming groups or subgroups to maintain relational integrity between the `groups` and `images` tables.
+### Global Coding Standards
+*   **Database**: Maintain `pgvector` schema compatibility. Use transactions for group/image integrity.
+*   **Security**: **NEVER** hardcode credentials. Use `VaultManager`.
+*   **Threading**: All heavy computations must run off the main thread (QThread/QRunnable).
+*   **AI Review**:
+    *   **CRITICAL**: Schema breaking, Security bypass.
+    *   **HIGH**: Memory leaks, Deadlocks.
+    *   **MEDIUM**: Inefficient SQL, Bad Selectors.
+    *   **LOW**: UI Styling, Typos.
 
-### GUI Threading & Responsiveness
-* **Worker Inheritance**: All heavy computations (scanning, training, converting) must inherit from `QObject` or `QRunnable` and be managed by a `QThread` or `QThreadPool` to avoid freezing the main Qt thread.
-* **Signal Communication**: Use PySide signals (`finished`, `error`, `status`) to communicate progress from workers to the UI layer.
+### Known Constraints
+*   **PostgreSQL**: No SQLite. `pgvector` is required.
+*   **Linux**: `qdbus-qt6` compatibility for wallpapers.
+*   **Safari**: No headless mode support.
 
-### Security & Privacy
-* **Vault Protection**: Never propose changes that bypass the `VaultManager` or expose raw keys. All sensitive credentials must remain encrypted within the `.vault` files managed by the Kotlin/Java cryptography module.
+---
 
-## 7. AI Review & Severity Protocol
-Categorize your feedback and edits using these severity levels:
-* **CRITICAL**: Breaking `image_database.py` schema; bypassing `VaultManager` security; exposing PostgreSQL credentials.
-* **HIGH**: Memory leaks in `gan_wrapper.py` training loops; threading deadlocks in `DuplicateScanWorker`.
-* **MEDIUM**: Inefficient SQL queries in `search_images`; non-compliant Selenium selectors in `danbooru_crawler.py`.
-* **LOW**: UI margin/padding inconsistencies in Qt stylesheets; documentation typos in README.
+## 4. Architecture & Module Instructions
 
-## 8. Known Constraints & "No-Go" Areas
-* **PostgreSQL Dependency**: Do not suggest SQLite alternatives; the project strictly requires `pgvector` for its primary search functionality.
-* **Legacy Desktop Support**: For wallpaper settings on Linux, ensure compatibility with `qdbus-qt6` for KDE Plasma environments.
-* **Headless Limitations**: Note that Safari does not support headless mode in the `WebCrawler` agent.
+### A. Core & Backend (The Engine)
 
-## 9. Usage Note
-Reference this file during project-wide analysis. When refactoring components, ensure they align with the `backend/src/core` vs. `backend/src/models` separation and the multi-threaded worker patterns defined here.
+#### Base Module (`base/`)
+**Rust Core**. High-performance implementation of image processing, crawling, and sync logic.
+*   **Core**: File system scanning (`file_system`), Image operations (`image_converter`, `image_merger`, `image_finder`), Video (`video_converter`), Wallpaper (`wallpaper`).
+*   **Web**:
+    *   **Crawlers**: `danbooru`, `gelbooru`, `sankaku`, `image_crawler` (generic Selenium).
+    *   **Sync**: `dropbox_sync`, `google_drive_sync`, `one_drive_sync`.
+*   **Utils**: Standalone binaries like `slideshow_daemon`.
+*   **Interface**: `lib.rs` (PyO3 entry point).
+
+#### Backend Module (`backend/`)
+**Python Orchestrator**. Wraps Rust core, handles DB and ML.
+*   **Core**: Wrappers for Rust functions, `image_database.py` (DB), `vault_manager.py` (Security).
+*   **Models**: Pure Python/PyTorch ML implementations.
+*   **Web**: Wrappers for Rust crawlers.
+*   **Standards**: Keep Python wrappers thin. Implement heavy logic in Rust.
+
+#### Tasks & API (`tasks/` & `api/`)
+**Django/Celery Layer**. Bridge between synchronous API and heavy backend logic.
+*   **API**: Root Django config (`settings.py`, `urls.py`).
+*   **Tasks**: Celery workers (`tasks.py`). **Idempotency** is key.
+*   **Standards**: No business logic in tasks; import from `backend/src`.
+
+#### Cryptography (`cryptography/`)
+**Security Module**. Kotlin-based credential management.
+*   **Capabilities**: Encrypt/Decrypt `.vault` files.
+*   **Standards**: Zero trace of sensitive data in memory. Strong AES-256-GCM.
+
+---
+
+### B. Frontend & Interfaces (The View)
+
+#### GUI (`gui/`)
+**Desktop Interface**. PySide6 (Qt for Python).
+*   **Tabs**: Feature logic (`wallpaper_tab.py`, `convert_tab.py`).
+*   **Helpers**: Threaded workers (`QThread`). **CRITICAL**: No blocking I/O on main thread.
+*   **Windows**: Window management.
+*   **Standards**: Use Signals (`finished`, `error`) for UI communication. Provide visual feedback.
+
+#### Frontend (`frontend/`)
+**Web/Desktop Hybrid**. React 19 + Electron.
+*   **Stack**: React, TypeScript, Electron.
+*   **Standards**: Functional components/Hooks. Secure IPC via `preload.js` (no `nodeIntegration`).
+
+#### Mobile (`app/`)
+**Native Apps**. Android (Kotlin) & iOS (Swift).
+*   **Android**: Jetpack Compose/XML. Coroutines for I/O.
+*   **iOS**: SwiftUI. Swift Concurrency (`async`/`await`).
+*   **Standards**: MVVM architecture. Secure storage for credentials.
+
+#### Browser Extension (`extension/`)
+**Helper Extension**. Manifest V3.
+*   **Function**: Context menu to "Save Image".
+*   **Standards**: Service workers (no persistent background pages). Sanitize inputs.
