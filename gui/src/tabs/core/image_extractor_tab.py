@@ -331,6 +331,14 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.combo_engine.addItems(["MoviePy", "FFmpeg"])
         extract_config_layout.addWidget(self.combo_engine)
 
+        extract_config_layout.addSpacing(20)
+        extract_config_layout.addWidget(QLabel("Speed:"))
+        self.combo_speed = QComboBox()
+        self.combo_speed.addItems(["0.25x", "0.5x", "1x", "1.5x", "2x", "4x"])
+        self.combo_speed.setCurrentText("1x")
+        self.combo_speed.currentTextChanged.connect(self.update_playback_speed)
+        extract_config_layout.addWidget(self.combo_speed)
+
         extract_config_layout.addStretch()
         extract_main_layout.addLayout(extract_config_layout)
 
@@ -1122,7 +1130,22 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.volume_slider.setVisible(False)
             self.media_player.setVideoOutput(None)
             self.media_player.setAudioOutput(None)
+            self.media_player.setAudioOutput(None)
             self.media_player.pause()
+
+        # Apply current speed locally
+        self.update_playback_speed(self.combo_speed.currentText())
+
+    @Slot(str)
+    def update_playback_speed(self, text: str):
+        speed_str = text.replace("x", "")
+        try:
+            speed = float(speed_str)
+        except ValueError:
+            speed = 1.0
+        
+        # QMediaPlayer.setPlaybackRate introduced in Qt6
+        self.media_player.setPlaybackRate(speed)
 
     @Slot()
     def toggle_playback(self):
@@ -1338,6 +1361,13 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def _run_gif_extraction(self, start: int, end: int):
         target_size = self._get_target_size()
         fps = self.spin_gif_fps.value()
+        
+        # Speed
+        speed_str = self.combo_speed.currentText().replace("x", "")
+        try:
+            speed = float(speed_str)
+        except ValueError:
+            speed = 1.0
 
         self._set_extraction_buttons_enabled(False)
         self.extraction_progress_bar.setValue(0)
@@ -1357,6 +1387,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             target_size=target_size,
             fps=fps,
             use_ffmpeg=(self.combo_engine.currentText() == "FFmpeg"),
+            speed=speed
         )
         worker.signals.progress.connect(self.extraction_progress_bar.setValue)
         worker.signals.finished.connect(self._on_export_finished)
@@ -1366,6 +1397,13 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def _run_video_extraction(self, start: int, end: int):
         target_size = self._get_target_size()
         mute_audio = self.check_mute_audio.isChecked()
+        
+        # Speed
+        speed_str = self.combo_speed.currentText().replace("x", "")
+        try:
+            speed = float(speed_str)
+        except ValueError:
+            speed = 1.0
 
         self._set_extraction_buttons_enabled(False)
         self.extraction_progress_bar.setValue(0)
@@ -1385,6 +1423,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             target_size=target_size,
             mute_audio=mute_audio,
             use_ffmpeg=(self.combo_engine.currentText() == "FFmpeg"),
+            speed=speed
         )
         worker.signals.progress.connect(self.extraction_progress_bar.setValue)
         worker.signals.finished.connect(self._on_export_finished)

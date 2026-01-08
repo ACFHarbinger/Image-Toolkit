@@ -28,6 +28,7 @@ class VideoExtractionWorker(QRunnable):
         target_size: Optional[Tuple[int, int]] = None,
         mute_audio: bool = False,
         use_ffmpeg: bool = False,
+        speed: float = 1.0,
     ):
         super().__init__()
         self.video_path = video_path
@@ -37,6 +38,7 @@ class VideoExtractionWorker(QRunnable):
         self.target_size = target_size
         self.mute_audio = mute_audio
         self.use_ffmpeg = use_ffmpeg
+        self.speed = speed
         self.signals = VideoWorkerSignals()
 
     def run(self):
@@ -58,10 +60,19 @@ class VideoExtractionWorker(QRunnable):
                 cmd.extend(["-i", self.video_path])
                 
                 # Filters (Scaling)
+                # Filters (Scaling + Speed)
                 filters = []
+                
+                # 1. Scale
                 if self.target_size:
                     w, h = self.target_size
                     filters.append(f"scale={w}:{h}")
+                
+                # 2. Video Speed: setpts = (1/speed) * PTS
+                # e.g., speed=0.5 (slow mo) -> setpts=2.0*PTS
+                if self.speed != 1.0:
+                    pts_mult = 1.0 / self.speed
+                    filters.append(f"setpts={pts_mult}*PTS")
                 
                 if filters:
                     cmd.extend(["-vf", ",".join(filters)])
@@ -72,6 +83,25 @@ class VideoExtractionWorker(QRunnable):
                 if self.mute_audio:
                     cmd.append("-an")
                 else:
+                    # Audio Speed: atempo
+                    # atempo is limited to [0.5, 2.0]. Chain filters if needed.
+                    audio_filters = []
+                    if self.speed != 1.0:
+                        s = self.speed
+                        # Handle speeds > 2.0
+                        while s > 2.0:
+                            audio_filters.append("atempo=2.0")
+                            s /= 2.0
+                        # Handle speeds < 0.5
+                        while s < 0.5:
+                            audio_filters.append("atempo=0.5")
+                            s /= 0.5
+                        # Remainder
+                        audio_filters.append(f"atempo={s}")
+                    
+                    if audio_filters:
+                        cmd.extend(["-af", ",".join(audio_filters)])
+                    
                     cmd.extend(["-c:a", "aac", "-b:a", "128k"])
                 
                 cmd.append(self.output_path)
@@ -111,6 +141,9 @@ class VideoExtractionWorker(QRunnable):
 
             if self.target_size:
                 clip = clip.resize(newsize=self.target_size)
+
+            if self.speed != 1.0:
+                clip = clip.speedx(self.speed)
 
             audio_codec = "aac"
 
