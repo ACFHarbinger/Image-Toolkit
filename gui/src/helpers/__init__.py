@@ -5,6 +5,7 @@ from .video.video_scan_worker import VideoScannerWorker
 from .video.frame_extractor_worker import FrameExtractionWorker
 from .video.gif_extractor_worker import GifCreationWorker
 from .video.video_extractor_worker import VideoExtractionWorker
+from .video.video_loader_worker import VideoLoaderWorker, BatchVideoLoaderWorker
 
 from .models.training_worker import TrainingWorker
 
