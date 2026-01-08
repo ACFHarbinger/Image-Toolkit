@@ -11,7 +11,7 @@ from PySide6.QtGui import QPixmap, QResizeEvent, QAction, QImage
 from PySide6.QtWidgets import QWidget, QGridLayout, QScrollArea, QMenu
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH, SUPPORTED_VIDEO_FORMATS
 from .meta_abstract_class_gallery import MetaAbstractClassGallery
-from ..helpers import ImageLoaderWorker, BatchImageLoaderWorker
+from ..helpers import ImageLoaderWorker, BatchImageLoaderWorker, VideoLoaderWorker, BatchVideoLoaderWorker
 
 
 class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
@@ -101,42 +101,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
     def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
         pass
 
-    # --- NEW: SHARED VIDEO THUMBNAIL GENERATOR ---
-    def _generate_video_thumbnail(self, file_path: str) -> Optional[QPixmap]:
-        """Generates a thumbnail for a single video file using OpenCV."""
-        if not file_path or not os.path.exists(file_path):
-            return None
 
-        try:
-            cap = cv2.VideoCapture(file_path)
-            if not cap.isOpened():
-                return None
-
-            # Try to grab a frame at 1.0 second to avoid black startup frames
-            cap.set(cv2.CAP_PROP_POS_MSEC, 1000)
-            ret, frame = cap.read()
-
-            # Fallback to the first frame
-            if not ret:
-                cap.set(cv2.CAP_PROP_POS_MSEC, 0)
-                ret, frame = cap.read()
-
-            cap.release()
-
-            if ret and frame is not None:
-                # Convert BGR (OpenCV) to RGB (Qt)
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                h, w, ch = frame.shape
-                bytes_per_line = ch * w
-
-                q_img = QImage(frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
-                # Return a copy of the QImage to ensure ownership of buffer
-                return q_img.copy()
-
-        except Exception as e:
-            print(f"Error generating video thumbnail for {file_path}: {e}")
-
-        return None
 
     # --- PAGINATION UI HELPERS ---
 
@@ -274,11 +239,21 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
                 paths_to_load.append(path)
 
         if paths_to_load:
-            # If only one image, use single loader for simplicity or batch of 1
-            if len(paths_to_load) == 1:
-                self._trigger_image_load(paths_to_load[0])
-            else:
-                self._trigger_batch_load(paths_to_load)
+            # Separate images and videos
+            image_paths = [p for p in paths_to_load if not p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))]
+            video_paths = [p for p in paths_to_load if p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))]
+
+            if image_paths:
+                if len(image_paths) == 1:
+                    self._trigger_image_load(image_paths[0])
+                else:
+                    self._trigger_batch_load(image_paths)
+            
+            if video_paths:
+                if len(video_paths) == 1:
+                    self._trigger_video_load(video_paths[0])
+                else:
+                    self._trigger_batch_video_load(video_paths)
 
     # --- LOADING LOGIC ---
     
@@ -326,7 +301,19 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
                 if widget:
                      # Passing None/Null pixmap triggers "Load Failed" style in update_card_pixmap
                     self.update_card_pixmap(widget, QPixmap())
+                    self.update_card_pixmap(widget, QPixmap())
 
+    def _trigger_batch_video_load(self, paths: List[str]):
+        self._loading_paths.update(paths)
+        worker = BatchVideoLoaderWorker(paths, self.thumbnail_size)
+        worker.signals.batch_result.connect(self._on_batch_images_loaded) # Reuse same handler
+        self.thread_pool.start(worker)
+
+    def _trigger_video_load(self, path: str):
+        self._loading_paths.add(path)
+        worker = VideoLoaderWorker(path, self.thumbnail_size)
+        worker.signals.result.connect(self._on_single_image_loaded) # Reuse same handler
+        self.thread_pool.start(worker)
     def start_loading_gallery(
         self,
         paths: List[str],
@@ -407,14 +394,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
 
             # 2. Check for Video if no cache exists
             is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
-            if initial_pixmap is None and is_video:
-                # Generate on the fly (synchronous for small batch, safer than async for OpenCV sometimes)
-                # For better performance on large video folders, this should ideally be threaded,
-                # but the populate step is already incremental.
-                initial_pixmap = self._generate_video_thumbnail(path)
-                if initial_pixmap:
-                    self._initial_pixmap_cache[path] = initial_pixmap
-
+            
             # 3. Create Widget
             card = self.create_card_widget(path, initial_pixmap)
             self.path_to_card_widget[path] = card
@@ -428,9 +408,9 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
                 )
 
             # 5. DEFER Async Load (Visibility Check)
-            # Remove immediate load call
-            # if initial_pixmap is None and not is_video:
-            #     self._trigger_image_load(path)
+            # Both images and videos are now loaded asynchronously via visibility check
+            # if initial_pixmap is None:
+            #     pass
 
         self._populating_index = limit
 
