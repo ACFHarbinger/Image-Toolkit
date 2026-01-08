@@ -33,6 +33,9 @@ class VideoThumbnailer:
     def generate(self, video_path: str, size: int) -> QImage | None:
         if not os.path.exists(video_path):
             return None
+        
+        if size is None or size <= 0:
+            size = 180 # Default fallback
 
         # Strategy 1: ffmpegthumbnailer (Fastest, specialized C++ tool)
         # Used by Kubuntu Dolphin and many Linux FMs.
@@ -49,7 +52,7 @@ class VideoThumbnailer:
                 ]
                 # Timeout prevents hanging on corrupt files
                 result = subprocess.run(
-                    cmd, capture_output=True, check=True, timeout=5.0
+                    cmd, capture_output=True, check=True, timeout=15.0
                 )
                 
                 img = QImage()
@@ -76,7 +79,7 @@ class VideoThumbnailer:
                     "pipe:1"
                 ]
                 result = subprocess.run(
-                    cmd, capture_output=True, check=True, timeout=5.0
+                    cmd, capture_output=True, check=True, timeout=15.0
                 )
                 
                 img = QImage()
@@ -175,8 +178,10 @@ class VideoScannerWorker(QRunnable):
                     
                     try:
                         path, image = future.result()
-                        if image and not image.isNull():
-                            self.signals.thumbnail_ready.emit(path, image)
+                        # Emit result regardless of success/failure
+                        # Receiver must handle null/invalid images
+                        safe_image = image if image else QImage()
+                        self.signals.thumbnail_ready.emit(path, safe_image)
                     except Exception:
                         pass
 
