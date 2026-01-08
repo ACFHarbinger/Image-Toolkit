@@ -907,7 +907,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                     Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation,
                 )
-                clickable_label.setPixmap(QPixmap.fromImage(scaled))
+                clickable_label.setPixmap(scaled)
                 clickable_label.setText("")
 
                 if is_video:

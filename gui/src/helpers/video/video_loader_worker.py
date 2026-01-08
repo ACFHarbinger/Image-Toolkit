@@ -33,12 +33,17 @@ class VideoLoaderWorker(QRunnable):
     @Slot()
     def run(self):
         try:
+            # DEBUG
+            # print(f"DEBUG: Processing video {self.path} with size {self.target_size}")
+            
             image = self.thumbnailer.generate(self.path, self.target_size)
             if image and not image.isNull():
                 self.signals.result.emit(self.path, image)
             else:
+                print(f"DEBUG: Failed to generate thumbnail for {self.path}. Image is Null.")
                 self.signals.result.emit(self.path, QImage())
-        except Exception:
+        except Exception as e:
+            print(f"DEBUG: Exception in VideoLoaderWorker for {self.path}: {e}")
             self.signals.result.emit(self.path, QImage())
 
 
@@ -63,10 +68,13 @@ class BatchVideoLoaderWorker(QRunnable):
                 try:
                     image = self.thumbnailer.generate(path, self.target_size)
                     if image and not image.isNull():
+                         self.signals.result.emit(path, image)
                          results.append((path, image))
                     else:
+                         self.signals.result.emit(path, QImage())
                          results.append((path, QImage()))
                 except Exception:
+                    self.signals.result.emit(path, QImage())
                     results.append((path, QImage()))
             
             self.signals.batch_result.emit(results, self.paths)

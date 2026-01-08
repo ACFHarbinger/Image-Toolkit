@@ -1,4 +1,6 @@
 import os
+import platform
+import subprocess
 
 from typing import Optional, List
 from PySide6.QtWidgets import (
@@ -20,8 +22,8 @@ from PySide6.QtWidgets import (
     QMenu,
     QSpinBox,
 )
-from PySide6.QtGui import QPixmap, QAction
 from PySide6.QtCore import Qt, Slot, QPoint
+from PySide6.QtGui import QPixmap, QAction, QImage
 from ...helpers import ConversionWorker
 from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassTwoGalleries
@@ -442,8 +444,14 @@ class ConvertTab(AbstractClassTwoGalleries):
             img_label.setPixmap(scaled)
         else:
             # Show loading state if pixmap is None
-            img_label.setText("Loading...")
-            img_label.setStyleSheet("color: #999; border: 1px dashed #666;")
+            if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                img_label.setText("Loading...")
+                img_label.setStyleSheet(
+                    "color: #3498db; border: 2px dashed #3498db;"
+                )
+            else:
+                img_label.setText("Loading...")
+                img_label.setStyleSheet("color: #999; border: 1px dashed #666;")
 
         card_layout.addWidget(img_label)
         card_wrapper.setLayout(card_layout)
@@ -472,6 +480,10 @@ class ConvertTab(AbstractClassTwoGalleries):
             return
 
         if pixmap and not pixmap.isNull():
+            # Robust conversion
+            if isinstance(pixmap, QImage):
+                pixmap = QPixmap.fromImage(pixmap)
+            
             thumb_size = self.thumbnail_size
             scaled = pixmap.scaled(
                 thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
@@ -508,6 +520,20 @@ class ConvertTab(AbstractClassTwoGalleries):
     @Slot(str)
     def handle_full_image_preview(self, image_path: str):
         if not os.path.exists(image_path):
+            return
+
+        if image_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+            try:
+                if platform.system() == "Windows":
+                    os.startfile(image_path)
+                elif platform.system() == "Linux":
+                    subprocess.Popen(["xdg-open", image_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                else:
+                    subprocess.Popen(["open", image_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception as e:
+                QMessageBox.warning(
+                    self, "Video Error", f"Could not launch video player: {e}"
+                )
             return
 
         target_list = (
@@ -618,15 +644,20 @@ class ConvertTab(AbstractClassTwoGalleries):
         if not p or not os.path.isdir(p):
             return []
 
-        input_formats = (
-            list(self.selected_formats)
-            if self.dropdown and self.selected_formats
-            else (
-                self.join_list_str(self.input_formats.text().strip())
-                if not self.dropdown and hasattr(self, "input_formats")
-                else SUPPORTED_IMG_FORMATS
-            )
-        )
+        # Determine strict filter list
+        if self.dropdown and self.selected_formats:
+            input_formats = list(self.selected_formats)
+        elif (
+            not self.dropdown
+            and hasattr(self, "input_formats")
+            and self.input_formats.text().strip()
+        ):
+            input_formats = self.join_list_str(self.input_formats.text().strip())
+        else:
+            # Fallback: All supported formats (Images + Videos)
+            vid_formats = [f.lstrip(".").lower() for f in SUPPORTED_VIDEO_FORMATS]
+            img_formats = [f.lower() for f in SUPPORTED_IMG_FORMATS]
+            input_formats = vid_formats + img_formats
 
         paths = []
         for root, _, files in os.walk(p):

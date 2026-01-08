@@ -1354,109 +1354,18 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.scan_directory_path.setText(directory)
             self.populate_scan_image_gallery(directory)
 
-    def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
-        container = QWidget()
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(1)
-
-        draggable_label = DraggableLabel(path, self.thumbnail_size)
+    def create_gallery_label(self, path: str, size: int) -> QLabel:
+        draggable_label = DraggableLabel(path, size)
         draggable_label.setAlignment(Qt.AlignCenter)
 
+        # Connect signals
         draggable_label.path_double_clicked.connect(self.handle_thumbnail_double_click)
         draggable_label.path_right_clicked.connect(self.show_image_context_menu)
-
-        is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
-
-        if pixmap and not pixmap.isNull():
-            scaled = pixmap.scaled(
-                self.thumbnail_size,
-                self.thumbnail_size,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            draggable_label.setPixmap(scaled)
-            draggable_label.setText("")
-            draggable_label.setScaledContents(False)
-
-            if is_video:
-                draggable_label.setStyleSheet(
-                    "border: 2px solid #3498db; background-color: transparent;"
-                )
-            else:
-                draggable_label.setStyleSheet(
-                    "border: 1px solid #4f545c; background-color: transparent;"
-                )
-        else:
-            draggable_label.setPixmap(QPixmap())
-            draggable_label.setScaledContents(False)
-
-            if is_video:
-                draggable_label.setText("VIDEO")
-                draggable_label.setStyleSheet(
-                    """
-                    QLabel { 
-                        border: 2px solid #3498db; 
-                        color: #3498db; 
-                        font-weight: bold; 
-                        background-color: #2c2f33;
-                    }
-                """
-                )
-            else:
-                draggable_label.setText("Loading...")
-                draggable_label.setStyleSheet(
-                    "border: 1px dashed #666; color: #888; font-size: 10px; background-color: #2c2f33;"
-                )
-
+        
+        # Track label for internal WallpaperTab logic
         self.path_to_label_map[path] = draggable_label
-        layout.addWidget(draggable_label)
-        return container
-
-    def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
-        clickable_label = widget.findChild(DraggableLabel)
-
-        if not clickable_label and isinstance(widget, DraggableLabel):
-            clickable_label = widget
-
-        if clickable_label:
-            is_video = clickable_label.file_path.lower().endswith(
-                tuple(SUPPORTED_VIDEO_FORMATS)
-            )
-
-            if pixmap and not pixmap.isNull():
-                scaled = pixmap.scaled(
-                    self.thumbnail_size,
-                    self.thumbnail_size,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
-                clickable_label.setPixmap(scaled)
-
-                if is_video:
-                    clickable_label.setText("VIDEO")
-                    clickable_label.setStyleSheet(
-                        """
-                        QLabel { 
-                            border: 2px solid #3498db; 
-                            color: #3498db; 
-                            font-weight: bold; 
-                            background-color: transparent; 
-                        }
-                    """
-                    )
-                else:
-                    clickable_label.setText("")
-                    clickable_label.setStyleSheet(
-                        "border: 1px solid #4f545c; background-color: transparent;"
-                    )
-
-            elif not is_video:
-                clickable_label.clear()
-                clickable_label.setText("Load Failed")
-                clickable_label.setStyleSheet(
-                    "border: 1px dashed #e74c3c; color: #e74c3c;"
-                )
+        
+        return draggable_label
 
     def populate_scan_image_gallery(self, directory: str):
         if self.background_type == "Solid Color":
@@ -1525,9 +1434,16 @@ class WallpaperTab(AbstractClassSingleGallery):
             return
         
         pixmap = QPixmap.fromImage(q_image)
+
+        # Handle Failed Loads
+        if pixmap.isNull():
+            if not hasattr(self, "_failed_paths"):
+                self._failed_paths = set()
+            self._failed_paths.add(path)
+
         self.gallery_image_paths.append(path)
         self._initial_pixmap_cache[path] = pixmap
-        # self._update_pagination_ui() # REPLACED with debounced call below
+        # Debounce the UI update to avoid freezing on massive updates
         self._pagination_debounce_timer.start()
 
         total_items = len(self.gallery_image_paths)

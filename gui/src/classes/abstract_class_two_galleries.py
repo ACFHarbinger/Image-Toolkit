@@ -5,11 +5,12 @@ from abc import abstractmethod
 from typing import List, Dict, Optional
 from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QMenu, QApplication
 from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer, QEvent
-from PySide6.QtGui import QPixmap, QAction
+from PySide6.QtGui import QPixmap, QImage, QAction
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH
 from .meta_abstract_class_gallery import MetaAbstractClassGallery
 from ..components import MarqueeScrollArea, ClickableLabel
-from ..helpers import ImageLoaderWorker, BatchImageLoaderWorker
+from ..helpers import ImageLoaderWorker, BatchImageLoaderWorker, VideoLoaderWorker, BatchVideoLoaderWorker
+from backend.src.utils.definitions import LOCAL_SOURCE_PATH, SUPPORTED_VIDEO_FORMATS
 
 
 class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
@@ -512,10 +513,21 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
                 paths_to_load.append(path)
 
         if paths_to_load:
-            if len(paths_to_load) == 1:
-                self._trigger_found_load(paths_to_load[0])
-            else:
-                self._trigger_batch_found_load(paths_to_load)
+            # Separate images and videos
+            image_paths = [p for p in paths_to_load if not p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))]
+            video_paths = [p for p in paths_to_load if p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))]
+
+            if image_paths:
+                if len(image_paths) == 1:
+                    self._trigger_found_load(image_paths[0])
+                else:
+                    self._trigger_batch_found_load(image_paths)
+            
+            if video_paths:
+                if len(video_paths) == 1:
+                    self._trigger_video_found_load(video_paths[0])
+                else:
+                    self._trigger_batch_video_found_load(video_paths)
 
     def _trigger_batch_found_load(self, paths: List[str]):
         if not hasattr(self, "found_loading_paths"):
@@ -524,6 +536,45 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         worker = BatchImageLoaderWorker(paths, self.thumbnail_size)
         worker.signals.batch_result.connect(self._on_batch_found_loaded)
         self.thread_pool.start(worker)
+
+    def _trigger_batch_video_found_load(self, paths: List[str]):
+        # User requested parallel/out-of-order loading. 
+        for path in paths:
+            self._trigger_video_found_load(path)
+
+    def _trigger_video_found_load(self, path: str):
+        if not hasattr(self, "found_loading_paths"):
+            self.found_loading_paths = set()
+        
+        self.found_loading_paths.add(path)
+        worker = VideoLoaderWorker(path, self.thumbnail_size)
+        worker.signals.result.connect(self._on_found_image_loaded)
+        self.thread_pool.start(worker)
+
+    @Slot(str, object)
+    def _on_found_image_loaded(self, path: str, image):
+        if hasattr(self, "found_loading_paths") and path in self.found_loading_paths:
+            self.found_loading_paths.remove(path)
+
+        widget = self.path_to_label_map.get(path)
+        if widget:
+            try:
+                if isinstance(image, QImage):
+                    pixmap = QPixmap.fromImage(image)
+                else:
+                     pixmap = image
+
+                if pixmap.isNull():
+                    # Explicitly handle failure instead of resetting to "Loading..."
+                    img_label = widget.findChild(QLabel)
+                    if img_label:
+                        img_label.clear()
+                        img_label.setText("No Thumbnail")
+                        img_label.setStyleSheet("border: 1px dashed #666; color: #999;")
+                else:
+                    self.update_card_pixmap(widget, pixmap)
+            except RuntimeError:
+                pass
 
     @Slot(list)
     def _on_batch_found_loaded(self, results: List[tuple]):
@@ -534,7 +585,13 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             widget = self.path_to_label_map.get(path)
             if widget:
                 try:
-                    self.update_card_pixmap(widget, pixmap)
+                    # Convert QImage to QPixmap on the GUI thread
+                    if isinstance(pixmap, QImage):
+                        final_pixmap = QPixmap.fromImage(pixmap)
+                    else:
+                        final_pixmap = pixmap
+                        
+                    self.update_card_pixmap(widget, final_pixmap)
                 except RuntimeError:
                     pass
 
@@ -642,24 +699,23 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         worker.signals.result.connect(self._on_found_image_loaded)
         self.thread_pool.start(worker)
 
-    @Slot(str, QPixmap)
-    def _on_found_image_loaded(self, path: str, pixmap: QPixmap):
-        if hasattr(self, "found_loading_paths") and path in self.found_loading_paths:
-            self.found_loading_paths.remove(path)
+    # _on_found_image_loaded is defined earlier to handle QImage/QPixmap types
 
-        widget = self.path_to_label_map.get(path)
-        if widget:
-            try:
-                self.update_card_pixmap(widget, pixmap)
-            except RuntimeError:
-                # Widget was deleted while loading
-                pass
 
     # --- HELPERS ---
 
     def cancel_loading(self):
         if self._populate_found_timer.isActive():
             self._populate_found_timer.stop()
+
+    def closeEvent(self, event):
+        """Cleanup processes on close."""
+        self.cancel_loading()
+        
+        if hasattr(self, "thread_pool"):
+            self.thread_pool.clear()
+            
+        super().closeEvent(event)
 
     def clear_galleries(self, clear_data=True):
         if clear_data:
