@@ -128,7 +128,28 @@ class WallpaperManager:
             return desktops
         except Exception as e:
             logging.error(f"Failed to get KDE desktops: {e}")
-            return []
+            return desktops
+
+    @staticmethod
+    def _map_monitors_to_kde(monitors: List[Monitor], kde_desktops: List[Dict]) -> Dict[int, Dict]:
+        """
+        Maps the index of 'monitors' list to the corresponding KDE desktop object.
+        Uses topological sorting (Top/Left -> Bottom/Right) to handle HiDPI scaling mismatches.
+        """
+        if not monitors or not kde_desktops:
+            return {}
+        
+        # Sort both lists by (Y, X)
+        # Note: We use a small tolerance for Y in case of slight misalignments, but usually integer sort is fine
+        sorted_monitors = sorted(list(enumerate(monitors)), key=lambda p: (p[1].y, p[1].x))
+        sorted_kde = sorted(kde_desktops, key=lambda d: (d["y"], d["x"]))
+        
+        mapping = {}
+        # Zip them together based on visual order
+        for (m_idx, _), k_desktop in zip(sorted_monitors, sorted_kde):
+            mapping[m_idx] = k_desktop
+            
+        return mapping
 
     @staticmethod
     def _set_wallpaper_kde(path_map: Dict[str, str], style_name: str, qdbus: str):
@@ -282,15 +303,24 @@ class WallpaperManager:
         elif system == "Linux":
             kde_desktops = WallpaperManager.get_kde_desktops(qdbus)
             if kde_desktops and isinstance(monitors, list):
-                mapped_map = {}
-                for gid, path in path_map.items():
+                # Use topological mapping
+                mapping = WallpaperManager._map_monitors_to_kde(monitors, kde_desktops)
+                
+                mapped_path_map = {}
+                for monitor_id_str, path in path_map.items():
                     try:
-                        m = monitors[int(gid)]
-                        match = next((d for d in kde_desktops if d["x"] == m.x and d["y"] == m.y), None)
-                        if match: mapped_map[str(match["index"])] = path
-                        else: mapped_map[gid] = path
-                    except: mapped_map[gid] = path
-                WallpaperManager._set_wallpaper_kde(mapped_map, style_name, qdbus)
+                        m_idx = int(monitor_id_str)
+                        if m_idx in mapping:
+                            # Use the KDE desktop index from the mapping
+                            kde_desktop_idx = mapping[m_idx]["index"]
+                            mapped_path_map[str(kde_desktop_idx)] = path
+                        else:
+                            # Fallback to direct index
+                            mapped_path_map[monitor_id_str] = path
+                    except Exception:
+                        mapped_path_map[monitor_id_str] = path
+                
+                WallpaperManager._set_wallpaper_kde(mapped_path_map, style_name, qdbus)
             else: # GNOME or Fallback
                 if style_name == "Spanned" and isinstance(monitors, list):
                     WallpaperManager._set_wallpaper_gnome_spanned(path_map, monitors, style_name)
@@ -300,10 +330,25 @@ class WallpaperManager:
                     base.set_wallpaper_gnome(f"file://{Path(path).resolve()}", mode)
 
     @staticmethod
-    def get_current_system_wallpaper_path_kde(num_monitors: int, qdbus: str) -> Dict[str, Optional[str]]:
+    def get_current_system_wallpaper_path_kde(monitors: List[Monitor], qdbus: str) -> Dict[str, Optional[str]]:
         path_map = {}
+        path_map = {}
+        
+        # We need the full desktop objects to map back to monitors
+        kde_desktops = WallpaperManager.get_kde_desktops(qdbus)
+        if not kde_desktops:
+            return {}
+
+        # Get mapping: MonitorIndex -> KDEDesktop
+        # We need the reverse: KDEDesktopIndex -> MonitorIndex
+        mapping = WallpaperManager._map_monitors_to_kde(monitors, kde_desktops)
+        kde_idx_to_monitor_idx = {v["index"]: k for k, v in mapping.items()}
+
         script = "var out = [];\n"
-        for i in range(num_monitors):
+        # We iterate through ALL detected KDE desktops to find their paths
+        # Then we assign them to the correct monitor ID based on our mapping
+        for d in kde_desktops:
+            i = d["index"]
             script += f"""
             (function() {{
                 try {{
@@ -312,32 +357,39 @@ class WallpaperManager:
                     d.currentConfigGroup = Array("Wallpaper", plugin, "General");
                     var path = d.readConfig("Image") || d.readConfig("VideoUrls") || d.readConfig("Video") || "NONE";
                     if (path.indexOf(",") !== -1) path = path.split(",")[0];
-                    out.push("MONITOR_{i}:" + path);
-                }} catch (e) {{ out.push("MONITOR_{i}:NONE"); }}
+                    out.push("DESKTOP_{i}:" + path);
+                }} catch (e) {{ out.push("DESKTOP_{i}:NONE"); }}
             }})();
             """
         script += '\nprint(out.join("\\n===SEP===\\n"));'
+        
         try:
             result = base.evaluate_kde_script(qdbus, script)
             for line in result.split("===SEP==="):
                 line = line.strip()
-                m = re.match(r"MONITOR_(\d+):(.+)", line)
+                m = re.match(r"DESKTOP_(\d+):(.+)", line)
                 if m:
-                    mid, path = m.groups()
+                    kde_idx_str, path = m.groups()
+                    kde_idx = int(kde_idx_str)
+                    
                     if path != "NONE":
                         # Fix file URI formatting
                         if path.startswith("file:/") and not path.startswith("file://"): 
                             path = "file://" + path[5:]
-                        
                         if path.startswith("file://"): 
                             path = path[7:]
                         
-                        # Use resolved absolute path if possible
+                        # Resolve path
+                        final_path = path
                         try:
-                            abs_path = str(Path(path).resolve())
-                            path_map[mid] = abs_path
-                        except:
-                            path_map[mid] = path
+                            final_path = str(Path(path).resolve())
+                        except: pass
+                        
+                        # Map back to monitor ID
+                        if kde_idx in kde_idx_to_monitor_idx:
+                            monitor_mid = str(kde_idx_to_monitor_idx[kde_idx])
+                            path_map[monitor_mid] = final_path
+                            
         except Exception as e:
             print(f"[WallpaperManager] Error in get_current: {e}")
         return path_map

@@ -21,6 +21,7 @@ class GifCreationWorker(QRunnable):
         target_size: Optional[Tuple[int, int]] = None,
         fps: int = 15,
         use_ffmpeg: bool = False,
+        speed: float = 1.0,
     ):
         super().__init__()
         self.video_path = video_path
@@ -30,6 +31,7 @@ class GifCreationWorker(QRunnable):
         self.target_size = target_size
         self.fps = fps
         self.use_ffmpeg = use_ffmpeg
+        self.speed = speed
         self.signals = GifWorkerSignals()
 
     def run(self):
@@ -54,6 +56,11 @@ class GifCreationWorker(QRunnable):
                 if self.target_size:
                     w, h = self.target_size
                     filter_chain.append(f"scale={w}:{h}:flags=lanczos")
+                
+                # Speed
+                if self.speed != 1.0:
+                    pts_mult = 1.0 / self.speed
+                    filter_chain.append(f"setpts={pts_mult}*PTS")
                 
                 # Join base filters
                 base_filters = ",".join(filter_chain)
@@ -93,6 +100,9 @@ class GifCreationWorker(QRunnable):
             # Resize if target_size is provided (width, height)
             if self.target_size:
                 clip = clip.resize(newsize=self.target_size)
+            
+            if self.speed != 1.0:
+                clip = clip.speedx(self.speed)
 
             self.signals.progress.emit(30)
             clip.write_gif(self.output_path, fps=self.fps, logger=None) # logger=None to avoid stdout clutter

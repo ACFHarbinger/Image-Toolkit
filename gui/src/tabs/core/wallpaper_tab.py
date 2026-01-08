@@ -983,7 +983,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             try:
                 if self.qdbus:
                     raw_paths = WallpaperManager.get_current_system_wallpaper_path_kde(
-                        num_monitors_detected, self.qdbus
+                        self.monitors, self.qdbus
                     )
                     current_system_wallpaper_paths = self._get_rotated_map_for_ui(
                         raw_paths
@@ -1030,7 +1030,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             try:
                 if self.qdbus:
                     current_system_wallpaper_paths = WallpaperManager.get_current_system_wallpaper_path_kde(
-                        num_monitors_detected, self.qdbus
+                        self.monitors, self.qdbus
                     )
             except Exception as e:
                 print(f"KDE retrieval failed unexpectedly: {e}")
@@ -1151,7 +1151,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             try:
                 if self.qdbus:
                     raw_paths = WallpaperManager.get_current_system_wallpaper_path_kde(
-                        num_monitors, self.qdbus
+                        self.monitors, self.qdbus
                     )
                     current_paths = self._get_rotated_map_for_ui(raw_paths)
             except Exception:
@@ -1640,7 +1640,7 @@ class WallpaperTab(AbstractClassSingleGallery):
     def handle_scan_error(self, message: str):
         self.clear_gallery_widgets()
         QMessageBox.warning(self, "Error Scanning", message)
-        self.show_placeholder("Browse for a directory.")
+        self.common_show_placeholder("Browse for a directory.")
 
     def collect(self) -> dict:
         monitor_order = []
