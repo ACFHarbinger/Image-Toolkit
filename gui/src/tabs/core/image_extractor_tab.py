@@ -39,8 +39,12 @@ from ...helpers import (
     VideoScannerWorker,
     GifCreationWorker,
     FrameExtractionWorker,
+    VideoScannerWorker,
+    GifCreationWorker,
+    FrameExtractionWorker,
     VideoExtractionWorker,
 )
+from ...helpers.video.video_scan_worker import VideoThumbnailer
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH, SUPPORTED_VIDEO_FORMATS
 
 
@@ -865,7 +869,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation,
             )
-            clickable_label.setPixmap(QPixmap.fromImage(scaled))
+            clickable_label.setPixmap(scaled)
             clickable_label.setText("")
 
             if is_video:
@@ -1460,6 +1464,15 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.extraction_progress_bar.hide()
         self.extraction_status_label.hide()
         QMessageBox.warning(self, "Export Error", error_msg)
+
+    def _generate_video_thumbnail(self, path: str) -> Optional[QPixmap]:
+        """Generate a thumbnail for a single video file."""
+        thumbnailer = VideoThumbnailer()
+        q_image = thumbnailer.generate(path, self.thumbnail_size)
+        
+        if q_image and not q_image.isNull():
+            return QPixmap.fromImage(q_image)
+        return None
 
     @Slot(list)
     def _on_extraction_finished(self, new_paths: List[str]):
