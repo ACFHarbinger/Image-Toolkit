@@ -5,7 +5,7 @@ import signal
 
 from typing import Dict, Any, List, Optional
 from PySide6.QtCore import QThread, Signal
-from backend.src.core import FSETool, ImageFormatConverter, VideoFormatConverter
+from backend.src.core import ImageFormatConverter, VideoFormatConverter
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
 
 
@@ -41,6 +41,10 @@ class ConversionWorker(QThread):
             delete_original = self.config.get("delete_original", False)
             aspect_ratio = self.config.get("aspect_ratio", None)
             aspect_ratio_mode = self.config.get("aspect_ratio_mode", "crop")
+            # NEW dimensions
+            ar_w = self.config.get("aspect_ratio_w", None)
+            ar_h = self.config.get("aspect_ratio_h", None)
+            
             video_engine = self.config.get("video_engine", "auto")
 
             if not files_to_convert:
@@ -135,25 +139,26 @@ class ConversionWorker(QThread):
                     success = VideoFormatConverter.convert_video(
                         input_path=input_file,
                         output_path=temp_output_path,
-                        engine=video_engine,
                         delete=False, # We handle delete separately for renaming logic
-                        process_callback=self._register_process
+                        process_callback=self._register_process,
+                        target_width=ar_w,
+                        target_height=ar_h
                     )
                 
                 # Case 2: Image -> Image (Normal, via internal logic - safe enough for threads usually)
                 elif is_src_image and target_is_image:
-                     # Image conversion is fast enough/doesn't use process that crashes on cancel usually
-                     # But ideally should check _is_cancelled inside loop if it was batch.
-                     # Here it is single image.
-                     res = ImageFormatConverter.convert_single_image(
+                    # Image conversion is fast enough/doesn't use process that crashes on cancel usually
+                    # But ideally should check _is_cancelled inside loop if it was batch.
+                    # Here it is single image.
+                    res = ImageFormatConverter.convert_single_image(
                         image_path=input_file,
                         output_name=temp_output_path, 
                         format=output_format,
                         delete=False, # We handle delete separately
                         aspect_ratio=aspect_ratio,
                         ar_mode=aspect_ratio_mode
-                     )
-                     success = res is not None
+                    )
+                    success = res is not None
                 else:
                     print(f"Skipping {input_file} (Type Mismatch for specified output)")
                     success = False
