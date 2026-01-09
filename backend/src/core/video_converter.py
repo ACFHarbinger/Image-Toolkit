@@ -12,13 +12,15 @@ class VideoFormatConverter:
         cls,
         input_path: str,
         output_path: str,
-        engine: str = "auto",
         delete: bool = False,
-        process_callback: Optional[Callable[[subprocess.Popen], None]] = None
+        process_callback: Optional[Callable[[subprocess.Popen], None]] = None,
+        target_width: Optional[int] = None,
+        target_height: Optional[int] = None
     ) -> bool:
         """
         Converts a video file using FFmpeg via subprocess.
         Allows for safe cancellation via process_callback.
+        Supports aspect ratio resizing (crop/pad/stretch).
         """
         if not os.path.exists(input_path):
             print(f"Error: Input file '{input_path}' not found.")
@@ -30,12 +32,22 @@ class VideoFormatConverter:
             "ffmpeg",
             "-y",  # Overwrite
             "-i", input_path,
+        ]
+
+        filters = []
+        if target_width and target_height:
+            filters.append(f"scale={target_width}:{target_height}")
+        
+        if filters:
+            cmd.extend(["-vf", ",".join(filters)])
+
+        cmd.extend([
             "-c:v", "libx264",
             "-crf", "23",
             "-preset", "medium",
             "-c:a", "aac",
             output_path
-        ]
+        ])
 
         process = None
         try:

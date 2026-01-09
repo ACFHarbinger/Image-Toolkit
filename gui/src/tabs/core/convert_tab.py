@@ -827,12 +827,17 @@ class ConvertTab(AbstractClassTwoGalleries):
         # Calculate Aspect Ratio
         ar_val = None
         ar_mode = "crop" # default
+        ar_w = None
+        ar_h = None
+        
         if self.enable_ar_checkbox.isChecked():
             try:
                 w = self.ar_w.value()
                 h = self.ar_h.value()
                 if h != 0:
                     ar_val = w / h
+                    ar_w = w
+                    ar_h = h
                     ar_mode = self.ar_mode_combo.currentText().lower()
             except:
                 pass
@@ -847,6 +852,8 @@ class ConvertTab(AbstractClassTwoGalleries):
             ],
             "delete_original": self.delete_checkbox.isChecked(),
             "aspect_ratio": ar_val,
+            "aspect_ratio_w": ar_w,
+            "aspect_ratio_h": ar_h,
             "aspect_ratio_mode": ar_mode,
             "video_engine": self.engine_combo.currentText().split(" ")[0].lower()
         }
