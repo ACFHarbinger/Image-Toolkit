@@ -1,6 +1,9 @@
 import os
+import shutil
+import subprocess
+import signal
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from PySide6.QtCore import QThread, Signal
 from backend.src.core import FSETool, ImageFormatConverter, VideoFormatConverter
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
@@ -14,6 +17,19 @@ class ConversionWorker(QThread):
     def __init__(self, config: Dict[str, Any]):
         super().__init__()
         self.config = config
+        self._is_cancelled = False
+        self.current_process: Optional[subprocess.Popen] = None
+
+    def cancel(self):
+        """Safely cancels the current operation."""
+        self._is_cancelled = True
+        if self.current_process:
+            try:
+                # Terminate the subprocess gracefully first
+                self.current_process.terminate()
+                # If needed, we could wait a bit and kill, but terminate is usually enough for ffmpeg
+            except Exception:
+                pass
 
     def run(self):
         try:
@@ -58,6 +74,9 @@ class ConversionWorker(QThread):
             target_is_image = output_format in img_formats
 
             for idx, input_file in enumerate(files_to_convert):
+                if self._is_cancelled:
+                    break
+
                 if not os.path.exists(input_file):
                     continue
 
@@ -77,22 +96,13 @@ class ConversionWorker(QThread):
                 if output_path_config and os.path.isdir(output_path_config):
                     out_dir = output_path_config
                 else:
-                    # If output config is not a dir, use source dir
-                    # (Unless it's a single file case where output_path_config is the full filename? 
-                    # The UI logic suggests output_path is mostly directory or empty. 
-                    # We'll treat it as directory if it exists as dir, or if it doesn't exist we make it?
-                    # For safety, defaults to source dir)
                     if output_path_config and not os.path.exists(output_path_config) and total_files > 1:
-                         # Attempt to create directory?
                          try:
                              os.makedirs(output_path_config, exist_ok=True)
                              out_dir = output_path_config
                          except:
                              out_dir = os.path.dirname(input_file)
                     elif output_path_config and not os.path.isdir(output_path_config) and total_files == 1:
-                        # Single file specific case: user might have typed a full path including filename
-                        # But we handle prefix/format below. 
-                        # Let's assume output_path_config IS the directory unless obvious otherwise.
                         out_dir = os.path.dirname(input_file) # Fallback
                     else:
                         out_dir = os.path.dirname(input_file)
@@ -109,57 +119,94 @@ class ConversionWorker(QThread):
                 final_output_path = os.path.join(out_dir, f"{fname}.{output_format}")
                 
                 # Handling path conflict (input == output)
+                is_collision = False
                 if os.path.abspath(input_file) == os.path.abspath(final_output_path):
-                     # Prefix to avoid overwrite until needed
-                     final_output_path = os.path.join(out_dir, f"converted_{fname}.{output_format}")
+                     is_collision = True
+                     # Use a temporary prefix for the actual conversion
+                     temp_output_path = os.path.join(out_dir, f"temp_{fname}.{output_format}")
+                else:
+                    temp_output_path = final_output_path
 
                 # Perform Conversion
                 success = False
                 
-                # Case 1: Video -> Video (Normal)
+                # Case 1: Video -> Video (Safely via subprocess)
                 if is_src_video and target_is_video:
                     success = VideoFormatConverter.convert_video(
                         input_path=input_file,
-                        output_path=final_output_path,
+                        output_path=temp_output_path,
                         engine=video_engine,
-                        delete=delete_original
+                        delete=False, # We handle delete separately for renaming logic
+                        process_callback=self._register_process
                     )
                 
-                # Case 2: Image -> Image (Normal)
+                # Case 2: Image -> Image (Normal, via internal logic - safe enough for threads usually)
                 elif is_src_image and target_is_image:
+                     # Image conversion is fast enough/doesn't use process that crashes on cancel usually
+                     # But ideally should check _is_cancelled inside loop if it was batch.
+                     # Here it is single image.
                      res = ImageFormatConverter.convert_single_image(
                         image_path=input_file,
-                        output_name=final_output_path, # convert_single handles the full path if provided?
-                        # actually convert_single expects output_name to be the path without extension 
-                        # OR full path if we tricked it? 
-                        # Let's look at convert_single signature in Step 6.
-                        # output_name: str = None. 
-                        # Code: output_path = f"{output_name}.{format}"
-                        # So it APPENDS extension. 
-                        # So we should pass the path WITHOUT extension.
+                        output_name=temp_output_path, 
                         format=output_format,
-                        delete=delete_original,
+                        delete=False, # We handle delete separately
                         aspect_ratio=aspect_ratio,
                         ar_mode=aspect_ratio_mode
                      )
                      success = res is not None
-
-                # Case 3: Video -> Image (Frame extraction? Not implemented here generally, but maybe requested?)
-                # Case 4: Image -> Video (Slideshow? Not implemented here)
                 else:
-                    # Skip cross-type conversion for now
                     print(f"Skipping {input_file} (Type Mismatch for specified output)")
                     success = False
 
                 if success:
+                    # Post-processing Logic
+                    if delete_original:
+                        try:
+                            # 1. Delete original
+                            os.remove(input_file)
+                            # 2. Rename temp to original name if it was a collision
+                            if is_collision:
+                                # Start: input.mp4
+                                # Temp: temp_input.mp4
+                                # Goal: input.mp4
+                                os.rename(temp_output_path, final_output_path)
+                            else:
+                                # Normal case, temp_output_path is final_output_path
+                                pass 
+                        except Exception as e:
+                            print(f"Error during post-conversion replacement: {e}")
+                    else:
+                        # If NOT deleting original, but there was a collision
+                        if is_collision:
+                            # We have temp_input.mp4.
+                            # We need to rename it to something that doesn't conflict, e.g. converted_input.mp4
+                            # (As originally requested by user default behavior, or just leave as collision safe name)
+                            safe_name = os.path.join(out_dir, f"converted_{fname}.{output_format}")
+                            if os.path.exists(safe_name):
+                                os.remove(safe_name)
+                            os.rename(temp_output_path, safe_name)
+
                     converted_count += 1
-                
+                else:
+                    # Cleanup temp if failed
+                    if is_collision and os.path.exists(temp_output_path):
+                        try:
+                            os.remove(temp_output_path)
+                        except:
+                            pass
+
                 # Progress Update
                 progress = int(((idx + 1) / total_files) * 100)
                 self.progress_update.emit(progress)
 
-            self.finished.emit(converted_count, f"Processed {converted_count} file(s)!")
+            if self._is_cancelled:
+                self.finished.emit(converted_count, "**Conversion Cancelled**")
+            else:
+                self.finished.emit(converted_count, f"Processed {converted_count} file(s)!")
 
         except Exception as e:
             self.progress_update.emit(0) # Clear progress bar on error
             self.error.emit(str(e))
+
+    def _register_process(self, p: subprocess.Popen):
+        self.current_process = p

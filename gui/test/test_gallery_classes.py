@@ -1,6 +1,6 @@
 import pytest
 
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QPixmap, QImage
 from PySide6.QtWidgets import QWidget, QLabel, QGridLayout, QScrollArea
 from gui.src.classes.abstract_class_single_gallery import AbstractClassSingleGallery
 from gui.src.classes.abstract_class_two_galleries import AbstractClassTwoGalleries
@@ -137,9 +137,8 @@ class TestAbstractClassSingleGallery:
         
         assert widget.pixmap() is None or widget.pixmap().isNull()
         
-        from PySide6.QtGui import QPixmap
-        px = QPixmap(10, 10)
-        gallery._on_single_image_loaded(path, px)
+        qimg = QImage(10, 10, QImage.Format_RGB32)
+        gallery._on_single_image_loaded(path, qimg)
         assert widget.pixmap() is not None
 
 

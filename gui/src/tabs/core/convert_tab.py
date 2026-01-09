@@ -781,7 +781,8 @@ class ConvertTab(AbstractClassTwoGalleries):
 
     def cancel_conversion(self):
         if self.worker and self.worker.isRunning():
-            self.worker.terminate()
+            self.worker.cancel()
+            self.worker.wait()
             self.on_conversion_done(0, "**Conversion cancelled**")
             self.worker = None
 
