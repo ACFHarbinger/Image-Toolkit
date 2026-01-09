@@ -109,27 +109,27 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         
         # Factory method
         label = self.create_gallery_label(path, self.thumbnail_size)
-        label.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
+        # label.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent) # Removed to fix artifacts
         
         # Initial State
         is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
         
-        if pixmap and not pixmap.isNull():
-             self.update_card_pixmap(container, pixmap, label_ref=label)
+        if (pixmap and not pixmap.isNull()) or (hasattr(self, "_failed_paths") and path in self._failed_paths):
+            self.update_card_pixmap(container, pixmap, label_ref=label)
         else:
-             # Default "Loading..." State
-             label.clear()
-             label.setText("Loading...")
-             if is_video:
-                 label.setStyleSheet(
-                     "border: 2px solid #3498db; color: #3498db; "
-                     "font-weight: bold; background-color: #2c2f33;"
-                 )
-             else:
-                 label.setStyleSheet(
-                     "border: 1px dashed #666; color: #888; "
-                     "font-size: 10px; background-color: #2c2f33;"
-                 )
+            # Default "Loading..." State
+            label.clear()
+            label.setText("Loading...")
+            if is_video:
+                label.setStyleSheet(
+                    "border: 2px solid #3498db; color: #3498db; "
+                    "font-weight: bold; background-color: #2c2f33;"
+                )
+            else:
+                label.setStyleSheet(
+                    "border: 1px dashed #666; color: #888; "
+                    "font-size: 10px; background-color: #2c2f33;"
+                )
         
         layout.addWidget(label)
         return container
@@ -533,11 +533,22 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         
         pixmap = QPixmap.fromImage(q_image)
         
-        # If loading failed, generate an error placeholder
+        # If loading failed, mark as failed instead of generating a red placeholder
         if pixmap.isNull():
-            pixmap = self._generate_error_pixmap()
+            if not hasattr(self, "_failed_paths"):
+                self._failed_paths = set()
+            self._failed_paths.add(path)
             
-        # Cache the result (valid or error) to prevent retry loops
+            # Cache empty pixmap so _load_visible_images stops asking for it
+            self._initial_pixmap_cache[path] = QPixmap()
+
+            widget = self.path_to_card_widget.get(path)
+            if widget:
+                # This will trigger the "VIDEO" / "No Thumbnail" text style via update_card_pixmap
+                self.update_card_pixmap(widget, QPixmap())
+            return
+            
+        # Cache the result (valid) 
         self._initial_pixmap_cache[path] = pixmap
 
         widget = self.path_to_card_widget.get(path)

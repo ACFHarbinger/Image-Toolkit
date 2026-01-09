@@ -1487,7 +1487,6 @@ class WallpaperTab(AbstractClassSingleGallery):
         buffer = 50
         if (global_pos.x() < vp_global_rect.left() - buffer) or \
            (global_pos.x() > vp_global_rect.right() + buffer):
-            # print(f"[DEBUG] Autoscroll Ignored: Out of X bounds. Pos: {global_pos.x()}, Rect: {vp_global_rect}")
             return
 
         # Threshold and speed

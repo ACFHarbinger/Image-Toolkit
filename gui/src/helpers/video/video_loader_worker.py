@@ -33,9 +33,6 @@ class VideoLoaderWorker(QRunnable):
     @Slot()
     def run(self):
         try:
-            # DEBUG
-            # print(f"DEBUG: Processing video {self.path} with size {self.target_size}")
-            
             image = self.thumbnailer.generate(self.path, self.target_size)
             if image and not image.isNull():
                 self.signals.result.emit(self.path, image)
