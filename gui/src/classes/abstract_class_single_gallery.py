@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QWidget, QGridLayout, QScrollArea, QMenu, QLabel, 
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH, SUPPORTED_VIDEO_FORMATS
 from .meta_abstract_class_gallery import MetaAbstractClassGallery
 from ..helpers import ImageLoaderWorker, BatchImageLoaderWorker, VideoLoaderWorker, BatchVideoLoaderWorker
+from ..helpers.video.video_scan_worker import VideoThumbnailer
 
 
 class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
@@ -180,6 +181,20 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         
         # 3. Loading/Empty State (Handled by create_card_widget initially, but if updated with None...)
         # Usually we only call update with valid pixmap or failure. 
+
+    def _generate_video_thumbnail(self, path: str) -> Optional[QPixmap]:
+        """
+        Generates a video thumbnail synchronously on demand.
+        Used for fallback or when immediate preview is needed.
+        """
+        try:
+            thumbnailer = VideoThumbnailer()
+            image = thumbnailer.generate(path, self.thumbnail_size)
+            if image and not image.isNull():
+                return QPixmap.fromImage(image)
+        except Exception as e:
+            print(f"Failed to generate explicit video thumbnail for {path}: {e}")
+        return None
 
 
     # --- PAGINATION UI HELPERS ---

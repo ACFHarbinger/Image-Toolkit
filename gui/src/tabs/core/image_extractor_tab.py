@@ -235,6 +235,14 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         controls_top_layout.addWidget(self.check_player_vertical)
         # ----------------------------------------
 
+        controls_top_layout.addSpacing(20)
+        controls_top_layout.addWidget(QLabel("Player Speed:"))
+        self.combo_player_speed = QComboBox()
+        self.combo_player_speed.addItems(["0.25x", "0.5x", "1x", "1.5x", "2x", "4x"])
+        self.combo_player_speed.setCurrentText("1x")
+        self.combo_player_speed.currentTextChanged.connect(self.update_playback_speed)
+        controls_top_layout.addWidget(self.combo_player_speed)
+
         controls_top_layout.addStretch()
         self.player_inner_layout.addLayout(controls_top_layout)
 
@@ -270,12 +278,19 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         self.lbl_total_time = QLabel("00:00")
 
+        self.btn_fullscreen = QPushButton()
+        self.btn_fullscreen.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_TitleBarMaxButton))
+        self.btn_fullscreen.setToolTip("Toggle Fullscreen")
+        self.btn_fullscreen.clicked.connect(self.toggle_fullscreen)
+        self.btn_fullscreen.setFixedWidth(30)
+
         controls_layout.addWidget(self.lbl_vol)
         controls_layout.addWidget(self.volume_slider)
         controls_layout.addWidget(self.btn_play)
         controls_layout.addWidget(self.lbl_current_time)
         controls_layout.addWidget(self.slider)
         controls_layout.addWidget(self.lbl_total_time)
+        controls_layout.addWidget(self.btn_fullscreen)
 
         self.player_inner_layout.addLayout(controls_layout)
 
@@ -336,11 +351,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         extract_config_layout.addWidget(self.combo_engine)
 
         extract_config_layout.addSpacing(20)
-        extract_config_layout.addWidget(QLabel("Speed:"))
+        extract_config_layout.addWidget(QLabel("Extraction Speed:"))
         self.combo_speed = QComboBox()
         self.combo_speed.addItems(["0.25x", "0.5x", "1x", "1.5x", "2x", "4x"])
         self.combo_speed.setCurrentText("1x")
-        self.combo_speed.currentTextChanged.connect(self.update_playback_speed)
+        # Decoupled from player speed
         extract_config_layout.addWidget(self.combo_speed)
 
         extract_config_layout.addStretch()
@@ -652,9 +667,20 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             clickable_label.setText("") # Remove "Loading..." text
             clickable_label.setStyleSheet("border: 2px solid #4f545c; border-radius: 4px;")
         else:
-            # Fallback if processing totally fails
-            clickable_label.setText("No Preview")
-            clickable_label.setStyleSheet("border: 1px dashed #666; color: #888;")
+             # Fallback if processing totally fails
+            if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                clickable_label.setText("VIDEO")
+                clickable_label.setStyleSheet("border: 2px solid #3498db; color: #3498db; font-weight: bold; background-color: #2c2f33;")
+            else:
+                clickable_label.setText("No Preview")
+                clickable_label.setStyleSheet("border: 1px dashed #666; color: #888;")
+
+        # --- RE-APPLY SELECTION STATE ---
+        if self.video_path == path:
+             clickable_label.setStyleSheet(
+                "border: 3px solid #3498db; border-radius: 4px;"
+            )
+
 
     @Slot(QPoint, str)
     def show_source_context_menu(self, global_pos: QPoint, path: str):
@@ -770,11 +796,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                     and event.button() == Qt.MouseButton.LeftButton
                 ):
                     self.toggle_playback()
-                    return True
-
-                # toggle fullscreen on double click
-                if event.type() == QEvent.Type.MouseButtonDblClick:
-                    self.toggle_fullscreen()
                     return True
                 
                 # --- Arrow Keys for Video Seeking (When video has focus) ---
@@ -1115,6 +1136,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.combo_resolution.setEnabled(True)
             self.video_view.setVisible(True)
             self.btn_play.setVisible(True)
+            self.btn_fullscreen.setVisible(True)
             self.lbl_vol.setVisible(True)
             self.volume_slider.setVisible(True)
             self.btn_play.setEnabled(True)
@@ -1130,6 +1152,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.combo_resolution.setEnabled(False)
             self.video_view.setVisible(False)
             self.btn_play.setVisible(False)
+            self.btn_fullscreen.setVisible(False)
             self.lbl_vol.setVisible(False)
             self.volume_slider.setVisible(False)
             self.media_player.setVideoOutput(None)
@@ -1138,7 +1161,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.media_player.pause()
 
         # Apply current speed locally
-        self.update_playback_speed(self.combo_speed.currentText())
+        self.update_playback_speed(self.combo_player_speed.currentText())
 
     @Slot(str)
     def update_playback_speed(self, text: str):
@@ -1507,6 +1530,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             "extraction_directory": str(self.extraction_dir),
             "player_mode_internal": True,
             "player_resolution_index": 1,
+            "player_speed_index": 2,  # NEW: Default to 1x (index 2)
             "player_vertical": False,  # NEW
             "extract_vertical": False,  # NEW
             "extraction_engine": "MoviePy",
@@ -1518,6 +1542,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             "extraction_directory": self.line_edit_extract_dir.text(),
             "player_mode_internal": self.use_internal_player,
             "player_resolution_index": self.combo_resolution.currentIndex(),
+            "player_speed_index": self.combo_player_speed.currentIndex(),  # NEW
             "player_vertical": self.check_player_vertical.isChecked(),  # NEW
             "extract_vertical": self.check_extract_vertical.isChecked(),  # NEW
             "extraction_engine": self.combo_engine.currentText(),
@@ -1548,6 +1573,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             if res_index is not None and 0 <= res_index < self.combo_resolution.count():
                 self.combo_resolution.setCurrentIndex(res_index)
                 self.change_resolution(res_index)
+
+            speed_index = config.get("player_speed_index")
+            if speed_index is not None and 0 <= speed_index < self.combo_player_speed.count():
+                self.combo_player_speed.setCurrentIndex(speed_index)
 
             mode = config.get("player_mode_internal")
             if mode is not None:
