@@ -86,14 +86,77 @@ pub fn get_next_image(queue: &[String], current: Option<&String>) -> Option<Stri
     Some(queue[idx].clone())
 }
 
+fn get_best_video_plugin() -> String {
+    let reborn_plugin = "luisbocanegra.smart.video.wallpaper.reborn";
+    let zren_plugin = "com.github.zren.smartvideowallpaper";
+    let smarter_plugin = "smartervideowallpaper";
+
+    let home = UserDirs::new()
+        .map(|u| u.home_dir().to_path_buf())
+        .unwrap_or_else(|| PathBuf::from("/"));
+    let search_paths = vec![
+        home.join(".local/share/plasma/wallpapers"),
+        PathBuf::from("/usr/share/plasma/wallpapers"),
+    ];
+
+    for base_path in &search_paths {
+        if base_path.join(reborn_plugin).exists() {
+            return reborn_plugin.to_string();
+        }
+    }
+    for base_path in &search_paths {
+        if base_path.join(smarter_plugin).exists() {
+            return smarter_plugin.to_string();
+        }
+    }
+    for base_path in &search_paths {
+        if base_path.join(zren_plugin).exists() {
+            return zren_plugin.to_string();
+        }
+    }
+
+    reborn_plugin.to_string()
+}
+
+fn find_qdbus_binary() -> String {
+    let candidates = ["qdbus", "qdbus-qt5", "qdbus-qt6", "qdbus6"];
+    for bin in candidates {
+        if which::which(bin).is_ok() {
+            return bin.to_string();
+        }
+    }
+    "qdbus".to_string() // Fallback
+}
+
 fn apply_wallpaper_kde(
     path_map: &HashMap<String, String>,
     style: &str,
     geometries: &HashMap<String, Geometry>,
 ) -> Result<()> {
     let mut script = String::new();
+    let qdbus_bin = find_qdbus_binary();
 
-    let fill_mode = match style {
+    let mut video_mode_active = false;
+    let mut base_style_name = style;
+    let mut video_fill_mode = 2; // Default Scaled
+
+    if style.starts_with("SmartVideoWallpaper") && style.contains("::") {
+        video_mode_active = true;
+        let parts: Vec<&str> = style.split("::").collect();
+        if parts.len() > 1 {
+            let v_style = parts[1];
+            video_fill_mode = match v_style {
+                "Keep Proportions" => 1,
+                "Scaled and Cropped" => 2,
+                "Stretch" => 0,
+                _ => 2,
+            };
+            // Fallback for image part of the logic
+            base_style_name = "Fill";
+        }
+    }
+
+    let fill_mode = match base_style_name {
         "Scaled, Keep Proportions" => 1,
         "Scaled" => 2,
         "Scaled and Cropped (Zoom)" => 0,
@@ -101,11 +164,12 @@ fn apply_wallpaper_kde(
         "Tiled" => 3,
         "Center Tiled" => 4,
         "Span" => 5,
-        _ => 2, // Default to Scaled
+        "Fill" => 2,
+        _ => 2,
     };
 
     println!("Fetching KDE desktops for mapping...");
-    let kde_desktops = match wallpaper::get_kde_desktops_core("qdbus") {
+    let mut kde_desktops = match wallpaper::get_kde_desktops_core(&qdbus_bin) {
         Ok(ds) => ds,
         Err(e) => {
             eprintln!("Failed to get KDE desktops: {}", e);
@@ -113,20 +177,32 @@ fn apply_wallpaper_kde(
         }
     };
 
-    for (monitor_id, path) in path_map {
-        let mut target_index: Option<u32> = None;
+    // Topological Sort Mapping
+    // 1. Sort KDE Desktops by (Y, X)
+    kde_desktops.sort_by(|a, b| a.y.cmp(&b.y).then(a.x.cmp(&b.x)));
 
-        // Try mapping by geometry
-        if let Some(geom) = geometries.get(monitor_id) {
-            if let Some(match_desktop) =
-                kde_desktops.iter().find(|d| d.x == geom.x && d.y == geom.y)
-            {
-                target_index = Some(match_desktop.index);
-            }
+    // 2. Sort Monitor Geometries by (Y, X)
+    let mut monitor_list: Vec<(&String, &Geometry)> = geometries.iter().collect();
+    monitor_list.sort_by(|a, b| a.1.y.cmp(&b.1.y).then(a.1.x.cmp(&b.1.x)));
+
+    // 3. Create Mapping: MonitorID -> KdeDesktopIndex
+    let mut monitor_to_kde: HashMap<String, u32> = HashMap::new();
+    for (idx, (monitor_id, _)) in monitor_list.iter().enumerate() {
+        if idx < kde_desktops.len() {
+            monitor_to_kde.insert(monitor_id.to_string(), kde_desktops[idx].index);
         }
+    }
 
-        // Fallback to direct parse
-        let i = target_index.unwrap_or_else(|| monitor_id.parse().unwrap_or(0));
+    let target_plugin = get_best_video_plugin();
+    let video_extensions = vec![".mp4", ".mkv", ".webm", ".mov", ".avi", ".wmv"];
+
+    for (monitor_id, path) in path_map {
+        // Use mapping or fallback to integer parsing
+        let i = if let Some(kde_idx) = monitor_to_kde.get(monitor_id) {
+            *kde_idx
+        } else {
+            monitor_id.parse().unwrap_or(0)
+        };
 
         println!(
             "Monitor {} -> KDE Desktop {} (Path: {})",
@@ -139,17 +215,58 @@ fn apply_wallpaper_kde(
             format!("file://{}", path)
         };
 
-        script.push_str(&format!(
-            "{{ var d = desktops()[{}]; if (d && d.screen >= 0) {{ d.wallpaperPlugin = \"org.kde.image\"; d.currentConfigGroup = Array(\"Wallpaper\", \"org.kde.image\", \"General\"); d.writeConfig(\"Image\", \"{}\"); d.writeConfig(\"FillMode\", {}); d.reloadConfig(); }} }}",
-            i, file_uri, fill_mode
-        ));
+        let ext = PathBuf::from(path)
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        let dot_ext = format!(".{}", ext);
+
+        let is_video = video_extensions.contains(&dot_ext.as_str());
+
+        if is_video && video_mode_active {
+            let is_smarter = target_plugin == "smartervideowallpaper";
+            let video_key = if is_smarter {
+                "VideoWallpaperBackgroundVideo"
+            } else {
+                "VideoUrls"
+            };
+            let override_pause = if is_smarter {
+                "d.writeConfig('overridePause', true);"
+            } else {
+                ""
+            };
+
+            script.push_str(&format!(
+                "{{ 
+                    var d = desktops()[{}]; 
+                    if (d && d.screen >= 0) {{ 
+                        if (d.wallpaperPlugin !== \"{}\") d.wallpaperPlugin = \"{}\"; 
+                        d.currentConfigGroup = Array(\"Wallpaper\", d.wallpaperPlugin, \"General\"); 
+                        d.writeConfig(\"{}\", \"{}\"); 
+                        d.writeConfig(\"FillMode\", {}); 
+                        {}
+                        d.currentConfigGroup = Array(\"Wallpaper\", \"org.kde.image\", \"General\");
+                        d.writeConfig(\"FillMode\", 2);
+                        d.writeConfig(\"Color\", \"#00000000\");
+                        d.reloadConfig(); 
+                    }} 
+                }}",
+                i, target_plugin, target_plugin, video_key, file_uri, video_fill_mode, override_pause
+            ));
+        } else {
+            script.push_str(&format!(
+                "{{ var d = desktops()[{}]; if (d && d.screen >= 0) {{ d.wallpaperPlugin = \"org.kde.image\"; d.currentConfigGroup = Array(\"Wallpaper\", \"org.kde.image\", \"General\"); d.writeConfig(\"Image\", \"{}\"); d.writeConfig(\"FillMode\", {}); d.reloadConfig(); }} }}",
+                i, file_uri, fill_mode
+            ));
+        }
     }
 
     if script.is_empty() {
         return Ok(());
     }
 
-    wallpaper::evaluate_kde_script_core("qdbus", &script)
+    wallpaper::evaluate_kde_script_core(&qdbus_bin, &script)
         .map_err(|e| anyhow::anyhow!("KDE qdbus error: {}", e))?;
 
     Ok(())
