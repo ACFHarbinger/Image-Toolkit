@@ -58,7 +58,10 @@ class ImageMerger:
         status, pano = stitcher.stitch(cv_images)
 
         # Force cleanup of any internal highgui/Qt resources before we return
-        cv2.destroyAllWindows() 
+        try:
+            cv2.destroyAllWindows()
+        except cv2.error:
+            pass 
 
         if status != cv2.Stitcher_OK:
             error_map = {
@@ -115,7 +118,10 @@ class ImageMerger:
         status, pano = stitcher.stitch(cv_images)
 
         # Force cleanup of any internal highgui/Qt resources before we return
-        cv2.destroyAllWindows()
+        try:
+            cv2.destroyAllWindows()
+        except cv2.error:
+            pass
 
         if status != cv2.Stitcher_OK:
             error_map = {
