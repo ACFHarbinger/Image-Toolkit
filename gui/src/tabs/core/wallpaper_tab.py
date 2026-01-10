@@ -1555,7 +1555,9 @@ class WallpaperTab(AbstractClassSingleGallery):
     def handle_scan_error(self, message: str):
         self.clear_gallery_widgets()
         QMessageBox.warning(self, "Error Scanning", message)
-        self.common_show_placeholder("Browse for a directory.")
+        self.common_show_placeholder(
+            self.gallery_layout, "Browse for a directory.", self.calculate_columns()
+        )
 
     def collect(self) -> dict:
         monitor_order = []

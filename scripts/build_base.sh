@@ -1,2 +1,2 @@
 cd base
-maturin build --release
+maturin develop --release
