@@ -1584,6 +1584,8 @@ class WallpaperTab(AbstractClassSingleGallery):
             "solid_color_hex": self.solid_color_hex,
             "monitor_order": monitor_order,
             "monitor_layout": monitor_layout,
+            "monitor_queues": self.monitor_slideshow_queues,
+            "monitor_image_paths": self.monitor_image_paths,
         }
 
     def get_default_config(self) -> Dict[str, Any]:
@@ -1666,6 +1668,33 @@ class WallpaperTab(AbstractClassSingleGallery):
                     for mid, w in self.monitor_widgets.items():
                         if mid not in valid_order:
                             self.monitor_layout_container.addWidget(w)
+
+            if "monitor_queues" in config:
+                self.monitor_slideshow_queues = config.get("monitor_queues", {})
+            
+            if "monitor_image_paths" in config:
+                saved_paths = config.get("monitor_image_paths", {})
+                self.monitor_image_paths = saved_paths
+                
+                # Restore visuals
+                for mid, path in saved_paths.items():
+                    if mid in self.monitor_widgets and path:
+                        if Path(path).exists():
+                            thumb = self._initial_pixmap_cache.get(path)
+                            # Generate thumbnail if missing and it is a video (lazy load)
+                            if not thumb and path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                                # We simply let the widget handle it or rely on scanner later
+                                # For now, just set path
+                                pass
+                            elif not thumb:
+                                # Try loading simple pixmap
+                                thumb = QPixmap(path)
+                            
+                            self.monitor_widgets[mid].set_image(path, thumb)
+                        else:
+                            # Path invalid, clear it
+                            self.monitor_image_paths[mid] = None
+                            self.monitor_widgets[mid].clear()
 
             QMessageBox.information(
                 self, "Config Loaded", "Wallpaper configuration applied successfully."

@@ -140,24 +140,50 @@ class SlideshowQueueWindow(QWidget):
     def move_item_up(self, item: QListWidgetItem):
         current_row = self.list_widget.row(item)
         if current_row > 0:
-            widget = self.list_widget.itemWidget(item)
-            taken_item = self.list_widget.takeItem(current_row)
-            self.list_widget.insertItem(current_row - 1, taken_item)
-            self.list_widget.setItemWidget(taken_item, widget)
-            taken_item.setSizeHint(widget.sizeHint())
-            self.list_widget.setCurrentItem(taken_item)
+            path = item.data(Qt.UserRole)
+            self.list_widget.takeItem(current_row)
+            
+            # Recreate widget
+            pixmap = self.pixmap_cache.get(path)
+            if not pixmap or pixmap.isNull():
+                 pixmap = QPixmap(path)
+                 if pixmap.isNull():
+                      pixmap = QPixmap(80, 60)
+                      pixmap.fill(Qt.darkGray)
+            
+            new_widget = QueueItemWidget(path, pixmap)
+            new_item = QListWidgetItem()
+            new_item.setData(Qt.UserRole, path)
+            new_item.setSizeHint(new_widget.sizeHint())
+            
+            self.list_widget.insertItem(current_row - 1, new_item)
+            self.list_widget.setItemWidget(new_item, new_widget)
+            self.list_widget.setCurrentItem(new_item)
             self.emit_new_queue_order()
 
     @Slot(QListWidgetItem)
     def move_item_down(self, item: QListWidgetItem):
         current_row = self.list_widget.row(item)
         if current_row < self.list_widget.count() - 1:
-            widget = self.list_widget.itemWidget(item)
-            taken_item = self.list_widget.takeItem(current_row)
-            self.list_widget.insertItem(current_row + 1, taken_item)
-            self.list_widget.setItemWidget(taken_item, widget)
-            taken_item.setSizeHint(widget.sizeHint())
-            self.list_widget.setCurrentItem(taken_item)
+            path = item.data(Qt.UserRole)
+            self.list_widget.takeItem(current_row)
+            
+            # Recreate widget
+            pixmap = self.pixmap_cache.get(path)
+            if not pixmap or pixmap.isNull():
+                 pixmap = QPixmap(path)
+                 if pixmap.isNull():
+                      pixmap = QPixmap(80, 60)
+                      pixmap.fill(Qt.darkGray)
+            
+            new_widget = QueueItemWidget(path, pixmap)
+            new_item = QListWidgetItem()
+            new_item.setData(Qt.UserRole, path)
+            new_item.setSizeHint(new_widget.sizeHint())
+            
+            self.list_widget.insertItem(current_row + 1, new_item)
+            self.list_widget.setItemWidget(new_item, new_widget)
+            self.list_widget.setCurrentItem(new_item)
             self.emit_new_queue_order()
 
     @Slot(QListWidgetItem)
