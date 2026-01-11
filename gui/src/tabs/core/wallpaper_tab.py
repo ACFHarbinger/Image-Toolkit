@@ -1695,10 +1695,6 @@ class WallpaperTab(AbstractClassSingleGallery):
                             # Path invalid, clear it
                             self.monitor_image_paths[mid] = None
                             self.monitor_widgets[mid].clear()
-
-            QMessageBox.information(
-                self, "Config Loaded", "Wallpaper configuration applied successfully."
-            )
         except Exception as e:
             QMessageBox.critical(
                 self, "Config Error", f"Failed to apply wallpaper configuration:\n{e}"

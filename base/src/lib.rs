@@ -258,10 +258,6 @@ fn base(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(convert_video, m)?)?;
     m.add_function(wrap_pyfunction!(set_wallpaper_gnome, m)?)?;
     m.add_function(wrap_pyfunction!(evaluate_kde_script, m)?)?;
-    m.add_function(wrap_pyfunction!(run_web_requests_sequence, m)?)?;
-    m.add_function(wrap_pyfunction!(run_board_crawler, m)?)?;
-    m.add_function(wrap_pyfunction!(run_reverse_image_search, m)?)?;
-    m.add_function(wrap_pyfunction!(run_sync, m)?)?;
 
     // File System
     m.add_function(wrap_pyfunction!(get_files_by_extension, m)?)?;
@@ -276,6 +272,13 @@ fn base(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(merge_images_horizontal, m)?)?;
     m.add_function(wrap_pyfunction!(merge_images_vertical, m)?)?;
     m.add_function(wrap_pyfunction!(merge_images_grid, m)?)?;
+
+    // Web Functions
+    m.add_function(wrap_pyfunction!(run_web_requests_sequence, m)?)?;
+    m.add_function(wrap_pyfunction!(run_board_crawler, m)?)?;
+    m.add_function(wrap_pyfunction!(run_reverse_image_search, m)?)?;
+    m.add_function(wrap_pyfunction!(run_sync, m)?)?;
+    m.add_function(wrap_pyfunction!(run_image_crawler, m)?)?;
 
     Ok(())
 }
