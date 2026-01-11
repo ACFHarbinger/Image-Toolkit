@@ -19,7 +19,6 @@ const updateTurboStatus = () => {
 
     getStorage(['turboMode']).then((result) => {
         turboMode = result.turboMode || false;
-        console.log("[Image-Toolkit] Turbo Mode is: " + (turboMode ? "ENABLED" : "DISABLED"));
     });
 };
 
@@ -30,7 +29,6 @@ updateTurboStatus();
 api.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.turboMode) {
         turboMode = changes.turboMode.newValue;
-        console.log("[Image-Toolkit] Turbo Mode changed to: " + (turboMode ? "ENABLED" : "DISABLED"));
     }
 });
 
@@ -54,8 +52,6 @@ const blockAndDownload = (e) => {
     }
 
     if (targetImage) {
-        console.log("[Image-Toolkit] Intercepted " + e.type + " on image: " + targetImage.src);
-
         // Stop the event from reaching the site's elements or bubbling up
         e.stopPropagation();
         e.stopImmediatePropagation();
@@ -63,7 +59,6 @@ const blockAndDownload = (e) => {
         // For 'click', we also prevent default (to stop links/zoom) and trigger download
         if (e.type === 'click') {
             e.preventDefault();
-            console.log("[Image-Toolkit] Triggering download for: " + targetImage.src);
 
             const msg = { action: 'download_image', src: targetImage.src };
             api.runtime.sendMessage(msg);

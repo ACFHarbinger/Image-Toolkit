@@ -13,7 +13,7 @@ path = "src/utils/slideshow_daemon.rs"
 
 [dependencies]
 pyo3 = { version = "0.27", features = ["abi3-py311"] }
-image = "0.25"
+image = { version = "0.25", features = ["webp"] }
 fast_image_resize = "5.1"
 rayon = "1.10"
 walkdir = "2.5"
