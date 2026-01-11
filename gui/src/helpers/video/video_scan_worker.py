@@ -64,13 +64,13 @@ class VideoThumbnailer:
 
         # Strategy 2: FFmpeg (Optimized input seeking)
         if self.has_ffmpeg:
-            try:
+            def run_ffmpeg(seek_time):
                 # -ss BEFORE -i is critical: it triggers "input seeking" (jumping to keyframes)
                 # rather than decoding up to the timestamp.
                 cmd = [
                     "ffmpeg",
                     "-hide_banner", "-loglevel", "error",
-                    "-ss", "00:00:05",       # Seek 5s (fixed mostly safe point)
+                    "-ss", seek_time,
                     "-i", video_path,
                     "-vf", f"scale={size}:-1", # Downscale inside pipeline (saves RAM)
                     "-vframes", "1",
@@ -78,15 +78,25 @@ class VideoThumbnailer:
                     "-c:v", "mjpeg",
                     "pipe:1"
                 ]
-                result = subprocess.run(
+                return subprocess.run(
                     cmd, capture_output=True, check=True, timeout=15.0
                 )
-                
+
+            try:
+                # Try seeking to 5 seconds first (avoids black intros)
+                result = run_ffmpeg("00:00:05")
                 img = QImage()
                 if img.loadFromData(result.stdout):
                     return img
             except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-                pass
+                # Fallback: Try seeking to start (0s) for short videos
+                try:
+                    result = run_ffmpeg("00:00:00")
+                    img = QImage()
+                    if img.loadFromData(result.stdout):
+                        return img
+                except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                    pass
         
         return None
 
