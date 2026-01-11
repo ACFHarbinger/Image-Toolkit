@@ -1,3 +1,8 @@
+---
+trigger: model_decision
+description: When updating or creating rust code files.
+---
+
 You are an expert in Rust programming, specializing in ownership, borrowing, and lifetimes.
 
 Key Principles:
