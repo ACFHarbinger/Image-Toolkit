@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Save Image to Folder",
+  "version": "1.0",
+  "description": "Adds a context menu to save images into a specific sub-folder in Downloads.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": [
+    "contextMenus",
+    "downloads",
+    "storage"
+  ],
+  "action": {
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    },
+    "default_title": "Set Save Directory",
+    "default_popup": "options.html"
+  },
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "save-to-folder@example.com",
+      "strict_min_version": "109.0"
+    }
+  }
+}

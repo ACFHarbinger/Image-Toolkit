@@ -1,25 +1,41 @@
-// Saves options to browser.storage
-const saveOptions = async () => {
-  const folderName = document.getElementById('folder').value;
-  
-  // Basic validation to remove forbidden characters
-  const cleanName = folderName.replace(/[<>:"/\\|?*]/g, '');
+// Detect environment: Chrome uses 'chrome' + callbacks, Firefox uses 'browser' + Promises
+const api = (typeof browser !== 'undefined') ? browser : chrome;
 
-  await browser.storage.local.set({ targetFolder: cleanName });
-  
-  const status = document.getElementById('status');
-  status.textContent = 'Directory Saved!';
-  document.getElementById('folder').value = cleanName;
-  
-  setTimeout(() => {
-    status.textContent = '';
-  }, 1500);
+const saveOptions = () => {
+  const folderName = document.getElementById('folder').value;
+  // Basic validation to remove forbidden characters (keeping / for subfolders)
+  const cleanName = folderName.replace(/[<>:"\\|?*]/g, '');
+
+  const onSaved = () => {
+    const status = document.getElementById('status');
+    status.textContent = 'Directory Saved!';
+    document.getElementById('folder').value = cleanName;
+    setTimeout(() => {
+      status.textContent = '';
+    }, 1500);
+  };
+
+  // Handle Chrome (Callback) vs Firefox (Promise)
+  const settings = { targetFolder: cleanName, turboMode: document.getElementById('turbo').checked };
+
+  if (typeof browser !== 'undefined') {
+    api.storage.local.set(settings).then(onSaved);
+  } else {
+    api.storage.local.set(settings, onSaved);
+  }
 };
 
-// Restores select box and checkbox state using the preferences
-const restoreOptions = async () => {
-  const result = await browser.storage.local.get('targetFolder');
-  document.getElementById('folder').value = result.targetFolder || 'data';
+const restoreOptions = () => {
+  const onGot = (result) => {
+    document.getElementById('folder').value = result.targetFolder || 'data';
+    document.getElementById('turbo').checked = result.turboMode || false;
+  };
+
+  if (typeof browser !== 'undefined') {
+    api.storage.local.get(['targetFolder', 'turboMode']).then(onGot);
+  } else {
+    api.storage.local.get(['targetFolder', 'turboMode'], onGot);
+  }
 };
 
 document.addEventListener('DOMContentLoaded', restoreOptions);
