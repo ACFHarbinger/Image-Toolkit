@@ -34,7 +34,7 @@ class DriveSyncTab(QWidget):
         self.vault_manager = vault_manager
         self.current_worker: Optional[Any] = None
 
-        self.log_window = LogWindow()
+        self.log_window = LogWindow(parent=self)
 
         main_layout = QVBoxLayout(self)
 

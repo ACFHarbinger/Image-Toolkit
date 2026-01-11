@@ -25,7 +25,7 @@ class WebRequestsTab(QWidget):
         self.worker = None
 
         # --- Log Window Initialization ---
-        self.log_window = LogWindow(tab_name="Web Requests")
+        self.log_window = LogWindow(tab_name="Web Requests", parent=self)
         self.log_window.hide()
         # --- End Log Window Initialization ---
 
