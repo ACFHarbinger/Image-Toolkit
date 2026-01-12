@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronRight,
   MonitorPlay,
+  Monitor,
   Cloud,
   Globe,
   ScanSearch,
@@ -24,6 +25,7 @@ import {
 import ConvertTab from './tabs/core/ConvertTab.tsx';
 import MergeTab from './tabs/core/MergeTab.tsx';
 import DeleteTab from './tabs/core/DeleteTab.tsx';
+import WallpaperTab from './tabs/core/WallpaperTab.tsx';
 import { ImageExtractorTab } from './tabs/core/ImageExtractorTab.tsx';
 
 // --- Database Tabs ---
@@ -46,7 +48,7 @@ import { R3GANEvaluateTab } from './tabs/models/R3GANEvaluateTab.tsx';
 // --- Interfaces ---
 
 type TabId = 
-  | 'convert' | 'merge' | 'delete' | 'extractor' 
+  | 'convert' | 'merge' | 'delete' | 'extractor' | 'wallpaper'
   | 'search' | 'database' | 'scan' 
   | 'train' | 'generate' | 'inference' | 'evaluate'
   | 'drive' | 'crawler' | 'revsearch' | 'webreq';
@@ -93,6 +95,7 @@ const App: React.FC = () => {
   const ConvertRef = useRef<any>(null);
   const MergeRef = useRef<any>(null);
   const DeleteRef = useRef<any>(null);
+  const WallpaperRef = useRef<any>(null);
   const ExtractorRef = useRef<any>(null);
   const SearchRef = useRef<any>(null);
   const DatabaseRef = useRef<any>(null);
@@ -112,6 +115,7 @@ const App: React.FC = () => {
     convert: ConvertRef,
     merge: MergeRef,
     delete: DeleteRef,
+    wallpaper: WallpaperRef,
     extractor: ExtractorRef,
     search: SearchRef,
     database: DatabaseRef,
@@ -153,6 +157,7 @@ const App: React.FC = () => {
         { id: 'convert', label: 'Convert', icon: ImageIcon, component: ConvertTab },
         { id: 'merge', label: 'Merge', icon: LayoutGrid, component: MergeTab },
         { id: 'delete', label: 'Delete', icon: Trash2, component: DeleteTab },
+        { id: 'wallpaper', label: 'Wallpaper', icon: Monitor, component: WallpaperTab },
         { id: 'extractor', label: 'Extractor', icon: MonitorPlay, component: ImageExtractorTab },
       ]
     },
