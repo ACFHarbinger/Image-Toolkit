@@ -13,12 +13,14 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 
 // Components
-import { ClickableLabel } from "../../components/ClickableLabel.tsx";
-import { MarqueeScrollArea } from "../../components/MarqueeScrollArea.tsx";
-import { useTwoGalleries } from "../../hooks/useTwoGalleries.ts";
-import { GalleryItem } from "../../hooks/galleryItem.ts";
+import { ClickableLabel } from "../../components/ClickableLabel";
+import { MarqueeScrollArea } from "../../components/MarqueeScrollArea";
+import { useTwoGalleries } from "../../hooks/useTwoGalleries";
+import { GalleryItem } from "../../hooks/galleryItem";
 
 interface MergeTabProps {
   showModal: (
@@ -78,7 +80,7 @@ const MergeTab = forwardRef<MergeTabHandle, MergeTabProps>(
     const [outputFilename, setOutputFilename] = useState("");
     const [direction, setDirection] = useState("horizontal");
     const [spacing, setSpacing] = useState(10);
-    const [alignMode, setAlignMode] = useState("Default (Top/Center)");
+    const [alignMode, setAlignMode] = useState("center");
     const [gridRows, setGridRows] = useState(2);
     const [gridCols, setGridCols] = useState(2);
     const [duration, setDuration] = useState(500);
@@ -100,31 +102,96 @@ const MergeTab = forwardRef<MergeTabHandle, MergeTabProps>(
           gridCols,
           duration,
         },
-        selected_files: Array.from(selected.items).map((i) => i.path),
+        selected_files: Array.from(selected.items).map((i: any) => i.path),
       }),
     }));
 
-    const handleBrowseInput = () => inputDirRef.current?.click();
-    const handleBrowseOutput = () => outputDirRef.current?.click();
+    const handleBrowseInput = async () => {
+      try {
+        const dir = (await open({ directory: true, multiple: false })) as
+          | string
+          | null;
+        if (dir) {
+          setScanDir(dir);
+          // Auto scan
+          const files =
+            (await invoke<string[]>("scan_files", {
+              directory: dir,
+              recursive: false,
+            })) || [];
 
+          const images: GalleryItem[] = files.map((p) => ({
+            path: p,
+            thumbnail: convertFileSrc(p),
+            isVideo: false,
+          }));
+          found.actions.setGalleryItems(images);
+          showModal(`Found ${images.length} images.`, "info");
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    const handleBrowseOutput = async () => {
+      try {
+        const dir = (await open({ directory: true, multiple: false })) as
+          | string
+          | null;
+        if (dir) setOutputDir(dir);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    // Legacy handler
     const handleScan = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files.length > 0) {
         const path =
           e.target.files[0].webkitRelativePath.split("/")[0] ||
           "Selected Directory";
         setScanDir(path);
-        const images: GalleryItem[] = Array.from(e.target.files)
-          .filter((f) => f.type.startsWith("image/"))
-          .map((f) => ({ path: f.name, thumbnail: URL.createObjectURL(f) }));
-        found.actions.setGalleryItems(images);
-        showModal(`Scan complete. Found ${images.length} items.`, "success");
       }
     };
 
-    const handleRunMerge = () => {
+    const handleRunMerge = async () => {
       if (selected.items.length < 2)
         return showModal("Select at least 2 images to merge.", "error");
-      showModal(`Merging ${selected.items.length} images...`, "info");
+      if (!outputDir)
+        return showModal("Please select an output directory.", "error");
+
+      const filename = outputFilename || `merged_${Date.now()}.png`;
+      const sep = outputDir.includes("\\") ? "\\" : "/";
+      const fullOutputPath = `${outputDir}${sep}${filename}`;
+
+      try {
+        showModal(`Merging ${selected.items.length} images...`, "info");
+        const paths = selected.items.map((i) => i.path);
+
+        const config = {
+          direction,
+          spacing,
+          alignMode,
+          gridRows,
+          gridCols,
+          duration, // For GIF if implemented later
+        };
+
+        const success = await invoke<boolean>("merge_images", {
+          imagePaths: paths,
+          outputPath: fullOutputPath,
+          config,
+        });
+
+        if (success) {
+          showModal(`Merge complete: ${filename}`, "success");
+        } else {
+          showModal("Merge failed (unknown error).", "error");
+        }
+      } catch (err) {
+        console.error(err);
+        showModal(`Merge error: ${err}`, "error");
+      }
     };
 
     return (
@@ -176,7 +243,7 @@ const MergeTab = forwardRef<MergeTabHandle, MergeTabProps>(
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Output Directory (Optional)..."
+                  placeholder="Output Directory..."
                   readOnly
                   value={outputDir}
                   className="flex-1 p-2 border rounded text-sm dark:bg-gray-700 dark:border-gray-600"
@@ -190,7 +257,7 @@ const MergeTab = forwardRef<MergeTabHandle, MergeTabProps>(
               </div>
               <input
                 type="text"
-                placeholder="Output Filename (auto extension)"
+                placeholder="Output Filename (e.g. merged.png)"
                 value={outputFilename}
                 onChange={(e) => setOutputFilename(e.target.value)}
                 className="w-full p-2 border rounded text-sm dark:bg-gray-700 dark:border-gray-600"
@@ -207,7 +274,7 @@ const MergeTab = forwardRef<MergeTabHandle, MergeTabProps>(
                 <option value="horizontal">Horizontal</option>
                 <option value="vertical">Vertical</option>
                 <option value="grid">Grid</option>
-                <option value="gif">GIF Sequence</option>
+                {/* <option value="gif">GIF Sequence (Not Implemented)</option> */}
               </select>
 
               {direction === "grid" && (
@@ -233,17 +300,7 @@ const MergeTab = forwardRef<MergeTabHandle, MergeTabProps>(
                 </>
               )}
 
-              {direction === "gif" ? (
-                <label className="text-xs col-span-2">
-                  Duration (ms):{" "}
-                  <input
-                    type="number"
-                    value={duration}
-                    onChange={(e) => setDuration(Number(e.target.value))}
-                    className="w-16 p-1 border rounded dark:bg-gray-700"
-                  />
-                </label>
-              ) : (
+              {direction !== "gif" && (
                 <>
                   <label className="text-xs">
                     Spacing:{" "}
@@ -259,9 +316,10 @@ const MergeTab = forwardRef<MergeTabHandle, MergeTabProps>(
                     onChange={(e) => setAlignMode(e.target.value)}
                     className="p-1 border rounded text-xs dark:bg-gray-700 dark:border-gray-600"
                   >
-                    <option>Default (Top/Center)</option>
-                    <option>Align Bottom/Right</option>
-                    <option>Scaled</option>
+                    <option value="center">Center</option>
+                    <option value="top">Top / Left</option>
+                    <option value="bottom">Bottom / Right</option>
+                    <option value="stretch">Stretch</option>
                   </select>
                 </>
               )}

@@ -12,12 +12,14 @@ import {
   ChevronRight,
   FileSearch,
 } from "lucide-react";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 
 // Components
-import { ClickableLabel } from "../../components/ClickableLabel.tsx";
-import { MarqueeScrollArea } from "../../components/MarqueeScrollArea.tsx";
-import { useTwoGalleries } from "../../hooks/useTwoGalleries.ts";
-import { GalleryItem } from "../../hooks/galleryItem.ts";
+import { ClickableLabel } from "../../components/ClickableLabel";
+import { MarqueeScrollArea } from "../../components/MarqueeScrollArea";
+import { useTwoGalleries } from "../../hooks/useTwoGalleries";
+import { GalleryItem } from "../../hooks/galleryItem";
 
 interface DeleteTabProps {
   showModal: (
@@ -85,42 +87,125 @@ const DeleteTab = forwardRef<DeleteTabHandle, DeleteTabProps>(
       getData: () => ({
         action: "delete",
         target_path: targetPath,
-        selected_files: Array.from(selected.items).map((i) => i.path),
+        selected_files: Array.from(selected.items).map((i: any) => i.path),
         options: { scanMethod, extensions, requireConfirm },
       }),
     }));
 
-    const handleBrowse = () => inputDirRef.current?.click();
+    const handleBrowse = async () => {
+      try {
+        const dir = (await open({ directory: true, multiple: false })) as
+          | string
+          | null;
+        if (dir) {
+          setTargetPath(dir);
+          await performScan(dir);
+        }
+      } catch (err) {
+        console.error(err);
+        showModal("Failed to select directory", "error");
+      }
+    };
 
+    const performScan = async (dir: string) => {
+      try {
+        const extList = extensions
+          ? extensions.split(" ").map((s) => s.trim())
+          : undefined;
+
+        const files =
+          (await invoke<string[]>("scan_files", {
+            directory: dir,
+            extensions: extList,
+            recursive: true,
+          })) || [];
+
+        const images: GalleryItem[] = files.map((p) => ({
+          path: p,
+          thumbnail: convertFileSrc(p),
+          isVideo: false,
+        }));
+        found.actions.setGalleryItems(images);
+        showModal(`Scan complete. Found ${images.length} items.`, "success");
+      } catch (err) {
+        console.error(err);
+        showModal(`Scan failed: ${err}`, "error");
+      }
+    };
+
+    // Legacy input handler kept for fallback or specific file selection if needed
     const handleScan = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files.length > 0) {
+        // This is legacy browser-based file selection, mostly for testing without Tauri
+        // In real Tauri app, handleBrowse is preferred.
         const path =
           e.target.files[0].webkitRelativePath.split("/")[0] ||
           "Selected Directory";
         setTargetPath(path);
-
-        // Simulate Scan
-        const images: GalleryItem[] = Array.from(e.target.files)
-          .filter((f) => f.type.startsWith("image/"))
-          .map((f) => ({ path: f.name, thumbnail: URL.createObjectURL(f) }));
-
-        found.actions.setGalleryItems(images);
-        showModal(`Scan complete. Found ${images.length} items.`, "success");
       }
     };
 
-    const handleDeleteDirectory = () => {
+    const handleDeleteDirectory = async () => {
       if (!targetPath) return showModal("No target path selected.", "error");
-      showModal(`Simulating directory deletion: ${targetPath}`, "error");
+
+      if (requireConfirm) {
+        if (
+          !window.confirm(
+            `Are you sure you want to delete the entire directory?\n${targetPath}`,
+          )
+        ) {
+          return;
+        }
+      }
+
+      try {
+        showModal(`Deleting directory: ${targetPath}...`, "info");
+        const success = await invoke("delete_directory", { path: targetPath });
+        if (success) {
+          showModal("Directory deleted successfully.", "success");
+          found.actions.setGalleryItems([]);
+          selected.actions.clear();
+          setTargetPath("");
+        } else {
+          showModal("Failed to delete directory (not found or error).", "error");
+        }
+      } catch (err) {
+        console.error(err);
+        showModal(`Delete failed: ${err}`, "error");
+      }
     };
 
-    const handleDeleteSelected = () => {
+    const handleDeleteSelected = async () => {
       if (selected.items.length === 0)
         return showModal("No files selected.", "error");
-      showModal(
-        `Simulating deletion of ${selected.items.length} files...`,
-        "error",
-      );
+
+      if (requireConfirm) {
+        if (
+          !window.confirm(
+            `Are you sure you want to delete ${selected.items.length} files?`,
+          )
+        ) {
+          return;
+        }
+      }
+
+      try {
+        showModal(`Deleting ${selected.items.length} files...`, "info");
+        const paths = selected.items.map((i) => i.path);
+        const count = await invoke<number>("delete_files", { paths });
+        showModal(`Deleted ${count} files.`, "success");
+
+        // Remove deleted from galleries
+        const deletedSet = new Set(paths);
+        const remainingFound = found.items.filter(
+          (i) => !deletedSet.has(i.path),
+        );
+        found.actions.setGalleryItems(remainingFound);
+        selected.actions.clear();
+      } catch (err) {
+        console.error(err);
+        showModal(`Delete failed: ${err}`, "error");
+      }
     };
 
     return (
@@ -169,7 +254,7 @@ const DeleteTab = forwardRef<DeleteTabHandle, DeleteTabProps>(
             </select>
             <input
               type="text"
-              placeholder="Target extensions (e.g. .jpg .png)"
+              placeholder="Target extensions (e.g. jpg png) - Space separated"
               value={extensions}
               onChange={(e) => setExtensions(e.target.value)}
               className="p-2 border rounded text-sm dark:bg-gray-700 dark:border-gray-600"
