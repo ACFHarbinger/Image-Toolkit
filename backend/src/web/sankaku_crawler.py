@@ -1,5 +1,6 @@
 from .image_board_crawler import ImageBoardCrawler
 
+
 class SankakuCrawler(ImageBoardCrawler):
     """Crawler implementation for Sankaku Complex (Rust-accelerated)."""
 

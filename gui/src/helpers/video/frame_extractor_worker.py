@@ -74,10 +74,12 @@ class FrameExtractionWorker(QRunnable):
                     break
 
                 current_ms = cap.get(cv2.CAP_PROP_POS_MSEC)
-                
+
                 # --- PROGRESS LOGIC ---
                 if total_duration_ms > 0:
-                    progress = int(((current_ms - self.start_ms) / total_duration_ms) * 100)
+                    progress = int(
+                        ((current_ms - self.start_ms) / total_duration_ms) * 100
+                    )
                     self.signals.progress.emit(min(100, max(0, progress)))
                 # ----------------------
 

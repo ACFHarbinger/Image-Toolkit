@@ -1,6 +1,7 @@
 import json
-import base # Native extension
-from typing import Callable, Optional
+import base  # Native extension
+from typing import Callable
+
 
 class GoogleDriveSync:
     """
@@ -13,16 +14,16 @@ class GoogleDriveSync:
         local_source_path: str,
         drive_destination_folder_name: str,
         google_json_key_path: str = None,
-        google_access_token: str = None, # Used for personal account
+        google_access_token: str = None,  # Used for personal account
         dry_run: bool = False,
         logger: Callable[[str], None] = print,
         action_local_orphans: str = "upload",
         action_remote_orphans: str = "download",
     ):
-        # Note: If google_json_key_path is provided, Rust implementation 
+        # Note: If google_json_key_path is provided, Rust implementation
         # would ideally handle token exchange. For now, we assume token is passed.
         # If we need service account support in Rust, we'd add JSON key parsing there.
-        
+
         self.config = {
             "local_path": local_source_path,
             "remote_path": drive_destination_folder_name,
@@ -47,7 +48,7 @@ class GoogleDriveSync:
             # Use the Rust runner
             result_json = base.run_sync("google_drive", config_json, self)
             stats = json.loads(result_json)
-            
+
             summary = f"Completed with {stats['uploaded'] + stats['downloaded'] + stats['deleted_local'] + stats['deleted_remote']} actions. (Up: {stats['uploaded']}, Down: {stats['downloaded']}, Del-L: {stats['deleted_local']}, Del-R: {stats['deleted_remote']})"
             return (True, summary)
         except Exception as e:

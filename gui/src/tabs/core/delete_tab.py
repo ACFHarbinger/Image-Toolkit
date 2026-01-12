@@ -140,7 +140,7 @@ class DeleteTab(AbstractClassTwoGalleries):
         self.found_gallery_scroll.selection_changed.connect(
             self.handle_marquee_selection
         )
-        
+
         # Add shared search input (Lazy Search) for Found/Scanned Gallery
         content_layout.addWidget(self.found_search_input)
 
@@ -626,7 +626,7 @@ class DeleteTab(AbstractClassTwoGalleries):
 
         msg = f"Deleted {deleted_count} files."
         if errors:
-            msg += f"\nErrors:\n" + "\n".join(errors[:5])
+            msg += "\nErrors:\n" + "\n".join(errors[:5])
         QMessageBox.information(self, "Deletion Complete", msg)
 
     def delete_single_file(self, path: str):
@@ -651,7 +651,9 @@ class DeleteTab(AbstractClassTwoGalleries):
                 wrapper = self.path_to_label_map.pop(path)
                 wrapper.deleteLater()
 
-            self.common_reflow_layout(self.found_gallery_layout, self._current_found_cols)
+            self.common_reflow_layout(
+                self.found_gallery_layout, self._current_found_cols
+            )
             self.refresh_selected_panel()
             self.on_selection_changed()
             self.status_label.setText(f"File deleted: {filename}")
@@ -941,7 +943,7 @@ class DeleteTab(AbstractClassTwoGalleries):
             # 4. Confirmation Checkbox
             self.confirm_checkbox.setChecked(config.get("require_confirm", True))
 
-            print(f"DeleteTab configuration loaded.")
+            print("DeleteTab configuration loaded.")
 
         except Exception as e:
             print(f"Error applying DeleteTab config: {e}")

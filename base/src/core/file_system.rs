@@ -4,6 +4,33 @@ use std::fs;
 use std::path::Path;
 use walkdir::WalkDir;
 
+// Core (non-Python) helper for reuse by Tauri and other Rust callers.
+pub fn get_files_by_extension_core(
+    directory: &str,
+    extension: &str,
+    recursive: bool,
+) -> Vec<String> {
+    let ext = extension.trim_start_matches('.').to_lowercase();
+    let walker = if recursive {
+        WalkDir::new(directory).into_iter()
+    } else {
+        WalkDir::new(directory).max_depth(1).into_iter()
+    };
+
+    walker
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file())
+        .filter(|e| {
+            e.path()
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|e| e.to_lowercase() == ext)
+                .unwrap_or(false)
+        })
+        .map(|e| e.path().to_string_lossy().to_string())
+        .collect()
+}
+
 #[pyfunction]
 pub fn get_files_by_extension(
     py: Python,
@@ -11,29 +38,8 @@ pub fn get_files_by_extension(
     extension: String,
     recursive: bool,
 ) -> PyResult<Vec<String>> {
-    let ext = extension.trim_start_matches('.').to_lowercase();
-
-    let results: Vec<String> = py.detach(|| {
-        let walker = if recursive {
-            WalkDir::new(&directory).into_iter()
-        } else {
-            WalkDir::new(&directory).max_depth(1).into_iter()
-        };
-
-        walker
-            .filter_map(|e| e.ok())
-            .filter(|e| e.file_type().is_file())
-            .filter(|e| {
-                e.path()
-                    .extension()
-                    .and_then(|e| e.to_str())
-                    .map(|e| e.to_lowercase() == ext)
-                    .unwrap_or(false)
-            })
-            .map(|e| e.path().to_string_lossy().to_string())
-            .collect()
-    });
-
+    let results: Vec<String> =
+        py.detach(|| get_files_by_extension_core(&directory, &extension, recursive));
     Ok(results)
 }
 

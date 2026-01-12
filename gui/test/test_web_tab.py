@@ -9,6 +9,7 @@ from gui.src.tabs.web.web_requests_tab import WebRequestsTab
 
 # --- DriveSyncTab Tests ---
 
+
 class TestDriveSyncTab:
     @pytest.fixture
     def mock_vault(self):
@@ -20,8 +21,10 @@ class TestDriveSyncTab:
 
     @pytest.fixture
     def mock_workers(self):
-        with patch("gui.src.tabs.web.drive_sync_tab.GoogleDriveSyncWorker") as mock_gd, \
-             patch("gui.src.tabs.web.drive_sync_tab.LogWindow") as mock_log:
+        with (
+            patch("gui.src.tabs.web.drive_sync_tab.GoogleDriveSyncWorker") as mock_gd,
+            patch("gui.src.tabs.web.drive_sync_tab.LogWindow") as mock_log,
+        ):
             yield mock_gd, mock_log
 
     def test_init(self, q_app, mock_vault):
@@ -32,18 +35,24 @@ class TestDriveSyncTab:
         mock_gd, mock_log = mock_workers
         tab = DriveSyncTab(mock_vault)
         tab.remote_path.setText("/Backups")
-        
+
         # Mock file existence checks/paths
-        with patch("gui.src.tabs.web.drive_sync_tab.os.path.isdir", return_value=True), \
-             patch("gui.src.tabs.web.drive_sync_tab.QThreadPool.globalInstance") as mock_pool:
-            
+        with (
+            patch("gui.src.tabs.web.drive_sync_tab.os.path.isdir", return_value=True),
+            patch(
+                "gui.src.tabs.web.drive_sync_tab.QThreadPool.globalInstance"
+            ) as mock_pool,
+        ):
+
             # Ensure "Google Drive (Service Account)" is selected (default)
             tab.view_remote_map()
-            
+
             mock_gd.assert_called()
             mock_pool.return_value.start.assert_called()
 
+
 # --- ImageCrawlTab Tests ---
+
 
 class TestImageCrawlTab:
     @pytest.fixture
@@ -61,8 +70,10 @@ class TestImageCrawlTab:
         with patch("gui.src.tabs.web.image_crawler_tab.LogWindow"):
             tab = ImageCrawlTab()
             tab.download_dir_path.clear()
-            
-            with patch("gui.src.tabs.web.image_crawler_tab.QMessageBox.warning") as mock_warn:
+
+            with patch(
+                "gui.src.tabs.web.image_crawler_tab.QMessageBox.warning"
+            ) as mock_warn:
                 tab.start_crawl()
                 mock_warn.assert_called()
                 mock_worker.assert_not_called()
@@ -71,21 +82,27 @@ class TestImageCrawlTab:
         with patch("gui.src.tabs.web.image_crawler_tab.LogWindow"):
             tab = ImageCrawlTab()
             tab.download_dir_path.setText("/tmp/down")
-            tab.crawler_type_combo.setCurrentIndex(0) # General
-            
+            tab.crawler_type_combo.setCurrentIndex(0)  # General
+
             tab.start_crawl()
-            
+
             mock_worker.assert_called()
             mock_worker.return_value.start.assert_called()
 
+
 # --- ReverseImageSearchTab Tests ---
+
 
 class TestReverseImageSearchTab:
     @pytest.fixture
     def mock_deps(self):
-        with patch("gui.src.tabs.web.reverse_search_tab.ImageScannerWorker"), \
-             patch("gui.src.tabs.web.reverse_search_tab.ReverseSearchWorker") as mock_search, \
-             patch("gui.src.tabs.web.reverse_search_tab.ImageLoaderWorker"):
+        with (
+            patch("gui.src.tabs.web.reverse_search_tab.ImageScannerWorker"),
+            patch(
+                "gui.src.tabs.web.reverse_search_tab.ReverseSearchWorker"
+            ) as mock_search,
+            patch("gui.src.tabs.web.reverse_search_tab.ImageLoaderWorker"),
+        ):
             yield mock_search
 
     def test_init(self, q_app):
@@ -101,13 +118,17 @@ class TestReverseImageSearchTab:
     def test_start_search_success(self, q_app, mock_deps):
         tab = ReverseImageSearchTab()
         tab.selected_source_path = "/tmp/img.jpg"
-        
-        with patch("gui.src.tabs.web.reverse_search_tab.QThreadPool.globalInstance") as mock_pool:
+
+        with patch(
+            "gui.src.tabs.web.reverse_search_tab.QThreadPool.globalInstance"
+        ) as mock_pool:
             tab.start_search()
             mock_deps.assert_called()
             mock_pool.return_value.start.assert_called()
 
+
 # --- WebRequestsTab Tests ---
+
 
 class TestWebRequestsTab:
     @pytest.fixture
@@ -124,7 +145,9 @@ class TestWebRequestsTab:
         with patch("gui.src.tabs.web.web_requests_tab.LogWindow"):
             tab = WebRequestsTab()
             # Missing URL
-            with patch("gui.src.tabs.web.web_requests_tab.QMessageBox.warning") as mock_warn:
+            with patch(
+                "gui.src.tabs.web.web_requests_tab.QMessageBox.warning"
+            ) as mock_warn:
                 tab.start_requests()
                 mock_warn.assert_called()
 
@@ -134,8 +157,8 @@ class TestWebRequestsTab:
             tab.url_input.setText("https://google.com")
             tab.request_list_widget.addItem("[GET]")
             tab.action_list_widget.addItem("Print Response URL")
-            
+
             tab.start_requests()
-            
+
             mock_worker.assert_called()
             mock_worker.return_value.start.assert_called()

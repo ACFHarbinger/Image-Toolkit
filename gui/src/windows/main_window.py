@@ -80,14 +80,14 @@ class MainWindow(QWidget):
         header_widget = QWidget()
         header_widget.setObjectName("header_widget")
         header_widget.setStyleSheet(
-            f"background-color: #2d2d30; padding: 10px; border-bottom: 2px solid #00bcd4;"
+            "background-color: #2d2d30; padding: 10px; border-bottom: 2px solid #00bcd4;"
         )
         header_layout = QHBoxLayout(header_widget)
         header_layout.setContentsMargins(10, 5, 10, 5)
 
         self.title_label = QLabel(f"Image Database and Toolkit - {account_name}")
         self.title_label.setStyleSheet(
-            f"color: white; font-size: 18pt; font-weight: bold;"
+            "color: white; font-size: 18pt; font-weight: bold;"
         )
         header_layout.addWidget(self.title_label)
         header_layout.addStretch(1)
@@ -110,13 +110,13 @@ class MainWindow(QWidget):
         self.settings_button.setDefault(True)
 
         self.settings_button.setStyleSheet(
-            f"""
-            QPushButton#settings_button {{
+            """
+            QPushButton#settings_button {
                 background-color: transparent;
                 border: none;
                 padding: 5px;
                 border-radius: 18px; 
-            }}
+            }
         """
         )
         header_layout.addWidget(self.settings_button)

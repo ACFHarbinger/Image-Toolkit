@@ -422,7 +422,7 @@ class WebRequestsTab(QWidget):
                     display_text += f" | Param: {param}"
                 self.action_list_widget.addItem(display_text)
 
-            print(f"WebRequestsTab configuration loaded.")
+            print("WebRequestsTab configuration loaded.")
 
         except Exception as e:
             print(f"Error applying WebRequestsTab config: {e}")

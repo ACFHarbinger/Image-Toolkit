@@ -29,6 +29,6 @@ class SiameseTask(QRunnable):
             else:
                 self.signals.result.emit((self.path, None))
 
-        except Exception as e:
+        except Exception:
             # In case torch is not installed or other critical error
             self.signals.result.emit((self.path, None))

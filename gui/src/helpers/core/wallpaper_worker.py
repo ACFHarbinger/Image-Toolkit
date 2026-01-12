@@ -5,7 +5,7 @@ if platform.system() == "Windows":
     import comtypes
 
 from screeninfo import Monitor
-from typing import Dict, List, Optional
+from typing import Dict, List
 from PySide6.QtCore import QObject, Signal, QRunnable, Slot
 from backend.src.core import WallpaperManager
 

@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 if __name__ == "__main__":
     sys.excepthook = log_uncaught_exceptions
-    
+
     # Check if CLI arguments are provided
     if len(sys.argv) > 1:
         command, opts = parse_params()

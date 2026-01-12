@@ -34,7 +34,7 @@ class DropboxDriveSyncWorker(QRunnable):
 
     def run(self):
         self.signals.status_update.emit("\n" + "=" * 50)
-        self._log(f"--- Dropbox Sync Initiated ---")
+        self._log("--- Dropbox Sync Initiated ---")
         self._log(f"Sync Mode: {'DRY RUN' if self.dry_run else 'LIVE'}")
         self.signals.status_update.emit("=" * 50 + "\n")
 

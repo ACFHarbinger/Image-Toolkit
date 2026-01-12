@@ -1024,7 +1024,7 @@ class MergeTab(AbstractClassTwoGalleries):
             if out_fname:
                 self.output_filename_input.setText(out_fname)
 
-            print(f"MergeTab configuration loaded.")
+            print("MergeTab configuration loaded.")
 
         except Exception as e:
             print(f"Error applying MergeTab config: {e}")

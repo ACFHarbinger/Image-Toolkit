@@ -43,34 +43,36 @@ class GifCreationWorker(QRunnable):
             try:
                 duration = t_end - t_start
                 cmd = ["ffmpeg", "-y"]
-                
+
                 # Fast seek (input option)
                 cmd.extend(["-ss", str(t_start)])
                 cmd.extend(["-t", str(duration)])
                 cmd.extend(["-i", self.video_path])
-                
+
                 # Construct complex filter for high quality GIF (palettegen + paletteuse)
                 # filters: fps -> scale -> split -> [palettegen/paletteuse]
-                
+
                 filter_chain = [f"fps={self.fps}"]
                 if self.target_size:
                     w, h = self.target_size
                     filter_chain.append(f"scale={w}:{h}:flags=lanczos")
-                
+
                 # Speed
                 if self.speed != 1.0:
                     pts_mult = 1.0 / self.speed
                     filter_chain.append(f"setpts={pts_mult}*PTS")
-                
+
                 # Join base filters
                 base_filters = ",".join(filter_chain)
-                
+
                 # Add palette generation and usage
-                complex_filter = f"{base_filters},split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse"
-                
+                complex_filter = (
+                    f"{base_filters},split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse"
+                )
+
                 cmd.extend(["-vf", complex_filter])
                 cmd.append(self.output_path)
-                
+
                 print(f"FFmpeg CMD: {cmd}")
 
                 self.signals.progress.emit(0)
@@ -79,15 +81,17 @@ class GifCreationWorker(QRunnable):
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     stdin=subprocess.DEVNULL,
-                    text=True
+                    text=True,
                 )
-                
+
                 if process.returncode != 0:
-                     raise RuntimeError(f"FFmpeg failed with return code {process.returncode}\n{process.stderr}")
-                
+                    raise RuntimeError(
+                        f"FFmpeg failed with return code {process.returncode}\n{process.stderr}"
+                    )
+
                 self.signals.progress.emit(100)
                 self.signals.finished.emit(self.output_path)
-                
+
             except Exception as e:
                 self.signals.error.emit(f"FFmpeg Error: {str(e)}")
             return
@@ -100,13 +104,15 @@ class GifCreationWorker(QRunnable):
             # Resize if target_size is provided (width, height)
             if self.target_size:
                 clip = clip.resize(newsize=self.target_size)
-            
+
             if self.speed != 1.0:
                 clip = clip.speedx(self.speed)
 
             self.signals.progress.emit(30)
-            clip.write_gif(self.output_path, fps=self.fps, logger=None) # logger=None to avoid stdout clutter
-            
+            clip.write_gif(
+                self.output_path, fps=self.fps, logger=None
+            )  # logger=None to avoid stdout clutter
+
             self.signals.progress.emit(100)
             self.signals.finished.emit(self.output_path)
 

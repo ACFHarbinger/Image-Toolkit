@@ -1,9 +1,12 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef } from "react";
 
 interface MarqueeScrollAreaProps {
   children: React.ReactNode;
   // Signal equivalent: (selectedPaths: Set<string>, isCtrlPressed: boolean) => void
-  onSelectionChanged?: (selectedPaths: Set<string>, isCtrlPressed: boolean) => void;
+  onSelectionChanged?: (
+    selectedPaths: Set<string>,
+    isCtrlPressed: boolean,
+  ) => void;
 }
 
 export const MarqueeScrollArea: React.FC<MarqueeScrollAreaProps> = ({
@@ -11,10 +14,18 @@ export const MarqueeScrollArea: React.FC<MarqueeScrollAreaProps> = ({
   onSelectionChanged,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; currX: number; currY: number } | null>(null);
+  const [selectionBox, setSelectionBox] = useState<{
+    startX: number;
+    startY: number;
+    currX: number;
+    currY: number;
+  } | null>(null);
   const [lastSelected, setLastSelected] = useState<Set<string>>(new Set());
 
-  const calculateSelection = (box: { startX: number; startY: number; currX: number; currY: number }, isCtrl: boolean) => {
+  const calculateSelection = (
+    box: { startX: number; startY: number; currX: number; currY: number },
+    isCtrl: boolean,
+  ) => {
     if (!containerRef.current) return;
 
     const rectLeft = Math.min(box.startX, box.currX);
@@ -34,18 +45,21 @@ export const MarqueeScrollArea: React.FC<MarqueeScrollAreaProps> = ({
     const currentSelected = new Set<string>();
 
     // Find all selectable children (ClickableLabels)
-    const selectables = containerRef.current.querySelectorAll('[data-selectable="true"]');
+    const selectables = containerRef.current.querySelectorAll(
+      '[data-selectable="true"]',
+    );
 
     selectables.forEach((el) => {
       const itemRect = el.getBoundingClientRect();
-      const path = el.getAttribute('data-path');
+      const path = el.getAttribute("data-path");
 
       if (!path) return;
 
       // Calculate relative position of item within the container
       // We compare against the container's scroll position
       const relativeItem = {
-        left: itemRect.left - containerRect.left + containerRef.current!.scrollLeft,
+        left:
+          itemRect.left - containerRect.left + containerRef.current!.scrollLeft,
         top: itemRect.top - containerRect.top + containerRef.current!.scrollTop,
         width: itemRect.width,
         height: itemRect.height,
@@ -65,9 +79,12 @@ export const MarqueeScrollArea: React.FC<MarqueeScrollAreaProps> = ({
     });
 
     // Optimization: Simple deep compare to avoid spamming the parent
-    if (currentSelected.size !== lastSelected.size || ![...currentSelected].every(p => lastSelected.has(p))) {
-        setLastSelected(currentSelected);
-        onSelectionChanged?.(currentSelected, isCtrl);
+    if (
+      currentSelected.size !== lastSelected.size ||
+      ![...currentSelected].every((p) => lastSelected.has(p))
+    ) {
+      setLastSelected(currentSelected);
+      onSelectionChanged?.(currentSelected, isCtrl);
     }
   };
 
@@ -77,10 +94,10 @@ export const MarqueeScrollArea: React.FC<MarqueeScrollAreaProps> = ({
     // Check if we clicked on a selectable item directly (prevent marquee start)
     let target = e.target as HTMLElement;
     while (target && target !== containerRef.current) {
-        if (target.getAttribute('data-selectable') === 'true') {
-            return; 
-        }
-        target = target.parentElement as HTMLElement;
+      if (target.getAttribute("data-selectable") === "true") {
+        return;
+      }
+      target = target.parentElement as HTMLElement;
     }
 
     const rect = containerRef.current!.getBoundingClientRect();
@@ -88,10 +105,13 @@ export const MarqueeScrollArea: React.FC<MarqueeScrollAreaProps> = ({
     const startY = e.clientY - rect.top + containerRef.current!.scrollTop;
 
     setSelectionBox({
-        startX, startY, currX: startX, currY: startY
+      startX,
+      startY,
+      currX: startX,
+      currY: startY,
     });
     setLastSelected(new Set());
-    
+
     // Capture pointer to handle drags outside the div
     (e.target as Element).setPointerCapture(e.pointerId);
   };
@@ -110,9 +130,9 @@ export const MarqueeScrollArea: React.FC<MarqueeScrollAreaProps> = ({
 
   const handlePointerUp = (e: React.PointerEvent) => {
     if (selectionBox) {
-        setSelectionBox(null);
-        setLastSelected(new Set());
-        (e.target as Element).releasePointerCapture(e.pointerId);
+      setSelectionBox(null);
+      setLastSelected(new Set());
+      (e.target as Element).releasePointerCapture(e.pointerId);
     }
   };
 
@@ -125,17 +145,19 @@ export const MarqueeScrollArea: React.FC<MarqueeScrollAreaProps> = ({
     const height = Math.abs(selectionBox.currY - selectionBox.startY);
 
     return (
-        <div style={{
-            position: 'absolute',
-            left: `${left}px`,
-            top: `${top}px`,
-            width: `${width}px`,
-            height: `${height}px`,
-            backgroundColor: 'rgba(88, 101, 242, 0.3)', // Discord blurple-ish
-            border: '1px solid #5865f2',
-            pointerEvents: 'none', // Let events pass through to scroll area
-            zIndex: 100
-        }} />
+      <div
+        style={{
+          position: "absolute",
+          left: `${left}px`,
+          top: `${top}px`,
+          width: `${width}px`,
+          height: `${height}px`,
+          backgroundColor: "rgba(88, 101, 242, 0.3)", // Discord blurple-ish
+          border: "1px solid #5865f2",
+          pointerEvents: "none", // Let events pass through to scroll area
+          zIndex: 100,
+        }}
+      />
     );
   };
 
@@ -146,19 +168,19 @@ export const MarqueeScrollArea: React.FC<MarqueeScrollAreaProps> = ({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       style={{
-        width: '100%',
-        height: '100%',
-        minHeight: '400px', // Fallback height
-        overflow: 'auto',
-        border: '1px solid #4f545c',
-        backgroundColor: '#2c2f33',
-        borderRadius: '8px',
-        position: 'relative',
-        touchAction: 'none' // Important for Pointer Events
+        width: "100%",
+        height: "100%",
+        minHeight: "400px", // Fallback height
+        overflow: "auto",
+        border: "1px solid #4f545c",
+        backgroundColor: "#2c2f33",
+        borderRadius: "8px",
+        position: "relative",
+        touchAction: "none", // Important for Pointer Events
       }}
     >
       {renderRubberBand()}
-      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <div style={{ position: "relative", width: "100%", height: "100%" }}>
         {children}
       </div>
     </div>

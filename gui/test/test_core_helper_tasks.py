@@ -1,11 +1,7 @@
-
-import sys
-import unittest
-from unittest.mock import MagicMock, patch, ANY
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-from PySide6.QtCore import QThreadPool
 
 # Ensure mocks are in place (should be handled by conftest, but explicit check or re-import is safe)
 import cv2
@@ -24,7 +20,7 @@ from backend.src.models.siamese_network import SiameseModelLoader
 
 
 class TestCoreHelperTasks:
-    
+
     @pytest.fixture(autouse=True)
     def setup_mocks(self):
         """
@@ -38,7 +34,7 @@ class TestCoreHelperTasks:
         self.mock_pil_image.resize.return_value = self.mock_pil_image
         # Allow context manager for PhashTask
         self.mock_image_open.return_value.__enter__.return_value = self.mock_pil_image
-        
+
         # Mock numpy array creation from image
         self.mock_np_array = patch("numpy.array").start()
         self.mock_np_array.return_value = np.zeros((100, 100), dtype=np.uint8)
@@ -52,34 +48,34 @@ class TestCoreHelperTasks:
         signals = ScanSignals()
         assert signals is not None
         # Verify signals are present
-        assert hasattr(signals, 'result')
-        assert hasattr(signals, 'error')
+        assert hasattr(signals, "result")
+        assert hasattr(signals, "error")
 
     def test_orb_task_success(self):
         """Test OrbTask successfully computes descriptors"""
         path = "/tmp/test_image.jpg"
         task = OrbTask(path)
-        
+
         # Mock signals
         mock_emit = MagicMock()
         task.signals.result.connect(mock_emit)
-        
+
         # Mock cv2 ORB
         mock_orb_detector = MagicMock()
         # Return keypoints (dummy) and descriptors (dummy array)
         # Descriptors must be > 10 items to pass the check
-        dummy_des = np.ones((15, 32), dtype=np.uint8) 
+        dummy_des = np.ones((15, 32), dtype=np.uint8)
         mock_orb_detector.detectAndCompute.return_value = ([], dummy_des)
-        
+
         cv2.ORB_create.return_value = mock_orb_detector
-        
+
         task.run()
-        
+
         # Verify load steps
         self.mock_image_open.assert_called_with(path)
         self.mock_pil_image.convert.assert_any_call("RGBA")
         self.mock_pil_image.convert.assert_any_call("L")
-        
+
         # Verify emit
         mock_emit.assert_called_once()
         args = mock_emit.call_args[0][0]
@@ -90,15 +86,15 @@ class TestCoreHelperTasks:
         """Test OrbTask handles exceptions gracefully"""
         path = "/tmp/bad.jpg"
         task = OrbTask(path)
-        
+
         mock_emit = MagicMock()
         task.signals.result.connect(mock_emit)
-        
+
         # Raise exception during processing
         self.mock_image_open.side_effect = Exception("Load error")
-        
+
         task.run()
-        
+
         mock_emit.assert_called_with((path, None))
 
     def test_orb_task_insufficient_features(self):
@@ -107,15 +103,15 @@ class TestCoreHelperTasks:
         task = OrbTask(path)
         mock_emit = MagicMock()
         task.signals.result.connect(mock_emit)
-        
+
         mock_orb = MagicMock()
         # less than 10 descriptors
         dummy_des = np.ones((5, 32), dtype=np.uint8)
         mock_orb.detectAndCompute.return_value = ([], dummy_des)
         cv2.ORB_create.return_value = mock_orb
-        
+
         task.run()
-        
+
         mock_emit.assert_called_with((path, None))
 
     def test_phash_task_success(self):
@@ -124,14 +120,14 @@ class TestCoreHelperTasks:
         task = PhashTask(path)
         mock_emit = MagicMock()
         task.signals.result.connect(mock_emit)
-        
+
         # Mock imagehash
         with patch("imagehash.average_hash") as mock_hash_func:
             dummy_hash = MagicMock()
             mock_hash_func.return_value = dummy_hash
-            
+
             task.run()
-            
+
             self.mock_image_open.assert_called_with(path)
             mock_hash_func.assert_called_once()
             mock_emit.assert_called_with((path, dummy_hash))
@@ -142,11 +138,11 @@ class TestCoreHelperTasks:
         task = PhashTask(path)
         mock_emit = MagicMock()
         task.signals.result.connect(mock_emit)
-        
+
         self.mock_image_open.side_effect = Exception("Fail")
-        
+
         task.run()
-        
+
         mock_emit.assert_called_with((path, None))
 
     def test_sift_task_success(self):
@@ -155,14 +151,14 @@ class TestCoreHelperTasks:
         task = SiftTask(path)
         mock_emit = MagicMock()
         task.signals.result.connect(mock_emit)
-        
+
         mock_sift = MagicMock()
         dummy_des = np.ones((20, 128), dtype=float)
         mock_sift.detectAndCompute.return_value = ([], dummy_des)
         cv2.SIFT_create.return_value = mock_sift
-        
+
         task.run()
-        
+
         self.mock_image_open.assert_called_with(path)
         mock_emit.assert_called_with((path, dummy_des))
 
@@ -172,11 +168,11 @@ class TestCoreHelperTasks:
         task = SiftTask(path)
         mock_emit = MagicMock()
         task.signals.result.connect(mock_emit)
-        
+
         self.mock_image_open.side_effect = Exception("Fail")
-        
+
         task.run()
-        
+
         mock_emit.assert_called_with((path, None))
 
     def test_sift_task_insufficient_features(self):
@@ -185,14 +181,14 @@ class TestCoreHelperTasks:
         task = SiftTask(path)
         mock_emit = MagicMock()
         task.signals.result.connect(mock_emit)
-        
+
         mock_sift = MagicMock()
         dummy_des = np.ones((5, 128), dtype=float)
         mock_sift.detectAndCompute.return_value = ([], dummy_des)
         cv2.SIFT_create.return_value = mock_sift
-        
+
         task.run()
-        
+
         mock_emit.assert_called_with((path, None))
 
     def test_sn_task_success(self):
@@ -201,15 +197,15 @@ class TestCoreHelperTasks:
         task = SiameseTask(path)
         mock_emit = MagicMock()
         task.signals.result.connect(mock_emit)
-        
+
         # Mock singleton loader
         mock_loader = MagicMock()
         dummy_embedding = [0.1] * 512
         mock_loader.get_embedding.return_value = dummy_embedding
         SiameseModelLoader.return_value = mock_loader
-        
+
         task.run()
-        
+
         mock_loader.get_embedding.assert_called_with(path)
         mock_emit.assert_called_with((path, dummy_embedding))
 
@@ -219,28 +215,28 @@ class TestCoreHelperTasks:
         task = SiameseTask(path)
         mock_emit = MagicMock()
         task.signals.result.connect(mock_emit)
-        
+
         mock_loader = MagicMock()
         mock_loader.get_embedding.side_effect = Exception("Model Error")
         SiameseModelLoader.return_value = mock_loader
-        
+
         task.run()
-        
+
         mock_emit.assert_called_with((path, None))
-        
+
     def test_sn_task_none_result(self):
         """Test SiameseTask handles None result from loader"""
         path = "/tmp/sn_none.jpg"
         task = SiameseTask(path)
         mock_emit = MagicMock()
         task.signals.result.connect(mock_emit)
-        
+
         mock_loader = MagicMock()
         mock_loader.get_embedding.return_value = None
         SiameseModelLoader.return_value = mock_loader
-        
+
         task.run()
-        
+
         mock_emit.assert_called_with((path, None))
 
     def test_ssim_task_success(self):
@@ -249,19 +245,21 @@ class TestCoreHelperTasks:
         task = SsimTask(path)
         mock_emit = MagicMock()
         task.signals.result.connect(mock_emit)
-        
+
         # Override the common setup which returns a real numpy array
         # We need a Mock object to mock the .astype method call
         mock_array_obj = MagicMock()
         self.mock_np_array.return_value = mock_array_obj
-        
+
         mock_float_array = MagicMock()
         mock_array_obj.astype.return_value = mock_float_array
-        
+
         task.run()
-        
+
         # Verify resize
-        self.mock_pil_image.resize.assert_called_with((256, 256), Image.Resampling.LANCZOS)
+        self.mock_pil_image.resize.assert_called_with(
+            (256, 256), Image.Resampling.LANCZOS
+        )
         # Verify emit
         mock_emit.assert_called_with((path, mock_float_array))
 
@@ -271,9 +269,9 @@ class TestCoreHelperTasks:
         task = SsimTask(path)
         mock_emit = MagicMock()
         task.signals.result.connect(mock_emit)
-        
+
         self.mock_image_open.side_effect = Exception("Fail")
-        
+
         task.run()
-        
+
         mock_emit.assert_called_with((path, None))

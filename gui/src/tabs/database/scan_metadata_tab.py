@@ -1489,9 +1489,13 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                 for tag, checkbox in self.tag_checkboxes.items():
                     checkbox.setChecked(tag in selected_tags)
             QMessageBox.information(
-                self, "Config Loaded", "Scan metadata configuration applied successfully."
+                self,
+                "Config Loaded",
+                "Scan metadata configuration applied successfully.",
             )
         except Exception as e:
             QMessageBox.critical(
-                self, "Config Error", f"Failed to apply scan metadata configuration:\n{e}"
+                self,
+                "Config Error",
+                f"Failed to apply scan metadata configuration:\n{e}",
             )

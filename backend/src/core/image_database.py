@@ -126,7 +126,7 @@ class PgvectorImageDatabase:
                     "CREATE INDEX IF NOT EXISTS idx_images_path ON images(file_path)"
                 )
                 cur.execute(
-                    f"""
+                    """
                     CREATE INDEX IF NOT EXISTS idx_images_embedding ON images USING hnsw (embedding vector_l2_ops) WHERE embedding IS NOT NULL;
                 """
                 )
@@ -522,7 +522,7 @@ class PgvectorImageDatabase:
             ext_conditions = []
             for ext in input_formats:
                 clean_ext = ext.strip().lstrip(".")
-                ext_conditions.append(f"i.filename ILIKE %s")
+                ext_conditions.append("i.filename ILIKE %s")
                 params.append(f"%.{clean_ext}")
             if ext_conditions:
                 conditions.append(f"({' OR '.join(ext_conditions)})")

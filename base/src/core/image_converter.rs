@@ -144,6 +144,33 @@ fn apply_ar_transform(
     }
 }
 
+// Core (non-Python) batch conversion for reuse by Tauri
+pub fn convert_image_batch_core(
+    image_pairs: &[(String, String)], // (input_path, output_path)
+    output_format: &str,
+    delete_original: bool,
+    aspect_ratio: Option<f32>,
+    ar_mode: &str,
+) -> Vec<String> {
+    image_pairs
+        .par_iter()
+        .filter_map(|(path, out_path)| {
+            match load_image(path).and_then(|img| apply_ar_transform(&img, aspect_ratio, ar_mode)) {
+                Ok(proc_img) => match save_image(&proc_img, out_path, output_format) {
+                    Ok(_) => {
+                        if delete_original {
+                            let _ = fs::remove_file(path);
+                        }
+                        Some(out_path.clone())
+                    }
+                    Err(_) => None,
+                },
+                Err(_) => None,
+            }
+        })
+        .collect()
+}
+
 #[pyfunction]
 #[pyo3(signature = (input_path, output_path, output_format, delete_original, aspect_ratio=None, ar_mode=None))]
 pub fn convert_single_image(
@@ -180,28 +207,17 @@ pub fn convert_image_batch(
 ) -> PyResult<Vec<String>> {
     let mode = ar_mode.unwrap_or_else(|| "crop".to_string());
 
-    let results: Vec<Option<String>> = py.detach(|| {
-        image_pairs
-            .par_iter()
-            .map(|(path, out_path)| match load_image(path) {
-                Ok(img) => match apply_ar_transform(&img, aspect_ratio, &mode) {
-                    Ok(proc_img) => match save_image(&proc_img, &out_path, &output_format) {
-                        Ok(_) => {
-                            if delete_original {
-                                let _ = fs::remove_file(path);
-                            }
-                            Some(out_path.clone())
-                        }
-                        Err(_) => None,
-                    },
-                    Err(_) => None,
-                },
-                Err(_) => None,
-            })
-            .collect()
+    let results: Vec<String> = py.detach(|| {
+        convert_image_batch_core(
+            &image_pairs,
+            &output_format,
+            delete_original,
+            aspect_ratio,
+            &mode,
+        )
     });
 
-    Ok(results.into_iter().flatten().collect())
+    Ok(results)
 }
 
 #[cfg(test)]

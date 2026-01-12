@@ -1,7 +1,6 @@
 # Fixed conftest.py
 import os
 import sys
-import jpype
 import pytest
 import tempfile
 
@@ -139,16 +138,16 @@ def mock_jpype():
     }
 
     with (
-        patch(f"src.core.vault_manager.jpype.startJVM") as mock_start_jvm,
+        patch("src.core.vault_manager.jpype.startJVM") as mock_start_jvm,
         patch(
-            f"src.core.vault_manager.jpype.JClass",
+            "src.core.vault_manager.jpype.JClass",
             side_effect=lambda name: mock_jclass_map.get(name, MagicMock()),
         ) as mock_jclass,
         patch(
-            f"src.core.vault_manager.jpype.isJVMStarted",
+            "src.core.vault_manager.jpype.isJVMStarted",
             side_effect=[False, True, True],
         ),
-        patch(f"src.core.vault_manager.jpype.shutdownJVM") as mock_shutdown_jvm,
+        patch("src.core.vault_manager.jpype.shutdownJVM") as mock_shutdown_jvm,
     ):
 
         yield mock_start_jvm, mock_shutdown_jvm
@@ -220,13 +219,13 @@ def sample_video_directory():
     with tempfile.TemporaryDirectory() as temp_dir:
         formats = ["mp4", "avi", "mkv"]
         video_paths = []
-        
+
         for i, fmt in enumerate(formats):
             vid_path = os.path.join(temp_dir, f"test_video_{i}.{fmt}")
             with open(vid_path, "wb") as f:
                 f.write(b"fake video content")
             video_paths.append(vid_path)
-            
+
         yield temp_dir, video_paths
 
 
@@ -357,18 +356,18 @@ def crawler_config():
 def crawler(crawler_config):
     # Instantiate the crawler
     c = ImageCrawler(crawler_config)
-    
+
     # Mock the signals (since patching class-level Signal doesn't affect existing class)
     c.on_status = MagicMock()
     c.on_image_saved = MagicMock()
-    
-    # Mock driver explicitly if missing (though Base MockWebCrawler usually handles it, 
+
+    # Mock driver explicitly if missing (though Base MockWebCrawler usually handles it,
     # but ImageCrawler inheritance structure makes it tricky)
     if not hasattr(c, "driver") or c.driver is None:
         c.driver = MagicMock()
 
     # Mock Base Class methods to ensure isolation from Real WebCrawler
-    # This is necessary because ImageCrawler class inherits from Real WebCrawler 
+    # This is necessary because ImageCrawler class inherits from Real WebCrawler
     # (imported before tests patched it)
     def mock_close():
         c.driver = None
@@ -378,5 +377,5 @@ def crawler(crawler_config):
     c.login = MagicMock(return_value=True)
     c.navigate_to_url = MagicMock(return_value=True)
     c.wait_for_page_to_load = MagicMock(return_value=True)
-        
+
     return c

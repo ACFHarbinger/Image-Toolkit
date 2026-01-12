@@ -1,6 +1,7 @@
 import json
-import base # Native extension
-from typing import Callable, Optional
+import base  # Native extension
+from typing import Callable
+
 
 class OneDriveSync:
     """
@@ -41,7 +42,7 @@ class OneDriveSync:
             # Use the Rust runner
             result_json = base.run_sync("one_drive", config_json, self)
             stats = json.loads(result_json)
-            
+
             summary = f"Completed with {stats['uploaded'] + stats['downloaded'] + stats['deleted_local'] + stats['deleted_remote']} actions. (Up: {stats['uploaded']}, Down: {stats['downloaded']}, Del-L: {stats['deleted_local']}, Del-R: {stats['deleted_remote']})"
             return (True, summary)
         except Exception as e:

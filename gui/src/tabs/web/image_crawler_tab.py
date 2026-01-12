@@ -801,7 +801,7 @@ class ImageCrawlTab(QWidget):
             self.board_username.setText(config.get("board_username", ""))
             self.board_apikey.setText(config.get("board_apikey", ""))
 
-            print(f"ImageCrawlTab configuration loaded.")
+            print("ImageCrawlTab configuration loaded.")
 
         except Exception as e:
             print(f"Error applying ImageCrawlTab config: {e}")
