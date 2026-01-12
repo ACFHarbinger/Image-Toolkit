@@ -1,3 +1,4 @@
+use anyhow::Result;
 use fast_image_resize as fr;
 use image::{DynamicImage, ImageReader, RgbaImage};
 use pyo3::exceptions::PyValueError;
@@ -6,11 +7,11 @@ use pyo3::prelude::*;
 // Re-use logic from image_converter would be ideal, but for now I'll duplicate the simple load/resize helpers to keep modules decoupled or I could make them public in image_converters.
 // To avoid complexity, I'll inline a simple resize helper here.
 
-fn load_img(path: &str) -> PyResult<DynamicImage> {
+fn load_img(path: &str) -> Result<DynamicImage> {
     ImageReader::open(path)
-        .map_err(|e| PyValueError::new_err(format!("Failed to open: {}", e)))?
+        .map_err(|e| anyhow::anyhow!("Failed to open: {}", e))?
         .decode()
-        .map_err(|e| PyValueError::new_err(format!("Failed to decode: {}", e)))
+        .map_err(|e| anyhow::anyhow!("Failed to decode: {}", e))
 }
 
 fn fast_resize(img: &DynamicImage, w: u32, h: u32) -> DynamicImage {
@@ -36,13 +37,12 @@ fn fast_resize(img: &DynamicImage, w: u32, h: u32) -> DynamicImage {
     DynamicImage::ImageRgba8(RgbaImage::from_raw(w, h, dst_image.into_vec()).unwrap())
 }
 
-#[pyfunction]
-pub fn merge_images_horizontal(
-    image_paths: Vec<String>,
-    output_path: String,
+pub fn merge_images_horizontal_core(
+    image_paths: &[String],
+    output_path: &str,
     spacing: u32,
-    align_mode: String, // "center", "top", "bottom", "stretch"
-) -> PyResult<bool> {
+    align_mode: &str,
+) -> Result<bool> {
     if image_paths.is_empty() {
         return Ok(false);
     }
@@ -63,13 +63,8 @@ pub fn merge_images_horizontal(
     let mut final_images = Vec::new();
 
     if align_mode == "stretch" || align_mode == "squish" {
-        // Resize all to max_h (or min_h? Python used max for stretch, min for squish. Let's simplify to max for Rust MVP)
         for img in images {
-            final_images.push(fast_resize(&img, img.width(), max_h)); // Stretch height only? No, usually expect aspect ratio logic.
-                                                                      // ImageMerger python logic:
-                                                                      // Scaled (Grow Smallest) -> target_h = max_h.
-                                                                      // Python's resize was simple resize(target_size).
-                                                                      // Let's implement full 'max height' resize for everything if 'stretch'.
+            final_images.push(fast_resize(&img, img.width(), max_h));
         }
     } else {
         final_images = images;
@@ -80,9 +75,6 @@ pub fn merge_images_horizontal(
     let canvas_height = max_h;
 
     let mut canvas = RgbaImage::new(total_width, canvas_height);
-    // Fill white? Python used RGB white.
-    // RgbaImage default is 0,0,0,0 transparent.
-    // Let's fill white opaque.
     for p in canvas.pixels_mut() {
         *p = image::Rgba([255, 255, 255, 255]);
     }
@@ -92,7 +84,7 @@ pub fn merge_images_horizontal(
     for img in final_images {
         let (w, h) = (img.width(), img.height());
         // Align y
-        let y_offset = match align_mode.as_str() {
+        let y_offset = match align_mode {
             "bottom" => canvas_height - h,
             "center" => (canvas_height - h) / 2,
             _ => 0, // Top
@@ -105,17 +97,27 @@ pub fn merge_images_horizontal(
 
     canvas
         .save(output_path)
-        .map_err(|e| PyValueError::new_err(format!("Failed to save: {}", e)))?;
+        .map_err(|e| anyhow::anyhow!("Failed to save: {}", e))?;
     Ok(true)
 }
 
 #[pyfunction]
-pub fn merge_images_vertical(
+pub fn merge_images_horizontal(
     image_paths: Vec<String>,
     output_path: String,
     spacing: u32,
-    align_mode: String,
+    align_mode: String, // "center", "top", "bottom", "stretch"
 ) -> PyResult<bool> {
+    merge_images_horizontal_core(&image_paths, &output_path, spacing, &align_mode)
+        .map_err(|e| PyValueError::new_err(format!("{}", e)))
+}
+
+pub fn merge_images_vertical_core(
+    image_paths: &[String],
+    output_path: &str,
+    spacing: u32,
+    align_mode: &str,
+) -> Result<bool> {
     if image_paths.is_empty() {
         return Ok(false);
     }
@@ -145,7 +147,7 @@ pub fn merge_images_vertical(
 
     for img in images {
         let (w, h) = (img.width(), img.height());
-        let x_offset = match align_mode.as_str() {
+        let x_offset = match align_mode {
             "right" => canvas_width - w,
             "center" => (canvas_width - w) / 2,
             _ => 0, // Left
@@ -157,18 +159,28 @@ pub fn merge_images_vertical(
 
     canvas
         .save(output_path)
-        .map_err(|e| PyValueError::new_err(format!("Failed to save: {}", e)))?;
+        .map_err(|e| anyhow::anyhow!("Failed to save: {}", e))?;
     Ok(true)
 }
 
 #[pyfunction]
-pub fn merge_images_grid(
+pub fn merge_images_vertical(
     image_paths: Vec<String>,
     output_path: String,
+    spacing: u32,
+    align_mode: String,
+) -> PyResult<bool> {
+    merge_images_vertical_core(&image_paths, &output_path, spacing, &align_mode)
+        .map_err(|e| PyValueError::new_err(format!("{}", e)))
+}
+
+pub fn merge_images_grid_core(
+    image_paths: &[String],
+    output_path: &str,
     rows: u32,
     cols: u32,
     spacing: u32,
-) -> PyResult<bool> {
+) -> Result<bool> {
     if image_paths.is_empty() {
         return Ok(false);
     }
@@ -209,8 +221,20 @@ pub fn merge_images_grid(
 
     canvas
         .save(output_path)
-        .map_err(|e| PyValueError::new_err(format!("Failed to save: {}", e)))?;
+        .map_err(|e| anyhow::anyhow!("Failed to save: {}", e))?;
     Ok(true)
+}
+
+#[pyfunction]
+pub fn merge_images_grid(
+    image_paths: Vec<String>,
+    output_path: String,
+    rows: u32,
+    cols: u32,
+    spacing: u32,
+) -> PyResult<bool> {
+    merge_images_grid_core(&image_paths, &output_path, rows, cols, spacing)
+        .map_err(|e| PyValueError::new_err(format!("{}", e)))
 }
 
 #[cfg(test)]

@@ -17,10 +17,15 @@ pub struct MonitorInfo {
 }
 
 fn get_slideshow_config_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .home_dir()
-        .map(|p| p.join(".myapp_slideshow_config.json"))
-        .map_err(|e| e.to_string())
+    let config_dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| e.to_string())?;
+
+    // Ensure the config directory exists
+    std::fs::create_dir_all(&config_dir).map_err(|e| e.to_string())?;
+
+    Ok(config_dir.join("slideshow_config.json"))
 }
 
 #[tauri::command]

@@ -1,4 +1,5 @@
-import { forwardRef, useState, useImperativeHandle } from "react";
+import { forwardRef, useState, useImperativeHandle, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import {
   Search,
   CheckSquare,
@@ -73,22 +74,25 @@ const SearchTab = forwardRef<SearchTabHandle, SearchTabProps>(
     const [filename, setFilename] = useState("");
     const [formats, setFormats] = useState<Set<string>>(new Set());
 
-    // Mock tags for display
-    const MOCK_TAGS = [
-      "sunset",
-      "beach",
-      "mountain",
-      "city",
-      "night",
-      "portrait",
-      "landscape",
-      "4k",
-      "hd",
-      "abstract",
-      "nature",
-      "people",
-    ];
+    // Tags state - loaded from database
+    const [availableTags, setAvailableTags] = useState<string[]>([]);
     const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+    const [isLoading, setIsLoading] = useState(false);
+
+    // Load available tags from database on mount
+    useEffect(() => {
+      const loadTags = async () => {
+        try {
+          const tags = await invoke<string[]>("get_all_tags");
+          setAvailableTags(tags);
+        } catch (err) {
+          console.error("Failed to load tags:", err);
+          showModal("Failed to load tags from database", "error");
+        }
+      };
+
+      loadTags();
+    }, []);
 
     useImperativeHandle(ref, () => ({
       getData: () => ({
@@ -104,20 +108,39 @@ const SearchTab = forwardRef<SearchTabHandle, SearchTabProps>(
       }),
     }));
 
-    const handleSearch = () => {
-      // Simulate Search
-      showModal("Searching database...", "info", 1000);
+    const handleSearch = async () => {
+      setIsLoading(true);
+      showModal("Searching database...", "info");
 
-      // Generate mock results
-      const mockResults: GalleryItem[] = Array.from({ length: 125 }).map(
-        (_, i) => ({
-          path: `/mock/path/image_${i}.jpg`,
-          thumbnail: `https://placehold.co/150x150/2c2f33/ffffff?text=Img+${i}`,
-          isVideo: i % 10 === 0,
-        }),
-      );
+      try {
+        // Call Tauri backend to search database
+        const results = await invoke<any[]>("search_images", {
+          query: {
+            group_name: group || null,
+            subgroup_name: subgroup || null,
+            filename_pattern: filename || null,
+            input_formats: formats.size > 0 ? Array.from(formats) : null,
+            tags: selectedTags.size > 0 ? Array.from(selectedTags) : null,
+            limit: 500, // Fetch more results for better UX
+          },
+        });
 
-      found.actions.setGalleryItems(mockResults);
+        // Convert database results to GalleryItem format
+        const galleryItems: GalleryItem[] = results.map((img) => ({
+          path: img.file_path,
+          thumbnail: `file://${img.file_path}`, // Use actual image path
+          isVideo: false,
+        }));
+
+        found.actions.setGalleryItems(galleryItems);
+        showModal(`Found ${galleryItems.length} images`, "success", 2000);
+      } catch (err: any) {
+        console.error("Search error:", err);
+        showModal(err.message || "Search failed", "error");
+        found.actions.setGalleryItems([]);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     const toggleFormat = (fmt: string) => {
@@ -201,20 +224,26 @@ const SearchTab = forwardRef<SearchTabHandle, SearchTabProps>(
               </div>
               <div className="h-20 overflow-y-auto border rounded p-2 bg-gray-50 dark:bg-gray-700/50 dark:border-gray-600">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {MOCK_TAGS.map((tag) => (
-                    <label
-                      key={tag}
-                      className="flex items-center gap-1 text-xs cursor-pointer select-none"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedTags.has(tag)}
-                        onChange={() => toggleTag(tag)}
-                        className="rounded text-violet-500"
-                      />
-                      {tag}
-                    </label>
-                  ))}
+                  {availableTags.length === 0 ? (
+                    <div className="col-span-full text-xs text-gray-400 text-center py-2">
+                      No tags available in database
+                    </div>
+                  ) : (
+                    availableTags.map((tag: string) => (
+                      <label
+                        key={tag}
+                        className="flex items-center gap-1 text-xs cursor-pointer select-none"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedTags.has(tag)}
+                          onChange={() => toggleTag(tag)}
+                          className="rounded text-violet-500"
+                        />
+                        {tag}
+                      </label>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
@@ -222,9 +251,10 @@ const SearchTab = forwardRef<SearchTabHandle, SearchTabProps>(
 
           <button
             onClick={handleSearch}
-            className="w-full mt-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold rounded shadow-md hover:from-violet-700 hover:to-indigo-700 transition-all active:scale-[0.99]"
+            disabled={isLoading}
+            className="w-full mt-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold rounded shadow-md hover:from-violet-700 hover:to-indigo-700 transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Search Database
+            {isLoading ? "Searching..." : "Search Database"}
           </button>
         </div>
 
