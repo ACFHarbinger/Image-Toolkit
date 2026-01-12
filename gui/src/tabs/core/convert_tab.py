@@ -83,20 +83,22 @@ class ConvertTab(AbstractClassTwoGalleries):
         self.output_format_combo.addItems(["--- Images ---"])
         formatted_formats = [f for f in SUPPORTED_IMG_FORMATS]
         self.output_format_combo.addItems(formatted_formats)
-        
+
         self.output_format_combo.addItems(["--- Videos ---"])
         video_formats = [f.lstrip(".") for f in SUPPORTED_VIDEO_FORMATS]
         self.output_format_combo.addItems(video_formats)
 
         self.output_format_combo.setCurrentText("png")
-        self.output_format_combo.currentTextChanged.connect(self.on_output_format_changed)
+        self.output_format_combo.currentTextChanged.connect(
+            self.on_output_format_changed
+        )
         settings_layout.addRow("Output format:", self.output_format_combo)
-        
+
         # New Video Engine Selection
         self.engine_combo = QComboBox()
         self.engine_combo.addItems(["Auto (Recommended)", "FFmpeg", "MoviePy"])
         self.engine_combo.setToolTip("Select the engine used for video conversion.")
-        self.engine_label = QLabel("Video Engine:") # Keep ref to hide/show
+        self.engine_label = QLabel("Video Engine:")  # Keep ref to hide/show
         settings_layout.addRow(self.engine_label, self.engine_combo)
 
         # Output path and Filename Prefix (UPDATED LAYOUT)
@@ -127,7 +129,6 @@ class ConvertTab(AbstractClassTwoGalleries):
         h_output_name.addWidget(self.output_filename_prefix)
         output_settings_container.addLayout(h_output_name)
 
-
         output_path_container = QWidget()
         output_path_container.setLayout(output_settings_container)
         self.output_field = OptionalField(
@@ -144,7 +145,9 @@ class ConvertTab(AbstractClassTwoGalleries):
             for fmt in SUPPORTED_IMG_FORMATS:
                 self._add_format_button(fmt, btn_layout)
             formats_layout.addLayout(btn_layout)
-            self.formats_layout_ref = formats_layout # Store ref to clear later if needed
+            self.formats_layout_ref = (
+                formats_layout  # Store ref to clear later if needed
+            )
             self.format_btn_layout = btn_layout
 
             all_btn_layout = QHBoxLayout()
@@ -197,13 +200,15 @@ class ConvertTab(AbstractClassTwoGalleries):
         ar_layout = QFormLayout(ar_group)
 
         self.enable_ar_checkbox = QCheckBox("Change Aspect Ratio")
-        self.enable_ar_checkbox.setToolTip("Enable to resize, crop, or pad images to a specific aspect ratio.")
+        self.enable_ar_checkbox.setToolTip(
+            "Enable to resize, crop, or pad images to a specific aspect ratio."
+        )
         self.enable_ar_checkbox.toggled.connect(self.toggle_ar_controls)
         ar_layout.addRow(self.enable_ar_checkbox)
 
         # AR Controls
         ar_controls_layout = QHBoxLayout()
-        
+
         # Mode Selection
         self.ar_mode_combo = QComboBox()
         self.ar_mode_combo.addItems(["Crop", "Pad", "Stretch"])
@@ -229,7 +234,7 @@ class ConvertTab(AbstractClassTwoGalleries):
         self.ar_h = QSpinBox()
         self.ar_h.setRange(1, 99999)
         self.ar_h.setValue(9)
-        
+
         self.ar_custom_container = QWidget()
         custom_layout = QHBoxLayout(self.ar_custom_container)
         custom_layout.setContentsMargins(0, 0, 0, 0)
@@ -237,14 +242,16 @@ class ConvertTab(AbstractClassTwoGalleries):
         custom_layout.addWidget(self.ar_w)
         custom_layout.addWidget(QLabel("H:"))
         custom_layout.addWidget(self.ar_h)
-        
+
         ar_controls_layout.addWidget(self.ar_custom_container)
         ar_controls_layout.addStretch()
 
         self.ar_controls_widget = QWidget()
         self.ar_controls_widget.setLayout(ar_controls_layout)
-        self.ar_controls_widget.setEnabled(False) # Start disabled
-        self.ar_custom_container.setVisible(False) # Start hidden (preset 16:9 selected)
+        self.ar_controls_widget.setEnabled(False)  # Start disabled
+        self.ar_custom_container.setVisible(
+            False
+        )  # Start hidden (preset 16:9 selected)
 
         ar_layout.addRow(self.ar_controls_widget)
         content_layout.addWidget(ar_group)
@@ -264,7 +271,7 @@ class ConvertTab(AbstractClassTwoGalleries):
         self.convert_progress_bar.setValue(0)
         self.convert_progress_bar.hide()
         content_layout.addWidget(self.convert_progress_bar)
-        
+
         # Scan Progress Bar (Existing)
         self.scan_progress_bar = QProgressBar()
         self.scan_progress_bar.setTextVisible(False)
@@ -289,10 +296,10 @@ class ConvertTab(AbstractClassTwoGalleries):
         self.found_gallery_scroll.selection_changed.connect(
             self.handle_marquee_selection
         )
-        
+
         # Add shared search input (Lazy Search) for Found Gallery
         content_layout.addWidget(self.found_search_input)
-        
+
         content_layout.addWidget(self.found_gallery_scroll, 1)
 
         # Add Pagination Widget (Found)
@@ -367,7 +374,7 @@ class ConvertTab(AbstractClassTwoGalleries):
 
         # Initial Clear
         self.clear_galleries()
-        
+
         # Trigger initial state
         self.on_output_format_changed(self.output_format_combo.currentText())
 
@@ -375,12 +382,8 @@ class ConvertTab(AbstractClassTwoGalleries):
         btn = QPushButton(fmt)
         btn.setCheckable(True)
         btn.setStyleSheet("QPushButton:hover { background-color: #3498db; }")
-        apply_shadow_effect(
-            btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-        )
-        btn.clicked.connect(
-            lambda checked, f=fmt: self.toggle_format(f, checked)
-        )
+        apply_shadow_effect(btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        btn.clicked.connect(lambda checked, f=fmt: self.toggle_format(f, checked))
         layout.addWidget(btn)
         self.format_buttons[fmt] = btn
 
@@ -388,7 +391,7 @@ class ConvertTab(AbstractClassTwoGalleries):
     def on_output_format_changed(self, text: str):
         text = text.lower()
         vid_formats = [f.lstrip(".") for f in SUPPORTED_VIDEO_FORMATS]
-        is_video = text in vid_formats or 'videos' in text
+        is_video = text in vid_formats or "videos" in text
 
         # 1. Toggle Engine Visibility
         self.engine_combo.setVisible(is_video)
@@ -404,11 +407,13 @@ class ConvertTab(AbstractClassTwoGalleries):
             self.selected_formats.clear()
 
             # Populate new
-            target_formats = SUPPORTED_VIDEO_FORMATS if is_video else SUPPORTED_IMG_FORMATS
+            target_formats = (
+                SUPPORTED_VIDEO_FORMATS if is_video else SUPPORTED_IMG_FORMATS
+            )
             # Helper to strip dots if needed, though IMG_FORMATS usually has no dots in definitions?
             # definitions.py: SUPPORTED_IMG_FORMATS = ["webp", ...] (no dots)
             # definitions.py: SUPPORTED_VIDEO_FORMATS = {".mp4", ...} (has dots)
-            
+
             clean_formats = []
             if is_video:
                 clean_formats = sorted([f.lstrip(".") for f in target_formats])
@@ -446,9 +451,7 @@ class ConvertTab(AbstractClassTwoGalleries):
             # Show loading state if pixmap is None
             if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
                 img_label.setText("Loading...")
-                img_label.setStyleSheet(
-                    "color: #3498db; border: 2px dashed #3498db;"
-                )
+                img_label.setStyleSheet("color: #3498db; border: 2px dashed #3498db;")
             else:
                 img_label.setText("Loading...")
                 img_label.setStyleSheet("color: #999; border: 1px dashed #666;")
@@ -483,7 +486,7 @@ class ConvertTab(AbstractClassTwoGalleries):
             # Robust conversion
             if isinstance(pixmap, QImage):
                 pixmap = QPixmap.fromImage(pixmap)
-            
+
             thumb_size = self.thumbnail_size
             scaled = pixmap.scaled(
                 thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
@@ -527,9 +530,17 @@ class ConvertTab(AbstractClassTwoGalleries):
                 if platform.system() == "Windows":
                     os.startfile(image_path)
                 elif platform.system() == "Linux":
-                    subprocess.Popen(["xdg-open", image_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    subprocess.Popen(
+                        ["xdg-open", image_path],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
                 else:
-                    subprocess.Popen(["open", image_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    subprocess.Popen(
+                        ["open", image_path],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
             except Exception as e:
                 QMessageBox.warning(
                     self, "Video Error", f"Could not launch video player: {e}"
@@ -771,7 +782,7 @@ class ConvertTab(AbstractClassTwoGalleries):
         )
 
         self.status_label.setText(f"Converting {len(files_for_conversion)} files...")
-        self.convert_progress_bar.show() # Show the new progress bar
+        self.convert_progress_bar.show()  # Show the new progress bar
 
         self.worker = ConversionWorker(config)
         self.worker.finished.connect(self.on_conversion_done)
@@ -786,7 +797,7 @@ class ConvertTab(AbstractClassTwoGalleries):
             self.on_conversion_done(0, "**Conversion cancelled**")
             self.worker = None
 
-    @Slot(int) # Accepts an integer for percentage
+    @Slot(int)  # Accepts an integer for percentage
     def update_progress_bar(self, percentage: int):
         self.convert_progress_bar.setValue(percentage)
         self.status_label.setText(f"Converting... {percentage}% complete")
@@ -800,9 +811,9 @@ class ConvertTab(AbstractClassTwoGalleries):
 
         self.on_selection_changed()
         self.btn_convert_contents.setStyleSheet(SHARED_BUTTON_STYLE)
-        
+
         self.convert_progress_bar.hide()
-        self.convert_progress_bar.setValue(0) # Reset value
+        self.convert_progress_bar.setValue(0)  # Reset value
         self.status_label.setText(f"{msg}")
         self.worker = None
         if "cancelled" not in msg.lower():
@@ -826,10 +837,10 @@ class ConvertTab(AbstractClassTwoGalleries):
 
         # Calculate Aspect Ratio
         ar_val = None
-        ar_mode = "crop" # default
+        ar_mode = "crop"  # default
         ar_w = None
         ar_h = None
-        
+
         if self.enable_ar_checkbox.isChecked():
             try:
                 w = self.ar_w.value()
@@ -855,7 +866,7 @@ class ConvertTab(AbstractClassTwoGalleries):
             "aspect_ratio_w": ar_w,
             "aspect_ratio_h": ar_h,
             "aspect_ratio_mode": ar_mode,
-            "video_engine": self.engine_combo.currentText().split(" ")[0].lower()
+            "video_engine": self.engine_combo.currentText().split(" ")[0].lower(),
         }
 
     def get_default_config(self) -> dict:
@@ -870,7 +881,7 @@ class ConvertTab(AbstractClassTwoGalleries):
             "delete_original": False,
             "aspect_ratio": None,
             "aspect_ratio_mode": "crop",
-            "video_engine": "auto"
+            "video_engine": "auto",
         }
 
     def set_config(self, config: dict):
@@ -881,9 +892,11 @@ class ConvertTab(AbstractClassTwoGalleries):
             self.input_path.setText(input_path)
             output_path = config.get("output_path", "")
             self.output_path.setText(output_path)
-            
+
             # Set Filename Prefix (NEW)
-            self.output_filename_prefix.setText(config.get("output_filename_prefix", ""))
+            self.output_filename_prefix.setText(
+                config.get("output_filename_prefix", "")
+            )
 
             if output_path or config.get("output_filename_prefix"):
                 self.output_field.set_open(True)
@@ -915,24 +928,30 @@ class ConvertTab(AbstractClassTwoGalleries):
             # 5. Aspect Ratio
             aspect_ratio = config.get("aspect_ratio")
             ar_mode = config.get("aspect_ratio_mode", "crop")
-            
+
             if aspect_ratio:
                 self.enable_ar_checkbox.setChecked(True)
-                
+
                 # Set Mode
                 mode_index = self.ar_mode_combo.findText(ar_mode.capitalize())
                 if mode_index != -1:
                     self.ar_mode_combo.setCurrentIndex(mode_index)
 
                 # Set Ratio
-                ratios = {"16:9": 16/9, "4:3": 4/3, "1:1": 1.0, "9:16": 9/16, "3:2": 3/2}
+                ratios = {
+                    "16:9": 16 / 9,
+                    "4:3": 4 / 3,
+                    "1:1": 1.0,
+                    "9:16": 9 / 16,
+                    "3:2": 3 / 2,
+                }
                 matched = False
                 for label, val in ratios.items():
                     if abs(aspect_ratio - val) < 0.01:
                         self.ar_combo.setCurrentText(label)
                         matched = True
                         break
-                
+
                 if not matched:
                     self.ar_combo.setCurrentText("Custom")
             else:
@@ -942,7 +961,7 @@ class ConvertTab(AbstractClassTwoGalleries):
             if os.path.isdir(input_path):
                 self.scan_directory_visual()
 
-            print(f"ConvertTab configuration loaded.")
+            print("ConvertTab configuration loaded.")
         except Exception as e:
             print(f"Error applying ConvertTab config: {e}")
             QMessageBox.warning(

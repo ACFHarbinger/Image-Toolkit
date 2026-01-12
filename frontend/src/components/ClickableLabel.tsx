@@ -1,5 +1,5 @@
-import React from 'react';
-import { Loader2, FileVideo } from 'lucide-react';
+import React from "react";
+import { Loader2, FileVideo } from "lucide-react";
 
 interface LabelProps {
   path: string;
@@ -12,24 +12,24 @@ interface LabelProps {
 }
 
 // CHANGE: Export this constant so the parent can use it
-export const VIDEO_PLACEHOLDER_CONST = 'VIDEO_WAITING';
+export const VIDEO_PLACEHOLDER_CONST = "VIDEO_WAITING";
 
 // Shared base style logic
 const getLabelStyle = (isSelected: boolean): React.CSSProperties => ({
-  width: '100px',
-  height: '100px',
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  backgroundColor: isSelected ? '#36393f' : '#2c2f33',
-  border: isSelected ? '3px solid #5865f2' : '1px solid #2c2f33',
-  borderRadius: '4px',
-  color: '#b9bbbe',
-  cursor: 'pointer',
-  boxSizing: 'border-box',
-  position: 'relative',
-  overflow: 'hidden',
-  transition: 'all 0.1s ease-in-out',
+  width: "100px",
+  height: "100px",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  backgroundColor: isSelected ? "#36393f" : "#2c2f33",
+  border: isSelected ? "3px solid #5865f2" : "1px solid #2c2f33",
+  borderRadius: "4px",
+  color: "#b9bbbe",
+  cursor: "pointer",
+  boxSizing: "border-box",
+  position: "relative",
+  overflow: "hidden",
+  transition: "all 0.1s ease-in-out",
 });
 
 export const ClickableLabel: React.FC<LabelProps> = ({
@@ -62,24 +62,28 @@ export const ClickableLabel: React.FC<LabelProps> = ({
     if (src) {
       return (
         <>
-            <img
+          <img
             src={src}
             alt="thumbnail"
             className="w-full h-full object-cover"
             loading="lazy"
-            />
-            {/* Overlay Icon for Video identification */}
-            {isVideo && (
-                <div className="absolute top-1 right-1 bg-black/60 p-1 rounded-full">
-                    <FileVideo size={10} className="text-white" />
-                </div>
-            )}
+          />
+          {/* Overlay Icon for Video identification */}
+          {isVideo && (
+            <div className="absolute top-1 right-1 bg-black/60 p-1 rounded-full">
+              <FileVideo size={10} className="text-white" />
+            </div>
+          )}
         </>
       );
     }
 
     // 3. Fallback (No src provided)
-    return <span className="text-xs text-center p-1 break-all">{path.split(/[/\\]/).pop()}</span>;
+    return (
+      <span className="text-xs text-center p-1 break-all">
+        {path.split(/[/\\]/).pop()}
+      </span>
+    );
   };
 
   return (

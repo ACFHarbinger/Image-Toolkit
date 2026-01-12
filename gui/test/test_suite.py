@@ -41,7 +41,7 @@ class PyTestRunner:
     ) -> List[str]:
         """Build pytest command with specified options"""
         cmd = ["pytest"]
-        
+
         # Point to test directory
         target_path = str(self.test_dir)
 
@@ -54,16 +54,16 @@ class PyTestRunner:
 
         if test_class:
             cmd.extend(["-k", test_class])
-        
+
         if test_method:
-             cmd.extend(["-k", test_method])
+            cmd.extend(["-k", test_method])
 
         if verbose:
             cmd.append("-v")
-        
+
         if failed_first:
             cmd.append("--ff")
-            
+
         if maxfail:
             cmd.extend(["--maxfail", str(maxfail)])
 
@@ -85,12 +85,12 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--module", nargs="+", help="Modules to run")
     parser.add_argument("--list", action="store_true", help="List modules")
     parser.add_argument("-v", "--verbose", action="store_true")
-    
+
     args = parser.parse_args()
-    
+
     # Defaults correctly to current directory for the script execution context
     runner = PyTestRunner(test_dir=str(Path(__file__).parent))
-    
+
     if args.list:
         runner.list_modules()
     else:

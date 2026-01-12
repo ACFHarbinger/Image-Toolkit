@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 
 from PIL import Image
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock
 
 # Add project root to Python path to import modules
 project_root = sys.path.append(
@@ -382,6 +382,7 @@ class ImageMergerTest:
         )
         assert os.path.exists(grid_output)
         assert isinstance(result, Image.Image)
+
     @patch("src.core.image_merger.cv2")
     def test_merge_images_panorama(self, mock_cv2, sample_images, output_dir):
         """Test panorama stitching (mocked)"""

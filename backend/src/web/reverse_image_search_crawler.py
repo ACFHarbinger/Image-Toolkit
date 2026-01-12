@@ -1,7 +1,8 @@
 import json
-import base # Native extension
+import base  # Native extension
 from typing import List, Dict
 from PySide6.QtCore import QObject, Signal
+
 
 class ReverseImageSearchCrawler(QObject):
     """
@@ -35,24 +36,24 @@ class ReverseImageSearchCrawler(QObject):
         min_height: int = 0,
         search_mode: str = "All",
     ) -> List[Dict[str, str]]:
-        
+
         config = {
             "headless": self.headless,
             "image_path": image_path,
             "search_mode": search_mode,
-            "browser": self.browser
+            "browser": self.browser,
         }
-        
+
         try:
             results_json = base.run_reverse_image_search(json.dumps(config), self)
             results = json.loads(results_json)
-            
+
             # Filter by resolution if needed (resolution is currently "Unknown" in Rust)
             final_results = []
             for r in results:
                 # In Rust we didn't implement resolution scraping yet, but we can if needed
                 final_results.append(r)
-                
+
             return final_results
         except Exception as e:
             self.on_status.emit(f"Critical error in Rust search: {e}")

@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 // --- DraggableImageLabel ---
 interface DraggableProps extends LabelProps {
@@ -19,11 +19,11 @@ export const DraggableImageLabel: React.FC<DraggableProps> = ({
       return;
     }
     // Set file path as URL list (standard for file drops)
-    e.dataTransfer.setData('text/plain', path); 
+    e.dataTransfer.setData("text/plain", path);
     // In Electron/Native contexts, we might use e.dataTransfer.files logic via IPC
-    
-    e.dataTransfer.effectAllowed = 'move';
-    
+
+    e.dataTransfer.effectAllowed = "move";
+
     // HTML5 Drag Image logic (simplified, usually browser handles ghost image)
     const img = new Image();
     img.src = src;
@@ -55,7 +55,7 @@ export const DraggableImageLabel: React.FC<DraggableProps> = ({
           src={src}
           alt="thumbnail"
           draggable={false} // Prevent default img drag, use parent div
-          style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+          style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
         />
       ) : (
         <span>Loading...</span>

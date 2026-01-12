@@ -6,6 +6,7 @@ Connects parsed arguments to backend implementations.
 import os
 from ..core.image_converter import ImageFormatConverter
 
+
 def dispatch_core(args):
     command = args.get("core_command")
     if command == "convert":
@@ -14,12 +15,12 @@ def dispatch_core(args):
         fmt = args.get("format")
         quality = args.get("quality")
         recursive = args.get("recursive")
-        
+
         # Determine if single or batch
         if len(inputs) == 1 and os.path.isfile(inputs[0]):
             success = ImageFormatConverter.convert_single_image(
                 image_path=inputs[0],
-                output_name=output, # converter handles None
+                output_name=output,  # converter handles None
                 format=fmt,
                 # quality is not yet passed to rust backend but we can add it later
             )
@@ -31,7 +32,16 @@ def dispatch_core(args):
                 if os.path.isdir(input_path):
                     results = ImageFormatConverter.convert_batch(
                         input_dir=input_path,
-                        inputs_formats=["webp", "png", "jpg", "jpeg", "bmp", "gif", "tiff", "avif"],
+                        inputs_formats=[
+                            "webp",
+                            "png",
+                            "jpg",
+                            "jpeg",
+                            "bmp",
+                            "gif",
+                            "tiff",
+                            "avif",
+                        ],
                         output_dir=output,
                         output_format=fmt,
                         # recursive=recursive # TODO: add recursive to backend
@@ -46,14 +56,18 @@ def dispatch_core(args):
         print("Merge command not yet fully connected to CLI")
         # TODO: Implement merge dispatch
 
+
 def dispatch_web(args):
     print("Web command not yet connected to CLI")
+
 
 def dispatch_database(args):
     print("Database command not yet connected to CLI")
 
+
 def dispatch_model(args):
     print("Model command not yet connected to CLI")
+
 
 def dispatch_command(command, args):
     if command == "core":
@@ -64,5 +78,9 @@ def dispatch_command(command, args):
         dispatch_database(args)
     elif command == "model":
         dispatch_model(args)
+    elif command == "slideshow":
+        from .slideshow_daemon import main as launch_slideshow
+
+        launch_slideshow()
     else:
         print(f"Unknown command: {command}")

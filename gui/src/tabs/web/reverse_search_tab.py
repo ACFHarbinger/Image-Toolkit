@@ -16,7 +16,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QFileDialog,
     QComboBox,
-    QScrollArea,
 )
 
 from ...components import ClickableLabel, MarqueeScrollArea

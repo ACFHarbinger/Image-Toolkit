@@ -39,7 +39,7 @@ class WebRequestsLogic(QObject):
         Sends the config as JSON to Rust.
         """
         config_json = json.dumps(self.config)
-        
+
         try:
             result = base.run_web_requests_sequence(config_json, self)
             if self._is_running:

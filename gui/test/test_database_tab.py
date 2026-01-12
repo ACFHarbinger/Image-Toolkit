@@ -8,6 +8,7 @@ from gui.src.tabs.database.search_tab import SearchTab
 
 # --- DatabaseTab Tests ---
 
+
 class TestDatabaseTab:
     @pytest.fixture
     def mock_db_cls(self):
@@ -27,7 +28,7 @@ class TestDatabaseTab:
         tab.db_user.setText("user")
         tab.db_password.setText("pass")
         tab.db_name.setText("test_db")
-        
+
         # Mock internal update methods to avoid complexity
         tab.update_statistics = MagicMock()
         tab._refresh_all_group_combos = MagicMock()
@@ -35,21 +36,24 @@ class TestDatabaseTab:
         tab.refresh_tags_list = MagicMock()
         tab.refresh_groups_list = MagicMock()
         tab.refresh_subgroups_list = MagicMock()
-        
+
         with patch("gui.src.tabs.database.database_tab.QMessageBox.information"):
             tab.connect_database()
-        
+
         mock_db_cls.assert_called_once()
         assert tab.db is not None
 
     def test_reset_database_no_connection(self, q_app):
         tab = DatabaseTab()
-        with patch("gui.src.tabs.database.database_tab.QMessageBox.warning") as mock_warn:
+        with patch(
+            "gui.src.tabs.database.database_tab.QMessageBox.warning"
+        ) as mock_warn:
             tab.reset_database()
             mock_warn.assert_called()
 
 
 # --- ScanMetadataTab Tests ---
+
 
 class TestScanMetadataTab:
     def test_init(self, q_app):
@@ -68,14 +72,15 @@ class TestScanMetadataTab:
             mock_thread = MagicMock()
             mock_thread.isRunning.return_value = True
             tab.scan_thread = mock_thread
-            
+
             tab.cancel_loading()
-            
+
             mock_thread.requestInterruption.assert_called()
             mock_thread.quit.assert_called()
 
 
 # --- SearchTab Tests ---
+
 
 class TestSearchTab:
     @pytest.fixture
@@ -92,7 +97,7 @@ class TestSearchTab:
         mock_db_tab = MagicMock()
         mock_db_tab.db = None
         tab = SearchTab(mock_db_tab)
-        
+
         with patch("gui.src.tabs.database.search_tab.QMessageBox.warning") as mock_warn:
             tab.perform_search()
             mock_warn.assert_called()
@@ -100,17 +105,17 @@ class TestSearchTab:
 
     def test_perform_search_success(self, q_app, mock_worker):
         mock_db_tab = MagicMock()
-        mock_db_tab.db = MagicMock() # DB connected
-        
+        mock_db_tab.db = MagicMock()  # DB connected
+
         tab = SearchTab(mock_db_tab)
-        tab.show() # Ensure widgets are initialized if needed
-        
+        tab.show()  # Ensure widgets are initialized if needed
+
         worker_instance = mock_worker.return_value
-        
+
         # Since perform_search uses QThreadPool.globalInstance().start(worker)
         # we can't easily check if global thread pool started it unless we mock QThreadPool
         with patch("gui.src.tabs.database.search_tab.QThreadPool") as MockThreadPool:
-             tab.perform_search()
-             
-             mock_worker.assert_called()
-             MockThreadPool.globalInstance().start.assert_called_with(worker_instance)
+            tab.perform_search()
+
+            mock_worker.assert_called()
+            MockThreadPool.globalInstance().start.assert_called_with(worker_instance)

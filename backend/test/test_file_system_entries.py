@@ -9,6 +9,7 @@ sys.path.insert(0, project_root)
 
 from src.core import FSETool, FileDeleter
 
+
 class FSEToolTest:
     def test_path_contains_true(self, temp_test_setup):
         parent = temp_test_setup
@@ -49,7 +50,9 @@ class FSEToolTest:
         assert prefix_func(None, output_filepath) is True
 
     # --- Decorator Logic Tests (Ensure Absolute Paths) ---
-    def test_ensure_absolute_paths_relative_to_absolute(self, dummy_decorated_func, temp_test_setup):
+    def test_ensure_absolute_paths_relative_to_absolute(
+        self, dummy_decorated_func, temp_test_setup
+    ):
         original_cwd = os.getcwd()
         try:
             os.chdir(temp_test_setup)
@@ -67,7 +70,9 @@ class FSEToolTest:
         finally:
             os.chdir(original_cwd)
 
-    def test_ensure_absolute_paths_nonexistent_and_absolute_paths(self, dummy_decorated_func):
+    def test_ensure_absolute_paths_nonexistent_and_absolute_paths(
+        self, dummy_decorated_func
+    ):
         abs_path = os.path.abspath(__file__)
         non_existent_rel_path = "non_existent_file.xyz"
         path_arg_1, path_arg_2, *_, kwarg_path = dummy_decorated_func(
@@ -98,13 +103,15 @@ class FSEToolTest:
         deleted_count = FileDeleter.delete_files_by_extensions(
             temp_test_setup, ["txt", "log"]
         )
-        
+
         # Expect: file_a.txt, file_b.log, subdirectory/file_c.txt -> 3 files
         assert deleted_count == 3
-        
+
         assert not os.path.exists(os.path.join(temp_test_setup, "file_a.txt"))
         assert not os.path.exists(os.path.join(temp_test_setup, "file_b.log"))
-        assert not os.path.exists(os.path.join(temp_test_setup, "subdirectory", "file_c.txt"))
+        assert not os.path.exists(
+            os.path.join(temp_test_setup, "subdirectory", "file_c.txt")
+        )
         assert os.path.exists(os.path.join(temp_test_setup, "image_1.png"))
 
     def test_delete_path_file(self, temp_test_setup):

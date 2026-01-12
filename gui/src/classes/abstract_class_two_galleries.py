@@ -9,8 +9,12 @@ from PySide6.QtGui import QPixmap, QImage, QAction
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH
 from .meta_abstract_class_gallery import MetaAbstractClassGallery
 from ..components import MarqueeScrollArea, ClickableLabel
-from ..helpers import ImageLoaderWorker, BatchImageLoaderWorker, VideoLoaderWorker, BatchVideoLoaderWorker
-from backend.src.utils.definitions import LOCAL_SOURCE_PATH, SUPPORTED_VIDEO_FORMATS
+from ..helpers import (
+    ImageLoaderWorker,
+    BatchImageLoaderWorker,
+    VideoLoaderWorker,
+)
+from backend.src.utils.definitions import SUPPORTED_VIDEO_FORMATS
 
 
 class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
@@ -59,12 +63,11 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         self._populate_found_timer.setSingleShot(True)
         self._populate_found_timer.timeout.connect(self._populate_found_step)
         self._populating_found_index = 0
-        
+
         # --- Resize Debouncing ---
         self._resize_timer = QTimer()
         self._resize_timer.setSingleShot(True)
         self._resize_timer.timeout.connect(self._on_layout_change)
-
 
         try:
             self.last_browsed_dir = LOCAL_SOURCE_PATH
@@ -73,7 +76,9 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
         # --- Search State ---
         self.master_found_files: List[str] = []
-        self.found_search_input = self.common_create_search_input("Search found images...")
+        self.found_search_input = self.common_create_search_input(
+            "Search found images..."
+        )
         self.found_search_timer = QTimer()
         self.found_search_timer.setSingleShot(True)
         self.found_search_timer.setInterval(300)
@@ -275,7 +280,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self._resize_timer.start(100) # 100ms debounce
+        self._resize_timer.start(100)  # 100ms debounce
 
     def _on_layout_change(self):
         # Shared Calculation
@@ -392,7 +397,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         columns = self.common_calculate_columns(
             self.selected_gallery_scroll, self.approx_item_width
         )
-        
+
         paths_to_load = []
         target_widgets = {}
 
@@ -428,14 +433,18 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         if paths_to_load:
             self._trigger_batch_selected_load(paths_to_load, target_widgets)
 
-    def _trigger_batch_selected_load(self, paths: List[str], widgets: Dict[str, QWidget]):
+    def _trigger_batch_selected_load(
+        self, paths: List[str], widgets: Dict[str, QWidget]
+    ):
         worker = BatchImageLoaderWorker(paths, self.thumbnail_size)
         worker.signals.batch_result.connect(
             lambda results: self._on_batch_selected_loaded(results, widgets)
         )
         self.thread_pool.start(worker)
 
-    def _on_batch_selected_loaded(self, results: List[tuple], widgets: Dict[str, QWidget]):
+    def _on_batch_selected_loaded(
+        self, results: List[tuple], widgets: Dict[str, QWidget]
+    ):
         for path, pixmap in results:
             if pixmap and not pixmap.isNull():
                 self._selected_pixmap_cache[path] = pixmap
@@ -457,8 +466,6 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         if pixmap and not pixmap.isNull():
             self._selected_pixmap_cache[path] = pixmap
         self.update_card_pixmap(widget, pixmap)
-
-
 
     # --- SEQUENTIAL LOADING (Found Gallery) ---
 
@@ -497,15 +504,15 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
                 if hasattr(widget, "get_pixmap"):
                     px = widget.get_pixmap()
                     if px and not px.isNull():
-                        continue # Already has pixmap
+                        continue  # Already has pixmap
             except RuntimeError:
                 continue
-            
+
             # Simple check: if widget has style but no pixmap, it might be loading or placeholder
             # Better check: abstract_two_galleries doesn't rely on pixmap cache for found gallery directly as much?
             # It updates widget directly. We can check if widget has placeholder text or something.
             # But the best way is tracking loading state.
-            
+
             if path in self.found_loading_paths:
                 continue
 
@@ -514,15 +521,23 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
         if paths_to_load:
             # Separate images and videos
-            image_paths = [p for p in paths_to_load if not p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))]
-            video_paths = [p for p in paths_to_load if p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))]
+            image_paths = [
+                p
+                for p in paths_to_load
+                if not p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+            ]
+            video_paths = [
+                p
+                for p in paths_to_load
+                if p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+            ]
 
             if image_paths:
                 if len(image_paths) == 1:
                     self._trigger_found_load(image_paths[0])
                 else:
                     self._trigger_batch_found_load(image_paths)
-            
+
             if video_paths:
                 if len(video_paths) == 1:
                     self._trigger_video_found_load(video_paths[0])
@@ -538,14 +553,14 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         self.thread_pool.start(worker)
 
     def _trigger_batch_video_found_load(self, paths: List[str]):
-        # User requested parallel/out-of-order loading. 
+        # User requested parallel/out-of-order loading.
         for path in paths:
             self._trigger_video_found_load(path)
 
     def _trigger_video_found_load(self, path: str):
         if not hasattr(self, "found_loading_paths"):
             self.found_loading_paths = set()
-        
+
         self.found_loading_paths.add(path)
         worker = VideoLoaderWorker(path, self.thumbnail_size)
         worker.signals.result.connect(self._on_found_image_loaded)
@@ -562,7 +577,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
                 if isinstance(image, QImage):
                     pixmap = QPixmap.fromImage(image)
                 else:
-                     pixmap = image
+                    pixmap = image
 
                 if pixmap.isNull():
                     # Explicitly handle failure instead of resetting to "Loading..."
@@ -579,7 +594,10 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
     @Slot(list)
     def _on_batch_found_loaded(self, results: List[tuple]):
         for path, pixmap in results:
-            if hasattr(self, "found_loading_paths") and path in self.found_loading_paths:
+            if (
+                hasattr(self, "found_loading_paths")
+                and path in self.found_loading_paths
+            ):
                 self.found_loading_paths.remove(path)
 
             widget = self.path_to_label_map.get(path)
@@ -590,7 +608,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
                         final_pixmap = QPixmap.fromImage(pixmap)
                     else:
                         final_pixmap = pixmap
-                        
+
                     self.update_card_pixmap(widget, final_pixmap)
                 except RuntimeError:
                     pass
@@ -693,14 +711,13 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
     def _trigger_found_load(self, path: str):
         if not hasattr(self, "found_loading_paths"):
             self.found_loading_paths = set()
-        
+
         self.found_loading_paths.add(path)
         worker = ImageLoaderWorker(path, self.thumbnail_size)
         worker.signals.result.connect(self._on_found_image_loaded)
         self.thread_pool.start(worker)
 
     # _on_found_image_loaded is defined earlier to handle QImage/QPixmap types
-
 
     # --- HELPERS ---
 
@@ -711,10 +728,10 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
     def closeEvent(self, event):
         """Cleanup processes on close."""
         self.cancel_loading()
-        
+
         if hasattr(self, "thread_pool"):
             self.thread_pool.clear()
-            
+
         super().closeEvent(event)
 
     def clear_galleries(self, clear_data=True):

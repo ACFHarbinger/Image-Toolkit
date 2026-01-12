@@ -1,7 +1,8 @@
 import pytest
 
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 from src.core.wallpaper import WallpaperManager
+
 
 class TestWallpaperManager:
     @pytest.fixture
@@ -20,48 +21,51 @@ class TestWallpaperManager:
         return m
 
     # --- Windows Tests ---
-    
+
     @patch("src.core.wallpaper.platform.system", return_value="Windows")
     @patch("src.core.wallpaper.winreg", create=True)
     @patch("src.core.wallpaper.ctypes", create=True)
-    def test_apply_wallpaper_windows_solid_color(self, mock_ctypes, mock_winreg, mock_platform, mock_monitor):
+    def test_apply_wallpaper_windows_solid_color(
+        self, mock_ctypes, mock_winreg, mock_platform, mock_monitor
+    ):
         # Mock Registry
         mock_key = MagicMock()
         mock_winreg.OpenKey.return_value = mock_key
-        
+
         WallpaperManager.apply_wallpaper(
-            path_map={"0": "#FF0000"}, 
-            monitors=[mock_monitor], 
-            style_name="SolidColor", 
-            qdbus="qdbus"
+            path_map={"0": "#FF0000"},
+            monitors=[mock_monitor],
+            style_name="SolidColor",
+            qdbus="qdbus",
         )
-        
+
         # Verify Registry Writes
         # We expect writes to Control Panel\Desktop and Control Panel\Colors
         assert mock_winreg.SetValueEx.call_count >= 3
-        
+
         # Check SystemParametersInfoW call
         mock_ctypes.windll.user32.SystemParametersInfoW.assert_called_once()
-
 
     @patch("src.core.wallpaper.platform.system", return_value="Windows")
     @patch("src.core.wallpaper.winreg", create=True)
     @patch("src.core.wallpaper.ctypes", create=True)
-    def test_apply_wallpaper_windows_single_image(self, mock_ctypes, mock_winreg, mock_platform, mock_monitor):
+    def test_apply_wallpaper_windows_single_image(
+        self, mock_ctypes, mock_winreg, mock_platform, mock_monitor
+    ):
         # Mock Registry
         mock_key = MagicMock()
         mock_winreg.OpenKey.return_value = mock_key
-        
+
         WallpaperManager.apply_wallpaper(
-            path_map={"0": "/path/to/img.jpg"}, 
-            monitors=[mock_monitor], 
-            style_name="Fill", 
-            qdbus="qdbus"
+            path_map={"0": "/path/to/img.jpg"},
+            monitors=[mock_monitor],
+            style_name="Fill",
+            qdbus="qdbus",
         )
-        
+
         # Verify Registry Writes
         assert winreg_set_value_ex_called_with(mock_winreg, "WallpaperStyle")
-        
+
         # Verify SPI call with path
         args = mock_ctypes.windll.user32.SystemParametersInfoW.call_args[0]
         assert str(args[2]).endswith("img.jpg")
@@ -69,18 +73,20 @@ class TestWallpaperManager:
     # --- Linux Tests ---
 
     @patch("src.core.wallpaper.platform.system", return_value="Linux")
-    def test_apply_wallpaper_linux_kde(self, mock_platform, mock_subprocess, mock_monitor):
+    def test_apply_wallpaper_linux_kde(
+        self, mock_platform, mock_subprocess, mock_monitor
+    ):
         # Mock 'which qdbus' -> success
-        mock_subprocess.side_effect = None 
+        mock_subprocess.side_effect = None
         mock_subprocess.return_value.returncode = 0
-        
+
         WallpaperManager.apply_wallpaper(
-            path_map={"0": "/path/to/img.jpg"}, 
-            monitors=[mock_monitor], 
-            style_name="Fill", 
-            qdbus="/usr/bin/qdbus"
+            path_map={"0": "/path/to/img.jpg"},
+            monitors=[mock_monitor],
+            style_name="Fill",
+            qdbus="/usr/bin/qdbus",
         )
-        
+
         # Verify qdbus command execution
         last_call = mock_subprocess.call_args_list[-1]
         cmd = last_call[0][0]
@@ -88,29 +94,32 @@ class TestWallpaperManager:
         assert "org.kde.plasmashell" in cmd
 
     @patch("src.core.wallpaper.platform.system", return_value="Linux")
-    @patch("src.core.wallpaper.Image") # Mock PIL for spanned
-    def test_apply_wallpaper_linux_gnome_fallback(self, mock_pil, mock_platform, mock_subprocess, mock_monitor):
+    @patch("src.core.wallpaper.Image")  # Mock PIL for spanned
+    def test_apply_wallpaper_linux_gnome_fallback(
+        self, mock_pil, mock_platform, mock_subprocess, mock_monitor
+    ):
         # Mock 'which qdbus' -> fail -> trigger GNOME fallback
         original_side_effect = mock_subprocess.side_effect
-        
+
         def side_effect(cmd, **kwargs):
             if isinstance(cmd, list) and "which" in cmd[0]:
-                 raise FileNotFoundError()
+                raise FileNotFoundError()
             return MagicMock()
-            
+
         mock_subprocess.side_effect = side_effect
-        
+
         WallpaperManager.apply_wallpaper(
-            path_map={"0": "/path/to/img.jpg"}, 
-            monitors=[mock_monitor], 
-            style_name="Fill", 
-            qdbus="qdbus"
+            path_map={"0": "/path/to/img.jpg"},
+            monitors=[mock_monitor],
+            style_name="Fill",
+            qdbus="qdbus",
         )
-        
+
         # Verify gsettings usage (GNOME)
         # Check if we see a call with "gsettings set org.gnome.desktop.background"
         gsettings_calls = [
-            c for c in mock_subprocess.call_args_list 
+            c
+            for c in mock_subprocess.call_args_list
             if isinstance(c[0][0], list) and "gsettings" in c[0][0][0]
         ]
         assert len(gsettings_calls) > 0

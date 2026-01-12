@@ -1,13 +1,15 @@
-from PySide6.QtGui import QPixmap, QImage
-from PySide6.QtCore import QRunnable, QObject, Signal, Slot, Qt
+from PySide6.QtGui import QImage
+from PySide6.QtCore import QRunnable, QObject, Signal, Slot
 
 from .video_scan_worker import VideoThumbnailer
+
 
 class VideoLoaderSignals(QObject):
     """
     Defines the signals for the VideoLoaderWorker.
     Must be a separate QObject because QRunnable does not inherit QObject.
     """
+
     # Emits (file_path, loaded_QImage)
     result = Signal(str, QImage)
     # Emits list of (file_path, loaded_QImage), and list of requested_paths
@@ -37,7 +39,9 @@ class VideoLoaderWorker(QRunnable):
             if image and not image.isNull():
                 self.signals.result.emit(self.path, image)
             else:
-                print(f"DEBUG: Failed to generate thumbnail for {self.path}. Image is Null.")
+                print(
+                    f"DEBUG: Failed to generate thumbnail for {self.path}. Image is Null."
+                )
                 self.signals.result.emit(self.path, QImage())
         except Exception as e:
             print(f"DEBUG: Exception in VideoLoaderWorker for {self.path}: {e}")
@@ -65,15 +69,15 @@ class BatchVideoLoaderWorker(QRunnable):
                 try:
                     image = self.thumbnailer.generate(path, self.target_size)
                     if image and not image.isNull():
-                         self.signals.result.emit(path, image)
-                         results.append((path, image))
+                        self.signals.result.emit(path, image)
+                        results.append((path, image))
                     else:
-                         self.signals.result.emit(path, QImage())
-                         results.append((path, QImage()))
+                        self.signals.result.emit(path, QImage())
+                        results.append((path, QImage()))
                 except Exception:
                     self.signals.result.emit(path, QImage())
                     results.append((path, QImage()))
-            
+
             self.signals.batch_result.emit(results, self.paths)
 
         except Exception as e:

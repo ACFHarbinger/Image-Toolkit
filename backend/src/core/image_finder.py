@@ -1,11 +1,9 @@
 import cv2
 import hashlib
-import imagehash
 import numpy as np
 import base
 from PIL import Image
 from pathlib import Path
-from collections import defaultdict
 from .file_system_entries import FSETool
 
 
@@ -36,13 +34,11 @@ class DuplicateFinder:
     ) -> dict:
         if extensions is None:
             extensions = [".jpg", ".jpeg", ".png", ".webp", ".bmp"]
-        
+
         try:
             # Rust returns HashMap<hash, Vec<path>>
             # Python expects dict
-            duplicates = base.find_duplicate_images(
-                directory, extensions, recursive
-            )
+            duplicates = base.find_duplicate_images(directory, extensions, recursive)
             return duplicates
         except Exception as e:
             print(f"Error in find_duplicate_images (Rust): {e}")
@@ -82,13 +78,13 @@ class SimilarityFinder:
         """
         if extensions is None:
             extensions = [".jpg", ".jpeg", ".png", ".webp", ".bmp"]
-            
+
         try:
-             # Rust returns HashMap<group_name, Vec<path>>
-             return base.find_similar_images_phash(directory, extensions, threshold)
+            # Rust returns HashMap<group_name, Vec<path>>
+            return base.find_similar_images_phash(directory, extensions, threshold)
         except Exception as e:
-             print(f"Error in find_similar_phash (Rust): {e}")
-             return {}
+            print(f"Error in find_similar_phash (Rust): {e}")
+            return {}
 
     @staticmethod
     def find_similar_ssim(

@@ -1,11 +1,11 @@
 from PySide6.QtGui import QPixmap, QImage
 from PySide6.QtCore import QRunnable, QObject, Signal, Slot, Qt
 
-import multiprocessing
 from concurrent.futures import Executor
 
 try:
     import base
+
     HAS_NATIVE_IMAGING = True
 except ImportError:
     HAS_NATIVE_IMAGING = False
@@ -18,6 +18,7 @@ def process_image_batch(paths: list[str], target_size: int):
     """
     try:
         import base
+
         # Returns List[(path, buffer, width, height)]
         results = base.load_image_batch(paths, target_size)
         return results
@@ -103,14 +104,16 @@ class BatchImageLoaderWorker(QRunnable):
 
             # 2. Multiprocessing Path (Preferred)
             if self.executor:
-                future = self.executor.submit(process_image_batch, self.paths, self.target_size)
+                future = self.executor.submit(
+                    process_image_batch, self.paths, self.target_size
+                )
                 # This blocks the QThreadPool thread, which is intentional/acceptable
                 # because we are offloading CPU work to the ProcessPool.
                 raw_results = future.result()
             else:
                 # 3. In-Thread Path (if no executor provided)
                 raw_results = base.load_image_batch(self.paths, self.target_size)
-            
+
             # Process raw results into QImages (Must be done in this thread/process, not the child)
             processed_results = []
             if raw_results:
@@ -118,7 +121,7 @@ class BatchImageLoaderWorker(QRunnable):
                     # QImage.Format_RGBA8888 is 4 bytes per pixel
                     q_img = QImage(buffer, w, h, QImage.Format_RGBA8888)
                     processed_results.append((path, q_img.copy()))
-            
+
             self.signals.batch_result.emit(processed_results, self.paths)
 
         except Exception as e:
@@ -133,8 +136,10 @@ class BatchImageLoaderWorker(QRunnable):
                 q_img = QImage(path)
                 if not q_img.isNull():
                     scaled = q_img.scaled(
-                        self.target_size, self.target_size,
-                        Qt.KeepAspectRatio, Qt.SmoothTransformation
+                        self.target_size,
+                        self.target_size,
+                        Qt.KeepAspectRatio,
+                        Qt.SmoothTransformation,
                     )
                     results.append((path, scaled))
                 else:

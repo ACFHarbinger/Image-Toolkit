@@ -159,7 +159,7 @@ class MonitorDropWidget(QLabel):
         if ext_no_dot in valid_exts or ext in valid_exts:
             return True
         return False
-    
+
     def handle_custom_drop(self, file_path: str):
         """
         Handle a drop from the custom drag system.
@@ -171,7 +171,7 @@ class MonitorDropWidget(QLabel):
             valid_exts = set(SUPPORTED_IMG_FORMATS).union(SUPPORTED_VIDEO_FORMATS)
             _, ext = os.path.splitext(file_path_lower)
             ext_no_dot = ext.lstrip(".")
-            
+
             if ext_no_dot in valid_exts or ext in valid_exts:
                 self.image_dropped.emit(self.monitor_id, file_path)
 

@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { FormRow, PathInput } from '../Shared.tsx';
+import React, { useState } from "react";
+import { FormRow, PathInput } from "../Shared.tsx";
 
 export const GANGenerateTab: React.FC = () => {
-  const [checkpoint, setCheckpoint] = useState('');
+  const [checkpoint, setCheckpoint] = useState("");
   const [count, setCount] = useState(8);
   const [images, setImages] = useState<string[]>([]); // URLs of generated images
 
@@ -20,20 +20,26 @@ export const GANGenerateTab: React.FC = () => {
     // Updated background and text color for the main card
     <div className="p-4 bg-white dark:bg-gray-800 rounded shadow text-gray-800 dark:text-gray-200">
       <FormRow label="Checkpoint:">
-        <PathInput value={checkpoint} onChange={setCheckpoint} type="file" placeholder="Path to .pth checkpoint" />
+        <PathInput
+          value={checkpoint}
+          onChange={setCheckpoint}
+          type="file"
+          placeholder="Path to .pth checkpoint"
+        />
       </FormRow>
 
       <div className="flex items-center gap-4 mb-4">
         <span className="font-medium">Count:</span>
-        <input 
-          type="number" 
-          value={count} 
-          onChange={e => setCount(Number(e.target.value))} 
+        <input
+          type="number"
+          value={count}
+          onChange={(e) => setCount(Number(e.target.value))}
           // Updated input styling for dark mode
-          className="border p-2 rounded w-20 dark:bg-gray-700 dark:border-gray-600" 
-          min={1} max={64} 
+          className="border p-2 rounded w-20 dark:bg-gray-700 dark:border-gray-600"
+          min={1}
+          max={64}
         />
-        <button 
+        <button
           onClick={generateImages}
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
@@ -46,8 +52,15 @@ export const GANGenerateTab: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {images.map((src, idx) => (
             // Updated preview item background for dark mode
-            <div key={idx} className="border dark:border-gray-600 p-1 bg-white dark:bg-gray-800 shadow-sm">
-              <img src={src} alt={`Generated ${idx}`} className="w-full h-auto" />
+            <div
+              key={idx}
+              className="border dark:border-gray-600 p-1 bg-white dark:bg-gray-800 shadow-sm"
+            >
+              <img
+                src={src}
+                alt={`Generated ${idx}`}
+                className="w-full h-auto"
+              />
             </div>
           ))}
         </div>

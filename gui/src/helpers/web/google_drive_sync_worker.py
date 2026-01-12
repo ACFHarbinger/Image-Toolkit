@@ -39,7 +39,7 @@ class GoogleDriveSyncWorker(QRunnable):
 
     def run(self):
         self.signals.status_update.emit("\n" + "=" * 50)
-        self._log(f"--- Google Drive Sync Initiated ---")
+        self._log("--- Google Drive Sync Initiated ---")
         self._log(f"Authentication Mode: {self.auth_mode.upper()}")
         self._log(f"Sync Mode: {'DRY RUN' if self.dry_run else 'LIVE'}")
         self._log(f"Action for Local Orphans: {self.action_local.upper()}")

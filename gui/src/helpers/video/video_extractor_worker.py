@@ -50,36 +50,36 @@ class VideoExtractionWorker(QRunnable):
                 # Build FFmpeg command
                 # Use fast seeking (input option) for performance.
                 # Since we are re-encoding (libx264), this is still frame-accurate.
-                
+
                 duration = t_end - t_start
                 cmd = ["ffmpeg", "-y"]
-                
+
                 # Input with fast seek
                 cmd.extend(["-ss", str(t_start)])
                 cmd.extend(["-t", str(duration)])
                 cmd.extend(["-i", self.video_path])
-                
+
                 # Filters (Scaling)
                 # Filters (Scaling + Speed)
                 filters = []
-                
+
                 # 1. Scale
                 if self.target_size:
                     w, h = self.target_size
                     filters.append(f"scale={w}:{h}")
-                
+
                 # 2. Video Speed: setpts = (1/speed) * PTS
                 # e.g., speed=0.5 (slow mo) -> setpts=2.0*PTS
                 if self.speed != 1.0:
                     pts_mult = 1.0 / self.speed
                     filters.append(f"setpts={pts_mult}*PTS")
-                
+
                 if filters:
                     cmd.extend(["-vf", ",".join(filters)])
-                
+
                 # Codecs & Audio
                 cmd.extend(["-c:v", "libx264", "-movflags", "+faststart"])
-                
+
                 if self.mute_audio:
                     cmd.append("-an")
                 else:
@@ -98,16 +98,16 @@ class VideoExtractionWorker(QRunnable):
                             s /= 0.5
                         # Remainder
                         audio_filters.append(f"atempo={s}")
-                    
+
                     if audio_filters:
                         cmd.extend(["-af", ",".join(audio_filters)])
-                    
+
                     cmd.extend(["-c:a", "aac", "-b:a", "128k"])
-                
+
                 cmd.append(self.output_path)
-                
+
                 print(f"FFmpeg Video CMD: {cmd}")
-                
+
                 self.signals.progress.emit(0)
                 # Run command
                 # capture_output to hide console window on some OS, but also check errors
@@ -116,12 +116,14 @@ class VideoExtractionWorker(QRunnable):
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     stdin=subprocess.DEVNULL,
-                    text=True
+                    text=True,
                 )
-                
+
                 if process.returncode != 0:
-                    raise RuntimeError(f"FFmpeg failed with return code {process.returncode}\n{process.stderr}")
-                    
+                    raise RuntimeError(
+                        f"FFmpeg failed with return code {process.returncode}\n{process.stderr}"
+                    )
+
                 self.signals.progress.emit(100)
                 self.signals.finished.emit(self.output_path)
 

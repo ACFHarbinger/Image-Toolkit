@@ -1,6 +1,5 @@
 import os
 import math
-import cv2  # Needed for video processing
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
 
@@ -8,10 +7,21 @@ from abc import abstractmethod
 from typing import List, Optional, Dict
 from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer
 from PySide6.QtGui import QPixmap, QResizeEvent, QAction, QImage, QPainter, QColor
-from PySide6.QtWidgets import QWidget, QGridLayout, QScrollArea, QMenu, QLabel, QVBoxLayout
+from PySide6.QtWidgets import (
+    QWidget,
+    QGridLayout,
+    QScrollArea,
+    QMenu,
+    QLabel,
+    QVBoxLayout,
+)
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH, SUPPORTED_VIDEO_FORMATS
 from .meta_abstract_class_gallery import MetaAbstractClassGallery
-from ..helpers import ImageLoaderWorker, BatchImageLoaderWorker, VideoLoaderWorker, BatchVideoLoaderWorker
+from ..helpers import (
+    ImageLoaderWorker,
+    BatchImageLoaderWorker,
+    VideoLoaderWorker,
+)
 from ..helpers.video.video_scan_worker import VideoThumbnailer
 
 
@@ -42,14 +52,16 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
 
         # --- Threading & Multiprocessing ---
         self.thread_pool = QThreadPool.globalInstance()
-        
+
         # Initialize ProcessPoolExecutor for Rust-based image loading
         # Use 'spawn' to ensure safe import of native modules in child processes
         try:
-            ctx = multiprocessing.get_context('spawn')
+            ctx = multiprocessing.get_context("spawn")
             # Limit workers to avoid OOM
             max_workers = 4
-            self.process_executor = ProcessPoolExecutor(max_workers=max_workers, mp_context=ctx)
+            self.process_executor = ProcessPoolExecutor(
+                max_workers=max_workers, mp_context=ctx
+            )
         except Exception as e:
             print(f"Failed to initialize ProcessPoolExecutor: {e}")
             self.process_executor = None
@@ -65,7 +77,6 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         self._populate_timer.timeout.connect(self._populate_step)
         self._paginated_paths: List[str] = []
         self._populating_index = 0
-
 
         # --- UI References ---
         self.gallery_scroll_area: Optional[QScrollArea] = None
@@ -103,19 +114,21 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
     def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
         container = QWidget()
         container.setFixedSize(self.approx_item_width, self.approx_item_width)
-        
+
         layout = QVBoxLayout(container)
         layout.setContentsMargins(5, 5, 5, 5)
         layout.setAlignment(Qt.AlignCenter)
-        
+
         # Factory method
         label = self.create_gallery_label(path, self.thumbnail_size)
         # label.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent) # Removed to fix artifacts
-        
+
         # Initial State
         is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
-        
-        if (pixmap and not pixmap.isNull()) or (hasattr(self, "_failed_paths") and path in self._failed_paths):
+
+        if (pixmap and not pixmap.isNull()) or (
+            hasattr(self, "_failed_paths") and path in self._failed_paths
+        ):
             self.update_card_pixmap(container, pixmap, label_ref=label)
         else:
             # Default "Loading..." State
@@ -131,21 +144,26 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
                     "border: 1px dashed #666; color: #888; "
                     "font-size: 10px; background-color: #2c2f33;"
                 )
-        
+
         layout.addWidget(label)
         return container
 
-    def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap], label_ref: Optional[QLabel] = None):
+    def update_card_pixmap(
+        self,
+        widget: QWidget,
+        pixmap: Optional[QPixmap],
+        label_ref: Optional[QLabel] = None,
+    ):
         if label_ref:
             label = label_ref
         else:
             label = widget.findChild(QLabel)
 
-        if not label: 
+        if not label:
             return
-        
+
         # Resolve 'path' vs 'file_path' attribute inconsistency between different Label classes
-        path = getattr(label, "file_path", getattr(label, "path", "")) 
+        path = getattr(label, "file_path", getattr(label, "path", ""))
         is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
 
         # 1. Check Failure State
@@ -153,34 +171,44 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         if hasattr(self, "_failed_paths") and path in self._failed_paths:
             label.clear()
             label.setScaledContents(False)
-            
+
             if is_video:
                 # Match ImageExtractorTab style ("VIDEO" text, Blue border)
                 label.setText("VIDEO")
-                label.setStyleSheet("border: 2px solid #3498db; color: #3498db; font-weight: bold; background-color: #2c2f33;")
+                label.setStyleSheet(
+                    "border: 2px solid #3498db; color: #3498db; font-weight: bold; background-color: #2c2f33;"
+                )
             else:
                 label.setText("No Thumbnail")
-                label.setStyleSheet("border: 2px solid #e74c3c; color: #e74c3c; font-weight: bold; background-color: #2c2f33;")
-            
+                label.setStyleSheet(
+                    "border: 2px solid #e74c3c; color: #e74c3c; font-weight: bold; background-color: #2c2f33;"
+                )
+
             label.show()
             return
 
         # 2. Check Success State
         if pixmap and not pixmap.isNull():
-             scaled = pixmap.scaled(
-                self.thumbnail_size, self.thumbnail_size, 
-                Qt.KeepAspectRatio, Qt.SmoothTransformation
-             )
-             label.setPixmap(scaled)
-             label.setText("")
-             
-             if is_video:
-                label.setStyleSheet("border: 2px solid #3498db; background-color: transparent;")
-             else:
-                label.setStyleSheet("border: 1px solid #4f545c; background-color: transparent;")
-        
+            scaled = pixmap.scaled(
+                self.thumbnail_size,
+                self.thumbnail_size,
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation,
+            )
+            label.setPixmap(scaled)
+            label.setText("")
+
+            if is_video:
+                label.setStyleSheet(
+                    "border: 2px solid #3498db; background-color: transparent;"
+                )
+            else:
+                label.setStyleSheet(
+                    "border: 1px solid #4f545c; background-color: transparent;"
+                )
+
         # 3. Loading/Empty State (Handled by create_card_widget initially, but if updated with None...)
-        # Usually we only call update with valid pixmap or failure. 
+        # Usually we only call update with valid pixmap or failure.
 
     def _generate_video_thumbnail(self, path: str) -> Optional[QPixmap]:
         """
@@ -195,7 +223,6 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         except Exception as e:
             print(f"Failed to generate explicit video thumbnail for {path}: {e}")
         return None
-
 
     # --- PAGINATION UI HELPERS ---
 
@@ -302,14 +329,12 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
                 self.common_reflow_layout(self.gallery_layout, new_cols)
                 self._load_visible_images()
 
-
     def _perform_search(self):
         query = self.search_input.text()
         filtered = self.common_filter_string_list(self.master_image_paths, query)
         self.gallery_image_paths = filtered
         self.current_page = 0
         self.refresh_gallery_view()
-
 
     def _on_scroll(self, value):
         self._load_visible_images()
@@ -334,15 +359,23 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
 
         if paths_to_load:
             # Separate images and videos
-            image_paths = [p for p in paths_to_load if not p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))]
-            video_paths = [p for p in paths_to_load if p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))]
+            image_paths = [
+                p
+                for p in paths_to_load
+                if not p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+            ]
+            video_paths = [
+                p
+                for p in paths_to_load
+                if p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+            ]
 
             if image_paths:
                 if len(image_paths) == 1:
                     self._trigger_image_load(image_paths[0])
                 else:
                     self._trigger_batch_load(image_paths)
-            
+
             if video_paths:
                 if len(video_paths) == 1:
                     self._trigger_video_load(video_paths[0])
@@ -350,18 +383,20 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
                     self._trigger_batch_video_load(video_paths)
 
     # --- LOADING LOGIC ---
-    
+
     def _trigger_batch_load(self, paths: List[str]):
         self._loading_paths.update(paths)
         # Pass the persistent process executor to each worker
-        worker = BatchImageLoaderWorker(paths, self.thumbnail_size, getattr(self, "process_executor", None))
+        worker = BatchImageLoaderWorker(
+            paths, self.thumbnail_size, getattr(self, "process_executor", None)
+        )
         worker.signals.batch_result.connect(self._on_batch_images_loaded)
         self.thread_pool.start(worker)
 
     def closeEvent(self, event):
         """Cleanup processes on close."""
         self.cancel_loading()
-        
+
         # Clear any pending tasks from the shared pool to prevent hanging on exit
         if hasattr(self, "thread_pool"):
             self.thread_pool.clear()
@@ -379,7 +414,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         for path, q_image in results:
             if path in self._loading_paths:
                 self._loading_paths.remove(path)
-            
+
             pixmap = QPixmap.fromImage(q_image)
             if not pixmap.isNull():
                 self._initial_pixmap_cache[path] = pixmap
@@ -395,16 +430,16 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
             if path not in processed_paths:
                 if path in self._loading_paths:
                     self._loading_paths.remove(path)
-                
+
                 # Update widget to show failure state
                 widget = self.path_to_card_widget.get(path)
                 if widget:
-                     # Passing None/Null pixmap triggers "Load Failed" style in update_card_pixmap
+                    # Passing None/Null pixmap triggers "Load Failed" style in update_card_pixmap
                     self.update_card_pixmap(widget, QPixmap())
                     self.update_card_pixmap(widget, QPixmap())
 
     def _trigger_batch_video_load(self, paths: List[str]):
-        # User requested parallel/out-of-order loading. 
+        # User requested parallel/out-of-order loading.
         # Spawning individual workers allows QThreadPool to manage concurrency.
         for path in paths:
             self._trigger_video_load(path)
@@ -412,8 +447,11 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
     def _trigger_video_load(self, path: str):
         self._loading_paths.add(path)
         worker = VideoLoaderWorker(path, self.thumbnail_size)
-        worker.signals.result.connect(self._on_single_image_loaded) # Reuse same handler
+        worker.signals.result.connect(
+            self._on_single_image_loaded
+        )  # Reuse same handler
         self.thread_pool.start(worker)
+
     def start_loading_gallery(
         self,
         paths: List[str],
@@ -430,7 +468,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
             # self.search_input.clear() # Commented out to persist search if needed, but usually we want reset
             # Ideally we re-apply current search:
             self._perform_search()
-            
+
             self._initial_pixmap_cache = (
                 pixmap_cache if pixmap_cache is not None else {}
             )
@@ -495,7 +533,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
 
             # 2. Check for Video if no cache exists
             is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
-            
+
             # 3. Create Widget
             card = self.create_card_widget(path, initial_pixmap)
             self.path_to_card_widget[path] = card
@@ -545,15 +583,15 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
     def _on_single_image_loaded(self, path: str, q_image: QImage):
         if path in self._loading_paths:
             self._loading_paths.remove(path)
-        
+
         pixmap = QPixmap.fromImage(q_image)
-        
+
         # If loading failed, mark as failed instead of generating a red placeholder
         if pixmap.isNull():
             if not hasattr(self, "_failed_paths"):
                 self._failed_paths = set()
             self._failed_paths.add(path)
-            
+
             # Cache empty pixmap so _load_visible_images stops asking for it
             self._initial_pixmap_cache[path] = QPixmap()
 
@@ -562,8 +600,8 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
                 # This will trigger the "VIDEO" / "No Thumbnail" text style via update_card_pixmap
                 self.update_card_pixmap(widget, QPixmap())
             return
-            
-        # Cache the result (valid) 
+
+        # Cache the result (valid)
         self._initial_pixmap_cache[path] = pixmap
 
         widget = self.path_to_card_widget.get(path)
@@ -574,18 +612,18 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         """Generates a visual placeholder for failed loads."""
         size = self.thumbnail_size
         pixmap = QPixmap(size, size)
-        pixmap.fill(QColor("#2c2f33")) 
-        
+        pixmap.fill(QColor("#2c2f33"))
+
         painter = QPainter(pixmap)
         # Red border
-        painter.setPen(QColor("#e74c3c")) 
-        painter.drawRect(0, 0, size-1, size-1) 
-        
+        painter.setPen(QColor("#e74c3c"))
+        painter.drawRect(0, 0, size - 1, size - 1)
+
         # Text
         painter.setPen(QColor("#e74c3c"))
         painter.drawText(pixmap.rect(), Qt.AlignCenter, "No Thumbnail")
         painter.end()
-        
+
         return pixmap
 
     # --- HELPERS ---

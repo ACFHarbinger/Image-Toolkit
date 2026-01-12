@@ -762,7 +762,7 @@ class DriveSyncTab(QWidget):
             else:
                 self.rb_download.setChecked(True)
 
-            print(f"DriveSyncTab configuration loaded.")
+            print("DriveSyncTab configuration loaded.")
 
         except Exception as e:
             print(f"Error applying DriveSyncTab config: {e}")

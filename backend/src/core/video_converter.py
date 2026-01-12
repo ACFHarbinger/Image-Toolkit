@@ -2,6 +2,7 @@ import os
 import subprocess
 from typing import Optional, Callable
 
+
 class VideoFormatConverter:
     """
     Utilities for converting video formats using FFmpeg (via subprocess).
@@ -15,7 +16,7 @@ class VideoFormatConverter:
         delete: bool = False,
         process_callback: Optional[Callable[[subprocess.Popen], None]] = None,
         target_width: Optional[int] = None,
-        target_height: Optional[int] = None
+        target_height: Optional[int] = None,
     ) -> bool:
         """
         Converts a video file using FFmpeg via subprocess.
@@ -26,28 +27,37 @@ class VideoFormatConverter:
             print(f"Error: Input file '{input_path}' not found.")
             return False
 
-        print(f"Converting '{os.path.basename(input_path)}' to '{os.path.basename(output_path)}' using Native Backend (ffmpeg)...")
+        print(
+            f"Converting '{os.path.basename(input_path)}' to '{os.path.basename(output_path)}' using Native Backend (ffmpeg)..."
+        )
 
         cmd = [
             "ffmpeg",
             "-y",  # Overwrite
-            "-i", input_path,
+            "-i",
+            input_path,
         ]
 
         filters = []
         if target_width and target_height:
             filters.append(f"scale={target_width}:{target_height}")
-        
+
         if filters:
             cmd.extend(["-vf", ",".join(filters)])
 
-        cmd.extend([
-            "-c:v", "libx264",
-            "-crf", "23",
-            "-preset", "medium",
-            "-c:a", "aac",
-            output_path
-        ])
+        cmd.extend(
+            [
+                "-c:v",
+                "libx264",
+                "-crf",
+                "23",
+                "-preset",
+                "medium",
+                "-c:a",
+                "aac",
+                output_path,
+            ]
+        )
 
         process = None
         try:
@@ -56,12 +66,12 @@ class VideoFormatConverter:
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-            
+
             if process_callback:
                 process_callback(process)
 
             process.wait()
-            success = (process.returncode == 0)
+            success = process.returncode == 0
 
             if success and delete:
                 try:
@@ -75,5 +85,4 @@ class VideoFormatConverter:
             print(f"Error converting video: {e}")
             return False
         finally:
-            pass # Popen object cleanup is handled by GC or explicit termination externally
-
+            pass  # Popen object cleanup is handled by GC or explicit termination externally
