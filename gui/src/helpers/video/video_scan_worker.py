@@ -9,8 +9,13 @@ from PySide6.QtCore import Signal, QRunnable, QObject
 from backend.src.utils.definitions import SUPPORTED_VIDEO_FORMATS
 
 try:
-    import base
+    import platform
+    IS_LINUX = platform.system() == "Linux"
+except ImportError:
+    IS_LINUX = False
 
+try:
+    import base
     HAS_NATIVE_IMAGING = True
 except ImportError:
     HAS_NATIVE_IMAGING = False
@@ -31,8 +36,32 @@ class VideoThumbnailer:
         # Detect available tools once
         self.has_ffmpegthumbnailer = shutil.which("ffmpegthumbnailer") is not None
         self.has_ffmpeg = shutil.which("ffmpeg") is not None
+        self.is_linux = IS_LINUX
 
-    def generate(self, video_path: str, size: int) -> QImage | None:
+    def _get_nice_prefix(self) -> list[str]:
+        """Returns ['nice', '-n', '19'] on Linux to lower subprocess priority."""
+        if self.is_linux:
+            return ["nice", "-n", "19"]
+        return []
+
+    def _crop_to_square(self, img: QImage, size: int) -> QImage:
+        """Center-crops the image to a square of the given size."""
+        from PySide6.QtCore import Qt
+
+        # 1. Scale to cover the square
+        scaled = img.scaled(
+            size,
+            size,
+            Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+
+        # 2. Crop center
+        diff_x = (scaled.width() - size) // 2
+        diff_y = (scaled.height() - size) // 2
+        return scaled.copy(diff_x, diff_y, size, size)
+
+    def generate(self, video_path: str, size: int, crop_square: bool = False) -> QImage | None:
         if not os.path.exists(video_path):
             return None
 
@@ -43,7 +72,7 @@ class VideoThumbnailer:
         # Used by Kubuntu Dolphin and many Linux FMs.
         if self.has_ffmpegthumbnailer:
             try:
-                cmd = [
+                cmd = self._get_nice_prefix() + [
                     "ffmpegthumbnailer",
                     "-i",
                     video_path,
@@ -66,6 +95,8 @@ class VideoThumbnailer:
                 img = QImage()
                 # Load directly from memory buffer
                 if img.loadFromData(result.stdout):
+                    if crop_square:
+                        return self._crop_to_square(img, size)
                     return img
             except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
                 pass  # Fallback
@@ -76,7 +107,7 @@ class VideoThumbnailer:
             def run_ffmpeg(seek_time):
                 # -ss BEFORE -i is critical: it triggers "input seeking" (jumping to keyframes)
                 # rather than decoding up to the timestamp.
-                cmd = [
+                cmd = self._get_nice_prefix() + [
                     "ffmpeg",
                     "-hide_banner",
                     "-loglevel",
@@ -104,6 +135,8 @@ class VideoThumbnailer:
                 result = run_ffmpeg("00:00:05")
                 img = QImage()
                 if img.loadFromData(result.stdout):
+                    if crop_square:
+                        return self._crop_to_square(img, size)
                     return img
             except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
                 # Fallback: Try seeking to start (0s) for short videos
@@ -111,6 +144,8 @@ class VideoThumbnailer:
                     result = run_ffmpeg("00:00:00")
                     img = QImage()
                     if img.loadFromData(result.stdout):
+                        if crop_square:
+                            return self._crop_to_square(img, size)
                         return img
                 except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
                     pass
@@ -122,9 +157,9 @@ def process_video_task(args):
     """
     Helper function to run in a thread.
     """
-    path, target_height, thumbnailer = args
+    path, target_height, thumbnailer, crop_square = args
     try:
-        image = thumbnailer.generate(path, target_height)
+        image = thumbnailer.generate(path, target_height, crop_square=crop_square)
         return path, image
     except Exception:
         return path, None
@@ -136,10 +171,11 @@ class VideoScannerWorker(QRunnable):
     Replaces heavy OpenCV decoding with lightweight subprocess calls.
     """
 
-    def __init__(self, directory, target_height=180):
+    def __init__(self, directory, target_height=180, crop_square=False):
         super().__init__()
         self.directory = directory
         self.target_height = target_height
+        self.crop_square = crop_square
         self.signals = VideoScanSignals()
         self.is_cancelled = False
         self.executor = None
@@ -202,7 +238,8 @@ class VideoScannerWorker(QRunnable):
                 # Submit all tasks
                 futures = {
                     executor.submit(
-                        process_video_task, (path, self.target_height, self.thumbnailer)
+                        process_video_task,
+                        (path, self.target_height, self.thumbnailer, self.crop_square),
                     ): path
                     for path in video_paths
                 }

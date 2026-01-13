@@ -53,6 +53,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.selected_paths: Set[str] = set()
         self.duration_ms = 0
         self.extractor_worker: Optional[FrameExtractionWorker] = None
+        self.vid_scanner_worker: Optional[VideoScannerWorker] = None
         self.open_image_preview_windows: List[QWidget] = []
 
         # Reference for the progress dialog
@@ -576,7 +577,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             video_paths = []
 
         # 2. Pre-populate grid with "Loading..." items in alphabetical order
-        for i, v_path in enumerate(video_paths):
+        # Limit to 1000 items to avoid OOM/crash if directory is massive
+        MAX_PREVIEW_ITEMS = 1000
+        video_paths_limited = video_paths[:MAX_PREVIEW_ITEMS]
+
+        for i, v_path in enumerate(video_paths_limited):
             widget = self._create_source_placeholder_widget(v_path)
             self.source_path_to_widget[v_path] = widget
             row = i // 12
@@ -584,10 +589,14 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.source_grid.addWidget(widget, row, col)
 
         # 3. Start the intensive thumbnailing worker
-        worker = VideoScannerWorker(path)
-        worker.signals.thumbnail_ready.connect(self.add_source_thumbnail)
-        worker.signals.finished.connect(lambda: self.scan_progress_complete())
-        QThreadPool.globalInstance().start(worker)
+        if self.vid_scanner_worker:
+            self.vid_scanner_worker.stop()
+            self.vid_scanner_worker = None
+
+        self.vid_scanner_worker = VideoScannerWorker(path, crop_square=True)
+        self.vid_scanner_worker.signals.thumbnail_ready.connect(self.add_source_thumbnail)
+        self.vid_scanner_worker.signals.finished.connect(lambda: self.scan_progress_complete())
+        QThreadPool.globalInstance().start(self.vid_scanner_worker)
 
     def _create_source_placeholder_widget(self, path: str) -> QWidget:
         """Creates a placeholder widget with 'Loading...' state for the source gallery."""
@@ -659,17 +668,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         thumb_size = 120
         if not pixmap.isNull():
-            scaled = pixmap.scaled(
-                thumb_size,
-                thumb_size,
-                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            diff_x = (scaled.width() - thumb_size) // 2
-            diff_y = (scaled.height() - thumb_size) // 2
-            cropped = scaled.copy(diff_x, diff_y, thumb_size, thumb_size)
-
-            clickable_label.setPixmap(cropped)
+            # NOTE: Scaling/cropping is now handled in the background by VideoScannerWorker(crop_square=True)
+            clickable_label.setPixmap(pixmap)
             clickable_label.setText("")  # Remove "Loading..." text
             clickable_label.setStyleSheet(
                 "border: 2px solid #4f545c; border-radius: 4px;"
