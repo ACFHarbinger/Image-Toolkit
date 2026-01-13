@@ -434,11 +434,10 @@ const App: React.FC = () => {
                 bg-violet-500 text-white shadow-md hover:bg-violet-600
               `}
             >
-              {CurrentTabConfig?.icon &&
-                React.createElement(CurrentTabConfig.icon, {
-                  size: 16,
-                  className: "mr-2",
-                })}
+              {(() => {
+                const Icon = CurrentTabConfig?.icon;
+                return Icon ? <Icon size={16} className="mr-2" /> : null;
+              })()}
               {CurrentTabConfig?.label || CurrentGroupName}
               <ChevronDown
                 size={16}
@@ -537,7 +536,7 @@ const App: React.FC = () => {
 
       {/* Image Preview */}
       {showImagePreview && previewImagePath && (
-        <ImagePreview path={previewImagePath} onClose={closeImagePreview} />
+        <ImagePreview path={previewImagePath || ""} onClose={closeImagePreview} />
       )}
 
       {/* Background Task Progress */}
