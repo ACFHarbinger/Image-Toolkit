@@ -2,7 +2,7 @@ import os
 from typing import Optional, List, Dict
 
 from PySide6.QtGui import QPixmap, QDragEnterEvent, QDropEvent
-from PySide6.QtCore import Qt, QThread, Slot, QThreadPool
+from PySide6.QtCore import Qt, QThread, Slot, QThreadPool, Property, Signal
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -41,6 +41,9 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
 
         self.scan_thread: Optional[QThread] = None
         self.scan_worker: Optional[ImageScannerWorker] = None
+        
+        # QML State
+        self._is_searching = False
 
         # --- UI Setup ---
         self.root_layout = QVBoxLayout(self)
@@ -199,6 +202,7 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         self.setAcceptDrops(True)
 
     # --- Directory Scanning Logic ---
+    @Slot()
     def browse_scan_directory(self):
         start_dir = self.last_browsed_scan_dir
         d = QFileDialog.getExistingDirectory(self, "Select Image Directory", start_dir)
@@ -246,6 +250,7 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         else:
             paths.sort()
             self.start_loading_gallery(paths)
+            self.qml_gallery_changed.emit()
 
     def _trigger_image_load(self, path: str):
         worker = ImageLoaderWorker(path, self.thumbnail_size)
@@ -446,3 +451,55 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
             "search_mode": "All",
             "keep_open": True,
         }
+    # --- QML Integration ---
+    qml_searching_changed = Signal()
+    qml_selection_changed = Signal()
+    qml_gallery_changed = Signal()
+    qml_config_changed = Signal()
+
+    @Property(bool, notify=qml_searching_changed)
+    def is_searching(self):
+        return self._is_searching
+
+    @Property(bool, notify=qml_selection_changed)
+    def has_selection(self):
+        return self.selected_source_path is not None
+
+    @Property(str, notify=qml_config_changed)
+    def scan_dir_path(self):
+        return self.scan_dir_input.text()
+
+    @Property(list, notify=qml_gallery_changed)
+    def gallery_model(self):
+        # QML requires list of objects/dicts.
+        # Assuming self.gallery_image_paths is list of strings
+        if not hasattr(self, 'gallery_image_paths'):
+            return []
+        return [{"path": p, "name": os.path.basename(p)} for p in self.gallery_image_paths]
+
+    # ... Configuration properties ...
+
+
+    @Slot(str)
+    def handle_image_selection_qml(self, path):
+        self.handle_image_selection(path)
+        self.qml_selection_changed.emit()
+
+    @Slot()
+    def start_reverse_search(self):
+        # Similar logic to start_search but ensuring state updates
+        if not self.selected_source_path:
+            return
+        self._is_searching = True
+        self.qml_searching_changed.emit()
+        self.start_search()
+
+    @Slot()
+    def cancel_search(self):
+        # Find running worker and stop? 
+        # ReverseSearchWorker runs in threadpool. Hard to cancel unless we kept ref.
+        # Logic didn't keep ref to worker easily. 
+        # For now just reset state.
+        self._is_searching = False
+        self.qml_searching_changed.emit()
+

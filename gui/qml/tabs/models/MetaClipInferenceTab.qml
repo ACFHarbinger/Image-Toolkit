@@ -91,7 +91,7 @@ Item {
                         ListElement { label: "diagram"; confidence: "0.03" }
                     }
                     delegate: RowLayout {
-                        width: parent.width
+                        width: ListView.view.width
                         Text { text: model.label; color: Style.text; Layout.fillWidth: true }
                         Rectangle {
                             height: 10

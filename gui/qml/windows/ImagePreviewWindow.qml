@@ -13,7 +13,10 @@ ApplicationWindow {
     color: "#000000" // Black background for previews
 
     property real zoomFactor: 1.0
-    property string currentImagePath: backend.currentImagePath
+    property real zoomFactor: 1.0
+    property string imagePath: ""
+    property var backend
+    property string currentSource: imagePath || (backend ? backend.currentImagePath : "")
 
     // Overlay Controls
     Rectangle {
@@ -30,7 +33,7 @@ ApplicationWindow {
             anchors.rightMargin: 20
             
             Text {
-                text: backend.currentImagePath.split('/').pop()
+                text: (currentSource ? currentSource.split('/').pop() : "No Image")
                 color: "white"
                 font.bold: true
                 Layout.fillWidth: true
@@ -56,7 +59,7 @@ ApplicationWindow {
 
         Image {
             id: img
-            source: backend.currentImagePath
+            source: window.currentSource
             width: parent.width
             height: parent.height
             fillMode: Image.PreserveAspectFit
@@ -82,7 +85,13 @@ ApplicationWindow {
         anchors.bottom: parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottomMargin: 30
+    RowLayout {
+        anchors.bottom: parent.bottom
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottomMargin: 30
         spacing: 20
+        z: 10
+        visible: window.backend !== undefined
         z: 10
 
         AppButton {

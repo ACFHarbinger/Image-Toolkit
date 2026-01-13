@@ -59,19 +59,19 @@ Item {
                             text: "Dry Run (Simulate Only)"
                             palette.windowText: Style.text 
                             checked: mainBackend && mainBackend.driveSyncTab ? mainBackend.driveSyncTab.dry_run : false
-                            onCheckedChange: if (mainBackend && mainBackend.driveSyncTab) mainBackend.driveSyncTab.dry_run = checked
+                            onCheckedChanged: if (mainBackend && mainBackend.driveSyncTab) mainBackend.driveSyncTab.dry_run = checked
                         }
                         CheckBox { 
                             text: "Overwrite Existing Files"
                             palette.windowText: Style.text 
                             checked: mainBackend && mainBackend.driveSyncTab ? mainBackend.driveSyncTab.overwrite : false
-                            onCheckedChange: if (mainBackend && mainBackend.driveSyncTab) mainBackend.driveSyncTab.overwrite = checked
+                            onCheckedChanged: if (mainBackend && mainBackend.driveSyncTab) mainBackend.driveSyncTab.overwrite = checked
                         }
                         CheckBox { 
                             text: "Verify Integrity (Checksum)"
                             palette.windowText: Style.text 
                             checked: mainBackend && mainBackend.driveSyncTab ? mainBackend.driveSyncTab.verify_integrity : false
-                            onCheckedChange: if (mainBackend && mainBackend.driveSyncTab) mainBackend.driveSyncTab.verify_integrity = checked
+                            onCheckedChanged: if (mainBackend && mainBackend.driveSyncTab) mainBackend.driveSyncTab.verify_integrity = checked
                         }
                     }
                 }

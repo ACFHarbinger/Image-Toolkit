@@ -3,7 +3,7 @@ import backend.src.utils.definitions as udef
 
 from pathlib import Path
 from typing import Optional, Dict, Any
-from PySide6.QtCore import QThreadPool, Slot
+from PySide6.QtCore import QThreadPool, Slot, Property, Signal
 from PySide6.QtWidgets import (
     QApplication,
     QMessageBox,
@@ -33,6 +33,12 @@ class DriveSyncTab(QWidget):
         super().__init__(*args, **kwargs)
         self.vault_manager = vault_manager
         self.current_worker: Optional[Any] = None
+
+        # QML Integration
+        self._overwrite = False
+        self._verify_integrity = False
+        self._log_text = ""
+        self._progress_value = 0.0
 
         self.log_window = LogWindow(parent=self)
 
@@ -769,3 +775,67 @@ class DriveSyncTab(QWidget):
             QMessageBox.warning(
                 self, "Config Error", f"Failed to apply some settings: {e}"
             )
+    # --- QML Integration ---
+    qml_settings_changed = Signal()
+    qml_log_changed = Signal()
+    qml_progress_changed = Signal()
+
+    @Property(bool, notify=qml_settings_changed)
+    def dry_run(self):
+        return self.dry_run_checkbox.isChecked()
+
+    @dry_run.setter
+    def dry_run(self, val):
+        self.dry_run_checkbox.setChecked(val)
+        self.qml_settings_changed.emit()
+
+    @Property(bool, notify=qml_settings_changed)
+    def overwrite(self):
+        return self._overwrite
+
+    @overwrite.setter
+    def overwrite(self, val):
+        self._overwrite = val
+        self.qml_settings_changed.emit()
+
+    @Property(bool, notify=qml_settings_changed)
+    def verify_integrity(self):
+        return self._verify_integrity
+
+    @verify_integrity.setter
+    def verify_integrity(self, val):
+        self._verify_integrity = val
+        self.qml_settings_changed.emit()
+
+    @Property(str, notify=qml_log_changed)
+    def log_text(self):
+        return self._log_text
+
+    @Property(float, notify=qml_progress_changed)
+    def progress_value(self):
+        return self._progress_value
+
+    @Slot()
+    def start_sync_worker(self):
+        # Wrapper for QML
+        # QML doesn't pass args, relies on properties.
+        # Run sync uses widget state.
+        self.run_sync_now(clear_log=True)
+
+    @Slot()
+    def stop_sync_worker(self):
+        self.stop_sync_now()
+
+    @Slot(str)
+    def update_log_qml(self, msg):
+        self._log_text += msg + "\n"
+        self.qml_log_changed.emit()
+
+    # Override handle_status_update to also update QML log
+    @Slot(str)
+    def handle_status_update(self, msg: str):
+        super().handle_status_update(msg) if hasattr(super(), 'handle_status_update') else None
+        self.log_window.append_log(msg)
+        self._log_text += msg + "\n"
+        self.qml_log_changed.emit()
+

@@ -1,7 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
-import QtMultimedia 5.15
+import QtMultimedia
 import "../../components"
 import "../../"
 
@@ -47,10 +47,11 @@ Item {
                         id: player
                         source: "" // Will be set via file dialog or backend signal
                         audioOutput: AudioOutput {}
+                        videoOutput: videoOut
                     }
                     VideoOutput {
+                         id: videoOut
                          anchors.fill: parent
-                         source: player 
                          fillMode: VideoOutput.PreserveAspectFit
                     }
                 }

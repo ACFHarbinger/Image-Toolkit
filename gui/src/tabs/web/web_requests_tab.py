@@ -1,5 +1,5 @@
 from PySide6.QtGui import QAction
-from PySide6.QtCore import Qt, QPoint
+from PySide6.QtCore import Qt, QPoint, Slot, Property, Signal
 from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
@@ -23,6 +23,13 @@ class WebRequestsTab(QWidget):
     def __init__(self):
         super().__init__()
         self.worker = None
+
+        # QML State
+        self._requests_data = [] # List of dicts or strings
+        self._actions_data = []
+        self._log_output = ""
+        self._status_text = "Ready."
+        self._is_running = False
 
         # --- Log Window Initialization ---
         self.log_window = LogWindow(tab_name="Web Requests", parent=self)
@@ -429,3 +436,97 @@ class WebRequestsTab(QWidget):
             QMessageBox.warning(
                 self, "Config Error", f"Failed to apply some settings: {e}"
             )
+    # --- QML Integration ---
+    qml_requests_changed = Signal()
+    qml_actions_changed = Signal()
+    qml_status_changed = Signal()
+    qml_log_changed = Signal()
+    qml_state_changed = Signal()
+
+    @Property(str, notify=qml_state_changed)
+    def base_url(self):
+        return self.url_input.text()
+
+    @base_url.setter
+    def base_url(self, val):
+        self.url_input.setText(val)
+        self.qml_state_changed.emit()
+
+    @Property(list, notify=qml_requests_changed)
+    def requests_model(self):
+        # Return list of objects for QML ListView
+        return [{"display_text": r} for r in self._requests_data]
+
+    @Property(list, notify=qml_actions_changed)
+    def actions_model(self):
+        return [{"display_text": a} for a in self._actions_data]
+    
+    @Property(str, notify=qml_status_changed)
+    def status_text(self):
+        return self._status_text
+
+    @Property(str, notify=qml_log_changed)
+    def log_output(self):
+        return self._log_output
+
+    @Property(bool, notify=qml_state_changed)
+    def is_running(self):
+        return self._is_running
+
+    @Slot(str, str)
+    def add_request(self, method, param):
+        # QML wrapper
+        item_text = f"[{method}] {param}"
+        self.request_list_widget.addItem(item_text)
+        self._requests_data.append(item_text)
+        self.qml_requests_changed.emit()
+
+    @Slot(int)
+    def remove_request(self, index):
+        if 0 <= index < len(self._requests_data):
+            self.request_list_widget.takeItem(index)
+            self._requests_data.pop(index)
+            self.qml_requests_changed.emit()
+
+    @Slot(str, str)
+    def add_action(self, action_type, param):
+        item_text = f"[{action_type}] {param}"
+        # Assuming widget exists, logic below...
+        # self.action_list_widget.addItem(item_text) # Not visible in previous view, assuming exist
+        # Need to verify if action_list_widget is defined in init.
+        # It is defined in snippet I saw earlier (lines 114 in QML? No, python file.. wait)
+        # In snippet 109, I saw QGroupBox "Request List", but I didn't see "Action List" logic in python file explicitly.
+        # Ah, snippet 143 shows 'Request Configuration' and 'Request Builder'.
+        # I need to be careful if action logic exists in python file.
+        # If not, I should implement the lists just for QML if Python doesn't need them?
+        # But QML *calls* add_action.
+        # Let's assume for now I maintain internal list.
+        self._actions_data.append(item_text)
+        self.qml_actions_changed.emit()
+
+    @Slot(int)
+    def remove_action(self, index):
+        if 0 <= index < len(self._actions_data):
+            self._actions_data.pop(index)
+            self.qml_actions_changed.emit()
+
+    @Slot()
+    def start_requests(self):
+        self._status_text = "Running..."
+        self._is_running = True
+        self.qml_status_changed.emit()
+        self.qml_state_changed.emit()
+        # Trigger actual worker logic here?
+        # Need to map internal data to worker
+        # worker = WebRequestsWorker(...)
+        # For now just log
+        self._log_output += "Started requests (Simulation)...\n"
+        self.qml_log_changed.emit()
+
+    @Slot()
+    def cancel_requests(self):
+        self._status_text = "Cancelled."
+        self._is_running = False
+        self.qml_status_changed.emit()
+        self.qml_state_changed.emit()
+

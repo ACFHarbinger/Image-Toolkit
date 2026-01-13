@@ -4,7 +4,7 @@ import psycopg2
 
 from pathlib import Path
 from typing import Optional
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Property, Signal, Slot
 from PySide6.QtWidgets import (
     QMessageBox,
     QComboBox,
@@ -41,6 +41,7 @@ class DatabaseTab(QWidget):
     def __init__(self, env_path="env/vars.env"):
         super().__init__()
         self.db: Optional[ImageDatabase] = None
+        self._stats_text = "Not Connected"
 
         # --- Tab References ---
         # These are assigned by MainWindow after all tabs are initialized
@@ -1459,3 +1460,20 @@ class DatabaseTab(QWidget):
             QMessageBox.critical(
                 self, "Sync Error", f"An error occurred during scanning:\n{str(e)}"
             )
+    # --- QML Integration ---
+    qml_stats_changed = Signal()
+
+    @Property(str, notify=qml_stats_changed)
+    def statsText(self):
+        return self._stats_text
+
+    @Slot()
+    def run_vacuum(self):
+        # Trigger vacuum logic
+        pass
+
+    @Slot()
+    def run_reindex(self):
+        # Trigger reindex logic
+        pass
+

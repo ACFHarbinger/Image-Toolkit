@@ -171,7 +171,7 @@ Item {
                     AppButton {
                         text: (mainBackend && mainBackend.webRequestsTab && mainBackend.webRequestsTab.is_running) ? "Cancel All" : "Execute Requests"
                         Layout.fillWidth: true
-                        background: Rectangle { color: (text == "Cancel All" ? "#e74c3c" : Style.accent); radius: Style.borderRadius }
+                        background: Rectangle { color: (parent.text == "Cancel All" ? "#e74c3c" : Style.accent); radius: Style.borderRadius }
                         onClicked: {
                             if (mainBackend && mainBackend.webRequestsTab) {
                                 if (mainBackend.webRequestsTab.is_running)
