@@ -1,3 +1,4 @@
+import os
 import sys
 import signal
 import traceback
@@ -5,7 +6,10 @@ import threading
 
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
-from gui.src.windows import MainWindow, LoginWindow
+from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtCore import QUrl
+from gui.src.windows import LoginWindow
+from gui.src.main_backend import MainBackend
 from backend.src.core.file_system_entries import FSETool
 from backend.src.utils.definitions import ICON_FILE, CTRL_C_TIMEOUT
 
@@ -51,18 +55,31 @@ def launch_app(opts):
         """
         nonlocal active_window
 
+
         # 1. Close the login window if it's still around
         if active_window and isinstance(active_window, LoginWindow):
             # The LoginWindow's closeEvent handles JVM shutdown if needed
             active_window.close()
 
-        # 2. Create the new main window instance
-        active_window = MainWindow(
-            vault_manager=vault_manager,  # Pass the authenticated manager
-            dropdown=~opts["no_dropdown"],
-            app_icon=ICON_FILE,
-        )
-        active_window.show()
+        # 2. Launch QML Application
+        engine = QQmlApplicationEngine()
+        
+        # Initialize Backend Bridge
+        main_backend = MainBackend(vault_manager)
+        
+        # Set Context Property
+        engine.rootContext().setContextProperty("mainBackend", main_backend)
+        
+        # Load QML
+        qml_file = os.path.join(os.path.dirname(__file__), "../../gui/qml/Main.qml")
+        engine.load(QUrl.fromLocalFile(qml_file))
+        
+        if not engine.rootObjects():
+            print("Error: QML file failed to load. Exiting.")
+            sys.exit(-1)
+
+        # Keep reference to engine to prevent garbage collection
+        active_window = engine 
 
     # Create and show the Login Window
     login_window = LoginWindow()

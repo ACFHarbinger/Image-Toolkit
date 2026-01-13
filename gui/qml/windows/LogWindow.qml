@@ -12,6 +12,8 @@ ApplicationWindow {
     title: "System Logs"
     color: Style.background
 
+    property var backend
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 15

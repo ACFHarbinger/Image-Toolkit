@@ -141,6 +141,17 @@ Item {
                 }
 
                 AppButton {
+                    text: "Open Slideshow Window"
+                    Layout.fillWidth: true
+                    background: Rectangle { color: Style.accent; radius: Style.borderRadius }
+                    onClicked: {
+                        if (mainBackend && mainBackend.wallpaperTab) {
+                             mainBackend.wallpaperTab.start_window_slideshow()
+                        }
+                    }
+                }
+
+                AppButton {
                     text: "Clear All Monitor Queues"
                     Layout.fillWidth: true
                     onClicked: {

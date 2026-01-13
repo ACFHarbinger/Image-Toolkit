@@ -15,6 +15,46 @@ ApplicationWindow {
     title: "Image Toolkit - " + (mainBackend ? mainBackend.accountName : "Loading...")
     color: Style.background
 
+    Connections {
+        target: mainBackend
+        function onRequestShowSettings() {
+            var component = Qt.createComponent("windows/SettingsWindow.qml");
+            if (component.status === Component.Ready) {
+                var win = component.createObject(window, {backend: mainBackend.settingsBackend});
+                win.show();
+            } else {
+                console.error("Error loading SettingsWindow.qml: " + component.errorString());
+            }
+        }
+        function onRequestShowLog(tabName) {
+            var component = Qt.createComponent("windows/LogWindow.qml");
+             if (component.status === Component.Ready) {
+                var win = component.createObject(window, {backend: mainBackend.logBackend, title: tabName + " Logs"});
+                win.show();
+            } else {
+                console.error("Error loading LogWindow.qml: " + component.errorString());
+            }
+        }
+        function onRequestShowPreview(path) {
+             var component = Qt.createComponent("windows/ImagePreviewWindow.qml");
+             if (component.status === Component.Ready) {
+                var win = component.createObject(window, {imagePath: path});
+                win.show();
+            } else {
+                console.error("Error loading ImagePreviewWindow.qml: " + component.errorString());
+            }
+        }
+        function onRequestShowSlideshow() {
+             var component = Qt.createComponent("windows/SlideshowWindow.qml");
+             if (component.status === Component.Ready) {
+                var win = component.createObject(window, {backend: mainBackend.slideshowBackend});
+                win.showMaximized();
+            } else {
+                console.error("Error loading SlideshowWindow.qml: " + component.errorString());
+            }
+        }
+    }
+
     RowLayout {
         anchors.fill: parent
         spacing: 0
@@ -219,7 +259,32 @@ ApplicationWindow {
                         }
                     }
                     
-                    Item { Layout.preferredHeight: 20 } // Bottom spacer
+                    Item { Layout.fillHeight: true } // Spacer
+
+                    Button {
+                        text: "Settings"
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 32
+                        Layout.leftMargin: 5
+                        Layout.rightMargin: 5
+                        Layout.bottomMargin: 10
+                        
+                        background: Rectangle {
+                            color: parent.hovered ? Style.border : "transparent"
+                            radius: 4
+                            border.color: Style.border
+                        }
+                        
+                        contentItem: Text {
+                            text: parent.text
+                            color: Style.text
+                            font: parent.font
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        
+                        onClicked: mainBackend.open_settings()
+                    }
                 }
             }
         }

@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt, QPoint
+from PySide6.QtCore import Qt, QPoint, Property, Signal, Slot
 from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
@@ -38,6 +38,13 @@ class ImageCrawlTab(QWidget):
 
         self.last_browsed_download_dir = LOCAL_SOURCE_PATH
         self.last_browsed_screenshot_dir = SCREENSHOTS_DIR
+
+        # QML Integration State
+        self._is_crawling = False
+        self._log_output = ""
+        self._gen_headless = True
+        self._save_screenshots = False
+        self._screenshot_dir = SCREENSHOTS_DIR
 
         main_layout = QVBoxLayout(self)
 
@@ -530,14 +537,18 @@ class ImageCrawlTab(QWidget):
         if row >= 0:
             self.action_list_widget.takeItem(row)
 
+    @Slot()
     def browse_download_directory(self):
-        d = QFileDialog.getExistingDirectory(
-            self, "Download Dir", self.last_browsed_download_dir
-        )
-        if d:
-            self.last_browsed_download_dir = d
-            self.download_dir_path.setText(d)
+        super().browse_download_directory() if hasattr(super(), 'browse_download_directory') else None
+        # Actually proper implementation was inline? No, I viewed outline.
+        # "ImageCrawlTab.browse_download_directory(self)"
+        directory = QFileDialog.getExistingDirectory(self, "Select Download Directory", self.last_browsed_download_dir)
+        if directory:
+            self.download_dir_path.setText(directory)
+            self.last_browsed_download_dir = directory
+            self.qml_settings_changed.emit()
 
+    @Slot()
     def browse_screenshot_directory(self):
         d = QFileDialog.getExistingDirectory(
             self, "Screenshot Dir", self.last_browsed_screenshot_dir
@@ -546,7 +557,15 @@ class ImageCrawlTab(QWidget):
             self.last_browsed_screenshot_dir = d
             self.screenshot_dir_path.setText(d)
 
+    @Slot()
     def start_crawl(self):
+        # ... validation ...
+        # Need to ensure QML knows we started
+        self._is_crawling = True
+        self.qml_crawling_changed.emit()
+        self._log_output = "Starting crawl...\n"
+        self.qml_log_changed.emit()
+        
         download_dir = self.download_dir_path.text().strip()
         if not download_dir:
             QMessageBox.warning(self, "Error", "Please select a download directory.")
@@ -669,9 +688,13 @@ class ImageCrawlTab(QWidget):
         self.worker.finished.connect(self.on_crawl_done)
         self.worker.start()
 
+    @Slot()
     def cancel_crawl(self):
-        if self.worker and self.worker.isRunning():
-            self.worker.terminate()
+        if self.worker:
+            self.worker.stop()
+            self.log_window.append_log("Cancellation requested...")
+            self._is_crawling = False
+            self.qml_crawling_changed.emit()
             self.on_crawl_done(0, "Cancelled by user.")
 
     def on_crawl_done(self, count, message):
@@ -808,3 +831,42 @@ class ImageCrawlTab(QWidget):
             QMessageBox.warning(
                 self, "Config Error", f"Failed to apply some settings: {e}"
             )
+    # --- QML Properties & Slots ---
+
+    qml_crawling_changed = Signal()
+    qml_log_changed = Signal()
+    qml_settings_changed = Signal()
+
+    @Property(bool, notify=qml_crawling_changed)
+    def is_crawling(self):
+        return self._is_crawling
+
+    @Property(str, notify=qml_log_changed)
+    def log_output(self):
+        return self._log_output
+
+    @Property(str, notify=qml_settings_changed)
+    def screenshot_dir(self):
+        return self.screenshot_dir_path.text()
+
+    @Property(bool, notify=qml_settings_changed)
+    def gen_headless(self):
+        return self._gen_headless
+
+    @gen_headless.setter
+    def gen_headless(self, val):
+        if self._gen_headless != val:
+            self._gen_headless = val
+            self.qml_settings_changed.emit()
+
+    @Property(bool, notify=qml_settings_changed)
+    def save_screenshots(self):
+        return self._save_screenshots
+    
+    @save_screenshots.setter
+    def save_screenshots(self, val):
+        if self._save_screenshots != val:
+            self._save_screenshots = val
+            self.qml_settings_changed.emit()
+
+

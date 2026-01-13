@@ -61,6 +61,7 @@ Item {
                         anchors.fill: parent
                         model: mainBackend && mainBackend.reverseSearchTab ? mainBackend.reverseSearchTab.gallery_model : null
                         onItemClicked: if (mainBackend && mainBackend.reverseSearchTab) mainBackend.reverseSearchTab.handle_image_selection(path)
+                        onItemDoubleClicked: if (mainBackend) mainBackend.open_preview(path)
                     }
                 }
             }
@@ -87,7 +88,7 @@ Item {
                                 text: "Filter Res"
                                 palette.windowText: Style.text 
                                 checked: mainBackend && mainBackend.reverseSearchTab ? mainBackend.reverseSearchTab.filter_res : false
-                                onCheckedChange: if (mainBackend && mainBackend.reverseSearchTab) mainBackend.reverseSearchTab.filter_res = checked
+                                onCheckedChanged: if (mainBackend && mainBackend.reverseSearchTab) mainBackend.reverseSearchTab.filter_res = checked
                             }
                             TextField {
                                 placeholderText: "W"
@@ -123,7 +124,7 @@ Item {
                             text: "Keep Open"
                             palette.windowText: Style.text 
                             checked: mainBackend && mainBackend.reverseSearchTab ? mainBackend.reverseSearchTab.keep_open : true
-                            onCheckedChange: if (mainBackend && mainBackend.reverseSearchTab) mainBackend.reverseSearchTab.keep_open = checked
+                            onCheckedChanged: if (mainBackend && mainBackend.reverseSearchTab) mainBackend.reverseSearchTab.keep_open = checked
                         }
                     }
                 }
@@ -131,7 +132,7 @@ Item {
                 AppButton {
                     text: (mainBackend && mainBackend.reverseSearchTab && mainBackend.reverseSearchTab.is_searching) ? "Cancel Search" : "Start Reverse Search"
                     Layout.fillWidth: true
-                    background: Rectangle { color: (text == "Cancel Search" ? "#e74c3c" : Style.accent); radius: Style.borderRadius }
+                    background: Rectangle { color: (parent.text == "Cancel Search" ? "#e74c3c" : Style.accent); radius: Style.borderRadius }
                     enabled: mainBackend && mainBackend.reverseSearchTab ? (mainBackend.reverseSearchTab.is_searching || mainBackend.reverseSearchTab.has_selection) : false
                     onClicked: {
                         if (mainBackend && mainBackend.reverseSearchTab) {

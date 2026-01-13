@@ -5,6 +5,8 @@ Rectangle {
     id: root
     property string imageSource: ""
     property string fileName: ""
+    signal clicked()
+    signal doubleClicked()
     
     width: 150
     height: 170
@@ -31,6 +33,15 @@ Rectangle {
             elide: Text.ElideMiddle
             horizontalAlignment: Text.AlignHCenter
         }
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        onClicked: root.clicked()
+        onDoubleClicked: root.doubleClicked()
+        hoverEnabled: true
+        onEntered: root.border.color = Style.accent
+        onExited: root.border.color = Style.border
     }
 }
 
