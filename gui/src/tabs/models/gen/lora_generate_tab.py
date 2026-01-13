@@ -263,3 +263,32 @@ class LoRAGenerateTab(BaseGenerativeTab):
             QMessageBox.warning(self, "Result", message)
         else:
             QMessageBox.critical(self, "Error", message)
+
+    @Slot(str, str, str, str, str, int, float, int)
+    def generate_from_qml(self, model_id, lora_path, output_name, prompt, neg_prompt, steps, guidance, batch_size):
+        """Wrapper to call generation from QML"""
+        self.gen_btn.setEnabled(False)
+        self.cancel_btn.setEnabled(True)
+        
+        output_path = os.path.join(LOCAL_SOURCE_PATH, "Generated", output_name)
+
+        config = {
+            "model_id": model_id,
+            "output_filename": output_path,
+            "batch_size": batch_size,
+            "prompt": prompt,
+            "neg_prompt": neg_prompt,
+            "lora_path": lora_path,
+            "steps": steps,
+            "guidance": guidance,
+            "input_image": "", # GAN input not supported in this simple QML wrapper yet
+        }
+        
+        # Use existing logic
+        try:
+            # We reuse run_generation logic but we need to run it in a thread
+            # and we need to pass the arguments that run_generation expects
+            thread = threading.Thread(target=self.run_generation, kwargs=config)
+            thread.start()
+        except Exception as e:
+            self.handle_generation_finished("error", str(e))

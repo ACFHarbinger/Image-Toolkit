@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QSpinBox,
 )
-from PySide6.QtCore import Qt, Slot, QPoint
+from PySide6.QtCore import Qt, Slot, QPoint, Signal
 from PySide6.QtGui import QPixmap, QAction, QImage
 from ...helpers import ConversionWorker
 from ...windows import ImagePreviewWindow
@@ -33,6 +33,8 @@ from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO
 
 
 class ConvertTab(AbstractClassTwoGalleries):
+    qml_input_path_changed = Signal(str)
+
     def __init__(self, dropdown=True):
         super().__init__()
         self.dropdown = dropdown
@@ -667,7 +669,9 @@ class ConvertTab(AbstractClassTwoGalleries):
         )
         if directory:
             self.input_path.setText(directory)
+            self.input_path.setText(directory)
             self.last_browsed_dir = directory
+            self.qml_input_path_changed.emit(directory)
             self.scan_directory_visual()
 
     @Slot()
@@ -1006,3 +1010,70 @@ class ConvertTab(AbstractClassTwoGalleries):
                 pass
         self.open_preview_windows.clear()
         super().closeEvent(event)
+    
+    # --- QML HANDLERS ---
+    @Slot(str)
+    def browse_directory_and_scan_qml(self, current_path=""):
+        starting_dir = current_path if os.path.isdir(current_path) else self.last_browsed_dir
+        directory = QFileDialog.getExistingDirectory(
+            self, "Select input directory", starting_dir
+        )
+        if directory:
+            self.input_path.setText(directory)
+            self.last_browsed_dir = directory
+            self.qml_input_path_changed.emit(directory)
+            # For QML, we might just signal the path back, but setting the QLineEditText 
+            # might not update QML if not bi-directionally bound. 
+            # We rely on QML reading properties or signals.
+            # Assuming mainBackend will expose a property or signal.
+            self.scan_directory_visual() # Visual scan for Python tab, maybe irrelevant for QML
+            return directory
+        return ""
+
+    @Slot(str, str, str, bool)
+    def start_conversion_worker_qml(self, input_path, output_format, output_dir, delete_original):
+        """Wrapper for QML to start conversion."""
+        if self.worker and self.worker.isRunning():
+            self.cancel_conversion()
+            return
+
+        if not input_path or not os.path.isdir(input_path):
+             # You might want to emit a signal here for QML error handling
+            return
+
+        # Prepare simple config from QML params
+        config = {
+            "output_format": output_format,
+            "delete_original": delete_original,
+            "ar_enabled": False, # Simplification for now
+            "output_path": output_dir,
+            "filename_prefix": "",
+            "engine": "Auto (Recommended)"
+        }
+
+        # Collect files (simplification: convert all in dir)
+        files_for_conversion = []
+        # Re-using collect logic but with passed path
+        input_formats = [f.lower() for f in SUPPORTED_IMG_FORMATS] + [f.lstrip(".").lower() for f in SUPPORTED_VIDEO_FORMATS]
+        
+        for root, _, files in os.walk(input_path):
+            for file in files:
+                file_ext = os.path.splitext(file)[1].lstrip(".").lower()
+                if file_ext in input_formats:
+                    files_for_conversion.append(os.path.join(root, file))
+
+        config["files_to_convert"] = files_for_conversion
+
+        if not files_for_conversion:
+             # Emit no files signal
+            return
+
+        self.btn_convert_all.setEnabled(False) # Disable python UI buttons just in case
+        self.convert_progress_bar.show() # Show python UI progress just in case
+        self.convert_progress_bar.setValue(0)
+        self.status_label.setText("Starting conversion (QML)...")
+
+        self.worker = ConversionWorker(files_for_conversion, config)
+        self.worker.progress_signal.connect(self.update_progress)
+        self.worker.finished_signal.connect(self.conversion_finished)
+        self.worker.start()

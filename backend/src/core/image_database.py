@@ -610,7 +610,7 @@ class PgvectorImageDatabase:
         with self.conn.cursor() as cur:
             cur.execute("DELETE FROM images WHERE id = %s", (image_id,))
 
-    def get_statistics(self) -> Dict[str, int]:
+    def get_statistics(self) -> Dict[str, Any]:
         """Get database statistics."""
         stats = {}
         with self.conn.cursor() as cur:
@@ -626,7 +626,42 @@ class PgvectorImageDatabase:
             cur.execute("SELECT COUNT(*) FROM subgroups")
             stats["total_subgroups"] = cur.fetchone()[0]
 
+            # Expanded stats
+            cur.execute("SELECT SUM(file_size) FROM images")
+            stats["total_file_size"] = cur.fetchone()[0] or 0
+
+            cur.execute("SELECT MAX(date_added) FROM images")
+            stats["last_sync_date"] = cur.fetchone()[0]
+
         return stats
+
+    def maintenance_vacuum(self, full: bool = False):
+        """Perform a VACUUM operation on the database."""
+        if not self.conn:
+            return
+        
+        # VACUUM cannot run inside a transaction block
+        old_autocommit = self.conn.autocommit
+        self.conn.autocommit = True
+        try:
+            with self.conn.cursor() as cur:
+                cmd = "VACUUM FULL" if full else "VACUUM"
+                cur.execute(cmd)
+        finally:
+            self.conn.autocommit = old_autocommit
+
+    def maintenance_reindex(self):
+        """Perform a REINDEX operation on the database."""
+        if not self.conn:
+            return
+            
+        old_autocommit = self.conn.autocommit
+        self.conn.autocommit = True
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute("REINDEX DATABASE CURRENT_DATABASE")
+        finally:
+            self.conn.autocommit = old_autocommit
 
     def reset_database(self):
         """

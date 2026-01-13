@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QPushButton,
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QPixmap, QImage
 from backend.src.models.gan import GAN
 
@@ -131,3 +131,12 @@ class GANGenerateTab(QWidget):
             self.txt_checkpoint.setText(config["checkpoint_path"])
         if "gen_count" in config:
             self.spin_gen_count.setValue(config["gen_count"])
+
+    @Slot(str, int)
+    def generate_from_qml(self, checkpoint_path, count):
+        """Wrapper to call generation from QML"""
+        self.txt_checkpoint.setText(checkpoint_path)
+        self.spin_gen_count.setValue(count)
+        # Call existing generation method (runs on main thread currently as per original implementation)
+        # For better UX, might want to move to thread, but keeping logic consistent with original for now.
+        self.generate_images()
