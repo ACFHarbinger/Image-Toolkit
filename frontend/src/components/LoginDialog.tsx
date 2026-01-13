@@ -60,7 +60,8 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onClose }) => {
       }
     } catch (err: any) {
       console.error('Login error:', err);
-      setError(err.message || 'Failed to authenticate. Please check your credentials.');
+      const errorMessage = typeof err === 'string' ? err : err.message || 'Failed to authenticate. Please check your credentials.';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -98,7 +99,8 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onClose }) => {
       }
     } catch (err: any) {
       console.error('Account creation error:', err);
-      setError(err.message || 'Failed to create account. The account may already exist.');
+      const errorMessage = typeof err === 'string' ? err : err.message || 'Failed to create account. The account may already exist.';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -120,17 +122,15 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onClose }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div
-        className={`w-full max-w-md rounded-2xl shadow-2xl border ${
-          isDark
-            ? 'bg-gray-800 border-gray-700 text-white'
-            : 'bg-white border-gray-200 text-gray-900'
-        }`}
+        className={`w-full max-w-md rounded-2xl shadow-2xl border ${isDark
+          ? 'bg-gray-800 border-gray-700 text-white'
+          : 'bg-white border-gray-200 text-gray-900'
+          }`}
       >
         {/* Header */}
         <div
-          className={`flex items-center justify-between px-6 py-4 border-b ${
-            isDark ? 'border-gray-700' : 'border-gray-200'
-          }`}
+          className={`flex items-center justify-between px-6 py-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'
+            }`}
         >
           <h2 className="text-xl font-bold">
             <span className={isDark ? 'text-cyan-400' : 'text-blue-600'}>
@@ -139,9 +139,8 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onClose }) => {
           </h2>
           <button
             onClick={toggleTheme}
-            className={`p-2 rounded-lg transition-colors ${
-              isDark ? 'hover:bg-gray-700 text-cyan-400' : 'hover:bg-gray-100 text-blue-600'
-            }`}
+            className={`p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-gray-700 text-cyan-400' : 'hover:bg-gray-100 text-blue-600'
+              }`}
             aria-label="Toggle theme"
           >
             {isDark ? <Sun size={20} /> : <Moon size={20} />}
@@ -161,9 +160,8 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onClose }) => {
           <div>
             <label
               htmlFor="accountName"
-              className={`block text-sm font-medium mb-2 ${
-                isDark ? 'text-gray-300' : 'text-gray-700'
-              }`}
+              className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'
+                }`}
             >
               Account Name
             </label>
@@ -175,11 +173,10 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onClose }) => {
               onKeyPress={handleKeyPress}
               placeholder="e.g., user_id_123"
               disabled={isLoading}
-              className={`w-full px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 transition-colors ${
-                isDark
-                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-cyan-500'
-                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:ring-blue-500'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
+              className={`w-full px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 transition-colors ${isDark
+                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-cyan-500'
+                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:ring-blue-500'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
             />
           </div>
 
@@ -187,9 +184,8 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onClose }) => {
           <div>
             <label
               htmlFor="password"
-              className={`block text-sm font-medium mb-2 ${
-                isDark ? 'text-gray-300' : 'text-gray-700'
-              }`}
+              className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'
+                }`}
             >
               Password
             </label>
@@ -202,18 +198,16 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onClose }) => {
                 onKeyPress={handleKeyPress}
                 placeholder="Enter your password"
                 disabled={isLoading}
-                className={`w-full px-4 py-2 pr-12 rounded-lg border focus:outline-none focus:ring-2 transition-colors ${
-                  isDark
-                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-cyan-500'
-                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:ring-blue-500'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                className={`w-full px-4 py-2 pr-12 rounded-lg border focus:outline-none focus:ring-2 transition-colors ${isDark
+                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-cyan-500'
+                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:ring-blue-500'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className={`absolute right-3 top-1/2 -translate-y-1/2 ${
-                  isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'
-                }`}
+                className={`absolute right-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'
+                  }`}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -226,11 +220,10 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onClose }) => {
             <button
               onClick={handleCreateAccount}
               disabled={isLoading}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold transition-colors ${
-                isDark
-                  ? 'bg-gray-700 text-white hover:bg-gray-600'
-                  : 'bg-gray-200 text-gray-900 hover:bg-gray-300'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold transition-colors ${isDark
+                ? 'bg-gray-700 text-white hover:bg-gray-600'
+                : 'bg-gray-200 text-gray-900 hover:bg-gray-300'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <UserPlus size={18} />
               Create Account
@@ -238,11 +231,10 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onClose }) => {
             <button
               onClick={handleLogin}
               disabled={isLoading}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-white transition-colors ${
-                isDark
-                  ? 'bg-cyan-600 hover:bg-cyan-500'
-                  : 'bg-blue-600 hover:bg-blue-700'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-white transition-colors ${isDark
+                ? 'bg-cyan-600 hover:bg-cyan-500'
+                : 'bg-blue-600 hover:bg-blue-700'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <LogIn size={18} />
               {isLoading ? 'Authenticating...' : 'Login'}
