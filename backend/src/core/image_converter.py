@@ -1,8 +1,9 @@
 import os
 import glob
-from typing import List, Optional, Callable
 import base  # The new Rust extension
-from . import FSETool
+
+from typing import List, Optional, Callable
+from backend.src.core.file_system_entries import FSETool
 
 # Define the decorator factories needed for the format conversion methods
 SINGLE_CONVERSION_PREFIX = FSETool.prefix_create_directory(

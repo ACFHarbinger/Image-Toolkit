@@ -5,7 +5,7 @@ import base
 from . import FSETool
 from PIL import Image
 from typing import List, Tuple, Optional
-from ..utils.definitions import AlignMode
+from backend.src.utils.definitions import AlignMode
 
 
 # Define the decorator factories needed for the merge methods

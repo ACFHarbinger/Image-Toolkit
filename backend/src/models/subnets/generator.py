@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from ..modules import (
+from backend.src.models.modules import (
     ActivationFunction,
     SkipConnection,
     Normalization,

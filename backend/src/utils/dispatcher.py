@@ -1,10 +1,7 @@
-"""
-Dispatcher for Image-Toolkit CLI commands.
-Connects parsed arguments to backend implementations.
-"""
-
 import os
-from ..core.image_converter import ImageFormatConverter
+import sys
+
+from backend.src.core.image_converter import ImageFormatConverter
 
 
 def dispatch_core(args):
@@ -24,7 +21,7 @@ def dispatch_core(args):
                 format=fmt,
                 # quality is not yet passed to rust backend but we can add it later
             )
-            print(f"Conversion {'successful' if success else 'failed'}")
+            print(f"Conversion {'successful' if success else 'failed'}", file=sys.stderr)
         else:
             # Batch conversion
             # If multiple inputs or a directory
@@ -53,20 +50,20 @@ def dispatch_core(args):
                         format=fmt,
                     )
     elif command == "merge":
-        print("Merge command not yet fully connected to CLI")
+        print("Merge command not yet fully connected to CLI", file=sys.stderr)
         # TODO: Implement merge dispatch
 
 
 def dispatch_web(args):
-    print("Web command not yet connected to CLI")
+    print("Web command not yet connected to CLI", file=sys.stderr)
 
 
 def dispatch_database(args):
-    print("Database command not yet connected to CLI")
+    print("Database command not yet connected to CLI", file=sys.stderr)
 
 
 def dispatch_model(args):
-    print("Model command not yet connected to CLI")
+    print("Model command not yet connected to CLI", file=sys.stderr)
 
 
 def dispatch_command(command, args):
@@ -83,4 +80,4 @@ def dispatch_command(command, args):
 
         launch_slideshow()
     else:
-        print(f"Unknown command: {command}")
+        print(f"Unknown command: {command}", file=sys.stderr)

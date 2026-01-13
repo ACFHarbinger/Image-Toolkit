@@ -10,7 +10,7 @@ from PIL import Image
 from pathlib import Path
 from screeninfo import Monitor
 from typing import Dict, List, Optional, Union
-from ..utils.definitions import WALLPAPER_STYLES, SUPPORTED_VIDEO_FORMATS
+from backend.src.utils.definitions import WALLPAPER_STYLES, SUPPORTED_VIDEO_FORMATS
 
 # Global Definitions for COM components
 IDESKTOPWALLPAPER_IID = "{B92B56A9-8B55-4E14-9A89-0199BBB6F93B}"
