@@ -13,6 +13,7 @@ from ..helpers import (
     ImageLoaderWorker,
     BatchImageLoaderWorker,
     VideoLoaderWorker,
+    BatchVideoLoaderWorker,
 )
 from backend.src.utils.definitions import SUPPORTED_VIDEO_FORMATS
 

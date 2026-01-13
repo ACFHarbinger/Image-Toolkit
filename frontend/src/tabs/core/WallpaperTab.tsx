@@ -9,6 +9,7 @@ import {
   Monitor as MonitorIcon,
   Info,
 } from "lucide-react";
+import { WallpaperGallery } from "../../components/WallpaperGallery";
 
 const WallpaperTab: React.FC = () => {
   const [monitorPaths, setMonitorPaths] = useState<Record<string, string>>({});
@@ -157,10 +158,9 @@ const WallpaperTab: React.FC = () => {
                 onClick={handleSetWallpaper}
                 disabled={Object.keys(monitorPaths).length === 0}
                 className={`w-full py-2.5 rounded-lg font-bold text-white transition shadow-lg
-                  ${
-                    Object.keys(monitorPaths).length > 0
-                      ? "bg-gradient-to-r from-emerald-500 to-teal-600 hover:shadow-emerald-500/20"
-                      : "bg-gray-400 cursor-not-allowed"
+                  ${Object.keys(monitorPaths).length > 0
+                    ? "bg-gradient-to-r from-emerald-500 to-teal-600 hover:shadow-emerald-500/20"
+                    : "bg-gray-400 cursor-not-allowed"
                   }`}
               >
                 Apply Static Wallpaper
@@ -198,10 +198,9 @@ const WallpaperTab: React.FC = () => {
               <button
                 onClick={handleToggleSlideshow}
                 className={`w-full py-2.5 rounded-lg font-bold text-white transition flex items-center justify-center gap-2 shadow-lg
-                  ${
-                    isRunning
-                      ? "bg-red-500 hover:bg-red-600 shadow-red-500/20"
-                      : "bg-violet-500 hover:bg-violet-600 shadow-violet-500/20"
+                  ${isRunning
+                    ? "bg-red-500 hover:bg-red-600 shadow-red-500/20"
+                    : "bg-violet-500 hover:bg-violet-600 shadow-violet-500/20"
                   }`}
               >
                 {isRunning ? (
@@ -218,14 +217,21 @@ const WallpaperTab: React.FC = () => {
           </div>
         </div>
 
+        {/* Gallery Section */}
+        <section>
+          <div className="flex items-center gap-2 mb-4 text-sm font-semibold text-gray-500 uppercase tracking-wider">
+            Image Gallery
+          </div>
+          <WallpaperGallery />
+        </section>
+
         {/* Status Message */}
         {status && (
           <div
-            className={`p-3 rounded-lg text-sm font-medium animate-in fade-in slide-in-from-bottom-2 duration-300 ${
-              status.startsWith("Error")
-                ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800"
-                : "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
-            }`}
+            className={`p-3 rounded-lg text-sm font-medium animate-in fade-in slide-in-from-bottom-2 duration-300 ${status.startsWith("Error")
+              ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800"
+              : "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+              }`}
           >
             {status}
           </div>
