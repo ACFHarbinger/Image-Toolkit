@@ -9,10 +9,10 @@ import {
 } from "lucide-react";
 
 // Components
-import { ClickableLabel } from "../../components/ClickableLabel.tsx";
-import { MarqueeScrollArea } from "../../components/MarqueeScrollArea.tsx";
-import { useTwoGalleries } from "../../hooks/useTwoGalleries.ts";
-import { GalleryItem } from "../../hooks/galleryItem.ts";
+import { ClickableLabel } from "../../components/ClickableLabel";
+import { MarqueeScrollArea } from "../../components/MarqueeScrollArea";
+import { useTwoGalleries } from "../../hooks/useTwoGalleries";
+import { GalleryItem } from "../../hooks/galleryItem";
 
 interface SearchTabProps {
   showModal: (

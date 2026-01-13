@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FormRow, PathInput, SectionHeader } from "../Shared.tsx";
+import { FormRow, PathInput, SectionHeader } from "../Shared";
 
 const MODELS = [
   {

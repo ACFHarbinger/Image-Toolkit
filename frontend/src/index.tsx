@@ -1,9 +1,9 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
-import App from "./App.tsx";
-import { AppStoreProvider } from "./store/AppStoreProvider.tsx";
-import reportWebVitals from "./reportWebVitals.ts";
+import App from "./App";
+import { AppStoreProvider } from "./store/AppStoreProvider";
+import reportWebVitals from "./reportWebVitals";
 
 const rootElement = document.getElementById("root");
 

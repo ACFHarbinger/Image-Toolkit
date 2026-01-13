@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::path::Path;
-use tauri::Manager;
+use tauri::Emitter;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct VideoExtractionParams {

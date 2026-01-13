@@ -1,4 +1,5 @@
 use image::ImageReader;
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
 use rayon::prelude::*;
 use sha2::{Digest, Sha256};
@@ -68,6 +69,7 @@ fn hamming_distance(h1: u64, h2: u64) -> u32 {
 
 // --- PyFunctions ---
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn find_duplicate_images(
     py: Python,
@@ -116,6 +118,7 @@ pub fn find_duplicate_images(
     Ok(duplicates)
 }
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn find_similar_images_phash(
     py: Python,

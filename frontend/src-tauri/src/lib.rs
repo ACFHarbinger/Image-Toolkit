@@ -6,6 +6,7 @@ mod video_commands;
 mod wallpaper_commands;
 
 use std::env;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

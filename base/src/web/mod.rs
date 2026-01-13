@@ -12,6 +12,7 @@ pub mod sankaku;
 pub mod sync;
 pub mod web_requests;
 
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
 use reqwest::blocking::Client;
 use serde_json::Value;
@@ -28,6 +29,7 @@ pub use reverse_image_search::run_reverse_image_search;
 use sankaku::SankakuCrawlerImpl;
 use sync::SyncRunner;
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn run_board_crawler(
     py: Python<'_>,
@@ -67,6 +69,7 @@ pub fn run_board_crawler(
     }
 }
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn run_sync(
     py: Python<'_>,

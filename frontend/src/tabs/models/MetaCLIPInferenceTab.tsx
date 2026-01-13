@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FormRow, PathInput } from "./Shared.tsx";
+import { FormRow, PathInput } from "./Shared";
 
 const MODELS = [
   "Meta CLIP 2 (ViT-H-14, Worldwide)",

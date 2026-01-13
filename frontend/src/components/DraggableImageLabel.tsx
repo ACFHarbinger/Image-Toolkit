@@ -1,4 +1,5 @@
 import React from "react";
+import { LabelProps, getLabelStyle } from "./ClickableLabel";
 
 // --- DraggableImageLabel ---
 interface DraggableProps extends LabelProps {

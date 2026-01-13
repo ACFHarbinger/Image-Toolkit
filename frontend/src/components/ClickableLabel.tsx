@@ -1,7 +1,7 @@
 import React from "react";
 import { Loader2, FileVideo } from "lucide-react";
 
-interface LabelProps {
+export interface LabelProps {
   path: string;
   src?: string; // The image source (or placeholder constant)
   isVideo?: boolean; // New prop to identify content type
@@ -15,7 +15,7 @@ interface LabelProps {
 export const VIDEO_PLACEHOLDER_CONST = "VIDEO_WAITING";
 
 // Shared base style logic
-const getLabelStyle = (isSelected: boolean): React.CSSProperties => ({
+export const getLabelStyle = (isSelected: boolean): React.CSSProperties => ({
   width: "100px",
   height: "100px",
   display: "flex",

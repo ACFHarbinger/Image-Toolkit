@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { GANTrainTab } from "./train/GANTrainTab.tsx";
-import { LoRATrainTab } from "./train/LoRATrainTab.tsx";
-import { R3GANTrainTab } from "./train/R3GANTrainTab.tsx";
+import { GANTrainTab } from "./train/GANTrainTab";
+import { LoRATrainTab } from "./train/LoRATrainTab";
+import { R3GANTrainTab } from "./train/R3GANTrainTab";
 
 export const UnifiedTrainTab: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState("anything");

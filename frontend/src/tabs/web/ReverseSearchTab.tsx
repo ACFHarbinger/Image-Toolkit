@@ -12,10 +12,10 @@ import {
 } from "lucide-react";
 
 // Components
-import { ClickableLabel } from "../../components/ClickableLabel.tsx";
-import { MarqueeScrollArea } from "../../components/MarqueeScrollArea.tsx";
-import { useGallery } from "../../hooks/useGallery.ts";
-import { GalleryItem } from "../../hooks/galleryItem.ts";
+import { ClickableLabel } from "../../components/ClickableLabel";
+import { MarqueeScrollArea } from "../../components/MarqueeScrollArea";
+import { useGallery } from "../../hooks/useGallery";
+import { GalleryItem } from "../../hooks/galleryItem";
 
 interface ReverseSearchTabProps {
   showModal: (

@@ -1,6 +1,6 @@
 import { useCallback } from "react";
-import { useGallery } from "./useGallery.ts";
-import { GalleryItem } from "./galleryItem.ts";
+import { useGallery } from "./useGallery";
+import { GalleryItem } from "./galleryItem";
 
 export function useTwoGalleries(foundPageSize = 100, selectedPageSize = 100) {
   // 1. The "Found" Gallery (Source)

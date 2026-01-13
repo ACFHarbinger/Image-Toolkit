@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { GalleryItem } from "./galleryItem.ts";
+import { GalleryItem } from "./galleryItem";
 
 export function useGallery(pageSize = 100) {
   // --- Data State ---

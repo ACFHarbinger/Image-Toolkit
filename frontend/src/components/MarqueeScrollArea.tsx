@@ -81,7 +81,7 @@ export const MarqueeScrollArea: React.FC<MarqueeScrollAreaProps> = ({
     // Optimization: Simple deep compare to avoid spamming the parent
     if (
       currentSelected.size !== lastSelected.size ||
-      ![...currentSelected].every((p) => lastSelected.has(p))
+      !Array.from(currentSelected).every((p) => lastSelected.has(p))
     ) {
       setLastSelected(currentSelected);
       onSelectionChanged?.(currentSelected, isCtrl);

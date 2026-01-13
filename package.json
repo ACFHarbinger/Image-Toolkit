@@ -13,9 +13,17 @@
     "wait-on": "^7.2.0"
   },
   "scripts": {
+    "install:all": "npm install && npm install --workspace=frontend",
+    "setup": "npm run install:all && npm install --save-dev @types/react-dom",
+    "dev": "npm run tauri:dev",
+    "build": "npm run tauri:build",
+    "tauri:dev": "npm run tauri dev --workspace=frontend",
+    "tauri:build": "npm run tauri build --workspace=frontend",
+    "tauri:check": "cd frontend/src-tauri && cargo check",
     "start-frontend": "npm run start --workspace=frontend",
     "build-frontend": "npm run build --workspace=frontend",
     "test-frontend": "npm run test --workspace=frontend",
+    "test": "npm run test-frontend",
     "start-electron": "npm run build-frontend && npm exec --workspace=frontend -- electron .",
     "electron-dev": "concurrently \"npm run start-frontend\" \"npm run electron-dev --workspace=frontend\"",
     "start-all": "npm run build-frontend && npm run electron-dev"

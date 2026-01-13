@@ -117,9 +117,9 @@ name = "app"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "base",
  "chrono",
  "dotenv",
+ "image",
  "log",
  "once_cell",
  "pgvector",
@@ -133,6 +133,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "uuid",
+ "walkdir",
 ]
 
 [[package]]

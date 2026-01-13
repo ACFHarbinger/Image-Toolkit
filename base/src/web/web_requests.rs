@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
 use reqwest::blocking::{Client, Response};
 use serde_json::Value;
@@ -7,6 +8,7 @@ use std::fs;
 use std::path::Path;
 use std::time::Duration;
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn run_web_requests_sequence(
     py: Python<'_>,

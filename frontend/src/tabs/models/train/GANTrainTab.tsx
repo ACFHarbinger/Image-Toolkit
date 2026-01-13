@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FormRow, PathInput } from "../Shared.tsx";
+import { FormRow, PathInput } from "../Shared";
 
 export const GANTrainTab: React.FC = () => {
   // State corresponds to QLineEdit/QSpinBox values
