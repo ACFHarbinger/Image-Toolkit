@@ -1,3 +1,5 @@
+#[cfg(feature = "python")]
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
 use rayon::prelude::*;
 use std::fs;
@@ -72,6 +74,7 @@ pub fn delete_path_core(path: &str) -> bool {
     }
 }
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn get_files_by_extension(
     py: Python,
@@ -84,6 +87,7 @@ pub fn get_files_by_extension(
     Ok(results)
 }
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn delete_files_by_extensions(
     py: Python,
@@ -94,6 +98,7 @@ pub fn delete_files_by_extensions(
     Ok(count)
 }
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn delete_path(py: Python, path: String) -> PyResult<bool> {
     let res = py.detach(|| delete_path_core(&path));

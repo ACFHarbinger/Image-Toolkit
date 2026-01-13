@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FormRow, PathInput } from "../Shared.tsx";
+import { FormRow, PathInput } from "../Shared";
 
 export const R3GANGenerateTab: React.FC = () => {
   const [network, setNetwork] = useState("");

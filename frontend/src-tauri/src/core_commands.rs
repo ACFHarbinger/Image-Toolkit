@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use walkdir::WalkDir;
 
 #[tauri::command]
 pub fn scan_files(
@@ -19,12 +20,22 @@ pub fn scan_files(
 
     let rec = recursive.unwrap_or(true);
 
-    // Use a set to avoid duplicates when multiple extensions are provided
+    // Simple file scanner implementation
     let mut set = HashSet::new();
-    for ext in exts {
-        let files = base::core::file_system::get_files_by_extension_core(&directory, &ext, rec);
-        for f in files {
-            set.insert(f);
+    let walker = if rec {
+        WalkDir::new(&directory)
+    } else {
+        WalkDir::new(&directory).max_depth(1)
+    };
+
+    for entry in walker.into_iter().filter_map(|e| e.ok()) {
+        if entry.file_type().is_file() {
+            if let Some(ext) = entry.path().extension().and_then(|s| s.to_str()) {
+                let ext_lower = ext.to_lowercase();
+                if exts.contains(&ext_lower) {
+                    set.insert(entry.path().to_string_lossy().to_string());
+                }
+            }
         }
     }
 
@@ -41,30 +52,16 @@ pub async fn convert_image_batch(
     aspect_ratio: Option<f32>,
     ar_mode: Option<String>,
 ) -> Result<Vec<String>, String> {
-    let delete = delete_original.unwrap_or(false);
-    let mode = ar_mode.unwrap_or_else(|| "crop".to_string());
-
-    // Offload blocking work to a separate thread
-    let result = tauri::async_runtime::spawn_blocking(move || {
-        base::core::image_converter::convert_image_batch_core(
-            &pairs,
-            &output_format,
-            delete,
-            aspect_ratio,
-            &mode,
-        )
-    })
-    .await
-    .map_err(|e| format!("Task execution failed: {}", e))?;
-
-    Ok(result)
+    // TODO: Implement image conversion once base library is refactored
+    log::warn!("Image conversion not yet implemented in Tauri backend");
+    Err("Image conversion not yet implemented".to_string())
 }
 
 #[tauri::command]
 pub fn delete_files(paths: Vec<String>) -> Result<usize, String> {
     let mut count = 0;
     for path in paths {
-        if base::core::file_system::delete_path_core(&path) {
+        if std::fs::remove_file(&path).is_ok() {
             count += 1;
         }
     }
@@ -73,7 +70,9 @@ pub fn delete_files(paths: Vec<String>) -> Result<usize, String> {
 
 #[tauri::command]
 pub fn delete_directory(path: String) -> Result<bool, String> {
-    Ok(base::core::file_system::delete_path_core(&path))
+    std::fs::remove_dir_all(&path)
+        .map(|_| true)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -82,41 +81,7 @@ pub async fn merge_images(
     output_path: String,
     config: serde_json::Value,
 ) -> Result<bool, String> {
-    // Config parsing - extract owned values before moving into closure
-    let direction = config["direction"].as_str().unwrap_or("horizontal").to_string();
-    let spacing = config["spacing"].as_u64().unwrap_or(0) as u32;
-    let align_mode = config["alignMode"].as_str().unwrap_or("center").to_string();
-    let rows = config["gridRows"].as_u64().unwrap_or(2) as u32;
-    let cols = config["gridCols"].as_u64().unwrap_or(2) as u32;
-
-    // Offload blocking work to a separate thread
-    let result = tauri::async_runtime::spawn_blocking(move || match direction.as_str() {
-        "horizontal" => base::core::image_merger::merge_images_horizontal_core(
-            &image_paths,
-            &output_path,
-            spacing,
-            &align_mode,
-        )
-        .map_err(|e| e.to_string()),
-        "vertical" => base::core::image_merger::merge_images_vertical_core(
-            &image_paths,
-            &output_path,
-            spacing,
-            &align_mode,
-        )
-        .map_err(|e| e.to_string()),
-        "grid" => base::core::image_merger::merge_images_grid_core(
-            &image_paths,
-            &output_path,
-            rows,
-            cols,
-            spacing,
-        )
-        .map_err(|e| e.to_string()),
-        _ => Err(format!("Unsupported direction: {}", direction)),
-    })
-    .await
-    .map_err(|e| format!("Task execution failed: {}", e))??;
-
-    Ok(result)
+    // TODO: Implement image merging once base library is refactored
+    log::warn!("Image merging not yet implemented in Tauri backend");
+    Err("Image merging not yet implemented".to_string())
 }

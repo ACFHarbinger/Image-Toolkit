@@ -1,7 +1,9 @@
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
 use std::fs;
 use std::process::Command;
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn convert_video(
     py: Python,

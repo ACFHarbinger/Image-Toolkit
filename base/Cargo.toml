@@ -12,7 +12,7 @@ name = "slideshow_daemon"
 path = "src/utils/slideshow_daemon.rs"
 
 [dependencies]
-pyo3 = { version = "0.27", features = ["abi3-py311"] }
+pyo3 = { version = "0.27", features = ["abi3-py311"], optional = true }
 image = { version = "0.25", features = ["webp"] }
 fast_image_resize = "5.1"
 rayon = "1.10"
@@ -33,8 +33,9 @@ url = "2.5"
 base64 = "0.22"
 
 [features]
-extension-module = ["pyo3/extension-module"]
-default = ["extension-module"]
+python = ["pyo3"]
+extension-module = ["python", "pyo3/extension-module"]
+default = []
 
 [dev-dependencies]
 tempfile = "3"

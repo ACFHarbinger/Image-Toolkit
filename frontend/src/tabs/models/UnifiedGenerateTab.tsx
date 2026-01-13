@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { GANGenerateTab } from "./gen/GANGenerateTab.tsx";
-import { LoRAGenerateTab } from "./gen/LoRAGenerateTab.tsx";
-import { SD3GenerateTab } from "./gen/SD3GenerateTab.tsx";
-import { R3GANGenerateTab } from "./gen/R3GANGenerateTab.tsx";
+import { GANGenerateTab } from "./gen/GANGenerateTab";
+import { LoRAGenerateTab } from "./gen/LoRAGenerateTab";
+import { SD3GenerateTab } from "./gen/SD3GenerateTab";
+import { R3GANGenerateTab } from "./gen/R3GANGenerateTab";
 
 export const UnifiedGenerateTab: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState("anything");

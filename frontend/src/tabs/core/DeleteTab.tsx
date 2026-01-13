@@ -164,7 +164,7 @@ const DeleteTab = forwardRef<DeleteTabHandle, DeleteTabProps>(
         if (success) {
           showModal("Directory deleted successfully.", "success");
           found.actions.setGalleryItems([]);
-          selected.actions.clear();
+          selected.actions.setGalleryItems([]);
           setTargetPath("");
         } else {
           showModal("Failed to delete directory (not found or error).", "error");
@@ -201,7 +201,7 @@ const DeleteTab = forwardRef<DeleteTabHandle, DeleteTabProps>(
           (i) => !deletedSet.has(i.path),
         );
         found.actions.setGalleryItems(remainingFound);
-        selected.actions.clear();
+        selected.actions.setGalleryItems([]);
       } catch (err) {
         console.error(err);
         showModal(`Delete failed: ${err}`, "error");

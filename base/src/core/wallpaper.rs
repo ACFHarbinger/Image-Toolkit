@@ -1,3 +1,4 @@
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
 use std::process::Command;
 
@@ -87,6 +88,7 @@ pub fn get_kde_desktops_core(qdbus_bin: &str) -> Result<Vec<KdeDesktop>, String>
 
 // PyO3 Wrappers
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn set_wallpaper_gnome(uri: String, mode: String) -> PyResult<bool> {
     set_wallpaper_gnome_core(&uri, &mode)
@@ -94,6 +96,7 @@ pub fn set_wallpaper_gnome(uri: String, mode: String) -> PyResult<bool> {
     Ok(true)
 }
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn evaluate_kde_script(qdbus_bin: String, script: String) -> PyResult<String> {
     evaluate_kde_script_core(&qdbus_bin, &script)

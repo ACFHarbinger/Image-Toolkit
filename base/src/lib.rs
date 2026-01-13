@@ -1,11 +1,23 @@
-use fast_image_resize as fr;
-use image::ImageReader;
+#[cfg(feature = "python")]
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
+#[cfg(feature = "python")]
+#[cfg(feature = "python")]
 use pyo3::types::PyBytes;
+
+#[cfg(feature = "python")]
+use fast_image_resize as fr;
+#[cfg(feature = "python")]
+use image::ImageReader;
+#[cfg(feature = "python")]
 use rayon::prelude::*;
+#[cfg(feature = "python")]
 use std::process::Command;
+#[cfg(feature = "python")]
 use walkdir::WalkDir;
 
+#[cfg(feature = "python")]
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn load_image_batch(
     py: Python,
@@ -73,6 +85,8 @@ pub fn load_image_batch(
     Ok(py_results)
 }
 
+#[cfg(feature = "python")]
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn scan_files(
     py: Python,
@@ -127,6 +141,8 @@ pub fn scan_files(
     })
 }
 
+#[cfg(feature = "python")]
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn extract_video_thumbnails_batch(
     py: Python,
@@ -246,6 +262,7 @@ use core::wallpaper::*;
 use web::web_requests::*;
 use web::*;
 
+#[cfg(feature = "python")]
 #[pymodule]
 fn base(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(load_image_batch, m)?)?;

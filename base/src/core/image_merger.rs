@@ -1,7 +1,9 @@
 use anyhow::Result;
 use fast_image_resize as fr;
 use image::{DynamicImage, ImageReader, RgbaImage};
+#[cfg(feature = "python")]
 use pyo3::exceptions::PyValueError;
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
 
 // Re-use logic from image_converter would be ideal, but for now I'll duplicate the simple load/resize helpers to keep modules decoupled or I could make them public in image_converters.
@@ -101,6 +103,7 @@ pub fn merge_images_horizontal_core(
     Ok(true)
 }
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn merge_images_horizontal(
     image_paths: Vec<String>,
@@ -163,6 +166,7 @@ pub fn merge_images_vertical_core(
     Ok(true)
 }
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn merge_images_vertical(
     image_paths: Vec<String>,
@@ -225,6 +229,7 @@ pub fn merge_images_grid_core(
     Ok(true)
 }
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn merge_images_grid(
     image_paths: Vec<String>,

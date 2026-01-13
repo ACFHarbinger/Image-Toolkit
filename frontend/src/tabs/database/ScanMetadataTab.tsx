@@ -24,10 +24,10 @@ import {
 } from "lucide-react";
 
 // Components
-import { ClickableLabel } from "../../components/ClickableLabel.tsx";
-import { MarqueeScrollArea } from "../../components/MarqueeScrollArea.tsx";
-import { useTwoGalleries } from "../../hooks/useTwoGalleries.ts";
-import { GalleryItem } from "../../hooks/galleryItem.ts";
+import { ClickableLabel } from "../../components/ClickableLabel";
+import { MarqueeScrollArea } from "../../components/MarqueeScrollArea";
+import { useTwoGalleries } from "../../hooks/useTwoGalleries";
+import { GalleryItem } from "../../hooks/galleryItem";
 
 // --- Interfaces ---
 
@@ -234,21 +234,21 @@ const FloatingImageWindow: React.FC<FloatingWindowProps> = ({
 
   const windowStyle: React.CSSProperties = isMaximized
     ? {
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        transition: "all 0.3s ease-in-out",
-        zIndex: 9999 + windowId,
-        position: "fixed",
-      }
+      top: 0,
+      left: 0,
+      width: "100vw",
+      height: "100vh",
+      transition: "all 0.3s ease-in-out",
+      zIndex: 9999 + windowId,
+      position: "fixed",
+    }
     : {
-        top: position.y,
-        left: position.x,
-        transform: isDragging ? "scale(1.02)" : "scale(1)",
-        transition: isDragging ? "none" : "transform 0.1s ease-out",
-        zIndex: 100 + windowId,
-      };
+      top: position.y,
+      left: position.x,
+      transform: isDragging ? "scale(1.02)" : "scale(1)",
+      transition: isDragging ? "none" : "transform 0.1s ease-out",
+      zIndex: 100 + windowId,
+    };
 
   const contentStyle: React.CSSProperties = isMinimized
     ? { display: "none" }

@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
 use reqwest::blocking::Client;
 use serde_json::Value;

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FormRow, PathInput } from "../Shared.tsx";
+import { FormRow, PathInput } from "../Shared";
 
 const BASE_MODELS = [
   "models/sd3.5_large.safetensors",

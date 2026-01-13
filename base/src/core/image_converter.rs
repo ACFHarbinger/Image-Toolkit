@@ -1,6 +1,8 @@
 use fast_image_resize as fr;
 use image::{DynamicImage, ImageFormat, ImageReader};
+#[cfg(feature = "python")]
 use pyo3::exceptions::PyValueError;
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
 use rayon::prelude::*;
 use std::fs;
@@ -171,6 +173,7 @@ pub fn convert_image_batch_core(
         .collect()
 }
 
+#[cfg(feature = "python")]
 #[pyfunction]
 #[pyo3(signature = (input_path, output_path, output_format, delete_original, aspect_ratio=None, ar_mode=None))]
 pub fn convert_single_image(
@@ -195,6 +198,7 @@ pub fn convert_single_image(
     Ok(true)
 }
 
+#[cfg(feature = "python")]
 #[pyfunction]
 #[pyo3(signature = (image_pairs, output_format, delete_original, aspect_ratio=None, ar_mode=None))]
 pub fn convert_image_batch(

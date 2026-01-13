@@ -18,10 +18,10 @@ import {
 import {
   ClickableLabel,
   VIDEO_PLACEHOLDER_CONST,
-} from "../../components/ClickableLabel.tsx";
-import { MarqueeScrollArea } from "../../components/MarqueeScrollArea.tsx";
-import { useGallery } from "../../hooks/useGallery.ts";
-import { GalleryItem } from "../../hooks/galleryItem.ts";
+} from "../../components/ClickableLabel";
+import { MarqueeScrollArea } from "../../components/MarqueeScrollArea";
+import { useGallery } from "../../hooks/useGallery";
+import { GalleryItem } from "../../hooks/galleryItem";
 
 // --- Types & Constants ---
 const RESOLUTIONS = [
@@ -602,7 +602,7 @@ export const ImageExtractorTab: React.FC = () => {
                   // Provide advice to the user
                   setVideoError(
                     message +
-                      " If this is an MKV file, try using the 'External Player' option below.",
+                    " If this is an MKV file, try using the 'External Player' option below.",
                   );
                 }}
               >

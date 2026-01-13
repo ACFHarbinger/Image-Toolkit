@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
 use serde_json::Value;
 use std::fs;
@@ -870,6 +871,7 @@ fn emit_error(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     Ok(())
 }
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn run_image_crawler(
     py: Python<'_>,
