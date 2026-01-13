@@ -553,11 +553,21 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         self.thread_pool.start(worker)
 
     def _trigger_batch_video_found_load(self, paths: List[str]):
-        # User requested parallel/out-of-order loading.
-        for path in paths:
-            self._trigger_video_found_load(path)
+        """Trigger a single batch worker for all visible videos."""
+        if not hasattr(self, "found_loading_paths"):
+            self.found_loading_paths = set()
+        
+        self.found_loading_paths.update(paths)
+        worker = BatchVideoLoaderWorker(paths, self.thumbnail_size)
+        
+        # Connect both signals: result for individual updates, batch_result for cleanup if needed
+        worker.signals.result.connect(self._on_found_image_loaded)
+        # Note: we don't strictly need batch_result here as _on_found_image_loaded handles individual cleanup
+        
+        self.thread_pool.start(worker)
 
     def _trigger_video_found_load(self, path: str):
+        """Fallback for single video load (rarely used by batch logic but kept for consistency)."""
         if not hasattr(self, "found_loading_paths"):
             self.found_loading_paths = set()
 

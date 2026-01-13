@@ -739,13 +739,21 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.stop_wallpaper_worker()
 
         for win in list(self.open_queue_windows):
-            if win.isVisible():
-                win.close()
+            try:
+                # Check if the C++ object still exists before calling isVisible()
+                if win.isVisible():
+                    win.close()
+            except RuntimeError:
+                # Object already deleted, skip
+                pass
         self.open_queue_windows.clear()
 
         for win in list(self.open_image_preview_windows):
-            if win.isVisible():
-                win.close()
+            try:
+                if win.isVisible():
+                    win.close()
+            except RuntimeError:
+                pass
         self.open_image_preview_windows.clear()
 
         self.monitor_current_index.clear()
@@ -803,10 +811,14 @@ class WallpaperTab(AbstractClassSingleGallery):
             return
         queue = self.monitor_slideshow_queues.get(monitor_id, [])
         monitor_name = self.monitor_widgets[monitor_id].monitor.name
-        for win in self.open_queue_windows:
-            if isinstance(win, SlideshowQueueWindow) and win.monitor_id == monitor_id:
-                win.activateWindow()
-                return
+        for win in list(self.open_queue_windows):
+            try:
+                if isinstance(win, SlideshowQueueWindow) and win.monitor_id == monitor_id:
+                    win.activateWindow()
+                    return
+            except RuntimeError:
+                if win in self.open_queue_windows:
+                    self.open_queue_windows.remove(win)
 
         # Pass the global pixmap cache so the QueueWindow can show videos too
         window = SlideshowQueueWindow(

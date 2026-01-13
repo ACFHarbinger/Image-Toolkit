@@ -564,6 +564,15 @@ class ConvertTab(AbstractClassTwoGalleries):
         except ValueError:
             start_index = 0
 
+        for win in list(self.open_preview_windows):
+            try:
+                if isinstance(win, ImagePreviewWindow) and win.image_path == image_path:
+                    win.activateWindow()
+                    return
+            except RuntimeError:
+                if win in self.open_preview_windows:
+                    self.open_preview_windows.remove(win)
+
         preview = ImagePreviewWindow(
             image_path=image_path,
             db_tab_ref=None,
@@ -572,6 +581,13 @@ class ConvertTab(AbstractClassTwoGalleries):
             start_index=start_index,
         )
         preview.setAttribute(Qt.WA_DeleteOnClose)
+        
+        def remove_preview(e):
+            if preview in self.open_preview_windows:
+                self.open_preview_windows.remove(preview)
+            e.accept()
+            
+        preview.closeEvent = remove_preview
         preview.show()
         self.open_preview_windows.append(preview)
 
@@ -623,9 +639,21 @@ class ConvertTab(AbstractClassTwoGalleries):
                     and path in self.path_to_label_map
                 ):
                     widget = self.path_to_label_map.pop(path)
-                    widget.deleteLater()
+                    try:
+                        widget.deleteLater()
+                    except RuntimeError:
+                        pass
 
                 self.on_selection_changed()
+
+                # Also close any open preview for this file
+                for win in list(self.open_preview_windows):
+                    try:
+                        if win.image_path == path:
+                            win.close()
+                    except RuntimeError:
+                        if win in self.open_preview_windows:
+                            self.open_preview_windows.remove(win)
 
             except Exception as e:
                 QMessageBox.critical(self, "Error", str(e))
@@ -967,3 +995,14 @@ class ConvertTab(AbstractClassTwoGalleries):
             QMessageBox.warning(
                 self, "Config Error", f"Failed to apply some settings: {e}"
             )
+
+    def closeEvent(self, event):
+        """Clean up when the tab/window is closed."""
+        for win in list(self.open_preview_windows):
+            try:
+                if win.isVisible():
+                    win.close()
+            except RuntimeError:
+                pass
+        self.open_preview_windows.clear()
+        super().closeEvent(event)
