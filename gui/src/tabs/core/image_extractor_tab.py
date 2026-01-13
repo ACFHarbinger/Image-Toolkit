@@ -1024,10 +1024,14 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 print(f"Error opening video: {e}")
             return
 
-        for win in self.open_image_preview_windows:
-            if isinstance(win, ImagePreviewWindow) and win.image_path == image_path:
-                win.activateWindow()
-                return
+        for win in list(self.open_image_preview_windows):
+            try:
+                if isinstance(win, ImagePreviewWindow) and win.image_path == image_path:
+                    win.activateWindow()
+                    return
+            except RuntimeError:
+                if win in self.open_image_preview_windows:
+                    self.open_image_preview_windows.remove(win)
 
         all_paths_list = self.current_extracted_paths
         try:
