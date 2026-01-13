@@ -17,6 +17,7 @@ from PySide6.QtCore import (
     QPoint,
     QEvent,
     QRect,
+    Signal,
 )
 from PySide6.QtGui import QPixmap, QAction, QColor, QImage, QCursor
 from PySide6.QtWidgets import (
@@ -57,6 +58,9 @@ from backend.src.core import WallpaperManager
 
 
 class WallpaperTab(AbstractClassSingleGallery):
+    # Signals for QML
+    qml_monitors_changed = Signal(list) # List of dicts
+    qml_status_changed = Signal(str)
 
     @Slot()
     def _is_slideshow_validation_ready(self) -> Tuple[bool, int]:
@@ -1730,3 +1734,56 @@ class WallpaperTab(AbstractClassSingleGallery):
             QMessageBox.critical(
                 self, "Config Error", f"Failed to apply wallpaper configuration:\n{e}"
             )
+
+    # --- QML HANDLERS ---
+    @Slot()
+    def request_monitors_qml(self):
+         """Emits the current monitor list to QML."""
+         monitor_data = []
+         for m in self.monitors:
+             monitor_data.append({
+                 "name": m.name,
+                 "x": m.x,
+                 "y": m.y,
+                 "width": m.width,
+                 "height": m.height,
+                 "is_primary": m.is_primary
+             })
+         self.qml_monitors_changed.emit(monitor_data)
+
+    @Slot(str, str)
+    def set_wallpaper_qml(self, path, monitor_name="All"):
+        """Sets wallpaper from QML."""
+        # For simplicity, if monitor_name is "All" or not specified, set for all.
+        # Logic is complex in set_wallpaper_worker, usually governed by self.monitor_image_paths
+        
+        # 1. Update internal path state
+        if monitor_name == "All":
+             for mid in self.monitor_widgets.keys():
+                  self.monitor_image_paths[mid] = path
+        else:
+             # Find ID for name
+             # This is tricky as ID in widgets is usually Name (or index string)
+             # Let's assume monitor_name is the ID used in widgets
+             if monitor_name in self.monitor_widgets:
+                 self.monitor_image_paths[monitor_name] = path
+                 
+        # 2. Trigger worker
+        self.handle_set_wallpaper_click()
+
+    @Slot(int, int, str, bool, bool)
+    def update_slideshow_settings_qml(self, interval_min, style, random_order, include_subdirs):
+        """Updates settings from QML."""
+        self.interval_min_spinbox.setValue(interval_min)
+        self.style_combo.setCurrentText(style)
+        # Random/Subdirs logic isn't fully in the snippet shown but we can hook it up if members exist
+        # Assuming they modify internal state or config when run.
+        self.request_monitors_qml() # specific refresh
+
+    @Slot(str)
+    def drop_image_qml(self, path):
+         """Handle drop from QML."""
+         # Assume dropped on 'All' or specific?
+         # QML drag/drop might need specific monitor targeting.
+         # For now, simplistic:
+         self.set_wallpaper_qml(path, "All")

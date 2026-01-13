@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QGridLayout,
 )
-from PySide6.QtCore import Qt, Slot, QThread, QPoint
+from PySide6.QtCore import Qt, Slot, QThread, QPoint, Signal
 from PySide6.QtGui import QPixmap, QAction
 from ...classes import AbstractClassTwoGalleries
 from ...components import (
@@ -46,6 +46,9 @@ class DeleteTab(AbstractClassTwoGalleries):
     DeleteTab with identical split-panel galleries for Scan Results and Selected Duplicates.
     Inherits core gallery and selection logic from BaseTwoGalleriesTab.
     """
+    preview_ready = Signal(str)
+    scan_status_changed = Signal(str)
+    qml_input_path_changed = Signal(str)
 
     def __init__(self, dropdown=True):
         super().__init__()
@@ -950,3 +953,48 @@ class DeleteTab(AbstractClassTwoGalleries):
             QMessageBox.warning(
                 self, "Config Error", f"Failed to apply some settings: {e}"
             )
+
+    # --- QML HANDLERS ---
+    @Slot(str)
+    def browse_target_qml(self, current_path=""):
+        starting_dir = current_path if os.path.isdir(current_path) else ""
+        d = QFileDialog.getExistingDirectory(
+            self, "Select Directory to Scan", starting_dir
+        )
+        if d:
+            self.target_path.setText(d)
+            self.qml_input_path_changed.emit(d)
+            return d
+        return ""
+
+    @Slot(str, str)
+    def start_duplicate_scan_qml(self, target_dir, method="Exact Match"):
+        """Wrapper for QML initiated scan."""
+        if not target_dir or not os.path.isdir(target_dir):
+             # Signal error?
+             return
+        
+        # Map method string to internal ID if needed, or rely on combo box being synced
+        # But QML passes string directly.
+        # "Exact Match" -> "exact"
+        # Since logic uses self.scan_method_combo.currentText(), we should update it or pass explicit arg.
+        
+        # Update UI combo for consistency
+        index = self.scan_method_combo.findText(method, Qt.MatchContains)
+        if index >= 0:
+            self.scan_method_combo.setCurrentIndex(index)
+        
+        self.target_path.setText(target_dir)
+        self.start_duplicate_scan()
+
+    @Slot()
+    def delete_selected_files_qml(self):
+        """Wrapper for QML delete."""
+        # This assumes self.selected_files is populated.
+        # If QML manages selection separately, we need synchronization.
+        self.delete_selected_duplicates()
+
+    @Slot(str)
+    def select_file_qml(self, path):
+         """Toggle selection for a file from QML."""
+         self.toggle_selection(path)

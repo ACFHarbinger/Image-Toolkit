@@ -915,6 +915,19 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         # If performing a refresh (toggling view_new_only), re-apply filters to existing list
         self.apply_scan_filters()
 
+    # --- QML Wrappers ---
+    def start_scan(self):
+        """Wrapper for QML to start scanning using current text field value."""
+        self.handle_scan_directory_return()
+
+    def stop_scan(self):
+        """Wrapper for QML to stop scanning."""
+        self.cancel_loading()
+
+    def upsert_selected(self):
+        """Wrapper for QML to upsert selected images."""
+        self.perform_upsert_operation()
+
     @Slot()
     def on_scan_thread_finished(self):
         self.scan_thread = None
