@@ -23,17 +23,23 @@ pub fn authenticate_user(account_name: String, password: String) -> Result<AuthR
     // Call Python backend for authentication
     // This is a bridge between Tauri and the existing Python VaultManager system
 
-    let output = Command::new("python")
-        .arg("-c")
-        .arg(format!(
-            r#"
+    let python_script = format!(
+        r#"
 import sys
 import json
+import hashlib
+# Redirect stdout to stderr
+_orig_stdout = sys.stdout
+sys.stdout = sys.stderr
+
 sys.path.insert(0, '../../backend/src')
-from core.vault_manager import VaultManager
-import utils.definitions as udef
+
+result = {{'success': False, 'message': 'Unknown error'}}
 
 try:
+    from core.vault_manager import VaultManager
+    import utils.definitions as udef
+
     udef.update_cryptographic_values('{}')
     vm = VaultManager(udef.JAR_FILE)
     vm.load_keystore(udef.KEYSTORE_FILE, '{}')
@@ -42,95 +48,134 @@ try:
     
     stored_data = vm.load_account_credentials()
     
-    # Verify account name
     if stored_data.get('account_name') != '{}':
-        print(json.dumps({{'success': False, 'message': 'Account name mismatch'}}))
-        sys.exit(1)
-    
-    # Verify password (hash comparison)
-    stored_hash = stored_data.get('hashed_password')
-    stored_salt = stored_data.get('salt')
-    
-    import hashlib
-    password_combined = ('{}' + stored_salt + vm.PEPPER).encode('utf-8')
-    verification_hash = hashlib.sha256(password_combined).hexdigest()
-    
-    if verification_hash == stored_hash:
-        profiles = list(stored_data.get('system_preference_profiles', {{}}).keys())
-        print(json.dumps({{'success': True, 'profiles': profiles}}))
+        result = {{'success': False, 'message': 'Account name mismatch'}}
     else:
-        print(json.dumps({{'success': False, 'message': 'Invalid password'}}))
-        sys.exit(1)
+        # Verify password (hash comparison)
+        stored_hash = stored_data.get('hashed_password')
+        stored_salt = stored_data.get('salt')
+        
+        password_combined = ('{}' + stored_salt + vm.PEPPER).encode('utf-8')
+        verification_hash = hashlib.sha256(password_combined).hexdigest()
+        
+        if verification_hash == stored_hash:
+            profiles = list(stored_data.get('system_preference_profiles', {{}}).keys())
+            result = {{'success': True, 'profiles': profiles}}
+        else:
+            result = {{'success': False, 'message': 'Invalid password'}}
         
 except Exception as e:
-    print(json.dumps({{'success': False, 'message': str(e)}}))
-    sys.exit(1)
+    result = {{'success': False, 'message': str(e)}}
+
+sys.stdout = _orig_stdout
+print(f"RESULT: {{json.dumps(result)}}")
 "#,
-            account_name, password, password, account_name, password
-        ))
+        account_name, password, password, account_name, password
+    );
+
+    let output = Command::new("python3")
+        .arg("-c")
+        .arg(&python_script)
         .output()
         .map_err(|e| format!("Failed to execute Python: {}", e))?;
 
-    if output.status.success() {
-        let result_str = String::from_utf8_lossy(&output.stdout);
-        let result: AuthResult = serde_json::from_str(&result_str)
-            .map_err(|e| format!("Failed to parse authentication result: {}", e))?;
-        Ok(result)
-    } else {
-        let error = String::from_utf8_lossy(&output.stderr);
-        Err(format!("Authentication failed: {}", error))
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    if !stderr.is_empty() {
+        log::info!("Python stderr: {}", stderr);
     }
+
+    // Find the line starting with RESULT:
+    let result_line = stdout
+        .lines()
+        .find(|line| line.starts_with("RESULT: "))
+        .ok_or_else(|| {
+            log::error!("No RESULT: marker found in output. Raw output: {}", stdout);
+            format!("No authentication result marker found in backend output")
+        })?;
+
+    let json_str = &result_line["RESULT: ".len()..];
+
+    serde_json::from_str(json_str).map_err(|e| {
+        format!(
+            "Failed to parse authentication result: {}. JSON was: {}",
+            e, json_str
+        )
+    })
 }
 
 /// Create a new user account using the Python VaultManager backend
 #[tauri::command]
 pub fn create_user_account(account_name: String, password: String) -> Result<AuthResult, String> {
-    let output = Command::new("python")
-        .arg("-c")
-        .arg(format!(
-            r#"
+    let python_script = format!(
+        r#"
 import sys
 import json
-sys.path.insert(0, '../../backend/src')
-from core.vault_manager import VaultManager
-import utils.definitions as udef
 import os
+# Redirect stdout to stderr
+_orig_stdout = sys.stdout
+sys.stdout = sys.stderr
+
+sys.path.insert(0, '../../backend/src')
+result = {{'success': False, 'message': 'Unknown error'}}
 
 try:
+    from core.vault_manager import VaultManager
+    import utils.definitions as udef
+
     udef.update_cryptographic_values('{}')
     
-    # Check if account already exists
     if os.path.exists(udef.KEYSTORE_FILE) or os.path.exists(udef.VAULT_FILE):
-        print(json.dumps({{'success': False, 'message': 'Account already exists'}}))
-        sys.exit(1)
-    
-    vm = VaultManager(udef.JAR_FILE)
-    vm.load_keystore(udef.KEYSTORE_FILE, '{}')
-    vm.create_key_if_missing(udef.KEY_ALIAS, udef.KEYSTORE_FILE, '{}')
-    vm.get_secret_key(udef.KEY_ALIAS, '{}')
-    vm.init_vault(udef.VAULT_FILE)
-    vm.save_account_credentials('{}', '{}')
-    
-    print(json.dumps({{'success': True}}))
+        result = {{'success': False, 'message': 'Account already exists'}}
+    else:
+        vm = VaultManager(udef.JAR_FILE)
+        vm.load_keystore(udef.KEYSTORE_FILE, '{}')
+        vm.create_key_if_missing(udef.KEY_ALIAS, udef.KEYSTORE_FILE, '{}')
+        vm.get_secret_key(udef.KEY_ALIAS, '{}')
+        vm.init_vault(udef.VAULT_FILE)
+        vm.save_account_credentials('{}', '{}')
+        result = {{'success': True}}
     
 except Exception as e:
-    print(json.dumps({{'success': False, 'message': str(e)}}))
-    sys.exit(1)
+    result = {{'success': False, 'message': str(e)}}
+
+sys.stdout = _orig_stdout
+print(f"RESULT: {{json.dumps(result)}}")
 "#,
-            account_name, password, password, password, account_name, password
-        ))
+        account_name, password, password, password, account_name, password
+    );
+
+    let output = Command::new("python3")
+        .arg("-c")
+        .arg(&python_script)
         .output()
         .map_err(|e| format!("Failed to execute Python: {}", e))?;
 
-    if output.status.success() {
-        let result_str = String::from_utf8_lossy(&output.stdout);
-        let result: AuthResult = serde_json::from_str(&result_str)
-            .map_err(|e| format!("Failed to parse result: {}", e))?;
-        Ok(result)
-    } else {
-        let error = String::from_utf8_lossy(&output.stderr);
-        Err(format!("Account creation failed: {}", error))
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    if !stderr.is_empty() {
+        log::info!("Python stderr: {}", stderr);
     }
+
+    // Find the line starting with RESULT:
+    let result_line = stdout
+        .lines()
+        .find(|line| line.starts_with("RESULT: "))
+        .ok_or_else(|| {
+            log::error!("No RESULT: marker found in output. Raw output: {}", stdout);
+            format!("No account creation result marker found in backend output")
+        })?;
+
+    let json_str = &result_line["RESULT: ".len()..];
+
+    serde_json::from_str(json_str).map_err(|e| {
+        format!(
+            "Failed to parse account creation result: {}. JSON was: {}",
+            e, json_str
+        )
+    })
 }
 
 /// Load user settings from VaultManager
@@ -142,11 +187,15 @@ pub fn load_user_settings(account_name: String) -> Result<SettingsData, String> 
             r#"
 import sys
 import json
-sys.path.insert(0, '../../backend/src')
-from core.vault_manager import VaultManager
-import utils.definitions as udef
+# Redirect stdout to stderr
+_original_stdout = sys.stdout
+sys.stdout = sys.stderr
 
+sys.path.insert(0, '../../backend/src')
 try:
+    from core.vault_manager import VaultManager
+    import utils.definitions as udef
+
     udef.update_cryptographic_values('{}')
     vm = VaultManager(udef.JAR_FILE)
     # Load without password (assumes already authenticated in session)
@@ -161,10 +210,11 @@ try:
         'active_tab_configs': stored_data.get('active_tab_configs', {{}})
     }}
     
+    sys.stdout = _original_stdout
     print(json.dumps(settings))
     
 except Exception as e:
-    print(json.dumps({{'error': str(e)}}))
+    print(str(e))
     sys.exit(1)
 "#,
             account_name
@@ -195,11 +245,15 @@ pub fn save_user_settings(account_name: String, settings: SettingsData) -> Resul
             r#"
 import sys
 import json
-sys.path.insert(0, '../../backend/src')
-from core.vault_manager import VaultManager
-import utils.definitions as udef
+# Redirect stdout to stderr
+_original_stdout = sys.stdout
+sys.stdout = sys.stderr
 
+sys.path.insert(0, '../../backend/src')
 try:
+    from core.vault_manager import VaultManager
+    import utils.definitions as udef
+
     udef.update_cryptographic_values('{}')
     vm = VaultManager(udef.JAR_FILE)
     vm.init_vault(udef.VAULT_FILE)
@@ -210,10 +264,11 @@ try:
     user_data.update(settings)
     vm.save_data(json.dumps(user_data))
     
+    sys.stdout = _original_stdout
     print(json.dumps({{'success': True}}))
     
 except Exception as e:
-    print(json.dumps({{'success': False, 'error': str(e)}}))
+    print(str(e))
     sys.exit(1)
 "#,
             account_name,
@@ -239,19 +294,24 @@ pub fn update_master_password(account_name: String, new_password: String) -> Res
             r#"
 import sys
 import json
-sys.path.insert(0, '../../backend/src')
-from core.vault_manager import VaultManager
-import utils.definitions as udef
+# Redirect stdout to stderr
+_original_stdout = sys.stdout
+sys.stdout = sys.stderr
 
+sys.path.insert(0, '../../backend/src')
 try:
+    from core.vault_manager import VaultManager
+    import utils.definitions as udef
+
     udef.update_cryptographic_values('{}')
     vm = VaultManager(udef.JAR_FILE)
     vm.update_account_password('{}', '{}')
     
+    sys.stdout = _original_stdout
     print(json.dumps({{'success': True}}))
     
 except Exception as e:
-    print(json.dumps({{'success': False, 'error': str(e)}}))
+    print(str(e))
     sys.exit(1)
 "#,
             account_name, account_name, new_password

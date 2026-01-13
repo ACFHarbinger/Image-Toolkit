@@ -1,10 +1,12 @@
+import sys
 import cv2
+import base
 import hashlib
 import numpy as np
-import base
+
 from PIL import Image
 from pathlib import Path
-from .file_system_entries import FSETool
+from backend.src.core.file_system_entries import FSETool
 
 
 class DuplicateFinder:
@@ -41,7 +43,7 @@ class DuplicateFinder:
             duplicates = base.find_duplicate_images(directory, extensions, recursive)
             return duplicates
         except Exception as e:
-            print(f"Error in find_duplicate_images (Rust): {e}")
+            print(f"Error in find_duplicate_images (Rust): {e}", file=sys.stderr)
             return {}
 
 
@@ -83,7 +85,7 @@ class SimilarityFinder:
             # Rust returns HashMap<group_name, Vec<path>>
             return base.find_similar_images_phash(directory, extensions, threshold)
         except Exception as e:
-            print(f"Error in find_similar_phash (Rust): {e}")
+            print(f"Error in find_similar_phash (Rust): {e}", file=sys.stderr)
             return {}
 
     @staticmethod

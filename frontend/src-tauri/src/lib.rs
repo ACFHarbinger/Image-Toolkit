@@ -55,16 +55,16 @@ pub fn run() {
                 )?;
             }
 
-            // Initialize database connection
-            tauri::async_runtime::block_on(async {
+            // Initialize database connection in the background
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
                 // Load DATABASE_URL from environment or .env file
                 dotenv::dotenv().ok();
 
-                let database_url = env::var("DATABASE_URL")
-                    .unwrap_or_else(|_| {
-                        log::warn!("DATABASE_URL not found, using default");
-                        "postgresql://localhost/image_toolkit".to_string()
-                    });
+                let database_url = env::var("DATABASE_URL").unwrap_or_else(|_| {
+                    log::warn!("DATABASE_URL not found, using default");
+                    "postgresql://localhost/image_toolkit".to_string()
+                });
 
                 match db::Db::new(&database_url).await {
                     Ok(db_instance) => {
@@ -75,7 +75,7 @@ pub fn run() {
                             log::info!("Database connected successfully");
                         }
 
-                        app.manage(db_instance);
+                        app_handle.manage(db_instance);
                     }
                     Err(e) => {
                         log::error!("Failed to connect to database: {}", e);

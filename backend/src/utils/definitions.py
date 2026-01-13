@@ -1,4 +1,5 @@
 import os
+import sys
 
 from pathlib import Path
 from typing import Literal
@@ -11,8 +12,8 @@ parts = path.parts
 try:
     ROOT_DIR = Path(*parts[: parts.index("Image-Toolkit") + 1])
 except ValueError:
-    print(
-        "Warning: 'Image-Toolkit' not in path. Using current working directory as root."
+    print( 
+        "Warning: 'Image-Toolkit' not in path. Using current working directory as root.", file=sys.stderr
     )
     ROOT_DIR = path
 
@@ -140,7 +141,7 @@ def update_cryptographic_values(account_name):
     # Use 'global' to modify the top-level variables in this module
     global KEYSTORE_FILE, VAULT_FILE, PEPPER_FILE
 
-    print(f"Updating cryptographic paths for account: {account_name}")
+    print(f"Updating cryptographic paths for account: {account_name}", file=sys.stderr)
 
     # These files are unique to the user:
     # Keystore (holds key), Vault (holds data), Pepper (for hashing)
@@ -148,8 +149,8 @@ def update_cryptographic_values(account_name):
     VAULT_FILE = _get_suffixed_path(BASE_VAULT_FILE, account_name)
     PEPPER_FILE = _get_suffixed_path(BASE_PEPPER_FILE, account_name)
 
-    print("--- DEFINITIONS UPDATED ---")
-    print(f"KEYSTORE_FILE set to: {KEYSTORE_FILE}")
-    print(f"VAULT_FILE set to: {VAULT_FILE}")
-    print(f"PEPPER_FILE set to: {PEPPER_FILE}")
-    print("---------------------------")
+    print("--- DEFINITIONS UPDATED ---", file=sys.stderr)
+    print(f"KEYSTORE_FILE set to: {KEYSTORE_FILE}", file=sys.stderr)
+    print(f"VAULT_FILE set to: {VAULT_FILE}", file=sys.stderr)
+    print(f"PEPPER_FILE set to: {PEPPER_FILE}", file=sys.stderr)
+    print("---------------------------", file=sys.stderr)

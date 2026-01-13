@@ -41,10 +41,11 @@ class PgvectorImageDatabase:
             self.conn = psycopg2.connect(**self.conn_params)
             self.conn.autocommit = True
         except psycopg2.OperationalError as e:
-            print(f"Error connecting to database: {e}")
-            print("\n--- ERROR: DATABASE CONNECTION FAILED ---")
+            print(f"Error connecting to database: {e}", file=sys.stderr)
+            print("\n--- ERROR: DATABASE CONNECTION FAILED ---", file=sys.stderr)
             print(
-                "Please ensure PostgreSQL is running and connection details are correct."
+                "Please ensure PostgreSQL is running and connection details are correct.",
+                file=sys.stderr,
             )
             self.conn = None
             exit(1)
@@ -132,7 +133,7 @@ class PgvectorImageDatabase:
                 )
 
             except Exception as e:
-                print(f"Error during table creation: {e}")
+                print(f"Error during table creation: {e}", file=sys.stderr)
                 raise
             finally:
                 self.conn.commit()
@@ -382,7 +383,7 @@ class PgvectorImageDatabase:
 
                 return image_id
         except Exception as e:
-            print(f"Error adding image: {e}")
+            print(f"Error adding image: {e}", file=sys.stderr)
             raise
 
     def _fetch_one_image_details(self, image_id: int) -> Optional[Dict[str, Any]]:
@@ -551,7 +552,7 @@ class PgvectorImageDatabase:
                     image_data["tags"] = self.get_image_tags(image_id)
                     results.append(image_data)
         except Exception as e:
-            print(f"Error during search: {e}")
+            print(f"Error during search: {e}", file=sys.stderr)
             raise
 
         return results
@@ -633,7 +634,7 @@ class PgvectorImageDatabase:
         and recreates the schema. THIS IS A DESTRUCTIVE OPERATION.
         """
         if not self.conn:
-            print("Not connected to the database.")
+            print("Not connected to the database.", file=sys.stderr)
             raise
 
         try:
@@ -649,7 +650,7 @@ class PgvectorImageDatabase:
 
         except Exception as e:
             self.conn.rollback()  # Rollback on error
-            print(f"Error during database reset: {e}")
+            print(f"Error during database reset: {e}", file=sys.stderr)
             raise
 
     def close(self):
