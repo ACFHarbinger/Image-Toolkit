@@ -105,7 +105,7 @@ pub fn delete_path(py: Python, path: String) -> PyResult<bool> {
     Ok(res)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "python"))]
 mod tests {
     use super::*;
     use pyo3::Python;

@@ -40,3 +40,15 @@ default = []
 [dev-dependencies]
 tempfile = "3"
 mockito = "1.4"
+
+[[test]]
+name = "core_integration_tests"
+required-features = ["python"]
+
+[[test]]
+name = "utils_integration_tests"
+required-features = ["python"]
+
+[[test]]
+name = "web_integration_tests"
+required-features = ["python"]

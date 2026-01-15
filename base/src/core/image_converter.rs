@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Result};
 use fast_image_resize as fr;
 use image::{DynamicImage, ImageFormat, ImageReader};
 #[cfg(feature = "python")]
@@ -8,15 +9,15 @@ use rayon::prelude::*;
 use std::fs;
 
 // Helper function to load image
-fn load_image(path: &str) -> PyResult<DynamicImage> {
+fn load_image(path: &str) -> Result<DynamicImage> {
     ImageReader::open(path)
-        .map_err(|e| PyValueError::new_err(format!("Failed to open file: {}", e)))?
+        .map_err(|e| anyhow!("Failed to open file: {}", e))?
         .decode()
-        .map_err(|e| PyValueError::new_err(format!("Failed to decode image: {}", e)))
+        .map_err(|e| anyhow!("Failed to decode image: {}", e))
 }
 
 // Helper to save image
-fn save_image(img: &DynamicImage, output_path: &str, format: &str) -> PyResult<()> {
+fn save_image(img: &DynamicImage, output_path: &str, format: &str) -> Result<()> {
     let fmt = match format.to_lowercase().as_str() {
         "png" => ImageFormat::Png,
         "jpg" | "jpeg" => ImageFormat::Jpeg,
@@ -25,18 +26,15 @@ fn save_image(img: &DynamicImage, output_path: &str, format: &str) -> PyResult<(
         "ico" => ImageFormat::Ico,
         "tiff" => ImageFormat::Tiff,
         _ => {
-            return Err(PyValueError::new_err(format!(
-                "Unsupported format: {}",
-                format
-            )));
+            return Err(anyhow!("Unsupported format: {}", format));
         }
     };
 
     img.save_with_format(output_path, fmt)
-        .map_err(|e| PyValueError::new_err(format!("Failed to save image: {}", e)))
+        .map_err(|e| anyhow!("Failed to save image: {}", e))
 }
 
-fn resize_image(img: &DynamicImage, new_w: u32, new_h: u32) -> PyResult<DynamicImage> {
+fn resize_image(img: &DynamicImage, new_w: u32, new_h: u32) -> Result<DynamicImage> {
     let width = img.width();
     let height = img.height();
 
@@ -47,16 +45,14 @@ fn resize_image(img: &DynamicImage, new_w: u32, new_h: u32) -> PyResult<DynamicI
         img.to_rgba8().into_raw(),
         fr::PixelType::U8x4,
     )
-    .map_err(|e| {
-        PyValueError::new_err(format!("Failed to create source image container: {}", e))
-    })?;
+    .map_err(|e| anyhow!("Failed to create source image container: {}", e))?;
 
     let mut dst_image = fr::images::Image::new(new_w, new_h, fr::PixelType::U8x4);
     let mut resizer = fr::Resizer::new();
 
     resizer
         .resize(&src_image, &mut dst_image, None)
-        .map_err(|e| PyValueError::new_err(format!("Failed to resize: {}", e)))?;
+        .map_err(|e| anyhow!("Failed to resize: {}", e))?;
 
     // Convert back to DynamicImage
     let buffer = dst_image.into_vec();
@@ -65,7 +61,7 @@ fn resize_image(img: &DynamicImage, new_w: u32, new_h: u32) -> PyResult<DynamicI
     ))
 }
 
-fn crop_center(img: &DynamicImage, target_ratio: f32) -> PyResult<DynamicImage> {
+fn crop_center(img: &DynamicImage, target_ratio: f32) -> Result<DynamicImage> {
     let w = img.width();
     let h = img.height();
     let current_ratio = w as f32 / h as f32;
@@ -86,7 +82,7 @@ fn crop_center(img: &DynamicImage, target_ratio: f32) -> PyResult<DynamicImage> 
     Ok(img.crop_imm(x, y, new_w, new_h))
 }
 
-fn pad_image(img: &DynamicImage, target_ratio: f32) -> PyResult<DynamicImage> {
+fn pad_image(img: &DynamicImage, target_ratio: f32) -> Result<DynamicImage> {
     let w = img.width();
     let h = img.height();
     let current_ratio = w as f32 / h as f32;
@@ -111,7 +107,7 @@ fn pad_image(img: &DynamicImage, target_ratio: f32) -> PyResult<DynamicImage> {
     Ok(DynamicImage::ImageRgba8(new_img))
 }
 
-fn stretch_image(img: &DynamicImage, target_ratio: f32) -> PyResult<DynamicImage> {
+fn stretch_image(img: &DynamicImage, target_ratio: f32) -> Result<DynamicImage> {
     let w = img.width();
     let h = img.height();
     let current_ratio = w as f32 / h as f32;
@@ -130,11 +126,7 @@ fn stretch_image(img: &DynamicImage, target_ratio: f32) -> PyResult<DynamicImage
     resize_image(img, new_w, new_h)
 }
 
-fn apply_ar_transform(
-    img: &DynamicImage,
-    ratio: Option<f32>,
-    mode: &str,
-) -> PyResult<DynamicImage> {
+fn apply_ar_transform(img: &DynamicImage, ratio: Option<f32>, mode: &str) -> Result<DynamicImage> {
     if let Some(r) = ratio {
         match mode {
             "pad" => pad_image(img, r),
@@ -186,10 +178,12 @@ pub fn convert_single_image(
 ) -> PyResult<bool> {
     let mode = ar_mode.unwrap_or_else(|| "crop".to_string());
 
-    let img = load_image(&input_path)?;
-    let processed_img = apply_ar_transform(&img, aspect_ratio, &mode)?;
+    let img = load_image(&input_path).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let processed_img = apply_ar_transform(&img, aspect_ratio, &mode)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
 
-    save_image(&processed_img, &output_path, &output_format)?;
+    save_image(&processed_img, &output_path, &output_format)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
 
     if delete_original {
         let _ = fs::remove_file(input_path);
@@ -224,7 +218,7 @@ pub fn convert_image_batch(
     Ok(results)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "python"))]
 mod tests {
     use super::*;
     use image::{Rgb, RgbImage};

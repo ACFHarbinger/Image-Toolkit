@@ -188,7 +188,7 @@ pub fn find_similar_images_phash(
     Ok(groups)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "python"))]
 mod tests {
     use super::*;
     use image::{Rgb, RgbImage};
