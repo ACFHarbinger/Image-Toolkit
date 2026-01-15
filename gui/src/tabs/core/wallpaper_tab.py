@@ -1414,6 +1414,11 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.img_scanner_thread = None
 
         if self.vid_scanner_worker is not None:
+            try:
+                self.vid_scanner_worker.signals.thumbnail_ready.disconnect()
+                self.vid_scanner_worker.signals.finished.disconnect()
+            except Exception:
+                pass
             self.vid_scanner_worker.stop()
             self.vid_scanner_worker = None
 
