@@ -69,6 +69,7 @@ impl BoardCrawler {
         }
     }
 
+    #[cfg(feature = "python")]
     pub fn check_rate_limit(&self, py: Python<'_>, callback_obj: &Py<PyAny>) -> PyResult<()> {
         let count = self.current_request_count.get() + 1;
         self.current_request_count.set(count);
@@ -83,6 +84,7 @@ impl BoardCrawler {
         Ok(())
     }
 
+    #[cfg(feature = "python")]
     pub fn run<T: Crawler>(
         &self,
         py: Python<'_>,
@@ -212,11 +214,13 @@ fn save_metadata(image_path: &Path, post: &Value) {
     }
 }
 
+#[cfg(feature = "python")]
 fn emit_status(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     obj.call_method1(py, "on_status_emitted", (msg,))?;
     Ok(())
 }
 
+#[cfg(feature = "python")]
 fn emit_error(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     obj.call_method1(py, "on_error_emitted", (msg,))?;
     Ok(())

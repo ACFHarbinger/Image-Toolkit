@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use fast_image_resize as fr;
 use image::{DynamicImage, ImageReader, RgbaImage};
 #[cfg(feature = "python")]
@@ -11,9 +11,9 @@ use pyo3::prelude::*;
 
 fn load_img(path: &str) -> Result<DynamicImage> {
     ImageReader::open(path)
-        .map_err(|e| anyhow::anyhow!("Failed to open: {}", e))?
+        .map_err(|e| anyhow!("Failed to open: {}", e))?
         .decode()
-        .map_err(|e| anyhow::anyhow!("Failed to decode: {}", e))
+        .map_err(|e| anyhow!("Failed to decode: {}", e))
 }
 
 fn fast_resize(img: &DynamicImage, w: u32, h: u32) -> DynamicImage {
@@ -99,7 +99,7 @@ pub fn merge_images_horizontal_core(
 
     canvas
         .save(output_path)
-        .map_err(|e| anyhow::anyhow!("Failed to save: {}", e))?;
+        .map_err(|e| anyhow!("Failed to save: {}", e))?;
     Ok(true)
 }
 
@@ -162,7 +162,7 @@ pub fn merge_images_vertical_core(
 
     canvas
         .save(output_path)
-        .map_err(|e| anyhow::anyhow!("Failed to save: {}", e))?;
+        .map_err(|e| anyhow!("Failed to save: {}", e))?;
     Ok(true)
 }
 
@@ -225,7 +225,7 @@ pub fn merge_images_grid_core(
 
     canvas
         .save(output_path)
-        .map_err(|e| anyhow::anyhow!("Failed to save: {}", e))?;
+        .map_err(|e| anyhow!("Failed to save: {}", e))?;
     Ok(true)
 }
 
@@ -274,12 +274,7 @@ mod tests {
             p2.to_str().unwrap().to_string(),
         ];
 
-        match merge_images_horizontal(
-            paths,
-            out.to_str().unwrap().to_string(),
-            0,
-            "top".to_string(),
-        ) {
+        match merge_images_horizontal_core(&paths, out.to_str().unwrap(), 0, "top") {
             Ok(res) => assert!(res),
             Err(e) => panic!("Merge failed: {}", e),
         }
@@ -305,12 +300,7 @@ mod tests {
             p2.to_str().unwrap().to_string(),
         ];
 
-        match merge_images_vertical(
-            paths,
-            out.to_str().unwrap().to_string(),
-            0,
-            "left".to_string(),
-        ) {
+        match merge_images_vertical_core(&paths, out.to_str().unwrap(), 0, "left") {
             Ok(res) => assert!(res),
             Err(e) => panic!("Merge failed: {}", e),
         }

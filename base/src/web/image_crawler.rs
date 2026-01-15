@@ -37,6 +37,7 @@ impl ImageCrawlerRust {
         }
     }
 
+    #[cfg(feature = "python")]
     pub fn run(
         &self,
         py: Python<'_>,
@@ -63,6 +64,7 @@ impl ImageCrawlerRust {
         Ok(total_downloaded)
     }
 
+    #[cfg(feature = "python")]
     async fn run_async(
         &self,
         py: Python<'_>,
@@ -449,6 +451,7 @@ impl ImageCrawlerRust {
         Ok(total_downloaded_count)
     }
 
+    #[cfg(feature = "python")]
     async fn execute_sequence(
         &self,
         driver: &WebDriver,
@@ -554,6 +557,7 @@ impl ImageCrawlerRust {
         Ok(downloaded)
     }
 
+    #[cfg(feature = "python")]
     async fn download_from_url(
         &self,
         url: &str,
@@ -663,6 +667,7 @@ impl ImageCrawlerRust {
         Ok(false)
     }
 
+    #[cfg(feature = "python")]
     async fn download_via_browser(
         &self,
         driver: &WebDriver,
@@ -861,11 +866,13 @@ impl ImageCrawlerRust {
     }
 }
 
+#[cfg(feature = "python")]
 fn emit_status(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     obj.call_method1(py, "on_status_emitted", (msg,))?;
     Ok(())
 }
 
+#[cfg(feature = "python")]
 fn emit_error(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     obj.call_method1(py, "on_error_emitted", (msg,))?;
     Ok(())

@@ -7,6 +7,7 @@ pub mod google_drive_sync;
 pub mod image_board_crawler;
 pub mod image_crawler;
 pub mod one_drive_sync;
+#[cfg(feature = "python")]
 pub mod reverse_image_search;
 pub mod sankaku;
 pub mod sync;
@@ -23,8 +24,9 @@ use dropbox_sync::DropboxSyncImpl;
 use gelbooru::GelbooruCrawlerImpl;
 use google_drive_sync::GoogleDriveSyncImpl;
 use image_board_crawler::BoardCrawler;
+#[cfg(feature = "python")]
 pub use image_crawler::run_image_crawler;
-use one_drive_sync::OneDriveSyncImpl;
+#[cfg(feature = "python")]
 pub use reverse_image_search::run_reverse_image_search;
 use sankaku::SankakuCrawlerImpl;
 use sync::SyncRunner;

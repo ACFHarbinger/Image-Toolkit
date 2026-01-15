@@ -151,11 +151,13 @@ pub fn run_web_requests_sequence(
     Ok("All requests finished.".to_string())
 }
 
+#[cfg(feature = "python")]
 fn emit_status(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     obj.call_method1(py, "on_status_emitted", (msg,))?;
     Ok(())
 }
 
+#[cfg(feature = "python")]
 fn emit_error(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     obj.call_method1(py, "on_error_emitted", (msg,))?;
     Ok(())
@@ -174,6 +176,7 @@ fn parse_post_data(param_str: &str) -> HashMap<String, String> {
     data
 }
 
+#[cfg(feature = "python")]
 fn run_actions(
     py: Python<'_>,
     callback_obj: &Py<PyAny>,

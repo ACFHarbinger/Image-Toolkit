@@ -253,13 +253,21 @@ pub fn extract_video_thumbnails_batch(
 pub mod core;
 pub mod web;
 
+#[cfg(feature = "python")]
 use core::file_system::*;
+#[cfg(feature = "python")]
 use core::image_converter::*;
+#[cfg(feature = "python")]
 use core::image_finder::*;
+#[cfg(feature = "python")]
 use core::image_merger::*;
+#[cfg(feature = "python")]
 use core::video_converter::*;
+#[cfg(feature = "python")]
 use core::wallpaper::*;
+#[cfg(feature = "python")]
 use web::web_requests::*;
+#[cfg(feature = "python")]
 use web::*;
 
 #[cfg(feature = "python")]
