@@ -594,6 +594,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         # 3. Start the intensive thumbnailing worker
         if self.vid_scanner_worker:
+            try:
+                self.vid_scanner_worker.signals.thumbnail_ready.disconnect()
+                self.vid_scanner_worker.signals.finished.disconnect()
+            except Exception:
+                pass
             self.vid_scanner_worker.stop()
             self.vid_scanner_worker = None
 
