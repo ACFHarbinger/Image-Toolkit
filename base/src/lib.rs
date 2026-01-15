@@ -1,7 +1,5 @@
 #[cfg(feature = "python")]
-#[cfg(feature = "python")]
 use pyo3::prelude::*;
-#[cfg(feature = "python")]
 #[cfg(feature = "python")]
 use pyo3::types::PyBytes;
 
@@ -16,7 +14,6 @@ use std::process::Command;
 #[cfg(feature = "python")]
 use walkdir::WalkDir;
 
-#[cfg(feature = "python")]
 #[cfg(feature = "python")]
 #[pyfunction]
 pub fn load_image_batch(
@@ -86,7 +83,6 @@ pub fn load_image_batch(
 }
 
 #[cfg(feature = "python")]
-#[cfg(feature = "python")]
 #[pyfunction]
 pub fn scan_files(
     py: Python,
@@ -141,7 +137,6 @@ pub fn scan_files(
     })
 }
 
-#[cfg(feature = "python")]
 #[cfg(feature = "python")]
 #[pyfunction]
 pub fn extract_video_thumbnails_batch(
