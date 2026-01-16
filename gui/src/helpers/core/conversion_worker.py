@@ -151,6 +151,8 @@ class ConversionWorker(QThread):
                         process_callback=self._register_process,
                         target_width=ar_w,
                         target_height=ar_h,
+                        aspect_ratio=aspect_ratio,
+                        ar_mode=aspect_ratio_mode,
                     )
 
                 # Case 2: Image -> Image (Normal, via internal logic - safe enough for threads usually)
@@ -192,10 +194,10 @@ class ConversionWorker(QThread):
                         # If NOT deleting original, but there was a collision
                         if is_collision:
                             # We have temp_input.mp4.
-                            # We need to rename it to something that doesn't conflict, e.g. converted_input.mp4
+                            # We need to rename it to something that doesn't conflict, e.g. input_converted.mp4
                             # (As originally requested by user default behavior, or just leave as collision safe name)
                             safe_name = os.path.join(
-                                out_dir, f"converted_{fname}.{output_format}"
+                                out_dir, f"{fname}_converted.{output_format}"
                             )
                             if os.path.exists(safe_name):
                                 os.remove(safe_name)
