@@ -35,6 +35,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         self.path_to_label_map: Dict[str, QWidget] = {}
         self.selected_card_map: Dict[str, QWidget] = {}
         self._selected_pixmap_cache: Dict[str, QPixmap] = {}
+        self._found_pixmap_cache: Dict[str, QPixmap] = {}
 
         # --- Pagination State ---
         self.found_page_size = 100
@@ -371,6 +372,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         if not self.selected_gallery_layout:
             return
 
+        # 1. Harvest pixmaps from current widgets to refresh cache
         for path, widget in self.selected_card_map.items():
             try:
                 if hasattr(widget, "get_pixmap"):
@@ -378,58 +380,77 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
                     if pixmap and not pixmap.isNull():
                         self._selected_pixmap_cache[path] = pixmap
             except RuntimeError:
-                # Widget C++ object already deleted
                 continue
 
-        self._clear_layout(self.selected_gallery_layout)
-        self.selected_card_map = {}
+        # 2. Identify new paginated slice
+        paginated_paths = self.common_get_paginated_slice(
+            self.selected_files, self.selected_current_page, self.selected_page_size
+        )
+        new_paths_set = set(paginated_paths)
+
+        # 3. Identify and remove widgets not in the new slice
+        paths_to_remove = [p for p in self.selected_card_map if p not in new_paths_set]
+        for path in paths_to_remove:
+            widget = self.selected_card_map.pop(path)
+            widget.deleteLater()
+
+        # 4. Update pagination
         self._update_pagination_ui(is_found=False)
 
         if not self.selected_files:
+            # If empty, clear whatever is left and show placeholder
+            self._clear_layout(self.selected_gallery_layout)
             self.common_show_placeholder(
                 self.selected_gallery_layout, "Selected files will appear here.", 1
             )
             return
 
-        # Shared Slice
-        paginated_paths = self.common_get_paginated_slice(
-            self.selected_files, self.selected_current_page, self.selected_page_size
-        )
+        # 5. Arrange/Create widgets
         columns = self.common_calculate_columns(
             self.selected_gallery_scroll, self.approx_item_width
         )
-
         paths_to_load = []
         target_widgets = {}
 
         for i, path in enumerate(paginated_paths):
-            pixmap = self._selected_pixmap_cache.get(path)
-            if pixmap is None:
-                top_widget = self.path_to_label_map.get(path)
-                if top_widget:
-                    try:
-                        if hasattr(top_widget, "get_pixmap"):
-                            pixmap = top_widget.get_pixmap()
-                    except RuntimeError:
-                        pixmap = None
-
-            card = self.create_card_widget(path, pixmap, is_selected=True)
-
-            if pixmap is None:
-                paths_to_load.append(path)
-                target_widgets[path] = card
-
-            if isinstance(card, ClickableLabel):
-                card.path_clicked.connect(
-                    lambda checked, p=path: self.toggle_selection(p)
-                )
-
             row = i // columns
             col = i % columns
-            self.selected_card_map[path] = card
-            self.selected_gallery_layout.addWidget(
-                card, row, col, Qt.AlignLeft | Qt.AlignTop
-            )
+
+            if path in self.selected_card_map:
+                # Reuse existing widget
+                card = self.selected_card_map[path]
+                self.selected_gallery_layout.addWidget(
+                    card, row, col, Qt.AlignLeft | Qt.AlignTop
+                )
+            else:
+                # Create new widget
+                pixmap = self._selected_pixmap_cache.get(path)
+                if pixmap is None:
+                    # Fallback to found gallery's cache or widget
+                    pixmap = self._found_pixmap_cache.get(path)
+                    if pixmap is None:
+                        top_widget = self.path_to_label_map.get(path)
+                        if top_widget:
+                            try:
+                                if hasattr(top_widget, "get_pixmap"):
+                                    pixmap = top_widget.get_pixmap()
+                            except RuntimeError:
+                                pixmap = None
+
+                card = self.create_card_widget(path, pixmap, is_selected=True)
+                self.selected_card_map[path] = card
+                self.selected_gallery_layout.addWidget(
+                    card, row, col, Qt.AlignLeft | Qt.AlignTop
+                )
+
+                if pixmap is None:
+                    paths_to_load.append(path)
+                    target_widgets[path] = card
+
+                if isinstance(card, ClickableLabel):
+                    card.path_clicked.connect(
+                        lambda checked, p=path: self.toggle_selection(p)
+                    )
 
         if paths_to_load:
             self._trigger_batch_selected_load(paths_to_load, target_widgets)
@@ -480,6 +501,8 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
     def start_loading_thumbnails(self, paths: list[str]):
         self.cancel_loading()
         self.master_found_files = paths
+        # Clear cache when starting fresh with new content
+        self._found_pixmap_cache.clear()
         # Apply search immediately
         self._perform_found_search()
         # self.refresh_found_gallery() # Called by search
@@ -582,6 +605,13 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         if hasattr(self, "found_loading_paths") and path in self.found_loading_paths:
             self.found_loading_paths.remove(path)
 
+        # Cache the resulting image for subsequent refreshes/pagination jumps
+        if image and not (isinstance(image, QPixmap) and image.isNull()) and not (isinstance(image, QImage) and image.isNull()):
+            if isinstance(image, QImage):
+                self._found_pixmap_cache[path] = QPixmap.fromImage(image)
+            else:
+                self._found_pixmap_cache[path] = image
+
         widget = self.path_to_label_map.get(path)
         if widget:
             try:
@@ -611,27 +641,55 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             ):
                 self.found_loading_paths.remove(path)
 
+            # Convert and Cache
+            if isinstance(pixmap, QImage):
+                final_pixmap = QPixmap.fromImage(pixmap)
+            else:
+                final_pixmap = pixmap
+
+            if final_pixmap and not final_pixmap.isNull():
+                self._found_pixmap_cache[path] = final_pixmap
+
             widget = self.path_to_label_map.get(path)
             if widget:
                 try:
-                    # Convert QImage to QPixmap on the GUI thread
-                    if isinstance(pixmap, QImage):
-                        final_pixmap = QPixmap.fromImage(pixmap)
-                    else:
-                        final_pixmap = pixmap
-
                     self.update_card_pixmap(widget, final_pixmap)
                 except RuntimeError:
                     pass
 
     def refresh_found_gallery(self):
         self.cancel_loading()
-        self.path_to_label_map.clear()
+        
         if not hasattr(self, "found_loading_paths"):
             self.found_loading_paths = set()
         self.found_loading_paths.clear()
 
-        self._clear_layout(self.found_gallery_layout)
+        # 1. Identify new paginated slice
+        self._paginated_found_paths = self.common_get_paginated_slice(
+            self.found_files, self.found_current_page, self.found_page_size
+        )
+        new_paths_set = set(self._paginated_found_paths)
+
+        # 2. Identify which currently displayed widgets to REMOVE
+        paths_to_remove = []
+        for path in list(self.path_to_label_map.keys()):
+            if path not in new_paths_set:
+                paths_to_remove.append(path)
+
+        for path in paths_to_remove:
+            widget = self.path_to_label_map.pop(path)
+            # Before deleting, try to harvest pixmap for cache if missing
+            if path not in self._found_pixmap_cache:
+                try:
+                    if hasattr(widget, "get_pixmap"):
+                        px = widget.get_pixmap()
+                        if px and not px.isNull():
+                            self._found_pixmap_cache[path] = px
+                except RuntimeError:
+                    pass
+            widget.deleteLater()
+
+        # 3. Reflow and Pagination update
         self._update_pagination_ui(is_found=True)
 
         # Re-bind scroll listener
@@ -682,10 +740,27 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
         for i in range(self._populating_found_index, limit):
             path = self._paginated_found_paths[i]
+            
+            # If widget already exists (was kept during refresh), just update its position
+            if path in self.path_to_label_map:
+                card = self.path_to_label_map[path]
+                row = i // cols
+                col = i % cols
+                if self.found_gallery_layout:
+                    # addWidget will move it if it's already in the layout
+                    self.found_gallery_layout.addWidget(
+                        card, row, col, Qt.AlignLeft | Qt.AlignTop
+                    )
+                continue
+
+            # Otherwise create new widget
             is_selected = path in self.selected_files
 
-            # Create widget (placeholder initially)
-            card = self.create_card_widget(path, None, is_selected)
+            # Check cache for instant thumbnail
+            initial_pixmap = self._found_pixmap_cache.get(path, None)
+
+            # Create widget
+            card = self.create_card_widget(path, initial_pixmap, is_selected)
 
             if isinstance(card, ClickableLabel):
                 card.path_clicked.connect(self.toggle_selection)
