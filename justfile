@@ -35,8 +35,8 @@ dev:
 # Build production application
 build:
     @echo "🏗️  Building production application..."
-    # npm run build
     bash ./scripts/build_base.sh
+    npm run build
 
 # Run tests
 test:

@@ -54,7 +54,6 @@ class GoogleDriveSyncWorker(QRunnable):
                 "drive_destination_folder_name": self.remote_path,
                 "dry_run": self.dry_run,
                 "logger": self._log,
-                "user_email_to_share_with": self.share_email,
                 "action_local_orphans": self.action_local,
                 "action_remote_orphans": self.action_remote,
             }
