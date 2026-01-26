@@ -1,13 +1,20 @@
+#[cfg(feature = "python")]
 use anyhow::{anyhow, Result};
-use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
-use base64::Engine;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 use serde_json::Value;
+
+#[cfg(feature = "python")]
+use base64::prelude::*;
+#[cfg(feature = "python")]
 use std::fs;
+#[cfg(feature = "python")]
 use std::path::PathBuf;
+#[cfg(feature = "python")]
 use std::time::Duration;
+#[cfg(feature = "python")]
 use thirtyfour::prelude::*;
+#[cfg(feature = "python")]
 use tokio::runtime::Runtime;
 
 pub struct ImageCrawlerRust {
@@ -451,6 +458,7 @@ impl ImageCrawlerRust {
         Ok(total_downloaded_count)
     }
 
+    #[allow(dead_code)]
     #[cfg(feature = "python")]
     async fn execute_sequence(
         &self,
@@ -557,6 +565,7 @@ impl ImageCrawlerRust {
         Ok(downloaded)
     }
 
+    #[allow(dead_code)]
     #[cfg(feature = "python")]
     async fn download_from_url(
         &self,
@@ -813,6 +822,7 @@ impl ImageCrawlerRust {
         Ok(false)
     }
 
+    #[cfg(feature = "python")]
     async fn fetch_images_via_request(&self, url: &str) -> Result<Vec<String>> {
         let client = reqwest::Client::builder()
             .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")

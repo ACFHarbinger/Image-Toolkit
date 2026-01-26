@@ -1,10 +1,13 @@
-use anyhow::{Context, Result};
+#[cfg(feature = "python")]
+use anyhow::Context;
+use anyhow::Result;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
+#[cfg(feature = "python")]
 use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -218,6 +221,7 @@ impl SyncRunner {
         Ok(stats)
     }
 
+    #[cfg(feature = "python")]
     fn get_local_files(&self) -> Result<HashMap<String, SyncItem>> {
         let mut items = HashMap::new();
         let base_path = Path::new(&self.local_path);

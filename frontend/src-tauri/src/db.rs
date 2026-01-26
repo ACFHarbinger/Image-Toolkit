@@ -40,6 +40,7 @@ impl Db {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn pool(&self) -> &PgPool {
         &self.pool
     }
@@ -75,6 +76,7 @@ pub struct SearchQuery {
     pub limit: Option<i32>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Tag {
     pub id: i32,
@@ -83,6 +85,7 @@ pub struct Tag {
     pub tag_type: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Group {
     pub id: i32,
@@ -110,21 +113,23 @@ impl Db {
 
         // Join with tags if needed
         if query.tags.is_some() {
-            sql.push_str(" JOIN image_tags it ON i.id = it.image_id JOIN tags t ON it.tag_id = t.id");
+            sql.push_str(
+                " JOIN image_tags it ON i.id = it.image_id JOIN tags t ON it.tag_id = t.id",
+            );
         }
 
         // Build WHERE clauses
-        if let Some(group) = &query.group_name {
+        if let Some(_group) = &query.group_name {
             param_count += 1;
             conditions.push(format!("i.group_name ILIKE ${}", param_count));
         }
 
-        if let Some(subgroup) = &query.subgroup_name {
+        if let Some(_subgroup) = &query.subgroup_name {
             param_count += 1;
             conditions.push(format!("i.subgroup_name ILIKE ${}", param_count));
         }
 
-        if let Some(pattern) = &query.filename_pattern {
+        if let Some(_pattern) = &query.filename_pattern {
             param_count += 1;
             conditions.push(format!("i.filename ILIKE ${}", param_count));
         }
@@ -132,7 +137,7 @@ impl Db {
         if let Some(tags) = &query.tags {
             if !tags.is_empty() {
                 let placeholders: Vec<String> = (0..tags.len())
-                    .map(|i| {
+                    .map(|_i| {
                         param_count += 1;
                         format!("${}", param_count)
                     })

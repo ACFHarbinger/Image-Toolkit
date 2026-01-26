@@ -21,52 +21,54 @@ pub fn load_image_batch(
     paths: Vec<String>,
     thumbnail_size: u32,
 ) -> PyResult<Vec<(String, Py<PyBytes>, u32, u32)>> {
-    let results: Vec<(String, Option<(Vec<u8>, u32, u32)>)> = paths
-        .iter()
-        .map(|path| {
-            let res =
-                (|| -> Result<(Vec<u8>, u32, u32), Box<dyn std::error::Error + Send + Sync>> {
-                    // 1. Load and decode image
-                    let img = ImageReader::open(path)?.with_guessed_format()?.decode()?;
-                    let width = img.width();
-                    let height = img.height();
+    let results: Vec<(String, Option<(Vec<u8>, u32, u32)>)> = py.detach(|| {
+        paths
+            .par_iter()
+            .map(|path| {
+                let res =
+                    (|| -> Result<(Vec<u8>, u32, u32), Box<dyn std::error::Error + Send + Sync>> {
+                        // 1. Load and decode image
+                        let img = ImageReader::open(path)?.with_guessed_format()?.decode()?;
+                        let width = img.width();
+                        let height = img.height();
 
-                    // 2. Calculate dimensions for aspect ratio
-                    let aspect_ratio = width as f32 / height as f32;
-                    let (new_w, new_h) = if width > height {
-                        (
-                            thumbnail_size,
-                            (thumbnail_size as f32 / aspect_ratio) as u32,
-                        )
-                    } else {
-                        (
-                            (thumbnail_size as f32 * aspect_ratio) as u32,
-                            thumbnail_size,
-                        )
-                    };
+                        // 2. Calculate dimensions for aspect ratio
+                        let aspect_ratio = width as f32 / height as f32;
+                        let (new_w, new_h) = if width > height {
+                            (
+                                thumbnail_size,
+                                (thumbnail_size as f32 / aspect_ratio) as u32,
+                            )
+                        } else {
+                            (
+                                (thumbnail_size as f32 * aspect_ratio) as u32,
+                                thumbnail_size,
+                            )
+                        };
 
-                    // 3. Resize using fast_image_resize
-                    let src_image = fr::images::Image::from_vec_u8(
-                        width,
-                        height,
-                        img.to_rgba8().into_raw(),
-                        fr::PixelType::U8x4,
-                    )?;
+                        // 3. Resize using fast_image_resize
+                        let src_image = fr::images::Image::from_vec_u8(
+                            width,
+                            height,
+                            img.to_rgba8().into_raw(),
+                            fr::PixelType::U8x4,
+                        )?;
 
-                    let mut dst_image = fr::images::Image::new(new_w, new_h, fr::PixelType::U8x4);
+                        let mut dst_image = fr::images::Image::new(new_w, new_h, fr::PixelType::U8x4);
 
-                    let mut resizer = fr::Resizer::new();
-                    resizer.resize(&src_image, &mut dst_image, None)?;
+                        let mut resizer = fr::Resizer::new();
+                        resizer.resize(&src_image, &mut dst_image, None)?;
 
-                    Ok((dst_image.buffer().to_vec(), new_w, new_h))
-                })();
+                        Ok((dst_image.buffer().to_vec(), new_w, new_h))
+                    })();
 
-            match res {
-                Ok((buffer, w, h)) => (path.clone(), Some((buffer, w, h))),
-                Err(_) => (path.clone(), None),
-            }
-        })
-        .collect();
+                match res {
+                    Ok((buffer, w, h)) => (path.clone(), Some((buffer, w, h))),
+                    Err(_) => (path.clone(), None),
+                }
+            })
+            .collect()
+    });
 
     // Convert to Python response
     let mut py_results = Vec::new();
@@ -87,49 +89,51 @@ pub fn scan_files(
     extensions: Vec<String>,
     recursive: bool,
 ) -> PyResult<Vec<String>> {
-    let extensions: Vec<String> = extensions
-        .iter()
-        .map(|e| e.to_lowercase().replace(".", ""))
-        .collect();
+    py.detach(|| {
+        let extensions: Vec<String> = extensions
+            .iter()
+            .map(|e| e.to_lowercase().replace(".", ""))
+            .collect();
 
-    let results: Vec<Vec<String>> = directories
-        .iter()
-        .map(|dir| {
-            let mut found = Vec::new();
-            let mut walker = WalkDir::new(dir);
-            if !recursive {
-                walker = walker.max_depth(1);
-            }
+        let results: Vec<Vec<String>> = directories
+            .par_iter()
+            .map(|dir| {
+                let mut found = Vec::new();
+                let mut walker = WalkDir::new(dir);
+                if !recursive {
+                    walker = walker.max_depth(1);
+                }
 
-            for entry in walker
-                .into_iter()
-                .filter_entry(|e| {
-                    !e.file_name()
-                        .to_str()
-                        .map(|s| s.starts_with('.'))
-                        .unwrap_or(false)
-                })
-                .filter_map(|e| e.ok())
-            {
-                if entry.file_type().is_file() {
-                    if let Some(ext) = entry.path().extension().and_then(|s| s.to_str()) {
-                        let ext_lower = ext.to_lowercase();
-                        if extensions.iter().any(|e| e == &ext_lower) {
-                            found.push(entry.path().to_string_lossy().to_string());
+                for entry in walker
+                    .into_iter()
+                    .filter_entry(|e| {
+                        !e.file_name()
+                            .to_str()
+                            .map(|s| s.starts_with('.'))
+                            .unwrap_or(false)
+                    })
+                    .filter_map(|e| e.ok())
+                {
+                    if entry.file_type().is_file() {
+                        if let Some(ext) = entry.path().extension().and_then(|s| s.to_str()) {
+                            let ext_lower = ext.to_lowercase();
+                            if extensions.iter().any(|e| e == &ext_lower) {
+                                found.push(entry.path().to_string_lossy().to_string());
+                            }
                         }
                     }
                 }
-            }
-            found
-        })
-        .collect();
+                found
+            })
+            .collect();
 
-    let mut flat_results = Vec::new();
-    for mut sub_results in results {
-        flat_results.append(&mut sub_results);
-    }
-    flat_results.sort();
-    Ok(flat_results)
+        let mut flat_results = Vec::new();
+        for mut sub_results in results {
+            flat_results.append(&mut sub_results);
+        }
+        flat_results.sort();
+        Ok(flat_results)
+    })
 }
 
 #[cfg(feature = "python")]
@@ -139,92 +143,94 @@ pub fn extract_video_thumbnails_batch(
     paths: Vec<String>,
     thumbnail_size: u32,
 ) -> PyResult<Vec<(String, Py<PyBytes>, u32, u32)>> {
-    let results: Vec<(String, Option<(Vec<u8>, u32, u32)>)> = paths
-        .iter()
-        .map(|path| {
-            let res =
-                (|| -> Result<(Vec<u8>, u32, u32), Box<dyn std::error::Error + Send + Sync>> {
-                    // Try multiple timestamps: 10s, 1s, 0s
-                    let timestamps = ["00:00:10", "00:00:01", "00:00:00"];
-                    let mut last_err = None;
+    let results: Vec<(String, Option<(Vec<u8>, u32, u32)>)> = py.detach(|| {
+        paths
+            .par_iter()
+            .map(|path| {
+                let res =
+                    (|| -> Result<(Vec<u8>, u32, u32), Box<dyn std::error::Error + Send + Sync>> {
+                        // Try multiple timestamps: 10s, 1s, 0s
+                        let timestamps = ["00:00:10", "00:00:01", "00:00:00"];
+                        let mut last_err = None;
 
-                    for ss in timestamps {
-                        let output = Command::new("ffmpeg")
-                            .args(&[
-                                "-ss",
-                                ss,
-                                "-i",
-                                path,
-                                "-frames:v",
-                                "1",
-                                "-f",
-                                "image2",
-                                "-c:v",
-                                "mjpeg",
-                                "pipe:1",
-                            ])
-                            .output();
-
-                        match output {
-                            Ok(out) if out.status.success() && !out.stdout.is_empty() => {
-                                // Decode MJPEG from stdout
-                                let img = image::load_from_memory(&out.stdout)?;
-                                let width = img.width();
-                                let height = img.height();
-
-                                // Resize logic (redundant with image loading but keep it for consistency)
-                                let aspect_ratio = width as f32 / height as f32;
-                                let (new_w, new_h) = if width > height {
-                                    (
-                                        thumbnail_size,
-                                        (thumbnail_size as f32 / aspect_ratio) as u32,
-                                    )
-                                } else {
-                                    (
-                                        (thumbnail_size as f32 * aspect_ratio) as u32,
-                                        thumbnail_size,
-                                    )
-                                };
-
-                                let src_image = fr::images::Image::from_vec_u8(
-                                    width,
-                                    height,
-                                    img.to_rgba8().into_raw(),
-                                    fr::PixelType::U8x4,
-                                )?;
-
-                                let mut dst_image =
-                                    fr::images::Image::new(new_w, new_h, fr::PixelType::U8x4);
-                                let mut resizer = fr::Resizer::new();
-                                resizer.resize(&src_image, &mut dst_image, None)?;
-
-                                return Ok((dst_image.buffer().to_vec(), new_w, new_h));
-                            }
-                            Ok(out) => {
-                                last_err = Some(format!(
-                                    "ffmpeg failed for {}: status={:?}, stderr={}",
+                        for ss in timestamps {
+                            let output = Command::new("ffmpeg")
+                                .args(&[
+                                    "-ss",
+                                    ss,
+                                    "-i",
                                     path,
-                                    out.status,
-                                    String::from_utf8_lossy(&out.stderr)
-                                ));
-                            }
-                            Err(e) => {
-                                last_err =
-                                    Some(format!("Failed to execute ffmpeg for {}: {}", path, e));
+                                    "-frames:v",
+                                    "1",
+                                    "-f",
+                                    "image2",
+                                    "-c:v",
+                                    "mjpeg",
+                                    "pipe:1",
+                                ])
+                                .output();
+
+                            match output {
+                                Ok(out) if out.status.success() && !out.stdout.is_empty() => {
+                                    // Decode MJPEG from stdout
+                                    let img = image::load_from_memory(&out.stdout)?;
+                                    let width = img.width();
+                                    let height = img.height();
+
+                                    // Resize logic (redundant with image loading but keep it for consistency)
+                                    let aspect_ratio = width as f32 / height as f32;
+                                    let (new_w, new_h) = if width > height {
+                                        (
+                                            thumbnail_size,
+                                            (thumbnail_size as f32 / aspect_ratio) as u32,
+                                        )
+                                    } else {
+                                        (
+                                            (thumbnail_size as f32 * aspect_ratio) as u32,
+                                            thumbnail_size,
+                                        )
+                                    };
+
+                                    let src_image = fr::images::Image::from_vec_u8(
+                                        width,
+                                        height,
+                                        img.to_rgba8().into_raw(),
+                                        fr::PixelType::U8x4,
+                                    )?;
+
+                                    let mut dst_image =
+                                        fr::images::Image::new(new_w, new_h, fr::PixelType::U8x4);
+                                    let mut resizer = fr::Resizer::new();
+                                    resizer.resize(&src_image, &mut dst_image, None)?;
+
+                                    return Ok((dst_image.buffer().to_vec(), new_w, new_h));
+                                }
+                                Ok(out) => {
+                                    last_err = Some(format!(
+                                        "ffmpeg failed for {}: status={:?}, stderr={}",
+                                        path,
+                                        out.status,
+                                        String::from_utf8_lossy(&out.stderr)
+                                    ));
+                                }
+                                Err(e) => {
+                                    last_err =
+                                        Some(format!("Failed to execute ffmpeg for {}: {}", path, e));
+                                }
                             }
                         }
-                    }
-                    Err(last_err
-                        .unwrap_or_else(|| "No frames extracted".to_string())
-                        .into())
-                })();
+                        Err(last_err
+                            .unwrap_or_else(|| "No frames extracted".to_string())
+                            .into())
+                    })();
 
-            match res {
-                Ok((buffer, w, h)) => (path.clone(), Some((buffer, w, h))),
-                Err(_) => (path.clone(), None),
-            }
-        })
-        .collect();
+                match res {
+                    Ok((buffer, w, h)) => (path.clone(), Some((buffer, w, h))),
+                    Err(_) => (path.clone(), None),
+                }
+            })
+            .collect()
+    });
 
     let mut py_results = Vec::new();
     for (path, data) in results {
