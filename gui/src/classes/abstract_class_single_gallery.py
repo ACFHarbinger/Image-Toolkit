@@ -50,21 +50,8 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         self.approx_item_width = self.thumbnail_size + self.padding_width + 20
         self._current_cols = 1
 
-        # --- Threading & Multiprocessing ---
         self.thread_pool = QThreadPool.globalInstance()
-
-        # Initialize ProcessPoolExecutor for Rust-based image loading
-        # Use 'spawn' to ensure safe import of native modules in child processes
-        try:
-            ctx = multiprocessing.get_context("spawn")
-            # Limit workers to avoid OOM
-            max_workers = 4
-            self.process_executor = ProcessPoolExecutor(
-                max_workers=max_workers, mp_context=ctx
-            )
-        except Exception as e:
-            print(f"Failed to initialize ProcessPoolExecutor: {e}")
-            self.process_executor = None
+        self._active_workers = set()
 
         # --- Resize Debouncing ---
         self._resize_timer = QTimer()
@@ -207,8 +194,12 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
                     "border: 1px solid #4f545c; background-color: transparent;"
                 )
 
-        # 3. Loading/Empty State (Handled by create_card_widget initially, but if updated with None...)
-        # Usually we only call update with valid pixmap or failure.
+        # 3. Loading/Empty State
+        else:
+            label.setText("Load Failed")
+            label.setStyleSheet(
+                "border: 1px solid #e74c3c; color: #e74c3c; font-size: 10px; background-color: #2c2f33;"
+            )
 
     def _generate_video_thumbnail(self, path: str) -> Optional[QPixmap]:
         """
@@ -327,7 +318,6 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
                 self._current_cols = new_cols
                 # Shared Reflow
                 self.common_reflow_layout(self.gallery_layout, new_cols)
-                self._load_visible_images()
 
     def _perform_search(self):
         query = self.search_input.text()
@@ -336,62 +326,8 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         self.current_page = 0
         self.refresh_gallery_view()
 
-    def _on_scroll(self, value):
-        self._load_visible_images()
-
-    def _load_visible_images(self):
-        if not self.gallery_scroll_area:
-            return
-
-        viewport = self.gallery_scroll_area.viewport()
-        visible_rect = viewport.rect()
-
-        paths_to_load = []
-        for path, widget in self.path_to_card_widget.items():
-            if path in self._initial_pixmap_cache:
-                continue
-            if path in self._loading_paths:
-                continue
-
-            # Check visibility
-            if self.common_is_visible(widget, viewport, visible_rect):
-                paths_to_load.append(path)
-
-        if paths_to_load:
-            # Separate images and videos
-            image_paths = [
-                p
-                for p in paths_to_load
-                if not p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
-            ]
-            video_paths = [
-                p
-                for p in paths_to_load
-                if p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
-            ]
-
-            if image_paths:
-                if len(image_paths) == 1:
-                    self._trigger_image_load(image_paths[0])
-                else:
-                    self._trigger_batch_load(image_paths)
-
-            if video_paths:
-                if len(video_paths) == 1:
-                    self._trigger_video_load(video_paths[0])
-                else:
-                    self._trigger_batch_video_load(video_paths)
-
     # --- LOADING LOGIC ---
 
-    def _trigger_batch_load(self, paths: List[str]):
-        self._loading_paths.update(paths)
-        # Pass the persistent process executor to each worker
-        worker = BatchImageLoaderWorker(
-            paths, self.thumbnail_size, getattr(self, "process_executor", None)
-        )
-        worker.signals.batch_result.connect(self._on_batch_images_loaded)
-        self.thread_pool.start(worker)
 
     def closeEvent(self, event):
         """Cleanup processes on close."""
@@ -401,41 +337,52 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         if hasattr(self, "thread_pool"):
             self.thread_pool.clear()
 
-        if hasattr(self, "process_executor") and self.process_executor:
-            self.process_executor.shutdown(wait=False, cancel_futures=True)
         super().closeEvent(event)
 
     @Slot(list, list)
     def _on_batch_images_loaded(self, results: List[tuple], requested_paths: List[str]):
-        # 'results' contains (path, pixmap) for SUCCEEDED loads
-        # 'requested_paths' contains ALL paths that were attempted
+        # Cleanup worker reference if called from signals
+        sender = self.sender()
+        if sender:
+            # We need to find the worker that owns this signals object
+            for worker in list(self._active_workers):
+                if worker.signals == sender:
+                    self._active_workers.remove(worker)
+                    break
 
-        # 1. Update Successful Loads
+        # 1. Update Results
         for path, q_image in results:
             if path in self._loading_paths:
                 self._loading_paths.remove(path)
 
             pixmap = QPixmap.fromImage(q_image)
+            widget = self.path_to_card_widget.get(path)
+
             if not pixmap.isNull():
                 self._initial_pixmap_cache[path] = pixmap
+                if widget:
+                    self.update_card_pixmap(widget, pixmap)
+            else:
+                # Mark as failed if the image is Null
+                if not hasattr(self, "_failed_paths"):
+                    self._failed_paths = set()
+                self._failed_paths.add(path)
+                if widget:
+                    self.update_card_pixmap(widget, QPixmap())
 
-            widget = self.path_to_card_widget.get(path)
-            if widget:
-                self.update_card_pixmap(widget, pixmap)
-
-        # 2. Cleanup Failures (Paths requested but not in results)
+        # 2. Cleanup Missing Results
         processed_paths = set(p for p, _ in results)
         for path in requested_paths:
-            # If path was requested but not returned in results, it failed.
             if path not in processed_paths:
                 if path in self._loading_paths:
                     self._loading_paths.remove(path)
 
-                # Update widget to show failure state
+                if not hasattr(self, "_failed_paths"):
+                    self._failed_paths = set()
+                self._failed_paths.add(path)
+
                 widget = self.path_to_card_widget.get(path)
                 if widget:
-                    # Passing None/Null pixmap triggers "Load Failed" style in update_card_pixmap
-                    self.update_card_pixmap(widget, QPixmap())
                     self.update_card_pixmap(widget, QPixmap())
 
     def _trigger_batch_video_load(self, paths: List[str]):
@@ -443,6 +390,17 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         # Spawning individual workers allows QThreadPool to manage concurrency.
         for path in paths:
             self._trigger_video_load(path)
+
+    def _trigger_batch_found_load(self, paths: List[str]):
+        if not hasattr(self, "found_loading_paths"):
+            self.found_loading_paths = set()
+        self.found_loading_paths.update(paths)
+        worker = BatchImageLoaderWorker(paths, self.thumbnail_size)
+        worker.signals.result.connect(self._on_found_image_loaded)
+        worker.signals.batch_result.connect(self._on_batch_found_loaded)
+        
+        self._active_workers.add(worker)
+        self.thread_pool.start(worker)
 
     def _trigger_video_load(self, path: str):
         self._loading_paths.add(path)
@@ -488,16 +446,6 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         self.clear_gallery_widgets()
         self._update_pagination_ui()
 
-        # Re-bind scroll listener if needed (safe to do multiple times or check connection)
-        if self.gallery_scroll_area:
-            try:
-                self.gallery_scroll_area.verticalScrollBar().valueChanged.connect(
-                    self._on_scroll, Qt.UniqueConnection
-                )
-            except Exception:
-                # Already connected or other issue, safe to ignore for UniqueConnection
-                pass
-
         if not self.gallery_image_paths:
             self.common_show_placeholder(
                 self.gallery_layout, "No images to display.", self.calculate_columns()
@@ -518,7 +466,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         if not hasattr(self, "_paginated_paths") or self._populating_index >= len(
             self._paginated_paths
         ):
-            self._load_visible_images()
+            self._load_all_page_images()
             return
 
         cols = self.calculate_columns()
@@ -553,20 +501,46 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
 
         self._populating_index = limit
 
-        # Check visibility for the batch added
-        self._load_visible_images()
-
         if self._populating_index < len(self._paginated_paths):
             self._populate_timer.start(0)
         else:
-            self._refresh_visibility_delayed()
+            self._load_all_page_images()
 
-    def _refresh_visibility_delayed(self):
-        """
-        Safety check: triggers a visibility check after a short delay
-        to ensure the layout system has fully settled.
-        """
-        QTimer.singleShot(100, self._load_visible_images)
+    def _load_all_page_images(self):
+        """Triggers loading for all images in the current paginated view."""
+        if not self._paginated_paths:
+            return
+
+        paths_to_load = []
+        for path in self._paginated_paths:
+            if path in self._initial_pixmap_cache:
+                continue
+            if path in self._loading_paths:
+                continue
+            paths_to_load.append(path)
+
+        if not paths_to_load:
+            return
+
+        # Separate images and videos
+        image_paths = [
+            p
+            for p in paths_to_load
+            if not p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+        ]
+        video_paths = [
+            p
+            for p in paths_to_load
+            if p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+        ]
+
+        if video_paths:
+            for p in video_paths:
+                self._trigger_video_load(p)
+
+        if image_paths:
+            for p in image_paths:
+                self._trigger_image_load(p)
 
     def calculate_columns(self):
         return self.common_calculate_columns(
@@ -577,10 +551,21 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         self._loading_paths.add(path)
         worker = ImageLoaderWorker(path, self.thumbnail_size)
         worker.signals.result.connect(self._on_single_image_loaded)
+        
+        self._active_workers.add(worker)
         self.thread_pool.start(worker)
 
     @Slot(str, QImage)
     def _on_single_image_loaded(self, path: str, q_image: QImage):
+        # Cleanup worker ref
+        sender = self.sender()
+        if sender:
+            # We need to find the worker that owns this signals object
+            for worker in list(self._active_workers):
+                if worker.signals == sender:
+                    self._active_workers.remove(worker)
+                    break
+
         if path in self._loading_paths:
             self._loading_paths.remove(path)
 
