@@ -102,6 +102,6 @@ format:
 quick-dev: setup dev
 
 # Python backend (legacy)
-python-dev:
+python:
 	@echo "🐍 Starting Python/PySide6 app..."
 	source .venv/bin/activate && python main.py

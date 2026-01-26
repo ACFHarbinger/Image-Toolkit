@@ -1,11 +1,18 @@
+#[cfg(feature = "python")]
 use anyhow::{Context, Result};
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
+#[cfg(feature = "python")]
 use reqwest::blocking::{Client, Response};
+#[cfg(feature = "python")]
 use serde_json::Value;
+#[cfg(feature = "python")]
 use std::collections::HashMap;
+#[cfg(feature = "python")]
 use std::fs;
+#[cfg(feature = "python")]
 use std::path::Path;
+#[cfg(feature = "python")]
 use std::time::Duration;
 
 #[cfg(feature = "python")]
@@ -163,6 +170,7 @@ fn emit_error(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     Ok(())
 }
 
+#[cfg(feature = "python")]
 fn parse_post_data(param_str: &str) -> HashMap<String, String> {
     let mut data = HashMap::new();
     if param_str.is_empty() {
@@ -310,8 +318,10 @@ fn run_actions(
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "python")]
     use super::*;
 
+    #[cfg(feature = "python")]
     #[test]
     fn test_parse_post_data() {
         let input = "foo:bar, baz: qux,  a : b ";

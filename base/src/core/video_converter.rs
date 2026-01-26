@@ -1,6 +1,8 @@
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
+#[cfg(feature = "python")]
 use std::fs;
+#[cfg(feature = "python")]
 use std::process::Command;
 
 #[cfg(feature = "python")]
@@ -25,7 +27,8 @@ pub fn convert_video(
 
         match status {
             Ok(s) => {
-                if s.success() {
+                let success: bool = s.success();
+                if success {
                     if delete_original {
                         let _ = fs::remove_file(input_path);
                     }

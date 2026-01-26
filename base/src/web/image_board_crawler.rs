@@ -1,12 +1,18 @@
-use anyhow::{Context, Result};
+#[cfg(feature = "python")]
+use anyhow::Context;
+use anyhow::Result;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 use reqwest::blocking::Client;
 use serde_json::Value;
+#[cfg(feature = "python")]
 use std::fs;
+#[cfg(feature = "python")]
 use std::path::Path;
+#[cfg(feature = "python")]
+use std::thread;
+#[cfg(feature = "python")]
 use std::time::Duration;
-use std::{thread, time};
 
 pub trait Crawler {
     fn name(&self) -> &str;
@@ -185,7 +191,7 @@ impl BoardCrawler {
                     break;
                 }
             }
-            thread::sleep(time::Duration::from_millis(500));
+            thread::sleep(std::time::Duration::from_millis(500));
         }
 
         emit_status(
@@ -197,6 +203,7 @@ impl BoardCrawler {
     }
 }
 
+#[cfg(feature = "python")]
 fn download_image(client: &Client, url: &str, save_path: &Path) -> Result<()> {
     let mut response = client.get(url).send().context("Request failed")?;
     response.error_for_status_ref().context("Bad status")?;
@@ -207,6 +214,7 @@ fn download_image(client: &Client, url: &str, save_path: &Path) -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "python")]
 fn save_metadata(image_path: &Path, post: &Value) {
     let json_path = image_path.with_extension("json");
     if let Ok(content) = serde_json::to_string_pretty(post) {
