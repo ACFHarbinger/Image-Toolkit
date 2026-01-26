@@ -59,6 +59,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
         # --- Threading ---
         self.thread_pool = QThreadPool.globalInstance()
+        self._active_workers = set()
 
         # --- Population Timer (Sequential Loading) ---
         self._populate_found_timer = QTimer()
@@ -293,7 +294,6 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             if new_cols != self._current_found_cols:
                 self._current_found_cols = new_cols
                 self.common_reflow_layout(self.found_gallery_layout, new_cols)
-                self._load_visible_found_images()
 
         if self.selected_gallery_scroll:
             new_cols = self.common_calculate_columns(
@@ -507,74 +507,6 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         self._perform_found_search()
         # self.refresh_found_gallery() # Called by search
 
-    def _on_found_scroll(self, value):
-        self._load_visible_found_images()
-
-    def _load_visible_found_images(self):
-        if not self.found_gallery_scroll:
-            return
-
-        viewport = self.found_gallery_scroll.viewport()
-        visible_rect = viewport.rect()
-
-        # We need a loading tracking set here too, ideally self.found_loading_paths
-        if not hasattr(self, "found_loading_paths"):
-            self.found_loading_paths = set()
-
-        paths_to_load = []
-
-        for path, widget in self.path_to_label_map.items():
-            try:
-                if hasattr(widget, "get_pixmap"):
-                    px = widget.get_pixmap()
-                    if px and not px.isNull():
-                        continue  # Already has pixmap
-            except RuntimeError:
-                continue
-
-            # Simple check: if widget has style but no pixmap, it might be loading or placeholder
-            # Better check: abstract_two_galleries doesn't rely on pixmap cache for found gallery directly as much?
-            # It updates widget directly. We can check if widget has placeholder text or something.
-            # But the best way is tracking loading state.
-
-            if path in self.found_loading_paths:
-                continue
-
-            if self.common_is_visible(widget, viewport, visible_rect):
-                paths_to_load.append(path)
-
-        if paths_to_load:
-            # Separate images and videos
-            image_paths = [
-                p
-                for p in paths_to_load
-                if not p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
-            ]
-            video_paths = [
-                p
-                for p in paths_to_load
-                if p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
-            ]
-
-            if image_paths:
-                if len(image_paths) == 1:
-                    self._trigger_found_load(image_paths[0])
-                else:
-                    self._trigger_batch_found_load(image_paths)
-
-            if video_paths:
-                if len(video_paths) == 1:
-                    self._trigger_video_found_load(video_paths[0])
-                else:
-                    self._trigger_batch_video_found_load(video_paths)
-
-    def _trigger_batch_found_load(self, paths: List[str]):
-        if not hasattr(self, "found_loading_paths"):
-            self.found_loading_paths = set()
-        self.found_loading_paths.update(paths)
-        worker = BatchImageLoaderWorker(paths, self.thumbnail_size)
-        worker.signals.batch_result.connect(self._on_batch_found_loaded)
-        self.thread_pool.start(worker)
 
     def _trigger_batch_video_found_load(self, paths: List[str]):
         """Trigger a single batch worker for all visible videos."""
@@ -602,6 +534,15 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
     @Slot(str, object)
     def _on_found_image_loaded(self, path: str, image):
+        # Cleanup worker ref
+        sender = self.sender()
+        if sender:
+            # We need to find the worker that owns this signals object
+            for worker in list(self._active_workers):
+                if worker.signals == sender:
+                    self._active_workers.remove(worker)
+                    break
+
         if hasattr(self, "found_loading_paths") and path in self.found_loading_paths:
             self.found_loading_paths.remove(path)
 
@@ -634,6 +575,14 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
     @Slot(list)
     def _on_batch_found_loaded(self, results: List[tuple]):
+        # Cleanup worker ref
+        sender = self.sender()
+        if sender:
+            for worker in list(self._active_workers):
+                if worker.signals == sender:
+                    self._active_workers.remove(worker)
+                    break
+
         for path, pixmap in results:
             if (
                 hasattr(self, "found_loading_paths")
@@ -692,15 +641,6 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         # 3. Reflow and Pagination update
         self._update_pagination_ui(is_found=True)
 
-        # Re-bind scroll listener
-        if self.found_gallery_scroll:
-            try:
-                self.found_gallery_scroll.verticalScrollBar().valueChanged.connect(
-                    self._on_found_scroll, Qt.UniqueConnection
-                )
-            except Exception:
-                pass
-
         if not self.found_files:
             self.common_show_placeholder(
                 self.found_gallery_layout, "No images found.", 1
@@ -727,7 +667,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         if not hasattr(
             self, "_paginated_found_paths"
         ) or self._populating_found_index >= len(self._paginated_found_paths):
-            self._load_visible_found_images()
+            self._load_all_found_page_images()
             return
 
         cols = self.common_calculate_columns(
@@ -779,28 +719,57 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
         self._populating_found_index = limit
 
-        self._load_visible_found_images()
-
         # Schedule next batch
         if self._populating_found_index < len(self._paginated_found_paths):
             self._populate_found_timer.start(0)
         else:
-            self._trigger_delayed_visibility_check()
+            self._load_all_found_page_images()
 
-    def _trigger_delayed_visibility_check(self):
-        """
-        Safety check: triggers a visibility check after a short delay
-        to ensure the layout system has fully settled (especially for small result sets).
-        """
-        QTimer.singleShot(100, self._load_visible_found_images)
+    def _load_all_found_page_images(self):
+        """Triggers loading for all images in the current found gallery paginated view."""
+        if not hasattr(self, "_paginated_found_paths") or not self._paginated_found_paths:
+            return
+
+        paths_to_load = []
+        for path in self._paginated_found_paths:
+            if path in self._found_pixmap_cache:
+                continue
+            if hasattr(self, "found_loading_paths") and path in self.found_loading_paths:
+                continue
+            paths_to_load.append(path)
+
+        if not paths_to_load:
+            return
+
+        # Separate images and videos
+        image_paths = [
+            p
+            for p in paths_to_load
+            if not p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+        ]
+        video_paths = [
+            p
+            for p in paths_to_load
+            if p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+        ]
+
+        if video_paths:
+            for p in video_paths:
+                self._trigger_video_found_load(p)
+
+        if image_paths:
+            for p in image_paths:
+                self._trigger_found_load(p)
 
     def _trigger_found_load(self, path: str):
         if not hasattr(self, "found_loading_paths"):
             self.found_loading_paths = set()
-
+ 
         self.found_loading_paths.add(path)
         worker = ImageLoaderWorker(path, self.thumbnail_size)
         worker.signals.result.connect(self._on_found_image_loaded)
+        
+        self._active_workers.add(worker)
         self.thread_pool.start(worker)
 
     # _on_found_image_loaded is defined earlier to handle QImage/QPixmap types
