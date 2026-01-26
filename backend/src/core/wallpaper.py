@@ -266,9 +266,10 @@ class WallpaperManager:
             except ValueError:
                 continue
 
+            # KDE Plasma 6 (and some 5 versions) prefers raw paths for org.kde.image
             file_uri = str(Path(path).resolve())
-            if not file_uri.startswith("file://"):
-                file_uri = "file://" + file_uri
+            # if not file_uri.startswith("file://"):
+            #    file_uri = "file://" + file_uri
 
             ext = Path(path).suffix.lower()
 

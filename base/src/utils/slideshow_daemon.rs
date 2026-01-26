@@ -209,10 +209,12 @@ fn apply_wallpaper_kde(
             monitor_id, i, path
         );
 
+        // KDE Plasma 6 (and some 5 versions) prefers raw paths for org.kde.image
+        // We remove the file:// prefix if present, rather than adding it.
         let file_uri = if path.starts_with("file://") {
-            path.clone()
+            path.replace("file://", "")
         } else {
-            format!("file://{}", path)
+            path.clone()
         };
 
         let ext = PathBuf::from(path)
