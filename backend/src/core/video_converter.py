@@ -133,3 +133,82 @@ class VideoFormatConverter:
             return False
         finally:
             pass  # Popen object cleanup is handled by GC or explicit termination externally
+
+    @classmethod
+    def convert_to_gif(
+        cls,
+        input_path: str,
+        output_path: str,
+        delete: bool = False,
+        process_callback: Optional[Callable[[subprocess.Popen], None]] = None,
+        target_width: Optional[int] = None,
+        target_height: Optional[int] = None,
+        fps: int = 15,
+    ) -> bool:
+        """
+        Converts a video to a high-quality GIF using FFmpeg's palettegen/paletteuse filters.
+        """
+        if not os.path.exists(input_path):
+            print(f"Error: Input file '{input_path}' not found.")
+            return False
+
+        print(
+            f"Converting '{os.path.basename(input_path)}' to GIF '{os.path.basename(output_path)}'..."
+        )
+
+        # Base filter: fps control
+        # We can also add scaling here
+        filter_str = f"fps={fps}"
+        
+        if target_width and target_height:
+            # Scale if requested
+            filter_str += f",scale={target_width}:{target_height}:flags=lanczos"
+        else:
+            # Default scaling to something reasonable if source is huge? 
+            # For now, keep original resolution or let user define.
+            # But we enable lanczos scaling for quality if scaling happens elsewhere.
+            pass
+
+        # Complex filter for high quality GIF:
+        # [0:v] split [a][b];[a] palettegen [p];[b][p] paletteuse
+        # We prepend our fps/scale filters to the stream before splitting.
+        complex_filter = f"[0:v]{filter_str},split[a][b];[a]palettegen[p];[b][p]paletteuse"
+
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-i",
+            input_path,
+            "-filter_complex",
+            complex_filter,
+            output_path,
+        ]
+
+        process = None
+        try:
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+
+            if process_callback:
+                process_callback(process)
+
+            process.wait()
+            success = process.returncode == 0
+
+            if success:
+                if delete:
+                    try:
+                        os.remove(input_path)
+                    except Exception as e:
+                        print(f"Failed to delete original file: {e}")
+            else:
+                 print("FFmpeg returned non-zero exit code for GIF conversion.")
+
+            return success
+
+        except Exception as e:
+            print(f"Error converting video to GIF: {e}")
+            return False

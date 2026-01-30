@@ -74,6 +74,7 @@ class ConversionWorker(QThread):
             # Target category
             target_is_video = output_format in vid_formats
             target_is_image = output_format in img_formats
+            target_is_gif = output_format == "gif"
 
             for idx, input_file in enumerate(files_to_convert):
                 if self._is_cancelled:
@@ -91,6 +92,22 @@ class ConversionWorker(QThread):
 
                 # Skip if source is not supported
                 if not (is_src_video or is_src_image):
+                    continue
+                
+                # Check for Valid Conversion Pairs
+                # 1. Video -> Video
+                # 2. Image -> Image
+                # 3. Video -> GIF (Special Case)
+                valid_pair = False
+                if is_src_video and target_is_video:
+                    valid_pair = True
+                elif is_src_image and target_is_image:
+                    valid_pair = True
+                elif is_src_video and target_is_gif:
+                    valid_pair = True
+                
+                if not valid_pair:
+                    print(f"Skipping {input_file} (Type Mismatch: {src_ext} -> {output_format})")
                     continue
 
                 # Determine Output Path
@@ -142,8 +159,19 @@ class ConversionWorker(QThread):
                 # Perform Conversion
                 success = False
 
-                # Case 1: Video -> Video (Safely via subprocess)
-                if is_src_video and target_is_video:
+                # Case 1: Video -> GIF (Special)
+                if is_src_video and target_is_gif:
+                    success = VideoFormatConverter.convert_to_gif(
+                        input_path=input_file,
+                        output_path=temp_output_path,
+                        delete=False,
+                        process_callback=self._register_process,
+                        target_width=ar_w,
+                        target_height=ar_h
+                    )
+
+                # Case 2: Video -> Video (Subprocess)
+                elif is_src_video and target_is_video:
                     success = VideoFormatConverter.convert_video(
                         input_path=input_file,
                         output_path=temp_output_path,
@@ -155,7 +183,7 @@ class ConversionWorker(QThread):
                         ar_mode=aspect_ratio_mode,
                     )
 
-                # Case 2: Image -> Image (Normal, via internal logic - safe enough for threads usually)
+                # Case 3: Image -> Image (Normal, via internal logic)
                 elif is_src_image and target_is_image:
                     # Image conversion is fast enough/doesn't use process that crashes on cancel usually
                     # But ideally should check _is_cancelled inside loop if it was batch.
@@ -170,7 +198,7 @@ class ConversionWorker(QThread):
                     )
                     success = res is not None
                 else:
-                    print(f"Skipping {input_file} (Type Mismatch for specified output)")
+                    print(f"Skipping {input_file} (Logic Mismatch)")
                     success = False
 
                 if success:
