@@ -1,14 +1,23 @@
+#[cfg(feature = "python")]
 use image::ImageReader;
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
+#[cfg(feature = "python")]
 use rayon::prelude::*;
+#[cfg(feature = "python")]
 use sha2::{Digest, Sha256};
+#[cfg(feature = "python")]
 use std::collections::HashMap;
+#[cfg(feature = "python")]
 use std::fs::File;
+#[cfg(feature = "python")]
 use std::io::Read;
+#[cfg(feature = "python")]
 use walkdir::WalkDir;
 
 // --- Helper Functions ---
 
+#[cfg(feature = "python")]
 fn compute_sha256(path: &str) -> Option<String> {
     let mut file = match File::open(path) {
         Ok(f) => f,
@@ -28,6 +37,7 @@ fn compute_sha256(path: &str) -> Option<String> {
     Some(hex::encode(hasher.finalize()))
 }
 
+#[cfg(feature = "python")]
 fn compute_phash(path: &str) -> Option<(String, u64)> {
     // 1. Open
     let img = match ImageReader::open(path) {
@@ -62,12 +72,14 @@ fn compute_phash(path: &str) -> Option<(String, u64)> {
     Some((path.to_string(), hash))
 }
 
+#[cfg(feature = "python")]
 fn hamming_distance(h1: u64, h2: u64) -> u32 {
     (h1 ^ h2).count_ones()
 }
 
 // --- PyFunctions ---
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn find_duplicate_images(
     py: Python,
@@ -88,7 +100,7 @@ pub fn find_duplicate_images(
         };
 
         let paths: Vec<String> = walker
-            .filter_map(|e| e.ok())
+            .filter_map(|e: Result<walkdir::DirEntry, walkdir::Error>| e.ok())
             .filter(|e| e.file_type().is_file())
             .filter(|e| {
                 e.path()
@@ -110,12 +122,16 @@ pub fn find_duplicate_images(
             groups.entry(hash).or_default().push(path);
         }
 
-        groups.into_iter().filter(|(_, v)| v.len() > 1).collect()
+        groups
+            .into_iter()
+            .filter(|(_, v): &(String, Vec<String>)| v.len() > 1)
+            .collect()
     });
 
     Ok(duplicates)
 }
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn find_similar_images_phash(
     py: Python,
@@ -131,7 +147,7 @@ pub fn find_similar_images_phash(
     let groups: HashMap<String, Vec<String>> = py.detach(|| {
         let paths: Vec<String> = WalkDir::new(&directory)
             .into_iter()
-            .filter_map(|e| e.ok())
+            .filter_map(|e: Result<walkdir::DirEntry, walkdir::Error>| e.ok())
             .filter(|e| e.file_type().is_file())
             .filter(|e| {
                 e.path()
@@ -185,7 +201,7 @@ pub fn find_similar_images_phash(
     Ok(groups)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "python"))]
 mod tests {
     use super::*;
     use image::{Rgb, RgbImage};

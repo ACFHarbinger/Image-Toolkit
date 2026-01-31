@@ -1,5 +1,4 @@
 import os
-import shutil
 import functools
 import base
 from pathlib import Path
@@ -83,7 +82,9 @@ class FSETool:
         """
         try:
             # Rust extension expects string args
-            return base.get_files_by_extension(str(directory), str(extension), recursive)
+            return base.get_files_by_extension(
+                str(directory), str(extension), recursive
+            )
         except Exception as e:
             print(f"Error in FSETool.get_files_by_extension (Rust): {e}")
             # Fallback (though ideally we shouldn't fail)

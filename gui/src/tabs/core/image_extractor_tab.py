@@ -28,10 +28,10 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QProgressBar,
 )
-from PySide6.QtGui import QPixmap, QResizeEvent, QAction
+from PySide6.QtGui import QPixmap, QResizeEvent, QAction, QImage
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
-from PySide6.QtCore import Qt, QUrl, Slot, QThreadPool, QPoint, QEvent
+from PySide6.QtCore import Qt, QUrl, Slot, QThreadPool, QPoint, QEvent, Signal
 from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassSingleGallery
 from ...components import ClickableLabel, MarqueeScrollArea
@@ -41,10 +41,15 @@ from ...helpers import (
     FrameExtractionWorker,
     VideoExtractionWorker,
 )
+from ...helpers.video.video_scan_worker import VideoThumbnailer
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH, SUPPORTED_VIDEO_FORMATS
 
 
 class ImageExtractorTab(AbstractClassSingleGallery):
+    # Signals for QML
+    qml_source_path_changed = Signal(str)
+    qml_extraction_status = Signal(str)
+
     def __init__(self):
         super().__init__()
         self.video_path: Optional[str] = None
@@ -52,6 +57,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.selected_paths: Set[str] = set()
         self.duration_ms = 0
         self.extractor_worker: Optional[FrameExtractionWorker] = None
+        self.vid_scanner_worker: Optional[VideoScannerWorker] = None
         self.open_image_preview_windows: List[QWidget] = []
 
         # Reference for the progress dialog
@@ -61,6 +67,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         # Cache for generated thumbnails (video frames)
         self._initial_pixmap_cache: Dict[str, QPixmap] = {}
+
+        # Map to track source widgets for alphabetical updates
+        self.source_path_to_widget: Dict[str, QWidget] = {}
 
         # Defined resolutions corresponding to the Combo Box items
         self.available_resolutions = [
@@ -185,7 +194,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
         self.video_view.setVisible(True)
+
+        # Install event filters on the view AND its viewport for robust wheel capture
         self.video_view.installEventFilter(self)
+        self.video_view.viewport().installEventFilter(self)
 
         self.player_inner_layout.addWidget(
             self.video_view, 1, Qt.AlignmentFlag.AlignCenter
@@ -225,6 +237,14 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         controls_top_layout.addWidget(self.check_player_vertical)
         # ----------------------------------------
 
+        controls_top_layout.addSpacing(20)
+        controls_top_layout.addWidget(QLabel("Player Speed:"))
+        self.combo_player_speed = QComboBox()
+        self.combo_player_speed.addItems(["0.25x", "0.5x", "1x", "1.5x", "2x", "4x"])
+        self.combo_player_speed.setCurrentText("1x")
+        self.combo_player_speed.currentTextChanged.connect(self.update_playback_speed)
+        controls_top_layout.addWidget(self.combo_player_speed)
+
         controls_top_layout.addStretch()
         self.player_inner_layout.addLayout(controls_top_layout)
 
@@ -260,12 +280,21 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         self.lbl_total_time = QLabel("00:00")
 
+        self.btn_fullscreen = QPushButton()
+        self.btn_fullscreen.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_TitleBarMaxButton)
+        )
+        self.btn_fullscreen.setToolTip("Toggle Fullscreen")
+        self.btn_fullscreen.clicked.connect(self.toggle_fullscreen)
+        self.btn_fullscreen.setFixedWidth(30)
+
         controls_layout.addWidget(self.lbl_vol)
         controls_layout.addWidget(self.volume_slider)
         controls_layout.addWidget(self.btn_play)
         controls_layout.addWidget(self.lbl_current_time)
         controls_layout.addWidget(self.slider)
         controls_layout.addWidget(self.lbl_total_time)
+        controls_layout.addWidget(self.btn_fullscreen)
 
         self.player_inner_layout.addLayout(controls_layout)
 
@@ -324,6 +353,14 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.combo_engine = QComboBox()
         self.combo_engine.addItems(["MoviePy", "FFmpeg"])
         extract_config_layout.addWidget(self.combo_engine)
+
+        extract_config_layout.addSpacing(20)
+        extract_config_layout.addWidget(QLabel("Extraction Speed:"))
+        self.combo_speed = QComboBox()
+        self.combo_speed.addItems(["0.25x", "0.5x", "1x", "1.5x", "2x", "4x"])
+        self.combo_speed.setCurrentText("1x")
+        # Decoupled from player speed
+        extract_config_layout.addWidget(self.combo_speed)
 
         extract_config_layout.addStretch()
         extract_main_layout.addLayout(extract_config_layout)
@@ -455,7 +492,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.main_layout.addWidget(
             self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
         )
-        
+
         # --- Extraction Progress Bar (Integrated) ---
         self.extraction_progress_bar = QProgressBar()
         self.extraction_progress_bar.setTextVisible(True)
@@ -524,26 +561,54 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         self.line_edit_dir.setText(path)
 
+        # Clear grid and path tracking
         while self.source_grid.count():
             item = self.source_grid.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+        self.source_path_to_widget.clear()
 
-        worker = VideoScannerWorker(path)
-        worker.signals.thumbnail_ready.connect(self.add_source_thumbnail)
-        worker.signals.finished.connect(lambda: self.scan_progress_complete())
-        QThreadPool.globalInstance().start(worker)
+        # 1. Alphabetical Directory Read (Quickly get names for placeholders)
+        try:
+            entries = sorted(os.scandir(path), key=lambda e: e.name.lower())
+            video_paths = [
+                e.path
+                for e in entries
+                if e.is_file()
+                and Path(e.path).suffix.lower() in SUPPORTED_VIDEO_FORMATS
+            ]
+        except Exception:
+            video_paths = []
 
-    def scan_progress_complete(self):
-        pass
+        # 2. Pre-populate grid with "Loading..." items in alphabetical order
+        # Limit to 1000 items to avoid OOM/crash if directory is massive
+        MAX_PREVIEW_ITEMS = 1000
+        video_paths_limited = video_paths[:MAX_PREVIEW_ITEMS]
 
-    @Slot(str, QPixmap)
-    def add_source_thumbnail(self, path: str, pixmap: QPixmap):
-        if pixmap.isNull() and path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
-            thumb = self._generate_video_thumbnail(path)
-            if thumb:
-                pixmap = thumb
+        for i, v_path in enumerate(video_paths_limited):
+            widget = self._create_source_placeholder_widget(v_path)
+            self.source_path_to_widget[v_path] = widget
+            row = i // 12
+            col = i % 12
+            self.source_grid.addWidget(widget, row, col)
 
+        # 3. Start the intensive thumbnailing worker
+        if self.vid_scanner_worker:
+            try:
+                self.vid_scanner_worker.signals.thumbnail_ready.disconnect()
+                self.vid_scanner_worker.signals.finished.disconnect()
+            except Exception:
+                pass
+            self.vid_scanner_worker.stop()
+            self.vid_scanner_worker = None
+
+        self.vid_scanner_worker = VideoScannerWorker(path, crop_square=True)
+        self.vid_scanner_worker.signals.thumbnail_ready.connect(self.add_source_thumbnail)
+        self.vid_scanner_worker.signals.finished.connect(lambda: self.scan_progress_complete())
+        QThreadPool.globalInstance().start(self.vid_scanner_worker)
+
+    def _create_source_placeholder_widget(self, path: str) -> QWidget:
+        """Creates a placeholder widget with 'Loading...' state for the source gallery."""
         thumb_size = 120
         container = QWidget()
         container.setStyleSheet("background: transparent;")
@@ -552,36 +617,88 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         clickable_label = ClickableLabel(file_path=path)
         clickable_label.setFixedSize(thumb_size, thumb_size)
-
-        if not pixmap.isNull():
-            scaled = pixmap.scaled(
-                thumb_size,
-                thumb_size,
-                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            diff_x = (scaled.width() - thumb_size) // 2
-            diff_y = (scaled.height() - thumb_size) // 2
-            cropped = scaled.copy(diff_x, diff_y, thumb_size, thumb_size)
-            clickable_label.setPixmap(cropped)
-        else:
-            clickable_label.setText("No Preview")
-            clickable_label.setStyleSheet("border: 1px dashed #666; color: #888;")
-
-        if not pixmap.isNull():
-            clickable_label.setStyleSheet(
-                "border: 2px solid #4f545c; border-radius: 4px;"
-            )
+        clickable_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        clickable_label.setText("Loading...")
+        clickable_label.setStyleSheet(
+            "border: 1px dashed #666; color: #888; font-size: 10px;"
+        )
 
         clickable_label.path_clicked.connect(self.load_media)
         clickable_label.path_right_clicked.connect(self.show_source_context_menu)
 
         layout.addWidget(clickable_label)
 
-        count = self.source_grid.count()
-        row = count // 12
-        col = count % 12
-        self.source_grid.addWidget(container, row, col)
+        # File Name Label (Alphabetical position preserved here)
+        file_name = Path(path).name
+        name_label = QLabel(file_name)
+        name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        name_label.setFixedWidth(thumb_size)
+        fm = name_label.fontMetrics()
+        elided_text = fm.elidedText(
+            file_name, Qt.TextElideMode.ElideMiddle, thumb_size - 8
+        )
+        name_label.setText(elided_text)
+        name_label.setToolTip(file_name)
+        name_label.setStyleSheet(
+            "color: #bbb; font-size: 10px; border: none; padding-top: 2px;"
+        )
+
+        layout.addWidget(name_label)
+        return container
+
+    def scan_progress_complete(self):
+        pass
+
+    @Slot(str, object)
+    def add_source_thumbnail(self, path: str, image_or_pixmap: Any):
+        """Updates an existing alphabetical placeholder with the actual generated thumbnail."""
+        # 1. Resolve to Pixmap
+        if isinstance(image_or_pixmap, QPixmap):
+            pixmap = image_or_pixmap
+        elif isinstance(image_or_pixmap, QImage):
+            pixmap = QPixmap.fromImage(image_or_pixmap)
+        else:
+            pixmap = QPixmap()
+
+        if pixmap.isNull() and path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+            if hasattr(self, "_generate_video_thumbnail"):
+                thumb = self._generate_video_thumbnail(path)
+                if thumb:
+                    pixmap = thumb
+
+        # 2. Find and update the existing widget
+        container = self.source_path_to_widget.get(path)
+        if not container:
+            return
+
+        clickable_label = container.findChild(ClickableLabel)
+        if not clickable_label:
+            return
+
+        thumb_size = 120
+        if not pixmap.isNull():
+            # NOTE: Scaling/cropping is now handled in the background by VideoScannerWorker(crop_square=True)
+            clickable_label.setPixmap(pixmap)
+            clickable_label.setText("")  # Remove "Loading..." text
+            clickable_label.setStyleSheet(
+                "border: 2px solid #4f545c; border-radius: 4px;"
+            )
+        else:
+            # Fallback if processing totally fails
+            if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                clickable_label.setText("VIDEO")
+                clickable_label.setStyleSheet(
+                    "border: 2px solid #3498db; color: #3498db; font-weight: bold; background-color: #2c2f33;"
+                )
+            else:
+                clickable_label.setText("No Preview")
+                clickable_label.setStyleSheet("border: 1px dashed #666; color: #888;")
+
+        # --- RE-APPLY SELECTION STATE ---
+        if self.video_path == path:
+            clickable_label.setStyleSheet(
+                "border: 3px solid #3498db; border-radius: 4px;"
+            )
 
     @Slot(QPoint, str)
     def show_source_context_menu(self, global_pos: QPoint, path: str):
@@ -595,19 +712,17 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def load_media(self, file_path: str):
         self.video_path = file_path
         ext = Path(file_path).suffix.lower()
-        for i in range(self.source_grid.count()):
-            container = self.source_grid.itemAt(i).widget()
-            if container:
-                label = container.findChild(ClickableLabel)
-                if label:
-                    if label.path == file_path:
-                        label.setStyleSheet(
-                            "border: 3px solid #3498db; border-radius: 4px;"
-                        )
-                    else:
-                        label.setStyleSheet(
-                            "border: 2px solid #4f545c; border-radius: 4px;"
-                        )
+        for path, widget in self.source_path_to_widget.items():
+            label = widget.findChild(ClickableLabel)
+            if label:
+                if path == file_path:
+                    label.setStyleSheet(
+                        "border: 3px solid #3498db; border-radius: 4px;"
+                    )
+                else:
+                    label.setStyleSheet(
+                        "border: 2px solid #4f545c; border-radius: 4px;"
+                    )
 
         if ext == ".gif":
             self.video_container_widget.setVisible(False)
@@ -669,6 +784,33 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     # --- Event Filters & Resizing ---
     def eventFilter(self, obj: QWidget, event: QEvent) -> bool:
+        # MANDATORY: Intercept mouse wheel events over any player-related object
+        # This performs seeking AND locks the page position by consuming the event.
+        if event.type() == QEvent.Type.Wheel:
+            is_view = obj is self.video_view
+            is_viewport = (
+                hasattr(self.video_view, "viewport")
+                and obj is self.video_view.viewport()
+            )
+            is_container = obj is self.player_container
+
+            if is_view or is_viewport or is_container:
+                # Only perform seek logic if the video is loaded and we are in internal player mode
+                if self.use_internal_player and self.media_player.duration() > 0:
+                    delta = event.angleDelta().y()
+                    # Jump by 100ms per scroll tick
+                    step = 100 if delta > 0 else -100
+                    current_pos = self.media_player.position()
+                    new_pos = max(
+                        0, min(current_pos + step, self.media_player.duration())
+                    )
+                    self.media_player.setPosition(new_pos)
+
+                # ALWAYS accept the event and return True.
+                # This explicitly blocks the parent QScrollArea from shifting the player's alignment.
+                event.accept()
+                return True
+
         if obj is self.video_view:
             if self.use_internal_player:
                 # toggle play on click
@@ -679,29 +821,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                     self.toggle_playback()
                     return True
 
-                # toggle fullscreen on double click
-                if event.type() == QEvent.Type.MouseButtonDblClick:
-                    self.toggle_fullscreen()
-                    return True
-
-                # --- NEW: Seek on Mouse Wheel ---
-                if event.type() == QEvent.Type.Wheel:
-                    if self.media_player.duration() > 0:
-                        delta = event.angleDelta().y()
-                        # Determine direction: positive is forward, negative is backward
-                        # Seek 10 microsecond (10ms) per scroll tick (usually 120 delta)
-                        step = 10 if delta > 0 else -10
-
-                        # Calculate new position ensuring it stays within bounds
-                        current_pos = self.media_player.position()
-                        new_pos = max(
-                            0, min(current_pos + step, self.media_player.duration())
-                        )
-
-                        self.media_player.setPosition(new_pos)
-                        return True
-                
-                # --- NEW: Arrow Keys for Video Seeking (When video has focus) ---
+                # --- Arrow Keys for Video Seeking (When video has focus) ---
                 if event.type() == QEvent.Type.KeyPress:
                     if event.key() == Qt.Key.Key_Right:
                         # Seek forward 2 seconds
@@ -720,7 +840,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                         if self.player_container.isFullScreen():
                             self.toggle_fullscreen()
                             return True
-                # ----------------------------------------------------------------
 
         if obj is self.player_container:
             if event.type() == QEvent.Type.KeyPress:
@@ -905,15 +1024,23 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 if os.name == "nt":
                     os.startfile(image_path)
                 else:
-                    subprocess.Popen(["xdg-open", image_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    subprocess.Popen(
+                        ["xdg-open", image_path],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
             except Exception as e:
                 print(f"Error opening video: {e}")
             return
 
-        for win in self.open_image_preview_windows:
-            if isinstance(win, ImagePreviewWindow) and win.image_path == image_path:
-                win.activateWindow()
-                return
+        for win in list(self.open_image_preview_windows):
+            try:
+                if isinstance(win, ImagePreviewWindow) and win.image_path == image_path:
+                    win.activateWindow()
+                    return
+            except RuntimeError:
+                if win in self.open_image_preview_windows:
+                    self.open_image_preview_windows.remove(win)
 
         all_paths_list = self.current_extracted_paths
         try:
@@ -1040,6 +1167,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.combo_resolution.setEnabled(True)
             self.video_view.setVisible(True)
             self.btn_play.setVisible(True)
+            self.btn_fullscreen.setVisible(True)
             self.lbl_vol.setVisible(True)
             self.volume_slider.setVisible(True)
             self.btn_play.setEnabled(True)
@@ -1055,11 +1183,27 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.combo_resolution.setEnabled(False)
             self.video_view.setVisible(False)
             self.btn_play.setVisible(False)
+            self.btn_fullscreen.setVisible(False)
             self.lbl_vol.setVisible(False)
             self.volume_slider.setVisible(False)
             self.media_player.setVideoOutput(None)
             self.media_player.setAudioOutput(None)
+            self.media_player.setAudioOutput(None)
             self.media_player.pause()
+
+        # Apply current speed locally
+        self.update_playback_speed(self.combo_player_speed.currentText())
+
+    @Slot(str)
+    def update_playback_speed(self, text: str):
+        speed_str = text.replace("x", "")
+        try:
+            speed = float(speed_str)
+        except ValueError:
+            speed = 1.0
+
+        # QMediaPlayer.setPlaybackRate introduced in Qt6
+        self.media_player.setPlaybackRate(speed)
 
     @Slot()
     def toggle_playback(self):
@@ -1200,10 +1344,16 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.btn_snapshot.setEnabled(enabled and self.video_path is not None)
         self.btn_set_start.setEnabled(enabled and self.video_path is not None)
         self.btn_set_end.setEnabled(enabled and self.video_path is not None)
-        self.btn_extract_range.setEnabled(enabled and self.end_time_ms > self.start_time_ms)
-        self.btn_extract_gif.setEnabled(enabled and self.end_time_ms > self.start_time_ms)
-        self.btn_extract_video.setEnabled(enabled and self.end_time_ms > self.start_time_ms)
-        
+        self.btn_extract_range.setEnabled(
+            enabled and self.end_time_ms > self.start_time_ms
+        )
+        self.btn_extract_gif.setEnabled(
+            enabled and self.end_time_ms > self.start_time_ms
+        )
+        self.btn_extract_video.setEnabled(
+            enabled and self.end_time_ms > self.start_time_ms
+        )
+
         # Also disable browsing while extracting to avoid path changes
         self.btn_browse.setEnabled(enabled)
         self.btn_browse_extract.setEnabled(enabled)
@@ -1259,7 +1409,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             is_range=is_range,
             target_resolution=target_size,
         )
-        self.extractor_worker.signals.progress.connect(self.extraction_progress_bar.setValue)
+        self.extractor_worker.signals.progress.connect(
+            self.extraction_progress_bar.setValue
+        )
         self.extractor_worker.signals.finished.connect(self._on_extraction_finished)
         self.extractor_worker.signals.error.connect(
             lambda e: self._on_extraction_error(e)
@@ -1276,10 +1428,19 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         target_size = self._get_target_size()
         fps = self.spin_gif_fps.value()
 
+        # Speed
+        speed_str = self.combo_speed.currentText().replace("x", "")
+        try:
+            speed = float(speed_str)
+        except ValueError:
+            speed = 1.0
+
         self._set_extraction_buttons_enabled(False)
         self.extraction_progress_bar.setValue(0)
         self.extraction_progress_bar.show()
-        self.extraction_status_label.setText("Generating GIF... This may take a moment.")
+        self.extraction_status_label.setText(
+            "Generating GIF... This may take a moment."
+        )
         self.extraction_status_label.show()
 
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1294,6 +1455,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             target_size=target_size,
             fps=fps,
             use_ffmpeg=(self.combo_engine.currentText() == "FFmpeg"),
+            speed=speed,
         )
         worker.signals.progress.connect(self.extraction_progress_bar.setValue)
         worker.signals.finished.connect(self._on_export_finished)
@@ -1304,10 +1466,19 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         target_size = self._get_target_size()
         mute_audio = self.check_mute_audio.isChecked()
 
+        # Speed
+        speed_str = self.combo_speed.currentText().replace("x", "")
+        try:
+            speed = float(speed_str)
+        except ValueError:
+            speed = 1.0
+
         self._set_extraction_buttons_enabled(False)
         self.extraction_progress_bar.setValue(0)
         self.extraction_progress_bar.show()
-        self.extraction_status_label.setText("Generating Video... This may take a moment.")
+        self.extraction_status_label.setText(
+            "Generating Video... This may take a moment."
+        )
         self.extraction_status_label.show()
 
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1322,6 +1493,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             target_size=target_size,
             mute_audio=mute_audio,
             use_ffmpeg=(self.combo_engine.currentText() == "FFmpeg"),
+            speed=speed,
         )
         worker.signals.progress.connect(self.extraction_progress_bar.setValue)
         worker.signals.finished.connect(self._on_export_finished)
@@ -1359,6 +1531,15 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.extraction_status_label.hide()
         QMessageBox.warning(self, "Export Error", error_msg)
 
+    def _generate_video_thumbnail(self, path: str) -> Optional[QPixmap]:
+        """Generate a thumbnail for a single video file."""
+        thumbnailer = VideoThumbnailer()
+        q_image = thumbnailer.generate(path, self.thumbnail_size)
+
+        if q_image and not q_image.isNull():
+            return QPixmap.fromImage(q_image)
+        return None
+
     @Slot(list)
     def _on_extraction_finished(self, new_paths: List[str]):
         self._set_extraction_buttons_enabled(True)
@@ -1392,6 +1573,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             "extraction_directory": str(self.extraction_dir),
             "player_mode_internal": True,
             "player_resolution_index": 1,
+            "player_speed_index": 2,  # NEW: Default to 1x (index 2)
             "player_vertical": False,  # NEW
             "extract_vertical": False,  # NEW
             "extraction_engine": "MoviePy",
@@ -1403,6 +1585,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             "extraction_directory": self.line_edit_extract_dir.text(),
             "player_mode_internal": self.use_internal_player,
             "player_resolution_index": self.combo_resolution.currentIndex(),
+            "player_speed_index": self.combo_player_speed.currentIndex(),  # NEW
             "player_vertical": self.check_player_vertical.isChecked(),  # NEW
             "extract_vertical": self.check_extract_vertical.isChecked(),  # NEW
             "extraction_engine": self.combo_engine.currentText(),
@@ -1434,6 +1617,13 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 self.combo_resolution.setCurrentIndex(res_index)
                 self.change_resolution(res_index)
 
+            speed_index = config.get("player_speed_index")
+            if (
+                speed_index is not None
+                and 0 <= speed_index < self.combo_player_speed.count()
+            ):
+                self.combo_player_speed.setCurrentIndex(speed_index)
+
             mode = config.get("player_mode_internal")
             if mode is not None:
                 if mode != self.use_internal_player:
@@ -1452,5 +1642,102 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         except Exception as e:
             QMessageBox.critical(
-                self, "Config Error", f"Failed to apply image extractor configuration:\n{e}"
+                self,
+                "Config Error",
+                f"Failed to apply image extractor configuration:\n{e}",
             )
+
+    # --- QML HANDLERS ---
+    @Slot(str)
+    def browse_source_qml(self, current_path=""):
+        starting_dir = current_path if os.path.isdir(current_path) else self.last_browsed_scan_dir
+        d = QFileDialog.getExistingDirectory(
+            self, "Select Source Directory", starting_dir
+        )
+        if d:
+            self.line_edit_dir.setText(d) # Sync widget
+            self.last_browsed_scan_dir = d
+            self.qml_source_path_changed.emit(d)
+            self.scan_directory(d) # Triggers scanner
+            # Note: The scanner populates self.source_grid (QWidget). 
+            # For QML, we might need to expose the file list via a model or JSON signal.
+            # For now, we assume the QML side will use a FolderListModel or similar if it wants to show the list,
+            # or we rely on the backend to just handle the logic. 
+            # Ideally, we should emit a list of found videos.
+            return d
+        return ""
+
+    @Slot(str, int)
+    def extract_single_frame_qml(self, video_path, timestamp_ms):
+        """Extracts a single frame at the given timestamp (ms)."""
+        if not video_path or not os.path.exists(video_path):
+            self.qml_extraction_status.emit("Error: Video not found")
+            return
+
+        # Use backend logic
+        self.video_path = video_path # Set current context
+        # We need a worker or direct extraction. The existing extract_single_frame uses self.media_player position.
+        # QML player is separate. We should use ffmpeg/cv2 to extract specific frame.
+        
+        # Re-using FrameExtractionWorker logic but we need to pass time explicitly
+        # Existing FrameExtractionWorker takes (video_path, output_dir, start_time, end_time, fps, etc)
+        # For single frame, strict start/end or just snapshot?
+        
+        # Simplified: Use cv2 for instant snapshot if possible, or trigger worker?
+        # Let's use a quick CV2 cap for responsiveness, similar to how ImageScannerWorker does it maybe?
+        # Or just spawn a quick ffmpeg command.
+        
+        output_dir = self.extraction_dir
+        filename = f"snapshot_{Path(video_path).stem}_{timestamp_ms}ms_{datetime.datetime.now().strftime('%H%M%S')}.png"
+        out_path = output_dir / filename
+        
+        # Run in thread to not block UI
+        QThreadPool.globalInstance().start(lambda: self._quick_extract(video_path, timestamp_ms, str(out_path)))
+        
+    def _quick_extract(self, vid_path, ms, out_path):
+        try:
+            import cv2
+            cap = cv2.VideoCapture(vid_path)
+            cap.set(cv2.CAP_PROP_POS_MSEC, ms)
+            ret, frame = cap.read()
+            if ret:
+                cv2.imwrite(out_path, frame)
+                self.qml_extraction_status.emit(f"Saved: {os.path.basename(out_path)}")
+            else:
+                self.qml_extraction_status.emit("Error: Could not grab frame")
+            cap.release()
+        except Exception as e:
+            self.qml_extraction_status.emit(f"Error: {e}")
+
+    @Slot(str, int, int, int)
+    def extract_range_qml(self, video_path, start_ms, end_ms, fps):
+        """Extracts frames in range."""
+        if not video_path or not os.path.exists(video_path):
+             self.qml_extraction_status.emit("Error: Invalid video")
+             return
+             
+        self.video_path = video_path
+        # Setup worker
+        config = {
+            "mode": "range",
+            "start_time": start_ms / 1000.0,
+            "end_time": end_ms / 1000.0,
+            "fps": fps,
+            "output_format": "png", # default
+            "output_dir": str(self.extraction_dir),
+            "resize_dim": None # Use original for now
+        }
+        
+        # We need to adapt this to use FrameExtractionWorker if compatible, 
+        # or just make a new one. FrameExtractionWorker seems designed for this.
+        # It takes (video_path, output_dir, config...)
+        
+        worker = FrameExtractionWorker(video_path, str(self.extraction_dir), config)
+        self.extractor_worker = worker
+        
+        # Signals
+        worker.signals.finished.connect(lambda: self.qml_extraction_status.emit("Extraction Finished"))
+        worker.signals.error.connect(lambda e: self.qml_extraction_status.emit(f"Error: {e}"))
+        worker.signals.progress.connect(lambda val, msg: self.qml_extraction_status.emit(f"Progress: {val}%"))
+        
+        QThreadPool.globalInstance().start(worker)

@@ -5,7 +5,7 @@
 The project mission is to provide a unified environment for managing massive image libraries, performing semantic vector searches, and automating stylized content generation.
 
 ## 2. Technical Stack & Governance
-* **Runtime**: Python 3.11+ (managed via `uv`, `conda`, or `venv`).
+* **Runtime**: Python 3.11+ (managed via `uv`, `conda`, or `venv`). **Agent Rule**: Always run `source .venv/bin/activate` at the start of a task.
 * **Core Logic**: Rust (via PyO3/Maturin) for high-performance IO and processing.
 * **Backend**: Python Orchestrator, PostgreSQL (`pgvector`), PyTorch, OpenCV.
 * **GUI**: PySide6 (Qt for Python).
@@ -17,12 +17,18 @@ The project mission is to provide a unified environment for managing massive ima
 ### Key CLI Entry Points
 | Action | Command |
 | :--- | :--- |
-| **Sync Environment** | `uv sync` |
+| **Sync Environment** | `bash scripts/setup_env.sh` |
+| **Activate Venv** | `source .venv/bin/activate` |
 | **Launch Desktop App** | `python main.py` |
+| **Frontend Dev** | `npm run start-all` |
+| **Frontend Build** | `npm run start-electron` |
+| **Mobile Build** | `./gradlew assembleDebug` |
 | **Single Conversion** | `python main.py convert --output_format png --input_path <path>` |
 | **Batch Conversion** | `python main.py convert --output_format png --input_path <dir> --input_formats webp` |
-| **Build Desktop App** | `pyinstaller --clean app.spec` |
+| **Helper Conversion** | `bash scripts/convert_images.sh` |
+| **Build Desktop App** | `pyinstaller --clean ImageToolkit.spec` |
 | **Run Python Tests** | `pytest` |
+| **Run Frontend Tests** | `npm run test-frontend` |
 | **Run Rust Tests** | `cd base && cargo test` |
 
 ### External Access Rules
@@ -97,7 +103,7 @@ The project mission is to provide a unified environment for managing massive ima
 **Native Apps**. Android (Kotlin) & iOS (Swift).
 *   **Android**: Jetpack Compose/XML. Coroutines for I/O.
 *   **iOS**: SwiftUI. Swift Concurrency (`async`/`await`).
-*   **Standards**: MVVM architecture. Secure storage for credentials.
+*   **Standards**: MVVM architecture. Secure storage for credentials. Build with `./gradlew`.
 
 #### Browser Extension (`extension/`)
 **Helper Extension**. Manifest V3.

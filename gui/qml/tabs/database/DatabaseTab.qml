@@ -40,6 +40,23 @@ Item {
 
         AppButton {
             text: "Sync Database"
+            Layout.fillWidth: true
+        }
+
+        GroupBox {
+            title: "Database Maintenance"
+            Layout.fillWidth: true
+            RowLayout {
+                spacing: 10
+                AppButton {
+                    text: "Vacuum"
+                    onClicked: if (mainBackend && mainBackend.databaseTab) mainBackend.databaseTab.run_vacuum()
+                }
+                AppButton {
+                    text: "Reindex"
+                    onClicked: if (mainBackend && mainBackend.databaseTab) mainBackend.databaseTab.run_reindex()
+                }
+            }
         }
         
         Item { Layout.fillHeight: true }

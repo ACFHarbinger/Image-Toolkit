@@ -25,9 +25,21 @@ Item {
                 background: Rectangle { color: Style.secondaryBackground; border.color: Style.border; radius: 4 }
                 color: Style.text
             }
-            AppButton { text: "Browse"; Layout.preferredWidth: 80 }
-            AppButton { text: "Start Scan"; Layout.preferredWidth: 100 }
-            AppButton { text: "Stop"; Layout.preferredWidth: 60 }
+            AppButton { 
+                text: "Browse"; 
+                Layout.preferredWidth: 80 
+                onClicked: if (mainBackend && mainBackend.scanMetadataTab) mainBackend.scanMetadataTab.browse_scan_directory()
+            }
+            AppButton { 
+                text: "Start Scan"; 
+                Layout.preferredWidth: 100 
+                onClicked: if (mainBackend && mainBackend.scanMetadataTab) mainBackend.scanMetadataTab.start_scan()
+            }
+            AppButton { 
+                text: "Stop"; 
+                Layout.preferredWidth: 60 
+                onClicked: if (mainBackend && mainBackend.scanMetadataTab) mainBackend.scanMetadataTab.stop_scan()
+            }
         }
 
         RowLayout {
@@ -140,6 +152,7 @@ Item {
                         text: "Add to Database"
                         Layout.fillWidth: true
                         background: Rectangle { color: Style.accent; radius: Style.borderRadius }
+                        onClicked: if (mainBackend && mainBackend.scanMetadataTab) mainBackend.scanMetadataTab.upsert_selected()
                     }
                 }
             }

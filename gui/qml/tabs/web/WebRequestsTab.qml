@@ -19,6 +19,24 @@ Item {
             font.bold: true
         }
 
+        GroupBox {
+            title: "Request Configuration"
+            Layout.fillWidth: true
+            ColumnLayout {
+                spacing: 12
+                Label { text: "Base URL:"; color: Style.text; font.bold: true }
+                TextField {
+                    id: baseUrlField
+                    text: mainBackend && mainBackend.webRequestsTab ? mainBackend.webRequestsTab.base_url : ""
+                    placeholderText: "https://api.example.com/data"
+                    Layout.fillWidth: true
+                    background: Rectangle { color: Style.secondaryBackground; border.color: Style.border; radius: 4 }
+                    color: Style.text
+                    onTextChanged: if (mainBackend && mainBackend.webRequestsTab) mainBackend.webRequestsTab.base_url = text
+                }
+            }
+        }
+
         RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -34,44 +52,82 @@ Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     ColumnLayout {
-                        ListView {
-                            model: ListModel {
-                                ListElement { method: "GET"; url: "https://api.example.com/data" }
-                                ListElement { method: "POST"; url: "https://api.example.com/v1/auth" }
+                        RowLayout {
+                            ComboBox {
+                                id: reqTypeCombo
+                                model: ["GET", "POST"]
+                                Layout.preferredWidth: 80
                             }
+                            TextField {
+                                id: reqParamField
+                                placeholderText: "Suffix/Data"
+                                Layout.fillWidth: true
+                            }
+                            AppButton {
+                                text: "Add"
+                                onClicked: if (mainBackend && mainBackend.webRequestsTab) mainBackend.webRequestsTab.add_request(reqTypeCombo.currentText, reqParamField.text)
+                            }
+                        }
+                        ListView {
+                            id: requestListView
+                            model: mainBackend && mainBackend.webRequestsTab ? mainBackend.webRequestsTab.requests_model : null
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             clip: true
                             delegate: ItemDelegate {
-                                width: parent.width
-                                text: "[" + model.method + "] " + model.url
-                                background: Rectangle { color: index % 2 == 0 ? Style.secondaryBackground : "transparent" }
+                                width: requestListView.width
+                                text: model.display_text
+                                background: Rectangle { color: highlighted ? Style.accent : (index % 2 == 0 ? Style.secondaryBackground : "transparent") }
+                                onClicked: requestListView.currentIndex = index
                             }
                         }
-                        RowLayout {
-                            AppButton { text: "Add Request"; Layout.fillWidth: true }
-                            AppButton { text: "Remove Selected"; Layout.fillWidth: true }
+                        AppButton { 
+                            text: "Remove Selected"; 
+                            Layout.fillWidth: true 
+                            onClicked: if (mainBackend && mainBackend.webRequestsTab) mainBackend.webRequestsTab.remove_request(requestListView.currentIndex)
                         }
                     }
                 }
 
                 GroupBox {
-                    title: "Headers / Parameters"
+                    title: "Response Actions"
                     Layout.fillWidth: true
-                    height: 150
+                    height: 200
                     ColumnLayout {
-                        ListView {
-                            model: ListModel {
-                                ListElement { key: "Content-Type"; value: "application/json" }
+                        RowLayout {
+                            ComboBox {
+                                id: actionCombo
+                                model: ["Print Status", "Print Headers", "Print Content", "Save Content"]
+                                Layout.preferredWidth: 120
                             }
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            delegate: ItemDelegate {
-                                text: model.key + ": " + model.value
-                                width: parent.width
+                            TextField {
+                                id: actionParamField
+                                placeholderText: "Param"
+                                Layout.fillWidth: true
+                            }
+                            AppButton {
+                                text: "Add"
+                                onClicked: if (mainBackend && mainBackend.webRequestsTab) mainBackend.webRequestsTab.add_action(actionCombo.currentText, actionParamField.text)
                             }
                         }
-                        AppButton { text: "Add Action/Header"; Layout.fillWidth: true }
+                        ListView {
+                            id: actionListView
+                            model: mainBackend && mainBackend.webRequestsTab ? mainBackend.webRequestsTab.actions_model : null
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            clip: true
+                            delegate: ItemDelegate {
+                                width: actionListView.width
+                                text: model.display_text
+                                background: Rectangle { color: highlighted ? Style.accent : "transparent" }
+                                onClicked: actionListView.currentIndex = index
+                            }
+                        }
+                        AppButton { 
+                            text: "Remove Selected"; 
+                            Layout.fillWidth: true 
+                            onClicked: if (mainBackend && mainBackend.webRequestsTab) mainBackend.webRequestsTab.remove_action(actionListView.currentIndex)
+                        }
                     }
                 }
             }
@@ -82,14 +138,12 @@ Item {
                 spacing: 15
 
                 GroupBox {
-                    title: "Status & Progress"
+                    title: "Status"
                     Layout.fillWidth: true
                     ColumnLayout {
-                        Label { text: "Current Status: Idle"; color: Style.mutedText }
-                        ProgressBar {
-                            Layout.fillWidth: true
-                            value: 0
-                            background: Rectangle { color: Style.secondaryBackground; radius: 4; height: 10 }
+                        Label { 
+                            text: mainBackend && mainBackend.webRequestsTab ? mainBackend.webRequestsTab.status_text : "Ready."
+                            color: Style.accent 
                         }
                     }
                 }
@@ -105,7 +159,7 @@ Item {
                         anchors.fill: parent
                         TextArea {
                             readOnly: true
-                            text: "> HTTP/1.1 200 OK\n> Content-Type: application/json\n\n{\n  \"status\": \"success\"\n}"
+                            text: mainBackend && mainBackend.webRequestsTab ? mainBackend.webRequestsTab.log_output : "Execution logs will appear here...\n"
                             color: "#00ff00"
                             font.family: "Monospace"
                         }
@@ -115,14 +169,17 @@ Item {
                 RowLayout {
                     Layout.fillWidth: true
                     AppButton {
-                        text: "Execute Requests"
+                        text: (mainBackend && mainBackend.webRequestsTab && mainBackend.webRequestsTab.is_running) ? "Cancel All" : "Execute Requests"
                         Layout.fillWidth: true
-                        background: Rectangle { color: (control.pressed ? Style.accentPressed : Style.accent); radius: Style.borderRadius }
-                    }
-                    AppButton {
-                        text: "Cancel All"
-                        Layout.preferredWidth: 100
-                        background: Rectangle { color: "#e74c3c"; radius: Style.borderRadius }
+                        background: Rectangle { color: (text == "Cancel All" ? "#e74c3c" : Style.accent); radius: Style.borderRadius }
+                        onClicked: {
+                            if (mainBackend && mainBackend.webRequestsTab) {
+                                if (mainBackend.webRequestsTab.is_running)
+                                    mainBackend.webRequestsTab.cancel_requests()
+                                else
+                                    mainBackend.webRequestsTab.start_requests()
+                            }
+                        }
                     }
                 }
             }

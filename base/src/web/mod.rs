@@ -7,27 +7,43 @@ pub mod google_drive_sync;
 pub mod image_board_crawler;
 pub mod image_crawler;
 pub mod one_drive_sync;
+#[cfg(feature = "python")]
 pub mod reverse_image_search;
 pub mod sankaku;
 pub mod sync;
 pub mod web_requests;
 
+#[cfg(feature = "python")]
+use crate::web::danbooru::DanbooruCrawlerImpl;
+#[cfg(feature = "python")]
+use crate::web::dropbox_sync::DropboxSyncImpl;
+#[cfg(feature = "python")]
+use crate::web::gelbooru::GelbooruCrawlerImpl;
+#[cfg(feature = "python")]
+use crate::web::google_drive_sync::GoogleDriveSyncImpl;
+#[cfg(feature = "python")]
+use crate::web::image_board_crawler::BoardCrawler;
+#[cfg(feature = "python")]
+use crate::web::one_drive_sync::OneDriveSyncImpl;
+#[cfg(feature = "python")]
+use crate::web::sankaku::SankakuCrawlerImpl;
+#[cfg(feature = "python")]
+use crate::web::sync::SyncRunner;
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
+#[cfg(feature = "python")]
 use reqwest::blocking::Client;
+#[cfg(feature = "python")]
 use serde_json::Value;
+#[cfg(feature = "python")]
 use std::time::Duration;
 
-use danbooru::DanbooruCrawlerImpl;
-use dropbox_sync::DropboxSyncImpl;
-use gelbooru::GelbooruCrawlerImpl;
-use google_drive_sync::GoogleDriveSyncImpl;
-use image_board_crawler::BoardCrawler;
+#[cfg(feature = "python")]
 pub use image_crawler::run_image_crawler;
-use one_drive_sync::OneDriveSyncImpl;
+#[cfg(feature = "python")]
 pub use reverse_image_search::run_reverse_image_search;
-use sankaku::SankakuCrawlerImpl;
-use sync::SyncRunner;
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn run_board_crawler(
     py: Python<'_>,
@@ -67,6 +83,7 @@ pub fn run_board_crawler(
     }
 }
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn run_sync(
     py: Python<'_>,

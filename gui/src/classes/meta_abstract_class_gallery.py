@@ -2,7 +2,14 @@ import math
 
 from abc import ABCMeta, abstractmethod
 from PySide6.QtCore import QObject, Qt, QPoint, QRect
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QComboBox, QPushButton, QLineEdit
+from PySide6.QtWidgets import (
+    QWidget,
+    QHBoxLayout,
+    QLabel,
+    QComboBox,
+    QPushButton,
+    QLineEdit,
+)
 
 # --- SHARED LOGIC IMPLEMENTATIONS ---
 # These functions will be injected into the classes by the Metaclass.
@@ -18,7 +25,7 @@ def _common_create_pagination_ui(self):
     layout = QHBoxLayout(container)
     layout.setContentsMargins(0, 0, 0, 0)
 
-    lbl = QLabel(f"Images per page:")
+    lbl = QLabel("Images per page:")
     combo = QComboBox()
     combo.addItems(["20", "50", "100", "250", "500", "1000", "All"])
     combo.setCurrentText("100")
@@ -157,7 +164,6 @@ def _common_show_placeholder(self, layout, text, columns=1):
     lbl.is_placeholder = True
 
     layout.addWidget(lbl, 0, 0, 1, columns, Qt.AlignCenter)
-
 
 
 def _common_create_search_input(self, placeholder_text="Search..."):

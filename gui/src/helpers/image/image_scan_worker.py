@@ -5,6 +5,7 @@ from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 
 try:
     import base
+
     HAS_NATIVE_IMAGING = True
 except ImportError:
     HAS_NATIVE_IMAGING = False
@@ -83,7 +84,9 @@ class ImageScannerWorker(QObject):
         try:
             if HAS_NATIVE_IMAGING:
                 # rust-based parallel scan
-                all_image_paths = base.scan_files(self.directories, list(SUPPORTED_IMG_FORMATS), True)
+                all_image_paths = base.scan_files(
+                    self.directories, list(SUPPORTED_IMG_FORMATS), True
+                )
                 self.scan_finished.emit(all_image_paths)
                 return
 

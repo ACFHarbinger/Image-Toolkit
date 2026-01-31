@@ -1,9 +1,9 @@
 import os
 import glob
-from typing import List, Optional, Callable
 import base  # The new Rust extension
-from ..utils.definitions import SUPPORTED_IMG_FORMATS
-from . import FSETool
+
+from typing import List, Optional, Callable
+from backend.src.core.file_system_entries import FSETool
 
 # Define the decorator factories needed for the format conversion methods
 SINGLE_CONVERSION_PREFIX = FSETool.prefix_create_directory(
@@ -17,7 +17,7 @@ BATCH_CONVERSION_PREFIX = FSETool.prefix_create_directory(
 
 class ImageFormatConverter:
     """
-    A wrapper around the Rust 'base' extension for converting image formats 
+    A wrapper around the Rust 'base' extension for converting image formats
     and adjusting aspect ratios.
     """
 
@@ -105,13 +105,13 @@ class ImageFormatConverter:
             return []
 
         if progress_callback:
-            progress_callback(10) # Started
+            progress_callback(10)  # Started
 
         # --- Prepare Path Pairs ---
         image_pairs = []
         for idx, input_file in enumerate(all_paths):
             filename_base = os.path.splitext(os.path.basename(input_file))[0]
-            
+
             if output_filename_prefix:
                 if total_files > 1:
                     output_filename = f"{output_filename_prefix}{idx + 1}"
@@ -119,19 +119,24 @@ class ImageFormatConverter:
                     output_filename = output_filename_prefix
             else:
                 output_filename = filename_base
-            
+
             output_path = os.path.join(output_dir, f"{output_filename}.{output_format}")
-            
-            # Simple skip logic handled in Rust? No, Rust overwrites. 
+
+            # Simple skip logic handled in Rust? No, Rust overwrites.
             # Python checked `if output_filename_prefix or (not os.path.isfile(output_path) or aspect_ratio is not None)`
             # We will include it in the batch if it meets criteria.
-            if output_filename_prefix or aspect_ratio or not os.path.exists(output_path):
-                 image_pairs.append((input_file, output_path))
+            if (
+                output_filename_prefix
+                or aspect_ratio
+                or not os.path.exists(output_path)
+            ):
+                image_pairs.append((input_file, output_path))
 
         if not image_pairs:
-            if progress_callback: progress_callback(100)
+            if progress_callback:
+                progress_callback(100)
             return []
-            
+
         # --- Call Rust Backend ---
         try:
             results = base.convert_image_batch(
@@ -139,15 +144,15 @@ class ImageFormatConverter:
                 output_format=output_format,
                 delete_original=delete,
                 aspect_ratio=aspect_ratio,
-                ar_mode=ar_mode
+                ar_mode=ar_mode,
             )
-            
+
             if progress_callback:
                 progress_callback(100)
-                
+
             print(f"\nBatch processing complete! Processed {len(results)} images.")
             return results
-            
+
         except Exception as e:
             print(f"Error in convert_batch: {e}")
             return []

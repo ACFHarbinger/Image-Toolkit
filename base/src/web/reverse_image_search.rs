@@ -1,4 +1,5 @@
 use anyhow::Result;
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
 use serde_json::Value;
 use std::path::Path;
@@ -222,6 +223,7 @@ fn emit_status(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     Ok(())
 }
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn run_reverse_image_search(
     py: Python<'_>,

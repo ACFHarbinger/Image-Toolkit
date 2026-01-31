@@ -5,7 +5,7 @@ import base
 from . import FSETool
 from PIL import Image
 from typing import List, Tuple, Optional
-from ..utils.definitions import AlignMode
+from backend.src.utils.definitions import AlignMode
 
 
 # Define the decorator factories needed for the merge methods
@@ -58,7 +58,10 @@ class ImageMerger:
         status, pano = stitcher.stitch(cv_images)
 
         # Force cleanup of any internal highgui/Qt resources before we return
-        cv2.destroyAllWindows() 
+        try:
+            cv2.destroyAllWindows()
+        except cv2.error:
+            pass
 
         if status != cv2.Stitcher_OK:
             error_map = {
@@ -115,7 +118,10 @@ class ImageMerger:
         status, pano = stitcher.stitch(cv_images)
 
         # Force cleanup of any internal highgui/Qt resources before we return
-        cv2.destroyAllWindows()
+        try:
+            cv2.destroyAllWindows()
+        except cv2.error:
+            pass
 
         if status != cv2.Stitcher_OK:
             error_map = {
@@ -368,25 +374,25 @@ class ImageMerger:
         # --- Map AlignMode to simpler Rust strings ---
         # "Default (Top/Center)" -> "top" (horiz), "left" (vert) or "center"?
         # Actually in Rust I implemented simple match.
-        # Python: 
+        # Python:
         #   Horiz: Top/Center is Center for vertical alignment usually?
         #   Let's check Python original:
         #   Horiz: if Center/Default -> y_offset = (canvas_h - current_h)//2. So it is CENTER.
         #   Vert: if Center/Default -> x_offset = (canvas_w - current_w)//2. So it is CENTER.
-        
+
         # Rust `image_merger.rs` map:
         #   Horiz: "center" -> center, "bottom" -> bottom, default -> 0 (top).
         #   Vert: "center" -> center, "right" -> right, default -> 0 (left).
-        
+
         # Mapping:
         rust_align = "top"
         if align_mode in ["Center", "Default (Top/Center)"]:
-             rust_align = "center"
+            rust_align = "center"
         elif align_mode == "Align Bottom/Right":
-             rust_align = "bottom" if direction == "horizontal" else "right"
+            rust_align = "bottom" if direction == "horizontal" else "right"
         elif align_mode in ["Scaled (Grow Smallest)", "Squish (Shrink Largest)"]:
-            rust_align = "stretch" # I implemented "stretch" in Rust to mean resize.
-        
+            rust_align = "stretch"  # I implemented "stretch" in Rust to mean resize.
+
         if direction == "horizontal":
             base.merge_images_horizontal(image_paths, output_path, spacing, rust_align)
             return Image.open(output_path)

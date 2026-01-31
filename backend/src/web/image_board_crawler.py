@@ -1,7 +1,7 @@
-import os
 import json
-import base # Native extension
+import base  # Native extension
 from PySide6.QtCore import QObject, Signal
+
 
 class ImageBoardCrawler(QObject):
     """
@@ -34,7 +34,7 @@ class ImageBoardCrawler(QObject):
         """
         crawler_name = self.__class__.__name__.replace("Crawler", "").lower()
         config_json = json.dumps(self.config)
-        
+
         try:
             total_downloaded = base.run_board_crawler(crawler_name, config_json, self)
             return total_downloaded

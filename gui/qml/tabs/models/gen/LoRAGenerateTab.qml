@@ -21,6 +21,7 @@ ScrollView {
                 
                 Label { text: "Model ID:"; color: Style.text }
                 ComboBox {
+                    id: modelCombo
                     Layout.fillWidth: true
                     model: ["stabilityai/stable-diffusion-2-1", "runwayml/stable-diffusion-v1-5"]
                 }
@@ -28,12 +29,12 @@ ScrollView {
                 Label { text: "LoRA Path:"; color: Style.text }
                 RowLayout {
                     Layout.fillWidth: true
-                    TextField { placeholderText: "Path to .safetensors"; Layout.fillWidth: true }
+                    TextField { id: loraPathField; placeholderText: "Path to .safetensors"; Layout.fillWidth: true }
                     AppButton { text: "Browse"; Layout.preferredWidth: 80 }
                 }
 
                 Label { text: "Output Name:"; color: Style.text }
-                TextField { text: "output.png"; Layout.fillWidth: true }
+                TextField { id: outputNameField; text: "output.png"; Layout.fillWidth: true }
             }
         }
 
@@ -44,6 +45,7 @@ ScrollView {
                 Layout.fillWidth: true
                 Label { text: "Positive Prompt:"; color: Style.text; font.bold: true }
                 TextArea {
+                    id: posPromptArea
                     placeholderText: "Describe what you want to see..."
                     Layout.fillWidth: true
                     Layout.preferredHeight: 80
@@ -52,6 +54,7 @@ ScrollView {
                 }
                 Label { text: "Negative Prompt:"; color: Style.text; font.bold: true }
                 TextArea {
+                    id: negPromptArea
                     placeholderText: "Describe what you want to exclude..."
                     Layout.fillWidth: true
                     Layout.preferredHeight: 60
@@ -68,7 +71,7 @@ ScrollView {
                 spacing: 20
                 ColumnLayout {
                     Label { text: "Steps:"; color: Style.text }
-                    SpinBox { from: 1; to: 100; value: 30 }
+                    SpinBox { id: stepsSpin; from: 1; to: 100; value: 30 }
                 }
                 ColumnLayout {
                     Label { text: "Guidance Scale:"; color: Style.text }
@@ -96,7 +99,7 @@ ScrollView {
                 }
                 ColumnLayout {
                     Label { text: "Batch Size:"; color: Style.text }
-                    SpinBox { from: 1; to: 32; value: 1 }
+                    SpinBox { id: batchSizeSpin; from: 1; to: 32; value: 1 }
                 }
             }
         }
@@ -105,6 +108,20 @@ ScrollView {
             text: "Generate Images"
             Layout.fillWidth: true
             background: Rectangle { color: Style.accent; radius: Style.borderRadius }
+            onClicked: {
+                if (mainBackend && mainBackend.generateTab && mainBackend.generateTab.anything_tab) {
+                    mainBackend.generateTab.anything_tab.generate_from_qml(
+                        modelCombo.currentText,
+                        loraPathField.text,
+                        outputNameField.text,
+                        posPromptArea.text,
+                        negPromptArea.text,
+                        stepsSpin.value,
+                        guidanceSpin.realValue,
+                        batchSizeSpin.value
+                    )
+                }
+            }
         }
     }
 }

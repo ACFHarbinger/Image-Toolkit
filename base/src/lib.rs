@@ -1,11 +1,20 @@
-use fast_image_resize as fr;
-use image::ImageReader;
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
+#[cfg(feature = "python")]
 use pyo3::types::PyBytes;
+
+#[cfg(feature = "python")]
+use fast_image_resize as fr;
+#[cfg(feature = "python")]
+use image::ImageReader;
+#[cfg(feature = "python")]
 use rayon::prelude::*;
+#[cfg(feature = "python")]
 use std::process::Command;
+#[cfg(feature = "python")]
 use walkdir::WalkDir;
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn load_image_batch(
     py: Python,
@@ -45,8 +54,7 @@ pub fn load_image_batch(
                             fr::PixelType::U8x4,
                         )?;
 
-                        let mut dst_image =
-                            fr::images::Image::new(new_w, new_h, fr::PixelType::U8x4);
+                        let mut dst_image = fr::images::Image::new(new_w, new_h, fr::PixelType::U8x4);
 
                         let mut resizer = fr::Resizer::new();
                         resizer.resize(&src_image, &mut dst_image, None)?;
@@ -73,6 +81,7 @@ pub fn load_image_batch(
     Ok(py_results)
 }
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn scan_files(
     py: Python,
@@ -127,6 +136,7 @@ pub fn scan_files(
     })
 }
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn extract_video_thumbnails_batch(
     py: Python,
@@ -135,7 +145,7 @@ pub fn extract_video_thumbnails_batch(
 ) -> PyResult<Vec<(String, Py<PyBytes>, u32, u32)>> {
     let results: Vec<(String, Option<(Vec<u8>, u32, u32)>)> = py.detach(|| {
         paths
-            .iter()
+            .par_iter()
             .map(|path| {
                 let res =
                     (|| -> Result<(Vec<u8>, u32, u32), Box<dyn std::error::Error + Send + Sync>> {
@@ -204,10 +214,8 @@ pub fn extract_video_thumbnails_batch(
                                     ));
                                 }
                                 Err(e) => {
-                                    last_err = Some(format!(
-                                        "Failed to execute ffmpeg for {}: {}",
-                                        path, e
-                                    ));
+                                    last_err =
+                                        Some(format!("Failed to execute ffmpeg for {}: {}", path, e));
                                 }
                             }
                         }
@@ -237,15 +245,24 @@ pub fn extract_video_thumbnails_batch(
 pub mod core;
 pub mod web;
 
+#[cfg(feature = "python")]
 use core::file_system::*;
+#[cfg(feature = "python")]
 use core::image_converter::*;
+#[cfg(feature = "python")]
 use core::image_finder::*;
+#[cfg(feature = "python")]
 use core::image_merger::*;
+#[cfg(feature = "python")]
 use core::video_converter::*;
+#[cfg(feature = "python")]
 use core::wallpaper::*;
+#[cfg(feature = "python")]
 use web::web_requests::*;
+#[cfg(feature = "python")]
 use web::*;
 
+#[cfg(feature = "python")]
 #[pymodule]
 fn base(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(load_image_batch, m)?)?;
@@ -258,10 +275,6 @@ fn base(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(convert_video, m)?)?;
     m.add_function(wrap_pyfunction!(set_wallpaper_gnome, m)?)?;
     m.add_function(wrap_pyfunction!(evaluate_kde_script, m)?)?;
-    m.add_function(wrap_pyfunction!(run_web_requests_sequence, m)?)?;
-    m.add_function(wrap_pyfunction!(run_board_crawler, m)?)?;
-    m.add_function(wrap_pyfunction!(run_reverse_image_search, m)?)?;
-    m.add_function(wrap_pyfunction!(run_sync, m)?)?;
 
     // File System
     m.add_function(wrap_pyfunction!(get_files_by_extension, m)?)?;
@@ -276,6 +289,13 @@ fn base(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(merge_images_horizontal, m)?)?;
     m.add_function(wrap_pyfunction!(merge_images_vertical, m)?)?;
     m.add_function(wrap_pyfunction!(merge_images_grid, m)?)?;
+
+    // Web Functions
+    m.add_function(wrap_pyfunction!(run_web_requests_sequence, m)?)?;
+    m.add_function(wrap_pyfunction!(run_board_crawler, m)?)?;
+    m.add_function(wrap_pyfunction!(run_reverse_image_search, m)?)?;
+    m.add_function(wrap_pyfunction!(run_sync, m)?)?;
+    m.add_function(wrap_pyfunction!(run_image_crawler, m)?)?;
 
     Ok(())
 }

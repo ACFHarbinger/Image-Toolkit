@@ -41,10 +41,11 @@ class PgvectorImageDatabase:
             self.conn = psycopg2.connect(**self.conn_params)
             self.conn.autocommit = True
         except psycopg2.OperationalError as e:
-            print(f"Error connecting to database: {e}")
-            print("\n--- ERROR: DATABASE CONNECTION FAILED ---")
+            print(f"Error connecting to database: {e}", file=sys.stderr)
+            print("\n--- ERROR: DATABASE CONNECTION FAILED ---", file=sys.stderr)
             print(
-                "Please ensure PostgreSQL is running and connection details are correct."
+                "Please ensure PostgreSQL is running and connection details are correct.",
+                file=sys.stderr,
             )
             self.conn = None
             exit(1)
@@ -126,13 +127,13 @@ class PgvectorImageDatabase:
                     "CREATE INDEX IF NOT EXISTS idx_images_path ON images(file_path)"
                 )
                 cur.execute(
-                    f"""
+                    """
                     CREATE INDEX IF NOT EXISTS idx_images_embedding ON images USING hnsw (embedding vector_l2_ops) WHERE embedding IS NOT NULL;
                 """
                 )
 
             except Exception as e:
-                print(f"Error during table creation: {e}")
+                print(f"Error during table creation: {e}", file=sys.stderr)
                 raise
             finally:
                 self.conn.commit()
@@ -382,7 +383,7 @@ class PgvectorImageDatabase:
 
                 return image_id
         except Exception as e:
-            print(f"Error adding image: {e}")
+            print(f"Error adding image: {e}", file=sys.stderr)
             raise
 
     def _fetch_one_image_details(self, image_id: int) -> Optional[Dict[str, Any]]:
@@ -522,7 +523,7 @@ class PgvectorImageDatabase:
             ext_conditions = []
             for ext in input_formats:
                 clean_ext = ext.strip().lstrip(".")
-                ext_conditions.append(f"i.filename ILIKE %s")
+                ext_conditions.append("i.filename ILIKE %s")
                 params.append(f"%.{clean_ext}")
             if ext_conditions:
                 conditions.append(f"({' OR '.join(ext_conditions)})")
@@ -551,7 +552,7 @@ class PgvectorImageDatabase:
                     image_data["tags"] = self.get_image_tags(image_id)
                     results.append(image_data)
         except Exception as e:
-            print(f"Error during search: {e}")
+            print(f"Error during search: {e}", file=sys.stderr)
             raise
 
         return results
@@ -609,7 +610,7 @@ class PgvectorImageDatabase:
         with self.conn.cursor() as cur:
             cur.execute("DELETE FROM images WHERE id = %s", (image_id,))
 
-    def get_statistics(self) -> Dict[str, int]:
+    def get_statistics(self) -> Dict[str, Any]:
         """Get database statistics."""
         stats = {}
         with self.conn.cursor() as cur:
@@ -625,7 +626,42 @@ class PgvectorImageDatabase:
             cur.execute("SELECT COUNT(*) FROM subgroups")
             stats["total_subgroups"] = cur.fetchone()[0]
 
+            # Expanded stats
+            cur.execute("SELECT SUM(file_size) FROM images")
+            stats["total_file_size"] = cur.fetchone()[0] or 0
+
+            cur.execute("SELECT MAX(date_added) FROM images")
+            stats["last_sync_date"] = cur.fetchone()[0]
+
         return stats
+
+    def maintenance_vacuum(self, full: bool = False):
+        """Perform a VACUUM operation on the database."""
+        if not self.conn:
+            return
+        
+        # VACUUM cannot run inside a transaction block
+        old_autocommit = self.conn.autocommit
+        self.conn.autocommit = True
+        try:
+            with self.conn.cursor() as cur:
+                cmd = "VACUUM FULL" if full else "VACUUM"
+                cur.execute(cmd)
+        finally:
+            self.conn.autocommit = old_autocommit
+
+    def maintenance_reindex(self):
+        """Perform a REINDEX operation on the database."""
+        if not self.conn:
+            return
+            
+        old_autocommit = self.conn.autocommit
+        self.conn.autocommit = True
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute("REINDEX DATABASE CURRENT_DATABASE")
+        finally:
+            self.conn.autocommit = old_autocommit
 
     def reset_database(self):
         """
@@ -633,7 +669,7 @@ class PgvectorImageDatabase:
         and recreates the schema. THIS IS A DESTRUCTIVE OPERATION.
         """
         if not self.conn:
-            print("Not connected to the database.")
+            print("Not connected to the database.", file=sys.stderr)
             raise
 
         try:
@@ -649,7 +685,7 @@ class PgvectorImageDatabase:
 
         except Exception as e:
             self.conn.rollback()  # Rollback on error
-            print(f"Error during database reset: {e}")
+            print(f"Error during database reset: {e}", file=sys.stderr)
             raise
 
     def close(self):

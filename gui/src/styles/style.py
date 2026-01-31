@@ -1,5 +1,6 @@
 import os
 import re
+
 from string import Template
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QGraphicsDropShadowEffect

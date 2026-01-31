@@ -6,7 +6,8 @@ import threading
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 from gui.src.windows import MainWindow, LoginWindow
-from .utils.definitions import ICON_FILE, CTRL_C_TIMEOUT
+from backend.src.core.file_system_entries import FSETool
+from backend.src.utils.definitions import ICON_FILE, CTRL_C_TIMEOUT
 
 
 def log_uncaught_exceptions(ex_type, ex_value, ex_traceback):
@@ -32,16 +33,20 @@ def launch_app(opts):
 
     # Create a custom signal handler that works with Qt
     def handle_interrupt(signum, frame):
-        """Handle Ctrl+C signal by gracefully closing the application"""
-        print("\nCtrl+C received - closing application...")
+        """Handle Ctrl+C and Termination signals by gracefully closing the application"""
+        sig_name = "SIGTERM" if signum == signal.SIGTERM else "SIGINT"
+        print(f"\n{sig_name} received - closing application...")
         if active_window is not None:
+            # This triggers the closeEvent, which handles VaultManager shutdown
             active_window.close()
         app.quit()
-        # Force exit if app doesn't quit quickly
+        
+        # Force exit if app doesn't quit quickly (e.g., stuck thread)
         threading.Timer(CTRL_C_TIMEOUT, lambda: sys.exit(1)).start()
 
-    # Set up signal handler for Ctrl+C
+    # Set up signal handlers
     signal.signal(signal.SIGINT, handle_interrupt)
+    signal.signal(signal.SIGTERM, handle_interrupt)
 
     def launch_main_gui(vault_manager):
         """
@@ -71,13 +76,12 @@ def launch_app(opts):
     active_window.show()
     # --- END OF NEW LOGIN FLOW ---
 
-    # Install a custom event filter to catch the interrupt
-    old_handler = signal.signal(signal.SIGINT, signal.SIG_DFL)
-    try:
-        return app.exec()
-    finally:
-        # Restore original handler
-        signal.signal(signal.SIGINT, old_handler)
+    # Start the Qt event loop
+    # We rely on the python signal handlers registered above.
+    # Note: For signals to process immediately in Python while Qt is running,
+    # we relies on Python generic handling. Some setups might require a timer,
+    # but basic SIGINT/SIGTERM usually interrupts app.exec().
+    return app.exec()
 
 
 if __name__ == "__main__":

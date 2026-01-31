@@ -1,5 +1,6 @@
 from .image_board_crawler import ImageBoardCrawler
 
+
 class DanbooruCrawler(ImageBoardCrawler):
     """Crawler implementation for Danbooru (Rust-accelerated)."""
 

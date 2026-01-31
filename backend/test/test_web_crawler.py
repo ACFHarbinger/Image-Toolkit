@@ -2,7 +2,7 @@ import os
 import sys
 
 from urllib.parse import urljoin
-from unittest.mock import MagicMock, patch, call, mock_open
+from unittest.mock import MagicMock, patch, call
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
@@ -213,9 +213,7 @@ class TestImageCrawler:
             crawler.on_status.emit.assert_any_call("Scanning for images...")
             # The number of unique URLs is 7.
             # Updated to match actual implementation message:
-            crawler.on_status.emit.assert_any_call(
-                "Found 10 images. Processing 8..."
-            )
+            crawler.on_status.emit.assert_any_call("Found 10 images. Processing 8...")
 
             # 3. Check download calls
             actual_download_calls = {c[0][0] for c in mock_download.call_args_list}
@@ -273,6 +271,6 @@ class TestImageCrawler:
             # Manual check because assert_not_called_with is flaky/availablity issues?
             emit_calls = [c[0][0] for c in crawler.on_status.emit.call_args_list]
             assert "Crawl complete. Downloaded 1 total images." not in emit_calls
-            
+
             # close() is called again in the finally block, but subsequent calls should be safe (or mocked)
             assert crawler.close.call_count == 2

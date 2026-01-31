@@ -33,7 +33,7 @@ class ImageCrawlTab(QWidget):
         self.worker = None
 
         # --- Log Window Initialization ---
-        self.log_window = LogWindow(tab_name="Web Crawler")
+        self.log_window = LogWindow(tab_name="Web Crawler", parent=self)
         self.log_window.hide()
 
         self.last_browsed_download_dir = LOCAL_SOURCE_PATH
@@ -426,6 +426,20 @@ class ImageCrawlTab(QWidget):
             return
         menu = QMenu()
 
+        row = self.action_list_widget.row(item)
+
+        move_up_action = QAction("Move Up 🔼", self)
+        move_up_action.triggered.connect(self.move_action_up)
+        move_up_action.setEnabled(row > 0)
+        menu.addAction(move_up_action)
+
+        move_down_action = QAction("Move Down 🔽", self)
+        move_down_action.triggered.connect(self.move_action_down)
+        move_down_action.setEnabled(row < self.action_list_widget.count() - 1)
+        menu.addAction(move_down_action)
+
+        menu.addSeparator()
+
         edit_action = QAction("Edit Parameter ✏️", self)
         edit_action.triggered.connect(self.edit_action_parameter)
         if " | Param: " in item.text():
@@ -488,6 +502,20 @@ class ImageCrawlTab(QWidget):
                 QMessageBox.warning(
                     self, "Edit Failed", "Parameter value cannot be empty."
                 )
+
+    def move_action_up(self):
+        row = self.action_list_widget.currentRow()
+        if row > 0:
+            item = self.action_list_widget.takeItem(row)
+            self.action_list_widget.insertItem(row - 1, item)
+            self.action_list_widget.setCurrentRow(row - 1)
+
+    def move_action_down(self):
+        row = self.action_list_widget.currentRow()
+        if row < self.action_list_widget.count() - 1:
+            item = self.action_list_widget.takeItem(row)
+            self.action_list_widget.insertItem(row + 1, item)
+            self.action_list_widget.setCurrentRow(row + 1)
 
     def add_action(self):
         action_text = self.action_combo.currentText()
@@ -773,7 +801,7 @@ class ImageCrawlTab(QWidget):
             self.board_username.setText(config.get("board_username", ""))
             self.board_apikey.setText(config.get("board_apikey", ""))
 
-            print(f"ImageCrawlTab configuration loaded.")
+            print("ImageCrawlTab configuration loaded.")
 
         except Exception as e:
             print(f"Error applying ImageCrawlTab config: {e}")

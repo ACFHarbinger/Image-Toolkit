@@ -1,4 +1,5 @@
-from PySide6.QtWidgets import QFormLayout, QSpinBox, QLineEdit
+from PySide6.QtCore import Slot
+from PySide6.QtWidgets import QFormLayout, QSpinBox, QLineEdit, QMessageBox
 from ....classes.base_generative_tab import BaseGenerativeTab
 
 
@@ -18,3 +19,12 @@ class R3GANGenerateTab(BaseGenerativeTab):
             layout, "Class Index (opt.):", QSpinBox(minimum=-1, value=-1), "class_idx"
         )
         self.setLayout(layout)
+
+    @Slot(str, str, int)
+    def generate_from_qml(self, network, seeds, class_idx):
+        QMessageBox.information(
+            self,
+            "Not Implemented",
+            "R3GAN generation is not yet supported in this version.\n"
+            f"Params received: Network={network}, Seeds={seeds}, Class={class_idx}"
+        )

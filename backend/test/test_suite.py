@@ -201,6 +201,6 @@ class PyTestRunner:
         else:
             cmd.append(str(self.test_dir))
 
-        print(f"Collecting tests...")
+        print("Collecting tests...")
         print("=" * 80)
         subprocess.run(cmd)

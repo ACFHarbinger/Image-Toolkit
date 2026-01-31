@@ -1,12 +1,21 @@
+#[cfg(feature = "python")]
 use anyhow::{Context, Result};
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
+#[cfg(feature = "python")]
 use reqwest::blocking::{Client, Response};
+#[cfg(feature = "python")]
 use serde_json::Value;
+#[cfg(feature = "python")]
 use std::collections::HashMap;
+#[cfg(feature = "python")]
 use std::fs;
+#[cfg(feature = "python")]
 use std::path::Path;
+#[cfg(feature = "python")]
 use std::time::Duration;
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn run_web_requests_sequence(
     py: Python<'_>,
@@ -149,16 +158,19 @@ pub fn run_web_requests_sequence(
     Ok("All requests finished.".to_string())
 }
 
+#[cfg(feature = "python")]
 fn emit_status(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     obj.call_method1(py, "on_status_emitted", (msg,))?;
     Ok(())
 }
 
+#[cfg(feature = "python")]
 fn emit_error(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     obj.call_method1(py, "on_error_emitted", (msg,))?;
     Ok(())
 }
 
+#[cfg(feature = "python")]
 fn parse_post_data(param_str: &str) -> HashMap<String, String> {
     let mut data = HashMap::new();
     if param_str.is_empty() {
@@ -172,6 +184,7 @@ fn parse_post_data(param_str: &str) -> HashMap<String, String> {
     data
 }
 
+#[cfg(feature = "python")]
 fn run_actions(
     py: Python<'_>,
     callback_obj: &Py<PyAny>,
@@ -305,8 +318,10 @@ fn run_actions(
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "python")]
     use super::*;
 
+    #[cfg(feature = "python")]
     #[test]
     fn test_parse_post_data() {
         let input = "foo:bar, baz: qux,  a : b ";

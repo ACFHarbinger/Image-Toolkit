@@ -63,7 +63,9 @@ class MarqueeScrollArea(QScrollArea):
     def mouseMoveEvent(self, event: QMouseEvent):
         if self.rubber_band.isVisible():
             # 1. Update RubberBand geometry
-            self.rubber_band.setGeometry(QRect(self.origin, event.position().toPoint()).normalized())
+            self.rubber_band.setGeometry(
+                QRect(self.origin, event.position().toPoint()).normalized()
+            )
 
             # 2. Calculate selection rect in Content Coordinates
             selection_rect_viewport = self.rubber_band.geometry()

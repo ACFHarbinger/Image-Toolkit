@@ -9,6 +9,7 @@ requires-python = ">=3.11"
 dependencies = [
     "accelerate>=1.12.0",
     "celery>=5.6.0",
+    "cffi>=2.0.0",
     "comtypes>=1.4.13",
     "diffusers>=0.35.2",
     "django>=5.2.7",
@@ -58,8 +59,15 @@ dev = [
 
 # BUILD CONFIG
 [build-system]
-requires = ["setuptools>=61", "wheel"]
-build-src = "setuptools.build_meta"
+requires = ["setuptools>=61", "wheel", "maturin>=1.0,<2.0", "cffi"]
+build-backend = "maturin"
+
+[tool.maturin]
+manifest-path = "base/Cargo.toml"
+
+[tool.uv]
+# This tells uv to rebuild the Rust code if any .rs files change
+cache-keys = [{ file = "base/Cargo.toml" }, { file = "base/src/**/*.rs" }]
 
 # Tell setuptools EXACTLY what to package
 [tool.setuptools.packages.find]
