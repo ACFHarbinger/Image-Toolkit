@@ -13,7 +13,7 @@ ApplicationWindow {
     color: "#000000" // Black background for previews
 
     property real zoomFactor: 1.0
-    property string currentImagePath: ""
+    property string currentImagePath: backend.currentImagePath
 
     // Overlay Controls
     Rectangle {
@@ -30,7 +30,7 @@ ApplicationWindow {
             anchors.rightMargin: 20
             
             Text {
-                text: currentImagePath.split('/').pop()
+                text: backend.currentImagePath.split('/').pop()
                 color: "white"
                 font.bold: true
                 Layout.fillWidth: true
@@ -38,9 +38,9 @@ ApplicationWindow {
 
             RowLayout {
                 spacing: 15
-                AppButton { text: "Zoom In"; Layout.preferredWidth: 100 }
-                AppButton { text: "Zoom Out"; Layout.preferredWidth: 100 }
-                AppButton { text: "Fit Screen"; Layout.preferredWidth: 100 }
+                AppButton { text: "Zoom In"; Layout.preferredWidth: 100; onClicked: zoomFactor += 0.2 }
+                AppButton { text: "Zoom Out"; Layout.preferredWidth: 100; onClicked: if (zoomFactor > 0.2) zoomFactor -= 0.2 }
+                AppButton { text: "Fit Screen"; Layout.preferredWidth: 100; onClicked: zoomFactor = 1.0 }
                 AppButton { text: "Close"; Layout.preferredWidth: 80; onClicked: window.close() }
             }
         }
@@ -56,7 +56,7 @@ ApplicationWindow {
 
         Image {
             id: img
-            source: currentImagePath
+            source: backend.currentImagePath
             width: parent.width
             height: parent.height
             fillMode: Image.PreserveAspectFit
@@ -64,11 +64,6 @@ ApplicationWindow {
             transformOrigin: Item.Center
             asynchronous: true
             
-            onStatusChanged: {
-                if (status == Image.Ready) {
-                    // Initial fit logic could go here
-                }
-            }
         }
 
         MouseArea {
@@ -94,18 +89,19 @@ ApplicationWindow {
             text: "← Previous"
             Layout.preferredWidth: 120
             background: Rectangle { color: Qt.rgba(0, 0, 0, 0.5); border.color: "white"; radius: 20 }
+            onClicked: backend.previous()
         }
         
         Rectangle {
             width: 100; height: 40; radius: 20; color: Qt.rgba(0, 0, 0, 0.5)
-            Text { anchors.centerIn: parent; text: "1 / 42"; color: "white"; font.bold: true }
+            Text { anchors.centerIn: parent; text: backend.navigationInfo; color: "white"; font.bold: true }
         }
 
         AppButton {
             text: "Next →"
             Layout.preferredWidth: 120
             background: Rectangle { color: Qt.rgba(0, 0, 0, 0.5); border.color: "white"; radius: 20 }
+            onClicked: backend.next()
         }
     }
 }
-

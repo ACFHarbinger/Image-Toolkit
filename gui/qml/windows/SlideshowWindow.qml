@@ -13,22 +13,21 @@ ApplicationWindow {
     color: "black"
     flags: Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
 
-    property int currentIndex: 0
-    property int interval: 5000
-    property bool isPlaying: true
+    property int interval: backend.interval
+    property bool isPlaying: backend.isPlaying
 
     // Background Image
     Image {
         id: bgImage
         anchors.fill: parent
-        source: ""
+        source: backend.currentImagePath
         fillMode: Image.PreserveAspectFit
         asynchronous: true
         
         Behavior on opacity { NumberAnimation { duration: 1000 } }
     }
 
-    // Foreground Image (for cross-fade)
+    // Foreground Image (unused for now, keeping structure)
     Image {
         id: fgImage
         anchors.fill: parent
@@ -36,8 +35,6 @@ ApplicationWindow {
         fillMode: Image.PreserveAspectFit
         asynchronous: true
         opacity: 0
-
-        Behavior on opacity { NumberAnimation { duration: 1000 } }
     }
 
     Timer {
@@ -45,12 +42,7 @@ ApplicationWindow {
         interval: window.interval
         running: window.isPlaying
         repeat: true
-        onTriggered: nextSlide()
-    }
-
-    function nextSlide() {
-        // Logic to cycle images would go here
-        currentIndex++
+        onTriggered: backend.next()
     }
 
     // Hidden Controls (appear on mouse move)
@@ -76,18 +68,20 @@ ApplicationWindow {
                 text: "PREV"
                 background: null
                 contentItem: Text { text: parent.text; color: "white"; font.bold: true }
+                onClicked: backend.previous()
             }
 
             AppButton {
                 text: isPlaying ? "PAUSE" : "PLAY"
                 background: Rectangle { width: 60; height: 60; radius: 30; color: Style.accent }
-                onClicked: isPlaying = !isPlaying
+                onClicked: backend.setPlaying(!isPlaying)
             }
 
             AppButton {
                 text: "NEXT"
                 background: null
                 contentItem: Text { text: parent.text; color: "white"; font.bold: true }
+                onClicked: backend.next()
             }
             
             AppButton {

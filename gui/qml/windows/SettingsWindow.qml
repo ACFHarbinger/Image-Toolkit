@@ -30,7 +30,7 @@ ApplicationWindow {
                 anchors.fill: parent
                 anchors.margins: 15
                 spacing: 5
-                model: ["General", "User Interface", "Database", "Model APIs", "Web Crawlers", "Cloud Sync"]
+                model: ["General", "User Interface", "Tab Configs", "Database", "Model APIs", "Web Crawlers", "Cloud Sync"]
                 
                 delegate: ItemDelegate {
                     width: parent.width
@@ -72,32 +72,74 @@ ApplicationWindow {
             }
 
             StackLayout {
+                id: stackLayout
                 currentIndex: categoryList.currentIndex
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
-                // General
+                // 1. General (Profiles)
                 ColumnLayout {
                     spacing: 20
                     GroupBox {
                         title: "Application Profile"
                         Layout.fillWidth: true
-                        RowLayout {
-                            spacing: 15
-                            ComboBox { model: ["Default", "Work", "Personal"]; Layout.fillWidth: true }
-                            AppButton { text: "Save As"; Layout.preferredWidth: 100 }
-                            AppButton { text: "Delete"; Layout.preferredWidth: 80 }
+                        
+                        ColumnLayout {
+                            anchors.fill: parent
+                            spacing: 10
+                            
+                            RowLayout {
+                                spacing: 15
+                                Label { text: "Active Profile:"; color: Style.text }
+                                ComboBox { 
+                                    id: profileCombo
+                                    model: backend.profileList
+                                    Layout.fillWidth: true 
+                                }
+                                AppButton { 
+                                    text: "Load"
+                                    onClicked: backend.loadProfile(profileCombo.currentText)
+                                    Layout.preferredWidth: 80
+                                }
+                                AppButton { 
+                                    text: "Delete"
+                                    onClicked: backend.deleteProfile(profileCombo.currentText)
+                                    Layout.preferredWidth: 80
+                                }
+                            }
+                            
+                            Rectangle { height: 1; Layout.fillWidth: true; color: Style.border }
+                            
+                            RowLayout {
+                                spacing: 15
+                                Label { text: "Save Current State As:"; color: Style.text }
+                                TextField { 
+                                    id: newProfileName
+                                    placeholderText: "New Profile Name"
+                                    Layout.fillWidth: true
+                                    color: Style.text
+                                    background: Rectangle { color: Style.inputBackground; radius: 4; border.color: Style.inputBorder }
+                                }
+                                AppButton { 
+                                    text: "Save"
+                                    onClicked: backend.saveCurrentAsProfile(newProfileName.text, themeCombo.currentText)
+                                    Layout.preferredWidth: 80
+                                }
+                            }
                         }
                     }
+                    
                     GroupBox {
-                        title: "Startup"
+                        title: "Account"
                         Layout.fillWidth: true
-                        CheckBox { text: "Launch at system startup"; palette.windowText: Style.text }
-                        CheckBox { text: "Check for updates automatically"; palette.windowText: Style.text }
+                        RowLayout {
+                            Label { text: "Logged in as:"; color: Style.text }
+                            Text { text: backend.accountName; font.bold: true; color: Style.accent }
+                        }
                     }
                 }
 
-                // UI
+                // 2. User Interface (Here we put Themes)
                 ColumnLayout {
                     spacing: 20
                     GroupBox {
@@ -105,16 +147,83 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         RowLayout {
                             Label { text: "Theme:"; color: Style.text }
-                            ComboBox { model: ["System Default", "Dark Mode", "Light Mode"]; Layout.fillWidth: true }
+                            ComboBox { 
+                                id: themeCombo
+                                model: ["Dark", "Light"]
+                                Layout.fillWidth: true 
+                                onCurrentTextChanged: backend.setTheme(currentText)
+                                Component.onCompleted: currentIndex = find(backend.currentTheme === "light" ? "Light" : "Dark")
+                            }
                         }
                     }
                 }
                 
-                // Placeholder for other categories
+                // 3. Tab Configs (Complex Logic)
+                ColumnLayout {
+                    spacing: 15
+                    
+                    RowLayout {
+                        Label { text: "Select Tab:"; color: Style.text; Layout.preferredWidth: 100 }
+                        ComboBox {
+                            model: backend.tabList
+                            Layout.fillWidth: true
+                            onCurrentTextChanged: backend.setTabSelection(currentText)
+                        }
+                    }
+                    
+                    RowLayout {
+                        Label { text: "Saved Configs:"; color: Style.text; Layout.preferredWidth: 100 }
+                        ComboBox {
+                            id: configSelector
+                            model: backend.configListForTab
+                            Layout.fillWidth: true
+                            onCurrentTextChanged: backend.setConfigSelection(currentText)
+                        }
+                        AppButton {
+                            text: "Apply to Active Tab"
+                            onClicked: backend.setConfigForTab(configSelector.currentText)
+                        }
+                        AppButton {
+                            text: "Delete"
+                            onClicked: backend.deleteCurrentConfig(configSelector.currentText)
+                            background: Rectangle { color: "#e74c3c"; radius: 4 }
+                        }
+                    }
+                    
+                    Label { text: "Configuration (JSON):"; color: Style.text }
+                    
+                    ScrollView {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        TextArea {
+                            id: jsonEditor
+                            text: backend.configContent
+                            color: Style.text
+                            font.family: "Monospace"
+                            background: Rectangle { color: Style.inputBackground; border.color: Style.inputBorder }
+                        }
+                    }
+                    
+                    RowLayout {
+                        TextField {
+                            id: newConfigName
+                            placeholderText: "Config Name (for saving)"
+                            Layout.fillWidth: true
+                            color: Style.text
+                            background: Rectangle { color: Style.inputBackground; radius: 4; border.color: Style.inputBorder }
+                        }
+                        AppButton {
+                            text: "Save/Create Config"
+                            onClicked: backend.createConfigFromEditor(newConfigName.text, jsonEditor.text)
+                        }
+                    }
+                }
+                
+                // Placeholders for others
                 Repeater {
                     model: 4
                     Item {
-                        Text { text: "Settings for " + categoryList.model[index + 2] + " are coming soon."; color: Style.text; opacity: 0.5; anchors.centerIn: parent }
+                        Text { text: "Settings for " + categoryList.model[index + 3] + " are coming soon."; color: Style.text; opacity: 0.5; anchors.centerIn: parent }
                     }
                 }
             }
@@ -125,13 +234,22 @@ ApplicationWindow {
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 15
-                AppButton { text: "Reset to Defaults"; Layout.preferredWidth: 150 }
-                Item { Layout.fillWidth: true }
-                AppButton { text: "Cancel"; Layout.preferredWidth: 100 }
+                AppButton { text: "Reset to Defaults"; Layout.preferredWidth: 150; onClicked: backend.resetToDefaults() }
+                
                 AppButton { 
-                    text: "Apply Settings"
+                    text: "Relaunch App"
+                    Layout.preferredWidth: 150
+                    background: Rectangle { color: "#f1c40f"; radius: 6 }
+                    onClicked: backend.refreshApplication()
+                }
+                
+                Item { Layout.fillWidth: true }
+                AppButton { text: "Close"; Layout.preferredWidth: 100; onClicked: window.close() }
+                AppButton { 
+                    text: "Apply All Settings"
                     Layout.preferredWidth: 150
                     background: Rectangle { color: Style.accent; radius: 6 }
+                    onClicked: backend.applySettings()
                 }
             }
         }

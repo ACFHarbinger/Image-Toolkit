@@ -2,97 +2,58 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import "../../components"
-import "../../"
+import "../.."
 
 Item {
     id: root
+    Layout.fillWidth: true
+    Layout.fillHeight: true
 
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 20
-        spacing: 15
+        spacing: 20
 
         Text {
-            text: "Image / Video Converter"
+            text: "Image Converter"
             color: Style.text
-            font.pixelSize: 22
+            font.pixelSize: 24
             font.bold: true
         }
 
-        // --- Configuration Section ---
-        GroupBox {
-            title: "Conversion Settings"
+        GridLayout {
+            columns: 2
             Layout.fillWidth: true
             
-            GridLayout {
-                anchors.fill: parent
-                columns: 3
-                rowSpacing: 10
-                columnSpacing: 15
-
-                Label { text: "Input Path:"; color: Style.text }
-                TextField {
+            Label { text: "Input Path:"; color: Style.text }
+            RowLayout {
+                TextField { 
                     id: inputPath
                     Layout.fillWidth: true
-                    placeholderText: "Select directory or files..."
-                    background: Rectangle { color: Style.secondaryBackground; border.color: Style.border; radius: 4 }
                     color: Style.text
+                    text: (mainBackend && mainBackend.convertTab) ? mainBackend.convertTab.input_path_text : "" // Need to expose this
                 }
-                AppButton { text: "Browse"; Layout.preferredWidth: 80 }
+                AppButton { 
+                    text: "Browse"
+                    onClicked: mainBackend.convertTab.browse_directory_and_scan()
+                }
+            }
 
-                Label { text: "Output Format:"; color: Style.text }
-                ComboBox {
-                    model: ["png", "jpg", "webp", "gif", "mp4"]
-                    Layout.fillWidth: true
-                }
-                Item {} // Spacer
-
-                Label { text: "Output Path:"; color: Style.text }
-                TextField {
-                    id: outputPath
-                    Layout.fillWidth: true
-                    placeholderText: "Default is input directory"
-                    background: Rectangle { color: Style.secondaryBackground; border.color: Style.border; radius: 4 }
-                    color: Style.text
-                }
-                AppButton { text: "Browse"; Layout.preferredWidth: 80 }
+            Label { text: "Output Format:"; color: Style.text }
+            ComboBox { 
+                id: outputFormatCombo
+                model: ["png", "jpg", "webp"]
+                Layout.fillWidth: true 
             }
         }
 
-        // --- Gallery Section ---
-        Text { text: "Files Found:"; color: Style.text; font.bold: true }
-        
-        GalleryView {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            // Model will be connected from Python
-            model: ListModel {
-                ListElement { name: "sample1.png"; path: "/tmp/sample1.png"; selected: false }
-                ListElement { name: "sample2.jpg"; path: "/tmp/sample2.jpg"; selected: false }
-            }
-        }
-
-        // --- Action Buttons ---
-        RowLayout {
+        AppButton {
+            text: "Start Conversion"
             Layout.alignment: Qt.AlignRight
-            spacing: 10
-
-            AppButton { text: "Add All Formats"; Layout.preferredWidth: 150 }
-            AppButton { text: "Convert Selected"; Layout.preferredWidth: 150 }
+            onClicked: mainBackend.convertTab.start_conversion_worker(false)
         }
-
-        ProgressBar {
-            Layout.fillWidth: true
-            value: 0
-            background: Rectangle { color: Style.secondaryBackground; radius: 4; height: 8 }
-            contentItem: Item {
-                Rectangle {
-                    width: parent.visualPosition * parent.width
-                    height: 8
-                    radius: 4
-                    color: Style.accent
-                }
-            }
-        }
+        
+        Item { Layout.fillHeight: true }
     }
 }
+
