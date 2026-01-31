@@ -12,8 +12,8 @@ name = "slideshow_daemon"
 path = "src/utils/slideshow_daemon.rs"
 
 [dependencies]
-pyo3 = { version = "0.27", features = ["abi3-py311"] }
-image = "0.25"
+pyo3 = { version = "0.27", features = ["abi3-py311"], optional = true }
+image = { version = "0.25", features = ["webp"] }
 fast_image_resize = "5.1"
 rayon = "1.10"
 walkdir = "2.5"
@@ -24,14 +24,39 @@ sha2 = "0.10"
 hex = "0.4"
 chrono = "0.4"
 directories = "6.0"
-reqwest = { version = "0.13", default-features = false, features = ["blocking", "json", "rustls", "form", "query"] }
+reqwest = { version = "0.13", default-features = false, features = [
+    "blocking",
+    "json",
+    "rustls",
+    "form",
+    "query",
+    "stream",
+] }
+scraper = "0.22"
 thirtyfour = "0.36"
 tokio = { version = "1", features = ["full"] }
+which = "6.0"
+url = "2.5"
+base64 = "0.22"
+cffi = "0.1.7"
 
 [features]
-extension-module = ["pyo3/extension-module"]
-default = ["extension-module"]
+python = ["pyo3"]
+extension-module = ["python", "pyo3/extension-module"]
+default = []
 
 [dev-dependencies]
 tempfile = "3"
 mockito = "1.4"
+
+[[test]]
+name = "core_integration_tests"
+required-features = ["python"]
+
+[[test]]
+name = "utils_integration_tests"
+required-features = ["python"]
+
+[[test]]
+name = "web_integration_tests"
+required-features = ["python"]

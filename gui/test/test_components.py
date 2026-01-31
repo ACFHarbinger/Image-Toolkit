@@ -17,29 +17,32 @@ from gui.src.components.queue_item_widget import QueueItemWidget
 
 from PySide6.QtTest import QTest as QTestUtils
 
+
 class TestClickableLabel:
     def test_signals(self, q_app):
         path = "test.jpg"
         label = ClickableLabel(path)
-        
+
         # Test Click
-        # We can't easily spy on signals without QSignalSpy which is not in PySide6 standard? 
+        # We can't easily spy on signals without QSignalSpy which is not in PySide6 standard?
         # Actually PySide6.QtTest.QSignalSpy exists? No, it's usually separate.
         # But we can connect a slot.
-        
+
         received_clicks = []
         label.path_clicked.connect(lambda p: received_clicks.append(p))
-        
+
         received_doubles = []
         label.path_double_clicked.connect(lambda p: received_doubles.append(p))
-        
+
         QTestUtils.mouseClick(label, Qt.LeftButton)
         assert received_clicks == [path]
-        
+
         QTestUtils.mouseDClick(label, Qt.LeftButton)
         assert received_doubles == [path]
 
+
 # --- DraggableLabel Tests ---
+
 
 class TestDraggableLabel:
     def test_init(self, q_app):
@@ -47,31 +50,36 @@ class TestDraggableLabel:
         assert label.file_path == "test.jpg"
         assert label.width() == 100
 
+
 # --- MonitorDropWidget Tests ---
+
 
 class MockMonitor:
     def __init__(self, name="TestMonitor"):
         self.name = name
 
+
 class TestMonitorDropWidget:
     def test_init_and_set_image(self, q_app, mock_pixmap):
         monitor = MockMonitor()
         widget = MonitorDropWidget(monitor, "1")
-        
+
         assert widget.monitor_id == "1"
         assert "Monitor 1" in widget.text()
-        
+
         # Test set_image with explicit pixmap (simulate success)
         widget.set_image("image.jpg", mock_pixmap)
         assert widget._current_pixmap is not None
         assert widget.pixmap() is not None
-        
+
         # Test clear
         widget.clear()
         assert widget.image_path is None
         assert widget.pixmap().isNull()
 
+
 # --- MarqueeScrollArea Tests ---
+
 
 class TestMarqueeScrollArea:
     def test_marquee_logic(self, q_app):
@@ -85,26 +93,29 @@ class TestMarqueeScrollArea:
         # Add items
         label1 = ClickableLabel("item1.jpg")
         layout.addWidget(label1)
-        
+
         # Simulate drag
         viewport = area.viewport()
         QTestUtils.mousePress(viewport, Qt.LeftButton, pos=QPoint(10, 10))
         QTestUtils.mouseMove(viewport, pos=QPoint(50, 50))
         QTestUtils.mouseRelease(viewport, Qt.LeftButton)
 
+
 class TestDraggableMonitorContainer:
     def test_initialization(self, q_app):
-        monitor = type('M', (), {'name': 'TestMonitor'})()
+        monitor = type("M", (), {"name": "TestMonitor"})()
         container = DraggableMonitorContainer(monitor, "1")
         assert container.monitor_id == "1"
         assert monitor.name in container.text()
+
 
 class TestOpaqueViewport:
     def test_default_opacity(self, q_app):
         viewport = OpaqueViewport()
         # Verify the default window opacity set by the component (approximate)
-        import pytest
+
         assert viewport.windowOpacity() == pytest.approx(0.5, rel=1e-2)
+
 
 class TestOptionalField:
     def test_initial_state(self, q_app):
@@ -115,6 +126,7 @@ class TestOptionalField:
         # The inner widget does not expose an input attribute directly; ensure it is set up
         # No direct assertion on input text needed for this test
 
+
 class TestPropertyComparisonDialog:
     def test_diff_generation(self, q_app):
         # PropertyComparisonDialog expects a list of property dictionaries
@@ -124,8 +136,9 @@ class TestPropertyComparisonDialog:
         ]
         dialog = PropertyComparisonDialog(data)
         # The dialog should contain a table widget
-        assert hasattr(dialog, 'table')
+        assert hasattr(dialog, "table")
         assert dialog.table.rowCount() > 0
+
 
 class TestQueueItemWidget:
     def test_display_text(self, q_app, mock_pixmap):

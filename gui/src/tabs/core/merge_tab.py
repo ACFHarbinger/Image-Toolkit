@@ -45,6 +45,8 @@ from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 class MergeTab(AbstractClassTwoGalleries):
     # --- RETAIN THE SIGNAL BRIDGE FOR SAFETY ---
     preview_ready = Signal(str)
+    qml_input_path_changed = Signal(str)
+    # ------------------------------------------
     # ------------------------------------------
 
     def __init__(self):
@@ -1024,10 +1026,49 @@ class MergeTab(AbstractClassTwoGalleries):
             if out_fname:
                 self.output_filename_input.setText(out_fname)
 
-            print(f"MergeTab configuration loaded.")
+            print("MergeTab configuration loaded.")
 
         except Exception as e:
             print(f"Error applying MergeTab config: {e}")
             QMessageBox.warning(
                 self, "Config Error", f"Failed to apply some settings: {e}"
             )
+
+    # --- QML HANDLERS ---
+    @Slot(str)
+    def browse_input_qml(self, current_path=""):
+        starting_dir = current_path if os.path.isdir(current_path) else self.last_browsed_dir
+        d = QFileDialog.getExistingDirectory(
+            self, "Select Directory to Scan", starting_dir
+        )
+        if d:
+            self.scan_directory_path.setText(d)
+            self.last_browsed_dir = d
+            self.qml_input_path_changed.emit(d)
+            self.populate_scan_gallery(d)
+            return d
+        return ""
+
+    @Slot(str, int, int, str)
+    def start_merge_qml(self, direction, spacing, duration, align_mode):
+        """Configuration wrapper for QML triggered merge."""
+        # 1. Update internal state from QML params
+        self.direction.setCurrentText(direction)
+        self.spacing.setValue(spacing)
+        self.duration_spin.setValue(duration)
+        self.align_mode.setCurrentText(align_mode)
+
+        # 2. Trigger existing merge logic
+        # Note: QML should have populated selected_files via separate add/remove calls/signals? 
+        # Actually QML implementation of galleries is complex.
+        # For this prototype we will assume the User selected files in the Python GUI or we need to bridge selection.
+        # Current QML implementation is "dumb" - it doesn't show galleries.
+        # IF QML handles selection, we need a method `set_selected_files_qml`.
+        
+        self.start_merge()
+
+    @Slot(list)
+    def set_selected_files_qml(self, paths):
+        """Sets the selected files from QML list."""
+        self.selected_files = set(paths)
+        self.on_selection_changed()

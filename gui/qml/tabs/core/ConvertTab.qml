@@ -31,11 +31,21 @@ Item {
                     id: inputPath
                     Layout.fillWidth: true
                     color: Style.text
-                    text: (mainBackend && mainBackend.convertTab) ? mainBackend.convertTab.input_path_text : "" // Need to expose this
+                    placeholderText: "Select input folder..."
+                }
+                Connections {
+                    target: (mainBackend && mainBackend.convertTab) ? mainBackend.convertTab : null
+                    function onQml_input_path_changed(newPath) {
+                        inputPath.text = newPath
+                    }
                 }
                 AppButton { 
                     text: "Browse"
-                    onClicked: mainBackend.convertTab.browse_directory_and_scan()
+                    onClicked: {
+                        if (mainBackend && mainBackend.convertTab) {
+                            mainBackend.convertTab.browse_directory_and_scan_qml(inputPath.text)
+                        }
+                    }
                 }
             }
 
@@ -50,7 +60,17 @@ Item {
         AppButton {
             text: "Start Conversion"
             Layout.alignment: Qt.AlignRight
-            onClicked: mainBackend.convertTab.start_conversion_worker(false)
+            background: Rectangle { color: Style.accent; radius: Style.borderRadius }
+            onClicked: {
+                 if (mainBackend && mainBackend.convertTab) {
+                     mainBackend.convertTab.start_conversion_worker_qml(
+                         inputPath.text,
+                         outputFormatCombo.currentText,
+                         "", // Output dir optional
+                         false // Delete original
+                     )
+                 }
+            }
         }
         
         Item { Layout.fillHeight: true }

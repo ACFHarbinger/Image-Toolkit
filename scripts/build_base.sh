@@ -1,2 +1,3 @@
+source .venv/bin/activate
 cd base
-maturin build --release
+maturin develop --release --features python

@@ -472,6 +472,26 @@ class SearchTab(AbstractClassTwoGalleries):
         self.progress_bar.hide()
         self.results_count_label.setText(message)
 
+    # --- QML Wrappers ---
+    def execute_search(self):
+        """Wrapper for QML to start search."""
+        self.perform_search()
+
+    def clear_filters(self):
+        """Wrapper for QML to clear search filters."""
+        self.group_combo.setCurrentIndex(-1)
+        self.subgroup_combo.setCurrentIndex(-1)
+        self.filename_edit.clear()
+        
+        # Uncheck all format buttons
+        for btn in self.format_buttons.values():
+            btn.setChecked(False)
+        self.selected_formats.clear()
+        
+        # Uncheck all tags
+        for checkbox in self.tag_checkboxes.values():
+            checkbox.setChecked(False)
+
     def display_results(self, results: List[Dict[str, Any]]):
         """
         Extracts paths and delegates loading to AbstractClassTwoGalleries logic.

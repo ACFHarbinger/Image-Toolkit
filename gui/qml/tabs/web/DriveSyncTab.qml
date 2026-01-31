@@ -55,9 +55,24 @@ Item {
                     title: "Sync Options"
                     Layout.fillWidth: true
                     ColumnLayout {
-                        CheckBox { text: "Dry Run (Simulate Only)"; palette.windowText: Style.text }
-                        CheckBox { text: "Overwrite Existing Files"; palette.windowText: Style.text }
-                        CheckBox { text: "Verify Integrity (Checksum)"; palette.windowText: Style.text }
+                        CheckBox { 
+                            text: "Dry Run (Simulate Only)"
+                            palette.windowText: Style.text 
+                            checked: mainBackend && mainBackend.driveSyncTab ? mainBackend.driveSyncTab.dry_run : false
+                            onCheckedChange: if (mainBackend && mainBackend.driveSyncTab) mainBackend.driveSyncTab.dry_run = checked
+                        }
+                        CheckBox { 
+                            text: "Overwrite Existing Files"
+                            palette.windowText: Style.text 
+                            checked: mainBackend && mainBackend.driveSyncTab ? mainBackend.driveSyncTab.overwrite : false
+                            onCheckedChange: if (mainBackend && mainBackend.driveSyncTab) mainBackend.driveSyncTab.overwrite = checked
+                        }
+                        CheckBox { 
+                            text: "Verify Integrity (Checksum)"
+                            palette.windowText: Style.text 
+                            checked: mainBackend && mainBackend.driveSyncTab ? mainBackend.driveSyncTab.verify_integrity : false
+                            onCheckedChange: if (mainBackend && mainBackend.driveSyncTab) mainBackend.driveSyncTab.verify_integrity = checked
+                        }
                     }
                 }
             }
@@ -78,7 +93,7 @@ Item {
                         anchors.fill: parent
                         TextArea {
                             readOnly: true
-                            text: "Sync Statistics:\n- Total Files: 0\n- Uploaded: 0\n- Errors: 0\n"
+                            text: mainBackend && mainBackend.driveSyncTab ? mainBackend.driveSyncTab.log_text : "Sync Statistics:\n- Total Files: 0\n- Uploaded: 0\n- Errors: 0\n"
                             color: Style.text
                         }
                     }
@@ -90,17 +105,19 @@ Item {
                         text: "Start Sync"
                         Layout.fillWidth: true
                         background: Rectangle { color: "#2ecc71"; radius: Style.borderRadius }
+                        onClicked: if (mainBackend && mainBackend.driveSyncTab) mainBackend.driveSyncTab.start_sync_worker()
                     }
                     AppButton {
                         text: "Stop Sync"
                         Layout.preferredWidth: 100
                         background: Rectangle { color: "#e74c3c"; radius: Style.borderRadius }
+                        onClicked: if (mainBackend && mainBackend.driveSyncTab) mainBackend.driveSyncTab.stop_sync_worker()
                     }
                 }
 
                 ProgressBar {
                     Layout.fillWidth: true
-                    value: 0.3
+                    value: mainBackend && mainBackend.driveSyncTab ? mainBackend.driveSyncTab.progress_value : 0
                     background: Rectangle { color: Style.secondaryBackground; radius: 4; height: 10 }
                     contentItem: Item {
                         Rectangle {

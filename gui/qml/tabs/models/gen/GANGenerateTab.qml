@@ -11,6 +11,15 @@ ColumnLayout {
     GroupBox {
         title: "Custom GAN Settings"
         Layout.fillWidth: true
+            Label { text: "Checkpoint (.pth):"; color: Style.text }
+            RowLayout {
+                Layout.fillWidth: true
+                TextField { id: ckptPathField; placeholderText: "Path to .pth checkpoint file"; Layout.fillWidth: true }
+                AppButton { text: "Browse"; Layout.preferredWidth: 80 } 
+            }
+
+            Label { text: "Count:"; color: Style.text }
+            SpinBox { id: countSpin; from: 1; to: 64; value: 8 }
         GridLayout {
             columns: 2
             Layout.fillWidth: true
@@ -30,6 +39,14 @@ ColumnLayout {
         text: "Run GAN Generator"
         Layout.fillWidth: true
         background: Rectangle { color: Style.accent; radius: Style.borderRadius }
+        onClicked: {
+            if (mainBackend && mainBackend.generateTab && mainBackend.generateTab.basic_gan_gen_tab) {
+                mainBackend.generateTab.basic_gan_gen_tab.generate_from_qml(
+                    ckptPathField.text,
+                    countSpin.value
+                )
+            }
+        }
     }
 }
 

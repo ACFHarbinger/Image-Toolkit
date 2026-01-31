@@ -433,6 +433,7 @@ CMakeFiles/
 /**/target
 
 # Secret files
+mcp.json
 /**/api/*.json
 /**/cryptography/*.txt
 

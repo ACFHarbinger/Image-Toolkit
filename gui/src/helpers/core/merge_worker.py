@@ -1,7 +1,7 @@
 import os
 
 from typing import Dict, Any, List
-from PySide6.QtCore import QObject, Signal, QThread
+from PySide6.QtCore import QObject, Signal
 from backend.src.core import FSETool, ImageMerger
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 

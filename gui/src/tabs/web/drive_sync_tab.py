@@ -34,7 +34,7 @@ class DriveSyncTab(QWidget):
         self.vault_manager = vault_manager
         self.current_worker: Optional[Any] = None
 
-        self.log_window = LogWindow()
+        self.log_window = LogWindow(parent=self)
 
         main_layout = QVBoxLayout(self)
 
@@ -762,7 +762,7 @@ class DriveSyncTab(QWidget):
             else:
                 self.rb_download.setChecked(True)
 
-            print(f"DriveSyncTab configuration loaded.")
+            print("DriveSyncTab configuration loaded.")
 
         except Exception as e:
             print(f"Error applying DriveSyncTab config: {e}")

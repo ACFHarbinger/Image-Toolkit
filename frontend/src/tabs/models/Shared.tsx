@@ -1,7 +1,10 @@
-import React from 'react';
+import React from "react";
 
 // Replicating the QFormLayout structure
-export const FormRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+export const FormRow: React.FC<{
+  label: string;
+  children: React.ReactNode;
+}> = ({ label, children }) => (
   <div className="flex flex-col sm:flex-row gap-2 mb-4 items-start sm:items-center">
     <label className="w-full sm:w-1/3 font-medium text-gray-700">{label}</label>
     <div className="w-full sm:w-2/3">{children}</div>
@@ -14,8 +17,8 @@ export const PathInput: React.FC<{
   value: string;
   onChange: (val: string) => void;
   placeholder?: string;
-  type?: 'file' | 'folder';
-}> = ({ value, onChange, placeholder, type = 'folder' }) => (
+  type?: "file" | "folder";
+}> = ({ value, onChange, placeholder, type = "folder" }) => (
   <div className="flex gap-2">
     <input
       type="text"
@@ -26,7 +29,9 @@ export const PathInput: React.FC<{
     />
     <button
       className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm"
-      onClick={() => alert("In a real app, this opens a server-side file picker modal")}
+      onClick={() =>
+        alert("In a real app, this opens a server-side file picker modal")
+      }
     >
       Browse
     </button>

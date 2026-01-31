@@ -28,6 +28,15 @@ Item {
                 Layout.preferredWidth: 300
                 spacing: 10
 
+                    Layout.fillWidth: true
+                    ColumnLayout {
+                        Label { text: "Direction:"; color: Style.text }
+                        ComboBox {
+                            id: directionCombo
+                            Layout.fillWidth: true
+                            model: ["horizontal", "vertical", "grid", "panorama", "stitch", "sequential", "gif"]
+                        }
+                    }
                 GroupBox {
                     title: "Merge Mode"
                     Layout.fillWidth: true
@@ -42,17 +51,17 @@ Item {
                     Layout.fillWidth: true
                     GridLayout {
                         columns: 2
-                        Label { text: "Grid Columns:"; color: Style.text }
-                        SpinBox { from: 1; to: 20; value: 2 }
-                        
                         Label { text: "Spacing:"; color: Style.text }
-                        SpinBox { from: 0; to: 100; value: 5 }
+                        SpinBox { id: spacingSpin; from: 0; to: 1000; value: 10 }
                         
-                        Label { text: "Background Color:"; color: Style.text }
-                        Rectangle {
-                            width: 30; height: 30
-                            color: "black"; border.color: Style.border
-                            MouseArea { anchors.fill: parent; onClicked: console.log("Open color picker") }
+                        Label { text: "Duration (ms):"; color: Style.text }
+                        SpinBox { id: durationSpin; from: 10; to: 10000; value: 500; stepSize: 50 }
+
+                        Label { text: "Alignment:"; color: Style.text }
+                        ComboBox {
+                            id: alignCombo
+                            Layout.fillWidth: true
+                            model: ["Default (Top/Center)", "Align Top/Left", "Align Bottom/Right", "Center", "Scaled (Grow Smallest)", "Squish (Shrink Largest)"]
                         }
                     }
                 }
@@ -63,9 +72,19 @@ Item {
                 }
 
                 AppButton {
-                    text: "Save Result"
+                    text: "Run Merge"
                     Layout.fillWidth: true
                     background: Rectangle { color: Style.accent; radius: Style.borderRadius }
+                    onClicked: {
+                        if (mainBackend && mainBackend.mergeTab) {
+                            mainBackend.mergeTab.start_merge_qml(
+                                directionCombo.currentText,
+                                spacingSpin.value,
+                                durationSpin.value,
+                                alignCombo.currentText
+                            )
+                        }
+                    }
                 }
             }
 

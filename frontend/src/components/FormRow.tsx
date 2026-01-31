@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode } from "react";
 
 interface FormRowProps {
   label: string;
@@ -11,9 +11,7 @@ const FormRow: React.FC<FormRowProps> = ({ label, children }) => {
       <label className="font-semibold text-gray-700 dark:text-gray-300 md:text-right md:pt-2">
         {label}
       </label>
-      <div className="md:col-span-2">
-        {children}
-      </div>
+      <div className="md:col-span-2">{children}</div>
     </div>
   );
 };

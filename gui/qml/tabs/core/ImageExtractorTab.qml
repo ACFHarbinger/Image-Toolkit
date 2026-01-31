@@ -43,21 +43,82 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                     }
                     
-                    // VideoOutput { anchors.fill: parent; source: mediaPlayer }
+                    MediaPlayer {
+                        id: player
+                        source: "" // Will be set via file dialog or backend signal
+                        audioOutput: AudioOutput {}
+                    }
+                    VideoOutput {
+                         anchors.fill: parent
+                         source: player 
+                         fillMode: VideoOutput.PreserveAspectFit
+                    }
                 }
 
                 // --- Controls ---
                 RowLayout {
                     Layout.fillWidth: true
-                    AppButton { text: "▶"; Layout.preferredWidth: 40 }
-                    Slider { Layout.fillWidth: true; from: 0; to: 100; value: 30 }
-                    Text { text: "00:00 / 00:00"; color: Style.text }
+                    AppButton { 
+                        text: player.playbackState === MediaPlayer.PlayingState ? "⏸" : "▶"
+                        Layout.preferredWidth: 40 
+                        onClicked: player.playbackState === MediaPlayer.PlayingState ? player.pause() : player.play()
+                    }
+                    Slider { 
+                        id: seekSlider
+                        Layout.fillWidth: true 
+                        from: 0
+                        to: player.duration
+                        value: player.position
+                        onMoved: player.position = value
+                    }
+                    Text { 
+                        text: {
+                             var m = Math.floor(player.position / 60000)
+                             var s = Math.floor((player.position % 60000) / 1000)
+                             return (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s)
+                        } 
+                        color: Style.text 
+                    }
                 }
 
                 RowLayout {
                     Layout.fillWidth: true
-                    AppButton { text: "Extract Current Frame"; Layout.fillWidth: true }
-                    AppButton { text: "Batch Extract (Auto)"; Layout.fillWidth: true }
+                    AppButton { 
+                        text: "Extract Current Frame"
+                        Layout.fillWidth: true 
+                        onClicked: {
+                             if (mainBackend && mainBackend.imageExtractorTab && player.source) {
+                                  // Convert QUrl to string path
+                                  var path = player.source.toString().replace("file://", "")
+                                  mainBackend.imageExtractorTab.extract_single_frame_qml(path, player.position)
+                             }
+                        }
+                    }
+                    AppButton { 
+                         text: "Open Video..."
+                         Layout.preferredWidth: 150
+                         onClicked: {
+                              if (mainBackend && mainBackend.imageExtractorTab) {
+                                   // We use backend browser to pick DIR, but here we want single video maybe?
+                                   // Actually tab is "Source Directory" based.
+                                   // Let's reuse browse_source_qml which picks a dir and scans it. 
+                                   // But QML player needs a file.
+                                   // Let's implement a simple file picker in QML or rely on backend signal?
+                                   // For simplicity, let's just pick a file locally or browse dir.
+                                   
+                                   mainBackend.imageExtractorTab.browse_source_qml("")
+                              }
+                         }
+                    }
+                    
+                    // Connection to listen for new source path if backend sets it
+                    Connections {
+                         target: (mainBackend && mainBackend.imageExtractorTab) ? mainBackend.imageExtractorTab : null
+                         function onQml_source_path_changed(path) {
+                              // Backend scanned a DIR. We don't auto-load video.
+                              // QML Gallery would list files.
+                         }
+                    }
                 }
             }
 

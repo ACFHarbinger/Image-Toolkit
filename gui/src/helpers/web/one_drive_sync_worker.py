@@ -34,7 +34,7 @@ class OneDriveSyncWorker(QRunnable):
 
     def run(self):
         self.signals.status_update.emit("\n" + "=" * 50)
-        self._log(f"--- OneDrive Sync Initiated ---")
+        self._log("--- OneDrive Sync Initiated ---")
         self._log(f"Sync Mode: {'DRY RUN' if self.dry_run else 'LIVE'}")
         self.signals.status_update.emit("=" * 50 + "\n")
 

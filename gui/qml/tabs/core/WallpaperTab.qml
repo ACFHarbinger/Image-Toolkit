@@ -31,21 +31,51 @@ Item {
                 anchors.centerIn: parent
                 spacing: 20
                 
-                // Monitor 1 Placeholder
-                Rectangle {
-                    width: 200; height: 120
-                    color: Style.background
-                    border.color: Style.accent
-                    border.width: 2
-                    Text { anchors.centerIn: parent; text: "Monitor 1\n(Main)"; color: Style.text; horizontalAlignment: Text.AlignHCenter }
-                }
+                Repeater {
+                    id: monitorRepeater
+                    model: ListModel { id: monitorModel }
+                    delegate: Rectangle {
+                        width: 200; height: 120
+                        color: Style.background
+                        border.color: model.is_primary ? Style.accent : Style.border
+                        border.width: 2
+                        
+                        Text { 
+                            anchors.centerIn: parent
+                            text: model.name + (model.is_primary ? "\n(Main)" : "")
+                            color: Style.text
+                            horizontalAlignment: Text.AlignHCenter 
+                        }
 
-                // Monitor 2 Placeholder
-                Rectangle {
-                    width: 200; height: 120
-                    color: Style.background
-                    border.color: Style.border
-                    Text { anchors.centerIn: parent; text: "Monitor 2"; color: Style.text; horizontalAlignment: Text.AlignHCenter }
+                        DropArea {
+                            anchors.fill: parent
+                            onDropped: {
+                                if (drop.hasUrls) {
+                                    var path = drop.urls[0].toString().replace("file://", "")
+                                    if (mainBackend && mainBackend.wallpaperTab) {
+                                         // Target specific monitor by name
+                                         mainBackend.wallpaperTab.set_wallpaper_qml(path, model.name)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                Connections {
+                    target: (mainBackend && mainBackend.wallpaperTab) ? mainBackend.wallpaperTab : null
+                    function onQml_monitors_changed(monitors) {
+                        monitorModel.clear()
+                        for (var i = 0; i < monitors.length; i++) {
+                            monitorModel.append(monitors[i])
+                        }
+                    }
+                }
+                
+                Component.onCompleted: {
+                    if (mainBackend && mainBackend.wallpaperTab) {
+                        mainBackend.wallpaperTab.request_monitors_qml()
+                    }
                 }
             }
             
@@ -92,17 +122,30 @@ Item {
                     text: "Start Slideshow"
                     Layout.fillWidth: true
                     background: Rectangle { color: "#2ecc71"; radius: Style.borderRadius }
+                    onClicked: {
+                        if (mainBackend && mainBackend.wallpaperTab) {
+                            mainBackend.wallpaperTab.start_slideshow() // Existing slot
+                        }
+                    }
                 }
 
                 AppButton {
                     text: "Stop Slideshow"
                     Layout.fillWidth: true
                     background: Rectangle { color: "#e74c3c"; radius: Style.borderRadius }
+                    onClicked: {
+                         if (mainBackend && mainBackend.wallpaperTab) {
+                            mainBackend.wallpaperTab.stop_slideshow() // Existing slot
+                        }
+                    }
                 }
 
                 AppButton {
                     text: "Clear All Monitor Queues"
                     Layout.fillWidth: true
+                    onClicked: {
+                        // TODO: Add backend slot for clearing queues if not exists
+                    }
                 }
             }
         }

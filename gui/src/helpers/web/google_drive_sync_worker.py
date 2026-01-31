@@ -39,7 +39,7 @@ class GoogleDriveSyncWorker(QRunnable):
 
     def run(self):
         self.signals.status_update.emit("\n" + "=" * 50)
-        self._log(f"--- Google Drive Sync Initiated ---")
+        self._log("--- Google Drive Sync Initiated ---")
         self._log(f"Authentication Mode: {self.auth_mode.upper()}")
         self._log(f"Sync Mode: {'DRY RUN' if self.dry_run else 'LIVE'}")
         self._log(f"Action for Local Orphans: {self.action_local.upper()}")
@@ -54,7 +54,6 @@ class GoogleDriveSyncWorker(QRunnable):
                 "drive_destination_folder_name": self.remote_path,
                 "dry_run": self.dry_run,
                 "logger": self._log,
-                "user_email_to_share_with": self.share_email,
                 "action_local_orphans": self.action_local,
                 "action_remote_orphans": self.action_remote,
             }

@@ -31,12 +31,27 @@ Item {
                 RowLayout {
                     spacing: 10
                     TextField {
+                        id: targetPathInput
                         placeholderText: "Enter directory to scan..."
                         Layout.fillWidth: true
                         background: Rectangle { color: Style.secondaryBackground; border.color: Style.border; radius: 4 }
                         color: Style.text
                     }
-                    AppButton { text: "Browse"; Layout.preferredWidth: 80 }
+                     Connections {
+                        target: (mainBackend && mainBackend.deleteTab) ? mainBackend.deleteTab : null
+                        function onQml_input_path_changed(newPath) {
+                            targetPathInput.text = newPath
+                        }
+                    }
+                    AppButton { 
+                        text: "Browse"
+                        Layout.preferredWidth: 80 
+                        onClicked: {
+                            if (mainBackend && mainBackend.deleteTab) {
+                                mainBackend.deleteTab.browse_target_qml(targetPathInput.text)
+                            }
+                        }
+                    }
                 }
 
                 AppButton {
@@ -45,6 +60,14 @@ Item {
                     background: Rectangle {
                         color: Style.accent
                         radius: Style.borderRadius
+                    }
+                    onClicked: {
+                        if (mainBackend && mainBackend.deleteTab) {
+                             mainBackend.deleteTab.start_duplicate_scan_qml(
+                                 targetPathInput.text,
+                                 "Exact Match" // TODO: Add combo box for method
+                             )
+                        }
                     }
                 }
 
@@ -87,6 +110,11 @@ Item {
                     AppButton {
                         text: "Delete Selected"
                         Layout.fillWidth: true
+                        onClicked: {
+                            if (mainBackend && mainBackend.deleteTab) {
+                                mainBackend.deleteTab.delete_selected_files_qml()
+                            }
+                        }
                     }
                     
                     AppButton {

@@ -80,12 +80,14 @@ Item {
                     AppButton {
                         text: "Clear Filters"
                         Layout.preferredWidth: 120
+                        onClicked: if (mainBackend && mainBackend.searchTab) mainBackend.searchTab.clear_filters()
                     }
                     Item { Layout.fillWidth: true }
                     AppButton {
                         text: "Search Database"
                         Layout.preferredWidth: 180
                         background: Rectangle { color: Style.accent; radius: Style.borderRadius }
+                        onClicked: if (mainBackend && mainBackend.searchTab) mainBackend.searchTab.execute_search()
                     }
                 }
             }

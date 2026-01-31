@@ -25,7 +25,7 @@ class WebRequestsTab(QWidget):
         self.worker = None
 
         # --- Log Window Initialization ---
-        self.log_window = LogWindow(tab_name="Web Requests")
+        self.log_window = LogWindow(tab_name="Web Requests", parent=self)
         self.log_window.hide()
         # --- End Log Window Initialization ---
 
@@ -422,7 +422,7 @@ class WebRequestsTab(QWidget):
                     display_text += f" | Param: {param}"
                 self.action_list_widget.addItem(display_text)
 
-            print(f"WebRequestsTab configuration loaded.")
+            print("WebRequestsTab configuration loaded.")
 
         except Exception as e:
             print(f"Error applying WebRequestsTab config: {e}")

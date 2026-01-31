@@ -1,9 +1,13 @@
-use anyhow::{Context, Result};
+#[cfg(feature = "python")]
+use anyhow::Context;
+use anyhow::Result;
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
+#[cfg(feature = "python")]
 use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -72,6 +76,7 @@ impl SyncRunner {
         }
     }
 
+    #[cfg(feature = "python")]
     pub fn run<T: CloudSync>(
         &self,
         py: Python<'_>,
@@ -216,6 +221,7 @@ impl SyncRunner {
         Ok(stats)
     }
 
+    #[cfg(feature = "python")]
     fn get_local_files(&self) -> Result<HashMap<String, SyncItem>> {
         let mut items = HashMap::new();
         let base_path = Path::new(&self.local_path);
@@ -251,6 +257,7 @@ impl SyncRunner {
         Ok(items)
     }
 
+    #[cfg(feature = "python")]
     fn check_stop(&self, py: Python<'_>, callback_obj: &Py<PyAny>) -> Result<()> {
         if let Ok(is_running) = callback_obj.getattr(py, "_is_running") {
             if !is_running.extract::<bool>(py)? {
@@ -261,6 +268,7 @@ impl SyncRunner {
     }
 }
 
+#[cfg(feature = "python")]
 fn emit_status(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     obj.call_method1(py, "on_status_emitted", (msg,))?;
     Ok(())

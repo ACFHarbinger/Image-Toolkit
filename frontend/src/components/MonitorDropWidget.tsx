@@ -1,5 +1,6 @@
-import React, { useState, useRef } from 'react';
-import { Monitor } from 'lucide-react'; // Used as fallback icon, optional
+import React, { useState, useEffect } from "react";
+import { Monitor } from "lucide-react";
+import { convertFileSrc } from "@tauri-apps/api/core";
 
 interface MonitorData {
   id: string;
@@ -16,7 +17,7 @@ interface MonitorDropWidgetProps {
   onClearRequested: (monitorId: string) => void;
 }
 
-const SUPPORTED_IMG_FORMATS = ['.png', '.jpg', '.jpeg', '.bmp', '.gif'];
+const SUPPORTED_IMG_FORMATS = [".png", ".jpg", ".jpeg", ".bmp", ".gif"];
 
 export const MonitorDropWidget: React.FC<MonitorDropWidgetProps> = ({
   monitor,
@@ -27,26 +28,15 @@ export const MonitorDropWidget: React.FC<MonitorDropWidgetProps> = ({
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [imagePath, setImagePath] = useState<string | null>(null);
-  const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
-
-  const hasValidImage = (items: DataTransferItemList | FileList): boolean => {
-    // In a browser/electron drag, we check files
-    if (items instanceof DataTransferItemList) {
-        // During DragOver, we can only check 'kind', not the file extension securely
-        // But we accept 'file'
-        return Array.from(items).some(item => item.kind === 'file');
-    }
-    return Array.from(items).some(file => 
-        SUPPORTED_IMG_FORMATS.some(ext => file.name.toLowerCase().endsWith(ext))
-    );
-  };
+  const [contextMenuPos, setContextMenuPos] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (hasValidImage(e.dataTransfer.items)) {
-      setIsDragging(true);
-    }
+    setIsDragging(true);
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
@@ -60,15 +50,22 @@ export const MonitorDropWidget: React.FC<MonitorDropWidgetProps> = ({
     e.stopPropagation();
     setIsDragging(false);
 
+    // 1. Check for internal path (text/plain) from DraggableImageLabel
+    const internalPath = e.dataTransfer.getData("text/plain");
+    if (internalPath) {
+      setImagePath(internalPath);
+      onImageDropped(monitorId, internalPath);
+      return;
+    }
+
+    // 2. Check for external files
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
-      const isSupported = SUPPORTED_IMG_FORMATS.some(ext => 
-        file.name.toLowerCase().endsWith(ext)
+      const isSupported = SUPPORTED_IMG_FORMATS.some((ext) =>
+        file.name.toLowerCase().endsWith(ext),
       );
 
       if (isSupported) {
-        // In Electron, 'file.path' gives the full OS path.
-        // In pure web, this is restricted. Assuming Electron context here.
         const filePath = (file as any).path || URL.createObjectURL(file);
         setImagePath(filePath);
         onImageDropped(monitorId, filePath);
@@ -82,55 +79,56 @@ export const MonitorDropWidget: React.FC<MonitorDropWidgetProps> = ({
   };
 
   // Close context menu on click elsewhere
-  React.useEffect(() => {
+  useEffect(() => {
     const handleClick = () => setContextMenuPos(null);
-    window.addEventListener('click', handleClick);
-    return () => window.removeEventListener('click', handleClick);
+    window.addEventListener("click", handleClick);
+    return () => window.removeEventListener("click", handleClick);
   }, []);
 
-  const monitorName = monitor.name 
-    ? `Monitor ${monitorId} (${monitor.name})` 
+  const monitorName = monitor.name
+    ? `${monitor.name}`
     : `Monitor ${monitorId}`;
 
   return (
     <>
       <div
         onDragEnter={handleDragEnter}
-        onDragOver={(e) => e.preventDefault()} // Necessary to allow dropping
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+        }}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onDoubleClick={() => onDoubleClicked(monitorId)}
         onContextMenu={handleContextMenu}
-        style={{
-          width: '220px',
-          height: '160px',
-          backgroundColor: isDragging ? '#40444b' : '#36393f',
-          border: isDragging ? '2px solid #5865f2' : '2px dashed #4f545c',
-          borderRadius: '8px',
-          color: '#b9bbbe',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '10px',
-          textAlign: 'center',
-          position: 'relative',
-          transition: 'all 0.2s',
-          cursor: 'default',
-          overflow: 'hidden', // Clip image
-        }}
+        className={`relative w-[280px] h-[180px] rounded-xl border-2 transition-all duration-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer
+            ${isDragging
+            ? "bg-violet-500/10 border-violet-500 shadow-[0_0_20px_rgba(139,92,246,0.3)] scale-[1.02]"
+            : "bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 border-dashed hover:border-violet-400 dark:hover:border-violet-600 hover:bg-gray-100 dark:hover:bg-gray-800"
+          }`}
       >
         {imagePath ? (
-          <img
-            src={imagePath}
-            alt="Monitor Background"
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
-        ) : (
           <>
-            <b style={{ marginBottom: '10px' }}>{monitorName}</b>
-            <span style={{ fontSize: '14px' }}>Drag and Drop Image Here</span>
+            <img
+              src={imagePath.startsWith("blob:") ? imagePath : convertFileSrc(imagePath)}
+              alt="Monitor Background"
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+              <span className="text-white text-xs font-bold drop-shadow-md px-3 py-1 bg-black/20 rounded-full backdrop-blur-sm">
+                {monitorName}
+              </span>
+              <span className="text-white/70 text-[10px]">Double-click to preview</span>
+            </div>
           </>
+        ) : (
+          <div className="flex flex-col items-center gap-3 text-gray-400 dark:text-gray-500">
+            <Monitor size={48} strokeWidth={1.5} className={isDragging ? "text-violet-500 animate-bounce" : ""} />
+            <div className="flex flex-col items-center">
+              <b className="text-sm dark:text-gray-300">{monitorName}</b>
+              <span className="text-xs">Drop image here</span>
+            </div>
+          </div>
         )}
       </div>
 
@@ -138,15 +136,15 @@ export const MonitorDropWidget: React.FC<MonitorDropWidgetProps> = ({
       {contextMenuPos && (
         <div
           style={{
-            position: 'fixed',
+            position: "fixed",
             top: contextMenuPos.y,
             left: contextMenuPos.x,
-            backgroundColor: '#18191c',
-            border: '1px solid #2f3136',
-            borderRadius: '4px',
-            padding: '5px 0',
+            backgroundColor: "#18191c",
+            border: "1px solid #2f3136",
+            borderRadius: "4px",
+            padding: "5px 0",
             zIndex: 1000,
-            boxShadow: '0 2px 5px rgba(0,0,0,0.5)',
+            boxShadow: "0 2px 5px rgba(0,0,0,0.5)",
           }}
         >
           <div
@@ -155,13 +153,17 @@ export const MonitorDropWidget: React.FC<MonitorDropWidgetProps> = ({
               setImagePath(null);
             }}
             style={{
-              padding: '8px 12px',
-              cursor: 'pointer',
-              color: '#dcddde',
-              fontSize: '14px',
+              padding: "8px 12px",
+              cursor: "pointer",
+              color: "#dcddde",
+              fontSize: "14px",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#4752c4')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor = "#4752c4")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = "transparent")
+            }
           >
             Clear All Images (Current and Queue)
           </div>

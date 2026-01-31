@@ -1,12 +1,9 @@
 import os
+import sys
 import json
 import jpype
 import hashlib
-
-try:
-    import backend.src.utils.definitions as udef
-except:
-    import src.utils.definitions as udef
+import backend.src.utils.definitions as udef
 
 from jpype.types import JArray, JChar
 
@@ -27,7 +24,7 @@ class VaultManager:
         os.makedirs(udef.CRYPTO_DIR, exist_ok=True)
 
         if os.path.exists(udef.PEPPER_FILE):
-            print(f"Loading existing pepper from: {udef.PEPPER_FILE}")
+            print(f"Loading existing pepper from: {udef.PEPPER_FILE}", file=sys.stderr)
             with open(udef.PEPPER_FILE, "r") as f:
                 pepper = f.read().strip()
                 if not pepper:
@@ -37,7 +34,8 @@ class VaultManager:
                 return pepper
         else:
             print(
-                f"Pepper file not found. Generating new pepper at: {udef.PEPPER_FILE}"
+                f"Pepper file not found. Generating new pepper at: {udef.PEPPER_FILE}",
+                file=sys.stderr,
             )
             # Generate a strong, random pepper (32 bytes = 64 hex characters)
             pepper = os.urandom(32).hex()
@@ -52,7 +50,8 @@ class VaultManager:
             except OSError:
                 # Handle systems that don't support chmod (like some Windows systems)
                 print(
-                    "Warning: Could not set restrictive file permissions on pepper file."
+                    "Warning: Could not set restrictive file permissions on pepper file.",
+                    file=sys.stderr,
                 )
 
             return pepper
@@ -72,7 +71,7 @@ class VaultManager:
             if bc_provider_path:
                 classpath.append(f"{bc_provider_path}/*")
 
-            print(f"Starting JVM with classpath: {classpath}")
+            print(f"Starting JVM with classpath: {classpath}", file=sys.stderr)
             jpype.startJVM(classpath=classpath)
 
         try:
@@ -91,10 +90,11 @@ class VaultManager:
             self.key_initializer = KeyInitializerClass()
 
         except jpype.JException as e:
-            print("\n--- ERROR ---")
-            print(f"Could not find Java/Kotlin class: {e}")
+            print("\n--- ERROR ---", file=sys.stderr)
+            print(f"Could not find Java/Kotlin class: {e}", file=sys.stderr)
             print(
-                "Ensure the JAR file path in definitions.py is correct and the project is built."
+                "Ensure the JAR file path in definitions.py is correct and the project is built.",
+                file=sys.stderr,
             )
             raise
 
@@ -116,13 +116,13 @@ class VaultManager:
         Loads the Java KeyStore from a file using the KeyStoreManager.
         """
         try:
-            print(f"Loading keystore: {keystore_path}")
+            print(f"Loading keystore: {keystore_path}", file=sys.stderr)
             self.keystore = self.keystore_manager.loadKeyStore(
                 keystore_path, self._to_char_array(keystore_pass)
             )
-            print("Keystore loaded successfully.")
+            print("Keystore loaded successfully.", file=sys.stderr)
         except Exception as e:
-            print(f"Java Error loading keystore: {e}")
+            print(f"Java Error loading keystore: {e}", file=sys.stderr)
             raise
 
     def contains_alias(self, key_alias: str) -> bool:
@@ -135,7 +135,7 @@ class VaultManager:
         try:
             return self.keystore.containsAlias(key_alias)
         except Exception as e:
-            print(f"Java Error checking alias: {e}")
+            print(f"Java Error checking alias: {e}", file=sys.stderr)
             raise
 
     def create_key_if_missing(
@@ -145,9 +145,7 @@ class VaultManager:
         Uses the KeyInitializer to ensure the keystore exists and contains
         the required secret key.
         """
-        print(
-            f"Checking/Initializing KeyStore at {keystore_path} for alias '{key_alias}'..."
-        )
+        print(f"Checking/Initializing KeyStore at {keystore_path} for alias '{key_alias}'...", file=sys.stderr)
 
         try:
             # Delegate the check-and-create logic to the KeyInitializer.
@@ -166,7 +164,7 @@ class VaultManager:
             self.load_keystore(keystore_path, keystore_pass)
 
         except Exception as e:
-            print(f"Java Error in KeyInitializer: {e}")
+            print(f"Java Error in KeyInitializer: {e}", file=sys.stderr)
             raise
 
     def get_secret_key(self, key_alias: str, key_pass: str):
@@ -177,7 +175,7 @@ class VaultManager:
             raise ValueError("Keystore is not loaded. Call load_keystore() first.")
 
         try:
-            print(f"Retrieving secret key for alias: {key_alias}")
+            print(f"Retrieving secret key for alias: {key_alias}", file=sys.stderr)
             self.secret_key = self.keystore_manager.getSecretKey(
                 self.keystore, key_alias, self._to_char_array(key_pass)
             )
@@ -186,9 +184,9 @@ class VaultManager:
                 raise ValueError(
                     f"No secret key found for alias '{key_alias}' or wrong password."
                 )
-            print("SecretKey retrieved.")
+            print("SecretKey retrieved.", file=sys.stderr)
         except Exception as e:
-            print(f"Java Error getting secret key: {e}")
+            print(f"Java Error getting secret key: {e}", file=sys.stderr)
             raise
 
     def init_vault(self, vault_file_path: str):
@@ -198,9 +196,9 @@ class VaultManager:
         if self.secret_key is None:
             raise ValueError("Secret key is not loaded. Call get_secret_key() first.")
 
-        print(f"Initializing secure vault at: {vault_file_path}")
+        print(f"Initializing secure vault at: {vault_file_path}", file=sys.stderr)
         self.vault = self.SecureJsonVault(self.secret_key, vault_file_path)
-        print("Vault initialized.")
+        print("Vault initialized.", file=sys.stderr)
 
     def save_data(self, json_string: str):
         """
@@ -211,9 +209,9 @@ class VaultManager:
 
         try:
             self.vault.saveData(json_string)
-            print("Data saved successfully.")
+            print("Data saved successfully.", file=sys.stderr)
         except Exception as e:
-            print(f"Java Error saving data: {e}")
+            print(f"Java Error saving data: {e}", file=sys.stderr)
             raise
 
     def load_data(self) -> str:
@@ -224,9 +222,9 @@ class VaultManager:
             raise ValueError("Vault is not initialized. Call init_vault() first.")
 
         try:
-            print("Loading data from vault...")
+            print("Loading data from vault...", file=sys.stderr)
             decrypted_data = self.vault.loadData()
-            print("Data loaded and decrypted successfully.")
+            print("Data loaded and decrypted successfully.", file=sys.stderr)
             decrypted_json_string = str(decrypted_data)
             return decrypted_json_string
 
@@ -236,11 +234,11 @@ class VaultManager:
                 "file not found" in str(e).lower()
                 or "vault file not found" in str(e).lower()
             ):
-                print("Vault file is empty or not found. Returning empty JSON object.")
+                print("Vault file is empty or not found. Returning empty JSON object.", file=sys.stderr)
                 return "{}"
 
-            print(f"Java Error loading data: {e}")
-            print("This may be due to a wrong key or file tampering.")
+            print(f"Java Error loading data: {e}", file=sys.stderr)
+            print("This may be due to a wrong key or file tampering.", file=sys.stderr)
             raise
 
     def update_account_password(self, account_name: str, new_raw_pass: str):
@@ -250,7 +248,7 @@ class VaultManager:
 
         This method is non-destructive (preserves data).
         """
-        print("Starting master password update process (data preserving)...")
+        print("Starting master password update process (data preserving)...", file=sys.stderr)
 
         # 1. Retrieve ALL data from the currently open vault (encrypted with OLD key)
         try:
@@ -269,11 +267,11 @@ class VaultManager:
         # 3. Delete Old Keystore and Vault
         if os.path.exists(udef.KEYSTORE_FILE):
             os.remove(udef.KEYSTORE_FILE)
-            print(f"Deleted old KeyStore: {udef.KEYSTORE_FILE}")
+            print(f"Deleted old KeyStore: {udef.KEYSTORE_FILE}", file=sys.stderr)
 
         if os.path.exists(udef.VAULT_FILE):
             os.remove(udef.VAULT_FILE)
-            print(f"Deleted old Vault file: {udef.VAULT_FILE}")
+            print(f"Deleted old Vault file: {udef.VAULT_FILE}", file=sys.stderr)
 
         # 4. Re-initialize internal objects (JVM remains running)
         # We don't need to call __init__ again because JVM is already up.
@@ -307,14 +305,14 @@ class VaultManager:
         new_json_string = json.dumps(old_vault_content)
         self.save_data(new_json_string)
 
-        print("Master password update complete. Data preserved and re-encrypted.")
+        print("Master password update complete. Data preserved and re-encrypted.", file=sys.stderr)
 
     def shutdown(self):
         """Shuts down the JVM if it's running."""
         if jpype.isJVMStarted():
-            print("Shutting down JVM...")
+            print("Shutting down JVM...", file=sys.stderr)
             jpype.shutdownJVM()
-            print("JVM shut down.")
+            print("JVM shut down.", file=sys.stderr)
 
     def __enter__(self):
         return self
@@ -345,7 +343,7 @@ class VaultManager:
 
         json_string = json.dumps(data_to_save)
 
-        print(f"Saving credentials for account: {account_name}")
+        print(f"Saving credentials for account: {account_name}", file=sys.stderr)
         self.save_data(json_string)  # Uses the existing saveData() method
 
     def load_account_credentials(self) -> dict:
@@ -373,5 +371,5 @@ class VaultManager:
             return loaded_data
 
         except (json.JSONDecodeError, KeyError) as e:
-            print(f"Error parsing loaded data: {e}")
+            print(f"Error parsing loaded data: {e}", file=sys.stderr)
             raise ValueError("The vault file contains invalid or corrupted JSON data.")

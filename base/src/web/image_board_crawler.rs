@@ -1,11 +1,18 @@
-use anyhow::{Context, Result};
+#[cfg(feature = "python")]
+use anyhow::Context;
+use anyhow::Result;
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
 use reqwest::blocking::Client;
 use serde_json::Value;
+#[cfg(feature = "python")]
 use std::fs;
+#[cfg(feature = "python")]
 use std::path::Path;
+#[cfg(feature = "python")]
+use std::thread;
+#[cfg(feature = "python")]
 use std::time::Duration;
-use std::{thread, time};
 
 pub trait Crawler {
     fn name(&self) -> &str;
@@ -68,6 +75,7 @@ impl BoardCrawler {
         }
     }
 
+    #[cfg(feature = "python")]
     pub fn check_rate_limit(&self, py: Python<'_>, callback_obj: &Py<PyAny>) -> PyResult<()> {
         let count = self.current_request_count.get() + 1;
         self.current_request_count.set(count);
@@ -82,6 +90,7 @@ impl BoardCrawler {
         Ok(())
     }
 
+    #[cfg(feature = "python")]
     pub fn run<T: Crawler>(
         &self,
         py: Python<'_>,
@@ -182,7 +191,7 @@ impl BoardCrawler {
                     break;
                 }
             }
-            thread::sleep(time::Duration::from_millis(500));
+            thread::sleep(std::time::Duration::from_millis(500));
         }
 
         emit_status(
@@ -194,6 +203,7 @@ impl BoardCrawler {
     }
 }
 
+#[cfg(feature = "python")]
 fn download_image(client: &Client, url: &str, save_path: &Path) -> Result<()> {
     let mut response = client.get(url).send().context("Request failed")?;
     response.error_for_status_ref().context("Bad status")?;
@@ -204,6 +214,7 @@ fn download_image(client: &Client, url: &str, save_path: &Path) -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "python")]
 fn save_metadata(image_path: &Path, post: &Value) {
     let json_path = image_path.with_extension("json");
     if let Ok(content) = serde_json::to_string_pretty(post) {
@@ -211,11 +222,13 @@ fn save_metadata(image_path: &Path, post: &Value) {
     }
 }
 
+#[cfg(feature = "python")]
 fn emit_status(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     obj.call_method1(py, "on_status_emitted", (msg,))?;
     Ok(())
 }
 
+#[cfg(feature = "python")]
 fn emit_error(py: Python<'_>, obj: &Py<PyAny>, msg: &str) -> PyResult<()> {
     obj.call_method1(py, "on_error_emitted", (msg,))?;
     Ok(())
