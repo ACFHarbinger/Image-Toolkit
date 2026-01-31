@@ -8,10 +8,8 @@ Button {
     
     contentItem: Text {
         text: control.text
-        font.family: Style.fontFamily
-        font.pixelSize: Style.fontSize
-        font.bold: true
-        color: "white"
+        font: control.font
+        color: Style.text
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
@@ -20,8 +18,10 @@ Button {
     background: Rectangle {
         implicitWidth: 100
         implicitHeight: 40
-        color: control.pressed ? Style.accentPressed : 
-               control.hovered ? Style.accentHover : Style.accent
+        color: control.pressed ? Qt.darker(Style.accent, 1.2) : (control.hovered ? Qt.lighter(Style.accent, 1.1) : Style.accent)
+        border.color: Style.border
+        border.width: 1
         radius: Style.borderRadius
     }
 }
+

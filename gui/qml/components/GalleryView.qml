@@ -1,25 +1,15 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import "../"
 
-Item {
-    id: root
-    property alias model: gridView.model
-    
-    GridView {
-        id: gridView
-        anchors.fill: parent
-        cellWidth: 160
-        cellHeight: 190
-        clip: true
-        
-        delegate: ImageCard {
-            imageSource: model.path ? "file://" + model.path : ""
-            fileName: model.name || ""
-            isSelected: model.selected || false
-        }
-        
-        ScrollBar.vertical: ScrollBar {
-            policy: ScrollBar.AsNeeded
-        }
+GridView {
+    id: grid
+    cellWidth: 160
+    cellHeight: 180
+    delegate: ImageCard {
+        imageSource: model.path
+        fileName: model.name
     }
+    model: ListModel {}
 }
+

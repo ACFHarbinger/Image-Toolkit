@@ -1,478 +1,259 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
-import "tabs"
 import "tabs/core"
-import "tabs/web"
 import "tabs/database"
+import "tabs/web"
 import "tabs/models"
 import "."
 
 ApplicationWindow {
     id: window
+    width: 1280
+    height: 800
     visible: true
-    width: 900
-    height: 700
-    title: "Image Database and Toolkit"
+    title: "Image Toolkit - " + (mainBackend ? mainBackend.accountName : "Loading...")
     color: Style.background
 
-    // --- Header ---
-    header: Rectangle {
-        height: 60
-        color: Style.secondaryBackground
-        border.width: 0
-
-        Rectangle {
-            anchors.bottom: parent.bottom
-            width: parent.width
-            height: 2
-            color: Style.accent
-        }
-
-        RowLayout {
-            anchors.fill: parent
-            anchors.margins: 10
-            spacing: 15
-
-            Text {
-                text: "Image Toolkit"
-                color: "white"
-                font.pixelSize: Style.headerFontSize
-                font.bold: true
-                Layout.alignment: Qt.AlignVCenter
-            }
-
-            Item { Layout.fillWidth: true } // Spacer
-
-            Button {
-                text: "⚙"
-                background: Rectangle {
-                    color: "transparent"
-                    radius: 18
-                    border.width: 0
-                }
-                contentItem: Text {
-                    text: parent.text
-                    color: "white"
-                    font.pixelSize: 20
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-            }
-        }
-    }
-
-    // --- Main Content ---
     RowLayout {
         anchors.fill: parent
         spacing: 0
 
-        // --- Sidebar ---
+        // Sidebar
         Rectangle {
-            Layout.preferredWidth: 200
+            Layout.preferredWidth: Style.sidebarWidth
             Layout.fillHeight: true
             color: Style.secondaryBackground
+            border.color: Style.border
 
-            ColumnLayout {
+            ScrollView {
                 anchors.fill: parent
-                spacing: 0
+                clip: true
 
-                TabBar {
-                    id: navBar
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
+                ColumnLayout {
+                    width: parent.width
+                    spacing: 5
                     
-                    background: Rectangle { color: "transparent" }
-
-                    contentItem: ListView {
-                        model: navBar.contentModel
-                        currentIndex: navBar.currentIndex
-                        spacing: 2
-                        orientation: ListView.Vertical
-                        boundsBehavior: Flickable.StopAtBounds
-                        flickableDirection: Flickable.AutoFlickIfNeeded
+                    Text {
+                        text: "Image Toolkit"
+                        color: Style.accent
+                        font.pixelSize: 20
+                        font.bold: true
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.topMargin: 15
                     }
-// ... [rest of the TabButtons]
+                    
+                    Text {
+                        text: mainBackend ? mainBackend.accountName : "Loading..."
+                        color: Style.text
+                        opacity: 0.7
+                        font.pixelSize: 12
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.bottomMargin: 10
+                    }
 
-                    TabButton {
-                        text: "Convert"
-                        width: parent.width
-                        background: Rectangle {
-                            color: parent.checked ? Style.background : "transparent"
-                            border.width: 0
-                            Rectangle {
-                                width: 3
-                                height: parent.height
-                                color: Style.accent
-                                visible: parent.parent.checked
+                    // Section: Core
+                    Text {
+                        text: "CORE"
+                        color: Style.text
+                        opacity: 0.5
+                        font.pixelSize: 10
+                        font.bold: true
+                        Layout.leftMargin: 10
+                        Layout.topMargin: 5
+                    }
+
+                    Repeater {
+                        model: ["Convert", "Delete", "Merge", "Image Extractor", "Wallpaper"]
+                        
+                        Button {
+                            text: modelData
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 32
+                            Layout.leftMargin: 5
+                            Layout.rightMargin: 5
+                            font.bold: mainStack.currentIndex === index
+                            checked: mainStack.currentIndex === index
+                            checkable: true
+                            
+                            background: Rectangle {
+                                color: parent.checked ? Style.accent : (parent.hovered ? Style.border : "transparent")
+                                radius: 4
                             }
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: parent.checked ? Style.accent : Style.text
-                            font.bold: parent.checked
-                            leftPadding: 15
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                    }
-
-                    TabButton {
-                        text: "Merge"
-                        width: parent.width
-                        background: Rectangle {
-                            color: parent.checked ? Style.background : "transparent"
-                            border.width: 0
-                            Rectangle {
-                                width: 3
-                                height: parent.height
-                                color: Style.accent
-                                visible: parent.parent.checked
+                            
+                            contentItem: Text {
+                                text: parent.text
+                                color: parent.checked ? "#ffffff" : Style.text
+                                font: parent.font
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
                             }
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: parent.checked ? Style.accent : Style.text
-                            font.bold: parent.checked
-                            leftPadding: 15
-                            verticalAlignment: Text.AlignVCenter
+                            
+                            onClicked: mainStack.currentIndex = index
                         }
                     }
 
-                    TabButton {
-                        text: "Delete Duplicates"
-                        width: parent.width
-                        background: Rectangle {
-                            color: parent.checked ? Style.background : "transparent"
-                            border.width: 0
-                            Rectangle {
-                                width: 3
-                                height: parent.height
-                                color: Style.accent
-                                visible: parent.parent.checked
+                    // Section: Database
+                    Text {
+                        text: "DATABASE"
+                        color: Style.text
+                        opacity: 0.5
+                        font.pixelSize: 10
+                        font.bold: true
+                        Layout.leftMargin: 10
+                        Layout.topMargin: 10
+                    }
+
+                    Repeater {
+                        model: ["Database", "Search", "Scan Metadata"]
+                        
+                        Button {
+                            property int tabIndex: 5 + index
+                            text: modelData
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 32
+                            Layout.leftMargin: 5
+                            Layout.rightMargin: 5
+                            font.bold: mainStack.currentIndex === tabIndex
+                            checked: mainStack.currentIndex === tabIndex
+                            checkable: true
+                            
+                            background: Rectangle {
+                                color: parent.checked ? Style.accent : (parent.hovered ? Style.border : "transparent")
+                                radius: 4
                             }
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: parent.checked ? Style.accent : Style.text
-                            font.bold: parent.checked
-                            leftPadding: 15
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                    }
-
-                    TabButton {
-                        text: "Video Extractor"
-                        width: parent.width
-                        background: Rectangle {
-                            color: parent.checked ? Style.background : "transparent"
-                            border.width: 0
-                            Rectangle {
-                                width: 3
-                                height: parent.height
-                                color: Style.accent
-                                visible: parent.parent.checked
+                            
+                            contentItem: Text {
+                                text: parent.text
+                                color: parent.checked ? "#ffffff" : Style.text
+                                font: parent.font
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
                             }
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: parent.checked ? Style.accent : Style.text
-                            font.bold: parent.checked
-                            leftPadding: 15
-                            verticalAlignment: Text.AlignVCenter
+                            
+                            onClicked: mainStack.currentIndex = tabIndex
                         }
                     }
 
-                    TabButton {
-                        text: "Wallpapers"
-                        width: parent.width
-                        background: Rectangle {
-                            color: parent.checked ? Style.background : "transparent"
-                            border.width: 0
-                            Rectangle {
-                                width: 3
-                                height: parent.height
-                                color: Style.accent
-                                visible: parent.parent.checked
+                    // Section: Web
+                    Text {
+                        text: "WEB"
+                        color: Style.text
+                        opacity: 0.5
+                        font.pixelSize: 10
+                        font.bold: true
+                        Layout.leftMargin: 10
+                        Layout.topMargin: 10
+                    }
+
+                    Repeater {
+                        model: ["Image Crawler", "Drive Sync", "Web Requests", "Reverse Search"]
+                        
+                        Button {
+                            property int tabIndex: 8 + index
+                            text: modelData
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 32
+                            Layout.leftMargin: 5
+                            Layout.rightMargin: 5
+                            font.bold: mainStack.currentIndex === tabIndex
+                            checked: mainStack.currentIndex === tabIndex
+                            checkable: true
+                            
+                            background: Rectangle {
+                                color: parent.checked ? Style.accent : (parent.hovered ? Style.border : "transparent")
+                                radius: 4
                             }
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: parent.checked ? Style.accent : Style.text
-                            font.bold: parent.checked
-                            leftPadding: 15
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                    }
-
-                    TabButton {
-                        text: "Web Crawler"
-                        width: parent.width
-                        background: Rectangle {
-                            color: parent.checked ? Style.background : "transparent"
-                            border.width: 0
-                            Rectangle {
-                                width: 3
-                                height: parent.height
-                                color: Style.accent
-                                visible: parent.parent.checked
+                            
+                            contentItem: Text {
+                                text: parent.text
+                                color: parent.checked ? "#ffffff" : Style.text
+                                font: parent.font
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
                             }
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: parent.checked ? Style.accent : Style.text
-                            font.bold: parent.checked
-                            leftPadding: 15
-                            verticalAlignment: Text.AlignVCenter
+                            
+                            onClicked: mainStack.currentIndex = tabIndex
                         }
                     }
 
-                    TabButton {
-                        text: "Reverse Search"
-                        width: parent.width
-                        background: Rectangle {
-                            color: parent.checked ? Style.background : "transparent"
-                            border.width: 0
-                            Rectangle {
-                                width: 3
-                                height: parent.height
-                                color: Style.accent
-                                visible: parent.parent.checked
+                    // Section: Models
+                    Text {
+                        text: "MODELS"
+                        color: Style.text
+                        opacity: 0.5
+                        font.pixelSize: 10
+                        font.bold: true
+                        Layout.leftMargin: 10
+                        Layout.topMargin: 10
+                    }
+
+                    Repeater {
+                        model: ["Train", "Generate", "R3GAN Evaluate", "MetaCLIP Inference"]
+                        
+                        Button {
+                            property int tabIndex: 12 + index
+                            text: modelData
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 32
+                            Layout.leftMargin: 5
+                            Layout.rightMargin: 5
+                            font.bold: mainStack.currentIndex === tabIndex
+                            checked: mainStack.currentIndex === tabIndex
+                            checkable: true
+                            
+                            background: Rectangle {
+                                color: parent.checked ? Style.accent : (parent.hovered ? Style.border : "transparent")
+                                radius: 4
                             }
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: parent.checked ? Style.accent : Style.text
-                            font.bold: parent.checked
-                            leftPadding: 15
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                    }
-
-                    TabButton {
-                        text: "Cloud Sync"
-                        width: parent.width
-                        background: Rectangle {
-                            color: parent.checked ? Style.background : "transparent"
-                            border.width: 0
-                            Rectangle {
-                                width: 3
-                                height: parent.height
-                                color: Style.accent
-                                visible: parent.parent.checked
+                            
+                            contentItem: Text {
+                                text: parent.text
+                                color: parent.checked ? "#ffffff" : Style.text
+                                font: parent.font
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
                             }
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: parent.checked ? Style.accent : Style.text
-                            font.bold: parent.checked
-                            leftPadding: 15
-                            verticalAlignment: Text.AlignVCenter
+                            
+                            onClicked: mainStack.currentIndex = tabIndex
                         }
                     }
-
-                    TabButton {
-                        text: "Web Requests"
-                        width: parent.width
-                        background: Rectangle {
-                            color: parent.checked ? Style.background : "transparent"
-                            border.width: 0
-                            Rectangle {
-                                width: 3
-                                height: parent.height
-                                color: Style.accent
-                                visible: parent.parent.checked
-                            }
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: parent.checked ? Style.accent : Style.text
-                            font.bold: parent.checked
-                            leftPadding: 15
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                    }
-
-                    Rectangle { height: 1; width: parent.width; color: Style.border; Layout.margins: 10 }
-
-                    TabButton {
-                        text: "Database"
-                        width: parent.width
-                        background: Rectangle {
-                            color: parent.checked ? Style.background : "transparent"
-                            border.width: 0
-                            Rectangle {
-                                width: 3
-                                height: parent.height
-                                color: Style.accent
-                                visible: parent.parent.checked
-                            }
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: parent.checked ? Style.accent : Style.text
-                            font.bold: parent.checked
-                            leftPadding: 15
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                    }
-
-                    TabButton {
-                        text: "Scan Metadata"
-                        width: parent.width
-                        background: Rectangle {
-                            color: parent.checked ? Style.background : "transparent"
-                            border.width: 0
-                            Rectangle {
-                                width: 3
-                                height: parent.height
-                                color: Style.accent
-                                visible: parent.parent.checked
-                            }
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: parent.checked ? Style.accent : Style.text
-                            font.bold: parent.checked
-                            leftPadding: 15
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                    }
-
-                    TabButton {
-                        text: "Search"
-                        width: parent.width
-                        background: Rectangle {
-                            color: parent.checked ? Style.background : "transparent"
-                            border.width: 0
-                            Rectangle {
-                                width: 3
-                                height: parent.height
-                                color: Style.accent
-                                visible: parent.parent.checked
-                            }
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: parent.checked ? Style.accent : Style.text
-                            font.bold: parent.checked
-                            leftPadding: 15
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                    }
-
-                    Rectangle { height: 1; width: parent.width; color: Style.border; Layout.margins: 10 }
-
-                    TabButton {
-                        text: "Generate"
-                        width: parent.width
-                        background: Rectangle {
-                            color: parent.checked ? Style.background : "transparent"
-                            border.width: 0
-                            Rectangle {
-                                width: 3
-                                height: parent.height
-                                color: Style.accent
-                                visible: parent.parent.checked
-                            }
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: parent.checked ? Style.accent : Style.text
-                            font.bold: parent.checked
-                            leftPadding: 15
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                    }
-
-                    TabButton {
-                        text: "Train"
-                        width: parent.width
-                        background: Rectangle {
-                            color: parent.checked ? Style.background : "transparent"
-                            border.width: 0
-                            Rectangle {
-                                width: 3
-                                height: parent.height
-                                color: Style.accent
-                                visible: parent.parent.checked
-                            }
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: parent.checked ? Style.accent : Style.text
-                            font.bold: parent.checked
-                            leftPadding: 15
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                    }
-
-                    TabButton {
-                        text: "Meta CLIP"
-                        width: parent.width
-                        background: Rectangle {
-                            color: parent.checked ? Style.background : "transparent"
-                            border.width: 0
-                            Rectangle {
-                                width: 3
-                                height: parent.height
-                                color: Style.accent
-                                visible: parent.parent.checked
-                            }
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: parent.checked ? Style.accent : Style.text
-                            font.bold: parent.checked
-                            leftPadding: 15
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                    }
-
-                    TabButton {
-                        text: "R3GAN Eval"
-                        width: parent.width
-                        background: Rectangle {
-                            color: parent.checked ? Style.background : "transparent"
-                            border.width: 0
-                            Rectangle {
-                                width: 3
-                                height: parent.height
-                                color: Style.accent
-                                visible: parent.parent.checked
-                            }
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: parent.checked ? Style.accent : Style.text
-                            font.bold: parent.checked
-                            leftPadding: 15
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                    }
+                    
+                    Item { Layout.preferredHeight: 20 } // Bottom spacer
                 }
             }
         }
 
-        // --- Content Stack ---
+        // Content
         StackLayout {
-            currentIndex: navBar.currentIndex
-            
+            id: mainStack
+            currentIndex: 0
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+
+            // Core Tabs (0-4)
             ConvertTab {}
-            MergeTab {}
             DeleteTab {}
+            MergeTab {}
             ImageExtractorTab {}
             WallpaperTab {}
+            
+            // Database Tabs (5-7)
+            DatabaseTab {}
+            SearchTab {}
+            ScanMetadataTab {}
+            
+            // Web Tabs (8-11)
             ImageCrawlTab {}
-            ReverseImageSearchTab {}
             DriveSyncTab {}
             WebRequestsTab {}
-            DatabaseTab {}
-            ScanMetadataTab {}
-            SearchTab {}
-            GenerateTab {}
+            ReverseImageSearchTab {}
+            
+            // Models Tabs (12-15)
             TrainTab {}
-            MetaClipInferenceTab {}
+            GenerateTab {}
             R3GANEvaluateTab {}
+            MetaClipInferenceTab {}
         }
     }
 }
