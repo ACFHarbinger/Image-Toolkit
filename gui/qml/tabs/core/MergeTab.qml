@@ -37,6 +37,14 @@ Item {
                             model: ["horizontal", "vertical", "grid", "panorama", "stitch", "sequential", "gif"]
                         }
                     }
+                GroupBox {
+                    title: "Merge Mode"
+                    Layout.fillWidth: true
+                    ColumnLayout {
+                        RadioButton { text: "Grid (Vertical/Horizontal)"; checked: true; palette.windowText: Style.text }
+                        RadioButton { text: "GIF / Video Slideshow"; palette.windowText: Style.text }
+                    }
+                }
 
                 GroupBox {
                     title: "Parameters"
