@@ -32,12 +32,16 @@ class MonitorDropWidget(QLabel):
     # Emits monitor_id when the 'Clear Monitor' right-click action is selected
     clear_requested_id = Signal(str)
 
+    # Emits (source_id, target_id) when a 'Swap Wallpapers' target is selected
+    swap_requested_id = Signal(str, str)
+
     def __init__(self, monitor: Monitor, monitor_id: str):
         super().__init__()
         self.monitor = monitor
         self.monitor_id = monitor_id
         self.image_path: Optional[str] = None
         self.drag_start_position = None
+        self.other_monitors: list[tuple[str, str]] = []  # Added for multi-monitor swap
 
         # --- NEW STATE TRACKERS ---
         self._current_pixmap: Optional[QPixmap] = None
@@ -72,6 +76,26 @@ class MonitorDropWidget(QLabel):
         clear_action.triggered.connect(
             lambda: self.clear_requested_id.emit(self.monitor_id)
         )
+
+        menu.addSeparator()
+        if self.other_monitors:
+            swap_menu = menu.addMenu("Swap Wallpapers with...")
+            for target_id, target_name in self.other_monitors:
+                action = swap_menu.addAction(f"{target_name} (ID: {target_id})")
+                action.triggered.connect(
+                    lambda _, tid=target_id: self.swap_requested_id.emit(
+                        self.monitor_id, tid
+                    )
+                )
+        else:
+            # Fallback for 2-monitor legacy case or if targets not populated
+            swap_action = menu.addAction("Swap Wallpapers (Monitor switch)")
+            swap_action.triggered.connect(
+                lambda: self.swap_requested_id.emit(
+                    self.monitor_id, ""
+                )  # Handle empty in receiver
+            )
+
         menu.exec(event.globalPos())
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
@@ -242,7 +266,7 @@ class MonitorDropWidget(QLabel):
                 monitor_name = f"{monitor_name} ({self.monitor.name})"
 
             filename = os.path.basename(file_path)
-            self.setText(f"<b>{monitor_name}</b>\n\n" f"🎥 VIDEO SET:\n{filename}")
+            self.setText(f"<b>{monitor_name}</b>\n\n🎥 VIDEO SET:\n{filename}")
             self.setStyleSheet(
                 """
                 QLabel { 

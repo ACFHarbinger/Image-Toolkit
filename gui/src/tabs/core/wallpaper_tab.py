@@ -59,7 +59,7 @@ from backend.src.core import WallpaperManager
 
 class WallpaperTab(AbstractClassSingleGallery):
     # Signals for QML
-    qml_monitors_changed = Signal(list) # List of dicts
+    qml_monitors_changed = Signal(list)  # List of dicts
     qml_status_changed = Signal(str)
 
     @Slot()
@@ -809,6 +809,57 @@ class WallpaperTab(AbstractClassSingleGallery):
             )
             self.stop_slideshow()
 
+    @Slot(str, str)
+    def swap_monitors(self, m0: str, m1: str = ""):
+        """Swaps wallpapers, queues, and indices between two monitors."""
+        monitor_ids = list(self.monitor_widgets.keys())
+        if len(monitor_ids) < 2:
+            return
+
+        if not m1:
+            # Fallback for single-arg legacy or simplified calls: swap with "the other one"
+            # if exactly 2 exist.
+            if len(monitor_ids) == 2:
+                m1 = next(mid for mid in monitor_ids if mid != m0)
+            else:
+                return  # Can't guess target for > 2 monitors
+
+        if m0 not in self.monitor_widgets or m1 not in self.monitor_widgets:
+            return
+
+        # Swap paths
+        self.monitor_image_paths[m0], self.monitor_image_paths[m1] = (
+            self.monitor_image_paths.get(m1),
+            self.monitor_image_paths.get(m0),
+        )
+
+        # Swap queues
+        self.monitor_slideshow_queues[m0], self.monitor_slideshow_queues[m1] = (
+            self.monitor_slideshow_queues.get(m1, []).copy(),
+            self.monitor_slideshow_queues.get(m0, []).copy(),
+        )
+
+        # Swap current indices
+        self.monitor_current_index[m0], self.monitor_current_index[m1] = (
+            self.monitor_current_index.get(m1, -1),
+            self.monitor_current_index.get(m0, -1),
+        )
+
+        # Update UI widgets
+        for mid in [m0, m1]:
+            path = self.monitor_image_paths[mid]
+            if path:
+                thumb = self._initial_pixmap_cache.get(path)
+                self.monitor_widgets[mid].set_image(path, thumb)
+            else:
+                self.monitor_widgets[mid].clear()
+
+        self.check_all_monitors_set()
+
+        # Update daemon if running
+        if self._is_daemon_running_config():
+            self.toggle_slideshow_daemon()
+
     @Slot(str)
     def handle_monitor_double_click(self, monitor_id: str):
         if self.background_type == "Solid Color":
@@ -817,7 +868,10 @@ class WallpaperTab(AbstractClassSingleGallery):
         monitor_name = self.monitor_widgets[monitor_id].monitor.name
         for win in list(self.open_queue_windows):
             try:
-                if isinstance(win, SlideshowQueueWindow) and win.monitor_id == monitor_id:
+                if (
+                    isinstance(win, SlideshowQueueWindow)
+                    and win.monitor_id == monitor_id
+                ):
                     win.activateWindow()
                     return
             except RuntimeError:
@@ -918,9 +972,9 @@ class WallpaperTab(AbstractClassSingleGallery):
                 monitor_name = widget.monitor.name
                 action = QAction(f"{monitor_name} (ID: {monitor_id})", self)
                 action.triggered.connect(
-                    lambda checked, mid=monitor_id, img_path=path: self.on_image_dropped(
-                        mid, img_path
-                    )
+                    lambda checked,
+                    mid=monitor_id,
+                    img_path=path: self.on_image_dropped(mid, img_path)
                 )
                 add_menu.addAction(action)
         menu.addSeparator()
@@ -1061,16 +1115,27 @@ class WallpaperTab(AbstractClassSingleGallery):
             except Exception as e:
                 print(f"KDE retrieval failed unexpectedly: {e}")
 
-        # Reverting strict sorting to respect User's original order / requests
-        monitors_to_show = self.monitors
+        # Prepare monitor info list for swap targets
+        monitor_info_list = []
+        for i, m in enumerate(self.monitors):
+            m_id = str(i)
+            m_name = m.name if m.name else f"Display {m_id}"
+            monitor_info_list.append((m_id, m_name))
 
         monitor_id_to_widget = {}
         for i, monitor in enumerate(self.monitors):
             monitor_id = str(i)
             drop_widget = MonitorDropWidget(monitor, monitor_id)
+
+            # Provide other monitors as swap targets
+            drop_widget.other_monitors = [
+                (mid, name) for mid, name in monitor_info_list if mid != monitor_id
+            ]
+
             drop_widget.image_dropped.connect(self.on_image_dropped)
             drop_widget.double_clicked.connect(self.handle_monitor_double_click)
             drop_widget.clear_requested_id.connect(self.handle_clear_monitor_queue)
+            drop_widget.swap_requested_id.connect(self.swap_monitors)
             self.monitor_widgets[monitor_id] = drop_widget
 
             current_image = self.monitor_image_paths.get(monitor_id)
@@ -1101,7 +1166,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             monitor_id_to_widget[monitor_id] = drop_widget
             self.monitor_widgets[monitor_id] = drop_widget
 
-        for monitor in monitors_to_show:
+        for monitor in self.monitors:
             system_index = -1
             for i, sys_mon in enumerate(system_monitors):
                 if (
@@ -1743,52 +1808,56 @@ class WallpaperTab(AbstractClassSingleGallery):
     # --- QML HANDLERS ---
     @Slot()
     def request_monitors_qml(self):
-         """Emits the current monitor list to QML."""
-         monitor_data = []
-         for m in self.monitors:
-             monitor_data.append({
-                 "name": m.name,
-                 "x": m.x,
-                 "y": m.y,
-                 "width": m.width,
-                 "height": m.height,
-                 "is_primary": m.is_primary
-             })
-         self.qml_monitors_changed.emit(monitor_data)
+        """Emits the current monitor list to QML."""
+        monitor_data = []
+        for m in self.monitors:
+            monitor_data.append(
+                {
+                    "name": m.name,
+                    "x": m.x,
+                    "y": m.y,
+                    "width": m.width,
+                    "height": m.height,
+                    "is_primary": m.is_primary,
+                }
+            )
+        self.qml_monitors_changed.emit(monitor_data)
 
     @Slot(str, str)
     def set_wallpaper_qml(self, path, monitor_name="All"):
         """Sets wallpaper from QML."""
         # For simplicity, if monitor_name is "All" or not specified, set for all.
         # Logic is complex in set_wallpaper_worker, usually governed by self.monitor_image_paths
-        
+
         # 1. Update internal path state
         if monitor_name == "All":
-             for mid in self.monitor_widgets.keys():
-                  self.monitor_image_paths[mid] = path
+            for mid in self.monitor_widgets.keys():
+                self.monitor_image_paths[mid] = path
         else:
-             # Find ID for name
-             # This is tricky as ID in widgets is usually Name (or index string)
-             # Let's assume monitor_name is the ID used in widgets
-             if monitor_name in self.monitor_widgets:
-                 self.monitor_image_paths[monitor_name] = path
-                 
+            # Find ID for name
+            # This is tricky as ID in widgets is usually Name (or index string)
+            # Let's assume monitor_name is the ID used in widgets
+            if monitor_name in self.monitor_widgets:
+                self.monitor_image_paths[monitor_name] = path
+
         # 2. Trigger worker
         self.handle_set_wallpaper_click()
 
     @Slot(int, int, str, bool, bool)
-    def update_slideshow_settings_qml(self, interval_min, style, random_order, include_subdirs):
+    def update_slideshow_settings_qml(
+        self, interval_min, style, random_order, include_subdirs
+    ):
         """Updates settings from QML."""
         self.interval_min_spinbox.setValue(interval_min)
         self.style_combo.setCurrentText(style)
         # Random/Subdirs logic isn't fully in the snippet shown but we can hook it up if members exist
         # Assuming they modify internal state or config when run.
-        self.request_monitors_qml() # specific refresh
+        self.request_monitors_qml()  # specific refresh
 
     @Slot(str)
     def drop_image_qml(self, path):
-         """Handle drop from QML."""
-         # Assume dropped on 'All' or specific?
-         # QML drag/drop might need specific monitor targeting.
-         # For now, simplistic:
-         self.set_wallpaper_qml(path, "All")
+        """Handle drop from QML."""
+        # Assume dropped on 'All' or specific?
+        # QML drag/drop might need specific monitor targeting.
+        # For now, simplistic:
+        self.set_wallpaper_qml(path, "All")

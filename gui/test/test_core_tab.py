@@ -81,6 +81,39 @@ class TestWallpaperTab:
         tab._update_background_type("Slideshow")
         assert tab.slideshow_group.isVisible()
 
+    def test_swap_monitors(self, q_app, mock_deps):
+        tab = WallpaperTab(db_tab_ref=MagicMock())
+
+        # Setup 2 monitors (mock_deps already provides 1, let's ensure we have 2)
+        m1 = MagicMock(name="Monitor1")
+        m2 = MagicMock(name="Monitor2")
+        tab.monitors = [m1, m2]
+
+        # Manually populate monitor_widgets
+        w1 = MagicMock()
+        w1.monitor = m1
+        w2 = MagicMock()
+        w2.monitor = m2
+        tab.monitor_widgets = {"0": w1, "1": w2}
+
+        # Set initial states
+        tab.monitor_image_paths = {"0": "path1.jpg", "1": "path2.jpg"}
+        tab.monitor_slideshow_queues = {"0": ["path1.jpg"], "1": ["path2.jpg"]}
+        tab.monitor_current_index = {"0": 0, "1": 0}
+
+        # Perform swap
+        tab.swap_monitors()
+
+        # Verify swapped states
+        assert tab.monitor_image_paths["0"] == "path2.jpg"
+        assert tab.monitor_image_paths["1"] == "path1.jpg"
+        assert tab.monitor_slideshow_queues["0"] == ["path2.jpg"]
+        assert tab.monitor_slideshow_queues["1"] == ["path1.jpg"]
+
+        # Verify UI updates
+        w1.set_image.assert_called_with("path2.jpg", None)
+        w2.set_image.assert_called_with("path1.jpg", None)
+
 
 # --- DeleteTab Tests ---
 
