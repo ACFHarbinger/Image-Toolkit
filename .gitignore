@@ -439,3 +439,7 @@ mcp.json
 
 # Added by cargo
 /target
+
+# Linting and formatting
+.ruff_cache/
+.mypy_cache/
