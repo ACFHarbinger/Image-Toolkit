@@ -1132,8 +1132,12 @@ class WallpaperTab(AbstractClassSingleGallery):
                 (mid, name) for mid, name in monitor_info_list if mid != monitor_id
             ]
 
-            drop_widget.image_dropped.connect(self.on_image_dropped)
-            drop_widget.double_clicked.connect(self.handle_monitor_double_click)
+            # Connect Drop Signal
+            drop_widget.images_dropped.connect(self.on_images_dropped)
+            # Re-connect to common handler
+            drop_widget.double_clicked.connect(
+                lambda m_id=monitor_id: self.handle_monitor_double_click(m_id)
+            )
             drop_widget.clear_requested_id.connect(self.handle_clear_monitor_queue)
             drop_widget.swap_requested_id.connect(self.swap_monitors)
             self.monitor_widgets[monitor_id] = drop_widget
@@ -1186,7 +1190,18 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         self.check_all_monitors_set()
 
-    def on_image_dropped(self, monitor_id: str, image_path: str):
+    def on_images_dropped(self, monitor_id: str, image_paths: list[str]):
+        if not image_paths:
+            return
+
+        for image_path in image_paths:
+            self._process_single_drop(monitor_id, image_path)
+
+        # Auto-save changes to daemon config if it exists/is running
+        if self._is_daemon_running_config():
+            self.toggle_slideshow_daemon()
+
+    def _process_single_drop(self, monitor_id: str, image_path: str):
         is_video = image_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
         if is_video and self.background_type == "Image":
             self.background_type_combo.setCurrentText("Smart Video Wallpaper")
@@ -1201,25 +1216,24 @@ class WallpaperTab(AbstractClassSingleGallery):
         if image_path not in self.monitor_slideshow_queues[monitor_id]:
             self.monitor_slideshow_queues[monitor_id].append(image_path)
 
+        # Setting the last dropped image as the active one for UI feedback
+        # (Though with multiple drops, the last one wins for immediate preview)
         self.monitor_image_paths[monitor_id] = image_path
         self.monitor_current_index[monitor_id] = -1
 
         thumb = self._initial_pixmap_cache.get(image_path)
 
-        # --- ADDED: Check for video if thumb is missing ---
         if not thumb and is_video:
             thumb = self._generate_video_thumbnail(image_path)
             if thumb:
                 self._initial_pixmap_cache[image_path] = thumb
-        # ---------------------------------------------------
 
         self.monitor_widgets[monitor_id].set_image(image_path, thumb)
         self.check_all_monitors_set()
 
-        # Auto-save changes to daemon config if it exists/is running
-        # This ensures the background daemon picks up the new queue immediately
-        if self._is_daemon_running_config():
-            self.toggle_slideshow_daemon()  # Re-saves config and restarts/keeps running
+    def on_image_dropped(self, monitor_id: str, image_path: str):
+        """Deprecated: Use on_images_dropped instead."""
+        self.on_images_dropped(monitor_id, [image_path])
 
     def _get_rotated_map_for_ui(self, raw_paths: Dict[int, str]) -> Dict[str, str]:
         """
@@ -1446,10 +1460,13 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.populate_scan_image_gallery(directory)
 
     def create_gallery_label(self, path: str, size: int) -> QLabel:
-        draggable_label = DraggableLabel(path, size)
+        draggable_label = DraggableLabel(
+            path, size, selection_provider=lambda: self.selected_files
+        )
         draggable_label.setAlignment(Qt.AlignCenter)
 
         # Connect signals
+        draggable_label.path_clicked.connect(self.toggle_selection)
         draggable_label.path_double_clicked.connect(self.handle_thumbnail_double_click)
         draggable_label.path_right_clicked.connect(self.show_image_context_menu)
 

@@ -5,7 +5,7 @@ import subprocess
 
 from typing import Dict, Any, List, Optional
 from PySide6.QtGui import QPixmap, QAction, QCursor
-from PySide6.QtCore import Qt, Signal, QPoint, Slot, QThreadPool, QEvent
+from PySide6.QtCore import Qt, Signal, QPoint, Slot, QThreadPool
 from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
 from ...helpers import SearchWorker
 from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassTwoGalleries
-from ...components import OptionalField, ClickableLabel, MarqueeScrollArea
+from ...components import OptionalField, DraggableLabel, MarqueeScrollArea
 from ...styles.style import apply_shadow_effect
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 
@@ -289,36 +289,24 @@ class SearchTab(AbstractClassTwoGalleries):
         # Initial cleanup
         self.clear_galleries()
 
-    # --- KEYBOARD SHORTCUTS ---
-    def keyPressEvent(self, event: QEvent):
-        # Check for Ctrl + A (Select All)
-        if event.key() == Qt.Key.Key_A and event.modifiers() & Qt.ControlModifier:
-            self.select_all_items()  # Calls inherited method
-            event.accept()
-        # Check for Ctrl + D (Deselect All)
-        elif event.key() == Qt.Key.Key_D and event.modifiers() & Qt.ControlModifier:
-            self.deselect_all_items()  # Calls inherited method
-            event.accept()
-        else:
-            super().keyPressEvent(event)
-
     # --- IMPLEMENT ABSTRACT METHODS ---
 
     def create_card_widget(
         self, path: str, pixmap: Optional[QPixmap], is_selected: bool
     ) -> QWidget:
         """
-        Creates a ClickableLabel for the Search Tab gallery.
+        Creates a DraggableLabel for the Search Tab gallery.
         """
         container = QWidget()
         container.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)  # FIX: Corrected method name
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(1)
 
-        # Use Base Class thumbnail size
-        image_label = ClickableLabel(path)
-        image_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
+        # Use DraggableLabel instead of ClickableLabel to support drag-and-drop
+        image_label = DraggableLabel(
+            path, self.thumbnail_size, selection_provider=lambda: self.selected_files
+        )
         image_label.setAlignment(Qt.AlignCenter)
 
         # Helper to get pixmap for base class caching
@@ -365,7 +353,7 @@ class SearchTab(AbstractClassTwoGalleries):
         Called by lazy loader when pixmap is ready or unloaded.
         'widget' here is the container returned by create_card_widget.
         """
-        image_label = widget.findChild(ClickableLabel)
+        image_label = widget.findChild(DraggableLabel)
         if image_label:
             if pixmap and not pixmap.isNull():
                 if (
@@ -482,12 +470,12 @@ class SearchTab(AbstractClassTwoGalleries):
         self.group_combo.setCurrentIndex(-1)
         self.subgroup_combo.setCurrentIndex(-1)
         self.filename_edit.clear()
-        
+
         # Uncheck all format buttons
         for btn in self.format_buttons.values():
             btn.setChecked(False)
         self.selected_formats.clear()
-        
+
         # Uncheck all tags
         for checkbox in self.tag_checkboxes.values():
             checkbox.setChecked(False)
