@@ -4,6 +4,5 @@ from .video_converter import VideoFormatConverter
 from .image_finder import DuplicateFinder, SimilarityFinder
 from .image_merger import ImageMerger
 
-from .image_database import PgvectorImageDatabase
 from .vault_manager import VaultManager
 from .wallpaper import WallpaperManager

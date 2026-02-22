@@ -1,13 +1,13 @@
 import pytest
 
 from unittest.mock import MagicMock, patch
-from src.core.image_database import PgvectorImageDatabase
+from src.database.image_database import PgvectorImageDatabase
 
 
 class TestPgvectorImageDatabase:
     @pytest.fixture
     def mock_db(self):
-        with patch("src.core.image_database.psycopg2.connect") as mock_connect:
+        with patch("src.database.image_database.psycopg2.connect") as mock_connect:
             mock_conn = MagicMock()
             mock_cursor = MagicMock()
             mock_connect.return_value = mock_conn

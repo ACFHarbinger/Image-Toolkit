@@ -27,7 +27,7 @@ from backend.src.web import (
     WebRequestsLogic,
 )
 from backend.src.models.gan import GAN
-from backend.src.core import PgvectorImageDatabase as ImageDatabase
+from backend.src.database import PgvectorImageDatabase as ImageDatabase
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH
 
 # Ensure you handle DB initialization for Search if strictly necessary,
