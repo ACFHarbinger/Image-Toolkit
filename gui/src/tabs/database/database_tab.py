@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
 )
 from dotenv import load_dotenv
-from backend.src.core import PgvectorImageDatabase as ImageDatabase
+from backend.src.database import PgvectorImageDatabase as ImageDatabase
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH
 from ...styles.style import apply_shadow_effect
 
@@ -109,15 +109,23 @@ class DatabaseTab(QWidget):
 
         # Maintenance Buttons
         self.btn_vacuum = QPushButton("🧹 Vacuum Database")
-        self.btn_vacuum.setStyleSheet("background-color: #8e44ad; color: white; padding: 10px;")
-        apply_shadow_effect(self.btn_vacuum, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        self.btn_vacuum.setStyleSheet(
+            "background-color: #8e44ad; color: white; padding: 10px;"
+        )
+        apply_shadow_effect(
+            self.btn_vacuum, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        )
         self.btn_vacuum.clicked.connect(self.run_vacuum)
         self.btn_vacuum.hide()
         self.button_conn_layout.addWidget(self.btn_vacuum)
 
         self.btn_reindex = QPushButton("🔍 Reindex Database")
-        self.btn_reindex.setStyleSheet("background-color: #2980b9; color: white; padding: 10px;")
-        apply_shadow_effect(self.btn_reindex, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        self.btn_reindex.setStyleSheet(
+            "background-color: #2980b9; color: white; padding: 10px;"
+        )
+        apply_shadow_effect(
+            self.btn_reindex, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        )
         self.btn_reindex.clicked.connect(self.run_reindex)
         self.btn_reindex.hide()
         self.button_conn_layout.addWidget(self.btn_reindex)
@@ -654,20 +662,22 @@ class DatabaseTab(QWidget):
             return
         try:
             stats = self.db.get_statistics()
-            
+
             # Format file size
-            total_bytes = stats.get('total_file_size', 0)
+            total_bytes = stats.get("total_file_size", 0)
             if total_bytes < 1024:
                 size_str = f"{total_bytes} B"
             elif total_bytes < 1024**2:
-                size_str = f"{total_bytes/1024:.2f} KB"
+                size_str = f"{total_bytes / 1024:.2f} KB"
             elif total_bytes < 1024**3:
-                size_str = f"{total_bytes/1024**2:.2f} MB"
+                size_str = f"{total_bytes / 1024**2:.2f} MB"
             else:
-                size_str = f"{total_bytes/1024**3:.2f} GB"
+                size_str = f"{total_bytes / 1024**3:.2f} GB"
 
-            last_sync = stats.get('last_sync_date')
-            last_sync_str = last_sync.strftime("%Y-%m-%d %H:%M:%S") if last_sync else "Never"
+            last_sync = stats.get("last_sync_date")
+            last_sync_str = (
+                last_sync.strftime("%Y-%m-%d %H:%M:%S") if last_sync else "Never"
+            )
 
             stats_text = (
                 f"📊 Database Statistics:\n"
@@ -688,7 +698,8 @@ class DatabaseTab(QWidget):
             )
 
     def run_vacuum(self):
-        if not self.db: return
+        if not self.db:
+            return
         try:
             self.db.maintenance_vacuum(full=False)
             QMessageBox.information(self, "Success", "Database vacuum completed.")
@@ -696,7 +707,8 @@ class DatabaseTab(QWidget):
             QMessageBox.critical(self, "Error", f"Vacuum failed: {e}")
 
     def run_reindex(self):
-        if not self.db: return
+        if not self.db:
+            return
         try:
             self.db.maintenance_reindex()
             QMessageBox.information(self, "Success", "Database reindex completed.")
