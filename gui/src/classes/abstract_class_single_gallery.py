@@ -5,7 +5,7 @@ from concurrent.futures import ProcessPoolExecutor
 
 from abc import abstractmethod
 from typing import List, Optional, Dict
-from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer
+from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer, QEvent
 from PySide6.QtGui import QPixmap, QResizeEvent, QAction, QImage, QPainter, QColor
 from PySide6.QtWidgets import (
     QWidget,
@@ -36,6 +36,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
 
         # --- Data State ---
         self.gallery_image_paths: List[str] = []
+        self.selected_files: List[str] = []
         self.path_to_card_widget: Dict[str, QWidget] = {}
         # Stores pre-generated or cached thumbnails
         self._initial_pixmap_cache: Dict[str, QPixmap] = {}
@@ -91,12 +92,110 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         # Initialize Pagination Widgets using Shared Logic
         self.pagination_widget = self.create_pagination_controls()
 
+        # Enable keyboard focus for shortcuts
+        self.setFocusPolicy(Qt.StrongFocus)
+
     # --- ABSTRACT METHODS ---
 
     @abstractmethod
     def create_gallery_label(self, path: str, size: int) -> QLabel:
         """Create the specific interactive label for a gallery item (subclass must implement)."""
         pass
+
+    # --- KEYBOARD SHORTCUTS ---
+    def keyPressEvent(self, event: QEvent):
+        # Check for Ctrl + A (Select All)
+        if event.key() == Qt.Key.Key_A and event.modifiers() & Qt.ControlModifier:
+            self.select_all_items()
+            event.accept()
+        # Check for Ctrl + D (Deselect All)
+        elif event.key() == Qt.Key.Key_D and event.modifiers() & Qt.ControlModifier:
+            self.deselect_all_items()
+            event.accept()
+        else:
+            super().keyPressEvent(event)
+
+    @Slot()
+    def select_all_items(self):
+        """Selects all items currently visible on the current page."""
+        paginated_paths = self.common_get_paginated_slice(
+            self.gallery_image_paths, self.current_page, self.page_size
+        )
+
+        changed = False
+        for path in paginated_paths:
+            if path not in self.selected_files:
+                self.selected_files.append(path)
+                changed = True
+
+        if changed:
+            # Update styles for all visible widgets
+            for path in paginated_paths:
+                widget = self.path_to_card_widget.get(path)
+                if widget:
+                    self.update_card_style(widget, True)
+            self.on_selection_changed()
+
+    @Slot()
+    def deselect_all_items(self):
+        """Clears the selection."""
+        if self.selected_files:
+            affected_paths = list(self.selected_files)
+            self.selected_files.clear()
+            # Update styles for visible widgets that were selected
+            paginated_paths = self.common_get_paginated_slice(
+                self.gallery_image_paths, self.current_page, self.page_size
+            )
+            for path in paginated_paths:
+                if path in affected_paths:
+                    widget = self.path_to_card_widget.get(path)
+                    if widget:
+                        self.update_card_style(widget, False)
+            self.on_selection_changed()
+
+    @Slot(str)
+    def toggle_selection(self, path: str):
+        """Toggle the selection state of a gallery item."""
+        if path in self.selected_files:
+            self.selected_files.remove(path)
+            selected = False
+        else:
+            self.selected_files.append(path)
+            selected = True
+
+        widget = self.path_to_card_widget.get(path)
+        if widget:
+            label = widget.findChild(QLabel)
+            if label:
+                self.update_card_style(widget, selected)
+
+        self.on_selection_changed()
+
+    def on_selection_changed(self):
+        """Hook for subclasses to handle selection changes."""
+        pass
+
+    def update_card_style(self, widget: QWidget, is_selected: bool):
+        """Updates the visual style of a card based on selection state."""
+        label = widget.findChild(QLabel)
+        if not label:
+            return
+
+        if is_selected:
+            label.setStyleSheet(
+                "border: 2px solid #5865f2; background-color: rgba(88, 101, 242, 0.2);"
+            )
+        else:
+            path = getattr(label, "file_path", getattr(label, "path", ""))
+            is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+            if is_video:
+                label.setStyleSheet(
+                    "border: 2px solid #3498db; background-color: transparent;"
+                )
+            else:
+                label.setStyleSheet(
+                    "border: 1px solid #4f545c; background-color: transparent;"
+                )
 
     def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
         container = QWidget()
@@ -133,6 +232,11 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
                 )
 
         layout.addWidget(label)
+
+        # Apply Initial Style
+        is_selected = path in self.selected_files
+        self.update_card_style(container, is_selected)
+
         return container
 
     def update_card_pixmap(
@@ -141,10 +245,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         pixmap: Optional[QPixmap],
         label_ref: Optional[QLabel] = None,
     ):
-        if label_ref:
-            label = label_ref
-        else:
-            label = widget.findChild(QLabel)
+        label = label_ref if label_ref is not None else widget.findChild(QLabel)
 
         if not label:
             return
@@ -328,7 +429,6 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
 
     # --- LOADING LOGIC ---
 
-
     def closeEvent(self, event):
         """Cleanup processes on close."""
         self.cancel_loading()
@@ -398,7 +498,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         worker = BatchImageLoaderWorker(paths, self.thumbnail_size)
         worker.signals.result.connect(self._on_found_image_loaded)
         worker.signals.batch_result.connect(self._on_batch_found_loaded)
-        
+
         self._active_workers.add(worker)
         self.thread_pool.start(worker)
 
@@ -551,7 +651,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         self._loading_paths.add(path)
         worker = ImageLoaderWorker(path, self.thumbnail_size)
         worker.signals.result.connect(self._on_single_image_loaded)
-        
+
         self._active_workers.add(worker)
         self.thread_pool.start(worker)
 

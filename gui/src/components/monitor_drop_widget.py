@@ -23,8 +23,8 @@ class MonitorDropWidget(QLabel):
     displays monitor info, and shows a preview of the dropped image.
     """
 
-    # Emits (monitor_id, image_path) when an image is successfully dropped
-    image_dropped = Signal(str, str)
+    # Emits (monitor_id, [image_paths]) when images are successfully dropped
+    images_dropped = Signal(str, list)
 
     # Emits monitor_id when the widget is double-clicked
     double_clicked = Signal(str)
@@ -162,10 +162,15 @@ class MonitorDropWidget(QLabel):
         self.setProperty("dragging", False)
         self.style().polish(self)
         if self.has_valid_image_url(event.mimeData()):
-            url = event.mimeData().urls()[0]
-            file_path = url.toLocalFile()
-            if os.path.isfile(file_path):
-                self.image_dropped.emit(self.monitor_id, file_path)
+            urls = event.mimeData().urls()
+            valid_paths = []
+            for url in urls:
+                file_path = url.toLocalFile()
+                if os.path.isfile(file_path):
+                    valid_paths.append(file_path)
+
+            if valid_paths:
+                self.images_dropped.emit(self.monitor_id, valid_paths)
                 event.acceptProposedAction()
                 return
         event.ignore()
@@ -184,20 +189,25 @@ class MonitorDropWidget(QLabel):
             return True
         return False
 
-    def handle_custom_drop(self, file_path: str):
+    def handle_custom_drop(self, file_paths: list[str]):
         """
         Handle a drop from the custom drag system.
         Called directly by DraggableLabel when dropped on this widget.
         """
-        if os.path.isfile(file_path):
-            # Validate file type
-            file_path_lower = file_path.lower()
-            valid_exts = set(SUPPORTED_IMG_FORMATS).union(SUPPORTED_VIDEO_FORMATS)
-            _, ext = os.path.splitext(file_path_lower)
-            ext_no_dot = ext.lstrip(".")
+        valid_paths = []
+        for file_path in file_paths:
+            if os.path.isfile(file_path):
+                # Validate file type
+                file_path_lower = file_path.lower()
+                valid_exts = set(SUPPORTED_IMG_FORMATS).union(SUPPORTED_VIDEO_FORMATS)
+                _, ext = os.path.splitext(file_path_lower)
+                ext_no_dot = ext.lstrip(".")
 
-            if ext_no_dot in valid_exts or ext in valid_exts:
-                self.image_dropped.emit(self.monitor_id, file_path)
+                if ext_no_dot in valid_exts or ext in valid_exts:
+                    valid_paths.append(file_path)
+
+        if valid_paths:
+            self.images_dropped.emit(self.monitor_id, valid_paths)
 
     def set_image(self, file_path: Optional[str], thumbnail: Optional[QPixmap] = None):
         """
