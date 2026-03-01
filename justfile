@@ -44,6 +44,12 @@ test:
     npm run test
     cd frontend/src-tauri && cargo test
 
+# Run benchmarks
+bench:
+    @echo "🏃 Running benchmarks..."
+    source .venv/bin/activate && python backend/benchmark/run_all.py
+    cd base && cargo bench
+
 # Run Rust type/compile checks
 check:
     @echo "🔍 Running type checks..."

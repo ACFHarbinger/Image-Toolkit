@@ -48,6 +48,7 @@ default = []
 [dev-dependencies]
 tempfile = "3"
 mockito = "1.4"
+criterion = { version = "0.5", features = ["html_reports"] }
 
 [[test]]
 name = "core_integration_tests"
@@ -60,3 +61,8 @@ required-features = ["python"]
 [[test]]
 name = "web_integration_tests"
 required-features = ["python"]
+
+[[bench]]
+name = "core_operations"
+path = "benchmarks/core_operations.rs"
+harness = false

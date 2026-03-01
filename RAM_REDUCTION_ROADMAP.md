@@ -747,13 +747,120 @@ Change the function signature to take ownership (`img: DynamicImage` instead of
 
 ---
 
+## Performance Benchmarking
+
+A comprehensive benchmark suite is available in `backend/benchmark/` for tracking
+memory usage and compute time across all optimizations.
+
+### Quick Start
+
+```bash
+# Run all benchmarks (Python + Rust)
+cd backend/benchmark
+python run_all.py --save --report
+
+# View results
+open results/benchmark_report_*.html
+```
+
+### Benchmark Suites
+
+#### 1. Database Operations (`bench_database.py`)
+
+Measures PostgreSQL performance:
+- Tag insertion (100, 1k tags)
+- Group/subgroup operations
+- Vector similarity search (k=10, k=100)
+- Bulk image insertion
+- Image-tag association (N+1 query scenario)
+
+**Key metrics**: Query time, peak RAM, `fetchall()` memory usage
+
+#### 2. ML Model Inference (`bench_models.py`)
+
+Measures PyTorch model performance:
+- Siamese ResNet-18 (single, batch of 10)
+- AnimeGAN2 generation
+- Model load/unload time
+- CPU vs GPU comparison
+
+**Key metrics**: Inference time, VRAM/RAM usage, load/unload overhead
+
+#### 3. Rust Core Operations (`base/benches/core_operations.rs`)
+
+Measures native Rust performance using Criterion:
+- File system scanning (100, 1k, 10k files)
+- Image conversion (single, batch of 100)
+- Image merge operations (horizontal, vertical, grid)
+- File deletion by extension
+
+**Key metrics**: Execution time, throughput (ops/sec), memory allocations
+
+### Baseline & Regression Detection
+
+```bash
+# Save current results as baseline
+python run_all.py --save
+cp results/benchmark_*.json results/baseline/
+
+# Compare against baseline
+python run_all.py --baseline results/baseline/
+```
+
+Regression thresholds:
+- **Time**: ±20% change triggers warning
+- **Memory**: ±15% change triggers warning
+
+### Continuous Benchmarking
+
+Benchmarks run automatically on:
+- Every push to `main` (GitHub Actions)
+- Weekly schedule (long-term tracking)
+- Pre-commit hook (optional, lightweight checks)
+
+Results are archived in `gh-pages` branch for historical comparison.
+
+### Adding Custom Benchmarks
+
+```python
+# backend/benchmark/bench_custom.py
+from benchmark.utils import BenchmarkRunner, measure_memory
+
+runner = BenchmarkRunner("Custom Suite")
+
+@runner.benchmark("my_operation", iterations=100)
+@measure_memory
+def bench_my_op():
+    result = expensive_function()
+    return result
+
+if __name__ == "__main__":
+    runner.run()
+    runner.print_results()
+```
+
+See `backend/benchmark/README.md` for full documentation.
+
+---
+
 ## Verification checklist
 
 After implementing each tier:
 
-1. Launch the app and log in.
-2. Open Convert tab → browse a directory with 500+ images → page through 5+ pages
-   forward and back. Observe Python RSS in `htop`.
-3. Open Wallpaper tab → add 500+ images to the queue. Observe RSS.
-4. Run duplicate scan with SIFT on a 1 000-image directory. Observe peak RSS.
-5. Run `pytest` — no regressions expected.
+1. **Run automated benchmarks**:
+   ```bash
+   cd backend/benchmark
+   python run_all.py --save --baseline results/baseline/
+   ```
+   Ensure no regressions (time < +20%, memory < +15%).
+
+2. **Manual GUI testing**:
+   - Launch the app and log in
+   - Open Convert tab → browse a directory with 500+ images → page through 5+ pages
+     forward and back. Observe Python RSS in `htop`.
+   - Open Wallpaper tab → add 500+ images to the queue. Observe RSS.
+   - Run duplicate scan with SIFT on a 1 000-image directory. Observe peak RSS.
+
+3. **Run unit tests**: `pytest` — no regressions expected.
+
+4. **Compare benchmark results**: Check HTML report for memory improvements.
