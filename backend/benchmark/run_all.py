@@ -14,18 +14,19 @@ from datetime import datetime
 # Benchmark modules
 import bench_database
 import bench_models
+import bench_thumbnails
 
 
 def run_python_benchmarks(save=False, baseline=None):
     """Run all Python backend benchmarks."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("PYTHON BACKEND BENCHMARKS")
-    print("="*60)
+    print("=" * 60)
 
     results = {}
 
     # Database benchmarks
-    print("\n[1/2] Running database benchmarks...")
+    print("\n[1/3] Running database benchmarks...")
     try:
         bench_database.runner.run()
         bench_database.runner.print_results()
@@ -39,8 +40,23 @@ def run_python_benchmarks(save=False, baseline=None):
     except Exception as e:
         print(f"❌ Database benchmarks failed: {e}")
 
+    # Thumbnail benchmarks
+    print("\n[2/3] Running thumbnail benchmarks...")
+    try:
+        bench_thumbnails.runner.run()
+        bench_thumbnails.runner.print_results()
+        if save:
+            thumb_path = bench_thumbnails.runner.save_json()
+            results["thumbnails"] = thumb_path
+        if baseline:
+            thumb_baseline = Path(baseline) / "thumbnails.json"
+            if thumb_baseline.exists():
+                bench_thumbnails.runner.check_regression(thumb_baseline)
+    except Exception as e:
+        print(f"❌ Thumbnail benchmarks failed: {e}")
+
     # Model benchmarks
-    print("\n[2/2] Running ML model benchmarks...")
+    print("\n[3/3] Running ML model benchmarks...")
     try:
         bench_models.runner.run()
         bench_models.runner.print_results()
@@ -59,9 +75,9 @@ def run_python_benchmarks(save=False, baseline=None):
 
 def run_rust_benchmarks():
     """Run Rust core benchmarks using criterion."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("RUST CORE BENCHMARKS")
-    print("="*60)
+    print("=" * 60)
 
     base_dir = Path(__file__).parent.parent.parent / "base"
 
@@ -96,14 +112,17 @@ def run_rust_benchmarks():
 
 def generate_combined_report(python_results, rust_results, output_dir):
     """Generate a combined HTML report from all benchmarks."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("GENERATING COMBINED REPORT")
-    print("="*60)
+    print("=" * 60)
 
-    output_path = output_dir / f"benchmark_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
+    output_path = (
+        output_dir / f"benchmark_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
+    )
 
     with open(output_path, "w") as f:
-        f.write("""<!DOCTYPE html>
+        f.write(
+            """<!DOCTYPE html>
 <html>
 <head>
     <title>Image-Toolkit Performance Benchmarks</title>
@@ -131,9 +150,12 @@ def generate_combined_report(python_results, rust_results, output_dir):
         <h2>Benchmark Summary</h2>
         <div class="metric">
             <span class="metric-label">Generated:</span>
-            <span class="metric-value">""" + datetime.now().strftime('%Y-%m-%d %H:%M:%S') + """</span>
+            <span class="metric-value">"""
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            + """</span>
         </div>
-""")
+"""
+        )
 
         # Python benchmarks
         f.write("""
@@ -179,10 +201,18 @@ def generate_combined_report(python_results, rust_results, output_dir):
 def main():
     parser = argparse.ArgumentParser(description="Run all Image-Toolkit benchmarks")
     parser.add_argument("--save", action="store_true", help="Save results to JSON")
-    parser.add_argument("--baseline", type=Path, help="Directory with baseline results for regression check")
-    parser.add_argument("--skip-python", action="store_true", help="Skip Python benchmarks")
+    parser.add_argument(
+        "--baseline",
+        type=Path,
+        help="Directory with baseline results for regression check",
+    )
+    parser.add_argument(
+        "--skip-python", action="store_true", help="Skip Python benchmarks"
+    )
     parser.add_argument("--skip-rust", action="store_true", help="Skip Rust benchmarks")
-    parser.add_argument("--report", action="store_true", help="Generate combined HTML report")
+    parser.add_argument(
+        "--report", action="store_true", help="Generate combined HTML report"
+    )
     args = parser.parse_args()
 
     results_dir = Path(__file__).parent / "results"
@@ -203,9 +233,9 @@ def main():
     if args.report:
         generate_combined_report(python_results, rust_results, results_dir)
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("ALL BENCHMARKS COMPLETE")
-    print("="*60)
+    print("=" * 60)
 
 
 if __name__ == "__main__":
