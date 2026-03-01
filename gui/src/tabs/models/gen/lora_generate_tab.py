@@ -217,6 +217,7 @@ class LoRAGenerateTab(BaseGenerativeTab):
         guidance,
         input_image,
     ):
+        gan = None
         try:
             if model_id == "animegan_v2":
                 if not input_image or not os.path.exists(input_image):
@@ -250,6 +251,9 @@ class LoRAGenerateTab(BaseGenerativeTab):
                 )
         except Exception as e:
             self.generation_finished_signal.emit("error", str(e))
+        finally:
+            if gan is not None:
+                gan.unload()
 
     @Slot(str, str)
     def handle_generation_finished(self, status_type, message):
@@ -265,11 +269,21 @@ class LoRAGenerateTab(BaseGenerativeTab):
             QMessageBox.critical(self, "Error", message)
 
     @Slot(str, str, str, str, str, int, float, int)
-    def generate_from_qml(self, model_id, lora_path, output_name, prompt, neg_prompt, steps, guidance, batch_size):
+    def generate_from_qml(
+        self,
+        model_id,
+        lora_path,
+        output_name,
+        prompt,
+        neg_prompt,
+        steps,
+        guidance,
+        batch_size,
+    ):
         """Wrapper to call generation from QML"""
         self.gen_btn.setEnabled(False)
         self.cancel_btn.setEnabled(True)
-        
+
         output_path = os.path.join(LOCAL_SOURCE_PATH, "Generated", output_name)
 
         config = {
@@ -281,9 +295,9 @@ class LoRAGenerateTab(BaseGenerativeTab):
             "lora_path": lora_path,
             "steps": steps,
             "guidance": guidance,
-            "input_image": "", # GAN input not supported in this simple QML wrapper yet
+            "input_image": "",  # GAN input not supported in this simple QML wrapper yet
         }
-        
+
         # Use existing logic
         try:
             # We reuse run_generation logic but we need to run it in a thread

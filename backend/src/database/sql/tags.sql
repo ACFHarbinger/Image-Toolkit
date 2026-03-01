@@ -17,12 +17,17 @@ UPDATE tags SET name = %s WHERE name = %s;
 UPDATE tags SET type = %s WHERE name = %s;
 
 -- name: get_all_tags
-SELECT name FROM tags ORDER BY name;
+SELECT name FROM tags ORDER BY name LIMIT %s;
 
 -- name: get_all_tags_with_types
-SELECT name, type FROM tags ORDER BY name;
+SELECT name, type FROM tags ORDER BY name LIMIT %s;
 
 -- name: get_image_tags
 SELECT t.name FROM tags t
 JOIN image_tags it ON t.id = it.tag_id
 WHERE it.image_id = %s;
+
+-- name: get_tags_for_images_bulk
+SELECT it.image_id, t.name as tag_name FROM tags t
+JOIN image_tags it ON t.id = it.tag_id
+WHERE it.image_id = ANY(%s);
