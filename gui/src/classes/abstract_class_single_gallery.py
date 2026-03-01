@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH, SUPPORTED_VIDEO_FORMATS
 from .meta_abstract_class_gallery import MetaAbstractClassGallery
+from ..utils.lru_image_cache import LRUImageCache
 from ..helpers import (
     ImageLoaderWorker,
     BatchImageLoaderWorker,
@@ -38,8 +39,8 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         self.gallery_image_paths: List[str] = []
         self.selected_files: List[str] = []
         self.path_to_card_widget: Dict[str, QWidget] = {}
-        # Stores pre-generated or cached thumbnails
-        self._initial_pixmap_cache: Dict[str, QPixmap] = {}
+        # Stores pre-generated or cached thumbnails (bounded LRU, stores QImage)
+        self._initial_pixmap_cache = LRUImageCache(maxsize=300)
 
         # --- Pagination State ---
         self.page_size = 100
@@ -459,7 +460,8 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
             widget = self.path_to_card_widget.get(path)
 
             if not pixmap.isNull():
-                self._initial_pixmap_cache[path] = pixmap
+                if not q_image.isNull():
+                    self._initial_pixmap_cache[path] = q_image  # store QImage
                 if widget:
                     self.update_card_pixmap(widget, pixmap)
             else:
@@ -527,15 +529,17 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
             # Ideally we re-apply current search:
             self._perform_search()
 
-            self._initial_pixmap_cache = (
-                pixmap_cache if pixmap_cache is not None else {}
-            )
+            self._initial_pixmap_cache = LRUImageCache(maxsize=300)
+            if pixmap_cache:
+                for k, v in pixmap_cache.items():
+                    self._initial_pixmap_cache[k] = v
             self._loading_paths.clear()
             self._failed_paths.clear()
         else:
             self.master_image_paths.extend(paths)
             if pixmap_cache:
-                self._initial_pixmap_cache.update(pixmap_cache)
+                for k, v in pixmap_cache.items():
+                    self._initial_pixmap_cache[k] = v
             # Re-apply search to include new appended items
             self._perform_search()
 
@@ -576,8 +580,9 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         for i in range(self._populating_index, limit):
             path = self._paginated_paths[i]
 
-            # 1. Check Cache
-            initial_pixmap = self._initial_pixmap_cache.get(path, None)
+            # 1. Check Cache (stored as QImage, convert to QPixmap for widget)
+            _cached = self._initial_pixmap_cache.get(path)
+            initial_pixmap = QPixmap.fromImage(_cached) if isinstance(_cached, QImage) else _cached
 
             # 2. Check for Video if no cache exists
             is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
@@ -677,8 +682,8 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
                 self._failed_paths = set()
             self._failed_paths.add(path)
 
-            # Cache empty pixmap so _load_visible_images stops asking for it
-            self._initial_pixmap_cache[path] = QPixmap()
+            # Cache a null sentinel so _load_all_page_images stops requesting this path
+            self._initial_pixmap_cache[path] = QImage()
 
             widget = self.path_to_card_widget.get(path)
             if widget:
@@ -686,8 +691,9 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
                 self.update_card_pixmap(widget, QPixmap())
             return
 
-        # Cache the result (valid)
-        self._initial_pixmap_cache[path] = pixmap
+        # Cache the raw QImage (half the RAM of QPixmap on X11)
+        if not q_image.isNull():
+            self._initial_pixmap_cache[path] = q_image
 
         widget = self.path_to_card_widget.get(path)
         if widget:
