@@ -20,7 +20,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QVBoxLayout,
     QGridLayout,
-    QScrollArea,
+    QListWidget,
+    QListWidgetItem,
     QGroupBox,
 )
 from ...helpers import SearchWorker
@@ -128,16 +129,13 @@ class SearchTab(AbstractClassTwoGalleries):
             self.input_formats_edit.setPlaceholderText("e.g. jpg png gif (optional)")
             form_layout.addRow("Input formats:", self.input_formats_edit)
 
-        # --- Tags (Checkbox Grid) ---
-        tags_scroll = QScrollArea()
-        tags_scroll.setMinimumHeight(200)
-        tags_scroll.setWidgetResizable(True)
-        self.tags_widget = QWidget()
-        self.tags_layout = QGridLayout(self.tags_widget)
-        self.tags_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-        tags_scroll.setWidget(self.tags_widget)
-
-        self.tag_checkboxes = {}
+        # --- Tags (List Widget) ---
+        self.tags_list_widget = QListWidget()
+        self.tags_list_widget.setMinimumHeight(200)
+        self.tags_list_widget.setStyleSheet(
+            "QListWidget::item { padding: 5px; } "
+            "QListWidget { background-color: #2c2f33; border: 1px solid #4f545c; border-radius: 8px; }"
+        )
 
         # --- Refresh Tags Button ---
         self.btn_refresh_tags = QPushButton("Refresh Tags")
@@ -149,7 +147,7 @@ class SearchTab(AbstractClassTwoGalleries):
 
         # Add button row before the tags list
         form_layout.addRow("", self.btn_refresh_tags)
-        form_layout.addRow("Tags:", tags_scroll)
+        form_layout.addRow("Tags:", self.tags_list_widget)
 
         layout.addWidget(search_group)
 
@@ -477,8 +475,8 @@ class SearchTab(AbstractClassTwoGalleries):
         self.selected_formats.clear()
 
         # Uncheck all tags
-        for checkbox in self.tag_checkboxes.values():
-            checkbox.setChecked(False)
+        for i in range(self.tags_list_widget.count()):
+            self.tags_list_widget.item(i).setCheckState(Qt.Unchecked)
 
     def display_results(self, results: List[Dict[str, Any]]):
         """
@@ -556,12 +554,8 @@ class SearchTab(AbstractClassTwoGalleries):
 
     @Slot()
     def _setup_tag_checkboxes(self):
-        while self.tags_layout.count():
-            item = self.tags_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        self.tags_list_widget.clear()
 
-        self.tag_checkboxes = {}
         tags_data = self._get_tags_from_db()
         color_map = {
             "Artist": "#5865f2",
@@ -572,15 +566,22 @@ class SearchTab(AbstractClassTwoGalleries):
             "": "#c7c7c7",
             None: "#c7c7c7",
         }
-        columns = 8
-        for i, tag_data in enumerate(tags_data):
+
+        from PySide6.QtGui import QColor
+
+        for tag_data in tags_data:
             tag_name = tag_data["name"]
             tag_type = tag_data["type"] if tag_data["type"] else ""
-            checkbox = QCheckBox(tag_name.replace("_", " ").title())
+
+            item = QListWidgetItem(tag_name.replace("_", " ").title())
+            item.setData(Qt.UserRole, tag_name)
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(Qt.Unchecked)
+
             text_color = color_map.get(tag_type, color_map[""])
-            checkbox.setStyleSheet(f"QCheckBox {{ color: {text_color}; }}")
-            self.tag_checkboxes[tag_name] = checkbox
-            self.tags_layout.addWidget(checkbox, i // columns, i % columns)
+            item.setForeground(QColor(text_color))
+
+            self.tags_list_widget.addItem(item)
 
     def update_search_button_state(self, connected: bool = None):
         if connected is None:
@@ -600,7 +601,11 @@ class SearchTab(AbstractClassTwoGalleries):
         self._db_was_connected = db_connected
 
     def get_selected_tags(self) -> List[str]:
-        return [tag for tag, cb in self.tag_checkboxes.items() if cb.isChecked()]
+        return [
+            self.tags_list_widget.item(i).data(Qt.UserRole)
+            for i in range(self.tags_list_widget.count())
+            if self.tags_list_widget.item(i).checkState() == Qt.Checked
+        ]
 
     def get_selected_formats(self) -> Optional[List[str]]:
         if self.dropdown:
@@ -999,8 +1004,13 @@ class SearchTab(AbstractClassTwoGalleries):
             self.filename_edit.setText(config.get("filename_pattern", ""))
             self._setup_tag_checkboxes()
             selected_tags = set(config.get("tags", []))
-            for tag, checkbox in self.tag_checkboxes.items():
-                checkbox.setChecked(tag in selected_tags)
+            for i in range(self.tags_list_widget.count()):
+                item = self.tags_list_widget.item(i)
+                item.setCheckState(
+                    Qt.Checked
+                    if item.data(Qt.UserRole) in selected_tags
+                    else Qt.Unchecked
+                )
             formats = config.get("input_formats", [])
             if self.dropdown:
                 self.remove_all_formats()

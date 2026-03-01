@@ -3,12 +3,14 @@ import math
 
 from pathlib import Path
 from typing import Set, Dict, Any, List, Tuple, Optional
-from PySide6.QtGui import QPixmap, QAction, QResizeEvent
+from PySide6.QtGui import QPixmap, QImage, QAction, QResizeEvent
 from PySide6.QtCore import Qt, QThread, Slot, QPoint, QTimer, QThreadPool, QEventLoop
 from PySide6.QtWidgets import (
     QWidget,
     QGroupBox,
     QCheckBox,
+    QListWidget,
+    QListWidgetItem,
     QMessageBox,
     QGridLayout,
     QMenu,
@@ -80,7 +82,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         # ThreadPool for image loading
         self.thread_pool = QThreadPool()
         # accumulators for threading results
-        self._loaded_results_buffer: List[Tuple[str, QPixmap]] = []
+        self._loaded_results_buffer: List[Tuple[str, QImage]] = []
         self._images_loaded_count = 0
         self._total_images_to_load = 0
 
@@ -236,17 +238,15 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         subgroup_layout.addWidget(self.subgroup_combo)
         form_layout.addRow("Subgroup Name:", subgroup_layout)
 
-        tags_scroll = QScrollArea()
-        tags_scroll.setMinimumHeight(400)
-        tags_scroll.setWidgetResizable(True)
-        self.tags_widget = QWidget()
-        self.tags_layout = QGridLayout(self.tags_widget)
-        tags_scroll.setWidget(self.tags_widget)
-
-        self.tag_checkboxes = {}
+        self.tags_list_widget = QListWidget()
+        self.tags_list_widget.setMinimumHeight(400)
+        self.tags_list_widget.setStyleSheet(
+            "QListWidget::item { padding: 5px; } "
+            "QListWidget { background-color: #2c2f33; border: 1px solid #4f545c; border-radius: 8px; }"
+        )
         self._setup_tag_checkboxes()
 
-        form_layout.addRow("Tags:", tags_scroll)
+        form_layout.addRow("Tags:", self.tags_list_widget)
         metadata_vbox.addLayout(form_layout)
         content_layout.addWidget(self.metadata_group)
 
@@ -702,12 +702,8 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         return []
 
     def _setup_tag_checkboxes(self):
-        while self.tags_layout.count():
-            item = self.tags_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        self.tags_list_widget.clear()
 
-        self.tag_checkboxes = {}
         tags_data = self._get_tags_from_db()
 
         color_map = {
@@ -720,17 +716,21 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             None: "#c7c7c7",
         }
 
-        columns = 4
-        for i, tag_data in enumerate(tags_data):
+        from PySide6.QtGui import QColor
+
+        for tag_data in tags_data:
             tag_name = tag_data["name"]
             tag_type = tag_data["type"] if tag_data.get("type") else ""
 
-            checkbox = QCheckBox(tag_name.replace("_", " ").title())
-            text_color = color_map.get(tag_type, color_map[""])
-            checkbox.setStyleSheet(f"QCheckBox {{ color: {text_color}; }}")
+            item = QListWidgetItem(tag_name.replace("_", " ").title())
+            item.setData(Qt.UserRole, tag_name)
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(Qt.Unchecked)
 
-            self.tag_checkboxes[tag_name] = checkbox
-            self.tags_layout.addWidget(checkbox, i // columns, i % columns)
+            text_color = color_map.get(tag_type, color_map[""])
+            item.setForeground(QColor(text_color))
+
+            self.tags_list_widget.addItem(item)
 
     def _columns(self) -> int:
         width = self.scan_scroll_area.viewport().width()
@@ -1060,7 +1060,6 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         # 2. Iterate through managed widgets
         # (Using items ensures we don't crash if widgets were deleted)
         for path, widget in self.path_to_wrapper_map.items():
-
             # Skip if already loaded or currently loading
             if path in self.loaded_paths or path in self.loading_paths:
                 continue
@@ -1117,7 +1116,10 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         if path in self.loading_paths:
             self.loading_paths.remove(path)
 
-        self._loaded_results_buffer.append((path, pixmap))
+        # Buffer now stores QImage to reduce memory footprint
+        self._loaded_results_buffer.append(
+            (path, pixmap.toImage() if pixmap and not pixmap.isNull() else pixmap)
+        )
 
         # --- Update the specific card ---
         if path in self.path_to_wrapper_map:
@@ -1286,13 +1288,13 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                 db_record = db.get_image_by_path(file_path)
                 if db_record:
                     db_info += f"""
-        **DB ID:** {db_record.get('id')}
-        **Group:** {db_record.get('group_name') or 'N/A'}
-        **Subgroup:** {db_record.get('subgroup_name') or 'N/A'}
-        **Tags:** {', '.join(db_record.get('tags', [])) or 'None'}
-        **DB Width:** {db_record.get('width') or 'N/A'}
-        **DB Height:** {db_record.get('height') or 'N/A'}
-        **Added:** {db_record.get('date_added')}
+        **DB ID:** {db_record.get("id")}
+        **Group:** {db_record.get("group_name") or "N/A"}
+        **Subgroup:** {db_record.get("subgroup_name") or "N/A"}
+        **Tags:** {", ".join(db_record.get("tags", [])) or "None"}
+        **DB Width:** {db_record.get("width") or "N/A"}
+        **DB Height:** {db_record.get("height") or "N/A"}
+        **Added:** {db_record.get("date_added")}
         """
                 else:
                     db_info += "\nImage not found in database."
@@ -1364,7 +1366,9 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             group_name = self.group_combo.currentText().strip() or None
             subgroup_name = self.subgroup_combo.currentText().strip() or None
             tags = [
-                t for t, cb in self.tag_checkboxes.items() if cb.isChecked()
+                self.tags_list_widget.item(i).data(Qt.UserRole)
+                for i in range(self.tags_list_widget.count())
+                if self.tags_list_widget.item(i).checkState() == Qt.Checked
             ] or None
 
             success_count = 0
@@ -1471,7 +1475,11 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             "batch_metadata": {
                 "group_name": self.group_combo.currentText().strip() or "",
                 "subgroup_name": self.subgroup_combo.currentText().strip() or "",
-                "tags": [t for t, cb in self.tag_checkboxes.items() if cb.isChecked()],
+                "tags": [
+                    self.tags_list_widget.item(i).data(Qt.UserRole)
+                    for i in range(self.tags_list_widget.count())
+                    if self.tags_list_widget.item(i).checkState() == Qt.Checked
+                ],
             },
         }
 
@@ -1499,8 +1507,13 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                 self.subgroup_combo.setCurrentText(metadata.get("subgroup_name", ""))
                 self._setup_tag_checkboxes()
                 selected_tags = set(metadata.get("tags", []))
-                for tag, checkbox in self.tag_checkboxes.items():
-                    checkbox.setChecked(tag in selected_tags)
+                for i in range(self.tags_list_widget.count()):
+                    item = self.tags_list_widget.item(i)
+                    item.setCheckState(
+                        Qt.Checked
+                        if item.data(Qt.UserRole) in selected_tags
+                        else Qt.Unchecked
+                    )
             QMessageBox.information(
                 self,
                 "Config Loaded",

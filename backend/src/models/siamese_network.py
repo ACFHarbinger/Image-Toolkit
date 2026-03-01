@@ -40,6 +40,16 @@ class SiameseModelLoader:
             # 4. Define Standard Transforms
             self._transform = weights.transforms()
 
+    def unload(self):
+        """
+        Unloads the model from GPU to free up VRAM.
+        """
+        if self._model is not None:
+            del self._model
+            self._model = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
     def get_embedding(self, img_path: str):
         """
         Generates a 512-dimensional vector for the image.

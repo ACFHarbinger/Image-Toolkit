@@ -138,10 +138,14 @@ class DuplicateScanWorker(QObject):
                     def _ssim_sim(img1, img2) -> bool:
                         mu1 = cv2.GaussianBlur(img1, (11, 11), 1.5)
                         mu1_sq = mu1 * mu1
-                        sigma1_sq = cv2.GaussianBlur(img1 * img1, (11, 11), 1.5) - mu1_sq
+                        sigma1_sq = (
+                            cv2.GaussianBlur(img1 * img1, (11, 11), 1.5) - mu1_sq
+                        )
                         mu2 = cv2.GaussianBlur(img2, (11, 11), 1.5)
                         mu2_sq = mu2 * mu2
-                        sigma2_sq = cv2.GaussianBlur(img2 * img2, (11, 11), 1.5) - mu2_sq
+                        sigma2_sq = (
+                            cv2.GaussianBlur(img2 * img2, (11, 11), 1.5) - mu2_sq
+                        )
                         mu1_mu2 = mu1 * mu2
                         sigma12 = cv2.GaussianBlur(img1 * img2, (11, 11), 1.5) - mu1_mu2
                         num = (2 * mu1_mu2 + _C1) * (2 * sigma12 + _C2)
@@ -155,7 +159,9 @@ class DuplicateScanWorker(QObject):
                     def _sift_sim(des1, des2) -> bool:
                         try:
                             matches = _bf.knnMatch(des1, des2, k=2)
-                            good = [m for m, n in matches if m.distance < 0.75 * n.distance]
+                            good = [
+                                m for m, n in matches if m.distance < 0.75 * n.distance
+                            ]
                             return len(good) > 10 and (len(good) / len(des1)) > 0.20
                         except Exception:
                             return False
@@ -174,6 +180,11 @@ class DuplicateScanWorker(QObject):
             self.status.emit("Scan cancelled.")
         except Exception as e:
             self.error.emit(str(e))
+        finally:
+            if self.method == "siamese":
+                from backend.src.models.siamese_network import SiameseModelLoader
+
+                SiameseModelLoader().unload()
 
     @Slot(object)
     def _on_task_result(self, data: Tuple[str, Any]):

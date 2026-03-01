@@ -559,11 +559,15 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.line_edit_dir.setText(path)
 
         # Clear grid and path tracking
+        paths_to_remove = list(self.source_path_to_widget.keys())
+        for p in paths_to_remove:
+            widget = self.source_path_to_widget.pop(p)
+            widget.deleteLater()
+
         while self.source_grid.count():
             item = self.source_grid.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
-        self.source_path_to_widget.clear()
 
         # 1. Alphabetical Directory Read (Quickly get names for placeholders)
         try:
@@ -600,8 +604,12 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.vid_scanner_worker = None
 
         self.vid_scanner_worker = VideoScannerWorker(path, crop_square=True)
-        self.vid_scanner_worker.signals.thumbnail_ready.connect(self.add_source_thumbnail)
-        self.vid_scanner_worker.signals.finished.connect(lambda: self.scan_progress_complete())
+        self.vid_scanner_worker.signals.thumbnail_ready.connect(
+            self.add_source_thumbnail
+        )
+        self.vid_scanner_worker.signals.finished.connect(
+            lambda: self.scan_progress_complete()
+        )
         QThreadPool.globalInstance().start(self.vid_scanner_worker)
 
     def _create_source_placeholder_widget(self, path: str) -> QWidget:
@@ -1645,19 +1653,21 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     # --- QML HANDLERS ---
     @Slot(str)
     def browse_source_qml(self, current_path=""):
-        starting_dir = current_path if os.path.isdir(current_path) else self.last_browsed_scan_dir
+        starting_dir = (
+            current_path if os.path.isdir(current_path) else self.last_browsed_scan_dir
+        )
         d = QFileDialog.getExistingDirectory(
             self, "Select Source Directory", starting_dir
         )
         if d:
-            self.line_edit_dir.setText(d) # Sync widget
+            self.line_edit_dir.setText(d)  # Sync widget
             self.last_browsed_scan_dir = d
             self.qml_source_path_changed.emit(d)
-            self.scan_directory(d) # Triggers scanner
-            # Note: The scanner populates self.source_grid (QWidget). 
+            self.scan_directory(d)  # Triggers scanner
+            # Note: The scanner populates self.source_grid (QWidget).
             # For QML, we might need to expose the file list via a model or JSON signal.
             # For now, we assume the QML side will use a FolderListModel or similar if it wants to show the list,
-            # or we rely on the backend to just handle the logic. 
+            # or we rely on the backend to just handle the logic.
             # Ideally, we should emit a list of found videos.
             return d
         return ""
@@ -1670,28 +1680,31 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             return
 
         # Use backend logic
-        self.video_path = video_path # Set current context
+        self.video_path = video_path  # Set current context
         # We need a worker or direct extraction. The existing extract_single_frame uses self.media_player position.
         # QML player is separate. We should use ffmpeg/cv2 to extract specific frame.
-        
+
         # Re-using FrameExtractionWorker logic but we need to pass time explicitly
         # Existing FrameExtractionWorker takes (video_path, output_dir, start_time, end_time, fps, etc)
         # For single frame, strict start/end or just snapshot?
-        
+
         # Simplified: Use cv2 for instant snapshot if possible, or trigger worker?
         # Let's use a quick CV2 cap for responsiveness, similar to how ImageScannerWorker does it maybe?
         # Or just spawn a quick ffmpeg command.
-        
+
         output_dir = self.extraction_dir
         filename = f"snapshot_{Path(video_path).stem}_{timestamp_ms}ms_{datetime.datetime.now().strftime('%H%M%S')}.png"
         out_path = output_dir / filename
-        
+
         # Run in thread to not block UI
-        QThreadPool.globalInstance().start(lambda: self._quick_extract(video_path, timestamp_ms, str(out_path)))
-        
+        QThreadPool.globalInstance().start(
+            lambda: self._quick_extract(video_path, timestamp_ms, str(out_path))
+        )
+
     def _quick_extract(self, vid_path, ms, out_path):
         try:
             import cv2
+
             cap = cv2.VideoCapture(vid_path)
             cap.set(cv2.CAP_PROP_POS_MSEC, ms)
             ret, frame = cap.read()
@@ -1708,9 +1721,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def extract_range_qml(self, video_path, start_ms, end_ms, fps):
         """Extracts frames in range."""
         if not video_path or not os.path.exists(video_path):
-             self.qml_extraction_status.emit("Error: Invalid video")
-             return
-             
+            self.qml_extraction_status.emit("Error: Invalid video")
+            return
+
         self.video_path = video_path
         # Setup worker
         config = {
@@ -1718,21 +1731,27 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             "start_time": start_ms / 1000.0,
             "end_time": end_ms / 1000.0,
             "fps": fps,
-            "output_format": "png", # default
+            "output_format": "png",  # default
             "output_dir": str(self.extraction_dir),
-            "resize_dim": None # Use original for now
+            "resize_dim": None,  # Use original for now
         }
-        
-        # We need to adapt this to use FrameExtractionWorker if compatible, 
+
+        # We need to adapt this to use FrameExtractionWorker if compatible,
         # or just make a new one. FrameExtractionWorker seems designed for this.
         # It takes (video_path, output_dir, config...)
-        
+
         worker = FrameExtractionWorker(video_path, str(self.extraction_dir), config)
         self.extractor_worker = worker
-        
+
         # Signals
-        worker.signals.finished.connect(lambda: self.qml_extraction_status.emit("Extraction Finished"))
-        worker.signals.error.connect(lambda e: self.qml_extraction_status.emit(f"Error: {e}"))
-        worker.signals.progress.connect(lambda val, msg: self.qml_extraction_status.emit(f"Progress: {val}%"))
-        
+        worker.signals.finished.connect(
+            lambda: self.qml_extraction_status.emit("Extraction Finished")
+        )
+        worker.signals.error.connect(
+            lambda e: self.qml_extraction_status.emit(f"Error: {e}")
+        )
+        worker.signals.progress.connect(
+            lambda val, msg: self.qml_extraction_status.emit(f"Progress: {val}%")
+        )
+
         QThreadPool.globalInstance().start(worker)
