@@ -665,7 +665,8 @@ class ConvertTab(AbstractClassTwoGalleries):
     @Slot()
     def browse_directory_and_scan(self):
         directory = QFileDialog.getExistingDirectory(
-            self, "Select input directory", self.last_browsed_dir
+            self, "Select input directory", self.last_browsed_dir,
+            QFileDialog.Option.DontUseNativeDialog,
         )
         if directory:
             self.input_path.setText(directory)
@@ -677,7 +678,8 @@ class ConvertTab(AbstractClassTwoGalleries):
     @Slot()
     def browse_output(self):
         directory = QFileDialog.getExistingDirectory(
-            self, "Select output directory", ""
+            self, "Select output directory", "",
+            QFileDialog.Option.DontUseNativeDialog,
         )
         if directory:
             self.output_path.setText(directory)
@@ -1016,7 +1018,8 @@ class ConvertTab(AbstractClassTwoGalleries):
     def browse_directory_and_scan_qml(self, current_path=""):
         starting_dir = current_path if os.path.isdir(current_path) else self.last_browsed_dir
         directory = QFileDialog.getExistingDirectory(
-            self, "Select input directory", starting_dir
+            self, "Select input directory", starting_dir,
+            QFileDialog.Option.DontUseNativeDialog,
         )
         if directory:
             self.input_path.setText(directory)
@@ -1038,7 +1041,7 @@ class ConvertTab(AbstractClassTwoGalleries):
             return
 
         if not input_path or not os.path.isdir(input_path):
-             # You might want to emit a signal here for QML error handling
+            # You might want to emit a signal here for QML error handling
             return
 
         # Prepare simple config from QML params
@@ -1065,7 +1068,7 @@ class ConvertTab(AbstractClassTwoGalleries):
         config["files_to_convert"] = files_for_conversion
 
         if not files_for_conversion:
-             # Emit no files signal
+            # Emit no files signal
             return
 
         self.btn_convert_all.setEnabled(False) # Disable python UI buttons just in case

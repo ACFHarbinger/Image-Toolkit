@@ -90,7 +90,7 @@ class WallpaperTab(AbstractClassSingleGallery):
 
                     if not self.countdown_timer.isActive():
                         self.countdown_timer.start(1000)
-            except:
+            except Exception:
                 pass
 
     @Slot()
@@ -474,11 +474,15 @@ class WallpaperTab(AbstractClassSingleGallery):
             with open(DAEMON_CONFIG_PATH, "r") as f:
                 data = json.load(f)
                 return data.get("running", False)
-        except:
+        except Exception:
             return False
 
     def toggle_slideshow_daemon(self):
         start = not self._is_daemon_running_config()
+
+        # Ensure mutual exclusion: stop local slideshow if starting daemon
+        if start:
+            self.stop_slideshow()
 
         style_to_use = (
             f"SmartVideoWallpaper::{self.video_style}"
@@ -604,6 +608,8 @@ class WallpaperTab(AbstractClassSingleGallery):
         is_video = type_name == "Smart Video Wallpaper"
         is_image = type_name == "Image"
 
+        _ = is_image  # Unused
+
         self.solid_color_widget.setVisible(is_solid_color)
         self.slideshow_group.setVisible(is_slideshow or is_video)
 
@@ -665,6 +671,16 @@ class WallpaperTab(AbstractClassSingleGallery):
 
     @Slot()
     def start_slideshow(self):
+        # Ensure mutual exclusion: warn and prevent if daemon is running
+        if self._is_daemon_running_config():
+            QMessageBox.warning(
+                self,
+                "Daemon Conflict",
+                "The background slideshow daemon is currently running. "
+                "Please stop it before starting a local slideshow to avoid double-transitions.",
+            )
+            return
+
         num_monitors = len(self.monitor_widgets)
         if self.background_type == "Solid Color":
             QMessageBox.warning(
@@ -1090,7 +1106,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.monitor_widgets.clear()
         try:
             system_monitors = get_monitors()
-            physical_monitors = sorted(system_monitors, key=lambda m: m.x)
+            _ = sorted(system_monitors, key=lambda m: m.x)  # physical_monitors unused
             self.monitors = system_monitors
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Could not get monitor info: {e}")
@@ -1200,6 +1216,9 @@ class WallpaperTab(AbstractClassSingleGallery):
         # Auto-save changes to daemon config if it exists/is running
         if self._is_daemon_running_config():
             self.toggle_slideshow_daemon()
+
+        # Deselect images after adding them to the monitor
+        self.deselect_all_items()
 
     def _process_single_drop(self, monitor_id: str, image_path: str):
         is_video = image_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
@@ -1315,7 +1334,7 @@ class WallpaperTab(AbstractClassSingleGallery):
                         desktop = "KDE"
                     else:
                         desktop = "Gnome"
-                except:
+                except Exception:
                     desktop = None
             elif system == "Windows":
                 desktop = "Windows"
@@ -1337,10 +1356,6 @@ class WallpaperTab(AbstractClassSingleGallery):
         monitors = self.monitors
         if not slideshow_mode:
             self.lock_ui_for_wallpaper()
-
-        monitor_geometries = {
-            str(i): {"x": m.x, "y": m.y} for i, m in enumerate(self.monitors)
-        }
 
         self.current_wallpaper_worker = WallpaperWorker(
             final_path_map,
@@ -1874,7 +1889,4 @@ class WallpaperTab(AbstractClassSingleGallery):
     @Slot(str)
     def drop_image_qml(self, path):
         """Handle drop from QML."""
-        # Assume dropped on 'All' or specific?
-        # QML drag/drop might need specific monitor targeting.
-        # For now, simplistic:
         self.set_wallpaper_qml(path, "All")
