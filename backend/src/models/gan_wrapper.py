@@ -47,6 +47,16 @@ class GanWrapper:
             ]
         )
 
+    def unload(self):
+        """
+        Unloads the GAN model from GPU to free up VRAM.
+        """
+        if self.netG is not None:
+            del self.netG
+            self.netG = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
     def generate(self, input_image_path, output_path):
         if GanWrapper.is_cancelled:
             print("[CANCELLED] Generation aborted before start.")
@@ -113,7 +123,7 @@ class GanWrapper:
                 print("Training stopped by cancellation.")
                 return
 
-            progress = tqdm(dataloader, desc=f"Epoch {epoch+1}/{epochs}")
+            progress = tqdm(dataloader, desc=f"Epoch {epoch + 1}/{epochs}")
 
             for batch_imgs in progress:
                 if GanWrapper.is_cancelled:
