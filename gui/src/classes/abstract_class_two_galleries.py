@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer, QEvent
 from PySide6.QtGui import QPixmap, QImage, QAction
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH
 from .meta_abstract_class_gallery import MetaAbstractClassGallery
+from ..utils.lru_image_cache import LRUImageCache
 from ..components import MarqueeScrollArea, ClickableLabel
 from ..helpers import (
     ImageLoaderWorker,
@@ -34,8 +35,8 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
         self.path_to_label_map: Dict[str, QWidget] = {}
         self.selected_card_map: Dict[str, QWidget] = {}
-        self._selected_pixmap_cache: Dict[str, QPixmap] = {}
-        self._found_pixmap_cache: Dict[str, QPixmap] = {}
+        self._selected_pixmap_cache = LRUImageCache(maxsize=200)
+        self._found_pixmap_cache    = LRUImageCache(maxsize=300)
 
         # --- Pagination State ---
         self.found_page_size = 100
@@ -368,6 +369,13 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             width = "3px" if is_selected else "1px"
             widget.setStyleSheet(f"border: {width} solid {color};")
 
+    def _cache_get_as_pixmap(self, path: str) -> Optional[QPixmap]:
+        """Retrieve a cached thumbnail as QPixmap, converting from QImage if needed."""
+        img = self._selected_pixmap_cache.get(path) or self._found_pixmap_cache.get(path)
+        if img is None:
+            return None
+        return QPixmap.fromImage(img) if isinstance(img, QImage) else img
+
     def refresh_selected_panel(self):
         if not self.selected_gallery_layout:
             return
@@ -424,18 +432,15 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
                 )
             else:
                 # Create new widget
-                pixmap = self._selected_pixmap_cache.get(path)
+                pixmap = self._cache_get_as_pixmap(path)
                 if pixmap is None:
-                    # Fallback to found gallery's cache or widget
-                    pixmap = self._found_pixmap_cache.get(path)
-                    if pixmap is None:
-                        top_widget = self.path_to_label_map.get(path)
-                        if top_widget:
-                            try:
-                                if hasattr(top_widget, "get_pixmap"):
-                                    pixmap = top_widget.get_pixmap()
-                            except RuntimeError:
-                                pixmap = None
+                    top_widget = self.path_to_label_map.get(path)
+                    if top_widget:
+                        try:
+                            if hasattr(top_widget, "get_pixmap"):
+                                pixmap = top_widget.get_pixmap()
+                        except RuntimeError:
+                            pixmap = None
 
                 card = self.create_card_widget(path, pixmap, is_selected=True)
                 self.selected_card_map[path] = card
@@ -467,13 +472,14 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
     def _on_batch_selected_loaded(
         self, results: List[tuple], widgets: Dict[str, QWidget]
     ):
-        for path, pixmap in results:
-            if pixmap and not pixmap.isNull():
-                self._selected_pixmap_cache[path] = pixmap
+        for path, image in results:
+            if image and not image.isNull():
+                self._selected_pixmap_cache[path] = image  # store QImage
             widget = widgets.get(path)
             if widget:
                 try:
-                    self.update_card_pixmap(widget, pixmap)
+                    display_pixmap = QPixmap.fromImage(image) if isinstance(image, QImage) else image
+                    self.update_card_pixmap(widget, display_pixmap)
                 except RuntimeError:
                     pass
 
@@ -484,10 +490,11 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         )
         self.thread_pool.start(worker)
 
-    def _on_selected_image_loaded(self, path: str, pixmap: QPixmap, widget: QWidget):
-        if pixmap and not pixmap.isNull():
-            self._selected_pixmap_cache[path] = pixmap
-        self.update_card_pixmap(widget, pixmap)
+    def _on_selected_image_loaded(self, path: str, image, widget: QWidget):
+        if image and not image.isNull():
+            self._selected_pixmap_cache[path] = image  # store QImage
+        display_pixmap = QPixmap.fromImage(image) if isinstance(image, QImage) else image
+        self.update_card_pixmap(widget, display_pixmap)
 
     # --- SEQUENTIAL LOADING (Found Gallery) ---
 
@@ -546,12 +553,11 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         if hasattr(self, "found_loading_paths") and path in self.found_loading_paths:
             self.found_loading_paths.remove(path)
 
-        # Cache the resulting image for subsequent refreshes/pagination jumps
-        if image and not (isinstance(image, QPixmap) and image.isNull()) and not (isinstance(image, QImage) and image.isNull()):
-            if isinstance(image, QImage):
-                self._found_pixmap_cache[path] = QPixmap.fromImage(image)
-            else:
-                self._found_pixmap_cache[path] = image
+        # Cache QImage (half the memory of QPixmap on X11)
+        if isinstance(image, QImage) and not image.isNull():
+            self._found_pixmap_cache[path] = image
+        elif not isinstance(image, QImage) and image and not image.isNull():
+            self._found_pixmap_cache[path] = image.toImage()
 
         widget = self.path_to_label_map.get(path)
         if widget:
@@ -590,14 +596,15 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             ):
                 self.found_loading_paths.remove(path)
 
-            # Convert and Cache
-            if isinstance(pixmap, QImage):
+            # Cache QImage, convert to QPixmap for display only
+            if isinstance(pixmap, QImage) and not pixmap.isNull():
+                self._found_pixmap_cache[path] = pixmap     # store QImage
                 final_pixmap = QPixmap.fromImage(pixmap)
-            else:
+            elif not isinstance(pixmap, QImage) and pixmap and not pixmap.isNull():
+                self._found_pixmap_cache[path] = pixmap.toImage()
                 final_pixmap = pixmap
-
-            if final_pixmap and not final_pixmap.isNull():
-                self._found_pixmap_cache[path] = final_pixmap
+            else:
+                final_pixmap = QPixmap()
 
             widget = self.path_to_label_map.get(path)
             if widget:
@@ -627,15 +634,6 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
         for path in paths_to_remove:
             widget = self.path_to_label_map.pop(path)
-            # Before deleting, try to harvest pixmap for cache if missing
-            if path not in self._found_pixmap_cache:
-                try:
-                    if hasattr(widget, "get_pixmap"):
-                        px = widget.get_pixmap()
-                        if px and not px.isNull():
-                            self._found_pixmap_cache[path] = px
-                except RuntimeError:
-                    pass
             widget.deleteLater()
 
         # 3. Reflow and Pagination update
@@ -696,8 +694,9 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             # Otherwise create new widget
             is_selected = path in self.selected_files
 
-            # Check cache for instant thumbnail
-            initial_pixmap = self._found_pixmap_cache.get(path, None)
+            # Check cache for instant thumbnail (stored as QImage, convert for widget)
+            _cached = self._found_pixmap_cache.get(path)
+            initial_pixmap = QPixmap.fromImage(_cached) if isinstance(_cached, QImage) else _cached
 
             # Create widget
             card = self.create_card_widget(path, initial_pixmap, is_selected)
