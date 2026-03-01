@@ -537,7 +537,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
             self._failed_paths.clear()
         else:
             self.master_image_paths.extend(paths)
-            if pixmap_cache:
+            if pixmap_cache and pixmap_cache is not self._initial_pixmap_cache:
                 for k, v in pixmap_cache.items():
                     self._initial_pixmap_cache[k] = v
             # Re-apply search to include new appended items

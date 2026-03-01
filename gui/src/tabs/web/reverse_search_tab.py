@@ -210,7 +210,7 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
     def start_scanning(self, directory: str):
         self.clear_gallery_widgets()
         self.gallery_image_paths = []
-        self._initial_pixmap_cache = {}
+        self._initial_pixmap_cache.clear()
         self.selected_source_path = None
         self.btn_search.setEnabled(False)
         self.lbl_selected_path.setText("No image selected")
