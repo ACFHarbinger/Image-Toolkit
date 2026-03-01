@@ -93,7 +93,7 @@ class ConversionWorker(QThread):
                 # Skip if source is not supported
                 if not (is_src_video or is_src_image):
                     continue
-                
+
                 # Check for Valid Conversion Pairs
                 # 1. Video -> Video
                 # 2. Image -> Image
@@ -105,9 +105,11 @@ class ConversionWorker(QThread):
                     valid_pair = True
                 elif is_src_video and target_is_gif:
                     valid_pair = True
-                
+
                 if not valid_pair:
-                    print(f"Skipping {input_file} (Type Mismatch: {src_ext} -> {output_format})")
+                    print(
+                        f"Skipping {input_file} (Type Mismatch: {src_ext} -> {output_format})"
+                    )
                     continue
 
                 # Determine Output Path
@@ -141,7 +143,9 @@ class ConversionWorker(QThread):
                     else:
                         fname = output_filename_prefix
                 else:
-                    fname = os.path.splitext(os.path.basename(input_file))[0]
+                    fname = (
+                        os.path.splitext(os.path.basename(input_file))[0] + "_converted"
+                    )
 
                 final_output_path = os.path.join(out_dir, f"{fname}.{output_format}")
 
@@ -151,7 +155,9 @@ class ConversionWorker(QThread):
                     # But the user specifically asked to skip if exists.
                     # If delete_original is True, it implies we are replacing the source, but if the DESTINATION exists, we should still probably skip or ask.
                     # Given the prompt "skips every file with the same name as an existing file in the target directory", I'll implement strict skipping.
-                    print(f"Skipping {input_file} -> {final_output_path} (File already exists)")
+                    print(
+                        f"Skipping {input_file} -> {final_output_path} (File already exists)"
+                    )
                     continue
 
                 # Handling path conflict (input == output)
@@ -176,7 +182,7 @@ class ConversionWorker(QThread):
                         delete=False,
                         process_callback=self._register_process,
                         target_width=ar_w,
-                        target_height=ar_h
+                        target_height=ar_h,
                     )
 
                 # Case 2: Video -> Video (Subprocess)

@@ -1,4 +1,4 @@
-from PySide6.QtGui import QPixmap, QImage
+from PySide6.QtGui import QImage
 from PySide6.QtCore import QRunnable, QObject, Signal, Slot, Qt
 
 from concurrent.futures import Executor
@@ -77,7 +77,7 @@ class ImageLoaderWorker(QRunnable):
             else:
                 self.signals.result.emit(self.path, QImage())
         except Exception:
-            self.signals.result.emit(self.path, QPixmap())
+            self.signals.result.emit(self.path, QImage())
 
 
 class BatchImageLoaderWorker(QRunnable):
