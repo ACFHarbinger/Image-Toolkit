@@ -104,7 +104,7 @@ def bench_bulk_image_insert():
     for i in range(100):
         embedding = np.random.rand(128).astype(np.float32).tolist()
         db.add_image(
-            path=f"/tmp/bench_img_{i}.jpg",
+            file_path=f"/tmp/bench_img_{i}.jpg",
             embedding=embedding,
             group_name="benchmark_images",
             subgroup_name=None,
@@ -126,7 +126,7 @@ def bench_vector_search_k10():
     for i in range(1000):
         embedding = np.random.rand(128).astype(np.float32).tolist()
         db.add_image(
-            path=f"/tmp/search_img_{i}.jpg",
+            file_path=f"/tmp/search_img_{i}.jpg",
             embedding=embedding,
             group_name="benchmark_search",
         )
@@ -153,7 +153,7 @@ def bench_vector_search_k100():
     for i in range(1000):
         embedding = np.random.rand(128).astype(np.float32).tolist()
         db.add_image(
-            path=f"/tmp/search_img_{i}.jpg",
+            file_path=f"/tmp/search_img_{i}.jpg",
             embedding=embedding,
             group_name="benchmark_search",
         )
@@ -187,7 +187,7 @@ def bench_image_tag_ops():
     for i in range(50):
         embedding = np.random.rand(128).astype(np.float32).tolist()
         img_id = db.add_image(
-            path=f"/tmp/tag_img_{i}.jpg",
+            file_path=f"/tmp/tag_img_{i}.jpg",
             embedding=embedding,
             group_name="bench_tag_ops",
         )
@@ -200,7 +200,7 @@ def bench_image_tag_ops():
 
     # Retrieve tags (this is the N+1 query scenario)
     for img_id in image_ids:
-        img_tags = db.get_image_tags(img_id)
+        _ = db.get_image_tags(img_id)
 
     # Cleanup
     db.delete_group("bench_tag_ops")
@@ -214,7 +214,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Database benchmarks")
     parser.add_argument("--save", action="store_true", help="Save results to JSON")
-    parser.add_argument("--baseline", type=Path, help="Baseline file for regression check")
+    parser.add_argument(
+        "--baseline", type=Path, help="Baseline file for regression check"
+    )
     args = parser.parse_args()
 
     runner.run()

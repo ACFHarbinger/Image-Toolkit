@@ -45,7 +45,7 @@ test:
     cd frontend/src-tauri && cargo test
 
 # Run benchmarks
-bench:
+benchmark:
     @echo "🏃 Running benchmarks..."
     source .venv/bin/activate && python backend/benchmark/run_all.py
     cd base && cargo bench

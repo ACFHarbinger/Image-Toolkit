@@ -1,12 +1,14 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
 use base::core::{
-    file_system::{get_files_by_extension_core, delete_files_by_extensions_core},
+    file_system::{delete_files_by_extensions_core, get_files_by_extension_core},
     image_converter::convert_image_batch_core,
-    image_merger::{merge_images_horizontal_core, merge_images_vertical_core, merge_images_grid_core},
+    image_merger::{
+        merge_images_grid_core, merge_images_horizontal_core, merge_images_vertical_core,
+    },
 };
-use tempfile::tempdir;
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use image::{ImageBuffer, RgbImage};
 use std::fs::File;
-use image::{RgbImage, ImageBuffer};
+use tempfile::tempdir;
 
 /// Create a test RGB image
 fn create_test_image(path: &str, width: u32, height: u32) {
@@ -50,19 +52,15 @@ fn bench_file_scanning(c: &mut Criterion) {
             },
         );
 
-        group.bench_with_input(
-            BenchmarkId::new("scan_recursive", count),
-            count,
-            |b, _| {
-                b.iter(|| {
-                    get_files_by_extension_core(
-                        black_box(dir.path().to_str().unwrap()),
-                        black_box("txt"),
-                        black_box(true),
-                    )
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("scan_recursive", count), count, |b, _| {
+            b.iter(|| {
+                get_files_by_extension_core(
+                    black_box(dir.path().to_str().unwrap()),
+                    black_box("txt"),
+                    black_box(true),
+                )
+            });
+        });
     }
 
     group.finish();
@@ -71,11 +69,18 @@ fn bench_file_scanning(c: &mut Criterion) {
 /// Benchmark image conversion (single and batch)
 fn bench_image_conversion(c: &mut Criterion) {
     let mut group = c.benchmark_group("image_conversion");
+    group.sample_size(50);
 
     let dir = tempdir().unwrap();
 
     // Create test images of various sizes
-    for (size_name, width, height) in [("small", 256, 256), ("medium", 512, 512), ("large", 1024, 1024)].iter() {
+    for (size_name, width, height) in [
+        ("small", 256, 256),
+        ("medium", 512, 512),
+        ("large", 1024, 1024),
+    ]
+    .iter()
+    {
         let input_path = dir.path().join(format!("input_{}.jpg", size_name));
         let output_path = dir.path().join(format!("output_{}.png", size_name));
 
@@ -131,6 +136,7 @@ fn bench_image_conversion(c: &mut Criterion) {
 /// Benchmark image merge operations
 fn bench_image_merge(c: &mut Criterion) {
     let mut group = c.benchmark_group("image_merge");
+    group.sample_size(50);
 
     let dir = tempdir().unwrap();
 
@@ -145,52 +151,40 @@ fn bench_image_merge(c: &mut Criterion) {
 
         let output_path = dir.path().join("merged_output.jpg");
 
-        group.bench_with_input(
-            BenchmarkId::new("horizontal", count),
-            count,
-            |b, _| {
-                b.iter(|| {
-                    merge_images_horizontal_core(
-                        black_box(&paths),
-                        black_box(output_path.to_str().unwrap()),
-                        black_box(0),
-                        black_box("center"),
-                    )
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("horizontal", count), count, |b, _| {
+            b.iter(|| {
+                merge_images_horizontal_core(
+                    black_box(&paths),
+                    black_box(output_path.to_str().unwrap()),
+                    black_box(0),
+                    black_box("center"),
+                )
+            });
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("vertical", count),
-            count,
-            |b, _| {
-                b.iter(|| {
-                    merge_images_vertical_core(
-                        black_box(&paths),
-                        black_box(output_path.to_str().unwrap()),
-                        black_box(0),
-                        black_box("center"),
-                    )
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("vertical", count), count, |b, _| {
+            b.iter(|| {
+                merge_images_vertical_core(
+                    black_box(&paths),
+                    black_box(output_path.to_str().unwrap()),
+                    black_box(0),
+                    black_box("center"),
+                )
+            });
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("grid", count),
-            count,
-            |b, _| {
-                let side = (*count as f64).sqrt().ceil() as u32;
-                b.iter(|| {
-                    merge_images_grid_core(
-                        black_box(&paths),
-                        black_box(output_path.to_str().unwrap()),
-                        black_box(side),
-                        black_box(side),
-                        black_box(0),
-                    )
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("grid", count), count, |b, _| {
+            let side = (*count as f64).sqrt().ceil() as u32;
+            b.iter(|| {
+                merge_images_grid_core(
+                    black_box(&paths),
+                    black_box(output_path.to_str().unwrap()),
+                    black_box(side),
+                    black_box(side),
+                    black_box(0),
+                )
+            });
+        });
     }
 
     group.finish();
