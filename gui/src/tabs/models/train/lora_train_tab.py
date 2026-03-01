@@ -215,6 +215,7 @@ class LoRATrainTab(BaseGenerativeTab):
         thread.start()
 
     def run_training(self, params, data_dir, model_id, rank, prompt, output_name):
+        gan = None
         try:
             if model_id == "animegan_v2":
                 self.update_status_signal.emit("Starting GAN Fine-tuning...")
@@ -253,3 +254,6 @@ class LoRATrainTab(BaseGenerativeTab):
         except Exception as e:
             self.update_status_signal.emit(f"Error: {str(e)}")
             self.training_finished_signal.emit("error", str(e))
+        finally:
+            if gan is not None:
+                gan.unload()

@@ -199,14 +199,14 @@ class PgvectorImageDatabase:
         with self.conn.cursor() as cur:
             cur.execute(_tags["update_tag_type"], (type_value, name))
 
-    def get_all_tags_with_types(self) -> List[Dict[str, str]]:
-        """Gets a list of all tags and their types."""
+    def get_all_tags_with_types(self, limit: int = 10000) -> List[Dict[str, str]]:
+        """Gets a list of all tags and their types. Maximum `limit` tags returned."""
         results = []
         with self.conn.cursor(
             cursor_factory=psycopg2.extras.DictCursor,
             name="get_all_tags_with_types_cur",
         ) as cur:
-            cur.execute(_tags["get_all_tags_with_types"])
+            cur.execute(_tags["get_all_tags_with_types"], (limit,))
             while True:
                 rows = cur.fetchmany(1000)
                 if not rows:
@@ -424,13 +424,25 @@ class PgvectorImageDatabase:
                     if not rows:
                         break
 
+                    image_ids = [row["id"] for row in rows]
+
+                    with self.conn.cursor(
+                        cursor_factory=psycopg2.extras.DictCursor
+                    ) as fetch_cur:
+                        fetch_cur.execute(
+                            _tags["get_tags_for_images_bulk"], (image_ids,)
+                        )
+                        tags_by_id = {}
+                        for tag_row in fetch_cur.fetchall():
+                            tags_by_id.setdefault(tag_row["image_id"], []).append(
+                                tag_row["tag_name"]
+                            )
+
                     for row in rows:
                         image_id = row["id"]
                         image_data = dict(row)
                         image_data.pop("embedding", None)
-                        # Caution: calling get_image_tags inside a fetch loop can be N+1 slow,
-                        # but we are just fixing the fetchall RAM spike for now.
-                        image_data["tags"] = self.get_image_tags(image_id)
+                        image_data["tags"] = tags_by_id.get(image_id, [])
                         results.append(image_data)
         except Exception as e:
             print(f"Error during search: {e}", file=sys.stderr)
@@ -438,34 +450,34 @@ class PgvectorImageDatabase:
 
         return results
 
-    def get_all_tags(self) -> List[str]:
-        """Get list of all tags in database."""
+    def get_all_tags(self, limit: int = 10000) -> List[str]:
+        """Get list of all tags in database. Maximum `limit` tags returned."""
         with self.conn.cursor() as cur:
-            cur.execute(_tags["get_all_tags"])
+            cur.execute(_tags["get_all_tags"], (limit,))
             return [row[0] for row in cur.fetchall()]
 
-    def get_all_groups(self) -> List[str]:
-        """Get list of all group names from the dedicated 'groups' table."""
+    def get_all_groups(self, limit: int = 10000) -> List[str]:
+        """Get list of all group names from the dedicated 'groups' table. Maximum `limit` groups returned."""
         with self.conn.cursor() as cur:
-            cur.execute(_groups["get_all_groups"])
+            cur.execute(_groups["get_all_groups"], (limit,))
             return [row[0] for row in cur.fetchall()]
 
-    def get_all_subgroups(self) -> List[str]:
-        """Get list of all *unique* subgroup names from the 'subgroups' table."""
+    def get_all_subgroups(self, limit: int = 10000) -> List[str]:
+        """Get list of all *unique* subgroup names from the 'subgroups' table. Maximum `limit` returned."""
         with self.conn.cursor() as cur:
-            cur.execute(_groups["get_all_subgroups"])
+            cur.execute(_groups["get_all_subgroups"], (limit,))
             return [row[0] for row in cur.fetchall()]
 
-    def get_subgroups_for_group(self, group_name: str) -> List[str]:
-        """Get list of all subgroup names for a specific parent group."""
+    def get_subgroups_for_group(self, group_name: str, limit: int = 10000) -> List[str]:
+        """Get list of all subgroup names for a specific parent group. Maximum `limit` returned."""
         with self.conn.cursor() as cur:
-            cur.execute(_groups["get_subgroups_for_group"], (group_name,))
+            cur.execute(_groups["get_subgroups_for_group"], (group_name, limit))
             return [row[0] for row in cur.fetchall()]
 
-    def get_all_subgroups_detailed(self) -> List[tuple]:
-        """Get list of ALL (subgroup_name, group_name) pairs."""
+    def get_all_subgroups_detailed(self, limit: int = 10000) -> List[tuple]:
+        """Get list of ALL (subgroup_name, group_name) pairs. Maximum `limit` returned."""
         with self.conn.cursor() as cur:
-            cur.execute(_groups["get_all_subgroups_detailed"])
+            cur.execute(_groups["get_all_subgroups_detailed"], (limit,))
             return cur.fetchall()
 
     def get_statistics(self) -> Dict[str, Any]:

@@ -167,6 +167,12 @@ class DuplicateScanWorker(QObject):
                             return False
 
                     results = self._chunked_compare("sift", _sift_sim)
+                    results = self._chunked_compare("sift", _sift_sim)
+                elif self.method == "siamese":
+                    results = self._compare_siamese(self.scan_cache)
+                    from backend.src.models.siamese_network import SiameseModelLoader
+
+                    SiameseModelLoader().unload()
                 else:
                     results = self._compare_orb(self.scan_cache)
 
@@ -180,11 +186,6 @@ class DuplicateScanWorker(QObject):
             self.status.emit("Scan cancelled.")
         except Exception as e:
             self.error.emit(str(e))
-        finally:
-            if self.method == "siamese":
-                from backend.src.models.siamese_network import SiameseModelLoader
-
-                SiameseModelLoader().unload()
 
     @Slot(object)
     def _on_task_result(self, data: Tuple[str, Any]):

@@ -33,19 +33,19 @@ FROM groups g
 WHERE s.group_id = g.id AND s.name = %s AND g.name = %s;
 
 -- name: get_all_groups
-SELECT name FROM groups ORDER BY name;
+SELECT name FROM groups ORDER BY name LIMIT %s;
 
 -- name: get_all_subgroups
-SELECT DISTINCT name FROM subgroups ORDER BY name;
+SELECT DISTINCT name FROM subgroups ORDER BY name LIMIT %s;
 
 -- name: get_subgroups_for_group
 SELECT s.name FROM subgroups s
 JOIN groups g ON s.group_id = g.id
 WHERE g.name = %s
-ORDER BY s.name;
+ORDER BY s.name LIMIT %s;
 
 -- name: get_all_subgroups_detailed
 SELECT s.name, g.name
 FROM subgroups s
 JOIN groups g ON s.group_id = g.id
-ORDER BY g.name, s.name;
+ORDER BY g.name, s.name LIMIT %s;
