@@ -201,12 +201,19 @@ class PgvectorImageDatabase:
 
     def get_all_tags_with_types(self) -> List[Dict[str, str]]:
         """Gets a list of all tags and their types."""
-        with self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        results = []
+        with self.conn.cursor(
+            cursor_factory=psycopg2.extras.DictCursor,
+            name="get_all_tags_with_types_cur",
+        ) as cur:
             cur.execute(_tags["get_all_tags_with_types"])
-            return [
-                {"name": row["name"], "type": row["type"] or ""}
-                for row in cur.fetchall()
-            ]
+            while True:
+                rows = cur.fetchmany(1000)
+                if not rows:
+                    break
+                for row in rows:
+                    results.append({"name": row["name"], "type": row["type"] or ""})
+        return results
 
     def delete_image(self, image_id: int):
         """Delete an image from the database."""
@@ -233,7 +240,12 @@ class PgvectorImageDatabase:
         if group_name and group_name.strip():
             self.add_group(group_name)
 
-        if group_name and group_name.strip() and subgroup_name and subgroup_name.strip():
+        if (
+            group_name
+            and group_name.strip()
+            and subgroup_name
+            and subgroup_name.strip()
+        ):
             self.add_subgroup(subgroup_name, group_name)
 
         try:
@@ -331,7 +343,11 @@ class PgvectorImageDatabase:
                     if db_group_name:
                         final_group_name = db_group_name[0]
 
-                if subgroup_name.strip() and final_group_name and final_group_name.strip():
+                if (
+                    subgroup_name.strip()
+                    and final_group_name
+                    and final_group_name.strip()
+                ):
                     self.add_subgroup(subgroup_name, final_group_name)
 
             if tags is not None:
@@ -399,16 +415,23 @@ class PgvectorImageDatabase:
 
         results = []
         try:
-            with self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            with self.conn.cursor(
+                cursor_factory=psycopg2.extras.DictCursor, name="search_images_cur"
+            ) as cur:
                 cur.execute(query, params)
-                rows = cur.fetchall()
+                while True:
+                    rows = cur.fetchmany(100)
+                    if not rows:
+                        break
 
-                for row in rows:
-                    image_id = row["id"]
-                    image_data = dict(row)
-                    image_data.pop("embedding", None)
-                    image_data["tags"] = self.get_image_tags(image_id)
-                    results.append(image_data)
+                    for row in rows:
+                        image_id = row["id"]
+                        image_data = dict(row)
+                        image_data.pop("embedding", None)
+                        # Caution: calling get_image_tags inside a fetch loop can be N+1 slow,
+                        # but we are just fixing the fetchall RAM spike for now.
+                        image_data["tags"] = self.get_image_tags(image_id)
+                        results.append(image_data)
         except Exception as e:
             print(f"Error during search: {e}", file=sys.stderr)
             raise

@@ -38,6 +38,9 @@ from PySide6.QtWidgets import (
     QColorDialog,
     QVBoxLayout,
 )
+from shiboken6 import Shiboken as sip
+
+
 from ...classes import AbstractClassSingleGallery
 from ...helpers import ImageScannerWorker, WallpaperWorker, VideoScannerWorker
 from ...windows import SlideshowQueueWindow, ImagePreviewWindow
@@ -907,9 +910,14 @@ class WallpaperTab(AbstractClassSingleGallery):
         window.queue_reordered.connect(self.on_queue_reordered)
         window.image_preview_requested.connect(self.handle_full_image_preview)
 
+        self.open_queue_windows = [
+            w for w in self.open_queue_windows if not sip.isValid(w)
+        ]
+
         def remove_closed_win(event: Any):
-            if window in self.open_queue_windows:
-                self.open_queue_windows.remove(window)
+            self.open_queue_windows = [
+                w for w in self.open_queue_windows if w != window and sip.isValid(w)
+            ]
             event.accept()
 
         window.closeEvent = remove_closed_win
@@ -964,9 +972,16 @@ class WallpaperTab(AbstractClassSingleGallery):
         )
         window.setAttribute(Qt.WA_DeleteOnClose)
 
+        self.open_image_preview_windows = [
+            w for w in self.open_image_preview_windows if not sip.isValid(w)
+        ]
+
         def remove_closed_win(event: Any):
-            if window in self.open_image_preview_windows:
-                self.open_image_preview_windows.remove(window)
+            self.open_image_preview_windows = [
+                w
+                for w in self.open_image_preview_windows
+                if w != window and sip.isValid(w)
+            ]
             event.accept()
 
         window.closeEvent = remove_closed_win
