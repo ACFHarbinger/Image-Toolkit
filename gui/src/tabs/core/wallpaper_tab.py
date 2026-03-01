@@ -62,6 +62,13 @@ class WallpaperTab(AbstractClassSingleGallery):
     qml_monitors_changed = Signal(list)  # List of dicts
     qml_status_changed = Signal(str)
 
+    def _cache_get_thumb(self, path: str) -> Optional[QPixmap]:
+        """Read a thumbnail from the inherited LRU cache as QPixmap."""
+        img = self._initial_pixmap_cache.get(path)
+        if img is None:
+            return None
+        return QPixmap.fromImage(img) if isinstance(img, QImage) else img
+
     @Slot()
     def _is_slideshow_validation_ready(self) -> Tuple[bool, int]:
         monitor_ids = list(self.monitor_widgets.keys())
@@ -164,8 +171,6 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.monitor_image_paths: Dict[str, str] = {}
         self.monitor_slideshow_queues: Dict[str, List[str]] = {}
         self.monitor_current_index: Dict[str, int] = {}
-
-        self._initial_pixmap_cache: Dict[str, QPixmap] = {}
 
         self.current_wallpaper_worker: Optional[WallpaperWorker] = None
 
@@ -816,7 +821,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             for monitor_id, path in new_monitor_paths.items():
                 if monitor_id in self.monitor_widgets and path:
                     # Pass the cached thumbnail if available, otherwise just path
-                    thumb = self._initial_pixmap_cache.get(path)
+                    thumb = self._cache_get_thumb(path)
                     self.monitor_widgets[monitor_id].set_image(path, thumb)
             self.time_remaining_sec = self.interval_sec
         except Exception as e:
@@ -865,7 +870,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         for mid in [m0, m1]:
             path = self.monitor_image_paths[mid]
             if path:
-                thumb = self._initial_pixmap_cache.get(path)
+                thumb = self._cache_get_thumb(path)
                 self.monitor_widgets[mid].set_image(path, thumb)
             else:
                 self.monitor_widgets[mid].clear()
@@ -1054,7 +1059,7 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         if new_first_image:
             # Try to get thumbnail from cache
-            thumb = self._initial_pixmap_cache.get(new_first_image)
+            thumb = self._cache_get_thumb(new_first_image)
             self.monitor_widgets[monitor_id].set_image(new_first_image, thumb)
         else:
             self.monitor_widgets[monitor_id].clear()
@@ -1089,7 +1094,7 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         system_wallpaper_path = current_system_wallpaper_paths.get(monitor_id)
         if system_wallpaper_path and Path(system_wallpaper_path).exists():
-            thumb = self._initial_pixmap_cache.get(system_wallpaper_path)
+            thumb = self._cache_get_thumb(system_wallpaper_path)
             self.monitor_widgets[monitor_id].set_image(system_wallpaper_path, thumb)
         else:
             self.monitor_widgets[monitor_id].clear()
@@ -1169,7 +1174,7 @@ class WallpaperTab(AbstractClassSingleGallery):
 
             if image_path_to_display:
                 # 1. Try to get thumbnail from cache
-                thumb = self._initial_pixmap_cache.get(image_path_to_display)
+                thumb = self._cache_get_thumb(image_path_to_display)
 
                 # --- ADDED: Check for video if thumb is missing ---
                 if thumb is None and image_path_to_display.lower().endswith(
@@ -1240,12 +1245,12 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.monitor_image_paths[monitor_id] = image_path
         self.monitor_current_index[monitor_id] = -1
 
-        thumb = self._initial_pixmap_cache.get(image_path)
+        thumb = self._cache_get_thumb(image_path)
 
         if not thumb and is_video:
             thumb = self._generate_video_thumbnail(image_path)
             if thumb:
-                self._initial_pixmap_cache[image_path] = thumb
+                self._initial_pixmap_cache[image_path] = thumb.toImage()
 
         self.monitor_widgets[monitor_id].set_image(image_path, thumb)
         self.check_all_monitors_set()
@@ -1424,7 +1429,7 @@ class WallpaperTab(AbstractClassSingleGallery):
                 QMessageBox.information(self, "Success", "Wallpaper has been updated!")
                 for monitor_id, path in self.monitor_image_paths.items():
                     if path and monitor_id in self.monitor_widgets:
-                        thumb = self._initial_pixmap_cache.get(path)
+                        thumb = self._cache_get_thumb(path)
                         self.monitor_widgets[monitor_id].set_image(path, thumb)
             elif self.background_type == "Solid Color":
                 QMessageBox.information(
@@ -1570,7 +1575,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             self._failed_paths.add(path)
 
         self.gallery_image_paths.append(path)
-        self._initial_pixmap_cache[path] = pixmap
+        self._initial_pixmap_cache[path] = q_image
         # Debounce the UI update to avoid freezing on massive updates
         self._pagination_debounce_timer.start()
 
@@ -1815,7 +1820,7 @@ class WallpaperTab(AbstractClassSingleGallery):
                 for mid, path in saved_paths.items():
                     if mid in self.monitor_widgets and path:
                         if Path(path).exists():
-                            thumb = self._initial_pixmap_cache.get(path)
+                            thumb = self._cache_get_thumb(path)
                             # Generate thumbnail if missing and it is a video (lazy load)
                             if not thumb and path.lower().endswith(
                                 tuple(SUPPORTED_VIDEO_FORMATS)

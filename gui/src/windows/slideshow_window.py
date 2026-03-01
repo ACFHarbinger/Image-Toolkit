@@ -1,5 +1,5 @@
 from typing import List, Dict, Optional
-from PySide6.QtGui import QPixmap, QIcon
+from PySide6.QtGui import QPixmap, QIcon, QImage
 from PySide6.QtCore import Qt, Slot, QPoint, Signal
 from PySide6.QtWidgets import (
     QWidget,
@@ -64,13 +64,20 @@ class SlideshowQueueWindow(QWidget):
         self.list_widget.model().rowsMoved.connect(self.emit_new_queue_order)
         self.setLayout(layout)
 
+    def _resolve_pixmap(self, path: str) -> Optional[QPixmap]:
+        """Get a thumbnail from the cache, converting QImage to QPixmap if needed."""
+        raw = self.pixmap_cache.get(path)
+        if raw is None:
+            return None
+        return QPixmap.fromImage(raw) if isinstance(raw, QImage) else raw
+
     def populate_list(self, queue: List[str]):
         """Clears and repopulates the QListWidget with custom items, using cache for videos."""
         self.list_widget.clear()
 
         for path in queue:
             # 1. Try Cache First (Crucial for Video Thumbnails)
-            pixmap = self.pixmap_cache.get(path)
+            pixmap = self._resolve_pixmap(path)
 
             # 2. Fallback to loading from file
             if not pixmap or pixmap.isNull():
@@ -144,7 +151,7 @@ class SlideshowQueueWindow(QWidget):
             self.list_widget.takeItem(current_row)
 
             # Recreate widget
-            pixmap = self.pixmap_cache.get(path)
+            pixmap = self._resolve_pixmap(path)
             if not pixmap or pixmap.isNull():
                 pixmap = QPixmap(path)
                 if pixmap.isNull():
@@ -169,7 +176,7 @@ class SlideshowQueueWindow(QWidget):
             self.list_widget.takeItem(current_row)
 
             # Recreate widget
-            pixmap = self.pixmap_cache.get(path)
+            pixmap = self._resolve_pixmap(path)
             if not pixmap or pixmap.isNull():
                 pixmap = QPixmap(path)
                 if pixmap.isNull():

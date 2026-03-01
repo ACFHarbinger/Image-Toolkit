@@ -133,9 +133,34 @@ class DuplicateScanWorker(QObject):
                 if self.method == "phash":
                     results = self._compare_phash(self.scan_cache)
                 elif self.method == "ssim":
-                    results = self._compare_ssim(self.scan_cache)
+                    _C1, _C2 = 6.5025, 58.5225
+
+                    def _ssim_sim(img1, img2) -> bool:
+                        mu1 = cv2.GaussianBlur(img1, (11, 11), 1.5)
+                        mu1_sq = mu1 * mu1
+                        sigma1_sq = cv2.GaussianBlur(img1 * img1, (11, 11), 1.5) - mu1_sq
+                        mu2 = cv2.GaussianBlur(img2, (11, 11), 1.5)
+                        mu2_sq = mu2 * mu2
+                        sigma2_sq = cv2.GaussianBlur(img2 * img2, (11, 11), 1.5) - mu2_sq
+                        mu1_mu2 = mu1 * mu2
+                        sigma12 = cv2.GaussianBlur(img1 * img2, (11, 11), 1.5) - mu1_mu2
+                        num = (2 * mu1_mu2 + _C1) * (2 * sigma12 + _C2)
+                        den = (mu1_sq + mu2_sq + _C1) * (sigma1_sq + sigma2_sq + _C2)
+                        return float(cv2.mean(num / den)[0]) > 0.90
+
+                    results = self._chunked_compare("ssim", _ssim_sim)
                 elif self.method == "sift":
-                    results = self._compare_sift(self.scan_cache)
+                    _bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
+
+                    def _sift_sim(des1, des2) -> bool:
+                        try:
+                            matches = _bf.knnMatch(des1, des2, k=2)
+                            good = [m for m, n in matches if m.distance < 0.75 * n.distance]
+                            return len(good) > 10 and (len(good) / len(des1)) > 0.20
+                        except Exception:
+                            return False
+
+                    results = self._chunked_compare("sift", _sift_sim)
                 else:
                     results = self._compare_orb(self.scan_cache)
 
@@ -170,6 +195,77 @@ class DuplicateScanWorker(QObject):
         if self.processed_count >= self.total_files:
             if self.aggregator_loop and self.aggregator_loop.isRunning():
                 self.aggregator_loop.quit()
+
+    def _chunked_compare(
+        self, method_prefix: str, is_similar_fn, chunk_size: int = 500
+    ) -> Dict[str, List[str]]:
+        """
+        O(N^2) pairwise comparison processed in sorted chunks to bound peak RAM.
+
+        After chunk_a is compared against all later chunks, its entries are deleted
+        from self.scan_cache, keeping at most 2 * chunk_size descriptors alive at
+        any time.  A union-find structure accumulates transitive groups across chunk
+        boundaries so correctness is identical to the single-pass algorithm.
+        """
+        all_paths = sorted(self.scan_cache.keys())
+        chunks = [
+            all_paths[i : i + chunk_size] for i in range(0, len(all_paths), chunk_size)
+        ]
+        n_chunks = len(chunks)
+
+        # Union-Find for transitive grouping
+        parent = {p: p for p in all_paths}
+
+        def find(x: str) -> str:
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]  # path compression
+                x = parent[x]
+            return x
+
+        def union(a: str, b: str):
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                parent[ra] = rb
+
+        for i, chunk_a in enumerate(chunks):
+            self.status.emit(f"Comparing chunk {i + 1}/{n_chunks}...")
+            for j in range(i, n_chunks):
+                self._check_interrupt()
+                chunk_b = chunks[j]
+                if i == j:
+                    # Within-chunk: upper triangle only (each pair once)
+                    for ai in range(len(chunk_a)):
+                        pa = chunk_a[ai]
+                        desc_a = self.scan_cache[pa]
+                        for bi in range(ai + 1, len(chunk_a)):
+                            pb = chunk_a[bi]
+                            if is_similar_fn(desc_a, self.scan_cache[pb]):
+                                union(pa, pb)
+                else:
+                    # Cross-chunk: full cartesian product
+                    for pa in chunk_a:
+                        desc_a = self.scan_cache[pa]
+                        for pb in chunk_b:
+                            if is_similar_fn(desc_a, self.scan_cache[pb]):
+                                union(pa, pb)
+
+            # chunk_a fully compared — evict from cache to free RAM
+            for p in chunk_a:
+                del self.scan_cache[p]
+
+        # Collect groups with more than one member
+        grouped: Dict[str, List[str]] = {}
+        for p in all_paths:
+            grouped.setdefault(find(p), []).append(p)
+
+        results: Dict[str, List[str]] = {}
+        gid = 0
+        for group in grouped.values():
+            if len(group) > 1:
+                results[f"{method_prefix}_{gid}"] = group
+                gid += 1
+
+        return results
 
     def _compare_phash(self, hashes: Dict[str, Any]) -> Dict[str, List[str]]:
         """

@@ -65,9 +65,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         self.use_internal_player = True
 
-        # Cache for generated thumbnails (video frames)
-        self._initial_pixmap_cache: Dict[str, QPixmap] = {}
-
         # Map to track source widgets for alphabetical updates
         self.source_path_to_widget: Dict[str, QWidget] = {}
 
@@ -1510,12 +1507,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             if new_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
                 thumb = self._generate_video_thumbnail(new_path)
                 if thumb:
-                    self._initial_pixmap_cache[new_path] = thumb
+                    self._initial_pixmap_cache[new_path] = thumb.toImage()
 
             # Base class handles list management and loading
-            self.start_loading_gallery(
-                [new_path], append=True, pixmap_cache=self._initial_pixmap_cache
-            )
+            self.start_loading_gallery([new_path], append=True)
 
             # Keep local list synced
             self.current_extracted_paths = self.gallery_image_paths[:]

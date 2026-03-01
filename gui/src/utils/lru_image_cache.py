@@ -35,5 +35,10 @@ class LRUImageCache:
     def __len__(self) -> int:
         return len(self._cache)
 
+    def items(self):
+        """Return a snapshot of (key, value) pairs so callers can safely iterate
+        while the cache is modified (e.g. when copying into a new cache)."""
+        return list(self._cache.items())
+
     def clear(self):
         self._cache.clear()
