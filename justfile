@@ -50,6 +50,18 @@ benchmark:
     source .venv/bin/activate && python backend/benchmark/run_all.py
     cd base && cargo bench
 
+# Run benchmarks and save detailed reports
+benchmark-save:
+    @echo "🏃 Running benchmarks with detailed reporting..."
+    source .venv/bin/activate && python backend/benchmark/run_all.py --save --report
+    @echo "✅ Benchmark reports saved to backend/benchmark/results/"
+
+# Launch benchmark analysis dashboard
+benchmark-dashboard:
+    @echo "📊 Launching Benchmark Dashboard..."
+    @echo "Dashboard will open at http://localhost:8501"
+    source .venv/bin/activate && streamlit run backend/ui/benchmark_dashboard.py
+
 # Run Rust type/compile checks
 check:
     @echo "🔍 Running type checks..."
