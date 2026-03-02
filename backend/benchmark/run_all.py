@@ -31,7 +31,7 @@ def run_python_benchmarks(save=False, baseline=None):
         bench_database.runner.run()
         bench_database.runner.print_results()
         if save:
-            db_path = bench_database.runner.save_json()
+            db_path = bench_database.runner.save_detailed_report()
             results["database"] = db_path
         if baseline:
             db_baseline = Path(baseline) / "database.json"
@@ -46,7 +46,7 @@ def run_python_benchmarks(save=False, baseline=None):
         bench_thumbnails.runner.run()
         bench_thumbnails.runner.print_results()
         if save:
-            thumb_path = bench_thumbnails.runner.save_json()
+            thumb_path = bench_thumbnails.runner.save_detailed_report()
             results["thumbnails"] = thumb_path
         if baseline:
             thumb_baseline = Path(baseline) / "thumbnails.json"
@@ -61,7 +61,7 @@ def run_python_benchmarks(save=False, baseline=None):
         bench_models.runner.run()
         bench_models.runner.print_results()
         if save:
-            model_path = bench_models.runner.save_json()
+            model_path = bench_models.runner.save_detailed_report()
             results["models"] = model_path
         if baseline:
             model_baseline = Path(baseline) / "models.json"

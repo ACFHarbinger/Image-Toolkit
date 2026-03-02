@@ -223,8 +223,8 @@ if __name__ == "__main__":
     runner.print_results()
 
     if args.save:
-        output_path = runner.save_json()
-        print(f"Results saved to {output_path}")
+        output_path = runner.save_detailed_report()
+        print(f"Detailed report saved to {output_path}")
 
     if args.baseline:
         passed = runner.check_regression(args.baseline)

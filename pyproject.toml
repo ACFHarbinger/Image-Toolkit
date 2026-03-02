@@ -48,6 +48,12 @@ image-toolkit = "app:launch_app"
 
 # Corrected 'dev' dependencies
 [dependency-groups]
+benchmark = [
+    "matplotlib>=3.10.8",
+    "pandas>=2.3.3",
+    "plotly>=6.6.0",
+    "streamlit>=1.54.0",
+]
 dev = [
     "black>=25.9.0",
     "cryptography>=46.0.3",

@@ -425,6 +425,7 @@ env/README.md
 /**/data/
 /**/mods/
 CMakeFiles/
+backend/benchmark/results
 
 # Build directories
 /**/Image_Toolkit.egg-info

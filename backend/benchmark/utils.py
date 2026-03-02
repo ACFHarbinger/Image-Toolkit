@@ -241,6 +241,93 @@ class BenchmarkRunner:
         print(f"\nResults saved to: {output_path}")
         return output_path
 
+    def save_detailed_report(self, output_path: Optional[Path] = None):
+        """Save detailed report with comprehensive statistics and metadata."""
+        if output_path is None:
+            output_dir = Path(__file__).parent / "results"
+            output_dir.mkdir(exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            suite_slug = self.suite_name.lower().replace(" ", "_")
+            output_path = output_dir / f"{suite_slug}_{timestamp}.json"
+
+        # Calculate aggregate statistics
+        total_time = sum(r["time"]["total_sec"] for r in self.results)
+        avg_time = sum(r["time"]["avg_sec"] for r in self.results) / len(self.results) if self.results else 0
+        max_peak_mem = max(r["memory"]["max_peak_mb"] for r in self.results) if self.results else 0
+        total_leaked = sum(r["memory"]["max_leaked_mb"] for r in self.results) if self.results else 0
+
+        output = {
+            "metadata": {
+                "suite_name": self.suite_name,
+                "timestamp": self.system_info["timestamp"],
+                "total_benchmarks": len(self.results),
+                "total_time_sec": round(total_time, 4),
+                "format_version": "1.0",
+            },
+            "system": self.system_info,
+            "summary": {
+                "total_execution_time_sec": round(total_time, 4),
+                "avg_benchmark_time_sec": round(avg_time, 4),
+                "max_peak_memory_mb": round(max_peak_mem, 2),
+                "total_memory_leaked_mb": round(total_leaked, 2),
+                "benchmarks_passed": len(self.results),
+                "benchmarks_failed": 0,  # Can be enhanced to track failures
+            },
+            "benchmarks": self.results,
+            "performance_insights": self._generate_insights(),
+        }
+
+        with open(output_path, "w") as f:
+            json.dump(output, f, indent=2)
+
+        print(f"\nDetailed report saved to: {output_path}")
+        return output_path
+
+    def _generate_insights(self) -> Dict[str, Any]:
+        """Generate performance insights from benchmark results."""
+        if not self.results:
+            return {}
+
+        insights = {
+            "slowest_benchmark": None,
+            "fastest_benchmark": None,
+            "most_memory_intensive": None,
+            "most_memory_efficient": None,
+            "potential_memory_leaks": [],
+        }
+
+        # Find slowest and fastest
+        sorted_by_time = sorted(self.results, key=lambda r: r["time"]["avg_sec"])
+        insights["fastest_benchmark"] = {
+            "name": sorted_by_time[0]["name"],
+            "avg_time_sec": sorted_by_time[0]["time"]["avg_sec"],
+        }
+        insights["slowest_benchmark"] = {
+            "name": sorted_by_time[-1]["name"],
+            "avg_time_sec": sorted_by_time[-1]["time"]["avg_sec"],
+        }
+
+        # Find memory intensive/efficient
+        sorted_by_mem = sorted(self.results, key=lambda r: r["memory"]["avg_peak_mb"])
+        insights["most_memory_efficient"] = {
+            "name": sorted_by_mem[0]["name"],
+            "avg_peak_mb": sorted_by_mem[0]["memory"]["avg_peak_mb"],
+        }
+        insights["most_memory_intensive"] = {
+            "name": sorted_by_mem[-1]["name"],
+            "avg_peak_mb": sorted_by_mem[-1]["memory"]["avg_peak_mb"],
+        }
+
+        # Detect potential memory leaks (leaked > 10MB)
+        for result in self.results:
+            if result["memory"]["max_leaked_mb"] > 10.0:
+                insights["potential_memory_leaks"].append({
+                    "name": result["name"],
+                    "leaked_mb": result["memory"]["max_leaked_mb"],
+                })
+
+        return insights
+
     def check_regression(self, baseline_path: Path, threshold_time: float = 0.20, threshold_mem: float = 0.15):
         """Compare results against a baseline and detect regressions."""
         with open(baseline_path, "r") as f:
