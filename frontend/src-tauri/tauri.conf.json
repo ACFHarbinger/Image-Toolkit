@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.acfharbinger.imagetoolkit",
   "build": {
-    "frontendDist": "build",
+    "frontendDist": "../build",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "npm start",
     "beforeBuildCommand": "npm run build"
