@@ -28,12 +28,19 @@ class VideoLoaderWorker(QRunnable):
         self.target_size = target_size
         self.signals = VideoLoaderSignals()
         self.thumbnailer = VideoThumbnailer()
+        self._is_cancelled = False
 
         # Auto-delete ensures the runnable is cleaned up after 'run' finishes
         self.setAutoDelete(True)
 
+    def stop(self):
+        """Signals the worker to stop."""
+        self._is_cancelled = True
+
     @Slot()
     def run(self):
+        if self._is_cancelled:
+            return
         try:
             image = self.thumbnailer.generate(self.path, self.target_size)
             if image and not image.isNull():
@@ -59,13 +66,22 @@ class BatchVideoLoaderWorker(QRunnable):
         self.target_size = target_size
         self.signals = VideoLoaderSignals()
         self.thumbnailer = VideoThumbnailer()
+        self._is_cancelled = False
         self.setAutoDelete(True)
+
+    def stop(self):
+        """Signals the worker to stop."""
+        self._is_cancelled = True
 
     @Slot()
     def run(self):
+        if self._is_cancelled:
+            return
         results = []
         try:
             for path in self.paths:
+                if self._is_cancelled:
+                    break
                 try:
                     image = self.thumbnailer.generate(path, self.target_size)
                     if image and not image.isNull():

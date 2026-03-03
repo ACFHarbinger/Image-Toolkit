@@ -16,9 +16,9 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         command, opts = parse_params()
         if command == "gui":
-            launch_app(opts)
+            sys.exit(launch_app(opts))
         else:
             dispatch_command(command, opts)
     else:
         # Default to GUI
-        launch_app({"no_dropdown": False})
+        sys.exit(launch_app({"no_dropdown": False}))

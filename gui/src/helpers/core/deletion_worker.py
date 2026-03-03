@@ -19,6 +19,12 @@ class DeletionWorker(QThread):
         self.wait_condition = QWaitCondition()
         self.mutex = QMutex()
 
+    def stop(self):
+        """Signals the worker to stop."""
+        self.requestInterruption()
+        # Wake up if waiting for confirmation
+        self.wait_condition.wakeAll()
+
     def set_confirmation_response(self, response: bool):
         self.mutex.lock()
         self.confirmation_response = response
@@ -109,6 +115,8 @@ class DeletionWorker(QThread):
 
             deleted = 0
             for file_path in files_to_delete:
+                if self.isInterruptionRequested():
+                    break
                 # Core logic for single file deletion
                 if FileDeleter.delete_path(file_path):
                     deleted += 1

@@ -519,6 +519,37 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         self._load_existing_output_images()
 
+    def cancel_loading(self):
+        """Stops all active media players, timers, and background workers."""
+        super().cancel_loading()
+
+        if self.extractor_worker:
+            self.extractor_worker.cancel()
+
+        if self.vid_scanner_worker:
+            try:
+                self.vid_scanner_worker.signals.thumbnail_ready.disconnect()
+                self.vid_scanner_worker.signals.finished.disconnect()
+            except Exception:
+                pass
+            self.vid_scanner_worker.stop()
+
+        if self.media_player:
+            self.media_player.stop()
+
+        # Close sub-windows
+        for win in list(self.open_image_preview_windows):
+            try:
+                win.close()
+            except Exception:
+                pass
+        self.open_image_preview_windows.clear()
+
+    def closeEvent(self, event):
+        """Cleanup processes on close."""
+        self.cancel_loading()
+        super().closeEvent(event)
+
     def _load_existing_output_images(self):
         valid_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".mp4"}
         found_paths = []
@@ -680,7 +711,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         if not clickable_label:
             return
 
-        thumb_size = 120
         if not pixmap.isNull():
             # NOTE: Scaling/cropping is now handled in the background by VideoScannerWorker(crop_square=True)
             clickable_label.setPixmap(pixmap)

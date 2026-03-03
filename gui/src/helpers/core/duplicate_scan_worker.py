@@ -27,6 +27,11 @@ class DuplicateScanWorker(QObject):
     error = Signal(str)
     status = Signal(str)
 
+    def stop(self):
+        """Signals the worker to stop."""
+        if self.aggregator_loop and self.aggregator_loop.isRunning():
+            self.aggregator_loop.quit()
+
     def __init__(self, directory: str, extensions: list, method: str = "exact"):
         super().__init__()
         self.directory = directory

@@ -29,6 +29,10 @@ class ConversionWorker(QThread):
             except Exception:
                 pass
 
+    def stop(self):
+        """Signals the worker to stop (alias for cancel)."""
+        self.cancel()
+
     def run(self):
         try:
             # Config extraction

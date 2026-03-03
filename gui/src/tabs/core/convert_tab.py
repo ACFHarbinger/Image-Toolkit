@@ -583,12 +583,12 @@ class ConvertTab(AbstractClassTwoGalleries):
             start_index=start_index,
         )
         preview.setAttribute(Qt.WA_DeleteOnClose)
-        
+
         def remove_preview(e):
             if preview in self.open_preview_windows:
                 self.open_preview_windows.remove(preview)
             e.accept()
-            
+
         preview.closeEvent = remove_preview
         preview.show()
         self.open_preview_windows.append(preview)
@@ -665,7 +665,9 @@ class ConvertTab(AbstractClassTwoGalleries):
     @Slot()
     def browse_directory_and_scan(self):
         directory = QFileDialog.getExistingDirectory(
-            self, "Select input directory", self.last_browsed_dir,
+            self,
+            "Select input directory",
+            self.last_browsed_dir,
             QFileDialog.Option.DontUseNativeDialog,
         )
         if directory:
@@ -678,7 +680,9 @@ class ConvertTab(AbstractClassTwoGalleries):
     @Slot()
     def browse_output(self):
         directory = QFileDialog.getExistingDirectory(
-            self, "Select output directory", "",
+            self,
+            "Select output directory",
+            "",
             QFileDialog.Option.DontUseNativeDialog,
         )
         if directory:
@@ -1002,39 +1006,61 @@ class ConvertTab(AbstractClassTwoGalleries):
                 self, "Config Error", f"Failed to apply some settings: {e}"
             )
 
-    def closeEvent(self, event):
-        """Clean up when the tab/window is closed."""
+    def cancel_loading(self):
+        """Stops all active timers and background workers."""
+        super().cancel_loading()
+
+        if self.worker:
+            try:
+                # Use stop() which we just added as an alias for cancel()
+                if hasattr(self.worker, "stop"):
+                    self.worker.stop()
+                elif hasattr(self.worker, "cancel"):
+                    self.worker.cancel()
+            except Exception:
+                pass
+
+        # Close sub-windows
         for win in list(self.open_preview_windows):
             try:
-                if win.isVisible():
-                    win.close()
-            except RuntimeError:
+                win.close()
+            except Exception:
                 pass
         self.open_preview_windows.clear()
+
+    def closeEvent(self, event):
+        """Cleanup processes on close."""
+        self.cancel_loading()
         super().closeEvent(event)
-    
+
     # --- QML HANDLERS ---
     @Slot(str)
     def browse_directory_and_scan_qml(self, current_path=""):
-        starting_dir = current_path if os.path.isdir(current_path) else self.last_browsed_dir
+        starting_dir = (
+            current_path if os.path.isdir(current_path) else self.last_browsed_dir
+        )
         directory = QFileDialog.getExistingDirectory(
-            self, "Select input directory", starting_dir,
+            self,
+            "Select input directory",
+            starting_dir,
             QFileDialog.Option.DontUseNativeDialog,
         )
         if directory:
             self.input_path.setText(directory)
             self.last_browsed_dir = directory
             self.qml_input_path_changed.emit(directory)
-            # For QML, we might just signal the path back, but setting the QLineEditText 
-            # might not update QML if not bi-directionally bound. 
+            # For QML, we might just signal the path back, but setting the QLineEditText
+            # might not update QML if not bi-directionally bound.
             # We rely on QML reading properties or signals.
             # Assuming mainBackend will expose a property or signal.
-            self.scan_directory_visual() # Visual scan for Python tab, maybe irrelevant for QML
+            self.scan_directory_visual()  # Visual scan for Python tab, maybe irrelevant for QML
             return directory
         return ""
 
     @Slot(str, str, str, bool)
-    def start_conversion_worker_qml(self, input_path, output_format, output_dir, delete_original):
+    def start_conversion_worker_qml(
+        self, input_path, output_format, output_dir, delete_original
+    ):
         """Wrapper for QML to start conversion."""
         if self.worker and self.worker.isRunning():
             self.cancel_conversion()
@@ -1048,17 +1074,19 @@ class ConvertTab(AbstractClassTwoGalleries):
         config = {
             "output_format": output_format,
             "delete_original": delete_original,
-            "ar_enabled": False, # Simplification for now
+            "ar_enabled": False,  # Simplification for now
             "output_path": output_dir,
             "filename_prefix": "",
-            "engine": "Auto (Recommended)"
+            "engine": "Auto (Recommended)",
         }
 
         # Collect files (simplification: convert all in dir)
         files_for_conversion = []
         # Re-using collect logic but with passed path
-        input_formats = [f.lower() for f in SUPPORTED_IMG_FORMATS] + [f.lstrip(".").lower() for f in SUPPORTED_VIDEO_FORMATS]
-        
+        input_formats = [f.lower() for f in SUPPORTED_IMG_FORMATS] + [
+            f.lstrip(".").lower() for f in SUPPORTED_VIDEO_FORMATS
+        ]
+
         for root, _, files in os.walk(input_path):
             for file in files:
                 file_ext = os.path.splitext(file)[1].lstrip(".").lower()
@@ -1071,8 +1099,8 @@ class ConvertTab(AbstractClassTwoGalleries):
             # Emit no files signal
             return
 
-        self.btn_convert_all.setEnabled(False) # Disable python UI buttons just in case
-        self.convert_progress_bar.show() # Show python UI progress just in case
+        self.btn_convert_all.setEnabled(False)  # Disable python UI buttons just in case
+        self.convert_progress_bar.show()  # Show python UI progress just in case
         self.convert_progress_bar.setValue(0)
         self.status_label.setText("Starting conversion (QML)...")
 

@@ -202,7 +202,9 @@ class LoRAGenerateTab(BaseGenerativeTab):
             "guidance": self.guidance_box.value(),
             "input_image": self.input_image_edit.text(),
         }
-        thread = threading.Thread(target=self.run_generation, kwargs=config)
+        thread = threading.Thread(
+            target=self.run_generation, kwargs=config, daemon=True
+        )
         thread.start()
 
     def run_generation(
