@@ -185,9 +185,9 @@ class WallpaperManager:
         }
         print(output.join("\\n"));
         """
+        desktops = []
         try:
             result = base.evaluate_kde_script(qdbus, script)
-            desktops = []
             for line in result.strip().split("\n"):
                 if not line.strip():
                     continue
@@ -427,7 +427,7 @@ class WallpaperManager:
                 """
                 try:
                     base.evaluate_kde_script(qdbus, script)
-                except:
+                except Exception:
                     WallpaperManager._set_wallpaper_solid_color_gnome(color_hex)
             return
 
@@ -527,7 +527,7 @@ class WallpaperManager:
                         final_path = path
                         try:
                             final_path = str(Path(path).resolve())
-                        except:
+                        except Exception:
                             pass
 
                         # Map back to monitor ID
