@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import time
 import shutil
 import platform
 import subprocess
@@ -488,6 +489,16 @@ class WallpaperTab(AbstractClassSingleGallery):
     def toggle_slideshow_daemon(self):
         start = not self._is_daemon_running_config()
 
+        # Try to preserve last_change_timestamp if it exists
+        last_change_timestamp = 0
+        try:
+            if os.path.exists(DAEMON_CONFIG_PATH):
+                with open(DAEMON_CONFIG_PATH, "r") as f:
+                    old_config = json.load(f)
+                    last_change_timestamp = old_config.get("last_change_timestamp", 0)
+        except Exception:
+            pass
+
         # Ensure mutual exclusion: stop local slideshow if starting daemon
         if start:
             self.stop_slideshow()
@@ -509,6 +520,7 @@ class WallpaperTab(AbstractClassSingleGallery):
                 str(i): {"x": m.x, "y": m.y, "width": m.width, "height": m.height}
                 for i, m in enumerate(self.monitors)
             },
+            "last_change_timestamp": last_change_timestamp,
         }
 
         # Save config
@@ -742,12 +754,32 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.set_wallpaper_btn.setEnabled(True)
 
     def update_countdown(self):
+        # Periodically sync with daemon config if it exists
+        if self.time_remaining_sec % 5 == 0 or self.time_remaining_sec <= 0:
+            try:
+                if os.path.exists(DAEMON_CONFIG_PATH):
+                    with open(DAEMON_CONFIG_PATH, "r") as f:
+                        config = json.load(f)
+                        last_change = config.get("last_change_timestamp", 0)
+                        interval = config.get("interval_seconds", self.interval_sec)
+                        if last_change > 0:
+                            elapsed = int(time.time()) - last_change
+                            remaining = max(0, interval - elapsed)
+                            self.time_remaining_sec = remaining
+            except Exception:
+                pass
+
         if self.time_remaining_sec > 0:
             self.time_remaining_sec -= 1
             m, s = divmod(self.time_remaining_sec, 60)
             self.countdown_label.setText(f"Timer: {m:02}:{s:02}")
         else:
-            self.time_remaining_sec = self.interval_sec
+            # If we reached 0 but daemon hasn't updated yet, just stay at 0 until sync
+            self.countdown_label.setText("Timer: 00:00")
+            # The next sync (which happens when <= 0) will reset it to interval once daemon changes
+            # Or if it's a local slideshow, handle it here
+            if not self._is_daemon_running_config():
+                self.time_remaining_sec = self.interval_sec
 
     @Slot()
     def stop_slideshow(self):
@@ -1232,6 +1264,17 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         for image_path in image_paths:
             self._process_single_drop(monitor_id, image_path)
+
+        # Set the FIRST image in the dropped list as the active one for UI preview
+        if image_paths:
+            first_path = image_paths[0]
+            self.monitor_image_paths[monitor_id] = first_path
+            thumb = self._cache_get_thumb(first_path)
+            if not thumb and first_path.lower().endswith(
+                tuple(SUPPORTED_VIDEO_FORMATS)
+            ):
+                thumb = self._generate_video_thumbnail(first_path)
+            self.monitor_widgets[monitor_id].set_image(first_path, thumb)
 
         # Auto-save changes to daemon config if it exists/is running
         if self._is_daemon_running_config():

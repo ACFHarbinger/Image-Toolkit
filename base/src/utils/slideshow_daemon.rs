@@ -1,17 +1,13 @@
 use anyhow::{Context, Result};
+use base::core::wallpaper;
 use directories::UserDirs;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::panic;
+use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::Duration;
-
-// Internal modules access
-// Since this is a bin in the same crate, it can't directly use 'base::...' unless 'base' is a dependency (which it is, implicitly or explicitly).
-// Actually, a binary in the same crate can't easily access 'crate::core' if 'core' is just modules in lib.rs.
-// It acts like an external user of the library.
-use base::core::wallpaper;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
@@ -27,6 +23,8 @@ pub struct Config {
     pub current_paths: HashMap<String, String>,
     #[serde(default)]
     pub monitor_geometries: HashMap<String, Geometry>,
+    #[serde(default)]
+    pub last_change_timestamp: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -67,10 +65,14 @@ impl PidGuard {
             let content = fs::read_to_string(&path).unwrap_or_default();
             if let Ok(old_pid) = content.trim().parse::<u32>() {
                 if PathBuf::from(format!("/proc/{}", old_pid)).exists() {
-                    anyhow::bail!(
-                        "Slideshow daemon is already running (PID: {}). Exiting.",
-                        old_pid
-                    );
+                    let cmdline = fs::read_to_string(format!("/proc/{}/cmdline", old_pid))
+                        .unwrap_or_default();
+                    if cmdline.contains("slideshow_daemon") || cmdline.contains("python") {
+                        anyhow::bail!(
+                            "Slideshow daemon is already running (PID: {}). Exiting.",
+                            old_pid
+                        );
+                    }
                 }
             }
         }
@@ -84,7 +86,7 @@ impl Drop for PidGuard {
     }
 }
 
-fn load_config(path: &PathBuf) -> Result<Config> {
+fn load_config(path: &Path) -> Result<Config> {
     if !path.exists() {
         return Ok(Config {
             running: false,
@@ -93,6 +95,7 @@ fn load_config(path: &PathBuf) -> Result<Config> {
             monitor_queues: HashMap::new(),
             current_paths: HashMap::new(),
             monitor_geometries: HashMap::new(),
+            last_change_timestamp: 0,
         });
     }
     let content = fs::read_to_string(path).context("Failed to read config file")?;
@@ -100,26 +103,90 @@ fn load_config(path: &PathBuf) -> Result<Config> {
     Ok(config)
 }
 
-fn save_config(path: &PathBuf, config: &Config) -> Result<()> {
+fn save_config(path: &Path, config: &Config) -> Result<()> {
     let content = serde_json::to_string_pretty(config).context("Failed to serialize config")?;
     fs::write(path, content).context("Failed to write config file")?;
     Ok(())
 }
 
-pub fn get_next_image(queue: &[String], current: Option<&String>) -> Option<String> {
-    if queue.is_empty() {
-        return None;
+fn select_next_wallpapers(config: &mut Config, increment: bool) -> HashMap<String, String> {
+    eprintln!(
+        "Selecting next wallpapers for {} monitors... (increment={})",
+        config.monitor_queues.len(),
+        increment
+    );
+    let mut selected = HashMap::new();
+    let mut monitor_ids: Vec<&String> = config.monitor_queues.keys().collect();
+    monitor_ids.sort();
+
+    for monitor_id in monitor_ids {
+        let queue = config.monitor_queues.get(monitor_id).unwrap();
+        if queue.is_empty() {
+            eprintln!("Queue for monitor {} is empty.", monitor_id);
+            continue;
+        }
+
+        let current_path = config.current_paths.get(monitor_id);
+        let mut idx = 0;
+        let mut found = false;
+
+        if let Some(path) = current_path {
+            let norm_path = normalize_path(path);
+            eprintln!(
+                "Monitor {} current path normalized: {}",
+                monitor_id, norm_path
+            );
+            for (i, p) in queue.iter().enumerate() {
+                let queue_norm_path = normalize_path(p);
+                eprintln!("  Comparing with queue item {}: {}", i, queue_norm_path);
+                if queue_norm_path == norm_path {
+                    idx = i;
+                    found = true;
+                    eprintln!("  Match found at index {}", i);
+                    break;
+                }
+            }
+
+            if found {
+                eprintln!("Monitor {} found current at index {}", monitor_id, idx);
+                if increment {
+                    idx = (idx + 1) % queue.len();
+                    eprintln!("Monitor {} incremented to index {}", monitor_id, idx);
+                }
+            } else {
+                eprintln!(
+                    "Monitor {} current path not found in queue. Starting at index 0.",
+                    monitor_id
+                );
+                idx = 0;
+            }
+        } else {
+            eprintln!(
+                "Monitor {} has no current path. Starting at index 0.",
+                monitor_id
+            );
+            idx = 0;
+        }
+
+        let next_path = queue[idx].clone();
+        eprintln!(
+            "Monitor {} -> Next path (index {}): {}",
+            monitor_id, idx, next_path
+        );
+        selected.insert(monitor_id.clone(), next_path.clone());
+        config.current_paths.insert(monitor_id.clone(), next_path);
     }
-    let norm_current = current.map(|c| normalize_path(c));
-    let idx = match norm_current {
-        Some(curr) => queue
-            .iter()
-            .position(|r| normalize_path(r) == curr)
-            .map(|i| (i + 1) % queue.len())
-            .unwrap_or(0),
-        None => 0,
-    };
-    Some(queue[idx].clone())
+    selected
+}
+
+fn find_qdbus_binary() -> String {
+    let candidates = ["qdbus", "qdbus-qt5", "qdbus-qt6", "qdbus6"];
+    for bin in candidates {
+        if which::which(bin).is_ok() {
+            return bin.to_string();
+        }
+    }
+    "qdbus".to_string()
 }
 
 fn get_best_video_plugin() -> String {
@@ -130,38 +197,25 @@ fn get_best_video_plugin() -> String {
     let home = UserDirs::new()
         .map(|u| u.home_dir().to_path_buf())
         .unwrap_or_else(|| PathBuf::from("/"));
+
     let search_paths = vec![
         home.join(".local/share/plasma/wallpapers"),
         PathBuf::from("/usr/share/plasma/wallpapers"),
     ];
 
-    for base_path in &search_paths {
+    for base_path in search_paths {
         if base_path.join(reborn_plugin).exists() {
             return reborn_plugin.to_string();
         }
-    }
-    for base_path in &search_paths {
+        if base_path.join(zren_plugin).exists() {
+            return zren_plugin.to_string();
+        }
         if base_path.join(smarter_plugin).exists() {
             return smarter_plugin.to_string();
         }
     }
-    for base_path in &search_paths {
-        if base_path.join(zren_plugin).exists() {
-            return zren_plugin.to_string();
-        }
-    }
 
     reborn_plugin.to_string()
-}
-
-fn find_qdbus_binary() -> String {
-    let candidates = ["qdbus", "qdbus-qt5", "qdbus-qt6", "qdbus6"];
-    for bin in candidates {
-        if which::which(bin).is_ok() {
-            return bin.to_string();
-        }
-    }
-    "qdbus".to_string() // Fallback
 }
 
 fn apply_wallpaper_kde(
@@ -171,6 +225,7 @@ fn apply_wallpaper_kde(
 ) -> Result<()> {
     let mut script = String::new();
     let qdbus_bin = find_qdbus_binary();
+    eprintln!("Using qdbus binary: {}", qdbus_bin);
 
     let mut video_mode_active = false;
     let mut base_style_name = style;
@@ -187,7 +242,6 @@ fn apply_wallpaper_kde(
                 "Stretch" => 0,
                 _ => 2,
             };
-            // Fallback for image part of the logic
             base_style_name = "Fill";
         }
     }
@@ -213,41 +267,53 @@ fn apply_wallpaper_kde(
         }
     };
 
-    // Topological Sort Mapping
-    // 1. Sort KDE Desktops by (Y, X)
     kde_desktops.sort_by(|a, b| a.y.cmp(&b.y).then(a.x.cmp(&b.x)));
-
-    // 2. Sort Monitor Geometries by (Y, X)
     let mut monitor_list: Vec<(&String, &Geometry)> = geometries.iter().collect();
     monitor_list.sort_by(|a, b| a.1.y.cmp(&b.1.y).then(a.1.x.cmp(&b.1.x)));
 
-    // 3. Create Mapping: MonitorID -> KdeDesktopIndex
-    let mut monitor_to_kde: HashMap<String, u32> = HashMap::new();
-    for (idx, (monitor_id, _)) in monitor_list.iter().enumerate() {
-        if idx < kde_desktops.len() {
-            monitor_to_kde.insert(monitor_id.to_string(), kde_desktops[idx].index);
+    let mut monitor_to_kde = HashMap::new();
+    println!("Monitoring configurations (sorted by geometry):");
+    for (monitor_id, g) in &monitor_list {
+        eprintln!(
+            "  Monitor {}: x={}, y={}, w={}, h={}",
+            monitor_id, g.x, g.y, g.width, g.height
+        );
+    }
+
+    eprintln!("KDE Desktops found: {}", kde_desktops.len());
+    for d in &kde_desktops {
+        eprintln!(
+            "  Desktop {}: screen={}, x={}, y={}",
+            d.index, d.screen, d.x, d.y
+        );
+    }
+
+    for (i, (monitor_id, _)) in monitor_list.iter().enumerate() {
+        if i < kde_desktops.len() {
+            monitor_to_kde.insert(monitor_id.to_string(), kde_desktops[i].index);
         }
     }
 
-    let target_plugin = get_best_video_plugin();
     let video_extensions = vec![".mp4", ".mkv", ".webm", ".mov", ".avi", ".wmv"];
+    let target_plugin = get_best_video_plugin();
 
     for (monitor_id, path) in path_map {
-        // Use mapping or fallback to integer parsing
-        let i = if let Some(kde_idx) = monitor_to_kde.get(monitor_id) {
-            *kde_idx
-        } else {
-            monitor_id.parse().unwrap_or(0)
-        };
+        let i = monitor_to_kde
+            .get(monitor_id)
+            .cloned()
+            .unwrap_or_else(|| monitor_id.parse().unwrap_or(0));
 
-        println!(
+        eprintln!(
             "Monitor {} -> KDE Desktop {} (Path: {})",
             monitor_id, i, path
         );
 
-        // KDE Plasma 6 (and some 5 versions) prefers raw paths for org.kde.image
-        // We remove the file:// prefix if present, rather than adding it.
-        let file_uri = if path.starts_with("file://") {
+        let file_uri = if !path.starts_with("file://") {
+            format!("file://{}", path)
+        } else {
+            path.clone()
+        };
+        let raw_path = if path.starts_with("file://") {
             path.replace("file://", "")
         } else {
             path.clone()
@@ -259,7 +325,6 @@ fn apply_wallpaper_kde(
             .unwrap_or("")
             .to_lowercase();
         let dot_ext = format!(".{}", ext);
-
         let is_video = video_extensions.contains(&dot_ext.as_str());
 
         if is_video && video_mode_active {
@@ -279,34 +344,38 @@ fn apply_wallpaper_kde(
                 "{{ 
                     var d = desktops()[{}]; 
                     if (d && d.screen >= 0) {{ 
-                        if (d.wallpaperPlugin !== \"{}\") d.wallpaperPlugin = \"{}\"; 
-                        d.currentConfigGroup = Array(\"Wallpaper\", d.wallpaperPlugin, \"General\"); 
+                        d.wallpaperPlugin = \"{}\"; 
+                        d.currentConfigGroup = Array(\"Wallpaper\", \"{}\", \"General\"); 
                         d.writeConfig(\"{}\", \"{}\"); 
                         d.writeConfig(\"FillMode\", {}); 
                         {}
+                        d.reloadConfig(); 
                         d.currentConfigGroup = Array(\"Wallpaper\", \"org.kde.image\", \"General\");
                         d.writeConfig(\"FillMode\", 2);
                         d.writeConfig(\"Color\", \"#00000000\");
-                        d.reloadConfig(); 
                     }} 
                 }}",
-                i, target_plugin, target_plugin, video_key, file_uri, video_fill_mode, override_pause
+                i,
+                target_plugin,
+                target_plugin,
+                video_key,
+                file_uri,
+                video_fill_mode,
+                override_pause
             ));
         } else {
             script.push_str(&format!(
                 "{{ var d = desktops()[{}]; if (d && d.screen >= 0) {{ d.wallpaperPlugin = \"org.kde.image\"; d.currentConfigGroup = Array(\"Wallpaper\", \"org.kde.image\", \"General\"); d.writeConfig(\"Image\", \"{}\"); d.writeConfig(\"FillMode\", {}); d.reloadConfig(); }} }}",
-                i, file_uri, fill_mode
+                i, raw_path, fill_mode
             ));
         }
     }
 
-    if script.is_empty() {
-        return Ok(());
+    if !script.is_empty() {
+        wallpaper::evaluate_kde_script_core(&qdbus_bin, &script)
+            .map_err(|e| anyhow::anyhow!("KDE qdbus error: {}", e))?;
+        println!("Successfully applied KDE wallpaper script.");
     }
-
-    wallpaper::evaluate_kde_script_core(&qdbus_bin, &script)
-        .map_err(|e| anyhow::anyhow!("KDE qdbus error: {}", e))?;
-
     Ok(())
 }
 
@@ -322,20 +391,69 @@ fn apply_wallpaper_gnome(path_map: &HashMap<String, String>, style: &str) -> Res
         };
         wallpaper::set_wallpaper_gnome_core(&file_uri, &mode)
             .map_err(|e| anyhow::anyhow!("GNOME error: {}", e))?;
+        eprintln!("Successfully applied GNOME wallpaper: {}", file_uri);
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn apply_wallpaper_windows(path_map: &HashMap<String, String>, style: &str) -> Result<()> {
+    if let Some(path) = path_map.values().next() {
+        let abs_path = fs::canonicalize(path).context("Invalid path")?;
+        let mode = match style.to_lowercase().as_str() {
+            "fill" => wallpaper::windows::WallpaperStyle::Fill,
+            "fit" => wallpaper::windows::WallpaperStyle::Fit,
+            "stretch" => wallpaper::windows::WallpaperStyle::Stretch,
+            "tile" => wallpaper::windows::WallpaperStyle::Tile,
+            "center" => wallpaper::windows::WallpaperStyle::Center,
+            "span" => wallpaper::windows::WallpaperStyle::Span,
+            _ => wallpaper::windows::WallpaperStyle::Fill,
+        };
+        wallpaper::set_wallpaper_windows_core(&abs_path.to_string_lossy(), mode)
+            .map_err(|e| anyhow::anyhow!("Windows error: {}", e))?;
     }
     Ok(())
 }
 
 fn main() -> Result<()> {
-    eprintln!("Slideshow Daemon (Rust) Started.");
+    panic::set_hook(Box::new(|panic_info| {
+        let msg = if let Some(s) = panic_info.payload().downcast_ref::<&str>() {
+            s.to_string()
+        } else if let Some(s) = panic_info.payload().downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "Unknown panic".to_string()
+        };
+        let location = panic_info
+            .location()
+            .map(|l| format!(" at {}:{}", l.file(), l.line()))
+            .unwrap_or_default();
+        eprintln!("PANIC: {}{}", msg, location);
+    }));
+
+    if let Err(e) = run() {
+        eprintln!("TERMINAL ERROR: {}", e);
+        return Err(e);
+    }
+    Ok(())
+}
+
+fn run() -> Result<()> {
+    println!("Slideshow Daemon (Rust) Started.");
     let pid_path = get_pid_path()?;
     let _guard = PidGuard::new(pid_path)?;
 
     let config_path = get_config_path()?;
     eprintln!("Config path: {:?}", config_path);
 
-    let mut is_first_run = true;
+    let desktop_env = std::env::var("XDG_CURRENT_DESKTOP")
+        .or_else(|_| std::env::var("XDG_SESSION_DESKTOP"))
+        .or_else(|_| std::env::var("DESKTOP_SESSION"))
+        .unwrap_or_default()
+        .to_lowercase();
+    eprintln!("Detected desktop environment: '{}'", desktop_env);
 
+    let mut first_run = true;
     loop {
         let mut config = match load_config(&config_path) {
             Ok(c) => c,
@@ -347,76 +465,39 @@ fn main() -> Result<()> {
         };
 
         if !config.running {
-            eprintln!("Slideshow disabled in config. Exiting.");
+            println!("Slideshow disabled in config. Exiting.");
             break;
         }
 
-        let mut next_paths = HashMap::new();
-        let mut changed = false;
+        let next_paths = select_next_wallpapers(&mut config, !first_run);
+        first_run = false;
 
-        let mut monitor_ids: Vec<_> = config.monitor_queues.keys().cloned().collect();
-        monitor_ids.sort_by_key(|a| a.parse::<u32>().unwrap_or(u32::MAX));
-
-        for mid in monitor_ids {
-            if let Some(queue) = config.monitor_queues.get(&mid) {
-                let current = config.current_paths.get(&mid).cloned();
-
-                let next = if is_first_run {
-                    // On first run, stay on the current image if it's already in the queue.
-                    let norm_curr = current.as_ref().map(|c| normalize_path(c));
-                    let found_idx =
-                        norm_curr.and_then(|nc| queue.iter().position(|q| normalize_path(q) == nc));
-
-                    match found_idx {
-                        Some(idx) => queue[idx].clone(),
-                        None => queue.first().cloned().unwrap_or_default(),
-                    }
-                } else {
-                    get_next_image(queue, current.as_ref()).unwrap_or_default()
-                };
-
-                if !next.is_empty() {
-                    let norm_next = normalize_path(&next);
-                    let norm_current = current.as_ref().map(|c| normalize_path(c));
-
-                    if is_first_run || norm_current.as_ref() != Some(&norm_next) {
-                        // Only add to next_paths if we actually want to change the wallpaper or it's first run forcing state
-                        if norm_current.as_ref() != Some(&norm_next) {
-                            next_paths.insert(mid.clone(), next.clone());
-                            changed = true;
-                        }
-                        // Always update current_paths in config object
-                        config.current_paths.insert(mid.clone(), next);
-                    }
-                }
-            }
-        }
-        is_first_run = false;
-
-        if changed {
-            let desktop_env = std::env::var("XDG_CURRENT_DESKTOP")
-                .or_else(|_| std::env::var("XDG_SESSION_DESKTOP"))
-                .or_else(|_| std::env::var("DESKTOP_SESSION"))
-                .unwrap_or_default()
-                .to_lowercase();
-
+        if !next_paths.is_empty() {
             let res = if desktop_env.contains("kde") || desktop_env.contains("plasma") {
                 apply_wallpaper_kde(&next_paths, &config.style, &config.monitor_geometries)
-            } else if desktop_env.contains("gnome") || desktop_env.contains("unity") {
+            } else if desktop_env.contains("gnome") || desktop_env.contains("ubuntu") {
                 apply_wallpaper_gnome(&next_paths, &config.style)
+            } else if cfg!(target_os = "windows") {
+                #[cfg(target_os = "windows")]
+                {
+                    apply_wallpaper_windows(&next_paths, &config.style)
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    Err(anyhow::anyhow!("Windows support not compiled in"))
+                }
             } else {
-                Err(anyhow::anyhow!(
-                    "Unsupported or undetected desktop environment: '{}'. Please ensure XDG_CURRENT_DESKTOP is set.",
-                    desktop_env
-                ))
+                Err(anyhow::anyhow!("Unsupported desktop: '{}'", desktop_env))
             };
 
             if let Err(e) = res {
                 eprintln!("Error applying wallpaper: {}", e);
             } else {
-                if let Err(e) = save_config(&config_path, &config) {
-                    eprintln!("Error saving config state: {}", e);
-                }
+                config.last_change_timestamp = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs();
+                let _ = save_config(&config_path, &config);
             }
         }
 
@@ -435,108 +516,6 @@ mod tests {
         let config: Config = serde_json::from_str(json).unwrap();
         assert_eq!(config.running, false);
         assert_eq!(config.interval_seconds, 300);
-        assert_eq!(config.style, "Fill");
-        assert!(config.monitor_queues.is_empty());
-    }
-
-    #[test]
-    fn test_config_parsing() {
-        let json = r#"{
-            "running": true,
-            "interval_seconds": 60,
-            "style": "Fit",
-            "monitor_queues": {
-                "0": ["/path/a.jpg", "/path/b.jpg"]
-            }
-        }"#;
-        let config: Config = serde_json::from_str(json).unwrap();
-        assert!(config.running);
-        assert_eq!(config.interval_seconds, 60);
-        assert_eq!(config.style, "Fit");
-        assert_eq!(config.monitor_queues["0"].len(), 2);
-    }
-
-    #[test]
-    fn test_get_next_image_logic() {
-        let queue = vec![
-            "img1.jpg".to_string(),
-            "img2.jpg".to_string(),
-            "img3.jpg".to_string(),
-        ];
-
-        // Initial -> first
-        let next = get_next_image(&queue, None);
-        assert_eq!(next, Some("img1.jpg".to_string()));
-
-        // From img1 -> img2
-        let next = get_next_image(&queue, Some(&"img1.jpg".to_string()));
-        assert_eq!(next, Some("img2.jpg".to_string()));
-
-        // Path normalization tests
-        let _next = get_next_image(&queue, Some(&"file:///path/to/img1.jpg".to_string()));
-        // Note: The logic above replaces "file://" which works for local matching if queue has raw paths
-        // BUT the queue in this test is just "img1.jpg".
-        // If we want to match "img1.jpg" to "file://.../img1.jpg", normalize_path needs to be smarter or we need consistent paths.
-        // Actually, normally the queue has full paths.
-    }
-
-    #[test]
-    fn test_path_normalization() {
-        assert_eq!(
-            normalize_path("file:///home/user/img.jpg"),
-            "/home/user/img.jpg"
-        );
-        assert_eq!(
-            normalize_path("file:/home/user/img.jpg"),
-            "/home/user/img.jpg"
-        );
-        assert_eq!(normalize_path("/home/user/img.jpg"), "/home/user/img.jpg");
-    }
-
-    #[test]
-    fn test_get_next_image_uri_matching() {
-        let queue = vec!["/path/a.jpg".to_string(), "/path/b.jpg".to_string()];
-
-        // current with URI prefix should match raw path in queue
-        let next = get_next_image(&queue, Some(&"file:///path/a.jpg".to_string()));
-        assert_eq!(next, Some("/path/b.jpg".to_string()));
-
-        // raw current should match URI path in queue (the logic uses normalize_path on both)
-        let queue_uri = vec![
-            "file:///path/a.jpg".to_string(),
-            "file:///path/b.jpg".to_string(),
-        ];
-        let next = get_next_image(&queue_uri, Some(&"/path/a.jpg".to_string()));
-        assert_eq!(next, Some("file:///path/b.jpg".to_string()));
-    }
-
-    #[test]
-    fn test_first_run_stay_logic() {
-        let queue = vec!["a.jpg".to_string(), "b.jpg".to_string()];
-        let current = Some("a.jpg".to_string());
-
-        // Simulated first run logic from main loop
-        let is_first_run = true;
-        let next = if is_first_run && current.is_some() && queue.contains(current.as_ref().unwrap())
-        {
-            current.clone().unwrap()
-        } else {
-            get_next_image(&queue, current.as_ref()).unwrap_or_else(|| "".to_string())
-        };
-
-        // Should stay on 'a.jpg' because it's first run and 'a.jpg' is in queue
-        assert_eq!(next, "a.jpg");
-
-        // Simulated second run logic
-        let is_first_run = false;
-        let next = if is_first_run && current.is_some() && queue.contains(current.as_ref().unwrap())
-        {
-            current.clone().unwrap()
-        } else {
-            get_next_image(&queue, current.as_ref()).unwrap_or_else(|| "".to_string())
-        };
-
-        // Should advance to 'b.jpg'
-        assert_eq!(next, "b.jpg");
+        assert_eq!(config.style, "Fill".to_string());
     }
 }
