@@ -55,6 +55,7 @@ from ...styles.style import apply_shadow_effect, STYLE_START_ACTION, STYLE_STOP_
 from backend.src.utils.definitions import (
     WALLPAPER_STYLES,
     SUPPORTED_VIDEO_FORMATS,
+    SUPPORTED_IMG_FORMATS,
     DAEMON_CONFIG_PATH,
     ROOT_DIR,
 )
@@ -1607,6 +1608,28 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.cancel_loading()
         self.gallery_image_paths = []
 
+        # --- QUICK LOAD FOR INSTANT PLACEHOLDERS ---
+        try:
+            entries = sorted(os.scandir(directory), key=lambda e: e.name.lower())
+            all_exts = list(SUPPORTED_IMG_FORMATS) + list(SUPPORTED_VIDEO_FORMATS)
+            valid_exts = tuple(f".{fmt.lower().lstrip('.')}" for fmt in all_exts)
+            quick_paths = [
+                e.path
+                for e in entries
+                if e.is_file() and e.name.lower().endswith(valid_exts)
+            ]
+
+            # Limit to avoid freezing if directory has 100k files
+            quick_paths_limited = quick_paths[:5000]
+
+            if quick_paths_limited:
+                self.start_loading_gallery(
+                    quick_paths_limited, show_progress=False, append=False
+                )
+        except Exception:
+            pass
+        # -------------------------------------------
+
         if self.img_scanner_thread is not None:
             if self.img_scanner_thread.isRunning():
                 self.img_scanner_thread.requestInterruption()
@@ -1643,8 +1666,11 @@ class WallpaperTab(AbstractClassSingleGallery):
 
     @Slot(list)
     def _on_image_scan_finished(self, image_paths: list[str]):
-        if image_paths:
-            self.start_loading_gallery(image_paths, show_progress=False, append=False)
+        existing_paths = set(getattr(self, "master_image_paths", []))
+        new_paths = [p for p in image_paths if p not in existing_paths]
+
+        if new_paths:
+            self.start_loading_gallery(new_paths, show_progress=False, append=True)
         else:
             self.refresh_gallery_view()
 
