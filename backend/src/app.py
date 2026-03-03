@@ -6,7 +6,6 @@ import threading
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 from gui.src.windows import MainWindow, LoginWindow
-from backend.src.core.file_system_entries import FSETool
 from backend.src.utils.definitions import ICON_FILE, CTRL_C_TIMEOUT
 
 
@@ -40,9 +39,9 @@ def launch_app(opts):
             # This triggers the closeEvent, which handles VaultManager shutdown
             active_window.close()
         app.quit()
-        
+
         # Force exit if app doesn't quit quickly (e.g., stuck thread)
-        threading.Timer(CTRL_C_TIMEOUT, lambda: sys.exit(1)).start()
+        threading.Timer(CTRL_C_TIMEOUT, lambda: sys.exit(1), daemon=True).start()
 
     # Set up signal handlers
     signal.signal(signal.SIGINT, handle_interrupt)

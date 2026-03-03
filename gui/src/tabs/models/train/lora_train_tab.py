@@ -211,7 +211,7 @@ class LoRATrainTab(BaseGenerativeTab):
             "prompt": self.prompt_edit.text(),
             "output_name": params.get("output_name", "output_lora"),
         }
-        thread = threading.Thread(target=self.run_training, kwargs=config)
+        thread = threading.Thread(target=self.run_training, kwargs=config, daemon=True)
         thread.start()
 
     def run_training(self, params, data_dir, model_id, rank, prompt, output_name):

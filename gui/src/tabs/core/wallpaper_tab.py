@@ -798,6 +798,49 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         self.stop_wallpaper_worker()
 
+    def cancel_loading(self):
+        """Override to cleanup WallpaperTab specific resources."""
+        super().cancel_loading()
+
+        if self.img_scanner_worker:
+            try:
+                self.img_scanner_worker.stop()
+            except Exception:
+                pass
+
+        if self.vid_scanner_worker:
+            try:
+                self.vid_scanner_worker.stop()
+            except Exception:
+                pass
+
+        if (
+            hasattr(self, "_pagination_debounce_timer")
+            and self._pagination_debounce_timer.isActive()
+        ):
+            self._pagination_debounce_timer.stop()
+
+        # Stop slideshow timers without showing message box (silent cleanup)
+        if self.slideshow_timer and self.slideshow_timer.isActive():
+            self.slideshow_timer.stop()
+        if self.countdown_timer and self.countdown_timer.isActive():
+            self.countdown_timer.stop()
+
+        # Close sub-windows
+        for win in list(self.open_queue_windows):
+            try:
+                win.close()
+            except Exception:
+                pass
+        self.open_queue_windows.clear()
+
+        for win in list(self.open_image_preview_windows):
+            try:
+                win.close()
+            except Exception:
+                pass
+        self.open_image_preview_windows.clear()
+
         for win in list(self.open_queue_windows):
             try:
                 # Check if the C++ object still exists before calling isVisible()

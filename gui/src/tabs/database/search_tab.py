@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QMessageBox,
     QMenu,
-    QCheckBox,
     QFormLayout,
     QHBoxLayout,
     QVBoxLayout,
@@ -996,6 +995,26 @@ class SearchTab(AbstractClassTwoGalleries):
             "input_formats": [],
             "tags": [],
         }
+
+    def cancel_loading(self):
+        """Stops all active timers and background workers."""
+        super().cancel_loading()
+
+        if self.current_search_worker:
+            self.current_search_worker.cancel()
+
+        # Close sub-windows
+        for win in list(self.open_preview_windows):
+            try:
+                win.close()
+            except Exception:
+                pass
+        self.open_preview_windows.clear()
+
+    def closeEvent(self, event):
+        """Cleanup processes on close."""
+        self.cancel_loading()
+        super().closeEvent(event)
 
     def set_config(self, config: Dict[str, Any]):
         try:

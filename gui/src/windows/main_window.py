@@ -366,20 +366,15 @@ class MainWindow(QWidget):
         if self.settings_window:
             self.settings_window.close()
 
-        def safe_close_windows(window_list):
-            for win in list(window_list):
-                if win:
-                    try:
-                        win.close()
-                    except RuntimeError:
-                        pass
-
-        if hasattr(self.wallpaper_tab, "open_queue_windows"):
-            safe_close_windows(self.wallpaper_tab.open_queue_windows)
-        if hasattr(self.wallpaper_tab, "open_image_preview_windows"):
-            safe_close_windows(self.wallpaper_tab.open_image_preview_windows)
-        if hasattr(self.scan_metadata_tab, "open_preview_windows"):
-            safe_close_windows(self.scan_metadata_tab.open_preview_windows)
+        # Close all instantiated tabs to trigger their cleanup logic (cancellation of workers/timers)
+        if hasattr(self, "all_tabs"):
+            for category in self.all_tabs.values():
+                for tab in category.values():
+                    if tab:
+                        try:
+                            tab.close()
+                        except Exception:
+                            pass
 
         if self.vault_manager:
             self.vault_manager.shutdown()

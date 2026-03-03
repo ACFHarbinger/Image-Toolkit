@@ -46,6 +46,7 @@ class DeleteTab(AbstractClassTwoGalleries):
     DeleteTab with identical split-panel galleries for Scan Results and Selected Duplicates.
     Inherits core gallery and selection logic from BaseTwoGalleriesTab.
     """
+
     preview_ready = Signal(str)
     scan_status_changed = Signal(str)
     qml_input_path_changed = Signal(str)
@@ -954,6 +955,34 @@ class DeleteTab(AbstractClassTwoGalleries):
                 self, "Config Error", f"Failed to apply some settings: {e}"
             )
 
+    def cancel_loading(self):
+        """Stops all active timers and background workers."""
+        super().cancel_loading()
+
+        if self.scan_thread and self.scan_thread.isRunning():
+            self.scan_thread.requestInterruption()
+            self.scan_thread.quit()
+
+        if self.worker:  # DeletionWorker
+            try:
+                if hasattr(self.worker, "stop"):
+                    self.worker.stop()
+            except Exception:
+                pass
+
+        # Close sub-windows
+        for win in list(self.open_preview_windows):
+            try:
+                win.close()
+            except Exception:
+                pass
+        self.open_preview_windows.clear()
+
+    def closeEvent(self, event):
+        """Cleanup processes on close."""
+        self.cancel_loading()
+        super().closeEvent(event)
+
     # --- QML HANDLERS ---
     @Slot(str)
     def browse_target_qml(self, current_path=""):
@@ -971,19 +1000,19 @@ class DeleteTab(AbstractClassTwoGalleries):
     def start_duplicate_scan_qml(self, target_dir, method="Exact Match"):
         """Wrapper for QML initiated scan."""
         if not target_dir or not os.path.isdir(target_dir):
-             # Signal error?
-             return
-        
+            # Signal error?
+            return
+
         # Map method string to internal ID if needed, or rely on combo box being synced
         # But QML passes string directly.
         # "Exact Match" -> "exact"
         # Since logic uses self.scan_method_combo.currentText(), we should update it or pass explicit arg.
-        
+
         # Update UI combo for consistency
         index = self.scan_method_combo.findText(method, Qt.MatchContains)
         if index >= 0:
             self.scan_method_combo.setCurrentIndex(index)
-        
+
         self.target_path.setText(target_dir)
         self.start_duplicate_scan()
 
@@ -996,5 +1025,5 @@ class DeleteTab(AbstractClassTwoGalleries):
 
     @Slot(str)
     def select_file_qml(self, path):
-         """Toggle selection for a file from QML."""
-         self.toggle_selection(path)
+        """Toggle selection for a file from QML."""
+        self.toggle_selection(path)

@@ -469,6 +469,10 @@ fn run() -> Result<()> {
             break;
         }
 
+        if first_run {
+            config.current_paths.clear();
+        }
+
         let next_paths = select_next_wallpapers(&mut config, !first_run);
         first_run = false;
 

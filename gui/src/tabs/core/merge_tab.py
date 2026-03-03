@@ -789,6 +789,38 @@ class MergeTab(AbstractClassTwoGalleries):
                 print(f"Error cleaning up temp file: {e}")
         self.temp_file_path = None
 
+    def cancel_loading(self):
+        """Stops all active timers and background workers."""
+        super().cancel_loading()
+
+        if self.current_scan_worker:
+            try:
+                self.current_scan_worker.stop()
+            except Exception:
+                pass
+
+        if self.current_merge_worker:
+            # MergeWorker is a QObject, but we stop its thread
+            if self.current_merge_thread:
+                self.current_merge_thread.requestInterruption()
+                self.current_merge_thread.quit()
+
+        if hasattr(self, "found_search_timer") and self.found_search_timer.isActive():
+            self.found_search_timer.stop()
+
+        # Close sub-windows
+        for win in list(self.open_preview_windows):
+            try:
+                win.close()
+            except Exception:
+                pass
+        self.open_preview_windows.clear()
+
+    def closeEvent(self, event):
+        """Cleanup processes on close."""
+        self.cancel_loading()
+        super().closeEvent(event)
+
     @Slot(str)
     def show_preview_and_confirm(self, result_path: str):
         # We assume self.reset_ui_state() was called by the cleanup wrapper
@@ -848,7 +880,6 @@ class MergeTab(AbstractClassTwoGalleries):
             self.cleanup_temp_file()
 
         elif clicked == save_btn or clicked == save_add_btn:
-
             # CASE A: Pre-configured output path
             if self.pending_save_path:
                 try:
@@ -1037,7 +1068,9 @@ class MergeTab(AbstractClassTwoGalleries):
     # --- QML HANDLERS ---
     @Slot(str)
     def browse_input_qml(self, current_path=""):
-        starting_dir = current_path if os.path.isdir(current_path) else self.last_browsed_dir
+        starting_dir = (
+            current_path if os.path.isdir(current_path) else self.last_browsed_dir
+        )
         d = QFileDialog.getExistingDirectory(
             self, "Select Directory to Scan", starting_dir
         )
@@ -1059,12 +1092,12 @@ class MergeTab(AbstractClassTwoGalleries):
         self.align_mode.setCurrentText(align_mode)
 
         # 2. Trigger existing merge logic
-        # Note: QML should have populated selected_files via separate add/remove calls/signals? 
+        # Note: QML should have populated selected_files via separate add/remove calls/signals?
         # Actually QML implementation of galleries is complex.
         # For this prototype we will assume the User selected files in the Python GUI or we need to bridge selection.
         # Current QML implementation is "dumb" - it doesn't show galleries.
         # IF QML handles selection, we need a method `set_selected_files_qml`.
-        
+
         self.start_merge()
 
     @Slot(list)

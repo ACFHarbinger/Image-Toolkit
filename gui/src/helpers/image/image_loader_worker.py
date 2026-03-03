@@ -1,8 +1,6 @@
 from PySide6.QtGui import QImage
 from PySide6.QtCore import QRunnable, QObject, Signal, Slot, Qt
 
-from concurrent.futures import Executor
-
 try:
     import base
 
@@ -49,15 +47,24 @@ class ImageLoaderWorker(QRunnable):
         self.path = path
         self.target_size = target_size
         self.signals = LoaderSignals()
+        self._is_cancelled = False
 
         # Auto-delete ensures the runnable is cleaned up after 'run' finishes
         self.setAutoDelete(True)
 
+    def stop(self):
+        """Signals the worker to stop."""
+        self._is_cancelled = True
+
     @Slot()
     def run(self):
+        if self._is_cancelled:
+            return
         try:
             if HAS_NATIVE_IMAGING:
                 results = base.load_image_batch([self.path], self.target_size)
+                if self._is_cancelled:
+                    return
                 if results:
                     path, buffer, w, h = results[0]
                     q_img = QImage(buffer, w, h, QImage.Format_RGBA8888)
@@ -91,10 +98,17 @@ class BatchImageLoaderWorker(QRunnable):
         self.paths = paths
         self.target_size = target_size
         self.signals = LoaderSignals()
+        self._is_cancelled = False
         self.setAutoDelete(True)
+
+    def stop(self):
+        """Signals the worker to stop."""
+        self._is_cancelled = True
 
     @Slot()
     def run(self):
+        if self._is_cancelled:
+            return
         try:
             # 1. Fallback if no native imaging
             if not HAS_NATIVE_IMAGING:
@@ -103,6 +117,9 @@ class BatchImageLoaderWorker(QRunnable):
 
             # 2. Native Rust Parallel Path
             raw_results = base.load_image_batch(self.paths, self.target_size)
+
+            if self._is_cancelled:
+                return
 
             # Process raw results into QImages and EMIT IMMEDIATELY
             processed_results = []
@@ -117,7 +134,7 @@ class BatchImageLoaderWorker(QRunnable):
 
             self.signals.batch_result.emit(processed_results, self.paths)
 
-        except Exception as e:
+        except Exception:
             self.signals.batch_result.emit([], self.paths)
 
     def _run_fallback(self):
@@ -125,6 +142,8 @@ class BatchImageLoaderWorker(QRunnable):
         results = []
         for path in self.paths:
             try:
+                if self._is_cancelled:
+                    break
                 q_img = QImage(path)
                 if not q_img.isNull():
                     scaled = q_img.scaled(
@@ -138,7 +157,7 @@ class BatchImageLoaderWorker(QRunnable):
                 else:
                     results.append((path, QImage()))
                     self.signals.result.emit(path, QImage())
-            except Exception as e:
+            except Exception:
                 results.append((path, QImage()))
                 self.signals.result.emit(path, QImage())
         self.signals.batch_result.emit(results, self.paths)

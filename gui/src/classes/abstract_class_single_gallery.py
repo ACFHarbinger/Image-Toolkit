@@ -1,8 +1,5 @@
 import os
 import math
-import multiprocessing
-from concurrent.futures import ProcessPoolExecutor
-
 from abc import abstractmethod
 from typing import List, Optional, Dict
 from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer, QEvent
@@ -433,11 +430,6 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
     def closeEvent(self, event):
         """Cleanup processes on close."""
         self.cancel_loading()
-
-        # Clear any pending tasks from the shared pool to prevent hanging on exit
-        if hasattr(self, "thread_pool"):
-            self.thread_pool.clear()
-
         super().closeEvent(event)
 
     @Slot(list, list)
@@ -582,10 +574,12 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
 
             # 1. Check Cache (stored as QImage, convert to QPixmap for widget)
             _cached = self._initial_pixmap_cache.get(path)
-            initial_pixmap = QPixmap.fromImage(_cached) if isinstance(_cached, QImage) else _cached
+            initial_pixmap = (
+                QPixmap.fromImage(_cached) if isinstance(_cached, QImage) else _cached
+            )
 
             # 2. Check for Video if no cache exists
-            is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+            # is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
 
             # 3. Create Widget
             card = self.create_card_widget(path, initial_pixmap)
@@ -720,8 +714,27 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
     # --- HELPERS ---
 
     def cancel_loading(self):
+        """Stops all active timers and background workers."""
         if self._populate_timer.isActive():
             self._populate_timer.stop()
+        if self._resize_timer.isActive():
+            self._resize_timer.stop()
+        if (
+            hasattr(self, "search_debounce_timer")
+            and self.search_debounce_timer.isActive()
+        ):
+            self.search_debounce_timer.stop()
+
+        # Stop all active workers
+        for worker in list(self._active_workers):
+            try:
+                worker.stop()
+            except Exception:
+                pass
+        self._active_workers.clear()
+
+        if hasattr(self, "thread_pool"):
+            self.thread_pool.clear()
 
     def clear_gallery_widgets(self):
         self.cancel_loading()

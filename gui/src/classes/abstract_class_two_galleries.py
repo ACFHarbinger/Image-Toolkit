@@ -796,16 +796,28 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
     # --- HELPERS ---
 
     def cancel_loading(self):
+        """Stops all active timers and background workers."""
         if self._populate_found_timer.isActive():
             self._populate_found_timer.stop()
+        if self._resize_timer.isActive():
+            self._resize_timer.stop()
+        if hasattr(self, "found_search_timer") and self.found_search_timer.isActive():
+            self.found_search_timer.stop()
 
-    def closeEvent(self, event):
-        """Cleanup processes on close."""
-        self.cancel_loading()
+        # Stop all active workers
+        for worker in list(self._active_workers):
+            try:
+                worker.stop()
+            except Exception:
+                pass
+        self._active_workers.clear()
 
         if hasattr(self, "thread_pool"):
             self.thread_pool.clear()
 
+    def closeEvent(self, event):
+        """Cleanup processes on close."""
+        self.cancel_loading()
         super().closeEvent(event)
 
     def clear_galleries(self, clear_data=True):
