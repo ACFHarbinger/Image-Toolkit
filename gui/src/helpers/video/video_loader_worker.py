@@ -44,15 +44,17 @@ class VideoLoaderWorker(QRunnable):
         try:
             image = self.thumbnailer.generate(self.path, self.target_size)
             if image and not image.isNull():
-                self.signals.result.emit(self.path, image)
+                self._safe_emit(self.path, image)
             else:
-                print(
-                    f"DEBUG: Failed to generate thumbnail for {self.path}. Image is Null."
-                )
-                self.signals.result.emit(self.path, QImage())
-        except Exception as e:
-            print(f"DEBUG: Exception in VideoLoaderWorker for {self.path}: {e}")
-            self.signals.result.emit(self.path, QImage())
+                self._safe_emit(self.path, QImage())
+        except Exception:
+            self._safe_emit(self.path, QImage())
+
+    def _safe_emit(self, path, image):
+        try:
+            self.signals.result.emit(path, image)
+        except RuntimeError:
+            pass
 
 
 class BatchVideoLoaderWorker(QRunnable):
@@ -85,17 +87,29 @@ class BatchVideoLoaderWorker(QRunnable):
                 try:
                     image = self.thumbnailer.generate(path, self.target_size)
                     if image and not image.isNull():
-                        self.signals.result.emit(path, image)
+                        self._safe_emit(path, image)
                         results.append((path, image))
                     else:
-                        self.signals.result.emit(path, QImage())
+                        self._safe_emit(path, QImage())
                         results.append((path, QImage()))
                 except Exception:
-                    self.signals.result.emit(path, QImage())
+                    self._safe_emit(path, QImage())
                     results.append((path, QImage()))
 
-            self.signals.batch_result.emit(results, self.paths)
+            try:
+                self.signals.batch_result.emit(results, self.paths)
+            except RuntimeError:
+                pass
 
         except Exception as e:
             print(f"BatchVideoLoaderWorker error: {e}")
-            self.signals.batch_result.emit([], self.paths)
+            try:
+                self.signals.batch_result.emit([], self.paths)
+            except RuntimeError:
+                pass
+
+    def _safe_emit(self, path, image):
+        try:
+            self.signals.result.emit(path, image)
+        except RuntimeError:
+            pass

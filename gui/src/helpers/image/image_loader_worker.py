@@ -68,7 +68,7 @@ class ImageLoaderWorker(QRunnable):
                 if results:
                     path, buffer, w, h = results[0]
                     q_img = QImage(buffer, w, h, QImage.Format_RGBA8888)
-                    self.signals.result.emit(self.path, q_img.copy())
+                    self._safe_emit(self.path, q_img.copy())
                     return
 
             # Fallback using QImage instead of QPixmap
@@ -80,11 +80,17 @@ class ImageLoaderWorker(QRunnable):
                     Qt.KeepAspectRatio,
                     Qt.SmoothTransformation,
                 )
-                self.signals.result.emit(self.path, scaled)
+                self._safe_emit(self.path, scaled)
             else:
-                self.signals.result.emit(self.path, QImage())
+                self._safe_emit(self.path, QImage())
         except Exception:
-            self.signals.result.emit(self.path, QImage())
+            self._safe_emit(self.path, QImage())
+
+    def _safe_emit(self, path, image):
+        try:
+            self.signals.result.emit(path, image)
+        except RuntimeError:
+            pass
 
 
 class BatchImageLoaderWorker(QRunnable):
@@ -130,12 +136,18 @@ class BatchImageLoaderWorker(QRunnable):
                     res = (path, q_img.copy())
                     processed_results.append(res)
                     # Emit individual result for progressive UI updates
-                    self.signals.result.emit(path, res[1])
+                    self._safe_emit_result(path, res[1])
 
-            self.signals.batch_result.emit(processed_results, self.paths)
+            try:
+                self.signals.batch_result.emit(processed_results, self.paths)
+            except RuntimeError:
+                pass
 
         except Exception:
-            self.signals.batch_result.emit([], self.paths)
+            try:
+                self.signals.batch_result.emit([], self.paths)
+            except RuntimeError:
+                pass
 
     def _run_fallback(self):
         """Fallback: load one by one using QImage (slow but safe)"""
@@ -153,11 +165,21 @@ class BatchImageLoaderWorker(QRunnable):
                         Qt.SmoothTransformation,
                     )
                     results.append((path, scaled))
-                    self.signals.result.emit(path, scaled)
+                    self._safe_emit_result(path, scaled)
                 else:
                     results.append((path, QImage()))
-                    self.signals.result.emit(path, QImage())
+                    self._safe_emit_result(path, QImage())
             except Exception:
                 results.append((path, QImage()))
-                self.signals.result.emit(path, QImage())
-        self.signals.batch_result.emit(results, self.paths)
+                self._safe_emit_result(path, QImage())
+
+        try:
+            self.signals.batch_result.emit(results, self.paths)
+        except RuntimeError:
+            pass
+
+    def _safe_emit_result(self, path, image):
+        try:
+            self.signals.result.emit(path, image)
+        except RuntimeError:
+            pass
