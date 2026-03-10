@@ -102,6 +102,11 @@ class WallpaperTab(AbstractClassSingleGallery):
 
                     if not self.countdown_timer.isActive():
                         self.countdown_timer.start(1000)
+
+                    # Ensure the slideshow controls (and countdown label) are visible.
+                    # slideshow_group is hidden by default; we must show it when daemon is active.
+                    if not self.slideshow_group.isVisible():
+                        self.slideshow_group.setVisible(True)
             except Exception:
                 pass
 
@@ -793,9 +798,12 @@ class WallpaperTab(AbstractClassSingleGallery):
             )
 
         if self.countdown_timer and self.countdown_timer.isActive():
-            self.countdown_timer.stop()
-            self.countdown_timer.deleteLater()
-            self.countdown_timer = None
+            # Only stop the countdown timer if the daemon is NOT running.
+            # If the daemon is active, the countdown belongs to it and should keep going.
+            if not self._is_daemon_running_config():
+                self.countdown_timer.stop()
+                self.countdown_timer.deleteLater()
+                self.countdown_timer = None
 
         self.stop_wallpaper_worker()
         self.check_all_monitors_set()
@@ -1968,6 +1976,10 @@ class WallpaperTab(AbstractClassSingleGallery):
             QMessageBox.critical(
                 self, "Config Error", f"Failed to apply wallpaper configuration:\n{e}"
             )
+
+        # After restoring config, ensure the daemon countdown is running if needed.
+        if self._is_daemon_running_config():
+            self._start_daemon_countdown_if_active()
 
     # --- QML HANDLERS ---
     @Slot()
