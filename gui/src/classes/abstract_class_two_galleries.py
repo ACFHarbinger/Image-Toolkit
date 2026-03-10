@@ -268,10 +268,15 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         else:
             self.selected_current_page = corrected_page
 
+        # --- FIX: Prevent memory leak and crash by deleting the old menu safely ---
+        old_menu = controls["btn_page"].menu()
+        if old_menu:
+            old_menu.deleteLater()
+
         # Update Menu
         menu = QMenu(self)
         for i in range(total_pages):
-            action = QAction(f"Page {i + 1}", self)
+            action = QAction(f"Page {i + 1}", menu)  # Parent to menu instead of self
             action.setCheckable(True)
             action.setChecked(i == corrected_page)
             action.triggered.connect(
