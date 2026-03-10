@@ -758,7 +758,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         # Periodically sync with daemon config if it exists
         if self.time_remaining_sec % 5 == 0 or self.time_remaining_sec <= 0:
             try:
-                if os.path.exists(DAEMON_CONFIG_PATH):
+                if self._is_daemon_running_config():
                     with open(DAEMON_CONFIG_PATH, "r") as f:
                         config = json.load(f)
                         last_change = config.get("last_change_timestamp", 0)
@@ -798,6 +798,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.countdown_timer = None
 
         self.stop_wallpaper_worker()
+        self.check_all_monitors_set()
 
     def cancel_loading(self):
         """Override to cleanup WallpaperTab specific resources."""
