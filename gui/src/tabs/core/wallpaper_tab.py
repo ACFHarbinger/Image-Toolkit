@@ -1725,7 +1725,6 @@ class WallpaperTab(AbstractClassSingleGallery):
                 )
 
             self.path_to_card_widget[path] = card
-            self.path_to_label_map[path] = card
 
     def _handle_autoscroll(self, global_pos: QPoint):
         """Scrolls the main scroll area if the drag is near the top or bottom edges."""

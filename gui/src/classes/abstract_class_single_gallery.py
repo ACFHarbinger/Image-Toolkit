@@ -375,19 +375,16 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         )
         self.current_page = corrected_page
 
-        # --- FIX: Prevent memory leak by deleting the old menu and its actions ---
+        # --- FIX: Prevent memory leak and crash by deleting the old menu safely ---
         old_menu = self.page_button.menu()
         if old_menu:
-            # Clear actions explicitly although deleteLater should handle it,
-            # this is safer in some Qt versions to ensure immediate release of child objects.
-            old_menu.clear()
             old_menu.deleteLater()
 
         # Update Menu
         menu = QMenu(self)
         for i in range(total_pages):
             page_num = i + 1
-            action = QAction(f"Page {page_num}", self)
+            action = QAction(f"Page {page_num}", menu)  # Parent to menu instead of self
             action.setCheckable(True)
             action.setChecked(i == self.current_page)
             # Use a slightly safer way to connect signals to avoid capturing by reference issues
