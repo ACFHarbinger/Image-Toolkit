@@ -823,6 +823,10 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
     def closeEvent(self, event):
         """Cleanup processes on close."""
         self.cancel_loading()
+        # Clean up pool
+        self.thread_pool.clear()
+        # Ensure signals don't fire to a destroyed object
+        self.thread_pool.waitForDone(500)  # Short wait for safety
         super().closeEvent(event)
 
     def clear_galleries(self, clear_data=True):

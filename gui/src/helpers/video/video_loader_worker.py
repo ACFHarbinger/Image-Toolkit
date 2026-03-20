@@ -49,6 +49,8 @@ class VideoLoaderWorker(QRunnable):
                 self._safe_emit(self.path, QImage())
         except Exception:
             self._safe_emit(self.path, QImage())
+        finally:
+            self.signals.deleteLater()
 
     def _safe_emit(self, path, image):
         try:
@@ -101,12 +103,12 @@ class BatchVideoLoaderWorker(QRunnable):
             except RuntimeError:
                 pass
 
-        except Exception as e:
-            print(f"BatchVideoLoaderWorker error: {e}")
             try:
                 self.signals.batch_result.emit([], self.paths)
             except RuntimeError:
                 pass
+        finally:
+            self.signals.deleteLater()
 
     def _safe_emit(self, path, image):
         try:

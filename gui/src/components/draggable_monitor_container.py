@@ -18,11 +18,13 @@ class MonitorColumn(QWidget):
 
     def add_monitor(self, widget: MonitorDropWidget):
         self.layout_vbox.addWidget(widget)
+        widget.show()  # Ensure it's visible if it was hidden during clear_widgets
         # Adjust width to match the widget
         self.setFixedWidth(widget.width())
 
     def insert_monitor(self, index: int, widget: MonitorDropWidget):
         self.layout_vbox.insertWidget(index, widget)
+        widget.show()  # Ensure visibility
         self.setFixedWidth(widget.width())
 
     def remove_monitor(self, widget: MonitorDropWidget):
@@ -458,9 +460,26 @@ class DraggableMonitorContainer(QWidget):
         self._cleanup()
 
     def clear_widgets(self):
-        # Clear everything
+        """
+        Safely clears all rows and columns while detaching MonitorDropWidgets.
+        We detach them (setParent(None)) instead of letting them be deleted
+        by their parent's destruction, because WallpaperTab maintains a
+        persistent monitor_widgets_map that is reused across layout changes.
+        """
+        # 1. First, find and detach ALL MonitorDropWidgets from the entire hierarchy
+        # We do this before deleting rows/columns to prevent child deletion.
+        for row_monitors in self.rows:  # self.rows property handles the traversal
+            for widget in row_monitors:
+                if isinstance(widget, MonitorDropWidget):
+                    widget.setParent(None)
+                    widget.hide()  # Hide until re-added to new layout
+
+        # 2. Now clear the main layout (deletes row_widgets and their columns)
         while self.layout_vbox.count():
             item = self.layout_vbox.takeAt(0)
             if item.widget():
+                # We unparented the monitors, so it's safe to delete containers
                 item.widget().deleteLater()
+
+        # 3. Add back the initial empty row
         self._add_new_row()
