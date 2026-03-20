@@ -35,6 +35,9 @@ class MonitorDropWidget(QLabel):
     # Emits (source_id, target_id) when a 'Swap Wallpapers' target is selected
     swap_requested_id = Signal(str, str)
 
+    # Emits (monitor_id, menu) to allow parent to add dynamic items
+    context_menu_requested = Signal(str, QMenu)
+
     def __init__(self, monitor: Monitor, monitor_id: str):
         super().__init__()
         self.monitor = monitor
@@ -91,10 +94,11 @@ class MonitorDropWidget(QLabel):
             # Fallback for 2-monitor legacy case or if targets not populated
             swap_action = menu.addAction("Swap Wallpapers (Monitor switch)")
             swap_action.triggered.connect(
-                lambda: self.swap_requested_id.emit(
-                    self.monitor_id, ""
-                )  # Handle empty in receiver
+                lambda: self.swap_requested_id.emit(self.monitor_id, "")
             )
+
+        # Let parent (WallpaperTab) add dynamic items (like "Set Active Wallpaper")
+        self.context_menu_requested.emit(self.monitor_id, menu)
 
         menu.exec(event.globalPos())
 

@@ -1,5 +1,6 @@
 from PySide6.QtGui import QImage
 from PySide6.QtCore import QRunnable, QObject, Signal, Slot, Qt
+from shiboken6 import Shiboken
 
 try:
     import base
@@ -86,7 +87,8 @@ class ImageLoaderWorker(QRunnable):
         except Exception:
             self._safe_emit(self.path, QImage())
         finally:
-            self.signals.deleteLater()
+            if Shiboken.isValid(self.signals):
+                self.signals.deleteLater()
 
     def _safe_emit(self, path, image):
         try:
@@ -152,7 +154,8 @@ class BatchImageLoaderWorker(QRunnable):
         finally:
             # Crucial: Ensure the QObject signals stay alive until the event loop
             # can deliver any pending signals. deleteLater() schedules this safely.
-            self.signals.deleteLater()
+            if Shiboken.isValid(self.signals):
+                self.signals.deleteLater()
 
     def _run_fallback(self):
         """Fallback: load one by one using QImage (slow but safe)"""

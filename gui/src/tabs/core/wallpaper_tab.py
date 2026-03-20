@@ -1261,6 +1261,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             )
             drop_widget.clear_requested_id.connect(self.handle_clear_monitor_queue)
             drop_widget.swap_requested_id.connect(self.swap_monitors)
+            drop_widget.context_menu_requested.connect(self.on_monitor_context_menu)
             self.monitor_widgets[monitor_id] = drop_widget
 
             current_image = self.monitor_image_paths.get(monitor_id)
@@ -1365,6 +1366,60 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         self.monitor_widgets[monitor_id].set_image(image_path, thumb)
         self.check_all_monitors_set()
+
+    @Slot(str, QMenu)
+    def on_monitor_context_menu(self, monitor_id: str, menu: QMenu):
+        """Populate the monitor's context menu with dynamic items from its queue."""
+        queue = self.monitor_slideshow_queues.get(monitor_id, [])
+        if not queue:
+            return
+
+        menu.addSeparator()
+        set_active_menu = menu.addMenu("Set Active Wallpaper from Queue...")
+
+        # Find current active path to check it in the menu
+        current_active = self.monitor_image_paths.get(monitor_id)
+
+        for path in queue:
+            filename = os.path.basename(path)
+            action = set_active_menu.addAction(filename)
+            action.setCheckable(True)
+            if path == current_active:
+                action.setChecked(True)
+
+            # Use a closure to capture the correct path
+            action.triggered.connect(
+                lambda _, p=path: self._set_specific_wallpaper(monitor_id, p)
+            )
+
+    def _set_specific_wallpaper(self, monitor_id: str, path: str):
+        """Manually sets a specific wallpaper for a monitor and updates the system."""
+        if not os.path.exists(path):
+            QMessageBox.warning(self, "Error", f"File not found:\n{path}")
+            return
+
+        is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+
+        # Update persistent state
+        self.monitor_image_paths[monitor_id] = path
+
+        # Update slideshow index if applicable (jump to this position)
+        queue = self.monitor_slideshow_queues.get(monitor_id, [])
+        if path in queue:
+            self.monitor_current_index[monitor_id] = queue.index(path)
+
+        # Update UI feedback
+        thumb = self._cache_get_thumb(path)
+        if not thumb and is_video:
+            thumb = self._generate_video_thumbnail(path)
+            if thumb:
+                self._initial_pixmap_cache[path] = thumb.toImage()
+
+        self.monitor_widgets[monitor_id].set_image(path, thumb)
+        self.check_all_monitors_set()
+
+        # Apply change immediately to system
+        self.run_wallpaper_worker()
 
     def on_image_dropped(self, monitor_id: str, image_path: str):
         """Deprecated: Use on_images_dropped instead."""
