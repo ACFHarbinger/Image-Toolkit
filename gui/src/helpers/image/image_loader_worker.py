@@ -85,6 +85,8 @@ class ImageLoaderWorker(QRunnable):
                 self._safe_emit(self.path, QImage())
         except Exception:
             self._safe_emit(self.path, QImage())
+        finally:
+            self.signals.deleteLater()
 
     def _safe_emit(self, path, image):
         try:
@@ -143,11 +145,14 @@ class BatchImageLoaderWorker(QRunnable):
             except RuntimeError:
                 pass
 
-        except Exception:
             try:
                 self.signals.batch_result.emit([], self.paths)
             except RuntimeError:
                 pass
+        finally:
+            # Crucial: Ensure the QObject signals stay alive until the event loop
+            # can deliver any pending signals. deleteLater() schedules this safely.
+            self.signals.deleteLater()
 
     def _run_fallback(self):
         """Fallback: load one by one using QImage (slow but safe)"""

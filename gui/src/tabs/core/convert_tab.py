@@ -668,10 +668,8 @@ class ConvertTab(AbstractClassTwoGalleries):
             self,
             "Select input directory",
             self.last_browsed_dir,
-            QFileDialog.Option.DontUseNativeDialog,
         )
         if directory:
-            self.input_path.setText(directory)
             self.input_path.setText(directory)
             self.last_browsed_dir = directory
             self.qml_input_path_changed.emit(directory)
@@ -683,7 +681,6 @@ class ConvertTab(AbstractClassTwoGalleries):
             self,
             "Select output directory",
             "",
-            QFileDialog.Option.DontUseNativeDialog,
         )
         if directory:
             self.output_path.setText(directory)
@@ -1030,6 +1027,7 @@ class ConvertTab(AbstractClassTwoGalleries):
 
     def closeEvent(self, event):
         """Cleanup processes on close."""
+        self.cancel_conversion()
         self.cancel_loading()
         super().closeEvent(event)
 
@@ -1043,7 +1041,6 @@ class ConvertTab(AbstractClassTwoGalleries):
             self,
             "Select input directory",
             starting_dir,
-            QFileDialog.Option.DontUseNativeDialog,
         )
         if directory:
             self.input_path.setText(directory)
