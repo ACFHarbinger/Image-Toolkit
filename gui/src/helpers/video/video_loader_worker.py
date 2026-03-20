@@ -1,5 +1,6 @@
 from PySide6.QtGui import QImage
 from PySide6.QtCore import QRunnable, QObject, Signal, Slot
+from shiboken6 import Shiboken
 
 from .video_scan_worker import VideoThumbnailer
 
@@ -50,7 +51,8 @@ class VideoLoaderWorker(QRunnable):
         except Exception:
             self._safe_emit(self.path, QImage())
         finally:
-            self.signals.deleteLater()
+            if Shiboken.isValid(self.signals):
+                self.signals.deleteLater()
 
     def _safe_emit(self, path, image):
         try:
@@ -107,8 +109,14 @@ class BatchVideoLoaderWorker(QRunnable):
                 self.signals.batch_result.emit([], self.paths)
             except RuntimeError:
                 pass
+        except Exception:
+            try:
+                self.signals.batch_result.emit([], self.paths)
+            except RuntimeError:
+                pass
         finally:
-            self.signals.deleteLater()
+            if Shiboken.isValid(self.signals):
+                self.signals.deleteLater()
 
     def _safe_emit(self, path, image):
         try:
