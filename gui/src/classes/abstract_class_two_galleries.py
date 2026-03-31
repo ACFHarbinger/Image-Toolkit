@@ -596,8 +596,19 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             except RuntimeError:
                 pass
 
-    @Slot(list)
-    def _on_batch_found_loaded(self, results: List[tuple]):
+    def _trigger_batch_found_load(self, paths: List[str]):
+        if not hasattr(self, "found_loading_paths"):
+            self.found_loading_paths = set()
+        self.found_loading_paths.update(paths)
+        worker = BatchImageLoaderWorker(paths, self.thumbnail_size)
+        worker.signals.result.connect(self._on_found_image_loaded)
+        worker.signals.batch_result.connect(self._on_batch_found_loaded)
+
+        self._active_workers.add(worker)
+        self.thread_pool.start(worker)
+
+    @Slot(list, list)
+    def _on_batch_found_loaded(self, results: List[tuple], requested_paths: List[str]):
         # Cleanup worker ref
         sender = self.sender()
         if sender:
@@ -612,6 +623,8 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
                 and path in self.found_loading_paths
             ):
                 self.found_loading_paths.remove(path)
+            elif path in getattr(self, "_loading_paths", set()):
+                self._loading_paths.remove(path)
 
             # Cache QImage, convert to QPixmap for display only
             if isinstance(pixmap, QImage) and not pixmap.isNull():
@@ -782,8 +795,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
                 self._trigger_video_found_load(p)
 
         if image_paths:
-            for p in image_paths:
-                self._trigger_found_load(p)
+            self._trigger_batch_found_load(image_paths)
 
     def _trigger_found_load(self, path: str):
         if not hasattr(self, "found_loading_paths"):

@@ -104,16 +104,6 @@ class BatchVideoLoaderWorker(QRunnable):
                 self.signals.batch_result.emit(results, self.paths)
             except RuntimeError:
                 pass
-
-            try:
-                self.signals.batch_result.emit([], self.paths)
-            except RuntimeError:
-                pass
-        except Exception:
-            try:
-                self.signals.batch_result.emit([], self.paths)
-            except RuntimeError:
-                pass
         finally:
             if Shiboken.isValid(self.signals):
                 self.signals.deleteLater()
