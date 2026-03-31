@@ -146,11 +146,6 @@ class BatchImageLoaderWorker(QRunnable):
                 self.signals.batch_result.emit(processed_results, self.paths)
             except RuntimeError:
                 pass
-
-            try:
-                self.signals.batch_result.emit([], self.paths)
-            except RuntimeError:
-                pass
         finally:
             # Crucial: Ensure the QObject signals stay alive until the event loop
             # can deliver any pending signals. deleteLater() schedules this safely.

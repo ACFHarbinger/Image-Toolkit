@@ -483,12 +483,12 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
             self._trigger_video_load(path)
 
     def _trigger_batch_found_load(self, paths: List[str]):
-        if not hasattr(self, "found_loading_paths"):
-            self.found_loading_paths = set()
-        self.found_loading_paths.update(paths)
+        if not hasattr(self, "_loading_paths"):
+            self._loading_paths = set()
+        self._loading_paths.update(paths)
         worker = BatchImageLoaderWorker(paths, self.thumbnail_size)
-        worker.signals.result.connect(self._on_found_image_loaded)
-        worker.signals.batch_result.connect(self._on_batch_found_loaded)
+        worker.signals.result.connect(self._on_single_image_loaded)
+        worker.signals.batch_result.connect(self._on_batch_images_loaded)
 
         self._active_workers.add(worker)
         self.thread_pool.start(worker)
@@ -635,8 +635,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
                 self._trigger_video_load(p)
 
         if image_paths:
-            for p in image_paths:
-                self._trigger_image_load(p)
+            self._trigger_batch_found_load(image_paths)
 
     def calculate_columns(self):
         return self.common_calculate_columns(
@@ -732,6 +731,11 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
 
         if hasattr(self, "thread_pool"):
             self.thread_pool.clear()
+
+        # CRITICAL FIX: Clear loading paths so interrupted loads don't block future attempts
+        self._loading_paths.clear()
+        if hasattr(self, "found_loading_paths"):
+            self.found_loading_paths.clear()
 
     def clear_gallery_widgets(self):
         self.cancel_loading()
