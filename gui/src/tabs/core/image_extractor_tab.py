@@ -534,9 +534,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 pass
             self.vid_scanner_worker.stop()
 
-        if self.media_player:
-            self.media_player.stop()
-
         # Close sub-windows
         for win in list(self.open_image_preview_windows):
             try:

@@ -142,5 +142,30 @@ class TestMergeTab:
 
 class TestImageExtractorTab:
     def test_init(self, q_app):
-        tab = ImageExtractorTab()
-        assert isinstance(tab, QWidget)
+        # Patch to avoid actual multimedia initialization
+        with (
+            patch("gui.src.tabs.core.image_extractor_tab.QMediaPlayer"),
+            patch("gui.src.tabs.core.image_extractor_tab.QAudioOutput"),
+        ):
+            tab = ImageExtractorTab()
+            assert isinstance(tab, QWidget)
+
+    def test_cancel_loading_does_not_stop_player(self, q_app):
+        # Patch QMediaPlayer to avoid actual media player initialization and track calls
+        with (
+            patch(
+                "gui.src.tabs.core.image_extractor_tab.QMediaPlayer"
+            ) as mock_player_cls,
+            patch("gui.src.tabs.core.image_extractor_tab.QAudioOutput"),
+        ):
+            mock_player = MagicMock()
+            mock_player_cls.return_value = mock_player
+
+            tab = ImageExtractorTab()
+            tab.media_player = mock_player
+
+            # Call cancel_loading, which is triggered during gallery refreshes
+            tab.cancel_loading()
+
+            # Verify stop was NOT called (this ensures the fix for the reported bug)
+            mock_player.stop.assert_not_called()
