@@ -250,7 +250,6 @@ class DraggableMonitorContainer(QWidget):
                     # So we are in spacing.
                     # Let's just find closest column X
                     closest_col_idx = -1
-                    last_x = -1
                     row_layout = row_w.layout()
 
                     for i in range(row_layout.count()):

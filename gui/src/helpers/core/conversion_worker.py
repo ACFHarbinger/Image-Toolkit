@@ -1,6 +1,6 @@
 import os
-import subprocess
-
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, Any, List, Optional
 from PySide6.QtCore import QThread, Signal
 from backend.src.core import ImageFormatConverter, VideoFormatConverter
@@ -16,18 +16,25 @@ class ConversionWorker(QThread):
         super().__init__()
         self.config = config
         self._is_cancelled = False
-        self.current_process: Optional[subprocess.Popen] = None
+        self.active_processes = set()
+        self.process_lock = threading.Lock()
+        self._executor: Optional[ThreadPoolExecutor] = None
 
     def cancel(self):
-        """Safely cancels the current operation."""
+        """Safely cancels all current operations."""
         self._is_cancelled = True
-        if self.current_process:
-            try:
-                # Terminate the subprocess gracefully first
-                self.current_process.terminate()
-                # If needed, we could wait a bit and kill, but terminate is usually enough for ffmpeg
-            except Exception:
-                pass
+
+        # Shutdown executor immediately
+        if self._executor:
+            self._executor.shutdown(wait=False, cancel_futures=True)
+
+        with self.process_lock:
+            for p in list(self.active_processes):
+                try:
+                    p.terminate()
+                except Exception:
+                    pass
+            self.active_processes.clear()
 
     def stop(self):
         """Signals the worker to stop (alias for cancel)."""
@@ -37,20 +44,9 @@ class ConversionWorker(QThread):
         try:
             # Config extraction
             files_to_convert: List[str] = self.config.get("files_to_convert", [])
-            output_format = self.config["output_format"].lower()
-            output_path_config = self.config.get("output_path", "")
-            output_filename_prefix = self.config.get("output_filename_prefix", "")
-            delete_original = self.config.get("delete_original", False)
-            aspect_ratio = self.config.get("aspect_ratio", None)
-            aspect_ratio_mode = self.config.get("aspect_ratio_mode", "crop")
-            # NEW dimensions
-            ar_w = self.config.get("aspect_ratio_w", None)
-            ar_h = self.config.get("aspect_ratio_h", None)
-
-            video_engine = self.config.get("video_engine", "auto")
 
             if not files_to_convert:
-                # Fallback to input_path for legacy/safety (though UI provides list)
+                # Fallback to input_path
                 input_path = self.config.get("input_path")
                 if input_path and os.path.exists(input_path):
                     if os.path.isdir(input_path):
@@ -67,201 +63,62 @@ class ConversionWorker(QThread):
 
             total_files = len(files_to_convert)
             converted_count = 0
-
             self.progress_update.emit(0)
 
             # Define format sets for quick lookup
-            # Use lstrip to ensure no dots
             img_formats = set(f.lstrip(".") for f in SUPPORTED_IMG_FORMATS)
             vid_formats = set(f.lstrip(".") for f in SUPPORTED_VIDEO_FORMATS)
 
-            # Target category
-            target_is_video = output_format in vid_formats
-            target_is_image = output_format in img_formats
-            target_is_gif = output_format == "gif"
+            use_multicore = self.config.get("use_multicore", False)
 
-            for idx, input_file in enumerate(files_to_convert):
-                if self._is_cancelled:
-                    break
+            if use_multicore and total_files > 1:
+                # Parallel Execution
+                max_workers = min(os.cpu_count() or 1, 8)
+                self._executor = ThreadPoolExecutor(max_workers=max_workers)
 
-                if not os.path.exists(input_file):
-                    continue
-
-                _, ext = os.path.splitext(input_file)
-                src_ext = ext.lstrip(".").lower()
-
-                # Determine file type
-                is_src_video = src_ext in vid_formats
-                is_src_image = src_ext in img_formats
-
-                # Skip if source is not supported
-                if not (is_src_video or is_src_image):
-                    continue
-
-                # Check for Valid Conversion Pairs
-                # 1. Video -> Video
-                # 2. Image -> Image
-                # 3. Video -> GIF (Special Case)
-                valid_pair = False
-                if is_src_video and target_is_video:
-                    valid_pair = True
-                elif is_src_image and target_is_image:
-                    valid_pair = True
-                elif is_src_video and target_is_gif:
-                    valid_pair = True
-
-                if not valid_pair:
-                    print(
-                        f"Skipping {input_file} (Type Mismatch: {src_ext} -> {output_format})"
+                futures = []
+                for idx, input_file in enumerate(files_to_convert):
+                    if self._is_cancelled:
+                        break
+                    futures.append(
+                        self._executor.submit(
+                            self._convert_single_file,
+                            input_file,
+                            idx,
+                            total_files,
+                            img_formats,
+                            vid_formats,
+                        )
                     )
-                    continue
 
-                # Determine Output Path
-                # 1. Determine directory
-                if output_path_config and os.path.isdir(output_path_config):
-                    out_dir = output_path_config
-                else:
-                    if (
-                        output_path_config
-                        and not os.path.exists(output_path_config)
-                        and total_files > 1
+                for idx, future in enumerate(as_completed(futures)):
+                    if self._is_cancelled:
+                        break
+                    try:
+                        success = future.result()
+                        if success:
+                            converted_count += 1
+                    except Exception as e:
+                        print(f"Error in parallel conversion task: {e}")
+
+                    # Progress Update (approximate based on completed tasks)
+                    progress = int(((idx + 1) / total_files) * 100)
+                    self.progress_update.emit(progress)
+
+                self._executor.shutdown(wait=True)
+                self._executor = None
+            else:
+                # Sequential Execution (Existing)
+                for idx, input_file in enumerate(files_to_convert):
+                    if self._is_cancelled:
+                        break
+                    if self._convert_single_file(
+                        input_file, idx, total_files, img_formats, vid_formats
                     ):
-                        try:
-                            os.makedirs(output_path_config, exist_ok=True)
-                            out_dir = output_path_config
-                        except:
-                            out_dir = os.path.dirname(input_file)
-                    elif (
-                        output_path_config
-                        and not os.path.isdir(output_path_config)
-                        and total_files == 1
-                    ):
-                        out_dir = os.path.dirname(input_file)  # Fallback
-                    else:
-                        out_dir = os.path.dirname(input_file)
+                        converted_count += 1
 
-                # 2. Determine Filename
-                if output_filename_prefix:
-                    if total_files > 1:
-                        fname = f"{output_filename_prefix}{idx + 1}"
-                    else:
-                        fname = output_filename_prefix
-                else:
-                    fname = (
-                        os.path.splitext(os.path.basename(input_file))[0] + "_converted"
-                    )
-
-                final_output_path = os.path.join(out_dir, f"{fname}.{output_format}")
-
-                # SKIP IF EXISTS (User Request)
-                if os.path.exists(final_output_path) and not delete_original:
-                    # Note: checking delete_original is a safety measure; usually, we wouldn't want to overwrite unless explicit or collision logic handles it.
-                    # But the user specifically asked to skip if exists.
-                    # If delete_original is True, it implies we are replacing the source, but if the DESTINATION exists, we should still probably skip or ask.
-                    # Given the prompt "skips every file with the same name as an existing file in the target directory", I'll implement strict skipping.
-                    print(
-                        f"Skipping {input_file} -> {final_output_path} (File already exists)"
-                    )
-                    continue
-
-                # Handling path conflict (input == output)
-                is_collision = False
-                if os.path.abspath(input_file) == os.path.abspath(final_output_path):
-                    is_collision = True
-                    # Use a temporary prefix for the actual conversion
-                    temp_output_path = os.path.join(
-                        out_dir, f"temp_{fname}.{output_format}"
-                    )
-                else:
-                    temp_output_path = final_output_path
-
-                # Perform Conversion
-                success = False
-
-                # Case 1: Video -> GIF (Special)
-                if is_src_video and target_is_gif:
-                    success = VideoFormatConverter.convert_to_gif(
-                        input_path=input_file,
-                        output_path=temp_output_path,
-                        delete=False,
-                        process_callback=self._register_process,
-                        target_width=ar_w,
-                        target_height=ar_h,
-                    )
-
-                # Case 2: Video -> Video (Subprocess)
-                elif is_src_video and target_is_video:
-                    success = VideoFormatConverter.convert_video(
-                        input_path=input_file,
-                        output_path=temp_output_path,
-                        delete=False,  # We handle delete separately for renaming logic
-                        process_callback=self._register_process,
-                        target_width=ar_w,
-                        target_height=ar_h,
-                        aspect_ratio=aspect_ratio,
-                        ar_mode=aspect_ratio_mode,
-                    )
-
-                # Case 3: Image -> Image (Normal, via internal logic)
-                elif is_src_image and target_is_image:
-                    # Image conversion is fast enough/doesn't use process that crashes on cancel usually
-                    # But ideally should check _is_cancelled inside loop if it was batch.
-                    # Here it is single image.
-                    res = ImageFormatConverter.convert_single_image(
-                        image_path=input_file,
-                        output_name=temp_output_path,
-                        format=output_format,
-                        delete=False,  # We handle delete separately
-                        aspect_ratio=aspect_ratio,
-                        ar_mode=aspect_ratio_mode,
-                    )
-                    success = res is not None
-                else:
-                    print(f"Skipping {input_file} (Logic Mismatch)")
-                    success = False
-
-                if success:
-                    # Post-processing Logic
-                    if delete_original:
-                        try:
-                            # 1. Delete original
-                            os.remove(input_file)
-                            # 2. Rename temp to original name if it was a collision
-                            if is_collision:
-                                # Start: input.mp4
-                                # Temp: temp_input.mp4
-                                # Goal: input.mp4
-                                os.rename(temp_output_path, final_output_path)
-                            else:
-                                # Normal case, temp_output_path is final_output_path
-                                pass
-                        except Exception as e:
-                            print(f"Error during post-conversion replacement: {e}")
-                    else:
-                        # If NOT deleting original, but there was a collision
-                        if is_collision:
-                            # We have temp_input.mp4.
-                            # We need to rename it to something that doesn't conflict, e.g. input_converted.mp4
-                            # (As originally requested by user default behavior, or just leave as collision safe name)
-                            safe_name = os.path.join(
-                                out_dir, f"{fname}_converted.{output_format}"
-                            )
-                            if os.path.exists(safe_name):
-                                os.remove(safe_name)
-                            os.rename(temp_output_path, safe_name)
-
-                    converted_count += 1
-                else:
-                    # Cleanup temp if failed
-                    if is_collision and os.path.exists(temp_output_path):
-                        try:
-                            os.remove(temp_output_path)
-                        except:
-                            pass
-
-                # Progress Update
-                progress = int(((idx + 1) / total_files) * 100)
-                self.progress_update.emit(progress)
+                    progress = int(((idx + 1) / total_files) * 100)
+                    self.progress_update.emit(progress)
 
             if self._is_cancelled:
                 self.finished.emit(converted_count, "**Conversion Cancelled**")
@@ -271,8 +128,168 @@ class ConversionWorker(QThread):
                 )
 
         except Exception as e:
-            self.progress_update.emit(0)  # Clear progress bar on error
+            self.progress_update.emit(0)
             self.error.emit(str(e))
+        finally:
+            if self._executor:
+                self._executor.shutdown(wait=False)
 
-    def _register_process(self, p: subprocess.Popen):
-        self.current_process = p
+    def _convert_single_file(
+        self, input_file, idx, total_files, img_formats, vid_formats
+    ) -> bool:
+        """Internal helper to convert a single file. Thread-safe."""
+        if self._is_cancelled:
+            return False
+
+        if not os.path.exists(input_file):
+            return False
+
+        # Config extraction (repeated for thread safety/easy access)
+        output_format = self.config["output_format"].lower()
+        output_path_config = self.config.get("output_path", "")
+        output_filename_prefix = self.config.get("output_filename_prefix", "")
+        delete_original = self.config.get("delete_original", False)
+        aspect_ratio = self.config.get("aspect_ratio", None)
+        aspect_ratio_mode = self.config.get("aspect_ratio_mode", "crop")
+        ar_w = self.config.get("aspect_ratio_w", None)
+        ar_h = self.config.get("aspect_ratio_h", None)
+
+        _, ext = os.path.splitext(input_file)
+        src_ext = ext.lstrip(".").lower()
+
+        is_src_video = src_ext in vid_formats
+        is_src_image = src_ext in img_formats
+
+        target_is_video = output_format in vid_formats
+        target_is_image = output_format in img_formats
+        target_is_gif = output_format == "gif"
+
+        if not (is_src_video or is_src_image):
+            return False
+
+        valid_pair = False
+        if is_src_video and target_is_video:
+            valid_pair = True
+        elif is_src_image and target_is_image:
+            valid_pair = True
+        elif is_src_video and target_is_gif:
+            valid_pair = True
+
+        if not valid_pair:
+            return False
+
+        # Determine Output Path
+        if output_path_config and os.path.isdir(output_path_config):
+            out_dir = output_path_config
+        else:
+            if (
+                output_path_config
+                and not os.path.exists(output_path_config)
+                and total_files > 1
+            ):
+                try:
+                    os.makedirs(output_path_config, exist_ok=True)
+                    out_dir = output_path_config
+                except Exception as e:
+                    print(f"Error creating directory: {e}")
+                    out_dir = os.path.dirname(input_file)
+            else:
+                out_dir = os.path.dirname(input_file)
+
+        if output_filename_prefix:
+            fname = (
+                f"{output_filename_prefix}{idx + 1}"
+                if total_files > 1
+                else output_filename_prefix
+            )
+        else:
+            fname = os.path.splitext(os.path.basename(input_file))[0] + "_converted"
+
+        final_output_path = os.path.join(out_dir, f"{fname}.{output_format}")
+
+        if os.path.exists(final_output_path) and not delete_original:
+            return False
+
+        is_collision = os.path.abspath(input_file) == os.path.abspath(final_output_path)
+        temp_output_path = (
+            os.path.join(out_dir, f"temp_{fname}.{output_format}")
+            if is_collision
+            else final_output_path
+        )
+
+        success = False
+        current_p = None
+
+        def register_p(p):
+            nonlocal current_p
+            current_p = p
+            self._register_process(p)
+
+        try:
+            if is_src_video and target_is_gif:
+                success = VideoFormatConverter.convert_to_gif(
+                    input_path=input_file,
+                    output_path=temp_output_path,
+                    delete=False,
+                    process_callback=register_p,
+                    target_width=ar_w,
+                    target_height=ar_h,
+                )
+            elif is_src_video and target_is_video:
+                success = VideoFormatConverter.convert_video(
+                    input_path=input_file,
+                    output_path=temp_output_path,
+                    delete=False,
+                    process_callback=register_p,
+                    target_width=ar_w,
+                    target_height=ar_h,
+                    aspect_ratio=aspect_ratio,
+                    ar_mode=aspect_ratio_mode,
+                )
+            elif is_src_image and target_is_image:
+                res = ImageFormatConverter.convert_single_image(
+                    image_path=input_file,
+                    output_name=temp_output_path,
+                    format=output_format,
+                    delete=False,
+                    aspect_ratio=aspect_ratio,
+                    ar_mode=aspect_ratio_mode,
+                )
+                success = res is not None
+
+            if success:
+                if delete_original:
+                    try:
+                        os.remove(input_file)
+                        if is_collision:
+                            os.rename(temp_output_path, final_output_path)
+                    except Exception as e:
+                        print(f"Error removing original file: {e}")
+                elif is_collision:
+                    safe_name = os.path.join(
+                        out_dir, f"{fname}_converted.{output_format}"
+                    )
+                    if os.path.exists(safe_name):
+                        os.remove(safe_name)
+                    os.rename(temp_output_path, safe_name)
+            else:
+                if is_collision and os.path.exists(temp_output_path):
+                    try:
+                        os.remove(temp_output_path)
+                    except Exception as e:
+                        print(f"Error removing temp file: {e}")
+
+        finally:
+            if current_p:
+                self._deregister_process(current_p)
+
+        return success
+
+    def _register_process(self, p):
+        with self.process_lock:
+            self.active_processes.add(p)
+
+    def _deregister_process(self, p):
+        with self.process_lock:
+            if p in self.active_processes:
+                self.active_processes.remove(p)

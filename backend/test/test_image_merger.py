@@ -12,7 +12,7 @@ project_root = sys.path.append(
 )
 sys.path.insert(0, project_root)
 
-from src.core import ImageMerger
+from src.core import ImageMerger  # noqa: E402
 
 
 class ImageMergerTest:

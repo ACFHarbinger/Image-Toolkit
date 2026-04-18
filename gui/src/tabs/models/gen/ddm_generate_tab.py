@@ -8,7 +8,6 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QCheckBox,
     QMessageBox,
-    QPushButton,
 )
 from ....classes.base_generative_tab import BaseGenerativeTab
 from backend.src.models.sd3_wrapper import SD3Wrapper

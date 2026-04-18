@@ -14,7 +14,7 @@ class JavaVaultManagerTest:
     def test_jvm_starts_on_init(self, mock_jpype):
         mock_start_jvm, _ = mock_jpype
 
-        with JavaVaultManager("test.jar") as manager:
+        with JavaVaultManager("test.jar") as _manager:
             pass
 
         mock_start_jvm.assert_called_once()
@@ -71,7 +71,7 @@ class JavaVaultManagerTest:
     def test_jvm_shuts_down_on_exit(self, mock_jpype):
         mock_start_jvm, mock_shutdown_jvm = mock_jpype
 
-        with JavaVaultManager("test.jar") as manager:
+        with JavaVaultManager("test.jar") as _manager:
             mock_shutdown_jvm.assert_not_called()
 
         mock_shutdown_jvm.assert_called_once()

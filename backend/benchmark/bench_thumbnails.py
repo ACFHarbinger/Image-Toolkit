@@ -17,7 +17,8 @@ backend_dir = Path(__file__).parent.parent
 root_dir = backend_dir.parent
 sys.path.insert(0, str(backend_dir))
 sys.path.insert(0, str(root_dir))
-from benchmark.utils import BenchmarkRunner, measure_memory
+
+from benchmark.utils import BenchmarkRunner, measure_memory  # noqa: E402
 
 # Native image loading (Rust Base)
 try:

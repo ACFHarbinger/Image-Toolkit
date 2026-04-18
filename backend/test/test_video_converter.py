@@ -8,12 +8,11 @@ from unittest.mock import patch, MagicMock
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from src.core.video_converter import VideoFormatConverter
+from src.core.video_converter import VideoFormatConverter  # noqa: E402
 
 
 # Use pytest-style class for easy fixture access
 class TestVideoFormatConverter:
-
     @patch("src.core.video_converter.subprocess.run")
     def test_convert_with_ffmpeg_success(
         self, mock_subprocess, sample_video, output_dir
@@ -106,7 +105,6 @@ class TestVideoFormatConverter:
 
         # Mock calls
         def subprocess_side_effect(*args, **kwargs):
-            cmd = args[0]
             # Version check or conversion
             return MagicMock(returncode=0)
 

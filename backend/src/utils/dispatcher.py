@@ -10,8 +10,8 @@ def dispatch_core(args):
         inputs = args.get("input")
         output = args.get("output")
         fmt = args.get("format")
-        quality = args.get("quality")
-        recursive = args.get("recursive")
+        # quality = args.get("quality")
+        # recursive = args.get("recursive")
 
         # Determine if single or batch
         if len(inputs) == 1 and os.path.isfile(inputs[0]):
@@ -21,13 +21,15 @@ def dispatch_core(args):
                 format=fmt,
                 # quality is not yet passed to rust backend but we can add it later
             )
-            print(f"Conversion {'successful' if success else 'failed'}", file=sys.stderr)
+            print(
+                f"Conversion {'successful' if success else 'failed'}", file=sys.stderr
+            )
         else:
             # Batch conversion
             # If multiple inputs or a directory
             for input_path in inputs:
                 if os.path.isdir(input_path):
-                    results = ImageFormatConverter.convert_batch(
+                    ImageFormatConverter.convert_batch(
                         input_dir=input_path,
                         inputs_formats=[
                             "webp",

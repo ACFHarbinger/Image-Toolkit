@@ -368,5 +368,5 @@ class BenchmarkRunner:
             print(f"\n❌ {len(regressions)} regression(s) detected!")
             return False
         else:
-            print(f"\n✅ All benchmarks passed (no regressions)")
+            print("\n✅ All benchmarks passed (no regressions)")
             return True

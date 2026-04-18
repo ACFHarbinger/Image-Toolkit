@@ -578,12 +578,12 @@ class ImageCrawlTab(QWidget):
                 if param and ("Seconds" in atype):
                     try:
                         param = float(param)
-                    except:
+                    except Exception:
                         pass
                 elif param and ("Number X" in atype):
                     try:
                         param = int(param)
-                    except:
+                    except Exception:
                         pass
 
                 actions.append({"type": atype, "param": param})
@@ -601,7 +601,7 @@ class ImageCrawlTab(QWidget):
             try:
                 config["skip_first"] = int(self.skip_first_input.text())
                 config["skip_last"] = int(self.skip_last_input.text())
-            except:
+            except Exception:
                 config["skip_first"] = 0
                 config["skip_last"] = 0
 
@@ -629,7 +629,7 @@ class ImageCrawlTab(QWidget):
                         if "=" in p:
                             k, v = p.split("=", 1)
                             config["extra_params"][k.strip()] = v.strip()
-                except:
+                except Exception:
                     print("Error parsing extra params")
 
             try:

@@ -1,1 +1,1 @@
-from .image_database import PgvectorImageDatabase
+from .image_database import PgvectorImageDatabase as PgvectorImageDatabase

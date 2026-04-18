@@ -1,5 +1,5 @@
 from PySide6.QtCore import Signal, Slot, QObject
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QPixmap, QGuiApplication
 
 
 # Mock the worker signals
@@ -65,14 +65,9 @@ class MockGallery(QObject):
                     self.update_card_pixmap(widget, QPixmap())
 
 
-from PySide6.QtGui import QGuiApplication
-
-
 def test_batch_failure_clears_loading_state():
     if not QGuiApplication.instance():
-        app = QGuiApplication([])
-    else:
-        app = QGuiApplication.instance()
+        QGuiApplication([])
 
     gallery = MockGallery()
     requested = ["img1", "img2", "img_fail"]

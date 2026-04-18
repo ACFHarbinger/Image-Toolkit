@@ -11,10 +11,10 @@ from unittest.mock import MagicMock, patch
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-import src.utils.definitions as udef
+import src.utils.definitions as udef  # noqa: E402
 
-from src.core import FSETool
-from src.web import ImageCrawler
+from src.core import FSETool  # noqa: E402
+from src.web import ImageCrawler  # noqa: E402
 
 
 # --- Mocking External Dependencies ---
@@ -142,14 +142,13 @@ def mock_jpype():
         patch(
             "src.core.vault_manager.jpype.JClass",
             side_effect=lambda name: mock_jclass_map.get(name, MagicMock()),
-        ) as mock_jclass,
+        ) as _mock_jclass,
         patch(
             "src.core.vault_manager.jpype.isJVMStarted",
             side_effect=[False, True, True],
         ),
         patch("src.core.vault_manager.jpype.shutdownJVM") as mock_shutdown_jvm,
     ):
-
         yield mock_start_jvm, mock_shutdown_jvm
 
 

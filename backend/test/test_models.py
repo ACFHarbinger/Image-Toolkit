@@ -17,8 +17,8 @@ sys.modules["torchvision.models"] = MagicMock()
 sys.modules["torchvision.utils"] = MagicMock()
 sys.modules["torchvision.transforms"] = MagicMock()
 
-from src.models.gan_wrapper import GanWrapper
-from src.models.siamese_network import SiameseModelLoader
+from src.models.gan_wrapper import GanWrapper  # noqa: E402
+from src.models.siamese_network import SiameseModelLoader  # noqa: E402
 
 
 class TestGanWrapper:
@@ -53,7 +53,6 @@ class TestGanWrapper:
             patch("src.models.gan_wrapper.Image.open") as mock_open,
             patch("src.models.gan_wrapper.save_image") as mock_save,
         ):
-
             mock_img = MagicMock()
             mock_open.return_value.convert.return_value = mock_img
             gw.transform.return_value.unsqueeze.return_value.to.return_value = "tensor"
@@ -69,7 +68,7 @@ class TestGanWrapper:
         GanWrapper.cancel_process()
         assert GanWrapper.is_cancelled is True
 
-        gw = GanWrapper()  # Should reset flag
+        _gw = GanWrapper()  # Should reset flag
         assert GanWrapper.is_cancelled is False
 
 
@@ -94,7 +93,6 @@ class TestSiameseModelLoader:
             patch("src.models.siamese_network.Image.open") as mock_open,
             patch("src.models.siamese_network.torch") as mock_torch,
         ):
-
             mock_open.return_value.convert.return_value = MagicMock()
 
             # Setup torch mocks

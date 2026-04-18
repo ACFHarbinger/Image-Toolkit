@@ -7,12 +7,21 @@ from pathlib import Path
 class QueueItemWidget(QWidget):
     """A widget to display an image preview and its name in the queue."""
 
-    def __init__(self, path: str, pixmap: QPixmap, parent=None):
+    def __init__(self, path: str, pixmap: QPixmap, index: int = 0, parent=None):
         super().__init__(parent)
         self.path = path
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(5, 5, 5, 5)
+
+        # Index Label
+        self.index_label = QLabel(f"{index}.")
+        self.index_label.setFixedWidth(30)
+        self.index_label.setStyleSheet(
+            "color: #7289da; font-weight: bold; font-size: 14px;"
+        )
+        self.index_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.index_label)
 
         # Image Preview Label
         img_label = QLabel()
@@ -32,4 +41,8 @@ class QueueItemWidget(QWidget):
         layout.addWidget(file_label, 1)
 
         self.setLayout(layout)
-        self.setFixedSize(QSize(350, 70))
+        self.setFixedSize(QSize(380, 70))
+
+    def update_index(self, index: int):
+        """Update the displayed index label."""
+        self.index_label.setText(f"{index}.")

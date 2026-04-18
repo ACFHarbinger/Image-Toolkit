@@ -1,7 +1,6 @@
 import os
 import torch
 from diffusers import StableDiffusion3Pipeline
-from PIL import Image
 
 
 class SD3Wrapper:

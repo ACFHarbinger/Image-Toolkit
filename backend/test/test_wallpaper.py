@@ -99,7 +99,7 @@ class TestWallpaperManager:
         self, mock_pil, mock_platform, mock_subprocess, mock_monitor
     ):
         # Mock 'which qdbus' -> fail -> trigger GNOME fallback
-        original_side_effect = mock_subprocess.side_effect
+        mock_subprocess.side_effect
 
         def side_effect(cmd, **kwargs):
             if isinstance(cmd, list) and "which" in cmd[0]:
