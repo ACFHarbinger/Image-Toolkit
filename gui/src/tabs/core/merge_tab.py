@@ -752,7 +752,7 @@ class MergeTab(AbstractClassTwoGalleries):
         # Clear old connections if any
         try:
             worker.finished.disconnect()
-        except:
+        except Exception:
             pass
 
         worker.finished.connect(thread.quit)
@@ -864,9 +864,7 @@ class MergeTab(AbstractClassTwoGalleries):
         save_add_btn = confirm.addButton(
             "Save and Add to Selection", QMessageBox.ButtonRole.AcceptRole
         )
-        discard_btn = confirm.addButton(
-            "Discard", QMessageBox.ButtonRole.DestructiveRole
-        )
+        confirm.addButton("Discard", QMessageBox.ButtonRole.DestructiveRole)
         confirm.addButton(QMessageBox.StandardButton.Cancel)
 
         confirm.exec()

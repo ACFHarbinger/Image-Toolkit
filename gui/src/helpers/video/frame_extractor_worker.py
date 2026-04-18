@@ -62,7 +62,6 @@ class FrameExtractionWorker(QRunnable):
             video_name = Path(self.video_path).stem
             timestamp = int(time.time())
 
-            total_frames = -1
             if self.is_range and self.end_ms != -1:
                 total_duration_ms = self.end_ms - self.start_ms
             else:

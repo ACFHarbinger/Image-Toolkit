@@ -394,7 +394,8 @@ class DuplicateScanWorker(QObject):
                     if len(good) > 10 and (len(good) / len(cache[curr])) > 0.25:
                         group.append(cand)
                         to_rem.append(cand)
-                except:
+                except Exception as e:
+                    print(f"Error comparing ORB descriptors: {e}")
                     continue
 
             for r in to_rem:
@@ -442,7 +443,8 @@ class DuplicateScanWorker(QObject):
                     if len(good) > 10 and (len(good) / len(des1)) > 0.20:
                         group.append(cand)
                         to_rem.append(cand)
-                except:
+                except Exception as e:
+                    print(f"Error comparing SIFT descriptors: {e}")
                     continue
 
             for r in to_rem:

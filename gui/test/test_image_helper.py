@@ -140,12 +140,8 @@ class TestBatchImageLoaderWorker:
             results = []
             worker.signals.batch_result.connect(lambda res: results.append(res))
 
-            with patch(
-                "gui.src.helpers.image.image_loader_worker.QImage"
-            ) as MockQImage:
-                with patch(
-                    "gui.src.helpers.image.image_loader_worker.QPixmap"
-                ) as MockQPixmap:
+            with patch("gui.src.helpers.image.image_loader_worker.QImage") as _:
+                with patch("gui.src.helpers.image.image_loader_worker.QPixmap") as _:
                     worker.run()
 
                     mock_executor.submit.assert_called()

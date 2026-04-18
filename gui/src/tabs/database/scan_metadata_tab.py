@@ -8,7 +8,6 @@ from PySide6.QtCore import Qt, QThread, Slot, QPoint, QTimer, QThreadPool, QEven
 from PySide6.QtWidgets import (
     QWidget,
     QGroupBox,
-    QCheckBox,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
@@ -1224,7 +1223,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         selection_count = len(self.selected_image_paths)
 
         # Logic: Upsert and Delete actions depend on valid selection and DB connection
-        has_directory = hasattr(self, "scanned_dir") and bool(self.scanned_dir)
+        # has_directory = hasattr(self, "scanned_dir") and bool(self.scanned_dir)
 
         if connected and not self._db_was_connected:
             self._setup_tag_checkboxes()

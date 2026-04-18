@@ -79,7 +79,9 @@ class ImageFormatConverter:
         if output_dir is None:
             output_dir = input_dir
 
-        is_jpeg_or_jpg = lambda fmt: fmt in ["jpg", "jpeg"]
+        def is_jpeg_or_jpg(fmt: str) -> bool:
+            return fmt in ["jpg", "jpeg"]
+
         output_fmt = output_format.lower()
         input_formats = [f.lower() for f in inputs_formats]
 

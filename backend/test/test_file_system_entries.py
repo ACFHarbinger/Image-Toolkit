@@ -7,7 +7,7 @@ from unittest.mock import patch
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from src.core import FSETool, FileDeleter
+from src.core import FSETool, FileDeleter  # noqa: E402
 
 
 class FSEToolTest:
@@ -129,6 +129,6 @@ class FSEToolTest:
         assert not os.path.exists(dir_path)
 
     def test_delete_path_non_existent(self):
-        with patch("builtins.print") as mock_print:
+        with patch("builtins.print") as _mock_print:
             result = FileDeleter.delete_path("/this/path/never/existed")
             assert result is False

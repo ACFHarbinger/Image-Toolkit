@@ -1,5 +1,5 @@
-from .convert_tab import ConvertTab
-from .delete_tab import DeleteTab
-from .image_extractor_tab import ImageExtractorTab
-from .merge_tab import MergeTab
-from .wallpaper_tab import WallpaperTab
+from .convert_tab import ConvertTab as ConvertTab
+from .delete_tab import DeleteTab as DeleteTab
+from .image_extractor_tab import ImageExtractorTab as ImageExtractorTab
+from .merge_tab import MergeTab as MergeTab
+from .wallpaper_tab import WallpaperTab as WallpaperTab

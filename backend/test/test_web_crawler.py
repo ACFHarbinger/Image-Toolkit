@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch, call
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from src.web.image_crawler import ImageCrawler
-from conftest import MockQObject, MockWebCrawler
+from src.web.image_crawler import ImageCrawler  # noqa: E402
+from conftest import MockQObject, MockWebCrawler  # noqa: E402
 
 
 # 3. Use patch to temporarily replace the base class and Qt objects
@@ -186,16 +186,11 @@ class TestImageCrawler:
         # FIX: Correctly set the return value of the find_elements method
         crawler.driver = MagicMock()
         crawler.driver.find_elements.return_value = mock_images
-
-        # Mock the actual download function to control success count
-        mock_img3_url = urljoin("http://example.com/page-X.html", "/img3.jpg")
-
         with patch.object(
             crawler,
             "_download_image_from_url",
             side_effect=lambda url, scraped_data: "img3.jpg" not in url,
         ) as mock_download:
-
             # Mock URL for relative paths (Required to fix previous AttributeError on current_url property)
             type(crawler.driver).current_url = MagicMock(
                 return_value="http://example.com/page-X.html"
@@ -232,7 +227,6 @@ class TestImageCrawler:
         with patch.object(
             crawler, "process_data", side_effect=[3, 5]
         ) as mock_process_data:
-
             total_downloaded = crawler.run()
 
             # Assertions

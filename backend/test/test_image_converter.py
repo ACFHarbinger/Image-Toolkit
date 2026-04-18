@@ -9,8 +9,8 @@ from pathlib import Path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from src.core import ImageFormatConverter
-from src.utils.definitions import SUPPORTED_IMG_FORMATS, ROOT_DIR
+from src.core import ImageFormatConverter  # noqa: E402
+from src.utils.definitions import SUPPORTED_IMG_FORMATS, ROOT_DIR  # noqa: E402
 
 
 # --- TESTS (Adapted to Class Methods and Corrected Path Logic) ---

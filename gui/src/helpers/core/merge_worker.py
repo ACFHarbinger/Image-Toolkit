@@ -55,7 +55,7 @@ class MergeWorker(QObject):
             self.progress.emit(0, len(image_files))
 
             # 3. Perform the merge using the core class
-            merged_img = ImageMerger.merge_images(
+            ImageMerger.merge_images(
                 image_paths=image_files,
                 output_path=output_path,
                 direction=direction,

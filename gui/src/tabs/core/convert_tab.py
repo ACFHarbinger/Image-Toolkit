@@ -195,6 +195,16 @@ class ConvertTab(AbstractClassTwoGalleries):
         self.delete_checkbox.setChecked(False)
         settings_layout.addRow(self.delete_checkbox)
 
+        self.multicore_checkbox = QCheckBox(
+            "Multi-core Processing (Faster for Batches)"
+        )
+        self.multicore_checkbox.setToolTip(
+            "Process multiple files in parallel across multiple CPU cores."
+        )
+        self.multicore_checkbox.setStyleSheet(self.delete_checkbox.styleSheet())
+        self.multicore_checkbox.setChecked(True)
+        settings_layout.addRow(self.multicore_checkbox)
+
         content_layout.addWidget(settings_group)
 
         # --- 3. Aspect Ratio Group ---
@@ -774,8 +784,9 @@ class ConvertTab(AbstractClassTwoGalleries):
                     w, h = map(int, text.split(":"))
                     self.ar_w.setValue(w)
                     self.ar_h.setValue(h)
-            except:
-                pass
+            except Exception as e:
+                print(f"Error checking directory: {e}")
+                return
 
     # --- CONVERSION WORKER ---
 
@@ -885,8 +896,8 @@ class ConvertTab(AbstractClassTwoGalleries):
                     ar_w = w
                     ar_h = h
                     ar_mode = self.ar_mode_combo.currentText().lower()
-            except:
-                pass
+            except Exception as e:
+                print(f"Error calculating aspect ratio: {e}")
 
         return {
             "output_format": self.output_format_combo.currentText().lower(),
@@ -897,6 +908,7 @@ class ConvertTab(AbstractClassTwoGalleries):
                 f.strip().lstrip(".").lower() for f in input_formats if f.strip()
             ],
             "delete_original": self.delete_checkbox.isChecked(),
+            "use_multicore": self.multicore_checkbox.isChecked(),
             "aspect_ratio": ar_val,
             "aspect_ratio_w": ar_w,
             "aspect_ratio_h": ar_h,
@@ -914,6 +926,7 @@ class ConvertTab(AbstractClassTwoGalleries):
             "output_filename_prefix": "",
             "input_formats": formats,
             "delete_original": False,
+            "use_multicore": True,
             "aspect_ratio": None,
             "aspect_ratio_mode": "crop",
             "video_engine": "auto",
@@ -959,6 +972,7 @@ class ConvertTab(AbstractClassTwoGalleries):
 
             # 4. Delete Checkbox
             self.delete_checkbox.setChecked(config.get("delete_original", False))
+            self.multicore_checkbox.setChecked(config.get("use_multicore", True))
 
             # 5. Aspect Ratio
             aspect_ratio = config.get("aspect_ratio")

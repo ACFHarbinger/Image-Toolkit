@@ -987,13 +987,22 @@ class WallpaperTab(AbstractClassSingleGallery):
                 if win in self.open_queue_windows:
                     self.open_queue_windows.remove(win)
 
-        # Pass the global pixmap cache so the QueueWindow can show videos too
+        # Pass the global pixmap cache and other monitor data for swap functionality
+        other_names = {
+            mid: widget.monitor.name for mid, widget in self.monitor_widgets.items()
+        }
         window = SlideshowQueueWindow(
-            monitor_name, monitor_id, queue, pixmap_cache=self._initial_pixmap_cache
+            monitor_name,
+            monitor_id,
+            queue,
+            pixmap_cache=self._initial_pixmap_cache,
+            other_queues=self.monitor_slideshow_queues,
+            other_names=other_names,
         )
         window.setAttribute(Qt.WA_DeleteOnClose)
         window.queue_reordered.connect(self.on_queue_reordered)
         window.image_preview_requested.connect(self.handle_full_image_preview)
+        window.item_swap_requested.connect(self.handle_item_swap_request)
 
         self.open_queue_windows = [
             w for w in self.open_queue_windows if not sip.isValid(w)
@@ -1149,6 +1158,42 @@ class WallpaperTab(AbstractClassSingleGallery):
             QMessageBox.critical(
                 self, "Deletion Failed", f"Could not delete the file: {e}"
             )
+
+    @Slot(str, int, str, int)
+    def handle_item_swap_request(
+        self, s_mid: str, s_idx: int, t_mid: str, t_idx: int
+    ):
+        """Swaps two items between (or within) monitor queues."""
+        src_queue = self.monitor_slideshow_queues.get(s_mid, [])
+        target_queue = self.monitor_slideshow_queues.get(t_mid, [])
+
+        if s_idx < len(src_queue) and t_idx < len(target_queue):
+            # 1. Perform swap
+            src_queue[s_idx], target_queue[t_idx] = (
+                target_queue[t_idx],
+                src_queue[s_idx],
+            )
+
+            # 2. Update affected Monitor widgets if the first item changed
+            # (which is shown as the 'current' image in the drop widget)
+            if s_idx == 0:
+                self.on_queue_reordered(s_mid, src_queue)
+            if t_mid != s_mid and t_idx == 0:
+                self.on_queue_reordered(t_mid, target_queue)
+
+            # 3. Synchronize all open queue windows
+            for win in self.open_queue_windows:
+                if sip.isValid(win) and isinstance(win, SlideshowQueueWindow):
+                    if win.monitor_id == s_mid:
+                        win.populate_list(src_queue)
+                    elif win.monitor_id == t_mid:
+                        win.populate_list(target_queue)
+
+            self.check_all_monitors_set()
+
+            # 4. Update daemon if running
+            if self._is_daemon_running_config():
+                self.toggle_slideshow_daemon()
 
     @Slot(str, list)
     def on_queue_reordered(self, monitor_id: str, new_queue: List[str]):
@@ -1649,7 +1694,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         draggable_label = DraggableLabel(
             path, size, selection_provider=lambda: self.selected_files
         )
-        draggable_label.setAlignment(Qt.AlignCenter)
+        draggable_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Connect signals
         draggable_label.path_clicked.connect(self.toggle_selection)
