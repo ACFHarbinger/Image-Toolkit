@@ -116,6 +116,18 @@ format:
     cd frontend && npm run format || echo "⚠️  No format script found"
     @echo "✅ Formatting complete!"
 
+# --- Web Driver & Crawler ---
+
+# Run the Selenium WebDriver (chromedriver) required for crawlers
+web-driver:
+    @echo "🌐 Starting Managed Selenium WebDriver..."
+    @source .venv/bin/activate && python scripts/manage_webdriver.py start
+
+# Run the image crawler via CLI
+# Usage: just crawl "https://example.com/gallery" 20 "./downloads"
+crawl query limit="10" output="./downloads":
+    source .venv/bin/activate && python main.py web crawl -q "{{query}}" -l {{limit}} -o "{{output}}"
+
 # --- Legacy/Helper ---
 
 # Starting Python/PySide6 app
