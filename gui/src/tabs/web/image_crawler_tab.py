@@ -1,4 +1,5 @@
-from PySide6.QtCore import Qt, QPoint
+import os
+from PySide6.QtCore import Qt, QPoint, QProcess
 from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
@@ -143,6 +144,21 @@ class ImageCrawlTab(QWidget):
             self.run_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
         )
         self.run_button.clicked.connect(self.start_crawl)
+        
+        # --- WebDriver Management ---
+        self.webdriver_process = QProcess(self)
+        self.webdriver_process.readyReadStandardOutput.connect(self.on_webdriver_stdout)
+        self.webdriver_process.readyReadStandardError.connect(self.on_webdriver_stderr)
+        self.webdriver_process.finished.connect(self.on_webdriver_finished)
+
+        self.webdriver_button = QPushButton("🌐 Start WebDriver Service")
+        self.webdriver_button.setStyleSheet(self._get_webdriver_btn_style())
+        apply_shadow_effect(
+            self.webdriver_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        )
+        self.webdriver_button.clicked.connect(self.toggle_webdriver)
+        self.button_layout.addWidget(self.webdriver_button, 0, Qt.AlignBottom)
+
         self.button_layout.addWidget(self.run_button, 0, Qt.AlignBottom)
 
         self.cancel_button = QPushButton("Cancel Crawl")
@@ -178,6 +194,13 @@ class ImageCrawlTab(QWidget):
         return """
             QPushButton { background-color: #cc3333; color: white; font-weight: bold; padding: 14px; border-radius: 10px; }
             QPushButton:hover { background-color: #ff4444; }
+        """
+
+    def _get_webdriver_btn_style(self):
+        return """
+            QPushButton { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #43e97b, stop:1 #38f9d7); color: #1a1a1a; font-weight: bold; padding: 12px; border-radius: 10px; margin-bottom: 5px; }
+            QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #38f9d7, stop:1 #43e97b); }
+            QPushButton:disabled { background: #4f545c; color: #888; }
         """
 
     def setup_general_page(self):
@@ -683,6 +706,49 @@ class ImageCrawlTab(QWidget):
             QMessageBox.information(
                 self, "Done", f"{message}\nSaved to: {self.download_dir_path.text()}"
             )
+
+    # --- WebDriver Management Helpers ---
+
+    def toggle_webdriver(self):
+        if self.webdriver_process.state() == QProcess.ProcessState.NotRunning:
+            self.log_window.show()
+            self.log_window.append_log("🌐 Preparing Managed WebDriver (this may take a few seconds)...")
+            
+            # Use the virtual environment python to run the management script
+            # Assumes the app is launched from project root where .venv exists
+            python_exe = os.path.abspath(".venv/bin/python3")
+            script_path = os.path.abspath("scripts/manage_webdriver.py")
+            
+            if not os.path.exists(python_exe):
+                # Fallback to system python if venv not found (though AGENTS.md says it should be there)
+                python_exe = "python3"
+
+            self.webdriver_process.start(python_exe, [script_path, "start"])
+            if not self.webdriver_process.waitForStarted(10000):
+                self.log_window.append_log("❌ Failed to start WebDriver manager script.")
+                return
+            self.webdriver_button.setText("🛑 Stop WebDriver Service")
+            self.webdriver_button.setStyleSheet(self._get_cancel_btn_style())
+        else:
+            self.log_window.append_log("🛑 Stopping WebDriver service...")
+            self.webdriver_process.terminate()
+            if not self.webdriver_process.waitForFinished(3000):
+                self.webdriver_process.kill()
+
+    def on_webdriver_stdout(self):
+        data = self.webdriver_process.readAllStandardOutput().data().decode().strip()
+        if data:
+            self.log_window.append_log(f"DRIVER: {data}")
+
+    def on_webdriver_stderr(self):
+        data = self.webdriver_process.readAllStandardError().data().decode().strip()
+        if data:
+            self.log_window.append_log(f"DRIVER ERROR: {data}")
+
+    def on_webdriver_finished(self):
+        self.log_window.append_log("🌐 WebDriver service stopped.")
+        self.webdriver_button.setText("🌐 Start WebDriver Service")
+        self.webdriver_button.setStyleSheet(self._get_webdriver_btn_style())
 
     # --- Config Management ---
 
