@@ -91,6 +91,7 @@ class ConversionWorker(QThread):
                         )
                     )
 
+                failures = []
                 for idx, future in enumerate(as_completed(futures)):
                     if self._is_cancelled:
                         break
@@ -99,7 +100,7 @@ class ConversionWorker(QThread):
                         if success:
                             converted_count += 1
                     except Exception as e:
-                        print(f"Error in parallel conversion task: {e}")
+                        failures.append(str(e))
 
                     # Progress Update (approximate based on completed tasks)
                     progress = int(((idx + 1) / total_files) * 100)
@@ -108,20 +109,31 @@ class ConversionWorker(QThread):
                 self._executor.shutdown(wait=True)
                 self._executor = None
             else:
+                failures = []
                 # Sequential Execution (Existing)
                 for idx, input_file in enumerate(files_to_convert):
                     if self._is_cancelled:
                         break
-                    if self._convert_single_file(
-                        input_file, idx, total_files, img_formats, vid_formats
-                    ):
-                        converted_count += 1
+                    try:
+                        if self._convert_single_file(
+                            input_file, idx, total_files, img_formats, vid_formats
+                        ):
+                            converted_count += 1
+                    except Exception as e:
+                        failures.append(str(e))
 
                     progress = int(((idx + 1) / total_files) * 100)
                     self.progress_update.emit(progress)
 
             if self._is_cancelled:
                 self.finished.emit(converted_count, "**Conversion Cancelled**")
+            elif failures:
+                summary = f"Processed {converted_count}/{total_files} successfully.\n{len(failures)} error(s) occurred."
+                if len(failures) == 1:
+                    summary += f"\n\nError: {failures[0]}"
+                else:
+                    summary += f"\n\nFirst few errors:\n - " + "\n - ".join(failures[:3])
+                self.finished.emit(converted_count, summary)
             else:
                 self.finished.emit(
                     converted_count, f"Processed {converted_count} file(s)!"

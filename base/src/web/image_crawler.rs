@@ -106,20 +106,31 @@ impl ImageCrawlerRust {
             }
         }
 
-        let mut caps = DesiredCapabilities::chrome();
-        if headless {
-            caps.add_arg("--headless")?;
-        }
-        caps.add_arg("--no-sandbox")?;
-        caps.add_arg("--disable-dev-shm-usage")?;
-        caps.add_arg("--disable-blink-features=AutomationControlled")?;
-        caps.add_arg("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")?;
-        caps.add_arg("--exclude-switches=enable-automation")?;
-        caps.add_arg("--disable-automation")?;
-        caps.add_arg("--disable-extensions")?;
+        let driver_res = if self.browser_name.to_lowercase() == "firefox" {
+            let mut caps = DesiredCapabilities::firefox();
+            if headless {
+                caps.add_arg("--headless")?;
+            }
+            caps.add_arg("--no-sandbox")?;
+            caps.add_arg("--disable-dev-shm-usage")?;
+            caps.add_arg("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")?;
+            WebDriver::new("http://localhost:9515", caps).await
+        } else {
+            let mut caps = DesiredCapabilities::chrome();
+            if headless {
+                caps.add_arg("--headless")?;
+            }
+            caps.add_arg("--no-sandbox")?;
+            caps.add_arg("--disable-dev-shm-usage")?;
+            caps.add_arg("--disable-blink-features=AutomationControlled")?;
+            caps.add_arg("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")?;
+            caps.add_arg("--exclude-switches=enable-automation")?;
+            caps.add_arg("--disable-automation")?;
+            caps.add_arg("--disable-extensions")?;
+            WebDriver::new("http://localhost:9515", caps).await
+        };
 
-        // Note: Assuming chromedriver is running on localhost:9515
-        let driver = WebDriver::new("http://localhost:9515", caps).await?;
+        let driver = driver_res?;
 
         // Anti-Detection: Hide webdriver property
         let _ = driver
@@ -141,6 +152,14 @@ impl ImageCrawlerRust {
         let mut total_downloaded_count = 0;
 
         for (page_idx, target_url) in target_urls.iter().enumerate() {
+            // Pre-navigation check: catch cancellation before starting a new page
+            if let Ok(is_running) = callback_obj.getattr(py, "_is_running") {
+                if !is_running.extract::<bool>(py).unwrap_or(true) {
+                    emit_status(py, &callback_obj, "Crawl manually cancelled by user.")?;
+                    return Ok(total_downloaded_count);
+                }
+            }
+
             emit_status(
                 py,
                 &callback_obj,
@@ -152,77 +171,175 @@ impl ImageCrawlerRust {
                 ),
             )?;
 
-            driver.goto(target_url).await?;
+            if let Err(e) = driver.goto(target_url).await {
+                emit_status(
+                    py,
+                    &callback_obj,
+                    &format!(
+                        "Initial navigation to {} failed: {}. Skipping page.",
+                        target_url, e
+                    ),
+                )?;
+                continue;
+            }
 
             // Wait for page load and JavaScript to populate images
             tokio::time::sleep(Duration::from_secs(5)).await;
 
-            // Check if browser was redirected to data: URL (anti-bot measure)
-            let current_url = driver.current_url().await?;
-            if current_url.as_str().starts_with("data:") {
-                emit_status(
-                    py,
-                    &callback_obj,
-                    "Browser was redirected to data: URL (anti-bot). Navigating back...",
-                )?;
-                driver.goto(target_url).await?;
-                tokio::time::sleep(Duration::from_secs(5)).await;
-            }
+            // Parse target host to enforce staying on the correct domain
+            let target_host = url::Url::parse(target_url)
+                .ok()
+                .and_then(|u| u.host_str().map(|h| h.to_string()))
+                .unwrap_or_default();
 
-            // Retry finding images (they may load via JavaScript)
-            let mut total_found = 0;
-            // INCREASED RETRIES: User requested "keep trying until success".
-            // Increased from 3 to 30 attempts (approx 90-100 seconds max wait).
-            for attempt in 0..30 {
-                // Check again if redirected
-                let current_url = driver.current_url().await?;
-                if current_url.as_str().starts_with("data:") {
+            // Initial Trap Check: Safely check for data: traps, off-site redirects, or error pages
+            if let Ok(url) = driver.current_url().await {
+                let title = driver
+                    .title()
+                    .await
+                    .unwrap_or_else(|_| String::new())
+                    .to_lowercase();
+                let url_str = url.as_str();
+
+                let is_bad_state = url_str.starts_with("data:")
+                    || url_str.starts_with("chrome-error:")
+                    || title.contains("can't be reached")
+                    || title.contains("can’t be reached")
+                    || title.contains("error")
+                    || (!target_host.is_empty() && !url_str.contains(&target_host));
+
+                if is_bad_state {
                     emit_status(
                         py,
                         &callback_obj,
                         &format!(
-                            "Still on data: URL after attempt {}. Retrying navigation...",
+                            "Trapped on error/redirect escape ({}). Attempting escape...",
+                            url_str
+                        ),
+                    )?;
+                    let _ = driver.goto(target_url).await;
+                    tokio::time::sleep(Duration::from_secs(5)).await;
+                }
+            }
+
+            let mut total_found = 0;
+            let mut attempt = 0;
+            loop {
+                attempt += 1;
+
+                // GUI Cancellation Hatch: Allow user to manually abort the infinite loop
+                if let Ok(is_running) = callback_obj.getattr(py, "_is_running") {
+                    if !is_running.extract::<bool>(py).unwrap_or(true) {
+                        emit_status(py, &callback_obj, "Crawl manually cancelled by user.")?;
+                        return Ok(total_downloaded_count);
+                    }
+                }
+
+                // Check if aggressively trapped in the History Stack, off-site redirects, or hitting error pages
+                let mut is_trapped = false;
+                if let Ok(url) = driver.current_url().await {
+                    let title = driver
+                        .title()
+                        .await
+                        .unwrap_or_else(|_| String::new())
+                        .to_lowercase();
+                    let url_str = url.as_str();
+
+                    if url_str.starts_with("data:")
+                        || url_str.starts_with("chrome-error:")
+                        || title.contains("can't be reached")
+                        || title.contains("can’t be reached")
+                        || title.contains("error")
+                        || (!target_host.is_empty() && !url_str.contains(&target_host))
+                    {
+                        is_trapped = true;
+                    }
+                } else {
+                    // If current_url fails entirely, the tab might be effectively dead/unreachable
+                    is_trapped = true;
+                }
+
+                if is_trapped {
+                    emit_status(
+                        py,
+                        &callback_obj,
+                        &format!(
+                            "Unreachable state or trap detected (attempt {}). Executing New Tab Escape...",
                             attempt + 1
                         ),
                     )?;
-                    driver.goto(target_url).await?;
+
+                    // 1. Force open a fresh tab via JS to escape the history stack
+                    let script = format!("window.open('{}', '_blank');", target_url);
+                    let _ = driver.execute(&script, vec![]).await;
+                    tokio::time::sleep(Duration::from_secs(2)).await;
+
+                    // 2. Destroy all stale/trapped tabs and switch focus to the fresh one
+                    let windows = driver.windows().await.unwrap_or_default();
+                    if windows.is_empty() {
+                        // No windows at all means the entire browser process died
+                        emit_status(
+                            py,
+                            &callback_obj,
+                            "WebDriver session has died. Returning downloaded items.",
+                        )?;
+                        let _ = driver.quit().await;
+                        return Ok(total_downloaded_count);
+                    }
+                    if let Some(new_window) = windows.last().cloned() {
+                        for window in &windows {
+                            if *window != new_window {
+                                let _ = driver.switch_to_window(window.clone()).await;
+                                let _ = driver.close_window().await;
+                            }
+                        }
+                        let _ = driver.switch_to_window(new_window).await;
+                        let _ = driver.goto(target_url).await;
+                    }
                     tokio::time::sleep(Duration::from_secs(5)).await;
                 }
 
-                let images = driver.find_all(By::Tag("img")).await?;
+                let images = driver.find_all(By::Tag("img")).await.unwrap_or_default();
                 total_found = images.len();
                 if total_found > 0 {
                     break;
                 }
 
-                // If stuck for a while (every 5 attempts), try refreshing the page
-                if attempt > 0 && attempt % 5 == 0 {
+                // PERIODIC SOFT REFRESH: If stuck for a while (every 10 attempts), force a re-navigation
+                if attempt > 0 && attempt % 10 == 0 {
                     emit_status(
                         py,
                         &callback_obj,
                         &format!(
-                            "No images found yet (attempt {}/30). Refreshing page...",
-                            attempt + 1
+                            "No images found yet (attempt {}). Forcing page refresh...",
+                            attempt
                         ),
                     )?;
-                    driver.goto(target_url).await?;
+                    let _ = driver.goto(target_url).await;
                 }
 
                 emit_status(
                     py,
                     &callback_obj,
-                    &format!("Waiting for images to load (attempt {}/30)...", attempt + 1),
+                    &format!("Waiting for images to load (attempt {})...", attempt),
                 )?;
                 tokio::time::sleep(Duration::from_secs(3)).await;
             }
 
-            // SCROLL: 4KHD uses lazy loading. Scroll down multiple times.
+            // SCROLL: 4KHD / generic lazy loading. Scroll down multiple times.
             emit_status(py, &callback_obj, "Scrolling to trigger lazy loading...")?;
             for _ in 0..5 {
-                driver.execute("window.scrollBy(0, 1500);", vec![]).await?;
+                if let Err(_) = driver.execute("window.scrollBy(0, 1500);", vec![]).await {
+                    emit_status(
+                        py,
+                        &callback_obj,
+                        "Scroll interrupted (context lost or redirect). Stopping scroll loop.",
+                    )?;
+                    break;
+                }
                 tokio::time::sleep(Duration::from_millis(500)).await;
             }
-            driver.execute("window.scrollTo(0, 0);", vec![]).await?;
+            let _ = driver.execute("window.scrollTo(0, 0);", vec![]).await;
             tokio::time::sleep(Duration::from_millis(500)).await;
 
             let skip_first = config
@@ -242,14 +359,21 @@ impl ImageCrawlerRust {
 
             let mut fallback_urls = Vec::new();
 
-            // FALLBACK: If very few images found, try HTML parsing
-            if total_found < 5 && target_url.contains("4khd.com") {
+            // FALLBACK: If very few images found, try direct HTML parsing
+            if total_found < 5 {
                 emit_status(
                     py,
                     &callback_obj,
-                    "Detected 4KHD / low image count. Attempting request-based fallback...",
+                    "Detected low image count. Attempting request-based fallback...",
                 )?;
-                if let Ok(discovered_urls) = self.fetch_images_via_request(target_url).await {
+
+                // Use the most recent URL if it's not a data: trap
+                let resolved_url = match driver.current_url().await {
+                    Ok(url) if !url.as_str().starts_with("data:") => url.to_string(),
+                    _ => target_url.clone(),
+                };
+
+                if let Ok(discovered_urls) = self.fetch_images_via_request(&resolved_url).await {
                     if !discovered_urls.is_empty() {
                         emit_status(
                             py,
@@ -286,7 +410,7 @@ impl ImageCrawlerRust {
                 emit_status(py, &callback_obj, "Extracting image URLs from page...")?;
 
                 let mut image_urls = Vec::new();
-                let all_images = driver.find_all(By::Tag("img")).await?;
+                let all_images = driver.find_all(By::Tag("img")).await.unwrap_or_default();
 
                 for (idx, img) in all_images.iter().enumerate() {
                     if idx < skip_first || idx >= total_found - skip_last {
@@ -358,24 +482,23 @@ impl ImageCrawlerRust {
 
             // Process Fallback URLs if Selenium failed or found very little
             if total_found < 5 && !fallback_urls.is_empty() {
-                // Filter to only URLs from googleusercontent.com (pic.4khd.com has SSL errors - Error 526)
                 let working_urls: Vec<_> = fallback_urls
                     .iter()
                     .filter(|url| {
-                        url.contains("googleusercontent.com") || !url.contains("pic.4khd.com")
+                        // Collect all extracted fallback URLs
+                        !url.is_empty()
                     })
                     .collect();
 
                 if working_urls.is_empty() {
-                    emit_status(py, &callback_obj, "No downloadable fallback URLs found (pic.4khd.com has SSL certificate errors)")?;
+                    emit_status(py, &callback_obj, "No downloadable fallback URLs found.")?;
                 } else {
                     emit_status(
                         py,
                         &callback_obj,
                         &format!(
-                            "Downloading {} fallback images (filtered {} broken URLs)...",
-                            working_urls.len(),
-                            fallback_urls.len() - working_urls.len()
+                            "Attempting to download {} fallback images...",
+                            working_urls.len()
                         ),
                     )?;
                 }
@@ -606,7 +729,7 @@ impl ImageCrawlerRust {
                 parsed_url.host_str().unwrap_or("")
             )
         } else {
-            "https://www.4khd.com/".to_string()
+            "".to_string()
         };
 
         let res = client
@@ -685,14 +808,16 @@ impl ImageCrawlerRust {
         py: Python<'_>,
         callback_obj: &Py<PyAny>,
     ) -> Result<bool> {
-        // Use the URL as-is (WordPress Photon proxy works better than direct access)
         let actual_url = url.to_string();
 
-        // Save original window handle
-        let original_window = driver.window().await?;
+        // If we can't get the current window the session is already dead — bail cleanly
+        let original_window = match driver.window().await {
+            Ok(w) => w,
+            Err(_) => return Ok(false),
+        };
 
-        // Open image in new tab
-        driver
+        // Open image URL in a new tab (popup-blocker safe: ignore failure)
+        let _ = driver
             .execute(
                 &format!(
                     "window.open('{}', '_blank');",
@@ -700,46 +825,31 @@ impl ImageCrawlerRust {
                 ),
                 vec![],
             )
-            .await?;
+            .await;
 
-        // Wait 1 second for tab to open
         tokio::time::sleep(Duration::from_secs(1)).await;
 
-        // Switch to the new tab (last window)
-        let windows = driver.windows().await?;
-        if let Some(new_window) = windows.last() {
-            driver.switch_to_window(new_window.clone()).await?;
+        // Find the freshly-opened tab (any handle that isn't our original)
+        let windows = driver.windows().await.unwrap_or_default();
+        let new_window = match windows.into_iter().find(|w| *w != original_window) {
+            Some(w) => w,
+            None => return Ok(false), // popup blocked or session dead
+        };
 
-            // Wait for image to load
-            tokio::time::sleep(Duration::from_secs(2)).await;
+        let _ = driver.switch_to_window(new_window.clone()).await;
+        tokio::time::sleep(Duration::from_secs(2)).await;
 
-            // Try to extract image data using canvas
-            let script = r#"
-                return new Promise((resolve) => {
-                    const images = document.querySelectorAll('img');
-                    if (images.length === 0) {
-                        resolve(null);
-                        return;
-                    }
+        let script = r#"
+            return new Promise((resolve) => {
+                const images = document.querySelectorAll('img');
+                if (images.length === 0) {
+                    resolve(null);
+                    return;
+                }
 
-                    const img = images[0];
-                    if (!img.complete || img.naturalHeight === 0) {
-                        // Image not loaded yet, wait a bit
-                        img.onload = function() {
-                            const canvas = document.createElement('canvas');
-                            canvas.width = img.naturalWidth;
-                            canvas.height = img.naturalHeight;
-                            const ctx = canvas.getContext('2d');
-                            ctx.drawImage(img, 0, 0);
-                            try {
-                                const dataUrl = canvas.toDataURL('image/png');
-                                resolve(dataUrl.split(',')[1]);
-                            } catch(e) {
-                                resolve(null);
-                            }
-                        };
-                        setTimeout(() => resolve(null), 3000);
-                    } else {
+                const img = images[0];
+                if (!img.complete || img.naturalHeight === 0) {
+                    img.onload = function() {
                         const canvas = document.createElement('canvas');
                         canvas.width = img.naturalWidth;
                         canvas.height = img.naturalHeight;
@@ -751,72 +861,83 @@ impl ImageCrawlerRust {
                         } catch(e) {
                             resolve(null);
                         }
-                    }
-                });
-            "#;
-
-            let result = driver.execute(script, vec![]).await?;
-
-            // Close the tab and switch back
-            driver.close_window().await?;
-            driver.switch_to_window(original_window).await?;
-
-            // Wait 1 second between actions
-            tokio::time::sleep(Duration::from_secs(1)).await;
-
-            // Convert ScriptRet to JSON value
-            if let Ok(base64_data) = result.convert::<String>() {
-                if !base64_data.is_empty() && base64_data != "null" {
-                    // Decode base64 and save
-                    if let Ok(image_data) = BASE64_STANDARD.decode(base64_data) {
-                        let filename = actual_url
-                            .split('/')
-                            .last()
-                            .and_then(|s| s.split('?').next())
-                            .unwrap_or("image.jpg");
-                        let mut save_path = PathBuf::from(&self.download_dir).join(filename);
-
-                        // Ensure unique filename
-                        let mut counter = 1;
-                        while save_path.exists() {
-                            let stem = save_path
-                                .file_stem()
-                                .and_then(|s| s.to_str())
-                                .unwrap_or("image");
-                            let ext = save_path
-                                .extension()
-                                .and_then(|s| s.to_str())
-                                .unwrap_or("jpg");
-                            save_path = PathBuf::from(&self.download_dir)
-                                .join(format!("{} ({}).{}", stem, counter, ext));
-                            counter += 1;
-                        }
-
-                        fs::write(&save_path, image_data)?;
-                        emit_status(
-                            py,
-                            callback_obj,
-                            &format!("Saved image via browser: {}", save_path.to_string_lossy()),
-                        )?;
-                        let _ = callback_obj.call_method1(
-                            py,
-                            "on_image_saved",
-                            (save_path.to_string_lossy().to_string(),),
-                        );
-
-                        if !metadata.is_empty() {
-                            let json_path = save_path.with_extension("json");
-                            let json_val = Value::Object(metadata.clone());
-                            fs::write(json_path, serde_json::to_string_pretty(&json_val)?)?;
-                        }
-
-                        return Ok(true);
+                    };
+                    setTimeout(() => resolve(null), 3000);
+                } else {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.naturalWidth;
+                    canvas.height = img.naturalHeight;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    try {
+                        const dataUrl = canvas.toDataURL('image/png');
+                        resolve(dataUrl.split(',')[1]);
+                    } catch(e) {
+                        resolve(null);
                     }
                 }
+            });
+        "#;
+
+        // Run canvas extraction — capture result so cleanup can run unconditionally below
+        let canvas_result = driver.execute(script, vec![]).await;
+
+        // ── Always clean up: close the image tab and restore original context ──
+        let _ = driver.close_window().await;
+        let _ = driver.switch_to_window(original_window).await;
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        let result = match canvas_result {
+            Ok(r) => r,
+            Err(_) => return Ok(false),
+        };
+
+        if let Ok(base64_data) = result.convert::<String>() {
+            if !base64_data.is_empty() && base64_data != "null" {
+                if let Ok(image_data) = BASE64_STANDARD.decode(base64_data) {
+                    let filename = actual_url
+                        .split('/')
+                        .last()
+                        .and_then(|s| s.split('?').next())
+                        .unwrap_or("image.jpg");
+                    let mut save_path = PathBuf::from(&self.download_dir).join(filename);
+
+                    let mut counter = 1;
+                    while save_path.exists() {
+                        let stem = save_path
+                            .file_stem()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("image");
+                        let ext = save_path
+                            .extension()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("jpg");
+                        save_path = PathBuf::from(&self.download_dir)
+                            .join(format!("{} ({}).{}", stem, counter, ext));
+                        counter += 1;
+                    }
+
+                    fs::write(&save_path, image_data)?;
+                    emit_status(
+                        py,
+                        callback_obj,
+                        &format!("Saved image via browser: {}", save_path.to_string_lossy()),
+                    )?;
+                    let _ = callback_obj.call_method1(
+                        py,
+                        "on_image_saved",
+                        (save_path.to_string_lossy().to_string(),),
+                    );
+
+                    if !metadata.is_empty() {
+                        let json_path = save_path.with_extension("json");
+                        let json_val = Value::Object(metadata.clone());
+                        fs::write(json_path, serde_json::to_string_pretty(&json_val)?)?;
+                    }
+
+                    return Ok(true);
+                }
             }
-        } else {
-            // If we couldn't switch to new tab, switch back to original
-            driver.switch_to_window(original_window).await?;
         }
 
         Ok(false)
@@ -844,9 +965,10 @@ impl ImageCrawlerRust {
                         || lower_url.ends_with(".jpeg")
                         || lower_url.ends_with(".png")
                         || lower_url.ends_with(".webp")
-                        || img_url.contains("pic.4khd.com")
-                        || img_url.contains("ggpht.com")
-                        || img_url.contains("blogspot.com")
+                        || lower_url.contains(".jpg?")
+                        || lower_url.contains(".jpeg?")
+                        || lower_url.contains(".png?")
+                        || lower_url.contains(".webp?")
                     {
                         found_urls.push(img_url);
                     }
