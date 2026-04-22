@@ -10,10 +10,29 @@ use std::fs;
 
 // Helper function to load image
 fn load_image(path: &str) -> Result<DynamicImage> {
-    ImageReader::open(path)
-        .map_err(|e| anyhow!("Failed to open file: {}", e))?
-        .decode()
-        .map_err(|e| anyhow!("Failed to decode image: {}", e))
+    let reader = ImageReader::open(path)
+        .map_err(|e| anyhow!("Failed to open file [{}]: {}", path, e))?;
+    
+    // Explicitly guess format from content (magic bytes) to ignore incorrect extensions
+    let reader = reader.with_guessed_format()
+        .map_err(|e| anyhow!("Failed to identify format for [{}]: {}", path, e))?;
+
+    reader.decode().map_err(|e| {
+        // Diagnostic: Read first 12 bytes to see RIFF/WEBP signature
+        let mut header = vec![0u8; 12];
+        let diag_info = if let Ok(mut f) = std::fs::File::open(path) {
+            use std::io::Read;
+            if f.read_exact(&mut header).is_ok() {
+                format!("Header bytes: {:?}", header)
+            } else {
+                "Could not read header".to_string()
+            }
+        } else {
+            "Could not open for diagnostic".to_string()
+        };
+        
+        anyhow!("Failed to decode image [{}]: {}. Diag: {}", path, e, diag_info)
+    })
 }
 
 // Helper to save image
