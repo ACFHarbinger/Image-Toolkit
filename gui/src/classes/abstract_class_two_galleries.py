@@ -6,7 +6,11 @@ from typing import List, Dict, Optional
 from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QMenu, QApplication
 from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer, QEvent
 from PySide6.QtGui import QPixmap, QImage, QAction
-from backend.src.utils.definitions import LOCAL_SOURCE_PATH
+from backend.src.utils.definitions import (
+    LOCAL_SOURCE_PATH,
+    SUPPORTED_VIDEO_FORMATS,
+    THUMBNAIL_CACHE_DIR,
+)
 from .meta_abstract_class_gallery import MetaAbstractClassGallery
 from ..utils.lru_image_cache import LRUImageCache
 from ..components import MarqueeScrollArea, ClickableLabel
@@ -16,7 +20,6 @@ from ..helpers import (
     VideoLoaderWorker,
     BatchVideoLoaderWorker,
 )
-from backend.src.utils.definitions import SUPPORTED_VIDEO_FORMATS
 
 
 class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
@@ -99,6 +102,12 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
         # Enable keyboard focus for shortcuts
         self.setFocusPolicy(Qt.StrongFocus)
+
+    def _get_disk_cache_path(self, video_path: str) -> str:
+        import hashlib
+        THUMBNAIL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        path_hash = hashlib.md5(video_path.encode('utf-8')).hexdigest()
+        return str(THUMBNAIL_CACHE_DIR / f"{path_hash}.jpg")
 
     # --- KEYBOARD SHORTCUTS (Shared) ---
     def keyPressEvent(self, event: QEvent):
@@ -482,6 +491,12 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         for path, image in results:
             if image and not image.isNull():
                 self._selected_pixmap_cache[path] = image  # store QImage
+
+                # Save to disk cache if it's a video
+                if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                    cache_path = self._get_disk_cache_path(path)
+                    if not os.path.exists(cache_path):
+                        image.save(cache_path, "JPG")
             widget = widgets.get(path)
             if widget:
                 try:
@@ -509,6 +524,15 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             return
         if image and not image.isNull():
             self._selected_pixmap_cache[path] = image  # store QImage
+
+            # Save to disk cache if it's a video
+            if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                cache_path = self._get_disk_cache_path(path)
+                if not os.path.exists(cache_path):
+                    if isinstance(image, QImage):
+                        image.save(cache_path, "JPG")
+                    else:
+                        image.toImage().save(cache_path, "JPG")
         display_pixmap = (
             QPixmap.fromImage(image) if isinstance(image, QImage) else image
         )
@@ -573,8 +597,19 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         # Cache QImage (half the memory of QPixmap on X11)
         if isinstance(image, QImage) and not image.isNull():
             self._found_pixmap_cache[path] = image
+            # Save to disk cache if it's a video
+            if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                cache_path = self._get_disk_cache_path(path)
+                if not os.path.exists(cache_path):
+                    image.save(cache_path, "JPG")
         elif not isinstance(image, QImage) and image and not image.isNull():
-            self._found_pixmap_cache[path] = image.toImage()
+            q_image = image.toImage()
+            self._found_pixmap_cache[path] = q_image
+            # Save to disk cache if it's a video
+            if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                cache_path = self._get_disk_cache_path(path)
+                if not os.path.exists(cache_path):
+                    q_image.save(cache_path, "JPG")
 
         widget = self.path_to_label_map.get(path)
         if widget:
@@ -630,9 +665,20 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             if isinstance(pixmap, QImage) and not pixmap.isNull():
                 self._found_pixmap_cache[path] = pixmap  # store QImage
                 final_pixmap = QPixmap.fromImage(pixmap)
+                # Save to disk cache if it's a video
+                if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                    cache_path = self._get_disk_cache_path(path)
+                    if not os.path.exists(cache_path):
+                        pixmap.save(cache_path, "JPG")
             elif not isinstance(pixmap, QImage) and pixmap and not pixmap.isNull():
-                self._found_pixmap_cache[path] = pixmap.toImage()
+                q_image = pixmap.toImage()
+                self._found_pixmap_cache[path] = q_image
                 final_pixmap = pixmap
+                # Save to disk cache if it's a video
+                if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                    cache_path = self._get_disk_cache_path(path)
+                    if not os.path.exists(cache_path):
+                        q_image.save(cache_path, "JPG")
             else:
                 final_pixmap = QPixmap()
 
@@ -726,6 +772,14 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
             # Check cache for instant thumbnail (stored as QImage, convert for widget)
             _cached = self._found_pixmap_cache.get(path)
+
+            if _cached is None and path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                cache_path = self._get_disk_cache_path(path)
+                if os.path.exists(cache_path):
+                    _cached = QImage(cache_path)
+                    if not _cached.isNull():
+                        self._found_pixmap_cache[path] = _cached
+
             initial_pixmap = (
                 QPixmap.fromImage(_cached) if isinstance(_cached, QImage) else _cached
             )

@@ -69,7 +69,9 @@ SYNC_ERROR = "SyncFailed"
 GRAPH_API_ENDPOINT = "https://graph.microsoft.com/v1.0"
 
 # Other constants
-DAEMON_CONFIG_PATH = Path.home() / ".myapp_slideshow_config.json"
+IMAGE_TOOLKIT_DIR = Path.home() / ".image-toolkit"
+DAEMON_CONFIG_PATH = IMAGE_TOOLKIT_DIR / ".myapp_slideshow_config.json"
+THUMBNAIL_CACHE_DIR = IMAGE_TOOLKIT_DIR / "thumbnail-cache"
 
 WALLPAPER_STYLES = {
     "Windows": {

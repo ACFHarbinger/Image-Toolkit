@@ -12,7 +12,11 @@ from PySide6.QtWidgets import (
     QLabel,
     QVBoxLayout,
 )
-from backend.src.utils.definitions import LOCAL_SOURCE_PATH, SUPPORTED_VIDEO_FORMATS
+from backend.src.utils.definitions import (
+    LOCAL_SOURCE_PATH,
+    SUPPORTED_VIDEO_FORMATS,
+    THUMBNAIL_CACHE_DIR,
+)
 from .meta_abstract_class_gallery import MetaAbstractClassGallery
 from ..utils.lru_image_cache import LRUImageCache
 from ..helpers import (
@@ -92,6 +96,12 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
 
         # Enable keyboard focus for shortcuts
         self.setFocusPolicy(Qt.StrongFocus)
+
+    def _get_disk_cache_path(self, video_path: str) -> str:
+        import hashlib
+        THUMBNAIL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        path_hash = hashlib.md5(video_path.encode('utf-8')).hexdigest()
+        return str(THUMBNAIL_CACHE_DIR / f"{path_hash}.jpg")
 
     # --- ABSTRACT METHODS ---
 
@@ -568,15 +578,20 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
 
         for i in range(self._populating_index, limit):
             path = self._paginated_paths[i]
-
-            # 1. Check Cache (stored as QImage, convert to QPixmap for widget)
             _cached = self._initial_pixmap_cache.get(path)
+
+            # 2. Check for Video if no cache exists
+            is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+            if _cached is None and is_video:
+                cache_path = self._get_disk_cache_path(path)
+                if os.path.exists(cache_path):
+                    _cached = QImage(cache_path)
+                    if not _cached.isNull():
+                        self._initial_pixmap_cache[path] = _cached
+
             initial_pixmap = (
                 QPixmap.fromImage(_cached) if isinstance(_cached, QImage) else _cached
             )
-
-            # 2. Check for Video if no cache exists
-            # is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
 
             # 3. Create Widget
             card = self.create_card_widget(path, initial_pixmap)
@@ -684,6 +699,12 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         # Cache the raw QImage (half the RAM of QPixmap on X11)
         if not q_image.isNull():
             self._initial_pixmap_cache[path] = q_image
+
+            # Save to disk cache if it's a video
+            if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                cache_path = self._get_disk_cache_path(path)
+                if not os.path.exists(cache_path):
+                    q_image.save(cache_path, "JPG")
 
         widget = self.path_to_card_widget.get(path)
         if widget:

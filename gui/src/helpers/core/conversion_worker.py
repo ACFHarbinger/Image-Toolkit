@@ -132,7 +132,7 @@ class ConversionWorker(QThread):
                 if len(failures) == 1:
                     summary += f"\n\nError: {failures[0]}"
                 else:
-                    summary += f"\n\nFirst few errors:\n - " + "\n - ".join(failures[:3])
+                    summary += "\n\nFirst few errors:\n - " + "\n - ".join(failures[:3])
                 self.finished.emit(converted_count, summary)
             else:
                 self.finished.emit(
