@@ -30,12 +30,12 @@ class LoRATuner:
         print("[CANCELLED] LoRA process cancellation requested.")
 
     def __init__(
-        self, model_id="stablediffusionapi/anything-v5", output_dir="output_lora"
+        self, model_id="OnomaAIResearch/Illustrious-XL-v2.0", output_dir="output_lora"
     ):
         self.output_dir = output_dir
         os.makedirs(self.output_dir, exist_ok=True)
         self.accelerator = Accelerator(
-            gradient_accumulation_steps=1, mixed_precision="fp16"
+            gradient_accumulation_steps=1, mixed_precision="bf16"
         )
         LoRATuner.is_cancelled = False
 
@@ -106,13 +106,13 @@ class LoRATuner:
         self.unet.print_trainable_parameters()
 
     def create_dataloader(
-        self, data_dir, instance_prompt, resolution=512, batch_size=1
+        self, data_dir, instance_prompt, resolution=512, batch_size=1, pruned_tags=None
     ):
         # Determine the tokenizer to use for the dataset class (primarily for length checks)
         main_tokenizer = self.tokenizer_one
 
         class SimpleImageDataset(Dataset):
-            def __init__(self, root_dir, tokenizer, size=512):
+            def __init__(self, root_dir, tokenizer, size=512, pruned_tags=None):
                 self.root_dir = root_dir
                 self.image_paths = []
 
@@ -128,6 +128,7 @@ class LoRATuner:
                 self.tokenizer = tokenizer
                 self.size = size
                 self.instance_prompt = instance_prompt
+                self.pruned_tags = [t.strip().lower() for t in pruned_tags] if pruned_tags else []
                 self.transforms = transforms.Compose(
                     [
                         transforms.Resize(
@@ -147,11 +148,26 @@ class LoRATuner:
                 image = Image.open(img_path).convert("RGB")
                 pixel_values = self.transforms(image)
 
+                # --- Handle Danbooru-style captions (.txt files) ---
+                txt_path = os.path.splitext(img_path)[0] + ".txt"
+                tags = []
+                if os.path.exists(txt_path):
+                    with open(txt_path, "r", encoding="utf-8") as f:
+                        # Read and split tags by comma
+                        content = f.read().strip()
+                        tags = [t.strip() for t in content.split(",") if t.strip()]
+
+                # Prune tags (e.g., remove intrinsic physical traits)
+                filtered_tags = [t for t in tags if t.lower() not in self.pruned_tags]
+
+                # Prepend the unique trigger word (instance_prompt)
+                final_prompt = f"{self.instance_prompt}, {', '.join(filtered_tags)}" if filtered_tags else self.instance_prompt
+
                 # We return the prompt string directly so we can process it
                 # with dual tokenizers in the training loop if needed
-                return {"pixel_values": pixel_values, "prompt": self.instance_prompt}
+                return {"pixel_values": pixel_values, "prompt": final_prompt}
 
-        dataset = SimpleImageDataset(data_dir, main_tokenizer, size=resolution)
+        dataset = SimpleImageDataset(data_dir, main_tokenizer, size=resolution, pruned_tags=pruned_tags)
         if len(dataset) == 0:
             raise ValueError(f"No valid images (.png, .jpg, .jpeg) found in {data_dir}")
 
@@ -196,15 +212,20 @@ class LoRATuner:
         return prompt_embeds, pooled_prompt_embeds
 
     def train(
-        self, data_dir, instance_prompt, epochs=1, learning_rate=1e-4, batch_size=1
+        self, data_dir, instance_prompt, epochs=1, learning_rate=1e-4, batch_size=2, pruned_tags=None
     ):
         # SDXL usually trains at 1024, but we can respect the input resolution (likely 512 or 1024)
         # Note: If training SDXL at 512, results may be blurry unless adjusted.
         resolution = 1024 if self.is_sdxl else 512
         print(f"Training Resolution: {resolution}x{resolution}")
 
+        # --- VRAM Optimization: Gradient Checkpointing ---
+        if hasattr(self.unet, "enable_gradient_checkpointing"):
+            print("Enabling gradient checkpointing for VRAM efficiency...")
+            self.unet.enable_gradient_checkpointing()
+
         dataloader = self.create_dataloader(
-            data_dir, instance_prompt, resolution=resolution, batch_size=batch_size
+            data_dir, instance_prompt, resolution=resolution, batch_size=batch_size, pruned_tags=pruned_tags
         )
 
         optimizer = torch.optim.AdamW(
