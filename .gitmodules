@@ -7,3 +7,9 @@
 [submodule "backend/src/models/MetaCLIP"]
 	path = backend/src/models/MetaCLIP
 	url = https://github.com/facebookresearch/MetaCLIP.git
+[submodule "stable-diffusion-webui-forge"]
+	path = stable-diffusion-webui-forge
+	url = https://github.com/lllyasviel/stable-diffusion-webui-forge.git
+[submodule "StabilityMatrix"]
+	path = StabilityMatrix
+	url = https://github.com/LykosAI/StabilityMatrix.git
