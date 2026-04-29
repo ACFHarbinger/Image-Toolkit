@@ -1425,9 +1425,9 @@ class WallpaperTab(AbstractClassSingleGallery):
         # Find current active path to check it in the menu
         current_active = self.monitor_image_paths.get(monitor_id)
 
-        for path in queue:
+        for i, path in enumerate(queue):
             filename = os.path.basename(path)
-            action = set_active_menu.addAction(filename)
+            action = set_active_menu.addAction(f"[{i}] {filename}")
             action.setCheckable(True)
             if path == current_active:
                 action.setChecked(True)

@@ -50,12 +50,20 @@ fn normalize_path(path: &str) -> String {
 
 fn get_config_path() -> Result<PathBuf> {
     let user_dirs = UserDirs::new().context("Could not find user home directory")?;
-    Ok(user_dirs.home_dir().join(".myapp_slideshow_config.json"))
+    let config_dir = user_dirs.home_dir().join(".image-toolkit");
+    if !config_dir.exists() {
+        fs::create_dir_all(&config_dir)?;
+    }
+    Ok(config_dir.join(".myapp_slideshow_config.json"))
 }
 
 fn get_pid_path() -> Result<PathBuf> {
     let user_dirs = UserDirs::new().context("Could not find user home directory")?;
-    Ok(user_dirs.home_dir().join(".myapp_slideshow.pid"))
+    let config_dir = user_dirs.home_dir().join(".image-toolkit");
+    if !config_dir.exists() {
+        fs::create_dir_all(&config_dir)?;
+    }
+    Ok(config_dir.join(".myapp_slideshow.pid"))
 }
 
 struct PidGuard(PathBuf);
