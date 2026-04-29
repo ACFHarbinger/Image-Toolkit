@@ -55,14 +55,26 @@ class MergeWorker(QObject):
             self.progress.emit(0, len(image_files))
 
             # 3. Perform the merge using the core class
-            ImageMerger.merge_images(
-                image_paths=image_files,
-                output_path=output_path,
-                direction=direction,
-                grid_size=grid_size,
-                align_mode=align_mode,
-                spacing=spacing,
-            )
+            perfect_stitch_mode = self.config.get("perfect_stitch_mode", False)
+            edge_crop_px = self.config.get("edge_crop_px", 50)
+            feather_blend_px = self.config.get("feather_blend_px", 50)
+
+            if perfect_stitch_mode:
+                ImageMerger.perfect_stitch(
+                    image_paths=image_files,
+                    output_path=output_path,
+                    edge_crop=edge_crop_px,
+                    feather_width=feather_blend_px,
+                )
+            else:
+                ImageMerger.merge_images(
+                    image_paths=image_files,
+                    output_path=output_path,
+                    direction=direction,
+                    grid_size=grid_size,
+                    align_mode=align_mode,
+                    spacing=spacing,
+                )
 
             # 4. Final progress update
             self.progress.emit(len(image_files), len(image_files))

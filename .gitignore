@@ -422,7 +422,6 @@ env/README.md
 /**/*.avif
 /**/tmp/
 /**/temp/
-/**/data/
 /**/mods/
 CMakeFiles/
 backend/benchmark/results

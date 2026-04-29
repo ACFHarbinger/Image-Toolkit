@@ -201,6 +201,31 @@ class MergeTab(AbstractClassTwoGalleries):
         self.grid_group.setLayout(grid_layout)
         config_layout.addRow(self.grid_group)
         self.grid_group.hide()
+
+        # --- Perfect Stitch (Anime Pan) Settings ---
+        from PySide6.QtWidgets import QCheckBox
+        self.perfect_stitch_checkbox = QCheckBox("Perfect Stitch Mode (Digital Art)")
+        self.perfect_stitch_checkbox.setToolTip("Optimized for digital anime pan shots. Uses template matching and feather blending.")
+        config_layout.addRow(self.perfect_stitch_checkbox)
+
+        self.lbl_edge_crop = QLabel("Edge Crop (px):")
+        self.edge_crop_spinbox = QSpinBox()
+        self.edge_crop_spinbox.setRange(0, 500)
+        self.edge_crop_spinbox.setValue(50)
+        self.edge_crop_spinbox.setToolTip("Crops left/right edges to neutralize vignettes before stitching.")
+        config_layout.addRow(self.lbl_edge_crop, self.edge_crop_spinbox)
+
+        self.lbl_feather_blend = QLabel("Feather Blend (px):")
+        self.feather_blend_spinbox = QSpinBox()
+        self.feather_blend_spinbox.setRange(0, 500)
+        self.feather_blend_spinbox.setValue(50)
+        self.feather_blend_spinbox.setToolTip("Width of the linear alpha blend at the overlap seams.")
+        config_layout.addRow(self.lbl_feather_blend, self.feather_blend_spinbox)
+
+        # Connect signals for visibility
+        self.perfect_stitch_checkbox.toggled.connect(self._toggle_perfect_stitch_visibility)
+        self._toggle_perfect_stitch_visibility(False)
+
         content_layout.addWidget(config_group)
 
         # === 3. Galleries ===
@@ -993,6 +1018,28 @@ class MergeTab(AbstractClassTwoGalleries):
         self.lbl_duration.setVisible(is_gif)
         self.duration_spin.setVisible(is_gif)
 
+        # Show Perfect Stitch options primarily for panorama/stitch/sequential
+        show_stitch = is_complex
+        self.perfect_stitch_checkbox.setVisible(show_stitch)
+        self._toggle_perfect_stitch_visibility(self.perfect_stitch_checkbox.isChecked() and show_stitch)
+
+    @Slot(bool)
+    def _toggle_perfect_stitch_visibility(self, checked: bool):
+        """Enables/Disables parameter spinboxes based on checkbox state."""
+        visible = checked and self.perfect_stitch_checkbox.isVisible()
+        self.lbl_edge_crop.setVisible(visible)
+        self.edge_crop_spinbox.setVisible(visible)
+        self.lbl_feather_blend.setVisible(visible)
+        self.feather_blend_spinbox.setVisible(visible)
+        
+        # If perfect stitch is ON, disable standard spacing/align to avoid confusion
+        if checked and self.perfect_stitch_checkbox.isVisible():
+            self.spacing.setEnabled(False)
+            self.align_mode.setEnabled(False)
+        else:
+            self.spacing.setEnabled(True)
+            self.align_mode.setEnabled(True)
+
     def collect(self, output_path: str = "") -> Dict[str, Any]:
         return {
             "direction": self.direction.currentText(),
@@ -1010,6 +1057,9 @@ class MergeTab(AbstractClassTwoGalleries):
                 else None
             ),
             "duration": self.duration_spin.value(),
+            "perfect_stitch_mode": self.perfect_stitch_checkbox.isChecked(),
+            "edge_crop_px": self.edge_crop_spinbox.value(),
+            "feather_blend_px": self.feather_blend_spinbox.value(),
         }
 
     def get_default_config(self) -> dict:
@@ -1054,6 +1104,10 @@ class MergeTab(AbstractClassTwoGalleries):
             out_fname = config.get("output_filename")
             if out_fname:
                 self.output_filename_input.setText(out_fname)
+
+            self.perfect_stitch_checkbox.setChecked(config.get("perfect_stitch_mode", False))
+            self.edge_crop_spinbox.setValue(config.get("edge_crop_px", 50))
+            self.feather_blend_spinbox.setValue(config.get("feather_blend_px", 50))
 
             print("MergeTab configuration loaded.")
 
