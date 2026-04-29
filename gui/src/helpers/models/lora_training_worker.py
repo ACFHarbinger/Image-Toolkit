@@ -1,7 +1,6 @@
-import os
-import torch
 from PySide6.QtCore import QThread, Signal
 from backend.src.models.lora_diffusion import LoRATuner
+
 
 class LoRATrainingWorker(QThread):
     """
@@ -25,11 +24,11 @@ class LoRATrainingWorker(QThread):
         batch_size=2,
         rank=4,
         alpha=32,
-        lr=1e-4
+        lr=1e-4,
     ):
         """
         Initializes the LoRA training worker.
-        
+
         Args:
             model_id (str): The Hugging Face model ID or path.
             data_path (str): Path to the directory containing training images and .txt tags.
@@ -60,21 +59,23 @@ class LoRATrainingWorker(QThread):
         """
         try:
             self.log_signal.emit(f"Initializing LoRATuner for {self.model_id}...")
-            
+
             # 1. Initialize Tuner
             tuner = LoRATuner(model_id=self.model_id, output_dir=self.output_dir)
-            
+
             # 2. Configure LoRA parameters
-            self.log_signal.emit(f"Configuring LoRA: Rank={self.rank}, Alpha={self.alpha}")
+            self.log_signal.emit(
+                f"Configuring LoRA: Rank={self.rank}, Alpha={self.alpha}"
+            )
             tuner.configure_lora(rank=self.rank, alpha=self.alpha)
-            
+
             # 3. Start Training
             self.log_signal.emit(f"Starting training on dataset: {self.data_path}")
             self.log_signal.emit(f"Trigger Word: {self.trigger_word}")
             if self.pruned_tags:
                 self.log_signal.emit(f"Pruning tags: {', '.join(self.pruned_tags)}")
 
-            # We use a custom progress update if the backend supports it, 
+            # We use a custom progress update if the backend supports it,
             # otherwise we just monitor the tuner's status.
             tuner.train(
                 data_dir=self.data_path,
@@ -82,14 +83,16 @@ class LoRATrainingWorker(QThread):
                 epochs=self.epochs,
                 learning_rate=self.lr,
                 batch_size=self.batch_size,
-                pruned_tags=self.pruned_tags
+                pruned_tags=self.pruned_tags,
             )
 
             # Check if process was cancelled
             if LoRATuner.is_cancelled:
                 self.log_signal.emit("Training process was cancelled by user.")
             else:
-                self.log_signal.emit(f"Training complete! LoRA weights saved to {self.output_dir}")
+                self.log_signal.emit(
+                    f"Training complete! LoRA weights saved to {self.output_dir}"
+                )
                 self.finished_signal.emit()
 
         except Exception as e:

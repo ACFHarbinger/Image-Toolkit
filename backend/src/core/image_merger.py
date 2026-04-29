@@ -314,6 +314,161 @@ class ImageMerger:
         return merged_image
 
     @staticmethod
+    def perfect_stitch(
+        image_paths: List[str],
+        output_path: str,
+        edge_crop: int = 50,
+        feather_width: int = 50,
+    ) -> Image.Image:
+        """
+        Specialized stitcher for digital anime frames.
+        Neutralizes vignettes via edge cropping and uses template matching for perfect linear alignment.
+        Designed for 24GB VRAM/RAM environments.
+        """
+        import gc
+
+        cv2.ocl.setUseOpenCL(False)
+
+        cv_images = []
+        for path in image_paths:
+            img = cv2.imread(path)
+            if img is not None:
+                # 1. Neutralize Vignettes: Crop edges
+                h, w = img.shape[:2]
+                if w > 2 * edge_crop:
+                    # Crop left and right edges where lighting/vignettes are strongest in digital pans
+                    img = img[:, edge_crop : w - edge_crop]
+                cv_images.append(img)
+
+        if len(cv_images) < 2:
+            raise ValueError("Need at least 2 valid images for perfect stitch.")
+
+        # 2. Global Transform Stitching
+        # We calculate all offsets relative to the first frame to determine the total canvas size upfront.
+        # This prevents incremental cropping errors.
+        num_frames = len(cv_images)
+        offsets = [(0.0, 0.0)] # (x, y) relative to frame 0
+        curr_off_x, curr_off_y = 0.0, 0.0
+        
+        valid_indices = [0]
+        
+        for i in range(1, num_frames):
+            prev = cv_images[valid_indices[-1]]
+            curr = cv_images[i]
+            if edge_crop > 0:
+                prev = prev[edge_crop:-edge_crop, edge_crop:-edge_crop]
+                curr = curr[edge_crop:-edge_crop, edge_crop:-edge_crop]
+            
+            # Use Phase Correlation on the whole frame for a stable global shift
+            p_gray = cv2.cvtColor(prev, cv2.COLOR_BGR2GRAY).astype(np.float32)
+            c_gray = cv2.cvtColor(curr, cv2.COLOR_BGR2GRAY).astype(np.float32)
+            shift, res = cv2.phaseCorrelate(p_gray, c_gray)
+            
+            dx, dy = shift[0], shift[1]
+            
+            # Fallback to ORB if Phase Correlation is weak
+            if res < 0.1:
+                orb = cv2.ORB_create(nfeatures=1000)
+                kp1, des1 = orb.detectAndCompute(prev, None)
+                kp2, des2 = orb.detectAndCompute(curr, None)
+                if des1 is not None and des2 is not None:
+                    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+                    matches = bf.match(des1, des2)
+                    if len(matches) > 10:
+                        pts1 = np.float32([kp1[m.queryIdx].pt for m in matches])
+                        pts2 = np.float32([kp2[m.trainIdx].pt for m in matches])
+                        M, mask = cv2.estimateAffinePartial2D(pts1, pts2, method=cv2.RANSAC)
+                        if M is not None:
+                            dx, dy = M[0, 2], M[1, 2]
+                            res = 0.5 # Mark as valid
+            
+            if res >= 0.1:
+                # Deadzone to avoid jitter
+                if abs(dx) < 2 and abs(dy) < 2:
+                    continue
+                    
+                curr_off_x -= dx
+                curr_off_y -= dy
+                offsets.append((curr_off_x, curr_off_y))
+                valid_indices.append(i)
+        
+        if not valid_indices:
+            raise ValueError("Could not align any frames.")
+
+        # Step 2: Calculate Global Bounding Box
+        all_x = [off[0] for off in offsets]
+        all_y = [off[1] for off in offsets]
+        
+        # Add frame dimensions to bounds
+        h0, w0 = cv_images[0].shape[:2]
+        min_x, min_y = min(all_x), min(all_y)
+        max_x = max([off[0] + cv_images[idx].shape[1] for off, idx in zip(offsets, valid_indices)])
+        max_y = max([off[1] + cv_images[idx].shape[0] for off, idx in zip(offsets, valid_indices)])
+        
+        target_w = int(np.ceil(max_x - min_x))
+        target_h = int(np.ceil(max_y - min_y))
+        
+        # Safety limit (32k is standard max for most viewers)
+        target_w, target_h = min(target_w, 32768), min(target_h, 32768)
+        
+        canvas = np.zeros((target_h, target_w, 3), dtype=np.uint8)
+        
+        # Step 3: Progressive Blending Placement
+        for i, idx in enumerate(valid_indices):
+            img = cv_images[idx]
+            off_x, off_y = offsets[i]
+            
+            tx = int(off_x - min_x)
+            ty = int(off_y - min_y)
+            
+            ih, iw = img.shape[:2]
+            
+            # Ensure we don't paste out of bounds
+            ih = min(ih, target_h - ty)
+            iw = min(iw, target_w - tx)
+            if ih <= 0 or iw <= 0: continue
+            
+            img_crop = img[:ih, :iw]
+            
+            # For the first frame, just place it.
+            if i == 0:
+                canvas[ty : ty + ih, tx : tx + iw] = img_crop
+            else:
+                # For subsequent frames, use a feathered edge to hide the seam
+                # but keep the latest frame dominant (Latest Priority)
+                target_roi = canvas[ty : ty + ih, tx : tx + iw]
+                
+                # Create a simple edge-feather mask
+                mask = np.ones((ih, iw), dtype=np.float32)
+                f = min(feather_width, 30, ih // 4, iw // 4)
+                if f > 0:
+                    for d in range(f):
+                        val = d / f
+                        mask[d, :] *= val # Top
+                        mask[ih-1-d, :] *= val # Bottom
+                        mask[:, d] *= val # Left
+                        mask[:, iw-1-d] *= val # Right
+                
+                mask = mask[:, :, np.newaxis]
+                blended = (img_crop.astype(float) * mask + target_roi.astype(float) * (1.0 - mask)).astype(np.uint8)
+                
+                # Overwrite only the part that the new frame covers
+                canvas[ty : ty + ih, tx : tx + iw] = blended
+            
+            gc.collect()
+
+        # Final conversion
+        rgb = cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB)
+        merged_image = Image.fromarray(rgb)
+        merged_image.save(output_path)
+
+        # Cleanup
+        del canvas
+        gc.collect()
+
+        return merged_image
+
+    @staticmethod
     def _create_gif(
         image_paths: List[str], output_path: str, duration: int = 500
     ) -> Image.Image:
@@ -434,7 +589,6 @@ class ImageMerger:
         align_mode: AlignMode = "Default (Top/Center)",
         duration: int = 500,
     ) -> Optional[Image.Image]:
-
         image_paths = []
         for fmt in input_formats:
             image_paths.extend(FSETool.get_files_by_extension(directory, fmt))
