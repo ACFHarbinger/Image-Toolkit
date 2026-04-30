@@ -1,0 +1,26 @@
+# config/model/animagine_xl.yaml
+# Animagine XL 4.0-Opt — clean general-purpose anime, excellent for portraits.
+# Tag-ordered prompting: 1girl → character → series → visual descriptions.
+# License: CC BY-NC-SA 4.0 (non-commercial only).
+
+# @package model
+model_id: cagliostrolab/animagine-xl-4.0-opt
+arch: sdxl
+prediction_type: epsilon
+zero_terminal_snr: false
+clip_skip: 1
+snr_gamma: 5.0
+
+caption_prefix: animagine   # prepends: "masterpiece, best quality, very aesthetic, absurdres"
+
+inference:
+  sampler: euler_a
+  steps: 28
+  cfg: 6.0
+  width: 832
+  height: 1216
+  positive_prefix: "masterpiece, best quality, very aesthetic, absurdres"
+  negative: "nsfw, lowres, (bad), text, error, fewer, extra, missing, worst quality,
+             jpeg artifacts, low quality, watermark, unfinished, displeasing, oldest,
+             early, chromatic aberration, signature, extra digits, artistic error, username,
+             scan, abstract"

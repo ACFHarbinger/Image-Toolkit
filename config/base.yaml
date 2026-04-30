@@ -1,0 +1,63 @@
+# config/base.yaml
+# Base configuration for the anime image generation training pipeline.
+# Override with: model=<name> training=<name> optimizer=<name>
+#
+# Example:
+#   python -m backend.src.pipeline.anime_training_pipeline \
+#     model=illustrious_xl training=lora_3090ti optimizer=prodigy
+
+defaults:
+  - model: illustrious_xl
+  - training: lora_3090ti
+  - optimizer: adamw8bit
+  - data: extraction
+  - _self_
+
+# ── Experiment ──────────────────────────────────────────────────────────────
+run_name: anime_char_lora_v1
+seed: 42
+output_dir: outputs/${run_name}
+
+# ── Pipeline stage toggles ───────────────────────────────────────────────────
+pipeline:
+  run_extraction: false    # set true to extract frames from video_dir
+  run_qa: true
+  run_captioning: false    # set true if .txt sidecars don't exist
+  run_dedup: true
+  run_training: true       # set false for caption-only or inspection runs
+
+# ── Data (shared across stages) ─────────────────────────────────────────────
+data:
+  images_dir: data/images     # used when run_extraction=false
+  video_dir: data/videos      # used when run_extraction=true
+  frames_dir: data/frames
+  trigger_word: my_char_xyz
+  target_dataset_size: 50
+  num_workers: 0
+  use_birefnet: true
+  use_basic: true
+
+  qa:
+    fg_ratio_min: 0.08
+    fg_ratio_max: 0.92
+    blur_lap_var_min: 50.0
+
+  captioning:
+    wd14_onnx: null            # path to wd-eva02-large-tagger-v3.onnx
+    wd14_tags_csv: null        # path to selected_tags.csv
+    general_thresh: 0.35
+    character_thresh: 0.85
+    use_florence2: false
+    florence_repo: microsoft/Florence-2-large-ft
+
+# ── Logging ─────────────────────────────────────────────────────────────────
+logging:
+  use_tensorboard: true
+  use_wandb: false
+  wandb_project: anime-diffusion
+  tb_dir: runs
+
+# ── Validation prompts (evaluated each checkpoint epoch) ────────────────────
+validation_prompts:
+  - "${data.trigger_word}, 1girl, masterpiece, best quality, looking at viewer, smile"
+  - "${data.trigger_word}, 1girl, masterpiece, best quality, outdoors, dynamic pose"

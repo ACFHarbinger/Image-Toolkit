@@ -135,6 +135,186 @@ web-driver:
 crawl query limit="10" output="./downloads":
     source .venv/bin/activate && python main.py web crawl -q "{{ query }}" -l {{ limit }} -o "{{ output }}"
 
+# --- Anime LoRA Fine-Tuning ---
+
+size="50"
+rank="16"
+dataset="data"
+model="illustrious_xl"
+trigger="akane_nanao"
+class_prompt="1girl"
+
+# One-time: download WD-EVA02 tagger model + tags CSV (~355 MB) to models/wd14/
+lora-setup-tagger:
+    @echo "Downloading WD-EVA02 large tagger v3..."
+    @mkdir -p models/wd14
+    source .venv/bin/activate && python scripts/lora_setup_tagger.py
+    @echo "Tagger ready at models/wd14/"
+
+# One-time: apply the anime training DB schema migration
+lora-db-migrate:
+    @echo "Applying anime training schema..."
+    @psql "${DATABASE_URL:-postgresql://toolkit_user:change_me_123@localhost:5432/image_toolkit}" \
+        -f backend/src/database/sql/0007_anime_training.sql
+    @echo "Migration applied."
+
+# Caption all images in a directory with WD14 tags + optional Florence-2.
+# Writes a .txt sidecar next to each image. Skip images that already have one.
+# Usage: just lora-tag data/my_character my_char_xyz
+# Usage: just lora-tag data/my_character my_char_xyz florence2=true
+lora-tag images=dataset trigger=trigger florence2="false":
+    @echo "Captioning images in {{ images }} with trigger '{{ trigger }}'..."
+    @test -f models/wd14/model.onnx || (echo "WD14 tagger not found. Run: just lora-setup-tagger" && exit 1)
+    source .venv/bin/activate && python -m backend.src.pipeline.anime_training_pipeline \
+        data.images_dir="{{ images }}" \
+        data.trigger_word="{{ trigger }}" \
+        data.captioning.wd14_onnx=models/wd14/model.onnx \
+        data.captioning.wd14_tags_csv=models/wd14/selected_tags.csv \
+        data.captioning.use_florence2="{{ florence2 }}" \
+        pipeline.run_extraction=false \
+        pipeline.run_qa=false \
+        pipeline.run_captioning=true \
+        pipeline.run_dedup=false \
+        pipeline.run_training=false
+    @echo "Captioning done. Inspect .txt files in {{ images }}/ before training."
+
+# Train a character LoRA on RTX 3090 Ti (24 GB).
+# Default: Illustrious XL + Prodigy + rank 16, batch 4, 12 epochs.
+# Usage: just lora-train data/my_character my_char_xyz
+# Usage: just lora-train data/my_character my_char_xyz model=noobai_vpred size=80 rank=32
+lora-train images=dataset trigger=trigger model=model size=size rank=rank:
+    @echo "Training LoRA: trigger='{{ trigger }}' model={{ model }} rank={{ rank }} size={{ size }}"
+    source .venv/bin/activate && python -m backend.src.pipeline.anime_training_pipeline \
+        model="{{ model }}" \
+        training=lora_3090ti \
+        optimizer=prodigy \
+        data.images_dir="{{ images }}" \
+        data.trigger_word="{{ trigger }}" \
+        data.target_dataset_size="{{ size }}" \
+        training.rank="{{ rank }}" \
+        run_name="{{ trigger }}_{{ model }}" \
+        output_dir="outputs/{{ trigger }}_{{ model }}"
+    @echo "Training complete. Checkpoints in outputs/{{ trigger }}_{{ model }}/"
+
+# Train a character LoRA on RTX 4080 Laptop (16 GB).
+# Uses gradient checkpointing + cached TE outputs to stay within 16 GB.
+# Usage: just lora-train-4080 data/my_character my_char_xyz
+lora-train-4080 images=dataset trigger=trigger model=model size=size rank=rank:
+    @echo "Training LoRA (4080 profile): trigger='{{ trigger }}' model={{ model }}"
+    source .venv/bin/activate && python -m backend.src.pipeline.anime_training_pipeline \
+        model="{{ model }}" \
+        training=lora_4080 \
+        optimizer=adamw8bit \
+        data.images_dir="{{ images }}" \
+        data.trigger_word="{{ trigger }}" \
+        data.target_dataset_size="{{ size }}" \
+        training.rank="{{ rank }}" \
+        run_name="{{ trigger }}_{{ model }}_4080" \
+        output_dir="outputs/{{ trigger }}_{{ model }}_4080"
+    @echo "Training complete. Checkpoints in outputs/{{ trigger }}_{{ model }}_4080/"
+
+# Train a LyCORIS LoCon LoRA (captures character + tied art style).
+# Use when the character has a distinctive unique artstyle.
+# Usage: just lora-locon data/my_character my_char_xyz
+lora-locon images=dataset trigger=trigger model=model size=size:
+    @echo "Training LyCORIS LoCon: trigger='{{ trigger }}' model={{ model }}"
+    source .venv/bin/activate && python -m backend.src.pipeline.anime_training_pipeline \
+        model="{{ model }}" \
+        training=lycoris_locon \
+        optimizer=adamw8bit \
+        data.images_dir="{{ images }}" \
+        data.trigger_word="{{ trigger }}" \
+        data.target_dataset_size="{{ size }}" \
+        run_name="{{ trigger }}_locon" \
+        output_dir="outputs/{{ trigger }}_locon"
+    @echo "Training complete. Checkpoints in outputs/{{ trigger }}_locon/"
+
+# Train NoobAI-XL V-Prediction LoRA (best raw anime character knowledge).
+# Automatically sets v_prediction + zero_terminal_snr + snr_gamma=1.0.
+# Usage: just lora-train-vpred data/my_character my_char_xyz
+lora-train-vpred images=dataset trigger=trigger model=model size=size rank=rank:
+    @echo "Training NoobAI V-Pred LoRA: trigger='{{ trigger }}'"
+    source .venv/bin/activate && python -m backend.src.pipeline.anime_training_pipeline \
+        model=noobai_vpred \
+        training=lora_3090ti \
+        optimizer=prodigy \
+        data.images_dir="{{ images }}" \
+        data.trigger_word="{{ trigger }}" \
+        data.target_dataset_size="{{ size }}" \
+        training.rank="{{ rank }}" \
+        run_name="{{ trigger }}_noobai_vpred" \
+        output_dir="outputs/{{ trigger }}_noobai_vpred"
+    @echo "Training complete. Checkpoints in outputs/{{ trigger }}_noobai_vpred/"
+
+# DreamBooth fine-tune with prior preservation (requires 24 GB).
+# Generates 200 class images first, then trains full UNet + LoRA adapters.
+# Usage: just lora-dreambooth data/my_character my_char_xyz
+lora-dreambooth images=dataset trigger=trigger model=model class_prompt=class_prompt:
+    @echo "DreamBooth: trigger='{{ trigger }}' class='{{ class_prompt }}'"
+    source .venv/bin/activate && python -m backend.src.pipeline.anime_training_pipeline \
+        model="{{ model }}" \
+        training=dreambooth \
+        optimizer=adamw8bit \
+        data.images_dir="{{ images }}" \
+        data.trigger_word="{{ trigger }}" \
+        data.target_dataset_size=50 \
+        training.class_prompt="{{ class_prompt }}" \
+        run_name="{{ trigger }}_dreambooth" \
+        output_dir="outputs/{{ trigger }}_dreambooth"
+    @echo "DreamBooth complete. Checkpoints in outputs/{{ trigger }}_dreambooth/"
+
+# Full SDXL checkpoint fine-tune with DeepSpeed ZeRO-2 (3090 Ti, ~12k steps).
+# EMA enabled. Freezes VAE and text encoders by default.
+# Usage: just lora-full-ft data/my_character my_char_xyz
+lora-full-ft images=dataset trigger=trigger model=model:
+    @echo "Full fine-tune: model={{ model }} trigger='{{ trigger }}'"
+    @echo "This will take several hours. Ensure accelerate config has DeepSpeed ZeRO-2."
+    source .venv/bin/activate && python -m backend.src.pipeline.anime_training_pipeline \
+        model="{{ model }}" \
+        training=full_ft \
+        optimizer=adamw8bit \
+        data.images_dir="{{ images }}" \
+        data.trigger_word="{{ trigger }}" \
+        data.target_dataset_size=200 \
+        run_name="{{ trigger }}_full_ft" \
+        output_dir="outputs/{{ trigger }}_full_ft"
+    @echo "Full fine-tune complete. Checkpoints in outputs/{{ trigger }}_full_ft/"
+
+# Run the complete pipeline: tag → deduplicate → train (3090 Ti profile).
+# Convenience wrapper for first-time use.
+# Usage: just lora-pipeline data/my_character my_char_xyz
+lora-pipeline images=dataset trigger=trigger model=model size=size:
+    @echo "=== Full pipeline: {{ trigger }} on {{ model }} ==="
+    @test -f models/wd14/model.onnx || (echo "Run 'just lora-setup-tagger' first" && exit 1)
+    source .venv/bin/activate && python -m backend.src.pipeline.anime_training_pipeline \
+        model="{{ model }}" \
+        training=lora_3090ti \
+        optimizer=prodigy \
+        data.images_dir="{{ images }}" \
+        data.trigger_word="{{ trigger }}" \
+        data.target_dataset_size="{{ size }}" \
+        data.captioning.wd14_onnx=models/wd14/model.onnx \
+        data.captioning.wd14_tags_csv=models/wd14/selected_tags.csv \
+        pipeline.run_extraction=false \
+        pipeline.run_qa=true \
+        pipeline.run_captioning=true \
+        pipeline.run_dedup=true \
+        run_name="{{ trigger }}_{{ model }}" \
+        output_dir="outputs/{{ trigger }}_{{ model }}"
+    @echo "=== Pipeline complete. See outputs/{{ trigger }}_{{ model }}/ ==="
+
+# Analyse a trained LoRA checkpoint: SVD effective rank + weight delta heatmap.
+# Prints a table of under/over-utilised layers to guide rank tuning.
+# Usage: just lora-analyze outputs/my_char_lora/checkpoint-epoch0010
+lora-analyze checkpoint="outputs":
+    @echo "Analysing LoRA weights in {{ checkpoint }}..."
+    source .venv/bin/activate && python scripts/lora_analyze.py "{{ checkpoint }}"
+
+# Launch TensorBoard to monitor active or completed training runs.
+lora-tensorboard dir="runs":
+    @echo "Starting TensorBoard at http://localhost:6006 (Ctrl+C to stop)"
+    source .venv/bin/activate && tensorboard --logdir {{ dir }} --port 6006
+
 # --- Legacy/Helper ---
 
 # Starting Python/PySide6 app

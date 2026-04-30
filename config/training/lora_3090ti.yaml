@@ -1,0 +1,60 @@
+# config/training/lora_3090ti.yaml
+# RTX 3090 Ti (24 GB) — standard character LoRA baseline.
+# Batch 4 at 1024² without gradient checkpointing (~3 it/s).
+# ~2–3 hours for 30 images × 10 repeats × 10 epochs.
+
+# @package training
+stage: lora
+method: peft            # 'peft' or 'lycoris'
+
+# LoRA adapter
+rank: 16                # 32 for multi-costume or style-heavy characters
+alpha: 16               # alpha = rank → full-weight LoRA scaling
+use_dora: false
+use_rslora: false       # set true if rank > 32
+lycoris_algo: lora
+lycoris_conv_dim: 8
+lycoris_conv_alpha: 4
+
+# Text encoder training
+train_text_encoder_one: false  # set true if TE output caching disabled
+train_text_encoder_two: false
+te_lr_scale: 0.5
+
+# Batch and memory
+resolution: 1024
+train_batch_size: 4
+gradient_accumulation_steps: 1
+gradient_checkpointing: false   # off: faster on 24 GB
+mixed_precision: bf16
+
+# Epochs / steps
+max_train_epochs: 12
+max_train_steps: null   # use epochs instead
+
+# Loss
+noise_offset: 0.0
+# snr_gamma comes from model config (5.0 for ε, 1.0 for v-pred)
+
+# Augmentation / caption
+shuffle_tags: true
+keep_tokens: 1
+caption_dropout_rate: 0.05
+
+# Bucketing
+min_bucket_reso: 512
+max_bucket_reso: 2048
+bucket_reso_steps: 64
+
+# EMA (optional for LoRA — marginal FID gain)
+use_ema: false
+
+# Checkpointing
+save_every_n_epochs: 1
+
+# xFormers / memory tricks
+xformers: true
+cache_latents: true
+cache_latents_to_disk: true
+cache_text_encoder_outputs: true
+full_bf16: true

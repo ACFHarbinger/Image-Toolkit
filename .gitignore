@@ -423,6 +423,7 @@ env/README.md
 /**/tmp/
 /**/temp/
 /**/mods/
+data/
 CMakeFiles/
 backend/benchmark/results
 

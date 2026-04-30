@@ -1,0 +1,37 @@
+# config/model/flux_dev.yaml
+# FLUX.1-dev — best text rendering and prompt adherence.
+# Anime knowledge is shallow; use with anime LoRAs only.
+# Rectified Flow (not diffusion); use guidance_scale 3.5, NOT 7.0.
+# For 16 GB VRAM: GGUF Q4_0 + FP8 T5 (see inference.quantization).
+
+# @package model
+model_id: black-forest-labs/FLUX.1-dev
+arch: flux
+prediction_type: flow_matching   # RF, not ε or v
+zero_terminal_snr: false
+clip_skip: 1
+snr_gamma: null    # Min-SNR not applicable to RF; use timestep_sampling=sigmoid
+
+caption_prefix: null    # FLUX uses dense natural-language captions (Florence-2 output)
+
+# Training (kohya sd-scripts flux branch or SimpleTuner)
+training_overrides:
+  timestep_sampling: sigmoid
+  model_prediction_type: raw
+  discrete_flow_shift: 3.0
+  guidance_scale: 1.0   # distilled guidance during training
+  blocks_to_swap: 14    # increase for OOM on 3090 Ti; use 22-28 for 4080
+
+inference:
+  sampler: euler          # Heun is higher quality but 2× slower
+  steps: 20               # RF straight-line paths permit fewer steps
+  cfg: 3.5                # lower is better for FLUX
+  width: 1024
+  height: 1024
+  max_sequence_length: 512
+
+  # Quantization settings for memory-constrained hardware
+  quantization:
+    unet: gguf_q4_0         # ~6.4 GB; use gguf_q8_0 for max quality
+    text_encoder_2: fp8     # T5XXL in FP8 (~4.5 GB)
+    # For 24 GB desktop: set unet=fp16, text_encoder_2=fp16

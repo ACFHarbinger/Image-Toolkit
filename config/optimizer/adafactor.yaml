@@ -1,0 +1,17 @@
+# config/optimizer/adafactor.yaml
+# Adafactor — lowest VRAM optimizer, conservative convergence.
+# Best for: style LoRAs (where Prodigy over-bakes), or when VRAM is extremely tight.
+# Slightly noisier convergence than AdamW8bit for character LoRAs.
+
+# @package optimizer
+type: adafactor
+unet_lr: 1.0e-4
+text_encoder_lr: 5.0e-5
+weight_decay: 0.001
+scale_parameter: false
+relative_step: false
+warmup_init: false
+
+lr_scheduler: cosine_with_restarts
+lr_warmup_steps: 100
+lr_num_cycles: 3

@@ -1,0 +1,45 @@
+# config/inference/sdxl_comfyui.yaml
+# Reference ComfyUI workflow settings for SDXL / Illustrious / NoobAI.
+# These values match the "preferred ComfyUI workflow" from the research report.
+
+# @package inference
+backend: comfyui
+
+# Base model selection (symlink into ComfyUI/models/checkpoints)
+checkpoint: Illustrious-XL-v2.0-stable.safetensors
+
+# Sampling
+sampler: dpm++_2m      # use euler + zero-SNR for NoobAI v-pred
+scheduler: karras      # use SGM Uniform for v-pred
+steps: 28
+cfg: 6.0
+
+# For NoobAI v-pred overrides:
+# sampler: euler
+# scheduler: sgm_uniform
+# cfg: 4.5
+# cfg_rescale: 0.7
+
+# Resolution (SDXL canonical buckets)
+width: 832
+height: 1216
+
+# LoRA
+lora_strength: 0.85
+
+# Upscaling (hires fix)
+hires_fix: true
+hires_upscaler: 4x-UltraSharp
+hires_denoise: 0.30
+hires_scale: 1.5
+
+# Face detailer (Impact Pack)
+face_detailer: true
+face_model: face_yolov8n.pt
+face_denoise: 0.30
+face_resolution: 1024
+
+# SageAttention (for speedup)
+# 3090 Ti: use auto/triton (NOT fp8 — Ampere has no fp8 tensor cores)
+# 4080 Laptop: use fp8 for ~25% speedup
+sage_attention: auto   # auto | triton | fp8 | disabled

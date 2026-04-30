@@ -1,0 +1,27 @@
+# config/model/noobai_vpred.yaml
+# NoobAI-XL V-Prediction 1.0 — best raw anime character knowledge.
+# v-prediction + Zero Terminal SNR.
+# CRITICAL: Karras schedules are unsupported; use Euler + zero-SNR.
+# snr_gamma=1.0 per Hang et al. (v-pred specific value).
+
+# @package model
+model_id: Laxhar/noobai-XL-Vpred-1.0
+arch: sdxl
+prediction_type: v_prediction
+zero_terminal_snr: true
+clip_skip: 1
+snr_gamma: 1.0   # γ=1 for v-prediction (not 5.0)
+
+caption_prefix: noobai_vpred   # prepends: "masterpiece, best quality, newest, absurdres, very awa"
+
+inference:
+  sampler: euler         # Karras variants unsupported on v-pred
+  steps: 28
+  cfg: 4.5               # lower CFG for v-pred to avoid oversaturation
+  cfg_rescale: 0.7       # dynamic-CFG rescale to avoid grey/washed images
+  width: 832
+  height: 1216
+  positive_prefix: "masterpiece, best quality, newest, absurdres, very awa"
+  negative: "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit,
+             fewer digits, cropped, worst quality, low quality, signature, watermark,
+             username, blurry, jpeg artifacts, sketch, old, oldest"

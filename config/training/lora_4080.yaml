@@ -1,0 +1,59 @@
+# config/training/lora_4080.yaml
+# RTX 4080 Laptop (16 GB) — memory-conservative character LoRA.
+# Batch 1 at 1024² with gradient checkpointing and UNet-only training.
+# ~4–6 hours for the same dataset as lora_3090ti.
+
+# @package training
+stage: lora
+method: peft
+
+# LoRA adapter (same rank as 3090ti profile)
+rank: 16
+alpha: 16
+use_dora: false
+use_rslora: false
+lycoris_algo: lora
+lycoris_conv_dim: 8
+lycoris_conv_alpha: 4
+
+# Text encoder training OFF (TE outputs cached to save ~2 GB)
+train_text_encoder_one: false
+train_text_encoder_two: false
+te_lr_scale: 0.5
+
+# Batch and memory — conservative settings for 16 GB
+resolution: 1024
+train_batch_size: 1
+gradient_accumulation_steps: 2    # effective batch 2
+gradient_checkpointing: true      # MANDATORY on 16 GB
+mixed_precision: bf16
+
+# Epochs / steps
+max_train_epochs: 12
+max_train_steps: null
+
+# Loss
+noise_offset: 0.0
+
+# Augmentation / caption
+shuffle_tags: true
+keep_tokens: 1
+caption_dropout_rate: 0.05
+
+# Bucketing
+min_bucket_reso: 512
+max_bucket_reso: 1408   # reduce from 2048 to save VRAM
+bucket_reso_steps: 64
+
+# EMA
+use_ema: false
+
+# Checkpointing
+save_every_n_epochs: 1
+
+# Memory tricks — all enabled
+xformers: true
+cache_latents: true
+cache_latents_to_disk: true
+cache_text_encoder_outputs: true   # MANDATORY on 16 GB
+full_bf16: true

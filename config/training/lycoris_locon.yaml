@@ -1,0 +1,49 @@
+# config/training/lycoris_locon.yaml
+# LyCORIS LoCon — character + tied art style LoRA.
+# Touches Conv layers in addition to attention, capturing art style more
+# faithfully than plain LoRA. ~10% more steps for same convergence.
+# Best for: characters with a distinctive, unique art style (e.g. original IP).
+
+# @package training
+stage: lora
+method: lycoris
+lycoris_algo: locon      # LoCon = LoRA on Conv layers
+
+# Dimensions (LoCon: linear_dim + conv_dim)
+rank: 16                 # linear dim
+alpha: 8
+lycoris_conv_dim: 8      # conv dim
+lycoris_conv_alpha: 4
+
+use_dora: false
+use_rslora: false
+
+# Text encoder training
+train_text_encoder_one: false
+train_text_encoder_two: false
+te_lr_scale: 0.5
+
+# Batch and memory (profile for 3090 Ti; reduce batch to 1 for 4080)
+resolution: 1024
+train_batch_size: 2
+gradient_accumulation_steps: 1
+gradient_checkpointing: false
+mixed_precision: bf16
+
+# Slightly more epochs because LyCORIS converges slower
+max_train_epochs: 15
+max_train_steps: null
+
+noise_offset: 0.0
+shuffle_tags: true
+keep_tokens: 1
+caption_dropout_rate: 0.05
+
+use_ema: false
+save_every_n_epochs: 1
+
+xformers: true
+cache_latents: true
+cache_latents_to_disk: true
+cache_text_encoder_outputs: true
+full_bf16: true
