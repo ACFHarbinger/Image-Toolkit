@@ -9,6 +9,12 @@ default:
 
 # --- Setup & Installation ---
 
+# Sync dependencies
+sync:
+    @echo "🔄 Syncing dependencies..."
+    uv sync --all-groups --all-extras
+    npm run install:all
+
 # Complete setup (install deps + types)
 setup:
     @echo "🔧 Setting up Image Toolkit..."
@@ -36,8 +42,8 @@ dev:
 build:
     @echo "🏗️  Building production application..."
     bash ./scripts/build_base.sh
-    #./gradlew build
-    #npm run build
+    ./gradlew build
+    npm run build
 
 # Run tests
 test:

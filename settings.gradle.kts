@@ -38,6 +38,6 @@ rootProject.name = "image-toolkit"
 include("cryptography")
 
 // Android Application Module
-include(":app")
+//include(":app")
 // Maps the ":app" project to the actual Android source directory: "app/android"
-project(":app").projectDir = file("app/android")
+//project(":app").projectDir = file("app/android")

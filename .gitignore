@@ -434,6 +434,7 @@ backend/benchmark/results
 
 # Secret files
 mcp.json
+/backup
 /**/api/*.json
 /**/cryptography/*.txt
 
