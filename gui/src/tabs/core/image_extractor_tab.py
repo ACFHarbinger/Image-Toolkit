@@ -1513,7 +1513,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         )
         self.extraction_status_label.show()
 
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.datetime.now().strftime("%H%M%S")
         output_name = f"CLIP_{Path(self.video_path).stem}_{timestamp}.mp4"
         output_path = str(self.extraction_dir / output_name)
 

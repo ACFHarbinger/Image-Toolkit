@@ -894,6 +894,7 @@ class DeleteTab(AbstractClassTwoGalleries):
             "target_extensions": [e.strip().lstrip(".") for e in exts if e.strip()],
             "scan_method": self.scan_method_combo.currentText(),
             "require_confirm": self.confirm_checkbox.isChecked(),
+            "selected_files": list(self.selected_files),
         }
 
     @staticmethod
@@ -946,6 +947,9 @@ class DeleteTab(AbstractClassTwoGalleries):
 
             # 4. Confirmation Checkbox
             self.confirm_checkbox.setChecked(config.get("require_confirm", True))
+
+            # 5. Restore selected gallery
+            self._restore_selected_files(config)
 
             print("DeleteTab configuration loaded.")
 

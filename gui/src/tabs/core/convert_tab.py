@@ -914,6 +914,7 @@ class ConvertTab(AbstractClassTwoGalleries):
             "aspect_ratio_h": ar_h,
             "aspect_ratio_mode": ar_mode,
             "video_engine": self.engine_combo.currentText().split(" ")[0].lower(),
+            "selected_files": list(self.selected_files),
         }
 
     def get_default_config(self) -> dict:
@@ -1006,7 +1007,10 @@ class ConvertTab(AbstractClassTwoGalleries):
             else:
                 self.enable_ar_checkbox.setChecked(False)
 
-            # 6. Load data
+            # 6. Restore selected gallery
+            self._restore_selected_files(config)
+
+            # 7. Load data
             if os.path.isdir(input_path):
                 self.scan_directory_visual()
 
