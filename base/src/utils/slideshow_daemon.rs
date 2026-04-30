@@ -188,10 +188,20 @@ fn select_next_wallpapers(config: &mut Config, increment: bool) -> HashMap<Strin
 }
 
 fn find_qdbus_binary() -> String {
-    let candidates = ["qdbus", "qdbus-qt5", "qdbus-qt6", "qdbus6"];
+    // Prioritize versioned binaries over the generic 'qdbus' wrapper
+    let candidates = ["qdbus6", "qdbus-qt6", "qdbus-qt5", "qdbus"];
     for bin in candidates {
-        if which::which(bin).is_ok() {
-            return bin.to_string();
+        if let Ok(path) = which::which(bin) {
+            // Optional: Add a check to see if the binary actually works
+            let status = std::process::Command::new(&path)
+                .arg("--version")
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status();
+
+            if status.is_ok() && status.unwrap().success() {
+                return bin.to_string();
+            }
         }
     }
     "qdbus".to_string()
