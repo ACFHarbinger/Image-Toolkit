@@ -919,6 +919,17 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
         self.on_selection_changed()
 
+    def _restore_selected_files(self, config: dict):
+        """Restores the selected gallery from a saved config, skipping missing paths."""
+        saved = config.get("selected_files", [])
+        if not saved:
+            return
+        valid = [p for p in saved if os.path.isfile(p)]
+        if valid:
+            self.selected_files = valid
+            self.refresh_selected_panel()
+            self.on_selection_changed()
+
     def _clear_layout(self, layout: QGridLayout):
         if not layout:
             return

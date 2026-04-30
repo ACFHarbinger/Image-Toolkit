@@ -1,93 +1,208 @@
+"""
+backend/src/models/basic_wrapper.py
+=====================================
+Retrospective Background and Shading Correction (BaSiC).
+
+New API (used by AnimeStitchPipeline):
+    basic = BaSiCWrapper()
+    flat, dark, baselines = basic.fit(images, luma_only=True)
+    corrected_images      = basic.transform_stack(images, luma_only=True)
+    basic.baselines       # per-frame broadcast-dimming scalars (N,)
+
+Legacy API (backward-compatible):
+    flat, dark            = basic.estimate_profiles(images)
+    corrected             = basic.apply_correction(img)
+    corrected_images      = basic.process_batch(images)
+"""
+
+import cv2
+import numpy as np
 import torch
 import torch.nn.functional as F
-import numpy as np
-import cv2
-from typing import List, Tuple
+from typing import List, Optional, Tuple
+
 
 class BaSiCWrapper:
     """
-    Retrospective Background and Shading Correction (BaSiC).
-    Estimates flat-field and dark-field profiles from a sequence of images.
-    Utilizes PyTorch for accelerated sparse and low-rank decomposition.
+    Estimates and removes spatially-varying shading (flat-field) and
+    per-frame broadcast-dimming from a stack of anime frames.
+
+    The algorithm is based on the BaSiC (Background and Shading Correction)
+    approach:
+        corrected_i = (raw_i / b_i - dark_field) / flat_field
+
+    where:
+        flat_field  -- common low-frequency gain map  (H, W)  ≈ 1.0
+        dark_field  -- additive offset map            (H, W)  ≈ 0.0
+        b_i         -- per-frame dimming scalar       scalar  ≈ 1.0
     """
 
-    def __init__(self, device: str = None):
-        self.device = device if device else ("cuda" if torch.cuda.is_available() else "cpu")
-        self.flat_field = None
-        self.dark_field = None
+    def __init__(self, device: Optional[str] = None):
+        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
-    def estimate_profiles(self, images: List[np.ndarray], iterations: int = 20) -> Tuple[np.ndarray, np.ndarray]:
+        # Public state (set after fit / estimate_profiles)
+        self.flat_field: Optional[np.ndarray] = None  # (H, W, 3)  float32
+        self.dark_field: Optional[np.ndarray] = None  # (H, W, 3)  float32
+        self.baselines: Optional[np.ndarray] = None  # (N,)       float32
+
+    # ------------------------------------------------------------------
+    # New public API
+    # ------------------------------------------------------------------
+
+    def fit(
+        self,
+        images: List[np.ndarray],
+        luma_only: bool = True,
+        iterations: int = 6,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        Estimates the flat-field (shading) and dark-field (offset) from a stack of images.
-        Based on the BaSiC algorithm principles.
+        Estimate flat-field, dark-field, and per-frame dimming baselines.
+
+        Parameters
+        ----------
+        images      : list of BGR uint8 arrays, all the same spatial size.
+        luma_only   : if True, correct only the Y′ channel (faster, more
+                      stable for anime where chroma rarely vignettes).
+        iterations  : ALM refinement iterations.
+
+        Returns
+        -------
+        flat_field  : (H, W, 3) float32 in [0.5, 2.0]
+        dark_field  : (H, W, 3) float32 ≈ 0
+        baselines   : (N,)      float32 per-frame dimming scalar
         """
-        if len(images) < 5:
-            # Not enough images for a good estimate, return defaults
+        N = len(images)
+        if N < 3:
             h, w = images[0].shape[:2]
-            return np.ones((h, w, 3), dtype=np.float32), np.zeros((h, w, 3), dtype=np.float32)
+            self.flat_field = np.ones((h, w, 3), np.float32)
+            self.dark_field = np.zeros((h, w, 3), np.float32)
+            self.baselines = np.ones(N, np.float32)
+            return self.flat_field, self.dark_field, self.baselines
 
-        # 1. Convert to float32 tensors and stack
-        # Shape: (N, C, H, W)
-        stack = []
+        # Stack as (N, C, H, W) float32 tensor on device
+        frames = []
         for img in images:
-            stack.append(torch.from_numpy(img).permute(2, 0, 1).float().to(self.device))
-        
-        X = torch.stack(stack) / 255.0  # Normalize to [0, 1]
+            t = torch.from_numpy(img).permute(2, 0, 1).float().to(self.device) / 255.0
+            frames.append(t)
+        X = torch.stack(frames)  # (N, 3, H, W)
         N, C, H, W = X.shape
 
-        # 2. Sparse and Low-Rank Decomposition (Simplified)
-        # We want to find B (flat-field) such that X_i ≈ S_i * B + D
-        # In a simpler form, B is the common shading pattern.
-        
-        # Initial estimate: median along the stack is robust to moving objects
-        # We compute median per channel
-        B, _ = torch.median(X, dim=0)
-        
-        # Normalize B so its mean is 1.0 (it's a gain map)
-        mean_b = B.mean(dim=(1, 2), keepdim=True)
-        B = B / (mean_b + 1e-6)
-        
-        # 3. Iterative refinement (optional, simplified)
-        # For a truly perfect stitch, we could refine B by ignoring sparse outliers (foreground)
-        for _ in range(3):
-            # Compute residuals
-            # X_i / B should be roughly constant
-            normalized_stack = X / (B.unsqueeze(0) + 1e-6)
-            # Re-estimate B by weighting pixels that are closer to the median.
-            weights = torch.exp(-torch.abs(X - B.unsqueeze(0)) * 10.0)
-            B = torch.sum(X * weights, dim=0) / (torch.sum(weights, dim=0) + 1e-6)
-            mean_b = B.mean(dim=(1, 2), keepdim=True)
-            B = B / (mean_b + 1e-6)
+        if luma_only:
+            # Convert to Y′ only for flat-field estimation
+            X_est = self._bgr_to_luma(X)  # (N, 1, H, W)
+        else:
+            X_est = X
 
-        # 4. Final smoothing and clamping to prevent extreme artifacts
-        # Shading is usually low-frequency
-        self.flat_field = B.permute(1, 2, 0).cpu().numpy()
-        
-        # Smooth the flat-field to remove noise from moving objects
-        self.flat_field = cv2.GaussianBlur(self.flat_field, (31, 31), 0)
-        
-        # Clamp the flat-field to [0.5, 2.0] to prevent extreme gain
-        self.flat_field = np.clip(self.flat_field, 0.5, 2.0)
-        
-        self.dark_field = np.zeros_like(self.flat_field) # Simplified dark-field for now
+        # --- ALM-style iterative estimation ---
+        # Initialise flat-field F as the median (robust to moving characters)
+        F, _ = torch.median(X_est, dim=0)  # (C', H, W)
+        mean_F = F.mean(dim=(1, 2), keepdim=True).clamp(min=1e-6)
+        F = F / mean_F  # normalise to mean=1
 
-        return self.flat_field, self.dark_field
+        # Per-frame dimming baseline: how bright is each frame relative to the flat-field?
+        b = X_est.mean(dim=(2, 3)) / (F.mean() + 1e-6)  # (N, C')
+        b = b.mean(dim=1)  # (N,) scalar per frame
 
-    def apply_correction(self, img: np.ndarray) -> np.ndarray:
+        D = torch.zeros_like(F)  # dark field (kept zero)
+
+        for _ in range(iterations):
+            # Step 1: update F given b_i
+            num = (X_est / b.view(N, 1, 1, 1).clamp(min=1e-4)).mean(dim=0)
+            F = num - D
+            mean_F = F.mean(dim=(1, 2), keepdim=True).clamp(min=1e-6)
+            F = F / mean_F
+
+            # Step 2: update b_i given F
+            b_new = (X_est / (F.unsqueeze(0) + 1e-6)).mean(dim=(2, 3)).mean(dim=1)
+            b = 0.7 * b + 0.3 * b_new  # momentum to stabilise
+
+        # Normalise b relative to its own median so that:
+        #   b_i = 1.0  → this frame has the same brightness as the median frame
+        #   b_i < 0.75 → this frame is genuinely ≥25% darker than typical
+        # Without this normalisation, a uniformly dark scene gives all b_i < 0.75
+        # and triggers false "broadcast-dimming detected" warnings on every frame.
+        b_median = b.median().clamp(min=1e-6)
+        b = b / b_median
+
+        # Smooth flat-field (shading is always low-frequency)
+        F_np = (
+            F.squeeze(0).permute(1, 2, 0).cpu().numpy()
+            if F.dim() == 4
+            else F.permute(1, 2, 0).cpu().numpy()
+        )
+
+        # If luma_only → F_np is (H,W,1), broadcast to (H,W,3)
+        if F_np.shape[2] == 1:
+            F_np = np.repeat(F_np, 3, axis=2)
+
+        F_np = cv2.GaussianBlur(F_np, (31, 31), 0)
+        F_np = np.clip(F_np, 0.5, 2.0)
+
+        self.flat_field = F_np.astype(np.float32)
+        self.dark_field = np.zeros_like(self.flat_field)
+        self.baselines = b.cpu().numpy().astype(np.float32)
+
+        return self.flat_field, self.dark_field, self.baselines
+
+    def transform_stack(
+        self,
+        images: List[np.ndarray],
+        luma_only: bool = True,
+    ) -> List[np.ndarray]:
         """
-        Applies the estimated shading correction to a single image.
-        C = (R - D) / B
+        Fit profiles on `images` then return the corrected stack.
+        Calls fit() if it has not been called yet.
+        """
+        if self.flat_field is None or len(images) != (
+            len(self.baselines) if self.baselines is not None else -1
+        ):
+            self.fit(images, luma_only=luma_only)
+
+        return [
+            self.apply_correction(img, baseline_override=float(self.baselines[i]))
+            for i, img in enumerate(images)
+        ]
+
+    # ------------------------------------------------------------------
+    # Legacy API (kept for backward compatibility)
+    # ------------------------------------------------------------------
+
+    def estimate_profiles(
+        self,
+        images: List[np.ndarray],
+        iterations: int = 6,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Backward-compatible alias — calls fit() and returns (flat, dark)."""
+        flat, dark, _ = self.fit(images, luma_only=False, iterations=iterations)
+        return flat, dark
+
+    def apply_correction(
+        self,
+        img: np.ndarray,
+        baseline_override: Optional[float] = None,
+    ) -> np.ndarray:
+        """
+        Apply BaSiC correction to a single BGR uint8 image.
+        corrected = (img / b - dark) / flat
         """
         if self.flat_field is None:
             return img
 
+        b = baseline_override if baseline_override is not None else 1.0
         img_f = img.astype(np.float32) / 255.0
-        corrected = (img_f - self.dark_field) / (self.flat_field + 1e-6)
-        
-        # Re-scale back to [0, 255] and clip
+        corrected = (img_f / max(b, 1e-4) - self.dark_field) / (self.flat_field + 1e-6)
         return np.clip(corrected * 255.0, 0, 255).astype(np.uint8)
 
     def process_batch(self, images: List[np.ndarray]) -> List[np.ndarray]:
-        """Corrects a batch of images after estimating profiles from them."""
-        self.estimate_profiles(images)
-        return [self.apply_correction(img) for img in images]
+        """Backward-compatible alias for transform_stack."""
+        return self.transform_stack(images, luma_only=False)
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _bgr_to_luma(x: torch.Tensor) -> torch.Tensor:
+        """(N,3,H,W) BGR float32 → (N,1,H,W) Y′ float32."""
+        b, g, r = x[:, 0:1], x[:, 1:2], x[:, 2:3]
+        return 0.114 * b + 0.587 * g + 0.299 * r

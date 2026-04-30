@@ -1109,6 +1109,7 @@ class MergeTab(AbstractClassTwoGalleries):
             "use_lsd": self.use_lsd_checkbox.isChecked(),
             "use_gan": self.use_gan_checkbox.isChecked(),
             "use_birefnet": self.use_birefnet_checkbox.isChecked(),
+            "selected_files": list(self.selected_files),
         }
 
     def get_default_config(self) -> dict:
@@ -1138,6 +1139,8 @@ class MergeTab(AbstractClassTwoGalleries):
             if isinstance(grid_size, list) and len(grid_size) == 2:
                 self.grid_rows.setValue(grid_size[0])
                 self.grid_cols.setValue(grid_size[1])
+
+            self._restore_selected_files(config)
 
             scan_dir = config.get("scan_directory")
             if scan_dir:
