@@ -1160,9 +1160,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             )
 
     @Slot(str, int, str, int)
-    def handle_item_swap_request(
-        self, s_mid: str, s_idx: int, t_mid: str, t_idx: int
-    ):
+    def handle_item_swap_request(self, s_mid: str, s_idx: int, t_mid: str, t_idx: int):
         """Swaps two items between (or within) monitor queues."""
         src_queue = self.monitor_slideshow_queues.get(s_mid, [])
         target_queue = self.monitor_slideshow_queues.get(t_mid, [])
@@ -1436,6 +1434,30 @@ class WallpaperTab(AbstractClassSingleGallery):
             action.triggered.connect(
                 lambda _, p=path: self._set_specific_wallpaper(monitor_id, p)
             )
+
+        # --- Cross-monitor Swap ---
+        other_monitors = [
+            (mid, widget)
+            for mid, widget in self.monitor_widgets.items()
+            if mid != monitor_id
+        ]
+        if other_monitors:
+            menu.addSeparator()
+            swap_menu = menu.addMenu("🔀 Swap Active Image with Monitor...")
+            for t_mid, t_widget in other_monitors:
+                t_name = t_widget.monitor.name
+                t_active_path = self.monitor_image_paths.get(t_mid)
+                if t_active_path:
+                    t_label = f"{t_name}  ←→  {os.path.basename(t_active_path)}"
+                else:
+                    t_label = f"{t_name}  (empty)"
+                action = swap_menu.addAction(t_label)
+                action.setEnabled(bool(t_active_path and current_active))
+                action.triggered.connect(
+                    lambda _, s=monitor_id, t=t_mid: self.handle_item_swap_request(
+                        s, 0, t, 0
+                    )
+                )
 
     def _set_specific_wallpaper(self, monitor_id: str, path: str):
         """Manually sets a specific wallpaper for a monitor and updates the system."""

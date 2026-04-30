@@ -204,26 +204,67 @@ class MergeTab(AbstractClassTwoGalleries):
 
         # --- Perfect Stitch (Anime Pan) Settings ---
         from PySide6.QtWidgets import QCheckBox
+
         self.perfect_stitch_checkbox = QCheckBox("Perfect Stitch Mode (Digital Art)")
-        self.perfect_stitch_checkbox.setToolTip("Optimized for digital anime pan shots. Uses template matching and feather blending.")
+        self.perfect_stitch_checkbox.setToolTip(
+            "Optimized for digital anime pan shots. Uses template matching and pyramidal blending."
+        )
         config_layout.addRow(self.perfect_stitch_checkbox)
 
         self.lbl_edge_crop = QLabel("Edge Crop (px):")
         self.edge_crop_spinbox = QSpinBox()
         self.edge_crop_spinbox.setRange(0, 500)
         self.edge_crop_spinbox.setValue(50)
-        self.edge_crop_spinbox.setToolTip("Crops left/right edges to neutralize vignettes before stitching.")
+        self.edge_crop_spinbox.setToolTip(
+            "Crops left/right edges to neutralize vignettes before stitching."
+        )
         config_layout.addRow(self.lbl_edge_crop, self.edge_crop_spinbox)
 
-        self.lbl_feather_blend = QLabel("Feather Blend (px):")
-        self.feather_blend_spinbox = QSpinBox()
-        self.feather_blend_spinbox.setRange(0, 500)
-        self.feather_blend_spinbox.setValue(50)
-        self.feather_blend_spinbox.setToolTip("Width of the linear alpha blend at the overlap seams.")
-        config_layout.addRow(self.lbl_feather_blend, self.feather_blend_spinbox)
+        self.lbl_pyramid_levels = QLabel("Pyramid Levels:")
+        self.pyramid_levels_spinbox = QSpinBox()
+        self.pyramid_levels_spinbox.setRange(0, 500)
+        self.pyramid_levels_spinbox.setValue(4)
+        self.pyramid_levels_spinbox.setToolTip(
+            "Width of the linear alpha blend at the overlap seams."
+        )
+        config_layout.addRow(self.lbl_pyramid_levels, self.pyramid_levels_spinbox)
+
+        # New AI-Enhanced Options
+        self.ai_options_group = QGroupBox("AI Optimization (Advanced)")
+        ai_layout = QVBoxLayout()
+
+        self.use_siamese_checkbox = QCheckBox("Order-Agnostic Matching (Siamese Network)")
+        self.use_siamese_checkbox.setChecked(True)
+        self.use_siamese_checkbox.setToolTip("Uses AI to find the correct order of images even if they are shuffled.")
+
+        self.use_apap_checkbox = QCheckBox("Parallax Absorption (APAP Mesh Warping)")
+        self.use_apap_checkbox.setChecked(True)
+        self.use_apap_checkbox.setToolTip("Handles foreground/background parallax using spatially-varying warps.")
+
+        self.use_lsd_checkbox = QCheckBox("Structure Preservation (Line Segment Detector)")
+        self.use_lsd_checkbox.setChecked(True)
+        self.use_lsd_checkbox.setToolTip("Ensures architectural lines and horizons stay straight during warping.")
+
+        self.use_gan_checkbox = QCheckBox("Neural Synthesis Refinement (AnimeGAN2)")
+        self.use_gan_checkbox.setChecked(True)
+        self.use_gan_checkbox.setToolTip("Uses AI to reconstruct and clean up transition zones.")
+
+        self.use_birefnet_checkbox = QCheckBox("Character-Aware Seams (BiRefNet)")
+        self.use_birefnet_checkbox.setChecked(True)
+        self.use_birefnet_checkbox.setToolTip("Detects characters to avoid cutting through them during seam routing.")
+
+        ai_layout.addWidget(self.use_siamese_checkbox)
+        ai_layout.addWidget(self.use_apap_checkbox)
+        ai_layout.addWidget(self.use_lsd_checkbox)
+        ai_layout.addWidget(self.use_gan_checkbox)
+        ai_layout.addWidget(self.use_birefnet_checkbox)
+        self.ai_options_group.setLayout(ai_layout)
+        config_layout.addRow(self.ai_options_group)
 
         # Connect signals for visibility
-        self.perfect_stitch_checkbox.toggled.connect(self._toggle_perfect_stitch_visibility)
+        self.perfect_stitch_checkbox.toggled.connect(
+            self._toggle_perfect_stitch_visibility
+        )
         self._toggle_perfect_stitch_visibility(False)
 
         content_layout.addWidget(config_group)
@@ -1021,7 +1062,9 @@ class MergeTab(AbstractClassTwoGalleries):
         # Show Perfect Stitch options primarily for panorama/stitch/sequential
         show_stitch = is_complex
         self.perfect_stitch_checkbox.setVisible(show_stitch)
-        self._toggle_perfect_stitch_visibility(self.perfect_stitch_checkbox.isChecked() and show_stitch)
+        self._toggle_perfect_stitch_visibility(
+            self.perfect_stitch_checkbox.isChecked() and show_stitch
+        )
 
     @Slot(bool)
     def _toggle_perfect_stitch_visibility(self, checked: bool):
@@ -1029,9 +1072,10 @@ class MergeTab(AbstractClassTwoGalleries):
         visible = checked and self.perfect_stitch_checkbox.isVisible()
         self.lbl_edge_crop.setVisible(visible)
         self.edge_crop_spinbox.setVisible(visible)
-        self.lbl_feather_blend.setVisible(visible)
-        self.feather_blend_spinbox.setVisible(visible)
-        
+        self.lbl_pyramid_levels.setVisible(visible)
+        self.pyramid_levels_spinbox.setVisible(visible)
+        self.ai_options_group.setVisible(visible)
+
         # If perfect stitch is ON, disable standard spacing/align to avoid confusion
         if checked and self.perfect_stitch_checkbox.isVisible():
             self.spacing.setEnabled(False)
@@ -1059,7 +1103,12 @@ class MergeTab(AbstractClassTwoGalleries):
             "duration": self.duration_spin.value(),
             "perfect_stitch_mode": self.perfect_stitch_checkbox.isChecked(),
             "edge_crop_px": self.edge_crop_spinbox.value(),
-            "feather_blend_px": self.feather_blend_spinbox.value(),
+            "pyramid_levels": self.pyramid_levels_spinbox.value(),
+            "use_siamese": self.use_siamese_checkbox.isChecked(),
+            "use_apap": self.use_apap_checkbox.isChecked(),
+            "use_lsd": self.use_lsd_checkbox.isChecked(),
+            "use_gan": self.use_gan_checkbox.isChecked(),
+            "use_birefnet": self.use_birefnet_checkbox.isChecked(),
         }
 
     def get_default_config(self) -> dict:
@@ -1105,9 +1154,16 @@ class MergeTab(AbstractClassTwoGalleries):
             if out_fname:
                 self.output_filename_input.setText(out_fname)
 
-            self.perfect_stitch_checkbox.setChecked(config.get("perfect_stitch_mode", False))
+            self.perfect_stitch_checkbox.setChecked(
+                config.get("perfect_stitch_mode", False)
+            )
             self.edge_crop_spinbox.setValue(config.get("edge_crop_px", 50))
-            self.feather_blend_spinbox.setValue(config.get("feather_blend_px", 50))
+            self.pyramid_levels_spinbox.setValue(config.get("pyramid_levels", 4))
+            self.use_siamese_checkbox.setChecked(config.get("use_siamese", True))
+            self.use_apap_checkbox.setChecked(config.get("use_apap", True))
+            self.use_lsd_checkbox.setChecked(config.get("use_lsd", True))
+            self.use_gan_checkbox.setChecked(config.get("use_gan", True))
+            self.use_birefnet_checkbox.setChecked(config.get("use_birefnet", True))
 
             print("MergeTab configuration loaded.")
 

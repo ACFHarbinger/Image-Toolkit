@@ -36,8 +36,8 @@ dev:
 build:
     @echo "🏗️  Building production application..."
     bash ./scripts/build_base.sh
-    ./gradlew build
-    npm run build
+    #./gradlew build
+    #npm run build
 
 # Run tests
 test:
@@ -124,9 +124,10 @@ web-driver:
     @source .venv/bin/activate && python scripts/manage_webdriver.py start
 
 # Run the image crawler via CLI
+
 # Usage: just crawl "https://example.com/gallery" 20 "./downloads"
 crawl query limit="10" output="./downloads":
-    source .venv/bin/activate && python main.py web crawl -q "{{query}}" -l {{limit}} -o "{{output}}"
+    source .venv/bin/activate && python main.py web crawl -q "{{ query }}" -l {{ limit }} -o "{{ output }}"
 
 # --- Legacy/Helper ---
 

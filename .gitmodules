@@ -13,3 +13,6 @@
 [submodule "StabilityMatrix"]
 	path = StabilityMatrix
 	url = https://github.com/LykosAI/StabilityMatrix.git
+[submodule "BiRefNet"]
+	path = BiRefNet
+	url = https://github.com/MatteoKartoon/BiRefNet.git

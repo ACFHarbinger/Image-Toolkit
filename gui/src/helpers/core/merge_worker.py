@@ -56,15 +56,20 @@ class MergeWorker(QObject):
 
             # 3. Perform the merge using the core class
             perfect_stitch_mode = self.config.get("perfect_stitch_mode", False)
-            edge_crop_px = self.config.get("edge_crop_px", 50)
-            feather_blend_px = self.config.get("feather_blend_px", 50)
+            edge_crop_px = self.config.get("edge_crop_px", 0)
+            pyramid_levels = self.config.get("pyramid_levels", 4)
 
             if perfect_stitch_mode:
                 ImageMerger.perfect_stitch(
                     image_paths=image_files,
                     output_path=output_path,
                     edge_crop=edge_crop_px,
-                    feather_width=feather_blend_px,
+                    pyramid_levels=pyramid_levels,
+                    use_siamese=self.config.get("use_siamese", True),
+                    use_apap=self.config.get("use_apap", True),
+                    use_lsd=self.config.get("use_lsd", True),
+                    use_gan=self.config.get("use_gan", True),
+                    use_birefnet=self.config.get("use_birefnet", True),
                 )
             else:
                 ImageMerger.merge_images(
