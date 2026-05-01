@@ -424,6 +424,8 @@ env/README.md
 /**/temp/
 /**/mods/
 data/
+models/
+outputs/
 CMakeFiles/
 backend/benchmark/results
 

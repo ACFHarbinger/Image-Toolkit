@@ -140,7 +140,10 @@ class Florence2Captioner:
         dtype = dtype or (torch.float16 if device == "cuda" else torch.float32)
         self.proc = AutoProcessor.from_pretrained(repo, trust_remote_code=True)
         self.model = AutoModelForCausalLM.from_pretrained(
-            repo, trust_remote_code=True, torch_dtype=dtype
+            repo,
+            trust_remote_code=True,
+            dtype=dtype,
+            attn_implementation="eager"
         ).to(device).eval()
         self.device = device
         self.dtype = dtype
@@ -165,6 +168,7 @@ class Florence2Captioner:
                 max_new_tokens=256,
                 num_beams=3,
                 do_sample=False,
+                use_cache=False,
             )
         text = self.proc.batch_decode(ids, skip_special_tokens=False)[0]
         return self.proc.post_process_generation(

@@ -137,12 +137,12 @@ crawl query limit="10" output="./downloads":
 
 # --- Anime LoRA Fine-Tuning ---
 
-size="50"
-rank="16"
-dataset="data"
-model="illustrious_xl"
-trigger="akane_nanao"
-class_prompt="1girl"
+size := "50"
+rank := "16"
+dataset := "data"
+model := "illustrious_xl"
+trigger := "akane_nanao"
+class_prompt := "1girl"
 
 # One-time: download WD-EVA02 tagger model + tags CSV (~355 MB) to models/wd14/
 lora-setup-tagger:
@@ -154,15 +154,17 @@ lora-setup-tagger:
 # One-time: apply the anime training DB schema migration
 lora-db-migrate:
     @echo "Applying anime training schema..."
-    @psql "${DATABASE_URL:-postgresql://toolkit_user:change_me_123@localhost:5432/image_toolkit}" \
-        -f backend/src/database/sql/0007_anime_training.sql
+    @source .venv/bin/activate && python scripts/apply_migration.py \
+        "${DATABASE_URL:-postgresql://toolkit_user:change_me_123@localhost:5432/image_toolkit}" \
+        backend/src/database/sql/0007_anime_training.sql
     @echo "Migration applied."
 
 # Caption all images in a directory with WD14 tags + optional Florence-2.
 # Writes a .txt sidecar next to each image. Skip images that already have one.
 # Usage: just lora-tag data/my_character my_char_xyz
+
 # Usage: just lora-tag data/my_character my_char_xyz florence2=true
-lora-tag images=dataset trigger=trigger florence2="false":
+lora-tag images=dataset trigger=trigger florence2="true":
     @echo "Captioning images in {{ images }} with trigger '{{ trigger }}'..."
     @test -f models/wd14/model.onnx || (echo "WD14 tagger not found. Run: just lora-setup-tagger" && exit 1)
     source .venv/bin/activate && python -m backend.src.pipeline.anime_training_pipeline \
@@ -181,6 +183,7 @@ lora-tag images=dataset trigger=trigger florence2="false":
 # Train a character LoRA on RTX 3090 Ti (24 GB).
 # Default: Illustrious XL + Prodigy + rank 16, batch 4, 12 epochs.
 # Usage: just lora-train data/my_character my_char_xyz
+
 # Usage: just lora-train data/my_character my_char_xyz model=noobai_vpred size=80 rank=32
 lora-train images=dataset trigger=trigger model=model size=size rank=rank:
     @echo "Training LoRA: trigger='{{ trigger }}' model={{ model }} rank={{ rank }} size={{ size }}"
@@ -198,6 +201,7 @@ lora-train images=dataset trigger=trigger model=model size=size rank=rank:
 
 # Train a character LoRA on RTX 4080 Laptop (16 GB).
 # Uses gradient checkpointing + cached TE outputs to stay within 16 GB.
+
 # Usage: just lora-train-4080 data/my_character my_char_xyz
 lora-train-4080 images=dataset trigger=trigger model=model size=size rank=rank:
     @echo "Training LoRA (4080 profile): trigger='{{ trigger }}' model={{ model }}"
@@ -215,6 +219,7 @@ lora-train-4080 images=dataset trigger=trigger model=model size=size rank=rank:
 
 # Train a LyCORIS LoCon LoRA (captures character + tied art style).
 # Use when the character has a distinctive unique artstyle.
+
 # Usage: just lora-locon data/my_character my_char_xyz
 lora-locon images=dataset trigger=trigger model=model size=size:
     @echo "Training LyCORIS LoCon: trigger='{{ trigger }}' model={{ model }}"
@@ -231,6 +236,7 @@ lora-locon images=dataset trigger=trigger model=model size=size:
 
 # Train NoobAI-XL V-Prediction LoRA (best raw anime character knowledge).
 # Automatically sets v_prediction + zero_terminal_snr + snr_gamma=1.0.
+
 # Usage: just lora-train-vpred data/my_character my_char_xyz
 lora-train-vpred images=dataset trigger=trigger model=model size=size rank=rank:
     @echo "Training NoobAI V-Pred LoRA: trigger='{{ trigger }}'"
@@ -248,6 +254,7 @@ lora-train-vpred images=dataset trigger=trigger model=model size=size rank=rank:
 
 # DreamBooth fine-tune with prior preservation (requires 24 GB).
 # Generates 200 class images first, then trains full UNet + LoRA adapters.
+
 # Usage: just lora-dreambooth data/my_character my_char_xyz
 lora-dreambooth images=dataset trigger=trigger model=model class_prompt=class_prompt:
     @echo "DreamBooth: trigger='{{ trigger }}' class='{{ class_prompt }}'"
@@ -265,6 +272,7 @@ lora-dreambooth images=dataset trigger=trigger model=model class_prompt=class_pr
 
 # Full SDXL checkpoint fine-tune with DeepSpeed ZeRO-2 (3090 Ti, ~12k steps).
 # EMA enabled. Freezes VAE and text encoders by default.
+
 # Usage: just lora-full-ft data/my_character my_char_xyz
 lora-full-ft images=dataset trigger=trigger model=model:
     @echo "Full fine-tune: model={{ model }} trigger='{{ trigger }}'"
@@ -282,6 +290,7 @@ lora-full-ft images=dataset trigger=trigger model=model:
 
 # Run the complete pipeline: tag → deduplicate → train (3090 Ti profile).
 # Convenience wrapper for first-time use.
+
 # Usage: just lora-pipeline data/my_character my_char_xyz
 lora-pipeline images=dataset trigger=trigger model=model size=size:
     @echo "=== Full pipeline: {{ trigger }} on {{ model }} ==="
@@ -305,6 +314,7 @@ lora-pipeline images=dataset trigger=trigger model=model size=size:
 
 # Analyse a trained LoRA checkpoint: SVD effective rank + weight delta heatmap.
 # Prints a table of under/over-utilised layers to guide rank tuning.
+
 # Usage: just lora-analyze outputs/my_char_lora/checkpoint-epoch0010
 lora-analyze checkpoint="outputs":
     @echo "Analysing LoRA weights in {{ checkpoint }}..."
