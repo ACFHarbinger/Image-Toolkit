@@ -354,6 +354,7 @@ dependencies = [
  "image",
  "mockito",
  "pyo3",
+ "rand 0.8.5",
  "rayon",
  "reqwest 0.13.1",
  "scraper",

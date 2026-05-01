@@ -25,6 +25,8 @@ pub struct Config {
     pub monitor_geometries: HashMap<String, Geometry>,
     #[serde(default)]
     pub last_change_timestamp: u64,
+    #[serde(default = "default_order")]
+    pub playback_order: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -40,6 +42,9 @@ pub fn default_interval() -> u64 {
 }
 pub fn default_style() -> String {
     "Fill".to_string()
+}
+pub fn default_order() -> String {
+    "Sequential".to_string()
 }
 
 fn normalize_path(path: &str) -> String {
@@ -104,6 +109,7 @@ fn load_config(path: &Path) -> Result<Config> {
             current_paths: HashMap::new(),
             monitor_geometries: HashMap::new(),
             last_change_timestamp: 0,
+            playback_order: "Sequential".to_string(),
         });
     }
     let content = fs::read_to_string(path).context("Failed to read config file")?;
@@ -140,46 +146,52 @@ fn select_next_wallpapers(config: &mut Config, increment: bool) -> HashMap<Strin
 
         if let Some(path) = current_path {
             let norm_path = normalize_path(path);
-            eprintln!(
-                "Monitor {} current path normalized: {}",
-                monitor_id, norm_path
-            );
             for (i, p) in queue.iter().enumerate() {
-                let queue_norm_path = normalize_path(p);
-                eprintln!("  Comparing with queue item {}: {}", i, queue_norm_path);
-                if queue_norm_path == norm_path {
+                if normalize_path(p) == norm_path {
                     idx = i;
                     found = true;
-                    eprintln!("  Match found at index {}", i);
                     break;
                 }
             }
+        }
 
-            if found {
-                eprintln!("Monitor {} found current at index {}", monitor_id, idx);
-                if increment {
-                    idx = (idx + 1) % queue.len();
-                    eprintln!("Monitor {} incremented to index {}", monitor_id, idx);
+        if increment {
+            match config.playback_order.as_str() {
+                "Random" => {
+                    use rand::Rng;
+                    idx = rand::thread_rng().gen_range(0..queue.len());
                 }
-            } else {
-                eprintln!(
-                    "Monitor {} current path not found in queue. Starting at index 0.",
-                    monitor_id
-                );
-                idx = 0;
+                "Reverse Sequential" => {
+                    if found {
+                        if idx == 0 {
+                            idx = queue.len() - 1;
+                        } else {
+                            idx -= 1;
+                        }
+                    } else {
+                        idx = queue.len() - 1;
+                    }
+                }
+                _ => {
+                    // Sequential
+                    if found {
+                        idx = (idx + 1) % queue.len();
+                    } else {
+                        idx = 0;
+                    }
+                }
             }
-        } else {
-            eprintln!(
-                "Monitor {} has no current path. Starting at index 0.",
-                monitor_id
-            );
+        } else if !found {
             idx = 0;
         }
 
         let next_path = queue[idx].clone();
         eprintln!(
-            "Monitor {} -> Next path (index {}): {}",
-            monitor_id, idx, next_path
+            "Monitor {} -> Next path (index {}, order {}): {}",
+            monitor_id,
+            idx,
+            config.playback_order,
+            next_path
         );
         selected.insert(monitor_id.clone(), next_path.clone());
         config.current_paths.insert(monitor_id.clone(), next_path);
@@ -539,5 +551,46 @@ mod tests {
         assert_eq!(config.running, false);
         assert_eq!(config.interval_seconds, 300);
         assert_eq!(config.style, "Fill".to_string());
+    }
+
+    #[test]
+    fn test_selection_logic() {
+        let mut config = Config {
+            running: true,
+            interval_seconds: 300,
+            style: "Fill".to_string(),
+            monitor_queues: HashMap::from([("0".to_string(), vec!["a".to_string(), "b".to_string(), "c".to_string()])]),
+            current_paths: HashMap::from([("0".to_string(), "a".to_string())]),
+            monitor_geometries: HashMap::new(),
+            last_change_timestamp: 0,
+            playback_order: "Sequential".to_string(),
+        };
+
+        // Sequential: a -> b
+        let selected = select_next_wallpapers(&mut config, true);
+        assert_eq!(selected.get("0").unwrap(), "b");
+
+        // Sequential: b -> c
+        let selected = select_next_wallpapers(&mut config, true);
+        assert_eq!(selected.get("0").unwrap(), "c");
+
+        // Sequential: c -> a (loop)
+        let selected = select_next_wallpapers(&mut config, true);
+        assert_eq!(selected.get("0").unwrap(), "a");
+
+        // Reverse Sequential: a -> c
+        config.playback_order = "Reverse Sequential".to_string();
+        let selected = select_next_wallpapers(&mut config, true);
+        assert_eq!(selected.get("0").unwrap(), "c");
+
+        // Reverse Sequential: c -> b
+        let selected = select_next_wallpapers(&mut config, true);
+        assert_eq!(selected.get("0").unwrap(), "b");
+
+        // Random: Should return some valid path
+        config.playback_order = "Random".to_string();
+        let selected = select_next_wallpapers(&mut config, true);
+        let path = selected.get("0").unwrap();
+        assert!(vec!["a", "b", "c"].contains(&path.as_str()));
     }
 }

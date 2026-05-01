@@ -299,6 +299,16 @@ class WallpaperTab(AbstractClassSingleGallery):
         slideshow_layout.addWidget(QLabel("sec"))
 
         slideshow_layout.addStretch(1)
+        slideshow_layout.addWidget(QLabel("Order:"))
+        self.playback_order_combo = QComboBox()
+        self.playback_order_combo.addItems(
+            ["Sequential", "Reverse Sequential", "Random"]
+        )
+        self.playback_order_combo.setCurrentText("Sequential")
+        self.playback_order_combo.setFixedWidth(120)
+        slideshow_layout.addWidget(self.playback_order_combo)
+
+        slideshow_layout.addStretch(1)
 
         self.countdown_label = QLabel("Timer: --:--")
         self.countdown_label.setStyleSheet(
@@ -522,6 +532,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             "style": style_to_use,
             "monitor_queues": self.monitor_slideshow_queues,
             "current_paths": self.monitor_image_paths,
+            "playback_order": self.playback_order_combo.currentText(),
             "monitor_geometries": {
                 str(i): {"x": m.x, "y": m.y, "width": m.width, "height": m.height}
                 for i, m in enumerate(self.monitors)
@@ -891,7 +902,19 @@ class WallpaperTab(AbstractClassSingleGallery):
                 queue = self.monitor_slideshow_queues.get(monitor_id, [])
                 current_queue_length = len(queue)
                 if current_queue_length > 0:
-                    next_index = (current_index + 1) % current_queue_length
+                    playback_order = self.playback_order_combo.currentText()
+                    if playback_order == "Random":
+                        import random
+
+                        next_index = random.randint(0, current_queue_length - 1)
+                    elif playback_order == "Reverse Sequential":
+                        if current_index == -1:
+                            next_index = current_queue_length - 1
+                        else:
+                            next_index = (current_index - 1) % current_queue_length
+                    else:
+                        next_index = (current_index + 1) % current_queue_length
+
                     path = queue[next_index]
                     new_monitor_paths[monitor_id] = path
                     self.monitor_current_index[monitor_id] = next_index

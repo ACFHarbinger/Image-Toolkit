@@ -66,11 +66,17 @@ class VaultManager:
 
         # Check if JVM is already running to avoid crash on re-initialization
         if not jpype.isJVMStarted():
-            # NOTE: Ensure udef.JAR_FILE points to the new Gradle build output
-            # (e.g., backend/cryptography/build/libs/cryptography-1.0.0-SNAPSHOT-uber.jar)
+            # Ensure udef.JAR_FILE exists before starting JVM
+            if not os.path.exists(udef.JAR_FILE):
+                raise FileNotFoundError(f"Cryptography JAR not found at: {udef.JAR_FILE}")
+
             classpath = [udef.JAR_FILE]
             if bc_provider_path:
-                classpath.append(f"{bc_provider_path}/*")
+                # If bc_provider_path is a directory, append /*, otherwise append the path itself
+                if os.path.isdir(bc_provider_path):
+                    classpath.append(f"{bc_provider_path}/*")
+                else:
+                    classpath.append(bc_provider_path)
 
             print(f"Starting JVM with classpath: {classpath}", file=sys.stderr)
             jpype.startJVM(classpath=classpath)
