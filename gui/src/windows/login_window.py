@@ -208,7 +208,7 @@ class LoginWindow(QWidget):
             # --- END MODIFICATION ---
 
             # 2. Initialize the Vault Manager
-            self.vault_manager = VaultManager(udef.JAR_FILE)
+            self.vault_manager = VaultManager()
 
             # 3. KeyStore Loading (now uses suffixed udef.KEYSTORE_FILE)
             self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password)
@@ -336,7 +336,7 @@ class LoginWindow(QWidget):
 
         try:
             # 3. Initialize the Vault Manager
-            self.vault_manager = VaultManager(udef.JAR_FILE)
+            self.vault_manager = VaultManager()
 
             # 4. Load the KeyStore (Creates empty KeyStore in memory)
             self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password)

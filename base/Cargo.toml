@@ -39,6 +39,7 @@ which = "6.0"
 url = "2.5"
 base64 = "0.22"
 cffi = "0.1.7"
+rand = "0.8"
 
 [features]
 python = ["pyo3"]
