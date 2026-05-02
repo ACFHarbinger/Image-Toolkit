@@ -182,7 +182,19 @@ fn select_next_wallpapers(config: &mut Config, increment: bool) -> HashMap<Strin
                 }
             }
         } else if !found {
-            idx = 0;
+            // Respect order even on first selection if not already set
+            match config.playback_order.as_str() {
+                "Random" => {
+                    use rand::Rng;
+                    idx = rand::thread_rng().gen_range(0..queue.len());
+                }
+                "Reverse Sequential" => {
+                    idx = queue.len() - 1;
+                }
+                _ => {
+                    idx = 0;
+                }
+            }
         }
 
         let next_path = queue[idx].clone();
@@ -500,7 +512,9 @@ fn run() -> Result<()> {
         }
 
         if first_run {
-            config.current_paths.clear();
+            // Keep existing paths if they exist to resume correctly
+            // but log what we have
+            eprintln!("Resuming with {} current paths.", config.current_paths.len());
         }
 
         let next_paths = select_next_wallpapers(&mut config, !first_run);

@@ -13,6 +13,9 @@ defaults:
   - data: extraction
   - _self_
 
+# ── Command ─────────────────────────────────────────────────────────────────
+command: train
+
 # ── Experiment ──────────────────────────────────────────────────────────────
 run_name: anime_char_lora_v1
 seed: 42
