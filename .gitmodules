@@ -7,12 +7,12 @@
 [submodule "backend/src/models/MetaCLIP"]
 	path = backend/src/models/MetaCLIP
 	url = https://github.com/facebookresearch/MetaCLIP.git
-[submodule "stable-diffusion-webui-forge"]
-	path = stable-diffusion-webui-forge
-	url = https://github.com/lllyasviel/stable-diffusion-webui-forge.git
 [submodule "StabilityMatrix"]
 	path = StabilityMatrix
 	url = https://github.com/LykosAI/StabilityMatrix.git
 [submodule "BiRefNet"]
 	path = BiRefNet
 	url = https://github.com/MatteoKartoon/BiRefNet.git
+[submodule "ComfyUI"]
+	path = ComfyUI
+	url = https://github.com/Comfy-Org/ComfyUI.git
