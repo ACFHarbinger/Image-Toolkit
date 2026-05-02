@@ -43,6 +43,7 @@ class MainWindow(QWidget):
             UnifiedGenerateTab,
             R3GANEvaluateTab,
             MetaCLIPInferenceTab,
+            ComfyUITab,
         )
 
         # Store the authenticated vault manager instance
@@ -156,6 +157,7 @@ class MainWindow(QWidget):
         self.generate_tab = UnifiedGenerateTab()
         self.eval_tab = R3GANEvaluateTab()
         self.inference_tab = MetaCLIPInferenceTab()
+        self.comfyui_tab = ComfyUITab()
 
         # --- LINK TABS (Critical for Cross-Tab Communication) ---
         self.database_tab.scan_tab_ref = self.scan_metadata_tab
@@ -188,6 +190,7 @@ class MainWindow(QWidget):
                 "Generation": self.generate_tab,
                 "Evaluation": self.eval_tab,
                 "Inference": self.inference_tab,
+                "ComfyUI": self.comfyui_tab,
             },
         }
 
