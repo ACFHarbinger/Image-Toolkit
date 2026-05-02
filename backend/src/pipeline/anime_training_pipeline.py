@@ -322,9 +322,8 @@ def _build_tuner(cfg: DictConfig):
 
 
 # ---------------------------------------------------------------------------
-# Hydra entry point
+# Pipeline entry point
 # ---------------------------------------------------------------------------
-@hydra.main(config_path="../../../config", config_name="base", version_base="1.3")
 def main(cfg: DictConfig) -> None:
     log.info("Anime training pipeline starting")
     log.info("Config:\n%s", OmegaConf.to_yaml(cfg))
@@ -406,7 +405,3 @@ def main(cfg: DictConfig) -> None:
     tuner.train(dataloader, diagnostics=diagnostics)
     diagnostics.close()
     log.info("Pipeline complete")
-
-
-if __name__ == "__main__":
-    main()

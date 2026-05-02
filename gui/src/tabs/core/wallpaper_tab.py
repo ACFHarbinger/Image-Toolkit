@@ -466,6 +466,13 @@ class WallpaperTab(AbstractClassSingleGallery):
         action_layout.addWidget(self.set_wallpaper_btn, 1)
 
         content_layout.addLayout(action_layout)
+        
+        # Connect settings changes to daemon sync
+        self.playback_order_combo.currentTextChanged.connect(self._sync_daemon_config)
+        self.interval_min_spinbox.valueChanged.connect(self._sync_daemon_config)
+        self.interval_sec_spinbox.valueChanged.connect(self._sync_daemon_config)
+        self.style_combo.currentTextChanged.connect(self._sync_daemon_config)
+        self.video_style_combo.currentTextChanged.connect(self._sync_daemon_config)
 
         self.populate_monitor_layout()
         self.check_all_monitors_set()
@@ -502,10 +509,10 @@ class WallpaperTab(AbstractClassSingleGallery):
         except Exception:
             return False
 
-    def toggle_slideshow_daemon(self):
-        start = not self._is_daemon_running_config()
+    def _sync_daemon_config(self):
+        if not self._is_daemon_running_config():
+            return
 
-        # Try to preserve last_change_timestamp if it exists
         last_change_timestamp = 0
         try:
             if os.path.exists(DAEMON_CONFIG_PATH):
@@ -515,9 +522,49 @@ class WallpaperTab(AbstractClassSingleGallery):
         except Exception:
             pass
 
+        style_to_use = (
+            f"SmartVideoWallpaper::{self.video_style}"
+            if self.background_type == "Smart Video Wallpaper"
+            else self.wallpaper_style
+        )
+
+        config = {
+            "running": True,
+            "interval_seconds": (self.interval_min_spinbox.value() * 60)
+            + self.interval_sec_spinbox.value(),
+            "style": style_to_use,
+            "monitor_queues": self.monitor_slideshow_queues,
+            "current_paths": self.monitor_image_paths,
+            "playback_order": self.playback_order_combo.currentText(),
+            "monitor_geometries": {
+                str(i): {"x": m.x, "y": m.y, "width": m.width, "height": m.height}
+                for i, m in enumerate(self.monitors)
+            },
+            "last_change_timestamp": last_change_timestamp,
+        }
+
+        try:
+            with open(DAEMON_CONFIG_PATH, "w") as f:
+                json.dump(config, f, indent=4)
+        except Exception:
+            pass
+
+    def toggle_slideshow_daemon(self):
+        start = not self._is_daemon_running_config()
+
         # Ensure mutual exclusion: stop local slideshow if starting daemon
         if start:
             self.stop_slideshow()
+
+        # Build initial config
+        last_change_timestamp = 0
+        try:
+            if os.path.exists(DAEMON_CONFIG_PATH):
+                with open(DAEMON_CONFIG_PATH, "r") as f:
+                    old_config = json.load(f)
+                    last_change_timestamp = old_config.get("last_change_timestamp", 0)
+        except Exception:
+            pass
 
         style_to_use = (
             f"SmartVideoWallpaper::{self.video_style}"
