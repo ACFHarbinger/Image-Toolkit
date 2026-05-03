@@ -30,6 +30,7 @@ class FrameExtractionWorker(QRunnable):
         end_ms: int = -1,
         is_range: bool = False,
         target_resolution: Optional[Tuple[int, int]] = None,
+        cuts_ms: Optional[list] = None,
     ):
         super().__init__()
         self.video_path = video_path
@@ -38,6 +39,7 @@ class FrameExtractionWorker(QRunnable):
         self.end_ms = end_ms
         self.is_range = is_range
         self.target_resolution = target_resolution  # (width, height)
+        self.cuts_ms = cuts_ms or []
         self.signals = ExtractorSignals()
         self._is_cancelled = False
 
@@ -82,6 +84,16 @@ class FrameExtractionWorker(QRunnable):
                     self.signals.progress.emit(min(100, max(0, progress)))
                 # ----------------------
 
+                # Check if current_ms falls within any cut region
+                in_cut = False
+                for c_start, c_end in self.cuts_ms:
+                    if c_start <= current_ms <= c_end:
+                        in_cut = True
+                        break
+                
+                if in_cut:
+                    continue
+
                 # --- RESIZE LOGIC ---
                 if self.target_resolution:
                     # Resize the frame to the requested dimensions
@@ -90,7 +102,7 @@ class FrameExtractionWorker(QRunnable):
                     )
 
                 # Save Frame
-                filename = f"{video_name}_{timestamp}_{int(current_ms)}ms.jpg"
+                filename = f"{video_name}_{int(current_ms)}ms.png"
                 save_path = os.path.join(self.output_dir, filename)
                 cv2.imwrite(save_path, frame)
                 saved_files.append(save_path)

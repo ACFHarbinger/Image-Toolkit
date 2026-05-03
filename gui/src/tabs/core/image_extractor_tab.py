@@ -373,6 +373,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         self.start_time_ms = 0
         self.end_time_ms = 0
+        self.cut_start_ms = 0
+        self.cut_end_ms = 0
+        self.cuts_ms: List[Tuple[int, int]] = []
+        
         self.btn_set_start = QPushButton("Set Start [00:00]")
         self.btn_set_start.clicked.connect(self.set_range_start)
         self.btn_set_start.setEnabled(False)
@@ -417,6 +421,35 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         extract_actions_layout.addWidget(self.btn_extract_gif)
 
         extract_main_layout.addLayout(extract_actions_layout)
+
+        # -- Row 3: Cuts --
+        extract_cuts_layout = QHBoxLayout()
+        self.btn_set_cut_start = QPushButton("Set Cut Start [00:00]")
+        self.btn_set_cut_start.clicked.connect(self.set_cut_start)
+        self.btn_set_cut_start.setEnabled(False)
+
+        self.btn_set_cut_end = QPushButton("Set Cut End [00:00]")
+        self.btn_set_cut_end.clicked.connect(self.set_cut_end)
+        self.btn_set_cut_end.setEnabled(False)
+
+        self.btn_add_cut = QPushButton("Add Cut")
+        self.btn_add_cut.clicked.connect(self.add_cut)
+        self.btn_add_cut.setEnabled(False)
+
+        self.lbl_cuts = QLabel("Cuts: None")
+        
+        self.btn_clear_cuts = QPushButton("Clear Cuts")
+        self.btn_clear_cuts.clicked.connect(self.clear_cuts)
+        self.btn_clear_cuts.setEnabled(False)
+
+        extract_cuts_layout.addWidget(self.btn_set_cut_start)
+        extract_cuts_layout.addWidget(self.btn_set_cut_end)
+        extract_cuts_layout.addWidget(self.btn_add_cut)
+        extract_cuts_layout.addWidget(self.lbl_cuts)
+        extract_cuts_layout.addWidget(self.btn_clear_cuts)
+        extract_cuts_layout.addStretch()
+
+        extract_main_layout.addLayout(extract_cuts_layout)
 
         self.main_layout.addWidget(self.extract_group)
         self.extract_group.setVisible(False)
@@ -773,6 +806,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
             self.btn_set_start.setEnabled(True)
             self.btn_set_end.setEnabled(True)
+            self.btn_set_cut_start.setEnabled(True)
+            self.btn_set_cut_end.setEnabled(True)
             self._apply_player_mode()
 
     @Slot()
@@ -805,6 +840,12 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         self.btn_set_start.setText("Set Start [00:00:000]")
         self.btn_set_end.setText("Set End [00:00:000]")
+        
+        self.btn_set_cut_start.setText("Set Cut Start [00:00]")
+        self.btn_set_cut_end.setText("Set Cut End [00:00]")
+        self.btn_add_cut.setEnabled(False)
+        self.cuts_ms.clear()
+        self._update_cuts_label()
         self.btn_extract_range.setEnabled(False)
         self.btn_extract_gif.setEnabled(False)
         self.btn_extract_gif.setEnabled(False)
@@ -1295,9 +1336,71 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.btn_jump_end.setEnabled(True)
         self._validate_range()
 
+    @Slot()
+    def set_cut_start(self):
+        self.cut_start_ms = self.media_player.position()
+        time_str = self._format_time(self.cut_start_ms)
+        self.btn_set_cut_start.setText(f"Cut Start: {time_str}")
+        self._validate_cut_range()
+
+    @Slot()
+    def set_cut_end(self):
+        self.cut_end_ms = self.media_player.position()
+        time_str = self._format_time(self.cut_end_ms)
+        self.btn_set_cut_end.setText(f"Cut End: {time_str}")
+        self._validate_cut_range()
+
+    def _validate_cut_range(self):
+        if self.cut_end_ms > self.cut_start_ms:
+            self.btn_add_cut.setEnabled(True)
+        else:
+            self.btn_add_cut.setEnabled(False)
+
+    @Slot()
+    def add_cut(self):
+        if self.cut_end_ms > self.cut_start_ms:
+            self.cuts_ms.append((self.cut_start_ms, self.cut_end_ms))
+            self.cut_start_ms = 0
+            self.cut_end_ms = 0
+            self.btn_set_cut_start.setText("Set Cut Start [00:00]")
+            self.btn_set_cut_end.setText("Set Cut End [00:00]")
+            self.btn_add_cut.setEnabled(False)
+            self._update_cuts_label()
+            
+    @Slot()
+    def clear_cuts(self):
+        self.cuts_ms.clear()
+        self._update_cuts_label()
+
+    def _update_cuts_label(self):
+        if not self.cuts_ms:
+            self.lbl_cuts.setText("Cuts: None")
+            self.btn_clear_cuts.setEnabled(False)
+        else:
+            self.btn_clear_cuts.setEnabled(True)
+            # format cuts beautifully
+            cut_strs = []
+            for s, e in self.cuts_ms:
+                cut_strs.append(f"[{self._format_time(s)}-{self._format_time(e)}]")
+            self.lbl_cuts.setText(f"Cuts: {', '.join(cut_strs)}")
+        
+        self._validate_range()
+
     def _validate_range(self):
         if self.end_time_ms > self.start_time_ms:
-            duration_str = self._format_time(self.end_time_ms - self.start_time_ms)
+            total_duration_ms = self.end_time_ms - self.start_time_ms
+            
+            # Subtract cut durations
+            cut_duration_ms = 0
+            for c_start, c_end in self.cuts_ms:
+                overlap_start = max(self.start_time_ms, c_start)
+                overlap_end = min(self.end_time_ms, c_end)
+                if overlap_end > overlap_start:
+                    cut_duration_ms += (overlap_end - overlap_start)
+                    
+            actual_duration_ms = max(0, total_duration_ms - cut_duration_ms)
+            duration_str = self._format_time(actual_duration_ms)
+            
             self.btn_extract_range.setEnabled(True)
             self.btn_extract_range.setText(f"Extract Range ({duration_str})")
             self.btn_extract_gif.setEnabled(True)
@@ -1309,7 +1412,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.btn_extract_range.setText("🎞️ Extract Range")
             self.btn_extract_gif.setEnabled(False)
             self.btn_extract_gif.setText("GIF Extract as GIF")
-            self.btn_extract_video.setEnabled(False)
             self.btn_extract_video.setEnabled(False)
             self.btn_extract_video.setText("MP4 Extract as Video")
 
@@ -1376,6 +1478,18 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.btn_snapshot.setEnabled(enabled and self.video_path is not None)
         self.btn_set_start.setEnabled(enabled and self.video_path is not None)
         self.btn_set_end.setEnabled(enabled and self.video_path is not None)
+        self.btn_set_cut_start.setEnabled(enabled and self.video_path is not None)
+        self.btn_set_cut_end.setEnabled(enabled and self.video_path is not None)
+        
+        # We handle btn_add_cut and btn_clear_cuts logic independently based on internal states
+        # but if we disable extraction entirely, disable those too
+        if not enabled:
+            self.btn_add_cut.setEnabled(False)
+            self.btn_clear_cuts.setEnabled(False)
+        else:
+            self._validate_cut_range()
+            self._update_cuts_label()
+            
         self.btn_extract_range.setEnabled(
             enabled and self.end_time_ms > self.start_time_ms
         )
@@ -1440,6 +1554,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             end_ms=end,
             is_range=is_range,
             target_resolution=target_size,
+            cuts_ms=self.cuts_ms
         )
         self.extractor_worker.signals.progress.connect(
             self.extraction_progress_bar.setValue
@@ -1475,8 +1590,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         )
         self.extraction_status_label.show()
 
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_name = f"GIF_{Path(self.video_path).stem}_{timestamp}.gif"
+        output_name = f"{Path(self.video_path).stem}_{int(start)}ms_{int(end)}ms.gif"
         output_path = str(self.extraction_dir / output_name)
 
         worker = GifCreationWorker(
@@ -1488,6 +1602,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             fps=fps,
             use_ffmpeg=(self.combo_engine.currentText() == "FFmpeg"),
             speed=speed,
+            cuts_ms=self.cuts_ms
         )
         worker.signals.progress.connect(self.extraction_progress_bar.setValue)
         worker.signals.finished.connect(self._on_export_finished)
@@ -1513,8 +1628,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         )
         self.extraction_status_label.show()
 
-        timestamp = datetime.datetime.now().strftime("%H%M%S")
-        output_name = f"CLIP_{Path(self.video_path).stem}_{timestamp}.mp4"
+        output_name = f"{Path(self.video_path).stem}_{int(start)}ms_{int(end)}ms.mp4"
         output_path = str(self.extraction_dir / output_name)
 
         worker = VideoExtractionWorker(
@@ -1526,6 +1640,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             mute_audio=mute_audio,
             use_ffmpeg=(self.combo_engine.currentText() == "FFmpeg"),
             speed=speed,
+            cuts_ms=self.cuts_ms
         )
         worker.signals.progress.connect(self.extraction_progress_bar.setValue)
         worker.signals.finished.connect(self._on_export_finished)
@@ -1720,7 +1835,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         # Or just spawn a quick ffmpeg command.
 
         output_dir = self.extraction_dir
-        filename = f"snapshot_{Path(video_path).stem}_{timestamp_ms}ms_{datetime.datetime.now().strftime('%H%M%S')}.png"
+        filename = f"{Path(video_path).stem}_{timestamp_ms}ms.png"
         out_path = output_dir / filename
 
         # Run in thread to not block UI
