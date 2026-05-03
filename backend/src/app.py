@@ -62,8 +62,9 @@ def launch_app(opts):
         # 2. Create the new main window instance
         active_window = MainWindow(
             vault_manager=vault_manager,  # Pass the authenticated manager
-            dropdown=~opts["no_dropdown"],
+            dropdown=not opts.get("no_dropdown", False),
             app_icon=ICON_FILE,
+            enable_manager=opts.get("enable_manager", False),
         )
         active_window.show()
 

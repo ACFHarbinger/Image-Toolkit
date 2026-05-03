@@ -24,7 +24,7 @@ from backend.src.core.vault_manager import VaultManager
 
 
 class MainWindow(QWidget):
-    def __init__(self, vault_manager: VaultManager, dropdown=True, app_icon=None):
+    def __init__(self, vault_manager: VaultManager, dropdown=True, app_icon=None, enable_manager=False):
         super().__init__()
         from ..tabs import (
             ConvertTab,
@@ -48,6 +48,7 @@ class MainWindow(QWidget):
 
         # Store the authenticated vault manager instance
         self.vault_manager = vault_manager
+        self.enable_manager = enable_manager
 
         self.setWindowTitle("Image Database and Edit Toolkit")
         self.setMinimumWidth(800)
@@ -157,7 +158,7 @@ class MainWindow(QWidget):
         self.generate_tab = UnifiedGenerateTab()
         self.eval_tab = R3GANEvaluateTab()
         self.inference_tab = MetaCLIPInferenceTab()
-        self.comfyui_tab = ComfyUITab()
+        self.comfyui_tab = ComfyUITab(enable_manager=enable_manager)
 
         # --- LINK TABS (Critical for Cross-Tab Communication) ---
         self.database_tab.scan_tab_ref = self.scan_metadata_tab

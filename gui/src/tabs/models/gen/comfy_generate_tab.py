@@ -32,9 +32,10 @@ class ComfyUITab(QWidget):
     _server_ready_signal = Signal(str)  # server URL
     _log_signal = Signal(str)           # one log line
 
-    def __init__(self) -> None:
+    def __init__(self, enable_manager=False) -> None:
         super().__init__()
         self._manager = ComfyUIManager.instance()
+        self.enable_manager = enable_manager
         self._log_thread: threading.Thread | None = None
         self._init_ui()
         self._status_signal.connect(self._on_status)
@@ -138,7 +139,7 @@ class ComfyUITab(QWidget):
         self._log_view.clear()
         self._status_signal.emit("Starting…", "#f0ad4e")
         port = self._port_spin.value()
-        threading.Thread(target=self._start_worker, args=(port,), daemon=True).start()
+        threading.Thread(target=self._start_worker, args=(port, self.enable_manager), daemon=True).start()
 
     def _on_stop_clicked(self) -> None:
         self._manager.stop()
@@ -157,9 +158,9 @@ class ComfyUITab(QWidget):
     # Background workers
     # ------------------------------------------------------------------
 
-    def _start_worker(self, port: int) -> None:
+    def _start_worker(self, port: int, enable_manager: bool = False) -> None:
         try:
-            actual_port = self._manager.start(port)
+            actual_port = self._manager.start(port, enable_manager=enable_manager)
             self._log_signal.emit(f"[comfy-manager] Starting on port {actual_port}…\n")
 
             self._log_thread = threading.Thread(
