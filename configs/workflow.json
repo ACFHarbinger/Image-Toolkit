@@ -1,0 +1,1872 @@
+{
+  "id": "7dd73902-c21e-46ac-bd67-59c3e85d03ac",
+  "revision": 0,
+  "last_node_id": 74,
+  "last_link_id": 103,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        -619.974606484375,
+        -185.42776289062488
+      ],
+      "size": [
+        282.798828125,
+        314
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            84
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "title": "Style Reference Image  [Stage 0]",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "JN_Hisato_Azuma_Illus.png",
+        "image"
+      ]
+    },
+    {
+      "id": 66,
+      "type": "LoadImage",
+      "pos": [
+        -606.6889211893129,
+        641.5700559140334
+      ],
+      "size": [
+        282.798828125,
+        314.00000000000006
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            91
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "title": "Style Reference Image  [Stage 0]",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "stitch7.png",
+        "image"
+      ]
+    },
+    {
+      "id": 67,
+      "type": "LoadImage",
+      "pos": [
+        -613.397473142438,
+        221.1794770468457
+      ],
+      "size": [
+        282.798828125,
+        314
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            90
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "Himawai_1764031880_706692ms.jpg",
+        "image"
+      ]
+    },
+    {
+      "id": 62,
+      "type": "ImageScale",
+      "pos": [
+        873.2369140625,
+        386
+      ],
+      "size": [
+        280.0123046875,
+        130
+      ],
+      "flags": {},
+      "order": 26,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 81
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            82
+          ]
+        }
+      ],
+      "title": "Lanczos Downscale to 4K  [Stage 6]",
+      "properties": {
+        "Node name for S&R": "ImageScale"
+      },
+      "widgets_values": [
+        "lanczos",
+        3840,
+        2160,
+        "disabled"
+      ]
+    },
+    {
+      "id": 60,
+      "type": "UpscaleModelLoader",
+      "pos": [
+        100,
+        1202
+      ],
+      "size": [
+        270,
+        58
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "UPSCALE_MODEL",
+          "type": "UPSCALE_MODEL",
+          "links": [
+            80
+          ]
+        }
+      ],
+      "title": "ESRGAN Model Loader  [Stage 6]",
+      "properties": {
+        "Node name for S&R": "UpscaleModelLoader"
+      },
+      "widgets_values": [
+        "4x-AnimeSharp.pth"
+      ]
+    },
+    {
+      "id": 20,
+      "type": "EmptyLatentImage",
+      "pos": [
+        100,
+        966
+      ],
+      "size": [
+        270,
+        106
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            58
+          ]
+        }
+      ],
+      "title": "Empty Latent 1344x768  [Stage 2]",
+      "properties": {
+        "Node name for S&R": "EmptyLatentImage"
+      },
+      "widgets_values": [
+        1344,
+        768,
+        1
+      ]
+    },
+    {
+      "id": 10,
+      "type": "CheckpointLoaderSimple",
+      "pos": [
+        100,
+        738
+      ],
+      "size": [
+        270,
+        98
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            42
+          ]
+        },
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            43
+          ]
+        },
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            67,
+            71,
+            77
+          ]
+        }
+      ],
+      "title": "Base Checkpoint  [Stage 1]",
+      "properties": {
+        "Node name for S&R": "CheckpointLoaderSimple"
+      },
+      "widgets_values": [
+        "illustriousXL20_v20.safetensors"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "IPAdapterModelLoader",
+      "pos": [
+        100,
+        550
+      ],
+      "size": [
+        274.9263671875,
+        58
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IPADAPTER",
+          "type": "IPADAPTER",
+          "links": [
+            50
+          ]
+        }
+      ],
+      "title": "IP-Adapter Model Loader  [Stage 0]",
+      "properties": {
+        "Node name for S&R": "IPAdapterModelLoader"
+      },
+      "widgets_values": [
+        "ip-adapter-plus_sdxl_vit-h.safetensors"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "CLIPVisionLoader",
+      "pos": [
+        100,
+        362
+      ],
+      "size": [
+        270,
+        58
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP_VISION",
+          "type": "CLIP_VISION",
+          "links": [
+            52
+          ]
+        }
+      ],
+      "title": "CLIP Vision Loader  [Stage 0]",
+      "properties": {
+        "Node name for S&R": "CLIPVisionLoader"
+      },
+      "widgets_values": [
+        "clip_vit_h.safetensors"
+      ]
+    },
+    {
+      "id": 64,
+      "type": "BatchImagesNode",
+      "pos": [
+        152.90365181849933,
+        138.39112579684647
+      ],
+      "size": [
+        169.32421875,
+        106
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "label": "image0",
+          "name": "images.image0",
+          "type": "IMAGE",
+          "link": 84
+        },
+        {
+          "label": "image1",
+          "name": "images.image1",
+          "type": "IMAGE",
+          "link": 90
+        },
+        {
+          "label": "image2",
+          "name": "images.image2",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 91
+        },
+        {
+          "label": "image3",
+          "name": "images.image3",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            86
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "BatchImagesNode"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 42,
+      "type": "FaceDetailer",
+      "pos": [
+        3264.1130859375,
+        130
+      ],
+      "size": [
+        400,
+        960
+      ],
+      "flags": {},
+      "order": 23,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 68
+        },
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 69
+        },
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 70
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 71
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 72
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 73
+        },
+        {
+          "name": "bbox_detector",
+          "type": "BBOX_DETECTOR",
+          "link": 100
+        },
+        {
+          "name": "sam_model_opt",
+          "shape": 7,
+          "type": "SAM_MODEL",
+          "link": null
+        },
+        {
+          "name": "segm_detector_opt",
+          "shape": 7,
+          "type": "SEGM_DETECTOR",
+          "link": null
+        },
+        {
+          "name": "detailer_hook",
+          "shape": 7,
+          "type": "DETAILER_HOOK",
+          "link": null
+        },
+        {
+          "name": "scheduler_func_opt",
+          "shape": 7,
+          "type": "SCHEDULER_FUNC",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            74
+          ]
+        },
+        {
+          "name": "cropped_refined",
+          "shape": 6,
+          "type": "IMAGE",
+          "links": null
+        },
+        {
+          "name": "cropped_enhanced_alpha",
+          "shape": 6,
+          "type": "IMAGE",
+          "links": null
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": null
+        },
+        {
+          "name": "detailer_pipe",
+          "type": "DETAILER_PIPE",
+          "links": null
+        },
+        {
+          "name": "cnet_images",
+          "shape": 6,
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "title": "Face Detailer  [Stage 4]",
+      "properties": {
+        "Node name for S&R": "FaceDetailer"
+      },
+      "widgets_values": [
+        384,
+        true,
+        1024,
+        926882143085478,
+        "randomize",
+        20,
+        5,
+        "euler",
+        "normal",
+        0.34,
+        5,
+        true,
+        true,
+        0.5,
+        10,
+        3,
+        "center-1",
+        0,
+        0.93,
+        0,
+        0.7,
+        "False",
+        10,
+        "",
+        1,
+        false,
+        20,
+        false,
+        false
+      ]
+    },
+    {
+      "id": 44,
+      "type": "FaceDetailer",
+      "pos": [
+        3764.1130859375,
+        130
+      ],
+      "size": [
+        400,
+        960
+      ],
+      "flags": {},
+      "order": 24,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 74
+        },
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 75
+        },
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 76
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 77
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 78
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 79
+        },
+        {
+          "name": "bbox_detector",
+          "type": "BBOX_DETECTOR",
+          "link": 101
+        },
+        {
+          "name": "sam_model_opt",
+          "shape": 7,
+          "type": "SAM_MODEL",
+          "link": null
+        },
+        {
+          "name": "segm_detector_opt",
+          "shape": 7,
+          "type": "SEGM_DETECTOR",
+          "link": null
+        },
+        {
+          "name": "detailer_hook",
+          "shape": 7,
+          "type": "DETAILER_HOOK",
+          "link": null
+        },
+        {
+          "name": "scheduler_func_opt",
+          "shape": 7,
+          "type": "SCHEDULER_FUNC",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            93
+          ]
+        },
+        {
+          "name": "cropped_refined",
+          "shape": 6,
+          "type": "IMAGE",
+          "links": null
+        },
+        {
+          "name": "cropped_enhanced_alpha",
+          "shape": 6,
+          "type": "IMAGE",
+          "links": null
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": null
+        },
+        {
+          "name": "detailer_pipe",
+          "type": "DETAILER_PIPE",
+          "links": null
+        },
+        {
+          "name": "cnet_images",
+          "shape": 6,
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "title": "Hand Detailer  [Stage 4]",
+      "properties": {
+        "Node name for S&R": "FaceDetailer"
+      },
+      "widgets_values": [
+        256,
+        true,
+        768,
+        510250079166277,
+        "randomize",
+        15,
+        5,
+        "euler",
+        "normal",
+        0.27,
+        5,
+        true,
+        true,
+        0.45,
+        8,
+        3,
+        "center-1",
+        0,
+        0.93,
+        0,
+        0.7,
+        "False",
+        10,
+        "",
+        1,
+        false,
+        20,
+        false,
+        false
+      ]
+    },
+    {
+      "id": 72,
+      "type": "CLIPSegDetectorProvider",
+      "pos": [
+        2896.234170620325,
+        437.46485965083656
+      ],
+      "size": [
+        270,
+        130
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "BBOX_DETECTOR",
+          "type": "BBOX_DETECTOR",
+          "links": [
+            100
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPSegDetectorProvider"
+      },
+      "widgets_values": [
+        "face",
+        7,
+        0.4,
+        4
+      ]
+    },
+    {
+      "id": 73,
+      "type": "CLIPSegDetectorProvider",
+      "pos": [
+        2899.812178432825,
+        647.7732580883368
+      ],
+      "size": [
+        270,
+        130
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "BBOX_DETECTOR",
+          "type": "BBOX_DETECTOR",
+          "links": [
+            101
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPSegDetectorProvider"
+      },
+      "widgets_values": [
+        "hands",
+        7,
+        0.4,
+        4
+      ]
+    },
+    {
+      "id": 61,
+      "type": "ImageUpscaleWithModel",
+      "pos": [
+        482.798828125,
+        386
+      ],
+      "size": [
+        244.0826171875,
+        46
+      ],
+      "flags": {},
+      "order": 25,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "upscale_model",
+          "type": "UPSCALE_MODEL",
+          "link": 80
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 93
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            81
+          ]
+        }
+      ],
+      "title": "ESRGAN 4x Upscale  [Stage 6]",
+      "properties": {
+        "Node name for S&R": "ImageUpscaleWithModel"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 12,
+      "type": "LoraLoader",
+      "pos": [
+        873.2369140625,
+        130
+      ],
+      "size": [
+        290.4380859375,
+        126
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 44
+        },
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 45
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            46
+          ]
+        },
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            47
+          ]
+        }
+      ],
+      "title": "LoRA Slot 2: Style  [Stage 1]",
+      "properties": {
+        "Node name for S&R": "LoraLoader"
+      },
+      "widgets_values": [
+        "chargen_oil_painting_v2.safetensors",
+        0.55,
+        0.55
+      ]
+    },
+    {
+      "id": 74,
+      "type": "LatentUpscale",
+      "pos": [
+        2183.5744440578255,
+        547.4166721508363
+      ],
+      "size": [
+        270,
+        130
+      ],
+      "flags": {},
+      "order": 19,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 102
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            103
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LatentUpscale"
+      },
+      "widgets_values": [
+        "bilinear",
+        2048,
+        1152,
+        "disabled"
+      ]
+    },
+    {
+      "id": 17,
+      "type": "CLIPTextEncodeSDXL",
+      "pos": [
+        1654.1130859374998,
+        806
+      ],
+      "size": [
+        400,
+        286
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 54
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            57,
+            61,
+            64,
+            73,
+            79
+          ]
+        }
+      ],
+      "title": "Negative Conditioning  [Stage 1]",
+      "properties": {
+        "Node name for S&R": "CLIPTextEncodeSDXL"
+      },
+      "widgets_values": [
+        1024,
+        1024,
+        0,
+        0,
+        1024,
+        1024,
+        "pubic hair, 3d, cropped, loli, censored, bar censoring, mosaic censoring, (simple background:1.0), siblings, bad legs, clones, monochrome, clones, sketch, rought lines, patreon username, logo, bad proportions, artist signature, artist name,",
+        "pubic hair, 3d, cropped, loli, censored, bar censoring, mosaic censoring, (simple background:1.0), siblings, bad legs, clones, monochrome, clones, sketch, rought lines, patreon username, logo, bad proportions, artist signature, artist name,"
+      ]
+    },
+    {
+      "id": 15,
+      "type": "IPAdapterAdvanced",
+      "pos": [
+        2154.1130859375,
+        130
+      ],
+      "size": [
+        270,
+        278
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 49
+        },
+        {
+          "name": "ipadapter",
+          "type": "IPADAPTER",
+          "link": 50
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 86
+        },
+        {
+          "name": "image_negative",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "attn_mask",
+          "shape": 7,
+          "type": "MASK",
+          "link": null
+        },
+        {
+          "name": "clip_vision",
+          "shape": 7,
+          "type": "CLIP_VISION",
+          "link": 52
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            55
+          ]
+        }
+      ],
+      "title": "IP-Adapter Advanced  [Stage 0+1]",
+      "properties": {
+        "Node name for S&R": "IPAdapterAdvanced"
+      },
+      "widgets_values": [
+        0.3,
+        "style transfer precise",
+        "average",
+        0,
+        0.684,
+        "V only"
+      ]
+    },
+    {
+      "id": 16,
+      "type": "CLIPTextEncodeSDXL",
+      "pos": [
+        1654.1130859374998,
+        390
+      ],
+      "size": [
+        400,
+        286
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 53
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            56,
+            60,
+            63,
+            72,
+            78
+          ]
+        }
+      ],
+      "title": "Positive Conditioning  [Stage 1]",
+      "properties": {
+        "Node name for S&R": "CLIPTextEncodeSDXL"
+      },
+      "widgets_values": [
+        1024,
+        1024,
+        0,
+        0,
+        1024,
+        1541,
+        "masterpiece, best quality, indoors, cinematic lighting, amazing quality, very aesthetic, absurdres, best quality, newest, year 2023,   Hisato Azuma, blush, open mouth, bow, animal ears, underwear, panties, sweat, solo focus, indoors, apron, covered nipples, black panties, dutch angle, bow panties, thong, mature female, purple panties, string panties, pants pull,, pink apron, nearly naked apron, horny, naughty face",
+        "masterpiece, best quality, indoors, cinematic lighting, amazing quality, very aesthetic, absurdres, best quality, newest, year 2023,   Hisato Azuma, blush, open mouth, bow, animal ears, underwear, panties, sweat, solo focus, indoors, apron, covered nipples, black panties, dutch angle, bow panties, thong, mature female, purple panties, string panties, pants pull,, pink apron, nearly naked apron, horny, naughty face"
+      ]
+    },
+    {
+      "id": 14,
+      "type": "FreeU_V2",
+      "pos": [
+        1654.1130859374998,
+        130
+      ],
+      "size": [
+        270,
+        130
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 48
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            49,
+            59,
+            62,
+            69,
+            75
+          ]
+        }
+      ],
+      "title": "FreeU V2  [Stage 1]",
+      "properties": {
+        "Node name for S&R": "FreeU_V2"
+      },
+      "widgets_values": [
+        1.1,
+        1.2,
+        0.9,
+        0.2
+      ]
+    },
+    {
+      "id": 11,
+      "type": "LoraLoader",
+      "pos": [
+        482.798828125,
+        130
+      ],
+      "size": [
+        290.4380859375,
+        126
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 42
+        },
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 43
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            44
+          ]
+        },
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            45
+          ]
+        }
+      ],
+      "title": "LoRA Slot 1: Character  [Stage 1]",
+      "properties": {
+        "Node name for S&R": "LoraLoader"
+      },
+      "widgets_values": [
+        "JN_Hisato_Azuma_Illus.safetensors",
+        0.7,
+        0.7
+      ]
+    },
+    {
+      "id": 13,
+      "type": "LoraLoader",
+      "pos": [
+        1263.675,
+        130
+      ],
+      "size": [
+        290.4380859375,
+        126
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 46
+        },
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 47
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            48
+          ]
+        },
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            53,
+            54,
+            70,
+            76
+          ]
+        }
+      ],
+      "title": "LoRA Slot 3: Detail  [Stage 1]",
+      "properties": {
+        "Node name for S&R": "LoraLoader"
+      },
+      "widgets_values": [
+        "add-detail-xl.safetensors",
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "id": 63,
+      "type": "SaveImage",
+      "pos": [
+        1263.675,
+        386
+      ],
+      "size": [
+        270,
+        270
+      ],
+      "flags": {},
+      "order": 27,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 82
+        }
+      ],
+      "outputs": [],
+      "title": "Save Wallpaper  [Stage 6]",
+      "properties": {},
+      "widgets_values": [
+        "wallpaper_[seed]_[steps]"
+      ]
+    },
+    {
+      "id": 21,
+      "type": "KSampler",
+      "pos": [
+        2524.1130859375,
+        130
+      ],
+      "size": [
+        270,
+        262
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 55
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 56
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 57
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 58
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            102
+          ]
+        }
+      ],
+      "title": "Base KSampler  [Stage 2]",
+      "properties": {
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+        586535900579311,
+        "randomize",
+        30,
+        4,
+        "euler",
+        "normal",
+        1
+      ]
+    },
+    {
+      "id": 40,
+      "type": "VAEDecodeTiled",
+      "pos": [
+        2894.1130859375,
+        130
+      ],
+      "size": [
+        270,
+        150
+      ],
+      "flags": {},
+      "order": 22,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 66
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 67
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            68
+          ]
+        }
+      ],
+      "title": "Tiled VAE Decode  [Stage 4]",
+      "properties": {
+        "Node name for S&R": "VAEDecodeTiled"
+      },
+      "widgets_values": [
+        1024,
+        64,
+        64,
+        8
+      ]
+    },
+    {
+      "id": 31,
+      "type": "KSampler",
+      "pos": [
+        2151.7029296875,
+        814.765625
+      ],
+      "size": [
+        338.835546875,
+        262
+      ],
+      "flags": {},
+      "order": 20,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 59
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 60
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 61
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 103
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            65
+          ]
+        }
+      ],
+      "title": "Hires Pass A — Structural Injection  [Stage 3]",
+      "properties": {
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+        586535900579311,
+        "randomize",
+        20,
+        4,
+        "euler",
+        "normal",
+        0.4
+      ]
+    },
+    {
+      "id": 32,
+      "type": "KSampler",
+      "pos": [
+        2569.7615234375,
+        811.43359375
+      ],
+      "size": [
+        270,
+        262
+      ],
+      "flags": {},
+      "order": 21,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 62
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 63
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 64
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 65
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            66
+          ]
+        }
+      ],
+      "title": "Hires Pass B — Polish  [Stage 3]",
+      "properties": {
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+        586535900579311,
+        "randomize",
+        12,
+        6,
+        "euler",
+        "normal",
+        0.3
+      ]
+    }
+  ],
+  "links": [
+    [
+      42,
+      10,
+      0,
+      11,
+      0,
+      "MODEL"
+    ],
+    [
+      43,
+      10,
+      1,
+      11,
+      1,
+      "CLIP"
+    ],
+    [
+      44,
+      11,
+      0,
+      12,
+      0,
+      "MODEL"
+    ],
+    [
+      45,
+      11,
+      1,
+      12,
+      1,
+      "CLIP"
+    ],
+    [
+      46,
+      12,
+      0,
+      13,
+      0,
+      "MODEL"
+    ],
+    [
+      47,
+      12,
+      1,
+      13,
+      1,
+      "CLIP"
+    ],
+    [
+      48,
+      13,
+      0,
+      14,
+      0,
+      "MODEL"
+    ],
+    [
+      49,
+      14,
+      0,
+      15,
+      0,
+      "MODEL"
+    ],
+    [
+      50,
+      4,
+      0,
+      15,
+      1,
+      "IPADAPTER"
+    ],
+    [
+      52,
+      2,
+      0,
+      15,
+      5,
+      "CLIP_VISION"
+    ],
+    [
+      53,
+      13,
+      1,
+      16,
+      0,
+      "CLIP"
+    ],
+    [
+      54,
+      13,
+      1,
+      17,
+      0,
+      "CLIP"
+    ],
+    [
+      55,
+      15,
+      0,
+      21,
+      0,
+      "MODEL"
+    ],
+    [
+      56,
+      16,
+      0,
+      21,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      57,
+      17,
+      0,
+      21,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      58,
+      20,
+      0,
+      21,
+      3,
+      "LATENT"
+    ],
+    [
+      59,
+      14,
+      0,
+      31,
+      0,
+      "MODEL"
+    ],
+    [
+      60,
+      16,
+      0,
+      31,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      61,
+      17,
+      0,
+      31,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      62,
+      14,
+      0,
+      32,
+      0,
+      "MODEL"
+    ],
+    [
+      63,
+      16,
+      0,
+      32,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      64,
+      17,
+      0,
+      32,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      65,
+      31,
+      0,
+      32,
+      3,
+      "LATENT"
+    ],
+    [
+      66,
+      32,
+      0,
+      40,
+      0,
+      "LATENT"
+    ],
+    [
+      67,
+      10,
+      2,
+      40,
+      1,
+      "VAE"
+    ],
+    [
+      68,
+      40,
+      0,
+      42,
+      0,
+      "IMAGE"
+    ],
+    [
+      69,
+      14,
+      0,
+      42,
+      1,
+      "MODEL"
+    ],
+    [
+      70,
+      13,
+      1,
+      42,
+      2,
+      "CLIP"
+    ],
+    [
+      71,
+      10,
+      2,
+      42,
+      3,
+      "VAE"
+    ],
+    [
+      72,
+      16,
+      0,
+      42,
+      4,
+      "CONDITIONING"
+    ],
+    [
+      73,
+      17,
+      0,
+      42,
+      5,
+      "CONDITIONING"
+    ],
+    [
+      74,
+      42,
+      0,
+      44,
+      0,
+      "IMAGE"
+    ],
+    [
+      75,
+      14,
+      0,
+      44,
+      1,
+      "MODEL"
+    ],
+    [
+      76,
+      13,
+      1,
+      44,
+      2,
+      "CLIP"
+    ],
+    [
+      77,
+      10,
+      2,
+      44,
+      3,
+      "VAE"
+    ],
+    [
+      78,
+      16,
+      0,
+      44,
+      4,
+      "CONDITIONING"
+    ],
+    [
+      79,
+      17,
+      0,
+      44,
+      5,
+      "CONDITIONING"
+    ],
+    [
+      80,
+      60,
+      0,
+      61,
+      0,
+      "UPSCALE_MODEL"
+    ],
+    [
+      81,
+      61,
+      0,
+      62,
+      0,
+      "IMAGE"
+    ],
+    [
+      82,
+      62,
+      0,
+      63,
+      0,
+      "IMAGE"
+    ],
+    [
+      84,
+      1,
+      0,
+      64,
+      0,
+      "IMAGE"
+    ],
+    [
+      86,
+      64,
+      0,
+      15,
+      2,
+      "IMAGE"
+    ],
+    [
+      90,
+      67,
+      0,
+      64,
+      1,
+      "IMAGE"
+    ],
+    [
+      91,
+      66,
+      0,
+      64,
+      2,
+      "IMAGE"
+    ],
+    [
+      93,
+      44,
+      0,
+      61,
+      1,
+      "IMAGE"
+    ],
+    [
+      100,
+      72,
+      0,
+      42,
+      6,
+      "BBOX_DETECTOR"
+    ],
+    [
+      101,
+      73,
+      0,
+      44,
+      6,
+      "BBOX_DETECTOR"
+    ],
+    [
+      102,
+      21,
+      0,
+      74,
+      0,
+      "LATENT"
+    ],
+    [
+      103,
+      74,
+      0,
+      31,
+      3,
+      "LATENT"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1.1000000000000003,
+      "offset": [
+        -1136.6340432783368,
+        -49.49292385303422
+      ]
+    },
+    "frontendVersion": "1.42.15"
+  },
+  "version": 0.4
+}

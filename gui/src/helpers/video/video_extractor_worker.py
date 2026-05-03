@@ -29,6 +29,7 @@ class VideoExtractionWorker(QRunnable):
         mute_audio: bool = False,
         use_ffmpeg: bool = False,
         speed: float = 1.0,
+        cuts_ms: Optional[list] = None,
     ):
         super().__init__()
         self.video_path = video_path
@@ -39,7 +40,38 @@ class VideoExtractionWorker(QRunnable):
         self.mute_audio = mute_audio
         self.use_ffmpeg = use_ffmpeg
         self.speed = speed
+        self.cuts_ms = cuts_ms or []
         self.signals = VideoWorkerSignals()
+
+    def _get_keep_regions(self, t_start: float, t_end: float):
+        if not self.cuts_ms:
+            return [(0.0, t_end - t_start)]
+        
+        sorted_cuts = sorted([(max(t_start, c[0]/1000.0), min(t_end, c[1]/1000.0)) for c in self.cuts_ms])
+        merged_cuts = []
+        for c in sorted_cuts:
+            if c[0] >= c[1]:
+                continue
+            if not merged_cuts:
+                merged_cuts.append(c)
+            else:
+                last = merged_cuts[-1]
+                if c[0] <= last[1]:
+                    merged_cuts[-1] = (last[0], max(last[1], c[1]))
+                else:
+                    merged_cuts.append(c)
+                    
+        keep = []
+        current = t_start
+        for c_start, c_end in merged_cuts:
+            if c_start > current:
+                keep.append((current - t_start, c_start - t_start))
+            current = max(current, c_end)
+        
+        if current < t_end:
+            keep.append((current - t_start, t_end - t_start))
+            
+        return keep
 
     def run(self):
         t_start = self.start_ms / 1000.0
@@ -59,9 +91,16 @@ class VideoExtractionWorker(QRunnable):
                 cmd.extend(["-t", str(duration)])
                 cmd.extend(["-i", self.video_path])
 
-                # Filters (Scaling)
-                # Filters (Scaling + Speed)
+                # Filters (Scaling + Speed + Cuts)
                 filters = []
+                
+                keep_regions = self._get_keep_regions(t_start, t_end)
+                
+                # Apply select filter for cuts
+                if self.cuts_ms and keep_regions:
+                    select_expr = "+".join([f"between(t,{r[0]},{r[1]})" for r in keep_regions])
+                    filters.append(f"select='{select_expr}'")
+                    filters.append("setpts=N/FRAME_RATE/TB")
 
                 # 1. Scale
                 if self.target_size:
@@ -84,8 +123,13 @@ class VideoExtractionWorker(QRunnable):
                     cmd.append("-an")
                 else:
                     # Audio Speed: atempo
-                    # atempo is limited to [0.5, 2.0]. Chain filters if needed.
                     audio_filters = []
+                    
+                    if self.cuts_ms and keep_regions:
+                        aselect_expr = "+".join([f"between(t,{r[0]},{r[1]})" for r in keep_regions])
+                        audio_filters.append(f"aselect='{aselect_expr}'")
+                        audio_filters.append("asetpts=N/SR/TB")
+                        
                     if self.speed != 1.0:
                         s = self.speed
                         # Handle speeds > 2.0
@@ -137,9 +181,23 @@ class VideoExtractionWorker(QRunnable):
         original_audio_clip = None  # Track the audio resource separately
 
         try:
+            from moviepy.editor import concatenate_videoclips
             self.signals.progress.emit(10)
-            # 1. Load the main clip
-            clip = VideoFileClip(self.video_path).subclip(t_start, t_end)
+            
+            base_clip = VideoFileClip(self.video_path).subclip(t_start, t_end)
+            keep_regions = self._get_keep_regions(t_start, t_end)
+            
+            if self.cuts_ms and keep_regions:
+                clips = []
+                for start_sec, end_sec in keep_regions:
+                    if end_sec > start_sec:
+                        clips.append(base_clip.subclip(start_sec, end_sec))
+                if clips:
+                    clip = concatenate_videoclips(clips)
+                else:
+                    clip = base_clip
+            else:
+                clip = base_clip
 
             if self.target_size:
                 clip = clip.resize(newsize=self.target_size)

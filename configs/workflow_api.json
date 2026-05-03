@@ -1,0 +1,526 @@
+{
+  "1": {
+    "inputs": {
+      "image": "JN_Hisato_Azuma_Illus.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Style Reference Image  [Stage 0]"
+    }
+  },
+  "2": {
+    "inputs": {
+      "clip_name": "clip_vit_h.safetensors"
+    },
+    "class_type": "CLIPVisionLoader",
+    "_meta": {
+      "title": "CLIP Vision Loader  [Stage 0]"
+    }
+  },
+  "4": {
+    "inputs": {
+      "ipadapter_file": "ip-adapter-plus_sdxl_vit-h.safetensors"
+    },
+    "class_type": "IPAdapterModelLoader",
+    "_meta": {
+      "title": "IP-Adapter Model Loader  [Stage 0]"
+    }
+  },
+  "10": {
+    "inputs": {
+      "ckpt_name": "ultimateHentaiAnimeRXTRexAnime_rxV1.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Base Checkpoint  [Stage 1]"
+    }
+  },
+  "11": {
+    "inputs": {
+      "lora_name": "JN_Hisato_Azuma_Illus.safetensors",
+      "strength_model": 0.75,
+      "strength_clip": 0.75,
+      "model": [
+        "10",
+        0
+      ],
+      "clip": [
+        "10",
+        1
+      ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "LoRA Slot 1: Character"
+    }
+  },
+  "12": {
+    "inputs": {
+      "lora_name": "chargen_oil_painting_v2.safetensors",
+      "strength_model": 0.25,
+      "strength_clip": 0.25,
+      "model": [
+        "11",
+        0
+      ],
+      "clip": [
+        "11",
+        1
+      ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "LoRA Slot 2: Style — strength 0.55→0.25 to fix hair blotching"
+    }
+  },
+  "13": {
+    "inputs": {
+      "lora_name": "add-detail-xl.safetensors",
+      "strength_model": 0.2,
+      "strength_clip": 0.2,
+      "model": [
+        "12",
+        0
+      ],
+      "clip": [
+        "12",
+        1
+      ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "LoRA Slot 3: Detail"
+    }
+  },
+  "14": {
+    "inputs": {
+      "b1": 1,
+      "b2": 1.07,
+      "s1": 0.6,
+      "s2": 0.4,
+      "model": [
+        "13",
+        0
+      ]
+    },
+    "class_type": "FreeU_V2",
+    "_meta": {
+      "title": "FreeU V2  [Stage 1]"
+    }
+  },
+  "15": {
+    "inputs": {
+      "weight": 0.4,
+      "weight_type": "style transfer",
+      "combine_embeds": "average",
+      "start_at": 0,
+      "end_at": 0.5,
+      "embeds_scaling": "V only",
+      "model": [
+        "14",
+        0
+      ],
+      "ipadapter": [
+        "4",
+        0
+      ],
+      "image": [
+        "1",
+        0
+      ],
+      "clip_vision": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "IPAdapterAdvanced",
+    "_meta": {
+      "title": "IP-Adapter Advanced  [Stage 0+1]"
+    }
+  },
+  "16": {
+    "inputs": {
+      "width": 1344,
+      "height": 768,
+      "crop_w": 0,
+      "crop_h": 0,
+      "target_width": 1344,
+      "target_height": 768,
+      "text_g": "masterpiece, best quality, (solo:1.4), (1girl:1.3), indoors, cinematic lighting, amazing quality, very aesthetic, absurdres, best quality, newest, year 2023, Hisato Azuma, blush, open mouth, bow, underwear, panties, sweat, solo focus, indoors, apron, covered nipples, black panties, bow panties, thong, mature female, purple panties, string panties, pants pull, pink apron, nearly naked apron, horny, naughty face",
+      "text_l": "masterpiece, best quality, (solo:1.4), (1girl:1.3), indoors, cinematic lighting, amazing quality, very aesthetic, absurdres, best quality, newest, year 2023, Hisato Azuma, blush, open mouth, bow, underwear, panties, sweat, solo focus, indoors, apron, covered nipples, black panties, bow panties, thong, mature female, purple panties, string panties, pants pull, pink apron, nearly naked apron, horny, naughty face",
+      "clip": [
+        "13",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncodeSDXL",
+    "_meta": {
+      "title": "Positive Conditioning  [Stage 1]"
+    }
+  },
+  "17": {
+    "inputs": {
+      "width": 1344,
+      "height": 768,
+      "crop_w": 0,
+      "crop_h": 0,
+      "target_width": 1344,
+      "target_height": 768,
+      "text_g": "pubic hair, 3d, cropped, loli, censored, bar censoring, mosaic censoring, male, boy, man, 1boy, male hand, male arm, 2girls, 2boys, multiple characters, duo, couple, (simple background:1.0), siblings, bad legs, clones, monochrome, sketch, rough lines, patreon username, logo, bad proportions, artist signature, artist name",
+      "text_l": "pubic hair, 3d, cropped, loli, censored, bar censoring, mosaic censoring, male, boy, man, 1boy, male hand, male arm, 2girls, 2boys, multiple characters, duo, couple, (simple background:1.0), siblings, bad legs, clones, monochrome, sketch, rough lines, patreon username, logo, bad proportions, artist signature, artist name",
+      "clip": [
+        "13",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncodeSDXL",
+    "_meta": {
+      "title": "Negative Conditioning  [Stage 1]"
+    }
+  },
+  "20": {
+    "inputs": {
+      "width": 1344,
+      "height": 768,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Latent 1024x1024  [Stage 2]"
+    }
+  },
+  "21": {
+    "inputs": {
+      "seed": 403379087452807,
+      "steps": 30,
+      "cfg": 6,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": [
+        "15",
+        0
+      ],
+      "positive": [
+        "16",
+        0
+      ],
+      "negative": [
+        "17",
+        0
+      ],
+      "latent_image": [
+        "20",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "Base KSampler  [Stage 2]"
+    }
+  },
+  "31": {
+    "inputs": {
+      "seed": 403379087452807,
+      "steps": 20,
+      "cfg": 6,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 0.42,
+      "model": [
+        "14",
+        0
+      ],
+      "positive": [
+        "16",
+        0
+      ],
+      "negative": [
+        "17",
+        0
+      ],
+      "latent_image": [
+        "79",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "Hires Pass A  [Stage 3]"
+    }
+  },
+  "40": {
+    "inputs": {
+      "tile_size": 1024,
+      "overlap": 64,
+      "temporal_size": 64,
+      "temporal_overlap": 8,
+      "samples": [
+        "31",
+        0
+      ],
+      "vae": [
+        "10",
+        2
+      ]
+    },
+    "class_type": "VAEDecodeTiled",
+    "_meta": {
+      "title": "Tiled VAE Decode  [Stage 4]"
+    }
+  },
+  "42": {
+    "inputs": {
+      "guide_size": 384,
+      "guide_size_for": true,
+      "max_size": 1024,
+      "seed": 403379087452807,
+      "steps": 20,
+      "cfg": 5,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 0.28,
+      "feather": 5,
+      "noise_mask": true,
+      "force_inpaint": true,
+      "bbox_threshold": 0.5,
+      "bbox_dilation": 10,
+      "bbox_crop_factor": 3,
+      "sam_detection_hint": "center-1",
+      "sam_dilation": 0,
+      "sam_threshold": 0.93,
+      "sam_bbox_expansion": 0,
+      "sam_mask_hint_threshold": 0.7,
+      "sam_mask_hint_use_negative": "False",
+      "drop_size": 10,
+      "wildcard": "",
+      "cycle": 1,
+      "inpaint_model": false,
+      "noise_mask_feather": 20,
+      "tiled_encode": false,
+      "tiled_decode": false,
+      "image": [
+        "40",
+        0
+      ],
+      "model": [
+        "14",
+        0
+      ],
+      "clip": [
+        "13",
+        1
+      ],
+      "vae": [
+        "10",
+        2
+      ],
+      "positive": [
+        "16",
+        0
+      ],
+      "negative": [
+        "17",
+        0
+      ],
+      "bbox_detector": [
+        "72",
+        0
+      ]
+    },
+    "class_type": "FaceDetailer",
+    "_meta": {
+      "title": "Face Detailer  [Stage 4]"
+    }
+  },
+  "44": {
+    "inputs": {
+      "guide_size": 256,
+      "guide_size_for": true,
+      "max_size": 768,
+      "seed": 403379087452807,
+      "steps": 15,
+      "cfg": 5,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 0.27,
+      "feather": 5,
+      "noise_mask": true,
+      "force_inpaint": true,
+      "bbox_threshold": 0.45,
+      "bbox_dilation": 8,
+      "bbox_crop_factor": 3,
+      "sam_detection_hint": "center-1",
+      "sam_dilation": 0,
+      "sam_threshold": 0.93,
+      "sam_bbox_expansion": 0,
+      "sam_mask_hint_threshold": 0.7,
+      "sam_mask_hint_use_negative": "False",
+      "drop_size": 10,
+      "wildcard": "",
+      "cycle": 1,
+      "inpaint_model": false,
+      "noise_mask_feather": 20,
+      "tiled_encode": false,
+      "tiled_decode": false,
+      "image": [
+        "42",
+        0
+      ],
+      "model": [
+        "14",
+        0
+      ],
+      "clip": [
+        "13",
+        1
+      ],
+      "vae": [
+        "10",
+        2
+      ],
+      "positive": [
+        "16",
+        0
+      ],
+      "negative": [
+        "17",
+        0
+      ],
+      "bbox_detector": [
+        "73",
+        0
+      ]
+    },
+    "class_type": "FaceDetailer",
+    "_meta": {
+      "title": "Hand Detailer  [Stage 4]"
+    }
+  },
+  "61": {
+    "inputs": {
+      "upscale_model": [
+        "77",
+        0
+      ],
+      "image": [
+        "44",
+        0
+      ]
+    },
+    "class_type": "ImageUpscaleWithModel",
+    "_meta": {
+      "title": "ESRGAN 4x Upscale  [Stage 6]"
+    }
+  },
+  "62": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "width": 3840,
+      "height": 2160,
+      "crop": "disabled",
+      "image": [
+        "61",
+        0
+      ]
+    },
+    "class_type": "ImageScale",
+    "_meta": {
+      "title": "Lanczos Downscale to 4K  [Stage 6]"
+    }
+  },
+  "63": {
+    "inputs": {
+      "filename_prefix": "wallpaper_[seed]_[steps]",
+      "images": [
+        "62",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Wallpaper  [Stage 6]"
+    }
+  },
+  "72": {
+    "inputs": {
+      "text": "face",
+      "blur": 7,
+      "threshold": 0.4,
+      "dilation_factor": 4
+    },
+    "class_type": "CLIPSegDetectorProvider",
+    "_meta": {
+      "title": "CLIPSeg Face Detector  [Stage 4]"
+    }
+  },
+  "73": {
+    "inputs": {
+      "text": "hands",
+      "blur": 7,
+      "threshold": 0.4,
+      "dilation_factor": 4
+    },
+    "class_type": "CLIPSegDetectorProvider",
+    "_meta": {
+      "title": "CLIPSeg Hand Detector  [Stage 4]"
+    }
+  },
+  "77": {
+    "inputs": {
+      "model_name": "RealESRGAN_x4plus_anime_6B.pth"
+    },
+    "class_type": "UpscaleModelLoader",
+    "_meta": {
+      "title": "Load Upscale Model  [Stage 6]"
+    }
+  },
+  "78": {
+    "inputs": {
+      "upscale_model": [
+        "77",
+        0
+      ],
+      "image": [
+        "80",
+        0
+      ]
+    },
+    "class_type": "ImageUpscaleWithModel",
+    "_meta": {
+      "title": "ESRGAN Upscale for Hires  [Stage 3]"
+    }
+  },
+  "79": {
+    "inputs": {
+      "pixels": [
+        "78",
+        0
+      ],
+      "vae": [
+        "10",
+        2
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE Encode  [Stage 3]"
+    }
+  },
+  "80": {
+    "inputs": {
+      "samples": [
+        "21",
+        0
+      ],
+      "vae": [
+        "10",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode  [Stage 3]"
+    }
+  }
+}

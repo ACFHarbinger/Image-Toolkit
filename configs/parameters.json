@@ -1,0 +1,406 @@
+{
+  "_info": {
+    "description": "Tunable parameter reference for the 7-stage ComfyUI anime wallpaper pipeline.",
+    "usage": "Edit values here, then mirror them into the corresponding node inputs in workflow_api.json. Node IDs are cross-referenced in each section.",
+    "workflow_file": "workflow_api.json"
+  },
+
+  "models": {
+    "checkpoint": {
+      "node_id": "10",
+      "ckpt_name": "illustriousXL20_v20.safetensors"
+    },
+    "clip_vision": {
+      "node_id": "2",
+      "clip_name": "clip_vision/clip_vit_h.safetensors",
+      "notes": "ViT-H is recommended for SDXL IP-Adapter. Requires models/clip_vision/ directory."
+    },
+    "ipadapter": {
+      "node_id": "4",
+      "ipadapter_file": "ip-adapter-plus_sdxl_vit-h.safetensors",
+      "notes": "Use ip-adapter-plus_xl.safetensors for stronger style transfer. Located in models/ipadapter/."
+    },
+    "esrgan": {
+      "node_id": "60",
+      "model_name": "4x-AnimeSharp.pth",
+      "alternatives": [
+        "4x_foolhardy_Remacri.pth",
+        "4x_NMKD-Siax_200k.pth"
+      ],
+      "notes": "Place in models/upscale_models/. AnimeSharp recommended; Remacri if AnimeSharp over-sharpens thin outlines."
+    },
+    "lora_stack": {
+      "slot_1": {
+        "node_id": "11",
+        "purpose": "character",
+        "lora_name": "JN_Hisato_Azuma_Illus.safetensors",
+        "strength_model": 0.85,
+        "strength_clip": 0.85,
+        "range_model": [0.70, 0.95],
+        "notes": "Reduce below 0.75 if anatomy deforms."
+      },
+      "slot_2": {
+        "node_id": "12",
+        "purpose": "style",
+        "lora_name": "chargen_oil_painting_v2.safetensors",
+        "strength_model": 0.55,
+        "strength_clip": 0.55,
+        "range_model": [0.40, 0.70],
+        "notes": "Reduce if colors look artificially pastel."
+      },
+      "slot_3": {
+        "node_id": "13",
+        "purpose": "detail",
+        "lora_name": "add-detail-xl.safetensors",
+        "strength_model": 0.40,
+        "strength_clip": 0.40,
+        "range_model": [0.25, 0.55],
+        "notes": "Reduce if texture noise bleeds into backgrounds."
+      }
+    },
+    "yolo_detectors": {
+      "face": {
+        "node_id": "41",
+        "model_name": "bbox/face_yolov8m.pt",
+        "notes": "Use yolov8m (medium), not yolov8n (nano). Nano misses small faces in wide shots."
+      },
+      "hand": {
+        "node_id": "43",
+        "model_name": "bbox/hand_yolov8s.pt",
+        "alternatives": ["bbox/person_yolov8m-seg.pt"],
+        "notes": "hand_yolov8s for hands only. person_yolov8m-seg for full-body anatomy correction."
+      }
+    }
+  },
+
+  "stage_0_aesthetic_prior": {
+    "nodes": ["1", "2", "4", "15"],
+    "optional": true,
+    "notes": "Disable Stage 0 by disconnecting node 15 (IPAdapterAdvanced) and wiring node 14 (FreeU) directly to the KSamplers.",
+    "ipadapter": {
+      "node_id": "15",
+      "weight": 0.30,
+      "weight_range": [0.20, 0.45],
+      "weight_type": "style transfer precise",
+      "weight_type_options": [
+        "linear",
+        "ease in",
+        "ease out",
+        "ease in-out",
+        "style transfer",
+        "style transfer precise",
+        "composition"
+      ],
+      "combine_embeds": "average",
+      "combine_embeds_options": ["concat", "add", "subtract", "average", "norm average"],
+      "start_at": 0.0,
+      "end_at": 1.0,
+      "embeds_scaling": "V only",
+      "notes": "Above 0.45 suppresses character LoRAs. Below 0.20 is imperceptible."
+    },
+    "sdxl_aesthetic_conditioning": {
+      "notes": "Aesthetic score is encoded implicitly via CLIPTextEncodeSDXL width/height parameters. Positive uses large dimensions (4096x4096) to signal high quality. Negative uses small dimensions (512x512) to signal low quality. This exploits SDXL's training-time size conditioning.",
+      "positive_width": 4096,
+      "positive_height": 4096,
+      "negative_width": 512,
+      "negative_height": 512
+    }
+  },
+
+  "stage_1_conditioning": {
+    "nodes": ["10", "11", "12", "13", "14", "16", "17"],
+    "freeu_v2": {
+      "node_id": "14",
+      "b1": 1.1,
+      "b2": 1.2,
+      "s1": 0.9,
+      "s2": 0.2,
+      "tuning_guide": {
+        "if_output_is_blurry": "increase s1 toward 0.95",
+        "if_structural_ringing_at_edges": "decrease b2 toward 1.1",
+        "if_output_looks_flat": "increase b1 toward 1.15",
+        "if_over_sharpened": "decrease s1 toward 0.85"
+      }
+    },
+    "positive_prompt": {
+      "node_id": "16",
+      "text_g": "masterpiece, best quality, ultra-detailed, 1girl, solo, hisato_azuma, school uniform, (dynamic angle:1.15), (wide shot:1.2), breathtaking fantasy landscape, vibrant colors, ray tracing, cinematic lighting, depth of field",
+      "text_l": "masterpiece, best quality, ultra-detailed, 1girl, solo, hisato_azuma, school uniform, (dynamic angle:1.15), (wide shot:1.2), breathtaking fantasy landscape, vibrant colors, ray tracing, cinematic lighting, depth of field",
+      "attention_weight_guide": {
+        "composition_keywords": "1.1 to 1.2  (e.g. dynamic angle, wide shot)",
+        "character_lora_trigger": "1.0  (default — do not exceed)",
+        "quality_boosters": "1.0  (do not weight these)",
+        "max_safe_weight": 1.4
+      }
+    },
+    "negative_prompt": {
+      "node_id": "17",
+      "text_g": "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, artist name, 3d, realistic",
+      "text_l": "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, artist name, 3d, realistic"
+    }
+  },
+
+  "stage_2_base_generation": {
+    "nodes": ["20", "21"],
+    "latent": {
+      "node_id": "20",
+      "width": 1344,
+      "height": 768,
+      "batch_size": 1,
+      "notes": "1344x768 is the native SDXL 16:9 landscape resolution. Do not exceed this for base generation."
+    },
+    "ksampler": {
+      "node_id": "21",
+      "seed": 42,
+      "steps": 30,
+      "steps_range": [28, 32],
+      "cfg": 6.5,
+      "cfg_range": [5.5, 7.0],
+      "sampler_name": "dpmpp_2m_sde",
+      "scheduler": "karras",
+      "scheduler_alternatives": ["exponential"],
+      "denoise": 1.0,
+      "tuning_guide": {
+        "if_over_saturated_or_blown_highlights": "reduce cfg below 6.5",
+        "if_backgrounds_have_over_smooth_gradients": "switch scheduler to exponential",
+        "if_cfg_must_exceed_7.5": "add ModelSamplingDiscrete node with zsnr=true"
+      }
+    }
+  },
+
+  "stage_3_hires_fix": {
+    "nodes": ["30", "31", "32"],
+    "nn_latent_upscale": {
+      "node_id": "30",
+      "version": "SDXL",
+      "upscale": 1.5,
+      "input_resolution": "1344x768",
+      "output_resolution": "2016x1152"
+    },
+    "hires_pass_a": {
+      "node_id": "31",
+      "purpose": "structural injection — hallucinates new fine detail",
+      "seed": 123,
+      "steps": 20,
+      "steps_range": [18, 22],
+      "cfg": 6.0,
+      "sampler_name": "dpmpp_2m_sde",
+      "scheduler": "karras",
+      "denoise": 0.55,
+      "denoise_range": [0.50, 0.58],
+      "tuning_guide": {
+        "if_composition_drifts": "lower denoise toward 0.45",
+        "if_output_too_similar_to_base": "raise denoise toward 0.60"
+      }
+    },
+    "hires_pass_b": {
+      "node_id": "32",
+      "purpose": "polish — removes aliasing without altering structure",
+      "seed": 456,
+      "steps": 12,
+      "steps_range": [10, 15],
+      "cfg": 6.0,
+      "sampler_name": "euler",
+      "sampler_alternatives": ["dpmpp_2m"],
+      "scheduler": "normal",
+      "denoise": 0.30,
+      "denoise_range": [0.25, 0.32],
+      "tuning_guide": {
+        "if_residual_background_aliasing": "raise denoise toward 0.32",
+        "if_structure_changes_in_pass_b": "lower denoise toward 0.25"
+      }
+    }
+  },
+
+  "stage_4_detailing": {
+    "nodes": ["40", "41", "42", "43", "44"],
+    "vae_decode": {
+      "node_id": "40",
+      "tile_size": 512,
+      "tile_size_notes": "512 keeps peak VRAM under 6GB at 2016x1152. Lower to 256 on 8GB cards."
+    },
+    "face_detailer": {
+      "node_id": "42",
+      "detector_node": "41",
+      "guide_size": 384,
+      "max_size": 1024,
+      "seed": 789,
+      "steps": 20,
+      "cfg": 5.0,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 0.34,
+      "denoise_range": [0.30, 0.38],
+      "feather": 5,
+      "noise_mask": true,
+      "force_inpaint": true,
+      "bbox_threshold": 0.50,
+      "bbox_threshold_range": [0.45, 0.60],
+      "bbox_dilation": 10,
+      "bbox_crop_factor": 3.0,
+      "tuning_guide": {
+        "if_luminance_seam_around_face": "lower denoise toward 0.28",
+        "if_missing_small_faces": "lower bbox_threshold toward 0.40",
+        "if_false_positive_detections": "raise bbox_threshold toward 0.60"
+      }
+    },
+    "hand_detailer": {
+      "node_id": "44",
+      "detector_node": "43",
+      "guide_size": 256,
+      "max_size": 768,
+      "seed": 1011,
+      "steps": 15,
+      "cfg": 5.0,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 0.27,
+      "denoise_range": [0.25, 0.30],
+      "feather": 5,
+      "noise_mask": true,
+      "force_inpaint": true,
+      "bbox_threshold": 0.45,
+      "bbox_dilation": 8,
+      "bbox_crop_factor": 3.0,
+      "notes": "Run after face detailer (takes node 42 output, not node 40). Denoise intentionally lower than face — correct topology, do not regenerate the hand."
+    }
+  },
+
+  "stage_5_color_grading": {
+    "nodes": ["50", "51", "52"],
+    "color_correction": {
+      "node_id": "50",
+      "brightness": 0.02,
+      "brightness_range": [0.0, 0.05],
+      "contrast": 1.07,
+      "contrast_range": [1.05, 1.10],
+      "saturation": 1.10,
+      "saturation_range": [1.08, 1.15],
+      "sharpness": 1.0,
+      "blur": 0,
+      "gaussian_blur": 0.0,
+      "flip": "none",
+      "notes": "Never adjust hue — IXL color relationships are internally consistent. Saturation value is a multiplier (1.0 = no change)."
+    },
+    "unsharp_mask": {
+      "node_id": "51",
+      "radius": 2,
+      "percent": 45,
+      "percent_range": [35, 55],
+      "threshold": 10,
+      "notes": "Apply before film grain. Grain on a blurry image looks wrong."
+    },
+    "film_grain": {
+      "node_id": "52",
+      "density": 0.35,
+      "intensity": 0.03,
+      "intensity_range": [0.02, 0.04],
+      "highlights": 1.0,
+      "supersample_factor": 2,
+      "notes": "Add grain before ESRGAN upscale. Grain added after 4x upscale will look blocky due to pixel-level noise scaling."
+    }
+  },
+
+  "stage_6_super_resolution": {
+    "nodes": ["60", "61", "62", "63"],
+    "esrgan_upscale": {
+      "node_id": "61",
+      "scale_factor": 4,
+      "input_resolution": "2016x1152",
+      "output_resolution": "8064x4608",
+      "tiling_notes": "Standard ImageUpscaleWithModel does not support tiling natively. For tiled inference install 'ComfyUI-Ultimate-SD-Upscale' and use the UltimateSDUpscale node, or patch ImageUpscaleWithModel. Recommended tile_size=512, overlap=32."
+    },
+    "lanczos_rescale": {
+      "node_id": "62",
+      "upscale_method": "lanczos",
+      "crop": "disabled",
+      "targets": {
+        "4K": { "width": 3840, "height": 2160 },
+        "1440p": { "width": 2560, "height": 1440 }
+      }
+    },
+    "save": {
+      "node_id": "63",
+      "filename_prefix": "wallpaper_[seed]_[steps]",
+      "notes": "ComfyUI saves as PNG by default (lossless). Output goes to ComfyUI/output/."
+    }
+  },
+
+  "extensions_required": [
+    {
+      "name": "ComfyUI_IPAdapter_plus",
+      "url": "https://github.com/cubiq/ComfyUI_IPAdapter_plus",
+      "provides_nodes": ["IPAdapterAdvanced", "IPAdapterModelLoader"],
+      "also_requires": "CLIPVisionLoader (built-in ComfyUI)"
+    },
+    {
+      "name": "ComfyUI-NNLatentUpscale",
+      "url": "https://github.com/Ttl/ComfyUi_NNLatentUpscale",
+      "provides_nodes": ["NNLatentUpscale"]
+    },
+    {
+      "name": "ComfyUI-Impact-Pack",
+      "url": "https://github.com/ltdrdata/ComfyUI-Impact-Pack",
+      "provides_nodes": [
+        "FaceDetailer",
+        "UltralyticsDetectorProvider",
+        "VAEDecodeTiled"
+      ],
+      "notes": "Also requires Ultralytics for YOLOv8. Install via: pip install ultralytics"
+    },
+    {
+      "name": "was-node-suite-comfyui",
+      "url": "https://github.com/WASasquatch/was-node-suite-comfyui",
+      "provides_nodes": [
+        "Image Adjustments",
+        "Image Unsharp Mask",
+        "Image Film Grain"
+      ]
+    },
+    {
+      "name": "ComfyUI-Ultimate-SD-Upscale (optional)",
+      "url": "https://github.com/ssitu/ComfyUI_UltimateSDUpscale",
+      "provides_nodes": ["UltimateSDUpscale"],
+      "notes": "Only needed if you want tiled ESRGAN inference. Not required for basic Stage 6 operation."
+    }
+  ],
+
+  "model_files_required": {
+    "checkpoints": [
+      "models/checkpoints/illustriousXL20_v20.safetensors"
+    ],
+    "loras": [
+      "models/loras/JN_Hisato_Azuma_Illus.safetensors",
+      "models/loras/chargen_oil_painting_v2.safetensors",
+      "models/loras/add-detail-xl.safetensors"
+    ],
+    "clip_vision": [
+      "models/clip_vision/clip_vit_h.safetensors"
+    ],
+    "ipadapter": [
+      "models/ipadapter/ip-adapter-plus_sdxl_vit-h.safetensors"
+    ],
+    "upscale_models": [
+      "models/upscale_models/4x-AnimeSharp.pth"
+    ],
+    "yolo_detectors": [
+      "models/ultralytics/bbox/face_yolov8m.pt",
+      "models/ultralytics/bbox/hand_yolov8s.pt"
+    ]
+  },
+
+  "quick_troubleshooting": {
+    "character_anatomy_deforms": "Reduce node 11 strength_model below 0.75",
+    "colors_artificially_pastel": "Reduce node 12 strength_model below 0.55",
+    "output_looks_soft_or_blurry": "Increase node 14 s1 toward 0.95",
+    "structural_ringing_at_edges": "Decrease node 14 b2 toward 1.1",
+    "over_saturated_skies": "Reduce node 21 cfg below 6.0",
+    "composition_drifts_in_hires": "Lower node 31 denoise toward 0.45",
+    "hires_output_identical_to_base": "Raise node 31 denoise toward 0.60",
+    "wrong_finger_counts": "Verify node 43 model_name is hand_yolov8s.pt; lower node 44 bbox_threshold to 0.40",
+    "luminance_seam_around_face": "Lower node 42 denoise toward 0.28",
+    "output_looks_flat_or_desaturated": "Increase node 50 saturation toward 1.15",
+    "esrgan_out_of_vram": "Install UltimateSDUpscale extension and switch node 61 to UltimateSDUpscale with tile_size=512",
+    "visible_tile_seams_in_4k": "Increase overlap parameter to 48-64 in tiled upscale node"
+  }
+}
