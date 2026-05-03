@@ -73,7 +73,7 @@ class ComfyUIManager:
     # Lifecycle
     # ------------------------------------------------------------------
 
-    def start(self, port: int = DEFAULT_PORT) -> int:
+    def start(self, port: int = DEFAULT_PORT, enable_manager: bool = False) -> int:
         """Start the ComfyUI server and return the port it is listening on."""
         if self.is_running:
             return self._port
@@ -89,6 +89,9 @@ class ComfyUIManager:
             "--listen", self._host,
             "--port", str(self._port),
         ]
+
+        if enable_manager:
+            cmd.append("--enable-manager")
 
         self._process = subprocess.Popen(
             cmd,

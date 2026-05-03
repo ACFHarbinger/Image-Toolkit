@@ -21,9 +21,25 @@ def main(cfg: DictConfig) -> None:
 
     elif command == "comfyui":
         logger.info("Starting ComfyUI headlessly...")
+        cmd = [sys.executable, "ComfyUI/main.py"]
+        
+        # Forward specific flags if defined in config or passed via CLI
+        comfy_cfg = cfg.get("comfyui", {})
+        
+        listen = comfy_cfg.get("listen")
+        if listen:
+            cmd.extend(["--listen", str(listen)])
+            
+        port = comfy_cfg.get("port")
+        if port:
+            cmd.extend(["--port", str(port)])
+
+        if comfy_cfg.get("enable_manager", False):
+            cmd.append("--enable-manager")
+            
         try:
             # sys.executable is the python from .venv
-            subprocess.run([sys.executable, "ComfyUI/main.py"], check=True)
+            subprocess.run(cmd, check=True)
         except subprocess.CalledProcessError as e:
             logger.error(f"ComfyUI failed to run or exited with error: {e}")
             sys.exit(e.returncode)

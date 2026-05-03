@@ -14,6 +14,10 @@ if __name__ == "__main__":
 
     # Check if CLI arguments are provided
     if len(sys.argv) > 1:
+        # If the first argument is a flag, default to 'gui' command
+        if sys.argv[1].startswith("-") and sys.argv[1] not in ["-h", "--help"]:
+            sys.argv.insert(1, "gui")
+            
         command, opts = parse_params()
         if command == "gui":
             sys.exit(launch_app(opts))
@@ -21,4 +25,4 @@ if __name__ == "__main__":
             dispatch_command(command, opts)
     else:
         # Default to GUI
-        sys.exit(launch_app({"no_dropdown": False}))
+        sys.exit(launch_app({"no_dropdown": False, "enable_manager": False}))

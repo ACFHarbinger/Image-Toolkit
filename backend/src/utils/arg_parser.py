@@ -211,6 +211,9 @@ def add_gui_args(parser):
     parser.add_argument(
         "--no_dropdown", action="store_true", help="Disable dropdown menu"
     )
+    parser.add_argument(
+        "--enable-manager", action="store_true", help="Enable internal manager features"
+    )
     return parser
 
 

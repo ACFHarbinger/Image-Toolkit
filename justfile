@@ -335,19 +335,27 @@ embed-icon model_path image_path:
         data.embed_metadata.image_path="{{ image_path }}"
 
 # Start ComfyUI headlessly (without the main desktop app)
-comfyui:
+comfyui args="":
     @echo "🎨 Starting ComfyUI server..."
-    source .venv/bin/activate && python -m backend.src.controller.dispatcher command=comfyui
+    source .venv/bin/activate && python -m backend.src.controller.dispatcher command=comfyui {{ args }}
 
 # Stop any running ComfyUI instances
 comfyui-stop:
     @echo "🛑 Stopping ComfyUI server..."
     -pkill -f "ComfyUI/main.py"
 
+# Start the Desktop GUI Application
+gui args="":
+    @echo "🐍 Starting Image-Toolkit Desktop App..."
+    source .venv/bin/activate && python main.py gui {{ args }}
+
+# Start the Desktop GUI with ComfyUI-Manager integration enabled
+gui-manager:
+    @echo "🛠️ Starting Image-Toolkit with Manager integration..."
+    source .venv/bin/activate && python main.py gui --enable-manager
+
 # --- Legacy/Helper ---
 
-
-# Starting Python/PySide6 app
-python:
-    @echo "🐍 Starting Python/PySide6 app..."
-    source .venv/bin/activate && python main.py
+# Legacy alias for 'gui'
+python args="":
+    source .venv/bin/activate && python main.py {{ args }}

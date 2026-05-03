@@ -157,8 +157,8 @@
       "crop_h": 0,
       "target_width": 1344,
       "target_height": 1322,
-      "text_g": "pubic hair, 3d, cropped, loli, censored, bar censoring, mosaic censoring, (multiple characters:1.5), (duo:1.5), (extra limbs:1.5), (hand:1.5), (arm:1.5), (male:1.5) 2girls, 2boys, multiple characters, duo, couple, (simple background:1.0), siblings, bad legs, clones, monochrome, sketch, rough lines, patreon username, logo, bad proportions, artist signature, artist name, (red glow:1.0), (orange skin:1.0), (neon red skin:1.0)",
-      "text_l": "pubic hair, 3d, cropped, loli, censored, bar censoring, mosaic censoring, (multiple characters:1.5), (duo:1.5), (extra limbs:1.5), (hand:1.5), (arm:1.5), (male:1.5) 2girls, 2boys, multiple characters, duo, couple, (simple background:1.0), siblings, bad legs, clones, monochrome, sketch, rough lines, patreon username, logo, bad proportions, artist signature, artist name, (red glow:1.0), (orange skin:1.0), (neon red skin:1.0)",
+      "text_g": "pubic hair, 3d, cropped, loli, censored, bar censoring, mosaic censoring, (multiple characters:1.5), (duo:1.5), (extra limbs:1.5), (hand:1.5), (arm:1.5), (male:1.5) 2girls, 2boys, multiple characters, duo, couple, (simple background:1.0), siblings, bad legs, clones, monochrome, sketch, rough lines, patreon username, logo, bad proportions, artist signature, artist name, (red glow:1.1), (orange skin:1.1), (neon red skin:1.1)",
+      "text_l": "pubic hair, 3d, cropped, loli, censored, bar censoring, mosaic censoring, (multiple characters:1.5), (duo:1.5), (extra limbs:1.5), (hand:1.5), (arm:1.5), (male:1.5) 2girls, 2boys, multiple characters, duo, couple, (simple background:1.0), siblings, bad legs, clones, monochrome, sketch, rough lines, patreon username, logo, bad proportions, artist signature, artist name, (red glow:1.1), (orange skin:1.1), (neon red skin:1.1)",
       "clip": [
         "13",
         1
@@ -182,7 +182,7 @@
   },
   "21": {
     "inputs": {
-      "seed": 341839241310061,
+      "seed": 953245433587857,
       "steps": 30,
       "cfg": 5,
       "sampler_name": "euler",
@@ -212,7 +212,7 @@
   },
   "31": {
     "inputs": {
-      "seed": 341839241310061,
+      "seed": 953245433587857,
       "steps": 20,
       "cfg": 5,
       "sampler_name": "euler",
@@ -265,7 +265,7 @@
       "guide_size": 384,
       "guide_size_for": true,
       "max_size": 1024,
-      "seed": 341839241310061,
+      "seed": 953245433587857,
       "steps": 20,
       "cfg": 5,
       "sampler_name": "dpmpp_2m_sde",
@@ -329,7 +329,7 @@
       "guide_size": 256,
       "guide_size_for": true,
       "max_size": 768,
-      "seed": 341839241310061,
+      "seed": 953245433587857,
       "steps": 15,
       "cfg": 5,
       "sampler_name": "euler",
@@ -554,7 +554,7 @@
   },
   "95": {
     "inputs": {
-      "seed": 341839241310061,
+      "seed": 953245433587857,
       "strength": 0.05,
       "image": [
         "78",
