@@ -79,9 +79,14 @@ class BaSiCWrapper:
             self.baselines = np.ones(N, np.float32)
             return self.flat_field, self.dark_field, self.baselines
 
-        # Stack as (N, C, H, W) float32 tensor on device
+        # Normalise all frames to the first frame's spatial size before stacking.
+        # Frames may have the same width but different heights after _normalise_widths
+        # (which preserves aspect ratio), causing torch.stack to fail.
+        ref_h, ref_w = images[0].shape[:2]
         frames = []
         for img in images:
+            if img.shape[:2] != (ref_h, ref_w):
+                img = cv2.resize(img, (ref_w, ref_h), interpolation=cv2.INTER_AREA)
             t = torch.from_numpy(img).permute(2, 0, 1).float().to(self.device) / 255.0
             frames.append(t)
         X = torch.stack(frames)  # (N, 3, H, W)
@@ -190,7 +195,18 @@ class BaSiCWrapper:
 
         b = baseline_override if baseline_override is not None else 1.0
         img_f = img.astype(np.float32) / 255.0
-        corrected = (img_f / max(b, 1e-4) - self.dark_field) / (self.flat_field + 1e-6)
+
+        # Resize stored flat/dark fields to match the input frame if sizes differ
+        # (occurs when frames have different heights after width-normalisation).
+        flat = self.flat_field
+        dark = self.dark_field
+        h, w = img.shape[:2]
+        if flat.shape[:2] != (h, w):
+            flat = cv2.resize(flat, (w, h), interpolation=cv2.INTER_LINEAR)
+            flat = np.clip(flat, 0.5, 2.0)
+            dark = cv2.resize(dark, (w, h), interpolation=cv2.INTER_LINEAR)
+
+        corrected = (img_f / max(b, 1e-4) - dark) / (flat + 1e-6)
         return np.clip(corrected * 255.0, 0, 255).astype(np.uint8)
 
     def process_batch(self, images: List[np.ndarray]) -> List[np.ndarray]:

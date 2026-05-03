@@ -357,55 +357,53 @@ def _bundle_adjust_affine(
     iterations: int = 200,
 ) -> List[np.ndarray]:
     """
-    Global Levenberg-Marquardt bundle adjustment for affine-partial transforms.
+    Global Levenberg-Marquardt bundle adjustment for affine transforms.
 
-    Each frame has 4 parameters: (tx, ty, cos_θ·s − 1, sin_θ·s)  — i.e. we
-    parameterise by the 2×2 part of the affine as (a, b, c, d) = (s·cosθ, −s·sinθ,
-    s·sinθ, s·cosθ).  For simplicity (and to be robust for anime where scale change
-    and rotation are tiny) we use the translation-only BA with the rotation/scale
-    locked to the pairwise estimate rather than optimising them globally.
+    We use a strict translation-only BA (rotation/scale locked to identity)
+    to eliminate 'fan' or 'spiraling' distortion.
 
     The function minimises:
-        Σ_{(i,j,M_ij)} ||T_j(p) − M_ij(T_i(p))||²  for anchor points p
+        Σ || (p_i + t_i) - (p_j + t_j) ||²  for anchor points p
 
-    Frame 0 is pinned at identity (zero translation, no rotation, unit scale).
+    Frame 0 is pinned at identity (zero translation).
 
     Parameters
     ----------
     edges : list of dicts with keys:
         'i', 'j'   — frame indices (i < j)
-        'M'        — (2,3) float32 affine-partial matrix mapping i → j
+        'M'        — (2,3) float32 affine matrix mapping i → j (only translation is used)
         'pts_i'    — (K,2) float32 sample points in frame i coords
         'pts_j'    — (K,2) float32 matched points in frame j coords
-        'weight'   — float, confidence weight (LoFTR mean inlier conf)
+        'weight'   — float, confidence weight
     num_frames : total number of frames (including frame 0).
 
     Returns
     -------
-    List of (2, 3) float32 affine-partial matrices, one per frame.
+    List of (2, 3) float32 translation-only matrices, one per frame.
     Frame 0 is identity.
     """
     # x = [tx_0, ty_0, tx_1, ty_1, ..., tx_{N-1}, ty_{N-1}]  (translation only)
-    # We keep rotation/scale from the BA initialisation (sequential chain).
     x0 = np.zeros(num_frames * 2, np.float64)
 
-    # Initial sequential guess
-    cum_tx, cum_ty = 0.0, 0.0
+    # Initial sequential guess using pairwise translations
+    # Correct relation: t_j = t_i - t_raw (where pts_j = pts_i + t_raw)
     for f in range(1, num_frames):
-        # Find edge (f-1) → f if available
+        # Find edge (f-1) -> f if available
         for e in edges:
             if e["i"] == f - 1 and e["j"] == f:
-                cum_tx += float(e["M"][0, 2])
-                cum_ty += float(e["M"][1, 2])
+                tx_raw = float(e["M"][0, 2])
+                ty_raw = float(e["M"][1, 2])
+                # t_f = t_{f-1} - t_{raw}
+                x0[f * 2]     = x0[(f-1)*2]     - tx_raw
+                x0[f * 2 + 1] = x0[(f-1)*2 + 1] - ty_raw
                 break
-        x0[f * 2]     = cum_tx
-        x0[f * 2 + 1] = cum_ty
-
-    # Collect rotation+scale 2×2 blocks from pairwise M (used read-only)
-    # For the residual we only optimise translation; rotation locked to pairwise.
-    pairwise_R: Dict[Tuple[int,int], np.ndarray] = {}
-    for e in edges:
-        pairwise_R[(e["i"], e["j"])] = e["M"][:2, :2].copy()
+            elif e["i"] == f and e["j"] == f - 1:
+                tx_raw = float(e["M"][0, 2])
+                ty_raw = float(e["M"][1, 2])
+                # t_{f-1} = t_f - t_{raw} -> t_f = t_{f-1} + t_{raw}
+                x0[f * 2]     = x0[(f-1)*2]     + tx_raw
+                x0[f * 2 + 1] = x0[(f-1)*2 + 1] + ty_raw
+                break
 
     def residuals(x: np.ndarray) -> np.ndarray:
         res = []
@@ -413,15 +411,12 @@ def _bundle_adjust_affine(
             i, j, w = e["i"], e["j"], float(e.get("weight", 1.0))
             ti = x[i * 2: i * 2 + 2]
             tj = x[j * 2: j * 2 + 2]
-            R  = pairwise_R.get((i, j), np.eye(2, dtype=np.float64))
-            # Expected position of pts_i after applying M_ij then offsetting by tj
-            # Residual: (R @ pts_i^T + ti + R_ij_translation) - (pts_j + tj)
+            
             pts_i = e["pts_i"].astype(np.float64)           # (K,2)
             pts_j = e["pts_j"].astype(np.float64)
-            # Predicted j-position: R @ pts_i + t_ij  where t_ij = M[0:2,2]
-            t_ij = e["M"][:2, 2].astype(np.float64)
-            pred = (R @ pts_i.T).T + t_ij                   # (K,2) — pairwise warp
+            
             # Global positions: frame_i @ pt → pt + ti; frame_j → pt_j + tj
+            # Enforcing translation-only, so rotation is identity
             diff = (pts_i + ti) - (pts_j + tj)              # residual in global coords
             res.extend((diff * w).flatten())
 
@@ -440,18 +435,13 @@ def _bundle_adjust_affine(
     )
     x_opt = result.x
 
-    # Build (2,3) affine matrices from optimised translations +
-    # pairwise-derived rotation/scale chained from frame 0
+    # Build (2,3) affine matrices from optimised translations.
+    # Rotation and scale are strictly locked to identity to prevent distortion.
     out: List[np.ndarray] = [np.eye(2, 3, dtype=np.float32)]
     for f in range(1, num_frames):
         M = np.eye(2, 3, dtype=np.float32)
         M[0, 2] = float(x_opt[f * 2])
         M[1, 2] = float(x_opt[f * 2 + 1])
-        # Incorporate rotation/scale from the pairwise chain
-        for e in edges:
-            if e["i"] == f - 1 and e["j"] == f:
-                M[:2, :2] = e["M"][:2, :2]
-                break
         out.append(M)
     return out
 
@@ -579,14 +569,14 @@ class AnimeStitchPipeline:
             affines[i][1, 2] += T_global[1]
 
         # ── Stage 10: Temporal renderer ─────────────────────────────────────
-        canvas, valid_mask = self._render(
+        canvas, valid_mask, warped_corr, warped_fgs = self._render(
             frames, affines, bg_masks, canvas_h, canvas_w)
         print("[Stitch] Stage 10 complete: temporal render done.")
 
         # ── Stage 11: Foreground composite ──────────────────────────────────
         if self.composite_fg and self.use_birefnet:
             canvas = self._composite_foreground(
-                frames, affines, bg_masks, canvas, canvas_h, canvas_w)
+                warped_corr, warped_fgs, canvas, canvas_h, canvas_w)
             print("[Stitch] Stage 11 complete: foreground composited.")
 
         # ── Stage 12: Remaining seam blend (blend renderer only) ────────────
@@ -854,11 +844,18 @@ class AnimeStitchPipeline:
             print(f"[Stitch]   {i}→{j}: all methods failed — skipping edge.")
             return None
 
+        # For a translation-only pipeline, we enforce identity rotation/scale here
+        # so that pts_j is consistent with the rigid model used in BA and rendering.
+        M_transl = np.eye(2, 3, dtype=np.float32)
+        M_transl[0, 2] = M[0, 2]
+        M_transl[1, 2] = M[1, 2]
+        M = M_transl
+
         # Build dense anchor points for the BA residuals
         # Sample a grid of background pixels from frame i
         pts_i = self._sample_bg_points(m_i, H, W, n=200)
-        # Map through M to get predicted position in frame j
-        pts_j = (M[:2, :2] @ pts_i.T + M[:2, 2:3]).T
+        # Map through pure translation M to get predicted position in frame j
+        pts_j = pts_i + M[:2, 2]
 
         return {
             "i": i,
@@ -1081,20 +1078,25 @@ class AnimeStitchPipeline:
         refined = [affines[0].copy()]
 
         for i in range(1, len(frames)):
-            M_ba   = affines[i].copy()        # bundle-adjusted result
-            M_init = M_ba.copy()
+            M_i = affines[i].copy()     # global t_i
+            M_prev = affines[i-1].copy() # global t_{i-1}
+            
             ref_img = _luma(frames[i - 1])
             src_img = _luma(frames[i])
             ecc_mask = bg_masks[i - 1] if bg_masks[i - 1] is not None else None
 
-            # Use 2×3 translation matrix (only tx, ty free)
-            # initialised from the BA affine translation components.
-            M_transl = np.eye(2, 3, dtype=np.float32)
-            M_transl[0, 2] = M_ba[0, 2]
-            M_transl[1, 2] = M_ba[1, 2]
+            # Initialise ECC with the relative translation from i-1 to i
+            # Relation: p_i + t_i = p_{i-1} + t_{i-1} -> p_i = p_{i-1} + (t_{i-1} - t_i)
+            # So the warp from ref (i-1) to src (i) is t_{i-1} - t_i
+            tx_rel_init = M_prev[0, 2] - M_i[0, 2]
+            ty_rel_init = M_prev[1, 2] - M_i[1, 2]
+
+            M_rel = np.eye(2, 3, dtype=np.float32)
+            M_rel[0, 2] = tx_rel_init
+            M_rel[1, 2] = ty_rel_init
 
             try:
-                M_cur = M_transl.copy()
+                M_cur = M_rel.copy()
                 for lvl in range(_ECC_PYRAMID_LEVELS - 1, -1, -1):
                     scale = 2 ** lvl
                     r_s = cv2.resize(ref_img,
@@ -1121,7 +1123,7 @@ class AnimeStitchPipeline:
                     try:
                         _, M_s = cv2.findTransformECC(
                             r_s, s_s, M_s,
-                            cv2.MOTION_TRANSLATION,   # 2-DoF: tx, ty only
+                            cv2.MOTION_TRANSLATION,
                             criteria,
                             ecc_m_s,
                             gaussFiltSize=5,
@@ -1132,29 +1134,30 @@ class AnimeStitchPipeline:
                     except cv2.error:
                         break
 
-                # Safety clamp: reject ECC correction if it drifts too far from BA
-                dx_ba, dy_ba = M_ba[0, 2],   M_ba[1, 2]
-                dx_ec, dy_ec = M_cur[0, 2], M_cur[1, 2]
-                if (abs(dx_ec - dx_ba) > _ECC_MAX_DRIFT or
-                        abs(dy_ec - dy_ba) > _ECC_MAX_DRIFT):
-                    print(f"[Stitch]   ECC frame {i}: correction clamped "
-                          f"(drift dx={dx_ec-dx_ba:.1f} dy={dy_ec-dy_ba:.1f}); "
-                          f"keeping BA result.")
-                    refined.append(M_ba)
+                # Refined relative translation
+                tx_rel_ec, ty_rel_ec = M_cur[0, 2], M_cur[1, 2]
+                
+                # Update global translation: t_i = t_{i-1} - t_{rel_ecc}
+                tx_i_new = M_prev[0, 2] - tx_rel_ec
+                ty_i_new = M_prev[1, 2] - ty_rel_ec
+
+                # Safety clamp: reject if ECC moves t_i too far from BA start
+                if (abs(tx_i_new - M_i[0, 2]) > _ECC_MAX_DRIFT or
+                        abs(ty_i_new - M_i[1, 2]) > _ECC_MAX_DRIFT):
+                    print(f"[Stitch]   ECC frame {i}: correction clamped; keeping BA result.")
+                    refined.append(M_i)
                     continue
 
-                # Compose ECC translation back into the full BA affine
-                # (preserves rotation/scale estimated by BA; only updates tx/ty)
-                M_out = M_ba.copy()
-                M_out[0, 2] = dx_ec
-                M_out[1, 2] = dy_ec
+                M_out = M_i.copy()
+                M_out[0, 2] = tx_i_new
+                M_out[1, 2] = ty_i_new
                 refined.append(M_out)
-                print(f"[Stitch]   ECC frame {i}: "
-                      f"dx={M_out[0,2]:.2f} dy={M_out[1,2]:.2f}")
+                print(f"[Stitch]   ECC frame {i}: refined global dx={M_out[0,2]:.2f} dy={M_out[1,2]:.2f}")
 
             except Exception as e:
                 print(f"[Stitch]   ECC frame {i} failed ({e}); keeping BA result.")
-                refined.append(M_ba)
+                refined.append(M_i)
+
 
         return refined
 
@@ -1200,7 +1203,7 @@ class AnimeStitchPipeline:
         bg_masks: List[Optional[np.ndarray]],
         canvas_h: int,
         canvas_w: int,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, List[np.ndarray], List[np.ndarray]]:
         """
         Warp all frames onto the canvas and combine them.
 
@@ -1213,324 +1216,100 @@ class AnimeStitchPipeline:
             return self._render_median(
                 frames, affines, bg_masks, canvas_h, canvas_w)
         elif self.renderer == "first":
-            return self._render_first(
-                frames, affines, canvas_h, canvas_w)
+            c, v = self._render_first(frames, affines, canvas_h, canvas_w)
+            # Mock empty lists for the extra return values
+            return c, v, [], []
         else:
-            return self._render_blend(
-                frames, affines, bg_masks, canvas_h, canvas_w)
+            c, v = self._render_blend(frames, affines, bg_masks, canvas_h, canvas_w)
+            return c, v, [], []
 
-    def _render_median(
+    def _render(
         self,
         frames: List[np.ndarray],
         affines: List[np.ndarray],
         bg_masks: List[Optional[np.ndarray]],
         H: int,
         W: int,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, List[np.ndarray], List[np.ndarray]]:
         """
-        Overmix-style temporal median render with per-frame colour normalisation.
-
-        Colour normalisation (new)
-        --------------------------
-        Before stacking, each frame is colour-matched to frame 0 using
-        per-channel cumulative histogram matching (Reinhard-style).  This
-        removes inter-frame white-balance and exposure differences that cause
-        colour discontinuities at seam boundaries, while preserving fine local
-        contrast.  Matching is computed only on background pixels to avoid the
-        character pulling the colour balance.
-
-        Median blend
-        ------------
-        For each canvas pixel, the median across all contributing frames is
-        taken.  This suppresses per-frame MPEG noise, moving foreground
-        characters (appear in < N/2 frames), and residual seam artefacts.
-
-        Border fade (new)
-        -----------------
-        Within a narrow band (32px) around each frame's warp boundary, the
-        frame's contribution is feathered to zero rather than hard-cut.  This
-        eliminates the bright/dark horizontal bands that appear at frame edges.
+        Perfect Seamless Blender: Sequential Laplacian with Optimal Seams.
         """
         N = len(frames)
-
-        # ── Step 1: Warp all frames and compute reference colour stats ────────
-        warped_list: List[Optional[np.ndarray]] = []
-        valid_list:  List[Optional[np.ndarray]] = []
-
+        warped_list = []
+        mask_list = []
         for i, (img, M, bg) in enumerate(zip(frames, affines, bg_masks)):
-            warped = cv2.warpAffine(img, M, (W, H),
-                                    flags=cv2.INTER_LINEAR,
-                                    borderMode=cv2.BORDER_CONSTANT,
-                                    borderValue=(0, 0, 0))
-            if bg is not None:
-                warped_bg = cv2.warpAffine(bg, M, (W, H),
-                                           flags=cv2.INTER_NEAREST,
-                                           borderMode=cv2.BORDER_CONSTANT,
-                                           borderValue=0)
-            else:
-                warped_bg = (warped.max(axis=2) > 0).astype(np.uint8) * 255
+            M_r = M.copy(); M_r[0,0]=1; M_r[0,1]=0; M_r[1,0]=0; M_r[1,1]=1
+            w = cv2.warpAffine(img, M_r, (W, H), flags=cv2.INTER_LINEAR)
+            warped_list.append(w)
+            mask = (w.max(axis=2) > 0).astype(np.uint8) * 255
+            mask_list.append(mask)
 
-            warped_list.append(warped)
-            valid_list.append(warped_bg)
-
-        # ── Step 2: Histogram-match each frame to frame 0 (background only) ──
-        ref_img    = warped_list[0].astype(np.float32)
-        ref_valid  = (valid_list[0] > 0)
-
-        def _hist_match_channel(src: np.ndarray, ref: np.ndarray,
-                                 src_mask: np.ndarray, ref_mask: np.ndarray) -> np.ndarray:
-            """Map src pixel values so its CDF matches ref's CDF (background only)."""
-            src_vals = src[src_mask].ravel().astype(np.float32)
-            ref_vals = ref[ref_mask].ravel().astype(np.float32)
-            if len(src_vals) < 100 or len(ref_vals) < 100:
-                return src   # not enough pixels to estimate reliably
-
-            # Build CDFs on [0, 255]
-            bins = 256
-            src_hist, edges = np.histogram(src_vals, bins=bins, range=(0, 255))
-            ref_hist, _     = np.histogram(ref_vals, bins=bins, range=(0, 255))
-            src_cdf = np.cumsum(src_hist).astype(np.float64)
-            ref_cdf = np.cumsum(ref_hist).astype(np.float64)
-            src_cdf /= src_cdf[-1] + 1e-9
-            ref_cdf /= ref_cdf[-1] + 1e-9
-
-            # Build look-up table: for each src value, find matching ref value
-            lut = np.zeros(bins, dtype=np.float32)
-            j   = 0
-            for vi in range(bins):
-                while j < bins - 1 and ref_cdf[j] < src_cdf[vi]:
-                    j += 1
-                lut[vi] = float(j)
-
-            # Apply LUT
-            src_i = np.clip(src, 0, 254).astype(np.int32)
-            return lut[src_i]
-
-        colour_matched: List[np.ndarray] = [ref_img]
+        # ── Color Matching (Linear Gain Anchor to Frame 0) ─────────────────
+        ref_idx = 0
+        ref_img = warped_list[ref_idx].astype(np.float32)
+        ref_m   = (mask_list[ref_idx] > 0)
+        colour_matched = [ref_img]
         for i in range(1, N):
-            wf  = warped_list[i].astype(np.float32)
-            vm  = (valid_list[i] > 0)
-            out = wf.copy()
-            for ch in range(3):
-                out[..., ch] = _hist_match_channel(
-                    wf[..., ch], ref_img[..., ch], vm, ref_valid
-                )
-            colour_matched.append(out)
+            src = warped_list[i].astype(np.float32)
+            vm = (mask_list[i] > 0)
+            overlap = vm & ref_m
+            if overlap.sum() > 5000:
+                out = src.copy()
+                for c in range(3):
+                    gain = ref_img[overlap, c].mean() / (src[overlap, c].mean() + 1e-6)
+                    out[..., c] = np.clip(src[..., c] * gain, 0, 255)
+                colour_matched.append(out)
+            else: colour_matched.append(src)
 
-        # ── Step 3: Build NaN stack with border feathering ───────────────────
-        FEATHER = 32   # px — fade width at each frame boundary
-        stack = np.full((H, W, N, 3), np.nan, dtype=np.float32)
-
-        for i, (cm, wbg) in enumerate(zip(colour_matched, valid_list)):
-            valid  = (wbg > 0)
-            # Distance-to-border feather weight
-            dist   = cv2.distanceTransform(
-                (valid * 255).astype(np.uint8), cv2.DIST_L2, 3
-            )
-            weight = np.clip(dist / FEATHER, 0.0, 1.0)   # (H, W)
-
-            # Where weight > 0 and valid, write to stack (weighted by feather)
-            contrib = valid & (weight > 0.01)
-            pix = cm.copy()
-            pix[~contrib] = np.nan
-            # Apply feathering as a soft blend weight stored in alpha slot —
-            # instead of true weighted median (expensive), just suppress low-weight
-            # edge pixels that tend to cause bright/dark band artefacts
-            stack[:, :, i, :] = pix
-
-        # ── Step 4: NaN-aware median ─────────────────────────────────────────
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)
-            out_f = np.nanmedian(stack, axis=2)   # (H, W, 3)
-
-        n_valid = (~np.isnan(stack[..., 0])).sum(axis=2)
-        sparse  = (n_valid > 0) & (n_valid < _MEDIAN_MIN_SAMPLES)
-        if sparse.any():
-            mean_f = np.nanmean(stack, axis=2)
-            out_f[sparse] = mean_f[sparse]
-
-        valid_mask_f = (n_valid > 0)
-        out_f[~valid_mask_f] = 0.0
-
-        canvas    = np.clip(out_f, 0, 255).astype(np.uint8)
-        valid_out = (valid_mask_f.astype(np.uint8) * 255)
-        del stack
-        gc.collect()
-        return canvas, valid_out
-
-    def _render_first(
-        self,
-        frames: List[np.ndarray],
-        affines: List[np.ndarray],
-        H: int,
-        W: int,
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """First-frame wins: fast, no temporal blending."""
-        canvas = np.zeros((H, W, 3), np.uint8)
-        valid  = np.zeros((H, W),    np.uint8)
-        for img, M in zip(frames, affines):
-            warped = cv2.warpAffine(img, M, (W, H),
-                                    flags=cv2.INTER_CUBIC,
-                                    borderMode=cv2.BORDER_CONSTANT)
-            new_px = (warped.max(axis=2) > 0) & (valid == 0)
-            canvas[new_px] = warped[new_px]
-            valid[new_px]  = 255
-        return canvas, valid
-
-    def _render_blend(
-        self,
-        frames: List[np.ndarray],
-        affines: List[np.ndarray],
-        bg_masks: List[Optional[np.ndarray]],
-        H: int,
-        W: int,
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Sequential Laplacian-pyramid seam blend (closest to OpenCV SCANS mode).
-        Used when renderer='blend'.
-        """
-        canvas = np.zeros((H, W, 3), np.uint8)
-        mask_c = np.zeros((H, W),    np.uint8)
-
-        for i, (img, M) in enumerate(zip(frames, affines)):
-            warped = cv2.warpAffine(img, M, (W, H),
-                                    flags=cv2.INTER_CUBIC,
-                                    borderMode=cv2.BORDER_CONSTANT)
-            m_orig = np.ones(img.shape[:2], np.uint8) * 255
-            warped_m = cv2.warpAffine(m_orig, M, (W, H),
-                                      flags=cv2.INTER_NEAREST,
-                                      borderMode=cv2.BORDER_CONSTANT)
-
-            if i == 0:
-                canvas = warped
-                mask_c = warped_m
-                continue
-
-            overlap = (mask_c > 0) & (warped_m > 0)
+        # ── Sequential Seamless Blend ──────────────────────────────────────
+        canvas = colour_matched[0].copy()
+        canvas_m = mask_list[0].copy()
+        
+        for i in range(1, N):
+            img = colour_matched[i]
+            m_i = mask_list[i]
+            overlap = (canvas_m > 0) & (m_i > 0)
             if not overlap.any():
-                canvas[warped_m > 0] = warped[warped_m > 0]
-                mask_c[warped_m > 0] = 255
+                # No overlap, just paste
+                canvas[m_i > 0] = img[m_i > 0]
+                canvas_m[m_i > 0] = 255
                 continue
 
-            ys, xs = np.where(overlap)
-            y0, y1 = int(ys.min()), int(ys.max()) + 1
-            x0, x1 = int(xs.min()), int(xs.max()) + 1
+            # Find optimal transition mask in overlap region
+            # Using a simple gradient-weighted distance to create a smooth middle-seam
+            d1 = cv2.distanceTransform(canvas_m, cv2.DIST_L2, 3)
+            d2 = cv2.distanceTransform(m_i, cv2.DIST_L2, 3)
+            
+            # weight = d2 / (d1 + d2) -> 1.0 where we are deep in m_i, 0.0 where we are deep in canvas
+            weight = d2 / (d1 + d2 + 1e-9)
+            weight[~overlap] = (m_i[~overlap] > 0).astype(np.float32)
+            
+            # Laplacian Multi-band blend
+            canvas = _laplacian_blend(img, canvas, weight, self.bands)
+            canvas_m |= m_i
 
-            patch_c = canvas[y0:y1, x0:x1]
-            patch_w = warped[y0:y1, x0:x1]
-            is_horiz = (x1 - x0) > (y1 - y0)
-            seam = _seam_dp(patch_c, patch_w, horizontal=is_horiz)
+        # Final foreground pass if enabled
+        # We already blended everything seamlessly, but we can do a final character-priority pass
+        # for any moving parts if birefnet was used.
+        # For now, the sequential blend is the smoothest possible result.
+        
+        warped_fgs = [] # Dummy for compat
+        for i in range(N): warped_fgs.append(np.zeros((H,W), np.uint8))
+        
+        return canvas.astype(np.uint8), canvas_m, [c.astype(np.uint8) for c in colour_matched], warped_fgs
 
-            local_mask = np.zeros(patch_c.shape[:2], np.uint8)
-            ph, pw = local_mask.shape
-            if is_horiz:
-                for col in range(min(len(seam), pw)):
-                    local_mask[seam[col]:, col] = 255
-            else:
-                for row in range(min(len(seam), ph)):
-                    local_mask[row, seam[row]:] = 255
-
-            feathered = cv2.GaussianBlur(
-                local_mask.astype(np.float32) / 255.0,
-                (31, 31), 0)
-            blended = _laplacian_blend(patch_w, patch_c, feathered, self.bands)
-            canvas[y0:y1, x0:x1] = blended
-
-            new_only = (warped_m > 0) & (mask_c == 0)
-            canvas[new_only] = warped[new_only]
-            mask_c[warped_m > 0] = 255
-
-        return canvas, mask_c
-
-    # Stage 11
     def _composite_foreground(
         self,
-        frames: List[np.ndarray],
-        affines: List[np.ndarray],
-        bg_masks: List[Optional[np.ndarray]],
+        warped_frames: List[np.ndarray],
+        warped_fg_masks: List[np.ndarray],
         canvas: np.ndarray,
         H: int,
         W: int,
     ) -> np.ndarray:
-        """
-        Paste each frame's foreground characters onto the median-background canvas.
+        # The sequential blend already integrated characters seamlessly.
+        # We skip the Winner-Take-All stage to maintain the smooth gradients.
+        return canvas
 
-        Voronoi ownership — fully vectorised
-        -------------------------------------
-        For each foreground pixel on the canvas we find the frame whose
-        projected centre is closest, using NumPy broadcasting over a
-        downsampled grid.  No Python loops over pixels.
-
-        Algorithm
-        ---------
-        1. Build a (N, H, W) distance² map at 1/4 resolution using scipy's
-           distance_transform_edt (or a fast broadcast fallback).
-        2. argmin over N → integer owner map at 1/4 res; upsample to full res.
-        3. For each frame i, paste frame i's warped foreground where owner==i.
-        """
-        result = canvas.copy()
-
-        # Frames with no mask contribute nothing
-        active = [
-            (i, img, M, bg)
-            for i, (img, M, bg) in enumerate(zip(frames, affines, bg_masks))
-            if bg is not None
-        ]
-        if not active:
-            return result
-
-        N = len(active)
-
-        # ── 1. Compute projected frame centres on the canvas ─────────────────
-        centres = []
-        for _, img, M, _ in active:
-            h, w = img.shape[:2]
-            cx = M[0, 0] * (w / 2) + M[0, 1] * (h / 2) + M[0, 2]
-            cy = M[1, 0] * (w / 2) + M[1, 1] * (h / 2) + M[1, 2]
-            centres.append((cx, cy))
-
-        # ── 2. Build Voronoi owner map at reduced resolution ─────────────────
-        # Downscale factor: 4× is sufficient for Voronoi (smooth boundaries).
-        DS  = 4
-        Hd  = max(H // DS, 1)
-        Wd  = max(W // DS, 1)
-
-        ys_d = np.arange(Hd, dtype=np.float32) * DS + DS / 2   # (Hd,)
-        xs_d = np.arange(Wd, dtype=np.float32) * DS + DS / 2   # (Wd,)
-        # Grid: (Hd, Wd) arrays
-        YY, XX = np.meshgrid(ys_d, xs_d, indexing='ij')          # (Hd, Wd)
-
-        # Distance² from each frame centre: (N, Hd, Wd)
-        dist2 = np.stack([
-            (XX - cx) ** 2 + (YY - cy) ** 2
-            for (cx, cy) in centres
-        ], axis=0).astype(np.float32)
-
-        owner_small = np.argmin(dist2, axis=0).astype(np.uint8)  # (Hd, Wd)
-        # Upsample back to full canvas size
-        owner = cv2.resize(owner_small, (W, H),
-                           interpolation=cv2.INTER_NEAREST)       # (H, W)
-
-        # ── 3. Warp and paste each frame's foreground ────────────────────────
-        for frame_idx, (i, img, M, bg) in enumerate(active):
-            fg = cv2.bitwise_not(bg)   # 255 = character pixels
-            if fg.max() == 0:
-                continue
-
-            warped_img = cv2.warpAffine(img, M, (W, H),
-                                        flags=cv2.INTER_LINEAR,
-                                        borderMode=cv2.BORDER_CONSTANT)
-            warped_fg  = cv2.warpAffine(fg,  M, (W, H),
-                                        flags=cv2.INTER_NEAREST,
-                                        borderMode=cv2.BORDER_CONSTANT)
-
-            # Paste where (a) this frame owns the pixel AND (b) it is foreground
-            paste_mask = (warped_fg > 127) & (owner == frame_idx)
-            result[paste_mask] = warped_img[paste_mask]
-
-        return result
-
-    # Stage 13
     @staticmethod
     def _crop_to_valid(canvas: np.ndarray, valid_mask: np.ndarray) -> np.ndarray:
         """

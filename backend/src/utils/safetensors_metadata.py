@@ -24,13 +24,30 @@ def embed_preview_image(model_path: str, image_path: str, output_path: Optional[
         output_path = model_path
 
     try:
-        # 1. Read and encode the image
+        # 1. Read, resize and encode the image
         if not os.path.exists(image_path):
             raise FileNotFoundError(f"Image file not found: {image_path}")
         
-        with open(image_path, "rb") as img_file:
-            image_data = img_file.read()
-            base64_encoded = base64.b64encode(image_data).decode("utf-8")
+        from PIL import Image
+        import io
+        import mimetypes
+
+        with Image.open(image_path) as img:
+            # Convert to RGB if necessary (e.g. RGBA -> RGB for JPEG compatibility)
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            
+            # Resize to max 512px while maintaining aspect ratio
+            img.thumbnail((512, 512))
+            
+            # Save to buffer
+            buf = io.BytesIO()
+            # Use JPEG for smaller size, or original format if preferred
+            img.save(buf, format="JPEG", quality=85)
+            image_data = buf.getvalue()
+            
+        base64_encoded = base64.b64encode(image_data).decode("utf-8")
+        data_uri = f"data:image/jpeg;base64,{base64_encoded}"
 
         # 2. Read existing weights and metadata from the .safetensors file
         if not os.path.exists(model_path):
@@ -52,8 +69,8 @@ def embed_preview_image(model_path: str, image_path: str, output_path: Optional[
 
         # 3. Add the base64 image string to the metadata
         # Setting both common keys to ensure compatibility with various UIs (like ComfyUI)
-        metadata["preview"] = base64_encoded
-        metadata["modelspec.thumbnail"] = base64_encoded
+        metadata["preview"] = data_uri
+        metadata["modelspec.thumbnail"] = data_uri
 
         # 4. Save the updated weights and metadata
         # Use a temporary file for safety during the overwrite process
