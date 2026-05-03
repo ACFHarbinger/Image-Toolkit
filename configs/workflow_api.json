@@ -28,9 +28,9 @@
   },
   "11": {
     "inputs": {
-      "lora_name": "JN_Hisato_Azuma_Illus.safetensors",
-      "strength_model": 0.85,
-      "strength_clip": 0.85,
+      "lora_name": "akanenanao-nai_illustrious.safetensors",
+      "strength_model": 0.7,
+      "strength_clip": 0.7,
       "model": [
         "10",
         0
@@ -48,8 +48,8 @@
   "12": {
     "inputs": {
       "lora_name": "chargen_oil_painting_v2.safetensors",
-      "strength_model": 0.25,
-      "strength_clip": 0.25,
+      "strength_model": 0.15,
+      "strength_clip": 0.15,
       "model": [
         "11",
         0
@@ -67,8 +67,8 @@
   "13": {
     "inputs": {
       "lora_name": "add-detail-xl.safetensors",
-      "strength_model": 0.4,
-      "strength_clip": 0.4,
+      "strength_model": 0.25,
+      "strength_clip": 0.25,
       "model": [
         "12",
         0
@@ -85,10 +85,10 @@
   },
   "14": {
     "inputs": {
-      "b1": 0.95,
-      "b2": 0.98,
-      "s1": 0.6,
-      "s2": 0.4,
+      "b1": 1.1,
+      "b2": 1.2,
+      "s1": 0.15,
+      "s2": 0.05,
       "model": [
         "13",
         0
@@ -101,7 +101,7 @@
   },
   "15": {
     "inputs": {
-      "weight": 0.45,
+      "weight": 0.2,
       "weight_type": "linear",
       "combine_embeds": "average",
       "start_at": 0,
@@ -137,8 +137,8 @@
       "crop_h": 0,
       "target_width": 1344,
       "target_height": 768,
-      "text_g": "masterpiece, best quality, (solo:1.4), (1girl:1.3), indoors, cinematic lighting, amazing quality, very aesthetic, absurdres, best quality, newest, year 2023, Hisato Azuma, blush, open mouth, bow, underwear, panties, sweat, solo focus, indoors, apron, nipples, breasts, black panties, thong, mature female, purple panties, string panties, pants pull, pink apron, nearly naked apron, horny, naughty face, (animal ears:0.8), brown eyes",
-      "text_l": "masterpiece, best quality, (solo:1.4), (1girl:1.3), indoors, cinematic lighting, amazing quality, very aesthetic, absurdres, best quality, newest, year 2023, Hisato Azuma, blush, open mouth, bow, underwear, panties, sweat, solo focus, indoors, apron, nipples, breasts, black panties, thong, mature female, purple panties, string panties, pants pull, pink apron, nearly naked apron, horny, naughty face, (animal ears:0.8), brown eyes",
+      "text_g": "(masterpiece), (best quality), (ultra-detailed), \n1fgirl, curvy, (wide hips:1.2), thick thighs,  large breasts, , source_anime, solo,Hisato Azuma, heart, earrings, smooth skin, clear skin, BREAK\nbedroom\nground angle, looking at viewer, side view, low angle, lustful, cute face, horny, erotic expression, lean, slim, detailed navel, tight stomach, glossy skin, shiny skin, sweaty, perfect body, kawaii\nholding ass cheeks, tight ass, ass shot, drenched, back view,\nwearing black laced lingerie set, black laced bra, black laced panties, matching set, BREAK\ntight ass, petite ass, round ass, detailed ass,",
+      "text_l": "(masterpiece), (best quality), (ultra-detailed), \n1fgirl, curvy, (wide hips:1.2), thick thighs,  large breasts, , source_anime, solo,Hisato Azuma, heart, earrings, smooth skin, clear skin, BREAK\nbedroom\nground angle, looking at viewer, side view, low angle, lustful, cute face, horny, erotic expression, lean, slim, detailed navel, tight stomach, glossy skin, shiny skin, sweaty, perfect body, kawaii\nholding ass cheeks, tight ass, ass shot, drenched, back view,\nwearing black laced lingerie set, black laced bra, black laced panties, matching set, BREAK\ntight ass, petite ass, round ass, detailed ass,",
       "clip": [
         "13",
         1
@@ -157,8 +157,8 @@
       "crop_h": 0,
       "target_width": 1344,
       "target_height": 1322,
-      "text_g": "pubic hair, 3d, cropped, loli, censored, bar censoring, mosaic censoring, (multiple characters:1.5), (duo:1.5), (extra limbs:1.5), (hand:1.5), (arm:1.5), (male:1.5) 2girls, 2boys, multiple characters, duo, couple, (simple background:1.0), siblings, bad legs, clones, monochrome, sketch, rough lines, patreon username, logo, bad proportions, artist signature, artist name, (red glow:1.0), (orange skin:1.0), (neon red skin:1.0)",
-      "text_l": "pubic hair, 3d, cropped, loli, censored, bar censoring, mosaic censoring, (multiple characters:1.5), (duo:1.5), (extra limbs:1.5), (hand:1.5), (arm:1.5), (male:1.5) 2girls, 2boys, multiple characters, duo, couple, (simple background:1.0), siblings, bad legs, clones, monochrome, sketch, rough lines, patreon username, logo, bad proportions, artist signature, artist name, (red glow:1.0), (orange skin:1.0), (neon red skin:1.0)",
+      "text_g": "lowres, worst quality, low quality, bad quality, simple background,\nsignature, multiple views, 2koma, 4koma,\nfurry, anthro, bkub, \nchibi,loli,child, bad anatomy, missing leg, missing limb, cameltoe,\nabs,\nAsian, tanlines, extra arms, (magenta bleeding:1.4), (color bleeding:1.4), (red glow:1.4), oversaturated, vibrant, neon colors",
+      "text_l": "lowres, worst quality, low quality, bad quality, simple background,\nsignature, multiple views, 2koma, 4koma,\nfurry, anthro, bkub, \nchibi,loli,child, bad anatomy, missing leg, missing limb, cameltoe,\nabs,\nAsian, tanlines, extra arms, (magenta bleeding:1.4), (color bleeding:1.4), (red glow:1.4), oversaturated, vibrant, neon colors",
       "clip": [
         "13",
         1
@@ -182,10 +182,10 @@
   },
   "21": {
     "inputs": {
-      "seed": 341839241310061,
+      "seed": 1091092720644773,
       "steps": 30,
       "cfg": 5,
-      "sampler_name": "euler",
+      "sampler_name": "dpmpp_2m",
       "scheduler": "normal",
       "denoise": 1,
       "model": [
@@ -212,10 +212,10 @@
   },
   "31": {
     "inputs": {
-      "seed": 341839241310061,
+      "seed": 1091092720644773,
       "steps": 20,
       "cfg": 5,
-      "sampler_name": "euler",
+      "sampler_name": "dpmpp_2m",
       "scheduler": "normal",
       "denoise": 0.35,
       "model": [
@@ -265,7 +265,7 @@
       "guide_size": 384,
       "guide_size_for": true,
       "max_size": 1024,
-      "seed": 341839241310061,
+      "seed": 1091092720644773,
       "steps": 20,
       "cfg": 5,
       "sampler_name": "dpmpp_2m_sde",
@@ -329,12 +329,12 @@
       "guide_size": 256,
       "guide_size_for": true,
       "max_size": 768,
-      "seed": 341839241310061,
+      "seed": 1091092720644773,
       "steps": 15,
       "cfg": 5,
       "sampler_name": "euler",
       "scheduler": "normal",
-      "denoise": 0.27,
+      "denoise": 0.4,
       "feather": 5,
       "noise_mask": true,
       "force_inpaint": true,
@@ -532,7 +532,7 @@
   },
   "85": {
     "inputs": {
-      "image": "stitch15.png"
+      "image": "stitch7.png"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -541,7 +541,7 @@
   },
   "89": {
     "inputs": {
-      "text": "masterpiece, best quality, Hisato Azuma, pale skin, neutral lighting, white light, Hisato Azuma, brown eyes, light lighting, face focus, open eyes, detailed pupils, nose, (detailed sweat drops:1.2), moist lips, intricate eyelashes, sharp focus, (individual eyelashes:1.2), (sharp catchlight:1.5), (intricate iris pattern:1.4), (extremely sharp eyelashes:1.4), skin pores, hyper-detailed eyes, diffuse lighting, reflective moisture",
+      "text": "masterpiece, best quality, Hisato Azuma, pale skin, neutral lighting, white light, Hisato Azuma, brown eyes, light lighting, face focus, open eyes, detailed pupils, nose, (detailed sweat drops:1.2), moist lips, intricate eyelashes, sharp focus, (individual eyelashes:1.2), (sharp catchlight:1.5), (intricate iris pattern:1.4), (extremely sharp eyelashes:1.4), skin pores, hyper-detailed eyes, diffuse lighting, reflective moisture, (black eyelashes:1.2), neutral skin tones, realistic eyes,",
       "clip": [
         "13",
         1
@@ -554,7 +554,7 @@
   },
   "95": {
     "inputs": {
-      "seed": 341839241310061,
+      "seed": 1091092720644773,
       "strength": 0.05,
       "image": [
         "78",

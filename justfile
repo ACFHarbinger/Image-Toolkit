@@ -330,9 +330,9 @@ lora-tensorboard dir="runs":
 embed-icon model_path image_path:
     @echo "Embedding icon into {{ model_path }}..."
     source .venv/bin/activate && python -m backend.src.controller.dispatcher command=embed_metadata \
-        +data=embed_metadata \
-        data.embed_metadata.model_path="{{ model_path }}" \
-        data.embed_metadata.image_path="{{ image_path }}"
+        data=embed_metadata \
+        data.embed_metadata.model_path="'{{ model_path }}'" \
+        data.embed_metadata.image_path="'{{ image_path }}'"
 
 # Start ComfyUI headlessly (without the main desktop app)
 comfyui args="":
