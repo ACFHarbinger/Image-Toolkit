@@ -21,6 +21,7 @@ Key improvements over the previous version:
 import cv2
 import numpy as np
 import torch
+torch.backends.cudnn.benchmark = False
 from PIL import Image
 from torchvision import transforms
 from typing import List, Optional
@@ -81,6 +82,26 @@ class BiRefNetWrapper:
 
     # ------------------------------------------------------------------ model
 
+    def offload(self):
+        key = (self.model_name, self.device)
+        if key in BiRefNetWrapper._models:
+            BiRefNetWrapper._models[key].cpu()
+            if torch.cuda.is_available(): torch.cuda.empty_cache()
+
+
+    @classmethod
+    def purge_all_models(cls):
+        """Completely remove all models from VRAM and RAM."""
+        import torch
+        import gc
+        for key in list(cls._models.keys()):
+            model = cls._models.pop(key)
+            model.cpu()
+            del model
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        gc.collect()
+
     def load_model(self):
         key = (self.model_name, self.device)
         if key not in BiRefNetWrapper._models:
@@ -102,6 +123,8 @@ class BiRefNetWrapper:
                 ).to(self.device)
             model.eval()
             BiRefNetWrapper._models[key] = model
+        else:
+            BiRefNetWrapper._models[key].to(self.device)
         return BiRefNetWrapper._models[key]
 
     # ------------------------------------------------------------------ masks
@@ -118,7 +141,8 @@ class BiRefNetWrapper:
         img_rgb = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
         tensor = self.transform(Image.fromarray(img_rgb)).unsqueeze(0).to(self.device)
         with torch.no_grad():
-            pred = model(tensor)[-1].sigmoid().cpu().numpy()
+            pred = model(tensor)[-1].sigmoid().detach().cpu().numpy()
+        del tensor
         mask = pred[0].squeeze()
         mask = cv2.resize(
             mask, (img_np.shape[1], img_np.shape[0]), interpolation=cv2.INTER_LINEAR

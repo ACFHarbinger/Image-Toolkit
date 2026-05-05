@@ -20,6 +20,7 @@ Sub-tabs
 """
 
 from __future__ import annotations
+from backend.src.core.anime_stitch_pipeline import AnimeStitchPipeline
 
 import os
 import re
@@ -52,6 +53,9 @@ from PySide6.QtGui import (
     QPainterPath,
     QPen,
     QPixmap,
+    QDragEnterEvent,
+    QDragMoveEvent,
+    QDropEvent,
     QWheelEvent,
 )
 from PySide6.QtWidgets import (
@@ -663,8 +667,11 @@ class _NodeScene(QGraphicsScene):
 
     # ── node factory ─────────────────────────────────────────────────────
 
-    def add_source(self, path: str) -> _SourceNode:
-        x, y = self._next_pos(col=0)
+    def add_source(self, path: str, pos: Optional[QPointF] = None) -> _SourceNode:
+        if pos is None:
+            x, y = self._next_pos(col=0)
+        else:
+            x, y = pos.x(), pos.y()
         node = _SourceNode(path, x, y)
         self.addItem(node)
         self.plan_changed.emit()
@@ -712,11 +719,22 @@ class _NodeScene(QGraphicsScene):
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             port = self._port_at(event.scenePos())
-            if port and not port.is_input:
-                self._drag_src  = port
-                self._drag_edge = _GraphEdge(port)
-                self.addItem(self._drag_edge)
-                return
+            if port:
+                if not port.is_input:
+                    # Start new connection
+                    self._drag_src  = port
+                    self._drag_edge = _GraphEdge(port)
+                    self.addItem(self._drag_edge)
+                    return
+                elif port.is_input and port.edges:
+                    # Detach existing connection
+                    edge = port.edges.pop()
+                    self._drag_src = edge.src
+                    self._drag_edge = edge
+                    edge.dst = None
+                    edge.update_path(event.scenePos())
+                    self.plan_changed.emit()
+                    return
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
@@ -737,7 +755,11 @@ class _NodeScene(QGraphicsScene):
                 self._drag_edge.update_path()
                 self.plan_changed.emit()
             else:
+                # Remove from source port list if it was already registered
+                if self._drag_edge in self._drag_src.edges:
+                    self._drag_src.edges.remove(self._drag_edge)
                 self.removeItem(self._drag_edge)
+                self.plan_changed.emit()
             self._drag_edge = None
             self._drag_src  = None
             return
@@ -801,11 +823,50 @@ class _NodeView(QGraphicsView):
 
     def __init__(self, scene: _NodeScene):
         super().__init__(scene)
-        self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
+        self.setDragMode(QGraphicsView.DragMode.NoDrag) # Managed in events
+        self.setAcceptDrops(True)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setStyleSheet("background:#1a1a1e; border:none;")
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        urls = event.mimeData().urls()
+        if not urls: return
+        scene_pos = self.mapToScene(event.position().toPoint())
+        added = False
+        for i, url in enumerate(urls):
+            fpath = url.toLocalFile()
+            if not fpath: continue
+            ext = os.path.splitext(fpath)[1].lower()
+            if ext in [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff"]:
+                # Offset multiple images slightly so they don't stack perfectly
+                drop_pos = scene_pos + QPointF(i*20, i*20)
+                self.scene().add_source(fpath, pos=drop_pos)
+                added = True
+        if added:
+            event.acceptProposedAction()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            item = self.itemAt(event.position().toPoint())
+            if not item:
+                self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+            else:
+                self.setDragMode(QGraphicsView.DragMode.NoDrag)
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        super().mouseReleaseEvent(event)
+        self.setDragMode(QGraphicsView.DragMode.NoDrag)
 
     def wheelEvent(self, event: QWheelEvent):
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
@@ -1170,6 +1231,12 @@ class EditTab(QWidget):
         btn_grid.addWidget(self._btn_remove, 0, 1)
         btn_grid.addWidget(self._btn_up,     1, 0)
         btn_grid.addWidget(self._btn_down,   1, 1)
+        
+        self._btn_auto_order = QPushButton("⚡ Auto-Order")
+        self._btn_auto_order.setToolTip("Find the longest coherent sequence starting from the selected image.")
+        self._btn_auto_order.clicked.connect(self._auto_order_sequence)
+        apply_shadow_effect(self._btn_auto_order, radius=4, y_offset=2)
+        btn_grid.addWidget(self._btn_auto_order, 2, 0, 1, 2)
         frames_group_layout.addLayout(btn_grid)
 
         self._btn_add.clicked.connect(self._add_frames)
@@ -1359,7 +1426,7 @@ class EditTab(QWidget):
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
         splitter.setStretchFactor(2, 0)
-        splitter.setSizes([200, 600, 250])
+        splitter.setSizes([180, 1200, 220])
 
         root.addWidget(splitter, stretch=1)
 
@@ -1391,6 +1458,8 @@ class EditTab(QWidget):
             "background:#f44336; color:white; font-weight:bold; padding:8px 18px;"
         )
         self._btn_cancel.setEnabled(False)
+        self.stitch_worker = None
+        self.stitch_thread = None
         apply_shadow_effect(self._btn_cancel, radius=8, y_offset=3)
 
         self._btn_stitch.clicked.connect(self._start_stitch)
@@ -1432,9 +1501,10 @@ class EditTab(QWidget):
         5. Hit "Run Graph" — operations execute in topological order.
         """
         panel = QWidget()
-        vbox  = QVBoxLayout(panel)
-        vbox.setContentsMargins(4, 4, 4, 4)
-        vbox.setSpacing(4)
+        vbox_lay = QVBoxLayout(panel)
+        vbox_lay.setContentsMargins(0, 0, 0, 0)
+        v_split = QSplitter(Qt.Orientation.Vertical)
+        vbox_lay.addWidget(v_split)
 
         # ── scene ────────────────────────────────────────────────────────
         self._node_scene = _NodeScene(self)
@@ -1446,7 +1516,7 @@ class EditTab(QWidget):
 
         # ── LEFT: toolbar + properties ───────────────────────────────────
         left_w  = QWidget()
-        left_w.setFixedWidth(210)
+        left_w.setFixedWidth(190)
         left_lay = QVBoxLayout(left_w)
         left_lay.setContentsMargins(4, 4, 4, 4)
         left_lay.setSpacing(6)
@@ -1513,7 +1583,7 @@ class EditTab(QWidget):
         # ── CENTRE: node canvas ───────────────────────────────────────────
         split.addWidget(self._node_view)
         split.setStretchFactor(1, 1)
-        vbox.addWidget(split)
+        v_split.addWidget(split)
 
         # ── BOTTOM: pipeline options + progress + run ─────────────────────
         bottom_group = QGroupBox("Pipeline & Execution")
@@ -1538,26 +1608,27 @@ class EditTab(QWidget):
             pipe_row.addWidget(chk)
         pipe_row.addStretch()
 
-        renderer_row = QHBoxLayout()
-        renderer_row.addWidget(QLabel("Renderer:"))
+        # Combined Renderer and Output Row
+        config_row = QHBoxLayout()
+        config_row.addWidget(QLabel("Renderer:"))
         self._gph_renderer = QComboBox()
         self._gph_renderer.addItems(["median", "first", "blend"])
-        renderer_row.addWidget(self._gph_renderer)
-        renderer_row.addStretch()
-
-        out_dir_row = QHBoxLayout()
-        out_dir_row.addWidget(QLabel("Output dir:"))
+        config_row.addWidget(self._gph_renderer)
+        
+        config_row.addSpacing(20)
+        
+        config_row.addWidget(QLabel("Output dir:"))
         self._gph_out_dir_edit = QLineEdit()
         self._gph_out_dir_edit.setText("images")
-        self._gph_out_dir_edit.setToolTip(
-            "Directory where all stitch outputs are saved. Created automatically."
-        )
-        out_dir_row.addWidget(self._gph_out_dir_edit)
+        self._gph_out_dir_edit.setToolTip("Directory where stitch outputs are saved.")
+        config_row.addWidget(self._gph_out_dir_edit)
         btn_out_dir = QPushButton("…")
         btn_out_dir.setFixedWidth(28)
         btn_out_dir.clicked.connect(self._graph_browse_output_dir)
-        out_dir_row.addWidget(btn_out_dir)
-        bottom_lay.addLayout(out_dir_row)
+        config_row.addWidget(btn_out_dir)
+        config_row.addStretch()
+
+
 
         self._gph_progress  = QProgressBar()
         self._gph_progress.setRange(0, 100)
@@ -1585,17 +1656,20 @@ class EditTab(QWidget):
 
         self._gph_log = QTextEdit()
         self._gph_log.setReadOnly(True)
-        self._gph_log.setFixedHeight(90)
+        self._gph_log.setFixedHeight(75)
         self._gph_log.setFont(QFont("Monospace", 8))
 
         bottom_lay.addLayout(pipe_row)
-        bottom_lay.addLayout(renderer_row)
+        bottom_lay.addLayout(config_row)
         bottom_lay.addLayout(btn_row)
         bottom_lay.addWidget(self._gph_stage_lbl)
         bottom_lay.addWidget(self._gph_progress)
         bottom_lay.addWidget(self._gph_log)
 
-        vbox.addWidget(bottom_group)
+        v_split.addWidget(bottom_group)
+        v_split.setStretchFactor(0, 1)
+        v_split.setStretchFactor(1, 0)
+        v_split.setSizes([1000, 300])
 
         # Connect scene selection changes to property editor
         self._node_scene.selectionChanged.connect(self._graph_on_selection_changed)
@@ -2352,7 +2426,9 @@ class EditTab(QWidget):
         if self._stitch_worker:
             self._stitch_worker.cancel()
             self._btn_cancel.setEnabled(False)
-            self._log_append("[Stitch] Cancellation requested…")
+        self._stitch_worker = None
+        self._stitch_thread = None
+        self._log_append("[Stitch] Cancellation requested...")
 
     @Slot(int, int, str)
     def _on_stage(self, current: int, total: int, label: str):
@@ -2374,6 +2450,8 @@ class EditTab(QWidget):
     def _on_stitch_thread_done(self):
         self._btn_stitch.setEnabled(True)
         self._btn_cancel.setEnabled(False)
+        self._stitch_worker = None
+        self._stitch_thread = None
         self._progress.setValue(0)
         self._stage_label.setText("Ready.")
 
@@ -3088,5 +3166,50 @@ class EditTab(QWidget):
         return self.collect()
 
 
-# Backwards-compatibility alias
+    def _auto_order_sequence(self):
+        """Reorder the stitch queue using the longest-coherent-path algorithm."""
+        if not self._frame_paths:
+            return
+
+        ref_idx = self._frame_list.currentRow()
+        if ref_idx < 0: ref_idx = 0
+        ref_path = self._frame_paths[ref_idx]
+        
+        self.setCursor(Qt.CursorShape.WaitCursor)
+        try:
+            # We treat the currently loaded frames as the candidate pool
+            new_order = AnimeStitchPipeline.find_optimal_sequence(
+                ref_path, 
+                self._frame_paths,
+                min_inliers=25
+            )
+            
+            if not new_order:
+                QMessageBox.warning(self, "Order Optimizer", "No coherent matches found for the selected frame.")
+                return
+
+            # Update state
+            self._frame_paths = new_order
+            
+            # Refresh list
+            self._frame_list.clear()
+            for p in self._frame_paths:
+                self._frame_list.addItem(os.path.basename(p))
+            
+            # Select the original reference in the new list
+            try:
+                new_ref_idx = self._frame_paths.index(ref_path)
+                self._frame_list.setCurrentRow(new_ref_idx)
+            except ValueError: pass
+            
+            QMessageBox.information(self, "Order Optimizer", 
+                f"Reordered {len(new_order)} coherent frames.\n"
+                f"Sequence length optimized for continuity.")
+                
+        except Exception as e:
+            QMessageBox.critical(self, "Order Optimizer Error", str(e))
+        finally:
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+
+
 StitchTab = EditTab

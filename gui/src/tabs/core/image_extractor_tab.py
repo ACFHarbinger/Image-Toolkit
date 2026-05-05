@@ -451,6 +451,30 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         extract_main_layout.addLayout(extract_cuts_layout)
 
+        # -- Row 4: Advanced Extraction Options --
+        extract_adv_layout = QHBoxLayout()
+        extract_adv_layout.addWidget(QLabel("Frame Interval:"))
+        self.spin_interval = QSpinBox()
+        self.spin_interval.setRange(1, 1000)
+        self.spin_interval.setValue(1)
+        self.spin_interval.setSuffix(" frames")
+        extract_adv_layout.addWidget(self.spin_interval)
+
+        extract_adv_layout.addSpacing(20)
+        self.check_smart_extract = QCheckBox("Smart Extract (FFmpeg)")
+        self.check_smart_extract.setToolTip("Use FFmpeg filters to only extract unique frames or scene changes")
+        extract_adv_layout.addWidget(self.check_smart_extract)
+
+        self.combo_smart_method = QComboBox()
+        self.combo_smart_method.addItems(["mpdecimate (De-duplicate)", "scene (0.1)", "scene (0.2)", "scene (0.4)", "scene (0.6)"])
+        self.combo_smart_method.setCurrentText("mpdecimate (De-duplicate)")
+        self.combo_smart_method.setEnabled(False)
+        self.check_smart_extract.toggled.connect(self.combo_smart_method.setEnabled)
+        extract_adv_layout.addWidget(self.combo_smart_method)
+
+        extract_adv_layout.addStretch()
+        extract_main_layout.addLayout(extract_adv_layout)
+
         self.main_layout.addWidget(self.extract_group)
         self.extract_group.setVisible(False)
 
@@ -1554,7 +1578,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             end_ms=end,
             is_range=is_range,
             target_resolution=target_size,
-            cuts_ms=self.cuts_ms
+            cuts_ms=self.cuts_ms,
+            frame_interval=self.spin_interval.value(),
+            smart_extract=self.check_smart_extract.isChecked(),
+            smart_method=self.combo_smart_method.currentText()
         )
         self.extractor_worker.signals.progress.connect(
             self.extraction_progress_bar.setValue

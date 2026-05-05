@@ -82,12 +82,17 @@ class BaSiCWrapper:
         # Normalise all frames to the first frame's spatial size before stacking.
         # Frames may have the same width but different heights after _normalise_widths
         # (which preserves aspect ratio), causing torch.stack to fail.
-        ref_h, ref_w = images[0].shape[:2]
+        # Downsample for flat-field estimation (shading is low-frequency)
+        # 512x... is plenty for BaSiC estimation and saves GBs of VRAM.
+        TARGET_W = 512
+        ref_h_orig, ref_w_orig = images[0].shape[:2]
+        target_h = int(ref_h_orig * TARGET_W / ref_w_orig)
+        
         frames = []
         for img in images:
-            if img.shape[:2] != (ref_h, ref_w):
-                img = cv2.resize(img, (ref_w, ref_h), interpolation=cv2.INTER_AREA)
-            t = torch.from_numpy(img).permute(2, 0, 1).float().to(self.device) / 255.0
+            # Resize to small target size
+            small = cv2.resize(img, (TARGET_W, target_h), interpolation=cv2.INTER_AREA)
+            t = torch.from_numpy(small).permute(2, 0, 1).float().to(self.device) / 255.0
             frames.append(t)
         X = torch.stack(frames)  # (N, 3, H, W)
         N, C, H, W = X.shape
@@ -143,6 +148,8 @@ class BaSiCWrapper:
         F_np = cv2.GaussianBlur(F_np, (31, 31), 0)
         F_np = np.clip(F_np, 0.5, 2.0)
 
+        # Resize flat-field back to original frame size
+        F_np = cv2.resize(F_np, (ref_w_orig, ref_h_orig), interpolation=cv2.INTER_LINEAR)
         self.flat_field = F_np.astype(np.float32)
         self.dark_field = np.zeros_like(self.flat_field)
         self.baselines = b.cpu().numpy().astype(np.float32)

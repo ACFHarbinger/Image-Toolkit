@@ -16,6 +16,8 @@ Workers
 
 from __future__ import annotations
 
+import torch
+
 from typing import Dict, List, Optional, Tuple
 
 import cv2
@@ -28,6 +30,7 @@ from PySide6.QtCore import QObject, Signal
 
 try:
     from backend.src.core.anime_stitch_pipeline import AnimeStitchPipeline
+
     _PIPELINE_OK = True
 except ImportError:
     _PIPELINE_OK = False
@@ -35,6 +38,7 @@ except ImportError:
 
 try:
     from backend.src.models.loftr_wrapper import LoFTRWrapper
+
     _LOFTR_OK = True
 except ImportError:
     _LOFTR_OK = False
@@ -42,6 +46,7 @@ except ImportError:
 
 try:
     from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+
     _BIREFNET_OK = True
 except ImportError:
     _BIREFNET_OK = False
@@ -49,6 +54,7 @@ except ImportError:
 
 try:
     from PIL import Image, ImageEnhance, ImageFilter, ImageOps
+
     _PIL_OK = True
 except ImportError:
     _PIL_OK = False
@@ -59,24 +65,25 @@ except ImportError:
 # ---------------------------------------------------------------------------
 
 _STAGE_LABELS = [
-    "Loading & trimming frames",          # 1
-    "Normalising widths",                 # 2
-    "BaSiC photometric correction",       # 3
-    "BiRefNet foreground masking",        # 4
-    "LoFTR pairwise matching",            # 5
-    "Bundle adjustment",                  # 6
-    "ECC sub-pixel refinement",           # 7
-    "Building canvas",                    # 8
-    "Temporal median render",             # 9
-    "Compositing foreground",             # 10
-    "Multi-band seam blend",              # 11
-    "Boundary crop",                      # 12
-    "Saving output",                      # 13
+    "Loading & trimming frames",  # 1
+    "Normalising widths",  # 2
+    "BaSiC photometric correction",  # 3
+    "BiRefNet foreground masking",  # 4
+    "LoFTR pairwise matching",  # 5
+    "Bundle adjustment",  # 6
+    "ECC sub-pixel refinement",  # 7
+    "Building canvas",  # 8
+    "Temporal median render",  # 9
+    "Compositing foreground",  # 10
+    "Multi-band seam blend",  # 11
+    "Boundary crop",  # 12
+    "Saving output",  # 13
 ]
 _TOTAL_STAGES = len(_STAGE_LABELS)
 
 
 if _PIPELINE_OK:
+
     class _ProgressPipeline(AnimeStitchPipeline):
         """
         Thin subclass of AnimeStitchPipeline that adds per-stage progress
@@ -130,10 +137,27 @@ if _PIPELINE_OK:
             _emit(4)
             self._check_cancel()
             bg_masks = self._compute_fg_masks(frames)
+            if (
+                torch.cuda.is_available()
+                and hasattr(self, "_birefnet")
+                and self._birefnet
+            ):
+                BiRefNetWrapper.purge_all_models()
+                self._birefnet = None
+                torch.cuda.empty_cache()
 
             _emit(5)
             self._check_cancel()
             edges = self._pairwise_match(frames, bg_masks)
+            # Purge LoFTR immediately after matching
+            if torch.cuda.is_available():
+                self._loftr = None
+                torch.cuda.empty_cache()
+                import gc; gc.collect()
+            if torch.cuda.is_available() and hasattr(self, "_loftr") and self._loftr:
+                self._loftr.offload()
+                self._loftr = None
+                torch.cuda.empty_cache()
             if not edges:
                 warnings.warn("[Stitch] No valid edges — falling back to scan stitch.")
                 return self._scan_stitch_fallback(frames, output_path)
@@ -156,15 +180,28 @@ if _PIPELINE_OK:
                 affines[i][0, 2] += T_global[0]
                 affines[i][1, 2] += T_global[1]
 
+            
+            if torch.cuda.is_available() and BiRefNetWrapper:
+                import gc
+                BiRefNetWrapper.purge_all_models()
+                self._birefnet = None
+                self._loftr = None
+                self._stitch_net = None
+                torch.cuda.synchronize()
+                torch.cuda.empty_cache()
+                gc.collect()
+
             _emit(9)
             self._check_cancel()
-            canvas, valid_mask = self._render(frames, affines, bg_masks, canvas_h, canvas_w)
+            canvas, valid_mask, warped_corr, warped_fgs = self._render(
+                frames, affines, bg_masks, canvas_h, canvas_w
+            )
 
             _emit(10)
             self._check_cancel()
             if self.composite_fg and self.use_birefnet:
                 canvas = self._composite_foreground(
-                    frames, affines, bg_masks, canvas, canvas_h, canvas_w
+                    [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks
                 )
 
             _emit(11)
@@ -201,9 +238,9 @@ if _PIPELINE_OK:
 
 
 class StitchWorker(QObject):
-    sig_stage = Signal(int, int, str)   # (current_stage, total_stages, label)
+    sig_stage = Signal(int, int, str)  # (current_stage, total_stages, label)
     sig_log = Signal(str)
-    sig_finished = Signal(str)          # output_path
+    sig_finished = Signal(str)  # output_path
     sig_error = Signal(str)
 
     TOTAL_STAGES = _TOTAL_STAGES
@@ -320,7 +357,7 @@ class MatchWorker(QObject):
 
 
 class MaskPreviewWorker(QObject):
-    sig_finished = Signal(object)   # np.ndarray (H,W) uint8
+    sig_finished = Signal(object)  # np.ndarray (H,W) uint8
     sig_error = Signal(str)
 
     def __init__(self, img_path: str):
@@ -355,6 +392,7 @@ class MaskPreviewWorker(QObject):
 def _pil_to_qimage(pil_img):
     """Convert a PIL Image to a QImage (thread-safe — no QPixmap)."""
     from PySide6.QtGui import QImage
+
     rgb = pil_img.convert("RGB")
     data = rgb.tobytes()
     w, h = rgb.size
@@ -424,7 +462,9 @@ def _apply_adjustments(pil_img, params: dict):
     gamma = params.get("gamma", 100) / 100.0
     if abs(gamma - 1.0) > 0.005:
         arr = np.array(img, dtype=np.float32)
-        arr = np.clip(np.power(arr / 255.0, 1.0 / gamma) * 255.0, 0, 255).astype(np.uint8)
+        arr = np.clip(np.power(arr / 255.0, 1.0 / gamma) * 255.0, 0, 255).astype(
+            np.uint8
+        )
         img = Image.fromarray(arr)
 
     # 7. Saturation
@@ -566,7 +606,7 @@ class AdjustWorker(QObject):
     source image first for faster preview rendering.
     """
 
-    sig_finished = Signal(object)   # QImage
+    sig_finished = Signal(object)  # QImage
     sig_error = Signal(str)
 
     def __init__(self, img_path: str, params: dict, max_size: Optional[int] = None):
@@ -616,16 +656,16 @@ class GraphStitchWorker(QObject):
     path is stored under its ID so later steps can reference it by ID.
     """
 
-    sig_step  = Signal(int, int, str)   # (current_step, total_steps, step_name)
-    sig_stage = Signal(int, int, str)   # (stage, total_stages, label) within step
-    sig_log   = Signal(str)
-    sig_finished = Signal(list)         # list of output paths
-    sig_error    = Signal(str)
+    sig_step = Signal(int, int, str)  # (current_step, total_steps, step_name)
+    sig_stage = Signal(int, int, str)  # (stage, total_stages, label) within step
+    sig_log = Signal(str)
+    sig_finished = Signal(list)  # list of output paths
+    sig_error = Signal(str)
 
     def __init__(self, plan: List[Dict], pipeline_config: dict):
         super().__init__()
         self._plan = plan
-        self._cfg  = pipeline_config
+        self._cfg = pipeline_config
         self._cancel_flag: list = [False]
 
     def cancel(self):
@@ -639,9 +679,9 @@ class GraphStitchWorker(QObject):
             )
             return
 
-        cfg          = self._cfg
+        cfg = self._cfg
         step_outputs: Dict[str, str] = {}
-        output_paths: List[str]      = []
+        output_paths: List[str] = []
         total = len(self._plan)
 
         for idx, step in enumerate(self._plan):
@@ -649,8 +689,8 @@ class GraphStitchWorker(QObject):
                 self.sig_error.emit("Cancelled.")
                 return
 
-            step_id   = step.get("id",     f"step_{idx}")
-            step_name = step.get("name",   f"Step {idx + 1}")
+            step_id = step.get("id", f"step_{idx}")
+            step_name = step.get("name", f"Step {idx + 1}")
             self.sig_step.emit(idx + 1, total, step_name)
             self.sig_log.emit(f"\n=== {step_name} ===")
 
@@ -681,14 +721,14 @@ class GraphStitchWorker(QObject):
                     progress_cb=_progress_cb,
                     log_cb=_log_cb,
                     cancel_flag=self._cancel_flag,
-                    use_basic      = cfg.get("use_basic",       True),
-                    use_birefnet   = cfg.get("use_birefnet",    True),
-                    use_loftr      = cfg.get("use_loftr",       True),
-                    use_ecc        = cfg.get("use_ecc",         True),
-                    renderer       = cfg.get("renderer",        "median"),
-                    composite_fg   = cfg.get("composite_fg",    True),
-                    laplacian_bands= cfg.get("laplacian_bands", 5),
-                    stitch_net_ckpt= cfg.get("stitch_net_ckpt", ""),
+                    use_basic=cfg.get("use_basic", True),
+                    use_birefnet=cfg.get("use_birefnet", True),
+                    use_loftr=cfg.get("use_loftr", True),
+                    use_ecc=cfg.get("use_ecc", True),
+                    renderer=cfg.get("renderer", "median"),
+                    composite_fg=cfg.get("composite_fg", True),
+                    laplacian_bands=cfg.get("laplacian_bands", 5),
+                    stitch_net_ckpt=cfg.get("stitch_net_ckpt", ""),
                 )
                 pipeline.run(resolved, out_path)
                 step_outputs[step_id] = out_path
@@ -720,7 +760,7 @@ class CanvasWorker(QObject):
     When preview=True the output is downscaled to max 900px on the long side.
     """
 
-    sig_finished = Signal(object)   # QImage
+    sig_finished = Signal(object)  # QImage
     sig_error = Signal(str)
 
     def __init__(self, paths: List[str], params: dict, preview: bool = False):
@@ -764,7 +804,9 @@ class CanvasWorker(QObject):
                 cell_h = out_h
                 for i, im in enumerate(images):
                     x = i * (cell_w + gap)
-                    canvas.paste(_scale_pil_image(im, cell_w, cell_h, scale_mode), (x, 0))
+                    canvas.paste(
+                        _scale_pil_image(im, cell_w, cell_h, scale_mode), (x, 0)
+                    )
 
             elif layout == "vertical":
                 avail_h = out_h - gap * max(0, n - 1)
@@ -772,7 +814,9 @@ class CanvasWorker(QObject):
                 cell_h = max(1, avail_h // n)
                 for i, im in enumerate(images):
                     y = i * (cell_h + gap)
-                    canvas.paste(_scale_pil_image(im, cell_w, cell_h, scale_mode), (0, y))
+                    canvas.paste(
+                        _scale_pil_image(im, cell_w, cell_h, scale_mode), (0, y)
+                    )
 
             else:  # grid
                 rows = max(1, math.ceil(n / grid_cols))
@@ -786,7 +830,9 @@ class CanvasWorker(QObject):
                     col_i = i % cols
                     x = col_i * (cell_w + gap)
                     y = row_i * (cell_h + gap)
-                    canvas.paste(_scale_pil_image(im, cell_w, cell_h, scale_mode), (x, y))
+                    canvas.paste(
+                        _scale_pil_image(im, cell_w, cell_h, scale_mode), (x, y)
+                    )
 
             if self._preview:
                 max_dim = 900

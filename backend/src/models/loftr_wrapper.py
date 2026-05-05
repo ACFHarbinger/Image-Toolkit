@@ -17,12 +17,13 @@ Legacy API (backward-compatible):
 import cv2
 import numpy as np
 import torch
+torch.backends.cudnn.benchmark = False
 import kornia.feature as KF
 from typing import Optional, Tuple
 
 # LoFTR optimal input size (divisible by 32, close to model sweet-spot)
-_LOFTR_H = 480
-_LOFTR_W = 640
+_LOFTR_H = 320
+_LOFTR_W = 448
 _MIN_INLIERS = 20
 
 
@@ -41,10 +42,17 @@ class LoFTRWrapper:
     # Model loading
     # ------------------------------------------------------------------
 
+    def offload(self):
+        if self.matcher is not None:
+            self.matcher.cpu()
+            if torch.cuda.is_available(): torch.cuda.empty_cache()
+
     def load_model(self):
         if self.matcher is None:
             print("[LoFTR] Loading outdoor model …")
             self.matcher = KF.LoFTR(pretrained="outdoor").to(self.device)
+        else:
+            self.matcher.to(self.device)
             self.matcher.eval()
 
     # ------------------------------------------------------------------
@@ -76,10 +84,12 @@ class LoFTRWrapper:
 
         with torch.no_grad():
             corr = self.matcher({"image0": t1, "image1": t2})
+        del t1, t2
 
-        pts1 = corr["keypoints0"].cpu().numpy().copy()
-        pts2 = corr["keypoints1"].cpu().numpy().copy()
-        conf = corr["confidence"].cpu().numpy().copy()
+        pts1 = corr["keypoints0"].detach().cpu().numpy().copy()
+        pts2 = corr["keypoints1"].detach().cpu().numpy().copy()
+        conf = corr["confidence"].detach().cpu().numpy().copy()
+        del corr
 
         # Scale back to original resolution
         pts1[:, 0] *= w1 / _LOFTR_W
