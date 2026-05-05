@@ -48,8 +48,12 @@ References
 
 from __future__ import annotations
 
-import gc
 import os
+
+os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
+
+import gc
+import torch
 import warnings
 from typing import Dict, List, Optional, Tuple
 
@@ -61,25 +65,29 @@ from scipy.optimize import least_squares
 # Optional heavy dependencies — guarded imports
 try:
     from backend.src.models.basic_wrapper import BaSiCWrapper
+
     _BASIC_OK = True
 except ImportError:
     _BASIC_OK = False
 
 try:
     from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+
     _BIREFNET_OK = True
 except ImportError:
     _BIREFNET_OK = False
 
 try:
     from backend.src.models.loftr_wrapper import LoFTRWrapper
+
     _LOFTR_OK = True
 except ImportError:
     _LOFTR_OK = False
 
 try:
     from backend.src.models.stitch_net.trainer import load_stitch_net
-    from backend.src.models.stitch_net.model   import AnimeStitchNet
+    from backend.src.models.stitch_net.model import AnimeStitchNet
+
     _STITCH_NET_OK = True
 except ImportError:
     _STITCH_NET_OK = False
@@ -89,23 +97,24 @@ except ImportError:
 # Constants
 # ---------------------------------------------------------------------------
 
-_LAPLACIAN_BANDS      = 5      # Laplacian pyramid depth for multi-band blend
-_ECC_MAX_ITER         = 80     # ECC termination iterations
-_ECC_EPS              = 1e-4   # ECC termination epsilon
-_ECC_PYRAMID_LEVELS   = 4      # Gaussian pyramid levels for ECC
-_MIN_LOFTR_INLIERS    = 20     # Minimum MAGSAC++ inliers for a valid LoFTR pair
-_MIN_TEMPLATE_SCORE   = 0.55   # Minimum TM_CCORR_NORMED score for template match
-_PC_CONF_THRESHOLD    = 0.08   # Minimum phase-correlation response (shallow = noisy)
-_CANVAS_MAX_DIM       = 32768  # Hard cap on canvas size to avoid OOM
-_MEDIAN_MIN_SAMPLES   = 3      # Minimum valid samples per pixel for median render
-_FOREGROUND_DILATION  = 16     # BiRefNet mask dilation (safety margin around chars)
-_FOREGROUND_EROSION   = 8      # BiRefNet mask erosion (sharpens boundary)
-_SMOOTHSTEP_BLEND_PX  = 96     # Fallback blend height when seam is unavailable
+_LAPLACIAN_BANDS = 5  # Laplacian pyramid depth for multi-band blend
+_ECC_MAX_ITER = 80  # ECC termination iterations
+_ECC_EPS = 1e-4  # ECC termination epsilon
+_ECC_PYRAMID_LEVELS = 4  # Gaussian pyramid levels for ECC
+_MIN_LOFTR_INLIERS = 20  # Minimum MAGSAC++ inliers for a valid LoFTR pair
+_MIN_TEMPLATE_SCORE = 0.55  # Minimum TM_CCORR_NORMED score for template match
+_PC_CONF_THRESHOLD = 0.08  # Minimum phase-correlation response (shallow = noisy)
+_CANVAS_MAX_DIM = 32768  # Hard cap on canvas size to avoid OOM
+_MEDIAN_MIN_SAMPLES = 3  # Minimum valid samples per pixel for median render
+_FOREGROUND_DILATION = 16  # BiRefNet mask dilation (safety margin around chars)
+_FOREGROUND_EROSION = 8  # BiRefNet mask erosion (sharpens boundary)
+_SMOOTHSTEP_BLEND_PX = 96  # Fallback blend height when seam is unavailable
 
 
 # ---------------------------------------------------------------------------
 # Standalone helper functions (no class state)
 # ---------------------------------------------------------------------------
+
 
 def _luma(bgr: np.ndarray) -> np.ndarray:
     """Return Y' channel (uint8 2-D) from a BGR uint8 image."""
@@ -137,12 +146,22 @@ def _trim_dark_border(arr: np.ndarray, pct: float = 0.20) -> np.ndarray:
     thr_r = max(med_r * pct, 4.0)
     thr_c = max(med_c * pct, 4.0)
 
-    top   = next((y for y in range(len(row_m)) if row_m[y] >= thr_r), 0)
-    bot   = next((y for y in range(len(row_m) - 1, -1, -1) if row_m[y] >= thr_r),
-                 len(row_m) - 1) + 1
-    left  = next((x for x in range(len(col_m)) if col_m[x] >= thr_c), 0)
-    right = next((x for x in range(len(col_m) - 1, -1, -1) if col_m[x] >= thr_c),
-                 len(col_m) - 1) + 1
+    top = next((y for y in range(len(row_m)) if row_m[y] >= thr_r), 0)
+    bot = (
+        next(
+            (y for y in range(len(row_m) - 1, -1, -1) if row_m[y] >= thr_r),
+            len(row_m) - 1,
+        )
+        + 1
+    )
+    left = next((x for x in range(len(col_m)) if col_m[x] >= thr_c), 0)
+    right = (
+        next(
+            (x for x in range(len(col_m) - 1, -1, -1) if col_m[x] >= thr_c),
+            len(col_m) - 1,
+        )
+        + 1
+    )
 
     trimmed = arr[top:bot, left:right]
     return trimmed if trimmed.size > 0 else arr
@@ -218,9 +237,9 @@ def _seam_dp(
     path : int array of length W (horizontal) or H (vertical),
            giving the seam row per column (or column per row).
     """
-    diff   = cv2.absdiff(img1, img2).astype(np.float32).mean(axis=2)
-    gx     = cv2.Sobel(diff, cv2.CV_32F, 1, 0, ksize=3)
-    gy     = cv2.Sobel(diff, cv2.CV_32F, 0, 1, ksize=3)
+    diff = cv2.absdiff(img1, img2).astype(np.float32).mean(axis=2)
+    gx = cv2.Sobel(diff, cv2.CV_32F, 1, 0, ksize=3)
+    gy = cv2.Sobel(diff, cv2.CV_32F, 0, 1, ksize=3)
     energy = diff + 0.5 * (np.abs(gx) + np.abs(gy))
 
     if not horizontal:
@@ -231,8 +250,10 @@ def _seam_dp(
     for i in range(1, h):
         for j in range(w):
             choices = [M[i - 1, j]]
-            if j > 0:     choices.append(M[i - 1, j - 1])
-            if j < w - 1: choices.append(M[i - 1, j + 1])
+            if j > 0:
+                choices.append(M[i - 1, j - 1])
+            if j < w - 1:
+                choices.append(M[i - 1, j + 1])
             M[i, j] += min(choices)
 
     path = np.zeros(h, np.int32)
@@ -240,8 +261,10 @@ def _seam_dp(
     path[h - 1] = j
     for i in range(h - 2, -1, -1):
         nbrs = [j]
-        if j > 0:     nbrs.append(j - 1)
-        if j < w - 1: nbrs.append(j + 1)
+        if j > 0:
+            nbrs.append(j - 1)
+        if j < w - 1:
+            nbrs.append(j + 1)
         j = nbrs[int(np.argmin([M[i, c] for c in nbrs]))]
         path[i] = j
 
@@ -272,12 +295,12 @@ def _largest_valid_rect(mask: np.ndarray) -> Tuple[int, int, int, int]:
     if h == 0 or w == 0:
         return (0, 0, w, h)
 
-    binary = (mask > 0)   # bool (H, W)
+    binary = mask > 0  # bool (H, W)
 
     # ── Fast path ─────────────────────────────────────────────────────────────
     # row_valid_frac[r] = fraction of columns that are valid in row r
-    row_frac = binary.mean(axis=1)   # (H,) float
-    col_frac = binary.mean(axis=0)   # (W,) float
+    row_frac = binary.mean(axis=1)  # (H,) float
+    col_frac = binary.mean(axis=0)  # (W,) float
 
     def _longest_thresh_run(frac, thr=0.95):
         """Longest contiguous run where frac >= thr."""
@@ -299,23 +322,23 @@ def _largest_valid_rect(mask: np.ndarray) -> Tuple[int, int, int, int]:
     c0, clen = _longest_thresh_run(col_frac, 0.95)
 
     fast_area = rlen * clen
-    valid_px  = max(int(binary.sum()), 1)
+    valid_px = max(int(binary.sum()), 1)
 
     if fast_area >= 0.40 * valid_px:
         return (c0, r0, c0 + clen, r0 + rlen)
 
     # ── Histogram fallback at 16× downscaling ─────────────────────────────────
-    DS   = 16
-    hs   = max(h // DS, 1)
-    ws   = max(w // DS, 1)
+    DS = 16
+    hs = max(h // DS, 1)
+    ws = max(w // DS, 1)
     small = cv2.resize(
         binary.astype(np.uint8) * 255,
         (ws, hs),
         interpolation=cv2.INTER_NEAREST,
     )
-    bin_s   = (small > 0).astype(np.int32)
+    bin_s = (small > 0).astype(np.int32)
     heights = np.zeros(ws, np.int32)
-    best    = (0, 0, w, h)
+    best = (0, 0, w, h)
     best_area = 0
 
     for row in range(hs):
@@ -325,9 +348,9 @@ def _largest_valid_rect(mask: np.ndarray) -> Tuple[int, int, int, int]:
             cur_h = int(heights[col]) if col < ws else 0
             start = col
             while stack and int(heights[stack[-1]]) > cur_h:
-                idx  = stack.pop()
-                hh   = int(heights[idx])
-                ww   = col - (stack[-1] + 1 if stack else 0)
+                idx = stack.pop()
+                hh = int(heights[idx])
+                ww = col - (stack[-1] + 1 if stack else 0)
                 area = hh * ww
                 if area > best_area:
                     best_area = area
@@ -344,12 +367,13 @@ def _largest_valid_rect(mask: np.ndarray) -> Tuple[int, int, int, int]:
             if col < ws:
                 heights[start] = cur_h
 
-    return best   # (x0, y0, x1, y1)  half-open
+    return best  # (x0, y0, x1, y1)  half-open
 
 
 # ---------------------------------------------------------------------------
 # Bundle Adjustment
 # ---------------------------------------------------------------------------
+
 
 def _bundle_adjust_affine(
     edges: List[Dict],
@@ -394,30 +418,30 @@ def _bundle_adjust_affine(
                 tx_raw = float(e["M"][0, 2])
                 ty_raw = float(e["M"][1, 2])
                 # t_f = t_{f-1} - t_{raw}
-                x0[f * 2]     = x0[(f-1)*2]     - tx_raw
-                x0[f * 2 + 1] = x0[(f-1)*2 + 1] - ty_raw
+                x0[f * 2] = x0[(f - 1) * 2] - tx_raw
+                x0[f * 2 + 1] = x0[(f - 1) * 2 + 1] - ty_raw
                 break
             elif e["i"] == f and e["j"] == f - 1:
                 tx_raw = float(e["M"][0, 2])
                 ty_raw = float(e["M"][1, 2])
                 # t_{f-1} = t_f - t_{raw} -> t_f = t_{f-1} + t_{raw}
-                x0[f * 2]     = x0[(f-1)*2]     + tx_raw
-                x0[f * 2 + 1] = x0[(f-1)*2 + 1] + ty_raw
+                x0[f * 2] = x0[(f - 1) * 2] + tx_raw
+                x0[f * 2 + 1] = x0[(f - 1) * 2 + 1] + ty_raw
                 break
 
     def residuals(x: np.ndarray) -> np.ndarray:
         res = []
         for e in edges:
             i, j, w = e["i"], e["j"], float(e.get("weight", 1.0))
-            ti = x[i * 2: i * 2 + 2]
-            tj = x[j * 2: j * 2 + 2]
-            
-            pts_i = e["pts_i"].astype(np.float64)           # (K,2)
+            ti = x[i * 2 : i * 2 + 2]
+            tj = x[j * 2 : j * 2 + 2]
+
+            pts_i = e["pts_i"].astype(np.float64)  # (K,2)
             pts_j = e["pts_j"].astype(np.float64)
-            
+
             # Global positions: frame_i @ pt → pt + ti; frame_j → pt_j + tj
             # Enforcing translation-only, so rotation is identity
-            diff = (pts_i + ti) - (pts_j + tj)              # residual in global coords
+            diff = (pts_i + ti) - (pts_j + tj)  # residual in global coords
             res.extend((diff * w).flatten())
 
         # Anchor frame 0 at identity
@@ -427,9 +451,12 @@ def _bundle_adjust_affine(
         return np.array(res, np.float64)
 
     result = least_squares(
-        residuals, x0,
+        residuals,
+        x0,
         method="trf",
-        ftol=1e-5, xtol=1e-5, gtol=1e-5,
+        ftol=1e-5,
+        xtol=1e-5,
+        gtol=1e-5,
         max_nfev=iterations * num_frames,
         verbose=0,
     )
@@ -449,6 +476,7 @@ def _bundle_adjust_affine(
 # ---------------------------------------------------------------------------
 # Main Pipeline Class
 # ---------------------------------------------------------------------------
+
 
 class AnimeStitchPipeline:
     """
@@ -470,29 +498,29 @@ class AnimeStitchPipeline:
 
     def __init__(
         self,
-        use_basic:            bool = True,
-        use_birefnet:         bool = True,
-        use_loftr:            bool = True,
-        use_ecc:              bool = True,
-        renderer:             str  = "median",   # 'median' | 'first' | 'blend'
-        composite_fg:         bool = True,
-        laplacian_bands:      int  = _LAPLACIAN_BANDS,
-        stitch_net_ckpt:      str  = "",  # path to AnimeStitchNet checkpoint
+        use_basic: bool = True,
+        use_birefnet: bool = True,
+        use_loftr: bool = True,
+        use_ecc: bool = True,
+        renderer: str = "median",  # 'median' | 'first' | 'blend'
+        composite_fg: bool = True,
+        laplacian_bands: int = _LAPLACIAN_BANDS,
+        stitch_net_ckpt: str = "",  # path to AnimeStitchNet checkpoint
     ):
-        self.use_basic       = use_basic and _BASIC_OK
-        self.use_birefnet    = use_birefnet and _BIREFNET_OK
-        self.use_loftr       = use_loftr and _LOFTR_OK
-        self.use_ecc         = use_ecc
-        self.renderer        = renderer
-        self.composite_fg    = composite_fg
-        self.bands           = laplacian_bands
+        self.use_basic = use_basic and _BASIC_OK
+        self.use_birefnet = use_birefnet and _BIREFNET_OK
+        self.use_loftr = use_loftr and _LOFTR_OK
+        self.use_ecc = use_ecc
+        self.renderer = renderer
+        self.composite_fg = composite_fg
+        self.bands = laplacian_bands
         self.stitch_net_ckpt = stitch_net_ckpt
 
         # Lazy-loaded model instances (only allocated if the flag is True)
-        self._basic:       Optional[BaSiCWrapper]    = None
-        self._birefnet:    Optional[BiRefNetWrapper] = None
-        self._loftr:       Optional[LoFTRWrapper]    = None
-        self._stitch_net:  Optional["AnimeStitchNet"] = None  # trained DL matcher
+        self._basic: Optional[BaSiCWrapper] = None
+        self._birefnet: Optional[BiRefNetWrapper] = None
+        self._loftr: Optional[LoFTRWrapper] = None
+        self._stitch_net: Optional["AnimeStitchNet"] = None  # trained DL matcher
 
     # ---------------------------------------------------------------- public
 
@@ -535,12 +563,28 @@ class AnimeStitchPipeline:
             print("[Stitch] Stage 3 skipped (use_basic=False).")
 
         # ── Stage 4: Foreground masking ──────────────────────────────────────
-        bg_masks = self._compute_fg_masks(frames)   # list of (H,W) uint8, 255=bg
-        print(f"[Stitch] Stage 4 complete: foreground masks ready "
-              f"({'BiRefNet' if self.use_birefnet else 'None'}).")
+        bg_masks = self._compute_fg_masks(frames)
+        if torch.cuda.is_available():
+            self._birefnet.offload()
+            self._birefnet = None
+            torch.cuda.empty_cache()  # list of (H,W) uint8, 255=bg
+        print(
+            f"[Stitch] Stage 4 complete: foreground masks ready "
+            f"({'BiRefNet' if self.use_birefnet else 'None'})."
+        )
 
         # ── Stage 5-6: Pairwise LoFTR matching (+ skip-pair edges) ──────────
         edges = self._pairwise_match(frames, bg_masks)
+        if torch.cuda.is_available():
+            self._loftr.offload()
+            import torch
+
+            torch.cuda.empty_cache()
+            import gc
+
+            gc.collect()
+            self._loftr = None
+            torch.cuda.empty_cache()
         print(f"[Stitch] Stages 5-6 complete: {len(edges)} valid edges found.")
         if not edges:
             warnings.warn("[Stitch] No valid edges — falling back to scan stitch.")
@@ -570,13 +614,15 @@ class AnimeStitchPipeline:
 
         # ── Stage 10: Temporal renderer ─────────────────────────────────────
         canvas, valid_mask, warped_corr, warped_fgs = self._render(
-            frames, affines, bg_masks, canvas_h, canvas_w)
+            frames, affines, bg_masks, canvas_h, canvas_w
+        )
         print("[Stitch] Stage 10 complete: temporal render done.")
 
         # ── Stage 11: Foreground composite ──────────────────────────────────
         if self.composite_fg and self.use_birefnet:
             canvas = self._composite_foreground(
-                warped_corr, warped_fgs, canvas, canvas_h, canvas_w)
+                [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks
+            )
             print("[Stitch] Stage 11 complete: foreground composited.")
 
         # ── Stage 12: Remaining seam blend (blend renderer only) ────────────
@@ -646,11 +692,15 @@ class AnimeStitchPipeline:
             flat, dark, baselines = self._basic.fit(frames, luma_only=True)
             dim_frames = [i for i, bi in enumerate(baselines) if bi < 0.75]
             if dim_frames:
-                print(f"[Stitch]   Broadcast-dimming detected in frames: {dim_frames} "
-                      f"(will be corrected by colour matching in renderer)")
+                print(
+                    f"[Stitch]   Broadcast-dimming detected in frames: {dim_frames} "
+                    f"(will be corrected by colour matching in renderer)"
+                )
             # Apply flat-field only (b=1.0 → no per-frame brightness change)
-            return [self._basic.apply_correction(img, baseline_override=1.0)
-                    for img in frames]
+            return [
+                self._basic.apply_correction(img, baseline_override=1.0)
+                for img in frames
+            ]
 
         # Legacy fallback
         if hasattr(self._basic, "process_batch"):
@@ -659,9 +709,7 @@ class AnimeStitchPipeline:
         return [self._basic.apply_correction(img) for img in frames]
 
     # Stage 4
-    def _compute_fg_masks(
-        self, frames: List[np.ndarray]
-    ) -> List[Optional[np.ndarray]]:
+    def _compute_fg_masks(self, frames: List[np.ndarray]) -> List[Optional[np.ndarray]]:
         """Returns list of background masks (255 = safe background, 0 = character)."""
         if not self.use_birefnet:
             return [None] * len(frames)
@@ -689,12 +737,21 @@ class AnimeStitchPipeline:
                     if _FOREGROUND_DILATION > 0:
                         k = cv2.getStructuringElement(
                             cv2.MORPH_ELLIPSE,
-                            (2 * _FOREGROUND_DILATION + 1, 2 * _FOREGROUND_DILATION + 1),
+                            (
+                                2 * _FOREGROUND_DILATION + 1,
+                                2 * _FOREGROUND_DILATION + 1,
+                            ),
                         )
                         # Dilate the foreground mask (shrinks the safe background zone)
                         fg_dilated = cv2.dilate(fg, k)
                         bg = cv2.bitwise_not(fg_dilated)
                 masks.append(bg)
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.synchronize()
+                    torch.cuda.empty_cache()
             except Exception as e:
                 print(f"[Stitch]   BiRefNet failed on frame {i}: {e}")
                 masks.append(None)
@@ -721,15 +778,21 @@ class AnimeStitchPipeline:
         for i in range(N - 1):
             pairs.append((i, i + 1))
         for i in range(N - 2):
-            pairs.append((i, i + 2))   # skip-1
+            pairs.append((i, i + 2))  # skip-1
         for i in range(N - 3):
-            pairs.append((i, i + 3))   # skip-2
+            pairs.append((i, i + 3))  # skip-2
 
         edges: List[Dict] = []
-        for (i, j) in pairs:
+        for idx, (i, j) in enumerate(pairs):
             edge = self._match_pair(frames, bg_masks, i, j, H, W)
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+                torch.cuda.empty_cache()
             if edge is not None:
                 edges.append(edge)
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            gc.collect()
 
         return edges
 
@@ -746,7 +809,7 @@ class AnimeStitchPipeline:
         Try to match frame i to frame j.  Returns edge dict or None.
         """
         img_i, img_j = frames[i], frames[j]
-        m_i = bg_masks[i]   # 255 = background
+        m_i = bg_masks[i]  # 255 = background
         m_j = bg_masks[j]
 
         M: Optional[np.ndarray] = None
@@ -757,24 +820,32 @@ class AnimeStitchPipeline:
             try:
                 import torch, math
                 import torch.nn.functional as F_nn
+
                 if self._stitch_net is None:
                     self._stitch_net = load_stitch_net(self.stitch_net_ckpt)
                 net = self._stitch_net
                 pH_nn, pW_nn = img_i.shape[:2]
+
                 def _to_tensor(bgr):
-                    y = cv2.cvtColor(bgr, cv2.COLOR_BGR2YCrCb)[..., 0].astype("float32") / 255.0
+                    y = (
+                        cv2.cvtColor(bgr, cv2.COLOR_BGR2YCrCb)[..., 0].astype("float32")
+                        / 255.0
+                    )
                     return torch.from_numpy(y).unsqueeze(0).unsqueeze(0)
+
                 ti = _to_tensor(img_i)
                 tj = _to_tensor(img_j)
                 dev = next(net.parameters()).device
                 with torch.no_grad():
                     params = net(ti.to(dev), tj.to(dev)).cpu()
                 from backend.src.models.stitch_net.model import AnimeStitchNet as _ASN
+
                 M_t = _ASN.params_to_affine(params, pH_nn, pW_nn).squeeze(0)
                 M = M_t.numpy().astype("float32")
-                mean_conf = 0.75   # fixed confidence for net predictions
-                print(f"[Stitch]   {i}→{j}: StitchNet "
-                      f"dx={M[0,2]:.1f} dy={M[1,2]:.1f}")
+                mean_conf = 0.75  # fixed confidence for net predictions
+                print(
+                    f"[Stitch]   {i}→{j}: StitchNet dx={M[0, 2]:.1f} dy={M[1, 2]:.1f}"
+                )
             except Exception as e:
                 print(f"[Stitch]   {i}→{j}: StitchNet error: {e}")
                 M = None
@@ -785,7 +856,10 @@ class AnimeStitchPipeline:
                 if hasattr(self._loftr, "get_affine_partial"):
                     # New API: background-masked matching + MAGSAC++ affine-partial
                     M, mean_conf = self._loftr.get_affine_partial(
-                        img_i, img_j, mask1=m_i, mask2=m_j,
+                        img_i,
+                        img_j,
+                        mask1=m_i,
+                        mask2=m_j,
                         min_inliers=_MIN_LOFTR_INLIERS,
                     )
                 else:
@@ -807,7 +881,8 @@ class AnimeStitchPipeline:
                         pts1_f, pts2_f, conf_f = pts1[keep], pts2[keep], conf[keep]
                         if len(pts1_f) >= _MIN_LOFTR_INLIERS:
                             M_raw, inliers = cv2.estimateAffinePartial2D(
-                                pts1_f, pts2_f,
+                                pts1_f,
+                                pts2_f,
                                 method=cv2.RANSAC,
                                 ransacReprojThreshold=3.0,
                                 confidence=0.999,
@@ -818,9 +893,11 @@ class AnimeStitchPipeline:
                                     M = M_raw.astype(np.float32)
                                     mean_conf = float(conf_f[inl_mask].mean())
                 if M is not None:
-                    print(f"[Stitch]   {i}→{j}: LoFTR "
-                          f"dx={M[0,2]:.1f} dy={M[1,2]:.1f} "
-                          f"conf={mean_conf:.3f}")
+                    print(
+                        f"[Stitch]   {i}→{j}: LoFTR "
+                        f"dx={M[0, 2]:.1f} dy={M[1, 2]:.1f} "
+                        f"conf={mean_conf:.3f}"
+                    )
             except Exception as e:
                 print(f"[Stitch]   {i}→{j}: LoFTR error: {e}")
                 M = None
@@ -829,16 +906,20 @@ class AnimeStitchPipeline:
         if M is None:
             M, mean_conf = self._template_match(img_i, img_j, m_i, m_j, H)
             if M is not None:
-                print(f"[Stitch]   {i}→{j}: TemplateMatch "
-                      f"dy={M[1,2]:.1f} conf={mean_conf:.3f}")
+                print(
+                    f"[Stitch]   {i}→{j}: TemplateMatch "
+                    f"dy={M[1, 2]:.1f} conf={mean_conf:.3f}"
+                )
 
         # ── Attempt 3: Phase correlation on high-pass Y' ──────────────────
         if M is None:
             M, mean_conf = self._phase_correlate(img_i, img_j, m_i, m_j)
             if M is not None:
-                print(f"[Stitch]   {i}→{j}: PhaseCorr "
-                      f"dx={M[0,2]:.1f} dy={M[1,2]:.1f} "
-                      f"conf={mean_conf:.3f}")
+                print(
+                    f"[Stitch]   {i}→{j}: PhaseCorr "
+                    f"dx={M[0, 2]:.1f} dy={M[1, 2]:.1f} "
+                    f"conf={mean_conf:.3f}"
+                )
 
         if M is None:
             print(f"[Stitch]   {i}→{j}: all methods failed — skipping edge.")
@@ -896,7 +977,7 @@ class AnimeStitchPipeline:
         • Confidence sanity check: rejects matches near the ROI boundary (may be
           artefacts of template padding) and matches with score < threshold.
         """
-        g_i = _luma(img_i)    # float32 (H, W)
+        g_i = _luma(img_i)  # float32 (H, W)
         g_j = _luma(img_j)
 
         W = g_i.shape[1]
@@ -905,24 +986,24 @@ class AnimeStitchPipeline:
         # Three strip starting rows (bottom quarter of frame i)
         # Wider spacing → more robust to local texture failure
         strip_starts = [
-            H - slice_h,                       # bottom strip
-            H - slice_h - slice_h // 2,        # mid strip
-            H - slice_h - slice_h,             # upper strip (if it fits)
+            H - slice_h,  # bottom strip
+            H - slice_h - slice_h // 2,  # mid strip
+            H - slice_h - slice_h,  # upper strip (if it fits)
         ]
         strip_starts = [s for s in strip_starts if s >= 0 and s + slice_h <= H]
 
-        best_dy   = None
-        best_dx   = 0.0
+        best_dy = None
+        best_dx = 0.0
         best_conf = 0.0
 
-        roi = g_j[:search_h, :]               # region in frame j to search
+        roi = g_j[:search_h, :]  # region in frame j to search
 
         for strip_y in strip_starts:
-            tmpl = g_i[strip_y: strip_y + slice_h, :].copy()
+            tmpl = g_i[strip_y : strip_y + slice_h, :].copy()
 
             # Background mask for this strip
             if m_i is not None:
-                mask_strip = m_i[strip_y: strip_y + slice_h, :]
+                mask_strip = m_i[strip_y : strip_y + slice_h, :]
                 # Skip strip if almost entirely foreground
                 if mask_strip.mean() < 15:
                     continue
@@ -961,16 +1042,16 @@ class AnimeStitchPipeline:
 
             # Parabolic sub-pixel refinement (y axis)
             ry_sub = float(ry)
-            d = 2*res[ry, rx] - res[ry-1, rx] - res[ry+1, rx]
+            d = 2 * res[ry, rx] - res[ry - 1, rx] - res[ry + 1, rx]
             if abs(d) > 1e-7:
-                ry_sub -= (res[ry+1, rx] - res[ry-1, rx]) / (2.0 * d)
+                ry_sub -= (res[ry + 1, rx] - res[ry - 1, rx]) / (2.0 * d)
 
             # Sub-pixel refinement (x axis)
             rx_sub = float(rx)
             if 0 < rx < res.shape[1] - 1:
-                d2 = 2*res[ry, rx] - res[ry, rx-1] - res[ry, rx+1]
+                d2 = 2 * res[ry, rx] - res[ry, rx - 1] - res[ry, rx + 1]
                 if abs(d2) > 1e-7:
-                    rx_sub -= (res[ry, rx+1] - res[ry, rx-1]) / (2.0 * d2)
+                    rx_sub -= (res[ry, rx + 1] - res[ry, rx - 1]) / (2.0 * d2)
 
             # dy: how much frame j is shifted vertically relative to frame i
             # The strip starting at `strip_y` in frame i was found at `ry_sub` in frame j.
@@ -980,18 +1061,19 @@ class AnimeStitchPipeline:
             dy_candidate = ry_sub - strip_y
 
             # dx: horizontal offset (positive = frame j shifted right)
-            dx_candidate = rx_sub   # match col in frame j minus 0 (template is full-width)
+            dx_candidate = (
+                rx_sub  # match col in frame j minus 0 (template is full-width)
+            )
 
             if v > best_conf:
                 best_conf = v
-                best_dy   = dy_candidate
-                best_dx   = dx_candidate
+                best_dy = dy_candidate
+                best_dx = dx_candidate
 
         if best_dy is None:
             return None, 0.0
 
-        M = np.array([[1.0, 0.0, best_dx],
-                      [0.0, 1.0, best_dy]], np.float32)
+        M = np.array([[1.0, 0.0, best_dx], [0.0, 1.0, best_dy]], np.float32)
         return M, float(best_conf)
 
     @staticmethod
@@ -1068,7 +1150,7 @@ class AnimeStitchPipeline:
         falling back to the BA result.  This prevents ECC from diverging on
         low-texture frames.
         """
-        _ECC_MAX_DRIFT = 80.0   # max px ECC is allowed to correct in each axis
+        _ECC_MAX_DRIFT = 80.0  # max px ECC is allowed to correct in each axis
 
         criteria = (
             cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
@@ -1078,9 +1160,9 @@ class AnimeStitchPipeline:
         refined = [affines[0].copy()]
 
         for i in range(1, len(frames)):
-            M_i = affines[i].copy()     # global t_i
-            M_prev = affines[i-1].copy() # global t_{i-1}
-            
+            M_i = affines[i].copy()  # global t_i
+            M_prev = affines[i - 1].copy()  # global t_{i-1}
+
             ref_img = _luma(frames[i - 1])
             src_img = _luma(frames[i])
             ecc_mask = bg_masks[i - 1] if bg_masks[i - 1] is not None else None
@@ -1098,15 +1180,17 @@ class AnimeStitchPipeline:
             try:
                 M_cur = M_rel.copy()
                 for lvl in range(_ECC_PYRAMID_LEVELS - 1, -1, -1):
-                    scale = 2 ** lvl
-                    r_s = cv2.resize(ref_img,
-                                     (ref_img.shape[1] // scale,
-                                      ref_img.shape[0] // scale),
-                                     interpolation=cv2.INTER_AREA)
-                    s_s = cv2.resize(src_img,
-                                     (src_img.shape[1] // scale,
-                                      src_img.shape[0] // scale),
-                                     interpolation=cv2.INTER_AREA)
+                    scale = 2**lvl
+                    r_s = cv2.resize(
+                        ref_img,
+                        (ref_img.shape[1] // scale, ref_img.shape[0] // scale),
+                        interpolation=cv2.INTER_AREA,
+                    )
+                    s_s = cv2.resize(
+                        src_img,
+                        (src_img.shape[1] // scale, src_img.shape[0] // scale),
+                        interpolation=cv2.INTER_AREA,
+                    )
                     M_s = M_cur.copy()
                     M_s[0, 2] /= scale
                     M_s[1, 2] /= scale
@@ -1115,14 +1199,15 @@ class AnimeStitchPipeline:
                     if ecc_mask is not None:
                         ecc_m_s = cv2.resize(
                             ecc_mask,
-                            (ecc_mask.shape[1] // scale,
-                             ecc_mask.shape[0] // scale),
+                            (ecc_mask.shape[1] // scale, ecc_mask.shape[0] // scale),
                             interpolation=cv2.INTER_NEAREST,
                         )
 
                     try:
                         _, M_s = cv2.findTransformECC(
-                            r_s, s_s, M_s,
+                            r_s,
+                            s_s,
+                            M_s,
                             cv2.MOTION_TRANSLATION,
                             criteria,
                             ecc_m_s,
@@ -1136,15 +1221,19 @@ class AnimeStitchPipeline:
 
                 # Refined relative translation
                 tx_rel_ec, ty_rel_ec = M_cur[0, 2], M_cur[1, 2]
-                
+
                 # Update global translation: t_i = t_{i-1} - t_{rel_ecc}
                 tx_i_new = M_prev[0, 2] - tx_rel_ec
                 ty_i_new = M_prev[1, 2] - ty_rel_ec
 
                 # Safety clamp: reject if ECC moves t_i too far from BA start
-                if (abs(tx_i_new - M_i[0, 2]) > _ECC_MAX_DRIFT or
-                        abs(ty_i_new - M_i[1, 2]) > _ECC_MAX_DRIFT):
-                    print(f"[Stitch]   ECC frame {i}: correction clamped; keeping BA result.")
+                if (
+                    abs(tx_i_new - M_i[0, 2]) > _ECC_MAX_DRIFT
+                    or abs(ty_i_new - M_i[1, 2]) > _ECC_MAX_DRIFT
+                ):
+                    print(
+                        f"[Stitch]   ECC frame {i}: correction clamped; keeping BA result."
+                    )
                     refined.append(M_i)
                     continue
 
@@ -1152,12 +1241,13 @@ class AnimeStitchPipeline:
                 M_out[0, 2] = tx_i_new
                 M_out[1, 2] = ty_i_new
                 refined.append(M_out)
-                print(f"[Stitch]   ECC frame {i}: refined global dx={M_out[0,2]:.2f} dy={M_out[1,2]:.2f}")
+                print(
+                    f"[Stitch]   ECC frame {i}: refined global dx={M_out[0, 2]:.2f} dy={M_out[1, 2]:.2f}"
+                )
 
             except Exception as e:
                 print(f"[Stitch]   ECC frame {i} failed ({e}); keeping BA result.")
                 refined.append(M_i)
-
 
         return refined
 
@@ -1205,25 +1295,130 @@ class AnimeStitchPipeline:
         canvas_w: int,
     ) -> Tuple[np.ndarray, np.ndarray, List[np.ndarray], List[np.ndarray]]:
         """
-        Warp all frames onto the canvas and combine them.
-
-        Returns
-        -------
-        canvas : (H, W, 3) uint8 BGR final image.
-        valid_mask : (H, W) uint8 — 255 where at least one frame contributed.
+        Dispatcher for different rendering modes.
         """
         if self.renderer == "median":
-            return self._render_median(
-                frames, affines, bg_masks, canvas_h, canvas_w)
+            return self._render_median(frames, affines, bg_masks, canvas_h, canvas_w)
         elif self.renderer == "first":
             c, v = self._render_first(frames, affines, canvas_h, canvas_w)
-            # Mock empty lists for the extra return values
             return c, v, [], []
         else:
-            c, v = self._render_blend(frames, affines, bg_masks, canvas_h, canvas_w)
-            return c, v, [], []
+            # "blend" or default uses Laplacian
+            return self._render_laplacian(frames, affines, bg_masks, canvas_h, canvas_w)
 
-    def _render(
+    def _render_median(
+        self,
+        frames: List[np.ndarray],
+        affines: List[np.ndarray],
+        bg_masks: List[Optional[np.ndarray]],
+        H: int,
+        W: int,
+    ) -> Tuple[np.ndarray, np.ndarray, List[np.ndarray], List[np.ndarray]]:
+        """
+        Memory-efficient and FAST Temporal Median Render.
+        Avoids float32 conversion and nanmedian where possible.
+        """
+        import numpy as np
+        import cv2
+        import warnings
+
+        N = len(frames)
+        canvas = np.zeros((H, W, 3), dtype=np.uint8)
+        valid_mask = np.zeros((H, W), dtype=np.uint8)
+
+        # Determine chunk size. We want to keep stack size < 1GB
+        # N * chunk_h * W * 3 bytes (uint8)
+        chunk_size = max(1, min(1024, (1024 * 1024 * 1024) // (N * W * 3 + 1)))
+
+        print(f"[Stitch]   Rendering {N} frames in chunks of {chunk_size}px height...")
+
+        for y0 in range(0, H, chunk_size):
+            y1 = min(y0 + chunk_size, H)
+            ch = y1 - y0
+
+            # (N, ch, W, 3)
+            stack = np.zeros((N, ch, W, 3), dtype=np.uint8)
+            # (N, ch, W)
+            masks = np.zeros((N, ch, W), dtype=bool)
+
+            for i in range(N):
+                M_strip = affines[i].copy()
+                M_strip[1, 2] -= y0
+                w_strip = cv2.warpAffine(
+                    frames[i], M_strip, (W, ch), flags=cv2.INTER_LINEAR
+                )
+                stack[i] = w_strip
+                masks[i] = w_strip.max(axis=2) > 0
+
+            # For each pixel, if count > 0, compute median of valid samples
+            # This is still the bottleneck. We can optimize by only computing where masks.sum > 0
+            # and using a faster median for common cases (N=1, N=2, N=3)
+
+            # (ch, W)
+            count = masks.sum(axis=0)
+
+            # Case 1: pixels with exactly 1 sample (Very common in panoramas)
+            m1 = count == 1
+            if m1.any():
+                # stack is (N, ch, W, 3). We want to pick the only valid one.
+                # Since count is 1, masks has only one True per (y,x)
+                idx1 = masks[:, m1].argmax(axis=0)  # (num_m1,)
+                # stack[:, m1] is (N, num_m1, 3)
+                # We need to take stack[idx1[j], j, :]
+                # This is tricky with advanced indexing.
+                canvas_strip = canvas[y0:y1]
+                # Flat indexing for speed
+                s_flat = stack.reshape(N, -1, 3)
+                m1_flat = m1.flatten()
+                canvas_strip.reshape(-1, 3)[m1_flat] = s_flat[
+                    idx1, np.arange(len(idx1))
+                ]
+
+            # Case 2: pixels with > 1 samples (Where we actually need median)
+            m_gt1 = count > 1
+            if m_gt1.any():
+                canvas_strip = canvas[y0:y1]
+                # We use a masked median approach.
+                # To avoid nanmedian, we can use a loop or partition on a slice.
+                # For anime, N is usually small (e.g. 5-20 in overlap),
+                # so we can use np.sort or np.partition.
+
+                # Filter stack to only where m_gt1
+                # stack_gt1 is (N, num_gt1, 3)
+                s_gt1 = stack.reshape(N, -1, 3)[:, m_gt1.flatten(), :]
+                masks_gt1 = masks.reshape(N, -1)[:, m_gt1.flatten()]
+
+                # For each pixel in s_gt1, we need median of valid entries.
+                # This is STILL slow if done in a loop.
+                # Optimized approach: use a large value for masked entries and then take median
+                # but handle even/odd N carefully.
+
+                # Simpler: float conversion ONLY for these pixels
+                s_gt1_f = s_gt1.astype(np.float32)
+                s_gt1_f[~masks_gt1] = np.nan
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=RuntimeWarning)
+                    med = np.nanmedian(s_gt1_f, axis=0)
+                canvas_strip.reshape(-1, 3)[m_gt1.flatten()] = np.clip(
+                    med, 0, 255
+                ).astype(np.uint8)
+
+            valid_mask[y0:y1][count > 0] = 255
+
+        return canvas, valid_mask, [], []
+
+    def _render_first(self, frames, affines, H, W):
+        # Implementation of simple first-frame renderer
+        canvas = np.zeros((H, W, 3), np.uint8)
+        mask = np.zeros((H, W), np.uint8)
+        for img, M in reversed(list(zip(frames, affines))):
+            w = cv2.warpAffine(img, M, (W, H), flags=cv2.INTER_LINEAR)
+            m = (w.max(axis=2) > 0).astype(np.uint8) * 255
+            canvas[m > 0] = w[m > 0]
+            mask |= m
+        return canvas, mask
+
+    def _render_laplacian(
         self,
         frames: List[np.ndarray],
         affines: List[np.ndarray],
@@ -1238,8 +1433,8 @@ class AnimeStitchPipeline:
         warped_list = []
         mask_list = []
         for i, (img, M, bg) in enumerate(zip(frames, affines, bg_masks)):
-            M_r = M.copy(); M_r[0,0]=1; M_r[0,1]=0; M_r[1,0]=0; M_r[1,1]=1
-            w = cv2.warpAffine(img, M_r, (W, H), flags=cv2.INTER_LINEAR)
+            M_r = M
+            w = cv2.warpAffine(img, M, (W, H), flags=cv2.INTER_LINEAR)
             warped_list.append(w)
             mask = (w.max(axis=2) > 0).astype(np.uint8) * 255
             mask_list.append(mask)
@@ -1247,11 +1442,11 @@ class AnimeStitchPipeline:
         # ── Color Matching (Linear Gain Anchor to Frame 0) ─────────────────
         ref_idx = 0
         ref_img = warped_list[ref_idx].astype(np.float32)
-        ref_m   = (mask_list[ref_idx] > 0)
+        ref_m = mask_list[ref_idx] > 0
         colour_matched = [ref_img]
         for i in range(1, N):
             src = warped_list[i].astype(np.float32)
-            vm = (mask_list[i] > 0)
+            vm = mask_list[i] > 0
             overlap = vm & ref_m
             if overlap.sum() > 5000:
                 out = src.copy()
@@ -1259,12 +1454,13 @@ class AnimeStitchPipeline:
                     gain = ref_img[overlap, c].mean() / (src[overlap, c].mean() + 1e-6)
                     out[..., c] = np.clip(src[..., c] * gain, 0, 255)
                 colour_matched.append(out)
-            else: colour_matched.append(src)
+            else:
+                colour_matched.append(src)
 
         # ── Sequential Seamless Blend ──────────────────────────────────────
         canvas = colour_matched[0].copy()
         canvas_m = mask_list[0].copy()
-        
+
         for i in range(1, N):
             img = colour_matched[i]
             m_i = mask_list[i]
@@ -1279,11 +1475,24 @@ class AnimeStitchPipeline:
             # Using a simple gradient-weighted distance to create a smooth middle-seam
             d1 = cv2.distanceTransform(canvas_m, cv2.DIST_L2, 3)
             d2 = cv2.distanceTransform(m_i, cv2.DIST_L2, 3)
-            
+
             # weight = d2 / (d1 + d2) -> 1.0 where we are deep in m_i, 0.0 where we are deep in canvas
-            weight = d2 / (d1 + d2 + 1e-9)
+            weight = (d2**4) / (d1**4 + d2**4 + 1e-9)
             weight[~overlap] = (m_i[~overlap] > 0).astype(np.float32)
-            
+
+            # Character priority: if the new frame has a character in the overlap,
+            # bias the weight toward 1.0 to ensure the character is sharp.
+            if bg_masks[i] is not None:
+                fg_i = bg_masks[i] < 127
+                M_r = affines[i]
+                w_fg_i = cv2.warpAffine(
+                    fg_i.astype(np.uint8) * 255,
+                    affines[i],
+                    (W, H),
+                    flags=cv2.INTER_NEAREST,
+                )
+                weight[w_fg_i > 127] = 1.0
+
             # Laplacian Multi-band blend
             canvas = _laplacian_blend(img, canvas, weight, self.bands)
             canvas_m |= m_i
@@ -1292,22 +1501,65 @@ class AnimeStitchPipeline:
         # We already blended everything seamlessly, but we can do a final character-priority pass
         # for any moving parts if birefnet was used.
         # For now, the sequential blend is the smoothest possible result.
-        
-        warped_fgs = [] # Dummy for compat
-        for i in range(N): warped_fgs.append(np.zeros((H,W), np.uint8))
-        
-        return canvas.astype(np.uint8), canvas_m, [c.astype(np.uint8) for c in colour_matched], warped_fgs
+
+        warped_fgs = []
+        for i, (M, bg) in enumerate(zip(affines, bg_masks)):
+            if bg is not None:
+                fg = (bg < 127).astype(np.uint8) * 255
+                M_r = M
+                w_fg = cv2.warpAffine(fg, M_r, (W, H), flags=cv2.INTER_NEAREST)
+                warped_fgs.append(w_fg)
+            else:
+                warped_fgs.append(np.zeros((H, W), np.uint8))
+
+        return (
+            canvas.astype(np.uint8),
+            canvas_m,
+            [c.astype(np.uint8) for c in colour_matched],
+            warped_fgs,
+        )
 
     def _composite_foreground(
         self,
-        warped_frames: List[np.ndarray],
-        warped_fg_masks: List[np.ndarray],
+        warped_corr: List[np.ndarray],   # Now empty from _render
+        warped_fgs: List[np.ndarray],    # Now empty from _render
         canvas: np.ndarray,
         H: int,
         W: int,
+        frames: List[np.ndarray],        # Added for warp-on-the-fly
+        affines: List[np.ndarray],       # Added
+        bg_masks: List[Optional[np.ndarray]], # Added
     ) -> np.ndarray:
-        # The sequential blend already integrated characters seamlessly.
-        # We skip the Winner-Take-All stage to maintain the smooth gradients.
+        """
+        Pastes the foreground from the best available frame back onto
+        the median background. Warps on-the-fly to save memory.
+        """
+        import cv2
+        import numpy as np
+        N = len(frames)
+        best_i = -1
+        max_area = 0
+        
+        # 1. Find best frame (most foreground)
+        # We need to warp ONLY the mask to find the area
+        for i in range(N):
+            if bg_masks[i] is None: continue
+            fg = (bg_masks[i] < 127).astype(np.uint8) * 255
+            w_fg = cv2.warpAffine(fg, affines[i], (W, H), flags=cv2.INTER_NEAREST)
+            area = (w_fg > 127).sum()
+            if area > max_area:
+                max_area = area
+                best_i = i
+        
+        # 2. Apply best frame foreground
+        if best_i >= 0:
+            fg = (bg_masks[best_i] < 127).astype(np.uint8) * 255
+            w_fg = cv2.warpAffine(fg, affines[best_i], (W, H), flags=cv2.INTER_NEAREST)
+            w_corr = cv2.warpAffine(frames[best_i], affines[best_i], (W, H), flags=cv2.INTER_LINEAR)
+            
+            fg_mask = (w_fg > 127)
+            canvas[fg_mask] = w_corr[fg_mask]
+            
         return canvas
 
     @staticmethod
@@ -1351,3 +1603,115 @@ class AnimeStitchPipeline:
         out = Image.fromarray(rgb)
         out.save(output_path)
         return out
+
+    @staticmethod
+    def find_optimal_sequence(
+        ref_path: str,
+        candidates: List[str],
+        min_inliers: int = 30,
+        max_overlap: float = 0.85,
+    ) -> List[str]:
+        """
+        Finds the longest coherent sequence while dropping redundant frames.
+        Prioritizes frames that extend the panorama furthest while maintaining
+        robust overlap.
+        """
+        import cv2
+        import numpy as np
+
+        # 1. Feature Extraction (SIFT)
+        sift = cv2.SIFT_create(nfeatures=1200)
+
+        def get_feats(p):
+            img = cv2.imread(p, cv2.IMREAD_GRAYSCALE)
+            if img is None:
+                return None, None, None
+            h, w = img.shape
+            if w > 1024:
+                img = cv2.resize(img, (1024, int(h * 1024 / w)))
+            kp, des = sift.detectAndCompute(img, None)
+            return kp, des, img.shape
+
+        feats = {}
+        for p in [ref_path] + list(candidates):
+            if p not in feats:
+                kp, des, shape = get_feats(p)
+                if kp is not None:
+                    feats[p] = (kp, des, shape[0], shape[1])
+
+        if ref_path not in feats:
+            return []
+
+        sequence = [ref_path]
+        used = {ref_path}
+        bf = cv2.BFMatcher()
+
+        def find_optimal_extension(query_path, pool, direction="forward"):
+            q_kp, q_des, q_h, q_w = feats[query_path]
+            best_p = None
+            max_dist = -1.0
+
+            # We want to find the frame that is FURTHEST away but still has enough inliers
+            # This naturally drops redundant, high-overlap frames.
+            for p in pool:
+                if p in used or p not in feats:
+                    continue
+                t_kp, t_des, t_h, t_w = feats[p]
+
+                matches = bf.knnMatch(q_des, t_des, k=2)
+                good = [m for m, n in matches if m.distance < 0.75 * n.distance]
+                if len(good) < min_inliers:
+                    continue
+
+                src_pts = np.float32([q_kp[m.queryIdx].pt for m in good]).reshape(
+                    -1, 1, 2
+                )
+                dst_pts = np.float32([t_kp[m.trainIdx].pt for m in good]).reshape(
+                    -1, 1, 2
+                )
+                M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+                if M is None or mask is None:
+                    continue
+
+                inliers = int(mask.sum())
+                if inliers < min_inliers:
+                    continue
+
+                # Calculate translation distance
+                # M[0,2] is x-translation, M[1,2] is y-translation
+                dist = np.sqrt(M[0, 2] ** 2 + M[1, 2] ** 2)
+                # Enforce minimum 4% translation to drop redundant frames
+                if dist < 0.15 * max(q_h, q_w):
+                    continue
+
+                # Check overlap ratio (approximate)
+                # If dist is 0, overlap is 100%. If dist is width, overlap is 0%.
+                # We skip if overlap is too high (> max_overlap),
+                # UNLESS it's the only match we have.
+                # Actually, simply picking the MAX distance handles this.
+
+                if dist > max_dist:
+                    max_dist = dist
+                    best_p = p
+
+            return best_p
+
+        # Expand Forward
+        while True:
+            nxt = find_optimal_extension(sequence[-1], candidates, "forward")
+            if nxt:
+                sequence.append(nxt)
+                used.add(nxt)
+            else:
+                break
+
+        # Expand Backward
+        while True:
+            prev = find_optimal_extension(sequence[0], candidates, "backward")
+            if prev:
+                sequence.insert(0, prev)
+                used.add(prev)
+            else:
+                break
+
+        return sequence
