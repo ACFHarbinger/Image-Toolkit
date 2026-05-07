@@ -137,8 +137,8 @@
       "crop_h": 0,
       "target_width": 1344,
       "target_height": 768,
-      "text_g": "(masterpiece), (best quality), (ultra-detailed), \n1fgirl, curvy, (wide hips:1.2), thick thighs,  large breasts, , source_anime, solo,Hisato Azuma, heart, earrings, smooth skin, clear skin, BREAK\nbedroom\nground angle, looking at viewer, side view, low angle, lustful, cute face, horny, erotic expression, lean, slim, detailed navel, tight stomach, glossy skin, shiny skin, sweaty, perfect body, kawaii\nholding ass cheeks, tight ass, ass shot, drenched, back view,\nwearing black laced lingerie set, black laced bra, black laced panties, matching set, BREAK\ntight ass, petite ass, round ass, detailed ass,",
-      "text_l": "(masterpiece), (best quality), (ultra-detailed), \n1fgirl, curvy, (wide hips:1.2), thick thighs,  large breasts, , source_anime, solo,Hisato Azuma, heart, earrings, smooth skin, clear skin, BREAK\nbedroom\nground angle, looking at viewer, side view, low angle, lustful, cute face, horny, erotic expression, lean, slim, detailed navel, tight stomach, glossy skin, shiny skin, sweaty, perfect body, kawaii\nholding ass cheeks, tight ass, ass shot, drenched, back view,\nwearing black laced lingerie set, black laced bra, black laced panties, matching set, BREAK\ntight ass, petite ass, round ass, detailed ass,",
+      "text_g": "anime coloring, (((from behind)))\n1girl,akane nanao,large breasts,blue eyes,brown hair,red hair,hair between eyes,short hair,hair ornament,hairclip\nanimal ears,gym uniform, nipples,large breasts, micro red buruma, tight buruma, highleg ,fake animal ears,cat ears, \nanime screencap , thpmg\n, pose, standing, solo , looking at viewer, white \nbackground, simple background, masterpiece, best quality, amazing quality, intricate ditails, uncensored ,",
+      "text_l": "anime coloring, (((from behind)))\n1girl,akane nanao,large breasts,blue eyes,brown hair,red hair,hair between eyes,short hair,hair ornament,hairclip\nanimal ears,gym uniform, nipples,large breasts, micro red buruma, tight buruma, highleg ,fake animal ears,cat ears, \nanime screencap , thpmg\n, pose, standing, solo , looking at viewer, white \nbackground, simple background, masterpiece, best quality, amazing quality, intricate ditails, uncensored ,",
       "clip": [
         "13",
         1
@@ -156,9 +156,9 @@
       "crop_w": 0,
       "crop_h": 0,
       "target_width": 1344,
-      "target_height": 1322,
-      "text_g": "lowres, worst quality, low quality, bad quality, simple background,\nsignature, multiple views, 2koma, 4koma,\nfurry, anthro, bkub, \nchibi,loli,child, bad anatomy, missing leg, missing limb, cameltoe,\nabs,\nAsian, tanlines, extra arms, (magenta bleeding:1.4), (color bleeding:1.4), (red glow:1.4), oversaturated, vibrant, neon colors",
-      "text_l": "lowres, worst quality, low quality, bad quality, simple background,\nsignature, multiple views, 2koma, 4koma,\nfurry, anthro, bkub, \nchibi,loli,child, bad anatomy, missing leg, missing limb, cameltoe,\nabs,\nAsian, tanlines, extra arms, (magenta bleeding:1.4), (color bleeding:1.4), (red glow:1.4), oversaturated, vibrant, neon colors",
+      "target_height": 768,
+      "text_g": "lowres, worst quality, low quality, (bad anatomy, bad hands:1.4), abstract, censored, mosaic censoring, panties, shirt",
+      "text_l": "lowres, worst quality, low quality, (bad anatomy, bad hands:1.4), abstract, censored, mosaic censoring, panties, shirt",
       "clip": [
         "13",
         1
@@ -182,7 +182,7 @@
   },
   "21": {
     "inputs": {
-      "seed": 1091092720644773,
+      "seed": 683460288657257,
       "steps": 30,
       "cfg": 5,
       "sampler_name": "dpmpp_2m",
@@ -212,7 +212,7 @@
   },
   "31": {
     "inputs": {
-      "seed": 1091092720644773,
+      "seed": 683460288657257,
       "steps": 20,
       "cfg": 5,
       "sampler_name": "dpmpp_2m",
@@ -265,7 +265,7 @@
       "guide_size": 384,
       "guide_size_for": true,
       "max_size": 1024,
-      "seed": 1091092720644773,
+      "seed": 683460288657257,
       "steps": 20,
       "cfg": 5,
       "sampler_name": "dpmpp_2m_sde",
@@ -307,7 +307,7 @@
         2
       ],
       "positive": [
-        "89",
+        "16",
         0
       ],
       "negative": [
@@ -329,7 +329,7 @@
       "guide_size": 256,
       "guide_size_for": true,
       "max_size": 768,
-      "seed": 1091092720644773,
+      "seed": 683460288657257,
       "steps": 15,
       "cfg": 5,
       "sampler_name": "euler",
@@ -532,7 +532,7 @@
   },
   "85": {
     "inputs": {
-      "image": "stitch7.png"
+      "image": "Akane wa Tsumare Somerareru - 01 [2160p-HEVC][hstream.moe]_658074ms.png"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -554,7 +554,7 @@
   },
   "95": {
     "inputs": {
-      "seed": 1091092720644773,
+      "seed": 683460288657257,
       "strength": 0.05,
       "image": [
         "78",

@@ -577,11 +577,7 @@ class AnimeStitchPipeline:
         edges = self._pairwise_match(frames, bg_masks)
         if torch.cuda.is_available():
             self._loftr.offload()
-            import torch
-
             torch.cuda.empty_cache()
-            import gc
-
             gc.collect()
             self._loftr = None
             torch.cuda.empty_cache()
@@ -818,7 +814,7 @@ class AnimeStitchPipeline:
         # ── Attempt 0: Trained AnimeStitchNet (fastest, if checkpoint provided)
         if self.stitch_net_ckpt and _STITCH_NET_OK:
             try:
-                import torch, math
+                import math
                 import torch.nn.functional as F_nn
 
                 if self._stitch_net is None:
