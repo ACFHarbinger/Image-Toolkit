@@ -113,11 +113,14 @@ class FrameExtractionWorker(QRunnable):
                 if in_cut: continue
 
                 if self.target_resolution:
-                    frame = cv2.resize(frame, self.target_resolution, interpolation=cv2.INTER_AREA)
+                    # Change 3: INTER_AREA is for downscaling. For upscaling or general high-fidelity, use LANCZOS4
+                    frame = cv2.resize(frame, self.target_resolution, interpolation=cv2.INTER_LANCZOS4)
 
                 filename = f"{video_name}_{int(current_ms)}ms.png"
                 save_path = os.path.join(self.output_dir, filename)
-                cv2.imwrite(save_path, frame)
+
+                # Level 3 is a good balance between speed and filesize for uncompressed arrays for lossless PNG compression
+                cv2.imwrite(save_path, frame, [cv2.IMWRITE_PNG_COMPRESSION, 3])
                 saved_files.append(save_path)
 
                 if not self.is_range: break
@@ -163,12 +166,17 @@ class FrameExtractionWorker(QRunnable):
 
             if self.target_resolution:
                 w, h = self.target_resolution
-                filters.append(f"scale={w}:{h}")
+                filters.append(f"scale={w}:{h}:flags=lanczos")
 
             if filters:
                 cmd.extend(["-vf", ",".join(filters)])
 
-            cmd.extend(["-vsync", "vfr", "-frame_pts", "1"])
+            cmd.extend([
+                "-sws_flags", "spline+accurate_rnd+full_chroma_int",
+                "-pix_fmt", "rgb48be", # 16-bit RGB to prevent 10-bit banding
+                "-vsync", "vfr", 
+                "-frame_pts", "1"
+            ])
             out_pattern = os.path.join(self.output_dir, f"{video_name}_smart_%05d.png")
             cmd.append(out_pattern)
 
@@ -183,8 +191,12 @@ class FrameExtractionWorker(QRunnable):
                 self.signals.error.emit(f"FFmpeg failed: {process.stderr.read()}")
                 return
 
-            import glob
-            extracted = glob.glob(os.path.join(self.output_dir, f"{video_name}_smart_*.png"))
+            prefix = f"{video_name}_smart_"
+            extracted = [
+                os.path.join(self.output_dir, f)
+                for f in os.listdir(self.output_dir)
+                if f.startswith(prefix) and f.endswith(".png")
+            ]
             extracted.sort()
             saved_files.extend(extracted)
             self.signals.progress.emit(100)
