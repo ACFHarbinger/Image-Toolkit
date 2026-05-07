@@ -102,6 +102,8 @@ class WallpaperTab(AbstractClassSingleGallery):
 
                     if not self.countdown_timer.isActive():
                         self.countdown_timer.start(1000)
+                    
+                    self.update_countdown()
 
                     # Ensure the slideshow controls (and countdown label) are visible.
                     # slideshow_group is hidden by default; we must show it when daemon is active.
@@ -146,6 +148,14 @@ class WallpaperTab(AbstractClassSingleGallery):
                 self.set_wallpaper_btn.setText(
                     f"Start Video Slideshow ({total_images} items)"
                 )
+                self.set_wallpaper_btn.setEnabled(True)
+            else:
+                self.set_wallpaper_btn.setText("Set Video (0 items)")
+                self.set_wallpaper_btn.setEnabled(False)
+
+        elif self.background_type == "Smart Video":
+            if set_count > 0:
+                self.set_wallpaper_btn.setText("Set Video")
                 self.set_wallpaper_btn.setEnabled(True)
             else:
                 self.set_wallpaper_btn.setText("Set Video (0 items)")
@@ -267,7 +277,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         background_type_layout = QHBoxLayout()
         self.background_type_combo = QComboBox()
         self.background_type_combo.addItems(
-            ["Image", "Slideshow", "Smart Video Wallpaper", "Solid Color"]
+            ["Image", "Slideshow", "Smart Video", "Smart Video Wallpaper", "Solid Color"]
         )
         self.background_type_combo.setCurrentText(self.background_type)
         self.background_type_combo.currentTextChanged.connect(
@@ -320,11 +330,16 @@ class WallpaperTab(AbstractClassSingleGallery):
         # Add Daemon Button
         self.btn_daemon_toggle = QPushButton("Start Background Daemon")
         self.btn_daemon_toggle.setCheckable(True)
-        self.btn_daemon_toggle.clicked.connect(self.toggle_slideshow_daemon)
-        self.btn_daemon_toggle.setStyleSheet(
-            "background-color: #2c3e50; color: white; padding: 5px;"
-        )
+        self.btn_daemon_toggle.clicked.connect(self.toggle_daemon)
         slideshow_layout.addWidget(self.btn_daemon_toggle)
+
+        self.btn_view_logs = QPushButton("View Daemon Logs")
+        self.btn_view_logs.clicked.connect(self.view_daemon_logs)
+        slideshow_layout.addWidget(self.btn_view_logs)
+
+        self.btn_fetch_current = QPushButton("Fetch Current Wallpapers")
+        self.btn_fetch_current.clicked.connect(self.populate_monitor_layout)
+        slideshow_layout.addWidget(self.btn_fetch_current)
 
         # Check initial state
         if self._is_daemon_running_config():
@@ -524,7 +539,7 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         style_to_use = (
             f"SmartVideoWallpaper::{self.video_style}"
-            if self.background_type == "Smart Video Wallpaper"
+            if self.background_type in ["Smart Video", "Smart Video Wallpaper"]
             else self.wallpaper_style
         )
 
@@ -549,14 +564,11 @@ class WallpaperTab(AbstractClassSingleGallery):
         except Exception:
             pass
 
-    def toggle_slideshow_daemon(self):
-        start = not self._is_daemon_running_config()
-
-        # Ensure mutual exclusion: stop local slideshow if starting daemon
+    def toggle_daemon(self, checked: bool):
+        start = checked
         if start:
             self.stop_slideshow()
-
-        # Build initial config
+        
         last_change_timestamp = 0
         try:
             if os.path.exists(DAEMON_CONFIG_PATH):
@@ -568,7 +580,7 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         style_to_use = (
             f"SmartVideoWallpaper::{self.video_style}"
-            if self.background_type == "Smart Video Wallpaper"
+            if self.background_type in ["Smart Video", "Smart Video Wallpaper"]
             else self.wallpaper_style
         )
 
@@ -587,7 +599,6 @@ class WallpaperTab(AbstractClassSingleGallery):
             "last_change_timestamp": last_change_timestamp,
         }
 
-        # Save config
         try:
             with open(DAEMON_CONFIG_PATH, "w") as f:
                 json.dump(config, f, indent=4)
@@ -596,72 +607,41 @@ class WallpaperTab(AbstractClassSingleGallery):
             return
 
         if start:
-            # Launch process
             script_path = self._get_daemon_script_path()
             if not os.path.exists(script_path):
-                QMessageBox.critical(
-                    self, "Error", f"Daemon script not found at:\n{script_path}"
-                )
+                QMessageBox.critical(self, "Error", f"Daemon script not found at:\n{script_path}")
                 return
-
             try:
-                # Launch detached process
                 if platform.system() == "Windows":
-                    subprocess.Popen(
-                        [sys.executable, script_path],
-                        creationflags=subprocess.CREATE_NO_WINDOW,
-                    )
+                    subprocess.Popen([sys.executable, script_path], creationflags=subprocess.CREATE_NO_WINDOW)
                 else:
-                    subprocess.Popen(
-                        [sys.executable, script_path],
-                        start_new_session=True,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
-
+                    subprocess.Popen([sys.executable, script_path], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 self.btn_daemon_toggle.setText("Stop Background Daemon")
-                self.btn_daemon_toggle.setChecked(True)
-                self.btn_daemon_toggle.setStyleSheet(
-                    "background-color: #c0392b; color: white; padding: 5px;"
-                )
-
-                # Start countdown
-                self.interval_sec = config["interval_seconds"]
-                self.time_remaining_sec = self.interval_sec
-                if not hasattr(self, "countdown_timer") or not self.countdown_timer:
-                    self.countdown_timer = QTimer(self)
-                    self.countdown_timer.timeout.connect(self.update_countdown)
-
-                if not self.countdown_timer.isActive():
-                    self.countdown_timer.start(1000)
-
-                QMessageBox.information(
-                    self,
-                    "Daemon Started",
-                    "Background slideshow started. It will continue running even if you close this app.",
-                )
-
+                self.btn_daemon_toggle.setStyleSheet("background-color: #c0392b; color: white; padding: 5px;")
+                self._start_daemon_countdown_if_active()
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to start daemon: {e}")
         else:
-            # Stopping is handled by the daemon itself watching the config "running": false
             self.btn_daemon_toggle.setText("Start Background Daemon")
-            self.btn_daemon_toggle.setChecked(False)
-            self.btn_daemon_toggle.setStyleSheet(
-                "background-color: #27ae60; color: white; padding: 5px;"
-            )
-
-            # Stop visual countdown if no local slideshow is running
-            if (
-                (not self.slideshow_timer or not self.slideshow_timer.isActive())
-                and self.countdown_timer
-                and self.countdown_timer.isActive()
-            ):
+            self.btn_daemon_toggle.setStyleSheet("background-color: #27ae60; color: white; padding: 5px;")
+            if hasattr(self, "countdown_timer") and self.countdown_timer:
                 self.countdown_timer.stop()
-                self.countdown_label.setText("Timer: --:--")
-            QMessageBox.information(
-                self, "Daemon Stopped", "Background slideshow stopped."
-            )
+            self.countdown_label.setText("Timer: --:--")
+
+    def view_daemon_logs(self):
+        log_path = Path.home() / ".image-toolkit" / "slideshow_daemon.log"
+        if not log_path.exists():
+            QMessageBox.information(self, "No Logs", "No daemon log file found yet.")
+            return
+        try:
+            if platform.system() == "Windows":
+                os.startfile(str(log_path))
+            elif platform.system() == "Darwin":
+                subprocess.run(["open", str(log_path)])
+            else:
+                subprocess.run(["xdg-open", str(log_path)])
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Could not open log file: {e}")
 
     def _get_relevant_styles(self) -> Dict[str, str]:
         system = platform.system()
@@ -689,20 +669,27 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         is_solid_color = type_name == "Solid Color"
         is_slideshow = type_name == "Slideshow"
-        is_video = type_name == "Smart Video Wallpaper"
-        is_image = type_name == "Image"
+        is_video_slideshow = type_name == "Smart Video Wallpaper"
+        is_video_static = type_name == "Smart Video"
 
-        _ = is_image  # Unused
-
-        self.solid_color_widget.setVisible(is_solid_color)
-        self.slideshow_group.setVisible(is_slideshow or is_video)
-
+        self.slideshow_group.setVisible(is_slideshow or is_video_slideshow)
+        # Ensure daemon buttons are only visible in slideshow modes
+        self.btn_daemon_toggle.setVisible(is_slideshow or is_video_slideshow)
+        self.btn_view_logs.setVisible(is_slideshow or is_video_slideshow)
+        
+        if is_video_static or is_video_slideshow:
+            self.video_style_combo.show()
+            self.video_style_label.show()
+        else:
+            self.video_style_combo.hide()
+            self.video_style_label.hide()
+        
         main_controls_enabled = not is_solid_color
 
         # Toggle Image Style vs Video Style UI
         self.style_layout_widget.setVisible(main_controls_enabled)
 
-        if is_video:
+        if is_video_static or is_video_slideshow:
             self.style_combo.setVisible(False)
             self.style_label.setVisible(False)
             self.video_style_combo.setVisible(True)
@@ -826,22 +813,27 @@ class WallpaperTab(AbstractClassSingleGallery):
                         config = json.load(f)
                         last_change = config.get("last_change_timestamp", 0)
                         interval = config.get("interval_seconds", self.interval_sec)
-                        if last_change > 0:
+                        last_error = config.get("last_error")
+
+                        if last_error:
+                            self.countdown_label.setText(f"Error: {last_error[:20]}...")
+                            self.countdown_label.setToolTip(last_error)
+                        elif last_change > 0:
                             elapsed = int(time.time()) - last_change
                             remaining = max(0, interval - elapsed)
                             self.time_remaining_sec = remaining
+                            self.countdown_label.setToolTip("")
             except Exception:
                 pass
 
         if self.time_remaining_sec > 0:
             self.time_remaining_sec -= 1
             m, s = divmod(self.time_remaining_sec, 60)
-            self.countdown_label.setText(f"Timer: {m:02}:{s:02}")
+            if "Error" not in self.countdown_label.text():
+                self.countdown_label.setText(f"Timer: {m:02}:{s:02}")
         else:
-            # If we reached 0 but daemon hasn't updated yet, just stay at 0 until sync
-            self.countdown_label.setText("Timer: 00:00")
-            # The next sync (which happens when <= 0) will reset it to interval once daemon changes
-            # Or if it's a local slideshow, handle it here
+            if "Error" not in self.countdown_label.text():
+                self.countdown_label.setText("Timer: 00:00")
             if not self._is_daemon_running_config():
                 self.time_remaining_sec = self.interval_sec
 
@@ -1037,7 +1029,7 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         # Update daemon if running
         if self._is_daemon_running_config():
-            self.toggle_slideshow_daemon()
+            self.toggle_daemon(True)
 
     @Slot(str)
     def handle_monitor_double_click(self, monitor_id: str):
@@ -1261,7 +1253,7 @@ class WallpaperTab(AbstractClassSingleGallery):
 
             # 4. Update daemon if running
             if self._is_daemon_running_config():
-                self.toggle_slideshow_daemon()
+                self.toggle_daemon(True)
 
     @Slot(str, list)
     def on_queue_reordered(self, monitor_id: str, new_queue: List[str]):
@@ -1445,7 +1437,7 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         # Auto-save changes to daemon config if it exists/is running
         if self._is_daemon_running_config():
-            self.toggle_slideshow_daemon()
+            self.toggle_daemon(True)
 
         # Deselect images after adding them to the monitor
         self.deselect_all_items()
@@ -1453,9 +1445,9 @@ class WallpaperTab(AbstractClassSingleGallery):
     def _process_single_drop(self, monitor_id: str, image_path: str):
         is_video = image_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
         if is_video and self.background_type == "Image":
-            self.background_type_combo.setCurrentText("Smart Video Wallpaper")
-        elif not is_video and self.background_type == "Smart Video Wallpaper":
-            pass
+            self.background_type_combo.setCurrentText("Smart Video")
+        elif not is_video and self.background_type in ["Smart Video", "Smart Video Wallpaper"]:
+            self.background_type_combo.setCurrentText("Image")
 
         if self.background_type == "Solid Color":
             self.background_type_combo.setCurrentText("Image")
@@ -1649,7 +1641,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             else:
                 desktop = None
 
-            if self.background_type == "Smart Video Wallpaper":
+            if self.background_type in ["Smart Video", "Smart Video Wallpaper"]:
                 # --- CHANGE: Pass the selected VIDEO STYLE here ---
                 style_to_use = f"SmartVideoWallpaper::{self.video_style}"
             else:
@@ -1962,6 +1954,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             vbar.setValue(vbar.value() - scroll_step)
         elif rel_y > height - threshold:
             vbar.setValue(vbar.value() + scroll_step)
+
 
     def eventFilter(self, watched, event):
         if self._filtering_event:

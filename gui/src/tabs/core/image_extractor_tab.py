@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QCheckBox,
     QProgressBar,
+    QInputDialog,
 )
 from PySide6.QtGui import QPixmap, QResizeEvent, QAction, QImage
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
@@ -43,6 +44,26 @@ from ...helpers import (
 )
 from ...helpers.video.video_scan_worker import VideoThumbnailer
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH, SUPPORTED_VIDEO_FORMATS
+
+
+class CutLabel(QLabel):
+    """A small interactive label for individual cuts that supports right-click."""
+    right_clicked = Signal(QPoint, int)  # global_pos, index
+
+    def __init__(self, text, index, parent=None):
+        super().__init__(text, parent)
+        self.index = index
+        self.setCursor(Qt.PointingHandCursor)
+        self.setStyleSheet(
+            "color: #00BCD4; font-weight: bold; padding: 2px 6px; "
+            "border: 1px solid #4f545c; border-radius: 4px; background-color: #1e1f22;"
+        )
+        self.setToolTip("Right-click to delete this cut")
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.RightButton:
+            self.right_clicked.emit(event.globalPos(), self.index)
+        super().mousePressEvent(event)
 
 
 class ImageExtractorTab(AbstractClassSingleGallery):
@@ -64,6 +85,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.progress_dialog: Optional[QProgressDialog] = None
 
         self.use_internal_player = True
+        self.video_view: Optional[QGraphicsView] = None
+        self.player_container: Optional[QWidget] = None
+        self.lbl_current_time: Optional[QLabel] = None
+        self.edit_current_time: Optional[QLineEdit] = None
 
         # Map to track source widgets for alphabetical updates
         self.source_path_to_widget: Dict[str, QWidget] = {}
@@ -267,7 +292,20 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         )
         self.volume_slider.setVisible(True)
 
-        self.lbl_current_time = QLabel("00:00")
+        self.lbl_current_time = QLabel("00:00:000")
+        self.lbl_current_time.setCursor(Qt.PointingHandCursor)
+        self.lbl_current_time.setToolTip("Click to jump to time")
+        self.lbl_current_time.installEventFilter(self)
+
+        self.edit_current_time = QLineEdit()
+        self.edit_current_time.setFixedWidth(85)
+        self.edit_current_time.setVisible(False)
+        self.edit_current_time.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.edit_current_time.setStyleSheet(
+            "QLineEdit { background-color: #1e1f22; color: #00BCD4; border: 1px solid #4f545c; border-radius: 4px; font-family: monospace; }"
+        )
+        self.edit_current_time.returnPressed.connect(self._jump_to_edited_time)
+        self.edit_current_time.installEventFilter(self)
 
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setRange(0, 0)
@@ -289,6 +327,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         controls_layout.addWidget(self.volume_slider)
         controls_layout.addWidget(self.btn_play)
         controls_layout.addWidget(self.lbl_current_time)
+        controls_layout.addWidget(self.edit_current_time)
         controls_layout.addWidget(self.slider)
         controls_layout.addWidget(self.lbl_total_time)
         controls_layout.addWidget(self.btn_fullscreen)
@@ -436,7 +475,22 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.btn_add_cut.clicked.connect(self.add_cut)
         self.btn_add_cut.setEnabled(False)
 
-        self.lbl_cuts = QLabel("Cuts: None")
+        # Scrollable container for individual cuts
+        self.cuts_scroll = QScrollArea()
+        self.cuts_scroll.setWidgetResizable(True)
+        self.cuts_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        self.cuts_scroll.setMaximumHeight(45)
+        self.cuts_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.cuts_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.cuts_scroll.setStyleSheet("background: transparent;")
+        
+        self.cuts_container = QWidget()
+        self.cuts_container.setStyleSheet("background: transparent;")
+        self.cuts_layout = QHBoxLayout(self.cuts_container)
+        self.cuts_layout.setContentsMargins(0, 5, 0, 5)
+        self.cuts_layout.setSpacing(8)
+        self.cuts_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.cuts_scroll.setWidget(self.cuts_container)
         
         self.btn_clear_cuts = QPushButton("Clear Cuts")
         self.btn_clear_cuts.clicked.connect(self.clear_cuts)
@@ -445,7 +499,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         extract_cuts_layout.addWidget(self.btn_set_cut_start)
         extract_cuts_layout.addWidget(self.btn_set_cut_end)
         extract_cuts_layout.addWidget(self.btn_add_cut)
-        extract_cuts_layout.addWidget(self.lbl_cuts)
+        extract_cuts_layout.addWidget(self.cuts_scroll, 1) # Give it stretch
         extract_cuts_layout.addWidget(self.btn_clear_cuts)
         extract_cuts_layout.addStretch()
 
@@ -881,15 +935,35 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     # --- Event Filters & Resizing ---
     def eventFilter(self, obj: QWidget, event: QEvent) -> bool:
+        if self.lbl_current_time and obj is self.lbl_current_time:
+            if event.type() == QEvent.Type.MouseButtonPress:
+                self.lbl_current_time.hide()
+                self.edit_current_time.setText(self.lbl_current_time.text())
+                self.edit_current_time.show()
+                self.edit_current_time.setFocus()
+                self.edit_current_time.selectAll()
+                return True
+
+        if self.edit_current_time and obj is self.edit_current_time:
+            if event.type() == QEvent.Type.KeyPress:
+                if event.key() == Qt.Key.Key_Escape:
+                    self._cancel_time_edit()
+                    return True
+            elif event.type() == QEvent.Type.FocusOut:
+                # Only cancel if it's not a return press (which also triggers focus out in some cases)
+                self._cancel_time_edit()
+                return True
+
         # MANDATORY: Intercept mouse wheel events over any player-related object
         # This performs seeking AND locks the page position by consuming the event.
         if event.type() == QEvent.Type.Wheel:
-            is_view = obj is self.video_view
+            is_view = self.video_view and obj is self.video_view
             is_viewport = (
-                hasattr(self.video_view, "viewport")
+                self.video_view
+                and hasattr(self.video_view, "viewport")
                 and obj is self.video_view.viewport()
             )
-            is_container = obj is self.player_container
+            is_container = self.player_container and obj is self.player_container
 
             if is_view or is_viewport or is_container:
                 # Only perform seek logic if the video is loaded and we are in internal player mode
@@ -908,7 +982,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 event.accept()
                 return True
 
-        if obj is self.video_view:
+        if self.video_view and obj is self.video_view:
             if self.use_internal_player:
                 # toggle play on click
                 if (
@@ -934,11 +1008,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                         self.media_player.setPosition(new_pos)
                         return True
                     elif event.key() == Qt.Key.Key_Escape:
-                        if self.player_container.isFullScreen():
+                        if self.player_container and self.player_container.isFullScreen():
                             self.toggle_fullscreen()
                             return True
 
-        if obj is self.player_container:
+        if self.player_container and obj is self.player_container:
             if event.type() == QEvent.Type.KeyPress:
                 if event.key() == Qt.Key.Key_Escape:
                     if self.player_container.isFullScreen():
@@ -1397,18 +1471,93 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self._update_cuts_label()
 
     def _update_cuts_label(self):
+        # Clear existing cut labels
+        while self.cuts_layout.count():
+            item = self.cuts_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
         if not self.cuts_ms:
-            self.lbl_cuts.setText("Cuts: None")
+            none_label = QLabel("Cuts: None")
+            none_label.setStyleSheet("color: #666; font-style: italic;")
+            self.cuts_layout.addWidget(none_label)
             self.btn_clear_cuts.setEnabled(False)
         else:
             self.btn_clear_cuts.setEnabled(True)
-            # format cuts beautifully
-            cut_strs = []
-            for s, e in self.cuts_ms:
-                cut_strs.append(f"[{self._format_time(s)}-{self._format_time(e)}]")
-            self.lbl_cuts.setText(f"Cuts: {', '.join(cut_strs)}")
+            self.cuts_layout.addWidget(QLabel("Cuts:"))
+            for i, (s, e) in enumerate(self.cuts_ms):
+                cut_text = f"[{self._format_time(s)}-{self._format_time(e)}]"
+                label = CutLabel(cut_text, i)
+                label.right_clicked.connect(self.show_cut_context_menu)
+                self.cuts_layout.addWidget(label)
         
+        self.cuts_layout.addStretch()
         self._validate_range()
+
+    @Slot(QPoint, int)
+    def show_cut_context_menu(self, global_pos: QPoint, index: int):
+        menu = QMenu(self)
+        
+        edit_start_action = QAction("Edit Start Timestamp", self)
+        edit_start_action.triggered.connect(lambda: self.edit_cut_timestamp(index, is_start=True))
+        menu.addAction(edit_start_action)
+
+        edit_end_action = QAction("Edit End Timestamp", self)
+        edit_end_action.triggered.connect(lambda: self.edit_cut_timestamp(index, is_start=False))
+        menu.addAction(edit_end_action)
+
+        menu.addSeparator()
+
+        jump_start_action = QAction("Jump to Start", self)
+        jump_start_action.triggered.connect(lambda: self.jump_to_cut_time(index, is_start=True))
+        menu.addAction(jump_start_action)
+
+        jump_end_action = QAction("Jump to End", self)
+        jump_end_action.triggered.connect(lambda: self.jump_to_cut_time(index, is_start=False))
+        menu.addAction(jump_end_action)
+
+        menu.addSeparator()
+
+        delete_action = QAction("Delete Cut", self)
+        delete_action.triggered.connect(lambda: self.delete_cut(index))
+        menu.addAction(delete_action)
+        menu.exec(global_pos)
+
+    def edit_cut_timestamp(self, index: int, is_start: bool):
+        if 0 <= index < len(self.cuts_ms):
+            current_start, current_end = self.cuts_ms[index]
+            current_val = current_start if is_start else current_end
+            formatted = self._format_time(current_val)
+            
+            label_text = "New Start Time (MM:SS:mmm):" if is_start else "New End Time (MM:SS:mmm):"
+            new_time_str, ok = QInputDialog.getText(self, "Edit Cut", label_text, text=formatted)
+            
+            if ok and new_time_str:
+                new_ms = self._parse_time(new_time_str)
+                if new_ms is not None:
+                    if is_start:
+                        if new_ms < current_end:
+                            self.cuts_ms[index] = (new_ms, current_end)
+                        else:
+                            QMessageBox.warning(self, "Invalid Time", "Start time must be before end time.")
+                    else:
+                        if new_ms > current_start:
+                            self.cuts_ms[index] = (current_start, new_ms)
+                        else:
+                            QMessageBox.warning(self, "Invalid Time", "End time must be after start time.")
+                    self._update_cuts_label()
+                else:
+                    QMessageBox.warning(self, "Invalid Format", "Please use MM:SS:mmm, MM:SS, or SS formats.")
+
+    def jump_to_cut_time(self, index: int, is_start: bool):
+        if 0 <= index < len(self.cuts_ms):
+            ms = self.cuts_ms[index][0] if is_start else self.cuts_ms[index][1]
+            self.media_player.setPosition(ms)
+
+    def delete_cut(self, index: int):
+        if 0 <= index < len(self.cuts_ms):
+            self.cuts_ms.pop(index)
+            self._update_cuts_label()
 
     def _validate_range(self):
         if self.end_time_ms > self.start_time_ms:
@@ -1736,6 +1885,48 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         minutes = (ms // 60000) % 60
         milliseconds = ms % 1000
         return f"{minutes:02}:{seconds:02}:{milliseconds:03}"
+
+    def _parse_time(self, time_str: str) -> Optional[int]:
+        """Parses MM:SS:mmm, MM:SS, or SS formats into milliseconds."""
+        try:
+            parts = time_str.replace(",", ".").split(":")
+            if len(parts) == 3:
+                # MM:SS:mmm
+                m, s, ms = parts
+                return int(m) * 60000 + int(s) * 1000 + int(ms)
+            elif len(parts) == 2:
+                # MM:SS or SS.mmm
+                if "." in parts[1]:
+                    m, s_ms = parts
+                    s, ms = s_ms.split(".")
+                    return int(m) * 60000 + int(s) * 1000 + int(ms.ljust(3, "0")[:3])
+                else:
+                    m, s = parts
+                    return int(m) * 60000 + int(s) * 1000
+            elif len(parts) == 1:
+                # SS or SS.mmm
+                if "." in parts[0]:
+                    s, ms = parts[0].split(".")
+                    return int(s) * 1000 + int(ms.ljust(3, "0")[:3])
+                else:
+                    return int(parts[0]) * 1000
+        except (ValueError, IndexError):
+            pass
+        return None
+
+    @Slot()
+    def _jump_to_edited_time(self):
+        time_str = self.edit_current_time.text()
+        ms = self._parse_time(time_str)
+        if ms is not None:
+            # Clamp to duration
+            ms = max(0, min(ms, self.media_player.duration()))
+            self.media_player.setPosition(ms)
+        self._cancel_time_edit()
+
+    def _cancel_time_edit(self):
+        self.edit_current_time.hide()
+        self.lbl_current_time.show()
 
     # --- Configuration Methods for SettingsWindow ---
 

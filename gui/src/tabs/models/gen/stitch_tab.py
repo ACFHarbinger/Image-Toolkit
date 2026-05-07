@@ -79,6 +79,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -93,6 +94,8 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QSplitter,
     QTabWidget,
+    QTableWidget,
+    QTableWidgetItem,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -107,6 +110,7 @@ from ....helpers.models.stitch_worker import (
     StitchWorker,
 )
 from ....styles.style import apply_shadow_effect
+from .hybrid_stitch_panel import HybridStitchPanel
 
 # ---------------------------------------------------------------------------
 # Stitch-panel helpers
@@ -1115,6 +1119,503 @@ _CROP_PRESETS = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Statistics worker — runs off the main thread
+# ---------------------------------------------------------------------------
+
+class _StatsSignals(QObject):
+    individual_done = Signal(list)   # List[dict] — one dict per image
+    pairwise_done   = Signal(list)   # List[dict] — one dict per pair
+    progress        = Signal(int)    # 0-100
+    error           = Signal(str)
+
+
+class StatsWorker(QRunnable):
+    """
+    Computes per-image and pairwise statistics for a list of image paths.
+
+    Per-image metrics
+    -----------------
+    resolution, aspect_ratio, brightness, contrast, sharpness, saturation,
+    dominant_hue, noise_estimate, file_size_kb
+
+    Pairwise metrics (consecutive pairs + all pairs if ≤ 12 images)
+    ---------------------------------------------------------------
+    hist_correlation, ssim, orb_inliers, mean_diff
+    """
+
+    def __init__(self, paths: List[str], knn_window: int = 20):
+        super().__init__()
+        self.setAutoDelete(True)
+        self._paths = list(paths)
+        self._knn_window = max(1, knn_window)
+        self.signals = _StatsSignals()
+        self._cancelled = False
+
+    def cancel(self):
+        self._cancelled = True
+
+    def run(self):
+        try:
+            self._compute()
+        except Exception as exc:
+            self.signals.error.emit(str(exc))
+
+    # ------------------------------------------------------------------
+    def _compute(self):
+        paths = self._paths
+        n = len(paths)
+        if n == 0:
+            self.signals.individual_done.emit([])
+            self.signals.pairwise_done.emit([])
+            return
+
+        individual: List[dict] = []
+        knn = self._knn_window
+        # For large sets: consecutive pairs + K-window extended pairs
+        # For small sets (≤ 12): all pairs (already covers everything)
+        if n <= 12:
+            _n_pw_est = n * (n - 1) // 2
+        else:
+            _n_pw_est = (n - 1) + (n - 1) * min(knn - 1, n - 2)
+        total_steps = n + max(_n_pw_est, 1)
+        done = 0
+
+        # ── Per-image ──────────────────────────────────────────────────
+        bgr_cache: Dict[str, np.ndarray] = {}
+
+        for path in paths:
+            if self._cancelled:
+                return
+            row = self._image_stats(path)
+            individual.append(row)
+            bgr = cv2.imread(path)
+            if bgr is not None:
+                # Cache a small version for pairwise (saves memory)
+                h, w = bgr.shape[:2]
+                scale = min(1.0, 512 / max(h, w, 1))
+                if scale < 1.0:
+                    bgr = cv2.resize(bgr, (int(w * scale), int(h * scale)),
+                                     interpolation=cv2.INTER_AREA)
+            bgr_cache[path] = bgr
+            done += 1
+            self.signals.progress.emit(int(done / total_steps * 100))
+
+        self.signals.individual_done.emit(individual)
+
+        # ── Pairwise ───────────────────────────────────────────────────
+        # For ≤ 12 images: all pairs (covers every combination).
+        # For larger sets: consecutive pairs PLUS an extended K-window so
+        # that periodically-repeating poses (common in anime cycles) are
+        # captured.  Each row carries a "consecutive" flag so the
+        # recommendations section can distinguish direct neighbours from
+        # extended-window candidates.
+        if n <= 12:
+            pairs = [(i, j, True) for i in range(n) for j in range(i + 1, n)]
+        else:
+            seen: set = set()
+            pairs = []
+            for i in range(n - 1):
+                if (i, i + 1) not in seen:
+                    pairs.append((i, i + 1, True))
+                    seen.add((i, i + 1))
+            for i in range(n):
+                for step in range(2, knn + 1):
+                    j = i + step
+                    if j < n and (i, j) not in seen:
+                        pairs.append((i, j, False))
+                        seen.add((i, j))
+
+        pairwise: List[dict] = []
+        total_steps_pw = max(len(pairs), 1)
+        done_pw = 0
+
+        orb = cv2.ORB_create(nfeatures=500)
+
+        for i, j, is_consec in pairs:
+            if self._cancelled:
+                return
+            pa, pb = paths[i], paths[j]
+            a = bgr_cache.get(pa)
+            b = bgr_cache.get(pb)
+            row = self._pair_stats(pa, pb, a, b, i, j, orb)
+            row["consecutive"] = is_consec
+            pairwise.append(row)
+            done_pw += 1
+            # Map pairwise progress onto second half
+            pct = int((n + done_pw / total_steps_pw * (n - 1)) / total_steps * 100)
+            self.signals.progress.emit(min(pct, 99))
+
+        self.signals.pairwise_done.emit(pairwise)
+        self.signals.progress.emit(100)
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _image_stats(path: str) -> dict:
+        import os as _os
+        row: dict = {"path": path, "name": _os.path.basename(path)}
+
+        try:
+            file_size_kb = round(_os.path.getsize(path) / 1024, 1)
+        except OSError:
+            file_size_kb = 0.0
+        row["file_size_kb"] = file_size_kb
+
+        bgr = cv2.imread(path)
+        if bgr is None:
+            row.update({"width": 0, "height": 0, "aspect_ratio": "—",
+                        "brightness": 0.0, "contrast": 0.0, "sharpness": 0.0,
+                        "saturation": 0.0, "dominant_hue": 0, "noise": 0.0})
+            return row
+
+        h, w = bgr.shape[:2]
+        row["width"]  = w
+        row["height"] = h
+        from math import gcd
+        g = gcd(w, h)
+        row["aspect_ratio"] = f"{w // g}:{h // g}"
+
+        gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY).astype(np.float32)
+        row["brightness"] = round(float(gray.mean()), 2)
+        row["contrast"]   = round(float(gray.std()), 2)
+
+        lap = cv2.Laplacian(gray, cv2.CV_32F)
+        row["sharpness"] = round(float(lap.var()), 2)
+
+        # Noise estimate: median absolute deviation of Laplacian
+        lap_abs = np.abs(lap - np.median(lap))
+        row["noise"] = round(float(np.median(lap_abs)), 2)
+
+        hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+        row["saturation"] = round(float(hsv[:, :, 1].mean()), 2)
+
+        # Dominant hue: peak of hue histogram (ignore low-saturation pixels)
+        sat_mask = (hsv[:, :, 1] > 30).astype(np.uint8)
+        if sat_mask.sum() > 100:
+            hue_hist = cv2.calcHist([hsv], [0], sat_mask, [180], [0, 180])
+            row["dominant_hue"] = int(np.argmax(hue_hist))
+        else:
+            row["dominant_hue"] = -1  # achromatic
+
+        return row
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _pair_stats(pa: str, pb: str, a, b, i: int, j: int, orb) -> dict:
+        row = {"idx_a": i, "idx_b": j,
+               "path_a": pa, "path_b": pb,
+               "name_a": os.path.basename(pa),
+               "name_b": os.path.basename(pb),
+               "hist_corr": 0.0, "ssim": 0.0, "orb_inliers": 0,
+               "mean_diff": 0.0}
+
+        if a is None or b is None:
+            return row
+
+        # Resize to same shape for pixel-level metrics
+        h = min(a.shape[0], b.shape[0])
+        w = min(a.shape[1], b.shape[1])
+        ar = cv2.resize(a, (w, h), interpolation=cv2.INTER_AREA)
+        br = cv2.resize(b, (w, h), interpolation=cv2.INTER_AREA)
+
+        # Histogram correlation (per channel, averaged)
+        corrs = []
+        for c in range(3):
+            ha = cv2.calcHist([ar], [c], None, [64], [0, 256])
+            hb = cv2.calcHist([br], [c], None, [64], [0, 256])
+            corrs.append(float(cv2.compareHist(ha, hb, cv2.HISTCMP_CORREL)))
+        row["hist_corr"] = round(float(np.mean(corrs)), 4)
+
+        # SSIM (grayscale, simplified)
+        ga = cv2.cvtColor(ar, cv2.COLOR_BGR2GRAY).astype(np.float32)
+        gb = cv2.cvtColor(br, cv2.COLOR_BGR2GRAY).astype(np.float32)
+        C1, C2 = 6.5025, 58.5225
+        mu_a = cv2.GaussianBlur(ga, (11, 11), 1.5)
+        mu_b = cv2.GaussianBlur(gb, (11, 11), 1.5)
+        mu_a2, mu_b2, mu_ab = mu_a ** 2, mu_b ** 2, mu_a * mu_b
+        sig_a2 = cv2.GaussianBlur(ga * ga, (11, 11), 1.5) - mu_a2
+        sig_b2 = cv2.GaussianBlur(gb * gb, (11, 11), 1.5) - mu_b2
+        sig_ab = cv2.GaussianBlur(ga * gb, (11, 11), 1.5) - mu_ab
+        ssim_map = ((2 * mu_ab + C1) * (2 * sig_ab + C2)) / \
+                   ((mu_a2 + mu_b2 + C1) * (sig_a2 + sig_b2 + C2))
+        row["ssim"] = round(float(ssim_map.mean()), 4)
+
+        # Mean pixel difference
+        row["mean_diff"] = round(float(np.abs(ar.astype(np.float32) - br.astype(np.float32)).mean()), 2)
+
+        # ORB feature matching inliers
+        try:
+            kp_a, des_a = orb.detectAndCompute(cv2.cvtColor(ar, cv2.COLOR_BGR2GRAY), None)
+            kp_b, des_b = orb.detectAndCompute(cv2.cvtColor(br, cv2.COLOR_BGR2GRAY), None)
+            if des_a is not None and des_b is not None and len(kp_a) >= 4 and len(kp_b) >= 4:
+                bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
+                matches = bf.knnMatch(des_a, des_b, k=2)
+                good = [m for m, n in matches if m.distance < 0.75 * n.distance]
+                if len(good) >= 4:
+                    src_pts = np.float32([kp_a[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
+                    dst_pts = np.float32([kp_b[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
+                    _, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+                    row["orb_inliers"] = int(mask.sum()) if mask is not None else len(good)
+                else:
+                    row["orb_inliers"] = len(good)
+        except Exception:
+            pass
+
+        return row
+
+
+# ---------------------------------------------------------------------------
+# Sequence-builder worker
+# ---------------------------------------------------------------------------
+
+
+class _SeqBuilderSignals(QObject):
+    progress   = Signal(int)          # 0-100
+    result     = Signal(list)         # List[dict]: ordered chain items
+    error      = Signal(str)
+
+
+class SequenceBuilderWorker(QRunnable):
+    """
+    Given an anchor image and a pool of candidates, builds the longest
+    sequential stitching chain greedily.
+
+    Scoring — stitchability, not similarity
+    ----------------------------------------
+    Two frames are good for stitching when they share overlapping content AND
+    the camera has panned enough to reveal new content.  The old approach
+    (SSIM + hist_corr + ORB inliers) measured raw similarity, so near-identical
+    consecutive frames scored highest — the opposite of what is needed.
+
+    This version scores each candidate by:
+      1. ORB feature matching + RANSAC homography against the current tail.
+      2. Extracting the translation (dx, dy) from the homography.
+      3. Rejecting near-duplicates  : |translation| < min_pan  (same view)
+      4. Rejecting non-overlapping  : |translation| > max_pan  (no shared content)
+      5. Fitness = inlier_ratio × displacement_quality(ratio)
+         where displacement_quality peaks at ~30% of frame diagonal and falls
+         off toward 0 at the min/max boundaries.
+
+    Sharpness filter
+    ----------------
+    Each candidate is compared against the anchor's Laplacian variance.
+    Candidates whose sharpness is below `blur_threshold × anchor_sharpness`
+    are excluded before the chain search begins.
+    """
+
+    def __init__(
+        self,
+        anchor: str,
+        candidates: List[str],
+        min_score: float = 0.25,
+        blur_threshold: float = 0.5,
+        min_pan_ratio: float = 0.03,
+        max_pan_ratio: float = 0.85,
+    ):
+        super().__init__()
+        self.setAutoDelete(True)
+        self._anchor         = anchor
+        self._candidates     = [p for p in candidates if p != anchor]
+        self._min_score      = min_score
+        self._blur_threshold = blur_threshold   # sharpness relative to anchor
+        self._min_pan        = min_pan_ratio    # min translation as fraction of diagonal
+        self._max_pan        = max_pan_ratio    # max translation as fraction of diagonal
+        self.signals         = _SeqBuilderSignals()
+        self._cancelled      = False
+
+    def cancel(self):
+        self._cancelled = True
+
+    def run(self):
+        try:
+            self._build()
+        except Exception as exc:
+            self.signals.error.emit(str(exc))
+
+    # ------------------------------------------------------------------
+    def _build(self):
+        all_paths = [self._anchor] + self._candidates
+        n = len(all_paths)
+        if n < 2:
+            self.signals.result.emit([{"path": self._anchor,
+                                        "name": os.path.basename(self._anchor),
+                                        "score_to_prev": None}])
+            return
+
+        orb = cv2.ORB_create(nfeatures=800)
+        bf  = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
+
+        # ── Cache thumbnails + precompute features + sharpness ────────
+        cache:     Dict[str, Optional[np.ndarray]] = {}
+        feats:     Dict[str, tuple]                = {}  # (kp, des)
+        sharpness: Dict[str, float]                = {}
+
+        for idx, p in enumerate(all_paths):
+            if self._cancelled:
+                return
+            bgr = cv2.imread(p)
+            if bgr is not None:
+                h, w = bgr.shape[:2]
+                scale = min(1.0, 512 / max(h, w, 1))
+                if scale < 1.0:
+                    bgr = cv2.resize(bgr, (int(w * scale), int(h * scale)),
+                                     interpolation=cv2.INTER_AREA)
+                gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+                lap  = cv2.Laplacian(gray.astype(np.float32), cv2.CV_32F)
+                sharpness[p] = float(lap.var())
+                kp, des = orb.detectAndCompute(gray, None)
+                feats[p] = (kp, des)
+            else:
+                sharpness[p] = 0.0
+                feats[p] = ([], None)
+            cache[p] = bgr
+            self.signals.progress.emit(int((idx + 1) / n * 45))
+
+        anchor_sharp = max(sharpness.get(self._anchor, 1.0), 1.0)
+        sharp_thresh = anchor_sharp * self._blur_threshold
+
+        # ── Pre-filter: remove blurry candidates ─────────────────────
+        valid_candidates = [
+            p for p in self._candidates
+            if sharpness.get(p, 0.0) >= sharp_thresh
+        ]
+        n_rejected = len(self._candidates) - len(valid_candidates)
+        if n_rejected:
+            print(f"[SeqBuilder] Rejected {n_rejected} blurry candidates "
+                  f"(sharpness < {sharp_thresh:.1f}).")
+
+        # ── Stitch-fitness scorer ─────────────────────────────────────
+        fitness_cache: Dict[tuple, tuple] = {}  # key → (score, dx, dy)
+
+        def stitch_fitness(ref_p: str, cand_p: str) -> tuple:
+            """Returns (score, dx, dy).  score=0 means not usable."""
+            key = (min(ref_p, cand_p), max(ref_p, cand_p))
+            if key in fitness_cache:
+                return fitness_cache[key]
+
+            kp_r, des_r = feats.get(ref_p,  ([], None))
+            kp_c, des_c = feats.get(cand_p, ([], None))
+            zero = (0.0, 0.0, 0.0)
+            if des_r is None or des_c is None:
+                fitness_cache[key] = zero
+                return zero
+            if len(kp_r) < 6 or len(kp_c) < 6:
+                fitness_cache[key] = zero
+                return zero
+
+            try:
+                matches = bf.knnMatch(des_r, des_c, k=2)
+            except Exception:
+                fitness_cache[key] = zero
+                return zero
+
+            good = [m for m, n2 in matches
+                    if len((m, n2)) == 2 and m.distance < 0.75 * n2.distance]
+            if len(good) < 8:
+                fitness_cache[key] = zero
+                return zero
+
+            src_pts = np.float32([kp_r[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
+            dst_pts = np.float32([kp_c[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
+            M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+            if M is None or mask is None:
+                fitness_cache[key] = zero
+                return zero
+
+            inliers = int(mask.sum())
+            if inliers < 8:
+                fitness_cache[key] = zero
+                return zero
+
+            dx, dy = float(M[0, 2]), float(M[1, 2])
+
+            ref_img = cache.get(ref_p)
+            if ref_img is None:
+                fitness_cache[key] = zero
+                return zero
+            fh, fw = ref_img.shape[:2]
+            diag = float(np.sqrt(fw ** 2 + fh ** 2))
+            dist  = float(np.sqrt(dx ** 2 + dy ** 2))
+            ratio = dist / diag
+
+            # Reject near-duplicates and non-overlapping frames
+            if ratio < self._min_pan or ratio > self._max_pan:
+                fitness_cache[key] = zero
+                return zero
+
+            # Displacement quality: triangular, peaks at 30% of diagonal
+            peak = 0.30
+            if ratio <= peak:
+                disp_q = ratio / peak
+            else:
+                disp_q = (self._max_pan - ratio) / (self._max_pan - peak)
+            disp_q = max(0.0, disp_q)
+
+            inlier_ratio = inliers / max(len(good), 1)
+            score = round(inlier_ratio * disp_q, 4)
+
+            result = (score, dx, dy)
+            fitness_cache[key] = result
+            return result
+
+        # ── Greedy chain extension ────────────────────────────────────
+        chain:  List[str] = [self._anchor]
+        used:   set        = {self._anchor}
+
+        def best_next(ref: str) -> tuple:
+            best_p, best_s, best_dx, best_dy = None, -1.0, 0.0, 0.0
+            for p in valid_candidates:
+                if p in used:
+                    continue
+                s, dx, dy = stitch_fitness(ref, p)
+                if s > best_s:
+                    best_s, best_p, best_dx, best_dy = s, p, dx, dy
+            return best_p, best_s, best_dx, best_dy
+
+        total = len(valid_candidates)
+        done  = 0
+
+        # Extend forward
+        while True:
+            if self._cancelled:
+                return
+            nxt, s, _dx, _dy = best_next(chain[-1])
+            if nxt is None or s < self._min_score:
+                break
+            chain.append(nxt)
+            used.add(nxt)
+            done += 1
+            self.signals.progress.emit(45 + int(done / max(total, 1) * 27))
+
+        # Extend backward
+        while True:
+            if self._cancelled:
+                return
+            prv, s, _dx, _dy = best_next(chain[0])
+            if prv is None or s < self._min_score:
+                break
+            chain.insert(0, prv)
+            used.add(prv)
+            done += 1
+            self.signals.progress.emit(72 + int(done / max(total, 1) * 27))
+
+        # ── Build result with per-pair fitness scores ────────────────
+        result: List[dict] = []
+        for idx, p in enumerate(chain):
+            if idx == 0:
+                s_prev = None
+            else:
+                s_prev = stitch_fitness(chain[idx - 1], p)[0]
+            result.append({"path": p, "name": os.path.basename(p),
+                           "score_to_prev": s_prev})
+
+        self.signals.progress.emit(100)
+        self.signals.result.emit(result)
+
+
+# ---------------------------------------------------------------------------
+
+
 class EditTab(QWidget):
     """
     Full image editing suite focused on anime wallpaper creation.
@@ -1162,6 +1663,44 @@ class EditTab(QWidget):
         self._graph_worker: Optional[GraphStitchWorker] = None
         self._last_selected_op: Optional[_StitchOpNode] = None
 
+        # ── Stats state ───────────────────────────────────────────────────
+        self._stats_worker: Optional[StatsWorker] = None
+        self._stats_dir_path: str = ""
+
+        # ── Sequence-builder state ────────────────────────────────────────
+        self._seq_worker: Optional[SequenceBuilderWorker] = None
+        self._seq_anchor_path: str = ""
+        self._seq_dir_path: str = ""
+        self._seq_chain: List[dict] = []   # current built chain
+
+        # ── Frame-list thumbnail loader ───────────────────────────────────
+        self._frame_thumb_hub = _ThumbHub()
+        self._frame_thumb_hub.loaded.connect(self._on_frame_thumb_loaded)
+        self._frame_item_map: Dict[str, QListWidgetItem] = {}
+
+        # ── Canvas thumbnail loader ───────────────────────────────────────
+        self._cv_thumb_hub = _ThumbHub()
+        self._cv_thumb_hub.loaded.connect(self._on_cv_thumb_loaded)
+        self._cv_item_map: Dict[str, QListWidgetItem] = {}
+
+        # ── Sequence Builder table thumbnail loader ───────────────────────
+        self._seq_thumb_hub = _ThumbHub()
+        self._seq_thumb_hub.loaded.connect(self._on_seq_table_thumb_loaded)
+        self._seq_table_item_map: Dict[str, QTableWidgetItem] = {}
+
+        # ── Statistics thumbnail loaders ──────────────────────────────────
+        self._stats_ind_thumb_hub = _ThumbHub()
+        self._stats_ind_thumb_hub.loaded.connect(self._on_stats_ind_thumb_loaded)
+        self._stats_ind_item_map: Dict[str, QTableWidgetItem] = {}
+
+        self._stats_pw_thumb_hub_a = _ThumbHub()
+        self._stats_pw_thumb_hub_a.loaded.connect(self._on_stats_pw_thumb_loaded_a)
+        self._stats_pw_item_map_a: Dict[str, QTableWidgetItem] = {}
+
+        self._stats_pw_thumb_hub_b = _ThumbHub()
+        self._stats_pw_thumb_hub_b.loaded.connect(self._on_stats_pw_thumb_loaded_b)
+        self._stats_pw_item_map_b: Dict[str, QTableWidgetItem] = {}
+
         self._init_ui()
 
     # ======================================================================
@@ -1174,12 +1713,77 @@ class EditTab(QWidget):
         root.setSpacing(0)
 
         self._tab_widget = QTabWidget()
-        self._tab_widget.addTab(self._build_stitch_panel(), "Stitch")
-        self._tab_widget.addTab(self._build_graph_panel(),  "Graph")
-        self._tab_widget.addTab(self._build_adjust_panel(), "Adjust")
-        self._tab_widget.addTab(self._build_canvas_panel(), "Canvas")
+        self._tab_widget.addTab(self._build_stitch_panel(),    "Stitch")
+        self._tab_widget.addTab(self._build_graph_panel(),    "Graph")
+        self._tab_widget.addTab(self._build_adjust_panel(),   "Adjust")
+        self._tab_widget.addTab(self._build_canvas_panel(),   "Canvas")
+        self._tab_widget.addTab(self._build_stats_panel(),    "Statistics")
+        self._tab_widget.addTab(self._build_seq_panel(),      "Sequence Builder")
+        self._tab_widget.addTab(self._build_hybrid_panel(),   "Hybrid Stitch")
 
         root.addWidget(self._tab_widget)
+
+    # ======================================================================
+    # ── Frame-list thumbnail helpers ──────────────────────────────────────
+    # ======================================================================
+
+    def _make_frame_item(self, path: str) -> QListWidgetItem:
+        """Create a QListWidgetItem for the stitch frame list and enqueue thumb load."""
+        item = QListWidgetItem(os.path.basename(path))
+        item.setData(Qt.ItemDataRole.UserRole, path)
+        item.setToolTip(path)
+        self._frame_item_map[path] = item
+        QThreadPool.globalInstance().start(
+            _ThumbTask(path, 48, 0, self._frame_thumb_hub)
+        )
+        return item
+
+    @Slot(str, int, object)
+    def _on_frame_thumb_loaded(self, path: str, _generation: int, img: QImage):
+        item = self._frame_item_map.get(path)
+        if item and not img.isNull():
+            item.setIcon(QIcon(QPixmap.fromImage(img)))
+
+    def _make_cv_item(self, path: str, label: str = "") -> QListWidgetItem:
+        """Create a QListWidgetItem for the canvas list with async thumbnail."""
+        item = QListWidgetItem(label or os.path.basename(path))
+        item.setData(Qt.ItemDataRole.UserRole, path)
+        item.setToolTip(path)
+        self._cv_item_map[path] = item
+        QThreadPool.globalInstance().start(
+            _ThumbTask(path, 48, 0, self._cv_thumb_hub)
+        )
+        return item
+
+    @Slot(str, int, object)
+    def _on_cv_thumb_loaded(self, path: str, _generation: int, img: QImage):
+        item = self._cv_item_map.get(path)
+        if item and not img.isNull():
+            item.setIcon(QIcon(QPixmap.fromImage(img)))
+
+    @Slot(str, int, object)
+    def _on_seq_table_thumb_loaded(self, path: str, _generation: int, img: QImage):
+        item = self._seq_table_item_map.get(path)
+        if item and not img.isNull():
+            item.setIcon(QIcon(QPixmap.fromImage(img)))
+
+    @Slot(str, int, object)
+    def _on_stats_ind_thumb_loaded(self, path: str, _generation: int, img: QImage):
+        item = self._stats_ind_item_map.get(path)
+        if item and not img.isNull():
+            item.setIcon(QIcon(QPixmap.fromImage(img)))
+
+    @Slot(str, int, object)
+    def _on_stats_pw_thumb_loaded_a(self, path: str, _generation: int, img: QImage):
+        item = self._stats_pw_item_map_a.get(path)
+        if item and not img.isNull():
+            item.setIcon(QIcon(QPixmap.fromImage(img)))
+
+    @Slot(str, int, object)
+    def _on_stats_pw_thumb_loaded_b(self, path: str, _generation: int, img: QImage):
+        item = self._stats_pw_item_map_b.get(path)
+        if item and not img.isNull():
+            item.setIcon(QIcon(QPixmap.fromImage(img)))
 
     # ======================================================================
     # ── SUB-TAB 1: Stitch ─────────────────────────────────────────────────
@@ -1209,6 +1813,7 @@ class EditTab(QWidget):
         self._frame_list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         self._frame_list.setDefaultDropAction(Qt.DropAction.MoveAction)
         self._frame_list.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
+        self._frame_list.setIconSize(QSize(48, 48))
         self._frame_list.setToolTip(
             "Drag rows to reorder.\n"
             "Order = stitching sequence (first = leftmost / topmost)."
@@ -1970,6 +2575,7 @@ class EditTab(QWidget):
         self._cv_list.setDefaultDropAction(Qt.DropAction.MoveAction)
         self._cv_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         self._cv_list.setToolTip("Drag to reorder. Images are placed left-to-right / top-to-bottom.")
+        self._cv_list.setIconSize(QSize(48, 48))
         self._cv_list.model().rowsMoved.connect(self._cv_sync_paths)
         img_group_layout.addWidget(self._cv_list)
 
@@ -2137,10 +2743,7 @@ class EditTab(QWidget):
         for p in dlg.selected_paths():
             if p and p not in self._frame_paths:
                 self._frame_paths.append(p)
-                item = QListWidgetItem(os.path.basename(p))
-                item.setData(Qt.ItemDataRole.UserRole, p)
-                item.setToolTip(p)
-                self._frame_list.addItem(item)
+                self._frame_list.addItem(self._make_frame_item(p))
         self._refresh_pair_combo()
 
     def _remove_selected_frame(self):
@@ -2848,9 +3451,8 @@ class EditTab(QWidget):
             return
         if tmp_path not in self._frame_paths:
             self._frame_paths.append(tmp_path)
-            item = QListWidgetItem(f"[adj] {os.path.basename(self._adj_img_path)}")
-            item.setData(Qt.ItemDataRole.UserRole, tmp_path)
-            item.setToolTip(tmp_path)
+            item = self._make_frame_item(tmp_path)
+            item.setText(f"[adj] {os.path.basename(self._adj_img_path)}")
             self._frame_list.addItem(item)
             self._refresh_pair_combo()
         self._tab_widget.setCurrentIndex(0)
@@ -2861,9 +3463,7 @@ class EditTab(QWidget):
             return
         if tmp_path not in self._cv_paths:
             self._cv_paths.append(tmp_path)
-            item = QListWidgetItem(f"[adj] {os.path.basename(self._adj_img_path)}")
-            item.setData(Qt.ItemDataRole.UserRole, tmp_path)
-            item.setToolTip(tmp_path)
+            item = self._make_cv_item(tmp_path, f"[adj] {os.path.basename(self._adj_img_path)}")
             self._cv_list.addItem(item)
         self._tab_widget.setCurrentIndex(2)
 
@@ -2891,10 +3491,7 @@ class EditTab(QWidget):
         for p in paths:
             if p and p not in self._cv_paths:
                 self._cv_paths.append(p)
-                item = QListWidgetItem(os.path.basename(p))
-                item.setData(Qt.ItemDataRole.UserRole, p)
-                item.setToolTip(p)
-                self._cv_list.addItem(item)
+                self._cv_list.addItem(self._make_cv_item(p))
 
     def _cv_remove_selected(self):
         for item in reversed(self._cv_list.selectedItems()):
@@ -3108,10 +3705,7 @@ class EditTab(QWidget):
             for p in cfg["frame_paths"]:
                 if p and os.path.isfile(p) and p not in self._frame_paths:
                     self._frame_paths.append(p)
-                    item = QListWidgetItem(os.path.basename(p))
-                    item.setData(Qt.ItemDataRole.UserRole, p)
-                    item.setToolTip(p)
-                    self._frame_list.addItem(item)
+                    self._frame_list.addItem(self._make_frame_item(p))
             self._refresh_pair_combo()
         # Adjust
         for key, sl in [
@@ -3157,10 +3751,7 @@ class EditTab(QWidget):
             for p in cfg["cv_paths"]:
                 if p and os.path.isfile(p) and p not in self._cv_paths:
                     self._cv_paths.append(p)
-                    item = QListWidgetItem(os.path.basename(p))
-                    item.setData(Qt.ItemDataRole.UserRole, p)
-                    item.setToolTip(p)
-                    self._cv_list.addItem(item)
+                    self._cv_list.addItem(self._make_cv_item(p))
 
     def get_default_config(self) -> dict:
         return self.collect()
@@ -3210,6 +3801,1343 @@ class EditTab(QWidget):
             QMessageBox.critical(self, "Order Optimizer Error", str(e))
         finally:
             self.setCursor(Qt.CursorShape.ArrowCursor)
+
+
+    # ======================================================================
+    # ── SUB-TAB 5: Statistics ─────────────────────────────────────────────
+    # ======================================================================
+
+    def _build_stats_panel(self) -> QWidget:
+        panel = QWidget()
+        root = QVBoxLayout(panel)
+        root.setContentsMargins(8, 8, 8, 8)
+        root.setSpacing(6)
+
+        # ── Source selector ───────────────────────────────────────────
+        src_group = QGroupBox("Image Source")
+        src_layout = QHBoxLayout(src_group)
+
+        self._stats_use_frames_btn = QPushButton("Use Stitch Frame List")
+        self._stats_use_frames_btn.setToolTip(
+            "Analyse the images currently loaded in the Stitch tab."
+        )
+        self._stats_use_frames_btn.clicked.connect(self._stats_load_from_frames)
+        src_layout.addWidget(self._stats_use_frames_btn)
+
+        src_layout.addWidget(QLabel("  or  "))
+
+        self._stats_dir_edit = QLineEdit()
+        self._stats_dir_edit.setPlaceholderText("Select a directory of images…")
+        self._stats_dir_edit.setReadOnly(True)
+        src_layout.addWidget(self._stats_dir_edit, 1)
+
+        btn_browse_stats = QPushButton("Browse…")
+        btn_browse_stats.clicked.connect(self._stats_browse_dir)
+        src_layout.addWidget(btn_browse_stats)
+
+        root.addWidget(src_group)
+
+        # ── Run button + progress ─────────────────────────────────────
+        run_row = QHBoxLayout()
+        self._stats_run_btn = QPushButton("Compute Statistics")
+        self._stats_run_btn.setStyleSheet(
+            "background:#1976D2; color:white; font-weight:bold; padding:5px 14px;"
+        )
+        self._stats_run_btn.clicked.connect(self._stats_run)
+        run_row.addWidget(self._stats_run_btn)
+
+        run_row.addWidget(QLabel("K neighbors:"))
+        self._stats_knn_spin = QSpinBox()
+        self._stats_knn_spin.setRange(1, 100)
+        self._stats_knn_spin.setValue(20)
+        self._stats_knn_spin.setToolTip(
+            "When a consecutive pair scores below the weak threshold, also compare each "
+            "frame against the K nearest frames ahead/behind it to find better matches.\n"
+            "Higher values catch periodic pose repetitions further apart (e.g. every 20 frames) "
+            "but increase compute time."
+        )
+        run_row.addWidget(self._stats_knn_spin)
+
+        self._stats_progress = QProgressBar()
+        self._stats_progress.setRange(0, 100)
+        self._stats_progress.setValue(0)
+        self._stats_progress.setTextVisible(True)
+        self._stats_progress.hide()
+        run_row.addWidget(self._stats_progress, 1)
+
+        self._stats_status = QLabel("")
+        self._stats_status.setStyleSheet("color:#aaa; font-style:italic;")
+        run_row.addWidget(self._stats_status)
+        root.addLayout(run_row)
+
+        # ── Per-image table ───────────────────────────────────────────
+        ind_group = QGroupBox("Per-Image Metrics")
+        ind_layout = QVBoxLayout(ind_group)
+
+        _IND_COLS = [
+            ("Image",        "name"),
+            ("W",            "width"),
+            ("H",            "height"),
+            ("Aspect",       "aspect_ratio"),
+            ("Brightness",   "brightness"),
+            ("Contrast",     "contrast"),
+            ("Sharpness",    "sharpness"),
+            ("Noise",        "noise"),
+            ("Saturation",   "saturation"),
+            ("Dom. Hue °",   "dominant_hue"),
+            ("Size (KB)",    "file_size_kb"),
+        ]
+        self._stats_ind_cols = _IND_COLS
+
+        self._stats_ind_table = QTableWidget(0, len(_IND_COLS))
+        self._stats_ind_table.setHorizontalHeaderLabels([c[0] for c in _IND_COLS])
+        self._stats_ind_table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeMode.Stretch
+        )
+        for col in range(1, len(_IND_COLS)):
+            self._stats_ind_table.horizontalHeader().setSectionResizeMode(
+                col, QHeaderView.ResizeMode.ResizeToContents
+            )
+        self._stats_ind_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._stats_ind_table.setAlternatingRowColors(True)
+        self._stats_ind_table.setSelectionBehavior(
+            QTableWidget.SelectionBehavior.SelectRows
+        )
+        self._stats_ind_table.verticalHeader().setVisible(False)
+        self._stats_ind_table.verticalHeader().setDefaultSectionSize(52)
+        self._stats_ind_table.setIconSize(QSize(48, 48))
+        self._stats_ind_table.setMinimumHeight(220)
+        self._stats_ind_table.setStyleSheet(
+            "QTableWidget { background:#2c2f33; alternate-background-color:#36393f; }"
+            "QHeaderView::section { background:#1e1f22; color:#ccc; padding:4px; }"
+        )
+        ind_layout.addWidget(self._stats_ind_table)
+
+        # ── Summary row beneath individual table ──────────────────────
+        self._stats_ind_summary = QLabel("")
+        self._stats_ind_summary.setStyleSheet("color:#aaa; font-size:10px; padding:2px 0;")
+        ind_layout.addWidget(self._stats_ind_summary)
+
+        root.addWidget(ind_group)
+
+        # ── Pairwise table ────────────────────────────────────────────
+        pw_group = QGroupBox("Pairwise Correlation Metrics")
+        pw_layout = QVBoxLayout(pw_group)
+
+        _PW_COLS = [
+            ("Frame A",       "name_a"),
+            ("Frame B",       "name_b"),
+            ("Hist. Corr.",   "hist_corr"),
+            ("SSIM",          "ssim"),
+            ("ORB Inliers",   "orb_inliers"),
+            ("Mean Diff",     "mean_diff"),
+            ("Stitch Score",  "_score"),
+        ]
+        self._stats_pw_cols = _PW_COLS
+
+        self._stats_pw_table = QTableWidget(0, len(_PW_COLS))
+        self._stats_pw_table.setHorizontalHeaderLabels([c[0] for c in _PW_COLS])
+        for col in range(2):
+            self._stats_pw_table.horizontalHeader().setSectionResizeMode(
+                col, QHeaderView.ResizeMode.Stretch
+            )
+        for col in range(2, len(_PW_COLS)):
+            self._stats_pw_table.horizontalHeader().setSectionResizeMode(
+                col, QHeaderView.ResizeMode.ResizeToContents
+            )
+        self._stats_pw_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._stats_pw_table.setAlternatingRowColors(True)
+        self._stats_pw_table.setSelectionBehavior(
+            QTableWidget.SelectionBehavior.SelectRows
+        )
+        self._stats_pw_table.verticalHeader().setVisible(False)
+        self._stats_pw_table.verticalHeader().setDefaultSectionSize(52)
+        self._stats_pw_table.setIconSize(QSize(48, 48))
+        self._stats_pw_table.setMinimumHeight(200)
+        self._stats_pw_table.setStyleSheet(
+            "QTableWidget { background:#2c2f33; alternate-background-color:#36393f; }"
+            "QHeaderView::section { background:#1e1f22; color:#ccc; padding:4px; }"
+        )
+        pw_layout.addWidget(self._stats_pw_table)
+
+        self._stats_pw_legend = QLabel(
+            "Stitch Score = 0.4 × ORB inliers (norm.) + 0.4 × SSIM + 0.2 × Hist. Corr.  "
+            "Higher is better.  Colour: green ≥ 0.6 · yellow ≥ 0.35 · red < 0.35"
+        )
+        self._stats_pw_legend.setStyleSheet("color:#888; font-size:10px; padding:2px 0;")
+        self._stats_pw_legend.setWordWrap(True)
+        pw_layout.addWidget(self._stats_pw_legend)
+
+        root.addWidget(pw_group)
+
+        # ── Recommendations ───────────────────────────────────────────
+        rec_group = QGroupBox("Stitching Recommendations")
+        rec_layout = QVBoxLayout(rec_group)
+
+        self._stats_rec_edit = QTextEdit()
+        self._stats_rec_edit.setReadOnly(True)
+        self._stats_rec_edit.setMinimumHeight(240)
+        self._stats_rec_edit.setPlaceholderText(
+            "Run 'Compute Statistics' to generate scenario-based stitching recommendations."
+        )
+        self._stats_rec_edit.setStyleSheet(
+            "QTextEdit { background:#1e1f22; color:#d4d4d4; "
+            "border:1px solid #4f545c; border-radius:4px; "
+            "font-family: monospace; font-size: 11px; padding: 6px; }"
+        )
+        rec_layout.addWidget(self._stats_rec_edit)
+
+        root.addWidget(rec_group)
+
+        return panel
+
+    # ── Stats slots ────────────────────────────────────────────────────────
+
+    @Slot()
+    def _stats_load_from_frames(self):
+        if not self._frame_paths:
+            QMessageBox.information(self, "Statistics",
+                                    "No frames loaded in the Stitch tab.")
+            return
+        self._stats_dir_edit.clear()
+        self._stats_dir_path = ""
+        self._stats_do_run(list(self._frame_paths))
+
+    @Slot()
+    def _stats_browse_dir(self):
+        start = self._stats_dir_path or (
+            os.path.dirname(self._frame_paths[-1]) if self._frame_paths else ""
+        )
+        d = QFileDialog.getExistingDirectory(
+            self, "Select Image Directory", start,
+            QFileDialog.Option.DontUseNativeDialog
+        )
+        if not d:
+            return
+        self._stats_dir_path = d
+        self._stats_dir_edit.setText(d)
+
+    @Slot()
+    def _stats_run(self):
+        if self._stats_dir_path:
+            exts = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tiff", ".tif"}
+            paths = sorted(
+                str(p) for p in __import__("pathlib").Path(self._stats_dir_path).iterdir()
+                if p.is_file() and p.suffix.lower() in exts
+            )
+            if not paths:
+                QMessageBox.information(self, "Statistics",
+                                        "No image files found in the selected directory.")
+                return
+            self._stats_do_run(paths)
+        else:
+            self._stats_load_from_frames()
+
+    def _stats_do_run(self, paths: List[str]):
+        if not paths:
+            return
+
+        # Cancel any running worker
+        if self._stats_worker is not None:
+            self._stats_worker.cancel()
+            self._stats_worker = None
+
+        self._stats_ind_rows: List[dict] = []
+        self._stats_ind_table.setRowCount(0)
+        self._stats_pw_table.setRowCount(0)
+        self._stats_ind_summary.setText("")
+        self._stats_rec_edit.clear()
+        self._stats_progress.setValue(0)
+        self._stats_progress.show()
+        self._stats_status.setText(f"Analysing {len(paths)} images…")
+        self._stats_run_btn.setEnabled(False)
+
+        worker = StatsWorker(paths, knn_window=self._stats_knn_spin.value())
+        self._stats_worker = worker
+        worker.signals.progress.connect(self._stats_on_progress)
+        worker.signals.individual_done.connect(self._stats_on_individual)
+        worker.signals.pairwise_done.connect(self._stats_on_pairwise)
+        worker.signals.error.connect(self._stats_on_error)
+        QThreadPool.globalInstance().start(worker)
+
+    @Slot(int)
+    def _stats_on_progress(self, pct: int):
+        self._stats_progress.setValue(pct)
+
+    @Slot(list)
+    def _stats_on_individual(self, rows: List[dict]):
+        self._stats_ind_rows = rows
+        table = self._stats_ind_table
+        table.setRowCount(len(rows))
+        cols = self._stats_ind_cols
+
+        self._stats_ind_item_map.clear()
+        for r, row in enumerate(rows):
+            for c, (_, key) in enumerate(cols):
+                val = row.get(key, "")
+                item = QTableWidgetItem(str(val) if val != -1 else "achromatic")
+                item.setTextAlignment(
+                    Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+                    if c > 0 else
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+                )
+                if c == 0:
+                    full_path = row.get("path", "")
+                    if full_path:
+                        item.setData(Qt.ItemDataRole.UserRole, full_path)
+                        self._stats_ind_item_map[full_path] = item
+                        QThreadPool.globalInstance().start(
+                            _ThumbTask(full_path, 48, 0, self._stats_ind_thumb_hub)
+                        )
+
+                # Colour-code sharpness column relatively (bottom 15% red,
+                # top 40% green) so flat anime content isn't penalised.
+                if key == "sharpness":
+                    all_sharp = [float(rr.get("sharpness", 0)) for rr in rows]
+                    p15 = float(np.percentile(all_sharp, 15))
+                    p60 = float(np.percentile(all_sharp, 60))
+                    v = float(val) if val else 0.0
+                    if v >= p60:
+                        item.setForeground(QColor("#4CAF50"))
+                    elif v >= p15:
+                        item.setForeground(QColor("#FFC107"))
+                    else:
+                        item.setForeground(QColor("#f44336"))
+
+                # Colour-code noise column (index 7): lower is better
+                if key == "noise":
+                    v = float(val) if val else 0.0
+                    if v <= 5:
+                        item.setForeground(QColor("#4CAF50"))
+                    elif v <= 15:
+                        item.setForeground(QColor("#FFC107"))
+                    else:
+                        item.setForeground(QColor("#f44336"))
+
+                table.setItem(r, c, item)
+
+        # Summary line
+        if rows:
+            avg_sharp = np.mean([r.get("sharpness", 0) for r in rows])
+            avg_bright = np.mean([r.get("brightness", 0) for r in rows])
+            avg_contrast = np.mean([r.get("contrast", 0) for r in rows])
+            resolutions = set(f"{r['width']}×{r['height']}" for r in rows if r.get("width"))
+            res_str = ", ".join(sorted(resolutions)) if len(resolutions) <= 3 else f"{len(resolutions)} different"
+            self._stats_ind_summary.setText(
+                f"Count: {len(rows)}  |  Resolutions: {res_str}  |  "
+                f"Avg brightness: {avg_bright:.1f}  |  "
+                f"Avg contrast: {avg_contrast:.1f}  |  "
+                f"Avg sharpness: {avg_sharp:.1f}"
+            )
+
+    @Slot(list)
+    def _stats_on_pairwise(self, rows: List[dict]):
+        table = self._stats_pw_table
+        table.setRowCount(len(rows))
+        cols = self._stats_pw_cols
+
+        # Normalise ORB inliers across all rows for score
+        max_orb = max((r.get("orb_inliers", 0) for r in rows), default=1) or 1
+
+        self._stats_pw_item_map_a.clear()
+        self._stats_pw_item_map_b.clear()
+        for r, row in enumerate(rows):
+            orb_norm = row.get("orb_inliers", 0) / max_orb
+            ssim_val = max(0.0, float(row.get("ssim", 0)))
+            hist_val = max(0.0, float(row.get("hist_corr", 0)))
+            score = round(0.4 * orb_norm + 0.4 * ssim_val + 0.2 * hist_val, 3)
+            row["_score"] = score
+
+            for c, (_, key) in enumerate(cols):
+                val = row.get(key, "")
+                item = QTableWidgetItem(str(val))
+                item.setTextAlignment(
+                    Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+                    if c >= 2 else
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+                )
+                if c == 0:
+                    full_path = row.get("path_a", "")
+                    if full_path:
+                        item.setData(Qt.ItemDataRole.UserRole, full_path)
+                        self._stats_pw_item_map_a[full_path] = item
+                        QThreadPool.globalInstance().start(
+                            _ThumbTask(full_path, 48, 0, self._stats_pw_thumb_hub_a)
+                        )
+                elif c == 1:
+                    full_path = row.get("path_b", "")
+                    if full_path:
+                        item.setData(Qt.ItemDataRole.UserRole, full_path)
+                        self._stats_pw_item_map_b[full_path] = item
+                        QThreadPool.globalInstance().start(
+                            _ThumbTask(full_path, 48, 0, self._stats_pw_thumb_hub_b)
+                        )
+
+                # Colour-code the Stitch Score column
+                if key == "_score":
+                    if score >= 0.6:
+                        item.setForeground(QColor("#4CAF50"))
+                        item.setBackground(QColor("#1b3a1f"))
+                    elif score >= 0.35:
+                        item.setForeground(QColor("#FFC107"))
+                        item.setBackground(QColor("#3a3000"))
+                    else:
+                        item.setForeground(QColor("#f44336"))
+                        item.setBackground(QColor("#3a1010"))
+
+                table.setItem(r, c, item)
+
+        self._stats_progress.hide()
+        self._stats_status.setText(
+            f"Done. {len(rows)} pair(s) analysed."
+        )
+        self._stats_run_btn.setEnabled(True)
+        self._stats_worker = None
+
+        ind_rows = getattr(self, "_stats_ind_rows", [])
+        self._stats_rec_edit.setHtml(
+            self._stats_build_recommendations(ind_rows, rows, max_orb)
+        )
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _stats_build_recommendations(
+        ind: List[dict], pw: List[dict], max_orb: int  # noqa: ARG004
+    ) -> str:
+        """
+        Analyse per-image and pairwise metrics and produce scenario-based
+        stitching recommendations as an HTML string for display in QTextEdit.
+        """
+        n = len(ind)
+        if n == 0:
+            return "<p style='color:#888'>No data to analyse.</p>"
+
+        # ── Derived aggregates ─────────────────────────────────────────
+        sharpnesses   = [float(r.get("sharpness",   0)) for r in ind]
+        noises        = [float(r.get("noise",        0)) for r in ind]
+        brightnesses  = [float(r.get("brightness",   0)) for r in ind]
+        saturations   = [float(r.get("saturation",   0)) for r in ind]
+        widths        = [int(r.get("width",   0)) for r in ind]
+        heights       = [int(r.get("height",  0)) for r in ind]
+        file_sizes_kb = [float(r.get("file_size_kb", 0)) for r in ind]
+
+        avg_sharp     = float(np.mean(sharpnesses))
+        std_sharp     = float(np.std(sharpnesses))
+        avg_noise     = float(np.mean(noises))
+        avg_bright    = float(np.mean(brightnesses))
+        bright_range  = float(np.max(brightnesses) - np.min(brightnesses))
+        avg_sat       = float(np.mean(saturations))
+        max_w         = max(widths)  if widths  else 0
+        max_h         = max(heights) if heights else 0
+        res_uniform   = len(set(zip(widths, heights))) == 1
+        total_mb      = sum(file_sizes_kb) / 1024
+
+        # Pairwise aggregates — use consecutive pairs only for summary metrics
+        # so the K-window extended pairs don't skew the quality verdict.
+        _consec_pw = [r for r in pw if r.get("consecutive", True)] if pw else []
+        _consec_pw = _consec_pw or (pw or [])  # fallback if flag absent
+        scores   = [float(r.get("_score",     0)) for r in _consec_pw]
+        ssims    = [float(r.get("ssim",       0)) for r in _consec_pw]
+        orb_vals = [int(r.get("orb_inliers",  0)) for r in _consec_pw]
+
+        avg_score    = float(np.mean(scores))    if scores    else 0.0
+        avg_ssim     = float(np.mean(ssims))     if ssims     else 0.0
+        avg_orb      = float(np.mean(orb_vals))  if orb_vals  else 0.0
+
+        consec_pairs  = [r for r in pw if r.get("consecutive", True)]
+        consec_scores = [float(r.get("_score", 0)) for r in consec_pairs]
+        weak_pairs    = [consec_pairs[i] for i, s in enumerate(consec_scores) if s < 0.35]
+        dup_pairs     = [consec_pairs[i] for i, s in enumerate(consec_scores) if s > 0.92]
+        n_weak        = len(weak_pairs)
+        n_dup         = len(dup_pairs)
+
+        # For each weak consecutive pair, check if any extended-window pair
+        # involving either frame scores significantly better.
+        extended_pairs = [r for r in pw if not r.get("consecutive", True)]
+        better_matches: List[dict] = []  # {weak_a, weak_b, best_a, best_b, score_orig, score_best}
+        for wp in weak_pairs:
+            orig_score = float(wp.get("_score", 0))
+            ia, ib = wp["idx_a"], wp["idx_b"]
+            candidates = [
+                r for r in extended_pairs
+                if r["idx_a"] == ia or r["idx_b"] == ib
+                   or r["idx_a"] == ib or r["idx_b"] == ia
+            ]
+            if not candidates:
+                continue
+            best_ext = max(candidates, key=lambda r: float(r.get("_score", 0)))
+            best_score = float(best_ext.get("_score", 0))
+            if best_score > orig_score + 0.10:  # only report meaningful improvement
+                better_matches.append({
+                    "weak_a": wp["name_a"], "weak_b": wp["name_b"],
+                    "best_a": best_ext["name_a"], "best_b": best_ext["name_b"],
+                    "score_orig": orig_score, "score_best": best_score,
+                    "gap": abs(best_ext["idx_b"] - best_ext["idx_a"]),
+                })
+
+        # ── Observations (shared facts) ────────────────────────────────
+        obs: List[str] = []
+
+        # ── Sharpness — relative to the batch, not absolute ──────────────
+        # Digital anime / cel-shading has low Laplacian variance by design
+        # (flat colour fills, no film grain).  We use the batch's own
+        # distribution so the verdict is always content-appropriate.
+        sharp_cv = std_sharp / avg_sharp if avg_sharp > 0 else 0.0  # coefficient of variation
+
+        if sharp_cv < 0.25:
+            # Frames are very uniform in sharpness — describe the batch level
+            # relative to typical photographic expectations, but without
+            # labelling anime as "blurry" just because its absolute values
+            # are low (which is normal for cel-shaded content).
+            obs.append(
+                f"✔ Sharpness is <b>consistent</b> across all frames "
+                f"(avg Laplacian variance {avg_sharp:.0f}, CV {sharp_cv:.2f}).  "
+                "This is normal for digital anime / cel-shaded content — "
+                "flat colour fills inherently produce low Laplacian values."
+            )
+        else:
+            obs.append(
+                f"○ Sharpness varies across frames "
+                f"(avg {avg_sharp:.0f} ± {std_sharp:.0f}).  "
+                "Some frames may be motion-blurred or out-of-focus."
+            )
+
+        # Flag genuine outliers: frames more than 2σ below the mean AND
+        # at least 30% softer than the mean (prevents false positives when
+        # the whole batch is a tight cluster, e.g. uniform anime content).
+        # Never recommend removing more than n-2 frames (must keep ≥ 2).
+        if n > 2 and std_sharp > 0:
+            two_sigma_thresh = avg_sharp - 2.0 * std_sharp
+            thirty_pct_thresh = avg_sharp * 0.70
+            outlier_thresh = max(two_sigma_thresh, thirty_pct_thresh)
+            blurry_outliers = [
+                ind[i]["name"] for i, v in enumerate(sharpnesses)
+                if v < outlier_thresh
+            ]
+            # Hard cap: never suggest removing so many frames stitching breaks
+            max_removable = max(0, n - 2)
+            blurry_outliers = blurry_outliers[:max_removable]
+            if blurry_outliers:
+                obs.append(
+                    f"⚠ {len(blurry_outliers)} frame(s) are significantly softer "
+                    f"than the rest of the batch (>2σ below average): "
+                    f"<i>{', '.join(blurry_outliers[:4])}"
+                    f"{'…' if len(blurry_outliers) > 4 else ''}</i>.  "
+                    "These may be motion-blurred transitions — consider removing them."
+                )
+
+        # Noise
+        if avg_noise > 15:
+            obs.append(f"⚠ High average noise ({avg_noise:.1f}).  "
+                       "Pre-denoising (e.g. Gaussian or bilateral filter) is recommended.")
+        elif avg_noise > 5:
+            obs.append(f"○ Mild noise ({avg_noise:.1f}).  "
+                       "Optional light denoising before high-quality stitching.")
+
+        # Brightness / exposure
+        if bright_range > 60:
+            obs.append(f"⚠ <b>Large brightness variation</b> across frames "
+                       f"(range {bright_range:.0f}).  "
+                       "Exposure normalisation is strongly recommended before stitching "
+                       "to avoid seam-line banding.")
+        elif bright_range > 30:
+            obs.append(f"○ Moderate brightness spread ({bright_range:.0f}).  "
+                       "Histogram matching between adjacent pairs will improve seam quality.")
+
+        if avg_bright < 60:
+            obs.append("⚠ Frames are <b>underexposed</b>.  "
+                       "Gamma correction or CLAHE may improve feature detection.")
+        elif avg_bright > 200:
+            obs.append("⚠ Frames are <b>overexposed</b>.  "
+                       "Tone-map or reduce brightness to recover detail before stitching.")
+
+        # Resolution uniformity
+        if not res_uniform:
+            obs.append("⚠ Frames have <b>inconsistent resolutions</b>.  "
+                       "Resize all frames to a common resolution before stitching "
+                       "to avoid projection errors.")
+        else:
+            obs.append(f"✔ All frames share the same resolution ({max_w}×{max_h}).")
+
+        # Saturation / colour
+        if avg_sat < 30:
+            obs.append("○ Frames appear mostly desaturated.  "
+                       "Histogram correlation will be less discriminative; "
+                       "rely on structural matchers (LoFTR/ORB).")
+
+        # Pairwise quality
+        if pw:
+            if avg_score >= 0.65:
+                obs.append(f"✔ Pair match quality is <b>strong</b> "
+                           f"(avg stitch score {avg_score:.2f}).  "
+                           "Direct stitching is likely to succeed.")
+            elif avg_score >= 0.40:
+                obs.append(f"○ Pair match quality is <b>acceptable</b> "
+                           f"(avg stitch score {avg_score:.2f}).  "
+                           "Light pre-processing will improve results.")
+            else:
+                obs.append(f"⚠ Pair match quality is <b>weak</b> "
+                           f"(avg stitch score {avg_score:.2f}).  "
+                           "Significant pre-processing or manual alignment may be required.")
+
+            if n_weak:
+                names_w = [f"{p['name_a']}↔{p['name_b']}" for p in weak_pairs[:3]]
+                obs.append(f"⚠ {n_weak} weak consecutive pair(s) detected: "
+                           f"<i>{', '.join(names_w)}"
+                           f"{'…' if n_weak > 3 else ''}</i>.  "
+                           "These transitions may produce visible seams or misalignments.")
+
+            if better_matches:
+                for bm in better_matches[:5]:
+                    obs.append(
+                        f"💡 Weak pair <i>{bm['weak_a']}↔{bm['weak_b']}</i> "
+                        f"(score {bm['score_orig']:.3f}) has a better non-adjacent match: "
+                        f"<b>{bm['best_a']}↔{bm['best_b']}</b> "
+                        f"(score <b>{bm['score_best']:.3f}</b>, gap {bm['gap']} frame(s)).  "
+                        "Consider replacing the weak pair with this one or skipping intermediate frames."
+                    )
+                if len(better_matches) > 5:
+                    obs.append(
+                        f"… and {len(better_matches) - 5} more weak pair(s) with better "
+                        "non-adjacent alternatives (see table)."
+                    )
+
+            if n_dup:
+                names_d = [f"{p['name_a']}↔{p['name_b']}" for p in dup_pairs[:3]]
+                obs.append(f"⚠ {n_dup} near-duplicate pair(s) detected: "
+                           f"<i>{', '.join(names_d)}</i>.  "
+                           "Redundant frames add compute cost without improving coverage — "
+                           "consider removing one from each duplicate pair.")
+
+        # Memory / size
+        if total_mb > 500:
+            obs.append(f"⚠ Total uncompressed data is large (~{total_mb:.0f} MB).  "
+                       "Downscale frames before stitching unless maximum output resolution "
+                       "is required.")
+
+        # ── Scenario recommendations ───────────────────────────────────
+        def _section(title: str, color: str, items: List[str]) -> str:
+            bullets = "".join(f"<li>{it}</li>" for it in items)
+            return (
+                f"<div style='margin-top:10px;'>"
+                f"<span style='background:{color};color:#fff;"
+                f"font-weight:bold;padding:2px 8px;border-radius:3px;'>"
+                f"{title}</span>"
+                f"<ul style='margin:4px 0 0 16px;padding:0;'>{bullets}</ul>"
+                f"</div>"
+            )
+
+        best_items: List[str] = []
+        balanced_items: List[str] = []
+        fast_items: List[str] = []
+
+        # Resolution advice
+        if max_w > 0:
+            best_items.append(
+                f"Use <b>full native resolution</b> ({max_w}×{max_h}) throughout."
+            )
+            half_w, half_h = max_w // 2, max_h // 2
+            balanced_items.append(
+                f"Use <b>½ resolution</b> ({half_w}×{half_h}) for stitching, "
+                f"then upscale the result."
+            )
+            q_w, q_h = max_w // 4, max_h // 4
+            fast_items.append(
+                f"Downscale to <b>¼ resolution</b> ({q_w}×{q_h}) for a rapid prototype."
+            )
+
+        # Pre-processing
+        if avg_noise > 5:
+            best_items.append(
+                "Apply <b>bilateral denoising</b> (preserve edges) before matching."
+            )
+            balanced_items.append(
+                "Apply a <b>light Gaussian blur</b> (σ=0.8) to suppress noise."
+            )
+            fast_items.append("Skip denoising — accept minor artefacts.")
+
+        if bright_range > 30:
+            best_items.append(
+                "Run <b>per-frame exposure normalisation</b> (CLAHE or histogram matching) "
+                "before stitching, then gain-compensate during blending."
+            )
+            balanced_items.append(
+                "Apply <b>histogram matching</b> between consecutive frame pairs."
+            )
+            fast_items.append(
+                "Use a simple <b>global mean-brightness normalisation</b>."
+            )
+
+        # Feature matching — decide based on whether outliers exist, not
+        # on absolute sharpness (which is content-type dependent).
+        has_blur_outliers = (n > 2 and std_sharp > 0 and
+                             (avg_sharp - 2.0 * std_sharp) > float(np.percentile(sharpnesses, 10)))
+        if has_blur_outliers and sharp_cv >= 0.25:
+            best_items.append(
+                "Use <b>LoFTR</b> (transformer-based) matching — it handles "
+                "motion-blurred frames far better than ORB."
+            )
+            balanced_items.append(
+                "Use <b>LoFTR</b> with a reduced tile size to save memory."
+            )
+            fast_items.append(
+                "Use <b>ORB + BFMatcher</b> — fast, but expect fewer inliers "
+                "on the blurry outlier frames."
+            )
+        else:
+            best_items.append(
+                "Use <b>LoFTR</b> for maximum correspondence quality."
+            )
+            balanced_items.append(
+                "Use <b>LoFTR</b> or SIFT — sharpness is consistent across "
+                "the batch, both will work well."
+            )
+            fast_items.append(
+                "Use <b>ORB + BFMatcher</b> — sharpness is uniform, "
+                "ORB inlier counts will be reliable."
+            )
+
+        # Homography / warp
+        if avg_orb > 80 or (avg_ssim > 0.7 and avg_orb > 40):
+            best_items.append(
+                "Estimate a full <b>homography</b> (8-DOF perspective) per pair — "
+                "feature density supports it."
+            )
+            balanced_items.append(
+                "Use an <b>affine</b> warp (6-DOF) for speed while retaining most accuracy."
+            )
+        else:
+            best_items.append(
+                "Use <b>affine + RANSAC</b> warp — feature count may be too low "
+                "for reliable homography estimation."
+            )
+            balanced_items.append(
+                "Use <b>affine</b> warp with a relaxed RANSAC threshold (8–10 px)."
+            )
+        fast_items.append(
+            "Use a <b>translation-only</b> alignment (fast, sufficient for roughly "
+            "pre-aligned frames)."
+        )
+
+        # Blending
+        best_items.append(
+            "Use <b>multi-band blending</b> (Laplacian pyramid, 5–6 levels) "
+            "for seamless transitions."
+        )
+        if n_weak:
+            best_items.append(
+                f"Manually verify / override affine for the {n_weak} weak pair(s) "
+                "before blending."
+            )
+        balanced_items.append(
+            "Use <b>linear feathering</b> (alpha blend) across a 20–40 px overlap zone."
+        )
+        fast_items.append(
+            "Use a <b>hard cut</b> at the midpoint of the overlap — no blending."
+        )
+
+        # Output format
+        best_items.append(
+            "Save as <b>PNG</b> (lossless) or 16-bit TIFF for archival quality."
+        )
+        balanced_items.append(
+            "Save as <b>JPEG quality 92–95</b> for a good size/quality trade-off."
+        )
+        fast_items.append(
+            "Save as <b>JPEG quality 80</b> or WebP for minimal disk footprint."
+        )
+
+        # Frame count / compute note
+        if n >= 8:
+            best_items.append(
+                f"With {n} frames, consider enabling the <b>graph-based stitcher</b> "
+                "(Graph tab) to find the globally optimal stitch order."
+            )
+            balanced_items.append(
+                f"With {n} frames, use <b>Auto-Order</b> to optimise frame sequence "
+                "before stitching."
+            )
+            fast_items.append(
+                f"Limit the fast prototype to the <b>highest-scoring {min(n, 4)} frames</b> "
+                "to keep runtime under a few seconds."
+            )
+
+        if n_dup:
+            best_items.append(
+                f"Remove {n_dup} near-duplicate frame(s) to avoid redundant blending "
+                "and output ghosting."
+            )
+            balanced_items.append(
+                f"Remove {n_dup} near-duplicate frame(s) before stitching."
+            )
+            fast_items.append(
+                "Skip duplicate frames entirely."
+            )
+
+        # ── Assemble HTML ──────────────────────────────────────────────
+        obs_html = "".join(
+            f"<li style='margin-bottom:2px;'>{o}</li>" for o in obs
+        )
+
+        html = (
+            "<html><body style='font-family:sans-serif;font-size:11px;"
+            "color:#d4d4d4;background:#1e1f22;'>"
+            "<p style='font-weight:bold;font-size:12px;margin:0 0 4px;'>"
+            "Observations</p>"
+            f"<ul style='margin:0 0 6px 16px;padding:0;'>{obs_html}</ul>"
+            "<hr style='border:1px solid #4f545c;margin:8px 0;'/>"
+            "<p style='font-weight:bold;font-size:12px;margin:0 0 2px;'>"
+            "Scenario Recommendations</p>"
+        )
+        html += _section("Best Quality",    "#1976D2", best_items)
+        html += _section("Balanced",        "#388E3C", balanced_items)
+        html += _section("Fast / Prototype","#F57C00", fast_items)
+        html += "</body></html>"
+        return html
+
+    @Slot(str)
+    def _stats_on_error(self, msg: str):
+        self._stats_progress.hide()
+        self._stats_status.setText("Error.")
+        self._stats_run_btn.setEnabled(True)
+        self._stats_worker = None
+        QMessageBox.critical(self, "Statistics Error", msg)
+
+
+    # ======================================================================
+    # ── SUB-TAB 6: Sequence Builder ───────────────────────────────────────
+    # ======================================================================
+
+    def _build_seq_panel(self) -> QWidget:
+        panel = QWidget()
+        root = QVBoxLayout(panel)
+        root.setContentsMargins(8, 8, 8, 8)
+        root.setSpacing(6)
+
+        # ── Source ────────────────────────────────────────────────────
+        src_group = QGroupBox("Source")
+        src_form  = QFormLayout(src_group)
+
+        anchor_row = QHBoxLayout()
+        self._seq_anchor_edit = QLineEdit()
+        self._seq_anchor_edit.setPlaceholderText("Pick the base/anchor image…")
+        self._seq_anchor_edit.setReadOnly(True)
+        anchor_row.addWidget(self._seq_anchor_edit, 1)
+        btn_anchor = QPushButton("Browse…")
+        btn_anchor.clicked.connect(self._seq_browse_anchor)
+        anchor_row.addWidget(btn_anchor)
+        src_form.addRow("Anchor image:", anchor_row)
+
+        dir_row = QHBoxLayout()
+        self._seq_dir_edit = QLineEdit()
+        self._seq_dir_edit.setPlaceholderText("Directory of candidate images…")
+        self._seq_dir_edit.setReadOnly(True)
+        dir_row.addWidget(self._seq_dir_edit, 1)
+        btn_dir = QPushButton("Browse…")
+        btn_dir.clicked.connect(self._seq_browse_dir)
+        dir_row.addWidget(btn_dir)
+        src_form.addRow("Candidates dir:", dir_row)
+
+        btn_from_stitch = QPushButton("Use Stitch Frame List as Candidates")
+        btn_from_stitch.setToolTip(
+            "Populate the candidate pool from the current Stitch tab frame list."
+        )
+        btn_from_stitch.clicked.connect(self._seq_load_from_stitch)
+        src_form.addRow("", btn_from_stitch)
+
+        root.addWidget(src_group)
+
+        # ── Options + run ─────────────────────────────────────────────
+        opt_group  = QGroupBox("Options")
+        opt_layout = QHBoxLayout(opt_group)
+
+        opt_layout.addWidget(QLabel("Min fitness:"))
+        self._seq_min_score_spin = QDoubleSpinBox()
+        self._seq_min_score_spin.setRange(0.01, 0.99)
+        self._seq_min_score_spin.setValue(0.15)
+        self._seq_min_score_spin.setDecimals(2)
+        self._seq_min_score_spin.setSingleStep(0.05)
+        self._seq_min_score_spin.setToolTip(
+            "Minimum stitching fitness to extend the chain.\n"
+            "Fitness = ORB inlier ratio × displacement quality "
+            "(peaks at ~30% of frame diagonal pan, zero for near-duplicates or non-overlapping).\n"
+            "Start at 0.15; raise to filter weaker pairs."
+        )
+        opt_layout.addWidget(self._seq_min_score_spin)
+
+        opt_layout.addSpacing(12)
+        opt_layout.addWidget(QLabel("Min sharpness ratio:"))
+        self._seq_blur_spin = QDoubleSpinBox()
+        self._seq_blur_spin.setRange(0.0, 1.0)
+        self._seq_blur_spin.setValue(0.50)
+        self._seq_blur_spin.setDecimals(2)
+        self._seq_blur_spin.setSingleStep(0.05)
+        self._seq_blur_spin.setToolTip(
+            "Reject candidates whose Laplacian sharpness is below this fraction "
+            "of the anchor's sharpness.\n"
+            "0.5 = must be at least 50% as sharp as the anchor (filters motion-blurred frames).\n"
+            "Set to 0.0 to disable the sharpness filter."
+        )
+        opt_layout.addWidget(self._seq_blur_spin)
+
+        opt_layout.addSpacing(12)
+        opt_layout.addWidget(QLabel("Min pan %:"))
+        self._seq_min_pan_spin = QDoubleSpinBox()
+        self._seq_min_pan_spin.setRange(0.01, 0.50)
+        self._seq_min_pan_spin.setValue(0.03)
+        self._seq_min_pan_spin.setDecimals(2)
+        self._seq_min_pan_spin.setSingleStep(0.01)
+        self._seq_min_pan_spin.setToolTip(
+            "Minimum camera translation as a fraction of the frame diagonal.\n"
+            "Below this → near-duplicate (rejected).\n"
+            "3% is usually right for anime panning; raise if duplicates appear."
+        )
+        opt_layout.addWidget(self._seq_min_pan_spin)
+
+        opt_layout.addSpacing(12)
+        opt_layout.addWidget(QLabel("Max pan %:"))
+        self._seq_max_pan_spin = QDoubleSpinBox()
+        self._seq_max_pan_spin.setRange(0.20, 0.99)
+        self._seq_max_pan_spin.setValue(0.85)
+        self._seq_max_pan_spin.setDecimals(2)
+        self._seq_max_pan_spin.setSingleStep(0.05)
+        self._seq_max_pan_spin.setToolTip(
+            "Maximum camera translation as a fraction of the frame diagonal.\n"
+            "Above this → frames don't overlap enough (rejected).\n"
+            "85% is usually safe; lower if stitching fails at large offsets."
+        )
+        opt_layout.addWidget(self._seq_max_pan_spin)
+
+        opt_layout.addStretch()
+
+        self._seq_run_btn = QPushButton("⚡ Build Sequence")
+        self._seq_run_btn.setStyleSheet(
+            "background:#1976D2; color:white; font-weight:bold; padding:5px 14px;"
+        )
+        self._seq_run_btn.clicked.connect(self._seq_run)
+        opt_layout.addWidget(self._seq_run_btn)
+
+        root.addWidget(opt_group)
+
+        # ── Progress ──────────────────────────────────────────────────
+        prog_row = QHBoxLayout()
+        self._seq_progress = QProgressBar()
+        self._seq_progress.setRange(0, 100)
+        self._seq_progress.setTextVisible(True)
+        self._seq_progress.hide()
+        prog_row.addWidget(self._seq_progress, 1)
+        self._seq_status = QLabel("")
+        self._seq_status.setStyleSheet("color:#aaa; font-style:italic;")
+        prog_row.addWidget(self._seq_status)
+        root.addLayout(prog_row)
+
+        # ── Result chain ──────────────────────────────────────────────
+        chain_group  = QGroupBox("Built Sequence  (drag to reorder · double-click row to replace image)")
+        chain_layout = QVBoxLayout(chain_group)
+
+        self._seq_chain_table = QTableWidget(0, 3)
+        self._seq_chain_table.setHorizontalHeaderLabels(["Image", "Score to prev.", ""])
+        self._seq_chain_table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeMode.Stretch
+        )
+        self._seq_chain_table.horizontalHeader().setSectionResizeMode(
+            1, QHeaderView.ResizeMode.ResizeToContents
+        )
+        self._seq_chain_table.horizontalHeader().setSectionResizeMode(
+            2, QHeaderView.ResizeMode.ResizeToContents
+        )
+        self._seq_chain_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._seq_chain_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self._seq_chain_table.setAlternatingRowColors(True)
+        self._seq_chain_table.verticalHeader().setVisible(False)
+        self._seq_chain_table.verticalHeader().setDefaultSectionSize(52)
+        self._seq_chain_table.setIconSize(QSize(48, 48))
+        self._seq_chain_table.setDragDropMode(QTableWidget.DragDropMode.InternalMove)
+        self._seq_chain_table.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self._seq_chain_table.setDragEnabled(True)
+        self._seq_chain_table.setAcceptDrops(True)
+        self._seq_chain_table.setDropIndicatorShown(True)
+        self._seq_chain_table.setMinimumHeight(260)
+        self._seq_chain_table.setStyleSheet(
+            "QTableWidget { background:#2c2f33; alternate-background-color:#36393f; }"
+            "QHeaderView::section { background:#1e1f22; color:#ccc; padding:4px; }"
+        )
+        self._seq_chain_table.cellDoubleClicked.connect(self._seq_replace_row)
+        self._seq_chain_table.model().rowsMoved.connect(self._seq_on_rows_moved)
+        chain_layout.addWidget(self._seq_chain_table)
+
+        # Edit buttons
+        edit_row = QHBoxLayout()
+        btn_add_before = QPushButton("Insert Before")
+        btn_add_before.setToolTip("Insert a new image before the selected row.")
+        btn_add_before.clicked.connect(lambda: self._seq_insert_image(before=True))
+        btn_add_after = QPushButton("Insert After")
+        btn_add_after.setToolTip("Insert a new image after the selected row.")
+        btn_add_after.clicked.connect(lambda: self._seq_insert_image(before=False))
+        btn_remove = QPushButton("Remove")
+        btn_remove.setToolTip("Remove the selected row from the chain.")
+        btn_remove.clicked.connect(self._seq_remove_row)
+        btn_up = QPushButton("↑")
+        btn_up.setFixedWidth(32)
+        btn_up.clicked.connect(self._seq_move_up)
+        btn_down = QPushButton("↓")
+        btn_down.setFixedWidth(32)
+        btn_down.clicked.connect(self._seq_move_down)
+        for b in (btn_add_before, btn_add_after, btn_remove, btn_up, btn_down):
+            apply_shadow_effect(b, radius=4, y_offset=2)
+            edit_row.addWidget(b)
+        edit_row.addStretch()
+
+        btn_accept = QPushButton("✔ Use as Stitch List")
+        btn_accept.setStyleSheet(
+            "background:#388E3C; color:white; font-weight:bold; padding:5px 14px;"
+        )
+        btn_accept.setToolTip(
+            "Load the current sequence into the Stitch tab frame list, replacing any existing frames."
+        )
+        btn_accept.clicked.connect(self._seq_accept)
+        apply_shadow_effect(btn_accept, radius=6, y_offset=2)
+        edit_row.addWidget(btn_accept)
+
+        chain_layout.addLayout(edit_row)
+        root.addWidget(chain_group)
+
+        return panel
+
+    # ── Sequence-builder slots ─────────────────────────────────────────────
+
+    @Slot()
+    def _seq_browse_anchor(self):
+        start = self._seq_dir_path or os.path.dirname(self._seq_anchor_path) or ""
+        p, _ = QFileDialog.getOpenFileName(
+            self, "Select Anchor Image", start,
+            "Images (*.png *.jpg *.jpeg *.webp *.bmp *.tiff)",
+            options=QFileDialog.Option.DontUseNativeDialog,
+        )
+        if p:
+            self._seq_anchor_path = p
+            self._seq_anchor_edit.setText(p)
+            # Auto-populate dir from anchor location if not already set
+            if not self._seq_dir_path:
+                self._seq_dir_path = os.path.dirname(p)
+                self._seq_dir_edit.setText(self._seq_dir_path)
+
+    @Slot()
+    def _seq_browse_dir(self):
+        start = self._seq_dir_path or os.path.dirname(self._seq_anchor_path) or ""
+        d = QFileDialog.getExistingDirectory(
+            self, "Select Candidate Directory", start,
+            options=QFileDialog.Option.DontUseNativeDialog,
+        )
+        if d:
+            self._seq_dir_path = d
+            self._seq_dir_edit.setText(d)
+
+    @Slot()
+    def _seq_load_from_stitch(self):
+        if not self._frame_paths:
+            QMessageBox.information(self, "Sequence Builder",
+                                    "The Stitch tab frame list is empty.")
+            return
+        # Use selected frame as anchor, rest as candidates
+        row = self._frame_list.currentRow()
+        anchor = self._frame_paths[row] if row >= 0 else self._frame_paths[0]
+        self._seq_anchor_path = anchor
+        self._seq_anchor_edit.setText(anchor)
+        d = os.path.dirname(anchor)
+        self._seq_dir_path = d
+        self._seq_dir_edit.setText(d)
+        QMessageBox.information(self, "Sequence Builder",
+                                f"Anchor set to: {os.path.basename(anchor)}\n"
+                                f"Candidates directory: {d}")
+
+    @Slot()
+    def _seq_run(self):
+        if not self._seq_anchor_path or not os.path.isfile(self._seq_anchor_path):
+            QMessageBox.warning(self, "Sequence Builder", "Please select a valid anchor image first.")
+            return
+
+        # Collect candidate paths from the directory
+        import pathlib
+        exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
+        if self._seq_dir_path and os.path.isdir(self._seq_dir_path):
+            candidates = sorted(
+                str(p) for p in pathlib.Path(self._seq_dir_path).iterdir()
+                if p.suffix.lower() in exts
+            )
+        else:
+            QMessageBox.warning(self, "Sequence Builder",
+                                "Please select a candidate directory first.")
+            return
+
+        if not candidates:
+            QMessageBox.warning(self, "Sequence Builder",
+                                "No image files found in the selected directory.")
+            return
+
+        if self._seq_worker is not None:
+            self._seq_worker.cancel()
+            self._seq_worker = None
+
+        self._seq_chain_table.setRowCount(0)
+        self._seq_chain = []
+        self._seq_progress.setValue(0)
+        self._seq_progress.show()
+        self._seq_run_btn.setEnabled(False)
+        n_cand = len(candidates)
+        self._seq_status.setText(
+            f"Searching {n_cand} candidates for anchor: {os.path.basename(self._seq_anchor_path)}…"
+        )
+
+        worker = SequenceBuilderWorker(
+            self._seq_anchor_path,
+            candidates,
+            min_score=self._seq_min_score_spin.value(),
+            blur_threshold=self._seq_blur_spin.value(),
+            min_pan_ratio=self._seq_min_pan_spin.value(),
+            max_pan_ratio=self._seq_max_pan_spin.value(),
+        )
+        self._seq_worker = worker
+        worker.signals.progress.connect(self._seq_on_progress)
+        worker.signals.result.connect(self._seq_on_result)
+        worker.signals.error.connect(self._seq_on_error)
+        QThreadPool.globalInstance().start(worker)
+
+    @Slot(int)
+    def _seq_on_progress(self, pct: int):
+        self._seq_progress.setValue(pct)
+
+    @Slot(list)
+    def _seq_on_result(self, chain: List[dict]):
+        self._seq_progress.hide()
+        self._seq_run_btn.setEnabled(True)
+        self._seq_worker = None
+        self._seq_chain = chain
+        self._seq_status.setText(f"Done. {len(chain)} frame(s) in sequence.")
+        self._seq_populate_table(chain)
+
+    def _seq_populate_table(self, chain: List[dict]):
+        table = self._seq_chain_table
+        table.setRowCount(0)
+        self._seq_table_item_map.clear()
+        for item in chain:
+            r = table.rowCount()
+            table.insertRow(r)
+            name_item = QTableWidgetItem(item["name"])
+            name_item.setData(Qt.ItemDataRole.UserRole, item["path"])
+            name_item.setToolTip(item["path"])
+            self._seq_table_item_map[item["path"]] = name_item
+            QThreadPool.globalInstance().start(
+                _ThumbTask(item["path"], 48, 0, self._seq_thumb_hub)
+            )
+            table.setItem(r, 0, name_item)
+
+            score = item.get("score_to_prev")
+            if score is None:
+                score_item = QTableWidgetItem("— anchor —")
+                score_item.setForeground(QColor("#aaa"))
+            else:
+                score_item = QTableWidgetItem(f"{score:.3f}")
+                if score >= 0.6:
+                    score_item.setForeground(QColor("#4CAF50"))
+                    score_item.setBackground(QColor("#1b3a1f"))
+                elif score >= 0.35:
+                    score_item.setForeground(QColor("#FFC107"))
+                    score_item.setBackground(QColor("#3a3000"))
+                else:
+                    score_item.setForeground(QColor("#f44336"))
+                    score_item.setBackground(QColor("#3a1010"))
+            score_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            table.setItem(r, 1, score_item)
+
+            # "Replace" button cell
+            replace_item = QTableWidgetItem("Replace…")
+            replace_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+            replace_item.setForeground(QColor("#90CAF9"))
+            table.setItem(r, 2, replace_item)
+
+    def _seq_chain_from_table(self) -> List[dict]:
+        """Read the current table contents back into a chain list."""
+        table = self._seq_chain_table
+        chain = []
+        for r in range(table.rowCount()):
+            name_item  = table.item(r, 0)
+            score_item = table.item(r, 1)
+            p = name_item.data(Qt.ItemDataRole.UserRole) if name_item else ""
+            score_txt = score_item.text() if score_item else ""
+            try:
+                s = None if "anchor" in score_txt else float(score_txt)
+            except ValueError:
+                s = None
+            chain.append({"path": p, "name": os.path.basename(p), "score_to_prev": s})
+        return chain
+
+    @Slot(int, int)
+    def _seq_replace_row(self, row: int, col: int):
+        """Double-click on any cell: open file picker to replace that row's image."""
+        table = self._seq_chain_table
+        name_item = table.item(row, 0)
+        if name_item is None:
+            return
+        current_path = name_item.data(Qt.ItemDataRole.UserRole) or ""
+        start = os.path.dirname(current_path) or self._seq_dir_path or ""
+        p, _ = QFileDialog.getOpenFileName(
+            self, "Replace Image", start,
+            "Images (*.png *.jpg *.jpeg *.webp *.bmp *.tiff)",
+            options=QFileDialog.Option.DontUseNativeDialog,
+        )
+        if not p:
+            return
+        name_item.setText(os.path.basename(p))
+        name_item.setData(Qt.ItemDataRole.UserRole, p)
+        name_item.setToolTip(p)
+        # Clear score (unknown after manual replacement)
+        score_item = table.item(row, 1)
+        if score_item:
+            score_item.setText("(replaced)")
+            score_item.setForeground(QColor("#aaa"))
+
+    @Slot()
+    def _seq_insert_image(self, before: bool = True):
+        table = self._seq_chain_table
+        row = table.currentRow()
+        if row < 0:
+            row = table.rowCount() if not before else 0
+        start = self._seq_dir_path or ""
+        p, _ = QFileDialog.getOpenFileName(
+            self, "Insert Image", start,
+            "Images (*.png *.jpg *.jpeg *.webp *.bmp *.tiff)",
+            options=QFileDialog.Option.DontUseNativeDialog,
+        )
+        if not p:
+            return
+        insert_at = row if before else row + 1
+        table.insertRow(insert_at)
+        name_item = QTableWidgetItem(os.path.basename(p))
+        name_item.setData(Qt.ItemDataRole.UserRole, p)
+        name_item.setToolTip(p)
+        self._seq_table_item_map[p] = name_item
+        QThreadPool.globalInstance().start(
+            _ThumbTask(p, 48, 0, self._seq_thumb_hub)
+        )
+        table.setItem(insert_at, 0, name_item)
+        score_item = QTableWidgetItem("(inserted)")
+        score_item.setForeground(QColor("#aaa"))
+        score_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        table.setItem(insert_at, 1, score_item)
+        replace_item = QTableWidgetItem("Replace…")
+        replace_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+        replace_item.setForeground(QColor("#90CAF9"))
+        table.setItem(insert_at, 2, replace_item)
+        table.setCurrentCell(insert_at, 0)
+
+    @Slot()
+    def _seq_remove_row(self):
+        row = self._seq_chain_table.currentRow()
+        if row >= 0:
+            self._seq_chain_table.removeRow(row)
+
+    @Slot()
+    def _seq_move_up(self):
+        table = self._seq_chain_table
+        row = table.currentRow()
+        if row <= 0:
+            return
+        self._seq_swap_rows(row - 1, row)
+        table.setCurrentCell(row - 1, 0)
+
+    @Slot()
+    def _seq_move_down(self):
+        table = self._seq_chain_table
+        row = table.currentRow()
+        if row < 0 or row >= table.rowCount() - 1:
+            return
+        self._seq_swap_rows(row, row + 1)
+        table.setCurrentCell(row + 1, 0)
+
+    def _seq_swap_rows(self, a: int, b: int):
+        table = self._seq_chain_table
+        for col in range(table.columnCount()):
+            ia = table.takeItem(a, col)
+            ib = table.takeItem(b, col)
+            if ia:
+                table.setItem(b, col, ia)
+            if ib:
+                table.setItem(a, col, ib)
+
+    @Slot(object, int, int, object, int)
+    def _seq_on_rows_moved(self, *_args):
+        """QAbstractItemModel.rowsMoved — no extra action needed; table updates itself."""
+        pass
+
+    @Slot()
+    def _seq_accept(self):
+        """Push the current chain table into the Stitch tab frame list."""
+        table = self._seq_chain_table
+        if table.rowCount() == 0:
+            QMessageBox.information(self, "Sequence Builder",
+                                    "The sequence is empty — nothing to load.")
+            return
+
+        paths = []
+        for r in range(table.rowCount()):
+            item = table.item(r, 0)
+            if item:
+                p = item.data(Qt.ItemDataRole.UserRole)
+                if p and os.path.isfile(p):
+                    paths.append(p)
+
+        if not paths:
+            QMessageBox.warning(self, "Sequence Builder",
+                                "No valid file paths found in the current sequence.")
+            return
+
+        self._frame_paths = paths
+        self._frame_item_map.clear()
+        self._frame_list.clear()
+        for p in self._frame_paths:
+            self._frame_list.addItem(self._make_frame_item(p))
+
+        self._tab_widget.setCurrentIndex(0)   # switch to Stitch tab
+        QMessageBox.information(
+            self, "Sequence Builder",
+            f"Loaded {len(paths)} frame(s) into the Stitch tab.\n"
+            "Switch to the Stitch tab to run the pipeline."
+        )
+
+    @Slot(str)
+    def _seq_on_error(self, msg: str):
+        self._seq_progress.hide()
+        self._seq_run_btn.setEnabled(True)
+        self._seq_worker = None
+        self._seq_status.setText("Error.")
+        QMessageBox.critical(self, "Sequence Builder Error", msg)
+
+    # ======================================================================
+    # ── SUB-TAB 7: Hybrid Stitch ──────────────────────────────────────────
+    # ======================================================================
+
+    def _build_hybrid_panel(self) -> QWidget:
+        self._hybrid_panel = HybridStitchPanel(parent=self)
+        self._hybrid_panel.sequence_accepted.connect(self._on_hybrid_sequence_accepted)
+        return self._hybrid_panel
+
+    @Slot(list)
+    def _on_hybrid_sequence_accepted(self, paths: List[str]):
+        """Load the sequence from the Hybrid Stitch panel into the Stitch tab."""
+        if not paths:
+            return
+        self._frame_paths = list(paths)
+        self._frame_item_map.clear()
+        self._frame_list.clear()
+        for p in self._frame_paths:
+            self._frame_list.addItem(self._make_frame_item(p))
+        self._tab_widget.setCurrentIndex(0)
+        QMessageBox.information(
+            self, "Hybrid Stitch",
+            f"Loaded {len(paths)} frame(s) into the Stitch tab.\n"
+            "Switch to the Stitch tab to run the pipeline."
+        )
 
 
 StitchTab = EditTab
