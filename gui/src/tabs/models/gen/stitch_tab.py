@@ -1365,6 +1365,180 @@ class StatsWorker(QRunnable):
 
 
 # ---------------------------------------------------------------------------
+# Animation cluster worker — runs off the main thread
+# ---------------------------------------------------------------------------
+
+_ANIM_CLUSTER_COLORS = [
+    ("#4CAF50", "#1b3a1f"),
+    ("#FF9800", "#3a2000"),
+    ("#2196F3", "#001a3a"),
+    ("#f44336", "#3a1010"),
+    ("#9C27B0", "#2a003a"),
+    ("#00BCD4", "#003a3a"),
+    ("#FFEB3B", "#3a3600"),
+    ("#FF5722", "#3a1a00"),
+]
+
+
+class _AnimClusterSignals(QObject):
+    finished = Signal(list)   # List[dict]: path, cluster, cluster_name, is_animated
+    progress = Signal(int)    # 0-100
+    error    = Signal(str)
+
+
+class AnimClusterWorker(QRunnable):
+    """
+    Groups a list of image paths into animation phases using per-pixel temporal
+    FFT analysis (replicating AnimeStitchPipeline._cluster_animation_phases).
+
+    Each result dict:
+        path         : str   — absolute image path
+        cluster      : int   — 0-based phase index  (-1 = unassigned)
+        cluster_name : str   — human-readable label
+        is_animated  : bool  — True if temporal animation was detected
+        ac_ratio     : float — mean AC/(DC+AC) ratio across the frame set
+    """
+
+    def __init__(
+        self,
+        paths: List[str],
+        ac_threshold: float = 0.25,
+        min_anim_pixels: int = 500,
+    ):
+        super().__init__()
+        self.setAutoDelete(True)
+        self._paths            = list(paths)
+        self._ac_threshold     = ac_threshold
+        self._min_anim_pixels  = min_anim_pixels
+        self.signals           = _AnimClusterSignals()
+        self._cancelled        = False
+
+    def cancel(self):
+        self._cancelled = True
+
+    def run(self):
+        try:
+            try:
+                from sklearn.cluster import KMeans  # noqa: F401
+            except ImportError:
+                self.signals.error.emit(
+                    "scikit-learn is not installed.\n\n"
+                    "Run:  pip install scikit-learn\n\n"
+                    "Restart the application after installing."
+                )
+                return
+            self._compute()
+        except Exception as exc:
+            self.signals.error.emit(str(exc))
+
+    def _compute(self):
+        from sklearn.cluster import KMeans
+
+        paths = self._paths
+        N = len(paths)
+        if N == 0:
+            self.signals.finished.emit([])
+            return
+
+        # ── Load frames, normalise to first frame's size ─────────────────
+        frames: List[np.ndarray] = []
+        H = W = 0
+        for i, p in enumerate(paths):
+            if self._cancelled:
+                return
+            img = cv2.imread(p)
+            if img is None:
+                img = np.zeros((100, 100, 3), np.uint8)
+            if i == 0:
+                H, W = img.shape[:2]
+            elif img.shape[:2] != (H, W):
+                img = cv2.resize(img, (W, H), interpolation=cv2.INTER_AREA)
+            frames.append(img)
+            self.signals.progress.emit(int((i + 1) / N * 35))
+
+        if N < 4:
+            rows = [
+                {"path": p, "cluster": 0,
+                 "cluster_name": "Static (need ≥ 4 frames)",
+                 "is_animated": False, "ac_ratio": 0.0}
+                for p in paths
+            ]
+            self.signals.finished.emit(rows)
+            return
+
+        # ── Downsample and build small greyscale stack ────────────────────
+        target_w = 320
+        scale = target_w / max(W, 1)
+        th = max(1, int(H * scale))
+        tw = target_w
+
+        small_stack: List[np.ndarray] = []
+        for i, frame in enumerate(frames):
+            if self._cancelled:
+                return
+            M_small = np.array([[scale, 0.0, 0.0], [0.0, scale, 0.0]], np.float32)
+            warped = cv2.warpAffine(frame, M_small, (tw, th), flags=cv2.INTER_AREA)
+            gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY).astype(np.float32) / 255.0
+            small_stack.append(gray)
+            self.signals.progress.emit(35 + int((i + 1) / N * 25))
+
+        stack_arr = np.stack(small_stack, axis=0)  # (N, th, tw)
+
+        # ── Temporal FFT: detect animated pixels ─────────────────────────
+        F = np.fft.rfft(stack_arr, axis=0)
+        power = np.abs(F) ** 2
+        dc_power = power[0]
+        ac_power = power[1:].sum(axis=0)
+        ratio    = ac_power / (dc_power + ac_power + 1e-8)
+        mean_ratio = float(ratio.mean())
+
+        anim_mask = (ratio > self._ac_threshold).astype(np.uint8) * 255
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        anim_mask = cv2.morphologyEx(anim_mask, cv2.MORPH_OPEN,  kernel)
+        anim_mask = cv2.morphologyEx(anim_mask, cv2.MORPH_CLOSE, kernel)
+
+        n_anim_px = int(anim_mask.sum()) // 255
+        if n_anim_px < self._min_anim_pixels:
+            rows = [
+                {"path": p, "cluster": 0,
+                 "cluster_name": "Static (no animation detected)",
+                 "is_animated": False, "ac_ratio": mean_ratio}
+                for p in paths
+            ]
+            self.signals.finished.emit(rows)
+            return
+
+        # ── Cluster frames by Canny edge signature on anim pixels ─────────
+        anim_ys, anim_xs = np.where(anim_mask > 0)
+        sigs: List[np.ndarray] = []
+        for gray in small_stack:
+            edges = cv2.Canny((gray * 255).astype(np.uint8), 50, 150)
+            sigs.append(edges[anim_ys, anim_xs].astype(np.float32))
+        sig_matrix = np.stack(sigs, axis=0)  # (N, K)
+
+        n_clusters = max(2, min(8, N // 2))
+        km = KMeans(n_clusters=n_clusters, n_init=5, random_state=0)
+        labels = km.fit_predict(sig_matrix)
+
+        self.signals.progress.emit(95)
+
+        rows = []
+        for i, p in enumerate(paths):
+            c = int(labels[i])
+            rows.append({
+                "path":         p,
+                "cluster":      c,
+                "cluster_name": f"Phase {c + 1}",
+                "is_animated":  True,
+                "ac_ratio":     mean_ratio,
+            })
+        rows.sort(key=lambda r: (r["cluster"], os.path.basename(r["path"])))
+
+        self.signals.progress.emit(100)
+        self.signals.finished.emit(rows)
+
+
+# ---------------------------------------------------------------------------
 # Sequence-builder worker
 # ---------------------------------------------------------------------------
 
@@ -1701,6 +1875,14 @@ class EditTab(QWidget):
         self._stats_pw_thumb_hub_b.loaded.connect(self._on_stats_pw_thumb_loaded_b)
         self._stats_pw_item_map_b: Dict[str, QTableWidgetItem] = {}
 
+        # ── Anim Clusters state ───────────────────────────────────────────
+        self._anim_cluster_worker: Optional[AnimClusterWorker] = None
+        self._anim_cluster_paths: List[str] = []
+        self._anim_cluster_dir_path: str = ""
+        self._anim_thumb_hub = _ThumbHub()
+        self._anim_thumb_hub.loaded.connect(self._on_anim_thumb_loaded)
+        self._anim_item_map: Dict[str, QTableWidgetItem] = {}
+
         self._init_ui()
 
     # ======================================================================
@@ -1719,7 +1901,8 @@ class EditTab(QWidget):
         self._tab_widget.addTab(self._build_canvas_panel(),   "Canvas")
         self._tab_widget.addTab(self._build_stats_panel(),    "Statistics")
         self._tab_widget.addTab(self._build_seq_panel(),      "Sequence Builder")
-        self._tab_widget.addTab(self._build_hybrid_panel(),   "Hybrid Stitch")
+        self._tab_widget.addTab(self._build_hybrid_panel(),      "Hybrid Stitch")
+        self._tab_widget.addTab(self._build_anim_clusters_panel(), "Anim Clusters")
 
         root.addWidget(self._tab_widget)
 
@@ -4603,6 +4786,303 @@ class EditTab(QWidget):
         self._stats_worker = None
         QMessageBox.critical(self, "Statistics Error", msg)
 
+    # ======================================================================
+    # ── SUB-TAB 8: Animation Clusters ─────────────────────────────────────
+    # ======================================================================
+
+    def _build_anim_clusters_panel(self) -> QWidget:
+        panel = QWidget()
+        root = QVBoxLayout(panel)
+        root.setContentsMargins(8, 8, 8, 8)
+        root.setSpacing(6)
+
+        # ── Source selector ───────────────────────────────────────────
+        src_group = QGroupBox("Image Source")
+        src_layout = QHBoxLayout(src_group)
+
+        self._anim_use_frames_btn = QPushButton("Use Stitch Frame List")
+        self._anim_use_frames_btn.setToolTip(
+            "Analyse the images currently loaded in the Stitch tab."
+        )
+        self._anim_use_frames_btn.clicked.connect(self._anim_load_from_frames)
+        src_layout.addWidget(self._anim_use_frames_btn)
+
+        src_layout.addWidget(QLabel("  or  "))
+
+        self._anim_files_edit = QLineEdit()
+        self._anim_files_edit.setPlaceholderText("Select individual files or a directory…")
+        self._anim_files_edit.setReadOnly(True)
+        src_layout.addWidget(self._anim_files_edit, 1)
+
+        btn_browse_files = QPushButton("Files…")
+        btn_browse_files.clicked.connect(self._anim_browse_files)
+        src_layout.addWidget(btn_browse_files)
+
+        btn_browse_dir = QPushButton("Dir…")
+        btn_browse_dir.clicked.connect(self._anim_browse_dir)
+        src_layout.addWidget(btn_browse_dir)
+
+        root.addWidget(src_group)
+
+        # ── Options + run ─────────────────────────────────────────────
+        opt_row = QHBoxLayout()
+
+        opt_row.addWidget(QLabel("AC Threshold:"))
+        self._anim_threshold_spin = QDoubleSpinBox()
+        self._anim_threshold_spin.setRange(0.01, 1.0)
+        self._anim_threshold_spin.setSingleStep(0.05)
+        self._anim_threshold_spin.setValue(0.25)
+        self._anim_threshold_spin.setDecimals(2)
+        self._anim_threshold_spin.setToolTip(
+            "Fraction of signal power in AC frequencies required to label a pixel as animated.\n"
+            "Lower → more sensitive to subtle motion."
+        )
+        opt_row.addWidget(self._anim_threshold_spin)
+
+        opt_row.addSpacing(8)
+        opt_row.addWidget(QLabel("Min anim px:"))
+        self._anim_min_px_spin = QSpinBox()
+        self._anim_min_px_spin.setRange(10, 50000)
+        self._anim_min_px_spin.setSingleStep(100)
+        self._anim_min_px_spin.setValue(500)
+        self._anim_min_px_spin.setToolTip(
+            "Minimum number of animated pixels (at 320-px scale) required to attempt clustering.\n"
+            "Increase to suppress noise detections."
+        )
+        opt_row.addWidget(self._anim_min_px_spin)
+
+        opt_row.addStretch()
+
+        self._anim_run_btn = QPushButton("Detect Phases")
+        self._anim_run_btn.setStyleSheet(
+            "background:#1976D2; color:white; font-weight:bold; padding:5px 14px;"
+        )
+        self._anim_run_btn.clicked.connect(lambda: self._anim_do_run())
+        opt_row.addWidget(self._anim_run_btn)
+
+        self._anim_progress = QProgressBar()
+        self._anim_progress.setRange(0, 100)
+        self._anim_progress.setValue(0)
+        self._anim_progress.setTextVisible(True)
+        self._anim_progress.hide()
+        opt_row.addWidget(self._anim_progress, 1)
+
+        root.addLayout(opt_row)
+
+        self._anim_status = QLabel("")
+        self._anim_status.setStyleSheet("color:#aaa; font-style:italic;")
+        root.addWidget(self._anim_status)
+
+        # ── Result table ──────────────────────────────────────────────
+        result_group = QGroupBox("Animation Phases")
+        result_layout = QVBoxLayout(result_group)
+
+        self._anim_table = QTableWidget(0, 3)
+        self._anim_table.setHorizontalHeaderLabels(["Image", "Filename", "Phase"])
+        self._anim_table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeMode.ResizeToContents
+        )
+        self._anim_table.horizontalHeader().setSectionResizeMode(
+            1, QHeaderView.ResizeMode.Stretch
+        )
+        self._anim_table.horizontalHeader().setSectionResizeMode(
+            2, QHeaderView.ResizeMode.ResizeToContents
+        )
+        self._anim_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._anim_table.setAlternatingRowColors(False)
+        self._anim_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self._anim_table.verticalHeader().setVisible(False)
+        self._anim_table.verticalHeader().setDefaultSectionSize(52)
+        self._anim_table.setIconSize(QSize(48, 48))
+        self._anim_table.setMinimumHeight(300)
+        self._anim_table.setStyleSheet(
+            "QTableWidget { background:#2c2f33; }"
+            "QHeaderView::section { background:#1e1f22; color:#ccc; padding:4px; }"
+        )
+        result_layout.addWidget(self._anim_table)
+
+        self._anim_legend = QLabel(
+            "Rows are colour-coded by phase.  "
+            "Requires scikit-learn — install with: pip install scikit-learn"
+        )
+        self._anim_legend.setStyleSheet("color:#888; font-size:10px; padding:2px 0;")
+        self._anim_legend.setWordWrap(True)
+        result_layout.addWidget(self._anim_legend)
+
+        root.addWidget(result_group)
+        return panel
+
+    # ── Anim Clusters slots ────────────────────────────────────────────────
+
+    @Slot()
+    def _anim_load_from_frames(self):
+        if not self._frame_paths:
+            QMessageBox.information(self, "Animation Phases",
+                                    "No frames loaded in the Stitch tab.")
+            return
+        self._anim_files_edit.clear()
+        self._anim_cluster_paths = []
+        self._anim_cluster_dir_path = ""
+        self._anim_do_run(sorted(self._frame_paths))
+
+    @Slot()
+    def _anim_browse_files(self):
+        start = self._anim_cluster_dir_path or (
+            os.path.dirname(self._frame_paths[-1]) if self._frame_paths else ""
+        )
+        paths, _ = QFileDialog.getOpenFileNames(
+            self, "Select Images", start,
+            "Images (*.png *.jpg *.jpeg *.webp *.bmp *.tiff *.tif)",
+            options=QFileDialog.Option.DontUseNativeDialog,
+        )
+        if not paths:
+            return
+        self._anim_cluster_paths = sorted(paths)
+        self._anim_cluster_dir_path = ""
+        self._anim_files_edit.setText(f"{len(paths)} file(s) selected")
+
+    @Slot()
+    def _anim_browse_dir(self):
+        start = self._anim_cluster_dir_path or (
+            os.path.dirname(self._frame_paths[-1]) if self._frame_paths else ""
+        )
+        d = QFileDialog.getExistingDirectory(
+            self, "Select Image Directory", start,
+            QFileDialog.Option.DontUseNativeDialog,
+        )
+        if not d:
+            return
+        self._anim_cluster_dir_path = d
+        self._anim_cluster_paths = []
+        self._anim_files_edit.setText(d)
+
+    @Slot()
+    def _anim_do_run(self, paths: Optional[List[str]] = None):
+        if paths is None:
+            if self._anim_cluster_dir_path:
+                import pathlib
+                exts = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tiff", ".tif"}
+                paths = sorted(
+                    str(p) for p in pathlib.Path(self._anim_cluster_dir_path).iterdir()
+                    if p.is_file() and p.suffix.lower() in exts
+                )
+                if not paths:
+                    QMessageBox.information(self, "Animation Phases",
+                                            "No image files found in the selected directory.")
+                    return
+            elif self._anim_cluster_paths:
+                paths = self._anim_cluster_paths
+            else:
+                QMessageBox.information(
+                    self, "Animation Phases",
+                    "Select images using 'Use Stitch Frame List', 'Files…', or 'Dir…'."
+                )
+                return
+
+        if not paths:
+            return
+
+        if self._anim_cluster_worker is not None:
+            self._anim_cluster_worker.cancel()
+            self._anim_cluster_worker = None
+
+        self._anim_table.setRowCount(0)
+        self._anim_item_map.clear()
+        self._anim_progress.setValue(0)
+        self._anim_progress.show()
+        self._anim_status.setText(f"Analysing {len(paths)} image(s)…")
+        self._anim_run_btn.setEnabled(False)
+
+        worker = AnimClusterWorker(
+            paths,
+            ac_threshold=self._anim_threshold_spin.value(),
+            min_anim_pixels=self._anim_min_px_spin.value(),
+        )
+        self._anim_cluster_worker = worker
+        worker.signals.progress.connect(self._anim_on_progress)
+        worker.signals.finished.connect(self._anim_on_finished)
+        worker.signals.error.connect(self._anim_on_error)
+        QThreadPool.globalInstance().start(worker)
+
+    @Slot(int)
+    def _anim_on_progress(self, pct: int):
+        self._anim_progress.setValue(pct)
+
+    @Slot(list)
+    def _anim_on_finished(self, rows: List[dict]):
+        self._anim_progress.hide()
+        self._anim_cluster_worker = None
+        self._anim_run_btn.setEnabled(True)
+
+        n = len(rows)
+        if n == 0:
+            self._anim_status.setText("No images processed.")
+            return
+
+        is_anim = any(r.get("is_animated", False) for r in rows)
+        if not is_anim:
+            reason = rows[0].get("cluster_name", "Static")
+            self._anim_status.setText(f"Result: {reason}")
+        else:
+            n_phases = len({r["cluster"] for r in rows})
+            self._anim_status.setText(
+                f"Done. {n} image(s) assigned to {n_phases} animation phase(s)."
+            )
+
+        table = self._anim_table
+        table.setRowCount(n)
+        self._anim_item_map.clear()
+
+        for r, row in enumerate(rows):
+            cluster    = row.get("cluster", 0)
+            is_animated = row.get("is_animated", False)
+            if is_animated:
+                fg, bg = _ANIM_CLUSTER_COLORS[cluster % len(_ANIM_CLUSTER_COLORS)]
+            else:
+                fg, bg = "#aaaaaa", "#2c2f33"
+
+            # Col 0: thumbnail placeholder
+            thumb_item = QTableWidgetItem("")
+            thumb_item.setData(Qt.ItemDataRole.UserRole, row["path"])
+            thumb_item.setBackground(QColor(bg))
+            table.setItem(r, 0, thumb_item)
+            self._anim_item_map[row["path"]] = thumb_item
+            QThreadPool.globalInstance().start(
+                _ThumbTask(row["path"], 48, 0, self._anim_thumb_hub)
+            )
+
+            # Col 1: filename
+            fname_item = QTableWidgetItem(os.path.basename(row["path"]))
+            fname_item.setForeground(QColor(fg))
+            fname_item.setBackground(QColor(bg))
+            fname_item.setToolTip(row["path"])
+            fname_item.setTextAlignment(
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+            )
+            table.setItem(r, 1, fname_item)
+
+            # Col 2: phase name
+            phase_item = QTableWidgetItem(row.get("cluster_name", ""))
+            phase_item.setForeground(QColor(fg))
+            phase_item.setBackground(QColor(bg))
+            phase_item.setTextAlignment(
+                Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
+            )
+            table.setItem(r, 2, phase_item)
+
+    @Slot(str)
+    def _anim_on_error(self, msg: str):
+        self._anim_progress.hide()
+        self._anim_status.setText("Error.")
+        self._anim_run_btn.setEnabled(True)
+        self._anim_cluster_worker = None
+        QMessageBox.critical(self, "Animation Phase Detection Error", msg)
+
+    @Slot(str, int, object)
+    def _on_anim_thumb_loaded(self, path: str, _generation: int, img: QImage):
+        item = self._anim_item_map.get(path)
+        if item and not img.isNull():
+            item.setIcon(QIcon(QPixmap.fromImage(img)))
 
     # ======================================================================
     # ── SUB-TAB 6: Sequence Builder ───────────────────────────────────────

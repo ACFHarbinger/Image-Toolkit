@@ -248,13 +248,9 @@ def _seam_dp(
 
     M = energy.copy()
     for i in range(1, h):
-        for j in range(w):
-            choices = [M[i - 1, j]]
-            if j > 0:
-                choices.append(M[i - 1, j - 1])
-            if j < w - 1:
-                choices.append(M[i - 1, j + 1])
-            M[i, j] += min(choices)
+        left = np.empty_like(M[i - 1]); left[0] = np.inf; left[1:] = M[i - 1, :-1]
+        right = np.empty_like(M[i - 1]); right[-1] = np.inf; right[:-1] = M[i - 1, 1:]
+        M[i] += np.minimum(M[i - 1], np.minimum(left, right))
 
     path = np.zeros(h, np.int32)
     j = int(np.argmin(M[h - 1]))
@@ -518,6 +514,7 @@ class AnimeStitchPipeline:
 
         # Lazy-loaded model instances (only allocated if the flag is True)
         self._basic: Optional[BaSiCWrapper] = None
+        self._baselines: Optional[List[float]] = None  # per-frame dimming scalars from BaSiC
         self._birefnet: Optional[BiRefNetWrapper] = None
         self._loftr: Optional[LoFTRWrapper] = None
         self._stitch_net: Optional["AnimeStitchNet"] = None  # trained DL matcher
@@ -542,6 +539,7 @@ class AnimeStitchPipeline:
         PIL.Image of the final stitched panorama.
         """
         print(f"[Stitch] Starting AnimeStitchPipeline on {len(image_paths)} frames.")
+        self._baselines = None  # reset per-run; populated by _apply_basic if use_basic=True
 
         # ── Stage 1: Load & trim ─────────────────────────────────────────────
         frames = self._load_frames(image_paths)
@@ -686,11 +684,12 @@ class AnimeStitchPipeline:
         if hasattr(self._basic, "fit"):
             # New API: fit to get flat_field, then apply WITHOUT per-frame b_i
             flat, dark, baselines = self._basic.fit(frames, luma_only=True)
+            self._baselines = baselines.tolist()
             dim_frames = [i for i, bi in enumerate(baselines) if bi < 0.75]
             if dim_frames:
                 print(
                     f"[Stitch]   Broadcast-dimming detected in frames: {dim_frames} "
-                    f"(will be corrected by colour matching in renderer)"
+                    f"(b_i correction deferred to renderer)"
                 )
             # Apply flat-field only (b=1.0 → no per-frame brightness change)
             return [
@@ -810,6 +809,8 @@ class AnimeStitchPipeline:
 
         M: Optional[np.ndarray] = None
         mean_conf = 0.0
+        actual_pts_i: Optional[np.ndarray] = None
+        actual_pts_j: Optional[np.ndarray] = None
 
         # ── Attempt 0: Trained AnimeStitchNet (fastest, if checkpoint provided)
         if self.stitch_net_ckpt and _STITCH_NET_OK:
@@ -849,15 +850,27 @@ class AnimeStitchPipeline:
         # ── Attempt 1: LoFTR + MAGSAC++ (4-DoF affine-partial) ───────────
         if self.use_loftr and M is None:
             try:
-                if hasattr(self._loftr, "get_affine_partial"):
-                    # New API: background-masked matching + MAGSAC++ affine-partial
-                    M, mean_conf = self._loftr.get_affine_partial(
-                        img_i,
-                        img_j,
-                        mask1=m_i,
-                        mask2=m_j,
-                        min_inliers=_MIN_LOFTR_INLIERS,
+                if hasattr(self._loftr, "match_masked"):
+                    # New API: match_masked → RANSAC to capture inlier points
+                    pts1_m, pts2_m, conf_m = self._loftr.match_masked(
+                        img_i, img_j, mask1=m_i, mask2=m_j
                     )
+                    if len(pts1_m) >= _MIN_LOFTR_INLIERS:
+                        M_raw, inliers = cv2.estimateAffinePartial2D(
+                            pts1_m,
+                            pts2_m,
+                            method=cv2.RANSAC,
+                            ransacReprojThreshold=2.0,
+                            confidence=0.999,
+                            maxIters=10_000,
+                        )
+                        if M_raw is not None and inliers is not None:
+                            inl_mask = inliers.ravel().astype(bool)
+                            if inl_mask.sum() >= _MIN_LOFTR_INLIERS:
+                                M = M_raw.astype(np.float32)
+                                mean_conf = float(conf_m[inl_mask].mean())
+                                actual_pts_i = pts1_m[inl_mask]
+                                actual_pts_j = pts2_m[inl_mask]
                 else:
                     # Legacy API: match() → filter → estimateAffinePartial2D
                     pts1, pts2, conf = self._loftr.match(img_i, img_j)
@@ -888,6 +901,8 @@ class AnimeStitchPipeline:
                                 if inl_mask.sum() >= _MIN_LOFTR_INLIERS:
                                     M = M_raw.astype(np.float32)
                                     mean_conf = float(conf_f[inl_mask].mean())
+                                    actual_pts_i = pts1_f[inl_mask]
+                                    actual_pts_j = pts2_f[inl_mask]
                 if M is not None:
                     print(
                         f"[Stitch]   {i}→{j}: LoFTR "
@@ -928,11 +943,13 @@ class AnimeStitchPipeline:
         M_transl[1, 2] = M[1, 2]
         M = M_transl
 
-        # Build dense anchor points for the BA residuals
-        # Sample a grid of background pixels from frame i
-        pts_i = self._sample_bg_points(m_i, H, W, n=200)
-        # Map through pure translation M to get predicted position in frame j
-        pts_j = pts_i + M[:2, 2]
+        # Build anchor points for the BA residuals
+        if actual_pts_i is not None and actual_pts_j is not None:
+            pts_i = actual_pts_i
+            pts_j = actual_pts_j
+        else:
+            pts_i = self._sample_bg_points(m_i, H, W, n=200)
+            pts_j = pts_i + M[:2, 2]
 
         return {
             "i": i,
@@ -1093,7 +1110,8 @@ class AnimeStitchPipeline:
             g_j[m_j == 0] = 0.0
 
         try:
-            shift, response = cv2.phaseCorrelate(g_i, g_j)
+            hann = cv2.createHanningWindow(g_i.shape[::-1], cv2.CV_32F)
+            shift, response = cv2.phaseCorrelate(g_i, g_j, hann)
         except Exception:
             return None, 0.0
 
@@ -1294,7 +1312,10 @@ class AnimeStitchPipeline:
         Dispatcher for different rendering modes.
         """
         if self.renderer == "median":
-            return self._render_median(frames, affines, bg_masks, canvas_h, canvas_w)
+            return self._render_median(
+                frames, affines, bg_masks, canvas_h, canvas_w,
+                _baselines=self._baselines,
+            )
         elif self.renderer == "first":
             c, v = self._render_first(frames, affines, canvas_h, canvas_w)
             return c, v, [], []
@@ -1309,6 +1330,8 @@ class AnimeStitchPipeline:
         bg_masks: List[Optional[np.ndarray]],
         H: int,
         W: int,
+        _baselines: Optional[List[float]] = None,
+        _skip_anim: bool = False,
     ) -> Tuple[np.ndarray, np.ndarray, List[np.ndarray], List[np.ndarray]]:
         """
         Memory-efficient and FAST Temporal Median Render.
@@ -1343,6 +1366,12 @@ class AnimeStitchPipeline:
                 w_strip = cv2.warpAffine(
                     frames[i], M_strip, (W, ch), flags=cv2.INTER_LINEAR
                 )
+                if _baselines is not None:
+                    b_i = float(_baselines[i])
+                    if b_i < 0.95:
+                        w_strip = np.clip(
+                            w_strip.astype(np.float32) / max(b_i, 1e-4), 0, 255
+                        ).astype(np.uint8)
                 stack[i] = w_strip
                 masks[i] = w_strip.max(axis=2) > 0
 
@@ -1401,7 +1430,103 @@ class AnimeStitchPipeline:
 
             valid_mask[y0:y1][count > 0] = 255
 
+        if not _skip_anim and N >= 4:
+            anim_mask, phase_groups = self._cluster_animation_phases(frames, affines, H, W)
+            if anim_mask is not None and phase_groups is not None:
+                print(f"[Stitch]   Animation detected: {len(phase_groups)} phases — re-rendering anim pixels...")
+                majority_group = max(phase_groups, key=len)
+                sub_frames = [frames[idx] for idx in majority_group]
+                sub_affines = [affines[idx] for idx in majority_group]
+                sub_masks = [bg_masks[idx] for idx in majority_group]
+                sub_bl = [_baselines[idx] for idx in majority_group] if _baselines is not None else None
+                anim_canvas, _, _, _ = self._render_median(
+                    sub_frames, sub_affines, sub_masks, H, W,
+                    _baselines=sub_bl, _skip_anim=True,
+                )
+                anim_px = anim_mask > 0
+                canvas[anim_px] = anim_canvas[anim_px]
+
         return canvas, valid_mask, [], []
+
+    @staticmethod
+    def _cluster_animation_phases(
+        frames: List[np.ndarray],
+        affines: List[np.ndarray],
+        H: int,
+        W: int,
+        target_w: int = 320,
+        ac_threshold: float = 0.25,
+        min_anim_pixels: int = 500,
+    ):
+        """
+        Detect cyclic animation pixels via per-pixel FFT along the temporal axis,
+        then cluster frames by animation phase.
+
+        Returns
+        -------
+        anim_mask_full : (H, W) uint8 — 255 = animation pixel — or None.
+        phase_groups   : list of frame-index lists, one per phase, or None.
+        """
+        N = len(frames)
+        if N < 4:
+            return None, None
+
+        scale = target_w / max(W, 1)
+        th = max(1, int(H * scale))
+        tw = target_w
+
+        small_stack = []
+        for i in range(N):
+            tx = float(affines[i][0, 2])
+            ty = float(affines[i][1, 2])
+            M_small = np.array([[scale, 0.0, tx * scale], [0.0, scale, ty * scale]], np.float32)
+            warped = cv2.warpAffine(frames[i], M_small, (tw, th), flags=cv2.INTER_AREA)
+            gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY).astype(np.float32) / 255.0
+            small_stack.append(gray)
+
+        stack_arr = np.stack(small_stack, axis=0)  # (N, th, tw)
+
+        # Per-pixel FFT along temporal axis
+        F = np.fft.rfft(stack_arr, axis=0)  # (N//2+1, th, tw)
+        power = np.abs(F) ** 2
+        dc_power = power[0]
+        ac_power = power[1:].sum(axis=0)
+        ratio = ac_power / (dc_power + ac_power + 1e-8)
+
+        anim_mask_small = (ratio > ac_threshold).astype(np.uint8) * 255
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        anim_mask_small = cv2.morphologyEx(anim_mask_small, cv2.MORPH_OPEN, kernel)
+        anim_mask_small = cv2.morphologyEx(anim_mask_small, cv2.MORPH_CLOSE, kernel)
+
+        if int(anim_mask_small.sum()) // 255 < min_anim_pixels:
+            return None, None
+
+        anim_mask_full = cv2.resize(anim_mask_small, (W, H), interpolation=cv2.INTER_NEAREST)
+
+        # Edge-signature KMeans clustering for phase assignment
+        anim_ys, anim_xs = np.where(anim_mask_small > 0)
+        sigs = []
+        for gray in small_stack:
+            edges = cv2.Canny((gray * 255).astype(np.uint8), 50, 150)
+            sigs.append(edges[anim_ys, anim_xs].astype(np.float32))
+
+        sig_matrix = np.stack(sigs, axis=0)  # (N, P)
+        n_clusters = max(2, min(8, N // 2))
+
+        try:
+            from sklearn.cluster import KMeans
+            km = KMeans(n_clusters=n_clusters, n_init=5, random_state=0)
+            labels = km.fit_predict(sig_matrix)
+        except ImportError:
+            labels = np.arange(N) % n_clusters
+
+        phase_groups = [
+            [idx for idx in range(N) if labels[idx] == k]
+            for k in range(n_clusters)
+            if any(labels == k)
+        ]
+
+        return anim_mask_full, phase_groups
 
     def _render_first(self, frames, affines, H, W):
         # Implementation of simple first-frame renderer
@@ -1467,13 +1592,47 @@ class AnimeStitchPipeline:
                 canvas_m[m_i > 0] = 255
                 continue
 
-            # Find optimal transition mask in overlap region
-            # Using a simple gradient-weighted distance to create a smooth middle-seam
-            d1 = cv2.distanceTransform(canvas_m, cv2.DIST_L2, 3)
-            d2 = cv2.distanceTransform(m_i, cv2.DIST_L2, 3)
+            # Find optimal seam between canvas and incoming frame using DP
+            ys, xs = np.where(overlap)
+            y0_ov, y1_ov = int(ys.min()), int(ys.max()) + 1
+            x0_ov, x1_ov = int(xs.min()), int(xs.max()) + 1
+            ow = x1_ov - x0_ov
+            oh = y1_ov - y0_ov
 
-            # weight = d2 / (d1 + d2) -> 1.0 where we are deep in m_i, 0.0 where we are deep in canvas
-            weight = (d2**4) / (d1**4 + d2**4 + 1e-9)
+            canvas_crop = canvas[y0_ov:y1_ov, x0_ov:x1_ov].astype(np.uint8)
+            img_crop = np.clip(img[y0_ov:y1_ov, x0_ov:x1_ov], 0, 255).astype(np.uint8)
+
+            # horizontal=True → path[row] = col (vertical seam for wide overlaps)
+            # horizontal=False → path[col] = row (horizontal seam for tall overlaps)
+            seam_horiz = ow >= oh
+            path = _seam_dp(canvas_crop, img_crop, horizontal=not seam_horiz)
+
+            weight = np.zeros((H, W), dtype=np.float32)
+            weight[m_i > 0] = 1.0
+            weight[canvas_m > 0] = 0.0
+
+            # Carve binary seam boundary into weight
+            if seam_horiz:
+                # horizontal=False → energy transposed → path length=ow, path[c]=row
+                # pixels with row >= path[c] belong to new frame
+                row_idx = np.arange(oh)
+                seam_weight = (row_idx[:, np.newaxis] >= path[np.newaxis, :]).astype(np.float32)
+            else:
+                # horizontal=True → path length=oh, path[r]=col
+                # pixels with col >= path[r] belong to new frame
+                col_idx = np.arange(ow)
+                seam_weight = (col_idx[np.newaxis, :] >= path[:, np.newaxis]).astype(np.float32)
+
+            # Invert seam if the new frame extends on the opposite side of the overlap
+            new_only = (m_i > 0) & (canvas_m == 0)
+            if seam_horiz:
+                if new_only[y1_ov:, :].sum() < new_only[:y0_ov, :].sum():
+                    seam_weight = 1.0 - seam_weight
+            else:
+                if new_only[:, x1_ov:].sum() < new_only[:, :x0_ov].sum():
+                    seam_weight = 1.0 - seam_weight
+
+            weight[y0_ov:y1_ov, x0_ov:x1_ov] = seam_weight
             weight[~overlap] = (m_i[~overlap] > 0).astype(np.float32)
 
             # Character priority: if the new frame has a character in the overlap,
