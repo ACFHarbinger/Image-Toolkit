@@ -28,6 +28,7 @@ from ...helpers import ConversionWorker
 from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassTwoGalleries
 from ...components import OptionalField, MarqueeScrollArea, ClickableLabel
+from ...utils.sort_utils import natural_sort_key
 from ...styles.style import apply_shadow_effect, SHARED_BUTTON_STYLE
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
 
@@ -567,7 +568,7 @@ class ConvertTab(AbstractClassTwoGalleries):
 
         if image_path not in target_list:
             if hasattr(self, "selected_files") and image_path in self.selected_files:
-                target_list = sorted(list(self.selected_files))
+                target_list = sorted(list(self.selected_files), key=natural_sort_key)
             else:
                 target_list = [image_path]
 
@@ -731,7 +732,7 @@ class ConvertTab(AbstractClassTwoGalleries):
             self.clear_galleries()
             return
 
-        self.start_loading_thumbnails(sorted(paths))
+        self.start_loading_thumbnails(sorted(paths, key=natural_sort_key))
 
     # --- FORMAT BUTTONS ---
     @Slot(str, bool)

@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassTwoGalleries
 from ...components import ClickableLabel, MarqueeScrollArea
+from ...utils.sort_utils import natural_sort_key
 from ...helpers import ImageScannerWorker, ImageLoaderWorker
 from ...styles.style import apply_shadow_effect
 from backend.src.utils.definitions import LOCAL_SOURCE_PATH
@@ -791,7 +792,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         self._clear_gallery(self.selected_grid_layout)
 
         # 1. Sort all selected paths
-        all_selected = sorted(list(self.selected_image_paths))
+        all_selected = sorted(list(self.selected_image_paths), key=natural_sort_key)
 
         # 2. Update Pagination UI info
         self._update_pagination_ui("selected")
@@ -941,7 +942,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
 
     def apply_scan_filters(self):
         """Filters the raw scan list based on settings (Show New Only) and resets to Page 1."""
-        self.scan_filtered_list = list(self.scan_image_list)  # Copy
+        self.scan_filtered_list = sorted(self.scan_image_list, key=natural_sort_key)  # Sort by default
 
         # FILTERING LOGIC
         if self.db_tab_ref.db is not None:
@@ -951,7 +952,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                 for path in self.scan_image_list:
                     if not db.get_image_by_path(path):
                         paths_not_in_db.append(path)
-                self.scan_filtered_list = sorted(paths_not_in_db)
+                self.scan_filtered_list = sorted(paths_not_in_db, key=natural_sort_key)
 
             elif self.view_in_db_only:
                 db = self.db_tab_ref.db
@@ -959,7 +960,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                 for path in self.scan_image_list:
                     if db.get_image_by_path(path):
                         paths_in_db.append(path)
-                self.scan_filtered_list = sorted(paths_in_db)
+                self.scan_filtered_list = sorted(paths_in_db, key=natural_sort_key)
 
         # Reset to page 0 whenever filter changes or new scan happens
         self.scan_current_page = 0

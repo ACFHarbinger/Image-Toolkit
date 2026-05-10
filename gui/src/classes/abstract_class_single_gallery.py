@@ -25,6 +25,7 @@ from ..helpers import (
     VideoLoaderWorker,
 )
 from ..helpers.video.video_scan_worker import VideoThumbnailer
+from ..utils.sort_utils import natural_sort_key
 
 
 class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
@@ -522,7 +523,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         Starts the loading process. Accepts an optional pixmap_cache for pre-generated thumbnails.
         """
         if not append:
-            self.master_image_paths = paths
+            self.master_image_paths = sorted(paths, key=natural_sort_key)
             # Reset search when loading new directory (optional, but good UX)
             # self.search_input.clear() # Commented out to persist search if needed, but usually we want reset
             # Ideally we re-apply current search:
@@ -536,6 +537,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
             self._failed_paths.clear()
         else:
             self.master_image_paths.extend(paths)
+            self.master_image_paths.sort(key=natural_sort_key)
             if pixmap_cache and pixmap_cache is not self._initial_pixmap_cache:
                 for k, v in pixmap_cache.items():
                     self._initial_pixmap_cache[k] = v

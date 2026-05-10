@@ -34,6 +34,8 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QScrollArea,
 )
+
+from ...utils.sort_utils import natural_sort_key
 from ...classes import AbstractClassTwoGalleries
 from ...windows import ImagePreviewWindow
 from ...components import ClickableLabel, MarqueeScrollArea
@@ -233,25 +235,39 @@ class MergeTab(AbstractClassTwoGalleries):
         self.ai_options_group = QGroupBox("AI Optimization (Advanced)")
         ai_layout = QVBoxLayout()
 
-        self.use_siamese_checkbox = QCheckBox("Order-Agnostic Matching (Siamese Network)")
+        self.use_siamese_checkbox = QCheckBox(
+            "Order-Agnostic Matching (Siamese Network)"
+        )
         self.use_siamese_checkbox.setChecked(True)
-        self.use_siamese_checkbox.setToolTip("Uses AI to find the correct order of images even if they are shuffled.")
+        self.use_siamese_checkbox.setToolTip(
+            "Uses AI to find the correct order of images even if they are shuffled."
+        )
 
         self.use_apap_checkbox = QCheckBox("Parallax Absorption (APAP Mesh Warping)")
         self.use_apap_checkbox.setChecked(True)
-        self.use_apap_checkbox.setToolTip("Handles foreground/background parallax using spatially-varying warps.")
+        self.use_apap_checkbox.setToolTip(
+            "Handles foreground/background parallax using spatially-varying warps."
+        )
 
-        self.use_lsd_checkbox = QCheckBox("Structure Preservation (Line Segment Detector)")
+        self.use_lsd_checkbox = QCheckBox(
+            "Structure Preservation (Line Segment Detector)"
+        )
         self.use_lsd_checkbox.setChecked(True)
-        self.use_lsd_checkbox.setToolTip("Ensures architectural lines and horizons stay straight during warping.")
+        self.use_lsd_checkbox.setToolTip(
+            "Ensures architectural lines and horizons stay straight during warping."
+        )
 
         self.use_gan_checkbox = QCheckBox("Neural Synthesis Refinement (AnimeGAN2)")
         self.use_gan_checkbox.setChecked(True)
-        self.use_gan_checkbox.setToolTip("Uses AI to reconstruct and clean up transition zones.")
+        self.use_gan_checkbox.setToolTip(
+            "Uses AI to reconstruct and clean up transition zones."
+        )
 
         self.use_birefnet_checkbox = QCheckBox("Character-Aware Seams (BiRefNet)")
         self.use_birefnet_checkbox.setChecked(True)
-        self.use_birefnet_checkbox.setToolTip("Detects characters to avoid cutting through them during seam routing.")
+        self.use_birefnet_checkbox.setToolTip(
+            "Detects characters to avoid cutting through them during seam routing."
+        )
 
         ai_layout.addWidget(self.use_siamese_checkbox)
         ai_layout.addWidget(self.use_apap_checkbox)
@@ -592,7 +608,7 @@ class MergeTab(AbstractClassTwoGalleries):
             self.clear_galleries()
             return
 
-        self.start_loading_thumbnails(sorted(paths))
+        self.start_loading_thumbnails(sorted(paths, key=natural_sort_key))
         self.status_label.setText(f"Scan complete. Loaded {len(paths)} files.")
 
     # --- MERGING & PREVIEW ---
