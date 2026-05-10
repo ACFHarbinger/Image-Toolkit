@@ -51,6 +51,7 @@ from ...components import (
     MarqueeScrollArea,
     DraggableMonitorContainer,
 )
+from ...utils.sort_utils import natural_sort_key
 from ...styles.style import apply_shadow_effect, STYLE_START_ACTION, STYLE_STOP_ACTION
 from backend.src.utils.definitions import (
     WALLPAPER_STYLES,
@@ -1105,7 +1106,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             return
 
         all_paths_list = (
-            sorted(self.gallery_image_paths)
+            sorted(self.gallery_image_paths, key=natural_sort_key)
             if self.gallery_image_paths
             else [image_path]
         )
@@ -1803,7 +1804,7 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         # --- QUICK LOAD FOR INSTANT PLACEHOLDERS ---
         try:
-            entries = sorted(os.scandir(directory), key=lambda e: e.name.lower())
+            entries = sorted(os.scandir(directory), key=lambda e: natural_sort_key(e.name))
             all_exts = list(SUPPORTED_IMG_FORMATS) + list(SUPPORTED_VIDEO_FORMATS)
             valid_exts = tuple(f".{fmt.lower().lstrip('.')}" for fmt in all_exts)
             quick_paths = [
@@ -1879,7 +1880,10 @@ class WallpaperTab(AbstractClassSingleGallery):
 
     @Slot()
     def _on_video_scan_finished(self):
-        pass
+        # Once all trickling thumbnails are in, do a final sort to ensure alphabetical order
+        if self.gallery_image_paths:
+            self.gallery_image_paths.sort(key=natural_sort_key)
+            self.refresh_gallery_view()
 
     @Slot(str, QImage)
     def _add_video_thumbnail_manual(self, path: str, q_image: QImage):
@@ -1997,7 +2001,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.clear_gallery_widgets()
         self.path_to_label_map.clear()
         self.check_all_monitors_set()
-        final_paths = sorted(list(set(image_paths)))
+        final_paths = sorted(list(set(image_paths)), key=natural_sort_key)
         if not final_paths:
             return
         self.start_loading_gallery(final_paths)

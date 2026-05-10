@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...components import ClickableLabel, MarqueeScrollArea
+from ...utils.sort_utils import natural_sort_key
 from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassSingleGallery
 from ...helpers import ImageScannerWorker, ReverseSearchWorker, ImageLoaderWorker
@@ -244,7 +245,7 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         if count == 0:
             self.show_placeholder("No images found in directory.")
         else:
-            paths.sort()
+            paths.sort(key=natural_sort_key)
             self.start_loading_gallery(paths)
 
     def _trigger_image_load(self, path: str):

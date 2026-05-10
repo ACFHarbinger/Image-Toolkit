@@ -32,6 +32,7 @@ from ...components import (
     ClickableLabel,
     PropertyComparisonDialog,
 )
+from ...utils.sort_utils import natural_sort_key
 from ...helpers import (
     DeletionWorker,
     DuplicateScanWorker,
@@ -584,7 +585,7 @@ class DeleteTab(AbstractClassTwoGalleries):
         )
 
         # Use Base Class method to load thumbnails into top gallery
-        self.start_loading_thumbnails(sorted(flattened_paths))
+        self.start_loading_thumbnails(sorted(flattened_paths, key=natural_sort_key))
 
     @Slot(str)
     def on_scan_error(self, error_msg):

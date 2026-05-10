@@ -27,6 +27,7 @@ from ...helpers import SearchWorker
 from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassTwoGalleries
 from ...components import OptionalField, DraggableLabel, MarqueeScrollArea
+from ...utils.sort_utils import natural_sort_key
 from ...styles.style import apply_shadow_effect
 from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
 
@@ -487,7 +488,7 @@ class SearchTab(AbstractClassTwoGalleries):
         self.results_count_label.setText(f"Found {count} matching image(s)")
 
         # Call Base Class method to populate the Found Gallery
-        self.start_loading_thumbnails(sorted(paths))
+        self.start_loading_thumbnails(sorted(paths, key=natural_sort_key))
 
     def clear_search_data(self):
         """Clears local selection data and widgets."""
@@ -546,7 +547,7 @@ class SearchTab(AbstractClassTwoGalleries):
             return []
         try:
             db_tags = db.get_all_tags_with_types()
-            return sorted(db_tags, key=lambda x: x["name"])
+            return sorted(db_tags, key=lambda x: natural_sort_key(x["name"]))
         except Exception:
             pass
         return []
@@ -650,10 +651,10 @@ class SearchTab(AbstractClassTwoGalleries):
         paths = list(self.selected_files)
         if single_path:
             if single_path in paths:
-                return sorted(paths)
+                return sorted(paths, key=natural_sort_key)
             else:
                 return [single_path]
-        return sorted(paths)
+        return sorted(paths, key=natural_sort_key)
 
     def send_selection_to_scan_tab(self):
         if not self.selected_files:
@@ -673,7 +674,7 @@ class SearchTab(AbstractClassTwoGalleries):
             )
             return
         scan_tab = self.db_tab_ref.scan_tab_ref
-        sorted_selection = sorted(list(self.selected_files))
+        sorted_selection = sorted(list(self.selected_files), key=natural_sort_key)
         scan_tab.process_scan_results(sorted_selection)
         if hasattr(scan_tab, "view_db_only_button"):
             scan_tab.view_db_only_button.setChecked(False)

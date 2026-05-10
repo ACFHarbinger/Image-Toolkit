@@ -36,6 +36,7 @@ from PySide6.QtCore import Qt, QUrl, Slot, QThreadPool, QPoint, QEvent, Signal
 from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassSingleGallery
 from ...components import ClickableLabel, MarqueeScrollArea
+from ...utils.sort_utils import natural_sort_key
 from ...helpers import (
     VideoScannerWorker,
     GifCreationWorker,
@@ -62,6 +63,30 @@ class CutLabel(QLabel):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.RightButton:
+            self.right_clicked.emit(event.globalPos(), self.index)
+        super().mousePressEvent(event)
+
+
+class TagLabel(QLabel):
+    """A small interactive label for individual tags that supports clicking to jump and right-click to edit/delete."""
+    clicked = Signal(int) # position_ms
+    right_clicked = Signal(QPoint, int)  # global_pos, index
+
+    def __init__(self, text, ms, index, parent=None):
+        super().__init__(text, parent)
+        self.ms = ms
+        self.index = index
+        self.setCursor(Qt.PointingHandCursor)
+        self.setStyleSheet(
+            "color: #FFC107; font-weight: bold; padding: 2px 6px; "
+            "border: 1px solid #4f545c; border-radius: 4px; background-color: #1e1f22;"
+        )
+        self.setToolTip(f"Jump to {text}\nRight-click to edit/delete")
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit(self.ms)
+        elif event.button() == Qt.RightButton:
             self.right_clicked.emit(event.globalPos(), self.index)
         super().mousePressEvent(event)
 
@@ -415,6 +440,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.cut_start_ms = 0
         self.cut_end_ms = 0
         self.cuts_ms: List[Tuple[int, int]] = []
+        self.tags_ms: List[Tuple[int, str]] = []
         
         self.btn_set_start = QPushButton("Set Start [00:00]")
         self.btn_set_start.clicked.connect(self.set_range_start)
@@ -528,6 +554,40 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         extract_adv_layout.addStretch()
         extract_main_layout.addLayout(extract_adv_layout)
+
+        # -- Row 5: Tags --
+        extract_tags_layout = QHBoxLayout()
+        self.btn_add_tag = QPushButton("🏷️ Add Tag")
+        self.btn_add_tag.clicked.connect(self.add_tag)
+        self.btn_add_tag.setEnabled(False)
+
+        # Scrollable container for tags
+        self.tags_scroll = QScrollArea()
+        self.tags_scroll.setWidgetResizable(True)
+        self.tags_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        self.tags_scroll.setMaximumHeight(45)
+        self.tags_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.tags_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.tags_scroll.setStyleSheet("background: transparent;")
+        
+        self.tags_container = QWidget()
+        self.tags_container.setStyleSheet("background: transparent;")
+        self.tags_layout = QHBoxLayout(self.tags_container)
+        self.tags_layout.setContentsMargins(0, 5, 0, 5)
+        self.tags_layout.setSpacing(8)
+        self.tags_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.tags_scroll.setWidget(self.tags_container)
+        
+        self.btn_clear_tags = QPushButton("Clear Tags")
+        self.btn_clear_tags.clicked.connect(self.clear_tags)
+        self.btn_clear_tags.setEnabled(False)
+
+        extract_tags_layout.addWidget(self.btn_add_tag)
+        extract_tags_layout.addWidget(self.tags_scroll, 1)
+        extract_tags_layout.addWidget(self.btn_clear_tags)
+        extract_tags_layout.addStretch()
+
+        extract_main_layout.addLayout(extract_tags_layout)
 
         self.main_layout.addWidget(self.extract_group)
         self.extract_group.setVisible(False)
@@ -668,7 +728,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                     full_path = str(entry.absolute())
                     found_paths.append(full_path)
 
-        found_paths.sort()
+        found_paths.sort(key=natural_sort_key)
 
         if found_paths:
             self.current_extracted_paths = found_paths
@@ -710,7 +770,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         # 1. Alphabetical Directory Read (Quickly get names for placeholders)
         try:
-            entries = sorted(os.scandir(path), key=lambda e: e.name.lower())
+            entries = sorted(os.scandir(path), key=lambda e: natural_sort_key(e.name))
             video_paths = [
                 e.path
                 for e in entries
@@ -886,6 +946,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.btn_set_end.setEnabled(True)
             self.btn_set_cut_start.setEnabled(True)
             self.btn_set_cut_end.setEnabled(True)
+            self.btn_add_tag.setEnabled(True)
             self._apply_player_mode()
 
     @Slot()
@@ -924,6 +985,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.btn_add_cut.setEnabled(False)
         self.cuts_ms.clear()
         self._update_cuts_label()
+
+        self.btn_add_tag.setEnabled(False)
+        self.tags_ms.clear()
+        self._update_tags_ui()
         self.btn_extract_range.setEnabled(False)
         self.btn_extract_gif.setEnabled(False)
         self.btn_extract_gif.setEnabled(False)
@@ -1559,6 +1624,99 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.cuts_ms.pop(index)
             self._update_cuts_label()
 
+    # --- Tags Logic ---
+    @Slot()
+    def add_tag(self):
+        current_ms = self.media_player.position()
+        formatted = self._format_time(current_ms)
+        
+        label, ok = QInputDialog.getText(
+            self, "Add Tag", f"Enter label for tag at {formatted}:", text="Tag"
+        )
+        if ok and label:
+            self.tags_ms.append((current_ms, label))
+            self.tags_ms.sort(key=lambda x: x[0]) # Keep sorted by time
+            self._update_tags_ui()
+
+    @Slot()
+    def clear_tags(self):
+        self.tags_ms.clear()
+        self._update_tags_ui()
+
+    def _update_tags_ui(self):
+        # Clear existing tag labels
+        while self.tags_layout.count():
+            item = self.tags_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        if not self.tags_ms:
+            none_label = QLabel("Tags: None")
+            none_label.setStyleSheet("color: #666; font-style: italic;")
+            self.tags_layout.addWidget(none_label)
+            self.btn_clear_tags.setEnabled(False)
+        else:
+            self.btn_clear_tags.setEnabled(True)
+            self.tags_layout.addWidget(QLabel("Tags:"))
+            for i, (ms, label_text) in enumerate(self.tags_ms):
+                tag_display = f"{label_text} ({self._format_time(ms)})"
+                label = TagLabel(tag_display, ms, i)
+                label.clicked.connect(self.jump_to_tag_time)
+                label.right_clicked.connect(self.show_tag_context_menu)
+                self.tags_layout.addWidget(label)
+        
+        self.tags_layout.addStretch()
+
+    @Slot(int)
+    def jump_to_tag_time(self, ms: int):
+        self.media_player.setPosition(ms)
+        self.media_player.pause()
+        self.btn_play.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
+        )
+
+    @Slot(QPoint, int)
+    def show_tag_context_menu(self, global_pos: QPoint, index: int):
+        menu = QMenu(self)
+        
+        edit_action = QAction("Edit Tag", self)
+        edit_action.triggered.connect(lambda: self.edit_tag(index))
+        menu.addAction(edit_action)
+
+        delete_action = QAction("Delete Tag", self)
+        delete_action.triggered.connect(lambda: self.delete_tag(index))
+        menu.addAction(delete_action)
+        
+        menu.exec(global_pos)
+
+    def edit_tag(self, index: int):
+        if 0 <= index < len(self.tags_ms):
+            ms, label = self.tags_ms[index]
+            formatted_time = self._format_time(ms)
+            
+            new_label, ok = QInputDialog.getText(
+                self, "Edit Tag", f"Label for tag at {formatted_time}:", text=label
+            )
+            if ok and new_label:
+                # Also allow editing time? Let's just do label for now as it's easier.
+                # Actually, editing time would be good too.
+                new_time_str, ok_time = QInputDialog.getText(
+                    self, "Edit Tag Time", f"Time for '{new_label}':", text=formatted_time
+                )
+                if ok_time and new_time_str:
+                    new_ms = self._parse_time(new_time_str)
+                    if new_ms is not None:
+                        self.tags_ms[index] = (new_ms, new_label)
+                        self.tags_ms.sort(key=lambda x: x[0])
+                        self._update_tags_ui()
+                    else:
+                        QMessageBox.warning(self, "Invalid Format", "Invalid time format.")
+
+    def delete_tag(self, index: int):
+        if 0 <= index < len(self.tags_ms):
+            self.tags_ms.pop(index)
+            self._update_tags_ui()
+
     def _validate_range(self):
         if self.end_time_ms > self.start_time_ms:
             total_duration_ms = self.end_time_ms - self.start_time_ms
@@ -1677,6 +1835,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.btn_browse.setEnabled(enabled)
         self.btn_browse_extract.setEnabled(enabled)
         self.line_edit_dir.setEnabled(enabled)
+        self.btn_add_tag.setEnabled(enabled and self.video_path is not None)
+        self.btn_clear_tags.setEnabled(enabled and len(self.tags_ms) > 0)
 
     @Slot()
     def extract_range(self):

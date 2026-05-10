@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 from PySide6.QtCore import QRunnable, Signal, QObject
 from typing import Optional, Tuple
+from ...utils.sort_utils import natural_sort_key
 
 
 # --- Worker Signals ---
@@ -197,7 +198,7 @@ class FrameExtractionWorker(QRunnable):
                 for f in os.listdir(self.output_dir)
                 if f.startswith(prefix) and f.endswith(".png")
             ]
-            extracted.sort()
+            extracted.sort(key=natural_sort_key)
             saved_files.extend(extracted)
             self.signals.progress.emit(100)
             self.signals.finished.emit(saved_files)

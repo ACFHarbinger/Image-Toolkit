@@ -20,6 +20,7 @@ from ..helpers import (
     VideoLoaderWorker,
     BatchVideoLoaderWorker,
 )
+from ..utils.sort_utils import natural_sort_key
 
 
 class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
@@ -328,6 +329,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             selected = False
         except ValueError:
             self.selected_files.append(path)
+            self.selected_files.sort(key=natural_sort_key)
             selected = True
 
         label = self.path_to_label_map.get(path)
@@ -358,14 +360,14 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         elif is_shift_pressed:
             # Additive selection (SHIFT): Keep current selection, add new items from marquee
             newly_added = [p for p in paths_from_marquee if p not in ordered_current]
-            self.selected_files = ordered_current + newly_added
+            self.selected_files = sorted(ordered_current + newly_added, key=natural_sort_key)
             paths_to_update = set(newly_added)
 
         else:
             # Standard selection (No Modifiers):
             # Replaces selection with what is currently in the marquee.
             paths_to_update = set(self.selected_files).union(paths_from_marquee)
-            self.selected_files = list(paths_from_marquee)
+            self.selected_files = sorted(list(paths_from_marquee), key=natural_sort_key)
 
         for path in paths_to_update:
             if path in self.path_to_label_map:
@@ -549,7 +551,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
     def start_loading_thumbnails(self, paths: list[str]):
         self.cancel_loading()
-        self.master_found_files = paths
+        self.master_found_files = sorted(paths, key=natural_sort_key)
         # Clear cache when starting fresh with new content
         self._found_pixmap_cache.clear()
         # Apply search immediately
