@@ -35,6 +35,10 @@ class GifCreationWorker(QRunnable):
         self.speed = speed
         self.cuts_ms = cuts_ms or []
         self.signals = GifWorkerSignals()
+        self._is_cancelled = False
+
+    def cancel(self):
+        self._is_cancelled = True
 
     def _get_keep_regions(self, t_start: float, t_end: float):
         if not self.cuts_ms:
@@ -67,6 +71,9 @@ class GifCreationWorker(QRunnable):
         return keep
 
     def run(self):
+        if self._is_cancelled:
+            return
+
         # Convert ms to seconds
         t_start = self.start_ms / 1000.0
         t_end = self.end_ms / 1000.0
@@ -117,7 +124,8 @@ class GifCreationWorker(QRunnable):
                 print(f"FFmpeg CMD: {cmd}")
 
                 self.signals.progress.emit(0)
-                process = subprocess.run(
+                
+                process = subprocess.Popen(
                     cmd,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
@@ -125,9 +133,17 @@ class GifCreationWorker(QRunnable):
                     text=True,
                 )
 
+                while process.poll() is None:
+                    if self._is_cancelled:
+                        process.terminate()
+                        self.signals.error.emit("Extraction cancelled by user.")
+                        return
+                    import time
+                    time.sleep(0.5)
+
                 if process.returncode != 0:
                     raise RuntimeError(
-                        f"FFmpeg failed with return code {process.returncode}\n{process.stderr}"
+                        f"FFmpeg failed with return code {process.returncode}\n{process.stderr.read()}"
                     )
 
                 self.signals.progress.emit(100)

@@ -106,8 +106,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.vid_scanner_worker: Optional[VideoScannerWorker] = None
         self.open_image_preview_windows: List[QWidget] = []
 
-        # Reference for the progress dialog
+        # Reference for the progress dialog and active workers
         self.progress_dialog: Optional[QProgressDialog] = None
+        self.active_extraction_worker: Optional[Any] = None
 
         self.use_internal_player = True
         self.video_view: Optional[QGraphicsView] = None
@@ -245,6 +246,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         # Install event filters on the view AND its viewport for robust wheel capture
         self.video_view.installEventFilter(self)
         self.video_view.viewport().installEventFilter(self)
+        self.video_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.video_view.customContextMenuRequested.connect(self.show_video_context_menu)
 
         self.player_inner_layout.addWidget(
             self.video_view, 1, Qt.AlignmentFlag.AlignCenter
@@ -337,6 +340,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.slider.sliderMoved.connect(self.set_position)
         self.slider.sliderPressed.connect(self.media_player.pause)
         self.slider.sliderReleased.connect(self.set_position_on_release)
+        self.slider.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.slider.customContextMenuRequested.connect(self.show_video_context_menu)
 
         self.lbl_total_time = QLabel("00:00")
 
@@ -441,6 +446,15 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.cut_end_ms = 0
         self.cuts_ms: List[Tuple[int, int]] = []
         self.tags_ms: List[Tuple[int, str]] = []
+
+        self.btn_cancel_extraction = QPushButton("🛑 Cancel Extraction")
+        self.btn_cancel_extraction.setStyleSheet(
+            "QPushButton { background-color: #f04747; color: white; font-weight: bold; border-radius: 4px; padding: 4px 12px; }"
+            "QPushButton:hover { background-color: #d84040; }"
+            "QPushButton:disabled { background-color: #4f545c; color: #888; }"
+        )
+        self.btn_cancel_extraction.clicked.connect(self.cancel_extraction)
+        self.btn_cancel_extraction.hide()
         
         self.btn_set_start = QPushButton("Set Start [00:00]")
         self.btn_set_start.clicked.connect(self.set_range_start)
@@ -463,19 +477,21 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.btn_extract_range.clicked.connect(self.extract_range)
         self.btn_extract_range.setEnabled(False)
 
-        self.btn_extract_video = QPushButton("MP4 Extract as Video")
-        self.btn_extract_video.setStyleSheet(
-            "QPushButton { background-color: #2980b9; color: white; font-weight: bold; }"
-        )
-        self.btn_extract_video.clicked.connect(self.extract_range_as_video)
-        self.btn_extract_video.setEnabled(False)
-
         self.btn_extract_gif = QPushButton("GIF Extract as GIF")
         self.btn_extract_gif.setStyleSheet(
             "QPushButton { background-color: #8e44ad; color: white; font-weight: bold; }"
+            "QPushButton:disabled { background-color: #4f545c; color: #888; }"
         )
         self.btn_extract_gif.clicked.connect(self.extract_range_as_gif)
         self.btn_extract_gif.setEnabled(False)
+
+        self.btn_extract_video = QPushButton("MP4 Extract as Video")
+        self.btn_extract_video.setStyleSheet(
+            "QPushButton { background-color: #2980b9; color: white; font-weight: bold; }"
+            "QPushButton:disabled { background-color: #4f545c; color: #888; }"
+        )
+        self.btn_extract_video.clicked.connect(self.extract_range_as_video)
+        self.btn_extract_video.setEnabled(False)
 
         extract_actions_layout.addWidget(self.btn_set_start)
         extract_actions_layout.addWidget(self.btn_jump_start)
@@ -484,6 +500,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         extract_actions_layout.addWidget(self.btn_extract_range)
         extract_actions_layout.addWidget(self.btn_extract_video)
         extract_actions_layout.addWidget(self.btn_extract_gif)
+        extract_actions_layout.addWidget(self.btn_cancel_extraction)
 
         extract_main_layout.addLayout(extract_actions_layout)
 
@@ -569,6 +586,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.tags_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.tags_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.tags_scroll.setStyleSheet("background: transparent;")
+
+        self.tags_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.tags_scroll.setStyleSheet("background: transparent;")
         
         self.tags_container = QWidget()
         self.tags_container.setStyleSheet("background: transparent;")
@@ -588,6 +608,28 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         extract_tags_layout.addStretch()
 
         extract_main_layout.addLayout(extract_tags_layout)
+
+        # -- Row 6: Progress --
+        self.extraction_progress_bar = QProgressBar()
+        self.extraction_progress_bar.setTextVisible(True)
+        self.extraction_progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.extraction_progress_bar.setStyleSheet(
+            "QProgressBar { background-color: #36393f; color: white; border: 1px solid #4f545c; border-radius: 4px; padding: 2px; height: 20px; }"
+            "QProgressBar::chunk { background-color: #00BCD4; border-radius: 4px; }"
+        )
+        self.extraction_progress_bar.setMinimum(0)
+        self.extraction_progress_bar.setMaximum(100)
+        self.extraction_progress_bar.setValue(0)
+        self.extraction_progress_bar.hide()
+        extract_main_layout.addWidget(self.extraction_progress_bar)
+
+        self.extraction_status_label = QLabel("Ready.")
+        self.extraction_status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.extraction_status_label.setStyleSheet(
+            "color: #00BCD4; font-style: italic; padding: 4px; font-weight: bold;"
+        )
+        self.extraction_status_label.hide()
+        extract_main_layout.addWidget(self.extraction_status_label)
 
         self.main_layout.addWidget(self.extract_group)
         self.extract_group.setVisible(False)
@@ -661,20 +703,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
         )
 
-        # --- Extraction Progress Bar (Integrated) ---
-        self.extraction_progress_bar = QProgressBar()
-        self.extraction_progress_bar.setTextVisible(True)
-        self.extraction_progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.extraction_progress_bar.setStyleSheet(
-            "QProgressBar { background-color: #36393f; color: white; border: 1px solid #4f545c; border-radius: 4px; padding: 2px; }"
-            "QProgressBar::chunk { background-color: #5865f2; border-radius: 4px; }"
-        )
-        self.extraction_progress_bar.setMinimum(0)
-        self.extraction_progress_bar.setMaximum(100)
-        self.extraction_progress_bar.setValue(0)
-        self.extraction_progress_bar.hide()
-        self.main_layout.addWidget(self.extraction_progress_bar)
-
         self.extraction_status_label = QLabel("Ready.")
         self.extraction_status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.extraction_status_label.setStyleSheet(
@@ -694,8 +722,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         """Stops all active media players, timers, and background workers."""
         super().cancel_loading()
 
-        if self.extractor_worker:
-            self.extractor_worker.cancel()
+        if self.active_extraction_worker:
+            self.active_extraction_worker.cancel()
+            self.active_extraction_worker = None
 
         if self.vid_scanner_worker:
             try:
@@ -947,6 +976,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.btn_set_cut_start.setEnabled(True)
             self.btn_set_cut_end.setEnabled(True)
             self.btn_add_tag.setEnabled(True)
+            self.clear_cuts()
+            self.clear_tags()
             self._apply_player_mode()
 
     @Slot()
@@ -1666,6 +1697,55 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 self.tags_layout.addWidget(label)
         
         self.tags_layout.addStretch()
+        
+        has_tags = len(self.tags_ms) > 0
+        self.btn_clear_tags.setEnabled(has_tags)
+
+    @Slot(QPoint)
+    def show_video_context_menu(self, pos: QPoint):
+        """Show a context menu on the video player or slider with tag jumping and other options."""
+        sender = self.sender()
+        if not sender:
+            return
+
+        menu = QMenu(self)
+        menu.setStyleSheet("QMenu { background-color: #1e1f22; color: white; border: 1px solid #4f545c; }")
+        
+        # 1. Jump to Tag Submenu
+        if self.tags_ms:
+            jump_menu = menu.addMenu("📍 Jump to Tag")
+            jump_menu.setStyleSheet("QMenu { background-color: #1e1f22; color: #FFC107; }")
+            for ms, label in self.tags_ms:
+                action = QAction(f"{label} ({self._format_time(ms)})", self)
+                action.triggered.connect(lambda _, m=ms: self.jump_to_tag_time(m))
+                jump_menu.addAction(action)
+            menu.addSeparator()
+
+        # 2. Add Tag at current pos
+        add_tag_action = QAction("🏷️ Add Tag Here", self)
+        add_tag_action.triggered.connect(self.add_tag)
+        menu.addAction(add_tag_action)
+        
+        # 3. Range actions
+        set_start_action = QAction("🎞️ Set Range Start", self)
+        set_start_action.triggered.connect(self.set_range_start)
+        menu.addAction(set_start_action)
+
+        set_end_action = QAction("🎞️ Set Range End", self)
+        set_end_action.triggered.connect(self.set_range_end)
+        menu.addAction(set_end_action)
+
+        menu.addSeparator()
+
+        # 4. Extraction triggers (convenience)
+        if self.end_time_ms > self.start_time_ms:
+            extract_vid_action = QAction("🎬 Extract Video Range", self)
+            extract_vid_action.triggered.connect(self.extract_range_as_video)
+            menu.addAction(extract_vid_action)
+
+        # Show at global position
+        global_pos = sender.mapToGlobal(pos)
+        menu.exec(global_pos)
 
     @Slot(int)
     def jump_to_tag_time(self, ms: int):
@@ -1679,6 +1759,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def show_tag_context_menu(self, global_pos: QPoint, index: int):
         menu = QMenu(self)
         
+        jump_action = QAction("📍 Jump to Tag", self)
+        jump_action.triggered.connect(lambda: self.jump_to_tag_time(self.tags_ms[index][0]))
+        menu.addAction(jump_action)
+        menu.addSeparator()
+
         edit_action = QAction("Edit Tag", self)
         edit_action.triggered.connect(lambda: self.edit_tag(index))
         menu.addAction(edit_action)
@@ -1834,6 +1919,22 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         # Also disable browsing while extracting to avoid path changes
         self.btn_browse.setEnabled(enabled)
         self.btn_browse_extract.setEnabled(enabled)
+
+        # Show/hide action buttons vs cancel button
+        self.btn_extract_range.setVisible(enabled)
+        self.btn_extract_video.setVisible(enabled)
+        self.btn_extract_gif.setVisible(enabled)
+        
+        self.btn_cancel_extraction.setVisible(not enabled)
+        if not enabled:
+            self.btn_cancel_extraction.setEnabled(True)
+
+    @Slot()
+    def cancel_extraction(self):
+        if self.active_extraction_worker:
+            self.active_extraction_worker.cancel()
+            self.extraction_status_label.setText("Cancelling...")
+            self.btn_cancel_extraction.setEnabled(False)
         self.line_edit_dir.setEnabled(enabled)
         self.btn_add_tag.setEnabled(enabled and self.video_path is not None)
         self.btn_clear_tags.setEnabled(enabled and len(self.tags_ms) > 0)
@@ -1880,7 +1981,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.extraction_status_label.setText("Extracting frames...")
         self.extraction_status_label.show()
 
-        self.extractor_worker = FrameExtractionWorker(
+        self.active_extraction_worker = FrameExtractionWorker(
             video_path=self.video_path,
             output_dir=str(self.extraction_dir),
             start_ms=start,
@@ -1892,20 +1993,22 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             smart_extract=self.check_smart_extract.isChecked(),
             smart_method=self.combo_smart_method.currentText()
         )
-        self.extractor_worker.signals.progress.connect(
+        self.active_extraction_worker.signals.progress.connect(
             self.extraction_progress_bar.setValue
         )
-        self.extractor_worker.signals.finished.connect(self._on_extraction_finished)
-        self.extractor_worker.signals.error.connect(
+        self.active_extraction_worker.signals.finished.connect(self._on_extraction_finished)
+        self.active_extraction_worker.signals.error.connect(
             lambda e: self._on_extraction_error(e)
         )
-        QThreadPool.globalInstance().start(self.extractor_worker)
+        QThreadPool.globalInstance().start(self.active_extraction_worker)
 
     def _on_extraction_error(self, error_msg: str):
+        self.active_extraction_worker = None
         self._set_extraction_buttons_enabled(True)
         self.extraction_progress_bar.hide()
         self.extraction_status_label.hide()
-        QMessageBox.warning(self, "Extraction Error", error_msg)
+        if "cancelled" not in error_msg.lower():
+            QMessageBox.warning(self, "Extraction Error", error_msg)
 
     def _run_gif_extraction(self, start: int, end: int):
         target_size = self._get_target_size()
@@ -1929,7 +2032,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         output_name = f"{Path(self.video_path).stem}_{int(start)}ms_{int(end)}ms.gif"
         output_path = str(self.extraction_dir / output_name)
 
-        worker = GifCreationWorker(
+        self.active_extraction_worker = GifCreationWorker(
             video_path=self.video_path,
             start_ms=start,
             end_ms=end,
@@ -1940,10 +2043,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             speed=speed,
             cuts_ms=self.cuts_ms
         )
-        worker.signals.progress.connect(self.extraction_progress_bar.setValue)
-        worker.signals.finished.connect(self._on_export_finished)
-        worker.signals.error.connect(self._on_export_error)
-        QThreadPool.globalInstance().start(worker)
+        self.active_extraction_worker.signals.progress.connect(self.extraction_progress_bar.setValue)
+        self.active_extraction_worker.signals.finished.connect(self._on_export_finished)
+        self.active_extraction_worker.signals.error.connect(self._on_export_error)
+        QThreadPool.globalInstance().start(self.active_extraction_worker)
 
     def _run_video_extraction(self, start: int, end: int):
         target_size = self._get_target_size()
@@ -1967,7 +2070,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         output_name = f"{Path(self.video_path).stem}_{int(start)}ms_{int(end)}ms.mp4"
         output_path = str(self.extraction_dir / output_name)
 
-        worker = VideoExtractionWorker(
+        self.active_extraction_worker = VideoExtractionWorker(
             video_path=self.video_path,
             start_ms=start,
             end_ms=end,
@@ -1978,13 +2081,14 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             speed=speed,
             cuts_ms=self.cuts_ms
         )
-        worker.signals.progress.connect(self.extraction_progress_bar.setValue)
-        worker.signals.finished.connect(self._on_export_finished)
-        worker.signals.error.connect(self._on_export_error)
-        QThreadPool.globalInstance().start(worker)
+        self.active_extraction_worker.signals.progress.connect(self.extraction_progress_bar.setValue)
+        self.active_extraction_worker.signals.finished.connect(self._on_export_finished)
+        self.active_extraction_worker.signals.error.connect(self._on_export_error)
+        QThreadPool.globalInstance().start(self.active_extraction_worker)
 
     @Slot(str)
     def _on_export_finished(self, new_path: str):
+        self.active_extraction_worker = None
         self._set_extraction_buttons_enabled(True)
         self.extraction_progress_bar.hide()
         self.extraction_status_label.hide()
@@ -2007,10 +2111,12 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     @Slot(str)
     def _on_export_error(self, error_msg: str):
+        self.active_extraction_worker = None
         self._set_extraction_buttons_enabled(True)
         self.extraction_progress_bar.hide()
         self.extraction_status_label.hide()
-        QMessageBox.warning(self, "Export Error", error_msg)
+        if "cancelled" not in error_msg.lower():
+            QMessageBox.warning(self, "Export Error", error_msg)
 
     def _generate_video_thumbnail(self, path: str) -> Optional[QPixmap]:
         """Generate a thumbnail for a single video file."""
@@ -2023,6 +2129,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     @Slot(list)
     def _on_extraction_finished(self, new_paths: List[str]):
+        self.active_extraction_worker = None
         self._set_extraction_buttons_enabled(True)
         self.extraction_progress_bar.hide()
         self.extraction_status_label.hide()
@@ -2261,7 +2368,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         # It takes (video_path, output_dir, config...)
 
         worker = FrameExtractionWorker(video_path, str(self.extraction_dir), config)
-        self.extractor_worker = worker
+        self.active_extraction_worker = worker
 
         # Signals
         worker.signals.finished.connect(
