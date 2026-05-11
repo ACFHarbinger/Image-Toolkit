@@ -241,13 +241,17 @@ class WallpaperManager:
             try:
                 parts = style_name.split("::")
                 if len(parts) > 1:
-                    v_style_str = parts[1]
-                    if v_style_str == "Keep Proportions":
-                        video_fill_mode = 1
-                    elif v_style_str == "Scaled and Cropped":
-                        video_fill_mode = 2
-                    elif v_style_str == "Stretch":
-                        video_fill_mode = 0
+                    v_style_str = parts[1].strip()
+                    # Normalized mapping
+                    v_style_lower = v_style_str.lower()
+                    if "keep proportions" in v_style_lower:
+                        video_fill_mode = 1  # PreserveAspectFit
+                    elif "scaled and cropped" in v_style_lower:
+                        video_fill_mode = 2  # PreserveAspectCrop
+                    elif "stretch" in v_style_lower:
+                        video_fill_mode = 0  # Stretch
+                    else:
+                        video_fill_mode = 2  # Default to crop
             except Exception:
                 pass
             style_name = "Fill"
@@ -286,12 +290,25 @@ class WallpaperManager:
                     if (d && d.screen >= 0) {{
                         if (d.wallpaperPlugin !== "{target_plugin}") d.wallpaperPlugin = "{target_plugin}";
                         d.currentConfigGroup = Array("Wallpaper", d.wallpaperPlugin, "General");
-                        d.writeConfig("{video_key}", "{file_uri}");
+                        
+                        // DEBUG: Log the values being written
+                        // console.log("[ImageToolkit] Setting Video FillMode to: {video_fill_mode} for monitor {i}");
+                        
                         d.writeConfig("FillMode", {video_fill_mode});
+                        d.writeConfig("fillMode", {video_fill_mode});
                         {"d.writeConfig('overridePause', true);" if is_smarter else ""}
+                        
+                        d.writeConfig("{video_key}", "{file_uri}");
+
+                        // Plasma 6 uses the same Qt AspectRatioMode for org.kde.image
+                        var imageFillMode = {video_fill_mode};
+                        
                         d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General");
-                        d.writeConfig("FillMode", 2);
+                        d.writeConfig("FillMode", imageFillMode);
                         d.writeConfig("Color", "#00000000");
+                        
+                        // IMPORTANT: Restore the config group to the active plugin before reloading
+                        d.currentConfigGroup = Array("Wallpaper", d.wallpaperPlugin, "General");
                         d.reloadConfig();
                     }}
                 }}

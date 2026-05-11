@@ -83,12 +83,14 @@ WALLPAPER_STYLES = {
     },
     "KDE": {
         "Scaled, Keep Proportions": 1,
-        "Scaled": 2,
-        "Scaled and Cropped (Zoom)": 0,
-        "Centered": 6,
-        "Tiled": 3,
-        "Center Tiled": 4,
-        "Span": 5,
+        "Scaled": 1, # Treat standard scale as fit for safety
+        "Scaled and Cropped (Zoom)": 2, # Qt6 KeepAspectRatioByExpanding
+        "Scaled and Cropped": 2,
+        "Centered": 3,
+        "Stretch": 0, # Qt6 IgnoreAspectRatio
+        "Tiled": 4,
+        "Center Tiled": 5,
+        "Span": 6,
     },
     "GNOME": {
         "None": "none",

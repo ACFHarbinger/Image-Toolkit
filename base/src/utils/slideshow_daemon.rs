@@ -235,16 +235,20 @@ fn apply_wallpaper_kde(
         video_mode_active = true;
         let parts: Vec<&str> = style.split("::").collect();
         if parts.len() > 1 {
-            let v_style = parts[1];
-            video_fill_mode = match v_style {
-                "Keep Proportions" => 1,
-                "Scaled and Cropped" => 2,
-                "Stretch" => 0,
-                _ => 2,
+            let v_style = parts[1].trim().to_lowercase();
+            video_fill_mode = if v_style.contains("keep proportions") {
+                1
+            } else if v_style.contains("scaled and cropped") {
+                2
+            } else if v_style.contains("stretch") {
+                0
+            } else {
+                2
             };
             base_style_name = "Fill";
         }
     }
+
     let fill_mode = match base_style_name {
         "Scaled, Keep Proportions" => 1,
         "Scaled" => 2,
@@ -293,7 +297,35 @@ fn apply_wallpaper_kde(
             let is_smarter = target_plugin == "smartervideowallpaper";
             let video_key = if is_smarter { "VideoWallpaperBackgroundVideo" } else { "VideoUrls" };
             let override_pause = if is_smarter { "d.writeConfig('overridePause', true);" } else { "" };
-            script.push_str(&format!("{{ var d = desktops()[{}]; if (d && d.screen >= 0) {{ d.wallpaperPlugin = \"{}\"; d.currentConfigGroup = Array(\"Wallpaper\", \"{}\", \"General\"); d.writeConfig(\"{}\", \"{}\"); d.writeConfig(\"FillMode\", {}); {} d.reloadConfig(); d.currentConfigGroup = Array(\"Wallpaper\", \"org.kde.image\", \"General\"); d.writeConfig(\"FillMode\", 2); d.writeConfig(\"Color\", \"#00000000\"); }} }}", i, target_plugin, target_plugin, video_key, file_uri, video_fill_mode, override_pause));
+            
+            log!("Setting video wallpaper: mode={}, key={}, plugin={}", video_fill_mode, video_key, target_plugin);
+            
+            // Sync image_fill_mode based on video_fill_mode mapping
+            // Plasma 6 uses the same Qt AspectRatioMode for org.kde.image (0=Stretch, 2=Crop)
+            let image_fill_mode = video_fill_mode;
+
+            script.push_str(&format!(
+                "{{ \
+                    var d = desktops()[{}]; \
+                    if (d && d.screen >= 0) {{ \
+                        if (d.wallpaperPlugin !== \"{}\") d.wallpaperPlugin = \"{}\"; \
+                        d.currentConfigGroup = Array(\"Wallpaper\", d.wallpaperPlugin, \"General\"); \
+                        \
+                        d.writeConfig(\"FillMode\", {}); \
+                        d.writeConfig(\"fillMode\", {}); \
+                        {} \
+                        \
+                        d.writeConfig(\"{}\", \"{}\"); \
+                        \
+                        d.currentConfigGroup = Array(\"Wallpaper\", \"org.kde.image\", \"General\"); \
+                        d.writeConfig(\"FillMode\", {}); \
+                        d.writeConfig(\"Color\", \"#00000000\"); \
+                        d.currentConfigGroup = Array(\"Wallpaper\", d.wallpaperPlugin, \"General\"); \
+                        d.reloadConfig(); \
+                    }} \
+                }}", 
+                i, target_plugin, target_plugin, video_fill_mode, video_fill_mode, override_pause, video_key, file_uri, image_fill_mode
+            ));
         } else {
             script.push_str(&format!("{{ var d = desktops()[{}]; if (d && d.screen >= 0) {{ d.wallpaperPlugin = \"org.kde.image\"; d.currentConfigGroup = Array(\"Wallpaper\", \"org.kde.image\", \"General\"); d.writeConfig(\"Image\", \"{}\"); d.writeConfig(\"FillMode\", {}); d.reloadConfig(); }} }}", i, raw_path, fill_mode));
         }
@@ -380,11 +412,25 @@ fn run(log_path: &Option<PathBuf>) -> Result<()> {
     log!("Detected desktop environment: {:?}", de);
     let mut first_run = true;
     loop {
-        let mut config = match load_config(&config_path) {
-            Ok(c) => c,
-            Err(e) => {
-                log!("Error loading config: {}. Retrying in 10s...", e);
-                thread::sleep(Duration::from_secs(10));
+        // Retry logic for reading JSON to avoid race conditions with Python's write
+        let mut config_result = None;
+        for i in 0..5 {
+            if let Ok(content) = fs::read_to_string(&config_path) {
+                if let Ok(cfg) = serde_json::from_str::<Config>(&content) {
+                    config_result = Some(cfg);
+                    break;
+                }
+            }
+            if i < 4 {
+                std::thread::sleep(std::time::Duration::from_millis(50 * (i + 1)));
+            }
+        }
+
+        let mut config = match config_result {
+            Some(c) => c,
+            None => {
+                log!("Failed to parse config JSON after retries, skipping this cycle.");
+                std::thread::sleep(std::time::Duration::from_secs(5));
                 continue;
             }
         };
@@ -397,6 +443,7 @@ fn run(log_path: &Option<PathBuf>) -> Result<()> {
             log!("Initial run. Current paths: {}", config.current_paths.len());
         }
         if !next_paths.is_empty() {
+            log!("Applying wallpaper with style: {}", config.style);
             let res = match de {
                 DesktopEnvironment::Kde => apply_wallpaper_kde(&next_paths, &config.style, &config.monitor_geometries, log_path),
                 DesktopEnvironment::Gnome => apply_wallpaper_gnome(&next_paths, &config.style),
