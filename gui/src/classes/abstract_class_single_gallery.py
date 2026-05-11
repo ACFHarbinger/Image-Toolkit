@@ -317,9 +317,19 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         Used for fallback or when immediate preview is needed.
         """
         try:
+            # 1. Check disk cache first
+            cache_path = self._get_disk_cache_path(path)
+            if os.path.exists(cache_path):
+                img = QImage(cache_path)
+                if not img.isNull():
+                    return QPixmap.fromImage(img)
+
+            # 2. Generate new
             thumbnailer = VideoThumbnailer()
             image = thumbnailer.generate(path, self.thumbnail_size)
             if image and not image.isNull():
+                # 3. Save to disk cache
+                image.save(cache_path, "JPG")
                 return QPixmap.fromImage(image)
         except Exception as e:
             print(f"Failed to generate explicit video thumbnail for {path}: {e}")

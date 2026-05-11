@@ -815,11 +815,26 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         video_paths_limited = video_paths[:MAX_PREVIEW_ITEMS]
 
         for i, v_path in enumerate(video_paths_limited):
+            # Check in-memory and disk cache
+            cached_image = self._initial_pixmap_cache.get(v_path)
+            if cached_image is None:
+                # Try disk cache
+                disk_cache = self._get_disk_cache_path(v_path)
+                if os.path.exists(disk_cache):
+                    img = QImage(disk_cache)
+                    if not img.isNull():
+                        cached_image = img
+                        self._initial_pixmap_cache[v_path] = img
+
             widget = self._create_source_placeholder_widget(v_path)
             self.source_path_to_widget[v_path] = widget
             row = i // 12
             col = i % 12
             self.source_grid.addWidget(widget, row, col)
+
+            if cached_image:
+                # Immediately update if we have a cached version
+                self.add_source_thumbnail(v_path, cached_image)
 
         # 3. Start the intensive thumbnailing worker
         if self.vid_scanner_worker:
@@ -899,6 +914,16 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 if thumb:
                     pixmap = thumb
 
+        # 1.5. Cache to memory if successful
+        if not pixmap.isNull() and path not in self._initial_pixmap_cache:
+            if isinstance(image_or_pixmap, QImage):
+                self._initial_pixmap_cache[path] = image_or_pixmap
+            elif isinstance(image_or_pixmap, QPixmap):
+                self._initial_pixmap_cache[path] = image_or_pixmap.toImage()
+            else:
+                # If we fell back to _generate_video_thumbnail, pixmap is updated
+                self._initial_pixmap_cache[path] = pixmap.toImage()
+
         # 2. Find and update the existing widget
         container = self.source_path_to_widget.get(path)
         if not container:
@@ -912,25 +937,14 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             # NOTE: Scaling/cropping is now handled in the background by VideoScannerWorker(crop_square=True)
             clickable_label.setPixmap(pixmap)
             clickable_label.setText("")  # Remove "Loading..." text
-            clickable_label.setStyleSheet(
-                "border: 2px solid #4f545c; border-radius: 4px;"
-            )
         else:
             # Fallback if processing totally fails
             if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
                 clickable_label.setText("VIDEO")
-                clickable_label.setStyleSheet(
-                    "border: 2px solid #3498db; color: #3498db; font-weight: bold; background-color: #2c2f33;"
-                )
             else:
                 clickable_label.setText("No Preview")
-                clickable_label.setStyleSheet("border: 1px dashed #666; color: #888;")
 
-        # --- RE-APPLY SELECTION STATE ---
-        if self.video_path == path:
-            clickable_label.setStyleSheet(
-                "border: 3px solid #3498db; border-radius: 4px;"
-            )
+        self._update_source_label_style(path, clickable_label, getattr(self, "video_path", None) == path)
 
     @Slot(QPoint, str)
     def show_source_context_menu(self, global_pos: QPoint, path: str):
@@ -940,6 +954,40 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         menu.addAction(view_action)
         menu.exec(global_pos)
 
+    def _has_extracted_files(self, video_path: str) -> bool:
+        """Check if the video has extracted files in the output directory."""
+        if not hasattr(self, "extraction_dir") or not self.extraction_dir or not self.extraction_dir.exists():
+            return False
+        stem = Path(video_path).stem
+        try:
+            for f in self.extraction_dir.iterdir():
+                if f.is_file() and f.name.startswith(f"{stem}_"):
+                    return True
+        except Exception:
+            pass
+        return False
+
+    def _update_source_label_style(self, path: str, label: ClickableLabel, selected: bool):
+        has_extracted = self._has_extracted_files(path)
+        
+        if selected:
+            label.setStyleSheet("border: 3px solid #3498db; border-radius: 4px;")
+        else:
+            if label.text() == "VIDEO":
+                if has_extracted:
+                    label.setStyleSheet("border: 2px solid #2ecc71; color: #2ecc71; font-weight: bold; background-color: #2c2f33; border-radius: 4px;")
+                else:
+                    label.setStyleSheet("border: 2px solid #3498db; color: #3498db; font-weight: bold; background-color: #2c2f33; border-radius: 4px;")
+            elif label.text() == "No Preview":
+                label.setStyleSheet("border: 1px dashed #666; color: #888; border-radius: 4px;")
+            elif label.text() == "Loading...":
+                label.setStyleSheet("border: 1px dashed #666; color: #888; font-size: 10px; border-radius: 4px;")
+            else:
+                if has_extracted:
+                    label.setStyleSheet("border: 2px solid #2ecc71; border-radius: 4px;")
+                else:
+                    label.setStyleSheet("border: 2px solid #4f545c; border-radius: 4px;")
+
     @Slot(str)
     def load_media(self, file_path: str):
         self.video_path = file_path
@@ -947,14 +995,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         for path, widget in self.source_path_to_widget.items():
             label = widget.findChild(ClickableLabel)
             if label:
-                if path == file_path:
-                    label.setStyleSheet(
-                        "border: 3px solid #3498db; border-radius: 4px;"
-                    )
-                else:
-                    label.setStyleSheet(
-                        "border: 2px solid #4f545c; border-radius: 4px;"
-                    )
+                self._update_source_label_style(path, label, path == file_path)
 
         if ext == ".gif":
             self.video_container_widget.setVisible(False)
@@ -993,6 +1034,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.line_edit_extract_dir.setText(str(self.extraction_dir))
             self._clear_gallery()
             self._load_existing_output_images()
+            
+            for path, widget in self.source_path_to_widget.items():
+                label = widget.findChild(ClickableLabel)
+                if label:
+                    self._update_source_label_style(path, label, path == getattr(self, "video_path", None))
 
     def _clear_gallery(self):
         self.current_extracted_paths.clear()
@@ -2140,6 +2186,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         self.start_loading_gallery(new_paths, append=True)
         self.current_extracted_paths = self.gallery_image_paths[:]
+
+        for path, widget in self.source_path_to_widget.items():
+            label = widget.findChild(ClickableLabel)
+            if label:
+                self._update_source_label_style(path, label, path == getattr(self, "video_path", None))
 
         QMessageBox.information(
             self,

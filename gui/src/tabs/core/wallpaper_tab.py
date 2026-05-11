@@ -800,7 +800,13 @@ class WallpaperTab(AbstractClassSingleGallery):
             return
         self.stop_slideshow()
         for mid in self.monitor_widgets.keys():
-            self.monitor_current_index[mid] = -1
+            queue = self.monitor_slideshow_queues.get(mid, [])
+            current_path = self.monitor_image_paths.get(mid)
+            if current_path in queue:
+                self.monitor_current_index[mid] = queue.index(current_path)
+            else:
+                self.monitor_current_index[mid] = -1
+
         interval_minutes = self.interval_min_spinbox.value()
         interval_seconds = self.interval_sec_spinbox.value()
         self.interval_sec = (interval_minutes * 60) + interval_seconds
@@ -824,7 +830,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             "Slideshow Started",
             f"Per-monitor slideshow started with {total_images} total items, cycling every {interval_minutes} minutes and {interval_seconds} seconds.",
         )
-        self._cycle_slideshow_wallpaper()
+        self._cycle_slideshow_wallpaper(increment=False)
         self.set_wallpaper_btn.setText("Slideshow Running (Stop)")
         self.set_wallpaper_btn.setStyleSheet(STYLE_STOP_ACTION)
         self.set_wallpaper_btn.setEnabled(True)
@@ -951,7 +957,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.unlock_ui_for_wallpaper()
 
     @Slot()
-    def _cycle_slideshow_wallpaper(self):
+    def _cycle_slideshow_wallpaper(self, increment: bool = True):
         monitor_ids = list(self.monitor_widgets.keys())
         if not monitor_ids:
             return
@@ -966,18 +972,22 @@ class WallpaperTab(AbstractClassSingleGallery):
                 queue = self.monitor_slideshow_queues.get(monitor_id, [])
                 current_queue_length = len(queue)
                 if current_queue_length > 0:
-                    playback_order = self.playback_order_combo.currentText()
-                    if playback_order == "Random":
-                        import random
-
-                        next_index = random.randint(0, current_queue_length - 1)
-                    elif playback_order == "Reverse Sequential":
-                        if current_index == -1:
-                            next_index = current_queue_length - 1
-                        else:
-                            next_index = (current_index - 1) % current_queue_length
+                    if not increment:
+                        # Use current index if valid, otherwise start from 0
+                        next_index = max(0, current_index)
                     else:
-                        next_index = (current_index + 1) % current_queue_length
+                        playback_order = self.playback_order_combo.currentText()
+                        if playback_order == "Random":
+                            import random
+
+                            next_index = random.randint(0, current_queue_length - 1)
+                        elif playback_order == "Reverse Sequential":
+                            if current_index == -1:
+                                next_index = current_queue_length - 1
+                            else:
+                                next_index = (current_index - 1) % current_queue_length
+                        else:
+                            next_index = (current_index + 1) % current_queue_length
 
                     path = queue[next_index]
                     new_monitor_paths[monitor_id] = path
@@ -1404,6 +1414,10 @@ class WallpaperTab(AbstractClassSingleGallery):
                     image_path_to_display = system_wallpaper_path
 
             if image_path_to_display:
+                # Synchronize internal state if it's currently empty
+                if not self.monitor_image_paths.get(monitor_id):
+                    self.monitor_image_paths[monitor_id] = image_path_to_display
+
                 # 1. Try to get thumbnail from cache
                 thumb = self._cache_get_thumb(image_path_to_display)
 
@@ -1453,6 +1467,14 @@ class WallpaperTab(AbstractClassSingleGallery):
         if image_paths:
             first_path = image_paths[0]
             self.monitor_image_paths[monitor_id] = first_path
+            
+            # Update index to match the active preview
+            queue = self.monitor_slideshow_queues.get(monitor_id, [])
+            if first_path in queue:
+                self.monitor_current_index[monitor_id] = queue.index(first_path)
+            else:
+                self.monitor_current_index[monitor_id] = -1
+
             thumb = self._cache_get_thumb(first_path)
             if not thumb and first_path.lower().endswith(
                 tuple(SUPPORTED_VIDEO_FORMATS)
@@ -1486,9 +1508,14 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.monitor_slideshow_queues[monitor_id].append(image_path)
 
         # Setting the last dropped image as the active one for UI feedback
-        # (Though with multiple drops, the last one wins for immediate preview)
         self.monitor_image_paths[monitor_id] = image_path
-        self.monitor_current_index[monitor_id] = -1
+        
+        # Update index
+        queue = self.monitor_slideshow_queues[monitor_id]
+        if image_path in queue:
+            self.monitor_current_index[monitor_id] = queue.index(image_path)
+        else:
+            self.monitor_current_index[monitor_id] = -1
 
         thumb = self._cache_get_thumb(image_path)
 
