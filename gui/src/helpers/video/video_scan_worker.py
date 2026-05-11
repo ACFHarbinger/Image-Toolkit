@@ -6,7 +6,11 @@ from pathlib import Path
 
 from PySide6.QtGui import QImage
 from PySide6.QtCore import Signal, QRunnable, QObject
-from backend.src.utils.definitions import SUPPORTED_VIDEO_FORMATS
+from backend.src.utils.definitions import (
+    SUPPORTED_VIDEO_FORMATS,
+    THUMBNAIL_CACHE_DIR,
+)
+import hashlib
 
 try:
     import platform
@@ -19,6 +23,13 @@ try:
     HAS_NATIVE_IMAGING = True
 except ImportError:
     HAS_NATIVE_IMAGING = False
+
+
+def get_video_thumbnail_cache_path(video_path: str) -> str:
+    """Computes the deterministic path for a video thumbnail on disk."""
+    THUMBNAIL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    path_hash = hashlib.md5(video_path.encode('utf-8')).hexdigest()
+    return str(THUMBNAIL_CACHE_DIR / f"{path_hash}.jpg")
 
 
 class VideoScanSignals(QObject):
@@ -156,10 +167,24 @@ class VideoThumbnailer:
 def process_video_task(args):
     """
     Helper function to run in a thread.
+    Checks for a cached thumbnail on disk before generating a new one.
     """
     path, target_height, thumbnailer, crop_square = args
     try:
+        # 1. Check Disk Cache
+        cache_path = get_video_thumbnail_cache_path(path)
+        if os.path.exists(cache_path):
+            img = QImage(cache_path)
+            if not img.isNull():
+                return path, img
+
+        # 2. Generate New Thumbnail
         image = thumbnailer.generate(path, target_height, crop_square=crop_square)
+
+        # 3. Save to Disk Cache if successful
+        if image and not image.isNull():
+            image.save(cache_path, "JPG")
+
         return path, image
     except Exception:
         return path, None
