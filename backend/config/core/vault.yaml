@@ -1,0 +1,18 @@
+# Vault and Security Configuration Override
+# Settings for credential management and encrypted storage.
+
+security:
+  encryption_algorithm: "AES-256-GCM"
+  keystore_type: "PKCS12"
+  vault_filename: "my_secure_data.vault"
+  keystore_filename: "my_keystore.p12"
+  pepper_filename: "pepper.txt"
+
+paths:
+  vault_root: "${IMAGE_TOOLKIT_DIR}/assets/cryptography"
+  backup_root: "${IMAGE_TOOLKIT_DIR}/backups/vault"
+
+jvm:
+  enabled: true                # Kotlin-based cryptography requires JPype JVM
+  min_heap: "64M"
+  max_heap: "256M"

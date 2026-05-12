@@ -159,6 +159,13 @@ def add_core_args(parser):
         "--grid_size", nargs=2, type=int, help="Grid dimensions (rows cols)"
     )
 
+    # Stitch
+    stitch = core_subparsers.add_parser("stitch", help="Stitch images into a panorama")
+    stitch.add_argument(
+        "-i", "--input", nargs="+", required=True, help="Input images or directory"
+    )
+    stitch.add_argument("-o", "--output", help="Output path")
+
     return parser
 
 

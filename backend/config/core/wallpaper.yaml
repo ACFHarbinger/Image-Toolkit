@@ -1,0 +1,18 @@
+# Wallpaper Engine Configuration Override
+# Settings for desktop wallpaper management and dynamic slideshows.
+
+engine:
+  backend: "qdbus"             # Options: "qdbus" (KDE Plasma), "swww" (Hyprland), "xwallpaper"
+  plugin: "org.kde.image"      # Specific plugin ID for the DE
+  enable_daemon: true          # Run the slideshow daemon in the background
+
+slideshow:
+  interval: 600                # Seconds between changes (10 minutes)
+  order: "random"              # Options: "sequential", "random", "reverse"
+  scaling: "fill"              # Options: "fill", "stretch", "center", "tile"
+
+video_wallpaper:
+  backend: "ffmpeg"            # Backend for video playback
+  mute_audio: true
+  loop: true
+  gpu_acceleration: true

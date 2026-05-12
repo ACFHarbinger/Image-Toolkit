@@ -1,0 +1,17 @@
+# Input/Output paths
+input_dir: "/home/pkhunter/Downloads/data/new/"
+output_path: "/home/pkhunter/Downloads/data/new/stitched_panorama.png"
+
+# Core algorithm controls
+motion_model: "translation" # Options: "affine" (4-DOF partial), "translation"
+use_loftr: true # Enable LoFTR for neural-assisted feature matching
+use_ecc: false # ECC is disabled by default due to drift issues on 4K frames
+use_basic: false # Disabled for anime to avoid lighting artifacts
+use_vignette: true # Keep vignette correction as it's purely radial
+compositor: "median" # Median is much more robust for high-res panoramas
+edge_crop: 50 # Pixels to trim from each frame's edge before matching
+low_mem: true # Aggressive garbage collection and model unloading
+fg_deghosting: true # Enable optical-flow aware foreground character deghosting
+composite_fg: true # Use BiRefNet to extract and seamlessClone characters
+poisson_blend: "mixed" # Options: "mixed" (hair/transparency), "normal" (rigid)
+warp_interpolation: "lanczos" # Options: "lanczos", "cubic", "linear"

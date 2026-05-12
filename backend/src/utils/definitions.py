@@ -23,6 +23,7 @@ JAR_FILE = os.path.join(
 CRYPTO_DIR = os.path.join(ROOT_DIR, "assets", "cryptography")
 IMAGES_DIR = os.path.join(ROOT_DIR, "assets", "images")
 API_DIR = os.path.join(ROOT_DIR, "assets", "api")
+BACKEND_DIR = os.path.join(ROOT_DIR, "backend")
 LOCAL_SOURCE_PATH = os.path.join(
     os.path.dirname(os.path.dirname(ROOT_DIR)), "Downloads", "data"
 )

@@ -1,0 +1,23 @@
+# Image Merger Configuration Override
+# Configuration for general image merging operations (Horizontal, Vertical, Grid, Panorama)
+
+output_format: "png"           # Output image format (png, jpg, webp)
+quality: 95                    # Image quality/compression level (1-100)
+smart_merge: true              # Automatically detect best layout for mixed resolutions
+align_mode: "center"           # Options: "start", "center", "end"
+gap: 0                         # Pixel gap between images in grid/strip modes
+background_color: [0, 0, 0]    # RGB background for gaps or padding
+
+# Defaults for different merge modes
+horizontal:
+  max_height: 2160
+  fit_mode: "height"
+  
+vertical:
+  max_width: 3840
+  fit_mode: "width"
+
+grid:
+  cols: 2
+  rows: 0                      # 0 for auto-calculation
+  cell_aspect: "original"
