@@ -292,6 +292,64 @@ class RegistrationAgent:
                 if done:
                     break
 
+    # ----------------------------------- train with human-preference reward
+    def train_on_pair_with_reward_model(
+        self,
+        img_ref: np.ndarray,
+        img_src: np.ndarray,
+        reward_model,               # StitchRewardModel instance
+        episodes: int = 8,
+        max_steps: int = 40,
+        epsilon_start: float = 1.0,
+        epsilon_end: float = 0.1,
+        target_update: int = 16,
+    ) -> None:
+        """
+        Like ``train_on_pair`` but the reward signal comes from ``reward_model``
+        (a StitchRewardModel) instead of SSIM so human preferences shape the
+        alignment policy.
+        """
+        if not _TORCH_OK:
+            return
+        h, w = img_ref.shape[:2]
+        step_counter = 0
+        for ep in range(episodes):
+            params = np.array([
+                np.random.uniform(-w * 0.15, w * 0.15),
+                np.random.uniform(-h * 0.15, h * 0.15),
+                1.0,
+                0.0,
+            ], dtype=np.float64)
+            warped = _warp(img_src, params, h, w)
+            # Quick horizontal blend for reward model input
+            preview = np.maximum(img_ref, warped)
+            prev_score = float(reward_model.predict(preview))
+            state = self._state_vector(img_ref, warped, self.state_dim)
+            epsilon = epsilon_start + (epsilon_end - epsilon_start) * ep / max(1, episodes - 1)
+
+            for t in range(max_steps):
+                action = self._select_action(state, epsilon)
+                axis, step = _AXIS_STEPS[action]
+                params[axis] += step
+                warped = _warp(img_src, params, h, w)
+                preview = np.maximum(img_ref, warped)
+                cur_score = float(reward_model.predict(preview))
+                reward = cur_score - prev_score
+                prev_score = cur_score
+
+                next_state = self._state_vector(img_ref, warped, self.state_dim)
+                done = bool(cur_score > 0.95 or t == max_steps - 1)
+                self.memory.append((state, action, reward, next_state, done))
+                state = next_state
+                self._trained = True
+
+                self._replay_step()
+                step_counter += 1
+                if step_counter % target_update == 0:
+                    self.target.load_state_dict(self.online.state_dict())
+                if done:
+                    break
+
     # -------------------------------------------------------------- inference
     def align(
         self,

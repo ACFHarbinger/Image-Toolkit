@@ -17,7 +17,7 @@ from backend.src.models.gan_wrapper import GanWrapper
 from backend.src.models.birefnet_wrapper import BiRefNetWrapper
 from backend.src.models.basic_wrapper import BaSiCWrapper
 from backend.src.models.loftr_wrapper import LoFTRWrapper
-from backend.src.core.anime_stitch_pipeline import AnimeStitchPipeline
+from backend.src.anim import AnimeStitchPipeline
 
 
 # Define the decorator factories needed for the merge methods
@@ -780,7 +780,7 @@ class ImageMerger:
         strategies adaptively.
         """
         logger.info(f"Starting Perfect Stitch on {len(image_paths)} frames...")
-        
+
         # Ensure input images are valid 4K
         for path in image_paths:
             with Image.open(path) as img:
