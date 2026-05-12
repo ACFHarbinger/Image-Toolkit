@@ -61,6 +61,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         self.selected_gallery_scroll: Optional[MarqueeScrollArea] = None
         self.selected_gallery_layout: Optional[QGridLayout] = None
         self.status_label: Optional[QLabel] = None
+        self.open_preview_windows: List[QWidget] = []
 
         # --- Threading ---
         self.thread_pool = QThreadPool.globalInstance()
@@ -377,6 +378,10 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         self.refresh_selected_panel()
         self.on_selection_changed()
 
+    def is_path_selected(self, path: str) -> bool:
+        """Returns True if the given path is currently selected."""
+        return path in self.selected_files
+
     def update_card_style(self, widget: QWidget, is_selected: bool):
         if hasattr(widget, "set_selected_style"):
             widget.set_selected_style(is_selected)
@@ -384,6 +389,57 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             color = "#5865f2" if is_selected else "#4f545c"
             width = "3px" if is_selected else "1px"
             widget.setStyleSheet(f"border: {width} solid {color};")
+
+    @Slot(str, str)
+    def update_preview_highlight(self, old_path: str, new_path: str):
+        """Adds a blue highlight border to the card currently being viewed in the preview window."""
+        is_closing = new_path == "WINDOW_CLOSED"
+
+        def reset_card(path, card):
+            if not card or not path:
+                return
+            try:
+                orig = card.property("original_style")
+                if orig is not None:
+                    card.setStyleSheet(orig)
+                    card.setProperty("original_style", None)
+                else:
+                    # Fallback: ensure the selection style is correct
+                    self.update_card_style(card, self.is_path_selected(path))
+            except RuntimeError:
+                pass
+
+        # 1. Restore style for the old card (found gallery and selected gallery)
+        reset_card(old_path, self.path_to_label_map.get(old_path))
+        reset_card(old_path, self.selected_card_map.get(old_path))
+
+        if is_closing:
+            sender_win = self.sender()
+            if sender_win in self.open_preview_windows:
+                self.open_preview_windows.remove(sender_win)
+            return
+
+        def highlight_card(path, card):
+            if not card or not path:
+                return
+            try:
+                # Ensure it has the correct selection state first
+                self.update_card_style(card, self.is_path_selected(path))
+
+                # Store style if not already stored
+                if card.property("original_style") is None:
+                    card.setProperty("original_style", card.styleSheet())
+
+                # Apply blue highlight border to the card wrapper
+                current = card.styleSheet().strip()
+                sep = "" if not current or current.endswith(";") else ";"
+                card.setStyleSheet(f"{current}{sep} border: 4px solid #3498db;")
+            except RuntimeError:
+                pass
+
+        # 2. Apply highlight to the new card
+        highlight_card(new_path, self.path_to_label_map.get(new_path))
+        highlight_card(new_path, self.selected_card_map.get(new_path))
 
     def _cache_get_as_pixmap(self, path: str) -> Optional[QPixmap]:
         """Retrieve a cached thumbnail as QPixmap, converting from QImage if needed."""

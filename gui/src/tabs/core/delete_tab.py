@@ -60,8 +60,6 @@ class DeleteTab(AbstractClassTwoGalleries):
         # --- State for duplicate handling ---
         self.duplicate_results: Dict[str, List[str]] = {}
 
-        self.open_preview_windows: List[ImagePreviewWindow] = []
-
         # Thread references
         self.scan_thread = None
         self.scan_worker = None
@@ -359,6 +357,11 @@ class DeleteTab(AbstractClassTwoGalleries):
         # Interaction
         card_wrapper.path_double_clicked.connect(self.open_full_preview)
         card_wrapper.path_right_clicked.connect(self.show_image_context_menu)
+
+        # Assign custom styling method for the Base class to call
+        card_wrapper.set_selected_style = lambda selected: self._update_card_style(
+            img_label, selected
+        )
 
         self._update_card_style(img_label, is_selected)
         return card_wrapper
@@ -776,21 +779,32 @@ class DeleteTab(AbstractClassTwoGalleries):
         dialog = PropertyComparisonDialog(property_list, self)
         dialog.exec()
 
-    def open_full_preview(self, path):
+    def open_full_preview(self, image_path: str):
+        # We prefer found_files if it exists in main directory, fallback to selected_files
+        full_list = self.found_files
+        target_list = full_list if full_list else list(self.selected_files)
+
+        if not target_list:
+            target_list = [image_path]
+        elif image_path not in target_list:
+            target_list.append(image_path)
+
         try:
-            start_index = self.found_files.index(path)
+            start_index = target_list.index(image_path)
         except ValueError:
             start_index = 0
-        window = ImagePreviewWindow(
-            image_path=path,
+
+        preview = ImagePreviewWindow(
+            image_path=image_path,
             db_tab_ref=None,
             parent=self,
-            all_paths=self.found_files,
+            all_paths=target_list,
             start_index=start_index,
         )
-        window.setAttribute(Qt.WA_DeleteOnClose)
-        window.show()
-        self.open_preview_windows.append(window)
+        preview.path_changed.connect(self.update_preview_highlight)
+        preview.setAttribute(Qt.WA_DeleteOnClose)
+        preview.show()
+        self.open_preview_windows.append(preview)
 
     # --- STANDARD DELETION LOGIC (Directory/File) ---
 

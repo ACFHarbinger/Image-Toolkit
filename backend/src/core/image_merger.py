@@ -1,9 +1,12 @@
 import cv2
-import gc
 import os
 import numpy as np
 import base
 import torch
+
+import yaml
+from loguru import logger
+from backend.src.utils.definitions import BACKEND_DIR
 
 from . import FSETool
 from PIL import Image
@@ -732,23 +735,7 @@ class ImageMerger:
 
     @staticmethod
     def perfect_stitch(
-        image_paths: List[str],
-        output_path: str,
-        # Legacy parameters kept for call-site compatibility — no longer used
-        # internally (the pipeline selects strategies automatically).
-        edge_crop: int = 0,
-        pyramid_levels: int = 3,
-        use_siamese: bool = True,
-        use_apap: bool = True,
-        use_lsd: bool = True,
-        use_gan: bool = True,
-        use_birefnet: bool = True,
-        # New pipeline control knobs
-        use_basic: bool = True,
-        use_loftr: bool = True,
-        use_ecc: bool = True,
-        renderer: str = "blend",  # 'blend' (robust default) | 'median' | 'first'
-        composite_fg: bool = True,
+        image_paths: List[str], output_path: str, **kwargs
     ) -> Image.Image:
         """
         High-fidelity anime panorama stitching pipeline.
@@ -792,16 +779,48 @@ class ImageMerger:
         use_lsd, use_gan) are accepted but ignored — the new pipeline selects
         strategies adaptively.
         """
-        pipeline = AnimeStitchPipeline(
-            use_basic=use_basic,
-            use_birefnet=use_birefnet,
-            use_loftr=use_loftr,
-            use_ecc=use_ecc,
-            renderer=renderer,
-            composite_fg=composite_fg,
-            laplacian_bands=pyramid_levels,
-            edge_crop=edge_crop,
-        )
+        logger.info(f"Starting Perfect Stitch on {len(image_paths)} frames...")
+        
+        # Ensure input images are valid 4K
+        for path in image_paths:
+            with Image.open(path) as img:
+                if img.width < 3840 or img.height < 2160:
+                    logger.warning(f"Image at {path} is below 4K resolution.")
+
+        # 1. Start with hardcoded system defaults
+        params = {
+            "use_basic": kwargs.get("use_basic", False),
+            "use_loftr": kwargs.get("use_loftr", True),
+            "use_ecc": kwargs.get("use_ecc", False),
+            "renderer": kwargs.get("renderer", "median"),
+            "composite_fg": kwargs.get("composite_fg", True),
+            "motion_model": kwargs.get("motion_model", "translation"),
+            "edge_crop": kwargs.get("edge_crop", 80),
+            "laplacian_bands": kwargs.get("laplacian_bands", 8),
+        }
+
+        # 2. Override with stitch.yaml (Project settings)
+        config_path = os.path.join(BACKEND_DIR, "config", "core", "stitch.yaml")
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r") as f:
+                    cfg = yaml.safe_load(f)
+                    if cfg:
+                        params.update(cfg)
+            except Exception as e:
+                logger.error(f"Error loading stitch config: {e}")
+                pass
+
+        # 3. Override with explicit function arguments (Call-site settings)
+        params.update(kwargs)
+
+        # 4. Map 'compositor' to 'renderer' if needed
+        if "compositor" in params:
+            params["renderer"] = params["compositor"]
+
+        # 5. Initialize and run the pipeline with full parameter propagation
+        pipeline = AnimeStitchPipeline(**params)
+
         return pipeline.run(image_paths, output_path)
 
     def _create_gif(

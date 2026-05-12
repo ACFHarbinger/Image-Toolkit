@@ -53,6 +53,7 @@ class MergeTab(AbstractClassTwoGalleries):
 
     def __init__(self):
         super().__init__()
+        self.found_files = []
         self.thumbnail_size = 150
 
         # --- State ---
@@ -60,8 +61,6 @@ class MergeTab(AbstractClassTwoGalleries):
         self.output_dir: str | None = None
 
         self.last_output_dir: str | None = None
-
-        self.open_preview_windows: list[ImagePreviewWindow] = []
 
         self.current_scan_thread: QThread | None = None
         self.current_scan_worker: ImageScannerWorker | None = None
@@ -659,32 +658,6 @@ class MergeTab(AbstractClassTwoGalleries):
         window.setAttribute(Qt.WA_DeleteOnClose)
         window.show()
         self.open_preview_windows.append(window)
-
-    @Slot(str, str)
-    def update_preview_highlight(self, old_path: str, new_path: str):
-        is_closing = new_path == "WINDOW_CLOSED"
-        old_card = self.path_to_label_map.get(old_path)
-        if old_card:
-            original_style = old_card.property("original_style")
-            if original_style:
-                old_card.setStyleSheet(original_style)
-            else:
-                self.update_card_style(old_card, old_path in self.selected_files)
-            old_card.setProperty("original_style", None)
-
-        if is_closing:
-            sender_win = self.sender()
-            if sender_win in self.open_preview_windows:
-                self.open_preview_windows.remove(sender_win)
-            return
-
-        new_card = self.path_to_label_map.get(new_path)
-        if new_card:
-            self.update_card_style(new_card, new_path in self.selected_files)
-            new_card.setProperty("original_style", new_card.styleSheet())
-            new_card.setStyleSheet(
-                f"{new_card.styleSheet().strip()}; border: 4px solid #3498db;"
-            )
 
     @Slot(QPoint, str)
     def show_image_context_menu(self, global_pos: QPoint, path: str):
