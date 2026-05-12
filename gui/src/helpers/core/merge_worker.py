@@ -70,6 +70,11 @@ class MergeWorker(QObject):
                     use_lsd=self.config.get("use_lsd", True),
                     use_gan=self.config.get("use_gan", True),
                     use_birefnet=self.config.get("use_birefnet", True),
+                    use_basic=self.config.get("use_basic", True),
+                    use_loftr=self.config.get("use_loftr", True),
+                    use_ecc=self.config.get("use_ecc", True),
+                    renderer=self.config.get("renderer", "blend"),
+                    composite_fg=self.config.get("composite_fg", True),
                 )
             else:
                 ImageMerger.merge_images(

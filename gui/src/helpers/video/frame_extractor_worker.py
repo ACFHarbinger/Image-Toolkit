@@ -1,6 +1,8 @@
 import os
+import re
 import cv2
 import time
+import subprocess
 
 from pathlib import Path
 from PySide6.QtCore import QRunnable, Signal, QObject
@@ -26,23 +28,34 @@ class FrameExtractionWorker(QRunnable):
         if not self.cuts_ms:
             return [(0.0, t_end - t_start)]
 
-        sorted_cuts = sorted([(max(t_start, c[0]/1000.0), min(t_end, c[1]/1000.0)) for c in self.cuts_ms])
+        sorted_cuts = sorted(
+            [
+                (max(t_start, c[0] / 1000.0), min(t_end, c[1] / 1000.0))
+                for c in self.cuts_ms
+            ]
+        )
         merged_cuts = []
         for c in sorted_cuts:
-            if c[0] >= c[1]: continue
-            if not merged_cuts: merged_cuts.append(c)
+            if c[0] >= c[1]:
+                continue
+            if not merged_cuts:
+                merged_cuts.append(c)
             else:
                 last = merged_cuts[-1]
-                if c[0] <= last[1]: merged_cuts[-1] = (last[0], max(last[1], c[1]))
-                else: merged_cuts.append(c)
+                if c[0] <= last[1]:
+                    merged_cuts[-1] = (last[0], max(last[1], c[1]))
+                else:
+                    merged_cuts.append(c)
 
         keep = []
         current = t_start
         for c_start, c_end in merged_cuts:
-            if c_start > current: keep.append((current - t_start, c_start - t_start))
+            if c_start > current:
+                keep.append((current - t_start, c_start - t_start))
             current = max(current, c_end)
 
-        if current < t_end: keep.append((current - t_start, t_end - t_start))
+        if current < t_end:
+            keep.append((current - t_start, t_end - t_start))
         return keep
 
     def __init__(
@@ -56,7 +69,7 @@ class FrameExtractionWorker(QRunnable):
         cuts_ms: Optional[list] = None,
         frame_interval: int = 1,
         smart_extract: bool = False,
-        smart_method: str = "mpdecimate (De-duplicate)"
+        smart_method: str = "mpdecimate (De-duplicate)",
     ):
         super().__init__()
         self.video_path = video_path
@@ -80,54 +93,106 @@ class FrameExtractionWorker(QRunnable):
             self._run_smart_extraction(saved_files)
             return
 
+        # --- REGULAR EXTRACTION (Replaces OpenCV with FFmpeg for robustness) ---
         try:
-            import cv2
+            video_name = Path(self.video_path).stem
+            t_start = self.start_ms / 1000.0
+
+            # Get video FPS to calculate timestamps
             cap = cv2.VideoCapture(self.video_path)
-            if not cap.isOpened():
-                self.signals.error.emit("Could not open video file.")
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            cap.release()
+
+            if fps <= 0:
+                fps = 23.976  # Fallback
+
+            cmd = ["ffmpeg", "-y", "-ss", str(t_start)]
+            if self.is_range and self.end_ms != -1:
+                duration = (self.end_ms - self.start_ms) / 1000.0
+                cmd.extend(["-t", str(duration)])
+
+            cmd.extend(["-i", self.video_path])
+
+            filters = []
+            if self.cuts_ms:
+                keep_regions = self._get_keep_regions(
+                    t_start,
+                    (self.end_ms / 1000.0 if self.end_ms != -1 else t_start + 1),
+                )
+                if keep_regions:
+                    select_expr = "+".join(
+                        [f"between(t,{r[0]},{r[1]})" for r in keep_regions]
+                    )
+                    filters.append(f"select='{select_expr}'")
+
+            if self.frame_interval > 1:
+                filters.append(f"select='not(mod(n,{self.frame_interval}))'")
+
+            if self.target_resolution:
+                w, h = self.target_resolution
+                filters.append(f"scale={w}:{h}:flags=lanczos")
+
+            if filters:
+                cmd.extend(["-vf", ",".join(filters)])
+
+            # Single frame optimization
+            if not self.is_range:
+                cmd.extend(["-vframes", "1"])
+
+            cmd.extend(
+                [
+                    "-sws_flags",
+                    "spline+accurate_rnd+full_chroma_int",
+                    "-vsync",
+                    "vfr",
+                    "-q:v",
+                    "2",
+                ]
+            )
+
+            out_pattern = os.path.join(self.output_dir, f"{video_name}_tmp_%05d.png")
+            cmd.append(out_pattern)
+
+            process = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
+            while process.poll() is None:
+                if self._is_cancelled:
+                    process.terminate()
+                    return
+                self.signals.progress.emit(50)
+                time.sleep(0.5)
+
+            if process.returncode != 0:
+                self.signals.error.emit(f"FFmpeg failed: {process.stderr.read()}")
                 return
 
-            cap.set(cv2.CAP_PROP_POS_MSEC, self.start_ms)
-            video_name = Path(self.video_path).stem
+            # Rename temp files to timestamp-based names
+            tmp_files = sorted(
+                [
+                    f
+                    for f in os.listdir(self.output_dir)
+                    if f.startswith(f"{video_name}_tmp_") and f.endswith(".png")
+                ]
+            )
+            for i, f in enumerate(tmp_files):
+                # Calculate approximate MS
+                # Frame N (0-indexed) at start_ms + (N * interval * 1000 / fps)
+                current_ms = self.start_ms + int(
+                    i * self.frame_interval * (1000.0 / fps)
+                )
+                new_name = f"{video_name}_{current_ms}ms.png"
 
-            total_duration_ms = self.end_ms - self.start_ms if (self.is_range and self.end_ms != -1) else -1
-            frame_count = 0
+                # Check for duplicates if multiple extractions land on same ms
+                final_path = os.path.join(self.output_dir, new_name)
+                if os.path.exists(final_path):
+                    final_path = os.path.join(
+                        self.output_dir, f"{video_name}_{current_ms}ms_{i}.png"
+                    )
 
-            while not self._is_cancelled:
-                ret, frame = cap.read()
-                if not ret: break
+                os.rename(os.path.join(self.output_dir, f), final_path)
+                saved_files.append(final_path)
 
-                current_ms = cap.get(cv2.CAP_PROP_POS_MSEC)
-                frame_count += 1
-
-                if self.frame_interval > 1 and (frame_count - 1) % self.frame_interval != 0:
-                    continue
-
-                if total_duration_ms > 0:
-                    progress = int(((current_ms - self.start_ms) / total_duration_ms) * 100)
-                    self.signals.progress.emit(min(100, max(0, progress)))
-
-                in_cut = False
-                for c_start, c_end in self.cuts_ms:
-                    if c_start <= current_ms <= c_end:
-                        in_cut = True; break
-                if in_cut: continue
-
-                if self.target_resolution:
-                    # Change 3: INTER_AREA is for downscaling. For upscaling or general high-fidelity, use LANCZOS4
-                    frame = cv2.resize(frame, self.target_resolution, interpolation=cv2.INTER_LANCZOS4)
-
-                filename = f"{video_name}_{int(current_ms)}ms.png"
-                save_path = os.path.join(self.output_dir, filename)
-
-                # Level 3 is a good balance between speed and filesize for uncompressed arrays for lossless PNG compression
-                cv2.imwrite(save_path, frame, [cv2.IMWRITE_PNG_COMPRESSION, 3])
-                saved_files.append(save_path)
-
-                if not self.is_range: break
-                if self.end_ms != -1 and current_ms >= self.end_ms: break
-
-            cap.release()
             self.signals.progress.emit(100)
             self.signals.finished.emit(saved_files)
 
@@ -136,7 +201,6 @@ class FrameExtractionWorker(QRunnable):
 
     def _run_smart_extraction(self, saved_files):
         try:
-            import subprocess
             video_name = Path(self.video_path).stem
             t_start = self.start_ms / 1000.0
             t_end = self.end_ms / 1000.0
@@ -151,7 +215,9 @@ class FrameExtractionWorker(QRunnable):
             filters = []
             keep_regions = self._get_keep_regions(t_start, t_end)
             if self.cuts_ms and keep_regions:
-                select_expr = "+".join([f"between(t,{r[0]},{r[1]})" for r in keep_regions])
+                select_expr = "+".join(
+                    [f"between(t,{r[0]},{r[1]})" for r in keep_regions]
+                )
                 filters.append(f"select='{select_expr}'")
 
             if self.frame_interval > 1:
@@ -160,7 +226,6 @@ class FrameExtractionWorker(QRunnable):
             if "mpdecimate" in self.smart_method:
                 filters.append("mpdecimate")
             elif "scene" in self.smart_method:
-                import re
                 match = re.search(r"\((.*?)\)", self.smart_method)
                 val = match.group(1) if match else "0.4"
                 filters.append(f"select='gt(scene,{val})'")
@@ -172,21 +237,30 @@ class FrameExtractionWorker(QRunnable):
             if filters:
                 cmd.extend(["-vf", ",".join(filters)])
 
-            cmd.extend([
-                "-sws_flags", "spline+accurate_rnd+full_chroma_int",
-                "-pix_fmt", "rgb48be", # 16-bit RGB to prevent 10-bit banding
-                "-vsync", "vfr", 
-                "-frame_pts", "1"
-            ])
+            cmd.extend(
+                [
+                    "-sws_flags",
+                    "spline+accurate_rnd+full_chroma_int",
+                    "-pix_fmt",
+                    "rgb48be",  # 16-bit RGB to prevent 10-bit banding
+                    "-vsync",
+                    "vfr",
+                    "-frame_pts",
+                    "1",
+                ]
+            )
             out_pattern = os.path.join(self.output_dir, f"{video_name}_smart_%05d.png")
             cmd.append(out_pattern)
 
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            process = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
             while process.poll() is None:
                 if self._is_cancelled:
-                    process.terminate(); return
+                    process.terminate()
+                    return
                 self.signals.progress.emit(50)
-                import time; time.sleep(0.5)
+                time.sleep(0.5)
 
             if process.returncode != 0:
                 self.signals.error.emit(f"FFmpeg failed: {process.stderr.read()}")

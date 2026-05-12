@@ -747,7 +747,7 @@ class ImageMerger:
         use_basic: bool = True,
         use_loftr: bool = True,
         use_ecc: bool = True,
-        renderer: str = "median",
+        renderer: str = "blend",  # 'blend' (robust default) | 'median' | 'first'
         composite_fg: bool = True,
     ) -> Image.Image:
         """
@@ -777,14 +777,16 @@ class ImageMerger:
         ----------
         image_paths   : ordered list of frame paths.
         output_path   : destination file (PNG or WEBP).
+        edge_crop     : pixels to crop from left/right sides (prevents vignette artifacts).
+        pyramid_levels: number of Laplacian bands (default 8 for 4K smoothness).
         use_birefnet  : enable BiRefNet/ToonOut foreground masking.
         use_basic     : enable BaSiC broadcast-dimming correction.
         use_loftr     : enable LoFTR feature matching (falls back to template if False).
         use_ecc       : enable pyramid ECC sub-pixel refinement.
-        renderer      : 'median' (Overmix temporal denoising, recommended) |
-                        'blend'  (sequential Laplacian seam, closest to SCANS) |
+        renderer      : 'blend'  (sequential Laplacian seam, robust) |
+                        'median' (Overmix temporal denoising) |
                         'first'  (fast, no blending).
-        composite_fg  : re-paste the foreground character on the median background.
+        composite_fg  : re-paste the foreground character on the background.
 
         Legacy parameters (edge_crop, pyramid_levels, use_siamese, use_apap,
         use_lsd, use_gan) are accepted but ignored — the new pipeline selects
@@ -797,6 +799,8 @@ class ImageMerger:
             use_ecc=use_ecc,
             renderer=renderer,
             composite_fg=composite_fg,
+            laplacian_bands=pyramid_levels,
+            edge_crop=edge_crop,
         )
         return pipeline.run(image_paths, output_path)
 
