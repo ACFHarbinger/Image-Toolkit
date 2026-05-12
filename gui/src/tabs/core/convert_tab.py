@@ -40,7 +40,6 @@ class ConvertTab(AbstractClassTwoGalleries):
         super().__init__()
         self.dropdown = dropdown
         self.worker = None
-        self.open_preview_windows: List[ImagePreviewWindow] = []
 
         # --- UI Setup ---
         main_layout = QVBoxLayout(self)
@@ -593,14 +592,8 @@ class ConvertTab(AbstractClassTwoGalleries):
             all_paths=target_list,
             start_index=start_index,
         )
+        preview.path_changed.connect(self.update_preview_highlight)
         preview.setAttribute(Qt.WA_DeleteOnClose)
-
-        def remove_preview(e):
-            if preview in self.open_preview_windows:
-                self.open_preview_windows.remove(preview)
-            e.accept()
-
-        preview.closeEvent = remove_preview
         preview.show()
         self.open_preview_windows.append(preview)
 

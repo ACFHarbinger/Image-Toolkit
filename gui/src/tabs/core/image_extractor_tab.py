@@ -105,7 +105,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.duration_ms = 0
         self.extractor_worker: Optional[FrameExtractionWorker] = None
         self.vid_scanner_worker: Optional[VideoScannerWorker] = None
-        self.open_image_preview_windows: List[QWidget] = []
+        self.open_preview_windows: List[QWidget] = []
 
         # Reference for the progress dialog and active workers
         self.progress_dialog: Optional[QProgressDialog] = None
@@ -756,12 +756,12 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.vid_scanner_worker.stop()
 
         # Close sub-windows
-        for win in list(self.open_image_preview_windows):
+        for win in list(self.open_preview_windows):
             try:
                 win.close()
             except Exception:
                 pass
-        self.open_image_preview_windows.clear()
+        self.open_preview_windows.clear()
 
     def closeEvent(self, event):
         """Cleanup processes on close."""
@@ -1250,6 +1250,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.video_view.setFixedSize(w, h)
             self.fit_video_in_view()
 
+    def is_path_selected(self, path: str) -> bool:
+        return path in self.selected_paths
+
     # --- Gallery & Selection Logic (Extracted Frames) ---
     def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
         container = QWidget()
@@ -1257,6 +1260,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(1)
+
+        # Assign custom styling method for the Base class to call
+        container.set_selected_style = lambda selected: self._style_label(
+            clickable_label, selected
+        )
 
         clickable_label = ClickableLabel(file_path=path)
         clickable_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
@@ -1392,14 +1400,14 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 print(f"Error opening video: {e}")
             return
 
-        for win in list(self.open_image_preview_windows):
+        for win in list(self.open_preview_windows):
             try:
                 if isinstance(win, ImagePreviewWindow) and win.image_path == image_path:
                     win.activateWindow()
                     return
             except RuntimeError:
-                if win in self.open_image_preview_windows:
-                    self.open_image_preview_windows.remove(win)
+                if win in self.open_preview_windows:
+                    self.open_preview_windows.remove(win)
 
         all_paths_list = self.current_extracted_paths
         try:
@@ -1415,17 +1423,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             all_paths=all_paths_list,
             start_index=start_index,
         )
+        window.path_changed.connect(self.update_preview_highlight)
         window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        window.closeEvent = lambda e: (
-            (
-                self.open_image_preview_windows.remove(window)
-                if window in self.open_image_preview_windows
-                else None
-            ),
-            e.accept(),
-        )
         window.show()
-        self.open_image_preview_windows.append(window)
+        self.open_preview_windows.append(window)
 
     @Slot(QPoint, str)
     def show_image_context_menu(self, global_pos: QPoint, path: str):

@@ -72,6 +72,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         # --- UI References ---
         self.gallery_scroll_area: Optional[QScrollArea] = None
         self.gallery_layout: Optional[QGridLayout] = None
+        self.open_preview_windows: List[QWidget] = []
 
         # --- Lazy Loading State ---
         self._loading_paths = set()
@@ -180,9 +181,9 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
 
         self.on_selection_changed()
 
-    def on_selection_changed(self):
-        """Hook for subclasses to handle selection changes."""
-        pass
+    def is_path_selected(self, path: str) -> bool:
+        """Returns True if the given path is currently selected."""
+        return path in self.selected_files
 
     def update_card_style(self, widget: QWidget, is_selected: bool):
         """Updates the visual style of a card based on selection state."""
@@ -205,6 +206,47 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
                 label.setStyleSheet(
                     "border: 1px solid #4f545c; background-color: transparent;"
                 )
+
+    @Slot(str, str)
+    def update_preview_highlight(self, old_path: str, new_path: str):
+        """Adds a blue highlight border to the card currently being viewed in the preview window."""
+        is_closing = new_path == "WINDOW_CLOSED"
+
+        def reset_card(path, card):
+            if not card or not path:
+                return
+            try:
+                orig = card.property("original_style")
+                if orig is not None:
+                    card.setStyleSheet(orig)
+                    card.setProperty("original_style", None)
+                else:
+                    self.update_card_style(card, self.is_path_selected(path))
+            except RuntimeError:
+                pass
+
+        reset_card(old_path, self.path_to_card_widget.get(old_path))
+
+        if is_closing:
+            sender_win = self.sender()
+            if sender_win in self.open_preview_windows:
+                self.open_preview_windows.remove(sender_win)
+            return
+
+        def highlight_card(path, card):
+            if not card or not path:
+                return
+            try:
+                self.update_card_style(card, self.is_path_selected(path))
+                if card.property("original_style") is None:
+                    card.setProperty("original_style", card.styleSheet())
+                current = card.styleSheet().strip()
+                sep = "" if not current or current.endswith(";") else ";"
+                card.setStyleSheet(f"{current}{sep} border: 4px solid #3498db;")
+            except RuntimeError:
+                pass
+
+        highlight_card(new_path, self.path_to_card_widget.get(new_path))
 
     def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
         container = QWidget()
