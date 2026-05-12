@@ -34,6 +34,7 @@ class MainWindow(QWidget):
             ImageExtractorTab,
             ListingsTab,
             MergeTab,
+            StitchFeedbackTab,
             ImageCrawlTab,
             DriveSyncTab,
             WallpaperTab,
@@ -163,6 +164,7 @@ class MainWindow(QWidget):
         self.inference_tab = MetaCLIPInferenceTab()
         self.comfyui_tab = ComfyUITab(enable_manager=enable_manager)
         self.stitch_tab = EditTab()
+        self.stitch_feedback_tab = StitchFeedbackTab()
 
         # --- LINK TABS (Critical for Cross-Tab Communication) ---
         self.database_tab.scan_tab_ref = self.scan_metadata_tab
@@ -198,6 +200,7 @@ class MainWindow(QWidget):
                 "Inference": self.inference_tab,
                 "ComfyUI": self.comfyui_tab,
                 "Edit": self.stitch_tab,
+                "Stitch Feedback": self.stitch_feedback_tab,
             },
         }
 

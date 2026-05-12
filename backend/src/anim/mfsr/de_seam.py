@@ -13,7 +13,7 @@ import cv2
 import numpy as np
 
 from ..constants import DE_CR, DE_F, DE_MAX_GEN, DE_POP_SIZE
-from ..utils import _seam_dp
+from ..stateless import _seam_dp
 
 
 def _energy_map(img_a: np.ndarray, img_b: np.ndarray) -> np.ndarray:
