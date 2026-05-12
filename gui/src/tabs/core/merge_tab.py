@@ -224,8 +224,8 @@ class MergeTab(AbstractClassTwoGalleries):
 
         self.lbl_pyramid_levels = QLabel("Pyramid Levels:")
         self.pyramid_levels_spinbox = QSpinBox()
-        self.pyramid_levels_spinbox.setRange(0, 500)
-        self.pyramid_levels_spinbox.setValue(4)
+        self.pyramid_levels_spinbox.setRange(1, 12)
+        self.pyramid_levels_spinbox.setValue(8)
         self.pyramid_levels_spinbox.setToolTip(
             "Width of the linear alpha blend at the overlap seams."
         )
@@ -269,6 +269,27 @@ class MergeTab(AbstractClassTwoGalleries):
             "Detects characters to avoid cutting through them during seam routing."
         )
 
+        # Renderer Selection
+        self.renderer_combo = QComboBox()
+        self.renderer_combo.addItems(["blend", "median", "first"])
+        self.renderer_combo.setToolTip("blend: Multi-band seamless (robust)\nmedian: Temporal denoising (sharpest)\nfirst: No blending (fast)")
+        
+        self.use_basic_checkbox = QCheckBox("Use BaSiC (Luma Correction)")
+        self.use_basic_checkbox.setChecked(True)
+        self.use_loftr_checkbox = QCheckBox("Use LoFTR (Dense Matching)")
+        self.use_loftr_checkbox.setChecked(True)
+        self.use_ecc_checkbox = QCheckBox("Use ECC (Sub-pixel Align)")
+        self.use_ecc_checkbox.setChecked(True)
+        self.composite_fg_checkbox = QCheckBox("Composite Foreground")
+        self.composite_fg_checkbox.setChecked(True)
+
+        ai_layout.addWidget(QLabel("Renderer:"))
+        ai_layout.addWidget(self.renderer_combo)
+        ai_layout.addWidget(self.use_basic_checkbox)
+        ai_layout.addWidget(self.use_loftr_checkbox)
+        ai_layout.addWidget(self.use_ecc_checkbox)
+        ai_layout.addWidget(self.composite_fg_checkbox)
+        
         ai_layout.addWidget(self.use_siamese_checkbox)
         ai_layout.addWidget(self.use_apap_checkbox)
         ai_layout.addWidget(self.use_lsd_checkbox)
@@ -1125,6 +1146,11 @@ class MergeTab(AbstractClassTwoGalleries):
             "use_lsd": self.use_lsd_checkbox.isChecked(),
             "use_gan": self.use_gan_checkbox.isChecked(),
             "use_birefnet": self.use_birefnet_checkbox.isChecked(),
+            "use_basic": self.use_basic_checkbox.isChecked(),
+            "use_loftr": self.use_loftr_checkbox.isChecked(),
+            "use_ecc": self.use_ecc_checkbox.isChecked(),
+            "renderer": self.renderer_combo.currentText(),
+            "composite_fg": self.composite_fg_checkbox.isChecked(),
             "selected_files": list(self.selected_files),
         }
 

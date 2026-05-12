@@ -1,5 +1,4 @@
 import os
-import datetime
 import subprocess
 
 from pathlib import Path
@@ -49,6 +48,7 @@ from backend.src.utils.definitions import LOCAL_SOURCE_PATH, SUPPORTED_VIDEO_FOR
 
 class CutLabel(QLabel):
     """A small interactive label for individual cuts that supports right-click."""
+
     right_clicked = Signal(QPoint, int)  # global_pos, index
 
     def __init__(self, text, index, parent=None):
@@ -69,7 +69,8 @@ class CutLabel(QLabel):
 
 class TagLabel(QLabel):
     """A small interactive label for individual tags that supports clicking to jump and right-click to edit/delete."""
-    clicked = Signal(int) # position_ms
+
+    clicked = Signal(int)  # position_ms
     right_clicked = Signal(QPoint, int)  # global_pos, index
 
     def __init__(self, text, ms, index, parent=None):
@@ -455,7 +456,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         )
         self.btn_cancel_extraction.clicked.connect(self.cancel_extraction)
         self.btn_cancel_extraction.hide()
-        
+
         self.btn_set_start = QPushButton("Set Start [00:00]")
         self.btn_set_start.clicked.connect(self.set_range_start)
         self.btn_set_start.setEnabled(False)
@@ -523,10 +524,14 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.cuts_scroll.setWidgetResizable(True)
         self.cuts_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.cuts_scroll.setMaximumHeight(45)
-        self.cuts_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self.cuts_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.cuts_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self.cuts_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
         self.cuts_scroll.setStyleSheet("background: transparent;")
-        
+
         self.cuts_container = QWidget()
         self.cuts_container.setStyleSheet("background: transparent;")
         self.cuts_layout = QHBoxLayout(self.cuts_container)
@@ -534,7 +539,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.cuts_layout.setSpacing(8)
         self.cuts_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.cuts_scroll.setWidget(self.cuts_container)
-        
+
         self.btn_clear_cuts = QPushButton("Clear Cuts")
         self.btn_clear_cuts.clicked.connect(self.clear_cuts)
         self.btn_clear_cuts.setEnabled(False)
@@ -542,7 +547,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         extract_cuts_layout.addWidget(self.btn_set_cut_start)
         extract_cuts_layout.addWidget(self.btn_set_cut_end)
         extract_cuts_layout.addWidget(self.btn_add_cut)
-        extract_cuts_layout.addWidget(self.cuts_scroll, 1) # Give it stretch
+        extract_cuts_layout.addWidget(self.cuts_scroll, 1)  # Give it stretch
         extract_cuts_layout.addWidget(self.btn_clear_cuts)
         extract_cuts_layout.addStretch()
 
@@ -559,11 +564,21 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         extract_adv_layout.addSpacing(20)
         self.check_smart_extract = QCheckBox("Smart Extract (FFmpeg)")
-        self.check_smart_extract.setToolTip("Use FFmpeg filters to only extract unique frames or scene changes")
+        self.check_smart_extract.setToolTip(
+            "Use FFmpeg filters to only extract unique frames or scene changes"
+        )
         extract_adv_layout.addWidget(self.check_smart_extract)
 
         self.combo_smart_method = QComboBox()
-        self.combo_smart_method.addItems(["mpdecimate (De-duplicate)", "scene (0.1)", "scene (0.2)", "scene (0.4)", "scene (0.6)"])
+        self.combo_smart_method.addItems(
+            [
+                "mpdecimate (De-duplicate)",
+                "scene (0.1)",
+                "scene (0.2)",
+                "scene (0.4)",
+                "scene (0.6)",
+            ]
+        )
         self.combo_smart_method.setCurrentText("mpdecimate (De-duplicate)")
         self.combo_smart_method.setEnabled(False)
         self.check_smart_extract.toggled.connect(self.combo_smart_method.setEnabled)
@@ -583,13 +598,19 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.tags_scroll.setWidgetResizable(True)
         self.tags_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.tags_scroll.setMaximumHeight(45)
-        self.tags_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self.tags_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.tags_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self.tags_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
         self.tags_scroll.setStyleSheet("background: transparent;")
 
-        self.tags_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.tags_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
         self.tags_scroll.setStyleSheet("background: transparent;")
-        
+
         self.tags_container = QWidget()
         self.tags_container.setStyleSheet("background: transparent;")
         self.tags_layout = QHBoxLayout(self.tags_container)
@@ -597,7 +618,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.tags_layout.setSpacing(8)
         self.tags_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.tags_scroll.setWidget(self.tags_container)
-        
+
         self.btn_clear_tags = QPushButton("Clear Tags")
         self.btn_clear_tags.clicked.connect(self.clear_tags)
         self.btn_clear_tags.setEnabled(False)
@@ -944,7 +965,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             else:
                 clickable_label.setText("No Preview")
 
-        self._update_source_label_style(path, clickable_label, getattr(self, "video_path", None) == path)
+        self._update_source_label_style(
+            path, clickable_label, getattr(self, "video_path", None) == path
+        )
 
     @Slot(QPoint, str)
     def show_source_context_menu(self, global_pos: QPoint, path: str):
@@ -956,7 +979,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     def _has_extracted_files(self, video_path: str) -> bool:
         """Check if the video has extracted files in the output directory."""
-        if not hasattr(self, "extraction_dir") or not self.extraction_dir or not self.extraction_dir.exists():
+        if (
+            not hasattr(self, "extraction_dir")
+            or not self.extraction_dir
+            or not self.extraction_dir.exists()
+        ):
             return False
         stem = Path(video_path).stem
         try:
@@ -967,26 +994,40 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             pass
         return False
 
-    def _update_source_label_style(self, path: str, label: ClickableLabel, selected: bool):
+    def _update_source_label_style(
+        self, path: str, label: ClickableLabel, selected: bool
+    ):
         has_extracted = self._has_extracted_files(path)
-        
+
         if selected:
             label.setStyleSheet("border: 3px solid #3498db; border-radius: 4px;")
         else:
             if label.text() == "VIDEO":
                 if has_extracted:
-                    label.setStyleSheet("border: 2px solid #2ecc71; color: #2ecc71; font-weight: bold; background-color: #2c2f33; border-radius: 4px;")
+                    label.setStyleSheet(
+                        "border: 2px solid #2ecc71; color: #2ecc71; font-weight: bold; background-color: #2c2f33; border-radius: 4px;"
+                    )
                 else:
-                    label.setStyleSheet("border: 2px solid #3498db; color: #3498db; font-weight: bold; background-color: #2c2f33; border-radius: 4px;")
+                    label.setStyleSheet(
+                        "border: 2px solid #3498db; color: #3498db; font-weight: bold; background-color: #2c2f33; border-radius: 4px;"
+                    )
             elif label.text() == "No Preview":
-                label.setStyleSheet("border: 1px dashed #666; color: #888; border-radius: 4px;")
+                label.setStyleSheet(
+                    "border: 1px dashed #666; color: #888; border-radius: 4px;"
+                )
             elif label.text() == "Loading...":
-                label.setStyleSheet("border: 1px dashed #666; color: #888; font-size: 10px; border-radius: 4px;")
+                label.setStyleSheet(
+                    "border: 1px dashed #666; color: #888; font-size: 10px; border-radius: 4px;"
+                )
             else:
                 if has_extracted:
-                    label.setStyleSheet("border: 2px solid #2ecc71; border-radius: 4px;")
+                    label.setStyleSheet(
+                        "border: 2px solid #2ecc71; border-radius: 4px;"
+                    )
                 else:
-                    label.setStyleSheet("border: 2px solid #4f545c; border-radius: 4px;")
+                    label.setStyleSheet(
+                        "border: 2px solid #4f545c; border-radius: 4px;"
+                    )
 
     @Slot(str)
     def load_media(self, file_path: str):
@@ -1034,11 +1075,13 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.line_edit_extract_dir.setText(str(self.extraction_dir))
             self._clear_gallery()
             self._load_existing_output_images()
-            
+
             for path, widget in self.source_path_to_widget.items():
                 label = widget.findChild(ClickableLabel)
                 if label:
-                    self._update_source_label_style(path, label, path == getattr(self, "video_path", None))
+                    self._update_source_label_style(
+                        path, label, path == getattr(self, "video_path", None)
+                    )
 
     def _clear_gallery(self):
         self.current_extracted_paths.clear()
@@ -1056,7 +1099,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         self.btn_set_start.setText("Set Start [00:00:000]")
         self.btn_set_end.setText("Set End [00:00:000]")
-        
+
         self.btn_set_cut_start.setText("Set Cut Start [00:00]")
         self.btn_set_cut_end.setText("Set Cut End [00:00]")
         self.btn_add_cut.setEnabled(False)
@@ -1150,7 +1193,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                         self.media_player.setPosition(new_pos)
                         return True
                     elif event.key() == Qt.Key.Key_Escape:
-                        if self.player_container and self.player_container.isFullScreen():
+                        if (
+                            self.player_container
+                            and self.player_container.isFullScreen()
+                        ):
                             self.toggle_fullscreen()
                             return True
 
@@ -1606,7 +1652,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.btn_set_cut_end.setText("Set Cut End [00:00]")
             self.btn_add_cut.setEnabled(False)
             self._update_cuts_label()
-            
+
     @Slot()
     def clear_cuts(self):
         self.cuts_ms.clear()
@@ -1632,30 +1678,38 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 label = CutLabel(cut_text, i)
                 label.right_clicked.connect(self.show_cut_context_menu)
                 self.cuts_layout.addWidget(label)
-        
+
         self.cuts_layout.addStretch()
         self._validate_range()
 
     @Slot(QPoint, int)
     def show_cut_context_menu(self, global_pos: QPoint, index: int):
         menu = QMenu(self)
-        
+
         edit_start_action = QAction("Edit Start Timestamp", self)
-        edit_start_action.triggered.connect(lambda: self.edit_cut_timestamp(index, is_start=True))
+        edit_start_action.triggered.connect(
+            lambda: self.edit_cut_timestamp(index, is_start=True)
+        )
         menu.addAction(edit_start_action)
 
         edit_end_action = QAction("Edit End Timestamp", self)
-        edit_end_action.triggered.connect(lambda: self.edit_cut_timestamp(index, is_start=False))
+        edit_end_action.triggered.connect(
+            lambda: self.edit_cut_timestamp(index, is_start=False)
+        )
         menu.addAction(edit_end_action)
 
         menu.addSeparator()
 
         jump_start_action = QAction("Jump to Start", self)
-        jump_start_action.triggered.connect(lambda: self.jump_to_cut_time(index, is_start=True))
+        jump_start_action.triggered.connect(
+            lambda: self.jump_to_cut_time(index, is_start=True)
+        )
         menu.addAction(jump_start_action)
 
         jump_end_action = QAction("Jump to End", self)
-        jump_end_action.triggered.connect(lambda: self.jump_to_cut_time(index, is_start=False))
+        jump_end_action.triggered.connect(
+            lambda: self.jump_to_cut_time(index, is_start=False)
+        )
         menu.addAction(jump_end_action)
 
         menu.addSeparator()
@@ -1670,10 +1724,16 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             current_start, current_end = self.cuts_ms[index]
             current_val = current_start if is_start else current_end
             formatted = self._format_time(current_val)
-            
-            label_text = "New Start Time (MM:SS:mmm):" if is_start else "New End Time (MM:SS:mmm):"
-            new_time_str, ok = QInputDialog.getText(self, "Edit Cut", label_text, text=formatted)
-            
+
+            label_text = (
+                "New Start Time (MM:SS:mmm):"
+                if is_start
+                else "New End Time (MM:SS:mmm):"
+            )
+            new_time_str, ok = QInputDialog.getText(
+                self, "Edit Cut", label_text, text=formatted
+            )
+
             if ok and new_time_str:
                 new_ms = self._parse_time(new_time_str)
                 if new_ms is not None:
@@ -1681,15 +1741,27 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                         if new_ms < current_end:
                             self.cuts_ms[index] = (new_ms, current_end)
                         else:
-                            QMessageBox.warning(self, "Invalid Time", "Start time must be before end time.")
+                            QMessageBox.warning(
+                                self,
+                                "Invalid Time",
+                                "Start time must be before end time.",
+                            )
                     else:
                         if new_ms > current_start:
                             self.cuts_ms[index] = (current_start, new_ms)
                         else:
-                            QMessageBox.warning(self, "Invalid Time", "End time must be after start time.")
+                            QMessageBox.warning(
+                                self,
+                                "Invalid Time",
+                                "End time must be after start time.",
+                            )
                     self._update_cuts_label()
                 else:
-                    QMessageBox.warning(self, "Invalid Format", "Please use MM:SS:mmm, MM:SS, or SS formats.")
+                    QMessageBox.warning(
+                        self,
+                        "Invalid Format",
+                        "Please use MM:SS:mmm, MM:SS, or SS formats.",
+                    )
 
     def jump_to_cut_time(self, index: int, is_start: bool):
         if 0 <= index < len(self.cuts_ms):
@@ -1706,13 +1778,13 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def add_tag(self):
         current_ms = self.media_player.position()
         formatted = self._format_time(current_ms)
-        
+
         label, ok = QInputDialog.getText(
             self, "Add Tag", f"Enter label for tag at {formatted}:", text="Tag"
         )
         if ok and label:
             self.tags_ms.append((current_ms, label))
-            self.tags_ms.sort(key=lambda x: x[0]) # Keep sorted by time
+            self.tags_ms.sort(key=lambda x: x[0])  # Keep sorted by time
             self._update_tags_ui()
 
     @Slot()
@@ -1741,9 +1813,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 label.clicked.connect(self.jump_to_tag_time)
                 label.right_clicked.connect(self.show_tag_context_menu)
                 self.tags_layout.addWidget(label)
-        
+
         self.tags_layout.addStretch()
-        
+
         has_tags = len(self.tags_ms) > 0
         self.btn_clear_tags.setEnabled(has_tags)
 
@@ -1755,12 +1827,16 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             return
 
         menu = QMenu(self)
-        menu.setStyleSheet("QMenu { background-color: #1e1f22; color: white; border: 1px solid #4f545c; }")
-        
+        menu.setStyleSheet(
+            "QMenu { background-color: #1e1f22; color: white; border: 1px solid #4f545c; }"
+        )
+
         # 1. Jump to Tag Submenu
         if self.tags_ms:
             jump_menu = menu.addMenu("📍 Jump to Tag")
-            jump_menu.setStyleSheet("QMenu { background-color: #1e1f22; color: #FFC107; }")
+            jump_menu.setStyleSheet(
+                "QMenu { background-color: #1e1f22; color: #FFC107; }"
+            )
             for ms, label in self.tags_ms:
                 action = QAction(f"{label} ({self._format_time(ms)})", self)
                 action.triggered.connect(lambda _, m=ms: self.jump_to_tag_time(m))
@@ -1771,7 +1847,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         add_tag_action = QAction("🏷️ Add Tag Here", self)
         add_tag_action.triggered.connect(self.add_tag)
         menu.addAction(add_tag_action)
-        
+
         # 3. Range actions
         set_start_action = QAction("🎞️ Set Range Start", self)
         set_start_action.triggered.connect(self.set_range_start)
@@ -1804,9 +1880,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     @Slot(QPoint, int)
     def show_tag_context_menu(self, global_pos: QPoint, index: int):
         menu = QMenu(self)
-        
+
         jump_action = QAction("📍 Jump to Tag", self)
-        jump_action.triggered.connect(lambda: self.jump_to_tag_time(self.tags_ms[index][0]))
+        jump_action.triggered.connect(
+            lambda: self.jump_to_tag_time(self.tags_ms[index][0])
+        )
         menu.addAction(jump_action)
         menu.addSeparator()
 
@@ -1817,14 +1895,14 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         delete_action = QAction("Delete Tag", self)
         delete_action.triggered.connect(lambda: self.delete_tag(index))
         menu.addAction(delete_action)
-        
+
         menu.exec(global_pos)
 
     def edit_tag(self, index: int):
         if 0 <= index < len(self.tags_ms):
             ms, label = self.tags_ms[index]
             formatted_time = self._format_time(ms)
-            
+
             new_label, ok = QInputDialog.getText(
                 self, "Edit Tag", f"Label for tag at {formatted_time}:", text=label
             )
@@ -1832,7 +1910,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 # Also allow editing time? Let's just do label for now as it's easier.
                 # Actually, editing time would be good too.
                 new_time_str, ok_time = QInputDialog.getText(
-                    self, "Edit Tag Time", f"Time for '{new_label}':", text=formatted_time
+                    self,
+                    "Edit Tag Time",
+                    f"Time for '{new_label}':",
+                    text=formatted_time,
                 )
                 if ok_time and new_time_str:
                     new_ms = self._parse_time(new_time_str)
@@ -1841,7 +1922,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                         self.tags_ms.sort(key=lambda x: x[0])
                         self._update_tags_ui()
                     else:
-                        QMessageBox.warning(self, "Invalid Format", "Invalid time format.")
+                        QMessageBox.warning(
+                            self, "Invalid Format", "Invalid time format."
+                        )
 
     def delete_tag(self, index: int):
         if 0 <= index < len(self.tags_ms):
@@ -1851,18 +1934,18 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def _validate_range(self):
         if self.end_time_ms > self.start_time_ms:
             total_duration_ms = self.end_time_ms - self.start_time_ms
-            
+
             # Subtract cut durations
             cut_duration_ms = 0
             for c_start, c_end in self.cuts_ms:
                 overlap_start = max(self.start_time_ms, c_start)
                 overlap_end = min(self.end_time_ms, c_end)
                 if overlap_end > overlap_start:
-                    cut_duration_ms += (overlap_end - overlap_start)
-                    
+                    cut_duration_ms += overlap_end - overlap_start
+
             actual_duration_ms = max(0, total_duration_ms - cut_duration_ms)
             duration_str = self._format_time(actual_duration_ms)
-            
+
             self.btn_extract_range.setEnabled(True)
             self.btn_extract_range.setText(f"Extract Range ({duration_str})")
             self.btn_extract_gif.setEnabled(True)
@@ -1942,7 +2025,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.btn_set_end.setEnabled(enabled and self.video_path is not None)
         self.btn_set_cut_start.setEnabled(enabled and self.video_path is not None)
         self.btn_set_cut_end.setEnabled(enabled and self.video_path is not None)
-        
+
         # We handle btn_add_cut and btn_clear_cuts logic independently based on internal states
         # but if we disable extraction entirely, disable those too
         if not enabled:
@@ -1951,7 +2034,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         else:
             self._validate_cut_range()
             self._update_cuts_label()
-            
+
         self.btn_extract_range.setEnabled(
             enabled and self.end_time_ms > self.start_time_ms
         )
@@ -1970,7 +2053,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.btn_extract_range.setVisible(enabled)
         self.btn_extract_video.setVisible(enabled)
         self.btn_extract_gif.setVisible(enabled)
-        
+
         self.btn_cancel_extraction.setVisible(not enabled)
         if not enabled:
             self.btn_cancel_extraction.setEnabled(True)
@@ -2037,12 +2120,14 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             cuts_ms=self.cuts_ms,
             frame_interval=self.spin_interval.value(),
             smart_extract=self.check_smart_extract.isChecked(),
-            smart_method=self.combo_smart_method.currentText()
+            smart_method=self.combo_smart_method.currentText(),
         )
         self.active_extraction_worker.signals.progress.connect(
             self.extraction_progress_bar.setValue
         )
-        self.active_extraction_worker.signals.finished.connect(self._on_extraction_finished)
+        self.active_extraction_worker.signals.finished.connect(
+            self._on_extraction_finished
+        )
         self.active_extraction_worker.signals.error.connect(
             lambda e: self._on_extraction_error(e)
         )
@@ -2087,9 +2172,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             fps=fps,
             use_ffmpeg=(self.combo_engine.currentText() == "FFmpeg"),
             speed=speed,
-            cuts_ms=self.cuts_ms
+            cuts_ms=self.cuts_ms,
         )
-        self.active_extraction_worker.signals.progress.connect(self.extraction_progress_bar.setValue)
+        self.active_extraction_worker.signals.progress.connect(
+            self.extraction_progress_bar.setValue
+        )
         self.active_extraction_worker.signals.finished.connect(self._on_export_finished)
         self.active_extraction_worker.signals.error.connect(self._on_export_error)
         QThreadPool.globalInstance().start(self.active_extraction_worker)
@@ -2125,9 +2212,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             mute_audio=mute_audio,
             use_ffmpeg=(self.combo_engine.currentText() == "FFmpeg"),
             speed=speed,
-            cuts_ms=self.cuts_ms
+            cuts_ms=self.cuts_ms,
         )
-        self.active_extraction_worker.signals.progress.connect(self.extraction_progress_bar.setValue)
+        self.active_extraction_worker.signals.progress.connect(
+            self.extraction_progress_bar.setValue
+        )
         self.active_extraction_worker.signals.finished.connect(self._on_export_finished)
         self.active_extraction_worker.signals.error.connect(self._on_export_error)
         QThreadPool.globalInstance().start(self.active_extraction_worker)
@@ -2190,7 +2279,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         for path, widget in self.source_path_to_widget.items():
             label = widget.findChild(ClickableLabel)
             if label:
-                self._update_source_label_style(path, label, path == getattr(self, "video_path", None))
+                self._update_source_label_style(
+                    path, label, path == getattr(self, "video_path", None)
+                )
 
         QMessageBox.information(
             self,
@@ -2381,17 +2472,34 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     def _quick_extract(self, vid_path, ms, out_path):
         try:
-            import cv2
+            t_start = ms / 1000.0
 
-            cap = cv2.VideoCapture(vid_path)
-            cap.set(cv2.CAP_PROP_POS_MSEC, ms)
-            ret, frame = cap.read()
-            if ret:
-                cv2.imwrite(out_path, frame)
+            # Use FFmpeg for robustness against codec issues (like AV1 headers)
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-ss",
+                str(t_start),
+                "-i",
+                vid_path,
+                "-vframes",
+                "1",
+                "-q:v",
+                "2",
+                out_path,
+            ]
+
+            # Hide console on windows if needed (usually handled by subprocess)
+            result = subprocess.run(cmd, capture_output=True, text=True)
+
+            if result.returncode == 0 and os.path.exists(out_path):
                 self.qml_extraction_status.emit(f"Saved: {os.path.basename(out_path)}")
             else:
-                self.qml_extraction_status.emit("Error: Could not grab frame")
-            cap.release()
+                error = (
+                    result.stderr if result.stderr else "FFmpeg failed to extract frame"
+                )
+                self.qml_extraction_status.emit(f"Error: {error}")
+
         except Exception as e:
             self.qml_extraction_status.emit(f"Error: {e}")
 

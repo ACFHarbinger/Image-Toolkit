@@ -32,6 +32,7 @@ class MainWindow(QWidget):
             ScanMetadataTab,
             SearchTab,
             ImageExtractorTab,
+            ListingsTab,
             MergeTab,
             ImageCrawlTab,
             DriveSyncTab,
@@ -155,6 +156,7 @@ class MainWindow(QWidget):
         self.wallpaper_tab = WallpaperTab(self.database_tab)
         self.web_requests_tab = WebRequestsTab()
         self.image_extractor_tab = ImageExtractorTab()
+        self.listings_tab = ListingsTab()
         self.train_tab = UnifiedTrainTab()
         self.generate_tab = UnifiedGenerateTab()
         self.eval_tab = R3GANEvaluateTab()
@@ -176,6 +178,7 @@ class MainWindow(QWidget):
                 "Delete": self.delete_tab,
                 "Extractor": self.image_extractor_tab,
                 "Display Wallpaper": self.wallpaper_tab,
+                "Listings": self.listings_tab,
             },
             "Database Management": {
                 "Database Configuration": self.database_tab,
