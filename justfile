@@ -326,6 +326,7 @@ lora-tensorboard dir="runs":
     source .venv/bin/activate && tensorboard --logdir {{ dir }} --port 6006
 
 # Embed an image icon as metadata into a safetensors file
+
 # Usage: just embed-icon path/to/model.safetensors path/to/icon.png
 embed-icon model_path image_path:
     @echo "Embedding icon into {{ model_path }}..."
@@ -353,6 +354,32 @@ gui args="":
 gui-manager:
     @echo "🛠️ Starting Image-Toolkit with Manager integration..."
     source .venv/bin/activate && python main.py gui --enable-manager
+
+# --- Core Operations ---
+
+# Run the 'Perfect Stitch' pipeline on the default data directory
+perfect-stitch images="/home/pkhunter/Downloads/data/new/" output="/home/pkhunter/Downloads/data/new/stitched_panorama.png":
+    @echo "🎞️ Starting Perfect Stitch on {{ images }}..."
+    source .venv/bin/activate && python main.py core stitch -i "{{ images }}" -o "{{ output }}"
+
+# Batch convert images in a directory
+
+# Usage: just convert-batch ./input_dir png
+convert-batch input format="png" output="":
+    @echo "🖼️ Batch converting images in {{ input }} to {{ format }}..."
+    source .venv/bin/activate && python main.py core convert -i "{{ input }}" -f {{ format }} {{ if output != "" { "-o " + output } else { "" } }}
+
+# Merge images into a strip or grid
+
+# Usage: just merge-images "./img1.png ./img2.png" ./output.png vertical
+merge-images inputs output direction="horizontal":
+    @echo "🧩 Merging images {{ direction }}ly..."
+    source .venv/bin/activate && python main.py core merge -i {{ inputs }} -o "{{ output }}" -d {{ direction }}
+
+# Start the background slideshow daemon
+slideshow:
+    @echo "🖼️ Starting slideshow daemon..."
+    source .venv/bin/activate && python main.py slideshow
 
 # --- Legacy/Helper ---
 

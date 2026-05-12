@@ -35,6 +35,7 @@ dependencies = [
     "imagehash>=4.3.2",
     "jpype1>=1.6.0",
     "kornia>=0.8.2",
+    "loguru>=0.7.3",
     "maturin>=1.10.2",
     "moviepy>=1.0.3",
     "msal>=1.34.0",
