@@ -100,7 +100,7 @@ def dispatch_core(args):
         try:
             # Use default settings from stitch.yaml via Hydra or explicit params
             # For now we use the merger's default which delegates to the pipeline
-            result = merger.perfect_stitch(image_paths, output)
+            merger.perfect_stitch(image_paths, output)
             print(f"✅ Panorama saved to: {output}")
         except Exception as e:
             print(f"❌ Stitching failed: {e}", file=sys.stderr)

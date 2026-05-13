@@ -2060,7 +2060,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.btn_cancel_extraction.setEnabled(True)
 
     @Slot()
-    def cancel_extraction(self):
+    def cancel_extraction(self, enabled: bool = True):
         if self.active_extraction_worker:
             self.active_extraction_worker.cancel()
             self.extraction_status_label.setText("Cancelling...")

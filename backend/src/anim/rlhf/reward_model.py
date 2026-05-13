@@ -14,7 +14,6 @@ At inference time ``predict(img_bgr)`` returns a scalar in [0, 1] where
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -31,7 +30,7 @@ try:
 except ImportError:
     _TORCH_OK = False
 
-from .feedback_store import FeedbackStore, StitchFeedback
+from .feedback_store import FeedbackStore
 
 _DEFAULT_MODEL_PATH = Path.home() / ".config" / "image-toolkit" / "stitch_reward_model.pt"
 _INPUT_SIZE = 224

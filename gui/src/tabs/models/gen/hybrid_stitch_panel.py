@@ -45,9 +45,7 @@ from PySide6.QtCore import (
     QRectF,
     QRunnable,
     QSize,
-    QSizeF,
     Qt,
-    QThreadPool,
     QTimer,
     Signal,
     Slot,
@@ -59,46 +57,36 @@ from PySide6.QtGui import (
     QFont,
     QImage,
     QPainter,
-    QPainterPath,
     QPen,
     QPixmap,
-    QPolygonF,
 )
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
-    QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
     QGraphicsEllipseItem,
     QGraphicsItem,
     QGraphicsLineItem,
-    QGraphicsPathItem,
     QGraphicsPixmapItem,
     QGraphicsScene,
-    QGraphicsTextItem,
     QGraphicsView,
     QGroupBox,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
     QProgressBar,
     QPushButton,
-    QScrollArea,
     QSlider,
     QSpinBox,
     QSplitter,
     QTabWidget,
-    QTextEdit,
-    QToolButton,
     QVBoxLayout,
     QWidget,
     QSizePolicy,
-    QFrame,
 )
 
 from ....styles.style import apply_shadow_effect
@@ -1443,7 +1431,7 @@ class _MeshCanvas(QGraphicsView):
                 src.reshape(1, -1, 2),
                 [cv2.DMatch(i, i, 0) for i in range(len(src))],
             )
-            map_xy = np.zeros((self._img_h, self._img_w, 2), dtype=np.float32)
+            np.zeros((self._img_h, self._img_w, 2), dtype=np.float32)
             xs = np.arange(self._img_w, dtype=np.float32)
             ys = np.arange(self._img_h, dtype=np.float32)
             gx, gy = np.meshgrid(xs, ys)
@@ -2123,7 +2111,7 @@ class HybridStitchPanel(QWidget):
             self._corrections[self._sequence[ia]] = cc
 
     def _on_warp_applied(self, bgr: np.ndarray):
-        ia = self._pair_a_combo.currentIndex()
+        self._pair_a_combo.currentIndex()
         # The warp was applied to frame A; update the display in the CP editor
         pass
 

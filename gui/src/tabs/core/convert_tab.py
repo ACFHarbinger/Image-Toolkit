@@ -2,7 +2,7 @@ import os
 import platform
 import subprocess
 
-from typing import Optional, List
+from typing import Optional
 from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,

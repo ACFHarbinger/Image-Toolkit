@@ -50,10 +50,19 @@ def _try_stable_diffusion(
         raise RuntimeError(f"diffusers/PIL not installed: {e}")
 
     dtype = torch.float16 if _TORCH_OK and torch.cuda.is_available() else torch.float32
+    # Force a more robust model and ensure no safetensors mismatch
+    # Use a non-gated model and force .bin loading to avoid safetensors missing in local cache
+    model_id = "runwayml/stable-diffusion-inpainting"
     pipe = StableDiffusionInpaintPipeline.from_pretrained(
-        "runwayml/stable-diffusion-inpainting",
+        model_id,
         torch_dtype=dtype,
+        safety_checker=None,
+        feature_extractor=None,
+        use_safetensors=False,
     )
+    # Double-check safety_checker is disabled to prevent black images
+    if hasattr(pipe, "safety_checker") and pipe.safety_checker is not None:
+        pipe.safety_checker = None
     pipe = pipe.to("cuda" if _TORCH_OK and torch.cuda.is_available() else "cpu")
 
     rgb = cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB)

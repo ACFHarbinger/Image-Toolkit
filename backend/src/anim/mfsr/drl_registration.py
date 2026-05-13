@@ -17,7 +17,7 @@ from __future__ import annotations
 import math
 import random
 from collections import deque
-from typing import Deque, List, Optional, Tuple
+from typing import Deque, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -32,7 +32,6 @@ except ImportError:
     _TORCH_OK = False
 
 from ..constants import (
-    DRL_ACTION_DIM,
     DRL_BATCH_SIZE,
     DRL_GAMMA,
     DRL_LR,

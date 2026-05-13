@@ -4,8 +4,8 @@ from datetime import date
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-from PySide6.QtCore import Qt, Signal, Slot, QSize
-from PySide6.QtGui import QPixmap, QFont, QColor, QPainter
+from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -17,11 +17,9 @@ from PySide6.QtWidgets import (
     QComboBox,
     QSpinBox,
     QPushButton,
-    QScrollArea,
     QFileDialog,
     QMessageBox,
     QFrame,
-    QSizePolicy,
     QGroupBox,
     QFormLayout,
     QSplitter,

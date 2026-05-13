@@ -17,7 +17,6 @@ grid_to_pil           — compose a list of PIL images into a contact sheet
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Callable, Optional
 
 import numpy as np

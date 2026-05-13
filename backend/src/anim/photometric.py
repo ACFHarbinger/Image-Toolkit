@@ -91,7 +91,8 @@ def _correct_vignetting(frames: List[np.ndarray]) -> List[np.ndarray]:
     srr = np.sqrt((sxx - scx) ** 2 + (syy - scy) ** 2) / np.sqrt(scx**2 + scy**2)
 
     # Fit quadratic: G(r) = 1 / (1 + k*r^2) -> inverse gain 1 + k*r^2
-    indices = np.random.choice(sh * sw, min(3000, sh * sw), replace=False)
+    n_samples = min(3000, sh * sw)
+    indices = np.linspace(0, sh * sw - 1, n_samples, dtype=int)
     r_samples = srr.flatten()[indices]
     v_samples = avg_luma.flatten()[indices]
 

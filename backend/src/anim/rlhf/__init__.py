@@ -3,7 +3,7 @@ RLHF (Reinforcement Learning from Human Feedback) package for the anime stitch p
 
 Usage
 -----
-from backend.src.core.anim.rlhf import FeedbackStore, StitchRewardModel, train_reward_model, fine_tune_drl_agent
+from backend.src.anim.rlhf import FeedbackStore, StitchRewardModel, train_reward_model, fine_tune_drl_agent
 """
 
 from .feedback_store import FLAW_TYPES, FeedbackStore, StitchAnnotation, StitchFeedback

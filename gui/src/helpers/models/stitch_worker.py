@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import torch
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import cv2
 import numpy as np
@@ -29,7 +29,7 @@ from PySide6.QtCore import QObject, Signal
 # ---------------------------------------------------------------------------
 
 try:
-    from backend.src.core.anime_stitch_pipeline import AnimeStitchPipeline
+    from backend.src.anim import AnimeStitchPipeline
 
     _PIPELINE_OK = True
 except ImportError:
@@ -65,29 +65,47 @@ except ImportError:
 # ---------------------------------------------------------------------------
 
 _STAGE_LABELS = [
-    "Loading & trimming frames",  # 1
-    "Normalising widths",  # 2
-    "BaSiC photometric correction",  # 3
-    "BiRefNet foreground masking",  # 4
-    "LoFTR pairwise matching",  # 5
-    "Bundle adjustment",  # 6
-    "ECC sub-pixel refinement",  # 7
-    "Building canvas",  # 8
-    "Temporal median render",  # 9
-    "Compositing foreground",  # 10
-    "Multi-band seam blend",  # 11
-    "Boundary crop",  # 12
-    "Saving output",  # 13
+    "Loading & trimming frames",        # 1
+    "Normalising widths",               # 2
+    "BaSiC photometric correction",     # 3
+    "BiRefNet foreground masking",      # 4
+    "Pairwise matching & edge filter",  # 5
+    "Bundle adjustment",                # 6
+    "ECC sub-pixel refinement",         # 7
+    "Building canvas",                  # 8
+    "Temporal render",                  # 9
+    "MFSR super-resolution",            # 10
+    "Compositing foreground",           # 11
+    "Boundary crop",                    # 12
+    "Saving output",                    # 13
 ]
 _TOTAL_STAGES = len(_STAGE_LABELS)
+
+
+def _build_pipeline_kwargs(cfg: dict) -> dict:
+    """Translate a pipeline_config dict into AnimeStitchPipeline keyword args."""
+    return dict(
+        use_basic=cfg.get("use_basic", True),
+        use_birefnet=cfg.get("use_birefnet", True),
+        use_loftr=cfg.get("use_loftr", True),
+        use_ecc=cfg.get("use_ecc", True),
+        renderer=cfg.get("renderer", "median"),
+        composite_fg=cfg.get("composite_fg", True),
+        laplacian_bands=cfg.get("laplacian_bands", 5),
+        stitch_net_ckpt=cfg.get("stitch_net_ckpt", ""),
+        edge_crop=cfg.get("edge_crop", 30),
+        motion_model=cfg.get("motion_model", "translation"),
+        mfsr_mode=cfg.get("mfsr_mode", False),
+    )
 
 
 if _PIPELINE_OK:
 
     class _ProgressPipeline(AnimeStitchPipeline):
         """
-        Thin subclass of AnimeStitchPipeline that adds per-stage progress
-        callbacks and optional manual affine overrides for specific frame pairs.
+        Subclass of AnimeStitchPipeline with per-stage progress callbacks,
+        manual affine overrides, cancellation support, and the direction-
+        consensus edge filter wired in via _filter_edges().
         """
 
         def __init__(
@@ -96,6 +114,11 @@ if _PIPELINE_OK:
             log_cb,
             manual_affines: Optional[Dict] = None,
             cancel_flag: Optional[list] = None,
+            mfsr_n_dct_iter: int = 20,
+            mfsr_use_prior: bool = True,
+            mfsr_use_diffusion: bool = False,
+            save_intermediate: bool = False,
+            intermediate_dir: str = "",
             **kwargs,
         ):
             super().__init__(**kwargs)
@@ -103,6 +126,11 @@ if _PIPELINE_OK:
             self._log_cb = log_cb
             self._manual_affines = manual_affines or {}
             self._cancel_flag = cancel_flag or [False]
+            self._mfsr_n_dct_iter = mfsr_n_dct_iter
+            self._mfsr_use_prior = mfsr_use_prior
+            self._mfsr_use_diffusion = mfsr_use_diffusion
+            self._save_intermediate = save_intermediate
+            self._intermediate_dir = intermediate_dir
 
         def _check_cancel(self):
             if self._cancel_flag[0]:
@@ -110,9 +138,60 @@ if _PIPELINE_OK:
 
         def run(self, image_paths: List[str], output_path: str):
             import gc
+            import json
+            import os
             import warnings
             from PIL import Image as _Image
-            from backend.src.core.anime_stitch_pipeline import _bundle_adjust_affine
+            from backend.src.anim.bundle_adjust import _bundle_adjust_affine
+
+            out_abs = os.path.abspath(output_path)
+            image_paths = [p for p in image_paths if os.path.abspath(p) != out_abs]
+
+            # Intermediate output helpers ─────────────────────────────────────
+            idir = self._intermediate_dir
+            if self._save_intermediate and idir:
+                os.makedirs(idir, exist_ok=True)
+
+            def _save_frames(stage_idx: int, label: str, frame_list):
+                if not (self._save_intermediate and idir):
+                    return
+                for k, f in enumerate(frame_list):
+                    path = os.path.join(idir, f"stage{stage_idx:02d}_{label}_frame{k:02d}.png")
+                    try:
+                        cv2.imwrite(path, f)
+                    except Exception as exc:
+                        self._log_cb(f"[Debug] Could not save {path}: {exc}")
+
+            def _save_masks(stage_idx: int, mask_list):
+                if not (self._save_intermediate and idir):
+                    return
+                for k, m in enumerate(mask_list):
+                    path = os.path.join(idir, f"stage{stage_idx:02d}_bgmask_frame{k:02d}.png")
+                    try:
+                        cv2.imwrite(path, m)
+                    except Exception as exc:
+                        self._log_cb(f"[Debug] Could not save {path}: {exc}")
+
+            def _save_canvas(stage_idx: int, label: str, canvas_bgr):
+                if not (self._save_intermediate and idir):
+                    return
+                path = os.path.join(idir, f"stage{stage_idx:02d}_{label}.png")
+                try:
+                    cv2.imwrite(path, canvas_bgr)
+                except Exception as exc:
+                    self._log_cb(f"[Debug] Could not save {path}: {exc}")
+
+            def _save_json(stage_idx: int, label: str, data):
+                if not (self._save_intermediate and idir):
+                    return
+                path = os.path.join(idir, f"stage{stage_idx:02d}_{label}.json")
+                try:
+                    with open(path, "w") as fh:
+                        json.dump(data, fh, indent=2, default=lambda x: x.tolist() if hasattr(x, "tolist") else str(x))
+                except Exception as exc:
+                    self._log_cb(f"[Debug] Could not save {path}: {exc}")
+
+            # ─────────────────────────────────────────────────────────────────
 
             def _emit(idx: int):
                 self._progress_cb(idx, _STAGE_LABELS[idx - 1])
@@ -124,52 +203,67 @@ if _PIPELINE_OK:
             N = len(frames)
             if N < 2:
                 raise ValueError("Need at least 2 valid frames to stitch.")
+            _save_frames(1, "loaded", frames)
 
             _emit(2)
             self._check_cancel()
             frames = self._normalise_widths(frames)
+            H, W = frames[0].shape[:2]
+            _save_frames(2, "normalised", frames)
 
             _emit(3)
             self._check_cancel()
             if self.use_basic:
                 frames = self._apply_basic(frames)
+            _save_frames(3, "basic_corrected", frames)
 
             _emit(4)
             self._check_cancel()
             bg_masks = self._compute_fg_masks(frames)
-            if (
-                torch.cuda.is_available()
-                and hasattr(self, "_birefnet")
-                and self._birefnet
-            ):
-                BiRefNetWrapper.purge_all_models()
+            _save_masks(4, bg_masks)
+            if torch.cuda.is_available() and self._birefnet:
+                try:
+                    BiRefNetWrapper.purge_all_models()
+                except Exception:
+                    pass
                 self._birefnet = None
                 torch.cuda.empty_cache()
 
             _emit(5)
             self._check_cancel()
             edges = self._pairwise_match(frames, bg_masks)
-            # Purge LoFTR immediately after matching
+            edges = self._filter_edges(edges, image_paths, H, W, frames, bg_masks)
+            _save_json(5, "edges", [
+                {"i": e["i"], "j": e["j"],
+                 "dx": float(e["M"][0, 2]), "dy": float(e["M"][1, 2]),
+                 "conf": float(e.get("weight", 0.0)), "method": e.get("method", "?")}
+                for e in edges
+            ])
+            # Purge LoFTR
             if torch.cuda.is_available():
-                self._loftr = None
+                if self._loftr is not None:
+                    try:
+                        self._loftr.offload()
+                    except Exception:
+                        pass
+                    self._loftr = None
                 torch.cuda.empty_cache()
-                import gc; gc.collect()
-            if torch.cuda.is_available() and hasattr(self, "_loftr") and self._loftr:
-                self._loftr.offload()
-                self._loftr = None
-                torch.cuda.empty_cache()
+                gc.collect()
             if not edges:
                 warnings.warn("[Stitch] No valid edges — falling back to scan stitch.")
                 return self._scan_stitch_fallback(frames, output_path)
 
             _emit(6)
             self._check_cancel()
-            affines = _bundle_adjust_affine(edges, N)
+            use_affine_ba = self.motion_model == "affine"
+            affines = _bundle_adjust_affine(edges, N, use_affine=use_affine_ba)
+            _save_json(6, "affines_ba", [a.tolist() for a in affines])
 
             _emit(7)
             self._check_cancel()
             if self.use_ecc:
                 affines = self._ecc_refine(frames, affines, bg_masks)
+            _save_json(7, "affines_ecc", [a.tolist() for a in affines])
 
             _emit(8)
             self._check_cancel()
@@ -179,14 +273,18 @@ if _PIPELINE_OK:
             for i in range(N):
                 affines[i][0, 2] += T_global[0]
                 affines[i][1, 2] += T_global[1]
+            _save_json(8, "canvas_info", {
+                "canvas_h": canvas_h, "canvas_w": canvas_w,
+                "T_global": list(T_global),
+                "affines_final": [a.tolist() for a in affines],
+            })
 
-            
-            if torch.cuda.is_available() and BiRefNetWrapper:
-                import gc
-                BiRefNetWrapper.purge_all_models()
-                self._birefnet = None
-                self._loftr = None
-                self._stitch_net = None
+            if torch.cuda.is_available() and _BIREFNET_OK:
+                try:
+                    BiRefNetWrapper.purge_all_models()
+                except Exception:
+                    pass
+                self._birefnet = self._loftr = self._stitch_net = None
                 torch.cuda.synchronize()
                 torch.cuda.empty_cache()
                 gc.collect()
@@ -196,26 +294,55 @@ if _PIPELINE_OK:
             canvas, valid_mask, warped_corr, warped_fgs = self._render(
                 frames, affines, bg_masks, canvas_h, canvas_w
             )
+            _save_canvas(9, "temporal_render", canvas)
 
             _emit(10)
+            self._check_cancel()
+            if self.mfsr_mode:
+                try:
+                    from backend.src.anim.mfsr import run_mfsr
+                    canvas = run_mfsr(
+                        frames,
+                        affines,
+                        canvas_h,
+                        canvas_w,
+                        quality=75,
+                        use_prior=self._mfsr_use_prior,
+                        use_diffusion_inpaint=self._mfsr_use_diffusion,
+                        n_dct_iter=self._mfsr_n_dct_iter,
+                    )
+                    valid_mask = (canvas.max(axis=2) > 0).astype(np.uint8) * 255
+                    self._log_cb("[Stitch] MFSR refinement complete.")
+                except Exception as exc:
+                    self._log_cb(f"[Stitch] MFSR failed ({exc}); keeping median canvas.")
+            else:
+                self._log_cb("[Stitch] Stage 10 skipped (mfsr_mode=False).")
+            _save_canvas(10, "mfsr", canvas)
+
+            _emit(11)
             self._check_cancel()
             if self.composite_fg and self.use_birefnet:
                 canvas = self._composite_foreground(
                     [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks
                 )
-
-            _emit(11)
-            self._check_cancel()
+            _save_canvas(11, "fg_composite", canvas)
 
             _emit(12)
             self._check_cancel()
             canvas = self._crop_to_valid(canvas, valid_mask)
+            if self.edge_crop > 0:
+                ec = self.edge_crop
+                if ec * 2 < canvas.shape[0] and ec * 2 < canvas.shape[1]:
+                    canvas = canvas[ec:-ec, ec:-ec]
+            _save_canvas(12, "cropped", canvas)
 
             _emit(13)
             rgb = cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB)
             out = _Image.fromarray(rgb)
             out.save(output_path)
             gc.collect()
+            if self._save_intermediate and idir:
+                self._log_cb(f"[Debug] Intermediate outputs saved to: {idir}")
             self._log_cb(f"[Stitch] Saved to '{output_path}'.")
             return out
 
@@ -225,7 +352,7 @@ if _PIPELINE_OK:
                 key = (edge["i"], edge["j"])
                 if key in self._manual_affines:
                     self._log_cb(
-                        f"[Stitch] Using manual affine override for pair "
+                        f"[Stitch] Manual affine override for pair "
                         f"{edge['i']}→{edge['j']}."
                     )
                     edge["M"] = self._manual_affines[key].copy()
@@ -252,12 +379,21 @@ class StitchWorker(QObject):
         pipeline_config: dict,
         manual_affines: Optional[Dict] = None,
     ):
+        import os
         super().__init__()
         self._image_paths = image_paths
         self._output_path = output_path
         self._pipeline_config = pipeline_config
         self._manual_affines = manual_affines or {}
         self._cancel_flag: list = [False]
+
+        # Derive intermediate output directory from output path if requested.
+        self._save_intermediate = pipeline_config.get("save_intermediate", False)
+        if self._save_intermediate:
+            stem = os.path.splitext(os.path.abspath(output_path))[0]
+            self._intermediate_dir = stem + "_stages"
+        else:
+            self._intermediate_dir = ""
 
     def cancel(self):
         self._cancel_flag[0] = True
@@ -284,14 +420,12 @@ class StitchWorker(QObject):
                 log_cb=_log_cb,
                 manual_affines=self._manual_affines,
                 cancel_flag=self._cancel_flag,
-                use_basic=cfg.get("use_basic", True),
-                use_birefnet=cfg.get("use_birefnet", True),
-                use_loftr=cfg.get("use_loftr", True),
-                use_ecc=cfg.get("use_ecc", True),
-                renderer=cfg.get("renderer", "median"),
-                composite_fg=cfg.get("composite_fg", True),
-                laplacian_bands=cfg.get("laplacian_bands", 5),
-                stitch_net_ckpt=cfg.get("stitch_net_ckpt", ""),
+                mfsr_n_dct_iter=cfg.get("mfsr_n_dct_iter", 20),
+                mfsr_use_prior=cfg.get("mfsr_use_prior", True),
+                mfsr_use_diffusion=cfg.get("mfsr_use_diffusion", False),
+                save_intermediate=self._save_intermediate,
+                intermediate_dir=self._intermediate_dir,
+                **_build_pipeline_kwargs(cfg),
             )
             pipeline.run(self._image_paths, self._output_path)
             self.sig_finished.emit(self._output_path)
@@ -721,14 +855,10 @@ class GraphStitchWorker(QObject):
                     progress_cb=_progress_cb,
                     log_cb=_log_cb,
                     cancel_flag=self._cancel_flag,
-                    use_basic=cfg.get("use_basic", True),
-                    use_birefnet=cfg.get("use_birefnet", True),
-                    use_loftr=cfg.get("use_loftr", True),
-                    use_ecc=cfg.get("use_ecc", True),
-                    renderer=cfg.get("renderer", "median"),
-                    composite_fg=cfg.get("composite_fg", True),
-                    laplacian_bands=cfg.get("laplacian_bands", 5),
-                    stitch_net_ckpt=cfg.get("stitch_net_ckpt", ""),
+                    mfsr_n_dct_iter=cfg.get("mfsr_n_dct_iter", 20),
+                    mfsr_use_prior=cfg.get("mfsr_use_prior", True),
+                    mfsr_use_diffusion=cfg.get("mfsr_use_diffusion", False),
+                    **_build_pipeline_kwargs(cfg),
                 )
                 pipeline.run(resolved, out_path)
                 step_outputs[step_id] = out_path

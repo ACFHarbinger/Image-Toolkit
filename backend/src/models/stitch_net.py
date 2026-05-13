@@ -264,7 +264,7 @@ class AnimeStitchNet(nn.Module):
         feat_i = self.pos_enc(self.encoder(frame_i))  # (B, C, Hf, Wf)
         feat_j = self.pos_enc(self.encoder(frame_j))
         B, C, Hf, Wf = feat_i.shape
-        L = Hf * Wf
+        Hf * Wf
 
         # 2. Flatten → token sequences (B, L, C)
         tok_i = feat_i.flatten(2).permute(0, 2, 1)

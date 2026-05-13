@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QWidget,
     QLabel,
+    QCheckBox,
     QComboBox,
     QSpinBox,
     QGroupBox,
@@ -204,8 +205,6 @@ class MergeTab(AbstractClassTwoGalleries):
         self.grid_group.hide()
 
         # --- Perfect Stitch (Anime Pan) Settings ---
-        from PySide6.QtWidgets import QCheckBox
-
         self.perfect_stitch_checkbox = QCheckBox("Perfect Stitch Mode (Digital Art)")
         self.perfect_stitch_checkbox.setToolTip(
             "Optimized for digital anime pan shots. Uses template matching and pyramidal blending."
@@ -282,18 +281,62 @@ class MergeTab(AbstractClassTwoGalleries):
         self.composite_fg_checkbox = QCheckBox("Composite Foreground")
         self.composite_fg_checkbox.setChecked(True)
 
+        self.motion_model_combo = QComboBox()
+        self.motion_model_combo.addItem("Translation", "translation")
+        self.motion_model_combo.addItem("Affine 4-DOF", "affine")
+        self.motion_model_combo.setToolTip(
+            "translation: Fast, works for pure pan shots.\n"
+            "affine: 4-DOF — handles slight rotations between frames."
+        )
+
         ai_layout.addWidget(QLabel("Renderer:"))
         ai_layout.addWidget(self.renderer_combo)
+        ai_layout.addWidget(QLabel("Motion model:"))
+        ai_layout.addWidget(self.motion_model_combo)
         ai_layout.addWidget(self.use_basic_checkbox)
         ai_layout.addWidget(self.use_loftr_checkbox)
         ai_layout.addWidget(self.use_ecc_checkbox)
         ai_layout.addWidget(self.composite_fg_checkbox)
-        
+
         ai_layout.addWidget(self.use_siamese_checkbox)
         ai_layout.addWidget(self.use_apap_checkbox)
         ai_layout.addWidget(self.use_lsd_checkbox)
         ai_layout.addWidget(self.use_gan_checkbox)
         ai_layout.addWidget(self.use_birefnet_checkbox)
+
+        # MFSR sub-group
+        mfsr_group = QGroupBox("MFSR Super-Resolution")
+        mfsr_vbox = QVBoxLayout(mfsr_group)
+        self.mfsr_checkbox = QCheckBox("Enable MFSR post-processing")
+        self.mfsr_checkbox.setChecked(False)
+        self.mfsr_checkbox.setToolTip(
+            "Run the Multi-Frame Super-Resolution pipeline after stitching.\n"
+            "Significantly slower — best for final exports."
+        )
+        mfsr_vbox.addWidget(self.mfsr_checkbox)
+
+        mfsr_form = QFormLayout()
+        self.mfsr_dct_iter_spin = QSpinBox()
+        self.mfsr_dct_iter_spin.setRange(1, 100)
+        self.mfsr_dct_iter_spin.setValue(20)
+        self.mfsr_dct_iter_spin.setToolTip("Number of DCT regularisation iterations.")
+        mfsr_form.addRow("DCT iterations:", self.mfsr_dct_iter_spin)
+
+        self.mfsr_prior_checkbox = QCheckBox("CNN prior injection")
+        self.mfsr_prior_checkbox.setChecked(True)
+        self.mfsr_prior_checkbox.setToolTip("Inject CNN-estimated prior into the DCT solver.")
+
+        self.mfsr_diffusion_checkbox = QCheckBox("Diffusion inpainting")
+        self.mfsr_diffusion_checkbox.setChecked(False)
+        self.mfsr_diffusion_checkbox.setToolTip(
+            "Use diffusion-based inpainting for large missing regions.\n"
+            "Requires additional VRAM; slower."
+        )
+        mfsr_form.addRow(self.mfsr_prior_checkbox)
+        mfsr_form.addRow(self.mfsr_diffusion_checkbox)
+        mfsr_vbox.addLayout(mfsr_form)
+        ai_layout.addWidget(mfsr_group)
+
         self.ai_options_group.setLayout(ai_layout)
         config_layout.addRow(self.ai_options_group)
 
@@ -1124,6 +1167,11 @@ class MergeTab(AbstractClassTwoGalleries):
             "use_ecc": self.use_ecc_checkbox.isChecked(),
             "renderer": self.renderer_combo.currentText(),
             "composite_fg": self.composite_fg_checkbox.isChecked(),
+            "motion_model": self.motion_model_combo.currentData(),
+            "mfsr_mode": self.mfsr_checkbox.isChecked(),
+            "mfsr_n_dct_iter": self.mfsr_dct_iter_spin.value(),
+            "mfsr_use_prior": self.mfsr_prior_checkbox.isChecked(),
+            "mfsr_use_diffusion": self.mfsr_diffusion_checkbox.isChecked(),
             "selected_files": list(self.selected_files),
         }
 
@@ -1182,6 +1230,14 @@ class MergeTab(AbstractClassTwoGalleries):
             self.use_lsd_checkbox.setChecked(config.get("use_lsd", True))
             self.use_gan_checkbox.setChecked(config.get("use_gan", True))
             self.use_birefnet_checkbox.setChecked(config.get("use_birefnet", True))
+
+            mm_idx = self.motion_model_combo.findData(config.get("motion_model", "translation"))
+            if mm_idx >= 0:
+                self.motion_model_combo.setCurrentIndex(mm_idx)
+            self.mfsr_checkbox.setChecked(config.get("mfsr_mode", False))
+            self.mfsr_dct_iter_spin.setValue(config.get("mfsr_n_dct_iter", 20))
+            self.mfsr_prior_checkbox.setChecked(config.get("mfsr_use_prior", True))
+            self.mfsr_diffusion_checkbox.setChecked(config.get("mfsr_use_diffusion", False))
 
             print("MergeTab configuration loaded.")
 

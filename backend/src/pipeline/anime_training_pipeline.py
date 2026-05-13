@@ -28,11 +28,8 @@ Or override any key:
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
-from typing import Optional
 
-import hydra
 from omegaconf import DictConfig, OmegaConf
 
 log = logging.getLogger(__name__)
@@ -85,7 +82,7 @@ def _run_qa_pass(image_paths: list[Path], cfg: DictConfig) -> list[Path]:
         return image_paths
 
     birefnet = BiRefNetWrapper()
-    basic = BaSiCWrapper()
+    BaSiCWrapper()
     qa_cfg = cfg.get("data", {}).get("qa", {})
     fg_min = float(qa_cfg.get("fg_ratio_min", 0.08))
     fg_max = float(qa_cfg.get("fg_ratio_max", 0.92))
@@ -155,7 +152,7 @@ def _run_captioning(image_paths: list[Path], cfg: DictConfig):
 
 def _run_deduplication(image_paths: list[Path], cfg: DictConfig) -> list[Path]:
     """Stage 4: pHash dedup + diversity sampling."""
-    from backend.src.pipeline.data_selection import DataSelector, phash_hamming, cluster_duplicates
+    from backend.src.pipeline.data_selection import cluster_duplicates
 
     target_k = int(cfg.get("data", {}).get("target_dataset_size", 50))
     if len(image_paths) <= target_k:

@@ -495,6 +495,7 @@ class ImageMergerTest:
         assert isinstance(result, Image.Image)
         # Verify matchTemplate was called to check overlap
         assert mock_cv2.matchTemplate.called
+
     @patch("src.core.image_merger.cv2")
     def test_perfect_stitch(self, mock_cv2, sample_images, output_dir):
         """Test perfect_stitch algorithm (mocked)"""
@@ -504,14 +505,17 @@ class ImageMergerTest:
         # Mock imread
         img = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
         mock_cv2.imread.return_value = img
-        
+
         # Mock SIFT
         mock_sift = MagicMock()
         mock_cv2.SIFT_create.return_value = mock_sift
         mock_kp = MagicMock()
         mock_kp.pt = (50, 50)
-        mock_sift.detectAndCompute.return_value = ([mock_kp]*20, np.random.rand(20, 128).astype(np.float32))
-        
+        mock_sift.detectAndCompute.return_value = (
+            [mock_kp] * 20,
+            np.random.rand(20, 128).astype(np.float32),
+        )
+
         # Mock BFMatcher
         mock_bf = MagicMock()
         mock_cv2.BFMatcher.return_value = mock_bf
@@ -520,26 +524,30 @@ class ImageMergerTest:
         mock_match.queryIdx = 0
         mock_match.trainIdx = 0
         mock_bf.knnMatch.return_value = [[mock_match, MagicMock(distance=100)]] * 20
-        
+
         # Mock findHomography - simulate -50px translation
         H = np.eye(3)
         H[1, 2] = -50
         mock_cv2.findHomography.return_value = (H, None)
         mock_cv2.RANSAC = 8
-        
+
         # Mock sub-methods for seam finding and blending
         mock_cv2.absdiff.return_value = img
         mock_cv2.cvtColor.return_value = np.zeros((100, 100), dtype=np.uint8)
         mock_cv2.Sobel.return_value = np.zeros((100, 100), dtype=np.float32)
         mock_cv2.add.return_value = np.zeros((100, 100), dtype=np.float32)
-        
+
         # Mock pyramids
         def mock_down(x):
-            if len(x.shape) == 3: return np.zeros((x.shape[0]//2, x.shape[1]//2, 3), dtype=np.float32)
-            return np.zeros((x.shape[0]//2, x.shape[1]//2), dtype=np.float32)
-        
+            if len(x.shape) == 3:
+                return np.zeros((x.shape[0] // 2, x.shape[1] // 2, 3), dtype=np.float32)
+            return np.zeros((x.shape[0] // 2, x.shape[1] // 2), dtype=np.float32)
+
         mock_cv2.pyrDown.side_effect = mock_down
-        mock_cv2.pyrUp.side_effect = lambda x, dstsize=None: np.zeros((dstsize[1], dstsize[0], x.shape[2] if len(x.shape)==3 else 1), dtype=np.float32)
+        mock_cv2.pyrUp.side_effect = lambda x, dstsize=None: np.zeros(
+            (dstsize[1], dstsize[0], x.shape[2] if len(x.shape) == 3 else 1),
+            dtype=np.float32,
+        )
         mock_cv2.subtract.side_effect = lambda x, y: x
         mock_cv2.merge.side_effect = lambda x: np.stack(x, axis=-1)
 

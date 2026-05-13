@@ -118,6 +118,9 @@ class AnimeStitchPipeline:
         edge_crop: int = 30,
         motion_model: str = "translation",  # 'translation' or 'affine' (4-DOF)
         mfsr_mode: bool = False,
+        mfsr_n_dct_iter: int = 20,
+        mfsr_use_prior: bool = True,
+        mfsr_use_diffusion: bool = False,
         **kwargs,
     ):
         self.kwargs = kwargs
@@ -132,6 +135,9 @@ class AnimeStitchPipeline:
         self.edge_crop = edge_crop
         self.motion_model = motion_model
         self.mfsr_mode = mfsr_mode
+        self.mfsr_n_dct_iter = mfsr_n_dct_iter
+        self.mfsr_use_prior = mfsr_use_prior
+        self.mfsr_use_diffusion = mfsr_use_diffusion
 
         # Lazy-loaded model instances (only allocated if the flag is True)
         self._basic: Optional["BaSiCWrapper"] = None
@@ -139,6 +145,203 @@ class AnimeStitchPipeline:
         self._birefnet: Optional["BiRefNetWrapper"] = None
         self._loftr: Optional["LoFTRWrapper"] = None
         self._stitch_net: Optional["AnimeStitchNet"] = None
+
+    # -------------------------------------------------------------- edge filter
+
+    def _filter_edges(
+        self,
+        edges: List[Dict],
+        image_paths: List[str],
+        H: int,
+        W: int,
+        frames: List[np.ndarray],
+        bg_masks: List[Optional[np.ndarray]],
+    ) -> List[Dict]:
+        """
+        Apply geometric-consistency + direction-consensus filters to raw edges.
+
+        Separated from ``run()`` so the progress-aware subclass can call it
+        after its overridden ``_pairwise_match``.
+        """
+        # ── Geometric Consistency Filter ─────────────────────────────────────
+        if len(edges) > 0:
+            adj_map: Dict[int, Tuple[float, float]] = {}
+            for e in edges:
+                if e["j"] == e["i"] + 1:
+                    adj_map[e["i"]] = (e["M"][0, 2], e["M"][1, 2])
+
+            filtered: List[Dict] = []
+            for e in edges:
+                i, j = e["i"], e["j"]
+                if j == i + 1:
+                    filtered.append(e)
+                    continue
+                can_verify = True
+                sum_dx, sum_dy = 0.0, 0.0
+                for k in range(i, j):
+                    if k in adj_map:
+                        sum_dx += adj_map[k][0]
+                        sum_dy += adj_map[k][1]
+                    else:
+                        can_verify = False
+                        break
+                if can_verify:
+                    diff_x = abs(e["M"][0, 2] - sum_dx)
+                    diff_y = abs(e["M"][1, 2] - sum_dy)
+                    if diff_x < 15.0 and diff_y < 15.0:
+                        filtered.append(e)
+                    else:
+                        print(
+                            f"[Stitch]   Edge {i}→{j} rejected: inconsistency "
+                            f"(dx={diff_x:.1f}, dy={diff_y:.1f})"
+                        )
+                else:
+                    filtered.append(e)
+            edges = filtered
+
+        # ── Direction Consensus Filter ────────────────────────────────────────
+        if len(edges) >= 3:
+            adj_dys = [e["M"][1, 2] for e in edges if e["j"] == e["i"] + 1]
+            if len(adj_dys) >= 3:
+                median_dy = float(np.median(adj_dys))
+                consensus_sign = int(np.sign(median_dy))
+
+                _ts_pat = re.compile(r"_(\d+)ms", re.IGNORECASE)
+                timestamps_ms: List[Optional[int]] = []
+                for p in image_paths:
+                    m = _ts_pat.search(os.path.basename(p))
+                    timestamps_ms.append(int(m.group(1)) if m else None)
+
+                def _interval_ms(fi: int, fj: int) -> Optional[int]:
+                    t_i = timestamps_ms[fi] if fi < len(timestamps_ms) else None
+                    t_j = timestamps_ms[fj] if fj < len(timestamps_ms) else None
+                    if t_i is not None and t_j is not None and t_j != t_i:
+                        return abs(t_j - t_i)
+                    return None
+
+                def _wrong_sign(dy_val: float) -> bool:
+                    return (
+                        consensus_sign != 0
+                        and np.sign(dy_val) != 0
+                        and int(np.sign(dy_val)) != consensus_sign
+                    )
+
+                def _gross_outlier(dy_val: float) -> bool:
+                    return (
+                        abs(dy_val) > 2.0 * abs(median_dy)
+                        and abs(dy_val - median_dy) > 200.0
+                    )
+
+                vel_samples = []
+                for e in edges:
+                    if e["j"] != e["i"] + 1:
+                        continue
+                    dy_e = float(e["M"][1, 2])
+                    if _wrong_sign(dy_e) or _gross_outlier(dy_e):
+                        continue
+                    iv = _interval_ms(e["i"], e["j"])
+                    if iv is not None:
+                        vel_samples.append(dy_e / iv)
+                vel_px_per_ms: Optional[float] = (
+                    float(np.median(vel_samples)) if vel_samples else None
+                )
+                if vel_px_per_ms is not None:
+                    print(
+                        f"[Stitch]   Scroll velocity: {vel_px_per_ms:.4f} px/ms "
+                        f"(from {len(vel_samples)} reliable edges)"
+                    )
+
+                def _is_outlier(dy_val: float, fi: int, fj: int) -> Tuple[bool, str]:
+                    if _wrong_sign(dy_val):
+                        return True, "wrong sign"
+                    if _gross_outlier(dy_val):
+                        return True, "gross outlier"
+                    if vel_px_per_ms is not None:
+                        iv = _interval_ms(fi, fj)
+                        if iv is not None:
+                            expected = abs(vel_px_per_ms) * iv
+                            if abs(dy_val - expected * consensus_sign) > max(
+                                0.15 * expected, 15.0
+                            ):
+                                return (
+                                    True,
+                                    f"velocity outlier (expected {expected * consensus_sign:.1f})",
+                                )
+                    return False, ""
+
+                def _apply_corrected_M(
+                    edge: Dict, new_M: np.ndarray, new_weight: float
+                ) -> Dict:
+                    new_pts_j = edge["pts_i"] + new_M[:, 2].astype(np.float32)
+                    return dict(edge, M=new_M, pts_j=new_pts_j, weight=new_weight)
+
+                ec_h = int(H * _MATCH_EDGE_CROP)
+                ec_w = int(W * _MATCH_EDGE_CROP)
+                corrected: List[Dict] = []
+                for e in edges:
+                    if e["j"] == e["i"] + 1:
+                        fi, fj = e["i"], e["j"]
+                        dy = float(e["M"][1, 2])
+                        outlier, reason = _is_outlier(dy, fi, fj)
+                        if outlier:
+                            iv = _interval_ms(fi, fj)
+                            replaced = False
+                            if vel_px_per_ms is not None and iv is not None:
+                                est_dy = vel_px_per_ms * iv
+                                print(
+                                    f"[Stitch]   Edge {fi}→{fj}: dy={dy:.1f} ({reason}); "
+                                    f"velocity → dy={est_dy:.1f}"
+                                )
+                                M_fix = np.eye(2, 3, dtype=np.float32)
+                                M_fix[0, 2] = e["M"][0, 2]
+                                M_fix[1, 2] = est_dy
+                                e = _apply_corrected_M(e, M_fix, 0.55)
+                                replaced = True
+                            if not replaced:
+                                img_i_c = frames[fi][ec_h:-ec_h, ec_w:-ec_w]
+                                img_j_c = frames[fj][ec_h:-ec_h, ec_w:-ec_w]
+                                m_i_c = (
+                                    bg_masks[fi][ec_h:-ec_h, ec_w:-ec_w]
+                                    if bg_masks[fi] is not None
+                                    else None
+                                )
+                                M_dir, c_dir = _template_match(
+                                    img_i_c, img_j_c, m_i_c, None,
+                                    img_i_c.shape[0], direction_sign=consensus_sign,
+                                )
+                                if (
+                                    M_dir is not None
+                                    and int(np.sign(M_dir[1, 2])) == consensus_sign
+                                ):
+                                    new_dy = float(M_dir[1, 2])
+                                    print(
+                                        f"[Stitch]   Edge {fi}→{fj}: directed TM → "
+                                        f"dy={new_dy:.1f} conf={c_dir:.3f}"
+                                    )
+                                    M_new = np.array(
+                                        [[1, 0, e["M"][0, 2]], [0, 1, new_dy]],
+                                        dtype=np.float32,
+                                    )
+                                    e = _apply_corrected_M(e, M_new, c_dir * 0.7)
+                                    replaced = True
+                            if not replaced:
+                                print(
+                                    f"[Stitch]   Edge {fi}→{fj}: dy={dy:.1f} ({reason}); "
+                                    f"using median {median_dy:.1f}"
+                                )
+                                M_fix = np.eye(2, 3, dtype=np.float32)
+                                M_fix[0, 2] = e["M"][0, 2]
+                                M_fix[1, 2] = median_dy
+                                e = _apply_corrected_M(e, M_fix, e.get("weight", 1.0) * 0.3)
+                        else:
+                            print(
+                                f"[Stitch]   Edge {fi}→{fj}: dy={dy:.1f} kept "
+                                f"(consensus {median_dy:.1f})"
+                            )
+                    corrected.append(e)
+                edges = corrected
+
+        return edges
 
     # ---------------------------------------------------------------- public
 
@@ -209,6 +412,37 @@ class AnimeStitchPipeline:
             f"({'BiRefNet' if self.use_birefnet else 'None'})."
         )
 
+        # ── Stage 4.5: Background-based photometric normalisation ────────────
+        # Compute the per-frame mean background color (bg_mask > 127) and normalise
+        # every frame to the same median background level.  This eliminates
+        # frame-to-frame ambient lighting variation (anime cel flicker) which
+        # would otherwise appear as horizontal color seams in the temporal median.
+        bg_frame_means: List[Optional[np.ndarray]] = []
+        for _i, (_frame, _mask) in enumerate(zip(frames, bg_masks)):
+            if _mask is not None:
+                _bg_px = _frame[_mask > 127].astype(np.float32)
+                if len(_bg_px) >= 1000:
+                    bg_frame_means.append(_bg_px.mean(axis=0))
+                    continue
+            bg_frame_means.append(None)
+
+        _valid_means = [m for m in bg_frame_means if m is not None]
+        if len(_valid_means) >= 3:
+            _ref_mean = np.median(_valid_means, axis=0)  # (3,) BGR reference
+            for _i in range(N):
+                if bg_frame_means[_i] is None:
+                    continue
+                _gain = _ref_mean / np.maximum(bg_frame_means[_i], 1.0)
+                _gain = np.clip(_gain, 0.88, 1.14)
+                if not np.allclose(_gain, 1.0, atol=0.01):
+                    frames[_i] = np.clip(
+                        frames[_i].astype(np.float32) * _gain, 0, 255
+                    ).astype(np.uint8)
+            print(
+                f"[Stitch] Stage 4.5 complete: background photometric normalisation "
+                f"({len(_valid_means)}/{N} frames had sufficient background)."
+            )
+
         # ── Stage 5-6: Pairwise matching (+ skip-pair edges) ────────────────
         if self.use_loftr and self._loftr is None:
             self._loftr = LoFTRWrapper()
@@ -220,203 +454,7 @@ class AnimeStitchPipeline:
             motion_model=self.motion_model,
         )
 
-        # --- Geometric Consistency Filter ---
-        if len(edges) > 0:
-            adj_map: Dict[int, Tuple[float, float]] = {}
-            for e in edges:
-                if e["j"] == e["i"] + 1:
-                    adj_map[e["i"]] = (e["M"][0, 2], e["M"][1, 2])
-
-            filtered_edges = []
-            for e in edges:
-                i, j = e["i"], e["j"]
-                if j == i + 1:
-                    filtered_edges.append(e)
-                    continue
-
-                # Check path consistency for skip-edges
-                can_verify = True
-                sum_dx, sum_dy = 0.0, 0.0
-                for k in range(i, j):
-                    if k in adj_map:
-                        sum_dx += adj_map[k][0]
-                        sum_dy += adj_map[k][1]
-                    else:
-                        can_verify = False
-                        break
-
-                if can_verify:
-                    diff_x = abs(e["M"][0, 2] - sum_dx)
-                    diff_y = abs(e["M"][1, 2] - sum_dy)
-                    if diff_x < 15.0 and diff_y < 15.0:
-                        filtered_edges.append(e)
-                    else:
-                        print(
-                            f"[Stitch]   Edge {i}→{j} rejected: inconsistency "
-                            f"(dx={diff_x:.1f}, dy={diff_y:.1f})"
-                        )
-                else:
-                    filtered_edges.append(e)
-
-            edges = filtered_edges
-
-        # --- Direction Consensus Filter ---
-        if len(edges) >= 3:
-            adj_dys = [e["M"][1, 2] for e in edges if e["j"] == e["i"] + 1]
-            if len(adj_dys) >= 3:
-                median_dy = float(np.median(adj_dys))
-                consensus_sign = int(np.sign(median_dy))
-
-                _ts_pat = re.compile(r"_(\d+)ms", re.IGNORECASE)
-                timestamps_ms: List[Optional[int]] = []
-                for p in image_paths:
-                    m_ts = _ts_pat.search(os.path.basename(p))
-                    timestamps_ms.append(int(m_ts.group(1)) if m_ts else None)
-
-                def _interval_ms(fi: int, fj: int) -> Optional[int]:
-                    t_i = timestamps_ms[fi] if fi < len(timestamps_ms) else None
-                    t_j = timestamps_ms[fj] if fj < len(timestamps_ms) else None
-                    if t_i is not None and t_j is not None and t_j != t_i:
-                        return abs(t_j - t_i)
-                    return None
-
-                def _wrong_sign(dy_val: float) -> bool:
-                    return (
-                        consensus_sign != 0
-                        and np.sign(dy_val) != 0
-                        and int(np.sign(dy_val)) != consensus_sign
-                    )
-
-                def _gross_outlier(dy_val: float) -> bool:
-                    return (
-                        abs(dy_val) > 2.0 * abs(median_dy)
-                        and abs(dy_val - median_dy) > 200.0
-                    )
-
-                # Pass 1: bootstrap velocity from clearly-reliable edges.
-                vel_samples = []
-                for e in edges:
-                    if e["j"] != e["i"] + 1:
-                        continue
-                    dy_e = float(e["M"][1, 2])
-                    if _wrong_sign(dy_e) or _gross_outlier(dy_e):
-                        continue
-                    iv = _interval_ms(e["i"], e["j"])
-                    if iv is not None:
-                        vel_samples.append(dy_e / iv)
-                vel_px_per_ms: Optional[float] = (
-                    float(np.median(vel_samples)) if vel_samples else None
-                )
-                if vel_px_per_ms is not None:
-                    print(
-                        f"[Stitch]   Scroll velocity: {vel_px_per_ms:.4f} px/ms "
-                        f"(from {len(vel_samples)} reliable edges)"
-                    )
-
-                # Pass 2: full outlier check + correction.
-                def _is_outlier(dy_val: float, fi: int, fj: int) -> Tuple[bool, str]:
-                    if _wrong_sign(dy_val):
-                        return True, "wrong sign"
-                    if _gross_outlier(dy_val):
-                        return True, "gross outlier"
-                    if vel_px_per_ms is not None:
-                        iv = _interval_ms(fi, fj)
-                        if iv is not None:
-                            expected = abs(vel_px_per_ms) * iv
-                            if abs(dy_val - expected * consensus_sign) > max(
-                                0.40 * expected, 80.0
-                            ):
-                                return (
-                                    True,
-                                    f"velocity outlier (expected {expected * consensus_sign:.1f})",
-                                )
-                    return False, ""
-
-                def _apply_corrected_M(
-                    edge: Dict, new_M: np.ndarray, new_weight: float
-                ) -> Dict:
-                    """Replace edge M and resync pts_j so BA residuals are consistent."""
-                    new_pts_j = edge["pts_i"] + new_M[:, 2].astype(np.float32)
-                    return dict(edge, M=new_M, pts_j=new_pts_j, weight=new_weight)
-
-                ec_h = int(H * _MATCH_EDGE_CROP)
-                ec_w = int(W * _MATCH_EDGE_CROP)
-                corrected_edges = []
-                for e in edges:
-                    if e["j"] == e["i"] + 1:
-                        fi, fj = e["i"], e["j"]
-                        dy = float(e["M"][1, 2])
-                        outlier, reason = _is_outlier(dy, fi, fj)
-                        if outlier:
-                            iv = _interval_ms(fi, fj)
-                            replaced = False
-
-                            # ── Priority 1: velocity estimate ──────────────
-                            if vel_px_per_ms is not None and iv is not None:
-                                est_dy = vel_px_per_ms * iv
-                                print(
-                                    f"[Stitch]   Edge {fi}→{fj}: dy={dy:.1f} ({reason}); "
-                                    f"velocity → dy={est_dy:.1f} "
-                                    f"({iv} ms × {vel_px_per_ms:.4f} px/ms)"
-                                )
-                                M_fix = np.eye(2, 3, dtype=np.float32)
-                                M_fix[0, 2] = e["M"][0, 2]
-                                M_fix[1, 2] = est_dy
-                                e = _apply_corrected_M(e, M_fix, 0.55)
-                                replaced = True
-
-                            # ── Priority 2: directed template re-match ─────
-                            if not replaced:
-                                img_i_c = frames[fi][ec_h:-ec_h, ec_w:-ec_w]
-                                img_j_c = frames[fj][ec_h:-ec_h, ec_w:-ec_w]
-                                m_i_c = (
-                                    bg_masks[fi][ec_h:-ec_h, ec_w:-ec_w]
-                                    if bg_masks[fi] is not None
-                                    else None
-                                )
-                                M_dir, c_dir = _template_match(
-                                    img_i_c,
-                                    img_j_c,
-                                    m_i_c,
-                                    None,
-                                    img_i_c.shape[0],
-                                    direction_sign=consensus_sign,
-                                )
-                                if (
-                                    M_dir is not None
-                                    and int(np.sign(M_dir[1, 2])) == consensus_sign
-                                ):
-                                    new_dy = float(M_dir[1, 2])
-                                    print(
-                                        f"[Stitch]   Edge {fi}→{fj}: dy={dy:.1f} ({reason}); "
-                                        f"directed TM → dy={new_dy:.1f} conf={c_dir:.3f}"
-                                    )
-                                    M_new = np.array(
-                                        [[1, 0, e["M"][0, 2]], [0, 1, new_dy]],
-                                        dtype=np.float32,
-                                    )
-                                    e = _apply_corrected_M(e, M_new, c_dir * 0.7)
-                                    replaced = True
-
-                            # ── Priority 3: median fallback ────────────────
-                            if not replaced:
-                                print(
-                                    f"[Stitch]   Edge {fi}→{fj}: dy={dy:.1f} ({reason}); "
-                                    f"using median {median_dy:.1f}"
-                                )
-                                M_fix = np.eye(2, 3, dtype=np.float32)
-                                M_fix[0, 2] = e["M"][0, 2]
-                                M_fix[1, 2] = median_dy
-                                e = _apply_corrected_M(
-                                    e, M_fix, e.get("weight", 1.0) * 0.3
-                                )
-                        else:
-                            print(
-                                f"[Stitch]   Edge {fi}→{fj}: dy={dy:.1f} kept "
-                                f"(consensus {median_dy:.1f})"
-                            )
-                    corrected_edges.append(e)
-                edges = corrected_edges
+        edges = self._filter_edges(edges, image_paths, H, W, frames, bg_masks)
 
         if torch.cuda.is_available() and self._loftr is not None:
             try:
@@ -442,9 +480,7 @@ class AnimeStitchPipeline:
 
         # ── Stage 8: ECC sub-pixel refinement ───────────────────────────────
         if self.use_ecc:
-            # ECC refinement is disabled in 'Perfect Stitch' by default as it tends
-            # to drift on 4K anime frames.
-            # affines = _ecc_refine(frames, affines, bg_masks)
+            affines = _ecc_refine(frames, affines, bg_masks)
             print("[Stitch] Stage 8 complete: ECC refinement done.")
         else:
             print("[Stitch] Stage 8 skipped (use_ecc=False).")
@@ -482,9 +518,9 @@ class AnimeStitchPipeline:
                     canvas_h,
                     canvas_w,
                     quality=75,
-                    use_prior=True,
-                    use_diffusion_inpaint=False,
-                    n_dct_iter=20,
+                    use_prior=self.mfsr_use_prior,
+                    use_diffusion_inpaint=self.mfsr_use_diffusion,
+                    n_dct_iter=self.mfsr_n_dct_iter,
                 )
                 # Refresh the valid mask to the new canvas's non-zero pixels.
                 valid_mask = (canvas.max(axis=2) > 0).astype(np.uint8) * 255

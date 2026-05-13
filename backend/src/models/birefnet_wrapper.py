@@ -21,14 +21,16 @@ Key improvements over the previous version:
 import cv2
 import numpy as np
 import torch
-torch.backends.cudnn.benchmark = False
+
 from PIL import Image
 from torchvision import transforms
 from typing import List, Optional
 
+torch.backends.cudnn.benchmark = False
+
 # Preferred model: ToonOut (anime-fine-tuned BiRefNet, 99.5 % anime pixel accuracy)
-TOONOUT_MODEL = "MatteoKartoon/BiRefNet"
-BIREFNET_MODEL = "ZhengPeng7/BiRefNet"
+TOONOUT_MODEL = "ZhengPeng7/BiRefNet"
+BIREFNET_MODEL = "MatteoKartoon/BiRefNet"
 
 try:
     import transformers.configuration_utils as _cfg_utils
@@ -86,14 +88,15 @@ class BiRefNetWrapper:
         key = (self.model_name, self.device)
         if key in BiRefNetWrapper._models:
             BiRefNetWrapper._models[key].cpu()
-            if torch.cuda.is_available(): torch.cuda.empty_cache()
-
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
     @classmethod
     def purge_all_models(cls):
         """Completely remove all models from VRAM and RAM."""
         import torch
         import gc
+
         for key in list(cls._models.keys()):
             model = cls._models.pop(key)
             model.cpu()
