@@ -24,7 +24,13 @@ from backend.src.core.vault_manager import VaultManager
 
 
 class MainWindow(QWidget):
-    def __init__(self, vault_manager: VaultManager, dropdown=True, app_icon=None, enable_manager=False):
+    def __init__(
+        self,
+        vault_manager: VaultManager,
+        dropdown=True,
+        app_icon=None,
+        enable_manager=False,
+    ):
         super().__init__()
         from ..tabs import (
             ConvertTab,
@@ -128,22 +134,6 @@ class MainWindow(QWidget):
 
         vbox.addWidget(header_widget)
 
-        # --- Command Selection ---
-        command_layout = QHBoxLayout()
-        command_label = QLabel("Select Category:")
-        command_label.setStyleSheet("font-weight: 600;")
-        command_layout.addWidget(command_label)
-
-        self.command_combo = QComboBox()
-        self.command_combo.addItems(
-            ["System Tools", "Database Management", "Web Integration", "Deep Learning"]
-        )
-        self.command_combo.currentTextChanged.connect(self.on_command_changed)
-        self.command_combo.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        command_layout.addWidget(self.command_combo)
-        command_layout.addStretch()
-        vbox.addLayout(command_layout)
-
         # --- Tab Initialization ---
         self.database_tab = DatabaseTab()
         self.search_tab = SearchTab(self.database_tab, dropdown=dropdown)
@@ -199,7 +189,16 @@ class MainWindow(QWidget):
                 "Evaluation": self.eval_tab,
                 "Inference": self.inference_tab,
                 "ComfyUI": self.comfyui_tab,
-                "Edit": self.stitch_tab,
+            },
+            "Image Edit": {
+                "Stitch": self.stitch_tab.stitch_panel,
+                "Graph": self.stitch_tab.graph_panel,
+                "Adjust": self.stitch_tab.adjust_panel,
+                "Canvas": self.stitch_tab.canvas_panel,
+                "Statistics": self.stitch_tab.stats_panel,
+                "Sequence Builder": self.stitch_tab.seq_builder_panel,
+                "Hybrid Stitch": self.stitch_tab.hybrid_stitch_panel,
+                "Anim Clusters": self.stitch_tab.anim_clusters_panel,
                 "Stitch Feedback": self.stitch_feedback_tab,
             },
         }
@@ -238,9 +237,26 @@ class MainWindow(QWidget):
                             except Exception as e:
                                 print(f"Error applying config to {tab_class_name}: {e}")
 
+        # --- Command Selection (built after all_tabs so the list is always in sync) ---
+        command_layout = QHBoxLayout()
+        command_label = QLabel("Select Category:")
+        command_label.setStyleSheet("font-weight: 600;")
+        command_layout.addWidget(command_label)
+
+        self.command_combo = QComboBox()
+        self.command_combo.addItems(list(self.all_tabs.keys()))
+        self.command_combo.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+        )
+        command_layout.addWidget(self.command_combo)
+        command_layout.addStretch()
+        vbox.addLayout(command_layout)
+
         self.tabs = QTabWidget()
         vbox.addWidget(self.tabs)
 
+        # Connect after populating so the initial currentTextChanged fires correctly.
+        self.command_combo.currentTextChanged.connect(self.on_command_changed)
         self.on_command_changed(self.command_combo.currentText())
 
         self.settings_button.clicked.connect(self.open_settings_window)

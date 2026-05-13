@@ -3,7 +3,7 @@ import subprocess
 import sys
 
 import hydra
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 
 logger = logging.getLogger(__name__)
 

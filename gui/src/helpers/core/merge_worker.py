@@ -75,6 +75,11 @@ class MergeWorker(QObject):
                     use_ecc=self.config.get("use_ecc", True),
                     renderer=self.config.get("renderer", "blend"),
                     composite_fg=self.config.get("composite_fg", True),
+                    motion_model=self.config.get("motion_model", "translation"),
+                    mfsr_mode=self.config.get("mfsr_mode", False),
+                    mfsr_n_dct_iter=self.config.get("mfsr_n_dct_iter", 20),
+                    mfsr_use_prior=self.config.get("mfsr_use_prior", True),
+                    mfsr_use_diffusion=self.config.get("mfsr_use_diffusion", False),
                 )
             else:
                 ImageMerger.merge_images(

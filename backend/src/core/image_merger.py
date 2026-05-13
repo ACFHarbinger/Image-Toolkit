@@ -797,6 +797,10 @@ class ImageMerger:
             "motion_model": kwargs.get("motion_model", "translation"),
             "edge_crop": kwargs.get("edge_crop", 80),
             "laplacian_bands": kwargs.get("laplacian_bands", 8),
+            "mfsr_mode": kwargs.get("mfsr_mode", False),
+            "mfsr_n_dct_iter": kwargs.get("mfsr_n_dct_iter", 20),
+            "mfsr_use_prior": kwargs.get("mfsr_use_prior", True),
+            "mfsr_use_diffusion": kwargs.get("mfsr_use_diffusion", False),
         }
 
         # 2. Override with stitch.yaml (Project settings)

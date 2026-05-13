@@ -17,14 +17,14 @@ Workflow
 from __future__ import annotations
 
 import os
+import torch
 from typing import List, Optional
 
 import cv2
 from PySide6.QtCore import QObject, QThread, Signal, Slot
-from PySide6.QtGui import QColor, QFont, QPixmap, QImage
+from PySide6.QtGui import QFont, QPixmap
 from PySide6.QtWidgets import (
     QComboBox,
-    QDoubleSpinBox,
     QFileDialog,
     QGroupBox,
     QHBoxLayout,
@@ -35,7 +35,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
-    QSizePolicy,
     QSlider,
     QSpinBox,
     QSplitter,
@@ -45,8 +44,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from ...helpers.stitch.annotation_canvas import AnnotationCanvas
-from backend.src.core.anim.rlhf.feedback_store import (
+from ...helpers.anim.annotation_canvas import AnnotationCanvas
+from backend.src.anim.rlhf.feedback_store import (
     FLAW_TYPES,
     FeedbackStore,
     StitchAnnotation,
@@ -56,9 +55,10 @@ from backend.src.core.anim.rlhf.feedback_store import (
 # Background workers
 # ---------------------------------------------------------------------------
 
+
 class _RewardModelTrainWorker(QObject):
-    progress = Signal(int, int, float)    # epoch, total, val_loss
-    finished = Signal(str)                # summary message
+    progress = Signal(int, int, float)  # epoch, total, val_loss
+    finished = Signal(str)  # summary message
     error = Signal(str)
 
     def __init__(self, store_path: str, model_path: str, epochs: int):
@@ -70,11 +70,14 @@ class _RewardModelTrainWorker(QObject):
     @Slot()
     def run(self):
         try:
-            from backend.src.core.anim.rlhf import FeedbackStore, train_reward_model
+            from backend.src.anim.rlhf import FeedbackStore, train_reward_model
+
             store = FeedbackStore(path=self._store_path)
             n = store.count()
             if n == 0:
-                self.error.emit("No feedback records found — submit some ratings first.")
+                self.error.emit(
+                    "No feedback records found — submit some ratings first."
+                )
                 return
             model = train_reward_model(
                 store,
@@ -83,15 +86,14 @@ class _RewardModelTrainWorker(QObject):
                 progress_cb=lambda ep, tot, loss: self.progress.emit(ep, tot, loss),
             )
             self.finished.emit(
-                f"Reward model trained on {n} samples. "
-                f"Saved to {model._path}."
+                f"Reward model trained on {n} samples. Saved to {model._path}."
             )
         except Exception as exc:
             self.error.emit(str(exc))
 
 
 class _DRLFineTuneWorker(QObject):
-    progress = Signal(int, int, float)   # episode, total, reward
+    progress = Signal(int, int, float)  # episode, total, reward
     finished = Signal(str)
     error = Signal(str)
 
@@ -111,10 +113,11 @@ class _DRLFineTuneWorker(QObject):
     @Slot()
     def run(self):
         try:
-            import torch
-            import numpy as _np
-            from backend.src.core.anim.rlhf import StitchRewardModel, fine_tune_drl_agent
-            from backend.src.core.anim.mfsr.drl_registration import RegistrationAgent
+            from backend.src.anim.rlhf import (
+                StitchRewardModel,
+                fine_tune_drl_agent,
+            )
+            from backend.src.anim.mfsr.drl_registration import RegistrationAgent
 
             reward_model = StitchRewardModel(
                 model_path=self._model_path if self._model_path else None
@@ -151,6 +154,7 @@ class _DRLFineTuneWorker(QObject):
             # Save updated agent weights
             if self._agent_path:
                 import pathlib
+
                 pathlib.Path(self._agent_path).parent.mkdir(parents=True, exist_ok=True)
                 torch.save(agent.online.state_dict(), self._agent_path)
 
@@ -165,6 +169,7 @@ class _DRLFineTuneWorker(QObject):
 # ---------------------------------------------------------------------------
 # Main tab
 # ---------------------------------------------------------------------------
+
 
 class StitchFeedbackTab(QWidget):
     """RLHF feedback collection and agent training tab."""
@@ -426,7 +431,10 @@ class StitchFeedbackTab(QWidget):
         canvas_anns = self._canvas.annotations
         store_anns = [
             StitchAnnotation(
-                x=a.x, y=a.y, w=a.w, h=a.h,
+                x=a.x,
+                y=a.y,
+                w=a.w,
+                h=a.h,
                 flaw_type=a.flaw_type,
                 severity=a.severity,
                 description=a.description,
@@ -447,7 +455,9 @@ class StitchFeedbackTab(QWidget):
     @Slot()
     def _train_reward_model(self):
         if self._training_thread is not None and self._training_thread.isRunning():
-            QMessageBox.warning(self, "Busy", "Reward model training is already in progress.")
+            QMessageBox.warning(
+                self, "Busy", "Reward model training is already in progress."
+            )
             return
         self._train_rm_btn.setEnabled(False)
         self._log_msg("Starting reward model training…")
@@ -486,7 +496,9 @@ class StitchFeedbackTab(QWidget):
     @Slot()
     def _browse_drl_dir(self):
         d = QFileDialog.getExistingDirectory(
-            self, "Select Frame Directory", "",
+            self,
+            "Select Frame Directory",
+            "",
             options=QFileDialog.Option.DontUseNativeDialog,
         )
         if d:
@@ -503,19 +515,21 @@ class StitchFeedbackTab(QWidget):
             return
 
         from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
-        image_paths = sorted([
-            os.path.join(frame_dir, f)
-            for f in os.listdir(frame_dir)
-            if os.path.splitext(f)[1].lower() in SUPPORTED_IMG_FORMATS
-        ])
+
+        image_paths = sorted(
+            [
+                os.path.join(frame_dir, f)
+                for f in os.listdir(frame_dir)
+                if os.path.splitext(f)[1].lower() in SUPPORTED_IMG_FORMATS
+            ]
+        )
         if len(image_paths) < 2:
             QMessageBox.warning(self, "Too few images", "Need at least 2 images.")
             return
 
         from pathlib import Path
-        agent_path = str(
-            Path.home() / ".config" / "image-toolkit" / "drl_agent.pt"
-        )
+
+        agent_path = str(Path.home() / ".config" / "image-toolkit" / "drl_agent.pt")
         self._drl_train_btn.setEnabled(False)
         self._log_msg(
             f"Fine-tuning DRL agent on {len(image_paths)} frames "
@@ -558,9 +572,7 @@ class StitchFeedbackTab(QWidget):
 
     def _log_msg(self, text: str) -> None:
         self._log.append(text)
-        self._log.verticalScrollBar().setValue(
-            self._log.verticalScrollBar().maximum()
-        )
+        self._log.verticalScrollBar().setValue(self._log.verticalScrollBar().maximum())
 
     def _refresh_feedback_count(self) -> None:
         try:

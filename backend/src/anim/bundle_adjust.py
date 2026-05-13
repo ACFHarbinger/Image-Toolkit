@@ -53,7 +53,9 @@ def _bundle_adjust_affine(
         for f in range(num_frames):
             x0[f * 4] = 1.0  # a (scale*cos(theta))
 
-    # Initial sequential guess
+    # Initial sequential guess.
+    # M convention: dy = y_j - y_i (forward-shift: LoFTR/PC).
+    # Canvas placement: ty_j = ty_i - dy, so we accumulate with -M_raw.
     for f in range(1, num_frames):
         for e in edges:
             if e["i"] == f - 1 and e["j"] == f:
@@ -104,7 +106,7 @@ def _bundle_adjust_affine(
 
         # Global Identity Prior (Self-Regularization)
         # Prevents scale collapse and keeps rotation near zero
-        reg_identity = 1000.0
+        reg_identity = 1e5
         if use_affine:
             for f in range(1, num_frames):
                 res.append((x[f * 4] - 1.0) * reg_identity)  # a

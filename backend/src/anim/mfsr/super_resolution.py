@@ -98,23 +98,29 @@ def run_mfsr(
         f"diff_inpaint={use_diffusion_inpaint})."
     )
 
-    # 1. Temporal accumulation in float64 (initial HR estimate).
-    initial = _temporal_accumulate(frames, affines, canvas_h, canvas_w)
+    # 1. Optional per-frame prior injection (denoise each source frame individually).
+    #    Applying the prior per frame rather than on the full canvas avoids
+    #    tile-boundary seam artifacts that CNN models produce when tiling large images.
+    frames_for_accum = frames
+    if use_prior:
+        denoised: list = []
+        for idx, f in enumerate(frames):
+            try:
+                df = apply_prior(f, scale=1, noise_level=1, backend="auto")
+                denoised.append(df)
+                print(f"[MFSR]   Stage 2: prior frame {idx + 1}/{len(frames)} done.")
+            except Exception as e:
+                print(f"[MFSR]   Stage 2: prior frame {idx + 1} failed ({e}); keeping original.")
+                denoised.append(f)
+        frames_for_accum = denoised
+        print("[MFSR]   Stage 2: per-frame prior injection complete.")
+
+    # 2. Temporal accumulation using (optionally) denoised frames.
+    initial = _temporal_accumulate(frames_for_accum, affines, canvas_h, canvas_w)
+    prior_init: Optional[np.ndarray] = initial if use_prior else None
     print("[MFSR]   Stage 1: temporal accumulation done.")
 
-    # 2. Optional prior injection on the initial estimate (denoise/sharpen).
-    prior_init: Optional[np.ndarray] = None
-    if use_prior:
-        try:
-            prior_init = apply_prior(initial, scale=1, noise_level=1, backend="auto")
-            print("[MFSR]   Stage 2: prior injection done.")
-        except Exception as e:
-            print(f"[MFSR]   Stage 2: prior injection failed ({e}); skipping.")
-            prior_init = None
-    else:
-        prior_init = initial
-
-    # 3. DCT iterative artifact reversal.
+    # 3. DCT iterative artifact reversal on original frames (preserves compression info).
     try:
         refined = restore_dct(
             frames,
@@ -130,13 +136,14 @@ def run_mfsr(
         print(f"[MFSR]   Stage 3: DCT restoration failed ({e}); using prior.")
         refined = prior_init if prior_init is not None else initial
 
-    # 4. Optional final prior sweep to clean up any residual blocking.
+    # 4. Final bilateral polish (uses bicubic/bilateral only — no CNN on the full canvas,
+    #    which would re-introduce tile-boundary seam artifacts).
     if use_prior:
         try:
-            refined = apply_prior(refined, scale=1, noise_level=1, backend="auto")
-            print("[MFSR]   Stage 4: final prior sweep done.")
+            refined = apply_prior(refined, scale=1, noise_level=1, backend="bicubic")
+            print("[MFSR]   Stage 4: final bilateral polish done.")
         except Exception as e:
-            print(f"[MFSR]   Stage 4: prior sweep failed ({e}); skipping.")
+            print(f"[MFSR]   Stage 4: polish failed ({e}); skipping.")
 
     # 5. Inpaint gaps that no source frame covered.
     gap_mask = _build_gap_mask(frames, affines, canvas_h, canvas_w)

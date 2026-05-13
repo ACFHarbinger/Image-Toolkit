@@ -12,11 +12,9 @@ Two entry points:
 
 from __future__ import annotations
 
-import math
 import random
 from typing import Callable, List, Optional, Tuple
 
-import cv2
 import numpy as np
 
 from .feedback_store import FeedbackStore
@@ -169,7 +167,7 @@ def fine_tune_drl_agent(
                 state = next_state
                 agent._trained = True
 
-                loss = agent._replay_step()
+                agent._replay_step()
                 step_counter += 1
                 if step_counter % target_update == 0:
                     agent.target.load_state_dict(agent.online.state_dict())

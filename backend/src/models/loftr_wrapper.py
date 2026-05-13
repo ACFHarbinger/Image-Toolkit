@@ -17,9 +17,11 @@ Legacy API (backward-compatible):
 import cv2
 import numpy as np
 import torch
-torch.backends.cudnn.benchmark = False
+
 import kornia.feature as KF
 from typing import Optional, Tuple
+
+torch.backends.cudnn.benchmark = False
 
 # LoFTR optimal input size (divisible by 32, close to model sweet-spot)
 _LOFTR_H = 320
@@ -45,7 +47,8 @@ class LoFTRWrapper:
     def offload(self):
         if self.matcher is not None:
             self.matcher.cpu()
-            if torch.cuda.is_available(): torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
     def load_model(self):
         if self.matcher is None:

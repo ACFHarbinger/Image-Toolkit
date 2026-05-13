@@ -448,3 +448,8 @@ mcp.json
 # Linting and formatting
 .ruff_cache/
 .mypy_cache/
+
+# Forcefully add to path
+!backend/src/models/
+!gui/src/tabs/models/
+!gui/src/helpers/models/

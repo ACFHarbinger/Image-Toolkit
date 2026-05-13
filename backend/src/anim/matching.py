@@ -302,7 +302,10 @@ def _match_pair(
     M_transl[1, 2] = M[1, 2]
     M = M_transl
 
-    # Build anchor points for the BA residuals
+    # Build anchor points for the BA residuals.
+    # Convention: M[1,2] = dy where dy = y_j - y_i (forward-shift: LoFTR/PC).
+    # Canvas placement: ty_j = ty_i - dy, so residual pi_global = pj_global
+    # requires pts_j = pts_i + M[:2, 2].
     if actual_pts_i is not None and actual_pts_j is not None:
         pts_i = actual_pts_i
         pts_j = actual_pts_j

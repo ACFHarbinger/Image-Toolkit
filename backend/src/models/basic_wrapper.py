@@ -18,7 +18,6 @@ Legacy API (backward-compatible):
 import cv2
 import numpy as np
 import torch
-import torch.nn.functional as F
 from typing import List, Optional, Tuple
 
 

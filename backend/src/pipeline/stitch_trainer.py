@@ -45,6 +45,7 @@ import torch.nn as nn
 from torch.cuda.amp import GradScaler, autocast
 from torch.optim import AdamW
 from torch.utils.data import DataLoader, random_split
+from backend.src.models.stitch_net import AnimeStitchNet
 
 
 # ---------------------------------------------------------------------------
@@ -483,8 +484,6 @@ def load_stitch_net(
     Load a trained AnimeStitchNet from a .pt checkpoint or .torchscript file.
     Returns the model in eval mode on the requested device.
     """
-    from backend.src.models.stitch_net.model import AnimeStitchNet
-
     dev = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
 
     if checkpoint_path.endswith(".torchscript"):
