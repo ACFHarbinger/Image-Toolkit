@@ -74,7 +74,13 @@ dependencies = [
     "tqdm>=4.67.1",
     "transformers>=4.57.2",
     "webdriver-manager>=4.0.2",
+    "chardet<6.0.0",
     "yarl>=1.23.0",
+    "albumentations>=2.0.8",
+    "pytorch-lightning>=2.6.1",
+    "rembg>=2.0.75",
+    "transparent-background>=1.3.4",
+    "sam-2 @ git+https://github.com/facebookresearch/sam2@2b90b9f5ceec907a1c18123530e92e794ad901a4",
 ]
 
 # (Optional) entry-point so you can run `image-toolkit` from terminal

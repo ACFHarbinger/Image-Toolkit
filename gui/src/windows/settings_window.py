@@ -146,8 +146,8 @@ class SettingsWindow(QWidget):
         all_categories_layout = QVBoxLayout()
         all_categories_layout.setSpacing(10)
 
-        for category_name, tab_names in categorized_tabs.items():
-            if not tab_names:
+        for category_name, display_names in categorized_tabs.items():
+            if not display_names:
                 continue
 
             # Add category label
@@ -159,22 +159,27 @@ class SettingsWindow(QWidget):
             category_form_layout = QFormLayout()
             category_form_layout.setContentsMargins(10, 0, 0, 0)
 
-            for tab_name in tab_names:
+            for display_name in display_names:
                 combo = QComboBox()
                 combo.addItem("None (Default)")
 
-                # Populate with available saved configs for this tab
-                configs_for_tab = self.tab_defaults_config.get(tab_name, {})
+                # Get the class name for vault lookup
+                tab_instance = self._get_tab_instance_by_display_name(display_name)
+                tab_class_name = type(tab_instance).__name__ if tab_instance else display_name
+
+                # Populate with available saved configs for this tab class
+                configs_for_tab = self.tab_defaults_config.get(tab_class_name, {})
                 config_names = sorted(configs_for_tab.keys())
                 combo.addItems(config_names)
 
                 # Select the currently active config if it exists
-                active_config = self.active_tab_configs.get(tab_name)
+                active_config = self.active_tab_configs.get(tab_class_name)
                 if active_config and active_config in configs_for_tab:
                     combo.setCurrentText(active_config)
 
-                self.startup_config_combos[tab_name] = combo
-                category_form_layout.addRow(f"{tab_name}:", combo)
+                # Store by class name so MainWindow can apply them correctly
+                self.startup_config_combos[tab_class_name] = combo
+                category_form_layout.addRow(f"{display_name}:", combo)
 
             all_categories_layout.addLayout(category_form_layout)
 
@@ -245,11 +250,17 @@ class SettingsWindow(QWidget):
 
         # 1. Tab Selection
         tab_select_layout = QFormLayout()
+        
+        self.tab_group_combo = QComboBox()
+        self.tab_group_combo.setPlaceholderText("Select a Tab Group...")
+        categorized_tabs = self._get_all_tab_names_categorized()
+        self.tab_group_combo.addItems([""] + sorted(categorized_tabs.keys()))
+        self.tab_group_combo.currentTextChanged.connect(self._on_tab_group_changed)
+        tab_select_layout.addRow("Select Tab Group:", self.tab_group_combo)
+
         self.tab_select_combo = QComboBox()
         self.tab_select_combo.setPlaceholderText("Select a Tab...")
-        # Populate with all unique tab names (non-categorized for this single combobox)
-        all_unique_tab_names = sorted(self._get_all_tab_names_uncategorized())
-        self.tab_select_combo.addItems([""] + all_unique_tab_names)
+        self.tab_select_combo.addItems([""])
         self.tab_select_combo.currentTextChanged.connect(self._refresh_config_dropdown)
         tab_select_layout.addRow("Select Tab Class:", self.tab_select_combo)
         defaults_layout.addLayout(tab_select_layout)
@@ -513,29 +524,42 @@ class SettingsWindow(QWidget):
 
     def _get_all_tab_names_categorized(self):
         """
-        Helper to return a dictionary of {Category Name: [Tab Class Names]}
+        Helper to return a dictionary of {Category Name: [Tab Display Names]}
         """
         categorized_tabs = {}
         for category, sub_tabs in self._get_tab_mapping().items():
-            tab_class_names = []
-            for tab_instance in sub_tabs.values():
-                tab_class_names.append(type(tab_instance).__name__)
-
-            # Sort the class names alphabetically within the category for consistent display
-            categorized_tabs[category] = sorted(list(set(tab_class_names)))
+            # Use the display labels (keys) instead of class names
+            categorized_tabs[category] = sorted(list(sub_tabs.keys()))
 
         return categorized_tabs
 
-    def _get_tab_instance(self, tab_class_name: str):
-        """Finds the active instance of a tab by its class name."""
-        if not tab_class_name:
+    def _get_tab_instance_by_display_name(self, display_name: str):
+        """Finds the active instance of a tab by its display name from all_tabs mapping."""
+        if not display_name:
             return None
 
         for category, sub_tabs in self._get_tab_mapping().items():
-            for tab_instance in sub_tabs.values():
-                if type(tab_instance).__name__ == tab_class_name:
-                    return tab_instance
+            if display_name in sub_tabs:
+                return sub_tabs[display_name]
         return None
+
+    def _on_tab_group_changed(self, group_name: str):
+        try:
+            self.tab_select_combo.currentTextChanged.disconnect(self._refresh_config_dropdown)
+        except RuntimeError:
+            pass
+            
+        self.tab_select_combo.clear()
+        
+        if not group_name:
+            self.tab_select_combo.addItems([""])
+        else:
+            categorized_tabs = self._get_all_tab_names_categorized()
+            tabs_in_group = categorized_tabs.get(group_name, [])
+            self.tab_select_combo.addItems([""] + tabs_in_group)
+            
+        self.tab_select_combo.currentTextChanged.connect(self._refresh_config_dropdown)
+        self._refresh_config_dropdown(self.tab_select_combo.currentText())
 
     def _load_tab_defaults_from_vault(self):
         """Loads all named tab configurations from the secure vault."""
@@ -583,10 +607,10 @@ class SettingsWindow(QWidget):
             )
             return False
 
-    def _populate_default_config(self, tab_class_name: str):
-        """Populates the text editor with the default config from the selected tab class."""
+    def _populate_default_config(self, tab_display_name: str):
+        """Populates the text editor with the default config from the selected tab display name."""
         self.config_name_input.clear()  # Clear config name
-        tab_instance = self._get_tab_instance(tab_class_name)
+        tab_instance = self._get_tab_instance_by_display_name(tab_display_name)
 
         if tab_instance and hasattr(tab_instance, "get_default_config"):
             try:
@@ -607,9 +631,9 @@ class SettingsWindow(QWidget):
                 "This tab does not have a 'get_default_config' method."
             )
 
-    def _refresh_config_dropdown(self, tab_class_name: str):
+    def _refresh_config_dropdown(self, tab_display_name: str):
         """
-        Populates the config dropdown based on the selected tab class AND
+        Populates the config dropdown based on the selected tab display name AND
         populates the editor with the default config for that tab.
         """
 
@@ -623,18 +647,22 @@ class SettingsWindow(QWidget):
         self.config_select_combo.clear()
         self.current_loaded_config_name = None
 
-        if not tab_class_name:
-            self.config_select_combo.setPlaceholderText("Select a Tab Class first.")
+        if not tab_display_name:
+            self.config_select_combo.setPlaceholderText("Select a Tab first.")
             self.config_name_input.clear()
             self.default_config_editor.clear()
             self.default_config_editor.setPlaceholderText(
-                "Select a Tab Class to see its default configuration..."
+                "Select a Tab to see its default configuration..."
             )
         else:
-            # Populate the editor with the default config FIRST
-            self._populate_default_config(tab_class_name)
+            # Get class name for config lookup
+            instance = self._get_tab_instance_by_display_name(tab_display_name)
+            tab_class_name = type(instance).__name__ if instance else ""
 
-            # Now, populate the dropdown with saved configs
+            # Populate the editor with the default config FIRST
+            self._populate_default_config(tab_display_name)
+
+            # Now, populate the dropdown with saved configs for this tab class
             configs = self.tab_defaults_config.get(tab_class_name, {})
             config_names = sorted(configs.keys())
 
@@ -651,17 +679,20 @@ class SettingsWindow(QWidget):
         Loads a selected configuration's JSON into the editor.
         If config_name is empty, it re-loads the default config.
         """
-        tab_class_name = self.tab_select_combo.currentText()
+        tab_display_name = self.tab_select_combo.currentText()
 
-        if not tab_class_name:
+        if not tab_display_name:
             self.config_name_input.clear()
             self.default_config_editor.clear()
             self.current_loaded_config_name = None
             return
 
+        instance = self._get_tab_instance_by_display_name(tab_display_name)
+        tab_class_name = type(instance).__name__ if instance else ""
+
         if not config_name:
             # User selected the blank placeholder, so load the default config
-            self._populate_default_config(tab_class_name)
+            self._populate_default_config(tab_display_name)
             self.current_loaded_config_name = None
             return
 
@@ -679,22 +710,25 @@ class SettingsWindow(QWidget):
                 self, "Load Error", f"Failed to load config '{config_name}': {e}"
             )
             # On error, fall back to default
-            self._populate_default_config(tab_class_name)
+            self._populate_default_config(tab_display_name)
             self.current_loaded_config_name = None
 
     def _save_current_tab_config(self):
         """Parses the editor content and saves it as a new or updated named configuration."""
-        tab_class_name = self.tab_select_combo.currentText()
+        tab_display_name = self.tab_select_combo.currentText()
         config_name = self.config_name_input.text().strip()
         json_text = self.default_config_editor.toPlainText().strip()
 
-        if not tab_class_name or not config_name:
+        if not tab_display_name or not config_name:
             QMessageBox.warning(
                 self,
                 "Input Error",
-                "Please select a Tab Class and provide a Config Name.",
+                "Please select a Tab and provide a Config Name.",
             )
             return
+
+        instance = self._get_tab_instance_by_display_name(tab_display_name)
+        tab_class_name = type(instance).__name__ if instance else ""
 
         if not json_text:
             QMessageBox.warning(
@@ -716,10 +750,10 @@ class SettingsWindow(QWidget):
                 QMessageBox.information(
                     self,
                     "Success",
-                    f"Configuration '{config_name}' saved for {tab_class_name}.",
+                    f"Configuration '{config_name}' saved for {tab_display_name}.",
                 )
 
-                self._refresh_config_dropdown(tab_class_name)
+                self._refresh_config_dropdown(tab_display_name)
                 self.config_select_combo.setCurrentText(config_name)
 
         except json.JSONDecodeError as e:
@@ -734,12 +768,12 @@ class SettingsWindow(QWidget):
         Captures the current values from the active tab instance,
         populates the JSON editor, and triggers the save workflow.
         """
-        tab_class_name = self.tab_select_combo.currentText()
-        if not tab_class_name:
-            QMessageBox.warning(self, "Error", "Please select a Tab Class first.")
+        tab_display_name = self.tab_select_combo.currentText()
+        if not tab_display_name:
+            QMessageBox.warning(self, "Error", "Please select a Tab first.")
             return
 
-        tab_instance = self._get_tab_instance(tab_class_name)
+        tab_instance = self._get_tab_instance_by_display_name(tab_display_name)
         if not tab_instance:
             QMessageBox.warning(
                 self, "Error", "Could not find active tab instance to capture from."
@@ -750,7 +784,7 @@ class SettingsWindow(QWidget):
             QMessageBox.warning(
                 self,
                 "Error",
-                f"The tab '{tab_class_name}' does not support capturing current configuration (missing 'collect' method).",
+                f"The tab '{tab_display_name}' does not support capturing current configuration (missing 'collect' method).",
             )
             return
 
@@ -773,16 +807,19 @@ class SettingsWindow(QWidget):
 
     def _delete_selected_tab_config(self):
         """Deletes the currently selected configuration from the in-memory state and the vault."""
-        tab_class_name = self.tab_select_combo.currentText()
+        tab_display_name = self.tab_select_combo.currentText()
         config_name = self.config_select_combo.currentText()
 
-        if not tab_class_name or not config_name:
+        if not tab_display_name or not config_name:
             QMessageBox.warning(
                 self,
                 "Delete Error",
-                "Please select a tab class and a configuration to delete.",
+                "Please select a tab and a configuration to delete.",
             )
             return
+
+        instance = self._get_tab_instance_by_display_name(tab_display_name)
+        tab_class_name = type(instance).__name__ if instance else ""
 
         reply = QMessageBox.question(
             self,
@@ -809,7 +846,7 @@ class SettingsWindow(QWidget):
                         )
                         self.config_name_input.clear()
                         self.default_config_editor.clear()
-                        self._refresh_config_dropdown(tab_class_name)
+                        self._refresh_config_dropdown(tab_display_name)
 
             except Exception as e:
                 QMessageBox.critical(
@@ -821,11 +858,11 @@ class SettingsWindow(QWidget):
         Applies the configuration currently loaded in the editor to the active
         instance of the selected tab in the MainWindow.
         """
-        tab_class_name = self.tab_select_combo.currentText()
+        tab_display_name = self.tab_select_combo.currentText()
         config_name = self.config_name_input.text().strip()
         json_text = self.default_config_editor.toPlainText().strip()
 
-        if not tab_class_name or not (config_name or json_text):
+        if not tab_display_name or not (config_name or json_text):
             QMessageBox.warning(
                 self,
                 "Set Error",
@@ -836,15 +873,17 @@ class SettingsWindow(QWidget):
         try:
             config_data = json.loads(json_text)
 
-            target_tab_instance = self._get_tab_instance(tab_class_name)
+            target_tab_instance = self._get_tab_instance_by_display_name(tab_display_name)
 
             if not target_tab_instance:
                 QMessageBox.critical(
                     self,
                     "Set Error",
-                    f"Could not find active instance of tab: {tab_class_name}.",
+                    f"Could not find active instance of tab: {tab_display_name}.",
                 )
                 return
+
+            tab_class_name = type(target_tab_instance).__name__
 
             if hasattr(target_tab_instance, "set_config") and callable(
                 target_tab_instance.set_config
@@ -857,13 +896,13 @@ class SettingsWindow(QWidget):
                 QMessageBox.information(
                     self,
                     "Success",
-                    f"Configuration {config_display_name} applied to {tab_class_name}.",
+                    f"Configuration {config_display_name} applied to {tab_display_name}.",
                 )
             else:
                 QMessageBox.critical(
                     self,
                     "Set Error",
-                    f"Target tab '{tab_class_name}' does not have a 'set_config' method.",
+                    f"Target tab '{tab_display_name}' ({tab_class_name}) does not have a 'set_config' method.",
                 )
 
         except json.JSONDecodeError as e:

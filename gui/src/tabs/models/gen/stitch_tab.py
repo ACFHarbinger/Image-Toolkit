@@ -107,7 +107,7 @@ from ....helpers.models.stitch_worker import (
     StitchWorker,
 )
 from ....styles.style import apply_shadow_effect
-from .hybrid_stitch_panel import HybridStitchPanel
+from .hybrid_stitch_panel import HybridStitchPanel as RealHybridStitchPanel
 
 # ---------------------------------------------------------------------------
 # Stitch-panel helpers
@@ -1933,6 +1933,74 @@ class SequenceBuilderWorker(QRunnable):
 # ---------------------------------------------------------------------------
 
 
+class EditTabPanel:
+    """Mixin class to expose EditTab configuration methods to panel proxies."""
+    def __init__(self, parent_tab=None):
+        self.parent_tab = parent_tab
+
+    def collect(self) -> dict:
+        if self.parent_tab:
+            return self.parent_tab.collect()
+        return {}
+
+    def set_config(self, cfg: dict):
+        if self.parent_tab:
+            self.parent_tab.set_config(cfg)
+
+    def get_default_config(self) -> dict:
+        if self.parent_tab:
+            return self.parent_tab.get_default_config()
+        return {}
+
+
+class StitchPanel(QWidget, EditTabPanel):
+    def __init__(self, parent_tab=None):
+        QWidget.__init__(self)
+        EditTabPanel.__init__(self, parent_tab)
+
+
+class GraphPanel(QWidget, EditTabPanel):
+    def __init__(self, parent_tab=None):
+        QWidget.__init__(self)
+        EditTabPanel.__init__(self, parent_tab)
+
+
+class AdjustPanel(QWidget, EditTabPanel):
+    def __init__(self, parent_tab=None):
+        QWidget.__init__(self)
+        EditTabPanel.__init__(self, parent_tab)
+
+
+class CanvasPanel(QWidget, EditTabPanel):
+    def __init__(self, parent_tab=None):
+        QWidget.__init__(self)
+        EditTabPanel.__init__(self, parent_tab)
+
+
+class StatsPanel(QWidget, EditTabPanel):
+    def __init__(self, parent_tab=None):
+        QWidget.__init__(self)
+        EditTabPanel.__init__(self, parent_tab)
+
+
+class SeqBuilderPanel(QWidget, EditTabPanel):
+    def __init__(self, parent_tab=None):
+        QWidget.__init__(self)
+        EditTabPanel.__init__(self, parent_tab)
+
+
+class HybridStitchPanel(RealHybridStitchPanel, EditTabPanel):
+    def __init__(self, parent_tab=None):
+        RealHybridStitchPanel.__init__(self)
+        EditTabPanel.__init__(self, parent_tab)
+
+
+class AnimClustersPanel(QWidget, EditTabPanel):
+    def __init__(self, parent_tab=None):
+        QWidget.__init__(self)
+        EditTabPanel.__init__(self, parent_tab)
+
+
 class EditTab(QWidget):
     """
     Full image editing suite focused on anime wallpaper creation.
@@ -2127,7 +2195,7 @@ class EditTab(QWidget):
     # ======================================================================
 
     def _build_stitch_panel(self) -> QWidget:
-        panel = QWidget()
+        panel = StitchPanel(self)
         root = QVBoxLayout(panel)
         root.setContentsMargins(6, 6, 6, 6)
         root.setSpacing(4)
@@ -2396,7 +2464,9 @@ class EditTab(QWidget):
 
         self._cb_mfsr_prior = QCheckBox("CNN prior injection")
         self._cb_mfsr_prior.setChecked(True)
-        self._cb_mfsr_prior.setToolTip("Inject CNN-estimated prior into the DCT solver.")
+        self._cb_mfsr_prior.setToolTip(
+            "Inject CNN-estimated prior into the DCT solver."
+        )
 
         self._cb_mfsr_diffusion = QCheckBox("Diffusion inpainting")
         self._cb_mfsr_diffusion.setChecked(False)
@@ -2532,7 +2602,7 @@ class EditTab(QWidget):
         4. Select a _StitchOpNode and set its output path in the sidebar.
         5. Hit "Run Graph" — operations execute in topological order.
         """
-        panel = QWidget()
+        panel = GraphPanel(self)
         vbox_lay = QVBoxLayout(panel)
         vbox_lay.setContentsMargins(0, 0, 0, 0)
         v_split = QSplitter(Qt.Orientation.Vertical)
@@ -2711,7 +2781,7 @@ class EditTab(QWidget):
     # ======================================================================
 
     def _build_adjust_panel(self) -> QWidget:
-        panel = QWidget()
+        panel = AdjustPanel(self)
         layout = QHBoxLayout(panel)
         layout.setContentsMargins(6, 6, 6, 6)
         layout.setSpacing(6)
@@ -2953,7 +3023,7 @@ class EditTab(QWidget):
     # ======================================================================
 
     def _build_canvas_panel(self) -> QWidget:
-        panel = QWidget()
+        panel = CanvasPanel(self)
         root_layout = QVBoxLayout(panel)
         root_layout.setContentsMargins(6, 6, 6, 6)
         root_layout.setSpacing(6)
@@ -4342,7 +4412,7 @@ class EditTab(QWidget):
     # ======================================================================
 
     def _build_stats_panel(self) -> QWidget:
-        panel = QWidget()
+        panel = StatsPanel(self)
         root = QVBoxLayout(panel)
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(6)
@@ -5195,7 +5265,7 @@ class EditTab(QWidget):
     # ======================================================================
 
     def _build_anim_clusters_panel(self) -> QWidget:
-        panel = QWidget()
+        panel = AnimClustersPanel(self)
         root = QVBoxLayout(panel)
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(6)
@@ -5506,7 +5576,7 @@ class EditTab(QWidget):
     # ======================================================================
 
     def _build_seq_panel(self) -> QWidget:
-        panel = QWidget()
+        panel = SeqBuilderPanel(self)
         root = QVBoxLayout(panel)
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(6)
@@ -6049,7 +6119,7 @@ class EditTab(QWidget):
     # ======================================================================
 
     def _build_hybrid_panel(self) -> QWidget:
-        self._hybrid_panel = HybridStitchPanel(parent=self)
+        self._hybrid_panel = HybridStitchPanel(self)
         self._hybrid_panel.sequence_accepted.connect(self._on_hybrid_sequence_accepted)
         return self._hybrid_panel
 
