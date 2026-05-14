@@ -112,6 +112,10 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         """Create the specific interactive label for a gallery item (subclass must implement)."""
         pass
 
+    def on_selection_changed(self):
+        """Optional hook for subclasses to react to selection changes."""
+        pass
+
     # --- KEYBOARD SHORTCUTS ---
     def keyPressEvent(self, event: QEvent):
         # Check for Ctrl + A (Select All)

@@ -40,18 +40,27 @@ import cv2
 import numpy as np
 
 
-_FEATHER_MAX = 60          # maximum feather half-width (low-diff boundaries)
-_FEATHER_MIN = 10          # minimum feather half-width (very high-diff boundaries)
-_GAIN_CLAMP = (0.80, 1.20) # per-boundary photometric correction limits (±20%)
+
+_FEATHER_MAX = 200         # maximum feather half-width (low-diff boundaries)
+_FEATHER_MIN = 60          # minimum target feather (before inter-boundary cap)
+_GAIN_CLAMP = (0.93, 1.07) # per-boundary photometric correction limit (±7%); larger values cause banding against the scene's natural top-to-bottom brightness gradient
 _SEQ_SAMPLE_HALF = 40      # rows each side of boundary used for gain estimation
 _SEQ_MIN_PX = 200          # minimum pixels required for reliable gain estimation
-_SEARCH_RANGE = 300        # px each side to search for optimal boundary placement
+_SEARCH_RANGE = 250        # px each side to search for optimal boundary placement
 _SEARCH_SLAB = 20          # row height used when scoring candidate positions
 
-# Adaptive feather: diff thresholds → feather half-width
+_SEAM_RAMP_HALF = 150      # rows each side for post-composite seam colour ramp (capped by boundary spacing)
+_SEAM_MEAS_SLAB = 40       # rows used to measure canvas colour just outside feather zone
+_SEAM_STEP_THRESHOLD = 6.0 # min per-channel colour step (0-255) to trigger ramp correction
+_SEAM_MAX_RATIO = 1.20     # max mu_top/mu_bot ratio treated as calibration error; beyond this it's scene content
+
+# Adaptive feather: diff thresholds → target half-width.
+# Wide feathers are preferred: a wide linear blend of two well-aligned frames
+# is far less visible than a narrow blend.  Actual feather is then capped by
+# half the inter-boundary distance so zones never overlap.
 _FEATHER_TABLE = [
-    (20.0, 60),
-    (28.0, 40),
+    (10.0, 200),
+    (25.0, 120),
     (float("inf"), _FEATHER_MIN),
 ]
 
@@ -349,7 +358,8 @@ def _find_optimal_boundaries(
         y_hi = min(hi_limit, int(by) + _SEARCH_RANGE)
 
         best_y = int(by)
-        best_diff = float("inf")
+        best_diff = float("inf")   # tracks bg_diff at chosen position (for logging)
+        best_score = float("inf")  # combined objective minimised during search
 
         bg_a = warped_bgs[fi_a]
         bg_b = warped_bgs[fi_b]
@@ -361,23 +371,27 @@ def _find_optimal_boundaries(
             if all_valid.sum() < 50:
                 continue
 
-            # Prefer background pixels — the seam across static background is
-            # the most visually important.  Fall back to all pixels if too few bg.
-            valid = all_valid
+            # Total diff always computed — captures character content ghosting cost.
+            all_d = float(np.abs(slab_a - slab_b).mean(axis=2)[all_valid].mean())
+
+            # Background diff preferred when enough bg pixels are present.
+            # Combined score (40% bg + 60% total) balances background stability
+            # against character ghosting; pure bg_diff search ignores ghosting cost.
+            bg_d = None
             if bg_a is not None and bg_b is not None:
-                bg_valid = (
+                bg_cand = (
                     bg_a[y_cand : y_cand + _SEARCH_SLAB]
                     & bg_b[y_cand : y_cand + _SEARCH_SLAB]
                     & all_valid
                 )
-                if bg_valid.sum() >= 50:
-                    valid = bg_valid
+                if bg_cand.sum() >= 50:
+                    bg_d = float(np.abs(slab_a - slab_b).mean(axis=2)[bg_cand].mean())
 
-            if valid.sum() < 50:
-                continue
-            diff = float(np.abs(slab_a - slab_b).mean(axis=2)[valid].mean())
-            if diff < best_diff:
-                best_diff = diff
+            score = (0.4 * bg_d + 0.6 * all_d) if bg_d is not None else all_d
+
+            if score < best_score:
+                best_score = score
+                best_diff = bg_d if bg_d is not None else all_d
                 best_y = y_cand + _SEARCH_SLAB // 2
 
         # Feather sizing: when the background matches very well (bg_diff < 10)
@@ -393,9 +407,9 @@ def _find_optimal_boundaries(
         av = (sa.max(axis=2) > 0) & (sb.max(axis=2) > 0)
         total_diff = float(np.abs(sa - sb).mean(axis=2)[av].mean()) if av.sum() >= 10 else best_diff
         # Wide feather only when BOTH bg and total diffs are low; if character
-        # content is very different (total_diff ≥ 40), use total_diff to avoid
-        # a wide double-exposure blending band across incompatible poses.
-        feather_metric = best_diff if (best_diff < 20.0 and total_diff < 40.0) else total_diff
+        # content differs even moderately (total_diff ≥ 20), use total_diff so
+        # incompatible poses get a narrow blend zone rather than wide ghosting.
+        feather_metric = best_diff if (best_diff < 20.0 and total_diff < 20.0) else total_diff
 
         optimised[k] = float(best_y)
         diffs[k] = feather_metric   # store feather metric so caller uses same value
@@ -544,6 +558,182 @@ def _apply_boundary_correction(
         )
 
 
+def _apply_canvas_seam_correction(
+    canvas: np.ndarray,
+    boundaries: np.ndarray,
+    feathers: np.ndarray,
+    order: np.ndarray,
+    bg_masks: List[Optional[np.ndarray]],
+    affines: List[np.ndarray],
+    H: int,
+    W: int,
+) -> None:
+    """
+    Post-composite wide cosine ramp to hide remaining colour steps at boundaries.
+
+    The bell-curve in _apply_boundary_correction concentrates its correction within
+    ±feather rows of the boundary.  Outside that zone the warped frames are
+    uncorrected, so visible steps remain wherever the mismatch (from any cause —
+    photometric calibration or natural scene gradient at the boundary) exceeds the
+    threshold.  This function smooths those steps by distributing them over a wider
+    ramp, making them perceptually invisible.
+
+    Ramp half-width is capped by half the distance to the neighbouring boundary so
+    adjacent ramps never overlap.  Raw ratio must be within _SEAM_MAX_RATIO
+    (otherwise the step is from scene-content transitions, not calibration).
+    Gains are clamped to _GAIN_CLAMP to limit the maximum correction per channel.
+    """
+    n_bounds = len(boundaries)
+    for k, by in enumerate(boundaries):
+        by_i = int(by)
+        feather = int(feathers[k])
+        fi_above = int(order[k])
+        fi_below = int(order[k + 1])
+
+        # Dynamic ramp: cap at half the distance to the neighbouring boundary
+        half_above = int(by_i - boundaries[k - 1]) // 2 if k > 0 else by_i
+        half_below = int(boundaries[k + 1] - by_i) // 2 if k < n_bounds - 1 else H - by_i
+        ramp_half = min(_SEAM_RAMP_HALF, half_above, half_below)
+
+        # Measurement slabs: just outside the feather zone on each side
+        top_y0 = max(0, by_i - feather - _SEAM_MEAS_SLAB)
+        top_y1 = max(0, by_i - feather)
+        bot_y0 = min(H, by_i + feather)
+        bot_y1 = min(H, by_i + feather + _SEAM_MEAS_SLAB)
+
+        if top_y1 <= top_y0 or bot_y1 <= bot_y0:
+            continue
+
+        top_slab = canvas[top_y0:top_y1].astype(np.float32)
+        bot_slab = canvas[bot_y0:bot_y1].astype(np.float32)
+
+        # Prefer foreground pixels (skin) — background dilutes the signal
+        top_all_valid = top_slab.max(axis=2) > 0
+        bot_all_valid = bot_slab.max(axis=2) > 0
+
+        bm_top = _warp_bg_strip(bg_masks[fi_above], affines[fi_above], top_y0, top_y1, W)
+        bm_bot = _warp_bg_strip(bg_masks[fi_below], affines[fi_below], bot_y0, bot_y1, W)
+
+        top_valid = (~bm_top) & top_all_valid if (bm_top is not None and (~bm_top & top_all_valid).sum() >= 50) else top_all_valid
+        bot_valid = (~bm_bot) & bot_all_valid if (bm_bot is not None and (~bm_bot & bot_all_valid).sum() >= 50) else bot_all_valid
+
+        if top_valid.sum() < 50 or bot_valid.sum() < 50:
+            continue
+
+        gains = np.ones(3, dtype=np.float64)
+        any_above_threshold = False
+        deltas = []
+        for c in range(3):
+            mu_top = float(top_slab[top_valid, c].mean())
+            mu_bot = float(bot_slab[bot_valid, c].mean())
+            deltas.append(mu_top - mu_bot)
+            if mu_top < 10.0 or mu_bot < 10.0:
+                continue
+            if abs(mu_top - mu_bot) < _SEAM_STEP_THRESHOLD:
+                continue
+            raw_ratio = mu_top / mu_bot
+            if raw_ratio > _SEAM_MAX_RATIO or raw_ratio < 1.0 / _SEAM_MAX_RATIO:
+                continue  # scene content transition (dark curtain→bright skin), not calibration
+            gains[c] = float(np.clip(raw_ratio, _GAIN_CLAMP[0], _GAIN_CLAMP[1]))
+            any_above_threshold = True
+
+        print(
+            f"[Stitch]     Seam check B{k} (y≈{by_i}, ramp=±{ramp_half}px, "
+            f"fg_top={top_valid.sum()}, fg_bot={bot_valid.sum()}): "
+            f"ΔB={deltas[0]:.1f} ΔG={deltas[1]:.1f} ΔR={deltas[2]:.1f}"
+        )
+
+        if not any_above_threshold:
+            continue
+
+        print(
+            f"[Stitch]     Seam ramp B{k} (y≈{by_i}): "
+            f"B={gains[0]:.3f} G={gains[1]:.3f} R={gains[2]:.3f}"
+        )
+
+        # Ramp above: gain lerps from 1.0 (far edge) to 1/sqrt(gains) (at seam)
+        y_above_start = max(0, by_i - ramp_half)
+        y_above_end = by_i
+        if y_above_end > y_above_start:
+            n_rows = y_above_end - y_above_start
+            t = np.linspace(0.0, 1.0, n_rows, endpoint=False, dtype=np.float64)
+            cosine_t = 0.5 * (1.0 - np.cos(np.pi * t))
+            chunk = canvas[y_above_start:y_above_end].astype(np.float32)
+            for c in range(3):
+                if gains[c] == 1.0:
+                    continue
+                gain_at_seam = 1.0 / np.sqrt(gains[c])
+                row_gains = (1.0 + (gain_at_seam - 1.0) * cosine_t).astype(np.float32)
+                row_gains = np.clip(row_gains, 0.90, 1.12)
+                chunk[:, :, c] = np.clip(chunk[:, :, c] * row_gains[:, np.newaxis], 0, 255)
+            canvas[y_above_start:y_above_end] = chunk.astype(np.uint8)
+
+        # Ramp below: gain from sqrt(gains) (at seam) down to 1.0
+        y_below_start = by_i
+        y_below_end = min(H, by_i + ramp_half)
+        if y_below_end > y_below_start:
+            n_rows = y_below_end - y_below_start
+            t = np.linspace(0.0, 1.0, n_rows, endpoint=False, dtype=np.float64)
+            cosine_t = 0.5 * (1.0 - np.cos(np.pi * t))
+            chunk = canvas[y_below_start:y_below_end].astype(np.float32)
+            for c in range(3):
+                if gains[c] == 1.0:
+                    continue
+                gain_at_seam = np.sqrt(gains[c])
+                row_gains = (gain_at_seam + (1.0 - gain_at_seam) * cosine_t).astype(np.float32)
+                row_gains = np.clip(row_gains, 0.90, 1.12)
+                chunk[:, :, c] = np.clip(chunk[:, :, c] * row_gains[:, np.newaxis], 0, 255)
+            canvas[y_below_start:y_below_end] = chunk.astype(np.uint8)
+
+
+def _seam_cut(img1: np.ndarray, img2: np.ndarray, edge_weight: float = 15.0) -> np.ndarray:
+    """
+    DP seam cut that strongly avoids outlines in *either* frame.
+
+    Energy = diff(img1,img2) + grad(diff) + edge_weight*(edges_in_img1 + edges_in_img2)
+
+    The per-frame edge penalty makes the seam route through flat cel-shaded
+    regions (skin, background) rather than through character outlines.  Even
+    when both frames show different content at the same position, a path through
+    flat-colour areas will have low outline energy → nearly invisible cut.
+
+    Returns path[x] = y-offset in [0, h-1] for the minimum-energy horizontal
+    cut running left→right across the (h × W × 3) slices.
+    """
+    diff = cv2.absdiff(img1, img2).astype(np.float32).mean(axis=2)  # (h, W)
+    gx_d = cv2.Sobel(diff, cv2.CV_32F, 1, 0, ksize=3)
+    gy_d = cv2.Sobel(diff, cv2.CV_32F, 0, 1, ksize=3)
+    energy = diff + 0.5 * (np.abs(gx_d) + np.abs(gy_d))
+
+    for img in (img1, img2):
+        gray = img.astype(np.float32).mean(axis=2)
+        gx_i = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+        gy_i = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+        energy += edge_weight * (np.abs(gx_i) + np.abs(gy_i))
+
+    # Transpose (h, W) → (W, h) so DP runs left→right; path[x] = y-offset
+    E = energy.T.copy()  # (W, h_zone)
+    W_e, h_e = E.shape
+    for i in range(1, W_e):
+        prev = E[i - 1]
+        left = np.empty_like(prev); left[0] = np.inf; left[1:] = prev[:-1]
+        right = np.empty_like(prev); right[-1] = np.inf; right[:-1] = prev[1:]
+        E[i] += np.minimum(prev, np.minimum(left, right))
+
+    path = np.zeros(W_e, np.int32)
+    j = int(np.argmin(E[W_e - 1]))
+    path[W_e - 1] = j
+    for i in range(W_e - 2, -1, -1):
+        nbrs = [j]
+        if j > 0:
+            nbrs.append(j - 1)
+        if j < h_e - 1:
+            nbrs.append(j + 1)
+        j = nbrs[int(np.argmin([E[i, c] for c in nbrs]))]
+        path[i] = j
+    return path  # path[x] in [0, h_zone-1]
+
+
 def _composite_foreground(
     warped_corr: List[np.ndarray],
     warped_fgs: List[np.ndarray],
@@ -601,35 +791,87 @@ def _composite_foreground(
     )
     feathers = np.array([_diff_to_feather(d) for d in diff_scores], dtype=np.float64)
 
-    # ── Build strip_weights: hard partition + per-boundary adaptive feather ───
+    # Cap each feather at half the inter-boundary gap so zones never overlap.
+    # This lets narrow-strip boundaries use the widest feather they can fit.
+    n_b = len(boundaries)
+    for k in range(n_b):
+        gap_above = int(boundaries[k]) if k == 0 else int(boundaries[k] - boundaries[k - 1])
+        gap_below = (H - int(boundaries[k])) if k == n_b - 1 else int(boundaries[k + 1] - boundaries[k])
+        max_feather = max(5, min(gap_above, gap_below) // 2 - 1)
+        if feathers[k] > max_feather:
+            feathers[k] = float(max_feather)
+    print(
+        "[Stitch]   Feathers (gap-capped): "
+        + " ".join(f"B{k}={int(feathers[k])}px" for k in range(n_b))
+    )
+
+    # ── Flat-cut boundaries + per-seam colour correction ─────────────────────
+    # DP seam paths are abandoned: in all-character zones (bg_diff=inf) the
+    # energy landscape is flat so the DP wanders erratically to zone edges,
+    # producing a jagged staircase pattern.  A flat horizontal cut at the
+    # optimised boundary is predictable and avoids that artefact.
+    #
+    # Colour correction: sample mean colour from fa just above and fb just
+    # below the cut.  Correct fb toward fa brightness with a linear ramp
+    # (full correction at the cut, zero at the zone bottom edge).  One-sided
+    # (only fb is corrected) so fa above the cut is untouched and no
+    # artificial gradient is introduced there.
+    SEAM_THIN_HF = 8        # ±px linear feather at the flat cut line
+    SLAB_HALF = 25          # rows sampled on each side to estimate colour step
+    GAIN_CLAMP_LOCAL = (0.80, 1.25)
+
+    print("[Stitch]   Computing boundary colour corrections...")
+    # (fi_above, fi_below, y0_f, y1_f, y_cut, gain_seam)
+    seam_zones: List[Tuple[int, int, int, int, int, np.ndarray]] = []
+
+    for k, by in enumerate(boundaries):
+        feather = int(feathers[k])
+        fi_above = int(order[k])
+        fi_below = int(order[k + 1])
+        y0_f = max(0, int(by) - feather)
+        y1_f = min(H, int(by) + feather + 1)
+        if y0_f >= y1_f:
+            continue
+
+        y_cut = int(by)
+
+        # Measure mean colour just above and just below the flat cut
+        ya0 = max(0, y_cut - SLAB_HALF)
+        ya1 = y_cut
+        yb0 = y_cut
+        yb1 = min(H, y_cut + SLAB_HALF)
+
+        fa_slab = warped_list[fi_above][ya0:ya1].astype(np.float32)
+        fb_slab = warped_list[fi_below][yb0:yb1].astype(np.float32)
+        mask_a = fa_slab.max(axis=2) > 0
+        mask_b = fb_slab.max(axis=2) > 0
+
+        if mask_a.sum() >= 50 and mask_b.sum() >= 50:
+            mu_a = fa_slab[mask_a].mean(axis=0) + 1.0
+            mu_b = fb_slab[mask_b].mean(axis=0) + 1.0
+            gain_seam = np.clip(
+                mu_a / mu_b, GAIN_CLAMP_LOCAL[0], GAIN_CLAMP_LOCAL[1]
+            ).astype(np.float32)
+        else:
+            gain_seam = np.ones(3, dtype=np.float32)
+
+        seam_zones.append((fi_above, fi_below, y0_f, y1_f, y_cut, gain_seam))
+        print(
+            f"[Stitch]     Boundary B{k} (frames {fi_above}/{fi_below}): "
+            f"y_cut={y_cut} zone=[{y0_f}–{y1_f}] "
+            f"gain=[{gain_seam[0]:.3f},{gain_seam[1]:.3f},{gain_seam[2]:.3f}]"
+        )
+
+    # ── Hard-partition strip_weights; zero seam zones (per-pixel below) ───────
     all_ys = np.arange(H, dtype=np.float64)
     owner_bin = np.clip(np.searchsorted(boundaries, all_ys, side="right"), 0, N - 1)
     owner = order[owner_bin]
     strip_weights = np.zeros((N, H), np.float32)
     strip_weights[owner, np.arange(H)] = 1.0
-
-    for k, by in enumerate(boundaries):
-        feather = int(feathers[k])
-        y0_f = max(0, int(by) - feather)
-        y1_f = min(H, int(by) + feather + 1)
-        if y0_f >= y1_f:
-            continue
-        rows = np.arange(y0_f, y1_f, dtype=np.float64)
-        t = np.clip((rows - by + feather) / (2.0 * feather), 0.0, 1.0).astype(np.float32)
-        fi_above = order[k]
-        fi_below = order[k + 1]
+    for _fi_a, _fi_b, y0_f, y1_f, _yc, _gs in seam_zones:
         strip_weights[:, y0_f:y1_f] = 0.0
-        strip_weights[fi_above, y0_f:y1_f] = 1.0 - t
-        strip_weights[fi_below, y0_f:y1_f] = t
 
-    # ── Photometric correction: bell-curve gain at each boundary ─────────────
-    print("[Stitch]   Computing boundary photometric corrections...")
-    boundary_gains = _compute_boundary_gains(
-        warped_list, order, boundaries, feathers, bg_masks, affines, H, W
-    )
-    _apply_boundary_correction(warped_list, order, boundaries, feathers, boundary_gains, H, W)
-
-    # ── Composite: weighted blend of owning frame(s) per chunk ───────────────
+    # ── Composite ─────────────────────────────────────────────────────────────
     CHUNK = 512
     for y0 in range(0, H, CHUNK):
         y1 = min(y0 + CHUNK, H)
@@ -638,6 +880,7 @@ def _composite_foreground(
         num = np.zeros((ch, W, 3), dtype=np.float32)
         denom = np.zeros((ch, W), dtype=np.float32)
 
+        # Hard-partition rows (outside all seam zones)
         for i in range(N):
             fc = warped_list[i][y0:y1].astype(np.float32)
             has_content = fc.max(axis=2) > 0
@@ -646,14 +889,63 @@ def _composite_foreground(
             num += w_eff[:, :, np.newaxis] * fc
             denom += w_eff
 
+        # Seam-zone rows: flat-cut composite with one-sided colour correction
+        for fi_above, fi_below, y0_f, y1_f, y_cut, gain_seam in seam_zones:
+            iy0 = max(y0, y0_f)
+            iy1 = min(y1, y1_f)
+            if iy0 >= iy1:
+                continue
+
+            cy0 = iy0 - y0
+            cy1 = iy1 - y0
+
+            fa = warped_list[fi_above][iy0:iy1].astype(np.float32)  # (sub, W, 3)
+            fb = warped_list[fi_below][iy0:iy1].astype(np.float32)
+
+            local_ys = np.arange(iy0, iy1, dtype=np.float32)[:, np.newaxis]
+            d = local_ys - float(y_cut)  # (sub, 1); <0 above cut, >0 below
+
+            # Symmetric √-gain: each side ramps to the geometric mean at the cut.
+            # Both fa_corr and fb_corr converge to sqrt(mu_fa*mu_fb) at y_cut,
+            # producing a seamless join with shallow symmetric gradients on each side.
+            zone_above_h = max(1.0, float(y_cut - y0_f))
+            zone_below_h = max(1.0, float(y1_f - y_cut))
+            t_above = np.clip(np.abs(np.minimum(d, 0.0)) / zone_above_h, 0.0, 1.0)
+            t_below = np.clip(np.maximum(d, 0.0) / zone_below_h, 0.0, 1.0)
+
+            sqrt_gain = np.sqrt(gain_seam).astype(np.float32)        # (3,)
+            inv_sqrt_gain = (1.0 / sqrt_gain).astype(np.float32)     # (3,)
+
+            gain_fa = 1.0 + (1.0 - t_above[:, :, np.newaxis]) * (inv_sqrt_gain - 1.0)
+            gain_fb = 1.0 + (1.0 - t_below[:, :, np.newaxis]) * (sqrt_gain - 1.0)
+
+            fa_corr = np.clip(fa * gain_fa, 0.0, 255.0)
+            fb_corr = np.clip(fb * gain_fb, 0.0, 255.0)
+
+            # Linear feather at the flat cut
+            t_hf = np.clip(
+                (d + SEAM_THIN_HF) / (2.0 * SEAM_THIN_HF), 0.0, 1.0
+            )[:, :, np.newaxis]
+            result = (1.0 - t_hf) * fa_corr + t_hf * fb_corr
+            result = np.clip(result, 0.0, 255.0)
+
+            has_a = fa.max(axis=2) > 0
+            has_b = fb.max(axis=2) > 0
+            has_any = (has_a | has_b).astype(np.float32)
+
+            only_a = has_a & ~has_b
+            only_b = ~has_a & has_b
+            result = np.where(only_a[:, :, np.newaxis], fa_corr, result)
+            result = np.where(only_b[:, :, np.newaxis], fb_corr, result)
+
+            num[cy0:cy1] += result * has_any[:, :, np.newaxis]
+            denom[cy0:cy1] += has_any
+
         safe_d = np.where(denom > 0, denom, 1.0)
         blended = np.clip(num / safe_d[:, :, np.newaxis], 0, 255)
-
         covered = (denom > 0)[:, :, np.newaxis]
         canvas[y0:y1] = np.where(
-            covered,
-            blended,
-            canvas[y0:y1].astype(np.float32),
+            covered, blended, canvas[y0:y1].astype(np.float32),
         ).astype(np.uint8)
 
     return canvas
