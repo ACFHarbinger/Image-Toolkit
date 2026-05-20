@@ -218,7 +218,7 @@ def _cluster_animation_phases(
     return anim_mask_full, phase_groups
 
 
-_FADE_ROWS = 200   # rows to fade each frame in/out at its canvas entry/exit
+_FADE_ROWS = 250   # rows to fade each frame in/out at its canvas entry/exit
 _LANCZOS_BLEED = 8  # Lanczos4 support ±4px; use 8 for safety margin with sub-pixel offsets
 
 
@@ -246,7 +246,7 @@ def _render_median(
     _cg, _cb = _compute_sequential_color_gains(frames, affines, bg_masks=bg_masks)
     # Only apply correction when gains are small (< 5% per-channel) — large gains
     # indicate foreground contamination and would make the seam worse.
-    _MAX_SAFE_GAIN_DEV = 0.05
+    _MAX_SAFE_GAIN_DEV = 0.08
     _cg_safe = np.where(np.abs(_cg - 1.0) <= _MAX_SAFE_GAIN_DEV, _cg, np.ones_like(_cg))
     _cb_safe = np.where(np.abs(_cg - 1.0) <= _MAX_SAFE_GAIN_DEV, _cb, np.zeros_like(_cb))
     _need_color_corr = not (

@@ -41,17 +41,17 @@ import numpy as np
 
 
 
-_FEATHER_MAX = 200         # maximum feather half-width (low-diff boundaries)
+_FEATHER_MAX = 120         # maximum feather half-width (low-diff boundaries)
 _FEATHER_MIN = 60          # minimum target feather (before inter-boundary cap)
-_GAIN_CLAMP = (0.93, 1.07) # per-boundary photometric correction limit (±7%); larger values cause banding against the scene's natural top-to-bottom brightness gradient
+_GAIN_CLAMP = (0.88, 1.14) # per-boundary photometric correction limit (±14%); enlarged to correct broadcast-dimming steps that exceed the old ±7 % clamp
 _SEQ_SAMPLE_HALF = 40      # rows each side of boundary used for gain estimation
 _SEQ_MIN_PX = 200          # minimum pixels required for reliable gain estimation
 _SEARCH_RANGE = 250        # px each side to search for optimal boundary placement
 _SEARCH_SLAB = 20          # row height used when scoring candidate positions
 
-_SEAM_RAMP_HALF = 150      # rows each side for post-composite seam colour ramp (capped by boundary spacing)
+_SEAM_RAMP_HALF = 200      # rows each side for post-composite seam colour ramp (capped by boundary spacing)
 _SEAM_MEAS_SLAB = 40       # rows used to measure canvas colour just outside feather zone
-_SEAM_STEP_THRESHOLD = 6.0 # min per-channel colour step (0-255) to trigger ramp correction
+_SEAM_STEP_THRESHOLD = 3.0 # min per-channel colour step (0-255) to trigger ramp correction
 _SEAM_MAX_RATIO = 1.20     # max mu_top/mu_bot ratio treated as calibration error; beyond this it's scene content
 
 # Adaptive feather: diff thresholds → target half-width.
@@ -126,17 +126,36 @@ def _global_gain_normalize(
         if all_v.sum() < 20:
             continue
 
-        valid = all_v
+        # Prefer background-only (stable, unaffected by character pose).
+        # Comparing the SAME canvas rows in both frames measures pure per-frame
+        # calibration error (broadcast dimming) rather than scene content.
+        used_bg = False
         if warped_bgs[fi_a] is not None and warped_bgs[fi_b] is not None:
             bg_v = warped_bgs[fi_a][y0:y1] & warped_bgs[fi_b][y0:y1] & all_v
-            if bg_v.sum() >= 50:
-                valid = bg_v
+            if bg_v.sum() >= 200:
+                mu_a = float(sa[bg_v, 1].mean())
+                mu_b = float(sb[bg_v, 1].mean())
+                if mu_a > 50.0 and mu_b > 50.0:
+                    ratio_bg = mu_a / mu_b
+                    ratio_all = float(sa[all_v, 1].mean()) / (float(sb[all_v, 1].mean()) + 1e-6)
+                    if abs(ratio_bg - ratio_all) <= 0.05:
+                        log_ratios[k] = np.log(ratio_bg)
+                        pair_weights[k] = float(bg_v.sum())
+                        used_bg = True
 
-        mu_a = float(sa[valid, 1].mean())  # green channel
-        mu_b = float(sb[valid, 1].mean())
-        if mu_a > 5.0 and mu_b > 5.0:
-            log_ratios[k] = np.log(mu_a / mu_b)
-            pair_weights[k] = float(valid.sum())
+        if not used_bg and all_v.sum() >= 200:
+            # All-pixel fallback: safe because SAME canvas rows are compared in
+            # both frames (the overlap zone around the boundary), so the ratio
+            # captures per-frame brightness calibration, not body-region variation.
+            # Tight clamp (±8%) rejects natural scene content steps; lower weight
+            # prevents all-pixel estimates from over-riding bg measurements.
+            mu_a = float(sa[all_v, 1].mean())
+            mu_b = float(sb[all_v, 1].mean())
+            if mu_a > 5.0 and mu_b > 5.0:
+                ratio = mu_a / mu_b
+                if 0.70 <= ratio <= 1.40:  # reject only degenerate empty/error frames
+                    log_ratios[k] = np.log(ratio)
+                    pair_weights[k] = float(all_v.sum()) * 0.8  # higher weight: no bg available
 
     # Build least-squares system (N-1 pair equations + N regularisation)
     n_rows = (N - 1) + N
@@ -153,7 +172,7 @@ def _global_gain_normalize(
         A[(N - 1) + i, i] = np.sqrt(lam)
 
     alpha, _, _, _ = np.linalg.lstsq(A, b_vec, rcond=None)
-    gains_ord = np.clip(np.exp(alpha), 0.75, 1.25)
+    gains_ord = np.clip(np.exp(alpha), 0.90, 1.10)
 
     gains = np.ones(NF, dtype=np.float64)
     for k, fi in enumerate(order):
@@ -783,6 +802,17 @@ def _composite_foreground(
         )
         warped_list.append(wf)
 
+    # ── Global brightness normalisation (background-only, no fallback) ──────────
+    # Pre-corrects large-scale brightness drift across all frames simultaneously
+    # via least-squares balanced gain.  Safe to run before boundary search:
+    # background-only with no all-pixel fallback means character-only frames are
+    # simply skipped, leaving their gains at 1.0 (no change).
+    print("[Stitch]   Global brightness normalisation (bg-only)...")
+    _global_gain_normalize(
+        warped_list, order, initial_boundaries, H, W,
+        bg_masks=bg_masks, affines=affines,
+    )
+
     # ── Optimal boundary placement + adaptive feathering ─────────────────────
     print("[Stitch]   Optimising boundary placement (bg-guided)...")
     boundaries, diff_scores = _find_optimal_boundaries(
@@ -805,18 +835,11 @@ def _composite_foreground(
         + " ".join(f"B{k}={int(feathers[k])}px" for k in range(n_b))
     )
 
-    # ── Flat-cut boundaries + per-seam colour correction ─────────────────────
-    # DP seam paths are abandoned: in all-character zones (bg_diff=inf) the
-    # energy landscape is flat so the DP wanders erratically to zone edges,
-    # producing a jagged staircase pattern.  A flat horizontal cut at the
-    # optimised boundary is predictable and avoids that artefact.
-    #
-    # Colour correction: sample mean colour from fa just above and fb just
-    # below the cut.  Correct fb toward fa brightness with a linear ramp
-    # (full correction at the cut, zero at the zone bottom edge).  One-sided
-    # (only fb is corrected) so fa above the cut is untouched and no
-    # artificial gradient is introduced there.
-    SEAM_THIN_HF = 8        # ±px linear feather at the flat cut line
+    # ── Per-seam colour correction ────────────────────────────────────────────
+    # Local boundary correction using the same canvas rows for both frames —
+    # measures pure photometric calibration error at the overlap zone.
+    # Falls back to tight all-pixel clamp when background is unavailable.
+    SEAM_THIN_HF = 8        # ±px half-width of the cosine feather at the cut
     SLAB_HALF = 25          # rows sampled on each side to estimate colour step
     GAIN_CLAMP_LOCAL = (0.80, 1.25)
 
@@ -835,25 +858,55 @@ def _composite_foreground(
 
         y_cut = int(by)
 
-        # Measure mean colour just above and just below the flat cut
+        # Measure photometric calibration error between the two frames by comparing
+        # them at the SAME canvas rows (the overlap zone around y_cut).  This
+        # captures pure per-frame brightness differences (broadcast dimming, sensor
+        # variation) without confounding scene-content differences that arise when
+        # measuring different rows (above-cut ≠ below-cut scene locations).
         ya0 = max(0, y_cut - SLAB_HALF)
-        ya1 = y_cut
-        yb0 = y_cut
-        yb1 = min(H, y_cut + SLAB_HALF)
+        ya1 = min(H, y_cut + SLAB_HALF)
 
         fa_slab = warped_list[fi_above][ya0:ya1].astype(np.float32)
-        fb_slab = warped_list[fi_below][yb0:yb1].astype(np.float32)
-        mask_a = fa_slab.max(axis=2) > 0
-        mask_b = fb_slab.max(axis=2) > 0
+        fb_slab = warped_list[fi_below][ya0:ya1].astype(np.float32)
+        gain_seam = np.ones(3, dtype=np.float32)
 
-        if mask_a.sum() >= 50 and mask_b.sum() >= 50:
-            mu_a = fa_slab[mask_a].mean(axis=0) + 1.0
-            mu_b = fb_slab[mask_b].mean(axis=0) + 1.0
-            gain_seam = np.clip(
-                mu_a / mu_b, GAIN_CLAMP_LOCAL[0], GAIN_CLAMP_LOCAL[1]
-            ).astype(np.float32)
-        else:
-            gain_seam = np.ones(3, dtype=np.float32)
+        both_content = (fa_slab.max(axis=2) > 0) & (fb_slab.max(axis=2) > 0)
+        if both_content.sum() >= 200:
+            bm_ya = _warp_bg_strip(bg_masks[fi_above], affines[fi_above], ya0, ya1, W)
+            bm_yb = _warp_bg_strip(bg_masks[fi_below], affines[fi_below], ya0, ya1, W)
+            bg_valid = None
+            if bm_ya is not None and bm_yb is not None:
+                bg_v = bm_ya & bm_yb & both_content
+                if bg_v.sum() >= 200:
+                    bg_valid = bg_v
+
+            use_bg = False
+            if bg_valid is not None:
+                mu_a_bg = fa_slab[bg_valid].mean(axis=0) + 1.0
+                mu_b_bg = fb_slab[bg_valid].mean(axis=0) + 1.0
+                if mu_a_bg[1] > 50.0 and mu_b_bg[1] > 50.0:
+                    raw_bg = mu_a_bg / mu_b_bg
+                    mu_a_all = fa_slab[both_content].mean(axis=0) + 1.0
+                    mu_b_all = fb_slab[both_content].mean(axis=0) + 1.0
+                    raw_all = mu_a_all / mu_b_all
+                    if np.abs(raw_bg[1] - raw_all[1]) <= 0.05:
+                        gain_seam = np.clip(
+                            raw_bg, GAIN_CLAMP_LOCAL[0], GAIN_CLAMP_LOCAL[1]
+                        ).astype(np.float32)
+                        use_bg = True
+
+            if not use_bg:
+                # No background pixels or background too dark/inconsistent — compare all pixels at the overlap zone.
+                # Same canvas rows are compared so the ratio is calibration error,
+                # not scene content.  Clamp ±8 % to reject genuine scene steps
+                # (same threshold as the global normaliser all-pixel fallback).
+                mu_a = fa_slab[both_content].mean(axis=0) + 1.0
+                mu_b = fb_slab[both_content].mean(axis=0) + 1.0
+                raw = mu_a / mu_b
+                # Per-channel: only apply when within calibration range
+                gain_seam = np.where(
+                    (raw >= 0.92) & (raw <= 1.08), raw, np.ones_like(raw)
+                ).astype(np.float32)
 
         seam_zones.append((fi_above, fi_below, y0_f, y1_f, y_cut, gain_seam))
         print(
@@ -861,6 +914,32 @@ def _composite_foreground(
             f"y_cut={y_cut} zone=[{y0_f}–{y1_f}] "
             f"gain=[{gain_seam[0]:.3f},{gain_seam[1]:.3f},{gain_seam[2]:.3f}]"
         )
+
+    # ── Per-boundary DP seam paths ────────────────────────────────────────────
+    # For each boundary compute a per-column optimal seam path that routes
+    # through flat cel-shaded regions and avoids character outlines.  The path
+    # is used later to centre the cosine feather per-column, making the blend
+    # nearly invisible even when it passes through character bodies.
+    print("[Stitch]   Computing DP seam paths...")
+    seam_zone_paths: List[np.ndarray] = []
+    for fi_above, fi_below, y0_f, y1_f, y_cut, _gs in seam_zones:
+        zone_h = y1_f - y0_f
+        fa_zone = warped_list[fi_above][y0_f:y1_f]
+        fb_zone = warped_list[fi_below][y0_f:y1_f]
+        both = (fa_zone.max(axis=2) > 0) & (fb_zone.max(axis=2) > 0)
+        if zone_h >= 4 and int(both.sum()) > zone_h * W // 20:
+            try:
+                path_local = _seam_cut(fa_zone, fb_zone)  # (W,) in [0, zone_h-1]
+                seam_path = (path_local + y0_f).astype(np.float32)
+                print(
+                    f"[Stitch]     DP path F{fi_above}/F{fi_below}: "
+                    f"y_cut={y_cut}, path=[{int(seam_path.min())}–{int(seam_path.max())}]"
+                )
+            except Exception as _e:
+                seam_path = np.full(W, float(y_cut), dtype=np.float32)
+        else:
+            seam_path = np.full(W, float(y_cut), dtype=np.float32)
+        seam_zone_paths.append(seam_path)
 
     # ── Hard-partition strip_weights; zero seam zones (per-pixel below) ───────
     all_ys = np.arange(H, dtype=np.float64)
@@ -889,8 +968,10 @@ def _composite_foreground(
             num += w_eff[:, :, np.newaxis] * fc
             denom += w_eff
 
-        # Seam-zone rows: flat-cut composite with one-sided colour correction
-        for fi_above, fi_below, y0_f, y1_f, y_cut, gain_seam in seam_zones:
+        # Seam-zone rows: narrow ±SEAM_THIN_HF cosine feather centred on the
+        # per-column DP seam path.  Gain correction is confined to the same
+        # narrow window so no brightness gradient is visible outside the blend.
+        for idx, (fi_above, fi_below, y0_f, y1_f, y_cut, gain_seam) in enumerate(seam_zones):
             iy0 = max(y0, y0_f)
             iy1 = min(y1, y1_f)
             if iy0 >= iy1:
@@ -899,35 +980,31 @@ def _composite_foreground(
             cy0 = iy0 - y0
             cy1 = iy1 - y0
 
-            fa = warped_list[fi_above][iy0:iy1].astype(np.float32)  # (sub, W, 3)
+            fa = warped_list[fi_above][iy0:iy1].astype(np.float32)
             fb = warped_list[fi_below][iy0:iy1].astype(np.float32)
 
-            local_ys = np.arange(iy0, iy1, dtype=np.float32)[:, np.newaxis]
-            d = local_ys - float(y_cut)  # (sub, 1); <0 above cut, >0 below
+            local_ys = np.arange(iy0, iy1, dtype=np.float32)[:, np.newaxis]  # (n, 1)
 
-            # Symmetric √-gain: each side ramps to the geometric mean at the cut.
-            # Both fa_corr and fb_corr converge to sqrt(mu_fa*mu_fb) at y_cut,
-            # producing a seamless join with shallow symmetric gradients on each side.
-            zone_above_h = max(1.0, float(y_cut - y0_f))
-            zone_below_h = max(1.0, float(y1_f - y_cut))
-            t_above = np.clip(np.abs(np.minimum(d, 0.0)) / zone_above_h, 0.0, 1.0)
-            t_below = np.clip(np.maximum(d, 0.0) / zone_below_h, 0.0, 1.0)
+            # Cosine feather centred on the per-column DP seam path.
+            # d_seam < 0 → row is above the seam; d_seam > 0 → row is below.
+            seam_path = seam_zone_paths[idx]  # (W,) canvas coords
+            d_seam = local_ys - seam_path[np.newaxis, :]  # (n, W)
 
-            sqrt_gain = np.sqrt(gain_seam).astype(np.float32)        # (3,)
-            inv_sqrt_gain = (1.0 / sqrt_gain).astype(np.float32)     # (3,)
-
-            gain_fa = 1.0 + (1.0 - t_above[:, :, np.newaxis]) * (inv_sqrt_gain - 1.0)
-            gain_fb = 1.0 + (1.0 - t_below[:, :, np.newaxis]) * (sqrt_gain - 1.0)
+            # Gain correction confined to ±SEAM_THIN_HF of the seam path only.
+            # Outside that window pure frames are used — no artificial brightness
+            # gradient is introduced across the wider feather zone.
+            sqrt_gain = np.sqrt(np.maximum(gain_seam, 1e-6)).astype(np.float32)
+            inv_sqrt_gain = (1.0 / sqrt_gain).astype(np.float32)
+            t_blend = np.clip(1.0 - np.abs(d_seam) / float(SEAM_THIN_HF), 0.0, 1.0).astype(np.float32)
+            gain_fa = (1.0 + t_blend[:, :, np.newaxis] * (inv_sqrt_gain - 1.0)).astype(np.float32)
+            gain_fb = (1.0 + t_blend[:, :, np.newaxis] * (sqrt_gain - 1.0)).astype(np.float32)
 
             fa_corr = np.clip(fa * gain_fa, 0.0, 255.0)
             fb_corr = np.clip(fb * gain_fb, 0.0, 255.0)
 
-            # Linear feather at the flat cut
-            t_hf = np.clip(
-                (d + SEAM_THIN_HF) / (2.0 * SEAM_THIN_HF), 0.0, 1.0
-            )[:, :, np.newaxis]
-            result = (1.0 - t_hf) * fa_corr + t_hf * fb_corr
-            result = np.clip(result, 0.0, 255.0)
+            t_lin = np.clip((d_seam + SEAM_THIN_HF) / (2.0 * SEAM_THIN_HF), 0.0, 1.0)
+            t_hf = (0.5 * (1.0 - np.cos(np.pi * t_lin)))[:, :, np.newaxis]
+            result = np.clip((1.0 - t_hf) * fa_corr + t_hf * fb_corr, 0.0, 255.0)
 
             has_a = fa.max(axis=2) > 0
             has_b = fb.max(axis=2) > 0
