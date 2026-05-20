@@ -448,8 +448,15 @@ class LoginWindow(QWidget):
             print(f"An error occurred during API file loading: {e}")
             # Do not block login/startup for this
 
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.close()
+        else:
+            super().keyPressEvent(event)
+
     def closeEvent(self, event):
         """Ensure JVM is shut down if the window is closed without successful login."""
         if self.vault_manager and not self.is_authenticated:
             self.vault_manager.shutdown()
         super().closeEvent(event)
+

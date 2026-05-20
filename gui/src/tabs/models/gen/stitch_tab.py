@@ -2017,6 +2017,7 @@ class EditTab(QWidget):
         self._frame_paths: List[str] = []
         self._manual_affines: Dict[Tuple[int, int], np.ndarray] = {}
         self._current_pair: Tuple[int, int] = (0, 1)
+        self._last_selected_dir: str = ""
 
         self._stitch_thread: Optional[QThread] = None
         self._stitch_worker: Optional[StitchWorker] = None
@@ -3240,10 +3241,14 @@ class EditTab(QWidget):
     # ======================================================================
 
     def _add_frames(self):
-        start_dir = os.path.dirname(self._frame_paths[-1]) if self._frame_paths else ""
+        start_dir = self._last_selected_dir or (os.path.dirname(self._frame_paths[-1]) if self._frame_paths else "")
         dlg = _ThumbnailFilePicker(self, start_dir=start_dir)
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return
+        if dlg.selected_paths():
+            self._last_selected_dir = os.path.dirname(dlg.selected_paths()[0])
+        else:
+            self._last_selected_dir = dlg._current_dir
         for p in dlg.selected_paths():
             if p and p not in self._frame_paths:
                 self._frame_paths.append(p)
@@ -3476,10 +3481,14 @@ class EditTab(QWidget):
             self._ckpt_path.setText(p)
 
     def _browse_output(self):
+        start_dir = self._last_selected_dir or (os.path.dirname(self._frame_paths[-1]) if self._frame_paths else "")
+        current_text = self._output_path.text().strip()
+        filename = os.path.basename(current_text) if current_text else "panorama.png"
+        default_file = os.path.join(start_dir, filename) if start_dir else filename
         p, _ = QFileDialog.getSaveFileName(
             self,
             "Save Panorama As",
-            "panorama.png",
+            default_file,
             "Images (*.png *.webp *.jpg)",
             options=QFileDialog.Option.DontUseNativeDialog,
         )
@@ -3495,10 +3504,12 @@ class EditTab(QWidget):
 
         out = self._output_path.text().strip()
         if not out:
+            start_dir = os.path.dirname(self._frame_paths[-1]) if self._frame_paths else ""
+            default_file = os.path.join(start_dir, "panorama.png") if start_dir else "panorama.png"
             out, _ = QFileDialog.getSaveFileName(
                 self,
                 "Save Panorama As",
-                "panorama.png",
+                default_file,
                 "Images (*.png *.webp *.jpg)",
                 options=QFileDialog.Option.DontUseNativeDialog,
             )
