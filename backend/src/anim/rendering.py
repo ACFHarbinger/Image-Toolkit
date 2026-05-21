@@ -118,8 +118,8 @@ def _compute_sequential_color_gains(
             arr_p = np.array(stripe_means_p[c])
             # Use median ratio across stripes → robust to outlier stripes
             ratios = arr_p / np.maximum(arr_i, 1.0)
-            g = float(np.clip(np.median(ratios), 0.92, 1.08))
-            b = float(np.clip(float(np.median(arr_p - arr_i * g)), -15.0, 15.0))
+            g = float(np.clip(np.median(ratios), 0.88, 1.12))
+            b = float(np.clip(float(np.median(arr_p - arr_i * g)), -20.0, 20.0))
             gains[i, c] = g
             biases[i, c] = b
 
@@ -246,7 +246,7 @@ def _render_median(
     _cg, _cb = _compute_sequential_color_gains(frames, affines, bg_masks=bg_masks)
     # Only apply correction when gains are small (< 5% per-channel) — large gains
     # indicate foreground contamination and would make the seam worse.
-    _MAX_SAFE_GAIN_DEV = 0.08
+    _MAX_SAFE_GAIN_DEV = 0.14
     _cg_safe = np.where(np.abs(_cg - 1.0) <= _MAX_SAFE_GAIN_DEV, _cg, np.ones_like(_cg))
     _cb_safe = np.where(np.abs(_cg - 1.0) <= _MAX_SAFE_GAIN_DEV, _cb, np.zeros_like(_cb))
     _need_color_corr = not (
