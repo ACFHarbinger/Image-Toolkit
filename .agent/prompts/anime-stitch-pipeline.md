@@ -53,28 +53,28 @@ See `.agent/cache/anime_stitch_pipeline_issues.md` for the full diagnostic repor
 
 | Dataset | Frames | Alignment | Status |
 |---------|--------|-----------|--------|
-| `test1/` | 8  | good (1.1×) | Subtle brightness gradient at B0/B1 — mostly fixed |
-| `test2/` | 10 | broken      | Wrong frame ordering (wrong-direction matches) |
-| `test3/` | 11 | unknown     | Stage 9 ghosting + hard seam |
-| `test4/` | 7  | good (1.0×) | `_crop_to_valid` overcropping −393px |
-| `test5/` | 6  | degraded (1.3×) | Frame spacing compressed → Stage 9 ghosting |
-| `test6/` | 9  | good (1.4×) | **Clean output — positive baseline** |
-| `test7/` | 14 | broken (4.7×) | Non-monotonic order + diagonal scroll (tx) unsupported |
-| `test8/` | 11 | broken (5.9×) | Catastrophic frame clustering (16–21px gaps) |
-| `test9/` | 9  | broken (11.8×) | Severe frame clustering → −1609px height loss |
-| `test10/` | 14 | degraded (3.2×) | Uneven gaps; ss uses full perspective model |
-| `test11/` | 7  | **good (1.1×)** | **Clean — positive baseline** |
-| `test12/` | 6  | borderline (2.9×) | Visually clean despite ratio |
-| `test13/` | 9  | degraded (2.3×) | Mild seam at large-gap boundary |
-| `test14/` | 7  | **good (1.1×)** | **Clean — positive baseline** |
-| `test15/` | 7  | **good (1.1×)** | **Clean — positive baseline** |
-| `test16/` | 10 | broken (6.1×) | Frame clustering (min_gap=12px) |
-| `test17/` | 7  | borderline (1.5×) | Mild seam at one boundary |
-| `test18/` | 6  | anomalous (1.1×) | Good ty/tx but bad Stage 9 — affine rotation issue |
-| `test19/` | 10 | **good (1.1×)** | **Clean — positive baseline** |
-| `test20/` | 7  | broken (H) | Pure horizontal scroll — unsupported scroll axis |
-| `test21/` | 10 | partial (1.0×) | 3 co-located duplicate frames → top-strip ghosting |
-| `test22/` | 11 | **good (1.0×)** | **Clean — positive baseline** |
+| `asp_test1/` | 8  | good (1.1×) | Subtle brightness gradient at B0/B1 — mostly fixed |
+| `asp_test2/` | 10 | broken      | Wrong frame ordering (wrong-direction matches) |
+| `asp_test3/` | 11 | unknown     | Stage 9 ghosting + hard seam |
+| `asp_test4/` | 7  | good (1.0×) | `_crop_to_valid` overcropping −393px |
+| `asp_test5/` | 6  | degraded (1.3×) | Frame spacing compressed → Stage 9 ghosting |
+| `asp_test6/` | 9  | good (1.4×) | **Clean output — positive baseline** |
+| `asp_test7/` | 14 | broken (4.7×) | Non-monotonic order + diagonal scroll (tx) unsupported |
+| `asp_test8/` | 11 | broken (5.9×) | Catastrophic frame clustering (16–21px gaps) |
+| `asp_test9/` | 9  | broken (11.8×) | Severe frame clustering → −1609px height loss |
+| `asp_test10/` | 14 | degraded (3.2×) | Uneven gaps; ss uses full perspective model |
+| `asp_test11/` | 7  | **good (1.1×)** | **Clean — positive baseline** |
+| `asp_test12/` | 6  | borderline (2.9×) | Visually clean despite ratio |
+| `asp_test13/` | 9  | degraded (2.3×) | Mild seam at large-gap boundary |
+| `asp_test14/` | 7  | **good (1.1×)** | **Clean — positive baseline** |
+| `asp_test15/` | 7  | **good (1.1×)** | **Clean — positive baseline** |
+| `asp_test16/` | 10 | broken (6.1×) | Frame clustering (min_gap=12px) |
+| `asp_test17/` | 7  | borderline (1.5×) | Mild seam at one boundary |
+| `asp_test18/` | 6  | anomalous (1.1×) | Good ty/tx but bad Stage 9 — affine rotation issue |
+| `asp_test19/` | 10 | **good (1.1×)** | **Clean — positive baseline** |
+| `asp_test20/` | 7  | broken (H) | Pure horizontal scroll — unsupported scroll axis |
+| `asp_test21/` | 10 | partial (1.0×) | 3 co-located duplicate frames → top-strip ghosting |
+| `asp_test22/` | 11 | **good (1.0×)** | **Clean — positive baseline** |
 
 **Key insights:**
 - Stage 9 ghosting is almost always downstream of bad affines — but test18 is the confirmed exception (good ty/tx, bad rotation components).
@@ -93,19 +93,42 @@ Do NOT re-run GPU-heavy stages (BiRefNet, LoFTR) when iterating on compositing. 
 ```bash
 source .venv/bin/activate
 
-# test1/ dataset — 8 frames, all stages pre-computed
-python3 /home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/run_pipeline_v2.py
-# Output: /home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/test1/output/panorama_v2.png
+# asp_test1/ dataset — 8 frames, all stages pre-computed
+python3 archive/run_pipeline_v2.py
+# Output: data/asp_test1/output/panorama_v2.png
 
-# test3/ dataset — 11 frames (adapt run_pipeline_v2.py, change STAGE_DIR + frame count)
-# Stage outputs: /home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/test3/output/panorama_stages/
+# asp_test3/ dataset — 11 frames (adapt run_pipeline_v2.py, change STAGE_DIR + frame count)
+# Stage outputs: data/asp_test3/output/panorama_stages/
 
-# test2/ dataset — 10 frames (alignment broken, fix bundle_adjust first)
-# Stage outputs: /home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/test2/output/panorama_stages/
+# asp_test2/ dataset — 10 frames (alignment broken, fix bundle_adjust first)
+# Stage outputs: data/asp_test2/output/panorama_stages/
 
 # Full re-build from source frames (runs all GPU stages — slow)
-python3 /home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/build_stages.py
+python3 archive/build_stages.py
 ```
+
+### Unit test suite
+
+A comprehensive test suite covers all pipeline issue categories without GPU. Run it after any change to `backend/src/anim/`:
+
+```bash
+source .venv/bin/activate
+pytest backend/test/anim/ -q          # all 105 tests (~7s)
+pytest backend/test/anim/ -k "canvas" # run a specific module
+```
+
+Test files and their coverage:
+
+| File | Covers |
+|------|--------|
+| `test_bundle_adjust.py` | Stage 7 LM solver — frame clustering, anchor frame, outlier edges |
+| `test_filter_edges.py`  | `_filter_edges` — wrong-sign, gross outliers, geometric consistency |
+| `test_canvas.py`        | `_compute_canvas`, `_crop_to_valid` — overcrop, horizontal scroll |
+| `test_affine_validation.py` | `_validate_affines` spec — ratio, min_gap, rotation, scale |
+| `test_compositing.py`   | `_diff_to_feather`, `_global_gain_normalize`, `_composite_foreground` |
+| `test_rendering.py`     | `_render_median`, `_render_first`, ghosting detection, baselines |
+
+The `conftest.py` at `backend/test/conftest.py` provides shared helpers: `make_frame`, `make_edge`, `make_translation_affine`, `make_rotation_affine`, `compute_ty_gaps`.
 
 ### Constraints
 
@@ -114,4 +137,4 @@ python3 /home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/build_stages.py
 - Keep all `_composite_foreground` signature unchanged — it is called by the pipeline, the GUI worker, and test scripts.
 - Gains applied in `_render_median` and `_composite_foreground` are independent — do not confuse them.
 
-My first task is: [INSERT TASK HERE]
+My first task is: read the anime pipeline issues report file in `.agent/cache/anime_stitch_pipeline_issues.md`, analyze the pipeline code in  `backend/src/anim` and tests in `backend/test/anim`, understand the current issues and the architectural design choices, and come up with a plan to diagnose the root cause of the issues and improve the pipeline.

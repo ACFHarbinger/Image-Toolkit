@@ -14,28 +14,35 @@ You are improving `AnimeStitchPipeline` output quality. Work through the phases 
 2. Read `docs/ARCHITECTURE.md` — complete pipeline stage diagram
 3. Read `backend/src/anim/compositing.py` — the primary file for seam issues
 4. Read `backend/src/anim/rendering.py` — Stage 9 temporal render
-5. Read `backend/src/anim/bundle_adjust.py` — alignment, currently broken for test2/, test5/, test7/, test8/, test9/
+5. Read `backend/src/anim/bundle_adjust.py` — alignment, currently broken for asp_test2/, asp_test5/, asp_test7/, asp_test8/, asp_test9/
+
+Run the automated test suite first to confirm no regressions from prior changes:
+
+```bash
+source .venv/bin/activate
+pytest backend/test/anim/ -q   # should be 105 passed
+```
 
 Check the current state of all three test datasets:
 
 ```bash
 source .venv/bin/activate
 
-# Run the fast compositing test (test1/ dataset, ~30s, no GPU)
-python3 /home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/run_pipeline_v2.py 2>&1 | tail -30
+# Run the fast compositing test (asp_test1/ dataset, ~30s, no GPU)
+python3 archive/run_pipeline_v2.py 2>&1 | tail -30
 ```
 
 View the output image and compare to the simple stitch reference:
-- **Output:** `/home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/test1/output/panorama_v2.png`
-- **Reference:** `/home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/test1/output/simple_stitch.png`
-- **Failure baseline:** `/home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/test1/output/panorama.png` (original broken output)
+- **Output:** `data/asp_test1/output/panorama_v2.png`
+- **Reference:** `data/asp_test1/output/simple_stitch.png`
+- **Failure baseline:** `data/asp_test1/output/panorama.png` (original broken output)
 
 Quick affine health check across all datasets before changing any code:
 ```bash
 python3 -c "
 import json, numpy as np, glob, os
-BASE = '/home/pkhunter/Downloads/data/Anime_Stitch_Pipeline'
-for d in sorted(glob.glob(f'{BASE}/test*/output/panorama_stages/stage08_canvas_info.json')):
+BASE = 'data'
+for d in sorted(glob.glob(f'{BASE}/asp_test*/output/panorama_stages/stage08_canvas_info.json')):
     with open(d) as f: data = json.load(f)
     aff = data['affines_final']
     tys = sorted(aff[i][1][2] for i in range(len(aff)))
@@ -59,7 +66,7 @@ for d in sorted(glob.glob(f'{BASE}/test*/output/panorama_stages/stage08_canvas_i
 ```bash
 python3 -c "
 import json, numpy as np
-with open('/home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/test2/output/panorama_stages/stage08_canvas_info.json') as f:
+with open('data/asp_test2/output/panorama_stages/stage08_canvas_info.json') as f:
     d = json.load(f)
 aff = d['affines_final']
 tys = sorted([(i, aff[i][1][2]) for i in range(len(aff))], key=lambda x: x[1])
@@ -109,7 +116,7 @@ if len(clean_edges) >= 2:
 ### 1.4 Re-run full pipeline for `test2/`
 
 ```bash
-python3 /home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/build_stages.py  # adapt for test2/ path
+python3 archive/build_stages.py  # adapt for test2/ path
 ```
 
 **Success criterion:** `stage08_canvas_info.json` for `test2/` shows monotonically increasing `ty` values with max/median gap ratio < 3×.
@@ -126,7 +133,7 @@ These datasets fail because LoFTR returns near-zero dy matches (< 50px) for pair
 python3 -c "
 import json, numpy as np
 for ds in ['test5', 'test8', 'test9']:
-    path = f'/home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/{ds}/output/panorama_stages/stage08_canvas_info.json'
+    path = f'data/asp_{ds}/output/panorama_stages/stage08_canvas_info.json'
     with open(path) as f:
         d = json.load(f)
     aff = d['affines_final']
@@ -162,7 +169,7 @@ Re-run the full pipeline for test8, test9, test5 (requires GPU). Verify the affi
 # Check stage02 and stage03 frames are valid
 python3 -c "
 import cv2, glob
-for p in sorted(glob.glob('/home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/test3/output/panorama_stages/stage03_basic_corrected_frame*.png')):
+for p in sorted(glob.glob('data/asp_test3/output/panorama_stages/stage03_basic_corrected_frame*.png')):
     img = cv2.imread(p)
     if img is None: print('MISSING:', p)
     elif img.mean() < 10: print('DARK:', p, img.mean())
@@ -175,7 +182,7 @@ for p in sorted(glob.glob('/home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/t
 ```bash
 python3 -c "
 import cv2, glob, numpy as np
-for p in sorted(glob.glob('/home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/test3/output/panorama_stages/stage04_bgmask_frame*.png')):
+for p in sorted(glob.glob('data/asp_test3/output/panorama_stages/stage04_bgmask_frame*.png')):
     m = cv2.imread(p, cv2.IMREAD_GRAYSCALE)
     if m is None: print('MISSING:', p)
     else:
@@ -191,7 +198,7 @@ A mask with `bg_fraction=0%` (all foreground) or `bg_fraction=100%` (all backgro
 ```bash
 python3 -c "
 import json, numpy as np
-with open('/home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/test3/output/panorama_stages/stage08_canvas_info.json') as f:
+with open('data/asp_test3/output/panorama_stages/stage08_canvas_info.json') as f:
     d = json.load(f)
 aff = d['affines_final']
 tys = [aff[i][1][2] for i in range(len(aff))]
@@ -206,7 +213,7 @@ Run Stage 9 in isolation to check whether ghosting is from the render or from th
 
 ```python
 # Adapt run_pipeline_v2.py for test3/:
-STAGE_DIR = '/home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/test3/output/panorama_stages'
+STAGE_DIR = 'data/asp_test3/output/panorama_stages'
 # Change range(8) to range(11)
 # Only run _render_median and save stage09 output; skip _composite_foreground
 ```
@@ -231,7 +238,7 @@ In `backend/src/anim/rendering.py`, check:
 ### 3.1 Establish baseline
 
 ```bash
-python3 /home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/run_pipeline_v2.py 2>&1
+python3 archive/run_pipeline_v2.py 2>&1
 # View output vs. reference
 ```
 
@@ -275,7 +282,7 @@ After any compositing change, check all boundaries in the output, not just the o
 
 ```bash
 # Check log for all boundaries
-python3 /home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/run_pipeline_v2.py 2>&1 | grep -E "Boundary|Feathers|DP path"
+python3 archive/run_pipeline_v2.py 2>&1 | grep -E "Boundary|Feathers|DP path"
 ```
 
 **Success criterion:** The output image shows no visible horizontal bands or brightness discontinuities that are not present in the simple stitch reference. Character edges are sharp (no ghosting).
@@ -289,8 +296,8 @@ Run the affine health check first to see which datasets are now healthy:
 ```bash
 python3 -c "
 import json, numpy as np, glob, os
-BASE = '/home/pkhunter/Downloads/data/Anime_Stitch_Pipeline'
-for d in sorted(glob.glob(f'{BASE}/test*/output/panorama_stages/stage08_canvas_info.json')):
+BASE = 'data'
+for d in sorted(glob.glob(f'{BASE}/asp_test*/output/panorama_stages/stage08_canvas_info.json')):
     with open(d) as f: data = json.load(f)
     aff = data['affines_final']
     tys = sorted(aff[i][1][2] for i in range(len(aff)))
@@ -306,7 +313,7 @@ Then run compositing on each dataset that shows `OK` alignment:
 
 ```bash
 # test1/ — fast compositing test (pre-computed stages)
-python3 /home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/run_pipeline_v2.py
+python3 archive/run_pipeline_v2.py
 
 # test4/, test6/ — adapt run_pipeline_v2.py (change STAGE_DIR and frame count)
 # test3/ — adapt run_pipeline_v2.py for 11 frames
@@ -340,7 +347,7 @@ Expected results by dataset:
 Run the full 13-stage pipeline end-to-end on `test1/` and `test6/` to verify nothing in the early stages breaks with the compositing changes:
 
 ```bash
-python3 /home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/build_stages.py
+python3 archive/build_stages.py
 ```
 
 Check that:
@@ -353,11 +360,14 @@ Check that:
 ## Appendix: Key Commands
 
 ```bash
-# Fast compositing iteration (test1/, ~30s)
-source .venv/bin/activate && python3 /home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/run_pipeline_v2.py
+# Run the unit test suite (no GPU — ~7s)
+source .venv/bin/activate && pytest backend/test/anim/ -q
 
-# Full pipeline rebuild from source frames (test1/, ~10–30min with GPU)
-source .venv/bin/activate && python3 /home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/build_stages.py
+# Fast compositing iteration (asp_test1/, ~30s)
+source .venv/bin/activate && python3 archive/run_pipeline_v2.py
+
+# Full pipeline rebuild from source frames (asp_test1/, ~10–30min with GPU)
+source .venv/bin/activate && python3 archive/build_stages.py
 
 # Check affine quality for any dataset
 python3 -c "
@@ -379,29 +389,29 @@ source .venv/bin/activate && ruff check backend/src/anim/compositing.py
 
 ## Appendix: Test Dataset Paths
 
-| Dataset | Source frames | Stage outputs | Simple stitch | Pipeline output |
-|---------|--------------|---------------|---------------|-----------------|
-| `test1/` (8 frames)  | `.../test1/*.png`  | `.../test1/output/panorama_stages/`  | `.../test1/output/simple_stitch.png` | `.../test1/output/panorama_v2.png` | Partial fix — subtle brightness gradient |
-| `test2/` (10 frames) | `.../test2/*.png`  | `.../test2/output/panorama_stages/`  | `.../test2/output/simple_stitch.png` | `.../test2/output/panorama.png`    | Broken alignment (wrong direction) |
-| `test3/` (11 frames) | `.../test3/*.png`  | `.../test3/output/panorama_stages/`  | `.../test3/output/simple_stitch.png` | `.../test3/output/panorama.png`    | Stage 9 ghosting + hard seam |
-| `test4/` (7 frames)  | `.../test4/*.png`  | `.../test4/output/panorama_stages/`  | `.../test4/output/simple_stitch.png` | `.../test4/output/panorama.png`    | Good alignment; −393px overcrop |
-| `test5/` (6 frames)  | `.../test5/*.png`  | `.../test5/output/panorama_stages/`  | `.../test5/output/simple_stitch.png` | `.../test5/output/panorama.png`    | Degraded alignment → Stage 9 ghosting |
-| `test6/` (9 frames)  | `.../test6/*.png`  | `.../test6/output/panorama_stages/`  | `.../test6/output/simple_stitch.png` | `.../test6/output/panorama.png`    | **Positive baseline — mostly clean** |
-| `test7/` (14 frames) | `.../test7/*.png`  | `.../test7/output/panorama_stages/`  | `.../test7/output/simple_stitch.png` | `.../test7/output/panorama.png`    | Broken alignment + diagonal scroll |
-| `test8/` (11 frames) | `.../test8/*.png`  | `.../test8/output/panorama_stages/`  | `.../test8/output/simple_stitch.png` | `.../test8/output/panorama.png`    | Catastrophic frame clustering |
-| `test9/` (9 frames)  | `.../test9/*.png`  | `.../test9/output/panorama_stages/`  | `.../test9/output/simple_stitch.png` | `.../test9/output/panorama.png`    | Frame clustering → −1609px height loss |
-| `test10/` (14 frames) | `.../test10/*.png` | `.../test10/output/panorama_stages/` | `.../test10/output/simple_stitch.png` | `.../test10/output/panorama.png`  | Uneven gaps (3.2×); ss uses perspective model |
-| `test11/` (7 frames)  | `.../test11/*.png` | `.../test11/output/panorama_stages/` | `.../test11/output/simple_stitch.png` | `.../test11/output/panorama.png`  | **Clean — positive baseline** |
-| `test12/` (6 frames)  | `.../test12/*.png` | `.../test12/output/panorama_stages/` | `.../test12/output/simple_stitch.png` | `.../test12/output/panorama.png`  | Borderline (2.9×); visually clean |
-| `test13/` (9 frames)  | `.../test13/*.png` | `.../test13/output/panorama_stages/` | `.../test13/output/simple_stitch.png` | `.../test13/output/panorama.png`  | Uneven gaps (2.3×); mild seam |
-| `test14/` (7 frames)  | `.../test14/*.png` | `.../test14/output/panorama_stages/` | `.../test14/output/simple_stitch.png` | `.../test14/output/panorama.png`  | **Clean; pipeline taller than ss** |
-| `test15/` (7 frames)  | `.../test15/*.png` | `.../test15/output/panorama_stages/` | `.../test15/output/simple_stitch.png` | `.../test15/output/panorama.png`  | **Clean; ss has staircase borders** |
-| `test16/` (10 frames) | `.../test16/*.png` | `.../test16/output/panorama_stages/` | `.../test16/output/simple_stitch.png` | `.../test16/output/panorama.png`  | Clustering (min_gap=12px) → catastrophic ghosting |
-| `test17/` (7 frames)  | `.../test17/*.png` | `.../test17/output/panorama_stages/` | `.../test17/output/simple_stitch.png` | `.../test17/output/panorama.png`  | Mild seam at one boundary (1.5×) |
-| `test18/` (6 frames)  | `.../test18/*.png` | `.../test18/output/panorama_stages/` | `.../test18/output/simple_stitch.png` | `.../test18/output/panorama.png`  | Good ty/tx but catastrophic Stage 9 — affine rotation |
-| `test19/` (10 frames) | `.../test19/*.png` | `.../test19/output/panorama_stages/` | `.../test19/output/simple_stitch.png` | `.../test19/output/panorama.png`  | **Clean — positive baseline** |
-| `test20/` (7 frames)  | `.../test20/*.png` | `.../test20/output/panorama_stages/` | `.../test20/output/simple_stitch.png` | `.../test20/output/panorama.png`  | Pure horizontal scroll (ty≈0, tx=0–1857px) |
-| `test21/` (10 frames) | `.../test21/*.png` | `.../test21/output/panorama_stages/` | `.../test21/output/simple_stitch.png` | `.../test21/output/panorama.png`  | 3 co-located frames → top-strip ghosting |
-| `test22/` (11 frames) | `.../test22/*.png` | `.../test22/output/panorama_stages/` | `.../test22/output/simple_stitch.png` | `.../test22/output/panorama.png`  | **Clean — positive baseline** |
+All paths below are relative to the repo root. Source frames are in `data/asp_testX/`, stage outputs in `data/asp_testX/output/panorama_stages/`.
 
-All paths are relative to `/home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/`.
+| Dataset | Frames | Stage outputs base | Status |
+|---------|--------|--------------------|--------|
+| `asp_test1/`  | 8  | `data/asp_test1/output/panorama_stages/`  | Partial fix — subtle brightness gradient |
+| `asp_test2/`  | 10 | `data/asp_test2/output/panorama_stages/`  | Broken alignment (wrong direction) |
+| `asp_test3/`  | 11 | `data/asp_test3/output/panorama_stages/`  | Stage 9 ghosting + hard seam |
+| `asp_test4/`  | 7  | `data/asp_test4/output/panorama_stages/`  | Good alignment; −393px overcrop |
+| `asp_test5/`  | 6  | `data/asp_test5/output/panorama_stages/`  | Degraded alignment → Stage 9 ghosting |
+| `asp_test6/`  | 9  | `data/asp_test6/output/panorama_stages/`  | **Positive baseline — mostly clean** |
+| `asp_test7/`  | 14 | `data/asp_test7/output/panorama_stages/`  | Broken alignment + diagonal scroll |
+| `asp_test8/`  | 11 | `data/asp_test8/output/panorama_stages/`  | Catastrophic frame clustering |
+| `asp_test9/`  | 9  | `data/asp_test9/output/panorama_stages/`  | Frame clustering → −1609px height loss |
+| `asp_test10/` | 14 | `data/asp_test10/output/panorama_stages/` | Uneven gaps (3.2×); ss uses perspective model |
+| `asp_test11/` | 7  | `data/asp_test11/output/panorama_stages/` | **Clean — positive baseline** |
+| `asp_test12/` | 6  | `data/asp_test12/output/panorama_stages/` | Borderline (2.9×); visually clean |
+| `asp_test13/` | 9  | `data/asp_test13/output/panorama_stages/` | Uneven gaps (2.3×); mild seam |
+| `asp_test14/` | 7  | `data/asp_test14/output/panorama_stages/` | **Clean; pipeline taller than ss** |
+| `asp_test15/` | 7  | `data/asp_test15/output/panorama_stages/` | **Clean; ss has staircase borders** |
+| `asp_test16/` | 10 | `data/asp_test16/output/panorama_stages/` | Clustering (min_gap=12px) → catastrophic ghosting |
+| `asp_test17/` | 7  | `data/asp_test17/output/panorama_stages/` | Mild seam at one boundary (1.5×) |
+| `asp_test18/` | 6  | `data/asp_test18/output/panorama_stages/` | Good ty/tx but catastrophic Stage 9 — affine rotation |
+| `asp_test19/` | 10 | `data/asp_test19/output/panorama_stages/` | **Clean — positive baseline** |
+| `asp_test20/` | 7  | `data/asp_test20/output/panorama_stages/` | Pure horizontal scroll (ty≈0, tx=0–1857px) |
+| `asp_test21/` | 10 | `data/asp_test21/output/panorama_stages/` | 3 co-located frames → top-strip ghosting |
+| `asp_test22/` | 11 | `data/asp_test22/output/panorama_stages/` | **Clean — positive baseline** |

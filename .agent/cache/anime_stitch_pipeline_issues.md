@@ -1,10 +1,13 @@
 # Anime Stitch Pipeline — Issue Summary & Improvement Roadmap
 
-**Last updated:** 2026-05-24 (test4–test22 analysis added)  
+**Last updated:** 2026-05-24 (test4–test22 analysis added; paths migrated to data/asp_testX)  
 **Relevant codebase:** `backend/src/anim/`  
+**Test suite:** `backend/test/anim/` — 105 tests covering all issue categories (run with `pytest backend/test/anim/`)  
 **Architecture reference:** `docs/ARCHITECTURE.md`  
 **Research references:** `reports/` directory  
-**Overmix reference implementation:** `Overmix/src/`
+**Overmix reference implementation:** `Overmix/src/`  
+**Pipeline scripts:** `archive/run_pipeline_v2.py`, `archive/build_stages.py`  
+**Test datasets:** `data/asp_testX/` (formerly `/home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/testX/`)
 
 ---
 
@@ -48,6 +51,8 @@ The pipeline runs 13 stages (see `docs/ARCHITECTURE.md` for full flowchart). The
 | `test22/` | 11 | 3788×2930 | 3841×3062 | **1.0×** | **Clean output — positive baseline** |
 
 Stage outputs are in `<dataset>/output/panorama_stages/`. Alignment ratio = max_gap / median_gap from `stage08_canvas_info.json`. Ratios > 3× indicate a broken bundle adjustment. Bold ratio = dataset produces acceptable output. Check `min_gap` as well — a ratio of 1.0× with `min_gap=0` still indicates co-located frames.
+
+All dataset paths are `data/asp_testX/` relative to the repo root (e.g. `data/asp_test1/`, `data/asp_test8/`). Pipeline runner scripts are in `archive/` (`archive/run_pipeline_v2.py`, `archive/build_stages.py`).
 
 ---
 
@@ -165,7 +170,7 @@ The `test3/` dataset has 11 frames with affines (`ty` values) evenly spaced ~280
 
 ### 4.4 Diagnostic steps for new agent
 
-1. Examine `stage04_bgmask_frame*.png` files in `/home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/test3/output/panorama_stages/` to verify mask quality
+1. Examine `stage04_bgmask_frame*.png` files in `data/asp_test3/output/panorama_stages/` to verify mask quality
 2. Check whether stage 9 ghosting occurs in the temporal render or was already present in normalized frames (`stage03_basic_corrected_frame*.png` or `stage02_normalised_frame*.png`)
 3. Run `run_pipeline_v2.py`-style script with the `test3/` stage data to isolate Stage 11 from Stage 9
 
@@ -778,14 +783,19 @@ Replace DCT-based MFSR (8×8 block artifacts) with RealESRGAN from `backend/src/
 To reproduce and iterate on compositing fixes without re-running the GPU-heavy stages:
 
 ```bash
-# test1/ dataset (8 frames, all stages pre-computed)
+# asp_test1/ dataset (8 frames, all stages pre-computed)
 cd /home/pkhunter/Repositories/Image-Toolkit
 source .venv/bin/activate
-python3 /home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/run_pipeline_v2.py
-# Output: /home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/test1/output/panorama_v2.png
+python3 archive/run_pipeline_v2.py
+# Output: data/asp_test1/output/panorama_v2.png
 
-# test3/ dataset (11 frames) — edit STAGE_DIR and frame count in run_pipeline_v2.py
+# asp_test3/ dataset (11 frames) — edit STAGE_DIR and frame count in run_pipeline_v2.py
 
 # For full pipeline re-run from alignment stages:
-python3 /home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/build_stages.py
+python3 archive/build_stages.py
+```
+
+Unit test suite (no GPU, ~7s):
+```bash
+pytest backend/test/anim/ -q
 ```

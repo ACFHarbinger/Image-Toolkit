@@ -23,7 +23,7 @@ _repo_root = os.path.dirname(
 sys.path.insert(0, _repo_root)
 
 from backend.src.anim.rendering import _render, _render_first, _render_median  # noqa: E402
-from ..conftest import make_frame, make_rotation_affine, make_translation_affine  # noqa: E402
+from conftest import make_frame, make_rotation_affine, make_translation_affine  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

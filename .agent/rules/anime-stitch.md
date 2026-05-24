@@ -9,10 +9,12 @@ You are working on the anime image stitching pipeline in `backend/src/anim/`. Ap
 
 ## Iteration & Testing
 
-- **Always use the fast iteration loop.** Do not re-run BiRefNet or LoFTR to test compositing changes. Load pre-computed stages from `/home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/test1/output/panorama_stages/` via `run_pipeline_v2.py`. Only re-run full GPU stages when changing Stages 1–8.
+- **Run the unit test suite first.** Before and after any change to `backend/src/anim/`, run `pytest backend/test/anim/ -q`. The suite has 105 tests covering all issue categories with no GPU dependency (~7s). A regression here is a hard blocker.
+- **Update tests when fixing documented bugs.** Tests that document broken behavior (e.g. near-zero edge clustering) have a comment saying "update this assertion after the fix". Find the test and flip the assertion to verify the corrected behavior.
+- **Always use the fast iteration loop.** Do not re-run BiRefNet or LoFTR to test compositing changes. Load pre-computed stages from `data/asp_test1/output/panorama_stages/` via `archive/run_pipeline_v2.py`. Only re-run full GPU stages when changing Stages 1–8.
 - **View the output image after every run.** Use the Read tool on the `.png` output to visually inspect the result before claiming success. Do not rely solely on printed gain/delta values.
-- **Compare against the simple stitch.** The reference target is `/home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/test1/output/simple_stitch.png`. No horizontal bands, no brightness discontinuities, no block artifacts.
-- **Test all nine datasets.** A fix that helps `test1/` (8 frames) must not break `test6/` (the positive baseline), `test3/` (11 frames, Stage 9 failure), `test2/` (10 frames, alignment failure), or the new datasets test4–test9.
+- **Compare against the simple stitch.** The reference target is `data/asp_test1/output/simple_stitch.png`. No horizontal bands, no brightness discontinuities, no block artifacts.
+- **Test all datasets.** A fix that helps `asp_test1/` (8 frames) must not break `asp_test6/` (the positive baseline), `asp_test3/` (11 frames, Stage 9 failure), `asp_test2/` (10 frames, alignment failure), or the datasets asp_test4–asp_test22.
 
 ---
 

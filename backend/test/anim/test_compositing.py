@@ -29,7 +29,7 @@ from backend.src.anim.compositing import (  # noqa: E402
     _diff_to_feather,
     _global_gain_normalize,
 )
-from ..conftest import make_frame, make_translation_affine  # noqa: E402
+from conftest import make_frame, make_translation_affine  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

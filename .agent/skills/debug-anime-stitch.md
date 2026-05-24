@@ -40,7 +40,7 @@ Check whether Stage 9 output is already clean:
 # View stage09 temporal render
 python3 -c "
 from PIL import Image
-img = Image.open('/home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/test1/output/panorama_stages/stage09_temporal_render.png')
+img = Image.open('data/asp_test1/output/panorama_stages/stage09_temporal_render.png')
 img.show()
 "
 ```
@@ -101,7 +101,7 @@ Not a fixed constant like `SEAM_THIN_HF = 8`. A fixed 8px blend inside a 500px z
 
 ```bash
 # View BaSiC-corrected frames (stage03) or normalised frames (stage02)
-ls /home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/test3/output/panorama_stages/stage03_basic_corrected_frame*.png
+ls data/asp_test3/output/panorama_stages/stage03_basic_corrected_frame*.png
 # Open a few and check they look correct
 ```
 
@@ -110,7 +110,7 @@ If any frame is all-black, nearly-black, or inverted, BaSiC correction failed fo
 ### B2 — Check BiRefNet masks
 
 ```bash
-ls /home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/test3/output/panorama_stages/stage04_bgmask_frame*.png
+ls data/asp_test3/output/panorama_stages/stage04_bgmask_frame*.png
 ```
 
 Open several masks. Background pixels should be white (255), foreground (character) pixels black (0). An inverted mask (all-white or all-black) causes LS normalization and boundary search to use wrong pixels.
@@ -332,6 +332,27 @@ if tx_range > 10 * ty_range:
 
 ---
 
+## Unit Test Suite
+
+Before and after any fix, run the automated test suite. It covers all issue categories with synthetic data — no GPU required:
+
+```bash
+source .venv/bin/activate
+pytest backend/test/anim/ -q                       # all 105 tests (~7s)
+pytest backend/test/anim/test_filter_edges.py -v   # Category C — alignment
+pytest backend/test/anim/test_bundle_adjust.py -v  # Category C — clustering
+pytest backend/test/anim/test_canvas.py -v         # Category E — canvas/crop
+pytest backend/test/anim/test_affine_validation.py -v  # Category C/G — validate
+pytest backend/test/anim/test_compositing.py -v    # Category A — seam/gain
+pytest backend/test/anim/test_rendering.py -v      # Category B — ghosting
+```
+
+The suite documents both correct behavior (assertions that must pass) and known bugs (assertions that document the broken state, marked in the test docstring). When you fix a documented bug, find the corresponding test and update the assertion to verify the correct behavior.
+
+Shared test helpers live in `backend/test/conftest.py`: `make_frame`, `make_edge`, `make_translation_affine`, `make_rotation_affine`, `compute_ty_gaps`.
+
+---
+
 ## Diagnostic Quick Reference
 
 ```bash
@@ -348,5 +369,5 @@ grep "Boundary\|Feathers" /tmp/pipeline_run.log
 grep "DP path" /tmp/pipeline_run.log
 
 # Run compositing only (fast, no GPU)
-source .venv/bin/activate && python3 /home/pkhunter/Downloads/data/Anime_Stitch_Pipeline/run_pipeline_v2.py 2>&1 | tee /tmp/pipeline_run.log
+source .venv/bin/activate && python3 archive/run_pipeline_v2.py 2>&1 | tee /tmp/pipeline_run.log
 ```
