@@ -70,8 +70,26 @@ def _compute_canvas(
     canvas_w = min(canvas_w, _CANVAS_MAX_DIM)
     canvas_h = min(canvas_h, _CANVAS_MAX_DIM)
     return canvas_h, canvas_w, T_global
-
-
+def _detect_scroll_axis(affines: List[np.ndarray]) -> str:
+    """
+    Classify the scroll direction of a set of affines as:
+    - 'vertical'    : ty_range >> tx_range (normal case)
+    - 'horizontal'  : tx_range >> ty_range (test20 pattern)
+    - 'diagonal'    : both ty and tx significant (test7 pattern)
+    - 'none'        : all frames co-located
+    """
+    tys = np.array([float(a[1, 2]) for a in affines])
+    txs = np.array([float(a[0, 2]) for a in affines])
+    ty_range = float(tys.max() - tys.min())
+    tx_range = float(txs.max() - txs.min())
+    total = ty_range + tx_range
+    if total < 1.0:
+        return "none"
+    if tx_range > 0 and ty_range / max(tx_range, 1.0) < 0.1:
+        return "horizontal"
+    if ty_range > 0 and tx_range / max(ty_range, 1.0) > 0.3:
+        return "diagonal"
+    return "vertical"
 def _crop_to_valid(canvas: np.ndarray, valid_mask: np.ndarray) -> np.ndarray:
     """
     Crop to the tight bounding box of all valid (non-black) pixels.
@@ -220,4 +238,5 @@ __all__ = [
     "_crop_to_valid",
     "_scan_stitch_fallback",
     "find_optimal_sequence",
+    "_detect_scroll_axis",
 ]

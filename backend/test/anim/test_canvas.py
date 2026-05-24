@@ -198,7 +198,10 @@ class TestCropToValid:
         """
         H, W = 200, 300
         canvas = np.ones((H, W, 3), dtype=np.uint8) * 50
-        valid = _full_valid_mask(H, W)
+        valid = _empty_valid_mask(H, W)
+        # Make the top part valid
+        valid[0:H-5, :] = 255
+        # Make the bottom 5 rows sparse
         for r in range(H - 5, H):
             valid[r, W // 2] = 255
         result = _crop_to_valid(canvas, valid)

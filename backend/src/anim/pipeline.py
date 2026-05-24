@@ -23,6 +23,7 @@ import torch
 from PIL import Image
 
 from .bundle_adjust import _bundle_adjust_affine
+from .validation import _validate_affines
 from .canvas import (
     _compute_canvas,
     _crop_to_valid,
@@ -199,12 +200,45 @@ class AnimeStitchPipeline:
                     filtered.append(e)
             edges = filtered
 
+        # ── Min-step guard ─────────────────────────────────────────────────────
+        # Reject adjacent edges with near-zero displacement BEFORE the direction consensus
+        # filter.  When the majority of edges are near-zero (test8/test9/test16),
+        # the consensus median is also near-zero and the filter cannot distinguish
+        # good from bad.  This guard prevents the inverted-consensus pattern.
+        _MIN_EXPECTED_STEP = 50  # px — frames at 1080p overlap by ~200–400px
+        if len(edges) >= 3:
+            adj_edges = [e for e in edges if e["j"] == e["i"] + 1]
+            if len(adj_edges) > 0:
+                median_dx_abs = float(np.median([abs(e["M"][0, 2]) for e in adj_edges]))
+                median_dy_abs = float(np.median([abs(e["M"][1, 2]) for e in adj_edges]))
+                primary_axis = 0 if median_dx_abs > median_dy_abs else 1
+                
+                adj_before = len(adj_edges)
+                edges = [
+                    e
+                    for e in edges
+                    if e["j"] != e["i"] + 1
+                    or abs(float(e["M"][primary_axis, 2])) >= _MIN_EXPECTED_STEP
+                ]
+                adj_after = sum(1 for e in edges if e["j"] == e["i"] + 1)
+                n_rejected = adj_before - adj_after
+                if n_rejected > 0:
+                    print(
+                        f"[Stitch]   Min-step guard: rejected {n_rejected} near-zero "
+                        f"edges (threshold={_MIN_EXPECTED_STEP}px on axis {primary_axis})"
+                    )
+
         # ── Direction Consensus Filter ────────────────────────────────────────
         if len(edges) >= 3:
-            adj_dys = [e["M"][1, 2] for e in edges if e["j"] == e["i"] + 1]
-            if len(adj_dys) >= 3:
-                median_dy = float(np.median(adj_dys))
-                consensus_sign = int(np.sign(median_dy))
+            adj_edges = [e for e in edges if e["j"] == e["i"] + 1]
+            if len(adj_edges) >= 3:
+                median_dx_abs = float(np.median([abs(e["M"][0, 2]) for e in adj_edges]))
+                median_dy_abs = float(np.median([abs(e["M"][1, 2]) for e in adj_edges]))
+                primary_axis = 0 if median_dx_abs > median_dy_abs else 1
+                
+                adj_vals = [e["M"][primary_axis, 2] for e in adj_edges]
+                median_val = float(np.median(adj_vals))
+                consensus_sign = int(np.sign(median_val))
 
                 _ts_pat = re.compile(r"_(\d+)ms", re.IGNORECASE)
                 timestamps_ms: List[Optional[int]] = []
@@ -219,29 +253,29 @@ class AnimeStitchPipeline:
                         return abs(t_j - t_i)
                     return None
 
-                def _wrong_sign(dy_val: float) -> bool:
+                def _wrong_sign(val: float) -> bool:
                     return (
                         consensus_sign != 0
-                        and np.sign(dy_val) != 0
-                        and int(np.sign(dy_val)) != consensus_sign
+                        and np.sign(val) != 0
+                        and int(np.sign(val)) != consensus_sign
                     )
 
-                def _gross_outlier(dy_val: float) -> bool:
+                def _gross_outlier(val: float) -> bool:
                     return (
-                        abs(dy_val) > 2.0 * abs(median_dy)
-                        and abs(dy_val - median_dy) > 200.0
+                        abs(val) > 2.0 * abs(median_val)
+                        and abs(val - median_val) > 200.0
                     )
 
                 vel_samples = []
                 for e in edges:
                     if e["j"] != e["i"] + 1:
                         continue
-                    dy_e = float(e["M"][1, 2])
-                    if _wrong_sign(dy_e) or _gross_outlier(dy_e):
+                    v_e = float(e["M"][primary_axis, 2])
+                    if _wrong_sign(v_e) or _gross_outlier(v_e):
                         continue
                     iv = _interval_ms(e["i"], e["j"])
                     if iv is not None:
-                        vel_samples.append(dy_e / iv)
+                        vel_samples.append(v_e / iv)
                 vel_px_per_ms: Optional[float] = (
                     float(np.median(vel_samples)) if vel_samples else None
                 )
@@ -251,16 +285,16 @@ class AnimeStitchPipeline:
                         f"(from {len(vel_samples)} reliable edges)"
                     )
 
-                def _is_outlier(dy_val: float, fi: int, fj: int) -> Tuple[bool, str]:
-                    if _wrong_sign(dy_val):
+                def _is_outlier(val: float, fi: int, fj: int) -> Tuple[bool, str]:
+                    if _wrong_sign(val):
                         return True, "wrong sign"
-                    if _gross_outlier(dy_val):
+                    if _gross_outlier(val):
                         return True, "gross outlier"
                     if vel_px_per_ms is not None:
                         iv = _interval_ms(fi, fj)
                         if iv is not None:
                             expected = abs(vel_px_per_ms) * iv
-                            if abs(dy_val - expected * consensus_sign) > max(
+                            if abs(val - expected * consensus_sign) > max(
                                 0.15 * expected, 15.0
                             ):
                                 return (
@@ -281,23 +315,23 @@ class AnimeStitchPipeline:
                 for e in edges:
                     if e["j"] == e["i"] + 1:
                         fi, fj = e["i"], e["j"]
-                        dy = float(e["M"][1, 2])
-                        outlier, reason = _is_outlier(dy, fi, fj)
+                        val = float(e["M"][primary_axis, 2])
+                        outlier, reason = _is_outlier(val, fi, fj)
                         if outlier:
                             iv = _interval_ms(fi, fj)
                             replaced = False
                             if vel_px_per_ms is not None and iv is not None:
-                                est_dy = vel_px_per_ms * iv
+                                est_val = vel_px_per_ms * iv
                                 print(
-                                    f"[Stitch]   Edge {fi}→{fj}: dy={dy:.1f} ({reason}); "
-                                    f"velocity → dy={est_dy:.1f}"
+                                    f"[Stitch]   Edge {fi}→{fj}: val={val:.1f} ({reason}); "
+                                    f"velocity → val={est_val:.1f}"
                                 )
                                 M_fix = np.eye(2, 3, dtype=np.float32)
-                                M_fix[0, 2] = e["M"][0, 2]
-                                M_fix[1, 2] = est_dy
+                                M_fix[1 - primary_axis, 2] = e["M"][1 - primary_axis, 2]
+                                M_fix[primary_axis, 2] = est_val
                                 e = _apply_corrected_M(e, M_fix, 0.55)
                                 replaced = True
-                            if not replaced:
+                            if not replaced and primary_axis == 1:
                                 img_i_c = frames[fi][ec_h:-ec_h, ec_w:-ec_w]
                                 img_j_c = frames[fj][ec_h:-ec_h, ec_w:-ec_w]
                                 m_i_c = (
@@ -313,30 +347,30 @@ class AnimeStitchPipeline:
                                     M_dir is not None
                                     and int(np.sign(M_dir[1, 2])) == consensus_sign
                                 ):
-                                    new_dy = float(M_dir[1, 2])
+                                    new_val = float(M_dir[1, 2])
                                     print(
                                         f"[Stitch]   Edge {fi}→{fj}: directed TM → "
-                                        f"dy={new_dy:.1f} conf={c_dir:.3f}"
+                                        f"val={new_val:.1f} conf={c_dir:.3f}"
                                     )
                                     M_new = np.array(
-                                        [[1, 0, e["M"][0, 2]], [0, 1, new_dy]],
+                                        [[1, 0, e["M"][0, 2]], [0, 1, new_val]],
                                         dtype=np.float32,
                                     )
                                     e = _apply_corrected_M(e, M_new, c_dir * 0.7)
                                     replaced = True
                             if not replaced:
                                 print(
-                                    f"[Stitch]   Edge {fi}→{fj}: dy={dy:.1f} ({reason}); "
-                                    f"using median {median_dy:.1f}"
+                                    f"[Stitch]   Edge {fi}→{fj}: val={val:.1f} ({reason}); "
+                                    f"using median {median_val:.1f}"
                                 )
                                 M_fix = np.eye(2, 3, dtype=np.float32)
-                                M_fix[0, 2] = e["M"][0, 2]
-                                M_fix[1, 2] = median_dy
+                                M_fix[1 - primary_axis, 2] = e["M"][1 - primary_axis, 2]
+                                M_fix[primary_axis, 2] = median_val
                                 e = _apply_corrected_M(e, M_fix, e.get("weight", 1.0) * 0.3)
                         else:
                             print(
-                                f"[Stitch]   Edge {fi}→{fj}: dy={dy:.1f} kept "
-                                f"(consensus {median_dy:.1f})"
+                                f"[Stitch]   Edge {fi}→{fj}: val={val:.1f} kept "
+                                f"(consensus {median_val:.1f})"
                             )
                     corrected.append(e)
                 edges = corrected
@@ -477,6 +511,20 @@ class AnimeStitchPipeline:
             f"[Stitch] Stage 7 complete: bundle adjustment done "
             f"(mode={'affine' if use_affine_ba else 'translation'})."
         )
+
+        # ── Stage 7b: Affine validation gate ─────────────────────────────────
+        health = _validate_affines(affines)
+        print(
+            f"[Stitch]   Affine health: valid={health.valid}, "
+            f"ratio={health.ratio:.1f}×, min_gap={health.min_gap:.0f}px, "
+            f"max_rot={health.max_rotation:.4f}, scale_dev={health.max_scale_dev:.4f}"
+        )
+        if not health.valid:
+            warnings.warn(
+                f"[Stitch] Affine validation FAILED ({health.reason}). "
+                f"Falling back to SCANS stitch."
+            )
+            return _scan_stitch_fallback(frames, output_path)
 
         # ── Stage 8: ECC sub-pixel refinement ───────────────────────────────
         if self.use_ecc:

@@ -1,8 +1,8 @@
 """
-Tests for the Stage 11 hard-partition composite (compositing.py).
+Tests for the Stage 11 Laplacian-blend composite (compositing.py).
 
 Issue categories covered:
-  A — Seam / brightness bands: LS gain clamp at ±5%, feather zone, boundary search.
+  A — Seam blending: feather zone, boundary search, Laplacian pyramid blend.
 
 All tests run without GPU — no BiRefNet or LoFTR dependencies.
 """
@@ -24,10 +24,8 @@ from backend.src.anim.compositing import (  # noqa: E402
     _FEATHER_MAX,
     _FEATHER_MIN,
     _FEATHER_TABLE,
-    _GAIN_CLAMP,
     _composite_foreground,
     _diff_to_feather,
-    _global_gain_normalize,
 )
 from conftest import make_frame, make_translation_affine  # noqa: E402
 
@@ -85,130 +83,9 @@ class TestDiffToFeather:
                 f"{feathers[i]} → {feathers[i + 1]}"
             )
 
-    def test_gain_clamp_tight_around_unity(self):
-        """
-        Bug 4 regression: LS gain clamp must be ≤ ±5% from 1.0.
-        Wider clamps treated the natural scene gradient as calibration error.
-        """
-        clamp_lo, clamp_hi = _GAIN_CLAMP
-        assert clamp_lo >= 0.85, (
-            f"Gain clamp lower bound {clamp_lo:.2f} is too aggressive (< 0.85); "
-            "should be ≥ 0.88 to avoid over-darkening frames"
-        )
-        assert clamp_hi <= 1.20, (
-            f"Gain clamp upper bound {clamp_hi:.2f} is too aggressive (> 1.20); "
-            "should be ≤ 1.15 to avoid over-brightening frames"
-        )
-
 
 # ---------------------------------------------------------------------------
-# 2. _global_gain_normalize (Bug 4 regression)
-# ---------------------------------------------------------------------------
-
-
-class TestGlobalGainNormalize:
-    def _build_warped_list(self, n: int, H: int, W: int, brightness: list):
-        """Solid-color warped frames with specified per-channel brightness."""
-        frames_src = [
-            make_frame(H // n, W, color=(int(b), int(b), int(b))) for b in brightness
-        ]
-        affines = [make_translation_affine(ty=i * float(H // n)) for i in range(n)]
-        warped = []
-        for i, (f, aff) in enumerate(zip(frames_src, affines)):
-            w = cv2.warpAffine(
-                f,
-                aff,
-                (W, H),
-                flags=cv2.INTER_NEAREST,
-                borderMode=cv2.BORDER_CONSTANT,
-                borderValue=0,
-            )
-            warped.append(w)
-        return warped, affines, np.arange(n)
-
-    def test_equal_brightness_frames_no_correction(self):
-        """All frames at the same brightness → gains stay near 1.0."""
-        n, H, W = 4, 400, 100
-        warped, affines, order = self._build_warped_list(n, H, W, [150.0] * n)
-        initial_boundaries = np.array([(i + 0.5) * (H / n) for i in range(n - 1)])
-        before = [w.copy() for w in warped]
-        _global_gain_normalize(
-            warped, order, initial_boundaries, H, W, bg_masks=None, affines=None
-        )
-        for i, (b, a) in enumerate(zip(before, warped)):
-            diff = np.abs(b.astype(int) - a.astype(int)).max()
-            assert diff < 5, (
-                f"frame{i}: unchanged frames should not be modified; max_diff={diff}"
-            )
-
-    def test_moderate_brightness_diff_clamped_to_gain_range(self):
-        """
-        Bug 4 regression: 20% brightness difference → applied gain must be within
-        _GAIN_CLAMP range (≤ ±14%).
-        """
-        n, H, W = 4, 400, 100
-        brightness = [100.0, 120.0, 100.0, 120.0]
-        warped, affines, order = self._build_warped_list(n, H, W, brightness)
-        initial_boundaries = np.array([(i + 0.5) * (H / n) for i in range(n - 1)])
-
-        means_before = []
-        for w in warped:
-            px = w[w.max(axis=2) > 0]
-            means_before.append(float(px[:, 1].mean()) if len(px) > 0 else 0.0)
-
-        _global_gain_normalize(
-            warped, order, initial_boundaries, H, W, bg_masks=None, affines=None
-        )
-
-        means_after = []
-        for w in warped:
-            px = w[w.max(axis=2) > 0]
-            means_after.append(float(px[:, 1].mean()) if len(px) > 0 else 0.0)
-
-        lo, hi = _GAIN_CLAMP
-        for i, (mb, ma) in enumerate(zip(means_before, means_after)):
-            if mb > 5.0:
-                gain = ma / mb
-                assert lo <= gain <= hi, (
-                    f"frame{i}: applied gain={gain:.3f} outside _GAIN_CLAMP=[{lo},{hi}]"
-                )
-
-    def test_ls_normalization_clamp_tight(self):
-        """
-        The least-squares alpha gains inside _global_gain_normalize are clipped
-        to [0.95, 1.05] (±5%). This is the key fix from Bug 4.
-        """
-        n, H, W = 5, 500, 100
-        brightness = [253.0, 200.0, 150.0, 100.0, 82.0]
-        warped, affines, order = self._build_warped_list(n, H, W, brightness)
-        initial_boundaries = np.array([(i + 0.5) * (H / n) for i in range(n - 1)])
-
-        means_before = []
-        for w in warped:
-            px = w[w.max(axis=2) > 0]
-            means_before.append(float(px[:, 1].mean()) if len(px) > 0 else 0.0)
-
-        _global_gain_normalize(
-            warped, order, initial_boundaries, H, W, bg_masks=None, affines=None
-        )
-
-        means_after = []
-        for w in warped:
-            px = w[w.max(axis=2) > 0]
-            means_after.append(float(px[:, 1].mean()) if len(px) > 0 else 0.0)
-
-        lo, hi = _GAIN_CLAMP
-        for i, (mb, ma) in enumerate(zip(means_before, means_after)):
-            if mb > 5.0:
-                gain = ma / mb
-                assert lo <= gain <= hi, (
-                    f"frame{i}: 50% swing should be clamped but gain={gain:.3f} "
-                    f"is outside _GAIN_CLAMP=[{lo},{hi}]"
-                )
-
-
-# ---------------------------------------------------------------------------
-# 3. _composite_foreground output shape and stability
+# 2. _composite_foreground output shape and stability
 # ---------------------------------------------------------------------------
 
 

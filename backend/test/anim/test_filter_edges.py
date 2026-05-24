@@ -295,10 +295,11 @@ class TestNearZeroDyPattern:
       reject edges with |dy| < min_expected_step (e.g., 50px)
     """
 
-    def test_near_zero_median_passes_through(self):
+    def test_near_zero_edges_rejected_by_min_step(self):
         """
-        When all edges have near-zero dy, consensus filter treats them as correct
-        (they agree with each other). Documents the bug in test8/test9/test16.
+        When all edges have near-zero dy (<50px), the min-step guard rejects
+        them before the consensus filter runs.  This is the fix for the
+        test8/test9/test16 clustering failure mode.
         """
         pipeline = _make_pipeline()
         N = 5
@@ -309,15 +310,16 @@ class TestNearZeroDyPattern:
         edges = [make_edge(i, i + 1, dy=float(3 + i)) for i in range(N - 1)]
         result = pipeline._filter_edges(edges, paths, 480, 640, frames, masks)
         adj = _adj_edges(result)
-        assert len(adj) == N - 1, (
-            f"Near-zero edges all pass filter (documents missing min_step guard): "
+        assert len(adj) == 0, (
+            f"All near-zero edges should be rejected by min-step guard; "
             f"kept {len(adj)}/{N-1}"
         )
 
-    def test_mixed_near_zero_and_normal_inverted_consensus(self):
+    def test_mixed_near_zero_and_normal_preserves_normal(self):
         """
-        3 near-zero edges + 1 normal-dy edge: the normal edge is now the 'outlier'
-        by consensus. This inverted scenario documents the test8 failure mode.
+        3 near-zero edges + 1 normal-dy edge: the min-step guard rejects
+        the near-zero edges, preserving the normal edge.  This is the fix
+        for the inverted-consensus pattern (test8 failure mode).
         """
         pipeline = _make_pipeline()
         N = 5
@@ -327,12 +329,17 @@ class TestNearZeroDyPattern:
         paths = [_ts_path(i, t_ms[i]) for i in range(N)]
 
         edges = [
-            make_edge(0, 1, dy=5.0),   # near-zero
-            make_edge(1, 2, dy=3.0),   # near-zero
-            make_edge(2, 3, dy=300.0), # normal — flagged as outlier by inverted consensus
-            make_edge(3, 4, dy=8.0),   # near-zero
+            make_edge(0, 1, dy=5.0),   # near-zero → rejected
+            make_edge(1, 2, dy=3.0),   # near-zero → rejected
+            make_edge(2, 3, dy=300.0), # normal → preserved
+            make_edge(3, 4, dy=8.0),   # near-zero → rejected
         ]
         result = pipeline._filter_edges(edges, paths, 480, 640, frames, masks)
         adj = _adj_edges(result)
+        # Only edge 2→3 (dy=300) survives the min-step guard
+        assert len(adj) == 1, f"Expected 1 surviving edge, got {len(adj)}"
         edge_2_3 = next((e for e in adj if e["i"] == 2 and e["j"] == 3), None)
-        assert edge_2_3 is not None, "Edge 2→3 should still be present (possibly corrected)"
+        assert edge_2_3 is not None, "Edge 2→3 (dy=300) should survive min-step guard"
+        assert abs(float(edge_2_3["M"][1, 2]) - 300.0) < 1.0, (
+            f"Edge 2→3 dy should be ~300, got {float(edge_2_3['M'][1,2]):.1f}"
+        )
