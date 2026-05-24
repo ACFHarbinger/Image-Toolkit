@@ -13,6 +13,7 @@ from typing import List, Optional, Tuple
 import cv2
 import numpy as np
 
+from .canvas import _detect_scroll_axis
 from .stateless import _laplacian_blend
 
 
@@ -37,27 +38,37 @@ def _compute_sequential_color_gains(
     gains = np.ones((N, 3), dtype=np.float32)
     biases = np.zeros((N, 3), dtype=np.float32)
 
-    N_STRIPES = 12
-    STRIPE_H = 40
+    N_BLOCKS_Y = 4
+    N_BLOCKS_X = 4
     MIN_BG_PX = 200
 
     for i in range(1, N):
-        H_i = frames[i].shape[0]
-        H_p = frames[i - 1].shape[0]
+        H_i, W_i = frames[i].shape[:2]
+        H_p, W_p = frames[i - 1].shape[:2]
         ty_i = float(affines[i][1, 2])
         ty_p = float(affines[i - 1][1, 2])
+        tx_i = float(affines[i][0, 2])
+        tx_p = float(affines[i - 1][0, 2])
 
-        # Canvas overlap rows
+        # Canvas overlap bounding box
         ov_top = max(ty_i, ty_p)
         ov_bot = min(ty_i + H_i, ty_p + H_p)
-        if ov_bot - ov_top < STRIPE_H * 2:
+        ov_left = max(tx_i, tx_p)
+        ov_right = min(tx_i + W_i, tx_p + W_p)
+
+        if ov_bot - ov_top < 40 or ov_right - ov_left < 40:
             continue
 
-        # Source-frame row bounds for the overlap zone
+        # Source-frame row/col bounds for the overlap zone
         r0_i = max(0, int(round(ov_top - ty_i)))
         r1_i = min(H_i, int(round(ov_bot - ty_i)))
+        c0_i = max(0, int(round(ov_left - tx_i)))
+        c1_i = min(W_i, int(round(ov_right - tx_i)))
+
         r0_p = max(0, int(round(ov_top - ty_p)))
         r1_p = min(H_p, int(round(ov_bot - ty_p)))
+        c0_p = max(0, int(round(ov_left - tx_p)))
+        c1_p = min(W_p, int(round(ov_right - tx_p)))
 
         # Background masks for foreground-exclusion
         bm_i = bg_masks[i] if (bg_masks is not None and bg_masks[i] is not None) else None
@@ -67,49 +78,55 @@ def _compute_sequential_color_gains(
             else None
         )
 
-        # Sample N_STRIPES horizontal stripes evenly spread across the overlap
-        ov_len = r1_i - r0_i
         stripe_means_i = [[] for _ in range(3)]
         stripe_means_p = [[] for _ in range(3)]
 
-        for s in range(N_STRIPES):
-            frac = (s + 0.5) / N_STRIPES
-            row_i = r0_i + int(frac * ov_len)
-            row_i = min(row_i, r1_i - STRIPE_H)
-            row_i = max(row_i, r0_i)
-            # Corresponding predecessor row (same canvas Y)
-            canvas_y = ty_i + row_i
-            row_p = int(round(canvas_y - ty_p))
-            row_p = max(r0_p, min(r1_p - STRIPE_H, row_p))
+        bh = max(10, (r1_i - r0_i) // N_BLOCKS_Y)
+        bw = max(10, (c1_i - c0_i) // N_BLOCKS_X)
 
-            slab_i = frames[i][row_i : row_i + STRIPE_H].astype(np.float32)
-            slab_p = frames[i - 1][row_p : row_p + STRIPE_H].astype(np.float32)
+        for s_r in range(N_BLOCKS_Y):
+            for s_c in range(N_BLOCKS_X):
+                row_i = r0_i + s_r * bh
+                col_i = c0_i + s_c * bw
+                
+                # Corresponding predecessor coords (same canvas X, Y)
+                canvas_y = ty_i + row_i
+                canvas_x = tx_i + col_i
+                row_p = int(round(canvas_y - ty_p))
+                col_p = int(round(canvas_x - tx_p))
 
-            # Background mask for this stripe
-            valid = np.ones(slab_i.shape[:2], dtype=bool)
-            if bm_i is not None:
-                valid &= (bm_i[row_i : row_i + STRIPE_H] > 127)
-            if bm_p is not None:
-                valid_p = bm_p[row_p : row_p + STRIPE_H] > 127
-                # Both masks must agree (minimum valid region)
-                valid &= valid_p
+                # Safe bounds
+                row_p = max(r0_p, min(r1_p - bh, row_p))
+                col_p = max(c0_p, min(c1_p - bw, col_p))
+                row_i = max(r0_i, min(r1_i - bh, row_i))
+                col_i = max(c0_i, min(c1_i - bw, col_i))
 
-            if valid.sum() < MIN_BG_PX:
-                # Fall back to all pixels if not enough background
+                slab_i = frames[i][row_i : row_i + bh, col_i : col_i + bw].astype(np.float32)
+                slab_p = frames[i - 1][row_p : row_p + bh, col_p : col_p + bw].astype(np.float32)
+
+                # Background mask for this block
                 valid = np.ones(slab_i.shape[:2], dtype=bool)
+                if bm_i is not None:
+                    valid &= (bm_i[row_i : row_i + bh, col_i : col_i + bw] > 127)
+                if bm_p is not None:
+                    valid_p = bm_p[row_p : row_p + bh, col_p : col_p + bw] > 127
+                    valid &= valid_p
+
                 if valid.sum() < MIN_BG_PX:
-                    continue
+                    valid = np.ones(slab_i.shape[:2], dtype=bool)
+                    if valid.sum() < MIN_BG_PX:
+                        continue
 
-            slab_p_corr = np.clip(
-                slab_p * gains[i - 1] + biases[i - 1], 0, 255
-            )
+                slab_p_corr = np.clip(
+                    slab_p * gains[i - 1] + biases[i - 1], 0, 255
+                )
 
-            for c in range(3):
-                mu_i = float(slab_i[valid, c].mean())
-                mu_p = float(slab_p_corr[valid, c].mean())
-                if mu_i > 5.0:
-                    stripe_means_i[c].append(mu_i)
-                    stripe_means_p[c].append(mu_p)
+                for c in range(3):
+                    mu_i = float(slab_i[valid, c].mean())
+                    mu_p = float(slab_p_corr[valid, c].mean())
+                    if mu_i > 5.0:
+                        stripe_means_i[c].append(mu_i)
+                        stripe_means_p[c].append(mu_p)
 
         for c in range(3):
             if len(stripe_means_i[c]) < 3:
@@ -218,7 +235,7 @@ def _cluster_animation_phases(
     return anim_mask_full, phase_groups
 
 
-_FADE_ROWS = 250   # rows to fade each frame in/out at its canvas entry/exit
+_FADE_ROWS = 20    # rows to fade each frame in/out at its canvas entry/exit
 _LANCZOS_BLEED = 8  # Lanczos4 support ±4px; use 8 for safety margin with sub-pixel offsets
 
 
@@ -254,11 +271,20 @@ def _render_median(
     )
     _cg, _cb = _cg_safe, _cb_safe
 
-    # Canvas entry/exit rows for each frame (for fade-in/out)
+    scroll_axis = _detect_scroll_axis(affines)
+
+    # Canvas entry/exit bounds for each frame (for fade-in/out)
     _frame_ty = np.array([float(affines[i][1, 2]) for i in range(N)], dtype=np.float64)
     _frame_bot = np.array(
         [_frame_ty[i] + frames[i].shape[0] for i in range(N)], dtype=np.float64
     )
+    _frame_tx = np.array([float(affines[i][0, 2]) for i in range(N)], dtype=np.float64)
+    _frame_right = np.array(
+        [_frame_tx[i] + frames[i].shape[1] for i in range(N)], dtype=np.float64
+    )
+
+    # Precompute geometric masks for each frame to avoid confusing black pixels with borders
+    _frame_masks = [np.full(f.shape[:2], 255, dtype=np.uint8) for f in frames]
 
     # Determine chunk size. We want to keep stack size < 1GB
     chunk_size = max(1, min(1024, (1024 * 1024 * 1024) // (N * W * 3 + 1)))
@@ -283,6 +309,15 @@ def _render_median(
                 borderMode=cv2.BORDER_CONSTANT,
                 borderValue=0,
             )
+            w_mask = cv2.warpAffine(
+                _frame_masks[i],
+                M_strip,
+                (W, ch),
+                flags=cv2.INTER_NEAREST,
+                borderMode=cv2.BORDER_CONSTANT,
+                borderValue=0,
+            )
+            valid_px = w_mask > 0
             if _baselines is not None:
                 b_i = _baselines[i]
                 if b_i < 0.90:
@@ -291,7 +326,6 @@ def _render_median(
                         w_strip.astype(np.float32) * scale, 0, 255
                     ).astype(np.uint8)
             if _need_color_corr:
-                valid_px = w_strip.max(axis=2) > 0
                 g_i = _cg[i]
                 bc_i = _cb[i]
                 if not (np.allclose(g_i, 1.0, atol=0.01) and np.allclose(bc_i, 0.0, atol=1.0)):
@@ -301,7 +335,7 @@ def _render_median(
                     w_strip = w_f32.astype(np.uint8)
                     w_strip[~valid_px] = 0
             stack[i] = w_strip
-            masks[i] = w_strip.max(axis=2) > 0
+            masks[i] = valid_px
 
         count = masks.sum(axis=0)
 
@@ -330,70 +364,98 @@ def _render_median(
 
         # ── Fade-in / fade-out post-pass ────────────────────────────────────
         # For each frame whose entry or exit boundary falls inside this chunk,
-        # smoothly ramp its median contribution over _FADE_ROWS rows.  This
-        # eliminates the sudden median-value jump that creates a visible
-        # horizontal seam when a new frame enters the canvas.
-        # The zone is extended by _LANCZOS_BLEED rows so that sub-pixel Lanczos
-        # kernel bleed from the bordering frame rows is also corrected.
-        for i in range(N):
-            for (fade_start, fade_end, is_entry) in [
-                # Entry: start _LANCZOS_BLEED rows before the frame's top edge
-                (_frame_ty[i] - _LANCZOS_BLEED, _frame_ty[i] + _FADE_ROWS, True),
-                # Exit: end _LANCZOS_BLEED rows after the frame's bottom edge
-                (_frame_bot[i] - _FADE_ROWS, _frame_bot[i] + _LANCZOS_BLEED, False),
-            ]:
-                if fade_end <= y0 or fade_start >= y1:
-                    continue  # fade zone not in this chunk
+        # smoothly ramp its median contribution over _FADE_ROWS rows/cols.
+        if scroll_axis != "horizontal":
+            for i in range(N):
+                for (fade_start, fade_end, is_entry) in [
+                    (_frame_ty[i] - _LANCZOS_BLEED, _frame_ty[i] + _FADE_ROWS, True),
+                    (_frame_bot[i] - _FADE_ROWS, _frame_bot[i] + _LANCZOS_BLEED, False),
+                ]:
+                    if fade_end <= y0 or fade_start >= y1:
+                        continue  # fade zone not in this chunk
 
-                # Use floor for start so fractional-pixel fade boundaries (e.g.
-                # ty_i=226.35 → fade_start=218.35 → floor=218) are included;
-                # ceil would skip row 218 and leave Lanczos-bleed uncorrected.
-                local_start = max(0, int(np.floor(fade_start)) - y0)
-                local_end = min(ch, int(np.ceil(fade_end)) - y0)
-                if local_start >= local_end:
-                    continue
+                    local_start = max(0, int(np.floor(fade_start)) - y0)
+                    local_end = min(ch, int(np.ceil(fade_end)) - y0)
+                    if local_start >= local_end:
+                        continue
 
-                s_f_full = stack[:, local_start:local_end, :, :].astype(np.float32)
-                m_full = masks[:, local_start:local_end, :]  # (N, rows, W)
+                    s_f_full = stack[:, local_start:local_end, :, :].astype(np.float32)
+                    m_full = masks[:, local_start:local_end, :]  # (N, rows, W)
 
-                # Build "without frame i" stack
-                s_f_no_i = s_f_full.copy()
-                m_no_i = m_full.copy()
-                m_no_i[i] = False
-                s_f_no_i[~m_no_i] = np.nan
-                s_f_full[~m_full] = np.nan
+                    s_f_no_i = s_f_full.copy()
+                    m_no_i = m_full.copy()
+                    m_no_i[i] = False
+                    s_f_no_i[~m_no_i] = np.nan
+                    s_f_full[~m_full] = np.nan
 
-                # Only correct pixels where frame i contributes AND >1 frames total
-                count_no_i = m_no_i.sum(axis=0)  # (rows, W)
-                i_present = m_full[i]              # (rows, W)
-                affected = i_present & (count_no_i >= 1)  # need at least 1 other frame
+                    count_no_i = m_no_i.sum(axis=0)  # (rows, W)
+                    i_present = m_full[i]              # (rows, W)
+                    affected = i_present & (count_no_i >= 1)
 
-                if not affected.any():
-                    continue
+                    if not affected.any():
+                        continue
 
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore", RuntimeWarning)
-                    med_with = np.nanmedian(s_f_full, axis=0)     # (rows, W, 3)
-                    med_without = np.nanmedian(s_f_no_i, axis=0)  # (rows, W, 3)
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", RuntimeWarning)
+                        med_with = np.nanmedian(s_f_full, axis=0)     # (rows, W, 3)
+                        med_without = np.nanmedian(s_f_no_i, axis=0)  # (rows, W, 3)
 
-                # Build per-row alpha weights: 0→1 for entry, 1→0 for exit.
-                # Use _FADE_ROWS as the denominator so alpha reaches 1 at the
-                # far end of the fade (independent of the bleed extension).
-                canvas_ys = np.arange(y0 + local_start, y0 + local_end, dtype=np.float64)
-                if is_entry:
-                    # alpha=0 at ty_i-BLEED, alpha=1 at ty_i+FADE_ROWS
-                    alphas = np.clip((canvas_ys - fade_start) / _FADE_ROWS, 0.0, 1.0)
-                else:
-                    # alpha=1 at bot_i-FADE_ROWS, alpha=0 at bot_i+BLEED
-                    alphas = np.clip((fade_end - canvas_ys) / _FADE_ROWS, 0.0, 1.0)
-                alphas = alphas[:, np.newaxis, np.newaxis]  # (rows, 1, 1)
+                    canvas_ys = np.arange(y0 + local_start, y0 + local_end, dtype=np.float64)
+                    if is_entry:
+                        alphas = np.clip((canvas_ys - fade_start) / _FADE_ROWS, 0.0, 1.0)
+                    else:
+                        alphas = np.clip((fade_end - canvas_ys) / _FADE_ROWS, 0.0, 1.0)
+                    alphas = alphas[:, np.newaxis, np.newaxis]  # (rows, 1, 1)
 
-                blended = (1.0 - alphas) * med_without + alphas * med_with
+                    blended = (1.0 - alphas) * med_without + alphas * med_with
 
-                # Write back only affected pixels
-                canvas_rows = canvas[y0 + local_start : y0 + local_end]
-                aff3 = np.stack([affected] * 3, axis=-1)  # (rows, W, 3)
-                canvas_rows[aff3] = np.clip(blended[aff3], 0, 255).astype(np.uint8)
+                    canvas_rows = canvas[y0 + local_start : y0 + local_end]
+                    aff3 = np.stack([affected] * 3, axis=-1)  # (rows, W, 3)
+                    canvas_rows[aff3] = np.clip(blended[aff3], 0, 255).astype(np.uint8)
+        else:
+            for i in range(N):
+                for (fade_start, fade_end, is_entry) in [
+                    (_frame_tx[i] - _LANCZOS_BLEED, _frame_tx[i] + _FADE_ROWS, True),
+                    (_frame_right[i] - _FADE_ROWS, _frame_right[i] + _LANCZOS_BLEED, False),
+                ]:
+                    local_start = max(0, int(np.floor(fade_start)))
+                    local_end = min(W, int(np.ceil(fade_end)))
+                    if local_start >= local_end:
+                        continue
+
+                    s_f_full = stack[:, :, local_start:local_end, :].astype(np.float32)
+                    m_full = masks[:, :, local_start:local_end]  # (N, ch, cols)
+
+                    s_f_no_i = s_f_full.copy()
+                    m_no_i = m_full.copy()
+                    m_no_i[i] = False
+                    s_f_no_i[~m_no_i] = np.nan
+                    s_f_full[~m_full] = np.nan
+
+                    count_no_i = m_no_i.sum(axis=0)  # (ch, cols)
+                    i_present = m_full[i]              # (ch, cols)
+                    affected = i_present & (count_no_i >= 1)
+
+                    if not affected.any():
+                        continue
+
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", RuntimeWarning)
+                        med_with = np.nanmedian(s_f_full, axis=0)     # (ch, cols, 3)
+                        med_without = np.nanmedian(s_f_no_i, axis=0)  # (ch, cols, 3)
+
+                    canvas_xs = np.arange(local_start, local_end, dtype=np.float64)
+                    if is_entry:
+                        alphas = np.clip((canvas_xs - fade_start) / _FADE_ROWS, 0.0, 1.0)
+                    else:
+                        alphas = np.clip((fade_end - canvas_xs) / _FADE_ROWS, 0.0, 1.0)
+                    alphas = alphas[np.newaxis, :, np.newaxis]  # (1, cols, 1)
+
+                    blended = (1.0 - alphas) * med_without + alphas * med_with
+
+                    canvas_cols = canvas[y0:y1, local_start:local_end]
+                    aff3 = np.stack([affected] * 3, axis=-1)  # (ch, cols, 3)
+                    canvas_cols[aff3] = np.clip(blended[aff3], 0, 255).astype(np.uint8)
 
         valid_mask[y0:y1][count > 0] = 255
 
@@ -444,7 +506,8 @@ def _render_first(
     """Simple first-frame-wins renderer."""
     canvas = np.zeros((H, W, 3), np.uint8)
     mask = np.zeros((H, W), np.uint8)
-    for img, M in reversed(list(zip(frames, affines))):
+    _frame_masks = [np.full(f.shape[:2], 255, dtype=np.uint8) for f in frames]
+    for img, M, f_mask in reversed(list(zip(frames, affines, _frame_masks))):
         w = cv2.warpAffine(
             img,
             M,
@@ -453,7 +516,15 @@ def _render_first(
             borderMode=cv2.BORDER_CONSTANT,
             borderValue=0,
         )
-        m = (w.max(axis=2) > 0).astype(np.uint8) * 255
+        w_mask = cv2.warpAffine(
+            f_mask,
+            M,
+            (W, H),
+            flags=cv2.INTER_NEAREST,
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=0,
+        )
+        m = (w_mask > 0).astype(np.uint8) * 255
         canvas[m > 0] = w[m > 0]
         mask |= m
     return canvas, mask

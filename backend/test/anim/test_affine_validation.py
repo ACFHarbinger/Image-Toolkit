@@ -1,15 +1,10 @@
 """
-Tests for affine matrix validation — documents the expected behavior of a
-`_validate_affines` function to be implemented as part of Priority-1 and
-Priority-3b fixes.
+Tests for affine matrix validation — verifies the behavior of the production
+``_validate_affines`` function in ``src.anim.validation``.
 
 Issue categories covered:
   C — Alignment failure: frame clustering (min_gap=0), high ratio (>3×).
   D/G — Affine rotation/scale mismatch (test18: good ty/tx, bad rotation).
-
-The helper `_validate_affines` is defined inline here as the specification of
-correct behavior.  When the function is added to `src.anim.bundle_adjust` (or
-a new `src.anim.validation` module), replace the inline version with an import.
 """
 
 from __future__ import annotations
@@ -26,70 +21,8 @@ _repo_root = os.path.dirname(
 )
 sys.path.insert(0, _repo_root)
 
+from backend.src.anim.validation import AffineHealth, _validate_affines  # noqa: E402
 from conftest import make_rotation_affine, make_translation_affine  # noqa: E402
-
-
-# ---------------------------------------------------------------------------
-# Reference implementation of _validate_affines (specification)
-# ---------------------------------------------------------------------------
-
-
-class AffineHealth(NamedTuple):
-    valid: bool
-    ratio: float
-    min_gap: float
-    max_rotation: float
-    max_scale_dev: float
-    reason: str
-
-
-def _validate_affines(
-    affines: List[np.ndarray],
-    min_step: float = 50.0,
-    max_ratio: float = 3.0,
-    max_rotation: float = 0.1,
-    max_scale_dev: float = 0.1,
-) -> AffineHealth:
-    """
-    Specification of the full affine health check.
-
-    A frame set is considered INVALID if ANY of the following hold:
-      1. max_gap / median_gap > max_ratio  (uneven spacing / clustering)
-      2. min_gap < min_step                (co-located frames)
-      3. any off-diagonal element > max_rotation  (rotation mismatch — test18)
-      4. any diagonal element deviates from 1.0 by > max_scale_dev (scale drift)
-    """
-    N = len(affines)
-    if N < 2:
-        return AffineHealth(True, 1.0, 0.0, 0.0, 0.0, "single frame")
-
-    tys = np.array([float(a[1, 2]) for a in affines])
-    sorted_tys = np.sort(tys)
-    gaps = np.diff(sorted_tys)
-
-    if len(gaps) == 0:
-        return AffineHealth(False, float("inf"), 0.0, 0.0, 0.0, "all frames at same position")
-
-    median_gap = float(np.median(gaps))
-    max_gap = float(gaps.max())
-    min_gap = float(gaps.min())
-    ratio = max_gap / max(median_gap, 1.0)
-
-    max_rot = max(max(abs(float(a[0, 1])), abs(float(a[1, 0]))) for a in affines)
-    max_sc = max(
-        max(abs(float(a[0, 0]) - 1.0), abs(float(a[1, 1]) - 1.0)) for a in affines
-    )
-
-    if ratio > max_ratio:
-        return AffineHealth(False, ratio, min_gap, max_rot, max_sc, f"ratio={ratio:.1f} > {max_ratio}")
-    if min_gap < min_step:
-        return AffineHealth(False, ratio, min_gap, max_rot, max_sc, f"min_gap={min_gap:.1f}px < {min_step}px")
-    if max_rot > max_rotation:
-        return AffineHealth(False, ratio, min_gap, max_rot, max_sc, f"rotation={max_rot:.3f} > {max_rotation}")
-    if max_sc > max_scale_dev:
-        return AffineHealth(False, ratio, min_gap, max_rot, max_sc, f"scale_dev={max_sc:.3f} > {max_scale_dev}")
-
-    return AffineHealth(True, ratio, min_gap, max_rot, max_sc, "ok")
 
 
 # ---------------------------------------------------------------------------

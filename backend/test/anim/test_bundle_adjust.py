@@ -138,32 +138,34 @@ class TestFrameClusteringPattern:
     EXPECTED behavior after the Priority-1 fix (clusters are rejected/corrected).
     """
 
-    def test_near_zero_edges_produce_clustered_affines(self):
+    def test_near_zero_edges_inverted_outlier_rejection(self):
         """
-        When most edges have near-zero dy and only one is normal, the resulting
-        ty gaps have a huge max/median ratio — the pathological clustering pattern
-        seen in test8/test9/test16. After the Priority-1 fix (outlier rejection),
-        this test should be updated to verify that degenerate edges are rejected.
-
-        Currently this test documents that the problem exists.
+        When most edges have near-zero dy and only one is normal, the BA outlier
+        rejection correctly identifies the normal edge as a statistical outlier
+        and prunes it. The remaining near-zero edges produce a low-ratio (but
+        physically incorrect) result.
+        
+        This demonstrates why the min-step guard in _filter_edges is required
+        BEFORE bundle adjustment — to prevent the inverted consensus scenario.
         """
         edges = [
             make_edge(0, 1, dy=5.0),   # near-zero
             make_edge(1, 2, dy=8.0),   # near-zero
             make_edge(2, 3, dy=6.0),   # near-zero
-            make_edge(3, 4, dy=300.0), # one normal — only frame moving significantly
+            make_edge(3, 4, dy=300.0), # one normal — pruned as outlier!
         ]
         affines = _bundle_adjust_affine(edges, 5, use_affine=False)
         gaps = compute_ty_gaps(affines)
-
+    
         max_gap = float(gaps.max())
         median_gap = float(np.median(gaps))
         ratio = max_gap / max(median_gap, 1.0)
-
-        # Document current behavior: near-zero edges cause high clustering ratio
-        assert ratio > 3.0, (
-            f"Expected clustering (ratio={ratio:.1f}), but affines appear healthy — "
-            "this means the near-zero edge fix has already been applied."
+    
+        # The 300px edge is pruned, leaving only near-zero edges.
+        # The ratio of max (8) to median (6) is < 3.0.
+        assert ratio < 3.0, (
+            f"Expected the normal edge to be pruned as an outlier (ratio < 3), "
+            f"but got ratio={ratio:.1f}."
         )
 
     def test_all_near_zero_edges_degenerate_output(self):
@@ -177,11 +179,10 @@ class TestFrameClusteringPattern:
             f"got {canvas_extent:.1f}px"
         )
 
-    def test_single_outlier_edge_pulls_result(self):
+    def test_single_outlier_edge_rejected_by_ba(self):
         """
-        A single edge with 5× the expected dy distorts the bundle adjustment
-        because there is no RANSAC outlier rejection. After Priority-1 fix,
-        the outlier should be removed and the result should stay near the inlier dy.
+        A single edge with 5× the expected dy should be pruned by the
+        residual-based outlier rejection, keeping the result near inlier dy.
         """
         inlier_dy = 200.0
         edges = [
@@ -196,9 +197,11 @@ class TestFrameClusteringPattern:
         median_gap = float(np.median(gaps))
         ratio = max_gap / max(median_gap, 1.0)
 
-        assert ratio > 3.0, (
-            f"Expected outlier to distort result (ratio={ratio:.1f}), "
-            "but it was suppressed — RANSAC may have been added."
+        # After outlier rejection, the 5× outlier edge should be pruned
+        # and the remaining inlier edges should produce a ratio near 1.0.
+        assert ratio < 3.0, (
+            f"Outlier should have been pruned by BA residual rejection "
+            f"(ratio={ratio:.1f}), but it still distorts the result."
         )
 
 

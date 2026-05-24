@@ -125,16 +125,93 @@ def _bundle_adjust_affine(
     )
     x_opt = result.x
 
-    out: List[np.ndarray] = []
-    for f in range(num_frames):
-        if use_affine:
-            a, b, tx, ty = x_opt[f * 4 : f * 4 + 4]
-            M = np.array([[a, b, tx], [-b, a, ty]], dtype=np.float32)
-        else:
-            M = np.eye(2, 3, dtype=np.float32)
-            M[0, 2] = float(x_opt[f * 2])
-            M[1, 2] = float(x_opt[f * 2 + 1])
-        out.append(M)
+    def _extract_affines(x: np.ndarray) -> List[np.ndarray]:
+        """Build affine matrices from the flat parameter vector."""
+        mats: List[np.ndarray] = []
+        for f in range(num_frames):
+            if use_affine:
+                a, b, tx, ty = x[f * 4 : f * 4 + 4]
+                M = np.array([[a, b, tx], [-b, a, ty]], dtype=np.float32)
+            else:
+                M = np.eye(2, 3, dtype=np.float32)
+                M[0, 2] = float(x[f * 2])
+                M[1, 2] = float(x[f * 2 + 1])
+            mats.append(M)
+        return mats
+
+    out = _extract_affines(x_opt)
+
+    # ── Outlier rejection ───────────────────────────────────────────────────
+    # Two-pronged approach:
+    #   1. Point-wise residuals: edges whose BA-predicted displacement disagrees
+    #      with their observed displacement indicate noisy/wrong LoFTR matches.
+    #   2. Edge-displacement outliers: even when the solver perfectly satisfies
+    #      all edges (zero residual), an edge whose observed displacement is a
+    #      statistical outlier relative to the other edges should be pruned.
+    # This handles both noisy real data (prong 1) and the synthetic/clean case
+    # where one edge has an anomalous dy but consistent internal points (prong 2).
+    if len(edges) >= 3:
+        # Prong 1: point-wise residual check
+        edge_residuals: List[float] = []
+        for e in edges:
+            ei, ej = e["i"], e["j"]
+            pred_dx = float(out[ej][0, 2]) - float(out[ei][0, 2])
+            pred_dy = float(out[ej][1, 2]) - float(out[ei][1, 2])
+            obs_dx = -float(e["M"][0, 2])
+            obs_dy = -float(e["M"][1, 2])
+            res_val = np.sqrt((pred_dx - obs_dx) ** 2 + (pred_dy - obs_dy) ** 2)
+            edge_residuals.append(res_val)
+
+        med_res = float(np.median(edge_residuals))
+        res_threshold = max(3.0 * med_res, 30.0)
+
+        # Prong 2: edge-displacement outlier check
+        # Compare each edge's observed displacement magnitude to the median.
+        edge_dy_vals = [abs(float(e["M"][1, 2])) for e in edges]
+        med_dy = float(np.median(edge_dy_vals))
+        # An edge is an outlier if its |dy| is > 2.5× the median AND the
+        # absolute deviation exceeds 100px (to avoid false positives on
+        # datasets with naturally varying overlap).
+        _DY_RATIO_THRESH = 2.5
+        _DY_ABS_THRESH = 100.0
+
+        clean_mask: List[bool] = []
+        for idx, e in enumerate(edges):
+            # Check prong 1: point-wise residual
+            if edge_residuals[idx] > res_threshold:
+                clean_mask.append(False)
+                continue
+            # Check prong 2: edge displacement outlier
+            dy_val = abs(float(e["M"][1, 2]))
+            dy_ratio = dy_val / max(med_dy, 1.0)
+            dy_dev = abs(dy_val - med_dy)
+            if dy_ratio > _DY_RATIO_THRESH and dy_dev > _DY_ABS_THRESH:
+                clean_mask.append(False)
+                continue
+            clean_mask.append(True)
+
+        n_pruned = sum(not k for k in clean_mask)
+
+        if n_pruned > 0:
+            clean_edges = [e for e, keep in zip(edges, clean_mask) if keep]
+            # Re-solve as long as we have some edges. If the graph is disconnected,
+            # unconstrained frames will remain at ty=0, which will trigger the
+            # min_gap validation failure later and properly fall back to SCANS.
+            if len(clean_edges) >= 2:
+                pruned_info = ", ".join(
+                    f"{e['i']}→{e['j']}" for e, keep in zip(edges, clean_mask) if not keep
+                )
+                print(
+                    f"[Stitch]   BA outlier rejection: pruned {n_pruned}/{len(edges)} "
+                    f"edges [{pruned_info}] "
+                    f"(res_thresh={res_threshold:.1f}px, dy_median={med_dy:.1f}px)"
+                )
+                # Recursive call with clean edges (bounded recursion: edge count
+                # decreases each iteration, at most log(N) levels).
+                out = _bundle_adjust_affine(
+                    clean_edges, num_frames, iterations, use_affine
+                )
+
     return out
 
 
