@@ -309,10 +309,8 @@ def _render_median(
         m1 = count == 1
         if m1.any():
             idx1 = masks[:, m1].argmax(axis=0)
-            canvas_strip = canvas[y0:y1]
-            s_flat = stack.reshape(N, -1, 3)
-            m1_flat = m1.flatten()
-            canvas_strip.reshape(-1, 3)[m1_flat] = s_flat[idx1, np.arange(len(idx1))]
+            rows1, cols1 = np.where(m1)
+            canvas[y0:y1][rows1, cols1] = stack[idx1, rows1, cols1]
 
         # Case 2: pixels with > 1 samples
         m_gt1 = count > 1
