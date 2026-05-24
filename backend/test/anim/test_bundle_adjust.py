@@ -22,7 +22,7 @@ _repo_root = os.path.dirname(
 sys.path.insert(0, _repo_root)
 
 from backend.src.anim.bundle_adjust import _bundle_adjust_affine  # noqa: E402
-from ..conftest import compute_ty_gaps, make_edge  # noqa: E402
+from conftest import compute_ty_gaps, make_edge  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

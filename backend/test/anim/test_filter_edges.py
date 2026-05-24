@@ -23,7 +23,7 @@ _repo_root = os.path.dirname(
 sys.path.insert(0, _repo_root)
 
 from backend.src.anim.pipeline import AnimeStitchPipeline  # noqa: E402
-from ..conftest import make_edge, make_frame  # noqa: E402
+from conftest import make_edge, make_frame  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

@@ -26,7 +26,7 @@ _repo_root = os.path.dirname(
 )
 sys.path.insert(0, _repo_root)
 
-from ..conftest import make_rotation_affine, make_translation_affine  # noqa: E402
+from conftest import make_rotation_affine, make_translation_affine  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
