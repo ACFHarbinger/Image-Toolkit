@@ -9,7 +9,7 @@ You are working on the anime image stitching pipeline in `backend/src/anim/`. Ap
 
 ## Iteration & Testing
 
-- **Run the unit test suite first.** Before and after any change to `backend/src/anim/`, run `pytest backend/test/anim/ -q`. The suite has 105 tests covering all issue categories with no GPU dependency (~7s). A regression here is a hard blocker.
+- **Run the unit test suite first.** Before and after any change to `backend/src/anim/`, run `pytest backend/test/anim/ -q`. The suite has 101 tests covering all issue categories with no GPU dependency (~7s). A regression here is a hard blocker.
 - **Update tests when fixing documented bugs.** Tests that document broken behavior (e.g. near-zero edge clustering) have a comment saying "update this assertion after the fix". Find the test and flip the assertion to verify the corrected behavior.
 - **Always use the fast iteration loop.** Do not re-run BiRefNet or LoFTR to test compositing changes. Load pre-computed stages from `data/asp_test1/output/panorama_stages/` via `archive/run_pipeline_v2.py`. Only re-run full GPU stages when changing Stages 1–8.
 - **View the output image after every run.** Use the Read tool on the `.png` output to visually inspect the result before claiming success. Do not rely solely on printed gain/delta values.
@@ -24,6 +24,9 @@ You are working on the anime image stitching pipeline in `backend/src/anim/`. Ap
 - **No per-zone gain correction.** The `gain_seam` measurement in `_composite_foreground` compares different scene elements at the same canvas row — it measures scene content, not photometric calibration. Keep it as `gain_seam = np.ones(3)`.
 - **No post-composite seam ramp inside feather zones.** `_apply_canvas_seam_correction` was designed for the hard-partition-only case. When wide feather blends are active, the ramp correction applies inside the blend zone and creates new visible bands. It is intentionally disabled.
 - **Do not re-enable** any of these without first verifying on all three test datasets.
+- **Stage 11 bg normalization is bg-only, scalar, BT.601.** The gain in `_composite_foreground` is computed from background-classified pixels only (`bg_sel = warped_bg[i] & (warped_list[i].max(axis=2) > 10)`) and applied to background pixels only. The gain is a single scalar (BT.601 luminance: B×0.114 + G×0.587 + R×0.299), not per-channel. Cap is ±7% (`np.clip(..., 0.93, 1.07)`). Per-channel gain introduced hue shifts on warm/red-dominant backgrounds. Do NOT revert to per-channel or per-pixel gain.
+- **Laplacian blend ramp is proportional, not fixed.** `ramp_px = max(20.0, zone_h * 0.12)` ensures the brightness gradient is spread across enough pixels to fall below visual threshold. Do NOT use a fixed ramp width.
+- **test12 S11 > S09 is a known structural limitation.** test12 has inter-frame luminance differences of ~30 units between adjacent frames (bg_diff=30.2 at B2, 24.1 at B3) that exceed the ±7% gain cap. Stage 9 temporal median smooths these; Stage 11 per-zone composite preserves them. This is NOT a bug in Stage 11 or in any threshold — it is a fundamental property of the input. Do not attempt to fix it by changing `has_content` thresholds or gain caps without testing all 10 measured datasets.
 
 ---
 
@@ -50,10 +53,24 @@ You are working on the anime image stitching pipeline in `backend/src/anim/`. Ap
 
 ---
 
+## Stage 11 Compositing — INTER_LINEAR and has_content
+
+- **Stage 11 uses INTER_LINEAR, not INTER_LANCZOS4.** This is intentional: Lanczos4's negative side-lobes create dark halos at sharp silhouette edges. INTER_LINEAR has no significant ringing. Do NOT change the interpolation flag in the `warpAffine` calls inside `_composite_foreground`.
+- **`has_content = src.max(axis=2) > 0` must stay at `> 0`.** Changing to `> 10` was tested and caused a +5.25 regression on test12 by silently dropping legitimate dark content pixels. Spatial analysis confirmed 95% of pixels with 0 < max ≤ 10 in dark frames are interior content, not boundary artifacts. The Lanczos ringing problem exists in Stage 9 (rendering.py, INTER_LANCZOS4) — not Stage 11.
+- **Do not use pixel value thresholds to detect frame boundaries.** The correct approach for geometry-based content detection would be to warp a binary mask with INTER_NEAREST. Pixel value thresholds conflate "no content" with "very dark content."
+
 ## Rendering (Stage 9)
 
 - **MFSR is disabled in test scripts — not in production.** The `run_pipeline_v2.py` test script skips MFSR because DCT-based MFSR introduces 8×8 block artifacts in flat cel-shaded regions. The production pipeline exposes a GUI toggle. Do not remove the MFSR code; keep it behind the toggle.
 - **The rendering gain clamp `(0.88, 1.12)` in `_render_median` is independent** from the LS clamp in `_composite_foreground`. These are different correction passes on different data — do not conflate them.
+- **`_FADE_ROWS = 40` in rendering.py** (increased from 20). This smooths the temporal median at each frame's canvas entry/exit. Do not reduce it below 40 without checking for regressions on test19.
+- **The `_FADE_ROWS` gate `count_no_i >= 1` must stay.** The fade-out is intentionally skipped for pixels where no other frame is present (exclusive zones). Removing this gate darkens natural scene top/bottom edges in exclusive columns — confirmed to cause +10–110 unit regressions across 8 datasets.
+
+## Seam Metric
+
+The old `max(abs(diff(row_mean_lum)))` metric has two artifact modes: (1) it counts the canvas top/bottom edge as a seam; (2) exclusive-zone columns appearing mid-panorama inflate the metric even when interior content is smooth. Use the corrected metric (see `cache/anime_stitch_pipeline_issues.md §7B.2`): skip rows where fewer than 5% of columns have pixels > 10, trim 5 rows from top/bottom, then take max |diff| of row means.
+
+**test19 "16-unit seam" is largely a metric artifact.** Of the 16 reported units: ~12 come from the coverage change at row 1402 (frame 3's exclusive zone cols 3840–4229 appearing), and ~4 come from a genuine 5-column animation phase seam at cols 2541–2546. Only the latter is a visual artifact, and it requires phase-aware temporal rendering to fix — not a compositing change.
 
 ---
 

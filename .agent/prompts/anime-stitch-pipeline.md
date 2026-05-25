@@ -81,6 +81,10 @@ See `.agent/cache/anime_stitch_pipeline_issues.md` for the full diagnostic repor
 - Seven positive baselines confirm the pipeline works well when alignment is correct: test4, test6, test11, test14, test15, test19, test22.
 - Two new unsupported scroll modes: horizontal (test20: ty≈0, tx=0–1857px) and pure diagonal (test7).
 - Always check `min_gap` in addition to `ratio` — a ratio of 1.0× with min_gap=0 still indicates co-located frames (test21).
+- Stage 11 uses INTER_LINEAR (not INTER_LANCZOS4). `has_content = src.max(axis=2) > 0` is correct — do NOT raise this threshold. Dark-frame pixels with max=1–10 are real content in ~95% of cases, not Lanczos ringing.
+- test12 S11 > S09 is structural (inter-frame bg_diff=30 exceeds the ±7% gain cap). Not a bug.
+- The old seam metric inflates numbers for test19 by ~12 units due to a canvas coverage change at an exclusive-zone boundary. Use the corrected metric (see §7B.2 in cache doc).
+- Three compositing fixes are now active: (A) bg-only scalar BT.601 gain ±7%, (B) proportional Laplacian ramp `max(20, zone_h×0.12)`, (C) `_FADE_ROWS=40` in rendering.py. These improve 6/10 measured datasets by 0.3–7.6 seam units.
 
 ### Quality target
 
@@ -113,7 +117,7 @@ A comprehensive test suite covers all pipeline issue categories without GPU. Run
 
 ```bash
 source .venv/bin/activate
-pytest backend/test/anim/ -q          # all 105 tests (~7s)
+pytest backend/test/anim/ -q          # all 101 tests (~7s)
 pytest backend/test/anim/ -k "canvas" # run a specific module
 ```
 
@@ -137,4 +141,4 @@ The `conftest.py` at `backend/test/conftest.py` provides shared helpers: `make_f
 - Keep all `_composite_foreground` signature unchanged — it is called by the pipeline, the GUI worker, and test scripts.
 - Gains applied in `_render_median` and `_composite_foreground` are independent — do not confuse them.
 
-My first task is: read the anime pipeline issues report file in `.agent/cache/anime_stitch_pipeline_issues.md`, analyze the pipeline code in  `backend/src/anim` and tests in `backend/test/anim`, understand the current issues and the architectural design choices, and come up with a plan to diagnose the root cause of the issues and improve the pipeline.
+My first task is: read the anime pipeline issues report files in `.agent/cache/*.md`, analyze the pipeline code in  `backend/src/anim` and tests in `backend/test/anim`, analyse the benchmark results in `Image-Toolkit/data/output/` and understand the current issues and the architectural design choices, and come up with a plan to diagnose the root cause of the coloring, lighting, and ghosting issues (which are present mostly at the seams), and improve the pipeline.

@@ -337,14 +337,21 @@ def _composite_foreground(
     warped_norm: List[np.ndarray] = []
     for i in range(N):
         if global_ref_lum is not None and warped_bg[i] is not None:
-            bg_px = warped_list[i][warped_bg[i] & (warped_list[i].max(axis=2) > 10)]
+            bg_sel = warped_bg[i] & (warped_list[i].max(axis=2) > 10)
+            bg_px = warped_list[i][bg_sel]
             if len(bg_px) >= 200:
                 frame_lum = float(bg_px.astype(np.float32).dot(_LUM_W).mean())
-                gain = float(np.clip(global_ref_lum / max(frame_lum, 1.0), 0.75, 1.35))
-                warped_norm.append(
-                    np.clip(warped_list[i].astype(np.float32) * gain, 0, 255).astype(np.uint8)
-                )
-                print(f"[Stitch]     Frame {i}: lum_gain={gain:.3f}")
+                # Tight clip — Stage 4.5 already applied ±14%; residual errors are small.
+                # Applying a background-derived gain to foreground pixels amplifies natural
+                # inter-frame luminance variation into hard brightness seams at ownership
+                # boundaries.  Apply the gain to background pixels only; foreground pixels
+                # retain their raw warped values so adjacent zones stay photometrically
+                # consistent at character-outline boundaries.
+                gain = float(np.clip(global_ref_lum / max(frame_lum, 1.0), 0.93, 1.07))
+                f32 = warped_list[i].astype(np.float32)
+                f32[bg_sel] = np.clip(f32[bg_sel] * gain, 0, 255)
+                warped_norm.append(f32.astype(np.uint8))
+                print(f"[Stitch]     Frame {i}: lum_gain={gain:.3f} (bg-only)")
                 continue
         warped_norm.append(warped_list[i])
 
@@ -418,11 +425,13 @@ def _composite_foreground(
         else:
             path_local = np.full(W, zone_h // 2, dtype=np.int32)
 
-        # Blend mask: 1.0 → fa_zone (above seam), 0.0 → fb_zone (below seam)
-        # ±5px soft ramp around the per-column seam path
+        # Blend mask: 1.0 → fa_zone (above seam), 0.0 → fb_zone (below seam).
+        # Ramp width proportional to zone height so residual ≤5 unit brightness steps
+        # are spread over enough pixels to fall below the visibility threshold.
         ys = np.arange(zone_h, dtype=np.float32)[:, np.newaxis]
         dist = ys - path_local[np.newaxis, :].astype(np.float32)
-        mask_float = np.clip(0.5 - dist / 10.0, 0.0, 1.0).astype(np.float32)
+        ramp_px = max(20.0, zone_h * 0.12)
+        mask_float = np.clip(0.5 - dist / (2.0 * ramp_px), 0.0, 1.0).astype(np.float32)
 
         blended = _laplacian_blend(fa_zone, fb_zone, mask_float)
 
