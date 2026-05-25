@@ -235,7 +235,7 @@ def _cluster_animation_phases(
     return anim_mask_full, phase_groups
 
 
-_FADE_ROWS = 20    # rows to fade each frame in/out at its canvas entry/exit
+_FADE_ROWS = 40    # rows to fade each frame in/out at its canvas entry/exit
 _LANCZOS_BLEED = 8  # Lanczos4 support ±4px; use 8 for safety margin with sub-pixel offsets
 
 

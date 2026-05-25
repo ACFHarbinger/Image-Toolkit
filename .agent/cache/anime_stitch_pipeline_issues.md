@@ -1,6 +1,6 @@
 # Anime Stitch Pipeline — Issue Summary & Improvement Roadmap
 
-**Last updated:** 2026-05-24 (test4–test22 analysis added; paths migrated to data/asp_testX)  
+**Last updated:** 2026-05-25 (seam metric investigation, Stage 11 photometric fixes, has_content false-lead documented)  
 **Relevant codebase:** `backend/src/anim/`  
 **Test suite:** `backend/test/anim/` — 105 tests covering all issue categories (run with `pytest backend/test/anim/`)  
 **Architecture reference:** `docs/ARCHITECTURE.md`  
@@ -598,24 +598,150 @@ If any off-diagonal element (a[0][1] or a[1][0]) is > 0.05, the frame has signif
 
 ---
 
+## 7B. Stage 11 Seam Metric Investigation & Photometric Fixes (2026-05-25)
+
+This section documents findings from two sessions focused on Stage 11 compositing quality.
+
+---
+
+### 7B.1 Fixes Applied in compositing.py
+
+Three changes were made and confirmed to improve seam quality across 6/10 measured datasets. All are currently active in `backend/src/anim/compositing.py`.
+
+#### Fix A — Background-only luminance normalization (scalar, BT.601)
+Previously, per-frame luminance gain was applied to ALL pixels (foreground + background). This created hue shifts for foreground elements and over-corrected scenes with dominant hue backgrounds (warm fire, orange dirt). The fix applies gain only to background-classified pixels, using a single scalar BT.601 luminance gain (not per-channel).
+
+**Location:** `_composite_foreground`, warped-frame normalization loop (~line 337).  
+**Gain cap:** `np.clip(global_ref_lum / frame_lum, 0.93, 1.07)` — ±7% scalar only.  
+**Reference:** `_LUM_W = [0.114, 0.587, 0.299]` (BT.601 BGR order).  
+**Diagnostic signal:** `lum_gain=X.XXX (bg-only)` printed for each frame that receives correction.
+
+#### Fix B — Proportional Laplacian blend ramp
+Previously, the blend ramp inside each seam zone was a fixed width. The fix makes the ramp proportional to the zone height: `ramp_px = max(20.0, zone_h * 0.12)`. This ensures wide zones (300px feather → 300px zone) get wide ramps that spread brightness steps below perceptual threshold.
+
+**Location:** `_composite_foreground`, Laplacian blend section (~line 433).
+
+#### Fix C — `_FADE_ROWS = 40` in rendering.py
+The fade-in/out at each frame's canvas entry/exit point was increased from 20 to 40 rows. This smooths the transition at the top and bottom of each frame's strip contribution in the temporal median.
+
+**Location:** `backend/src/anim/rendering.py`, constant at top of file.
+
+---
+
+### 7B.2 Seam Metric — Corrected Definition
+
+The previous metric (`max(abs(diff(row_mean_lum)))` over the full image) has two failure modes:
+1. **Canvas edge artifact**: counts the content→black transition at the top/bottom of the panorama as a seam.
+2. **Coverage change artifact**: when new canvas columns appear mid-panorama (exclusive-zone frames), the row mean shifts even if existing content is smooth.
+
+**Corrected metric (used from 2026-05-25 onward):**
+```python
+def seam_metric(img, trim=5):
+    lum = img.astype(np.float32).dot([0.114, 0.587, 0.299])  # BT.601 BGR
+    row_means = []
+    for r in range(img.shape[0]):
+        mask = img[r].max(axis=1) > 10           # only count real pixels
+        if mask.sum() < img.shape[1] * 0.05:     # skip near-empty rows (nan)
+            row_means.append(np.nan)
+        else:
+            row_means.append(float(lum[r][mask].mean()))
+    row_means = np.array(row_means)
+    row_means[:trim] = np.nan                    # trim canvas top/bottom edges
+    row_means[-trim:] = np.nan
+    diffs = np.abs(np.diff(row_means))
+    valid_diffs = diffs[~np.isnan(diffs)]
+    return float(valid_diffs.max()) if valid_diffs.size > 0 else 0.0
+```
+
+---
+
+### 7B.3 Benchmark Results (corrected metric, precomputed Stage 9)
+
+Stage 11 is re-run live from precomputed Stage 9 + affines + bg masks. S09 uses the corrected metric; S11 uses the same.
+
+| Dataset | S09 | S11 | Δ | Notes |
+|---------|-----|-----|---|-------|
+| asp_test1 | 13.67 | **6.19** | −7.48 | Improved |
+| asp_test11 | 3.94 | **2.98** | −0.96 | Improved |
+| asp_test12 | 5.58 | 10.82 | **+5.25** | Known regression — see §7B.6 |
+| asp_test14 | 10.52 | 10.94 | +0.42 | Slight increase |
+| asp_test15 | 8.96 | 10.01 | +1.05 | Slight increase |
+| asp_test17 | 9.97 | **2.39** | −7.58 | Improved |
+| asp_test19 | 9.90 | **9.57** | −0.33 | Slight improvement; see §7B.4 |
+| asp_test20 | 10.87 | 10.87 | 0.00 | Horizontal scroll — Stage 11 bypassed |
+| asp_test21 | 11.17 | **8.00** | −3.17 | Improved |
+| asp_test22 | 12.04 | **6.21** | −5.83 | Improved |
+
+6 of 10 improve, 3 have small increases (test12 is structural, test14/15 are minor), 1 passes through.
+
+---
+
+### 7B.4 test19 Seam Decomposition — Measurement Artifact + Animation Phase Seam
+
+The "16.82-unit seam" in test19 (old metric) decomposes into two distinct issues:
+
+**Issue 1 — Canvas coverage measurement artifact (~12 units):** At canvas row 1402, frame 3's exclusive zone (cols 3840–4229, 390 columns) transitions from black to populated (~170 lum). The row-mean metric counts this coverage change as a large step even though existing overlapping columns barely change (0.49 mean step per column). This is NOT a visual interior seam.
+
+**Issue 2 — Animation phase seam (~25 units, 5 columns at cols 2541–2546):** Frame 6 straddles a transition between two animation phases (dark: lum≈35, bright: lum≈92+). At canvas row 1401, sorted values [26,28,33,38,99,103] → median=35 (dark). At row 1402, frame 6 transitions to 70, sorted values [26,34,48,70,99,103] → median=59 (bright). This is a Stage 9 temporal consistency problem requiring phase-aware rendering — no simple fix.
+
+**Exclusive-zone fade attempted and reverted:** Two attempts were made to fade frame 3's content at the exclusive-zone boundary (cols 3840–4229, where no other frame covers). Both caused +10–110 unit regressions across 8 other datasets by darkening natural top/bottom edges of frames in those exclusive columns. The `_FADE_ROWS` mechanism correctly gates on `count_no_i >= 1` (other frames present); removing this gate is dangerous.
+
+---
+
+### 7B.5 has_content Threshold — False Lead (REVERTED)
+
+**Hypothesis:** Changing `has_content = src.max(axis=2) > 0` to `> 10` in `_composite_foreground` would filter Lanczos4 ringing pixels (values 1–5) at frame boundaries.
+
+**Why it fails:** Stage 11 (`compositing.py`) uses `INTER_LINEAR`, NOT `INTER_LANCZOS4` for warping — this was a deliberate prior design choice to avoid dark halos at silhouette edges. With bilinear interpolation, there is no significant ringing. The 0 < max ≤ 10 pixels are overwhelmingly legitimate dark content:
+
+| Frame | Affected pixels (0<max≤10) | At border (within 8px) | % border |
+|-------|--------------------------|------------------------|----------|
+| test12 frame 1 | 273,773 | 12,724 | **4.6%** |
+| test12 frame 2 | 421,308 | 24,912 | **5.9%** |
+
+95% of the low-value pixels in dark frames are interior content. The `> 10` threshold causes test12's S11 regression from 5.58 → 10.82 by silently dropping near-black pixels from the composite. The threshold was reverted to `> 0`.
+
+**Rule:** The `has_content` threshold must stay at `> 0`. The Lanczos ringing problem only exists in Stage 9 (rendering.py, which uses INTER_LANCZOS4). Stage 11 (compositing.py, INTER_LINEAR) has no ringing issue.
+
+---
+
+### 7B.6 test12 Known Structural Regression
+
+test12's S11=10.82 vs S09=5.58 (+5.25) is a pre-existing limitation, not caused by any code change. Root cause:
+
+- All 6 frames hit the gain cap (`lum_gain=1.070` for all frames) — the ±7% cap cannot bridge the inter-frame luminance gap.
+- Two frame pairs have high bg_diff: frames 3/2 bg_diff=30.2, frames 2/1 bg_diff=24.1. These get narrow feathers (150px) but a 30-unit step cannot be fully hidden by a 150px Laplacian blend when the underlying luminance difference is structural.
+- Stage 9's temporal median averages these differences away (S09=5.58). Stage 11's per-frame zone composite preserves per-frame luminance, revealing the structural step.
+- The same regression exists with both `> 0` and `> 10` thresholds — it is not caused by the threshold.
+
+**Possible future fix:** Increase the gain cap beyond 1.07 for high-diff boundaries. Currently avoided because wider gains risk hue shifts in strongly-colored backgrounds.
+
+---
+
 ## 8. Comparison Table
 
 | Issue | Affected datasets | Fixed? |
 |-------|-------------------|--------|
-| Seam/brightness bands (Stage 11) | t1 (subtle), t3 (hard), t5/t7/t8/t9/t13/t17/t18 (from bad aff or uneven gaps) | Partial (t1) |
+| Seam/brightness bands (Stage 11) | t1 (subtle), t3 (hard), t5/t7/t8/t9/t13/t17/t18 (from bad aff or uneven gaps) | Partial (t1, t17, t22 improved) |
+| Stage 11 structural seam (high inter-frame lum diff) | t12 (bg_diff=30.2), t14/t15 (minor) | No — gain cap too narrow for t12 |
 | Stage 9 ghosting | t2, t3, t5, t7, t8, t9, t10, t16, t18, t21 | No |
 | Alignment failure — wrong order/direction | t2, t7 | No |
 | Alignment failure — frame clustering (min_gap < 30px) | t2, t8, t9, t16, t21 | No |
 | Alignment failure — uneven gaps (2×–3.2×) | t5, t10, t13, t17 | No |
 | Affine rotation/scale mismatch (good ty/tx, bad rotation) | t18 | No |
 | Diagonal scroll (significant tx drift, partly vertical) | t7 | No (unimplemented) |
-| Pure horizontal scroll (ty≈0, tx dominates) | t20 | No (unimplemented) |
+| Pure horizontal scroll (ty≈0, tx dominates) | t20 | No (unimplemented; Stage 11 bypassed correctly) |
 | Co-located duplicate frames (same canvas position) | t21 | No |
 | Canvas overcrop / height loss | t4 (−393px), t5 (−1686px), t9 (−1609px), t7 (−1248px) | No |
 | Translation-only model insufficient (perspective distortion) | t10 | No (architectural) |
+| test19 animation phase seam (5 columns) | t19 col 2541–2546 | No — requires phase-aware rendering |
+| test19 canvas coverage artifact (~12 unit metric inflation) | t19 | No — measurement artifact; `_FADE_ROWS` gate must stay |
 | MFSR block artifacts | all (when enabled) | Skip MFSR in tests |
 | LS gain overcorrection | t1 | Fixed |
 | Per-zone gain overcorrection | t1 | Fixed |
+| Stage 11 bg-only normalization (was all-pixel) | t1, t17, t21, t22 | Fixed (bg-only scalar BT.601 gain ±7%) |
+| Stage 11 fixed-width Laplacian ramp | t1, t17 | Fixed (proportional: max(20, zone_h × 0.12)) |
+| Stage 9 fade-out too short at frame edges | general | Fixed (_FADE_ROWS 20→40) |
 
 ---
 
