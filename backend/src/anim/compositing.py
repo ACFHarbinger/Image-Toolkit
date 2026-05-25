@@ -50,6 +50,38 @@ def _diff_to_feather(diff: float) -> int:
     return _FEATHER_MIN
 
 
+def _normalize_warped_to_median(
+    warped: np.ndarray,
+    canvas: np.ndarray,
+    is_bg: Optional[np.ndarray],
+    clip_lo: float = 0.75,
+    clip_hi: float = 1.35,
+) -> np.ndarray:
+    """
+    Scale warped to match canvas (temporal median) brightness at background pixels.
+
+    Gain is computed per-channel over background pixels that are well-lit in
+    both arrays, then clamped to [clip_lo, clip_hi].  This removes per-frame
+    exposure offsets so adjacent ownership zones end up on the same brightness
+    scale, eliminating foreground colour steps at seam boundaries.
+
+    Returns a new uint8 array; falls back to warped unchanged when there are
+    too few reliable background pixels to compute a trustworthy gain.
+    """
+    if is_bg is None:
+        return warped
+
+    bg_mask = is_bg & (warped.max(axis=2) > 10) & (canvas.max(axis=2) > 10)
+    if int(bg_mask.sum()) < 200:
+        return warped
+
+    frame_mean = warped[bg_mask].astype(np.float32).mean(axis=0)   # (3,)
+    ref_mean   = canvas[bg_mask].astype(np.float32).mean(axis=0)   # (3,)
+
+    gain = np.clip(ref_mean / np.maximum(frame_mean, 1.0), clip_lo, clip_hi)
+    return np.clip(warped.astype(np.float32) * gain, 0, 255).astype(np.uint8)
+
+
 def _find_optimal_boundaries(
     warped_list: List[np.ndarray],
     order: np.ndarray,
@@ -210,19 +242,33 @@ def _composite_foreground(
     bg_masks: List[Optional[np.ndarray]],
 ) -> np.ndarray:
     """
-    Replace the temporal-median canvas with a Laplacian-pyramid blended
-    single-frame composite.
+    Deghost the temporal-median canvas by replacing animated foreground pixels
+    with single-frame content.
 
-    For each canvas row the owning frame (nearest strip-centre) supplies all
-    pixels.  At ownership boundaries a Laplacian pyramid blend with a DP seam
-    path provides a seamless photometric transition without any per-boundary
-    gain corrections.  The temporal-median canvas (ghost-free background) is
-    kept as fallback for canvas regions outside all frame coverage.
+    Background pixels are always kept from the temporal median (photometrically
+    consistent across the whole canvas).  Only foreground character pixels are
+    replaced with the single best owning frame, eliminating ghosting without
+    introducing zone-level brightness discontinuities in the background.
+
+    At ownership boundaries a Laplacian pyramid blend with a DP seam path is
+    applied to foreground pixels only, providing a seamless character transition.
     """
     from .stateless import _laplacian_blend
 
     N = len(frames)
-    print("[Stitch]   Laplacian-blend composite (deghost)...")
+    print("[Stitch]   Laplacian-blend composite (foreground-only deghost)...")
+
+    # For horizontal scrolls the strip_center_ys are all equal → all N-1 boundaries
+    # pile up at canvas_h/2 → repeated overlapping Laplacian blends at the same row
+    # produce a bright artefact band.  Temporal median is already correct for
+    # horizontal scrolls (each pixel is covered by ≤2 frames so ghosting is minimal).
+    tys = np.array([float(affines[i][1, 2]) for i in range(N)])
+    txs = np.array([float(affines[i][0, 2]) for i in range(N)])
+    ty_range = float(tys.max() - tys.min())
+    tx_range = float(txs.max() - txs.min())
+    if tx_range > 0 and ty_range / max(tx_range, 1.0) < 0.1:
+        print("[Stitch]   Horizontal scroll — temporal median is already optimal, skipping zone composite.")
+        return canvas.copy()
 
     # Strip centres and ownership ordering
     strip_center_ys = np.array(
@@ -233,20 +279,79 @@ def _composite_foreground(
     sorted_centers = strip_center_ys[order]
     initial_boundaries = (sorted_centers[:-1] + sorted_centers[1:]) / 2.0
 
-    # Warp every frame to the full canvas
+    # Warp every frame to the full canvas.
+    # INTER_LINEAR is intentional here: INTER_LANCZOS4's negative side-lobes produce
+    # dark halos at sharp silhouette edges (character outline against black) that are
+    # incorrectly classified as foreground content, creating staircase artifacts.
     warped_list: List[np.ndarray] = []
     for i in range(N):
         wf = cv2.warpAffine(
             frames[i], affines[i], (W, H),
-            flags=cv2.INTER_LANCZOS4,
+            flags=cv2.INTER_LINEAR,
             borderMode=cv2.BORDER_CONSTANT, borderValue=0,
         )
         warped_list.append(wf)
 
-    # Single-pass boundary placement — no gain normalisation
+    # Warp bg_masks to canvas space (True = background pixel).
+    # Uncovered canvas positions default to background so they are never overwritten.
+    warped_bg: List[Optional[np.ndarray]] = []
+    for i in range(N):
+        if bg_masks[i] is not None:
+            wm = cv2.warpAffine(
+                bg_masks[i].astype(np.uint8), affines[i], (W, H),
+                flags=cv2.INTER_NEAREST,
+                borderMode=cv2.BORDER_CONSTANT, borderValue=255,
+            )
+            warped_bg.append(wm > 127)
+        else:
+            warped_bg.append(None)
+
+    # Normalise every warped frame to a GLOBAL photometric reference computed from
+    # the temporal median across all background pixels from all frames.
+    #
+    # Using the same absolute reference for every frame is critical: if each frame
+    # normalised to "its own zone of the temporal median" independently, adjacent
+    # zones could end up at different absolute brightness levels (because the median
+    # itself may vary spatially if different-brightness frames dominate different
+    # parts of the canvas).  A shared global reference guarantees all frames end up
+    # on the same scale → no colour/brightness step at seam boundaries.
+    #
+    # Scalar luminance gain (not per-channel): corrects exposure without shifting hue.
+    # Per-channel gain was introducing warm/red casts when backgrounds are dominated
+    # by a strong hue (reddish dirt, orange firelight) — the skewed ref_mean would
+    # over-boost the red channel and under-boost blue, altering the output colour.
+    # BT.601 luminance weights for BGR: B=0.114, G=0.587, R=0.299.
+    _LUM_W = np.array([0.114, 0.587, 0.299], dtype=np.float32)
+
+    print("[Stitch]   Normalising warped frames to global temporal-median reference...")
+    union_bg = np.zeros((H, W), dtype=bool)
+    for wb in warped_bg:
+        if wb is not None:
+            union_bg |= wb
+
+    global_ref_lum: Optional[float] = None
+    ref_px = canvas[union_bg & (canvas.max(axis=2) > 10)]
+    if len(ref_px) >= 500:
+        global_ref_lum = float(ref_px.astype(np.float32).dot(_LUM_W).mean())
+
+    warped_norm: List[np.ndarray] = []
+    for i in range(N):
+        if global_ref_lum is not None and warped_bg[i] is not None:
+            bg_px = warped_list[i][warped_bg[i] & (warped_list[i].max(axis=2) > 10)]
+            if len(bg_px) >= 200:
+                frame_lum = float(bg_px.astype(np.float32).dot(_LUM_W).mean())
+                gain = float(np.clip(global_ref_lum / max(frame_lum, 1.0), 0.75, 1.35))
+                warped_norm.append(
+                    np.clip(warped_list[i].astype(np.float32) * gain, 0, 255).astype(np.uint8)
+                )
+                print(f"[Stitch]     Frame {i}: lum_gain={gain:.3f}")
+                continue
+        warped_norm.append(warped_list[i])
+
+    # Single-pass boundary placement — use normalised frames for accurate diff scores
     print("[Stitch]   Optimising boundary placement...")
     boundaries, diff_scores = _find_optimal_boundaries(
-        warped_list, order, initial_boundaries, H, W,
+        warped_norm, order, initial_boundaries, H, W,
         bg_masks=bg_masks, affines=affines,
     )
     feathers = np.array([_diff_to_feather(d) for d in diff_scores], dtype=np.int64)
@@ -269,19 +374,26 @@ def _composite_foreground(
         + " ".join(f"B{k}={int(feathers[k])}px" for k in range(n_b))
     )
 
-    # Start from temporal median canvas as fallback for uncovered regions
+    # Start from temporal median canvas — background pixels stay here permanently
     result = canvas.copy()
 
-    # Hard-partition: fill each ownership zone with its frame's content
+    # Hard-partition: write FOREGROUND pixels only from each ownership zone.
+    # Background pixels are intentionally left as the temporal median so the
+    # static scene elements (walls, floors, props) retain photometric consistency.
     for k in range(N):
         fi = int(order[k])
         y_start = 0 if k == 0 else int(boundaries[k - 1])
         y_end = H if k == N - 1 else int(boundaries[k])
-        src = warped_list[fi][y_start:y_end]
+        src = warped_norm[fi][y_start:y_end]
         has_content = src.max(axis=2) > 0
-        result[y_start:y_end][has_content] = src[has_content]
+        if warped_bg[fi] is not None:
+            is_fg = ~warped_bg[fi][y_start:y_end]   # foreground = not background
+            replace = has_content & is_fg
+        else:
+            replace = has_content
+        result[y_start:y_end][replace] = src[replace]
 
-    # Laplacian blend at each boundary seam zone
+    # Laplacian blend at each boundary seam zone (foreground pixels only)
     for k, by in enumerate(boundaries):
         fi_a = int(order[k])
         fi_b = int(order[k + 1])
@@ -293,8 +405,8 @@ def _composite_foreground(
         if zone_h < 4:
             continue
 
-        fa_zone = warped_list[fi_a][y0_f:y1_f]
-        fb_zone = warped_list[fi_b][y0_f:y1_f]
+        fa_zone = warped_norm[fi_a][y0_f:y1_f]
+        fb_zone = warped_norm[fi_b][y0_f:y1_f]
 
         # DP seam path within the zone: path[col] = row in [0, zone_h-1]
         both = (fa_zone.max(axis=2) > 0) & (fb_zone.max(axis=2) > 0)
@@ -314,15 +426,43 @@ def _composite_foreground(
 
         blended = _laplacian_blend(fa_zone, fb_zone, mask_float)
 
-        # Overwrite the seam zone wherever at least one frame has content
-        has_any = (fa_zone.max(axis=2) > 0) | (fb_zone.max(axis=2) > 0)
-        result[y0_f:y1_f][has_any] = blended[has_any]
+        # Apply blend only to FOREGROUND pixels so background stays from temporal median.
+        # Where both frames agree the pixel is background, leave the temporal median value.
+        has_a = fa_zone.max(axis=2) > 0
+        has_b = fb_zone.max(axis=2) > 0
+        has_any = has_a | has_b
+
+        if warped_bg[fi_a] is not None and warped_bg[fi_b] is not None:
+            bg_a_z = warped_bg[fi_a][y0_f:y1_f]
+            bg_b_z = warped_bg[fi_b][y0_f:y1_f]
+            # Foreground in at least one frame — apply blend
+            is_fg = ~(bg_a_z & bg_b_z)
+            apply = has_any & is_fg
+        else:
+            apply = has_any
+
+        result[y0_f:y1_f][apply] = blended[apply]
 
         print(
             f"[Stitch]   Blended B{k} (frames {fi_a}/{fi_b}): "
             f"zone=[{y0_f}–{y1_f}] feather={feather}px "
             f"seam=[{int(path_local.min())}–{int(path_local.max())}]"
         )
+
+    # Fallback: fill remaining black pixels with content from any frame.
+    # When frames have different horizontal extents (diagonal scroll), the warped
+    # coverage areas create interior gaps not covered by the zone's owning frame.
+    # These gaps would show as staircase black edges in the final image.  Any frame
+    # that has content at the gap location is used to fill it.
+    still_black = result.max(axis=2) == 0
+    if still_black.any():
+        for wn in warped_norm:
+            has_content = (wn.max(axis=2) > 0) & still_black
+            if has_content.any():
+                result[has_content] = wn[has_content]
+                still_black = result.max(axis=2) == 0
+                if not still_black.any():
+                    break
 
     return result
 

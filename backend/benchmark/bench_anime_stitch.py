@@ -86,24 +86,28 @@ def process_dataset(dataset_dir: str):
         img = m if m is not None else np.ones((H, W), dtype=np.uint8) * 255
         cv2.imwrite(os.path.join(stage_dir, f"stage04_bgmask_frame{i:02d}.png"), img)
 
-    # 5. Stage 4.5: Background photometric normalisation
-    bg_frame_means = []
+    # 5. Stage 4.5: Background photometric normalisation (luminance-only scalar gain).
+    # Per-channel gain was causing hue shifts when backgrounds have a dominant colour
+    # (warm/red dirt, orange firelight).  A scalar luminance gain corrects exposure
+    # without altering the hue of either background or foreground pixels.
+    _LUM_W = np.array([0.114, 0.587, 0.299], dtype=np.float32)  # BT.601 BGR weights
+    bg_frame_lums = []
     for i, (frame, mask) in enumerate(zip(frames, bg_masks)):
         if mask is not None:
             bg_px = frame[mask > 127].astype(np.float32)
             if len(bg_px) >= 1000:
-                bg_frame_means.append(bg_px.mean(axis=0))
+                bg_frame_lums.append(float(bg_px.dot(_LUM_W).mean()))
                 continue
-        bg_frame_means.append(None)
+        bg_frame_lums.append(None)
 
-    valid_means = [m for m in bg_frame_means if m is not None]
-    if len(valid_means) >= 3:
-        ref_mean = np.median(valid_means, axis=0)
+    valid_lums = [lum for lum in bg_frame_lums if lum is not None]
+    if len(valid_lums) >= 3:
+        ref_lum = float(np.median(valid_lums))
         for i in range(N):
-            if bg_frame_means[i] is None:
+            if bg_frame_lums[i] is None:
                 continue
-            gain = np.clip(ref_mean / np.maximum(bg_frame_means[i], 1.0), 0.88, 1.14)
-            if not np.allclose(gain, 1.0, atol=0.01):
+            gain = float(np.clip(ref_lum / max(bg_frame_lums[i], 1.0), 0.88, 1.14))
+            if abs(gain - 1.0) > 0.01:
                 frames[i] = np.clip(frames[i].astype(np.float32) * gain, 0, 255).astype(
                     np.uint8
                 )

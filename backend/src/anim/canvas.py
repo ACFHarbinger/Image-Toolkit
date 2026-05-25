@@ -92,8 +92,15 @@ def _detect_scroll_axis(affines: List[np.ndarray]) -> str:
     return "vertical"
 def _crop_to_valid(canvas: np.ndarray, valid_mask: np.ndarray) -> np.ndarray:
     """
-    Crop to the tight bounding box of all valid (non-black) pixels.
-    Uses a direct row/column projection — robust and O(H+W).
+    Crop the canvas to remove empty borders.
+
+    Adaptive strategy:
+    - If ≥80% of the bounding-box area is valid (typical vertical scroll), use
+      the bounding-box crop: tight but cheap, preserves sparse straggler rows at
+      the bottom of the last frame (prevents historical test4 height-loss regression).
+    - If <80% of the bounding-box area is valid (diagonal scroll whose valid region
+      is a parallelogram), use _largest_valid_rect: finds the maximum inscribed
+      rectangle, removing the black corner triangles without cropping real content.
     """
     if valid_mask.max() == 0:
         return canvas
@@ -109,6 +116,20 @@ def _crop_to_valid(canvas: np.ndarray, valid_mask: np.ndarray) -> np.ndarray:
 
     r0, r1 = int(row_idx[0]), int(row_idx[-1]) + 1
     c0, c1 = int(col_idx[0]), int(col_idx[-1]) + 1
+
+    bb_sub = valid_mask[r0:r1, c0:c1] > 0
+    valid_ratio = float(bb_sub.sum()) / max(float(bb_sub.size), 1.0)
+
+    if valid_ratio < 0.80:
+        from .stateless import _largest_valid_rect
+        xv0, yv0, xv1, yv1 = _largest_valid_rect(valid_mask > 0)
+        if (xv1 - xv0) * (yv1 - yv0) > 0:
+            print(
+                f"[Stitch]   crop_to_valid (inner-rect, ratio={valid_ratio:.2f}): "
+                f"({xv0},{yv0}) → ({xv1},{yv1})"
+            )
+            return canvas[yv0:yv1, xv0:xv1]
+
     print(f"[Stitch]   crop_to_valid: ({c0},{r0}) → ({c1},{r1})")
     return canvas[r0:r1, c0:c1]
 
@@ -120,6 +141,10 @@ def _scan_stitch_fallback(
     """
     Fall back to OpenCV SCANS mode when the main pipeline cannot find
     enough edges.  Mirrors _merge_images_scan_stitch.
+
+    OpenCV's stitcher output usually has staircase-shaped black edges.
+    After stitching we crop to the largest fully-covered inner rectangle so
+    the final image contains no black boundary pixels.
     """
     print("[Stitch] FALLBACK: using OpenCV SCANS mode.")
     cv2.ocl.setUseOpenCL(False)
@@ -131,6 +156,17 @@ def _scan_stitch_fallback(
     status, pano = stitcher.stitch(frames)
     if status != cv2.Stitcher_OK:
         raise RuntimeError(f"SCANS fallback failed (status={status}).")
+
+    # Crop to the largest fully-covered interior rectangle so no black border pixels remain.
+    # _largest_valid_rect handles diagonal staircases; the simple "all-rows-valid" approach
+    # silently bails when no column is valid across every row (common for diagonal scrolls).
+    from .stateless import _largest_valid_rect
+    valid_mask = pano.max(axis=2) > 0
+    x0, y0, x1, y1 = _largest_valid_rect(valid_mask)
+    if (x1 - x0) > 0 and (y1 - y0) > 0:
+        pano = pano[y0:y1, x0:x1]
+        print(f"[Stitch] SCANS inner-rect crop: ({x0},{y0}) → ({x1},{y1})")
+
     rgb = cv2.cvtColor(pano, cv2.COLOR_BGR2RGB)
     out = Image.fromarray(rgb)
     out.save(output_path)
