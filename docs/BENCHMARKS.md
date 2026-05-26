@@ -248,6 +248,326 @@ criterion_group!(benches, benchmark_my_function);
 criterion_main!(benches);
 ```
 
+---
+
+## Anime Stitch Pipeline Benchmark
+
+The anime stitch benchmark runs both the **Anime Stitch Pipeline (ASP)** and the
+**OpenCV SCANS Simple Stitch** on every `data/asp_testX/` dataset, computes CV
+metrics for each output, saves intermediate visualisations, and generates a
+structured Markdown report for human review and LLM-assisted iteration.
+
+### Prerequisites
+
+```bash
+# Activate the virtual environment (required)
+source .venv/bin/activate
+
+# Optional — enables SSIM metric
+pip install scikit-image
+
+# Optional — enables all visualisations
+pip install matplotlib
+```
+
+GPU (CUDA) is used automatically for BiRefNet and LoFTR if available; both fall
+back to CPU otherwise.
+
+### Running the Benchmark
+
+```bash
+# From the repository root, with the venv active:
+python backend/benchmark/bench_anime_stitch.py
+```
+
+The script processes every `data/asp_test*` directory in natural sort order.
+Each dataset takes roughly 1–5 minutes depending on GPU availability and the
+number of source frames.
+
+To run a single dataset during development, edit the `__main__` block:
+
+```python
+# backend/benchmark/bench_anime_stitch.py — bottom of file
+datasets = sorted(glob.glob(os.path.join(base_dir, "asp_test1")))  # pin to test1
+```
+
+### Output Directory Layout
+
+```
+data/
+├── output/                              # Central flat directory
+│   ├── asp_testN_anime_stitch.png       # ASP final panorama
+│   ├── asp_testN_simple_stitch.png      # OpenCV SCANS baseline
+│   └── benchmark_report.md             # ← Full report (generated here)
+│
+└── asp_testN/
+    └── output/
+        ├── panorama.png                 # Per-dataset ASP output
+        ├── simple_stitch.png            # Per-dataset simple stitch
+        ├── plots/                       # Per-dataset visualisations
+        │   ├── canvas_frame_placement.png
+        │   ├── translation_vectors.png
+        │   ├── overlap_map.png
+        │   ├── gains.png
+        │   ├── asp_seam_heatmap.png
+        │   ├── simple_seam_heatmap.png
+        │   ├── asp_3d_surface.png
+        │   ├── simple_3d_surface.png
+        │   ├── temporal_render_3d.png
+        │   ├── metrics_comparison.png
+        │   └── mask_overlay_frame0N.png
+        └── panorama_stages/             # Intermediate stage images
+            ├── stage02_normalised_frame0N.png
+            ├── stage03_basic_corrected_frame0N.png
+            ├── stage04_bgmask_frame0N.png
+            ├── stage08_canvas_info.json
+            ├── stage09_temporal_render.png
+            └── stage11_fg_composite.png
+```
+
+### CV Metrics
+
+The following metrics are computed for every final output image and included
+in `benchmark_report.md`.
+
+| Metric | Formula | Interpretation |
+|--------|---------|----------------|
+| **Sharpness** | Variance of Laplacian (`cv2.Laplacian`) | Higher = sharper edges. Low values indicate blur from over-blending or misalignment. |
+| **Coverage** | Fraction of pixels with any channel > 8 | Lower = heavy black-border crop or a severely malformed output. Values below 70% signal a structural failure. |
+| **Seam Gradient** | Mean absolute Sobel-Y gradient across seam rows ±5 px | Higher = abrupt brightness transitions at seam locations. A well-blended stitch should score close to the global image mean. |
+| **Color Entropy** | Shannon entropy of the luma histogram | Lower = washed-out or globally dimmed image. Very high values may indicate colourful noise/artifacts. |
+| **Ghosting Score** | Mean absolute value of 2nd-order vertical gradient (Sobel-Y applied twice) | Higher = double-edge bands, which are the computational signature of ghosting artifacts caused by insufficient temporal overlap. |
+| **SSIM** | Structural Similarity Index between ASP and Simple outputs (skimage) | Measures perceptual similarity between the two pipelines. Low SSIM + high ghosting in ASP = clear regression vs baseline. |
+| **PSNR** | Peak Signal-to-Noise Ratio (dB) between ASP and Simple | A sanity-check complement to SSIM; less perceptually meaningful for stylised content but useful for detecting catastrophic failures (< 10 dB). |
+
+The automated **verdict** field in the report is computed from a weighted score:
+
+```
+score = sharpness × 0.4 + coverage × 100 × 0.3 − ghosting × 0.2 − seam_gradient × 0.1
+```
+
+`asp_better` / `simple_better` / `comparable` is assigned when one score exceeds
+the other by > 10%.
+
+### Visualisation Tools
+
+All plots are saved as PNG files inside `data/asp_testN/output/plots/` and
+embedded in the report with relative paths (so the report renders correctly when
+opened from `data/output/`).
+
+#### 2-D Visualisations
+
+| File | What it shows |
+|------|---------------|
+| `canvas_frame_placement.png` | Rectangles for every source frame positioned on the final canvas, coloured by frame index (plasma palette). Reveals frame ordering, gaps, and overlap zones at a glance. |
+| `translation_vectors.png` | tx and ty translation per frame as separate line plots. A uniform staircase = clean pan; a flat or reversed segment = alignment failure. |
+| `overlap_map.png` | Heatmap counting how many frames contribute to each canvas pixel. The temporal median needs ≥ 3 overlapping frames to suppress foreground occlusion; bright yellow zones indicate high overlap (good), dark red zones indicate sparse coverage (ghosting risk). |
+| `gains.png` | Two bar charts: raw background luminance per frame (left) and the scalar gain multiplier applied (right). Gains clipped to [0.88, 1.14]. Large deviations from 1.0 on many frames indicate scene-wide exposure drift that the current correction may not fully compensate. |
+| `asp_seam_heatmap.png` / `simple_seam_heatmap.png` | Gradient-magnitude heatmap of the final output image, using the `inferno` colourmap. Bright horizontal bands at seam rows indicate abrupt exposure transitions; diffuse brightness indicates smooth blending. |
+| `mask_overlay_frame0N.png` | First three source frames with BiRefNet foreground regions highlighted in red. Useful for checking over-dilation (too much red erodes background reference pixels used by the matcher). |
+| `metrics_comparison.png` | Side-by-side normalised bar chart comparing all five primary metrics for ASP vs Simple. Raw values annotated above each bar. |
+
+#### 3-D Visualisations
+
+| File | What it shows |
+|------|---------------|
+| `asp_3d_surface.png` | 3-D surface plot of the ASP output's luma channel (downsampled, Gaussian-smoothed). Exposure ridges at seam rows appear as sharp vertical steps; a perfectly blended stitch is a smooth surface. |
+| `simple_3d_surface.png` | Same for the OpenCV simple stitch. Useful as a reference: the simple stitch typically has lower-frequency exposure variation but more pronounced blurring at seams. |
+| `temporal_render_3d.png` | 3-D surface of the Stage 9 temporal render (before foreground compositing). Comparing this with the final ASP surface isolates artifacts introduced by the compositing step. |
+
+### The Markdown Report
+
+`data/output/benchmark_report.md` is designed to be read in any Markdown viewer
+(GitHub, Obsidian, VS Code preview) with images rendering inline.
+
+#### Structure
+
+1. **YAML front matter** — report version, date, dataset count.
+2. **Global summary table** — one row per test: sizes, coverage, ghosting, SSIM, verdict, fallback flag.
+3. **Failure mode counts** — automated tally of detected issue categories across all ASP outputs.
+4. **Per-test sections** — for each `asp_testN`:
+   - Final outputs side by side
+   - CV metrics table
+   - Alignment health YAML block
+   - Photometric correction summary
+   - All visualisation images (2-D and 3-D)
+   - Stage intermediate outputs (normalised frames, masks, temporal render, composite)
+   - Automated analysis paragraph and issue list
+   - `<!-- FEEDBACK … /FEEDBACK -->` block
+5. **Global Feedback section** — a single `<!-- GLOBAL_FEEDBACK … /GLOBAL_FEEDBACK -->` block.
+6. **Appendix** — full raw metrics as a JSON code block.
+
+#### Reviewing and Marking Feedback
+
+Each per-test section ends with a structured feedback block that is both
+human-readable and machine-parseable:
+
+```markdown
+<!-- FEEDBACK
+status: pending
+asp_issues:
+  - high_ghosting: score=18.3 (double-edges detected)
+  - seam_discontinuity: gradient=22.1 (abrupt transitions)
+simple_issues:
+  - none_detected
+verdict: "simple_better"
+human_notes: |
+  (Edit this section — confirm, correct, or extend the CV analysis above)
+/FEEDBACK -->
+```
+
+**To review a test:**
+
+1. Open `data/output/benchmark_report.md` in your Markdown viewer.
+2. Look at the side-by-side images and the automated analysis.
+3. Edit the `<!-- FEEDBACK … /FEEDBACK -->` block directly in the raw file:
+   - Set `status:` to one of: `pending` · `correct` · `incomplete` · `incorrect`
+   - Correct or extend `asp_issues:` / `simple_issues:` with your own observations
+   - Write free-form notes in `human_notes:`
+
+**Example of a completed block:**
+
+```markdown
+<!-- FEEDBACK
+status: correct
+asp_issues:
+  - high_ghosting: score=18.3 — confirmed, clearly visible double-edge on the arm
+  - seam_discontinuity: gradient=22.1 — confirmed, bright band between frames 3-4
+simple_issues:
+  - none_detected
+verdict: "simple_better"
+human_notes: |
+  The ghosting here is caused by insufficient overlap depth (frames 5-6 cover the
+  arm region only once). The 3D surface shows a sharp ridge at y≈420.
+  Potential fix: increase frame density in this zone, or switch to Laplacian blend
+  when overlap_count < 3 in any region.
+/FEEDBACK -->
+```
+
+The feedback data is preserved across benchmark re-runs because the benchmark
+only **appends** new sections; it does not overwrite existing `status` or
+`human_notes` values. Re-running the benchmark regenerates metrics, images, and
+the automated `asp_issues` list, but leaves your manual edits intact.
+
+The global section follows the same pattern:
+
+```markdown
+<!-- GLOBAL_FEEDBACK
+status: pending
+overall_asp_rating: null
+overall_simple_rating: null
+most_common_asp_failure: null
+priority_fixes:
+  - null
+human_notes: |
+  (Your analysis here)
+/GLOBAL_FEEDBACK -->
+```
+
+### Interactive Analysis: Jupyter Notebook
+
+For deep per-stage analysis, use the companion notebook:
+
+```bash
+# From repo root with venv active
+jupyter notebook notebooks/anime_stitch_pipeline_analysis.ipynb
+# or
+jupyter lab notebooks/anime_stitch_pipeline_analysis.ipynb
+```
+
+**Selecting a dataset:** Change `TEST_ID = N` in the second cell. All subsequent
+cells re-run against that dataset automatically.
+
+**Notebook sections:**
+
+| Section | What you can do |
+|---------|-----------------|
+| Stages 1–2 (load & normalise) | Inspect trim deltas per frame; check for over-trim in dark scenes |
+| Stage 3 (BaSiC) | Toggle BaSiC and compare sharpness before/after |
+| Stage 4 (BiRefNet masks) | Visualise mask overlays; check background coverage % — below 35% per frame is a matcher risk |
+| Stage 4.5 (gains) | Bar charts of raw luminance and applied gains; histogram comparison of most-corrected frame |
+| Stage 5 (matching) | Scatter plots of matched keypoints; spread diagnostics (low std_y = collinear matches = unstable affine) |
+| Stage 6/7 (bundle-adjust + ECC) | Translation vectors; inter-frame Δty coefficient of variation (> 0.5 = irregular pan or matching errors) |
+| Stage 8 (canvas) | Frame-placement 2-D plot; overlap count map |
+| Stage 9 (temporal render) | Render output + valid-mask; overlap depth histogram; 3-D surface |
+| Stage 10 (FG composite) | Before/after compare; amplified difference image |
+| Stage 11 (crop) | Size before/after; seam heatmap + 3-D surface of final output |
+| Section 14 (global metrics) | Sharpness and ghosting bar charts for all 22 tests; failure-mode taxonomy with root-cause mapping |
+| Section 15 (root causes) | Edge connectivity check; per-seam luminance mismatch table |
+| Section 16 (experiments) | Toggleable experiments — see below |
+
+**Experiments (Section 16):**
+
+| Flag | Experiment | Research basis |
+|------|-----------|----------------|
+| `RUN_HISTOGRAM_MATCH` | LAB-space CDF histogram matching (frame → frame 0) before rendering | Region-stratified colour transfer; Brown–Lowe gain compensation |
+| `RUN_LAPLACIAN_BLEND` | `_render_laplacian` instead of `_render_median` | Burt–Adelson multi-band blending; low-freq blending zone suppresses exposure drift |
+| `RUN_AKAZE_MATCHING` | AKAZE keypoints + BFMatcher + estimateAffinePartial2D instead of LoFTR/template | AKAZE nonlinear-diffusion scale-space is more stable on cartoon edges than SIFT DoG |
+| `RUN_OVERLAP_PHOTOMETRIC` | Sequential per-channel gain/bias correction in overlap zones (`_compute_sequential_color_gains`) | Brown–Lowe 2007 overlap photometric matching; Overmix temporal correction |
+
+Each experiment renders a side-by-side comparison against the original ASP output
+and prints Δghosting and Δsharpness so you can track whether the change helps.
+
+**Saving findings:** Use the **My Notes** Markdown cell at the bottom of the
+notebook to record observations, hypotheses, and next-step proposals for each
+test. These notes survive kernel restarts because they are stored as cell source.
+
+### Interpreting Alignment Health
+
+The `stage08_canvas_info.json` and the alignment health block in the report each
+contain:
+
+| Field | Healthy range | Meaning if out of range |
+|-------|--------------|-------------------------|
+| `valid` | `true` | `false` → SCANS fallback used; ASP result is identical to Simple |
+| `spacing_ratio` | < 3.0 | Frame spacing is uneven; one gap is > 3× larger than the median — likely a missed match |
+| `min_gap_px` | ≥ 50 px | Frames are nearly co-located — the canvas will have severe duplication |
+| `max_rotation` | < 0.1 | Rotation component in the affine exceeds tolerance — ECC or matching introduced spurious rotation |
+| `max_scale_dev` | < 0.1 | Scale component deviates from 1.0 — zooming or lens distortion not accounted for |
+| `used_scans_fallback` | `false` | `true` → all ASP stages were bypassed |
+
+### Troubleshooting
+
+**`simple_stitch.png` is not generated**
+
+The benchmark always regenerates it at Step 0. If it still fails, check the
+console for `[Simple stitch] FAILED:`. The most common cause is an OpenCV SCANS
+error (`status != 0`) on datasets where frames are too dissimilar for the
+built-in stitcher — this is expected for degenerate test cases.
+
+**`BiRefNet failed … using None masks`**
+
+BiRefNet requires a CUDA-capable GPU with ≥ 4 GB VRAM, or will run (slowly)
+on CPU if the wrapper supports it. Without masks, the matcher uses the full frame
+including any foreground character, which degrades matching quality. The benchmark
+continues with `None` masks rather than aborting.
+
+**`LoFTR not available`**
+
+LoFTR requires `kornia` and a matching weights file. Without it, the benchmark
+falls back to template matching and phase correlation. The report will show
+`method: template` or `method: phase_corr` in the edge list.
+
+**Visualisations not saved (`_MPL_OK = False`)**
+
+Install `matplotlib`: `pip install matplotlib`. The benchmark continues without
+plots but the report will reference missing image files.
+
+**SSIM column shows `—`**
+
+Install `scikit-image`: `pip install scikit-image`.
+
+**Report images do not render in Obsidian / GitHub**
+
+The report uses relative paths from `data/output/`. Open or preview the file
+from that directory. In VS Code, use the built-in Markdown preview (`Ctrl+Shift+V`)
+with the workspace root set to `data/output/`, or use the absolute path override:
+
+```bash
+# Re-generate with absolute paths (edit generate_report() if needed)
+REPORT_ABS_PATHS=1 python backend/benchmark/bench_anime_stitch.py
+```
+
 ## License
 
 Same as parent project (see root LICENSE file).
