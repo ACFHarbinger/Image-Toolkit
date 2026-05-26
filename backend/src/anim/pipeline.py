@@ -240,6 +240,22 @@ class AnimeStitchPipeline:
                 median_val = float(np.median(adj_vals))
                 consensus_sign = int(np.sign(median_val))
 
+                # Drop skip edges (j > i+1) that scroll the wrong direction or are noise
+                if consensus_sign != 0:
+                    _pre_skip_n = len(edges)
+                    edges = [
+                        e for e in edges
+                        if e["j"] == e["i"] + 1
+                        or abs(float(e["M"][primary_axis, 2])) < 20.0
+                        or int(np.sign(float(e["M"][primary_axis, 2]))) == consensus_sign
+                    ]
+                    _n_skip_dropped = _pre_skip_n - len(edges)
+                    if _n_skip_dropped:
+                        print(
+                            f"[Stitch]   Skip-edge sign filter: dropped "
+                            f"{_n_skip_dropped} wrong-sign skip edges"
+                        )
+
                 _ts_pat = re.compile(r"_(\d+)ms", re.IGNORECASE)
                 timestamps_ms: List[Optional[int]] = []
                 for p in image_paths:
@@ -413,6 +429,7 @@ class AnimeStitchPipeline:
         # ── Stage 2: Width normalisation ─────────────────────────────────────
         frames = _normalise_widths(frames)
         H, W = frames[0].shape[:2]
+        scans_frames = list(frames)  # snapshot before ML corrections — used for SCANS fallback
         print(f"[Stitch] Stage 2 complete: all frames at {W}×{H}.")
 
         # ── Stage 3: BaSiC photometric correction ────────────────────────────
@@ -467,7 +484,9 @@ class AnimeStitchPipeline:
                 if bg_frame_means[_i] is None:
                     continue
                 _gain = _ref_mean / np.maximum(bg_frame_means[_i], 1.0)
-                _gain = np.clip(_gain, 0.88, 1.14)
+                _ref_lum_scalar = float(np.dot(_ref_mean, [0.114, 0.587, 0.299]))
+                _gain_lo, _gain_hi = (0.80, 1.25) if _ref_lum_scalar < 80.0 else (0.88, 1.14)
+                _gain = np.clip(_gain, _gain_lo, _gain_hi)
                 if not np.allclose(_gain, 1.0, atol=0.01):
                     frames[_i] = np.clip(
                         frames[_i].astype(np.float32) * _gain, 0, 255
@@ -476,6 +495,42 @@ class AnimeStitchPipeline:
                 f"[Stitch] Stage 4.5 complete: background photometric normalisation "
                 f"({len(_valid_means)}/{N} frames had sufficient background)."
             )
+
+        # ── Pre-stage 5: Deduplicate near-static consecutive frames ─────────
+        if N >= 3:
+            _luma_cache = [
+                cv2.cvtColor(f, cv2.COLOR_BGR2GRAY).astype(np.float32) for f in frames
+            ]
+            keep = [True] * N
+            _prev_kept = 0
+            for _fi in range(1, N):
+                _la, _lb = _luma_cache[_fi], _luma_cache[_prev_kept]
+                if _la.shape != _lb.shape:
+                    # Different heights — cannot be duplicates; keep both
+                    _prev_kept = _fi
+                    continue
+                diff = float(np.abs(_la - _lb).mean())
+                if diff < 3.0:
+                    keep[_fi] = False
+                    print(
+                        f"[Stitch]   Dedup: frame {_fi} ≈ frame {_prev_kept} "
+                        f"(luma_diff={diff:.2f}) — dropped."
+                    )
+                else:
+                    _prev_kept = _fi
+            if not all(keep):
+                keep_idx = [i for i, k in enumerate(keep) if k]
+                frames = [frames[i] for i in keep_idx]
+                scans_frames = [scans_frames[i] for i in keep_idx]
+                bg_masks = [bg_masks[i] for i in keep_idx]
+                image_paths = [image_paths[i] for i in keep_idx]
+                N = len(frames)
+                print(
+                    f"[Stitch]   Dedup complete: {sum(not k for k in keep)} "
+                    f"removed, {N} remain."
+                )
+                if N < 2:
+                    return _scan_stitch_fallback(scans_frames, output_path)
 
         # ── Stage 5-6: Pairwise matching (+ skip-pair edges) ────────────────
         if self.use_loftr and self._loftr is None:
@@ -502,7 +557,7 @@ class AnimeStitchPipeline:
         print(f"[Stitch] Stages 5-6 complete: {len(edges)} valid edges found.")
         if not edges:
             warnings.warn("[Stitch] No valid edges — falling back to scan stitch.")
-            return _scan_stitch_fallback(frames, output_path)
+            return _scan_stitch_fallback(scans_frames, output_path)
 
         # ── Stage 7: Global bundle adjustment ────────────────────────────────
         use_affine_ba = getattr(self, "motion_model", "affine") == "affine"
@@ -520,11 +575,100 @@ class AnimeStitchPipeline:
             f"max_rot={health.max_rotation:.4f}, scale_dev={health.max_scale_dev:.4f}"
         )
         if not health.valid:
-            warnings.warn(
-                f"[Stitch] Affine validation FAILED ({health.reason}). "
-                f"Falling back to SCANS stitch."
-            )
-            return _scan_stitch_fallback(frames, output_path)
+            print(f"[Stitch]   Affine health FAILED ({health.reason}); attempting recovery...")
+            # Retry 1: consecutive-only bundle — skip edges sometimes corrupt the solution
+            _adj_only = [e for e in edges if e["j"] == e["i"] + 1]
+            if len(_adj_only) >= N - 1:
+                affines_r1 = _bundle_adjust_affine(_adj_only, N, use_affine=use_affine_ba)
+                health_r1 = _validate_affines(affines_r1)
+                print(
+                    f"[Stitch]   Retry 1 (adj-only bundle): "
+                    f"valid={health_r1.valid}, {health_r1.reason}"
+                )
+                if health_r1.valid:
+                    affines, health = affines_r1, health_r1
+            # Retry 2: smart sequential integration with gap-filling
+            if not health.valid:
+                _adj_only_r2 = [e for e in edges if e["j"] == e["i"] + 1]
+                # Consensus step for interpolation/extrapolation of isolated frames
+                _step_dx = float(np.median([float(e["M"][0, 2]) for e in _adj_only_r2])) if _adj_only_r2 else 0.0
+                _step_dy = float(np.median([float(e["M"][1, 2]) for e in _adj_only_r2])) if _adj_only_r2 else 0.0
+                # Frames that have an adj edge pointing to them
+                _has_adj_src = {e["j"] for e in _adj_only_r2}
+
+                _seq = [np.eye(2, 3, dtype=np.float32) for _ in range(N)]
+                _anchored: set = {0}
+
+                # Pass 1: greedy — for each frame use the shortest-span edge from an anchored frame
+                for _f in range(1, N):
+                    _best_e, _best_span = None, float("inf")
+                    for _e in edges:
+                        if _e["j"] == _f and _e["i"] in _anchored:
+                            if _f - _e["i"] < _best_span:
+                                _best_span = _f - _e["i"]
+                                _best_e = _e
+                    if _best_e is not None:
+                        _seq[_f][0, 2] = _seq[_best_e["i"]][0, 2] - float(_best_e["M"][0, 2])
+                        _seq[_f][1, 2] = _seq[_best_e["i"]][1, 2] - float(_best_e["M"][1, 2])
+                        _anchored.add(_f)
+
+                # Pass 2: fill frames with no adj edge via interpolation or velocity extrapolation
+                for _uf in sorted(i for i in range(N) if i not in _anchored):
+                    if _uf in _has_adj_src:
+                        continue  # will be chained in Pass 3
+                    _lft = max((a for a in _anchored if a < _uf), default=None)
+                    _rgt = min((a for a in _anchored if a > _uf), default=None)
+                    if _lft is not None and _rgt is not None:
+                        _t = (_uf - _lft) / (_rgt - _lft)
+                        _seq[_uf][0, 2] = _seq[_lft][0, 2] * (1 - _t) + _seq[_rgt][0, 2] * _t
+                        _seq[_uf][1, 2] = _seq[_lft][1, 2] * (1 - _t) + _seq[_rgt][1, 2] * _t
+                    elif _lft is not None:
+                        _n = _uf - _lft
+                        _seq[_uf][0, 2] = _seq[_lft][0, 2] - _n * _step_dx
+                        _seq[_uf][1, 2] = _seq[_lft][1, 2] - _n * _step_dy
+                    _anchored.add(_uf)
+
+                # Pass 3: propagate through adj/skip edges from newly-anchored gap frames
+                _chg = True
+                while _chg:
+                    _chg = False
+                    for _f in range(1, N):
+                        if _f in _anchored:
+                            continue
+                        _best_e, _best_span = None, float("inf")
+                        for _e in edges:
+                            if _e["j"] == _f and _e["i"] in _anchored:
+                                if _f - _e["i"] < _best_span:
+                                    _best_span = _f - _e["i"]
+                                    _best_e = _e
+                        if _best_e is not None:
+                            _seq[_f][0, 2] = _seq[_best_e["i"]][0, 2] - float(_best_e["M"][0, 2])
+                            _seq[_f][1, 2] = _seq[_best_e["i"]][1, 2] - float(_best_e["M"][1, 2])
+                            _anchored.add(_f)
+                            _chg = True
+
+                health_r2 = _validate_affines(_seq)
+                print(
+                    f"[Stitch]   Retry 2 (sequential+fill): "
+                    f"valid={health_r2.valid}, {health_r2.reason}"
+                )
+                if health_r2.valid:
+                    affines, health = _seq, health_r2
+                else:
+                    # Retry 3: accept with relaxed min_gap when ratio is still healthy
+                    health_r3 = _validate_affines(_seq, min_step=20.0)
+                    if health_r3.valid:
+                        print(
+                            f"[Stitch]   Retry 3 (relaxed min_gap=20px): "
+                            f"valid={health_r3.valid}, {health_r3.reason}"
+                        )
+                        affines, health = _seq, health_r3
+            if not health.valid:
+                warnings.warn(
+                    f"[Stitch] Affine validation FAILED ({health.reason}) after retries. "
+                    f"Falling back to SCANS stitch."
+                )
+                return _scan_stitch_fallback(scans_frames, output_path)
 
         # ── Stage 8: ECC sub-pixel refinement ───────────────────────────────
         if self.use_ecc:
