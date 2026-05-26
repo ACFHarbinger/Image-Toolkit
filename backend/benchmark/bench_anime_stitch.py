@@ -598,6 +598,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
     N = len(frames)
     frames = _normalise_widths(frames)
     H, W = frames[0].shape[:2]
+    scans_frames = list(frames)  # pre-ML snapshot for SCANS fallback
     for i, f in enumerate(frames):
         cv2.imwrite(os.path.join(stage_dir, f"stage02_normalised_frame{i:02d}.png"), f)
 
@@ -653,10 +654,11 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
     applied_gains = [1.0] * N
     if len(valid_lums) >= 3:
         ref_lum = float(np.median(valid_lums))
+        _gain_lo, _gain_hi = (0.80, 1.25) if ref_lum < 80.0 else (0.88, 1.14)
         for i in range(N):
             if bg_frame_lums[i] is None:
                 continue
-            gain = float(np.clip(ref_lum / max(bg_frame_lums[i], 1.0), 0.88, 1.14))
+            gain = float(np.clip(ref_lum / max(bg_frame_lums[i], 1.0), _gain_lo, _gain_hi))
             applied_gains[i] = gain
             if abs(gain - 1.0) > 0.01:
                 frames[i] = np.clip(
@@ -736,9 +738,80 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
     )
 
     if not health.valid:
+        print(f"  Validation FAILED ({health.reason}); attempting recovery...")
+        # Retry 1: consecutive-only bundle
+        _adj_only = [e for e in edges if e["j"] == e["i"] + 1]
+        if len(_adj_only) >= N - 1:
+            affines_r1 = _bundle_adjust_affine(_adj_only, N)
+            health_r1 = _validate_affines(affines_r1)
+            if health_r1.valid:
+                affines, health = affines_r1, health_r1
+                print(f"  Recovery Retry 1 succeeded: {health.reason}")
+
+        # Retry 2: smart sequential + fill
+        if not health.valid:
+            _adj_only_r2 = [e for e in edges if e["j"] == e["i"] + 1]
+            _step_dx = float(np.median([float(e["M"][0, 2]) for e in _adj_only_r2])) if _adj_only_r2 else 0.0
+            _step_dy = float(np.median([float(e["M"][1, 2]) for e in _adj_only_r2])) if _adj_only_r2 else 0.0
+            _has_adj_src = {e["j"] for e in _adj_only_r2}
+            _seq = [np.eye(2, 3, dtype=np.float32) for _ in range(N)]
+            _anchored: set = {0}
+            for _f in range(1, N):
+                _best_e, _best_span = None, float("inf")
+                for _e in edges:
+                    if _e["j"] == _f and _e["i"] in _anchored:
+                        if _f - _e["i"] < _best_span:
+                            _best_span = _f - _e["i"]
+                            _best_e = _e
+                if _best_e is not None:
+                    _seq[_f][0, 2] = _seq[_best_e["i"]][0, 2] - float(_best_e["M"][0, 2])
+                    _seq[_f][1, 2] = _seq[_best_e["i"]][1, 2] - float(_best_e["M"][1, 2])
+                    _anchored.add(_f)
+            for _uf in sorted(i for i in range(N) if i not in _anchored):
+                if _uf in _has_adj_src:
+                    continue
+                _lft = max((a for a in _anchored if a < _uf), default=None)
+                _rgt = min((a for a in _anchored if a > _uf), default=None)
+                if _lft is not None and _rgt is not None:
+                    _t = (_uf - _lft) / (_rgt - _lft)
+                    _seq[_uf][0, 2] = _seq[_lft][0, 2] * (1 - _t) + _seq[_rgt][0, 2] * _t
+                    _seq[_uf][1, 2] = _seq[_lft][1, 2] * (1 - _t) + _seq[_rgt][1, 2] * _t
+                elif _lft is not None:
+                    _n = _uf - _lft
+                    _seq[_uf][0, 2] = _seq[_lft][0, 2] - _n * _step_dx
+                    _seq[_uf][1, 2] = _seq[_lft][1, 2] - _n * _step_dy
+                _anchored.add(_uf)
+            _chg = True
+            while _chg:
+                _chg = False
+                for _f in range(1, N):
+                    if _f in _anchored:
+                        continue
+                    _best_e, _best_span = None, float("inf")
+                    for _e in edges:
+                        if _e["j"] == _f and _e["i"] in _anchored:
+                            if _f - _e["i"] < _best_span:
+                                _best_span = _f - _e["i"]
+                                _best_e = _e
+                    if _best_e is not None:
+                        _seq[_f][0, 2] = _seq[_best_e["i"]][0, 2] - float(_best_e["M"][0, 2])
+                        _seq[_f][1, 2] = _seq[_best_e["i"]][1, 2] - float(_best_e["M"][1, 2])
+                        _anchored.add(_f)
+                        _chg = True
+            health_r2 = _validate_affines(_seq)
+            if health_r2.valid:
+                affines, health = _seq, health_r2
+                print(f"  Recovery Retry 2 succeeded: {health.reason}")
+            else:
+                health_r3 = _validate_affines(_seq, min_step=20.0)
+                if health_r3.valid:
+                    affines, health = _seq, health_r3
+                    print(f"  Recovery Retry 3 (relaxed) succeeded: {health.reason}")
+
+    if not health.valid:
         print("  Validation FAILED → SCANS fallback.")
         t0 = time.perf_counter()
-        _scan_stitch_fallback(frames, out_path)
+        _scan_stitch_fallback(scans_frames, out_path)
         timings["scans_fallback_sec"] = round(time.perf_counter() - t0, 3)
         timings["total_sec"] = round(time.perf_counter() - t_total_start, 3)
         shutil.copy2(out_path, central_anime_path)
@@ -756,67 +829,90 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
             birefnet_ok=birefnet_ok, loftr_ok=loftr_ok,
         )
 
-    # ECC refinement
-    t0 = time.perf_counter()
-    affines = _ecc_refine(frames, affines, bg_masks)
-    timings["ecc_sec"] = round(time.perf_counter() - t0, 3)
+    try:
+        # ECC refinement
+        t0 = time.perf_counter()
+        affines = _ecc_refine(frames, affines, bg_masks)
+        timings["ecc_sec"] = round(time.perf_counter() - t0, 3)
 
-    # Canvas construction
-    canvas_h, canvas_w, T_global = _compute_canvas(frames, affines)
-    for i in range(N):
-        affines[i][0, 2] += T_global[0]
-        affines[i][1, 2] += T_global[1]
+        # Canvas construction
+        canvas_h, canvas_w, T_global = _compute_canvas(frames, affines)
+        for i in range(N):
+            affines[i][0, 2] += T_global[0]
+            affines[i][1, 2] += T_global[1]
 
-    canvas_info = {
-        "canvas_h": canvas_h,
-        "canvas_w": canvas_w,
-        "affines_final": [a.tolist() for a in affines],
-    }
-    with open(os.path.join(stage_dir, "stage08_canvas_info.json"), "w") as fh:
-        json.dump(canvas_info, fh)
+        canvas_info = {
+            "canvas_h": canvas_h,
+            "canvas_w": canvas_w,
+            "affines_final": [a.tolist() for a in affines],
+        }
+        with open(os.path.join(stage_dir, "stage08_canvas_info.json"), "w") as fh:
+            json.dump(canvas_info, fh)
 
-    # Canvas visualisations
-    _save_affine_path_plot(
-        affines, canvas_h, canvas_w, H, W,
-        os.path.join(plots_dir, "canvas_frame_placement.png"),
-    )
-    _save_translation_plot(
-        affines,
-        os.path.join(plots_dir, "translation_vectors.png"),
-        title=f"{dataset_name} — Translation Vectors",
-    )
-    _save_overlap_map(
-        affines, canvas_h, canvas_w, H, W,
-        os.path.join(plots_dir, "overlap_map.png"),
-    )
+        # Canvas visualisations
+        _save_affine_path_plot(
+            affines, canvas_h, canvas_w, H, W,
+            os.path.join(plots_dir, "canvas_frame_placement.png"),
+        )
+        _save_translation_plot(
+            affines,
+            os.path.join(plots_dir, "translation_vectors.png"),
+            title=f"{dataset_name} — Translation Vectors",
+        )
+        _save_overlap_map(
+            affines, canvas_h, canvas_w, H, W,
+            os.path.join(plots_dir, "overlap_map.png"),
+        )
 
-    # ------------------------------------------------------------------
-    # STEP 8-10: Render → composite → crop
-    # ------------------------------------------------------------------
-    t0 = time.perf_counter()
-    canvas, valid_mask, _, _ = _render_median(
-        frames, affines, bg_masks, canvas_h, canvas_w
-    )
-    timings["render_sec"] = round(time.perf_counter() - t0, 3)
-    cv2.imwrite(os.path.join(stage_dir, "stage09_temporal_render.png"), canvas)
+        # ------------------------------------------------------------------
+        # STEP 8-10: Render → composite → crop
+        # ------------------------------------------------------------------
+        t0 = time.perf_counter()
+        canvas, valid_mask, _, _ = _render_median(
+            frames, affines, bg_masks, canvas_h, canvas_w
+        )
+        timings["render_sec"] = round(time.perf_counter() - t0, 3)
+        cv2.imwrite(os.path.join(stage_dir, "stage09_temporal_render.png"), canvas)
 
-    t0 = time.perf_counter()
-    canvas = _composite_foreground(
-        [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks
-    )
-    timings["composite_sec"] = round(time.perf_counter() - t0, 3)
-    cv2.imwrite(os.path.join(stage_dir, "stage11_fg_composite.png"), canvas)
+        t0 = time.perf_counter()
+        canvas = _composite_foreground(
+            [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks
+        )
+        timings["composite_sec"] = round(time.perf_counter() - t0, 3)
+        cv2.imwrite(os.path.join(stage_dir, "stage11_fg_composite.png"), canvas)
 
-    canvas_out = _crop_to_valid(canvas, valid_mask)
-    ec = 30
-    if ec * 2 < canvas_out.shape[0] and ec * 2 < canvas_out.shape[1]:
-        canvas_out = canvas_out[ec:-ec, ec:-ec]
+        canvas_out = _crop_to_valid(canvas, valid_mask)
+        ec = 30
+        if ec * 2 < canvas_out.shape[0] and ec * 2 < canvas_out.shape[1]:
+            canvas_out = canvas_out[ec:-ec, ec:-ec]
 
-    from PIL import Image
-    rgb = cv2.cvtColor(canvas_out, cv2.COLOR_BGR2RGB)
-    Image.fromarray(rgb).save(out_path)
-    shutil.copy2(out_path, central_anime_path)
-    print(f"\nFinished: {dataset_dir} -> {out_path}")
+        from PIL import Image
+        rgb = cv2.cvtColor(canvas_out, cv2.COLOR_BGR2RGB)
+        Image.fromarray(rgb).save(out_path)
+        shutil.copy2(out_path, central_anime_path)
+        print(f"\nFinished: {dataset_dir} -> {out_path}")
+
+    except Exception as _render_exc:
+        gc.collect()
+        print(f"  ASP render/ECC failed ({_render_exc}); falling back to SCANS.")
+        t0 = time.perf_counter()
+        _scan_stitch_fallback(scans_frames, out_path)
+        timings["scans_fallback_sec"] = round(time.perf_counter() - t0, 3)
+        timings["total_sec"] = round(time.perf_counter() - t_total_start, 3)
+        shutil.copy2(out_path, central_anime_path)
+        print(f"\nFinished (SCANS): {dataset_dir} -> {out_path}")
+        asp_img = cv2.imread(central_anime_path)
+        sim_img = cv2.imread(central_simple_path) if simple_ok else None
+        return _build_result(
+            dataset_name, central_anime_path, central_simple_path,
+            asp_img, sim_img, affines, bg_frame_lums, applied_gains,
+            health, plots_dir, stage_dir, canvas_h=None, canvas_w=None,
+            used_fallback=True, timings=timings,
+            frame_count=N, frame_h=H, frame_w=W,
+            raw_edge_count=raw_edge_count, filtered_edge_count=filtered_edge_count,
+            edge_methods=edge_methods, edge_stats=edge_stats,
+            birefnet_ok=birefnet_ok, loftr_ok=loftr_ok,
+        )
 
     # ------------------------------------------------------------------
     # Visualisations on final images
@@ -1566,6 +1662,9 @@ if __name__ == "__main__":
             result = process_dataset(ds)
             if result is not None:
                 results.append(result)
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
     if results:
         output_dir = os.path.join(base_dir, "output")
