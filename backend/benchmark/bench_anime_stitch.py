@@ -708,6 +708,51 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
         m = e.get("method", "unknown")
         edge_methods[m] = edge_methods.get(m, 0) + 1
 
+    # ── Post-match: Spatial dedup of near-static consecutive frames ──────────
+    _SPATIAL_DEDUP_PX = 25
+    _spa_changed = True
+    _total_spa_dropped = 0
+    while _spa_changed:
+        _spa_changed = False
+        _adj_m = {e["j"]: e for e in edges if e["j"] == e["i"] + 1}
+        if not _adj_m:
+            break
+        _adx = [abs(float(e["M"][0, 2])) for e in _adj_m.values()]
+        _ady = [abs(float(e["M"][1, 2])) for e in _adj_m.values()]
+        _spa_axis = 0 if float(np.median(_adx)) > float(np.median(_ady)) else 1
+        _drop: set = set()
+        for _jj in sorted(_adj_m):
+            _ee = _adj_m[_jj]
+            if _ee["i"] in _drop:
+                continue
+            if abs(float(_ee["M"][_spa_axis, 2])) < _SPATIAL_DEDUP_PX:
+                _drop.add(_jj)
+                _spa_changed = True
+                print(
+                    f"  Spatial dedup: frame {_jj} ≈ frame {_ee['i']} "
+                    f"(d{'x' if _spa_axis == 0 else 'y'}="
+                    f"{float(_ee['M'][_spa_axis, 2]):.1f}px) — dropped."
+                )
+        if _drop:
+            _total_spa_dropped += len(_drop)
+            _keep_idx = [i for i in range(N) if i not in _drop]
+            frames = [frames[i] for i in _keep_idx]
+            bg_masks = [bg_masks[i] for i in _keep_idx]
+            frames_paths = [frames_paths[i] for i in _keep_idx]
+            _o2n = {old: new for new, old in enumerate(_keep_idx)}
+            edges = [
+                {**e, "i": _o2n[e["i"]], "j": _o2n[e["j"]]}
+                for e in edges
+                if e["i"] not in _drop and e["j"] not in _drop
+            ]
+            N = len(frames)
+            H, W = frames[0].shape[:2]
+            if N < 2:
+                print(f"  Spatial dedup removed too many frames; skipping {dataset_dir}.")
+                return None
+    if _total_spa_dropped:
+        print(f"  Spatial dedup complete: {_total_spa_dropped} frames removed, {N} remain.")
+
     t0 = time.perf_counter()
     pipe = AnimeStitchPipeline(
         use_basic=False, use_birefnet=False, use_loftr=False, use_ecc=False
