@@ -188,11 +188,18 @@ def _find_optimal_boundaries(
     return optimised, diffs
 
 
-def _seam_cut(img1: np.ndarray, img2: np.ndarray, edge_weight: float = 15.0) -> np.ndarray:
+def _seam_cut(
+    img1: np.ndarray,
+    img2: np.ndarray,
+    edge_weight: float = 15.0,
+    sem_cost: Optional[np.ndarray] = None,
+    sem_weight: float = 200.0,
+) -> np.ndarray:
     """
     DP seam cut that strongly avoids outlines in *either* frame.
 
     Energy = diff(img1,img2) + grad(diff) + edge_weight*(edges_in_img1 + edges_in_img2)
+             + sem_weight * sem_cost   (P2.4 — character boundary avoidance)
 
     Returns path[x] = y-offset in [0, h-1] for the minimum-energy horizontal
     cut running left→right across the (h × W × 3) slices.
@@ -207,6 +214,10 @@ def _seam_cut(img1: np.ndarray, img2: np.ndarray, edge_weight: float = 15.0) -> 
         gx_i = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
         gy_i = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
         energy += edge_weight * (np.abs(gx_i) + np.abs(gy_i))
+
+    # P2.4 — Semantic character boundary avoidance
+    if sem_cost is not None and sem_cost.shape == energy.shape:
+        energy += sem_weight * sem_cost
 
     # Transpose (h, W) → (W, h) so DP runs left→right; path[x] = y-offset
     E = energy.T.copy()
@@ -229,6 +240,92 @@ def _seam_cut(img1: np.ndarray, img2: np.ndarray, edge_weight: float = 15.0) -> 
         j = nbrs[int(np.argmin([E[i, c] for c in nbrs]))]
         path[i] = j
     return path  # path[x] in [0, zone_h-1]
+
+
+def _soft_seam_weight(
+    fa_zone: np.ndarray,
+    fb_zone: np.ndarray,
+    path_local: np.ndarray,
+    zone_h: int,
+    W: int,
+    sigma: float = 15.0,
+    diffuse_sigma: float = 20.0,
+) -> np.ndarray:
+    """
+    P2.5 — Spatially-adaptive seam blend weight (DSFN technique).
+
+    Returns (zone_h, W) float32 weight in [0, 1]:
+      1.0 → fa_zone,  0.0 → fb_zone.
+
+    The weight is derived from photometric similarity between the two frames:
+    - Flat background regions (high similarity) get a wide, smooth transition.
+    - Character edges (low similarity) get a narrow cut that preserves outlines.
+
+    The seam path anchors the 0.5 iso-contour, then the similarity field
+    stretches or shrinks the blend radius column-by-column.
+    """
+    # Per-pixel L1 distance, mean over channels → (zone_h, W)
+    diff = np.abs(fa_zone.astype(np.float32) - fb_zone.astype(np.float32)).mean(axis=2)
+    # Similarity field: 1 where frames agree, 0 where they differ strongly
+    similarity = np.exp(-diff / max(sigma, 1.0))
+    # Anisotropic diffusion: Gaussian blur propagates similarity from flat areas
+    sim_diffused = cv2.GaussianBlur(similarity, (0, 0), sigmaX=diffuse_sigma, sigmaY=diffuse_sigma)
+    # Blend radius per column (pixels): more similar → wider blend zone
+    # Map sim ∈ [0,1] → ramp_px ∈ [10, zone_h * 0.35]
+    min_ramp = 10.0
+    max_ramp = max(min_ramp + 1.0, zone_h * 0.35)
+    # Column-wise mean of diffused similarity → per-column ramp width
+    col_sim = sim_diffused.mean(axis=0)  # (W,)
+    ramp_per_col = (min_ramp + col_sim * (max_ramp - min_ramp)).astype(np.float32)
+
+    ys = np.arange(zone_h, dtype=np.float32)[:, np.newaxis]  # (zone_h, 1)
+    seam_y = path_local[np.newaxis, :].astype(np.float32)    # (1, W)
+    dist = ys - seam_y                                         # (zone_h, W)
+    ramp = ramp_per_col[np.newaxis, :]                        # (1, W)
+    weight = np.clip(0.5 - dist / (2.0 * ramp), 0.0, 1.0).astype(np.float32)
+    return weight
+
+
+def _build_seam_cost_map(
+    canvas_zone: np.ndarray,
+    bg_mask_a: Optional[np.ndarray],
+    bg_mask_b: Optional[np.ndarray],
+    dilate_px: int = 15,
+) -> np.ndarray:
+    """
+    P2.4 — Per-pixel seam cost map using character boundary avoidance.
+
+    Generates high cost near foreground character edges (where BiRefNet says
+    the pixel belongs to a character) so the DP seam is routed around them.
+
+    Parameters
+    ----------
+    canvas_zone : (H_zone, W, 3) uint8 slice from the overlap zone.
+    bg_mask_a/b : uint8 (H, W) background masks (255=background) for the two frames,
+                  already warped to canvas space, sliced to the zone rows.
+    dilate_px   : avoidance radius in pixels around foreground edges.
+
+    Returns
+    -------
+    cost : (H_zone, W) float32 — 0 = seam-friendly, 1 = avoid.
+    """
+    zone_h, zone_w = canvas_zone.shape[:2]
+    cost = np.zeros((zone_h, zone_w), dtype=np.float32)
+
+    kernel = cv2.getStructuringElement(
+        cv2.MORPH_ELLIPSE, (2 * dilate_px + 1, 2 * dilate_px + 1)
+    )
+    for bm in (bg_mask_a, bg_mask_b):
+        if bm is None:
+            continue
+        fg = (bm < 127).astype(np.uint8) * 255  # foreground pixels
+        # Edge of foreground mask → character silhouette
+        edge = cv2.morphologyEx(fg, cv2.MORPH_GRADIENT, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
+        # Dilate to create avoidance zone
+        dilated = cv2.dilate(edge, kernel)
+        cost = np.maximum(cost, (dilated > 0).astype(np.float32))
+
+    return cost
 
 
 def _composite_foreground(
@@ -415,23 +512,33 @@ def _composite_foreground(
         fa_zone = warped_norm[fi_a][y0_f:y1_f]
         fb_zone = warped_norm[fi_b][y0_f:y1_f]
 
+        # P2.4 — Semantic seam routing: build a character-boundary cost map so
+        # the DP path avoids cutting through foreground outlines.
+        _bg_a_zone = warped_bg[fi_a][y0_f:y1_f] if warped_bg[fi_a] is not None else None
+        _bg_b_zone = warped_bg[fi_b][y0_f:y1_f] if warped_bg[fi_b] is not None else None
+        _sem_cost = _build_seam_cost_map(
+            result[y0_f:y1_f],  # current canvas in zone
+            ((_bg_a_zone.astype(np.uint8) * 255) if _bg_a_zone is not None else None),
+            ((_bg_b_zone.astype(np.uint8) * 255) if _bg_b_zone is not None else None),
+        )
+
         # DP seam path within the zone: path[col] = row in [0, zone_h-1]
         both = (fa_zone.max(axis=2) > 0) & (fb_zone.max(axis=2) > 0)
         if int(both.sum()) > zone_h * W // 20:
             try:
-                path_local = _seam_cut(fa_zone, fb_zone)
+                path_local = _seam_cut(fa_zone, fb_zone, sem_cost=_sem_cost)
             except Exception:
                 path_local = np.full(W, zone_h // 2, dtype=np.int32)
         else:
             path_local = np.full(W, zone_h // 2, dtype=np.int32)
 
-        # Blend mask: 1.0 → fa_zone (above seam), 0.0 → fb_zone (below seam).
-        # Ramp width proportional to zone height so residual ≤5 unit brightness steps
-        # are spread over enough pixels to fall below the visibility threshold.
-        ys = np.arange(zone_h, dtype=np.float32)[:, np.newaxis]
-        dist = ys - path_local[np.newaxis, :].astype(np.float32)
-        ramp_px = max(20.0, zone_h * 0.12)
-        mask_float = np.clip(0.5 - dist / (2.0 * ramp_px), 0.0, 1.0).astype(np.float32)
+        # P2.5 — Soft-seam diffusion blending (DSFN technique).
+        # Instead of a fixed-width linear ramp, compute a spatially-adaptive blend
+        # weight from the photometric similarity between the two frames in the zone.
+        # High similarity (flat background) → wide, smooth transition.
+        # Low similarity (character edge) → narrow, hard cut that preserves outlines.
+        # The seam path still anchors the 50% iso-contour of the weight.
+        mask_float = _soft_seam_weight(fa_zone, fb_zone, path_local, zone_h, W)
 
         blended = _laplacian_blend(fa_zone, fb_zone, mask_float)
 

@@ -99,6 +99,25 @@ try:
 except ImportError:
     _ALIKED_OK = False
 
+try:
+    from backend.src.models.roma_wrapper import RoMaWrapper
+
+    _ROMA_OK = True
+except ImportError:
+    _ROMA_OK = False
+
+try:
+    from .flow_refine import _flow_refine, _load_sea_raft
+
+    _SEA_RAFT_OK = True
+except ImportError:
+    _SEA_RAFT_OK = False
+
+try:
+    from .super_res import upscale_anime, _UPSCALE_OK as _SR_OK
+except ImportError:
+    _SR_OK = False
+
 
 class AnimeStitchPipeline:
     """
@@ -128,6 +147,10 @@ class AnimeStitchPipeline:
         use_loftr: bool = True,
         use_efficient_loftr: bool = True,
         use_aliked: bool = True,
+        use_roma: bool = True,
+        use_sea_raft: bool = True,
+        sr_mode: bool = False,
+        sr_scale: int = 2,
         use_ecc: bool = True,
         renderer: str = "median",  # 'median' | 'first' | 'blend'
         composite_fg: bool = True,
@@ -147,6 +170,10 @@ class AnimeStitchPipeline:
         self.use_loftr = use_loftr and _LOFTR_OK
         self.use_efficient_loftr = use_efficient_loftr and _ELOFTR_OK
         self.use_aliked = use_aliked and _ALIKED_OK
+        self.use_roma = use_roma and _ROMA_OK
+        self.use_sea_raft = use_sea_raft and _SEA_RAFT_OK
+        self.sr_mode = sr_mode and _SR_OK
+        self.sr_scale = sr_scale
         self.use_ecc = use_ecc
         self.renderer = renderer
         self.composite_fg = composite_fg
@@ -166,6 +193,8 @@ class AnimeStitchPipeline:
         self._loftr: Optional["LoFTRWrapper"] = None
         self._eloftr: Optional["EfficientLoFTRWrapper"] = None
         self._aliked: Optional["ALIKEDLightGlueWrapper"] = None
+        self._roma: Optional["RoMaWrapper"] = None
+        self._sea_raft = None
         self._stitch_net: Optional["AnimeStitchNet"] = None
 
     # -------------------------------------------------------------- edge filter
@@ -517,6 +546,57 @@ class AnimeStitchPipeline:
                 f"({len(_valid_means)}/{N} frames had sufficient background)."
             )
 
+        # P2.6 — Per-segment photometric correction.
+        # The global gain above applies one scalar per frame.  Anime assigns
+        # different exposure levels to different colour regions (sky vs costume
+        # vs background props), so a single gain is a poor approximation.
+        # This pass refines correction at the connected-component level,
+        # matching each background segment to the reference (frame 0) segment
+        # with the closest colour, removing per-region flicker independently.
+        _n_seg_corrected = 0
+        for _i in range(1, N):
+            if bg_masks[_i] is None:
+                continue
+            bm = bg_masks[_i] > 127
+            if bm.sum() < 1000:
+                continue
+            # Quick color-region segmentation via quantization (no SAM needed)
+            img_small = cv2.resize(frames[_i], (frames[_i].shape[1] // 4, frames[_i].shape[0] // 4), cv2.INTER_AREA)
+            flat = img_small.reshape(-1, 3).astype(np.float32)
+            _, labels_flat, centers = cv2.kmeans(
+                flat, min(8, len(np.unique(flat.reshape(-1)))),
+                None,
+                (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0),
+                2, cv2.KMEANS_PP_CENTERS,
+            )
+            seg_map = labels_flat.reshape(img_small.shape[:2])
+            seg_map_full = cv2.resize(seg_map.astype(np.uint8), (frames[_i].shape[1], frames[_i].shape[0]), cv2.INTER_NEAREST)
+            # Reference: frame 0 colour clusters
+            img0_small = cv2.resize(frames[0], img_small.shape[:2][::-1], cv2.INTER_AREA)
+            flat0 = img0_small.reshape(-1, 3).astype(np.float32)
+            ref_centers = cv2.kmeans(flat0, min(8, len(np.unique(flat0.reshape(-1)))), None,
+                                     (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0),
+                                     2, cv2.KMEANS_PP_CENTERS)[2]
+
+            gain_map = np.ones(frames[_i].shape[:2], dtype=np.float32)
+            for _k in range(int(seg_map_full.max()) + 1):
+                _seg_px = (seg_map_full == _k) & bm
+                if _seg_px.sum() < 200:
+                    continue
+                _seg_mean = frames[_i][_seg_px].astype(np.float32).mean(axis=0)  # (3,)
+                # Find closest reference cluster by colour distance
+                _dists = np.linalg.norm(ref_centers - _seg_mean[np.newaxis], axis=1)
+                _ref_seg = ref_centers[int(np.argmin(_dists))]
+                _gain_seg = np.clip(_ref_seg / np.maximum(_seg_mean, 1.0), 0.88, 1.12)
+                gain_map[_seg_px] = _gain_seg.mean()
+
+            frames[_i] = np.clip(
+                frames[_i].astype(np.float32) * gain_map[..., np.newaxis], 0, 255
+            ).astype(np.uint8)
+            _n_seg_corrected += 1
+        if _n_seg_corrected > 0:
+            print(f"[Stitch] Stage 4.5b: per-segment photometric correction applied to {_n_seg_corrected} frames.")
+
         # ── Pre-stage 5: Deduplicate near-static consecutive frames ─────────
         if N >= 3:
             _luma_cache = [
@@ -583,6 +663,13 @@ class AnimeStitchPipeline:
                 print(f"[Stitch]   ALIKED+LightGlue init failed ({_e}); disabling.")
                 self.use_aliked = False
                 self._aliked = None
+        if self.use_roma and self._roma is None:
+            try:
+                self._roma = RoMaWrapper()
+            except Exception as _e:
+                print(f"[Stitch]   RoMa init failed ({_e}); disabling.")
+                self.use_roma = False
+                self._roma = None
         edges = _pairwise_match(
             frames,
             bg_masks,
@@ -590,6 +677,7 @@ class AnimeStitchPipeline:
             use_loftr=_active_loftr is not None,
             motion_model=self.motion_model,
             aliked_wrapper=self._aliked if self.use_aliked else None,
+            roma_wrapper=self._roma if self.use_roma else None,
         )
 
         # ── Post-match: Spatial dedup of near-static consecutive frames ──────
@@ -645,7 +733,7 @@ class AnimeStitchPipeline:
         edges = self._filter_edges(edges, image_paths, H, W, frames, bg_masks)
 
         if torch.cuda.is_available():
-            for _mdl in [self._loftr, self._eloftr, self._aliked]:
+            for _mdl in [self._loftr, self._eloftr, self._aliked, self._roma]:
                 if _mdl is not None:
                     try:
                         _mdl.offload()
@@ -654,6 +742,7 @@ class AnimeStitchPipeline:
             self._loftr = None
             self._eloftr = None
             self._aliked = None
+            self._roma = None
             torch.cuda.empty_cache()
             gc.collect()
             torch.cuda.empty_cache()
@@ -773,12 +862,40 @@ class AnimeStitchPipeline:
                 )
                 return _scan_stitch_fallback(scans_frames, output_path)
 
-        # ── Stage 8: ECC sub-pixel refinement ───────────────────────────────
-        if self.use_ecc:
+        # ── Stage 8: Sub-pixel refinement ────────────────────────────────────
+        # P2.1 — SEA-RAFT replaces ECC when available.  ECC fails on flat anime
+        # cells (near-zero gradients → singular Hessian).  SEA-RAFT uses learned
+        # cost volumes that remain informative over uniform colour regions.
+        if self.use_sea_raft:
+            try:
+                if self._sea_raft is None:
+                    _dev = "cuda" if torch.cuda.is_available() else "cpu"
+                    self._sea_raft = _load_sea_raft(device=_dev)
+                    print("[Stitch]   SEA-RAFT model loaded.")
+                affines = _flow_refine(
+                    frames, affines, bg_masks,
+                    device="cuda" if torch.cuda.is_available() else "cpu",
+                    raft_model=self._sea_raft,
+                )
+                print("[Stitch] Stage 8 complete: SEA-RAFT flow refinement done.")
+                # Offload SEA-RAFT after use
+                if torch.cuda.is_available():
+                    try:
+                        self._sea_raft.cpu()
+                    except Exception:
+                        pass
+                    torch.cuda.empty_cache()
+                    self._sea_raft = None
+            except Exception as _ecc_e:
+                print(f"[Stitch]   SEA-RAFT failed ({_ecc_e}); falling back to ECC.")
+                if self.use_ecc:
+                    affines = _ecc_refine(frames, affines, bg_masks)
+                    print("[Stitch] Stage 8 complete: ECC refinement done (fallback).")
+        elif self.use_ecc:
             affines = _ecc_refine(frames, affines, bg_masks)
             print("[Stitch] Stage 8 complete: ECC refinement done.")
         else:
-            print("[Stitch] Stage 8 skipped (use_ecc=False).")
+            print("[Stitch] Stage 8 skipped (use_ecc=False, use_sea_raft=False).")
 
         # ── Stage 9: Canvas construction ────────────────────────────────────
         canvas_h, canvas_w, T_global = _compute_canvas(frames, affines)
@@ -929,6 +1046,23 @@ class AnimeStitchPipeline:
                 print("[Stitch]   Inpainting complete.")
             except Exception as _e:
                 print(f"[Stitch]   Inpainting failed ({_e}); keeping canvas as-is.")
+
+        # ── Optional: Real-ESRGAN anime_6B super-resolution (P2.2) ──────────
+        if self.sr_mode and _SR_OK:
+            try:
+                _dev_sr = "cuda" if torch.cuda.is_available() else "cpu"
+                print(
+                    f"[Stitch]   Running Real-ESRGAN anime_6B {self.sr_scale}× SR "
+                    f"on {canvas.shape[1]}×{canvas.shape[0]} canvas…"
+                )
+                canvas = upscale_anime(canvas, scale=self.sr_scale, device=_dev_sr)
+                print(
+                    f"[Stitch]   SR complete: output {canvas.shape[1]}×{canvas.shape[0]}."
+                )
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            except Exception as _sr_e:
+                print(f"[Stitch]   Real-ESRGAN failed ({_sr_e}); keeping original resolution.")
 
         # ── Save ─────────────────────────────────────────────────────────────
         rgb = cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB)

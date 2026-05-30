@@ -13,9 +13,9 @@
 | `kornia 0.8.2` | Installed — includes LoFTR, **LightGlue + ALIKED** (via `LightGlueMatcher('aliked')`) |
 | `torch 2.9.1` | Installed |
 | EfficientLoFTR | ✅ Installed via HuggingFace `zju-community/efficientloftr` (transformers 4.57.2) |
-| SEA-RAFT | **No pip package** — install from `princeton-vl/SEA-RAFT` (GitHub) |
-| Real-ESRGAN | `pip install realesrgan basicsr` |
-| RoMa v2 | Install from `Parskatt/RoMaV2` (GitHub) |
+| SEA-RAFT | ✅ Available via `ptlflow` (`pip install ptlflow`) |
+| Real-ESRGAN | ✅ Installed (`realesrgan`, `basicsr 1.4.2`, compatibility shim applied) |
+| RoMa v2 | ✅ Installed as `romatch` (`pip install git+https://github.com/Parskatt/RoMa.git`) |
 | XFeat | Install from `verlab/accelerated_features` (GitHub) |
 | JamMa | Install from `leoluxxx/JamMa` (GitHub) |
 
@@ -50,15 +50,15 @@
 
 | # | Task | File(s) | Weakness | Status |
 |---|---|---|---|---|
-| **P2.1** | SEA-RAFT flow refinement replacing ECC (Stage 8) | New `anim/flow_refine.py` + `pipeline.py` | W5 flat regions | ⬜ TODO (needs GitHub install) |
-| **P2.2** | Real-ESRGAN `anime_6B` post-processing | New `anim/super_res.py` + `pipeline.py` | W9 resolution | ⬜ TODO (pip install realesrgan) |
+| **P2.1** | SEA-RAFT flow refinement replacing ECC (Stage 8) | New `anim/flow_refine.py` + `pipeline.py` | W5 flat regions | ✅ **DONE** (ptlflow `sea_raft`, ECC fallback retained) |
+| **P2.2** | Real-ESRGAN `anime_6B` post-processing | New `anim/super_res.py` + `pipeline.py` | W9 resolution | ✅ **DONE** (`sr_mode=True/False`, HF weights) |
 | **P2.3** | ALIKED + LightGlue sparse fallback tier (Attempt 1b) | New `models/aliked_lg_wrapper.py` + `matching.py` | W6 coverage | ✅ **DONE** (kornia 0.8.2 has both) |
-| **P2.4** | SAM-based semantic seam routing | New `anim/seam_guide.py` + `compositing.py` | W8 char. seams | ⬜ TODO |
-| **P2.5** | Soft-seam diffusion blending (DSFN technique) | `compositing.py` | seam artifacts | ⬜ TODO |
-| **P2.6** | Per-segment photometric correction (SAM segments) | `pipeline.py` Stage 4.5 | colour bleed | ⬜ TODO |
+| **P2.4** | SAM-based semantic seam routing | `compositing.py` (`_build_seam_cost_map` + `_seam_cut` `sem_cost`) | W8 char. seams | ✅ **DONE** (BiRefNet fg mask, no SAM needed) |
+| **P2.5** | Soft-seam diffusion blending (DSFN technique) | `compositing.py` (`_soft_seam_weight`) | seam artifacts | ✅ **DONE** |
+| **P2.6** | Per-segment photometric correction | `pipeline.py` Stage 4.5b | colour bleed | ✅ **DONE** (K-means segments, no SAM needed) |
 | **P2.7** | RecDiffusion border rectangling | New `anim/rectangling.py` | W10 borders | ⬜ TODO (diffusion backbone needed) |
-| **P2.8** | RoMa v2 dense-warp last-resort matcher | New `models/roma_wrapper.py` + `matching.py` | W7 hard pairs | ⬜ TODO (GitHub install) |
-| **P2.9** | Segment-guided matching (AnimeInterp technique) | `matching.py` | low-texture tests | ⬜ TODO |
+| **P2.8** | RoMa v2 dense-warp last-resort matcher | New `models/roma_wrapper.py` + `matching.py` (Attempt 5) | W7 hard pairs | ✅ **DONE** (`romatch` package) |
+| **P2.9** | Segment-guided matching (AnimeInterp technique) | `matching.py` (Attempt 4) | low-texture tests | ✅ **DONE** (mean-shift + K-means CCL) |
 
 ### Phase 2 Expected Gains (cumulative with P1)
 
@@ -76,7 +76,7 @@
 
 | # | Task | Notes | Status |
 |---|---|---|---|
-| **P3.1** | EfficientLoFTR drop-in (GitHub install + wrapper update) | 2.5× faster vs LoFTR | ⬜ TODO |
+| **P3.1** | EfficientLoFTR drop-in (GitHub install + wrapper update) | 2.5× faster vs LoFTR | ✅ **DONE in P1.4** (moved forward) |
 | **P3.2** | JamMa for 4K batch processing (O(N) Mamba attention) | Linear scaling for 4K frames | ⬜ TODO |
 | **P3.3** | ToonCrafter ghost fill for animation phases | Cyclic animation ghosting removal | ⬜ TODO |
 | **P3.4** | SRStitcher unified diffusion fusion | Anime diffusion backbone replaces Laplacian | ⬜ TODO |
@@ -116,3 +116,10 @@
 | 2026-05-30 | P2.3 | `models/aliked_lg_wrapper.py` + Attempt 1b in `matching.py` + wired in `pipeline.py` |
 | 2026-05-30 | P1.3 | `confidence_weights` param in `_render_median` + `_render`; per-frame confs computed from edges in `pipeline.py` |
 | 2026-05-30 | P1.4 | `models/efficient_loftr_wrapper.py` (HF transformers); pipeline prefers EfficientLoFTR → LoFTR fallback; `yacs` installed |
+| 2026-05-30 | P2.5 | `_soft_seam_weight()` in `compositing.py` — similarity-adaptive blend replaces fixed linear ramp |
+| 2026-05-30 | P2.9 | `_segment_guided_match()` in `matching.py` — mean-shift + K-means CCL as Attempt 4 |
+| 2026-05-30 | P2.4 | `_build_seam_cost_map()` + `_seam_cut(sem_cost=...)` in `compositing.py` — fg-edge avoidance without SAM |
+| 2026-05-30 | P2.1 | `anim/flow_refine.py` — SEA-RAFT via ptlflow; replaces ECC Stage 8 with ECC fallback |
+| 2026-05-30 | P2.8 | `models/roma_wrapper.py` — RoMa v2 dense warp as Attempt 5 in `_match_pair` |
+| 2026-05-30 | P2.2 | `anim/super_res.py` — Real-ESRGAN `anime_6B` via HF; `sr_mode` flag in pipeline |
+| 2026-05-30 | P2.6 | Stage 4.5b in `pipeline.py` — K-means colour-segment per-region gain correction |
