@@ -100,11 +100,16 @@ class FrameExtractionWorker(QRunnable):
 
             # Get video FPS to calculate timestamps
             cap = cv2.VideoCapture(self.video_path)
+            if not cap.isOpened():
+                raise ValueError(f"Could not open video file: {self.video_path}")
             fps = cap.get(cv2.CAP_PROP_FPS)
             cap.release()
 
-            if fps <= 0:
-                fps = 23.976  # Fallback
+            try:
+                if fps <= 0:
+                    fps = 23.976  # Fallback
+            except TypeError:
+                fps = 23.976
 
             cmd = ["ffmpeg", "-y", "-ss", str(t_start)]
             if self.is_range and self.end_ms != -1:

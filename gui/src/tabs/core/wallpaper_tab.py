@@ -75,6 +75,20 @@ class WallpaperTab(AbstractClassSingleGallery):
             return None
         return QPixmap.fromImage(img) if isinstance(img, QImage) else img
 
+    def _get_or_generate_thumbnail(self, path: str) -> Optional[QPixmap]:
+        if not path:
+            return None
+        thumb = self._cache_get_thumb(path)
+        if not thumb:
+            if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                thumb = self._generate_video_thumbnail(path)
+                if thumb:
+                    self._initial_pixmap_cache[path] = thumb.toImage()
+            elif os.path.exists(path):
+                # Try loading simple pixmap for images
+                thumb = QPixmap(path)
+        return thumb
+
     @Slot()
     def _is_slideshow_validation_ready(self) -> Tuple[bool, int]:
         monitor_ids = list(self.monitor_widgets.keys())
@@ -1005,8 +1019,8 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.run_wallpaper_worker(slideshow_mode=True)
             for monitor_id, path in new_monitor_paths.items():
                 if monitor_id in self.monitor_widgets and path:
-                    # Pass the cached thumbnail if available, otherwise just path
-                    thumb = self._cache_get_thumb(path)
+                    # Pass the cached or generated thumbnail
+                    thumb = self._get_or_generate_thumbnail(path)
                     self.monitor_widgets[monitor_id].set_image(path, thumb)
             self.time_remaining_sec = self.interval_sec
         except Exception as e:
@@ -1055,7 +1069,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         for mid in [m0, m1]:
             path = self.monitor_image_paths[mid]
             if path:
-                thumb = self._cache_get_thumb(path)
+                thumb = self._get_or_generate_thumbnail(path)
                 self.monitor_widgets[mid].set_image(path, thumb)
             else:
                 self.monitor_widgets[mid].clear()
@@ -1298,8 +1312,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.monitor_image_paths[monitor_id] = new_first_image
 
         if new_first_image:
-            # Try to get thumbnail from cache
-            thumb = self._cache_get_thumb(new_first_image)
+            thumb = self._get_or_generate_thumbnail(new_first_image)
             self.monitor_widgets[monitor_id].set_image(new_first_image, thumb)
         else:
             self.monitor_widgets[monitor_id].clear()
@@ -1334,7 +1347,7 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         system_wallpaper_path = current_system_wallpaper_paths.get(monitor_id)
         if system_wallpaper_path and Path(system_wallpaper_path).exists():
-            thumb = self._cache_get_thumb(system_wallpaper_path)
+            thumb = self._get_or_generate_thumbnail(system_wallpaper_path)
             self.monitor_widgets[monitor_id].set_image(system_wallpaper_path, thumb)
         else:
             self.monitor_widgets[monitor_id].clear()
@@ -1387,6 +1400,11 @@ class WallpaperTab(AbstractClassSingleGallery):
         for i, monitor in enumerate(self.monitors):
             monitor_id = str(i)
             drop_widget = MonitorDropWidget(monitor, monitor_id)
+            
+            # Retrieve and inject resolved hardware name during layout population
+            real_name = drop_widget.get_real_monitor_name()
+            if real_name:
+                drop_widget.set_hardware_name(real_name)
 
             # Provide other monitors as swap targets
             drop_widget.other_monitors = [
@@ -1418,17 +1436,9 @@ class WallpaperTab(AbstractClassSingleGallery):
                 if not self.monitor_image_paths.get(monitor_id):
                     self.monitor_image_paths[monitor_id] = image_path_to_display
 
-                # 1. Try to get thumbnail from cache
-                thumb = self._cache_get_thumb(image_path_to_display)
-
-                # --- ADDED: Check for video if thumb is missing ---
-                if thumb is None and image_path_to_display.lower().endswith(
-                    tuple(SUPPORTED_VIDEO_FORMATS)
-                ):
-                    # For video files, we can just pass the path; the widget handles thumbnail generation/preview
-                    pass
+                # Try to get or generate thumbnail (handles videos and images)
+                thumb = self._get_or_generate_thumbnail(image_path_to_display)
                 drop_widget.set_image(image_path_to_display, thumb)
-                # ---------------------------------------------------
 
             else:
                 drop_widget.clear()
@@ -1475,11 +1485,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             else:
                 self.monitor_current_index[monitor_id] = -1
 
-            thumb = self._cache_get_thumb(first_path)
-            if not thumb and first_path.lower().endswith(
-                tuple(SUPPORTED_VIDEO_FORMATS)
-            ):
-                thumb = self._generate_video_thumbnail(first_path)
+            thumb = self._get_or_generate_thumbnail(first_path)
             self.monitor_widgets[monitor_id].set_image(first_path, thumb)
 
         # Auto-save changes to daemon config if it exists/is running
@@ -1517,13 +1523,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         else:
             self.monitor_current_index[monitor_id] = -1
 
-        thumb = self._cache_get_thumb(image_path)
-
-        if not thumb and is_video:
-            thumb = self._generate_video_thumbnail(image_path)
-            if thumb:
-                self._initial_pixmap_cache[image_path] = thumb.toImage()
-
+        thumb = self._get_or_generate_thumbnail(image_path)
         self.monitor_widgets[monitor_id].set_image(image_path, thumb)
         self.check_all_monitors_set()
 
@@ -1592,13 +1592,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         if path in queue:
             self.monitor_current_index[monitor_id] = queue.index(path)
 
-        # Update UI feedback
-        thumb = self._cache_get_thumb(path)
-        if not thumb and is_video:
-            thumb = self._generate_video_thumbnail(path)
-            if thumb:
-                self._initial_pixmap_cache[path] = thumb.toImage()
-
+        thumb = self._get_or_generate_thumbnail(path)
         self.monitor_widgets[monitor_id].set_image(path, thumb)
         self.check_all_monitors_set()
 
@@ -1779,7 +1773,7 @@ class WallpaperTab(AbstractClassSingleGallery):
                 QMessageBox.information(self, "Success", "Wallpaper has been updated!")
                 for monitor_id, path in self.monitor_image_paths.items():
                     if path and monitor_id in self.monitor_widgets:
-                        thumb = self._cache_get_thumb(path)
+                        thumb = self._get_or_generate_thumbnail(path)
                         self.monitor_widgets[monitor_id].set_image(path, thumb)
             elif self.background_type == "Solid Color":
                 QMessageBox.information(
@@ -2199,18 +2193,7 @@ class WallpaperTab(AbstractClassSingleGallery):
                 for mid, path in saved_paths.items():
                     if mid in self.monitor_widgets and path:
                         if Path(path).exists():
-                            thumb = self._cache_get_thumb(path)
-                            # Generate thumbnail if missing and it is a video (lazy load)
-                            if not thumb and path.lower().endswith(
-                                tuple(SUPPORTED_VIDEO_FORMATS)
-                            ):
-                                # We simply let the widget handle it or rely on scanner later
-                                # For now, just set path
-                                pass
-                            elif not thumb:
-                                # Try loading simple pixmap
-                                thumb = QPixmap(path)
-
+                            thumb = self._get_or_generate_thumbnail(path)
                             self.monitor_widgets[mid].set_image(path, thumb)
                         else:
                             # Path invalid, clear it
