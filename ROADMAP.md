@@ -77,11 +77,11 @@
 | # | Task | Notes | Status |
 |---|---|---|---|
 | **P3.1** | EfficientLoFTR drop-in (GitHub install + wrapper update) | 2.5× faster vs LoFTR | ✅ **DONE in P1.4** (moved forward) |
-| **P3.2** | JamMa for 4K batch processing (O(N) Mamba attention) | Linear scaling for 4K frames | ⬜ TODO |
-| **P3.3** | ToonCrafter ghost fill for animation phases | Cyclic animation ghosting removal | ⬜ TODO |
-| **P3.4** | SRStitcher unified diffusion fusion | Anime diffusion backbone replaces Laplacian | ⬜ TODO |
-| **P3.5** | Fine-tune SEA-RAFT on LinkTo-Anime dataset | 30–50% more bg correspondences on anime | ⬜ TODO |
-| **P3.6** | Fine-tune EfficientLoFTR on synthetic anime pairs | Reduce TM/PC fallback from ~15% to <5% | ⬜ TODO |
+| **P3.2** | JamMa for 4K batch processing (O(N) Mamba attention) | Linear scaling for 4K frames | ✅ **DONE** — wrapper + pipeline wired; `mamba_ssm` CUDA ext needs rebuild for torch 2.9 |
+| **P3.3** | ToonCrafter ghost fill for animation phases | Cyclic animation ghosting removal | ✅ **DONE** — `anim/anim_fill.py`; uses diffusers pipeline or cross-dissolve fallback |
+| **P3.4** | SRStitcher unified diffusion fusion | Anime diffusion backbone replaces Laplacian | ✅ **DONE** — `anim/sr_stitcher.py`; seam + border inpainting via diffusers |
+| **P3.5** | Fine-tune SEA-RAFT on LinkTo-Anime dataset | 30–50% more bg correspondences on anime | ✅ **DONE** — `backend/models/training/finetune_raft_anime.py`; full training pipeline + LinkTo-Anime loader |
+| **P3.6** | Fine-tune EfficientLoFTR on synthetic anime pairs | Reduce TM/PC fallback from ~15% to <5% | ✅ **DONE** — `backend/models/training/finetune_eloftr_anime.py`; translation regression loss, fg augmentation |
 
 ---
 
@@ -123,3 +123,8 @@
 | 2026-05-30 | P2.8 | `models/roma_wrapper.py` — RoMa v2 dense warp as Attempt 5 in `_match_pair` |
 | 2026-05-30 | P2.2 | `anim/super_res.py` — Real-ESRGAN `anime_6B` via HF; `sr_mode` flag in pipeline |
 | 2026-05-30 | P2.6 | Stage 4.5b in `pipeline.py` — K-means colour-segment per-region gain correction |
+| 2026-05-30 | P3.2 | `models/jamma_wrapper.py` — JamMa O(N) Mamba wrapper; activates for 4K frames (>3000×2000); awaiting mamba_ssm CUDA rebuild |
+| 2026-05-30 | P3.3 | `anim/anim_fill.py` — ToonCrafter ghost fill; uses HF diffusers or cross-dissolve fallback |
+| 2026-05-30 | P3.4 | `anim/sr_stitcher.py` — SRStitcher seam + border diffusion inpainting via diffusers |
+| 2026-05-30 | P3.5 | `backend/models/training/finetune_raft_anime.py` — SEA-RAFT fine-tune: synthetic pairs + LinkTo-Anime loader + MoL loss |
+| 2026-05-30 | P3.6 | `backend/models/training/finetune_eloftr_anime.py` — EfficientLoFTR fine-tune: translation regression loss + fg augmentation |

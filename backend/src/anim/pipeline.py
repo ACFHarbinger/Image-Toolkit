@@ -118,6 +118,17 @@ try:
 except ImportError:
     _SR_OK = False
 
+try:
+    from .anim_fill import tooncrafter_ghost_fill
+    _TOONCRAFTER_OK = True
+except ImportError:
+    _TOONCRAFTER_OK = False
+
+try:
+    from .sr_stitcher import seam_diffusion_fusion, border_diffusion_fill, _DIFFUSERS_OK as _SRSTITCHER_OK
+except ImportError:
+    _SRSTITCHER_OK = False
+
 
 class AnimeStitchPipeline:
     """
@@ -174,6 +185,9 @@ class AnimeStitchPipeline:
         self.use_sea_raft = use_sea_raft and _SEA_RAFT_OK
         self.sr_mode = sr_mode and _SR_OK
         self.sr_scale = sr_scale
+        self.use_tooncrafter = kwargs.get("use_tooncrafter", False) and _TOONCRAFTER_OK
+        self.use_srstitcher = kwargs.get("use_srstitcher", False) and _SRSTITCHER_OK
+        self.use_jamma = kwargs.get("use_jamma", False)
         self.use_ecc = use_ecc
         self.renderer = renderer
         self.composite_fg = composite_fg
@@ -634,10 +648,24 @@ class AnimeStitchPipeline:
                     return _scan_stitch_fallback(scans_frames, output_path)
 
         # ── Stage 5-6: Pairwise matching (+ skip-pair edges) ────────────────
+        # ── Matcher selection (P1.4 EfficientLoFTR / P3.2 JamMa) ───────────────
+        # Priority: JamMa (4K only) → EfficientLoFTR → kornia LoFTR → None.
+        _is_4k = H * W > 3000 * 2000
+        _active_loftr = None
+
+        if self.use_jamma and _is_4k:
+            try:
+                from backend.src.models.jamma_wrapper import JamMaWrapper
+                _jamma_inst = JamMaWrapper()
+                _jamma_inst.load_model()
+                _active_loftr = _jamma_inst
+                print(f"[Stitch]   4K frame ({W}×{H}): using JamMa (O(N) Mamba).")
+            except Exception as _jm_e:
+                print(f"[Stitch]   JamMa unavailable ({_jm_e}); using EfficientLoFTR.")
+
         # P1.4 — Use EfficientLoFTR (2.5× faster) when available; fall back to
         # kornia LoFTR.  Both expose the same .match() interface.
-        _active_loftr = None
-        if self.use_efficient_loftr:
+        if _active_loftr is None and self.use_efficient_loftr:
             if self._eloftr is None:
                 try:
                     self._eloftr = EfficientLoFTRWrapper()
@@ -1012,12 +1040,56 @@ class AnimeStitchPipeline:
                     f"[Stitch]   MFSR refinement failed ({e}); keeping median canvas."
                 )
 
+        # P3.3 — ToonCrafter ghost fill (after temporal render, before fg composite).
+        # Uses _cluster_animation_phases output (already computed inside _render_median)
+        # to replace ghosted animation pixels with a ToonCrafter canonical cel.
+        if self.use_tooncrafter and N >= 4:
+            try:
+                from .rendering import _cluster_animation_phases
+                _dev_tc = "cuda" if torch.cuda.is_available() else "cpu"
+                _tc_anim_mask, _tc_phase_groups = _cluster_animation_phases(
+                    frames, affines, canvas_h, canvas_w
+                )
+                if _tc_anim_mask is not None and _tc_phase_groups is not None:
+                    canvas = tooncrafter_ghost_fill(
+                        canvas, _tc_anim_mask, _tc_phase_groups,
+                        frames, affines, device=_dev_tc,
+                    )
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+            except Exception as _tc_e:
+                print(f"[Stitch]   ToonCrafter ghost fill failed ({_tc_e}); skipping.")
+
         # ── Stage 11: Foreground composite ──────────────────────────────────
         if self.composite_fg and self.use_birefnet:
             canvas = _composite_foreground(
                 [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks
             )
             print("[Stitch] Stage 11 complete: foreground composited.")
+
+        # P3.4 — SRStitcher seam diffusion fusion (Stage 11.5).
+        # Inpaints the seam bands using a diffusion model so hard Laplacian
+        # transitions are replaced by style-consistent anime content.
+        if self.use_srstitcher:
+            try:
+                _dev_sr2 = "cuda" if torch.cuda.is_available() else "cpu"
+                # Compute seam y-positions from affine boundaries
+                _tys = [float(affines[k][1, 2]) for k in range(N)]
+                _ctrs = [_tys[k] + frames[k].shape[0] / 2.0 for k in range(N)]
+                _order = np.argsort(_ctrs)
+                _sorted_ctrs = [_ctrs[_order[k]] for k in range(N)]
+                _seam_ys = [
+                    int((_sorted_ctrs[k] + _sorted_ctrs[k + 1]) / 2.0)
+                    for k in range(N - 1)
+                ]
+                canvas = seam_diffusion_fusion(
+                    canvas, _seam_ys, device=_dev_sr2, num_steps=20
+                )
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                print("[Stitch] Stage 11.5 complete: SRStitcher seam diffusion done.")
+            except Exception as _srs_e:
+                print(f"[Stitch]   SRStitcher seam fusion failed ({_srs_e}); skipping.")
 
         # ── Stage 12: Remaining seam blend (handled inside _render). ────────
 
