@@ -1,4 +1,5 @@
 import pytest
+import cv2
 from unittest.mock import MagicMock, patch
 from PySide6.QtWidgets import QWidget
 
@@ -169,3 +170,46 @@ class TestImageExtractorTab:
 
             # Verify stop was NOT called (this ensures the fix for the reported bug)
             mock_player.stop.assert_not_called()
+
+    def test_native_resolution_target_size(self, q_app):
+        # If cv2 is globally mocked in conftest.py, configure it
+        if hasattr(cv2, "CAP_PROP_FRAME_WIDTH") and not isinstance(
+            cv2.CAP_PROP_FRAME_WIDTH, int
+        ):
+            cv2.CAP_PROP_FRAME_WIDTH = 3
+            cv2.CAP_PROP_FRAME_HEIGHT = 4
+
+        with (
+            patch("gui.src.tabs.core.image_extractor_tab.QMediaPlayer"),
+            patch("gui.src.tabs.core.image_extractor_tab.QAudioOutput"),
+        ):
+            mock_vc = MagicMock()
+            mock_vc.get.side_effect = lambda prop: {
+                3: 1280,  # cv2.CAP_PROP_FRAME_WIDTH
+                4: 720,  # cv2.CAP_PROP_FRAME_HEIGHT
+            }.get(prop, 0)
+
+            # Setup a helper context manager to conditionally patch if cv2 is real
+            from contextlib import nullcontext
+
+            ctx = (
+                patch.object(cv2, "VideoCapture", return_value=mock_vc)
+                if not isinstance(cv2.VideoCapture, MagicMock)
+                else nullcontext()
+            )
+
+            if isinstance(cv2.VideoCapture, MagicMock):
+                cv2.VideoCapture.return_value = mock_vc
+
+            with ctx:
+                tab = ImageExtractorTab()
+                tab.video_path = __file__
+                tab.combo_extract_size.setCurrentText("Native")
+
+                # With no vertical checkbox set
+                tab.check_extract_vertical.setChecked(False)
+                assert tab._get_target_size() == (1280, 720)
+
+                # With vertical checkbox set -> flip dimensions
+                tab.check_extract_vertical.setChecked(True)
+                assert tab._get_target_size() == (720, 1280)

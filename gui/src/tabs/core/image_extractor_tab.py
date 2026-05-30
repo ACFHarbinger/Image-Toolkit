@@ -1,4 +1,5 @@
 import os
+import cv2
 import subprocess
 
 from pathlib import Path
@@ -131,6 +132,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         # Mapping for Extraction Resolutions
         self.extraction_res_map = {
             "Original": None,
+            "Native": "native",
             "480p": (854, 480),
             "720p": (1280, 720),
             "1080p": (1920, 1080),
@@ -1983,6 +1985,18 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def _get_target_size(self) -> Optional[Tuple[int, int]]:
         selected_key = self.combo_extract_size.currentText()
         target_size = self.extraction_res_map.get(selected_key)
+        if selected_key == "Native":
+            if self.video_path and os.path.exists(self.video_path):
+                cap = cv2.VideoCapture(self.video_path)
+                w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                cap.release()
+                if w > 0 and h > 0:
+                    target_size = (w, h)
+                else:
+                    target_size = None
+            else:
+                target_size = None
         # If vertical output is checked, flip dimensions
         if target_size and self.check_extract_vertical.isChecked():
             return (target_size[1], target_size[0])
