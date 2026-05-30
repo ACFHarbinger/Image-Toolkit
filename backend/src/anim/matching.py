@@ -207,6 +207,119 @@ def _sample_bg_points_grid(
     return np.concatenate(pts_list, axis=0)
 
 
+def _segment_guided_match(
+    img_i: np.ndarray,
+    img_j: np.ndarray,
+    mask_i: Optional[np.ndarray] = None,
+    mask_j: Optional[np.ndarray] = None,
+    n_colors: int = 16,
+    min_seg_px: int = 400,
+    min_segs: int = 6,
+) -> Tuple[Optional[np.ndarray], float]:
+    """
+    P2.9 — Segment-guided matching (AnimeInterp technique).
+
+    Segments both frames into flat-color contiguous regions using mean-shift
+    filtering + connected components.  For each background region in frame i,
+    finds the closest color-and-position match in frame j, then computes the
+    centroid displacement.  The median over all matched-region displacements
+    gives a robust translation estimate even when LoFTR and phase correlation
+    fail on uniform-background anime cells.
+
+    Returns (M, confidence) or (None, 0.0).
+    """
+    h, w = img_i.shape[:2]
+
+    def _segment(img: np.ndarray, mask: Optional[np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
+        # Downscale for speed (mean-shift is O(N²))
+        scale = min(1.0, 320.0 / max(h, w))
+        img_s = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+        # Mean-shift segmentation into flat color regions
+        ms = cv2.pyrMeanShiftFiltering(img_s, sp=8, sr=30)
+        # Quantise colors to reduce fragmentation
+        ms_flat = ms.reshape(-1, 3).astype(np.float32)
+        _, labels_flat, centers = cv2.kmeans(
+            ms_flat, n_colors, None,
+            (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_MAX_ITER, 20, 1.0),
+            3, cv2.KMEANS_PP_CENTERS
+        )
+        quantized = centers[labels_flat.flatten()].reshape(img_s.shape).astype(np.uint8)
+        # Connected components on quantized image (one CC per flat region)
+        gray_q = cv2.cvtColor(quantized, cv2.COLOR_BGR2GRAY)
+        _, cc_map = cv2.connectedComponents(gray_q, connectivity=8)
+        # Scale CC map back to original size
+        cc_full = cv2.resize(cc_map.astype(np.int32), (w, h), interpolation=cv2.INTER_NEAREST)
+        return cc_full, centers[labels_flat.reshape(img_s.shape[:2])]
+
+    try:
+        cc_i, _ = _segment(img_i, mask_i)
+        cc_j, _ = _segment(img_j, mask_j)
+    except Exception:
+        return None, 0.0
+
+    def _seg_stats(img: np.ndarray, cc: np.ndarray, mask: Optional[np.ndarray]):
+        stats = {}
+        for label in np.unique(cc):
+            if label == 0:
+                continue
+            seg_px = cc == label
+            if mask is not None:
+                seg_px = seg_px & (mask > 127)
+            count = int(seg_px.sum())
+            if count < min_seg_px:
+                continue
+            ys, xs = np.where(seg_px)
+            cy, cx = float(ys.mean()), float(xs.mean())
+            color = img[seg_px].astype(np.float32).mean(axis=0)  # (3,)
+            stats[label] = {"cy": cy, "cx": cx, "color": color, "count": count}
+        return stats
+
+    segs_i = _seg_stats(img_i, cc_i, mask_i)
+    segs_j = _seg_stats(img_j, cc_j, mask_j)
+
+    if len(segs_i) < min_segs or len(segs_j) < min_segs:
+        return None, 0.0
+
+    # Build color arrays for matching
+    labels_j = list(segs_j.keys())
+    colors_j = np.array([segs_j[l]["color"] for l in labels_j], dtype=np.float32)
+
+    displacements = []
+    for li, si in segs_i.items():
+        c_i = si["color"]
+        # L2 color distance to all segments in j
+        color_dists = np.linalg.norm(colors_j - c_i[np.newaxis], axis=1)
+        # Position distance (normalised by image size)
+        pos_dists = np.array([
+            np.sqrt(((segs_j[lj]["cy"] - si["cy"]) / h) ** 2 +
+                    ((segs_j[lj]["cx"] - si["cx"]) / w) ** 2)
+            for lj in labels_j
+        ], dtype=np.float32)
+        # Combined score: low color distance + nearby position
+        score = color_dists / 256.0 + 2.0 * pos_dists
+        best_idx = int(np.argmin(score))
+        if score[best_idx] > 0.5:  # too dissimilar — skip
+            continue
+        sj = segs_j[labels_j[best_idx]]
+        dy = sj["cy"] - si["cy"]
+        dx = sj["cx"] - si["cx"]
+        displacements.append((dx, dy))
+
+    if len(displacements) < min_segs:
+        return None, 0.0
+
+    dxs = np.array([d[0] for d in displacements])
+    dys = np.array([d[1] for d in displacements])
+    dx_med = float(np.median(dxs))
+    dy_med = float(np.median(dys))
+
+    M = np.array([[1, 0, dx_med], [0, 1, dy_med]], dtype=np.float32)
+    # Confidence: fraction of displacement pairs within 20px of the median
+    residuals = np.sqrt((dxs - dx_med) ** 2 + (dys - dy_med) ** 2)
+    conf = float((residuals < 20.0).mean()) * 0.5  # cap at 0.5 (lower than LoFTR)
+    return M, max(conf, 0.15)
+
+
 def _match_pair(
     frames: List[np.ndarray],
     bg_masks: List[Optional[np.ndarray]],
@@ -218,6 +331,7 @@ def _match_pair(
     use_loftr: bool = True,
     motion_model: str = "translation",
     aliked_wrapper=None,
+    roma_wrapper=None,
 ) -> Optional[Dict]:
     """
     Try to match frame i to frame j. Optimized for vertical anime pans.
@@ -362,6 +476,38 @@ def _match_pair(
                 f"[Stitch]   {i}→{j}: PhaseCorr(unmasked) dx={M[0, 2]:.1f} dy={M[1, 2]:.1f} conf={mean_conf:.3f}"
             )
 
+    # ── Attempt 4: Segment-guided matching (P2.9, AnimeInterp technique) ──
+    # Segment both frames into flat-color regions via mean-shift + connected
+    # components, match regions by colour/position proximity, and take the
+    # median centroid displacement as the translation estimate.  Robust on
+    # low-texture anime cells where all above methods fail.
+    if M is None:
+        try:
+            M_sg, c_sg = _segment_guided_match(match_img_i, match_img_j, match_m_i, match_m_j)
+            if M_sg is not None and _is_valid(M_sg):
+                M, mean_conf = M_sg, c_sg
+                print(
+                    f"[Stitch]   {i}→{j}: SegmentGuided dx={M[0, 2]:.1f} dy={M[1, 2]:.1f} conf={mean_conf:.3f}"
+                )
+        except Exception:
+            pass
+
+    # ── Attempt 5: RoMa v2 dense warp (P2.8) ─────────────────────────────
+    # DINOv2 features are style-agnostic and work on flat anime cells where
+    # all other matchers fail.  Last resort before declaring the edge dead.
+    if M is None and roma_wrapper is not None:
+        try:
+            M_roma, c_roma = roma_wrapper.match_translation(
+                match_img_i, match_img_j, match_m_i, match_m_j
+            )
+            if M_roma is not None and _is_valid(M_roma):
+                M, mean_conf = M_roma, c_roma
+                print(
+                    f"[Stitch]   {i}→{j}: RoMa dx={M[0, 2]:.1f} dy={M[1, 2]:.1f} conf={mean_conf:.3f}"
+                )
+        except Exception:
+            pass
+
     if M is None:
         print(f"[Stitch]   {i}→{j}: all methods failed — skipping edge.")
         return None
@@ -402,6 +548,7 @@ def _pairwise_match(
     use_loftr: bool = True,
     motion_model: str = "translation",
     aliked_wrapper=None,
+    roma_wrapper=None,
 ) -> List[Dict]:
     """
     Build pairwise correspondence edges using LoFTR -> template match -> PC fallback.
@@ -432,6 +579,7 @@ def _pairwise_match(
             use_loftr=use_loftr,
             motion_model=motion_model,
             aliked_wrapper=aliked_wrapper,
+            roma_wrapper=roma_wrapper,
         )
         if torch.cuda.is_available():
             torch.cuda.synchronize()
@@ -450,6 +598,7 @@ __all__ = [
     "_phase_correlate",
     "_sample_bg_points",
     "_sample_bg_points_grid",
+    "_segment_guided_match",
     "_match_pair",
     "_pairwise_match",
 ]
