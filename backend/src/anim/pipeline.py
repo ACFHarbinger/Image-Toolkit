@@ -44,6 +44,7 @@ from .matching import (
     _pairwise_match,
     _phase_correlate,
     _sample_bg_points,
+    _sample_bg_points_grid,
     _template_match,
 )
 from .photometric import _apply_basic, _correct_vignetting
@@ -78,11 +79,25 @@ except ImportError:
     _LOFTR_OK = False
 
 try:
+    from backend.src.models.efficient_loftr_wrapper import EfficientLoFTRWrapper
+
+    _ELOFTR_OK = True
+except ImportError:
+    _ELOFTR_OK = False
+
+try:
     from backend.src.models.stitch_net import AnimeStitchNet
 
     _STITCH_NET_OK = True
 except ImportError:
     _STITCH_NET_OK = False
+
+try:
+    from backend.src.models.aliked_lg_wrapper import ALIKEDLightGlueWrapper
+
+    _ALIKED_OK = True
+except ImportError:
+    _ALIKED_OK = False
 
 
 class AnimeStitchPipeline:
@@ -111,6 +126,8 @@ class AnimeStitchPipeline:
         use_basic: bool = True,
         use_birefnet: bool = True,
         use_loftr: bool = True,
+        use_efficient_loftr: bool = True,
+        use_aliked: bool = True,
         use_ecc: bool = True,
         renderer: str = "median",  # 'median' | 'first' | 'blend'
         composite_fg: bool = True,
@@ -128,6 +145,8 @@ class AnimeStitchPipeline:
         self.use_basic = use_basic and _BASIC_OK
         self.use_birefnet = use_birefnet and _BIREFNET_OK
         self.use_loftr = use_loftr and _LOFTR_OK
+        self.use_efficient_loftr = use_efficient_loftr and _ELOFTR_OK
+        self.use_aliked = use_aliked and _ALIKED_OK
         self.use_ecc = use_ecc
         self.renderer = renderer
         self.composite_fg = composite_fg
@@ -145,6 +164,8 @@ class AnimeStitchPipeline:
         self._baselines: Optional[List[float]] = None
         self._birefnet: Optional["BiRefNetWrapper"] = None
         self._loftr: Optional["LoFTRWrapper"] = None
+        self._eloftr: Optional["EfficientLoFTRWrapper"] = None
+        self._aliked: Optional["ALIKEDLightGlueWrapper"] = None
         self._stitch_net: Optional["AnimeStitchNet"] = None
 
     # -------------------------------------------------------------- edge filter
@@ -533,14 +554,42 @@ class AnimeStitchPipeline:
                     return _scan_stitch_fallback(scans_frames, output_path)
 
         # ── Stage 5-6: Pairwise matching (+ skip-pair edges) ────────────────
-        if self.use_loftr and self._loftr is None:
-            self._loftr = LoFTRWrapper()
+        # P1.4 — Use EfficientLoFTR (2.5× faster) when available; fall back to
+        # kornia LoFTR.  Both expose the same .match() interface.
+        _active_loftr = None
+        if self.use_efficient_loftr:
+            if self._eloftr is None:
+                try:
+                    self._eloftr = EfficientLoFTRWrapper()
+                    self._eloftr.load_model()
+                    _active_loftr = self._eloftr
+                    print("[Stitch]   Using EfficientLoFTR (2.5× faster than LoFTR).")
+                except Exception as _e:
+                    print(f"[Stitch]   EfficientLoFTR init failed ({_e}); falling back to LoFTR.")
+                    self.use_efficient_loftr = False
+                    self._eloftr = None
+            else:
+                self._eloftr.load_model()
+                _active_loftr = self._eloftr
+        if _active_loftr is None and self.use_loftr:
+            if self._loftr is None:
+                self._loftr = LoFTRWrapper()
+            _active_loftr = self._loftr
+
+        if self.use_aliked and self._aliked is None:
+            try:
+                self._aliked = ALIKEDLightGlueWrapper()
+            except Exception as _e:
+                print(f"[Stitch]   ALIKED+LightGlue init failed ({_e}); disabling.")
+                self.use_aliked = False
+                self._aliked = None
         edges = _pairwise_match(
             frames,
             bg_masks,
-            loftr_wrapper=self._loftr,
-            use_loftr=self.use_loftr,
+            loftr_wrapper=_active_loftr,
+            use_loftr=_active_loftr is not None,
             motion_model=self.motion_model,
+            aliked_wrapper=self._aliked if self.use_aliked else None,
         )
 
         # ── Post-match: Spatial dedup of near-static consecutive frames ──────
@@ -595,14 +644,18 @@ class AnimeStitchPipeline:
 
         edges = self._filter_edges(edges, image_paths, H, W, frames, bg_masks)
 
-        if torch.cuda.is_available() and self._loftr is not None:
-            try:
-                self._loftr.offload()
-            except Exception:
-                pass
+        if torch.cuda.is_available():
+            for _mdl in [self._loftr, self._eloftr, self._aliked]:
+                if _mdl is not None:
+                    try:
+                        _mdl.offload()
+                    except Exception:
+                        pass
+            self._loftr = None
+            self._eloftr = None
+            self._aliked = None
             torch.cuda.empty_cache()
             gc.collect()
-            self._loftr = None
             torch.cuda.empty_cache()
         print(f"[Stitch] Stages 5-6 complete: {len(edges)} valid edges found.")
         if not edges:
@@ -737,20 +790,90 @@ class AnimeStitchPipeline:
             affines[i][0, 2] += T_global[0]
             affines[i][1, 2] += T_global[1]
 
+        # P1.9 — Bidirectional midplane projection (StabStitch++).
+        # Centres the affine coordinate system on the temporal midplane rather
+        # than anchoring everything to frame 0.  For long pans (e.g. 14 frames,
+        # 150px/step) this halves the maximum per-frame distortion distance,
+        # reducing warp artefacts symmetrically across the sequence.
+        T_mid_x = float(np.mean([a[0, 2] for a in affines]))
+        T_mid_y = float(np.mean([a[1, 2] for a in affines]))
+        for i in range(N):
+            affines[i][0, 2] -= T_mid_x
+            affines[i][1, 2] -= T_mid_y
+        # Recompute canvas after midplane shift so T_global absorbs the offset.
+        canvas_h, canvas_w, T_global2 = _compute_canvas(frames, affines)
+        for i in range(N):
+            affines[i][0, 2] += T_global2[0]
+            affines[i][1, 2] += T_global2[1]
+        print(
+            f"[Stitch] Stage 9 complete: midplane shift ({T_mid_x:.1f}, {T_mid_y:.1f}), "
+            f"canvas {canvas_w}×{canvas_h}."
+        )
+
+        # P1.3 — Compute per-frame matching confidence for weighted median (W3).
+        # Each frame's confidence = the maximum edge weight of its adjacent edges.
+        # LoFTR edges have weight ~0.9; TM/PC fallbacks have 0.15–0.55.
+        # Frame 0 is always the anchor (confidence 1.0 by convention).
+        _frame_confs = np.ones(N, dtype=np.float32)
+        for _e in edges:
+            _fi, _fj, _w = _e["i"], _e["j"], float(_e.get("weight", 1.0))
+            if _e["j"] == _e["i"] + 1:  # only adjacent edges for per-frame confidence
+                _frame_confs[_fi] = max(_frame_confs[_fi], _w)
+                _frame_confs[_fj] = max(_frame_confs[_fj], _w)
+        _frame_confs = np.clip(_frame_confs, 0.0, 1.0)
+
         # ── Stage 10: Temporal renderer ─────────────────────────────────────
+        # P1.2 — Variable-step renderer switch (W2 fix for test16).
+        # When step-size variance is high (dy_cv > 0.20), the temporal median
+        # blurs in proportion to overlap inconsistency across frames.  Switching
+        # to 'first' (first-frame-wins per canvas pixel) avoids cross-frame
+        # averaging at boundary zones and matches what SCANS naturally produces.
+        effective_renderer = self.renderer
+        if self.renderer == "median" and N >= 3:
+            _dy_steps = [
+                abs(float(affines[k][1, 2]) - float(affines[k - 1][1, 2]))
+                for k in range(1, N)
+            ]
+            _mean_dy = float(np.mean(_dy_steps)) if _dy_steps else 1.0
+            _dy_cv = float(np.std(_dy_steps)) / max(_mean_dy, 1.0) if _dy_steps else 0.0
+            if _dy_cv > 0.20:
+                effective_renderer = "first"
+                print(
+                    f"[Stitch]   High step variance (dy_cv={_dy_cv:.3f} > 0.20) — "
+                    f"switching renderer to 'first'."
+                )
+
         canvas, valid_mask, warped_corr, warped_fgs = _render(
             frames,
             affines,
             bg_masks,
             canvas_h,
             canvas_w,
-            renderer=self.renderer,
+            renderer=effective_renderer,
             baselines=self._baselines,
+            confidence_weights=_frame_confs,
         )
         print("[Stitch] Stage 10 complete: temporal render done.")
 
         # ── Optional: MFSR super-resolution pass ─────────────────────────────
-        if self.mfsr_mode:
+        # P1.7 — Auto-activate MFSR for low-sharpness canvas (W1 fix).
+        # Tests 2, 3, 19, 20 produce Laplacian variance 12–16 from inherently
+        # blurry/dark sources.  If the canvas is below threshold and MFSR is
+        # not already requested, trigger it automatically.
+        _lap_var: float = float(
+            cv2.Laplacian(
+                cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY), cv2.CV_64F
+            ).var()
+        )
+        _mfsr_active = self.mfsr_mode
+        if not _mfsr_active and _lap_var < 20.0:
+            print(
+                f"[Stitch]   Low sharpness detected (Laplacian var={_lap_var:.1f} < 20); "
+                f"auto-activating MFSR."
+            )
+            _mfsr_active = True
+
+        if _mfsr_active:
             try:
                 from .mfsr import run_mfsr
 
@@ -788,6 +911,24 @@ class AnimeStitchPipeline:
             if ec * 2 < canvas.shape[0] and ec * 2 < canvas.shape[1]:
                 canvas = canvas[ec:-ec, ec:-ec]
         print("[Stitch] Stage 13 complete: boundary crop done.")
+
+        # P1.8 — Auto-trigger diffusion inpainting for coverage gaps (W4 fix).
+        # test7 (diagonal motion) leaves black corners at 81.5% coverage.
+        # After the crop, recalculate the valid-pixel ratio and call the existing
+        # inpaint_gaps module when coverage drops below 95%.
+        _gap_mask = (canvas.max(axis=2) == 0).astype(np.uint8) * 255
+        _coverage = 1.0 - float(_gap_mask.mean()) / 255.0
+        if _coverage < 0.95 and _gap_mask.any():
+            print(
+                f"[Stitch]   Coverage {_coverage * 100:.1f}% < 95%; "
+                f"auto-activating diffusion inpainting for black corners."
+            )
+            try:
+                from .mfsr import inpaint_gaps
+                canvas = inpaint_gaps(canvas, gap_mask=_gap_mask)
+                print("[Stitch]   Inpainting complete.")
+            except Exception as _e:
+                print(f"[Stitch]   Inpainting failed ({_e}); keeping canvas as-is.")
 
         # ── Save ─────────────────────────────────────────────────────────────
         rgb = cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB)
@@ -837,6 +978,7 @@ class AnimeStitchPipeline:
             loftr_wrapper=self._loftr,
             use_loftr=self.use_loftr,
             motion_model=self.motion_model,
+            aliked_wrapper=self._aliked if self.use_aliked else None,
         )
 
     def _match_pair(
@@ -858,6 +1000,7 @@ class AnimeStitchPipeline:
             loftr_wrapper=self._loftr,
             use_loftr=self.use_loftr,
             motion_model=self.motion_model,
+            aliked_wrapper=self._aliked if self.use_aliked else None,
         )
 
     @staticmethod
