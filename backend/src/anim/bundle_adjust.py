@@ -112,6 +112,21 @@ def _bundle_adjust_affine(
                 res.append((x[f * 4] - 1.0) * reg_identity)  # a
                 res.append(x[f * 4 + 1] * reg_identity)  # b
 
+        # P1.6 — StabStitch trajectory smoothness regulariser.
+        # Minimises second-order temporal acceleration of translation trajectories,
+        # preventing warping-shake (micro-jitter) in the temporal median output.
+        # λ=0.10 allows ~1px/frame² acceleration — enough for genuine variable-speed
+        # pans while suppressing noise-driven jitter.
+        reg_traj = 0.10
+        tx_slot = 2 if use_affine else 0
+        ty_slot = 3 if use_affine else 1
+        stride = 4 if use_affine else 2
+        for f in range(1, num_frames - 1):
+            tx_acc = x[(f + 1) * stride + tx_slot] - 2 * x[f * stride + tx_slot] + x[(f - 1) * stride + tx_slot]
+            ty_acc = x[(f + 1) * stride + ty_slot] - 2 * x[f * stride + ty_slot] + x[(f - 1) * stride + ty_slot]
+            res.append(tx_acc * reg_traj)
+            res.append(ty_acc * reg_traj)
+
         return np.array(res, np.float64)
 
     result = least_squares(

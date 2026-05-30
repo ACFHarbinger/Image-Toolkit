@@ -247,10 +247,17 @@ def _render_median(
     W: int,
     _baselines: Optional[List[float]] = None,
     _skip_anim: bool = False,
+    confidence_weights: Optional[np.ndarray] = None,
 ) -> Tuple[np.ndarray, np.ndarray, List[np.ndarray], List[np.ndarray]]:
     """
     Memory-efficient and FAST Temporal Median Render.
     Avoids float32 conversion and nanmedian where possible.
+
+    confidence_weights : (N,) float32 per-frame matching confidence [0, 1].
+        When provided and any frame has confidence < 0.70, multi-sample pixels
+        use a confidence-weighted average instead of an unweighted median.
+        Frames aligned via LoFTR (conf ~0.9) outweigh Template Match frames
+        (conf ~0.55), reducing blur from low-quality fallback edges (P1.3).
     """
     N = len(frames)
     canvas = np.zeros((H, W, 3), dtype=np.uint8)
@@ -354,10 +361,35 @@ def _render_median(
             masks_gt1 = masks.reshape(N, -1)[:, m_gt1.flatten()]
 
             s_gt1_f = s_gt1.astype(np.float32)
-            s_gt1_f[~masks_gt1] = np.nan
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=RuntimeWarning)
-                med = np.nanmedian(s_gt1_f, axis=0)
+
+            # P1.3 — Confidence-weighted average for low-quality edges (W3).
+            # When any frame has matching confidence < 0.70 (Template Match or
+            # Phase Correlation fallback), replace the pure median with a
+            # weighted average so high-confidence LoFTR frames dominate.
+            _use_weighted = (
+                confidence_weights is not None
+                and float(confidence_weights.min()) < 0.70
+            )
+            if _use_weighted:
+                # Build weight matrix: (N, P) — zero for out-of-bounds pixels
+                w_mat = np.where(
+                    masks_gt1,
+                    confidence_weights[:, np.newaxis],
+                    0.0,
+                ).astype(np.float32)
+                w_sum = w_mat.sum(axis=0)  # (P,)
+                safe_w = np.where(w_sum > 0, w_sum, 1.0)
+                # Weighted average: (P, 3)
+                med = (
+                    (s_gt1_f * w_mat[:, :, np.newaxis]).sum(axis=0)
+                    / safe_w[:, np.newaxis]
+                )
+            else:
+                s_gt1_f[~masks_gt1] = np.nan
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=RuntimeWarning)
+                    med = np.nanmedian(s_gt1_f, axis=0)
+
             canvas_strip.reshape(-1, 3)[m_gt1.flatten()] = np.clip(med, 0, 255).astype(
                 np.uint8
             )
@@ -481,6 +513,11 @@ def _render_median(
                 if _baselines is not None
                 else None
             )
+            sub_cw = (
+                confidence_weights[majority_group]
+                if confidence_weights is not None
+                else None
+            )
             anim_canvas, _, _, _ = _render_median(
                 sub_frames,
                 sub_affines,
@@ -489,6 +526,7 @@ def _render_median(
                 W,
                 _baselines=sub_bl,
                 _skip_anim=True,
+                confidence_weights=sub_cw,
             )
             anim_has_content = anim_canvas.max(axis=2) > 0
             overwrite_px = (anim_mask > 0) & anim_has_content
@@ -688,6 +726,7 @@ def _render(
     canvas_w: int,
     renderer: str = "median",
     baselines: Optional[List[float]] = None,
+    confidence_weights: Optional[np.ndarray] = None,
 ) -> Tuple[np.ndarray, np.ndarray, List[np.ndarray], List[np.ndarray]]:
     """Dispatcher for different rendering modes."""
     if renderer == "median":
@@ -698,6 +737,7 @@ def _render(
             canvas_h,
             canvas_w,
             _baselines=baselines,
+            confidence_weights=confidence_weights,
         )
     elif renderer == "first":
         c, v = _render_first(frames, affines, canvas_h, canvas_w)

@@ -160,6 +160,53 @@ def _sample_bg_points(
     return np.stack([xs, ys], axis=1).astype(np.float32)
 
 
+def _sample_bg_points_grid(
+    mask: Optional[np.ndarray],
+    H: int,
+    W: int,
+    n: int = 50,
+    grid: Tuple[int, int] = (4, 4),
+) -> np.ndarray:
+    """
+    Spatially-distributed background point sampler.
+
+    Divides the image into a grid and draws points from each cell, ensuring
+    coverage across all quadrants.  Non-LoFTR fallback edges use this instead
+    of random sampling (P1.5 — W7 fix) so the BA solver receives spatially
+    distributed anchor points rather than centre-biased random ones.
+    """
+    gr, gc = grid
+    pts_list: List[np.ndarray] = []
+    per_cell = max(1, n // (gr * gc))
+
+    for r in range(gr):
+        for c in range(gc):
+            y0 = r * H // gr
+            y1 = (r + 1) * H // gr
+            x0 = c * W // gc
+            x1 = (c + 1) * W // gc
+
+            if mask is None:
+                ys = np.random.randint(y0, max(y0 + 1, y1), per_cell)
+                xs = np.random.randint(x0, max(x0 + 1, x1), per_cell)
+            else:
+                cell_mask = mask[y0:y1, x0:x1]
+                ys_bg, xs_bg = np.where(cell_mask > 0)
+                if len(ys_bg) == 0:
+                    ys = np.random.randint(y0, max(y0 + 1, y1), per_cell)
+                    xs = np.random.randint(x0, max(x0 + 1, x1), per_cell)
+                else:
+                    idx = np.random.choice(len(ys_bg), min(per_cell, len(ys_bg)), replace=False)
+                    ys = ys_bg[idx] + y0
+                    xs = xs_bg[idx] + x0
+
+            pts_list.append(np.stack([xs, ys], axis=1).astype(np.float32))
+
+    if not pts_list:
+        return _sample_bg_points(mask, H, W, n)
+    return np.concatenate(pts_list, axis=0)
+
+
 def _match_pair(
     frames: List[np.ndarray],
     bg_masks: List[Optional[np.ndarray]],
@@ -170,6 +217,7 @@ def _match_pair(
     loftr_wrapper=None,
     use_loftr: bool = True,
     motion_model: str = "translation",
+    aliked_wrapper=None,
 ) -> Optional[Dict]:
     """
     Try to match frame i to frame j. Optimized for vertical anime pans.
@@ -199,6 +247,7 @@ def _match_pair(
     mean_conf = 0.0
     actual_pts_i: Optional[np.ndarray] = None
     actual_pts_j: Optional[np.ndarray] = None
+    _loftr_bg_pts: int = 0  # track how many BG keypoints LoFTR found (for 1b trigger)
 
     # ── Attempt 1: LoFTR ───────────────────────────────────────────────────
     if use_loftr and loftr_wrapper is not None:
@@ -229,6 +278,7 @@ def _match_pair(
                             pts2[indices],
                             conf[indices],
                         )
+                _loftr_bg_pts = len(pts1)
 
                 if len(pts1) >= 20:
                     if motion_model == "translation":
@@ -256,6 +306,26 @@ def _match_pair(
                             f"[Stitch]   {i}→{j}: LoFTR dx={M[0, 2]:.1f} dy={M[1, 2]:.1f} conf={mean_conf:.3f} (pts={len(pts1)})"
                         )
 
+        except Exception:
+            pass
+
+    # ── Attempt 1b: ALIKED + LightGlue (P2.3) ─────────────────────────────
+    # Trigger when LoFTR returned < 20 background keypoints on a flat/sparse
+    # scene.  ALIKED's deformable descriptor head detects keypoints at anime
+    # line-art edges that LoFTR misses in low-texture regions.
+    if M is None and aliked_wrapper is not None and _loftr_bg_pts < 20:
+        try:
+            M_alg, c_alg, pts_alg_i, pts_alg_j = aliked_wrapper.get_translation(
+                match_img_i, match_img_j, match_m_i, match_m_j
+            )
+            if M_alg is not None and _is_valid(M_alg) and len(pts_alg_i) >= 15:
+                M, mean_conf = M_alg, c_alg
+                actual_pts_i = pts_alg_i + [ec_w, ec_h]
+                actual_pts_j = pts_alg_j + [ec_w, ec_h]
+                print(
+                    f"[Stitch]   {i}→{j}: ALIKED+LG dx={M[0, 2]:.1f} dy={M[1, 2]:.1f} "
+                    f"conf={mean_conf:.3f} (pts={len(pts_alg_i)})"
+                )
         except Exception:
             pass
 
@@ -310,7 +380,9 @@ def _match_pair(
         pts_i = actual_pts_i
         pts_j = actual_pts_j
     else:
-        pts_i = _sample_bg_points(m_i, H, W, n=200)
+        # P1.5: use spatially-distributed grid sampling (4×4, n=50) for non-LoFTR edges
+        # to avoid centre-biased random anchor points that dilute the BA signal (W7).
+        pts_i = _sample_bg_points_grid(m_i, H, W, n=50, grid=(4, 4))
         pts_j = pts_i + M[:2, 2]
 
     return {
@@ -329,6 +401,7 @@ def _pairwise_match(
     loftr_wrapper=None,
     use_loftr: bool = True,
     motion_model: str = "translation",
+    aliked_wrapper=None,
 ) -> List[Dict]:
     """
     Build pairwise correspondence edges using LoFTR -> template match -> PC fallback.
@@ -358,6 +431,7 @@ def _pairwise_match(
             loftr_wrapper=loftr_wrapper,
             use_loftr=use_loftr,
             motion_model=motion_model,
+            aliked_wrapper=aliked_wrapper,
         )
         if torch.cuda.is_available():
             torch.cuda.synchronize()
@@ -375,6 +449,7 @@ __all__ = [
     "_template_match",
     "_phase_correlate",
     "_sample_bg_points",
+    "_sample_bg_points_grid",
     "_match_pair",
     "_pairwise_match",
 ]
