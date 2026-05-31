@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 from .settings_window import SettingsWindow
 from ..styles.style import DARK_QSS, LIGHT_QSS
 from ..constants import NEW_LIMIT_MB
+from ..utils.lru_image_cache import LRUImageCache
 from backend.src.core.vault_manager import VaultManager
 
 
@@ -81,6 +82,20 @@ class MainWindow(QWidget):
                 initial_theme = self.cached_creds.get("theme", "dark")
             except Exception as e:
                 print(f"Warning: Failed to load account credentials or theme: {e}")
+
+        # GUI/UX §2.8 — Option C: follow OS color scheme when no vault preference is stored.
+        # cached_creds may be empty on first launch; fall back to OS preference in that case.
+        if not self.cached_creds.get("theme"):
+            try:
+                from PySide6.QtCore import Qt as _Qt
+                from PySide6.QtGui import QGuiApplication as _QGA
+                os_scheme = _QGA.styleHints().colorScheme()
+                if os_scheme == _Qt.ColorScheme.Light:
+                    initial_theme = "light"
+                else:
+                    initial_theme = "dark"
+            except Exception:
+                pass
 
         self.current_theme = initial_theme
 
@@ -259,10 +274,28 @@ class MainWindow(QWidget):
         self.command_combo.currentTextChanged.connect(self.on_command_changed)
         self.on_command_changed(self.command_combo.currentText())
 
+        # GUI/UX §2.16 — wire vault preferences to runtime at startup
+        self._apply_startup_preferences()
+
         self.settings_button.clicked.connect(self.open_settings_window)
 
         self.setLayout(vbox)
         self.set_application_theme(self.current_theme)
+
+        # GUI/UX §2.8 — live OS color-scheme changes (e.g. user toggles dark mode in KDE/Windows)
+        try:
+            from PySide6.QtCore import Qt as _Qt
+            from PySide6.QtGui import QGuiApplication as _QGA
+
+            def _on_os_scheme_changed(scheme):
+                if not self.cached_creds.get("theme"):
+                    new = "light" if scheme == _Qt.ColorScheme.Light else "dark"
+                    self.set_application_theme(new)
+
+            _QGA.styleHints().colorSchemeChanged.connect(_on_os_scheme_changed)
+        except Exception:
+            pass
+
         self.showMaximized()
 
     def on_command_changed(self, new_command: str):
@@ -297,6 +330,54 @@ class MainWindow(QWidget):
             account_name = "Authenticated User"
         self.title_label.setText(f"Image Database and Toolkit - {account_name}")
         self.set_application_theme(self.current_theme)
+
+    def _apply_startup_preferences(self) -> None:
+        """Apply vault-stored preferences to gallery tabs at startup (GUI/UX §2.16 A/B/C/E)."""
+        prefs = self.cached_creds.get("preferences", {})
+        if not prefs:
+            return
+
+        # §2.16A — thumbnail size and page size
+        thumb_size = int(prefs.get("thumbnail_size", 180))
+        page_size = int(prefs.get("page_size", 100))
+        # §2.16B — LRU cache sizes
+        found_cache = int(prefs.get("found_cache_maxsize", 300))
+        selected_cache = int(prefs.get("selected_cache_maxsize", 200))
+        initial_cache = int(prefs.get("initial_cache_maxsize", 300))
+
+        for cat_tabs in self.all_tabs.values():
+            for tab in cat_tabs.values():
+                # Thumbnail & page size (§2.16A)
+                if hasattr(tab, "thumbnail_size"):
+                    tab.thumbnail_size = thumb_size
+                    if hasattr(tab, "padding_width"):
+                        tab.approx_item_width = thumb_size + tab.padding_width + 20
+                for attr in ("found_page_size", "selected_page_size", "page_size"):
+                    if hasattr(tab, attr):
+                        setattr(tab, attr, page_size)
+                # LRU caches (§2.16B)
+                if hasattr(tab, "_found_pixmap_cache"):
+                    tab._found_pixmap_cache = LRUImageCache(maxsize=found_cache)
+                if hasattr(tab, "_selected_pixmap_cache"):
+                    tab._selected_pixmap_cache = LRUImageCache(maxsize=selected_cache)
+                if hasattr(tab, "_initial_pixmap_cache"):
+                    tab._initial_pixmap_cache = LRUImageCache(maxsize=initial_cache)
+
+        # §2.16C — startup category
+        startup_cat = prefs.get("startup_category", "")
+        if startup_cat and startup_cat in self.all_tabs:
+            self.command_combo.setCurrentText(startup_cat)
+
+        # §2.16E — slideshow defaults to WallpaperTab
+        if hasattr(self, "wallpaper_tab"):
+            wt = self.wallpaper_tab
+            try:
+                wt.interval_min_spinbox.setValue(int(prefs.get("slideshow_interval_min", 5)))
+                wt.interval_sec_spinbox.setValue(int(prefs.get("slideshow_interval_sec", 0)))
+                order = prefs.get("slideshow_order", "Sequential")
+                wt.playback_order_combo.setCurrentText(order)
+            except Exception:
+                pass
 
     def restart_application(self):
         self.close()

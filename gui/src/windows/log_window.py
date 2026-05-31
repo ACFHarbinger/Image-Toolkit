@@ -1,33 +1,118 @@
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QTextEdit
+from PySide6.QtCore import Qt, QDateTime
+from PySide6.QtGui import QTextCursor, QColor, QTextCharFormat, QFont
+from PySide6.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QPushButton,
+    QCheckBox,
+    QFileDialog,
+    QPlainTextEdit,
+)
+
+from gui.src.constants import LEVEL_COLORS
 
 
 class LogWindow(QWidget):
-    """A dedicated window to display the synchronization log."""
+    """Upgraded log window — colour-coded levels, copy/save, auto-scroll toggle.
 
-    def __init__(self, tab_name="Drive Sync", parent=None):
+    GUI/UX §2.17D: QPlainTextEdit, ANSI-style level colours, Copy All / Save /
+    Clear buttons, Follow toggle (auto-scroll to bottom on new entries).
+    """
+
+    def __init__(self, tab_name: str = "Log", parent=None):
         super().__init__(parent, Qt.Window)
-        self.setWindowTitle(f"{tab_name} Status Log")
-        self.setGeometry(100, 100, 700, 500)
+        self.setWindowTitle(f"{tab_name} — Log")
+        self.setMinimumSize(720, 420)
+        self.setStyleSheet("background:#1e1e1e; color:#cccccc;")
 
-        main_layout = QVBoxLayout(self)
-        self.log_output = QTextEdit()
+        root = QVBoxLayout(self)
+        root.setContentsMargins(8, 8, 8, 8)
+        root.setSpacing(6)
+
+        # Log output
+        self.log_output = QPlainTextEdit()
         self.log_output.setReadOnly(True)
+        self.log_output.setFont(QFont("Monospace", 9))
         self.log_output.setStyleSheet(
-            "background:#1e1e1e; color:#b9bbbe; border:none; font-family: monospace;"
+            "QPlainTextEdit{background:#1e1e1e;color:#cccccc;"
+            "border:1px solid #2c2f33;border-radius:4px;}"
         )
+        root.addWidget(self.log_output, 1)
 
-        main_layout.addWidget(self.log_output)
+        # Toolbar
+        bar = QHBoxLayout()
+        bar.setSpacing(8)
 
-    def append_log(self, text: str):
-        """Method to safely append text to the log."""
-        self.log_output.append(text)
+        self._follow_chk = QCheckBox("Follow")
+        self._follow_chk.setChecked(True)
+        self._follow_chk.setToolTip("Auto-scroll to newest log entry")
+        bar.addWidget(self._follow_chk)
+        bar.addStretch()
 
-    def clear_log(self):
-        """Method to clear the log content."""
+        for label, slot in (
+            ("Copy All", self._copy_all),
+            ("Save…", self._save_to_file),
+            ("Clear", self._clear),
+        ):
+            btn = QPushButton(label)
+            btn.setFixedHeight(28)
+            btn.setStyleSheet(
+                "QPushButton{background:#2c2f33;color:#cccccc;border:1px solid #4f545c;"
+                "border-radius:4px;padding:0 10px;}"
+                "QPushButton:hover{background:#4f545c;}"
+            )
+            btn.clicked.connect(slot)
+            bar.addWidget(btn)
+
+        root.addLayout(bar)
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+    def append_log(self, text: str, level: str = "INFO") -> None:
+        """Append *text* with a colour matched to *level*."""
+        colour = LEVEL_COLORS.get(level.upper(), LEVEL_COLORS["INFO"])
+        timestamp = QDateTime.currentDateTime().toString("hh:mm:ss")
+        line = f"[{timestamp}] {text}"
+
+        cursor = self.log_output.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+
+        fmt = QTextCharFormat()
+        fmt.setForeground(QColor(colour))
+        cursor.insertText(line + "\n", fmt)
+
+        if self._follow_chk.isChecked():
+            self.log_output.setTextCursor(cursor)
+            self.log_output.ensureCursorVisible()
+
+    def clear_log(self) -> None:
         self.log_output.clear()
 
+    # ------------------------------------------------------------------
+    # Toolbar slots
+    # ------------------------------------------------------------------
+    def _copy_all(self) -> None:
+        from PySide6.QtGui import QGuiApplication
+
+        QGuiApplication.clipboard().setText(self.log_output.toPlainText())
+
+    def _save_to_file(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save Log", "", "Text files (*.txt);;All files (*.*)"
+        )
+        if path:
+            try:
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(self.log_output.toPlainText())
+            except OSError as exc:
+                self.append_log(f"Failed to save log: {exc}", "ERROR")
+
+    def _clear(self) -> None:
+        self.log_output.clear()
+
+    # ------------------------------------------------------------------
     def closeEvent(self, event):
-        """Ensure the window hides instead of closing completely."""
         self.hide()
         event.ignore()

@@ -1,9 +1,10 @@
 import os
 import math
+from collections import deque
 
 from abc import abstractmethod
 from typing import List, Dict, Optional
-from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QMenu, QApplication
+from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QMenu, QApplication, QFileDialog, QMessageBox, QInputDialog
 from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer, QEvent
 from PySide6.QtGui import QPixmap, QImage, QAction
 from backend.src.constants import (
@@ -79,9 +80,16 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         self._resize_timer.timeout.connect(self._on_layout_change)
 
         try:
-            self.last_browsed_dir = LOCAL_SOURCE_PATH
+            self.last_browsed_dir = self._load_last_dir(LOCAL_SOURCE_PATH)
         except Exception:
             self.last_browsed_dir = os.getcwd()
+
+        # Flag so Ctrl+scroll zoom connections are wired once after gallery scrolls exist
+        self._scroll_zoom_connected = False
+
+        # Directory navigation history (GUI/UX §2.21A)
+        self._dir_back_stack: deque = deque(maxlen=20)
+        self._dir_forward_stack: deque = deque(maxlen=20)
 
         # --- Search State ---
         self.master_found_files: List[str] = []
@@ -105,6 +113,177 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         # Enable keyboard focus for shortcuts
         self.setFocusPolicy(Qt.StrongFocus)
 
+    # --- INLINE RENAME (GUI/UX §2.26B) ---
+    def _rename_focused_file(self) -> None:
+        """Rename the currently focused gallery item via F2 (GUI/UX §2.26B)."""
+        idx = getattr(self, "_focused_found_idx", -1)
+        page_paths = self.common_get_paginated_slice(
+            self.master_found_files, self.found_current_page, self.found_page_size
+        )
+        if not (0 <= idx < len(page_paths)):
+            return
+        old_path = page_paths[idx]
+        old_name = os.path.basename(old_path)
+        stem, ext = os.path.splitext(old_name)
+
+        new_stem, ok = QInputDialog.getText(
+            self, "Rename File", "New name (no extension):", text=stem
+        )
+        if not ok or not new_stem.strip() or new_stem.strip() == stem:
+            return
+
+        new_stem = new_stem.strip()
+        # Sanitise: remove characters illegal on common filesystems
+        for ch in r'\/:*?"<>|':
+            new_stem = new_stem.replace(ch, "_")
+
+        new_path = os.path.join(os.path.dirname(old_path), new_stem + ext)
+        if os.path.exists(new_path):
+            QMessageBox.warning(
+                self, "Rename", f"A file named '{new_stem + ext}' already exists."
+            )
+            return
+
+        try:
+            os.rename(old_path, new_path)
+        except OSError as exc:
+            QMessageBox.critical(self, "Rename Error", str(exc))
+            return
+
+        # Update all in-memory path lists and the label map
+        self._replace_path_in_lists(old_path, new_path)
+
+    def _replace_path_in_lists(self, old_path: str, new_path: str) -> None:
+        """Swap *old_path* → *new_path* across found_files, master_found_files,
+        selected_files, and path_to_label_map after a rename."""
+        for lst in (self.found_files, self.master_found_files, self.selected_files):
+            try:
+                idx = lst.index(old_path)
+                lst[idx] = new_path
+            except ValueError:
+                pass
+        if old_path in self.path_to_label_map:
+            widget = self.path_to_label_map.pop(old_path)
+            self.path_to_label_map[new_path] = widget
+            if hasattr(widget, "path"):
+                widget.path = new_path
+            if hasattr(widget, "file_path"):
+                widget.file_path = new_path
+            if hasattr(widget, "setToolTip"):
+                widget.setToolTip(os.path.basename(new_path))
+
+    # --- EXPORT SELECTION (GUI/UX §2.19A) ---
+    def _export_selection_as_paths(self) -> None:
+        """Write the currently selected file paths to a user-chosen TXT file (Ctrl+E)."""
+        paths = self.selected_files or self.found_files
+        if not paths:
+            QMessageBox.information(self, "Export", "No files to export.")
+            return
+        dest, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export File Paths",
+            "",
+            "Text files (*.txt);;CSV files (*.csv);;All files (*.*)",
+            options=QFileDialog.Option.DontUseNativeDialog,
+        )
+        if not dest:
+            return
+        try:
+            with open(dest, "w", encoding="utf-8") as fh:
+                fh.write("\n".join(paths))
+            QMessageBox.information(
+                self, "Export", f"Exported {len(paths)} paths to:\n{dest}"
+            )
+        except OSError as exc:
+            QMessageBox.critical(self, "Export Error", str(exc))
+
+    # --- DIRECTORY NAVIGATION HISTORY (GUI/UX §2.21A) ---
+    def _push_dir_history(self, path: str) -> None:
+        """Call this before loading a new directory to push the current one to history."""
+        if not path:
+            return
+        current = self.last_browsed_dir
+        if current and (not self._dir_back_stack or self._dir_back_stack[-1] != current):
+            self._dir_back_stack.append(current)
+        self._dir_forward_stack.clear()
+
+    def _dir_go_back(self) -> Optional[str]:
+        """Return the previous directory, or None if no history."""
+        if not self._dir_back_stack:
+            return None
+        prev = self._dir_back_stack.pop()
+        self._dir_forward_stack.append(self.last_browsed_dir)
+        return prev
+
+    def _dir_go_forward(self) -> Optional[str]:
+        """Return the next directory from the forward stack, or None."""
+        if not self._dir_forward_stack:
+            return None
+        nxt = self._dir_forward_stack.pop()
+        self._dir_back_stack.append(self.last_browsed_dir)
+        return nxt
+
+    # --- RECENT DIRECTORIES (GUI/UX §2.10) ---
+    def _add_recent_dir(self, path: str, max_entries: int = 10) -> None:
+        """Push *path* to the front of the per-class MRU directory list."""
+        from PySide6.QtCore import QSettings
+        s = QSettings("ImageToolkit", "ImageToolkit")
+        key = f"session/{self.__class__.__name__}/recent_dirs"
+        dirs: list = s.value(key, []) or []
+        if path in dirs:
+            dirs.remove(path)
+        dirs.insert(0, path)
+        s.setValue(key, dirs[:max_entries])
+
+    def _get_recent_dirs(self) -> list:
+        """Return the MRU directory list for this tab class."""
+        from PySide6.QtCore import QSettings
+        return QSettings("ImageToolkit", "ImageToolkit").value(
+            f"session/{self.__class__.__name__}/recent_dirs", []
+        ) or []
+
+    # --- SESSION PERSISTENCE (GUI/UX §2.5) ---
+    def _save_last_dir(self, path: str) -> None:
+        from PySide6.QtCore import QSettings
+        QSettings("ImageToolkit", "ImageToolkit").setValue(
+            f"session/{self.__class__.__name__}/last_dir", path
+        )
+
+    def _load_last_dir(self, default: str = "") -> str:
+        from PySide6.QtCore import QSettings
+        return QSettings("ImageToolkit", "ImageToolkit").value(
+            f"session/{self.__class__.__name__}/last_dir", default
+        )
+
+    # --- CTRL+SCROLL ZOOM (GUI/UX §2.2) ---
+    def _connect_scroll_zoom(self) -> None:
+        """Wire Ctrl+scroll zoom on gallery scroll areas (called lazily on first layout)."""
+        if self._scroll_zoom_connected:
+            return
+        connected = False
+        for scroll in (self.found_gallery_scroll, self.selected_gallery_scroll):
+            if scroll is not None and hasattr(scroll, "ctrl_wheel"):
+                scroll.ctrl_wheel.connect(self._on_ctrl_wheel_zoom)
+                connected = True
+        if connected:
+            self._scroll_zoom_connected = True
+
+    def _on_ctrl_wheel_zoom(self, delta: int) -> None:
+        step = 16 if delta > 0 else -16
+        new_size = max(64, min(512, self.thumbnail_size + step))
+        if new_size == self.thumbnail_size:
+            return
+        self.thumbnail_size = new_size
+        self.approx_item_width = new_size + self.padding_width + 20
+        self._save_last_dir(self.last_browsed_dir)  # persist path on any interaction
+        self._on_layout_change()
+        # Reload the current page so thumbnails render at the new size
+        current_page = self.common_get_paginated_slice(
+            self.master_found_files, self.found_current_page, self.found_page_size
+        )
+        if current_page:
+            self.start_loading_gallery(current_page)
+
     def _get_disk_cache_path(self, video_path: str) -> str:
         import hashlib
         THUMBNAIL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -113,16 +292,90 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
     # --- KEYBOARD SHORTCUTS (Shared) ---
     def keyPressEvent(self, event: QEvent):
-        # Check for Ctrl + A (Select All)
-        if event.key() == Qt.Key.Key_A and event.modifiers() & Qt.ControlModifier:
+        key = event.key()
+        mods = event.modifiers()
+
+        # Ctrl+A — Select All
+        if key == Qt.Key.Key_A and mods & Qt.ControlModifier:
             self.select_all_items()
             event.accept()
-        # Check for Ctrl + D (Deselect All)
-        elif event.key() == Qt.Key.Key_D and event.modifiers() & Qt.ControlModifier:
+        # Ctrl+D — Deselect All
+        elif key == Qt.Key.Key_D and mods & Qt.ControlModifier:
             self.deselect_all_items()
+            event.accept()
+        # Arrow keys — gallery navigation (GUI/UX §2.3A)
+        elif key in (Qt.Key.Key_Left, Qt.Key.Key_Right, Qt.Key.Key_Up, Qt.Key.Key_Down):
+            self._navigate_gallery(key)
+            event.accept()
+        # Enter / Space — open preview for focused item
+        elif key in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space):
+            self._preview_focused_item()
+            event.accept()
+        # Ctrl+E — export selection as paths list (GUI/UX §2.19A)
+        elif key == Qt.Key.Key_E and mods & Qt.ControlModifier:
+            self._export_selection_as_paths()
+            event.accept()
+        # F2 — rename focused item (GUI/UX §2.26B)
+        elif key == Qt.Key.Key_F2:
+            self._rename_focused_file()
             event.accept()
         else:
             super().keyPressEvent(event)
+
+    # --- GALLERY NAVIGATION (GUI/UX §2.3A) ---
+    def _navigate_gallery(self, key) -> None:
+        """Move the gallery focus cursor with arrow keys."""
+        page_paths = self.common_get_paginated_slice(
+            self.master_found_files, self.found_current_page, self.found_page_size
+        )
+        if not page_paths:
+            return
+
+        cols = max(1, self._current_found_cols)
+        idx = getattr(self, "_focused_found_idx", -1)
+
+        if key == Qt.Key.Key_Right:
+            idx = min(idx + 1, len(page_paths) - 1)
+        elif key == Qt.Key.Key_Left:
+            idx = max(0, idx - 1)
+        elif key == Qt.Key.Key_Down:
+            idx = min(idx + cols, len(page_paths) - 1)
+        elif key == Qt.Key.Key_Up:
+            idx = max(0, idx - cols)
+
+        # Bootstrap: if nothing focused yet, start at 0
+        if idx < 0:
+            idx = 0
+
+        self._focused_found_idx = idx
+        self._highlight_focused(page_paths, idx)
+
+    def _highlight_focused(self, page_paths: list, idx: int) -> None:
+        """Visually highlight the focused thumbnail and scroll it into view."""
+        target_path = page_paths[idx] if 0 <= idx < len(page_paths) else None
+        if target_path is None:
+            return
+        widget = self.path_to_label_map.get(target_path)
+        if widget:
+            widget.setFocus()
+            if self.found_gallery_scroll:
+                self.found_gallery_scroll.ensureWidgetVisible(widget)
+
+    def _preview_focused_item(self) -> None:
+        """Open a preview for the currently focused gallery item.
+
+        Delegates to the concrete tab by emitting `path_double_clicked` on the
+        focused label widget, which concrete tabs already connect to their preview handler.
+        """
+        idx = getattr(self, "_focused_found_idx", -1)
+        page_paths = self.common_get_paginated_slice(
+            self.master_found_files, self.found_current_page, self.found_page_size
+        )
+        if 0 <= idx < len(page_paths):
+            path = page_paths[idx]
+            widget = self.path_to_label_map.get(path)
+            if widget and hasattr(widget, "path_double_clicked"):
+                widget.path_double_clicked.emit(path)
 
     @Slot()
     def select_all_items(self):
@@ -303,6 +556,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         self._resize_timer.start(100)  # 100ms debounce
 
     def _on_layout_change(self):
+        self._connect_scroll_zoom()
         # Shared Calculation
         if self.found_gallery_scroll:
             new_cols = self.common_calculate_columns(

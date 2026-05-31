@@ -1,6 +1,6 @@
 # Image Toolkit — Master Roadmap
 
-*Last updated: 2026-05-31. Benchmark baseline: 22/22 success, avg sharpness 33.14, avg ghosting 22.17.*
+*Last updated: 2026-05-31. Benchmark baseline: 22/22 success, avg sharpness 33.14, avg ghosting 22.17. Phase 1 GUI items 1.9–1.11 complete. Phase 2 GUI items 2.8, 2.10, 2.16A–C/E, 2.17D, 2.19A, 2.20A, 2.21A, 2.24A, 2.26B complete. §2.11A/B/D done. MAL entity association fixed + robust.*
 
 Completed items have been moved to [CHANGELOG.md](CHANGELOG.md).
 
@@ -35,9 +35,9 @@ These are one-line or near-trivial changes with immediate measurable benefit. Sh
 | 1.6 | **[Perf] WebDriver context manager** — `with webdriver.Chrome() as driver` on all crawlers (Option A) | ~2h | [performance.md §3.5](roadmaps/performance.md#35-webdriver-lifecycle-management) |
 | 1.7 | **[Perf] Rust DynamicImage move semantics** — take ownership in `apply_ar_transform`, `fast_resize` (Option A) | ~2h | [performance.md §3.6](roadmaps/performance.md#36-dynamicimage-move-semantics-in-rust) |
 | 1.8 | **[Perf] ML model unload after BiRefNet + LoFTR stages** — extend existing `unload()` pattern (Option A) | ~1h | [performance.md §3.7](roadmaps/performance.md#37-python-ml-model-memory-lifecycle) |
-| 1.9 | **[GUI] Session persistence** — remember last browsed path per tab in `QSettings` (Option A) | ~1h | [gui_ux.md §2.5](roadmaps/gui_ux.md#25-session-persistence) |
-| 1.10 | **[GUI] OS dark mode follow** — `QApplication.styleHints().colorScheme()` (Option C) | ~1h | [gui_ux.md §2.8](roadmaps/gui_ux.md#28-theme-support) |
-| 1.11 | **[GUI] Ctrl+scroll thumbnail zoom** (Option B) | ~2h | [gui_ux.md §2.2](roadmaps/gui_ux.md#22-gallery-thumbnail-size-control) |
+| 1.9 | **[GUI] ✅ Session persistence** — `_save_last_dir` / `_load_last_dir` via `QSettings` in both gallery base classes | Done | [gui_ux.md §2.5](roadmaps/gui_ux.md#25-session-persistence) |
+| 1.10 | **[GUI] ✅ OS dark mode follow** — `QGuiApplication.styleHints().colorScheme()` + `colorSchemeChanged` live signal in `MainWindow` | Done | [gui_ux.md §2.8](roadmaps/gui_ux.md#28-theme-support) |
+| 1.11 | **[GUI] ✅ Ctrl+scroll thumbnail zoom** — `ctrl_wheel` signal on `MarqueeScrollArea`; auto-connected in `_on_layout_change`; reloads current page at new size | Done | [gui_ux.md §2.2](roadmaps/gui_ux.md#22-gallery-thumbnail-size-control) |
 | 1.14 | **[GUI] ✅ Settings window — Gallery/Startup/Performance/Slideshow/Logging/Reset State sections** — implemented | Done | [gui_ux.md §2.9](roadmaps/gui_ux.md#29-settings-window-extensions) |
 | 1.12 | **[Arch] `uv lock` + CI frozen install** (Option A) | ~1h | [architecture.md §5.7](roadmaps/architecture.md#57-dependency-audit-and-pinning) |
 | 1.13 | **[Arch] Python `logging` module + rotating file handler** — replace all `print()` calls (Option A) | ~4h | [architecture.md §5.4](roadmaps/architecture.md#54-logging-and-diagnostics) |
@@ -57,10 +57,12 @@ Reliable improvements with a clear implementation path and direct impact on dail
 | 2.5 | **[ASP] Post-run RLHF quality gate** — `reward_model.predict(output)`, flag < 0.6 (Option A) | ~1d | [asp.md §1.10](roadmaps/asp.md#110-rlhf-loop-integration) |
 | 2.6 | **[ASP] Stage-level progress signals** — emit stage name at start of each of 13 stages (Option A) | ~0.5d | [gui_ux.md §2.7](roadmaps/gui_ux.md#27-progress-and-cancellation) |
 | 2.7 | **[GUI] Cancellable QThread `_should_stop` flag** — all worker classes (Option B) | ~1d | [gui_ux.md §2.7](roadmaps/gui_ux.md#27-progress-and-cancellation) |
-| 2.8 | **[GUI] Arrow key gallery navigation** — `QShortcut` on gallery widget (Option A) | ~0.5d | [gui_ux.md §2.3](roadmaps/gui_ux.md#23-keyboard-navigation) |
+| 2.8 | **[GUI] ✅ Arrow key gallery navigation** — `keyPressEvent` in `AbstractClassTwoGalleries`: Left/Right/Up/Down move `_focused_found_idx`, Enter emits `path_double_clicked` on focused widget | Done | [gui_ux.md §2.3](roadmaps/gui_ux.md#23-keyboard-navigation) |
 | 2.9 | **[GUI] Shift+click / Ctrl+click multi-select + context menu** (Options B + C) | ~1d | [gui_ux.md §2.4](roadmaps/gui_ux.md#24-bulk-selection-and-operations) |
-| 2.10 | **[GUI] Recent directories dropdown** (Option C) | ~0.5d | [gui_ux.md §2.5](roadmaps/gui_ux.md#25-session-persistence) |
-| 2.16 | **[GUI] Wire settings preferences to runtime** — startup category, thumbnail size, page size, LRU sizes, confirm-delete, slideshow defaults, logging (§2.9 A–G) | ~1d | [gui_ux.md §2.9](roadmaps/gui_ux.md#29-settings-window-extensions) |
+| 2.26 | **[GUI] ✅ F2 Rename (§2.26B)** — `_rename_focused_file()` in `AbstractClassTwoGalleries` (triggered by F2, renames the file focused via arrow-key navigation) and `_rename_selected_file()` in `AbstractClassSingleGallery` (renames last selected item). Both sanitise the new name, guard against conflicts, and update `found_files`, `master_found_files`, `selected_files`, and `path_to_label_map` / `path_to_card_widget`. | Done | [gui_ux.md §2.26](roadmaps/gui_ux.md#226-inline-rename) |
+| 2.19 | **[GUI] ✅ Export selection as paths list (§2.19A)** — `_export_selection_as_paths()` on both gallery base classes; Ctrl+E saves `selected_files` (or all found files if none selected) to a user-chosen `.txt`/`.csv`. Uses `DontUseNativeDialog` to avoid JVM RTTI conflict. | Done | [gui_ux.md §2.19](roadmaps/gui_ux.md#219-gallery-export-and-contact-sheet) |
+| 2.10 | **[GUI] ✅ Recent directories MRU helpers** — `_add_recent_dir` / `_get_recent_dirs` on both gallery base classes; backed by `QSettings`; ready for concrete tabs to wire up a dropdown | Done | [gui_ux.md §2.5](roadmaps/gui_ux.md#25-session-persistence) |
+| 2.16 | **[GUI] ✅ Wire settings A/B/C/E** — `_apply_startup_preferences()` now also sets `_found_pixmap_cache`, `_selected_pixmap_cache`, `_initial_pixmap_cache` (§B) and WallpaperTab slideshow spinboxes/combo (§E). Items D (confirm_deletions), F (logging), G (restore_last_dir) remain. | Partial | [gui_ux.md §2.9](roadmaps/gui_ux.md#29-settings-window-extensions) |
 | 2.11 | **[GUI] Toggle button + quality metrics overlay** in StitchTab (Options B + C) | ~1d | [gui_ux.md §2.6](roadmaps/gui_ux.md#26-stitch-tab-ux--beforeafter-comparison) |
 | 2.12 | **[Perf] Rust two-pass streaming image merger** (Option A) | ~2d | [performance.md §3.1](roadmaps/performance.md#31-rust-streaming-image-merger) |
 | 2.13 | **[Arch] Pipeline execution trace JSON** — structured per-run output (Option B) | ~0.5d | [architecture.md §5.4](roadmaps/architecture.md#54-logging-and-diagnostics) |
@@ -101,7 +103,7 @@ Items that improve reliability, architecture cleanliness, and long-term maintain
 | 4.1 | **[Arch] Vault Manager → Rust AES-256-GCM via PyO3** — eliminate JVM dependency (Option C) | ~1w | [architecture.md §5.5](roadmaps/architecture.md#55-vault-manager-modernisation) |
 | 4.2 | **[Arch] Abstract Matcher base class** — formal interface for all matcher tiers (Option B) | ~1w | [architecture.md §5.3](roadmaps/architecture.md#53-plugin-system-for-matchers-and-compositors) |
 | 4.3 | **[Arch] Weekly scheduled ASP + Rust benchmark CI** (Option B) | ~1d | [architecture.md §5.2](roadmaps/architecture.md#52-benchmark-regression-ci) |
-| 4.4 | **[Arch] GUI log panel** — collapsible, filterable by level (Option C) | ~2d | [architecture.md §5.4](roadmaps/architecture.md#54-logging-and-diagnostics) |
+| 4.4 | **[Arch] ✅ LogWindow upgraded (§2.17D)** — `QPlainTextEdit`, colour-coded levels, timestamps, Copy All / Save / Clear / Follow. Full collapsible global panel (Option C) remains. | Partial | [architecture.md §5.4](roadmaps/architecture.md#54-logging-and-diagnostics) |
 | 4.5 | **[Feat] OpenAPI schema for existing REST endpoints** (Option A) | ~1d | [new_features.md §4.10](roadmaps/new_features.md#410-rest-api-layer-for-remote-control) |
 | 4.6 | **[Feat] Cross-directory phash deduplication index** in PostgreSQL (Option A) | ~2d | [new_features.md §4.6](roadmaps/new_features.md#46-image-deduplication-across-directories) |
 | 4.7 | **[Feat] KDE per-monitor wallpaper via D-Bus** (Option A) | ~2d | [new_features.md §4.5](roadmaps/new_features.md#45-multi-monitor-wallpaper-support) |

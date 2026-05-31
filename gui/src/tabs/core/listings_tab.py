@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QComboBox,
     QSpinBox,
+    QDoubleSpinBox,
     QPushButton,
     QFileDialog,
     QMessageBox,
@@ -43,6 +44,7 @@ from PySide6.QtWidgets import (
 import os
 import backend.src.constants as udef
 from backend.src.constants import IMAGE_TOOLKIT_DIR
+from PySide6.QtCore import QSettings as _QSettings
 from backend.src.core.vault_manager import VaultManager  # noqa: F401
 from ...styles.style import apply_shadow_effect, SHARED_BUTTON_STYLE
 from ...components import DoubleClickableLabel
@@ -149,6 +151,20 @@ def extract_video_frame_via_ffmpeg(
         except Exception:
             pass
     return None
+
+
+def _persist_splitter(splitter, key: str) -> None:
+    """Wire a QSplitter to QSettings so its position survives restarts (GUI/UX §2.20A)."""
+    settings = _QSettings("ImageToolkit", "ImageToolkit")
+    state = settings.value(f"splitter/{key}")
+    if state:
+        splitter.restoreState(state)
+
+    splitter.splitterMoved.connect(
+        lambda: _QSettings("ImageToolkit", "ImageToolkit").setValue(
+            f"splitter/{key}", splitter.saveState()
+        )
+    )
 
 
 def generate_thumbnail_from_file(file_path: str, dest_path: str) -> bool:
@@ -290,6 +306,7 @@ def _parse_video_series(filename: str):
     Falls back to (stem, None) for filenames that don't contain ' - '.
     """
     import re as _re
+
     stem = Path(filename).stem
     parts = stem.split(" - ", 1)
     if len(parts) < 2:
@@ -817,14 +834,20 @@ class _ListingCard(QWidget):
         prog_lbl.setStyleSheet("color:#888; font-size:10px; border:none;")
         layout.addWidget(prog_lbl)
 
-        # Rating stars
-        rating = entry.get("rating", 0)
-        if rating:
-            stars = "★" * rating + "☆" * (10 - rating)
+        # Personal rating stars (supports old "rating" key for backwards compat)
+        personal_rating = entry.get("personal_rating", entry.get("rating", 0))
+        community_rating = entry.get("community_rating", 0.0)
+        if personal_rating:
+            stars = "★" * personal_rating + "☆" * (10 - personal_rating)
             r_lbl = QLabel(stars[:10])
             r_lbl.setAlignment(Qt.AlignCenter)
             r_lbl.setStyleSheet("color:#f1c40f;font-size:9px;border:none;")
             layout.addWidget(r_lbl, alignment=Qt.AlignHCenter)
+        if community_rating:
+            cr_lbl = QLabel(f"Community {community_rating:.2f}")
+            cr_lbl.setAlignment(Qt.AlignCenter)
+            cr_lbl.setStyleSheet("color:#f1c40f;font-size:9px;border:none;")
+            layout.addWidget(cr_lbl, alignment=Qt.AlignHCenter)
 
         # Quick Actions row
         local_file_path = entry.get("local_file", "")
@@ -1121,7 +1144,9 @@ class _DetailPanel(QWidget):
         img_btns_layout.addWidget(self.btn_gen_thumb)
 
         self.btn_mal = QPushButton("Auto-Fill from MAL")
-        self.btn_mal.setToolTip("Fetch metadata from MyAnimeList via Jikan API (Anime only)")
+        self.btn_mal.setToolTip(
+            "Fetch metadata from MyAnimeList via Jikan API (Anime only)"
+        )
         self.btn_mal.setFixedWidth(140)
         self.btn_mal.setStyleSheet(
             "QPushButton { background-color:#1565c0; color:white; font-weight:bold;"
@@ -1152,9 +1177,14 @@ class _DetailPanel(QWidget):
         )
         self.f_status = QComboBox()
         self.f_status.addItems(ENTRY_STATUS)
-        self.f_rating = QSpinBox()
-        self.f_rating.setRange(0, 10)
-        self.f_rating.setSpecialValueText("No rating")
+        self.f_personal_rating = QSpinBox()
+        self.f_personal_rating.setRange(0, 10)
+        self.f_personal_rating.setSpecialValueText("No rating")
+        self.f_community_rating = QDoubleSpinBox()
+        self.f_community_rating.setRange(0.0, 10.0)
+        self.f_community_rating.setSingleStep(0.01)
+        self.f_community_rating.setDecimals(2)
+        self.f_community_rating.setSpecialValueText("No rating")
         self.f_year = QSpinBox()
         self.f_year.setRange(0, 2100)
         self.f_year.setValue(0)
@@ -1163,7 +1193,9 @@ class _DetailPanel(QWidget):
         self.f_episodes.setRange(1, 99999)
         self.f_current_episode = QSpinBox()
         self.f_current_episode.setRange(0, 99999)
-        self.f_episodes.valueChanged.connect(lambda val: self.f_current_episode.setRange(0, max(0, val)))
+        self.f_episodes.valueChanged.connect(
+            lambda val: self.f_current_episode.setRange(0, max(0, val))
+        )
         self.f_genres = QLineEdit()
         self.f_genres.setPlaceholderText("e.g. Action, Drama")
 
@@ -1205,14 +1237,23 @@ class _DetailPanel(QWidget):
         web_link_row.addWidget(self.f_web_link, 1)
         web_link_row.addWidget(self.btn_open_web_link)
 
+        # Summary — editable; auto-filled from Web synopsis but user can write their own
+        self.f_summary = QTextEdit()
+        self.f_summary.setPlaceholderText(
+            "Synopsis / Summary (auto-filled from web, or write your own)…"
+        )
+        self.f_summary.setFixedHeight(75)
+
+        # Personal review / notes
         self.f_review = QTextEdit()
-        self.f_review.setPlaceholderText("Optional review or notes…")
-        self.f_review.setFixedHeight(100)
+        self.f_review.setPlaceholderText("Personal review or notes…")
+        self.f_review.setFixedHeight(80)
 
         form.addRow("Title *", self.f_title)
         form.addRow("Type", self.f_type)
         form.addRow("Status", self.f_status)
-        form.addRow("Rating (0-10)", self.f_rating)
+        form.addRow("My Rating (0-10)", self.f_personal_rating)
+        form.addRow("Community Rating", self.f_community_rating)
         form.addRow("Year", self.f_year)
         form.addRow("Episodes / Pages", self.f_episodes)
         form.addRow("Current Episode / Page", self.f_current_episode)
@@ -1221,6 +1262,7 @@ class _DetailPanel(QWidget):
         form.addRow("Associated Entities", assoc_row)
         form.addRow("Local File", local_file_row)
         form.addRow("Web Link", web_link_row)
+        form.addRow("Summary", self.f_summary)
         form.addRow("Review / Notes", self.f_review)
         layout.addLayout(form)
 
@@ -1297,7 +1339,11 @@ class _DetailPanel(QWidget):
         self.f_title.setText(entry.get("title", ""))
         self.f_type.setCurrentText(entry.get("type", "Anime"))
         self.f_status.setCurrentText(entry.get("status", "Plan to Watch"))
-        self.f_rating.setValue(entry.get("rating", 0))
+        # Support old single-rating data via fallback
+        self.f_personal_rating.setValue(
+            entry.get("personal_rating", entry.get("rating", 0))
+        )
+        self.f_community_rating.setValue(float(entry.get("community_rating", 0.0)))
         self.f_year.setValue(entry.get("year", 0))
         self.f_episodes.setValue(entry.get("episodes", 1))
         self.f_current_episode.setValue(entry.get("current_episode", 0))
@@ -1319,6 +1365,7 @@ class _DetailPanel(QWidget):
             print(f"Failed to load entities: {e}")
         self._update_assoc_entities_display(all_entities)
 
+        self.f_summary.setPlainText(entry.get("summary", ""))
         self.f_review.setPlainText(entry.get("review", ""))
         self._episode_data = entry.get("episode_list", [])
         self._refresh_image()
@@ -1333,7 +1380,8 @@ class _DetailPanel(QWidget):
         self.f_title.clear()
         self.f_type.setCurrentIndex(0)
         self.f_status.setCurrentIndex(0)
-        self.f_rating.setValue(0)
+        self.f_personal_rating.setValue(0)
+        self.f_community_rating.setValue(0.0)
         self.f_year.setValue(0)
         self.f_episodes.setValue(1)
         self.f_current_episode.setValue(0)
@@ -1345,6 +1393,7 @@ class _DetailPanel(QWidget):
         self.f_local_file.clear()
         self.f_web_link.clear()
 
+        self.f_summary.clear()
         self.f_review.clear()
         self.img_preview.clear()
         self.img_preview.setText("No Image")
@@ -1471,13 +1520,13 @@ class _DetailPanel(QWidget):
     def _on_mal_finished(self, data: dict):
         synopsis = data.get("synopsis", "")
         if synopsis:
-            self.f_review.setPlainText(synopsis)
+            self.f_summary.setPlainText(synopsis)
         episodes = data.get("episodes")
         if episodes:
             self.f_episodes.setValue(int(episodes))
         score = data.get("score")
         if score:
-            self.f_rating.setValue(int(score))
+            self.f_community_rating.setValue(float(score))
         genres = data.get("genres", "")
         if genres:
             self.f_genres.setText(genres)
@@ -1487,8 +1536,87 @@ class _DetailPanel(QWidget):
         mapped_status = data.get("status", "")
         if mapped_status and mapped_status in ENTRY_STATUS:
             self.f_status.setCurrentText(mapped_status)
+        mal_url = data.get("mal_url", "")
+        if mal_url and not self.f_web_link.text().strip():
+            self.f_web_link.setText(mal_url)
+
+        # Cross-reference MAL entities against the entities listing
+        self._auto_associate_entities(data)
+
         self.btn_mal.setText("Auto-Fill from MAL")
         self.btn_mal.setEnabled(True)
+
+    def _auto_associate_entities(self, data: dict) -> None:
+        """Cross-reference MAL entity data against the local entities file.
+
+        Tries three name forms for each candidate so that format differences
+        between Jikan ('Last, First'), Japanese order ('Family Given') and the
+        user's stored format ('Given Family') are all handled:
+          1. Name as received (already normalised by jikan_client)
+          2. Words in reversed order  ('Akane Nanao' ↔ 'Nanao Akane')
+          3. Comma-swap ('Last, First' → 'First Last') for any that slipped through
+        """
+        try:
+            all_entities: list = []
+            if ENTITIES_FILE.exists():
+                with open(ENTITIES_FILE, "r", encoding="utf-8") as fh:
+                    all_entities = json.load(fh)
+        except Exception:
+            return
+
+        if not all_entities:
+            return
+
+        def _key(s: str) -> str:
+            return s.strip().lower()
+
+        name_index: dict[str, str] = {_key(e["name"]): e["id"] for e in all_entities}
+        current_ids: set[str] = set(self.assoc_entities_ids)
+        added_count = 0
+
+        def _try_add(name: str) -> None:
+            nonlocal added_count
+            if not name:
+                return
+            # 1. As-is
+            eid = name_index.get(_key(name))
+            # 2. Reversed word order ('Akane Nanao' ↔ 'Nanao Akane')
+            if eid is None:
+                words = name.split()
+                if len(words) >= 2:
+                    eid = name_index.get(_key(" ".join(reversed(words))))
+            # 3. Comma-swap ('Last, First' → 'First Last')
+            if eid is None and ", " in name:
+                last, first = name.split(", ", 1)
+                eid = name_index.get(_key(f"{first} {last}"))
+            if eid and eid not in current_ids:
+                current_ids.add(eid)
+                added_count += 1
+
+        for name in data.get("studios", []):
+            _try_add(name)
+        for name in data.get("producers", []):
+            _try_add(name)
+        for name in data.get("characters", []):
+            _try_add(name)
+        for name in data.get("voice_actors", []):
+            _try_add(name)
+        for entry in data.get("staff", []):
+            _try_add(entry.get("name", ""))
+
+        if added_count:
+            self.assoc_entities_ids = list(current_ids)
+            self._update_assoc_entities_display(all_entities)
+
+        # Inform the user when Jikan blocked the characters endpoint (common for 18+ content)
+        if not data.get("characters_available", True):
+            msg = (
+                "Character and voice-actor data was not available from MyAnimeList "
+                "(this is common for 18+ / adult content). Studios and staff were "
+                "matched where possible. Please use 'Select Entities' to add "
+                "characters manually."
+            )
+            QMessageBox.information(self, "Auto-Fill — Partial Results", msg)
 
     @Slot(str)
     def _on_mal_error(self, message: str):
@@ -1650,7 +1778,8 @@ class _DetailPanel(QWidget):
             "title": title,
             "type": self.f_type.currentText(),
             "status": self.f_status.currentText(),
-            "rating": self.f_rating.value(),
+            "personal_rating": self.f_personal_rating.value(),
+            "community_rating": round(self.f_community_rating.value(), 2),
             "year": self.f_year.value(),
             "episodes": self.f_episodes.value(),
             "current_episode": self.f_current_episode.value(),
@@ -1659,6 +1788,7 @@ class _DetailPanel(QWidget):
             "associated_entities": self.assoc_entities_ids,
             "local_file": self.f_local_file.text().strip(),
             "web_link": self.f_web_link.text().strip(),
+            "summary": self.f_summary.toPlainText().strip(),
             "review": self.f_review.toPlainText().strip(),
             "image_path": self._image_path,
             "episode_list": self._episode_data,
@@ -2025,7 +2155,9 @@ class AdvancedSearchDialog(QDialog):
 
         self.sorted_tags = sorted(list(all_tags), key=lambda x: x.lower())
         self.sorted_genres = sorted(list(all_genres), key=lambda x: x.lower())
-        self.sorted_entities = sorted(self.entities, key=lambda x: x.get("name", "").lower())
+        self.sorted_entities = sorted(
+            self.entities, key=lambda x: x.get("name", "").lower()
+        )
 
         # Layout
         layout = QVBoxLayout(self)
@@ -2035,7 +2167,9 @@ class AdvancedSearchDialog(QDialog):
         # Header
         header_layout = QHBoxLayout()
         header_title = QLabel("🔍 Advanced Content Search")
-        header_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #00bcd4;")
+        header_title.setStyleSheet(
+            "font-size: 16px; font-weight: bold; color: #00bcd4;"
+        )
         header_layout.addWidget(header_title)
         layout.addLayout(header_layout)
 
@@ -2044,17 +2178,16 @@ class AdvancedSearchDialog(QDialog):
         mode_label = QLabel("Match Mode (Inclusions):")
         mode_label.setFixedWidth(180)
         self.mode_combo = QComboBox()
-        self.mode_combo.addItems([
-            "Match ALL positive criteria (AND)",
-            "Match ANY positive criteria (OR)"
-        ])
+        self.mode_combo.addItems(
+            ["Match ALL positive criteria (AND)", "Match ANY positive criteria (OR)"]
+        )
         mode_layout.addWidget(mode_label)
         mode_layout.addWidget(self.mode_combo)
         layout.addLayout(mode_layout)
 
         # Tab widget
         self.tabs = QTabWidget()
-        
+
         # Tab 1: Entities
         ent_tab = QWidget()
         ent_layout = QHBoxLayout(ent_tab)
@@ -2183,7 +2316,7 @@ class AdvancedSearchDialog(QDialog):
     def load_criteria(self, crit):
         if not crit:
             return
-        
+
         # Set match mode
         if crit.get("match_mode") == "OR":
             self.mode_combo.setCurrentIndex(1)
@@ -2238,7 +2371,7 @@ class AdvancedSearchDialog(QDialog):
             "exclude_tags": [],
             "include_genres": [],
             "exclude_genres": [],
-            "match_mode": "AND" if self.mode_combo.currentIndex() == 0 else "OR"
+            "match_mode": "AND" if self.mode_combo.currentIndex() == 0 else "OR",
         }
 
         # Entities
@@ -2296,7 +2429,7 @@ class _DirectoryImportDialog(QDialog):
         )
 
         self._existing_titles = existing_titles  # lowercase normalised set
-        self._scan_result: dict = {}             # {series_name: [(ep_num, path), ...]}
+        self._scan_result: dict = {}  # {series_name: [(ep_num, path), ...]}
         self._directory = ""
 
         root = QVBoxLayout(self)
@@ -2308,7 +2441,9 @@ class _DirectoryImportDialog(QDialog):
         dir_row = QHBoxLayout(dir_group)
         dir_row.setSpacing(6)
         self._dir_edit = QLineEdit()
-        self._dir_edit.setPlaceholderText("Select the folder that contains your video files…")
+        self._dir_edit.setPlaceholderText(
+            "Select the folder that contains your video files…"
+        )
         self._dir_edit.setReadOnly(True)
         browse_btn = QPushButton("📁 Browse…")
         browse_btn.setFixedWidth(100)
@@ -2425,6 +2560,7 @@ class _DirectoryImportDialog(QDialog):
         splitter.addWidget(right)
 
         splitter.setSizes([520, 300])
+        _persist_splitter(splitter, "directory_import_dialog")
         root.addWidget(splitter, 1)
 
         # ── Confirm / cancel ──────────────────────────────────────────
@@ -2460,7 +2596,9 @@ class _DirectoryImportDialog(QDialog):
     def _do_scan(self):
         directory = self._dir_edit.text().strip() or self._directory
         if not directory or not Path(directory).is_dir():
-            QMessageBox.warning(self, "Invalid Directory", "Please select a valid directory first.")
+            QMessageBox.warning(
+                self, "Invalid Directory", "Please select a valid directory first."
+            )
             return
         self._directory = directory
         self._scan_result = _scan_video_directory(directory)
@@ -2627,17 +2765,19 @@ class ContentListingsSubTab(QWidget):
         toolbar.addWidget(self.status_combo)
 
         self.sort_combo = QComboBox()
-        self.sort_combo.addItems([
-            "Sort by: Title",
-            "Sort by: Rating",
-            "Sort by: Episodes",
-            "Sort by: Current Episode",
-            "Sort by: Date",
-            "Sort by: Type",
-            "Sort by: Status",
-            "Sort by: Local Filename",
-            "Sort by: Tags"
-        ])
+        self.sort_combo.addItems(
+            [
+                "Sort by: Title",
+                "Sort by: Rating",
+                "Sort by: Episodes",
+                "Sort by: Current Episode",
+                "Sort by: Date",
+                "Sort by: Type",
+                "Sort by: Status",
+                "Sort by: Local Filename",
+                "Sort by: Tags",
+            ]
+        )
         self.sort_combo.setFixedWidth(150)
         self.sort_combo.currentTextChanged.connect(self._on_sort_changed)
         toolbar.addWidget(self.sort_combo)
@@ -2738,6 +2878,7 @@ class ContentListingsSubTab(QWidget):
         self._detail.deleted.connect(self._on_entry_deleted)
         detail_scroll.setWidget(self._detail)
         splitter.addWidget(detail_scroll)
+        _persist_splitter(splitter, "ContentListingsSubTab_main")
 
         splitter.setSizes([680, 340])
         splitter.setHandleWidth(6)
@@ -2786,7 +2927,10 @@ class ContentListingsSubTab(QWidget):
             result = [e for e in result if e.get("status") == self._filter_status]
 
         # Advanced Search Criteria
-        if hasattr(self, "_advanced_search_criteria") and self._advanced_search_criteria:
+        if (
+            hasattr(self, "_advanced_search_criteria")
+            and self._advanced_search_criteria
+        ):
             crit = self._advanced_search_criteria
             inc_ent = set(crit.get("include_entities", []))
             exc_ent = set(crit.get("exclude_entities", []))
@@ -2800,8 +2944,14 @@ class ContentListingsSubTab(QWidget):
             for e in result:
                 # Get fields
                 e_ent = set(e.get("associated_entities", []))
-                e_tags = {t.strip().lower() for t in e.get("tags", "").split(",") if t.strip()}
-                e_genres = {g.strip().lower() for g in e.get("genres", "").split(",") if g.strip()}
+                e_tags = {
+                    t.strip().lower() for t in e.get("tags", "").split(",") if t.strip()
+                }
+                e_genres = {
+                    g.strip().lower()
+                    for g in e.get("genres", "").split(",")
+                    if g.strip()
+                }
 
                 # Negative filtering (exclusions): if any matches, exclude this entry
                 if exc_ent.intersection(e_ent):
@@ -2833,7 +2983,9 @@ class ContentListingsSubTab(QWidget):
                     # OR mode: must match at least one of the active inclusions
                     ent_match = ent_active and len(inc_ent.intersection(e_ent)) > 0
                     tag_match = tag_active and len(inc_tag.intersection(e_tags)) > 0
-                    genre_match = genre_active and len(inc_genre.intersection(e_genres)) > 0
+                    genre_match = (
+                        genre_active and len(inc_genre.intersection(e_genres)) > 0
+                    )
 
                     if ent_match or tag_match or genre_match:
                         filtered.append(e)
@@ -2877,25 +3029,47 @@ class ContentListingsSubTab(QWidget):
         # Apply Sort
         sort_field = self.sort_combo.currentText()
         reverse = self.sort_order_combo.currentText() == "Descending"
-        
+
         if sort_field == "Sort by: Title":
-            result = sorted(result, key=lambda x: x.get("title", "").lower(), reverse=reverse)
+            result = sorted(
+                result, key=lambda x: x.get("title", "").lower(), reverse=reverse
+            )
         elif sort_field == "Sort by: Type":
-            result = sorted(result, key=lambda x: x.get("type", "").lower(), reverse=reverse)
+            result = sorted(
+                result, key=lambda x: x.get("type", "").lower(), reverse=reverse
+            )
         elif sort_field == "Sort by: Status":
-            result = sorted(result, key=lambda x: x.get("status", "").lower(), reverse=reverse)
+            result = sorted(
+                result, key=lambda x: x.get("status", "").lower(), reverse=reverse
+            )
         elif sort_field == "Sort by: Rating":
-            result = sorted(result, key=lambda x: x.get("rating", 0), reverse=reverse)
+            result = sorted(
+                result,
+                key=lambda x: x.get("personal_rating", x.get("rating", 0)),
+                reverse=reverse,
+            )
         elif sort_field == "Sort by: Episodes":
             result = sorted(result, key=lambda x: x.get("episodes", 0), reverse=reverse)
         elif sort_field == "Sort by: Current Episode":
-            result = sorted(result, key=lambda x: x.get("current_episode", 0), reverse=reverse)
+            result = sorted(
+                result, key=lambda x: x.get("current_episode", 0), reverse=reverse
+            )
         elif sort_field == "Sort by: Date":
-            result = sorted(result, key=lambda x: x.get("date_watched", ""), reverse=reverse)
+            result = sorted(
+                result, key=lambda x: x.get("date_watched", ""), reverse=reverse
+            )
         elif sort_field == "Sort by: Local Filename":
-            result = sorted(result, key=lambda x: Path(x.get("local_file", "")).name.lower() if x.get("local_file") else "", reverse=reverse)
+            result = sorted(
+                result,
+                key=lambda x: Path(x.get("local_file", "")).name.lower()
+                if x.get("local_file")
+                else "",
+                reverse=reverse,
+            )
         elif sort_field == "Sort by: Tags":
-            result = sorted(result, key=lambda x: x.get("tags", "").lower(), reverse=reverse)
+            result = sorted(
+                result, key=lambda x: x.get("tags", "").lower(), reverse=reverse
+            )
 
         return result
 
@@ -2955,13 +3129,15 @@ class ContentListingsSubTab(QWidget):
         except Exception:
             pass
 
-        dialog = AdvancedSearchDialog(self, entries=self._entries, entities=all_entities)
+        dialog = AdvancedSearchDialog(
+            self, entries=self._entries, entities=all_entities
+        )
         if self._advanced_search_criteria:
             dialog.load_criteria(self._advanced_search_criteria)
 
         if dialog.exec():
             criteria = dialog.get_criteria()
-            
+
             # Check if any criteria is set
             has_crit = any(criteria[k] for k in criteria if k != "match_mode")
             if has_crit:
@@ -2970,7 +3146,7 @@ class ContentListingsSubTab(QWidget):
             else:
                 self._advanced_search_criteria = None
                 self.clear_adv_btn.hide()
-                
+
             self._rebuild_gallery()
 
     def _clear_advanced_search(self):
@@ -3186,8 +3362,9 @@ class ContentListingsSubTab(QWidget):
         selected_series = dlg.get_selected_series()
         if not selected_series:
             QMessageBox.information(
-                self, "Nothing to Import",
-                "No series were selected. Nothing was imported."
+                self,
+                "Nothing to Import",
+                "No series were selected. Nothing was imported.",
             )
             return
 
@@ -3204,24 +3381,27 @@ class ContentListingsSubTab(QWidget):
             # Build the per-episode sub-list
             episode_list = []
             for idx, (ep_num, file_path) in enumerate(episodes):
-                episode_list.append({
-                    "id": str(uuid.uuid4()),
-                    "number": ep_num if ep_num is not None else (idx + 1),
-                    "title": "",
-                    "date_watched": today,
-                    "rating": 0,
-                    "review": "",
-                    "image_path": "",
-                    "local_file": file_path,
-                    "web_link": "",
-                })
+                episode_list.append(
+                    {
+                        "id": str(uuid.uuid4()),
+                        "number": ep_num if ep_num is not None else (idx + 1),
+                        "title": "",
+                        "date_watched": today,
+                        "rating": 0,
+                        "review": "",
+                        "image_path": "",
+                        "local_file": file_path,
+                        "web_link": "",
+                    }
+                )
 
             entry = {
                 "id": str(uuid.uuid4()),
                 "title": series_name,
                 "type": meta["type"],
                 "status": meta["status"],
-                "rating": 0,
+                "personal_rating": 0,
+                "community_rating": 0.0,
                 "year": meta["year"],
                 "episodes": len(episodes),
                 "current_episode": 0,
@@ -3251,8 +3431,9 @@ class ContentListingsSubTab(QWidget):
             )
         else:
             QMessageBox.information(
-                self, "No New Entries",
-                "All selected series already had listings — nothing was added."
+                self,
+                "No New Entries",
+                "All selected series already had listings — nothing was added.",
             )
 
 
@@ -3300,14 +3481,16 @@ class EntityListingsSubTab(QWidget):
         toolbar.addWidget(self.role_combo)
 
         self.sort_combo = QComboBox()
-        self.sort_combo.addItems([
-            "Sort by: Name",
-            "Sort by: Rating",
-            "Sort by: Type",
-            "Sort by: Role",
-            "Sort by: Date Added",
-            "Sort by: Credits Count"
-        ])
+        self.sort_combo.addItems(
+            [
+                "Sort by: Name",
+                "Sort by: Rating",
+                "Sort by: Type",
+                "Sort by: Role",
+                "Sort by: Date Added",
+                "Sort by: Credits Count",
+            ]
+        )
         self.sort_combo.setFixedWidth(150)
         self.sort_combo.currentTextChanged.connect(self._on_sort_changed)
         toolbar.addWidget(self.sort_combo)
@@ -3381,6 +3564,7 @@ class EntityListingsSubTab(QWidget):
         self._detail.deleted.connect(self._on_entity_deleted)
         detail_scroll.setWidget(self._detail)
         splitter.addWidget(detail_scroll)
+        _persist_splitter(splitter, "EntityListingsSubTab_main")
 
         splitter.setSizes([680, 340])
         splitter.setHandleWidth(6)

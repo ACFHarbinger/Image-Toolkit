@@ -11,6 +11,7 @@ from PySide6.QtGui import (
     QKeyEvent,
     QMovie,
     QMouseEvent,
+    QTransform,
 )
 from PySide6.QtWidgets import (
     QMenu,
@@ -76,6 +77,8 @@ class ImagePreviewWindow(QDialog):
 
         # Zoom State
         self.current_zoom_factor: float = 1.0
+        # Rotation state (GUI/UX §2.11D) — degrees clockwise, multiples of 90
+        self._rotation_degrees: int = 0
         self.image_label: QLabel = QLabel()
         self.image_label.setAlignment(Qt.AlignCenter)
 
@@ -354,8 +357,14 @@ class ImagePreviewWindow(QDialog):
             self.image_label.setFixedSize(new_size)
 
         elif not self.original_pixmap.isNull():
-            # --- Static Image Scaling ---
-            scaled_pixmap = self.original_pixmap.scaled(
+            # --- Static Image Scaling (with optional rotation §2.11D) ---
+            source = self.original_pixmap
+            if self._rotation_degrees:
+                source = source.transformed(
+                    QTransform().rotate(self._rotation_degrees),
+                    Qt.SmoothTransformation,
+                )
+            scaled_pixmap = source.scaled(
                 new_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
             )
 
@@ -421,18 +430,76 @@ class ImagePreviewWindow(QDialog):
 
         super().closeEvent(event)
 
+    # --- GUI/UX §2.11A — Fullscreen toggle ---
+    def _toggle_fullscreen(self) -> None:
+        if self.isFullScreen():
+            self.showMaximized()
+        else:
+            self.showFullScreen()
+
+    # --- GUI/UX §2.11B — Fit-to-width / fit-to-height / 100% zoom ---
+    def _fit_to_width(self) -> None:
+        orig = self._get_original_size()
+        if orig.width() > 0 and not orig.isNull():
+            usable = self.scroll_area.viewport().width()
+            self.current_zoom_factor = max(0.05, usable / orig.width())
+            self.update_image_display()
+
+    def _fit_to_height(self) -> None:
+        orig = self._get_original_size()
+        if orig.height() > 0 and not orig.isNull():
+            usable = self.scroll_area.viewport().height()
+            self.current_zoom_factor = max(0.05, usable / orig.height())
+            self.update_image_display()
+
+    def _zoom_actual_pixels(self) -> None:
+        self.current_zoom_factor = 1.0
+        self.update_image_display()
+
+    # --- GUI/UX §2.11D — Rotation ---
+    def _rotate(self, clockwise: bool = True) -> None:
+        delta = 90 if clockwise else -90
+        self._rotation_degrees = (self._rotation_degrees + delta) % 360
+        self.update_image_display()
+
     def contextMenuEvent(self, event):
         """
         Overrides the context menu event (right-click) to display management options.
         """
         menu = QMenu(self)
 
+        # --- View actions (§2.11) ---
+        fs_label = "Exit Fullscreen (F11)" if self.isFullScreen() else "Fullscreen (F11)"
+        fs_action = QAction(fs_label, self)
+        fs_action.triggered.connect(self._toggle_fullscreen)
+        menu.addAction(fs_action)
+
+        menu.addSeparator()
+        for label, slot in (
+            ("Fit to Width (W)", self._fit_to_width),
+            ("Fit to Height (H)", self._fit_to_height),
+            ("Actual Size — 100% (1)", self._zoom_actual_pixels),
+        ):
+            a = QAction(label, self)
+            a.triggered.connect(slot)
+            menu.addAction(a)
+
+        menu.addSeparator()
+        for label, slot in (
+            ("Rotate CW 90° (R)", lambda: self._rotate(True)),
+            ("Rotate CCW 90° (L)", lambda: self._rotate(False)),
+        ):
+            a = QAction(label, self)
+            a.triggered.connect(slot)
+            menu.addAction(a)
+
+        menu.addSeparator()
+
         # --- COPY ACTION ---
         copy_action = QAction("Copy Image (Ctrl+C)", self)
         copy_action.triggered.connect(self.copy_image_to_clipboard)
         menu.addAction(copy_action)
         menu.addSeparator()
-        # -------------------
 
         close_action = QAction("Close This Preview (Ctrl+W)", self)
         close_action.triggered.connect(self.close)
@@ -489,23 +556,41 @@ class ImagePreviewWindow(QDialog):
 
     def keyPressEvent(self, event: QKeyEvent):
         """
-        Handles key presses for navigation (Left/Right), closing (Ctrl+W), and Copy (Ctrl+C).
+        Handles key presses: navigation (Left/Right), Close (Ctrl+W), Copy (Ctrl+C),
+        Fullscreen (F / F11), Fit-width (W), Fit-height (H), 100% (1),
+        Rotate CW (R), Rotate CCW (L).
         """
-        # Ensure that if we press an arrow key, we navigate and accept the event.
-        if event.key() == Qt.Key.Key_Right:
+        key = event.key()
+        mods = event.modifiers()
+        no_mod = not mods or mods == Qt.KeyboardModifier.NoModifier
+
+        if key == Qt.Key.Key_Right and no_mod:
             self._navigate(1)
-            event.accept()
-        elif event.key() == Qt.Key.Key_Left:
+        elif key == Qt.Key.Key_Left and no_mod:
             self._navigate(-1)
-            event.accept()
-        elif event.key() == Qt.Key.Key_W and event.modifiers() & Qt.ControlModifier:
+        elif key == Qt.Key.Key_W and mods & Qt.ControlModifier:
             self.close()
-            event.accept()
-        elif event.key() == Qt.Key.Key_C and event.modifiers() & Qt.ControlModifier:
+        elif key == Qt.Key.Key_C and mods & Qt.ControlModifier:
             self.copy_image_to_clipboard()
-            event.accept()
+        # §2.11A fullscreen
+        elif key in (Qt.Key.Key_F11, Qt.Key.Key_F) and no_mod:
+            self._toggle_fullscreen()
+        # §2.11B zoom modes
+        elif key == Qt.Key.Key_W and no_mod:
+            self._fit_to_width()
+        elif key == Qt.Key.Key_H and no_mod:
+            self._fit_to_height()
+        elif key == Qt.Key.Key_1 and no_mod:
+            self._zoom_actual_pixels()
+        # §2.11D rotation
+        elif key == Qt.Key.Key_R and no_mod:
+            self._rotate(clockwise=True)
+        elif key == Qt.Key.Key_L and no_mod:
+            self._rotate(clockwise=False)
         else:
             super().keyPressEvent(event)
+            return
+        event.accept()
 
     def _navigate(self, direction: int):
         """Cycles the current image index and loads the new image."""

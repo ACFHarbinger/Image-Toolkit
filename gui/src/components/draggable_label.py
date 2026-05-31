@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QLabel, QApplication
 from PySide6.QtCore import Qt, Signal, QPoint
-from PySide6.QtGui import QMouseEvent, QPixmap, QPainter, QColor, QCursor
+from PySide6.QtGui import QMouseEvent, QPixmap, QPainter, QColor, QCursor, QPen
 from .drag_preview_window import DragPreviewWindow
 
 
@@ -40,6 +40,10 @@ class DraggableLabel(QLabel):
         self.drag_start_pos = None
         self.drag_preview_window = None
 
+        # Hover highlight state (GUI/UX §2.24A)
+        self._hovered = False
+        self.setAttribute(Qt.WA_Hover)
+
     def _emit_right_click_signal(self, pos: QPoint):
         """
         Internal slot to emit the custom path_right_clicked signal
@@ -47,6 +51,24 @@ class DraggableLabel(QLabel):
         """
         # Emits the global position (required for QMenu) and the file path
         self.path_right_clicked.emit(self.mapToGlobal(pos), self.file_path)
+
+    def enterEvent(self, event):
+        self._hovered = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._hovered = False
+        self.update()
+        super().leaveEvent(event)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self._hovered:
+            p = QPainter(self)
+            p.setPen(QPen(QColor("#00bcd4"), 2))
+            p.drawRect(1, 1, self.width() - 2, self.height() - 2)
+            p.end()
 
     def mousePressEvent(self, event: QMouseEvent):
         """Handle mouse press - start tracking potential drag."""
