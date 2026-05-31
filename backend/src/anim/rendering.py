@@ -13,6 +13,12 @@ from typing import List, Optional, Tuple
 import cv2
 import numpy as np
 
+from backend.src.constants import (
+    MEDIAN_MIN_SAMPLES,
+    RENDERING_FADE_ROWS,
+    LANCZOS_BLEED,
+    MAX_SAFE_GAIN_DEV,
+)
 from .canvas import _detect_scroll_axis
 from .stateless import _laplacian_blend
 
@@ -235,8 +241,8 @@ def _cluster_animation_phases(
     return anim_mask_full, phase_groups
 
 
-_FADE_ROWS = 40    # rows to fade each frame in/out at its canvas entry/exit
-_LANCZOS_BLEED = 8  # Lanczos4 support ±4px; use 8 for safety margin with sub-pixel offsets
+
+
 
 
 def _render_median(
@@ -270,9 +276,9 @@ def _render_median(
     _cg, _cb = _compute_sequential_color_gains(frames, affines, bg_masks=bg_masks)
     # Only apply correction when gains are small (< 5% per-channel) — large gains
     # indicate foreground contamination and would make the seam worse.
-    _MAX_SAFE_GAIN_DEV = 0.14
-    _cg_safe = np.where(np.abs(_cg - 1.0) <= _MAX_SAFE_GAIN_DEV, _cg, np.ones_like(_cg))
-    _cb_safe = np.where(np.abs(_cg - 1.0) <= _MAX_SAFE_GAIN_DEV, _cb, np.zeros_like(_cb))
+    
+    _cg_safe = np.where(np.abs(_cg - 1.0) <= MAX_SAFE_GAIN_DEV, _cg, np.ones_like(_cg))
+    _cb_safe = np.where(np.abs(_cg - 1.0) <= MAX_SAFE_GAIN_DEV, _cb, np.zeros_like(_cb))
     _need_color_corr = not (
         np.allclose(_cg_safe, 1.0, atol=0.005) and np.allclose(_cb_safe, 0.0, atol=0.5)
     )
@@ -396,12 +402,12 @@ def _render_median(
 
         # ── Fade-in / fade-out post-pass ────────────────────────────────────
         # For each frame whose entry or exit boundary falls inside this chunk,
-        # smoothly ramp its median contribution over _FADE_ROWS rows/cols.
+        # smoothly ramp its median contribution over RENDERING_FADE_ROWS rows/cols.
         if scroll_axis != "horizontal":
             for i in range(N):
                 for (fade_start, fade_end, is_entry) in [
-                    (_frame_ty[i] - _LANCZOS_BLEED, _frame_ty[i] + _FADE_ROWS, True),
-                    (_frame_bot[i] - _FADE_ROWS, _frame_bot[i] + _LANCZOS_BLEED, False),
+                    (_frame_ty[i] - LANCZOS_BLEED, _frame_ty[i] + RENDERING_FADE_ROWS, True),
+                    (_frame_bot[i] - RENDERING_FADE_ROWS, _frame_bot[i] + LANCZOS_BLEED, False),
                 ]:
                     if fade_end <= y0 or fade_start >= y1:
                         continue  # fade zone not in this chunk
@@ -434,9 +440,9 @@ def _render_median(
 
                     canvas_ys = np.arange(y0 + local_start, y0 + local_end, dtype=np.float64)
                     if is_entry:
-                        alphas = np.clip((canvas_ys - fade_start) / _FADE_ROWS, 0.0, 1.0)
+                        alphas = np.clip((canvas_ys - fade_start) / RENDERING_FADE_ROWS, 0.0, 1.0)
                     else:
-                        alphas = np.clip((fade_end - canvas_ys) / _FADE_ROWS, 0.0, 1.0)
+                        alphas = np.clip((fade_end - canvas_ys) / RENDERING_FADE_ROWS, 0.0, 1.0)
                     alphas = alphas[:, np.newaxis, np.newaxis]  # (rows, 1, 1)
 
                     blended = (1.0 - alphas) * med_without + alphas * med_with
@@ -447,8 +453,8 @@ def _render_median(
         else:
             for i in range(N):
                 for (fade_start, fade_end, is_entry) in [
-                    (_frame_tx[i] - _LANCZOS_BLEED, _frame_tx[i] + _FADE_ROWS, True),
-                    (_frame_right[i] - _FADE_ROWS, _frame_right[i] + _LANCZOS_BLEED, False),
+                    (_frame_tx[i] - LANCZOS_BLEED, _frame_tx[i] + RENDERING_FADE_ROWS, True),
+                    (_frame_right[i] - RENDERING_FADE_ROWS, _frame_right[i] + LANCZOS_BLEED, False),
                 ]:
                     local_start = max(0, int(np.floor(fade_start)))
                     local_end = min(W, int(np.ceil(fade_end)))
@@ -478,9 +484,9 @@ def _render_median(
 
                     canvas_xs = np.arange(local_start, local_end, dtype=np.float64)
                     if is_entry:
-                        alphas = np.clip((canvas_xs - fade_start) / _FADE_ROWS, 0.0, 1.0)
+                        alphas = np.clip((canvas_xs - fade_start) / RENDERING_FADE_ROWS, 0.0, 1.0)
                     else:
-                        alphas = np.clip((fade_end - canvas_xs) / _FADE_ROWS, 0.0, 1.0)
+                        alphas = np.clip((fade_end - canvas_xs) / RENDERING_FADE_ROWS, 0.0, 1.0)
                     alphas = alphas[np.newaxis, :, np.newaxis]  # (1, cols, 1)
 
                     blended = (1.0 - alphas) * med_without + alphas * med_with

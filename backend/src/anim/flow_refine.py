@@ -29,9 +29,7 @@ import cv2
 import numpy as np
 import torch
 from typing import List, Optional
-
-_MAX_DRIFT = 80.0   # max correction SEA-RAFT is allowed to apply (px)
-_PATCH_SIZE = 512   # overlap zone crop size fed to the model
+from backend.src.constants import FLOW_MAX_DRIFT, FLOW_PATCH_SIZE
 
 
 def _load_sea_raft(device: str = "cpu"):
@@ -61,7 +59,7 @@ def _flow_refine(
     3. Run SEA-RAFT to get dense flow in the overlap.
     4. Restrict to background pixels (bg_mask) to ignore character motion.
     5. Trimmed mean (25–75 pct) of (u, v) vectors → residual correction.
-    6. Apply correction if |delta| < _MAX_DRIFT on each axis.
+    6. Apply correction if |delta| < FLOW_MAX_DRIFT on each axis.
 
     Returns a new list of affines with sub-pixel corrections applied.
     """
@@ -113,8 +111,8 @@ def _flow_refine(
             refined.append(M_cur.copy())
             continue
 
-        # Resize to at most _PATCH_SIZE for VRAM budget
-        scale = min(1.0, _PATCH_SIZE / max(crop_p.shape[:2]))
+        # Resize to at most FLOW_PATCH_SIZE for VRAM budget
+        scale = min(1.0, FLOW_PATCH_SIZE / max(crop_p.shape[:2]))
         if scale < 1.0:
             new_h = int(crop_p.shape[0] * scale)
             new_w = int(crop_p.shape[1] * scale)
@@ -181,7 +179,7 @@ def _flow_refine(
         du = float(u_bg[keep].mean())  # residual correction in x
         dv = float(v_bg[keep].mean())  # residual correction in y
 
-        if abs(du) > _MAX_DRIFT or abs(dv) > _MAX_DRIFT:
+        if abs(du) > FLOW_MAX_DRIFT or abs(dv) > FLOW_MAX_DRIFT:
             print(
                 f"[FlowRefine]   Frame {i}: SEA-RAFT correction clamped "
                 f"(du={du:.1f}, dv={dv:.1f}); keeping BA."

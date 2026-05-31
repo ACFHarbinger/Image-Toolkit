@@ -11,7 +11,7 @@ import cv2
 import numpy as np
 import torch
 
-from .constants import _FOREGROUND_DILATION, _FOREGROUND_EROSION
+from backend.src.constants import FOREGROUND_DILATION, FOREGROUND_EROSION
 
 
 def _compute_fg_masks(
@@ -33,19 +33,19 @@ def _compute_fg_masks(
                 # New API: returns 255=background, 0=foreground, with dilation/erosion
                 bg = birefnet_wrapper.get_background_mask(
                     img,
-                    dilate_px=_FOREGROUND_DILATION,
-                    erode_px=_FOREGROUND_EROSION,
+                    dilate_px=FOREGROUND_DILATION,
+                    erode_px=FOREGROUND_EROSION,
                 )
             else:
                 # Legacy API: get_mask returns 255=foreground; invert + dilate manually
                 fg = birefnet_wrapper.get_mask(img)
                 bg = cv2.bitwise_not(fg)
-                if _FOREGROUND_DILATION > 0:
+                if FOREGROUND_DILATION > 0:
                     k = cv2.getStructuringElement(
                         cv2.MORPH_ELLIPSE,
                         (
-                            2 * _FOREGROUND_DILATION + 1,
-                            2 * _FOREGROUND_DILATION + 1,
+                            2 * FOREGROUND_DILATION + 1,
+                            2 * FOREGROUND_DILATION + 1,
                         ),
                     )
                     fg_dilated = cv2.dilate(fg, k)

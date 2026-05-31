@@ -42,7 +42,7 @@ from ...windows import ImagePreviewWindow
 from ...components import ClickableLabel, MarqueeScrollArea
 from ...helpers import MergeWorker, ImageScannerWorker
 from ...styles.style import apply_shadow_effect, SHARED_BUTTON_STYLE
-from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
+from backend.src.constants import SUPPORTED_IMG_FORMATS
 
 
 class MergeTab(AbstractClassTwoGalleries):

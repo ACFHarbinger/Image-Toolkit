@@ -451,5 +451,7 @@ mcp.json
 
 # Forcefully add to path
 !backend/src/models/
+!backend/src/utils/data
+!backend/src/utils/validation/target
 !gui/src/tabs/models/
 !gui/src/helpers/models/

@@ -46,7 +46,7 @@ from PySide6.QtCore import Qt
 
 from ...helpers.anim.annotation_canvas import AnnotationCanvas
 from backend.src.anim.rlhf.feedback_store import (
-    FLAW_TYPES,
+    RLHF_FLAW_TYPES,
     FeedbackStore,
     StitchAnnotation,
 )
@@ -251,7 +251,7 @@ class StitchFeedbackTab(QWidget):
         flaw_row = QHBoxLayout()
         flaw_row.addWidget(QLabel("Flaw type:"))
         self._flaw_combo = QComboBox()
-        self._flaw_combo.addItems(FLAW_TYPES)
+        self._flaw_combo.addItems(RLHF_FLAW_TYPES)
         self._flaw_combo.currentTextChanged.connect(self._canvas.set_active_flaw_type)
         flaw_row.addWidget(self._flaw_combo)
         ann_lay.addLayout(flaw_row)
@@ -514,7 +514,7 @@ class StitchFeedbackTab(QWidget):
             QMessageBox.warning(self, "No directory", "Select a frame directory first.")
             return
 
-        from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
+        from backend.src.constants import SUPPORTED_IMG_FORMATS
 
         image_paths = sorted(
             [

@@ -12,7 +12,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from ..constants import DE_CR, DE_F, DE_MAX_GEN, DE_POP_SIZE
+from ...constants import DE_CR, DE_F, DE_MAX_GEN, DE_POP_SIZE
 from ..stateless import _seam_dp
 
 

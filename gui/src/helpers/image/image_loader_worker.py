@@ -1,13 +1,10 @@
 from PySide6.QtGui import QImage
 from PySide6.QtCore import QRunnable, QObject, Signal, Slot, Qt
 from shiboken6 import Shiboken
+from backend.src.constants import HAS_NATIVE_IMAGING
 
-try:
+if HAS_NATIVE_IMAGING:
     import base
-
-    HAS_NATIVE_IMAGING = True
-except ImportError:
-    HAS_NATIVE_IMAGING = False
 
 
 def process_image_batch(paths: list[str], target_size: int):

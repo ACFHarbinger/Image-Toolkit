@@ -89,33 +89,15 @@ from PySide6.QtWidgets import (
     QSizePolicy,
 )
 
-from ....styles.style import apply_shadow_effect
-
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
-_THUMB_W = 96  # px  – thumbnail width in frame list
-_THUMB_H = 54  # px  – thumbnail height in frame list
-_CP_COLORS = [  # per-index colours for control points
-    QColor("#F44336"),
-    QColor("#2196F3"),
-    QColor("#4CAF50"),
-    QColor("#FF9800"),
-    QColor("#9C27B0"),
-    QColor("#00BCD4"),
-    QColor("#FFEB3B"),
-    QColor("#795548"),
-    QColor("#607D8B"),
-    QColor("#E91E63"),
-]
-_DARK_PANEL = "background:#2c2f33;"
-_DARK_GROUP = "QGroupBox { background:#2c2f33; color:#ccc; }"
-_DARK_TABLE = (
-    "QTableWidget { background:#2c2f33; "
-    "alternate-background-color:#36393f; } "
-    "QHeaderView::section { background:#1e1f22; color:#ccc; padding:4px; }"
+from ....constants import (
+    STITCH_THUMB_W,
+    STITCH_THUMB_H,
+    STITCH_CP_COLORS,
+    DARK_PANEL_STYLE,
+    DARK_GROUP_STYLE,
+    DARK_TABLE_STYLE,
 )
+from ....styles.style import apply_shadow_effect
 
 
 # ---------------------------------------------------------------------------
@@ -123,7 +105,7 @@ _DARK_TABLE = (
 # ---------------------------------------------------------------------------
 
 
-def _load_thumb(path: str, w: int = _THUMB_W, h: int = _THUMB_H) -> QPixmap:
+def _load_thumb(path: str, w: int = STITCH_THUMB_W, h: int = STITCH_THUMB_H) -> QPixmap:
     bgr = cv2.imread(path)
     if bgr is None:
         pm = QPixmap(w, h)
@@ -204,7 +186,7 @@ class _CPDot(QGraphicsEllipseItem):
         super().__init__(-self.R, -self.R, 2 * self.R, 2 * self.R)
         self._canvas = canvas
         self._idx = idx
-        color = _CP_COLORS[idx % len(_CP_COLORS)]
+        color = STITCH_CP_COLORS[idx % len(STITCH_CP_COLORS)]
         self.setBrush(QBrush(color))
         self.setPen(QPen(QColor("white"), 1.5))
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
@@ -1792,11 +1774,11 @@ class _FrameListItem(QListWidgetItem):
         super().__init__(os.path.basename(path))
         self.setData(Qt.ItemDataRole.UserRole, path)
         self.setToolTip(path)
-        pm = _load_thumb(path, _THUMB_W, _THUMB_H)
+        pm = _load_thumb(path, STITCH_THUMB_W, STITCH_THUMB_H)
         from PySide6.QtGui import QIcon
 
         self.setIcon(QIcon(pm))
-        self.setSizeHint(QSize(_THUMB_W + 4, _THUMB_H + 8))
+        self.setSizeHint(QSize(STITCH_THUMB_W + 4, STITCH_THUMB_H + 8))
 
 
 class HybridStitchPanel(QWidget):
@@ -1835,12 +1817,12 @@ class HybridStitchPanel(QWidget):
         sl.setSpacing(4)
 
         seq_group = QGroupBox("Sequence")
-        seq_group.setStyleSheet(_DARK_GROUP)
+        seq_group.setStyleSheet(DARK_GROUP_STYLE)
         seq_l = QVBoxLayout(seq_group)
 
         self._seq_list = QListWidget()
         self._seq_list.setMinimumHeight(160)
-        self._seq_list.setIconSize(QSize(_THUMB_W, _THUMB_H))
+        self._seq_list.setIconSize(QSize(STITCH_THUMB_W, STITCH_THUMB_H))
         self._seq_list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         self._seq_list.setDefaultDropAction(Qt.DropAction.MoveAction)
         self._seq_list.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
@@ -1869,7 +1851,7 @@ class HybridStitchPanel(QWidget):
 
         # Pair selector
         pair_group = QGroupBox("Working Pair")
-        pair_group.setStyleSheet(_DARK_GROUP)
+        pair_group.setStyleSheet(DARK_GROUP_STYLE)
         pair_l = QFormLayout(pair_group)
         self._pair_a_combo = QComboBox()
         self._pair_b_combo = QComboBox()

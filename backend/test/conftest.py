@@ -15,7 +15,7 @@ sys.path.insert(0, project_root)
 if repo_root not in sys.path:
     sys.path.insert(0, repo_root)
 
-import src.utils.definitions as udef  # noqa: E402
+import src.constants as udef  # noqa: E402
 
 from src.core import FSETool  # noqa: E402
 from src.web import ImageCrawler  # noqa: E402

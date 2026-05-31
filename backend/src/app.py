@@ -6,7 +6,7 @@ import threading
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 from gui.src.windows import MainWindow, LoginWindow
-from backend.src.utils.definitions import ICON_FILE, CTRL_C_TIMEOUT
+from backend.src.constants import ICON_FILE, CTRL_C_TIMEOUT
 
 
 def log_uncaught_exceptions(ex_type, ex_value, ex_traceback):

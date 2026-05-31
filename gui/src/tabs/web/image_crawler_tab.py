@@ -24,8 +24,8 @@ from ...windows import LogWindow
 from ...helpers import ImageCrawlWorker
 from ...components import OptionalField
 from ...styles.style import apply_shadow_effect
-from ...utils.app_definitions import SCREENSHOTS_DIR
-from backend.src.utils.definitions import LOCAL_SOURCE_PATH
+from ...constants import SCREENSHOTS_DIR
+from backend.src.constants import LOCAL_SOURCE_PATH
 
 
 class ImageCrawlTab(QWidget):

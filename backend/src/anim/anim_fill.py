@@ -30,22 +30,20 @@ Called from pipeline.py Stage 10.5 (after temporal render, before fg composite):
 
 from __future__ import annotations
 
-import os
-import sys
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional
 
 import cv2
 import numpy as np
 import torch
 from PIL import Image
 
+from backend.src.constants import TOONCRAFTER_REPO
+
 # ── Lazy ToonCrafter import ────────────────────────────────────────────────────
 
 _TC_OK = False
 _TC_ERR = ""
 _TC_PIPELINE = None  # cached pipeline instance
-
-_HF_REPO = "Doubiiu/ToonCrafter"
 
 
 def _load_tooncrafter(device: str = "cpu"):
@@ -61,16 +59,14 @@ def _load_tooncrafter(device: str = "cpu"):
         return _TC_PIPELINE
 
     try:
-        from huggingface_hub import hf_hub_download
-        from diffusers import DiffusionPipeline, EulerDiscreteScheduler
-        import torch
+        from diffusers import DiffusionPipeline
 
         # ToonCrafter uses a VideoCrafter2 architecture; load via DiffusionPipeline
         # with trust_remote_code since the model config specifies custom classes.
         # If full pipeline load is unsupported, fall back to simple interpolation.
         try:
             pipe = DiffusionPipeline.from_pretrained(
-                _HF_REPO,
+                TOONCRAFTER_REPO,
                 torch_dtype=torch.float16 if device == "cuda" else torch.float32,
                 trust_remote_code=True,
             )
@@ -83,7 +79,9 @@ def _load_tooncrafter(device: str = "cpu"):
             _TC_ERR = str(_inner)
             _TC_OK = False
             _TC_PIPELINE = "simple_interp"  # sentinel for fallback
-            print(f"[ToonCrafter] Full pipeline unavailable ({_inner}); using cross-dissolve fallback.")
+            print(
+                f"[ToonCrafter] Full pipeline unavailable ({_inner}); using cross-dissolve fallback."
+            )
     except Exception as _e:
         _TC_ERR = str(_e)
         _TC_PIPELINE = "simple_interp"
@@ -102,7 +100,9 @@ def _warp_frame_to_canvas(
     W: int,
 ) -> np.ndarray:
     return cv2.warpAffine(
-        frame, affine, (W, H),
+        frame,
+        affine,
+        (W, H),
         flags=cv2.INTER_LINEAR,
         borderMode=cv2.BORDER_CONSTANT,
         borderValue=0,
@@ -186,8 +186,7 @@ def tooncrafter_ghost_fill(
         return canvas
 
     print(
-        f"[ToonCrafter] Ghost fill: {anim_px} animated px, "
-        f"{len(phase_groups)} phases."
+        f"[ToonCrafter] Ghost fill: {anim_px} animated px, {len(phase_groups)} phases."
     )
 
     result = canvas.copy()
@@ -211,7 +210,7 @@ def tooncrafter_ghost_fill(
 
     # Composite: replace animated pixels with canonical cel where canonical
     # has content (non-black); fall back to dominant-phase frame otherwise.
-    anim_bool = (anim_mask > 0)
+    anim_bool = anim_mask > 0
     canonical_has_content = canonical.max(axis=2) > 5
     dominant_has_content = frame_a_warp.max(axis=2) > 5
 

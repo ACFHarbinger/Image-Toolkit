@@ -17,11 +17,11 @@ from __future__ import annotations
 import sys
 import types
 
-import cv2
 import numpy as np
 
 _UPSCALE_OK = False
 _UPSCALE_ERR = ""
+
 
 def _ensure_basicsr() -> bool:
     """
@@ -34,6 +34,7 @@ def _ensure_basicsr() -> bool:
     if "torchvision.transforms.functional_tensor" not in sys.modules:
         try:
             from torchvision.transforms import functional as _tvF
+
             _stub = types.ModuleType("torchvision.transforms.functional_tensor")
             _stub.rgb_to_grayscale = _tvF.rgb_to_grayscale  # type: ignore[attr-defined]
             sys.modules["torchvision.transforms.functional_tensor"] = _stub
@@ -46,6 +47,7 @@ try:
     _ensure_basicsr()
     from basicsr.archs.rrdbnet_arch import RRDBNet  # type: ignore
     from realesrgan import RealESRGANer  # type: ignore
+
     _UPSCALE_OK = True
 except Exception as _e:
     _UPSCALE_ERR = str(_e)
@@ -54,19 +56,24 @@ except Exception as _e:
 _MODEL_CACHE: dict = {}
 
 
-def _get_upsampler(scale: int = 4, tile: int = 512, device: str = "cpu") -> "RealESRGANer":
+def _get_upsampler(
+    scale: int = 4, tile: int = 512, device: str = "cpu"
+) -> "RealESRGANer":
     """Return a cached RealESRGANer for the anime_6B model."""
     key = (scale, tile, device)
     if key in _MODEL_CACHE:
         return _MODEL_CACHE[key]
 
-    import torch
     from huggingface_hub import hf_hub_download
 
     # anime_6B: 6 RRDB blocks — lighter and sharper on anime than the 23-block model
     model_arch = RRDBNet(
-        num_in_ch=3, num_out_ch=3, num_feat=64,
-        num_block=6, num_grow_ch=32, scale=4,
+        num_in_ch=3,
+        num_out_ch=3,
+        num_feat=64,
+        num_block=6,
+        num_grow_ch=32,
+        scale=4,
     )
     # Download weights from HuggingFace mirror
     ckpt_path = hf_hub_download(

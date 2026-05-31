@@ -8,7 +8,7 @@ from datetime import date
 from typing import List, Dict, Any, Optional
 
 from PySide6.QtCore import Qt, Signal, Slot, QUrl, QSize, QThread, QTimer, QObject
-from PySide6.QtGui import QPixmap, QDesktopServices, QImage
+from PySide6.QtGui import QPixmap, QDesktopServices, QImage, QColor
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -33,14 +33,37 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QSlider,
+    QCheckBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QAbstractItemView,
 )
 
 import os
-import backend.src.utils.definitions as udef
-from backend.src.utils.definitions import IMAGE_TOOLKIT_DIR
+import backend.src.constants as udef
+from backend.src.constants import IMAGE_TOOLKIT_DIR
 from backend.src.core.vault_manager import VaultManager  # noqa: F401
 from ...styles.style import apply_shadow_effect, SHARED_BUTTON_STYLE
 from ...components import DoubleClickableLabel
+from ...constants.listings import (
+    LISTINGS_FILE,
+    ENTITIES_FILE,
+    LISTING_IMAGES_DIR,
+    ENTRY_TYPES,
+    ENTRY_STATUS,
+    TYPE_COLORS,
+    STATUS_COLORS,
+    ENTITY_TYPES,
+    ENTITY_ROLES,
+    ENTITY_TYPE_COLORS,
+    ENTITY_ROLE_COLORS,
+    CARD_SIZE,
+    THUMB_SIZE,
+    PLACEHOLDER,
+    ENTITY_PLACEHOLDER,
+    VIDEO_IMPORT_EXTS,
+)
 
 
 def open_file_location(path: str):
@@ -261,74 +284,44 @@ class _FrameWorker(QThread):
             self.signals.failed.emit()
 
 
-# -------------------------------------------------------------------
-# Constants & Storage Files
-# -------------------------------------------------------------------
-LISTINGS_FILE = IMAGE_TOOLKIT_DIR / "listings.json"
-ENTITIES_FILE = IMAGE_TOOLKIT_DIR / "entities.json"
-LISTING_IMAGES_DIR = IMAGE_TOOLKIT_DIR / "listing-images"
+def _parse_video_series(filename: str):
+    """
+    Parse '<Series Name> - <EP_NUM> <suffix>.<ext>' into (series_name, ep_num_or_None).
+    Falls back to (stem, None) for filenames that don't contain ' - '.
+    """
+    import re as _re
+    stem = Path(filename).stem
+    parts = stem.split(" - ", 1)
+    if len(parts) < 2:
+        return stem.strip(), None
+    series_name = parts[0].strip()
+    ep_part = parts[1].strip()
+    m = _re.match(r"^(\d+)", ep_part)
+    return series_name, (int(m.group(1)) if m else None)
 
-# Content Listing Configs
-ENTRY_TYPES = ["Anime", "Movie", "Show", "Book", "Manga", "Game", "Other"]
-ENTRY_STATUS = [
-    "Completed",
-    "Watching / Reading",
-    "On Hold",
-    "Dropped",
-    "Plan to Watch",
-]
 
-TYPE_COLORS = {
-    "Anime": "#e91e63",
-    "Movie": "#2196f3",
-    "Show": "#4caf50",
-    "Book": "#ff9800",
-    "Manga": "#9c27b0",
-    "Game": "#00bcd4",
-    "Other": "#607d8b",
-}
-STATUS_COLORS = {
-    "Completed": "#2ecc71",
-    "Watching / Reading": "#3498db",
-    "On Hold": "#f39c12",
-    "Dropped": "#e74c3c",
-    "Plan to Watch": "#95a5a6",
-}
+def _scan_video_directory(directory: str) -> "dict[str, list[tuple]]":
+    """Scan *directory* (max-depth 1) for video files.
 
-# Entity Listing Configs
-ENTITY_TYPES = ["Person", "Organization", "Fictional Character", "Other"]
-ENTITY_ROLES = [
-    "Actor / Seiyuu",
-    "Director",
-    "Producer",
-    "Writer",
-    "Studio",
-    "Publisher",
-    "Fictional Character",
-    "Other",
-]
-
-ENTITY_TYPE_COLORS = {
-    "Person": "#e91e63",
-    "Organization": "#2196f3",
-    "Fictional Character": "#ff9800",
-    "Other": "#607d8b",
-}
-ENTITY_ROLE_COLORS = {
-    "Director": "#4caf50",
-    "Producer": "#9c27b0",
-    "Writer": "#8e44ad",
-    "Actor / Seiyuu": "#00bcd4",
-    "Studio": "#e91e63",
-    "Publisher": "#2196f3",
-    "Fictional Character": "#ff9800",
-    "Other": "#607d8b",
-}
-
-CARD_SIZE = 180
-THUMB_SIZE = 130
-PLACEHOLDER = "📽"  # shown when no image is set
-ENTITY_PLACEHOLDER = "👤"
+    Returns ``{series_name: [(ep_num_or_None, abs_path), ...]}`` with each
+    series' list sorted by episode number (None episodes go last).
+    """
+    result: dict = {}
+    dir_path = Path(directory)
+    try:
+        entries = sorted(dir_path.iterdir(), key=lambda e: e.name.lower())
+    except OSError:
+        return result
+    for entry in entries:
+        if not entry.is_file():
+            continue
+        if entry.suffix.lower() not in VIDEO_IMPORT_EXTS:
+            continue
+        series_name, ep_num = _parse_video_series(entry.name)
+        result.setdefault(series_name, []).append((ep_num, str(entry.absolute())))
+    for name in result:
+        result[name].sort(key=lambda x: (x[0] is None, x[0] or 0))
+    return result
 
 
 # -------------------------------------------------------------------
@@ -1093,6 +1086,7 @@ class _DetailPanel(QWidget):
         self._entry_id: Optional[str] = None
         self._image_path = ""
         self._episode_data = []
+        self._mal_worker = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -1126,6 +1120,19 @@ class _DetailPanel(QWidget):
         self.btn_gen_thumb.setFixedWidth(140)
         img_btns_layout.addWidget(self.btn_gen_thumb)
 
+        self.btn_mal = QPushButton("Auto-Fill from MAL")
+        self.btn_mal.setToolTip("Fetch metadata from MyAnimeList via Jikan API (Anime only)")
+        self.btn_mal.setFixedWidth(140)
+        self.btn_mal.setStyleSheet(
+            "QPushButton { background-color:#1565c0; color:white; font-weight:bold;"
+            " padding:6px 8px; border-radius:6px; border:none; }"
+            "QPushButton:hover { background-color:#1976d2; }"
+            "QPushButton:pressed { background-color:#0d47a1; }"
+            "QPushButton:disabled { background-color:#37474f; color:#78909c; }"
+        )
+        self.btn_mal.clicked.connect(self._on_fetch_mal_clicked)
+        img_btns_layout.addWidget(self.btn_mal)
+
         img_row.addLayout(img_btns_layout)
         img_row.addStretch()
         layout.addLayout(img_row)
@@ -1138,6 +1145,11 @@ class _DetailPanel(QWidget):
         self.f_title.setPlaceholderText("e.g. Cowboy Bebop")
         self.f_type = QComboBox()
         self.f_type.addItems(ENTRY_TYPES)
+        # "Anime" is ENTRY_TYPES[0] so the button starts enabled by default
+        self.btn_mal.setEnabled(self.f_type.currentText() == "Anime")
+        self.f_type.currentTextChanged.connect(
+            lambda text: self.btn_mal.setEnabled(text == "Anime")
+        )
         self.f_status = QComboBox()
         self.f_status.addItems(ENTRY_STATUS)
         self.f_rating = QSpinBox()
@@ -1437,6 +1449,52 @@ class _DetailPanel(QWidget):
             "Unsupported Format",
             "This file format is not supported for generating a thumbnail.",
         )
+
+    @Slot()
+    def _on_fetch_mal_clicked(self):
+        from ...helpers.web.mal_sync_worker import MalSyncWorker
+
+        title = self.f_title.text().strip()
+        if not title:
+            QMessageBox.warning(
+                self, "No Title", "Please enter a title before fetching from MAL."
+            )
+            return
+        self.btn_mal.setText("Fetching...")
+        self.btn_mal.setEnabled(False)
+        self._mal_worker = MalSyncWorker(title)
+        self._mal_worker.finished.connect(self._on_mal_finished)
+        self._mal_worker.error.connect(self._on_mal_error)
+        self._mal_worker.start()
+
+    @Slot(dict)
+    def _on_mal_finished(self, data: dict):
+        synopsis = data.get("synopsis", "")
+        if synopsis:
+            self.f_review.setPlainText(synopsis)
+        episodes = data.get("episodes")
+        if episodes:
+            self.f_episodes.setValue(int(episodes))
+        score = data.get("score")
+        if score:
+            self.f_rating.setValue(int(score))
+        genres = data.get("genres", "")
+        if genres:
+            self.f_genres.setText(genres)
+        year = data.get("year")
+        if year:
+            self.f_year.setValue(int(year))
+        mapped_status = data.get("status", "")
+        if mapped_status and mapped_status in ENTRY_STATUS:
+            self.f_status.setCurrentText(mapped_status)
+        self.btn_mal.setText("Auto-Fill from MAL")
+        self.btn_mal.setEnabled(True)
+
+    @Slot(str)
+    def _on_mal_error(self, message: str):
+        QMessageBox.critical(self, "MAL Fetch Error", message)
+        self.btn_mal.setText("Auto-Fill from MAL")
+        self.btn_mal.setEnabled(True)
 
     def _browse_image(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -2217,6 +2275,297 @@ class AdvancedSearchDialog(QDialog):
 
 
 # -------------------------------------------------------------------
+# Directory Import Dialog
+# -------------------------------------------------------------------
+class _DirectoryImportDialog(QDialog):
+    """One-shot wizard: pick a directory of video files → review detected
+    series → configure shared metadata → confirm or cancel import."""
+
+    def __init__(self, existing_titles: "set[str]", parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("📂 Import Listings from Video Directory")
+        self.setMinimumSize(840, 620)
+        self.setStyleSheet(
+            "QDialog { background:#2c2f33; color:white; }"
+            "QLabel  { color:white; }"
+            "QLineEdit, QSpinBox, QComboBox { background:#23272a; color:white;"
+            "  border:1px solid #4f545c; border-radius:4px; padding:4px; }"
+            "QGroupBox { border:1px solid #4f545c; border-radius:6px;"
+            "  margin-top:8px; color:#00bcd4; font-weight:bold; }"
+            "QGroupBox::title { subcontrol-origin:margin; left:8px; padding:0 4px; }"
+        )
+
+        self._existing_titles = existing_titles  # lowercase normalised set
+        self._scan_result: dict = {}             # {series_name: [(ep_num, path), ...]}
+        self._directory = ""
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(14, 14, 14, 14)
+        root.setSpacing(10)
+
+        # ── Directory picker row ──────────────────────────────────────
+        dir_group = QGroupBox("Video Directory")
+        dir_row = QHBoxLayout(dir_group)
+        dir_row.setSpacing(6)
+        self._dir_edit = QLineEdit()
+        self._dir_edit.setPlaceholderText("Select the folder that contains your video files…")
+        self._dir_edit.setReadOnly(True)
+        browse_btn = QPushButton("📁 Browse…")
+        browse_btn.setFixedWidth(100)
+        browse_btn.clicked.connect(self._browse)
+        scan_btn = QPushButton("🔍 Scan")
+        scan_btn.setFixedWidth(80)
+        scan_btn.clicked.connect(self._do_scan)
+        dir_row.addWidget(self._dir_edit, 1)
+        dir_row.addWidget(browse_btn)
+        dir_row.addWidget(scan_btn)
+        root.addWidget(dir_group)
+
+        # ── Middle: table left | options right ────────────────────────
+        splitter = QSplitter(Qt.Horizontal)
+
+        # Left — detected-series table
+        left = QWidget()
+        left_vbox = QVBoxLayout(left)
+        left_vbox.setContentsMargins(0, 0, 0, 0)
+        left_vbox.setSpacing(6)
+
+        self._status_lbl = QLabel("Scan a directory to detect series.")
+        self._status_lbl.setStyleSheet("color:#888; font-size:11px;")
+        left_vbox.addWidget(self._status_lbl)
+
+        self._table = QTableWidget(0, 4)
+        self._table.setHorizontalHeaderLabels(["", "Series Name", "Episodes", "Status"])
+        self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self._table.setColumnWidth(0, 32)
+        self._table.setColumnWidth(2, 72)
+        self._table.setColumnWidth(3, 120)
+        self._table.verticalHeader().hide()
+        self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self._table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._table.setAlternatingRowColors(True)
+        self._table.setStyleSheet(
+            "QTableWidget { background:#23272a; alternate-background-color:#252830;"
+            "  border:1px solid #4f545c; border-radius:6px; gridline-color:#3a3d42; }"
+            "QTableWidget::item { color:white; padding:3px; }"
+            "QTableWidget::item:selected { background:#00bcd4; color:black; }"
+            "QHeaderView::section { background:#2c2f33; color:#888; border:none; padding:4px; }"
+        )
+        left_vbox.addWidget(self._table, 1)
+
+        sel_row = QHBoxLayout()
+        sel_all_btn = QPushButton("☑ Select All New")
+        sel_all_btn.setFixedHeight(26)
+        sel_all_btn.clicked.connect(self._select_all_new)
+        sel_none_btn = QPushButton("☐ Deselect All")
+        sel_none_btn.setFixedHeight(26)
+        sel_none_btn.clicked.connect(self._deselect_all)
+        sel_row.addWidget(sel_all_btn)
+        sel_row.addWidget(sel_none_btn)
+        sel_row.addStretch()
+        left_vbox.addLayout(sel_row)
+        splitter.addWidget(left)
+
+        # Right — metadata options
+        right = QWidget()
+        right_vbox = QVBoxLayout(right)
+        right_vbox.setContentsMargins(6, 0, 0, 0)
+        right_vbox.setSpacing(8)
+
+        meta_group = QGroupBox("Metadata Applied to All New Entries")
+        meta_form = QFormLayout(meta_group)
+        meta_form.setSpacing(8)
+
+        self._f_type = QComboBox()
+        self._f_type.addItems(ENTRY_TYPES)
+        self._f_type.setCurrentText("Anime")
+
+        self._f_status = QComboBox()
+        self._f_status.addItems(ENTRY_STATUS)
+        self._f_status.setCurrentText("Plan to Watch")
+
+        self._f_year = QSpinBox()
+        self._f_year.setRange(0, 2100)
+        self._f_year.setValue(0)
+        self._f_year.setSpecialValueText("Unknown")
+
+        self._f_genres = QLineEdit()
+        self._f_genres.setPlaceholderText("e.g. Action, Comedy")
+
+        self._f_tags = QLineEdit()
+        self._f_tags.setPlaceholderText("e.g. subbed, seasonal")
+
+        self._f_creator = QLineEdit()
+        self._f_creator.setPlaceholderText("Studio / Author (optional)")
+
+        meta_form.addRow("Type:", self._f_type)
+        meta_form.addRow("Status:", self._f_status)
+        meta_form.addRow("Year:", self._f_year)
+        meta_form.addRow("Genres:", self._f_genres)
+        meta_form.addRow("Tags:", self._f_tags)
+        meta_form.addRow("Creator:", self._f_creator)
+        right_vbox.addWidget(meta_group)
+        right_vbox.addStretch()
+
+        info_lbl = QLabel(
+            "<small>"
+            "<b>What gets created per series:</b><br>"
+            "• Title from the filename prefix before <code> - </code><br>"
+            "• <i>Episodes</i> count = number of matching files<br>"
+            "• <i>Local File</i> = path to the first episode<br>"
+            "• Individual episode entries, each with its own file path<br>"
+            "• Episode number extracted from the filename<br><br>"
+            "<b>Filename format expected:</b><br>"
+            "<code>&lt;Series&gt; - &lt;##&gt; [suffix].ext</code>"
+            "</small>"
+        )
+        info_lbl.setWordWrap(True)
+        info_lbl.setStyleSheet("color:#888; font-size:10px; border:none;")
+        right_vbox.addWidget(info_lbl)
+        splitter.addWidget(right)
+
+        splitter.setSizes([520, 300])
+        root.addWidget(splitter, 1)
+
+        # ── Confirm / cancel ──────────────────────────────────────────
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setFixedWidth(90)
+        cancel_btn.clicked.connect(self.reject)
+        self._import_btn = QPushButton("📥 Import Selected")
+        self._import_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        self._import_btn.setFixedWidth(150)
+        self._import_btn.setEnabled(False)
+        self._import_btn.clicked.connect(self.accept)
+        btn_row.addWidget(cancel_btn)
+        btn_row.addWidget(self._import_btn)
+        root.addLayout(btn_row)
+
+    # ------------------------------------------------------------------
+    def _browse(self):
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            "Select Video Directory",
+            self._directory or str(Path.home()),
+            QFileDialog.Option.ShowDirsOnly
+            | QFileDialog.Option.DontResolveSymlinks
+            | QFileDialog.Option.DontUseNativeDialog,
+        )
+        if directory:
+            self._directory = directory
+            self._dir_edit.setText(directory)
+            self._do_scan()
+
+    def _do_scan(self):
+        directory = self._dir_edit.text().strip() or self._directory
+        if not directory or not Path(directory).is_dir():
+            QMessageBox.warning(self, "Invalid Directory", "Please select a valid directory first.")
+            return
+        self._directory = directory
+        self._scan_result = _scan_video_directory(directory)
+        self._populate_table()
+
+    def _populate_table(self):
+        self._table.setRowCount(0)
+        new_count = exists_count = 0
+
+        for series_name, episodes in sorted(
+            self._scan_result.items(), key=lambda kv: kv[0].lower()
+        ):
+            already = series_name.lower() in self._existing_titles
+            if already:
+                exists_count += 1
+            else:
+                new_count += 1
+
+            row = self._table.rowCount()
+            self._table.insertRow(row)
+
+            # Col 0 – checkbox (wrapped in a centred container)
+            chk = QCheckBox()
+            chk.setChecked(not already)
+            chk.setStyleSheet("QCheckBox { margin-left:6px; }")
+            container = QWidget()
+            c_lay = QHBoxLayout(container)
+            c_lay.addWidget(chk)
+            c_lay.setAlignment(Qt.AlignCenter)
+            c_lay.setContentsMargins(0, 0, 0, 0)
+            self._table.setCellWidget(row, 0, container)
+
+            # Col 1 – series name (store original as UserRole for retrieval)
+            name_item = QTableWidgetItem(series_name)
+            name_item.setData(Qt.UserRole, series_name)
+            name_item.setToolTip(series_name)
+            self._table.setItem(row, 1, name_item)
+
+            # Col 2 – episode count
+            ep_item = QTableWidgetItem(str(len(episodes)))
+            ep_item.setTextAlignment(Qt.AlignCenter)
+            self._table.setItem(row, 2, ep_item)
+
+            # Col 3 – new / already-exists badge
+            if already:
+                st_item = QTableWidgetItem("⚠ Already exists")
+                st_item.setForeground(QColor("#f39c12"))
+            else:
+                st_item = QTableWidgetItem("✓ New")
+                st_item.setForeground(QColor("#2ecc71"))
+            self._table.setItem(row, 3, st_item)
+
+        total = len(self._scan_result)
+        self._status_lbl.setText(
+            f"Found {total} series — {new_count} new, {exists_count} already in listings."
+        )
+        self._import_btn.setEnabled(total > 0)
+
+    # ------------------------------------------------------------------
+    def _select_all_new(self):
+        for row in range(self._table.rowCount()):
+            st = self._table.item(row, 3)
+            if st and "New" in st.text():
+                self._set_row_check(row, True)
+
+    def _deselect_all(self):
+        for row in range(self._table.rowCount()):
+            self._set_row_check(row, False)
+
+    def _set_row_check(self, row: int, state: bool):
+        cw = self._table.cellWidget(row, 0)
+        if cw:
+            chk = cw.findChild(QCheckBox)
+            if chk:
+                chk.setChecked(state)
+
+    # ------------------------------------------------------------------
+    def get_selected_series(self) -> "list[str]":
+        """Return the list of series names whose checkboxes are ticked."""
+        selected = []
+        for row in range(self._table.rowCount()):
+            cw = self._table.cellWidget(row, 0)
+            if cw:
+                chk = cw.findChild(QCheckBox)
+                if chk and chk.isChecked():
+                    item = self._table.item(row, 1)
+                    if item:
+                        selected.append(item.data(Qt.UserRole))
+        return selected
+
+    def get_scan_result(self) -> dict:
+        return self._scan_result
+
+    def get_metadata(self) -> dict:
+        return {
+            "type": self._f_type.currentText(),
+            "status": self._f_status.currentText(),
+            "year": self._f_year.value(),
+            "genres": self._f_genres.text().strip(),
+            "tags": self._f_tags.text().strip(),
+            "creator": self._f_creator.text().strip(),
+        }
+
+
+# -------------------------------------------------------------------
 # Sub-tab: Content Listings
 # -------------------------------------------------------------------
 class ContentListingsSubTab(QWidget):
@@ -2299,26 +2648,53 @@ class ContentListingsSubTab(QWidget):
         self.sort_order_combo.currentTextChanged.connect(self._on_sort_changed)
         toolbar.addWidget(self.sort_order_combo)
 
+        # ── Pair 1: Add Entry (top) / Import Dir (bottom) ──────────────
+        entry_pair = QWidget()
+        entry_pair_vbox = QVBoxLayout(entry_pair)
+        entry_pair_vbox.setContentsMargins(0, 0, 0, 0)
+        entry_pair_vbox.setSpacing(3)
+
         add_btn = QPushButton("＋ Add Entry")
         add_btn.setStyleSheet(SHARED_BUTTON_STYLE)
         add_btn.setFixedWidth(120)
         add_btn.clicked.connect(self._on_add_new)
         apply_shadow_effect(add_btn)
-        toolbar.addWidget(add_btn)
+
+        import_dir_btn = QPushButton("📂 Import Dir")
+        import_dir_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        import_dir_btn.setFixedWidth(120)
+        import_dir_btn.setToolTip(
+            "Scan a video directory and auto-create listings\n"
+            "for series that don't already have an entry."
+        )
+        import_dir_btn.clicked.connect(self._on_import_from_directory)
+        apply_shadow_effect(import_dir_btn)
+
+        entry_pair_vbox.addWidget(add_btn)
+        entry_pair_vbox.addWidget(import_dir_btn)
+        toolbar.addWidget(entry_pair)
+
+        # ── Pair 2: Sync Backup (top) / Update Backup (bottom) ─────────
+        backup_pair = QWidget()
+        backup_pair_vbox = QVBoxLayout(backup_pair)
+        backup_pair_vbox.setContentsMargins(0, 0, 0, 0)
+        backup_pair_vbox.setSpacing(3)
 
         sync_btn = QPushButton("🔄 Sync Backup")
         sync_btn.setStyleSheet(SHARED_BUTTON_STYLE)
-        sync_btn.setFixedWidth(120)
+        sync_btn.setFixedWidth(130)
         sync_btn.clicked.connect(self._synchronize_listings)
         apply_shadow_effect(sync_btn)
-        toolbar.addWidget(sync_btn)
 
         update_btn = QPushButton("⚡ Update Backup")
         update_btn.setStyleSheet(SHARED_BUTTON_STYLE)
         update_btn.setFixedWidth(130)
         update_btn.clicked.connect(self._update_encrypted_backup)
         apply_shadow_effect(update_btn)
-        toolbar.addWidget(update_btn)
+
+        backup_pair_vbox.addWidget(sync_btn)
+        backup_pair_vbox.addWidget(update_btn)
+        toolbar.addWidget(backup_pair)
 
         root.addLayout(toolbar)
 
@@ -2796,6 +3172,87 @@ class ContentListingsSubTab(QWidget):
         except Exception as e:
             QMessageBox.critical(
                 self, "Backup Error", f"An error occurred while generating backup:\n{e}"
+            )
+
+    # ------------------------------------------------------------------
+    @Slot()
+    def _on_import_from_directory(self):
+        """Open the directory-import wizard and create listings for new series."""
+        existing_titles = {e.get("title", "").lower() for e in self._entries}
+        dlg = _DirectoryImportDialog(existing_titles, parent=self)
+        if dlg.exec() != QDialog.Accepted:
+            return
+
+        selected_series = dlg.get_selected_series()
+        if not selected_series:
+            QMessageBox.information(
+                self, "Nothing to Import",
+                "No series were selected. Nothing was imported."
+            )
+            return
+
+        scan_result = dlg.get_scan_result()
+        meta = dlg.get_metadata()
+        today = str(date.today())
+        created = 0
+
+        for series_name in selected_series:
+            episodes = scan_result.get(series_name, [])
+            if not episodes:
+                continue
+
+            # Build the per-episode sub-list
+            episode_list = []
+            for idx, (ep_num, file_path) in enumerate(episodes):
+                episode_list.append({
+                    "id": str(uuid.uuid4()),
+                    "number": ep_num if ep_num is not None else (idx + 1),
+                    "title": "",
+                    "date_watched": today,
+                    "rating": 0,
+                    "review": "",
+                    "image_path": "",
+                    "local_file": file_path,
+                    "web_link": "",
+                })
+
+            entry = {
+                "id": str(uuid.uuid4()),
+                "title": series_name,
+                "type": meta["type"],
+                "status": meta["status"],
+                "rating": 0,
+                "year": meta["year"],
+                "episodes": len(episodes),
+                "current_episode": 0,
+                "genres": meta["genres"],
+                "tags": meta["tags"],
+                "creator": meta.get("creator", ""),
+                "associated_entities": [],
+                # First episode's file is the series-level local file
+                "local_file": episodes[0][1],
+                "web_link": "",
+                "review": "",
+                "image_path": "",
+                "episode_list": episode_list,
+                "date_added": today,
+            }
+            self._entries.insert(0, entry)
+            created += 1
+
+        if created:
+            self._save_data()
+            self._rebuild_gallery()
+            QMessageBox.information(
+                self,
+                "Import Complete",
+                f"Successfully imported {created} new listing"
+                f"{'s' if created != 1 else ''}.",
+            )
+        else:
+            QMessageBox.information(
+                self, "No New Entries",
+                "All selected series already had listings — nothing was added."
             )
 
 

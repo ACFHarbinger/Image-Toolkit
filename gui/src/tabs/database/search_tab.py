@@ -29,7 +29,7 @@ from ...classes import AbstractClassTwoGalleries
 from ...components import OptionalField, DraggableLabel, MarqueeScrollArea
 from ...utils.sort_utils import natural_sort_key
 from ...styles.style import apply_shadow_effect
-from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
+from backend.src.constants import SUPPORTED_IMG_FORMATS
 
 
 class SearchTab(AbstractClassTwoGalleries):

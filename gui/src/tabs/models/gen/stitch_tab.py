@@ -108,24 +108,34 @@ from ....helpers.models.stitch_worker import (
 )
 from ....styles.style import apply_shadow_effect
 from .hybrid_stitch_panel import HybridStitchPanel as RealHybridStitchPanel
+from ....constants import (
+    CONF_HIGH,
+    CONF_MED,
+    CONF_LOW,
+    ANCHOR_RADIUS,
+    MAX_DISPLAYED_MATCHES,
+    PORT_RADIUS,
+    NODE_WIDTH,
+    NODE_HDR_HEIGHT,
+    NODE_BODY_HEIGHT,
+    NODE_THUMB_HEIGHT,
+    EDGE_COLOR,
+    SIZE_PRESETS,
+    CROP_PRESETS,
+    ANIM_CLUSTER_COLORS,
+)
 
 # ---------------------------------------------------------------------------
 # Stitch-panel helpers
 # ---------------------------------------------------------------------------
 
-_CONF_HIGH = QColor(80, 220, 80, 180)
-_CONF_MED = QColor(220, 200, 40, 160)
-_CONF_LOW = QColor(220, 60, 60, 140)
-_ANCHOR_RADIUS = 5
-_MAX_DISPLAYED_MATCHES = 150
-
 
 def _conf_color(c: float) -> QColor:
     if c >= 0.7:
-        return _CONF_HIGH
+        return CONF_HIGH
     if c >= 0.5:
-        return _CONF_MED
-    return _CONF_LOW
+        return CONF_MED
+    return CONF_LOW
 
 
 def _bgr_to_qpixmap(bgr: np.ndarray, max_dim: int = 600) -> QPixmap:
@@ -423,19 +433,12 @@ class _ThumbnailFilePicker(QDialog):
 # Node graph editor (Graph sub-tab)
 # ---------------------------------------------------------------------------
 
-_PORT_R = 6
-_NODE_W = 220
-_NODE_HDR_H = 26
-_NODE_BODY_H = 52
-_THUMB_H = 110  # height of the thumbnail area in _SourceNode
-_EDGE_COL = QColor(80, 200, 255, 200)
-
 
 class _Port(QGraphicsEllipseItem):
     """Input (left) or output (right) connection port on a graph node."""
 
     def __init__(self, node, is_input: bool, index: int = 0):
-        r = _PORT_R
+        r = PORT_RADIUS
         super().__init__(-r, -r, r * 2, r * 2)
         self.node = node
         self.is_input = is_input
@@ -472,7 +475,7 @@ class _GraphEdge(QGraphicsPathItem):
         super().__init__()
         self.src = src
         self.dst = dst
-        pen = QPen(_EDGE_COL, 2)
+        pen = QPen(EDGE_COLOR, 2)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         self.setPen(pen)
         self.setZValue(5)
@@ -504,8 +507,8 @@ class _BaseNode(QGraphicsRectItem):
     """Draggable rounded-rect node with title bar and ports."""
 
     def __init__(self, title: str, hdr_color: QColor, x: float = 0, y: float = 0):
-        h = _NODE_HDR_H + _NODE_BODY_H
-        super().__init__(0, 0, _NODE_W, h)
+        h = NODE_HDR_HEIGHT + NODE_BODY_HEIGHT
+        super().__init__(0, 0, NODE_WIDTH, h)
         self.setPos(x, y)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
@@ -524,7 +527,7 @@ class _BaseNode(QGraphicsRectItem):
         n = len(self._input_ports)
         h = self.rect().height()
         for i, p in enumerate(self._input_ports):
-            p.setPos(0, _NODE_HDR_H + (i + 1) * (h - _NODE_HDR_H) / (n + 1))
+            p.setPos(0, NODE_HDR_HEIGHT + (i + 1) * (h - NODE_HDR_HEIGHT) / (n + 1))
 
     def add_input_port(self) -> _Port:
         p = _Port(self, is_input=True, index=len(self._input_ports))
@@ -536,7 +539,7 @@ class _BaseNode(QGraphicsRectItem):
     def set_output_port(self) -> _Port:
         p = _Port(self, is_input=False)
         p.setParentItem(self)
-        p.setPos(_NODE_W, self.rect().height() / 2)
+        p.setPos(NODE_WIDTH, self.rect().height() / 2)
         self._output_port = p
         return p
 
@@ -563,7 +566,7 @@ class _BaseNode(QGraphicsRectItem):
         painter.drawRoundedRect(r, 7, 7)
         # header fill clipped to top rounded corners
         painter.save()
-        painter.setClipRect(QRectF(0, 0, _NODE_W, _NODE_HDR_H))
+        painter.setClipRect(QRectF(0, 0, NODE_WIDTH, NODE_HDR_HEIGHT))
         painter.setBrush(QBrush(self._hdr_color))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRoundedRect(r, 7, 7)
@@ -572,7 +575,7 @@ class _BaseNode(QGraphicsRectItem):
         painter.setPen(Qt.GlobalColor.white)
         painter.setFont(QFont("sans-serif", 8, QFont.Weight.Bold))
         painter.drawText(
-            QRectF(10, 0, _NODE_W - 20, _NODE_HDR_H),
+            QRectF(10, 0, NODE_WIDTH - 20, NODE_HDR_HEIGHT),
             Qt.AlignmentFlag.AlignVCenter,
             self._title,
         )
@@ -582,9 +585,9 @@ class _BaseNode(QGraphicsRectItem):
         painter.drawText(
             QRectF(
                 10,
-                _NODE_HDR_H + 4,
-                _NODE_W - 20,
-                self.rect().height() - _NODE_HDR_H - 8,
+                NODE_HDR_HEIGHT + 4,
+                NODE_WIDTH - 20,
+                self.rect().height() - NODE_HDR_HEIGHT - 8,
             ),
             Qt.AlignmentFlag.AlignTop
             | Qt.AlignmentFlag.AlignLeft
@@ -613,7 +616,7 @@ class _SourceNode(_BaseNode):
         # Taller rect to accommodate thumbnail
         super().__init__(os.path.basename(path), self._HDR, x, y)
         self.path = path
-        self.setRect(0, 0, _NODE_W, _NODE_HDR_H + _THUMB_H)
+        self.setRect(0, 0, NODE_WIDTH, NODE_HDR_HEIGHT + NODE_THUMB_HEIGHT)
         self._thumb: Optional[QPixmap] = self._load_thumb(path)
         self.set_output_port()  # repositioned after setRect
 
@@ -625,8 +628,8 @@ class _SourceNode(_BaseNode):
             return None
         orig = reader.size()
         if orig.isValid() and orig.width() > 0:
-            tw = _NODE_W - 4
-            th = _THUMB_H - 4
+            tw = NODE_WIDTH - 4
+            th = NODE_THUMB_HEIGHT - 4
             scale = min(tw / orig.width(), th / orig.height())
             reader.setScaledSize(
                 QSize(
@@ -643,15 +646,15 @@ class _SourceNode(_BaseNode):
         # Draw thumbnail centred in body area
         if self._thumb:
             px = self._thumb
-            x = int((_NODE_W - px.width()) / 2)
-            y = _NODE_HDR_H + int((_THUMB_H - px.height()) / 2)
+            x = int((NODE_WIDTH - px.width()) / 2)
+            y = NODE_HDR_HEIGHT + int((NODE_THUMB_HEIGHT - px.height()) / 2)
             painter.drawPixmap(x, y, px)
         else:
             # Fallback: dim placeholder
             painter.setPen(QColor(100, 100, 100))
             painter.setFont(QFont("sans-serif", 8))
             painter.drawText(
-                QRectF(0, _NODE_HDR_H, _NODE_W, _THUMB_H),
+                QRectF(0, NODE_HDR_HEIGHT, NODE_WIDTH, NODE_THUMB_HEIGHT),
                 Qt.AlignmentFlag.AlignCenter,
                 "(no preview)",
             )
@@ -675,12 +678,12 @@ class _StitchOpNode(_BaseNode):
 
     def grow_input(self):
         self.add_input_port()
-        new_h = _NODE_HDR_H + _NODE_BODY_H + (len(self._input_ports) - 2) * 22
+        new_h = NODE_HDR_HEIGHT + NODE_BODY_HEIGHT + (len(self._input_ports) - 2) * 22
         self.prepareGeometryChange()
-        self.setRect(0, 0, _NODE_W, new_h)
+        self.setRect(0, 0, NODE_WIDTH, new_h)
         self._place_input_ports()
         if self._output_port:
-            self._output_port.setPos(_NODE_W, new_h / 2)
+            self._output_port.setPos(NODE_WIDTH, new_h / 2)
         self.update()
 
     def _body_text(self) -> str:
@@ -742,8 +745,8 @@ class _NodeScene(QGraphicsScene):
         col_nodes = [n for n in nodes if (n.scenePos().x() > 260) == (col > 0)]
         y = (
             max((n.scenePos().y() for n in col_nodes), default=30)
-            + _NODE_HDR_H
-            + _NODE_BODY_H
+            + NODE_HDR_HEIGHT
+            + NODE_BODY_HEIGHT
             + 20
         )
         return (30.0 if col == 0 else 300.0, y if col_nodes else 30.0)
@@ -933,7 +936,7 @@ class _AnchorHandle(QGraphicsEllipseItem):
         cy: float,
         color: QColor,
         moved_cb,
-        radius: int = _ANCHOR_RADIUS,
+        radius: int = ANCHOR_RADIUS,
     ):
         r = radius
         super().__init__(-r, -r, r * 2, r * 2)
@@ -1042,8 +1045,8 @@ class _MatchScene(QGraphicsScene):
         self._anchors_a = []
         self._anchors_b = []
 
-        if len(pts1) > _MAX_DISPLAYED_MATCHES:
-            idx = np.argsort(conf)[::-1][:_MAX_DISPLAYED_MATCHES]
+        if len(pts1) > MAX_DISPLAYED_MATCHES:
+            idx = np.argsort(conf)[::-1][:MAX_DISPLAYED_MATCHES]
             pts1, pts2, conf = pts1[idx], pts2[idx], conf[idx]
 
         for p1, p2, c in zip(pts1, pts2, conf):
@@ -1164,38 +1167,6 @@ class _MatchView(QGraphicsView):
 
     def fit(self):
         self.fitInView(self.scene().sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
-
-
-# ---------------------------------------------------------------------------
-# EditTab
-# ---------------------------------------------------------------------------
-
-# Wallpaper output size presets
-_SIZE_PRESETS = [
-    ("Custom", None),
-    ("Desktop  1920 × 1080", (1920, 1080)),
-    ("Desktop  2560 × 1440", (2560, 1440)),
-    ("Desktop  3840 × 2160  4K", (3840, 2160)),
-    ("Desktop  5120 × 2880  5K", (5120, 2880)),
-    ("Desktop  2560 × 1080  UW", (2560, 1080)),
-    ("Desktop  3440 × 1440  UW", (3440, 1440)),
-    ("Phone    1080 × 1920", (1080, 1920)),
-    ("Phone    1440 × 2560", (1440, 2560)),
-    ("Phone    1284 × 2778  iPhone 14", (1284, 2778)),
-    ("Phone    1440 × 3200", (1440, 3200)),
-    ("Square   1080 × 1080", (1080, 1080)),
-    ("Square   2048 × 2048", (2048, 2048)),
-]
-
-_CROP_PRESETS = [
-    ("No crop", None),
-    ("16 : 9   Desktop", (16, 9)),
-    ("21 : 9   Ultrawide", (21, 9)),
-    ("9 : 16   Portrait", (9, 16)),
-    ("4 : 3   Classic", (4, 3)),
-    ("3 : 2", (3, 2)),
-    ("1 : 1   Square", (1, 1)),
-]
 
 
 # ---------------------------------------------------------------------------
@@ -1482,25 +1453,10 @@ class StatsWorker(QRunnable):
 
         return row
 
+    # ---------------------------------------------------------------------------
+    # Animation cluster worker — runs off the main thread
+    # ---------------------------------------------------------------------------
 
-# ---------------------------------------------------------------------------
-# Animation cluster worker — runs off the main thread
-# ---------------------------------------------------------------------------
-
-_ANIM_CLUSTER_COLORS = [
-    ("#4CAF50", "#1b3a1f"),
-    ("#FF9800", "#3a2000"),
-    ("#2196F3", "#001a3a"),
-    ("#f44336", "#3a1010"),
-    ("#9C27B0", "#2a003a"),
-    ("#00BCD4", "#003a3a"),
-    ("#FFEB3B", "#3a3600"),
-    ("#FF5722", "#3a1a00"),
-]
-
-
-class _AnimClusterSignals(QObject):
-    finished = Signal(list)  # List[dict]: path, cluster, cluster_name, is_animated
     progress = Signal(int)  # 0-100
     error = Signal(str)
 
@@ -1935,6 +1891,7 @@ class SequenceBuilderWorker(QRunnable):
 
 class EditTabPanel:
     """Mixin class to expose EditTab configuration methods to panel proxies."""
+
     def __init__(self, parent_tab=None):
         self.parent_tab = parent_tab
 
@@ -2928,7 +2885,7 @@ class EditTab(QWidget):
         crop_form = QFormLayout(crop_group)
         crop_form.setSpacing(3)
         self._adj_crop_combo = QComboBox()
-        for label, ratio in _CROP_PRESETS:
+        for label, ratio in CROP_PRESETS:
             self._adj_crop_combo.addItem(label, ratio)
         self._adj_crop_combo.setToolTip(
             "Center-crop to this aspect ratio before other adjustments."
@@ -3035,7 +2992,7 @@ class EditTab(QWidget):
         size_layout.setSpacing(6)
 
         self._cv_preset_combo = QComboBox()
-        for label, _ in _SIZE_PRESETS:
+        for label, _ in SIZE_PRESETS:
             self._cv_preset_combo.addItem(label)
         self._cv_preset_combo.currentIndexChanged.connect(self._cv_on_preset_changed)
         size_layout.addWidget(QLabel("Preset:"))
@@ -3241,7 +3198,9 @@ class EditTab(QWidget):
     # ======================================================================
 
     def _add_frames(self):
-        start_dir = self._last_selected_dir or (os.path.dirname(self._frame_paths[-1]) if self._frame_paths else "")
+        start_dir = self._last_selected_dir or (
+            os.path.dirname(self._frame_paths[-1]) if self._frame_paths else ""
+        )
         dlg = _ThumbnailFilePicker(self, start_dir=start_dir)
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return
@@ -3481,7 +3440,9 @@ class EditTab(QWidget):
             self._ckpt_path.setText(p)
 
     def _browse_output(self):
-        start_dir = self._last_selected_dir or (os.path.dirname(self._frame_paths[-1]) if self._frame_paths else "")
+        start_dir = self._last_selected_dir or (
+            os.path.dirname(self._frame_paths[-1]) if self._frame_paths else ""
+        )
         current_text = self._output_path.text().strip()
         filename = os.path.basename(current_text) if current_text else "panorama.png"
         default_file = os.path.join(start_dir, filename) if start_dir else filename
@@ -3504,8 +3465,12 @@ class EditTab(QWidget):
 
         out = self._output_path.text().strip()
         if not out:
-            start_dir = os.path.dirname(self._frame_paths[-1]) if self._frame_paths else ""
-            default_file = os.path.join(start_dir, "panorama.png") if start_dir else "panorama.png"
+            start_dir = (
+                os.path.dirname(self._frame_paths[-1]) if self._frame_paths else ""
+            )
+            default_file = (
+                os.path.join(start_dir, "panorama.png") if start_dir else "panorama.png"
+            )
             out, _ = QFileDialog.getSaveFileName(
                 self,
                 "Save Panorama As",
@@ -4039,7 +4004,7 @@ class EditTab(QWidget):
 
     @Slot(int)
     def _cv_on_preset_changed(self, idx: int):
-        _, size = _SIZE_PRESETS[idx]
+        _, size = SIZE_PRESETS[idx]
         if size:
             self._cv_width_spin.blockSignals(True)
             self._cv_height_spin.blockSignals(True)
@@ -5535,7 +5500,7 @@ class EditTab(QWidget):
             cluster = row.get("cluster", 0)
             is_animated = row.get("is_animated", False)
             if is_animated:
-                fg, bg = _ANIM_CLUSTER_COLORS[cluster % len(_ANIM_CLUSTER_COLORS)]
+                fg, bg = ANIM_CLUSTER_COLORS[cluster % len(ANIM_CLUSTER_COLORS)]
             else:
                 fg, bg = "#aaaaaa", "#2c2f33"
 

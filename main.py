@@ -3,8 +3,8 @@ import sys
 import warnings
 
 from backend.src.app import launch_app, log_uncaught_exceptions
-from backend.src.utils.arg_parser import parse_params
-from backend.src.utils.dispatcher import dispatch_command
+from backend.src.utils.io.arg_parser import parse_params
+from backend.src.utils.io.dispatcher import dispatch_command
 
 # Suppress RequestsDependencyWarning: urllib3/chardet version mismatch
 # This can happen when transitive dependencies (like comfyui-manager) pull in

@@ -8,7 +8,7 @@ across all entry points of the application.
 import sys
 import argparse
 from typing import Sequence
-from .definitions import SUPPORTED_IMG_FORMATS, APP_STYLES
+from backend.src.constants import SUPPORTED_IMG_FORMATS, APP_STYLES
 
 
 class ConfigsParser(argparse.ArgumentParser):

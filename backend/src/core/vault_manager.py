@@ -4,7 +4,7 @@ import json
 import jpype
 import hashlib
 import threading
-import backend.src.utils.definitions as udef
+import backend.src.constants as udef
 
 from jpype.types import JArray, JChar
 

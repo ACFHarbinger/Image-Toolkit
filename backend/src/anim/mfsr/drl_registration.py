@@ -31,42 +31,20 @@ try:
 except ImportError:
     _TORCH_OK = False
 
-from ..constants import (
+from backend.src.constants import (
     DRL_BATCH_SIZE,
     DRL_GAMMA,
     DRL_LR,
     DRL_MEMORY_SIZE,
     DRL_STATE_SIZE,
+    DRL_AXIS_STEPS,
+    NUM_ACTIONS,
 )
 
 
 # ---------------------------------------------------------------------------
 # Action discretisation
 # ---------------------------------------------------------------------------
-
-# 4 axes * (negative, positive) * (small, large) = 16 discrete actions
-_AXIS_STEPS = [
-    (0, +1.0),    # +dx fine
-    (0, -1.0),
-    (0, +8.0),    # +dx coarse
-    (0, -8.0),
-    (1, +1.0),    # +dy fine
-    (1, -1.0),
-    (1, +8.0),
-    (1, -8.0),
-    (2, +0.01),   # +dscale fine
-    (2, -0.01),
-    (2, +0.05),
-    (2, -0.05),
-    (3, +0.01),   # +dtheta fine (radians)
-    (3, -0.01),
-    (3, +0.05),
-    (3, -0.05),
-]
-
-_NUM_ACTIONS = len(_AXIS_STEPS)
-
-
 def _ssim(a: np.ndarray, b: np.ndarray) -> float:
     """Simple SSIM proxy: per-channel mean + variance correlation."""
     if a.ndim == 3:
@@ -115,7 +93,9 @@ if _TORCH_OK:
     class _DuelingDQN(nn.Module):
         """A small dueling DQN over a low-dimensional state vector."""
 
-        def __init__(self, state_dim: int = DRL_STATE_SIZE, n_actions: int = _NUM_ACTIONS):
+        def __init__(
+            self, state_dim: int = DRL_STATE_SIZE, n_actions: int = NUM_ACTIONS
+        ):
             super().__init__()
             self.feature = nn.Sequential(
                 nn.Linear(state_dim, 256),
@@ -152,7 +132,7 @@ class RegistrationAgent:
     def __init__(
         self,
         state_dim: int = DRL_STATE_SIZE,
-        n_actions: int = _NUM_ACTIONS,
+        n_actions: int = NUM_ACTIONS,
         lr: float = DRL_LR,
         gamma: float = DRL_GAMMA,
         memory_size: int = DRL_MEMORY_SIZE,
@@ -166,9 +146,7 @@ class RegistrationAgent:
         self._trained = False
 
         if _TORCH_OK:
-            self.device = torch.device(
-                "cuda" if torch.cuda.is_available() else "cpu"
-            )
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             self.online = _DuelingDQN(state_dim, n_actions).to(self.device)
             self.target = _DuelingDQN(state_dim, n_actions).to(self.device)
             self.target.load_state_dict(self.online.state_dict())
@@ -188,10 +166,12 @@ class RegistrationAgent:
         side = max(8, int(math.sqrt(dim / 2)))
         ref_s = cv2.resize(ref_g, (side, side), interpolation=cv2.INTER_AREA)
         src_s = cv2.resize(src_g, (side, side), interpolation=cv2.INTER_AREA)
-        vec = np.concatenate([
-            ref_s.astype(np.float32).flatten() / 255.0,
-            src_s.astype(np.float32).flatten() / 255.0,
-        ])
+        vec = np.concatenate(
+            [
+                ref_s.astype(np.float32).flatten() / 255.0,
+                src_s.astype(np.float32).flatten() / 255.0,
+            ]
+        )
         if vec.size < dim:
             vec = np.pad(vec, (0, dim - vec.size))
         return vec[:dim]
@@ -257,20 +237,25 @@ class RegistrationAgent:
         h, w = img_ref.shape[:2]
         step_counter = 0
         for ep in range(episodes):
-            params = np.array([
-                np.random.uniform(-w * 0.2, w * 0.2),
-                np.random.uniform(-h * 0.2, h * 0.2),
-                1.0,
-                0.0,
-            ], dtype=np.float64)
+            params = np.array(
+                [
+                    np.random.uniform(-w * 0.2, w * 0.2),
+                    np.random.uniform(-h * 0.2, h * 0.2),
+                    1.0,
+                    0.0,
+                ],
+                dtype=np.float64,
+            )
             warped = _warp(img_src, params, h, w)
             state = self._state_vector(img_ref, warped, self.state_dim)
             prev_ssim = _ssim(img_ref, warped)
-            epsilon = epsilon_start + (epsilon_end - epsilon_start) * ep / max(1, episodes - 1)
+            epsilon = epsilon_start + (epsilon_end - epsilon_start) * ep / max(
+                1, episodes - 1
+            )
 
             for t in range(max_steps):
                 action = self._select_action(state, epsilon)
-                axis, step = _AXIS_STEPS[action]
+                axis, step = DRL_AXIS_STEPS[action]
                 params[axis] += step
                 warped = _warp(img_src, params, h, w)
                 cur_ssim = _ssim(img_ref, warped)
@@ -296,7 +281,7 @@ class RegistrationAgent:
         self,
         img_ref: np.ndarray,
         img_src: np.ndarray,
-        reward_model,               # StitchRewardModel instance
+        reward_model,  # StitchRewardModel instance
         episodes: int = 8,
         max_steps: int = 40,
         epsilon_start: float = 1.0,
@@ -313,22 +298,27 @@ class RegistrationAgent:
         h, w = img_ref.shape[:2]
         step_counter = 0
         for ep in range(episodes):
-            params = np.array([
-                np.random.uniform(-w * 0.15, w * 0.15),
-                np.random.uniform(-h * 0.15, h * 0.15),
-                1.0,
-                0.0,
-            ], dtype=np.float64)
+            params = np.array(
+                [
+                    np.random.uniform(-w * 0.15, w * 0.15),
+                    np.random.uniform(-h * 0.15, h * 0.15),
+                    1.0,
+                    0.0,
+                ],
+                dtype=np.float64,
+            )
             warped = _warp(img_src, params, h, w)
             # Quick horizontal blend for reward model input
             preview = np.maximum(img_ref, warped)
             prev_score = float(reward_model.predict(preview))
             state = self._state_vector(img_ref, warped, self.state_dim)
-            epsilon = epsilon_start + (epsilon_end - epsilon_start) * ep / max(1, episodes - 1)
+            epsilon = epsilon_start + (epsilon_end - epsilon_start) * ep / max(
+                1, episodes - 1
+            )
 
             for t in range(max_steps):
                 action = self._select_action(state, epsilon)
-                axis, step = _AXIS_STEPS[action]
+                axis, step = DRL_AXIS_STEPS[action]
                 params[axis] += step
                 warped = _warp(img_src, params, h, w)
                 preview = np.maximum(img_ref, warped)
@@ -377,7 +367,7 @@ class RegistrationAgent:
         for t in range(max_steps):
             state = self._state_vector(img_ref, warped, self.state_dim)
             action = self._select_action(state, epsilon=0.05 if self._trained else 1.0)
-            axis, step = _AXIS_STEPS[action]
+            axis, step = DRL_AXIS_STEPS[action]
             trial = params.copy()
             trial[axis] += step
             trial_warped = _warp(img_src, trial, h, w)

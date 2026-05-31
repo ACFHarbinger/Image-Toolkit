@@ -15,9 +15,9 @@ import numpy as np
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.models.siamese_network import SiameseModelLoader
-from src.models.gan_wrapper import GanWrapper
-from benchmark.utils import BenchmarkRunner, measure_memory
+from backend.src.models.siamese_network import SiameseModelLoader
+from backend.src.models.gan_wrapper import GanWrapper
+from .utils import BenchmarkRunner, measure_memory
 
 
 runner = BenchmarkRunner("ML Model Inference")
@@ -231,7 +231,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="ML model benchmarks")
     parser.add_argument("--save", action="store_true", help="Save results to JSON")
-    parser.add_argument("--baseline", type=Path, help="Baseline file for regression check")
+    parser.add_argument(
+        "--baseline", type=Path, help="Baseline file for regression check"
+    )
     parser.add_argument("--skip-gpu", action="store_true", help="Skip GPU benchmarks")
     args = parser.parse_args()
 
@@ -240,7 +242,8 @@ if __name__ == "__main__":
         print("Skipping GPU benchmarks")
         # Remove GPU benchmarks from registered list
         runner._registered_benchmarks = [
-            (name, func) for name, func in getattr(runner, "_registered_benchmarks", [])
+            (name, func)
+            for name, func in getattr(runner, "_registered_benchmarks", [])
             if "gpu" not in name
         ]
 

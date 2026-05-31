@@ -30,7 +30,7 @@ from ...components import ClickableLabel, MarqueeScrollArea
 from ...utils.sort_utils import natural_sort_key
 from ...helpers import ImageScannerWorker, ImageLoaderWorker
 from ...styles.style import apply_shadow_effect
-from backend.src.utils.definitions import LOCAL_SOURCE_PATH
+from backend.src.constants import LOCAL_SOURCE_PATH
 
 
 class ScanMetadataTab(AbstractClassTwoGalleries):

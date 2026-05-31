@@ -1,14 +1,10 @@
 import os
 from typing import List, Union, Tuple
 from PySide6.QtCore import QObject, Signal, Slot
-from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
+from backend.src.constants import SUPPORTED_IMG_FORMATS, HAS_NATIVE_IMAGING
 
-try:
+if HAS_NATIVE_IMAGING:
     import base
-
-    HAS_NATIVE_IMAGING = True
-except ImportError:
-    HAS_NATIVE_IMAGING = False
 
 
 class ImageScannerWorker(QObject):

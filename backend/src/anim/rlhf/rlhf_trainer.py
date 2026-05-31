@@ -25,6 +25,7 @@ from .reward_model import StitchRewardModel
 # Reward-model training (thin wrapper kept for IDE discoverability)
 # ---------------------------------------------------------------------------
 
+
 def train_reward_model(
     store: FeedbackStore,
     model_path: Optional[str] = None,
@@ -51,6 +52,7 @@ def train_reward_model(
 # ---------------------------------------------------------------------------
 # DRL fine-tuning with RLHF reward
 # ---------------------------------------------------------------------------
+
 
 def _overlap_region(
     img_ref: np.ndarray,
@@ -93,7 +95,7 @@ def _stitch_preview(
 
 
 def fine_tune_drl_agent(
-    agent,                              # RegistrationAgent instance
+    agent,  # RegistrationAgent instance
     reward_model: StitchRewardModel,
     frame_pairs: List[Tuple[np.ndarray, np.ndarray]],
     episodes: int = 12,
@@ -134,19 +136,24 @@ def fine_tune_drl_agent(
         for ep in range(episodes):
             ep_idx += 1
             # Random initial perturbation so the agent sees diverse states
-            params = np.array([
-                random.uniform(-w * 0.15, w * 0.15),
-                random.uniform(-h * 0.15, h * 0.15),
-                1.0,
-                0.0,
-            ], dtype=np.float64)
+            params = np.array(
+                [
+                    random.uniform(-w * 0.15, w * 0.15),
+                    random.uniform(-h * 0.15, h * 0.15),
+                    1.0,
+                    0.0,
+                ],
+                dtype=np.float64,
+            )
 
             warped = _warp(src, params, h, w)
             preview = _stitch_preview(ref, warped)
             prev_score = reward_model.predict(preview)
             state = agent._state_vector(ref, warped, agent.state_dim)
 
-            epsilon = epsilon_start + (epsilon_end - epsilon_start) * ep_idx / max(1, total_ep)
+            epsilon = epsilon_start + (epsilon_end - epsilon_start) * ep_idx / max(
+                1, total_ep
+            )
 
             for t in range(max_steps):
                 action = agent._select_action(state, epsilon)
@@ -157,11 +164,11 @@ def fine_tune_drl_agent(
                 preview = _stitch_preview(ref, warped)
                 cur_score = reward_model.predict(preview)
 
-                reward = float(cur_score - prev_score)
+                reward = cur_score - prev_score
                 prev_score = cur_score
 
                 next_state = agent._state_vector(ref, warped, agent.state_dim)
-                done = bool(cur_score > 0.95 or t == max_steps - 1)
+                done = cur_score > 0.95 or t == max_steps - 1
 
                 agent.memory.append((state, action, reward, next_state, done))
                 state = next_state

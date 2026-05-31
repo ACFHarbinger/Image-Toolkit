@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QFormLayout, QLineEdit, QSpinBox, QComboBox, QCheckBox
 from ....classes.base_generative_tab import BaseGenerativeTab
-from backend.src.utils.definitions import LOCAL_SOURCE_PATH
+from backend.src.constants import LOCAL_SOURCE_PATH
 
 
 class R3GANTrainTab(BaseGenerativeTab):

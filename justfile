@@ -43,7 +43,7 @@ build:
     @echo "🏗️  Building production application..."
     bash ./scripts/build_base.sh
     ./gradlew build
-    npm run build
+    #npm run build
 
 # Run tests
 test:

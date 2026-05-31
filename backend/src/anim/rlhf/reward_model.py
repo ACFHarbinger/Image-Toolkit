@@ -31,9 +31,7 @@ except ImportError:
     _TORCH_OK = False
 
 from .feedback_store import FeedbackStore
-
-_DEFAULT_MODEL_PATH = Path.home() / ".config" / "image-toolkit" / "stitch_reward_model.pt"
-_INPUT_SIZE = 224
+from backend.src.constants import REWARD_MODEL_DEFAULT_PATH, REWARD_MODEL_INPUT_SIZE
 
 
 # ---------------------------------------------------------------------------
@@ -46,19 +44,19 @@ if _TORCH_OK:
         def __init__(self) -> None:
             super().__init__()
             self.features = nn.Sequential(
-                nn.Conv2d(3, 32, 3, stride=2, padding=1),   # 112
+                nn.Conv2d(3, 32, 3, stride=2, padding=1),  # 112
                 nn.BatchNorm2d(32),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(32, 64, 3, stride=2, padding=1),  # 56
                 nn.BatchNorm2d(64),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(64, 128, 3, stride=2, padding=1), # 28
+                nn.Conv2d(64, 128, 3, stride=2, padding=1),  # 28
                 nn.BatchNorm2d(128),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(128, 256, 3, stride=2, padding=1),# 14
+                nn.Conv2d(128, 256, 3, stride=2, padding=1),  # 14
                 nn.BatchNorm2d(256),
                 nn.ReLU(inplace=True),
-                nn.AdaptiveAvgPool2d(4),                     # 4×4
+                nn.AdaptiveAvgPool2d(4),  # 4×4
             )
             self.head = nn.Sequential(
                 nn.Flatten(),
@@ -83,12 +81,15 @@ else:
 # Dataset
 # ---------------------------------------------------------------------------
 
+
 def _load_bgr(path: str) -> Optional[np.ndarray]:
     img = cv2.imread(path, cv2.IMREAD_COLOR)
     return img
 
 
-def _bgr_to_tensor(img: np.ndarray, size: int = _INPUT_SIZE) -> "torch.Tensor":
+def _bgr_to_tensor(
+    img: np.ndarray, size: int = REWARD_MODEL_INPUT_SIZE
+) -> "torch.Tensor":
     """Resize, convert BGR→RGB, normalize to [0,1], return (3,H,W) tensor."""
     resized = cv2.resize(img, (size, size), interpolation=cv2.INTER_AREA)
     rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
@@ -136,7 +137,7 @@ if _TORCH_OK:
             # Whole-image sample
             t = _bgr_to_tensor(img)
             target = fb.overall_rating / 10.0
-            records.append((t, float(target)))
+            records.append((t, target))
             # Per-annotation samples
             for ann in fb.annotations:
                 patch = _extract_patch(img, ann.x, ann.y, ann.w, ann.h)
@@ -145,7 +146,7 @@ if _TORCH_OK:
                 pt = _bgr_to_tensor(patch)
                 # Bad region: quality lower than overall, scaled by severity
                 ann_target = max(0.0, target - ann.severity * 0.5)
-                records.append((pt, float(ann_target)))
+                records.append((pt, ann_target))
         return _FeedbackDataset(records)
 
 
@@ -153,13 +154,14 @@ if _TORCH_OK:
 # Public API
 # ---------------------------------------------------------------------------
 
+
 class StitchRewardModel:
     """Wrapper around _RewardNet with train / predict / save / load."""
 
     def __init__(self, model_path: Optional[str] = None):
         if not _TORCH_OK:
             raise RuntimeError("torch is required for StitchRewardModel")
-        self._path = Path(model_path) if model_path else _DEFAULT_MODEL_PATH
+        self._path = Path(model_path) if model_path else REWARD_MODEL_DEFAULT_PATH
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.net = _RewardNet().to(self.device)
         if self._path.exists():

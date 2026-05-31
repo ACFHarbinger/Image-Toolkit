@@ -18,7 +18,7 @@ from typing import Optional, Tuple
 import cv2
 import numpy as np
 
-from ..constants import (
+from ...constants import (
     PSO_C1,
     PSO_C2,
     PSO_INERTIA,
@@ -102,7 +102,7 @@ def pso_register(
         src_g = img_src
 
     h, w = ref_g.shape[:2]
-    lo, hi = float(search_range[0]), float(search_range[1])
+    lo, hi = search_range[0], search_range[1]
 
     if motion_model == "translation":
         dim = 2
@@ -157,12 +157,12 @@ def pso_register(
         # Reflect at bounds
         below = pos < bounds_lo
         above = pos > bounds_hi
-        pos[below] = bounds_lo[np.where(below)[1]] if dim == 1 else np.where(
-            below, np.broadcast_to(bounds_lo, pos.shape), pos
-        )[below]
-        pos[above] = np.where(
-            above, np.broadcast_to(bounds_hi, pos.shape), pos
-        )[above]
+        pos[below] = (
+            bounds_lo[np.where(below)[1]]
+            if dim == 1
+            else np.where(below, np.broadcast_to(bounds_lo, pos.shape), pos)[below]
+        )
+        pos[above] = np.where(above, np.broadcast_to(bounds_hi, pos.shape), pos)[above]
         vel[below] *= -0.5
         vel[above] *= -0.5
 
@@ -179,7 +179,7 @@ def pso_register(
         if gbest_val > 0.995:
             break
 
-    return _params_to_M(gbest_pos, motion_model), float(gbest_val)
+    return _params_to_M(gbest_pos, motion_model), gbest_val
 
 
 __all__ = ["pso_register"]

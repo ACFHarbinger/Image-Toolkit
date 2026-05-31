@@ -23,17 +23,11 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QApplication,
 )
-
-try:
-    from backend.src.utils.definitions import (
-        IMAGE_TOOLKIT_DIR,
-        DAEMON_CONFIG_PATH,
-        THUMBNAIL_CACHE_DIR,
-    )
-except ImportError:
-    IMAGE_TOOLKIT_DIR = Path.home() / ".image-toolkit"
-    DAEMON_CONFIG_PATH = IMAGE_TOOLKIT_DIR / ".myapp_slideshow_config.json"
-    THUMBNAIL_CACHE_DIR = IMAGE_TOOLKIT_DIR / "thumbnail-cache"
+from backend.src.constants import (
+    IMAGE_TOOLKIT_DIR,
+    DAEMON_CONFIG_PATH,
+    THUMBNAIL_CACHE_DIR,
+)
 
 
 class SettingsWindow(QWidget):

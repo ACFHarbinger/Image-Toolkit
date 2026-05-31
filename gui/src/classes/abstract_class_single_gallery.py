@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QVBoxLayout,
 )
-from backend.src.utils.definitions import (
+from backend.src.constants import (
     LOCAL_SOURCE_PATH,
     SUPPORTED_VIDEO_FORMATS,
     THUMBNAIL_CACHE_DIR,

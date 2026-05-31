@@ -1,6 +1,6 @@
 import os
 import json
-import backend.src.utils.definitions as udef
+import backend.src.constants as udef
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
