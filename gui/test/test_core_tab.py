@@ -213,3 +213,115 @@ class TestImageExtractorTab:
                 # With vertical checkbox set -> flip dimensions
                 tab.check_extract_vertical.setChecked(True)
                 assert tab._get_target_size() == (720, 1280)
+
+
+class TestListingsTab:
+    def test_listings_tab_init(self, q_app):
+        from gui.src.tabs.core.listings_tab import ListingsTab
+
+        tab = ListingsTab()
+        assert isinstance(tab, QWidget)
+        assert tab.tab_widget.count() == 2
+        assert tab.tab_widget.tabText(0) == "🎬 Content Listings"
+        assert tab.tab_widget.tabText(1) == "👥 Entity Listings"
+        assert tab.content_listings is not None
+        assert tab.entity_listings is not None
+
+    def test_listing_images_subdirectory(self):
+        from gui.src.tabs.core.listings_tab import LISTING_IMAGES_DIR
+        from pathlib import Path
+
+        assert LISTING_IMAGES_DIR is not None
+        assert isinstance(LISTING_IMAGES_DIR, Path)
+        assert LISTING_IMAGES_DIR.name == "listing-images"
+
+    def test_generate_thumbnail_from_file(self, tmp_path):
+        from gui.src.tabs.core.listings_tab import generate_thumbnail_from_file
+
+        # Create a mock image file
+        img_src = tmp_path / "test_image.png"
+        img_src.write_bytes(b"dummy image data")
+
+        dest = tmp_path / "dest_image.png"
+        success = generate_thumbnail_from_file(str(img_src), str(dest))
+        assert success
+        assert dest.exists()
+        assert dest.read_bytes() == b"dummy image data"
+
+        # Create a non-existent file
+        assert not generate_thumbnail_from_file("non_existent_file.pdf", str(dest))
+
+    def test_sync_no_vault(self, q_app, monkeypatch):
+        from gui.src.tabs.core.listings_tab import ListingsTab
+
+        tab = ListingsTab()
+
+        warning_called = False
+
+        def mock_warning(parent, title, text):
+            nonlocal warning_called
+            warning_called = True
+            assert "Vault manager is not initialized" in text
+
+        from PySide6.QtWidgets import QMessageBox
+
+        monkeypatch.setattr(QMessageBox, "warning", mock_warning)
+
+        tab.content_listings._synchronize_listings()
+        assert warning_called
+
+    def test_sync_with_mock_vault(self, q_app, monkeypatch, tmp_path):
+        import json
+        from gui.src.tabs.core.listings_tab import ListingsTab
+        from PySide6.QtWidgets import QMessageBox
+        import backend.src.utils.definitions as udef
+
+        # Override ROOT_DIR for tests to prevent modifying actual project files
+        monkeypatch.setattr(udef, "ROOT_DIR", tmp_path)
+
+        class MockSecureJsonVault:
+            def __init__(self, key, path):
+                self.path = path
+
+            def saveData(self, data):
+                with open(self.path, "w") as f:
+                    f.write(data)
+
+            def loadData(self):
+                with open(self.path, "r") as f:
+                    return f.read()
+
+        class MockVaultManager:
+            def __init__(self):
+                self.secret_key = "dummy_key"
+                self.SecureJsonVault = MockSecureJsonVault
+
+        vault_manager = MockVaultManager()
+        tab = ListingsTab(vault_manager=vault_manager)
+
+        # Inject entries and stub save/load
+        tab.content_listings._entries = [{"id": "1", "name": "Local 1"}]
+
+        # Mock message boxes to avoid blocking
+        monkeypatch.setattr(QMessageBox, "information", lambda *args: None)
+
+        # 1. Update Backup should generate the encrypted file since it doesn't exist
+        tab.content_listings._update_encrypted_backup()
+
+        enc_file = tmp_path / "assets" / "secrets" / "listings.json.enc"
+        assert enc_file.exists()
+
+        # Load encrypted data
+        with open(enc_file, "r") as f:
+            data = json.load(f)
+        assert len(data) == 1
+        assert data[0]["id"] == "1"
+
+        # 2. Add another remote entry directly to mock a remote update
+        remote_data = [{"id": "1", "name": "Local 1"}, {"id": "2", "name": "Remote 2"}]
+        with open(enc_file, "w") as f:
+            json.dump(remote_data, f)
+
+        # 3. Synchronize - should load from backup and merge
+        tab.content_listings._synchronize_listings()
+        assert len(tab.content_listings._entries) == 2

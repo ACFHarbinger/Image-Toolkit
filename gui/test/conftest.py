@@ -35,6 +35,27 @@ project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 
+@pytest.fixture(autouse=True)
+def mock_image_toolkit_paths(tmp_path, monkeypatch):
+    """
+    Ensure all tests run in a completely isolated sandbox and never write to the user's home directory.
+    """
+    from backend.src.utils import definitions
+    monkeypatch.setattr(definitions, "IMAGE_TOOLKIT_DIR", tmp_path)
+    monkeypatch.setattr(definitions, "DAEMON_CONFIG_PATH", tmp_path / ".myapp_slideshow_config.json")
+    monkeypatch.setattr(definitions, "THUMBNAIL_CACHE_DIR", tmp_path / "thumbnail-cache")
+
+    try:
+        from gui.src.tabs.core import listings_tab
+        monkeypatch.setattr(listings_tab, "IMAGE_TOOLKIT_DIR", tmp_path)
+        monkeypatch.setattr(listings_tab, "LISTINGS_FILE", tmp_path / "listings.json")
+        monkeypatch.setattr(listings_tab, "ENTITIES_FILE", tmp_path / "entities.json")
+        monkeypatch.setattr(listings_tab, "LISTING_IMAGES_DIR", tmp_path / "listing-images")
+    except Exception:
+        pass
+
+
+
 @pytest.fixture(scope="session")
 def q_app():
     """
