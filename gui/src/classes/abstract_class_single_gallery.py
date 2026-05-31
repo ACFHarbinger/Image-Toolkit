@@ -1,5 +1,6 @@
 import os
 import math
+from collections import deque
 from abc import abstractmethod
 from typing import List, Optional, Dict
 from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer, QEvent
@@ -11,6 +12,9 @@ from PySide6.QtWidgets import (
     QMenu,
     QLabel,
     QVBoxLayout,
+    QFileDialog,
+    QMessageBox,
+    QInputDialog,
 )
 from backend.src.constants import (
     LOCAL_SOURCE_PATH,
@@ -78,11 +82,17 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
         self._loading_paths = set()
         self._failed_paths = set()
 
-        # Starting directory
+        # Starting directory — restored from QSettings if available (GUI/UX §2.5)
         try:
-            self.last_browsed_scan_dir = str(LOCAL_SOURCE_PATH)
+            self.last_browsed_scan_dir = self._load_last_dir(str(LOCAL_SOURCE_PATH))
         except Exception:
             self.last_browsed_scan_dir = os.getcwd()
+
+        self._scroll_zoom_connected = False
+
+        # Directory navigation history (GUI/UX §2.21A)
+        self._dir_back_stack: deque = deque(maxlen=20)
+        self._dir_forward_stack: deque = deque(maxlen=20)
 
         # --- Search State ---
         self.master_image_paths: List[str] = []
@@ -98,6 +108,157 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
 
         # Enable keyboard focus for shortcuts
         self.setFocusPolicy(Qt.StrongFocus)
+
+    # --- INLINE RENAME (GUI/UX §2.26B) ---
+    def _rename_selected_file(self) -> None:
+        """Rename the most-recently-selected gallery item via F2 (GUI/UX §2.26B)."""
+        target = self.selected_files[-1] if self.selected_files else None
+        if target is None and self.gallery_image_paths:
+            target = self.gallery_image_paths[0]  # fallback: first visible
+        if not target:
+            return
+
+        old_name = os.path.basename(target)
+        stem, ext = os.path.splitext(old_name)
+        new_stem, ok = QInputDialog.getText(
+            self, "Rename File", "New name (no extension):", text=stem
+        )
+        if not ok or not new_stem.strip() or new_stem.strip() == stem:
+            return
+
+        new_stem = new_stem.strip()
+        for ch in r'\/:*?"<>|':
+            new_stem = new_stem.replace(ch, "_")
+
+        new_path = os.path.join(os.path.dirname(target), new_stem + ext)
+        if os.path.exists(new_path):
+            QMessageBox.warning(
+                self, "Rename", f"A file named '{new_stem + ext}' already exists."
+            )
+            return
+
+        try:
+            os.rename(target, new_path)
+        except OSError as exc:
+            QMessageBox.critical(self, "Rename Error", str(exc))
+            return
+
+        for lst in (self.gallery_image_paths, self.master_image_paths, self.selected_files):
+            try:
+                idx = lst.index(target)
+                lst[idx] = new_path
+            except (ValueError, AttributeError):
+                pass
+
+        widget = getattr(self, "path_to_card_widget", {}).pop(target, None)
+        if widget is not None:
+            self.path_to_card_widget[new_path] = widget
+            if hasattr(widget, "path"):
+                widget.path = new_path
+            if hasattr(widget, "setToolTip"):
+                widget.setToolTip(os.path.basename(new_path))
+
+    # --- EXPORT (GUI/UX §2.19A) ---
+    def _export_selection_as_paths(self) -> None:
+        """Write selected (or all visible) paths to a TXT file (Ctrl+E)."""
+        paths = self.selected_files or self.gallery_image_paths
+        if not paths:
+            QMessageBox.information(self, "Export", "No files to export.")
+            return
+        dest, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export File Paths",
+            "",
+            "Text files (*.txt);;CSV files (*.csv);;All files (*.*)",
+            options=QFileDialog.Option.DontUseNativeDialog,
+        )
+        if not dest:
+            return
+        try:
+            with open(dest, "w", encoding="utf-8") as fh:
+                fh.write("\n".join(paths))
+            QMessageBox.information(
+                self, "Export", f"Exported {len(paths)} paths to:\n{dest}"
+            )
+        except OSError as exc:
+            QMessageBox.critical(self, "Export Error", str(exc))
+
+    # --- DIRECTORY NAVIGATION HISTORY (GUI/UX §2.21A) ---
+    def _push_dir_history(self, path: str) -> None:
+        if not path:
+            return
+        current = self.last_browsed_scan_dir
+        if current and (not self._dir_back_stack or self._dir_back_stack[-1] != current):
+            self._dir_back_stack.append(current)
+        self._dir_forward_stack.clear()
+
+    def _dir_go_back(self) -> Optional[str]:
+        if not self._dir_back_stack:
+            return None
+        prev = self._dir_back_stack.pop()
+        self._dir_forward_stack.append(self.last_browsed_scan_dir)
+        return prev
+
+    def _dir_go_forward(self) -> Optional[str]:
+        if not self._dir_forward_stack:
+            return None
+        nxt = self._dir_forward_stack.pop()
+        self._dir_back_stack.append(self.last_browsed_scan_dir)
+        return nxt
+
+    # --- RECENT DIRECTORIES (GUI/UX §2.10) ---
+    def _add_recent_dir(self, path: str, max_entries: int = 10) -> None:
+        from PySide6.QtCore import QSettings
+        s = QSettings("ImageToolkit", "ImageToolkit")
+        key = f"session/{self.__class__.__name__}/recent_dirs"
+        dirs: list = s.value(key, []) or []
+        if path in dirs:
+            dirs.remove(path)
+        dirs.insert(0, path)
+        s.setValue(key, dirs[:max_entries])
+
+    def _get_recent_dirs(self) -> list:
+        from PySide6.QtCore import QSettings
+        return QSettings("ImageToolkit", "ImageToolkit").value(
+            f"session/{self.__class__.__name__}/recent_dirs", []
+        ) or []
+
+    # --- SESSION PERSISTENCE (GUI/UX §2.5) ---
+    def _save_last_dir(self, path: str) -> None:
+        from PySide6.QtCore import QSettings
+        QSettings("ImageToolkit", "ImageToolkit").setValue(
+            f"session/{self.__class__.__name__}/last_dir", path
+        )
+
+    def _load_last_dir(self, default: str = "") -> str:
+        from PySide6.QtCore import QSettings
+        return QSettings("ImageToolkit", "ImageToolkit").value(
+            f"session/{self.__class__.__name__}/last_dir", default
+        )
+
+    # --- CTRL+SCROLL ZOOM (GUI/UX §2.2) ---
+    def _connect_scroll_zoom(self) -> None:
+        if self._scroll_zoom_connected:
+            return
+        if self.gallery_scroll_area is not None and hasattr(
+            self.gallery_scroll_area, "ctrl_wheel"
+        ):
+            self.gallery_scroll_area.ctrl_wheel.connect(self._on_ctrl_wheel_zoom)
+            self._scroll_zoom_connected = True
+
+    def _on_ctrl_wheel_zoom(self, delta: int) -> None:
+        step = 16 if delta > 0 else -16
+        new_size = max(64, min(512, self.thumbnail_size + step))
+        if new_size == self.thumbnail_size:
+            return
+        self.thumbnail_size = new_size
+        self.approx_item_width = new_size + self.padding_width + 20
+        self._on_layout_change()
+        current_page = self.common_get_paginated_slice(
+            self.master_image_paths, self.current_page, self.page_size
+        )
+        if current_page:
+            self.start_loading_gallery(current_page)
 
     def _get_disk_cache_path(self, video_path: str) -> str:
         import hashlib
@@ -118,13 +279,23 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
 
     # --- KEYBOARD SHORTCUTS ---
     def keyPressEvent(self, event: QEvent):
-        # Check for Ctrl + A (Select All)
-        if event.key() == Qt.Key.Key_A and event.modifiers() & Qt.ControlModifier:
+        key = event.key()
+        mods = event.modifiers()
+        # Ctrl+A — Select All
+        if key == Qt.Key.Key_A and mods & Qt.ControlModifier:
             self.select_all_items()
             event.accept()
-        # Check for Ctrl + D (Deselect All)
-        elif event.key() == Qt.Key.Key_D and event.modifiers() & Qt.ControlModifier:
+        # Ctrl+D — Deselect All
+        elif key == Qt.Key.Key_D and mods & Qt.ControlModifier:
             self.deselect_all_items()
+            event.accept()
+        # Ctrl+E — Export paths list (GUI/UX §2.19A)
+        elif key == Qt.Key.Key_E and mods & Qt.ControlModifier:
+            self._export_selection_as_paths()
+            event.accept()
+        # F2 — rename the most-recently-selected item (GUI/UX §2.26B)
+        elif key == Qt.Key.Key_F2:
+            self._rename_selected_file()
             event.accept()
         else:
             super().keyPressEvent(event)
@@ -471,6 +642,7 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
 
     @Slot()
     def _on_layout_change(self):
+        self._connect_scroll_zoom()
         if self.gallery_scroll_area and self.gallery_layout:
             # Shared Calculation
             new_cols = self.common_calculate_columns(

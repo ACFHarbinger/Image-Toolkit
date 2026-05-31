@@ -13,3 +13,6 @@
 [submodule "ComfyUI"]
 	path = ComfyUI
 	url = https://github.com/Comfy-Org/ComfyUI.git
+[submodule "Recommendation-Engine"]
+	path = Recommendation-Engine
+	url = https://github.com/ACFHarbinger/Recommendation-Engine.git
