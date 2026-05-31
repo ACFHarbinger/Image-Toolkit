@@ -3,6 +3,7 @@ from .app import *
 from .crawler import *
 from .sync import *
 from .crypto import *
+from .database import *
 from .imaging import *
 from .anim import *
 from .system import *

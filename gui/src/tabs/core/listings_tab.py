@@ -1,11 +1,8 @@
 import json
 import uuid
-import subprocess
-import tempfile
-import cv2
 from pathlib import Path
 from datetime import date
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 from PySide6.QtCore import Qt, Signal, Slot, QUrl, QSize, QThread, QTimer, QObject
 from PySide6.QtGui import QPixmap, QDesktopServices, QImage, QColor
@@ -48,6 +45,10 @@ from PySide6.QtCore import QSettings as _QSettings
 from backend.src.core.vault_manager import VaultManager  # noqa: F401
 from ...styles.style import apply_shadow_effect, SHARED_BUTTON_STYLE
 from ...components import DoubleClickableLabel
+from ...components.frame_selection_dialog import (
+    FrameSelectionDialog,
+    extract_video_frame_via_ffmpeg,
+)
 from ...constants.listings import (
     LISTINGS_FILE,
     ENTITIES_FILE,
@@ -112,45 +113,6 @@ def open_web_link(url_str: str):
     if not url_str.startswith(("http://", "https://")):
         url_str = "https://" + url_str
     QDesktopServices.openUrl(QUrl(url_str))
-
-
-def extract_video_frame_via_ffmpeg(
-    video_path: str, frame_idx: int, total_frames: int, fps: float
-):
-    if not fps or fps <= 0:
-        fps = 24.0
-    seconds = frame_idx / fps
-
-    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-        tmp_name = tmp.name
-
-    try:
-        cmd = [
-            "ffmpeg",
-            "-y",
-            "-ss",
-            f"{seconds:.3f}",
-            "-i",
-            video_path,
-            "-vframes",
-            "1",
-            "-update",
-            "1",
-            tmp_name,
-        ]
-        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if res.returncode == 0 and Path(tmp_name).exists():
-            img = cv2.imread(tmp_name)
-            if img is not None:
-                return img
-    except Exception as e:
-        print(f"ffmpeg fallback failed: {e}")
-    finally:
-        try:
-            Path(tmp_name).unlink(missing_ok=True)
-        except Exception:
-            pass
-    return None
 
 
 def _persist_splitter(splitter, key: str) -> None:
@@ -259,45 +221,6 @@ def generate_thumbnail_from_file(file_path: str, dest_path: str) -> bool:
             return False
 
     return False
-
-
-# -------------------------------------------------------------------
-# Async frame extraction worker (used by ThumbnailSelectionDialog)
-# -------------------------------------------------------------------
-class _FrameWorkerSignals(QObject):
-    frame_ready = Signal(object)  # emits a numpy ndarray (BGR)
-    failed = Signal()
-
-
-class _FrameWorker(QThread):
-    """Extracts a single video frame off the main thread via ffmpeg subprocess.
-
-    Cancellable: if a new request arrives before the previous finishes, the
-    caller sets `_cancelled = True` and the worker discards its result.
-    """
-
-    def __init__(self, video_path: str, frame_idx: int, total_frames: int, fps: float):
-        super().__init__()
-        self.video_path = video_path
-        self.frame_idx = frame_idx
-        self.total_frames = total_frames
-        self.fps = fps
-        self.signals = _FrameWorkerSignals()
-        self._cancelled = False
-
-    def cancel(self):
-        self._cancelled = True
-
-    def run(self):
-        frame = extract_video_frame_via_ffmpeg(
-            self.video_path, self.frame_idx, self.total_frames, self.fps
-        )
-        if self._cancelled:
-            return
-        if frame is not None:
-            self.signals.frame_ready.emit(frame)
-        else:
-            self.signals.failed.emit()
 
 
 def _parse_video_series(filename: str):
@@ -531,7 +454,7 @@ class EpisodeDialog(QDialog):
 
         # Video / PDF formats - selection dialog
         if suffix in (".pdf", ".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".m4v"):
-            dlg = ThumbnailSelectionDialog(file_path, parent=self)
+            dlg = FrameSelectionDialog(file_path, parent=self)
             if dlg.exec() == QDialog.Accepted and dlg.selected_image:
                 if dlg.selected_image.save(str(dest_p.absolute())):
                     self.image_path = str(dest_p.absolute())
@@ -763,6 +686,84 @@ class AssociatedEntitiesDialog(QDialog):
                 self.selected_ids.add(ent_id)
             else:
                 self.selected_ids.discard(ent_id)
+        return list(self.selected_ids)
+
+
+class AssociatedContentDialog(QDialog):
+    """Multi-select dialog for linking content listings to an entity."""
+
+    def __init__(
+        self, all_entries: List[Dict[str, Any]], selected_ids: List[str], parent=None
+    ):
+        super().__init__(parent)
+        self.setWindowTitle("Select Associated Content")
+        self.setMinimumSize(420, 460)
+        self.setStyleSheet("background:#2c2f33; color:white;")
+
+        self.all_entries = all_entries
+        self.selected_ids = set(selected_ids)
+
+        layout = QVBoxLayout(self)
+
+        self.search_box = QLineEdit()
+        self.search_box.setPlaceholderText("🔍 Search by title or type…")
+        self.search_box.textChanged.connect(self._filter_list)
+        layout.addWidget(self.search_box)
+
+        self.list_widget = QListWidget()
+        self.list_widget.setStyleSheet(
+            "QListWidget { background:#23272a; border:1px solid #4f545c; border-radius:6px; padding:4px; }"
+            "QListWidget::item { color:white; padding:4px; border-bottom:1px solid #2c2f33; }"
+            "QListWidget::item:hover { background:#00bcd4; color:black; }"
+        )
+        layout.addWidget(self.list_widget)
+        self._populate_list()
+
+        btns = QHBoxLayout()
+        ok_btn = QPushButton("Select")
+        ok_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        ok_btn.clicked.connect(self.accept)
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+        btns.addStretch()
+        btns.addWidget(cancel_btn)
+        btns.addWidget(ok_btn)
+        layout.addLayout(btns)
+
+    def _populate_list(self):
+        self.list_widget.clear()
+        query = self.search_box.text().lower()
+        for entry in self.all_entries:
+            title = entry.get("title", "Untitled")
+            etype = entry.get("type", "")
+            if query and query not in title.lower() and query not in etype.lower():
+                continue
+            label = f"{title} ({etype})" if etype else title
+            item = QListWidgetItem(label)
+            item.setData(Qt.UserRole, entry["id"])
+            item.setCheckState(
+                Qt.Checked if entry["id"] in self.selected_ids else Qt.Unchecked
+            )
+            self.list_widget.addItem(item)
+
+    def _filter_list(self):
+        for i in range(self.list_widget.count()):
+            item = self.list_widget.item(i)
+            eid = item.data(Qt.UserRole)
+            if item.checkState() == Qt.Checked:
+                self.selected_ids.add(eid)
+            else:
+                self.selected_ids.discard(eid)
+        self._populate_list()
+
+    def get_selected_ids(self) -> List[str]:
+        for i in range(self.list_widget.count()):
+            item = self.list_widget.item(i)
+            eid = item.data(Qt.UserRole)
+            if item.checkState() == Qt.Checked:
+                self.selected_ids.add(eid)
+            else:
+                self.selected_ids.discard(eid)
         return list(self.selected_ids)
 
 
@@ -1019,11 +1020,12 @@ class _EntityCard(QWidget):
 
         # Associated content or credits count
         credits = entity.get("credit_list", [])
-        assoc = entity.get("associated_content", "")
+        assoc = entity.get("associated_content", [])
+        assoc_count = len(assoc) if isinstance(assoc, list) else (1 if assoc else 0)
         if credits:
             info_text = f"Credits: {len(credits)}"
-        elif assoc:
-            info_text = assoc
+        elif assoc_count:
+            info_text = f"Content: {assoc_count}"
         else:
             info_text = ""
 
@@ -1477,7 +1479,7 @@ class _DetailPanel(QWidget):
 
         # Video / PDF formats - selection dialog
         if suffix in (".pdf", ".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".m4v"):
-            dlg = ThumbnailSelectionDialog(file_path, parent=self)
+            dlg = FrameSelectionDialog(file_path, parent=self)
             if dlg.exec() == QDialog.Accepted and dlg.selected_image:
                 if dlg.selected_image.save(str(dest_p.absolute())):
                     self._image_path = str(dest_p.absolute())
@@ -1827,6 +1829,8 @@ class _EntityDetailPanel(QWidget):
         self._entity_id: Optional[str] = None
         self._image_path = ""
         self._credit_data = []
+        self.assoc_content_ids: List[str] = []
+        self.assoc_entity_ids: List[str] = []
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -1871,8 +1875,25 @@ class _EntityDetailPanel(QWidget):
         self.f_year.setValue(0)
         self.f_year.setSpecialValueText("Unknown")
 
-        self.f_associated = QLineEdit()
-        self.f_associated.setPlaceholderText("Main Associated Work / Studio")
+        # Associated Content (linked content entry IDs)
+        self.f_assoc_content_display = QLineEdit()
+        self.f_assoc_content_display.setReadOnly(True)
+        self.f_assoc_content_display.setPlaceholderText("None selected")
+        self.btn_select_content = QPushButton("🎬 Select Content")
+        self.btn_select_content.clicked.connect(self._select_associated_content)
+        assoc_content_row = QHBoxLayout()
+        assoc_content_row.addWidget(self.f_assoc_content_display, 1)
+        assoc_content_row.addWidget(self.btn_select_content)
+
+        # Associated Entities (linked entity IDs)
+        self.f_assoc_entity_display = QLineEdit()
+        self.f_assoc_entity_display.setReadOnly(True)
+        self.f_assoc_entity_display.setPlaceholderText("None selected")
+        self.btn_select_entities = QPushButton("👥 Select Entities")
+        self.btn_select_entities.clicked.connect(self._select_associated_entities)
+        assoc_entity_row = QHBoxLayout()
+        assoc_entity_row.addWidget(self.f_assoc_entity_display, 1)
+        assoc_entity_row.addWidget(self.btn_select_entities)
 
         self.f_notes = QTextEdit()
         self.f_notes.setPlaceholderText("Biography or notes…")
@@ -1883,7 +1904,8 @@ class _EntityDetailPanel(QWidget):
         form.addRow("Role", self.f_role)
         form.addRow("Rating (0-10)", self.f_rating)
         form.addRow("Debut Year", self.f_year)
-        form.addRow("Associated Content", self.f_associated)
+        form.addRow("Associated Content", assoc_content_row)
+        form.addRow("Associated Entities", assoc_entity_row)
         form.addRow("Biography / Notes", self.f_notes)
         layout.addLayout(form)
 
@@ -2704,6 +2726,199 @@ class _DirectoryImportDialog(QDialog):
 
 
 # -------------------------------------------------------------------
+# Vector Search Init Thread
+# -------------------------------------------------------------------
+class _VectorInitThread(QThread):
+    """
+    Background thread that connects to Qdrant and runs full ingestion
+    if the collection is empty (first run or after a reset).
+    """
+
+    finished_init = Signal(bool)
+    status_update = Signal(str)
+
+    def __init__(
+        self,
+        qdrant_path: str,
+        listings_path: str,
+        entities_path: str,
+        parent=None,
+    ):
+        super().__init__(parent)
+        self.qdrant_path = qdrant_path
+        self.listings_path = listings_path
+        self.entities_path = entities_path
+        self.qdrant_manager = None  # set on success
+
+    def run(self) -> None:
+        try:
+            self.status_update.emit("Connecting to vector store…")
+            from backend.src.database.qdrant_manager import QdrantManager
+
+            mgr = QdrantManager(self.qdrant_path)
+            if not mgr.connect():
+                self.finished_init.emit(False)
+                return
+
+            if mgr.collection_count() == 0:
+                self.status_update.emit("Building search index (first run)…")
+                from backend.src.pipeline.vector_ingestion import ingest_listings
+
+                ingest_listings(
+                    mgr,
+                    self.listings_path,
+                    self.entities_path,
+                    progress_callback=lambda cur, tot: self.status_update.emit(
+                        f"Indexing {cur}/{tot}…"
+                    ),
+                )
+
+            self.qdrant_manager = mgr
+            self.finished_init.emit(True)
+        except Exception as exc:
+            print(f"[VectorInitThread] Error: {exc}")
+            self.finished_init.emit(False)
+
+
+# -------------------------------------------------------------------
+# Recommendation Dialog
+# -------------------------------------------------------------------
+class RecommendationDialog(QDialog):
+    """
+    Dialog for specifying content recommendation criteria.
+
+    Provides structured filters (Type, Genres, Tags, Entities) for
+    sparse keyword matching and a free-form natural language prompt
+    for dense semantic search.  When both are filled, results are
+    fused via Reciprocal Rank Fusion (RRF).
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("🌟 Content Recommendation")
+        self.setMinimumSize(560, 540)
+        self.setStyleSheet(
+            "QDialog { background: #1e1a2e; color: white; }"
+            "QLabel { color: #ce93d8; font-weight: bold; font-size: 12px; }"
+            "QLineEdit, QTextEdit {"
+            "  background: #2c2f33; color: white;"
+            "  border: 1px solid #7b1fa2; border-radius: 4px; padding: 4px;"
+            "}"
+            "QComboBox {"
+            "  background: #2c2f33; color: white;"
+            "  border: 1px solid #7b1fa2; border-radius: 4px; padding: 4px;"
+            "}"
+            "QComboBox::drop-down { border: none; }"
+            "QComboBox QAbstractItemView { background: #2c2f33; color: white; }"
+        )
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 12)
+        layout.setSpacing(10)
+
+        # Header
+        header = QLabel("🌟 Recommend Content")
+        header.setStyleSheet("font-size: 16px; font-weight: bold; color: #ce93d8;")
+        layout.addWidget(header)
+
+        desc = QLabel(
+            "Describe what you're looking for. Fill in keyword fields, the prompt, or both.\n"
+            "When both are provided, results are fused with Reciprocal Rank Fusion."
+        )
+        desc.setStyleSheet("color: #aaa; font-size: 11px; font-weight: normal;")
+        desc.setWordWrap(True)
+        layout.addWidget(desc)
+
+        sep = QFrame()
+        sep.setFrameShape(QFrame.HLine)
+        sep.setStyleSheet("color: #4f545c;")
+        layout.addWidget(sep)
+
+        # Structured filters
+        form = QFormLayout()
+        form.setLabelAlignment(Qt.AlignRight)
+        form.setSpacing(8)
+        form.setContentsMargins(0, 0, 0, 0)
+
+        type_label = QLabel("Type:")
+        type_label.setStyleSheet("color: #ce93d8; font-weight: bold;")
+        self.type_combo = QComboBox()
+        self.type_combo.addItems(["All Types"] + ENTRY_TYPES)
+        form.addRow(type_label, self.type_combo)
+
+        genres_label = QLabel("Genres:")
+        genres_label.setStyleSheet("color: #ce93d8; font-weight: bold;")
+        self.genres_edit = QLineEdit()
+        self.genres_edit.setPlaceholderText("e.g. Action, Sci-Fi, Psychological")
+        form.addRow(genres_label, self.genres_edit)
+
+        tags_label = QLabel("Tags:")
+        tags_label.setStyleSheet("color: #ce93d8; font-weight: bold;")
+        self.tags_edit = QLineEdit()
+        self.tags_edit.setPlaceholderText("e.g. time-travel, mecha, philosophical")
+        form.addRow(tags_label, self.tags_edit)
+
+        entities_label = QLabel("Entities:")
+        entities_label.setStyleSheet("color: #ce93d8; font-weight: bold;")
+        self.entities_edit = QLineEdit()
+        self.entities_edit.setPlaceholderText("e.g. Makoto Shinkai, MAPPA, Yoko Taro")
+        form.addRow(entities_label, self.entities_edit)
+
+        layout.addLayout(form)
+
+        # Natural language prompt
+        prompt_label = QLabel("✏ Natural Language Prompt:")
+        layout.addWidget(prompt_label)
+
+        self.prompt_edit = QTextEdit()
+        self.prompt_edit.setPlaceholderText(
+            "e.g. A dark sci-fi anime with deep philosophical themes, featuring complex "
+            "female protagonists in a dystopian future that questions what it means to be human…"
+        )
+        self.prompt_edit.setMinimumHeight(110)
+        self.prompt_edit.setMaximumHeight(160)
+        layout.addWidget(self.prompt_edit)
+
+        # Buttons
+        btns = QHBoxLayout()
+        btns.setSpacing(10)
+        btns.addStretch()
+
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setFixedWidth(90)
+        cancel_btn.setStyleSheet(
+            "QPushButton { background:#2f3136; color:white; border:1px solid #4f545c;"
+            " border-radius:4px; padding:6px; font-weight:bold; }"
+            "QPushButton:hover { background:#4f545c; }"
+        )
+        cancel_btn.clicked.connect(self.reject)
+        btns.addWidget(cancel_btn)
+
+        run_btn = QPushButton("🌟 Run Recommendation")
+        run_btn.setFixedWidth(180)
+        run_btn.setStyleSheet(
+            "QPushButton { background:#7b1fa2; color:white; border:none;"
+            " border-radius:4px; padding:6px; font-weight:bold; }"
+            "QPushButton:hover { background:#9c27b0; }"
+            "QPushButton:pressed { background:#6a1b9a; }"
+        )
+        run_btn.clicked.connect(self.accept)
+        run_btn.setDefault(True)
+        btns.addWidget(run_btn)
+
+        layout.addLayout(btns)
+
+    def get_inputs(self) -> Dict[str, Any]:
+        return {
+            "type": self.type_combo.currentText(),
+            "genres": self.genres_edit.text().strip(),
+            "tags": self.tags_edit.text().strip(),
+            "entities": self.entities_edit.text().strip(),
+            "prompt": self.prompt_edit.toPlainText().strip(),
+        }
+
+
+# -------------------------------------------------------------------
 # Sub-tab: Content Listings
 # -------------------------------------------------------------------
 class ContentListingsSubTab(QWidget):
@@ -2716,6 +2931,14 @@ class ContentListingsSubTab(QWidget):
         self._filter_status = "All"
         self._search_query = ""
         self._advanced_search_criteria = None
+
+        # Vector search state
+        self._qdrant = None
+        self._qdrant_search_ids: Optional[List[str]] = None
+        self._recommendation_results: Optional[List[Tuple[str, float]]] = None
+        self._vector_init_thread = None
+        self._active_search_worker = None
+        self._active_rec_worker = None
 
         # ---- Root layout ----
         root = QVBoxLayout(self)
@@ -2737,12 +2960,38 @@ class ContentListingsSubTab(QWidget):
         self.search_box.textChanged.connect(self._on_search)
         toolbar.addWidget(self.search_box)
 
+        # ── Search / Recommend pair (stacked vertically) ─────────────
+        _search_rec_pair = QWidget()
+        _search_rec_vbox = QVBoxLayout(_search_rec_pair)
+        _search_rec_vbox.setContentsMargins(0, 0, 0, 0)
+        _search_rec_vbox.setSpacing(3)
+
         adv_search_btn = QPushButton("🔍 Advanced")
         adv_search_btn.setStyleSheet(SHARED_BUTTON_STYLE)
-        adv_search_btn.setFixedWidth(110)
+        adv_search_btn.setFixedWidth(120)
         adv_search_btn.clicked.connect(self._on_advanced_search)
         apply_shadow_effect(adv_search_btn)
-        toolbar.addWidget(adv_search_btn)
+
+        rec_btn = QPushButton("🌟 Recommend")
+        rec_btn.setStyleSheet(
+            "QPushButton { background:#7b1fa2; color:white; border:none; border-radius:4px;"
+            " padding:2px 8px; font-weight:bold; font-size:11px; }"
+            "QPushButton:hover { background:#9c27b0; }"
+            "QPushButton:pressed { background:#6a1b9a; }"
+        )
+        rec_btn.setFixedWidth(120)
+        rec_btn.clicked.connect(self._on_recommend_content)
+        apply_shadow_effect(rec_btn)
+
+        _search_rec_vbox.addWidget(adv_search_btn)
+        _search_rec_vbox.addWidget(rec_btn)
+        toolbar.addWidget(_search_rec_pair)
+
+        # ── Clear pair (stacked vertically, hidden until active) ──────
+        _clear_pair = QWidget()
+        _clear_vbox = QVBoxLayout(_clear_pair)
+        _clear_vbox.setContentsMargins(0, 0, 0, 0)
+        _clear_vbox.setSpacing(3)
 
         self.clear_adv_btn = QPushButton("❌ Clear Advanced")
         self.clear_adv_btn.setStyleSheet(
@@ -2752,7 +3001,19 @@ class ContentListingsSubTab(QWidget):
         self.clear_adv_btn.setFixedWidth(130)
         self.clear_adv_btn.clicked.connect(self._clear_advanced_search)
         self.clear_adv_btn.hide()
-        toolbar.addWidget(self.clear_adv_btn)
+
+        self.clear_rec_btn = QPushButton("❌ Clear Rec")
+        self.clear_rec_btn.setStyleSheet(
+            "QPushButton { background:#6d1b7b; color:white; border:none; border-radius:4px; padding:2px 8px; font-weight:bold; font-size:11px; }"
+            "QPushButton:hover { background:#7b1fa2; }"
+        )
+        self.clear_rec_btn.setFixedWidth(130)
+        self.clear_rec_btn.clicked.connect(self._clear_recommendations)
+        self.clear_rec_btn.hide()
+
+        _clear_vbox.addWidget(self.clear_adv_btn)
+        _clear_vbox.addWidget(self.clear_rec_btn)
+        toolbar.addWidget(_clear_pair)
 
         self.type_combo = QComboBox()
         self.type_combo.addItems(["All Types"] + ENTRY_TYPES)
@@ -2895,6 +3156,12 @@ class ContentListingsSubTab(QWidget):
         self._rebuild_gallery()
         self._detail.clear_for_new()
 
+        # ---- Vector search (debounced text search + background init) ----
+        self._search_debounce_timer = QTimer(self)
+        self._search_debounce_timer.setSingleShot(True)
+        self._search_debounce_timer.timeout.connect(self._run_qdrant_text_search)
+        self._start_vector_init()
+
     # ------------------------------------------------------------------
     # Persistence
     # ------------------------------------------------------------------
@@ -2920,6 +3187,13 @@ class ContentListingsSubTab(QWidget):
     # Gallery
     # ------------------------------------------------------------------
     def _filtered_entries(self) -> List[Dict[str, Any]]:
+        # Recommendation mode: show results sorted by descending relevance score
+        if getattr(self, "_recommendation_results", None) is not None:
+            rec_map = {uid: score for uid, score in self._recommendation_results}
+            result = [e for e in self._entries if e.get("id") in rec_map]
+            result.sort(key=lambda e: rec_map.get(e.get("id", ""), 0.0), reverse=True)
+            return result
+
         result = self._entries
         if self._filter_type not in ("All", "All Types"):
             result = [e for e in result if e.get("type") == self._filter_type]
@@ -2991,6 +3265,14 @@ class ContentListingsSubTab(QWidget):
                         filtered.append(e)
 
             result = filtered
+
+        # Qdrant semantic text search — restricts and reorders by relevance
+        if getattr(self, "_qdrant_search_ids", None) is not None:
+            id_set = set(self._qdrant_search_ids)
+            id_order = {uid: i for i, uid in enumerate(self._qdrant_search_ids)}
+            result = [e for e in result if e.get("id") in id_set]
+            result.sort(key=lambda e: id_order.get(e.get("id", ""), len(id_order)))
+            return result
 
         if self._search_query:
             q = self._search_query.lower()
@@ -3237,7 +3519,13 @@ class ContentListingsSubTab(QWidget):
     @Slot(str)
     def _on_search(self, text: str):
         self._search_query = text
+        if not text:
+            # Clear Qdrant results so client-side filtering resumes immediately
+            self._qdrant_search_ids = None
         self._rebuild_gallery()
+        # Fire debounced Qdrant sparse search (400 ms after last keystroke)
+        if hasattr(self, "_search_debounce_timer"):
+            self._search_debounce_timer.start(400)
 
     @Slot(str)
     def _on_type_filter(self, text: str):
@@ -3251,6 +3539,97 @@ class ContentListingsSubTab(QWidget):
 
     @Slot(str)
     def _on_sort_changed(self, text: str):
+        self._rebuild_gallery()
+
+    # ------------------------------------------------------------------
+    # Vector Search Integration
+    # ------------------------------------------------------------------
+
+    def _start_vector_init(self) -> None:
+        """Launch background thread to connect Qdrant and run ingestion if needed."""
+        qdrant_path = str(IMAGE_TOOLKIT_DIR / "qdrant")
+        self._vector_init_thread = _VectorInitThread(
+            qdrant_path, str(LISTINGS_FILE), str(ENTITIES_FILE), parent=self
+        )
+        self._vector_init_thread.finished_init.connect(self._on_vector_init_done)
+        self._vector_init_thread.status_update.connect(
+            lambda msg: print(f"[VectorInit] {msg}")
+        )
+        self._vector_init_thread.start()
+
+    @Slot(bool)
+    def _on_vector_init_done(self, success: bool) -> None:
+        if success and self._vector_init_thread:
+            self._qdrant = self._vector_init_thread.qdrant_manager
+            print("[ContentListingsSubTab] Vector search ready.")
+
+    def _run_qdrant_text_search(self) -> None:
+        """Triggered by debounce timer; runs sparse Qdrant search off-thread."""
+        text = self._search_query
+        if not text or not self._qdrant or not self._qdrant.is_ready:
+            return
+
+        if self._active_search_worker:
+            self._active_search_worker.cancel()
+
+        from ...helpers.core.listing_search_worker import ListingSearchWorker
+        from PySide6.QtCore import QThreadPool
+
+        worker = ListingSearchWorker(self._qdrant, text)
+        worker.signals.finished.connect(self._on_qdrant_search_results)
+        worker.signals.error.connect(lambda e: print(f"[QdrantSearch] {e}"))
+        self._active_search_worker = worker
+        QThreadPool.globalInstance().start(worker)
+
+    @Slot(list)
+    def _on_qdrant_search_results(self, uuids: list) -> None:
+        if self._search_query:  # Only apply if search is still active
+            self._qdrant_search_ids = uuids
+            self._rebuild_gallery()
+
+    # ------------------------------------------------------------------
+    # Recommendation
+    # ------------------------------------------------------------------
+
+    def _on_recommend_content(self) -> None:
+        if not self._qdrant or not self._qdrant.is_ready:
+            QMessageBox.information(
+                self,
+                "Search Index Not Ready",
+                "The vector search index is still initializing.\n"
+                "Please wait a moment and try again.",
+            )
+            return
+
+        dlg = RecommendationDialog(self)
+        if dlg.exec() == QDialog.Accepted:
+            self._run_recommendation(dlg.get_inputs())
+
+    def _run_recommendation(self, inputs: dict) -> None:
+        from ...helpers.core.recommendation_worker import RecommendationWorker
+
+        if self._active_rec_worker and self._active_rec_worker.isRunning():
+            self._active_rec_worker.terminate()
+
+        worker = RecommendationWorker(self._qdrant, inputs, top_k=50, parent=self)
+        worker.finished.connect(self._on_recommendation_results)
+        worker.error.connect(
+            lambda e: QMessageBox.warning(self, "Recommendation Error", e)
+        )
+        worker.status.connect(lambda msg: self.stats_label.setText(f"🌟 {msg}"))
+        self._active_rec_worker = worker
+        self.stats_label.setText("🌟 Running recommendations…")
+        worker.start()
+
+    @Slot(list)
+    def _on_recommendation_results(self, results: list) -> None:
+        self._recommendation_results = results
+        self.clear_rec_btn.show()
+        self._rebuild_gallery()
+
+    def _clear_recommendations(self) -> None:
+        self._recommendation_results = None
+        self.clear_rec_btn.hide()
         self._rebuild_gallery()
 
     @Slot()
@@ -3887,258 +4266,3 @@ class ListingsTab(QWidget):
         self.tab_widget.addTab(self.content_listings, "🎬 Content Listings")
         self.tab_widget.addTab(self.entity_listings, "👥 Entity Listings")
         layout.addWidget(self.tab_widget)
-
-
-class ThumbnailSelectionDialog(QDialog):
-    def __init__(self, file_path: str, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Select Representative Thumbnail")
-        self.setMinimumSize(500, 600)
-        self.file_path = file_path
-        self.selected_image = None
-
-        self.p = Path(file_path)
-        self.suffix = self.p.suffix.lower()
-
-        self.cap = None
-        self.pdf_doc = None
-        self.total_frames = 0
-        self.fps = 24.0
-
-        # Debounce timer + current worker for async frame extraction
-        self._frame_timer = QTimer(self)
-        self._frame_timer.setSingleShot(True)
-        self._frame_timer.setInterval(180)  # ms idle before firing
-        self._frame_timer.timeout.connect(self._start_frame_worker)
-        self._frame_worker: Optional[_FrameWorker] = None
-
-        self._init_ui()
-        self._load_file()
-
-    def _init_ui(self):
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #2c2f33;
-                color: #ffffff;
-            }
-            QLabel {
-                color: #ffffff;
-            }
-            QPushButton {
-                background-color: #7289da;
-                color: white;
-                border-radius: 4px;
-                padding: 6px 12px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #677bc4;
-            }
-            QSlider::groove:horizontal {
-                border: 1px solid #4f545c;
-                height: 8px;
-                background: #1a1c1e;
-                border-radius: 4px;
-            }
-            QSlider::handle:horizontal {
-                background: #00bcd4;
-                border: 1px solid #0097a7;
-                width: 18px;
-                margin: -5px 0;
-                border-radius: 9px;
-            }
-            QSpinBox {
-                background-color: #1a1c1e;
-                color: white;
-                border: 1px solid #4f545c;
-                border-radius: 4px;
-                padding: 4px;
-            }
-        """)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
-
-        self.info_lbl = QLabel(f"File: {self.p.name}")
-        self.info_lbl.setStyleSheet(
-            "font-weight: bold; font-size: 13px; color: #00bcd4;"
-        )
-        layout.addWidget(self.info_lbl)
-
-        self.preview_lbl = QLabel("Loading preview...")
-        self.preview_lbl.setAlignment(Qt.AlignCenter)
-        self.preview_lbl.setMinimumSize(400, 400)
-        self.preview_lbl.setStyleSheet(
-            "background-color: #1a1c1e; border: 2px solid #4f545c; border-radius: 8px;"
-        )
-        layout.addWidget(self.preview_lbl, 1)
-
-        self.controls_layout = QHBoxLayout()
-        layout.addLayout(self.controls_layout)
-
-        btns_layout = QHBoxLayout()
-        self.cancel_btn = QPushButton("Cancel")
-        self.cancel_btn.setStyleSheet("background-color: #4f545c;")
-        self.cancel_btn.clicked.connect(self.reject)
-
-        self.save_btn = QPushButton("Select Frame / Page")
-        self.save_btn.clicked.connect(self.accept)
-
-        btns_layout.addStretch()
-        btns_layout.addWidget(self.cancel_btn)
-        btns_layout.addWidget(self.save_btn)
-        layout.addLayout(btns_layout)
-
-    def _load_file(self):
-        if self.suffix == ".pdf":
-            try:
-                from PySide6.QtPdf import QPdfDocument
-
-                self.pdf_doc = QPdfDocument()
-                if (
-                    self.pdf_doc.load(str(self.p.absolute()))
-                    == QPdfDocument.Status.Ready
-                ):
-                    page_count = self.pdf_doc.pageCount()
-
-                    self.page_spin = QSpinBox()
-                    self.page_spin.setRange(1, page_count)
-                    self.page_spin.setValue(1)
-                    self.page_spin.valueChanged.connect(self._update_pdf_preview)
-
-                    self.controls_layout.addWidget(QLabel("Page:"))
-                    self.controls_layout.addWidget(self.page_spin)
-                    self.controls_layout.addWidget(QLabel(f"of {page_count}"))
-                    self.controls_layout.addStretch()
-
-                    self._update_pdf_preview()
-                else:
-                    self.preview_lbl.setText("Failed to load PDF.")
-            except Exception as e:
-                self.preview_lbl.setText(f"Error loading PDF: {e}")
-
-        elif self.suffix in (".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".m4v"):
-            try:
-                import cv2
-
-                # Use OpenCV only to probe metadata (no actual decoding)
-                try:
-                    probe = cv2.VideoCapture(
-                        str(self.p.absolute()),
-                        cv2.CAP_FFMPEG,
-                        [cv2.CAP_PROP_HW_ACCELERATION, cv2.VIDEO_ACCELERATION_NONE],
-                    )
-                except Exception:
-                    probe = cv2.VideoCapture(str(self.p.absolute()))
-
-                if probe.isOpened():
-                    self.total_frames = int(probe.get(cv2.CAP_PROP_FRAME_COUNT)) or 1000
-                    self.fps = probe.get(cv2.CAP_PROP_FPS) or 24.0
-                    probe.release()
-
-                    self.slider = QSlider(Qt.Horizontal)
-                    self.slider.setRange(0, self.total_frames - 1)
-                    start_frame = min(
-                        max(1, self.total_frames // 10), self.total_frames - 1
-                    )
-                    self.slider.setValue(start_frame)
-                    # Debounce: slider movement restarts the timer instead of
-                    # calling the (slow) extraction synchronously each tick
-                    self.slider.valueChanged.connect(self._schedule_video_preview)
-
-                    self.frame_spin = QSpinBox()
-                    self.frame_spin.setRange(0, self.total_frames - 1)
-                    self.frame_spin.setValue(start_frame)
-                    self.frame_spin.valueChanged.connect(self.slider.setValue)
-                    self.slider.valueChanged.connect(self.frame_spin.setValue)
-
-                    self.controls_layout.addWidget(QLabel("Frame:"))
-                    self.controls_layout.addWidget(self.slider, 1)
-                    self.controls_layout.addWidget(self.frame_spin)
-
-                    # Kick off the first frame immediately (no debounce needed)
-                    self._start_frame_worker()
-                else:
-                    self.preview_lbl.setText("Failed to open Video.")
-            except Exception as e:
-                self.preview_lbl.setText(f"Error opening Video: {e}")
-        else:
-            self.preview_lbl.setText("Unsupported format.")
-            self.save_btn.setEnabled(False)
-
-    def _update_pdf_preview(self):
-        if not self.pdf_doc:
-            return
-        page_index = self.page_spin.value() - 1
-        qimg = self.pdf_doc.render(page_index, QSize(400, 500))
-        if not qimg.isNull():
-            self.selected_image = qimg
-            px = QPixmap.fromImage(qimg).scaled(
-                380, 380, Qt.KeepAspectRatio, Qt.SmoothTransformation
-            )
-            self.preview_lbl.setPixmap(px)
-
-    def _schedule_video_preview(self):
-        """Called on every slider tick — just restarts the debounce timer."""
-        self._frame_timer.start()
-
-    def _clear_worker(self, worker):
-        if self._frame_worker is worker:
-            self._frame_worker = None
-
-    def _start_frame_worker(self):
-        """Fired by the debounce timer; cancels any in-flight worker and starts a new one."""
-        # Cancel previous extraction if still running
-        if self._frame_worker is not None:
-            try:
-                if self._frame_worker.isRunning():
-                    self._frame_worker.cancel()
-                    self._frame_worker.signals.frame_ready.disconnect()
-                    self._frame_worker.signals.failed.disconnect()
-            except RuntimeError:
-                pass
-            self._frame_worker = None
-
-        frame_idx = self.slider.value()
-        self.preview_lbl.setText("Loading…")
-
-        worker = _FrameWorker(
-            str(self.p.absolute()), frame_idx, self.total_frames, self.fps
-        )
-        worker.signals.frame_ready.connect(self._on_frame_ready)
-        worker.signals.failed.connect(self._on_frame_failed)
-        # Clear local reference when finished, then clean up the C++ object
-        worker.finished.connect(lambda: self._clear_worker(worker))
-        worker.finished.connect(worker.deleteLater)
-        self._frame_worker = worker
-        worker.start()
-
-    def _on_frame_ready(self, frame):
-        """Slot called from worker signal (marshalled to main thread by Qt)."""
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        h, w, ch = rgb.shape
-        bytes_per_line = ch * w
-        qimg = QImage(rgb.data, w, h, bytes_per_line, QImage.Format_RGB888).copy()
-        self.selected_image = qimg
-        px = QPixmap.fromImage(qimg).scaled(
-            380, 380, Qt.KeepAspectRatio, Qt.SmoothTransformation
-        )
-        self.preview_lbl.setPixmap(px)
-
-    def _on_frame_failed(self):
-        self.preview_lbl.setText("Failed to decode frame from video.")
-
-    def closeEvent(self, event):
-        # Stop debounce timer and cancel any running worker cleanly
-        self._frame_timer.stop()
-        if self._frame_worker is not None:
-            try:
-                if self._frame_worker.isRunning():
-                    self._frame_worker.cancel()
-                    self._frame_worker.wait(500)  # give it up to 500 ms to exit
-            except RuntimeError:
-                pass
-        if self.cap:
-            self.cap.release()
-        super().closeEvent(event)

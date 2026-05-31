@@ -36,6 +36,7 @@ from PySide6.QtCore import Qt, QUrl, Slot, QThreadPool, QPoint, QEvent, Signal
 from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassSingleGallery
 from ...components import ClickableLabel, MarqueeScrollArea
+from ...components.frame_selection_dialog import FrameSelectionDialog
 from ...utils.sort_utils import natural_sort_key
 from ...helpers import (
     VideoScannerWorker,
@@ -410,7 +411,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         extract_config_layout.addWidget(QLabel("GIF FPS:"))
         self.spin_gif_fps = QSpinBox()
         self.spin_gif_fps.setRange(1, 60)
-        self.spin_gif_fps.setValue(15)
+        self.spin_gif_fps.setValue(24)
         extract_config_layout.addWidget(self.spin_gif_fps)
 
         self.check_mute_audio = QCheckBox("Mute Audio in MP4/GIF")
@@ -834,7 +835,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         # 2. Pre-populate grid with "Loading..." items in alphabetical order
         # Limit to 1000 items to avoid OOM/crash if directory is massive
-        from ...constants import MAX_PREVIEW_ITEMS0
+        from ...constants import MAX_PREVIEW_ITEMS
+
         video_paths_limited = video_paths[:MAX_PREVIEW_ITEMS]
 
         for i, v_path in enumerate(video_paths_limited):
@@ -2020,18 +2022,36 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
             )
 
-        # --- MODIFIED: Apply a small negative offset ---
+        # Use current player position as starting point if possible
+        start_ms = self.media_player.position() if self.use_internal_player else self.start_time_ms
 
-        # We use self.start_time_ms which was set by set_range_start
-        target_ms = self.start_time_ms
+        dlg = FrameSelectionDialog(self.video_path, start_ms=start_ms, parent=self)
+        if dlg.exec() == QDialog.Accepted and dlg.selected_image:
+            self.extraction_status_label.setText("Saving snapshot...")
+            self.extraction_status_label.show()
+            self.qml_extraction_status.emit("Saving snapshot...")
+            
+            # Use target size logic if not "Native"
+            target_size = self._get_target_size()
+            img = dlg.selected_image
+            if target_size:
+                img = img.scaled(
+                    target_size[0], target_size[1], 
+                    Qt.IgnoreAspectRatio, Qt.SmoothTransformation
+                )
 
-        # Define a small offset to correct for player/extractor lag
-        LAG_COMPENSATION_MS = 26
-
-        # Adjust the target time backward, ensuring it doesn't go below zero
-        corrected_ms = max(0, target_ms - LAG_COMPENSATION_MS)
-
-        self._run_extraction(corrected_ms, -1, is_range=False)
+            # Generate filename
+            timestamp_ms = int(dlg.selected_frame_idx / dlg.fps * 1000)
+            filename = f"{Path(self.video_path).stem}_snap_{timestamp_ms}ms.png"
+            out_path = self.extraction_dir / filename
+            
+            if img.save(str(out_path)):
+                self.extraction_status_label.setText(f"Snapshot saved: {filename}")
+                self.extraction_status_label.show()
+                # Auto-refresh gallery if needed
+                self.scan_directory(str(self.extraction_dir))
+            else:
+                QMessageBox.critical(self, "Error", "Failed to save snapshot.")
 
     def _set_extraction_buttons_enabled(self, enabled: bool):
         """Helper to enable/disable all extraction-related buttons."""

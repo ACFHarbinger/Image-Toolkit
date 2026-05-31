@@ -3,7 +3,7 @@ from PySide6.QtGui import QColor
 # UI Behavior
 ZOOM_STEP = 1.1
 LAG_COMPENSATION_MS = 300
-MAX_PREVIEW_ITEMS = 100
+MAX_PREVIEW_ITEMS = 1000
 
 # Window Titles
 DEFAULT_WINDOW_TITLE = "Image Toolkit"
@@ -15,8 +15,18 @@ DEFAULT_THUMBNAIL_SIZE = (128, 128)
 STITCH_THUMB_W = 96
 STITCH_THUMB_H = 54
 STITCH_CP_COLORS = [
-    "#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6", "#1abc9c",
-    "#e67e22", "#ecf0f1", "#95a5a6", "#d35400", "#c0392b", "#2980b9",
+    "#e74c3c",
+    "#3498db",
+    "#2ecc71",
+    "#f1c40f",
+    "#9b59b6",
+    "#1abc9c",
+    "#e67e22",
+    "#ecf0f1",
+    "#95a5a6",
+    "#d35400",
+    "#c0392b",
+    "#2980b9",
 ]
 DARK_PANEL_STYLE = "background:#2c2f33;"
 DARK_GROUP_STYLE = "QGroupBox { background:#2c2f33; color:#ccc; }"
@@ -55,6 +65,16 @@ CROP_PRESETS = [
 ]
 
 ANIM_CLUSTER_COLORS = [
-    "#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6", "#1abc9c",
-    "#e67e22", "#ecf0f1", "#95a5a6", "#27ae60", "#2980b9", "#8e44ad",
+    "#e74c3c",
+    "#3498db",
+    "#2ecc71",
+    "#f1c40f",
+    "#9b59b6",
+    "#1abc9c",
+    "#e67e22",
+    "#ecf0f1",
+    "#95a5a6",
+    "#27ae60",
+    "#2980b9",
+    "#8e44ad",
 ]
