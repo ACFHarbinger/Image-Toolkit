@@ -1,7 +1,11 @@
 import json
+import os
+import shutil
 
+from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QCheckBox,
     QLineEdit,
     QRadioButton,
     QHBoxLayout,
@@ -12,12 +16,24 @@ from PySide6.QtWidgets import (
     QPushButton,
     QMessageBox,
     QComboBox,
+    QSpinBox,
     QTextEdit,
     QVBoxLayout,
     QGroupBox,
     QFormLayout,
     QApplication,
 )
+
+try:
+    from backend.src.utils.definitions import (
+        IMAGE_TOOLKIT_DIR,
+        DAEMON_CONFIG_PATH,
+        THUMBNAIL_CACHE_DIR,
+    )
+except ImportError:
+    IMAGE_TOOLKIT_DIR = Path.home() / ".image-toolkit"
+    DAEMON_CONFIG_PATH = IMAGE_TOOLKIT_DIR / ".myapp_slideshow_config.json"
+    THUMBNAIL_CACHE_DIR = IMAGE_TOOLKIT_DIR / "thumbnail-cache"
 
 
 class SettingsWindow(QWidget):
@@ -44,6 +60,7 @@ class SettingsWindow(QWidget):
         self.initial_theme = "dark"  # Default theme
         self.active_tab_configs = {}
         self.system_profiles = {}  # Store loaded profiles
+        self.preferences = {}
 
         if self.vault_manager:
             try:
@@ -52,8 +69,26 @@ class SettingsWindow(QWidget):
                 self.initial_theme = creds.get("theme", "dark")
                 self.active_tab_configs = creds.get("active_tab_configs", {})
                 self.system_profiles = creds.get("system_preference_profiles", {})
+                self.preferences = creds.get("preferences", {})
             except Exception:
                 pass
+
+        # Unpack preference values with defaults
+        _p = self.preferences
+        self.pref_thumbnail_size = _p.get("thumbnail_size", 180)
+        self.pref_page_size = _p.get("page_size", 100)
+        self.pref_confirm_deletions = _p.get("confirm_deletions", True)
+        self.pref_found_cache = _p.get("found_cache_maxsize", 300)
+        self.pref_selected_cache = _p.get("selected_cache_maxsize", 200)
+        self.pref_initial_cache = _p.get("initial_cache_maxsize", 300)
+        self.pref_restore_last_dir = _p.get("restore_last_dir", True)
+        self.pref_recent_dirs_count = _p.get("recent_dirs_count", 10)
+        self.pref_startup_category = _p.get("startup_category", "System Tools")
+        self.pref_slideshow_min = _p.get("slideshow_interval_min", 5)
+        self.pref_slideshow_sec = _p.get("slideshow_interval_sec", 0)
+        self.pref_slideshow_order = _p.get("slideshow_order", "Sequential")
+        self.pref_log_level = _p.get("log_level", "INFO")
+        self.pref_file_logging = _p.get("file_logging_enabled", False)
 
         # --- Configuration Defaults State ---
         self.tab_defaults_config = self._load_tab_defaults_from_vault()
@@ -186,6 +221,171 @@ class SettingsWindow(QWidget):
         prefs_layout.addLayout(all_categories_layout)
 
         content_layout.addWidget(prefs_groupbox)
+
+        # ---------------------------------------------------------------------
+        # --- Gallery & Display Section ---
+        # ---------------------------------------------------------------------
+        gallery_groupbox = QGroupBox("Gallery & Display")
+        gallery_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        gallery_layout = QFormLayout(gallery_groupbox)
+        gallery_layout.setContentsMargins(10, 10, 10, 10)
+
+        self.thumbnail_size_spinbox = QSpinBox()
+        self.thumbnail_size_spinbox.setRange(48, 512)
+        self.thumbnail_size_spinbox.setSingleStep(16)
+        self.thumbnail_size_spinbox.setValue(self.pref_thumbnail_size)
+        self.thumbnail_size_spinbox.setToolTip(
+            "Default thumbnail pixel size used across all gallery tabs (restart required)"
+        )
+        gallery_layout.addRow("Default Thumbnail Size (px):", self.thumbnail_size_spinbox)
+
+        self.page_size_combo = QComboBox()
+        self.page_size_combo.addItems(["50", "100", "150", "200", "300"])
+        self.page_size_combo.setCurrentText(str(self.pref_page_size))
+        self.page_size_combo.setToolTip(
+            "Default number of images loaded per gallery page (restart required)"
+        )
+        gallery_layout.addRow("Default Gallery Page Size:", self.page_size_combo)
+
+        self.confirm_deletions_check = QCheckBox("Require confirmation before deleting files")
+        self.confirm_deletions_check.setChecked(self.pref_confirm_deletions)
+        gallery_layout.addRow(self.confirm_deletions_check)
+
+        content_layout.addWidget(gallery_groupbox)
+
+        # ---------------------------------------------------------------------
+        # --- Startup & Session Section ---
+        # ---------------------------------------------------------------------
+        session_groupbox = QGroupBox("Startup & Session")
+        session_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        session_layout = QFormLayout(session_groupbox)
+        session_layout.setContentsMargins(10, 10, 10, 10)
+
+        category_names = list(self._get_tab_mapping().keys()) or [
+            "System Tools", "Database Management", "Web Integration",
+            "Deep Learning", "Image Edit",
+        ]
+        self.startup_category_combo = QComboBox()
+        self.startup_category_combo.addItems(category_names)
+        if self.pref_startup_category in category_names:
+            self.startup_category_combo.setCurrentText(self.pref_startup_category)
+        self.startup_category_combo.setToolTip("Which tab group to show when the app launches")
+        session_layout.addRow("Default Startup Category:", self.startup_category_combo)
+
+        self.restore_last_dir_check = QCheckBox("Restore last browsed directory on startup")
+        self.restore_last_dir_check.setChecked(self.pref_restore_last_dir)
+        session_layout.addRow(self.restore_last_dir_check)
+
+        self.recent_dirs_spinbox = QSpinBox()
+        self.recent_dirs_spinbox.setRange(3, 20)
+        self.recent_dirs_spinbox.setValue(self.pref_recent_dirs_count)
+        self.recent_dirs_spinbox.setToolTip("How many recently browsed directories to remember per tab")
+        session_layout.addRow("Recent Directories to Remember:", self.recent_dirs_spinbox)
+
+        content_layout.addWidget(session_groupbox)
+
+        # ---------------------------------------------------------------------
+        # --- Performance & Cache Section ---
+        # ---------------------------------------------------------------------
+        perf_groupbox = QGroupBox("Performance & Cache")
+        perf_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        perf_layout = QFormLayout(perf_groupbox)
+        perf_layout.setContentsMargins(10, 10, 10, 10)
+
+        perf_layout.addRow(QLabel(
+            "<i>LRU cache sizes control how many thumbnails stay in memory. "
+            "Higher values use more RAM. Changes apply after restart.</i>"
+        ))
+
+        self.found_cache_spinbox = QSpinBox()
+        self.found_cache_spinbox.setRange(50, 2000)
+        self.found_cache_spinbox.setSingleStep(50)
+        self.found_cache_spinbox.setValue(self.pref_found_cache)
+        self.found_cache_spinbox.setToolTip("Max thumbnails held in the 'found' gallery LRU cache")
+        perf_layout.addRow("Found Gallery LRU Cache Size:", self.found_cache_spinbox)
+
+        self.selected_cache_spinbox = QSpinBox()
+        self.selected_cache_spinbox.setRange(50, 1000)
+        self.selected_cache_spinbox.setSingleStep(50)
+        self.selected_cache_spinbox.setValue(self.pref_selected_cache)
+        self.selected_cache_spinbox.setToolTip("Max thumbnails held in the 'selected' gallery LRU cache")
+        perf_layout.addRow("Selected Gallery LRU Cache Size:", self.selected_cache_spinbox)
+
+        self.initial_cache_spinbox = QSpinBox()
+        self.initial_cache_spinbox.setRange(50, 2000)
+        self.initial_cache_spinbox.setSingleStep(50)
+        self.initial_cache_spinbox.setValue(self.pref_initial_cache)
+        self.initial_cache_spinbox.setToolTip(
+            "Max thumbnails held in the wallpaper/single-gallery LRU cache"
+        )
+        perf_layout.addRow("Wallpaper Gallery LRU Cache Size:", self.initial_cache_spinbox)
+
+        content_layout.addWidget(perf_groupbox)
+
+        # ---------------------------------------------------------------------
+        # --- Slideshow Defaults Section ---
+        # ---------------------------------------------------------------------
+        slideshow_groupbox = QGroupBox("Slideshow Defaults")
+        slideshow_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        slideshow_def_layout = QFormLayout(slideshow_groupbox)
+        slideshow_def_layout.setContentsMargins(10, 10, 10, 10)
+
+        interval_widget = QWidget()
+        interval_layout = QHBoxLayout(interval_widget)
+        interval_layout.setContentsMargins(0, 0, 0, 0)
+        self.slideshow_default_min_spinbox = QSpinBox()
+        self.slideshow_default_min_spinbox.setRange(0, 60)
+        self.slideshow_default_min_spinbox.setValue(self.pref_slideshow_min)
+        self.slideshow_default_min_spinbox.setFixedWidth(60)
+        self.slideshow_default_sec_spinbox = QSpinBox()
+        self.slideshow_default_sec_spinbox.setRange(0, 59)
+        self.slideshow_default_sec_spinbox.setValue(self.pref_slideshow_sec)
+        self.slideshow_default_sec_spinbox.setFixedWidth(60)
+        interval_layout.addWidget(self.slideshow_default_min_spinbox)
+        interval_layout.addWidget(QLabel("min"))
+        interval_layout.addWidget(self.slideshow_default_sec_spinbox)
+        interval_layout.addWidget(QLabel("sec"))
+        interval_layout.addStretch(1)
+        slideshow_def_layout.addRow("Default Interval:", interval_widget)
+
+        self.slideshow_default_order_combo = QComboBox()
+        self.slideshow_default_order_combo.addItems(
+            ["Sequential", "Reverse Sequential", "Random"]
+        )
+        self.slideshow_default_order_combo.setCurrentText(self.pref_slideshow_order)
+        slideshow_def_layout.addRow("Default Playback Order:", self.slideshow_default_order_combo)
+
+        content_layout.addWidget(slideshow_groupbox)
+
+        # ---------------------------------------------------------------------
+        # --- Logging Section ---
+        # ---------------------------------------------------------------------
+        logging_groupbox = QGroupBox("Logging")
+        logging_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        logging_layout = QFormLayout(logging_groupbox)
+        logging_layout.setContentsMargins(10, 10, 10, 10)
+
+        self.log_level_combo = QComboBox()
+        self.log_level_combo.addItems(["DEBUG", "INFO", "WARNING", "ERROR"])
+        self.log_level_combo.setCurrentText(self.pref_log_level)
+        self.log_level_combo.setToolTip(
+            "Minimum severity level to write to the log (DEBUG = most verbose)"
+        )
+        logging_layout.addRow("Log Level:", self.log_level_combo)
+
+        self.file_logging_check = QCheckBox(
+            "Save logs to ~/.image-toolkit/logs/ (rotating, 5 × 1 MB)"
+        )
+        self.file_logging_check.setChecked(self.pref_file_logging)
+        logging_layout.addRow(self.file_logging_check)
+
+        log_dir_label = QLabel(
+            f"<small>Log directory: {IMAGE_TOOLKIT_DIR / 'logs'}</small>"
+        )
+        log_dir_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        logging_layout.addRow(log_dir_label)
+
+        content_layout.addWidget(logging_groupbox)
 
         # ---------------------------------------------------------------------
         # --- NEW: System Preference Profiles Section ---
@@ -343,6 +543,80 @@ class SettingsWindow(QWidget):
 
         defaults_layout.addWidget(create_config_group)
         content_layout.addWidget(defaults_groupbox)
+
+        # ---------------------------------------------------------------------
+        # --- Reset State Section ---
+        # ---------------------------------------------------------------------
+        reset_groupbox = QGroupBox("Reset State")
+        reset_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        reset_state_layout = QVBoxLayout(reset_groupbox)
+        reset_state_layout.setContentsMargins(10, 10, 10, 10)
+        reset_state_layout.setSpacing(8)
+
+        reset_state_layout.addWidget(QLabel(
+            "<b>Warning:</b> these actions are immediate and cannot be undone."
+        ))
+
+        # Row 1: thumbnail cache
+        cache_row = QHBoxLayout()
+        cache_info = QLabel(
+            f"<small>Disk thumbnail cache: <code>{THUMBNAIL_CACHE_DIR}</code></small>"
+        )
+        cache_info.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.btn_clear_cache = QPushButton("Clear Thumbnail Cache")
+        self.btn_clear_cache.setToolTip(
+            "Delete all cached thumbnail files from disk. "
+            "They will be regenerated on next gallery load."
+        )
+        self.btn_clear_cache.setStyleSheet(
+            "background-color: #e67e22; color: white; font-weight: bold;"
+        )
+        self.btn_clear_cache.clicked.connect(self._clear_thumbnail_cache)
+        cache_row.addWidget(cache_info, 1)
+        cache_row.addWidget(self.btn_clear_cache)
+        reset_state_layout.addLayout(cache_row)
+
+        # Row 2: slideshow daemon reset
+        daemon_row = QHBoxLayout()
+        daemon_info = QLabel(
+            "<small>Stops the daemon, removes its PID and log files, "
+            "and resets the slideshow config to defaults.</small>"
+        )
+        daemon_info.setWordWrap(True)
+        self.btn_reset_daemon = QPushButton("Reset Slideshow Daemon")
+        self.btn_reset_daemon.setToolTip(
+            "Delete the daemon PID file and log file, and write an empty "
+            "config (running=false) to the slideshow config JSON."
+        )
+        self.btn_reset_daemon.setStyleSheet(
+            "background-color: #e67e22; color: white; font-weight: bold;"
+        )
+        self.btn_reset_daemon.clicked.connect(self._reset_slideshow_daemon)
+        daemon_row.addWidget(daemon_info, 1)
+        daemon_row.addWidget(self.btn_reset_daemon)
+        reset_state_layout.addLayout(daemon_row)
+
+        # Row 3: tab configs + system profiles
+        tab_cfg_row = QHBoxLayout()
+        tab_cfg_info = QLabel(
+            "<small>Removes all saved tab configurations, active tab config "
+            "assignments, and system preference profiles from the vault.</small>"
+        )
+        tab_cfg_info.setWordWrap(True)
+        self.btn_clear_tab_configs = QPushButton("Clear Tab Configs & Profiles")
+        self.btn_clear_tab_configs.setToolTip(
+            "Wipe tab_configurations, active_tab_configs, and "
+            "system_preference_profiles from the vault."
+        )
+        self.btn_clear_tab_configs.setStyleSheet(
+            "background-color: #c0392b; color: white; font-weight: bold;"
+        )
+        self.btn_clear_tab_configs.clicked.connect(self._clear_tab_configs)
+        tab_cfg_row.addWidget(tab_cfg_info, 1)
+        tab_cfg_row.addWidget(self.btn_clear_tab_configs)
+        reset_state_layout.addLayout(tab_cfg_row)
+
+        content_layout.addWidget(reset_groupbox)
 
         content_layout.addStretch(1)
 
@@ -1007,6 +1281,25 @@ class SettingsWindow(QWidget):
 
             user_data["active_tab_configs"] = new_active_configs
             user_data["system_preference_profiles"] = self.system_profiles
+
+            # Persist new preference settings
+            user_data["preferences"] = {
+                "thumbnail_size": self.thumbnail_size_spinbox.value(),
+                "page_size": int(self.page_size_combo.currentText()),
+                "confirm_deletions": self.confirm_deletions_check.isChecked(),
+                "found_cache_maxsize": self.found_cache_spinbox.value(),
+                "selected_cache_maxsize": self.selected_cache_spinbox.value(),
+                "initial_cache_maxsize": self.initial_cache_spinbox.value(),
+                "restore_last_dir": self.restore_last_dir_check.isChecked(),
+                "recent_dirs_count": self.recent_dirs_spinbox.value(),
+                "startup_category": self.startup_category_combo.currentText(),
+                "slideshow_interval_min": self.slideshow_default_min_spinbox.value(),
+                "slideshow_interval_sec": self.slideshow_default_sec_spinbox.value(),
+                "slideshow_order": self.slideshow_default_order_combo.currentText(),
+                "log_level": self.log_level_combo.currentText(),
+                "file_logging_enabled": self.file_logging_check.isChecked(),
+            }
+
             if self._save_vault_data(user_data):
                 if self.main_window_ref and selected_theme:
                     self.main_window_ref.set_application_theme(selected_theme)
@@ -1023,12 +1316,166 @@ class SettingsWindow(QWidget):
         self.close()
 
     def reset_settings(self):
-        """Resets settings fields to hardcoded defaults (placeholder)."""
+        """Resets settings fields to hardcoded defaults."""
         self.new_password_input.clear()
 
         self.dark_theme_radio.setChecked(True)
         self.light_theme_radio.setChecked(False)
 
-        # Reset combo boxes
+        # Reset startup config combo boxes
         for combo in self.startup_config_combos.values():
             combo.setCurrentIndex(0)  # None (Default)
+
+        # Reset Gallery & Display
+        self.thumbnail_size_spinbox.setValue(180)
+        self.page_size_combo.setCurrentText("100")
+        self.confirm_deletions_check.setChecked(True)
+
+        # Reset Startup & Session
+        items = [
+            self.startup_category_combo.itemText(i)
+            for i in range(self.startup_category_combo.count())
+        ]
+        if "System Tools" in items:
+            self.startup_category_combo.setCurrentText("System Tools")
+        self.restore_last_dir_check.setChecked(True)
+        self.recent_dirs_spinbox.setValue(10)
+
+        # Reset Performance & Cache
+        self.found_cache_spinbox.setValue(300)
+        self.selected_cache_spinbox.setValue(200)
+        self.initial_cache_spinbox.setValue(300)
+
+        # Reset Slideshow Defaults
+        self.slideshow_default_min_spinbox.setValue(5)
+        self.slideshow_default_sec_spinbox.setValue(0)
+        self.slideshow_default_order_combo.setCurrentText("Sequential")
+
+        # Reset Logging
+        self.log_level_combo.setCurrentText("INFO")
+        self.file_logging_check.setChecked(False)
+
+    # ------------------------------------------------------------------
+    # --- Reset State Methods ------------------------------------------
+    # ------------------------------------------------------------------
+
+    def _clear_thumbnail_cache(self):
+        """Deletes all cached thumbnail files from the disk cache directory."""
+        reply = QMessageBox.question(
+            self,
+            "Confirm Clear",
+            f"Delete all thumbnail cache files in:\n{THUMBNAIL_CACHE_DIR}\n\n"
+            "Thumbnails will be regenerated on the next gallery load.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            if THUMBNAIL_CACHE_DIR.exists():
+                shutil.rmtree(str(THUMBNAIL_CACHE_DIR))
+                THUMBNAIL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+                deleted_msg = "Thumbnail cache cleared successfully."
+            else:
+                deleted_msg = "Thumbnail cache directory did not exist — nothing to clear."
+            QMessageBox.information(self, "Cache Cleared", deleted_msg)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to clear thumbnail cache:\n{e}")
+
+    def _reset_slideshow_daemon(self):
+        """Stops the daemon, deletes its PID and log files, and resets the config JSON."""
+        reply = QMessageBox.question(
+            self,
+            "Confirm Reset",
+            "This will:\n"
+            f"  • Delete the PID file ({IMAGE_TOOLKIT_DIR / '.myapp_slideshow.pid'})\n"
+            f"  • Delete the log file ({IMAGE_TOOLKIT_DIR / 'slideshow_daemon.log'})\n"
+            f"  • Reset the slideshow config to {{\"running\": false}}\n\n"
+            "The daemon will stop if it is currently running.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        messages = []
+        errors = []
+
+        pid_path = IMAGE_TOOLKIT_DIR / ".myapp_slideshow.pid"
+        log_path = IMAGE_TOOLKIT_DIR / "slideshow_daemon.log"
+
+        for p, label in [(pid_path, "PID file"), (log_path, "log file")]:
+            try:
+                if p.exists():
+                    p.unlink()
+                    messages.append(f"Deleted {label}.")
+                else:
+                    messages.append(f"{label} not found (already clean).")
+            except Exception as e:
+                errors.append(f"Could not delete {label}: {e}")
+
+        try:
+            IMAGE_TOOLKIT_DIR.mkdir(parents=True, exist_ok=True)
+            with open(DAEMON_CONFIG_PATH, "w") as f:
+                import json as _json
+                _json.dump({"running": False}, f)
+            messages.append("Slideshow config reset to {\"running\": false}.")
+        except Exception as e:
+            errors.append(f"Could not reset config: {e}")
+
+        summary = "\n".join(messages)
+        if errors:
+            QMessageBox.warning(
+                self,
+                "Partial Reset",
+                f"Completed with issues:\n{summary}\n\nErrors:\n" + "\n".join(errors),
+            )
+        else:
+            QMessageBox.information(self, "Daemon Reset", summary)
+
+    def _clear_tab_configs(self):
+        """Wipes all tab configurations, active assignments, and system profiles from the vault."""
+        reply = QMessageBox.question(
+            self,
+            "Confirm Clear",
+            "This will permanently remove:\n"
+            "  • All saved tab configurations\n"
+            "  • All active tab config assignments\n"
+            "  • All system preference profiles\n\n"
+            "This cannot be undone. Continue?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        if not self.vault_manager:
+            QMessageBox.critical(self, "Error", "Vault manager is not available.")
+            return
+
+        try:
+            user_data = self.vault_manager.load_account_credentials()
+            user_data["tab_configurations"] = {}
+            user_data["active_tab_configs"] = {}
+            user_data["system_preference_profiles"] = {}
+
+            if self._save_vault_data(user_data):
+                # Reset in-memory state
+                self.tab_defaults_config = {}
+                self.active_tab_configs = {}
+                self.system_profiles = {}
+
+                # Reset UI combo boxes
+                for combo in self.startup_config_combos.values():
+                    combo.clear()
+                    combo.addItem("None (Default)")
+                self._refresh_profile_combo()
+
+                QMessageBox.information(
+                    self,
+                    "Cleared",
+                    "All tab configurations and system profiles have been removed.",
+                )
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to clear tab configs:\n{e}")
