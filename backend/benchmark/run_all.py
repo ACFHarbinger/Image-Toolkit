@@ -12,9 +12,9 @@ from pathlib import Path
 from datetime import datetime
 
 # Benchmark modules
-import bench_database
-import bench_models
-import bench_thumbnails
+import backend.benchmark.bench_database as bench_database
+import backend.benchmark.bench_models as bench_models
+import backend.benchmark.bench_thumbnails as bench_thumbnails
 
 
 def run_python_benchmarks(save=False, baseline=None):

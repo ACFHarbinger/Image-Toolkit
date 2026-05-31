@@ -2,7 +2,7 @@ import os
 import sys
 import yaml
 
-from .definitions import BACKEND_DIR
+from backend.src.constants import BACKEND_DIR
 from backend.src.core.image_converter import ImageFormatConverter
 
 
@@ -94,7 +94,7 @@ def dispatch_core(args):
             return
 
         print(f"🚀 Starting Perfect Stitch on {len(image_paths)} frames...")
-        from ..core.image_merger import ImageMerger
+        from ...core.image_merger import ImageMerger
 
         merger = ImageMerger()
         try:
@@ -113,7 +113,7 @@ def dispatch_web(args):
     command = args.get("web_command")
     if command == "crawl":
         try:
-            from ..web.image_crawler import ImageCrawler
+            from ...web.image_crawler import ImageCrawler
 
             config = {
                 "url": args.get("query"),
@@ -158,7 +158,7 @@ def dispatch_command(command, args):
     elif command == "model":
         dispatch_model(args)
     elif command == "slideshow":
-        from .slideshow_daemon import main as launch_slideshow
+        from ..slideshow_daemon import start_daemon as launch_slideshow
 
         launch_slideshow()
     else:

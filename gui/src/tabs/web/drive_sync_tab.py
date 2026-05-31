@@ -1,5 +1,5 @@
 import os
-import backend.src.utils.definitions as udef
+import backend.src.constants as udef
 
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
     QRadioButton,
     QButtonGroup,
 )
-from ...utils.app_definitions import DRY_RUN
+from ...constants import DRY_RUN
 from ...windows import LogWindow
 from ...helpers import GoogleDriveSyncWorker, DropboxDriveSyncWorker, OneDriveSyncWorker
 from ...styles.style import apply_shadow_effect, STYLE_SYNC_RUN, STYLE_SYNC_STOP

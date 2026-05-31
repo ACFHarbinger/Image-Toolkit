@@ -11,8 +11,8 @@ from pathlib import Path
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.database.image_database import PgvectorImageDatabase
-from benchmark.utils import BenchmarkRunner, measure_memory
+from backend.src.database.image_database import PgvectorImageDatabase
+from .utils import BenchmarkRunner, measure_memory
 
 
 runner = BenchmarkRunner("Database Operations")

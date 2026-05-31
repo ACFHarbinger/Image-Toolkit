@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
 )
 from dotenv import load_dotenv
 from backend.src.database import PgvectorImageDatabase as ImageDatabase
-from backend.src.utils.definitions import LOCAL_SOURCE_PATH
+from backend.src.constants import LOCAL_SOURCE_PATH
 from ...styles.style import apply_shadow_effect
 
 

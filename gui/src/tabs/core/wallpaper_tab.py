@@ -53,7 +53,7 @@ from ...components import (
 )
 from ...utils.sort_utils import natural_sort_key
 from ...styles.style import apply_shadow_effect, STYLE_START_ACTION, STYLE_STOP_ACTION
-from backend.src.utils.definitions import (
+from backend.src.constants import (
     WALLPAPER_STYLES,
     SUPPORTED_VIDEO_FORMATS,
     SUPPORTED_IMG_FORMATS,

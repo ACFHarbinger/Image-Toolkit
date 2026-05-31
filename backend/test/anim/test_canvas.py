@@ -20,7 +20,7 @@ _repo_root = os.path.dirname(
 sys.path.insert(0, _repo_root)
 
 from backend.src.anim.canvas import _compute_canvas, _crop_to_valid  # noqa: E402
-from backend.src.anim.constants import _CANVAS_MAX_DIM  # noqa: E402
+from backend.src.constants import _CANVAS_MAX_DIM  # noqa: E402
 from conftest import make_frame, make_translation_affine  # noqa: E402
 
 

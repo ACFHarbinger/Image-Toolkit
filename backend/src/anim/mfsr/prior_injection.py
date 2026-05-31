@@ -23,6 +23,7 @@ import numpy as np
 
 try:
     import torch
+
     _TORCH_OK = True
 except ImportError:
     _TORCH_OK = False
@@ -51,6 +52,7 @@ def _try_real_esrgan(img: np.ndarray, scale: int, noise_level: int) -> np.ndarra
         model.load_weights(weight_name, download=True)
 
     from PIL import Image as _PIL
+
     pil = _PIL.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
     out = model.predict(pil)
     out_np = np.asarray(out)
@@ -76,10 +78,14 @@ def _try_waifu2x(img: np.ndarray, scale: int, noise_level: int) -> np.ndarray:
         cv2.imwrite(in_path, img)
         cmd = [
             exe,
-            "-i", in_path,
-            "-o", out_path,
-            "-n", str(int(noise_level)),
-            "-s", str(max(1, int(scale))),
+            "-i",
+            in_path,
+            "-o",
+            out_path,
+            "-n",
+            str(noise_level),
+            "-s",
+            str(max(1, scale)),
         ]
         try:
             subprocess.run(cmd, check=True, capture_output=True, timeout=120)
@@ -168,7 +174,9 @@ def apply_prior(
             last_err = e
             continue
 
-    print(f"[MFSR] apply_prior: all backends failed (last: {last_err}); returning input.")
+    print(
+        f"[MFSR] apply_prior: all backends failed (last: {last_err}); returning input."
+    )
     return img
 
 

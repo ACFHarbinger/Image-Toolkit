@@ -30,7 +30,7 @@ from ...classes import AbstractClassTwoGalleries
 from ...components import OptionalField, MarqueeScrollArea, ClickableLabel
 from ...utils.sort_utils import natural_sort_key
 from ...styles.style import apply_shadow_effect, SHARED_BUTTON_STYLE
-from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
+from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
 
 
 class ConvertTab(AbstractClassTwoGalleries):

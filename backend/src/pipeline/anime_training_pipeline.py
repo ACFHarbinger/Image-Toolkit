@@ -31,6 +31,7 @@ import logging
 from pathlib import Path
 
 from omegaconf import DictConfig, OmegaConf
+from backend.src.models.hooks import DiagnosticsLogger
 
 log = logging.getLogger(__name__)
 
@@ -63,10 +64,14 @@ def _run_extraction(cfg: DictConfig) -> list[Path]:
     )
 
     all_frames: list[Path] = []
-    for video_path in sorted(video_dir.glob("**/*.mkv")) + sorted(video_dir.glob("**/*.mp4")):
+    for video_path in sorted(video_dir.glob("**/*.mkv")) + sorted(
+        video_dir.glob("**/*.mp4")
+    ):
         out_dir = frames_dir / video_path.stem
         for rec in extractor.extract(video_path, out_dir):
-            all_frames.append(out_dir / f"{video_path.stem}_s{rec.scene_idx:05d}_00.png")
+            all_frames.append(
+                out_dir / f"{video_path.stem}_s{rec.scene_idx:05d}_00.png"
+            )
     log.info("Extracted %d frames total", len(all_frames))
     return all_frames
 
@@ -92,6 +97,7 @@ def _run_qa_pass(image_paths: list[Path], cfg: DictConfig) -> list[Path]:
     for p in image_paths:
         try:
             import numpy as np
+
             img = cv2.imread(str(p))
             if img is None:
                 continue
@@ -102,6 +108,7 @@ def _run_qa_pass(image_paths: list[Path], cfg: DictConfig) -> list[Path]:
                 continue
             # Foreground ratio check
             from PIL import Image
+
             with Image.open(p) as im:
                 mask = birefnet.get_soft_mask(im)
             fg = float(np.mean(np.array(mask))) if mask is not None else 0.5
@@ -129,15 +136,31 @@ def _run_captioning(image_paths: list[Path], cfg: DictConfig):
         log.warning("WD14 ONNX model not found — skipping captioning stage")
         return
 
-    from backend.src.models.data.captioner import WD14Tagger, Florence2Captioner, HybridCaptioner
-    wd = WD14Tagger(onnx_path=onnx_path, tags_csv=tags_csv,
-                    general_thresh=float(cap_cfg.get("general_thresh", 0.35)),
-                    character_thresh=float(cap_cfg.get("character_thresh", 0.85)))
-    fl = Florence2Captioner(repo=cap_cfg.get("florence_repo", "microsoft/Florence-2-large-ft")) if use_florence else None
-    captioner = HybridCaptioner(wd=wd, florence=fl, trigger=trigger or None,
-                                 model_prefix=model_prefix)
+    from backend.src.models.data.captioner import (
+        WD14Tagger,
+        Florence2Captioner,
+        HybridCaptioner,
+    )
+
+    wd = WD14Tagger(
+        onnx_path=onnx_path,
+        tags_csv=tags_csv,
+        general_thresh=float(cap_cfg.get("general_thresh", 0.35)),
+        character_thresh=float(cap_cfg.get("character_thresh", 0.85)),
+    )
+    fl = (
+        Florence2Captioner(
+            repo=cap_cfg.get("florence_repo", "microsoft/Florence-2-large-ft")
+        )
+        if use_florence
+        else None
+    )
+    captioner = HybridCaptioner(
+        wd=wd, florence=fl, trigger=trigger or None, model_prefix=model_prefix
+    )
 
     from PIL import Image
+
     for p in image_paths:
         txt = p.with_suffix(".txt")
         if txt.exists():
@@ -160,6 +183,7 @@ def _run_deduplication(image_paths: list[Path], cfg: DictConfig) -> list[Path]:
 
     # Compute pHashes
     from backend.src.models.data.video_frame_extractor import _phash64
+
     phashes: dict[int, int] = {}
     paths_by_id: dict[int, Path] = {}
     for i, p in enumerate(image_paths):
@@ -186,7 +210,9 @@ def _build_dataset(image_paths: list[Path], cfg: DictConfig):
     from backend.src.models.data.lora_dataset import BucketSample, LoRADatasetV2
     from backend.src.models.data.augmentations import default_anime_augmentations
 
-    model_id = str(cfg.get("model", {}).get("model_id", "OnomaAIResearch/Illustrious-XL-v2.0"))
+    model_id = str(
+        cfg.get("model", {}).get("model_id", "OnomaAIResearch/Illustrious-XL-v2.0")
+    )
     trigger = str(cfg.get("data", {}).get("trigger_word", "my_char_xyz"))
     train_cfg = cfg.get("training", {})
 
@@ -201,6 +227,7 @@ def _build_dataset(image_paths: list[Path], cfg: DictConfig):
     if bool(cfg.get("data", {}).get("use_birefnet", True)):
         try:
             from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+
             birefnet = BiRefNetWrapper()
         except Exception:
             pass
@@ -209,11 +236,14 @@ def _build_dataset(image_paths: list[Path], cfg: DictConfig):
     if bool(cfg.get("data", {}).get("use_basic", True)):
         try:
             from backend.src.models.basic_wrapper import BaSiCWrapper
+
             basic = BaSiCWrapper()
         except Exception:
             pass
 
-    samples = [BucketSample.from_path(p, trigger=trigger) for p in image_paths if p.exists()]
+    samples = [
+        BucketSample.from_path(p, trigger=trigger) for p in image_paths if p.exists()
+    ]
     augs = default_anime_augmentations()
 
     dataset = LoRADatasetV2(
@@ -233,18 +263,23 @@ def _build_dataset(image_paths: list[Path], cfg: DictConfig):
 
 def _build_tuner(cfg: DictConfig):
     """Construct LoRATunerV2 / DreamBoothTuner / FullFineTuner from config."""
-    from backend.src.models.lora_diffusion import LoRATunerConfig, LoRATunerV2, DreamBoothTuner
+    from backend.src.models.lora_diffusion import (
+        LoRATunerConfig,
+        LoRATunerV2,
+        DreamBoothTuner,
+    )
 
     model_cfg = cfg.get("model", {})
     train_cfg = cfg.get("training", {})
     opt_cfg = cfg.get("optimizer", {})
 
     lora_cfg = LoRATunerConfig(
-        base_model_path=str(model_cfg.get("model_id", "OnomaAIResearch/Illustrious-XL-v2.0")),
+        base_model_path=str(
+            model_cfg.get("model_id", "OnomaAIResearch/Illustrious-XL-v2.0")
+        ),
         prediction_type=str(model_cfg.get("prediction_type", "epsilon")),
         zero_terminal_snr=bool(model_cfg.get("zero_terminal_snr", False)),
         clip_skip=int(model_cfg.get("clip_skip", 1)),
-
         method=str(train_cfg.get("method", "peft")),
         rank=int(train_cfg.get("rank", 16)),
         alpha=train_cfg.get("alpha", None),
@@ -253,34 +288,33 @@ def _build_tuner(cfg: DictConfig):
         lycoris_algo=str(train_cfg.get("lycoris_algo", "lora")),
         lycoris_conv_dim=int(train_cfg.get("lycoris_conv_dim", 8)),
         lycoris_conv_alpha=int(train_cfg.get("lycoris_conv_alpha", 4)),
-
         train_text_encoder_one=bool(train_cfg.get("train_text_encoder_one", False)),
         train_text_encoder_two=bool(train_cfg.get("train_text_encoder_two", False)),
         te_lr_scale=float(train_cfg.get("te_lr_scale", 0.5)),
-
         resolution=int(train_cfg.get("resolution", 1024)),
         train_batch_size=int(train_cfg.get("train_batch_size", 1)),
-        gradient_accumulation_steps=int(train_cfg.get("gradient_accumulation_steps", 1)),
+        gradient_accumulation_steps=int(
+            train_cfg.get("gradient_accumulation_steps", 1)
+        ),
         gradient_checkpointing=bool(train_cfg.get("gradient_checkpointing", True)),
         mixed_precision=str(train_cfg.get("mixed_precision", "bf16")),
         max_train_epochs=train_cfg.get("max_train_epochs", None),
         max_train_steps=train_cfg.get("max_train_steps", None),
-
         snr_gamma=float(model_cfg.get("snr_gamma", 5.0)),
         noise_offset=float(train_cfg.get("noise_offset", 0.0)),
-
         optimizer_type=str(opt_cfg.get("type", "adamw8bit")),
         unet_lr=float(opt_cfg.get("unet_lr", 1e-4)),
         lr_scheduler=str(opt_cfg.get("lr_scheduler", "cosine_with_restarts")),
         lr_warmup_steps=int(opt_cfg.get("lr_warmup_steps", 100)),
         lr_num_cycles=int(opt_cfg.get("lr_num_cycles", 3)),
         weight_decay=float(opt_cfg.get("weight_decay", 1e-2)),
-
         use_ema=bool(train_cfg.get("use_ema", False)),
         output_dir=str(cfg.get("output_dir", "output_lora")),
         save_every_n_epochs=int(train_cfg.get("save_every_n_epochs", 1)),
         use_wandb=bool(cfg.get("logging", {}).get("use_wandb", False)),
-        wandb_project=str(cfg.get("logging", {}).get("wandb_project", "anime-diffusion")),
+        wandb_project=str(
+            cfg.get("logging", {}).get("wandb_project", "anime-diffusion")
+        ),
         use_tensorboard=bool(cfg.get("logging", {}).get("use_tensorboard", True)),
         validation_prompts=list(cfg.get("validation_prompts", [])),
     )
@@ -296,6 +330,7 @@ def _build_tuner(cfg: DictConfig):
         )
     if stage == "full_ft":
         from backend.src.models.full_finetune import FullFTConfig, FullFineTuner
+
         ft_cfg = FullFTConfig(
             base_model_path=lora_cfg.base_model_path,
             prediction_type=lora_cfg.prediction_type,
@@ -332,7 +367,8 @@ def main(cfg: DictConfig) -> None:
     else:
         data_dir = Path(str(_resolve(cfg, "data.images_dir", "data/images")))
         image_paths = sorted(
-            p for p in data_dir.rglob("*")
+            p
+            for p in data_dir.rglob("*")
             if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}
         )
         log.info("Loaded %d images from %s", len(image_paths), data_dir)
@@ -386,7 +422,6 @@ def main(cfg: DictConfig) -> None:
     tuner = _build_tuner(cfg)
 
     # ── Stage 7: Diagnostics logger ──────────────────────────────────────
-    from backend.src.models.diagnostics import DiagnosticsLogger
     run_name = str(_resolve(cfg, "run_name", "anime_run"))
     diagnostics = DiagnosticsLogger(
         run_name=run_name,

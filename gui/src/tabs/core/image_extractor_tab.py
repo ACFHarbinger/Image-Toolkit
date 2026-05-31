@@ -44,7 +44,7 @@ from ...helpers import (
     VideoExtractionWorker,
 )
 from ...helpers.video.video_scan_worker import VideoThumbnailer
-from backend.src.utils.definitions import LOCAL_SOURCE_PATH, SUPPORTED_VIDEO_FORMATS
+from backend.src.constants import LOCAL_SOURCE_PATH, SUPPORTED_VIDEO_FORMATS
 
 
 class CutLabel(QLabel):
@@ -834,7 +834,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         # 2. Pre-populate grid with "Loading..." items in alphabetical order
         # Limit to 1000 items to avoid OOM/crash if directory is massive
-        MAX_PREVIEW_ITEMS = 1000
+        from ...constants import MAX_PREVIEW_ITEMS0
         video_paths_limited = video_paths[:MAX_PREVIEW_ITEMS]
 
         for i, v_path in enumerate(video_paths_limited):

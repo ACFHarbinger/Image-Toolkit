@@ -18,7 +18,8 @@ import platform
 import shutil
 import sys
 import time
-from typing import Dict, List, Optional, Tuple
+import datetime
+from typing import Dict, List, Optional
 
 import cv2
 import numpy as np
@@ -69,8 +70,8 @@ from backend.src.anim.compositing import _composite_foreground
 # SYSTEM INFO
 # ============================================================================
 
+
 def _system_info() -> Dict:
-    import psutil
     info: Dict = {
         "platform": platform.platform(),
         "python": platform.python_version(),
@@ -83,22 +84,24 @@ def _system_info() -> Dict:
         "vram_gb": 0.0,
     }
     try:
-        import psutil as _ps
-        info["cpu_threads"] = _ps.cpu_count(logical=True) or 0
-        info["ram_gb"] = round(_ps.virtual_memory().total / 1024 ** 3, 1)
+        import psutil as ps
+
+        info["cpu_threads"] = ps.cpu_count(logical=True) or 0
+        info["ram_gb"] = round(ps.virtual_memory().total / 1024**3, 1)
     except Exception:
         pass
     if torch.cuda.is_available():
         info["gpu"] = torch.cuda.get_device_name(0)
         info["cuda_version"] = torch.version.cuda or "N/A"
         props = torch.cuda.get_device_properties(0)
-        info["vram_gb"] = round(props.total_memory / 1024 ** 3, 1)
+        info["vram_gb"] = round(props.total_memory / 1024**3, 1)
     return info
 
 
 # ============================================================================
 # CV METRIC HELPERS
 # ============================================================================
+
 
 def _sharpness(img: np.ndarray) -> float:
     """Laplacian-variance sharpness (higher = sharper)."""
@@ -113,7 +116,9 @@ def _coverage(img: np.ndarray) -> float:
     return float(mask.sum()) / max(mask.size, 1)
 
 
-def _mean_seam_gradient(img: np.ndarray, affines: Optional[List[np.ndarray]] = None) -> float:
+def _mean_seam_gradient(
+    img: np.ndarray, affines: Optional[List[np.ndarray]] = None
+) -> float:
     """
     Average gradient magnitude along horizontal seam boundaries.
     Without affines, samples the whole image and returns mean gradient.
@@ -126,7 +131,7 @@ def _mean_seam_gradient(img: np.ndarray, affines: Optional[List[np.ndarray]] = N
     H, W = gray.shape
     seam_rows = set()
     for a in affines:
-        row = int(round(float(a[1, 2])))
+        row = round(float(a[1, 2]))
         for dr in range(-5, 6):
             r = row + dr
             if 0 <= r < H:
@@ -169,7 +174,7 @@ def _psnr(img_a: np.ndarray, img_b: np.ndarray) -> float:
     mse = float(np.mean((a - b) ** 2))
     if mse < 1e-8:
         return float("inf")
-    return float(20 * math.log10(255.0 / math.sqrt(mse)))
+    return 20 * math.log10(255.0 / math.sqrt(mse))
 
 
 def _ghosting_score(img: np.ndarray) -> float:
@@ -200,6 +205,7 @@ def _compute_all_metrics(img: np.ndarray, affines: Optional[List] = None) -> Dic
 # VISUALIZATION HELPERS
 # ============================================================================
 
+
 def _save_affine_path_plot(
     affines: List[np.ndarray],
     canvas_h: int,
@@ -223,12 +229,23 @@ def _save_affine_path_plot(
         tx = float(M[0, 2])
         ty = float(M[1, 2])
         rect = plt.Rectangle(
-            (tx, ty), frame_w, frame_h,
-            linewidth=1.5, edgecolor=color, facecolor=(*color[:3], 0.08)
+            (tx, ty),
+            frame_w,
+            frame_h,
+            linewidth=1.5,
+            edgecolor=color,
+            facecolor=(*color[:3], 0.08),
         )
         ax.add_patch(rect)
-        ax.text(tx + frame_w / 2, ty + frame_h / 2, str(idx),
-                ha="center", va="center", fontsize=7, color=color)
+        ax.text(
+            tx + frame_w / 2,
+            ty + frame_h / 2,
+            str(idx),
+            ha="center",
+            va="center",
+            fontsize=7,
+            color=color,
+        )
     ax.set_facecolor("#1a1a2e")
     fig.patch.set_facecolor("#12121f")
     ax.title.set_color("white")
@@ -237,16 +254,14 @@ def _save_affine_path_plot(
     ax.tick_params(colors="white")
     for spine in ax.spines.values():
         spine.set_edgecolor("#444")
-    sm = plt.cm.ScalarMappable(cmap="plasma",
-                                norm=plt.Normalize(0, len(affines) - 1))
+    sm = plt.cm.ScalarMappable(cmap="plasma", norm=plt.Normalize(0, len(affines) - 1))
     sm.set_array([])
     cbar = fig.colorbar(sm, ax=ax)
     cbar.set_label("Frame index", color="white")
     cbar.ax.yaxis.set_tick_params(color="white")
     plt.setp(cbar.ax.yaxis.get_ticklabels(), color="white")
     plt.tight_layout()
-    fig.savefig(out_path, dpi=100, bbox_inches="tight",
-                facecolor=fig.get_facecolor())
+    fig.savefig(out_path, dpi=100, bbox_inches="tight", facecolor=fig.get_facecolor())
     plt.close(fig)
 
 
@@ -264,11 +279,9 @@ def _save_translation_plot(
     frames = list(range(N))
     fig, axes = plt.subplots(1, 2, figsize=(10, 4))
     for ax, vals, label, color in zip(
-        axes, [txs, tys], ["tx (horizontal)", "ty (vertical)"],
-        ["#4ecdc4", "#ff6b6b"]
+        axes, [txs, tys], ["tx (horizontal)", "ty (vertical)"], ["#4ecdc4", "#ff6b6b"]
     ):
-        ax.plot(frames, vals, marker="o", color=color, linewidth=2,
-                markersize=5)
+        ax.plot(frames, vals, marker="o", color=color, linewidth=2, markersize=5)
         ax.set_xlabel("Frame index")
         ax.set_ylabel(f"{label} (px)")
         ax.set_title(label)
@@ -283,8 +296,7 @@ def _save_translation_plot(
     fig.suptitle(title, color="white")
     fig.patch.set_facecolor("#12121f")
     plt.tight_layout()
-    fig.savefig(out_path, dpi=100, bbox_inches="tight",
-                facecolor=fig.get_facecolor())
+    fig.savefig(out_path, dpi=100, bbox_inches="tight", facecolor=fig.get_facecolor())
     plt.close(fig)
 
 
@@ -303,8 +315,12 @@ def _save_gains_plot(
     ax0, ax1 = axes
     ax0.bar(range(N), valid, color="#4ecdc4", alpha=0.8)
     ax0.axhline(
-        float(np.median([v for v in valid if v > 0])) if any(v > 0 for v in valid) else 0,
-        color="#ff6b6b", linestyle="--", label="median",
+        float(np.median([v for v in valid if v > 0]))
+        if any(v > 0 for v in valid)
+        else 0,
+        color="#ff6b6b",
+        linestyle="--",
+        label="median",
     )
     ax0.set_title("Background Luminance per Frame")
     ax0.set_xlabel("Frame index")
@@ -328,8 +344,7 @@ def _save_gains_plot(
             spine.set_edgecolor("#444")
     fig.patch.set_facecolor("#12121f")
     plt.tight_layout()
-    fig.savefig(out_path, dpi=100, bbox_inches="tight",
-                facecolor=fig.get_facecolor())
+    fig.savefig(out_path, dpi=100, bbox_inches="tight", facecolor=fig.get_facecolor())
     plt.close(fig)
 
 
@@ -341,7 +356,7 @@ def _save_seam_heatmap(img: np.ndarray, out_path: str, title: str = "") -> None:
     # Compute magnitude of gradient
     gx = cv2.Sobel(gray.astype(np.float32), cv2.CV_32F, 1, 0, ksize=3)
     gy = cv2.Sobel(gray.astype(np.float32), cv2.CV_32F, 0, 1, ksize=3)
-    mag = np.sqrt(gx ** 2 + gy ** 2)
+    mag = np.sqrt(gx**2 + gy**2)
     # Downsample for plotting
     scale = max(1, max(mag.shape) // 512)
     if scale > 1:
@@ -356,8 +371,7 @@ def _save_seam_heatmap(img: np.ndarray, out_path: str, title: str = "") -> None:
     plt.setp(cbar.ax.yaxis.get_ticklabels(), color="white")
     fig.patch.set_facecolor("#12121f")
     plt.tight_layout()
-    fig.savefig(out_path, dpi=100, bbox_inches="tight",
-                facecolor=fig.get_facecolor())
+    fig.savefig(out_path, dpi=100, bbox_inches="tight", facecolor=fig.get_facecolor())
     plt.close(fig)
 
 
@@ -378,8 +392,15 @@ def _save_3d_surface(img: np.ndarray, out_path: str, title: str = "") -> None:
     fig = plt.figure(figsize=(9, 5))
     ax = fig.add_subplot(111, projection="3d")
     ax.plot_surface(
-        X, Y, small, cmap="viridis", linewidth=0, antialiased=False,
-        rstride=1, cstride=1, alpha=0.9
+        X,
+        Y,
+        small,
+        cmap="viridis",
+        linewidth=0,
+        antialiased=False,
+        rstride=1,
+        cstride=1,
+        alpha=0.9,
     )
     ax.set_title(title or "Luminance Surface (3D)", color="white", pad=8)
     ax.set_xlabel("X (px ÷ " + str(sw) + ")", color="white", fontsize=7)
@@ -392,8 +413,7 @@ def _save_3d_surface(img: np.ndarray, out_path: str, title: str = "") -> None:
     fig.patch.set_facecolor("#12121f")
     ax.set_facecolor("#1a1a2e")
     plt.tight_layout()
-    fig.savefig(out_path, dpi=100, bbox_inches="tight",
-                facecolor=fig.get_facecolor())
+    fig.savefig(out_path, dpi=100, bbox_inches="tight", facecolor=fig.get_facecolor())
     plt.close(fig)
 
 
@@ -431,8 +451,7 @@ def _save_overlap_map(
     plt.setp(cbar.ax.yaxis.get_ticklabels(), color="white")
     fig.patch.set_facecolor("#12121f")
     plt.tight_layout()
-    fig.savefig(out_path, dpi=100, bbox_inches="tight",
-                facecolor=fig.get_facecolor())
+    fig.savefig(out_path, dpi=100, bbox_inches="tight", facecolor=fig.get_facecolor())
     plt.close(fig)
 
 
@@ -459,8 +478,7 @@ def _save_mask_overlay(
     ax.axis("off")
     fig.patch.set_facecolor("#12121f")
     plt.tight_layout()
-    fig.savefig(out_path, dpi=100, bbox_inches="tight",
-                facecolor=fig.get_facecolor())
+    fig.savefig(out_path, dpi=100, bbox_inches="tight", facecolor=fig.get_facecolor())
     plt.close(fig)
 
 
@@ -469,7 +487,13 @@ def _save_metrics_bar(metrics_asp: Dict, metrics_simple: Dict, out_path: str) ->
     if not _MPL_OK:
         return
     keys = ["sharpness", "coverage", "seam_gradient", "color_entropy", "ghosting_score"]
-    labels = ["Sharpness", "Coverage", "Seam\nGradient", "Color\nEntropy", "Ghosting\nScore"]
+    labels = [
+        "Sharpness",
+        "Coverage",
+        "Seam\nGradient",
+        "Color\nEntropy",
+        "Ghosting\nScore",
+    ]
     asp_vals = [metrics_asp.get(k, 0) for k in keys]
     sim_vals = [metrics_simple.get(k, 0) for k in keys]
     # Normalize each metric to [0,1] for display
@@ -480,7 +504,9 @@ def _save_metrics_bar(metrics_asp: Dict, metrics_simple: Dict, out_path: str) ->
     width = 0.35
     fig, ax = plt.subplots(figsize=(9, 4))
     b1 = ax.bar(x - width / 2, asp_n, width, label="ASP", color="#4ecdc4", alpha=0.85)
-    b2 = ax.bar(x + width / 2, sim_n, width, label="Simple", color="#ff6b6b", alpha=0.85)
+    b2 = ax.bar(
+        x + width / 2, sim_n, width, label="Simple", color="#ff6b6b", alpha=0.85
+    )
     ax.set_xticks(x)
     ax.set_xticklabels(labels, color="white", fontsize=9)
     ax.set_ylabel("Normalised value", color="white")
@@ -492,21 +518,35 @@ def _save_metrics_bar(metrics_asp: Dict, metrics_simple: Dict, out_path: str) ->
         spine.set_edgecolor("#444")
     # Raw value annotations
     for bar, val in zip(b1, asp_vals):
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.02,
-                f"{val:.2f}", ha="center", va="bottom", fontsize=7, color="#4ecdc4")
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.02,
+            f"{val:.2f}",
+            ha="center",
+            va="bottom",
+            fontsize=7,
+            color="#4ecdc4",
+        )
     for bar, val in zip(b2, sim_vals):
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.02,
-                f"{val:.2f}", ha="center", va="bottom", fontsize=7, color="#ff6b6b")
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.02,
+            f"{val:.2f}",
+            ha="center",
+            va="bottom",
+            fontsize=7,
+            color="#ff6b6b",
+        )
     fig.patch.set_facecolor("#12121f")
     plt.tight_layout()
-    fig.savefig(out_path, dpi=100, bbox_inches="tight",
-                facecolor=fig.get_facecolor())
+    fig.savefig(out_path, dpi=100, bbox_inches="tight", facecolor=fig.get_facecolor())
     plt.close(fig)
 
 
 # ============================================================================
 # SIMPLE STITCH (OpenCV SCANS)
 # ============================================================================
+
 
 def _run_simple_stitch(frames_paths: List[str], out_path: str) -> bool:
     """Generate OpenCV SCANS simple stitch and save. Returns True on success."""
@@ -526,6 +566,7 @@ def _run_simple_stitch(frames_paths: List[str], out_path: str) -> bool:
 # ============================================================================
 # MAIN DATASET PROCESSOR
 # ============================================================================
+
 
 def process_dataset(dataset_dir: str) -> Optional[Dict]:
     """
@@ -548,8 +589,12 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
     # Central output
     central_out_dir = os.path.join(os.path.dirname(dataset_dir), "output")
     os.makedirs(central_out_dir, exist_ok=True)
-    central_anime_path = os.path.join(central_out_dir, f"{dataset_name}_anime_stitch.png")
-    central_simple_path = os.path.join(central_out_dir, f"{dataset_name}_simple_stitch.png")
+    central_anime_path = os.path.join(
+        central_out_dir, f"{dataset_name}_anime_stitch.png"
+    )
+    central_simple_path = os.path.join(
+        central_out_dir, f"{dataset_name}_simple_stitch.png"
+    )
 
     # Clean old outputs
     if os.path.exists(out_path):
@@ -565,7 +610,8 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
         + glob.glob(os.path.join(dataset_dir, "*.jpg"))
     )
     frames_paths = [
-        p for p in all_pngs
+        p
+        for p in all_pngs
         if "panorama" not in os.path.basename(p)
         and "test_" not in os.path.basename(p)
         and "stage" not in os.path.basename(p)
@@ -609,6 +655,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
     birefnet_ok = False
     try:
         from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+
         birefnet = BiRefNetWrapper()
         bg_masks = _compute_fg_masks(frames, birefnet)
         birefnet_ok = True
@@ -632,7 +679,8 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
     # Visualise mask overlays for first 3 frames
     for i in range(min(3, N)):
         _save_mask_overlay(
-            frames[i], bg_masks[i],
+            frames[i],
+            bg_masks[i],
             os.path.join(plots_dir, f"mask_overlay_frame{i:02d}.png"),
             title=f"FG Mask Overlay — Frame {i}",
         )
@@ -658,12 +706,14 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
         for i in range(N):
             if bg_frame_lums[i] is None:
                 continue
-            gain = float(np.clip(ref_lum / max(bg_frame_lums[i], 1.0), _gain_lo, _gain_hi))
+            gain = float(
+                np.clip(ref_lum / max(bg_frame_lums[i], 1.0), _gain_lo, _gain_hi)
+            )
             applied_gains[i] = gain
             if abs(gain - 1.0) > 0.01:
-                frames[i] = np.clip(
-                    frames[i].astype(np.float32) * gain, 0, 255
-                ).astype(np.uint8)
+                frames[i] = np.clip(frames[i].astype(np.float32) * gain, 0, 255).astype(
+                    np.uint8
+                )
 
     # Save stage 3 corrected frames
     for i, f in enumerate(frames):
@@ -673,7 +723,8 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
 
     # Gains plot
     _save_gains_plot(
-        bg_frame_lums, applied_gains,
+        bg_frame_lums,
+        applied_gains,
         os.path.join(plots_dir, "gains.png"),
     )
 
@@ -684,6 +735,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
     loftr_ok = False
     try:
         from backend.src.models.loftr_wrapper import LoFTRWrapper
+
         loftr = LoFTRWrapper()
         loftr_ok = True
     except Exception:
@@ -748,10 +800,14 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
             N = len(frames)
             H, W = frames[0].shape[:2]
             if N < 2:
-                print(f"  Spatial dedup removed too many frames; skipping {dataset_dir}.")
+                print(
+                    f"  Spatial dedup removed too many frames; skipping {dataset_dir}."
+                )
                 return None
     if _total_spa_dropped:
-        print(f"  Spatial dedup complete: {_total_spa_dropped} frames removed, {N} remain.")
+        print(
+            f"  Spatial dedup complete: {_total_spa_dropped} frames removed, {N} remain."
+        )
 
     t0 = time.perf_counter()
     pipe = AnimeStitchPipeline(
@@ -768,7 +824,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
             "j": int(e["j"]),
             "method": e.get("method", "unknown"),
             "weight": round(float(e.get("weight", 0.0)), 4),
-            "n_pts": int(len(e.get("pts_i", []))),
+            "n_pts": len(e.get("pts_i", [])),
             "tx": round(float(e["M"][0, 2]), 2),
             "ty": round(float(e["M"][1, 2]), 2),
         }
@@ -796,8 +852,16 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
         # Retry 2: smart sequential + fill
         if not health.valid:
             _adj_only_r2 = [e for e in edges if e["j"] == e["i"] + 1]
-            _step_dx = float(np.median([float(e["M"][0, 2]) for e in _adj_only_r2])) if _adj_only_r2 else 0.0
-            _step_dy = float(np.median([float(e["M"][1, 2]) for e in _adj_only_r2])) if _adj_only_r2 else 0.0
+            _step_dx = (
+                float(np.median([float(e["M"][0, 2]) for e in _adj_only_r2]))
+                if _adj_only_r2
+                else 0.0
+            )
+            _step_dy = (
+                float(np.median([float(e["M"][1, 2]) for e in _adj_only_r2]))
+                if _adj_only_r2
+                else 0.0
+            )
             _has_adj_src = {e["j"] for e in _adj_only_r2}
             _seq = [np.eye(2, 3, dtype=np.float32) for _ in range(N)]
             _anchored: set = {0}
@@ -809,8 +873,12 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                             _best_span = _f - _e["i"]
                             _best_e = _e
                 if _best_e is not None:
-                    _seq[_f][0, 2] = _seq[_best_e["i"]][0, 2] - float(_best_e["M"][0, 2])
-                    _seq[_f][1, 2] = _seq[_best_e["i"]][1, 2] - float(_best_e["M"][1, 2])
+                    _seq[_f][0, 2] = _seq[_best_e["i"]][0, 2] - float(
+                        _best_e["M"][0, 2]
+                    )
+                    _seq[_f][1, 2] = _seq[_best_e["i"]][1, 2] - float(
+                        _best_e["M"][1, 2]
+                    )
                     _anchored.add(_f)
             for _uf in sorted(i for i in range(N) if i not in _anchored):
                 if _uf in _has_adj_src:
@@ -819,8 +887,12 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 _rgt = min((a for a in _anchored if a > _uf), default=None)
                 if _lft is not None and _rgt is not None:
                     _t = (_uf - _lft) / (_rgt - _lft)
-                    _seq[_uf][0, 2] = _seq[_lft][0, 2] * (1 - _t) + _seq[_rgt][0, 2] * _t
-                    _seq[_uf][1, 2] = _seq[_lft][1, 2] * (1 - _t) + _seq[_rgt][1, 2] * _t
+                    _seq[_uf][0, 2] = (
+                        _seq[_lft][0, 2] * (1 - _t) + _seq[_rgt][0, 2] * _t
+                    )
+                    _seq[_uf][1, 2] = (
+                        _seq[_lft][1, 2] * (1 - _t) + _seq[_rgt][1, 2] * _t
+                    )
                 elif _lft is not None:
                     _n = _uf - _lft
                     _seq[_uf][0, 2] = _seq[_lft][0, 2] - _n * _step_dx
@@ -839,8 +911,12 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                                 _best_span = _f - _e["i"]
                                 _best_e = _e
                     if _best_e is not None:
-                        _seq[_f][0, 2] = _seq[_best_e["i"]][0, 2] - float(_best_e["M"][0, 2])
-                        _seq[_f][1, 2] = _seq[_best_e["i"]][1, 2] - float(_best_e["M"][1, 2])
+                        _seq[_f][0, 2] = _seq[_best_e["i"]][0, 2] - float(
+                            _best_e["M"][0, 2]
+                        )
+                        _seq[_f][1, 2] = _seq[_best_e["i"]][1, 2] - float(
+                            _best_e["M"][1, 2]
+                        )
                         _anchored.add(_f)
                         _chg = True
             health_r2 = _validate_affines(_seq)
@@ -864,14 +940,30 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
         asp_img = cv2.imread(central_anime_path)
         sim_img = cv2.imread(central_simple_path) if simple_ok else None
         return _build_result(
-            dataset_name, central_anime_path, central_simple_path,
-            asp_img, sim_img, affines, bg_frame_lums, applied_gains,
-            health, plots_dir, stage_dir, canvas_h=None, canvas_w=None,
-            used_fallback=True, timings=timings,
-            frame_count=N, frame_h=H, frame_w=W,
-            raw_edge_count=raw_edge_count, filtered_edge_count=filtered_edge_count,
-            edge_methods=edge_methods, edge_stats=edge_stats,
-            birefnet_ok=birefnet_ok, loftr_ok=loftr_ok,
+            dataset_name,
+            central_anime_path,
+            central_simple_path,
+            asp_img,
+            sim_img,
+            affines,
+            bg_frame_lums,
+            applied_gains,
+            health,
+            plots_dir,
+            stage_dir,
+            canvas_h=None,
+            canvas_w=None,
+            used_fallback=True,
+            timings=timings,
+            frame_count=N,
+            frame_h=H,
+            frame_w=W,
+            raw_edge_count=raw_edge_count,
+            filtered_edge_count=filtered_edge_count,
+            edge_methods=edge_methods,
+            edge_stats=edge_stats,
+            birefnet_ok=birefnet_ok,
+            loftr_ok=loftr_ok,
         )
 
     try:
@@ -896,7 +988,11 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
 
         # Canvas visualisations
         _save_affine_path_plot(
-            affines, canvas_h, canvas_w, H, W,
+            affines,
+            canvas_h,
+            canvas_w,
+            H,
+            W,
             os.path.join(plots_dir, "canvas_frame_placement.png"),
         )
         _save_translation_plot(
@@ -905,7 +1001,11 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
             title=f"{dataset_name} — Translation Vectors",
         )
         _save_overlap_map(
-            affines, canvas_h, canvas_w, H, W,
+            affines,
+            canvas_h,
+            canvas_w,
+            H,
+            W,
             os.path.join(plots_dir, "overlap_map.png"),
         )
 
@@ -932,6 +1032,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
             canvas_out = canvas_out[ec:-ec, ec:-ec]
 
         from PIL import Image
+
         rgb = cv2.cvtColor(canvas_out, cv2.COLOR_BGR2RGB)
         Image.fromarray(rgb).save(out_path)
         shutil.copy2(out_path, central_anime_path)
@@ -949,14 +1050,30 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
         asp_img = cv2.imread(central_anime_path)
         sim_img = cv2.imread(central_simple_path) if simple_ok else None
         return _build_result(
-            dataset_name, central_anime_path, central_simple_path,
-            asp_img, sim_img, affines, bg_frame_lums, applied_gains,
-            health, plots_dir, stage_dir, canvas_h=None, canvas_w=None,
-            used_fallback=True, timings=timings,
-            frame_count=N, frame_h=H, frame_w=W,
-            raw_edge_count=raw_edge_count, filtered_edge_count=filtered_edge_count,
-            edge_methods=edge_methods, edge_stats=edge_stats,
-            birefnet_ok=birefnet_ok, loftr_ok=loftr_ok,
+            dataset_name,
+            central_anime_path,
+            central_simple_path,
+            asp_img,
+            sim_img,
+            affines,
+            bg_frame_lums,
+            applied_gains,
+            health,
+            plots_dir,
+            stage_dir,
+            canvas_h=None,
+            canvas_w=None,
+            used_fallback=True,
+            timings=timings,
+            frame_count=N,
+            frame_h=H,
+            frame_w=W,
+            raw_edge_count=raw_edge_count,
+            filtered_edge_count=filtered_edge_count,
+            edge_methods=edge_methods,
+            edge_stats=edge_stats,
+            birefnet_ok=birefnet_ok,
+            loftr_ok=loftr_ok,
         )
 
     # ------------------------------------------------------------------
@@ -968,20 +1085,24 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
 
     if asp_img is not None:
         _save_seam_heatmap(
-            asp_img, os.path.join(plots_dir, "asp_seam_heatmap.png"),
+            asp_img,
+            os.path.join(plots_dir, "asp_seam_heatmap.png"),
             title="ASP — Gradient Magnitude Heatmap",
         )
         _save_3d_surface(
-            asp_img, os.path.join(plots_dir, "asp_3d_surface.png"),
+            asp_img,
+            os.path.join(plots_dir, "asp_3d_surface.png"),
             title="ASP — Luminance Surface (3D)",
         )
     if sim_img is not None:
         _save_seam_heatmap(
-            sim_img, os.path.join(plots_dir, "simple_seam_heatmap.png"),
+            sim_img,
+            os.path.join(plots_dir, "simple_seam_heatmap.png"),
             title="Simple Stitch — Gradient Magnitude Heatmap",
         )
         _save_3d_surface(
-            sim_img, os.path.join(plots_dir, "simple_3d_surface.png"),
+            sim_img,
+            os.path.join(plots_dir, "simple_3d_surface.png"),
             title="Simple Stitch — Luminance Surface (3D)",
         )
 
@@ -989,7 +1110,8 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
     render_img = cv2.imread(os.path.join(stage_dir, "stage09_temporal_render.png"))
     if render_img is not None:
         _save_3d_surface(
-            render_img, os.path.join(plots_dir, "temporal_render_3d.png"),
+            render_img,
+            os.path.join(plots_dir, "temporal_render_3d.png"),
             title="Stage 9 — Temporal Render Luminance (3D)",
         )
 
@@ -1005,20 +1127,37 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
     timings["total_sec"] = round(time.perf_counter() - t_total_start, 3)
 
     return _build_result(
-        dataset_name, central_anime_path, central_simple_path,
-        asp_img, sim_img, affines, bg_frame_lums, applied_gains,
-        health, plots_dir, stage_dir, canvas_h, canvas_w,
-        used_fallback=False, timings=timings,
-        frame_count=N, frame_h=H, frame_w=W,
-        raw_edge_count=raw_edge_count, filtered_edge_count=filtered_edge_count,
-        edge_methods=edge_methods, edge_stats=edge_stats,
-        birefnet_ok=birefnet_ok, loftr_ok=loftr_ok,
+        dataset_name,
+        central_anime_path,
+        central_simple_path,
+        asp_img,
+        sim_img,
+        affines,
+        bg_frame_lums,
+        applied_gains,
+        health,
+        plots_dir,
+        stage_dir,
+        canvas_h,
+        canvas_w,
+        used_fallback=False,
+        timings=timings,
+        frame_count=N,
+        frame_h=H,
+        frame_w=W,
+        raw_edge_count=raw_edge_count,
+        filtered_edge_count=filtered_edge_count,
+        edge_methods=edge_methods,
+        edge_stats=edge_stats,
+        birefnet_ok=birefnet_ok,
+        loftr_ok=loftr_ok,
     )
 
 
 # ============================================================================
 # RESULT BUILDER
 # ============================================================================
+
 
 def _build_result(
     dataset_name: str,
@@ -1057,18 +1196,27 @@ def _build_result(
 
     # Affine translation summary for JSON
     affine_translations = [
-        {"frame": i, "tx": round(float(M[0, 2]), 2), "ty": round(float(M[1, 2]), 2),
-         "a": round(float(M[0, 0]), 5), "b": round(float(M[0, 1]), 5)}
+        {
+            "frame": i,
+            "tx": round(float(M[0, 2]), 2),
+            "ty": round(float(M[1, 2]), 2),
+            "a": round(float(M[0, 0]), 5),
+            "b": round(float(M[0, 1]), 5),
+        }
         for i, M in enumerate(affines)
     ]
 
     # Inter-frame deltas
     tys = [float(M[1, 2]) for M in affines]
     txs = [float(M[0, 2]) for M in affines]
-    dy_steps = [round(tys[i+1] - tys[i], 2) for i in range(len(tys)-1)]
-    dx_steps = [round(txs[i+1] - txs[i], 2) for i in range(len(txs)-1)]
-    dy_cv = float(np.std(dy_steps) / (abs(np.mean(dy_steps)) + 1e-6)) if dy_steps else 0.0
-    dx_cv = float(np.std(dx_steps) / (abs(np.mean(dx_steps)) + 1e-6)) if dx_steps else 0.0
+    dy_steps = [round(tys[i + 1] - tys[i], 2) for i in range(len(tys) - 1)]
+    dx_steps = [round(txs[i + 1] - txs[i], 2) for i in range(len(txs) - 1)]
+    dy_cv = (
+        float(np.std(dy_steps) / (abs(np.mean(dy_steps)) + 1e-6)) if dy_steps else 0.0
+    )
+    dx_cv = (
+        float(np.std(dx_steps) / (abs(np.mean(dx_steps)) + 1e-6)) if dx_steps else 0.0
+    )
 
     # Background luminance stats
     valid_lums = [l for l in bg_frame_lums if l is not None]
@@ -1158,31 +1306,46 @@ def _build_result(
 # JSON RESULTS FILE
 # ============================================================================
 
+
 def generate_json_results(results: List[Dict], suite_start_time: float) -> str:
     """
     Write a structured JSON results file to backend/benchmark/results/ and
     return the path.  Schema mirrors the existing benchmark JSON files.
     """
-    import datetime
-
     total_sec = round(time.perf_counter() - suite_start_time, 3)
     ts = datetime.datetime.now()
     ts_str = ts.strftime("%Y%m%d_%H%M%S")
     ts_iso = ts.isoformat()
 
-    results_dir = os.path.join(
-        os.path.dirname(__file__), "results"
-    )
+    results_dir = os.path.join(os.path.dirname(__file__), "results")
     os.makedirs(results_dir, exist_ok=True)
     out_path = os.path.join(results_dir, f"anime_stitch_{ts_str}.json")
 
     # Aggregate summary stats
-    asp_sharpness = [r["metrics_asp"].get("sharpness", 0.0) for r in results if r["metrics_asp"]]
-    sim_sharpness = [r["metrics_simple"].get("sharpness", 0.0) for r in results if r["metrics_simple"]]
-    asp_ghosting  = [r["metrics_asp"].get("ghosting_score", 0.0) for r in results if r["metrics_asp"]]
-    sim_ghosting  = [r["metrics_simple"].get("ghosting_score", 0.0) for r in results if r["metrics_simple"]]
-    asp_coverage  = [r["metrics_asp"].get("coverage", 0.0) for r in results if r["metrics_asp"]]
-    ssim_vals     = [r["comparison"]["ssim"] for r in results if r["comparison"].get("ssim") is not None]
+    asp_sharpness = [
+        r["metrics_asp"].get("sharpness", 0.0) for r in results if r["metrics_asp"]
+    ]
+    sim_sharpness = [
+        r["metrics_simple"].get("sharpness", 0.0)
+        for r in results
+        if r["metrics_simple"]
+    ]
+    asp_ghosting = [
+        r["metrics_asp"].get("ghosting_score", 0.0) for r in results if r["metrics_asp"]
+    ]
+    sim_ghosting = [
+        r["metrics_simple"].get("ghosting_score", 0.0)
+        for r in results
+        if r["metrics_simple"]
+    ]
+    asp_coverage = [
+        r["metrics_asp"].get("coverage", 0.0) for r in results if r["metrics_asp"]
+    ]
+    ssim_vals = [
+        r["comparison"]["ssim"]
+        for r in results
+        if r["comparison"].get("ssim") is not None
+    ]
     dataset_times = [r["time"].get("total_sec", 0.0) for r in results]
     fallback_count = sum(1 for r in results if r["used_fallback"])
     verdicts = [r["comparison"]["verdict"] for r in results]
@@ -1196,14 +1359,21 @@ def generate_json_results(results: List[Dict], suite_start_time: float) -> str:
         return {"name": ranked[0][0], "value": round(ranked[0][1], 4)}
 
     best_asp = _rank_by(lambda r: r["metrics_asp"].get("sharpness"), results)
-    worst_asp = _rank_by(lambda r: r["metrics_asp"].get("sharpness"), results, top=False)
+    worst_asp = _rank_by(
+        lambda r: r["metrics_asp"].get("sharpness"), results, top=False
+    )
     slowest = _rank_by(lambda r: r["time"].get("total_sec"), results)
     fastest = _rank_by(
-        lambda r: r["time"].get("total_sec") if r["time"].get("total_sec", 0) > 0 else None,
-        results, top=False
+        lambda r: r["time"].get("total_sec")
+        if r["time"].get("total_sec", 0) > 0
+        else None,
+        results,
+        top=False,
     )
     most_ghosting = _rank_by(lambda r: r["metrics_asp"].get("ghosting_score"), results)
-    least_ghosting = _rank_by(lambda r: r["metrics_asp"].get("ghosting_score"), results, top=False)
+    least_ghosting = _rank_by(
+        lambda r: r["metrics_asp"].get("ghosting_score"), results, top=False
+    )
 
     doc = {
         "metadata": {
@@ -1222,11 +1392,21 @@ def generate_json_results(results: List[Dict], suite_start_time: float) -> str:
             "avg_time_per_dataset_sec": round(
                 sum(dataset_times) / max(len(dataset_times), 1), 3
             ),
-            "avg_sharpness_asp": round(float(np.mean(asp_sharpness)), 3) if asp_sharpness else None,
-            "avg_sharpness_simple": round(float(np.mean(sim_sharpness)), 3) if sim_sharpness else None,
-            "avg_ghosting_asp": round(float(np.mean(asp_ghosting)), 4) if asp_ghosting else None,
-            "avg_ghosting_simple": round(float(np.mean(sim_ghosting)), 4) if sim_ghosting else None,
-            "avg_coverage_asp": round(float(np.mean(asp_coverage)), 4) if asp_coverage else None,
+            "avg_sharpness_asp": round(float(np.mean(asp_sharpness)), 3)
+            if asp_sharpness
+            else None,
+            "avg_sharpness_simple": round(float(np.mean(sim_sharpness)), 3)
+            if sim_sharpness
+            else None,
+            "avg_ghosting_asp": round(float(np.mean(asp_ghosting)), 4)
+            if asp_ghosting
+            else None,
+            "avg_ghosting_simple": round(float(np.mean(sim_ghosting)), 4)
+            if sim_ghosting
+            else None,
+            "avg_coverage_asp": round(float(np.mean(asp_coverage)), 4)
+            if asp_coverage
+            else None,
             "avg_ssim": round(float(np.mean(ssim_vals)), 4) if ssim_vals else None,
             "verdict_counts": {
                 "asp_better": verdicts.count("asp_better"),
@@ -1247,7 +1427,9 @@ def generate_json_results(results: List[Dict], suite_start_time: float) -> str:
                 r["name"] for r in results if r["comparison"]["verdict"] == "asp_better"
             ],
             "datasets_simple_better_than_asp": [
-                r["name"] for r in results if r["comparison"]["verdict"] == "simple_better"
+                r["name"]
+                for r in results
+                if r["comparison"]["verdict"] == "simple_better"
             ],
             "datasets_alignment_failed": [
                 r["name"] for r in results if not r["affine_health"]["valid"]
@@ -1368,13 +1550,17 @@ def _auto_issues(metrics: Dict, is_asp: bool) -> List[str]:
         return ["- no_image"]
     cov = metrics.get("coverage", 1.0)
     if cov < 0.70:
-        issues.append(f"  - low_coverage: {cov:.2%} (image heavily cropped or malformed)")
+        issues.append(
+            f"  - low_coverage: {cov:.2%} (image heavily cropped or malformed)"
+        )
     ghost = metrics.get("ghosting_score", 0)
     if ghost > 15:
         issues.append(f"  - high_ghosting: score={ghost:.2f} (double-edges detected)")
     seam = metrics.get("seam_gradient", 0)
     if seam > 20:
-        issues.append(f"  - seam_discontinuity: gradient={seam:.2f} (abrupt transitions)")
+        issues.append(
+            f"  - seam_discontinuity: gradient={seam:.2f} (abrupt transitions)"
+        )
     sharp = metrics.get("sharpness", 0)
     if sharp < 30:
         issues.append(f"  - low_sharpness: {sharp:.2f} (blurry / smeared)")
@@ -1400,7 +1586,6 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
     Write benchmark_report.md inside output_dir.
     Returns the path to the written file.
     """
-    import datetime
     report_path = os.path.join(output_dir, "benchmark_report.md")
     rd = output_dir  # report dir = base for relative paths
 
@@ -1416,8 +1601,12 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
 
     # Global summary table
     lines.append(_GLOBAL_SUMMARY_HEADER)
-    lines.append("| Test | ASP Size | Simple Size | Coverage ASP | Coverage Simple | Ghosting ASP | Ghosting Simple | SSIM | Verdict | Fallback |\n")
-    lines.append("|------|----------|-------------|-------------|----------------|-------------|----------------|------|---------|----------|\n")
+    lines.append(
+        "| Test | ASP Size | Simple Size | Coverage ASP | Coverage Simple | Ghosting ASP | Ghosting Simple | SSIM | Verdict | Fallback |\n"
+    )
+    lines.append(
+        "|------|----------|-------------|-------------|----------------|-------------|----------------|------|---------|----------|\n"
+    )
     for r in results:
         am, sm = r["metrics_asp"], r["metrics_simple"]
         asp_sz = f"{am.get('width', '?')}×{am.get('height', '?')}" if am else "—"
@@ -1426,7 +1615,11 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
         cov_s = f"{sm.get('coverage', 0):.1%}" if sm else "—"
         gh_a = f"{am.get('ghosting_score', 0):.2f}" if am else "—"
         gh_s = f"{sm.get('ghosting_score', 0):.2f}" if sm else "—"
-        ssim_v = f"{r['comparison']['ssim']:.3f}" if r["comparison"]["ssim"] is not None else "—"
+        ssim_v = (
+            f"{r['comparison']['ssim']:.3f}"
+            if r["comparison"]["ssim"] is not None
+            else "—"
+        )
         verdict = _auto_verdict(am, sm)
         fallback = "✓" if r["used_fallback"] else ""
         lines.append(
@@ -1451,7 +1644,11 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
     for r in results:
         name = r["name"]
         anime_rel = _rel_path(r["anime_path"], rd)
-        simple_rel = _rel_path(r["simple_path"], rd) if os.path.exists(r["simple_path"]) else None
+        simple_rel = (
+            _rel_path(r["simple_path"], rd)
+            if os.path.exists(r["simple_path"])
+            else None
+        )
         pd = r["paths"]["plots_dir"]
         sd = r["paths"]["stage_dir"]
         am, sm = r["metrics_asp"], r["metrics_simple"]
@@ -1462,8 +1659,16 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
         lines.append("### Final Outputs\n\n")
         lines.append("| Anime Stitch Pipeline | OpenCV Simple Stitch |\n")
         lines.append("|:---------------------:|:--------------------:|\n")
-        asp_cell = f"![ASP]({anime_rel})" if os.path.exists(r["anime_path"]) else "_not generated_"
-        simple_cell = f"![Simple]({simple_rel})" if simple_rel and os.path.exists(r["simple_path"]) else "_not generated_"
+        asp_cell = (
+            f"![ASP]({anime_rel})"
+            if os.path.exists(r["anime_path"])
+            else "_not generated_"
+        )
+        simple_cell = (
+            f"![Simple]({simple_rel})"
+            if simple_rel and os.path.exists(r["simple_path"])
+            else "_not generated_"
+        )
         lines.append(f"| {asp_cell} | {simple_cell} |\n\n")
 
         # CV Metrics table
@@ -1473,7 +1678,10 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
         metric_defs = [
             ("sharpness", "Laplacian variance — higher = sharper edges"),
             ("coverage", "Fraction of non-black pixels — lower = heavy crop"),
-            ("seam_gradient", "Mean gradient magnitude at seam rows — higher = abrupt transitions"),
+            (
+                "seam_gradient",
+                "Mean gradient magnitude at seam rows — higher = abrupt transitions",
+            ),
             ("color_entropy", "Shannon entropy of luma histogram — lower = washed out"),
             ("ghosting_score", "2nd-order vertical gradient — higher = double-edges"),
             ("width", "Output width (px)"),
@@ -1483,10 +1691,22 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
             a_val = f"{am.get(key, '—')}" if am else "—"
             s_val = f"{sm.get(key, '—')}" if sm else "—"
             lines.append(f"| `{key}` | {a_val} | {s_val} | {note} |\n")
-        ssim_v = f"{r['comparison']['ssim']:.3f}" if r["comparison"]["ssim"] is not None else "—"
-        psnr_v = f"{r['comparison']['psnr_db']:.1f} dB" if r["comparison"]["psnr_db"] is not None else "—"
-        lines.append(f"| `ssim (asp vs simple)` | {ssim_v} | — | Structural similarity between the two outputs |\n")
-        lines.append(f"| `psnr (asp vs simple)` | {psnr_v} | — | Peak SNR between the two outputs |\n")
+        ssim_v = (
+            f"{r['comparison']['ssim']:.3f}"
+            if r["comparison"]["ssim"] is not None
+            else "—"
+        )
+        psnr_v = (
+            f"{r['comparison']['psnr_db']:.1f} dB"
+            if r["comparison"]["psnr_db"] is not None
+            else "—"
+        )
+        lines.append(
+            f"| `ssim (asp vs simple)` | {ssim_v} | — | Structural similarity between the two outputs |\n"
+        )
+        lines.append(
+            f"| `psnr (asp vs simple)` | {psnr_v} | — | Peak SNR between the two outputs |\n"
+        )
         lines.append("\n")
 
         # Affine health
@@ -1506,13 +1726,17 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
 
         # Gains summary
         gains = r["photometric"]["applied_gains"]
-        lums = r["photometric"]["bg_lums"]
+        # lums = r["photometric"]["bg_lums"]
         non_trivial = [g for g in gains if abs(g - 1.0) > 0.01]
         lines.append("### Photometric Correction\n\n")
         lines.append(f"- Frames: **{len(gains)}**  \n")
-        lines.append(f"- Frames corrected (|gain − 1| > 0.01): **{len(non_trivial)}**  \n")
+        lines.append(
+            f"- Frames corrected (|gain − 1| > 0.01): **{len(non_trivial)}**  \n"
+        )
         if non_trivial:
-            lines.append(f"- Gain range: [{min(non_trivial):.4f}, {max(non_trivial):.4f}]  \n")
+            lines.append(
+                f"- Gain range: [{min(non_trivial):.4f}, {max(non_trivial):.4f}]  \n"
+            )
         lines.append("\n")
 
         # Visualisation section
@@ -1528,7 +1752,9 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
         # Metrics comparison bar
         bar_path = os.path.join(pd, "metrics_comparison.png")
         if os.path.exists(bar_path):
-            lines.append(_img_row("CV Metrics Comparison (normalised)", "metrics_comparison.png"))
+            lines.append(
+                _img_row("CV Metrics Comparison (normalised)", "metrics_comparison.png")
+            )
 
         # Gains
         gains_path = os.path.join(pd, "gains.png")
@@ -1538,11 +1764,15 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
         # 2D canvas & overlap
         cp = os.path.join(pd, "canvas_frame_placement.png")
         if os.path.exists(cp):
-            lines.append(_img_row("Canvas Frame Placement (2D)", "canvas_frame_placement.png"))
+            lines.append(
+                _img_row("Canvas Frame Placement (2D)", "canvas_frame_placement.png")
+            )
 
         tv = os.path.join(pd, "translation_vectors.png")
         if os.path.exists(tv):
-            lines.append(_img_row("Translation Vectors (2D)", "translation_vectors.png"))
+            lines.append(
+                _img_row("Translation Vectors (2D)", "translation_vectors.png")
+            )
 
         om = os.path.join(pd, "overlap_map.png")
         if os.path.exists(om):
@@ -1553,14 +1783,21 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
             hm = os.path.join(pd, f"{img_type}_seam_heatmap.png")
             if os.path.exists(hm):
                 label = "ASP" if img_type == "asp" else "Simple Stitch"
-                lines.append(_img_row(f"{label} — Seam Gradient Heatmap (2D)",
-                                      f"{img_type}_seam_heatmap.png"))
+                lines.append(
+                    _img_row(
+                        f"{label} — Seam Gradient Heatmap (2D)",
+                        f"{img_type}_seam_heatmap.png",
+                    )
+                )
 
         # 3D surface plots
         for fname, label in [
             ("asp_3d_surface.png", "ASP — Luminance Surface (3D)"),
             ("simple_3d_surface.png", "Simple Stitch — Luminance Surface (3D)"),
-            ("temporal_render_3d.png", "Stage 9 Temporal Render — Luminance Surface (3D)"),
+            (
+                "temporal_render_3d.png",
+                "Stage 9 Temporal Render — Luminance Surface (3D)",
+            ),
         ]:
             p = os.path.join(pd, fname)
             if os.path.exists(p):
@@ -1572,8 +1809,12 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
             mp = os.path.join(pd, f"mask_overlay_frame{i:02d}.png")
             if os.path.exists(mp):
                 if not mask_any:
-                    lines.append("**BiRefNet Foreground Mask Overlays (first 3 frames)**\n\n")
-                    lines.append("| Frame 0 | Frame 1 | Frame 2 |\n|:---:|:---:|:---:|\n| ")
+                    lines.append(
+                        "**BiRefNet Foreground Mask Overlays (first 3 frames)**\n\n"
+                    )
+                    lines.append(
+                        "| Frame 0 | Frame 1 | Frame 2 |\n|:---:|:---:|:---:|\n| "
+                    )
                     mask_any = True
         if mask_any:
             cells = []
@@ -1610,9 +1851,16 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
             cols = min(4, len(existing))
             header = "| " + " | ".join([f"Frame {i}" for i in range(cols)]) + " |\n"
             sep = "|" + "---|" * cols + "\n"
-            row = "| " + " | ".join(
-                [f"![f{i}]({_rel_path(p, rd)})" for i, p in enumerate(existing[:cols])]
-            ) + " |\n\n"
+            row = (
+                "| "
+                + " | ".join(
+                    [
+                        f"![f{i}]({_rel_path(p, rd)})"
+                        for i, p in enumerate(existing[:cols])
+                    ]
+                )
+                + " |\n\n"
+            )
             lines.append(header + sep + row)
 
         # Temporal render and composite
@@ -1666,7 +1914,6 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
     # Appendix: raw metrics JSON
     lines.append("---\n\n## Appendix — Raw Metrics JSON\n\n")
     lines.append("```json\n")
-    import datetime
     summary = {
         "generated": datetime.datetime.now().isoformat(),
         "datasets": [

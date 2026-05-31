@@ -25,11 +25,12 @@ import numpy as np
 
 try:
     from scipy.fft import dctn, idctn
+
     _SCIPY_OK = True
 except ImportError:
     _SCIPY_OK = False
 
-from ..constants import (
+from ...constants import (
     DCT_BLOCK_SIZE,
     DCT_ITERATIONS,
     DCT_QUANT_TABLE_LUMINANCE,
@@ -127,8 +128,7 @@ def restore_dct(
 
     # Warp every source frame onto the canvas (uint8, cached).
     warped = [
-        _warp_to_canvas(f, M, canvas_h, canvas_w)
-        for f, M in zip(frames, affines)
+        _warp_to_canvas(f, M, canvas_h, canvas_w) for f, M in zip(frames, affines)
     ]
 
     # Pad dimensions to multiples of B.
@@ -163,7 +163,8 @@ def restore_dct(
     # Pad estimate to multiples of B.
     estimate_p: np.ndarray = (
         np.pad(estimate, ((0, pad_h), (0, pad_w), (0, 0)), mode="edge")
-        if (pad_h or pad_w) else estimate.copy()
+        if (pad_h or pad_w)
+        else estimate.copy()
     )
 
     def _to_blocks(img: np.ndarray) -> np.ndarray:
@@ -194,7 +195,9 @@ def restore_dct(
             mode="edge",
         )
         sd = dctn(_to_blocks(w_f), norm="ortho", axes=(-2, -1))
-        sq = np.round(sd / q_table) * q_table   # nearest quant cell centre in coeff units
+        sq = (
+            np.round(sd / q_table) * q_table
+        )  # nearest quant cell centre in coeff units
         lo = sq - 0.5 * q_table
         hi = sq + 0.5 * q_table
         # Cache valid-rows index for masked accumulation (avoids repeated astype).
@@ -246,7 +249,9 @@ def _restore_dct_scalar(
     B = DCT_BLOCK_SIZE
     q_table_scaled = _quant_table_array(quality)
 
-    warped = [_warp_to_canvas(f, M, canvas_h, canvas_w) for f, M in zip(frames, affines)]
+    warped = [
+        _warp_to_canvas(f, M, canvas_h, canvas_w) for f, M in zip(frames, affines)
+    ]
     valids = [(w.max(axis=2) > 0).astype(np.uint8) for w in warped]
 
     if prior is not None and prior.shape[:2] == (canvas_h, canvas_w):
@@ -272,18 +277,18 @@ def _restore_dct_scalar(
         accum_blocks = np.zeros_like(estimate_p)
 
         for w_img, v_img in zip(warped, valids):
-            w_p = np.pad(
-                w_img, ((0, pad_h), (0, pad_w), (0, 0)), mode="edge"
-            ).astype(np.float64)
+            w_p = np.pad(w_img, ((0, pad_h), (0, pad_w), (0, 0)), mode="edge").astype(
+                np.float64
+            )
             v_p = np.pad(v_img, ((0, pad_h), (0, pad_w)), mode="constant")
 
             for by in range(0, H_p, B):
                 for bx in range(0, W_p, B):
-                    if v_p[by:by + B, bx:bx + B].sum() < (B * B) // 2:
+                    if v_p[by : by + B, bx : bx + B].sum() < (B * B) // 2:
                         continue
                     for c in range(3):
-                        src_block = w_p[by:by + B, bx:bx + B, c]
-                        est_block = estimate_p[by:by + B, bx:bx + B, c]
+                        src_block = w_p[by : by + B, bx : bx + B, c]
+                        est_block = estimate_p[by : by + B, bx : bx + B, c]
                         src_dct = dct_block(src_block - 128.0)
                         est_dct = dct_block(est_block - 128.0)
                         src_quant = np.round(src_dct / q_table_scaled)
@@ -295,10 +300,10 @@ def _restore_dct_scalar(
                         refined_dct[mismatch] = np.clip(
                             est_dct[mismatch], lo[mismatch], hi[mismatch]
                         )
-                        accum_blocks[by:by + B, bx:bx + B, c] += (
+                        accum_blocks[by : by + B, bx : bx + B, c] += (
                             idct_block(refined_dct) + 128.0
                         )
-                    weight_map[by:by + B, bx:bx + B] += 1.0
+                    weight_map[by : by + B, bx : bx + B] += 1.0
 
         new_estimate = accum_blocks / weight_map[:, :, None]
         relax = 0.6

@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 )
 from .settings_window import SettingsWindow
 from ..styles.style import DARK_QSS, LIGHT_QSS
-from ..utils.app_definitions import NEW_LIMIT_MB
+from ..constants import NEW_LIMIT_MB
 from backend.src.core.vault_manager import VaultManager
 
 

@@ -6,12 +6,12 @@ import torch
 
 import yaml
 from loguru import logger
-from backend.src.utils.definitions import BACKEND_DIR
+from backend.src.constants import BACKEND_DIR
 
 from . import FSETool
 from PIL import Image
 from typing import List, Tuple, Optional, Dict
-from backend.src.utils.definitions import AlignMode
+from backend.src.constants import AlignMode
 from backend.src.models.siamese_network import SiameseModelLoader
 from backend.src.models.gan_wrapper import GanWrapper
 from backend.src.models.birefnet_wrapper import BiRefNetWrapper

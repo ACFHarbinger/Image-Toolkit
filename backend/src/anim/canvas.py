@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from .constants import _CANVAS_MAX_DIM
+from ..constants import CANVAS_MAX_DIM
 from .stateless import _trim_dark_border
 
 
@@ -67,9 +67,11 @@ def _compute_canvas(
     canvas_w = int(np.ceil(max_xy[0] - min_xy[0]))
     canvas_h = int(np.ceil(max_xy[1] - min_xy[1]))
 
-    canvas_w = min(canvas_w, _CANVAS_MAX_DIM)
-    canvas_h = min(canvas_h, _CANVAS_MAX_DIM)
+    canvas_w = min(canvas_w, CANVAS_MAX_DIM)
+    canvas_h = min(canvas_h, CANVAS_MAX_DIM)
     return canvas_h, canvas_w, T_global
+
+
 def _detect_scroll_axis(affines: List[np.ndarray]) -> str:
     """
     Classify the scroll direction of a set of affines as:
@@ -90,6 +92,8 @@ def _detect_scroll_axis(affines: List[np.ndarray]) -> str:
     if ty_range > 0 and tx_range / max(ty_range, 1.0) > 0.3:
         return "diagonal"
     return "vertical"
+
+
 def _crop_to_valid(canvas: np.ndarray, valid_mask: np.ndarray) -> np.ndarray:
     """
     Crop the canvas to remove empty borders.
@@ -122,6 +126,7 @@ def _crop_to_valid(canvas: np.ndarray, valid_mask: np.ndarray) -> np.ndarray:
 
     if valid_ratio < 0.80:
         from .stateless import _largest_valid_rect
+
         xv0, yv0, xv1, yv1 = _largest_valid_rect(valid_mask > 0)
         if (xv1 - xv0) * (yv1 - yv0) > 0:
             print(
@@ -161,6 +166,7 @@ def _scan_stitch_fallback(
     # _largest_valid_rect handles diagonal staircases; the simple "all-rows-valid" approach
     # silently bails when no column is valid across every row (common for diagonal scrolls).
     from .stateless import _largest_valid_rect
+
     valid_mask = pano.max(axis=2) > 0
     x0, y0, x1, y1 = _largest_valid_rect(valid_mask)
     if (x1 - x0) > 0 and (y1 - y0) > 0:

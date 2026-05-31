@@ -1,7 +1,7 @@
 import os
 
 from PySide6.QtCore import QThread, Signal, QWaitCondition, QMutex
-from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
+from backend.src.constants import SUPPORTED_IMG_FORMATS
 from backend.src.core import FSETool, FileDeleter
 
 

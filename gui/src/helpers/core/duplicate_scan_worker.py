@@ -12,6 +12,7 @@ from PySide6.QtCore import (
 )
 from .tasks import PhashTask, OrbTask, SiftTask, SsimTask, SiameseTask
 from backend.src.core import DuplicateFinder, SimilarityFinder
+from backend.src.constants import SSIM_C1, SSIM_C2
 
 
 class DuplicateScanWorker(QObject):
@@ -138,7 +139,6 @@ class DuplicateScanWorker(QObject):
                 if self.method == "phash":
                     results = self._compare_phash(self.scan_cache)
                 elif self.method == "ssim":
-                    _C1, _C2 = 6.5025, 58.5225
 
                     def _ssim_sim(img1, img2) -> bool:
                         mu1 = cv2.GaussianBlur(img1, (11, 11), 1.5)
@@ -153,9 +153,11 @@ class DuplicateScanWorker(QObject):
                         )
                         mu1_mu2 = mu1 * mu2
                         sigma12 = cv2.GaussianBlur(img1 * img2, (11, 11), 1.5) - mu1_mu2
-                        num = (2 * mu1_mu2 + _C1) * (2 * sigma12 + _C2)
-                        den = (mu1_sq + mu2_sq + _C1) * (sigma1_sq + sigma2_sq + _C2)
-                        return float(cv2.mean(num / den)[0]) > 0.90
+                        num = (2 * mu1_mu2 + SSIM_C1) * (2 * sigma12 + SSIM_C2)
+                        den = (mu1_sq + mu2_sq + SSIM_C1) * (
+                            sigma1_sq + sigma2_sq + SSIM_C2
+                        )
+                        return cv2.mean(num / den)[0] > 0.90
 
                     results = self._chunked_compare("ssim", _ssim_sim)
                 elif self.method == "sift":
@@ -321,10 +323,6 @@ class DuplicateScanWorker(QObject):
         ungrouped = list(cache.keys())
         gid = 0
 
-        # SSIM constants for data range 0-255
-        C1 = 6.5025  # (0.01 * 255)^2
-        C2 = 58.5225  # (0.03 * 255)^2
-
         while ungrouped:
             self._check_interrupt()
             curr = ungrouped.pop(0)
@@ -350,8 +348,10 @@ class DuplicateScanWorker(QObject):
                 sigma12 = cv2.GaussianBlur(img1 * img2, (11, 11), 1.5) - mu1_mu2
 
                 # Formula: (2*mu1*mu2 + C1) * (2*sig12 + C2) / ((mu1^2 + mu2^2 + C1) * (sig1^2 + sig2^2 + C2))
-                numerator = (2 * mu1_mu2 + C1) * (2 * sigma12 + C2)
-                denominator = (mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2)
+                numerator = (2 * mu1_mu2 + SSIM_C1) * (2 * sigma12 + SSIM_C2)
+                denominator = (mu1_sq + mu2_sq + SSIM_C1) * (
+                    sigma1_sq + sigma2_sq + SSIM_C2
+                )
 
                 ssim_map = numerator / denominator
                 score = cv2.mean(ssim_map)[0]

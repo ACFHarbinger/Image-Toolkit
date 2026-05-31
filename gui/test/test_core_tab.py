@@ -274,7 +274,7 @@ class TestListingsTab:
         import json
         from gui.src.tabs.core.listings_tab import ListingsTab
         from PySide6.QtWidgets import QMessageBox
-        import backend.src.utils.definitions as udef
+        import backend.src.constants as udef
 
         # Override ROOT_DIR for tests to prevent modifying actual project files
         monkeypatch.setattr(udef, "ROOT_DIR", tmp_path)

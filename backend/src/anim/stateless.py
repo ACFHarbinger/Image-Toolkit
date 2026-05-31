@@ -11,7 +11,7 @@ from typing import List, Tuple
 import cv2
 import numpy as np
 
-from .constants import _LAPLACIAN_BANDS
+from ..constants import LAPLACIAN_BANDS
 
 
 def _luma(bgr: np.ndarray) -> np.ndarray:
@@ -71,7 +71,7 @@ def _laplacian_blend(
     a: np.ndarray,
     b: np.ndarray,
     mask_float: np.ndarray,
-    bands: int = _LAPLACIAN_BANDS,
+    bands: int = LAPLACIAN_BANDS,
 ) -> np.ndarray:
     """
     Multi-band (Laplacian pyramid) blending.

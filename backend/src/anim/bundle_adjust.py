@@ -8,6 +8,7 @@ from typing import Dict, List
 
 import numpy as np
 from scipy.optimize import least_squares
+from backend.src.constants import DY_RATIO_THRESH, DY_ABS_THRESH
 
 
 def _bundle_adjust_affine(
@@ -122,8 +123,16 @@ def _bundle_adjust_affine(
         ty_slot = 3 if use_affine else 1
         stride = 4 if use_affine else 2
         for f in range(1, num_frames - 1):
-            tx_acc = x[(f + 1) * stride + tx_slot] - 2 * x[f * stride + tx_slot] + x[(f - 1) * stride + tx_slot]
-            ty_acc = x[(f + 1) * stride + ty_slot] - 2 * x[f * stride + ty_slot] + x[(f - 1) * stride + ty_slot]
+            tx_acc = (
+                x[(f + 1) * stride + tx_slot]
+                - 2 * x[f * stride + tx_slot]
+                + x[(f - 1) * stride + tx_slot]
+            )
+            ty_acc = (
+                x[(f + 1) * stride + ty_slot]
+                - 2 * x[f * stride + ty_slot]
+                + x[(f - 1) * stride + ty_slot]
+            )
             res.append(tx_acc * reg_traj)
             res.append(ty_acc * reg_traj)
 
@@ -184,12 +193,10 @@ def _bundle_adjust_affine(
         # Compare each edge's observed displacement magnitude to the median.
         edge_dy_vals = [abs(float(e["M"][1, 2])) for e in edges]
         med_dy = float(np.median(edge_dy_vals))
+
         # An edge is an outlier if its |dy| is > 2.5× the median AND the
         # absolute deviation exceeds 100px (to avoid false positives on
         # datasets with naturally varying overlap).
-        _DY_RATIO_THRESH = 2.5
-        _DY_ABS_THRESH = 100.0
-
         clean_mask: List[bool] = []
         for idx, e in enumerate(edges):
             # Check prong 1: point-wise residual
@@ -198,15 +205,15 @@ def _bundle_adjust_affine(
                 continue
             # Check prong 2: edge displacement outlier
             dy_val = abs(float(e["M"][1, 2]))
-            dy_ratio = dy_val / max(med_dy, 1.0)
-            dy_dev = abs(dy_val - med_dy)
-            if dy_ratio > _DY_RATIO_THRESH and dy_dev > _DY_ABS_THRESH:
+            if (
+                dy_val > (med_dy * DY_RATIO_THRESH)
+                and abs(dy_val - med_dy) > DY_ABS_THRESH
+            ):
                 clean_mask.append(False)
                 continue
             clean_mask.append(True)
 
         n_pruned = sum(not k for k in clean_mask)
-
         if n_pruned > 0:
             clean_edges = [e for e, keep in zip(edges, clean_mask) if keep]
             # Re-solve as long as we have some edges. If the graph is disconnected,
@@ -214,7 +221,9 @@ def _bundle_adjust_affine(
             # min_gap validation failure later and properly fall back to SCANS.
             if len(clean_edges) >= 2:
                 pruned_info = ", ".join(
-                    f"{e['i']}→{e['j']}" for e, keep in zip(edges, clean_mask) if not keep
+                    f"{e['i']}→{e['j']}"
+                    for e, keep in zip(edges, clean_mask)
+                    if not keep
                 )
                 print(
                     f"[Stitch]   BA outlier rejection: pruned {n_pruned}/{len(edges)} "

@@ -39,7 +39,7 @@ from ...helpers import (
 )
 from ...styles.style import apply_shadow_effect, STYLE_SCAN_CANCEL
 from ...windows import ImagePreviewWindow
-from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
+from backend.src.constants import SUPPORTED_IMG_FORMATS
 
 
 class DeleteTab(AbstractClassTwoGalleries):

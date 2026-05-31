@@ -14,35 +14,22 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Iterator, List, Optional
 
-# ---------------------------------------------------------------------------
-# Flaw taxonomy
-# ---------------------------------------------------------------------------
-
-FLAW_TYPES = [
-    "seam",
-    "blur",
-    "misalignment",
-    "color_mismatch",
-    "dark_border",
-    "compression",
-    "ghosting",
-]
-
-_STORE_PATH = Path.home() / ".config" / "image-toolkit" / "rlhf_feedback.jsonl"
-
+from backend.src.constants import RLHF_STORE_PATH, RLHF_FLAW_TYPES
 
 # ---------------------------------------------------------------------------
 # Data model
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class StitchAnnotation:
     """One human-drawn bounding box indicating a flaw region."""
-    x: float         # normalized [0, 1] — left edge
-    y: float         # normalized [0, 1] — top edge
-    w: float         # normalized [0, 1] — width
-    h: float         # normalized [0, 1] — height
-    flaw_type: str   # one of FLAW_TYPES
+
+    x: float  # normalized [0, 1] — left edge
+    y: float  # normalized [0, 1] — top edge
+    w: float  # normalized [0, 1] — width
+    h: float  # normalized [0, 1] — height
+    flaw_type: str  # one of RLHF_FLAW_TYPES
     severity: float  # [0, 1]; 0 = barely noticeable, 1 = unusable
     description: str = ""
 
@@ -50,9 +37,10 @@ class StitchAnnotation:
 @dataclass
 class StitchFeedback:
     """Complete human feedback for a single stitched panorama."""
+
     image_path: str
-    image_hash: str          # MD5 of the file bytes (stable identifier)
-    overall_rating: float    # [0, 10] — 0 = worst, 10 = perfect
+    image_hash: str  # MD5 of the file bytes (stable identifier)
+    overall_rating: float  # [0, 10] — 0 = worst, 10 = perfect
     annotations: List[StitchAnnotation] = field(default_factory=list)
     timestamp: float = field(default_factory=time.time)
     pipeline_config: dict = field(default_factory=dict)
@@ -71,6 +59,7 @@ class StitchFeedback:
 # Storage
 # ---------------------------------------------------------------------------
 
+
 def _md5(path: str) -> str:
     h = hashlib.md5()
     with open(path, "rb") as f:
@@ -83,7 +72,7 @@ class FeedbackStore:
     """Append-only JSONL store for stitch quality feedback."""
 
     def __init__(self, path: Optional[str] = None):
-        self._path = Path(path) if path else _STORE_PATH
+        self._path = Path(path) if path else RLHF_STORE_PATH
         self._path.parent.mkdir(parents=True, exist_ok=True)
 
     # ----------------------------------------------------------------- write
@@ -104,7 +93,7 @@ class FeedbackStore:
         fb = StitchFeedback(
             image_path=image_path,
             image_hash=_md5(image_path),
-            overall_rating=float(overall_rating),
+            overall_rating=overall_rating,
             annotations=annotations or [],
             pipeline_config=pipeline_config or {},
         )
@@ -137,4 +126,4 @@ class FeedbackStore:
         return self._path
 
 
-__all__ = ["FeedbackStore", "StitchFeedback", "StitchAnnotation", "FLAW_TYPES"]
+__all__ = ["FeedbackStore", "StitchFeedback", "StitchAnnotation", "RLHF_FLAW_TYPES"]

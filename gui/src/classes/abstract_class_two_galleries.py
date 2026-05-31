@@ -6,7 +6,7 @@ from typing import List, Dict, Optional
 from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QMenu, QApplication
 from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer, QEvent
 from PySide6.QtGui import QPixmap, QImage, QAction
-from backend.src.utils.definitions import (
+from backend.src.constants import (
     LOCAL_SOURCE_PATH,
     SUPPORTED_VIDEO_FORMATS,
     THUMBNAIL_CACHE_DIR,

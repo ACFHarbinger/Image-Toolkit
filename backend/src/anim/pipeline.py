@@ -33,9 +33,9 @@ from .canvas import (
     find_optimal_sequence,
 )
 from .compositing import _composite_foreground
-from .constants import (
-    _LAPLACIAN_BANDS,
-    _MATCH_EDGE_CROP,
+from backend.src.constants import (
+    LAPLACIAN_BANDS,
+    MATCH_EDGE_CROP,
 )
 from .ecc import _ecc_refine
 from .masking import _compute_fg_masks
@@ -120,12 +120,17 @@ except ImportError:
 
 try:
     from .anim_fill import tooncrafter_ghost_fill
+
     _TOONCRAFTER_OK = True
 except ImportError:
     _TOONCRAFTER_OK = False
 
 try:
-    from .sr_stitcher import seam_diffusion_fusion, border_diffusion_fill, _DIFFUSERS_OK as _SRSTITCHER_OK
+    from .sr_stitcher import (
+        seam_diffusion_fusion,
+        border_diffusion_fill,
+        _DIFFUSERS_OK as _SRSTITCHER_OK,
+    )
 except ImportError:
     _SRSTITCHER_OK = False
 
@@ -165,7 +170,7 @@ class AnimeStitchPipeline:
         use_ecc: bool = True,
         renderer: str = "median",  # 'median' | 'first' | 'blend'
         composite_fg: bool = True,
-        laplacian_bands: int = _LAPLACIAN_BANDS,
+        laplacian_bands: int = LAPLACIAN_BANDS,
         stitch_net_ckpt: str = "",  # path to AnimeStitchNet checkpoint
         edge_crop: int = 30,
         motion_model: str = "translation",  # 'translation' or 'affine' (4-DOF)
@@ -269,27 +274,27 @@ class AnimeStitchPipeline:
         # filter.  When the majority of edges are near-zero (test8/test9/test16),
         # the consensus median is also near-zero and the filter cannot distinguish
         # good from bad.  This guard prevents the inverted-consensus pattern.
-        _MIN_EXPECTED_STEP = 50  # px — frames at 1080p overlap by ~200–400px
+        
         if len(edges) >= 3:
             adj_edges = [e for e in edges if e["j"] == e["i"] + 1]
             if len(adj_edges) > 0:
                 median_dx_abs = float(np.median([abs(e["M"][0, 2]) for e in adj_edges]))
                 median_dy_abs = float(np.median([abs(e["M"][1, 2]) for e in adj_edges]))
                 primary_axis = 0 if median_dx_abs > median_dy_abs else 1
-                
+
                 adj_before = len(adj_edges)
                 edges = [
                     e
                     for e in edges
                     if e["j"] != e["i"] + 1
-                    or abs(float(e["M"][primary_axis, 2])) >= _MIN_EXPECTED_STEP
+                    or abs(float(e["M"][primary_axis, 2])) >= MIN_EXPECTED_STEP
                 ]
                 adj_after = sum(1 for e in edges if e["j"] == e["i"] + 1)
                 n_rejected = adj_before - adj_after
                 if n_rejected > 0:
                     print(
                         f"[Stitch]   Min-step guard: rejected {n_rejected} near-zero "
-                        f"edges (threshold={_MIN_EXPECTED_STEP}px on axis {primary_axis})"
+                        f"edges (threshold={MIN_EXPECTED_STEP}px on axis {primary_axis})"
                     )
 
         # ── Direction Consensus Filter ────────────────────────────────────────
@@ -299,7 +304,7 @@ class AnimeStitchPipeline:
                 median_dx_abs = float(np.median([abs(e["M"][0, 2]) for e in adj_edges]))
                 median_dy_abs = float(np.median([abs(e["M"][1, 2]) for e in adj_edges]))
                 primary_axis = 0 if median_dx_abs > median_dy_abs else 1
-                
+
                 adj_vals = [e["M"][primary_axis, 2] for e in adj_edges]
                 median_val = float(np.median(adj_vals))
                 consensus_sign = int(np.sign(median_val))
@@ -308,10 +313,12 @@ class AnimeStitchPipeline:
                 if consensus_sign != 0:
                     _pre_skip_n = len(edges)
                     edges = [
-                        e for e in edges
+                        e
+                        for e in edges
                         if e["j"] == e["i"] + 1
                         or abs(float(e["M"][primary_axis, 2])) < 20.0
-                        or int(np.sign(float(e["M"][primary_axis, 2]))) == consensus_sign
+                        or int(np.sign(float(e["M"][primary_axis, 2])))
+                        == consensus_sign
                     ]
                     _n_skip_dropped = _pre_skip_n - len(edges)
                     if _n_skip_dropped:
@@ -389,8 +396,8 @@ class AnimeStitchPipeline:
                     new_pts_j = edge["pts_i"] + new_M[:, 2].astype(np.float32)
                     return dict(edge, M=new_M, pts_j=new_pts_j, weight=new_weight)
 
-                ec_h = int(H * _MATCH_EDGE_CROP)
-                ec_w = int(W * _MATCH_EDGE_CROP)
+                ec_h = int(H * MATCH_EDGE_CROP)
+                ec_w = int(W * MATCH_EDGE_CROP)
                 corrected: List[Dict] = []
                 for e in edges:
                     if e["j"] == e["i"] + 1:
@@ -420,8 +427,12 @@ class AnimeStitchPipeline:
                                     else None
                                 )
                                 M_dir, c_dir = _template_match(
-                                    img_i_c, img_j_c, m_i_c, None,
-                                    img_i_c.shape[0], direction_sign=consensus_sign,
+                                    img_i_c,
+                                    img_j_c,
+                                    m_i_c,
+                                    None,
+                                    img_i_c.shape[0],
+                                    direction_sign=consensus_sign,
                                 )
                                 if (
                                     M_dir is not None
@@ -446,7 +457,9 @@ class AnimeStitchPipeline:
                                 M_fix = np.eye(2, 3, dtype=np.float32)
                                 M_fix[1 - primary_axis, 2] = e["M"][1 - primary_axis, 2]
                                 M_fix[primary_axis, 2] = median_val
-                                e = _apply_corrected_M(e, M_fix, e.get("weight", 1.0) * 0.3)
+                                e = _apply_corrected_M(
+                                    e, M_fix, e.get("weight", 1.0) * 0.3
+                                )
                         else:
                             print(
                                 f"[Stitch]   Edge {fi}→{fj}: val={val:.1f} kept "
@@ -493,7 +506,9 @@ class AnimeStitchPipeline:
         # ── Stage 2: Width normalisation ─────────────────────────────────────
         frames = _normalise_widths(frames)
         H, W = frames[0].shape[:2]
-        scans_frames = list(frames)  # snapshot before ML corrections — used for SCANS fallback
+        scans_frames = list(
+            frames
+        )  # snapshot before ML corrections — used for SCANS fallback
         print(f"[Stitch] Stage 2 complete: all frames at {W}×{H}.")
 
         # ── Stage 3: BaSiC photometric correction ────────────────────────────
@@ -549,7 +564,9 @@ class AnimeStitchPipeline:
                     continue
                 _gain = _ref_mean / np.maximum(bg_frame_means[_i], 1.0)
                 _ref_lum_scalar = float(np.dot(_ref_mean, [0.114, 0.587, 0.299]))
-                _gain_lo, _gain_hi = (0.80, 1.25) if _ref_lum_scalar < 80.0 else (0.88, 1.14)
+                _gain_lo, _gain_hi = (
+                    (0.80, 1.25) if _ref_lum_scalar < 80.0 else (0.88, 1.14)
+                )
                 _gain = np.clip(_gain, _gain_lo, _gain_hi)
                 if not np.allclose(_gain, 1.0, atol=0.01):
                     frames[_i] = np.clip(
@@ -575,22 +592,39 @@ class AnimeStitchPipeline:
             if bm.sum() < 1000:
                 continue
             # Quick color-region segmentation via quantization (no SAM needed)
-            img_small = cv2.resize(frames[_i], (frames[_i].shape[1] // 4, frames[_i].shape[0] // 4), cv2.INTER_AREA)
+            img_small = cv2.resize(
+                frames[_i],
+                (frames[_i].shape[1] // 4, frames[_i].shape[0] // 4),
+                cv2.INTER_AREA,
+            )
             flat = img_small.reshape(-1, 3).astype(np.float32)
             _, labels_flat, centers = cv2.kmeans(
-                flat, min(8, len(np.unique(flat.reshape(-1)))),
+                flat,
+                min(8, len(np.unique(flat.reshape(-1)))),
                 None,
                 (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0),
-                2, cv2.KMEANS_PP_CENTERS,
+                2,
+                cv2.KMEANS_PP_CENTERS,
             )
             seg_map = labels_flat.reshape(img_small.shape[:2])
-            seg_map_full = cv2.resize(seg_map.astype(np.uint8), (frames[_i].shape[1], frames[_i].shape[0]), cv2.INTER_NEAREST)
+            seg_map_full = cv2.resize(
+                seg_map.astype(np.uint8),
+                (frames[_i].shape[1], frames[_i].shape[0]),
+                cv2.INTER_NEAREST,
+            )
             # Reference: frame 0 colour clusters
-            img0_small = cv2.resize(frames[0], img_small.shape[:2][::-1], cv2.INTER_AREA)
+            img0_small = cv2.resize(
+                frames[0], img_small.shape[:2][::-1], cv2.INTER_AREA
+            )
             flat0 = img0_small.reshape(-1, 3).astype(np.float32)
-            ref_centers = cv2.kmeans(flat0, min(8, len(np.unique(flat0.reshape(-1)))), None,
-                                     (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0),
-                                     2, cv2.KMEANS_PP_CENTERS)[2]
+            ref_centers = cv2.kmeans(
+                flat0,
+                min(8, len(np.unique(flat0.reshape(-1)))),
+                None,
+                (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0),
+                2,
+                cv2.KMEANS_PP_CENTERS,
+            )[2]
 
             gain_map = np.ones(frames[_i].shape[:2], dtype=np.float32)
             for _k in range(int(seg_map_full.max()) + 1):
@@ -609,7 +643,9 @@ class AnimeStitchPipeline:
             ).astype(np.uint8)
             _n_seg_corrected += 1
         if _n_seg_corrected > 0:
-            print(f"[Stitch] Stage 4.5b: per-segment photometric correction applied to {_n_seg_corrected} frames.")
+            print(
+                f"[Stitch] Stage 4.5b: per-segment photometric correction applied to {_n_seg_corrected} frames."
+            )
 
         # ── Pre-stage 5: Deduplicate near-static consecutive frames ─────────
         if N >= 3:
@@ -656,6 +692,7 @@ class AnimeStitchPipeline:
         if self.use_jamma and _is_4k:
             try:
                 from backend.src.models.jamma_wrapper import JamMaWrapper
+
                 _jamma_inst = JamMaWrapper()
                 _jamma_inst.load_model()
                 _active_loftr = _jamma_inst
@@ -673,7 +710,9 @@ class AnimeStitchPipeline:
                     _active_loftr = self._eloftr
                     print("[Stitch]   Using EfficientLoFTR (2.5× faster than LoFTR).")
                 except Exception as _e:
-                    print(f"[Stitch]   EfficientLoFTR init failed ({_e}); falling back to LoFTR.")
+                    print(
+                        f"[Stitch]   EfficientLoFTR init failed ({_e}); falling back to LoFTR."
+                    )
                     self.use_efficient_loftr = False
                     self._eloftr = None
             else:
@@ -709,11 +748,11 @@ class AnimeStitchPipeline:
         )
 
         # ── Post-match: Spatial dedup of near-static consecutive frames ──────
-        # Frames whose measured adj displacement is < _SPATIAL_DEDUP_PX add no
+        # Frames whose measured adj displacement is < SPATIAL_DEDUP_PX add no
         # meaningful new content and confuse BA (effective gap ≈ 0).  Run in a
         # loop so chains (A≈B≈C) are resolved in successive passes after
         # re-indexing turns a former skip-edge into an adj-edge.
-        _SPATIAL_DEDUP_PX = 25  # px — well below any normal scroll step
+        
         _spa_changed = True
         _total_spa_dropped = 0
         while _spa_changed:
@@ -729,7 +768,7 @@ class AnimeStitchPipeline:
                 _ee = _adj_m[_jj]
                 if _ee["i"] in _drop:
                     continue
-                if abs(float(_ee["M"][_spa_axis, 2])) < _SPATIAL_DEDUP_PX:
+                if abs(float(_ee["M"][_spa_axis, 2])) < SPATIAL_DEDUP_PX:
                     _drop.add(_jj)
                     _spa_changed = True
                     print(
@@ -795,11 +834,15 @@ class AnimeStitchPipeline:
             f"max_rot={health.max_rotation:.4f}, scale_dev={health.max_scale_dev:.4f}"
         )
         if not health.valid:
-            print(f"[Stitch]   Affine health FAILED ({health.reason}); attempting recovery...")
+            print(
+                f"[Stitch]   Affine health FAILED ({health.reason}); attempting recovery..."
+            )
             # Retry 1: consecutive-only bundle — skip edges sometimes corrupt the solution
             _adj_only = [e for e in edges if e["j"] == e["i"] + 1]
             if len(_adj_only) >= N - 1:
-                affines_r1 = _bundle_adjust_affine(_adj_only, N, use_affine=use_affine_ba)
+                affines_r1 = _bundle_adjust_affine(
+                    _adj_only, N, use_affine=use_affine_ba
+                )
                 health_r1 = _validate_affines(affines_r1)
                 print(
                     f"[Stitch]   Retry 1 (adj-only bundle): "
@@ -811,8 +854,16 @@ class AnimeStitchPipeline:
             if not health.valid:
                 _adj_only_r2 = [e for e in edges if e["j"] == e["i"] + 1]
                 # Consensus step for interpolation/extrapolation of isolated frames
-                _step_dx = float(np.median([float(e["M"][0, 2]) for e in _adj_only_r2])) if _adj_only_r2 else 0.0
-                _step_dy = float(np.median([float(e["M"][1, 2]) for e in _adj_only_r2])) if _adj_only_r2 else 0.0
+                _step_dx = (
+                    float(np.median([float(e["M"][0, 2]) for e in _adj_only_r2]))
+                    if _adj_only_r2
+                    else 0.0
+                )
+                _step_dy = (
+                    float(np.median([float(e["M"][1, 2]) for e in _adj_only_r2]))
+                    if _adj_only_r2
+                    else 0.0
+                )
                 # Frames that have an adj edge pointing to them
                 _has_adj_src = {e["j"] for e in _adj_only_r2}
 
@@ -828,8 +879,12 @@ class AnimeStitchPipeline:
                                 _best_span = _f - _e["i"]
                                 _best_e = _e
                     if _best_e is not None:
-                        _seq[_f][0, 2] = _seq[_best_e["i"]][0, 2] - float(_best_e["M"][0, 2])
-                        _seq[_f][1, 2] = _seq[_best_e["i"]][1, 2] - float(_best_e["M"][1, 2])
+                        _seq[_f][0, 2] = _seq[_best_e["i"]][0, 2] - float(
+                            _best_e["M"][0, 2]
+                        )
+                        _seq[_f][1, 2] = _seq[_best_e["i"]][1, 2] - float(
+                            _best_e["M"][1, 2]
+                        )
                         _anchored.add(_f)
 
                 # Pass 2: fill frames with no adj edge via interpolation or velocity extrapolation
@@ -840,8 +895,12 @@ class AnimeStitchPipeline:
                     _rgt = min((a for a in _anchored if a > _uf), default=None)
                     if _lft is not None and _rgt is not None:
                         _t = (_uf - _lft) / (_rgt - _lft)
-                        _seq[_uf][0, 2] = _seq[_lft][0, 2] * (1 - _t) + _seq[_rgt][0, 2] * _t
-                        _seq[_uf][1, 2] = _seq[_lft][1, 2] * (1 - _t) + _seq[_rgt][1, 2] * _t
+                        _seq[_uf][0, 2] = (
+                            _seq[_lft][0, 2] * (1 - _t) + _seq[_rgt][0, 2] * _t
+                        )
+                        _seq[_uf][1, 2] = (
+                            _seq[_lft][1, 2] * (1 - _t) + _seq[_rgt][1, 2] * _t
+                        )
                     elif _lft is not None:
                         _n = _uf - _lft
                         _seq[_uf][0, 2] = _seq[_lft][0, 2] - _n * _step_dx
@@ -862,8 +921,12 @@ class AnimeStitchPipeline:
                                     _best_span = _f - _e["i"]
                                     _best_e = _e
                         if _best_e is not None:
-                            _seq[_f][0, 2] = _seq[_best_e["i"]][0, 2] - float(_best_e["M"][0, 2])
-                            _seq[_f][1, 2] = _seq[_best_e["i"]][1, 2] - float(_best_e["M"][1, 2])
+                            _seq[_f][0, 2] = _seq[_best_e["i"]][0, 2] - float(
+                                _best_e["M"][0, 2]
+                            )
+                            _seq[_f][1, 2] = _seq[_best_e["i"]][1, 2] - float(
+                                _best_e["M"][1, 2]
+                            )
                             _anchored.add(_f)
                             _chg = True
 
@@ -901,7 +964,9 @@ class AnimeStitchPipeline:
                     self._sea_raft = _load_sea_raft(device=_dev)
                     print("[Stitch]   SEA-RAFT model loaded.")
                 affines = _flow_refine(
-                    frames, affines, bg_masks,
+                    frames,
+                    affines,
+                    bg_masks,
                     device="cuda" if torch.cuda.is_available() else "cpu",
                     raft_model=self._sea_raft,
                 )
@@ -1006,9 +1071,7 @@ class AnimeStitchPipeline:
         # blurry/dark sources.  If the canvas is below threshold and MFSR is
         # not already requested, trigger it automatically.
         _lap_var: float = float(
-            cv2.Laplacian(
-                cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY), cv2.CV_64F
-            ).var()
+            cv2.Laplacian(cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY), cv2.CV_64F).var()
         )
         _mfsr_active = self.mfsr_mode
         if not _mfsr_active and _lap_var < 20.0:
@@ -1046,14 +1109,19 @@ class AnimeStitchPipeline:
         if self.use_tooncrafter and N >= 4:
             try:
                 from .rendering import _cluster_animation_phases
+
                 _dev_tc = "cuda" if torch.cuda.is_available() else "cpu"
                 _tc_anim_mask, _tc_phase_groups = _cluster_animation_phases(
                     frames, affines, canvas_h, canvas_w
                 )
                 if _tc_anim_mask is not None and _tc_phase_groups is not None:
                     canvas = tooncrafter_ghost_fill(
-                        canvas, _tc_anim_mask, _tc_phase_groups,
-                        frames, affines, device=_dev_tc,
+                        canvas,
+                        _tc_anim_mask,
+                        _tc_phase_groups,
+                        frames,
+                        affines,
+                        device=_dev_tc,
                     )
                     if torch.cuda.is_available():
                         torch.cuda.empty_cache()
@@ -1114,6 +1182,7 @@ class AnimeStitchPipeline:
             )
             try:
                 from .mfsr import inpaint_gaps
+
                 canvas = inpaint_gaps(canvas, gap_mask=_gap_mask)
                 print("[Stitch]   Inpainting complete.")
             except Exception as _e:
@@ -1134,7 +1203,9 @@ class AnimeStitchPipeline:
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
             except Exception as _sr_e:
-                print(f"[Stitch]   Real-ESRGAN failed ({_sr_e}); keeping original resolution.")
+                print(
+                    f"[Stitch]   Real-ESRGAN failed ({_sr_e}); keeping original resolution."
+                )
 
         # ── Save ─────────────────────────────────────────────────────────────
         rgb = cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB)

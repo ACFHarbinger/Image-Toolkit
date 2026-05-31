@@ -14,11 +14,11 @@ import cv2
 import numpy as np
 import torch
 
-from .constants import (
-    _MATCH_EDGE_CROP,
-    _MAX_DX_DRIFT_RATIO,
-    _MIN_TEMPLATE_SCORE,
-    _PC_CONF_THRESHOLD,
+from backend.src.constants import (
+    MATCH_EDGE_CROP,
+    MAX_DX_DRIFT_RATIO,
+    MIN_TEMPLATE_SCORE,
+    PC_CONF_THRESHOLD,
 )
 from .stateless import _highpass, _luma
 
@@ -96,7 +96,7 @@ def _template_match(
         except Exception:
             continue
 
-    if best_conf < _MIN_TEMPLATE_SCORE:
+    if best_conf < MIN_TEMPLATE_SCORE:
         return None, 0.0
 
     M = np.array([[1, 0, 0], [0, 1, best_dy]], np.float32)
@@ -134,12 +134,12 @@ def _phase_correlate(
     except Exception:
         return None, 0.0
 
-    if response < _PC_CONF_THRESHOLD:
+    if response < PC_CONF_THRESHOLD:
         return None, 0.0
 
-    dx, dy = float(shift[0]), float(shift[1])
+    dx, dy = shift[0], shift[1]
     M = np.array([[1, 0, dx], [0, 1, dy]], np.float32)
-    return M, float(response)
+    return M, response
 
 
 def _sample_bg_points(
@@ -196,7 +196,9 @@ def _sample_bg_points_grid(
                     ys = np.random.randint(y0, max(y0 + 1, y1), per_cell)
                     xs = np.random.randint(x0, max(x0 + 1, x1), per_cell)
                 else:
-                    idx = np.random.choice(len(ys_bg), min(per_cell, len(ys_bg)), replace=False)
+                    idx = np.random.choice(
+                        len(ys_bg), min(per_cell, len(ys_bg)), replace=False
+                    )
                     ys = ys_bg[idx] + y0
                     xs = xs_bg[idx] + x0
 
@@ -230,25 +232,34 @@ def _segment_guided_match(
     """
     h, w = img_i.shape[:2]
 
-    def _segment(img: np.ndarray, mask: Optional[np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
+    def _segment(
+        img: np.ndarray, mask: Optional[np.ndarray]
+    ) -> Tuple[np.ndarray, np.ndarray]:
         # Downscale for speed (mean-shift is O(N²))
         scale = min(1.0, 320.0 / max(h, w))
-        img_s = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+        img_s = cv2.resize(
+            img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA
+        )
         # Mean-shift segmentation into flat color regions
         ms = cv2.pyrMeanShiftFiltering(img_s, sp=8, sr=30)
         # Quantise colors to reduce fragmentation
         ms_flat = ms.reshape(-1, 3).astype(np.float32)
         _, labels_flat, centers = cv2.kmeans(
-            ms_flat, n_colors, None,
+            ms_flat,
+            n_colors,
+            None,
             (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_MAX_ITER, 20, 1.0),
-            3, cv2.KMEANS_PP_CENTERS
+            3,
+            cv2.KMEANS_PP_CENTERS,
         )
         quantized = centers[labels_flat.flatten()].reshape(img_s.shape).astype(np.uint8)
         # Connected components on quantized image (one CC per flat region)
         gray_q = cv2.cvtColor(quantized, cv2.COLOR_BGR2GRAY)
         _, cc_map = cv2.connectedComponents(gray_q, connectivity=8)
         # Scale CC map back to original size
-        cc_full = cv2.resize(cc_map.astype(np.int32), (w, h), interpolation=cv2.INTER_NEAREST)
+        cc_full = cv2.resize(
+            cc_map.astype(np.int32), (w, h), interpolation=cv2.INTER_NEAREST
+        )
         return cc_full, centers[labels_flat.reshape(img_s.shape[:2])]
 
     try:
@@ -290,11 +301,16 @@ def _segment_guided_match(
         # L2 color distance to all segments in j
         color_dists = np.linalg.norm(colors_j - c_i[np.newaxis], axis=1)
         # Position distance (normalised by image size)
-        pos_dists = np.array([
-            np.sqrt(((segs_j[lj]["cy"] - si["cy"]) / h) ** 2 +
-                    ((segs_j[lj]["cx"] - si["cx"]) / w) ** 2)
-            for lj in labels_j
-        ], dtype=np.float32)
+        pos_dists = np.array(
+            [
+                np.sqrt(
+                    ((segs_j[lj]["cy"] - si["cy"]) / h) ** 2
+                    + ((segs_j[lj]["cx"] - si["cx"]) / w) ** 2
+                )
+                for lj in labels_j
+            ],
+            dtype=np.float32,
+        )
         # Combined score: low color distance + nearby position
         score = color_dists / 256.0 + 2.0 * pos_dists
         best_idx = int(np.argmin(score))
@@ -341,8 +357,8 @@ def _match_pair(
     m_j = bg_masks[j]
 
     # ── Pre-match Edge Crop (Discard distortion) ──
-    ec_h = int(H * _MATCH_EDGE_CROP)
-    ec_w = int(W * _MATCH_EDGE_CROP)
+    ec_h = int(H * MATCH_EDGE_CROP)
+    ec_w = int(W * MATCH_EDGE_CROP)
 
     match_img_i = img_i[ec_h:-ec_h, ec_w:-ec_w]
     match_img_j = img_j[ec_h:-ec_h, ec_w:-ec_w]
@@ -353,7 +369,7 @@ def _match_pair(
         if M is None:
             return False
         dx = abs(M[0, 2])
-        if dx > W * _MAX_DX_DRIFT_RATIO:
+        if dx > W * MAX_DX_DRIFT_RATIO:
             return False
         return True
 
@@ -483,7 +499,9 @@ def _match_pair(
     # low-texture anime cells where all above methods fail.
     if M is None:
         try:
-            M_sg, c_sg = _segment_guided_match(match_img_i, match_img_j, match_m_i, match_m_j)
+            M_sg, c_sg = _segment_guided_match(
+                match_img_i, match_img_j, match_m_i, match_m_j
+            )
             if M_sg is not None and _is_valid(M_sg):
                 M, mean_conf = M_sg, c_sg
                 print(

@@ -9,7 +9,12 @@ from typing import List, Optional
 import cv2
 import numpy as np
 
-from .constants import _ECC_EPS, _ECC_MAX_ITER, _ECC_PYRAMID_LEVELS
+from backend.src.constants import (
+    ECC_EPS,
+    ECC_MAX_ITER,
+    ECC_PYRAMID_LEVELS,
+    ECC_MAX_DRIFT,
+)
 from .stateless import _luma
 
 
@@ -31,16 +36,15 @@ def _ecc_refine(
     Safety clamp
     ------------
     After ECC we reject any correction that moves dx or dy more than
-    _ECC_MAX_DRIFT pixels away from the bundle-adjusted starting point,
+    ECC_MAX_DRIFT pixels away from the bundle-adjusted starting point,
     falling back to the BA result.  This prevents ECC from diverging on
     low-texture frames.
     """
-    _ECC_MAX_DRIFT = 80.0  # max px ECC is allowed to correct in each axis
 
     criteria = (
         cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
-        _ECC_MAX_ITER,
-        _ECC_EPS,
+        ECC_MAX_ITER,
+        ECC_EPS,
     )
     refined = [affines[0].copy()]
 
@@ -61,7 +65,7 @@ def _ecc_refine(
 
         try:
             M_cur = M_rel.copy()
-            for lvl in range(_ECC_PYRAMID_LEVELS - 1, -1, -1):
+            for lvl in range(ECC_PYRAMID_LEVELS - 1, -1, -1):
                 scale = 2**lvl
                 r_s = cv2.resize(
                     ref_img,
@@ -106,8 +110,8 @@ def _ecc_refine(
             ty_i_new = M_prev[1, 2] - ty_rel_ec
 
             if (
-                abs(tx_i_new - M_i[0, 2]) > _ECC_MAX_DRIFT
-                or abs(ty_i_new - M_i[1, 2]) > _ECC_MAX_DRIFT
+                abs(tx_i_new - M_i[0, 2]) > ECC_MAX_DRIFT
+                or abs(ty_i_new - M_i[1, 2]) > ECC_MAX_DRIFT
             ):
                 print(
                     f"[Stitch]   ECC frame {i}: correction clamped; keeping BA result."

@@ -1,5 +1,5 @@
 """
-backend/src/models/diagnostics/training_hooks.py
+backend/src/models/hooks/training_hooks.py
 =================================================
 Training diagnostics for anime diffusion fine-tuning.
 
@@ -31,6 +31,7 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 try:
     from torch.utils.tensorboard import SummaryWriter
+
     _TB_OK = True
 except ImportError:
     _TB_OK = False
@@ -38,6 +39,7 @@ except ImportError:
 
 try:
     import wandb
+
     _WANDB_OK = True
 except ImportError:
     _WANDB_OK = False
@@ -101,8 +103,8 @@ class DiagnosticsLogger:
                 continue
             gn = p.grad.detach().data.norm(2).item()
             per_layer[f"{prefix}/norm/{n}"] = gn
-            total_sq += gn ** 2
-        total = total_sq ** 0.5
+            total_sq += gn**2
+        total = total_sq**0.5
         self.log_step(step, **{f"{prefix}/total": total})
         # Only log top-32 layers to keep TB UI usable
         top = sorted(per_layer.items(), key=lambda kv: -kv[1])[:32]
@@ -174,7 +176,9 @@ class CrossAttnRecorder:
         recorder.remove()
     """
 
-    def __init__(self, unet: nn.Module, layer_filter: Callable = lambda n: "attn2" in n):
+    def __init__(
+        self, unet: nn.Module, layer_filter: Callable = lambda n: "attn2" in n
+    ):
         self.maps: dict[str, torch.Tensor] = {}
         self._handles: list = []
         for n, m in unet.named_modules():
@@ -185,8 +189,13 @@ class CrossAttnRecorder:
     def _make_hook(self, name: str):
         def hook(module, args, output):
             # Try to extract attention weights from the output if available
-            if isinstance(output, tuple) and len(output) > 1 and isinstance(output[1], torch.Tensor):
+            if (
+                isinstance(output, tuple)
+                and len(output) > 1
+                and isinstance(output[1], torch.Tensor)
+            ):
                 self.maps[name] = output[1].detach().cpu().half()
+
         return hook
 
     def trigger_heatmap(
@@ -198,9 +207,9 @@ class CrossAttnRecorder:
                 continue
             # m shape: (batch*heads, hw, tokens) or (heads, hw, tokens)
             if m.dim() == 3:
-                probs = m.mean(0)          # (hw, tokens)
+                probs = m.mean(0)  # (hw, tokens)
             else:
-                probs = m.mean(dim=(0, 1)) # fallback
+                probs = m.mean(dim=(0, 1))  # fallback
             if token_idx >= probs.shape[-1]:
                 continue
             weights = probs[:, token_idx]
@@ -242,11 +251,11 @@ def lora_effective_rank(
         adapters = A if isinstance(A, dict) else {"default": A}
         for adapter_name in adapters:
             try:
-                a_w = (A[adapter_name].weight if isinstance(A, dict) else A.weight)
-                b_w = (B[adapter_name].weight if isinstance(B, dict) else B.weight)
+                a_w = A[adapter_name].weight if isinstance(A, dict) else A.weight
+                b_w = B[adapter_name].weight if isinstance(B, dict) else B.weight
                 W = (b_w @ a_w).detach().float()
                 s = torch.linalg.svdvals(W)
-                cumvar = (s ** 2).cumsum(0) / (s ** 2).sum().clamp(min=1e-12)
+                cumvar = (s**2).cumsum(0) / (s**2).sum().clamp(min=1e-12)
                 eff = int((cumvar < threshold).sum().item()) + 1
                 out[f"{n}.{adapter_name}"] = {
                     "eff_rank": eff,

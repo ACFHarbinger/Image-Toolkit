@@ -38,7 +38,7 @@ result = {{'success': False, 'message': 'Unknown error'}}
 
 try:
     from core.vault_manager import VaultManager
-    import utils.definitions as udef
+    import constants as udef
 
     udef.update_cryptographic_values('{}')
     vm = VaultManager(udef.JAR_FILE)
@@ -122,7 +122,7 @@ result = {{'success': False, 'message': 'Unknown error'}}
 
 try:
     from core.vault_manager import VaultManager
-    import utils.definitions as udef
+    import constants as udef
 
     udef.update_cryptographic_values('{}')
     
@@ -194,7 +194,7 @@ sys.stdout = sys.stderr
 sys.path.insert(0, '../../backend/src')
 try:
     from core.vault_manager import VaultManager
-    import utils.definitions as udef
+    import constants as udef
 
     udef.update_cryptographic_values('{}')
     vm = VaultManager(udef.JAR_FILE)
@@ -252,7 +252,7 @@ sys.stdout = sys.stderr
 sys.path.insert(0, '../../backend/src')
 try:
     from core.vault_manager import VaultManager
-    import utils.definitions as udef
+    import constants as udef
 
     udef.update_cryptographic_values('{}')
     vm = VaultManager(udef.JAR_FILE)
@@ -301,7 +301,7 @@ sys.stdout = sys.stderr
 sys.path.insert(0, '../../backend/src')
 try:
     from core.vault_manager import VaultManager
-    import utils.definitions as udef
+    import constants as udef
 
     udef.update_cryptographic_values('{}')
     vm = VaultManager(udef.JAR_FILE)

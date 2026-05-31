@@ -26,28 +26,21 @@ from typing import List, Optional, Tuple
 import cv2
 import numpy as np
 
-
-_FEATHER_MAX = 300         # maximum feather half-width (low-diff boundaries)
-_FEATHER_MIN = 80          # minimum feather half-width
-_SEARCH_RANGE = 250        # px each side to search for optimal boundary placement
-_SEARCH_SLAB = 20          # row height used when scoring candidate positions
-
-# Adaptive feather: diff thresholds → target half-width.
-_FEATHER_TABLE = [
-    (5.0,  300),
-    (10.0, 250),
-    (20.0, 200),
-    (35.0, 150),
-    (50.0, 100),
-    (float("inf"), _FEATHER_MIN),
-]
+from backend.src.constants import (
+    FEATHER_MAX,
+    FEATHER_MIN,
+    SEARCH_RANGE,
+    SEARCH_SLAB,
+    FEATHER_TABLE,
+    LUMINANCE_WEIGHTS,
+)
 
 
 def _diff_to_feather(diff: float) -> int:
-    for threshold, feather in _FEATHER_TABLE:
+    for threshold, feather in FEATHER_TABLE:
         if diff <= threshold:
             return feather
-    return _FEATHER_MIN
+    return FEATHER_MIN
 
 
 def _normalize_warped_to_median(
@@ -75,8 +68,8 @@ def _normalize_warped_to_median(
     if int(bg_mask.sum()) < 200:
         return warped
 
-    frame_mean = warped[bg_mask].astype(np.float32).mean(axis=0)   # (3,)
-    ref_mean   = canvas[bg_mask].astype(np.float32).mean(axis=0)   # (3,)
+    frame_mean = warped[bg_mask].astype(np.float32).mean(axis=0)  # (3,)
+    ref_mean = canvas[bg_mask].astype(np.float32).mean(axis=0)  # (3,)
 
     gain = np.clip(ref_mean / np.maximum(frame_mean, 1.0), clip_lo, clip_hi)
     return np.clip(warped.astype(np.float32) * gain, 0, 255).astype(np.uint8)
@@ -110,28 +103,31 @@ def _find_optimal_boundaries(
         for i in range(len(order)):
             fi = int(order[i])
             if bg_masks[fi] is not None:
-                warped_bgs[fi] = cv2.warpAffine(
-                    bg_masks[fi].astype(np.uint8),
-                    affines[fi],
-                    (W, H),
-                    flags=cv2.INTER_NEAREST,
-                    borderMode=cv2.BORDER_CONSTANT,
-                    borderValue=0,
-                ) > 127
+                warped_bgs[fi] = (
+                    cv2.warpAffine(
+                        bg_masks[fi].astype(np.uint8),
+                        affines[fi],
+                        (W, H),
+                        flags=cv2.INTER_NEAREST,
+                        borderMode=cv2.BORDER_CONSTANT,
+                        borderValue=0,
+                    )
+                    > 127
+                )
 
     for k, by in enumerate(initial_boundaries):
         fi_a = int(order[k])
         fi_b = int(order[k + 1])
 
-        lo_limit = int(optimised[k - 1]) + 2 * _SEARCH_SLAB + 1 if k > 0 else _SEARCH_SLAB
+        lo_limit = int(optimised[k - 1]) + 2 * SEARCH_SLAB + 1 if k > 0 else SEARCH_SLAB
         hi_limit = (
-            int(initial_boundaries[k + 1]) - 2 * _SEARCH_SLAB - 1
+            int(initial_boundaries[k + 1]) - 2 * SEARCH_SLAB - 1
             if k < len(initial_boundaries) - 1
-            else H - _SEARCH_SLAB - _SEARCH_SLAB
+            else H - SEARCH_SLAB - SEARCH_SLAB
         )
 
-        y_lo = max(lo_limit, int(by) - _SEARCH_RANGE)
-        y_hi = min(hi_limit, int(by) + _SEARCH_RANGE)
+        y_lo = max(lo_limit, int(by) - SEARCH_RANGE)
+        y_hi = min(hi_limit, int(by) + SEARCH_RANGE)
 
         best_y = int(by)
         best_diff = float("inf")
@@ -140,9 +136,9 @@ def _find_optimal_boundaries(
         bg_a = warped_bgs[fi_a]
         bg_b = warped_bgs[fi_b]
 
-        for y_cand in range(y_lo, min(y_hi, H - _SEARCH_SLAB)):
-            slab_a = warped_list[fi_a][y_cand : y_cand + _SEARCH_SLAB].astype(np.float32)
-            slab_b = warped_list[fi_b][y_cand : y_cand + _SEARCH_SLAB].astype(np.float32)
+        for y_cand in range(y_lo, min(y_hi, H - SEARCH_SLAB)):
+            slab_a = warped_list[fi_a][y_cand : y_cand + SEARCH_SLAB].astype(np.float32)
+            slab_b = warped_list[fi_b][y_cand : y_cand + SEARCH_SLAB].astype(np.float32)
             all_valid = (slab_a.max(axis=2) > 0) & (slab_b.max(axis=2) > 0)
             if all_valid.sum() < 50:
                 continue
@@ -152,8 +148,8 @@ def _find_optimal_boundaries(
             bg_d = None
             if bg_a is not None and bg_b is not None:
                 bg_cand = (
-                    bg_a[y_cand : y_cand + _SEARCH_SLAB]
-                    & bg_b[y_cand : y_cand + _SEARCH_SLAB]
+                    bg_a[y_cand : y_cand + SEARCH_SLAB]
+                    & bg_b[y_cand : y_cand + SEARCH_SLAB]
                     & all_valid
                 )
                 if bg_cand.sum() >= 50:
@@ -164,16 +160,22 @@ def _find_optimal_boundaries(
             if score < best_score:
                 best_score = score
                 best_diff = bg_d if bg_d is not None else all_d
-                best_y = y_cand + _SEARCH_SLAB // 2
+                best_y = y_cand + SEARCH_SLAB // 2
 
-        half = _SEARCH_SLAB // 2
+        half = SEARCH_SLAB // 2
         y0_f = max(0, best_y - half)
         y1_f = min(H - 1, best_y + half)
         sa = warped_list[fi_a][y0_f:y1_f].astype(np.float32)
         sb = warped_list[fi_b][y0_f:y1_f].astype(np.float32)
         av = (sa.max(axis=2) > 0) & (sb.max(axis=2) > 0)
-        total_diff = float(np.abs(sa - sb).mean(axis=2)[av].mean()) if av.sum() >= 10 else best_diff
-        feather_metric = best_diff if (best_diff < 20.0 and total_diff < 20.0) else total_diff
+        total_diff = (
+            float(np.abs(sa - sb).mean(axis=2)[av].mean())
+            if av.sum() >= 10
+            else best_diff
+        )
+        feather_metric = (
+            best_diff if (best_diff < 20.0 and total_diff < 20.0) else total_diff
+        )
 
         optimised[k] = float(best_y)
         diffs[k] = feather_metric
@@ -224,8 +226,12 @@ def _seam_cut(
     W_e, h_e = E.shape
     for i in range(1, W_e):
         prev = E[i - 1]
-        left = np.empty_like(prev); left[0] = np.inf; left[1:] = prev[:-1]
-        right = np.empty_like(prev); right[-1] = np.inf; right[:-1] = prev[1:]
+        left = np.empty_like(prev)
+        left[0] = np.inf
+        left[1:] = prev[:-1]
+        right = np.empty_like(prev)
+        right[-1] = np.inf
+        right[:-1] = prev[1:]
         E[i] += np.minimum(prev, np.minimum(left, right))
 
     path = np.zeros(W_e, np.int32)
@@ -269,7 +275,9 @@ def _soft_seam_weight(
     # Similarity field: 1 where frames agree, 0 where they differ strongly
     similarity = np.exp(-diff / max(sigma, 1.0))
     # Anisotropic diffusion: Gaussian blur propagates similarity from flat areas
-    sim_diffused = cv2.GaussianBlur(similarity, (0, 0), sigmaX=diffuse_sigma, sigmaY=diffuse_sigma)
+    sim_diffused = cv2.GaussianBlur(
+        similarity, (0, 0), sigmaX=diffuse_sigma, sigmaY=diffuse_sigma
+    )
     # Blend radius per column (pixels): more similar → wider blend zone
     # Map sim ∈ [0,1] → ramp_px ∈ [10, zone_h * 0.35]
     min_ramp = 10.0
@@ -279,9 +287,9 @@ def _soft_seam_weight(
     ramp_per_col = (min_ramp + col_sim * (max_ramp - min_ramp)).astype(np.float32)
 
     ys = np.arange(zone_h, dtype=np.float32)[:, np.newaxis]  # (zone_h, 1)
-    seam_y = path_local[np.newaxis, :].astype(np.float32)    # (1, W)
-    dist = ys - seam_y                                         # (zone_h, W)
-    ramp = ramp_per_col[np.newaxis, :]                        # (1, W)
+    seam_y = path_local[np.newaxis, :].astype(np.float32)  # (1, W)
+    dist = ys - seam_y  # (zone_h, W)
+    ramp = ramp_per_col[np.newaxis, :]  # (1, W)
     weight = np.clip(0.5 - dist / (2.0 * ramp), 0.0, 1.0).astype(np.float32)
     return weight
 
@@ -320,7 +328,9 @@ def _build_seam_cost_map(
             continue
         fg = (bm < 127).astype(np.uint8) * 255  # foreground pixels
         # Edge of foreground mask → character silhouette
-        edge = cv2.morphologyEx(fg, cv2.MORPH_GRADIENT, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
+        edge = cv2.morphologyEx(
+            fg, cv2.MORPH_GRADIENT, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        )
         # Dilate to create avoidance zone
         dilated = cv2.dilate(edge, kernel)
         cost = np.maximum(cost, (dilated > 0).astype(np.float32))
@@ -364,7 +374,9 @@ def _composite_foreground(
     ty_range = float(tys.max() - tys.min())
     tx_range = float(txs.max() - txs.min())
     if tx_range > 0 and ty_range / max(tx_range, 1.0) < 0.1:
-        print("[Stitch]   Horizontal scroll — temporal median is already optimal, skipping zone composite.")
+        print(
+            "[Stitch]   Horizontal scroll — temporal median is already optimal, skipping zone composite."
+        )
         return canvas.copy()
 
     # Strip centres and ownership ordering
@@ -383,9 +395,12 @@ def _composite_foreground(
     warped_list: List[np.ndarray] = []
     for i in range(N):
         wf = cv2.warpAffine(
-            frames[i], affines[i], (W, H),
+            frames[i],
+            affines[i],
+            (W, H),
             flags=cv2.INTER_LINEAR,
-            borderMode=cv2.BORDER_CONSTANT, borderValue=0,
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=0,
         )
         warped_list.append(wf)
 
@@ -395,9 +410,12 @@ def _composite_foreground(
     for i in range(N):
         if bg_masks[i] is not None:
             wm = cv2.warpAffine(
-                bg_masks[i].astype(np.uint8), affines[i], (W, H),
+                bg_masks[i].astype(np.uint8),
+                affines[i],
+                (W, H),
                 flags=cv2.INTER_NEAREST,
-                borderMode=cv2.BORDER_CONSTANT, borderValue=255,
+                borderMode=cv2.BORDER_CONSTANT,
+                borderValue=255,
             )
             warped_bg.append(wm > 127)
         else:
@@ -418,8 +436,6 @@ def _composite_foreground(
     # by a strong hue (reddish dirt, orange firelight) — the skewed ref_mean would
     # over-boost the red channel and under-boost blue, altering the output colour.
     # BT.601 luminance weights for BGR: B=0.114, G=0.587, R=0.299.
-    _LUM_W = np.array([0.114, 0.587, 0.299], dtype=np.float32)
-
     print("[Stitch]   Normalising warped frames to global temporal-median reference...")
     union_bg = np.zeros((H, W), dtype=bool)
     for wb in warped_bg:
@@ -429,7 +445,7 @@ def _composite_foreground(
     global_ref_lum: Optional[float] = None
     ref_px = canvas[union_bg & (canvas.max(axis=2) > 10)]
     if len(ref_px) >= 500:
-        global_ref_lum = float(ref_px.astype(np.float32).dot(_LUM_W).mean())
+        global_ref_lum = float(ref_px.astype(np.float32).dot(LUMINANCE_WEIGHTS).mean())
 
     warped_norm: List[np.ndarray] = []
     for i in range(N):
@@ -437,7 +453,9 @@ def _composite_foreground(
             bg_sel = warped_bg[i] & (warped_list[i].max(axis=2) > 10)
             bg_px = warped_list[i][bg_sel]
             if len(bg_px) >= 200:
-                frame_lum = float(bg_px.astype(np.float32).dot(_LUM_W).mean())
+                frame_lum = float(
+                    bg_px.astype(np.float32).dot(LUMINANCE_WEIGHTS).mean()
+                )
                 # Tight clip — Stage 4.5 already applied ±14%; residual errors are small.
                 # Applying a background-derived gain to foreground pixels amplifies natural
                 # inter-frame luminance variation into hard brightness seams at ownership
@@ -455,8 +473,13 @@ def _composite_foreground(
     # Single-pass boundary placement — use normalised frames for accurate diff scores
     print("[Stitch]   Optimising boundary placement...")
     boundaries, diff_scores = _find_optimal_boundaries(
-        warped_norm, order, initial_boundaries, H, W,
-        bg_masks=bg_masks, affines=affines,
+        warped_norm,
+        order,
+        initial_boundaries,
+        H,
+        W,
+        bg_masks=bg_masks,
+        affines=affines,
     )
     feathers = np.array([_diff_to_feather(d) for d in diff_scores], dtype=np.int64)
 
@@ -470,7 +493,7 @@ def _composite_foreground(
         H_a = frames[fi_a].shape[0]
         H_b = frames[fi_b].shape[0]
         nat_overlap = max(0, int(min(ty_a + H_a, ty_b + H_b) - max(ty_a, ty_b)))
-        max_feather = max(5, min(nat_overlap // 2, _FEATHER_MAX))
+        max_feather = max(5, min(nat_overlap // 2, FEATHER_MAX))
         if feathers[k] > max_feather:
             feathers[k] = max_feather
     print(
@@ -491,7 +514,7 @@ def _composite_foreground(
         src = warped_norm[fi][y_start:y_end]
         has_content = src.max(axis=2) > 0
         if warped_bg[fi] is not None:
-            is_fg = ~warped_bg[fi][y_start:y_end]   # foreground = not background
+            is_fg = ~warped_bg[fi][y_start:y_end]  # foreground = not background
             replace = has_content & is_fg
         else:
             replace = has_content

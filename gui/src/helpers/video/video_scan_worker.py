@@ -6,23 +6,16 @@ from pathlib import Path
 
 from PySide6.QtGui import QImage
 from PySide6.QtCore import Signal, QRunnable, QObject
-from backend.src.utils.definitions import (
+from backend.src.constants import (
     SUPPORTED_VIDEO_FORMATS,
     THUMBNAIL_CACHE_DIR,
+    HAS_NATIVE_IMAGING,
+    IS_LINUX,
 )
 import hashlib
 
-try:
-    import platform
-    IS_LINUX = platform.system() == "Linux"
-except ImportError:
-    IS_LINUX = False
-
-try:
+if HAS_NATIVE_IMAGING:
     import base
-    HAS_NATIVE_IMAGING = True
-except ImportError:
-    HAS_NATIVE_IMAGING = False
 
 
 def get_video_thumbnail_cache_path(video_path: str) -> str:

@@ -18,15 +18,13 @@ root_dir = backend_dir.parent
 sys.path.insert(0, str(backend_dir))
 sys.path.insert(0, str(root_dir))
 
-from benchmark.utils import BenchmarkRunner, measure_memory  # noqa: E402
+from backend.benchmark.utils import BenchmarkRunner, measure_memory  # noqa: E402
+from backend.src.constants import HAS_NATIVE_IMAGING  # noqa: E402
 
 # Native image loading (Rust Base)
-try:
+if HAS_NATIVE_IMAGING:
     import base
 
-    HAS_NATIVE_IMAGING = True
-except ImportError:
-    HAS_NATIVE_IMAGING = False
 
 # Video Thumbnailer
 try:
