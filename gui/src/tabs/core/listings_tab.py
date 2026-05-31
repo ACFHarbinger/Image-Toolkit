@@ -1,5 +1,6 @@
 import json
 import uuid
+import zipfile
 from pathlib import Path
 from datetime import date
 from typing import List, Dict, Any, Optional, Tuple
@@ -67,6 +68,93 @@ from ...constants.listings import (
     ENTITY_PLACEHOLDER,
     VIDEO_IMPORT_EXTS,
 )
+
+
+def _backup_referenced_images(prefix: str, json_files: List[Path]):
+    """Create multi-part ZIP archive of referenced images in assets/migrations."""
+    referenced_files = set()
+
+    def collect_from_file(json_file):
+        if not json_file.exists():
+            return
+        try:
+            with open(json_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                for entry in data:
+                    img = entry.get("image_path")
+                    if img:
+                        referenced_files.add(Path(img).name)
+                    # Also check episode_list/credit_list
+                    for sub in entry.get("episode_list", []) + entry.get("credit_list", []):
+                        sub_img = sub.get("image_path")
+                        if sub_img:
+                            referenced_files.add(Path(sub_img).name)
+        except Exception as e:
+            print(f"Error collecting images from {json_file}: {e}")
+
+    for jf in json_files:
+        collect_from_file(jf)
+
+    if not referenced_files:
+        return 0
+
+    files_to_backup = []
+    for filename in referenced_files:
+        p = LISTING_IMAGES_DIR / filename
+        if p.exists() and p.is_file():
+            files_to_backup.append(p)
+
+    if not files_to_backup:
+        return 0
+
+    migrations_dir = Path(udef.ROOT_DIR) / "assets" / "migrations"
+    migrations_dir.mkdir(parents=True, exist_ok=True)
+
+    # Clean up old parts
+    for old_part in migrations_dir.glob(f"{prefix}.part*.zip"):
+        old_part.unlink()
+
+    part_idx = 1
+    max_size_bytes = 100 * 1024 * 1024
+    current_zip_path = migrations_dir / f"{prefix}.part{part_idx}.zip"
+    zf = zipfile.ZipFile(current_zip_path, "w", zipfile.ZIP_DEFLATED)
+
+    try:
+        for file_path in files_to_backup:
+            if zf.fp.tell() + file_path.stat().st_size > max_size_bytes and zf.filelist:
+                zf.close()
+                part_idx += 1
+                current_zip_path = migrations_dir / f"{prefix}.part{part_idx}.zip"
+                zf = zipfile.ZipFile(current_zip_path, "w", zipfile.ZIP_DEFLATED)
+            zf.write(file_path, file_path.name)
+    finally:
+        zf.close()
+
+    return len(files_to_backup)
+
+
+def _sync_images_from_backup(prefix: str):
+    """Load images from ZIP parts in assets/migrations if missing locally."""
+    migrations_dir = Path(udef.ROOT_DIR) / "assets" / "migrations"
+    if not migrations_dir.exists():
+        return 0
+
+    extracted_count = 0
+    LISTING_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+
+    zip_parts = sorted(migrations_dir.glob(f"{prefix}.part*.zip"))
+    for zip_part in zip_parts:
+        try:
+            with zipfile.ZipFile(zip_part, "r") as zf:
+                for member in zf.namelist():
+                    target_path = LISTING_IMAGES_DIR / member
+                    if not target_path.exists():
+                        zf.extract(member, LISTING_IMAGES_DIR)
+                        extracted_count += 1
+        except Exception as e:
+            print(f"Error reading {zip_part}: {e}")
+
+    return extracted_count
 
 
 def open_file_location(path: str):
@@ -1952,9 +2040,17 @@ class _EntityDetailPanel(QWidget):
         self.f_role.setCurrentText(entity.get("role", "Director"))
         self.f_rating.setValue(entity.get("rating", 0))
         self.f_year.setValue(entity.get("year", 0))
-        self.f_associated.setText(entity.get("associated_content", ""))
         self.f_notes.setPlainText(entity.get("notes", ""))
         self._credit_data = entity.get("credit_list", [])
+
+        # Handle both legacy string format and new list-of-IDs format
+        raw_content = entity.get("associated_content", [])
+        self.assoc_content_ids = raw_content if isinstance(raw_content, list) else []
+
+        raw_entities = entity.get("associated_entities", [])
+        self.assoc_entity_ids = raw_entities if isinstance(raw_entities, list) else []
+
+        self._refresh_assoc_displays()
         self._refresh_image()
         self._refresh_credit_list()
         self.del_btn.setVisible(True)
@@ -1964,12 +2060,15 @@ class _EntityDetailPanel(QWidget):
         self._entity_id = None
         self._image_path = ""
         self._credit_data = []
+        self.assoc_content_ids = []
+        self.assoc_entity_ids = []
         self.f_name.clear()
         self.f_type.setCurrentIndex(0)
         self.f_role.setCurrentIndex(0)
         self.f_rating.setValue(0)
         self.f_year.setValue(0)
-        self.f_associated.clear()
+        self.f_assoc_content_display.clear()
+        self.f_assoc_entity_display.clear()
         self.f_notes.clear()
         self.img_preview.clear()
         self.img_preview.setText("No Image")
@@ -2116,12 +2215,95 @@ class _EntityDetailPanel(QWidget):
             "role": self.f_role.currentText(),
             "rating": self.f_rating.value(),
             "year": self.f_year.value(),
-            "associated_content": self.f_associated.text().strip(),
+            "associated_content": list(self.assoc_content_ids),
+            "associated_entities": list(self.assoc_entity_ids),
             "notes": self.f_notes.toPlainText().strip(),
             "image_path": self._image_path,
             "credit_list": self._credit_data,
             "date_added": str(date.today()),
         }
+
+    # ------------------------------------------------------------------
+    # Association helpers
+    # ------------------------------------------------------------------
+
+    def _refresh_assoc_displays(self) -> None:
+        """Refresh both association display fields from current ID lists."""
+        try:
+            entries: List[Dict[str, Any]] = []
+            if LISTINGS_FILE.exists():
+                with open(LISTINGS_FILE, "r", encoding="utf-8") as f:
+                    entries = json.load(f)
+            title_map = {e["id"]: e.get("title", e["id"]) for e in entries}
+            content_names = [title_map.get(i, i) for i in self.assoc_content_ids]
+            self.f_assoc_content_display.setText(", ".join(content_names))
+        except Exception:
+            self.f_assoc_content_display.setText(
+                f"{len(self.assoc_content_ids)} linked"
+            )
+
+        try:
+            entities: List[Dict[str, Any]] = []
+            if ENTITIES_FILE.exists():
+                with open(ENTITIES_FILE, "r", encoding="utf-8") as f:
+                    entities = json.load(f)
+            name_map = {e["id"]: e.get("name", e["id"]) for e in entities}
+            entity_names = [name_map.get(i, i) for i in self.assoc_entity_ids]
+            self.f_assoc_entity_display.setText(", ".join(entity_names))
+        except Exception:
+            self.f_assoc_entity_display.setText(
+                f"{len(self.assoc_entity_ids)} linked"
+            )
+
+    def _select_associated_content(self) -> None:
+        try:
+            entries: List[Dict[str, Any]] = []
+            if LISTINGS_FILE.exists():
+                with open(LISTINGS_FILE, "r", encoding="utf-8") as f:
+                    entries = json.load(f)
+        except Exception as e:
+            print(f"Failed to load listings for association: {e}")
+            entries = []
+
+        if not entries:
+            QMessageBox.information(
+                self,
+                "No Content Available",
+                "There are no content entries in Content Listings yet.",
+            )
+            return
+
+        dlg = AssociatedContentDialog(entries, self.assoc_content_ids, parent=self)
+        if dlg.exec():
+            self.assoc_content_ids = dlg.get_selected_ids()
+            self._refresh_assoc_displays()
+
+    def _select_associated_entities(self) -> None:
+        try:
+            entities: List[Dict[str, Any]] = []
+            if ENTITIES_FILE.exists():
+                with open(ENTITIES_FILE, "r", encoding="utf-8") as f:
+                    entities = json.load(f)
+        except Exception as e:
+            print(f"Failed to load entities for association: {e}")
+            entities = []
+
+        # Exclude self from the list
+        if self._entity_id:
+            entities = [e for e in entities if e.get("id") != self._entity_id]
+
+        if not entities:
+            QMessageBox.information(
+                self,
+                "No Entities Available",
+                "There are no other entities available to associate.",
+            )
+            return
+
+        dlg = AssociatedEntitiesDialog(entities, self.assoc_entity_ids, parent=self)
+        if dlg.exec():
+            self.assoc_entity_ids = dlg.get_selected_ids()
+            self._refresh_assoc_displays()
 
     @Slot()
     def _on_save(self):
@@ -2922,6 +3104,8 @@ class RecommendationDialog(QDialog):
 # Sub-tab: Content Listings
 # -------------------------------------------------------------------
 class ContentListingsSubTab(QWidget):
+    entities_changed = Signal()  # emitted when entities.json is updated by cross-sync
+
     def __init__(self, parent=None, vault_manager=None):
         super().__init__(parent)
         self.vault_manager = vault_manager
@@ -2973,12 +3157,7 @@ class ContentListingsSubTab(QWidget):
         apply_shadow_effect(adv_search_btn)
 
         rec_btn = QPushButton("🌟 Recommend")
-        rec_btn.setStyleSheet(
-            "QPushButton { background:#7b1fa2; color:white; border:none; border-radius:4px;"
-            " padding:2px 8px; font-weight:bold; font-size:11px; }"
-            "QPushButton:hover { background:#9c27b0; }"
-            "QPushButton:pressed { background:#6a1b9a; }"
-        )
+        rec_btn.setStyleSheet(SHARED_BUTTON_STYLE)
         rec_btn.setFixedWidth(120)
         rec_btn.clicked.connect(self._on_recommend_content)
         apply_shadow_effect(rec_btn)
@@ -3004,8 +3183,8 @@ class ContentListingsSubTab(QWidget):
 
         self.clear_rec_btn = QPushButton("❌ Clear Rec")
         self.clear_rec_btn.setStyleSheet(
-            "QPushButton { background:#6d1b7b; color:white; border:none; border-radius:4px; padding:2px 8px; font-weight:bold; font-size:11px; }"
-            "QPushButton:hover { background:#7b1fa2; }"
+            "QPushButton { background:#c0392b; color:white; border:none; border-radius:4px; padding:2px 8px; font-weight:bold; font-size:11px; }"
+            "QPushButton:hover { background:#e74c3c; }"
         )
         self.clear_rec_btn.setFixedWidth(130)
         self.clear_rec_btn.clicked.connect(self._clear_recommendations)
@@ -3506,6 +3685,8 @@ class ContentListingsSubTab(QWidget):
         else:
             self._entries.insert(0, entry)
         self._save_data()
+        if self._sync_entities_for_entry(entry):
+            self.entities_changed.emit()
         self._rebuild_gallery()
         self._detail.load_entry(entry)
 
@@ -3513,8 +3694,73 @@ class ContentListingsSubTab(QWidget):
     def _on_entry_deleted(self, entry_id: str):
         self._entries = [e for e in self._entries if e["id"] != entry_id]
         self._save_data()
+        if self._remove_content_from_entities(entry_id):
+            self.entities_changed.emit()
         self._rebuild_gallery()
         self._detail.clear_for_new()
+
+    def _sync_entities_for_entry(self, entry: Dict[str, Any]) -> bool:
+        """Keep entities.json in sync: each associated entity gains this entry's ID
+        in its associated_content list; removed entities lose it."""
+        entry_id = entry.get("id")
+        if not entry_id:
+            return False
+        new_assoc = set(entry.get("associated_entities", []))
+        try:
+            if not ENTITIES_FILE.exists():
+                return False
+            with open(ENTITIES_FILE, "r", encoding="utf-8") as f:
+                entities = json.load(f)
+            changed = False
+            for ent in entities:
+                eid = ent.get("id")
+                if not eid:
+                    continue
+                raw = ent.get("associated_content", [])
+                current = set(raw) if isinstance(raw, list) else set()
+                if eid in new_assoc and entry_id not in current:
+                    current.add(entry_id)
+                    ent["associated_content"] = list(current)
+                    changed = True
+                elif eid not in new_assoc and entry_id in current:
+                    current.discard(entry_id)
+                    ent["associated_content"] = list(current)
+                    changed = True
+            if changed:
+                with open(ENTITIES_FILE, "w", encoding="utf-8") as f:
+                    json.dump(entities, f, indent=2, ensure_ascii=False)
+            return changed
+        except Exception as e:
+            print(f"[ContentListingsSubTab] Failed to sync entities: {e}")
+            return False
+
+    def _remove_content_from_entities(self, entry_id: str) -> bool:
+        """Remove a deleted content entry's ID from all entities' associated_content."""
+        try:
+            if not ENTITIES_FILE.exists():
+                return False
+            with open(ENTITIES_FILE, "r", encoding="utf-8") as f:
+                entities = json.load(f)
+            changed = False
+            for ent in entities:
+                raw = ent.get("associated_content", [])
+                current = set(raw) if isinstance(raw, list) else set()
+                if entry_id in current:
+                    current.discard(entry_id)
+                    ent["associated_content"] = list(current)
+                    changed = True
+            if changed:
+                with open(ENTITIES_FILE, "w", encoding="utf-8") as f:
+                    json.dump(entities, f, indent=2, ensure_ascii=False)
+            return changed
+        except Exception as e:
+            print(f"[ContentListingsSubTab] Failed to clean up entities: {e}")
+            return False
+
+    def _on_external_reload(self) -> None:
+        """Called when another subtab modifies listings.json; refreshes in-memory data."""
+        self._load_data()
+        self._rebuild_gallery()
 
     @Slot(str)
     def _on_search(self, text: str):
@@ -3683,12 +3929,17 @@ class ContentListingsSubTab(QWidget):
             # 3. Save merged entries locally
             self._entries = merged_entries
             self._save_data()
+
+            # 4. Sync images from ZIP backup
+            synced_imgs = _sync_images_from_backup("content_images")
+
             self._rebuild_gallery()
 
+            img_info = f"\nAlso restored {synced_imgs} missing image(s) from backup." if synced_imgs else ""
             QMessageBox.information(
                 self,
                 "Synchronization Complete",
-                f"Successfully synchronized listings!\nMerged local and backup entries to a total of {len(merged_entries)} entries.",
+                f"Successfully synchronized listings!\nMerged local and backup entries to a total of {len(merged_entries)} entries.{img_info}",
             )
 
         except Exception as e:
@@ -3718,10 +3969,14 @@ class ContentListingsSubTab(QWidget):
             json_content = json.dumps(self._entries, indent=2, ensure_ascii=False)
             temp_vault.saveData(json_content)
 
+            # 2. Backup images to multi-part ZIP
+            backup_count = _backup_referenced_images("content_images", [LISTINGS_FILE])
+
+            img_info = f"\nAlso backed up {backup_count} image(s) to multi-part archive." if backup_count else ""
             QMessageBox.information(
                 self,
                 "Backup Updated",
-                f"Successfully generated encrypted backup listings file with {len(self._entries)} entries.",
+                f"Successfully generated encrypted backup listings file with {len(self._entries)} entries.{img_info}",
             )
 
         except Exception as e:
@@ -3820,6 +4075,8 @@ class ContentListingsSubTab(QWidget):
 # Sub-tab: Entity Listings
 # -------------------------------------------------------------------
 class EntityListingsSubTab(QWidget):
+    listings_changed = Signal()  # emitted when listings.json is updated by cross-sync
+
     def __init__(self, parent=None, vault_manager=None):
         super().__init__(parent)
         self.vault_manager = vault_manager
@@ -3992,13 +4249,41 @@ class EntityListingsSubTab(QWidget):
             result = [e for e in result if e.get("role") == self._filter_role]
         if self._search_query:
             q = self._search_query.lower()
-            result = [
-                e
-                for e in result
-                if q in e.get("name", "").lower()
-                or q in e.get("associated_content", "").lower()
-                or q in e.get("notes", "").lower()
-            ]
+            # Build a content titles map for searching associated_content IDs
+            content_titles_map: Dict[str, str] = {}
+            try:
+                if LISTINGS_FILE.exists():
+                    import json as _json
+                    with open(LISTINGS_FILE, "r", encoding="utf-8") as _f:
+                        _entries = _json.load(_f)
+                    content_titles_map = {
+                        e["id"]: e.get("title", "").lower() for e in _entries
+                    }
+            except Exception:
+                pass
+
+            filtered_ents = []
+            for e in result:
+                if q in e.get("name", "").lower() or q in e.get("notes", "").lower():
+                    filtered_ents.append(e)
+                    continue
+                # Search associated_content (list of IDs → resolve titles)
+                assoc_c = e.get("associated_content", [])
+                if isinstance(assoc_c, list):
+                    if any(
+                        q in content_titles_map.get(cid, "")
+                        for cid in assoc_c
+                    ):
+                        filtered_ents.append(e)
+                        continue
+                else:
+                    if q in str(assoc_c).lower():
+                        filtered_ents.append(e)
+                        continue
+                # Search associated_entities (IDs → entity names)
+                assoc_e = e.get("associated_entities", [])
+                # Entity names aren't cached here — skip for now
+            result = filtered_ents
 
         # Sorting logic
         sort_text = self.sort_combo.currentText()
@@ -4114,6 +4399,8 @@ class EntityListingsSubTab(QWidget):
         else:
             self._entities.insert(0, entity)
         self._save_data()
+        if self._sync_listings_for_entity(entity):
+            self.listings_changed.emit()
         self._rebuild_gallery()
         self._detail.load_entity(entity)
 
@@ -4121,8 +4408,71 @@ class EntityListingsSubTab(QWidget):
     def _on_entity_deleted(self, entity_id: str):
         self._entities = [e for e in self._entities if e["id"] != entity_id]
         self._save_data()
+        if self._remove_entity_from_listings(entity_id):
+            self.listings_changed.emit()
         self._rebuild_gallery()
         self._detail.clear_for_new()
+
+    def _sync_listings_for_entity(self, entity: Dict[str, Any]) -> bool:
+        """Keep listings.json in sync: each associated content entry gains this entity's
+        ID in its associated_entities list; removed entries lose it."""
+        entity_id = entity.get("id")
+        if not entity_id:
+            return False
+        new_assoc = set(entity.get("associated_content", []))
+        try:
+            if not LISTINGS_FILE.exists():
+                return False
+            with open(LISTINGS_FILE, "r", encoding="utf-8") as f:
+                listings = json.load(f)
+            changed = False
+            for listing in listings:
+                lid = listing.get("id")
+                if not lid:
+                    continue
+                current = set(listing.get("associated_entities", []))
+                if lid in new_assoc and entity_id not in current:
+                    current.add(entity_id)
+                    listing["associated_entities"] = list(current)
+                    changed = True
+                elif lid not in new_assoc and entity_id in current:
+                    current.discard(entity_id)
+                    listing["associated_entities"] = list(current)
+                    changed = True
+            if changed:
+                with open(LISTINGS_FILE, "w", encoding="utf-8") as f:
+                    json.dump(listings, f, indent=2, ensure_ascii=False)
+            return changed
+        except Exception as e:
+            print(f"[EntityListingsSubTab] Failed to sync listings: {e}")
+            return False
+
+    def _remove_entity_from_listings(self, entity_id: str) -> bool:
+        """Remove a deleted entity's ID from all content entries' associated_entities."""
+        try:
+            if not LISTINGS_FILE.exists():
+                return False
+            with open(LISTINGS_FILE, "r", encoding="utf-8") as f:
+                listings = json.load(f)
+            changed = False
+            for listing in listings:
+                current = set(listing.get("associated_entities", []))
+                if entity_id in current:
+                    current.discard(entity_id)
+                    listing["associated_entities"] = list(current)
+                    changed = True
+            if changed:
+                with open(LISTINGS_FILE, "w", encoding="utf-8") as f:
+                    json.dump(listings, f, indent=2, ensure_ascii=False)
+            return changed
+        except Exception as e:
+            print(f"[EntityListingsSubTab] Failed to clean up listings: {e}")
+            return False
+
+    def _on_external_reload(self) -> None:
+        """Called when another subtab modifies entities.json; refreshes in-memory data."""
+        self._load_data()
+        self._rebuild_gallery()
 
     @Slot(str)
     def _on_search(self, text: str):
@@ -4190,12 +4540,17 @@ class EntityListingsSubTab(QWidget):
             # 3. Save merged entries locally
             self._entities = merged_entries
             self._save_data()
+
+            # 4. Sync images from ZIP backup
+            synced_imgs = _sync_images_from_backup("entity_images")
+
             self._rebuild_gallery()
 
+            img_info = f"\nAlso restored {synced_imgs} missing image(s) from backup." if synced_imgs else ""
             QMessageBox.information(
                 self,
                 "Synchronization Complete",
-                f"Successfully synchronized entities!\nMerged local and backup entries to a total of {len(merged_entries)} entries.",
+                f"Successfully synchronized entities!\nMerged local and backup entries to a total of {len(merged_entries)} entries.{img_info}",
             )
 
         except Exception as e:
@@ -4225,10 +4580,14 @@ class EntityListingsSubTab(QWidget):
             json_content = json.dumps(self._entities, indent=2, ensure_ascii=False)
             temp_vault.saveData(json_content)
 
+            # 2. Backup images to multi-part ZIP
+            backup_count = _backup_referenced_images("entity_images", [ENTITIES_FILE])
+
+            img_info = f"\nAlso backed up {backup_count} image(s) to multi-part archive." if backup_count else ""
             QMessageBox.information(
                 self,
                 "Backup Updated",
-                f"Successfully generated encrypted backup entities file with {len(self._entities)} entries.",
+                f"Successfully generated encrypted backup entities file with {len(self._entities)} entries.{img_info}",
             )
 
         except Exception as e:
@@ -4262,6 +4621,14 @@ class ListingsTab(QWidget):
 
         self.content_listings = ContentListingsSubTab(vault_manager=vault_manager)
         self.entity_listings = EntityListingsSubTab(vault_manager=vault_manager)
+
+        # Bidirectional cross-sync: saving/deleting on one side reloads the other
+        self.content_listings.entities_changed.connect(
+            self.entity_listings._on_external_reload
+        )
+        self.entity_listings.listings_changed.connect(
+            self.content_listings._on_external_reload
+        )
 
         self.tab_widget.addTab(self.content_listings, "🎬 Content Listings")
         self.tab_widget.addTab(self.entity_listings, "👥 Entity Listings")
