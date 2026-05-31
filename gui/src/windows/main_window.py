@@ -147,7 +147,7 @@ class MainWindow(QWidget):
         self.wallpaper_tab = WallpaperTab(self.database_tab)
         self.web_requests_tab = WebRequestsTab()
         self.image_extractor_tab = ImageExtractorTab()
-        self.listings_tab = ListingsTab()
+        self.listings_tab = ListingsTab(vault_manager=vault_manager)
         self.train_tab = UnifiedTrainTab()
         self.generate_tab = UnifiedGenerateTab()
         self.eval_tab = R3GANEvaluateTab()

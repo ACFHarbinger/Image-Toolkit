@@ -13,3 +13,7 @@ from .monitor_drop_widget import MonitorDropWidget as MonitorDropWidget
 from .draggable_monitor_container import (
     DraggableMonitorContainer as DraggableMonitorContainer,
 )
+from .double_clickable_label import (
+    DoubleClickableLabel as DoubleClickableLabel,
+    FullImageViewerDialog as FullImageViewerDialog,
+)
