@@ -2077,11 +2077,16 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def cancel_extraction(self, enabled: bool = True):
         if self.active_extraction_worker:
             self.active_extraction_worker.cancel()
-            self.extraction_status_label.setText("Cancelling...")
-            self.btn_cancel_extraction.setEnabled(False)
-        self.line_edit_dir.setEnabled(enabled)
-        self.btn_add_tag.setEnabled(enabled and self.video_path is not None)
-        self.btn_clear_tags.setEnabled(enabled and len(self.tags_ms) > 0)
+            self.active_extraction_worker = None
+
+        # The worker returns without emitting finished/error on cancellation, so
+        # re-enable the UI here rather than waiting for a signal that never arrives.
+        self._set_extraction_buttons_enabled(True)
+        self.extraction_progress_bar.hide()
+        self.extraction_status_label.hide()
+        self.line_edit_dir.setEnabled(True)
+        self.btn_add_tag.setEnabled(self.video_path is not None)
+        self.btn_clear_tags.setEnabled(len(self.tags_ms) > 0)
 
     @Slot()
     def extract_range(self):

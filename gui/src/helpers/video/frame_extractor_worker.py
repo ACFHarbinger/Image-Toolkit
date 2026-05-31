@@ -242,6 +242,10 @@ class FrameExtractionWorker(QRunnable):
             if filters:
                 cmd.extend(["-vf", ",".join(filters)])
 
+            # Single-frame snapshot: limit output to one frame
+            if not self.is_range:
+                cmd.extend(["-vframes", "1"])
+
             cmd.extend(
                 [
                     "-sws_flags",
