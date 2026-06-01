@@ -13,17 +13,26 @@ use std::env;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
+    #[serde(default)]
     pub running: bool,
     #[serde(default = "default_interval")]
     pub interval_seconds: u64,
+    #[serde(default = "default_style")]
     pub style: String,
+    #[serde(default)]
     pub monitor_queues: HashMap<String, Vec<String>>,
+    #[serde(default)]
     pub current_paths: HashMap<String, String>,
+    #[serde(default)]
     pub monitor_geometries: HashMap<String, Geometry>,
+    #[serde(default = "default_order")]
     pub playback_order: String,
+    #[serde(default)]
     pub last_change_timestamp: u64,
     #[serde(default)]
     pub last_error: Option<String>,
+    #[serde(default)]
+    pub monitor_history: HashMap<String, Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -111,6 +120,7 @@ fn load_config(path: &Path) -> Result<Config> {
             playback_order: "Sequential".to_string(),
             last_change_timestamp: 0,
             last_error: None,
+            monitor_history: HashMap::new(),
         });
     }
     let content = fs::read_to_string(path).context("Failed to read config file")?;
@@ -147,8 +157,30 @@ fn select_next_wallpapers(config: &mut Config, increment: bool) -> HashMap<Strin
         if increment {
             match config.playback_order.as_str() {
                 "Random" => {
-                    use rand::Rng;
-                    idx = rand::thread_rng().gen_range(0..queue.len());
+                    use rand::seq::SliceRandom;
+                    let history = config.monitor_history.entry(monitor_id.clone()).or_insert_with(Vec::new);
+                    let mut valid_indices: Vec<usize> = (0..queue.len())
+                        .filter(|&i| !history.contains(&queue[i]))
+                        .collect();
+
+                    if valid_indices.is_empty() {
+                        history.clear();
+                        if found && queue.len() > 1 {
+                            history.push(queue[idx].clone());
+                            valid_indices = (0..queue.len()).filter(|&i| i != idx).collect();
+                        } else {
+                            valid_indices = (0..queue.len()).collect();
+                        }
+                    }
+
+                    if let Some(&selected_idx) = valid_indices.choose(&mut rand::thread_rng()) {
+                        idx = selected_idx;
+                    }
+
+                    let next_path = queue[idx].clone();
+                    if !history.contains(&next_path) {
+                        history.push(next_path);
+                    }
                 }
                 "Reverse Sequential" => {
                     if found {
@@ -164,11 +196,24 @@ fn select_next_wallpapers(config: &mut Config, increment: bool) -> HashMap<Strin
         } else if !found {
             match config.playback_order.as_str() {
                 "Random" => {
-                    use rand::Rng;
-                    idx = rand::thread_rng().gen_range(0..queue.len());
+                    use rand::seq::SliceRandom;
+                    let history = config.monitor_history.entry(monitor_id.clone()).or_insert_with(Vec::new);
+                    if let Some(&selected_idx) = (0..queue.len()).collect::<Vec<usize>>().choose(&mut rand::thread_rng()) {
+                        idx = selected_idx;
+                    }
+                    let next_path = queue[idx].clone();
+                    if !history.contains(&next_path) {
+                        history.push(next_path);
+                    }
                 }
                 "Reverse Sequential" => idx = queue.len() - 1,
                 _ => idx = 0,
+            }
+        } else if config.playback_order.as_str() == "Random" {
+            let history = config.monitor_history.entry(monitor_id.clone()).or_insert_with(Vec::new);
+            let next_path = queue[idx].clone();
+            if !history.contains(&next_path) {
+                history.push(next_path);
             }
         }
         let next_path = queue[idx].clone();
@@ -491,6 +536,8 @@ mod tests {
             monitor_geometries: HashMap::new(),
             last_change_timestamp: 0,
             playback_order: "Sequential".to_string(),
+            last_error: None,
+            monitor_history: HashMap::new(),
         };
 
         // Sequential: a -> b
@@ -514,10 +561,28 @@ mod tests {
         let selected = select_next_wallpapers(&mut config, true);
         assert_eq!(selected.get("0").unwrap(), "b");
 
-        // Random: Should return some valid path
+        // Random: Should return some valid path and NOT repeat until all are shown
         config.playback_order = "Random".to_string();
-        let selected = select_next_wallpapers(&mut config, true);
-        let path = selected.get("0").unwrap();
-        assert!(vec!["a", "b", "c"].contains(&path.as_str()));
+        config.monitor_history.clear();
+        config.current_paths.insert("0".to_string(), "a".to_string());
+
+        // Initial setup for current path register
+        let _ = select_next_wallpapers(&mut config, false);
+        assert!(config.monitor_history.get("0").unwrap().contains(&"a".to_string()));
+
+        let mut selected_paths = Vec::new();
+        // Cycle 1: should pick "b" or "c"
+        let sel1 = select_next_wallpapers(&mut config, true);
+        let p1 = sel1.get("0").unwrap().clone();
+        selected_paths.push(p1.clone());
+
+        // Cycle 2: should pick the other of "b" or "c"
+        let sel2 = select_next_wallpapers(&mut config, true);
+        let p2 = sel2.get("0").unwrap().clone();
+        selected_paths.push(p2.clone());
+
+        // Assert we got exactly both "b" and "c"
+        assert!(selected_paths.contains(&"b".to_string()));
+        assert!(selected_paths.contains(&"c".to_string()));
     }
 }

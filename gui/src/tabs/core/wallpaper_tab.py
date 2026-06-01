@@ -3,8 +3,10 @@ import sys
 import json
 import time
 import shutil
+import random
 import platform
 import subprocess
+import logging
 
 from pathlib import Path
 from screeninfo import get_monitors, Monitor
@@ -158,7 +160,7 @@ class WallpaperTab(AbstractClassSingleGallery):
                 self.set_wallpaper_btn.setEnabled(False)
                 self.set_wallpaper_btn.setText("Slideshow (Drop images/videos)")
 
-        elif self.background_type == "Smart Video Wallpaper":
+        elif self.background_type == "Smart Video Slideshow":
             if is_ready:
                 self.set_wallpaper_btn.setText(
                     f"Start Video Slideshow ({total_images} items)"
@@ -206,6 +208,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.monitor_image_paths: Dict[str, str] = {}
         self.monitor_slideshow_queues: Dict[str, List[str]] = {}
         self.monitor_current_index: Dict[str, int] = {}
+        self.monitor_history: Dict[str, List[str]] = {}
 
         self.current_wallpaper_worker: Optional[WallpaperWorker] = None
 
@@ -296,7 +299,7 @@ class WallpaperTab(AbstractClassSingleGallery):
                 "Image",
                 "Slideshow",
                 "Smart Video",
-                "Smart Video Wallpaper",
+                "Smart Video Slideshow",
                 "Solid Color",
             ]
         )
@@ -551,17 +554,23 @@ class WallpaperTab(AbstractClassSingleGallery):
             return
 
         last_change_timestamp = 0
+        monitor_history = getattr(self, "monitor_history", {})
         try:
             if os.path.exists(DAEMON_CONFIG_PATH):
                 with open(DAEMON_CONFIG_PATH, "r") as f:
                     old_config = json.load(f)
                     last_change_timestamp = old_config.get("last_change_timestamp", 0)
+                    file_history = old_config.get("monitor_history", {})
+                    for k, v in file_history.items():
+                        if k not in monitor_history:
+                            monitor_history[k] = v
+                    self.monitor_history = monitor_history
         except Exception:
             pass
 
         style_to_use = (
             f"SmartVideoWallpaper::{self.video_style}"
-            if self.background_type in ["Smart Video", "Smart Video Wallpaper"]
+            if self.background_type in ["Smart Video", "Smart Video Slideshow"]
             else self.wallpaper_style
         )
 
@@ -578,6 +587,7 @@ class WallpaperTab(AbstractClassSingleGallery):
                 for i, m in enumerate(self.monitors)
             },
             "last_change_timestamp": last_change_timestamp,
+            "monitor_history": self.monitor_history,
         }
 
         try:
@@ -592,17 +602,23 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.stop_slideshow()
 
         last_change_timestamp = 0
+        monitor_history = getattr(self, "monitor_history", {})
         try:
             if os.path.exists(DAEMON_CONFIG_PATH):
                 with open(DAEMON_CONFIG_PATH, "r") as f:
                     old_config = json.load(f)
                     last_change_timestamp = old_config.get("last_change_timestamp", 0)
+                    file_history = old_config.get("monitor_history", {})
+                    for k, v in file_history.items():
+                        if k not in monitor_history:
+                            monitor_history[k] = v
+                    self.monitor_history = monitor_history
         except Exception:
             pass
 
         style_to_use = (
             f"SmartVideoWallpaper::{self.video_style}"
-            if self.background_type in ["Smart Video", "Smart Video Wallpaper"]
+            if self.background_type in ["Smart Video", "Smart Video Slideshow"]
             else self.wallpaper_style
         )
 
@@ -619,6 +635,7 @@ class WallpaperTab(AbstractClassSingleGallery):
                 for i, m in enumerate(self.monitors)
             },
             "last_change_timestamp": last_change_timestamp,
+            "monitor_history": self.monitor_history,
         }
 
         try:
@@ -705,7 +722,7 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         is_solid_color = type_name == "Solid Color"
         is_slideshow = type_name == "Slideshow"
-        is_video_slideshow = type_name == "Smart Video Wallpaper"
+        is_video_slideshow = type_name == "Smart Video Slideshow"
         is_video_static = type_name == "Smart Video"
 
         self.slideshow_group.setVisible(is_slideshow or is_video_slideshow)
@@ -771,7 +788,7 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         if self.slideshow_timer and self.slideshow_timer.isActive():
             self.stop_slideshow()
-        elif self.background_type in ["Slideshow", "Smart Video Wallpaper"]:
+        elif self.background_type in ["Slideshow", "Smart Video Slideshow"]:
             self.start_slideshow()
         else:
             if self.current_wallpaper_worker:
@@ -965,6 +982,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.open_image_preview_windows.clear()
 
         self.monitor_current_index.clear()
+        self.monitor_history.clear()
         self.time_remaining_sec = 0
         self.countdown_label.setText("Timer: --:--")
 
@@ -989,12 +1007,45 @@ class WallpaperTab(AbstractClassSingleGallery):
                     if not increment:
                         # Use current index if valid, otherwise start from 0
                         next_index = max(0, current_index)
+                        playback_order = self.playback_order_combo.currentText()
+                        if playback_order == "Random" and 0 <= next_index < len(queue):
+                            path = queue[next_index]
+                            if monitor_id not in self.monitor_history:
+                                self.monitor_history[monitor_id] = []
+                            if path not in self.monitor_history[monitor_id]:
+                                self.monitor_history[monitor_id].append(path)
                     else:
                         playback_order = self.playback_order_combo.currentText()
                         if playback_order == "Random":
-                            import random
+                            history = self.monitor_history.get(monitor_id, [])
+                            valid_indices = [
+                                idx
+                                for idx, path in enumerate(queue)
+                                if path not in history
+                            ]
 
-                            next_index = random.randint(0, current_queue_length - 1)
+                            if not valid_indices:
+                                current_path = (
+                                    queue[current_index]
+                                    if 0 <= current_index < len(queue)
+                                    else None
+                                )
+                                if current_path and current_queue_length > 1:
+                                    self.monitor_history[monitor_id] = [current_path]
+                                    valid_indices = [
+                                        idx
+                                        for idx, path in enumerate(queue)
+                                        if path != current_path
+                                    ]
+                                else:
+                                    self.monitor_history[monitor_id] = []
+                                    valid_indices = list(range(current_queue_length))
+
+                            next_index = random.choice(valid_indices)
+                            next_path = queue[next_index]
+                            if monitor_id not in self.monitor_history:
+                                self.monitor_history[monitor_id] = []
+                            self.monitor_history[monitor_id].append(next_path)
                         elif playback_order == "Reverse Sequential":
                             if current_index == -1:
                                 next_index = current_queue_length - 1
@@ -1002,6 +1053,12 @@ class WallpaperTab(AbstractClassSingleGallery):
                                 next_index = (current_index - 1) % current_queue_length
                         else:
                             next_index = (current_index + 1) % current_queue_length
+
+                    logging.info(
+                        f"[WallpaperTab] Monitor {monitor_id}: current_index={current_index}, "
+                        f"playback_order={self.playback_order_combo.currentText()}, "
+                        f"increment={increment}, queue_length={current_queue_length} -> next_index={next_index}"
+                    )
 
                     path = queue[next_index]
                     new_monitor_paths[monitor_id] = path
@@ -1501,7 +1558,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.background_type_combo.setCurrentText("Smart Video")
         elif not is_video and self.background_type in [
             "Smart Video",
-            "Smart Video Wallpaper",
+            "Smart Video Slideshow",
         ]:
             self.background_type_combo.setCurrentText("Image")
 
@@ -1689,7 +1746,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             else:
                 desktop = None
 
-            if self.background_type in ["Smart Video", "Smart Video Wallpaper"]:
+            if self.background_type in ["Smart Video", "Smart Video Slideshow"]:
                 # --- CHANGE: Pass the selected VIDEO STYLE here ---
                 style_to_use = f"SmartVideoWallpaper::{self.video_style}"
             else:
@@ -2088,6 +2145,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             "interval_seconds": self.interval_sec_spinbox.value(),
             "background_type": self.background_type,
             "solid_color_hex": self.solid_color_hex,
+            "playback_order": self.playback_order_combo.currentText(),
             "monitor_order": monitor_order,
             "monitor_layout": monitor_layout,
             "monitor_queues": self.monitor_slideshow_queues,
@@ -2144,6 +2202,11 @@ class WallpaperTab(AbstractClassSingleGallery):
             if "background_type" in config:
                 self.background_type_combo.setCurrentText(
                     config.get("background_type", "Image")
+                )
+
+            if "playback_order" in config:
+                self.playback_order_combo.setCurrentText(
+                    config.get("playback_order", "Sequential")
                 )
 
             layout_restored = False

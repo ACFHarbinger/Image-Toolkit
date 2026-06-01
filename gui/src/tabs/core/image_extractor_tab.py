@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QProgressBar,
     QInputDialog,
+    QDialog,
 )
 from PySide6.QtGui import QPixmap, QResizeEvent, QAction, QImage
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
@@ -47,7 +48,11 @@ from ...helpers import (
     VideoExtractionWorker,
 )
 from ...helpers.video.video_scan_worker import VideoThumbnailer
-from backend.src.constants import LOCAL_SOURCE_PATH, SUPPORTED_VIDEO_FORMATS, IMAGE_TOOLKIT_DIR
+from backend.src.constants import (
+    LOCAL_SOURCE_PATH,
+    SUPPORTED_VIDEO_FORMATS,
+    IMAGE_TOOLKIT_DIR,
+)
 
 
 class CutLabel(QLabel):
@@ -136,8 +141,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         # Mapping for Extraction Resolutions
         self.extraction_res_map = {
-            "Original": None,
             "Native": "native",
+            "Player": None,
             "480p": (854, 480),
             "720p": (1280, 720),
             "1080p": (1920, 1080),
@@ -285,7 +290,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         controls_top_layout.addWidget(QLabel("Player Size:"))
         self.combo_resolution = QComboBox()
         self.combo_resolution.addItems(["720p", "1080p", "1440p", "4K"])
-        self.combo_resolution.setCurrentIndex(1)
+        self.combo_resolution.setCurrentIndex(0)
         self.combo_resolution.currentIndexChanged.connect(
             lambda: self.change_resolution(self.combo_resolution.currentIndex())
         )
@@ -404,7 +409,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         extract_config_layout.addWidget(QLabel("Output Size:"))
         self.combo_extract_size = QComboBox()
         self.combo_extract_size.addItems(list(self.extraction_res_map.keys()))
-        self.combo_extract_size.setCurrentText("Original")
+        self.combo_extract_size.setCurrentText("Native")
         extract_config_layout.addWidget(self.combo_extract_size)
 
         # --- NEW: Vertical Checkbox for Extraction ---
@@ -430,7 +435,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         extract_config_layout.addSpacing(20)
         extract_config_layout.addWidget(QLabel("Engine:"))
         self.combo_engine = QComboBox()
-        self.combo_engine.addItems(["MoviePy", "FFmpeg"])
+        self.combo_engine.addItems(["FFmpeg", "MoviePy"])
         extract_config_layout.addWidget(self.combo_engine)
 
         extract_config_layout.addSpacing(20)
@@ -991,7 +996,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             return
         try:
             # We only care about the prefix before the first '_' or similar.
-            # However, stems can contain underscores. 
+            # However, stems can contain underscores.
             # To be robust, we just store all filenames and check prefixes in _has_extracted_files
             # OR we can collect all strings before the LAST underscore.
             for entry in os.scandir(self.extraction_dir):
@@ -1021,7 +1026,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             return True
         if f"{stem}_snap" in self._extracted_stems_cache:
             return True
-            
+
         return False
 
     def _update_source_label_style(
@@ -1583,7 +1588,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self._update_tags_ui()
 
         # Reload Configs
-        self.combo_extract_size.setCurrentText(metadata.get("output_size", "Original"))
+        self.combo_extract_size.setCurrentText(metadata.get("output_size", "Native"))
         self.check_extract_vertical.setChecked(metadata.get("extract_vertical", False))
         self.spin_gif_fps.setValue(metadata.get("gif_fps", 24))
         self.check_mute_audio.setChecked(metadata.get("mute_audio", False))
@@ -2485,7 +2490,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     @Slot(list)
     def _on_extraction_finished(self, new_paths: List[str]):
         if self._active_metadata and new_paths:
-            if self.active_extraction_worker and hasattr(self.active_extraction_worker, "fps"):
+            if self.active_extraction_worker and hasattr(
+                self.active_extraction_worker, "fps"
+            ):
                 self._active_metadata["fps"] = self.active_extraction_worker.fps
             self._record_extraction(new_paths, self._active_metadata)
 
@@ -2498,7 +2505,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                     self._update_source_label_style(self.video_path, label, True)
 
         self._active_metadata = None
-
 
         self.active_extraction_worker = None
         self._set_extraction_buttons_enabled(True)
@@ -2774,7 +2780,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             "fps": fps,
             "output_format": "png",  # default
             "output_dir": str(self.extraction_dir),
-            "resize_dim": None,  # Use original for now
+            "resize_dim": None,
         }
 
         # We need to adapt this to use FrameExtractionWorker if compatible,

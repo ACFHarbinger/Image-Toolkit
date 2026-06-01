@@ -625,13 +625,13 @@ class SettingsWindow(QWidget):
         # Row 2: slideshow daemon reset
         daemon_row = QHBoxLayout()
         daemon_info = QLabel(
-            "<small>Stops the daemon, removes its PID and log files, "
+            "<small>Stops the daemon, removes its PID file, "
             "and resets the slideshow config to defaults.</small>"
         )
         daemon_info.setWordWrap(True)
         self.btn_reset_daemon = QPushButton("Reset Slideshow Daemon")
         self.btn_reset_daemon.setToolTip(
-            "Delete the daemon PID file and log file, and write an empty "
+            "Delete the daemon PID file and write an empty "
             "config (running=false) to the slideshow config JSON."
         )
         self.btn_reset_daemon.setStyleSheet(
@@ -642,7 +642,25 @@ class SettingsWindow(QWidget):
         daemon_row.addWidget(self.btn_reset_daemon)
         reset_state_layout.addLayout(daemon_row)
 
-        # Row 3: tab configs + system profiles
+        # Row 3: clear logs
+        logs_row = QHBoxLayout()
+        logs_info = QLabel(
+            f"<small>Application and daemon logs directory: <code>{IMAGE_TOOLKIT_DIR / 'logs'}</code></small>"
+        )
+        logs_info.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.btn_clear_logs = QPushButton("Clear All Logs")
+        self.btn_clear_logs.setToolTip(
+            "Delete all application and daemon log files from disk."
+        )
+        self.btn_clear_logs.setStyleSheet(
+            "background-color: #e67e22; color: white; font-weight: bold;"
+        )
+        self.btn_clear_logs.clicked.connect(self._clear_application_logs)
+        logs_row.addWidget(logs_info, 1)
+        logs_row.addWidget(self.btn_clear_logs)
+        reset_state_layout.addLayout(logs_row)
+
+        # Row 4: tab configs + system profiles
         tab_cfg_row = QHBoxLayout()
         tab_cfg_info = QLabel(
             "<small>Removes all saved tab configurations, active tab config "
@@ -1442,15 +1460,14 @@ class SettingsWindow(QWidget):
             )
 
     def _reset_slideshow_daemon(self):
-        """Stops the daemon, deletes its PID and log files, and resets the config JSON."""
+        """Stops the daemon, deletes its PID file, and resets the config JSON."""
         reply = QMessageBox.question(
             self,
             "Confirm Reset",
             "This will:\n"
             f"  • Delete the PID file ({IMAGE_TOOLKIT_DIR / '.myapp_slideshow.pid'})\n"
-            f"  • Delete the log file ({IMAGE_TOOLKIT_DIR / 'logs' / 'slideshow_daemon.log'})\n"
             f'  • Reset the slideshow config to {{"running": false}}\n\n'
-            "The daemon will stop if it is currently running.",
+            "The daemon will stop if it is currently running. Log files will NOT be deleted.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -1461,16 +1478,14 @@ class SettingsWindow(QWidget):
         errors = []
 
         pid_path = IMAGE_TOOLKIT_DIR / ".myapp_slideshow.pid"
-        log_path = IMAGE_TOOLKIT_DIR / "logs" / "slideshow_daemon.log"
-        for p, label in [(pid_path, "PID file"), (log_path, "log file")]:
-            try:
-                if p.exists():
-                    p.unlink()
-                    messages.append(f"Deleted {label}.")
-                else:
-                    messages.append(f"{label} not found (already clean).")
-            except Exception as e:
-                errors.append(f"Could not delete {label}: {e}")
+        try:
+            if pid_path.exists():
+                pid_path.unlink()
+                messages.append("Deleted PID file.")
+            else:
+                messages.append("PID file not found (already clean).")
+        except Exception as e:
+            errors.append(f"Could not delete PID file: {e}")
 
         try:
             IMAGE_TOOLKIT_DIR.mkdir(parents=True, exist_ok=True)
@@ -1491,6 +1506,35 @@ class SettingsWindow(QWidget):
             )
         else:
             QMessageBox.information(self, "Daemon Reset", summary)
+
+    def _clear_application_logs(self):
+        """Deletes all log files from the global logs directory."""
+        log_dir = IMAGE_TOOLKIT_DIR / "logs"
+        reply = QMessageBox.question(
+            self,
+            "Confirm Clear Logs",
+            f"Delete all application and daemon log files in:\n{log_dir}?\n\n"
+            "This cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            if log_dir.exists():
+                # Delete all contents but keep the directory
+                for item in log_dir.iterdir():
+                    if item.is_file():
+                        item.unlink()
+                    elif item.is_dir():
+                        shutil.rmtree(str(item))
+                deleted_msg = "All logs cleared successfully."
+            else:
+                deleted_msg = "Log directory did not exist — nothing to clear."
+            QMessageBox.information(self, "Logs Cleared", deleted_msg)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to clear logs:\n{e}")
 
     def _clear_tab_configs(self):
         """Wipes all tab configurations, active assignments, and system profiles from the vault."""

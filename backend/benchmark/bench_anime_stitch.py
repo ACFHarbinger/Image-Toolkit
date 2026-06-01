@@ -544,6 +544,178 @@ def _save_metrics_bar(metrics_asp: Dict, metrics_simple: Dict, out_path: str) ->
 
 
 # ============================================================================
+# SMART FRAME SELECTOR
+# ============================================================================
+
+_SELECTOR_THUMB_LONG = 256  # thumbnail longest side for phase-correlation pass
+
+
+def _load_thumb_gray(path: str) -> np.ndarray:
+    """Load a grayscale float32 thumbnail for phase correlation."""
+    img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+    if img is None:
+        return np.zeros((_SELECTOR_THUMB_LONG, _SELECTOR_THUMB_LONG), dtype=np.float32)
+    h, w = img.shape
+    scale = _SELECTOR_THUMB_LONG / max(h, w, 1)
+    tw = max(1, int(w * scale))
+    th = max(1, int(h * scale))
+    return cv2.resize(img, (tw, th)).astype(np.float32) / 255.0
+
+
+def _load_thumbs_parallel(frames_paths: List[str], max_workers: int = 8) -> List[np.ndarray]:
+    """Load all thumbnails in parallel (I/O bound — GIL released for imread)."""
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as ex:
+        return list(ex.map(_load_thumb_gray, frames_paths))
+
+
+def _smart_select_frames(
+    frames_paths: List[str],
+    min_step_px: float = 50.0,
+    min_phase_response: float = 0.04,
+    high_anim_mad: float = 0.10,
+    tiny_step_px: float = 8.0,
+) -> List[str]:
+    """
+    Return a subset of ``frames_paths`` suitable for the stitch pipeline.
+
+    Two primary rejection rules, applied at thumbnail scale (no GPU required):
+
+    **1. Displacement sufficiency.**
+    Track cumulative canvas position along the dominant scroll axis.  A frame is
+    included only when the canvas has advanced ≥ ``min_step_px`` from the last
+    included frame.  This eliminates near-duplicate frames that add no new canvas
+    content.
+
+    **2. Direction consistency.**
+    When the cumulative canvas position moves *against* the dominant scroll
+    direction, we do not treat that backward movement as forward progress toward
+    the next selection.  Backward-direction frames re-expose already-covered
+    canvas rows with different character animation states.  In such a frame the
+    character occupies the same canvas row as it did in a previously selected
+    frame but with a different pose — the temporal median cannot recover this
+    because it lacks multiple frames in consensus.
+
+    **3. High-animation / low-movement filter.**
+    If the per-frame background displacement is very small (< ``tiny_step_px``)
+    but the overall thumbnail MAD is high (> ``high_anim_mad``), the camera is
+    nearly stationary while the character is animating significantly.  Such frames
+    would add the same canvas rows as the immediately preceding frame but with a
+    completely different foreground state.  They are discarded.
+
+    **4. Phase-correlation quality gate.**
+    Pairs whose phase-correlation response falls below ``min_phase_response`` are
+    skipped; their displacement estimate is unreliable (motion blur, fast camera
+    swing, scene transition).
+
+    Always includes the first and last frames so the full scroll extent is
+    preserved.  Returns the original list unchanged when fewer than 3 frames are
+    provided.
+    """
+    N = len(frames_paths)
+    if N <= 2:
+        return frames_paths
+
+    # ── 1. Load thumbnails and compute pairwise displacements ─────────────
+    thumbs = _load_thumbs_parallel(frames_paths)
+
+    # Derive pixel scale: thumb-space displacement → full-resolution px
+    img0 = cv2.imread(frames_paths[0])
+    if img0 is not None:
+        full_h, full_w = img0.shape[:2]
+        th0, tw0 = thumbs[0].shape[:2]
+        scale_y = full_h / max(th0, 1)
+        scale_x = full_w / max(tw0, 1)
+    else:
+        scale_y = scale_x = float(_SELECTOR_THUMB_LONG)
+
+    raw_dx: List[float] = []
+    raw_dy: List[float] = []
+    responses: List[float] = []
+    frame_mads: List[float] = []
+
+    for i in range(N - 1):
+        a = thumbs[i]
+        b = thumbs[i + 1]
+        # Ensure identical size (may differ by 1px due to rounding)
+        th = max(a.shape[0], b.shape[0])
+        tw = max(a.shape[1], b.shape[1])
+        if a.shape != (th, tw):
+            a = np.pad(a, ((0, th - a.shape[0]), (0, tw - a.shape[1])))
+        if b.shape != (th, tw):
+            b = np.pad(b, ((0, th - b.shape[0]), (0, tw - b.shape[1])))
+
+        (dx_t, dy_t), response = cv2.phaseCorrelate(a, b)
+        raw_dx.append(float(dx_t) * scale_x)
+        raw_dy.append(float(dy_t) * scale_y)
+        responses.append(float(response))
+        frame_mads.append(float(np.mean(np.abs(b - a))))
+
+    # ── 2. Dominant scroll axis and direction ──────────────────────────────
+    med_dy = float(np.median(raw_dy))
+    med_dx = float(np.median(raw_dx))
+
+    if abs(med_dy) >= abs(med_dx):
+        axis_steps = raw_dy
+        dominant_sign = int(np.sign(med_dy)) if abs(med_dy) > 2.0 else 0
+    else:
+        axis_steps = raw_dx
+        dominant_sign = int(np.sign(med_dx)) if abs(med_dx) > 2.0 else 0
+
+    print(
+        f"  [SmartSelect] N={N}  dominant_axis={'y' if abs(med_dy) >= abs(med_dx) else 'x'}"
+        f"  sign={dominant_sign:+d}"
+        f"  med_step={abs(med_dy if abs(med_dy) >= abs(med_dx) else med_dx):.1f}px"
+    )
+
+    # ── 3. Greedy forward-selection based on cumulative canvas position ────
+    selected: List[int] = [0]
+    canvas_pos = 0.0          # cumulative position along dominant axis
+    last_sel_pos = 0.0        # canvas_pos at the time of last selection
+
+    for i in range(N - 1):
+        step = axis_steps[i]
+        response = responses[i]
+        mad = frame_mads[i]
+
+        # Gate 4: poor phase-correlation quality
+        if response < min_phase_response:
+            canvas_pos += step   # still accumulate so position stays accurate
+            continue
+
+        # Gate 3: high animation with negligible camera movement
+        if abs(step) < tiny_step_px and mad > high_anim_mad:
+            # Camera barely moved but content changed a lot → character is
+            # animating at a nearly-stationary canvas position.  Skip.
+            canvas_pos += step
+            continue
+
+        canvas_pos += step
+
+        # Net advance from last selected frame
+        advance = canvas_pos - last_sel_pos
+        if dominant_sign != 0:
+            net_forward = advance * dominant_sign
+        else:
+            net_forward = abs(advance)
+
+        # Gate 1+2: must advance in dominant direction by at least min_step_px
+        if net_forward >= min_step_px:
+            selected.append(i + 1)
+            last_sel_pos = canvas_pos
+
+    # Always include last frame (ensures full scroll extent)
+    if selected[-1] != N - 1:
+        selected.append(N - 1)
+
+    print(
+        f"  [SmartSelect] Selected {len(selected)}/{N} frames  "
+        f"(dropped {N - len(selected)})."
+    )
+    return [frames_paths[i] for i in selected]
+
+
+# ============================================================================
 # SIMPLE STITCH (OpenCV SCANS)
 # ============================================================================
 
@@ -619,6 +791,19 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
     if len(frames_paths) < 2:
         print(f"Skipping {dataset_dir}: not enough frames.")
         return None
+
+    # Smart frame selection: drop near-duplicates and backward-direction frames
+    # before any GPU processing.  Large datasets can have 50-330 consecutive
+    # video frames; naive stride subsampling would miss character-animation
+    # conflicts where the character returns to the same pose as a previous
+    # selected frame but the camera is now in a different position.
+    _orig_frame_count = len(frames_paths)
+    frames_paths = _smart_select_frames(frames_paths)
+    if len(frames_paths) < _orig_frame_count:
+        print(
+            f"  Smart selection: {_orig_frame_count} → {len(frames_paths)} frames "
+            f"({_orig_frame_count - len(frames_paths)} dropped)."
+        )
 
     print(f"Source frames ({len(frames_paths)}):")
     for p in frames_paths:

@@ -16,6 +16,7 @@ from .video.video_loader_worker import (
 from .models.training_worker import TrainingWorker as TrainingWorker
 
 from .core.conversion_worker import ConversionWorker as ConversionWorker
+from .core.sampler_worker import SamplerWorker as SamplerWorker
 from .core.deletion_worker import DeletionWorker as DeletionWorker
 from .core.duplicate_scan_worker import DuplicateScanWorker as DuplicateScanWorker
 from .core.merge_worker import MergeWorker as MergeWorker
