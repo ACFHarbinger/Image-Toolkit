@@ -5,7 +5,7 @@ from pathlib import Path
 from datetime import date
 from typing import List, Dict, Any, Optional, Tuple
 
-from PySide6.QtCore import Qt, Signal, Slot, QUrl, QSize, QThread, QTimer, QObject
+from PySide6.QtCore import Qt, Signal, Slot, QUrl, QSize, QThread, QTimer, QObject, QRunnable, QThreadPool
 from PySide6.QtGui import QPixmap, QDesktopServices, QImage, QColor
 from PySide6.QtWidgets import (
     QWidget,
@@ -46,6 +46,7 @@ from PySide6.QtCore import QSettings as _QSettings
 from backend.src.core.vault_manager import VaultManager  # noqa: F401
 from ...styles.style import apply_shadow_effect, SHARED_BUTTON_STYLE
 from ...components import DoubleClickableLabel
+from ...utils.lru_image_cache import LRUImageCache
 from ...components.frame_selection_dialog import (
     FrameSelectionDialog,
     extract_video_frame_via_ffmpeg,
@@ -68,6 +69,46 @@ from ...constants.listings import (
     ENTITY_PLACEHOLDER,
     VIDEO_IMPORT_EXTS,
 )
+
+
+# ---------------------------------------------------------------------------
+# Async thumbnail infrastructure for listing/entity cards
+# ---------------------------------------------------------------------------
+
+# Shared LRU cache: stores scaled QImages keyed by absolute path.
+# 250 entries ≈ ~30 MB at 130×130 RGBA — well within budget.
+_CARD_THUMB_CACHE: LRUImageCache = LRUImageCache(maxsize=250)
+
+
+class _ThumbWorkerSignals(QObject):
+    ready = Signal(str, QImage)   # (absolute_path, scaled QImage)
+
+
+class _ThumbWorker(QRunnable):
+    """Load and scale a card thumbnail off the main thread."""
+
+    def __init__(self, path: str, size: int):
+        super().__init__()
+        self.setAutoDelete(True)
+        self._path = path
+        self._size = size
+        self.signals = _ThumbWorkerSignals()
+
+    @Slot()
+    def run(self) -> None:
+        try:
+            img = QImage(self._path)
+            if img.isNull():
+                return
+            img = img.scaled(
+                self._size, self._size,
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation,
+            )
+            _CARD_THUMB_CACHE[self._path] = img
+            self.signals.ready.emit(self._path, img)
+        except Exception:
+            pass
 
 
 def _backup_referenced_images(prefix: str, json_files: List[Path]):
@@ -973,18 +1014,37 @@ class _ListingCard(QWidget):
 
             layout.addLayout(actions_layout)
 
-    def _apply_thumbnail(self, path: str):
+    def _apply_thumbnail(self, path: str) -> None:
         self.thumb_label.set_image_path(path)
-        if path and Path(path).exists():
-            px = QPixmap(path).scaled(
-                THUMB_SIZE, THUMB_SIZE, Qt.KeepAspectRatio, Qt.SmoothTransformation
-            )
-            self.thumb_label.setPixmap(px)
-        else:
+        if not path or not Path(path).exists():
             self.thumb_label.setText(PLACEHOLDER)
             self.thumb_label.setStyleSheet(
-                "font-size:48px;color:#4f545c;background:#23272a;border-radius:6px;border:none;"
+                "font-size:48px;color:#4f545c;background:#23272a;"
+                "border-radius:6px;border:none;"
             )
+            return
+
+        # Cache hit — set pixmap immediately, no disk I/O on the main thread.
+        cached = _CARD_THUMB_CACHE.get(path)
+        if cached is not None:
+            self.thumb_label.setPixmap(QPixmap.fromImage(cached))
+            self.thumb_label.setStyleSheet("")
+            return
+
+        # Cache miss — show a neutral placeholder and load off-thread.
+        self.thumb_label.setText("")
+        self.thumb_label.setStyleSheet(
+            "background:#23272a;border-radius:6px;border:none;"
+        )
+        worker = _ThumbWorker(path, THUMB_SIZE)
+        worker.signals.ready.connect(self._on_thumb_ready)
+        QThreadPool.globalInstance().start(worker)
+
+    @Slot(str, QImage)
+    def _on_thumb_ready(self, path: str, img: QImage) -> None:
+        if path == self.thumb_label.image_path:
+            self.thumb_label.setPixmap(QPixmap.fromImage(img))
+            self.thumb_label.setStyleSheet("")
 
     def mousePressEvent(self, ev):
         if ev.button() == Qt.LeftButton:
@@ -1134,18 +1194,35 @@ class _EntityCard(QWidget):
             r_lbl.setStyleSheet("color:#f1c40f;font-size:9px;border:none;")
             layout.addWidget(r_lbl, alignment=Qt.AlignHCenter)
 
-    def _apply_thumbnail(self, path: str):
+    def _apply_thumbnail(self, path: str) -> None:
         self.thumb_label.set_image_path(path)
-        if path and Path(path).exists():
-            px = QPixmap(path).scaled(
-                THUMB_SIZE, THUMB_SIZE, Qt.KeepAspectRatio, Qt.SmoothTransformation
-            )
-            self.thumb_label.setPixmap(px)
-        else:
+        if not path or not Path(path).exists():
             self.thumb_label.setText(ENTITY_PLACEHOLDER)
             self.thumb_label.setStyleSheet(
-                "font-size:48px;color:#4f545c;background:#23272a;border-radius:6px;border:none;"
+                "font-size:48px;color:#4f545c;background:#23272a;"
+                "border-radius:6px;border:none;"
             )
+            return
+
+        cached = _CARD_THUMB_CACHE.get(path)
+        if cached is not None:
+            self.thumb_label.setPixmap(QPixmap.fromImage(cached))
+            self.thumb_label.setStyleSheet("")
+            return
+
+        self.thumb_label.setText("")
+        self.thumb_label.setStyleSheet(
+            "background:#23272a;border-radius:6px;border:none;"
+        )
+        worker = _ThumbWorker(path, THUMB_SIZE)
+        worker.signals.ready.connect(self._on_thumb_ready)
+        QThreadPool.globalInstance().start(worker)
+
+    @Slot(str, QImage)
+    def _on_thumb_ready(self, path: str, img: QImage) -> None:
+        if path == self.thumb_label.image_path:
+            self.thumb_label.setPixmap(QPixmap.fromImage(img))
+            self.thumb_label.setStyleSheet("")
 
     def mousePressEvent(self, ev):
         if ev.button() == Qt.LeftButton:
@@ -1423,7 +1500,7 @@ class _DetailPanel(QWidget):
                 names.append(entity_map[ent_id])
         self.f_assoc_entities_display.setText(", ".join(names))
 
-    def load_entry(self, entry: Dict[str, Any]):
+    def load_entry(self, entry: Dict[str, Any], cached_entities: Optional[List[Dict[str, Any]]] = None):
         self._entry_id = entry.get("id")
         self._image_path = entry.get("image_path", "")
         self.f_title.setText(entry.get("title", ""))
@@ -1446,22 +1523,31 @@ class _DetailPanel(QWidget):
         self.f_local_file.setText(entry.get("local_file", ""))
         self.f_web_link.setText(entry.get("web_link", ""))
 
-        all_entities = []
-        try:
-            if ENTITIES_FILE.exists():
-                with open(ENTITIES_FILE, "r", encoding="utf-8") as f:
-                    all_entities = json.load(f)
-        except Exception as e:
-            print(f"Failed to load entities: {e}")
+        # Use the caller-supplied entity list to avoid reading entities.json
+        # from disk on every click.  Fall back to a disk read only if no
+        # cached list was provided (e.g., standalone dialog usage).
+        if cached_entities is not None:
+            all_entities = cached_entities
+        else:
+            all_entities = []
+            try:
+                if ENTITIES_FILE.exists():
+                    with open(ENTITIES_FILE, "r", encoding="utf-8") as f:
+                        all_entities = json.load(f)
+            except Exception as e:
+                print(f"Failed to load entities: {e}")
         self._update_assoc_entities_display(all_entities)
 
         self.f_summary.setPlainText(entry.get("summary", ""))
         self.f_review.setPlainText(entry.get("review", ""))
         self._episode_data = entry.get("episode_list", [])
-        self._refresh_image()
-        self._refresh_episode_list()
         self.del_btn.setVisible(True)
         self.episode_group.setVisible(True)
+
+        # Defer image + episode-list loads off the synchronous click path so
+        # form fields appear instantly.  Both run on the next event-loop tick.
+        QTimer.singleShot(0, self._refresh_image)
+        QTimer.singleShot(0, self._refresh_episode_list)
 
     def clear_for_new(self):
         self._entry_id = None
@@ -1737,21 +1823,33 @@ class _DetailPanel(QWidget):
             self._refresh_image()
 
     def _refresh_image(self):
-        self.img_preview.set_image_path(self._image_path)
-        if self._image_path and Path(self._image_path).exists():
-            px = QPixmap(self._image_path).scaled(
-                160, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation
-            )
-            self.img_preview.setPixmap(px)
-            self.img_preview.setStyleSheet(
-                "border:2px solid #4f545c;border-radius:8px;"
-            )
-        else:
+        path = self._image_path
+        self.img_preview.set_image_path(path)
+        if not path or not Path(path).exists():
             self.img_preview.clear()
             self.img_preview.setText("No Image")
             self.img_preview.setStyleSheet(
                 "border:2px dashed #4f545c;border-radius:8px;color:#888;font-size:12px;"
             )
+            return
+        # Use a cache key that distinguishes the 160-px preview from card thumbs.
+        cache_key = f"preview160:{path}"
+        cached = _CARD_THUMB_CACHE.get(cache_key)
+        if cached is not None:
+            self.img_preview.setPixmap(QPixmap.fromImage(cached))
+            self.img_preview.setStyleSheet("border:2px solid #4f545c;border-radius:8px;")
+            return
+        worker = _ThumbWorker(path, 160)
+        worker.signals.ready.connect(self._on_preview_ready)
+        QThreadPool.globalInstance().start(worker)
+
+    @Slot(str, QImage)
+    def _on_preview_ready(self, path: str, img: QImage) -> None:
+        if path == self.img_preview.image_path:
+            # Store under the prefixed key so card-sized cache doesn't collide.
+            _CARD_THUMB_CACHE[f"preview160:{path}"] = img
+            self.img_preview.setPixmap(QPixmap.fromImage(img))
+            self.img_preview.setStyleSheet("border:2px solid #4f545c;border-radius:8px;")
 
     def _refresh_episode_list(self):
         while self.ep_list_layout.count():
@@ -1774,16 +1872,30 @@ class _DetailPanel(QWidget):
             rating = ep.get("rating", 0)
             img_path = ep.get("image_path", "")
 
-            # Thumbnail
+            # Thumbnail — load off-thread to keep _refresh_episode_list fast
             t_lbl = QLabel()
             t_lbl.setFixedSize(50, 40)
             t_lbl.setAlignment(Qt.AlignCenter)
             t_lbl.setStyleSheet("background:#1a1c1e; border-radius:3px;")
             if img_path and Path(img_path).exists():
-                px = QPixmap(img_path).scaled(
-                    50, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation
-                )
-                t_lbl.setPixmap(px)
+                cached = _CARD_THUMB_CACHE.get(img_path)
+                if cached is not None:
+                    t_lbl.setPixmap(
+                        QPixmap.fromImage(cached).scaled(
+                            50, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                        )
+                    )
+                else:
+                    def _set_ep_thumb(p: str, img: QImage, lbl=t_lbl) -> None:
+                        if lbl and not lbl.pixmap():
+                            lbl.setPixmap(
+                                QPixmap.fromImage(img).scaled(
+                                    50, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                                )
+                            )
+                    w = _ThumbWorker(img_path, 80)
+                    w.signals.ready.connect(_set_ep_thumb)
+                    QThreadPool.globalInstance().start(w)
             else:
                 t_lbl.setText("No Img")
                 t_lbl.setStyleSheet(
@@ -2050,11 +2162,12 @@ class _EntityDetailPanel(QWidget):
         raw_entities = entity.get("associated_entities", [])
         self.assoc_entity_ids = raw_entities if isinstance(raw_entities, list) else []
 
-        self._refresh_assoc_displays()
-        self._refresh_image()
-        self._refresh_credit_list()
+        # Show visibility immediately; defer heavy loads off the click path.
         self.del_btn.setVisible(True)
         self.credits_group.setVisible(True)
+        QTimer.singleShot(0, self._refresh_assoc_displays)
+        QTimer.singleShot(0, self._refresh_image)
+        QTimer.singleShot(0, self._refresh_credit_list)
 
     def clear_for_new(self):
         self._entity_id = None
@@ -2102,21 +2215,31 @@ class _EntityDetailPanel(QWidget):
             self._refresh_image()
 
     def _refresh_image(self):
-        self.img_preview.set_image_path(self._image_path)
-        if self._image_path and Path(self._image_path).exists():
-            px = QPixmap(self._image_path).scaled(
-                160, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation
-            )
-            self.img_preview.setPixmap(px)
-            self.img_preview.setStyleSheet(
-                "border:2px solid #4f545c;border-radius:8px;"
-            )
-        else:
+        path = self._image_path
+        self.img_preview.set_image_path(path)
+        if not path or not Path(path).exists():
             self.img_preview.clear()
             self.img_preview.setText("No Image")
             self.img_preview.setStyleSheet(
                 "border:2px dashed #4f545c;border-radius:8px;color:#888;font-size:12px;"
             )
+            return
+        cache_key = f"preview160:{path}"
+        cached = _CARD_THUMB_CACHE.get(cache_key)
+        if cached is not None:
+            self.img_preview.setPixmap(QPixmap.fromImage(cached))
+            self.img_preview.setStyleSheet("border:2px solid #4f545c;border-radius:8px;")
+            return
+        worker = _ThumbWorker(path, 160)
+        worker.signals.ready.connect(self._on_preview_ready)
+        QThreadPool.globalInstance().start(worker)
+
+    @Slot(str, QImage)
+    def _on_preview_ready(self, path: str, img: QImage) -> None:
+        if path == self.img_preview.image_path:
+            _CARD_THUMB_CACHE[f"preview160:{path}"] = img
+            self.img_preview.setPixmap(QPixmap.fromImage(img))
+            self.img_preview.setStyleSheet("border:2px solid #4f545c;border-radius:8px;")
 
     def _refresh_credit_list(self):
         while self.credit_list_layout.count():
@@ -2142,16 +2265,30 @@ class _EntityDetailPanel(QWidget):
             rating = cr.get("rating", 0)
             img_path = cr.get("image_path", "")
 
-            # Thumbnail
+            # Thumbnail — async to keep _refresh_credit_list snappy
             t_lbl = QLabel()
             t_lbl.setFixedSize(50, 40)
             t_lbl.setAlignment(Qt.AlignCenter)
             t_lbl.setStyleSheet("background:#1a1c1e; border-radius:3px;")
             if img_path and Path(img_path).exists():
-                px = QPixmap(img_path).scaled(
-                    50, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation
-                )
-                t_lbl.setPixmap(px)
+                cached = _CARD_THUMB_CACHE.get(img_path)
+                if cached is not None:
+                    t_lbl.setPixmap(
+                        QPixmap.fromImage(cached).scaled(
+                            50, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                        )
+                    )
+                else:
+                    def _set_cr_thumb(p: str, img: QImage, lbl=t_lbl) -> None:
+                        if lbl and not lbl.pixmap():
+                            lbl.setPixmap(
+                                QPixmap.fromImage(img).scaled(
+                                    50, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                                )
+                            )
+                    w = _ThumbWorker(img_path, 80)
+                    w.signals.ready.connect(_set_cr_thumb)
+                    QThreadPool.globalInstance().start(w)
             else:
                 t_lbl.setText("No Img")
                 t_lbl.setStyleSheet(
@@ -3341,6 +3478,12 @@ class ContentListingsSubTab(QWidget):
         self._search_debounce_timer.timeout.connect(self._run_qdrant_text_search)
         self._start_vector_init()
 
+        # Debounced resize — avoid rebuilding the gallery on every pixel of a drag.
+        self._resize_timer = QTimer(self)
+        self._resize_timer.setSingleShot(True)
+        self._resize_timer.setInterval(120)
+        self._resize_timer.timeout.connect(self._rebuild_gallery)
+
     # ------------------------------------------------------------------
     # Persistence
     # ------------------------------------------------------------------
@@ -3353,6 +3496,16 @@ class ContentListingsSubTab(QWidget):
         except Exception as e:
             print(f"[ContentListingsSubTab] Failed to load listings: {e}")
             self._entries = []
+        # Cache entities so load_entry() doesn't read entities.json from disk
+        # on every card click.  Invalidated by _on_external_reload().
+        try:
+            if ENTITIES_FILE.exists():
+                with open(ENTITIES_FILE, "r", encoding="utf-8") as f:
+                    self._all_entities: List[Dict[str, Any]] = json.load(f)
+            else:
+                self._all_entities = []
+        except Exception:
+            self._all_entities = []
 
     def _save_data(self):
         try:
@@ -3571,11 +3724,17 @@ class ContentListingsSubTab(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self._rebuild_gallery()
+        # Debounce: only rebuild after 120 ms of resize inactivity so that
+        # dragging the window doesn't create O(N) card widgets per pixel moved.
+        self._resize_timer.start()
 
     def showEvent(self, event):
         super().showEvent(event)
-        self._rebuild_gallery()
+        # Do NOT call _rebuild_gallery() here.  The gallery is always kept
+        # current by explicit calls in _on_entry_saved, _on_entry_deleted,
+        # _on_search, _on_type_filter, _on_sort_changed, and _on_external_reload.
+        # Rebuilding on every tab switch caused the multi-second freeze because
+        # it recreated and thumbnail-loaded all N cards synchronously.
 
     # ------------------------------------------------------------------
     # Slots
@@ -3620,7 +3779,7 @@ class ContentListingsSubTab(QWidget):
         self._selected_id = entry_id
         entry = next((e for e in self._entries if e["id"] == entry_id), None)
         if entry:
-            self._detail.load_entry(entry)
+            self._detail.load_entry(entry, cached_entities=self._all_entities)
 
     def _on_card_delete_requested(self, entry_id: str):
         reply = QMessageBox.question(
@@ -3688,7 +3847,7 @@ class ContentListingsSubTab(QWidget):
         if self._sync_entities_for_entry(entry):
             self.entities_changed.emit()
         self._rebuild_gallery()
-        self._detail.load_entry(entry)
+        self._detail.load_entry(entry, cached_entities=self._all_entities)
 
     @Slot(str)
     def _on_entry_deleted(self, entry_id: str):
@@ -4217,6 +4376,12 @@ class EntityListingsSubTab(QWidget):
         self._rebuild_gallery()
         self._detail.clear_for_new()
 
+        # Debounced resize for EntityListingsSubTab.
+        self._resize_timer = QTimer(self)
+        self._resize_timer.setSingleShot(True)
+        self._resize_timer.setInterval(120)
+        self._resize_timer.timeout.connect(self._rebuild_gallery)
+
     # ------------------------------------------------------------------
     # Persistence
     # ------------------------------------------------------------------
@@ -4341,11 +4506,12 @@ class EntityListingsSubTab(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self._rebuild_gallery()
+        self._resize_timer.start()
 
     def showEvent(self, event):
         super().showEvent(event)
-        self._rebuild_gallery()
+        # Gallery is always up-to-date from explicit _rebuild_gallery() calls;
+        # rebuilding on every tab switch caused the freeze (see ContentListingsSubTab).
 
     def _on_sort_changed(self, text):
         self._rebuild_gallery()

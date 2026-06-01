@@ -54,4 +54,10 @@ CREATE INDEX IF NOT EXISTS idx_images_subgroup ON images(subgroup_name);
 CREATE INDEX IF NOT EXISTS idx_images_path ON images(file_path);
 
 -- name: create_index_embedding
-CREATE INDEX IF NOT EXISTS idx_images_embedding ON images USING hnsw (embedding vector_l2_ops) WHERE embedding IS NOT NULL;
+-- HNSW tuned for high recall at 100k+ scale (roadmap item 2.14):
+--   m=32            → more neighbours per node, better recall at cost of build time
+--   ef_construction=128 → wider search beam during index construction
+CREATE INDEX IF NOT EXISTS idx_images_embedding ON images
+    USING hnsw (embedding vector_l2_ops)
+    WITH (m = 32, ef_construction = 128)
+    WHERE embedding IS NOT NULL;

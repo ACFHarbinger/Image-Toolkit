@@ -345,6 +345,9 @@ class MainWindow(QWidget):
         selected_cache = int(prefs.get("selected_cache_maxsize", 200))
         initial_cache = int(prefs.get("initial_cache_maxsize", 300))
 
+        # NEW: Extractor seek interval
+        extractor_seek_ms = int(prefs.get("extractor_seek_ms", 100))
+
         for cat_tabs in self.all_tabs.values():
             for tab in cat_tabs.values():
                 # Thumbnail & page size (§2.16A)
@@ -362,6 +365,10 @@ class MainWindow(QWidget):
                     tab._selected_pixmap_cache = LRUImageCache(maxsize=selected_cache)
                 if hasattr(tab, "_initial_pixmap_cache"):
                     tab._initial_pixmap_cache = LRUImageCache(maxsize=initial_cache)
+
+                # Apply Extractor seek interval
+                if hasattr(tab, "wheel_seek_ms"):
+                    tab.wheel_seek_ms = extractor_seek_ms
 
         # §2.16C — startup category
         startup_cat = prefs.get("startup_category", "")

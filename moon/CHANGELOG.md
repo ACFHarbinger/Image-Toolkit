@@ -4,6 +4,82 @@
 
 ---
 
+## Roadmap Continuation Batch — Phase 1 & Phase 2 Items (Completed 2026-05-31)
+
+### ASP Pipeline Fixes (Phase 1 items 1.1–1.5)
+
+| Item | Summary |
+|------|---------|
+| 1.1 SCANS fallback purity | `scans_frames = list(frames)` is captured at Stage 2 (before any ML corrections). All four `_scan_stitch_fallback()` call-sites in `pipeline.py` and the `_ProgressPipeline` subclass now pass `scans_frames`, ensuring the fallback always receives the original unmodified frames. |
+| 1.2 Dark scene gain clamp widening | `_ref_lum_scalar` threshold is 80.0. When met, gain clamp is `[0.80, 1.25]` instead of the tighter `[0.88, 1.14]`. Both code paths confirmed present in `pipeline.py` lines 566–570. |
+| 1.3 Static edge pre-bundle rejection | `MIN_EXPECTED_STEP = 50` is defined in `backend/src/constants/anim.py` and exported via `backend/src/constants/__init__.py`. It was never imported in `pipeline.py` — causing a `NameError` every time the min-step guard ran. Added `MIN_EXPECTED_STEP` to the `from backend.src.constants import (...)` block. |
+| 1.4 Content-aware minimal bounding crop | `_crop_to_valid()` in `canvas.py` already uses `_largest_valid_rect` when `valid_ratio < 0.80`. SCANS fallback also uses `_largest_valid_rect` after stitching. Both verified operational — item confirmed done. |
+| 1.5 Restrict seam search window | `_seam_dp()` in `stateless.py` gains a `search_half: int | None = None` parameter. When set, the cost matrix is masked to `±search_half` pixels around the image midpoint via a `np.full(..., np.inf)` mask with the window left unmasked. `de_seam()` in `mfsr/de_seam.py` propagates `search_half` to both its `_seam_dp` calls (baseline + fallback). |
+
+### ML Model Memory Management (Phase 1 item 1.8)
+
+| Item | Summary |
+|------|---------|
+| 1.8 `unload()` on all model wrappers | Added `unload()` to seven model wrappers that lacked it: `BiRefNetWrapper` (pops from `_models` class dict, calls `del model`, `gc.collect()`), `LoFTRWrapper` (`del self.matcher`, sets to `None`), `EfficientLoFTRWrapper` (deletes both `_model` and `_processor`), `RoMaWrapper`, `ALIKEDLightGlueWrapper` (deletes `_matcher`), `JamMaWrapper` (deletes `_model`), `BaSiCWrapper` (clears NumPy arrays). All call `torch.cuda.empty_cache()` and `gc.collect()`. `AnimeStitchPipeline.run()` now calls `unload()` (with `offload()` fallback) instead of the weaker `offload()` at cleanup points after Stages 4 and 5–6. |
+
+### Logging Standardisation (Phase 1 item 1.13)
+
+| Item | Summary |
+|------|---------|
+| 1.13 Python `logging` + rotating file handler | `_setup_logging()` added to `backend/src/app.py`. Called at the start of `launch_app()`. Creates: a `RotatingFileHandler` at `~/.image-toolkit/logs/image_toolkit.log` (5 MB per file, 5 backups, DEBUG level) and a `StreamHandler` on stdout (INFO level by default, DEBUG with `--verbose`). `logger = logging.getLogger(__name__)` added to: `backend/src/anim/pipeline.py` (58 print calls migrated), `canvas.py` (5), `matching.py` (8), and all 7 model wrappers including `birefnet_wrapper.py`, `efficient_loftr_wrapper.py`, etc. `print(..., file=sys.stderr)` → `logger.error()`; `print(f"[Stitch] Warning…")` → `logger.warning()`; remaining stage logs → `logger.info()` or `logger.debug()`. Third-party loggers (PIL, transformers, urllib3) capped at WARNING. |
+
+### Worker Cancellation Standardisation (Phase 2 item 2.7)
+
+| Item | Summary |
+|------|---------|
+| 2.7 `_should_stop` flag | `WallpaperWorker` and `TrainingWorker` previously used only `self.is_running` for cancellation. Both now also set `self._should_stop = False` on init and `self._should_stop = True` in `stop()`, alongside the existing `is_running` flag. Existing callers that check `is_running` continue to work; tooling that checks the standardised `_should_stop` pattern now also works. |
+
+### Settings Window Completion (Phase 2 item 2.16D/F/G)
+
+| Item | Summary |
+|------|---------|
+| 2.16 D/F/G Settings fully wired | Audit confirmed all three remaining sub-items are already wired in `settings_window.py`: §D `confirm_deletions` (checkbox, load/save/reset at lines 74, 248, 1318, 1361); §F `file_logging_enabled` + log level combo (lines 85, 391–403, 1328–1329, 1385); §G `restore_last_dir` (lines 78, 280, 1322, 1370). Item marked Done. |
+
+### Stage-Level Progress Signals (Phase 2 item 2.6)
+
+| Item | Summary |
+|------|---------|
+| 2.6 Stage signals | Audit confirmed `_ProgressPipeline` in `gui/src/helpers/models/stitch_worker.py` already emits `sig_stage(idx, total_stages, label)` at the start of all 13 pipeline stages via `_emit()`. `StitchWorker.TOTAL_STAGES = 13`. Item marked Done. |
+
+### Pipeline Execution Trace JSON (Phase 2 item 2.13)
+
+| Item | Summary |
+|------|---------|
+| 2.13 Execution trace | `_ProgressPipeline.run()` now writes a per-run JSON file to `~/.image-toolkit/traces/stitch_YYYYMMDD_HHMMSS.json`. Fields: `started_at`, `finished_at` (ISO 8601), `elapsed_seconds`, `frames_input` (N frames loaded), `edges_found` (after direction-consensus filter), `canvas_size` ([H, W]), `fallback_used` (SCANS mode triggered?), `success`, `error`, `stage_timings` (list of `{stage, label, elapsed_s}` entries — one per `_emit()` call). The trace is also written when the SCANS fallback is used. Stage timings measure wall time between consecutive `_emit()` calls. |
+
+### Dispatcher Completion (features/ROADMAP.md — CRITICAL)
+
+| Item | Summary |
+|------|---------|
+| CLI dispatcher — database | `dispatch_database()` in `dispatcher.py` was a single-line stub. Now implements the `search` sub-command: loads `PgvectorImageDatabase`, calls `search_images(filename_pattern=query, limit=limit)`, and prints tabular results (id, filename, group, subgroup, tags). |
+| CLI dispatcher — model | `dispatch_model()` was a single-line stub. Now implements the `generate` sub-command: instantiates `SD3Wrapper`, calls `wrapper.generate(prompt, output_path)`, and reports the output path. |
+| CLI `--recursive` flag | `dispatch_core()` now reads `args.get("recursive", False)` and forwards it to `ImageFormatConverter.convert_batch(recursive=recursive)`. The `# TODO: add recursive to backend` comment removed. |
+
+### Database Bulk Insert (Phase 2 DB performance)
+
+| Item | Summary |
+|------|---------|
+| Bulk tag insert via `execute_values` | `add_image()` in `image_database.py` replaced the per-row tag insert loop (`for tag_name in tags: cur.execute(insert_image_tag, ...)`) with `psycopg2.extras.execute_values()`. Tag IDs are still resolved one by one via `_get_or_create_tag()` (which is itself an upsert), but the subsequent insertion is now a single round-trip `INSERT ... VALUES %s ON CONFLICT DO NOTHING`. |
+
+### pgvector HNSW Index Tuning (Phase 2 item 2.14)
+
+| Item | Summary |
+|------|---------|
+| 2.14 HNSW tuning | `schema.sql`: `idx_images_embedding` index updated to `USING hnsw ... WITH (m = 32, ef_construction = 128)`. Previous defaults were `m=16, ef_construction=64`. `search_images()`: when `query_vector` is provided, issues `SET LOCAL hnsw.ef_search = 80` in a preceding cursor to tune the search beam for this query without affecting other connections. |
+
+### Multi-Select in Gallery (Phase 2 item 2.9)
+
+| Item | Summary |
+|------|---------|
+| 2.9 Shift+click / Ctrl+click | Audit confirmed `handle_marquee_selection()` in `AbstractClassTwoGalleries` (lines 601–633) already implements Shift (additive) and Ctrl (subtractive) multi-select. Item marked Done. |
+
+---
+
 ## GUI/UX Phase 1 — Quick Wins (Completed 2026-05-31)
 
 | Item | Summary |
@@ -11,15 +87,6 @@
 | G1.9 Session persistence | `_save_last_dir` / `_load_last_dir` helpers added to both `AbstractClassTwoGalleries` and `AbstractClassSingleGallery`. Each tab class stores its last browsed directory in `QSettings("ImageToolkit","ImageToolkit")` under `session/<ClassName>/last_dir`. The saved path is restored on next launch, eliminating the need to re-browse to the previous directory after an app restart. |
 | G1.10 OS dark mode follow | `MainWindow.__init__` now reads `QGuiApplication.styleHints().colorScheme()` when the vault stores no explicit theme preference. Falls back to `"dark"` when the OS reports `Unknown`. Connects `colorSchemeChanged` signal to auto-switch themes when the user toggles dark/light mode in the OS while the app is running (only takes effect when no vault override is set). |
 | G1.11 Ctrl+scroll thumbnail zoom | `MarqueeScrollArea` intercepts wheel events with `Qt.ControlModifier` and emits a `ctrl_wheel(int)` signal (positive = scroll up = zoom in, negative = scroll down = zoom out). Both gallery base classes connect this signal lazily on the first layout-change tick, keeping concrete tab code untouched. Each Ctrl+scroll step changes `thumbnail_size` by ±16 px (clamped to 64–512 px) and reloads the current gallery page at the new size. |
-
-## MAL Auto-Fill — Entity Association Bug Fix (2026-05-31)
-
-| Item | Summary |
-|------|---------|
-| Root cause | Jikan returns HTTP 500 for `/anime/{id}/characters` on adult/hentai content. The original code called `resp.raise_for_status()` inside `_jikan_get`, which threw `requests.HTTPError`. This was caught by the outer `except Exception: pass`, silently swallowing all character data. Akane Nanao was not matched because the characters list was empty, not because the name matching was wrong. |
-| `_jikan_get` non-raising | `_jikan_get` now checks `resp.ok` and returns `None` (not raises) for any 4xx/5xx. Callers treat `None` as "endpoint unavailable" rather than a fatal error. |
-| `characters_available` flag | `fetch_mal_anime_data` now includes `"characters_available": bool`. If the endpoint returned 500, the flag is `False`. `_on_mal_finished` calls `_auto_associate_entities` which shows an `information` dialog explaining that character/voice-actor data is restricted for 18+ content and inviting the user to add them manually via Select Entities. |
-| Reversed-word fallback | `_auto_associate_entities._try_add` now tries three name forms: (1) as-is, (2) words reversed (`"Nanao Akane"` ↔ `"Akane Nanao"`), (3) comma-swap (`"Last, First"` → `"First Last"`). All four test cases now match: `"T-Rex"`, `"Akane Nanao"`, `"Nanao Akane"`, `"Nanao, Akane"`. |
 
 ## MAL Auto-Fill — Entity Auto-Association (2026-05-31)
 

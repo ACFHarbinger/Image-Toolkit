@@ -52,6 +52,7 @@ def de_seam(
     pop_size: int = DE_POP_SIZE,
     n_gen: int = DE_MAX_GEN,
     smoothness_weight: float = 0.5,
+    search_half: int | None = None,
 ) -> np.ndarray:
     """
     DE-optimized seam path.  Returns int array (same shape/orientation as
@@ -67,7 +68,9 @@ def de_seam(
     h, w = energy.shape
 
     # Baseline DP seam (also used to seed half the population).
-    dp_path = _seam_dp(img_a, img_b, horizontal=horizontal).astype(np.float64)
+    # Pass search_half through for roadmap item 1.5 — restrict search when
+    # the cross-axis displacement is small (search_half=100 when dx_cv < 5).
+    dp_path = _seam_dp(img_a, img_b, horizontal=horizontal, search_half=search_half).astype(np.float64)
     if not horizontal:
         # `_seam_dp` returns path along the (post-transpose) row axis already.
         pass
@@ -124,8 +127,8 @@ def de_seam(
 
     if fitness[best] < dp_energy:
         return de_path
-    # DP wins — fall back.
-    return _seam_dp(img_a, img_b, horizontal=horizontal)
+    # DP wins — fall back (preserving search_half restriction).
+    return _seam_dp(img_a, img_b, horizontal=horizontal, search_half=search_half)
 
 
 __all__ = ["de_seam"]

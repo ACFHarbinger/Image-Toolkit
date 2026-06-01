@@ -83,6 +83,7 @@ class SettingsWindow(QWidget):
         self.pref_slideshow_order = _p.get("slideshow_order", "Sequential")
         self.pref_log_level = _p.get("log_level", "INFO")
         self.pref_file_logging = _p.get("file_logging_enabled", False)
+        self.pref_extractor_seek_ms = _p.get("extractor_seek_ms", 100)
 
         # --- Configuration Defaults State ---
         self.tab_defaults_config = self._load_tab_defaults_from_vault()
@@ -252,6 +253,26 @@ class SettingsWindow(QWidget):
         gallery_layout.addRow(self.confirm_deletions_check)
 
         content_layout.addWidget(gallery_groupbox)
+
+        # ---------------------------------------------------------------------
+        # --- Media Player & Extractor Section ---
+        # ---------------------------------------------------------------------
+        media_groupbox = QGroupBox("Media Player and Extractor")
+        media_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        media_layout = QFormLayout(media_groupbox)
+        media_layout.setContentsMargins(10, 10, 10, 10)
+
+        self.extractor_seek_spinbox = QSpinBox()
+        self.extractor_seek_spinbox.setRange(10, 5000)
+        self.extractor_seek_spinbox.setSingleStep(10)
+        self.extractor_seek_spinbox.setSuffix(" ms")
+        self.extractor_seek_spinbox.setValue(self.pref_extractor_seek_ms)
+        self.extractor_seek_spinbox.setToolTip(
+            "Time interval to seek when using the mouse wheel or arrow keys in the Extractor tab"
+        )
+        media_layout.addRow("Extractor Seek Interval:", self.extractor_seek_spinbox)
+
+        content_layout.addWidget(media_groupbox)
 
         # ---------------------------------------------------------------------
         # --- Startup & Session Section ---
@@ -1327,6 +1348,7 @@ class SettingsWindow(QWidget):
                 "slideshow_order": self.slideshow_default_order_combo.currentText(),
                 "log_level": self.log_level_combo.currentText(),
                 "file_logging_enabled": self.file_logging_check.isChecked(),
+                "extractor_seek_ms": self.extractor_seek_spinbox.value(),
             }
 
             if self._save_vault_data(user_data):
@@ -1384,6 +1406,9 @@ class SettingsWindow(QWidget):
         self.log_level_combo.setCurrentText("INFO")
         self.file_logging_check.setChecked(False)
 
+        # Reset Extractor
+        self.extractor_seek_spinbox.setValue(100)
+
     # ------------------------------------------------------------------
     # --- Reset State Methods ------------------------------------------
     # ------------------------------------------------------------------
@@ -1423,7 +1448,7 @@ class SettingsWindow(QWidget):
             "Confirm Reset",
             "This will:\n"
             f"  • Delete the PID file ({IMAGE_TOOLKIT_DIR / '.myapp_slideshow.pid'})\n"
-            f"  • Delete the log file ({IMAGE_TOOLKIT_DIR / 'slideshow_daemon.log'})\n"
+            f"  • Delete the log file ({IMAGE_TOOLKIT_DIR / 'logs' / 'slideshow_daemon.log'})\n"
             f'  • Reset the slideshow config to {{"running": false}}\n\n'
             "The daemon will stop if it is currently running.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -1436,8 +1461,7 @@ class SettingsWindow(QWidget):
         errors = []
 
         pid_path = IMAGE_TOOLKIT_DIR / ".myapp_slideshow.pid"
-        log_path = IMAGE_TOOLKIT_DIR / "slideshow_daemon.log"
-
+        log_path = IMAGE_TOOLKIT_DIR / "logs" / "slideshow_daemon.log"
         for p, label in [(pid_path, "PID file"), (log_path, "log file")]:
             try:
                 if p.exists():

@@ -27,6 +27,10 @@ Interface: identical to LoFTRWrapper and EfficientLoFTRWrapper:
 
 from __future__ import annotations
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 import os
 import sys
 from copy import deepcopy
@@ -82,6 +86,17 @@ class JamMaWrapper:
 
     # ---------------------------------------------------------------- lifecycle
 
+    def unload(self) -> None:
+        """Delete model from VRAM/RAM and free GPU cache."""
+        if self._model is not None:
+            self._model.cpu()
+            del self._model
+            self._model = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        import gc
+        gc.collect()
+
     def offload(self) -> None:
         if self._model is not None:
             self._model.cpu()
@@ -93,7 +108,7 @@ class JamMaWrapper:
             self._model.to(self.device).eval()
             return
 
-        print("[JamMa] Loading outdoor model from HuggingFace …")
+        logger.info("[JamMa] Loading outdoor model from HuggingFace …")
         from huggingface_hub import hf_hub_download
 
         ckpt_path = hf_hub_download(_HF_REPO, _CKPT_FILE)
@@ -109,7 +124,7 @@ class JamMaWrapper:
             state = state["state_dict"]
         model.load_state_dict(state, strict=False)
         self._model = model.eval().to(self.device)
-        print("[JamMa] Model loaded.")
+        logger.info("[JamMa] Model loaded.")
 
     # ---------------------------------------------------------------- inference
 

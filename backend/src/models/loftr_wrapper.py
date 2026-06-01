@@ -18,6 +18,10 @@ import cv2
 import numpy as np
 import torch
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 import kornia.feature as KF
 from typing import Optional, Tuple
 
@@ -44,6 +48,17 @@ class LoFTRWrapper:
     # Model loading
     # ------------------------------------------------------------------
 
+    def unload(self):
+        """Delete model from VRAM/RAM and release GPU memory."""
+        if self.matcher is not None:
+            self.matcher.cpu()
+            del self.matcher
+            self.matcher = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        import gc
+        gc.collect()
+
     def offload(self):
         if self.matcher is not None:
             self.matcher.cpu()
@@ -52,7 +67,7 @@ class LoFTRWrapper:
 
     def load_model(self):
         if self.matcher is None:
-            print("[LoFTR] Loading outdoor model …")
+            logger.info("[LoFTR] Loading outdoor model …")
             self.matcher = KF.LoFTR(pretrained="outdoor").to(self.device)
         else:
             self.matcher.to(self.device)

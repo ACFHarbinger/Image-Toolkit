@@ -4,6 +4,10 @@ Canvas geometry, frame loading & normalization, and SCANS-mode fallback.
 
 from __future__ import annotations
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 from typing import List, Tuple
 
 import cv2
@@ -20,7 +24,7 @@ def _load_frames(paths: List[str]) -> List[np.ndarray]:
     for p in paths:
         img = cv2.imread(p)
         if img is None:
-            print(f"[Stitch] Warning: could not read '{p}' — skipping.")
+            logger.warning(f"[Stitch] Warning: could not read '{p}' — skipping.")
             continue
         img = _trim_dark_border(img)
         frames.append(img)
@@ -129,13 +133,13 @@ def _crop_to_valid(canvas: np.ndarray, valid_mask: np.ndarray) -> np.ndarray:
 
         xv0, yv0, xv1, yv1 = _largest_valid_rect(valid_mask > 0)
         if (xv1 - xv0) * (yv1 - yv0) > 0:
-            print(
+            logger.debug(
                 f"[Stitch]   crop_to_valid (inner-rect, ratio={valid_ratio:.2f}): "
                 f"({xv0},{yv0}) → ({xv1},{yv1})"
             )
             return canvas[yv0:yv1, xv0:xv1]
 
-    print(f"[Stitch]   crop_to_valid: ({c0},{r0}) → ({c1},{r1})")
+    logger.info(f"[Stitch]   crop_to_valid: ({c0},{r0}) → ({c1},{r1})")
     return canvas[r0:r1, c0:c1]
 
 
@@ -151,7 +155,7 @@ def _scan_stitch_fallback(
     After stitching we crop to the largest fully-covered inner rectangle so
     the final image contains no black boundary pixels.
     """
-    print("[Stitch] FALLBACK: using OpenCV SCANS mode.")
+    logger.info("[Stitch] FALLBACK: using OpenCV SCANS mode.")
     cv2.ocl.setUseOpenCL(False)
     try:
         stitcher = cv2.Stitcher_create(mode=1)
@@ -171,7 +175,7 @@ def _scan_stitch_fallback(
     x0, y0, x1, y1 = _largest_valid_rect(valid_mask)
     if (x1 - x0) > 0 and (y1 - y0) > 0:
         pano = pano[y0:y1, x0:x1]
-        print(f"[Stitch] SCANS inner-rect crop: ({x0},{y0}) → ({x1},{y1})")
+        logger.info(f"[Stitch] SCANS inner-rect crop: ({x0},{y0}) → ({x1},{y1})")
 
     rgb = cv2.cvtColor(pano, cv2.COLOR_BGR2RGB)
     out = Image.fromarray(rgb)

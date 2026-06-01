@@ -7,6 +7,10 @@ explicitly when LoFTR matching is enabled.
 
 from __future__ import annotations
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 import gc
 from typing import Dict, List, Optional, Tuple
 
@@ -432,7 +436,7 @@ def _match_pair(
                     if M is not None:
                         actual_pts_i = pts1 + [ec_w, ec_h]
                         actual_pts_j = pts2 + [ec_w, ec_h]
-                        print(
+                        logger.debug(
                             f"[Stitch]   {i}→{j}: LoFTR dx={M[0, 2]:.1f} dy={M[1, 2]:.1f} conf={mean_conf:.3f} (pts={len(pts1)})"
                         )
 
@@ -452,7 +456,7 @@ def _match_pair(
                 M, mean_conf = M_alg, c_alg
                 actual_pts_i = pts_alg_i + [ec_w, ec_h]
                 actual_pts_j = pts_alg_j + [ec_w, ec_h]
-                print(
+                logger.debug(
                     f"[Stitch]   {i}→{j}: ALIKED+LG dx={M[0, 2]:.1f} dy={M[1, 2]:.1f} "
                     f"conf={mean_conf:.3f} (pts={len(pts_alg_i)})"
                 )
@@ -466,7 +470,7 @@ def _match_pair(
         )
         if M_tm is not None and c_tm > 0.6:
             M, mean_conf = M_tm, c_tm
-            print(
+            logger.debug(
                 f"[Stitch]   {i}→{j}: TemplateMatch dy={M[1, 2]:.1f} conf={mean_conf:.3f}"
             )
 
@@ -477,7 +481,7 @@ def _match_pair(
         )
         if _is_valid(M_pc) and c_pc > 0.25:
             M, mean_conf = M_pc, c_pc
-            print(
+            logger.debug(
                 f"[Stitch]   {i}→{j}: PhaseCorr(masked) dx={M[0, 2]:.1f} dy={M[1, 2]:.1f} conf={mean_conf:.3f}"
             )
 
@@ -488,7 +492,7 @@ def _match_pair(
         )
         if _is_valid(M_pc2) and c_pc2 > 0.15:
             M, mean_conf = M_pc2, c_pc2
-            print(
+            logger.debug(
                 f"[Stitch]   {i}→{j}: PhaseCorr(unmasked) dx={M[0, 2]:.1f} dy={M[1, 2]:.1f} conf={mean_conf:.3f}"
             )
 
@@ -504,7 +508,7 @@ def _match_pair(
             )
             if M_sg is not None and _is_valid(M_sg):
                 M, mean_conf = M_sg, c_sg
-                print(
+                logger.debug(
                     f"[Stitch]   {i}→{j}: SegmentGuided dx={M[0, 2]:.1f} dy={M[1, 2]:.1f} conf={mean_conf:.3f}"
                 )
         except Exception:
@@ -520,14 +524,14 @@ def _match_pair(
             )
             if M_roma is not None and _is_valid(M_roma):
                 M, mean_conf = M_roma, c_roma
-                print(
+                logger.debug(
                     f"[Stitch]   {i}→{j}: RoMa dx={M[0, 2]:.1f} dy={M[1, 2]:.1f} conf={mean_conf:.3f}"
                 )
         except Exception:
             pass
 
     if M is None:
-        print(f"[Stitch]   {i}→{j}: all methods failed — skipping edge.")
+        logger.info(f"[Stitch]   {i}→{j}: all methods failed — skipping edge.")
         return None
 
     # For a translation-only pipeline, we enforce identity rotation/scale here

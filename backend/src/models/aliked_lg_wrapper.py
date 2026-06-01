@@ -16,6 +16,10 @@ keypoints, before falling back to template matching.
 
 from __future__ import annotations
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 from typing import Optional, Tuple
 
 import cv2
@@ -51,6 +55,17 @@ class ALIKEDLightGlueWrapper:
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self._matcher: Optional[KF.LightGlueMatcher] = None
 
+    def unload(self) -> None:
+        """Delete matcher from VRAM/RAM and free GPU cache."""
+        if self._matcher is not None:
+            self._matcher.cpu()
+            del self._matcher
+            self._matcher = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        import gc
+        gc.collect()
+
     def offload(self) -> None:
         if self._matcher is not None:
             self._matcher.cpu()
@@ -59,7 +74,7 @@ class ALIKEDLightGlueWrapper:
 
     def _load(self) -> None:
         if self._matcher is None:
-            print("[ALIKED+LG] Loading ALIKED+LightGlue matcher …")
+            logger.debug("[ALIKED+LG] Loading ALIKED+LightGlue matcher …")
             self._matcher = KF.LightGlueMatcher("aliked").eval().to(self.device)
         else:
             self._matcher.to(self.device).eval()

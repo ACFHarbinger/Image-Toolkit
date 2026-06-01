@@ -15,6 +15,10 @@ translation as a 2-DOF estimate compatible with the BA anchor format.
 
 from __future__ import annotations
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 import cv2
 import numpy as np
 import torch
@@ -42,6 +46,20 @@ class RoMaWrapper:
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self._model = None
 
+    def unload(self) -> None:
+        """Delete model from VRAM/RAM and free GPU cache."""
+        if self._model is not None:
+            try:
+                self._model.to("cpu")
+            except Exception:
+                pass
+            del self._model
+            self._model = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        import gc
+        gc.collect()
+
     def offload(self) -> None:
         if self._model is not None:
             try:
@@ -53,7 +71,7 @@ class RoMaWrapper:
 
     def _load(self) -> None:
         if self._model is None:
-            print("[RoMa] Loading RoMa outdoor model …")
+            logger.info("[RoMa] Loading RoMa outdoor model …")
             self._model = roma_outdoor(device=self.device)
 
     def match_translation(
@@ -107,7 +125,7 @@ class RoMaWrapper:
             with torch.no_grad():
                 warp, certainty = self._model.match(pil_i, pil_j, device=self.device)
         except Exception as _e:
-            print(f"[RoMa] match failed: {_e}")
+            logger.info(f"[RoMa] match failed: {_e}")
             return None, 0.0
 
         # warp: (H, W, 4) — (x_j, y_j, x_i, y_i) normalised to [-1,1]

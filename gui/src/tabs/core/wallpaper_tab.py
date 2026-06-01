@@ -665,7 +665,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.countdown_label.setText("Timer: --:--")
 
     def view_daemon_logs(self):
-        log_path = Path.home() / ".image-toolkit" / "slideshow_daemon.log"
+        log_path = Path.home() / ".image-toolkit" / "logs" / "slideshow_daemon.log"
         if not log_path.exists():
             QMessageBox.information(self, "No Logs", "No daemon log file found yet.")
             return
@@ -1400,7 +1400,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         for i, monitor in enumerate(self.monitors):
             monitor_id = str(i)
             drop_widget = MonitorDropWidget(monitor, monitor_id)
-            
+
             # Retrieve and inject resolved hardware name during layout population
             real_name = drop_widget.get_real_monitor_name()
             if real_name:
@@ -1477,7 +1477,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         if image_paths:
             first_path = image_paths[0]
             self.monitor_image_paths[monitor_id] = first_path
-            
+
             # Update index to match the active preview
             queue = self.monitor_slideshow_queues.get(monitor_id, [])
             if first_path in queue:
@@ -1515,7 +1515,7 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         # Setting the last dropped image as the active one for UI feedback
         self.monitor_image_paths[monitor_id] = image_path
-        
+
         # Update index
         queue = self.monitor_slideshow_queues[monitor_id]
         if image_path in queue:
@@ -1539,7 +1539,6 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         # Find current active path to check it in the menu
         current_active = self.monitor_image_paths.get(monitor_id)
-
         for i, path in enumerate(queue):
             filename = os.path.basename(path)
             action = set_active_menu.addAction(f"[{i}] {filename}")

@@ -12,40 +12,28 @@ def dispatch_core(args):
         inputs = args.get("input")
         output = args.get("output")
         fmt = args.get("format")
-        # quality = args.get("quality")
-        # recursive = args.get("recursive")
+        recursive = args.get("recursive", False)
 
         # Determine if single or batch
         if len(inputs) == 1 and os.path.isfile(inputs[0]):
             success = ImageFormatConverter.convert_single_image(
                 image_path=inputs[0],
-                output_name=output,  # converter handles None
+                output_name=output,
                 format=fmt,
-                # quality is not yet passed to rust backend but we can add it later
             )
-            print(
-                f"Conversion {'successful' if success else 'failed'}", file=sys.stderr
-            )
+            print(f"Conversion {'successful' if success else 'failed'}", file=sys.stderr)
         else:
-            # Batch conversion
-            # If multiple inputs or a directory
+            # Batch conversion — multiple inputs or a directory
             for input_path in inputs:
                 if os.path.isdir(input_path):
                     ImageFormatConverter.convert_batch(
                         input_dir=input_path,
                         inputs_formats=[
-                            "webp",
-                            "png",
-                            "jpg",
-                            "jpeg",
-                            "bmp",
-                            "gif",
-                            "tiff",
-                            "avif",
+                            "webp", "png", "jpg", "jpeg", "bmp", "gif", "tiff", "avif",
                         ],
                         output_dir=output,
                         output_format=fmt,
-                        # recursive=recursive # TODO: add recursive to backend
+                        recursive=recursive,
                     )
                 elif os.path.isfile(input_path):
                     success = ImageFormatConverter.convert_single_image(
@@ -141,11 +129,51 @@ def dispatch_web(args):
 
 
 def dispatch_database(args):
-    print("Database command not yet connected to CLI", file=sys.stderr)
+    command = args.get("db_command")
+    if command == "search":
+        query = args.get("query", "")
+        limit = args.get("limit", 50)
+        try:
+            from ...database.image_database import PgvectorImageDatabase
+            db = PgvectorImageDatabase()
+            results = db.search_images(filename_pattern=query, limit=limit)
+            if not results:
+                print("No results found.")
+                return
+            for img in results:
+                print(
+                    f"{img.get('id', '?'):>6} | {img.get('filename', '')} | "
+                    f"{img.get('group_name', '')} / {img.get('subgroup_name', '')} | "
+                    f"tags: {', '.join(img.get('tags', []))}"
+                )
+        except ImportError as e:
+            print(f"❌ Error: {e}", file=sys.stderr)
+        except Exception as e:
+            print(f"❌ Database search failed: {e}", file=sys.stderr)
+    else:
+        print(f"Database command '{command}' is not recognised.", file=sys.stderr)
+        print("Available commands: search", file=sys.stderr)
 
 
 def dispatch_model(args):
-    print("Model command not yet connected to CLI", file=sys.stderr)
+    command = args.get("model_command")
+    if command == "generate":
+        prompt = args.get("prompt", "")
+        output = args.get("output", "output.png")
+        model_name = args.get("model", "stable-diffusion")
+        try:
+            from ...models.sd3_wrapper import SD3Wrapper
+            print(f"🚀 Generating image with {model_name}: {prompt!r}")
+            wrapper = SD3Wrapper()
+            result = wrapper.generate(prompt=prompt, output_path=output)
+            print(f"✅ Image saved to: {output}")
+        except ImportError as e:
+            print(f"❌ Error: Required modules not found: {e}", file=sys.stderr)
+        except Exception as e:
+            print(f"❌ Generation failed: {e}", file=sys.stderr)
+    else:
+        print(f"Model command '{command}' is not recognised.", file=sys.stderr)
+        print("Available commands: generate", file=sys.stderr)
 
 
 def dispatch_command(command, args):
