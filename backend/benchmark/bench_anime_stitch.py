@@ -189,6 +189,63 @@ def _ghosting_score(img: np.ndarray) -> float:
     return float(np.abs(gy2).mean())
 
 
+def _seam_coherence(img: np.ndarray) -> float:
+    """
+    Standard deviation of per-row mean luminance.
+
+    A clean panorama produced by genuine camera panning has smoothly varying
+    row means (std ≈ 5–20).  An image with severe horizontal color banding —
+    caused by the composite stacking frames with different animation-state
+    colors — has wildly different row means across the height (std > 30).
+
+    This metric is a better quality indicator than sharpness for detecting the
+    catastrophic strip-banding failures that corrupt the Laplacian-variance score.
+    Lower = more coherent (better).
+    """
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    # Only consider rows that have content (not pure black borders)
+    content_rows = gray.mean(axis=1) > 5
+    if content_rows.sum() < 10:
+        return 0.0
+    row_means = gray[content_rows].mean(axis=1)
+    return float(np.std(row_means))
+
+
+def _strip_banding_score(
+    render_img: np.ndarray,
+    affines: Optional[List[np.ndarray]] = None,
+) -> float:
+    """
+    Maximum luminance jump between adjacent frame-strip zones.
+
+    Samples the mean luminance in a ±25px band around each frame's canvas entry
+    row (where the frame's affine ty places it).  If two adjacent strips differ
+    by more than the returned value, severe color banding is present.
+
+    Used as a fallback trigger: if max_strip_jump > 20.0 lum units, the Stage 11
+    composite is likely to produce visible color bands and SCANS fallback is
+    preferable.
+    """
+    if affines is None or len(affines) < 2:
+        return 0.0
+    gray = cv2.cvtColor(render_img, cv2.COLOR_BGR2GRAY) if render_img.ndim == 3 else render_img
+    H = gray.shape[0]
+    strip_means = []
+    for a in sorted(affines, key=lambda m: float(m[1, 2])):
+        ty = int(float(a[1, 2]))
+        y0 = max(0, ty)
+        y1 = min(H, ty + 50)
+        if y1 > y0:
+            band = gray[y0:y1]
+            # Skip near-black border regions
+            if band.mean() > 5:
+                strip_means.append(float(band.mean()))
+    if len(strip_means) < 2:
+        return 0.0
+    diffs = [abs(strip_means[i + 1] - strip_means[i]) for i in range(len(strip_means) - 1)]
+    return float(max(diffs))
+
+
 def _compute_all_metrics(img: np.ndarray, affines: Optional[List] = None) -> Dict:
     return {
         "sharpness": round(_sharpness(img), 2),
@@ -196,9 +253,79 @@ def _compute_all_metrics(img: np.ndarray, affines: Optional[List] = None) -> Dic
         "seam_gradient": round(_mean_seam_gradient(img, affines), 3),
         "color_entropy": round(_color_entropy(img), 4),
         "ghosting_score": round(_ghosting_score(img), 4),
+        "seam_coherence": round(_seam_coherence(img), 2),
         "width": img.shape[1],
         "height": img.shape[0],
     }
+
+
+# ============================================================================
+# GROUND TRUTH HELPERS
+# ============================================================================
+
+
+def _load_ground_truth(dataset_name: str, gt_dir: str) -> Optional[np.ndarray]:
+    """
+    Load the ground truth reference image for a dataset, if one exists.
+
+    Tries .png, .jpg, .jpeg extensions in that order.  Returns None when no
+    ground truth is available for the given dataset.
+    """
+    for ext in (".png", ".jpg", ".jpeg"):
+        path = os.path.join(gt_dir, f"{dataset_name}{ext}")
+        if os.path.exists(path):
+            img = cv2.imread(path)
+            if img is not None:
+                return img
+    return None
+
+
+def _compute_gt_metrics(
+    output_img: Optional[np.ndarray],
+    gt_img: np.ndarray,
+) -> Dict:
+    """
+    Compute SSIM and PSNR between a pipeline output and the ground truth.
+
+    Both images are resized to the smaller of the two dimensions before
+    comparison, matching the existing _ssim_score / _psnr helpers.  Returns an
+    empty dict when output_img is None.
+    """
+    if output_img is None:
+        return {}
+    ssim_val = _ssim_score(output_img, gt_img)
+    psnr_val = _psnr(output_img, gt_img)
+    sc_val = _seam_coherence(output_img)
+    return {
+        "ssim_vs_gt": round(ssim_val, 4) if not math.isnan(ssim_val) else None,
+        "psnr_vs_gt": round(psnr_val, 2) if not math.isnan(psnr_val) else None,
+        "seam_coherence": round(sc_val, 2),
+    }
+
+
+def _gt_verdict(
+    asp_gt: Dict,
+    sim_gt: Dict,
+) -> Optional[str]:
+    """
+    Quality verdict derived from ground truth SSIM comparison.
+
+    Returns 'asp_better', 'simple_better', or 'comparable' when both outputs
+    have GT SSIM scores.  Returns None when ground truth is unavailable.
+
+    SSIM-vs-GT is a far more reliable signal than Laplacian sharpness because
+    it measures structural similarity to the *intended* output, not the presence
+    of high-frequency edge artifacts introduced by banding or misalignment.
+    """
+    asp_ssim = asp_gt.get("ssim_vs_gt")
+    sim_ssim = sim_gt.get("ssim_vs_gt")
+    if asp_ssim is None or sim_ssim is None:
+        return None
+    if asp_ssim > sim_ssim * 1.03:   # 3 % margin to avoid noise-driven flips
+        return "asp_better"
+    if sim_ssim > asp_ssim * 1.03:
+        return "simple_better"
+    return "comparable"
 
 
 # ============================================================================
@@ -768,6 +895,12 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
         central_out_dir, f"{dataset_name}_simple_stitch.png"
     )
 
+    # Ground truth (if available)
+    gt_dir = os.path.join(os.path.dirname(dataset_dir), "ground_truth")
+    gt_img = _load_ground_truth(dataset_name, gt_dir)
+    if gt_img is not None:
+        print(f"  [GT] Ground truth found for {dataset_name}: {gt_img.shape}")
+
     # Clean old outputs
     if os.path.exists(out_path):
         os.remove(out_path)
@@ -1149,6 +1282,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
             edge_stats=edge_stats,
             birefnet_ok=birefnet_ok,
             loftr_ok=loftr_ok,
+            gt_img=gt_img,
         )
 
     try:
@@ -1195,7 +1329,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
         )
 
         # ------------------------------------------------------------------
-        # STEP 8-10: Render → composite → crop
+        # STEP 8-10: Render → quality gate → composite → crop
         # ------------------------------------------------------------------
         t0 = time.perf_counter()
         canvas, valid_mask, _, _ = _render_median(
@@ -1203,6 +1337,35 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
         )
         timings["render_sec"] = round(time.perf_counter() - t0, 3)
         cv2.imwrite(os.path.join(stage_dir, "stage09_temporal_render.png"), canvas)
+
+        # ── Render quality gate ────────────────────────────────────────────
+        # Check whether the temporal median render already has severe horizontal
+        # color banding — a symptom of animated-video content where each strip
+        # shows a different animation state.  Stage 11 would amplify this into
+        # catastrophic visible bands, so we fall back to SCANS early.
+        _render_sc = _seam_coherence(canvas)
+        _render_sb = _strip_banding_score(canvas, affines)
+        print(
+            f"  [RenderGate] seam_coherence={_render_sc:.1f}  "
+            f"strip_banding={_render_sb:.1f}"
+        )
+        # Thresholds (conservative — only reject genuinely catastrophic renders):
+        #   seam_coherence > 35: row-mean std is very high → severe banding
+        #   strip_banding  > 25: adjacent strips differ by >25 lum units → color mismatch
+        _RENDER_SC_LIMIT = 35.0
+        _RENDER_SB_LIMIT = 25.0
+        _render_failed = _render_sc > _RENDER_SC_LIMIT or _render_sb > _RENDER_SB_LIMIT
+        if _render_failed:
+            print(
+                f"  [RenderGate] FAILED (sc={_render_sc:.1f}>{_RENDER_SC_LIMIT} or "
+                f"sb={_render_sb:.1f}>{_RENDER_SB_LIMIT}) → SCANS fallback."
+            )
+            timings["render_gate_fallback"] = 1
+            raise RuntimeError(
+                f"Render quality gate: seam_coherence={_render_sc:.1f}, "
+                f"strip_banding={_render_sb:.1f}"
+            )
+        timings["render_gate_fallback"] = 0
 
         t0 = time.perf_counter()
         canvas = _composite_foreground(
@@ -1259,6 +1422,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
             edge_stats=edge_stats,
             birefnet_ok=birefnet_ok,
             loftr_ok=loftr_ok,
+            gt_img=gt_img,
         )
 
     # ------------------------------------------------------------------
@@ -1336,6 +1500,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
         edge_stats=edge_stats,
         birefnet_ok=birefnet_ok,
         loftr_ok=loftr_ok,
+        gt_img=gt_img,
     )
 
 
@@ -1369,6 +1534,7 @@ def _build_result(
     edge_stats: Optional[List] = None,
     birefnet_ok: bool = False,
     loftr_ok: bool = False,
+    gt_img: Optional[np.ndarray] = None,
 ) -> Dict:
     asp_metrics = _compute_all_metrics(asp_img, affines) if asp_img is not None else {}
     sim_metrics = _compute_all_metrics(sim_img) if sim_img is not None else {}
@@ -1378,6 +1544,12 @@ def _build_result(
     if asp_img is not None and sim_img is not None:
         ssim_val = _ssim_score(asp_img, sim_img)
         psnr_val = _psnr(asp_img, sim_img)
+
+    # Ground truth comparison
+    gt_metrics_asp: Dict = _compute_gt_metrics(asp_img, gt_img) if gt_img is not None else {}
+    gt_metrics_sim: Dict = _compute_gt_metrics(sim_img, gt_img) if gt_img is not None else {}
+    gt_ver = _gt_verdict(gt_metrics_asp, gt_metrics_sim)
+    has_gt = gt_img is not None
 
     # Affine translation summary for JSON
     affine_translations = [
@@ -1473,7 +1645,16 @@ def _build_result(
         "comparison": {
             "ssim": round(ssim_val, 4) if not math.isnan(ssim_val) else None,
             "psnr_db": round(psnr_val, 2) if not math.isnan(psnr_val) else None,
-            "verdict": _auto_verdict(asp_metrics, sim_metrics),
+            # GT-based verdict when available (most reliable); CV-based otherwise
+            "verdict": gt_ver if gt_ver is not None else _auto_verdict(asp_metrics, sim_metrics),
+            "verdict_source": "ground_truth" if gt_ver is not None else "cv_metrics",
+        },
+        # --- ground truth comparison ---
+        "ground_truth": {
+            "available": has_gt,
+            "metrics_asp": gt_metrics_asp,
+            "metrics_simple": gt_metrics_sim,
+            "verdict": gt_ver,
         },
         # --- status ---
         "used_fallback": used_fallback,
@@ -1599,6 +1780,40 @@ def generate_json_results(results: List[Dict], suite_start_time: float) -> str:
                 "comparable": verdicts.count("comparable"),
                 "insufficient_data": verdicts.count("insufficient_data"),
             },
+            # Ground truth summary
+            "datasets_with_ground_truth": sum(
+                1 for r in results if r.get("ground_truth", {}).get("available")
+            ),
+            "gt_verdict_counts": {
+                "asp_better": sum(
+                    1 for r in results
+                    if r.get("ground_truth", {}).get("verdict") == "asp_better"
+                ),
+                "simple_better": sum(
+                    1 for r in results
+                    if r.get("ground_truth", {}).get("verdict") == "simple_better"
+                ),
+                "comparable": sum(
+                    1 for r in results
+                    if r.get("ground_truth", {}).get("verdict") == "comparable"
+                ),
+            },
+            "avg_ssim_asp_vs_gt": round(float(np.mean([
+                r["ground_truth"]["metrics_asp"]["ssim_vs_gt"]
+                for r in results
+                if r.get("ground_truth", {}).get("available")
+                and r["ground_truth"]["metrics_asp"].get("ssim_vs_gt") is not None
+            ])), 4) if any(
+                r.get("ground_truth", {}).get("available") for r in results
+            ) else None,
+            "avg_ssim_simple_vs_gt": round(float(np.mean([
+                r["ground_truth"]["metrics_simple"]["ssim_vs_gt"]
+                for r in results
+                if r.get("ground_truth", {}).get("available")
+                and r["ground_truth"]["metrics_simple"].get("ssim_vs_gt") is not None
+            ])), 4) if any(
+                r.get("ground_truth", {}).get("available") for r in results
+            ) else None,
         },
         "datasets": results,
         "performance_insights": {
@@ -1706,20 +1921,42 @@ human_notes: |
 
 
 def _auto_verdict(asp_m: Dict, sim_m: Dict) -> str:
-    """Quick heuristic verdict from metrics."""
+    """
+    Quality verdict using seam_coherence as the primary discriminator.
+
+    Laplacian sharpness is NOT used as a primary signal because hard seam edges
+    inflate it, making catastrophically banded ASP outputs appear "sharper" than
+    clean simple-stitch results.  Instead:
+
+      - seam_coherence (row-mean luminance std): lower = more coherent.
+        If ASP seam_coherence > 28 (severe banding), simple_better.
+        If both are low, use coverage and ghosting as tiebreaker.
+      - seam_gradient (gradient at seam rows): lower = smoother seams.
+      - coverage: higher = more useful canvas area.
+      - ghosting_score: lower = fewer ghost artifacts.
+    """
     if not asp_m or not sim_m:
         return "insufficient_data"
+
+    asp_sc = asp_m.get("seam_coherence", 0.0)
+    sim_sc = sim_m.get("seam_coherence", 0.0)
+
+    # If ASP has severe banding (high seam_coherence) → simple is better
+    if asp_sc > 28.0 and asp_sc > sim_sc * 1.5:
+        return "simple_better"
+
+    # Composite quality score: penalise banding and ghosting, reward coverage
     asp_score = (
-        asp_m.get("sharpness", 0) * 0.4
-        + asp_m.get("coverage", 0) * 100 * 0.3
-        - asp_m.get("ghosting_score", 0) * 0.2
-        - asp_m.get("seam_gradient", 0) * 0.1
+        asp_m.get("coverage", 0) * 100 * 0.4
+        - asp_sc * 0.3
+        - asp_m.get("seam_gradient", 0) * 0.15
+        - asp_m.get("ghosting_score", 0) * 0.15
     )
     sim_score = (
-        sim_m.get("sharpness", 0) * 0.4
-        + sim_m.get("coverage", 0) * 100 * 0.3
-        - sim_m.get("ghosting_score", 0) * 0.2
-        - sim_m.get("seam_gradient", 0) * 0.1
+        sim_m.get("coverage", 0) * 100 * 0.4
+        - sim_sc * 0.3
+        - sim_m.get("seam_gradient", 0) * 0.15
+        - sim_m.get("ghosting_score", 0) * 0.15
     )
     if asp_score > sim_score * 1.1:
         return "asp_better"
@@ -1746,9 +1983,15 @@ def _auto_issues(metrics: Dict, is_asp: bool) -> List[str]:
         issues.append(
             f"  - seam_discontinuity: gradient={seam:.2f} (abrupt transitions)"
         )
-    sharp = metrics.get("sharpness", 0)
-    if sharp < 30:
-        issues.append(f"  - low_sharpness: {sharp:.2f} (blurry / smeared)")
+    sc = metrics.get("seam_coherence", 0.0)
+    if sc > 28.0:
+        issues.append(
+            f"  - color_banding: seam_coherence={sc:.1f} (severe horizontal strip color mismatch)"
+        )
+    elif sc > 18.0:
+        issues.append(
+            f"  - mild_banding: seam_coherence={sc:.1f} (visible color variation between strips)"
+        )
     if not issues:
         issues.append("  - none_detected")
     return issues
@@ -1787,31 +2030,33 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
     # Global summary table
     lines.append(_GLOBAL_SUMMARY_HEADER)
     lines.append(
-        "| Test | ASP Size | Simple Size | Coverage ASP | Coverage Simple | Ghosting ASP | Ghosting Simple | SSIM | Verdict | Fallback |\n"
+        "| Test | SC ASP | SC Sim | GT SSIM ASP | GT SSIM Sim | SSIM(A↔S) | Verdict | Src | FB |\n"
     )
     lines.append(
-        "|------|----------|-------------|-------------|----------------|-------------|----------------|------|---------|----------|\n"
+        "|------|-------:|-------:|------------:|------------:|----------:|---------|-----|----|\n"
     )
     for r in results:
         am, sm = r["metrics_asp"], r["metrics_simple"]
-        asp_sz = f"{am.get('width', '?')}×{am.get('height', '?')}" if am else "—"
-        sim_sz = f"{sm.get('width', '?')}×{sm.get('height', '?')}" if sm else "—"
-        cov_a = f"{am.get('coverage', 0):.1%}" if am else "—"
-        cov_s = f"{sm.get('coverage', 0):.1%}" if sm else "—"
-        gh_a = f"{am.get('ghosting_score', 0):.2f}" if am else "—"
-        gh_s = f"{sm.get('ghosting_score', 0):.2f}" if sm else "—"
+        sc_a = f"{am.get('seam_coherence', 0):.1f}" if am else "—"
+        sc_s = f"{sm.get('seam_coherence', 0):.1f}" if sm else "—"
+        gt = r.get("ground_truth", {})
+        gt_ssim_a = gt.get("metrics_asp", {}).get("ssim_vs_gt")
+        gt_ssim_s = gt.get("metrics_simple", {}).get("ssim_vs_gt")
+        gt_ssim_a_s = f"{gt_ssim_a:.3f}" if gt_ssim_a is not None else "—"
+        gt_ssim_s_s = f"{gt_ssim_s:.3f}" if gt_ssim_s is not None else "—"
         ssim_v = (
             f"{r['comparison']['ssim']:.3f}"
-            if r["comparison"]["ssim"] is not None
-            else "—"
+            if r["comparison"]["ssim"] is not None else "—"
         )
-        verdict = _auto_verdict(am, sm)
+        verdict = r["comparison"]["verdict"]
+        vsrc = r["comparison"].get("verdict_source", "cv")[:2].upper()
         fallback = "✓" if r["used_fallback"] else ""
         lines.append(
-            f"| [{r['name']}](#{r['name']}) | {asp_sz} | {sim_sz} | {cov_a} | {cov_s} | "
-            f"{gh_a} | {gh_s} | {ssim_v} | {verdict} | {fallback} |\n"
+            f"| [{r['name']}](#{r['name']}) | {sc_a} | {sc_s} | {gt_ssim_a_s} | {gt_ssim_s_s} | "
+            f"{ssim_v} | {verdict} | {vsrc} | {fallback} |\n"
         )
     lines.append("\n")
+    lines.append("*SC = seam_coherence (lower is better); GT SSIM = SSIM vs ground truth; Src = verdict source (GT / CV)*\n\n")
 
     # Global ASP failure breakdown
     lines.append("### Failure Mode Counts (ASP)\n\n")
@@ -1892,7 +2137,40 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
         lines.append(
             f"| `psnr (asp vs simple)` | {psnr_v} | — | Peak SNR between the two outputs |\n"
         )
+        lines.append(
+            f"| `seam_coherence` | {am.get('seam_coherence', '—') if am else '—'} | "
+            f"{sm.get('seam_coherence', '—') if sm else '—'} | "
+            f"Row-mean lum std — lower = less color banding (≤18 good, 18–28 moderate, >28 severe) |\n"
+        )
         lines.append("\n")
+
+        # Ground truth comparison (if available)
+        gt = r.get("ground_truth", {})
+        if gt.get("available"):
+            lines.append("### Ground Truth Comparison\n\n")
+            gt_am = gt.get("metrics_asp", {})
+            gt_sm = gt.get("metrics_simple", {})
+            asp_ssim_gt = gt_am.get("ssim_vs_gt")
+            sim_ssim_gt = gt_sm.get("ssim_vs_gt")
+            asp_psnr_gt = gt_am.get("psnr_vs_gt")
+            sim_psnr_gt = gt_sm.get("psnr_vs_gt")
+            gt_ver = gt.get("verdict", "—")
+            lines.append("| Metric | ASP | Simple | Notes |\n")
+            lines.append("|--------|-----|--------|-------|\n")
+            lines.append(
+                f"| SSIM vs Ground Truth | "
+                f"{f'{asp_ssim_gt:.4f}' if asp_ssim_gt is not None else '—'} | "
+                f"{f'{sim_ssim_gt:.4f}' if sim_ssim_gt is not None else '—'} | "
+                f"Higher = closer to reference |\n"
+            )
+            lines.append(
+                f"| PSNR vs Ground Truth | "
+                f"{f'{asp_psnr_gt:.1f} dB' if asp_psnr_gt is not None else '—'} | "
+                f"{f'{sim_psnr_gt:.1f} dB' if sim_psnr_gt is not None else '—'} | "
+                f"Higher = closer to reference |\n"
+            )
+            lines.append(f"| **GT-based verdict** | **{gt_ver}** | — | Most reliable quality signal |\n")
+            lines.append("\n")
 
         # Affine health
         ah = r["affine_health"]
@@ -2128,20 +2406,145 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
 # ENTRY POINT
 # ============================================================================
 
+
+def _resolve_datasets(base_dir: str, args) -> List[str]:
+    """
+    Return an ordered list of dataset directories to process based on CLI args.
+
+    Selection flags (mutually exclusive, first match wins):
+      --tests asp_test04 asp_test27    specific dataset names
+      --range 1-10                     inclusive numeric range (zero-padded)
+      --range 1,3,5,27                 explicit comma-separated numbers
+      --first N                        first N datasets in sorted order
+      (none)                           all datasets
+
+    Additional filter:
+      --skip-done   skip any dataset whose output panorama.png already exists
+    """
+    all_dirs = sorted(
+        d for d in glob.glob(os.path.join(base_dir, "asp_test*"))
+        if os.path.isdir(d)
+    )
+
+    if args.tests:
+        # Explicit names, e.g. asp_test04 asp_test27
+        name_set = set(args.tests)
+        selected = [d for d in all_dirs if os.path.basename(d) in name_set]
+        # Preserve CLI order for exact names
+        order = {n: i for i, n in enumerate(args.tests)}
+        selected.sort(key=lambda d: order.get(os.path.basename(d), 999))
+    elif args.range:
+        # Numeric range "1-10" or comma list "1,3,27"
+        spec = args.range
+        nums: set = set()
+        for part in spec.split(","):
+            part = part.strip()
+            if "-" in part:
+                lo, hi = part.split("-", 1)
+                nums.update(range(int(lo), int(hi) + 1))
+            else:
+                nums.add(int(part))
+        selected = [
+            d for d in all_dirs
+            if any(os.path.basename(d) == f"asp_test{n:02d}" or
+                   os.path.basename(d) == f"asp_test{n}" for n in nums)
+        ]
+    elif args.first:
+        selected = all_dirs[: args.first]
+    else:
+        selected = all_dirs
+
+    if args.skip_done:
+        def _is_done(d: str) -> bool:
+            return os.path.exists(os.path.join(d, "output", "panorama.png"))
+        before = len(selected)
+        selected = [d for d in selected if not _is_done(d)]
+        print(f"[skip-done] Skipped {before - len(selected)} already-processed datasets.")
+
+    return selected
+
+
 if __name__ == "__main__":
-    base_dir = "/home/pkhunter/Repositories/Image-Toolkit/data"
-    datasets = sorted(glob.glob(os.path.join(base_dir, "asp_test*")))
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Anime Stitch Pipeline Benchmark",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Run all 94 tests (default)
+  python3 -m backend.benchmark.bench_anime_stitch
+
+  # Run specific tests by name
+  python3 -m backend.benchmark.bench_anime_stitch --tests asp_test04 asp_test27
+
+  # Run a numeric range (zero-padded names)
+  python3 -m backend.benchmark.bench_anime_stitch --range 1-10
+
+  # Mix: explicit comma list of numbers
+  python3 -m backend.benchmark.bench_anime_stitch --range 1,4,8,27,57
+
+  # First N tests only
+  python3 -m backend.benchmark.bench_anime_stitch --first 5
+
+  # Skip tests already processed (panorama.png exists)
+  python3 -m backend.benchmark.bench_anime_stitch --skip-done
+
+  # Combine: first 20 tests, skip done
+  python3 -m backend.benchmark.bench_anime_stitch --first 20 --skip-done
+""",
+    )
+    parser.add_argument(
+        "--tests",
+        nargs="+",
+        metavar="NAME",
+        help="Specific dataset names to run (e.g. asp_test04 asp_test27)",
+    )
+    parser.add_argument(
+        "--range",
+        metavar="SPEC",
+        help='Numeric range "1-10" or comma list "1,3,5" of test numbers',
+    )
+    parser.add_argument(
+        "--first",
+        type=int,
+        metavar="N",
+        help="Run only the first N datasets in sorted order",
+    )
+    parser.add_argument(
+        "--skip-done",
+        action="store_true",
+        help="Skip datasets whose output/panorama.png already exists",
+    )
+    parser.add_argument(
+        "--data-dir",
+        default="/home/pkhunter/Repositories/Image-Toolkit/data",
+        metavar="DIR",
+        help="Root data directory containing asp_testXX subdirectories",
+    )
+    args = parser.parse_args()
+
+    base_dir = args.data_dir
+    datasets = _resolve_datasets(base_dir, args)
+
+    if not datasets:
+        print("No datasets matched the selection criteria.")
+        raise SystemExit(0)
+
+    print(f"[Benchmark] Running {len(datasets)} dataset(s):")
+    for d in datasets:
+        print(f"  {os.path.basename(d)}")
+    print()
 
     suite_start = time.perf_counter()
     results = []
     for ds in datasets:
-        if os.path.isdir(ds):
-            result = process_dataset(ds)
-            if result is not None:
-                results.append(result)
-            gc.collect()
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+        result = process_dataset(ds)
+        if result is not None:
+            results.append(result)
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     if results:
         output_dir = os.path.join(base_dir, "output")

@@ -24,6 +24,7 @@ Frames → BaSiC photometric correction → BiRefNet foreground masking → LoFT
 | `backend/src/anim/canvas.py` | Stage 8 | Canvas geometry, `_compute_canvas`, `_crop_to_valid` |
 | `backend/src/anim/masking.py` | Stage 4 | BiRefNet foreground masks |
 | `backend/src/anim/ecc.py` | Stage 8 | ECC sub-pixel refinement |
+| `backend/src/anim/validation.py` | Post-7 | Affine health check; **min_gap threshold = 25px (was 50px)** |
 | `backend/src/core/image_merger.py` | Reference | Simple stitch (`_merge_images_scan_stitch`) — the quality target |
 
 ### Full architecture reference
@@ -47,81 +48,184 @@ Read the relevant reports in `reports/` before proposing algorithmic changes:
 - `renders/AverageRender.cpp` — weighted average rendering
 - `renders/StatisticsRender.cpp` — median/statistics-based rendering
 
-### Known issue summary
+---
 
-See `.agent/cache/anime_stitch_pipeline_issues.md` for the full diagnostic report. Summary by dataset:
+## ⚠️ Critical Context — Animated Video vs. Static Scroll
 
-| Dataset | Frames | Alignment | Status |
-|---------|--------|-----------|--------|
-| `asp_test1/` | 8  | good (1.1×) | Subtle brightness gradient at B0/B1 — mostly fixed |
-| `asp_test2/` | 10 | broken      | Wrong frame ordering (wrong-direction matches) |
-| `asp_test3/` | 11 | unknown     | Stage 9 ghosting + hard seam |
-| `asp_test4/` | 7  | good (1.0×) | `_crop_to_valid` overcropping −393px |
-| `asp_test5/` | 6  | degraded (1.3×) | Frame spacing compressed → Stage 9 ghosting |
-| `asp_test6/` | 9  | good (1.4×) | **Clean output — positive baseline** |
-| `asp_test7/` | 14 | broken (4.7×) | Non-monotonic order + diagonal scroll (tx) unsupported |
-| `asp_test8/` | 11 | broken (5.9×) | Catastrophic frame clustering (16–21px gaps) |
-| `asp_test9/` | 9  | broken (11.8×) | Severe frame clustering → −1609px height loss |
-| `asp_test10/` | 14 | degraded (3.2×) | Uneven gaps; ss uses full perspective model |
-| `asp_test11/` | 7  | **good (1.1×)** | **Clean — positive baseline** |
-| `asp_test12/` | 6  | borderline (2.9×) | Visually clean despite ratio |
-| `asp_test13/` | 9  | degraded (2.3×) | Mild seam at large-gap boundary |
-| `asp_test14/` | 7  | **good (1.1×)** | **Clean — positive baseline** |
-| `asp_test15/` | 7  | **good (1.1×)** | **Clean — positive baseline** |
-| `asp_test16/` | 10 | broken (6.1×) | Frame clustering (min_gap=12px) |
-| `asp_test17/` | 7  | borderline (1.5×) | Mild seam at one boundary |
-| `asp_test18/` | 6  | anomalous (1.1×) | Good ty/tx but bad Stage 9 — affine rotation issue |
-| `asp_test19/` | 10 | **good (1.1×)** | **Clean — positive baseline** |
-| `asp_test20/` | 7  | broken (H) | Pure horizontal scroll — unsupported scroll axis |
-| `asp_test21/` | 10 | partial (1.0×) | 3 co-located duplicate frames → top-strip ghosting |
-| `asp_test22/` | 11 | **good (1.0×)** | **Clean — positive baseline** |
+**The pipeline was designed for scrolling static artwork (manga panels) but the 94-test corpus consists of animated video sequences.** Visual inspection of outputs (2026-06-01) reveals the pipeline is failing on the majority of cases with severe horizontal color banding and body-part duplication at strip seams.
 
-**Key insights:**
-- Stage 9 ghosting is almost always downstream of bad affines — but test18 is the confirmed exception (good ty/tx, bad rotation components).
-- Seven positive baselines confirm the pipeline works well when alignment is correct: test4, test6, test11, test14, test15, test19, test22.
-- Two new unsupported scroll modes: horizontal (test20: ty≈0, tx=0–1857px) and pure diagonal (test7).
-- Always check `min_gap` in addition to `ratio` — a ratio of 1.0× with min_gap=0 still indicates co-located frames (test21).
-- Stage 11 uses INTER_LINEAR (not INTER_LANCZOS4). `has_content = src.max(axis=2) > 0` is correct — do NOT raise this threshold. Dark-frame pixels with max=1–10 are real content in ~95% of cases, not Lanczos ringing.
-- test12 S11 > S09 is structural (inter-frame bg_diff=30 exceeds the ±7% gain cap). Not a bug.
-- The old seam metric inflates numbers for test19 by ~12 units due to a canvas coverage change at an exclusive-zone boundary. Use the corrected metric (see §7B.2 in cache doc).
-- Three compositing fixes are now active: (A) bg-only scalar BT.601 gain ±7%, (B) proportional Laplacian ramp `max(20, zone_h×0.12)`, (C) `_FADE_ROWS=40` in rendering.py. These improve 6/10 measured datasets by 0.3–7.6 seam units.
+**Root cause:** Characters move independently of the camera with every frame. Phase correlation on whole frames cannot separate camera displacement from character animation displacement. When frames at different animation states are stacked vertically, each strip shows a different character pose at the same canvas region — producing a temporal collage rather than a spatial panorama.
 
-### Quality target
+**The CV sharpness metric (Laplacian variance) is completely wrong for this use case** — hard seam edges register as "high sharpness". Do NOT trust the benchmark's `asp_better` verdict field. Use `seam_gradient` and the new `seam_coherence` metric as quality proxies. Visual inspection remains the ground truth.
 
-The simple stitch (`_merge_images_scan_stitch` in `backend/src/core/image_merger.py`) produces seam-free results with natural brightness but has ghosting and blur from linear alpha blending. The pipeline output must match or exceed this: no horizontal seam bands, no brightness discontinuities, sharp character edges.
+**Visually confirmed good outputs (true asp_better):** asp_test28, asp_test58 (were asp_test27, asp_test57 in old numbering). Only ~10–15% of the 96 tests produce genuinely better output than the simple stitch.
 
-### Fast iteration loop
+---
 
-Do NOT re-run GPU-heavy stages (BiRefNet, LoFTR) when iterating on compositing. Use the pre-computed stage outputs:
+## Known Issues Summary (94-test corpus, 2026-06-01)
+
+### Alignment failures (25 fallbacks)
+
+| Category | Count | Description |
+|----------|------:|-------------|
+| `min_gap < 25px` (near-duplicate clustering) | ~10 | Frames placed too close on canvas — genuine co-location |
+| `min_gap 25–50px` (borderline — now pass) | ~13 | Previously rejected with 50px threshold; now accepted |
+| `ratio > 3.0` (catastrophic bundle) | 2 | test13 (ratio=10.6), test88 (ratio=4.0) |
+
+### Compositing failures (most ASP-succeeded tests)
+
+Visual quality breakdown of the 69 ASP-succeeded tests:
+
+| Category | Approx. count | Seam∇ proxy | Example tests |
+|----------|--------------|-------------|---------------|
+| Catastrophic — severe color banding, duplicate body parts | ~20–30 | >10 | test04, test08, test11, test25, test36, test85 |
+| Poor — visible seams, color mismatch | ~20–25 | 7–10 | test01, test15, test60, test93 |
+| Moderate — seams visible but usable | ~10–15 | 4–7 | test17, test34 |
+| Good — genuine panorama improvement | ~5–10 | <5 | test27, test57 |
+
+### Most impactful fixes (in priority order)
+
+1. **Background-only phase correlation** in frame selector — use BiRefNet-masked background pixels so character animation doesn't corrupt the camera displacement estimate
+2. **Canvas coverage check** — before compositing, verify median frame coverage ≥ 2 per canvas row; if not, fall back to SCANS (temporal median can't work with single-frame rows)
+3. **Strip color coherence gate** — if adjacent strips differ by >20 luminance units, skip per-strip photometric normalization (Stage 11 amplifies color mismatch)
+4. **Lower min_gap to 25px + vector magnitude** in `validation.py` — already implemented
+
+---
+
+## Test Corpus (96 datasets, asp_test01–asp_test96)
+
+Datasets are in `data/asp_testXX/` (zero-padded). Frames are consecutive video frames (~42ms intervals) smart-selected by phase-correlation to ~18 frames/dataset (50px step target).
+
+**Numbering note:** Two new tests were added after the initial 94-test benchmark run:
+- `asp_test25` — new sequence (*Akane wa Tsumare Somerareru - 02*, ~223 frames)
+- Old `asp_test25` → `asp_test26`, …, old `asp_test94` → `asp_test95` (each +1)
+- `asp_test96` — new sequence (*Ajisai no Chiru Koro ni - 01*, ~139 frames)
+
+**Ground truth images:** 55 of 96 tests have a reference panorama in `data/ground_truth/asp_testXX.{png,jpg,jpeg}`. These are used by the benchmark for SSIM/PSNR comparison vs. GT — the most reliable quality signal available.
+
+Tests WITH ground truth: 1, 2, 4, 5, 6, 8, 9, 11, 12, 14, 15, 16, 17, 20, 25, 26, 27, 31, 32, 33, 34, 37, 42, 43, 44, 45, 46, 49, 50, 52, 54, 57, 58, 59, 65, 70, 72, 74, 76, 77, 78, 79, 80, 82, 83, 84, 85, 86, 88, 89, 90, 91, 92, 95, 96
+
+### Representative dataset table (selected tests)
+
+| Dataset | Frames | Seam∇ | Fallback? | Visual quality | Notes |
+|---------|-------:|------:|-----------|---------------|-------|
+| `asp_test01` | 16 | 9.05 | N | Poor | Hard color step mid-image |
+| `asp_test03` | 5 | 6.86 | N | Moderate | Very few frames, limited compositing |
+| `asp_test04` | 23 | 8.64 | N | **Catastrophic** | 4+ color strips, duplicate limbs |
+| `asp_test07` | 11 | 7.59 | N | Moderate | Close-up, appears coherent |
+| `asp_test08` | 14 | 10.12 | N | **Catastrophic** | Character 3× ghosted |
+| `asp_test10` | 8 | 4.23 | N | Moderate | Few frames, low seam gradient |
+| `asp_test11` | 11 | 10.25 | N | **Catastrophic** | Severe color banding |
+| `asp_test13` | 14 | 4.89 | Y | SCANS | ratio=10.6 outlier bundle |
+| `asp_test17` | 19 | 5.68 | N | Moderate | Subtle banding, mostly coherent |
+| `asp_test18` | 19 | 1.56 | N | Likely ok | Composite bypassed (horizontal scroll detect) |
+| `asp_test25` | NEW | — | — | New test | *Akane wa Tsumare Somerareru - 02* sequence; GT available |
+| `asp_test26` | 11 | 10.35 | N | **Catastrophic** | Was old test25; extreme color break; GT available |
+| `asp_test28` | 21 | 9.89 | N | ✅ **Good** | Was old test27; proper vertical panorama; GT available |
+| `asp_test35` | 6 | 13.85 | N | Moderate | Was old test34; seam visible but extends scene; GT available |
+| `asp_test37` | 26 | 3.92 | N | **Catastrophic** | Was old test36; swimsuit changes color per strip; GT available |
+| `asp_test38` | 14 | 0.87 | Y | SCANS (clean) | Was old test37; very low seam — SCANS is good; GT available |
+| `asp_test43` | 23 | 3.31 | Y | SCANS (clean) | Was old test42; low seam — SCANS is good; GT available |
+| `asp_test48` | 9 | 1.50 | Y | SCANS (clean) | Was old test47; very low seam — SCANS is good |
+| `asp_test58` | 27 | 5.82 | N | ✅ **Good** | Was old test57; clean extended coverage; GT available |
+| `asp_test61` | 19 | 7.44 | N | Poor | Was old test60; banding but covers more than simple |
+| `asp_test70` | 23 | 1.77 | Y | SCANS (clean) | Was old test69; very low seam — SCANS is good |
+| `asp_test79` | 30 | 10.58 | N | Likely poor | Was old test78; slowest (289s), high seam; GT available |
+| `asp_test86` | 29 | 8.76 | N | **Catastrophic** | Was old test85; multiple harsh color bands; GT available |
+| `asp_test88` | 7 | 15.24 | N | Likely catastrophic | Was old test87; highest seam gradient |
+| `asp_test89` | 22 | 4.52 | Y | SCANS | Was old test88; ratio=4.0 bundle failure; GT available |
+| `asp_test91` | 17 | 1.78 | Y | SCANS (clean) | Was old test90; very low seam — SCANS is clean; GT available |
+| `asp_test96` | NEW | — | — | New test | *Ajisai no Chiru Koro ni - 01* sequence; GT available |
+
+**Seam∇ (seam_gradient)** is the best available diagnostic metric: `< 5` = likely clean or SCANS fallback; `5–8` = moderate seam; `> 8` = likely poor or catastrophic.
+
+### Diagnostic snippet — check seam gradient across all datasets
+
+```bash
+source .venv/bin/activate && python3 -c "
+import json, os
+with open('backend/benchmark/results/anime_stitch_20260601_152735.json') as f:
+    d = json.load(f)
+for ds in sorted(d['datasets'], key=lambda x: x['metrics_asp'].get('seam_gradient', 0), reverse=True):
+    ah = ds['affine_health']
+    seam = ds['metrics_asp'].get('seam_gradient', 0)
+    fb = 'FB' if ds['used_fallback'] else '  '
+    print(f\"{ds['name']} {fb} seam={seam:.2f} ratio={ah['ratio']:.1f} gap={ah['min_gap_px']:.0f}px\")
+"
+```
+
+---
+
+## Benchmark: Selective Test Run
+
+The benchmark (`backend/benchmark/bench_anime_stitch.py`) now supports selective test execution for fast iteration:
 
 ```bash
 source .venv/bin/activate
 
-# asp_test1/ dataset — 8 frames, all stages pre-computed
+# Run specific tests (fastest feedback)
+python3 -m backend.benchmark.bench_anime_stitch --tests asp_test04 asp_test28 asp_test58
+
+# Run a numeric range
+python3 -m backend.benchmark.bench_anime_stitch --range 1-10
+
+# Run comma-separated test numbers
+python3 -m backend.benchmark.bench_anime_stitch --range 4,8,27,57
+
+# First N tests
+python3 -m backend.benchmark.bench_anime_stitch --first 5
+
+# Skip already-processed datasets
+python3 -m backend.benchmark.bench_anime_stitch --skip-done
+
+# Re-run the known good and known bad tests for regression checking
+python3 -m backend.benchmark.bench_anime_stitch --tests asp_test04 asp_test08 asp_test28 asp_test37 asp_test58 asp_test86
+```
+
+### Recommended test subsets
+
+| Purpose | Command |
+|---------|---------|
+| Quick sanity (2 good + 2 bad + 1 SCANS) | `--tests asp_test28 asp_test58 asp_test04 asp_test86 asp_test38` |
+| Full catastrophic failures (new numbers) | `--range 4,8,11,26,37,86,88` |
+| Borderline tests (near-50px threshold, new numbers) | `--range 38,59,72,74,80,81,85,90` |
+| Tests with ground truth | `--range 1,2,4,5,6,8,9,11,12,14,15,16,17,20,25,26,27` |
+| New tests only | `--tests asp_test25 asp_test96` |
+
+---
+
+## Quality target
+
+The **simple stitch** (`_merge_images_scan_stitch`) is consistently the better output in most cases for this corpus. The pipeline's goal should be to match or exceed it. Right now it does NOT do so in the majority of tests.
+
+Visual quality standard (in priority order):
+1. No severe horizontal color bands (adjacent strips must match within ±15 luminance units)
+2. No body-part duplication at strip seams
+3. No ghosting (3+ frames per canvas row required for temporal median)
+4. Natural brightness transitions at frame boundaries
+
+### Fast iteration loop
+
+Do NOT re-run GPU-heavy stages (BiRefNet, LoFTR) when iterating on compositing. Use the pre-computed stage outputs from any already-processed dataset:
+
+```bash
+# Check which datasets have pre-computed stages
+ls data/asp_test27/output/panorama_stages/
+# stage02_normalised_frame*.png, stage04_bgmask_frame*.png,
+# stage08_canvas_info.json, stage09_temporal_render.png, stage11_fg_composite.png
+
+# Run only compositing from saved stages (adapt run_pipeline_v2.py)
+source .venv/bin/activate
 python3 archive/run_pipeline_v2.py
-# Output: data/asp_test1/output/panorama_v2.png
-
-# asp_test3/ dataset — 11 frames (adapt run_pipeline_v2.py, change STAGE_DIR + frame count)
-# Stage outputs: data/asp_test3/output/panorama_stages/
-
-# asp_test2/ dataset — 10 frames (alignment broken, fix bundle_adjust first)
-# Stage outputs: data/asp_test2/output/panorama_stages/
-
-# Full re-build from source frames (runs all GPU stages — slow)
-python3 archive/build_stages.py
 ```
 
 ### Unit test suite
 
-A comprehensive test suite covers all pipeline issue categories without GPU. Run it after any change to `backend/src/anim/`:
-
 ```bash
 source .venv/bin/activate
-pytest backend/test/anim/ -q          # all 101 tests (~7s)
+pytest backend/test/anim/ -q          # all tests (~7s, no GPU)
 pytest backend/test/anim/ -k "canvas" # run a specific module
 ```
-
-Test files and their coverage:
 
 | File | Covers |
 |------|--------|
@@ -132,13 +236,15 @@ Test files and their coverage:
 | `test_compositing.py`   | `_diff_to_feather`, `_global_gain_normalize`, `_composite_foreground` |
 | `test_rendering.py`     | `_render_median`, `_render_first`, ghosting detection, baselines |
 
-The `conftest.py` at `backend/test/conftest.py` provides shared helpers: `make_frame`, `make_edge`, `make_translation_affine`, `make_rotation_affine`, `compute_ty_gaps`.
+---
 
-### Constraints
+## Constraints
 
 - NEVER skip MFSR by default in the production pipeline — only skip it in test scripts. The GUI exposes an "enable MFSR" toggle.
 - Do NOT add `QPixmap`, Qt, or GUI imports inside any `backend/src/anim/` file.
-- Keep all `_composite_foreground` signature unchanged — it is called by the pipeline, the GUI worker, and test scripts.
+- Keep `_composite_foreground` signature unchanged — called by pipeline, GUI worker, and test scripts.
 - Gains applied in `_render_median` and `_composite_foreground` are independent — do not confuse them.
+- `has_content = src.max(axis=2) > 0` must stay at `> 0` — dark pixels with max=1–10 are real content.
+- Stage 11 uses `INTER_LINEAR`, not `INTER_LANCZOS4` — Lanczos4 produces halos at silhouette edges.
 
-My first task is: read the anime pipeline issues report files in `.agent/cache/*.md`, analyze the pipeline code in  `backend/src/anim` and tests in `backend/test/anim`, analyse the benchmark results in `Image-Toolkit/data/output/` and understand the current issues and the architectural design choices, and come up with a plan to diagnose the root cause of the coloring, lighting, and ghosting issues (which are present mostly at the seams), and improve the pipeline.
+My first task is: read the anime pipeline issues and analysis reports in `.agent/cache/*.md`, then read the pipeline source code in `backend/src/anim/`, then understand the current visual failures and architectural root causes, and propose or implement the fixes described in the priority list above.
