@@ -447,22 +447,60 @@ def _composite_foreground(
     if len(ref_px) >= 500:
         global_ref_lum = float(ref_px.astype(np.float32).dot(LUMINANCE_WEIGHTS).mean())
 
-    warped_norm: List[np.ndarray] = []
+    # Compute per-frame background luminance for coherence check
+    frame_lums: List[Optional[float]] = []
     for i in range(N):
-        if global_ref_lum is not None and warped_bg[i] is not None:
+        if warped_bg[i] is not None:
             bg_sel = warped_bg[i] & (warped_list[i].max(axis=2) > 10)
             bg_px = warped_list[i][bg_sel]
             if len(bg_px) >= 200:
-                frame_lum = float(
-                    bg_px.astype(np.float32).dot(LUMINANCE_WEIGHTS).mean()
-                )
+                frame_lums.append(float(bg_px.astype(np.float32).dot(LUMINANCE_WEIGHTS).mean()))
+                continue
+        frame_lums.append(None)
+
+    # Inter-strip color coherence guard.
+    # If adjacent frame strips (sorted by canvas position) differ by more than
+    # _COHERENCE_LIMIT luminance units, partial gain correction (±7% clip) will not
+    # bridge the gap and can actually increase visible banding by setting each strip
+    # to a different absolute level.  In that case, skip normalization entirely and
+    # let the temporal median stand — it already represents the multi-frame consensus.
+    _COHERENCE_LIMIT = 20.0
+    valid_lums = [l for l in frame_lums if l is not None]
+    _skip_normalization = False
+    if len(valid_lums) >= 2:
+        lum_arr = np.array(valid_lums)
+        _strip_spread = float(lum_arr.max() - lum_arr.min())
+        # Also check adjacent-frame max diff (sorted by canvas row)
+        lum_by_order = [frame_lums[int(order[k])] for k in range(N)]
+        adj_diffs = [
+            abs(lum_by_order[k + 1] - lum_by_order[k])
+            for k in range(len(lum_by_order) - 1)
+            if lum_by_order[k] is not None and lum_by_order[k + 1] is not None
+        ]
+        _max_adj_diff = float(max(adj_diffs)) if adj_diffs else 0.0
+        if _max_adj_diff > _COHERENCE_LIMIT:
+            _skip_normalization = True
+            print(
+                f"[Stitch]   Color coherence gate: max adjacent strip diff={_max_adj_diff:.1f} "
+                f"> {_COHERENCE_LIMIT} → skipping per-frame normalization to prevent "
+                f"amplifying color mismatch between animation frames."
+            )
+        else:
+            print(f"[Stitch]   Color coherence OK (max adj diff={_max_adj_diff:.1f}). Applying normalization.")
+
+    warped_norm: List[np.ndarray] = []
+    for i in range(N):
+        if not _skip_normalization and global_ref_lum is not None and warped_bg[i] is not None:
+            bg_sel = warped_bg[i] & (warped_list[i].max(axis=2) > 10)
+            bg_px = warped_list[i][bg_sel]
+            if len(bg_px) >= 200 and frame_lums[i] is not None:
                 # Tight clip — Stage 4.5 already applied ±14%; residual errors are small.
                 # Applying a background-derived gain to foreground pixels amplifies natural
                 # inter-frame luminance variation into hard brightness seams at ownership
                 # boundaries.  Apply the gain to background pixels only; foreground pixels
                 # retain their raw warped values so adjacent zones stay photometrically
                 # consistent at character-outline boundaries.
-                gain = float(np.clip(global_ref_lum / max(frame_lum, 1.0), 0.93, 1.07))
+                gain = float(np.clip(global_ref_lum / max(frame_lums[i], 1.0), 0.93, 1.07))
                 f32 = warped_list[i].astype(np.float32)
                 f32[bg_sel] = np.clip(f32[bg_sel] * gain, 0, 255)
                 warped_norm.append(f32.astype(np.uint8))

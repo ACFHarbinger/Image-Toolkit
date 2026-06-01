@@ -10,11 +10,14 @@ You are improving `AnimeStitchPipeline` output quality. Work through the phases 
 
 **Read first, change nothing.**
 
-1. Read `.agent/cache/anime_stitch_pipeline_issues.md` — full diagnostic report from prior sessions
-2. Read `docs/ARCHITECTURE.md` — complete pipeline stage diagram
-3. Read `backend/src/anim/compositing.py` — the primary file for seam issues
-4. Read `backend/src/anim/rendering.py` — Stage 9 temporal render
-5. Read `backend/src/anim/bundle_adjust.py` — alignment, currently broken for asp_test2/, asp_test5/, asp_test7/, asp_test8/, asp_test9/
+1. Read `.agent/cache/anime_stitch_pipeline_issues.md` — full diagnostic report (honest visual assessment)
+2. Read `.agent/cache/pipeline_analysis_report.md` — root cause analysis of the compositing failure
+3. Read `docs/ARCHITECTURE.md` — complete pipeline stage diagram
+4. Read `backend/src/anim/compositing.py` — Stage 11 composite (produces color banding artifacts)
+5. Read `backend/src/anim/rendering.py` — Stage 9 temporal render (temporal averaging fails with 1 frame/row)
+6. Read `backend/src/anim/validation.py` — affine validation; **min_gap 50px rejects many borderline-valid sequences (secondary issue)**
+
+> **CRITICAL CONTEXT (2026-06-01):** Visual inspection of actual outputs confirms the pipeline is catastrophically failing on ~60–80% of ASP-succeeded tests with severe horizontal color banding and body-part duplication across strip seams. The CV metrics are inverted — high "sharpness" scores come from the hard seam edges themselves. The primary issues to fix are: (1) background-only phase correlation in the frame selector so it measures camera displacement, not character animation; (2) a multi-frame coverage check before compositing to ensure temporal median can actually function; (3) a seam coherence metric to replace Laplacian sharpness. Fix these before touching min_gap or bundle adjustment.
 
 Run the automated test suite first to confirm no regressions from prior changes:
 
@@ -389,29 +392,28 @@ source .venv/bin/activate && ruff check backend/src/anim/compositing.py
 
 ## Appendix: Test Dataset Paths
 
-All paths below are relative to the repo root. Source frames are in `data/asp_testX/`, stage outputs in `data/asp_testX/output/panorama_stages/`.
+**Note:** The corpus expanded in 2026-06-01 from 22 old tests (asp_test1–22) to 94 new tests (asp_test01–94, zero-padded naming). All paths below use the new format. Source frames are in `data/asp_testXX/`, stage outputs in `data/asp_testXX/output/panorama_stages/`. Use the benchmark (bench_anime_stitch.py) to see all current statuses — this appendix shows representative samples only.
 
-| Dataset | Frames | Stage outputs base | Status |
-|---------|--------|--------------------|--------|
-| `asp_test1/`  | 8  | `data/asp_test1/output/panorama_stages/`  | Partial fix — subtle brightness gradient |
-| `asp_test2/`  | 10 | `data/asp_test2/output/panorama_stages/`  | Broken alignment (wrong direction) |
-| `asp_test3/`  | 11 | `data/asp_test3/output/panorama_stages/`  | Stage 9 ghosting + hard seam |
-| `asp_test4/`  | 7  | `data/asp_test4/output/panorama_stages/`  | Good alignment; −393px overcrop |
-| `asp_test5/`  | 6  | `data/asp_test5/output/panorama_stages/`  | Degraded alignment → Stage 9 ghosting |
-| `asp_test6/`  | 9  | `data/asp_test6/output/panorama_stages/`  | **Positive baseline — mostly clean** |
-| `asp_test7/`  | 14 | `data/asp_test7/output/panorama_stages/`  | Broken alignment + diagonal scroll |
-| `asp_test8/`  | 11 | `data/asp_test8/output/panorama_stages/`  | Catastrophic frame clustering |
-| `asp_test9/`  | 9  | `data/asp_test9/output/panorama_stages/`  | Frame clustering → −1609px height loss |
-| `asp_test10/` | 14 | `data/asp_test10/output/panorama_stages/` | Uneven gaps (3.2×); ss uses perspective model |
-| `asp_test11/` | 7  | `data/asp_test11/output/panorama_stages/` | **Clean — positive baseline** |
-| `asp_test12/` | 6  | `data/asp_test12/output/panorama_stages/` | Borderline (2.9×); visually clean |
-| `asp_test13/` | 9  | `data/asp_test13/output/panorama_stages/` | Uneven gaps (2.3×); mild seam |
-| `asp_test14/` | 7  | `data/asp_test14/output/panorama_stages/` | **Clean; pipeline taller than ss** |
-| `asp_test15/` | 7  | `data/asp_test15/output/panorama_stages/` | **Clean; ss has staircase borders** |
-| `asp_test16/` | 10 | `data/asp_test16/output/panorama_stages/` | Clustering (min_gap=12px) → catastrophic ghosting |
-| `asp_test17/` | 7  | `data/asp_test17/output/panorama_stages/` | Mild seam at one boundary (1.5×) |
-| `asp_test18/` | 6  | `data/asp_test18/output/panorama_stages/` | Good ty/tx but catastrophic Stage 9 — affine rotation |
-| `asp_test19/` | 10 | `data/asp_test19/output/panorama_stages/` | **Clean — positive baseline** |
-| `asp_test20/` | 7  | `data/asp_test20/output/panorama_stages/` | Pure horizontal scroll (ty≈0, tx=0–1857px) |
-| `asp_test21/` | 10 | `data/asp_test21/output/panorama_stages/` | 3 co-located frames → top-strip ghosting |
-| `asp_test22/` | 11 | `data/asp_test22/output/panorama_stages/` | **Clean — positive baseline** |
+### Representative Positive Baselines (ASP-succeeded, strong asp_better)
+| Dataset | Frames (selected) | Status |
+|---------|-------------------|--------|
+| `asp_test08/` | 14 | **Best sharpness (318.8); strong asp_better** |
+| `asp_test07/` | 11 | **Strong asp_better; high ghosting** |
+| `asp_test35/` | 18 | asp_better; sharpness 188 vs 129 |
+| `asp_test93/` | 11 | asp_better; sharpness 194 vs 73 |
+| `asp_test27/` | 21 | asp_better; sharpness 180 vs 109 |
+
+### Representative Fallback Cases (min_gap threshold)
+| Dataset | min_gap | Reason | Quality in fallback |
+|---------|--------:|--------|---------------------|
+| `asp_test89/` | 47.5px | 2.5px from passing; very consistent scroll | comparable |
+| `asp_test79/` | 46.1px | Borderline; healthy ratio=1.46 | comparable |
+| `asp_test73/` | 46.6px | Extreme dx_cv=25.3 (diagonal) | comparable |
+| `asp_test58/` | 42.3px | simple_better fallback — preprocessing degrades | **simple_better** |
+| `asp_test72/` | 26.4px | simple_better fallback — worst degradation | **simple_better** |
+
+### Failure Reference (ratio > 3.0)
+| Dataset | Ratio | Notes |
+|---------|------:|-------|
+| `asp_test13/` | 10.6 | Single catastrophic outlier edge in bundle |
+| `asp_test88/` | 4.0 | Genuinely inconsistent step sizes (dy_cv=1.64) |

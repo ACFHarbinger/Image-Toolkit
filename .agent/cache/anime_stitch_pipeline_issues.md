@@ -1,10 +1,9 @@
-# Anime Stitch Pipeline — Failure Analysis & Issue Tracker
+# Anime Stitch Pipeline — Issue Tracker & Per-Test Results
 
-**Last updated:** 2026-05-26 (full benchmark run — 22 datasets, all data from `anime_stitch_20260526_145622.json`)
-**Benchmark file:** `backend/benchmark/results/anime_stitch_20260526_145622.json`
-**Relevant codebase:** `backend/src/anim/`
-**Test suite:** `backend/test/anim/` — run with `pytest backend/test/anim/`
-**Test datasets:** `data/asp_testX/` — output images in `data/output/`
+**Last updated:** 2026-06-01 19:13 (96-dataset benchmark with ground truth comparison)  
+**Benchmark file:** `backend/benchmark/results/anime_stitch_20260601_191331.json`  
+**Relevant codebase:** `backend/src/anim/`  
+**Ground truth:** 55/96 tests — `data/ground_truth/asp_testXX.{png,jpg,jpeg}`
 
 ---
 
@@ -12,267 +11,168 @@
 
 | Metric | Value |
 |--------|-------|
-| Total datasets | 22 |
-| ASP succeeded (used_fallback=false) | **10** |
-| Fell back to SCANS simple stitch | **12** |
-| Total benchmark time | 1215.8 s (≈20 min) |
-| Avg time per dataset | 53.4 s |
-| Verdict: asp_better | **2** (test12, test14) |
-| Verdict: simple_better | **2** (test13, test16) |
-| Verdict: comparable | **18** |
-| Avg ASP sharpness | 27.705 |
-| Avg simple stitch sharpness | 27.419 |
-| Avg ASP ghosting score | 20.591 |
-| Avg simple stitch ghosting score | 19.409 |
-| Avg ASP coverage | 0.9971 |
-| Avg SSIM (ASP vs simple) | 0.8144 |
+| Total datasets | 96 |
+| True ASP composites | **44** (45.8%) |
+| SCANS fallback — render gate | **39** (40.6%) |
+| SCANS fallback — affine validation | **13** (13.5%) |
+| GT verdict: asp_better | **8 / 55** (14.5%) |
+| GT verdict: simple_better | **23 / 55** (41.8%) |
+| GT verdict: comparable | **24 / 55** (43.6%) |
+| Avg SSIM ASP vs GT | **0.669** |
+| Avg SSIM simple vs GT | **0.695** |
+| Avg render time (true ASP) | 30.0s |
+| Avg seam_coherence ASP | 26.0 |
 
-**System:** Linux 7.0.0-14-generic, 24-core CPU, 125.6 GB RAM, NVIDIA RTX 3090 Ti (23.5 GB VRAM), CUDA 12.8, Python 3.11.14.
-
-**Key takeaway:** ASP is broadly competitive with simple stitch (18 comparable, 2 wins, 2 losses) but only fully runs on 10/22 datasets. The 12 fallbacks fall back to the raw SCANS result, which means ASP produces no added value for 55% of inputs. The primary bottleneck is the affine health validator rejecting unstable bundle-adjusted affines.
+**The simple stitch produces output closer to ground truth in 42% of tested cases; ASP wins in only 15%.** The primary root cause is the pipeline assuming static scrolling artwork while the corpus is animated video where characters move every frame.
 
 ---
 
-## 2. Per-Test Summary Table
+## 2. Per-Test Full Results Table
 
-Tests are sorted numerically (test1 … test22). The JSON stores them in alphabetical order (test1, test10, test11, … test9).
+Columns: FB = fallback type (N=none, RG=render gate, AV=affine validation); Fr = frames after smart selection; SC_A/SC_S = seam coherence ASP/simple (lower=better); Seam∇ = seam gradient (lower=better); GTA/GTS = GT SSIM ASP/simple; GT_V = GT-based verdict; Health = affine validation reason.
 
-| Test | Frames | FB | ASP Sharp | ASP Ghost | ASP Seam∇ | ASP Cov | SS Sharp | SS Ghost | SSIM | Verdict | Affine Health Reason |
-|------|--------|----|---------:|----------:|----------:|--------:|---------:|---------:|-----:|---------|---------------------|
-| test1  |  8 | N | 28.77 | 19.32 | 5.063 | 1.0000 | 20.51 | 14.95 | 0.824 | comparable | ok |
-| test2  | 10 | Y | 11.70 | 17.85 | 3.452 | 0.9998 | 10.01 | 13.45 | 0.648 | comparable | ratio=86.2 > 3.0 |
-| test3  | 11 | Y | 13.27 | 13.45 | 4.277 | 1.0000 | 13.05 | 13.58 | 0.905 | comparable | ratio=5.7 > 3.0 |
-| test4  |  7 | Y | 36.13 | 23.00 | 2.703 | 1.0000 | 34.71 | 22.78 | 0.791 | comparable | min_gap=10.5px < 50px |
-| test5  |  6 | Y | 10.10 | 12.01 | 3.186 | 0.9997 | 10.96 | 12.45 | 0.898 | comparable | scale_dev=0.121 > 0.1 |
-| test6  |  9 | N | 30.99 | 20.58 | 6.998 | 0.9920 | 21.25 | 16.29 | 0.756 | comparable | ok |
-| test7  | 14 | Y | 27.66 | 23.85 | 1.894 | 0.9999 | 42.65 | 20.05 | 0.604 | comparable | ratio=61.6 > 3.0 |
-| test8  | 11 | Y | 26.96 | 26.87 | 4.571 | 1.0000 | 30.44 | 26.55 | 0.670 | comparable | ratio=5.1 > 3.0 |
-| test9  |  9 | Y | 40.55 | 21.85 | 2.213 | 1.0000 | 43.75 | 23.15 | 0.950 | comparable | min_gap=2.9px < 50px |
-| test10 | 14 | Y | 22.40 | 16.15 | 4.079 | 1.0000 | 34.65 | 23.46 | 0.720 | comparable | ratio=12.3 > 3.0 |
-| test11 |  7 | N | 21.00 | 23.60 | 7.214 | 1.0000 | 18.83 | 20.94 | 0.795 | comparable | ok |
-| test12 |  6 | N | 26.77 | 25.14 | 3.747 | 0.9955 | 14.58 | 17.44 | 0.730 | **asp_better** | ok |
-| test13 |  9 | Y | 44.73 | 28.41 | 4.369 | 1.0000 | 59.60 | 31.96 | 0.947 | **simple_better** | ratio=31.5 > 3.0 |
-| test14 |  7 | N | 81.21 | 28.45 | 5.490 | 0.9931 | 65.33 | 30.20 | 0.749 | **asp_better** | ok |
-| test15 |  7 | N | 25.87 | 15.94 | 3.703 | 1.0000 | 25.17 | 12.47 | 0.838 | comparable | ok |
-| test16 | 10 | Y | 24.15 | 15.10 | 3.208 | 0.9999 | 38.46 | 18.02 | 0.932 | **simple_better** | min_gap=0.0px < 50px |
-| test17 |  7 | N | 25.92 | 23.56 | 2.936 | 0.9992 | 20.31 | 19.69 | 0.886 | comparable | ok |
-| test18 |  6 | Y | 12.05 | 11.83 | 1.455 | 1.0000 | 12.66 | 10.55 | 0.751 | comparable | ratio=69.0 > 3.0 |
-| test19 | 10 | N | 14.95 | 14.99 | 3.106 | 0.9564 | 16.21 | 14.37 | 0.820 | comparable | ok |
-| test20 |  7 | N | 12.62 | 17.09 | 0.895 | 0.9998 |  9.92 | 17.53 | 0.917 | comparable | ok |
-| test21 | 10 | Y | 29.36 | 25.36 | 5.241 | 1.0000 | 26.12 | 23.79 | 0.937 | comparable | min_gap=35.9px < 50px |
-| test22 | 11 | N | 42.35 | 28.60 | 2.839 | 1.0000 | 34.05 | 23.31 | 0.851 | comparable | ok |
-
-FB = used_fallback (Y = SCANS fallback used; metrics shown are from fallback output). ASP Seam∇ = seam_gradient. ASP Cov = coverage.
-
----
-
-## 3. Failure Categories
-
-### Category A — Catastrophic Bundle Adjustment (ratio >> 3.0, dy_cv >> 1.0)
-
-Affected: **test2, test7, test10, test13, test18**
-
-These tests have affine ratios far above 3.0 and/or wildly inconsistent dy_steps — the bundle adjuster produced a step sequence that is internally inconsistent (non-monotonic, alternating signs, single huge outlier step).
-
-| Test | Ratio | Min Gap | dy_cv | dx_cv | Key dy anomaly |
-|------|------:|--------:|------:|------:|----------------|
-| test2 | 86.2 | 0.0 | 154.7 | 3.07 | Alternating ±114, then 272 then ±5–8 — clearly mis-ordered |
-| test7 | 61.6 | 0.0 | 6.17 | 12.16 | Non-monotonic: +290, −358, +18, +3, +401, −620 |
-| test10 | 12.3 | 124.6 | 8.46 | 3.51 | Step 0→1 = +3653px; steps 1–13 = −143 to −155px |
-| test13 | 31.5 | 1.8 | 7.23 | 2.66 | Step 0→1 = −557px; steps 1–8 = +100–127px (sign flip) |
-| test18 | 69.0 | 0.0 | 2.98 | 1,606,437 | dy_steps = [552, 552, −1104, 552, 560] — symmetric collapse |
-
-**Root cause:** LoFTR produced gross mismatches for one or more frame pairs. The bundle adjuster has no RANSAC or outlier rejection: a single bad edge with a 1000px+ error pulls all frame positions off. In test10 frame-0→frame-1 gets dy=+3653px (vs ~170px for all other pairs). In test18 dx_cv=1,606,437 indicates an extreme horizontal offset in the bundle solution (pair 0→2 lands at dx=−692px then snaps back).
-
----
-
-### Category B — Frame Clustering (min_gap < 50px)
-
-Affected: **test4, test9, test16, test21**
-
-These tests failed the min_gap check. Multiple frames were placed at nearly identical canvas positions.
-
-| Test | Ratio | Min Gap | Failure reason | Notable clustering |
-|------|------:|--------:|----------------|--------------------|
-| test4 | 1.01 | 10.5 | min_gap=10.5px | dy_steps=[−274,−271,−271,−272,−273,**−10.5**] — last pair collapses |
-| test9 | 1.38 | 2.9 | min_gap=2.9px | dy_steps=[−142,−374,−374,−447,**−33**,+36,−380,−300] — sign flip at step 5 |
-| test16 | 2.13 | 0.0 | min_gap=0.0px | dy_steps=[−110,−143,**+253**,**0.0**,**0.0**,−142,+70,−138,−145] — frames co-located |
-| test21 | 1.00 | 35.9 | min_gap=35.9px | dy_steps=[+177×7,**−1206**,+177] — a large backward jump creates near-duplicate at top |
-
-In test16 frames share dy=0.0, 0.0, and dx_steps[6]=335.57 (large horizontal jump). In test21 the −1206 step is a jump back to near the start, creating co-located frames at ty=0. These cause the temporal median to overlay identical canvas rows from multiple frames, creating heavy ghosting.
-
----
-
-### Category C — Scale/Rotation Deviation (scale_dev or max_rotation exceeds threshold)
-
-Affected: **test5**
-
-| Test | Ratio | Scale Dev | Max Rotation | Reason |
-|------|------:|----------:|-------------:|--------|
-| test5 | 1.02 | 0.121 | 0.0635 | scale_dev=0.121 > 0.1 |
-
-test5 has healthy spacing (min_gap=446.5px, ratio=1.02) but the affine matrix has significant per-frame scale deviation (12.1%) and rotation (6.35°). The dx_steps show large horizontal motion: [−140, −51, +10, +48, −37]px. This is likely a zoom-with-pan sequence where the camera both scrolls and scales. The health validator correctly rejects it because warping frames with 12% scale mismatch produces blurred/misaligned composites.
-
----
-
-### Category D — Seam Gradient Issues (seam_gradient > 6.0 in ASP succeeded tests)
-
-Affected: **test6 (6.998), test11 (7.214)**
-
-Both ASP-succeeded tests with high seam gradients have otherwise valid affines. These are cases where Stage 11 compositing produced visible brightness discontinuities despite correct alignment.
-
-| Test | ASP Seam∇ | SS Seam∇ | Gain Range | Notes |
-|------|----------:|----------:|-----------:|-------|
-| test6 | 6.998 | 3.695 | [0.88, 1.037] | 9 frames; dx_cv=16.65 (high horizontal drift) |
-| test11 | 7.214 | 5.048 | [0.886, 1.14] | 7 frames; dy step −301 is anomalous (negative = backward scroll) |
-
-In test6, the large dx_cv=16.65 reflects significant horizontal drift between frames (dx_steps peak at 24.6px), and the gain hits the minimum clamp (0.88). In test11 the last dy_step is −301px (backward), indicating one mismatched pair that affects the strip boundary composite.
-
----
-
-### Category E — Photometric Ghosting (ghosting_score > 25 in ASP succeeded)
-
-Affected: **test11 (23.60), test12 (25.14), test14 (28.45), test22 (28.60)**
-
-These are ASP-succeeded tests where ghosting is elevated. Note: test22 has the highest ASP ghosting (28.60) of any test, yet is still "comparable" to simple (23.31). High ghosting in both pipelines suggests scene-level issues (fast motion, repeating content) rather than pipeline-introduced artifacts.
-
-| Test | ASP Ghost | SS Ghost | Delta | Interpretation |
-|------|----------:|----------:|------:|---------------|
-| test12 | 25.14 | 17.44 | +7.70 | ASP introduces ghosting vs simple — compositing issue |
-| test14 | 28.45 | 30.20 | −1.75 | Both high; scene content driven; ASP slightly better |
-| test11 | 23.60 | 20.94 | +2.66 | Mild increase in ASP; borderline |
-| test22 | 28.60 | 23.31 | +5.29 | ASP worst absolute ghosting overall; likely seam zone overlap |
-
-test12 is notable: ASP wins on sharpness (26.77 vs 14.58) and SSIM=0.730 marks it asp_better, yet ghosting is 25.14 vs 17.44. The gain is hitting both clamps (0.88–1.14) with a very dark scene (ref_lum=38.52), suggesting the extreme gain corrections are introducing subtle tonal inconsistencies across frame boundaries.
+| Test | FB | Fr | SC_A | SC_S | Seam∇ | GTA | GTS | GT_V | Health |
+|------|----|----|-----:|-----:|------:|----:|----:|------|--------|
+| test01 | RG | 16 | 23.9 | 25.6 | 6.94 | 0.689 | 0.710 | **simple_better** | ok |
+| test02 | RG | 21 | 28.1 | 25.9 | 7.23 | 0.733 | 0.730 | comparable | ok |
+| test03 | RG | 5 | 35.3 | 32.2 | 5.10 | — | — | — | ok |
+| test04 | RG | 23 | 29.1 | 29.1 | 4.93 | 0.633 | 0.739 | **simple_better** | ok |
+| test05 | N | 16 | 13.9 | 20.3 | 12.99 | 0.734 | 0.744 | comparable | ok |
+| test06 | N | 10 | 18.7 | 17.8 | 10.89 | 0.714 | 0.731 | comparable | ok |
+| test07 | N | 11 | 31.9 | 29.9 | 10.15 | — | — | — | ok |
+| test08 | N | 14 | 16.9 | 11.9 | 7.69 | 0.731 | 0.778 | **simple_better** | ok |
+| test09 | N | 21 | 22.9 | 17.2 | 6.09 | **0.785** | 0.762 | **asp_better** | ok |
+| test10 | N | 8 | 21.4 | 29.9 | 4.23 | — | — | — | ok |
+| test11 | N | 11 | 23.6 | 12.0 | 9.99 | **0.654** | 0.603 | **asp_better** | ok |
+| test12 | N | 13 | 20.2 | 25.6 | 5.68 | 0.617 | 0.801 | **simple_better** | ok |
+| test13 | AV | 14 | 23.9 | 33.5 | 2.98 | — | — | — | ratio=11.1>3.0 |
+| test14 | AV | 16 | 10.8 | 13.7 | 6.70 | 0.622 | 0.654 | **simple_better** | min_gap=16.7px |
+| test15 | N | 27 | 25.2 | 16.3 | 9.41 | 0.518 | 0.738 | **simple_better** | ok |
+| test16 | N | 15 | 18.2 | 35.7 | 5.89 | 0.549 | 0.733 | **simple_better** | ok |
+| test17 | N | 19 | 10.9 | 8.2 | 6.07 | **0.889** | 0.855 | **asp_better** | ok |
+| test18 | N | 19 | 30.0 | 29.5 | 1.55 | — | — | — | ok |
+| test19 | N | 17 | 28.3 | 26.9 | 8.91 | — | — | — | ok |
+| test20 | N | 14 | 24.2 | 16.3 | 8.73 | 0.474 | 0.617 | **simple_better** | ok |
+| test21 | RG | 18 | 25.5 | 24.6 | 5.82 | — | — | — | ok |
+| test22 | RG | 13 | 29.2 | 29.3 | 8.24 | — | — | — | ok |
+| test23 | RG | 15 | 45.1 | 55.5 | 9.45 | — | — | — | ok |
+| test24 | N | 9 | 27.6 | 29.1 | 5.07 | — | — | — | ok |
+| test25 | RG | 10 | 32.2 | 32.5 | 5.66 | **0.732** | 0.695 | **asp_better** | ok |
+| test26 | N | 11 | 29.6 | 29.7 | 11.43 | 0.661 | 0.707 | **simple_better** | ok |
+| test27 | N | 20 | 28.5 | 24.8 | 7.00 | **0.705** | 0.679 | **asp_better** | ok |
+| test28 | N | 21 | 24.6 | 37.0 | 9.89 | — | — | — | ok |
+| test29 | RG | 24 | 35.4 | 36.0 | 9.80 | — | — | — | ok |
+| test30 | AV | 12 | 30.8 | 31.3 | 7.38 | — | — | — | min_gap=21.0px |
+| test31 | RG | 22 | 40.1 | 41.1 | 7.96 | 0.514 | 0.509 | comparable | ok |
+| test32 | RG | 11 | 33.2 | 32.8 | 8.12 | 0.733 | 0.728 | comparable | ok |
+| test33 | RG | 12 | 21.7 | 21.3 | 7.91 | 0.675 | 0.681 | comparable | ok |
+| test34 | RG | 17 | 30.4 | 32.2 | 7.14 | 0.718 | 0.714 | comparable | ok |
+| test35 | RG | 6 | 9.0 | 9.7 | 5.00 | — | — | — | ok |
+| test36 | N | 18 | 17.4 | 20.9 | 11.35 | — | — | — | ok |
+| test37 | RG | 26 | 35.0 | 35.0 | 4.91 | 0.793 | 0.791 | comparable | ok |
+| test38 | N | 14 | 21.6 | 17.8 | 7.54 | — | — | — | ok |
+| test39 | N | 14 | 20.7 | 23.5 | 9.94 | — | — | — | ok |
+| test40 | RG | 18 | 11.9 | 12.6 | 5.58 | — | — | — | ok |
+| test41 | RG | 10 | 16.5 | 19.2 | 5.96 | — | — | — | ok |
+| test42 | N | 19 | 16.7 | 17.4 | 13.50 | 0.479 | 0.512 | **simple_better** | ok |
+| test43 | RG | 23 | 22.5 | 21.6 | 2.96 | 0.706 | 0.691 | comparable | ok |
+| test44 | RG | 7 | 20.6 | 20.1 | 3.79 | 0.708 | 0.710 | comparable | ok |
+| test45 | N | 16 | 39.5 | 40.8 | 6.93 | 0.597 | 0.620 | **simple_better** | ok |
+| test46 | N | 14 | 39.4 | 32.8 | 3.25 | 0.681 | 0.696 | comparable | ok |
+| test47 | N | 10 | 14.2 | 20.3 | 5.18 | — | — | — | ok |
+| test48 | AV | 9 | 30.1 | 31.9 | 1.80 | — | — | — | min_gap=6.8px |
+| test49 | AV | 21 | 31.8 | 26.8 | 4.61 | 0.538 | 0.639 | **simple_better** | min_gap=23.3px |
+| test50 | N | 11 | 32.4 | 24.3 | 8.84 | **0.570** | 0.550 | **asp_better** | ok |
+| test51 | RG | 9 | 16.3 | 11.2 | 2.87 | — | — | — | ok |
+| test52 | RG | 4 | 31.1 | 31.1 | 4.19 | 0.752 | 0.752 | comparable | ok |
+| test53 | RG | 11 | 44.4 | 44.3 | 2.56 | — | — | — | ok |
+| test54 | AV | 13 | 12.0 | 10.4 | 5.08 | 0.726 | 0.722 | comparable | ratio=3.5>3.0 |
+| test55 | N | 18 | 44.9 | 30.2 | 11.76 | — | — | — | ok |
+| test56 | RG | 17 | 36.1 | 38.1 | 6.32 | — | — | — | ok |
+| test57 | N | 26 | 25.0 | 21.7 | 8.31 | 0.738 | 0.756 | comparable | ok |
+| test58 | RG | 27 | 35.6 | 41.2 | 4.02 | 0.631 | 0.646 | comparable | ok |
+| test59 | RG | 8 | 16.6 | 16.7 | 3.80 | 0.521 | 0.518 | comparable | ok |
+| test60 | RG | 16 | 22.8 | 32.3 | 5.12 | — | — | — | ok |
+| test61 | RG | 19 | 17.2 | 29.9 | 4.75 | — | — | — | ok |
+| test62 | N | 14 | 28.2 | 18.5 | 7.26 | — | — | — | ok |
+| test63 | RG | 10 | 33.2 | 33.2 | 8.10 | — | — | — | ok |
+| test64 | AV | 25 | 25.6 | 27.7 | 2.80 | — | — | — | ratio=4.2>3.0 |
+| test65 | RG | 18 | 27.5 | 27.5 | 9.43 | 0.757 | 0.758 | comparable | ok |
+| test66 | AV | 14 | 20.2 | 18.0 | 0.21 | — | — | — | ratio=3.1>3.0 |
+| test67 | N | 16 | 28.5 | 21.2 | 9.18 | — | — | — | ok |
+| test68 | RG | 9 | 25.2 | 21.5 | 8.76 | — | — | — | ok |
+| test69 | RG | 9 | 17.1 | 15.6 | 9.50 | — | — | — | ok |
+| test70 | AV | 23 | 12.6 | 22.0 | 2.33 | 0.685 | 0.769 | **simple_better** | ratio=4.1>3.0 |
+| test71 | RG | 9 | 27.6 | 27.4 | 7.03 | — | — | — | ok |
+| test72 | RG | 16 | 27.5 | 26.0 | 13.72 | 0.780 | 0.801 | comparable | ok |
+| test73 | AV | 14 | 15.2 | 15.4 | 4.59 | — | — | — | ratio=3.8>3.0 |
+| test74 | RG | 23 | 32.4 | 32.1 | 6.08 | 0.843 | 0.840 | comparable | ok |
+| test75 | RG | 15 | 61.3 | 61.5 | 9.41 | — | — | — | ok |
+| test76 | N | 12 | 24.8 | 18.4 | 11.30 | 0.792 | 0.785 | comparable | ok |
+| test77 | AV | 26 | 31.4 | 25.6 | 8.09 | 0.627 | 0.682 | **simple_better** | min_gap=18.8px |
+| test78 | AV | 23 | 26.2 | 23.2 | 6.78 | 0.799 | 0.805 | comparable | min_gap=5.0px |
+| test79 | N | 30 | 24.4 | 28.2 | 9.76 | 0.513 | 0.538 | **simple_better** | ok |
+| test80 | RG | 16 | 37.4 | 40.4 | 6.44 | **0.606** | 0.559 | **asp_better** | ok |
+| test81 | RG | 22 | 21.8 | 20.8 | 4.11 | — | — | — | ok |
+| test82 | N | 23 | 23.7 | 15.2 | 8.15 | 0.751 | 0.777 | **simple_better** | ok |
+| test83 | N | 11 | 17.1 | 16.4 | 8.65 | 0.769 | 0.840 | **simple_better** | ok |
+| test84 | N | 11 | 16.9 | 21.3 | 5.92 | **0.816** | 0.769 | **asp_better** | ok |
+| test85 | N | 21 | 16.3 | 10.7 | 8.78 | 0.741 | 0.761 | comparable | ok |
+| test86 | RG | 29 | 38.9 | 39.9 | 5.97 | 0.625 | 0.616 | comparable | ok |
+| test87 | N | 8 | 20.9 | 22.6 | 8.05 | — | — | — | ok |
+| test88 | AV | 7 | 29.5 | 30.0 | 10.40 | 0.663 | 0.717 | **simple_better** | ratio=4.0>3.0 |
+| test89 | AV | 22 | 32.7 | 28.5 | 4.06 | 0.704 | 0.735 | **simple_better** | ratio=4.0>3.0 |
+| test90 | N | 16 | 28.2 | 9.2 | 10.18 | 0.607 | 0.639 | **simple_better** | ok |
+| test91 | N | 17 | 35.0 | 26.1 | 12.89 | 0.504 | 0.542 | **simple_better** | ok |
+| test92 | N | 23 | 30.5 | 26.9 | 9.16 | 0.532 | 0.582 | **simple_better** | ok |
+| test93 | N | 15 | 23.7 | 26.5 | 10.93 | — | — | — | ok |
+| test94 | N | 11 | 19.4 | 11.9 | 8.96 | — | — | — | ok |
+| test95 | N | 17 | 15.0 | 13.2 | 7.95 | 0.603 | 0.650 | **simple_better** | ok |
+| test96 | N | 35 | 27.4 | 30.5 | 8.41 | 0.557 | 0.559 | comparable | ok |
 
 ---
 
-### Category F — Low Coverage (coverage < 0.99)
+## 3. Failure Category Details
 
-Affected: **test19 (0.9564)**
+### Category A — Render Quality Gate (39 tests — 40.6%)
 
-test19 is the only ASP-succeeded test with coverage below 0.99, at 0.9564 — meaning 4.36% of the canvas is black/empty. The canvas is 4240×4187 but the metrics region 4179×4126 has significant unfilled area. The dx_steps include one large outlier: dx_step[3]=−389.88px, indicating frame 3→4 has a large horizontal jump. This creates a region of the canvas where no frame provides coverage.
+Triggered when the Stage 9 temporal median render shows seam_coherence > 35 OR inter-strip colour difference > 25 luminance units. These are tests where the frame selector chose frames from different animation states, producing a temporal collage rather than a spatial panorama. All fall back to SCANS before Stage 11 runs.
 
----
+Affected: test01, test02, test03, test04, test21, test22, test23, test25, test29, test31, test32, test33, test34, test35, test37, test40, test41, test43, test44, test51, test52, test53, test56, test58, test59, test60, test61, test63, test65, test68, test69, test71, test72, test74, test75, test80, test81, test86, test88
 
-## 4. Alignment Failure Breakdown (12 Fallback Tests)
+Root cause: Phase correlation in the smart frame selector measures whole-frame displacement including character animation. The selector accepts frames where 45px of the 50px displacement is character movement, not camera pan.
 
-| Test | Frames | Ratio | Min Gap | Reason | dy_cv | dx_cv | Key anomaly |
-|------|--------|------:|--------:|--------|------:|------:|-------------|
-| test2 | 10 | 86.18 | 0.0 | ratio=86.2>3.0 | 154.7 | 3.07 | dy alternates sign; max_rotation=0.022, scale_dev=0.015 |
-| test3 | 11 | 5.682 | 284.5 | ratio=5.7>3.0 | 0.961 | 2.97 | dy_step[0]=+1654px; all others +284–294px |
-| test4 | 7 | 1.010 | 10.5 | min_gap<50px | 0.427 | 1.69 | Last dy_step only −10.5px (near-zero collapse) |
-| test5 | 6 | 1.020 | 446.5 | scale_dev>0.1 | 0.078 | 1.88 | scale_dev=0.121, max_rotation=0.064 |
-| test7 | 14 | 61.57 | 0.0 | ratio=61.6>3.0 | 6.17 | 12.16 | Non-monotonic dy, large dx swings (±1432px) |
-| test8 | 11 | 5.077 | 24.0 | ratio=5.1>3.0 | 2.381 | 93.89 | Wildly irregular dy; dx_cv=93.9 indicates horizontal chaos |
-| test9 | 9 | 1.378 | 2.9 | min_gap<50px | 0.673 | 2.55 | Step[4]=−33, step[5]=+36 (sign flip); max_rotation=0.041 |
-| test10 | 14 | 12.326 | 124.6 | ratio=12.3>3.0 | 8.461 | 3.51 | dy_step[0]=+3653px (outlier bundle edge) |
-| test13 | 9 | 31.483 | 1.8 | ratio=31.5>3.0 | 7.231 | 2.66 | dy_step[0]=−557px vs +100–127px for rest |
-| test16 | 10 | 2.131 | 0.0 | min_gap<50px | 3.251 | 2.83 | Steps 3,4 = 0.0 (co-located); dx_step[6]=335.57px |
-| test18 | 6 | 69.0 | 0.0 | ratio=69.0>3.0 | 2.982 | 1,606,437 | dx_cv=1,606,437 — extreme horizontal displacement in bundle |
-| test21 | 10 | 1.001 | 35.9 | min_gap<50px | 18.341 | 9.04 | dy_step[7]=−1206px (backward jump); dx_steps oscillate ±33px |
+### Category B — Affine Validation (13 tests — 13.5%)
 
-**Note on test3:** ratio=5.7 is caused by a single large first step (dy_step[0]=+1654px) while all 10 remaining steps are 284–294px (very consistent). This is a case where frame 0 vs frame 1 matching produced a grossly wrong result but the rest of the sequence is fine. A single-outlier-rejection rule would fix this test.
+**Ratio > 3.0 (7 tests):** test13 (11.1×), test54 (3.5×), test64 (4.2×), test66 (3.1×), test70 (4.1×), test73 (3.8×), test89 (4.0×)
 
-**Note on test10:** Same single-outlier pattern: dy_step[0]=+3653px, all others −142 to −201px. Frame 0→1 matching failed.
+Single catastrophically bad LoFTR match dominates the bundle solution. Current post-solve residual pruning handles most cases but fails when the bad edge's residual is within 3× of the median (corrupting the median itself). GNC robust loss would eliminate this failure mode.
 
-**Note on test16:** min_gap=0.0 means exact frame co-location. dy_steps[3]=0.0, dy_steps[4]=0.0 plus dx_step[6]=335.57 indicate the bundle adjuster placed three frames at the same canvas position while simultaneously computing an unexplained 335px horizontal jump.
+**min_gap < 25px (6 tests):** test14 (16.7px), test30 (21.0px), test48 (6.8px), test49 (23.3px), test77 (18.8px), test78 (5.0px)
 
----
+Near-duplicate frames survive smart selection and are placed within 25px of each other on the canvas. These would cause temporal median collapse. The 25px threshold correctly rejects them.
 
-## 5. Root Causes
+### Category C — True ASP Composite Failures (in 44 composites)
 
-### 5.1 Single bad match poisons bundle adjustment
+Among the 44 true ASP composites, 14 tests with GT are `simple_better`. Primary sub-causes:
 
-Tests test3, test10, test13 each have one catastrophically bad pairwise match that dominates the bundle solution. The bundle adjuster uses weighted least squares with no outlier rejection — one edge with a 1000px error in a chain of 10 edges with ~170px correct values will pull every subsequent frame position by hundreds of pixels.
+**C1 — Seam through character bodies** (high seam_gradient): test42 (13.5), test05 (13.0), test55 (11.8), test36 (11.4), test91 (12.9). The DP seam path cuts through character regions despite the BiRefNet foreground cost term.
 
-**Evidence:** test3 dy_step[0]=1654px vs median 289px (5.7× outlier); test10 dy_step[0]=3653px vs median 174px (21× outlier); test13 dy_step[0]=−557px (wrong sign) vs median +113px.
+**C2 — Colour mismatch at strip boundaries despite passing gate**: test15, test16, test12, test45, test91. Seam_coherence is below the gate threshold (35) but inter-strip colour differences are still visible and reduce GT SSIM significantly.
 
-**Fix needed:** Post-bundle-adjustment residual check with `3×median` threshold; remove outlier edges and re-solve.
-
-### 5.2 Near-zero / zero-translation matches from co-located frames
-
-Tests test4, test9, test16, test21 fail the min_gap check. The bundle adjuster places two or more frames at dy=0 (or within 10–35px) of each other. The source is LoFTR returning near-zero dy matches for frame pairs that show nearly identical content (possible duplicate or near-duplicate source frames).
-
-**Evidence:** test16 has dy_steps[3]=0.0 exactly; test21 has frames 0,8,9 co-located at the same canvas position (dy_step[7]=−1206px jump back to start).
-
-**Fix needed:** Filter edges with `|dy| < min_expected_step` (e.g. 50px) before bundle adjustment; deduplicate source frames.
-
-### 5.3 Scale/rotation from zoom or perspective sequences
-
-test5 has scale_dev=0.121 (12%) and max_rotation=0.064 (6°). This is a zoom-and-pan sequence. The pipeline's translation-only canvas model cannot handle scale or rotation changes between frames.
-
-**Fix needed:** Detect scale/rotation in affines and either (a) apply full affine warp per frame, or (b) fall back to OpenCV projective stitcher.
-
-### 5.4 Large dx offset in bundle solution (horizontal displacement)
-
-test18 has dx_cv=1,606,437 — an essentially infinite horizontal coefficient of variation. The bundle solution produced a tx offset of −692px for frame 1 that snaps back to ~0 by frame 2. This likely means the LoFTR match for pair 0→2 had a large spurious horizontal component that propagated into the bundle.
-
-### 5.5 Stage 11 composite seam gradient
-
-For ASP-succeeded tests, the seam_gradient is elevated in test6 (6.998) and test11 (7.214) compared to simple stitch (3.695 and 5.048). These are cases where the gain-corrected compositing creates visible brightness bands. Both tests hit the gain clamp (min=0.88 or max=1.14), meaning the photometric normalization is at its limits.
+**C3 — Diagonal / horizontal scroll unsupported**: test20 (coverage=0.88), test90 (seam∇=10.2). The vertical-dominant pipeline cannot correctly handle scenes with significant horizontal camera drift.
 
 ---
 
-## 6. Photometric Correction Observations
-
-The gain clamp is [0.88, 1.14] (−12% / +14%). Of 22 tests:
-
-- **17 hit at least one clamp boundary** (gain_min ≤ 0.881 or gain_max ≥ 1.139)
-- **5 stay within clamp:** test7 [0.938, 1.082], test10 [0.942, 1.077], test13 [0.992, 1.006], test19 [0.967, 1.129], test20 [0.968, 1.137]
-
-Tests hitting both clamps (gain=[0.88, 1.14] exactly):
-**test2, test3, test5, test6, test8, test9, test11, test12, test15, test17, test18, test21, test22** — 13 tests. These have a full 26% brightness swing across frames, and the clamp is the limiting constraint on correction quality.
-
-**Very dark scenes** (ref_lum < 70): test2 (41.8), test5 (81.3), test6 (74.5), test8 (65.5), test12 (38.5), test18 (51.5). Dark scenes see the largest proportional gain swings because even modest absolute luminance differences produce large ratios.
-
-**test13 special case:** gain_range=[0.992, 1.006] — essentially no correction applied (frames_corrected=0). This is the scene with the highest ref_lum (207.16), indicating a very bright/uniform scene where per-frame luminance variation is negligible.
-
-**Likely banding artifacts from gain clamping:** Tests where ASP ghosting exceeds simple by >5 points (test12: +7.70, test22: +5.29) and gain hits both clamps are the most likely candidates for visible gain-induced banding. The gain step between adjacent frames cannot be bridged smoothly when the correction is capped 6% short of the needed value.
-
----
-
-## 7. Recommended Pipeline Improvements
-
-### Priority 1 — Outlier-robust bundle adjustment
-
-Add per-edge residual computation after initial LS solve; reject edges where `|residual| > 3 × median(residuals)`; re-solve with clean edges. This would fix test3, test10, and possibly test13 without any matching changes.
-
-### Priority 2 — Near-zero edge filter before bundle adjustment
-
-In `_filter_edges` (or a pre-bundle-adjust step): reject any edge where `|dy| < 50px AND |dx| < 50px`. These are either co-located frames (test16, test21) or failed LoFTR matches (test4). This would reduce min_gap failures.
-
-### Priority 3 — Single-outlier affine step detection
-
-Post-bundle, compute `gap_ratio = step_i / median(all_steps)` for each step. If any step is >10× the median, flag as single-outlier failure and attempt re-solve excluding the frame pair responsible. This is a targeted fix for test3/test10 where one match is bad but the rest are excellent.
-
-### Priority 4 — Scale/rotation handling
-
-For test5 (scale_dev=0.121), the full 2×3 affine matrix contains genuine scale and rotation that the translation-only canvas model cannot handle. Add a fallback path: if `max_scale_dev > 0.05` or `max_rotation > 0.03`, use per-frame full affine warp instead of translation-only placement.
-
-### Priority 5 — Gain clamp widening with hue-safe correction
-
-17/22 tests hit the gain clamp. Widening from [0.88, 1.14] to [0.80, 1.20] would allow larger corrections for dark scenes, but risks hue shifts. Use the existing bg-only BT.601 scalar correction (which is already hue-safe) to justify widening the clamp.
-
-### Priority 6 — Seam gradient improvement for high-dx-cv tests
-
-test6 (dx_cv=16.65) and test11 (dy_step anomaly: −301px) have the highest seam gradients. These represent cases where the composite boundary falls on content that changes dramatically between adjacent frames. Consider using a wider feather zone (proportional to the absolute luminance difference) to smooth these transitions.
-
----
-
-## 8. Key File Locations
+## 4. Files and Locations
 
 | File | Purpose |
 |------|---------|
-| `backend/src/anim/pipeline.py` | Pipeline orchestration, `_filter_edges`, fallback logic |
-| `backend/src/anim/bundle_adjust.py` | Bundle adjustment (no outlier rejection — highest priority fix) |
-| `backend/src/anim/compositing.py` | Stage 11 composite (gain, seam, feather) |
+| `backend/benchmark/bench_anime_stitch.py` | Full benchmark with GT comparison, selective runner, render quality gate |
+| `backend/src/anim/validation.py` | Affine validation (min_gap=25px, vector magnitude gaps) |
+| `backend/src/anim/compositing.py` | Stage 11 composite with inter-strip coherence guard |
 | `backend/src/anim/rendering.py` | Stage 9 temporal median render |
-| `backend/src/anim/matching.py` | LoFTR/ECC pairwise matching |
-| `backend/src/anim/canvas.py` | Canvas geometry, translation-only placement |
-| `backend/src/anim/masking.py` | BiRefNet foreground masking |
-| `backend/src/core/image_merger.py` | Simple stitch (SCANS fallback reference) |
-| `backend/benchmark/results/anime_stitch_20260526_145622.json` | Full benchmark data |
-| `data/output/` | All 44 final output PNGs (22 ASP + 22 simple) |
-| `data/asp_testX/output/plots/` | Per-test visualisation plots |
-| `data/asp_testX/output/panorama_stages/` | Intermediate stage outputs |
+| `backend/src/anim/pipeline.py` | Full 13-stage orchestrator |
+| `backend/benchmark/results/anime_stitch_20260601_191331.json` | Latest 96-test benchmark results |
+| `data/ground_truth/` | 55 reference panoramas for GT SSIM/PSNR evaluation |
+| `data/output/` | All 192 final output PNGs (96 ASP + 96 simple) |

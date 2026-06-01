@@ -1,6 +1,11 @@
 # ASP Roadmap — Anime Stitch Pipeline: Quality & Reliability
 
-*Last updated: 2026-05-31. Benchmark baseline: 22/22 success, avg sharpness 33.14, avg ghosting 22.17.*
+*Last updated: 2026-06-01 19:13. Full 96-test benchmark with ground truth SSIM comparison.*  
+*Corpus: 96 tests; 55 have ground truth. **Avg SSIM ASP vs GT: 0.669 vs simple stitch 0.695** — simple stitch is 3.9% closer to reference on average.*  
+*True ASP composites: 44/96 (45.8%). Render quality gate: 39 fallbacks (40.6%). Affine validation: 13 fallbacks (13.5%).*  
+*GT verdicts: asp_better=8 (14.5%), simple_better=23 (41.8%), comparable=24 (43.6%).*  
+*Root cause: Animated video scenes vs. static-scroll design assumption. Phase correlation measures whole-frame displacement including character animation.*  
+*Previous baseline (22 tests, 2026-05-31): 22/22 metric success, avg sharpness 33.14.*
 
 ---
 
@@ -10,9 +15,50 @@ Each section lists the pain point, all viable implementation options with trade-
 
 ---
 
+## 0. CRITICAL: Pipeline Fundamentally Broken for Animated Video Scenes [Priority 0]
+
+**Established by visual inspection (2026-06-01):** After inspecting actual output images, the pipeline is producing catastrophically bad results on the majority of ASP-succeeded tests. The CV metrics (sharpness, ghosting, SSIM) completely mask this — the benchmark reports 65% "asp_better" when visual reality is approximately the opposite.
+
+**What the failures look like:** Multiple horizontal strips with completely mismatched colors, duplicated body parts at seam boundaries, exposed character poses at different animation states in adjacent strips. The simple stitch, despite less coverage, is visually coherent and usable.
+
+**Root cause:** The pipeline was designed for scrolling static art (manga panels). The test datasets are animated video where characters move independently of the camera. Phase correlation on whole frames cannot separate camera movement from character animation. The temporal median requires ≥3 frames per canvas row to suppress animation artifacts; with 50px frame steps across 1080px frames, most canvas rows have only 1 frame.
+
+**Required fixes before any other work:**
+1. Background-only phase correlation in frame selector (run BiRefNet first)
+2. Multi-frame canvas coverage check before compositing (fall back to SCANS if median coverage < 2 frames/row)
+3. Replace sharpness metric with seam coherence metric (row-mean luminance variance)
+4. Seam validation gate after composite (if adjacent strips differ >15 lum units, reject and use SCANS)
+
+---
+
+## 0.5 min_gap Threshold Calibration [Priority 2 — Quick Win]
+
+**Pain point:** On the 94-test corpus, 23 of 25 fallbacks (92%) are caused by `min_gap < 50px`. Note: fixing this will produce more ASP-succeeded tests, but those tests will exhibit the same compositing failures described in §0 until that is fixed first. This is not a quality fix — it only changes the fallback rate.
+
+### Options
+
+**A — Lower static threshold to 25px [Quick Win]**
+Change `MIN_GAP_PX` in `validation.py` from 50 to 25. Immediately rescues ~9 datasets.
+- Pros: One-line change. Proven safe — genuine co-located frames have gaps < 5px.
+- Cons: Fixed threshold; doesn't adapt to canvas resolution.
+
+**B — Vector magnitude gap (multi-axis) [Quick Win]**
+Replace `min(|dy|)` with `min(sqrt(dy² + dx²))` for the gap computation. Fixes 6 datasets with diagonal scroll where dy=40px but actual displacement=100px.
+- Pros: Physically correct for diagonal scrolls. One-line change.
+- Cons: Slightly more complex formula.
+
+**C — Adaptive threshold based on selected frame density**
+`min_gap = max(20px, canvas_height / (N_frames × 3))`. Scales with scroll speed.
+- Pros: Content-aware; no fixed value to tune.
+- Cons: Requires canvas_height to be known at validation time.
+
+**Recommendation:** Implement B first (zero risk, fixes multi-axis scrolls), then A (lower threshold). Combined, these should bring the success rate to ~83% (78/94).
+
+---
+
 ## 1.1 Bundle Adjustment Hardening
 
-**Pain point:** Pre-Phase-3 fallback rate was 55% (12/22 tests). The 2-pronged outlier rejection added in Phase 3 brought this to 0 fallbacks, but heuristics are tuned to the current 22-test corpus. New datasets with different outlier rates or motion profiles may regress.
+**Pain point (updated 2026-06-01):** On the 94-test corpus, ratio failures are nearly eliminated — only 2/25 fallbacks (8%) are ratio > 3.0, vs 58% in the pre-Phase-3 corpus. The 2-pronged outlier rejection added in Phase 3 is working well on real-world data. New concern: heuristics tuned for the current corpus may still fail on datasets with >40% true outliers.
 
 ### Options
 
