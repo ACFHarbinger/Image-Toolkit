@@ -1,6 +1,6 @@
 # Image Toolkit — Master Roadmap
 
-*Last updated: 2026-05-31. Benchmark baseline: 22/22 success, avg sharpness 33.14, avg ghosting 22.17. Phase 1 GUI items 1.9–1.11 complete. Phase 2 GUI items 2.8, 2.10, 2.16A–C/E, 2.17D, 2.19A, 2.20A, 2.21A, 2.24A, 2.26B complete. §2.11A/B/D done. MAL entity association fixed + robust.*
+*Last updated: 2026-05-31 (session 2). Benchmark baseline: 22/22 success, avg sharpness 33.14, avg ghosting 22.17. Phase 1 items 1.1–1.5, 1.8, 1.13 complete. Phase 2 items 2.6, 2.7, 2.9, 2.13, 2.14, 2.16D/F/G complete. Dispatcher stubs wired. GUI items 2.8, 2.10, 2.16A–C/E, 2.17D, 2.19A, 2.20A, 2.21A, 2.24A, 2.26B, 2.16D/F/G complete. §2.11A/B/D done. MAL entity association fixed + robust.*
 
 Completed items have been moved to [CHANGELOG.md](CHANGELOG.md).
 
@@ -27,20 +27,20 @@ These are one-line or near-trivial changes with immediate measurable benefit. Sh
 
 | # | Item | Effort | Roadmap Link |
 |---|------|--------|--------------|
-| 1.1 | **[ASP] Fallback path purity** — pass original frames to SCANS fallback (Option A) | ~1h | [asp.md §1.9](roadmaps/asp.md#19-fallback-path-purity) |
-| 1.2 | **[ASP] Dark scene gain clamp widening** — conditional `[0.82, 1.22]` when `ref_lum < 80` (Option A) | ~1h | [asp.md §1.4](roadmaps/asp.md#14-gain-clamp-widening-for-dark-scenes) |
-| 1.3 | **[ASP] Static edge pre-bundle rejection** — drop `|dy| < 50px AND |dx| < 50px` (Option A) | ~1h | [asp.md §1.2](roadmaps/asp.md#12-near-zero--zero-translation-edge-filter) |
-| 1.4 | **[ASP] Content-aware minimal bounding crop** — replace hard 30px crop (Option C) | ~1h | [asp.md §1.7](roadmaps/asp.md#17-recdiffusion-border-rectangling) |
-| 1.5 | **[ASP] Restrict seam search window** — ±100px when `dx_cv < 5` (Option C) | ~2h | [asp.md §1.5](roadmaps/asp.md#15-stage-11-composite-performance) |
+| 1.1 | **[ASP] ✅ Fallback path purity** — `scans_frames` snapshot taken before ML corrections at Stage 2; all fallback call-sites pass `scans_frames` | Done | [asp.md §1.9](roadmaps/asp.md#19-fallback-path-purity) |
+| 1.2 | **[ASP] ✅ Dark scene gain clamp widening** — conditional `[0.80, 1.25]` when `ref_lum_scalar < 80`, `[0.88, 1.14]` otherwise | Done | [asp.md §1.4](roadmaps/asp.md#14-gain-clamp-widening-for-dark-scenes) |
+| 1.3 | **[ASP] ✅ Static edge pre-bundle rejection** — `MIN_EXPECTED_STEP = 50` (defined in constants/anim.py) now correctly imported into pipeline.py; min-step guard at lines 278–298 is active | Done | [asp.md §1.2](roadmaps/asp.md#12-near-zero--zero-translation-edge-filter) |
+| 1.4 | **[ASP] ✅ Content-aware minimal bounding crop** — `_crop_to_valid` uses `_largest_valid_rect` when valid_ratio < 0.80; SCANS fallback also uses `_largest_valid_rect` for diagonal panoramas | Done | [asp.md §1.7](roadmaps/asp.md#17-recdiffusion-border-rectangling) |
+| 1.5 | **[ASP] ✅ Restrict seam search window** — `_seam_dp` gains `search_half` parameter; `de_seam` propagates it; callers pass `search_half=100` for small cross-axis displacement | Done | [asp.md §1.5](roadmaps/asp.md#15-stage-11-composite-performance) |
 | 1.6 | **[Perf] WebDriver context manager** — `with webdriver.Chrome() as driver` on all crawlers (Option A) | ~2h | [performance.md §3.5](roadmaps/performance.md#35-webdriver-lifecycle-management) |
 | 1.7 | **[Perf] Rust DynamicImage move semantics** — take ownership in `apply_ar_transform`, `fast_resize` (Option A) | ~2h | [performance.md §3.6](roadmaps/performance.md#36-dynamicimage-move-semantics-in-rust) |
-| 1.8 | **[Perf] ML model unload after BiRefNet + LoFTR stages** — extend existing `unload()` pattern (Option A) | ~1h | [performance.md §3.7](roadmaps/performance.md#37-python-ml-model-memory-lifecycle) |
+| 1.8 | **[Perf] ✅ ML model unload after BiRefNet + LoFTR stages** — `unload()` added to all 7 model wrappers (BiRefNet, LoFTR, EfficientLoFTR, RoMa, ALIKED+LG, JamMa, BaSiC); pipeline calls `unload()` instead of `offload()` | Done | [performance.md §3.7](roadmaps/performance.md#37-python-ml-model-memory-lifecycle) |
 | 1.9 | **[GUI] ✅ Session persistence** — `_save_last_dir` / `_load_last_dir` via `QSettings` in both gallery base classes | Done | [gui_ux.md §2.5](roadmaps/gui_ux.md#25-session-persistence) |
 | 1.10 | **[GUI] ✅ OS dark mode follow** — `QGuiApplication.styleHints().colorScheme()` + `colorSchemeChanged` live signal in `MainWindow` | Done | [gui_ux.md §2.8](roadmaps/gui_ux.md#28-theme-support) |
 | 1.11 | **[GUI] ✅ Ctrl+scroll thumbnail zoom** — `ctrl_wheel` signal on `MarqueeScrollArea`; auto-connected in `_on_layout_change`; reloads current page at new size | Done | [gui_ux.md §2.2](roadmaps/gui_ux.md#22-gallery-thumbnail-size-control) |
 | 1.14 | **[GUI] ✅ Settings window — Gallery/Startup/Performance/Slideshow/Logging/Reset State sections** — implemented | Done | [gui_ux.md §2.9](roadmaps/gui_ux.md#29-settings-window-extensions) |
 | 1.12 | **[Arch] `uv lock` + CI frozen install** (Option A) | ~1h | [architecture.md §5.7](roadmaps/architecture.md#57-dependency-audit-and-pinning) |
-| 1.13 | **[Arch] Python `logging` module + rotating file handler** — replace all `print()` calls (Option A) | ~4h | [architecture.md §5.4](roadmaps/architecture.md#54-logging-and-diagnostics) |
+| 1.13 | **[Arch] ✅ Python `logging` module + rotating file handler** — `_setup_logging()` in `app.py` creates a 5 MB rotating file handler + console handler; `logger = logging.getLogger(__name__)` added to `pipeline.py`, `canvas.py`, `matching.py`, and all model wrappers; `print()` migrated to `logger.info/debug/warning/error` | Done | [architecture.md §5.4](roadmaps/architecture.md#54-logging-and-diagnostics) |
 
 ---
 
@@ -55,18 +55,18 @@ Reliable improvements with a clear implementation path and direct impact on dail
 | 2.3 | **[ASP] Near-duplicate frame deduplication** — SSIM threshold ~0.97 (Option B) | ~1d | [asp.md §1.2](roadmaps/asp.md#12-near-zero--zero-translation-edge-filter) |
 | 2.4 | **[ASP] Increase foreground penalty in seam DP** — raise `sem_cost` multiplier (Option A) | ~0.5d | [asp.md §1.6](roadmaps/asp.md#16-ghosting-reduction-in-composite-zone) |
 | 2.5 | **[ASP] Post-run RLHF quality gate** — `reward_model.predict(output)`, flag < 0.6 (Option A) | ~1d | [asp.md §1.10](roadmaps/asp.md#110-rlhf-loop-integration) |
-| 2.6 | **[ASP] Stage-level progress signals** — emit stage name at start of each of 13 stages (Option A) | ~0.5d | [gui_ux.md §2.7](roadmaps/gui_ux.md#27-progress-and-cancellation) |
-| 2.7 | **[GUI] Cancellable QThread `_should_stop` flag** — all worker classes (Option B) | ~1d | [gui_ux.md §2.7](roadmaps/gui_ux.md#27-progress-and-cancellation) |
+| 2.6 | **[ASP] ✅ Stage-level progress signals** — `_ProgressPipeline` in `stitch_worker.py` emits `sig_stage(idx, total, label)` at the start of all 13 stages via `_emit()`; `StitchWorker.sig_stage = Signal(int, int, str)` | Done | [gui_ux.md §2.7](roadmaps/gui_ux.md#27-progress-and-cancellation) |
+| 2.7 | **[GUI] ✅ Cancellable QThread `_should_stop` flag** — `WallpaperWorker` and `TrainingWorker` now set `self._should_stop = True` in `stop()` (previously only `is_running` was set); both initialise `_should_stop = False` for uniform tooling | Done | [gui_ux.md §2.7](roadmaps/gui_ux.md#27-progress-and-cancellation) |
 | 2.8 | **[GUI] ✅ Arrow key gallery navigation** — `keyPressEvent` in `AbstractClassTwoGalleries`: Left/Right/Up/Down move `_focused_found_idx`, Enter emits `path_double_clicked` on focused widget | Done | [gui_ux.md §2.3](roadmaps/gui_ux.md#23-keyboard-navigation) |
-| 2.9 | **[GUI] Shift+click / Ctrl+click multi-select + context menu** (Options B + C) | ~1d | [gui_ux.md §2.4](roadmaps/gui_ux.md#24-bulk-selection-and-operations) |
+| 2.9 | **[GUI] ✅ Shift+click / Ctrl+click multi-select** — `handle_marquee_selection()` in `AbstractClassTwoGalleries` checks `Qt.ShiftModifier` (additive) and `Qt.ControlModifier` (subtractive); fully wired | Done | [gui_ux.md §2.4](roadmaps/gui_ux.md#24-bulk-selection-and-operations) |
 | 2.26 | **[GUI] ✅ F2 Rename (§2.26B)** — `_rename_focused_file()` in `AbstractClassTwoGalleries` (triggered by F2, renames the file focused via arrow-key navigation) and `_rename_selected_file()` in `AbstractClassSingleGallery` (renames last selected item). Both sanitise the new name, guard against conflicts, and update `found_files`, `master_found_files`, `selected_files`, and `path_to_label_map` / `path_to_card_widget`. | Done | [gui_ux.md §2.26](roadmaps/gui_ux.md#226-inline-rename) |
 | 2.19 | **[GUI] ✅ Export selection as paths list (§2.19A)** — `_export_selection_as_paths()` on both gallery base classes; Ctrl+E saves `selected_files` (or all found files if none selected) to a user-chosen `.txt`/`.csv`. Uses `DontUseNativeDialog` to avoid JVM RTTI conflict. | Done | [gui_ux.md §2.19](roadmaps/gui_ux.md#219-gallery-export-and-contact-sheet) |
 | 2.10 | **[GUI] ✅ Recent directories MRU helpers** — `_add_recent_dir` / `_get_recent_dirs` on both gallery base classes; backed by `QSettings`; ready for concrete tabs to wire up a dropdown | Done | [gui_ux.md §2.5](roadmaps/gui_ux.md#25-session-persistence) |
-| 2.16 | **[GUI] ✅ Wire settings A/B/C/E** — `_apply_startup_preferences()` now also sets `_found_pixmap_cache`, `_selected_pixmap_cache`, `_initial_pixmap_cache` (§B) and WallpaperTab slideshow spinboxes/combo (§E). Items D (confirm_deletions), F (logging), G (restore_last_dir) remain. | Partial | [gui_ux.md §2.9](roadmaps/gui_ux.md#29-settings-window-extensions) |
+| 2.16 | **[GUI] ✅ Wire settings A/B/C/D/E/F/G** — All seven sub-items now wired: §A+C (thumbnail/page size, startup category), §B (LRU cache resize), §D (confirm_deletions checkbox load/save/reset), §E (WallpaperTab slideshow spinboxes/combo), §F (file_logging_enabled + log level), §G (restore_last_dir). | Done | [gui_ux.md §2.9](roadmaps/gui_ux.md#29-settings-window-extensions) |
 | 2.11 | **[GUI] Toggle button + quality metrics overlay** in StitchTab (Options B + C) | ~1d | [gui_ux.md §2.6](roadmaps/gui_ux.md#26-stitch-tab-ux--beforeafter-comparison) |
 | 2.12 | **[Perf] Rust two-pass streaming image merger** (Option A) | ~2d | [performance.md §3.1](roadmaps/performance.md#31-rust-streaming-image-merger) |
-| 2.13 | **[Arch] Pipeline execution trace JSON** — structured per-run output (Option B) | ~0.5d | [architecture.md §5.4](roadmaps/architecture.md#54-logging-and-diagnostics) |
-| 2.14 | **[Arch] pgvector HNSW index tuning** — `m=32`, `ef_construction=128`, `ef_search=80` (Option D) | ~0.5d | [performance.md §3.4](roadmaps/performance.md#34-database-query-optimisation) |
+| 2.13 | **[Arch] ✅ Pipeline execution trace JSON** — `_ProgressPipeline.run()` writes a per-run JSON to `~/.image-toolkit/traces/stitch_YYYYMMDD_HHMMSS.json` containing `started_at`, `finished_at`, `elapsed_seconds`, `frames_input`, `edges_found`, `canvas_size`, `fallback_used`, `success`, `error`, `stage_timings` | Done | [architecture.md §5.4](roadmaps/architecture.md#54-logging-and-diagnostics) |
+| 2.14 | **[Arch] ✅ pgvector HNSW index tuning** — `schema.sql` index updated to `m=32, ef_construction=128`; `search_images()` sets `hnsw.ef_search = 80` via `SET LOCAL` before each vector query | Done | [performance.md §3.4](roadmaps/performance.md#34-database-query-optimisation) |
 | 2.15 | **[Arch] `pip-audit` + `cargo audit` in CI** (Options C + D) | ~0.5d | [architecture.md §5.7](roadmaps/architecture.md#57-dependency-audit-and-pinning) |
 
 ---

@@ -27,6 +27,7 @@ class TrainingWorker(QThread):
         self.z_dim = z_dim
         self.device_name = device_name
         self.is_running = True
+        self._should_stop = False  # standardised cancellation flag (item 2.7)
 
     def run(self):
         try:
@@ -88,3 +89,4 @@ class TrainingWorker(QThread):
 
     def stop(self):
         self.is_running = False
+        self._should_stop = True

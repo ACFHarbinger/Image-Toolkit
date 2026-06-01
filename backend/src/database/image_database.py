@@ -270,9 +270,14 @@ class PgvectorImageDatabase:
 
                 if tags is not None:
                     cur.execute(_images["delete_image_tags"], (image_id,))
-                    for tag_name in tags:
-                        tag_id = self._get_or_create_tag(tag_name)
-                        cur.execute(_images["insert_image_tag"], (image_id, tag_id))
+                    if tags:
+                        # Bulk-resolve or create tags then insert in a single round-trip
+                        tag_ids = [self._get_or_create_tag(t) for t in tags]
+                        psycopg2.extras.execute_values(
+                            cur,
+                            "INSERT INTO image_tags (image_id, tag_id) VALUES %s ON CONFLICT DO NOTHING",
+                            [(image_id, tid) for tid in tag_ids],
+                        )
 
                 return image_id
         except Exception as e:
@@ -415,6 +420,11 @@ class PgvectorImageDatabase:
 
         results = []
         try:
+            with self.conn.cursor() as _pre:
+                if query_vector:
+                    # Tune HNSW search beam width for this query (item 2.14).
+                    # ef_search=80 trades a small amount of recall for speed at scale.
+                    _pre.execute("SET LOCAL hnsw.ef_search = 80;")
             with self.conn.cursor(
                 cursor_factory=psycopg2.extras.DictCursor, name="search_images_cur"
             ) as cur:

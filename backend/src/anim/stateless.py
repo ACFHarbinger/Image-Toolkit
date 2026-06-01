@@ -121,6 +121,7 @@ def _seam_dp(
     img1: np.ndarray,
     img2: np.ndarray,
     horizontal: bool = True,
+    search_half: int | None = None,
 ) -> np.ndarray:
     """
     Dynamic-programming optimal seam between two images.
@@ -129,8 +130,13 @@ def _seam_dp(
 
     Parameters
     ----------
-    horizontal : if True, the seam is horizontal (separates top/bottom);
-                 if False, the seam is vertical (separates left/right).
+    horizontal    : if True, the seam is horizontal (separates top/bottom);
+                    if False, the seam is vertical (separates left/right).
+    search_half   : when provided, restricts the seam search to ±search_half
+                    pixels around the image midpoint along the seam axis.
+                    Use when the cross-axis displacement is small (≤5 px) so the
+                    seam stays near centre rather than wandering to an edge.
+                    Roadmap item 1.5: ±100 px when dx_cv < 5.
 
     Returns
     -------
@@ -145,6 +151,17 @@ def _seam_dp(
     if not horizontal:
         energy = energy.T
     h, w = energy.shape
+
+    # ── Search-window restriction (item 1.5) ──────────────────────────────
+    # When the cross-axis displacement is small, confine the seam to a band
+    # around the image midpoint so it cannot wander to a border.
+    if search_half is not None and search_half < w:
+        mid = w // 2
+        lo = max(0, mid - search_half)
+        hi = min(w, mid + search_half + 1)
+        mask = np.full((h, w), np.inf, dtype=np.float32)
+        mask[:, lo:hi] = energy[:, lo:hi]
+        energy = mask
 
     M = energy.copy()
     for i in range(1, h):

@@ -20,6 +20,10 @@ model weights are unavailable.
 
 from __future__ import annotations
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 import cv2
 import numpy as np
 import torch
@@ -56,6 +60,20 @@ class EfficientLoFTRWrapper:
 
     # ------------------------------------------------------------------ lifecycle
 
+    def unload(self) -> None:
+        """Delete model and processor from VRAM/RAM and free GPU cache."""
+        if self._model is not None:
+            self._model.cpu()
+            del self._model
+            self._model = None
+        if self._processor is not None:
+            del self._processor
+            self._processor = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        import gc
+        gc.collect()
+
     def offload(self) -> None:
         if self._model is not None:
             self._model.cpu()
@@ -64,7 +82,7 @@ class EfficientLoFTRWrapper:
 
     def load_model(self) -> None:
         if self._model is None:
-            print("[ELoFTR] Loading EfficientLoFTR from HuggingFace …")
+            logger.debug("[ELoFTR] Loading EfficientLoFTR from HuggingFace …")
             self._processor = AutoImageProcessor.from_pretrained(
                 _HF_REPO, use_fast=True
             )

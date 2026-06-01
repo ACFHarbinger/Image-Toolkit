@@ -20,6 +20,10 @@ import numpy as np
 import torch
 from typing import List, Optional, Tuple
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class BaSiCWrapper:
     """
@@ -43,6 +47,16 @@ class BaSiCWrapper:
         self.flat_field: Optional[np.ndarray] = None  # (H, W, 3)  float32
         self.dark_field: Optional[np.ndarray] = None  # (H, W, 3)  float32
         self.baselines: Optional[np.ndarray] = None  # (N,)       float32
+
+    def unload(self) -> None:
+        """Release stored numpy arrays and GPU cache (BaSiC is CPU-based)."""
+        self.flat_field = None
+        self.dark_field = None
+        self.baselines = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        import gc
+        gc.collect()
 
     # ------------------------------------------------------------------
     # New public API

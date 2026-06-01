@@ -78,6 +78,11 @@ class DoubleClickableLabel(QLabel):
         self._image_path = ""
         self.setAlignment(Qt.AlignCenter)
 
+    @property
+    def image_path(self) -> str:
+        """Read-only accessor used by async thumbnail workers to guard stale updates."""
+        return self._image_path
+
     def set_image_path(self, path: str):
         self._image_path = path
         if path and Path(path).exists():

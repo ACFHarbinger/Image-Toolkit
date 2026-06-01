@@ -8,6 +8,10 @@ runs the MFSR super-resolution pass after stage 10 when ``mfsr_mode=True``.
 
 from __future__ import annotations
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 import os
 
 os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
@@ -36,6 +40,7 @@ from .compositing import _composite_foreground
 from backend.src.constants import (
     LAPLACIAN_BANDS,
     MATCH_EDGE_CROP,
+    MIN_EXPECTED_STEP,
 )
 from .ecc import _ecc_refine
 from .masking import _compute_fg_masks
@@ -261,7 +266,7 @@ class AnimeStitchPipeline:
                     if diff_x < 15.0 and diff_y < 15.0:
                         filtered.append(e)
                     else:
-                        print(
+                        logger.debug(
                             f"[Stitch]   Edge {i}→{j} rejected: inconsistency "
                             f"(dx={diff_x:.1f}, dy={diff_y:.1f})"
                         )
@@ -292,7 +297,7 @@ class AnimeStitchPipeline:
                 adj_after = sum(1 for e in edges if e["j"] == e["i"] + 1)
                 n_rejected = adj_before - adj_after
                 if n_rejected > 0:
-                    print(
+                    logger.debug(
                         f"[Stitch]   Min-step guard: rejected {n_rejected} near-zero "
                         f"edges (threshold={MIN_EXPECTED_STEP}px on axis {primary_axis})"
                     )
@@ -322,7 +327,7 @@ class AnimeStitchPipeline:
                     ]
                     _n_skip_dropped = _pre_skip_n - len(edges)
                     if _n_skip_dropped:
-                        print(
+                        logger.debug(
                             f"[Stitch]   Skip-edge sign filter: dropped "
                             f"{_n_skip_dropped} wrong-sign skip edges"
                         )
@@ -367,7 +372,7 @@ class AnimeStitchPipeline:
                     float(np.median(vel_samples)) if vel_samples else None
                 )
                 if vel_px_per_ms is not None:
-                    print(
+                    logger.debug(
                         f"[Stitch]   Scroll velocity: {vel_px_per_ms:.4f} px/ms "
                         f"(from {len(vel_samples)} reliable edges)"
                     )
@@ -409,7 +414,7 @@ class AnimeStitchPipeline:
                             replaced = False
                             if vel_px_per_ms is not None and iv is not None:
                                 est_val = vel_px_per_ms * iv
-                                print(
+                                logger.debug(
                                     f"[Stitch]   Edge {fi}→{fj}: val={val:.1f} ({reason}); "
                                     f"velocity → val={est_val:.1f}"
                                 )
@@ -439,7 +444,7 @@ class AnimeStitchPipeline:
                                     and int(np.sign(M_dir[1, 2])) == consensus_sign
                                 ):
                                     new_val = float(M_dir[1, 2])
-                                    print(
+                                    logger.debug(
                                         f"[Stitch]   Edge {fi}→{fj}: directed TM → "
                                         f"val={new_val:.1f} conf={c_dir:.3f}"
                                     )
@@ -450,7 +455,7 @@ class AnimeStitchPipeline:
                                     e = _apply_corrected_M(e, M_new, c_dir * 0.7)
                                     replaced = True
                             if not replaced:
-                                print(
+                                logger.debug(
                                     f"[Stitch]   Edge {fi}→{fj}: val={val:.1f} ({reason}); "
                                     f"using median {median_val:.1f}"
                                 )
@@ -461,7 +466,7 @@ class AnimeStitchPipeline:
                                     e, M_fix, e.get("weight", 1.0) * 0.3
                                 )
                         else:
-                            print(
+                            logger.debug(
                                 f"[Stitch]   Edge {fi}→{fj}: val={val:.1f} kept "
                                 f"(consensus {median_val:.1f})"
                             )
@@ -493,7 +498,7 @@ class AnimeStitchPipeline:
         out_abs = os.path.abspath(output_path)
         image_paths = [p for p in image_paths if os.path.abspath(p) != out_abs]
 
-        print(f"[Stitch] Starting AnimeStitchPipeline on {len(image_paths)} frames.")
+        logger.info(f"[Stitch] Starting AnimeStitchPipeline on {len(image_paths)} frames.")
         self._baselines = None
 
         # ── Stage 1: Load & trim ─────────────────────────────────────────────
@@ -501,7 +506,7 @@ class AnimeStitchPipeline:
         N = len(frames)
         if N < 2:
             raise ValueError("Need at least 2 valid frames to stitch.")
-        print(f"[Stitch] Stage 1 complete: {N} frames loaded.")
+        logger.info(f"[Stitch] Stage 1 complete: {N} frames loaded.")
 
         # ── Stage 2: Width normalisation ─────────────────────────────────────
         frames = _normalise_widths(frames)
@@ -509,7 +514,7 @@ class AnimeStitchPipeline:
         scans_frames = list(
             frames
         )  # snapshot before ML corrections — used for SCANS fallback
-        print(f"[Stitch] Stage 2 complete: all frames at {W}×{H}.")
+        logger.info(f"[Stitch] Stage 2 complete: all frames at {W}×{H}.")
 
         # ── Stage 3: BaSiC photometric correction ────────────────────────────
         if self.use_basic:
@@ -518,9 +523,9 @@ class AnimeStitchPipeline:
             frames, baselines = _apply_basic(frames, self._basic)
             self._baselines = baselines
             frames = _correct_vignetting(frames)
-            print("[Stitch] Stage 3 complete: BaSiC + Vignette correction applied.")
+            logger.info("[Stitch] Stage 3 complete: BaSiC + Vignette correction applied.")
         else:
-            print("[Stitch] Stage 3 skipped (use_basic=False).")
+            logger.info("[Stitch] Stage 3 skipped (use_basic=False).")
 
         # ── Stage 4: Foreground masking ──────────────────────────────────────
         if self.use_birefnet and self._birefnet is None:
@@ -530,14 +535,13 @@ class AnimeStitchPipeline:
             self._birefnet,
             use_birefnet=self.use_birefnet,
         )
-        if torch.cuda.is_available() and self._birefnet is not None:
+        if self._birefnet is not None:
             try:
-                self._birefnet.offload()
+                self._birefnet.unload()
             except Exception:
                 pass
             self._birefnet = None
-            torch.cuda.empty_cache()
-        print(
+        logger.debug(
             f"[Stitch] Stage 4 complete: foreground masks ready "
             f"({'BiRefNet' if self.use_birefnet else 'None'})."
         )
@@ -572,7 +576,7 @@ class AnimeStitchPipeline:
                     frames[_i] = np.clip(
                         frames[_i].astype(np.float32) * _gain, 0, 255
                     ).astype(np.uint8)
-            print(
+            logger.debug(
                 f"[Stitch] Stage 4.5 complete: background photometric normalisation "
                 f"({len(_valid_means)}/{N} frames had sufficient background)."
             )
@@ -643,7 +647,7 @@ class AnimeStitchPipeline:
             ).astype(np.uint8)
             _n_seg_corrected += 1
         if _n_seg_corrected > 0:
-            print(
+            logger.debug(
                 f"[Stitch] Stage 4.5b: per-segment photometric correction applied to {_n_seg_corrected} frames."
             )
 
@@ -663,7 +667,7 @@ class AnimeStitchPipeline:
                 diff = float(np.abs(_la - _lb).mean())
                 if diff < 3.0:
                     keep[_fi] = False
-                    print(
+                    logger.debug(
                         f"[Stitch]   Dedup: frame {_fi} ≈ frame {_prev_kept} "
                         f"(luma_diff={diff:.2f}) — dropped."
                     )
@@ -676,7 +680,7 @@ class AnimeStitchPipeline:
                 bg_masks = [bg_masks[i] for i in keep_idx]
                 image_paths = [image_paths[i] for i in keep_idx]
                 N = len(frames)
-                print(
+                logger.debug(
                     f"[Stitch]   Dedup complete: {sum(not k for k in keep)} "
                     f"removed, {N} remain."
                 )
@@ -696,9 +700,9 @@ class AnimeStitchPipeline:
                 _jamma_inst = JamMaWrapper()
                 _jamma_inst.load_model()
                 _active_loftr = _jamma_inst
-                print(f"[Stitch]   4K frame ({W}×{H}): using JamMa (O(N) Mamba).")
+                logger.info(f"[Stitch]   4K frame ({W}×{H}): using JamMa (O(N) Mamba).")
             except Exception as _jm_e:
-                print(f"[Stitch]   JamMa unavailable ({_jm_e}); using EfficientLoFTR.")
+                logger.info(f"[Stitch]   JamMa unavailable ({_jm_e}); using EfficientLoFTR.")
 
         # P1.4 — Use EfficientLoFTR (2.5× faster) when available; fall back to
         # kornia LoFTR.  Both expose the same .match() interface.
@@ -708,9 +712,9 @@ class AnimeStitchPipeline:
                     self._eloftr = EfficientLoFTRWrapper()
                     self._eloftr.load_model()
                     _active_loftr = self._eloftr
-                    print("[Stitch]   Using EfficientLoFTR (2.5× faster than LoFTR).")
+                    logger.info("[Stitch]   Using EfficientLoFTR (2.5× faster than LoFTR).")
                 except Exception as _e:
-                    print(
+                    logger.debug(
                         f"[Stitch]   EfficientLoFTR init failed ({_e}); falling back to LoFTR."
                     )
                     self.use_efficient_loftr = False
@@ -727,14 +731,14 @@ class AnimeStitchPipeline:
             try:
                 self._aliked = ALIKEDLightGlueWrapper()
             except Exception as _e:
-                print(f"[Stitch]   ALIKED+LightGlue init failed ({_e}); disabling.")
+                logger.info(f"[Stitch]   ALIKED+LightGlue init failed ({_e}); disabling.")
                 self.use_aliked = False
                 self._aliked = None
         if self.use_roma and self._roma is None:
             try:
                 self._roma = RoMaWrapper()
             except Exception as _e:
-                print(f"[Stitch]   RoMa init failed ({_e}); disabling.")
+                logger.info(f"[Stitch]   RoMa init failed ({_e}); disabling.")
                 self.use_roma = False
                 self._roma = None
         edges = _pairwise_match(
@@ -771,7 +775,7 @@ class AnimeStitchPipeline:
                 if abs(float(_ee["M"][_spa_axis, 2])) < SPATIAL_DEDUP_PX:
                     _drop.add(_jj)
                     _spa_changed = True
-                    print(
+                    logger.debug(
                         f"[Stitch]   Spatial dedup: frame {_jj} ≈ frame {_ee['i']} "
                         f"(d{'x' if _spa_axis == 0 else 'y'}="
                         f"{float(_ee['M'][_spa_axis, 2]):.1f}px) — dropped."
@@ -792,28 +796,30 @@ class AnimeStitchPipeline:
                 if N < 2:
                     return _scan_stitch_fallback(scans_frames, output_path)
         if _total_spa_dropped:
-            print(
+            logger.debug(
                 f"[Stitch]   Spatial dedup complete: {_total_spa_dropped} frames "
                 f"removed, {N} remain."
             )
 
         edges = self._filter_edges(edges, image_paths, H, W, frames, bg_masks)
 
-        if torch.cuda.is_available():
-            for _mdl in [self._loftr, self._eloftr, self._aliked, self._roma]:
-                if _mdl is not None:
+        for _mdl in [self._loftr, self._eloftr, self._aliked, self._roma]:
+            if _mdl is not None:
+                try:
+                    _mdl.unload()
+                except Exception:
                     try:
                         _mdl.offload()
                     except Exception:
                         pass
-            self._loftr = None
-            self._eloftr = None
-            self._aliked = None
-            self._roma = None
+        self._loftr = None
+        self._eloftr = None
+        self._aliked = None
+        self._roma = None
+        if torch.cuda.is_available():
             torch.cuda.empty_cache()
-            gc.collect()
-            torch.cuda.empty_cache()
-        print(f"[Stitch] Stages 5-6 complete: {len(edges)} valid edges found.")
+        gc.collect()
+        logger.info(f"[Stitch] Stages 5-6 complete: {len(edges)} valid edges found.")
         if not edges:
             warnings.warn("[Stitch] No valid edges — falling back to scan stitch.")
             return _scan_stitch_fallback(scans_frames, output_path)
@@ -821,20 +827,20 @@ class AnimeStitchPipeline:
         # ── Stage 7: Global bundle adjustment ────────────────────────────────
         use_affine_ba = getattr(self, "motion_model", "affine") == "affine"
         affines = _bundle_adjust_affine(edges, N, use_affine=use_affine_ba)
-        print(
+        logger.debug(
             f"[Stitch] Stage 7 complete: bundle adjustment done "
             f"(mode={'affine' if use_affine_ba else 'translation'})."
         )
 
         # ── Stage 7b: Affine validation gate ─────────────────────────────────
         health = _validate_affines(affines)
-        print(
+        logger.debug(
             f"[Stitch]   Affine health: valid={health.valid}, "
             f"ratio={health.ratio:.1f}×, min_gap={health.min_gap:.0f}px, "
             f"max_rot={health.max_rotation:.4f}, scale_dev={health.max_scale_dev:.4f}"
         )
         if not health.valid:
-            print(
+            logger.debug(
                 f"[Stitch]   Affine health FAILED ({health.reason}); attempting recovery..."
             )
             # Retry 1: consecutive-only bundle — skip edges sometimes corrupt the solution
@@ -844,7 +850,7 @@ class AnimeStitchPipeline:
                     _adj_only, N, use_affine=use_affine_ba
                 )
                 health_r1 = _validate_affines(affines_r1)
-                print(
+                logger.debug(
                     f"[Stitch]   Retry 1 (adj-only bundle): "
                     f"valid={health_r1.valid}, {health_r1.reason}"
                 )
@@ -931,7 +937,7 @@ class AnimeStitchPipeline:
                             _chg = True
 
                 health_r2 = _validate_affines(_seq)
-                print(
+                logger.debug(
                     f"[Stitch]   Retry 2 (sequential+fill): "
                     f"valid={health_r2.valid}, {health_r2.reason}"
                 )
@@ -941,7 +947,7 @@ class AnimeStitchPipeline:
                     # Retry 3: accept with relaxed min_gap when ratio is still healthy
                     health_r3 = _validate_affines(_seq, min_step=20.0)
                     if health_r3.valid:
-                        print(
+                        logger.debug(
                             f"[Stitch]   Retry 3 (relaxed min_gap=20px): "
                             f"valid={health_r3.valid}, {health_r3.reason}"
                         )
@@ -962,7 +968,7 @@ class AnimeStitchPipeline:
                 if self._sea_raft is None:
                     _dev = "cuda" if torch.cuda.is_available() else "cpu"
                     self._sea_raft = _load_sea_raft(device=_dev)
-                    print("[Stitch]   SEA-RAFT model loaded.")
+                    logger.info("[Stitch]   SEA-RAFT model loaded.")
                 affines = _flow_refine(
                     frames,
                     affines,
@@ -970,7 +976,7 @@ class AnimeStitchPipeline:
                     device="cuda" if torch.cuda.is_available() else "cpu",
                     raft_model=self._sea_raft,
                 )
-                print("[Stitch] Stage 8 complete: SEA-RAFT flow refinement done.")
+                logger.info("[Stitch] Stage 8 complete: SEA-RAFT flow refinement done.")
                 # Offload SEA-RAFT after use
                 if torch.cuda.is_available():
                     try:
@@ -980,19 +986,19 @@ class AnimeStitchPipeline:
                     torch.cuda.empty_cache()
                     self._sea_raft = None
             except Exception as _ecc_e:
-                print(f"[Stitch]   SEA-RAFT failed ({_ecc_e}); falling back to ECC.")
+                logger.info(f"[Stitch]   SEA-RAFT failed ({_ecc_e}); falling back to ECC.")
                 if self.use_ecc:
                     affines = _ecc_refine(frames, affines, bg_masks)
-                    print("[Stitch] Stage 8 complete: ECC refinement done (fallback).")
+                    logger.info("[Stitch] Stage 8 complete: ECC refinement done (fallback).")
         elif self.use_ecc:
             affines = _ecc_refine(frames, affines, bg_masks)
-            print("[Stitch] Stage 8 complete: ECC refinement done.")
+            logger.info("[Stitch] Stage 8 complete: ECC refinement done.")
         else:
-            print("[Stitch] Stage 8 skipped (use_ecc=False, use_sea_raft=False).")
+            logger.info("[Stitch] Stage 8 skipped (use_ecc=False, use_sea_raft=False).")
 
         # ── Stage 9: Canvas construction ────────────────────────────────────
         canvas_h, canvas_w, T_global = _compute_canvas(frames, affines)
-        print(f"[Stitch] Stage 9: canvas size {canvas_w}×{canvas_h}.")
+        logger.info(f"[Stitch] Stage 9: canvas size {canvas_w}×{canvas_h}.")
         if canvas_h <= 0 or canvas_w <= 0:
             raise RuntimeError("Computed canvas has zero size.")
 
@@ -1015,7 +1021,7 @@ class AnimeStitchPipeline:
         for i in range(N):
             affines[i][0, 2] += T_global2[0]
             affines[i][1, 2] += T_global2[1]
-        print(
+        logger.debug(
             f"[Stitch] Stage 9 complete: midplane shift ({T_mid_x:.1f}, {T_mid_y:.1f}), "
             f"canvas {canvas_w}×{canvas_h}."
         )
@@ -1048,7 +1054,7 @@ class AnimeStitchPipeline:
             _dy_cv = float(np.std(_dy_steps)) / max(_mean_dy, 1.0) if _dy_steps else 0.0
             if _dy_cv > 0.20:
                 effective_renderer = "first"
-                print(
+                logger.debug(
                     f"[Stitch]   High step variance (dy_cv={_dy_cv:.3f} > 0.20) — "
                     f"switching renderer to 'first'."
                 )
@@ -1063,7 +1069,7 @@ class AnimeStitchPipeline:
             baselines=self._baselines,
             confidence_weights=_frame_confs,
         )
-        print("[Stitch] Stage 10 complete: temporal render done.")
+        logger.info("[Stitch] Stage 10 complete: temporal render done.")
 
         # ── Optional: MFSR super-resolution pass ─────────────────────────────
         # P1.7 — Auto-activate MFSR for low-sharpness canvas (W1 fix).
@@ -1075,7 +1081,7 @@ class AnimeStitchPipeline:
         )
         _mfsr_active = self.mfsr_mode
         if not _mfsr_active and _lap_var < 20.0:
-            print(
+            logger.debug(
                 f"[Stitch]   Low sharpness detected (Laplacian var={_lap_var:.1f} < 20); "
                 f"auto-activating MFSR."
             )
@@ -1097,9 +1103,9 @@ class AnimeStitchPipeline:
                 )
                 # Refresh the valid mask to the new canvas's non-zero pixels.
                 valid_mask = (canvas.max(axis=2) > 0).astype(np.uint8) * 255
-                print("[Stitch]   MFSR refinement complete.")
+                logger.info("[Stitch]   MFSR refinement complete.")
             except Exception as e:
-                print(
+                logger.debug(
                     f"[Stitch]   MFSR refinement failed ({e}); keeping median canvas."
                 )
 
@@ -1126,14 +1132,14 @@ class AnimeStitchPipeline:
                     if torch.cuda.is_available():
                         torch.cuda.empty_cache()
             except Exception as _tc_e:
-                print(f"[Stitch]   ToonCrafter ghost fill failed ({_tc_e}); skipping.")
+                logger.info(f"[Stitch]   ToonCrafter ghost fill failed ({_tc_e}); skipping.")
 
         # ── Stage 11: Foreground composite ──────────────────────────────────
         if self.composite_fg and self.use_birefnet:
             canvas = _composite_foreground(
                 [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks
             )
-            print("[Stitch] Stage 11 complete: foreground composited.")
+            logger.info("[Stitch] Stage 11 complete: foreground composited.")
 
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.5).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
@@ -1155,9 +1161,9 @@ class AnimeStitchPipeline:
                 )
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
-                print("[Stitch] Stage 11.5 complete: SRStitcher seam diffusion done.")
+                logger.info("[Stitch] Stage 11.5 complete: SRStitcher seam diffusion done.")
             except Exception as _srs_e:
-                print(f"[Stitch]   SRStitcher seam fusion failed ({_srs_e}); skipping.")
+                logger.info(f"[Stitch]   SRStitcher seam fusion failed ({_srs_e}); skipping.")
 
         # ── Stage 12: Remaining seam blend (handled inside _render). ────────
 
@@ -1167,7 +1173,7 @@ class AnimeStitchPipeline:
             ec = self.edge_crop
             if ec * 2 < canvas.shape[0] and ec * 2 < canvas.shape[1]:
                 canvas = canvas[ec:-ec, ec:-ec]
-        print("[Stitch] Stage 13 complete: boundary crop done.")
+        logger.info("[Stitch] Stage 13 complete: boundary crop done.")
 
         # P1.8 — Auto-trigger diffusion inpainting for coverage gaps (W4 fix).
         # test7 (diagonal motion) leaves black corners at 81.5% coverage.
@@ -1176,7 +1182,7 @@ class AnimeStitchPipeline:
         _gap_mask = (canvas.max(axis=2) == 0).astype(np.uint8) * 255
         _coverage = 1.0 - float(_gap_mask.mean()) / 255.0
         if _coverage < 0.95 and _gap_mask.any():
-            print(
+            logger.debug(
                 f"[Stitch]   Coverage {_coverage * 100:.1f}% < 95%; "
                 f"auto-activating diffusion inpainting for black corners."
             )
@@ -1184,26 +1190,26 @@ class AnimeStitchPipeline:
                 from .mfsr import inpaint_gaps
 
                 canvas = inpaint_gaps(canvas, gap_mask=_gap_mask)
-                print("[Stitch]   Inpainting complete.")
+                logger.info("[Stitch]   Inpainting complete.")
             except Exception as _e:
-                print(f"[Stitch]   Inpainting failed ({_e}); keeping canvas as-is.")
+                logger.info(f"[Stitch]   Inpainting failed ({_e}); keeping canvas as-is.")
 
         # ── Optional: Real-ESRGAN anime_6B super-resolution (P2.2) ──────────
         if self.sr_mode and _SR_OK:
             try:
                 _dev_sr = "cuda" if torch.cuda.is_available() else "cpu"
-                print(
+                logger.debug(
                     f"[Stitch]   Running Real-ESRGAN anime_6B {self.sr_scale}× SR "
                     f"on {canvas.shape[1]}×{canvas.shape[0]} canvas…"
                 )
                 canvas = upscale_anime(canvas, scale=self.sr_scale, device=_dev_sr)
-                print(
+                logger.debug(
                     f"[Stitch]   SR complete: output {canvas.shape[1]}×{canvas.shape[0]}."
                 )
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
             except Exception as _sr_e:
-                print(
+                logger.debug(
                     f"[Stitch]   Real-ESRGAN failed ({_sr_e}); keeping original resolution."
                 )
 
@@ -1212,7 +1218,7 @@ class AnimeStitchPipeline:
         out = Image.fromarray(rgb)
         out.save(output_path)
         gc.collect()
-        print(f"[Stitch] Done. Saved to '{output_path}'.")
+        logger.info(f"[Stitch] Done. Saved to '{output_path}'.")
         return out
 
     # ------------------------------------------------------------- thin wrappers

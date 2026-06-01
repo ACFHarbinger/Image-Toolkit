@@ -1,5 +1,7 @@
 import os
 import cv2
+import time
+import json
 import subprocess
 
 from pathlib import Path
@@ -45,7 +47,7 @@ from ...helpers import (
     VideoExtractionWorker,
 )
 from ...helpers.video.video_scan_worker import VideoThumbnailer
-from backend.src.constants import LOCAL_SOURCE_PATH, SUPPORTED_VIDEO_FORMATS
+from backend.src.constants import LOCAL_SOURCE_PATH, SUPPORTED_VIDEO_FORMATS, IMAGE_TOOLKIT_DIR
 
 
 class CutLabel(QLabel):
@@ -112,6 +114,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         # Reference for the progress dialog and active workers
         self.progress_dialog: Optional[QProgressDialog] = None
         self.active_extraction_worker: Optional[Any] = None
+        self._active_metadata: Optional[dict] = None
+        self.wheel_seek_ms = 100
 
         self.use_internal_player = True
         self.video_view: Optional[QGraphicsView] = None
@@ -144,6 +148,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.extraction_dir = Path(LOCAL_SOURCE_PATH) / "Frames"
         self.extraction_dir.mkdir(parents=True, exist_ok=True)
         self.last_browsed_extraction_dir = str(self.extraction_dir)
+
+        # --- Extraction History ---
+        self.extraction_metadata: Dict[str, Any] = {}
+        self._extracted_stems_cache: Set[str] = set()
+        self._load_extraction_history()
 
         # --- Initialize Pagination ---
         self.pagination_widget = self.create_pagination_controls()
@@ -751,12 +760,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.active_extraction_worker = None
 
         if self.vid_scanner_worker:
-            try:
-                self.vid_scanner_worker.signals.thumbnail_ready.disconnect()
-                self.vid_scanner_worker.signals.finished.disconnect()
-            except Exception:
-                pass
             self.vid_scanner_worker.stop()
+            self.vid_scanner_worker = None
 
         # Close sub-windows
         for win in list(self.open_preview_windows):
@@ -821,6 +826,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             if item.widget():
                 item.widget().deleteLater()
 
+        # 0. Refresh extracted stems cache
+        self._refresh_extracted_stems_cache()
+
         # 1. Alphabetical Directory Read (Quickly get names for placeholders)
         try:
             entries = sorted(os.scandir(path), key=lambda e: natural_sort_key(e.name))
@@ -863,11 +871,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         # 3. Start the intensive thumbnailing worker
         if self.vid_scanner_worker:
-            try:
-                self.vid_scanner_worker.signals.thumbnail_ready.disconnect()
-                self.vid_scanner_worker.signals.finished.disconnect()
-            except Exception:
-                pass
             self.vid_scanner_worker.stop()
             self.vid_scanner_worker = None
 
@@ -981,21 +984,44 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         menu.addAction(view_action)
         menu.exec(global_pos)
 
-    def _has_extracted_files(self, video_path: str) -> bool:
-        """Check if the video has extracted files in the output directory."""
-        if (
-            not hasattr(self, "extraction_dir")
-            or not self.extraction_dir
-            or not self.extraction_dir.exists()
-        ):
-            return False
-        stem = Path(video_path).stem
+    def _refresh_extracted_stems_cache(self):
+        """Scans extraction_dir once and caches which video stems have files."""
+        self._extracted_stems_cache.clear()
+        if not self.extraction_dir.exists():
+            return
         try:
-            for f in self.extraction_dir.iterdir():
-                if f.is_file() and f.name.startswith(f"{stem}_"):
-                    return True
-        except Exception:
-            pass
+            # We only care about the prefix before the first '_' or similar.
+            # However, stems can contain underscores. 
+            # To be robust, we just store all filenames and check prefixes in _has_extracted_files
+            # OR we can collect all strings before the LAST underscore.
+            for entry in os.scandir(self.extraction_dir):
+                if entry.is_file():
+                    name = entry.name
+                    # Extracted files: {stem}_{ms}ms.png or {stem}_smart_{ms}ms.png
+                    # or {stem}_snap_{ms}ms.png
+                    if "_" in name:
+                        # Take everything before the last underscore that looks like a timestamp
+                        idx = name.rfind("_")
+                        if idx > 0:
+                            self._extracted_stems_cache.add(name[:idx])
+        except Exception as e:
+            print(f"Error refreshing extracted stems cache: {e}")
+
+    def _has_extracted_files(self, video_path: str) -> bool:
+        """Check if the video has extracted files in the output directory using cache."""
+        if not self._extracted_stems_cache:
+            self._refresh_extracted_stems_cache()
+
+        stem = Path(video_path).stem
+        # Check direct stem match
+        if stem in self._extracted_stems_cache:
+            return True
+        # Check with _smart or _snap suffixes which might be in the cache if we used rfind
+        if f"{stem}_smart" in self._extracted_stems_cache:
+            return True
+        if f"{stem}_snap" in self._extracted_stems_cache:
+            return True
+            
         return False
 
     def _update_source_label_style(
@@ -1035,12 +1061,18 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     @Slot(str)
     def load_media(self, file_path: str):
+        old_path = self.video_path
         self.video_path = file_path
+
+        # Update styles only for the affected widgets (old and new selection)
+        for path in [old_path, file_path]:
+            if path and path in self.source_path_to_widget:
+                widget = self.source_path_to_widget[path]
+                label = widget.findChild(ClickableLabel)
+                if label:
+                    self._update_source_label_style(path, label, path == file_path)
+
         ext = Path(file_path).suffix.lower()
-        for path, widget in self.source_path_to_widget.items():
-            label = widget.findChild(ClickableLabel)
-            if label:
-                self._update_source_label_style(path, label, path == file_path)
 
         if ext == ".gif":
             self.video_container_widget.setVisible(False)
@@ -1078,6 +1110,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.last_browsed_extraction_dir = str(new_path)
             self.line_edit_extract_dir.setText(str(self.extraction_dir))
             self._clear_gallery()
+            self._refresh_extracted_stems_cache()
+            self._load_extraction_history()
             self._load_existing_output_images()
 
             for path, widget in self.source_path_to_widget.items():
@@ -1086,6 +1120,36 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                     self._update_source_label_style(
                         path, label, path == getattr(self, "video_path", None)
                     )
+
+    def _load_extraction_history(self):
+        """Loads metadata for extracted frames from a central hidden JSON file."""
+        history_file = IMAGE_TOOLKIT_DIR / "extraction_history.json"
+        if history_file.exists():
+            try:
+                with open(history_file, "r", encoding="utf-8") as f:
+                    self.extraction_metadata = json.load(f)
+            except Exception as e:
+                print(f"Error loading extraction history: {e}")
+                self.extraction_metadata = {}
+        else:
+            self.extraction_metadata = {}
+
+    def _save_extraction_history(self):
+        """Saves metadata for extracted frames to a central hidden JSON file."""
+        history_file = IMAGE_TOOLKIT_DIR / "extraction_history.json"
+        try:
+            IMAGE_TOOLKIT_DIR.mkdir(parents=True, exist_ok=True)
+            with open(history_file, "w", encoding="utf-8") as f:
+                json.dump(self.extraction_metadata, f, indent=2)
+        except Exception as e:
+            print(f"Error saving extraction history: {e}")
+
+    def _record_extraction(self, file_paths: List[str], metadata: dict):
+        """Records metadata for a set of extracted files using absolute paths as keys."""
+        for path in file_paths:
+            abs_path = str(Path(path).absolute())
+            self.extraction_metadata[abs_path] = metadata
+        self._save_extraction_history()
 
     def _clear_gallery(self):
         self.current_extracted_paths.clear()
@@ -1158,8 +1222,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 # Only perform seek logic if the video is loaded and we are in internal player mode
                 if self.use_internal_player and self.media_player.duration() > 0:
                     delta = event.angleDelta().y()
-                    # Jump by 100ms per scroll tick
-                    step = 100 if delta > 0 else -100
+                    # Jump by configured ms per scroll tick
+                    step = self.wheel_seek_ms if delta > 0 else -self.wheel_seek_ms
                     current_pos = self.media_player.position()
                     new_pos = max(
                         0, min(current_pos + step, self.media_player.duration())
@@ -1184,16 +1248,16 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 # --- Arrow Keys for Video Seeking (When video has focus) ---
                 if event.type() == QEvent.Type.KeyPress:
                     if event.key() == Qt.Key.Key_Right:
-                        # Seek forward 2 seconds
+                        # Seek forward
                         pos = self.media_player.position()
                         duration = self.media_player.duration()
-                        new_pos = min(pos + 100, duration)
+                        new_pos = min(pos + self.wheel_seek_ms, duration)
                         self.media_player.setPosition(new_pos)
                         return True
                     elif event.key() == Qt.Key.Key_Left:
-                        # Seek backward 2 seconds
+                        # Seek backward
                         pos = self.media_player.position()
-                        new_pos = max(0, pos - 100)
+                        new_pos = max(0, pos - self.wheel_seek_ms)
                         self.media_player.setPosition(new_pos)
                         return True
                     elif event.key() == Qt.Key.Key_Escape:
@@ -1440,6 +1504,34 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         count = len(self.selected_paths)
         menu = QMenu(self)
+
+        # Extraction History Actions
+        abs_path = str(Path(path).absolute())
+        metadata = self.extraction_metadata.get(abs_path)
+        if metadata:
+            menu.addSection("🎬 Extraction Source")
+
+            jump_start_act = QAction("Jump to Start", self)
+            jump_start_act.triggered.connect(
+                lambda: self._jump_to_extraction_start(metadata)
+            )
+            menu.addAction(jump_start_act)
+
+            jump_end_act = QAction("Jump to End", self)
+            jump_end_act.triggered.connect(
+                lambda: self._jump_to_extraction_end(metadata)
+            )
+            menu.addAction(jump_end_act)
+
+            reload_act = QAction("♻️ Reload Extraction Params", self)
+            reload_act.setToolTip(
+                "Sets player time, cuts, and engine configs to match this run."
+            )
+            reload_act.triggered.connect(lambda: self._reload_extraction(metadata))
+            menu.addAction(reload_act)
+
+            menu.addSeparator()
+
         if count == 1:
             if not path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
                 view_action = QAction("View Full Size", self)
@@ -1454,6 +1546,58 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         delete_action.triggered.connect(self.delete_selected_images)
         menu.addAction(delete_action)
         menu.exec(global_pos)
+
+    def _jump_to_extraction_start(self, metadata: dict):
+        video_path = metadata.get("video_path")
+        if video_path and os.path.exists(video_path):
+            if video_path != self.video_path:
+                self.load_media(video_path)
+            self.media_player.setPosition(metadata.get("start_ms", 0))
+            self.media_player.pause()
+
+    def _jump_to_extraction_end(self, metadata: dict):
+        video_path = metadata.get("video_path")
+        if video_path and os.path.exists(video_path):
+            if video_path != self.video_path:
+                self.load_media(video_path)
+            self.media_player.setPosition(metadata.get("end_ms", 0))
+            self.media_player.pause()
+
+    def _reload_extraction(self, metadata: dict):
+        video_path = metadata.get("video_path")
+        if video_path and os.path.exists(video_path):
+            if video_path != self.video_path:
+                self.load_media(video_path)
+
+        # Reload Times
+        self.start_time_ms = metadata.get("start_ms", 0)
+        self.end_time_ms = metadata.get("end_ms", 0)
+        self._update_range_labels()
+
+        # Reload Cuts
+        self.cuts_ms = metadata.get("cuts_ms", [])
+        self._update_cuts_label()
+
+        # Reload Tags
+        self.tags_ms = metadata.get("tags_ms", [])
+        self._update_tags_ui()
+
+        # Reload Configs
+        self.combo_extract_size.setCurrentText(metadata.get("output_size", "Original"))
+        self.check_extract_vertical.setChecked(metadata.get("extract_vertical", False))
+        self.spin_gif_fps.setValue(metadata.get("gif_fps", 24))
+        self.check_mute_audio.setChecked(metadata.get("mute_audio", False))
+        self.combo_engine.setCurrentText(metadata.get("engine", "FFmpeg"))
+        self.spin_interval.setValue(metadata.get("frame_interval", 1))
+        self.check_smart_extract.setChecked(metadata.get("smart_extract", False))
+        self.combo_smart_method.setCurrentText(
+            metadata.get("smart_method", "mpdecimate (De-duplicate)")
+        )
+
+        self.media_player.setPosition(self.start_time_ms)
+        self.media_player.pause()
+        self.extraction_status_label.setText("Reloaded extraction parameters.")
+        self.extraction_status_label.show()
 
     def delete_selected_images(self):
         if not self.selected_paths:
@@ -1606,26 +1750,30 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             )
 
     # --- Extraction Logic ---
+    def _update_range_labels(self):
+        """Updates the text and enabled state of range-related buttons."""
+        start_str = self._format_time(self.start_time_ms)
+        end_str = self._format_time(self.end_time_ms)
+
+        self.btn_set_start.setText(f"Start: {start_str}")
+        self.btn_set_end.setText(f"End: {end_str}")
+
+        self.btn_snapshot.setText(f"📸 Snapshot at {start_str}")
+        self.btn_snapshot.setEnabled(True)
+        self.btn_jump_start.setEnabled(True)
+        self.btn_jump_end.setEnabled(True)
+
+        self._validate_range()
+
     @Slot()
     def set_range_start(self):
         self.start_time_ms = self.media_player.position()
-        time_str = self._format_time(self.start_time_ms)
-        self.btn_set_start.setText(f"Start: {time_str}")
-
-        # --- MODIFIED: Enable snapshot and update text ---
-        self.btn_snapshot.setEnabled(True)
-        self.btn_snapshot.setText(f"📸 Snapshot at {time_str}")
-        self.btn_jump_start.setEnabled(True)
-        # -------------------------------------------------
-
-        self._validate_range()
+        self._update_range_labels()
 
     @Slot()
     def set_range_end(self):
         self.end_time_ms = self.media_player.position()
-        self.btn_set_end.setText(f"End: {self._format_time(self.end_time_ms)}")
-        self.btn_jump_end.setEnabled(True)
-        self._validate_range()
+        self._update_range_labels()
 
     @Slot()
     def set_cut_start(self):
@@ -2023,31 +2171,54 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             )
 
         # Use current player position as starting point if possible
-        start_ms = self.media_player.position() if self.use_internal_player else self.start_time_ms
+        start_ms = (
+            self.media_player.position()
+            if self.use_internal_player
+            else self.start_time_ms
+        )
 
         dlg = FrameSelectionDialog(self.video_path, start_ms=start_ms, parent=self)
         if dlg.exec() == QDialog.Accepted and dlg.selected_image:
             self.extraction_status_label.setText("Saving snapshot...")
             self.extraction_status_label.show()
             self.qml_extraction_status.emit("Saving snapshot...")
-            
+
             # Use target size logic if not "Native"
             target_size = self._get_target_size()
             img = dlg.selected_image
             if target_size:
                 img = img.scaled(
-                    target_size[0], target_size[1], 
-                    Qt.IgnoreAspectRatio, Qt.SmoothTransformation
+                    target_size[0],
+                    target_size[1],
+                    Qt.IgnoreAspectRatio,
+                    Qt.SmoothTransformation,
                 )
 
             # Generate filename
             timestamp_ms = int(dlg.selected_frame_idx / dlg.fps * 1000)
             filename = f"{Path(self.video_path).stem}_snap_{timestamp_ms}ms.png"
             out_path = self.extraction_dir / filename
-            
+
             if img.save(str(out_path)):
                 self.extraction_status_label.setText(f"Snapshot saved: {filename}")
                 self.extraction_status_label.show()
+
+                # Record metadata
+                metadata = self._get_current_extraction_metadata()
+                metadata["mode"] = "snapshot"
+                metadata["start_ms"] = timestamp_ms
+                metadata["end_ms"] = timestamp_ms
+                metadata["fps"] = getattr(dlg, "fps", 23.976)
+                self._record_extraction([str(out_path)], metadata)
+
+                # Update cache and refresh the source label style
+                self._refresh_extracted_stems_cache()
+                if self.video_path in self.source_path_to_widget:
+                    widget = self.source_path_to_widget[self.video_path]
+                    label = widget.findChild(ClickableLabel)
+                    if label:
+                        self._update_source_label_style(self.video_path, label, True)
+
                 # Auto-refresh gallery if needed
                 self.scan_directory(str(self.extraction_dir))
             else:
@@ -2150,6 +2321,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.extraction_status_label.setText("Extracting frames...")
         self.extraction_status_label.show()
 
+        self._active_metadata = self._get_current_extraction_metadata()
+        self._active_metadata["mode"] = "range" if is_range else "single"
+
         self.active_extraction_worker = FrameExtractionWorker(
             video_path=self.video_path,
             output_dir=str(self.extraction_dir),
@@ -2200,6 +2374,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         )
         self.extraction_status_label.show()
 
+        self._active_metadata = self._get_current_extraction_metadata()
+        self._active_metadata["mode"] = "gif"
+
         output_name = f"{Path(self.video_path).stem}_{int(start)}ms_{int(end)}ms.gif"
         output_path = str(self.extraction_dir / output_name)
 
@@ -2236,9 +2413,12 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.extraction_progress_bar.setValue(0)
         self.extraction_progress_bar.show()
         self.extraction_status_label.setText(
-            "Generating Video... This may take a moment."
+            "Extracting video clip... This may take a moment."
         )
         self.extraction_status_label.show()
+
+        self._active_metadata = self._get_current_extraction_metadata()
+        self._active_metadata["mode"] = "video"
 
         output_name = f"{Path(self.video_path).stem}_{int(start)}ms_{int(end)}ms.mp4"
         output_path = str(self.extraction_dir / output_name)
@@ -2304,6 +2484,22 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     @Slot(list)
     def _on_extraction_finished(self, new_paths: List[str]):
+        if self._active_metadata and new_paths:
+            if self.active_extraction_worker and hasattr(self.active_extraction_worker, "fps"):
+                self._active_metadata["fps"] = self.active_extraction_worker.fps
+            self._record_extraction(new_paths, self._active_metadata)
+
+            # Update cache and refresh the source label style
+            self._refresh_extracted_stems_cache()
+            if self.video_path in self.source_path_to_widget:
+                widget = self.source_path_to_widget[self.video_path]
+                label = widget.findChild(ClickableLabel)
+                if label:
+                    self._update_source_label_style(self.video_path, label, True)
+
+        self._active_metadata = None
+
+
         self.active_extraction_worker = None
         self._set_extraction_buttons_enabled(True)
         self.extraction_progress_bar.hide()
@@ -2328,6 +2524,25 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             "Success",
             f"Extracted {len(new_paths)} images. Total: {len(self.current_extracted_paths)}",
         )
+
+    def _get_current_extraction_metadata(self) -> dict:
+        """Collects current UI state as metadata for an extraction run."""
+        return {
+            "video_path": str(self.video_path),
+            "start_ms": self.start_time_ms,
+            "end_ms": self.end_time_ms,
+            "cuts_ms": self.cuts_ms[:],
+            "tags_ms": self.tags_ms[:],
+            "output_size": self.combo_extract_size.currentText(),
+            "extract_vertical": self.check_extract_vertical.isChecked(),
+            "gif_fps": self.spin_gif_fps.value(),
+            "mute_audio": self.check_mute_audio.isChecked(),
+            "engine": self.combo_engine.currentText(),
+            "frame_interval": self.spin_interval.value(),
+            "smart_extract": self.check_smart_extract.isChecked(),
+            "smart_method": self.combo_smart_method.currentText(),
+            "timestamp": time.time(),
+        }
 
     def _format_time(self, ms: int) -> str:
         seconds = (ms // 1000) % 60

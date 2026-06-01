@@ -22,6 +22,10 @@ import cv2
 import numpy as np
 import torch
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 from PIL import Image
 from torchvision import transforms
 from typing import List, Optional
@@ -48,7 +52,7 @@ try:
     _TRANSFORMERS_OK = True
 except ImportError:
     _TRANSFORMERS_OK = False
-    print("[BiRefNet] 'transformers' not installed — segmentation unavailable.")
+    logger.info("[BiRefNet] 'transformers' not installed — segmentation unavailable.")
 
 
 class BiRefNetWrapper:
@@ -84,6 +88,18 @@ class BiRefNetWrapper:
 
     # ------------------------------------------------------------------ model
 
+    def unload(self):
+        """Remove this instance's model from VRAM/RAM and free GPU cache."""
+        key = (self.model_name, self.device)
+        if key in BiRefNetWrapper._models:
+            model = BiRefNetWrapper._models.pop(key)
+            model.cpu()
+            del model
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        import gc
+        gc.collect()
+
     def offload(self):
         key = (self.model_name, self.device)
         if key in BiRefNetWrapper._models:
@@ -110,14 +126,14 @@ class BiRefNetWrapper:
         if key not in BiRefNetWrapper._models:
             if not _TRANSFORMERS_OK:
                 raise RuntimeError("'transformers' is required for BiRefNetWrapper.")
-            print(f"[BiRefNet] Loading {self.model_name} on {self.device}…")
+            logger.info(f"[BiRefNet] Loading {self.model_name} on {self.device}…")
             try:
                 model = AutoModelForImageSegmentation.from_pretrained(
                     self.model_name, trust_remote_code=True
                 ).to(self.device)
             except Exception:
                 # Fallback to generic BiRefNet if ToonOut is unavailable
-                print(
+                logger.debug(
                     f"[BiRefNet] Could not load {self.model_name}; "
                     f"falling back to {BIREFNET_MODEL}."
                 )

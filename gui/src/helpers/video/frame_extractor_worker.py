@@ -84,6 +84,7 @@ class FrameExtractionWorker(QRunnable):
         self.smart_method = smart_method
         self.signals = ExtractorSignals()
         self._is_cancelled = False
+        self.fps = 23.976  # Default/detected FPS
 
     def _get_fps(self) -> float:
         """Get video FPS to calculate timestamps."""
@@ -103,10 +104,10 @@ class FrameExtractionWorker(QRunnable):
         self.signals.started.emit()
         saved_files = []
 
-        fps = self._get_fps()
+        self.fps = self._get_fps()
 
         if self.smart_extract:
-            self._run_smart_extraction(saved_files, fps)
+            self._run_smart_extraction(saved_files, self.fps)
             return
 
         # --- REGULAR EXTRACTION (Replaces OpenCV with FFmpeg for robustness) ---

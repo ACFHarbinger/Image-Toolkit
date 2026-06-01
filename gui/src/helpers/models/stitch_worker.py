@@ -193,7 +193,53 @@ if _PIPELINE_OK:
 
             # ─────────────────────────────────────────────────────────────────
 
+            # ── Execution trace (item 2.13) ───────────────────────────────────
+            import time as _time
+            import datetime as _dt
+
+            _trace_start = _time.perf_counter()
+            _trace: dict = {
+                "started_at": _dt.datetime.now().isoformat(timespec="seconds"),
+                "output_path": output_path,
+                "frames_input": 0,
+                "edges_found": 0,
+                "canvas_size": None,
+                "fallback_used": False,
+                "stage_timings": [],
+                "success": False,
+                "error": None,
+                "finished_at": None,
+                "elapsed_seconds": None,
+            }
+            _stage_t0 = _time.perf_counter()
+
+            def _write_trace():
+                _trace["finished_at"] = _dt.datetime.now().isoformat(timespec="seconds")
+                _trace["elapsed_seconds"] = round(_time.perf_counter() - _trace_start, 2)
+                try:
+                    trace_dir = os.path.join(
+                        os.path.expanduser("~"), ".image-toolkit", "traces"
+                    )
+                    os.makedirs(trace_dir, exist_ok=True)
+                    ts = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+                    trace_path = os.path.join(trace_dir, f"stitch_{ts}.json")
+                    with open(trace_path, "w") as _tf:
+                        json.dump(_trace, _tf, indent=2)
+                    self._log_cb(f"[Trace] Execution trace saved to: {trace_path}")
+                except Exception as _te:
+                    self._log_cb(f"[Trace] Could not write trace: {_te}")
+
+            # ─────────────────────────────────────────────────────────────────
+
             def _emit(idx: int):
+                nonlocal _stage_t0
+                elapsed = round(_time.perf_counter() - _stage_t0, 3)
+                _trace["stage_timings"].append({
+                    "stage": idx,
+                    "label": _STAGE_LABELS[idx - 1],
+                    "elapsed_s": elapsed,
+                })
+                _stage_t0 = _time.perf_counter()
                 self._progress_cb(idx, _STAGE_LABELS[idx - 1])
                 self._log_cb(f"[Stage {idx}/{_TOTAL_STAGES}] {_STAGE_LABELS[idx - 1]}")
 
@@ -201,6 +247,7 @@ if _PIPELINE_OK:
             self._check_cancel()
             frames = self._load_frames(image_paths)
             N = len(frames)
+            _trace["frames_input"] = N
             if N < 2:
                 raise ValueError("Need at least 2 valid frames to stitch.")
             _save_frames(1, "loaded", frames)
@@ -249,9 +296,14 @@ if _PIPELINE_OK:
                     self._loftr = None
                 torch.cuda.empty_cache()
                 gc.collect()
+            _trace["edges_found"] = len(edges)
             if not edges:
                 warnings.warn("[Stitch] No valid edges — falling back to scan stitch.")
-                return self._scan_stitch_fallback(frames, output_path)
+                _trace["fallback_used"] = True
+                result = self._scan_stitch_fallback(frames, output_path)
+                _trace["success"] = True
+                _write_trace()
+                return result
 
             _emit(6)
             self._check_cancel()
@@ -268,6 +320,7 @@ if _PIPELINE_OK:
             _emit(8)
             self._check_cancel()
             canvas_h, canvas_w, T_global = self._compute_canvas(frames, affines)
+            _trace["canvas_size"] = [canvas_h, canvas_w]
             if canvas_h <= 0 or canvas_w <= 0:
                 raise RuntimeError("Computed canvas has zero size.")
             for i in range(N):
@@ -344,6 +397,8 @@ if _PIPELINE_OK:
             if self._save_intermediate and idir:
                 self._log_cb(f"[Debug] Intermediate outputs saved to: {idir}")
             self._log_cb(f"[Stitch] Saved to '{output_path}'.")
+            _trace["success"] = True
+            _write_trace()
             return out
 
         def _pairwise_match(self, frames, bg_masks):

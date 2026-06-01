@@ -1,31 +1,80 @@
 import sys
 import signal
+import logging
+import logging.handlers
 import traceback
 import threading
+from pathlib import Path
 
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 from gui.src.windows import MainWindow, LoginWindow
 from backend.src.constants import ICON_FILE, CTRL_C_TIMEOUT
 
+# ---------------------------------------------------------------------------
+# Logging setup (item 1.13) — rotating file handler + coloured console output
+# ---------------------------------------------------------------------------
+
+def _setup_logging(log_level: int = logging.INFO) -> None:
+    """Configure the root logger with a rotating file handler and console output."""
+    log_dir = Path.home() / ".image-toolkit" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "image_toolkit.log"
+
+    root = logging.getLogger()
+    root.setLevel(logging.DEBUG)  # capture everything; handlers filter by level
+
+    # Rotating file: 5 MB per file, keep last 5 files
+    file_handler = logging.handlers.RotatingFileHandler(
+        log_file,
+        maxBytes=5 * 1024 * 1024,
+        backupCount=5,
+        encoding="utf-8",
+    )
+    file_handler.setLevel(logging.DEBUG)
+    file_fmt = logging.Formatter(
+        "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
+    )
+    file_handler.setFormatter(file_fmt)
+    root.addHandler(file_handler)
+
+    # Console: INFO and above only
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(log_level)
+    console_fmt = logging.Formatter("%(levelname)-8s %(name)s: %(message)s")
+    console_handler.setFormatter(console_fmt)
+    root.addHandler(console_handler)
+
+    logging.getLogger("PIL").setLevel(logging.WARNING)
+    logging.getLogger("transformers").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+
+    logging.info("Logging initialised → %s", log_file)
+
+
+logger = logging.getLogger(__name__)
+
 
 def log_uncaught_exceptions(ex_type, ex_value, ex_traceback):
-    """Handler for uncaught exceptions that prints traceback to console."""
-    sys.__excepthook__(
-        ex_type, ex_value, ex_traceback
-    )  # Call the default handler first
-    print("\n--- Uncaught Python Exception ---")
-    traceback.print_exception(ex_type, ex_value, ex_traceback)
-    print("-----------------------------------")
+    """Forward uncaught exceptions to the root logger as CRITICAL."""
+    logger.critical(
+        "Uncaught exception",
+        exc_info=(ex_type, ex_value, ex_traceback),
+    )
+    sys.__excepthook__(ex_type, ex_value, ex_traceback)
 
 
 def launch_app(opts):
+    _setup_logging(log_level=logging.DEBUG if getattr(opts, "verbose", False) else logging.INFO)
+    sys.excepthook = log_uncaught_exceptions
+
     app = QApplication(sys.argv)
     try:
         app_icon = QIcon(ICON_FILE)
         app.setWindowIcon(app_icon)
     except Exception:
-        print(f"WARNING: Failed to set application icon. Ensure '{ICON_FILE}' exists.")
+        logger.warning("Failed to set application icon. Ensure '%s' exists.", ICON_FILE)
 
     # We will track the active window (either login or main)
     active_window = None
