@@ -40,10 +40,10 @@ def mock_image_toolkit_paths(tmp_path, monkeypatch):
     """
     Ensure all tests run in a completely isolated sandbox and never write to the user's home directory.
     """
-    from backend.src.utils import definitions
-    monkeypatch.setattr(definitions, "IMAGE_TOOLKIT_DIR", tmp_path)
-    monkeypatch.setattr(definitions, "DAEMON_CONFIG_PATH", tmp_path / ".myapp_slideshow_config.json")
-    monkeypatch.setattr(definitions, "THUMBNAIL_CACHE_DIR", tmp_path / "thumbnail-cache")
+    from backend.src.constants import paths
+    monkeypatch.setattr(paths, "IMAGE_TOOLKIT_DIR", tmp_path)
+    monkeypatch.setattr(paths, "DAEMON_CONFIG_PATH", tmp_path / ".myapp_slideshow_config.json")
+    monkeypatch.setattr(paths, "THUMBNAIL_CACHE_DIR", tmp_path / "thumbnail-cache")
 
     try:
         from gui.src.tabs.core import listings_tab

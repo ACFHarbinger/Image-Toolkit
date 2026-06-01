@@ -72,13 +72,12 @@ class TestWallpaperManager:
 
     # --- Linux Tests ---
 
+    @patch("src.core.wallpaper.base")
     @patch("src.core.wallpaper.platform.system", return_value="Linux")
     def test_apply_wallpaper_linux_kde(
-        self, mock_platform, mock_subprocess, mock_monitor
+        self, mock_platform, mock_base, mock_monitor
     ):
-        # Mock 'which qdbus' -> success
-        mock_subprocess.side_effect = None
-        mock_subprocess.return_value.returncode = 0
+        mock_base.evaluate_kde_script.return_value = "0:0:0:0"
 
         WallpaperManager.apply_wallpaper(
             path_map={"0": "/path/to/img.jpg"},
@@ -87,26 +86,20 @@ class TestWallpaperManager:
             qdbus="/usr/bin/qdbus",
         )
 
-        # Verify qdbus command execution
-        last_call = mock_subprocess.call_args_list[-1]
-        cmd = last_call[0][0]
-        assert "/usr/bin/qdbus" in cmd
-        assert "org.kde.plasmashell" in cmd
+        # Verify base.evaluate_kde_script was called with correct arguments
+        assert mock_base.evaluate_kde_script.call_count >= 1
+        args = mock_base.evaluate_kde_script.call_args_list[-1][0]
+        assert args[0] == "/usr/bin/qdbus"
+        assert "org.kde.image" in args[1]
 
+    @patch("src.core.wallpaper.base")
     @patch("src.core.wallpaper.platform.system", return_value="Linux")
     @patch("src.core.wallpaper.Image")  # Mock PIL for spanned
     def test_apply_wallpaper_linux_gnome_fallback(
-        self, mock_pil, mock_platform, mock_subprocess, mock_monitor
+        self, mock_pil, mock_platform, mock_base, mock_monitor
     ):
-        # Mock 'which qdbus' -> fail -> trigger GNOME fallback
-        mock_subprocess.side_effect
-
-        def side_effect(cmd, **kwargs):
-            if isinstance(cmd, list) and "which" in cmd[0]:
-                raise FileNotFoundError()
-            return MagicMock()
-
-        mock_subprocess.side_effect = side_effect
+        # Make base.evaluate_kde_script raise an exception to trigger fallback
+        mock_base.evaluate_kde_script.side_effect = RuntimeError("qdbus failed")
 
         WallpaperManager.apply_wallpaper(
             path_map={"0": "/path/to/img.jpg"},
@@ -115,14 +108,10 @@ class TestWallpaperManager:
             qdbus="qdbus",
         )
 
-        # Verify gsettings usage (GNOME)
-        # Check if we see a call with "gsettings set org.gnome.desktop.background"
-        gsettings_calls = [
-            c
-            for c in mock_subprocess.call_args_list
-            if isinstance(c[0][0], list) and "gsettings" in c[0][0][0]
-        ]
-        assert len(gsettings_calls) > 0
+        # Verify base.set_wallpaper_gnome was called as fallback
+        mock_base.set_wallpaper_gnome.assert_called_once()
+        args = mock_base.set_wallpaper_gnome.call_args[0]
+        assert "/path/to/img.jpg" in args[0]
 
 
 # Helper to check winreg calls simpler

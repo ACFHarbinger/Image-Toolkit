@@ -436,8 +436,11 @@ backend/benchmark/results
 /**/dist
 /**/target
 
-# Secret files
+# Agent files
+.claude/
 mcp.json
+
+# Secret files
 /backup
 /**/api/*.json
 /**/cryptography/*.txt
