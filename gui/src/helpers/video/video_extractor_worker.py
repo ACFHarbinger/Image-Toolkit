@@ -90,12 +90,20 @@ class VideoExtractionWorker(QRunnable):
                 # Use fast seeking (input option) for performance.
                 # Since we are re-encoding (libx264), this is still frame-accurate.
 
-                duration = t_end - t_start
+                keep_regions = self._get_keep_regions(t_start, t_end)
+                if self.cuts_ms and keep_regions:
+                    kept_duration = sum(r[1] - r[0] for r in keep_regions)
+                    if kept_duration <= 0:
+                        kept_duration = t_end - t_start
+                else:
+                    kept_duration = t_end - t_start
+                duration = kept_duration / self.speed
+
                 cmd = ["ffmpeg", "-y"]
 
-                # Input with fast seek
+                # Input with fast seek and duration cap
                 cmd.extend(["-ss", str(t_start)])
-                cmd.extend(["-t", str(duration)])
+                cmd.extend(["-t", str(t_end - t_start)])
                 cmd.extend(["-i", self.video_path])
 
                 # Filters (Scaling + Speed + Cuts)
@@ -155,6 +163,8 @@ class VideoExtractionWorker(QRunnable):
 
                     cmd.extend(["-c:a", "aac", "-b:a", "128k"])
 
+                cmd.extend(["-t", str(duration)])
+                cmd.append("-shortest")
                 cmd.append(self.output_path)
 
                 print(f"FFmpeg Video CMD: {cmd}")
@@ -192,26 +202,44 @@ class VideoExtractionWorker(QRunnable):
         # --- MoviePy Implementation ---
         temp_audio_path = "temp-audio.m4a"
         clip = None
+        base_clip = None
         original_audio_clip = None  # Track the audio resource separately
 
         try:
             from moviepy.editor import concatenate_videoclips
             self.signals.progress.emit(10)
             
-            base_clip = VideoFileClip(self.video_path).subclip(t_start, t_end)
+            base_clip = VideoFileClip(self.video_path)
+            
+            if self.mute_audio or base_clip.audio is None:
+                base_clip.audio = None
+                audio_codec = None
+                if os.path.exists(temp_audio_path):
+                    os.remove(temp_audio_path)
+            else:
+                try:
+                    original_audio_clip = AudioFileClip(self.video_path)
+                    base_clip.audio = original_audio_clip
+                except Exception as audio_e:
+                    print(f"Warning: Failed to separate audio stream: {audio_e}")
+                    pass
+                audio_codec = "aac"
+
+            # Apply subclip to start/end range
+            subclipped_base = base_clip.subclip(t_start, t_end)
             keep_regions = self._get_keep_regions(t_start, t_end)
             
             if self.cuts_ms and keep_regions:
                 clips = []
                 for start_sec, end_sec in keep_regions:
                     if end_sec > start_sec:
-                        clips.append(base_clip.subclip(start_sec, end_sec))
+                        clips.append(subclipped_base.subclip(start_sec, end_sec))
                 if clips:
                     clip = concatenate_videoclips(clips)
                 else:
-                    clip = base_clip
+                    clip = subclipped_base
             else:
-                clip = base_clip
+                clip = subclipped_base
 
             if self.target_size:
                 clip = clip.resize(newsize=self.target_size)
@@ -219,24 +247,8 @@ class VideoExtractionWorker(QRunnable):
             if self.speed != 1.0:
                 clip = clip.speedx(self.speed)
 
-            audio_codec = "aac"
-
-            if self.mute_audio or clip.audio is None:
-                clip.audio = None
-                audio_codec = None
-                if os.path.exists(temp_audio_path):
-                    os.remove(temp_audio_path)
-            else:
-                # --- FIX: Open AudioFileClip but DO NOT close it immediately ---
-                # We keep original_audio_clip alive so write_videofile can read from it.
-                try:
-                    original_audio_clip = AudioFileClip(self.video_path)
-                    clip.audio = original_audio_clip.subclip(t_start, t_end)
-                except Exception as audio_e:
-                    print(f"Warning: Failed to separate audio stream: {audio_e}")
-                    # Fallback: use default clip audio (might fail with Broken Pipe on some systems)
-                    pass
-                # -------------------------------------------------------------
+            if clip.duration is not None and clip.audio is not None:
+                clip.audio = clip.audio.set_duration(clip.duration)
 
             ffmpeg_params = ["-movflags", "faststart"]
             if audio_codec is not None:
@@ -276,6 +288,8 @@ class VideoExtractionWorker(QRunnable):
                 original_audio_clip.close()
             if clip:
                 clip.close()
+            if base_clip:
+                base_clip.close()
             if os.path.exists(temp_audio_path):
                 try:
                     os.remove(temp_audio_path)

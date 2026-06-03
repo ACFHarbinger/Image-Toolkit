@@ -7,6 +7,7 @@ applicable) ``bg_masks`` as explicit arguments.
 
 from __future__ import annotations
 
+import os
 import warnings
 from typing import List, Optional, Tuple
 
@@ -21,6 +22,15 @@ from backend.src.constants import (
 )
 from .canvas import _detect_scroll_axis
 from .stateless import _laplacian_blend
+
+# A5 — Foreground-excluded temporal median.  When enabled, foreground (character)
+# pixels are excluded from the per-pixel median so the background PLATE never
+# averages the character's differing animation poses into a translucent ghost.
+# Where a canvas pixel has NO background sample across any frame (the character
+# is always there), the median falls back to all geometrically-valid pixels so
+# no holes appear.  Stage 11 then composites the re-posed foreground on top.
+# Set ASP_FG_EXCLUDE_MEDIAN=0 to disable (A/B comparison).
+_FG_EXCLUDE_MEDIAN = os.environ.get("ASP_FG_EXCLUDE_MEDIAN", "1") != "0"
 
 
 def _compute_sequential_color_gains(
@@ -299,6 +309,25 @@ def _render_median(
     # Precompute geometric masks for each frame to avoid confusing black pixels with borders
     _frame_masks = [np.full(f.shape[:2], 255, dtype=np.uint8) for f in frames]
 
+    # A5 — per-frame BACKGROUND masks (uint8, 255 = background) for fg-excluded median.
+    _exclude_fg = _FG_EXCLUDE_MEDIAN and any(m is not None for m in bg_masks)
+    _frame_bg_u8: List[Optional[np.ndarray]] = []
+    for i in range(N):
+        bm = bg_masks[i] if i < len(bg_masks) else None
+        if _exclude_fg and bm is not None:
+            # Normalise to frame size, 255 where background.
+            bm_u8 = (bm > 127).astype(np.uint8) * 255
+            if bm_u8.shape[:2] != frames[i].shape[:2]:
+                bm_u8 = cv2.resize(
+                    bm_u8, (frames[i].shape[1], frames[i].shape[0]),
+                    interpolation=cv2.INTER_NEAREST,
+                )
+            _frame_bg_u8.append(bm_u8)
+        else:
+            _frame_bg_u8.append(None)
+    if _exclude_fg:
+        print("[Stitch]   A5: foreground-excluded temporal median ENABLED (clean bg plate).")
+
     # Determine chunk size. We want to keep stack size < 1GB
     chunk_size = max(1, min(1024, (1024 * 1024 * 1024) // (N * W * 3 + 1)))
 
@@ -310,6 +339,7 @@ def _render_median(
 
         stack = np.zeros((N, ch, W, 3), dtype=np.uint8)
         masks = np.zeros((N, ch, W), dtype=bool)
+        bg_canvas = np.zeros((N, ch, W), dtype=bool) if _exclude_fg else None
 
         for i in range(N):
             M_strip = affines[i].copy()
@@ -331,6 +361,19 @@ def _render_median(
                 borderValue=0,
             )
             valid_px = w_mask > 0
+            if _exclude_fg and _frame_bg_u8[i] is not None:
+                w_bg = cv2.warpAffine(
+                    _frame_bg_u8[i],
+                    M_strip,
+                    (W, ch),
+                    flags=cv2.INTER_NEAREST,
+                    borderMode=cv2.BORDER_CONSTANT,
+                    borderValue=0,
+                )
+                bg_canvas[i] = (w_bg > 127) & valid_px
+            elif _exclude_fg:
+                # No mask for this frame → treat all valid pixels as background.
+                bg_canvas[i] = valid_px
             if _baselines is not None:
                 b_i = _baselines[i]
                 if b_i < 0.90:
@@ -350,12 +393,24 @@ def _render_median(
             stack[i] = w_strip
             masks[i] = valid_px
 
-        count = masks.sum(axis=0)
+        geo_count = masks.sum(axis=0)  # geometric coverage (for valid_mask, fades)
+
+        # A5 — effective masks for the median: prefer BACKGROUND samples; where a
+        # pixel has no background sample anywhere, fall back to all valid samples.
+        if _exclude_fg:
+            bg_count = bg_canvas.sum(axis=0)          # (ch, W)
+            use_bg = bg_count >= 1                    # pixel has ≥1 background sample
+            # eff_masks[i] = bg_canvas[i] where use_bg, else masks[i]
+            eff_masks = np.where(use_bg[None, :, :], bg_canvas, masks)
+        else:
+            eff_masks = masks
+
+        count = eff_masks.sum(axis=0)
 
         # Case 1: pixels with exactly 1 sample
         m1 = count == 1
         if m1.any():
-            idx1 = masks[:, m1].argmax(axis=0)
+            idx1 = eff_masks[:, m1].argmax(axis=0)
             rows1, cols1 = np.where(m1)
             canvas[y0:y1][rows1, cols1] = stack[idx1, rows1, cols1]
 
@@ -364,7 +419,7 @@ def _render_median(
         if m_gt1.any():
             canvas_strip = canvas[y0:y1]
             s_gt1 = stack.reshape(N, -1, 3)[:, m_gt1.flatten(), :]
-            masks_gt1 = masks.reshape(N, -1)[:, m_gt1.flatten()]
+            masks_gt1 = eff_masks.reshape(N, -1)[:, m_gt1.flatten()]
 
             s_gt1_f = s_gt1.astype(np.float32)
 
@@ -418,7 +473,9 @@ def _render_median(
                         continue
 
                     s_f_full = stack[:, local_start:local_end, :, :].astype(np.float32)
-                    m_full = masks[:, local_start:local_end, :]  # (N, rows, W)
+                    # A5: fade uses the same fg-excluded effective masks as the
+                    # main median so the entry/exit ramp stays background-clean.
+                    m_full = eff_masks[:, local_start:local_end, :]  # (N, rows, W)
 
                     s_f_no_i = s_f_full.copy()
                     m_no_i = m_full.copy()
@@ -462,7 +519,7 @@ def _render_median(
                         continue
 
                     s_f_full = stack[:, :, local_start:local_end, :].astype(np.float32)
-                    m_full = masks[:, :, local_start:local_end]  # (N, ch, cols)
+                    m_full = eff_masks[:, :, local_start:local_end]  # (N, ch, cols)
 
                     s_f_no_i = s_f_full.copy()
                     m_no_i = m_full.copy()
@@ -495,7 +552,7 @@ def _render_median(
                     aff3 = np.stack([affected] * 3, axis=-1)  # (ch, cols, 3)
                     canvas_cols[aff3] = np.clip(blended[aff3], 0, 255).astype(np.uint8)
 
-        valid_mask[y0:y1][count > 0] = 255
+        valid_mask[y0:y1][geo_count > 0] = 255
 
     if not _skip_anim and N >= 4:
         # Skip animation detection for pan shots: large vertical span means each

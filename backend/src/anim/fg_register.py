@@ -38,6 +38,7 @@ load) and has no side effects.
 
 from __future__ import annotations
 
+import os
 from typing import Optional, Tuple
 
 import cv2
@@ -45,10 +46,21 @@ import numpy as np
 
 from backend.src.constants import (
     FG_REG_TAPER_PX,
-    FG_REG_MAX_RESIDUAL,
+    FG_REG_MAX_RESIDUAL as _FG_REG_MAX_RESIDUAL_DEFAULT,
     FG_REG_MIN_FG_PIXELS,
     FG_REG_SMOOTH_SIGMA,
 )
+
+# Allow benchmark sweeps to tune the warp-vs-single-pose threshold without an
+# edit/rebuild cycle.  Lower → more seams take the single-pose fallback (one
+# coherent character pose, no blend) instead of an imperfect re-pose+blend that
+# can leave faint edge doubling.
+try:
+    FG_REG_MAX_RESIDUAL = float(
+        os.environ.get("ASP_FG_MAX_RESIDUAL", _FG_REG_MAX_RESIDUAL_DEFAULT)
+    )
+except ValueError:
+    FG_REG_MAX_RESIDUAL = _FG_REG_MAX_RESIDUAL_DEFAULT
 
 
 # ---------------------------------------------------------------------------
@@ -113,9 +125,10 @@ def _remap_by_displacement(img: np.ndarray, disp: np.ndarray) -> np.ndarray:
     """
     Resample ``img`` at position ``(x + disp_x, y + disp_y)`` per pixel.
 
-    ``disp`` is an (H, W, 2) field (dx, dy).  Pixels mapped outside the image
-    are filled by replication (BORDER_REPLICATE) so foreground edges do not
-    pick up black.
+    ``disp`` is an (H, W, 2) field (dx, dy).  Pixels whose source maps outside
+    the image retain their original value (BORDER_TRANSPARENT fallback) to
+    avoid the BORDER_REPLICATE edge-smear artefact that creates corrupted
+    corner regions in the composite when the warp shifts pixels off-canvas.
     """
     h, w = img.shape[:2]
     grid_x, grid_y = np.meshgrid(
@@ -123,13 +136,24 @@ def _remap_by_displacement(img: np.ndarray, disp: np.ndarray) -> np.ndarray:
     )
     map_x = grid_x + disp[:, :, 0]
     map_y = grid_y + disp[:, :, 1]
-    return cv2.remap(
+    remapped = cv2.remap(
         img,
         map_x,
         map_y,
         interpolation=cv2.INTER_LINEAR,
-        borderMode=cv2.BORDER_REPLICATE,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=0,
     )
+    # Restore original pixels wherever the source coordinate mapped outside
+    # the valid frame bounds — those remap to black (0) which is also content
+    # in some scenes, so we use the source validity mask instead.
+    out_of_bounds = (
+        (map_x < 0) | (map_x >= w) | (map_y < 0) | (map_y >= h)
+    )
+    if out_of_bounds.any():
+        out3 = np.stack([out_of_bounds] * 3, axis=2) if img.ndim == 3 else out_of_bounds
+        remapped[out3] = img[out3]
+    return remapped
 
 
 def register_foreground_at_seam(
@@ -184,10 +208,24 @@ def register_foreground_at_seam(
     # Seam band: only the region within taper_px of the seam matters.
     taper = _seam_taper(h, w, seam_pos, taper_px, axis=axis)  # (h,w) in [0,1]
     band = taper > 0.0
-    fg_union = (fa | fb) & band
+    fa_band = fa & band
+    fb_band = fb & band
+    fg_union = fa_band | fb_band
     n_fg = int(fg_union.sum())
 
-    info = {"warped": False, "residual": 0.0, "fg_pixels": n_fg}
+    # Dominant frame in the band = the one carrying the more complete character
+    # instance (more foreground pixels).  Used by the single-pose fallback (A6).
+    n_a = int(fa_band.sum())
+    n_b = int(fb_band.sum())
+    dominant = "a" if n_a >= n_b else "b"
+
+    info = {
+        "warped": False,
+        "fallback": False,
+        "residual": 0.0,
+        "fg_pixels": n_fg,
+        "dominant": dominant,
+    }
 
     if n_fg < FG_REG_MIN_FG_PIXELS:
         # No meaningful character content crosses this seam — nothing to fix.
@@ -209,7 +247,10 @@ def register_foreground_at_seam(
     info["residual"] = round(med_residual, 2)
 
     if med_residual > max_residual:
-        # Animation gap too large for a safe warp — caller should fall back.
+        # Animation gap too large for a safe warp — signal the single-pose
+        # fallback (A6): the caller should take the foreground in this seam band
+        # from the dominant frame only, avoiding a two-pose double image.
+        info["fallback"] = True
         return warped_a, warped_b, info
 
     if med_residual < 0.5:
@@ -227,6 +268,10 @@ def register_foreground_at_seam(
     disp_a = -0.5 * flow * w_a
     disp_b = +0.5 * flow * w_b
 
+    # Valid-content masks: positions where the warped canvas has actual pixels.
+    valid_a = warped_a.max(axis=2) > 0
+    valid_b = warped_b.max(axis=2) > 0
+
     adj_a = _remap_by_displacement(warped_a, disp_a)
     adj_b = _remap_by_displacement(warped_b, disp_b)
 
@@ -236,6 +281,11 @@ def register_foreground_at_seam(
     keep_b = ~(fb & band)
     adj_a[keep_a] = warped_a[keep_a]
     adj_b[keep_b] = warped_b[keep_b]
+
+    # Never introduce content where the original had none — the warp must not
+    # extend canvas pixels into previously-empty boundary regions.
+    adj_a[~valid_a] = 0
+    adj_b[~valid_b] = 0
 
     info["warped"] = True
     return adj_a, adj_b, info

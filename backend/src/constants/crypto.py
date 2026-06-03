@@ -1,35 +1,47 @@
 import os
 import sys
-from .paths import BASE_KEYSTORE_FILE, BASE_VAULT_FILE, BASE_PEPPER_FILE
+import shutil
+from .paths import BASE_KEYSTORE_FILE, BASE_VAULT_FILE, BASE_PEPPER_FILE, CRYPTO_DIR
 
 KEY_ALIAS = "my-aes-key"
 
-# --- Active Dynamic Paths (Mutable) ---
-# These are updated at runtime via update_cryptographic_values
-KEYSTORE_FILE = BASE_KEYSTORE_FILE
-VAULT_FILE = BASE_VAULT_FILE
-PEPPER_FILE = BASE_PEPPER_FILE
+ACTIVE_CRYPTO_DIR = str(CRYPTO_DIR)
 
-def _get_suffixed_path(base_path, suffix):
-    if not suffix:
-        return base_path
-    safe_suffix = "".join(
-        c for c in suffix if c.isalnum() or c in ("-", "_", ".")
-    ).rstrip()
-    if not safe_suffix:
-        return base_path
-    directory, filename = os.path.split(base_path)
+def _get_active_path(base_path, suffix=None):
+    os.makedirs(ACTIVE_CRYPTO_DIR, exist_ok=True)
+    filename = os.path.basename(base_path)
     name, ext = os.path.splitext(filename)
-    return os.path.join(directory, f"{name}-{safe_suffix}{ext}")
+    if suffix:
+        safe_suffix = "".join(
+            c for c in suffix if c.isalnum() or c in ("-", "_", ".")
+        ).rstrip()
+        if safe_suffix:
+            filename = f"{name}-{safe_suffix}{ext}"
+    
+    active_path = os.path.join(ACTIVE_CRYPTO_DIR, filename)
+    # If the active file does not exist, but the base template file does, copy it!
+    if not os.path.exists(active_path) and os.path.exists(base_path):
+        try:
+            shutil.copy2(base_path, active_path)
+            print(f"Copied template {base_path} to {active_path}", file=sys.stderr)
+        except Exception as e:
+            print(f"Error copying template {base_path} to {active_path}: {e}", file=sys.stderr)
+            
+    return active_path
+
+# --- Active Dynamic Paths (Mutable) ---
+KEYSTORE_FILE = _get_active_path(BASE_KEYSTORE_FILE)
+VAULT_FILE = _get_active_path(BASE_VAULT_FILE)
+PEPPER_FILE = _get_active_path(BASE_PEPPER_FILE)
 
 def update_cryptographic_values(account_name):
     global KEYSTORE_FILE, VAULT_FILE, PEPPER_FILE
 
     print(f"Updating cryptographic paths for account: {account_name}", file=sys.stderr)
 
-    KEYSTORE_FILE = _get_suffixed_path(BASE_KEYSTORE_FILE, account_name)
-    VAULT_FILE = _get_suffixed_path(BASE_VAULT_FILE, account_name)
-    PEPPER_FILE = _get_suffixed_path(BASE_PEPPER_FILE, account_name)
+    KEYSTORE_FILE = _get_active_path(BASE_KEYSTORE_FILE, account_name)
+    VAULT_FILE = _get_active_path(BASE_VAULT_FILE, account_name)
+    PEPPER_FILE = _get_active_path(BASE_PEPPER_FILE, account_name)
 
     print("--- CRYPTO PATHS UPDATED ---", file=sys.stderr)
     print(f"KEYSTORE_FILE: {KEYSTORE_FILE}", file=sys.stderr)

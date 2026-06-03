@@ -345,8 +345,9 @@ class MainWindow(QWidget):
         selected_cache = int(prefs.get("selected_cache_maxsize", 200))
         initial_cache = int(prefs.get("initial_cache_maxsize", 300))
 
-        # NEW: Extractor seek interval
+        # NEW: Extractor seek interval & recent extractions count
         extractor_seek_ms = int(prefs.get("extractor_seek_ms", 100))
+        recent_extractions_count = int(prefs.get("recent_extractions_count", 10))
 
         for cat_tabs in self.all_tabs.values():
             for tab in cat_tabs.values():
@@ -369,6 +370,12 @@ class MainWindow(QWidget):
                 # Apply Extractor seek interval
                 if hasattr(tab, "wheel_seek_ms"):
                     tab.wheel_seek_ms = extractor_seek_ms
+
+                # Apply Extractor recent limit
+                if hasattr(tab, "recent_extractions_limit"):
+                    tab.recent_extractions_limit = recent_extractions_count
+                    if hasattr(tab, "_apply_new_extractions_limit") and callable(tab._apply_new_extractions_limit):
+                        tab._apply_new_extractions_limit()
 
         # §2.16C — startup category
         startup_cat = prefs.get("startup_category", "")

@@ -696,6 +696,30 @@ def _load_thumbs_parallel(frames_paths: List[str], max_workers: int = 8) -> List
         return list(ex.map(_load_thumb_gray, frames_paths))
 
 
+# Two-channel pose-consistency frame selection (ASP §0.2).  The character is
+# usually central; the background is peripheral.  Phase-correlating the
+# PERIPHERAL region aims to isolate the CAMERA pan from character animation.
+#
+# DEFAULT OFF: A/B benchmarking (2026-06-03) showed the peripheral-camera
+# heuristic regresses good cases (test27 0.708→0.676, test57 0.745→0.720) —
+# the character is not reliably central and the periphery is not reliably
+# background, so the peripheral phase-correlation signal is noisier than the
+# whole-frame one.  A robust two-channel selector needs real BiRefNet masks at
+# selection time (run BiRefNet first), which is the §0.2 follow-up.  Kept as an
+# opt-in via ASP_TWO_CHANNEL_SELECT=1 for further experimentation.
+_TWO_CHANNEL_SELECT = os.environ.get("ASP_TWO_CHANNEL_SELECT", "0") != "0"
+_PERIPH_BORDER_FRAC = 0.24  # outer ring fraction treated as "background/camera"
+
+
+def _periph_central_masks(h: int, w: int):
+    """Return (peripheral, central) float32 weight masks for an (h, w) thumb."""
+    bh = max(1, int(h * _PERIPH_BORDER_FRAC))
+    bw = max(1, int(w * _PERIPH_BORDER_FRAC))
+    yy, xx = np.mgrid[0:h, 0:w]
+    periph = (yy < bh) | (yy >= h - bh) | (xx < bw) | (xx >= w - bw)
+    return periph.astype(np.float32), (~periph).astype(np.float32)
+
+
 def _smart_select_frames(
     frames_paths: List[str],
     min_step_px: float = 50.0,
@@ -759,7 +783,14 @@ def _smart_select_frames(
     raw_dx: List[float] = []
     raw_dy: List[float] = []
     responses: List[float] = []
-    frame_mads: List[float] = []
+    frame_mads: List[float] = []      # CENTRAL MAD (animation channel) when two-channel
+
+    # Precompute the peripheral/central masks once (thumbs share a size after pad).
+    _pm = _cm = None
+    if _TWO_CHANNEL_SELECT and N >= 2:
+        _h0 = max(t.shape[0] for t in thumbs)
+        _w0 = max(t.shape[1] for t in thumbs)
+        _pm, _cm = _periph_central_masks(_h0, _w0)
 
     for i in range(N - 1):
         a = thumbs[i]
@@ -772,11 +803,18 @@ def _smart_select_frames(
         if b.shape != (th, tw):
             b = np.pad(b, ((0, th - b.shape[0]), (0, tw - b.shape[1])))
 
-        (dx_t, dy_t), response = cv2.phaseCorrelate(a, b)
+        if _TWO_CHANNEL_SELECT and _pm is not None and _pm.shape == a.shape:
+            # Camera channel: peripheral (background) phase correlation.
+            (dx_t, dy_t), response = cv2.phaseCorrelate(a * _pm, b * _pm)
+            # Animation channel: central-region MAD (character activity).
+            cmad = float(np.sum(np.abs(b - a) * _cm) / max(_cm.sum(), 1.0))
+            frame_mads.append(cmad)
+        else:
+            (dx_t, dy_t), response = cv2.phaseCorrelate(a, b)
+            frame_mads.append(float(np.mean(np.abs(b - a))))
         raw_dx.append(float(dx_t) * scale_x)
         raw_dy.append(float(dy_t) * scale_y)
         responses.append(float(response))
-        frame_mads.append(float(np.mean(np.abs(b - a))))
 
     # ── 2. Dominant scroll axis and direction ──────────────────────────────
     med_dy = float(np.median(raw_dy))
@@ -789,10 +827,12 @@ def _smart_select_frames(
         axis_steps = raw_dx
         dominant_sign = int(np.sign(med_dx)) if abs(med_dx) > 2.0 else 0
 
+    _chan = "2ch(periph-camera)" if (_TWO_CHANNEL_SELECT and _pm is not None) else "1ch(whole-frame)"
     print(
         f"  [SmartSelect] N={N}  dominant_axis={'y' if abs(med_dy) >= abs(med_dx) else 'x'}"
         f"  sign={dominant_sign:+d}"
         f"  med_step={abs(med_dy if abs(med_dy) >= abs(med_dx) else med_dx):.1f}px"
+        f"  mode={_chan}"
     )
 
     # ── 3. Greedy forward-selection based on cumulative canvas position ────
@@ -1338,41 +1378,44 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
         timings["render_sec"] = round(time.perf_counter() - t0, 3)
         cv2.imwrite(os.path.join(stage_dir, "stage09_temporal_render.png"), canvas)
 
-        # ── Render quality gate ────────────────────────────────────────────
-        # Check whether the temporal median render already has severe horizontal
-        # color banding — a symptom of animated-video content where each strip
-        # shows a different animation state.  Stage 11 would amplify this into
-        # catastrophic visible bands, so we fall back to SCANS early.
-        _render_sc = _seam_coherence(canvas)
-        _render_sb = _strip_banding_score(canvas, affines)
-        print(
-            f"  [RenderGate] seam_coherence={_render_sc:.1f}  "
-            f"strip_banding={_render_sb:.1f}"
-        )
-        # Thresholds (conservative — only reject genuinely catastrophic renders):
-        #   seam_coherence > 35: row-mean std is very high → severe banding
-        #   strip_banding  > 25: adjacent strips differ by >25 lum units → color mismatch
-        _RENDER_SC_LIMIT = 35.0
-        _RENDER_SB_LIMIT = 25.0
-        _render_failed = _render_sc > _RENDER_SC_LIMIT or _render_sb > _RENDER_SB_LIMIT
-        if _render_failed:
-            print(
-                f"  [RenderGate] FAILED (sc={_render_sc:.1f}>{_RENDER_SC_LIMIT} or "
-                f"sb={_render_sb:.1f}>{_RENDER_SB_LIMIT}) → SCANS fallback."
-            )
-            timings["render_gate_fallback"] = 1
-            raise RuntimeError(
-                f"Render quality gate: seam_coherence={_render_sc:.1f}, "
-                f"strip_banding={_render_sb:.1f}"
-            )
-        timings["render_gate_fallback"] = 0
-
+        # Run the full foreground-assembly composite (Stage 11) — this applies
+        # the bg-only scalar gain correction AND the flow-guided foreground
+        # re-posing (Stage 8.5) + single-pose fallback.
         t0 = time.perf_counter()
         canvas = _composite_foreground(
             [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks
         )
         timings["composite_sec"] = round(time.perf_counter() - t0, 3)
         cv2.imwrite(os.path.join(stage_dir, "stage11_fg_composite.png"), canvas)
+
+        # ── Composite quality gate ─────────────────────────────────────────
+        # Measure banding on the FINAL composite (after gain correction and
+        # foreground re-posing) — not the raw Stage-9 plate, whose un-corrected
+        # inter-strip luminance jumps over-trigger the gate.  If the assembled
+        # output is still severely banded, the animation gap was too large for
+        # the pipeline to reconcile → fall back to SCANS.
+        _render_sc = _seam_coherence(canvas)
+        _render_sb = _strip_banding_score(canvas, affines)
+        print(
+            f"  [CompositeGate] seam_coherence={_render_sc:.1f}  "
+            f"strip_banding={_render_sb:.1f}"
+        )
+        #   seam_coherence > 38: row-mean std very high → severe horizontal banding
+        #   strip_banding  > 30: adjacent strips differ by >30 lum units (post-gain)
+        _RENDER_SC_LIMIT = 38.0
+        _RENDER_SB_LIMIT = 30.0
+        _render_failed = _render_sc > _RENDER_SC_LIMIT or _render_sb > _RENDER_SB_LIMIT
+        if _render_failed:
+            print(
+                f"  [CompositeGate] FAILED (sc={_render_sc:.1f}>{_RENDER_SC_LIMIT} or "
+                f"sb={_render_sb:.1f}>{_RENDER_SB_LIMIT}) → SCANS fallback."
+            )
+            timings["render_gate_fallback"] = 1
+            raise RuntimeError(
+                f"Composite quality gate: seam_coherence={_render_sc:.1f}, "
+                f"strip_banding={_render_sb:.1f}"
+            )
+        timings["render_gate_fallback"] = 0
 
         canvas_out = _crop_to_valid(canvas, valid_mask)
         ec = 30
