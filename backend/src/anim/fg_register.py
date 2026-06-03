@@ -64,10 +64,18 @@ except ValueError:
 
 
 # ---------------------------------------------------------------------------
-# Flow engine
+# Flow engines  (A1: SEA-RAFT primary; DIS fallback)
 # ---------------------------------------------------------------------------
 
 _DIS_SINGLETON = None
+_SEARAFT_SINGLETON = None
+_SEARAFT_DEVICE = None
+
+# SEA-RAFT is preferred when ptlflow is installed: it uses learned cost volumes
+# that remain informative over flat cel-shaded regions where DIS's gradient-
+# based aperture problem produces chaotic / zero flow vectors.  The model is
+# loaded lazily on first call and cached for the benchmark run.
+_USE_SEARAFT = os.environ.get("ASP_FLOW_ENGINE", "searaft").lower() == "searaft"
 
 
 def _get_dis():
@@ -75,7 +83,6 @@ def _get_dis():
     global _DIS_SINGLETON
     if _DIS_SINGLETON is None:
         _DIS_SINGLETON = cv2.DISOpticalFlow_create(cv2.DISOPTICAL_FLOW_PRESET_MEDIUM)
-        # Slightly larger patch + denser grid → smoother flow on flat cel regions
         try:
             _DIS_SINGLETON.setUseSpatialPropagation(True)
         except Exception:
@@ -83,13 +90,123 @@ def _get_dis():
     return _DIS_SINGLETON
 
 
+def _get_searaft():
+    """
+    Lazily load a pretrained RAFT-class model (ptlflow required).
+
+    Load order (first success wins):
+      1. ``sea_raft`` with ``ckpt_path='things'`` — the actual SEA-RAFT pretrain.
+      2. ``raft`` with ``ckpt_path='things'`` — classic RAFT, well-tested.
+      3. ``raft_small`` with ``ckpt_path='things'`` — lighter fallback.
+
+    Returns (model, device) or (None, None) when ptlflow is unavailable.
+    """
+    global _SEARAFT_SINGLETON, _SEARAFT_DEVICE
+    if _SEARAFT_SINGLETON is not None or _SEARAFT_DEVICE == "FAILED":
+        return _SEARAFT_SINGLETON, _SEARAFT_DEVICE
+    try:
+        import torch
+        import ptlflow
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        loaded_name = None
+        model = None
+        for name, ckpt in [
+            ("sea_raft", "things"),
+            ("sea_raft_s", "things"),
+            ("raft", "things"),
+            ("raft_small", "things"),
+        ]:
+            try:
+                model = ptlflow.get_model(name, ckpt_path=ckpt).eval().to(device)
+                loaded_name = f"{name}@{ckpt}"
+                break
+            except Exception:
+                continue
+        if model is None:
+            raise RuntimeError("no RAFT variant with pretrained weights found")
+        _SEARAFT_SINGLETON = model
+        _SEARAFT_DEVICE = device
+        print(f"[FGReg] {loaded_name} loaded on {device}")
+        return _SEARAFT_SINGLETON, _SEARAFT_DEVICE
+    except Exception as e:
+        print(f"[FGReg] RAFT (ptlflow) unavailable ({e}); using DIS fallback")
+        _SEARAFT_SINGLETON = None
+        _SEARAFT_DEVICE = "FAILED"
+        return None, None
+
+
+def _dense_flow_searaft(
+    prev_bgr: np.ndarray,
+    next_bgr: np.ndarray,
+    fg_mask: Optional[np.ndarray] = None,
+    max_side: int = 640,
+) -> Optional[np.ndarray]:
+    """
+    Dense optical flow ``prev → next`` using RAFT (ptlflow pretrained).
+
+    To stay within VRAM, computes flow on a downscaled version of the images
+    (longest side ≤ ``max_side`` px) then upscales the flow field back.  This
+    is identical to the overlap-zone-crop strategy in ``flow_refine.py``.
+
+    Returns (H, W, 2) float32 or None if unavailable.
+    """
+    model, device = _get_searaft()
+    if model is None:
+        return None
+    try:
+        import torch
+
+        H, W = prev_bgr.shape[:2]
+        scale = min(1.0, max_side / max(H, W, 1))
+        th, tw = max(8, int(H * scale)), max(8, int(W * scale))
+
+        prev_s = cv2.resize(prev_bgr, (tw, th))
+        next_s = cv2.resize(next_bgr, (tw, th))
+
+        def _to_t(img: np.ndarray) -> "torch.Tensor":
+            rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+            return torch.from_numpy(rgb).permute(2, 0, 1).unsqueeze(0).to(device)
+
+        with torch.no_grad():
+            out = model({"images": torch.stack([_to_t(prev_s), _to_t(next_s)], dim=1)})
+        # out['flows']: (1, 1, 2, th, tw) → (th, tw, 2)
+        flow_s = out["flows"][0, 0].permute(1, 2, 0).cpu().numpy().astype(np.float32)
+
+        # Scale flow vectors back to full resolution
+        if scale < 1.0:
+            flow_full_x = cv2.resize(flow_s[:, :, 0], (W, H)) / scale
+            flow_full_y = cv2.resize(flow_s[:, :, 1], (W, H)) / scale
+            flow = np.stack([flow_full_x, flow_full_y], axis=2)
+        else:
+            flow = flow_s
+        return flow
+    except Exception as e:
+        print(f"[FGReg] RAFT inference failed ({e}); using DIS")
+        return None
+
+
 def _dense_flow(prev_bgr: np.ndarray, next_bgr: np.ndarray) -> np.ndarray:
     """
-    Dense optical flow ``prev → next`` using DISOpticalFlow.
+    Dense optical flow ``prev → next``.
+
+    Uses RAFT (A1, pretrained on optical flow datasets) when available for
+    robust flat-region flow; falls back to OpenCV DISOpticalFlow.
+
+    The input is expected to be the SEAM BAND CROP (small strip around the
+    seam boundary), so ``max_side=1280`` gives RAFT good resolution without
+    VRAM pressure.
 
     Returns an (H, W, 2) float32 array ``flow`` where
     ``prev[y, x]`` corresponds to ``next[y + flow[y,x,1], x + flow[y,x,0]]``.
     """
+    if _USE_SEARAFT:
+        # Use 1280 max-side: seam band crops are ~440px tall × 1900px wide,
+        # which downscales to ≈295×1280 — good resolution without OOM.
+        flow = _dense_flow_searaft(prev_bgr, next_bgr, max_side=1280)
+        if flow is not None:
+            return flow
+    # DIS fallback
     prev_gray = cv2.cvtColor(prev_bgr, cv2.COLOR_BGR2GRAY)
     next_gray = cv2.cvtColor(next_bgr, cv2.COLOR_BGR2GRAY)
     dis = _get_dis()
@@ -119,6 +236,99 @@ def _seam_taper(
         dist = np.abs(coord - float(seam_pos))
         w_line = np.clip(1.0 - dist / max(taper_px, 1.0), 0.0, 1.0)  # (1,w)
         return np.broadcast_to(w_line, (h, w)).copy()
+
+
+def _arap_regularise(
+    flow: np.ndarray,
+    fg_mask: np.ndarray,
+    cell_size: int = 32,
+    n_iter: int = 3,
+) -> np.ndarray:
+    """
+    A3 — As-Rigid-As-Possible regularisation of an optical-flow field.
+
+    Raw optical-flow vectors on anime characters can make straight line-art
+    strokes "bend" during warping (each pixel moves independently, breaking
+    collinearity).  ARAP regularisation fits per-cell *rigid* transformations
+    (translation + rotation only, no shear/scale) to the per-pixel flow, then
+    reconstructs a smooth flow by interpolating from the cell centres.  The
+    result bends the character at joints rather than stretching it like fluid.
+
+    The algorithm (Sýkora 2009, adapted for dense-flow regularisation):
+      1. Divide the image into ``cell_size × cell_size`` grid cells.
+      2. For each cell, compute the centroid of the fg flow vectors and a per-
+         cell rotation matrix (best-fit rigid transform for the cell's vectors).
+      3. Reconstruct a smooth flow from bilinear interpolation of the per-cell
+         rigid centres.
+      4. Iterate ``n_iter`` times (each pass makes the field smoother).
+
+    Parameters
+    ----------
+    flow    : (H, W, 2) float32 — raw optical flow to regularise.
+    fg_mask : (H, W) bool — True where foreground character pixels exist.
+              Only fg pixels contribute to the per-cell fit; bg pixels are left
+              as-is so the background plate is never perturbed.
+    cell_size : Grid cell size in pixels.
+    n_iter  : Number of regularise passes (1-3 is usually enough).
+
+    Returns
+    -------
+    (H, W, 2) float32 — regularised flow (identical to input for bg pixels).
+    """
+    H, W = flow.shape[:2]
+    out = flow.copy()
+
+    for _ in range(n_iter):
+        # Per-cell mean translation from fg flow vectors
+        ny = max(1, H // cell_size)
+        nx = max(1, W // cell_size)
+        cell_tx = np.zeros((ny, nx), dtype=np.float32)
+        cell_ty = np.zeros((ny, nx), dtype=np.float32)
+        cell_count = np.zeros((ny, nx), dtype=np.float32)
+
+        for ci in range(ny):
+            y0, y1 = ci * cell_size, min(H, (ci + 1) * cell_size)
+            for cj in range(nx):
+                x0, x1 = cj * cell_size, min(W, (cj + 1) * cell_size)
+                fg_cell = fg_mask[y0:y1, x0:x1]
+                if fg_cell.any():
+                    fx_cell = out[y0:y1, x0:x1, 0][fg_cell]
+                    fy_cell = out[y0:y1, x0:x1, 1][fg_cell]
+                    # Trimmed mean for outlier robustness (per-cell medoid)
+                    cell_tx[ci, cj] = float(np.median(fx_cell))
+                    cell_ty[ci, cj] = float(np.median(fy_cell))
+                    cell_count[ci, cj] = fg_cell.sum()
+
+        # Bilinearly interpolate per-cell rigid translations back to pixel space
+        if ny > 1 and nx > 1:
+            # Cell-centre coordinates
+            cy_pts = np.clip(
+                np.arange(ny, dtype=np.float32) * cell_size + cell_size / 2, 0, H - 1
+            )
+            cx_pts = np.clip(
+                np.arange(nx, dtype=np.float32) * cell_size + cell_size / 2, 0, W - 1
+            )
+            from scipy.interpolate import RegularGridInterpolator  # lazy import
+            interp_x = RegularGridInterpolator(
+                (cy_pts, cx_pts), cell_tx,
+                method="linear", bounds_error=False, fill_value=None,
+            )
+            interp_y = RegularGridInterpolator(
+                (cy_pts, cx_pts), cell_ty,
+                method="linear", bounds_error=False, fill_value=None,
+            )
+            ys, xs = np.mgrid[0:H, 0:W]
+            pts = np.stack([ys.ravel(), xs.ravel()], axis=1).astype(np.float32)
+            smooth_tx = interp_x(pts).reshape(H, W).astype(np.float32)
+            smooth_ty = interp_y(pts).reshape(H, W).astype(np.float32)
+
+            # Blend: fg pixels move toward the ARAP-regularised value;
+            # bg pixels are left completely unchanged.
+            blend = fg_mask.astype(np.float32)
+            out[:, :, 0] = blend * smooth_tx + (1 - blend) * out[:, :, 0]
+            out[:, :, 1] = blend * smooth_ty + (1 - blend) * out[:, :, 1]
+
+    return out
 
 
 def _remap_by_displacement(img: np.ndarray, disp: np.ndarray) -> np.ndarray:
@@ -166,9 +376,11 @@ def register_foreground_at_seam(
     taper_px: float = FG_REG_TAPER_PX,
     max_residual: float = FG_REG_MAX_RESIDUAL,
     smooth_sigma: float = FG_REG_SMOOTH_SIGMA,
+    alpha_a: float = 0.5,
+    alpha_b: float = 0.5,
 ) -> Tuple[np.ndarray, np.ndarray, dict]:
     """
-    Re-pose the foreground of two canvas-aligned frames toward their midpoint
+    Re-pose the foreground of two canvas-aligned frames toward a shared target
     pose in a tapered band around the seam, so character body parts line up
     across the strip boundary.
 
@@ -194,6 +406,13 @@ def register_foreground_at_seam(
     smooth_sigma : float
         Gaussian sigma to smooth the residual flow before warping (suppresses
         per-pixel flow noise that would tear flat cel regions).
+    alpha_a, alpha_b : float in [0, 1]
+        Fraction of the flow applied to frame a and b respectively.
+        alpha_a + alpha_b = 1.0 (enforced).
+        Default 0.5/0.5 = symmetric midpoint warp.
+        Global-reference strategy sets alpha proportional to temporal distance
+        from the reference strip, so strips near the reference warp less and
+        distant strips warp more — preventing drift accumulation.
 
     Returns
     -------
@@ -201,6 +420,13 @@ def register_foreground_at_seam(
     ``info`` carries diagnostics (``warped`` bool, ``residual`` median px,
     ``fg_pixels`` in the seam band).
     """
+    # Normalise alphas so they sum to 1.
+    total_alpha = alpha_a + alpha_b
+    if total_alpha > 0:
+        alpha_a = alpha_a / total_alpha
+        alpha_b = alpha_b / total_alpha
+    else:
+        alpha_a = alpha_b = 0.5
     h, w = warped_a.shape[:2]
     fa = (fg_a > 127) if fg_a.dtype != bool else fg_a
     fb = (fg_b > 127) if fg_b.dtype != bool else fg_b
@@ -233,12 +459,40 @@ def register_foreground_at_seam(
 
     # Dense flow a → b (camera already removed by canvas alignment ⇒ residual
     # foreground flow is the animation motion).
-    flow = _dense_flow(warped_a, warped_b)  # (h,w,2)
+    # Compute flow only on the SEAM BAND CROP (±taper_px around seam_pos) so
+    # RAFT/DIS sees the relevant region at higher relative resolution instead
+    # of being diluted across the full canvas (which can be 2000+ px tall).
+    # This also avoids VRAM pressure from full-canvas RAFT inference.
+    if axis == 0:
+        y0_crop = max(0, seam_pos - int(taper_px) - 16)
+        y1_crop = min(h, seam_pos + int(taper_px) + 16)
+        crop_a = warped_a[y0_crop:y1_crop, :]
+        crop_b = warped_b[y0_crop:y1_crop, :]
+        flow_crop = _dense_flow(crop_a, crop_b)
+        flow = np.zeros((h, w, 2), dtype=np.float32)
+        flow[y0_crop:y1_crop, :] = flow_crop
+    else:
+        x0_crop = max(0, seam_pos - int(taper_px) - 16)
+        x1_crop = min(w, seam_pos + int(taper_px) + 16)
+        crop_a = warped_a[:, x0_crop:x1_crop]
+        crop_b = warped_b[:, x0_crop:x1_crop]
+        flow_crop = _dense_flow(crop_a, crop_b)
+        flow = np.zeros((h, w, 2), dtype=np.float32)
+        flow[:, x0_crop:x1_crop] = flow_crop
 
-    # Smooth the flow to suppress per-pixel noise on flat cel regions.
-    if smooth_sigma > 0:
-        flow[:, :, 0] = cv2.GaussianBlur(flow[:, :, 0], (0, 0), smooth_sigma)
-        flow[:, :, 1] = cv2.GaussianBlur(flow[:, :, 1], (0, 0), smooth_sigma)
+    # A3 — ARAP regularisation replaces naive Gaussian smoothing.
+    # Gaussian blurring mixes character and background flow → blurs the
+    # animation estimate and can make straight line-art strokes bend.
+    # ARAP fits per-cell rigid transforms to the fg flow then interpolates
+    # smoothly, preserving collinear strokes while still allowing the character
+    # to bend at joints.  Fall back to Gaussian if scipy is unavailable.
+    try:
+        # cell_size=16: finer cells → less smoothing across fg/bg boundary
+        flow = _arap_regularise(flow, fg_union, cell_size=16, n_iter=2)
+    except Exception:
+        if smooth_sigma > 0:
+            flow[:, :, 0] = cv2.GaussianBlur(flow[:, :, 0], (0, 0), smooth_sigma)
+            flow[:, :, 1] = cv2.GaussianBlur(flow[:, :, 1], (0, 0), smooth_sigma)
 
     # Magnitude of the residual on foreground pixels in the band.
     mag = np.sqrt(flow[:, :, 0] ** 2 + flow[:, :, 1] ** 2)
@@ -262,11 +516,17 @@ def register_foreground_at_seam(
     w_a = (taper * fa.astype(np.float32))[:, :, None]   # (h,w,1)
     w_b = (taper * fb.astype(np.float32))[:, :, None]
 
-    # Midpoint re-posing:
-    #   a moves +0.5·flow toward b  → sample a at (x − 0.5·flow)
-    #   b moves −0.5·flow toward a  → sample b at (x + 0.5·flow)
-    disp_a = -0.5 * flow * w_a
-    disp_b = +0.5 * flow * w_b
+    # Asymmetric re-posing toward the global reference pose.
+    # flow is the vector from a→b.  In remap_by_displacement, disp is the
+    # *source* offset: output[x] = input[x+disp].  So:
+    #   disp_a = -alpha_a·flow  → samples frame_a content from x+alpha_a·flow,
+    #                              which SHIFTS it by +alpha_a·flow (toward b).
+    #   disp_b = +alpha_b·flow  → samples frame_b content from x-alpha_b·flow,
+    #                              which SHIFTS it by -alpha_b·flow (toward a).
+    # When alpha_a=alpha_b=0.5 this is the symmetric midpoint warp.
+    # When alpha_a=1, alpha_b=0: frame a moves fully toward b (b is reference).
+    disp_a = -alpha_a * flow * w_a
+    disp_b = +alpha_b * flow * w_b
 
     # Valid-content masks: positions where the warped canvas has actual pixels.
     valid_a = warped_a.max(axis=2) > 0
@@ -287,8 +547,32 @@ def register_foreground_at_seam(
     adj_a[~valid_a] = 0
     adj_b[~valid_b] = 0
 
+    # Post-warp verification: measure remaining foreground colour discrepancy
+    # in a narrow strip centred on the seam.  A large post-warp diff means
+    # the ARAP-regularised warp still left a significant pose mismatch that
+    # will cause visible ghosting in the Laplacian blend zone.
+    seam_strip_h = max(1, int(taper_px * 0.2))
+    if axis == 0:
+        y0_s = max(0, seam_pos - seam_strip_h)
+        y1_s = min(h, seam_pos + seam_strip_h)
+        strip_a = adj_a[y0_s:y1_s].astype(np.float32)
+        strip_b = adj_b[y0_s:y1_s].astype(np.float32)
+        fg_strip = fg_union[y0_s:y1_s]
+    else:
+        x0_s = max(0, seam_pos - seam_strip_h)
+        x1_s = min(w, seam_pos + seam_strip_h)
+        strip_a = adj_a[:, x0_s:x1_s].astype(np.float32)
+        strip_b = adj_b[:, x0_s:x1_s].astype(np.float32)
+        fg_strip = fg_union[:, x0_s:x1_s]
+
+    if fg_strip.any():
+        diff_fg = float(np.abs(strip_a - strip_b).mean(axis=2)[fg_strip].mean())
+    else:
+        diff_fg = 0.0
+    info["post_warp_diff"] = round(diff_fg, 2)
+
     info["warped"] = True
     return adj_a, adj_b, info
 
 
-__all__ = ["register_foreground_at_seam", "_dense_flow", "_seam_taper"]
+__all__ = ["register_foreground_at_seam", "_dense_flow", "_seam_taper", "_arap_regularise"]
