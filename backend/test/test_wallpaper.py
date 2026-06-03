@@ -113,6 +113,73 @@ class TestWallpaperManager:
         args = mock_base.set_wallpaper_gnome.call_args[0]
         assert "/path/to/img.jpg" in args[0]
 
+    @patch("src.core.wallpaper.base")
+    @patch("src.core.wallpaper.platform.system", return_value="Linux")
+    @patch("src.core.wallpaper.shutil.which", return_value="/usr/bin/plasma-apply-wallpaperimage")
+    @patch("src.core.wallpaper.os.path.exists", return_value=True)
+    @patch("src.core.wallpaper.subprocess.run")
+    def test_apply_wallpaper_linux_kde_dbus_failed_plasma_apply_fallback(
+        self, mock_run, mock_exists, mock_which, mock_platform, mock_base, mock_monitor
+    ):
+        # get_kde_desktops succeeds by returning desktops, but setting fails
+        mock_base.evaluate_kde_script.side_effect = ["0:0:0:0", RuntimeError("qdbus failed setting wallpaper")]
+
+        WallpaperManager.apply_wallpaper(
+            path_map={"0": "/path/to/img.jpg"},
+            monitors=[mock_monitor],
+            style_name="Fill",
+            qdbus="qdbus",
+        )
+
+        # Verify plasma-apply-wallpaperimage was run
+        mock_run.assert_called_once()
+        cmd = mock_run.call_args[0][0]
+        assert cmd[0] == "/usr/bin/plasma-apply-wallpaperimage"
+        assert "--fill-mode" in cmd
+        assert "preserveAspectCrop" in cmd
+        assert "/path/to/img.jpg" in cmd[-1]
+
+    @patch("src.core.wallpaper.base")
+    @patch("src.core.wallpaper.platform.system", return_value="Linux")
+    @patch("src.core.wallpaper.shutil.which", return_value="/usr/bin/plasma-apply-wallpaperimage")
+    @patch("src.core.wallpaper.os.path.exists", return_value=True)
+    @patch("src.core.wallpaper.subprocess.run")
+    @patch.dict("os.environ", {"XDG_CURRENT_DESKTOP": "KDE"})
+    def test_apply_wallpaper_linux_kde_env_plasma_apply_fallback(
+        self, mock_run, mock_exists, mock_which, mock_platform, mock_base, mock_monitor
+    ):
+        # D-Bus fails completely (get_kde_desktops returns [])
+        mock_base.evaluate_kde_script.side_effect = RuntimeError("qdbus failed completely")
+
+        WallpaperManager.apply_wallpaper(
+            path_map={"0": "/path/to/img.jpg"},
+            monitors=[mock_monitor],
+            style_name="Fill",
+            qdbus="qdbus",
+        )
+
+        # Verify plasma-apply-wallpaperimage was run as KDE env fallback
+        mock_run.assert_called_once()
+        cmd = mock_run.call_args[0][0]
+        assert cmd[0] == "/usr/bin/plasma-apply-wallpaperimage"
+
+    @patch("src.core.wallpaper.base")
+    @patch("src.core.wallpaper.platform.system", return_value="Linux")
+    @patch("src.core.wallpaper.Path.exists", return_value=False)
+    def test_apply_wallpaper_linux_kde_missing_video_plugin(
+        self, mock_exists, mock_platform, mock_base, mock_monitor
+    ):
+        # get_kde_desktops succeeds
+        mock_base.evaluate_kde_script.return_value = "0:0:0:0"
+
+        with pytest.raises(RuntimeError, match="No supported KDE video wallpaper plugin found"):
+            WallpaperManager.apply_wallpaper(
+                path_map={"0": "/path/to/video.mp4"},
+                monitors=[mock_monitor],
+                style_name="SmartVideoWallpaper::Fill",
+                qdbus="qdbus",
+            )
+
 
 # Helper to check winreg calls simpler
 def winreg_set_value_ex_called_with(mock_winreg, result_key):

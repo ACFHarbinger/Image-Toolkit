@@ -90,15 +90,19 @@ pub fn get_kde_desktops_core(qdbus_bin: &str) -> Result<Vec<KdeDesktop>, String>
 
 #[cfg(feature = "python")]
 #[pyfunction]
-pub fn set_wallpaper_gnome(uri: String, mode: String) -> PyResult<bool> {
-    set_wallpaper_gnome_core(&uri, &mode)
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(e.to_string()))?;
+pub fn set_wallpaper_gnome(py: Python<'_>, uri: String, mode: String) -> PyResult<bool> {
+    py.detach(|| {
+        set_wallpaper_gnome_core(&uri, &mode)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(e.to_string()))
+    })?;
     Ok(true)
 }
 
 #[cfg(feature = "python")]
 #[pyfunction]
-pub fn evaluate_kde_script(qdbus_bin: String, script: String) -> PyResult<String> {
-    evaluate_kde_script_core(&qdbus_bin, &script)
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e))
+pub fn evaluate_kde_script(py: Python<'_>, qdbus_bin: String, script: String) -> PyResult<String> {
+    py.detach(|| {
+        evaluate_kde_script_core(&qdbus_bin, &script)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e))
+    })
 }

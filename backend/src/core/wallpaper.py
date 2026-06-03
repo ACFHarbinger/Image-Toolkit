@@ -5,6 +5,7 @@ import subprocess
 import logging
 import base  # Native extension
 import re
+import shutil
 
 from PIL import Image
 from pathlib import Path
@@ -150,7 +151,7 @@ class WallpaperManager:
             raise RuntimeError(f"Error setting GNOME solid color: {e}")
 
     @staticmethod
-    def get_best_video_plugin() -> str:
+    def get_best_video_plugin() -> Optional[str]:
         REBORN_PLUGIN = "luisbocanegra.smart.video.wallpaper.reborn"
         ZREN_PLUGIN = "com.github.zren.smartvideowallpaper"
         SMARTER_PLUGIN = "smartervideowallpaper"
@@ -167,7 +168,7 @@ class WallpaperManager:
         for base_path in search_paths:
             if (base_path / ZREN_PLUGIN).exists():
                 return ZREN_PLUGIN
-        return REBORN_PLUGIN
+        return None
 
     @staticmethod
     def get_kde_desktops(qdbus: str) -> List[Dict[str, int]]:
@@ -260,6 +261,10 @@ class WallpaperManager:
             style_name, WALLPAPER_STYLES["KDE"]["Scaled, Keep Proportions"]
         )
         target_plugin = WallpaperManager.get_best_video_plugin()
+        if video_mode_active and not target_plugin:
+            raise RuntimeError(
+                "No supported KDE video wallpaper plugin found. Please install a plugin such as 'Smart Video Wallpaper Reborn' to enable video wallpaper support."
+            )
 
         script_parts = []
         for monitor_id, path in path_map.items():
@@ -326,6 +331,36 @@ class WallpaperManager:
             base.evaluate_kde_script(qdbus, full_script)
         except Exception as e:
             raise RuntimeError(f"KDE method failed (Rust): {e}")
+
+    @staticmethod
+    def _set_wallpaper_kde_plasma_apply(path_map: Dict[str, str], style_name: str) -> bool:
+        cmd = shutil.which("plasma-apply-wallpaperimage")
+        if not cmd:
+            return False
+        
+        path = path_map.get("0") or next(iter(path_map.values()), None)
+        if not path or not os.path.exists(path):
+            return False
+        
+        fill_mode = "preserveAspectCrop"
+        style_lower = style_name.lower()
+        if "stretch" in style_lower:
+            fill_mode = "stretch"
+        elif "keep proportions" in style_lower or "fit" in style_lower or "scalled" in style_lower:
+            fill_mode = "preserveAspectFit"
+        elif "crop" in style_lower or "zoom" in style_lower or "spanned" in style_lower:
+            fill_mode = "preserveAspectCrop"
+        elif "tile" in style_lower or "wallpaper" in style_lower:
+            fill_mode = "tile"
+        elif "center" in style_lower or "pad" in style_lower:
+            fill_mode = "pad"
+            
+        try:
+            subprocess.run([cmd, "--fill-mode", fill_mode, str(Path(path).resolve())], check=True)
+            return True
+        except Exception as e:
+            logging.error(f"Failed to set wallpaper via plasma-apply-wallpaperimage: {e}")
+            return False
 
     @staticmethod
     def _set_wallpaper_gnome_spanned(
@@ -477,8 +512,20 @@ class WallpaperManager:
                     except Exception:
                         mapped_path_map[monitor_id_str] = path
 
-                WallpaperManager._set_wallpaper_kde(mapped_path_map, style_name, qdbus)
+                try:
+                    WallpaperManager._set_wallpaper_kde(mapped_path_map, style_name, qdbus)
+                except Exception as e:
+                    logging.warning(f"KDE DBus wallpaper setting failed, trying fallback: {e}")
+                    if not WallpaperManager._set_wallpaper_kde_plasma_apply(path_map, style_name):
+                        raise
             else:  # GNOME or Fallback
+                desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
+                session = os.environ.get("DESKTOP_SESSION", "").lower()
+                is_kde = "kde" in desktop or "plasma" in desktop or "kde" in session or "plasma" in session
+                
+                if (is_kde or shutil.which("plasma-apply-wallpaperimage")) and WallpaperManager._set_wallpaper_kde_plasma_apply(path_map, style_name):
+                    return
+
                 if style_name == "Spanned" and isinstance(monitors, list):
                     WallpaperManager._set_wallpaper_gnome_spanned(
                         path_map, monitors, style_name

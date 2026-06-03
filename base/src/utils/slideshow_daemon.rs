@@ -240,18 +240,22 @@ fn find_qdbus_binary() -> String {
     "qdbus".to_string()
 }
 
-fn get_best_video_plugin() -> String {
+fn get_best_video_plugin() -> Option<String> {
     let reborn_plugin = "luisbocanegra.smart.video.wallpaper.reborn";
     let zren_plugin = "com.github.zren.smartvideowallpaper";
     let smarter_plugin = "smartervideowallpaper";
     let home = UserDirs::new().map(|u| u.home_dir().to_path_buf()).unwrap_or_else(|| PathBuf::from("/"));
     let search_paths = vec![home.join(".local/share/plasma/wallpapers"), PathBuf::from("/usr/share/plasma/wallpapers")];
-    for base_path in search_paths {
-        if base_path.join(reborn_plugin).exists() { return reborn_plugin.to_string(); }
-        if base_path.join(zren_plugin).exists() { return zren_plugin.to_string(); }
-        if base_path.join(smarter_plugin).exists() { return smarter_plugin.to_string(); }
+    for base_path in &search_paths {
+        if base_path.join(reborn_plugin).exists() { return Some(reborn_plugin.to_string()); }
     }
-    reborn_plugin.to_string()
+    for base_path in &search_paths {
+        if base_path.join(smarter_plugin).exists() { return Some(smarter_plugin.to_string()); }
+    }
+    for base_path in &search_paths {
+        if base_path.join(zren_plugin).exists() { return Some(zren_plugin.to_string()); }
+    }
+    None
 }
 
 fn apply_wallpaper_kde(
@@ -330,7 +334,15 @@ fn apply_wallpaper_kde(
     }
     let mut script = String::new();
     let video_extensions = vec![".mp4", ".mkv", ".webm", ".mov", ".avi", ".wmv"];
-    let target_plugin = get_best_video_plugin();
+    let target_plugin = match get_best_video_plugin() {
+        Some(p) => p,
+        None => {
+            if video_mode_active {
+                anyhow::bail!("No supported KDE video wallpaper plugin found. Please install a plugin such as 'Smart Video Wallpaper Reborn' to enable video wallpaper support.");
+            }
+            "".to_string()
+        }
+    };
     for (monitor_id, path) in path_map {
         let i = monitor_to_kde.get(monitor_id).cloned().unwrap_or_else(|| monitor_id.parse().unwrap_or(0));
         log!("Monitor {} -> KDE Desktop {} (Path: {})", monitor_id, i, path);
@@ -378,6 +390,57 @@ fn apply_wallpaper_kde(
     if !script.is_empty() {
         wallpaper::evaluate_kde_script_core(&qdbus_bin, &script).map_err(|e| anyhow::anyhow!("KDE qdbus error: {}", e))?;
     }
+    Ok(())
+}
+
+fn apply_wallpaper_kde_plasma_apply(
+    path_map: &HashMap<String, String>,
+    style: &str,
+    log_path: &Option<PathBuf>,
+) -> Result<()> {
+    macro_rules! log {
+        ($($arg:tt)*) => {{
+            let msg = format!($($arg)*);
+            let now = chrono::Local::now().format("[%H:%M:%S]");
+            if let Some(ref lp) = log_path {
+                if let Ok(mut f) = fs::OpenOptions::new().append(true).open(lp) {
+                    let _ = writeln!(f, "{} {}", now, msg);
+                }
+            }
+        }};
+    }
+
+    let bin = "plasma-apply-wallpaperimage";
+    let bin_path = which::which(bin).map_err(|e| anyhow::anyhow!("{} not found: {}", bin, e))?;
+    
+    let path = path_map.get("0")
+        .or_else(|| path_map.values().next())
+        .context("No image path provided to set wallpaper")?;
+        
+    let abs_path = fs::canonicalize(path).context("Invalid image path")?;
+    
+    let fill_mode = match style.to_lowercase().as_str() {
+        s if s.contains("stretch") => "stretch",
+        s if s.contains("keep proportions") || s.contains("fit") || s.contains("scaled") => "preserveAspectFit",
+        s if s.contains("crop") || s.contains("zoom") || s.contains("span") => "preserveAspectCrop",
+        s if s.contains("tile") || s.contains("wallpaper") => "tile",
+        s if s.contains("center") || s.contains("pad") => "pad",
+        _ => "preserveAspectCrop",
+    };
+    
+    log!("Running fallback: {} --fill-mode {} {:?}", bin, fill_mode, abs_path);
+    
+    let status = std::process::Command::new(bin_path)
+        .arg("--fill-mode")
+        .arg(fill_mode)
+        .arg(abs_path)
+        .status()
+        .context("Failed to execute plasma-apply-wallpaperimage")?;
+        
+    if !status.success() {
+        anyhow::bail!("plasma-apply-wallpaperimage returned non-zero status");
+    }
+    
     Ok(())
 }
 
@@ -490,7 +553,15 @@ fn run(log_path: &Option<PathBuf>) -> Result<()> {
         if !next_paths.is_empty() {
             log!("Applying wallpaper with style: {}", config.style);
             let res = match de {
-                DesktopEnvironment::Kde => apply_wallpaper_kde(&next_paths, &config.style, &config.monitor_geometries, log_path),
+                DesktopEnvironment::Kde => {
+                    match apply_wallpaper_kde(&next_paths, &config.style, &config.monitor_geometries, log_path) {
+                        Ok(()) => Ok(()),
+                        Err(e) => {
+                            log!("KDE D-Bus wallpaper application failed: {}. Trying fallback with plasma-apply-wallpaperimage...", e);
+                            apply_wallpaper_kde_plasma_apply(&next_paths, &config.style, log_path)
+                        }
+                    }
+                }
                 DesktopEnvironment::Gnome => apply_wallpaper_gnome(&next_paths, &config.style),
                 _ => { log!("Unsupported desktop environment."); Ok(()) }
             };
