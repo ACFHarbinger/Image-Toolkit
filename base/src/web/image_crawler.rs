@@ -222,7 +222,7 @@ impl ImageCrawlerRust {
                 }
             }
 
-            let mut total_found = 0;
+            let mut total_found;
             let mut attempt = 0;
             loop {
                 attempt += 1;

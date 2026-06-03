@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QFormLayout,
     QApplication,
+    QTabWidget,
 )
 from backend.src.constants import (
     IMAGE_TOOLKIT_DIR,
@@ -119,14 +120,6 @@ class SettingsWindow(QWidget):
         main_layout.addWidget(header_widget)
         # --- End Header Bar ---
 
-        # Create a scrollable container for the content
-        content_scroll = QScrollArea()
-        content_scroll.setWidgetResizable(True)
-        content_container = QWidget()
-        content_layout = QVBoxLayout(content_container)
-        content_layout.setContentsMargins(20, 20, 20, 20)
-        content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
         # --- Login Information Section ---
         login_groupbox = QGroupBox("Login/Account Information (Master Password Reset)")
         login_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
@@ -144,10 +137,8 @@ class SettingsWindow(QWidget):
         login_layout.addRow(QLabel("Account Name:"), self.account_input)
         login_layout.addRow(QLabel("New Master Password:"), self.new_password_input)
 
-        content_layout.addWidget(login_groupbox)
-
         # --- Cryptography Vault Sync/Load Section ---
-        vault_sync_groupbox = QGroupBox("Cryptography Vault Sync & Load")
+        vault_sync_groupbox = QGroupBox("Cryptography Vault Sync and Load")
         vault_sync_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         vault_sync_layout = QVBoxLayout(vault_sync_groupbox)
         vault_sync_layout.setContentsMargins(10, 10, 10, 10)
@@ -165,21 +156,23 @@ class SettingsWindow(QWidget):
         self.btn_sync_vault.setToolTip(
             "Copy active keystore, vault, and pepper files from ~/.image-toolkit/cryptography to the repository template directory."
         )
-        self.btn_sync_vault.setStyleSheet("background-color: #7b1fa2; color: white; font-weight: bold;")
+        self.btn_sync_vault.setStyleSheet(
+            "background-color: #7b1fa2; color: white; font-weight: bold;"
+        )
         self.btn_sync_vault.clicked.connect(self._sync_vault_to_assets)
 
         self.btn_load_vault = QPushButton("Load Vault 📥")
         self.btn_load_vault.setToolTip(
             "Overwrite active files in ~/.image-toolkit/cryptography with template files from the repository directory."
         )
-        self.btn_load_vault.setStyleSheet("background-color: #2c3e50; color: white; font-weight: bold;")
+        self.btn_load_vault.setStyleSheet(
+            "background-color: #2c3e50; color: white; font-weight: bold;"
+        )
         self.btn_load_vault.clicked.connect(self._load_vault_from_assets)
 
         btn_layout.addWidget(self.btn_sync_vault)
         btn_layout.addWidget(self.btn_load_vault)
         vault_sync_layout.addLayout(btn_layout)
-
-        content_layout.addWidget(vault_sync_groupbox)
 
         # --- Preferences Section ---
         prefs_groupbox = QGroupBox("Preferences")
@@ -253,8 +246,6 @@ class SettingsWindow(QWidget):
 
         prefs_layout.addLayout(all_categories_layout)
 
-        content_layout.addWidget(prefs_groupbox)
-
         # ---------------------------------------------------------------------
         # --- System Preference Profiles Section ---
         # ---------------------------------------------------------------------
@@ -316,8 +307,6 @@ class SettingsWindow(QWidget):
         profile_create_layout.addWidget(self.btn_save_profile)
 
         profiles_layout.addLayout(profile_create_layout)
-
-        content_layout.addWidget(profiles_groupbox)
 
         # ---------------------------------------------------------------------
         # --- Tab Default Configuration Section ---
@@ -420,10 +409,9 @@ class SettingsWindow(QWidget):
         create_config_layout.addRow(save_buttons_layout)
 
         defaults_layout.addWidget(create_config_group)
-        content_layout.addWidget(defaults_groupbox)
 
         # ---------------------------------------------------------------------
-        # --- Gallery & Display Section ---
+        # --- Gallery and Display Section ---
         # ---------------------------------------------------------------------
         gallery_groupbox = QGroupBox("Gallery and Display")
         gallery_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
@@ -455,10 +443,8 @@ class SettingsWindow(QWidget):
         self.confirm_deletions_check.setChecked(self.pref_confirm_deletions)
         gallery_layout.addRow(self.confirm_deletions_check)
 
-        content_layout.addWidget(gallery_groupbox)
-
         # ---------------------------------------------------------------------
-        # --- Media Player & Extractor Section ---
+        # --- Media Player and Extractor Section ---
         # ---------------------------------------------------------------------
         media_groupbox = QGroupBox("Media Player and Extractor")
         media_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
@@ -481,12 +467,12 @@ class SettingsWindow(QWidget):
         self.recent_extractions_spinbox.setToolTip(
             "Number of most recent extraction configurations/parameters to save"
         )
-        media_layout.addRow("Recent Extractions Limit:", self.recent_extractions_spinbox)
-
-        content_layout.addWidget(media_groupbox)
+        media_layout.addRow(
+            "Recent Extractions Limit:", self.recent_extractions_spinbox
+        )
 
         # ---------------------------------------------------------------------
-        # --- Startup & Session Section ---
+        # --- Startup and Session Section ---
         # ---------------------------------------------------------------------
         session_groupbox = QGroupBox("Startup and Session")
         session_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
@@ -525,10 +511,8 @@ class SettingsWindow(QWidget):
             "Recent Directories to Remember:", self.recent_dirs_spinbox
         )
 
-        content_layout.addWidget(session_groupbox)
-
         # ---------------------------------------------------------------------
-        # --- Performance & Cache Section ---
+        # --- Performance and Cache Section ---
         # ---------------------------------------------------------------------
         perf_groupbox = QGroupBox("Performance and Cache")
         perf_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
@@ -573,8 +557,6 @@ class SettingsWindow(QWidget):
             "Wallpaper Gallery LRU Cache Size:", self.initial_cache_spinbox
         )
 
-        content_layout.addWidget(perf_groupbox)
-
         # ---------------------------------------------------------------------
         # --- Slideshow Defaults Section ---
         # ---------------------------------------------------------------------
@@ -610,8 +592,6 @@ class SettingsWindow(QWidget):
             "Default Playback Order:", self.slideshow_default_order_combo
         )
 
-        content_layout.addWidget(slideshow_groupbox)
-
         # ---------------------------------------------------------------------
         # --- Logging Section ---
         # ---------------------------------------------------------------------
@@ -641,9 +621,6 @@ class SettingsWindow(QWidget):
             Qt.TextInteractionFlag.TextSelectableByMouse
         )
         logging_layout.addRow(log_dir_label)
-
-        content_layout.addWidget(logging_groupbox)
-
 
         # ---------------------------------------------------------------------
         # --- Reset State Section ---
@@ -714,7 +691,6 @@ class SettingsWindow(QWidget):
         history_row.addWidget(self.btn_reset_history)
         reset_state_layout.addLayout(history_row)
 
-
         # Row 3: clear logs
         logs_row = QHBoxLayout()
         logs_info = QLabel(
@@ -753,12 +729,77 @@ class SettingsWindow(QWidget):
         tab_cfg_row.addWidget(self.btn_clear_tab_configs)
         reset_state_layout.addLayout(tab_cfg_row)
 
-        content_layout.addWidget(reset_groupbox)
+        # --- Create QTabWidget and Add Tabs ---
+        self.tab_widget = QTabWidget()
 
-        content_layout.addStretch(1)
+        # Modern Premium Theme Styles for QTabWidget
+        if is_light_theme:
+            self.tab_widget.setStyleSheet(
+                "QTabWidget::pane { border: 1px solid #dcdcdc; background: white; }"
+                "QTabBar::tab { background: #f0f0f0; color: #333; padding: 10px 15px; border: 1px solid #dcdcdc; border-bottom: none; border-top-left-radius: 4px; border-top-right-radius: 4px; }"
+                "QTabBar::tab:selected { background: white; border-bottom: 2px solid #007AFF; font-weight: bold; }"
+                "QTabBar::tab:hover { background: #e5e5e5; }"
+            )
+        else:
+            self.tab_widget.setStyleSheet(
+                "QTabWidget::pane { border: 1px solid #3e3e42; background: #1e1e1e; }"
+                "QTabBar::tab { background: #2d2d30; color: #aaa; padding: 10px 15px; border: 1px solid #3e3e42; border-bottom: none; border-top-left-radius: 4px; border-top-right-radius: 4px; }"
+                "QTabBar::tab:selected { background: #1e1e1e; color: white; border-bottom: 2px solid #00bcd4; font-weight: bold; }"
+                "QTabBar::tab:hover { background: #3e3e42; color: white; }"
+            )
 
-        content_scroll.setWidget(content_container)
-        main_layout.addWidget(content_scroll)
+        def create_tab_scroll_area():
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setStyleSheet(
+                "QScrollArea { border: none; background: transparent; }"
+            )
+            container = QWidget()
+            layout = QVBoxLayout(container)
+            layout.setContentsMargins(15, 15, 15, 15)
+            layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+            layout.setSpacing(15)
+            scroll.setWidget(container)
+            return scroll, layout
+
+        # Tab 1: Account and Cryptography
+        scroll_account, layout_account = create_tab_scroll_area()
+        layout_account.addWidget(login_groupbox)
+        layout_account.addWidget(vault_sync_groupbox)
+        layout_account.addStretch(1)
+        self.tab_widget.addTab(scroll_account, "🔐 Account and Vault")
+
+        # Tab 2: Startup and Profiles
+        scroll_startup, layout_startup = create_tab_scroll_area()
+        layout_startup.addWidget(prefs_groupbox)
+        layout_startup.addWidget(session_groupbox)
+        layout_startup.addWidget(profiles_groupbox)
+        layout_startup.addStretch(1)
+        self.tab_widget.addTab(scroll_startup, "🚀 Startup and Profiles")
+
+        # Tab 3: Tab Configurations
+        scroll_configs, layout_configs = create_tab_scroll_area()
+        layout_configs.addWidget(defaults_groupbox)
+        layout_configs.addStretch(1)
+        self.tab_widget.addTab(scroll_configs, "🛠️ Tab Configs")
+
+        # Tab 4: Display and Media
+        scroll_display_media, layout_display_media = create_tab_scroll_area()
+        layout_display_media.addWidget(gallery_groupbox)
+        layout_display_media.addWidget(media_groupbox)
+        layout_display_media.addWidget(slideshow_groupbox)
+        layout_display_media.addStretch(1)
+        self.tab_widget.addTab(scroll_display_media, "🖼️ Display and Media")
+
+        # Tab 5: System and Logging
+        scroll_system, layout_system = create_tab_scroll_area()
+        layout_system.addWidget(perf_groupbox)
+        layout_system.addWidget(logging_groupbox)
+        layout_system.addWidget(reset_groupbox)
+        layout_system.addStretch(1)
+        self.tab_widget.addTab(scroll_system, "⚙️ System and Logging")
+
+        main_layout.addWidget(self.tab_widget)
 
         # --- Action Buttons at the bottom (Full Width) ---
         actions_widget = QWidget()
@@ -896,7 +937,9 @@ class SettingsWindow(QWidget):
                 self.system_profiles = creds.get("system_preference_profiles", {})
                 self.preferences = creds.get("preferences", {})
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to load credentials from vault:\n{e}")
+                QMessageBox.critical(
+                    self, "Error", f"Failed to load credentials from vault:\n{e}"
+                )
                 return
 
         # Unpack preference values with defaults
@@ -938,11 +981,11 @@ class SettingsWindow(QWidget):
             combo.blockSignals(True)
             combo.clear()
             combo.addItem("None (Default)")
-            
+
             configs_for_tab = self.tab_defaults_config.get(tab_class_name, {})
             config_names = sorted(configs_for_tab.keys())
             combo.addItems(config_names)
-            
+
             # Select active config if it exists
             if current_sel and current_sel in configs_for_tab:
                 combo.setCurrentText(current_sel)
@@ -950,12 +993,12 @@ class SettingsWindow(QWidget):
                 combo.setCurrentIndex(0)
             combo.blockSignals(False)
 
-        # Repopulate Gallery & Display
+        # Repopulate Gallery and Display
         self.thumbnail_size_spinbox.setValue(self.pref_thumbnail_size)
         self.page_size_combo.setCurrentText(str(self.pref_page_size))
         self.confirm_deletions_check.setChecked(self.pref_confirm_deletions)
 
-        # Repopulate Startup & Session
+        # Repopulate Startup and Session
         items = [
             self.startup_category_combo.itemText(i)
             for i in range(self.startup_category_combo.count())
@@ -965,7 +1008,7 @@ class SettingsWindow(QWidget):
         self.restore_last_dir_check.setChecked(self.pref_restore_last_dir)
         self.recent_dirs_spinbox.setValue(self.pref_recent_dirs_count)
 
-        # Repopulate Performance & Cache
+        # Repopulate Performance and Cache
         self.found_cache_spinbox.setValue(self.pref_found_cache)
         self.selected_cache_spinbox.setValue(self.pref_selected_cache)
         self.initial_cache_spinbox.setValue(self.pref_initial_cache)
@@ -985,7 +1028,7 @@ class SettingsWindow(QWidget):
 
         # Repopulate Profiles dropdown
         self._refresh_profile_combo()
-        
+
         # Reset Tab Defaults dropdown
         self.tab_group_combo.setCurrentIndex(0)
         self.tab_select_combo.clear()
@@ -994,7 +1037,9 @@ class SettingsWindow(QWidget):
         self.config_name_input.clear()
         self.default_config_editor.clear()
 
-        QMessageBox.information(self, "Settings Reloaded", "Settings reloaded from the vault successfully.")
+        QMessageBox.information(
+            self, "Settings Reloaded", "Settings reloaded from the vault successfully."
+        )
 
     def _load_selected_profile(self):
         """Loads the selected profile into the UI elements."""
@@ -1627,12 +1672,12 @@ class SettingsWindow(QWidget):
         for combo in self.startup_config_combos.values():
             combo.setCurrentIndex(0)  # None (Default)
 
-        # Reset Gallery & Display
+        # Reset Gallery and Display
         self.thumbnail_size_spinbox.setValue(180)
         self.page_size_combo.setCurrentText("100")
         self.confirm_deletions_check.setChecked(True)
 
-        # Reset Startup & Session
+        # Reset Startup and Session
         items = [
             self.startup_category_combo.itemText(i)
             for i in range(self.startup_category_combo.count())
@@ -1642,7 +1687,7 @@ class SettingsWindow(QWidget):
         self.restore_last_dir_check.setChecked(True)
         self.recent_dirs_spinbox.setValue(10)
 
-        # Reset Performance & Cache
+        # Reset Performance and Cache
         self.found_cache_spinbox.setValue(300)
         self.selected_cache_spinbox.setValue(200)
         self.initial_cache_spinbox.setValue(300)
@@ -1760,22 +1805,27 @@ class SettingsWindow(QWidget):
                 )
             else:
                 QMessageBox.information(
-                    self, "Information", "Extraction history file not found (already clean)."
+                    self,
+                    "Information",
+                    "Extraction history file not found (already clean).",
                 )
-            
+
             # Immediately notify tabs to reload / clear history
             if self.main_window_ref:
                 for cat_tabs in self.main_window_ref.all_tabs.values():
                     for tab in cat_tabs.values():
-                        if hasattr(tab, "_load_extraction_history") and callable(tab._load_extraction_history):
+                        if hasattr(tab, "_load_extraction_history") and callable(
+                            tab._load_extraction_history
+                        ):
                             tab._load_extraction_history()
-                        if hasattr(tab, "_update_recent_extractions_ui") and callable(tab._update_recent_extractions_ui):
+                        if hasattr(tab, "_update_recent_extractions_ui") and callable(
+                            tab._update_recent_extractions_ui
+                        ):
                             tab._update_recent_extractions_ui()
         except Exception as e:
             QMessageBox.critical(
                 self, "Error", f"Failed to reset extraction history:\n{e}"
             )
-
 
     def _clear_application_logs(self):
         """Deletes all log files from the global logs directory."""
@@ -1862,7 +1912,9 @@ class SettingsWindow(QWidget):
         template_dir = Path(TEMPLATE_CRYPTO_DIR)
 
         if not active_dir.exists():
-            QMessageBox.warning(self, "Sync Error", "Active cryptography directory does not exist.")
+            QMessageBox.warning(
+                self, "Sync Error", "Active cryptography directory does not exist."
+            )
             return
 
         template_dir.mkdir(parents=True, exist_ok=True)
@@ -1874,7 +1926,11 @@ class SettingsWindow(QWidget):
                 files_to_sync.append(item.name)
 
         if not files_to_sync:
-            QMessageBox.information(self, "Sync Vault", "No cryptographic files found in active directory to sync.")
+            QMessageBox.information(
+                self,
+                "Sync Vault",
+                "No cryptographic files found in active directory to sync.",
+            )
             return
 
         try:
@@ -1887,7 +1943,7 @@ class SettingsWindow(QWidget):
             QMessageBox.information(
                 self,
                 "Sync Vault Success",
-                f"Successfully synced {len(files_to_sync)} cryptographic file(s) to template directory:\n{template_dir}"
+                f"Successfully synced {len(files_to_sync)} cryptographic file(s) to template directory:\n{template_dir}",
             )
         except Exception as e:
             QMessageBox.critical(self, "Sync Error", f"Failed to sync vault files: {e}")
@@ -1902,7 +1958,11 @@ class SettingsWindow(QWidget):
         template_dir = Path(TEMPLATE_CRYPTO_DIR)
 
         if not template_dir.exists():
-            QMessageBox.warning(self, "Load Error", "Repository template cryptography directory does not exist.")
+            QMessageBox.warning(
+                self,
+                "Load Error",
+                "Repository template cryptography directory does not exist.",
+            )
             return
 
         # Confirm overwrite
@@ -1912,7 +1972,7 @@ class SettingsWindow(QWidget):
             "This will OVERWRITE your active cryptography files in ~/.image-toolkit/cryptography with the template files. "
             "Are you sure you want to proceed?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
+            QMessageBox.StandardButton.No,
         )
         if reply != QMessageBox.StandardButton.Yes:
             return
@@ -1926,7 +1986,11 @@ class SettingsWindow(QWidget):
                 files_to_load.append(item.name)
 
         if not files_to_load:
-            QMessageBox.information(self, "Load Vault", "No template files found in assets directory to load.")
+            QMessageBox.information(
+                self,
+                "Load Vault",
+                "No template files found in assets directory to load.",
+            )
             return
 
         try:
@@ -1939,8 +2003,7 @@ class SettingsWindow(QWidget):
             QMessageBox.information(
                 self,
                 "Load Vault Success",
-                f"Successfully loaded {len(files_to_load)} cryptographic file(s) to active directory:\n{active_dir}\nPlease restart the application to apply."
+                f"Successfully loaded {len(files_to_load)} cryptographic file(s) to active directory:\n{active_dir}\nPlease restart the application to apply.",
             )
         except Exception as e:
             QMessageBox.critical(self, "Load Error", f"Failed to load vault files: {e}")
-
