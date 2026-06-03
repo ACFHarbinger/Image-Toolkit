@@ -7,6 +7,8 @@
 *Root cause: Animated video scenes vs. static-scroll design assumption. Phase correlation measures whole-frame displacement including character animation.*  
 *Previous baseline (22 tests, 2026-05-31): 22/22 metric success, avg sharpness 33.14.*
 
+*Research basis (2026-06-03): The complete, consolidated stitching research is now in **[`reports/Image_Stitching_Research.md`](../../reports/Image_Stitching_Research.md)** (merges all 14 prior stitching reports). It defines the foreground-assembly paradigm, the per-stage algorithmic toolbox, the 13-stage pipeline spec, and the failure/fallback taxonomy that this roadmap implements. Read it before working on §0.1–§0.2.*
+
 ---
 
 ## How to Use This Document
@@ -26,8 +28,60 @@ Each section lists the pain point, all viable implementation options with trade-
 **Required fixes before any other work:**
 1. Background-only phase correlation in frame selector (run BiRefNet first)
 2. Multi-frame canvas coverage check before compositing (fall back to SCANS if median coverage < 2 frames/row)
-3. Replace sharpness metric with seam coherence metric (row-mean luminance variance)
-4. Seam validation gate after composite (if adjacent strips differ >15 lum units, reject and use SCANS)
+3. Replace sharpness metric with seam coherence metric (row-mean luminance variance) — ✅ DONE
+4. Seam validation gate after composite (if adjacent strips differ >15 lum units, reject and use SCANS) — ✅ DONE (render gate)
+
+**Deeper root cause (established 2026-06-03, see `reports/Image_Stitching_Research.md` §8):** Items 1–4 are *symptom mitigations*. The true gap is that the pipeline has **no mechanism to register the deforming foreground across frames.** The character animates while the camera pans, so body parts land in two different poses on either side of every strip seam. Fixing this requires the foreground-assembly stage in §0.1 below — that is the actual solution; everything else raises the floor without raising the ceiling.
+
+---
+
+## 0.1 Foreground Pose Registration — The Core Fix [Priority 0]
+
+**Pain point:** Even ASP's best cases (test09) show torn/doubled character edges at strip seams. The translation-only camera model aligns the *background* perfectly but cannot represent the *non-rigid articulated motion* of the character animating between the frames being stitched. This is the dominant artifact and the reason ASP loses to simple-stitch on ground-truth SSIM (0.669 vs 0.695).
+
+**Key reframing:** This is **multi-frame fusion of moving content** — structurally identical to ghost-free HDR (DDFNet) and video-SR alignment (FDAN). The proven recipe is: estimate optical flow → warp moving content toward a reference → fuse. Applied to the foreground, with anime adaptations (segment-guided flow for flat regions, ARAP/LSD to protect line art).
+
+**Core idea:** Keep the rigid translation model for the background. Add a flow-guided, ARAP-regularised **foreground registration stage** that decomposes foreground motion into `F_fg = T_camera + A_animation`, subtracts the known camera translation, and warps out the residual animation motion so body parts line up across seams. The body is still assembled from multiple frames — each frame's foreground is just re-posed to a common reference before compositing.
+
+### Options
+
+**A — Flow-guided foreground re-posing (recommended core)**
+SEA-RAFT dense flow over the fg overlap zone → subtract `T_camera` → symmetric midpoint warp of both strips' foreground toward the mean pose. Similarity-regularised warp first, upgrade to full ARAP later.
+- Pros: Directly fixes seam tears. Reuses BiRefNet masks. Overlap-zone-only crops keep it fast.
+- Cons: Dense flow tears on flat cel regions (mitigate with segment-guided flow). High implementation effort.
+- Refs: SC-AOF (Sensors 2024), DDFNet (Sensors 2022), SEA-RAFT (ECCV 2024).
+
+**B — ARAP cartoon registration (Sýkora 2009)**
+Locally-optimal block matching + as-rigid-as-possible shape regularisation + LSD line term. Purpose-built for registering hand-drawn characters across animation poses without bending line art.
+- Pros: The canonical method for this exact sub-problem. Preserves line art.
+- Cons: Highest implementation complexity. Needs careful energy tuning.
+- Ref: Sýkora, Dingliana & Collins, NPAR 2009.
+
+**C — Single-pose-per-component fallback (Eden-Uyttendaele-Szeliski 2006)**
+When flow confidence is low (fast action, motion blur), do not warp/average — select one coherent pose per connected foreground component and route the seam around it through background via graph cut.
+- Pros: Guarantees one clean instance of each body part. Strictly better than ghost-blending.
+- Cons: May drop canvas coverage where a component spans a seam.
+- Ref: Eden et al., CVPR 2006.
+
+**Recommendation:** Ship **A with a similarity warp + C as the low-confidence fallback** first; validate on test09. Add **B (full ARAP)** as the quality upgrade once A is proven. Restrict Stage 10 temporal median to background pixels only (near-free correctness fix — stops the median from ghosting the foreground at all).
+
+**Implementation order:** (A5) background-only median → (A1) SEA-RAFT wrapper → (A2) fg/bg flow decomposition → (A4) symmetric midpoint warp → (A6) confidence-gated fallback → (A3) full ARAP. See the consolidated report §2–§4 for the full method (ARAP Push/Regularise phases, LSD collinearity term, two-channel selection).
+
+**Status (2026-06-03):**
+- ✅ **A2/A4 prototype shipped** — `backend/src/anim/fg_register.py` implements dense-flow (OpenCV DIS) foreground residual extraction + symmetric midpoint warp, integrated into `compositing.py` Stage 11. Validated on test09 (seam tear reduced).
+- ⬜ **A1** — swap DIS → SEA-RAFT (anime-tuned via LinkTo-Anime) for flat-region robustness.
+- ⬜ **A3** — upgrade similarity warp → full Sýkora ARAP + LSD collinearity term (the line-art-preserving quality step).
+- ⬜ **A5** — exclude foreground mask from Stage 10 temporal median (background plate only).
+- ⬜ **A6** — confidence-gated Eden-2006 single-pose graph-cut fallback.
+- ⬜ **Segment-guided flow (AnimeInterp SGM)** as the flat-region flow fallback when DIS/SEA-RAFT produce aperture-problem chaos.
+
+---
+
+## 0.2 Pose-Consistency-Aware Frame Selection [Priority 1]
+
+**Pain point:** The smart selector uses whole-frame phase correlation, so a "50px displacement" can be 5px camera + 45px limb swing — it picks pose-incoherent frames, maximising the motion §0.1 must later correct.
+
+**Fix:** Two-channel selector. (1) Background channel: phase-correlate BiRefNet *background* only → camera displacement; select when `d_camera ≥ min_step`. (2) Foreground channel: among camera-qualifying candidates, prefer the frame minimising foreground residual motion to the last selected frame. Defence-in-depth with §0.1 — reduces the same quantity at selection time that §0.1 corrects at warp time.
 
 ---
 

@@ -260,7 +260,7 @@ Look at the background (curtain) in the upper-middle area of the output. If a br
 
 ### 3.3 Try Laplacian pyramid blend (if gradient remains unacceptable)
 
-Replace the cosine alpha blend in the feather zone with a Laplacian pyramid blend as described in `reports/Advanced Methodologies for Flawless Image Stitching*.md`. This distributes brightness steps across multiple frequency bands:
+Replace the cosine alpha blend in the feather zone with a Laplacian pyramid blend as described in `reports/Image_Stitching_Research.md` §12 (Blending). This distributes brightness steps across multiple frequency bands:
 
 ```python
 def _laplacian_blend(fa, fb, alpha, levels=4):

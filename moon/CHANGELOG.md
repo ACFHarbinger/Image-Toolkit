@@ -4,6 +4,27 @@
 
 ---
 
+## Research Consolidation & Roadmap Restructure (2026-06-03)
+
+### Consolidated research reports
+
+The 14 image-stitching reports and 5 image/video-generation reports were merged into two comprehensive references and the **19 source reports were deleted** (their entire content is captured in the consolidations). Both new documents cover the **whole field** with deep anime-focused sections, sized to fully replace the originals.
+
+| Item | Summary |
+|------|---------|
+| **`reports/Image_Stitching_Research.md`** | Replaces all 14 stitching reports. 22 sections: geometric foundations & DoF; Perfect-Stitch-vs-Scan-Stitch mathematical audit (pushbroom/X-slits, APAP rank-deficiency proof); feature matching (SIFT/AKAZE/MSER → SuperPoint/SuperGlue/LightGlue/ALIKED → LoFTR/EfficientLoFTR/RoMa/JamMa/EDM); registration & sub-pixel (RANSAC/MAGSAC, translation-only BA, ECC, phase correlation); optical flow (RAFT/SEA-RAFT/AnimeInterp SGM+RFR); spatially-varying warps (APAP/Moving-DLT, TPS/MLS/CPW, LSD line preservation, SEAGULL); **foreground assembly** (motion decomposition `F_fg=T_camera+A_animation`, Sýkora ARAP push/regularise, symmetric midpoint warp, two-channel selection, Eden single-pose fallback, HDR/VSR analogy); photometric (Harding broadcast-dimming reversal, BaSiC flat-fielding, Brown–Lowe gain, region-stratified Reinhard, palette harmonisation); segmentation (BiRefNet/ToonOut 99.5%/SAM-2/trapped-ball); seam-finding (graph-cut MRF, Agarwala, DSeam, semantic/SAM); blending (multi-band, Poisson/Modified-Poisson+MTOR, DSFN soft-seam); background reconstruction (temporal median, ProPainter/RAFT, latent-diffusion outpainting, VidPanos); unified frameworks (UDIS++/NIS/SRStitcher); SR (Real-ESRGAN anime_6B/APISR); video (StabStitch/++, Unwrap Mosaics); shot detection (OmniShotCut); the 14-stage pipeline spec; evaluation metrics; failure/fallback taxonomy; ASP implementation status. |
+| **`reports/Image_Generation_Research.md`** | Replaces all 5 generation reports. 16 sections: diffusion math (ε/v/x0-prediction, Rectified Flow Matching + Reflow, progressive distillation); architecture lineages (SD1.5, SDXL dual-encoder, Animagine XL 4.0, Illustrious XL 2.0 token-dilution, NoobAI v-pred + RF conversions, Pony score-tag Clever-Hans, FLUX MM-DiT/T5XXL/Chroma/Kaleidoscope, SD3.5) with comparison table; conditioning & prompting (Danbooru/score/natural-language, Florence-2 vs WD14); fine-tuning (LoRA dim/alpha, LyCORIS LoCon/LoHa/LoKr, DreamBooth, full-FT, kohya_ss settings, optimisers); the 4K-video→character-LoRA pipeline; inference (ComfyUI/Forge/A1111, samplers, fp16-fix VAE, ControlNet, IP-Adapter); upscaling (Real-ESRGAN anime/APISR/SUPIR); video (AnimateDiff 5D-tensor architecture + motion-module table + anime beta_schedule=linear fix, AnimeInterp, ToonCrafter Toon-Rectification/Dual-Reference-3D-Decoder/Sparse-Sketch, ToonComposer DiT/SLRA, Wan2.1/SVD, prompt-travel/context-sliding); hardware deployment (uv, TensorRT static compilation, FP8/NF4/GGUF quantisation tables for 3090 Ti / 4080 / 4080-mobile); Image-Toolkit implementation status; settings cheat-sheet. |
+
+### Roadmap restructure
+
+| Item | Summary |
+|------|---------|
+| **ASP roadmap refocus** | `moon/roadmaps/asp.md` header now references the consolidated stitching report; §0.1 updated with implementation status — A2/A4 prototype (`backend/src/anim/fg_register.py`: DIS dense flow → residual → symmetric midpoint warp, integrated into Stage 11, validated on test09) shipped; A1 (SEA-RAFT), A3 (full ARAP+LSD), A5 (bg-only median), A6 (single-pose fallback), and segment-guided flow remain. |
+| **New Content Generation roadmap** | `moon/roadmaps/content_generation.md` created — grounded in the existing stack (`LoRATuner` on Illustrious-XL, `SD3Wrapper`, `ComfyUIManager`, `backend/src/models/data/`). Phased CG-1…CG-4: captioning (WD14+Florence-2), shared anime upscaler, ComfyUI control workflows, video→LoRA guided flow, LyCORIS, AnimateDiff, v-pred/ztSNR, ToonCrafter, FLUX, Wan2.1/SVD. |
+| **Master roadmap update** | `moon/ROADMAP.md` adds the two consolidated reports and the Content Generation section-roadmap to its index; new **Phase 0 (ASP Foreground Assembly, items 0.1–0.8)** and **Phase CG (Content Generation, items CG.1–CG.10)** added with effort estimates and links. |
+
+---
+
 ## Roadmap Continuation Batch — Phase 1 & Phase 2 Items (Completed 2026-05-31)
 
 ### ASP Pipeline Fixes (Phase 1 items 1.1–1.5)

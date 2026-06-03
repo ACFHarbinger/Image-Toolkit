@@ -1,6 +1,6 @@
 # Image Toolkit — Master Roadmap
 
-*Last updated: 2026-05-31 (session 2). Benchmark baseline: 22/22 success, avg sharpness 33.14, avg ghosting 22.17. Phase 1 items 1.1–1.5, 1.8, 1.13 complete. Phase 2 items 2.6, 2.7, 2.9, 2.13, 2.14, 2.16D/F/G complete. Dispatcher stubs wired. GUI items 2.8, 2.10, 2.16A–C/E, 2.17D, 2.19A, 2.20A, 2.21A, 2.24A, 2.26B, 2.16D/F/G complete. §2.11A/B/D done. MAL entity association fixed + robust.*
+*Last updated: 2026-06-03. ASP refocused on foreground-assembly (the real fix for strip-seam character tearing); 96-test GT benchmark baseline (ASP 0.669 vs simple 0.695 SSIM-vs-GT). Research consolidated into two reports: `reports/Image_Stitching_Research.md` and `reports/Image_Generation_Research.md`. New section roadmap: Content Generation. — Prior (2026-05-31): Phase 1 items 1.1–1.5, 1.8, 1.13 complete; Phase 2 items 2.6, 2.7, 2.9, 2.13, 2.14, 2.16D/F/G complete; GUI items 2.8/2.10/2.16A–C/E/2.17D/2.19A/2.20A/2.21A/2.24A/2.26B done; §2.11A/B/D done; MAL entity association robust.*
 
 Completed items have been moved to [CHANGELOG.md](CHANGELOG.md).
 
@@ -12,12 +12,53 @@ This document defines the **phased execution sequence** for all upcoming improve
 
 Section-specific roadmaps:
 - [ASP — Anime Stitch Pipeline](roadmaps/asp.md)
+- [Content Generation — Anime Image & Video](roadmaps/content_generation.md)
 - [GUI/UX — Desktop Interface](roadmaps/gui_ux.md)
 - [Performance — Compute, Memory, I/O](roadmaps/performance.md)
 - [New Features — Capabilities & Integrations](roadmaps/new_features.md)
 - [Architecture & Infrastructure](roadmaps/architecture.md)
 
+Consolidated research reports (read before working on the respective pipeline):
+- [Anime Stitching — Consolidated Research](../reports/Image_Stitching_Research.md) — foreground-assembly paradigm, per-stage toolbox, 13-stage spec.
+- [Anime Generation — Consolidated Research](../reports/Image_Generation_Research.md) — image + video models, fine-tuning, video→LoRA pipeline.
+
 Phases are ordered by impact-to-effort ratio and dependency order. Items within a phase are independent and can be parallelised.
+
+---
+
+## Phase 0 — ASP Foreground Assembly (Priority 0, The Core Quality Fix)
+
+The single highest-impact track: the pipeline cannot register the deforming foreground, so characters tear at every strip seam (ASP loses to simple-stitch on GT-SSIM). Implements the foreground-assembly architecture from the consolidated stitching research.
+
+| # | Item | Effort | Roadmap Link |
+|---|------|--------|--------------|
+| 0.1 | **[ASP] ✅ Foreground pose registration (A2/A4 prototype)** — `fg_register.py`: DIS dense flow → residual extraction → symmetric midpoint warp; integrated into Stage 11. Validated on test09. | Done | [asp.md §0.1](roadmaps/asp.md#01-foreground-pose-registration--the-core-fix-priority-0) |
+| 0.2 | **[ASP] A1 — SEA-RAFT flow engine** (anime-tuned via LinkTo-Anime) replacing DIS for flat-region robustness | ~3d | [asp.md §0.1](roadmaps/asp.md#01-foreground-pose-registration--the-core-fix-priority-0) |
+| 0.3 | **[ASP] A3 — full Sýkora ARAP + LSD** warp (line-art-preserving upgrade over similarity warp) | ~1w | [asp.md §0.1](roadmaps/asp.md#01-foreground-pose-registration--the-core-fix-priority-0) |
+| 0.4 | **[ASP] A5 — foreground-excluded temporal median** (background plate only; near-free correctness) | ~0.5d | [asp.md §0.1](roadmaps/asp.md#01-foreground-pose-registration--the-core-fix-priority-0) |
+| 0.5 | **[ASP] A6 — confidence-gated single-pose graph-cut fallback** (Eden 2006) | ~3d | [asp.md §0.1](roadmaps/asp.md#01-foreground-pose-registration--the-core-fix-priority-0) |
+| 0.6 | **[ASP] Two-channel pose-consistency frame selector** (bg camera vs fg animation) | ~2d | [asp.md §0.2](roadmaps/asp.md#02-pose-consistency-aware-frame-selection-priority-1) |
+| 0.7 | **[ASP] min_gap vector-magnitude + 25px threshold** (multi-axis scroll fix) | ~0.5d | [asp.md §0.5](roadmaps/asp.md) |
+| 0.8 | **[ASP] Segment-guided flow (AnimeInterp SGM)** flat-region fallback | [Research] | [asp.md §0.1](roadmaps/asp.md#01-foreground-pose-registration--the-core-fix-priority-0) |
+
+---
+
+## Phase CG — Content Generation (Anime Image & Video)
+
+Builds on the existing generation stack (`LoRATuner` on Illustrious-XL, `SD3Wrapper`, ComfyUI integration, data pipeline). Full detail in [content_generation.md](roadmaps/content_generation.md).
+
+| # | Item | Effort | Roadmap Link |
+|---|------|--------|--------------|
+| CG.1 | **[Gen] WD14 + Florence-2 anime captioning** (booru tags + trigger token; shared with auto-tagger) | ~2d | [content_generation.md §1.1](roadmaps/content_generation.md) |
+| CG.2 | **[Gen] Shared anime upscaler** — Real-ESRGAN anime_6B module reused by gen tabs + ASP | ~1d | [content_generation.md §1.6](roadmaps/content_generation.md) |
+| CG.3 | **[Gen] ComfyUI control workflows** — curated txt2img / pose / reference / upscale JSONs | ~2d | [content_generation.md §1.4](roadmaps/content_generation.md) |
+| CG.4 | **[Gen] Video→Character-LoRA guided flow** — PySceneDetect + dedup + caption + per-GPU TOML | ~1–2w | [content_generation.md §3](roadmaps/content_generation.md) |
+| CG.5 | **[Gen] LyCORIS variants** (LoCon/LoHa/LoKr) in `LoRATuner` | ~3d | [content_generation.md §1.3](roadmaps/content_generation.md) |
+| CG.6 | **[Gen] AnimateDiff via ComfyUI** — short anime clips/GIFs with character LoRA | ~1w | [content_generation.md §2.1](roadmaps/content_generation.md) |
+| CG.7 | **[Gen] v-prediction / zero-terminal-SNR** support in `LoRATuner` + samplers | [Research] | [content_generation.md §1.2](roadmaps/content_generation.md) |
+| CG.8 | **[Gen] ToonCrafter inbetweening** (shared with ASP `anim/anim_fill.py` ghost-fill) | [Research] | [content_generation.md §2.2](roadmaps/content_generation.md) |
+| CG.9 | **[Gen] FLUX.1 [dev] secondary support** (FP8/GGUF for 16 GB) | [Research] | [content_generation.md §1.5](roadmaps/content_generation.md) |
+| CG.10 | **[Gen] Wan2.1 / SVD foundation video** (3090 Ti, VRAM-gated) | [Long-term] | [content_generation.md §2.3](roadmaps/content_generation.md) |
 
 ---
 

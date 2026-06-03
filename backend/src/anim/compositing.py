@@ -21,6 +21,7 @@ overlap between the two adjacent frames.
 
 from __future__ import annotations
 
+import os
 from typing import List, Optional, Tuple
 
 import cv2
@@ -34,6 +35,10 @@ from backend.src.constants import (
     FEATHER_TABLE,
     LUMINANCE_WEIGHTS,
 )
+
+# Stage 8.5 foreground pose registration toggle (see fg_register.py).
+# Enabled by default; set ASP_FG_REGISTER=0 to disable for A/B comparison.
+_FG_REGISTER_ENABLED = os.environ.get("ASP_FG_REGISTER", "1") != "0"
 
 
 def _diff_to_feather(diff: float) -> int:
@@ -538,6 +543,54 @@ def _composite_foreground(
         "[Stitch]   Feathers (overlap-capped): "
         + " ".join(f"B{k}={int(feathers[k])}px" for k in range(n_b))
     )
+
+    # ── Stage 8.5: Foreground pose registration at each seam ───────────────
+    # The camera model is translation-only, so the BACKGROUND is aligned in
+    # warped_norm but the animating CHARACTER lands in two different poses on
+    # either side of each ownership boundary → torn/doubled edges at the seam.
+    # Re-pose each adjacent pair's foreground toward their midpoint in a tapered
+    # band around the boundary so body parts line up across the strip seam.
+    # See backend/src/anim/fg_register.py and
+    # reports/ASP_Foreground_Assembly_Research.md §5.
+    if _FG_REGISTER_ENABLED and N >= 2:
+        try:
+            from .fg_register import register_foreground_at_seam
+
+            scroll_is_h = (tx_range > 0 and ty_range / max(tx_range, 1.0) < 0.1)
+            reg_axis = 1 if scroll_is_h else 0
+            n_warped = 0
+            for k, by in enumerate(boundaries):
+                fi_a = int(order[k])
+                fi_b = int(order[k + 1])
+                if warped_bg[fi_a] is None or warped_bg[fi_b] is None:
+                    continue
+                fg_a = ~warped_bg[fi_a]  # foreground = not background
+                fg_b = ~warped_bg[fi_b]
+                adj_a, adj_b, info = register_foreground_at_seam(
+                    warped_norm[fi_a],
+                    warped_norm[fi_b],
+                    fg_a,
+                    fg_b,
+                    seam_pos=int(by),
+                    axis=reg_axis,
+                )
+                if info["warped"]:
+                    warped_norm[fi_a] = adj_a
+                    warped_norm[fi_b] = adj_b
+                    n_warped += 1
+                    print(
+                        f"[Stitch]     FG-register B{k} (frames {fi_a}/{fi_b}): "
+                        f"residual={info['residual']:.1f}px "
+                        f"fg_px={info['fg_pixels']} → re-posed"
+                    )
+                elif info["residual"] > 0:
+                    print(
+                        f"[Stitch]     FG-register B{k} (frames {fi_a}/{fi_b}): "
+                        f"residual={info['residual']:.1f}px too large → kept (fallback)"
+                    )
+            print(f"[Stitch]   FG pose registration: {n_warped}/{n_b} seams re-posed.")
+        except Exception as _fg_exc:
+            print(f"[Stitch]   FG pose registration skipped ({_fg_exc}).")
 
     # Start from temporal median canvas — background pixels stay here permanently
     result = canvas.copy()

@@ -33,11 +33,9 @@ Read `docs/ARCHITECTURE.md` — it has complete Mermaid diagrams for both the si
 
 ### Research context
 
-Read the relevant reports in `reports/` before proposing algorithmic changes:
-- `Anime Image Stitching Pipeline Analysis.md` — analysis of the pipeline's design choices
-- `Advanced Methodologies for Flawless Image Stitching in Digital Animation*.md` — multi-scale blending, exposure correction, Laplacian pyramid
-- `Anime Screenshot Stitching Improvement Research.md` — comparison of approaches
-- `AI_OR Research Assistant for Anime Stitching.md` — automated research notes
+Read the consolidated research reference before proposing algorithmic changes:
+- `reports/Image_Stitching_Research.md` — the complete, single-source stitching reference (merges all 14 prior reports). Covers geometric foundations, Perfect-vs-Scan-Stitch audit, feature matching, optical flow, spatially-varying warps, the foreground-assembly paradigm (§8), photometric correction, segmentation, seam-finding, blending, background reconstruction, the 14-stage pipeline spec, evaluation, and failure/fallback taxonomy.
+- For generation work: `reports/Image_Generation_Research.md`.
 
 ### Overmix reference implementation
 
