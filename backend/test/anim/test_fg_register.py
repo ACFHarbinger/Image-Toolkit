@@ -148,8 +148,22 @@ class TestForegroundRegistration:
             a, b, fa, fb, seam_pos=200, axis=0, max_residual=40.0
         )
         assert info["warped"] is False, info
+        # A6: the fallback flag must be set and a dominant frame identified so the
+        # compositor can take the seam foreground from one pose only.
+        assert info["fallback"] is True, info
+        assert info["dominant"] in ("a", "b")
         assert np.array_equal(adj_a, a)
         assert np.array_equal(adj_b, b)
+
+    def test_dominant_frame_is_larger_foreground(self):
+        """The dominant frame is the one with more foreground in the seam band."""
+        # Frame a has a wide limb (more fg); b has a thin one.
+        a, fa = _make_scene(120, limb_w=120)
+        b, fb = _make_scene(150, limb_w=20)
+        _, _, info = register_foreground_at_seam(
+            a, b, fa, fb, seam_pos=200, axis=0, max_residual=5.0
+        )
+        assert info["dominant"] == "a", info
 
 
 # ---------------------------------------------------------------------------

@@ -3,16 +3,17 @@ from pathlib import Path
 # Project Root
 ROOT_DIR = Path(__file__).resolve().parents[3]
 
-# Base Dirs
-BACKEND_DIR = ROOT_DIR / "backend"
-ASSETS_DIR = ROOT_DIR / "assets"
-CRYPTO_DIR = ASSETS_DIR / "cryptography"
-IMAGES_DIR = ASSETS_DIR / "images"
-API_DIR = ASSETS_DIR / "api"
-
 # System Dirs
 IMAGE_TOOLKIT_DIR = Path.home() / ".image-toolkit"
 THUMBNAIL_CACHE_DIR = IMAGE_TOOLKIT_DIR / "thumbnail-cache"
+
+# Base Dirs
+BACKEND_DIR = ROOT_DIR / "backend"
+ASSETS_DIR = ROOT_DIR / "assets"
+TEMPLATE_CRYPTO_DIR = ASSETS_DIR / "cryptography"
+CRYPTO_DIR = IMAGE_TOOLKIT_DIR / "cryptography"
+IMAGES_DIR = ASSETS_DIR / "images"
+API_DIR = ASSETS_DIR / "api"
 
 # Files
 JAR_FILE = str(
@@ -28,9 +29,9 @@ CLIENT_SECRETS_FILE = str(API_DIR / "client_secret.json")
 TOKEN_FILE = str(API_DIR / "token.json")
 
 # Cryptography Files (Templates/Defaults)
-BASE_KEYSTORE_FILE = str(CRYPTO_DIR / "my_keystore.p12")
-BASE_VAULT_FILE = str(CRYPTO_DIR / "my_secure_data.vault")
-BASE_PEPPER_FILE = str(CRYPTO_DIR / "pepper.txt")
+BASE_KEYSTORE_FILE = str(TEMPLATE_CRYPTO_DIR / "my_keystore.p12")
+BASE_VAULT_FILE = str(TEMPLATE_CRYPTO_DIR / "my_secure_data.vault")
+BASE_PEPPER_FILE = str(TEMPLATE_CRYPTO_DIR / "pepper.txt")
 
 # Other
 LOCAL_SOURCE_PATH = str(ROOT_DIR.parent.parent / "Downloads" / "data")

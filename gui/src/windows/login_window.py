@@ -279,6 +279,8 @@ class LoginWindow(QWidget):
                     self, "Success", f"Login successful for {username}."
                 )
                 self.is_authenticated = True
+                self.vault_manager.account_name = username
+                self.vault_manager.raw_password = raw_password
 
                 # --- LOAD/DECRYPT API FILES ---
                 self._load_api_files()
@@ -359,6 +361,8 @@ class LoginWindow(QWidget):
                 self, "Success", f"Account '{username}' created and saved securely."
             )
             self.is_authenticated = True
+            self.vault_manager.account_name = username
+            self.vault_manager.raw_password = raw_password
 
             # --- LOAD/DECRYPT API FILES ---
             self._load_api_files()

@@ -242,6 +242,192 @@ pub fn extract_video_thumbnails_batch(
     Ok(py_results)
 }
 
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn run_legacy_migration(
+    py: Python,
+    listings_json_path: String,
+    target_db_path: String,
+) -> PyResult<()> {
+    let res: Result<(), String> = py.detach(|| {
+        core::migration::run_migration(&listings_json_path, &target_db_path)
+            .map_err(|e| e.to_string())
+    });
+    res.map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn fetch_listings_as_arrow_pointers(
+    py: Python,
+    db_path: String,
+    password_str: String,
+    salt_str: String,
+) -> PyResult<(u64, u64)> {
+    let res: Result<(u64, u64), String> = py.detach(|| {
+        use secrecy::Secret;
+        use sha2::{Digest, Sha256};
+        
+        let password = Secret::new(password_str);
+        
+        let mut hasher = Sha256::new();
+        hasher.update(salt_str.as_bytes());
+        let salt = hasher.finalize();
+        
+        let dek = core::secure_vector_db::derive_dek(&password, &salt)
+            .map_err(|e| format!("Argon2 KDF error: {}", e))?;
+            
+        let conn = core::secure_vector_db::open_secure_connection(&db_path, &dek)
+            .map_err(|e| e.to_string())?;
+        let batch = core::secure_vector_db::fetch_listings_arrow(&conn)
+            .map_err(|e| e.to_string())?;
+        core::secure_vector_db::export_batch_pointers(batch)
+            .map_err(|e| e.to_string())
+    });
+    res.map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn insert_listing_secure(
+    py: Python,
+    db_path: String,
+    password_str: String,
+    salt_str: String,
+    id: String,
+    category: String,
+    title: String,
+    metadata_json: String,
+    date_added: String,
+    embedding: Vec<f32>,
+) -> PyResult<()> {
+    let res: Result<(), String> = py.detach(|| {
+        use secrecy::Secret;
+        use sha2::{Digest, Sha256};
+        
+        let password = Secret::new(password_str);
+        
+        let mut hasher = Sha256::new();
+        hasher.update(salt_str.as_bytes());
+        let salt = hasher.finalize();
+        
+        let dek = core::secure_vector_db::derive_dek(&password, &salt)
+            .map_err(|e| format!("Argon2 KDF error: {}", e))?;
+            
+        let conn = core::secure_vector_db::open_secure_connection(&db_path, &dek)
+            .map_err(|e| e.to_string())?;
+        core::secure_vector_db::initialize_schema(&conn)
+            .map_err(|e| e.to_string())?;
+        core::secure_vector_db::insert_listing(&conn, &id, &category, &title, &metadata_json, &date_added, &embedding)
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    });
+    res.map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn hybrid_search_secure(
+    py: Python,
+    db_path: String,
+    password_str: String,
+    salt_str: String,
+    query_vector: Vec<f32>,
+    category_filter: String,
+    k: usize,
+) -> PyResult<Vec<(String, String, String, String, f64)>> {
+    let res: Result<Vec<(String, String, String, String, f64)>, String> = py.detach(|| {
+        use secrecy::Secret;
+        use sha2::{Digest, Sha256};
+        
+        let password = Secret::new(password_str);
+        
+        let mut hasher = Sha256::new();
+        hasher.update(salt_str.as_bytes());
+        let salt = hasher.finalize();
+        
+        let dek = core::secure_vector_db::derive_dek(&password, &salt)
+            .map_err(|e| format!("Argon2 KDF error: {}", e))?;
+            
+        let conn = core::secure_vector_db::open_secure_connection(&db_path, &dek)
+            .map_err(|e| e.to_string())?;
+        let results = core::secure_vector_db::hybrid_search(&conn, &query_vector, &category_filter, k)
+            .map_err(|e| e.to_string())?;
+        
+        let py_results = results.into_iter().map(|r| {
+            (r.id, r.title, r.category, r.metadata, r.distance)
+        }).collect();
+        
+        Ok(py_results)
+    });
+    res.map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn fetch_all_listings_secure(
+    py: Python,
+    db_path: String,
+    password_str: String,
+    salt_str: String,
+) -> PyResult<Vec<(String, String, String, String, String)>> {
+    let res: Result<Vec<(String, String, String, String, String)>, String> = py.detach(|| {
+        use secrecy::Secret;
+        use sha2::{Digest, Sha256};
+        
+        let password = Secret::new(password_str);
+        
+        let mut hasher = Sha256::new();
+        hasher.update(salt_str.as_bytes());
+        let salt = hasher.finalize();
+        
+        let dek = core::secure_vector_db::derive_dek(&password, &salt)
+            .map_err(|e| format!("Argon2 KDF error: {}", e))?;
+            
+        let conn = core::secure_vector_db::open_secure_connection(&db_path, &dek)
+            .map_err(|e| e.to_string())?;
+        
+        let results = core::secure_vector_db::fetch_all_listings(&conn)
+            .map_err(|e| e.to_string())?;
+            
+        Ok(results)
+    });
+    res.map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn delete_listing_secure(
+    py: Python,
+    db_path: String,
+    password_str: String,
+    salt_str: String,
+    id: String,
+) -> PyResult<()> {
+    let res: Result<(), String> = py.detach(|| {
+        use secrecy::Secret;
+        use sha2::{Digest, Sha256};
+        
+        let password = Secret::new(password_str);
+        
+        let mut hasher = Sha256::new();
+        hasher.update(salt_str.as_bytes());
+        let salt = hasher.finalize();
+        
+        let dek = core::secure_vector_db::derive_dek(&password, &salt)
+            .map_err(|e| format!("Argon2 KDF error: {}", e))?;
+            
+        let conn = core::secure_vector_db::open_secure_connection(&db_path, &dek)
+            .map_err(|e| e.to_string())?;
+            
+        core::secure_vector_db::delete_listing(&conn, &id)
+            .map_err(|e| e.to_string())?;
+            
+        Ok(())
+    });
+    res.map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+}
+
 pub mod core;
 pub mod web;
 
@@ -296,6 +482,14 @@ fn base(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(run_reverse_image_search, m)?)?;
     m.add_function(wrap_pyfunction!(run_sync, m)?)?;
     m.add_function(wrap_pyfunction!(run_image_crawler, m)?)?;
+    
+    // Secure Vector DB & Migration Functions
+    m.add_function(wrap_pyfunction!(run_legacy_migration, m)?)?;
+    m.add_function(wrap_pyfunction!(fetch_listings_as_arrow_pointers, m)?)?;
+    m.add_function(wrap_pyfunction!(insert_listing_secure, m)?)?;
+    m.add_function(wrap_pyfunction!(hybrid_search_secure, m)?)?;
+    m.add_function(wrap_pyfunction!(fetch_all_listings_secure, m)?)?;
+    m.add_function(wrap_pyfunction!(delete_listing_secure, m)?)?;
 
     Ok(())
 }

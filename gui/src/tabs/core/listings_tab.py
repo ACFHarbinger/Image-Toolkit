@@ -1,11 +1,23 @@
 import json
 import uuid
 import zipfile
+import re
 from pathlib import Path
 from datetime import date
 from typing import List, Dict, Any, Optional, Tuple
 
-from PySide6.QtCore import Qt, Signal, Slot, QUrl, QSize, QThread, QTimer, QObject, QRunnable, QThreadPool
+from PySide6.QtCore import (
+    Qt,
+    Signal,
+    Slot,
+    QUrl,
+    QSize,
+    QThread,
+    QTimer,
+    QObject,
+    QRunnable,
+    QThreadPool,
+)
 from PySide6.QtGui import QPixmap, QDesktopServices, QImage, QColor
 from PySide6.QtWidgets import (
     QWidget,
@@ -40,6 +52,7 @@ from PySide6.QtWidgets import (
 )
 
 import os
+import base
 import backend.src.constants as udef
 from backend.src.constants import IMAGE_TOOLKIT_DIR
 from PySide6.QtCore import QSettings as _QSettings
@@ -81,7 +94,7 @@ _CARD_THUMB_CACHE: LRUImageCache = LRUImageCache(maxsize=250)
 
 
 class _ThumbWorkerSignals(QObject):
-    ready = Signal(str, QImage)   # (absolute_path, scaled QImage)
+    ready = Signal(str, QImage)  # (absolute_path, scaled QImage)
 
 
 class _ThumbWorker(QRunnable):
@@ -101,7 +114,8 @@ class _ThumbWorker(QRunnable):
             if img.isNull():
                 return
             img = img.scaled(
-                self._size, self._size,
+                self._size,
+                self._size,
                 Qt.KeepAspectRatio,
                 Qt.SmoothTransformation,
             )
@@ -111,30 +125,76 @@ class _ThumbWorker(QRunnable):
             pass
 
 
-def _backup_referenced_images(prefix: str, json_files: List[Path]):
+def save_content_entry_to_db(
+    db_path: str, password: str, salt: str, entry: Dict[str, Any]
+):
+    meta = entry.copy()
+    meta.pop("id", None)
+    meta.pop("type", None)
+    meta.pop("title", None)
+    meta.pop("date_added", None)
+
+    # Generate default embedding based on title
+    embedding = [0.0] * 1024
+    title = entry.get("title", "")
+    for i, byte in enumerate(title.encode("utf-8", errors="ignore")):
+        if i < 1024:
+            embedding[i] = byte / 255.0
+
+    base.insert_listing_secure(
+        db_path,
+        password,
+        salt,
+        entry["id"],
+        entry.get("type", "Other"),
+        entry.get("title", ""),
+        json.dumps(meta, ensure_ascii=False),
+        entry.get("date_added", str(date.today())),
+        embedding,
+    )
+
+
+def save_entity_entry_to_db(
+    db_path: str, password: str, salt: str, entity: Dict[str, Any]
+):
+    meta = entity.copy()
+    meta.pop("id", None)
+    meta.pop("name", None)
+    meta.pop("date_added", None)
+
+    # Generate default embedding based on name
+    embedding = [0.0] * 1024
+    name = entity.get("name", "")
+    for i, byte in enumerate(name.encode("utf-8", errors="ignore")):
+        if i < 1024:
+            embedding[i] = byte / 255.0
+
+    base.insert_listing_secure(
+        db_path,
+        password,
+        salt,
+        entity["id"],
+        "Entity",
+        entity.get("name", ""),
+        json.dumps(meta, ensure_ascii=False),
+        entity.get("date_added", str(date.today())),
+        embedding,
+    )
+
+
+def _backup_referenced_images(prefix: str, data_list: List[Dict[str, Any]]):
     """Create multi-part ZIP archive of referenced images in assets/migrations."""
     referenced_files = set()
 
-    def collect_from_file(json_file):
-        if not json_file.exists():
-            return
-        try:
-            with open(json_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                for entry in data:
-                    img = entry.get("image_path")
-                    if img:
-                        referenced_files.add(Path(img).name)
-                    # Also check episode_list/credit_list
-                    for sub in entry.get("episode_list", []) + entry.get("credit_list", []):
-                        sub_img = sub.get("image_path")
-                        if sub_img:
-                            referenced_files.add(Path(sub_img).name)
-        except Exception as e:
-            print(f"Error collecting images from {json_file}: {e}")
-
-    for jf in json_files:
-        collect_from_file(jf)
+    for entry in data_list:
+        img = entry.get("image_path")
+        if img:
+            referenced_files.add(Path(img).name)
+        # Also check episode_list/credit_list
+        for sub in entry.get("episode_list", []) + entry.get("credit_list", []):
+            sub_img = sub.get("image_path")
+            if sub_img:
+                referenced_files.add(Path(sub_img).name)
 
     if not referenced_files:
         return 0
@@ -1271,8 +1331,9 @@ class _DetailPanel(QWidget):
     saved = Signal(dict)
     deleted = Signal(str)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, vault_manager=None):
         super().__init__(parent)
+        self.vault_manager = vault_manager
         self._entry_id: Optional[str] = None
         self._image_path = ""
         self._episode_data = []
@@ -1470,12 +1531,29 @@ class _DetailPanel(QWidget):
 
     def _select_associated_entities(self):
         all_entities = []
-        try:
-            if ENTITIES_FILE.exists():
-                with open(ENTITIES_FILE, "r", encoding="utf-8") as f:
-                    all_entities = json.load(f)
-        except Exception as e:
-            print(f"Failed to load entities for association: {e}")
+        if (
+            self.vault_manager
+            and hasattr(self.vault_manager, "raw_password")
+            and self.vault_manager.raw_password
+        ):
+            db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
+            password = self.vault_manager.raw_password
+            salt = self.vault_manager.account_name
+            try:
+                rows = base.fetch_all_listings_secure(db_path, password, salt)
+                for row in rows:
+                    id_, category, title, metadata_json, date_added = row
+                    if category == "Entity":
+                        try:
+                            entity = json.loads(metadata_json)
+                        except Exception:
+                            entity = {}
+                        entity["id"] = id_
+                        entity["name"] = title
+                        entity["date_added"] = date_added
+                        all_entities.append(entity)
+            except Exception as e:
+                print(f"Failed to load entities from DB for association: {e}")
 
         if not all_entities:
             QMessageBox.information(
@@ -1500,7 +1578,11 @@ class _DetailPanel(QWidget):
                 names.append(entity_map[ent_id])
         self.f_assoc_entities_display.setText(", ".join(names))
 
-    def load_entry(self, entry: Dict[str, Any], cached_entities: Optional[List[Dict[str, Any]]] = None):
+    def load_entry(
+        self,
+        entry: Dict[str, Any],
+        cached_entities: Optional[List[Dict[str, Any]]] = None,
+    ):
         self._entry_id = entry.get("id")
         self._image_path = entry.get("image_path", "")
         self.f_title.setText(entry.get("title", ""))
@@ -1530,12 +1612,29 @@ class _DetailPanel(QWidget):
             all_entities = cached_entities
         else:
             all_entities = []
-            try:
-                if ENTITIES_FILE.exists():
-                    with open(ENTITIES_FILE, "r", encoding="utf-8") as f:
-                        all_entities = json.load(f)
-            except Exception as e:
-                print(f"Failed to load entities: {e}")
+            if (
+                self.vault_manager
+                and hasattr(self.vault_manager, "raw_password")
+                and self.vault_manager.raw_password
+            ):
+                db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
+                password = self.vault_manager.raw_password
+                salt = self.vault_manager.account_name
+                try:
+                    rows = base.fetch_all_listings_secure(db_path, password, salt)
+                    for row in rows:
+                        id_, category, title, metadata_json, date_added = row
+                        if category == "Entity":
+                            try:
+                                entity = json.loads(metadata_json)
+                            except Exception:
+                                entity = {}
+                            entity["id"] = id_
+                            entity["name"] = title
+                            entity["date_added"] = date_added
+                            all_entities.append(entity)
+                except Exception as e:
+                    print(f"Failed to load entities: {e}")
         self._update_assoc_entities_display(all_entities)
 
         self.f_summary.setPlainText(entry.get("summary", ""))
@@ -1734,9 +1833,27 @@ class _DetailPanel(QWidget):
         """
         try:
             all_entities: list = []
-            if ENTITIES_FILE.exists():
-                with open(ENTITIES_FILE, "r", encoding="utf-8") as fh:
-                    all_entities = json.load(fh)
+            if (
+                self.vault_manager
+                and hasattr(self.vault_manager, "raw_password")
+                and self.vault_manager.raw_password
+            ):
+                db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
+                password = self.vault_manager.raw_password
+                salt = self.vault_manager.account_name
+
+                rows = base.fetch_all_listings_secure(db_path, password, salt)
+                for row in rows:
+                    id_, category, title, metadata_json, date_added = row
+                    if category == "Entity":
+                        try:
+                            entity = json.loads(metadata_json)
+                        except Exception:
+                            entity = {}
+                        entity["id"] = id_
+                        entity["name"] = title
+                        entity["date_added"] = date_added
+                        all_entities.append(entity)
         except Exception:
             return
 
@@ -1837,7 +1954,9 @@ class _DetailPanel(QWidget):
         cached = _CARD_THUMB_CACHE.get(cache_key)
         if cached is not None:
             self.img_preview.setPixmap(QPixmap.fromImage(cached))
-            self.img_preview.setStyleSheet("border:2px solid #4f545c;border-radius:8px;")
+            self.img_preview.setStyleSheet(
+                "border:2px solid #4f545c;border-radius:8px;"
+            )
             return
         worker = _ThumbWorker(path, 160)
         worker.signals.ready.connect(self._on_preview_ready)
@@ -1849,7 +1968,9 @@ class _DetailPanel(QWidget):
             # Store under the prefixed key so card-sized cache doesn't collide.
             _CARD_THUMB_CACHE[f"preview160:{path}"] = img
             self.img_preview.setPixmap(QPixmap.fromImage(img))
-            self.img_preview.setStyleSheet("border:2px solid #4f545c;border-radius:8px;")
+            self.img_preview.setStyleSheet(
+                "border:2px solid #4f545c;border-radius:8px;"
+            )
 
     def _refresh_episode_list(self):
         while self.ep_list_layout.count():
@@ -1886,6 +2007,7 @@ class _DetailPanel(QWidget):
                         )
                     )
                 else:
+
                     def _set_ep_thumb(p: str, img: QImage, lbl=t_lbl) -> None:
                         if lbl and not lbl.pixmap():
                             lbl.setPixmap(
@@ -1893,6 +2015,7 @@ class _DetailPanel(QWidget):
                                     50, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation
                                 )
                             )
+
                     w = _ThumbWorker(img_path, 80)
                     w.signals.ready.connect(_set_ep_thumb)
                     QThreadPool.globalInstance().start(w)
@@ -2024,8 +2147,9 @@ class _EntityDetailPanel(QWidget):
     saved = Signal(dict)
     deleted = Signal(str)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, vault_manager=None):
         super().__init__(parent)
+        self.vault_manager = vault_manager
         self._entity_id: Optional[str] = None
         self._image_path = ""
         self._credit_data = []
@@ -2228,7 +2352,9 @@ class _EntityDetailPanel(QWidget):
         cached = _CARD_THUMB_CACHE.get(cache_key)
         if cached is not None:
             self.img_preview.setPixmap(QPixmap.fromImage(cached))
-            self.img_preview.setStyleSheet("border:2px solid #4f545c;border-radius:8px;")
+            self.img_preview.setStyleSheet(
+                "border:2px solid #4f545c;border-radius:8px;"
+            )
             return
         worker = _ThumbWorker(path, 160)
         worker.signals.ready.connect(self._on_preview_ready)
@@ -2239,7 +2365,9 @@ class _EntityDetailPanel(QWidget):
         if path == self.img_preview.image_path:
             _CARD_THUMB_CACHE[f"preview160:{path}"] = img
             self.img_preview.setPixmap(QPixmap.fromImage(img))
-            self.img_preview.setStyleSheet("border:2px solid #4f545c;border-radius:8px;")
+            self.img_preview.setStyleSheet(
+                "border:2px solid #4f545c;border-radius:8px;"
+            )
 
     def _refresh_credit_list(self):
         while self.credit_list_layout.count():
@@ -2279,6 +2407,7 @@ class _EntityDetailPanel(QWidget):
                         )
                     )
                 else:
+
                     def _set_cr_thumb(p: str, img: QImage, lbl=t_lbl) -> None:
                         if lbl and not lbl.pixmap():
                             lbl.setPixmap(
@@ -2286,6 +2415,7 @@ class _EntityDetailPanel(QWidget):
                                     50, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation
                                 )
                             )
+
                     w = _ThumbWorker(img_path, 80)
                     w.signals.ready.connect(_set_cr_thumb)
                     QThreadPool.globalInstance().start(w)
@@ -2366,41 +2496,69 @@ class _EntityDetailPanel(QWidget):
 
     def _refresh_assoc_displays(self) -> None:
         """Refresh both association display fields from current ID lists."""
+        db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
+        if (
+            not self.vault_manager
+            or not hasattr(self.vault_manager, "raw_password")
+            or not self.vault_manager.raw_password
+        ):
+            self.f_assoc_content_display.setText("None selected")
+            self.f_assoc_entity_display.setText("None selected")
+            return
+
+        password = self.vault_manager.raw_password
+        salt = self.vault_manager.account_name
+
         try:
-            entries: List[Dict[str, Any]] = []
-            if LISTINGS_FILE.exists():
-                with open(LISTINGS_FILE, "r", encoding="utf-8") as f:
-                    entries = json.load(f)
-            title_map = {e["id"]: e.get("title", e["id"]) for e in entries}
+            rows = base.fetch_all_listings_secure(db_path, password, salt)
+
+            title_map = {}
+            name_map = {}
+            for row in rows:
+                id_, category, title, _, _ = row
+                if category == "Entity":
+                    name_map[id_] = title
+                else:
+                    title_map[id_] = title
+
             content_names = [title_map.get(i, i) for i in self.assoc_content_ids]
             self.f_assoc_content_display.setText(", ".join(content_names))
-        except Exception:
+
+            entity_names = [name_map.get(i, i) for i in self.assoc_entity_ids]
+            self.f_assoc_entity_display.setText(", ".join(entity_names))
+        except Exception as e:
+            print(f"Failed to refresh assoc displays: {e}")
             self.f_assoc_content_display.setText(
                 f"{len(self.assoc_content_ids)} linked"
             )
-
-        try:
-            entities: List[Dict[str, Any]] = []
-            if ENTITIES_FILE.exists():
-                with open(ENTITIES_FILE, "r", encoding="utf-8") as f:
-                    entities = json.load(f)
-            name_map = {e["id"]: e.get("name", e["id"]) for e in entities}
-            entity_names = [name_map.get(i, i) for i in self.assoc_entity_ids]
-            self.f_assoc_entity_display.setText(", ".join(entity_names))
-        except Exception:
-            self.f_assoc_entity_display.setText(
-                f"{len(self.assoc_entity_ids)} linked"
-            )
+            self.f_assoc_entity_display.setText(f"{len(self.assoc_entity_ids)} linked")
 
     def _select_associated_content(self) -> None:
-        try:
-            entries: List[Dict[str, Any]] = []
-            if LISTINGS_FILE.exists():
-                with open(LISTINGS_FILE, "r", encoding="utf-8") as f:
-                    entries = json.load(f)
-        except Exception as e:
-            print(f"Failed to load listings for association: {e}")
-            entries = []
+        entries = []
+        if (
+            self.vault_manager
+            and hasattr(self.vault_manager, "raw_password")
+            and self.vault_manager.raw_password
+        ):
+            db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
+            password = self.vault_manager.raw_password
+            salt = self.vault_manager.account_name
+            try:
+                rows = base.fetch_all_listings_secure(db_path, password, salt)
+                for row in rows:
+                    id_, category, title, metadata_json, date_added = row
+                    if category != "Entity":
+                        try:
+                            entry = json.loads(metadata_json)
+                        except Exception:
+                            entry = {}
+                        entry["id"] = id_
+                        entry["type"] = category
+                        entry["title"] = title
+                        entry["date_added"] = date_added
+                        entries.append(entry)
+            except Exception as e:
+                print(f"Failed to load content for association: {e}")
 
         if not entries:
             QMessageBox.information(
@@ -2416,14 +2574,30 @@ class _EntityDetailPanel(QWidget):
             self._refresh_assoc_displays()
 
     def _select_associated_entities(self) -> None:
-        try:
-            entities: List[Dict[str, Any]] = []
-            if ENTITIES_FILE.exists():
-                with open(ENTITIES_FILE, "r", encoding="utf-8") as f:
-                    entities = json.load(f)
-        except Exception as e:
-            print(f"Failed to load entities for association: {e}")
-            entities = []
+        entities = []
+        if (
+            self.vault_manager
+            and hasattr(self.vault_manager, "raw_password")
+            and self.vault_manager.raw_password
+        ):
+            db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
+            password = self.vault_manager.raw_password
+            salt = self.vault_manager.account_name
+            try:
+                rows = base.fetch_all_listings_secure(db_path, password, salt)
+                for row in rows:
+                    id_, category, title, metadata_json, date_added = row
+                    if category == "Entity":
+                        try:
+                            entity = json.loads(metadata_json)
+                        except Exception:
+                            entity = {}
+                        entity["id"] = id_
+                        entity["name"] = title
+                        entity["date_added"] = date_added
+                        entities.append(entity)
+            except Exception as e:
+                print(f"Failed to load entities for association: {e}")
 
         # Exclude self from the list
         if self._entity_id:
@@ -3044,60 +3218,314 @@ class _DirectoryImportDialog(QDialog):
         }
 
 
+class _EntityDirectoryImportDialog(QDialog):
+    """One-shot wizard: pick a directory of entity images → review detected
+    entities → configure shared metadata → confirm or cancel import."""
+
+    def __init__(self, existing_names: "set[str]", parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("📂 Import Entities from Image Directory")
+        self.setMinimumSize(840, 620)
+        self.setStyleSheet(
+            "QDialog { background:#2c2f33; color:white; }"
+            "QLabel  { color:white; }"
+            "QLineEdit, QSpinBox, QComboBox { background:#23272a; color:white;"
+            "  border:1px solid #4f545c; border-radius:4px; padding:4px; }"
+            "QGroupBox { border:1px solid #4f545c; border-radius:6px;"
+            "  margin-top:8px; color:#00bcd4; font-weight:bold; }"
+            "QGroupBox::title { subcontrol-origin:margin; left:8px; padding:0 4px; }"
+        )
+
+        self._existing_names = existing_names  # lowercase normalised set
+        self._scan_result: list = []  # list of tuples: (first_name, last_name, file_path)
+        self._directory = ""
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(14, 14, 14, 14)
+        root.setSpacing(10)
+
+        # ── Directory picker row ──────────────────────────────────────
+        dir_group = QGroupBox("Image Directory")
+        dir_row = QHBoxLayout(dir_group)
+        dir_row.setSpacing(6)
+        self._dir_edit = QLineEdit()
+        self._dir_edit.setPlaceholderText(
+            "Select the folder that contains your entity image files…"
+        )
+        self._dir_edit.setReadOnly(True)
+        browse_btn = QPushButton("📁 Browse…")
+        browse_btn.setFixedWidth(100)
+        browse_btn.clicked.connect(self._browse)
+        scan_btn = QPushButton("🔍 Scan")
+        scan_btn.setFixedWidth(80)
+        scan_btn.clicked.connect(self._do_scan)
+        dir_row.addWidget(self._dir_edit, 1)
+        dir_row.addWidget(browse_btn)
+        dir_row.addWidget(scan_btn)
+        root.addWidget(dir_group)
+
+        # ── Middle: table left | options right ────────────────────────
+        splitter = QSplitter(Qt.Horizontal)
+
+        # Left — detected-entities table
+        left = QWidget()
+        left_vbox = QVBoxLayout(left)
+        left_vbox.setContentsMargins(0, 0, 0, 0)
+        left_vbox.setSpacing(6)
+
+        self._status_lbl = QLabel("Scan a directory to detect entity images.")
+        self._status_lbl.setStyleSheet("color:#888; font-size:11px;")
+        left_vbox.addWidget(self._status_lbl)
+
+        self._table = QTableWidget(0, 4)
+        self._table.setHorizontalHeaderLabels(
+            ["", "Detected Name", "Filename", "Status"]
+        )
+        self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self._table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        self._table.setColumnWidth(0, 32)
+        self._table.setColumnWidth(3, 120)
+        self._table.verticalHeader().hide()
+        self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self._table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._table.setAlternatingRowColors(True)
+        self._table.setStyleSheet(
+            "QTableWidget { background:#23272a; alternate-background-color:#252830;"
+            "  border:1px solid #4f545c; border-radius:6px; gridline-color:#3a3d42; }"
+            "QTableWidget::item { color:white; padding:3px; }"
+            "QTableWidget::item:selected { background:#00bcd4; color:black; }"
+            "QHeaderView::section { background:#2c2f33; color:#888; border:none; padding:4px; }"
+        )
+        left_vbox.addWidget(self._table, 1)
+
+        sel_row = QHBoxLayout()
+        sel_all_btn = QPushButton("☑ Select All New")
+        sel_all_btn.setFixedHeight(26)
+        sel_all_btn.clicked.connect(self._select_all_new)
+        sel_none_btn = QPushButton("☐ Deselect All")
+        sel_none_btn.setFixedHeight(26)
+        sel_none_btn.clicked.connect(self._deselect_all)
+        sel_row.addWidget(sel_all_btn)
+        sel_row.addWidget(sel_none_btn)
+        sel_row.addStretch()
+        left_vbox.addLayout(sel_row)
+        splitter.addWidget(left)
+
+        # Right — metadata options
+        right = QWidget()
+        right_vbox = QVBoxLayout(right)
+        right_vbox.setContentsMargins(6, 0, 0, 0)
+        right_vbox.setSpacing(8)
+
+        meta_group = QGroupBox("Metadata Applied to All New Entities")
+        meta_form = QFormLayout(meta_group)
+        meta_form.setSpacing(8)
+
+        self._f_type = QComboBox()
+        self._f_type.addItems(ENTITY_TYPES)
+        self._f_type.setCurrentText("Person")
+
+        self._f_role = QComboBox()
+        self._f_role.addItems(ENTITY_ROLES)
+        self._f_role.setCurrentText("Director")
+
+        self._f_rating = QSpinBox()
+        self._f_rating.setRange(0, 10)
+        self._f_rating.setValue(0)
+
+        self._f_year = QSpinBox()
+        self._f_year.setRange(0, 2100)
+        self._f_year.setValue(0)
+        self._f_year.setSpecialValueText("Unknown")
+
+        meta_form.addRow("Type:", self._f_type)
+        meta_form.addRow("Role:", self._f_role)
+        meta_form.addRow("Rating:", self._f_rating)
+        meta_form.addRow("Active Year:", self._f_year)
+        right_vbox.addWidget(meta_group)
+        right_vbox.addStretch()
+
+        info_lbl = QLabel(
+            "<small>"
+            "<b>Filename format expected:</b><br>"
+            "<code>&lt;First Name&gt; &lt;Last Name&gt;&lt;Optional Number&gt;.ext</code><br><br>"
+            "<b>What gets created:</b><br>"
+            "• First name and last name parsed from the image filename<br>"
+            "• Optional trailing digits are stripped from the entity name<br>"
+            "• Image copied and associated automatically as entity profile picture"
+            "</small>"
+        )
+        info_lbl.setWordWrap(True)
+        info_lbl.setStyleSheet("color:#888; font-size:10px; border:none;")
+        right_vbox.addWidget(info_lbl)
+        splitter.addWidget(right)
+
+        splitter.setSizes([520, 300])
+        _persist_splitter(splitter, "entity_directory_import_dialog")
+        root.addWidget(splitter, 1)
+
+        # ── Confirm / cancel ──────────────────────────────────────────
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setFixedWidth(90)
+        cancel_btn.clicked.connect(self.reject)
+        self._import_btn = QPushButton("📥 Import Selected")
+        self._import_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        self._import_btn.setFixedWidth(150)
+        self._import_btn.setEnabled(False)
+        self._import_btn.clicked.connect(self.accept)
+        btn_row.addWidget(cancel_btn)
+        btn_row.addWidget(self._import_btn)
+        root.addLayout(btn_row)
+
+    # ------------------------------------------------------------------
+    def _browse(self):
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            "Select Entity Image Directory",
+            self._directory or str(Path.home()),
+            QFileDialog.Option.ShowDirsOnly
+            | QFileDialog.Option.DontResolveSymlinks
+            | QFileDialog.Option.DontUseNativeDialog,
+        )
+        if directory:
+            self._directory = directory
+            self._dir_edit.setText(directory)
+            self._do_scan()
+
+    def _do_scan(self):
+        directory = self._dir_edit.text().strip() or self._directory
+        if not directory or not Path(directory).is_dir():
+            QMessageBox.warning(
+                self, "Invalid Directory", "Please select a valid directory first."
+            )
+            return
+        self._directory = directory
+
+        # Scan for images
+        self._scan_result = []
+        p = Path(directory)
+        valid_exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
+
+        try:
+            for item in p.iterdir():
+                if item.is_file() and item.suffix.lower() in valid_exts:
+                    stem = item.stem
+                    # remove optional trailing number and spaces
+                    clean_stem = re.sub(r"\s*\d+$", "", stem).strip()
+                    parts = clean_stem.split()
+                    if not parts:
+                        continue
+                    first_name = parts[0]
+                    last_name = " ".join(parts[1:]) if len(parts) > 1 else ""
+                    self._scan_result.append(
+                        (first_name, last_name, str(item.absolute()))
+                    )
+        except Exception as e:
+            QMessageBox.critical(self, "Scan Error", f"Failed to scan directory: {e}")
+            return
+
+        self._populate_table()
+
+    def _populate_table(self):
+        self._table.setRowCount(0)
+        new_count = exists_count = 0
+
+        for first_name, last_name, file_path in sorted(
+            self._scan_result, key=lambda x: f"{x[0]} {x[1]}".lower()
+        ):
+            full_name = f"{first_name} {last_name}".strip()
+            already = full_name.lower() in self._existing_names
+            if already:
+                exists_count += 1
+            else:
+                new_count += 1
+
+            row = self._table.rowCount()
+            self._table.insertRow(row)
+
+            # Col 0 – checkbox (wrapped in a centred container)
+            chk = QCheckBox()
+            chk.setChecked(not already)
+            chk.setStyleSheet("QCheckBox { margin-left:6px; }")
+            container = QWidget()
+            c_lay = QHBoxLayout(container)
+            c_lay.addWidget(chk)
+            c_lay.setAlignment(Qt.AlignCenter)
+            c_lay.setContentsMargins(0, 0, 0, 0)
+            self._table.setCellWidget(row, 0, container)
+
+            # Col 1 – Detected Name
+            name_item = QTableWidgetItem(full_name)
+            self._table.setItem(row, 1, name_item)
+
+            # Col 2 – Filename
+            file_item = QTableWidgetItem(Path(file_path).name)
+            file_item.setToolTip(file_path)
+            self._table.setItem(row, 2, file_item)
+
+            # Col 3 – new / already-exists badge
+            if already:
+                st_item = QTableWidgetItem("⚠ Already exists")
+                st_item.setForeground(QColor("#f39c12"))
+            else:
+                st_item = QTableWidgetItem("✓ New")
+                st_item.setForeground(QColor("#2ecc71"))
+            self._table.setItem(row, 3, st_item)
+
+        total = len(self._scan_result)
+        self._status_lbl.setText(
+            f"Found {total} images — {new_count} new, {exists_count} already in entities."
+        )
+        self._import_btn.setEnabled(total > 0)
+
+    # ------------------------------------------------------------------
+    def _select_all_new(self):
+        for row in range(self._table.rowCount()):
+            st = self._table.item(row, 3)
+            if st and "New" in st.text():
+                self._set_row_check(row, True)
+
+    def _deselect_all(self):
+        for row in range(self._table.rowCount()):
+            self._set_row_check(row, False)
+
+    def _set_row_check(self, row: int, state: bool):
+        cw = self._table.cellWidget(row, 0)
+        if cw:
+            chk = cw.findChild(QCheckBox)
+            if chk:
+                chk.setChecked(state)
+
+    # ------------------------------------------------------------------
+    def get_selected_entities(self) -> "list[tuple[str, str, str]]":
+        """Return the list of (first_name, last_name, file_path) whose checkboxes are ticked."""
+        selected = []
+        for row in range(self._table.rowCount()):
+            cw = self._table.cellWidget(row, 0)
+            if cw:
+                chk = cw.findChild(QCheckBox)
+                if chk and chk.isChecked():
+                    # Match by index in the sorted list
+                    first_name, last_name, file_path = sorted(
+                        self._scan_result, key=lambda x: f"{x[0]} {x[1]}".lower()
+                    )[row]
+                    selected.append((first_name, last_name, file_path))
+        return selected
+
+    def get_metadata(self) -> dict:
+        return {
+            "type": self._f_type.currentText(),
+            "role": self._f_role.currentText(),
+            "rating": self._f_rating.value(),
+            "year": self._f_year.value(),
+        }
+
+
 # -------------------------------------------------------------------
 # Vector Search Init Thread
 # -------------------------------------------------------------------
-class _VectorInitThread(QThread):
-    """
-    Background thread that connects to Qdrant and runs full ingestion
-    if the collection is empty (first run or after a reset).
-    """
-
-    finished_init = Signal(bool)
-    status_update = Signal(str)
-
-    def __init__(
-        self,
-        qdrant_path: str,
-        listings_path: str,
-        entities_path: str,
-        parent=None,
-    ):
-        super().__init__(parent)
-        self.qdrant_path = qdrant_path
-        self.listings_path = listings_path
-        self.entities_path = entities_path
-        self.qdrant_manager = None  # set on success
-
-    def run(self) -> None:
-        try:
-            self.status_update.emit("Connecting to vector store…")
-            from backend.src.database.qdrant_manager import QdrantManager
-
-            mgr = QdrantManager(self.qdrant_path)
-            if not mgr.connect():
-                self.finished_init.emit(False)
-                return
-
-            if mgr.collection_count() == 0:
-                self.status_update.emit("Building search index (first run)…")
-                from backend.src.pipeline.vector_ingestion import ingest_listings
-
-                ingest_listings(
-                    mgr,
-                    self.listings_path,
-                    self.entities_path,
-                    progress_callback=lambda cur, tot: self.status_update.emit(
-                        f"Indexing {cur}/{tot}…"
-                    ),
-                )
-
-            self.qdrant_manager = mgr
-            self.finished_init.emit(True)
-        except Exception as exc:
-            print(f"[VectorInitThread] Error: {exc}")
-            self.finished_init.emit(False)
-
 
 # -------------------------------------------------------------------
 # Recommendation Dialog
@@ -3254,11 +3682,7 @@ class ContentListingsSubTab(QWidget):
         self._advanced_search_criteria = None
 
         # Vector search state
-        self._qdrant = None
-        self._qdrant_search_ids: Optional[List[str]] = None
         self._recommendation_results: Optional[List[Tuple[str, float]]] = None
-        self._vector_init_thread = None
-        self._active_search_worker = None
         self._active_rec_worker = None
 
         # ---- Root layout ----
@@ -3450,7 +3874,7 @@ class ContentListingsSubTab(QWidget):
         detail_scroll.setStyleSheet(
             "QScrollArea{border:1px solid #4f545c;border-radius:8px;background:#2c2f33;}"
         )
-        self._detail = _DetailPanel()
+        self._detail = _DetailPanel(vault_manager=self.vault_manager)
         self._detail.saved.connect(self._on_entry_saved)
         self._detail.deleted.connect(self._on_entry_deleted)
         detail_scroll.setWidget(self._detail)
@@ -3472,11 +3896,6 @@ class ContentListingsSubTab(QWidget):
         self._rebuild_gallery()
         self._detail.clear_for_new()
 
-        # ---- Vector search (debounced text search + background init) ----
-        self._search_debounce_timer = QTimer(self)
-        self._search_debounce_timer.setSingleShot(True)
-        self._search_debounce_timer.timeout.connect(self._run_qdrant_text_search)
-        self._start_vector_init()
 
         # Debounced resize — avoid rebuilding the gallery on every pixel of a drag.
         self._resize_timer = QTimer(self)
@@ -3488,32 +3907,71 @@ class ContentListingsSubTab(QWidget):
     # Persistence
     # ------------------------------------------------------------------
     def _load_data(self):
-        try:
-            IMAGE_TOOLKIT_DIR.mkdir(parents=True, exist_ok=True)
-            if LISTINGS_FILE.exists():
-                with open(LISTINGS_FILE, "r", encoding="utf-8") as f:
-                    self._entries = json.load(f)
-        except Exception as e:
-            print(f"[ContentListingsSubTab] Failed to load listings: {e}")
-            self._entries = []
-        # Cache entities so load_entry() doesn't read entities.json from disk
-        # on every card click.  Invalidated by _on_external_reload().
-        try:
-            if ENTITIES_FILE.exists():
-                with open(ENTITIES_FILE, "r", encoding="utf-8") as f:
-                    self._all_entities: List[Dict[str, Any]] = json.load(f)
-            else:
-                self._all_entities = []
-        except Exception:
-            self._all_entities = []
+        self._entries = []
+        self._all_entities = []
+
+        if (
+            self.vault_manager
+            and hasattr(self.vault_manager, "raw_password")
+            and self.vault_manager.raw_password
+        ):
+            db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
+            password = self.vault_manager.raw_password
+            salt = self.vault_manager.account_name
+            try:
+                rows = base.fetch_all_listings_secure(db_path, password, salt)
+                for row in rows:
+                    id_, category, title, metadata_json, date_added = row
+                    try:
+                        entry = json.loads(metadata_json)
+                    except Exception:
+                        entry = {}
+                    entry["id"] = id_
+                    entry["date_added"] = date_added
+                    if category == "Entity":
+                        entry["name"] = title
+                        self._all_entities.append(entry)
+                    else:
+                        entry["type"] = category
+                        entry["title"] = title
+                        self._entries.append(entry)
+            except Exception as e:
+                print(f"[ContentListingsSubTab] Failed to load from secure DB: {e}")
 
     def _save_data(self):
-        try:
-            IMAGE_TOOLKIT_DIR.mkdir(parents=True, exist_ok=True)
-            with open(LISTINGS_FILE, "w", encoding="utf-8") as f:
-                json.dump(self._entries, f, indent=2, ensure_ascii=False)
-        except Exception as e:
-            print(f"[ContentListingsSubTab] Failed to save listings: {e}")
+        if (
+            self.vault_manager
+            and hasattr(self.vault_manager, "raw_password")
+            and self.vault_manager.raw_password
+        ):
+            db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
+            password = self.vault_manager.raw_password
+            salt = self.vault_manager.account_name
+            try:
+                rows = base.fetch_all_listings_secure(db_path, password, salt)
+                for row in rows:
+                    id_, category, _, _, _ = row
+                    if category != "Entity":
+                        base.delete_listing_secure(db_path, password, salt, id_)
+                for entry in self._entries:
+                    eid = entry.get("id")
+                    ecat = entry.get("type", "Anime")
+                    etitle = entry.get("title", "")
+                    edate = entry.get("date_added", "")
+                    meta = dict(entry)
+                    base.insert_listing_secure(
+                        db_path,
+                        password,
+                        salt,
+                        eid,
+                        ecat,
+                        etitle,
+                        json.dumps(meta, ensure_ascii=False),
+                        edate,
+                        [],
+                    )
+            except Exception as e:
+                print(f"[ContentListingsSubTab] Failed to save to secure DB: {e}")
 
     # ------------------------------------------------------------------
     # Gallery
@@ -3527,7 +3985,7 @@ class ContentListingsSubTab(QWidget):
             return result
 
         result = self._entries
-        if self._filter_type not in ("All", "All Types"):
+        if self._filter_type and self._filter_type not in ("All", "All Types", "None", ""):
             result = [e for e in result if e.get("type") == self._filter_type]
         if self._filter_status not in ("All", "All Status"):
             result = [e for e in result if e.get("status") == self._filter_status]
@@ -3598,24 +4056,13 @@ class ContentListingsSubTab(QWidget):
 
             result = filtered
 
-        # Qdrant semantic text search — restricts and reorders by relevance
-        if getattr(self, "_qdrant_search_ids", None) is not None:
-            id_set = set(self._qdrant_search_ids)
-            id_order = {uid: i for i, uid in enumerate(self._qdrant_search_ids)}
-            result = [e for e in result if e.get("id") in id_set]
-            result.sort(key=lambda e: id_order.get(e.get("id", ""), len(id_order)))
-            return result
-
         if self._search_query:
             q = self._search_query.lower()
-            all_entities = []
-            try:
-                if ENTITIES_FILE.exists():
-                    with open(ENTITIES_FILE, "r", encoding="utf-8") as f:
-                        all_entities = json.load(f)
-            except Exception:
-                pass
-            entity_names_map = {ent["id"]: ent["name"].lower() for ent in all_entities}
+            entity_names_map = {
+                ent["id"]: ent["name"].lower()
+                for ent in self._all_entities
+                if "id" in ent and "name" in ent
+            }
 
             filtered = []
             for e in result:
@@ -3740,17 +4187,8 @@ class ContentListingsSubTab(QWidget):
     # Slots
     # ------------------------------------------------------------------
     def _on_advanced_search(self):
-        # Load entities dynamically
-        all_entities = []
-        try:
-            if ENTITIES_FILE.exists():
-                with open(ENTITIES_FILE, "r", encoding="utf-8") as f:
-                    all_entities = json.load(f)
-        except Exception:
-            pass
-
         dialog = AdvancedSearchDialog(
-            self, entries=self._entries, entities=all_entities
+            self, entries=self._entries, entities=self._all_entities
         )
         if self._advanced_search_criteria:
             dialog.load_criteria(self._advanced_search_criteria)
@@ -3859,62 +4297,129 @@ class ContentListingsSubTab(QWidget):
         self._detail.clear_for_new()
 
     def _sync_entities_for_entry(self, entry: Dict[str, Any]) -> bool:
-        """Keep entities.json in sync: each associated entity gains this entry's ID
+        """Keep entities in sync in secure DB: each associated entity gains this entry's ID
         in its associated_content list; removed entities lose it."""
         entry_id = entry.get("id")
         if not entry_id:
             return False
         new_assoc = set(entry.get("associated_entities", []))
-        try:
-            if not ENTITIES_FILE.exists():
-                return False
-            with open(ENTITIES_FILE, "r", encoding="utf-8") as f:
-                entities = json.load(f)
-            changed = False
-            for ent in entities:
-                eid = ent.get("id")
-                if not eid:
-                    continue
-                raw = ent.get("associated_content", [])
-                current = set(raw) if isinstance(raw, list) else set()
-                if eid in new_assoc and entry_id not in current:
-                    current.add(entry_id)
-                    ent["associated_content"] = list(current)
-                    changed = True
-                elif eid not in new_assoc and entry_id in current:
-                    current.discard(entry_id)
-                    ent["associated_content"] = list(current)
-                    changed = True
-            if changed:
-                with open(ENTITIES_FILE, "w", encoding="utf-8") as f:
-                    json.dump(entities, f, indent=2, ensure_ascii=False)
-            return changed
-        except Exception as e:
-            print(f"[ContentListingsSubTab] Failed to sync entities: {e}")
-            return False
+
+        if (
+            self.vault_manager
+            and hasattr(self.vault_manager, "raw_password")
+            and self.vault_manager.raw_password
+        ):
+            db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
+            password = self.vault_manager.raw_password
+            salt = self.vault_manager.account_name
+            try:
+                rows = base.fetch_all_listings_secure(db_path, password, salt)
+                entities = []
+                for row in rows:
+                    id_, category, title, metadata_json, date_added = row
+                    if category == "Entity":
+                        try:
+                            ent = json.loads(metadata_json)
+                        except Exception:
+                            ent = {}
+                        ent["id"] = id_
+                        ent["name"] = title
+                        ent["date_added"] = date_added
+                        entities.append(ent)
+
+                changed = False
+                for ent in entities:
+                    eid = ent.get("id")
+                    if not eid:
+                        continue
+                    raw = ent.get("associated_content", [])
+                    current = set(raw) if isinstance(raw, list) else set()
+                    if eid in new_assoc and entry_id not in current:
+                        current.add(entry_id)
+                        ent["associated_content"] = list(current)
+                        changed = True
+                    elif eid not in new_assoc and entry_id in current:
+                        current.discard(entry_id)
+                        ent["associated_content"] = list(current)
+                        changed = True
+
+                if changed:
+                    for ent in entities:
+                        base.delete_listing_secure(db_path, password, salt, ent["id"])
+                        meta = dict(ent)
+                        base.insert_listing_secure(
+                            db_path,
+                            password,
+                            salt,
+                            ent["id"],
+                            "Entity",
+                            ent.get("name", ""),
+                            json.dumps(meta, ensure_ascii=False),
+                            ent.get("date_added", ""),
+                            [],
+                        )
+                return changed
+            except Exception as e:
+                print(
+                    f"[ContentListingsSubTab] Failed to sync entities in secure DB: {e}"
+                )
+        return False
 
     def _remove_content_from_entities(self, entry_id: str) -> bool:
-        """Remove a deleted content entry's ID from all entities' associated_content."""
-        try:
-            if not ENTITIES_FILE.exists():
-                return False
-            with open(ENTITIES_FILE, "r", encoding="utf-8") as f:
-                entities = json.load(f)
-            changed = False
-            for ent in entities:
-                raw = ent.get("associated_content", [])
-                current = set(raw) if isinstance(raw, list) else set()
-                if entry_id in current:
-                    current.discard(entry_id)
-                    ent["associated_content"] = list(current)
-                    changed = True
-            if changed:
-                with open(ENTITIES_FILE, "w", encoding="utf-8") as f:
-                    json.dump(entities, f, indent=2, ensure_ascii=False)
-            return changed
-        except Exception as e:
-            print(f"[ContentListingsSubTab] Failed to clean up entities: {e}")
-            return False
+        """Remove a deleted content entry's ID from all entities' associated_content in secure DB."""
+        if (
+            self.vault_manager
+            and hasattr(self.vault_manager, "raw_password")
+            and self.vault_manager.raw_password
+        ):
+            db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
+            password = self.vault_manager.raw_password
+            salt = self.vault_manager.account_name
+            try:
+                rows = base.fetch_all_listings_secure(db_path, password, salt)
+                entities = []
+                for row in rows:
+                    id_, category, title, metadata_json, date_added = row
+                    if category == "Entity":
+                        try:
+                            ent = json.loads(metadata_json)
+                        except Exception:
+                            ent = {}
+                        ent["id"] = id_
+                        ent["name"] = title
+                        ent["date_added"] = date_added
+                        entities.append(ent)
+
+                changed = False
+                for ent in entities:
+                    raw = ent.get("associated_content", [])
+                    current = set(raw) if isinstance(raw, list) else set()
+                    if entry_id in current:
+                        current.discard(entry_id)
+                        ent["associated_content"] = list(current)
+                        changed = True
+
+                if changed:
+                    for ent in entities:
+                        base.delete_listing_secure(db_path, password, salt, ent["id"])
+                        meta = dict(ent)
+                        base.insert_listing_secure(
+                            db_path,
+                            password,
+                            salt,
+                            ent["id"],
+                            "Entity",
+                            ent.get("name", ""),
+                            json.dumps(meta, ensure_ascii=False),
+                            ent.get("date_added", ""),
+                            [],
+                        )
+                return changed
+            except Exception as e:
+                print(
+                    f"[ContentListingsSubTab] Failed to clean up entities in secure DB: {e}"
+                )
+        return False
 
     def _on_external_reload(self) -> None:
         """Called when another subtab modifies listings.json; refreshes in-memory data."""
@@ -3924,13 +4429,7 @@ class ContentListingsSubTab(QWidget):
     @Slot(str)
     def _on_search(self, text: str):
         self._search_query = text
-        if not text:
-            # Clear Qdrant results so client-side filtering resumes immediately
-            self._qdrant_search_ids = None
         self._rebuild_gallery()
-        # Fire debounced Qdrant sparse search (400 ms after last keystroke)
-        if hasattr(self, "_search_debounce_timer"):
-            self._search_debounce_timer.start(400)
 
     @Slot(str)
     def _on_type_filter(self, text: str):
@@ -3947,62 +4446,15 @@ class ContentListingsSubTab(QWidget):
         self._rebuild_gallery()
 
     # ------------------------------------------------------------------
-    # Vector Search Integration
-    # ------------------------------------------------------------------
-
-    def _start_vector_init(self) -> None:
-        """Launch background thread to connect Qdrant and run ingestion if needed."""
-        qdrant_path = str(IMAGE_TOOLKIT_DIR / "qdrant")
-        self._vector_init_thread = _VectorInitThread(
-            qdrant_path, str(LISTINGS_FILE), str(ENTITIES_FILE), parent=self
-        )
-        self._vector_init_thread.finished_init.connect(self._on_vector_init_done)
-        self._vector_init_thread.status_update.connect(
-            lambda msg: print(f"[VectorInit] {msg}")
-        )
-        self._vector_init_thread.start()
-
-    @Slot(bool)
-    def _on_vector_init_done(self, success: bool) -> None:
-        if success and self._vector_init_thread:
-            self._qdrant = self._vector_init_thread.qdrant_manager
-            print("[ContentListingsSubTab] Vector search ready.")
-
-    def _run_qdrant_text_search(self) -> None:
-        """Triggered by debounce timer; runs sparse Qdrant search off-thread."""
-        text = self._search_query
-        if not text or not self._qdrant or not self._qdrant.is_ready:
-            return
-
-        if self._active_search_worker:
-            self._active_search_worker.cancel()
-
-        from ...helpers.core.listing_search_worker import ListingSearchWorker
-        from PySide6.QtCore import QThreadPool
-
-        worker = ListingSearchWorker(self._qdrant, text)
-        worker.signals.finished.connect(self._on_qdrant_search_results)
-        worker.signals.error.connect(lambda e: print(f"[QdrantSearch] {e}"))
-        self._active_search_worker = worker
-        QThreadPool.globalInstance().start(worker)
-
-    @Slot(list)
-    def _on_qdrant_search_results(self, uuids: list) -> None:
-        if self._search_query:  # Only apply if search is still active
-            self._qdrant_search_ids = uuids
-            self._rebuild_gallery()
-
-    # ------------------------------------------------------------------
     # Recommendation
     # ------------------------------------------------------------------
 
     def _on_recommend_content(self) -> None:
-        if not self._qdrant or not self._qdrant.is_ready:
+        if not self.vault_manager or not self.vault_manager.raw_password:
             QMessageBox.information(
                 self,
-                "Search Index Not Ready",
-                "The vector search index is still initializing.\n"
-                "Please wait a moment and try again.",
+                "Secure Access Required",
+                "You must be logged in to get personalized recommendations.",
             )
             return
 
@@ -4016,7 +4468,18 @@ class ContentListingsSubTab(QWidget):
         if self._active_rec_worker and self._active_rec_worker.isRunning():
             self._active_rec_worker.terminate()
 
-        worker = RecommendationWorker(self._qdrant, inputs, top_k=50, parent=self)
+        db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
+        password = self.vault_manager.raw_password
+        salt = self.vault_manager.account_name
+
+        worker = RecommendationWorker(
+            db_path,
+            password,
+            salt,
+            inputs,
+            top_k=50,
+            parent=self,
+        )
         worker.finished.connect(self._on_recommendation_results)
         worker.error.connect(
             lambda e: QMessageBox.warning(self, "Recommendation Error", e)
@@ -4085,7 +4548,7 @@ class ContentListingsSubTab(QWidget):
 
             merged_entries = list(merged_dict.values())
 
-            # 3. Save merged entries locally
+            # 3. Save merged entries locally (updates DB)
             self._entries = merged_entries
             self._save_data()
 
@@ -4094,7 +4557,11 @@ class ContentListingsSubTab(QWidget):
 
             self._rebuild_gallery()
 
-            img_info = f"\nAlso restored {synced_imgs} missing image(s) from backup." if synced_imgs else ""
+            img_info = (
+                f"\nAlso restored {synced_imgs} missing image(s) from backup."
+                if synced_imgs
+                else ""
+            )
             QMessageBox.information(
                 self,
                 "Synchronization Complete",
@@ -4128,10 +4595,14 @@ class ContentListingsSubTab(QWidget):
             json_content = json.dumps(self._entries, indent=2, ensure_ascii=False)
             temp_vault.saveData(json_content)
 
-            # 2. Backup images to multi-part ZIP
-            backup_count = _backup_referenced_images("content_images", [LISTINGS_FILE])
+            # 2. Backup images to multi-part ZIP using the memory list
+            backup_count = _backup_referenced_images("content_images", self._entries)
 
-            img_info = f"\nAlso backed up {backup_count} image(s) to multi-part archive." if backup_count else ""
+            img_info = (
+                f"\nAlso backed up {backup_count} image(s) to multi-part archive."
+                if backup_count
+                else ""
+            )
             QMessageBox.information(
                 self,
                 "Backup Updated",
@@ -4296,26 +4767,52 @@ class EntityListingsSubTab(QWidget):
         self.sort_order_combo.currentTextChanged.connect(self._on_sort_changed)
         toolbar.addWidget(self.sort_order_combo)
 
+        # ── Pair 1: Add Entity (top) / Import Dir (bottom) ──────────────
+        entity_pair = QWidget()
+        entity_pair_vbox = QVBoxLayout(entity_pair)
+        entity_pair_vbox.setContentsMargins(0, 0, 0, 0)
+        entity_pair_vbox.setSpacing(3)
+
         add_btn = QPushButton("＋ Add Entity")
         add_btn.setStyleSheet(SHARED_BUTTON_STYLE)
         add_btn.setFixedWidth(120)
         add_btn.clicked.connect(self._on_add_new)
         apply_shadow_effect(add_btn)
-        toolbar.addWidget(add_btn)
+
+        import_dir_btn = QPushButton("📂 Import Dir")
+        import_dir_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        import_dir_btn.setFixedWidth(120)
+        import_dir_btn.setToolTip(
+            "Scan an entity image directory and auto-create listings."
+        )
+        import_dir_btn.clicked.connect(self._on_import_from_directory)
+        apply_shadow_effect(import_dir_btn)
+
+        entity_pair_vbox.addWidget(add_btn)
+        entity_pair_vbox.addWidget(import_dir_btn)
+        toolbar.addWidget(entity_pair)
+
+        # ── Pair 2: Sync Backup (top) / Update Backup (bottom) ─────────
+        backup_pair = QWidget()
+        backup_pair_vbox = QVBoxLayout(backup_pair)
+        backup_pair_vbox.setContentsMargins(0, 0, 0, 0)
+        backup_pair_vbox.setSpacing(3)
 
         sync_btn = QPushButton("🔄 Sync Backup")
         sync_btn.setStyleSheet(SHARED_BUTTON_STYLE)
-        sync_btn.setFixedWidth(120)
+        sync_btn.setFixedWidth(130)
         sync_btn.clicked.connect(self._synchronize_listings)
         apply_shadow_effect(sync_btn)
-        toolbar.addWidget(sync_btn)
 
         update_btn = QPushButton("⚡ Update Backup")
         update_btn.setStyleSheet(SHARED_BUTTON_STYLE)
         update_btn.setFixedWidth(130)
         update_btn.clicked.connect(self._update_encrypted_backup)
         apply_shadow_effect(update_btn)
-        toolbar.addWidget(update_btn)
+
+        backup_pair_vbox.addWidget(sync_btn)
+        backup_pair_vbox.addWidget(update_btn)
+        toolbar.addWidget(backup_pair)
 
         root.addLayout(toolbar)
 
@@ -4354,7 +4851,7 @@ class EntityListingsSubTab(QWidget):
         detail_scroll.setStyleSheet(
             "QScrollArea{border:1px solid #4f545c;border-radius:8px;background:#2c2f33;}"
         )
-        self._detail = _EntityDetailPanel()
+        self._detail = _EntityDetailPanel(vault_manager=self.vault_manager)
         self._detail.saved.connect(self._on_entity_saved)
         self._detail.deleted.connect(self._on_entity_deleted)
         detail_scroll.setWidget(self._detail)
@@ -4386,46 +4883,96 @@ class EntityListingsSubTab(QWidget):
     # Persistence
     # ------------------------------------------------------------------
     def _load_data(self):
-        try:
-            IMAGE_TOOLKIT_DIR.mkdir(parents=True, exist_ok=True)
-            if ENTITIES_FILE.exists():
-                with open(ENTITIES_FILE, "r", encoding="utf-8") as f:
-                    self._entities = json.load(f)
-        except Exception as e:
-            print(f"[EntityListingsSubTab] Failed to load entities: {e}")
-            self._entities = []
+        self._entities = []
+
+        if (
+            self.vault_manager
+            and hasattr(self.vault_manager, "raw_password")
+            and self.vault_manager.raw_password
+        ):
+            db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
+            password = self.vault_manager.raw_password
+            salt = self.vault_manager.account_name
+            try:
+                rows = base.fetch_all_listings_secure(db_path, password, salt)
+                for row in rows:
+                    id_, category, title, metadata_json, date_added = row
+                    if category == "Entity":
+                        try:
+                            entity = json.loads(metadata_json)
+                        except Exception:
+                            entity = {}
+                        entity["id"] = id_
+                        entity["name"] = title
+                        entity["date_added"] = date_added
+                        self._entities.append(entity)
+            except Exception as e:
+                print(f"[EntityListingsSubTab] Failed to load from secure DB: {e}")
 
     def _save_data(self):
-        try:
-            IMAGE_TOOLKIT_DIR.mkdir(parents=True, exist_ok=True)
-            with open(ENTITIES_FILE, "w", encoding="utf-8") as f:
-                json.dump(self._entities, f, indent=2, ensure_ascii=False)
-        except Exception as e:
-            print(f"[EntityListingsSubTab] Failed to save entities: {e}")
+        if (
+            self.vault_manager
+            and hasattr(self.vault_manager, "raw_password")
+            and self.vault_manager.raw_password
+        ):
+            db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
+            password = self.vault_manager.raw_password
+            salt = self.vault_manager.account_name
+            try:
+                rows = base.fetch_all_listings_secure(db_path, password, salt)
+                for row in rows:
+                    id_, category, _, _, _ = row
+                    if category == "Entity":
+                        base.delete_listing_secure(db_path, password, salt, id_)
+                for entity in self._entities:
+                    eid = entity.get("id")
+                    ename = entity.get("name", "")
+                    edate = entity.get("date_added", "")
+                    meta = dict(entity)
+                    base.insert_listing_secure(
+                        db_path,
+                        password,
+                        salt,
+                        eid,
+                        "Entity",
+                        ename,
+                        json.dumps(meta, ensure_ascii=False),
+                        edate,
+                        [],
+                    )
+            except Exception as e:
+                print(
+                    f"[EntityListingsSubTab] Failed to save entities to secure DB: {e}"
+                )
 
     # ------------------------------------------------------------------
     # Gallery
     # ------------------------------------------------------------------
     def _filtered_entities(self) -> List[Dict[str, Any]]:
         result = self._entities
-        if self._filter_type not in ("All", "All Types"):
+        if self._filter_type and self._filter_type not in ("All", "All Types", "None", ""):
             result = [e for e in result if e.get("type") == self._filter_type]
         if self._filter_role not in ("All", "All Roles"):
             result = [e for e in result if e.get("role") == self._filter_role]
         if self._search_query:
             q = self._search_query.lower()
-            # Build a content titles map for searching associated_content IDs
             content_titles_map: Dict[str, str] = {}
-            try:
-                if LISTINGS_FILE.exists():
-                    import json as _json
-                    with open(LISTINGS_FILE, "r", encoding="utf-8") as _f:
-                        _entries = _json.load(_f)
-                    content_titles_map = {
-                        e["id"]: e.get("title", "").lower() for e in _entries
-                    }
-            except Exception:
-                pass
+            if (
+                self.vault_manager
+                and hasattr(self.vault_manager, "raw_password")
+                and self.vault_manager.raw_password
+            ):
+                db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
+                password = self.vault_manager.raw_password
+                salt = self.vault_manager.account_name
+                try:
+                    rows = base.fetch_all_listings_secure(db_path, password, salt)
+                    for row in rows:
+                        id_, category, title, metadata_json, date_added = row
+                        if category != "Entity":
+                            content_titles_map[id_] = title.lower()
+                except Exception:
+                    pass
 
             filtered_ents = []
             for e in result:
@@ -4435,10 +4982,7 @@ class EntityListingsSubTab(QWidget):
                 # Search associated_content (list of IDs → resolve titles)
                 assoc_c = e.get("associated_content", [])
                 if isinstance(assoc_c, list):
-                    if any(
-                        q in content_titles_map.get(cid, "")
-                        for cid in assoc_c
-                    ):
+                    if any(q in content_titles_map.get(cid, "") for cid in assoc_c):
                         filtered_ents.append(e)
                         continue
                 else:
@@ -4551,6 +5095,84 @@ class EntityListingsSubTab(QWidget):
         menu.exec(self.gallery_scroll.mapToGlobal(pos))
 
     @Slot()
+    def _on_import_from_directory(self):
+        """Open the entity directory-import wizard and create listings for new entities."""
+        existing_names = {e.get("name", "").lower() for e in self._entities}
+        dlg = _EntityDirectoryImportDialog(existing_names, parent=self)
+        if dlg.exec() != QDialog.Accepted:
+            return
+
+        selected_entities = dlg.get_selected_entities()
+        if not selected_entities:
+            QMessageBox.information(
+                self,
+                "Nothing to Import",
+                "No entities were selected. Nothing was imported.",
+            )
+            return
+
+        meta = dlg.get_metadata()
+        today = str(date.today())
+        created = 0
+
+        # Ensure listing-images directory exists
+        LISTING_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+
+        for first_name, last_name, src_file_path in selected_entities:
+            # Generate unique entity ID
+            entity_id = "ent-" + uuid.uuid4().hex[:8]
+
+            # Copy profile image to listing-images directory
+            src_path = Path(src_file_path)
+            dest_img_name = f"{entity_id}{src_path.suffix}"
+            dest_img_path = LISTING_IMAGES_DIR / dest_img_name
+
+            try:
+                import shutil
+
+                shutil.copy2(src_path, dest_img_path)
+                image_path = str(dest_img_path)
+            except Exception as e:
+                print(f"Failed to copy entity image: {e}")
+                image_path = ""
+
+            entity = {
+                "id": entity_id,
+                "name": f"{first_name} {last_name}".strip(),
+                "first_name": first_name,
+                "last_name": last_name,
+                "type": meta["type"],
+                "role": meta["role"],
+                "rating": meta["rating"],
+                "year": meta["year"],
+                "image_path": image_path,
+                "notes": "",
+                "credit_list": [],
+                "associated_content": [],
+                "associated_entities": [],
+                "date_added": today,
+            }
+
+            self._entities.insert(0, entity)
+            created += 1
+
+        if created:
+            self._save_data()
+            self._rebuild_gallery()
+            QMessageBox.information(
+                self,
+                "Import Complete",
+                f"Successfully imported {created} new entity"
+                f"{'s' if created != 1 else ''}.",
+            )
+        else:
+            QMessageBox.information(
+                self,
+                "No New Entries",
+                "All selected entities already had listings — nothing was added.",
+            )
+
+    @Slot()
     def _on_add_new(self):
         self._selected_id = None
         self._detail.clear_for_new()
@@ -4580,60 +5202,128 @@ class EntityListingsSubTab(QWidget):
         self._detail.clear_for_new()
 
     def _sync_listings_for_entity(self, entity: Dict[str, Any]) -> bool:
-        """Keep listings.json in sync: each associated content entry gains this entity's
+        """Keep listings in sync in secure DB: each associated content entry gains this entity's
         ID in its associated_entities list; removed entries lose it."""
         entity_id = entity.get("id")
         if not entity_id:
             return False
         new_assoc = set(entity.get("associated_content", []))
-        try:
-            if not LISTINGS_FILE.exists():
-                return False
-            with open(LISTINGS_FILE, "r", encoding="utf-8") as f:
-                listings = json.load(f)
-            changed = False
-            for listing in listings:
-                lid = listing.get("id")
-                if not lid:
-                    continue
-                current = set(listing.get("associated_entities", []))
-                if lid in new_assoc and entity_id not in current:
-                    current.add(entity_id)
-                    listing["associated_entities"] = list(current)
-                    changed = True
-                elif lid not in new_assoc and entity_id in current:
-                    current.discard(entity_id)
-                    listing["associated_entities"] = list(current)
-                    changed = True
-            if changed:
-                with open(LISTINGS_FILE, "w", encoding="utf-8") as f:
-                    json.dump(listings, f, indent=2, ensure_ascii=False)
-            return changed
-        except Exception as e:
-            print(f"[EntityListingsSubTab] Failed to sync listings: {e}")
-            return False
+        if (
+            self.vault_manager
+            and hasattr(self.vault_manager, "raw_password")
+            and self.vault_manager.raw_password
+        ):
+            db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
+            password = self.vault_manager.raw_password
+            salt = self.vault_manager.account_name
+            try:
+                rows = base.fetch_all_listings_secure(db_path, password, salt)
+                listings = []
+                for row in rows:
+                    id_, category, title, metadata_json, date_added = row
+                    if category != "Entity":
+                        try:
+                            entry = json.loads(metadata_json)
+                        except Exception:
+                            entry = {}
+                        entry["id"] = id_
+                        entry["type"] = category
+                        entry["title"] = title
+                        entry["date_added"] = date_added
+                        listings.append(entry)
+
+                changed = False
+                for listing in listings:
+                    lid = listing.get("id")
+                    if not lid:
+                        continue
+                    current = set(listing.get("associated_entities", []))
+                    if lid in new_assoc and entity_id not in current:
+                        current.add(entity_id)
+                        listing["associated_entities"] = list(current)
+                        changed = True
+                    elif lid not in new_assoc and entity_id in current:
+                        current.discard(entity_id)
+                        listing["associated_entities"] = list(current)
+                        changed = True
+
+                if changed:
+                    for entry in listings:
+                        base.delete_listing_secure(db_path, password, salt, entry["id"])
+                        meta = dict(entry)
+                        base.insert_listing_secure(
+                            db_path,
+                            password,
+                            salt,
+                            entry["id"],
+                            entry.get("type", "Anime"),
+                            entry.get("title", ""),
+                            json.dumps(meta, ensure_ascii=False),
+                            entry.get("date_added", ""),
+                            [],
+                        )
+                return changed
+            except Exception as e:
+                print(
+                    f"[EntityListingsSubTab] Failed to sync listings in secure DB: {e}"
+                )
+        return False
 
     def _remove_entity_from_listings(self, entity_id: str) -> bool:
-        """Remove a deleted entity's ID from all content entries' associated_entities."""
-        try:
-            if not LISTINGS_FILE.exists():
-                return False
-            with open(LISTINGS_FILE, "r", encoding="utf-8") as f:
-                listings = json.load(f)
-            changed = False
-            for listing in listings:
-                current = set(listing.get("associated_entities", []))
-                if entity_id in current:
-                    current.discard(entity_id)
-                    listing["associated_entities"] = list(current)
-                    changed = True
-            if changed:
-                with open(LISTINGS_FILE, "w", encoding="utf-8") as f:
-                    json.dump(listings, f, indent=2, ensure_ascii=False)
-            return changed
-        except Exception as e:
-            print(f"[EntityListingsSubTab] Failed to clean up listings: {e}")
-            return False
+        """Remove a deleted entity's ID from all content entries' associated_entities in secure DB."""
+        if (
+            self.vault_manager
+            and hasattr(self.vault_manager, "raw_password")
+            and self.vault_manager.raw_password
+        ):
+            db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
+            password = self.vault_manager.raw_password
+            salt = self.vault_manager.account_name
+            try:
+                rows = base.fetch_all_listings_secure(db_path, password, salt)
+                listings = []
+                for row in rows:
+                    id_, category, title, metadata_json, date_added = row
+                    if category != "Entity":
+                        try:
+                            entry = json.loads(metadata_json)
+                        except Exception:
+                            entry = {}
+                        entry["id"] = id_
+                        entry["type"] = category
+                        entry["title"] = title
+                        entry["date_added"] = date_added
+                        listings.append(entry)
+
+                changed = False
+                for listing in listings:
+                    current = set(listing.get("associated_entities", []))
+                    if entity_id in current:
+                        current.discard(entity_id)
+                        listing["associated_entities"] = list(current)
+                        changed = True
+
+                if changed:
+                    for entry in listings:
+                        base.delete_listing_secure(db_path, password, salt, entry["id"])
+                        meta = dict(entry)
+                        base.insert_listing_secure(
+                            db_path,
+                            password,
+                            salt,
+                            entry["id"],
+                            entry.get("type", "Anime"),
+                            entry.get("title", ""),
+                            json.dumps(meta, ensure_ascii=False),
+                            entry.get("date_added", ""),
+                            [],
+                        )
+                return changed
+            except Exception as e:
+                print(
+                    f"[EntityListingsSubTab] Failed to clean up listings in secure DB: {e}"
+                )
+        return False
 
     def _on_external_reload(self) -> None:
         """Called when another subtab modifies entities.json; refreshes in-memory data."""
@@ -4703,7 +5393,7 @@ class EntityListingsSubTab(QWidget):
 
             merged_entries = list(merged_dict.values())
 
-            # 3. Save merged entries locally
+            # 3. Save merged entries locally (updates DB)
             self._entities = merged_entries
             self._save_data()
 
@@ -4712,7 +5402,11 @@ class EntityListingsSubTab(QWidget):
 
             self._rebuild_gallery()
 
-            img_info = f"\nAlso restored {synced_imgs} missing image(s) from backup." if synced_imgs else ""
+            img_info = (
+                f"\nAlso restored {synced_imgs} missing image(s) from backup."
+                if synced_imgs
+                else ""
+            )
             QMessageBox.information(
                 self,
                 "Synchronization Complete",
@@ -4746,10 +5440,14 @@ class EntityListingsSubTab(QWidget):
             json_content = json.dumps(self._entities, indent=2, ensure_ascii=False)
             temp_vault.saveData(json_content)
 
-            # 2. Backup images to multi-part ZIP
-            backup_count = _backup_referenced_images("entity_images", [ENTITIES_FILE])
+            # 2. Backup images to multi-part ZIP using the memory list
+            backup_count = _backup_referenced_images("entity_images", self._entities)
 
-            img_info = f"\nAlso backed up {backup_count} image(s) to multi-part archive." if backup_count else ""
+            img_info = (
+                f"\nAlso backed up {backup_count} image(s) to multi-part archive."
+                if backup_count
+                else ""
+            )
             QMessageBox.information(
                 self,
                 "Backup Updated",

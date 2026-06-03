@@ -470,7 +470,13 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let debug = args.contains(&"--debug".to_string());
     let log_path = match get_config_dir() {
-        Ok(d) => Some(d.join("slideshow_daemon.log")),
+        Ok(d) => {
+            let logs_dir = d.join("logs");
+            if !logs_dir.exists() {
+                let _ = fs::create_dir_all(&logs_dir);
+            }
+            Some(logs_dir.join("slideshow_daemon.log"))
+        }
         Err(_) => None,
     };
     if let Some(ref lp) = log_path {

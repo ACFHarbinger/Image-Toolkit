@@ -315,3 +315,67 @@ class TestBaselines:
         frames, affines, masks, H, W = _make_render_inputs(3)
         canvas_no_base, vm, _, _ = _render_median(frames, affines, masks, H, W, _baselines=None)
         assert canvas_no_base is not None
+
+
+# ---------------------------------------------------------------------------
+# A5 — Foreground-excluded temporal median
+# ---------------------------------------------------------------------------
+
+class TestForegroundExcludedMedian:
+    """The background plate must not average the character's animation poses."""
+
+    @staticmethod
+    def _scene(char_present):
+        """4 aligned frames; at x=100 the character (230) is present in the
+        given frames, background (80) otherwise. bg_mask: 255=bg, 0=fg."""
+        H, W = 120, 200
+        frames, masks, affines = [], [], []
+        for present in char_present:
+            img = np.full((H, W, 3), 80, np.uint8)
+            bgm = np.full((H, W), 255, np.uint8)
+            if present:
+                img[40:80, 100:130] = 230
+                bgm[40:80, 100:130] = 0
+            frames.append(img)
+            masks.append(bgm)
+            affines.append(make_translation_affine(ty=0.0))
+        return frames, affines, masks, H, W
+
+    def test_excludes_majority_character(self, monkeypatch):
+        """Character in 3/4 frames at a pixel → exclusion yields clean bg (80)."""
+        monkeypatch.setenv("ASP_FG_EXCLUDE_MEDIAN", "1")
+        import importlib
+        import backend.src.anim.rendering as r
+        importlib.reload(r)
+        frames, affines, masks, H, W = self._scene([True, True, True, False])
+        canvas, _, _, _ = r._render_median(frames, affines, masks, H, W)
+        val = float(canvas[50:70, 105:125].mean())
+        assert val < 120, f"expected clean background ~80, got {val:.0f} (ghost)"
+        importlib.reload(r)  # restore default
+
+    def test_disabled_lets_character_ghost(self, monkeypatch):
+        """With exclusion OFF the majority character ghosts the background."""
+        monkeypatch.setenv("ASP_FG_EXCLUDE_MEDIAN", "0")
+        import importlib
+        import backend.src.anim.rendering as r
+        importlib.reload(r)
+        frames, affines, masks, H, W = self._scene([True, True, True, False])
+        canvas, _, _, _ = r._render_median(frames, affines, masks, H, W)
+        val = float(canvas[50:70, 105:125].mean())
+        assert val > 180, f"expected character ghost ~230, got {val:.0f}"
+        importlib.reload(r)  # restore default
+
+    def test_all_foreground_falls_back(self, monkeypatch):
+        """Where the character is in ALL frames, fall back to geometric median
+        (no holes)."""
+        monkeypatch.setenv("ASP_FG_EXCLUDE_MEDIAN", "1")
+        import importlib
+        import backend.src.anim.rendering as r
+        importlib.reload(r)
+        frames, affines, masks, H, W = self._scene([True, True, True, True])
+        canvas, vmask, _, _ = r._render_median(frames, affines, masks, H, W)
+        # The pixel is covered (no hole) and shows the character (only data there).
+        assert (vmask[50:70, 105:125] > 0).all(), "all-fg region must stay covered"
+        val = float(canvas[50:70, 105:125].mean())
+        assert val > 180, f"all-fg fallback should keep character, got {val:.0f}"
+        importlib.reload(r)

@@ -2,6 +2,7 @@ import os
 import cv2
 import time
 import json
+import copy
 import subprocess
 
 from pathlib import Path
@@ -155,8 +156,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.last_browsed_extraction_dir = str(self.extraction_dir)
 
         # --- Extraction History ---
+        self.recent_extractions_limit = 10
+        self.recent_runs: List[Dict[str, Any]] = []
         self.extraction_metadata: Dict[str, Any] = {}
         self._extracted_stems_cache: Set[str] = set()
+        self._recent_combo_connected = False
         self._load_extraction_history()
 
         # --- Initialize Pagination ---
@@ -402,6 +406,25 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         # 4. Extraction Controls
         self.extract_group = QGroupBox("Extraction Settings")
         extract_main_layout = QVBoxLayout(self.extract_group)
+
+        # -- Row 0: Recent Configurations --
+        from PySide6.QtWidgets import QSizePolicy
+
+        recent_layout = QHBoxLayout()
+        recent_layout.addWidget(QLabel("Recent Extractions:"))
+        self.combo_recent_extractions = QComboBox()
+        self.combo_recent_extractions.setMinimumWidth(300)
+        self.combo_recent_extractions.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Fixed
+        )
+        recent_layout.addWidget(self.combo_recent_extractions)
+
+        self.btn_load_recent = QPushButton("Load Config")
+        self.btn_load_recent.clicked.connect(self._load_selected_recent_extraction)
+        self.btn_load_recent.setEnabled(False)
+        recent_layout.addWidget(self.btn_load_recent)
+
+        extract_main_layout.addLayout(recent_layout)
 
         # -- Row 1: Configuration --
         extract_config_layout = QHBoxLayout()
@@ -755,6 +778,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.media_player.errorOccurred.connect(self.handle_player_error)
 
         self._load_existing_output_images()
+        self._update_recent_extractions_ui()
 
     def cancel_loading(self):
         """Stops all active media players, timers, and background workers."""
@@ -1132,29 +1156,167 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         if history_file.exists():
             try:
                 with open(history_file, "r", encoding="utf-8") as f:
-                    self.extraction_metadata = json.load(f)
+                    data = json.load(f)
+                    if isinstance(data, dict) and "recent_runs" in data:
+                        self.recent_runs = data.get("recent_runs", [])
+                        self.extraction_metadata = data.get("file_map", {})
+                    else:
+                        # Legacy format where the whole json was extraction_metadata
+                        self.extraction_metadata = data
+                        # Reconstruct recent_runs from unique metadata in extraction_metadata
+                        unique_runs = {}
+                        for meta in self.extraction_metadata.values():
+                            ts = meta.get("timestamp", 0)
+                            unique_runs[ts] = meta
+                        self.recent_runs = sorted(
+                            unique_runs.values(),
+                            key=lambda x: x.get("timestamp", 0),
+                            reverse=True,
+                        )
             except Exception as e:
                 print(f"Error loading extraction history: {e}")
                 self.extraction_metadata = {}
+                self.recent_runs = []
         else:
             self.extraction_metadata = {}
+            self.recent_runs = []
+
+        if (
+            hasattr(self, "combo_recent_extractions")
+            and self.combo_recent_extractions is not None
+        ):
+            self._update_recent_extractions_ui()
 
     def _save_extraction_history(self):
         """Saves metadata for extracted frames to a central hidden JSON file."""
         history_file = IMAGE_TOOLKIT_DIR / "extraction_history.json"
         try:
             IMAGE_TOOLKIT_DIR.mkdir(parents=True, exist_ok=True)
+            data = {
+                "recent_runs": self.recent_runs,
+                "file_map": self.extraction_metadata,
+            }
             with open(history_file, "w", encoding="utf-8") as f:
-                json.dump(self.extraction_metadata, f, indent=2)
+                json.dump(data, f, indent=2)
         except Exception as e:
             print(f"Error saving extraction history: {e}")
 
     def _record_extraction(self, file_paths: List[str], metadata: dict):
         """Records metadata for a set of extracted files using absolute paths as keys."""
+        metadata = copy.deepcopy(metadata)
+        # 1. Update file_map for the new files
         for path in file_paths:
             abs_path = str(Path(path).absolute())
             self.extraction_metadata[abs_path] = metadata
+
+        # 2. Add to recent runs (avoid duplicate additions based on timestamp)
+        run_ts = metadata.get("timestamp")
+        if not any(run.get("timestamp") == run_ts for run in self.recent_runs):
+            self.recent_runs.append(metadata)
+
+        # 3. Sort recent runs and limit to N
+        self.recent_runs.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
+        self.recent_runs = self.recent_runs[: self.recent_extractions_limit]
+
+        # 4. Prune file_map to only contain files from the N most recent runs
+        recent_timestamps = {
+            run.get("timestamp") for run in self.recent_runs if run.get("timestamp")
+        }
+        keys_to_delete = [
+            path
+            for path, meta in self.extraction_metadata.items()
+            if meta.get("timestamp") not in recent_timestamps
+        ]
+        for key in keys_to_delete:
+            del self.extraction_metadata[key]
+
         self._save_extraction_history()
+        self._update_recent_extractions_ui()
+
+    def _apply_new_extractions_limit(self):
+        """Called when the settings window updates recent_extractions_limit."""
+        if hasattr(self, "recent_runs") and self.recent_runs:
+            self.recent_runs = self.recent_runs[: self.recent_extractions_limit]
+
+            # Prune file_map too
+            recent_timestamps = {
+                run.get("timestamp") for run in self.recent_runs if run.get("timestamp")
+            }
+            keys_to_delete = [
+                path
+                for path, meta in self.extraction_metadata.items()
+                if meta.get("timestamp") not in recent_timestamps
+            ]
+            for key in keys_to_delete:
+                del self.extraction_metadata[key]
+
+            self._save_extraction_history()
+            self._update_recent_extractions_ui()
+
+    def _update_recent_extractions_ui(self):
+        """Updates the dropdown of recent extractions in the Extract tab."""
+        if self._recent_combo_connected:
+            try:
+                self.combo_recent_extractions.currentIndexChanged.disconnect(
+                    self._on_recent_extraction_selected
+                )
+            except (RuntimeError, TypeError):
+                pass
+            self._recent_combo_connected = False
+
+        self.combo_recent_extractions.clear()
+        self.combo_recent_extractions.addItem("Select a previous configuration...")
+
+        for run in self.recent_runs:
+            video_path = run.get("video_path", "")
+            video_name = Path(video_path).name if video_path else "Unknown Video"
+            start_ms = run.get("start_ms", 0)
+            end_ms = run.get("end_ms", 0)
+            engine = run.get("engine", "FFmpeg")
+
+            # Format timestamp nicely
+            ts = run.get("timestamp", 0)
+            ts_str = (
+                time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts)) if ts else "N/A"
+            )
+
+            start_str = self._format_time(start_ms)
+            end_str = self._format_time(end_ms)
+
+            label = f"[{ts_str}] {video_name} ({start_str} - {end_str}) [{engine}]"
+            # Set the metadata dictionary as the item data!
+            self.combo_recent_extractions.addItem(label, run)
+
+        if hasattr(self, "btn_load_recent") and self.btn_load_recent is not None:
+            self.btn_load_recent.setEnabled(
+                self.combo_recent_extractions.currentIndex() > 0
+            )
+
+        self.combo_recent_extractions.currentIndexChanged.connect(
+            self._on_recent_extraction_selected
+        )
+        self._recent_combo_connected = True
+
+    def _on_recent_extraction_selected(self, index: int):
+        """Enables/disables the load button based on selection."""
+        if hasattr(self, "btn_load_recent") and self.btn_load_recent is not None:
+            self.btn_load_recent.setEnabled(index > 0)
+
+    def _load_selected_recent_extraction(self):
+        """Loads the selected recent extraction configuration into the UI."""
+        index = self.combo_recent_extractions.currentIndex()
+        if index <= 0:
+            QMessageBox.warning(
+                self, "Error", "Please select a valid configuration from the list."
+            )
+            return
+
+        run_data = self.combo_recent_extractions.itemData(index)
+        if run_data:
+            self._reload_extraction(run_data)
+            QMessageBox.information(
+                self, "Success", "Extraction configuration loaded successfully."
+            )
 
     def _clear_gallery(self):
         self.current_extracted_paths.clear()
@@ -1598,6 +1760,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.combo_smart_method.setCurrentText(
             metadata.get("smart_method", "mpdecimate (De-duplicate)")
         )
+        if "speed" in metadata:
+            self.combo_speed.setCurrentText(str(metadata["speed"]))
 
         self.media_player.setPosition(self.start_time_ms)
         self.media_player.pause()
@@ -2357,6 +2521,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self._set_extraction_buttons_enabled(True)
         self.extraction_progress_bar.hide()
         self.extraction_status_label.hide()
+        self._active_metadata = None
         if "cancelled" not in error_msg.lower():
             QMessageBox.warning(self, "Extraction Error", error_msg)
 
@@ -2465,6 +2630,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             # Keep local list synced
             self.current_extracted_paths = self.gallery_image_paths[:]
 
+            if self._active_metadata:
+                self._record_extraction([new_path], self._active_metadata)
+            self._active_metadata = None
+
             QMessageBox.information(
                 self, "Success", f"Media created successfully:\n{Path(new_path).name}"
             )
@@ -2475,6 +2644,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self._set_extraction_buttons_enabled(True)
         self.extraction_progress_bar.hide()
         self.extraction_status_label.hide()
+        self._active_metadata = None
         if "cancelled" not in error_msg.lower():
             QMessageBox.warning(self, "Export Error", error_msg)
 
@@ -2547,6 +2717,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             "frame_interval": self.spin_interval.value(),
             "smart_extract": self.check_smart_extract.isChecked(),
             "smart_method": self.combo_smart_method.currentText(),
+            "speed": self.combo_speed.currentText(),
             "timestamp": time.time(),
         }
 

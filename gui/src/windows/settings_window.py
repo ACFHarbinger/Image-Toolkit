@@ -84,6 +84,7 @@ class SettingsWindow(QWidget):
         self.pref_log_level = _p.get("log_level", "INFO")
         self.pref_file_logging = _p.get("file_logging_enabled", False)
         self.pref_extractor_seek_ms = _p.get("extractor_seek_ms", 100)
+        self.pref_recent_extractions_count = _p.get("recent_extractions_count", 10)
 
         # --- Configuration Defaults State ---
         self.tab_defaults_config = self._load_tab_defaults_from_vault()
@@ -144,6 +145,41 @@ class SettingsWindow(QWidget):
         login_layout.addRow(QLabel("New Master Password:"), self.new_password_input)
 
         content_layout.addWidget(login_groupbox)
+
+        # --- Cryptography Vault Sync/Load Section ---
+        vault_sync_groupbox = QGroupBox("Cryptography Vault Sync & Load")
+        vault_sync_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        vault_sync_layout = QVBoxLayout(vault_sync_groupbox)
+        vault_sync_layout.setContentsMargins(10, 10, 10, 10)
+
+        vault_sync_desc = QLabel(
+            "Synchronize active cryptography files between your home directory (~/.image-toolkit/cryptography) "
+            "and the repository templates (assets/cryptography)."
+        )
+        vault_sync_desc.setStyleSheet("color: #aaa; font-size: 11px;")
+        vault_sync_desc.setWordWrap(True)
+        vault_sync_layout.addWidget(vault_sync_desc)
+
+        btn_layout = QHBoxLayout()
+        self.btn_sync_vault = QPushButton("Sync Vault 📤")
+        self.btn_sync_vault.setToolTip(
+            "Copy active keystore, vault, and pepper files from ~/.image-toolkit/cryptography to the repository template directory."
+        )
+        self.btn_sync_vault.setStyleSheet("background-color: #7b1fa2; color: white; font-weight: bold;")
+        self.btn_sync_vault.clicked.connect(self._sync_vault_to_assets)
+
+        self.btn_load_vault = QPushButton("Load Vault 📥")
+        self.btn_load_vault.setToolTip(
+            "Overwrite active files in ~/.image-toolkit/cryptography with template files from the repository directory."
+        )
+        self.btn_load_vault.setStyleSheet("background-color: #2c3e50; color: white; font-weight: bold;")
+        self.btn_load_vault.clicked.connect(self._load_vault_from_assets)
+
+        btn_layout.addWidget(self.btn_sync_vault)
+        btn_layout.addWidget(self.btn_load_vault)
+        vault_sync_layout.addLayout(btn_layout)
+
+        content_layout.addWidget(vault_sync_groupbox)
 
         # --- Preferences Section ---
         prefs_groupbox = QGroupBox("Preferences")
@@ -220,6 +256,173 @@ class SettingsWindow(QWidget):
         content_layout.addWidget(prefs_groupbox)
 
         # ---------------------------------------------------------------------
+        # --- System Preference Profiles Section ---
+        # ---------------------------------------------------------------------
+        profiles_groupbox = QGroupBox("System Preference Profiles")
+        profiles_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        profiles_layout = QVBoxLayout(profiles_groupbox)
+
+        # Row 1: Select Profile to Load, Update, or Delete
+        profile_select_layout = QHBoxLayout()
+        self.profile_combo = QComboBox()
+        self.profile_combo.setPlaceholderText("Select Profile...")
+        self._refresh_profile_combo()
+
+        self.btn_load_profile = QPushButton("Load Profile")
+        self.btn_load_profile.setToolTip(
+            "Apply the selected profile's settings to the fields above"
+        )
+        self.btn_load_profile.clicked.connect(self._load_selected_profile)
+
+        self.btn_update_profile = QPushButton("Update Profile")
+        self.btn_update_profile.setToolTip(
+            "Update the selected profile with the current settings from the UI fields"
+        )
+        self.btn_update_profile.setStyleSheet(
+            "background-color: #2980b9; color: white;"
+        )
+        self.btn_update_profile.clicked.connect(self._update_selected_profile)
+
+        self.btn_delete_profile = QPushButton("Delete Profile")
+        self.btn_delete_profile.setStyleSheet(
+            "background-color: #e74c3c; color: white;"
+        )
+        self.btn_delete_profile.clicked.connect(self._delete_selected_profile)
+
+        profile_select_layout.addWidget(QLabel("Profile:"))
+        profile_select_layout.addWidget(self.profile_combo, 1)
+        profile_select_layout.addWidget(self.btn_load_profile)
+        profile_select_layout.addWidget(self.btn_update_profile)
+        profile_select_layout.addWidget(self.btn_delete_profile)
+
+        profiles_layout.addLayout(profile_select_layout)
+
+        # Row 2: Create New Profile
+        profile_create_layout = QHBoxLayout()
+        self.profile_name_input = QLineEdit()
+        self.profile_name_input.setPlaceholderText(
+            "New Profile Name (e.g., Work Laptop)"
+        )
+
+        self.btn_save_profile = QPushButton("Save Current Settings as Profile")
+        self.btn_save_profile.setToolTip(
+            "Save the current state of Theme and Tab Configs above as a new profile"
+        )
+        self.btn_save_profile.setStyleSheet("background-color: #2ecc71; color: white;")
+        self.btn_save_profile.clicked.connect(self._save_current_as_profile)
+
+        profile_create_layout.addWidget(QLabel("Name:"))
+        profile_create_layout.addWidget(self.profile_name_input, 1)
+        profile_create_layout.addWidget(self.btn_save_profile)
+
+        profiles_layout.addLayout(profile_create_layout)
+
+        content_layout.addWidget(profiles_groupbox)
+
+        # ---------------------------------------------------------------------
+        # --- Tab Default Configuration Section ---
+        # ---------------------------------------------------------------------
+        defaults_groupbox = QGroupBox("Tab Default Configuration Management")
+        defaults_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        defaults_layout = QVBoxLayout(defaults_groupbox)
+
+        # 1. Tab Selection
+        tab_select_layout = QFormLayout()
+
+        self.tab_group_combo = QComboBox()
+        self.tab_group_combo.setPlaceholderText("Select a Tab Group...")
+        categorized_tabs = self._get_all_tab_names_categorized()
+        self.tab_group_combo.addItems([""] + sorted(categorized_tabs.keys()))
+        self.tab_group_combo.currentTextChanged.connect(self._on_tab_group_changed)
+        tab_select_layout.addRow("Select Tab Group:", self.tab_group_combo)
+
+        self.tab_select_combo = QComboBox()
+        self.tab_select_combo.setPlaceholderText("Select a Tab...")
+        self.tab_select_combo.addItems([""])
+        self.tab_select_combo.currentTextChanged.connect(self._refresh_config_dropdown)
+        tab_select_layout.addRow("Select Tab Class:", self.tab_select_combo)
+        defaults_layout.addLayout(tab_select_layout)
+
+        # 2. Load Existing Configuration
+        load_config_layout = QFormLayout()
+        self.config_select_combo = QComboBox()
+        self.config_select_combo.setPlaceholderText("Load/Edit Existing Config...")
+        self.config_select_combo.currentTextChanged.connect(
+            self._load_selected_tab_config
+        )
+        load_config_layout.addRow("Load/Edit Config:", self.config_select_combo)
+
+        # Load/Delete/SET Buttons (Horizontal and full width)
+        full_width_buttons_layout = QHBoxLayout()
+        full_width_buttons_layout.setContentsMargins(
+            0, 5, 0, 5
+        )  # Optional spacing adjustment
+        full_width_buttons_layout.setSpacing(10)  # Add spacing between the two buttons
+
+        # NEW: Set Selected Config Button
+        self.btn_set_config = QPushButton("Set Selected Config")
+        self.btn_set_config.clicked.connect(self._set_selected_tab_config)
+        # Set policy to expand horizontally
+        self.btn_set_config.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        full_width_buttons_layout.addWidget(self.btn_set_config)
+
+        # Existing Delete Button
+        self.btn_delete_config = QPushButton("Delete Selected Config")
+        self.btn_delete_config.setStyleSheet("background-color: #e74c3c; color: white;")
+        self.btn_delete_config.clicked.connect(self._delete_selected_tab_config)
+        # Set policy to expand horizontally
+        self.btn_delete_config.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        full_width_buttons_layout.addWidget(self.btn_delete_config)
+
+        # Add the config selection layout first
+        defaults_layout.addLayout(load_config_layout)
+        # Then add the new full-width, side-by-side buttons layout
+        defaults_layout.addLayout(full_width_buttons_layout)
+
+        # 3. Create/Edit Configuration
+        create_config_group = QGroupBox("Create/Edit Configuration")
+        create_config_layout = QFormLayout(create_config_group)
+
+        self.config_name_input = QLineEdit()
+        self.config_name_input.setPlaceholderText(
+            "Enter a unique name (e.g., HighResConfig)"
+        )
+        create_config_layout.addRow("Config Name:", self.config_name_input)
+
+        self.default_config_editor = QTextEdit()
+        self.default_config_editor.setPlaceholderText(
+            "Select a Tab Class to see its default configuration..."
+        )
+        self.default_config_editor.setMinimumHeight(200)
+        create_config_layout.addRow("Configuration (JSON):", self.default_config_editor)
+
+        # Buttons to save/create config
+        save_buttons_layout = QHBoxLayout()
+
+        self.btn_create_default = QPushButton("Save Named Configuration")
+        self.btn_create_default.setToolTip(
+            "Save the JSON currently in the editor as a new configuration"
+        )
+        self.btn_create_default.clicked.connect(self._save_current_tab_config)
+
+        self.btn_save_current = QPushButton("Save Current Configuration")
+        self.btn_save_current.setToolTip(
+            "Capture current values from the active tab and save them"
+        )
+        self.btn_save_current.setStyleSheet(
+            "background-color: #007AFF; color: white; font-weight: bold;"
+        )
+        self.btn_save_current.clicked.connect(self._capture_and_save_current_config)
+
+        save_buttons_layout.addWidget(self.btn_create_default)
+        save_buttons_layout.addWidget(self.btn_save_current)
+
+        create_config_layout.addRow(save_buttons_layout)
+
+        defaults_layout.addWidget(create_config_group)
+        content_layout.addWidget(defaults_groupbox)
+
+        # ---------------------------------------------------------------------
         # --- Gallery & Display Section ---
         # ---------------------------------------------------------------------
         gallery_groupbox = QGroupBox("Gallery and Display")
@@ -271,6 +474,14 @@ class SettingsWindow(QWidget):
             "Time interval to seek when using the mouse wheel or arrow keys in the Extractor tab"
         )
         media_layout.addRow("Extractor Seek Interval:", self.extractor_seek_spinbox)
+
+        self.recent_extractions_spinbox = QSpinBox()
+        self.recent_extractions_spinbox.setRange(1, 100)
+        self.recent_extractions_spinbox.setValue(self.pref_recent_extractions_count)
+        self.recent_extractions_spinbox.setToolTip(
+            "Number of most recent extraction configurations/parameters to save"
+        )
+        media_layout.addRow("Recent Extractions Limit:", self.recent_extractions_spinbox)
 
         content_layout.addWidget(media_groupbox)
 
@@ -433,162 +644,6 @@ class SettingsWindow(QWidget):
 
         content_layout.addWidget(logging_groupbox)
 
-        # ---------------------------------------------------------------------
-        # --- NEW: System Preference Profiles Section ---
-        # ---------------------------------------------------------------------
-        profiles_groupbox = QGroupBox("System Preference Profiles")
-        profiles_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        profiles_layout = QVBoxLayout(profiles_groupbox)
-
-        # Row 1: Select Profile to Load or Delete
-        profile_select_layout = QHBoxLayout()
-        self.profile_combo = QComboBox()
-        self.profile_combo.setPlaceholderText("Select Profile...")
-        self._refresh_profile_combo()
-
-        self.btn_load_profile = QPushButton("Load Profile")
-        self.btn_load_profile.setToolTip(
-            "Apply the selected profile's settings to the fields above"
-        )
-        self.btn_load_profile.clicked.connect(self._load_selected_profile)
-
-        self.btn_delete_profile = QPushButton("Delete Profile")
-        self.btn_delete_profile.setStyleSheet(
-            "background-color: #e74c3c; color: white;"
-        )
-        self.btn_delete_profile.clicked.connect(self._delete_selected_profile)
-
-        profile_select_layout.addWidget(QLabel("Profile:"))
-        profile_select_layout.addWidget(self.profile_combo, 1)
-        profile_select_layout.addWidget(self.btn_load_profile)
-        profile_select_layout.addWidget(self.btn_delete_profile)
-
-        profiles_layout.addLayout(profile_select_layout)
-
-        # Row 2: Create New Profile
-        profile_create_layout = QHBoxLayout()
-        self.profile_name_input = QLineEdit()
-        self.profile_name_input.setPlaceholderText(
-            "New Profile Name (e.g., Work Laptop)"
-        )
-
-        self.btn_save_profile = QPushButton("Save Current Settings as Profile")
-        self.btn_save_profile.setToolTip(
-            "Save the current state of Theme and Tab Configs above as a new profile"
-        )
-        self.btn_save_profile.setStyleSheet("background-color: #2ecc71; color: white;")
-        self.btn_save_profile.clicked.connect(self._save_current_as_profile)
-
-        profile_create_layout.addWidget(QLabel("Name:"))
-        profile_create_layout.addWidget(self.profile_name_input, 1)
-        profile_create_layout.addWidget(self.btn_save_profile)
-
-        profiles_layout.addLayout(profile_create_layout)
-
-        content_layout.addWidget(profiles_groupbox)
-
-        # ---------------------------------------------------------------------
-        # --- Tab Default Configuration Section ---
-        # ---------------------------------------------------------------------
-        defaults_groupbox = QGroupBox("Tab Default Configuration Management")
-        defaults_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
-        defaults_layout = QVBoxLayout(defaults_groupbox)
-
-        # 1. Tab Selection
-        tab_select_layout = QFormLayout()
-
-        self.tab_group_combo = QComboBox()
-        self.tab_group_combo.setPlaceholderText("Select a Tab Group...")
-        categorized_tabs = self._get_all_tab_names_categorized()
-        self.tab_group_combo.addItems([""] + sorted(categorized_tabs.keys()))
-        self.tab_group_combo.currentTextChanged.connect(self._on_tab_group_changed)
-        tab_select_layout.addRow("Select Tab Group:", self.tab_group_combo)
-
-        self.tab_select_combo = QComboBox()
-        self.tab_select_combo.setPlaceholderText("Select a Tab...")
-        self.tab_select_combo.addItems([""])
-        self.tab_select_combo.currentTextChanged.connect(self._refresh_config_dropdown)
-        tab_select_layout.addRow("Select Tab Class:", self.tab_select_combo)
-        defaults_layout.addLayout(tab_select_layout)
-
-        # 2. Load Existing Configuration
-        load_config_layout = QFormLayout()
-        self.config_select_combo = QComboBox()
-        self.config_select_combo.setPlaceholderText("Load/Edit Existing Config...")
-        self.config_select_combo.currentTextChanged.connect(
-            self._load_selected_tab_config
-        )
-        load_config_layout.addRow("Load/Edit Config:", self.config_select_combo)
-
-        # Load/Delete/SET Buttons (Horizontal and full width)
-        full_width_buttons_layout = QHBoxLayout()
-        full_width_buttons_layout.setContentsMargins(
-            0, 5, 0, 5
-        )  # Optional spacing adjustment
-        full_width_buttons_layout.setSpacing(10)  # Add spacing between the two buttons
-
-        # NEW: Set Selected Config Button
-        self.btn_set_config = QPushButton("Set Selected Config")
-        self.btn_set_config.clicked.connect(self._set_selected_tab_config)
-        # Set policy to expand horizontally
-        self.btn_set_config.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        full_width_buttons_layout.addWidget(self.btn_set_config)
-
-        # Existing Delete Button
-        self.btn_delete_config = QPushButton("Delete Selected Config")
-        self.btn_delete_config.setStyleSheet("background-color: #e74c3c; color: white;")
-        self.btn_delete_config.clicked.connect(self._delete_selected_tab_config)
-        # Set policy to expand horizontally
-        self.btn_delete_config.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        full_width_buttons_layout.addWidget(self.btn_delete_config)
-
-        # Add the config selection layout first
-        defaults_layout.addLayout(load_config_layout)
-        # Then add the new full-width, side-by-side buttons layout
-        defaults_layout.addLayout(full_width_buttons_layout)
-
-        # 3. Create/Edit Configuration
-        create_config_group = QGroupBox("Create/Edit Configuration")
-        create_config_layout = QFormLayout(create_config_group)
-
-        self.config_name_input = QLineEdit()
-        self.config_name_input.setPlaceholderText(
-            "Enter a unique name (e.g., HighResConfig)"
-        )
-        create_config_layout.addRow("Config Name:", self.config_name_input)
-
-        self.default_config_editor = QTextEdit()
-        self.default_config_editor.setPlaceholderText(
-            "Select a Tab Class to see its default configuration..."
-        )
-        self.default_config_editor.setMinimumHeight(200)
-        create_config_layout.addRow("Configuration (JSON):", self.default_config_editor)
-
-        # Buttons to save/create config
-        save_buttons_layout = QHBoxLayout()
-
-        self.btn_create_default = QPushButton("Save Named Configuration")
-        self.btn_create_default.setToolTip(
-            "Save the JSON currently in the editor as a new configuration"
-        )
-        self.btn_create_default.clicked.connect(self._save_current_tab_config)
-
-        self.btn_save_current = QPushButton("Save Current Configuration")
-        self.btn_save_current.setToolTip(
-            "Capture current values from the active tab and save them"
-        )
-        self.btn_save_current.setStyleSheet(
-            "background-color: #007AFF; color: white; font-weight: bold;"
-        )
-        self.btn_save_current.clicked.connect(self._capture_and_save_current_config)
-
-        save_buttons_layout.addWidget(self.btn_create_default)
-        save_buttons_layout.addWidget(self.btn_save_current)
-
-        create_config_layout.addRow(save_buttons_layout)
-
-        defaults_layout.addWidget(create_config_group)
-        content_layout.addWidget(defaults_groupbox)
 
         # ---------------------------------------------------------------------
         # --- Reset State Section ---
@@ -626,13 +681,12 @@ class SettingsWindow(QWidget):
         daemon_row = QHBoxLayout()
         daemon_info = QLabel(
             "<small>Stops the daemon, removes its PID file, "
-            "and resets the slideshow config to defaults.</small>"
+            "and deletes the slideshow config JSON file.</small>"
         )
         daemon_info.setWordWrap(True)
         self.btn_reset_daemon = QPushButton("Reset Slideshow Daemon")
         self.btn_reset_daemon.setToolTip(
-            "Delete the daemon PID file and write an empty "
-            "config (running=false) to the slideshow config JSON."
+            "Delete the daemon PID file and remove the slideshow config JSON file."
         )
         self.btn_reset_daemon.setStyleSheet(
             "background-color: #e67e22; color: white; font-weight: bold;"
@@ -641,6 +695,25 @@ class SettingsWindow(QWidget):
         daemon_row.addWidget(daemon_info, 1)
         daemon_row.addWidget(self.btn_reset_daemon)
         reset_state_layout.addLayout(daemon_row)
+
+        # Row 2.5: reset extraction history
+        history_row = QHBoxLayout()
+        history_info = QLabel(
+            f"<small>Delete the central extraction history JSON file containing parameters and file associations.</small>"
+        )
+        history_info.setWordWrap(True)
+        self.btn_reset_history = QPushButton("Reset Extraction History")
+        self.btn_reset_history.setToolTip(
+            "Deletes the extraction_history.json file on disk and resets the dropdown selection list."
+        )
+        self.btn_reset_history.setStyleSheet(
+            "background-color: #e67e22; color: white; font-weight: bold;"
+        )
+        self.btn_reset_history.clicked.connect(self._reset_extraction_history)
+        history_row.addWidget(history_info, 1)
+        history_row.addWidget(self.btn_reset_history)
+        reset_state_layout.addLayout(history_row)
+
 
         # Row 3: clear logs
         logs_row = QHBoxLayout()
@@ -701,6 +774,15 @@ class SettingsWindow(QWidget):
         self.reset_button.clicked.connect(self.reset_settings)
         self.reset_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
+        # 1.5. Reload Button (New) 🆕
+        self.reload_button = QPushButton("Reload settings")
+        self.reload_button.setObjectName("reload_button")
+        self.reload_button.setStyleSheet(
+            "background-color: #34495e; color: white; font-weight: bold;"
+        )
+        self.reload_button.clicked.connect(self.reload_settings)
+        self.reload_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
         # 2. Refresh Button (New) 🆕
         self.refresh_button = QPushButton("Refresh Application (Relaunch) 🔄")
         self.refresh_button.setObjectName("refresh_button")
@@ -718,6 +800,7 @@ class SettingsWindow(QWidget):
         self.update_button.setDefault(True)
 
         actions_layout.addWidget(self.reset_button)
+        actions_layout.addWidget(self.reload_button)
         actions_layout.addWidget(self.refresh_button)  # Added refresh button
         actions_layout.addWidget(self.update_button)
 
@@ -768,6 +851,150 @@ class SettingsWindow(QWidget):
                 self.profile_combo.setCurrentText(name)
         except Exception as e:
             QMessageBox.critical(self, "Save Error", f"Failed to save profile: {e}")
+
+    def _update_selected_profile(self):
+        """Updates the selected profile with the current theme and tab config selections from the UI."""
+        name = self.profile_combo.currentText()
+        if not name:
+            QMessageBox.warning(self, "Error", "No profile selected to update.")
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Confirm Update",
+            f"Are you sure you want to update the profile '{name}' with the current settings?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        profile_data = self._get_current_ui_preferences()
+
+        try:
+            # 1. Update in-memory
+            self.system_profiles[name] = profile_data
+
+            # 2. Update vault
+            creds = self.vault_manager.load_account_credentials()
+            creds["system_preference_profiles"] = self.system_profiles
+            if self._save_vault_data(creds):
+                QMessageBox.information(
+                    self, "Success", f"Profile '{name}' updated successfully."
+                )
+        except Exception as e:
+            QMessageBox.critical(self, "Update Error", f"Failed to update profile: {e}")
+
+    def reload_settings(self):
+        """Reloads settings from the vault and re-populates the form fields, allowing newly created tab configurations to appear."""
+        if self.vault_manager:
+            try:
+                creds = self.vault_manager.load_account_credentials()
+                self.current_account_name = creds.get("account_name", "N/A")
+                self.initial_theme = creds.get("theme", "dark")
+                self.active_tab_configs = creds.get("active_tab_configs", {})
+                self.system_profiles = creds.get("system_preference_profiles", {})
+                self.preferences = creds.get("preferences", {})
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to load credentials from vault:\n{e}")
+                return
+
+        # Unpack preference values with defaults
+        _p = self.preferences
+        self.pref_thumbnail_size = _p.get("thumbnail_size", 180)
+        self.pref_page_size = _p.get("page_size", 100)
+        self.pref_confirm_deletions = _p.get("confirm_deletions", True)
+        self.pref_found_cache = _p.get("found_cache_maxsize", 300)
+        self.pref_selected_cache = _p.get("selected_cache_maxsize", 200)
+        self.pref_initial_cache = _p.get("initial_cache_maxsize", 300)
+        self.pref_restore_last_dir = _p.get("restore_last_dir", True)
+        self.pref_recent_dirs_count = _p.get("recent_dirs_count", 10)
+        self.pref_startup_category = _p.get("startup_category", "System Tools")
+        self.pref_slideshow_min = _p.get("slideshow_interval_min", 5)
+        self.pref_slideshow_sec = _p.get("slideshow_interval_sec", 0)
+        self.pref_slideshow_order = _p.get("slideshow_order", "Sequential")
+        self.pref_log_level = _p.get("log_level", "INFO")
+        self.pref_file_logging = _p.get("file_logging_enabled", False)
+        self.pref_extractor_seek_ms = _p.get("extractor_seek_ms", 100)
+        self.pref_recent_extractions_count = _p.get("recent_extractions_count", 10)
+
+        # Reload tab defaults from vault
+        self.tab_defaults_config = self._load_tab_defaults_from_vault()
+
+        # Update UI components
+        self.new_password_input.clear()
+        self.account_input.setText(self.current_account_name)
+
+        if self.initial_theme == "light":
+            self.light_theme_radio.setChecked(True)
+            self.dark_theme_radio.setChecked(False)
+        else:
+            self.dark_theme_radio.setChecked(True)
+            self.light_theme_radio.setChecked(False)
+
+        # Repopulate startup config combos so that they include newly created tab configurations!
+        for tab_class_name, combo in self.startup_config_combos.items():
+            current_sel = self.active_tab_configs.get(tab_class_name, "None (Default)")
+            combo.blockSignals(True)
+            combo.clear()
+            combo.addItem("None (Default)")
+            
+            configs_for_tab = self.tab_defaults_config.get(tab_class_name, {})
+            config_names = sorted(configs_for_tab.keys())
+            combo.addItems(config_names)
+            
+            # Select active config if it exists
+            if current_sel and current_sel in configs_for_tab:
+                combo.setCurrentText(current_sel)
+            else:
+                combo.setCurrentIndex(0)
+            combo.blockSignals(False)
+
+        # Repopulate Gallery & Display
+        self.thumbnail_size_spinbox.setValue(self.pref_thumbnail_size)
+        self.page_size_combo.setCurrentText(str(self.pref_page_size))
+        self.confirm_deletions_check.setChecked(self.pref_confirm_deletions)
+
+        # Repopulate Startup & Session
+        items = [
+            self.startup_category_combo.itemText(i)
+            for i in range(self.startup_category_combo.count())
+        ]
+        if self.pref_startup_category in items:
+            self.startup_category_combo.setCurrentText(self.pref_startup_category)
+        self.restore_last_dir_check.setChecked(self.pref_restore_last_dir)
+        self.recent_dirs_spinbox.setValue(self.pref_recent_dirs_count)
+
+        # Repopulate Performance & Cache
+        self.found_cache_spinbox.setValue(self.pref_found_cache)
+        self.selected_cache_spinbox.setValue(self.pref_selected_cache)
+        self.initial_cache_spinbox.setValue(self.pref_initial_cache)
+
+        # Repopulate Slideshow Defaults
+        self.slideshow_default_min_spinbox.setValue(self.pref_slideshow_min)
+        self.slideshow_default_sec_spinbox.setValue(self.pref_slideshow_sec)
+        self.slideshow_default_order_combo.setCurrentText(self.pref_slideshow_order)
+
+        # Repopulate Logging
+        self.log_level_combo.setCurrentText(self.pref_log_level)
+        self.file_logging_check.setChecked(self.pref_file_logging)
+
+        # Repopulate Extractor
+        self.extractor_seek_spinbox.setValue(self.pref_extractor_seek_ms)
+        self.recent_extractions_spinbox.setValue(self.pref_recent_extractions_count)
+
+        # Repopulate Profiles dropdown
+        self._refresh_profile_combo()
+        
+        # Reset Tab Defaults dropdown
+        self.tab_group_combo.setCurrentIndex(0)
+        self.tab_select_combo.clear()
+        self.tab_select_combo.addItems([""])
+        self.config_select_combo.clear()
+        self.config_name_input.clear()
+        self.default_config_editor.clear()
+
+        QMessageBox.information(self, "Settings Reloaded", "Settings reloaded from the vault successfully.")
 
     def _load_selected_profile(self):
         """Loads the selected profile into the UI elements."""
@@ -1367,11 +1594,16 @@ class SettingsWindow(QWidget):
                 "log_level": self.log_level_combo.currentText(),
                 "file_logging_enabled": self.file_logging_check.isChecked(),
                 "extractor_seek_ms": self.extractor_seek_spinbox.value(),
+                "recent_extractions_count": self.recent_extractions_spinbox.value(),
             }
 
             if self._save_vault_data(user_data):
-                if self.main_window_ref and selected_theme:
-                    self.main_window_ref.set_application_theme(selected_theme)
+                if self.main_window_ref:
+                    self.main_window_ref.cached_creds = user_data
+                    if selected_theme:
+                        self.main_window_ref.set_application_theme(selected_theme)
+                    if hasattr(self.main_window_ref, "_apply_startup_preferences"):
+                        self.main_window_ref._apply_startup_preferences()
                     QMessageBox.information(
                         self, "Success", "Settings updated and saved successfully."
                     )
@@ -1426,6 +1658,7 @@ class SettingsWindow(QWidget):
 
         # Reset Extractor
         self.extractor_seek_spinbox.setValue(100)
+        self.recent_extractions_spinbox.setValue(10)
 
     # ------------------------------------------------------------------
     # --- Reset State Methods ------------------------------------------
@@ -1460,13 +1693,13 @@ class SettingsWindow(QWidget):
             )
 
     def _reset_slideshow_daemon(self):
-        """Stops the daemon, deletes its PID file, and resets the config JSON."""
+        """Stops the daemon, deletes its PID file, and deletes the config JSON file."""
         reply = QMessageBox.question(
             self,
             "Confirm Reset",
             "This will:\n"
             f"  • Delete the PID file ({IMAGE_TOOLKIT_DIR / '.myapp_slideshow.pid'})\n"
-            f'  • Reset the slideshow config to {{"running": false}}\n\n'
+            f"  • Delete the slideshow config file ({DAEMON_CONFIG_PATH})\n\n"
             "The daemon will stop if it is currently running. Log files will NOT be deleted.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
@@ -1488,14 +1721,13 @@ class SettingsWindow(QWidget):
             errors.append(f"Could not delete PID file: {e}")
 
         try:
-            IMAGE_TOOLKIT_DIR.mkdir(parents=True, exist_ok=True)
-            with open(DAEMON_CONFIG_PATH, "w") as f:
-                import json as _json
-
-                _json.dump({"running": False}, f)
-            messages.append('Slideshow config reset to {"running": false}.')
+            if DAEMON_CONFIG_PATH.exists():
+                DAEMON_CONFIG_PATH.unlink()
+                messages.append("Deleted slideshow config file.")
+            else:
+                messages.append("Slideshow config file not found (already clean).")
         except Exception as e:
-            errors.append(f"Could not reset config: {e}")
+            errors.append(f"Could not delete slideshow config file: {e}")
 
         summary = "\n".join(messages)
         if errors:
@@ -1506,6 +1738,44 @@ class SettingsWindow(QWidget):
             )
         else:
             QMessageBox.information(self, "Daemon Reset", summary)
+
+    def _reset_extraction_history(self):
+        """Deletes the extraction_history.json file and clears the UI dropdown."""
+        history_file = IMAGE_TOOLKIT_DIR / "extraction_history.json"
+        reply = QMessageBox.question(
+            self,
+            "Confirm Reset",
+            f"Are you sure you want to delete the extraction history file?\n\n{history_file}\n\nThis cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            if history_file.exists():
+                history_file.unlink()
+                QMessageBox.information(
+                    self, "Success", "Extraction history file deleted successfully."
+                )
+            else:
+                QMessageBox.information(
+                    self, "Information", "Extraction history file not found (already clean)."
+                )
+            
+            # Immediately notify tabs to reload / clear history
+            if self.main_window_ref:
+                for cat_tabs in self.main_window_ref.all_tabs.values():
+                    for tab in cat_tabs.values():
+                        if hasattr(tab, "_load_extraction_history") and callable(tab._load_extraction_history):
+                            tab._load_extraction_history()
+                        if hasattr(tab, "_update_recent_extractions_ui") and callable(tab._update_recent_extractions_ui):
+                            tab._update_recent_extractions_ui()
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Error", f"Failed to reset extraction history:\n{e}"
+            )
+
 
     def _clear_application_logs(self):
         """Deletes all log files from the global logs directory."""
@@ -1581,3 +1851,96 @@ class SettingsWindow(QWidget):
                 )
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to clear tab configs:\n{e}")
+
+    def _sync_vault_to_assets(self):
+        """
+        Sync active files from ~/.image-toolkit/cryptography to the assets/cryptography template directory.
+        """
+        from backend.src.constants import TEMPLATE_CRYPTO_DIR, CRYPTO_DIR
+
+        active_dir = Path(CRYPTO_DIR)
+        template_dir = Path(TEMPLATE_CRYPTO_DIR)
+
+        if not active_dir.exists():
+            QMessageBox.warning(self, "Sync Error", "Active cryptography directory does not exist.")
+            return
+
+        template_dir.mkdir(parents=True, exist_ok=True)
+
+        # List of files to sync
+        files_to_sync = []
+        for item in active_dir.iterdir():
+            if item.is_file():
+                files_to_sync.append(item.name)
+
+        if not files_to_sync:
+            QMessageBox.information(self, "Sync Vault", "No cryptographic files found in active directory to sync.")
+            return
+
+        try:
+            for fname in files_to_sync:
+                src = active_dir / fname
+                dst = template_dir / fname
+                shutil.copy2(src, dst)
+                print(f"[SettingsWindow] Synced {src} -> {dst}")
+
+            QMessageBox.information(
+                self,
+                "Sync Vault Success",
+                f"Successfully synced {len(files_to_sync)} cryptographic file(s) to template directory:\n{template_dir}"
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Sync Error", f"Failed to sync vault files: {e}")
+
+    def _load_vault_from_assets(self):
+        """
+        Load (overwrite) active files in ~/.image-toolkit/cryptography with ones from the assets/cryptography template directory.
+        """
+        from backend.src.constants import TEMPLATE_CRYPTO_DIR, CRYPTO_DIR
+
+        active_dir = Path(CRYPTO_DIR)
+        template_dir = Path(TEMPLATE_CRYPTO_DIR)
+
+        if not template_dir.exists():
+            QMessageBox.warning(self, "Load Error", "Repository template cryptography directory does not exist.")
+            return
+
+        # Confirm overwrite
+        reply = QMessageBox.question(
+            self,
+            "Confirm Load Vault",
+            "This will OVERWRITE your active cryptography files in ~/.image-toolkit/cryptography with the template files. "
+            "Are you sure you want to proceed?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        active_dir.mkdir(parents=True, exist_ok=True)
+
+        # List of files to load
+        files_to_load = []
+        for item in template_dir.iterdir():
+            if item.is_file():
+                files_to_load.append(item.name)
+
+        if not files_to_load:
+            QMessageBox.information(self, "Load Vault", "No template files found in assets directory to load.")
+            return
+
+        try:
+            for fname in files_to_load:
+                src = template_dir / fname
+                dst = active_dir / fname
+                shutil.copy2(src, dst)
+                print(f"[SettingsWindow] Loaded {src} -> {dst}")
+
+            QMessageBox.information(
+                self,
+                "Load Vault Success",
+                f"Successfully loaded {len(files_to_load)} cryptographic file(s) to active directory:\n{active_dir}\nPlease restart the application to apply."
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Load Error", f"Failed to load vault files: {e}")
+

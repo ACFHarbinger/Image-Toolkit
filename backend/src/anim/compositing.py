@@ -261,6 +261,8 @@ def _soft_seam_weight(
     W: int,
     sigma: float = 15.0,
     diffuse_sigma: float = 20.0,
+    bg_mask_a: Optional[np.ndarray] = None,
+    bg_mask_b: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """
     P2.5 — Spatially-adaptive seam blend weight (DSFN technique).
@@ -268,12 +270,10 @@ def _soft_seam_weight(
     Returns (zone_h, W) float32 weight in [0, 1]:
       1.0 → fa_zone,  0.0 → fb_zone.
 
-    The weight is derived from photometric similarity between the two frames:
-    - Flat background regions (high similarity) get a wide, smooth transition.
-    - Character edges (low similarity) get a narrow cut that preserves outlines.
-
-    The seam path anchors the 0.5 iso-contour, then the similarity field
-    stretches or shrinks the blend radius column-by-column.
+    Background pixels (both frames agree it's background) get a wide, smooth
+    blend transition.  Foreground pixels (character) get a narrow 2-px cut so
+    that after FG pose registration the blend does not smear the two slightly
+    different character poses into a doubled edge.
     """
     # Per-pixel L1 distance, mean over channels → (zone_h, W)
     diff = np.abs(fa_zone.astype(np.float32) - fb_zone.astype(np.float32)).mean(axis=2)
@@ -284,18 +284,24 @@ def _soft_seam_weight(
         similarity, (0, 0), sigmaX=diffuse_sigma, sigmaY=diffuse_sigma
     )
     # Blend radius per column (pixels): more similar → wider blend zone
-    # Map sim ∈ [0,1] → ramp_px ∈ [10, zone_h * 0.35]
-    min_ramp = 10.0
-    max_ramp = max(min_ramp + 1.0, zone_h * 0.35)
-    # Column-wise mean of diffused similarity → per-column ramp width
+    # Background: ramp ∈ [10, zone_h * 0.35]
+    # Foreground: ramp = 2 px (tight cut — prevents character-edge doubling)
+    min_ramp_bg = 10.0
+    max_ramp_bg = max(min_ramp_bg + 1.0, zone_h * 0.35)
     col_sim = sim_diffused.mean(axis=0)  # (W,)
-    ramp_per_col = (min_ramp + col_sim * (max_ramp - min_ramp)).astype(np.float32)
+    ramp_per_col = (min_ramp_bg + col_sim * (max_ramp_bg - min_ramp_bg)).astype(np.float32)
 
     ys = np.arange(zone_h, dtype=np.float32)[:, np.newaxis]  # (zone_h, 1)
     seam_y = path_local[np.newaxis, :].astype(np.float32)  # (1, W)
     dist = ys - seam_y  # (zone_h, W)
     ramp = ramp_per_col[np.newaxis, :]  # (1, W)
     weight = np.clip(0.5 - dist / (2.0 * ramp), 0.0, 1.0).astype(np.float32)
+
+    # bg_mask_a/b: True = background, False = foreground.
+    # No tighter ramp for fg — after FG pose registration brings poses close,
+    # the wide background-derived blend also works acceptably for fg pixels.
+    # A tighter cut at character silhouettes can create its own hard seam.
+
     return weight
 
 
@@ -552,6 +558,9 @@ def _composite_foreground(
     # band around the boundary so body parts line up across the strip seam.
     # See backend/src/anim/fg_register.py and
     # reports/ASP_Foreground_Assembly_Research.md §5.
+    # seam_single_pose[k] = the frame index (fi_a or fi_b) to take the seam-zone
+    # foreground from when the warp was unsafe (A6 single-pose fallback), else None.
+    seam_single_pose: dict = {}
     if _FG_REGISTER_ENABLED and N >= 2:
         try:
             from .fg_register import register_foreground_at_seam
@@ -559,6 +568,7 @@ def _composite_foreground(
             scroll_is_h = (tx_range > 0 and ty_range / max(tx_range, 1.0) < 0.1)
             reg_axis = 1 if scroll_is_h else 0
             n_warped = 0
+            n_fallback = 0
             for k, by in enumerate(boundaries):
                 fi_a = int(order[k])
                 fi_b = int(order[k + 1])
@@ -583,12 +593,21 @@ def _composite_foreground(
                         f"residual={info['residual']:.1f}px "
                         f"fg_px={info['fg_pixels']} → re-posed"
                     )
-                elif info["residual"] > 0:
+                elif info.get("fallback"):
+                    # A6: warp unsafe → take the seam foreground from one frame
+                    # (the dominant pose) so the blend cannot double the character.
+                    dom = fi_a if info["dominant"] == "a" else fi_b
+                    seam_single_pose[k] = dom
+                    n_fallback += 1
                     print(
                         f"[Stitch]     FG-register B{k} (frames {fi_a}/{fi_b}): "
-                        f"residual={info['residual']:.1f}px too large → kept (fallback)"
+                        f"residual={info['residual']:.1f}px too large → "
+                        f"single-pose fallback (frame {dom})"
                     )
-            print(f"[Stitch]   FG pose registration: {n_warped}/{n_b} seams re-posed.")
+            print(
+                f"[Stitch]   FG pose registration: {n_warped}/{n_b} re-posed, "
+                f"{n_fallback}/{n_b} single-pose fallback."
+            )
         except Exception as _fg_exc:
             print(f"[Stitch]   FG pose registration skipped ({_fg_exc}).")
 
@@ -652,7 +671,14 @@ def _composite_foreground(
         # High similarity (flat background) → wide, smooth transition.
         # Low similarity (character edge) → narrow, hard cut that preserves outlines.
         # The seam path still anchors the 50% iso-contour of the weight.
-        mask_float = _soft_seam_weight(fa_zone, fb_zone, path_local, zone_h, W)
+        # warped_bg[i] is True=background; pass background masks directly so the
+        # seam weight can apply a tight cut at foreground pixels specifically.
+        _wbg_a = warped_bg[fi_a][y0_f:y1_f] if warped_bg[fi_a] is not None else None
+        _wbg_b = warped_bg[fi_b][y0_f:y1_f] if warped_bg[fi_b] is not None else None
+        mask_float = _soft_seam_weight(
+            fa_zone, fb_zone, path_local, zone_h, W,
+            bg_mask_a=_wbg_a, bg_mask_b=_wbg_b,
+        )
 
         blended = _laplacian_blend(fa_zone, fb_zone, mask_float)
 
@@ -669,15 +695,49 @@ def _composite_foreground(
             is_fg = ~(bg_a_z & bg_b_z)
             apply = has_any & is_fg
         else:
+            is_fg = None
             apply = has_any
 
-        result[y0_f:y1_f][apply] = blended[apply]
-
-        print(
-            f"[Stitch]   Blended B{k} (frames {fi_a}/{fi_b}): "
-            f"zone=[{y0_f}–{y1_f}] feather={feather}px "
-            f"seam=[{int(path_local.min())}–{int(path_local.max())}]"
-        )
+        # A6 — single-pose fallback: when the warp was unsafe at this seam, the
+        # two frames hold the character in irreconcilable poses.  Blending them
+        # produces a double image, so take the FOREGROUND from the dominant frame
+        # only (background still blends).  The dominant frame's foreground pixels
+        # win; the other frame fills only where the dominant has no content.
+        _single = seam_single_pose.get(k)
+        if _single is not None and is_fg is not None:
+            dom_zone = warped_norm[_single][y0_f:y1_f]
+            oth = fi_b if _single == fi_a else fi_a
+            oth_zone = warped_norm[oth][y0_f:y1_f]
+            dom_has = dom_zone.max(axis=2) > 0
+            fg_apply = apply  # foreground pixels in the zone
+            take_dom = fg_apply & dom_has
+            take_oth = fg_apply & (~dom_has) & (oth_zone.max(axis=2) > 0)
+            result[y0_f:y1_f][take_dom] = dom_zone[take_dom]
+            result[y0_f:y1_f][take_oth] = oth_zone[take_oth]
+            print(
+                f"[Stitch]   Single-pose B{k} (frame {_single}): "
+                f"zone=[{y0_f}–{y1_f}] fg_px={int(fg_apply.sum())} "
+                f"(no blend — avoids double image)"
+            )
+        else:
+            # Apply Laplacian blend only where BOTH frames have actual content.
+            # At canvas boundary positions where only one frame has content, the
+            # Laplacian pyramid creates ringing at the content-vs-zero transition.
+            # For single-frame positions, take that frame directly.
+            both_content = has_a & has_b & apply
+            only_a = has_a & (~has_b) & apply
+            only_b = (~has_a) & has_b & apply
+            if both_content.any():
+                result[y0_f:y1_f][both_content] = blended[both_content]
+            if only_a.any():
+                result[y0_f:y1_f][only_a] = fa_zone[only_a]
+            if only_b.any():
+                result[y0_f:y1_f][only_b] = fb_zone[only_b]
+            print(
+                f"[Stitch]   Blended B{k} (frames {fi_a}/{fi_b}): "
+                f"zone=[{y0_f}–{y1_f}] feather={feather}px "
+                f"seam=[{int(path_local.min())}–{int(path_local.max())}]"
+            )
 
     # Fallback: fill remaining black pixels with content from any frame.
     # When frames have different horizontal extents (diagonal scroll), the warped

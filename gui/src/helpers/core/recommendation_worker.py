@@ -1,10 +1,5 @@
 """
-QThread worker for content recommendations via BGE-M3 dense + sparse + RRF.
-
-Search strategy:
-  - Natural language prompt only   → dense k-NN
-  - Keyword fields only            → sparse k-NN
-  - Both present                   → dense + sparse with Reciprocal Rank Fusion
+QThread worker for content recommendations via BGE-M3 dense embeddings and local SQLCipher + sqlite-vec.
 """
 import logging
 from typing import Any, Dict, List, Tuple
@@ -16,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class RecommendationWorker(QThread):
     """
-    Generates recommendations using BGE-M3 embeddings and Qdrant search.
+    Generates recommendations using BGE-M3 dense embeddings and SQLCipher + sqlite-vec search.
 
     *inputs* dict keys (all optional):
       prompt   : str  – Natural language description for dense encoding
@@ -26,7 +21,7 @@ class RecommendationWorker(QThread):
       entities : str  – Comma-separated entity names for sparse encoding
 
     Emits ``finished`` with ``List[Tuple[str, float]]`` (UUID, score),
-    ordered by descending relevance.
+    ordered by descending relevance (higher score is more relevant).
     """
 
     finished = Signal(list)   # List[Tuple[str, float]]
@@ -36,13 +31,17 @@ class RecommendationWorker(QThread):
 
     def __init__(
         self,
-        qdrant_manager,
+        db_path: str,
+        password: str,
+        salt: str,
         inputs: Dict[str, Any],
         top_k: int = 50,
         parent=None,
     ):
         super().__init__(parent)
-        self._qdrant = qdrant_manager
+        self._db_path = db_path
+        self._password = password
+        self._salt = salt
         self._inputs = inputs
         self._top_k = top_k
 
@@ -59,7 +58,7 @@ class RecommendationWorker(QThread):
             tags_text = (self._inputs.get("tags") or "").strip()
             entities_text = (self._inputs.get("entities") or "").strip()
 
-            # Construct keyword text for sparse encoding from structured fields
+            # Construct keyword text from structured fields
             kw_parts: List[str] = []
             if genres_text:
                 kw_parts.append(f"Genres: {genres_text}")
@@ -68,12 +67,6 @@ class RecommendationWorker(QThread):
             if entities_text:
                 kw_parts.append(f"Featuring: {entities_text}")
             keyword_text = ". ".join(kw_parts)
-
-            # Qdrant filter from type dropdown
-            criteria: Dict[str, Any] = {}
-            if type_filter and type_filter not in ("All", "All Types", ""):
-                criteria["type"] = type_filter
-            filt = self._qdrant.build_filter(criteria) if criteria else None
 
             has_prompt = bool(prompt)
             has_keywords = bool(keyword_text)
@@ -85,82 +78,53 @@ class RecommendationWorker(QThread):
                 )
                 return
 
-            results: List[Tuple[str, float]] = []
+            self.status.emit("Generating query embeddings…")
+            self.progress.emit(1, 3)
 
+            # Standardize on dense embedding (since we use sqlite-vec which supports dense k-NN search)
+            # Combine prompt and keyword text if both are present
             if has_prompt and has_keywords:
-                # Hybrid: dense semantic + sparse lexical, fused with RRF
-                self.status.emit("Embedding prompt…")
-                self.progress.emit(1, 4)
-                dense_out = model.encode(
-                    [prompt],
-                    max_length=512,
-                    return_dense=True,
-                    return_sparse=False,
-                    return_colbert_vecs=False,
-                )
-                dense_vec: List[float] = dense_out["dense_vecs"][0].tolist()
-
-                self.status.emit("Embedding keywords…")
-                self.progress.emit(2, 4)
-                sparse_out = model.encode(
-                    [keyword_text],
-                    max_length=256,
-                    return_dense=False,
-                    return_sparse=True,
-                    return_colbert_vecs=False,
-                )
-                sw = sparse_out["lexical_weights"][0]
-                indices = [int(k) for k in sw.keys()]
-                values = [float(v) for v in sw.values()]
-
-                self.status.emit("Running hybrid search (RRF)…")
-                self.progress.emit(3, 4)
-                results = self._qdrant.hybrid_search_rrf(
-                    dense_vec, indices, values, filt=filt, limit=self._top_k
-                )
-
+                search_text = f"{prompt}. {keyword_text}"
             elif has_prompt:
-                # Dense-only semantic search
-                self.status.emit("Embedding prompt…")
-                self.progress.emit(1, 2)
-                dense_out = model.encode(
-                    [prompt],
-                    max_length=512,
-                    return_dense=True,
-                    return_sparse=False,
-                    return_colbert_vecs=False,
-                )
-                dense_vec = dense_out["dense_vecs"][0].tolist()
-
-                self.status.emit("Running semantic search…")
-                self.progress.emit(2, 2)
-                results = self._qdrant.search_dense(
-                    dense_vec, filt=filt, limit=self._top_k
-                )
-
+                search_text = prompt
             else:
-                # Sparse-only keyword search
-                self.status.emit("Embedding keywords…")
-                self.progress.emit(1, 2)
-                sparse_out = model.encode(
-                    [keyword_text],
-                    max_length=256,
-                    return_dense=False,
-                    return_sparse=True,
-                    return_colbert_vecs=False,
-                )
-                sw = sparse_out["lexical_weights"][0]
-                indices = [int(k) for k in sw.keys()]
-                values = [float(v) for v in sw.values()]
+                search_text = keyword_text
 
-                self.status.emit("Running keyword search…")
-                self.progress.emit(2, 2)
-                results = self._qdrant.search_sparse(
-                    indices, values, filt=filt, limit=self._top_k
-                )
+            dense_out = model.encode(
+                [search_text],
+                max_length=512,
+                return_dense=True,
+                return_sparse=False,
+                return_colbert_vecs=False,
+            )
+            dense_vec: List[float] = dense_out["dense_vecs"][0].tolist()
+
+            self.status.emit("Querying secure database…")
+            self.progress.emit(2, 3)
+
+            import base
+            rows = base.hybrid_search_secure(
+                self._db_path,
+                self._password,
+                self._salt,
+                dense_vec,
+                type_filter,
+                self._top_k
+            )
+
+            # Map the rows from secure DB to results list: (id, score)
+            # Normalize distance to a similarity score (higher is better)
+            results = []
+            for row in rows:
+                id_, title, category, metadata, distance = row
+                score = 1.0 / (1.0 + distance)
+                results.append((id_, score))
+
+            # Sort descending by score
+            results.sort(key=lambda x: x[1], reverse=True)
 
             self.status.emit(f"Done — {len(results)} recommendations found.")
-            self.progress.emit(4, 4)
+            self.progress.emit(3, 3)
             self.finished.emit(results)
 
         except Exception as exc:
