@@ -67,13 +67,26 @@ When flow confidence is low (fast action, motion blur), do not warp/average — 
 
 **Implementation order:** (A5) background-only median → (A1) SEA-RAFT wrapper → (A2) fg/bg flow decomposition → (A4) symmetric midpoint warp → (A6) confidence-gated fallback → (A3) full ARAP. See the consolidated report §2–§4 for the full method (ARAP Push/Regularise phases, LSD collinearity term, two-channel selection).
 
-**Status (2026-06-03):**
-- ✅ **A2/A4 prototype shipped** — `backend/src/anim/fg_register.py` implements dense-flow (OpenCV DIS) foreground residual extraction + symmetric midpoint warp, integrated into `compositing.py` Stage 11. Validated on test09 (seam tear reduced).
-- ⬜ **A1** — swap DIS → SEA-RAFT (anime-tuned via LinkTo-Anime) for flat-region robustness.
-- ⬜ **A3** — upgrade similarity warp → full Sýkora ARAP + LSD collinearity term (the line-art-preserving quality step).
-- ⬜ **A5** — exclude foreground mask from Stage 10 temporal median (background plate only).
-- ⬜ **A6** — confidence-gated Eden-2006 single-pose graph-cut fallback.
-- ⬜ **Segment-guided flow (AnimeInterp SGM)** as the flat-region flow fallback when DIS/SEA-RAFT produce aperture-problem chaos.
+**Status (2026-06-03 → 2026-06-03 session 2):**
+- ✅ **A2/A4** — flow-guided symmetric midpoint warp (DIS or RAFT), seam-band cropping (±taper_px+16px around seam), BORDER_CONSTANT boundary fix, `~valid_content` masking.
+- ✅ **A1** — **ptlflow installed**; `sea_raft_s@things` (or best available pretrained RAFT variant) loads lazily on GPU. Flow computed on seam-band crops at max_side=1280 to avoid OOM. Falls back to DIS when ptlflow unavailable. Toggle: `ASP_FLOW_ENGINE=dis` to force DIS.
+- ✅ **A3** — **ARAP regularisation** implemented: `_arap_regularise()` in `fg_register.py` fits per-cell (16×16px) rigid median transforms to the fg flow, then bilinearly interpolates smooth per-pixel flow. Prevents raw flow from bending straight line-art strokes. Uses `scipy.interpolate.RegularGridInterpolator`.
+- ✅ **A5** — foreground-excluded temporal median in `rendering.py` (background-only plate).
+- ✅ **A6** — confidence-gated single-pose fallback when animation residual > `FG_REG_MAX_RESIDUAL`.
+- ✅ **Boundary fixes** — BORDER_CONSTANT (no edge-smear), `~valid` masking (no content extension), both-content Laplacian (no ringing at canvas edges).
+- ✅ **BiRefNet two-channel selector** — implemented with real BiRefNet masks (not peripheral heuristic); disabled by default (`ASP_TWO_CHANNEL_SELECT=0`) due to overhead and frame-selection regressions. Enable for targeted testing.
+- ⬜ **LSD collinearity term** in ARAP — the full Sýkora ARAP adds a line-segment-detector penalty to prevent bending of detected straight strokes; current implementation uses median-per-cell rigid transform which is similar in spirit but lacks the LSD hard constraint.
+- ⬜ **Segment-guided flow (AnimeInterp SGM)** — per-colour-segment centroid flow for scenes where RAFT also fails (very flat, large uniform regions).
+- ⬜ **ARAP Push phase** — Sýkora's full push-regularise loop with block-matching (currently only the regularisation phase is implemented; the push phase would use actual appearance matching to refine the per-cell rigid transforms).
+
+**Benchmark note (2026-06-03, session 2):** RAFT + ARAP + post_warp_diff escalation → SSIM essentially flat vs session 1 (test09: 0.787, test27: 0.709). Experiments tried and their outcomes:
+- **Global reference pose (asymmetric alpha)**: catastrophic regression on test27 (-0.151) due to flow noise amplification at α=1.0 seams. Reverted.
+- **Character bounding-box crop**: incorrectly cuts horizontal extent for vertical pans (cuts locker background). Reverted.
+- **post_warp_diff threshold=22**: marginal +0.002 on test08, -0.001 on test57. Kept.
+- **max_residual=50**: consistent +0.001 on test08 (9/13 seams single-pose); no improvement on others.
+- **ARAP cell_size=8, n_iter=3**: no measurable SSIM change.
+
+**The SSIM ceiling** for the current corpus is determined by animation timing between selected frames vs the GT reference, not by flow quality or regularisation. RAFT and DIS give identical residual estimates. The midpoint warp halves the pose gap; the remaining half is what limits SSIM.
 
 ---
 

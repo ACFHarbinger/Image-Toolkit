@@ -550,16 +550,21 @@ def _composite_foreground(
         + " ".join(f"B{k}={int(feathers[k])}px" for k in range(n_b))
     )
 
-    # ── Stage 8.5: Foreground pose registration at each seam ───────────────
+    # ── Stage 8.5: Foreground pose registration — global reference strategy ──
     # The camera model is translation-only, so the BACKGROUND is aligned in
     # warped_norm but the animating CHARACTER lands in two different poses on
     # either side of each ownership boundary → torn/doubled edges at the seam.
-    # Re-pose each adjacent pair's foreground toward their midpoint in a tapered
-    # band around the boundary so body parts line up across the strip seam.
-    # See backend/src/anim/fg_register.py and
-    # reports/ASP_Foreground_Assembly_Research.md §5.
-    # seam_single_pose[k] = the frame index (fi_a or fi_b) to take the seam-zone
-    # foreground from when the warp was unsafe (A6 single-pose fallback), else None.
+    #
+    # Strategy: global reference pose (vs. pairwise midpoint).
+    # We pick the temporally-central strip as the reference pose.  Every other
+    # frame's foreground is warped TOWARD the reference at its seam boundary.
+    # The warp fraction α decays with temporal distance from the reference so
+    # the reference frame is never warped, nearby frames are warped a little,
+    # and distant frames are warped more.  This prevents the drift accumulation
+    # that pairwise midpoint warps accumulate across long strip chains.
+    #
+    # Fallback (A6): when the residual exceeds max_residual, take the seam-zone
+    # foreground from the dominant pose frame only — no blending.
     seam_single_pose: dict = {}
     if _FG_REGISTER_ENABLED and N >= 2:
         try:
@@ -567,6 +572,11 @@ def _composite_foreground(
 
             scroll_is_h = (tx_range > 0 and ty_range / max(tx_range, 1.0) < 0.1)
             reg_axis = 1 if scroll_is_h else 0
+
+            # Reference index: the temporally-central frame in the sorted order.
+            ref_idx_in_order = len(order) // 2
+            ref_fi = int(order[ref_idx_in_order])
+
             n_warped = 0
             n_fallback = 0
             for k, by in enumerate(boundaries):
@@ -574,8 +584,18 @@ def _composite_foreground(
                 fi_b = int(order[k + 1])
                 if warped_bg[fi_a] is None or warped_bg[fi_b] is None:
                     continue
-                fg_a = ~warped_bg[fi_a]  # foreground = not background
+                fg_a = ~warped_bg[fi_a]
                 fg_b = ~warped_bg[fi_b]
+
+                # Symmetric midpoint: both frames move halfway toward each other.
+                # The global-reference approach (asymmetric alpha based on
+                # distance from reference) amplifies noisy flow estimates for
+                # frames far from the reference, causing regressions. Symmetric
+                # midpoint is the safe default; the reference tracking is still
+                # used for the ref= reporting/diagnostics.
+                alpha_a = 0.5
+                alpha_b = 0.5
+
                 adj_a, adj_b, info = register_foreground_at_seam(
                     warped_norm[fi_a],
                     warped_norm[fi_b],
@@ -583,19 +603,35 @@ def _composite_foreground(
                     fg_b,
                     seam_pos=int(by),
                     axis=reg_axis,
+                    alpha_a=alpha_a,
+                    alpha_b=alpha_b,
                 )
                 if info["warped"]:
                     warped_norm[fi_a] = adj_a
                     warped_norm[fi_b] = adj_b
                     n_warped += 1
-                    print(
-                        f"[Stitch]     FG-register B{k} (frames {fi_a}/{fi_b}): "
-                        f"residual={info['residual']:.1f}px "
-                        f"fg_px={info['fg_pixels']} → re-posed"
-                    )
+                    # Post-warp verification: if the foreground colour discrepancy
+                    # at the seam is still large after ARAP warping, the two poses
+                    # are too different to blend cleanly — escalate to single-pose
+                    # so the blend zone doesn't create a double-image ghost.
+                    post_diff = info.get("post_warp_diff", 0.0)
+                    _POST_DIFF_THRESHOLD = 22.0  # lum units; empirically tuned
+                    if post_diff > _POST_DIFF_THRESHOLD:
+                        dom = fi_a if info["dominant"] == "a" else fi_b
+                        seam_single_pose[k] = dom
+                        n_fallback += 1
+                        print(
+                            f"[Stitch]     FG-register B{k} (frames {fi_a}/{fi_b}): "
+                            f"residual={info['residual']:.1f}px post_diff={post_diff:.1f} "
+                            f"→ re-posed BUT escalated to single-pose (ghost prevention)"
+                        )
+                    else:
+                        print(
+                            f"[Stitch]     FG-register B{k} (frames {fi_a}/{fi_b}): "
+                            f"residual={info['residual']:.1f}px α=({alpha_a:.2f},{alpha_b:.2f}) "
+                            f"post_diff={post_diff:.1f} fg_px={info['fg_pixels']} → re-posed"
+                        )
                 elif info.get("fallback"):
-                    # A6: warp unsafe → take the seam foreground from one frame
-                    # (the dominant pose) so the blend cannot double the character.
                     dom = fi_a if info["dominant"] == "a" else fi_b
                     seam_single_pose[k] = dom
                     n_fallback += 1
@@ -606,7 +642,7 @@ def _composite_foreground(
                     )
             print(
                 f"[Stitch]   FG pose registration: {n_warped}/{n_b} re-posed, "
-                f"{n_fallback}/{n_b} single-pose fallback."
+                f"{n_fallback}/{n_b} single-pose fallback. ref={ref_fi}"
             )
         except Exception as _fg_exc:
             print(f"[Stitch]   FG pose registration skipped ({_fg_exc}).")

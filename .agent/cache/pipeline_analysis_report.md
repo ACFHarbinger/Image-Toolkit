@@ -1,191 +1,116 @@
-# ASP Pipeline Analysis — Character-Movement Iteration Report
+# ASP Pipeline Analysis — Session 2 (2026-06-03)
 
-**Date:** 2026-06-03  
-**Benchmark:** `anime_stitch_20260603_160202.json` (5 targeted tests)  
-**Baseline reference:** `anime_stitch_20260601_191331.json` (96-test corpus, pre character-movement features)
-
----
-
-## 1. Executive Summary
-
-This session implemented a complete character-movement feature set and iterated over compositing and rendering quality improvements. The five tests benchmark the pipeline's ability to handle the core problem: **assembling a character body from frames captured 300–800 ms apart, where the character is animating between frames**.
-
-| Test | Pre-feature GT-SSIM | Final GT-SSIM | Δ | Aligned GT-SSIM | GT Verdict |
-|------|----------------:|----------:|------|------------:|----------|
-| test04 | 0.633 | **0.742** | **+0.109** | 0.771 | comparable |
-| test08 | 0.731 | 0.735 | +0.004 | 0.763 | simple_better |
-| test09 | 0.785 | **0.787** | +0.002 | **0.832** | **asp_better** |
-| test27 | 0.705 | 0.709 | +0.004 | 0.748 | **asp_better** |
-| test57 | 0.738 | 0.745 | +0.007 | 0.736 | comparable |
-
-**Net result:** improvements on all 5 tests; ASP wins the GT comparison on test09 and test27.
+**Final benchmark:** `anime_stitch_20260603_202535.json`  
+**Prev session baseline:** `anime_stitch_20260603_182046.json`  
+**Pre-feature baseline:** `anime_stitch_20260601_191331.json`
 
 ---
 
-## 2. Features Implemented This Session
+## 1. Final Results Table
 
-### 2.1 A5 — Foreground-excluded temporal median (`rendering.py`)
+| Test | Pre-feature | Session 1 | Session 2 | Simple stitch | ΔSession1 | Verdict |
+|------|----------:|----------:|----------:|-------------:|----------:|---------|
+| test04 | 0.633 | 0.742 | 0.742 | 0.738 | +0.000 | comparable |
+| test08 | 0.731 | 0.735 | **0.737** | 0.813 | +0.002 | simple_better |
+| test09 | 0.785 | 0.787 | 0.787 | 0.757 | -0.000 | **asp_better** |
+| test27 | 0.705 | 0.709 | 0.708 | 0.677 | -0.001 | **asp_better** |
+| test57 | 0.738 | 0.745 | 0.743 | 0.756 | -0.002 | comparable |
 
-**Problem:** The Stage-9 median included foreground pixels, averaging different animation poses into translucent ghosts on the background plate.
-
-**Fix:** Per-frame BiRefNet background masks are warped into canvas space; the median is computed from **background pixels only**. Where a pixel has no background sample (the character is always there), falls back to the geometric median so Stage-11 can overwrite it with proper content.
-
-**Gated by** `ASP_FG_EXCLUDE_MEDIAN=1` (default ON).
-
-**Verified** by 3 unit tests in `test_rendering.py::TestForegroundExcludedMedian`.
-
----
-
-### 2.2 Flow-guided foreground pose registration (Stage 8.5, `fg_register.py` + `compositing.py`)
-
-**Problem:** Character body parts land in different animation poses on either side of every strip seam → torn/doubled edges visible as doubled character outlines.
-
-**Fix:** After canvas-alignment (background already aligned), residual optical flow on the foreground is the pure animation motion `A_animation`. Each adjacent frame pair is **re-posed toward their midpoint** (warp frame `a` by `+½·flow`, frame `b` by `−½·flow`), tapered to zero away from the seam. Background pixels are never touched. Flow engine: OpenCV DIS.
-
-**Boundary fix:** `_remap_by_displacement` now uses `BORDER_CONSTANT` (not `BORDER_REPLICATE`) and restores original pixels for out-of-bounds source coordinates. Additionally, the warp is never allowed to introduce content where the original had none (`adj_a[~valid_a] = 0`). This prevents the warp from extending canvas pixels into empty boundary regions.
+**Session 2 net gain: +0.002 on test08, essentially flat everywhere else.**
 
 ---
 
-### 2.3 A6 — Single-pose fallback for large animation gaps (`fg_register.py` + `compositing.py`)
+## 2. Features Shipped This Session
 
-**Problem:** When the animation residual exceeds `FG_REG_MAX_RESIDUAL` (90 px, tunable via `ASP_FG_MAX_RESIDUAL`), blending two irreconcilable poses creates a double image.
+### 2.1 A1 — RAFT optical flow (sea_raft_s@things)
+**ptlflow** installed; `sea_raft_s@things` loads lazily on GPU as the primary flow engine. Key details:
+- **Seam-band cropping**: flow computed only on ±taper_px+16 strip around seam (not full canvas, avoids VRAM OOM on 2000+px canvases at 1280px downscale)
+- Falls back to DIS automatically. Toggle: `ASP_FLOW_ENGINE=dis`
 
-**Fix:** `register_foreground_at_seam` returns `fallback=True` and identifies the **dominant frame** (whichever frame has more foreground pixels in the seam band). The compositor then takes the seam-zone foreground exclusively from the dominant frame — no blending — preventing the double image. Fired in test08 (residuals 93/111 px) and test57 (105/108 px).
+**Finding**: RAFT and DIS give identical SSIM outcomes for these tests. The animation residuals (7-85px) are detected accurately by both engines. Flow quality is not the bottleneck.
 
-**Verified** by 2 unit tests covering fallback flag and dominant-frame identification.
+### 2.2 A3 — ARAP regularisation (cell_size=16, n_iter=2)
+Implements Sýkora-style per-cell rigid median translation interpolated back to pixel space via `scipy.interpolate.RegularGridInterpolator`. Replaces Gaussian smoothing to preserve line-art collinearity.
 
----
+**Finding**: No measurable SSIM improvement. The regularisation is geometrically correct but the SSIM gain from smoother flow is below measurement noise.
 
-### 2.4 Composite quality gate — moved to post-Stage-11 output (`bench_anime_stitch.py`)
+### 2.3 A6 enhanced — post_warp_diff ghost-prevention escalation
+After applying the ARAP-regularised midpoint warp, measures the mean foreground colour difference in a narrow strip at the seam. If `post_warp_diff > 22 lum units`, escalates to single-pose fallback (no blend) rather than Laplacian blending two different poses.
 
-**Problem:** The gate previously measured the Stage-9 plate (pre-gain-correction). With A5 active, the background-only plate has larger un-corrected inter-strip luminance jumps, over-triggering the gate and falsely rejecting good composites (test27 was falling back to SCANS).
+**Finding**: Catches 5 seams in test08 (residuals 22-32 lum units) → +0.002 SSIM. No effect on test09 (post_diffs 5-18 units, all below threshold).
 
-**Fix:** Gate now measures `seam_coherence` and `strip_banding` on the **final Stage-11 composite** (after bg-only scalar gain correction + foreground re-posing). Thresholds retuned for the post-gain output (sc > 38, sb > 30). Previously-valid composites are now retained; genuinely-banded outputs still fall back.
-
----
-
-### 2.5 Laplacian blend restricted to dual-content regions (`compositing.py`)
-
-**Problem:** The Laplacian pyramid blend creates ringing at canvas boundaries where only one frame has content (content-to-zero transition). This was a source of right-edge and corner artifacts.
-
-**Fix:** At seam blend zones:
-- `both_content = has_a & has_b & apply` → Laplacian blend
-- `only_a = has_a & ~has_b & apply` → take frame A directly
-- `only_b = ~has_a & has_b & apply` → take frame B directly
-
-This prevents the pyramid from processing sharp zero transitions.
+### 2.4 Infrastructure additions
+- `alpha_a / alpha_b` parameters in `register_foreground_at_seam` — ready for asymmetric warp experiments
+- Global reference tracking (`ref=N` in log output)
+- `post_warp_diff` diagnostic in info dict
 
 ---
 
-### 2.6 Two-channel pose-consistency frame selector (implemented, disabled by default)
+## 3. Failed Experiments (reverted)
 
-**Implemented** peripheral-region phase correlation to isolate camera pan from animation. **Disabled by default** after A/B testing showed regressions (test27: 0.708→0.676, test57: 0.745→0.720) — the peripheral heuristic is noisier than whole-frame for scenes where the character doesn't reliably occupy the frame center. Available via `ASP_TWO_CHANNEL_SELECT=1`.
+### 3.1 Global reference asymmetric alpha (catastrophic: test27 -0.151)
+**Idea**: warp all frames toward a single central reference rather than pairwise midpoints. Frames far from reference get `alpha → 1.0` (full warp), frames adjacent to reference get `alpha → 0.0` (don't move).
 
----
+**Failure mode**: At α=1.0, a 5px flow error becomes a 5px wrong displacement on the frame. For flat-region scenes (test27: uniform skin, minimal texture gradient), RAFT flow is noisier → errors amplified at α=1.0 → catastrophic content displacement. Test27 dropped from 0.709 to 0.558.
 
-## 3. Per-Test Analysis
+**Lesson**: Asymmetric warp amplifies flow noise proportionally to `max(alpha_a, alpha_b)`. Never exceed ~0.65 for noisy flows. The global reference idea is sound but needs reliable flow first.
 
-### test09 — Canonical case, **asp_better** (0.785 → 0.787, aligned 0.832)
+### 3.2 Character bounding-box crop (wrong axis for vertical pans)
+**Idea**: After assembly, crop to the foreground character bounding box to remove excess background-only regions (test27 has 2× more pan than GT shows).
 
-**What worked:** 20/20 seams re-posed by FG registration. The background sky plate is clean (A5). The character body has coherent seams. Aligned SSIM reaches 0.832 (close to theoretical limit for this framing).
+**Failure mode**: For a vertical pan (test27), BiRefNet fg union covers the full column extent at each frame's side. The bounding box calculation found the character was in the left half of each frame → cut 44% of columns → removed the right-side background lockers that are essential to the composition.
 
-**Remaining gap (0.787 raw vs 0.832 aligned):** The 0.045 gap between raw and aligned SSIM is from minor framing differences — our output (1865×2149) vs GT (1785×2196), a ~4% scale/crop difference. After ECC alignment this disappears. The structural content is essentially correct.
-
-**Middle-band SSIM (rows 800–1100, character body/shorts):** 0.747 — this is the animation-pose-sensitive region where different frames show the character in slightly different positions relative to the camera pan. After FG registration, poses are brought within 9–22 px of each other; residual mismatch from animation timing is the fundamental limit.
-
-**Verdict:** The pipeline is genuinely producing better output than the simple stitch for this test (0.787 vs 0.757). Visual inspection confirms the character body is coherent with no visible seam tears.
+**Lesson**: Foreground-aware crop must respect the scroll axis. For a vertical pan, only crop excess top/bottom rows where NO frame has character content, not columns. This is a harder problem requiring knowledge of which rows are "unique content" vs "covered by adjacent frames."
 
 ---
 
-### test27 — Full-body portrait, **asp_better** (0.705 → 0.709, aligned 0.748)
+## 4. Understanding the SSIM Ceiling
 
-**What worked:** 19/19 seams re-posed. Background (lockers) plate is clean. FG registration brings the character's pose inconsistencies within the blend tolerance.
+The SSIM scores 0.787/0.709/0.745 for tests 09/27/57 have been essentially stable across all improvements tried (RAFT, ARAP, global reference, threshold tuning). Analysis of the aligned-SSIM (ECC alignment before comparison) reveals the actual ceiling:
 
-**Scale mismatch is the fundamental SSIM ceiling:** GT is 963×1280; our output is 1877×2135 (≈2× larger in both dimensions). The benchmark resizes both to 963×1280 for comparison, which means our output is downscaled 2× (introducing blur). This explains the raw vs aligned gap (0.709 raw vs 0.748 aligned). When comparing at matched resolution, the content quality is effectively the same. To improve raw SSIM further, the pipeline would need to output at GT scale (≈3 frames at 100px step).
+| Test | Raw SSIM | Aligned SSIM | Gap (framing) | Remaining gap |
+|------|--------:|-------------:|--------------|--------------|
+| test09 | 0.787 | 0.832 | 0.045 | 0.168 (from 1.0) |
+| test27 | 0.708 | 0.748 | 0.040 | 0.252 (2× scale) |
+| test57 | 0.743 | 0.736 | (negative!) | — |
 
-**Verdict:** ASP beats the simple stitch (0.709 vs 0.677). The scale mismatch limits absolute SSIM but the assembled panorama is correctly covering more content than the GT reference at matched quality.
+The remaining gap (above the aligned SSIM) comes from:
+1. **Animation timing**: the GT was assembled from specific frames at specific times. Our frame selection picks different frames → character is in a different animation phase.
+2. **Midpoint warp residual**: even with perfect flow, the midpoint warp only HALVES the pose gap. The remaining half creates residual seam artifacts.
+3. **SSIM sensitivity to fine structure**: anime's sharp line-art means even 1px misalignment creates a measurable SSIM penalty.
 
----
-
-### test08 — Complex arm motion, **simple_better** (0.731 → 0.735)
-
-**Nature of the gap:** Simple stitch scores 0.813 vs our 0.735. The simple stitch selects adjacent frames (42ms apart) where the character's raised-arm pose barely changes. Our 11-frame assembly captures the full motion arc, creating complex pose blending even after FG registration. Two seams had residuals >90px and used single-pose fallback.
-
-**Stage-9 plate:** Heavily ghosted from extreme motion — even with A5's fg-excluded median, the "always-fg" fallback (geometric median of all poses) averages the arm in multiple positions. Stage-11 overwrites the character but boundary-zone blending artifacts remain from the multi-pose averaging in the bg plate.
-
-**Current boundary artifact:** Pixelated corruption visible in upper corners. Confirmed to exist both with and without FG registration — the source is the Stage-9 temporal median ghosting at canvas boundaries where multiple different poses of the raised arm overlap. This is a fundamental limitation of the temporal median for high-amplitude animation: the Laplacian blend at seam zones creates ringing when one frame's content meets another frame's zero-content region.
-
-**Verdict:** Fundamental scene complexity (>90px animation residual) limits our approach for this test. The simple stitch's narrow-baseline selection naturally avoids pose blending. FG registration does help marginally (+0.004 vs disabled).
+**The bottleneck is upstream of the compositing**: better frame selection (selecting frames that are pose-consistent with the GT reference) would improve SSIM more than any compositing improvement.
 
 ---
 
-### test57 — Extended coverage, **comparable** (0.738 → 0.745)
+## 5. Implementation Status (complete picture)
 
-**What worked:** 23/25 seams re-posed; 2 seams (residuals 105/108 px) used single-pose fallback. Composite gate passed (sc=26.4, sb=21.6). Comparable to simple stitch (0.745 vs 0.756).
-
-**Remaining gap to simple stitch:** The simple stitch picks temporally-close frames that naturally match the GT's specific frame selection. Our wider-baseline assembly introduces small pose differences that accumulate. The gap (0.011) is within normal variation.
-
----
-
-### test04 — Catastrophic → recovered (0.633 → 0.742, **+0.109**)
-
-**What happened:** The composite gate (now measuring post-Stage-11 output) correctly routes to SCANS (strip_banding=32.5 > 30.0 after compositing). But the preprocessing pipeline still runs fully and produces a better-structured input to SCANS than the pre-feature version. The GT-SSIM of 0.742 matches the simple stitch (0.738) — SCANS is now producing near-identical quality to the reference, which is the correct behaviour when multi-frame assembly would produce severe banding.
-
----
-
-## 4. Convergence Analysis
-
-Iterative improvements in this session:
-
-| Iteration | Changes | test09 | test27 | test08 | test57 |
-|-----------|---------|--------|--------|--------|--------|
-| Baseline (pre-session) | — | 0.785 | 0.705 | 0.731 | 0.738 |
-| +A5+A6+gate fix | FG-excluded median, single-pose fallback, composite gate | 0.787 | 0.708 | 0.733 | 0.745 |
-| +iter2 (A5-dilation, tight-fg-ramp 6px) | Extra fg dilation 24px, seam ramp | 0.786 | 0.705 | 0.735 | 0.741 |
-| +BORDER_CONSTANT only | Boundary pixel restoration | 0.787 | 0.709 | 0.735 | 0.745 |
-| +both-content Laplacian | No blend at single-frame boundary pixels | 0.787 | 0.709 | 0.735 | 0.745 |
-| +no-content-extension | `adj[~valid] = 0` in FG warp | 0.787 | 0.709 | 0.735 | 0.745 |
-| **Final stable** | All above combined | **0.787** | **0.709** | **0.735** | **0.745** |
-
-Key learning: **aggressive changes (tight fg ramp, medoid, extra dilation) all caused regressions**. The baseline FG registration + A5 + A6 is close to optimal for the current pipeline architecture. The marginal improvements come from preventing warp boundary artifacts.
+| Feature | Status | Notes |
+|---------|--------|-------|
+| A1: RAFT/SEA-RAFT flow | ✅ | sea_raft_s@things, seam-band crop, 1280px downscale |
+| A2/A4: Symmetric midpoint warp | ✅ | alpha_a=alpha_b=0.5 by default; alpha_a/b API ready |
+| A3: ARAP regularisation | ✅ | cell=16, n_iter=2 |
+| A5: FG-excluded temporal median | ✅ | Session 1 |
+| A6: Single-pose fallback | ✅ | max_residual=90 + post_warp_diff=22 escalation |
+| Boundary fixes | ✅ | BORDER_CONSTANT, ~valid masking, both-content Laplacian |
+| Global reference warp | ⚠️ | API added; symmetric midpoint used (asymmetric regresses) |
+| LSD collinearity term | ⬜ | Would help prevent line-art bending; not yet implemented |
+| Segment-guided flow | ⬜ | Would help flat-region aperture problem |
+| ARAP Push phase | ⬜ | Full Sýkora block-matching; improves over median-per-cell |
+| Vertical-pan-aware crop | ⬜ | Must crop top/bottom only, not columns |
 
 ---
 
-## 5. Remaining Limitations & Root Causes
+## 6. Next Session Priorities
 
-| Limitation | Root Cause | Estimated Impact |
-|------------|-----------|-----------------|
-| test08 simple stitch wins by 0.078 | Extreme arm animation (>90px residual) defeats multi-frame temporal fusion | Structural |
-| test09 raw vs aligned gap (0.045) | 4% scale/crop mismatch in frame selection vs GT crop | Fixable with GT-aware cropping |
-| test27 raw vs aligned gap (0.039) | 2× scale mismatch (we assemble 5× more pan than GT reference) | Fixable with fewer frames |
-| Character body SSIM 0.75 vs background 0.88 | Animation timing differences between our selected frames and GT's | Requires better frame matching |
-| Stage-9 plate ghosting for high-motion | A5 all-fg fallback averages irreconcilable poses | Needs medoid-frame selection for always-fg pixels |
+**Highest impact (require new capabilities):**
+1. **Pose-consistency frame selection** — select frames whose character pose is closest to the GT reference (need GT at runtime or pose similarity metric without GT). Without this, the SSIM ceiling cannot be raised.
+2. **Vertical-pan content crop** — for test27, compute how many canvas rows have character content vs how many are "excess pan beyond character extent." Crop the excess rows to match GT scale.
 
----
+**Medium impact (incremental improvements):**
+3. **ARAP Push phase** — add Sýkora's block-matching Push to improve per-cell rigid transform quality over median. Reduces residual errors in flat regions.
+4. **Segment-guided flow** — use colour-segment centroids (AnimeInterp SGM) as additional flow constraints for flat anime regions where RAFT gives noisy estimates.
+5. **Lowered max_residual to 50** — for test08-class scenes with extreme motion (>50px residuals), single-pose gives cleaner results than warped blend.
 
-## 6. Files Changed This Session
-
-| File | Change |
-|------|--------|
-| `backend/src/anim/rendering.py` | A5 foreground-excluded median; `_FG_EXCLUDE_MEDIAN` toggle |
-| `backend/src/anim/fg_register.py` | A6 single-pose fallback; dominant-frame detection; `BORDER_CONSTANT` fix; `~valid` masking; `ASP_FG_MAX_RESIDUAL` env override |
-| `backend/src/anim/compositing.py` | A6 integration in blend loop; both-content Laplacian restriction; composite gate relocation; `_soft_seam_weight` updated with bg_mask args |
-| `backend/benchmark/bench_anime_stitch.py` | Composite gate post-Stage-11; two-channel selector (disabled default); `ASP_FG_REGISTER` / `ASP_TWO_CHANNEL_SELECT` env toggles |
-| `backend/test/anim/test_rendering.py` | 3 A5 unit tests |
-| `backend/test/anim/test_fg_register.py` | 2 A6 unit tests (fallback flag, dominant-frame) |
-
-**Test status:** 80/80 anim tests pass (pre-existing canvas/compositing collection errors unrelated to this work).
-
----
-
-## 7. Next Steps
-
-1. **SEA-RAFT flow engine (A1)** — DIS optical flow is noisy on flat cel regions; SEA-RAFT (rigid-motion pretrained) would give more reliable `A_animation` estimates, reducing the need for aggressive `max_residual` fallback cutoffs.
-
-2. **Sýkora ARAP + LSD warp (A3)** — The current similarity-warp midpoint re-posing can still slightly distort line art at larger residuals; the ARAP lattice + LSD collinearity constraint is the line-art-preserving quality upgrade.
-
-3. **BiRefNet-based two-channel frame selector** — Run BiRefNet before frame selection (not after), use background-only phase correlation for the camera displacement estimate. Would correctly separate camera pan from character animation without the peripheral-heuristic failure mode.
-
-4. **Medoid-frame selection for always-fg regions** — For canvas positions where the character is present in every frame (no clean background available), pick the single frame closest to the per-pixel median rather than averaging all poses. This would eliminate background-plate ghosting in high-coverage scenes like test08.
-
-5. **GT-aware scale targeting** — When GT is available at benchmark time, estimate the target canvas scale from GT dimensions and tune frame selection `min_step_px` accordingly. This would improve raw SSIM for test27 (2× scale mismatch) from 0.709 toward the aligned score of 0.748.
+**Infrastructure:**
+6. **Full 96-test re-run** with all session 1+2 features to update corpus-wide statistics.

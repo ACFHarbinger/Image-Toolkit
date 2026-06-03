@@ -700,13 +700,10 @@ def _load_thumbs_parallel(frames_paths: List[str], max_workers: int = 8) -> List
 # usually central; the background is peripheral.  Phase-correlating the
 # PERIPHERAL region aims to isolate the CAMERA pan from character animation.
 #
-# DEFAULT OFF: A/B benchmarking (2026-06-03) showed the peripheral-camera
-# heuristic regresses good cases (test27 0.708→0.676, test57 0.745→0.720) —
-# the character is not reliably central and the periphery is not reliably
-# background, so the peripheral phase-correlation signal is noisier than the
-# whole-frame one.  A robust two-channel selector needs real BiRefNet masks at
-# selection time (run BiRefNet first), which is the §0.2 follow-up.  Kept as an
-# opt-in via ASP_TWO_CHANNEL_SELECT=1 for further experimentation.
+# Two-channel selection uses BiRefNet background masks for cleaner camera
+# displacement estimates.  Default OFF: BiRefNet runs a second time for
+# selection (overhead) and can change frame selection in ways that hurt GT-SSIM
+# for some tests.  Re-enable via ASP_TWO_CHANNEL_SELECT=1 for targeted testing.
 _TWO_CHANNEL_SELECT = os.environ.get("ASP_TWO_CHANNEL_SELECT", "0") != "0"
 _PERIPH_BORDER_FRAC = 0.24  # outer ring fraction treated as "background/camera"
 
@@ -780,17 +777,56 @@ def _smart_select_frames(
     else:
         scale_y = scale_x = float(_SELECTOR_THUMB_LONG)
 
+    # ── §0.2 Two-channel selection: background mask from BiRefNet ──────────
+    # Run BiRefNet on 3 evenly-spaced frames to build a per-pixel background
+    # weight map at thumbnail scale.  Phase-correlating only the background
+    # pixels isolates the camera pan displacement from character animation —
+    # unlike the whole-frame or peripheral-heuristic approaches that failed
+    # because they can't reliably separate the two motion channels.
+    _bg_thumb_mask: Optional[np.ndarray] = None
+    if _TWO_CHANNEL_SELECT:
+        try:
+            from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+            import gc as _gc
+            import torch as _torch
+
+            _biref = BiRefNetWrapper()
+            _probe_idxs = sorted({0, N // 4, N // 2, 3 * N // 4, N - 1})
+            _bg_accum = np.ones(thumbs[0].shape[:2], dtype=np.float32)
+            _n_ok = 0
+            for _pi in _probe_idxs:
+                _full = cv2.imread(frames_paths[_pi])
+                if _full is None:
+                    continue
+                _mk = _biref.get_mask(_full)
+                _th = thumbs[_pi].shape
+                _mk_small = cv2.resize(
+                    (_mk > 127).astype(np.float32),
+                    (_th[1], _th[0]),
+                    interpolation=cv2.INTER_NEAREST,
+                )
+                # Conservative: background = background in ALL probed frames
+                _bg_accum = np.minimum(_bg_accum, _mk_small)
+                _n_ok += 1
+            try:
+                _biref.offload()
+            except Exception:
+                pass
+            del _biref
+            _gc.collect()
+            if _torch.cuda.is_available():
+                _torch.cuda.empty_cache()
+            if _n_ok > 0:
+                bg_cov = float(_bg_accum.mean())
+                print(f"  [SmartSelect] BiRefNet bg mask: {bg_cov:.0%} coverage, {_n_ok} probes")
+                _bg_thumb_mask = _bg_accum if bg_cov >= 0.10 else None
+        except Exception as _e:
+            print(f"  [SmartSelect] BiRefNet unavailable ({_e}); using whole-frame")
+
     raw_dx: List[float] = []
     raw_dy: List[float] = []
     responses: List[float] = []
-    frame_mads: List[float] = []      # CENTRAL MAD (animation channel) when two-channel
-
-    # Precompute the peripheral/central masks once (thumbs share a size after pad).
-    _pm = _cm = None
-    if _TWO_CHANNEL_SELECT and N >= 2:
-        _h0 = max(t.shape[0] for t in thumbs)
-        _w0 = max(t.shape[1] for t in thumbs)
-        _pm, _cm = _periph_central_masks(_h0, _w0)
+    frame_mads: List[float] = []
 
     for i in range(N - 1):
         a = thumbs[i]
@@ -803,12 +839,13 @@ def _smart_select_frames(
         if b.shape != (th, tw):
             b = np.pad(b, ((0, th - b.shape[0]), (0, tw - b.shape[1])))
 
-        if _TWO_CHANNEL_SELECT and _pm is not None and _pm.shape == a.shape:
-            # Camera channel: peripheral (background) phase correlation.
-            (dx_t, dy_t), response = cv2.phaseCorrelate(a * _pm, b * _pm)
-            # Animation channel: central-region MAD (character activity).
-            cmad = float(np.sum(np.abs(b - a) * _cm) / max(_cm.sum(), 1.0))
-            frame_mads.append(cmad)
+        if _bg_thumb_mask is not None and _bg_thumb_mask.shape == a.shape:
+            # Camera channel: background-only phase correlation.
+            _m = _bg_thumb_mask
+            (dx_t, dy_t), response = cv2.phaseCorrelate(a * _m, b * _m)
+            # Animation channel: foreground MAD
+            _fg = 1.0 - _m
+            frame_mads.append(float(np.sum(np.abs(b - a) * _fg) / max(_fg.sum(), 1.0)))
         else:
             (dx_t, dy_t), response = cv2.phaseCorrelate(a, b)
             frame_mads.append(float(np.mean(np.abs(b - a))))
@@ -827,7 +864,7 @@ def _smart_select_frames(
         axis_steps = raw_dx
         dominant_sign = int(np.sign(med_dx)) if abs(med_dx) > 2.0 else 0
 
-    _chan = "2ch(periph-camera)" if (_TWO_CHANNEL_SELECT and _pm is not None) else "1ch(whole-frame)"
+    _chan = "2ch(birefnet-bg)" if _bg_thumb_mask is not None else "1ch(whole-frame)"
     print(
         f"  [SmartSelect] N={N}  dominant_axis={'y' if abs(med_dy) >= abs(med_dx) else 'x'}"
         f"  sign={dominant_sign:+d}"
@@ -1421,6 +1458,12 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
         ec = 30
         if ec * 2 < canvas_out.shape[0] and ec * 2 < canvas_out.shape[1]:
             canvas_out = canvas_out[ec:-ec, ec:-ec]
+
+        # Note: content-aware crop was removed — cropping based on fg union
+        # across a vertical pan incorrectly cuts horizontal extent (the lockers
+        # background) rather than trimming excess top/bottom panning extent.
+        # The scale mismatch for test27 (2× larger than GT) is a fundamental
+        # frame-selection issue, not a post-processing crop problem.
 
         from PIL import Image
 
