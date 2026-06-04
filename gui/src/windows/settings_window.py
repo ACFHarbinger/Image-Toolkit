@@ -1,9 +1,9 @@
 import json
-import os
 import shutil
 
 from pathlib import Path
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QUrl
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QCheckBox,
     QLineEdit,
@@ -621,6 +621,23 @@ class SettingsWindow(QWidget):
             Qt.TextInteractionFlag.TextSelectableByMouse
         )
         logging_layout.addRow(log_dir_label)
+
+        log_buttons_layout = QHBoxLayout()
+        self.btn_view_logs = QPushButton("View App Logs")
+        self.btn_view_logs.setToolTip(
+            "Open the active application log file in the default system viewer."
+        )
+        self.btn_view_logs.clicked.connect(self._view_app_logs)
+
+        self.btn_view_daemon_logs = QPushButton("View Daemon Logs")
+        self.btn_view_daemon_logs.setToolTip(
+            "Open the slideshow daemon log file in the default system viewer."
+        )
+        self.btn_view_daemon_logs.clicked.connect(self._view_daemon_logs)
+
+        log_buttons_layout.addWidget(self.btn_view_logs)
+        log_buttons_layout.addWidget(self.btn_view_daemon_logs)
+        logging_layout.addRow(log_buttons_layout)
 
         # ---------------------------------------------------------------------
         # --- Reset State Section ---
@@ -1826,6 +1843,34 @@ class SettingsWindow(QWidget):
             QMessageBox.critical(
                 self, "Error", f"Failed to reset extraction history:\n{e}"
             )
+
+    def _view_app_logs(self):
+        """Opens the application log file in the default system viewer."""
+        log_path = IMAGE_TOOLKIT_DIR / "logs" / "image_toolkit.log"
+        if not log_path.exists():
+            QMessageBox.information(
+                self, "No Logs", "No application log file found yet."
+            )
+            return
+
+        try:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(log_path)))
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open log file:\n{e}")
+
+    def _view_daemon_logs(self):
+        """Opens the daemon log file in the default system viewer."""
+        log_path = IMAGE_TOOLKIT_DIR / "logs" / "slideshow_daemon.log"
+        if not log_path.exists():
+            QMessageBox.information(
+                self, "No Logs", "No daemon log file found yet."
+            )
+            return
+
+        try:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(log_path)))
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open daemon log file:\n{e}")
 
     def _clear_application_logs(self):
         """Deletes all log files from the global logs directory."""
