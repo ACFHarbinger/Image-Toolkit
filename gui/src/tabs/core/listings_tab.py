@@ -4468,15 +4468,10 @@ class ContentListingsSubTab(QWidget):
         if self._active_rec_worker and self._active_rec_worker.isRunning():
             self._active_rec_worker.terminate()
 
-        db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
-        password = self.vault_manager.raw_password
-        salt = self.vault_manager.account_name
-
         worker = RecommendationWorker(
-            db_path,
-            password,
-            salt,
-            inputs,
+            entries=self._entries,
+            all_entities=self._all_entities,
+            inputs=inputs,
             top_k=50,
             parent=self,
         )
