@@ -1,9 +1,9 @@
 # ASP Roadmap — Anime Stitch Pipeline: Quality & Reliability
 
-*Last updated: 2026-06-01 19:13. Full 96-test benchmark with ground truth SSIM comparison.*  
-*Corpus: 96 tests; 55 have ground truth. **Avg SSIM ASP vs GT: 0.669 vs simple stitch 0.695** — simple stitch is 3.9% closer to reference on average.*  
-*True ASP composites: 44/96 (45.8%). Render quality gate: 39 fallbacks (40.6%). Affine validation: 13 fallbacks (13.5%).*  
-*GT verdicts: asp_better=8 (14.5%), simple_better=23 (41.8%), comparable=24 (43.6%).*  
+*Last updated: 2026-06-04. Session 4: ARAP Push phase (full Sýkora 2009), BiRefNet fg-masked pose diff, composite gate diagnostics. Session 3: pose-consistent frame selection infrastructure. Session 2: RAFT+ARAP+post_warp_diff. Session 1: foreground assembly pipeline.*  
+*Corpus: 96 tests; 55 have ground truth. **Avg SSIM ASP vs GT: 0.667 vs simple stitch 0.694** — simple stitch is 3.9% closer to reference on average.*  
+*True ASP composites: 52/96 (54.2%) — up from 44/96 before foreground assembly features. Render quality gate: 31 fallbacks (32.3%). Affine validation: 13 fallbacks (13.5%).*  
+*GT verdicts: asp_better=7 (12.7%), simple_better=26 (47.3%), comparable=22 (40.0%). Best: test17=0.887, test84=0.821.*  
 *Root cause: Animated video scenes vs. static-scroll design assumption. Phase correlation measures whole-frame displacement including character animation.*  
 *Previous baseline (22 tests, 2026-05-31): 22/22 metric success, avg sharpness 33.14.*
 
@@ -77,7 +77,7 @@ When flow confidence is low (fast action, motion blur), do not warp/average — 
 - ✅ **BiRefNet two-channel selector** — implemented with real BiRefNet masks (not peripheral heuristic); disabled by default (`ASP_TWO_CHANNEL_SELECT=0`) due to overhead and frame-selection regressions. Enable for targeted testing.
 - ⬜ **LSD collinearity term** in ARAP — the full Sýkora ARAP adds a line-segment-detector penalty to prevent bending of detected straight strokes; current implementation uses median-per-cell rigid transform which is similar in spirit but lacks the LSD hard constraint.
 - ⬜ **Segment-guided flow (AnimeInterp SGM)** — per-colour-segment centroid flow for scenes where RAFT also fails (very flat, large uniform regions).
-- ⬜ **ARAP Push phase** — Sýkora's full push-regularise loop with block-matching (currently only the regularisation phase is implemented; the push phase would use actual appearance matching to refine the per-cell rigid transforms).
+- ✅ **ARAP Push phase** — Sýkora's full Push→Regularise algorithm implemented (session 4). `_arap_push()` in `fg_register.py`: per-cell SAD block matching via `cv2.matchTemplate`, 15% improvement threshold, 24px search range, 16×16 cell grid. Push → Regularise is the complete Sýkora 2009 algorithm. Benchmark finding: zero measurable GT-SSIM improvement (flow quality is not the bottleneck; ceiling is animation timing).
 
 **Benchmark note (2026-06-03, session 2):** RAFT + ARAP + post_warp_diff escalation → SSIM essentially flat vs session 1 (test09: 0.787, test27: 0.709). Experiments tried and their outcomes:
 - **Global reference pose (asymmetric alpha)**: catastrophic regression on test27 (-0.151) due to flow noise amplification at α=1.0 seams. Reverted.
@@ -90,11 +90,24 @@ When flow confidence is low (fast action, motion blur), do not warp/average — 
 
 ---
 
-## 0.2 Pose-Consistency-Aware Frame Selection [Priority 1]
+## 0.2 Pose-Consistency-Aware Frame Selection [Priority 1 — Infrastructure Built, Disabled]
 
 **Pain point:** The smart selector uses whole-frame phase correlation, so a "50px displacement" can be 5px camera + 45px limb swing — it picks pose-incoherent frames, maximising the motion §0.1 must later correct.
 
-**Fix:** Two-channel selector. (1) Background channel: phase-correlate BiRefNet *background* only → camera displacement; select when `d_camera ≥ min_step`. (2) Foreground channel: among camera-qualifying candidates, prefer the frame minimising foreground residual motion to the last selected frame. Defence-in-depth with §0.1 — reduces the same quantity at selection time that §0.1 corrects at warp time.
+**Session 3 status (2026-06-03):** Infrastructure shipped but disabled. Two-pass selector implemented in `backend/src/anim/frame_selection.py` and `_smart_select_frames()` in benchmark. Pass 2 uses gradient-magnitude L1 on central-crop thumbnails as a pose proxy. Benchmarking showed this proxy is confounded by background structure (lockers, walls), causing regressions of -0.043 (test04) and -0.026 (test27). Disabled by default (`ASP_POSE_WINDOW_PX=0`).
+
+**What's needed to make this work:** Foreground-only pose similarity — either:
+- DWPose/ViTPose joint positions (background-agnostic by design)
+- RAFT optical flow on BiRefNet-masked foreground only (similar to but decoupled from Stage 8.5 flow)
+- DINO/CLIP features extracted from the foreground mask crop
+
+**Correct implementation path:**
+1. Run BiRefNet once on ALL frames before selection (deduplicates the current double-run overhead)
+2. Use background-only phase correlation for camera displacement
+3. For each camera-qualifying candidate, compute foreground flow vs last selected frame
+4. Pick candidate with smallest foreground flow magnitude within the selection window
+
+**Current state:** `backend/src/anim/frame_selection.py` has the two-pass loop and `_fg_center_diff()` API ready for a better pose metric. Enable gradient proxy via `ASP_POSE_WINDOW_PX=80` for experimentation.
 
 ---
 

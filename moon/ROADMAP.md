@@ -1,6 +1,6 @@
 # Image Toolkit — Master Roadmap
 
-*Last updated: 2026-06-03. ASP refocused on foreground-assembly (the real fix for strip-seam character tearing); 96-test GT benchmark baseline (ASP 0.669 vs simple 0.695 SSIM-vs-GT). Research consolidated into two reports: `reports/Image_Stitching_Research.md` and `reports/Image_Generation_Research.md`. New section roadmap: Content Generation. — Prior (2026-05-31): Phase 1 items 1.1–1.5, 1.8, 1.13 complete; Phase 2 items 2.6, 2.7, 2.9, 2.13, 2.14, 2.16D/F/G complete; GUI items 2.8/2.10/2.16A–C/E/2.17D/2.19A/2.20A/2.21A/2.24A/2.26B done; §2.11A/B/D done; MAL entity association robust.*
+*Last updated: 2026-06-04 (session 4). Session 4: ARAP Push phase (full Sýkora 2009), BiRefNet fg-masked pose diff, 96-test re-run: 52/96 true ASP composites (was 44/96), gate failures 31/96 (was 39/96), avg ASP SSIM 0.667 vs simple 0.694. Session 3: pose-consistent frame selection infrastructure (disabled — gradient proxy confounded by background). Session 2: RAFT/ARAP/post_warp_diff. Session 1: foreground-assembly pipeline (A1–A6). Research consolidated: `reports/Image_Stitching_Research.md`, `reports/Image_Generation_Research.md`.*
 
 Completed items have been moved to [CHANGELOG.md](CHANGELOG.md).
 
@@ -37,7 +37,7 @@ The single highest-impact track: the pipeline cannot register the deforming fore
 | 0.3 | **[ASP] A3 — full Sýkora ARAP + LSD** warp (line-art-preserving upgrade over similarity warp) | ~1w | [asp.md §0.1](roadmaps/asp.md#01-foreground-pose-registration--the-core-fix-priority-0) |
 | 0.4 | **[ASP] A5 — foreground-excluded temporal median** (background plate only; near-free correctness) | ~0.5d | [asp.md §0.1](roadmaps/asp.md#01-foreground-pose-registration--the-core-fix-priority-0) |
 | 0.5 | **[ASP] A6 — confidence-gated single-pose graph-cut fallback** (Eden 2006) | ~3d | [asp.md §0.1](roadmaps/asp.md#01-foreground-pose-registration--the-core-fix-priority-0) |
-| 0.6 | **[ASP] Two-channel pose-consistency frame selector** (bg camera vs fg animation) | ~2d | [asp.md §0.2](roadmaps/asp.md#02-pose-consistency-aware-frame-selection-priority-1) |
+| 0.6 | **[ASP] 🔄 Pose-consistency frame selector** — `frame_selection.py` two-pass architecture built; gradient proxy disabled (background confound). Needs foreground-only flow or pose model. | ~2d | [asp.md §0.2](roadmaps/asp.md#02-pose-consistency-aware-frame-selection-priority-1) |
 | 0.7 | **[ASP] min_gap vector-magnitude + 25px threshold** (multi-axis scroll fix) | ~0.5d | [asp.md §0.5](roadmaps/asp.md) |
 | 0.8 | **[ASP] Segment-guided flow (AnimeInterp SGM)** flat-region fallback | [Research] | [asp.md §0.1](roadmaps/asp.md#01-foreground-pose-registration--the-core-fix-priority-0) |
 

@@ -23,6 +23,7 @@ from backend.src.anim.fg_register import (  # noqa: E402
     register_foreground_at_seam,
     _seam_taper,
     _dense_flow,
+    _arap_push,
 )
 
 
@@ -180,3 +181,76 @@ class TestDenseFlow:
         limb_rows = slice(120, 280)
         mean_dx = float(flow[limb_rows, 120:190, 0].mean())
         assert mean_dx > 8.0, f"expected positive dx, got {mean_dx}"
+
+
+# ---------------------------------------------------------------------------
+# ARAP Push phase (Sýkora 2009 block-matching Push)
+# ---------------------------------------------------------------------------
+
+class TestARAPPush:
+    def test_detects_clear_displacement_in_textured_region(self):
+        """
+        Push finds the correct per-cell translation for a textured block
+        that shifted cleanly from img_a to img_b.
+
+        The block is aligned to cell boundaries so every active cell is
+        completely inside the fg mask — avoiding the sparse-fg false-match
+        issue where a mostly-zero template matches incorrectly.
+        """
+        H, W = 96, 160
+        cell = 16
+        img_a = np.zeros((H, W, 3), dtype=np.uint8)
+        img_b = np.zeros((H, W, 3), dtype=np.uint8)
+
+        # Textured block aligned to cell grid: rows 16:80 (4 full cells),
+        # cols 32:80 (3 full cells).  A unique diagonal stripe texture.
+        for r in range(16, 80):
+            for c in range(32, 80):
+                img_a[r, c] = [(r + c) % 64 + 160, 80, (r * 3 + c) % 64 + 160]
+
+        # Same block shifted +16px (= 1 cell) to the right in B
+        shift = 16
+        for r in range(16, 80):
+            for c in range(32 + shift, 80 + shift):
+                img_b[r, c] = img_a[r, c - shift]
+
+        fg = np.zeros((H, W), dtype=bool)
+        fg[16:80, 32:80] = True  # perfectly cell-aligned fg mask
+
+        initial_flow = np.zeros((H, W, 2), dtype=np.float32)
+
+        pushed = _arap_push(img_a, img_b, fg, initial_flow,
+                            cell_size=cell, search_range=24,
+                            min_fg_frac=0.90)
+
+        # All cells inside the fg region should find ~+16px horizontal shift
+        fg_dx = pushed[16:80, 32:80, 0]
+        fg_dy = pushed[16:80, 32:80, 1]
+        mean_dx = float(fg_dx.mean())
+        mean_dy = float(fg_dy.mean())
+        assert mean_dx > 10.0, f"expected ~+16px dx from Push, got {mean_dx:.2f}"
+        assert abs(mean_dy) < 4.0, f"unexpected vertical drift: {mean_dy:.2f}"
+
+    def test_background_cells_keep_initial_flow(self):
+        """
+        Cells outside the fg mask should retain initial_flow unchanged.
+        """
+        H, W = 64, 64
+        img_a = np.full((H, W, 3), 50, dtype=np.uint8)
+        img_b = np.full((H, W, 3), 80, dtype=np.uint8)  # uniform shift of brightness
+        fg = np.zeros((H, W), dtype=bool)
+        # Only a small fg region; most of the image is background
+        fg[24:40, 24:40] = True
+
+        initial_flow = np.full((H, W, 2), 3.0, dtype=np.float32)  # non-zero initial
+
+        pushed = _arap_push(img_a, img_b, fg, initial_flow,
+                            cell_size=16, search_range=10, min_fg_frac=0.5)
+
+        # Background cells (top-left corner has no fg) keep the initial flow
+        bg_dx = pushed[0:16, 0:16, 0]
+        bg_dy = pushed[0:16, 0:16, 1]
+        np.testing.assert_allclose(bg_dx, 3.0, atol=0.1,
+                                   err_msg="bg cells must keep initial flow")
+        np.testing.assert_allclose(bg_dy, 3.0, atol=0.1,
+                                   err_msg="bg cells must keep initial flow")
