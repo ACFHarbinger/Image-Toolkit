@@ -1,6 +1,6 @@
 # Image Toolkit — Master Roadmap
 
-*Last updated: 2026-06-04 (session 5). Session 5: alignment stability gate (+0.074 test08, +0.049 test25), fg pixel L1 pose metric (+0.010 test27 with pose-on), 90 unit tests. Session 4: ARAP Push phase (full Sýkora 2009), 96-test run: 52/96 true ASP composites (was 44/96), avg ASP SSIM 0.667 vs simple 0.694. Session 3: pose-consistent frame selection infrastructure. Session 2: RAFT/ARAP/post_warp_diff. Session 1: foreground-assembly pipeline (A1–A6). Research consolidated: `reports/Image_Stitching_Research.md`.*
+*Last updated: 2026-06-04. Session 5: alignment stability gate (+0.074 test08, +0.049 test25), fg pixel L1 pose metric (+0.010 test27 with pose-on), 90 unit tests. Added Phase ML (ML-driven ASP modernisation from `reports/Anime Stitch Pipeline ML Research.md`): AnimeInterp SGM, DINOv2 submodular selection, ToonCrafter seam synthesis, CamFlow, SIQE, SI-FID, MLLM SIQS. Session 4: ARAP Push (Sýkora 2009), 96-test run. Research: `reports/Image_Stitching_Research.md`, `reports/Anime Stitch Pipeline ML Research.md`.*
 
 Completed items have been moved to [CHANGELOG.md](CHANGELOG.md).
 
@@ -21,6 +21,7 @@ Section-specific roadmaps:
 Consolidated research reports (read before working on the respective pipeline):
 - [Anime Stitching — Consolidated Research](../reports/Image_Stitching_Research.md) — foreground-assembly paradigm, per-stage toolbox, 13-stage spec.
 - [Anime Generation — Consolidated Research](../reports/Image_Generation_Research.md) — image + video models, fine-tuning, video→LoRA pipeline.
+- [Anime Stitch Pipeline ML Research](../reports/Anime%20Stitch%20Pipeline%20ML%20Research.md) — ML-driven solutions for aperture problem (AnimeInterp SGM), frame selection (DINOv2 submodular), camera estimation (CamFlow), generative composition (ToonCrafter, RDIStitcher), and reference-free metrics (SIQE, SI-FID, MLLM SIQS). Full roadmap entries in [asp.md §3.0](roadmaps/asp.md#30-ml-driven-pipeline-modernisation-research-phase--from-ml-research-report).
 
 Phases are ordered by impact-to-effort ratio and dependency order. Items within a phase are independent and can be parallelised.
 
@@ -39,7 +40,32 @@ The single highest-impact track: the pipeline cannot register the deforming fore
 | 0.5 | **[ASP] A6 — confidence-gated single-pose graph-cut fallback** (Eden 2006) | ~3d | [asp.md §0.1](roadmaps/asp.md#01-foreground-pose-registration--the-core-fix-priority-0) |
 | 0.6 | **[ASP] 🔄 Pose-consistency frame selector** — `frame_selection.py` two-pass architecture built; gradient proxy disabled (background confound). Needs foreground-only flow or pose model. | ~2d | [asp.md §0.2](roadmaps/asp.md#02-pose-consistency-aware-frame-selection-priority-1) |
 | 0.7 | **[ASP] min_gap vector-magnitude + 25px threshold** (multi-axis scroll fix) | ~0.5d | [asp.md §0.5](roadmaps/asp.md) |
-| 0.8 | **[ASP] Segment-guided flow (AnimeInterp SGM)** flat-region fallback | [Research] | [asp.md §0.1](roadmaps/asp.md#01-foreground-pose-registration--the-core-fix-priority-0) |
+| 0.8 | **[ASP] Segment-guided flow (AnimeInterp SGM)** flat-region fallback — see ML.5/ML.8 for full roadmap | [Research] | [asp.md §3.1](roadmaps/asp.md#31-animeinterp-sgm-segment-guided-matching-for-flat-region-correspondence-research--highest-aperture-problem-impact) |
+
+---
+
+## Phase ML — ASP ML-Driven Modernisation (Research Phase)
+
+*Source: `reports/Anime Stitch Pipeline ML Research.md` (2026-06-04). Full detail and implementation options in [asp.md §3.0](roadmaps/asp.md#30-ml-driven-pipeline-modernisation-research-phase--from-ml-research-report).*
+
+These items address the three quantified ceilings that classical CV methods have exhausted: (1) aperture problem on flat cel regions, (2) background-entangled frame selection, (3) reference-free quality assessment. Each maps to a specific pipeline stage and existing file. All are tagged [Research] — none require new training from scratch; all use pretrained weights or classical algorithms with offline fitting.
+
+| # | Item | Effort | Roadmap Link |
+|---|------|--------|--------------|
+| ML.1 | **[ASP] FD-Means animation hold detection** — perceptual hash clustering before phase correlation; explicitly identifies "on twos/threes" hold runs; ~15 LOC | ~0.5d | [asp.md §3.4](roadmaps/asp.md#34-fd-means-animation-hold-detection-quick-win--preprocessing) |
+| ML.2 | **[ASP] DINOv2 submodular frame selection** — replaces fg pixel L1 in `_fg_center_diff()`; facility-location coverage objective penalises redundancy; handles holds natively; `torch.hub` pretrained weights (no fine-tuning) | ~2d | [asp.md §3.3](roadmaps/asp.md#33-dinov2--siglip-submodular-frame-selection-priority-high--directly-addresses-gt-coupling) |
+| ML.3 | **[ASP] SIQE ghosting metric** — steerable pyramid + GMM ghosting detector (94.36% human-opinion precision); replaces `_ghosting_score()`; adds spatial ghost localisation per seam | ~3d | [asp.md §3.8](roadmaps/asp.md#38-siqe-no-reference-ghosting-detection-quick-win--metric-upgrade) |
+| ML.4 | **[ASP] ToonCrafter seam synthesis wiring** — wire `anim/anim_fill.py` into `compositing.py`: synthesise a transitional pose at single-pose-escalated seams; `ASP_TOONCRAFTER_SEAM=1` flag; `final_quality=True` mode only | ~2d | [asp.md §3.6](roadmaps/asp.md#36-tooncrafter-seam-synthesis--wiring-the-generative-fallback-priority-medium) |
+| ML.5 | **[ASP] SLIC segment-level centroid tracking** — ARAP Push fallback for flat regions; `skimage.segmentation.slic` approximates SGM at ~2ms/seam; no model weights needed | ~1d | [asp.md §3.1](roadmaps/asp.md#31-animeinterp-sgm-segment-guided-matching-for-flat-region-correspondence-research--highest-aperture-problem-impact) |
+| ML.6 | **[ASP] Deep homography with foreground masking** — CVPR 2020 joint dynamics-mask + homography network; replaces phase correlation for camera displacement in `frame_selection.py`; pretrained weights available | ~3d | [asp.md §3.5](roadmaps/asp.md#35-camflow-hybrid-motion-basis-for-camera-displacement-research) |
+| ML.7 | **[ASP] SI-FID as benchmark metric** — reference-free stitching quality (Fréchet distance in artifact-trained latent space); supplements GT-SSIM for the 41 GT-less tests; enables GT-coupling-free RLHF optimization | ~3d | [asp.md §3.9](roadmaps/asp.md#39-si-fid-stitched-image-fréchet-distance-for-reference-free-evaluation-research) |
+| ML.8 | **[ASP] AnimeInterp SGM as ARAP Push replacement** — segment-guided matching via VGG-19 pooled per-segment features; completely bypasses aperture problem; ~40ms/seam GPU; `ASP_FLOW_ENGINE=animeinterp` flag | ~1w | [asp.md §3.1](roadmaps/asp.md#31-animeinterp-sgm-segment-guided-matching-for-flat-region-correspondence-research--highest-aperture-problem-impact) |
+| ML.9 | **[ASP] CamFlow Hybrid Motion Basis** — ICCV 2025 model for sub-pixel-accurate 2D camera estimation even with full-frame foreground; replaces phase correlation; physical+stochastic motion bases | ~1w | [asp.md §3.5](roadmaps/asp.md#35-camflow-hybrid-motion-basis-for-camera-displacement-research) |
+| ML.10 | **[ASP] MLLM semantic quality gate** — Qwen2-VL-7B via ollama; detects severed torsos, duplicated limbs, mismatched body orientation; `ASP_MLLM_QA=1`; benchmark-only initially | ~2d | [asp.md §3.10](roadmaps/asp.md#310-mllm-semantic-quality-scoring-research--autonomous-quality-assurance) |
+| ML.11 | **[ASP] UDIS++ diffusion-based seam composition** — replaces Laplacian blend in Stage 11 with unsupervised spatial warp + diffusion hallucination of seam zone; open-source weights; needs anime fine-tune | ~2w | [asp.md §3.7](roadmaps/asp.md#37-udis--udtatis-diffusion-based-seam-composition-long-term--end-to-end-replacement) |
+| ML.12 | **[ASP] ConvGRU recurrent flow refinement** — AnimeInterp's confidence-guided iterative residual flow; fills null regions after SGM; trained on ATD-12K with animation-specific exaggeration | ~1w | [asp.md §3.2](roadmaps/asp.md#32-convgru-recurrent-flow-refinement-for-kinematic-accuracy-research) |
+
+**Dependency order:** ML.1 → ML.2 (holds detected first, then selection uses DINOv2). ML.3 + ML.7 are independent evaluation upgrades. ML.4 depends on existing `anim_fill.py` (already present). ML.5 → ML.8 (SLIC is the cheap approximation; AnimeInterp is the full solution). ML.6 → ML.9 (deep homography first, CamFlow second as quality upgrade). ML.10 independent. ML.11 + ML.12 depend on ML.8 being validated.
 
 ---
 
@@ -183,7 +209,7 @@ Aspirational improvements requiring significant experimentation, external data, 
 |---|------|--------|--------------|
 | 6.1 | **[ASP] Online DRL agent for ECC/registration** — wire `rlhf_trainer.py` into Stage 8 | [Long-term] | [asp.md §1.10](roadmaps/asp.md#110-rlhf-loop-integration) |
 | 6.2 | **[ASP] RANSAC/MAGSAC++ pre-filter for >40% outlier datasets** | [Research] | [asp.md §1.1](roadmaps/asp.md#11-bundle-adjustment-hardening) |
-| 6.3 | **[ASP] ToonCrafter fill for overlap ghost reduction** — final-quality mode | [Research] | [asp.md §1.6](roadmaps/asp.md#16-ghosting-reduction-in-composite-zone) |
+| 6.3 | **[ASP] ToonCrafter fill for overlap ghost reduction** — final-quality mode; see ML.4 for wiring plan | [Research] | [asp.md §3.6](roadmaps/asp.md#36-tooncrafter-seam-synthesis--wiring-the-generative-fallback-priority-medium) |
 | 6.4 | **[ASP] Background histogram matching via CLAHE** for complex dark scenes | [Research] | [asp.md §1.4](roadmaps/asp.md#14-gain-clamp-widening-for-dark-scenes) |
 | 6.5 | **[Feat] AnimeCLIP domain-specific CLIP fine-tune** — swap into §5.1 once validated | [Research] | [new_features.md §4.3](roadmaps/new_features.md#43-clip-based-semantic-image-search) |
 | 6.6 | **[Feat] File system watcher auto-stitch** — `watchdog`/`inotify` triggered batch | [Research] | [new_features.md §4.1](roadmaps/new_features.md#41-batch-stitching) |
