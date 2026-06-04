@@ -676,12 +676,12 @@ class SettingsWindow(QWidget):
         # Row 2.5: reset extraction history
         history_row = QHBoxLayout()
         history_info = QLabel(
-            f"<small>Delete the central extraction history JSON file containing parameters and file associations.</small>"
+            "<small>Delete the central extraction history JSON file containing parameters and file associations.</small>"
         )
         history_info.setWordWrap(True)
         self.btn_reset_history = QPushButton("Reset Extraction History")
         self.btn_reset_history.setToolTip(
-            "Deletes the extraction_history.json file on disk and resets the dropdown selection list."
+            "Deletes the .extraction_history.json file on disk and resets the dropdown selection list."
         )
         self.btn_reset_history.setStyleSheet(
             "background-color: #e67e22; color: white; font-weight: bold;"
@@ -1743,7 +1743,7 @@ class SettingsWindow(QWidget):
             self,
             "Confirm Reset",
             "This will:\n"
-            f"  • Delete the PID file ({IMAGE_TOOLKIT_DIR / '.myapp_slideshow.pid'})\n"
+            f"  • Delete the PID file ({IMAGE_TOOLKIT_DIR / '.slideshow.pid'})\n"
             f"  • Delete the slideshow config file ({DAEMON_CONFIG_PATH})\n\n"
             "The daemon will stop if it is currently running. Log files will NOT be deleted.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -1755,7 +1755,7 @@ class SettingsWindow(QWidget):
         messages = []
         errors = []
 
-        pid_path = IMAGE_TOOLKIT_DIR / ".myapp_slideshow.pid"
+        pid_path = IMAGE_TOOLKIT_DIR / ".slideshow.pid"
         try:
             if pid_path.exists():
                 pid_path.unlink()
@@ -1785,8 +1785,8 @@ class SettingsWindow(QWidget):
             QMessageBox.information(self, "Daemon Reset", summary)
 
     def _reset_extraction_history(self):
-        """Deletes the extraction_history.json file and clears the UI dropdown."""
-        history_file = IMAGE_TOOLKIT_DIR / "extraction_history.json"
+        """Deletes the .extraction_history.json file and clears the UI dropdown."""
+        history_file = IMAGE_TOOLKIT_DIR / ".extraction_history.json"
         reply = QMessageBox.question(
             self,
             "Confirm Reset",

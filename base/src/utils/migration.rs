@@ -1,13 +1,12 @@
 //! Legacy JSON to SQLCipher / sqlite-vec Migration Utility.
 //!
-//! Target user: 'a' with password 'a' (using derived salt).
 //! Performs batch insertion under an encrypted transaction.
 
-use std::fs::File;
-use std::io::Read;
 use secrecy::Secret;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+use std::fs::File;
+use std::io::Read;
 
 use crate::core::secure_vector_db::{
     derive_dek, initialize_schema, insert_listing, open_secure_connection,
@@ -15,12 +14,13 @@ use crate::core::secure_vector_db::{
 
 /// Reads legacy listings JSON data and imports it into the secure local SQLCipher database.
 pub fn run_migration(
+    username: &str,
+    password: &str,
     listings_json_path: &str,
     target_db_path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Initialize the derivation process targeting user account 'a' with password 'a'
-    let username = "a";
-    let password = Secret::new("a".to_string());
+    // 1. Initialize the derivation process targeting the specified user account and password
+    let password = Secret::new(password.to_string());
 
     // Generate salt by hashing the username
     let mut hasher = Sha256::new();
@@ -36,7 +36,10 @@ pub fn run_migration(
     file.read_to_string(&mut contents)?;
 
     let listings: Vec<Value> = serde_json::from_str(&contents)?;
-    println!("[Migration] Deserialized {} legacy records.", listings.len());
+    println!(
+        "[Migration] Deserialized {} legacy records.",
+        listings.len()
+    );
 
     // 3. Open the new SQLCipher database utilizing the derived DEK
     let conn = open_secure_connection(target_db_path, &dek)?;

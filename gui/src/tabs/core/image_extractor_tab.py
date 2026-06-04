@@ -1152,7 +1152,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     def _load_extraction_history(self):
         """Loads metadata for extracted frames from a central hidden JSON file."""
-        history_file = IMAGE_TOOLKIT_DIR / "extraction_history.json"
+        history_file = IMAGE_TOOLKIT_DIR / ".extraction_history.json"
         if history_file.exists():
             try:
                 with open(history_file, "r", encoding="utf-8") as f:
@@ -1189,7 +1189,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     def _save_extraction_history(self):
         """Saves metadata for extracted frames to a central hidden JSON file."""
-        history_file = IMAGE_TOOLKIT_DIR / "extraction_history.json"
+        history_file = IMAGE_TOOLKIT_DIR / ".extraction_history.json"
         try:
             IMAGE_TOOLKIT_DIR.mkdir(parents=True, exist_ok=True)
             data = {

@@ -111,7 +111,12 @@ class WallpaperTab(AbstractClassSingleGallery):
                 with open(DAEMON_CONFIG_PATH, "r") as f:
                     data = json.load(f)
                     self.interval_sec = data.get("interval_seconds", 300)
-                    self.time_remaining_sec = self.interval_sec
+                    last_change = data.get("last_change_timestamp", 0)
+                    if last_change > 0:
+                        elapsed = int(time.time()) - last_change
+                        self.time_remaining_sec = max(0, self.interval_sec - elapsed)
+                    else:
+                        self.time_remaining_sec = self.interval_sec
 
                     if not hasattr(self, "countdown_timer") or not self.countdown_timer:
                         self.countdown_timer = QTimer(self)
@@ -946,7 +951,8 @@ class WallpaperTab(AbstractClassSingleGallery):
         if self.slideshow_timer and self.slideshow_timer.isActive():
             self.slideshow_timer.stop()
         if self.countdown_timer and self.countdown_timer.isActive():
-            self.countdown_timer.stop()
+            if not self._is_daemon_running_config():
+                self.countdown_timer.stop()
 
         # Close sub-windows
         for win in list(self.open_queue_windows):
@@ -981,10 +987,11 @@ class WallpaperTab(AbstractClassSingleGallery):
                 pass
         self.open_image_preview_windows.clear()
 
-        self.monitor_current_index.clear()
-        self.monitor_history.clear()
-        self.time_remaining_sec = 0
-        self.countdown_label.setText("Timer: --:--")
+        if not self._is_daemon_running_config():
+            self.monitor_current_index.clear()
+            self.monitor_history.clear()
+            self.time_remaining_sec = 0
+            self.countdown_label.setText("Timer: --:--")
 
         self.unlock_ui_for_wallpaper()
 

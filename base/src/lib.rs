@@ -246,11 +246,13 @@ pub fn extract_video_thumbnails_batch(
 #[pyfunction]
 pub fn run_legacy_migration(
     py: Python,
+    username: String,
+    password: String,
     listings_json_path: String,
     target_db_path: String,
 ) -> PyResult<()> {
     let res: Result<(), String> = py.detach(|| {
-        core::migration::run_migration(&listings_json_path, &target_db_path)
+        utils::migration::run_migration(&username, &password, &listings_json_path, &target_db_path)
             .map_err(|e| e.to_string())
     });
     res.map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
@@ -429,6 +431,7 @@ pub fn delete_listing_secure(
 }
 
 pub mod core;
+pub mod utils;
 pub mod web;
 
 #[cfg(feature = "python")]
