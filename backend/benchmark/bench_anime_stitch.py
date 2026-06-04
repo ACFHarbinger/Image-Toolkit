@@ -678,24 +678,20 @@ _SELECTOR_THUMB_LONG = 256  # thumbnail longest side for phase-correlation pass
 
 # Pose-consistent refinement window (full-resolution canvas pixels).
 # When > 0, Pass 2 of the smart selector checks whether a nearby frame
-# (within ±2 slots of each v1 candidate) has ≥10% better gradient-magnitude
-# similarity to the previous selected frame.  Gradient similarity acts as a
-# proxy for pose similarity: frames with the same character pose have similar
-# edge patterns.
+# (within ±2 slots of each v1 candidate) has ≥10% better fg pixel similarity
+# to the previous selected frame.  "Fg pixel similarity" is the mean absolute
+# normalised-pixel diff on BiRefNet-masked foreground pixels only — strictly
+# background-invariant: locker/wall structure that scrolls through the frame
+# as the camera pans contributes exactly 0.
 #
 # IMPORTANT: This is DISABLED by default (_POSE_WINDOW_PX = 0).
 #
-# Benchmarking against ground truth shows that gradient similarity in the
-# central 50% crop is confounded by background structure (lockers, walls, etc.)
-# that also changes between frames as the camera pans.  Without a dedicated
-# pose estimation model (DWPose, ViTPose), the gradient proxy cannot reliably
-# distinguish character pose changes from background structure changes.  This
-# causes the selector to make wrong frame choices on tests with complex
-# backgrounds (test04, test27), regressing GT-SSIM by 0.026–0.043.
-#
-# Enable via ASP_POSE_WINDOW_PX=80 for targeted experimentation.  The
-# infrastructure (gradient metric, Pass 2 loop) is in place for when a
-# proper pose estimation model is integrated (§6.2 of the research report).
+# Session-3 gradient proxy was confounded by background edges that changed as
+# the camera panned (lockers, walls), causing wrong frame choices on test04
+# (-0.043) and test27 (-0.026).  Session-5 switches to fg pixel L1 (hard
+# binary mask, per-frame gain-normalised), which is background-invariant.
+# Whether this is sufficient to break the GT-coupling limitation remains to be
+# verified; enable via ASP_POSE_WINDOW_PX=80 to test.
 try:
     _POSE_WINDOW_PX = float(os.environ.get("ASP_POSE_WINDOW_PX", "0"))
 except ValueError:
@@ -727,42 +723,58 @@ def _fg_center_diff(
     fg_mask: Optional[np.ndarray] = None,
 ) -> float:
     """
-    Gradient-magnitude L1 between two thumbnails, optionally weighted by a
-    foreground probability mask.
+    Pose similarity metric between two thumbnails.
 
-    **With fg_mask (BiRefNet-derived fg probability at thumbnail scale):**
-    Background pixels receive near-zero weight so that locker/wall edges that
-    change as the camera pans cannot dominate the comparison.  Only character
-    structure (silhouette, limb outlines) drives the score.  Two frames with
-    the same character pose score low regardless of which background is in
-    frame; two frames with different poses score high.  This is the correct
-    fix for the session-3 "gradient confounded by background" failure.
+    **With fg_mask (BiRefNet fg probability at thumbnail scale):**
+    Hard-thresholds the mask (> 0.3) to a binary fg_bin, zeroes out all
+    background pixels, then computes mean absolute pixel difference on the
+    foreground region.  Each frame's fg pixels are independently normalised to
+    zero mean / unit std before differencing to remove inter-frame gain
+    variations (ECC gain normalisation has not yet run at selection time).
+
+    This is strictly background-invariant: background pixels are exactly 0.0
+    in both masked images, so camera-panning locker/wall/scenery structure
+    contributes nothing regardless of mask softness.  For "on twos" animation
+    holds (same character cel for 2–3 consecutive frames), fg pixels look
+    identical → score ≈ 0.  Across a hold boundary (new animation cel), fg
+    pixels shift position → score > 0.
+
+    The previous gradient-weighted approach computed Sobel gradient on the full
+    image and multiplied by fg_mask, so background edges with fg_mask weight
+    ~0.05–0.1 still contributed proportionally — confounding pose with
+    background scroll.  This masked-pixel approach is background-invariant by
+    construction.
 
     **Without fg_mask (fallback):**
-    Uses the central 50% crop, which reduces but does not eliminate background
-    contamination.  Only used when BiRefNet probes are unavailable.
+    Gradient-magnitude L1 on the central 50% crop.  Partly confounded by
+    background structure but requires no BiRefNet.
 
-    Returns a non-negative float (0 = identical character structure).
+    Returns a non-negative float (0 = identical character region).
     """
     h = min(thumb_a.shape[0], thumb_b.shape[0])
     w = min(thumb_a.shape[1], thumb_b.shape[1])
 
+    if fg_mask is not None and fg_mask.shape[0] >= h and fg_mask.shape[1] >= w:
+        fg_bin = (fg_mask[:h, :w] > 0.3).astype(np.float32)
+        total = float(fg_bin.sum())
+        if total >= 50.0:
+            a = thumb_a[:h, :w]
+            b = thumb_b[:h, :w]
+            # Per-frame fg normalisation to remove gain variation
+            a_px = a[fg_bin > 0.5]
+            b_px = b[fg_bin > 0.5]
+            a_norm = (a - float(a_px.mean())) / (float(a_px.std()) + 1e-5)
+            b_norm = (b - float(b_px.mean())) / (float(b_px.std()) + 1e-5)
+            diff = np.abs(a_norm - b_norm) * fg_bin
+            return float(diff.sum() / total)
+        # fg mask too sparse — fall through to central-crop
+
+    # Fallback: gradient-magnitude L1 on central 50% crop
     def _grad_mag(img: np.ndarray) -> np.ndarray:
         gx = cv2.Sobel(img, cv2.CV_32F, 1, 0, ksize=3)
         gy = cv2.Sobel(img, cv2.CV_32F, 0, 1, ksize=3)
         return np.sqrt(gx * gx + gy * gy)
 
-    if fg_mask is not None and fg_mask.shape[0] >= h and fg_mask.shape[1] >= w:
-        a = thumb_a[:h, :w]
-        b = thumb_b[:h, :w]
-        mask = fg_mask[:h, :w]
-        diff = np.abs(_grad_mag(a) - _grad_mag(b))
-        total_weight = float(mask.sum())
-        if total_weight >= 10.0:
-            return float(np.dot(diff.ravel(), mask.ravel()) / total_weight)
-        # fg mask too sparse — fall through to central-crop
-
-    # Fallback: central 50% crop (no fg mask or mask too sparse)
     h0, h1 = h // 4, 3 * h // 4
     w0, w1 = w // 4, 3 * w // 4
     if h1 <= h0 or w1 <= w0:
@@ -1026,10 +1038,10 @@ def _smart_select_frames(
     #   • ±_POSE_LOOK_RANGE = 2 frames from the v1 candidate.
     #
     # This implements §6.1 "on twos" pose-consistency without requiring any
-    # pose-estimation model: gradient similarity ≈ silhouette matching.
+    # pose-estimation model: fg pixel similarity ≈ animation phase matching.
 
     _POSE_LOOK_RANGE = 2   # at most ±2 frames from v1 candidate
-    _POSE_MIN_GAIN = 0.10  # must improve gradient L1 by ≥ 10% to substitute
+    _POSE_MIN_GAIN = 0.10  # must improve fg pixel L1 by ≥ 10% to substitute
     _MIN_ADV_FRAC = 0.50   # replacement must advance ≥ min_step_px × 0.50
     _MAX_ADV_FRAC = 2.50   # replacement must advance ≤ min_step_px × 2.50
 
@@ -1064,7 +1076,7 @@ def _smart_select_frames(
                 n_subs += 1
                 print(
                     f"  [PoseSelect/{_pose_mode}] Slot {k}: {s_curr}→{best} "
-                    f"(grad {curr_score:.3f}→{best_score:.3f})"
+                    f"(score {curr_score:.3f}→{best_score:.3f})"
                 )
             else:
                 selected.append(s_curr)
@@ -1569,6 +1581,34 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
             os.path.join(plots_dir, "overlap_map.png"),
         )
 
+        # ── Alignment stability gate ──────────────────────────────────────
+        # Detect scenes with significant 2D / diagonal camera motion where the
+        # pipeline's translation-only canvas model breaks down.  Large horizontal
+        # steps (> 50px absolute median) mean frames are placed at very different
+        # x positions on the canvas, confounding the temporal median background
+        # plate and producing severe compositing artifacts.
+        #
+        # Metric: 75th-percentile of |dx_steps|.  Using a robust percentile avoids
+        # being misled by 1–2 outliers from the LoFTR matching noise.
+        # Threshold: 50px absolute (pure vertical pans have |dx| < 2px).
+        # Override: set ASP_ALIGN_GATE_DX=99 to disable for diagnostics.
+        try:
+            _ALIGN_DX_LIMIT = float(os.environ.get("ASP_ALIGN_GATE_DX", "50"))
+        except ValueError:
+            _ALIGN_DX_LIMIT = 50.0
+        _txs_raw = [float(affines[i][0, 2]) for i in range(N)]
+        _dx_raw = [abs(_txs_raw[i + 1] - _txs_raw[i]) for i in range(N - 1)]
+        if _dx_raw:
+            _dx_p75 = float(np.percentile(_dx_raw, 75))
+            print(
+                f"  [AlignGate] 75th-pct |dx|={_dx_p75:.1f}px  limit={_ALIGN_DX_LIMIT:.0f}px"
+            )
+            if _dx_p75 > _ALIGN_DX_LIMIT:
+                raise RuntimeError(
+                    f"Alignment stability gate: 2D/diagonal motion "
+                    f"(75th-pct |dx|={_dx_p75:.1f}px > {_ALIGN_DX_LIMIT:.0f}px)"
+                )
+
         # ------------------------------------------------------------------
         # STEP 8-10: Render → quality gate → composite → crop
         # ------------------------------------------------------------------
@@ -1624,6 +1664,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 f"Composite quality gate: seam_coherence={_render_sc:.1f}, "
                 f"strip_banding={_render_sb:.1f}"
             )
+
         timings["render_gate_fallback"] = 0
 
         canvas_out = _crop_to_valid(canvas, valid_mask)
@@ -1636,6 +1677,39 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
         # background) rather than trimming excess top/bottom panning extent.
         # The scale mismatch for test27 (2× larger than GT) is a fundamental
         # frame-selection issue, not a post-processing crop problem.
+
+        # ── Ghosting ratio gate (post-crop) ────────────────────────────────
+        # Fires AFTER cropping so the ghost score is on the final display image
+        # (same basis as the S4 benchmark measurements, no black border inflation).
+        # The banding/coherence gate misses DOUBLE-IMAGE ghosting — the blend of
+        # slightly-different poses creates a smooth blurring artifact that scores
+        # fine on seam_coherence but looks worse than simple stitch (test82, test95).
+        # Override: ASP_GATE_GHOST=99 to disable.
+        try:
+            _GHOST_RATIO_LIMIT = float(os.environ.get("ASP_GATE_GHOST", "2.0"))
+        except ValueError:
+            _GHOST_RATIO_LIMIT = 2.0
+        if simple_ok and _GHOST_RATIO_LIMIT < 90:
+            _simple_img_gate = cv2.imread(central_simple_path)
+            if _simple_img_gate is not None:
+                _asp_ghost = _ghosting_score(canvas_out)  # post-crop, no black borders
+                _sim_ghost = _ghosting_score(_simple_img_gate)
+                print(
+                    f"  [GhostGate] asp_ghost={_asp_ghost:.1f}  "
+                    f"sim_ghost={_sim_ghost:.1f}  "
+                    f"ratio={_asp_ghost / max(_sim_ghost, 1.0):.2f}"
+                )
+                if _asp_ghost > _GHOST_RATIO_LIMIT * max(_sim_ghost, 1.0):
+                    print(
+                        f"  [GhostGate] FAILED "
+                        f"(asp={_asp_ghost:.1f} > {_GHOST_RATIO_LIMIT:.1f}× sim={_sim_ghost:.1f}) "
+                        f"→ SCANS fallback."
+                    )
+                    timings["render_gate_fallback"] = 1
+                    raise RuntimeError(
+                        f"Ghosting gate: asp_ghost={_asp_ghost:.1f}, "
+                        f"ratio={_asp_ghost/max(_sim_ghost,1.0):.2f}"
+                    )
 
         from PIL import Image
 

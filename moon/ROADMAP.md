@@ -1,6 +1,6 @@
 # Image Toolkit — Master Roadmap
 
-*Last updated: 2026-06-04 (session 4). Session 4: ARAP Push phase (full Sýkora 2009), BiRefNet fg-masked pose diff, 96-test re-run: 52/96 true ASP composites (was 44/96), gate failures 31/96 (was 39/96), avg ASP SSIM 0.667 vs simple 0.694. Session 3: pose-consistent frame selection infrastructure (disabled — gradient proxy confounded by background). Session 2: RAFT/ARAP/post_warp_diff. Session 1: foreground-assembly pipeline (A1–A6). Research consolidated: `reports/Image_Stitching_Research.md`, `reports/Image_Generation_Research.md`.*
+*Last updated: 2026-06-04 (session 5). Session 5: alignment stability gate (+0.074 test08, +0.049 test25), fg pixel L1 pose metric (+0.010 test27 with pose-on), 90 unit tests. Session 4: ARAP Push phase (full Sýkora 2009), 96-test run: 52/96 true ASP composites (was 44/96), avg ASP SSIM 0.667 vs simple 0.694. Session 3: pose-consistent frame selection infrastructure. Session 2: RAFT/ARAP/post_warp_diff. Session 1: foreground-assembly pipeline (A1–A6). Research consolidated: `reports/Image_Stitching_Research.md`.*
 
 Completed items have been moved to [CHANGELOG.md](CHANGELOG.md).
 

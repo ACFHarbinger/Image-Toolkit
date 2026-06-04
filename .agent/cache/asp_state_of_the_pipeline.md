@@ -154,7 +154,46 @@ Available via `just asp-benchmark-verify` (5 test quick-check) or `just asp-benc
 - **ToonCrafter** (`anim/anim_fill.py`): anime-style generative inbetweening (available for ghost-fill, not wired to main pipeline)
 - **SRStitcher** (`anim/sr_stitcher.py`): diffusion-based seam/border inpainting (`sr_mode=True`)
 - **Real-ESRGAN anime_6B** (`anim/super_res.py`): post-process 2–4× upscaling
-- **Unit tests**: 82 passing in `backend/test/anim/` (fg_register, rendering, bundle_adjust, filter_edges, affine_validation; includes 2 new ARAP Push tests added session 4)
+- **Unit tests**: 90 passing in `backend/test/anim/` (fg_register, rendering, bundle_adjust, filter_edges, affine_validation; 2 new ARAP Push tests added session 4; 8 new frame_selection tests added session 5)
+
+---
+
+### 2.9 Alignment Stability Gate (session 5 — pre-render)
+
+**Files:** `backend/benchmark/bench_anime_stitch.py`, `backend/src/anim/pipeline.py`
+
+Before the temporal render, checks whether the assembled canvas has unreliable horizontal alignment:
+
+- **Metric**: 75th-percentile of `|dx_steps|` where `dx_steps[i] = |affine_tx[i+1] - affine_tx[i]|`
+- **Threshold**: 50px (disable via `ASP_ALIGN_GATE_DX=99`)
+- **Action on fire**: fall back to SCANS on width-normalised frames (better than trying to composite with incoherent background plate)
+
+**Why this helps:** Tests with 2D/diagonal camera motion (test08, test25) have alternating large horizontal offsets (±100px per step). The translation-only canvas model places frames at different horizontal positions, making the temporal median background incoherent. Previous behaviour: the render gate fired AFTER spending 2.5s on compositing; new behaviour: falls back immediately (before rendering, saving 2.5s).
+
+**Results:** test08: +0.074 (0.736 → 0.809, simple_better → **asp_better**), test25: +0.049 (0.697 → 0.746). Both now use SCANS-on-normalised-frames as the output, which scores better than the ASP composite was producing.
+
+**Calibration:** Pure vertical pans (test09: 75th-pct |dx| ≈ 0.5px) never fire. Good ASP tests (test17, test84, test44) never fire. Only genuinely irregular 2D-motion tests fire.
+
+---
+
+### 2.10 Fg Pixel L1 Pose Metric (session 5)
+
+**Files:** `backend/src/anim/frame_selection.py`, `backend/benchmark/bench_anime_stitch.py`
+
+Upgraded `_fg_center_diff()` from gradient-weighted L1 (confounded by background) to **fg pixel L1 with per-frame gain normalisation**:
+
+- Hard-thresholds the BiRefNet fg mask (`> 0.3`) to binary `fg_bin`
+- Zeroes out all background pixels in both thumbnails before comparison
+- Independently normalises each thumbnail's fg pixels (zero mean, unit std) to remove inter-frame gain variation
+- Result: background pixels contribute exactly 0 — camera-panning locker/wall structure cannot influence the score
+
+**Previous problem (gradient approach):** `np.dot(gradient_diff.ravel(), fg_mask.ravel())` — gradient is computed on the FULL image, then dot-producted with the soft fg_mask. Background pixels with mask weight 0.05–0.1 still contributed proportionally, causing the selector to confound pose change with background scroll.
+
+**Session 5 results (with `ASP_POSE_WINDOW_PX=80`):**
+- test27: 0.709 → 0.719 (**+0.010** — meaningful improvement)
+- test09: 0.787 → 0.788 (+0.001 — marginal, GT-coupling limits further gain)
+
+**Status:** Pose selection remains disabled by default (`ASP_POSE_WINDOW_PX=0`). GT-coupling still causes some regressions (test04 regressed -0.024 with ±2 range, test57 regressed -0.015). The new metric IS better than gradient (fewer wrong substitutions, clear improvement on test27), but enabling by default requires resolving GT coupling. Enable via `ASP_POSE_WINDOW_PX=80` for targeted experiments.
 
 ---
 
