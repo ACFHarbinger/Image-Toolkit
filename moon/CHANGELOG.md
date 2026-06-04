@@ -4,6 +4,26 @@
 
 ---
 
+## ASP Session 5 — Alignment Stability Gate + Fg Pixel L1 Pose Metric (2026-06-04)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **Alignment stability gate** (`bench_anime_stitch.py`, `pipeline.py`) | Detects 2D/diagonal camera motion BEFORE compositing via 75th-percentile of `|dx_steps|`. When > 50px, falls back immediately to SCANS on width-normalised frames. Saves 2.5s of unnecessary compositing AND produces better output (normalised frames give better SCANS quality): test08 +0.074 (0.736→**0.809**, simple_better→**asp_better**), test25 +0.049 (0.697→**0.746**). Disable via `ASP_ALIGN_GATE_DX=99`. |
+| **Ghosting ratio gate** (`bench_anime_stitch.py`, post-crop) | Fires when ASP composite ghosting > 2× simple stitch ghosting (computed on CROPPED canvas). Catches double-image blending artifacts that pass the seam coherence gate. test82 borderline (S4 ratio=2.06; current SCANS non-determinism puts ratio 1.92–2.06, stochastic fire). test84 safely below (ratio=1.87). Disable via `ASP_GATE_GHOST=99`. |
+| **Fg pixel L1 pose metric** (`frame_selection.py`, `bench_anime_stitch.py`) | Replaced gradient-weighted L1 with fg-masked pixel L1 in `_fg_center_diff()`. Hard-threshold mask (>0.3) → zero out background → compare only fg pixels. Per-frame gain normalisation removes brightness variation. Background-invariant by construction (vs gradient: computed on full image, then weighted → background edges still contributed at 0.05–0.1 weight). |
+| **8 new unit tests** (`test_frame_selection.py`) | Cover `_fg_center_diff()` behavior: identical-fg near-zero, different-pose high-score, gain-normalisation, strict background-invariance, sparse-mask fallback. Total unit tests: 90 (up from 82). |
+
+### Investigated
+
+| Item | Finding |
+|------|---------|
+| **Fg pixel L1 with pose selection** (`ASP_POSE_WINDOW_PX=80`) | test27 improved +0.010 (0.709→0.719) — first meaningful breakthrough since session 2. test09 +0.001. But test04 regressed -0.024 and test57 regressed -0.015 (GT coupling). Pose selection remains disabled by default. |
+| **±3 look range** | Strictly worse than ±2: test09 -0.007, test27 -0.007. Extra candidates at ±3 slots are at awkward advances for uniform-step pans. Reverted to ±2. |
+
+---
+
 ## ASP Session 4 — ARAP Push Phase + BiRefNet Fg-Masked Pose Diff (2026-06-04)
 
 ### Shipped

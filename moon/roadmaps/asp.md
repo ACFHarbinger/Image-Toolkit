@@ -1,9 +1,9 @@
 # ASP Roadmap — Anime Stitch Pipeline: Quality & Reliability
 
-*Last updated: 2026-06-04. Session 4: ARAP Push phase (full Sýkora 2009), BiRefNet fg-masked pose diff, composite gate diagnostics. Session 3: pose-consistent frame selection infrastructure. Session 2: RAFT+ARAP+post_warp_diff. Session 1: foreground assembly pipeline.*  
-*Corpus: 96 tests; 55 have ground truth. **Avg SSIM ASP vs GT: 0.667 vs simple stitch 0.694** — simple stitch is 3.9% closer to reference on average.*  
-*True ASP composites: 52/96 (54.2%) — up from 44/96 before foreground assembly features. Render quality gate: 31 fallbacks (32.3%). Affine validation: 13 fallbacks (13.5%).*  
-*GT verdicts: asp_better=7 (12.7%), simple_better=26 (47.3%), comparable=22 (40.0%). Best: test17=0.887, test84=0.821.*  
+*Last updated: 2026-06-04. Session 5: alignment stability gate (+0.074 on test08), fg pixel L1 pose metric (+0.010 on test27 with pose-on), 8 new unit tests (90 total). Session 4: ARAP Push phase (full Sýkora 2009), BiRefNet fg-masked pose diff. Session 3: pose-consistent frame selection infrastructure. Session 2: RAFT+ARAP+post_warp_diff. Session 1: foreground assembly pipeline.*  
+*Corpus: 96 tests; 55 have ground truth. **Avg SSIM ASP vs GT: 0.667 vs simple stitch 0.694** — simple stitch is 3.9% closer to reference on average (session 4 full-run baseline; session 5 improvements pending full re-run).*  
+*True ASP composites: 52/96 (54.2%) — up from 44/96 before foreground assembly features. Alignment gate: firing on tests with 2D motion (test08, test25, etc.). Render quality gate: 31 fallbacks (32.3%). Affine validation: 13 fallbacks (13.5%).*  
+*GT verdicts (S4 baseline): asp_better=7 (12.7%), simple_better=26 (47.3%), comparable=22 (40.0%). Best: test17=0.887, test84=0.821. Session 5 highlights: test08 0.736→0.809 (simple_better→asp_better).*  
 *Root cause: Animated video scenes vs. static-scroll design assumption. Phase correlation measures whole-frame displacement including character animation.*  
 *Previous baseline (22 tests, 2026-05-31): 22/22 metric success, avg sharpness 33.14.*
 
@@ -78,6 +78,7 @@ When flow confidence is low (fast action, motion blur), do not warp/average — 
 - ⬜ **LSD collinearity term** in ARAP — the full Sýkora ARAP adds a line-segment-detector penalty to prevent bending of detected straight strokes; current implementation uses median-per-cell rigid transform which is similar in spirit but lacks the LSD hard constraint.
 - ⬜ **Segment-guided flow (AnimeInterp SGM)** — per-colour-segment centroid flow for scenes where RAFT also fails (very flat, large uniform regions).
 - ✅ **ARAP Push phase** — Sýkora's full Push→Regularise algorithm implemented (session 4). `_arap_push()` in `fg_register.py`: per-cell SAD block matching via `cv2.matchTemplate`, 15% improvement threshold, 24px search range, 16×16 cell grid. Push → Regularise is the complete Sýkora 2009 algorithm. Benchmark finding: zero measurable GT-SSIM improvement (flow quality is not the bottleneck; ceiling is animation timing).
+- ✅ **Alignment stability gate** (session 5) — Pre-render gate in `pipeline.py` and benchmark: fires when 75th-pct |dx_steps| > 50px (2D/diagonal motion). Falls back to SCANS on normalised frames immediately. test08: +0.074, test25: +0.049.
 
 **Benchmark note (2026-06-03, session 2):** RAFT + ARAP + post_warp_diff escalation → SSIM essentially flat vs session 1 (test09: 0.787, test27: 0.709). Experiments tried and their outcomes:
 - **Global reference pose (asymmetric alpha)**: catastrophic regression on test27 (-0.151) due to flow noise amplification at α=1.0 seams. Reverted.
@@ -107,7 +108,7 @@ When flow confidence is low (fast action, motion blur), do not warp/average — 
 3. For each camera-qualifying candidate, compute foreground flow vs last selected frame
 4. Pick candidate with smallest foreground flow magnitude within the selection window
 
-**Current state:** `backend/src/anim/frame_selection.py` has the two-pass loop and `_fg_center_diff()` API ready for a better pose metric. Enable gradient proxy via `ASP_POSE_WINDOW_PX=80` for experimentation.
+**Current state (session 5):** `_fg_center_diff()` upgraded to fg pixel L1 (background-invariant). With `ASP_POSE_WINDOW_PX=80`: test27 +0.010 (reliable), test09 +0.001. GT-coupling regression on test04 (-0.024) and test57 (-0.015) prevents enabling by default. Enable via `ASP_POSE_WINDOW_PX=80` for targeted experiments.
 
 ---
 

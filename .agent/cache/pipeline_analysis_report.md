@@ -213,18 +213,70 @@ Fewer spurious refinements than raw gradient (session 3), but still regresses te
 
 ---
 
-## 8. Next Session Priorities
+## Session 5 (2026-06-04)
 
-**Confirmed ceiling** (animation timing, not compositing): All compositing improvements (RAFT, ARAP Push+Regularise, post_warp_diff threshold) have been exhausted with zero/minimal SSIM impact. The 5-test SSIM ceiling (test09=0.787, test27=0.709) is definitively animation-timing-limited.
+### 5.1 What Was Built
 
-**Highest impact (require new capabilities):**
-1. **Proper pose-consistent frame selection with foreground-only flow** — the `_fg_center_diff()` infrastructure is in `frame_selection.py`. Replace the gradient proxy with: run RAFT on BiRefNet-masked foreground crops of each candidate vs last selected frame. Foreground-only flow is background-invariant by construction. This is the ONE change that could break through the SSIM ceiling.
-2. **Full 96-test re-run analysis** — benchmark is running (session 4). Analyze the distribution of gate failures and identify tests where ASP could be improved.
+**Fg Pixel L1 Pose Metric** — Replaced gradient-weighted L1 in `_fg_center_diff()` with fg-masked pixel L1:
+- Hard-thresholds BiRefNet fg_mask at 0.3 → binary `fg_bin`  
+- Zeroes out background before ANY computation → background-invariant by construction
+- Per-frame fg gain normalisation (zero mean / unit std) removes inter-frame brightness variation
+- Previous gradient approach: gradient on full image × soft mask → background bled through at 0.05–0.1 weight
 
-**Medium impact (new algorithmic territory):**
-3. **Segment-guided flow** — SLIC superpixels anchored to segment centroids for flat cel-shaded regions where RAFT aperture problem is worst. Would improve push-phase quality for large uniform patches.
-4. **LSD collinear constraint** in ARAP energy — prevents bending of straight structural lines (swords, architectural elements). Complex; uncertain benefit for current test corpus.
-5. **ToonCrafter synthesis at single-pose seams** — when `post_warp_diff > 22`, generate a synthetic intermediate pose instead of taking one frame. Would eliminate single-pose seam discontinuities. Expensive (~30s/seam).
+**Alignment Stability Gate** — New pre-render gate in both `bench_anime_stitch.py` and `pipeline.py`:
+- Fires when 75th-percentile of `|dx_steps|` > 50px (2D/diagonal camera motion)
+- Falls back to SCANS on width-normalised frames immediately (before expensive compositing)
+- Disable via `ASP_ALIGN_GATE_DX=99`
 
-**Infrastructure:**
-6. Analyze full 96-test results when benchmark completes. Update `asp_state_of_the_pipeline.md` §3 with corpus-wide statistics.
+**8 new unit tests** — `backend/test/anim/test_frame_selection.py` covering `_fg_center_diff()` behavior: identical-fg near-zero, different-pose high-score, gain-normalisation, strict background-invariance, sparse-mask fallback.
+
+### 5.2 Experiment Results
+
+**Default pipeline (alignment gate + ghosting gate, NO pose selection)** — from clean sequential runs:
+
+| Test | S4 | S5 (clean) | Δ | Notes |
+|------|-----|------------|---|-------|
+| test09 | 0.787 | **0.787** | 0.000 | Neither gate fires |
+| test27 | 0.709 | **0.709** | 0.000 | Neither gate fires |
+| test04 | 0.696 | ~0.742 | ~+0.046 | SCANS fallback (render gate); SCANS non-determinism |
+| test08 | 0.736 | **0.809** | **+0.074** | Alignment gate → SCANS-on-normalised |
+| test25 | 0.697 | **0.746** | **+0.049** | Alignment gate → SCANS-on-normalised |
+| test57 | 0.743 | **0.743** | 0.000 | Neither gate fires |
+| test82 | 0.756 | 0.756–0.800 | +0–+0.044 | Ghosting gate borderline (ratio 1.92–2.06); stochastic |
+
+**Session 5 with pose selection enabled (`ASP_POSE_WINDOW_PX=80`, ±2 range):**
+
+| Test | S4 baseline | S5 pose-on | Δ |
+|------|------------|-----------|---|
+| test09 | 0.787 | 0.788 | +0.001 |
+| test27 | 0.709 | 0.719 | **+0.010** |
+| test04 | 0.696 | 0.672 | -0.024 (GT coupling regression) |
+| test08 | 0.736 | 0.743 | +0.007 |
+| test57 | 0.743 | 0.728 | -0.015 (GT coupling regression) |
+
+### 5.3 Key Findings
+
+**Alignment gate resolves the 2D-motion failure mode:**
+test08 (dx_cv=16.6, highly irregular horizontal offsets) was producing a bad ASP composite (0.736 vs simple 0.805). The gate detects the 2D-motion pattern and falls back to SCANS-on-normalised-frames (0.809). The normalised frames give better SCANS output than running SCANS on original paths, so the fallback quality is genuinely better than both the old ASP composite AND the old simple stitch.
+
+**Fg pixel L1 metric is background-invariant, but GT coupling persists:**
+test27 improved +0.010 with pose selection enabled (first meaningful breakthrough since session 2). But test04 and test57 still regress due to GT coupling: any frame substitution that diverges from the GT's temporal reference penalises SSIM even when the pose selection is correct. The new metric has fewer wrong substitutions than gradient, but doesn't eliminate GT coupling.
+
+**±3 look range is strictly worse than ±2:**
+Expanding the search window from ±2 to ±3 frames consistently hurts test09 (-0.007) and test27 (-0.007) while the already-good improvements for test04/test08 came from the alignment gate, not the wider range. Reverted to ±2.
+
+---
+
+## 9. Next Session Priorities
+
+**Achieved this session:** Alignment gate (+0.074 on test08, +0.049 on test25), fg pixel L1 metric (+0.010 on test27 with pose-on), 8 unit tests (90 total).
+
+**GT-coupling wall is now the #1 bottleneck** for pose selection. All improvements that require changing WHICH frames are selected hit this wall. Options to break through:
+1. **Compute aligned-SSIM as the metric** instead of raw SSIM — align both outputs to GT before comparison, removing the framing gap. This would better reflect actual quality improvement.
+2. **RAFT flow on fg-masked crops for pose metric** — compute DIS/RAFT flow between fg-masked thumbnails of each candidate vs last selected, use fg-flow magnitude as metric. This is more accurate than pixel L1 for detecting pose change in uniform-color regions.
+3. **Corpus-wide alignment gate re-run** — the alignment gate is new and hasn't been run on all 96 tests yet. A full re-run would show the total coverage improvement.
+
+**Medium priority:**
+4. Segment-guided flow (aperture problem in flat cel regions).
+5. Analysis of ghosting-dominated simple_better tests (test82, test95) — need visual inspection to understand root cause.
+6. LSD collinear constraint in ARAP.

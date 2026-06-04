@@ -1038,6 +1038,30 @@ class AnimeStitchPipeline:
                 _frame_confs[_fj] = max(_frame_confs[_fj], _w)
         _frame_confs = np.clip(_frame_confs, 0.0, 1.0)
 
+        # ── Stage 9.5: Alignment stability gate ─────────────────────────────
+        # Detect scenes with significant 2D / diagonal camera motion where the
+        # translation-only canvas model breaks down.  Large horizontal step
+        # variation (75th-pct |dx| > 50px) signals that LoFTR matched frames
+        # across inconsistent horizontal offsets, producing a canvas where the
+        # temporal median background plate is incoherent.  Falling back to SCANS
+        # on the width-normalised frames avoids the compositing artefacts that
+        # result from trying to register an oscillating/diagonal pan.
+        try:
+            _align_dx_limit = float(os.environ.get("ASP_ALIGN_GATE_DX", "50"))
+        except ValueError:
+            _align_dx_limit = 50.0
+        _txs_gate = [float(affines[i][0, 2]) for i in range(N)]
+        _dx_gate = [abs(_txs_gate[i + 1] - _txs_gate[i]) for i in range(N - 1)]
+        if _dx_gate:
+            _dx_p75 = float(np.percentile(_dx_gate, 75))
+            if _dx_p75 > _align_dx_limit:
+                logger.info(
+                    f"[Stitch] Alignment stability gate: 75th-pct |dx|={_dx_p75:.1f}px "
+                    f"> {_align_dx_limit:.0f}px limit — 2D/diagonal motion detected, "
+                    f"falling back to SCANS."
+                )
+                return _scan_stitch_fallback(scans_frames, output_path)
+
         # ── Stage 10: Temporal renderer ─────────────────────────────────────
         # P1.2 — Variable-step renderer switch (W2 fix for test16).
         # When step-size variance is high (dy_cv > 0.20), the temporal median

@@ -24,9 +24,11 @@ the inter-frame camera step while the character pose is identical.  By detecting
 these runs and selecting frames that match the previous anchor pose, we assemble
 a panorama from geometrically coherent inputs before rendering begins.
 
-The pose similarity metric is the L1 distance between the central 50% crops of
-two thumbnails.  The central crop de-emphasises the peripheral background (which
-changes every frame due to camera motion) and focuses on the character region.
+The pose similarity metric is the mean absolute pixel difference on the
+foreground region (BiRefNet-masked, per-frame gain-normalised).  Background
+pixels are hard-thresholded out so camera-panning background structure
+contributes nothing to the score.  Falls back to gradient-magnitude L1 on
+the central 50% crop when BiRefNet masks are unavailable.
 
 Algorithm
 ---------
@@ -62,11 +64,12 @@ import numpy as np
 
 _SELECTOR_THUMB_LONG = 256  # thumbnail longest side for phase-correlation pass
 
-# Pose-consistent refinement is disabled by default.  Gradient similarity in
-# the central crop is confounded by background structure changes (camera pan
-# moves background edges through the frame), causing wrong frame choices on
-# tests with complex backgrounds.  Enable via ASP_POSE_WINDOW_PX=80 for
-# experimentation.  Proper implementation requires a pose estimation model.
+# Pose-consistent refinement is disabled by default.  Session-5 upgraded the
+# metric from gradient L1 (confounded by background scrolling) to fg-masked
+# pixel L1 (background-invariant).  However GT-coupling still causes
+# regressions on some tests: any frame substitution that diverges from the
+# GT's temporal reference penalises SSIM.  Enable via ASP_POSE_WINDOW_PX=80
+# for targeted experiments or when GT-SSIM is not the primary quality metric.
 try:
     _POSE_WINDOW_PX = float(os.environ.get("ASP_POSE_WINDOW_PX", "0"))
 except ValueError:
@@ -96,7 +99,9 @@ def _load_thumb_gray(path: str) -> np.ndarray:
     return cv2.resize(img, (tw, th)).astype(np.float32) / 255.0
 
 
-def _load_thumbs_parallel(frames_paths: List[str], max_workers: int = 8) -> List[np.ndarray]:
+def _load_thumbs_parallel(
+    frames_paths: List[str], max_workers: int = 8
+) -> List[np.ndarray]:
     """Load thumbnails in parallel (I/O-bound; GIL released in cv2.imread)."""
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as ex:
         return list(ex.map(_load_thumb_gray, frames_paths))
@@ -113,39 +118,57 @@ def _fg_center_diff(
     fg_mask: Optional[np.ndarray] = None,
 ) -> float:
     """
-    Gradient-magnitude L1 between two thumbnails, optionally weighted by a
-    foreground probability mask.
+    Pose similarity metric between two thumbnails.
 
-    When fg_mask is provided (BiRefNet fg probability map at thumbnail scale),
-    background pixels receive near-zero weight so that locker/wall/scenery
-    edges that change as the camera pans cannot dominate the comparison.  Only
-    the character's silhouette and limb outlines drive the score — frames with
-    the same character pose score low; different poses score high.
+    **With fg_mask (BiRefNet fg probability at thumbnail scale):**
+    Hard-thresholds the mask (> 0.3) to a binary fg_bin, zeroes out all
+    background pixels, then computes mean absolute pixel difference on the
+    foreground region.  Each frame's fg pixels are independently normalised to
+    zero mean / unit std before differencing to remove inter-frame gain
+    variations (ECC gain normalisation has not yet run at selection time).
 
-    Without fg_mask, falls back to central-crop gradient diff, which is partly
-    confounded by background structure.
+    This is strictly background-invariant: background pixels are exactly 0.0 in
+    both masked images, so camera-panning locker/wall/scenery structure
+    contributes nothing to the score regardless of mask softness.  For "on
+    twos" animation holds (same character cel for 2–3 consecutive frames),
+    fg pixels look identical → score ≈ 0.  Across a hold boundary (new
+    animation cel), fg pixels shift position → score > 0.
 
-    Returns a non-negative float (0 = identical character structure).
+    The previous gradient-weighted approach computed the Sobel gradient on the
+    full image and multiplied by fg_mask, so background edges (lockers, walls)
+    with fg_mask weight of 0.05–0.1 still contributed proportionally.  This
+    masked-pixel approach is background-invariant by construction.
+
+    **Without fg_mask (fallback):**
+    Gradient-magnitude L1 on the central 50% crop.  Partly confounded by
+    background structure but does not require BiRefNet.
+
+    Returns a non-negative float (0 = identical character region).
     """
     h = min(thumb_a.shape[0], thumb_b.shape[0])
     w = min(thumb_a.shape[1], thumb_b.shape[1])
 
+    if fg_mask is not None and fg_mask.shape[0] >= h and fg_mask.shape[1] >= w:
+        fg_bin = (fg_mask[:h, :w] > 0.3).astype(np.float32)
+        total = float(fg_bin.sum())
+        if total >= 50.0:
+            a = thumb_a[:h, :w]
+            b = thumb_b[:h, :w]
+            # Per-frame fg normalisation to remove gain variation
+            a_px = a[fg_bin > 0.5]
+            b_px = b[fg_bin > 0.5]
+            a_norm = (a - float(a_px.mean())) / (float(a_px.std()) + 1e-5)
+            b_norm = (b - float(b_px.mean())) / (float(b_px.std()) + 1e-5)
+            diff = np.abs(a_norm - b_norm) * fg_bin
+            return float(diff.sum() / total)
+        # fg mask too sparse — fall through to central-crop
+
+    # Fallback: gradient-magnitude L1 on central 50% crop
     def _grad_mag(img: np.ndarray) -> np.ndarray:
         gx = cv2.Sobel(img, cv2.CV_32F, 1, 0, ksize=3)
         gy = cv2.Sobel(img, cv2.CV_32F, 0, 1, ksize=3)
         return np.sqrt(gx * gx + gy * gy)
 
-    if fg_mask is not None and fg_mask.shape[0] >= h and fg_mask.shape[1] >= w:
-        a = thumb_a[:h, :w]
-        b = thumb_b[:h, :w]
-        mask = fg_mask[:h, :w]
-        diff = np.abs(_grad_mag(a) - _grad_mag(b))
-        total_weight = float(mask.sum())
-        if total_weight >= 10.0:
-            return float(np.dot(diff.ravel(), mask.ravel()) / total_weight)
-        # fg mask too sparse — fall through to central-crop
-
-    # Fallback: central 50% crop
     h0, h1 = h // 4, 3 * h // 4
     w0, w1 = w // 4, 3 * w // 4
     if h1 <= h0 or w1 <= w0:
@@ -263,7 +286,9 @@ def smart_select_frames(
                 if _TWO_CHANNEL_SELECT:
                     bg_cov = float(_bg_accum.mean())
                     if verbose:
-                        print(f"  [SmartSelect] BiRefNet bg mask: {bg_cov:.0%}, {_n_ok} probes")
+                        print(
+                            f"  [SmartSelect] BiRefNet bg mask: {bg_cov:.0%}, {_n_ok} probes"
+                        )
                     _bg_thumb_mask = _bg_accum if bg_cov >= 0.10 else None
                 if pw > 0:
                     fg_cov = float(_fg_accum.mean())
@@ -304,9 +329,9 @@ def smart_select_frames(
         else:
             (dx_t, dy_t), response = cv2.phaseCorrelate(a, b)
             frame_mads.append(float(np.mean(np.abs(b - a))))
-        raw_dx.append(float(dx_t) * scale_x)
-        raw_dy.append(float(dy_t) * scale_y)
-        responses.append(float(response))
+        raw_dx.append(dx_t * scale_x)
+        raw_dy.append(dy_t * scale_y)
+        responses.append(response)
 
     # ── 4. Dominant scroll axis ────────────────────────────────────────────
     med_dy = float(np.median(raw_dy))
@@ -331,9 +356,8 @@ def smart_select_frames(
     cumpos: List[float] = [0.0] * N
     for i in range(N - 1):
         step = axis_steps[i]
-        rejected = (
-            responses[i] < min_phase_response
-            or (abs(step) < tiny_step_px and frame_mads[i] > high_anim_mad)
+        rejected = responses[i] < min_phase_response or (
+            abs(step) < tiny_step_px and frame_mads[i] > high_anim_mad
         )
         cumpos[i + 1] = cumpos[i] + (0.0 if rejected else step)
 
@@ -353,7 +377,7 @@ def smart_select_frames(
 
     # ── 7. Pass 2 — pose-consistent local refinement ──────────────────────
     # For each interior frame, check whether a nearby frame (within ±2 slots,
-    # with a minimum/maximum advance constraint) has ≥10% better gradient
+    # with a minimum/maximum advance constraint) has ≥10% better fg pixel
     # similarity to the previous selected frame.  Frame count is preserved.
     _LOOK_RANGE = 2
     _MIN_GAIN = 0.10
@@ -380,7 +404,9 @@ def smart_select_frames(
                 continue
             last_t = thumbs[s_prev]
             curr_score = _fg_center_diff(last_t, thumbs[s_curr], _fg_thumb_mask)
-            scores = [_fg_center_diff(last_t, thumbs[c], _fg_thumb_mask) for c in candidates]
+            scores = [
+                _fg_center_diff(last_t, thumbs[c], _fg_thumb_mask) for c in candidates
+            ]
             best_local = int(np.argmin(scores))
             best = candidates[best_local]
             best_score = scores[best_local]
@@ -390,13 +416,13 @@ def smart_select_frames(
                 if verbose:
                     print(
                         f"  [PoseSelect] Slot {k}: {s_curr}→{best} "
-                        f"(grad {curr_score:.3f}→{best_score:.3f})"
+                        f"(score {curr_score:.3f}→{best_score:.3f})"
                     )
             else:
                 refined.append(s_curr)
         refined.append(selected_v1[-1])
         if verbose and n_subs > 0:
-            print(f"  [PoseSelect] {n_subs}/{len(selected_v1)-2} slots refined.")
+            print(f"  [PoseSelect] {n_subs}/{len(selected_v1) - 2} slots refined.")
         selected = refined
     else:
         selected = selected_v1
