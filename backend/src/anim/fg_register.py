@@ -77,6 +77,11 @@ _SEARAFT_DEVICE = None
 # loaded lazily on first call and cached for the benchmark run.
 _USE_SEARAFT = os.environ.get("ASP_FLOW_ENGINE", "searaft").lower() == "searaft"
 
+# ARAP Push phase (Sýkora 2009 block-matching Push before the Regularise step).
+# Enable: ASP_ARAP_PUSH=1 (default ON).
+# Disable: ASP_ARAP_PUSH=0 for A/B comparison vs pure Regularise.
+_ARAP_PUSH_ENABLED = os.environ.get("ASP_ARAP_PUSH", "1") != "0"
+
 
 def _get_dis():
     """Lazily construct a reusable DISOpticalFlow instance (MEDIUM preset)."""
@@ -236,6 +241,141 @@ def _seam_taper(
         dist = np.abs(coord - float(seam_pos))
         w_line = np.clip(1.0 - dist / max(taper_px, 1.0), 0.0, 1.0)  # (1,w)
         return np.broadcast_to(w_line, (h, w)).copy()
+
+
+def _arap_push(
+    img_a: np.ndarray,
+    img_b: np.ndarray,
+    fg_mask: np.ndarray,
+    initial_flow: np.ndarray,
+    cell_size: int = 16,
+    search_range: int = 24,
+    min_fg_frac: float = 0.25,
+    improvement_threshold: float = 0.15,
+) -> np.ndarray:
+    """
+    ARAP Push phase (Sýkora 2009) — per-cell block matching to find better
+    rigid translations before the Regularise phase smooths them.
+
+    The Push phase decouples neighbouring cells so each can independently jump
+    to its local appearance optimum via SAD (sum of absolute differences) block
+    matching.  Unlike gradient-based optical flow (RAFT, DIS), block matching
+    does not require local intensity gradients — it finds the best-matching
+    displacement even in large flat cel-shaded regions where the aperture problem
+    renders gradient methods ambiguous.
+
+    After Push, the per-cell translations are passed to :func:`_arap_regularise`
+    for global consistency (no two adjacent cells should move in wildly different
+    directions).  The Push–Regularise cycle is the full Sýkora ARAP algorithm;
+    the previous ASP implementation omitted the Push phase.
+
+    Parameters
+    ----------
+    img_a, img_b : (H, W[, 3]) uint8
+        The two canvas-aligned frame crops (seam band).
+    fg_mask : (H, W) bool/uint8
+        True / > 127 = foreground character pixels.  Only fg cells are pushed;
+        background cells keep the initial flow.
+    initial_flow : (H, W, 2) float32
+        Initial per-pixel flow from the dense flow stage (RAFT/DIS).  Used both
+        as the centre of the per-cell search window and as the fallback when
+        block matching finds no improvement.
+    cell_size : int
+        Grid cell size (px).  Smaller cells = finer-grained push (more accurate)
+        but slower.  Default 16 matches the ARAP regularise grid.
+    search_range : int
+        Half-width of the per-cell SAD search window (px).  The block matching
+        looks in a (2×search_range+1)² area centred on the initial flow estimate.
+    min_fg_frac : float
+        Minimum fraction of a cell's pixels that must be foreground for the Push
+        to run on that cell.  Background-dominated cells keep the initial flow.
+    improvement_threshold : float
+        Minimum fractional SAD reduction required to accept the Push displacement
+        over the initial flow's displacement.  Prevents noise-driven switches.
+
+    Returns
+    -------
+    (H, W, 2) float32 — updated flow with per-cell block-matched translations
+    for fg cells where a clear improvement was found; otherwise identical to
+    initial_flow.
+    """
+    H, W = initial_flow.shape[:2]
+    out = initial_flow.copy()
+
+    # Convert to grayscale for appearance-based matching
+    if img_a.ndim == 3:
+        gray_a = cv2.cvtColor(img_a, cv2.COLOR_BGR2GRAY).astype(np.float32)
+        gray_b = cv2.cvtColor(img_b, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    else:
+        gray_a = img_a.astype(np.float32)
+        gray_b = img_b.astype(np.float32)
+
+    fg = (fg_mask > 127) if fg_mask.dtype != bool else fg_mask
+    fg_float = fg.astype(np.float32)
+
+    n_cells_y = max(1, H // cell_size)
+    n_cells_x = max(1, W // cell_size)
+    min_fg_pixels = cell_size * cell_size * min_fg_frac
+
+    for ci in range(n_cells_y):
+        y0 = ci * cell_size
+        y1 = min(H, y0 + cell_size)
+        for cj in range(n_cells_x):
+            x0 = cj * cell_size
+            x1 = min(W, x0 + cell_size)
+
+            fg_in_cell = int(fg_float[y0:y1, x0:x1].sum())
+            if fg_in_cell < min_fg_pixels:
+                continue  # not enough character content — keep initial flow
+
+            # Per-cell initial flow estimate (robust median)
+            cell_flow = initial_flow[y0:y1, x0:x1]
+            init_dx = float(np.median(cell_flow[:, :, 0]))
+            init_dy = float(np.median(cell_flow[:, :, 1]))
+
+            # Search window in img_b centred at the initial flow estimate
+            sy0 = max(0, y0 + int(round(init_dy)) - search_range)
+            sy1 = min(H, y1 + int(round(init_dy)) + search_range)
+            sx0 = max(0, x0 + int(round(init_dx)) - search_range)
+            sx1 = min(W, x1 + int(round(init_dx)) + search_range)
+
+            template = gray_a[y0:y1, x0:x1]
+            search = gray_b[sy0:sy1, sx0:sx1]
+
+            th, tw = template.shape
+            if search.shape[0] < th or search.shape[1] < tw:
+                continue  # search window too small (frame edge)
+
+            # Compute baseline SAD at the initial flow location
+            base_by = y0 + int(round(init_dy))
+            base_bx = x0 + int(round(init_dx))
+            if (0 <= base_by < H - th + 1) and (0 <= base_bx < W - tw + 1):
+                base_patch = gray_b[base_by:base_by + th, base_bx:base_bx + tw]
+                if base_patch.shape == template.shape:
+                    base_sad = float(np.abs(template - base_patch).mean())
+                else:
+                    base_sad = float("inf")
+            else:
+                base_sad = float("inf")
+
+            # SAD block matching in search window
+            result = cv2.matchTemplate(
+                search, template, cv2.TM_SQDIFF
+            )
+            _, _, min_loc, _ = cv2.minMaxLoc(result)
+            best_sad = float(result[min_loc[1], min_loc[0]]) / (th * tw)
+
+            # Accept only if Push found a genuinely better match
+            if base_sad == float("inf") or best_sad < base_sad * (1.0 - improvement_threshold):
+                # Convert match location back to absolute displacement
+                best_dy = float(sy0 + min_loc[1]) - float(y0)
+                best_dx = float(sx0 + min_loc[0]) - float(x0)
+                # Update the flow in this cell (only for fg pixels)
+                cell_fg = fg[y0:y1, x0:x1]
+                out[y0:y1, x0:x1, 0] = np.where(cell_fg, best_dx, out[y0:y1, x0:x1, 0])
+                out[y0:y1, x0:x1, 1] = np.where(cell_fg, best_dy, out[y0:y1, x0:x1, 1])
+
+    return out
 
 
 def _arap_regularise(
@@ -480,14 +620,27 @@ def register_foreground_at_seam(
         flow = np.zeros((h, w, 2), dtype=np.float32)
         flow[:, x0_crop:x1_crop] = flow_crop
 
-    # A3 — ARAP regularisation replaces naive Gaussian smoothing.
-    # Gaussian blurring mixes character and background flow → blurs the
-    # animation estimate and can make straight line-art strokes bend.
-    # ARAP fits per-cell rigid transforms to the fg flow then interpolates
-    # smoothly, preserving collinear strokes while still allowing the character
-    # to bend at joints.  Fall back to Gaussian if scipy is unavailable.
+    # A3 — ARAP Push + Regularise (full Sýkora 2009 algorithm).
+    #
+    # Push: per-cell SAD block matching on the seam-band crops gives each cell
+    # an independent appearance-optimal displacement.  Critical for flat
+    # cel-shaded regions where RAFT/DIS gradient-based flow is ambiguous.
+    # Regularise: smooth the per-cell translations globally so adjacent cells
+    # don't move in contradictory directions (prevents line-art bending).
+    # Previously only Regularise was present; Push was omitted.
     try:
-        # cell_size=16: finer cells → less smoothing across fg/bg boundary
+        if _ARAP_PUSH_ENABLED:
+            if axis == 0:
+                crop_fg = fg_union[y0_crop:y1_crop, :]
+                pushed = _arap_push(crop_a, crop_b, crop_fg, flow_crop,
+                                    cell_size=16, search_range=24)
+                flow[y0_crop:y1_crop, :] = pushed
+            else:
+                crop_fg = fg_union[:, x0_crop:x1_crop]
+                pushed = _arap_push(crop_a, crop_b, crop_fg, flow_crop,
+                                    cell_size=16, search_range=24)
+                flow[:, x0_crop:x1_crop] = pushed
+
         flow = _arap_regularise(flow, fg_union, cell_size=16, n_iter=2)
     except Exception:
         if smooth_sigma > 0:

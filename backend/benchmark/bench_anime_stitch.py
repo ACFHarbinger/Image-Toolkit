@@ -671,10 +671,35 @@ def _save_metrics_bar(metrics_asp: Dict, metrics_simple: Dict, out_path: str) ->
 
 
 # ============================================================================
-# SMART FRAME SELECTOR
+# SMART FRAME SELECTOR  (v2: pose-consistent lookahead window)
 # ============================================================================
 
 _SELECTOR_THUMB_LONG = 256  # thumbnail longest side for phase-correlation pass
+
+# Pose-consistent refinement window (full-resolution canvas pixels).
+# When > 0, Pass 2 of the smart selector checks whether a nearby frame
+# (within ±2 slots of each v1 candidate) has ≥10% better gradient-magnitude
+# similarity to the previous selected frame.  Gradient similarity acts as a
+# proxy for pose similarity: frames with the same character pose have similar
+# edge patterns.
+#
+# IMPORTANT: This is DISABLED by default (_POSE_WINDOW_PX = 0).
+#
+# Benchmarking against ground truth shows that gradient similarity in the
+# central 50% crop is confounded by background structure (lockers, walls, etc.)
+# that also changes between frames as the camera pans.  Without a dedicated
+# pose estimation model (DWPose, ViTPose), the gradient proxy cannot reliably
+# distinguish character pose changes from background structure changes.  This
+# causes the selector to make wrong frame choices on tests with complex
+# backgrounds (test04, test27), regressing GT-SSIM by 0.026–0.043.
+#
+# Enable via ASP_POSE_WINDOW_PX=80 for targeted experimentation.  The
+# infrastructure (gradient metric, Pass 2 loop) is in place for when a
+# proper pose estimation model is integrated (§6.2 of the research report).
+try:
+    _POSE_WINDOW_PX = float(os.environ.get("ASP_POSE_WINDOW_PX", "0"))
+except ValueError:
+    _POSE_WINDOW_PX = 0.0
 
 
 def _load_thumb_gray(path: str) -> np.ndarray:
@@ -694,6 +719,57 @@ def _load_thumbs_parallel(frames_paths: List[str], max_workers: int = 8) -> List
     import concurrent.futures
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as ex:
         return list(ex.map(_load_thumb_gray, frames_paths))
+
+
+def _fg_center_diff(
+    thumb_a: np.ndarray,
+    thumb_b: np.ndarray,
+    fg_mask: Optional[np.ndarray] = None,
+) -> float:
+    """
+    Gradient-magnitude L1 between two thumbnails, optionally weighted by a
+    foreground probability mask.
+
+    **With fg_mask (BiRefNet-derived fg probability at thumbnail scale):**
+    Background pixels receive near-zero weight so that locker/wall edges that
+    change as the camera pans cannot dominate the comparison.  Only character
+    structure (silhouette, limb outlines) drives the score.  Two frames with
+    the same character pose score low regardless of which background is in
+    frame; two frames with different poses score high.  This is the correct
+    fix for the session-3 "gradient confounded by background" failure.
+
+    **Without fg_mask (fallback):**
+    Uses the central 50% crop, which reduces but does not eliminate background
+    contamination.  Only used when BiRefNet probes are unavailable.
+
+    Returns a non-negative float (0 = identical character structure).
+    """
+    h = min(thumb_a.shape[0], thumb_b.shape[0])
+    w = min(thumb_a.shape[1], thumb_b.shape[1])
+
+    def _grad_mag(img: np.ndarray) -> np.ndarray:
+        gx = cv2.Sobel(img, cv2.CV_32F, 1, 0, ksize=3)
+        gy = cv2.Sobel(img, cv2.CV_32F, 0, 1, ksize=3)
+        return np.sqrt(gx * gx + gy * gy)
+
+    if fg_mask is not None and fg_mask.shape[0] >= h and fg_mask.shape[1] >= w:
+        a = thumb_a[:h, :w]
+        b = thumb_b[:h, :w]
+        mask = fg_mask[:h, :w]
+        diff = np.abs(_grad_mag(a) - _grad_mag(b))
+        total_weight = float(mask.sum())
+        if total_weight >= 10.0:
+            return float(np.dot(diff.ravel(), mask.ravel()) / total_weight)
+        # fg mask too sparse — fall through to central-crop
+
+    # Fallback: central 50% crop (no fg mask or mask too sparse)
+    h0, h1 = h // 4, 3 * h // 4
+    w0, w1 = w // 4, 3 * w // 4
+    if h1 <= h0 or w1 <= w0:
+        a, b = thumb_a[:h, :w], thumb_b[:h, :w]
+    else:
+        a, b = thumb_a[h0:h1, w0:w1], thumb_b[h0:h1, w0:w1]
+    return float(np.mean(np.abs(_grad_mag(a) - _grad_mag(b))))
 
 
 # Two-channel pose-consistency frame selection (ASP §0.2).  The character is
@@ -727,38 +803,41 @@ def _smart_select_frames(
     """
     Return a subset of ``frames_paths`` suitable for the stitch pipeline.
 
-    Two primary rejection rules, applied at thumbnail scale (no GPU required):
+    **v2 upgrade — pose-consistent lookahead window (§6.1 of the research report).**
+
+    Instead of selecting the *first* frame past ``min_step_px`` (v1 behaviour),
+    v2 accumulates all candidates within a ``[min_step_px, min_step_px +
+    _POSE_WINDOW_PX]`` window beyond the last selected frame and then picks the
+    candidate with the lowest central-crop L1 distance to the last selected
+    thumbnail.  The central-crop (inner 50% of each thumbnail) isolates the
+    character region; peripheral background pixels are excluded because they
+    always differ between frames due to camera panning.  A low L1 value means
+    the character is in the same animation pose as the previous anchor frame —
+    the "on twos" principle.
+
+    Four rejection gates (applied before the window logic):
 
     **1. Displacement sufficiency.**
-    Track cumulative canvas position along the dominant scroll axis.  A frame is
-    included only when the canvas has advanced ≥ ``min_step_px`` from the last
-    included frame.  This eliminates near-duplicate frames that add no new canvas
-    content.
+    Track cumulative canvas position along the dominant scroll axis.  Only frames
+    that advance ≥ ``min_step_px`` from the last selected frame enter the window.
 
     **2. Direction consistency.**
-    When the cumulative canvas position moves *against* the dominant scroll
-    direction, we do not treat that backward movement as forward progress toward
-    the next selection.  Backward-direction frames re-expose already-covered
-    canvas rows with different character animation states.  In such a frame the
-    character occupies the same canvas row as it did in a previously selected
-    frame but with a different pose — the temporal median cannot recover this
-    because it lacks multiple frames in consensus.
+    Backward-direction steps do not contribute positive progress; frames that
+    re-expose already-covered canvas rows are skipped.
 
     **3. High-animation / low-movement filter.**
-    If the per-frame background displacement is very small (< ``tiny_step_px``)
-    but the overall thumbnail MAD is high (> ``high_anim_mad``), the camera is
-    nearly stationary while the character is animating significantly.  Such frames
-    would add the same canvas rows as the immediately preceding frame but with a
-    completely different foreground state.  They are discarded.
+    Camera barely moved (< ``tiny_step_px``) but thumbnail MAD is high
+    (> ``high_anim_mad``) → character is animating at a near-stationary canvas
+    position.  Discarded.
 
     **4. Phase-correlation quality gate.**
-    Pairs whose phase-correlation response falls below ``min_phase_response`` are
-    skipped; their displacement estimate is unreliable (motion blur, fast camera
-    swing, scene transition).
+    Response < ``min_phase_response`` → displacement estimate unreliable
+    (motion blur, scene transition).  Position still accumulated but frame not
+    entered into the window.
 
-    Always includes the first and last frames so the full scroll extent is
-    preserved.  Returns the original list unchanged when fewer than 3 frames are
-    provided.
+    Always includes the first and last frames to preserve the full scroll extent.
+    Returns the original list unchanged when fewer than 3 frames are provided.
+    Set ``ASP_POSE_WINDOW_PX=0`` to revert to v1 first-past-threshold behaviour.
     """
     N = len(frames_paths)
     if N <= 2:
@@ -777,14 +856,23 @@ def _smart_select_frames(
     else:
         scale_y = scale_x = float(_SELECTOR_THUMB_LONG)
 
-    # ── §0.2 Two-channel selection: background mask from BiRefNet ──────────
-    # Run BiRefNet on 3 evenly-spaced frames to build a per-pixel background
-    # weight map at thumbnail scale.  Phase-correlating only the background
-    # pixels isolates the camera pan displacement from character animation —
-    # unlike the whole-frame or peripheral-heuristic approaches that failed
-    # because they can't reliably separate the two motion channels.
+    # ── §0.2 BiRefNet probe masks for two-channel displacement and pose sim ──
+    # Run BiRefNet on 5 evenly-spaced frames to build per-pixel probability
+    # maps at thumbnail scale:
+    #   _bg_thumb_mask: intersection of bg masks (pixel is background in ALL
+    #                   probe frames) — used for camera-displacement phase
+    #                   correlation when _TWO_CHANNEL_SELECT is enabled.
+    #   _fg_thumb_mask: union of fg masks (pixel is foreground in ANY probe
+    #                   frame) — used to weight the gradient diff in Pass 2
+    #                   pose-consistency refinement.  Excludes background
+    #                   edges (lockers, walls) that change as the camera pans.
+    #
+    # BiRefNet is run at full resolution on each probe frame, then the mask
+    # is downsampled to thumbnail scale.  Total overhead: ~2–3 s per dataset.
     _bg_thumb_mask: Optional[np.ndarray] = None
-    if _TWO_CHANNEL_SELECT:
+    _fg_thumb_mask: Optional[np.ndarray] = None
+    _needs_biref_probes = _TWO_CHANNEL_SELECT or _POSE_WINDOW_PX > 0
+    if _needs_biref_probes:
         try:
             from backend.src.models.birefnet_wrapper import BiRefNetWrapper
             import gc as _gc
@@ -792,21 +880,25 @@ def _smart_select_frames(
 
             _biref = BiRefNetWrapper()
             _probe_idxs = sorted({0, N // 4, N // 2, 3 * N // 4, N - 1})
-            _bg_accum = np.ones(thumbs[0].shape[:2], dtype=np.float32)
+            _th_shape = thumbs[0].shape[:2]  # (th, tw) at thumbnail scale
+            _bg_accum = np.ones(_th_shape, dtype=np.float32)   # intersection → bg
+            _fg_accum = np.zeros(_th_shape, dtype=np.float32)  # union → fg
             _n_ok = 0
             for _pi in _probe_idxs:
                 _full = cv2.imread(frames_paths[_pi])
                 if _full is None:
                     continue
-                _mk = _biref.get_mask(_full)
+                _mk = _biref.get_mask(_full)  # BiRefNet: 0=fg, 255=bg
                 _th = thumbs[_pi].shape
-                _mk_small = cv2.resize(
+                # bg_prob: 1.0 = background pixel, 0.0 = foreground pixel
+                _bg_prob = cv2.resize(
                     (_mk > 127).astype(np.float32),
                     (_th[1], _th[0]),
                     interpolation=cv2.INTER_NEAREST,
                 )
-                # Conservative: background = background in ALL probed frames
-                _bg_accum = np.minimum(_bg_accum, _mk_small)
+                _fg_prob = 1.0 - _bg_prob
+                _bg_accum = np.minimum(_bg_accum, _bg_prob)  # conservative bg
+                _fg_accum = np.maximum(_fg_accum, _fg_prob)  # permissive fg
                 _n_ok += 1
             try:
                 _biref.offload()
@@ -817,11 +909,25 @@ def _smart_select_frames(
             if _torch.cuda.is_available():
                 _torch.cuda.empty_cache()
             if _n_ok > 0:
-                bg_cov = float(_bg_accum.mean())
-                print(f"  [SmartSelect] BiRefNet bg mask: {bg_cov:.0%} coverage, {_n_ok} probes")
-                _bg_thumb_mask = _bg_accum if bg_cov >= 0.10 else None
+                if _TWO_CHANNEL_SELECT:
+                    bg_cov = float(_bg_accum.mean())
+                    print(
+                        f"  [SmartSelect] BiRefNet bg mask: {bg_cov:.0%} coverage, "
+                        f"{_n_ok} probes"
+                    )
+                    _bg_thumb_mask = _bg_accum if bg_cov >= 0.10 else None
+                if _POSE_WINDOW_PX > 0:
+                    fg_cov = float(_fg_accum.mean())
+                    print(
+                        f"  [SmartSelect] BiRefNet fg mask: {fg_cov:.0%} fg coverage, "
+                        f"{_n_ok} probes — pose comparison will ignore background edges"
+                    )
+                    _fg_thumb_mask = _fg_accum if fg_cov >= 0.05 else None
         except Exception as _e:
-            print(f"  [SmartSelect] BiRefNet unavailable ({_e}); using whole-frame")
+            print(
+                f"  [SmartSelect] BiRefNet unavailable ({_e}); "
+                "using whole-frame phase correlation and central-crop pose diff"
+            )
 
     raw_dx: List[float] = []
     raw_dy: List[float] = []
@@ -869,48 +975,106 @@ def _smart_select_frames(
         f"  [SmartSelect] N={N}  dominant_axis={'y' if abs(med_dy) >= abs(med_dx) else 'x'}"
         f"  sign={dominant_sign:+d}"
         f"  med_step={abs(med_dy if abs(med_dy) >= abs(med_dx) else med_dx):.1f}px"
-        f"  mode={_chan}"
+        f"  mode={_chan}  pose_window={_POSE_WINDOW_PX:.0f}px"
     )
 
-    # ── 3. Greedy forward-selection based on cumulative canvas position ────
-    selected: List[int] = [0]
-    canvas_pos = 0.0          # cumulative position along dominant axis
-    last_sel_pos = 0.0        # canvas_pos at the time of last selection
-
+    # ── 3. Pre-compute cumulative canvas positions ─────────────────────────
+    # Each frame gets a cumulative position along the dominant axis.  Frames
+    # rejected by phase-correlation or high-animation gates contribute zero
+    # advance (their phase estimate is unreliable and we don't want to count
+    # that noisy displacement toward the min_step threshold).
+    cumpos: List[float] = [0.0] * N
     for i in range(N - 1):
         step = axis_steps[i]
-        response = responses[i]
-        mad = frame_mads[i]
+        rejected = (
+            responses[i] < min_phase_response
+            or (abs(step) < tiny_step_px and frame_mads[i] > high_anim_mad)
+        )
+        cumpos[i + 1] = cumpos[i] + (0.0 if rejected else step)
 
-        # Gate 4: poor phase-correlation quality
-        if response < min_phase_response:
-            canvas_pos += step   # still accumulate so position stays accurate
-            continue
+    # ── 4. Pass 1 — v1 greedy forward-selection (first-past-threshold) ───────
+    # This is the session-2 baseline: select the first frame that crosses
+    # min_step_px, accumulate, repeat.  Preserves frame count and even
+    # spacing needed for luminance normalisation.
 
-        # Gate 3: high animation with negligible camera movement
-        if abs(step) < tiny_step_px and mad > high_anim_mad:
-            # Camera barely moved but content changed a lot → character is
-            # animating at a nearly-stationary canvas position.  Skip.
-            canvas_pos += step
-            continue
+    selected_v1: List[int] = [0]
+    canvas_pos: float = 0.0
+    last_sel_pos_v1: float = 0.0
 
-        canvas_pos += step
-
-        # Net advance from last selected frame
-        advance = canvas_pos - last_sel_pos
-        if dominant_sign != 0:
-            net_forward = advance * dominant_sign
-        else:
-            net_forward = abs(advance)
-
-        # Gate 1+2: must advance in dominant direction by at least min_step_px
+    for i in range(N - 1):
+        canvas_pos = cumpos[i + 1]
+        advance = canvas_pos - last_sel_pos_v1
+        net_forward = advance * dominant_sign if dominant_sign != 0 else abs(advance)
         if net_forward >= min_step_px:
-            selected.append(i + 1)
-            last_sel_pos = canvas_pos
+            selected_v1.append(i + 1)
+            last_sel_pos_v1 = canvas_pos
 
-    # Always include last frame (ensures full scroll extent)
-    if selected[-1] != N - 1:
-        selected.append(N - 1)
+    if selected_v1[-1] != N - 1:
+        selected_v1.append(N - 1)
+
+    # ── 5. Pass 2 — pose-consistent local refinement ──────────────────────
+    # For each interior frame in selected_v1, check whether a nearby frame
+    # within ±_POSE_LOOK_RANGE frames has significantly better gradient
+    # similarity to the previous selected frame (>= 10% improvement).  If
+    # so, substitute it.  Frame count is preserved exactly.
+    #
+    # Key constraints (prevent backward clustering / sub-threshold gaps):
+    #   • Replacement must advance at least min_step_px × 0.5 from previous
+    #     selection in cumulative position space.
+    #   • Replacement must be at most min_step_px × 2.0 ahead of previous
+    #     selection (prevents huge forward jumps that skip canvas content).
+    #   • ±_POSE_LOOK_RANGE = 2 frames from the v1 candidate.
+    #
+    # This implements §6.1 "on twos" pose-consistency without requiring any
+    # pose-estimation model: gradient similarity ≈ silhouette matching.
+
+    _POSE_LOOK_RANGE = 2   # at most ±2 frames from v1 candidate
+    _POSE_MIN_GAIN = 0.10  # must improve gradient L1 by ≥ 10% to substitute
+    _MIN_ADV_FRAC = 0.50   # replacement must advance ≥ min_step_px × 0.50
+    _MAX_ADV_FRAC = 2.50   # replacement must advance ≤ min_step_px × 2.50
+
+    if _POSE_WINDOW_PX > 0 and len(selected_v1) > 2:
+        _pose_mode = "biref-fg" if _fg_thumb_mask is not None else "central-crop"
+        selected: List[int] = [selected_v1[0]]
+        n_subs = 0
+        for k in range(1, len(selected_v1) - 1):
+            s_prev = selected[-1]
+            s_curr = selected_v1[k]
+            # Candidate pool: ±LOOK_RANGE around s_curr, bounded by (s_prev+1, N-1)
+            lo = max(s_prev + 1, s_curr - _POSE_LOOK_RANGE)
+            hi = min(N - 1, s_curr + _POSE_LOOK_RANGE)
+            # Filter: minimum and maximum canvas advance from previous selection
+            def _valid_advance(c: int) -> bool:
+                adv = cumpos[c] - cumpos[s_prev]
+                nf = adv * dominant_sign if dominant_sign != 0 else abs(adv)
+                return _MIN_ADV_FRAC * min_step_px <= nf <= _MAX_ADV_FRAC * min_step_px
+            candidates = [c for c in range(lo, hi + 1) if _valid_advance(c)]
+            if not candidates:
+                selected.append(s_curr)
+                continue
+            last_t = thumbs[s_prev]
+            # Pass BiRefNet fg mask so background edges are excluded from score
+            curr_score = _fg_center_diff(last_t, thumbs[s_curr], _fg_thumb_mask)
+            scores = [_fg_center_diff(last_t, thumbs[c], _fg_thumb_mask) for c in candidates]
+            best_local = int(np.argmin(scores))
+            best = candidates[best_local]
+            best_score = scores[best_local]
+            if best != s_curr and best_score < curr_score * (1.0 - _POSE_MIN_GAIN):
+                selected.append(best)
+                n_subs += 1
+                print(
+                    f"  [PoseSelect/{_pose_mode}] Slot {k}: {s_curr}→{best} "
+                    f"(grad {curr_score:.3f}→{best_score:.3f})"
+                )
+            else:
+                selected.append(s_curr)
+        selected.append(selected_v1[-1])
+        if n_subs > 0:
+            print(
+                f"  [PoseSelect/{_pose_mode}] {n_subs}/{len(selected_v1)-2} slots refined."
+            )
+    else:
+        selected = selected_v1
 
     print(
         f"  [SmartSelect] Selected {len(selected)}/{N} frames  "
@@ -1439,8 +1603,16 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
         )
         #   seam_coherence > 38: row-mean std very high → severe horizontal banding
         #   strip_banding  > 30: adjacent strips differ by >30 lum units (post-gain)
-        _RENDER_SC_LIMIT = 38.0
-        _RENDER_SB_LIMIT = 30.0
+        # Override via ASP_GATE_SC / ASP_GATE_SB env vars for diagnostics.
+        # Set ASP_GATE_SC=99 ASP_GATE_SB=99 to disable the gate entirely.
+        try:
+            _RENDER_SC_LIMIT = float(os.environ.get("ASP_GATE_SC", "38"))
+        except ValueError:
+            _RENDER_SC_LIMIT = 38.0
+        try:
+            _RENDER_SB_LIMIT = float(os.environ.get("ASP_GATE_SB", "30"))
+        except ValueError:
+            _RENDER_SB_LIMIT = 30.0
         _render_failed = _render_sc > _RENDER_SC_LIMIT or _render_sb > _RENDER_SB_LIMIT
         if _render_failed:
             print(

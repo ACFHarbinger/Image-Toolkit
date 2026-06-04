@@ -4,6 +4,43 @@
 
 ---
 
+## ASP Session 4 — ARAP Push Phase + BiRefNet Fg-Masked Pose Diff (2026-06-04)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **ARAP Push phase** (`fg_register.py`) | Full Sýkora 2009 Push→Regularise algorithm. `_arap_push()`: per-cell SAD block matching via `cv2.matchTemplate` with 15% improvement threshold and 24px search range. Decouples cells for independent appearance-optimal displacement before global Regularise smoothing. Enabled by default (`ASP_ARAP_PUSH=1`). 2 new unit tests in `TestARAPPush`. |
+| **BiRefNet fg-masked pose diff** (`bench_anime_stitch.py`, `frame_selection.py`) | When `ASP_POSE_WINDOW_PX > 0`, BiRefNet probes build both bg mask (for camera displacement) AND fg mask (union across probe frames). The fg mask weights the gradient diff so background edges are excluded from pose comparison. Still disabled by default (background-agnostic but gradient still limited). |
+| **Composite gate env overrides** (`bench_anime_stitch.py`) | `ASP_GATE_SC` / `ASP_GATE_SB` env vars to tune or disable the composite gate for diagnostics. |
+
+### Investigated and Found Non-Impactful
+
+| Item | Finding |
+|------|---------|
+| **ARAP Push on benchmark** | Zero measurable GT-SSIM change (+0.001 test27, 0.000 elsewhere). Flow quality confirmed not the bottleneck; SSIM ceiling is animation timing mismatch from frame selection. |
+| **BiRefNet fg-masked pose selection** | Slightly better than raw gradient (fewer spurious refinements) but still regresses test04 (-0.082→-0.026 magnitude reduction). GT reference coupling prevents reliable improvement: any frame substitution diverges from the GT's specific temporal selection. |
+| **Composite gate calibration** | Gate verified correct: test04 ASP composite (sb=32.8) gives GT-SSIM 0.716 vs SCANS 0.742 — SCANS IS better for test04. Gate threshold 30 is appropriate. |
+
+---
+
+## ASP Session 3 — Pose-Consistent Frame Selection Infrastructure (2026-06-03)
+
+### Shipped (disabled by default)
+
+| Item | Summary |
+|------|---------|
+| **`backend/src/anim/frame_selection.py`** | New backend module exposing `smart_select_frames()` as a clean pipeline/GUI API. Two-pass architecture: Pass 1 (v1 greedy first-past-threshold), Pass 2 (local pose-consistent refinement). `_fg_center_diff()` gradient-magnitude L1 metric for pose similarity. |
+| **Upgraded `_smart_select_frames()`** | Benchmark function now has the same two-pass architecture with `[PoseSelect]` logging per refined slot. `ASP_POSE_WINDOW_PX` env var (default `0` = disabled). |
+
+### Tried and Disabled
+
+| Item | Outcome |
+|------|---------|
+| **Gradient-based central-crop pose proxy** | Confounded by background structure: Sobel gradients in the central 50% crop include locker/wall edges that change as the camera pans, causing the selector to prefer same-scroll-position frames over same-pose frames. Regressions: test04 -0.043, test27 -0.026. Set `ASP_POSE_WINDOW_PX=0` (default). Needs foreground-only flow or a proper pose estimation model (DWPose/ViTPose) to work correctly. See `pipeline_analysis_report.md` §3. |
+
+---
+
 ## Research Consolidation & Roadmap Restructure (2026-06-03)
 
 ### Consolidated research reports
