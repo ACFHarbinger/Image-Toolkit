@@ -1,6 +1,8 @@
 import pytest
 import cv2
-from unittest.mock import MagicMock, patch
+import time
+import json
+from unittest.mock import MagicMock, patch, mock_open
 from PySide6.QtWidgets import QWidget
 
 from gui.src.tabs.core.convert_tab import ConvertTab
@@ -114,6 +116,38 @@ class TestWallpaperTab:
         # Verify UI updates
         w1.set_image.assert_called_with("path2.jpg", None)
         w2.set_image.assert_called_with("path1.jpg", None)
+
+    def test_cancel_loading_with_daemon_active(self, q_app, mock_deps):
+        tab = WallpaperTab(db_tab_ref=MagicMock())
+        tab.countdown_timer = MagicMock()
+        tab.countdown_timer.isActive.return_value = True
+
+        # When daemon is active, cancel_loading should NOT stop the countdown timer
+        with patch.object(tab, "_is_daemon_running_config", return_value=True):
+            tab.cancel_loading()
+            tab.countdown_timer.stop.assert_not_called()
+
+        # When daemon is NOT active, cancel_loading SHOULD stop the countdown timer
+        with patch.object(tab, "_is_daemon_running_config", return_value=False):
+            tab.cancel_loading()
+            tab.countdown_timer.stop.assert_called_once()
+
+    def test_start_daemon_countdown_if_active_calculates_remaining_time(
+        self, q_app, mock_deps
+    ):
+        tab = WallpaperTab(db_tab_ref=MagicMock())
+
+        # Mock daemon running
+        with patch.object(tab, "_is_daemon_running_config", return_value=True):
+            # Mock the daemon config JSON reading
+            mock_config = {
+                "interval_seconds": 300,
+                "last_change_timestamp": int(time.time()) - 100,
+            }
+            with patch("builtins.open", mock_open(read_data=json.dumps(mock_config))):
+                tab._start_daemon_countdown_if_active()
+                # 300 interval - 100 elapsed = 200 remaining (give or take a second due to timing)
+                assert 195 <= tab.time_remaining_sec <= 200
 
 
 # --- DeleteTab Tests ---

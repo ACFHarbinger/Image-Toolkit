@@ -3,13 +3,12 @@ use base::core::wallpaper;
 use directories::UserDirs;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::env;
 use std::fs;
 use std::io::Write;
-use std::panic;
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::Duration;
-use std::env;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
@@ -69,11 +68,11 @@ fn get_config_dir() -> Result<PathBuf> {
 }
 
 fn get_config_path() -> Result<PathBuf> {
-    Ok(get_config_dir()?.join(".myapp_slideshow_config.json"))
+    Ok(get_config_dir()?.join(".slideshow_config.json"))
 }
 
 fn get_pid_path() -> Result<PathBuf> {
-    Ok(get_config_dir()?.join(".myapp_slideshow.pid"))
+    Ok(get_config_dir()?.join(".slideshow.pid"))
 }
 
 struct PidGuard(PathBuf);
@@ -85,9 +84,10 @@ impl PidGuard {
                     if PathBuf::from(format!("/proc/{}", old_pid)).exists() {
                         let cmdline = fs::read_to_string(format!("/proc/{}/cmdline", old_pid))
                             .unwrap_or_default();
-                        let is_daemon = cmdline.contains("slideshow_daemon") 
+                        let is_daemon = cmdline.contains("slideshow_daemon")
                             && (cmdline.contains("bin") || cmdline.contains("target"));
-                        let is_wrapper = cmdline.contains("python") && cmdline.contains("slideshow_daemon.py");
+                        let is_wrapper =
+                            cmdline.contains("python") && cmdline.contains("slideshow_daemon.py");
                         if is_daemon || is_wrapper {
                             anyhow::bail!(
                                 "Slideshow daemon is already running (PID: {}). Exiting.",
@@ -140,7 +140,9 @@ fn select_next_wallpapers(config: &mut Config, increment: bool) -> HashMap<Strin
     monitor_ids.sort();
     for monitor_id in monitor_ids {
         let queue = config.monitor_queues.get(monitor_id).unwrap();
-        if queue.is_empty() { continue; }
+        if queue.is_empty() {
+            continue;
+        }
         let current_path = config.current_paths.get(monitor_id);
         let mut idx = 0;
         let mut found = false;
@@ -158,7 +160,10 @@ fn select_next_wallpapers(config: &mut Config, increment: bool) -> HashMap<Strin
             match config.playback_order.as_str() {
                 "Random" => {
                     use rand::seq::SliceRandom;
-                    let history = config.monitor_history.entry(monitor_id.clone()).or_insert_with(Vec::new);
+                    let history = config
+                        .monitor_history
+                        .entry(monitor_id.clone())
+                        .or_insert_with(Vec::new);
                     let mut valid_indices: Vec<usize> = (0..queue.len())
                         .filter(|&i| !history.contains(&queue[i]))
                         .collect();
@@ -197,8 +202,14 @@ fn select_next_wallpapers(config: &mut Config, increment: bool) -> HashMap<Strin
             match config.playback_order.as_str() {
                 "Random" => {
                     use rand::seq::SliceRandom;
-                    let history = config.monitor_history.entry(monitor_id.clone()).or_insert_with(Vec::new);
-                    if let Some(&selected_idx) = (0..queue.len()).collect::<Vec<usize>>().choose(&mut rand::thread_rng()) {
+                    let history = config
+                        .monitor_history
+                        .entry(monitor_id.clone())
+                        .or_insert_with(Vec::new);
+                    if let Some(&selected_idx) = (0..queue.len())
+                        .collect::<Vec<usize>>()
+                        .choose(&mut rand::thread_rng())
+                    {
                         idx = selected_idx;
                     }
                     let next_path = queue[idx].clone();
@@ -210,7 +221,10 @@ fn select_next_wallpapers(config: &mut Config, increment: bool) -> HashMap<Strin
                 _ => idx = 0,
             }
         } else if config.playback_order.as_str() == "Random" {
-            let history = config.monitor_history.entry(monitor_id.clone()).or_insert_with(Vec::new);
+            let history = config
+                .monitor_history
+                .entry(monitor_id.clone())
+                .or_insert_with(Vec::new);
             let next_path = queue[idx].clone();
             if !history.contains(&next_path) {
                 history.push(next_path);
@@ -244,16 +258,27 @@ fn get_best_video_plugin() -> Option<String> {
     let reborn_plugin = "luisbocanegra.smart.video.wallpaper.reborn";
     let zren_plugin = "com.github.zren.smartvideowallpaper";
     let smarter_plugin = "smartervideowallpaper";
-    let home = UserDirs::new().map(|u| u.home_dir().to_path_buf()).unwrap_or_else(|| PathBuf::from("/"));
-    let search_paths = vec![home.join(".local/share/plasma/wallpapers"), PathBuf::from("/usr/share/plasma/wallpapers")];
+    let home = UserDirs::new()
+        .map(|u| u.home_dir().to_path_buf())
+        .unwrap_or_else(|| PathBuf::from("/"));
+    let search_paths = vec![
+        home.join(".local/share/plasma/wallpapers"),
+        PathBuf::from("/usr/share/plasma/wallpapers"),
+    ];
     for base_path in &search_paths {
-        if base_path.join(reborn_plugin).exists() { return Some(reborn_plugin.to_string()); }
+        if base_path.join(reborn_plugin).exists() {
+            return Some(reborn_plugin.to_string());
+        }
     }
     for base_path in &search_paths {
-        if base_path.join(smarter_plugin).exists() { return Some(smarter_plugin.to_string()); }
+        if base_path.join(smarter_plugin).exists() {
+            return Some(smarter_plugin.to_string());
+        }
     }
     for base_path in &search_paths {
-        if base_path.join(zren_plugin).exists() { return Some(zren_plugin.to_string()); }
+        if base_path.join(zren_plugin).exists() {
+            return Some(zren_plugin.to_string());
+        }
     }
     None
 }
@@ -321,12 +346,25 @@ fn apply_wallpaper_kde(
     let mut monitor_list: Vec<(&String, &Geometry)> = geometries.iter().collect();
     monitor_list.sort_by(|a, b| a.1.y.cmp(&b.1.y).then(a.1.x.cmp(&b.1.x)));
     for (id, geo) in &monitor_list {
-        log!("  Monitor {}: x={}, y={}, w={}, h={}", id, geo.x, geo.y, geo.width, geo.height);
+        log!(
+            "  Monitor {}: x={}, y={}, w={}, h={}",
+            id,
+            geo.x,
+            geo.y,
+            geo.width,
+            geo.height
+        );
     }
     kde_desktops.sort_by(|a, b| a.y.cmp(&b.y).then(a.x.cmp(&b.x)));
     log!("KDE Desktops found: {}", kde_desktops.len());
     for d in &kde_desktops {
-        log!("  Desktop {}: screen={}, x={}, y={}", d.index, d.screen, d.x, d.y);
+        log!(
+            "  Desktop {}: screen={}, x={}, y={}",
+            d.index,
+            d.screen,
+            d.x,
+            d.y
+        );
     }
     let mut monitor_to_kde = HashMap::new();
     for ((monitor_id, _), d) in monitor_list.iter().zip(kde_desktops.iter()) {
@@ -344,19 +382,52 @@ fn apply_wallpaper_kde(
         }
     };
     for (monitor_id, path) in path_map {
-        let i = monitor_to_kde.get(monitor_id).cloned().unwrap_or_else(|| monitor_id.parse().unwrap_or(0));
-        log!("Monitor {} -> KDE Desktop {} (Path: {})", monitor_id, i, path);
-        let file_uri = if !path.starts_with("file://") { format!("file://{}", path) } else { path.clone() };
-        let raw_path = if path.starts_with("file://") { path.replace("file://", "") } else { path.clone() };
-        let ext = PathBuf::from(path).extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+        let i = monitor_to_kde
+            .get(monitor_id)
+            .cloned()
+            .unwrap_or_else(|| monitor_id.parse().unwrap_or(0));
+        log!(
+            "Monitor {} -> KDE Desktop {} (Path: {})",
+            monitor_id,
+            i,
+            path
+        );
+        let file_uri = if !path.starts_with("file://") {
+            format!("file://{}", path)
+        } else {
+            path.clone()
+        };
+        let raw_path = if path.starts_with("file://") {
+            path.replace("file://", "")
+        } else {
+            path.clone()
+        };
+        let ext = PathBuf::from(path)
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
         let dot_ext = format!(".{}", ext);
         if video_extensions.contains(&dot_ext.as_str()) && video_mode_active {
             let is_smarter = target_plugin == "smartervideowallpaper";
-            let video_key = if is_smarter { "VideoWallpaperBackgroundVideo" } else { "VideoUrls" };
-            let override_pause = if is_smarter { "d.writeConfig('overridePause', true);" } else { "" };
-            
-            log!("Setting video wallpaper: mode={}, key={}, plugin={}", video_fill_mode, video_key, target_plugin);
-            
+            let video_key = if is_smarter {
+                "VideoWallpaperBackgroundVideo"
+            } else {
+                "VideoUrls"
+            };
+            let override_pause = if is_smarter {
+                "d.writeConfig('overridePause', true);"
+            } else {
+                ""
+            };
+
+            log!(
+                "Setting video wallpaper: mode={}, key={}, plugin={}",
+                video_fill_mode,
+                video_key,
+                target_plugin
+            );
+
             // Sync image_fill_mode based on video_fill_mode mapping
             // Plasma 6 uses the same Qt AspectRatioMode for org.kde.image (0=Stretch, 2=Crop)
             let image_fill_mode = video_fill_mode;
@@ -388,7 +459,8 @@ fn apply_wallpaper_kde(
         }
     }
     if !script.is_empty() {
-        wallpaper::evaluate_kde_script_core(&qdbus_bin, &script).map_err(|e| anyhow::anyhow!("KDE qdbus error: {}", e))?;
+        wallpaper::evaluate_kde_script_core(&qdbus_bin, &script)
+            .map_err(|e| anyhow::anyhow!("KDE qdbus error: {}", e))?;
     }
     Ok(())
 }
@@ -412,35 +484,43 @@ fn apply_wallpaper_kde_plasma_apply(
 
     let bin = "plasma-apply-wallpaperimage";
     let bin_path = which::which(bin).map_err(|e| anyhow::anyhow!("{} not found: {}", bin, e))?;
-    
-    let path = path_map.get("0")
+
+    let path = path_map
+        .get("0")
         .or_else(|| path_map.values().next())
         .context("No image path provided to set wallpaper")?;
-        
+
     let abs_path = fs::canonicalize(path).context("Invalid image path")?;
-    
+
     let fill_mode = match style.to_lowercase().as_str() {
         s if s.contains("stretch") => "stretch",
-        s if s.contains("keep proportions") || s.contains("fit") || s.contains("scaled") => "preserveAspectFit",
+        s if s.contains("keep proportions") || s.contains("fit") || s.contains("scaled") => {
+            "preserveAspectFit"
+        }
         s if s.contains("crop") || s.contains("zoom") || s.contains("span") => "preserveAspectCrop",
         s if s.contains("tile") || s.contains("wallpaper") => "tile",
         s if s.contains("center") || s.contains("pad") => "pad",
         _ => "preserveAspectCrop",
     };
-    
-    log!("Running fallback: {} --fill-mode {} {:?}", bin, fill_mode, abs_path);
-    
+
+    log!(
+        "Running fallback: {} --fill-mode {} {:?}",
+        bin,
+        fill_mode,
+        abs_path
+    );
+
     let status = std::process::Command::new(bin_path)
         .arg("--fill-mode")
         .arg(fill_mode)
         .arg(abs_path)
         .status()
         .context("Failed to execute plasma-apply-wallpaperimage")?;
-        
+
     if !status.success() {
         anyhow::bail!("plasma-apply-wallpaperimage returned non-zero status");
     }
-    
+
     Ok(())
 }
 
@@ -449,21 +529,34 @@ fn apply_wallpaper_gnome(path_map: &HashMap<String, String>, style: &str) -> Res
         let abs_path = fs::canonicalize(path).context("Invalid path")?;
         let file_uri = format!("file://{}", abs_path.to_string_lossy());
         let mode = match style.to_lowercase().as_str() {
-            "none" | "wallpaper" | "centered" | "scaled" | "stretched" | "zoom" | "spanned" => style.to_lowercase(),
+            "none" | "wallpaper" | "centered" | "scaled" | "stretched" | "zoom" | "spanned" => {
+                style.to_lowercase()
+            }
             _ => "zoom".to_string(),
         };
-        wallpaper::set_wallpaper_gnome_core(&file_uri, &mode).map_err(|e| anyhow::anyhow!("GNOME error: {}", e))?;
+        wallpaper::set_wallpaper_gnome_core(&file_uri, &mode)
+            .map_err(|e| anyhow::anyhow!("GNOME error: {}", e))?;
     }
     Ok(())
 }
 
 #[derive(Debug)]
-enum DesktopEnvironment { Kde, Gnome, Unknown }
+enum DesktopEnvironment {
+    Kde,
+    Gnome,
+    Unknown,
+}
 fn detect_desktop_environment() -> DesktopEnvironment {
-    let env = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default().to_lowercase();
-    if env.contains("kde") || env.contains("plasma") { DesktopEnvironment::Kde }
-    else if env.contains("gnome") || env.contains("ubuntu") { DesktopEnvironment::Gnome }
-    else { DesktopEnvironment::Unknown }
+    let env = std::env::var("XDG_CURRENT_DESKTOP")
+        .unwrap_or_default()
+        .to_lowercase();
+    if env.contains("kde") || env.contains("plasma") {
+        DesktopEnvironment::Kde
+    } else if env.contains("gnome") || env.contains("ubuntu") {
+        DesktopEnvironment::Gnome
+    } else {
+        DesktopEnvironment::Unknown
+    }
 }
 
 fn main() {
@@ -498,7 +591,9 @@ fn main() {
         }};
     }
     log!("Slideshow Daemon (Rust) Started.");
-    if debug { log!("Debug mode enabled."); }
+    if debug {
+        log!("Debug mode enabled.");
+    }
     if let Err(e) = run(&log_path) {
         log!("TERMINAL ERROR: {}", e);
         std::process::exit(1);
@@ -560,7 +655,12 @@ fn run(log_path: &Option<PathBuf>) -> Result<()> {
             log!("Applying wallpaper with style: {}", config.style);
             let res = match de {
                 DesktopEnvironment::Kde => {
-                    match apply_wallpaper_kde(&next_paths, &config.style, &config.monitor_geometries, log_path) {
+                    match apply_wallpaper_kde(
+                        &next_paths,
+                        &config.style,
+                        &config.monitor_geometries,
+                        log_path,
+                    ) {
                         Ok(()) => Ok(()),
                         Err(e) => {
                             log!("KDE D-Bus wallpaper application failed: {}. Trying fallback with plasma-apply-wallpaperimage...", e);
@@ -569,7 +669,10 @@ fn run(log_path: &Option<PathBuf>) -> Result<()> {
                     }
                 }
                 DesktopEnvironment::Gnome => apply_wallpaper_gnome(&next_paths, &config.style),
-                _ => { log!("Unsupported desktop environment."); Ok(()) }
+                _ => {
+                    log!("Unsupported desktop environment.");
+                    Ok(())
+                }
             };
             if let Err(e) = res {
                 let err_msg = format!("Error applying wallpaper: {}", e);
@@ -577,10 +680,15 @@ fn run(log_path: &Option<PathBuf>) -> Result<()> {
                 config.last_error = Some(err_msg);
                 let _ = save_config(&config_path, &config);
             } else {
-                config.last_change_timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+                config.last_change_timestamp = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs();
                 config.last_error = None;
                 let _ = save_config(&config_path, &config);
-                if !first_run { log!("Successfully cycled wallpapers."); }
+                if !first_run {
+                    log!("Successfully cycled wallpapers.");
+                }
             }
         }
         first_run = false;
@@ -608,7 +716,10 @@ mod tests {
             running: true,
             interval_seconds: 300,
             style: "Fill".to_string(),
-            monitor_queues: HashMap::from([("0".to_string(), vec!["a".to_string(), "b".to_string(), "c".to_string()])]),
+            monitor_queues: HashMap::from([(
+                "0".to_string(),
+                vec!["a".to_string(), "b".to_string(), "c".to_string()],
+            )]),
             current_paths: HashMap::from([("0".to_string(), "a".to_string())]),
             monitor_geometries: HashMap::new(),
             last_change_timestamp: 0,
@@ -641,11 +752,17 @@ mod tests {
         // Random: Should return some valid path and NOT repeat until all are shown
         config.playback_order = "Random".to_string();
         config.monitor_history.clear();
-        config.current_paths.insert("0".to_string(), "a".to_string());
+        config
+            .current_paths
+            .insert("0".to_string(), "a".to_string());
 
         // Initial setup for current path register
         let _ = select_next_wallpapers(&mut config, false);
-        assert!(config.monitor_history.get("0").unwrap().contains(&"a".to_string()));
+        assert!(config
+            .monitor_history
+            .get("0")
+            .unwrap()
+            .contains(&"a".to_string()));
 
         let mut selected_paths = Vec::new();
         // Cycle 1: should pick "b" or "c"

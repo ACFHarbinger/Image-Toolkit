@@ -7,6 +7,7 @@ from gui.src.tabs.core.image_extractor_tab import ImageExtractorTab
 from gui.src.windows.settings_window import SettingsWindow
 from backend.src.constants import IMAGE_TOOLKIT_DIR, DAEMON_CONFIG_PATH
 
+
 @pytest.fixture(scope="session")
 def qapp():
     app = QApplication.instance()
@@ -14,15 +15,18 @@ def qapp():
         app = QApplication([])
     return app
 
+
 def test_extraction_history_limit_and_pruning(qapp, tmp_path, monkeypatch):
     # Mock IMAGE_TOOLKIT_DIR to use a temporary directory for this test
     test_dir = tmp_path / "toolkit"
     test_dir.mkdir()
-    monkeypatch.setattr("gui.src.tabs.core.image_extractor_tab.IMAGE_TOOLKIT_DIR", test_dir)
+    monkeypatch.setattr(
+        "gui.src.tabs.core.image_extractor_tab.IMAGE_TOOLKIT_DIR", test_dir
+    )
 
     # Instantiate tab
     tab = ImageExtractorTab()
-    
+
     # Check initial empty state
     assert tab.recent_runs == []
     assert tab.extraction_metadata == {}
@@ -40,7 +44,7 @@ def test_extraction_history_limit_and_pruning(qapp, tmp_path, monkeypatch):
         "start_ms": 0,
         "end_ms": 1000,
         "timestamp": 100.0,
-        "engine": "FFmpeg"
+        "engine": "FFmpeg",
     }
     tab._record_extraction([f1, f2], meta1)
 
@@ -60,7 +64,7 @@ def test_extraction_history_limit_and_pruning(qapp, tmp_path, monkeypatch):
         "start_ms": 1000,
         "end_ms": 2000,
         "timestamp": 200.0,
-        "engine": "MoviePy"
+        "engine": "MoviePy",
     }
     tab._record_extraction([f3], meta2)
 
@@ -74,7 +78,7 @@ def test_extraction_history_limit_and_pruning(qapp, tmp_path, monkeypatch):
         "start_ms": 2000,
         "end_ms": 3000,
         "timestamp": 300.0,
-        "engine": "FFmpeg"
+        "engine": "FFmpeg",
     }
     tab._record_extraction([f4, f5], meta3)
 
@@ -106,22 +110,27 @@ def test_settings_window_resets(qapp, tmp_path, monkeypatch):
     test_dir = tmp_path / "toolkit"
     test_dir.mkdir()
     monkeypatch.setattr("gui.src.windows.settings_window.IMAGE_TOOLKIT_DIR", test_dir)
-    monkeypatch.setattr("gui.src.windows.settings_window.DAEMON_CONFIG_PATH", test_dir / ".myapp_slideshow_config.json")
+    monkeypatch.setattr(
+        "gui.src.windows.settings_window.DAEMON_CONFIG_PATH",
+        test_dir / ".slideshow_config.json",
+    )
 
     # Mock QMessageBox popups
-    monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: QMessageBox.StandardButton.Yes)
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *args, **kwargs: QMessageBox.StandardButton.Yes
+    )
     monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
     monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: None)
     monkeypatch.setattr(QMessageBox, "critical", lambda *args, **kwargs: None)
 
     # Create dummy config and history files
-    daemon_conf = test_dir / ".myapp_slideshow_config.json"
+    daemon_conf = test_dir / ".slideshow_config.json"
     daemon_conf.write_text(json.dumps({"running": True}))
 
-    history_file = test_dir / "extraction_history.json"
+    history_file = test_dir / ".extraction_history.json"
     history_file.write_text(json.dumps({"recent_runs": [], "file_map": {}}))
 
-    pid_file = test_dir / ".myapp_slideshow.pid"
+    pid_file = test_dir / ".slideshow.pid"
     pid_file.write_text("12345")
 
     # Instantiate settings window
@@ -139,7 +148,9 @@ def test_settings_window_resets(qapp, tmp_path, monkeypatch):
 
 def test_settings_window_reload_and_profile_update(qapp, monkeypatch):
     # Mock QMessageBox popups
-    monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: QMessageBox.StandardButton.Yes)
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *args, **kwargs: QMessageBox.StandardButton.Yes
+    )
     monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
     monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: None)
     monkeypatch.setattr(QMessageBox, "critical", lambda *args, **kwargs: None)
@@ -153,17 +164,19 @@ def test_settings_window_reload_and_profile_update(qapp, monkeypatch):
                 "system_preference_profiles": {
                     "ExistingProfile": {
                         "theme": "light",
-                        "active_tab_configs": {"ImageExtractorTab": "None (Default)"}
+                        "active_tab_configs": {"ImageExtractorTab": "None (Default)"},
                     }
                 },
                 "preferences": {
                     "thumbnail_size": 180,
                     "page_size": 100,
-                    "recent_extractions_count": 10
-                }
+                    "recent_extractions_count": 10,
+                },
             }
+
         def load_account_credentials(self):
             return self.data
+
         def save_data(self, data_str):
             self.data = json.loads(data_str)
             return True
@@ -206,7 +219,9 @@ def test_settings_window_reload_and_profile_update(qapp, monkeypatch):
 def test_export_finished_records_history(qapp, tmp_path, monkeypatch):
     test_dir = tmp_path / "toolkit"
     test_dir.mkdir()
-    monkeypatch.setattr("gui.src.tabs.core.image_extractor_tab.IMAGE_TOOLKIT_DIR", test_dir)
+    monkeypatch.setattr(
+        "gui.src.tabs.core.image_extractor_tab.IMAGE_TOOLKIT_DIR", test_dir
+    )
 
     tab = ImageExtractorTab()
     assert tab.recent_runs == []
@@ -225,7 +240,7 @@ def test_export_finished_records_history(qapp, tmp_path, monkeypatch):
         "end_ms": 200,
         "timestamp": 1234.56,
         "engine": "FFmpeg",
-        "mode": "video"
+        "mode": "video",
     }
 
     # Call _on_export_finished
@@ -236,5 +251,3 @@ def test_export_finished_records_history(qapp, tmp_path, monkeypatch):
     assert tab.recent_runs[0]["video_path"] == "video_test.mp4"
     assert tab._active_metadata is None
     assert str(output_file) in tab.extraction_metadata
-
-
