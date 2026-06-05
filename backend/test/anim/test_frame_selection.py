@@ -23,7 +23,7 @@ _repo_root = os.path.dirname(
 )
 sys.path.insert(0, _repo_root)
 
-from backend.src.anim.frame_selection import _fg_center_diff
+from backend.src.anim.frame_selection import _fg_center_diff, _detect_hold_blocks
 
 
 def _make_thumb(h: int = 144, w: int = 256, fill: float = 0.5) -> np.ndarray:
@@ -146,4 +146,81 @@ class TestFgCenterDiffFallback:
         assert abs(score_no_mask - score_sparse) < 1e-6, (
             f"Sparse mask should fall back to same path as no-mask: "
             f"{score_no_mask:.5f} vs {score_sparse:.5f}"
+        )
+
+
+class TestDetectHoldBlocks:
+    """Tests for _detect_hold_blocks() — FD-Means animation hold detection."""
+
+    def _thumbs(self, n: int, h: int = 64, w: int = 64) -> list:
+        """Return N identical zero thumbnails (same hold)."""
+        return [np.zeros((h, w), dtype=np.float32) for _ in range(n)]
+
+    def test_all_same_single_block(self):
+        """All identical frames → single hold block (index [0])."""
+        thumbs = self._thumbs(10)
+        blocks = _detect_hold_blocks(thumbs, hold_threshold=0.025)
+        assert blocks == [0], f"Expected [0], got {blocks}"
+
+    def test_three_distinct_holds(self):
+        """Three groups of different fill values → three hold blocks."""
+        thumbs = (
+            self._thumbs(3)                                         # block 0: fill=0.0
+            + [np.full((64, 64), 0.1, dtype=np.float32)] * 3       # block 1: fill=0.1
+            + [np.full((64, 64), 0.2, dtype=np.float32)] * 4       # block 2: fill=0.2
+        )
+        blocks = _detect_hold_blocks(thumbs, hold_threshold=0.025)
+        assert blocks == [0, 3, 6], f"Expected [0, 3, 6], got {blocks}"
+
+    def test_every_frame_different(self):
+        """Each frame slightly different → each frame starts a new block."""
+        rng = np.random.RandomState(42)
+        thumbs = [rng.uniform(0, 1, (64, 64)).astype(np.float32) for _ in range(5)]
+        blocks = _detect_hold_blocks(thumbs, hold_threshold=0.0001)
+        # Every consecutive pair should differ enough to be a new block
+        assert len(blocks) == 5, f"Expected 5 blocks, got {len(blocks)}: {blocks}"
+        assert blocks == [0, 1, 2, 3, 4]
+
+    def test_zero_threshold_all_different(self):
+        """threshold=0 → disabled, all frame indices returned."""
+        thumbs = self._thumbs(5)
+        blocks = _detect_hold_blocks(thumbs, hold_threshold=0.0)
+        assert blocks == [0, 1, 2, 3, 4]
+
+    def test_single_frame_returns_zero(self):
+        """Single frame → [0]."""
+        blocks = _detect_hold_blocks(self._thumbs(1), hold_threshold=0.025)
+        assert blocks == [0]
+
+    def test_empty_returns_empty(self):
+        """Empty input → empty output."""
+        blocks = _detect_hold_blocks([], hold_threshold=0.025)
+        assert blocks == []
+
+    def test_hold_boundary_above_threshold(self):
+        """MAD exactly above threshold → detected as new block."""
+        t_a = np.zeros((64, 64), dtype=np.float32)
+        t_b = np.full((64, 64), 0.03, dtype=np.float32)  # MAD=0.03 > 0.025
+        blocks = _detect_hold_blocks([t_a, t_b], hold_threshold=0.025)
+        assert blocks == [0, 1], f"MAD=0.03 > threshold=0.025 → two blocks, got {blocks}"
+
+    def test_hold_boundary_below_threshold(self):
+        """MAD exactly below threshold → same block."""
+        t_a = np.zeros((64, 64), dtype=np.float32)
+        t_b = np.full((64, 64), 0.02, dtype=np.float32)  # MAD=0.02 < 0.025
+        blocks = _detect_hold_blocks([t_a, t_b], hold_threshold=0.025)
+        assert blocks == [0], f"MAD=0.02 < threshold=0.025 → one block, got {blocks}"
+
+    def test_noise_within_hold_not_detected(self):
+        """Small MPEG-style noise within a hold should not create new blocks."""
+        rng = np.random.RandomState(7)
+        base = np.full((64, 64), 0.5, dtype=np.float32)
+        # Add tiny noise (< 0.01 MAD → within-hold compression artefact)
+        thumbs = [
+            np.clip(base + rng.uniform(-0.005, 0.005, (64, 64)).astype(np.float32), 0, 1)
+            for _ in range(6)
+        ]
+        blocks = _detect_hold_blocks(thumbs, hold_threshold=0.025)
+        assert blocks == [0], (
+            f"Small noise within hold should not create extra blocks, got {blocks}"
         )

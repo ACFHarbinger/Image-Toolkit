@@ -81,6 +81,80 @@ except ValueError:
 _TWO_CHANNEL_SELECT = os.environ.get("ASP_TWO_CHANNEL_SELECT", "0") != "0"
 _PERIPH_BORDER_FRAC = 0.24
 
+# Animation hold detection — FD-Means preprocessing (§1.11 / §3.4).
+# Set ASP_HOLD_THRESHOLD to a positive float (e.g. "0.025") to enable.
+# A value of 0.0 (default) disables hold detection entirely.
+try:
+    _HOLD_THRESHOLD = float(os.environ.get("ASP_HOLD_THRESHOLD", "0.0"))
+except ValueError:
+    _HOLD_THRESHOLD = 0.0
+
+
+# ---------------------------------------------------------------------------
+# Hold block detection
+# ---------------------------------------------------------------------------
+
+
+def _detect_hold_blocks(
+    thumbs: List[np.ndarray],
+    hold_threshold: float = 0.025,
+) -> List[int]:
+    """
+    Detect animation "on twos / on threes" hold blocks and return the index of
+    the first frame of each block.
+
+    Anime animators draw a new character cel every 2–3 video frames
+    (occasionally every frame for action shots, or every 4–6 for slow scenes).
+    Within a hold block, consecutive frames are pixel-identical except for MPEG
+    compression noise and sub-pixel camera drift.  At a hold boundary, the
+    character snaps to a new pose → large pixel MAD.
+
+    The detector compares consecutive thumbnail mean absolute differences
+    (normalised to [0,1]).  If the MAD is below ``hold_threshold``, the two
+    frames belong to the same hold block.  The first frame of each block is the
+    representative.
+
+    Parameters
+    ----------
+    thumbs : list of (H, W) float32 thumbnails in [0, 1].
+    hold_threshold : mean absolute difference (in [0,1]) below which two
+        consecutive thumbnails are considered the same cel.  Default 0.025
+        (2.5% of [0,1] range).  Typical within-hold MAD: 0.003–0.010.
+        Typical cross-hold MAD: 0.030–0.120.
+
+    Returns
+    -------
+    List[int] — indices of the first frame of each hold block.  Each block
+    represents one unique animation cel.  Length ≤ len(thumbs).
+
+    Notes
+    -----
+    - For ``hold_threshold=0`` or len(thumbs) ≤ 1, returns list(range(N)).
+    - This function is pure NumPy — no GPU, ~1ms for 300 frames.
+    - Hold boundaries are the natural pose-change points (Sýkora 2009 §3.1).
+      They provide a principled frame universe for Pass 2 pose-consistent
+      refinement: candidates that cross exactly one hold boundary are
+      guaranteed to show a different character pose (needed for ARAP to have
+      useful work to do); candidates that stay within one hold are wasted
+      (identical pose → ARAP residual ≈ 0, good — but selection is redundant).
+    """
+    N = len(thumbs)
+    if hold_threshold <= 0.0 or N <= 1:
+        return list(range(N))
+
+    blocks: List[int] = [0]
+    for i in range(1, N):
+        h = min(thumbs[i].shape[0], thumbs[i - 1].shape[0])
+        w = min(thumbs[i].shape[1], thumbs[i - 1].shape[1])
+        mad = float(np.mean(np.abs(
+            thumbs[i][:h, :w].astype(np.float32)
+            - thumbs[i - 1][:h, :w].astype(np.float32)
+        )))
+        if mad > hold_threshold:
+            blocks.append(i)
+
+    return blocks
+
 
 # ---------------------------------------------------------------------------
 # Thumbnail I/O
@@ -234,6 +308,31 @@ def smart_select_frames(
     # ── 1. Load thumbnails ─────────────────────────────────────────────────
     thumbs = _load_thumbs_parallel(frames_paths)
 
+    # ── 1b. Hold-block detection (FD-Means preprocessing, §1.11 / §3.4) ───
+    # Detect animation "on twos / on threes" hold blocks.  Each block
+    # represents one unique character cel.  We record hold_ids[i] so that
+    # Pass 2 can prefer candidates from a new hold block (different pose)
+    # over candidates within the same hold block (identical pose, zero ARAP
+    # benefit).  Hold detection also surfaces the block boundary count as
+    # a diagnostic for predicted ARAP workload.
+    hold_ids: List[int] = [0] * N  # hold block ID for each frame (0-indexed)
+    n_hold_blocks = 1
+    if _HOLD_THRESHOLD > 0.0:
+        hold_reps = _detect_hold_blocks(thumbs, hold_threshold=_HOLD_THRESHOLD)
+        _block_id = 0
+        _rep_set = set(hold_reps)
+        for i in range(N):
+            if i in _rep_set and i > 0:
+                _block_id += 1
+            hold_ids[i] = _block_id
+        n_hold_blocks = _block_id + 1
+        if verbose:
+            print(
+                f"  [HoldDetect] {n_hold_blocks} hold blocks from {N} frames "
+                f"(avg {N / n_hold_blocks:.1f} frames/block, "
+                f"threshold={_HOLD_THRESHOLD:.3f})"
+            )
+
     img0 = cv2.imread(frames_paths[0])
     if img0 is not None:
         full_h, full_w = img0.shape[:2]
@@ -345,11 +444,12 @@ def smart_select_frames(
 
     _chan = "2ch" if _bg_thumb_mask is not None else "1ch"
     if verbose:
+        _hold_info = f"  hold_blocks={n_hold_blocks}" if _HOLD_THRESHOLD > 0.0 else ""
         print(
             f"  [SmartSelect] N={N}  axis={'y' if abs(med_dy) >= abs(med_dx) else 'x'}"
             f"  sign={dominant_sign:+d}"
             f"  med_step={abs(med_dy if abs(med_dy) >= abs(med_dx) else med_dx):.1f}px"
-            f"  mode={_chan}  pose_window={pw:.0f}px"
+            f"  mode={_chan}  pose_window={pw:.0f}px{_hold_info}"
         )
 
     # ── 5. Pre-compute cumulative canvas positions ─────────────────────────
@@ -407,7 +507,17 @@ def smart_select_frames(
             scores = [
                 _fg_center_diff(last_t, thumbs[c], _fg_thumb_mask) for c in candidates
             ]
-            best_local = int(np.argmin(scores))
+            # Hold-block tie-breaking: candidates from the same hold block as
+            # s_prev (hold_ids[c] == hold_ids[s_prev]) have pose identical to
+            # the previous anchor frame.  Their pixel L1 is near-zero not
+            # because the pose is good but because the character hasn't moved.
+            # Apply a small penalty to prefer cross-hold candidates.
+            _SAME_HOLD_PENALTY = 0.05
+            scores_adj = [
+                s + (_SAME_HOLD_PENALTY if _HOLD_THRESHOLD > 0 and hold_ids[c] == hold_ids[s_prev] else 0.0)
+                for s, c in zip(scores, candidates)
+            ]
+            best_local = int(np.argmin(scores_adj))
             best = candidates[best_local]
             best_score = scores[best_local]
             if best != s_curr and best_score < curr_score * (1.0 - _MIN_GAIN):
@@ -435,4 +545,9 @@ def smart_select_frames(
     return [frames_paths[i] for i in selected]
 
 
-__all__ = ["smart_select_frames", "_fg_center_diff", "_load_thumbs_parallel"]
+__all__ = [
+    "smart_select_frames",
+    "_detect_hold_blocks",
+    "_fg_center_diff",
+    "_load_thumbs_parallel",
+]

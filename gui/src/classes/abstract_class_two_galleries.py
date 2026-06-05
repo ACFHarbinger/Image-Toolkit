@@ -237,6 +237,17 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
     def _get_recent_dirs(self) -> list:
         """Return the MRU directory list for this tab class."""
+        main_win = self.window()
+        if not main_win:
+            from PySide6.QtWidgets import QApplication
+            for widget in QApplication.topLevelWidgets():
+                if hasattr(widget, "cached_creds"):
+                    main_win = widget
+                    break
+        if main_win and hasattr(main_win, "cached_creds"):
+            prefs = main_win.cached_creds.get("preferences", {})
+            if not prefs.get("restore_last_dir", True):
+                return []
         from PySide6.QtCore import QSettings
         return QSettings("ImageToolkit", "ImageToolkit").value(
             f"session/{self.__class__.__name__}/recent_dirs", []
@@ -244,12 +255,34 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
     # --- SESSION PERSISTENCE (GUI/UX §2.5) ---
     def _save_last_dir(self, path: str) -> None:
+        main_win = self.window()
+        if not main_win:
+            from PySide6.QtWidgets import QApplication
+            for widget in QApplication.topLevelWidgets():
+                if hasattr(widget, "cached_creds"):
+                    main_win = widget
+                    break
+        if main_win and hasattr(main_win, "cached_creds"):
+            prefs = main_win.cached_creds.get("preferences", {})
+            if not prefs.get("restore_last_dir", True):
+                return
         from PySide6.QtCore import QSettings
         QSettings("ImageToolkit", "ImageToolkit").setValue(
             f"session/{self.__class__.__name__}/last_dir", path
         )
 
     def _load_last_dir(self, default: str = "") -> str:
+        main_win = self.window()
+        if not main_win:
+            from PySide6.QtWidgets import QApplication
+            for widget in QApplication.topLevelWidgets():
+                if hasattr(widget, "cached_creds"):
+                    main_win = widget
+                    break
+        if main_win and hasattr(main_win, "cached_creds"):
+            prefs = main_win.cached_creds.get("preferences", {})
+            if not prefs.get("restore_last_dir", True):
+                return default
         from PySide6.QtCore import QSettings
         return QSettings("ImageToolkit", "ImageToolkit").value(
             f"session/{self.__class__.__name__}/last_dir", default

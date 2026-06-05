@@ -63,3 +63,21 @@ class TestSettingsWindowLogs:
             window._view_daemon_logs()
             mock_from_local_file.assert_called_once_with(str(log_file))
             mock_open_url.assert_called_once()
+
+
+class TestSettingsWindowSessionRecovery:
+    def test_session_recovery_combo_exists_and_defaults(self, q_app):
+        window = SettingsWindow()
+        assert window.session_recovery_combo is not None
+        items = [window.session_recovery_combo.itemText(i) for i in range(window.session_recovery_combo.count())]
+        assert "None" in items
+        assert "Current Tab" in items
+        assert "All Tabs" in items
+        assert window.session_recovery_combo.currentText() == "None"
+
+    def test_session_recovery_reset(self, q_app):
+        window = SettingsWindow()
+        window.session_recovery_combo.setCurrentText("All Tabs")
+        window.reset_settings()
+        assert window.session_recovery_combo.currentText() == "None"
+

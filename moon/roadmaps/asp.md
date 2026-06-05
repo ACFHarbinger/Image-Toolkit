@@ -1,13 +1,13 @@
 # ASP Roadmap — Anime Stitch Pipeline: Quality & Reliability
 
-*Last updated: 2026-06-04. Session 5: alignment stability gate (+0.074 on test08), fg pixel L1 pose metric (+0.010 on test27 with pose-on), 8 new unit tests (90 total). Session 4: ARAP Push phase (full Sýkora 2009), BiRefNet fg-masked pose diff. Session 3: pose-consistent frame selection infrastructure. Session 2: RAFT+ARAP+post_warp_diff. Session 1: foreground assembly pipeline.*  
-*Corpus: 96 tests; 55 have ground truth. **Avg SSIM ASP vs GT: 0.667 vs simple stitch 0.694** — simple stitch is 3.9% closer to reference on average (session 4 full-run baseline; session 5 improvements pending full re-run).*  
-*True ASP composites: 52/96 (54.2%) — up from 44/96 before foreground assembly features. Alignment gate: firing on tests with 2D motion (test08, test25, etc.). Render quality gate: 31 fallbacks (32.3%). Affine validation: 13 fallbacks (13.5%).*  
-*GT verdicts (S4 baseline): asp_better=7 (12.7%), simple_better=26 (47.3%), comparable=22 (40.0%). Best: test17=0.887, test84=0.821. Session 5 highlights: test08 0.736→0.809 (simple_better→asp_better).*  
+*Last updated: 2026-06-04. Session 6 starting: perceptual-hash hold detection, GNC robust loss for BA, SLIC SGM proxy for aperture problem, roadmap extended with AGNC/SAM2/Overmix/BigWarp/SAM2Flow/Intelligent-Scissors findings. Session 5: alignment stability gate (+0.074 on test08, +0.049 on test25), fg pixel L1 pose metric (+0.010 on test27 with pose-on), 8 new unit tests (90 total). Session 4: ARAP Push phase (full Sýkora 2009). Session 3: pose-consistent frame selection infrastructure. Session 2: RAFT+ARAP+post_warp_diff. Session 1: foreground assembly pipeline.*  
+*Corpus: 96 tests; 55 have ground truth. **Avg SSIM ASP vs GT: 0.667 vs simple stitch 0.694** — simple stitch is 3.9% closer to reference on average (session 4 full-run baseline).*  
+*True ASP composites: 52/96 (54.2%). Alignment gate (2D motion): test08 0.736→0.809, test25 +0.049. Render quality gate: 31 fallbacks (32.3%). Affine validation: 13 fallbacks (13.5%).*  
+*GT verdicts (S4 baseline): asp_better=7 (12.7%), simple_better=26 (47.3%), comparable=22 (40.0%). Best: test17=0.887, test84=0.821. S5 key: test08 now asp_better (0.809 vs simple 0.805).*  
 *Root cause: Animated video scenes vs. static-scroll design assumption. Phase correlation measures whole-frame displacement including character animation.*  
 *Previous baseline (22 tests, 2026-05-31): 22/22 metric success, avg sharpness 33.14.*
 
-*Research basis (2026-06-03): The complete, consolidated stitching research is now in **[`reports/Image_Stitching_Research.md`](../../reports/Image_Stitching_Research.md)** (merges all 14 prior stitching reports). It defines the foreground-assembly paradigm, the per-stage algorithmic toolbox, the 13-stage pipeline spec, and the failure/fallback taxonomy that this roadmap implements. Read it before working on §0.1–§0.2.*
+*Research basis (consolidated): [`reports/Image_Stitching_Research.md`](../../reports/Image_Stitching_Research.md) — foreground-assembly paradigm, per-stage toolbox, 13-stage spec, failure/fallback taxonomy. [`reports/Anime Stitching Pipeline Upgrade Research.md`](../../reports/Anime%20Stitching%20Pipeline%20Upgrade%20Research.md) — SSIM ceiling analysis, ARAP/SGM/RAFT upgrade paths. [`reports/Anime Stitch Pipeline ML Research.md`](../../reports/Anime%20Stitch%20Pipeline%20ML%20Research.md) — DINOv2/SigLIP submodular selection, SI-FID, SIQE, ToonCrafter wiring. [`reports/Advanced Morphological Integration and Human-in-the-Loop Interventions for the Anime Stitch Pipeline.md`](../../reports/Advanced%20Morphological%20Integration%20and%20Human-in-the-Loop%20Interventions%20for%20the%20Anime%20Stitch%20Pipeline.md) — AGNC, SAM 2, Overmix, BigWarp, SAM2Flow, Intelligent Scissors, RLHF/DPO pathway.*
 
 ---
 
@@ -79,6 +79,10 @@ When flow confidence is low (fast action, motion blur), do not warp/average — 
 - ⬜ **Segment-guided flow (AnimeInterp SGM)** — per-colour-segment centroid flow for scenes where RAFT also fails (very flat, large uniform regions).
 - ✅ **ARAP Push phase** — Sýkora's full Push→Regularise algorithm implemented (session 4). `_arap_push()` in `fg_register.py`: per-cell SAD block matching via `cv2.matchTemplate`, 15% improvement threshold, 24px search range, 16×16 cell grid. Push → Regularise is the complete Sýkora 2009 algorithm. Benchmark finding: zero measurable GT-SSIM improvement (flow quality is not the bottleneck; ceiling is animation timing).
 - ✅ **Alignment stability gate** (session 5) — Pre-render gate in `pipeline.py` and benchmark: fires when 75th-pct |dx_steps| > 50px (2D/diagonal motion). Falls back to SCANS on normalised frames immediately. test08: +0.074, test25: +0.049.
+- ⬜ **LSD collinearity term** — full Sýkora ARAP adds a line-segment-detector penalty to prevent bending of detected straight strokes. Current median-per-cell regularise is similar but lacks the hard constraint.
+- ⬜ **SLIC SGM proxy** (session 6) — `_slic_sgm_proxy()` in `fg_register.py`: SLIC superpixel centroid tracking replaces RAFT/DIS flow for fg pixels in flat cel-shaded regions. Addresses aperture problem without VGG-19 forward passes. Enable via `ASP_SGM_PROXY=1`.
+- ⬜ **Perceptual-hash hold detection** (session 6) — `_detect_hold_blocks()` in `frame_selection.py`: detects animation "on twos/threes" holds by thumbnail pixel MAD. Compresses frame universe, surfaces natural pose-change boundaries. Enable via `ASP_HOLD_THRESHOLD=0.025`.
+- ⬜ **GNC robust loss** (session 6) — `bundle_adjust.py`: upgrade `least_squares` to `loss='cauchy'` + `f_scale=10.0`. Makes BA robust against outlier edges that survive the post-solve residual pruning.
 
 **Benchmark note (2026-06-03, session 2):** RAFT + ARAP + post_warp_diff escalation → SSIM essentially flat vs session 1 (test09: 0.787, test27: 0.709). Experiments tried and their outcomes:
 - **Global reference pose (asymmetric alpha)**: catastrophic regression on test27 (-0.151) due to flow noise amplification at α=1.0 seams. Reverted.
@@ -162,18 +166,25 @@ Replace the L2 residual in the LM cost function with a robust loss (Geman-McClur
 - Cons: Loss hyperparameter (f_scale) needs tuning. Slower than Option A.
 - Reference: [GNC for Spatial Perception (arXiv 1909.08605)](https://arxiv.org/abs/1909.08605)
 
-**D — FracGM (fractional programming for Geman-McClure)**
+**D — Adaptive Graduated Non-Convexity (AGNC) [Research — state of the art]**
+Upgrade from static GNC (C) to AGNC, which dynamically adjusts the loss scale by monitoring the positive definiteness of the Hessian matrix rather than following a fixed annealing schedule. AGNC uses a multi-task search strategy: samples multiple annealing choices per iteration and keeps the one with the best convergence signal. Empirically stable even at 99% outlier rates (SAC-GNC, IEEE 2026).
+- Implementation: `scipy.optimize.least_squares(method='trf', loss='cauchy', f_scale=...)` with a wrapper that tunes `f_scale` adaptively based on residual distribution between LM iterations.
+- Pros: Optimal convergence guarantee (no fixed schedule to tune). Immune to outlier-dominated medians that break Option A. Best-in-class for extreme cases (ratio failures like test13 at 11.1×).
+- Cons: More complex than C. Requires monitoring LM iteration state (scipy doesn't expose this natively — needs a custom `jac_sparsity` callback or wrapping in a custom optimizer).
+- References: [SAC-GNC (IEEE Xplore 2026)](https://ieeexplore.ieee.org/document/11445542), [GNC arXiv 1909.08605](https://arxiv.org/abs/1909.08605), [Adaptive GNC (OpenReview)](https://openreview.net/forum?id=cIKQp84vqN)
+
+**E — FracGM (fractional programming for Geman-McClure)**
 Reformulates the non-convex Geman-McClure minimisation as a convex dual + linear system. 2025 state-of-the-art for robust rotation/translation estimation.
 - Pros: Faster convergence than GNC, empirically better at extreme outlier ratios.
-- Cons: New dependency; implementation complexity. Overkill unless C shows plateau.
+- Cons: New dependency; implementation complexity. Overkill unless D shows plateau.
 - Reference: 2025 FracGM paper.
 
-**E — Learned outlier scoring (RLHF-guided)**
+**F — Learned outlier scoring (RLHF-guided)**
 Train a small MLP on (edge residuals → is_outlier) using feedback from the existing RLHF infrastructure. Replaces hand-tuned threshold with a learned one.
 - Pros: Self-improving with accumulated feedback.
 - Cons: Requires labelled outlier data from the feedback loop (see §1.10). Not viable until the RLHF loop is closed.
 
-**Recommendation:** Keep A as baseline. Prototype C as a drop-in scipy swap — if it reaches parity on the 22-test corpus, it generalises better to unseen data. Escalate to B only if C plateau-stalls on a new dataset with >40% bad edges.
+**Recommendation:** Ship C (GNC Cauchy loss, `loss='cauchy', f_scale=10.0`) immediately — it's a one-line scipy change and eliminates the worst outlier failures. Prototype D (AGNC) as the quality ceiling; the adaptive schedule removes the `f_scale` tuning burden. Skip B (RANSAC) and E (FracGM) until C/D show a plateau.
 
 ---
 
@@ -1064,6 +1075,189 @@ Rather than generic quality scoring, design a structured prompt that asks specif
 
 ---
 
+## 1.11 Animation Hold Detection — Preprocessing [Quick Win — session 6]
+
+**Pain point (links to §0.2, §3.4):** The frame selector processes all N source frames (58–333) through phase correlation before any frames are discarded. For typical anime with ~3-frame holds, 70% of phase correlation pairs are within the same hold block (identical camera position, same character cel). These redundant correlations add latency and, more importantly, mask natural pose-change boundaries.
+
+**What hold detection adds:**
+1. **Speed:** Run thumbnail phase correlation only between consecutive hold-block representatives (one per unique cel). For 300-frame source with 3-frame average holds → reduces correlation pairs from 299 to ~99 (3× speedup for the selection phase).
+2. **Quality:** Hold boundaries are exactly the "on twos" pose-change points identified by Sýkora 2009. The selected frames should cross exactly one hold boundary per step — if they don't, the seam spans a hold (same pose, no ARAP correction needed) or multiple holds (large animation gap, warp will fail).
+3. **Diagnostic:** Hold block count directly predicts ARAP workload: tests with 15+ hold-block transitions in their selected frames will have large animation residuals.
+
+**Options**
+
+**A — Thumbnail pixel MAD hold detection [Quick Win — implemented session 6]**
+Compare consecutive thumbnail mean absolute differences. If MAD < threshold (default 0.025 of [0,1] range), the frame is in the same hold as the previous. No new dependencies.
+- File: `frame_selection.py` → `_detect_hold_blocks()` + `ASP_HOLD_THRESHOLD` env var
+- Pros: Zero new dependencies. Fast (~1ms for 300 frames). Works even on compressed broadcast captures where exact pixel equality fails.
+- Cons: Threshold needs tuning for heavily-compressed sources (MPEG blocking noise can inflate MAD).
+
+**B — DINOv2 cosine distance hold detection [Research]**
+If §3.3 (DINOv2) is implemented, reuse embeddings: cosine distance < 0.05 = same hold. Robust to compression noise.
+- Cons: Requires DINOv2 (adds overhead if §3.3 not otherwise implemented).
+
+**C — Phase correlation magnitude threshold**
+If two consecutive frames have phase correlation response > 0.85 (near-perfect correlation), they're in the same hold. Already available from the existing phase correlation pass — zero extra cost.
+- Cons: MPEG blocks can corrupt high-response pairs at scene boundaries.
+
+**Recommendation:** A immediately (already implemented, `ASP_HOLD_THRESHOLD=0.025`). C as a free upgrade using the existing `responses` array in `smart_select_frames()`. B if §3.3 is implemented.
+
+---
+
+## 2.9 BigWarp / Fourier-Mellin Manual Registration Fallback [Priority: High HITL]
+
+**Pain point (links to §2.2, §1.1):** Despite AGNC and dual-pronged outlier rejection, pathological scenes (test13: 11.1× ratio) still trigger affine validation failures. The user has no manual override path — the pipeline either succeeds or falls back to SCANS. A human who can see the two failing frames could align them in 30 seconds.
+
+**What BigWarp / Fourier-Mellin offers (§6.3 of Advanced Morphological Integration report):**
+- **BigWarp-style landmark registration:** User clicks corresponding points on two frame thumbnails (structural background vertices — corners of lockers, architectural intersections). The pipeline overrides the LoFTR-failed edge with the user-defined affine/TPS transform. The bundle adjustment re-solves with the corrected edge.
+- **Fourier-Mellin transform:** When only translation is unknown (the camera is purely translating), the user crops a static background region (avoiding the character), and Fourier-Mellin cross-correlates the magnitude spectra → sub-pixel translation. Available via DIPLib or custom FFT implementation. Faster than manual landmark placement.
+
+**Options**
+
+**A — Landmark Editor Dialog [Quick Win toward Research]**
+When affine validation fails for an edge (i→j), emit `StitchWorker.stage_edge_failed(i, j, reason)`. Show a dialog with:
+- Side-by-side thumbnails of frames i and j
+- Click-to-add landmark pairs (minimum 2 for translation, 3 for affine, 4 for TPS)
+- "Re-solve with this edge" button → injects the user-defined transform into the bundle adjustment
+*Implementation:* ~300 LOC on top of `StitchWorker.set_edge_override()` from §2.7.
+
+**B — Fourier-Mellin crop-and-align [Quick Win]**
+Add a "Crop and align" button to the affine validation failure dialog: user rubber-bands a static background region, the pipeline computes Fourier-Mellin cross-correlation on that crop only (bypassing the character entirely), and injects the result as the edge transform.
+- Pros: No landmark-clicking required for pure-translation scenes. Sub-pixel accuracy.
+- Cons: Fails on scenes with scale/rotation; the crop must be entirely background.
+
+**C — Auto-retry with tighter LoFTR threshold**
+When ratio failure is detected, automatically re-run LoFTR with a higher confidence threshold (only the top-10% of matches) and re-solve. No user interaction.
+- Pros: Zero UI work. Catches cases where 1-2 bad matches corrupt the median.
+- Cons: May still fail if the bad match is high-confidence.
+
+**Recommendation:** C immediately (pure algorithmic, catches the easy cases). A for the remaining affine failures that C can't fix. B as an ergonomic shortcut for broadcast-quality (pure-translation) sources.
+
+---
+
+## 2.10 SAM2Flow / FlowVid Interactive Optical Flow Kinematics [Research — HITL]
+
+**Pain point (links to §0.1, §2.4):** When `post_warp_diff > 22 lum units`, Stage 8.5 escalates to single-pose fallback — a clean but informationally incomplete solution. For extreme cases (character turning 180°, limb moving through 90° arc), no analytical flow engine can register the two poses. A human who can draw a trajectory arrow from the character's position in frame A to its position in frame B would resolve this instantly.
+
+**What SAM2Flow / FlowVid does (§7.3 of Advanced Morphological Integration report):**
+- **SAM2Flow:** Extends SAM 2's video object tracking to optical flow estimation. User specifies regions of interest and trajectory hints via click+drag prompts. The system propagates these sparse human annotations as definitive spatial control anchors across the frame sequence. Originally designed for textureless fluid dynamics (in vivo microcirculation), directly applicable to flat cel-shaded anime.
+- **FlowVid:** User draws directional arrows on the seam-zone canvas. The FlowVid network uses these as ControlNet-style spatial anchors in a diffusion model, generating coherent frame-to-frame transitions even across 180° rotations. Inference: 512×512 at 1.5 min on A100 (3.1× faster than CoDeF, 10.5× faster than TokenFlow).
+
+**Options**
+
+**A — SAM2Flow seam-zone annotation [Research]**
+After Stage 8.5 single-pose escalation, emit `StitchWorker.stage_seam_flow_failed(seam_info)`. The SeamDiagnosticPanel (§2.4) presents the seam crop with a "Draw trajectory" tool. User drags arrows → SAM2Flow uses these as anchors → the pipeline re-runs Stage 8.5 with the user-corrected flow.
+- Pros: Directly resolves 180° rotation failures that RAFT/DIS and ARAP cannot.
+- Cons: Requires SAM2Flow model weights. High VRAM during interactive use.
+
+**B — FlowVid ControlNet trajectory synthesis [Research]**
+For seams where single-pose fallback fires, open a FlowVid-powered "synthesize transition" dialog. User sketches the character's motion arc → FlowVid generates a synthetic intermediate frame that bridges the two poses → Stage 11 composites the synthetic frame instead of the hard-partition.
+- Pros: Generates geometrically coherent content, not just a better warp.
+- Cons: 1.5 min inference per seam. Anime domain gap (FlowVid was trained on natural video).
+
+**C — User-drawn flow field (no model) [Quick Win]**
+A simpler manual tool: the user draws displacement arrows on the seam thumbnail, and these are directly converted to a sparse flow field that overrides RAFT/DIS. The ARAP regularise step then smooths the user-drawn field to per-pixel resolution.
+- Pros: No model weights. Zero latency. User sees exactly what flow they're injecting.
+- Cons: Requires dense coverage of the character region by user annotations.
+
+**Recommendation:** C immediately (leverages the existing SeamDiagnosticPanel from §2.4, no model). A once SAM2Flow model weights are available publicly. B for final-quality mode where the synthesis overhead is acceptable.
+
+---
+
+## 2.11 Intelligent Scissors Seam Routing [Quick Win — replaces DP seam]
+
+**Pain point (links to §1.6, Category C1 failures):** The Stage 11 DP seam optimizer uses a per-pixel cost function but routes seams through character bodies when the background corridor is too narrow. The BiRefNet semantic cost only penalizes seams through character pixels — it doesn't guarantee a background-only path when the character fills the frame.
+
+**What Intelligent Scissors does (§8.1 of Advanced Morphological Integration report):**
+Transforms the seam into a shortest-path problem on a graph where nodes are pixels and edges are weighted by:
+1. **Line-art gradient magnitude** — high cost at dark line-art boundaries (the character's outline)
+2. **BiRefNet foreground probability** — exponential cost inside the character mask
+3. **Laplacian zero-crossing** — prefer paths through uniform flat regions (background)
+
+The user provides waypoints: clicking a sequence of points forces the algorithm to route through the background space the user designates. Dijkstra's algorithm computes the exact least-cost path through each waypoint gate, guaranteeing the seam never bisects the user-designated zones.
+
+**Options**
+
+**A — Intelligent Scissors dialog in SeamDiagnosticPanel [Quick Win]**
+Add a "Route seam" tool to §2.4's SeamDiagnosticPanel. User clicks waypoints on the seam-zone preview. The pipeline re-runs the DP seam using these waypoints as hard constraints (nodes with cost=0 that must be included in the path). Re-composite takes ~1s.
+*Implementation:* `cv2.GrabCut`-style waypoint injection into the existing `_seam_cut()` DP in `compositing.py`. ~200 LOC.
+- Pros: Directly resolves Category C1 failures where seam bisects the character. Reuses the existing seam-finding code (adds waypoints, not a replacement).
+- Cons: Requires user attention for each failing seam.
+
+**B — Graph-cut with character-exclusion zone**
+Automatically exclude the entire BiRefNet foreground region from the seam path by setting fg pixels to cost=∞. The DP is then forced into background-only columns. For scenes where the character fills the frame edge-to-edge, this may produce a seam through a background-free zone at the very edge.
+- Pros: Fully automatic. Eliminates the need for user waypoints in most cases.
+- Cons: When the character spans the full width (test09-type portrait shots), there IS no all-background path — the cost=∞ constraint makes the DP infeasible, requiring fallback to a minimum-cost through-character path.
+
+**C — Multi-path seam voting [Research]**
+Compute K candidate seam paths with different random seed initializations, evaluate each by seam_gradient and BiRefNet fg_overlap, select the one with the best combined score. No user interaction.
+- Pros: Better than single-path DP without UI overhead.
+- Cons: K× computation cost. Still limited by what the cost function can express.
+
+**Recommendation:** B immediately (automatic fg exclusion zone, one change to `_seam_cut()` cost array). A for cases where B fails (character fills full width). C as a research-track alternative to A.
+
+---
+
+## 3.11 SAM 2 — Interactive Masking Upgrade [Research — HITL]
+
+**Pain point (links to §4):** BiRefNet provides good-enough foreground masks for automated pipeline runs but fails on complex topologies: flowing hair, thin props (swords, staffs), fragmented line-art between limbs, and transparent overlay elements. These failures propagate through all downstream stages (ARAP flow, seam routing, temporal median).
+
+**What SAM 2 offers (§5.1 of Advanced Morphological Integration report):**
+SAM 2 introduces a streaming memory mechanism that propagates a single user-corrected mask across the entire video sequence. In the ASP context:
+1. Pipeline generates initial BiRefNet masks for all selected frames.
+2. On any frame where the mask is visually incorrect, user draws a bounding box or clicks missed pixels — SAM 2 refines the mask and propagates the correction across the full sequence.
+3. The corrected masks replace BiRefNet masks for Stage 4.5 (photometric norm), Stage 8.5 (ARAP flow), and Stage 12 (temporal median plate).
+
+**Options**
+
+**A — SAM 2 as interactive mask correction [Research]**
+Add a "Mask review" step after Stage 4 (BiRefNet masking), emitting masks via `StitchWorker.stage_masks_ready(masks)`. The MaskReviewPanel shows each frame's mask. User can click/drag to correct; SAM 2 propagates. Pipeline resumes with corrected masks.
+- Implementation: `backend/src/models/sam2_wrapper.py` wrapping `sam2.build_sam2()`. ~200 LOC.
+- Pros: Eliminates the most common failure mode (wrong mask → wrong flow → wrong composite).
+- Cons: SAM 2 model weights (~300MB). Requires GPU for streaming memory. Adds a pipeline pause.
+
+**B — SAM 2 as drop-in BiRefNet replacement [Research]**
+Replace Stage 4 BiRefNet with SAM 2 auto-mode (no user prompts). SAM 2's auto-segmentation is significantly more accurate on complex topologies than BiRefNet's saliency-based approach.
+- Cons: SAM 2 auto-mode is slower than BiRefNet and requires user confirmation for each frame. Interactive mode is the key advantage.
+
+**Recommendation:** A in HITL review mode (§2.7 staged execution). B as a research experiment on a subset of the failing corpus. BiRefNet remains the default for automated runs.
+
+---
+
+## 3.12 Overmix Sub-Pixel Averaging — Maximal Frame Ingestion Philosophy [Research]
+
+**Pain point (links to §0.2, §3.4):** The ASP aggressively reduces frame count (300 → ~18) before any processing. Overmix's research (§3 of Advanced Morphological Integration report) shows that for broadcast-quality compressed anime, this discards the MPEG compression-averaging benefit: by ingesting all frames within each hold block and sub-pixel-averaging them, the resulting background plate has 3–4× better SNR than any individual frame.
+
+**What Overmix does (§3.1 of Advanced Morphological Integration report):**
+1. **Pose-group subsetting:** Manually (or automatically via hold detection §1.11) group frames into hold blocks — runs of 2-4 consecutive frames with the same character cel.
+2. **Sub-pixel alignment within hold:** Phase correlate consecutive frames within the hold → register them at sub-pixel precision → stack-average in 16-bit linear color space. MPEG DCT blocks on a static background average toward the true signal (compression noise cancels out by √N).
+3. **Hold-averaged frames as pipeline inputs:** Each hold block produces one high-SNR representative frame. The bundle adjustment runs on these representatives, not on any individual compressed frame.
+
+**How it applies to ASP:**
+Replace the `_smart_select_frames()` first-past-threshold approach with:
+1. Hold detection (§1.11) → group all N frames into K hold blocks
+2. Within each hold block, sub-pixel-average the block (using the existing `flow_refine.py` ECC infrastructure for alignment)
+3. Ensure K consecutive hold blocks cover the full canvas → run the greedy selection on hold-averaged representatives
+
+**Options**
+
+**A — Hold-block averaging preprocessing [Research]**
+After `_detect_hold_blocks()`, for each block, align frames within the block using ECC and average into a 16-bit composite. Pass the composites to phase correlation instead of raw frames.
+- Pros: Better SNR → better LoFTR feature extraction → fewer BA outliers. Directly addresses MPEG block noise in compressed sources.
+- Cons: K×M ECC alignments (K holds × M frames/hold). Adds ~0.5s per hold block. Only beneficial for MPEG-compressed sources (streaming rips).
+
+**B — Motion-compensated temporal average [Research]**
+Use the existing RAFT/DIS flow infrastructure to align frames within each hold block before averaging. More accurate than ECC for holds with slight camera jitter.
+- Cons: RAFT inference per frame pair within each hold. ~2–3s per hold block.
+
+**C — Perceptual-hash deduplication only [Quick Win — already in §1.11]**
+Keep the first frame of each hold block as the representative (no averaging). Hold detection alone reduces noise by removing near-duplicate frames from the selection, even without averaging.
+- Already implemented via `ASP_HOLD_THRESHOLD=0.025`.
+
+**Recommendation:** C immediately (already done via §1.11). A for broadcast/streaming sources where MPEG noise is significant. B as the quality ceiling once A is validated.
+
+---
+
 ## Anchor Index
 
 | Section | Anchor |
@@ -1096,3 +1290,9 @@ Rather than generic quality scoring, design a structured prompt that asks specif
 | 3.8 SIQE Ghosting Metric | [#38-siqe-no-reference-ghosting-detection-quick-win--metric-upgrade](#38-siqe-no-reference-ghosting-detection-quick-win--metric-upgrade) |
 | 3.9 SI-FID Stitching Quality | [#39-si-fid-stitched-image-fréchet-distance-for-reference-free-evaluation-research](#39-si-fid-stitched-image-fréchet-distance-for-reference-free-evaluation-research) |
 | 3.10 MLLM Semantic Quality Scoring | [#310-mllm-semantic-quality-scoring-research--autonomous-quality-assurance](#310-mllm-semantic-quality-scoring-research--autonomous-quality-assurance) |
+| 1.11 Animation Hold Detection | [#111-animation-hold-detection--preprocessing-quick-win--session-6](#111-animation-hold-detection--preprocessing-quick-win--session-6) |
+| 2.9 BigWarp / Fourier-Mellin Fallback | [#29-bigwarp--fourier-mellin-manual-registration-fallback-priority-high-hitl](#29-bigwarp--fourier-mellin-manual-registration-fallback-priority-high-hitl) |
+| 2.10 SAM2Flow / FlowVid Interactive Flow | [#210-sam2flow--flowvid-interactive-optical-flow-kinematics-research--hitl](#210-sam2flow--flowvid-interactive-optical-flow-kinematics-research--hitl) |
+| 2.11 Intelligent Scissors Seam Routing | [#211-intelligent-scissors-seam-routing-quick-win--replaces-dp-seam](#211-intelligent-scissors-seam-routing-quick-win--replaces-dp-seam) |
+| 3.11 SAM 2 Interactive Masking | [#311-sam-2--interactive-masking-upgrade-research--hitl](#311-sam-2--interactive-masking-upgrade-research--hitl) |
+| 3.12 Overmix Sub-Pixel Averaging | [#312-overmix-sub-pixel-averaging--maximal-frame-ingestion-philosophy-research](#312-overmix-sub-pixel-averaging--maximal-frame-ingestion-philosophy-research) |
