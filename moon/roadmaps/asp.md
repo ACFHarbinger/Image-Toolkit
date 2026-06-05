@@ -111,7 +111,7 @@ When flow confidence is low (fast action, motion blur), do not warp/average — 
 3. For each camera-qualifying candidate, compute foreground flow vs last selected frame
 4. Pick candidate with smallest foreground flow magnitude within the selection window
 
-**Current state (session 5):** `_fg_center_diff()` upgraded to fg pixel L1 (background-invariant). With `ASP_POSE_WINDOW_PX=80`: test27 +0.010 (reliable), test09 +0.001. GT-coupling regression on test04 (-0.024) and test57 (-0.015) prevents enabling by default. Enable via `ASP_POSE_WINDOW_PX=80` for targeted experiments.
+**Current state (session 8 & 9):** DINOv2 (`dinov2_vits14`) cosine distance metric implemented; model cached as module-level singleton (no reload per test, batch inference). Hold-block penalty in Pass 2 ensures cross-hold candidates are preferred. Session 9: model now processes all frames in one batched forward pass instead of per-frame loops. Enabled with `ASP_POSE_WINDOW_PX=80`. Aligned-SSIM built into the benchmark to decouple framing bias from GT-SSIM.
 
 ---
 
@@ -1099,6 +1099,8 @@ If two consecutive frames have phase correlation response > 0.85 (near-perfect c
 
 **Recommendation:** A immediately (already implemented, `ASP_HOLD_THRESHOLD=0.025`). C as a free upgrade using the existing `responses` array in `smart_select_frames()`. B if §3.3 is implemented.
 
+> **✅ Session 7 — Phase-correlation skip SHIPPED:** Hold threshold default changed from `0.0` to `0.025` (enabled by default). Within-hold frame pairs now return `(dx=0, dy=0, response=1.0, MAD=0.0)` without running `cv2.phaseCorrelate`, achieving the §1.11 3× speedup for typical anime with ~3-frame holds. The `high_anim_mad` gate is protected from false positives (within-hold MAD=0.0 never triggers it). `ASP_HOLD_THRESHOLD=0` to disable.
+
 ---
 
 ## 2.9 BigWarp / Fourier-Mellin Manual Registration Fallback [Priority: High HITL]
@@ -1192,6 +1194,8 @@ Compute K candidate seam paths with different random seed initializations, evalu
 - Cons: K× computation cost. Still limited by what the cost function can express.
 
 **Recommendation:** B immediately (automatic fg exclusion zone, one change to `_seam_cut()` cost array). A for cases where B fails (character fills full width). C as a research-track alternative to A.
+
+> **✅ Session 7 — B SHIPPED:** `_build_seam_cost_map()` in `compositing.py` now uses a two-tier cost: Tier 1 sets `cost=1.0` for every fg-interior pixel (with `sem_weight=200` → 200 energy barrier vs bg ~10–50), forcing the seam through background-only corridors. Tier 2 retains the dilated-edge avoidance zone. Graceful degradation when no all-background path exists. No env var needed — active by default whenever BiRefNet masks are available.
 
 ---
 

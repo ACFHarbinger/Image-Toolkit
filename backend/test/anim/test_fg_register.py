@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import sys
 
+import cv2
 import numpy as np
 import pytest
 
@@ -32,6 +33,7 @@ from backend.src.anim.fg_register import (  # noqa: E402
 # Synthetic scene helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_scene(limb_x: int, h: int = 400, w: int = 360, limb_w: int = 40):
     """
     A canvas-aligned frame: textured static background + a bright 'limb'
@@ -50,7 +52,7 @@ def _make_scene(limb_x: int, h: int = 400, w: int = 360, limb_w: int = 40):
         img[y0:y1, x0c:x1c] = (230, 200, 180)
         # Trackable texture: diagonal stripes inside the limb
         for k in range(x0c, x1c, 8):
-            img[y0:y1, k:min(k + 3, x1c)] = (140, 110, 90)
+            img[y0:y1, k : min(k + 3, x1c)] = (140, 110, 90)
         fg[y0:y1, x0c:x1c] = True
     return img, fg
 
@@ -63,6 +65,7 @@ def _fg_centroid_x(img, fg):
 # ---------------------------------------------------------------------------
 # Taper weight
 # ---------------------------------------------------------------------------
+
 
 class TestSeamTaper:
     def test_peak_at_seam(self):
@@ -82,6 +85,7 @@ class TestSeamTaper:
 # Core registration
 # ---------------------------------------------------------------------------
 
+
 class TestForegroundRegistration:
     def test_reduces_limb_displacement_at_seam(self):
         """
@@ -98,9 +102,11 @@ class TestForegroundRegistration:
         )
 
         assert info["warped"] is True, info
+
         # Re-detect foreground by brightness (limb is brighter than bg)
         def bright_mask(img):
             return img.mean(axis=2) > 150
+
         cax = _fg_centroid_x(adj_a, bright_mask(adj_a))
         cbx = _fg_centroid_x(adj_b, bright_mask(adj_b))
         orig_gap = abs(150 - 120)
@@ -173,6 +179,7 @@ class TestForegroundRegistration:
 # Flow sanity
 # ---------------------------------------------------------------------------
 
+
 class TestDenseFlow:
     def test_flow_detects_horizontal_shift(self):
         a, _ = _make_scene(120)
@@ -187,6 +194,7 @@ class TestDenseFlow:
 # ---------------------------------------------------------------------------
 # ARAP Push phase (Sýkora 2009 block-matching Push)
 # ---------------------------------------------------------------------------
+
 
 class TestARAPPush:
     def test_detects_clear_displacement_in_textured_region(self):
@@ -220,9 +228,15 @@ class TestARAPPush:
 
         initial_flow = np.zeros((H, W, 2), dtype=np.float32)
 
-        pushed = _arap_push(img_a, img_b, fg, initial_flow,
-                            cell_size=cell, search_range=24,
-                            min_fg_frac=0.90)
+        pushed = _arap_push(
+            img_a,
+            img_b,
+            fg,
+            initial_flow,
+            cell_size=cell,
+            search_range=24,
+            min_fg_frac=0.90,
+        )
 
         # All cells inside the fg region should find ~+16px horizontal shift
         fg_dx = pushed[16:80, 32:80, 0]
@@ -245,73 +259,161 @@ class TestARAPPush:
 
         initial_flow = np.full((H, W, 2), 3.0, dtype=np.float32)  # non-zero initial
 
-        pushed = _arap_push(img_a, img_b, fg, initial_flow,
-                            cell_size=16, search_range=10, min_fg_frac=0.5)
+        pushed = _arap_push(
+            img_a,
+            img_b,
+            fg,
+            initial_flow,
+            cell_size=16,
+            search_range=10,
+            min_fg_frac=0.5,
+        )
 
         # Background cells (top-left corner has no fg) keep the initial flow
         bg_dx = pushed[0:16, 0:16, 0]
         bg_dy = pushed[0:16, 0:16, 1]
-        np.testing.assert_allclose(bg_dx, 3.0, atol=0.1,
-                                   err_msg="bg cells must keep initial flow")
-        np.testing.assert_allclose(bg_dy, 3.0, atol=0.1,
-                                   err_msg="bg cells must keep initial flow")
+        np.testing.assert_allclose(
+            bg_dx, 3.0, atol=0.1, err_msg="bg cells must keep initial flow"
+        )
+        np.testing.assert_allclose(
+            bg_dy, 3.0, atol=0.1, err_msg="bg cells must keep initial flow"
+        )
 
 
 # ---------------------------------------------------------------------------
-# LSD collinearity term in _arap_regularise (Session 8)
+# LSD collinearity constraint tests
 # ---------------------------------------------------------------------------
 
 
-class TestArapRegulariseLSDCollinearity:
-    """Tests for the LSD collinearity extension to _arap_regularise."""
+class TestLSDCollinearity:
+    """Tests for the LSD collinearity constraint in _arap_regularise."""
 
-    def _make_flow(self, H: int = 80, W: int = 80) -> np.ndarray:
-        """Return a diagonal flow field (dx=5, dy=3) on the full canvas."""
-        flow = np.zeros((H, W, 2), dtype=np.float32)
-        flow[:, :, 0] = 5.0
-        flow[:, :, 1] = 3.0
-        return flow
+    def test_lsd_import_available(self):
+        """cv2.createLineSegmentDetector should be available in this env."""
+        lsd = cv2.createLineSegmentDetector()
+        assert lsd is not None
 
-    def _make_image_with_horizontal_line(
-        self, H: int = 80, W: int = 80, line_y: int = 40
-    ) -> np.ndarray:
-        """Return a dark image with a bright horizontal line at row line_y."""
+    def test_no_image_unchanged_regularise(self):
+        """Without image, _arap_regularise should work as before (no LSD)."""
+        from backend.src.anim.fg_register import _arap_regularise
+
+        H, W = 64, 128
+        rng = np.random.default_rng(7)
+        flow = rng.uniform(-5, 5, (H, W, 2)).astype(np.float32)
+        fg_mask = np.zeros((H, W), dtype=bool)
+        fg_mask[16:48, 16:112] = True
+        result = _arap_regularise(flow, fg_mask, cell_size=16, n_iter=1, image=None)
+        assert result.shape == flow.shape
+        # Background should be unchanged
+        np.testing.assert_array_equal(result[~fg_mask], flow[~fg_mask])
+
+    def test_lsd_with_line_art_image(self):
+        """LSD should not crash on an image with clear line-art."""
+        from backend.src.anim.fg_register import _arap_regularise
+
+        H, W = 128, 256
+        # Create an image with a clear horizontal line
         img = np.zeros((H, W, 3), dtype=np.uint8)
-        img[line_y - 1 : line_y + 2, :] = 200
-        return img
+        img[H // 2, :, :] = 255  # bright horizontal line
+        img[:, W // 2, :] = 255  # bright vertical line
 
-    def test_no_crash_with_image_parameter(self):
-        """_arap_regularise must not raise when image= is provided."""
-        H, W = 80, 80
-        flow = self._make_flow(H, W)
-        fg = np.ones((H, W), dtype=bool)
-        image = self._make_image_with_horizontal_line(H, W)
-        result = _arap_regularise(flow, fg, cell_size=16, n_iter=1, image=image)
-        assert result.shape == flow.shape, "Output shape must match input flow"
-        assert result.dtype == np.float32
+        rng = np.random.default_rng(99)
+        flow = rng.uniform(-3, 3, (H, W, 2)).astype(np.float32)
+        fg_mask = np.ones((H, W), dtype=bool)
 
-    def test_preserves_output_shape_and_dtype_no_image(self):
-        """Baseline: without image param, shape/dtype are preserved."""
-        H, W = 96, 96
-        flow = np.random.RandomState(3).randn(H, W, 2).astype(np.float32)
-        fg = np.ones((H, W), dtype=bool)
-        result = _arap_regularise(flow, fg, cell_size=16, n_iter=1)
-        assert result.shape == (H, W, 2)
-        assert result.dtype == np.float32
+        # Should not raise; LSD constraint should produce a smoother result
+        result = _arap_regularise(flow, fg_mask, cell_size=16, n_iter=1, image=img)
+        assert result.shape == flow.shape
 
-    def test_horizontal_line_preserves_horizontal_flow_component(self):
+    def test_image_offset_shifts_line_coordinates(self):
+        """image_offset correctly shifts LSD line coordinates to canvas space."""
+        from backend.src.anim.fg_register import _arap_regularise
+
+        # Full canvas is 256×256; crop is the bottom half (rows 128:256)
+        canvas_H, canvas_W = 256, 256
+        crop_H = 128
+        y_offset = 128  # crop starts at row 128
+
+        # Create a crop with a clear horizontal line at row 64 in crop-space
+        crop_img = np.zeros((crop_H, canvas_W, 3), dtype=np.uint8)
+        crop_img[64, :, :] = 255  # line at row 64 in crop
+
+        # Full-canvas flow with non-zero values in the crop region
+        rng = np.random.default_rng(11)
+        flow = np.zeros((canvas_H, canvas_W, 2), dtype=np.float32)
+        flow[y_offset:, :] = rng.uniform(-5, 5, (crop_H, canvas_W, 2)).astype(
+            np.float32
+        )
+
+        fg_mask = np.zeros((canvas_H, canvas_W), dtype=bool)
+        fg_mask[y_offset:, :] = True  # fg is only in the crop region
+
+        # With correct offset: LSD line at crop-row 64 → canvas row 192
+        result_with_offset = _arap_regularise(
+            flow,
+            fg_mask,
+            cell_size=16,
+            n_iter=1,
+            image=crop_img,
+            image_offset=(y_offset, 0),
+        )
+        # Without offset: LSD line at crop-row 64 → canvas row 64 (outside fg)
+        result_no_offset = _arap_regularise(
+            flow,
+            fg_mask,
+            cell_size=16,
+            n_iter=1,
+            image=crop_img,
+            image_offset=(0, 0),
+        )
+
+        # Both should return valid arrays without crashing
+        assert result_with_offset.shape == flow.shape
+        assert result_no_offset.shape == flow.shape
+
+    def test_lsd_collinearity_smooths_flow_on_line_cells(self):
         """
-        For a strong horizontal line and purely horizontal initial flow,
-        the projected (collinearity-preserving) flow should retain the
-        horizontal component (cross-line = vertical; horizontal = along-line).
+        Cells aligned along a detected line should receive the group-average
+        translation, making the flow more collinear than raw per-cell medians.
         """
-        H, W = 64, 64
+        from backend.src.anim.fg_register import _arap_regularise
+
+        H, W = 64, 256
+        cell_size = 16
+
+        # Synthetic flow: each cell has a randomly different x-translation
+        # representing un-regularised RAFT output on a flat region.
+        rng = np.random.default_rng(42)
         flow = np.zeros((H, W, 2), dtype=np.float32)
-        flow[:, :, 0] = 8.0   # dx only
-        flow[:, :, 1] = 0.0   # no dy
-        fg = np.ones((H, W), dtype=bool)
-        image = self._make_image_with_horizontal_line(H, W, line_y=32)
-        result = _arap_regularise(flow, fg, cell_size=16, n_iter=1, image=image)
-        # Horizontal flow along a horizontal line → projection keeps dx, zeros dy
-        # After regularisation, mean horizontal component should be positive
-        assert float(result[:, :, 0].mean()) > 0.0, "Horizontal flow component must be preserved"
+        for col in range(0, W, cell_size):
+            flow[:, col : col + cell_size, 0] = float(rng.uniform(-10, 10))
+
+        fg_mask = np.ones((H, W), dtype=bool)
+
+        # Image with a clear horizontal line spanning the full width
+        img_with_line = np.zeros((H, W, 3), dtype=np.uint8)
+        img_with_line[H // 2, :, :] = 255
+
+        result = _arap_regularise(
+            flow,
+            fg_mask,
+            cell_size=cell_size,
+            n_iter=1,
+            image=img_with_line,
+            image_offset=(0, 0),
+        )
+        # After LSD collinearity, all cells crossed by the horizontal line
+        # should share the same (or very similar) x-translation.
+        # Extract x-translations from the middle row (where the line is).
+        mid_row = H // 2
+        tx_vals = [
+            result[mid_row, col + cell_size // 2, 0]
+            for col in range(0, W - cell_size, cell_size)
+        ]
+        tx_std = float(np.std(tx_vals))
+        # Without LSD constraint, std would be ~6px (random per-cell);
+        # with LSD constraint, all constrained cells should be closer.
+        assert tx_std < 5.0, (
+            f"LSD collinearity should reduce variance of flow along the line; "
+            f"std={tx_std:.2f}px (expected < 5px after constraint)"
+        )

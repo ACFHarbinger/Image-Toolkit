@@ -192,7 +192,9 @@ def _compute_aligned_ssim(img_a: np.ndarray, img_b: np.ndarray) -> float:
             ga, gb, warp_matrix, cv2.MOTION_EUCLIDEAN, criteria
         )
         aligned_a = cv2.warpAffine(
-            ga, warp_matrix, (w, h),
+            ga,
+            warp_matrix,
+            (w, h),
             flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP,
             borderMode=cv2.BORDER_REPLICATE,
         )
@@ -265,7 +267,11 @@ def _strip_banding_score(
     """
     if affines is None or len(affines) < 2:
         return 0.0
-    gray = cv2.cvtColor(render_img, cv2.COLOR_BGR2GRAY) if render_img.ndim == 3 else render_img
+    gray = (
+        cv2.cvtColor(render_img, cv2.COLOR_BGR2GRAY)
+        if render_img.ndim == 3
+        else render_img
+    )
     H = gray.shape[0]
     strip_means = []
     for a in sorted(affines, key=lambda m: float(m[1, 2])):
@@ -279,7 +285,9 @@ def _strip_banding_score(
                 strip_means.append(float(band.mean()))
     if len(strip_means) < 2:
         return 0.0
-    diffs = [abs(strip_means[i + 1] - strip_means[i]) for i in range(len(strip_means) - 1)]
+    diffs = [
+        abs(strip_means[i + 1] - strip_means[i]) for i in range(len(strip_means) - 1)
+    ]
     return float(max(diffs))
 
 
@@ -317,6 +325,49 @@ def _load_ground_truth(dataset_name: str, gt_dir: str) -> Optional[np.ndarray]:
     return None
 
 
+def _compute_aligned_ssim(output_img: np.ndarray, gt_img: np.ndarray) -> float:
+    """
+    Computes SSIM after aligning output_img to gt_img using ECC.
+    This eliminates framing biases (GT coupling).
+    """
+    if not _SSIM_OK:
+        return float("nan")
+
+    h, w = gt_img.shape[:2]
+    resized_out = cv2.resize(output_img, (w, h))
+
+    gray_gt = cv2.cvtColor(gt_img, cv2.COLOR_BGR2GRAY)
+    gray_out = cv2.cvtColor(resized_out, cv2.COLOR_BGR2GRAY)
+
+    warp_matrix = np.eye(2, 3, dtype=np.float32)
+    criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 50, 0.01)
+
+    try:
+        _, warp_matrix = cv2.findTransformECC(
+            gray_out,
+            gray_gt,
+            warp_matrix,
+            cv2.MOTION_TRANSLATION,
+            criteria,
+            inputMask=None,
+            gaussFiltSize=5,
+        )
+        aligned_out = cv2.warpAffine(
+            resized_out,
+            warp_matrix,
+            (w, h),
+            flags=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_REPLICATE,
+        )
+        gray_aligned = cv2.cvtColor(aligned_out, cv2.COLOR_BGR2GRAY)
+        score, _ = ssim(gray_aligned, gray_gt, full=True, data_range=255)
+        return float(score)
+    except Exception:
+        # ECC failed to converge, fall back to standard resize-only SSIM
+        score, _ = ssim(gray_out, gray_gt, full=True, data_range=255)
+        return float(score)
+
+
 def _compute_gt_metrics(
     output_img: Optional[np.ndarray],
     gt_img: np.ndarray,
@@ -334,9 +385,12 @@ def _compute_gt_metrics(
     aligned_ssim_val = _compute_aligned_ssim(output_img, gt_img)
     psnr_val = _psnr(output_img, gt_img)
     sc_val = _seam_coherence(output_img)
+    aligned_ssim = _compute_aligned_ssim(output_img, gt_img)
     return {
         "ssim_vs_gt": round(ssim_val, 4) if not math.isnan(ssim_val) else None,
-        "aligned_ssim_vs_gt": round(aligned_ssim_val, 4) if not math.isnan(aligned_ssim_val) else None,
+        "aligned_ssim_vs_gt": round(aligned_ssim, 4)
+        if not math.isnan(aligned_ssim)
+        else None,
         "psnr_vs_gt": round(psnr_val, 2) if not math.isnan(psnr_val) else None,
         "seam_coherence": round(sc_val, 2),
     }
@@ -356,11 +410,11 @@ def _gt_verdict(
     it measures structural similarity to the *intended* output, not the presence
     of high-frequency edge artifacts introduced by banding or misalignment.
     """
-    asp_ssim = asp_gt.get("ssim_vs_gt")
-    sim_ssim = sim_gt.get("ssim_vs_gt")
+    asp_ssim = asp_gt.get("aligned_ssim_vs_gt", asp_gt.get("ssim_vs_gt"))
+    sim_ssim = sim_gt.get("aligned_ssim_vs_gt", sim_gt.get("ssim_vs_gt"))
     if asp_ssim is None or sim_ssim is None:
         return None
-    if asp_ssim > sim_ssim * 1.03:   # 3 % margin to avoid noise-driven flips
+    if asp_ssim > sim_ssim * 1.03:  # 3 % margin to avoid noise-driven flips
         return "asp_better"
     if sim_ssim > asp_ssim * 1.03:
         return "simple_better"
@@ -749,9 +803,12 @@ def _load_thumb_gray(path: str) -> np.ndarray:
     return cv2.resize(img, (tw, th)).astype(np.float32) / 255.0
 
 
-def _load_thumbs_parallel(frames_paths: List[str], max_workers: int = 8) -> List[np.ndarray]:
+def _load_thumbs_parallel(
+    frames_paths: List[str], max_workers: int = 8
+) -> List[np.ndarray]:
     """Load all thumbnails in parallel (I/O bound — GIL released for imread)."""
     import concurrent.futures
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as ex:
         return list(ex.map(_load_thumb_gray, frames_paths))
 
@@ -844,6 +901,54 @@ def _periph_central_masks(h: int, w: int):
     return periph.astype(np.float32), (~periph).astype(np.float32)
 
 
+# ---------------------------------------------------------------------------
+# Main selector
+# ---------------------------------------------------------------------------
+
+
+def _compute_dinov2_features(frames_paths: List[str]) -> Optional[np.ndarray]:
+    """
+    Computes DINOv2 features for all frames to use in submodular pose selection.
+    Returns (N, 384) numpy array of normalized features, or None if DINOv2 fails.
+    """
+    try:
+        import torch
+        import torchvision.transforms as T
+        from PIL import Image
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model = (
+            torch.hub.load("facebookresearch/dinov2", "dinov2_vits14", verbose=False)
+            .to(device)
+            .eval()
+        )
+    except Exception:
+        return None
+
+    transform = T.Compose(
+        [
+            T.Resize(224, interpolation=T.InterpolationMode.BICUBIC),
+            T.CenterCrop(224),
+            T.ToTensor(),
+            T.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+        ]
+    )
+
+    features = []
+    try:
+        with torch.no_grad():
+            for path in frames_paths:
+                img = Image.open(path).convert("RGB")
+                tensor = transform(img).unsqueeze(0).to(device)
+                feat = model(tensor)
+                feat = feat / feat.norm(dim=-1, keepdim=True)
+                features.append(feat.cpu().numpy()[0])
+    except Exception:
+        return None
+
+    return np.array(features, dtype=np.float32)
+
+
 def _smart_select_frames(
     frames_paths: List[str],
     min_step_px: float = 50.0,
@@ -907,6 +1012,14 @@ def _smart_select_frames(
     else:
         scale_y = scale_x = float(_SELECTOR_THUMB_LONG)
 
+    # ── §0.1c DINOv2 Features (Pass 2) ─────────────────────────────────────
+    dinov2_features = None
+    if _POSE_WINDOW_PX > 0:
+        print("  [SmartSelect] Computing DINOv2 pose features...")
+        dinov2_features = _compute_dinov2_features(frames_paths)
+        if dinov2_features is not None:
+            print("  [SmartSelect] DINOv2 features loaded successfully.")
+
     # ── §0.2 BiRefNet probe masks for two-channel displacement and pose sim ──
     # Run BiRefNet on 5 evenly-spaced frames to build per-pixel probability
     # maps at thumbnail scale:
@@ -922,7 +1035,9 @@ def _smart_select_frames(
     # is downsampled to thumbnail scale.  Total overhead: ~2–3 s per dataset.
     _bg_thumb_mask: Optional[np.ndarray] = None
     _fg_thumb_mask: Optional[np.ndarray] = None
-    _needs_biref_probes = _TWO_CHANNEL_SELECT or _POSE_WINDOW_PX > 0
+    _needs_biref_probes = _TWO_CHANNEL_SELECT or (
+        _POSE_WINDOW_PX > 0 and dinov2_features is None
+    )
     if _needs_biref_probes:
         try:
             from backend.src.models.birefnet_wrapper import BiRefNetWrapper
@@ -932,7 +1047,7 @@ def _smart_select_frames(
             _biref = BiRefNetWrapper()
             _probe_idxs = sorted({0, N // 4, N // 2, 3 * N // 4, N - 1})
             _th_shape = thumbs[0].shape[:2]  # (th, tw) at thumbnail scale
-            _bg_accum = np.ones(_th_shape, dtype=np.float32)   # intersection → bg
+            _bg_accum = np.ones(_th_shape, dtype=np.float32)  # intersection → bg
             _fg_accum = np.zeros(_th_shape, dtype=np.float32)  # union → fg
             _n_ok = 0
             for _pi in _probe_idxs:
@@ -1037,9 +1152,8 @@ def _smart_select_frames(
     cumpos: List[float] = [0.0] * N
     for i in range(N - 1):
         step = axis_steps[i]
-        rejected = (
-            responses[i] < min_phase_response
-            or (abs(step) < tiny_step_px and frame_mads[i] > high_anim_mad)
+        rejected = responses[i] < min_phase_response or (
+            abs(step) < tiny_step_px and frame_mads[i] > high_anim_mad
         )
         cumpos[i + 1] = cumpos[i] + (0.0 if rejected else step)
 
@@ -1079,10 +1193,10 @@ def _smart_select_frames(
     # This implements §6.1 "on twos" pose-consistency without requiring any
     # pose-estimation model: fg pixel similarity ≈ animation phase matching.
 
-    _POSE_LOOK_RANGE = 2   # at most ±2 frames from v1 candidate
+    _POSE_LOOK_RANGE = 2  # at most ±2 frames from v1 candidate
     _POSE_MIN_GAIN = 0.10  # must improve fg pixel L1 by ≥ 10% to substitute
-    _MIN_ADV_FRAC = 0.50   # replacement must advance ≥ min_step_px × 0.50
-    _MAX_ADV_FRAC = 2.50   # replacement must advance ≤ min_step_px × 2.50
+    _MIN_ADV_FRAC = 0.50  # replacement must advance ≥ min_step_px × 0.50
+    _MAX_ADV_FRAC = 2.50  # replacement must advance ≤ min_step_px × 2.50
 
     if _POSE_WINDOW_PX > 0 and len(selected_v1) > 2:
         _pose_mode = "biref-fg" if _fg_thumb_mask is not None else "central-crop"
@@ -1094,19 +1208,32 @@ def _smart_select_frames(
             # Candidate pool: ±LOOK_RANGE around s_curr, bounded by (s_prev+1, N-1)
             lo = max(s_prev + 1, s_curr - _POSE_LOOK_RANGE)
             hi = min(N - 1, s_curr + _POSE_LOOK_RANGE)
+
             # Filter: minimum and maximum canvas advance from previous selection
             def _valid_advance(c: int) -> bool:
                 adv = cumpos[c] - cumpos[s_prev]
                 nf = adv * dominant_sign if dominant_sign != 0 else abs(adv)
                 return _MIN_ADV_FRAC * min_step_px <= nf <= _MAX_ADV_FRAC * min_step_px
+
             candidates = [c for c in range(lo, hi + 1) if _valid_advance(c)]
             if not candidates:
                 selected.append(s_curr)
                 continue
-            last_t = thumbs[s_prev]
-            # Pass BiRefNet fg mask so background edges are excluded from score
-            curr_score = _fg_center_diff(last_t, thumbs[s_curr], _fg_thumb_mask)
-            scores = [_fg_center_diff(last_t, thumbs[c], _fg_thumb_mask) for c in candidates]
+            if dinov2_features is not None:
+                last_t = dinov2_features[s_prev]
+                curr_score = 1.0 - float(np.dot(last_t, dinov2_features[s_curr]))
+                scores = [
+                    1.0 - float(np.dot(last_t, dinov2_features[c])) for c in candidates
+                ]
+                _pose_mode = "dinov2"
+            else:
+                last_t = thumbs[s_prev]
+                # Pass BiRefNet fg mask so background edges are excluded from score
+                curr_score = _fg_center_diff(last_t, thumbs[s_curr], _fg_thumb_mask)
+                scores = [
+                    _fg_center_diff(last_t, thumbs[c], _fg_thumb_mask)
+                    for c in candidates
+                ]
             best_local = int(np.argmin(scores))
             best = candidates[best_local]
             best_score = scores[best_local]
@@ -1122,7 +1249,7 @@ def _smart_select_frames(
         selected.append(selected_v1[-1])
         if n_subs > 0:
             print(
-                f"  [PoseSelect/{_pose_mode}] {n_subs}/{len(selected_v1)-2} slots refined."
+                f"  [PoseSelect/{_pose_mode}] {n_subs}/{len(selected_v1) - 2} slots refined."
             )
     else:
         selected = selected_v1
@@ -1747,7 +1874,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                     timings["render_gate_fallback"] = 1
                     raise RuntimeError(
                         f"Ghosting gate: asp_ghost={_asp_ghost:.1f}, "
-                        f"ratio={_asp_ghost/max(_sim_ghost,1.0):.2f}"
+                        f"ratio={_asp_ghost / max(_sim_ghost, 1.0):.2f}"
                     )
 
         from PIL import Image
@@ -1917,8 +2044,12 @@ def _build_result(
         psnr_val = _psnr(asp_img, sim_img)
 
     # Ground truth comparison
-    gt_metrics_asp: Dict = _compute_gt_metrics(asp_img, gt_img) if gt_img is not None else {}
-    gt_metrics_sim: Dict = _compute_gt_metrics(sim_img, gt_img) if gt_img is not None else {}
+    gt_metrics_asp: Dict = (
+        _compute_gt_metrics(asp_img, gt_img) if gt_img is not None else {}
+    )
+    gt_metrics_sim: Dict = (
+        _compute_gt_metrics(sim_img, gt_img) if gt_img is not None else {}
+    )
     gt_ver = _gt_verdict(gt_metrics_asp, gt_metrics_sim)
     has_gt = gt_img is not None
 
@@ -2017,7 +2148,9 @@ def _build_result(
             "ssim": round(ssim_val, 4) if not math.isnan(ssim_val) else None,
             "psnr_db": round(psnr_val, 2) if not math.isnan(psnr_val) else None,
             # GT-based verdict when available (most reliable); CV-based otherwise
-            "verdict": gt_ver if gt_ver is not None else _auto_verdict(asp_metrics, sim_metrics),
+            "verdict": gt_ver
+            if gt_ver is not None
+            else _auto_verdict(asp_metrics, sim_metrics),
             "verdict_source": "ground_truth" if gt_ver is not None else "cv_metrics",
         },
         # --- ground truth comparison ---
@@ -2157,34 +2290,53 @@ def generate_json_results(results: List[Dict], suite_start_time: float) -> str:
             ),
             "gt_verdict_counts": {
                 "asp_better": sum(
-                    1 for r in results
+                    1
+                    for r in results
                     if r.get("ground_truth", {}).get("verdict") == "asp_better"
                 ),
                 "simple_better": sum(
-                    1 for r in results
+                    1
+                    for r in results
                     if r.get("ground_truth", {}).get("verdict") == "simple_better"
                 ),
                 "comparable": sum(
-                    1 for r in results
+                    1
+                    for r in results
                     if r.get("ground_truth", {}).get("verdict") == "comparable"
                 ),
             },
-            "avg_ssim_asp_vs_gt": round(float(np.mean([
-                r["ground_truth"]["metrics_asp"]["ssim_vs_gt"]
-                for r in results
-                if r.get("ground_truth", {}).get("available")
-                and r["ground_truth"]["metrics_asp"].get("ssim_vs_gt") is not None
-            ])), 4) if any(
-                r.get("ground_truth", {}).get("available") for r in results
-            ) else None,
-            "avg_ssim_simple_vs_gt": round(float(np.mean([
-                r["ground_truth"]["metrics_simple"]["ssim_vs_gt"]
-                for r in results
-                if r.get("ground_truth", {}).get("available")
-                and r["ground_truth"]["metrics_simple"].get("ssim_vs_gt") is not None
-            ])), 4) if any(
-                r.get("ground_truth", {}).get("available") for r in results
-            ) else None,
+            "avg_ssim_asp_vs_gt": round(
+                float(
+                    np.mean(
+                        [
+                            r["ground_truth"]["metrics_asp"]["ssim_vs_gt"]
+                            for r in results
+                            if r.get("ground_truth", {}).get("available")
+                            and r["ground_truth"]["metrics_asp"].get("ssim_vs_gt")
+                            is not None
+                        ]
+                    )
+                ),
+                4,
+            )
+            if any(r.get("ground_truth", {}).get("available") for r in results)
+            else None,
+            "avg_ssim_simple_vs_gt": round(
+                float(
+                    np.mean(
+                        [
+                            r["ground_truth"]["metrics_simple"]["ssim_vs_gt"]
+                            for r in results
+                            if r.get("ground_truth", {}).get("available")
+                            and r["ground_truth"]["metrics_simple"].get("ssim_vs_gt")
+                            is not None
+                        ]
+                    )
+                ),
+                4,
+            )
+            if any(r.get("ground_truth", {}).get("available") for r in results)
+            else None,
         },
         "datasets": results,
         "performance_insights": {
@@ -2401,10 +2553,10 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
     # Global summary table
     lines.append(_GLOBAL_SUMMARY_HEADER)
     lines.append(
-        "| Test | SC ASP | SC Sim | GT SSIM ASP | GT SSIM Sim | SSIM(A↔S) | Verdict | Src | FB |\n"
+        "| Test | SC ASP | SC Sim | GT SSIM ASP | GT SSIM Sim | Align SSIM ASP | Align SSIM Sim | Verdict | Src | FB |\n"
     )
     lines.append(
-        "|------|-------:|-------:|------------:|------------:|----------:|---------|-----|----|\n"
+        "|------|-------:|-------:|------------:|------------:|---------------:|---------------:|---------|-----|----|\n"
     )
     for r in results:
         am, sm = r["metrics_asp"], r["metrics_simple"]
@@ -2415,19 +2567,28 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
         gt_ssim_s = gt.get("metrics_simple", {}).get("ssim_vs_gt")
         gt_ssim_a_s = f"{gt_ssim_a:.3f}" if gt_ssim_a is not None else "—"
         gt_ssim_s_s = f"{gt_ssim_s:.3f}" if gt_ssim_s is not None else "—"
+
+        align_ssim_a = gt.get("metrics_asp", {}).get("aligned_ssim_vs_gt")
+        align_ssim_s = gt.get("metrics_simple", {}).get("aligned_ssim_vs_gt")
+        align_ssim_a_s = f"{align_ssim_a:.3f}" if align_ssim_a is not None else "—"
+        align_ssim_s_s = f"{align_ssim_s:.3f}" if align_ssim_s is not None else "—"
+
         ssim_v = (
             f"{r['comparison']['ssim']:.3f}"
-            if r["comparison"]["ssim"] is not None else "—"
+            if r["comparison"]["ssim"] is not None
+            else "—"
         )
         verdict = r["comparison"]["verdict"]
         vsrc = r["comparison"].get("verdict_source", "cv")[:2].upper()
         fallback = "✓" if r["used_fallback"] else ""
         lines.append(
             f"| [{r['name']}](#{r['name']}) | {sc_a} | {sc_s} | {gt_ssim_a_s} | {gt_ssim_s_s} | "
-            f"{ssim_v} | {verdict} | {vsrc} | {fallback} |\n"
+            f"{align_ssim_a_s} | {align_ssim_s_s} | {verdict} | {vsrc} | {fallback} |\n"
         )
     lines.append("\n")
-    lines.append("*SC = seam_coherence (lower is better); GT SSIM = SSIM vs ground truth; Src = verdict source (GT / CV)*\n\n")
+    lines.append(
+        "*SC = seam_coherence (lower is better); GT SSIM = raw SSIM; Align SSIM = ECC-aligned SSIM (no framing bias)*\n\n"
+    )
 
     # Global ASP failure breakdown
     lines.append("### Failure Mode Counts (ASP)\n\n")
@@ -2540,7 +2701,9 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
                 f"{f'{sim_psnr_gt:.1f} dB' if sim_psnr_gt is not None else '—'} | "
                 f"Higher = closer to reference |\n"
             )
-            lines.append(f"| **GT-based verdict** | **{gt_ver}** | — | Most reliable quality signal |\n")
+            lines.append(
+                f"| **GT-based verdict** | **{gt_ver}** | — | Most reliable quality signal |\n"
+            )
             lines.append("\n")
 
         # Affine health
@@ -2793,8 +2956,7 @@ def _resolve_datasets(base_dir: str, args) -> List[str]:
       --skip-done   skip any dataset whose output panorama.png already exists
     """
     all_dirs = sorted(
-        d for d in glob.glob(os.path.join(base_dir, "asp_test*"))
-        if os.path.isdir(d)
+        d for d in glob.glob(os.path.join(base_dir, "asp_test*")) if os.path.isdir(d)
     )
 
     if args.tests:
@@ -2816,9 +2978,13 @@ def _resolve_datasets(base_dir: str, args) -> List[str]:
             else:
                 nums.add(int(part))
         selected = [
-            d for d in all_dirs
-            if any(os.path.basename(d) == f"asp_test{n:02d}" or
-                   os.path.basename(d) == f"asp_test{n}" for n in nums)
+            d
+            for d in all_dirs
+            if any(
+                os.path.basename(d) == f"asp_test{n:02d}"
+                or os.path.basename(d) == f"asp_test{n}"
+                for n in nums
+            )
         ]
     elif args.first:
         selected = all_dirs[: args.first]
@@ -2826,11 +2992,15 @@ def _resolve_datasets(base_dir: str, args) -> List[str]:
         selected = all_dirs
 
     if args.skip_done:
+
         def _is_done(d: str) -> bool:
             return os.path.exists(os.path.join(d, "output", "panorama.png"))
+
         before = len(selected)
         selected = [d for d in selected if not _is_done(d)]
-        print(f"[skip-done] Skipped {before - len(selected)} already-processed datasets.")
+        print(
+            f"[skip-done] Skipped {before - len(selected)} already-processed datasets."
+        )
 
     return selected
 

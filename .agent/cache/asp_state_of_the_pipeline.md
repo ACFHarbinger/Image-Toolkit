@@ -62,6 +62,7 @@ The 13-stage pipeline in `backend/src/anim/pipeline.py`:
 | 9 | Canvas construction + bidirectional midplane | `canvas.py` |
 | **10** | **Foreground-excluded temporal median** (A5) | `rendering.py` |
 | **11** | **Foreground assembly composite** (Laplacian blend + DSFN seam + semantic cost routing) | `compositing.py` |
+| 12.5 | **Scroll-axis-aware content trim** (Session 7) | `pipeline.py` |
 | 13 | Morphological crop | `canvas.py` |
 
 ---

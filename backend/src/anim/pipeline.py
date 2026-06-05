@@ -279,7 +279,7 @@ class AnimeStitchPipeline:
         # filter.  When the majority of edges are near-zero (test8/test9/test16),
         # the consensus median is also near-zero and the filter cannot distinguish
         # good from bad.  This guard prevents the inverted-consensus pattern.
-        
+
         if len(edges) >= 3:
             adj_edges = [e for e in edges if e["j"] == e["i"] + 1]
             if len(adj_edges) > 0:
@@ -498,7 +498,9 @@ class AnimeStitchPipeline:
         out_abs = os.path.abspath(output_path)
         image_paths = [p for p in image_paths if os.path.abspath(p) != out_abs]
 
-        logger.info(f"[Stitch] Starting AnimeStitchPipeline on {len(image_paths)} frames.")
+        logger.info(
+            f"[Stitch] Starting AnimeStitchPipeline on {len(image_paths)} frames."
+        )
         self._baselines = None
 
         # ── Stage 1: Load & trim ─────────────────────────────────────────────
@@ -523,7 +525,9 @@ class AnimeStitchPipeline:
             frames, baselines = _apply_basic(frames, self._basic)
             self._baselines = baselines
             frames = _correct_vignetting(frames)
-            logger.info("[Stitch] Stage 3 complete: BaSiC + Vignette correction applied.")
+            logger.info(
+                "[Stitch] Stage 3 complete: BaSiC + Vignette correction applied."
+            )
         else:
             logger.info("[Stitch] Stage 3 skipped (use_basic=False).")
 
@@ -702,7 +706,9 @@ class AnimeStitchPipeline:
                 _active_loftr = _jamma_inst
                 logger.info(f"[Stitch]   4K frame ({W}×{H}): using JamMa (O(N) Mamba).")
             except Exception as _jm_e:
-                logger.info(f"[Stitch]   JamMa unavailable ({_jm_e}); using EfficientLoFTR.")
+                logger.info(
+                    f"[Stitch]   JamMa unavailable ({_jm_e}); using EfficientLoFTR."
+                )
 
         # P1.4 — Use EfficientLoFTR (2.5× faster) when available; fall back to
         # kornia LoFTR.  Both expose the same .match() interface.
@@ -712,7 +718,9 @@ class AnimeStitchPipeline:
                     self._eloftr = EfficientLoFTRWrapper()
                     self._eloftr.load_model()
                     _active_loftr = self._eloftr
-                    logger.info("[Stitch]   Using EfficientLoFTR (2.5× faster than LoFTR).")
+                    logger.info(
+                        "[Stitch]   Using EfficientLoFTR (2.5× faster than LoFTR)."
+                    )
                 except Exception as _e:
                     logger.debug(
                         f"[Stitch]   EfficientLoFTR init failed ({_e}); falling back to LoFTR."
@@ -731,7 +739,9 @@ class AnimeStitchPipeline:
             try:
                 self._aliked = ALIKEDLightGlueWrapper()
             except Exception as _e:
-                logger.info(f"[Stitch]   ALIKED+LightGlue init failed ({_e}); disabling.")
+                logger.info(
+                    f"[Stitch]   ALIKED+LightGlue init failed ({_e}); disabling."
+                )
                 self.use_aliked = False
                 self._aliked = None
         if self.use_roma and self._roma is None:
@@ -756,7 +766,7 @@ class AnimeStitchPipeline:
         # meaningful new content and confuse BA (effective gap ≈ 0).  Run in a
         # loop so chains (A≈B≈C) are resolved in successive passes after
         # re-indexing turns a former skip-edge into an adj-edge.
-        
+
         _spa_changed = True
         _total_spa_dropped = 0
         while _spa_changed:
@@ -986,10 +996,14 @@ class AnimeStitchPipeline:
                     torch.cuda.empty_cache()
                     self._sea_raft = None
             except Exception as _ecc_e:
-                logger.info(f"[Stitch]   SEA-RAFT failed ({_ecc_e}); falling back to ECC.")
+                logger.info(
+                    f"[Stitch]   SEA-RAFT failed ({_ecc_e}); falling back to ECC."
+                )
                 if self.use_ecc:
                     affines = _ecc_refine(frames, affines, bg_masks)
-                    logger.info("[Stitch] Stage 8 complete: ECC refinement done (fallback).")
+                    logger.info(
+                        "[Stitch] Stage 8 complete: ECC refinement done (fallback)."
+                    )
         elif self.use_ecc:
             affines = _ecc_refine(frames, affines, bg_masks)
             logger.info("[Stitch] Stage 8 complete: ECC refinement done.")
@@ -1156,7 +1170,9 @@ class AnimeStitchPipeline:
                     if torch.cuda.is_available():
                         torch.cuda.empty_cache()
             except Exception as _tc_e:
-                logger.info(f"[Stitch]   ToonCrafter ghost fill failed ({_tc_e}); skipping.")
+                logger.info(
+                    f"[Stitch]   ToonCrafter ghost fill failed ({_tc_e}); skipping."
+                )
 
         # ── Stage 11: Foreground composite ──────────────────────────────────
         if self.composite_fg and self.use_birefnet:
@@ -1185,65 +1201,96 @@ class AnimeStitchPipeline:
                 )
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
-                logger.info("[Stitch] Stage 11.5 complete: SRStitcher seam diffusion done.")
+                logger.info(
+                    "[Stitch] Stage 11.5 complete: SRStitcher seam diffusion done."
+                )
             except Exception as _srs_e:
-                logger.info(f"[Stitch]   SRStitcher seam fusion failed ({_srs_e}); skipping.")
+                logger.info(
+                    f"[Stitch]   SRStitcher seam fusion failed ({_srs_e}); skipping."
+                )
 
         # ── Stage 12: Remaining seam blend (handled inside _render). ────────
 
-        # ── Stage 12.5: Scroll-axis foreground-extent trim ──────────────────
-        # Removes canvas rows (vertical scroll) or columns (horizontal scroll)
-        # that contain no foreground content in any frame.  Fixes test27's 2×
-        # height excess caused by frame selection sampling a wider temporal range
-        # than the GT.  Only trims in the dominant scroll direction so the
-        # orthogonal background extent is preserved intact.
-        _CONTENT_TRIM_ENABLED = os.environ.get("ASP_CONTENT_TRIM", "1") != "0"
-        if _CONTENT_TRIM_ENABLED and bg_masks and any(m is not None for m in bg_masks):
-            try:
-                _ty_vals = [float(a[1, 2]) for a in affines]
-                _tx_vals = [float(a[0, 2]) for a in affines]
-                _ty_range = max(_ty_vals) - min(_ty_vals)
-                _tx_range = max(_tx_vals) - min(_tx_vals)
-                _trim_axis = 0 if _ty_range >= _tx_range else 1
+        # ── Stage 12.5: Scroll-axis-aware content crop (§2.6) ───────────────
+        # After compositing, the canvas may have leading/trailing strips of
+        # pure background that contain zero foreground character pixels across
+        # all frames.  These pure-bg rows inflate the scale factor relative to
+        # GT (GT's panorama starts/ends with the first/last character-containing
+        # frame).  Trim them to reduce GT-framing bias.
+        #
+        # Only trim rows where ALL warped frames have bg-only content (i.e., no
+        # character pixels from any frame reach that canvas row).  Rows where
+        # even one frame has fg content are kept — they contain mid-scroll
+        # character data even if the median/composite shows bg there.
+        #
+        # Cap: never trim more than 15% of canvas height/width per side.
+        # This prevents over-cropping on datasets where the first/last frame
+        # is entirely background (static camera opening shot).
+        try:
+            _trim_cap_frac = 0.15
+            # Determine dominant scroll axis from affine translations
+            _tys_trim = [float(affines[k][1, 2]) for k in range(N)]
+            _txs_trim = [float(affines[k][0, 2]) for k in range(N)]
+            _ty_span = max(_tys_trim) - min(_tys_trim)
+            _tx_span = max(_txs_trim) - min(_txs_trim)
+            _is_vert_scroll = _ty_span >= _tx_span
 
-                fg_union_canvas = np.zeros((canvas_h, canvas_w), dtype=bool)
-                for _i in range(N):
-                    if bg_masks[_i] is None:
+            if bg_masks and any(m is not None for m in bg_masks):
+                # Build a union fg map across all warped frames:
+                # any pixel that is foreground in AT LEAST ONE warped frame
+                # is protected from trimming.
+                _union_fg = np.zeros((canvas_h, canvas_w), dtype=bool)
+                for _idx_trim in range(N):
+                    if bg_masks[_idx_trim] is None:
                         continue
-                    _fg_i = (~bg_masks[_i]).astype(np.uint8) * 255
-                    _w_fg = cv2.warpAffine(
-                        _fg_i, affines[_i][:2, :], (canvas_w, canvas_h),
-                        flags=cv2.INTER_NEAREST, borderValue=0,
+                    _wfg = cv2.warpAffine(
+                        (bg_masks[_idx_trim] < 127).astype(np.uint8),
+                        affines[_idx_trim],
+                        (canvas_w, canvas_h),
+                        flags=cv2.INTER_NEAREST,
+                        borderMode=cv2.BORDER_CONSTANT,
+                        borderValue=0,
                     )
-                    fg_union_canvas |= _w_fg > 127
+                    _union_fg |= _wfg > 0
 
-                if fg_union_canvas.any():
-                    _CT_PAD = 20
-                    if _trim_axis == 0:
-                        _row_has_fg = fg_union_canvas.any(axis=1)
-                        _fg_rows = np.where(_row_has_fg)[0]
-                        _r0 = max(0, int(_fg_rows[0]) - _CT_PAD)
-                        _r1 = min(canvas_h, int(_fg_rows[-1]) + _CT_PAD + 1)
-                        canvas = canvas[_r0:_r1]
-                        valid_mask = valid_mask[_r0:_r1]
-                        logger.info(
-                            f"[Stitch] Stage 12.5: vertical trim rows [{_r0}:{_r1}] "
-                            f"({canvas_h}→{_r1 - _r0}px height)."
+                if _is_vert_scroll:
+                    # Find row range with any fg content
+                    _row_has_fg = _union_fg.any(axis=1)  # (canvas_h,)
+                    _fg_rows = np.where(_row_has_fg)[0]
+                    if len(_fg_rows) > 0:
+                        _cap_px = int(canvas_h * _trim_cap_frac)
+                        _new_top = max(0, min(int(_fg_rows[0]), _cap_px))
+                        _new_bot = min(
+                            canvas_h, max(int(_fg_rows[-1]) + 1, canvas_h - _cap_px)
                         )
-                    else:
-                        _col_has_fg = fg_union_canvas.any(axis=0)
-                        _fg_cols = np.where(_col_has_fg)[0]
-                        _c0 = max(0, int(_fg_cols[0]) - _CT_PAD)
-                        _c1 = min(canvas_w, int(_fg_cols[-1]) + _CT_PAD + 1)
-                        canvas = canvas[:, _c0:_c1]
-                        valid_mask = valid_mask[:, _c0:_c1]
-                        logger.info(
-                            f"[Stitch] Stage 12.5: horizontal trim cols [{_c0}:{_c1}] "
-                            f"({canvas_w}→{_c1 - _c0}px width)."
+                        if _new_top > 0 or _new_bot < canvas_h:
+                            canvas = canvas[_new_top:_new_bot]
+                            valid_mask = valid_mask[_new_top:_new_bot]
+                            logger.info(
+                                f"[Stitch] Stage 12.5: vertical scroll content trim "
+                                f"rows [{_new_top}:{_new_bot}] / {canvas_h} "
+                                f"(−{_new_top}top, −{canvas_h - _new_bot}bot)"
+                            )
+                else:
+                    # Horizontal scroll: trim pure-bg columns at left/right
+                    _col_has_fg = _union_fg.any(axis=0)  # (canvas_w,)
+                    _fg_cols = np.where(_col_has_fg)[0]
+                    if len(_fg_cols) > 0:
+                        _cap_px = int(canvas_w * _trim_cap_frac)
+                        _new_lft = max(0, min(int(_fg_cols[0]), _cap_px))
+                        _new_rgt = min(
+                            canvas_w, max(int(_fg_cols[-1]) + 1, canvas_w - _cap_px)
                         )
-            except Exception as _ct_e:
-                logger.debug(f"[Stitch]   Stage 12.5 content trim skipped ({_ct_e}).")
-        logger.info("[Stitch] Stage 12.5 complete.")
+                        if _new_lft > 0 or _new_rgt < canvas_w:
+                            canvas = canvas[:, _new_lft:_new_rgt]
+                            valid_mask = valid_mask[:, _new_lft:_new_rgt]
+                            logger.info(
+                                f"[Stitch] Stage 12.5: horizontal scroll content trim "
+                                f"cols [{_new_lft}:{_new_rgt}] / {canvas_w} "
+                                f"(−{_new_lft}left, −{canvas_w - _new_rgt}right)"
+                            )
+        except Exception as _trim_e:
+            logger.debug(f"[Stitch] Stage 12.5 content trim skipped ({_trim_e}).")
 
         # ── Stage 13: Morphological boundary crop ───────────────────────────
         canvas = _crop_to_valid(canvas, valid_mask)
@@ -1270,7 +1317,9 @@ class AnimeStitchPipeline:
                 canvas = inpaint_gaps(canvas, gap_mask=_gap_mask)
                 logger.info("[Stitch]   Inpainting complete.")
             except Exception as _e:
-                logger.info(f"[Stitch]   Inpainting failed ({_e}); keeping canvas as-is.")
+                logger.info(
+                    f"[Stitch]   Inpainting failed ({_e}); keeping canvas as-is."
+                )
 
         # ── Optional: Real-ESRGAN anime_6B super-resolution (P2.2) ──────────
         if self.sr_mode and _SR_OK:

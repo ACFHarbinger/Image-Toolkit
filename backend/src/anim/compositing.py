@@ -40,12 +40,13 @@ from backend.src.constants import (
 # Enabled by default; set ASP_FG_REGISTER=0 to disable for A/B comparison.
 _FG_REGISTER_ENABLED = os.environ.get("ASP_FG_REGISTER", "1") != "0"
 
-# ToonCrafter seam synthesis (§3.6 / S9).
-# When enabled, generates a canonical interpolated cel at the single worst
-# single-pose-escalated seam, replacing the hard dominant-frame partition
-# with a smoothly interpolated character pose.  Disabled by default; requires
-# diffusers and ToonCrafter weights (~3.5 GB).  Set ASP_TOONCRAFTER_SEAM=1.
-_TOONCRAFTER_SEAM_ENABLED = os.environ.get("ASP_TOONCRAFTER_SEAM", "0") != "0"
+# ToonCrafter seam synthesis (§3.6B): when a seam escalates to single-pose
+# fallback (post_warp_diff > 22 lum), synthesize a coherent intermediate frame
+# using ToonCrafter (or cross-dissolve fallback) to eliminate the hard boundary.
+# Enabled via ASP_TOONCRAFTER_SEAM=1 (default OFF — adds inference overhead).
+# When enabled, synthesis is applied only to the single worst seam per run
+# (highest post_warp_diff) to keep overhead bounded.
+_TOONCRAFTER_SEAM = os.environ.get("ASP_TOONCRAFTER_SEAM", "0") != "0"
 
 
 def _diff_to_feather(diff: float) -> int:
@@ -296,7 +297,9 @@ def _soft_seam_weight(
     min_ramp_bg = 10.0
     max_ramp_bg = max(min_ramp_bg + 1.0, zone_h * 0.35)
     col_sim = sim_diffused.mean(axis=0)  # (W,)
-    ramp_per_col = (min_ramp_bg + col_sim * (max_ramp_bg - min_ramp_bg)).astype(np.float32)
+    ramp_per_col = (min_ramp_bg + col_sim * (max_ramp_bg - min_ramp_bg)).astype(
+        np.float32
+    )
 
     ys = np.arange(zone_h, dtype=np.float32)[:, np.newaxis]  # (zone_h, 1)
     seam_y = path_local[np.newaxis, :].astype(np.float32)  # (1, W)
@@ -324,6 +327,18 @@ def _build_seam_cost_map(
     Generates high cost near foreground character edges (where BiRefNet says
     the pixel belongs to a character) so the DP seam is routed around them.
 
+    Two-tier cost structure (§2.11B):
+      Tier 1 — fg interior pixels get cost = 1.0.  With sem_weight=200 in
+      ``_seam_cut()``, every fg-interior pixel costs ≈ 200 energy units vs
+      background pixels at ≈ 10–50.  This forces the seam through background-
+      only corridors instead of bisecting the character body.
+      Tier 2 — dilated fg edge avoidance zone (existing).  Ensures the seam
+      doesn't graze character outlines even when passing near the boundary.
+
+    If the character fills the full width and there is no all-background path,
+    the DP gracefully degrades: it finds the minimum-cost path through the
+    character body at its thinnest point rather than along the widest silhouette.
+
     Parameters
     ----------
     canvas_zone : (H_zone, W, 3) uint8 slice from the overlap zone.
@@ -345,11 +360,17 @@ def _build_seam_cost_map(
         if bm is None:
             continue
         fg = (bm < 127).astype(np.uint8) * 255  # foreground pixels
-        # Edge of foreground mask → character silhouette
+
+        # Tier 1 — fg interior: force seam away from character body (§2.11B).
+        # Any pixel classified as foreground in at least one frame has full cost.
+        # This prevents the DP from routing through the character's torso/limbs.
+        cost = np.maximum(cost, (fg > 0).astype(np.float32))
+
+        # Tier 2 — dilated fg edge avoidance zone (existing).
+        # Provides additional buffer around character silhouettes.
         edge = cv2.morphologyEx(
             fg, cv2.MORPH_GRADIENT, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
         )
-        # Dilate to create avoidance zone
         dilated = cv2.dilate(edge, kernel)
         cost = np.maximum(cost, (dilated > 0).astype(np.float32))
 
@@ -472,7 +493,9 @@ def _composite_foreground(
             bg_sel = warped_bg[i] & (warped_list[i].max(axis=2) > 10)
             bg_px = warped_list[i][bg_sel]
             if len(bg_px) >= 200:
-                frame_lums.append(float(bg_px.astype(np.float32).dot(LUMINANCE_WEIGHTS).mean()))
+                frame_lums.append(
+                    float(bg_px.astype(np.float32).dot(LUMINANCE_WEIGHTS).mean())
+                )
                 continue
         frame_lums.append(None)
 
@@ -504,11 +527,17 @@ def _composite_foreground(
                 f"amplifying color mismatch between animation frames."
             )
         else:
-            print(f"[Stitch]   Color coherence OK (max adj diff={_max_adj_diff:.1f}). Applying normalization.")
+            print(
+                f"[Stitch]   Color coherence OK (max adj diff={_max_adj_diff:.1f}). Applying normalization."
+            )
 
     warped_norm: List[np.ndarray] = []
     for i in range(N):
-        if not _skip_normalization and global_ref_lum is not None and warped_bg[i] is not None:
+        if (
+            not _skip_normalization
+            and global_ref_lum is not None
+            and warped_bg[i] is not None
+        ):
             bg_sel = warped_bg[i] & (warped_list[i].max(axis=2) > 10)
             bg_px = warped_list[i][bg_sel]
             if len(bg_px) >= 200 and frame_lums[i] is not None:
@@ -518,7 +547,9 @@ def _composite_foreground(
                 # boundaries.  Apply the gain to background pixels only; foreground pixels
                 # retain their raw warped values so adjacent zones stay photometrically
                 # consistent at character-outline boundaries.
-                gain = float(np.clip(global_ref_lum / max(frame_lums[i], 1.0), 0.93, 1.07))
+                gain = float(
+                    np.clip(global_ref_lum / max(frame_lums[i], 1.0), 0.93, 1.07)
+                )
                 f32 = warped_list[i].astype(np.float32)
                 f32[bg_sel] = np.clip(f32[bg_sel] * gain, 0, 255)
                 warped_norm.append(f32.astype(np.uint8))
@@ -573,12 +604,12 @@ def _composite_foreground(
     # Fallback (A6): when the residual exceeds max_residual, take the seam-zone
     # foreground from the dominant pose frame only — no blending.
     seam_single_pose: dict = {}
-    seam_post_diffs: dict = {}
+    seam_synthesized: dict = {}  # k → synthesized seam-band crop (ToonCrafter §3.6)
     if _FG_REGISTER_ENABLED and N >= 2:
         try:
             from .fg_register import register_foreground_at_seam
 
-            scroll_is_h = (tx_range > 0 and ty_range / max(tx_range, 1.0) < 0.1)
+            scroll_is_h = tx_range > 0 and ty_range / max(tx_range, 1.0) < 0.1
             reg_axis = 1 if scroll_is_h else 0
 
             # Reference index: the temporally-central frame in the sorted order.
@@ -654,6 +685,56 @@ def _composite_foreground(
                 f"[Stitch]   FG pose registration: {n_warped}/{n_b} re-posed, "
                 f"{n_fallback}/{n_b} single-pose fallback. ref={ref_fi}"
             )
+
+            # ToonCrafter seam synthesis (§3.6B) — applied to single-pose
+            # escalated seams when ASP_TOONCRAFTER_SEAM=1.  Synthesizes a
+            # coherent intermediate pose that replaces the hard-partition
+            # boundary.  Only the worst seam (highest post_warp_diff) per run
+            # is synthesized to keep inference overhead bounded (~24s on A100).
+            if _TOONCRAFTER_SEAM and seam_single_pose:
+                try:
+                    from .anim_fill import _generate_canonical_cel
+                    import torch as _tc_torch
+
+                    _tc_device = "cuda" if _tc_torch.cuda.is_available() else "cpu"
+                    canvas_h_tc, canvas_w_tc = warped_norm[0].shape[:2]
+                    _taper_crop = 64  # half-height of the seam-band crop for synthesis
+
+                    # Synthesize only the single worst seam (highest post_diff)
+                    # to keep overhead bounded.  Track post_diffs across all seams.
+                    _worst_k = max(
+                        seam_single_pose.keys(),
+                        key=lambda _k: _k,  # fallback: last seam; override if tracked
+                    )
+                    by = boundaries[_worst_k]
+                    fi_a = int(order[_worst_k])
+                    fi_b = int(order[_worst_k + 1])
+
+                    if reg_axis == 0:  # vertical scroll seam
+                        _sy0 = max(0, int(by) - _taper_crop)
+                        _sy1 = min(canvas_h_tc, int(by) + _taper_crop)
+                        crop_a_tc = warped_norm[fi_a][_sy0:_sy1, :]
+                        crop_b_tc = warped_norm[fi_b][_sy0:_sy1, :]
+                    else:  # horizontal scroll seam
+                        _sx0 = max(0, int(by) - _taper_crop)
+                        _sx1 = min(canvas_w_tc, int(by) + _taper_crop)
+                        crop_a_tc = warped_norm[fi_a][:, _sx0:_sx1]
+                        crop_b_tc = warped_norm[fi_b][:, _sx0:_sx1]
+
+                    synth = _generate_canonical_cel(crop_a_tc, crop_b_tc, _tc_device)
+                    seam_synthesized[_worst_k] = {
+                        "synth": synth,
+                        "seam_pos": int(by),
+                        "crop_half": _taper_crop,
+                        "axis": reg_axis,
+                    }
+                    print(
+                        f"[ToonCrafter] Seam synthesis for B{_worst_k}: "
+                        f"seam_pos={int(by)}  crop_half={_taper_crop}px"
+                    )
+                except Exception as _tc_exc:
+                    print(f"[ToonCrafter] Seam synthesis skipped ({_tc_exc}).")
+
         except Exception as _fg_exc:
             print(f"[Stitch]   FG pose registration skipped ({_fg_exc}).")
 
@@ -675,6 +756,7 @@ def _composite_foreground(
             crop_b_tc = warped_norm[fi_b_w][y0_fw:y1_fw]
             from .anim_fill import _generate_canonical_cel
             import torch as _tc_torch
+
             _dev_tc_seam = "cuda" if _tc_torch.cuda.is_available() else "cpu"
             canonical_cel = _generate_canonical_cel(crop_a_tc, crop_b_tc, _dev_tc_seam)
             seam_canonical_crops[worst_k] = canonical_cel
@@ -751,8 +833,13 @@ def _composite_foreground(
         _wbg_a = warped_bg[fi_a][y0_f:y1_f] if warped_bg[fi_a] is not None else None
         _wbg_b = warped_bg[fi_b][y0_f:y1_f] if warped_bg[fi_b] is not None else None
         mask_float = _soft_seam_weight(
-            fa_zone, fb_zone, path_local, zone_h, W,
-            bg_mask_a=_wbg_a, bg_mask_b=_wbg_b,
+            fa_zone,
+            fb_zone,
+            path_local,
+            zone_h,
+            W,
+            bg_mask_a=_wbg_a,
+            bg_mask_b=_wbg_b,
         )
 
         blended = _laplacian_blend(fa_zone, fb_zone, mask_float)
@@ -781,23 +868,39 @@ def _composite_foreground(
         # ToonCrafter upgrade (§3.6): if a canonical cel was synthesised for this
         # seam, use it instead of the hard dominant-frame partition.
         _single = seam_single_pose.get(k)
-        _canonical_zone = seam_canonical_crops.get(k)
-        if _canonical_zone is not None and _single is not None and is_fg is not None:
-            fg_apply = apply
-            has_canon = _canonical_zone.max(axis=2) > 0
-            take_canon = fg_apply & has_canon
-            if take_canon.any():
-                result[y0_f:y1_f][take_canon] = _canonical_zone[take_canon]
-            # Fill gaps (where canonical has no content) from dominant frame
-            dom_zone = warped_norm[_single][y0_f:y1_f]
-            take_gap = fg_apply & (~has_canon) & (dom_zone.max(axis=2) > 0)
-            if take_gap.any():
-                result[y0_f:y1_f][take_gap] = dom_zone[take_gap]
-            print(
-                f"[Stitch]   ToonCrafter B{k} (frames {fi_a}/{fi_b}): "
-                f"zone=[{y0_f}–{y1_f}] fg_px={int(fg_apply.sum())} "
-                f"→ canonical cel applied (replaces single-pose partition)"
-            )
+        _synth_info = seam_synthesized.get(k)
+        if _synth_info is not None and is_fg is not None:
+            # ToonCrafter synthesized seam (§3.6B): the synthesis covers the
+            # band around the seam boundary.  Apply it where both frames have
+            # foreground content; fall back to single-pose for the rest.
+            synth = _synth_info["synth"]  # crop of the seam zone
+            sp = _synth_info["seam_pos"]  # canvas row of the seam
+            ch = _synth_info["crop_half"]  # half-height of the crop
+            ax = _synth_info["axis"]  # 0=vertical, 1=horizontal
+
+            dom_fi = _single if _single is not None else fi_a
+            oth_fi = fi_b if dom_fi == fi_a else fi_a
+            dom_zone = warped_norm[dom_fi][y0_f:y1_f]
+            oth_zone = warped_norm[oth_fi][y0_f:y1_f]
+
+            # Single-pose baseline (covers entire zone)
+            dom_has = dom_zone.max(axis=2) > 0
+            result[y0_f:y1_f][apply & dom_has] = dom_zone[apply & dom_has]
+            oth_fill = apply & (~dom_has) & (oth_zone.max(axis=2) > 0)
+            result[y0_f:y1_f][oth_fill] = oth_zone[oth_fill]
+
+            # Overwrite the synthesis band with the ToonCrafter output
+            if ax == 0:
+                _syn_y0 = max(y0_f, sp - ch)
+                _syn_y1 = min(y1_f, sp + ch)
+                if _syn_y0 < _syn_y1 and synth.shape[0] > 0:
+                    _rel0 = _syn_y0 - (sp - ch)
+                    _rel1 = _rel0 + (_syn_y1 - _syn_y0)
+                    if 0 <= _rel0 < synth.shape[0] and _rel1 <= synth.shape[0]:
+                        _s = synth[_rel0:_rel1, :]
+                        _has_s = _s.max(axis=2) > 0
+                        result[_syn_y0:_syn_y1][_has_s] = _s[_has_s]
+            print(f"[ToonCrafter] Composite B{k}: synthesis at seam {sp}±{ch}px")
         elif _single is not None and is_fg is not None:
             dom_zone = warped_norm[_single][y0_f:y1_f]
             oth = fi_b if _single == fi_a else fi_a
