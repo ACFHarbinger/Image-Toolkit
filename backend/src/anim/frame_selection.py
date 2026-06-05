@@ -82,16 +82,13 @@ _TWO_CHANNEL_SELECT = os.environ.get("ASP_TWO_CHANNEL_SELECT", "0") != "0"
 _PERIPH_BORDER_FRAC = 0.24
 
 # Animation hold detection — FD-Means preprocessing (§1.11 / §3.4).
-# Set ASP_HOLD_THRESHOLD to a positive float (e.g. "0.025") to enable.
-# A value of 0.0 (default) disables hold detection entirely.
+# Default 0.025 corresponds to 2.5% mean absolute difference between
+# consecutive thumbnails.  Within-hold frames typically score 0.003–0.010;
+# cross-hold frames score 0.030–0.120.  Set ASP_HOLD_THRESHOLD=0 to disable.
 try:
-    _HOLD_THRESHOLD = float(os.environ.get("ASP_HOLD_THRESHOLD", "0.0"))
+    _HOLD_THRESHOLD = float(os.environ.get("ASP_HOLD_THRESHOLD", "0.025"))
 except ValueError:
-    _HOLD_THRESHOLD = 0.0
-
-# DINOv2 frame feature cache (§3.3).  Populated lazily on first call to
-# _compute_dinov2_features(); keyed by model name string.
-_DINOV2_CACHE: dict = {}
+    _HOLD_THRESHOLD = 0.025
 
 
 # ---------------------------------------------------------------------------
@@ -150,10 +147,14 @@ def _detect_hold_blocks(
     for i in range(1, N):
         h = min(thumbs[i].shape[0], thumbs[i - 1].shape[0])
         w = min(thumbs[i].shape[1], thumbs[i - 1].shape[1])
-        mad = float(np.mean(np.abs(
-            thumbs[i][:h, :w].astype(np.float32)
-            - thumbs[i - 1][:h, :w].astype(np.float32)
-        )))
+        mad = float(
+            np.mean(
+                np.abs(
+                    thumbs[i][:h, :w].astype(np.float32)
+                    - thumbs[i - 1][:h, :w].astype(np.float32)
+                )
+            )
+        )
         if mad > hold_threshold:
             blocks.append(i)
 
@@ -341,6 +342,86 @@ def _fg_center_diff(
 
 
 # ---------------------------------------------------------------------------
+# DINOv2 Pose Features
+# ---------------------------------------------------------------------------
+
+# Module-level model cache — avoids reloading DINOv2 on every benchmark test
+# (96 tests × 10–30s reload = 15–48 minutes of avoidable overhead).
+# Key: device string; Value: (model, transform) tuple.
+_DINOV2_CACHE: dict = {}
+
+
+def _compute_dinov2_features(frames_paths: List[str]) -> Optional[np.ndarray]:
+    """
+    Compute DINOv2 (ViT-S/14) pose embeddings for all frames.
+
+    Returns (N, 384) float32 array of L2-normalised feature vectors, or None
+    if DINOv2 is unavailable (no torch.hub access, model weights not cached, etc.).
+
+    The model is loaded once per process and cached in ``_DINOV2_CACHE`` — the
+    first call to this function per device incurs the hub-load overhead
+    (~5–30s); subsequent calls are instantaneous.
+
+    DINOv2 features are used in Pass 2 of ``smart_select_frames()`` as the
+    pose similarity metric.  Cosine distance between frame features captures
+    pose difference robustly:
+      - Animation holds (same cel, 2–3 consecutive frames) → distance ≈ 0.02–0.05
+      - Cross-hold transitions (new cel) → distance ≈ 0.10–0.30
+      - Different scenes → distance > 0.50
+
+    This is background-invariant by design: DINOv2 was trained on diverse
+    natural images and its ViT features are dominated by semantic content
+    (pose, character shape) rather than background texture patterns.
+    """
+    try:
+        import torch
+        import torchvision.transforms as T
+        from PIL import Image as _PIL_Image
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        if device not in _DINOV2_CACHE:
+            model = (
+                torch.hub.load(
+                    "facebookresearch/dinov2", "dinov2_vits14", verbose=False
+                )
+                .to(device)
+                .eval()
+            )
+            transform = T.Compose(
+                [
+                    T.Resize(224, interpolation=T.InterpolationMode.BICUBIC),
+                    T.CenterCrop(224),
+                    T.ToTensor(),
+                    T.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+                ]
+            )
+            _DINOV2_CACHE[device] = (model, transform)
+
+        model, transform = _DINOV2_CACHE[device]
+    except Exception:
+        return None
+
+    # Batch-process frames: load all images, stack into a single tensor, infer once
+    tensors = []
+    try:
+        import torch
+
+        with torch.no_grad():
+            for path in frames_paths:
+                img = _PIL_Image.open(path).convert("RGB")
+                tensors.append(transform(img))
+
+            # Stack and infer in one forward pass (more efficient than per-frame)
+            batch = torch.stack(tensors).to(model.parameters().__next__().device)
+            feats = model(batch)  # (N, 384)
+            feats = feats / feats.norm(dim=-1, keepdim=True)
+            return feats.cpu().numpy().astype(np.float32)
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Main selector
 # ---------------------------------------------------------------------------
 
@@ -430,10 +511,20 @@ def smart_select_frames(
     else:
         scale_y = scale_x = float(_SELECTOR_THUMB_LONG)
 
+    # ── 1c. DINOv2 Features (Pass 2) ───────────────────────────────────────
+    dinov2_features = None
+    if pw > 0:
+        if verbose:
+            print("  [SmartSelect] Computing DINOv2 pose features...")
+        dinov2_features = _compute_dinov2_features(frames_paths)
+        if dinov2_features is not None and verbose:
+            print("  [SmartSelect] DINOv2 features loaded successfully.")
+
     # ── 2. BiRefNet probe masks for camera displacement and pose similarity ──
     _bg_thumb_mask: Optional[np.ndarray] = None  # intersection → stable background
     _fg_thumb_mask: Optional[np.ndarray] = None  # union → character region
-    _needs_biref_probes = _TWO_CHANNEL_SELECT or pw > 0
+    # We need fg mask for pass 2 if DINOv2 failed
+    _needs_biref_probes = _TWO_CHANNEL_SELECT or (pw > 0 and dinov2_features is None)
     if _needs_biref_probes:
         try:
             from backend.src.models.birefnet_wrapper import BiRefNetWrapper
@@ -507,6 +598,20 @@ def smart_select_frames(
             a = np.pad(a, ((0, th - a.shape[0]), (0, tw - a.shape[1])))
         if b.shape != (th, tw):
             b = np.pad(b, ((0, th - b.shape[0]), (0, tw - b.shape[1])))
+
+        # Hold-block skip (§1.11 speedup): within the same hold block,
+        # consecutive frames have the same character cel and negligible
+        # camera drift.  We zero-out the displacement contribution instead of
+        # running phaseCorrelate, reducing correlation pairs from N-1 to K-1
+        # (K hold blocks) for typical anime with ~3-frame holds.
+        # The MAD is set to 0.0 (identical frames → camera step dominates)
+        # so the high_anim_mad gate never misfires on held frames.
+        if _HOLD_THRESHOLD > 0.0 and hold_ids[i] == hold_ids[i + 1]:
+            raw_dx.append(0.0)
+            raw_dy.append(0.0)
+            responses.append(1.0)  # treat as perfect correlation (same cel)
+            frame_mads.append(0.0)
+            continue
 
         if _bg_thumb_mask is not None and _bg_thumb_mask.shape == a.shape:
             _m = _bg_thumb_mask
@@ -611,8 +716,19 @@ def smart_select_frames(
             if not candidates:
                 refined.append(s_curr)
                 continue
-            curr_score = _pose_dist(s_prev, s_curr)
-            scores = [_pose_dist(s_prev, c) for c in candidates]
+            if dinov2_features is not None:
+                last_t = dinov2_features[s_prev]
+                curr_score = 1.0 - float(np.dot(last_t, dinov2_features[s_curr]))
+                scores = [
+                    1.0 - float(np.dot(last_t, dinov2_features[c])) for c in candidates
+                ]
+            else:
+                last_t = thumbs[s_prev]
+                curr_score = _fg_center_diff(last_t, thumbs[s_curr], _fg_thumb_mask)
+                scores = [
+                    _fg_center_diff(last_t, thumbs[c], _fg_thumb_mask)
+                    for c in candidates
+                ]
             # Hold-block tie-breaking: candidates from the same hold block as
             # s_prev have pose identical to the previous anchor frame.  Their
             # pixel L1 is near-zero not because the pose is good but because
@@ -622,7 +738,12 @@ def smart_select_frames(
             # when DINOv2 is active, but kept for consistency.)
             _SAME_HOLD_PENALTY = 0.05
             scores_adj = [
-                s + (_SAME_HOLD_PENALTY if _HOLD_THRESHOLD > 0 and hold_ids[c] == hold_ids[s_prev] else 0.0)
+                s
+                + (
+                    _SAME_HOLD_PENALTY
+                    if _HOLD_THRESHOLD > 0 and hold_ids[c] == hold_ids[s_prev]
+                    else 0.0
+                )
                 for s, c in zip(scores, candidates)
             ]
             best_local = int(np.argmin(scores_adj))

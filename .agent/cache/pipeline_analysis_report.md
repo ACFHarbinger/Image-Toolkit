@@ -339,3 +339,51 @@ Expanding the search window from ±2 to ±3 frames consistently hurts test09 (-0
 **Priority 3:** LSD collinearity constraint in ARAP (`fg_register.py` `_arap_regularise`) — completes Sýkora 2009 full algorithm.
 
 **Priority 4:** Corpus-wide alignment gate run — report updated fallback rate and coverage improvement vs S4 baseline (52/96 composites).
+
+---
+
+## Session 9 (2026-06-05)
+
+### 9.1 What Was Built
+
+**`frame_selection.py`** — DINOv2 model caching + batch inference:
+- Added `_DINOV2_CACHE: dict = {}` module-level singleton; model loaded once per device
+- Batch inference: all frames stacked into single tensor, one forward pass replaces per-frame loop
+- Exported `_compute_dinov2_features` in `__all__`
+
+**`fg_register.py`** — LSD image-offset fix + SGM proxy cleanup:
+- `_arap_regularise()` gains `image_offset: Tuple[int,int]` parameter
+- LSD now called on seam-band crop (`crop_a`), coordinates shifted to canvas-space via `image_offset=(y0_crop, 0)`
+- Bounds-checked `0 <= fy < H and 0 <= fx < W` prevents out-of-bounds mask lookups
+- SGM proxy: simplified `flow_crop[fg_bin_crop] = sgm_flow[fg_bin_crop]` direct assignment
+- ARAP Push now receives SGM-improved `flow_crop` as initial estimate (better starting point for flat regions)
+
+**`compositing.py`** — ToonCrafter seam synthesis wired:
+- Added `_TOONCRAFTER_SEAM` env var (`ASP_TOONCRAFTER_SEAM=1`)
+- `seam_synthesized: dict` tracks synthesis per boundary index
+- Worst single-pose seam synthesized via `_generate_canonical_cel(crop_a, crop_b, device)`
+- Synthesized crop pasted into the compositing result; single-pose fallback covers everything else
+- Graceful degradation: cross-dissolve if ToonCrafter unavailable, silent on inference error
+
+**Tests**: 102 → **107 passing** (5 new LSD collinearity tests in `TestLSDCollinearity`)
+
+### 9.2 CHANGELOG Updated
+
+- Added session 9 entry at top of `moon/CHANGELOG.md`
+- Added session 6 entry (previously missing)
+
+### 9.3 Roadmap Updated
+
+- §0.1 status: updated all S6–S9 items to ✅; marked SLIC SGM proxy, hold detection, GNC, DINOv2, LSD, ToonCrafter as done
+- §0.2: updated DINOv2 implementation status to note batch inference and model caching
+- §0.1 LSD: updated to note seam-band crop + image_offset fix
+
+### 9.4 What's Next
+
+**Priority 1:** Full 96-test benchmark re-run — all S5–S9 improvements pending corpus-wide validation. Expected: alignment gate fires on more tests; DINOv2 pose selection moves some `simple_better` → `comparable`; content trim helps test27-class scale mismatch.
+
+**Priority 2:** RAFT flow confidence gating for blend width — where RAFT confidence is low (flat regions), use wider blend zone or fall back to single-pose (§0.1 summary table: "Confidence-weighted alpha").
+
+**Priority 3:** SI-FID as supplementary metric (§3.9) — reference-free quality for the 41 GT-less tests.
+
+**Priority 4:** Corpus-wide re-run after S9 changes to update baseline numbers.
