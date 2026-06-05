@@ -24,6 +24,7 @@ from backend.src.anim.fg_register import (  # noqa: E402
     _seam_taper,
     _dense_flow,
     _arap_push,
+    _arap_regularise,
 )
 
 
@@ -254,3 +255,63 @@ class TestARAPPush:
                                    err_msg="bg cells must keep initial flow")
         np.testing.assert_allclose(bg_dy, 3.0, atol=0.1,
                                    err_msg="bg cells must keep initial flow")
+
+
+# ---------------------------------------------------------------------------
+# LSD collinearity term in _arap_regularise (Session 8)
+# ---------------------------------------------------------------------------
+
+
+class TestArapRegulariseLSDCollinearity:
+    """Tests for the LSD collinearity extension to _arap_regularise."""
+
+    def _make_flow(self, H: int = 80, W: int = 80) -> np.ndarray:
+        """Return a diagonal flow field (dx=5, dy=3) on the full canvas."""
+        flow = np.zeros((H, W, 2), dtype=np.float32)
+        flow[:, :, 0] = 5.0
+        flow[:, :, 1] = 3.0
+        return flow
+
+    def _make_image_with_horizontal_line(
+        self, H: int = 80, W: int = 80, line_y: int = 40
+    ) -> np.ndarray:
+        """Return a dark image with a bright horizontal line at row line_y."""
+        img = np.zeros((H, W, 3), dtype=np.uint8)
+        img[line_y - 1 : line_y + 2, :] = 200
+        return img
+
+    def test_no_crash_with_image_parameter(self):
+        """_arap_regularise must not raise when image= is provided."""
+        H, W = 80, 80
+        flow = self._make_flow(H, W)
+        fg = np.ones((H, W), dtype=bool)
+        image = self._make_image_with_horizontal_line(H, W)
+        result = _arap_regularise(flow, fg, cell_size=16, n_iter=1, image=image)
+        assert result.shape == flow.shape, "Output shape must match input flow"
+        assert result.dtype == np.float32
+
+    def test_preserves_output_shape_and_dtype_no_image(self):
+        """Baseline: without image param, shape/dtype are preserved."""
+        H, W = 96, 96
+        flow = np.random.RandomState(3).randn(H, W, 2).astype(np.float32)
+        fg = np.ones((H, W), dtype=bool)
+        result = _arap_regularise(flow, fg, cell_size=16, n_iter=1)
+        assert result.shape == (H, W, 2)
+        assert result.dtype == np.float32
+
+    def test_horizontal_line_preserves_horizontal_flow_component(self):
+        """
+        For a strong horizontal line and purely horizontal initial flow,
+        the projected (collinearity-preserving) flow should retain the
+        horizontal component (cross-line = vertical; horizontal = along-line).
+        """
+        H, W = 64, 64
+        flow = np.zeros((H, W, 2), dtype=np.float32)
+        flow[:, :, 0] = 8.0   # dx only
+        flow[:, :, 1] = 0.0   # no dy
+        fg = np.ones((H, W), dtype=bool)
+        image = self._make_image_with_horizontal_line(H, W, line_y=32)
+        result = _arap_regularise(flow, fg, cell_size=16, n_iter=1, image=image)
+        # Horizontal flow along a horizontal line → projection keeps dx, zeros dy
+        # After regularisation, mean horizontal component should be positive
+        assert float(result[:, :, 0].mean()) > 0.0, "Horizontal flow component must be preserved"

@@ -1191,6 +1191,60 @@ class AnimeStitchPipeline:
 
         # ── Stage 12: Remaining seam blend (handled inside _render). ────────
 
+        # ── Stage 12.5: Scroll-axis foreground-extent trim ──────────────────
+        # Removes canvas rows (vertical scroll) or columns (horizontal scroll)
+        # that contain no foreground content in any frame.  Fixes test27's 2×
+        # height excess caused by frame selection sampling a wider temporal range
+        # than the GT.  Only trims in the dominant scroll direction so the
+        # orthogonal background extent is preserved intact.
+        _CONTENT_TRIM_ENABLED = os.environ.get("ASP_CONTENT_TRIM", "1") != "0"
+        if _CONTENT_TRIM_ENABLED and bg_masks and any(m is not None for m in bg_masks):
+            try:
+                _ty_vals = [float(a[1, 2]) for a in affines]
+                _tx_vals = [float(a[0, 2]) for a in affines]
+                _ty_range = max(_ty_vals) - min(_ty_vals)
+                _tx_range = max(_tx_vals) - min(_tx_vals)
+                _trim_axis = 0 if _ty_range >= _tx_range else 1
+
+                fg_union_canvas = np.zeros((canvas_h, canvas_w), dtype=bool)
+                for _i in range(N):
+                    if bg_masks[_i] is None:
+                        continue
+                    _fg_i = (~bg_masks[_i]).astype(np.uint8) * 255
+                    _w_fg = cv2.warpAffine(
+                        _fg_i, affines[_i][:2, :], (canvas_w, canvas_h),
+                        flags=cv2.INTER_NEAREST, borderValue=0,
+                    )
+                    fg_union_canvas |= _w_fg > 127
+
+                if fg_union_canvas.any():
+                    _CT_PAD = 20
+                    if _trim_axis == 0:
+                        _row_has_fg = fg_union_canvas.any(axis=1)
+                        _fg_rows = np.where(_row_has_fg)[0]
+                        _r0 = max(0, int(_fg_rows[0]) - _CT_PAD)
+                        _r1 = min(canvas_h, int(_fg_rows[-1]) + _CT_PAD + 1)
+                        canvas = canvas[_r0:_r1]
+                        valid_mask = valid_mask[_r0:_r1]
+                        logger.info(
+                            f"[Stitch] Stage 12.5: vertical trim rows [{_r0}:{_r1}] "
+                            f"({canvas_h}→{_r1 - _r0}px height)."
+                        )
+                    else:
+                        _col_has_fg = fg_union_canvas.any(axis=0)
+                        _fg_cols = np.where(_col_has_fg)[0]
+                        _c0 = max(0, int(_fg_cols[0]) - _CT_PAD)
+                        _c1 = min(canvas_w, int(_fg_cols[-1]) + _CT_PAD + 1)
+                        canvas = canvas[:, _c0:_c1]
+                        valid_mask = valid_mask[:, _c0:_c1]
+                        logger.info(
+                            f"[Stitch] Stage 12.5: horizontal trim cols [{_c0}:{_c1}] "
+                            f"({canvas_w}→{_c1 - _c0}px width)."
+                        )
+            except Exception as _ct_e:
+                logger.debug(f"[Stitch]   Stage 12.5 content trim skipped ({_ct_e}).")
+        logger.info("[Stitch] Stage 12.5 complete.")
+
         # ── Stage 13: Morphological boundary crop ───────────────────────────
         canvas = _crop_to_valid(canvas, valid_mask)
         if getattr(self, "edge_crop", 0) > 0:

@@ -165,6 +165,43 @@ def _ssim_score(img_a: np.ndarray, img_b: np.ndarray) -> float:
     return float(score)
 
 
+def _compute_aligned_ssim(img_a: np.ndarray, img_b: np.ndarray) -> float:
+    """
+    SSIM after ECC Euclidean alignment.
+
+    Removes framing/translation bias introduced by GT-coupling (any frame
+    substitution diverging from the GT's temporal reference shifts the output
+    image, penalising raw SSIM even when pose quality is identical).
+    ``img_a`` is warped to align with ``img_b`` using cv2.findTransformECC
+    with MOTION_EUCLIDEAN (translation + rotation, no scale/shear).
+
+    Returns raw SSIM if ECC fails (e.g. featureless input or convergence error).
+    """
+    if not _SSIM_OK:
+        return float("nan")
+    h = min(img_a.shape[0], img_b.shape[0])
+    w = min(img_a.shape[1], img_b.shape[1])
+    a = cv2.resize(img_a, (w, h))
+    b = cv2.resize(img_b, (w, h))
+    ga = cv2.cvtColor(a, cv2.COLOR_BGR2GRAY)
+    gb = cv2.cvtColor(b, cv2.COLOR_BGR2GRAY)
+    try:
+        warp_matrix = np.eye(2, 3, dtype=np.float32)
+        criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 200, 1e-4)
+        _, warp_matrix = cv2.findTransformECC(
+            ga, gb, warp_matrix, cv2.MOTION_EUCLIDEAN, criteria
+        )
+        aligned_a = cv2.warpAffine(
+            ga, warp_matrix, (w, h),
+            flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP,
+            borderMode=cv2.BORDER_REPLICATE,
+        )
+        score, _ = ssim(aligned_a, gb, full=True, data_range=255)
+    except Exception:
+        score, _ = ssim(ga, gb, full=True, data_range=255)
+    return float(score)
+
+
 def _psnr(img_a: np.ndarray, img_b: np.ndarray) -> float:
     """PSNR (dB) between two images after resizing to common dims."""
     h = min(img_a.shape[0], img_b.shape[0])
@@ -294,10 +331,12 @@ def _compute_gt_metrics(
     if output_img is None:
         return {}
     ssim_val = _ssim_score(output_img, gt_img)
+    aligned_ssim_val = _compute_aligned_ssim(output_img, gt_img)
     psnr_val = _psnr(output_img, gt_img)
     sc_val = _seam_coherence(output_img)
     return {
         "ssim_vs_gt": round(ssim_val, 4) if not math.isnan(ssim_val) else None,
+        "aligned_ssim_vs_gt": round(aligned_ssim_val, 4) if not math.isnan(aligned_ssim_val) else None,
         "psnr_vs_gt": round(psnr_val, 2) if not math.isnan(psnr_val) else None,
         "seam_coherence": round(sc_val, 2),
     }

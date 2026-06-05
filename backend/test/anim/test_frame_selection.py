@@ -23,7 +23,12 @@ _repo_root = os.path.dirname(
 )
 sys.path.insert(0, _repo_root)
 
-from backend.src.anim.frame_selection import _fg_center_diff, _detect_hold_blocks
+from backend.src.anim.frame_selection import (
+    _fg_center_diff,
+    _detect_hold_blocks,
+    _compute_dinov2_features,
+    _DINOV2_CACHE,
+)
 
 
 def _make_thumb(h: int = 144, w: int = 256, fill: float = 0.5) -> np.ndarray:
@@ -224,3 +229,40 @@ class TestDetectHoldBlocks:
         assert blocks == [0], (
             f"Small noise within hold should not create extra blocks, got {blocks}"
         )
+
+
+class TestDINOv2Features:
+    """Tests for _compute_dinov2_features() — DINOv2 submodular selection (§3.3)."""
+
+    def test_returns_none_when_model_unavailable(self):
+        """When the cache records a failed model load, the function returns None."""
+        import torch
+        import backend.src.anim.frame_selection as fs_mod
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        cache_key = f"dinov2_vits14_{device}"
+        original = fs_mod._DINOV2_CACHE.get(cache_key, "missing")
+        # Pre-poison the cache to simulate a prior failed model load
+        fs_mod._DINOV2_CACHE[cache_key] = None
+        try:
+            thumbs = [np.zeros((32, 32), dtype=np.float32) for _ in range(3)]
+            result = _compute_dinov2_features(thumbs)
+            assert result is None, "Should return None when cached model is None"
+        finally:
+            if original == "missing":
+                fs_mod._DINOV2_CACHE.pop(cache_key, None)
+            else:
+                fs_mod._DINOV2_CACHE[cache_key] = original
+
+    def test_identical_thumbs_low_cosine_distance(self):
+        """Identical thumbnails must produce identical features → cosine distance = 0."""
+        rng = np.random.RandomState(0)
+        thumb = rng.uniform(0.0, 1.0, (64, 64)).astype(np.float32)
+        thumbs = [thumb, thumb.copy()]
+        feats = _compute_dinov2_features(thumbs)
+        if feats is None:
+            pytest.skip("DINOv2 not available in this environment")
+        assert feats.shape == (2, 384), f"Expected (2, 384), got {feats.shape}"
+        # L2-normalised identical features → dot product = 1.0 → cosine dist = 0
+        dist = 1.0 - float(np.dot(feats[0], feats[1]))
+        assert dist < 0.05, f"Identical thumbnails should have cosine dist ~0, got {dist:.4f}"

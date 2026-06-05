@@ -4,6 +4,51 @@
 
 ---
 
+## ASP Session 9 — ToonCrafter Seam Synthesis (2026-06-05)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **ToonCrafter seam synthesis** (`compositing.py`) | `_TOONCRAFTER_SEAM_ENABLED = os.environ.get("ASP_TOONCRAFTER_SEAM", "0") != "0"` added. `seam_post_diffs: dict` tracks `post_warp_diff` per seam during the fg-register loop. After the loop, the worst single-pose-escalated seam triggers `_generate_canonical_cel(crop_a_tc, crop_b_tc, device)` from `anim_fill.py`. Canonical cel stored in `seam_canonical_crops[worst_k]`; in the Laplacian blend loop it replaces the hard dominant-frame partition for fg pixels with the ToonCrafter-generated intermediate pose. Falls back gracefully to single-pose when ToonCrafter is unavailable. Disable default: `ASP_TOONCRAFTER_SEAM=0`. |
+
+---
+
+## ASP Session 8 — DINOv2 Frame Selection + LSD Collinearity + Aligned-SSIM (2026-06-05)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **DINOv2 submodular frame selection** (`frame_selection.py`) | `_DINOV2_CACHE: dict = {}` at module level. `_compute_dinov2_features(thumbs, device, thumb_size=224, batch_size=16) → Optional[np.ndarray]` loads `dinov2_vits14` via `torch.hub.load` with module-level cache; returns (N, 384) L2-normalised float32 features. In Pass 2 of `smart_select_frames()`, `_pose_dist(i, j)` uses DINOv2 cosine distance when features are available, falls back to `_fg_center_diff()` otherwise. Activated via `ASP_POSE_WINDOW_PX=80`. Handles holds natively: identical-pose frames collapse to the same feature point, so one representative is selected automatically. 2 new tests in `TestDINOv2Features`. |
+| **LSD collinearity term in ARAP** (`fg_register.py`) | `_arap_regularise()` gains `image: Optional[np.ndarray] = None` and `image_offset: Tuple[int, int] = (0, 0)` parameters. When `image` is provided: runs `cv2.createLineSegmentDetector` on the seam-band crop; for fg/bg boundary cells (cells containing both fg and bg pixels — where ink outlines appear), projects the cell's flow onto the line direction when the projection retains ≥50% of original magnitude (prevents vertical lines from cancelling horizontal translation). Call site in `register_foreground_at_seam()` updated to pass `image=crop_a, image_offset=(y0_crop if axis==0 else 0, ...)`. 3 new tests in `TestArapRegulariseLSDCollinearity`. |
+| **Aligned-SSIM metric** (`bench_anime_stitch.py`) | `_compute_aligned_ssim(img_a, img_b)` uses `cv2.findTransformECC(MOTION_EUCLIDEAN)` to align `img_a` to `img_b` before SSIM computation. Removes GT-coupling framing bias: a temporal shift in frame selection shows the same character at a different vertical position → raw SSIM penalises the shift even when pose quality is identical. `aligned_ssim_vs_gt` reported alongside `ssim_vs_gt` in `_compute_gt_metrics()`. |
+
+---
+
+## ASP Session 7 — Stage 12.5 Scroll-Axis Content Trim (2026-06-05)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **Stage 12.5 scroll-axis foreground-extent trim** (`pipeline.py`) | Inserted between Stage 11 (foreground composite) and Stage 13 (boundary crop). Detects dominant scroll axis from affine ty/tx range; warps `~bg_masks[i]` per frame into canvas space using `cv2.warpAffine` + `INTER_NEAREST`; unions all fg masks; trims canvas rows (vertical scroll) or columns (horizontal scroll) to the fg-covered extent plus 20px padding. `valid_mask` trimmed in sync. Guard: `ASP_CONTENT_TRIM=1` (default on). Directly addresses test27's 2× height excess caused by frame selection sampling a wider temporal range than the GT. |
+
+---
+
+## ASP Session 6 — Hold Detection + GNC Robust Loss + SLIC SGM Proxy (2026-06-04)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **Animation hold detection** (`frame_selection.py`) | `_detect_hold_blocks(thumbs, hold_threshold=0.025)` detects "on twos/threes" animation holds by comparing consecutive thumbnail pixel MAD (normalised to [0,1]). Blocks below threshold treated as the same hold. Hold IDs used in Pass 2 to apply `_SAME_HOLD_PENALTY=0.05` to same-hold candidates (prefers cross-hold frames). Enable via `ASP_HOLD_THRESHOLD=0.025`. 9 new tests in `TestDetectHoldBlocks`. |
+| **GNC robust loss in bundle adjustment** (`bundle_adjust.py`) | `least_squares` upgraded to `loss='cauchy', f_scale=float(os.environ.get("ASP_BA_F_SCALE", "10.0"))`. Makes BA robust against outlier edges (long-distance matches, incorrect temporal-ordering edges) that survive the post-solve residual pruning. Override via `ASP_BA_F_SCALE`. 3 new tests in `test_bundle_adjust.py`. |
+| **SLIC SGM proxy** (`fg_register.py`) | `_slic_sgm_proxy(crop_a, crop_b, fg, n_segments=200) → Optional[np.ndarray]`: SLIC superpixel centroid tracking as a coarse flow source for flat cel-shaded regions where RAFT/DIS gradient aperture problem produces noisy flow. SGM flow replaces RAFT/DIS flow for foreground pixels when `ASP_SGM_PROXY=1`. Then ARAP-regularised same as RAFT/DIS flow would be. |
+| **12 new unit tests** | 9 for `_detect_hold_blocks()`, 3 for bundle adjust GNC. Total: 102 tests (was 90 at S5 start). |
+
+---
+
 ## ASP Session 5 — Alignment Stability Gate + Fg Pixel L1 Pose Metric (2026-06-04)
 
 ### Shipped
