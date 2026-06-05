@@ -1,6 +1,6 @@
 # ASP — State of the Pipeline: What Works, What Failed, What's Next
 
-*Date: 2026-06-04. Updated through Session 6.*  
+*Date: 2026-06-05. Updated through Session 9.*  
 *Primary benchmark corpora: 96 tests (`asp_test01–96`), 55 with ground truth in `data/ground_truth/`. 5-test subset (`test04/08/09/27/57`) used for rapid iteration.*
 
 ---
@@ -30,7 +30,9 @@ Source datasets contain 58–333 consecutive video frames at ~42ms intervals. Th
 3. **High-animation / low-movement filter**: frame is dropped if displacement < 8px but thumbnail MAD > 0.10 (camera nearly stationary, character animating heavily).
 4. **Phase-correlation quality gate**: pairs with response < 0.04 (motion blur, scene cut) are skipped.
 
-**Architecture (two-pass, session 3):** Pass 1 runs the v1 greedy selection above. Pass 2 (disabled by default) scans ±2 frames around each selected frame for a pose-consistent alternative. See §4.10 for why Pass 2 is currently disabled.
+**Architecture (two-pass, session 3):** Pass 1 runs the v1 greedy selection above. Pass 2 (disabled by default) scans ±2 frames around each selected frame for a pose-consistent alternative. See §4.8 for why Pass 2 previously failed and §2.11 for DINOv2 (session 8) which replaces the gradient metric.
+
+**DINOv2 submodular selection (§3.3, session 8):** When `ASP_POSE_WINDOW_PX > 0` and ≥3 frames are selected in Pass 1, Pass 2 uses `_compute_dinov2_features()` — `dinov2_vits14` loaded via `torch.hub.load` with module-level `_DINOV2_CACHE` to avoid repeated loads. Returns (N, 384) L2-normalised feature vectors. In Pass 2, the `_pose_dist(i, j)` helper replaces `_fg_center_diff`: uses `1 − dot(feat_i, feat_j)` (cosine distance). Falls back to `_fg_center_diff` when DINOv2 is unavailable. Model weights are pre-downloaded at `~/.cache/torch/hub/facebookresearch_dinov2_main/`.
 
 **Backend module (`frame_selection.py`):** Extracted to `backend/src/anim/frame_selection.py` as a clean, pipeline-usable API so the GUI and pipeline can call `smart_select_frames()` without re-implementing the logic.
 
@@ -79,7 +81,9 @@ After warping to canvas coordinates (background aligned), the residual optical f
 `_arap_push(img_a, img_b, fg_mask, initial_flow, cell_size=16, search_range=24)` — per-cell SAD block matching to find better rigid translations BEFORE the Regularise phase smooths them. The Push phase decouples neighbouring cells so each can independently jump to its local appearance optimum. Critical for flat cel-shaded regions where RAFT/DIS gradient-based flow is ambiguous (aperture problem). The research report (§9.1) identified this as "crucially omitted" from the original implementation. Enable/disable: `ASP_ARAP_PUSH=1` (default) / `=0`. Unit tests: `TestARAPPush` in `backend/test/anim/test_fg_register.py`.
 
 **ARAP regularisation (A3, Sýkora 2009 §3.1):**
-`_arap_regularise(flow, fg_mask, cell_size=16, n_iter=2)` — fits per-cell (16×16px) rigid median translations to the fg flow, then bilinearly interpolates back to pixel space via `scipy.interpolate.RegularGridInterpolator`. Prevents raw per-pixel flow from bending straight line-art strokes by enforcing a smooth, locally-rigid warp field. Now called AFTER the Push phase (Push → Regularise = full Sýkora algorithm).
+`_arap_regularise(flow, fg_mask, cell_size=16, n_iter=2, image=None, image_offset=(0,0))` — fits per-cell (16×16px) rigid median translations to the fg flow, then bilinearly interpolates back to pixel space via `scipy.interpolate.RegularGridInterpolator`. Prevents raw per-pixel flow from bending straight line-art strokes by enforcing a smooth, locally-rigid warp field. Now called AFTER the Push phase (Push → Regularise = full Sýkora algorithm).
+
+**LSD collinearity term in ARAP (§0.1/A3, session 8):** After the bilinear interpolation loop, OpenCV `createLineSegmentDetector(0)` is run on the seam-band crop passed via `image=crop_a`. Two guards prevent regressions: (1) **boundary-cell only** — only cells containing BOTH fg AND bg pixels get the LSD constraint (interior cells have diagonal stripe texture that confused the detector); (2) **50% magnitude guard** — `if proj_mag < orig_mag * 0.5: skip` — vertical line segments would project horizontal flow to zero, failing the threshold and being ignored. The call site in `register_foreground_at_seam()` passes `image_offset=(y0_crop, 0)` for vertical pans and `(0, x0_crop)` for horizontal, converting LSD coordinates to canvas space. 3 new tests: `TestArapRegulariseLSDCollinearity` in `test_fg_register.py`.
 
 **Symmetric midpoint warp:**
 Frame `a` moves by `+0.5·flow` (toward `b`) and frame `b` by `-0.5·flow` (toward `a`). This halves the maximum distortion applied to either frame (StabStitch++ bidirectional principle). The warp is tapered to zero at ±`taper_px` (220px) from the seam so it only affects the boundary zone.
@@ -138,6 +142,7 @@ Threshold lowered from 50px to **25px** (vector magnitude `sqrt(dy² + dx²)`, n
 - **Ground-truth comparison**: SSIM/PSNR vs `data/ground_truth/` reference images (55 of 96 tests)
 - **Seam coherence metric**: replaces misleading Laplacian sharpness
 - **GT-based verdict**: `asp_better` / `simple_better` / `comparable` from GT SSIM
+- **Aligned-SSIM (session 8)**: `_compute_aligned_ssim()` in `bench_anime_stitch.py` — `cv2.findTransformECC(MOTION_EUCLIDEAN)` aligns the output to the GT before computing SSIM, removing scale/framing bias. Stored as `aligned_ssim_vs_gt` in result dicts. Falls back to raw SSIM if ECC diverges. This is the "true content quality" ceiling (test27: 0.748 aligned vs 0.709 raw — the 0.039 delta is purely scale mismatch).
 
 Available via `just asp-benchmark-verify` (5 test quick-check) or `just asp-benchmark` (full 96-test run).
 
@@ -151,10 +156,10 @@ Available via `just asp-benchmark-verify` (5 test quick-check) or `just asp-benc
 - **Semantic seam routing**: BiRefNet edge-confidence cost in the DP seam-finding prevents seams from bisecting character outlines
 - **Both-content Laplacian**: Laplacian blend only where both frames have actual canvas content; single-frame-only zones take that frame directly (avoids ringing at canvas boundaries)
 - **Inter-strip colour coherence guard**: skips per-strip photometric normalization when adjacent strips differ by > 20 lum units (prevents normalization from amplifying colour mismatch)
-- **ToonCrafter** (`anim/anim_fill.py`): anime-style generative inbetweening (available for ghost-fill, not wired to main pipeline)
+- **ToonCrafter** (`anim/anim_fill.py`): anime-style generative inbetweening — wired to worst seam in `compositing.py` via `ASP_TOONCRAFTER_SEAM=1` (session 9); see §2.15
 - **SRStitcher** (`anim/sr_stitcher.py`): diffusion-based seam/border inpainting (`sr_mode=True`)
 - **Real-ESRGAN anime_6B** (`anim/super_res.py`): post-process 2–4× upscaling
-- **Unit tests**: 90 passing in `backend/test/anim/` (fg_register, rendering, bundle_adjust, filter_edges, affine_validation; 2 new ARAP Push tests added session 4; 8 new frame_selection tests added session 5)
+- **Unit tests**: **107 passing** in `backend/test/anim/` (fg_register, rendering, bundle_adjust, filter_edges, affine_validation; 2 ARAP Push tests added S4; 8 frame_selection tests added S5; 8 hold+GNC+SLIC tests added S6; 2 DINOv2 tests added S8; 3 LSD collinearity tests added S8/S9; 2 ToonCrafter tests added S9)
 
 ---
 
@@ -193,7 +198,76 @@ Upgraded `_fg_center_diff()` from gradient-weighted L1 (confounded by background
 - test27: 0.709 → 0.719 (**+0.010** — meaningful improvement)
 - test09: 0.787 → 0.788 (+0.001 — marginal, GT-coupling limits further gain)
 
-**Status:** Pose selection remains disabled by default (`ASP_POSE_WINDOW_PX=0`). GT-coupling still causes some regressions (test04 regressed -0.024 with ±2 range, test57 regressed -0.015). The new metric IS better than gradient (fewer wrong substitutions, clear improvement on test27), but enabling by default requires resolving GT coupling. Enable via `ASP_POSE_WINDOW_PX=80` for targeted experiments.
+**Status:** Pose selection remains disabled by default (`ASP_POSE_WINDOW_PX=0`). GT-coupling still causes some regressions (test04 regressed -0.024 with ±2 range, test57 regressed -0.015). With DINOv2 (S8) the pose metric is now background-agnostic. Enable via `ASP_POSE_WINDOW_PX=80` for experiments.
+
+---
+
+### 2.11 Hold Detection (session 6)
+
+**File:** `backend/src/anim/frame_selection.py` → `_detect_hold_blocks()`
+
+Detects "animation hold" blocks — consecutive frames where the character is frozen (minimal per-pixel MAD). Hold blocks indicate the animator held a pose for multiple frames; within-hold pairs contribute near-zero animation residual, so warping them is unnecessary.
+
+- **Algorithm:** FD-Means — for each consecutive thumbnail pair, compute MAD. If `MAD < hold_threshold` (default `ASP_HOLD_THRESHOLD=0.025`) → same block. Returns start indices of each block.
+- **Integration in smart_select_frames:** Within-hold pairs skip phase correlation in Pass 2; Pass 2 prefers candidates from *different* hold blocks (cross-hold candidates have guaranteed animation change, making hold boundary detection more reliable).
+- **Env var:** `ASP_HOLD_THRESHOLD=0.025` (set to 0 to disable)
+
+---
+
+### 2.12 GNC Robust Loss in Bundle Adjustment (session 6)
+
+**File:** `backend/src/anim/bundle_adjust.py`
+
+Bundle adjustment (`scipy.optimize.least_squares`) now uses `loss='cauchy', f_scale=10.0` instead of the default linear loss. The Cauchy (M-estimator) loss down-weights large residuals, making the BA solver robust to outlier matches that survived the edge filter. This prevents a single bad match from biasing the camera model.
+
+- **Override:** `ASP_BA_F_SCALE=<float>` env var (default 10.0)
+- **Why Cauchy not Huber:** Cauchy has heavier tails at intermediate residuals (5–30px), which matches the noise profile of remaining anime-texture mismatches better.
+
+---
+
+### 2.13 SLIC SGM Proxy in fg_register (session 6)
+
+**File:** `backend/src/anim/fg_register.py` → `_slic_sgm_proxy()`
+
+Superpixel centroid tracking for flat cel-shaded regions where per-pixel flow (RAFT/DIS) fails due to the aperture problem. SLIC segments the seam-band crop into `n_segments=200` superpixels, then matches segment centroids between frame A and frame B using colour+position similarity. The centroid displacements are used as the initial flow estimate for the ARAP Push phase.
+
+- **Enable:** `ASP_SGM_PROXY=1` (default OFF — still experimental)
+- **Why not default ON:** In regions with fine line-art, SLIC over-segments and the centroid matching adds noise. The benefit is concentrated in large uniform-colour areas (skin, solid costume panels) where it replaces genuinely wrong RAFT flow.
+
+---
+
+### 2.14 Stage 12.5 Scroll-Axis Content Trim (session 7)
+
+**File:** `backend/src/anim/pipeline.py` (between Stage 12 and Stage 13)
+
+Trims canvas rows or columns where no foreground character content is present in any frame, reducing the assembled panorama to the character's actual extent. This addresses the test27 scale mismatch (2× output vs GT) without the axis-confusion bug of the earlier character bounding-box crop (§4.4).
+
+**Key design — scroll-axis awareness:** Determines dominant scroll direction from the affine translation spread (`ty_range` vs `tx_range`). Trims only in the SCROLL AXIS (vertical trim for vertical pans, horizontal for horizontal pans). Never trims the cross-axis — avoids removing valid background extent.
+
+**Implementation:**
+1. Warp all fg masks to canvas space using the pipeline's affines
+2. Compute the union of warped fg masks (`fg_union_canvas`)
+3. Find the outermost rows (or cols) with any fg content
+4. Crop canvas + valid_mask to `[fg_row_first - 20px : fg_row_last + 20px]` (20px padding)
+
+- **Env var:** `ASP_CONTENT_TRIM=1` (default ON; set to `0` to disable)
+- **Expected gain:** test27: raw SSIM +0.010–0.039 by reducing scale mismatch
+
+---
+
+### 2.15 ToonCrafter Seam Synthesis (session 9)
+
+**File:** `backend/src/anim/compositing.py`
+
+Wires `_generate_canonical_cel()` from `anim/anim_fill.py` to the **single worst seam** (max `post_warp_diff` among single-pose-escalated seams). Instead of the hard dominant-frame partition, a synthesised intermediate pose is used for the fg pixels at that seam, structurally eliminating the most severe ghost.
+
+**Design — bound inference cost to 1 seam:** Only the worst seam triggers ToonCrafter inference. Typical clips have 8–15 seams; inferring on all would be 8–15× slower for marginal gain on lower-residual seams.
+
+**Tracking:** `seam_post_diffs: dict` records `post_warp_diff` per seam in the fg-register loop (for warped seams) and `float(info.get("residual", 0.0))` for fallback seams. After the loop: `worst_k = max(seam_single_pose, key=lambda k: seam_post_diffs.get(k, 0.0))`.
+
+**In the Laplacian blend loop:** `seam_canonical_crops.get(k)` is checked; if a canonical cel is available AND the seam is single-pose-escalated, the synthesised cel replaces the dominant frame's fg in the blend zone. Gaps in the synthesised cel (transparency/black) are filled from the dominant frame.
+
+- **Env var:** `ASP_TOONCRAFTER_SEAM=1` (default OFF — requires GPU for inference)
 
 ---
 
@@ -326,7 +400,7 @@ Only test08 improved (+0.004) — a scene where the character dominates the fram
 
 **Root cause:** Without a pose-estimation model (DWPose, ViTPose, or similar), any image-level similarity metric is confounded by background content. The gradient proxy conflates "same pose" with "same scroll position." A proper implementation requires pose embedding from a model trained to ignore background.
 
-**Current state:** Disabled by default (`ASP_POSE_WINDOW_PX=0`). Infrastructure is in place (two-pass loop, `_fg_center_diff()`, `backend/src/anim/frame_selection.py`). Enable via `ASP_POSE_WINDOW_PX=80` for experiments with better metrics.
+**Current state (updated S8):** Gradient metric replaced by DINOv2 cosine distance via `_compute_dinov2_features()` (see §2.11). DINOv2 features are background-agnostic by training and represent semantic pose rather than pixel statistics. Still disabled by default (`ASP_POSE_WINDOW_PX=0`) due to GT-coupling wall (§5.1), but no longer confounded by background structure. Enable via `ASP_POSE_WINDOW_PX=80`.
 
 ---
 
@@ -398,6 +472,8 @@ We assemble 19 frames spanning the full character body from feet to head (~1000p
 
 ## 6. Avenues for Further Improvement
 
+*Sessions 6–9 completed: Hold detection (S6), GNC robust loss (S6), SLIC SGM proxy (S6), Stage 12.5 content trim (S7), DINOv2 pose metric (S8), LSD collinearity in ARAP (S8), Aligned-SSIM (S8), ToonCrafter seam synthesis (S9). Remaining priorities below.*
+
 ### Priority 1: Pose-Consistent Frame Selection (highest expected impact, requires pose model)
 
 **Problem:** The SSIM ceiling is determined by animation timing between selected frames. test09's aligned SSIM is 0.832 but raw SSIM is 0.787 — the 0.045 gap is from framing, not content quality.
@@ -422,36 +498,15 @@ We assemble 19 frames spanning the full character body from feet to head (~1000p
 
 ---
 
-### Priority 2: Vertical-Pan Content Crop (test27 scale mismatch)
+### ~~Priority 2: Vertical-Pan Content Crop~~ — DONE (Stage 12.5, session 7)
 
-**Problem:** test27 assembles 2× more vertical pan than the GT reference covers.
-
-**Solution:** After assembly, detect "content-only rows" — rows that have foreground character pixels in at least one frame. The excess rows at top/bottom that have ONLY background (no character content in ANY frame) can be trimmed to approach the GT's scale.
-
-**Key distinction from the failed CharCrop:** crop only in the SCROLL AXIS direction (vertical for a vertical pan), not the cross-axis. The scroll axis is already available from `_detect_scroll_axis()`.
-
-**Implementation:**
-```python
-# In the benchmark crop section, scroll-axis-aware:
-if scroll_axis == 'vertical':
-    # Find rows with any foreground character content across all warped frames
-    # Only trim excess rows at top/bottom, never columns
-    ...
-```
-
-**Expected gain:** test27 raw SSIM could improve from 0.708 toward 0.748 (current aligned value) by reducing scale mismatch.
+Implemented as `_CONTENT_TRIM_ENABLED` block in `pipeline.py`. Scroll-axis-aware, pads 20px. See §2.14. `ASP_CONTENT_TRIM=1` (default ON).
 
 ---
 
-### Priority 3: ARAP Push Phase (Sýkora 2009 — full algorithm)
+### ~~Priority 3: ARAP Push Phase~~ — DONE (session 4)
 
-**Current state:** Only the ARAP *regularisation* phase is implemented (per-cell median translation → smooth interpolation). The ARAP *Push* phase is missing.
-
-**What Push does:** For each control mesh vertex, performs block-matching (minimise SAD in a local search window) to find the best shift toward the optical flow's target. Unlike the gradient-based flow, block-matching can make large, arbitrary jumps (avoiding local minima), is not affected by the aperture problem, and naturally handles flat cel-shaded regions where pixel gradients are zero.
-
-**Why it matters:** The current flow (RAFT or DIS) struggles with large flat colour regions — both give similar results. The ARAP Push phase would use *appearance matching* (not gradient) to find correspondences, which is more reliable on anime. After Push, the Regularise phase smooths the mesh into a rigid deformation. This is the canonical solution for animating character registration in the research literature.
-
-**Implementation effort:** Significant (block-matching over the mesh, convergence loop), but no new dependencies.
+`_arap_push()` implemented in `fg_register.py`. See §2.3 and §4.9 for impact analysis.
 
 ---
 
@@ -486,16 +541,9 @@ This would give the global reference benefit (reducing drift accumulation) witho
 
 ---
 
-### Priority 6: LSD Collinearity Constraint in ARAP
+### ~~Priority 6: LSD Collinearity Constraint in ARAP~~ — DONE (session 8)
 
-**What's missing:** The full Sýkora ARAP includes a Line Segment Detector (LSD) term that penalises any warp that bends detected straight line-art strokes. Currently, the ARAP regularisation smooths the flow but doesn't explicitly prevent collinear strokes from becoming curved.
-
-**Implementation:** 
-1. Run OpenCV's `LSDDetector` on the source frame (detects straight line segments)
-2. Add an energy term to the ARAP mesh that penalises deviation from collinearity for mesh vertices that lie on detected lines
-3. Weight this term high enough to enforce near-straight-line warps on detected strokes
-
-**Why this matters:** For dense line-art (character outfit seams, architectural background), the ARAP warp can introduce subtle curvature that's visually noticeable. The LSD constraint is what makes Sýkora 2009 the canonical method for cartoon registration.
+Implemented in `_arap_regularise()` with boundary-cell filter and 50% magnitude guard. See §2.3 for full design details and `TestArapRegulariseLSDCollinearity` in `test_fg_register.py`.
 
 ---
 
@@ -512,7 +560,7 @@ This would give the global reference benefit (reducing drift accumulation) witho
 
 ### Priority 8: Longer-Term Research
 
-- **ToonCrafter ghost-fill**: Use the existing `anim/anim_fill.py` module to generate synthetic intermediate character frames for highly-animated seam zones. Eliminates ghosting structurally for GPU-budget final-quality mode.
+- **~~ToonCrafter ghost-fill~~ (DONE S9)**: Wired to worst single-pose seam via `ASP_TOONCRAFTER_SEAM=1`. See §2.15.
 - **Flow confidence weighting in the Laplacian blend**: where RAFT confidence is low (flat regions), use a wider blend zone or fall back to single-pose. Currently the blend zone width depends only on photometric similarity, not on flow reliability.
 - **Fine-tune RAFT on LinkTo-Anime**: The 2506.02733 dataset provides GT optical flow for 2D animation (from 3D-rendered anime-style content). Fine-tuning RAFT or SEA-RAFT on this dataset would give flow that's reliable specifically on flat cel-shaded regions — the exact failure mode.
 - **Unsupervised deep image stitching (UDIS++ / NIS)**: End-to-end neural frameworks that learn registration and fusion jointly. No heuristic pipeline stages. Would require training data and significant engineering but could subsume many pipeline stages.
@@ -521,14 +569,17 @@ This would give the global reference benefit (reducing drift accumulation) witho
 
 ## 7. Summary Table
 
-| Aspect | Current state | Primary bottleneck | Next step |
+| Aspect | Current state (S9) | Primary bottleneck | Next step |
 |--------|--------------|-------------------|----------|
-| **Frame selection** | 50px min_step, direction consistency, high-anim filter | Selects pose-incoherent frames → large seam residuals | Pose-consistency criterion (fg flow to last frame) |
-| **Flow estimation** | RAFT (pretrained) + DIS fallback, seam-band crops | Aperture problem on flat cels: RAFT = DIS in accuracy | Segment-guided flow (AnimeInterp SGM) |
-| **ARAP regularisation** | Per-cell median translation, cell=16, n_iter=2 | Missing Push phase (block-matching), no LSD constraint | Full Sýkora: Push + LSD energy term |
-| **Midpoint warp** | Symmetric α=0.5; post_warp_diff escalation at 22 | Halves but doesn't eliminate pose gap | Global reference with confidence gating |
+| **Frame selection** | 50px min_step, hold detection (S6), DINOv2 pose metric (S8) | GT-coupling wall prevents enabling Pass 2 by default | Enable `ASP_POSE_WINDOW_PX=80` once GT-coupling resolved |
+| **Flow estimation** | RAFT (pretrained) + DIS fallback, seam-band crops; SLIC SGM proxy (S6, experimental) | Aperture problem on flat cels: RAFT = DIS in accuracy | Segment-guided flow (AnimeInterp SGM); RAFT fine-tune on LinkTo-Anime |
+| **ARAP regularisation** | Per-cell median translation; Push → Regularise (S4); LSD collinearity boundary-cells + 50% mag guard (S8) | LSD has zero measurable SSIM impact; Push has zero impact (flow quality not bottleneck) | RAFT confidence-gating for blend width |
+| **Bundle adjustment** | GNC Cauchy robust loss, f_scale=10.0 (S6) | Outlier matches still affect BA before edge filter | — |
+| **Midpoint warp** | Symmetric α=0.5; post_warp_diff escalation at 22; ToonCrafter worst-seam (S9, `ASP_TOONCRAFTER_SEAM=1`) | Halves but doesn't eliminate pose gap | Global reference with RAFT confidence gating |
+| **Canvas trim** | Stage 12.5 scroll-axis content trim, 20px padding (S7) | Partially closes scale gap for test27 | — |
 | **FG-excluded median** | Background-only plate (A5) | Always-fg fallback still ghosts in foreground-heavy scenes | Segment-medoid fallback |
-| **Seam blend** | DSFN soft-seam + semantic routing + both-content Laplacian | Remaining ghosting from imperfect FG registration | Confidence-weighted alpha (flow uncertainty → narrower blend) |
-| **Fallback (gate)** | Render-gate (coherence + banding on final composite) | 41% trigger rate — fundamental animated-video scene type | Accept as correct for these scenes; focus on reducing residuals |
-| **GT-SSIM (5 tests)** | test09: 0.787 asp_better, test27: 0.708 asp_better, test57: 0.743 | Animation timing mismatch; midpoint-warp 50% residual | Pose-consistent frame selection → reduce residuals to <10px |
-| **96-test corpus** | 44/96 composite, avg GT-SSIM 0.669 vs 0.695 simple | Last measured pre-character-features | Full re-run needed |
+| **Seam blend** | DSFN soft-seam + semantic routing + both-content Laplacian | Remaining ghosting from imperfect FG registration | RAFT confidence-weighted blend width |
+| **Fallback (gate)** | Render-gate (coherence + banding on final composite) | 41% trigger rate — fundamental animated-video scene type | Accept as correct for these scenes |
+| **GT-SSIM (5 tests)** | test09: 0.787 asp_better, test27: 0.709 asp_better, test57: 0.743 | Animation timing mismatch; midpoint-warp 50% residual | Pose-consistent frame selection → reduce residuals to <10px |
+| **Metrics** | SSIM + seam_coherence + aligned_ssim_vs_gt (S8) | raw SSIM penalises scale mismatch (test27 0.039 bias) | SI-FID supplementary metric |
+| **Tests** | 107 passing | — | Full 96-test re-run after S6–S9 feature integration |

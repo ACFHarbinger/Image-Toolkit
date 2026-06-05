@@ -557,6 +557,8 @@ def _arap_regularise(
     fg_mask: np.ndarray,
     cell_size: int = 32,
     n_iter: int = 3,
+    image: Optional[np.ndarray] = None,
+    image_offset: Tuple[int, int] = (0, 0),
 ) -> np.ndarray:
     """
     A3 — As-Rigid-As-Possible regularisation of an optical-flow field.
@@ -576,14 +578,24 @@ def _arap_regularise(
          rigid centres.
       4. Iterate ``n_iter`` times (each pass makes the field smoother).
 
+    LSD collinearity term (§0.1 / S8): when ``image`` is provided, the Line
+    Segment Detector runs on the seam-band crop.  For each cell whose canvas
+    centre overlaps a detected line segment, the per-cell translation is
+    projected onto the line direction, nulling the cross-line component.  This
+    prevents flow from bending detected straight ink strokes — the dominant
+    failure mode in Sýkora-style ARAP on cel-shaded anime art.
+
     Parameters
     ----------
     flow    : (H, W, 2) float32 — raw optical flow to regularise.
     fg_mask : (H, W) bool — True where foreground character pixels exist.
-              Only fg pixels contribute to the per-cell fit; bg pixels are left
-              as-is so the background plate is never perturbed.
     cell_size : Grid cell size in pixels.
     n_iter  : Number of regularise passes (1-3 is usually enough).
+    image   : optional seam-band crop (H_crop, W_crop, 3) uint8.  When
+              provided, LSD collinearity is applied.  Coordinates in the crop
+              are mapped to the full flow field via ``image_offset``.
+    image_offset : (row_offset, col_offset) of ``image`` within the full
+              flow field.  Line segment endpoints are shifted by this amount.
 
     Returns
     -------
@@ -641,6 +653,72 @@ def _arap_regularise(
             blend = fg_mask.astype(np.float32)
             out[:, :, 0] = blend * smooth_tx + (1 - blend) * out[:, :, 0]
             out[:, :, 1] = blend * smooth_ty + (1 - blend) * out[:, :, 1]
+
+    # LSD collinearity term (§0.1 / S8): project per-cell flow onto detected
+    # line directions so straight ink outlines cannot be bent by the warp.
+    # Only applied to fg/bg BOUNDARY cells (cells containing both fg and bg
+    # pixels) — these are the cells that actually contain character outline
+    # strokes.  Interior fg cells (flat colour fill) and pure bg cells are
+    # intentionally skipped to avoid corrupting the rigid-body translation
+    # estimate for the character interior.
+    if image is not None:
+        try:
+            gray_lsd = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if image.ndim == 3 else image
+            lsd = cv2.createLineSegmentDetector(0)
+            lines_raw, _, _, _ = lsd.detect(gray_lsd)  # (K,1,4) or None
+            if lines_raw is not None and len(lines_raw) > 0:
+                lines_xy = lines_raw.reshape(-1, 4)  # (K,4): x1,y1,x2,y2 in image coords
+                row_off, col_off = image_offset
+                ny = max(1, H // cell_size)
+                nx = max(1, W // cell_size)
+                for ci in range(ny):
+                    cy_c = ci * cell_size + cell_size / 2
+                    for cj in range(nx):
+                        cx_c = cj * cell_size + cell_size / 2
+                        y0c = max(0, ci * cell_size)
+                        y1c = min(H, (ci + 1) * cell_size)
+                        x0c = max(0, cj * cell_size)
+                        x1c = min(W, (cj + 1) * cell_size)
+                        fg_cell = fg_mask[y0c:y1c, x0c:x1c]
+                        # Only boundary cells: contain both fg and bg pixels
+                        if not fg_cell.any() or fg_cell.all():
+                            continue
+                        # Map cell centre to image-crop space
+                        iy_c = cy_c - row_off
+                        ix_c = cx_c - col_off
+                        for seg in lines_xy:
+                            x1, y1, x2, y2 = float(seg[0]), float(seg[1]), float(seg[2]), float(seg[3])
+                            bx0, bx1 = min(x1, x2) - cell_size, max(x1, x2) + cell_size
+                            by0, by1 = min(y1, y2) - cell_size, max(y1, y2) + cell_size
+                            if not (bx0 <= ix_c <= bx1 and by0 <= iy_c <= by1):
+                                continue
+                            dx_l = x2 - x1
+                            dy_l = y2 - y1
+                            seg_len = max(float(np.hypot(dx_l, dy_l)), 1e-8)
+                            ux, uy = dx_l / seg_len, dy_l / seg_len
+                            flow_x = float(out[y0c:y1c, x0c:x1c, 0].mean())
+                            flow_y = float(out[y0c:y1c, x0c:x1c, 1].mean())
+                            orig_mag = float(np.hypot(flow_x, flow_y))
+                            if orig_mag < 0.1:
+                                break
+                            proj = flow_x * ux + flow_y * uy
+                            proj_x = proj * ux
+                            proj_y = proj * uy
+                            proj_mag = abs(proj)
+                            # Only apply when projection retains ≥50% of the
+                            # original magnitude — prevents vertical-line
+                            # segments from cancelling horizontal translation.
+                            if proj_mag < orig_mag * 0.5:
+                                break
+                            out[y0c:y1c, x0c:x1c, 0] = np.where(
+                                fg_cell, proj_x, out[y0c:y1c, x0c:x1c, 0]
+                            )
+                            out[y0c:y1c, x0c:x1c, 1] = np.where(
+                                fg_cell, proj_y, out[y0c:y1c, x0c:x1c, 1]
+                            )
+                            break  # one dominant line per cell is sufficient
+        except Exception:
+            pass  # LSD collinearity is best-effort; never abort the warp
 
     return out
 
@@ -833,7 +911,11 @@ def register_foreground_at_seam(
             else:
                 flow[:, x0_crop:x1_crop] = pushed
 
-        flow = _arap_regularise(flow, fg_union, cell_size=16, n_iter=2)
+        flow = _arap_regularise(
+            flow, fg_union, cell_size=16, n_iter=2,
+            image=crop_a,
+            image_offset=(y0_crop if axis == 0 else 0, 0 if axis == 0 else x0_crop),
+        )
     except Exception:
         if smooth_sigma > 0:
             flow[:, :, 0] = cv2.GaussianBlur(flow[:, :, 0], (0, 0), smooth_sigma)

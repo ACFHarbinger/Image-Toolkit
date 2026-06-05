@@ -1,6 +1,6 @@
 # ASP Roadmap — Anime Stitch Pipeline: Quality & Reliability
 
-*Last updated: 2026-06-04. Session 6 starting: perceptual-hash hold detection, GNC robust loss for BA, SLIC SGM proxy for aperture problem, roadmap extended with AGNC/SAM2/Overmix/BigWarp/SAM2Flow/Intelligent-Scissors findings. Session 5: alignment stability gate (+0.074 on test08, +0.049 on test25), fg pixel L1 pose metric (+0.010 on test27 with pose-on), 8 new unit tests (90 total). Session 4: ARAP Push phase (full Sýkora 2009). Session 3: pose-consistent frame selection infrastructure. Session 2: RAFT+ARAP+post_warp_diff. Session 1: foreground assembly pipeline.*  
+*Last updated: 2026-06-05. Session 9 complete: ToonCrafter seam synthesis wired to worst single-pose seam (§3.6). Session 8: DINOv2 submodular frame selection (§3.3), LSD collinearity in ARAP (§0.1/A3), Aligned-SSIM metric (§3.9). Session 7: Stage 12.5 scroll-axis foreground-extent trim (§2.6). Session 6: perceptual-hash hold detection (§1.11), GNC robust loss for BA (§1.1), SLIC SGM proxy (§3.1). 107 tests passing (was 90 at S5 start). Session 5: alignment stability gate (+0.074 on test08, +0.049 on test25), fg pixel L1 pose metric (+0.010 on test27 with pose-on), 8 new unit tests (90 total). Session 4: ARAP Push phase (full Sýkora 2009). Session 3: pose-consistent frame selection infrastructure. Session 2: RAFT+ARAP+post_warp_diff. Session 1: foreground assembly pipeline.*  
 *Corpus: 96 tests; 55 have ground truth. **Avg SSIM ASP vs GT: 0.667 vs simple stitch 0.694** — simple stitch is 3.9% closer to reference on average (session 4 full-run baseline).*  
 *True ASP composites: 52/96 (54.2%). Alignment gate (2D motion): test08 0.736→0.809, test25 +0.049. Render quality gate: 31 fallbacks (32.3%). Affine validation: 13 fallbacks (13.5%).*  
 *GT verdicts (S4 baseline): asp_better=7 (12.7%), simple_better=26 (47.3%), comparable=22 (40.0%). Best: test17=0.887, test84=0.821. S5 key: test08 now asp_better (0.809 vs simple 0.805).*  
@@ -75,14 +75,13 @@ When flow confidence is low (fast action, motion blur), do not warp/average — 
 - ✅ **A6** — confidence-gated single-pose fallback when animation residual > `FG_REG_MAX_RESIDUAL`.
 - ✅ **Boundary fixes** — BORDER_CONSTANT (no edge-smear), `~valid` masking (no content extension), both-content Laplacian (no ringing at canvas edges).
 - ✅ **BiRefNet two-channel selector** — implemented with real BiRefNet masks (not peripheral heuristic); disabled by default (`ASP_TWO_CHANNEL_SELECT=0`) due to overhead and frame-selection regressions. Enable for targeted testing.
-- ⬜ **LSD collinearity term** in ARAP — the full Sýkora ARAP adds a line-segment-detector penalty to prevent bending of detected straight strokes; current implementation uses median-per-cell rigid transform which is similar in spirit but lacks the LSD hard constraint.
+- ✅ **LSD collinearity term** (session 8) — `_arap_regularise()` in `fg_register.py` now accepts `image=` and `image_offset=` params. Runs `cv2.createLineSegmentDetector` on the seam-band crop; for fg/bg boundary cells where a line is detected and the projection retains ≥50% of the original flow magnitude, projects the cell's flow onto the line direction (nulling the cross-line bending component). Only fires on boundary cells to avoid corrupting rigid-body translation in the character interior.
 - ⬜ **Segment-guided flow (AnimeInterp SGM)** — per-colour-segment centroid flow for scenes where RAFT also fails (very flat, large uniform regions).
 - ✅ **ARAP Push phase** — Sýkora's full Push→Regularise algorithm implemented (session 4). `_arap_push()` in `fg_register.py`: per-cell SAD block matching via `cv2.matchTemplate`, 15% improvement threshold, 24px search range, 16×16 cell grid. Push → Regularise is the complete Sýkora 2009 algorithm. Benchmark finding: zero measurable GT-SSIM improvement (flow quality is not the bottleneck; ceiling is animation timing).
 - ✅ **Alignment stability gate** (session 5) — Pre-render gate in `pipeline.py` and benchmark: fires when 75th-pct |dx_steps| > 50px (2D/diagonal motion). Falls back to SCANS on normalised frames immediately. test08: +0.074, test25: +0.049.
-- ⬜ **LSD collinearity term** — full Sýkora ARAP adds a line-segment-detector penalty to prevent bending of detected straight strokes. Current median-per-cell regularise is similar but lacks the hard constraint.
-- ⬜ **SLIC SGM proxy** (session 6) — `_slic_sgm_proxy()` in `fg_register.py`: SLIC superpixel centroid tracking replaces RAFT/DIS flow for fg pixels in flat cel-shaded regions. Addresses aperture problem without VGG-19 forward passes. Enable via `ASP_SGM_PROXY=1`.
-- ⬜ **Perceptual-hash hold detection** (session 6) — `_detect_hold_blocks()` in `frame_selection.py`: detects animation "on twos/threes" holds by thumbnail pixel MAD. Compresses frame universe, surfaces natural pose-change boundaries. Enable via `ASP_HOLD_THRESHOLD=0.025`.
-- ⬜ **GNC robust loss** (session 6) — `bundle_adjust.py`: upgrade `least_squares` to `loss='cauchy'` + `f_scale=10.0`. Makes BA robust against outlier edges that survive the post-solve residual pruning.
+- ✅ **SLIC SGM proxy** (session 6) — `_slic_sgm_proxy()` in `fg_register.py`: SLIC superpixel centroid tracking replaces RAFT/DIS flow for fg pixels in flat cel-shaded regions. Addresses aperture problem without VGG-19 forward passes. Enable via `ASP_SGM_PROXY=1`.
+- ✅ **Perceptual-hash hold detection** (session 6) — `_detect_hold_blocks()` in `frame_selection.py`: detects animation "on twos/threes" holds by thumbnail pixel MAD. Compresses frame universe, surfaces natural pose-change boundaries. Enable via `ASP_HOLD_THRESHOLD=0.025`.
+- ✅ **GNC robust loss** (session 6) — `bundle_adjust.py`: upgrade `least_squares` to `loss='cauchy'` + `f_scale=10.0`. Makes BA robust against outlier edges that survive the post-solve residual pruning.
 
 **Benchmark note (2026-06-03, session 2):** RAFT + ARAP + post_warp_diff escalation → SSIM essentially flat vs session 1 (test09: 0.787, test27: 0.709). Experiments tried and their outcomes:
 - **Global reference pose (asymmetric alpha)**: catastrophic regression on test27 (-0.151) due to flow noise amplification at α=1.0 seams. Reverted.
@@ -661,22 +660,16 @@ If coverage_map shows rows with < 2-frame coverage, automatically suggest candid
 
 ---
 
-### 2.6 Output Scale & Crop Assistant [Priority: Medium — test27 fix]
+### 2.6 Output Scale & Crop Assistant [✅ Stage 12.5 shipped — Session 7]
 
 **Pain point:** test27 assembles a canvas 2× taller than the GT reference (1877×2135 vs 963×1280). The pipeline has no mechanism to suggest a crop. The user has no visual indication that their output is at a different scale than expected.
 
+**Session 7 implementation (Stage 12.5):** Scroll-axis-aware foreground-extent trim inserted in `pipeline.py` between Stage 11 (foreground composite) and Stage 13 (boundary crop). Detects scroll axis from affine ty/tx range; warps `~bg_masks[i]` for each frame into canvas space using `cv2.warpAffine` + `INTER_NEAREST`; unions the fg masks; trims canvas rows (vertical scroll) or columns (horizontal scroll) to the fg-covered extent plus 20px padding. Guard: `ASP_CONTENT_TRIM=1` (default on when bg_masks available). `valid_mask` is trimmed in sync so Stage 13 `_crop_to_valid` still works correctly.
+
 **Options**
 
-**A — Scroll-Axis-Aware Content Crop**
-After final render, show a crop UI that:
-- Detects the dominant scroll axis from bundle adjustment output
-- Computes foreground-content extent in the scroll direction: the minimal range of canvas rows (for a vertical pan) that contain character foreground pixels in at least one frame
-- Proposes a crop: trim any rows at top/bottom that contain ONLY background (no fg in any frame) — these are "pure background" extensions beyond where the character appears
-- Shows a before/after preview with the proposed crop boundaries
-- User can drag the boundary handles to adjust, or accept/reject
-- "Lock to GT aspect" toggle: if a reference file is provided, match its aspect ratio
-
-*Implementation:* Uses the existing `bg_masks` and `affines` from the pipeline run. ~200 LOC.
+**A — Scroll-Axis-Aware Content Crop ✅ (implemented as Stage 12.5)**
+After Stage 11, trim canvas in the dominant scroll direction using warped fg union.
 - Pros: Directly fixes test27's scale mismatch. More general than hardcoding 30px edge crop.
 - Cons: "Foreground content extent" can be ambiguous for scenes where character is always present across all rows.
 
@@ -814,9 +807,11 @@ Keep RAFT for high-texture regions, use a lightweight ConvGRU-style network only
 
 ---
 
-### 3.3 DINOv2 + SigLIP Submodular Frame Selection [Priority: High — directly addresses GT-coupling]
+### 3.3 DINOv2 + SigLIP Submodular Frame Selection [✅ Option A shipped — Session 8]
 
 **Pain point (links to §0.2):** The fg pixel L1 pose metric (session 5) is background-invariant but still GT-coupled: substituting frame N for frame N+1 diverges from GT's temporal reference even when both show the same character pose (same "on twos" hold). The GT-coupling causes -0.024 regressions on some tests when pose selection is enabled.
+
+**Session 8 implementation:** `_compute_dinov2_features()` added to `frame_selection.py`. Loads `dinov2_vits14` via `torch.hub.load` with module-level `_DINOV2_CACHE`; batch inference on grayscale thumbnails → (N, 384) L2-normalised float32 features. In Pass 2 of `smart_select_frames()`, DINOv2 cosine distance replaces `_fg_center_diff()` when features are available; falls back to pixel L1 when DINOv2 is unavailable. Enable via `ASP_POSE_WINDOW_PX=80` (same flag). 2 new tests in `TestDINOv2Features`.
 
 **What DINOv2 Submodular Selection does (from "Adaptive Greedy Frame Selection for Long Video Understanding", arXiv 2603.20180):**
 1. **DINOv2 facility-location coverage:** Embeds all frames via DINOv2 ViT-B/14. Defines a facility-location objective that penalises redundancy — adding frame i to the selected set is only rewarded if its DINOv2 embedding occupies a significantly different region in latent space from already-selected frames. Frames in the same "on twos" hold will have nearly identical embeddings → the objective naturally clusters them and picks one representative.
@@ -922,11 +917,13 @@ Already implemented as `ASP_TWO_CHANNEL_SELECT=1` in `frame_selection.py`. Uses 
 
 ---
 
-### 3.6 ToonCrafter Seam Synthesis — Wiring the Generative Fallback [Priority: Medium]
+### 3.6 ToonCrafter Seam Synthesis — Wiring the Generative Fallback [✅ Option B shipped — Session 9]
 
 **Pain point (links to §1.6, Phase 6.3):** When `post_warp_diff > 22 lum units`, Stage 8.5 escalates to "single-pose fallback" — a clean but informationally incomplete solution (shows one character pose at the seam, hiding the other). The seam zone is left with a visible hard boundary. ToonCrafter can *synthesize* a coherent intermediate pose that eliminates the boundary entirely.
 
-**Current state:** `anim/anim_fill.py` already implements ToonCrafter integration. It is referenced in `§1.6` as Option D and in `pipeline.py` as `if self.use_tooncrafter`. It is NOT currently wired to single-pose seam escalation in `compositing.py`.
+**Session 9 implementation (Option B):** `_TOONCRAFTER_SEAM_ENABLED = os.environ.get("ASP_TOONCRAFTER_SEAM", "0") != "0"` added to `compositing.py`. `seam_post_diffs: dict` tracks `post_warp_diff` per seam during the fg-register loop. After the loop, the worst single-pose-escalated seam (`max(seam_single_pose, key=lambda k: seam_post_diffs.get(k, 0.0))`) triggers `_generate_canonical_cel(crop_a_tc, crop_b_tc, device)` from `anim_fill.py`. The canonical cel is stored in `seam_canonical_crops[worst_k]`; in the Laplacian blend loop it replaces the hard dominant-frame partition for fg pixels. Falls back gracefully to single-pose when ToonCrafter is unavailable.
+
+**Current state:** `anim/anim_fill.py` already implements ToonCrafter integration. It is referenced in `§1.6` as Option D and in `pipeline.py` as `if self.use_tooncrafter`. It IS now wired to single-pose seam escalation in `compositing.py` (session 9).
 
 **What changes:** In `compositing.py`, when `post_diff > _POST_DIFF_THRESHOLD` (line ~619), instead of recording `seam_single_pose[k] = dom`:
 1. Extract the ±50px seam-band crop from both warped frames (frame_a, frame_b around the seam)
@@ -1075,7 +1072,7 @@ Rather than generic quality scoring, design a structured prompt that asks specif
 
 ---
 
-## 1.11 Animation Hold Detection — Preprocessing [Quick Win — session 6]
+## 1.11 Animation Hold Detection — Preprocessing [✅ Option A shipped — session 6]
 
 **Pain point (links to §0.2, §3.4):** The frame selector processes all N source frames (58–333) through phase correlation before any frames are discarded. For typical anime with ~3-frame holds, 70% of phase correlation pairs are within the same hold block (identical camera position, same character cel). These redundant correlations add latency and, more importantly, mask natural pose-change boundaries.
 

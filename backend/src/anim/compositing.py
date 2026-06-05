@@ -40,6 +40,13 @@ from backend.src.constants import (
 # Enabled by default; set ASP_FG_REGISTER=0 to disable for A/B comparison.
 _FG_REGISTER_ENABLED = os.environ.get("ASP_FG_REGISTER", "1") != "0"
 
+# ToonCrafter seam synthesis (§3.6 / S9).
+# When enabled, generates a canonical interpolated cel at the single worst
+# single-pose-escalated seam, replacing the hard dominant-frame partition
+# with a smoothly interpolated character pose.  Disabled by default; requires
+# diffusers and ToonCrafter weights (~3.5 GB).  Set ASP_TOONCRAFTER_SEAM=1.
+_TOONCRAFTER_SEAM_ENABLED = os.environ.get("ASP_TOONCRAFTER_SEAM", "0") != "0"
+
 
 def _diff_to_feather(diff: float) -> int:
     for threshold, feather in FEATHER_TABLE:
@@ -566,6 +573,7 @@ def _composite_foreground(
     # Fallback (A6): when the residual exceeds max_residual, take the seam-zone
     # foreground from the dominant pose frame only — no blending.
     seam_single_pose: dict = {}
+    seam_post_diffs: dict = {}
     if _FG_REGISTER_ENABLED and N >= 2:
         try:
             from .fg_register import register_foreground_at_seam
@@ -615,6 +623,7 @@ def _composite_foreground(
                     # are too different to blend cleanly — escalate to single-pose
                     # so the blend zone doesn't create a double-image ghost.
                     post_diff = info.get("post_warp_diff", 0.0)
+                    seam_post_diffs[k] = post_diff
                     _POST_DIFF_THRESHOLD = 22.0  # lum units; empirically tuned
                     if post_diff > _POST_DIFF_THRESHOLD:
                         dom = fi_a if info["dominant"] == "a" else fi_b
@@ -634,6 +643,7 @@ def _composite_foreground(
                 elif info.get("fallback"):
                     dom = fi_a if info["dominant"] == "a" else fi_b
                     seam_single_pose[k] = dom
+                    seam_post_diffs[k] = float(info.get("residual", 0.0))
                     n_fallback += 1
                     print(
                         f"[Stitch]     FG-register B{k} (frames {fi_a}/{fi_b}): "
@@ -646,6 +656,35 @@ def _composite_foreground(
             )
         except Exception as _fg_exc:
             print(f"[Stitch]   FG pose registration skipped ({_fg_exc}).")
+
+    # ToonCrafter seam synthesis (§3.6 / S9): generate a canonical interpolated
+    # cel at the single worst post-diff seam so the hard single-pose partition
+    # is replaced by a smoothly interpolated character pose.  Only fires when
+    # ASP_TOONCRAFTER_SEAM=1 and at least one seam was escalated to single-pose.
+    seam_canonical_crops: dict = {}
+    if _TOONCRAFTER_SEAM_ENABLED and seam_single_pose:
+        try:
+            worst_k = max(seam_single_pose, key=lambda _k: seam_post_diffs.get(_k, 0.0))
+            fi_a_w = int(order[worst_k])
+            fi_b_w = int(order[worst_k + 1])
+            by_w = boundaries[worst_k]
+            feather_w = int(feathers[worst_k])
+            y0_fw = max(0, int(by_w) - feather_w)
+            y1_fw = min(H, int(by_w) + feather_w + 1)
+            crop_a_tc = warped_norm[fi_a_w][y0_fw:y1_fw]
+            crop_b_tc = warped_norm[fi_b_w][y0_fw:y1_fw]
+            from .anim_fill import _generate_canonical_cel
+            import torch as _tc_torch
+            _dev_tc_seam = "cuda" if _tc_torch.cuda.is_available() else "cpu"
+            canonical_cel = _generate_canonical_cel(crop_a_tc, crop_b_tc, _dev_tc_seam)
+            seam_canonical_crops[worst_k] = canonical_cel
+            print(
+                f"[Stitch]   ToonCrafter seam synthesis: B{worst_k} "
+                f"(frames {fi_a_w}/{fi_b_w}) post_diff={seam_post_diffs.get(worst_k, 0.0):.1f} "
+                f"→ canonical cel generated."
+            )
+        except Exception as _tc_seam_e:
+            print(f"[Stitch]   ToonCrafter seam synthesis skipped ({_tc_seam_e}).")
 
     # Start from temporal median canvas — background pixels stay here permanently
     result = canvas.copy()
@@ -739,8 +778,27 @@ def _composite_foreground(
         # produces a double image, so take the FOREGROUND from the dominant frame
         # only (background still blends).  The dominant frame's foreground pixels
         # win; the other frame fills only where the dominant has no content.
+        # ToonCrafter upgrade (§3.6): if a canonical cel was synthesised for this
+        # seam, use it instead of the hard dominant-frame partition.
         _single = seam_single_pose.get(k)
-        if _single is not None and is_fg is not None:
+        _canonical_zone = seam_canonical_crops.get(k)
+        if _canonical_zone is not None and _single is not None and is_fg is not None:
+            fg_apply = apply
+            has_canon = _canonical_zone.max(axis=2) > 0
+            take_canon = fg_apply & has_canon
+            if take_canon.any():
+                result[y0_f:y1_f][take_canon] = _canonical_zone[take_canon]
+            # Fill gaps (where canonical has no content) from dominant frame
+            dom_zone = warped_norm[_single][y0_f:y1_f]
+            take_gap = fg_apply & (~has_canon) & (dom_zone.max(axis=2) > 0)
+            if take_gap.any():
+                result[y0_f:y1_f][take_gap] = dom_zone[take_gap]
+            print(
+                f"[Stitch]   ToonCrafter B{k} (frames {fi_a}/{fi_b}): "
+                f"zone=[{y0_f}–{y1_f}] fg_px={int(fg_apply.sum())} "
+                f"→ canonical cel applied (replaces single-pose partition)"
+            )
+        elif _single is not None and is_fg is not None:
             dom_zone = warped_norm[_single][y0_f:y1_f]
             oth = fi_b if _single == fi_a else fi_a
             oth_zone = warped_norm[oth][y0_f:y1_f]
