@@ -280,3 +280,62 @@ Expanding the search window from ±2 to ±3 frames consistently hurts test09 (-0
 4. Segment-guided flow (aperture problem in flat cel regions).
 5. Analysis of ghosting-dominated simple_better tests (test82, test95) — need visual inspection to understand root cause.
 6. LSD collinear constraint in ARAP.
+
+---
+
+## Session 6 (2026-06-04)
+
+### 6.1 New Research Sources Reviewed
+
+- **`reports/Advanced Morphological Integration and Human-in-the-Loop Interventions for the Anime Stitch Pipeline.md`** — introduced: AGNC (Adaptive GNC for bundle adjustment), SAM 2 masking, Overmix sub-pixel averaging + maximal frame ingestion, BigWarp/Fourier-Mellin manual registration fallback, SAM2Flow/FlowVid interactive flow kinematics, Intelligent Scissors seam routing, RLHF/DPO pathway for full automation.
+- **`reports/Anime Stitch Pipeline ML Research.md`** — deepened: DINOv2 facility-location selection, AnimeInterp SGM+ConvGRU, SI-FID reference-free metric, SIQE no-reference ghosting detection, CamFlow hybrid motion basis, FD-Means hold detection.
+
+### 6.2 What Was Built
+
+**`frame_selection.py`** — `_detect_hold_blocks()` + `ASP_HOLD_THRESHOLD` env var:
+- Detects animation "on twos / on threes" hold blocks by thumbnail pixel MAD
+- Returns representative frame indices (first frame of each block)
+- Integrated into `smart_select_frames()`: verbose diagnostic, hold_ids array per frame, tie-breaking preference in Pass 2 (penalty for candidates within same hold as previous anchor)
+- 9 new unit tests in `test_frame_selection.py`
+
+**`bundle_adjust.py`** — GNC robust loss (§1.1C):
+- Changed `least_squares` to `loss='cauchy', f_scale=10.0`
+- Cauchy loss down-weights edges with residual > 10px by 50%; 50px edges at ~5%
+- Makes BA inherently robust to outlier edges, complementing the post-solve residual pruning
+- Override via `ASP_BA_F_SCALE` env var
+- 3 new unit tests in `test_bundle_adjust.py`
+
+**`fg_register.py`** — SLIC SGM proxy (§3.1B):
+- `_slic_sgm_proxy()`: SLIC superpixel centroid tracking as coarse flow for flat cel regions
+- Requires scikit-image; returns None silently if unavailable
+- Colour affinity (LAB distance) + distance penalty → per-segment centroid displacement
+- Integrated in `register_foreground_at_seam()` behind `ASP_SGM_PROXY=1` env var (default OFF)
+- Flow field replaces RAFT/DIS flow for fg pixels when enabled; ARAP Regularise smooths
+
+**Roadmap updates** (`moon/roadmaps/asp.md`):
+- Header updated to Session 6 with new research sources
+- §0.1: Added 6 new status entries (LSD, SLIC, hold detect, GNC — all ⬜ with session 6 notes)
+- §1.1: Added AGNC as Option D (adaptive schedule, SAC-GNC reference), updated recommendation to ship C (GNC) and prototype D
+- New §1.11: Animation Hold Detection (Quick Win, implemented in session 6)
+- New §2.9: BigWarp / Fourier-Mellin manual registration fallback
+- New §2.10: SAM2Flow / FlowVid interactive flow kinematics
+- New §2.11: Intelligent Scissors seam routing
+- New §3.11: SAM 2 interactive masking upgrade
+- New §3.12: Overmix sub-pixel averaging / maximal frame ingestion philosophy
+- Anchor index updated with all new sections
+
+### 6.3 Test Count
+
+102 passing (was 90 before session 6): +9 hold detection tests, +3 GNC bundle adjust tests.
+
+### 6.4 What's Next
+
+**Corpus-wide re-run needed** — session 5 improvements (alignment gate, fg pixel L1) only validated on the 5-test subset. A full 96-test run would update the corpus statistics.
+
+**Priority 1:** DINOv2 submodular frame selection (§3.3) — breaks GT-coupling wall. Infrastructure ready in `frame_selection.py`. Key implementation: `torch.hub.load('facebookresearch/dinov2', 'dinov2_vits14')` on thumbnail pairs, facility-location greedy selection, verify on 5-test subset before full run.
+
+**Priority 2:** Aligned-SSIM as primary benchmark metric — add ECC alignment before SSIM computation, removes framing bias from GT-coupling.
+
+**Priority 3:** LSD collinearity constraint in ARAP (`fg_register.py` `_arap_regularise`) — completes Sýkora 2009 full algorithm.
+
+**Priority 4:** Corpus-wide alignment gate run — report updated fallback rate and coverage improvement vs S4 baseline (52/96 composites).

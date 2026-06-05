@@ -1,6 +1,6 @@
 # ASP — State of the Pipeline: What Works, What Failed, What's Next
 
-*Date: 2026-06-03. Authored after all sessions completed through the RAFT/ARAP session.*  
+*Date: 2026-06-04. Updated through Session 6.*  
 *Primary benchmark corpora: 96 tests (`asp_test01–96`), 55 with ground truth in `data/ground_truth/`. 5-test subset (`test04/08/09/27/57`) used for rapid iteration.*
 
 ---

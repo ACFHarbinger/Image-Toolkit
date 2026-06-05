@@ -1,3 +1,4 @@
+import os
 import json
 import shutil
 
@@ -86,6 +87,7 @@ class SettingsWindow(QWidget):
         self.pref_file_logging = _p.get("file_logging_enabled", False)
         self.pref_extractor_seek_ms = _p.get("extractor_seek_ms", 100)
         self.pref_recent_extractions_count = _p.get("recent_extractions_count", 10)
+        self.pref_session_recovery = _p.get("session_recovery_level", "None")
 
         # --- Configuration Defaults State ---
         self.tab_defaults_config = self._load_tab_defaults_from_vault()
@@ -510,6 +512,14 @@ class SettingsWindow(QWidget):
         session_layout.addRow(
             "Recent Directories to Remember:", self.recent_dirs_spinbox
         )
+
+        self.session_recovery_combo = QComboBox()
+        self.session_recovery_combo.addItems(["None", "Current Tab", "All Tabs"])
+        self.session_recovery_combo.setCurrentText(self.pref_session_recovery)
+        self.session_recovery_combo.setToolTip(
+            "Select the level of information to save during app shutdown to recover on next login."
+        )
+        session_layout.addRow("Session Recovery Level:", self.session_recovery_combo)
 
         # ---------------------------------------------------------------------
         # --- Performance and Cache Section ---
@@ -977,6 +987,7 @@ class SettingsWindow(QWidget):
         self.pref_file_logging = _p.get("file_logging_enabled", False)
         self.pref_extractor_seek_ms = _p.get("extractor_seek_ms", 100)
         self.pref_recent_extractions_count = _p.get("recent_extractions_count", 10)
+        self.pref_session_recovery = _p.get("session_recovery_level", "None")
 
         # Reload tab defaults from vault
         self.tab_defaults_config = self._load_tab_defaults_from_vault()
@@ -1024,6 +1035,7 @@ class SettingsWindow(QWidget):
             self.startup_category_combo.setCurrentText(self.pref_startup_category)
         self.restore_last_dir_check.setChecked(self.pref_restore_last_dir)
         self.recent_dirs_spinbox.setValue(self.pref_recent_dirs_count)
+        self.session_recovery_combo.setCurrentText(self.pref_session_recovery)
 
         # Repopulate Performance and Cache
         self.found_cache_spinbox.setValue(self.pref_found_cache)
@@ -1657,6 +1669,7 @@ class SettingsWindow(QWidget):
                 "file_logging_enabled": self.file_logging_check.isChecked(),
                 "extractor_seek_ms": self.extractor_seek_spinbox.value(),
                 "recent_extractions_count": self.recent_extractions_spinbox.value(),
+                "session_recovery_level": self.session_recovery_combo.currentText(),
             }
 
             if self._save_vault_data(user_data):
@@ -1703,6 +1716,7 @@ class SettingsWindow(QWidget):
             self.startup_category_combo.setCurrentText("System Tools")
         self.restore_last_dir_check.setChecked(True)
         self.recent_dirs_spinbox.setValue(10)
+        self.session_recovery_combo.setCurrentText("None")
 
         # Reset Performance and Cache
         self.found_cache_spinbox.setValue(300)
@@ -1862,9 +1876,7 @@ class SettingsWindow(QWidget):
         """Opens the daemon log file in the default system viewer."""
         log_path = IMAGE_TOOLKIT_DIR / "logs" / "slideshow_daemon.log"
         if not log_path.exists():
-            QMessageBox.information(
-                self, "No Logs", "No daemon log file found yet."
-            )
+            QMessageBox.information(self, "No Logs", "No daemon log file found yet.")
             return
 
         try:
@@ -1926,6 +1938,23 @@ class SettingsWindow(QWidget):
             user_data["tab_configurations"] = {}
             user_data["active_tab_configs"] = {}
             user_data["system_preference_profiles"] = {}
+            user_data["session_recovery_data"] = {}
+
+            # Clear the encrypted session recovery file if it exists
+            try:
+                username = getattr(self.vault_manager, "account_name", None)
+                if username:
+                    for recovery_dir in (
+                        "/home/pkhunter/.image-toolkit/recovery",
+                        os.path.expanduser("~/.image-toolkit/recovery"),
+                    ):
+                        enc_file_path = os.path.join(
+                            recovery_dir, f"recovery_{username}.enc"
+                        )
+                        if os.path.exists(enc_file_path):
+                            os.remove(enc_file_path)
+            except Exception as e:
+                print(f"Warning: Failed to delete recovery file: {e}")
 
             if self._save_vault_data(user_data):
                 # Reset in-memory state

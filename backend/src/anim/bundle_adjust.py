@@ -1,14 +1,30 @@
 """
 Global Levenberg-Marquardt bundle adjustment over an affine edge graph.
+
+Robustness: the solver uses a Cauchy (Lorentzian) loss function via scipy's
+``loss='cauchy'`` mode, which is the GNC (Graduated Non-Convexity) approach
+recommended in §1.1C of the ASP roadmap.  The Cauchy loss down-weights
+residuals beyond ``f_scale`` pixels, making the solver inherently robust to
+outlier edges that survive the post-solve residual pruning step.
+
+f_scale=10.0 px means edges with a 10px deviation from the consensus are
+weighted at 50%, 20px at 20%, 50px at ~5%.  Genuine good edges (< 5px
+residual) are unaffected.  Override via ``ASP_BA_F_SCALE`` env var.
 """
 
 from __future__ import annotations
 
+import os
 from typing import Dict, List
 
 import numpy as np
 from scipy.optimize import least_squares
 from backend.src.constants import DY_RATIO_THRESH, DY_ABS_THRESH
+
+try:
+    _BA_F_SCALE = float(os.environ.get("ASP_BA_F_SCALE", "10.0"))
+except ValueError:
+    _BA_F_SCALE = 10.0
 
 
 def _bundle_adjust_affine(
@@ -138,10 +154,19 @@ def _bundle_adjust_affine(
 
         return np.array(res, np.float64)
 
+    # GNC robust loss (§1.1C): Cauchy loss down-weights outlier edges whose
+    # residuals exceed f_scale px.  This makes the solver inherently resistant
+    # to bad LoFTR matches that corrupt the global bundle even when the post-
+    # solve residual pruning below cannot catch them (e.g., when the bad edge's
+    # residual is within 3× of the median because the median itself is inflated
+    # by multiple bad edges).  f_scale=10px means good matches (< 5px) are
+    # unaffected; outliers (50–200px) contribute ~5% of their L2 weight.
     result = least_squares(
         residuals,
         x0,
         method="trf",
+        loss="cauchy",
+        f_scale=_BA_F_SCALE,
         ftol=1e-6,
         xtol=1e-6,
         gtol=1e-6,

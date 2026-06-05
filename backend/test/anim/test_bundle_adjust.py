@@ -268,3 +268,67 @@ class TestEdgeCases:
         assert tx_range > 10.0, (
             f"Expected non-zero tx range for dx=50 edges, got tx_range={tx_range:.1f}"
         )
+
+
+# ---------------------------------------------------------------------------
+# 4. GNC robust loss (§1.1C) — Cauchy loss makes BA resist outlier edges
+# ---------------------------------------------------------------------------
+
+
+class TestGNCRobustLoss:
+    """
+    The bundle adjust now uses a Cauchy (GNC) robust loss.  Verify that:
+      - Clean edge chains still produce accurate ty gaps (loss doesn't distort inliers)
+      - A single extreme outlier edge (10× inlier dy) is absorbed without
+        catastrophically distorting the inlier chain.
+    """
+
+    def test_clean_chain_unaffected_by_gnc(self):
+        """GNC Cauchy loss should not distort a chain of good edges."""
+        dy = 250.0
+        N = 5
+        edges = [make_edge(i, i + 1, dy=dy) for i in range(N - 1)]
+        affines = _bundle_adjust_affine(edges, N, use_affine=False)
+        gaps = compute_ty_gaps(affines)
+        # GNC should not distort good edges; gaps should stay near dy
+        assert np.allclose(gaps, dy, atol=15.0), (
+            f"GNC distorted clean chain: gaps={gaps}, expected ≈{dy}px"
+        )
+
+    def test_extreme_outlier_absorbed_by_gnc(self):
+        """
+        A single edge with 10× the consensus dy should not destroy the inlier
+        chain under GNC — the Cauchy loss down-weights it sufficiently.
+        After optional post-solve pruning, the remaining gaps should be close
+        to the inlier consensus.
+        """
+        inlier_dy = 200.0
+        N = 6
+        edges = [make_edge(i, i + 1, dy=inlier_dy) for i in range(N - 1)]
+        # Replace one edge with a massive outlier
+        edges[2] = make_edge(2, 3, dy=inlier_dy * 10.0)
+        affines = _bundle_adjust_affine(edges, N, use_affine=False)
+        gaps = compute_ty_gaps(affines)
+        # Even with the outlier, at least 3 of 5 gaps should be near the inlier dy
+        near_inlier = int(np.sum(np.abs(gaps - inlier_dy) < inlier_dy * 0.5))
+        assert near_inlier >= 3, (
+            f"GNC should protect most inlier gaps; only {near_inlier}/5 were "
+            f"near {inlier_dy}px: gaps={gaps}"
+        )
+
+    def test_gnc_f_scale_env_var_overridden(self):
+        """ASP_BA_F_SCALE env var changes f_scale without breaking imports."""
+        import importlib
+        import os as _os
+        original = _os.environ.get("ASP_BA_F_SCALE")
+        try:
+            _os.environ["ASP_BA_F_SCALE"] = "5.0"
+            import backend.src.anim.bundle_adjust as _ba
+            importlib.reload(_ba)
+            assert abs(_ba._BA_F_SCALE - 5.0) < 1e-6
+        finally:
+            if original is None:
+                _os.environ.pop("ASP_BA_F_SCALE", None)
+            else:
+                _os.environ["ASP_BA_F_SCALE"] = original
+            importlib.reload(_ba)

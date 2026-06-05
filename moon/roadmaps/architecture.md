@@ -1,6 +1,6 @@
 # Architecture & Infrastructure Roadmap — Quality, Reliability, and Maintainability
 
-*Last updated: 2026-05-31.*
+*Last updated: 2026-06-04. ASP unit tests now at 90 (90 passing). ASP benchmark: 52/96 true composites (54.2%), alignment gate added for 2D motion. See `asp.md` for per-session tracking.*
 
 ---
 

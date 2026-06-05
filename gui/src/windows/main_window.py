@@ -1,7 +1,7 @@
 import os
 import sys
 
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtGui import QIcon, QImageReader
 from PySide6.QtWidgets import (
     QSizePolicy,
@@ -239,6 +239,7 @@ class MainWindow(QWidget):
                         and config_name in saved_tab_configs[tab_class_name]
                     ):
                         config_data = saved_tab_configs[tab_class_name][config_name]
+                        config_data = self._sanitize_config_if_needed(config_data)
 
                         # 5. Apply it if the tab supports set_config
                         if hasattr(tab_instance, "set_config") and callable(
@@ -297,6 +298,7 @@ class MainWindow(QWidget):
             pass
 
         self.showMaximized()
+        QTimer.singleShot(0, self._restore_session_recovery)
 
     def on_command_changed(self, new_command: str):
         """
@@ -331,6 +333,38 @@ class MainWindow(QWidget):
         self.title_label.setText(f"Image Database and Toolkit - {account_name}")
         self.set_application_theme(self.current_theme)
 
+    def _sanitize_config_if_needed(self, config_data: dict) -> dict:
+        """Removes local directory/file path fields from tab configurations if restore_last_dir is False."""
+        if not config_data or not isinstance(config_data, dict):
+            return config_data
+        if not self.cached_creds:
+            return config_data
+        prefs = self.cached_creds.get("preferences", {})
+        if prefs.get("restore_last_dir", True):
+            return config_data
+
+        import copy
+        sanitized = copy.deepcopy(config_data)
+
+        # Clear or reset fields representing local directories or paths
+        keys_to_clear = [
+            "scan_directory", "source_directory", "extraction_directory",
+            "download_dir", "screenshot_dir", "local_path", "input_path",
+            "output_path", "scan_dir", "lora_path", "checkpoint_path",
+            "image_path"
+        ]
+        for key in keys_to_clear:
+            if key in sanitized:
+                sanitized[key] = ""
+
+        # Special containers for paths
+        if "monitor_image_paths" in sanitized:
+            sanitized["monitor_image_paths"] = {}
+        if "monitor_queues" in sanitized:
+            sanitized["monitor_queues"] = {}
+
+        return sanitized
+
     def _apply_startup_preferences(self) -> None:
         """Apply vault-stored preferences to gallery tabs at startup (GUI/UX §2.16 A/B/C/E)."""
         prefs = self.cached_creds.get("preferences", {})
@@ -349,6 +383,10 @@ class MainWindow(QWidget):
         extractor_seek_ms = int(prefs.get("extractor_seek_ms", 100))
         recent_extractions_count = int(prefs.get("recent_extractions_count", 10))
 
+        restore_last_dir = prefs.get("restore_last_dir", True)
+        from backend.src.constants import LOCAL_SOURCE_PATH
+        default_dir = str(LOCAL_SOURCE_PATH)
+
         for cat_tabs in self.all_tabs.values():
             for tab in cat_tabs.values():
                 # Thumbnail & page size (§2.16A)
@@ -366,6 +404,15 @@ class MainWindow(QWidget):
                     tab._selected_pixmap_cache = LRUImageCache(maxsize=selected_cache)
                 if hasattr(tab, "_initial_pixmap_cache"):
                     tab._initial_pixmap_cache = LRUImageCache(maxsize=initial_cache)
+
+                # Reset directory to default if restore is disabled
+                if not restore_last_dir:
+                    for obj in (tab, getattr(tab, "format_tab", None)):
+                        if obj is not None:
+                            if hasattr(obj, "last_browsed_scan_dir"):
+                                obj.last_browsed_scan_dir = default_dir
+                            if hasattr(obj, "last_browsed_dir"):
+                                obj.last_browsed_dir = default_dir
 
                 # Apply Extractor seek interval
                 if hasattr(tab, "wheel_seek_ms"):
@@ -478,8 +525,168 @@ class MainWindow(QWidget):
         super().showEvent(event)
         self._shown = True
 
+    def _restore_session_recovery(self) -> None:
+        """Restores the previously opened tab and configurations on startup."""
+        if not self.vault_manager or not self.cached_creds:
+            return
+
+        prefs = self.cached_creds.get("preferences", {})
+        recovery_level = prefs.get("session_recovery_level", "None")
+        if recovery_level == "Currrent Tab":
+            recovery_level = "Current Tab"
+
+        if recovery_level == "None":
+            return
+
+        username = getattr(self.vault_manager, "account_name", None)
+        if not username:
+            return
+
+        recovery_data = {}
+        for recovery_dir in ("/home/pkhunter/.image-toolkit/recovery", os.path.expanduser("~/.image-toolkit/recovery")):
+            enc_file_path = os.path.join(recovery_dir, f"recovery_{username}.enc")
+            if os.path.exists(enc_file_path):
+                try:
+                    import json
+                    SecureJsonVault = self.vault_manager.SecureJsonVault
+                    secret_key = self.vault_manager.secret_key
+                    temp_file_vault = SecureJsonVault(secret_key, enc_file_path)
+                    java_string = temp_file_vault.loadData()
+                    decrypted_json = str(java_string)
+                    recovery_data = json.loads(decrypted_json)
+                    break
+                except Exception as e:
+                    print(f"Warning: Failed to decrypt recovery file {enc_file_path}: {e}")
+
+        if not recovery_data:
+            # Fallback to cached_creds if no file was decrypted (backward compatibility)
+            recovery_data = self.cached_creds.get("session_recovery_data")
+
+        if not recovery_data:
+            return
+
+        active_category = recovery_data.get("active_category")
+        active_tab_name = recovery_data.get("active_tab")
+        tab_configs = recovery_data.get("tab_configs", {})
+
+        # Apply config information depending on the level of recovery configured
+        if recovery_level == "All Tabs":
+            for category, tabs_in_category in self.all_tabs.items():
+                for tab_instance in tabs_in_category.values():
+                    tab_class_name = type(tab_instance).__name__
+                    if tab_class_name in tab_configs:
+                        if hasattr(tab_instance, "set_config") and callable(tab_instance.set_config):
+                            try:
+                                sanitized_cfg = self._sanitize_config_if_needed(tab_configs[tab_class_name])
+                                tab_instance.set_config(sanitized_cfg)
+                            except Exception as e:
+                                print(f"Warning: Failed to restore config to {tab_class_name} during session recovery: {e}")
+        elif recovery_level == "Current Tab":
+            if active_category and active_tab_name:
+                tab_instance = self.all_tabs.get(active_category, {}).get(active_tab_name)
+                if tab_instance:
+                    tab_class_name = type(tab_instance).__name__
+                    if tab_class_name in tab_configs:
+                        if hasattr(tab_instance, "set_config") and callable(tab_instance.set_config):
+                            try:
+                                sanitized_cfg = self._sanitize_config_if_needed(tab_configs[tab_class_name])
+                                tab_instance.set_config(sanitized_cfg)
+                            except Exception as e:
+                                print(f"Warning: Failed to restore config to active tab {tab_class_name} during session recovery: {e}")
+
+        # Transfer user to the previously opened tab
+        if active_category and active_category in self.all_tabs:
+            self.command_combo.setCurrentText(active_category)
+            if active_tab_name:
+                for index in range(self.tabs.count()):
+                    if self.tabs.tabText(index) == active_tab_name:
+                        self.tabs.setCurrentIndex(index)
+                        break
+
+    def _save_session_recovery(self) -> None:
+        """Saves current active tab and tab configurations for session recovery."""
+        if not self.vault_manager:
+            return
+
+        try:
+            import json
+            # Load current credentials/preferences from the vault
+            creds = self.vault_manager.load_account_credentials()
+            if not creds:
+                return
+
+            prefs = creds.get("preferences", {})
+            recovery_level = prefs.get("session_recovery_level", "None")
+            if recovery_level == "Currrent Tab":
+                recovery_level = "Current Tab"
+
+            username = getattr(self.vault_manager, "account_name", None)
+            if not username:
+                return
+
+            recovery_data = {}
+            if recovery_level != "None":
+                active_category = self.command_combo.currentText()
+                active_tab_index = self.tabs.currentIndex()
+                active_tab_name = self.tabs.tabText(active_tab_index) if active_tab_index >= 0 else None
+
+                tab_configs = {}
+                if recovery_level == "All Tabs":
+                    for category, tabs_in_category in self.all_tabs.items():
+                        for tab_instance in tabs_in_category.values():
+                            if hasattr(tab_instance, "collect") and callable(tab_instance.collect):
+                                try:
+                                    tab_configs[type(tab_instance).__name__] = tab_instance.collect()
+                                except Exception as e:
+                                    print(f"Warning: Failed to collect config from {type(tab_instance).__name__}: {e}")
+                elif recovery_level == "Current Tab":
+                    if active_category and active_tab_name:
+                        tab_instance = self.all_tabs.get(active_category, {}).get(active_tab_name)
+                        if tab_instance and hasattr(tab_instance, "collect") and callable(tab_instance.collect):
+                            try:
+                                tab_configs[type(tab_instance).__name__] = tab_instance.collect()
+                            except Exception as e:
+                                print(f"Warning: Failed to collect config from active tab {type(tab_instance).__name__}: {e}")
+
+                recovery_data = {
+                    "active_category": active_category,
+                    "active_tab": active_tab_name,
+                    "tab_configs": tab_configs
+                }
+
+                # Save session recovery data to the encrypted file
+                for recovery_dir in ("/home/pkhunter/.image-toolkit/recovery", os.path.expanduser("~/.image-toolkit/recovery")):
+                    try:
+                        os.makedirs(recovery_dir, exist_ok=True)
+                        enc_file_path = os.path.join(recovery_dir, f"recovery_{username}.enc")
+                        SecureJsonVault = self.vault_manager.SecureJsonVault
+                        secret_key = self.vault_manager.secret_key
+                        temp_file_vault = SecureJsonVault(secret_key, enc_file_path)
+                        temp_file_vault.saveData(json.dumps(recovery_data))
+                        break
+                    except Exception as e:
+                        print(f"Warning: Failed to save recovery data to {recovery_dir}: {e}")
+
+                # Keep vault backup in sync
+                creds["session_recovery_data"] = recovery_data
+            else:
+                creds["session_recovery_data"] = {}
+                # Delete recovery file if recovery level is set to None
+                for recovery_dir in ("/home/pkhunter/.image-toolkit/recovery", os.path.expanduser("~/.image-toolkit/recovery")):
+                    enc_file_path = os.path.join(recovery_dir, f"recovery_{username}.enc")
+                    if os.path.exists(enc_file_path):
+                        try:
+                            os.remove(enc_file_path)
+                        except Exception as e:
+                            print(f"Warning: Failed to remove recovery file: {e}")
+
+            self.vault_manager.save_data(json.dumps(creds))
+        except Exception as e:
+            print(f"Warning: Failed to save session recovery data: {e}")
+
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
+            self._save_session_recovery()
             if self.vault_manager:
                 self.vault_manager.shutdown()
             QApplication.quit()
@@ -487,6 +694,8 @@ class MainWindow(QWidget):
             super().keyPressEvent(event)
 
     def closeEvent(self, event):
+        self._save_session_recovery()
+
         if self.settings_window:
             self.settings_window.close()
 
