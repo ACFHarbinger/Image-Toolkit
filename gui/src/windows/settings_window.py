@@ -23,11 +23,17 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QApplication,
     QTabWidget,
+    QListWidget,
+    QListWidgetItem,
+    QFileDialog,
+    QInputDialog,
 )
 from backend.src.constants import (
     IMAGE_TOOLKIT_DIR,
     DAEMON_CONFIG_PATH,
     THUMBNAIL_CACHE_DIR,
+    ROOT_DIR,
+    API_DIR,
 )
 
 
@@ -746,6 +752,47 @@ class SettingsWindow(QWidget):
         tab_cfg_row.addWidget(self.btn_clear_tab_configs)
         reset_state_layout.addLayout(tab_cfg_row)
 
+        # --- Credentials Management Section ---
+        credentials_groupbox = QGroupBox("Manage Loaded Credentials")
+        credentials_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        credentials_layout = QVBoxLayout(credentials_groupbox)
+        credentials_layout.setContentsMargins(10, 10, 10, 10)
+
+        credentials_desc = QLabel(
+            "Manage API credentials loaded in your secure session vault. "
+            "You can export unencrypted versions of these files to the backup directory, "
+            "import new JSON credential files, or delete existing credentials."
+        )
+        credentials_desc.setStyleSheet("color: #aaa; font-size: 11px;")
+        credentials_desc.setWordWrap(True)
+        credentials_layout.addWidget(credentials_desc)
+
+        self.credentials_list = QListWidget()
+        self.credentials_list.setMinimumHeight(120)
+        self.credentials_list.setMaximumHeight(200)
+        credentials_layout.addWidget(self.credentials_list)
+
+        creds_btn_layout = QHBoxLayout()
+        self.btn_export_creds = QPushButton("Export to Backup 📤")
+        self.btn_export_creds.setToolTip("Export unencrypted versions of loaded credentials to the backup directory.")
+        self.btn_export_creds.setStyleSheet("background-color: #27ae60; color: white; font-weight: bold;")
+        self.btn_export_creds.clicked.connect(self._export_credentials_to_backup)
+
+        self.btn_import_cred = QPushButton("Import Credential 📥")
+        self.btn_import_cred.setToolTip("Select a new JSON credential file to encrypt and load into the vault.")
+        self.btn_import_cred.setStyleSheet("background-color: #2980b9; color: white; font-weight: bold;")
+        self.btn_import_cred.clicked.connect(self._import_credential)
+
+        self.btn_delete_cred = QPushButton("Delete Credential ❌")
+        self.btn_delete_cred.setToolTip("Delete the selected credential from the vault and disk.")
+        self.btn_delete_cred.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold;")
+        self.btn_delete_cred.clicked.connect(self._delete_credential)
+
+        creds_btn_layout.addWidget(self.btn_export_creds)
+        creds_btn_layout.addWidget(self.btn_import_cred)
+        creds_btn_layout.addWidget(self.btn_delete_cred)
+        credentials_layout.addLayout(creds_btn_layout)
+
         # --- Create QTabWidget and Add Tabs ---
         self.tab_widget = QTabWidget()
 
@@ -783,6 +830,7 @@ class SettingsWindow(QWidget):
         scroll_account, layout_account = create_tab_scroll_area()
         layout_account.addWidget(login_groupbox)
         layout_account.addWidget(vault_sync_groupbox)
+        layout_account.addWidget(credentials_groupbox)
         layout_account.addStretch(1)
         self.tab_widget.addTab(scroll_account, "🔐 Account and Vault")
 
@@ -863,6 +911,9 @@ class SettingsWindow(QWidget):
         actions_layout.addWidget(self.update_button)
 
         main_layout.addWidget(actions_widget)
+
+        # Populate credentials list
+        self._refresh_credentials_list()
 
     # ---------------------------------------------------------------------
     # --- Profile Management Methods ---
@@ -1053,6 +1104,9 @@ class SettingsWindow(QWidget):
         self.config_select_combo.clear()
         self.config_name_input.clear()
         self.default_config_editor.clear()
+
+        # Refresh credentials list on reload
+        self._refresh_credentials_list()
 
         QMessageBox.information(
             self, "Settings Reloaded", "Settings reloaded from the vault successfully."
@@ -2052,3 +2106,158 @@ class SettingsWindow(QWidget):
             )
         except Exception as e:
             QMessageBox.critical(self, "Load Error", f"Failed to load vault files: {e}")
+
+    # ---------------------------------------------------------------------
+    # --- Credential Management Methods ---
+    # ---------------------------------------------------------------------
+
+    def _refresh_credentials_list(self):
+        """Clears and repopulates the list widget from self.vault_manager.api_credentials."""
+        self.credentials_list.clear()
+        if self.vault_manager and hasattr(self.vault_manager, "api_credentials"):
+            for key in sorted(self.vault_manager.api_credentials.keys()):
+                self.credentials_list.addItem(key)
+
+    def _export_credentials_to_backup(self):
+        """Exports unencrypted versions of loaded credentials to the backup directory."""
+        if not self.vault_manager:
+            QMessageBox.warning(self, "Export Failed", "Vault manager is not available.")
+            return
+
+        if not hasattr(self.vault_manager, "api_credentials") or not self.vault_manager.api_credentials:
+            QMessageBox.information(
+                self, "Export Credentials", "No credentials loaded in current vault session."
+            )
+            return
+
+        backup_dir = ROOT_DIR / "backup"
+        try:
+            backup_dir.mkdir(parents=True, exist_ok=True)
+            exported_files = []
+
+            # 1. Export all loaded api_credentials from vault memory
+            for key, val in self.vault_manager.api_credentials.items():
+                dest_file = backup_dir / f"{key}.json"
+                with open(dest_file, "w", encoding="utf-8") as f:
+                    json.dump(val, f, indent=4)
+                exported_files.append(dest_file.name)
+
+            # 2. Also copy token.json if present in API_DIR
+            token_src = Path(API_DIR) / "token.json"
+            if token_src.exists():
+                token_dst = backup_dir / "token.json"
+                shutil.copy2(token_src, token_dst)
+                if "token.json" not in exported_files:
+                    exported_files.append("token.json")
+
+            summary_msg = "Successfully exported the following credentials to backup directory:\n\n"
+            summary_msg += "\n".join(f"  • {name}" for name in sorted(exported_files))
+            summary_msg += f"\n\nPath: {backup_dir}"
+            
+            QMessageBox.information(self, "Export Success", summary_msg)
+        except Exception as e:
+            QMessageBox.critical(self, "Export Failed", f"Failed to export credentials: {e}")
+
+    def _import_credential(self):
+        """Selects a new JSON credential file to encrypt and load into the vault."""
+        if not self.vault_manager or not self.vault_manager.secret_key:
+            QMessageBox.warning(self, "Import Failed", "Vault manager or security key is not available.")
+            return
+
+        # 1. Browse for JSON file
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Import JSON Credential File", str(Path.home()), "JSON (*.json)"
+        )
+        if not file_path:
+            return
+
+        # 2. Read and validate JSON content
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                json_content = f.read()
+            # Validate JSON
+            api_data = json.loads(json_content)
+        except Exception as e:
+            QMessageBox.critical(self, "Import Error", f"Failed to read or parse JSON file: {e}")
+            return
+
+        # 3. Prompt user for alias/name
+        default_alias = Path(file_path).stem
+        alias, ok = QInputDialog.getText(
+            self,
+            "Credential Alias",
+            "Enter a name/alias for this credential:",
+            QLineEdit.EchoMode.Normal,
+            default_alias,
+        )
+        if not ok or not alias.strip():
+            return
+        alias = alias.strip()
+
+        # 4. Encrypt and save to API_DIR
+        try:
+            api_dir_path = Path(API_DIR)
+            api_dir_path.mkdir(parents=True, exist_ok=True)
+            enc_file_path = str(api_dir_path / f"{alias}.json.enc")
+            raw_json_path = str(api_dir_path / f"{alias}.json")
+
+            # Encrypt
+            SecureJsonVault = self.vault_manager.SecureJsonVault
+            secret_key = self.vault_manager.secret_key
+            temp_file_vault = SecureJsonVault(secret_key, enc_file_path)
+            temp_file_vault.saveData(json_content)
+
+            # Copy raw json (matching app startup behavior where it auto-encrypts JSONs)
+            with open(raw_json_path, "w", encoding="utf-8") as f:
+                f.write(json_content)
+
+            # 5. Load in-memory
+            self.vault_manager.api_credentials[alias] = api_data
+            self._refresh_credentials_list()
+
+            QMessageBox.information(
+                self, "Success", f"Credential '{alias}' imported and encrypted successfully."
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Import Failed", f"Failed to encrypt and save credential: {e}")
+
+    def _delete_credential(self):
+        """Delete the selected credential from the vault and disk."""
+        selected_items = self.credentials_list.selectedItems()
+        if not selected_items:
+            QMessageBox.warning(self, "Delete Error", "Please select a credential from the list first.")
+            return
+
+        alias = selected_items[0].text()
+
+        reply = QMessageBox.question(
+            self,
+            "Confirm Delete",
+            f"Are you sure you want to delete the credential '{alias}'?\n"
+            "This will delete its encrypted (.json.enc) and unencrypted (.json) source files from the API directory.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            # 1. Delete files on disk
+            enc_file_path = Path(API_DIR) / f"{alias}.json.enc"
+            raw_json_path = Path(API_DIR) / f"{alias}.json"
+
+            if enc_file_path.exists():
+                enc_file_path.unlink()
+            if raw_json_path.exists():
+                raw_json_path.unlink()
+
+            # 2. Remove from session memory
+            if alias in self.vault_manager.api_credentials:
+                del self.vault_manager.api_credentials[alias]
+
+            # 3. Refresh list
+            self._refresh_credentials_list()
+
+            QMessageBox.information(self, "Success", f"Credential '{alias}' deleted successfully.")
+        except Exception as e:
+            QMessageBox.critical(self, "Delete Failed", f"Failed to delete credential: {e}")

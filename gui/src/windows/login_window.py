@@ -1,5 +1,7 @@
 import os
 import json
+import shutil
+from pathlib import Path
 import backend.src.constants as udef
 
 from PySide6.QtCore import Qt, Signal
@@ -194,8 +196,37 @@ class LoginWindow(QWidget):
             return None, None
         return username, password
 
+    def _copy_template_crypto_files(self):
+        """
+        Copies all files from assets/cryptography to ~/.image-toolkit/cryptography/
+        if they do not yet exist in the target directory.
+        """
+        template_dir = Path(udef.TEMPLATE_CRYPTO_DIR)
+        target_dir = Path(udef.CRYPTO_DIR)
+
+        if not template_dir.exists():
+            print(
+                f"[LoginWindow] Warning: Template cryptography directory {template_dir} does not exist."
+            )
+            return
+
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            for item in template_dir.iterdir():
+                if item.is_file():
+                    dest_file = target_dir / item.name
+                    if not dest_file.exists():
+                        shutil.copy2(item, dest_file)
+                        print(
+                            f"[LoginWindow] Copied template crypto file: {item.name} -> {dest_file}"
+                        )
+        except Exception as e:
+            print(f"[LoginWindow] Error copying template cryptography files: {e}")
+
     def attempt_login(self):
         """Tries to authenticate the user against the stored hash."""
+        self._copy_template_crypto_files()
         username, raw_password = self._get_credentials()
         if not username:
             return
@@ -310,6 +341,7 @@ class LoginWindow(QWidget):
         Creates a new account, hashes the password, and saves it to a new
         account-specific vault.
         """
+        self._copy_template_crypto_files()
         username, raw_password = self._get_credentials()
         if not username:
             return
@@ -463,4 +495,3 @@ class LoginWindow(QWidget):
         if self.vault_manager and not self.is_authenticated:
             self.vault_manager.shutdown()
         super().closeEvent(event)
-
