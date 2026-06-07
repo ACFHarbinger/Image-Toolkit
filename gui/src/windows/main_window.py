@@ -219,7 +219,7 @@ class MainWindow(QWidget):
         }
 
         # --- APPLY ACTIVE DEFAULT CONFIGURATIONS ---
-        self._apply_active_tab_configs()
+        # Note: We wait to apply these configs until after startup preferences are applied
 
         # --- Command Selection (built after all_tabs so the list is always in sync) ---
         command_layout = QHBoxLayout()
@@ -245,6 +245,9 @@ class MainWindow(QWidget):
 
         # GUI/UX §2.16 — wire vault preferences to runtime at startup
         self._apply_startup_preferences()
+        
+        # Apply tab configs after global preferences so profile settings take priority
+        self._apply_active_tab_configs()
 
         self.settings_button.clicked.connect(self.open_settings_window)
 
