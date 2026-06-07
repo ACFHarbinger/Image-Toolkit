@@ -21,7 +21,11 @@ _repo_root = os.path.dirname(
 )
 sys.path.insert(0, _repo_root)
 
-from backend.src.anim.bundle_adjust import _bundle_adjust_affine  # noqa: E402
+from backend.src.anim.bundle_adjust import (  # noqa: E402
+    _bundle_adjust_affine,
+    _compute_adaptive_f_scale,
+    _spanning_tree_inlier_filter,
+)
 from conftest import compute_ty_gaps, make_edge  # noqa: E402
 
 
@@ -332,3 +336,148 @@ class TestGNCRobustLoss:
             else:
                 _os.environ["ASP_BA_F_SCALE"] = original
             importlib.reload(_ba)
+
+
+# ---------------------------------------------------------------------------
+# §1.1D — Adaptive GNC f_scale  (S30)
+# ---------------------------------------------------------------------------
+
+
+class TestAdaptiveFScale:
+    """
+    _compute_adaptive_f_scale: data-driven Cauchy loss scale from post-solve
+    edge residuals.  Returns max(floor, 2 × median_residual_px).
+    """
+
+    def test_floor_dominates_for_perfect_solution(self):
+        """A BA solution that perfectly fits all edges → residuals ≈ 0 → floor returned."""
+        dy = 200.0
+        N = 4
+        edges = [make_edge(i, i + 1, dy=dy) for i in range(N - 1)]
+        affines = _bundle_adjust_affine(edges, N, use_affine=False)
+        scale = _compute_adaptive_f_scale(edges, affines, floor=10.0)
+        # Residuals ≈ 0 on a clean chain → 2×0 < floor → floor=10.0
+        assert scale == pytest.approx(10.0, abs=2.0)
+
+    def test_widens_when_solution_does_not_fit_edges(self):
+        """Manual mismatch: affines predict near-zero displacement but edges say 100 px."""
+        N = 3
+        edges = [make_edge(0, 1, dy=100.0), make_edge(1, 2, dy=100.0)]
+        # Deliberately wrong: all frames at canvas row 0 (ty=0)
+        fake_affines = [
+            np.eye(2, 3, dtype=np.float32),  # ty=0
+            np.eye(2, 3, dtype=np.float32),  # ty=0
+            np.eye(2, 3, dtype=np.float32),  # ty=0
+        ]
+        # obs_dy = -100 for both; pred_dy = 0-0 = 0 → residual = 100 px each
+        # adaptive = max(10, 2×100) = 200
+        scale = _compute_adaptive_f_scale(edges, fake_affines, floor=10.0)
+        assert scale > 10.0
+        assert scale == pytest.approx(200.0, abs=5.0)
+
+    def test_empty_edges_returns_floor(self):
+        """No edges → floor returned without error."""
+        scale = _compute_adaptive_f_scale([], [], floor=7.5)
+        assert scale == pytest.approx(7.5)
+
+    def test_floor_respected_for_tiny_residuals(self):
+        """2 × median < floor → floor is returned (no shrinkage)."""
+        N = 3
+        # Perfect edges: after BA the residuals should be near zero
+        edges = [make_edge(0, 1, dy=300.0), make_edge(1, 2, dy=300.0)]
+        affines = _bundle_adjust_affine(edges, N, use_affine=False)
+        # Use a large floor — adaptive should not go below it
+        scale = _compute_adaptive_f_scale(edges, affines, floor=50.0)
+        assert scale >= 50.0
+
+    def test_single_edge_computes_correctly(self):
+        """One edge with a known residual gives the right adaptive scale."""
+        N = 2
+        edges = [make_edge(0, 1, dy=80.0)]
+        # Affines: both frames at ty=0 (100% wrong prediction for dy=80)
+        fake_affines = [np.eye(2, 3, dtype=np.float32)] * N
+        # obs_dy=-80, pred_dy=0 → residual=80; adaptive=max(10, 160)=160
+        scale = _compute_adaptive_f_scale(edges, fake_affines, floor=10.0)
+        assert scale == pytest.approx(160.0, abs=2.0)
+
+
+# ---------------------------------------------------------------------------
+# §1.1B  Spanning-tree consensus pre-filter
+# ---------------------------------------------------------------------------
+
+
+class TestSpanningTreeInlierFilter:
+    """Unit tests for _spanning_tree_inlier_filter (§1.1B).
+
+    The filter builds a max-weight spanning tree and removes edges whose
+    observed dx/dy disagrees with the tree reference by > inlier_threshold.
+    Spanning-tree edges themselves always pass (residual = 0), so the graph
+    stays connected after filtering.
+    """
+
+    def test_all_consistent_chain_edges_returned(self):
+        """Perfect chain: all edges agree with the spanning tree → all kept."""
+        N = 4
+        edges = [
+            make_edge(0, 1, dy=300.0),
+            make_edge(1, 2, dy=300.0),
+            make_edge(2, 3, dy=300.0),
+        ]
+        result = _spanning_tree_inlier_filter(edges, N, inlier_threshold=50.0)
+        assert len(result) == len(edges)
+
+    def test_inconsistent_skip_edge_removed(self):
+        """Skip edge (0→2) with dy inconsistent with chain solution is removed."""
+        N = 3
+        # Chain: 0→1 (dy=300), 1→2 (dy=300) → frame 2 at canvas ty = -600
+        # Skip edge: 0→2 should have dy≈600, but we set it to 200 (wrong by 400px)
+        edges = [
+            make_edge(0, 1, dy=300.0, weight=0.9),
+            make_edge(1, 2, dy=300.0, weight=0.9),
+            make_edge(0, 2, dy=200.0, weight=0.5),  # inconsistent — should be 600
+        ]
+        result = _spanning_tree_inlier_filter(edges, N, inlier_threshold=50.0)
+        # The bad skip edge (0→2, dy=200) should be removed; chain edges kept
+        result_pairs = [(e["i"], e["j"]) for e in result]
+        assert (0, 2) not in result_pairs
+        assert (0, 1) in result_pairs
+        assert (1, 2) in result_pairs
+
+    def test_consistent_skip_edge_kept(self):
+        """Skip edge (0→2) with dy matching chain prediction is retained."""
+        N = 3
+        # Chain dy=300 per step → skip 0→2 should be dy=600
+        edges = [
+            make_edge(0, 1, dy=300.0, weight=0.9),
+            make_edge(1, 2, dy=300.0, weight=0.9),
+            make_edge(0, 2, dy=600.0, weight=0.5),  # consistent
+        ]
+        result = _spanning_tree_inlier_filter(edges, N, inlier_threshold=50.0)
+        result_pairs = [(e["i"], e["j"]) for e in result]
+        assert (0, 2) in result_pairs
+
+    def test_fallback_on_disconnected_graph(self):
+        """Disconnected graph: spanning tree can't reach all frames → original returned."""
+        # Frames {0,1} and {2,3} with no cross-component edge
+        N = 4
+        edges = [make_edge(0, 1, dy=300.0), make_edge(2, 3, dy=300.0)]
+        result = _spanning_tree_inlier_filter(edges, N, inlier_threshold=50.0)
+        assert result is edges or result == edges
+
+    def test_low_weight_bad_edge_does_not_corrupt_spanning_tree(self):
+        """A low-weight bad edge is not chosen for the spanning tree when a
+        high-weight good edge connects the same pair — bad edge is then removed."""
+        N = 3
+        # Two edges between 0→1: high-weight correct, low-weight wrong dy
+        # High-weight (0.95) wins the spanning tree; low-weight (0.1) is non-tree
+        # Non-tree residual vs spanning tree reference: |200 - 300| = 100px > 50 → removed
+        edges = [
+            make_edge(0, 1, dy=300.0, weight=0.95),
+            make_edge(0, 1, dy=200.0, weight=0.10),  # inconsistent copy
+            make_edge(1, 2, dy=300.0, weight=0.90),
+        ]
+        result = _spanning_tree_inlier_filter(edges, N, inlier_threshold=50.0)
+        # Only 2 unique consistent edges should survive (the correct 0→1 and 1→2)
+        # The low-weight wrong 0→1 (dy=200) should be removed
+        result_dy = [abs(float(e["M"][1, 2])) for e in result if e["i"] == 0 and e["j"] == 1]
+        assert all(d == pytest.approx(300.0, abs=1.0) for d in result_dy)

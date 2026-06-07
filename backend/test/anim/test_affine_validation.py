@@ -21,7 +21,12 @@ _repo_root = os.path.dirname(
 )
 sys.path.insert(0, _repo_root)
 
-from backend.src.anim.validation import AffineHealth, _validate_affines  # noqa: E402
+from backend.src.anim.validation import (  # noqa: E402
+    AffineHealth,
+    _validate_affines,
+    _compute_adaptive_min_gap,
+    _compute_adaptive_rot_scale,
+)
 from conftest import make_rotation_affine, make_translation_affine  # noqa: E402
 
 
@@ -232,3 +237,144 @@ class TestAlignmentStats:
         affines = [make_translation_affine(ty=float(ty)) for ty in tys]
         h = _validate_affines(affines)
         assert h.ratio == pytest.approx(477 / 151, abs=0.5)
+
+
+# ---------------------------------------------------------------------------
+# TestAdaptiveMinGap — §0.5C adaptive validation threshold (S36)
+# ---------------------------------------------------------------------------
+
+
+class TestAdaptiveMinGap:
+    """
+    _compute_adaptive_min_gap returns max(20.0, canvas_span / (N × 3)).
+
+    Slow-scroll: span ≈ 200 px, N=10 → 200/(10×3)=6.7 → floor 20.0 returned.
+    Fast-scroll: span = 3000 px, N=10 → 3000/30=100 px returned.
+    Dominant axis: uses the larger of dy_span and dx_span.
+    """
+
+    def _aff(self, ty: float = 0.0, tx: float = 0.0) -> np.ndarray:
+        a = np.eye(2, 3, dtype=np.float32)
+        a[0, 2] = tx
+        a[1, 2] = ty
+        return a
+
+    def test_slow_scroll_returns_floor(self):
+        """Canvas span 200 px / (10 × 3) = 6.7 → floor 20.0 returned."""
+        affines = [self._aff(ty=float(i * 20)) for i in range(11)]  # 11 frames, span=200
+        result = _compute_adaptive_min_gap(affines)
+        assert result == pytest.approx(20.0)
+
+    def test_fast_scroll_exceeds_fixed_threshold(self):
+        """Canvas span 3000 px, N=10 → 3000/(10×3)=100.0 → adaptive > default 25 px."""
+        # 10 frames: ty = 0, 333, 666, ..., 2997 → span = 2997 px ≈ 3000 px
+        # Use explicit span: first=0, last=3000 with 10 frames total
+        tys = [float(i * (3000 / 9)) for i in range(10)]  # span=3000, N=10
+        affines = [self._aff(ty=ty) for ty in tys]
+        result = _compute_adaptive_min_gap(affines)
+        assert result == pytest.approx(3000.0 / (10 * 3.0), abs=0.1)
+        assert result > 25.0
+
+    def test_single_frame_returns_floor(self):
+        """Degenerate N=1 case: no gaps possible → return floor 20.0."""
+        result = _compute_adaptive_min_gap([self._aff(ty=0.0)])
+        assert result == pytest.approx(20.0)
+
+    def test_dominant_axis_is_max_span(self):
+        """Horizontal scroll (dx >> dy): uses dx_span as canvas_span."""
+        # 10 frames with tx spanning 1500 px, ty spanning 30 px
+        affines = [self._aff(ty=float(i * 3), tx=float(i * 150)) for i in range(11)]
+        result = _compute_adaptive_min_gap(affines)
+        # dx_span=1500, N=11, adaptive=1500/(11×3)=45.45...
+        assert result == pytest.approx(1500.0 / (11 * 3.0), abs=0.1)
+        assert result > 25.0  # exceeds fixed default
+
+    def test_wired_into_pipeline_initial_call(self):
+        """Fast-scroll affines should use adaptive threshold on the first validation call.
+
+        A frame set with span=3000 px (N=10, adaptive_min_gap=100 px) where one
+        pair has a gap of only 30 px should be rejected at the first call, even
+        though 30 px > the fixed 25 px default.  This verifies that the pipeline
+        now applies the content-adaptive threshold rather than the fixed one.
+        """
+        # 10 frames at ~300 px apart, except frames 5-6 which are only 30 px apart
+        tys = [float(i * 300) for i in range(10)]
+        tys[6] = tys[5] + 30.0  # near-duplicate pair
+        affines = [self._aff(ty=ty) for ty in tys]
+        adaptive = _compute_adaptive_min_gap(affines)
+        assert adaptive > 25.0, "adaptive threshold should exceed fixed default for fast scroll"
+        health = _validate_affines(affines, min_step=adaptive)
+        # The 30 px gap is below the adaptive threshold → validation fails
+        assert not health.valid
+        assert "min_gap" in health.reason
+
+
+# ---------------------------------------------------------------------------
+# §0.5D — Adaptive rotation/scale thresholds
+# ---------------------------------------------------------------------------
+
+
+class TestAdaptiveRotScale:
+    """
+    _compute_adaptive_rot_scale returns (max_rotation, max_scale_dev).
+
+    Consistent rotation/scale (σ < 0.02) → loose thresholds (0.15).
+    Inconsistent rotation/scale (σ ≥ 0.02) → tight thresholds (0.10).
+    """
+
+    def _rot_affine(self, rot: float, ty: float = 0.0) -> np.ndarray:
+        """Affine with explicit off-diagonal rotation element and translation ty."""
+        a = np.eye(2, 3, dtype=np.float32)
+        a[0, 1] = rot
+        a[1, 0] = -rot
+        a[1, 2] = ty
+        return a
+
+    def _sc_affine(self, scale_dev: float, ty: float = 0.0) -> np.ndarray:
+        """Affine with diagonal scale deviation from 1.0."""
+        a = np.eye(2, 3, dtype=np.float32)
+        a[0, 0] = 1.0 + scale_dev
+        a[1, 1] = 1.0 + scale_dev
+        a[1, 2] = ty
+        return a
+
+    def test_consistent_rotation_returns_loose_threshold(self):
+        """All frames with near-identical rotation → σ≈0 → loose threshold 0.15 returned."""
+        affines = [self._rot_affine(rot=0.111, ty=float(i * 200)) for i in range(6)]
+        max_rot, max_sc = _compute_adaptive_rot_scale(affines)
+        assert max_rot == pytest.approx(0.15), (
+            "Consistent rotation should yield loose threshold 0.15"
+        )
+
+    def test_inconsistent_rotation_returns_tight_threshold(self):
+        """Varying per-frame rotation (σ > 0.02) → tight threshold 0.10 returned."""
+        rots = [0.0, 0.05, 0.0, 0.10, 0.0, 0.08]  # std ≈ 0.04
+        affines = [self._rot_affine(rot=r, ty=float(i * 200)) for i, r in enumerate(rots)]
+        max_rot, _ = _compute_adaptive_rot_scale(affines)
+        assert max_rot == pytest.approx(0.10), (
+            "Inconsistent rotation should yield tight threshold 0.10"
+        )
+
+    def test_consistent_scale_returns_loose_threshold(self):
+        """All frames with near-identical scale deviation → loose threshold 0.15 returned."""
+        affines = [self._sc_affine(scale_dev=0.12, ty=float(i * 200)) for i in range(6)]
+        _, max_sc = _compute_adaptive_rot_scale(affines)
+        assert max_sc == pytest.approx(0.15), (
+            "Consistent scale should yield loose threshold 0.15"
+        )
+
+    def test_inconsistent_scale_returns_tight_threshold(self):
+        """Varying per-frame scale deviation (σ > 0.02) → tight threshold 0.10 returned."""
+        devs = [0.0, 0.05, 0.0, 0.10, 0.0, 0.08]  # std ≈ 0.04
+        affines = [self._sc_affine(scale_dev=d, ty=float(i * 200)) for i, d in enumerate(devs)]
+        _, max_sc = _compute_adaptive_rot_scale(affines)
+        assert max_sc == pytest.approx(0.10), (
+            "Inconsistent scale should yield tight threshold 0.10"
+        )
+
+    def test_single_frame_returns_tight_defaults(self):
+        """N=1 edge case: cannot compute std → return tight defaults (0.10, 0.10)."""
+        affines = [self._rot_affine(rot=0.111)]
+        max_rot, max_sc = _compute_adaptive_rot_scale(affines)
+        assert max_rot == pytest.approx(0.10)
+        assert max_sc == pytest.approx(0.10)

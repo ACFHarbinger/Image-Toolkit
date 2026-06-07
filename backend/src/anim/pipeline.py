@@ -27,20 +27,27 @@ import torch
 from PIL import Image
 
 from .bundle_adjust import _bundle_adjust_affine
-from .validation import _validate_affines
+from .validation import _validate_affines, _compute_adaptive_min_gap, _compute_adaptive_rot_scale
 from .canvas import (
     _compute_canvas,
     _crop_to_valid,
+    _detect_scroll_axis,
     _load_frames,
     _normalise_widths,
+    _panorama_stitch_fallback,
     _scan_stitch_fallback,
+    _telea_fill_gaps,
     find_optimal_sequence,
 )
 from .compositing import _composite_foreground
 from backend.src.constants import (
+    ADAPTIVE_MIN_DISP_FRAC,
+    HIGH_CONF_EDGE_THRESH,
     LAPLACIAN_BANDS,
     MATCH_EDGE_CROP,
     MIN_EXPECTED_STEP,
+    NEAR_DUP_LUMA_THRESH,
+    STATIC_EDGE_MIN_DISP_PX,
 )
 from .ecc import _ecc_refine
 from .masking import _compute_fg_masks
@@ -139,6 +146,178 @@ try:
 except ImportError:
     _SRSTITCHER_OK = False
 
+# §1.9C — When True the Stage-2 scans_frames snapshot is omitted; SCANS/PANORAMA
+# fallbacks reload from image_paths on demand.  Saves ~87 MB for 14-frame 1080p.
+_SCANS_RELOAD = os.environ.get("ASP_SCANS_RELOAD", "0") != "0"
+
+
+def _reject_static_edges(
+    edges: List[Dict],
+    min_disp_px: float = STATIC_EDGE_MIN_DISP_PX,
+) -> List[Dict]:
+    """§1.2A — Drop edges where |dx| < min_disp_px AND |dy| < min_disp_px.
+
+    Rejects near-zero-2D-displacement matches for ALL edges (adjacent and
+    skip-frame).  When such edges survive into bundle adjustment they anchor
+    two frames at essentially the same canvas position, corrupting the global
+    translation estimate for the rest of the sequence.
+
+    A match is kept if EITHER axis displacement meets or exceeds the threshold,
+    so valid diagonal-scroll edges (large |dx|, small |dy|) are preserved.
+    """
+    return [
+        e for e in edges
+        if abs(float(e["M"][0, 2])) >= min_disp_px
+        or abs(float(e["M"][1, 2])) >= min_disp_px
+    ]
+
+
+def _compute_adaptive_min_disp(edges: List[Dict]) -> float:
+    """§1.2C — Content-adaptive minimum displacement threshold.
+
+    Estimates the expected inter-frame step from the median of adjacent-edge
+    displacements on the dominant scroll axis and returns
+    ``max(STATIC_EDGE_MIN_DISP_PX, ADAPTIVE_MIN_DISP_FRAC * expected_step)``.
+
+    For typical scroll sequences the floor dominates (step ≤ 500 px → 10% ≤
+    50 px).  For high-resolution or fast-scroll content the adaptive value
+    exceeds the floor and provides proportionally stronger rejection (e.g.,
+    1 000 px/frame → threshold 100 px instead of 50 px).
+    """
+    adj_edges = [e for e in edges if e["j"] == e["i"] + 1]
+    if not adj_edges:
+        return float(STATIC_EDGE_MIN_DISP_PX)
+
+    adx = np.array([abs(float(e["M"][0, 2])) for e in adj_edges])
+    ady = np.array([abs(float(e["M"][1, 2])) for e in adj_edges])
+    disps = adx if float(np.median(adx)) >= float(np.median(ady)) else ady
+
+    expected_step = float(np.median(disps))
+    return max(float(STATIC_EDGE_MIN_DISP_PX), ADAPTIVE_MIN_DISP_FRAC * expected_step)
+
+
+def _filter_high_conf_edges(
+    edges: List[Dict],
+    min_weight: float = HIGH_CONF_EDGE_THRESH,
+) -> List[Dict]:
+    """§2.9C — Keep only edges whose match weight meets the high-confidence floor.
+
+    LoFTR edges typically have ``weight`` in [0.7, 0.95]; template-match and
+    phase-correlation fallbacks land in [0.15, 0.55].  When bundle adjustment
+    produces a bad ratio (one outlier edge pulling frames together), filtering
+    to high-confidence edges removes the low-quality fallback edges that are
+    most likely to be wrong.
+
+    Used as a pre-check before the existing Retry-1 (adjacent-only) path: if
+    at least ``N-1`` high-confidence edges survive, re-solve the bundle.  If
+    fewer survive, fall through to Retry 1 unchanged — no information is lost.
+    """
+    return [e for e in edges if float(e.get("weight", 0.0)) >= min_weight]
+
+
+def _spatial_dedup_frames(
+    frames: List[np.ndarray],
+    scans_frames: List[np.ndarray],
+    bg_masks: List[np.ndarray],
+    image_paths: List[str],
+    edges: List[dict],
+    min_displacement_px: float,
+) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[str], List[dict], int]:
+    """One pass of spatial near-static frame dedup (§1.9A).
+
+    Identifies adjacent frames (j = i+1 in current edge list) whose
+    measured displacement is below ``min_displacement_px`` on the dominant
+    scroll axis and removes them.  ``scans_frames`` is kept synchronised
+    with ``frames`` so every SCANS fallback path uses the same frame
+    subset as the main compositing branch — eliminating the desync
+    that previously caused the fallback to receive near-duplicate frames
+    the compositor had already discarded.
+
+    Returns ``(frames, scans_frames, bg_masks, image_paths, edges, n_dropped)``.
+    When ``n_dropped == 0`` all lists are returned unchanged (no allocation).
+    """
+    adj_m: dict = {e["j"]: e for e in edges if e["j"] == e["i"] + 1}
+    if not adj_m:
+        return frames, scans_frames, bg_masks, image_paths, edges, 0
+
+    adx = [abs(float(e["M"][0, 2])) for e in adj_m.values()]
+    ady = [abs(float(e["M"][1, 2])) for e in adj_m.values()]
+    spa_axis = 0 if float(np.median(adx)) > float(np.median(ady)) else 1
+
+    drop: set = set()
+    for jj in sorted(adj_m):
+        ee = adj_m[jj]
+        if ee["i"] in drop:
+            continue
+        if abs(float(ee["M"][spa_axis, 2])) < min_displacement_px:
+            drop.add(jj)
+
+    if not drop:
+        return frames, scans_frames, bg_masks, image_paths, edges, 0
+
+    N = len(frames)
+    keep_idx = [i for i in range(N) if i not in drop]
+    o2n: dict = {old: new for new, old in enumerate(keep_idx)}
+    new_edges = [
+        {**e, "i": o2n[e["i"]], "j": o2n[e["j"]]}
+        for e in edges
+        if e["i"] not in drop and e["j"] not in drop
+    ]
+    return (
+        [frames[i] for i in keep_idx],
+        [scans_frames[i] for i in keep_idx] if scans_frames else [],  # §1.9A/§1.9C
+        [bg_masks[i] for i in keep_idx],
+        [image_paths[i] for i in keep_idx],
+        new_edges,
+        len(drop),
+    )
+
+
+def _reload_scans_frames(paths: List[str]) -> List[np.ndarray]:
+    """§1.9C: Reload and width-normalise original frames from disk on demand.
+
+    Called only when a SCANS/PANORAMA fallback actually fires and
+    ``_SCANS_RELOAD=True``, so the Stage-2 snapshot allocation is avoided for
+    the common (success) path.  ``paths`` is already synchronised with the
+    live frame list by §1.9A spatial dedup, so the reloaded set matches what
+    the pipeline was working with when it failed.
+    """
+    loaded = _load_frames(paths)
+    if not loaded:
+        return []
+    return _normalise_widths(loaded)
+
+
+def _compute_row_coverage(
+    affines: list,
+    frames: list,
+    canvas_h: int,
+) -> tuple:
+    """
+    Compute per-row frame coverage for the multi-frame canvas coverage gate.
+
+    Returns
+    -------
+    (row_cov, pct_multi, median_cov) where:
+      row_cov    : (canvas_h,) int32 — number of frames covering each row
+      pct_multi  : fraction of content rows with ≥2-frame coverage (0–1)
+      median_cov : median coverage among content rows
+    """
+    row_cov = np.zeros(canvas_h, dtype=np.int32)
+    for _aff, _frame in zip(affines, frames):
+        _r0 = max(0, int(round(float(_aff[1, 2]))))
+        _r1 = min(canvas_h, _r0 + _frame.shape[0])
+        if _r1 > _r0:
+            row_cov[_r0:_r1] += 1
+    content_rows = row_cov > 0
+    n_content = int(content_rows.sum())
+    if n_content == 0:
+        return row_cov, 0.0, 0.0
+    n_multi = int((row_cov[content_rows] >= 2).sum())
+    pct_multi = n_multi / n_content
+    median_cov = float(np.median(row_cov[content_rows]))
+    return row_cov, pct_multi, median_cov
+
 
 class AnimeStitchPipeline:
     """
@@ -210,6 +389,9 @@ class AnimeStitchPipeline:
         self.mfsr_use_prior = mfsr_use_prior
         self.mfsr_use_diffusion = mfsr_use_diffusion
 
+        # §1.5D: seam path cache shared across run() invocations on the same frame set
+        self._seam_path_cache: Dict = {}
+
         # Lazy-loaded model instances (only allocated if the flag is True)
         self._basic: Optional["BaSiCWrapper"] = None
         self._baselines: Optional[List[float]] = None
@@ -238,6 +420,13 @@ class AnimeStitchPipeline:
         Separated from ``run()`` so the progress-aware subclass can call it
         after its overridden ``_pairwise_match``.
         """
+        # ── §1.2A+C: Pre-filter static edges (adaptive threshold) ───────────
+        # §1.2C: derive content-adaptive threshold before §1.2A rejection so
+        # that high-resolution / fast-scroll sequences apply a proportionally
+        # higher floor (10 % of median adjacent step, min STATIC_EDGE_MIN_DISP_PX).
+        _min_disp = _compute_adaptive_min_disp(edges)
+        edges = _reject_static_edges(edges, min_disp_px=_min_disp)
+
         # ── Geometric Consistency Filter ─────────────────────────────────────
         if len(edges) > 0:
             adj_map: Dict[int, Tuple[float, float]] = {}
@@ -513,9 +702,9 @@ class AnimeStitchPipeline:
         # ── Stage 2: Width normalisation ─────────────────────────────────────
         frames = _normalise_widths(frames)
         H, W = frames[0].shape[:2]
-        scans_frames = list(
-            frames
-        )  # snapshot before ML corrections — used for SCANS fallback
+        scans_frames = (
+            [] if _SCANS_RELOAD else list(frames)
+        )  # §1.9C: omit snapshot when reload-on-demand is enabled
         logger.info(f"[Stitch] Stage 2 complete: all frames at {W}×{H}.")
 
         # ── Stage 3: BaSiC photometric correction ────────────────────────────
@@ -669,7 +858,7 @@ class AnimeStitchPipeline:
                     _prev_kept = _fi
                     continue
                 diff = float(np.abs(_la - _lb).mean())
-                if diff < 3.0:
+                if diff < NEAR_DUP_LUMA_THRESH:
                     keep[_fi] = False
                     logger.debug(
                         f"[Stitch]   Dedup: frame {_fi} ≈ frame {_prev_kept} "
@@ -680,7 +869,7 @@ class AnimeStitchPipeline:
             if not all(keep):
                 keep_idx = [i for i, k in enumerate(keep) if k]
                 frames = [frames[i] for i in keep_idx]
-                scans_frames = [scans_frames[i] for i in keep_idx]
+                scans_frames = [scans_frames[i] for i in keep_idx] if scans_frames else []  # §1.9C
                 bg_masks = [bg_masks[i] for i in keep_idx]
                 image_paths = [image_paths[i] for i in keep_idx]
                 N = len(frames)
@@ -689,7 +878,8 @@ class AnimeStitchPipeline:
                     f"removed, {N} remain."
                 )
                 if N < 2:
-                    return _scan_stitch_fallback(scans_frames, output_path)
+                    _sf = scans_frames or _reload_scans_frames(image_paths)
+                    return _scan_stitch_fallback(_sf, output_path)
 
         # ── Stage 5-6: Pairwise matching (+ skip-pair edges) ────────────────
         # ── Matcher selection (P1.4 EfficientLoFTR / P3.2 JamMa) ───────────────
@@ -767,44 +957,26 @@ class AnimeStitchPipeline:
         # loop so chains (A≈B≈C) are resolved in successive passes after
         # re-indexing turns a former skip-edge into an adj-edge.
 
-        _spa_changed = True
         _total_spa_dropped = 0
+        _spa_changed = True
         while _spa_changed:
-            _spa_changed = False
-            _adj_m = {e["j"]: e for e in edges if e["j"] == e["i"] + 1}
-            if not _adj_m:
-                break
-            _adx = [abs(float(e["M"][0, 2])) for e in _adj_m.values()]
-            _ady = [abs(float(e["M"][1, 2])) for e in _adj_m.values()]
-            _spa_axis = 0 if float(np.median(_adx)) > float(np.median(_ady)) else 1
-            _drop: set = set()
-            for _jj in sorted(_adj_m):
-                _ee = _adj_m[_jj]
-                if _ee["i"] in _drop:
-                    continue
-                if abs(float(_ee["M"][_spa_axis, 2])) < SPATIAL_DEDUP_PX:
-                    _drop.add(_jj)
-                    _spa_changed = True
-                    logger.debug(
-                        f"[Stitch]   Spatial dedup: frame {_jj} ≈ frame {_ee['i']} "
-                        f"(d{'x' if _spa_axis == 0 else 'y'}="
-                        f"{float(_ee['M'][_spa_axis, 2]):.1f}px) — dropped."
-                    )
-            if _drop:
-                _total_spa_dropped += len(_drop)
-                _keep_idx = [i for i in range(N) if i not in _drop]
-                frames = [frames[i] for i in _keep_idx]
-                bg_masks = [bg_masks[i] for i in _keep_idx]
-                image_paths = [image_paths[i] for i in _keep_idx]
-                _o2n = {old: new for new, old in enumerate(_keep_idx)}
-                edges = [
-                    {**e, "i": _o2n[e["i"]], "j": _o2n[e["j"]]}
-                    for e in edges
-                    if e["i"] not in _drop and e["j"] not in _drop
-                ]
+            frames, scans_frames, bg_masks, image_paths, edges, _n_dropped = (
+                _spatial_dedup_frames(
+                    frames, scans_frames, bg_masks, image_paths, edges,
+                    SPATIAL_DEDUP_PX,
+                )
+            )
+            _spa_changed = _n_dropped > 0
+            if _n_dropped:
+                _total_spa_dropped += _n_dropped
+                logger.debug(
+                    f"[Stitch]   Spatial dedup pass: {_n_dropped} frame(s) dropped, "
+                    f"{len(frames)} remain."
+                )
                 N = len(frames)
                 if N < 2:
-                    return _scan_stitch_fallback(scans_frames, output_path)
+                    _sf = scans_frames or _reload_scans_frames(image_paths)
+                    return _scan_stitch_fallback(_sf, output_path)
         if _total_spa_dropped:
             logger.debug(
                 f"[Stitch]   Spatial dedup complete: {_total_spa_dropped} frames "
@@ -832,7 +1004,8 @@ class AnimeStitchPipeline:
         logger.info(f"[Stitch] Stages 5-6 complete: {len(edges)} valid edges found.")
         if not edges:
             warnings.warn("[Stitch] No valid edges — falling back to scan stitch.")
-            return _scan_stitch_fallback(scans_frames, output_path)
+            _sf = scans_frames or _reload_scans_frames(image_paths)
+            return _scan_stitch_fallback(_sf, output_path)
 
         # ── Stage 7: Global bundle adjustment ────────────────────────────────
         use_affine_ba = getattr(self, "motion_model", "affine") == "affine"
@@ -843,16 +1016,52 @@ class AnimeStitchPipeline:
         )
 
         # ── Stage 7b: Affine validation gate ─────────────────────────────────
-        health = _validate_affines(affines)
+        # §0.5C: adaptive min_gap — scales with canvas span so fast-scroll
+        # (4K, >400 px/frame) applies a proportionally higher floor than the
+        # fixed 25 px default, while slow-scroll sequences use 20 px.
+        _adaptive_min_gap = _compute_adaptive_min_gap(affines)
+        _adaptive_rot, _adaptive_sc = _compute_adaptive_rot_scale(affines)
+        health = _validate_affines(
+            affines,
+            min_step=_adaptive_min_gap,
+            max_rotation=_adaptive_rot,
+            max_scale_dev=_adaptive_sc,
+        )
         logger.debug(
             f"[Stitch]   Affine health: valid={health.valid}, "
-            f"ratio={health.ratio:.1f}×, min_gap={health.min_gap:.0f}px, "
-            f"max_rot={health.max_rotation:.4f}, scale_dev={health.max_scale_dev:.4f}"
+            f"ratio={health.ratio:.1f}×, min_gap={health.min_gap:.0f}px "
+            f"(adaptive_floor={_adaptive_min_gap:.1f}px), "
+            f"max_rot={health.max_rotation:.4f} (thresh={_adaptive_rot:.2f}), "
+            f"scale_dev={health.max_scale_dev:.4f} (thresh={_adaptive_sc:.2f})"
         )
         if not health.valid:
             logger.debug(
                 f"[Stitch]   Affine health FAILED ({health.reason}); attempting recovery..."
             )
+            # Retry 0: §2.9C — high-confidence-only re-solve (ratio failures only).
+            # Low-confidence TM/PC fallback edges (weight 0.15–0.55) can corrupt BA
+            # when a single bad edge pulls two frames together → inflated ratio.
+            # Filter to LoFTR-quality edges (weight ≥ HIGH_CONF_EDGE_THRESH) and
+            # re-solve if enough survive.  Falls through to Retry 1 if not.
+            if health.reason.startswith("ratio="):
+                _hc_edges = _filter_high_conf_edges(edges)
+                if len(_hc_edges) >= N - 1:
+                    _affines_r0 = _bundle_adjust_affine(
+                        _hc_edges, N, use_affine=use_affine_ba
+                    )
+                    _health_r0 = _validate_affines(
+                        _affines_r0,
+                        min_step=_adaptive_min_gap,
+                        max_rotation=_adaptive_rot,
+                        max_scale_dev=_adaptive_sc,
+                    )
+                    logger.debug(
+                        f"[Stitch]   Retry 0 (high-conf edges, {len(_hc_edges)} edges): "
+                        f"valid={_health_r0.valid}, {_health_r0.reason}"
+                    )
+                    if _health_r0.valid:
+                        affines, health = _affines_r0, _health_r0
+
             # Retry 1: consecutive-only bundle — skip edges sometimes corrupt the solution
             _adj_only = [e for e in edges if e["j"] == e["i"] + 1]
             if len(_adj_only) >= N - 1:
@@ -963,11 +1172,21 @@ class AnimeStitchPipeline:
                         )
                         affines, health = _seq, health_r3
             if not health.valid:
+                # §1.3B: PANORAMA stitcher handles scale/rotation that
+                # translation-only validation rejects; try before SCANS.
+                try:
+                    _sf = scans_frames or _reload_scans_frames(image_paths)
+                    return _panorama_stitch_fallback(_sf, output_path)
+                except Exception as _pano_e:
+                    logger.info(
+                        f"[Stitch]   PANORAMA fallback failed ({_pano_e}); using SCANS."
+                    )
                 warnings.warn(
                     f"[Stitch] Affine validation FAILED ({health.reason}) after retries. "
                     f"Falling back to SCANS stitch."
                 )
-                return _scan_stitch_fallback(scans_frames, output_path)
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
 
         # ── Stage 8: Sub-pixel refinement ────────────────────────────────────
         # P2.1 — SEA-RAFT replaces ECC when available.  ECC fails on flat anime
@@ -1040,6 +1259,18 @@ class AnimeStitchPipeline:
             f"canvas {canvas_w}×{canvas_h}."
         )
 
+        # §3.14 — Scroll axis classification (logged; horizontal → SCANS fallback).
+        # Compositing assumes vertical strips; horizontal scroll produces garbled output
+        # without a full horizontal-strip compositing mode (not yet implemented).
+        scroll_axis = _detect_scroll_axis(affines)
+        logger.info(f"[Stitch] Stage 9.5: scroll axis = '{scroll_axis}'.")
+        if scroll_axis == "horizontal":
+            logger.info(
+                "[Stitch] Horizontal scroll (tx_range >> ty_range) — vertical-strip "
+                "compositing not applicable; falling back to SCANS."
+            )
+            return _scan_stitch_fallback(scans_frames, output_path)
+
         # P1.3 — Compute per-frame matching confidence for weighted median (W3).
         # Each frame's confidence = the maximum edge weight of its adjacent edges.
         # LoFTR edges have weight ~0.9; TM/PC fallbacks have 0.15–0.55.
@@ -1053,17 +1284,17 @@ class AnimeStitchPipeline:
         _frame_confs = np.clip(_frame_confs, 0.0, 1.0)
 
         # ── Stage 9.5: Alignment stability gate ─────────────────────────────
-        # Detect scenes with significant 2D / diagonal camera motion where the
-        # translation-only canvas model breaks down.  Large horizontal step
-        # variation (75th-pct |dx| > 50px) signals that LoFTR matched frames
-        # across inconsistent horizontal offsets, producing a canvas where the
-        # temporal median background plate is incoherent.  Falling back to SCANS
-        # on the width-normalised frames avoids the compositing artefacts that
-        # result from trying to register an oscillating/diagonal pan.
+        # Log severe 2D motion but only abort at a very high threshold — the
+        # render gate (in the calling benchmark) uses a SCANS-relative comparison
+        # and catches genuinely degraded composites regardless of motion pattern.
+        # Hard-abort threshold raised to 200px (was 50px); scenes with horizontal
+        # drift up to ~2 frame-widths can still produce acceptable composites.
+        # Override: ASP_ALIGN_GATE_DX env var (default 200; set to 50 to restore
+        # the old strict behaviour; set to 9999 to disable entirely).
         try:
-            _align_dx_limit = float(os.environ.get("ASP_ALIGN_GATE_DX", "50"))
+            _align_dx_limit = float(os.environ.get("ASP_ALIGN_GATE_DX", "200"))
         except ValueError:
-            _align_dx_limit = 50.0
+            _align_dx_limit = 200.0
         _txs_gate = [float(affines[i][0, 2]) for i in range(N)]
         _dx_gate = [abs(_txs_gate[i + 1] - _txs_gate[i]) for i in range(N - 1)]
         if _dx_gate:
@@ -1071,7 +1302,7 @@ class AnimeStitchPipeline:
             if _dx_p75 > _align_dx_limit:
                 logger.info(
                     f"[Stitch] Alignment stability gate: 75th-pct |dx|={_dx_p75:.1f}px "
-                    f"> {_align_dx_limit:.0f}px limit — 2D/diagonal motion detected, "
+                    f"> {_align_dx_limit:.0f}px limit — extreme 2D motion, "
                     f"falling back to SCANS."
                 )
                 return _scan_stitch_fallback(scans_frames, output_path)
@@ -1108,6 +1339,37 @@ class AnimeStitchPipeline:
             confidence_weights=_frame_confs,
         )
         logger.info("[Stitch] Stage 10 complete: temporal render done.")
+
+        # ── Stage 10.5: Multi-frame canvas coverage gate (§0 item 2) ─────────
+        # For each canvas row count how many frames contribute content.
+        # If < ASP_COV_MIN_MULTI_PCT (default 30%) of content rows have ≥2-frame
+        # coverage, the temporal median is effectively "first-frame-wins" across
+        # the entire canvas — it cannot suppress animation ghosting.  Composite
+        # on such a canvas would amplify ghosting rather than remove it.
+        # Conservative default (30%) avoids false positives while catching truly
+        # degenerate selections (e.g., 2 widely-spaced frames in a tall canvas).
+        _row_cov, _pct_cov_multi, _cov_median = _compute_row_coverage(
+            affines, frames, canvas_h
+        )
+        _n_cov_total = int((_row_cov > 0).sum())
+        _n_cov_multi = int((_row_cov[_row_cov > 0] >= 2).sum()) if _n_cov_total > 0 else 0
+        logger.info(
+            f"[Stitch] Stage 10.5: coverage — "
+            f"{_n_cov_multi}/{_n_cov_total} rows ({_pct_cov_multi:.0%}) "
+            f"have ≥2-frame coverage; median={_cov_median:.1f}"
+        )
+        if _n_cov_total > 0:
+            try:
+                _cov_min_pct = float(os.environ.get("ASP_COV_MIN_MULTI_PCT", "0.30"))
+            except ValueError:
+                _cov_min_pct = 0.30
+            if _pct_cov_multi < _cov_min_pct:
+                logger.info(
+                    f"[Stitch] Stage 10.5: coverage gate — {_pct_cov_multi:.0%} < "
+                    f"{_cov_min_pct:.0%} threshold, temporal median insufficient "
+                    f"for deghosting → SCANS fallback."
+                )
+                return _scan_stitch_fallback(scans_frames, output_path)
 
         # ── Optional: MFSR super-resolution pass ─────────────────────────────
         # P1.7 — Auto-activate MFSR for low-sharpness canvas (W1 fix).
@@ -1177,7 +1439,9 @@ class AnimeStitchPipeline:
         # ── Stage 11: Foreground composite ──────────────────────────────────
         if self.composite_fg and self.use_birefnet:
             canvas = _composite_foreground(
-                [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks
+                [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks,
+                frame_keys=tuple(image_paths),
+                seam_path_cache=self._seam_path_cache,
             )
             logger.info("[Stitch] Stage 11 complete: foreground composited.")
 
@@ -1318,8 +1582,15 @@ class AnimeStitchPipeline:
                 logger.info("[Stitch]   Inpainting complete.")
             except Exception as _e:
                 logger.info(
-                    f"[Stitch]   Inpainting failed ({_e}); keeping canvas as-is."
+                    f"[Stitch]   Diffusion inpainting failed ({_e}); trying TELEA fallback."
                 )
+                try:
+                    canvas = _telea_fill_gaps(canvas, _gap_mask)
+                    logger.info("[Stitch]   TELEA border fill complete (diffusion fallback).")
+                except Exception as _telea_e:
+                    logger.info(
+                        f"[Stitch]   TELEA fallback also failed ({_telea_e}); keeping canvas as-is."
+                    )
 
         # ── Optional: Real-ESRGAN anime_6B super-resolution (P2.2) ──────────
         if self.sr_mode and _SR_OK:
@@ -1525,9 +1796,13 @@ class AnimeStitchPipeline:
         frames: List[np.ndarray],
         affines: List[np.ndarray],
         bg_masks: List[Optional[np.ndarray]],
+        frame_keys: Optional[Tuple[str, ...]] = None,
+        seam_path_cache: Optional[Dict] = None,
     ) -> np.ndarray:
         return _composite_foreground(
-            warped_corr, warped_fgs, canvas, H, W, frames, affines, bg_masks
+            warped_corr, warped_fgs, canvas, H, W, frames, affines, bg_masks,
+            frame_keys=frame_keys,
+            seam_path_cache=seam_path_cache,
         )
 
     def _crop_to_valid(self, canvas: np.ndarray, valid_mask: np.ndarray) -> np.ndarray:
@@ -1555,4 +1830,11 @@ class AnimeStitchPipeline:
         )
 
 
-__all__ = ["AnimeStitchPipeline"]
+__all__ = [
+    "AnimeStitchPipeline",
+    "_spatial_dedup_frames",
+    "_reject_static_edges",
+    "_compute_adaptive_min_disp",
+    "_filter_high_conf_edges",
+    "_reload_scans_frames",
+]

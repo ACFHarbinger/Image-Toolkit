@@ -1,0 +1,201 @@
+"""
+§1.8A: TOML-based ASP pipeline configuration loader.
+
+Loads ``asp_config.toml`` from the current working directory (or a path
+supplied by the caller).  Any key present in the TOML file is exported as an
+environment variable (via ``os.environ.setdefault``), so all downstream
+``os.environ.get`` calls in pipeline modules pick up the value automatically.
+Existing env-var values always win over the config file.
+
+Usage::
+
+    from backend.src.anim.config import load_asp_config
+    load_asp_config()  # reads asp_config.toml if present in cwd
+
+Example ``asp_config.toml``::
+
+    [frame_selection]
+    ASP_NEAR_DUP_LUMA = 5.0
+    ASP_HOLD_THRESHOLD = 0.03
+
+    [compositing]
+    ASP_SP_SOFT_PX = 6
+    ASP_GATE_GHOST_FLOOR = 40.0
+    ASP_POISSON_SEAM = 0
+
+    [pipeline]
+    ASP_COV_MIN_MULTI_PCT = 0.30
+
+All keys are optional; unrecognised keys are silently accepted (forwarded as
+env vars).  Values must be numeric (int/float) or boolean — TOML strings are
+forwarded as-is.
+"""
+
+from __future__ import annotations
+
+import os
+import tomllib
+import warnings
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+__all__ = ["load_asp_config", "validate_asp_config"]
+
+_DEFAULT_CONFIG_NAME = "asp_config.toml"
+
+# §1.8B — Schema for known ASP env-var keys.
+# Tuple: (expected_type, min_val, max_val, description)
+# min_val / max_val are None when the bound is open.
+_CONFIG_SCHEMA: Dict[str, Tuple] = {
+    "ASP_HOLD_THRESHOLD":      (float, 0.0,  1.0,   "MAD hold-detection threshold [0, 1]"),
+    "ASP_NEAR_DUP_LUMA":       (float, 0.0,  255.0, "Near-dup luma floor (luma units 0–255)"),
+    "ASP_COV_MIN_MULTI_PCT":   (float, 0.0,  1.0,   "Min multi-frame canvas coverage [0, 1]"),
+    "ASP_SP_SOFT_PX":          (int,   0,    None,  "Single-pose feather half-width (px, 0=off)"),
+    "ASP_GATE_GHOST_FLOOR":    (float, 0.0,  None,  "Ghost gate absolute floor (luma units)"),
+    "ASP_POISSON_SEAM":        (int,   0,    1,     "Enable Poisson seam blend (0 or 1)"),
+    "ASP_TOONCRAFTER_SEAM":    (int,   0,    1,     "Enable ToonCrafter seam fill (0 or 1)"),
+    "ASP_SCANS_RELOAD":        (int,   0,    1,     "Reload SCANS frames on demand (0 or 1)"),
+    "ASP_TEMPORAL_VAR_THRESH": (float, 0.0,  None,  "Temporal variance pre-filter threshold"),
+    "ASP_HIGH_HOLD_RESPONSE":  (float, 0.0,  1.0,   "Phase-corr response floor for hold merge"),
+    "ASP_BA_F_SCALE":          (float, 0.01, None,  "GNC Cauchy f_scale for bundle adjustment"),
+    "ASP_POSE_WINDOW_PX":      (int,   0,    None,  "DINOv2 pose-selection window (px, 0=off)"),
+    "ASP_SGM_PROXY":           (int,   0,    1,     "Enable SLIC SGM flow proxy (0 or 1)"),
+    "ASP_TWO_CHANNEL_SELECT":  (int,   0,    1,     "Enable BiRefNet two-channel selection (0/1)"),
+    "ASP_HOLD_DHASH_THRESH":   (int,   0,    64,    "dHash Hamming threshold for hold detection (0=off)"),
+    "ASP_MULTISCALE_GAIN":     (int,   0,    1,     "Enable multi-scale spatial gain map (0 or 1)"),
+    "ASP_SIMILARITY_MODE":     (int,   0,    1,     "Use similarity (scale+rot+tx) instead of translation-only matching (0 or 1)"),
+    "ASP_HISTOGRAM_MATCH":     (int,   0,    1,     "Enable CDF histogram matching for bg normalisation (0 or 1)"),
+}
+
+
+def validate_asp_config(
+    config: Dict[str, Any],
+    *,
+    strict: bool = False,
+) -> List[str]:
+    """§1.8B: Validate a flat ASP config dict against ``_CONFIG_SCHEMA``.
+
+    Parameters
+    ----------
+    config:
+        Flat mapping of ASP key → value (as returned by :func:`load_asp_config`).
+    strict:
+        When *True*, raises :exc:`ValueError` listing all violations instead of
+        returning them.  Use in CI/scripting contexts where a misconfigured
+        experiment should abort immediately.
+
+    Returns
+    -------
+    list[str]
+        Violation messages.  Empty list means the config is valid.
+
+    Notes
+    -----
+    *Unknown* keys (not in ``_CONFIG_SCHEMA``) emit a :class:`UserWarning` but
+    are not counted as violations — forward-compatibility is preserved so that
+    configs written for a newer pipeline version still load on an older one.
+
+    TOML integers are accepted where *float* is expected (TOML does not
+    distinguish ``0`` from ``0.0`` at the application level).
+    """
+    violations: List[str] = []
+
+    for key, val in config.items():
+        if key not in _CONFIG_SCHEMA:
+            warnings.warn(
+                f"[ASP config] Unknown key {key!r} — not in schema; forwarded as-is.",
+                UserWarning,
+                stacklevel=2,
+            )
+            continue
+
+        expected_type, lo, hi, desc = _CONFIG_SCHEMA[key]
+
+        # Allow int where float is expected (TOML integers → Python int)
+        is_type_ok = isinstance(val, expected_type) or (
+            expected_type is float and isinstance(val, int)
+        )
+        if not is_type_ok:
+            violations.append(
+                f"{key}: expected {expected_type.__name__}, "
+                f"got {type(val).__name__} ({val!r}). Hint: {desc}"
+            )
+            continue
+
+        numeric_val = float(val) if expected_type is float else int(val)
+        if lo is not None and numeric_val < lo:
+            violations.append(
+                f"{key}={val!r} is below minimum {lo}. Hint: {desc}"
+            )
+        if hi is not None and numeric_val > hi:
+            violations.append(
+                f"{key}={val!r} exceeds maximum {hi}. Hint: {desc}"
+            )
+
+    if strict and violations:
+        raise ValueError(
+            "ASP config validation failed:\n"
+            + "\n".join(f"  • {v}" for v in violations)
+        )
+
+    return violations
+
+
+def load_asp_config(
+    path: Optional[str] = None,
+    *,
+    override_env: bool = True,
+    validate: bool = False,
+    strict: bool = False,
+) -> Dict[str, Any]:
+    """Load ASP pipeline configuration from a TOML file.
+
+    Parameters
+    ----------
+    path:
+        Path to the TOML file.  Defaults to ``asp_config.toml`` in the
+        current working directory.  If the file does not exist the function
+        returns an empty dict without error.
+    override_env:
+        When *True* (default), each loaded key is written to ``os.environ``
+        via ``setdefault`` so downstream modules see it.  Set to *False* to
+        load values for inspection only, without touching the environment.
+    validate:
+        When *True*, run :func:`validate_asp_config` on the loaded dict before
+        writing env vars.  Invalid keys emit warnings (or raise, if *strict*).
+    strict:
+        Passed to :func:`validate_asp_config` when *validate* is *True*.
+        Raises :exc:`ValueError` on the first batch of violations.
+
+    Returns
+    -------
+    dict
+        Flat mapping of all keys found in the TOML file (sections merged).
+        Empty if the file is absent or contains no section data.
+    """
+    config_path = Path(path) if path is not None else Path(_DEFAULT_CONFIG_NAME)
+    if not config_path.exists():
+        return {}
+
+    with open(config_path, "rb") as fh:
+        raw: Dict[str, Any] = tomllib.load(fh)
+
+    flat: Dict[str, Any] = {}
+    for value in raw.values():
+        if isinstance(value, dict):
+            flat.update(value)
+
+    if not flat:
+        return {}
+
+    if validate:
+        validate_asp_config(flat, strict=strict)
+
+    if override_env:
+        for key, val in flat.items():
+            if isinstance(val, bool):
+                os.environ.setdefault(key, "1" if val else "0")
+            else:
+                os.environ.setdefault(key, str(val))
+
+    return flat

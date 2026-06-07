@@ -22,7 +22,12 @@ _repo_root = os.path.dirname(
 )
 sys.path.insert(0, _repo_root)
 
-from backend.src.anim.pipeline import AnimeStitchPipeline  # noqa: E402
+from backend.src.anim.pipeline import (  # noqa: E402
+    AnimeStitchPipeline,
+    _compute_adaptive_min_disp,
+    _reject_static_edges,
+)
+from backend.src.constants.anim import STATIC_EDGE_MIN_DISP_PX  # noqa: E402
 from conftest import make_edge, make_frame  # noqa: E402
 
 
@@ -343,3 +348,86 @@ class TestNearZeroDyPattern:
         assert abs(float(edge_2_3["M"][1, 2]) - 300.0) < 1.0, (
             f"Edge 2→3 dy should be ~300, got {float(edge_2_3['M'][1,2]):.1f}"
         )
+
+
+# ---------------------------------------------------------------------------
+# _reject_static_edges — §1.2A pre-bundle static edge rejection (S32)
+# ---------------------------------------------------------------------------
+
+
+class TestRejectStaticEdges:
+    """
+    _reject_static_edges(edges, min_disp_px) drops edges where BOTH |dx| and
+    |dy| are below the threshold.  This is distinct from the min-step guard in
+    `_filter_edges`, which only checks the primary axis on adjacent edges.
+    """
+
+    def test_normal_edges_all_kept(self):
+        """Edges with large dy always survive regardless of dx."""
+        edges = [make_edge(i, i + 1, dy=300.0) for i in range(4)]
+        result = _reject_static_edges(edges, min_disp_px=50.0)
+        assert len(result) == 4
+
+    def test_both_axes_below_threshold_rejected(self):
+        """Edge where |dx|=10 AND |dy|=10 — both below 50px — is dropped."""
+        edge = make_edge(0, 1, dx=10.0, dy=10.0)
+        result = _reject_static_edges([edge], min_disp_px=50.0)
+        assert len(result) == 0
+
+    def test_one_axis_above_threshold_kept(self):
+        """Edge where |dy|=10 but |dx|=80 (diagonal scroll) — kept because dx >= 50."""
+        edge = make_edge(0, 1, dx=80.0, dy=10.0)
+        result = _reject_static_edges([edge], min_disp_px=50.0)
+        assert len(result) == 1
+
+    def test_skip_edge_with_small_displacement_rejected(self):
+        """Skip edge (j > i+1) with small 2D displacement is also rejected."""
+        edge = make_edge(0, 3, dx=20.0, dy=30.0)
+        result = _reject_static_edges([edge], min_disp_px=50.0)
+        assert len(result) == 0
+
+    def test_empty_edge_list(self):
+        """Empty input → empty output."""
+        result = _reject_static_edges([], min_disp_px=50.0)
+        assert result == []
+
+
+# ---------------------------------------------------------------------------
+# _compute_adaptive_min_disp — §1.2C adaptive min-step threshold (S34)
+# ---------------------------------------------------------------------------
+
+
+class TestComputeAdaptiveMinDisp:
+    """
+    _compute_adaptive_min_disp(edges) returns
+    max(STATIC_EDGE_MIN_DISP_PX, ADAPTIVE_MIN_DISP_FRAC * median_adjacent_step).
+    The floor (STATIC_EDGE_MIN_DISP_PX=50) dominates for slow-scroll sequences;
+    the adaptive value exceeds it for large-step / high-resolution sequences.
+    """
+
+    def test_floor_dominates_for_small_steps(self):
+        """Steps of 30 px → expected=30, 10 %=3 → floor (50) returned."""
+        edges = [make_edge(i, i + 1, dy=30.0) for i in range(5)]
+        result = _compute_adaptive_min_disp(edges)
+        assert result == pytest.approx(STATIC_EDGE_MIN_DISP_PX)
+
+    def test_adaptive_exceeds_floor_for_large_steps(self):
+        """Steps of 1 000 px → 10 %=100 → 100 returned (above floor 50)."""
+        edges = [make_edge(i, i + 1, dy=1000.0) for i in range(4)]
+        result = _compute_adaptive_min_disp(edges)
+        assert result == pytest.approx(100.0)
+
+    def test_empty_edges_returns_floor(self):
+        """No edges at all → static floor returned."""
+        assert _compute_adaptive_min_disp([]) == pytest.approx(STATIC_EDGE_MIN_DISP_PX)
+
+    def test_dominant_axis_x_selected(self):
+        """Horizontal-scroll sequence (dx >> dy) — x displacements drive the threshold."""
+        edges = [make_edge(i, i + 1, dx=800.0, dy=5.0) for i in range(4)]
+        result = _compute_adaptive_min_disp(edges)
+        assert result == pytest.approx(80.0)
+
+    def test_no_adjacent_edges_returns_floor(self):
+        """Skip edges (j != i+1) are ignored; no adjacent pairs → floor."""
+        edges = [make_edge(0, 3, dy=1000.0), make_edge(1, 4, dy=1000.0)]
+        assert _compute_adaptive_min_disp(edges) == pytest.approx(STATIC_EDGE_MIN_DISP_PX)

@@ -28,6 +28,8 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QFileDialog,
     QInputDialog,
+    QDialog,
+    QDialogButtonBox,
 )
 from backend.src.constants import (
     IMAGE_TOOLKIT_DIR,
@@ -273,6 +275,13 @@ class SettingsWindow(QWidget):
         )
         self.btn_load_profile.clicked.connect(self._load_selected_profile)
 
+        self.btn_use_profile = QPushButton("Use Profile")
+        self.btn_use_profile.setToolTip(
+            "Load the selected profile's settings and apply them to the app immediately"
+        )
+        self.btn_use_profile.setStyleSheet("background-color: #27ae60; color: white;")
+        self.btn_use_profile.clicked.connect(self._use_selected_profile)
+
         self.btn_update_profile = QPushButton("Update Profile")
         self.btn_update_profile.setToolTip(
             "Update the selected profile with the current settings from the UI fields"
@@ -291,6 +300,7 @@ class SettingsWindow(QWidget):
         profile_select_layout.addWidget(QLabel("Profile:"))
         profile_select_layout.addWidget(self.profile_combo, 1)
         profile_select_layout.addWidget(self.btn_load_profile)
+        profile_select_layout.addWidget(self.btn_use_profile)
         profile_select_layout.addWidget(self.btn_update_profile)
         profile_select_layout.addWidget(self.btn_delete_profile)
 
@@ -780,6 +790,7 @@ class SettingsWindow(QWidget):
         self.credentials_list = QListWidget()
         self.credentials_list.setMinimumHeight(120)
         self.credentials_list.setMaximumHeight(200)
+        self.credentials_list.itemDoubleClicked.connect(self._edit_credential)
         credentials_layout.addWidget(self.credentials_list)
 
         creds_btn_layout = QHBoxLayout()
@@ -793,6 +804,11 @@ class SettingsWindow(QWidget):
         self.btn_import_cred.setStyleSheet("background-color: #2980b9; color: white; font-weight: bold;")
         self.btn_import_cred.clicked.connect(self._import_credential)
 
+        self.btn_edit_cred = QPushButton("Edit Credential ✏️")
+        self.btn_edit_cred.setToolTip("View and edit the JSON values of the selected credential.")
+        self.btn_edit_cred.setStyleSheet("background-color: #f39c12; color: white; font-weight: bold;")
+        self.btn_edit_cred.clicked.connect(self._edit_credential)
+
         self.btn_delete_cred = QPushButton("Delete Credential ❌")
         self.btn_delete_cred.setToolTip("Delete the selected credential from the vault and disk.")
         self.btn_delete_cred.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold;")
@@ -800,6 +816,7 @@ class SettingsWindow(QWidget):
 
         creds_btn_layout.addWidget(self.btn_export_creds)
         creds_btn_layout.addWidget(self.btn_import_cred)
+        creds_btn_layout.addWidget(self.btn_edit_cred)
         creds_btn_layout.addWidget(self.btn_delete_cred)
         credentials_layout.addLayout(creds_btn_layout)
 
@@ -1157,6 +1174,35 @@ class SettingsWindow(QWidget):
             "Profile Loaded",
             f"Settings from '{name}' loaded into the form. Click 'Update settings' to apply them to the app.",
         )
+
+    def _use_selected_profile(self):
+        """Loads the selected profile into the UI and applies it immediately."""
+        name = self.profile_combo.currentText()
+        if not name or name not in self.system_profiles:
+            return
+
+        # Load it into UI fields (but skip the QMessageBox)
+        profile_data = self.system_profiles[name]
+
+        theme = profile_data.get("theme", "dark")
+        if theme == "light":
+            self.light_theme_radio.setChecked(True)
+        else:
+            self.dark_theme_radio.setChecked(True)
+
+        saved_configs = profile_data.get("active_tab_configs", {})
+        for tab_name, combo in self.startup_config_combos.items():
+            if tab_name in saved_configs:
+                index = combo.findText(saved_configs[tab_name])
+                if index >= 0:
+                    combo.setCurrentIndex(index)
+                else:
+                    combo.setCurrentIndex(0)
+            else:
+                combo.setCurrentIndex(0)
+
+        # Apply immediately by triggering the update logic
+        self._update_settings_logic()
 
     def _delete_selected_profile(self):
         """Deletes the selected profile."""
@@ -1733,6 +1779,8 @@ class SettingsWindow(QWidget):
                         self.main_window_ref.set_application_theme(selected_theme)
                     if hasattr(self.main_window_ref, "_apply_startup_preferences"):
                         self.main_window_ref._apply_startup_preferences()
+                    if hasattr(self.main_window_ref, "_apply_active_tab_configs"):
+                        self.main_window_ref._apply_active_tab_configs()
                     QMessageBox.information(
                         self, "Success", "Settings updated and saved successfully."
                     )
@@ -2249,6 +2297,84 @@ class SettingsWindow(QWidget):
             )
         except Exception as e:
             QMessageBox.critical(self, "Import Failed", f"Failed to encrypt and save credential: {e}")
+
+    def _edit_credential(self):
+        """Opens a dialog to view, edit, and save the selected credential's JSON."""
+        selected_items = self.credentials_list.selectedItems()
+        if not selected_items:
+            QMessageBox.warning(self, "Edit Error", "Please select a credential from the list first.")
+            return
+
+        alias = selected_items[0].text()
+        if not self.vault_manager or alias not in self.vault_manager.api_credentials:
+            QMessageBox.warning(self, "Edit Error", f"Credential '{alias}' not found in memory.")
+            return
+
+        # Get current data
+        current_data = self.vault_manager.api_credentials[alias]
+        try:
+            current_json_str = json.dumps(current_data, indent=4)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to serialize credential data: {e}")
+            return
+
+        # Create Dialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"Edit Credential - {alias}")
+        dialog.setMinimumSize(500, 400)
+        
+        layout = QVBoxLayout(dialog)
+        
+        info_label = QLabel(f"Editing JSON values for: <b>{alias}</b>")
+        layout.addWidget(info_label)
+        
+        editor = QTextEdit()
+        editor.setPlainText(current_json_str)
+        editor.setStyleSheet("font-family: monospace;")
+        layout.addWidget(editor)
+        
+        # Buttons
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        layout.addWidget(button_box)
+        
+        button_box.accepted.connect(dialog.accept)
+        button_box.rejected.connect(dialog.reject)
+        
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            new_json_str = editor.toPlainText().strip()
+            if not new_json_str:
+                QMessageBox.warning(self, "Validation Error", "Credential JSON cannot be empty.")
+                return
+            
+            try:
+                new_data = json.loads(new_json_str)
+            except json.JSONDecodeError as e:
+                QMessageBox.critical(self, "JSON Error", f"Invalid JSON format. Changes not saved.\n{e}")
+                return
+                
+            # Now save it back
+            try:
+                api_dir_path = Path(API_DIR)
+                api_dir_path.mkdir(parents=True, exist_ok=True)
+                enc_file_path = str(api_dir_path / f"{alias}.json.enc")
+                raw_json_path = str(api_dir_path / f"{alias}.json")
+
+                # Encrypt and save
+                SecureJsonVault = self.vault_manager.SecureJsonVault
+                secret_key = self.vault_manager.secret_key
+                temp_file_vault = SecureJsonVault(secret_key, enc_file_path)
+                temp_file_vault.saveData(new_json_str)
+
+                # Write raw json matching import behavior
+                with open(raw_json_path, "w", encoding="utf-8") as f:
+                    f.write(new_json_str)
+
+                # Update in memory
+                self.vault_manager.api_credentials[alias] = new_data
+                
+                QMessageBox.information(self, "Success", f"Credential '{alias}' updated and saved successfully.")
+            except Exception as e:
+                QMessageBox.critical(self, "Save Error", f"Failed to save credential '{alias}': {e}")
 
     def _delete_credential(self):
         """Delete the selected credential from the vault and disk."""

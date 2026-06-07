@@ -90,6 +90,42 @@ try:
 except ValueError:
     _HOLD_THRESHOLD = 0.025
 
+# §1.2B: Near-duplicate post-filter for the selected frame list.
+# Consecutive selected frames with mean grayscale diff < threshold are
+# collapsed (first of each near-dup run kept; last frame always retained).
+# Default 0.0 = disabled.  Enable with e.g. ASP_NEAR_DUP_LUMA=5.0.
+try:
+    _NEAR_DUP_LUMA = float(os.environ.get("ASP_NEAR_DUP_LUMA", "0.0"))
+except ValueError:
+    _NEAR_DUP_LUMA = 0.0
+
+# §1.11C: Post-hoc hold refinement using phase-correlation response.
+# If phaseCorrelate returns response >= this threshold, the two frames are
+# near-identical (same character cel; MAD-based detection missed them due to
+# MPEG noise), so merge their hold blocks.  Default 0.85.
+# Set ASP_HIGH_HOLD_RESPONSE=0.0 to disable.
+try:
+    _HIGH_HOLD_RESPONSE = float(os.environ.get("ASP_HIGH_HOLD_RESPONSE", "0.85"))
+except ValueError:
+    _HIGH_HOLD_RESPONSE = 0.85
+
+# §1.2D: Temporal variance filter — drops interior frames whose mean per-pixel
+# variance across the (i-1, i, i+1) thumbnail triplet is below this threshold.
+# Thumbnails are in [0, 1] float32.  Default 0.0 = disabled.
+# Suggested value for enabling: 1e-3 (ASP_TEMPORAL_VAR_THRESH=0.001).
+try:
+    _TEMPORAL_VAR_THRESH = float(os.environ.get("ASP_TEMPORAL_VAR_THRESH", "0.0"))
+except ValueError:
+    _TEMPORAL_VAR_THRESH = 0.0
+
+# §3.4A: dHash hold detection — integer Hamming-distance threshold.
+# 0 = disabled (use MAD-based detector).  Typical same-cel distance: 0–2;
+# cross-cel: 5–20.  Enable with ASP_HOLD_DHASH_THRESH=4.
+try:
+    _HOLD_DHASH_THRESHOLD = int(os.environ.get("ASP_HOLD_DHASH_THRESH", "0"))
+except ValueError:
+    _HOLD_DHASH_THRESHOLD = 0
+
 
 # ---------------------------------------------------------------------------
 # Hold block detection
@@ -162,87 +198,259 @@ def _detect_hold_blocks(
 
 
 # ---------------------------------------------------------------------------
-# DINOv2 submodular feature extraction (§3.3)
+# dHash hold detection (§3.4A)
 # ---------------------------------------------------------------------------
 
 
-def _compute_dinov2_features(
+def _compute_dhash(
+    thumb: np.ndarray,
+    hash_size: int = 8,
+) -> np.ndarray:
+    """§3.4A: Difference hash (dHash) of a grayscale thumbnail.
+
+    Resizes *thumb* to (hash_size+1, hash_size) pixels, then binarises the
+    horizontal luminance gradient: column j is set to True when it is brighter
+    than column j-1.  Returns a flat boolean array of ``hash_size²`` bits.
+
+    Accepts float32 thumbnails in [0, 1] or uint8 thumbnails.  Resize uses
+    INTER_AREA which averages out MPEG DCT-block noise before the comparison —
+    the key advantage over MAD (which sees the raw noise).
+
+    Parameters
+    ----------
+    thumb:
+        Grayscale or colour thumbnail array.
+    hash_size:
+        Side length of the hash grid (default 8 → 64-bit hash).
+
+    Returns
+    -------
+    np.ndarray of dtype bool, shape (hash_size²,).
+    """
+    if thumb.dtype != np.uint8:
+        src = np.clip(thumb * 255, 0, 255).astype(np.uint8)
+    else:
+        src = thumb
+    if len(src.shape) == 3:
+        src = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
+    small = cv2.resize(src, (hash_size + 1, hash_size), interpolation=cv2.INTER_AREA)
+    return (small[:, 1:] > small[:, :-1]).flatten()
+
+
+def _detect_hold_blocks_dhash(
     thumbs: List[np.ndarray],
-    device: Optional[str] = None,
-    thumb_size: int = 224,
-    batch_size: int = 16,
-) -> "Optional[np.ndarray]":
+    distance_threshold: int = 4,
+) -> List[int]:
+    """§3.4A: dHash-based animation hold detection.
+
+    More robust to MPEG compression noise than the MAD detector
+    (``_detect_hold_blocks``): the INTER_AREA resize averages DCT block
+    artefacts before the directional comparison, so typical within-hold
+    Hamming distance remains 0–2 even for aggressively-compressed sources
+    where within-hold MAD can exceed the 0.025 default threshold.
+
+    Parameters
+    ----------
+    thumbs:
+        List of (H, W) or (H, W, C) thumbnail arrays.
+    distance_threshold:
+        Maximum Hamming distance (number of differing hash bits) for two
+        consecutive frames to be considered the same animation hold.  When
+        ``distance_threshold <= 0`` every frame starts a new block
+        (equivalent to threshold = 0 for the MAD detector).
+
+    Returns
+    -------
+    List[int] — indices of the first frame of each hold block.  Same return
+    convention as ``_detect_hold_blocks``.
     """
-    Extract DINOv2-ViT-S/14 patch tokens from grayscale thumbnails.
+    N = len(thumbs)
+    if distance_threshold <= 0 or N <= 1:
+        return list(range(N))
 
-    Returns (N, 384) float32 L2-normalised feature matrix, or None if
-    ``torch`` / ``torchvision`` or the DINOv2 weights are unavailable.
+    hashes = [_compute_dhash(t) for t in thumbs]
+    blocks: List[int] = [0]
+    for i in range(1, N):
+        dist = int(np.sum(hashes[i] != hashes[i - 1]))
+        if dist > distance_threshold:
+            blocks.append(i)
+    return blocks
 
-    Features are extracted from the [CLS] token of ``dinov2_vits14``.  Because
-    DINOv2 was trained with self-supervised patch-level objectives rather than
-    class labels, its [CLS] token encodes holistic image appearance including
-    pose and style — making it a far better pose-similarity signal than pixel
-    L1, especially for cel-shaded anime where colour gradients are near-zero
-    (defeating gradient-based metrics) but structural differences are large.
 
-    The facility-location coverage objective used in Pass 2 selects frames that
-    maximise the DINOv2 cosine diversity of the selected set, guaranteeing that
-    animation holds are not double-counted: identical-pose frames collapse to
-    the same point in feature space and only one representative is chosen.
+# ---------------------------------------------------------------------------
+# Phase-correlation response hold refinement (§1.11C)
+# ---------------------------------------------------------------------------
+
+
+def _refine_hold_ids_by_response(
+    hold_ids: List[int],
+    responses: List[float],
+    high_response_threshold: float = 0.85,
+) -> "tuple[List[int], int]":
+    """§1.11C — Post-hoc hold refinement using phase-correlation response.
+
+    After phaseCorrelate runs for all cross-hold pairs, any pair whose response
+    exceeds ``high_response_threshold`` represents near-identical frames that the
+    MAD-based detector split into separate blocks due to MPEG compression noise.
+    This function merges those blocks so that Pass 2 does not treat them as
+    distinct character poses.
+
+    Parameters
+    ----------
+    hold_ids:
+        Per-frame hold block IDs produced by ``_detect_hold_blocks``.
+        Length N (one entry per frame).
+    responses:
+        Phase-correlation response values from step 3.  Length N-1.
+        Within-hold pairs already have response=1.0 (synthetic).
+    high_response_threshold:
+        Pairs with response >= this value are treated as the same cel.
+
+    Returns
+    -------
+    (refined_hold_ids, n_hold_blocks)
     """
-    try:
-        import torch
-        import torchvision.transforms.functional as TF
-    except ImportError:
-        return None
+    N = len(hold_ids)
+    if N < 2 or not responses:
+        return list(hold_ids), len(set(hold_ids))
 
-    if device is None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+    ids = list(hold_ids)
+    for i, resp in enumerate(responses):
+        if i + 1 >= N:
+            break
+        # Only merge blocks that are currently split and have a high response
+        if resp >= high_response_threshold and ids[i] != ids[i + 1]:
+            old_id = ids[i + 1]
+            new_id = ids[i]
+            ids = [new_id if h == old_id else h for h in ids]
 
-    model_key = f"dinov2_vits14_{device}"
-    if model_key not in _DINOV2_CACHE:
-        try:
-            model = torch.hub.load(
-                "facebookresearch/dinov2", "dinov2_vits14", verbose=False
-            )
-            model.eval().to(device)
-            _DINOV2_CACHE[model_key] = model
-        except Exception:
-            _DINOV2_CACHE[model_key] = None
+    # Renumber consecutively preserving first-occurrence order
+    seen: dict = {}
+    counter = 0
+    result: List[int] = []
+    for h in ids:
+        if h not in seen:
+            seen[h] = counter
+            counter += 1
+        result.append(seen[h])
 
-    model = _DINOV2_CACHE.get(model_key)
-    if model is None:
-        return None
+    return result, len(seen)
 
-    import torch
 
-    all_feats: "List[np.ndarray]" = []
-    mean = [0.485, 0.456, 0.406]
-    std = [0.229, 0.224, 0.225]
+# ---------------------------------------------------------------------------
+# Temporal variance filter (§1.2D)
+# ---------------------------------------------------------------------------
 
-    try:
-        for start in range(0, len(thumbs), batch_size):
-            batch_imgs = thumbs[start : start + batch_size]
-            tensors = []
-            for gray in batch_imgs:
-                # Resize to thumb_size × thumb_size, convert gray → RGB
-                resized = cv2.resize(gray, (thumb_size, thumb_size))
-                rgb = np.stack([resized, resized, resized], axis=2)  # (H,W,3) float32
-                t = torch.from_numpy(rgb).permute(2, 0, 1).float()  # (3,H,W)
-                for c in range(3):
-                    t[c] = (t[c] - mean[c]) / std[c]
-                tensors.append(t)
-            batch_t = torch.stack(tensors, dim=0).to(device)  # (B,3,H,W)
-            with torch.no_grad():
-                feats = model(batch_t)  # (B, 384)
-            feats_np = feats.cpu().numpy().astype(np.float32)
-            # L2 normalise each row
-            norms = np.linalg.norm(feats_np, axis=1, keepdims=True).clip(min=1e-8)
-            all_feats.append(feats_np / norms)
-    except Exception:
-        return None
 
-    return np.concatenate(all_feats, axis=0)  # (N, 384)
+def _temporal_variance_filter(
+    thumbs: List[np.ndarray],
+    paths: List[str],
+    sigma_threshold: float = 1e-3,
+) -> "tuple[List[np.ndarray], List[str], int]":
+    """§1.2D — Drop near-static interior frames using temporal variance across triplets.
+
+    For each interior frame *i* (not first or last) compute the mean per-pixel
+    variance across the consecutive thumbnail triplet
+    (thumbs[i-1], thumbs[i], thumbs[i+1]).  Thumbnails are in [0, 1] float32.
+    If the mean variance is below ``sigma_threshold``, the frame contributes no
+    new motion information and is dropped.
+
+    **Why this is different from the other near-dup filters:**
+    - §1.2A / §1.2C operate on displacement edges — they require a non-zero
+      match displacement to detect statics.
+    - §1.2B compares *selected* frames post-selection.
+    - §1.2D acts on the raw thumbnail sequence pre-selection, catching frames
+      where both the camera and the character are stationary, regardless of
+      whether the matching step would later produce a near-zero edge for them.
+
+    First and last frames are always kept to preserve canvas extent.
+
+    Parameters
+    ----------
+    thumbs:
+        Grayscale float32 thumbnails in [0, 1].  Length N.
+    paths:
+        Corresponding frame file paths.  Length N.
+    sigma_threshold:
+        Mean per-pixel variance (in [0, 1]² space) below which a frame is
+        considered static.  Default 1e-3 (approx. std ≈ 0.032, i.e., ~8 lum
+        units of inter-frame noise amplitude).
+
+    Returns
+    -------
+    (filtered_thumbs, filtered_paths, n_dropped)
+    """
+    N = len(thumbs)
+    if N < 3 or sigma_threshold <= 0.0:
+        return list(thumbs), list(paths), 0
+
+    keep = [True] * N
+    for i in range(1, N - 1):
+        a, b, c = thumbs[i - 1], thumbs[i], thumbs[i + 1]
+        h = min(a.shape[0], b.shape[0], c.shape[0])
+        w = min(a.shape[1], b.shape[1], c.shape[1])
+        stack = np.stack([a[:h, :w], b[:h, :w], c[:h, :w]], axis=0)
+        if float(np.mean(np.var(stack, axis=0))) < sigma_threshold:
+            keep[i] = False
+
+    n_dropped = keep.count(False)
+    return (
+        [t for t, k in zip(thumbs, keep) if k],
+        [p for p, k in zip(paths, keep) if k],
+        n_dropped,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Near-duplicate luma post-filter (§1.2B)
+# ---------------------------------------------------------------------------
+
+
+def _near_dup_luma_filter(
+    selected_thumbs: List[np.ndarray],
+    selected_paths: List[str],
+    threshold: float = 5.0,
+) -> List[str]:
+    """
+    §1.2B: Drop consecutive near-duplicate frames from the selected list.
+
+    Compares each consecutive pair in the ALREADY-SELECTED frame list using
+    mean absolute grayscale difference on thumbnail images.  When the diff is
+    below ``threshold`` (luma units, 0–255 scale) the later frame is dropped —
+    it adds negligible new content to the canvas and only introduces noise in
+    bundle adjustment and the temporal median.
+
+    The first frame is always kept.  The last frame is always retained even if
+    it is a near-duplicate of the preceding frame (preserves full canvas extent).
+
+    Set ``threshold=0.0`` to disable (returns ``selected_paths`` unchanged).
+    Default is 5.0 luma units — catches camera steps well below the ~10-luma
+    noise floor while leaving legitimate slow-scroll frames intact.
+    """
+    if threshold <= 0.0 or len(selected_paths) <= 2:
+        return selected_paths
+
+    keep: List[int] = [0]
+    for i in range(1, len(selected_paths)):
+        prev = keep[-1]
+        g_cur = cv2.cvtColor(selected_thumbs[i], cv2.COLOR_BGR2GRAY).astype(np.float32)
+        g_prev = cv2.cvtColor(selected_thumbs[prev], cv2.COLOR_BGR2GRAY).astype(np.float32)
+        # Resize to common dims when thumbnails differ
+        if g_cur.shape != g_prev.shape:
+            h = min(g_cur.shape[0], g_prev.shape[0])
+            w = min(g_cur.shape[1], g_prev.shape[1])
+            g_cur = cv2.resize(g_cur, (w, h))
+            g_prev = cv2.resize(g_prev, (w, h))
+        diff = float(np.abs(g_cur - g_prev).mean())
+        if diff >= threshold:
+            keep.append(i)
+
+    # Always include last frame
+    last = len(selected_paths) - 1
+    if keep[-1] != last:
+        keep.append(last)
+
+    return [selected_paths[i] for i in keep]
 
 
 # ---------------------------------------------------------------------------
@@ -477,6 +685,21 @@ def smart_select_frames(
     # ── 1. Load thumbnails ─────────────────────────────────────────────────
     thumbs = _load_thumbs_parallel(frames_paths)
 
+    # ── 1a. §1.2D: Temporal variance pre-filter ───────────────────────────
+    # Drop interior frames whose mean per-pixel variance across the (i-1,i,i+1)
+    # triplet is below _TEMPORAL_VAR_THRESH.  Zero camera motion AND zero
+    # character animation → frame carries no new canvas information.
+    if _TEMPORAL_VAR_THRESH > 0.0 and N > 2:
+        thumbs, frames_paths, _n_tvf_drop = _temporal_variance_filter(
+            thumbs, frames_paths, _TEMPORAL_VAR_THRESH
+        )
+        N = len(frames_paths)
+        if verbose and _n_tvf_drop > 0:
+            print(
+                f"  [TemporalVar] Dropped {_n_tvf_drop} static frames "
+                f"(thresh={_TEMPORAL_VAR_THRESH:.4f}) → {N} remain"
+            )
+
     # ── 1b. Hold-block detection (FD-Means preprocessing, §1.11 / §3.4) ───
     # Detect animation "on twos / on threes" hold blocks.  Each block
     # represents one unique character cel.  We record hold_ids[i] so that
@@ -486,8 +709,16 @@ def smart_select_frames(
     # a diagnostic for predicted ARAP workload.
     hold_ids: List[int] = [0] * N  # hold block ID for each frame (0-indexed)
     n_hold_blocks = 1
-    if _HOLD_THRESHOLD > 0.0:
-        hold_reps = _detect_hold_blocks(thumbs, hold_threshold=_HOLD_THRESHOLD)
+    _use_dhash_hold = _HOLD_DHASH_THRESHOLD > 0
+    if _use_dhash_hold or _HOLD_THRESHOLD > 0.0:
+        if _use_dhash_hold:
+            hold_reps = _detect_hold_blocks_dhash(
+                thumbs, distance_threshold=_HOLD_DHASH_THRESHOLD
+            )
+            _hd_label = f"dHash(d≤{_HOLD_DHASH_THRESHOLD})"
+        else:
+            hold_reps = _detect_hold_blocks(thumbs, hold_threshold=_HOLD_THRESHOLD)
+            _hd_label = f"MAD(t={_HOLD_THRESHOLD:.3f})"
         _block_id = 0
         _rep_set = set(hold_reps)
         for i in range(N):
@@ -497,9 +728,8 @@ def smart_select_frames(
         n_hold_blocks = _block_id + 1
         if verbose:
             print(
-                f"  [HoldDetect] {n_hold_blocks} hold blocks from {N} frames "
-                f"(avg {N / n_hold_blocks:.1f} frames/block, "
-                f"threshold={_HOLD_THRESHOLD:.3f})"
+                f"  [HoldDetect/{_hd_label}] {n_hold_blocks} hold blocks from {N} frames "
+                f"(avg {N / n_hold_blocks:.1f} frames/block)"
             )
 
     img0 = cv2.imread(frames_paths[0])
@@ -624,6 +854,19 @@ def smart_select_frames(
         raw_dx.append(dx_t * scale_x)
         raw_dy.append(dy_t * scale_y)
         responses.append(response)
+
+    # ── 3b. §1.11C: Response-based hold refinement ────────────────────────
+    # Pairs where phaseCorrelate response >= _HIGH_HOLD_RESPONSE are near-
+    # identical frames (same cel) that MAD-based detection split due to MPEG
+    # noise.  Merge their hold blocks now so Pass 2 treats them as one pose.
+    if _HOLD_THRESHOLD > 0.0 and _HIGH_HOLD_RESPONSE > 0.0:
+        hold_ids, n_hold_blocks = _refine_hold_ids_by_response(
+            hold_ids, responses, _HIGH_HOLD_RESPONSE
+        )
+        if verbose:
+            print(
+                f"  [HoldRefine] {n_hold_blocks} hold blocks after response refinement"
+            )
 
     # ── 4. Dominant scroll axis ────────────────────────────────────────────
     med_dy = float(np.median(raw_dy))
@@ -771,12 +1014,34 @@ def smart_select_frames(
             f"  [SmartSelect] Selected {len(selected)}/{N} frames"
             f"  (dropped {N - len(selected)})."
         )
-    return [frames_paths[i] for i in selected]
+
+    # ── 8. §1.2B Near-duplicate luma post-filter ───────────────────────────
+    # Drop consecutive selected frames whose mean grayscale diff is below
+    # _NEAR_DUP_LUMA (default 0.0 = disabled).  Thumbnail-scale check is
+    # sufficient — a 5-luma unit diff at thumbnail scale reliably separates
+    # genuine content advance from camera-barely-moved redundancy.
+    _sel_paths = [frames_paths[i] for i in selected]
+    if _NEAR_DUP_LUMA > 0.0 and len(_sel_paths) > 2:
+        _sel_thumbs = [thumbs[i] for i in selected]
+        _sel_paths_filt = _near_dup_luma_filter(_sel_thumbs, _sel_paths, threshold=_NEAR_DUP_LUMA)
+        if verbose and len(_sel_paths_filt) < len(_sel_paths):
+            print(
+                f"  [NearDup] §1.2B: {len(_sel_paths) - len(_sel_paths_filt)} "
+                f"near-dup frame(s) dropped (threshold={_NEAR_DUP_LUMA:.1f} luma)."
+            )
+        _sel_paths = _sel_paths_filt
+
+    return _sel_paths
 
 
 __all__ = [
     "smart_select_frames",
     "_detect_hold_blocks",
+    "_detect_hold_blocks_dhash",
+    "_compute_dhash",
+    "_refine_hold_ids_by_response",
+    "_temporal_variance_filter",
+    "_near_dup_luma_filter",
     "_compute_dinov2_features",
     "_fg_center_diff",
     "_load_thumbs_parallel",

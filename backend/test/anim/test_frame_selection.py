@@ -1,5 +1,6 @@
 """
-Tests for frame_selection.py — _fg_center_diff() pose metric.
+Tests for frame_selection.py — _fg_center_diff() pose metric and
+_near_dup_luma_filter() §1.2B near-duplicate post-filter.
 
 Validates that the new fg pixel L1 metric (session 5):
   1. Returns near-zero for two thumbnails with identical fg appearance
@@ -8,6 +9,13 @@ Validates that the new fg pixel L1 metric (session 5):
      fg identical does NOT change the score
   4. Falls back gracefully when fg_mask is None or too sparse
   5. Handles per-frame gain normalisation (same pose, different brightness)
+
+Validates _near_dup_luma_filter (session 26 §1.2B):
+  6. threshold=0 disables the filter (all paths returned unchanged)
+  7. All identical frames → only first and last kept
+  8. All different frames → all kept
+  9. ≤2 frames passes through unchanged regardless of threshold
+  10. Middle near-dup dropped; first and last always retained
 """
 
 from __future__ import annotations
@@ -15,6 +23,7 @@ from __future__ import annotations
 import os
 import sys
 
+import cv2
 import numpy as np
 import pytest
 
@@ -26,6 +35,11 @@ sys.path.insert(0, _repo_root)
 from backend.src.anim.frame_selection import (
     _fg_center_diff,
     _detect_hold_blocks,
+    _detect_hold_blocks_dhash,
+    _compute_dhash,
+    _refine_hold_ids_by_response,
+    _temporal_variance_filter,
+    _near_dup_luma_filter,
     _compute_dinov2_features,
     _DINOV2_CACHE,
 )
@@ -232,37 +246,300 @@ class TestDetectHoldBlocks:
 
 
 class TestDINOv2Features:
-    """Tests for _compute_dinov2_features() — DINOv2 submodular selection (§3.3)."""
+    """Tests for _compute_dinov2_features() — DINOv2 submodular selection (§3.3).
 
-    def test_returns_none_when_model_unavailable(self):
+    The current API takes a list of image file paths (session 9 upgrade).
+    Tests write temp PNG files to exercise the real code path.
+    """
+
+    def _write_png(self, tmp_path, arr: np.ndarray) -> str:
+        """Write a uint8 array as a PNG to tmp_path and return its str path."""
+        import uuid
+        img = (arr * 255).clip(0, 255).astype(np.uint8) if arr.dtype != np.uint8 else arr
+        if img.ndim == 2:
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        path = str(tmp_path / f"{uuid.uuid4().hex}.png")
+        cv2.imwrite(path, img)
+        return path
+
+    def test_returns_none_when_model_unavailable(self, tmp_path):
         """When the cache records a failed model load, the function returns None."""
         import torch
         import backend.src.anim.frame_selection as fs_mod
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        cache_key = f"dinov2_vits14_{device}"
-        original = fs_mod._DINOV2_CACHE.get(cache_key, "missing")
+        original = fs_mod._DINOV2_CACHE.get(device, "missing")
         # Pre-poison the cache to simulate a prior failed model load
-        fs_mod._DINOV2_CACHE[cache_key] = None
+        fs_mod._DINOV2_CACHE[device] = None
         try:
-            thumbs = [np.zeros((32, 32), dtype=np.float32) for _ in range(3)]
-            result = _compute_dinov2_features(thumbs)
+            rng = np.random.RandomState(42)
+            paths = [
+                self._write_png(tmp_path, rng.randint(0, 256, (64, 64, 3), dtype=np.uint8))
+                for _ in range(3)
+            ]
+            result = _compute_dinov2_features(paths)
             assert result is None, "Should return None when cached model is None"
         finally:
             if original == "missing":
-                fs_mod._DINOV2_CACHE.pop(cache_key, None)
+                fs_mod._DINOV2_CACHE.pop(device, None)
             else:
-                fs_mod._DINOV2_CACHE[cache_key] = original
+                fs_mod._DINOV2_CACHE[device] = original
 
-    def test_identical_thumbs_low_cosine_distance(self):
-        """Identical thumbnails must produce identical features → cosine distance = 0."""
+    def test_identical_images_low_cosine_distance(self, tmp_path):
+        """Identical input images must yield identical features → cosine dist ≈ 0."""
         rng = np.random.RandomState(0)
-        thumb = rng.uniform(0.0, 1.0, (64, 64)).astype(np.float32)
-        thumbs = [thumb, thumb.copy()]
-        feats = _compute_dinov2_features(thumbs)
+        img = rng.randint(0, 256, (64, 64, 3), dtype=np.uint8)
+        path_a = self._write_png(tmp_path, img)
+        path_b = self._write_png(tmp_path, img.copy())
+        feats = _compute_dinov2_features([path_a, path_b])
         if feats is None:
             pytest.skip("DINOv2 not available in this environment")
         assert feats.shape == (2, 384), f"Expected (2, 384), got {feats.shape}"
-        # L2-normalised identical features → dot product = 1.0 → cosine dist = 0
         dist = 1.0 - float(np.dot(feats[0], feats[1]))
-        assert dist < 0.05, f"Identical thumbnails should have cosine dist ~0, got {dist:.4f}"
+        assert dist < 0.05, f"Identical images should have cosine dist ~0, got {dist:.4f}"
+
+
+# ---------------------------------------------------------------------------
+# TestNearDupLumaFilter
+# ---------------------------------------------------------------------------
+
+
+class TestNearDupLumaFilter:
+    """
+    _near_dup_luma_filter: §1.2B near-duplicate post-filter (S26).
+
+    Consecutive selected frames with mean grayscale diff < threshold are
+    dropped.  First frame always kept; last frame always kept.
+    """
+
+    def _solid(self, lum: int) -> np.ndarray:
+        """(16, 20, 3) uint8 BGR image at uniform luminance."""
+        return np.full((16, 20, 3), lum, dtype=np.uint8)
+
+    def _paths(self, n: int):
+        return [f"frame_{i:02d}.png" for i in range(n)]
+
+    def test_disabled_at_zero_threshold(self):
+        """threshold=0.0 → filter is a no-op; all paths returned unchanged."""
+        thumbs = [self._solid(100)] * 5
+        paths = self._paths(5)
+        assert _near_dup_luma_filter(thumbs, paths, threshold=0.0) == paths
+
+    def test_all_identical_keeps_first_and_last(self):
+        """All frames at same lum → only first and last survive."""
+        thumbs = [self._solid(128)] * 5
+        paths = self._paths(5)
+        result = _near_dup_luma_filter(thumbs, paths, threshold=5.0)
+        assert result[0] == paths[0]
+        assert result[-1] == paths[-1]
+        assert len(result) == 2
+
+    def test_all_different_keeps_all(self):
+        """Large luma steps between frames → no frames dropped."""
+        thumbs = [self._solid(i * 60) for i in range(4)]
+        paths = self._paths(4)
+        result = _near_dup_luma_filter(thumbs, paths, threshold=5.0)
+        assert result == paths
+
+    def test_two_frames_passes_unchanged(self):
+        """≤2 frames: filter is a no-op regardless of threshold."""
+        thumbs = [self._solid(100), self._solid(100)]
+        paths = self._paths(2)
+        assert _near_dup_luma_filter(thumbs, paths, threshold=50.0) == paths
+
+    def test_middle_near_dup_dropped_first_last_kept(self):
+        """Middle frame nearly identical to prev → dropped; last always kept."""
+        thumbs = [
+            self._solid(100),  # f0: kept (first)
+            self._solid(101),  # f1: diff=1 < 5 → near-dup, dropped
+            self._solid(180),  # f2: diff=79 >= 5 → kept
+        ]
+        paths = self._paths(3)
+        result = _near_dup_luma_filter(thumbs, paths, threshold=5.0)
+        assert paths[0] in result
+        assert paths[1] not in result
+        assert paths[2] in result
+
+
+# ---------------------------------------------------------------------------
+# TestRefineHoldIdsByResponse — §1.11C phase-correlation hold refinement (S38)
+# ---------------------------------------------------------------------------
+
+
+class TestRefineHoldIdsByResponse:
+    """
+    _refine_hold_ids_by_response merges hold blocks whose consecutive
+    phaseCorrelate response >= threshold.  High response means the two frames
+    are near-identical (same character cel) that MAD detection split due to
+    MPEG compression noise.
+
+    After merging, block IDs are renumbered consecutively (0-based,
+    first-occurrence order).
+    """
+
+    def test_all_high_responses_merge_to_one_block(self):
+        """All pairs with response >= threshold → single hold block for all frames."""
+        # 4 frames initially split into 4 separate blocks
+        hold_ids = [0, 1, 2, 3]
+        responses = [0.90, 0.92, 0.88]  # all above 0.85
+        result, n_blocks = _refine_hold_ids_by_response(hold_ids, responses, 0.85)
+        assert n_blocks == 1
+        assert result == [0, 0, 0, 0]
+
+    def test_low_responses_leave_blocks_unchanged(self):
+        """Responses below threshold → no merging; original blocks preserved."""
+        hold_ids = [0, 1, 2, 3]
+        responses = [0.30, 0.40, 0.20]
+        result, n_blocks = _refine_hold_ids_by_response(hold_ids, responses, 0.85)
+        assert n_blocks == 4
+        assert result == [0, 1, 2, 3]
+
+    def test_partial_merge_only_high_response_pairs(self):
+        """Only pairs above threshold are merged; low-response boundaries preserved."""
+        # Frames: 0-1 high (merge), 1-2 low (split), 2-3 high (merge)
+        hold_ids = [0, 1, 2, 3]
+        responses = [0.90, 0.20, 0.91]
+        result, n_blocks = _refine_hold_ids_by_response(hold_ids, responses, 0.85)
+        # Blocks 0 and 1 merge; blocks 2 and 3 merge; boundary between stays split
+        assert n_blocks == 2
+        assert result[0] == result[1]   # 0 and 1 in same block
+        assert result[2] == result[3]   # 2 and 3 in same block
+        assert result[0] != result[2]   # the two merged groups are separate
+
+    def test_output_ids_are_consecutive_from_zero(self):
+        """After merging, IDs are renumbered 0, 1, 2, … in first-occurrence order."""
+        # Merge pairs 0-1 and 2-3; pair 1-2 stays split
+        hold_ids = [0, 1, 2, 3]
+        responses = [0.95, 0.10, 0.95]
+        result, n_blocks = _refine_hold_ids_by_response(hold_ids, responses, 0.85)
+        assert sorted(set(result)) == list(range(n_blocks))
+
+    def test_single_frame_returns_unchanged(self):
+        """N=1 → no pairs to inspect; original hold_ids and block count returned."""
+        hold_ids = [0]
+        responses: list = []
+        result, n_blocks = _refine_hold_ids_by_response(hold_ids, responses, 0.85)
+        assert result == [0]
+        assert n_blocks == 1
+
+
+# ---------------------------------------------------------------------------
+# TestTemporalVarianceFilter — §1.2D static-frame pre-filter (S39)
+# ---------------------------------------------------------------------------
+
+
+class TestTemporalVarianceFilter:
+    """
+    _temporal_variance_filter drops interior frames whose mean per-pixel
+    variance across the thumbnail triplet (i-1, i, i+1) is below sigma_threshold.
+
+    Thumbnails are [0,1] float32 grayscale.  First and last frames are never
+    dropped regardless of variance.  Disabled when threshold=0.0.
+    """
+
+    def _flat(self, val: float = 0.5, h: int = 16, w: int = 24) -> np.ndarray:
+        """(H, W) float32 thumbnail with uniform value."""
+        return np.full((h, w), val, dtype=np.float32)
+
+    def _noisy(self, rng: np.random.RandomState, h: int = 16, w: int = 24) -> np.ndarray:
+        """(H, W) float32 thumbnail with high random variance."""
+        return rng.uniform(0.0, 1.0, (h, w)).astype(np.float32)
+
+    def test_static_triplet_drops_middle_frame(self):
+        """Three near-identical frames → middle dropped (variance near zero)."""
+        thumbs = [self._flat(0.5), self._flat(0.5), self._flat(0.5)]
+        paths = ["a.png", "b.png", "c.png"]
+        result_t, result_p, n_drop = _temporal_variance_filter(thumbs, paths, sigma_threshold=1e-3)
+        assert n_drop == 1
+        assert len(result_p) == 2
+        assert "b.png" not in result_p  # middle dropped
+        assert "a.png" in result_p and "c.png" in result_p
+
+    def test_high_variance_frames_kept(self):
+        """Frames with large inter-frame differences → none dropped."""
+        rng = np.random.RandomState(0)
+        thumbs = [self._noisy(rng), self._noisy(rng), self._noisy(rng)]
+        paths = ["a.png", "b.png", "c.png"]
+        result_t, result_p, n_drop = _temporal_variance_filter(thumbs, paths, sigma_threshold=1e-3)
+        assert n_drop == 0
+        assert result_p == paths
+
+    def test_first_and_last_never_dropped(self):
+        """Even if first/last are identical to their neighbours, they are kept."""
+        v = self._flat(0.3)
+        thumbs = [v, v, v, v, v]  # all identical
+        paths = [f"{i}.png" for i in range(5)]
+        result_t, result_p, n_drop = _temporal_variance_filter(thumbs, paths, sigma_threshold=1e-3)
+        assert result_p[0] == "0.png"
+        assert result_p[-1] == "4.png"
+
+    def test_threshold_zero_disables_filter(self):
+        """threshold=0.0 → no drops regardless of content."""
+        v = self._flat(0.5)
+        thumbs = [v, v, v]
+        paths = ["a.png", "b.png", "c.png"]
+        result_t, result_p, n_drop = _temporal_variance_filter(thumbs, paths, sigma_threshold=0.0)
+        assert n_drop == 0
+        assert result_p == paths
+
+    def test_fewer_than_three_frames_passes_unchanged(self):
+        """N < 3 → no processing; lists returned as-is."""
+        thumbs = [self._flat(0.5), self._flat(0.5)]
+        paths = ["a.png", "b.png"]
+        result_t, result_p, n_drop = _temporal_variance_filter(thumbs, paths, sigma_threshold=1e-3)
+        assert n_drop == 0
+        assert result_p == paths
+
+
+# ---------------------------------------------------------------------------
+# TestDetectHoldBlocksDhash — §3.4A dHash hold detection (S43)
+# ---------------------------------------------------------------------------
+
+
+class TestDetectHoldBlocksDhash:
+    """
+    _detect_hold_blocks_dhash uses INTER_AREA-downscaled horizontal gradient
+    binarisation (dHash) instead of raw MAD, so MPEG block noise is averaged
+    out before the comparison.  _compute_dhash returns a flat bool array.
+    """
+
+    @staticmethod
+    def _uniform_thumb(val: float = 0.5) -> np.ndarray:
+        return np.full((64, 64), val, dtype=np.float32)
+
+    def test_identical_thumbs_produce_single_block(self):
+        """Two pixel-identical thumbnails must collapse into one hold block → [0]."""
+        t = self._uniform_thumb(0.4)
+        result = _detect_hold_blocks_dhash([t, t], distance_threshold=4)
+        assert result == [0]
+
+    def test_very_different_thumbs_split_into_two_blocks(self):
+        """Thumbnails with opposite horizontal gradients must be separate blocks.
+
+        A left-to-right ramp hashes as all-True (every pixel > previous);
+        a right-to-left ramp hashes as all-False — Hamming distance = 64 >> 4.
+        """
+        # Ramp left→right (increasing): dHash ≈ all True
+        t_a = np.tile(np.linspace(0.0, 1.0, 64, dtype=np.float32), (64, 1))
+        # Ramp right→left (decreasing): dHash ≈ all False
+        t_b = np.tile(np.linspace(1.0, 0.0, 64, dtype=np.float32), (64, 1))
+        result = _detect_hold_blocks_dhash([t_a, t_b], distance_threshold=4)
+        assert result == [0, 1]
+
+    def test_threshold_zero_every_frame_is_own_block(self):
+        """distance_threshold=0 → every frame starts a new block (no holds)."""
+        thumbs = [self._uniform_thumb(v) for v in [0.3, 0.3, 0.3]]
+        result = _detect_hold_blocks_dhash(thumbs, distance_threshold=0)
+        assert result == [0, 1, 2]
+
+    def test_single_frame_returns_single_block(self):
+        """N=1 must return [0] without error."""
+        result = _detect_hold_blocks_dhash([self._uniform_thumb()], distance_threshold=4)
+        assert result == [0]
+
+    def test_compute_dhash_same_image_zero_distance(self):
+        """The same image must hash to distance 0 with itself."""
+        t = np.random.default_rng(0).random((32, 32)).astype(np.float32)
+        h = _compute_dhash(t)
+        assert int(np.sum(h != h)) == 0
+        assert h.dtype == bool

@@ -355,6 +355,37 @@ Add a WebSocket endpoint (`/ws/jobs/{job_id}/`) that streams stage-level progres
 
 ---
 
+## 4.11 ASP Quality Feedback Interface (RLHF)
+
+**Pain point:** The `StitchRewardModel` in `bench_anime_stitch.py` (§1.10A, S29) uses random weights until feedback is collected. There is no UI for users to rate stitching outputs so the reward model can learn meaningful preferences. Without rated outputs, the RLHF loop cannot close and the reward model never improves.
+
+### Options
+
+**A — Inline rating panel in StitchTab [Quick Win]**
+After each stitch completes, show a 5-point rating widget (thumbs up / thumbs down / star rating) below the output preview. Ratings are written to a `~/.image-toolkit/stitch_feedback.jsonl` file as `{test_id, asp_score, simple_score, user_rating, timestamp}`. The reward model loads this file at startup to fine-tune weights.
+- Implementation: ~80 LOC — `QToolBar` with `QSlider` (1–5 stars) + "Submit" button. Writes to JSONL via `json.dumps` + `f.write`.
+- Pros: Minimal UI work. JSONL is portable and auditable.
+- Cons: No per-seam granularity — only a global output rating.
+
+**B — Side-by-side comparison mode with preference labelling**
+Show ASP output and simple-stitch output side by side. User clicks "this one is better" (or "equal"). Preference pairs `(asp_result, simple_result, preferred)` are written to the feedback file.
+- Pros: Generates richer comparative data (Bradley-Terry model compatible). Directly maps to RLHF preference learning.
+- Cons: Requires the simple-stitch output to be retained alongside the ASP output. 2× disk usage per test.
+
+**C — Batch rating mode for existing outputs [Quick Win]**
+A separate "Rate Previous Outputs" dialog that loads already-saved PNG outputs from `~/.image-toolkit/stitched/` and presents them one-by-one for rating. Useful for rating the 96-test corpus in bulk.
+- Pros: No blocking of the main stitch workflow. Can be done asynchronously.
+- Cons: Must reconstruct metadata (which test, what parameters) from the output filename.
+
+**D — Per-seam quality annotation**
+After stitching, show each boundary seam zone as a thumbnail strip. User rates each seam 1–5. The reward model receives per-seam signals rather than a global output score — finer-grained training.
+- Pros: More useful for targeted seam parameter tuning (feather width, gain, DP seam routing).
+- Cons: 13 seams per output × ~30s per seam = ~7 minutes of annotation per dataset. Fatigue risk.
+
+**Recommendation:** A immediately (simplest path to start collecting feedback). B for users who want to generate comparative DPO-style preference data. C as a bulk-annotation tool for the existing 96-test corpus. D as an advanced mode once A is validated.
+
+---
+
 ## Anchor Index
 
 | Section | Anchor |
@@ -369,3 +400,4 @@ Add a WebSocket endpoint (`/ws/jobs/{job_id}/`) that streams stage-level progres
 | 4.8 ComfyUI Integration | [#48-comfyui-workflow-integration-for-post-processing](#48-comfyui-workflow-integration-for-post-processing) |
 | 4.9 Safetensors Metadata Viewer | [#49-safetensors-metadata-viewer](#49-safetensors-metadata-viewer) |
 | 4.10 REST API Layer | [#410-rest-api-layer-for-remote-control](#410-rest-api-layer-for-remote-control) |
+| 4.11 RLHF Quality Feedback | [#411-asp-quality-feedback-interface-rlhf](#411-asp-quality-feedback-interface-rlhf) |

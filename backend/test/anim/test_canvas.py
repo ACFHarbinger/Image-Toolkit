@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import sys
 
+import cv2
 import numpy as np
 import pytest
 
@@ -19,8 +20,15 @@ _repo_root = os.path.dirname(
 )
 sys.path.insert(0, _repo_root)
 
-from backend.src.anim.canvas import _compute_canvas, _crop_to_valid  # noqa: E402
-from backend.src.constants import _CANVAS_MAX_DIM  # noqa: E402
+from backend.src.anim.canvas import (  # noqa: E402
+    _compute_canvas,
+    _crop_to_valid,
+    _detect_scroll_axis,
+    _panorama_stitch_fallback,
+    _telea_fill_gaps,
+)
+from backend.src.anim.pipeline import _compute_row_coverage  # noqa: E402
+from backend.src.constants import CANVAS_MAX_DIM as _CANVAS_MAX_DIM  # noqa: E402
 from conftest import make_frame, make_translation_affine  # noqa: E402
 
 
@@ -289,3 +297,260 @@ class TestScrollAxisDetection:
             make_translation_affine(tx=float(i * 4), ty=float(i * 400)) for i in range(7)
         ]
         assert _detect_scroll_axis(affines) == "vertical"
+
+
+# ---------------------------------------------------------------------------
+# §3.14 — _detect_scroll_axis from canvas module (S33)
+# Tests the actual exported function, not the local test copy above.
+# ---------------------------------------------------------------------------
+
+
+class TestDetectScrollAxisModule:
+    """Validate canvas._detect_scroll_axis (§3.14) via the exported module function."""
+
+    def test_pure_vertical_returns_vertical(self):
+        """ty increases, tx≈0 → 'vertical'."""
+        affines = [make_translation_affine(tx=0.0, ty=float(i * 300)) for i in range(5)]
+        assert _detect_scroll_axis(affines) == "vertical"
+
+    def test_pure_horizontal_returns_horizontal(self):
+        """tx ranges 1800→0, ty≈0 → 'horizontal' (test20 pattern)."""
+        txs = [1800, 1440, 1080, 720, 360, 0]
+        affines = [make_translation_affine(tx=float(tx), ty=0.0) for tx in txs]
+        assert _detect_scroll_axis(affines) == "horizontal"
+
+    def test_diagonal_returns_diagonal(self):
+        """tx_range > 0.3 × ty_range → 'diagonal' (test7 pattern)."""
+        affines = [make_translation_affine(tx=float(i * 80), ty=float(i * 200)) for i in range(6)]
+        result = _detect_scroll_axis(affines)
+        assert result == "diagonal", f"Expected 'diagonal', got '{result}'"
+
+    def test_colocated_returns_none(self):
+        """All frames at same position (total range < 1 px) → 'none'."""
+        affines = [make_translation_affine(tx=100.0, ty=200.0) for _ in range(4)]
+        assert _detect_scroll_axis(affines) == "none"
+
+    def test_small_tx_drift_still_vertical(self):
+        """tx_range=20px vs ty_range=1000px: ratio 0.02 << 0.3 → 'vertical'."""
+        affines = [make_translation_affine(tx=float(i * 4), ty=float(i * 250)) for i in range(5)]
+        assert _detect_scroll_axis(affines) == "vertical"
+
+
+# ---------------------------------------------------------------------------
+# _compute_row_coverage — Stage 10.5 multi-frame canvas coverage gate (S13)
+# ---------------------------------------------------------------------------
+
+
+class TestComputeRowCoverage:
+    """
+    _compute_row_coverage(affines, frames, canvas_h) returns
+    (row_cov, pct_multi, median_cov) where row_cov[r] = number of frames
+    covering canvas row r, pct_multi is the fraction of content rows with
+    ≥2 frames, and median_cov is the median coverage among content rows.
+    """
+
+    def _make_inputs(self, n: int, frame_h: int, step: int):
+        canvas_h = frame_h + (n - 1) * step
+        frames = [make_frame(frame_h, 100) for _ in range(n)]
+        affines = [make_translation_affine(ty=float(i * step)) for i in range(n)]
+        return frames, affines, canvas_h
+
+    def test_two_fully_overlapping_frames_all_rows_covered_twice(self):
+        """Two frames at ty=0 with frame_h=canvas_h → every row covered twice."""
+        frame_h, canvas_h = 100, 100
+        frames = [make_frame(frame_h, 80)] * 2
+        affines = [make_translation_affine(ty=0.0)] * 2
+        row_cov, pct_multi, median_cov = _compute_row_coverage(affines, frames, canvas_h)
+        assert row_cov.shape == (canvas_h,)
+        assert int(row_cov.min()) == 2
+        assert pct_multi == pytest.approx(1.0)
+        assert median_cov == pytest.approx(2.0)
+
+    def test_non_overlapping_frames_zero_multi_coverage(self):
+        """Two frames that don't overlap → every row covered by exactly 1 frame."""
+        frame_h = 50
+        canvas_h = 100  # frame 0: rows 0–49, frame 1: rows 50–99
+        frames = [make_frame(frame_h, 80)] * 2
+        affines = [
+            make_translation_affine(ty=0.0),
+            make_translation_affine(ty=float(frame_h)),
+        ]
+        row_cov, pct_multi, median_cov = _compute_row_coverage(affines, frames, canvas_h)
+        assert int(row_cov[0]) == 1
+        assert int(row_cov[frame_h]) == 1
+        assert pct_multi == pytest.approx(0.0)
+        assert median_cov == pytest.approx(1.0)
+
+    def test_dense_stack_high_pct_multi(self):
+        """Many overlapping frames → pct_multi close to 1.0."""
+        frames, affines, canvas_h = self._make_inputs(n=10, frame_h=100, step=20)
+        _, pct_multi, median_cov = _compute_row_coverage(affines, frames, canvas_h)
+        assert pct_multi > 0.8, f"Expected high multi-coverage, got {pct_multi:.2f}"
+        assert median_cov >= 2.0
+
+    def test_output_array_shape(self):
+        """row_cov must have shape (canvas_h,) regardless of frame count."""
+        frames, affines, canvas_h = self._make_inputs(n=5, frame_h=80, step=40)
+        row_cov, _, _ = _compute_row_coverage(affines, frames, canvas_h)
+        assert row_cov.shape == (canvas_h,)
+        assert row_cov.dtype == np.int32
+
+    def test_empty_canvas_returns_zero_pct(self):
+        """canvas_h=0 content rows → pct_multi=0.0, median=0.0."""
+        frames = [make_frame(50, 80)]
+        affines = [make_translation_affine(ty=0.0)]
+        _, pct_multi, median_cov = _compute_row_coverage(affines, frames, 0)
+        assert pct_multi == pytest.approx(0.0)
+        assert median_cov == pytest.approx(0.0)
+
+    def test_row_cov_never_negative(self):
+        """Coverage counts must be ≥ 0 for all rows."""
+        frames, affines, canvas_h = self._make_inputs(n=4, frame_h=60, step=30)
+        row_cov, _, _ = _compute_row_coverage(affines, frames, canvas_h)
+        assert int(row_cov.min()) >= 0
+
+
+# ---------------------------------------------------------------------------
+# _panorama_stitch_fallback — §1.3B PANORAMA stitcher before SCANS (S31)
+# ---------------------------------------------------------------------------
+
+
+class TestPanoramaStitchFallback:
+    """
+    _panorama_stitch_fallback(frames, output_path) tries cv2.Stitcher PANORAMA
+    (mode=0) before the caller falls through to SCANS.  All tests use mocks so
+    no real feature matching is required.
+    """
+
+    def _solid_bgr(self, h: int = 64, w: int = 128, v: int = 128) -> np.ndarray:
+        return np.full((h, w, 3), v, dtype=np.uint8)
+
+    def test_returns_pil_image_on_success(self, tmp_path):
+        """Mock stitcher returns OK + valid image → PIL.Image returned."""
+        from unittest.mock import MagicMock, patch
+        from PIL import Image as PILImage
+
+        fake_pano = self._solid_bgr(60, 120, 200)
+        mock_stitcher = MagicMock()
+        mock_stitcher.stitch.return_value = (cv2.Stitcher_OK, fake_pano)
+
+        with patch("cv2.Stitcher_create", return_value=mock_stitcher):
+            frames = [self._solid_bgr()]
+            result = _panorama_stitch_fallback(frames, str(tmp_path / "out.png"))
+
+        assert isinstance(result, PILImage.Image)
+
+    def test_raises_runtime_error_on_non_ok_status(self, tmp_path):
+        """Non-OK status from stitcher → RuntimeError (caller falls through to SCANS)."""
+        from unittest.mock import MagicMock, patch
+
+        mock_stitcher = MagicMock()
+        mock_stitcher.stitch.return_value = (cv2.Stitcher_ERR_NEED_MORE_IMGS, None)
+
+        with patch("cv2.Stitcher_create", return_value=mock_stitcher):
+            with pytest.raises(RuntimeError, match="PANORAMA stitcher failed"):
+                _panorama_stitch_fallback(
+                    [self._solid_bgr()], str(tmp_path / "out.png")
+                )
+
+    def test_saves_file_on_success(self, tmp_path):
+        """Successful stitch → output file written to output_path."""
+        from unittest.mock import MagicMock, patch
+
+        fake_pano = self._solid_bgr(50, 100, 150)
+        mock_stitcher = MagicMock()
+        mock_stitcher.stitch.return_value = (cv2.Stitcher_OK, fake_pano)
+        out_path = str(tmp_path / "panorama.png")
+
+        with patch("cv2.Stitcher_create", return_value=mock_stitcher):
+            _panorama_stitch_fallback([self._solid_bgr()], out_path)
+
+        assert os.path.exists(out_path)
+
+    def test_uses_panorama_mode_zero(self):
+        """cv2.Stitcher_create must be called with mode=0 (PANORAMA)."""
+        from unittest.mock import MagicMock, patch
+        import tempfile
+
+        fake_pano = self._solid_bgr(40, 80, 100)
+        mock_stitcher = MagicMock()
+        mock_stitcher.stitch.return_value = (cv2.Stitcher_OK, fake_pano)
+
+        with patch("cv2.Stitcher_create", return_value=mock_stitcher) as mock_create:
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+                _panorama_stitch_fallback([self._solid_bgr()], f.name)
+            mock_create.assert_called_once_with(mode=0)
+
+    def test_output_dimensions_match_pano(self, tmp_path):
+        """Result image dimensions match the (possibly cropped) stitcher output."""
+        from unittest.mock import MagicMock, patch
+        from PIL import Image as PILImage
+
+        h, w = 80, 160
+        fake_pano = self._solid_bgr(h, w, 200)
+        mock_stitcher = MagicMock()
+        mock_stitcher.stitch.return_value = (cv2.Stitcher_OK, fake_pano)
+
+        with patch("cv2.Stitcher_create", return_value=mock_stitcher):
+            result = _panorama_stitch_fallback(
+                [self._solid_bgr()], str(tmp_path / "out.png")
+            )
+
+        assert isinstance(result, PILImage.Image)
+        assert result.width > 0 and result.height > 0
+
+
+# ---------------------------------------------------------------------------
+# _telea_fill_gaps
+# ---------------------------------------------------------------------------
+
+
+class TestTelaeFillGaps:
+    """§1.7B: cv2.INPAINT_TELEA border gap fill (S23)."""
+
+    H, W = 20, 24
+
+    def _solid_canvas(self, val: int = 120) -> np.ndarray:
+        return np.full((self.H, self.W, 3), val, dtype=np.uint8)
+
+    def _corner_gap_mask(self, gap: int = 4) -> np.ndarray:
+        """Top-left `gap × gap` region marked as missing."""
+        m = np.zeros((self.H, self.W), dtype=np.uint8)
+        m[:gap, :gap] = 255
+        return m
+
+    def test_no_gap_returns_unchanged(self):
+        """All-zero gap mask → output identical to input."""
+        canvas = self._solid_canvas(80)
+        gap_mask = np.zeros((self.H, self.W), dtype=np.uint8)
+        out = _telea_fill_gaps(canvas, gap_mask)
+        np.testing.assert_array_equal(out, canvas)
+
+    def test_shape_preserved(self):
+        """Output shape must match input."""
+        canvas = self._solid_canvas()
+        out = _telea_fill_gaps(canvas, self._corner_gap_mask())
+        assert out.shape == canvas.shape
+
+    def test_dtype_preserved(self):
+        """Output dtype must be uint8."""
+        canvas = self._solid_canvas()
+        out = _telea_fill_gaps(canvas, self._corner_gap_mask())
+        assert out.dtype == np.uint8
+
+    def test_corner_gap_no_longer_black(self):
+        """After TELEA fill, the top-left corner should not be pure black."""
+        canvas = self._solid_canvas(150)
+        gap = 4
+        canvas[:gap, :gap] = 0
+        gap_mask = self._corner_gap_mask(gap)
+        out = _telea_fill_gaps(canvas, gap_mask)
+        assert int(out[:gap, :gap].max()) > 0
+
+    def test_valid_region_unchanged_outside_band(self):
+        """Pixels far from the gap must not be modified by TELEA."""
+        canvas = self._solid_canvas(200)
+        canvas[:4, :4] = 0
+        gap_mask = self._corner_gap_mask(4)
+        out = _telea_fill_gaps(canvas, gap_mask)
+        np.testing.assert_array_equal(out[8:, 8:], canvas[8:, 8:])

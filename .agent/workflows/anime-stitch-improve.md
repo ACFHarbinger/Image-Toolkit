@@ -17,13 +17,13 @@ You are improving `AnimeStitchPipeline` output quality. Work through the phases 
 5. Read `backend/src/anim/rendering.py` — Stage 9 temporal render (temporal averaging fails with 1 frame/row)
 6. Read `backend/src/anim/validation.py` — affine validation; **min_gap 50px rejects many borderline-valid sequences (secondary issue)**
 
-> **CRITICAL CONTEXT (2026-06-01):** Visual inspection of actual outputs confirms the pipeline is catastrophically failing on ~60–80% of ASP-succeeded tests with severe horizontal color banding and body-part duplication across strip seams. The CV metrics are inverted — high "sharpness" scores come from the hard seam edges themselves. The primary issues to fix are: (1) background-only phase correlation in the frame selector so it measures camera displacement, not character animation; (2) a multi-frame coverage check before compositing to ensure temporal median can actually function; (3) a seam coherence metric to replace Laplacian sharpness. Fix these before touching min_gap or bundle adjustment.
+> **CURRENT STATE (2026-06-07, S27):** Major compositing improvements shipped across S6–S27. SCANS fallbacks reduced from 51/96 → 4/96 genuine fallbacks (S11). Seam quality significantly improved via: hold detection, GNC robust loss, DINOv2 frame selection, seam DP vectorization, multi-frame canvas coverage gate, adaptive feather refinement, parallel seam DP, TELEA border fill, per-pixel DSFN ramp, adaptive boundary search, bg-mask-aware ramp, Poisson seam blend (optional), per-pair coherence gate, continuous adaptive gain clamp, and single-pose soft-edge blending. Key open items: §1.2B near-dup dedup (done, off by default), §1.8A TOML config (done, S27). Next: §1.9A fallback path purity or §2.x diagnostics. The CV sharpness metric is inverted — use `seam_gradient < 5` and `seam_coherence` as quality proxies.
 
 Run the automated test suite first to confirm no regressions from prior changes:
 
 ```bash
 source .venv/bin/activate
-pytest backend/test/anim/ -q   # should be 105 passed
+pytest backend/test/anim/ -q   # should be 262 passed (S32 baseline)
 ```
 
 Check the current state of all three test datasets:
@@ -383,8 +383,14 @@ gaps = np.diff([ty for _, ty in tys])
 print('Gaps:', np.round(gaps).astype(int), 'max/median:', f'{gaps.max()/np.median(gaps):.1f}x')
 " /path/to/stage08_canvas_info.json
 
-# Grep compositing constants
-grep -n "_FEATHER\|_GAIN_CLAMP\|_SEAM" backend/src/anim/compositing.py | head -20
+# Grep compositing constants (now live in backend/src/constants/anim.py)
+grep -n "FEATHER\|GAIN\|SEAM" backend/src/constants/anim.py
+
+# Grep env-var controlled feature flags in pipeline/compositing
+grep -n "ASP_\|os.environ" backend/src/anim/compositing.py | head -30
+
+# Load asp_config.toml at startup (§1.8A)
+python3 -c "from backend.src.anim.config import load_asp_config; print(load_asp_config())"
 
 # Run linting after changes
 source .venv/bin/activate && ruff check backend/src/anim/compositing.py

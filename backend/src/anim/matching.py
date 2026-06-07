@@ -12,6 +12,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import gc
+import os
 from typing import Dict, List, Optional, Tuple
 
 import cv2
@@ -25,6 +26,52 @@ from backend.src.constants import (
     PC_CONF_THRESHOLD,
 )
 from .stateless import _highpass, _luma
+
+# §1.3E — Similarity-mode flag.  When ON, matched affines are projected to
+# their best-fit 4-DOF similarity (scale + rotation + translation, no shear)
+# instead of being stripped to translation-only.  Useful for zoom-pan sequences
+# where the camera both pans and zooms simultaneously (e.g. test5).
+# Default OFF to preserve backward-compatible translation-only behaviour.
+_SIMILARITY_MODE: bool = os.environ.get("ASP_SIMILARITY_MODE", "0") != "0"
+
+
+def _extract_similarity(M: np.ndarray) -> np.ndarray:
+    """§1.3E — Project a full 2×3 affine to its best-fit 4-DOF similarity.
+
+    A similarity transform has the form ``[[a, b, tx], [-b, a, ty]]``.  A
+    general affine ``[[a, b, tx], [c, d, ty]]`` decomposes as::
+
+        a_sym = (a + d) / 2   (average of diagonal — symmetric part)
+        b_sym = (b - c) / 2   (antisymmetric off-diagonal — rotation/scale)
+
+    This is the closed-form least-squares projection onto the similarity
+    manifold (Procrustes for 2-D conformal maps).  Shear (asymmetric
+    off-diagonal component) is discarded because feature matchers
+    (LoFTR, RoMa) cannot reliably distinguish camera shear from
+    perspective distortion at anime-panel scales.
+
+    Parameters
+    ----------
+    M : (2, 3) float32 affine matrix.
+
+    Returns
+    -------
+    (2, 3) float32 similarity matrix with the same translation as M.
+    """
+    a = float(M[0, 0])
+    b = float(M[0, 1])
+    c = float(M[1, 0])
+    d = float(M[1, 1])
+    a_sym = (a + d) / 2.0
+    b_sym = (b - c) / 2.0
+    out = np.eye(2, 3, dtype=np.float32)
+    out[0, 0] = a_sym
+    out[0, 1] = b_sym
+    out[1, 0] = -b_sym
+    out[1, 1] = a_sym
+    out[0, 2] = float(M[0, 2])
+    out[1, 2] = float(M[1, 2])
+    return out
 
 
 def _template_match(
@@ -534,11 +581,16 @@ def _match_pair(
         logger.info(f"[Stitch]   {i}→{j}: all methods failed — skipping edge.")
         return None
 
-    # For a translation-only pipeline, we enforce identity rotation/scale here
-    M_transl = np.eye(2, 3, dtype=np.float32)
-    M_transl[0, 2] = M[0, 2]
-    M_transl[1, 2] = M[1, 2]
-    M = M_transl
+    # §1.3E: when ASP_SIMILARITY_MODE=1, project to best-fit 4-DOF similarity
+    # (scale + rotation + translation, shear discarded).  Default: strip to
+    # translation-only to preserve backward-compatible behaviour.
+    if _SIMILARITY_MODE:
+        M = _extract_similarity(M)
+    else:
+        M_transl = np.eye(2, 3, dtype=np.float32)
+        M_transl[0, 2] = M[0, 2]
+        M_transl[1, 2] = M[1, 2]
+        M = M_transl
 
     # Build anchor points for the BA residuals.
     # Convention: M[1,2] = dy where dy = y_j - y_i (forward-shift: LoFTR/PC).
@@ -623,4 +675,5 @@ __all__ = [
     "_segment_guided_match",
     "_match_pair",
     "_pairwise_match",
+    "_extract_similarity",
 ]

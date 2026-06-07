@@ -16,15 +16,19 @@ Frames → BaSiC photometric correction → BiRefNet foreground masking → LoFT
 
 | File | Stage | What it does |
 |------|-------|-------------|
-| `backend/src/anim/pipeline.py` | Orchestrator | Full 13-stage flow; also `_filter_edges` |
-| `backend/src/anim/compositing.py` | Stage 11 | Hard-partition composite — **primary source of seam issues** |
+| `backend/src/anim/pipeline.py` | Orchestrator | Full 13-stage flow; also `_filter_edges`, coverage gate |
+| `backend/src/anim/compositing.py` | Stage 11 | Hard-partition composite — primary source of seam improvements |
 | `backend/src/anim/rendering.py` | Stage 9 | Temporal median render with per-pixel gain |
-| `backend/src/anim/bundle_adjust.py` | Stage 7 | Global bundle adjustment (LM) |
+| `backend/src/anim/bundle_adjust.py` | Stage 7 | Global bundle adjustment (LM, GNC cauchy loss) |
 | `backend/src/anim/matching.py` | Stages 5–6 | Pairwise LoFTR + TemplateMatch |
-| `backend/src/anim/canvas.py` | Stage 8 | Canvas geometry, `_compute_canvas`, `_crop_to_valid` |
+| `backend/src/anim/canvas.py` | Stage 8 | Canvas geometry, `_compute_canvas`, `_crop_to_valid`, TELEA fill |
 | `backend/src/anim/masking.py` | Stage 4 | BiRefNet foreground masks |
 | `backend/src/anim/ecc.py` | Stage 8 | ECC sub-pixel refinement |
-| `backend/src/anim/validation.py` | Post-7 | Affine health check; **min_gap threshold = 25px (was 50px)** |
+| `backend/src/anim/fg_register.py` | Stage 8.5 | Flow-guided foreground pose registration (ARAP-Push) |
+| `backend/src/anim/frame_selection.py` | Pre-pipeline | Smart frame selection — hold detection, DINOv2, near-dup filter |
+| `backend/src/anim/config.py` | Config | §1.8A TOML config loader (`load_asp_config`) |
+| `backend/src/anim/validation.py` | Post-7 | Affine health check; min_gap threshold = 25px |
+| `backend/src/constants/anim.py` | Constants | Centralised pipeline constants (FEATHER_MAX, FEATHER_MIN, etc.) |
 | `backend/src/core/image_merger.py` | Reference | Simple stitch (`_merge_images_scan_stitch`) — the quality target |
 
 ### Full architecture reference
@@ -48,45 +52,57 @@ Read the consolidated research reference before proposing algorithmic changes:
 
 ---
 
-## ⚠️ Critical Context — Animated Video vs. Static Scroll
+## Current State (2026-06-07, Session 27)
 
-**The pipeline was designed for scrolling static artwork (manga panels) but the 94-test corpus consists of animated video sequences.** Visual inspection of outputs (2026-06-01) reveals the pipeline is failing on the majority of cases with severe horizontal color banding and body-part duplication at strip seams.
+The pipeline has received 22 sessions of improvements (S6–S27). SCANS fallbacks reduced from 51/96 → 4/96 genuine fallbacks. Key improvements shipped:
 
-**Root cause:** Characters move independently of the camera with every frame. Phase correlation on whole frames cannot separate camera displacement from character animation displacement. When frames at different animation states are stacked vertically, each strip shows a different character pose at the same canvas region — producing a temporal collage rather than a spatial panorama.
+- **Hold detection** — consecutive near-identical frames handled by `_detect_hold_blocks`; within-hold pairs skip phase correlation
+- **GNC robust loss** — bundle adjustment uses `loss='cauchy'` to suppress outlier edges
+- **DINOv2 frame selection** — vision features replace pure phase correlation for content diversity
+- **Seam DP vectorization** — 5–10× speedup; parallel pre-computation with `ThreadPoolExecutor`
+- **Multi-frame canvas coverage gate** — Stage 10.5 falls back to SCANS when `pct_multi < 0.30`
+- **Adaptive feather refinement** — post-registration feather widening/narrowing based on seam diff
+- **TELEA border fill** — fallback inpainting for gap pixels at canvas borders
+- **Seam visibility metric** — `_seam_visibility_score` as a no-reference output quality signal
+- **Single-pose soft-edge + seam color matching** — ±6px ramp + band mean shift for single-pose escalations
+- **Per-pixel DSFN ramp + bg-mask-aware blur** — sim_diffused prevents background similarity from bleeding into fg-vs-fg zones
+- **Poisson seam blend (optional)** — `ASP_POISSON_SEAM=1` for near-zero brightness step (CPU: +1–3s/seam)
+- **Continuous adaptive gain clamp** — `clamp_width = 0.26 − 0.12 × (ref_lum/255)`; no binary threshold
+- **TOML config loader** — `load_asp_config()` in `backend.src.anim.config`; env vars always win
 
-**The CV sharpness metric (Laplacian variance) is completely wrong for this use case** — hard seam edges register as "high sharpness". Do NOT trust the benchmark's `asp_better` verdict field. Use `seam_gradient` and the new `seam_coherence` metric as quality proxies. Visual inspection remains the ground truth.
+**The CV sharpness metric (Laplacian variance) is inverted** — hard seam edges register as high sharpness. Use `seam_gradient < 5` and `seam_coherence` as quality proxies.
 
-**Visually confirmed good outputs (true asp_better):** asp_test28, asp_test58 (were asp_test27, asp_test57 in old numbering). Only ~10–15% of the 96 tests produce genuinely better output than the simple stitch.
+**Visually confirmed good outputs:** asp_test28, asp_test58. Only ~10–15% of the 96 tests produce genuinely better output than the simple stitch.
 
 ---
 
-## Known Issues Summary (94-test corpus, 2026-06-01)
+## Known Issues Summary (96-test corpus, 2026-06-07 S27 baseline)
 
-### Alignment failures (25 fallbacks)
+### SCANS fallbacks (4 genuine, down from 51/96)
 
-| Category | Count | Description |
-|----------|------:|-------------|
-| `min_gap < 25px` (near-duplicate clustering) | ~10 | Frames placed too close on canvas — genuine co-location |
-| `min_gap 25–50px` (borderline — now pass) | ~13 | Previously rejected with 50px threshold; now accepted |
-| `ratio > 3.0` (catastrophic bundle) | 2 | test13 (ratio=10.6), test88 (ratio=4.0) |
+| Test | Cause |
+|------|-------|
+| test54 | Genuine: min_gap below floor after validation retries |
+| test59 | Genuine: bundle ratio failure |
+| test73 | Genuine: extreme diagonal (dx_cv=25.3) |
+| test89 | Genuine: ratio=4.0 bundle failure |
 
-### Compositing failures (most ASP-succeeded tests)
+### Remaining compositing issues
 
-Visual quality breakdown of the 69 ASP-succeeded tests:
+Most ASP-succeeded tests now pass validation. Remaining seam quality issues:
 
-| Category | Approx. count | Seam∇ proxy | Example tests |
-|----------|--------------|-------------|---------------|
-| Catastrophic — severe color banding, duplicate body parts | ~20–30 | >10 | test04, test08, test11, test25, test36, test85 |
-| Poor — visible seams, color mismatch | ~20–25 | 7–10 | test01, test15, test60, test93 |
-| Moderate — seams visible but usable | ~10–15 | 4–7 | test17, test34 |
-| Good — genuine panorama improvement | ~5–10 | <5 | test27, test57 |
+| Category | Approx. count | Seam∇ proxy |
+|----------|--------------|-------------|
+| Catastrophic — severe color banding | ~5–10 | >12 |
+| Poor — visible seams | ~10–15 | 7–12 |
+| Moderate — seams visible but usable | ~20–25 | 4–7 |
+| Good — genuine improvement | ~15–20 | <5 |
 
-### Most impactful fixes (in priority order)
+### Open roadmap items
 
-1. **Background-only phase correlation** in frame selector — use BiRefNet-masked background pixels so character animation doesn't corrupt the camera displacement estimate
-2. **Canvas coverage check** — before compositing, verify median frame coverage ≥ 2 per canvas row; if not, fall back to SCANS (temporal median can't work with single-frame rows)
-3. **Strip color coherence gate** — if adjacent strips differ by >20 luminance units, skip per-strip photometric normalization (Stage 11 amplifies color mismatch)
-4. **Lower min_gap to 25px + vector magnitude** in `validation.py` — already implemented
+- **§1.9A Fallback path purity** ✅ Fixed (S28) — `_spatial_dedup_frames()` syncs `scans_frames` after spatial dedup
+- **§1.10A RLHF post-run quality gate** — call `reward_model.predict(output)` after each run; log score; flag < 0.6 for review
+- **§2.x Diagnostics** — per-test pipeline trace, benchmark comparison dashboard
 
 ---
 
@@ -221,7 +237,7 @@ python3 archive/run_pipeline_v2.py
 
 ```bash
 source .venv/bin/activate
-pytest backend/test/anim/ -q          # all tests (~7s, no GPU)
+pytest backend/test/anim/ -q          # 262 tests (~7s, no GPU)
 pytest backend/test/anim/ -k "canvas" # run a specific module
 ```
 
@@ -229,10 +245,15 @@ pytest backend/test/anim/ -k "canvas" # run a specific module
 |------|--------|
 | `test_bundle_adjust.py` | Stage 7 LM solver — frame clustering, anchor frame, outlier edges |
 | `test_filter_edges.py`  | `_filter_edges` — wrong-sign, gross outliers, geometric consistency |
-| `test_canvas.py`        | `_compute_canvas`, `_crop_to_valid` — overcrop, horizontal scroll |
+| `test_canvas.py`        | `_compute_canvas`, `_crop_to_valid` — overcrop, horizontal scroll, TELEA fill |
 | `test_affine_validation.py` | `_validate_affines` spec — ratio, min_gap, rotation, scale |
-| `test_compositing.py`   | `_diff_to_feather`, `_global_gain_normalize`, `_composite_foreground` |
+| `test_compositing.py`   | `_diff_to_feather`, `_global_gain_normalize`, `_composite_foreground`, seam functions |
 | `test_rendering.py`     | `_render_median`, `_render_first`, ghosting detection, baselines |
+| `test_frame_selection.py` | `smart_select_frames`, hold detection, `_near_dup_luma_filter` |
+| `test_fg_register.py`   | Stage 8.5 fg pose registration — ARAP Push, flow-guided alignment |
+| `test_bench_metrics.py` | `_compute_aligned_ssim`, benchmark metric helpers |
+| `test_config.py`        | §1.8A `load_asp_config` — TOML loading, env injection, setdefault precedence |
+| `test_pipeline.py`      | §1.9A `_spatial_dedup_frames` — dedup logic, scans_frames sync, edge reindex |
 
 ---
 

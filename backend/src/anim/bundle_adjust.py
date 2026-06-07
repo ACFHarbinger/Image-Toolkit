@@ -15,7 +15,8 @@ residual) are unaffected.  Override via ``ASP_BA_F_SCALE`` env var.
 from __future__ import annotations
 
 import os
-from typing import Dict, List
+from collections import deque
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from scipy.optimize import least_squares
@@ -25,6 +26,104 @@ try:
     _BA_F_SCALE = float(os.environ.get("ASP_BA_F_SCALE", "10.0"))
 except ValueError:
     _BA_F_SCALE = 10.0
+
+
+_ST_INLIER_THRESHOLD = 50.0  # §1.1B: max allowed disagreement (px) vs spanning-tree reference
+
+
+def _spanning_tree_inlier_filter(
+    edges: List[Dict],
+    num_frames: int,
+    inlier_threshold: float = _ST_INLIER_THRESHOLD,
+) -> List[Dict]:
+    """§1.1B: Consensus pre-filter via maximum-weight spanning tree.
+
+    Builds a spanning tree from the highest-weight edges (most reliable
+    matches first, Kruskal greedy order), then uses a BFS pass to derive
+    a reference translation for every frame.  Any edge whose observed
+    dx/dy disagrees with that reference by more than *inlier_threshold*
+    pixels is removed before the Levenberg-Marquardt solve.
+
+    Spanning-tree edges always pass (their residual is zero by construction),
+    so the graph is guaranteed to remain connected after filtering.
+
+    Falls back to returning all edges unchanged when:
+    - fewer than 2 edges, or fewer than 2 frames
+    - the spanning tree cannot reach every frame (disconnected graph)
+    - fewer than max(2, num_frames-1) inliers survive
+    """
+    if len(edges) < 2 or num_frames < 2:
+        return edges
+
+    # ── Step 1: build spanning tree (greedy, highest-weight-first) ──────────
+    sorted_edges = sorted(edges, key=lambda e: float(e.get("weight", 1.0)), reverse=True)
+
+    parent: List[int] = list(range(num_frames))
+
+    def _find(x: int) -> int:
+        root = x
+        while parent[root] != root:
+            root = parent[root]
+        while parent[x] != root:
+            parent[x], x = root, parent[x]
+        return root
+
+    tree_adj: Dict[int, List[Tuple[int, float, float]]] = {
+        f: [] for f in range(num_frames)
+    }
+    n_tree_edges = 0
+    for e in sorted_edges:
+        i, j = int(e["i"]), int(e["j"])
+        if not (0 <= i < num_frames and 0 <= j < num_frames):
+            continue
+        pi, pj = _find(i), _find(j)
+        if pi != pj:
+            parent[pi] = pj
+            dtx = -float(e["M"][0, 2])
+            dty = -float(e["M"][1, 2])
+            tree_adj[i].append((j, dtx, dty))
+            tree_adj[j].append((i, -dtx, -dty))
+            n_tree_edges += 1
+        if n_tree_edges == num_frames - 1:
+            break
+
+    # ── Step 2: BFS from frame 0 to compute reference translations ──────────
+    tx_ref: List[Optional[float]] = [None] * num_frames
+    ty_ref: List[Optional[float]] = [None] * num_frames
+    tx_ref[0] = 0.0
+    ty_ref[0] = 0.0
+    queue: deque = deque([0])
+    while queue:
+        curr = queue.popleft()
+        for nbr, dtx, dty in tree_adj[curr]:
+            if tx_ref[nbr] is None:
+                tx_ref[nbr] = tx_ref[curr] + dtx  # type: ignore[operator]
+                ty_ref[nbr] = ty_ref[curr] + dty  # type: ignore[operator]
+                queue.append(nbr)
+
+    # disconnected graph — spanning tree can't cover all frames
+    if any(t is None for t in ty_ref):
+        return edges
+
+    # ── Step 3: evaluate every edge against the reference ───────────────────
+    inlier_edges: List[Dict] = []
+    for e in edges:
+        i, j = int(e["i"]), int(e["j"])
+        pred_dx = tx_ref[j] - tx_ref[i]  # type: ignore[operator]
+        pred_dy = ty_ref[j] - ty_ref[i]  # type: ignore[operator]
+        obs_dx = -float(e["M"][0, 2])
+        obs_dy = -float(e["M"][1, 2])
+        residual = float(
+            np.sqrt((pred_dx - obs_dx) ** 2 + (pred_dy - obs_dy) ** 2)
+        )
+        if residual <= inlier_threshold:
+            inlier_edges.append(e)
+
+    # safety: keep original if too few inliers remain (graph connectivity)
+    if len(inlier_edges) < max(2, num_frames - 1):
+        return edges
+
+    return inlier_edges
 
 
 def _bundle_adjust_affine(
@@ -59,6 +158,11 @@ def _bundle_adjust_affine(
     List of (2, 3) float32 translation-only matrices, one per frame.
     Frame 0 is identity.
     """
+    # §1.1B: spanning-tree pre-filter — remove edges inconsistent with the
+    # highest-weight spanning tree before running the LM solve.  Tree edges
+    # (residual=0 by construction) are always kept, so the graph stays connected.
+    edges = _spanning_tree_inlier_filter(edges, num_frames)
+
     # DOF for Partial Affine: [a, b, tx, ty]
     # Matrix: [[a, b, tx], [-b, a, ty]]
     # This preserves aspect ratio and is much more stable for 2D digital pans.
@@ -190,6 +294,27 @@ def _bundle_adjust_affine(
 
     out = _extract_affines(x_opt)
 
+    # §1.1D: Adaptive GNC f_scale re-solve (S30).
+    # If the median post-solve edge residual is significantly larger than
+    # _BA_F_SCALE, the Cauchy loss has been over-penalising legitimate edges.
+    # Re-solve once with an f_scale derived from the data so the loss treats
+    # the actual noise floor as the inlier boundary, not a hardcoded constant.
+    _adapt_scale = _compute_adaptive_f_scale(edges, out, floor=_BA_F_SCALE)
+    if _adapt_scale > _BA_F_SCALE * 1.5:
+        result = least_squares(
+            residuals,
+            x_opt,
+            method="trf",
+            loss="cauchy",
+            f_scale=_adapt_scale,
+            ftol=1e-6,
+            xtol=1e-6,
+            gtol=1e-6,
+            max_nfev=iterations * num_frames,
+        )
+        x_opt = result.x
+        out = _extract_affines(x_opt)
+
     # ── Outlier rejection ───────────────────────────────────────────────────
     # Two-pronged approach:
     #   1. Point-wise residuals: edges whose BA-predicted displacement disagrees
@@ -264,4 +389,53 @@ def _bundle_adjust_affine(
     return out
 
 
-__all__ = ["_bundle_adjust_affine"]
+# ---------------------------------------------------------------------------
+# §1.1D — Adaptive GNC f_scale (S30)
+# ---------------------------------------------------------------------------
+
+
+def _compute_adaptive_f_scale(
+    edges: List[Dict],
+    affines: List[np.ndarray],
+    floor: float = 5.0,
+) -> float:
+    """Derive a data-driven Cauchy loss scale from post-solve edge residuals.
+
+    Returns max(floor, 2.0 × median_residual_px).
+
+    For clean datasets (median residual ≈ 2 px) the floor dominates and
+    behaviour is unchanged from the fixed _BA_F_SCALE=10.  For uniformly
+    noisy datasets (all edges have ~30 px residuals) the scale widens to
+    ~60 px so the Cauchy loss does not over-penalise legitimate edges
+    during the re-solve.
+
+    Parameters
+    ----------
+    edges   : edge list (same format as _bundle_adjust_affine)
+    affines : current best affine estimate, one per frame
+    floor   : minimum returned scale (should be >= _BA_F_SCALE)
+    """
+    if not edges:
+        return floor
+    res_mags: List[float] = []
+    for e in edges:
+        ei, ej = e["i"], e["j"]
+        if ei >= len(affines) or ej >= len(affines):
+            continue
+        pred_dx = float(affines[ej][0, 2]) - float(affines[ei][0, 2])
+        pred_dy = float(affines[ej][1, 2]) - float(affines[ei][1, 2])
+        obs_dx = -float(e["M"][0, 2])
+        obs_dy = -float(e["M"][1, 2])
+        res_mags.append(
+            float(np.sqrt((pred_dx - obs_dx) ** 2 + (pred_dy - obs_dy) ** 2))
+        )
+    if not res_mags:
+        return floor
+    return float(max(floor, 2.0 * float(np.median(res_mags))))
+
+
+__all__ = [
+    "_bundle_adjust_affine",
+    "_compute_adaptive_f_scale",
+    "_spanning_tree_inlier_filter",
+]
