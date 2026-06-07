@@ -1,5 +1,7 @@
 # ASP Pipeline Analysis — Session 2 (2026-06-03)
 
+> **⚠️ ARCHIVED**: This is a fixed benchmark comparison from Sessions 1–2 (2026-06-03). Current pipeline state (Sessions 1–28) is in `.agent/cache/asp_state_of_the_pipeline.md`.
+
 **Final benchmark:** `anime_stitch_20260603_202535.json`  
 **Prev session baseline:** `anime_stitch_20260603_182046.json`  
 **Pre-feature baseline:** `anime_stitch_20260601_191331.json`

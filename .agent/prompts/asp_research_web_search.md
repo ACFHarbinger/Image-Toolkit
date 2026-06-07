@@ -2,54 +2,76 @@
 
 **Intent:** Direct a research agent to perform a comprehensive, targeted web search across computer vision literature, preprint servers (arXiv), and empirical engineering resources to find methods that directly address the specific, quantified limitations of the Anime Stitch Pipeline (ASP). The agent should surface both foundational theory and practical implementation tips that could be adapted to our architecture.
 
+**Last updated: 2026-06-07 (S32 baseline — 262 unit tests, 4/96 genuine SCANS fallbacks)**
+
 ---
 
 ## Background: What the Pipeline Does and Where It Fails
 
 The ASP is a 13-stage research pipeline that assembles **sequential anime video frames into a vertical panorama** showing a character's full body from a pan shot. The canonical problem: the camera pans while the character simultaneously animates, so any two adjacent selected frames show the same background region but the character in a completely different pose. Naively stacking strips creates "torn/doubled" character edges at every seam.
 
-### Current Architecture Summary
+### Current Architecture Summary (S28 baseline, 2026-06-07)
 
 ```
 Frames (58–333 source, ~18 selected)
-  → Frame selection (phase correlation, 50px/step greedy)
+  → Frame selection (phase correlation greedy, hold detection, near-dup luma filter,
+      DINOv2 pose selection [optional])
   → BiRefNet fg/bg mask generation
-  → LoFTR pairwise matching + bundle adjustment (LM)
+  → EfficientLoFTR / LoFTR / ALIKED+LightGlue pairwise matching + bundle adjustment
+      (LM, GNC cauchy loss, 5-retry validation chain)
+  → Post-match spatial dedup (§1.9A: scans_frames synced)
   → ECC sub-pixel affine refinement
-  → Canvas construction (translation-only model)
+  → SEA-RAFT/DIS optical flow → ARAP Push+Regularise (LSD collinearity) → midpoint
+      warp (Stage 8.5, fg_register.py)
+  → Canvas construction (translation-only model) + Stage 10.5 multi-frame coverage
+      gate (falls back to SCANS when < 30% rows have ≥2-frame coverage)
   → Temporal median render (background-only pixels)
-  → SEA-RAFT optical flow → ARAP Push+Regularise → midpoint warp (Stage 8.5)
-  → Hard-partition seam-DP composite (Laplacian blend)
+  → Hard-partition seam-DP composite (Laplacian + DSFN blend, Poisson opt-in)
+      + single-pose soft-edge + seam color match + adaptive feather refinement
+  → TELEA border fill fallback
   → Crop
+  → (Optional) TOML config via asp_config.toml (§1.8A)
 ```
 
-### Quantified Performance (96-test corpus, 55 with ground-truth SSIM)
+### Quantified Performance (96-test corpus, 55 with ground-truth SSIM, S11 baseline)
 
 | Metric | Value | Meaning |
 |--------|-------|---------|
-| True ASP composites | 52/96 (54%) | Tests where pipeline beats the render gate |
-| Avg ASP GT-SSIM | 0.667 | vs simple stitch 0.694 — pipeline loses on average |
-| asp_better verdict | 7/55 (13%) | Tests where ASP > simple stitch by GT-SSIM |
+| True ASP composites | 92/96 (96%) | SCANS fallbacks reduced from 51→4 genuine (S11) |
+| Genuine SCANS fallbacks | 4/96 | Tests 54, 59, 73, 89 — structural failures |
+| Avg ASP GT-SSIM | ~0.667 | vs simple stitch 0.694 — pipeline still loses on average (S4 last full run) |
+| asp_better verdict | 7/55 (13%) | Tests where ASP > simple stitch by GT-SSIM (S4 baseline) |
 | simple_better verdict | 26/55 (47%) | Tests where simple stitch wins |
 | Best ASP score | test17=0.887 | Near-perfect case |
 | test09 ceiling | raw=0.787, aligned=0.832 | 0.045 gap = frame-timing mismatch |
 | test27 ceiling | raw=0.709, aligned=0.748 | 0.040 gap = same cause |
-| Alignment gate failures | 2D-motion tests (test08 dx_cv=16.6) | +0.074 from early SCANS fallback |
+| Unit test suite | **262 tests** | `pytest backend/test/anim/ -q`, ~7s, no GPU |
 
 ### Key Implemented Features (do NOT re-suggest these)
 
 1. **SEA-RAFT dense optical flow** (ptlflow) — seam-band crops only, 1280px downscale
-2. **ARAP Push + Regularise** (Sýkora 2009) — per-cell SAD block matching → rigid mesh interpolation
+2. **ARAP Push + Regularise** (Sýkora 2009) — per-cell SAD block matching → rigid mesh interpolation; LSD collinearity constraint on boundary cells
 3. **BiRefNet foreground/background segmentation** — runs on all frames before compositing
 4. **Symmetric midpoint warp** (StabStitch++ principle) — α=0.5 both directions
 5. **post_warp_diff escalation** — single-pose fallback when blend residual > 22 lum units
 6. **Background-only temporal median** — prevents fg ghosting on background plate
-7. **Laplacian-blend seam-DP** — graph-cut seam finding with fg-penalty weight
-8. **Smart frame selection** — phase-correlation greedy, 50px min step, BiRefNet probe masks
+7. **Laplacian-blend seam-DP** (vectorised via `minimum_filter1d`; parallel pre-compute with ThreadPoolExecutor) — graph-cut seam finding with fg-penalty weight + tiered cost map
+8. **Smart frame selection** — phase-correlation greedy, 50px min step; hold detection (`_detect_hold_blocks`); DINOv2 submodular pose selection (optional); `_near_dup_luma_filter` post-filter (default OFF)
 9. **Fg pixel L1 pose metric** — per-frame gain-normalised masked pixel L1 (background-invariant)
 10. **Alignment stability gate** — 75th-pct |dx| > 50px fires SCANS fallback (2D-motion detection)
-11. **Ghosting ratio gate** — ASP ghosting > 2× simple stitch triggers fallback
-12. **Two-channel phase correlation** — bg-only phase correlation for camera displacement (built, disabled — regressions)
+11. **Ghosting ratio gate with absolute floor** — ASP ghosting > max(40, 2× simple stitch) triggers fallback
+12. **GNC robust loss in bundle adjustment** — `loss='cauchy', f_scale=10.0`
+13. **5-retry affine validation chain** — escalating min_step/max_ratio retries before fallback
+14. **Multi-frame canvas coverage gate** (Stage 10.5) — falls back to SCANS when < 30% canvas rows have ≥2-frame coverage
+15. **Adaptive feather refinement** — post-registration seam_post_diffs widens/narrows feathers; gain-adaptive feather minimum
+16. **Single-pose soft-edge + seam color match** — ±6px ramp + per-channel band mean shift
+17. **Per-pixel DSFN blend ramp** — bg-mask-aware; fg-vs-fg sim forced to 0 after Gaussian blur
+18. **Poisson seam blend** — `cv2.seamlessClone` in ±20px band (optional, `ASP_POISSON_SEAM=1`)
+19. **Continuous adaptive gain clamp** — `clamp_width = 0.26 − 0.12 × (ref_lum/255)`; per-pair coherence gate
+20. **TELEA border fill** — `cv2.INPAINT_TELEA` fallback for residual black corners
+21. **TOML config loader** — `load_asp_config()` via stdlib `tomllib`; env vars always win
+22. **scans_frames spatial dedup sync** (§1.9A) — fallback paths always receive the same frame subset as the main pipeline
+23. **Two-channel phase correlation** — bg-only phase correlation for camera displacement (built, disabled — regressions)
 
 ### Definitively Ruled Out (do NOT re-suggest these)
 

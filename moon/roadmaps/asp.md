@@ -1,13 +1,13 @@
 # ASP Roadmap — Anime Stitch Pipeline: Quality & Reliability
 
-*Last updated: 2026-06-05. Session 9 complete: ToonCrafter seam synthesis wired to worst single-pose seam (§3.6). Session 8: DINOv2 submodular frame selection (§3.3), LSD collinearity in ARAP (§0.1/A3), Aligned-SSIM metric (§3.9). Session 7: Stage 12.5 scroll-axis foreground-extent trim (§2.6). Session 6: perceptual-hash hold detection (§1.11), GNC robust loss for BA (§1.1), SLIC SGM proxy (§3.1). 107 tests passing (was 90 at S5 start). Session 5: alignment stability gate (+0.074 on test08, +0.049 on test25), fg pixel L1 pose metric (+0.010 on test27 with pose-on), 8 new unit tests (90 total). Session 4: ARAP Push phase (full Sýkora 2009). Session 3: pose-consistent frame selection infrastructure. Session 2: RAFT+ARAP+post_warp_diff. Session 1: foreground assembly pipeline.*  
+*Last updated: 2026-06-07. Session 49 complete: §1.4E background CDF histogram matching — `_bg_histogram_lut(src_pixels, ref_pixels) → float32[256]` + `_apply_bg_histogram_match(frame, reference, bg_mask) → uint8(H,W,3)` in `compositing.py`; CDF-matching LUT via `np.searchsorted(ref_cdf, src_cdf)`; per-channel application to background pixels; foreground unchanged; `_HISTOGRAM_MATCH` flag (default OFF, `ASP_HISTOGRAM_MATCH=1`); wired as third branch in normalization loop between `_MULTISCALE_GAIN` and scalar fallback; `ASP_HISTOGRAM_MATCH` added to `_CONFIG_SCHEMA`; both functions exported in `__all__`; 5 new tests in `test_compositing.py::TestBgHistogramLut`. 352 tests passing. Session 48 complete: §1.3E similarity-mode matching — `_extract_similarity(M) → (2,3) float32` in `matching.py`; closed-form Procrustes projection of full affine to best-fit 4-DOF similarity (`a_sym=(a+d)/2`, `b_sym=(b-c)/2` → `[[a_sym, b_sym, tx], [-b_sym, a_sym, ty]]`); shear discarded; `_SIMILARITY_MODE` flag (default OFF, `ASP_SIMILARITY_MODE=1`); in `_match_pair`, similarity projection replaces translation-only strip when flag enabled; `ASP_SIMILARITY_MODE` added to `_CONFIG_SCHEMA`; exported in `__all__`; 5 new tests in new `test_matching.py::TestExtractSimilarity`. 347 tests passing. Session 47 complete: §0.5D adaptive rotation/scale thresholds — `_compute_adaptive_rot_scale(affines) → (float, float)` in `validation.py`; returns loose thresholds (0.15) when frame-to-frame σ < 0.02 (systematic camera property), tight (0.10) when σ ≥ 0.02 (BA noise); constants `_ROT_TIGHT=0.10`, `_ROT_LOOSE=0.15`, `_SC_TIGHT=0.10`, `_SC_LOOSE=0.15`, `_ROT_SCALE_CONSISTENCY_THRESH=0.02`; wired into Stage 7b initial validation and Retry 0; log message updated to show per-run threshold; exported in `__all__`; 5 new tests in `test_affine_validation.py::TestAdaptiveRotScale`. 342 tests passing. Session 46 complete: §1.4D multi-scale spatially-varying gain normalisation — `_multiscale_gain_map(frame, reference, bg_mask, sigma=30, gain_min=0.5, gain_max=2.0) → float32(H,W)` in `compositing.py`; Gaussian-blurred luminance ratio; fg pixels zeroed before blur so background gains propagate without character-colour contamination; `_MULTISCALE_GAIN` flag (default OFF, `ASP_MULTISCALE_GAIN=1` to enable); replaces scalar `_bg_gain_unclamped` in bg normalization loop; median gain stored as `frame_gains[i]` for §1.6B downstream; `MULTISCALE_GAIN_SIGMA=30.0` in `constants/anim.py`; `ASP_MULTISCALE_GAIN` added to `_CONFIG_SCHEMA`; 5 new tests in `test_compositing.py::TestMultiscaleGainMap`. 337 tests passing. Session 45 complete: §1.1B spanning-tree consensus pre-filter — `_spanning_tree_inlier_filter(edges, num_frames, inlier_threshold=50.0)` in `bundle_adjust.py`; Kruskal max-weight spanning tree → BFS reference propagation from frame 0 → any edge with |obs_dx−pred_dx|²+|obs_dy−pred_dy|² > 50² removed; spanning-tree edges always pass (residual=0 by construction); disconnected-graph + min-inlier-count fallbacks; wired at top of `_bundle_adjust_affine` before DOF setup; `_ST_INLIER_THRESHOLD=50.0` constant; exported in `__all__`; 5 new tests in `test_bundle_adjust.py::TestSpanningTreeInlierFilter`. 332 tests passing. Session 44 complete: §1.5D seam path cache — `_make_seam_cache_key(frame_keys, k, cost_flags)` + `_get_seam_cost_flags()` in `compositing.py`; `_composite_foreground` extended with `frame_keys` + `seam_path_cache` optional params; cache checked before zone array allocation and populated after DP; `AnimeStitchPipeline` stores `self._seam_path_cache: Dict = {}` and passes it at Stage 11 with `frame_keys=tuple(image_paths)`; eliminates DP executor latency on RLHF re-runs; 5 new tests in `test_compositing.py::TestSeamPathCache`. 327 tests passing. Session 43 complete: §3.4A dHash animation hold detection — `_compute_dhash(thumb, hash_size=8)` + `_detect_hold_blocks_dhash(thumbs, distance_threshold=4)` in `frame_selection.py`; INTER_AREA resize eliminates MPEG DCT block noise before directional comparison; `_HOLD_DHASH_THRESHOLD` config (default 0=off, `ASP_HOLD_DHASH_THRESH=4` to enable); `HOLD_DHASH_THRESHOLD=4` in `constants/anim.py`; added to `_CONFIG_SCHEMA`; wired as alternative to MAD in step 1b of `smart_select_frames`; 5 new tests in `test_frame_selection.py::TestDetectHoldBlocksDhash`. 322 tests passing. Session 42 complete: §1.8B config schema validation — `_CONFIG_SCHEMA` (14 known `ASP_*` keys with type + range spec) + `validate_asp_config(config, *, strict=False) → List[str]` in `config.py`; unknown keys emit `UserWarning`; type/range violations returned as strings (or raised when `strict=True`); wired into `load_asp_config(validate=False, strict=False)`; exported in `__all__`; 5 new tests in `test_config.py::TestValidateAspConfig`. 317 tests passing. Session 41 complete: §1.9C on-demand SCANS frame reload — `_reload_scans_frames(paths)` in `pipeline.py`; returns `_normalise_widths(_load_frames(paths))`; `_SCANS_RELOAD = os.environ.get("ASP_SCANS_RELOAD","0") != "0"` flag skips Stage-2 snapshot when enabled; Stage-2 `list(frames)` → `[] if _SCANS_RELOAD else list(frames)`; both dedup sync sites guarded with `if scans_frames else []`; all 5 fallback call sites use `_sf = scans_frames or _reload_scans_frames(image_paths)`; 5 new tests in `test_pipeline.py::TestReloadScansFrames`. 312 tests passing. Session 40 complete: §1.4C background-only gain clamp override — `_bg_gain_unclamped(ref_lum, frame_lum, override_threshold=0.20)` in `compositing.py`; returns raw ideal gain when clamp would cut correction by > 20%; wired into bg-only normalization loop replacing `_adaptive_gain_clamp`; 5 new tests in `test_compositing.py::TestBgGainUnclamped`. 307 tests passing. Session 39 complete: §1.2D temporal variance pre-filter — `_temporal_variance_filter(thumbs, paths, sigma_threshold)` in `frame_selection.py`; drops interior frames with mean triplet variance < threshold (default disabled: `ASP_TEMPORAL_VAR_THRESH=0.0`); `TEMPORAL_VAR_THRESH=1e-3` in `constants/anim.py`; wired as step 1a in `smart_select_frames` before hold detection; 5 new tests in `test_frame_selection.py::TestTemporalVarianceFilter`. 302 tests passing. Session 38 complete: §1.11C response-based hold refinement — `_refine_hold_ids_by_response(hold_ids, responses, threshold)` in `frame_selection.py`; post-hoc merges hold blocks for cross-hold pairs with `phaseCorrelate response >= 0.85`; wired as step 3b in `smart_select_frames` after the phase-correlation loop; `HIGH_HOLD_RESPONSE_THRESH=0.85` in `constants/anim.py`; 5 new tests in `test_frame_selection.py::TestRefineHoldIdsByResponse`. 297 tests passing. Session 37 complete: §2.9C high-confidence edge re-solve — `_filter_high_conf_edges(edges, min_weight)` in `pipeline.py`; keeps edges with `weight >= HIGH_CONF_EDGE_THRESH (0.65)`; wired as Retry 0 in Stage 7b for ratio failures; `HIGH_CONF_EDGE_THRESH=0.65` in `constants/anim.py`; 5 new tests in `test_pipeline.py::TestFilterHighConfEdges`. §3.14A housekeeping: `_compute_canvas` already uses full 2D affine placement. 292 tests passing. Session 36 complete: §0.5C adaptive min-gap threshold — `_compute_adaptive_min_gap(affines)` in `validation.py`; returns `max(20.0, canvas_span / (N × 3))`; wired as `min_step` for the first `_validate_affines` call in Stage 7b of `pipeline.py`; 5 new tests in `test_affine_validation.py::TestAdaptiveMinGap`. 287 tests passing. Session 35 complete: §3.8A double-edge autocorrelation ghosting metric — `_ghosting_score_v2(img)` in `bench_anime_stitch.py`; FFT-based autocorrelation of column-mean gradient profile; secondary peak at lag D directly measures repeated-edge structure (ghost signature); score [0–100], 30+ = ghost likely; added as `ghosting_siqe` in `_compute_all_metrics`; original `ghosting_score` kept for GhostGate calibration; 5 new tests in `test_bench_metrics.py::TestGhostingScoreV2`. §1.7C housekeeping: `_crop_to_valid` in `canvas.py` already implements content-aware bounding-box crop (§1.7C marked de facto done). 282 tests passing. Session 34 complete: §1.2C adaptive min-step threshold — `_compute_adaptive_min_disp(edges)` module-level function in `pipeline.py`; returns `max(STATIC_EDGE_MIN_DISP_PX, ADAPTIVE_MIN_DISP_FRAC * median_adjacent_step)` using dominant-axis displacements; wired into `_filter_edges` before `_reject_static_edges`; `ADAPTIVE_MIN_DISP_FRAC=0.10` added to `constants/anim.py`; exported in `__all__`; 5 new tests in `test_filter_edges.py::TestComputeAdaptiveMinDisp`. 277 tests passing. Session 33 complete: §3.15A SemanticStitch column-level fg-domination barrier — `_build_seam_cost_map()` in `compositing.py` now raises fg-dominated columns (>50% fg-interior coverage) to cost=2.0, forcing the DP into background-corridor columns; fallback when no corridor exists; 5 new tests in `test_compositing.py::TestSeamCostColumnFilter`. §3.14 scroll-axis detection wired into pipeline — `_detect_scroll_axis` imported and called after Stage 9; 'horizontal' scroll type triggers explicit SCANS fallback with diagnostic log (belt-and-suspenders with alignment gate); 5 new tests in `test_canvas.py::TestDetectScrollAxisModule` validating the exported module function. 272 tests passing. Session 32 complete: §1.2A pre-bundle static edge rejection — `_reject_static_edges(edges, min_disp_px)` module-level function in `pipeline.py`; drops edges where both |dx| and |dy| are below `STATIC_EDGE_MIN_DISP_PX=50`; wired at the start of `_filter_edges()` before the geometric consistency filter; `STATIC_EDGE_MIN_DISP_PX=50` constant added to `constants/anim.py`; exported in `__all__`; 5 new tests in `test_filter_edges.py`. 262 tests passing. Session 31 complete: §1.3B PANORAMA stitcher fallback — `_panorama_stitch_fallback(frames, output_path)` in `canvas.py`; uses `cv2.Stitcher_create(mode=0)` for affine-validation failures before SCANS; raises `RuntimeError` on failure so caller falls through; wired into `pipeline.py` between Retry 3 and `_scan_stitch_fallback`; added to `__all__`; 5 new tests in `test_canvas.py`. 257 tests passing. Session 30 complete: §1.1D adaptive GNC f_scale — `_compute_adaptive_f_scale(edges, affines, floor)` in `bundle_adjust.py`; derives data-driven Cauchy loss scale as `max(floor, 2.0 × median_residual_px)`; conditional re-solve in `_bundle_adjust_affine` when adaptive_scale > _BA_F_SCALE × 1.5; warm-started from initial solution; `__all__` added; 5 new tests in `test_bundle_adjust.py`. 252 tests passing. Session 29 complete: §1.10A RLHF post-run quality gate — `_compute_rlhf_score(img_bgr)` + `_get_reward_model()` lazy singleton + `_RLHF_FLAG_THRESHOLD=0.6` added to `bench_anime_stitch.py`; `_compute_all_metrics` now emits `rlhf_score` (float or None) and `rlhf_flagged` (bool) for every test; `StitchRewardModel.predict()` wired as the inference call; 5 new tests in `test_bench_metrics.py`. 247 tests passing. Session 28 complete: §1.9A spatial dedup scans_frames sync — `_spatial_dedup_frames(frames, scans_frames, bg_masks, image_paths, edges, min_displacement_px)` extracted as a testable module-level function in `pipeline.py`; one-line fix adds `[scans_frames[i] for i in keep_idx]` to the dedup block so all SCANS fallbacks use the same frame subset as the main compositing path; `run()` while-loop refactored to call the new function; 5 new tests in `test_pipeline.py`. 242 tests passing. Session 27 complete: §1.8A TOML config loader — `load_asp_config(path, *, override_env=True)` in new `backend/src/anim/config.py`; reads `asp_config.toml` via stdlib `tomllib`, merges all sections into flat dict, writes each key to `os.environ` via `setdefault`; zero new deps; `override_env=False` dry-run mode; 5 new tests. 237 tests passing. Session 26 complete: §1.2B near-dup luma post-filter — `_near_dup_luma_filter(selected_thumbs, selected_paths, threshold)` in `frame_selection.py`; wired as step 8 in `smart_select_frames` (default disabled: `ASP_NEAR_DUP_LUMA=0.0`); `NEAR_DUP_LUMA_THRESH=3.0` constant extracted from pipeline.py magic number; 5 new tests. 232 tests passing. Session 25 complete: §3.9 fix — unified `_compute_aligned_ssim`; removed dead S8 EUCLIDEAN definition (was silently overridden by S9 TRANSLATION version); surviving definition upgraded to MOTION_EUCLIDEAN with (200 iter, 1e-4 tol, gaussFiltSize=5, GT-centric resize, BORDER_REPLICATE); redundant double call in `_compute_gt_metrics` removed; 5 new tests. 227 tests passing. Session 24 complete: §1.4B continuous adaptive gain clamp — `clamp_width = 0.26 − 0.12 × (ref_lum/255)` replaces S18 binary ref<80 threshold; smooth surface from ±26% (pure-black) to ±14% (pure-white); 5 updated tests + 3 new. 222 tests passing. Session 23 complete: §1.7B OpenCV INPAINT_TELEA border fill (`_telea_fill_gaps`) — fast fallback for residual black corners when diffusion inpainting fails; wired into P1.8 except block in `pipeline.py`; zero new dependencies. 5 new tests. 219 tests passing. Session 22 complete: §1.6B gain-adaptive feather minimum (`_gain_to_min_feather`) — `max(40, int(gain_diff×300))` capped at 120px applied as floor after overlap-cap; `frame_gains` tracked in normalization loop; dead code `_normalize_warped_to_median` removed; roadmap housekeeping (§0.5A/B, §1.1C, §1.4A, §1.5A/C/E, §1.6A/B/C marked ✅). 6 new tests. 214 tests passing. Session 21 complete: §1.6C gradient-domain Poisson seam blend (`_poisson_seam_blend`) — `cv2.seamlessClone(NORMAL_CLONE)` in ±20px band around DP seam path; eliminates brightness step at hard cuts without ghosting; gated by `ASP_POISSON_SEAM=1`. 5 new tests. 208 tests passing. Session 20 complete: bg-mask-aware DSFN ramp (`_soft_seam_weight`) — `sim_diffused[both_fg]=0.0` after Gaussian blur prevents background similarity diffusing into fg-vs-fg overlap; bg_mask params were previously passed but unused. 2 new tests. 203 tests passing. Session 19 complete: §1.6A tiered seam cost (`_build_seam_cost_map`) — Tier 2 edge-buffer cost lowered 1.0→0.5, creating gradient interior=1.0→buffer=0.5→background=0.0 for DP routing. 7 new tests. 201 tests passing. Session 18 complete: per-pair coherence gate (`_coherence_skip_mask`) + §1.4A adaptive gain clamp (`_adaptive_gain_clamp`) — normalization skips only frames in bad adjacent pairs (not all frames), gain clamp widens from ±7% to ±14%/±18% for normal/dark scenes. 11 new tests. 194 tests passing. Session 17 complete: per-pixel DSFN blend ramp (`_soft_seam_weight` — ramp now (zone_h,W) not (1,W)), adaptive boundary search range (±100px when tx_spread<5px). 6 new tests. 183 tests passing. Session 16 complete: `_seam_color_match()` — per-channel mean shift of oth_zone toward dom_zone in seam band before S15 blend, reducing color step from post_warp_diff lum to within-band variance (~5 lum). 7 new tests. 177 tests passing. Session 15 complete: `_single_pose_soft_edge()` — narrow ±6px path-guided linear feather at single-pose seam cuts, smoothing hard color step without ghosting. 7 new tests. 170 tests passing. Session 14: `_seam_visibility_score()` no-reference quality metric in benchmark — worst-case adjacent-row luminance jump, wired into `_compute_all_metrics`, 8 new tests. 163 tests passing. Session 13: Multi-frame canvas coverage gate (Stage 10.5) — `_compute_row_coverage()` helper + SCANS fallback when <30% of rows have ≥2-frame coverage. §0 item 2 complete. 155 tests passing. Session 12: Adaptive feather refinement (post_warp_diff < 8 → widen 1.5×, > 16 → narrow 0.75×) + parallel seam DP pre-computation (ThreadPoolExecutor, max 4 workers). 149 tests passing (anim suite). Session 11: Fallback elimination — comparative render gate (2.0× SCANS baseline), alignment gate → advisory, validation retry chain extended to 5 retries, GhostGate absolute floor (40.0), `seam_post_diffs` init bug fixed. SCANS fallbacks: 51 → 4 genuine (tests 54, 59, 73, 89). Session 10: Seam DP vectorized via `minimum_filter1d` (§1.5A ✅), dead S8 DINOv2 definition removed, `_TOONCRAFTER_SEAM_ENABLED` NameError fixed, test import errors fixed, `TestDINOv2Features` rewritten for S9 API. 141 tests passing. Session 9: ToonCrafter seam synthesis wired to worst single-pose seam (§3.6). Session 8: DINOv2 submodular frame selection (§3.3), LSD collinearity in ARAP (§0.1/A3), Aligned-SSIM metric (§3.9). Session 7: Stage 12.5 scroll-axis foreground-extent trim (§2.6). Session 6: perceptual-hash hold detection (§1.11), GNC robust loss for BA (§1.1), SLIC SGM proxy (§3.1). 107 tests passing (was 90 at S5 start). Session 5: alignment stability gate (+0.074 on test08, +0.049 on test25), fg pixel L1 pose metric (+0.010 on test27 with pose-on), 8 new unit tests (90 total). Session 4: ARAP Push phase (full Sýkora 2009). Session 3: pose-consistent frame selection infrastructure. Session 2: RAFT+ARAP+post_warp_diff. Session 1: foreground assembly pipeline.*  
 *Corpus: 96 tests; 55 have ground truth. **Avg SSIM ASP vs GT: 0.667 vs simple stitch 0.694** — simple stitch is 3.9% closer to reference on average (session 4 full-run baseline).*  
 *True ASP composites: 52/96 (54.2%). Alignment gate (2D motion): test08 0.736→0.809, test25 +0.049. Render quality gate: 31 fallbacks (32.3%). Affine validation: 13 fallbacks (13.5%).*  
 *GT verdicts (S4 baseline): asp_better=7 (12.7%), simple_better=26 (47.3%), comparable=22 (40.0%). Best: test17=0.887, test84=0.821. S5 key: test08 now asp_better (0.809 vs simple 0.805).*  
 *Root cause: Animated video scenes vs. static-scroll design assumption. Phase correlation measures whole-frame displacement including character animation.*  
 *Previous baseline (22 tests, 2026-05-31): 22/22 metric success, avg sharpness 33.14.*
 
-*Research basis (consolidated): [`reports/Image_Stitching_Research.md`](../../reports/Image_Stitching_Research.md) — foreground-assembly paradigm, per-stage toolbox, 13-stage spec, failure/fallback taxonomy. [`reports/Anime Stitching Pipeline Upgrade Research.md`](../../reports/Anime%20Stitching%20Pipeline%20Upgrade%20Research.md) — SSIM ceiling analysis, ARAP/SGM/RAFT upgrade paths. [`reports/Anime Stitch Pipeline ML Research.md`](../../reports/Anime%20Stitch%20Pipeline%20ML%20Research.md) — DINOv2/SigLIP submodular selection, SI-FID, SIQE, ToonCrafter wiring. [`reports/Advanced Morphological Integration and Human-in-the-Loop Interventions for the Anime Stitch Pipeline.md`](../../reports/Advanced%20Morphological%20Integration%20and%20Human-in-the-Loop%20Interventions%20for%20the%20Anime%20Stitch%20Pipeline.md) — AGNC, SAM 2, Overmix, BigWarp, SAM2Flow, Intelligent Scissors, RLHF/DPO pathway.*
+*Research basis (consolidated): [`reports/ASP Consolidated Research Plan.md`](../../reports/ASP%20Consolidated%20Research%20Plan.md) — full synthesis of ML survey, practitioner lessons (Overmix, Hugin, ICE), HITL architecture, structured research plan, and technical survey. Covers failure taxonomy (A/B/C1/C2), Phase 1/2/3 priority roadmap, module specs (frame selection, SAM-2, SGM/SEA-RAFT, ARAP, GNC-BA, background separation, stitching, seam routing, ProPainter, NR-IQA), synergy maps, HITL DAG breakpoints, dataset registry (LinkTo-Anime, ATD-12K, AnimeRun, etc.), and S6–S32 implementation status. Also see [`reports/Image_Stitching_Research.md`](../../reports/Image_Stitching_Research.md) for foreground-assembly paradigm and 13-stage spec.*
 
 ---
 
@@ -27,7 +27,7 @@ Each section lists the pain point, all viable implementation options with trade-
 
 **Required fixes before any other work:**
 1. Background-only phase correlation in frame selector (run BiRefNet first)
-2. Multi-frame canvas coverage check before compositing (fall back to SCANS if median coverage < 2 frames/row)
+2. Multi-frame canvas coverage check before compositing (fall back to SCANS if median coverage < 2 frames/row) — ✅ DONE (Stage 10.5, `_compute_row_coverage()`, `ASP_COV_MIN_MULTI_PCT=0.30`)
 3. Replace sharpness metric with seam coherence metric (row-mean luminance variance) — ✅ DONE
 4. Seam validation gate after composite (if adjacent strips differ >15 lum units, reject and use SCANS) — ✅ DONE (render gate)
 
@@ -121,20 +121,25 @@ When flow confidence is low (fast action, motion blur), do not warp/average — 
 
 ### Options
 
-**A — Lower static threshold to 25px [Quick Win]**
+**A — Lower static threshold to 25px [Quick Win]** ✅ **Shipped (pre-S6)**
 Change `MIN_GAP_PX` in `validation.py` from 50 to 25. Immediately rescues ~9 datasets.
 - Pros: One-line change. Proven safe — genuine co-located frames have gaps < 5px.
 - Cons: Fixed threshold; doesn't adapt to canvas resolution.
 
-**B — Vector magnitude gap (multi-axis) [Quick Win]**
+**B — Vector magnitude gap (multi-axis) [Quick Win]** ✅ **Shipped (pre-S6)**
 Replace `min(|dy|)` with `min(sqrt(dy² + dx²))` for the gap computation. Fixes 6 datasets with diagonal scroll where dy=40px but actual displacement=100px.
 - Pros: Physically correct for diagonal scrolls. One-line change.
 - Cons: Slightly more complex formula.
 
-**C — Adaptive threshold based on selected frame density**
-`min_gap = max(20px, canvas_height / (N_frames × 3))`. Scales with scroll speed.
-- Pros: Content-aware; no fixed value to tune.
-- Cons: Requires canvas_height to be known at validation time.
+**C — Adaptive threshold based on selected frame density** ✅ **Shipped S36**
+`_compute_adaptive_min_gap(affines)` in `validation.py` — returns `max(20.0, canvas_span / (N × 3))` where `canvas_span` is the dominant-axis displacement range (`max(dy_span, dx_span)`). Canvas height is not required; the displacement span is a sufficient proxy (it equals canvas_span - frame_h, but frame_h is constant across frames). Wired into Stage 7b of `pipeline.py` as the `min_step` for the first `_validate_affines` call. Log message updated. `_compute_adaptive_min_gap` exported in `__all__`. 5 new tests in `test_affine_validation.py::TestAdaptiveMinGap`.
+- Pros: Content-aware; slow-scroll sequences benefit (floor=20px rescues tight-but-valid gaps); fast-scroll/4K now applies a proportionally higher threshold.
+- Cons: Span proxy slightly underestimates canvas height by one frame_h, but this is a bounded error (< 5% for typical frame/canvas ratios).
+
+**D — Adaptive rotation/scale thresholds** ✅ **Shipped S47**
+`_compute_adaptive_rot_scale(affines) → (max_rotation, max_scale_dev)` in `validation.py`. When frame-to-frame σ of rotation (or scale) < `_ROT_SCALE_CONSISTENCY_THRESH=0.02`, returns loose threshold `0.15` (was hardcoded `0.10`). Consistent rotation/scale signals a systematic camera property (lens barrel distortion, constant zoom); inconsistent values signal BA noise. Wired into Stage 7b initial validation and Retry 0. Constants: `_ROT_TIGHT=0.10`, `_ROT_LOOSE=0.15`, `_SC_TIGHT=0.10`, `_SC_LOOSE=0.15`. Exported in `__all__`. 5 new tests in `test_affine_validation.py::TestAdaptiveRotScale`.
+- Targets test5 (zoom-pan: max_rot≈0.111, scale_dev≈0.121 — just above the 0.10 tight ceiling, below 0.15).
+- σ≈0 for a true zoom-pan sequence (all frames share the same lens distortion) → loose threshold returned → validation passes without any retry.
 
 **Recommendation:** Implement B first (zero risk, fixes multi-axis scrolls), then A (lower threshold). Combined, these should bring the success rate to ~83% (78/94).
 
@@ -151,22 +156,22 @@ After the initial Levenberg-Marquardt solve, compute per-edge predicted-vs-actua
 - Pros: Already implemented. Zero new dependencies.
 - Cons: Median threshold is corpus-tuned; may fail on datasets with >40% outliers.
 
-**B — RANSAC before LM (consensus pre-filter)**
-Before the LM solve, run a consensus-based robust estimator across all edges to find the inlier set, then solve only on inliers.
-- Implementations: classic RANSAC, MAGSAC++ (adaptive threshold), LO-RANSAC (local optimisation after each model draw).
-- Pros: More principled than post-solve pruning. Especially robust when >30% of edges are bad.
+**B — RANSAC before LM (consensus pre-filter)** ✅ **Shipped S45**
+`_spanning_tree_inlier_filter(edges, num_frames, inlier_threshold=50.0)` in `bundle_adjust.py`. Builds a maximum-weight spanning tree (Kruskal greedy, highest-weight-first), BFS-propagates a reference translation from frame 0, and rejects any edge whose observed dx/dy disagrees with the reference by > 50 px. Spanning-tree edges always pass (residual = 0 by construction). Falls back to original edges when the graph is disconnected or fewer than `max(2, N-1)` inliers survive. Wired at the top of `_bundle_adjust_affine` before DOF setup. 5 tests in `test_bundle_adjust.py::TestSpanningTreeInlierFilter`.
+- Implementations: classic RANSAC, MAGSAC++ (adaptive threshold), LO-RANSAC (local optimisation after each model draw). **Shipped:** spanning-tree deterministic consensus (zero random seed, O(E log E), no new dependencies).
+- Pros: More principled than post-solve pruning. Especially robust when >30% of edges are bad. Deterministic — no random seed, reproducible results.
 - Cons: Significantly slower. MAGSAC++ adds a dependency (poselib or custom impl).
 - Reference: [RANSAC variants survey](https://arxiv.org/abs/1905.00604)
 
-**C — Graduated Non-Convexity (GNC) robust loss**
+**C — Graduated Non-Convexity (GNC) robust loss** ✅ **Shipped S6**
 Replace the L2 residual in the LM cost function with a robust loss (Geman-McClure, Cauchy, or Welsch) that automatically down-weights outlier edges during optimisation. The weight schedule is annealed from convex to non-convex so the solver never gets stuck in a local minimum induced by outliers.
 - Implementation: `scipy.optimize.least_squares(method='trf', loss='cauchy', f_scale=...)` — can be a one-line swap if the Jacobian is compatible with scipy's interface.
 - Pros: No separate rejection step. Theoretical guarantees at up to 70–80% outlier rate (Yang et al., 2019; FracGM 2025 improves convergence further). Generalises better to unseen data.
 - Cons: Loss hyperparameter (f_scale) needs tuning. Slower than Option A.
 - Reference: [GNC for Spatial Perception (arXiv 1909.08605)](https://arxiv.org/abs/1909.08605)
 
-**D — Adaptive Graduated Non-Convexity (AGNC) [Research — state of the art]**
-Upgrade from static GNC (C) to AGNC, which dynamically adjusts the loss scale by monitoring the positive definiteness of the Hessian matrix rather than following a fixed annealing schedule. AGNC uses a multi-task search strategy: samples multiple annealing choices per iteration and keeps the one with the best convergence signal. Empirically stable even at 99% outlier rates (SAC-GNC, IEEE 2026).
+**D — Adaptive Graduated Non-Convexity (AGNC) ✅ DONE (S30, simplified)**
+Simplified AGNC: `_compute_adaptive_f_scale(edges, affines, floor)` in `bundle_adjust.py` — after initial solve, computes `max(floor, 2.0 × median_residual_px)` from the preliminary affines. If adaptive_scale > _BA_F_SCALE × 1.5, re-solves with the data-derived scale (warm-started). For clean data the floor dominates (behaviour unchanged); for uniformly noisy data (median ~30px) the scale widens to ~60px so legitimate edges are not over-penalised. 5 tests in `test_bundle_adjust.py`.
 - Implementation: `scipy.optimize.least_squares(method='trf', loss='cauchy', f_scale=...)` with a wrapper that tunes `f_scale` adaptively based on residual distribution between LM iterations.
 - Pros: Optimal convergence guarantee (no fixed schedule to tune). Immune to outlier-dominated medians that break Option A. Best-in-class for extreme cases (ratio failures like test13 at 11.1×).
 - Cons: More complex than C. Requires monitoring LM iteration state (scipy doesn't expose this natively — needs a custom `jac_sparsity` callback or wrapping in a custom optimizer).
@@ -193,26 +198,27 @@ Train a small MLP on (edge residuals → is_outlier) using feedback from the exi
 
 ### Options
 
-**A — Pre-bundle static edge rejection [Quick Win]**
-Drop any edge where `|dy| < 50px AND |dx| < 50px` before the LM solve.
+**A — Pre-bundle static edge rejection [Quick Win] ✅ DONE (S32)**
+`_reject_static_edges(edges, min_disp_px)` in `pipeline.py`. `STATIC_EDGE_MIN_DISP_PX=50` in `constants/anim.py`. Called at the top of `_filter_edges()` before the geometric consistency filter. 5 tests in `test_filter_edges.py`.
 - Pros: Fast, zero dependencies, one-line change.
 - Cons: Fixed 50px threshold doesn't scale with canvas resolution or scroll speed.
 
-**B — Near-duplicate frame deduplication via perceptual distance**
+**B — Near-duplicate frame deduplication via perceptual distance** ✅ **Shipped S26**
 Before matching, compare each frame to the previous using mean luma difference, SSIM, or histogram distance. Drop frames below a threshold.
-- Exact-duplicate dedup already runs (Pre-5). Extend it with a soft near-duplicate check.
-- SSIM threshold ~0.97 catches near-statics without false-positives on slow-scroll sequences.
+- `_near_dup_luma_filter` in `frame_selection.py` — post-filter on the selected list using mean abs grayscale diff. Default OFF (`ASP_NEAR_DUP_LUMA=0.0`). `NEAR_DUP_LUMA_THRESH=3.0` constant extracted from pipeline.py pre-stage-5 dedup.
+- First frame always kept; last frame always retained (canvas extent preservation).
 - Pros: Removes the bad source upstream; cleaner than downstream rejection.
 - Cons: SSIM adds ~5ms per frame pair (acceptable). Threshold may need tuning per content type.
 
-**C — Adaptive min-step threshold**
+**C — Adaptive min-step threshold** ✅ **Shipped S34**
 Estimate expected inter-frame step as `canvas_height / N_frames`. Flag edges where step < 10% of expected. Automatically scales to different resolutions and scroll speeds.
+- `_compute_adaptive_min_disp(edges)` in `pipeline.py` — returns `max(STATIC_EDGE_MIN_DISP_PX, ADAPTIVE_MIN_DISP_FRAC * median_adjacent_step)` on the dominant scroll axis. Wired into `_filter_edges` before `_reject_static_edges`. `ADAPTIVE_MIN_DISP_FRAC=0.10` constant in `constants/anim.py`. 5 new tests in `test_filter_edges.py::TestComputeAdaptiveMinDisp`.
 - Pros: Content-adaptive; handles 1080p and 4K equally well.
 - Cons: Estimate can be wrong for non-uniform scroll (e.g., scene transitions).
 
-**D — Temporal variance filter (motion energy)**
-Compute per-pixel temporal variance across consecutive frame triplets. If the variance map is near-zero (< σ threshold), mark the middle frame as static and skip it.
-- Pros: Robust to both exact and near-duplicate statics. Works on partial-screen motion.
+**D — Temporal variance filter (motion energy)** ✅ **Shipped S39**
+`_temporal_variance_filter(thumbs, paths, sigma_threshold)` in `frame_selection.py`. Stacks (i-1, i, i+1) thumbnail triplet; drops interior frame i when mean per-pixel variance < sigma_threshold (in [0,1]² space). `TEMPORAL_VAR_THRESH=1e-3` in `constants/anim.py`. Default disabled: `ASP_TEMPORAL_VAR_THRESH=0.0`. Wired as step 1a in `smart_select_frames`.
+- Pros: Catches static frames before matching runs — prevents zero-displacement edges from entering the edge graph. Complements §1.2A/B/C which act on edges or selected frames.
 - Cons: Slightly higher compute than SSIM. Requires storing three frames in memory simultaneously.
 
 **Recommendation:** Implement B first (cleanest fix, removes the bad source). Follow with C to make the residual threshold content-adaptive. B and C are complementary; D is a research-track alternative.
@@ -230,8 +236,8 @@ When `max_scale_dev > 0.05` or `max_rotation > 0.03`, replace translation-only p
 - Pros: Handles all affine distortions. Directly addresss the failure mode.
 - Cons: Higher compute; introduces resampling blur near edges (proportional to warp magnitude). Requires per-frame affine estimation (currently only global stats are computed).
 
-**B — OpenCV Stitcher PANORAMA fallback [Quick Win]**
-When the affine validator fires, route to `cv2.Stitcher_create(cv2.Stitcher_PANORAMA)` instead of SCANS. Already uses spherical/cylindrical projection, handles perspective and scale natively.
+**B — OpenCV Stitcher PANORAMA fallback [Quick Win] ✅ DONE (S31)**
+`_panorama_stitch_fallback(frames, output_path)` in `canvas.py`. Uses `cv2.Stitcher_create(mode=0)`; raises `RuntimeError` on failure. Wired into `pipeline.py` between Retry 3 and SCANS — catches all exceptions so SCANS remains the ultimate safety net. 5 tests in `test_canvas.py`.
 - The existing `simple_stitch` path in `image_merger.py` already uses this — the change is routing the affine-rejection fallback here instead of SCANS.
 - Pros: Reuses existing infrastructure. Handles arbitrary affine distortions with no new code.
 - Cons: PANORAMA stitcher is slower and sometimes produces barrel distortion on vertical scroll sequences.
@@ -246,10 +252,9 @@ Extend A to full 8-DOF projective warp. Handles perspective (slight 3D parallax)
 - Pros: Broadest coverage.
 - Cons: Projective warp on scroll sequences tends to over-fit small parallax into large geometric distortions. High risk of quality degradation on simple sequences.
 
-**E — Similarity transform (scale + rotation + translation)**
-4-DOF SRTF: a middle ground between translation-only and full affine. Handles zoom-and-pan without shear artefacts.
-- Pros: Physically correct model for handheld pan+zoom. Less prone to overfitting than full affine.
-- Cons: Requires SRTF estimator (available via OpenCV `estimateAffinePartial2D`).
+**E — Similarity transform (scale + rotation + translation)** ✅ **Shipped S48**
+`_extract_similarity(M) → (2,3) float32` in `matching.py`. Closed-form Procrustes projection: `a_sym=(M[0,0]+M[1,1])/2`, `b_sym=(M[0,1]-M[1,0])/2` → `[[a_sym, b_sym, tx], [-b_sym, a_sym, ty]]`. Shear discarded (feature matchers cannot reliably distinguish shear from perspective). `_SIMILARITY_MODE` flag (default OFF, `ASP_SIMILARITY_MODE=1` to enable). In `_match_pair`, similarity projection replaces translation-only strip when flag enabled. `ASP_SIMILARITY_MODE` added to `_CONFIG_SCHEMA`. Exported in `__all__`. 5 new tests in `test_matching.py::TestExtractSimilarity`.
+- Complementary to §0.5D (S47): validation accepts systematic rotation/scale (`σ<0.02` → loose 0.15 threshold); similarity mode provides the correct matched affine for validation to accept.
 
 **Recommendation:** B is lowest effort (reuses existing code path). E is the most physically appropriate model for zoom-pan sequences. Implement B as immediate fallback; prototype E as a dedicated zoom-scroll mode.
 
@@ -261,32 +266,32 @@ Extend A to full 8-DOF projective warp. Handles perspective (slight 3D parallax)
 
 ### Options
 
-**A — Conditional clamp based on ref_lum [Quick Win]**
+**A — Conditional clamp based on ref_lum [Quick Win]** ✅ **Shipped S18**
 Use `[0.82, 1.22]` when `ref_lum < 80`, `[0.88, 1.14]` otherwise.
 - Pros: One-line config change. Targeted fix for dark scenes.
 - Cons: Binary threshold; doesn't smoothly scale with luminance level.
 
-**B — Continuous clamp scaling**
+**B — Continuous clamp scaling** ✅ **Shipped S24**
 Linearly interpolate clamp width between dark and bright anchors: `clamp_width = 0.26 - 0.12 × (ref_lum / 255)`. Smooth, no discontinuity at a single threshold.
 - Pros: More principled than A.
 - Cons: Requires tuning two anchor values instead of one.
 
-**C — Per-frame adaptive clamp (background mask only)**
-Compute desired correction factor per frame. If the clamp would cut it short by >20%, apply full correction only to the BiRefNet background mask; leave foreground pixels at the clamped value. Avoids character skin tone shifts on high-gain frames.
-- Pros: Preserves foreground colour accuracy.
-- Cons: Requires mask-aware gain application (not currently vectorised).
+**C — Per-frame adaptive clamp (background mask only)** ✅ **Shipped S40**
+`_bg_gain_unclamped(ref_lum, frame_lum, override_threshold=0.20)` in `compositing.py`. When `_adaptive_gain_clamp` would cut the ideal correction by >20%, returns raw ideal gain for bg pixels. Wired into the bg-only normalization loop; foreground pixels were already excluded at the application site. 5 tests in `test_compositing.py::TestBgGainUnclamped`.
+- Pros: Eliminates residual banding when a dark/bright frame's ideal correction exceeds the clamp. Symmetric (brightening and darkening both covered).
+- Cons: Background clipping possible for extreme gain (5×+); `np.clip(0,255)` handles this.
 
-**D — Multi-scale gain (tone-mapping inspired)**
-Apply large gain corrections at low spatial frequency (blurred background component) and fine-tune at high frequency. Inspired by Retinex and CLAHE-based tone-mapping operators.
-- Pros: Handles non-uniform scene lighting (half-dark/half-bright panels).
-- Cons: Significantly more complex. Requires frequency decomposition step.
+**D — Multi-scale gain (tone-mapping inspired)** ✅ **Shipped S46**
+`_multiscale_gain_map(frame, reference, bg_mask, sigma=30.0, gain_min=0.5, gain_max=2.0)` in `compositing.py`. Computes per-pixel gain = `ref_blurred / (frame_blurred + ε)` where both are Gaussian-blurred background luminance maps (σ=30px). Foreground pixels are zeroed before the blur so character luminance does not contaminate the bg model. Applied via `gain_map[bg_sel, np.newaxis]` (bg only, fg untouched). `_MULTISCALE_GAIN` flag (default OFF, `ASP_MULTISCALE_GAIN=1`). `MULTISCALE_GAIN_SIGMA=30.0` in `constants/anim.py`. 5 tests in `test_compositing.py::TestMultiscaleGainMap`.
+- Pros: Handles non-uniform scene lighting (half-dark/half-bright panels). Zero new deps.
+- Cons: ~2ms overhead per 1080p frame (vs ~0.1ms for scalar gain). Default OFF.
 
-**E — Background histogram matching via CLAHE [Research]**
-Instead of per-frame scalar gain, match each frame's background histogram to the reference frame using CLAHE. Better correction for scenes with non-uniform lighting distributions.
-- Pros: Per-region brightness normalisation. Handles vignetting and panel-edge darkening.
-- Cons: CLAHE introduces local contrast enhancement artefacts if misconfigured. Needs mask integration.
+**E — Background histogram matching** ✅ **Shipped S49**
+`_bg_histogram_lut(src_pixels, ref_pixels) → float32[256]` + `_apply_bg_histogram_match(frame, reference, bg_mask) → uint8(H,W,3)` in `compositing.py`. CDF-matching LUT built via `np.searchsorted(ref_cdf, src_cdf, side="left")` — for each source intensity `v`, maps to the smallest reference intensity `u` where `CDF_ref(u) ≥ CDF_src(v)`. Per-channel application to background region (fg pixels unchanged). Identity-LUT fallback for degenerate masks (< 10 bg pixels). `_HISTOGRAM_MATCH` flag (default OFF, `ASP_HISTOGRAM_MATCH=1`). Wired as third branch in normalization loop between `_MULTISCALE_GAIN` and scalar path. Roadmap note "needs CLAHE / opencv-contrib" was incorrect — `cv2.createCLAHE()` is in base OpenCV, but standard CDF matching is cleaner and zero-overhead. 5 tests in `test_compositing.py::TestBgHistogramLut`.
+- Pros: Handles non-linear tonal mismatch (S-curve exposure differences). Zero new deps (pure numpy). Does not cause hue shifts (per-channel, not luminance-only).
+- Cons: ~0.5ms overhead per frame. Mutual-exclusive with `_MULTISCALE_GAIN` (multiscale takes priority). For simple multiplicative gain differences, scalar path is equally effective.
 
-**Recommendation:** A is a one-line config change, ship immediately. B as a follow-on smoothing pass. E is a [Research] item for dark/complex scenes.
+**Recommendation:** A is a one-line config change, ship immediately. B as a follow-on smoothing pass. E ✅ shipped S49.
 
 ---
 
@@ -296,28 +301,23 @@ Instead of per-frame scalar gain, match each frame's background histogram to the
 
 ### Options
 
-**A — Vectorise seam DP with NumPy**
-The per-row minimum-cost path accumulation can be expressed as a cumulative minimum over a 2D cost array, replacing the Python row-by-row loop. Expected speedup: 5–10×.
-- Implementation: `np.minimum.accumulate` along the column axis after adding the 3-column shift variants.
-- Pros: No new dependencies. Largest single leverage change.
-- Cons: Requires careful index arithmetic to replicate the ±1-column DP transition.
+**A — Vectorise seam DP with NumPy** ✅ **Shipped S10**
+The per-row minimum-cost path accumulation is now handled by `scipy.ndimage.minimum_filter1d(size=3, mode='constant', cval=np.inf)` — replaces the Python row-by-row loop and `left`/`right` array allocations. Traceback uses slice-argmin. Expected speedup: 5–10×.
 
 **B — CUDA seam DP via PyTorch scatter/gather**
 Implement the DP on GPU using PyTorch operations.
 - Pros: Fastest possible; ~50–100× speedup on a 3090 Ti.
 - Cons: Requires GPU. Adds kernel complexity. DP is inherently sequential by row — parallelisable only column-wise within each row.
 
-**C — Restrict seam search window [Quick Win]**
+**C — Restrict seam search window [Quick Win]** ✅ **Shipped S17**
 Current ±250px window scans 500 columns per row. Reduce to ±100px for sequences with `dx_cv < 5` (low horizontal drift). Auto-detect from bundle adjustment output. Reduces DP grid by 60%.
 - Pros: Drop-in optimisation, no algorithm change.
 - Cons: May clip optimal seam path on high-drift sequences.
 
-**D — Cache seam path across RLHF iterations**
-When re-processing the same frame set with different blending parameters, cache the seam mask keyed by `(frame_ids, seam_cost_config)`. Avoids recomputing if only blending weights changed.
-- Pros: Near-zero cost for repeat runs (common in RLHF parameter search).
-- Cons: Cache invalidation logic; disk/memory cost for large panoramas.
+**D — Cache seam path across RLHF iterations** ✅ **Shipped S44**
+`_make_seam_cache_key(frame_keys, k, cost_flags)` + `_get_seam_cost_flags()` in `compositing.py`. Key: `(tuple(image_paths), k, (_POISSON_SEAM, _TOONCRAFTER_SEAM))`. `_composite_foreground` accepts `frame_keys` + `seam_path_cache` optional params; cache checked before zone array allocation, populated after DP. `AnimeStitchPipeline` stores `self._seam_path_cache: Dict = {}` and passes it at Stage 11. Memory: ~4 KB per seam path (W×int32). Net speedup for RLHF re-runs: eliminates DP executor latency entirely on 2nd+ call.
 
-**E — Parallel seam computation per strip**
+**E — Parallel seam computation per strip** ✅ **Shipped S12**
 When the panorama has M non-overlapping seam zones (between adjacent frame pairs), compute the M seams in parallel using `concurrent.futures.ThreadPoolExecutor`. The GIL is released during NumPy operations.
 - Pros: Linear speedup proportional to M for multi-frame panoramas.
 - Cons: Requires refactoring to identify independent seam zones.
@@ -332,18 +332,18 @@ When the panorama has M non-overlapping seam zones (between adjacent frame pairs
 
 ### Options
 
-**A — Increase foreground penalty weight in seam DP**
+**A — Increase foreground penalty weight in seam DP** ✅ **Shipped S19 (tiered cost)**
 The `sem_cost` term in `_seam_cut` (P2.4) already routes seams away from BiRefNet-masked foreground. Increase the foreground penalty multiplier (current: partial implementation) to fully deter seams through character regions.
 - Pros: Minimal code change. Directly addresses the seam-through-character problem.
 - Cons: Very high penalty may force seams into narrow background corridors that cause visible aliasing.
 
-**B — Adaptive feather width**
+**B — Adaptive feather width** ✅ **Shipped S22**
 Make `_FADE_ROWS` a function of `|gain_A - gain_B|` across the seam. Wider feather when gain difference is large.
 - Proposed formula: `fade = max(40, int(|gain_diff| × 300))`, capped at 120px.
 - Pros: Smooth transitions reduce perceptual ghosting near boundaries.
 - Cons: Wide feathers on high-gain-difference boundaries may blur the seam zone visibly.
 
-**C — Poisson blending at seam zone [Quick Win]**
+**C — Poisson blending at seam zone [Quick Win]** ✅ **Shipped S21**
 Replace the linear feather with gradient-domain seamless cloning (`cv2.seamlessClone`) in a ±20px band around the seam. Eliminates the brightness step even when gain correction is at its limits.
 - Pros: OpenCV built-in. Medium effort, measurable improvement.
 - Cons: `cv2.seamlessClone` is CPU-only and can be slow on large seam zones (~1–3s extra). Restrict to final-output mode.
@@ -373,13 +373,13 @@ Apply a guided filter (using one of the frame strips as guide) to the feather tr
 - Pros: Reuses existing infrastructure. Best quality.
 - Cons: Adds diffusion inference time (5–30s depending on border area). Requires `sr_mode=True`.
 
-**B — OpenCV INPAINT_TELEA fallback**
+**B — OpenCV INPAINT_TELEA fallback** ✅ **Shipped S23**
 Use `cv2.inpaint(src, mask, inpaintRadius=3, flags=cv2.INPAINT_TELEA)` for border fill. Faster than diffusion; quality is lower but avoids the diffusion dependency in standard mode.
 - Pros: Zero new dependencies. Fast (~0.5s for typical borders).
 - Cons: Visible smearing artefacts on large border regions (>50px). Not suitable for borders spanning characters.
 
-**C — Content-aware minimal bounding crop [Quick Win]**
-Compute the minimal bounding box of valid (non-black) pixels and crop to that. Some outputs may be slightly smaller but always fully valid. Zero dependencies, instant.
+**C — Content-aware minimal bounding crop [Quick Win]** ✅ **De facto implemented**
+`_crop_to_valid(canvas, valid_mask)` in `canvas.py` already computes the minimal bounding box of valid (non-black) pixels and crops to that. When valid_ratio ≥ 80% the simple row/col bounding-box is used; when < 80% (diagonal scroll → parallelogram valid region) it falls back to `_largest_valid_rect` for the maximum inscribed rectangle. No action required.
 - Pros: Always safe. No artefacts.
 - Cons: Output may be smaller than a perfectly filled output. Doesn't eliminate the invalid region, just removes it.
 
@@ -403,15 +403,15 @@ Route border rectangling through the existing SD3 integration. Outpaint the bord
 
 ### Options
 
-**A — TOML config per pipeline run [Quick Win]**
-Load `asp_config.toml` from the working directory or a default location. Override any constant at runtime. Use `tomllib` (stdlib in Python 3.11) with a typed `dataclass`.
+**A — TOML config per pipeline run [Quick Win] ✅ DONE (S27)**
+`load_asp_config(path, *, override_env=True)` in `backend/src/anim/config.py`. Reads `asp_config.toml` via stdlib `tomllib`, merges all sections into a flat dict, writes each key to `os.environ` via `setdefault`. Env vars always win. Zero new dependencies. 5 unit tests (`test_config.py`).
 - Pros: No new dependencies. Enables rapid iteration. Config can be committed alongside test datasets.
 - Cons: Config schema must be kept in sync with `constants.py`.
 
-**B — JSON Schema–validated config**
-Same as A but validated against a JSON Schema on load. Provides clear error messages for misconfigured values.
-- Pros: Better developer experience; validation at load time.
-- Cons: Adds `jsonschema` dependency.
+**B — JSON Schema–validated config ✅ DONE (S42)**
+`_CONFIG_SCHEMA` dict (14 known `ASP_*` keys → type + range spec) + `validate_asp_config(config, *, strict=False)` in `config.py`. Returns list of violation messages; `strict=True` raises `ValueError`. Unknown keys emit `UserWarning` (forward-compat). Wired via `load_asp_config(validate=False, strict=False)`. Zero new deps — inline schema replaces external `jsonschema`. 5 tests in `test_config.py::TestValidateAspConfig`. 317 tests passing.
+- Pros: Better developer experience; validation at load time; clears §1.10B pre-condition.
+- Cons: Schema must be manually updated when new `ASP_*` keys are added.
 
 **C — GUI settings panel for ASP params**
 Expose the most-tuned constants as sliders/checkboxes in the StitchTab UI. Persisted in `QSettings`.
@@ -438,9 +438,9 @@ Allow any config key to be overridden via `ASP_GAIN_CLAMP_LOW=0.82 python main.p
 
 ### Options
 
-**A — Pass original frames to SCANS fallback [Quick Win]**
-Store original (pre-BiRefNet, pre-ECC) frames in the pipeline context. Use those frames when triggering SCANS. One-line change in `pipeline.py`.
-- Pros: Minimal change. Eliminates the degradation entirely.
+**A — Pass original frames to SCANS fallback [Quick Win] ✅ DONE (S28)**
+`scans_frames` was already set at Stage 2 (pre-BiRefNet) — the original pain point was written before this placement was fixed. Remaining bug: the post-Stage-6 spatial dedup updated `frames` but never synced `scans_frames`. Fixed by extracting `_spatial_dedup_frames()` (module-level, testable) and adding the one-line sync. 5 new tests in `test_pipeline.py`. See CHANGELOG for full rationale.
+- Pros: Minimal change. Eliminates the desync between fallback path and main pipeline.
 - Cons: Doubles the frame memory footprint during the pipeline run (originals + processed).
 
 **B — Dual path from Stage 1**
@@ -448,8 +448,9 @@ Fork the pipeline at Stage 1: one path applies preprocessing; the other keeps or
 - Pros: Enables per-stage fallback decisions (e.g., use ECC-normalised for matching but originals for compositing).
 - Cons: Increases complexity. Higher memory cost.
 
-**C — On-demand reload from disk**
+**C — On-demand reload from disk ✅ DONE (S41)**
 On fallback trigger, reload original frames from disk rather than holding them in memory.
+`_reload_scans_frames(paths)` in `pipeline.py` — calls `_load_frames(paths)` then `_normalise_widths()`; wired into all 5 fallback sites via `_sf = scans_frames or _reload_scans_frames(image_paths)`. `ASP_SCANS_RELOAD=1` skips the Stage-2 `list(frames)` snapshot; both dedup syncs guarded with `if scans_frames else []`. Saves ~87 MB for 14-frame 1080p on the success path. 5 new tests in `test_pipeline.py::TestReloadScansFrames`. 312 tests passing.
 - Pros: Zero extra memory during successful pipeline runs.
 - Cons: Adds disk I/O latency at fallback time (~0.5–2s for 14 frames). Acceptable for a fallback path.
 
@@ -463,10 +464,10 @@ On fallback trigger, reload original frames from disk rather than holding them i
 
 ### Options
 
-**A — Post-run quality gate**
-After each pipeline run, call `reward_model.predict(output)` and log the score alongside benchmark metrics. Flag outputs scoring < 0.6 for manual review in the feedback tab.
+**A — Post-run quality gate ✅ DONE (S29)**
+`_compute_rlhf_score(img_bgr)` in `bench_anime_stitch.py`. Lazy-loads `StitchRewardModel` via `_get_reward_model()` singleton. `_compute_all_metrics` now emits `rlhf_score` (float or None) and `rlhf_flagged` (bool, threshold=0.6). 5 tests. 247 tests passing.
 - Pros: Closes the feedback loop without requiring the DRL agent to be production-ready.
-- Cons: Reward model must be calibrated before its scores are meaningful.
+- Cons: Reward model must be calibrated before its scores are meaningful. Currently uses random weights.
 
 **B — Parameter search with reward signal (offline Bayesian optimisation)**
 Use the reward model as the objective for Bayesian optimisation (e.g., `optuna` or `scikit-optimize`) over gain clamp, feather width, and seam cost weights. Run offline on the 22-test corpus.
@@ -739,7 +740,7 @@ When the full ASP pipeline run produces an output the user is unsatisfied with, 
 
 ## 3.0 ML-Driven Pipeline Modernisation [Research Phase — from ML Research Report]
 
-*Source: `reports/Anime Stitch Pipeline ML Research.md` — surveyed 2026-06-04. Each subsection maps a specific finding from the report to the current pipeline stage it targets, the files it touches, and the expected quality delta.*
+*Source: [`reports/ASP Consolidated Research Plan.md`](../../reports/ASP%20Consolidated%20Research%20Plan.md) — consolidated 2026-06-07. Each subsection maps a specific finding from the research plan to the current pipeline stage it targets, the files it touches, and the expected quality delta. Phase priority framework in the consolidated plan: Phase 1 (pose-consistent frame selection, GNC-TLS BA, median background + JPEG-aware refinement, SAM-2 masking), Phase 2 (AnimeInterp SGM + LinkTo-Anime SEA-RAFT, OBJ-GSP seam barrier, full Sýkora 2009 ARAP, ProPainter), Phase 3 (ToonCrafter quality-gated, StabStitch++ trajectory smoothing).*
 
 The report's central thesis: cel animation breaks every assumption that drives classical CV pipelines (gradient-based flow, RANSAC on whole-frame features, pixel-level quality metrics). The next generation of improvements requires either (a) anime-specific classical methods that bypass those assumptions entirely, or (b) deep/generative models whose priors capture the latent structure of hand-drawn character motion. The sections below are ordered by expected impact-to-effort ratio and dependency on existing infrastructure.
 
@@ -775,7 +776,12 @@ SLIC superpixels (available in `skimage.segmentation.slic`) can approximate the 
 Beyond fg registration: use SGM + ConvGRU (§3.2) to generate synthetic intermediate frames between selected frames, filling in animation gaps entirely. This would replace the midpoint warp with a learned interpolation.
 - Cons: Requires ATD-12K fine-tuning for best quality. GPU inference time ~500ms per synthetic frame.
 
-**Recommendation:** B immediately as a diagnostic check (does centroid-level flow actually improve post_warp_diff?). A if B shows meaningful seam residual reduction on test09/test27. C is the long-term ceiling but depends on A being validated first.
+**D — LinkTo-Anime fine-tuned SEA-RAFT as drop-in flow engine [Research]**
+The LinkTo-Anime dataset (arXiv 2506.02733) is the first GT optical-flow corpus for cel-shaded anime (395 sequences, 24,230 training frames). SEA-RAFT (ICCV 2025) is the current top-performing flow architecture. Fine-tuning SEA-RAFT on LinkTo-Anime produces an anime-specific flow engine loadable via `ASP_FLOW_ENGINE=sea_raft_anime` — a direct drop-in for the existing engine swap in `_load_flow_engine()`.
+- Pros: Addresses the domain gap at the data level. SEA-RAFT's recurrent refinement outperforms RAFT on textured regions and is more robust than SGM on ambiguous animation poses.
+- Cons: ~24GB VRAM for fine-tuning on the full LinkTo-Anime dataset. Inference time similar to RAFT (~30ms/seam on GPU). Model weights ~100MB after fine-tuning.
+
+**Recommendation:** B immediately as a diagnostic check (does centroid-level flow actually improve post_warp_diff?). A if B shows meaningful seam residual reduction on test09/test27. D as a research track running parallel to A once LinkTo-Anime training weights become available. C is the long-term ceiling but depends on A being validated first.
 
 ---
 
@@ -864,10 +870,10 @@ This reduces the number of frames processed by the rest of the pipeline by a fac
 
 **Options**
 
-**A — Perceptual hash hold detection [Quick Win]**
-`imagehash.dhash()` on 64×64 thumbnail. Hold if `hash_distance < 4`. Implementation: 15 lines. No GPU.
-- Pros: Zero new dependencies, ~1ms per frame. Directly maps to animation "on twos" detection.
-- Cons: May miss holds where compression adds noise (dhash sees small pixel changes). Threshold requires tuning per source quality.
+**A — Perceptual hash hold detection [Quick Win] ✅ DONE (S43)**
+`_compute_dhash(thumb, hash_size=8)` + `_detect_hold_blocks_dhash(thumbs, distance_threshold=4)` in `frame_selection.py`. INTER_AREA resize to (9×8) eliminates MPEG DCT block noise before horizontal gradient binarisation. Hamming distance threshold 4. `ASP_HOLD_DHASH_THRESH=4` to enable; default 0=off (MAD fallback). `HOLD_DHASH_THRESHOLD=4` in `constants/anim.py`; added to `_CONFIG_SCHEMA`. 5 tests in `test_frame_selection.py::TestDetectHoldBlocksDhash`. 322 tests passing.
+- Pros: Zero new dependencies (~3ms for 300 frames). INTER_AREA resize is structurally immune to DCT block noise; within-hold distance stays 0–2 even for aggressive H.264 compression.
+- Cons: ~3× slower than MAD. Threshold requires tuning for unusual sources (anime-original BD vs streaming rip).
 
 **B — DINOv2 cosine distance hold detection [Research]**
 If §3.3 is implemented (DINOv2 already loaded for frame selection), reuse the embeddings for hold detection. Threshold: cosine distance < 0.05 = same hold.
@@ -996,10 +1002,16 @@ Completely replaces geometric warping + Laplacian blend with a T2I diffusion mod
 
 **Options**
 
-**A — SIQE as drop-in `_ghosting_score()` replacement [Research]**
-Implement the steerable pyramid + GMM pipeline. The GMM is fitted offline on a corpus of pristine stitched anime panoramas (the 52/96 ASP-succeeded tests serve as positive examples). SIQE then evaluates any new output against this learned distribution.
-- Pros: 94.36% precision. Directly applicable without training (only GMM fitting). No deep model required.
-- Cons: Steerable pyramid computation: ~50ms for a 2000px panorama. Acceptable. GMM fitting requires a clean corpus.
+**A — Double-edge autocorrelation ghosting metric** ✅ **Shipped S35**
+`_ghosting_score_v2(img)` in `bench_anime_stitch.py` — FFT-based autocorrelation of the column-mean gradient-magnitude profile. Detects the secondary peak at displacement D that a ghost (shifted copy) creates. Score in [0–100]: 0=no ghost, 30+=ghost likely. Added as `ghosting_siqe` metric in `_compute_all_metrics`; original `ghosting_score` kept for GhostGate calibration. 5 tests in `test_bench_metrics.py::TestGhostingScoreV2`. Zero new deps.
+- Unlike the double-Sobel proxy, this metric is specifically sensitive to *repeated* edge patterns at a fixed displacement — the signature of a misaligned character copy — while being insensitive to high-frequency texture that is not ghost-related.
+- Pros: Pure numpy FFT (~0.5ms for 2000px), zero new deps. Directly measures double-edge periodicity.
+- Cons: Does not achieve full SIQE accuracy (no GMM, no steerable pyramid orientation analysis). For the full SIQE, see Option B below.
+
+**B — Full SIQE (steerable pyramid + GMM) [Research]**
+Implement the full steerable pyramid + GMM pipeline. The GMM is fitted offline on pristine stitched anime panoramas (the 52/96 ASP-succeeded tests as positive examples). SIQE achieves 94.36% precision vs mean subjective human opinion.
+- Pros: 94.36% precision. Best-in-class for panoramic ghosting.
+- Cons: Steerable pyramid needs `pyrtools` or custom implementation; GMM fitting requires clean corpus.
 
 **B — SIQE spatial ghost map → per-seam ghost gate [Research]**
 Use SIQE's ghost probability map to identify which specific seam boundary zones have ghosting, then trigger targeted re-composition only for those zones (rather than a global SCANS fallback).
@@ -1093,13 +1105,15 @@ Compare consecutive thumbnail mean absolute differences. If MAD < threshold (def
 If §3.3 (DINOv2) is implemented, reuse embeddings: cosine distance < 0.05 = same hold. Robust to compression noise.
 - Cons: Requires DINOv2 (adds overhead if §3.3 not otherwise implemented).
 
-**C — Phase correlation magnitude threshold**
+**C — Phase correlation magnitude threshold** ✅ Shipped S38
 If two consecutive frames have phase correlation response > 0.85 (near-perfect correlation), they're in the same hold. Already available from the existing phase correlation pass — zero extra cost.
 - Cons: MPEG blocks can corrupt high-response pairs at scene boundaries.
 
 **Recommendation:** A immediately (already implemented, `ASP_HOLD_THRESHOLD=0.025`). C as a free upgrade using the existing `responses` array in `smart_select_frames()`. B if §3.3 is implemented.
 
 > **✅ Session 7 — Phase-correlation skip SHIPPED:** Hold threshold default changed from `0.0` to `0.025` (enabled by default). Within-hold frame pairs now return `(dx=0, dy=0, response=1.0, MAD=0.0)` without running `cv2.phaseCorrelate`, achieving the §1.11 3× speedup for typical anime with ~3-frame holds. The `high_anim_mad` gate is protected from false positives (within-hold MAD=0.0 never triggers it). `ASP_HOLD_THRESHOLD=0` to disable.
+
+> **✅ Session 38 — §1.11C SHIPPED:** `_refine_hold_ids_by_response(hold_ids, responses, 0.85)` added to `frame_selection.py`. Wired as step 3b in `smart_select_frames` after the phase-correlation loop completes. Cross-hold pairs with `phaseCorrelate response >= 0.85` have their blocks merged; IDs renumbered consecutively. `HIGH_HOLD_RESPONSE_THRESH=0.85` in `constants/anim.py`. Override: `ASP_HIGH_HOLD_RESPONSE`. 5 new tests. 297 tests passing.
 
 ---
 
@@ -1125,10 +1139,10 @@ Add a "Crop and align" button to the affine validation failure dialog: user rubb
 - Pros: No landmark-clicking required for pure-translation scenes. Sub-pixel accuracy.
 - Cons: Fails on scenes with scale/rotation; the crop must be entirely background.
 
-**C — Auto-retry with tighter LoFTR threshold**
-When ratio failure is detected, automatically re-run LoFTR with a higher confidence threshold (only the top-10% of matches) and re-solve. No user interaction.
-- Pros: Zero UI work. Catches cases where 1-2 bad matches corrupt the median.
-- Cons: May still fail if the bad match is high-confidence.
+**C — Auto-retry with tighter LoFTR threshold** ✅ **Shipped S37**
+`_filter_high_conf_edges(edges, min_weight=HIGH_CONF_EDGE_THRESH)` in `pipeline.py` — keeps only edges with `weight >= 0.65` (LoFTR-quality; excludes TM/PC fallbacks at 0.15–0.55). Wired as "Retry 0" in Stage 7b: fires on `ratio=...` failures when ≥ N-1 HC edges survive. `HIGH_CONF_EDGE_THRESH=0.65` added to `constants/anim.py`. Exported in `pipeline.py __all__`. 5 tests in `test_pipeline.py::TestFilterHighConfEdges`.
+- Pros: Zero UI work. Catches cases where 1-2 TM/PC fallback edges corrupt the bundle.
+- Cons: If the bad edge is also LoFTR-quality (high confidence, wrong match), Retry 0 doesn't help; Retry 1 (adj-only) is the next line of defense.
 
 **Recommendation:** C immediately (pure algorithmic, catches the easy cases). A for the remaining affine failures that C can't fix. B as an ergonomic shortcut for broadcast-quality (pure-translation) sources.
 
@@ -1259,6 +1273,103 @@ Keep the first frame of each hold block as the representative (no averaging). Ho
 
 ---
 
+### 3.13 ProPainter Background Completion [Research — Highest Background Plate Impact]
+
+**Pain point (links to §0, Stage 4.5):** Stage 4.5's temporal median produces the background plate by suppressing foreground pixels across N frames. When the character occupies >40% of any canvas row, that row has fewer than 3 background samples → the median is dominated by character pixels → ghosting bleeds into the background plate. For high-coverage scenes (test08, test09, test27), this is the primary cause of "strip ghosting" even when all seams are correctly found.
+
+**What ProPainter does (ICCV 2023, [GitHub](https://github.com/sczhou/ProPainter)):**
+1. **Recurrent Flow Completion (RFC):** Completes dense flow vectors in masked (fg) regions from adjacent background pixels.
+2. **Dual-Domain Propagation (DDP):** Propagates pixel values from background regions to masked areas using both spatial (nearby-pixel) and temporal (adjacent-frame) paths simultaneously.
+3. **Masked Transformer Refinement (MTR):** Sparse-attention transformer fills remaining gaps by attending over the full frame sequence, restricted to unmasked (bg) reference pixels.
+
+Output: background-completed frames where every foreground pixel is replaced by a plausible background estimate. Deterministic (no diffusion randomness). ~192 FPS at 432×240 on consumer GPU.
+
+**How it applies:** Insert after Stage 4 (BiRefNet masking) as Stage 4.7:
+1. BiRefNet fg masks → ProPainter inpainting regions
+2. ProPainter runs on all K selected frames → background-completed variants
+3. Completed frames feed Stage 5 (phase correlation) for cleaner camera motion estimates
+4. Completed frames replace raw frames in Stage 4.5 (temporal median) → background plate has 100% coverage per row
+
+**Options**
+
+**A — ProPainter as Stage 4.7 pre-processing [Research]**
+Run ProPainter on the selected frames before Stage 5. Pass completed frames to both the temporal median (Stage 4.5) and phase correlation (Stage 5).
+- Estimated inference: ~5 FPS at 1080p → ~3.6s per 18-frame sequence. Acceptable for quality mode.
+- Pros: Directly eliminates background plate ghosting. Zero change to downstream stages.
+- Cons: Requires CUDA and ~4GB VRAM at 1080p. Inpainting quality depends on BiRefNet mask quality — wrong masks → wrong fill.
+- `ASP_PROPAINTER=1` flag (default OFF).
+
+**B — ProPainter on temporal median frame only [Quick Win]**
+Run ProPainter once on the ghosted Stage 4.5 output to inpaint ghost regions. Requires a ghost-probability map (SIQE §3.8 or seam_visibility_score §S14) to define the inpainting region.
+- Pros: Single pass instead of N per-frame passes. ~0.5s.
+- Cons: Post-hoc inpainting of a ghosted composite is harder than pre-processing clean frames.
+
+**C — Dedicated background separation pipeline [Long-term]**
+Fully decouple foreground and background pipelines: ProPainter produces a clean background video for the temporal median; the character pipeline uses ARAP-registered fg crops; merge at compositing time.
+- Cons: Major refactoring of Stage 4.5 → Stage 12 pipeline.
+
+**Recommendation:** A gated by `ASP_PROPAINTER=1` for quality mode. B as a cheap triage once SIQE (§3.8) provides ghost maps. C as the long-term architectural target for high-quality production runs.
+
+---
+
+### 3.14 Horizontal and Diagonal Scroll — 2D Canvas Support [Engineering — Unblocks Category F/H]
+
+**Pain point (links to Category F/H in debug guide):** `_compute_canvas()` in `canvas.py` places all frames on the same x-column (uses only `ty`). Horizontal camera drift (`tx` range > 200px) is silently discarded. For datasets with combined horizontal+vertical scroll (diagonal pan), the canvas geometry is wrong before any compositing begins. Category F (test7: tx range ~500px) and Category H (test20: ty≈0, tx: 1857→0px) are permanent failures under the current canvas model.
+
+**Current state:** The debug guide (Categories F and H) documents diagnostics. The temporary mitigation is SCANS fallback. No roadmap item for implementing true 2D canvas support previously existed.
+
+**What 2D canvas support requires:**
+1. `_compute_canvas(affines)` uses both `affines[i][0][2]` (tx) and `affines[i][1][2]` (ty) to place each frame at its correct 2D position.
+2. For pure horizontal scroll (Category H), the seam-cut DP must run vertically — vertical strips rather than horizontal bands.
+3. For diagonal scroll (Category F), strip geometry is a parallelogram; both DP seam routing and feathering in `compositing.py` must handle 2D strip regions.
+4. The `_compute_row_coverage()` gate (Stage 10.5) must be extended to a 2D coverage map.
+
+**Options**
+
+**A — tx-aware canvas placement [Engineering — Step 1]** ✅ **De facto implemented**
+`_compute_canvas()` in `canvas.py` already uses full `M[:2, :2] @ corners.T + M[:2, 2:3]` — i.e., the complete affine matrix including both tx and ty. Canvas width correctly reflects horizontal drift. `_detect_scroll_axis` is wired (S33); `horizontal` scroll → SCANS fallback. No action required for §3.14A.
+- Estimated effort: ~20 LOC. Low risk.
+
+**B — Horizontal-strip mode for pure horizontal scroll (Category H) [Engineering]**
+When `scroll_type='horizontal'`, sort frames by tx, run DP seam cut along vertical lines in `compositing.py`.
+- Estimated effort: ~300 LOC. New seam cost direction in `_build_seam_cost_map` and vertical scan in `_seam_cut`.
+
+**C — Full 2D strip compositing for diagonal scroll (Category F) [Research]**
+Generalised compositing where each frame's overlap region is a quadrilateral. Seam-cut operates in 2D with DP extended to a shortest-path on an unconstrained grid.
+- Estimated effort: 500–800 LOC. Major refactor of `compositing.py`.
+
+**Recommendation:** A immediately (low-risk canvas geometry fix, unblocks test7). B for the Category H corpus (test20 and similar). C as a long-term research track after B is validated.
+
+---
+
+### 3.15 OBJ-GSP + SemanticStitch Mesh-Based Seam Barrier [Research — Character-Preserving Seam Routing]
+
+**Pain point (links to §1.6, §2.11, Category C1):** The §2.11B foreground cost barrier and §1.6A tiered cost map penalize seams through characters but cannot guarantee topology preservation when the character occupies most of the overlap width. When the character spans from column 0 to column W-50 and the only background corridor is at the very edge, the DP routes to that edge — producing a seam through an image border rather than through character-free space.
+
+**What OBJ-GSP does (AAAI 2025):** Represents the overlap region as a triangular mesh. Semantic segmentation labels each triangle as character or background. Character triangles have infinite barrier cost and must be preserved as topological units — no seam can split a triangle cluster belonging to a single character body.
+
+**What SemanticStitch does (Visual Computer 2025):** Two-pass approach: (1) identify all background-only columns in the overlap, (2) constrain the DP to only visit those columns. Reduces to zero the probability of a through-character seam for scenes where a background corridor exists.
+
+**Options**
+
+**A — SemanticStitch two-pass column filter [Quick Win]**
+Pre-filter: columns where fg_mask coverage > 50% → set cost=∞ in seam DP. If no all-background column path exists, fall back to minimum-cost through-character path.
+- Estimated effort: ~30 LOC addition to `_build_seam_cost_map()`. Zero new deps.
+- Pros: Guaranteed background-only seam when corridor exists. Graceful fallback.
+
+**B — OBJ-GSP triangular mesh constraint [Research]**
+Build a triangular mesh on the overlap region from the BiRefNet fg boundary polygon (cv2.findContours + Delaunay triangulation). Character mesh triangles are marked with infinite barrier; Dijkstra routes around them on a mesh graph.
+- Pros: Topology-preserving by construction. Character body as a geometric unit, not a pixel cost.
+- Cons: Requires polygon triangulation (~50 LOC with scipy.spatial.Delaunay). Mesh graph Dijkstra is slower than the current vectorized DP.
+
+**C — Hard-barrier seam with Intelligent Scissors waypoints [HITL]**
+Extend §2.11A (Intelligent Scissors waypoints) with the SemanticStitch hard barrier: user-placed waypoints combined with the automatic column filter create a dual constraint system.
+- Cons: Requires user interaction. Appropriate as an override tool in SeamDiagnosticPanel (§2.4), not as an automated step.
+
+**Recommendation:** A immediately (trivial addition, backward-compatible). B once A is validated on the Category C1 failure corpus. C as the HITL complement to A/B for edge cases.
+
+---
+
 ## Anchor Index
 
 | Section | Anchor |
@@ -1297,3 +1408,6 @@ Keep the first frame of each hold block as the representative (no averaging). Ho
 | 2.11 Intelligent Scissors Seam Routing | [#211-intelligent-scissors-seam-routing-quick-win--replaces-dp-seam](#211-intelligent-scissors-seam-routing-quick-win--replaces-dp-seam) |
 | 3.11 SAM 2 Interactive Masking | [#311-sam-2--interactive-masking-upgrade-research--hitl](#311-sam-2--interactive-masking-upgrade-research--hitl) |
 | 3.12 Overmix Sub-Pixel Averaging | [#312-overmix-sub-pixel-averaging--maximal-frame-ingestion-philosophy-research](#312-overmix-sub-pixel-averaging--maximal-frame-ingestion-philosophy-research) |
+| 3.13 ProPainter Background Completion | [#313-propainter-background-completion-research--highest-background-plate-impact](#313-propainter-background-completion-research--highest-background-plate-impact) |
+| 3.14 Horizontal/Diagonal Scroll 2D Canvas | [#314-horizontal-and-diagonal-scroll--2d-canvas-support-engineering--unblocks-category-fh](#314-horizontal-and-diagonal-scroll--2d-canvas-support-engineering--unblocks-category-fh) |
+| 3.15 OBJ-GSP + SemanticStitch Seam Barrier | [#315-obj-gsp--semanticstitch-mesh-based-seam-barrier-research--character-preserving-seam-routing](#315-obj-gsp--semanticstitch-mesh-based-seam-barrier-research--character-preserving-seam-routing) |

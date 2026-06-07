@@ -143,6 +143,17 @@ def _crop_to_valid(canvas: np.ndarray, valid_mask: np.ndarray) -> np.ndarray:
     return canvas[r0:r1, c0:c1]
 
 
+def _telea_fill_gaps(canvas: np.ndarray, gap_mask: np.ndarray) -> np.ndarray:
+    """§1.7B: Fill residual black border pixels with cv2.INPAINT_TELEA (S23).
+
+    Designed as a fast fallback when diffusion inpainting fails or is unavailable.
+    Reliable for gaps < 50px wide; larger regions may show visible smearing.
+    """
+    if not gap_mask.any():
+        return canvas
+    return cv2.inpaint(canvas, gap_mask.astype(np.uint8), inpaintRadius=3, flags=cv2.INPAINT_TELEA)
+
+
 def _scan_stitch_fallback(
     frames: List[np.ndarray],
     output_path: str,
@@ -176,6 +187,43 @@ def _scan_stitch_fallback(
     if (x1 - x0) > 0 and (y1 - y0) > 0:
         pano = pano[y0:y1, x0:x1]
         logger.info(f"[Stitch] SCANS inner-rect crop: ({x0},{y0}) → ({x1},{y1})")
+
+    rgb = cv2.cvtColor(pano, cv2.COLOR_BGR2RGB)
+    out = Image.fromarray(rgb)
+    out.save(output_path)
+    return out
+
+
+def _panorama_stitch_fallback(
+    frames: List[np.ndarray],
+    output_path: str,
+) -> Image.Image:
+    """§1.3B — PANORAMA stitcher attempted before SCANS for affine-validation failures.
+
+    PANORAMA mode (mode=0) handles scale and rotation that the translation-only
+    canvas model rejects.  Raises RuntimeError on failure so the caller can fall
+    through to the SCANS path.
+    """
+    logger.info("[Stitch] §1.3B: Trying PANORAMA stitcher before SCANS.")
+    cv2.ocl.setUseOpenCL(False)
+    try:
+        stitcher = cv2.Stitcher_create(mode=0)
+    except AttributeError:
+        stitcher = cv2.createStitcher(False)
+    stitcher.setRegistrationResol(0.8)
+    status, pano = stitcher.stitch(frames)
+    if status != cv2.Stitcher_OK:
+        raise RuntimeError(
+            f"PANORAMA stitcher failed (status={status}); caller should try SCANS."
+        )
+
+    from .stateless import _largest_valid_rect
+
+    valid_mask = pano.max(axis=2) > 0
+    x0, y0, x1, y1 = _largest_valid_rect(valid_mask)
+    if (x1 - x0) > 0 and (y1 - y0) > 0:
+        pano = pano[y0:y1, x0:x1]
+        logger.info(f"[Stitch] PANORAMA inner-rect crop: ({x0},{y0}) → ({x1},{y1})")
 
     rgb = cv2.cvtColor(pano, cv2.COLOR_BGR2RGB)
     out = Image.fromarray(rgb)
@@ -282,7 +330,9 @@ __all__ = [
     "_normalise_widths",
     "_compute_canvas",
     "_crop_to_valid",
+    "_telea_fill_gaps",
     "_scan_stitch_fallback",
+    "_panorama_stitch_fallback",
     "find_optimal_sequence",
     "_detect_scroll_axis",
 ]

@@ -193,6 +193,14 @@ REWARD_MODEL_DEFAULT_PATH = (
 # Pipeline
 MIN_EXPECTED_STEP = 25
 SPATIAL_DEDUP_PX = 25
+NEAR_DUP_LUMA_THRESH = 3.0  # §1.2B: pre-stage-5 luma dedup ceiling (luma units, 0–255)
+STATIC_EDGE_MIN_DISP_PX = 50  # §1.2A: minimum per-axis displacement to keep an edge before BA
+ADAPTIVE_MIN_DISP_FRAC = 0.10  # §1.2C: adaptive threshold = max(floor, frac * expected_step)
+HIGH_CONF_EDGE_THRESH = 0.65  # §2.9C: minimum edge weight to keep on high-confidence re-solve
+HIGH_HOLD_RESPONSE_THRESH = 0.85  # §1.11C: phaseCorrelate response floor for post-hoc hold merge
+TEMPORAL_VAR_THRESH = 1e-3  # §1.2D: mean per-pixel variance [0,1] for static-frame rejection
+HOLD_DHASH_THRESHOLD = 4  # §3.4A: dHash Hamming-distance floor for hold detection (0=disabled)
+MULTISCALE_GAIN_SIGMA = 30.0  # §1.4D: Gaussian sigma (px) for low-freq gain map computation
 
 # ToonCrafter
 TOONCRAFTER_REPO = "Doubiiu/ToonCrafter"

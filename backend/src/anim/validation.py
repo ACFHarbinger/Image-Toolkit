@@ -12,9 +12,19 @@ Issue categories covered:
 
 from __future__ import annotations
 
-from typing import List, NamedTuple
+from typing import List, NamedTuple, Tuple
 
 import numpy as np
+
+# §0.5D — tight/loose rotation and scale thresholds used by
+# _compute_adaptive_rot_scale.  "Loose" applies when all frames share a
+# near-identical rotation/scale (systematic camera property); "tight" when
+# frame-to-frame variance is high (BA noise).
+_ROT_TIGHT: float = 0.10
+_ROT_LOOSE: float = 0.15
+_SC_TIGHT: float = 0.10
+_SC_LOOSE: float = 0.15
+_ROT_SCALE_CONSISTENCY_THRESH: float = 0.02
 
 
 class AffineHealth(NamedTuple):
@@ -115,4 +125,78 @@ def _validate_affines(
     return AffineHealth(True, ratio, min_gap, max_rot, max_sc, "ok")
 
 
-__all__ = ["AffineHealth", "_validate_affines"]
+def _compute_adaptive_min_gap(affines: List[np.ndarray]) -> float:
+    """§0.5C — Content-adaptive minimum-gap threshold for _validate_affines.
+
+    Returns ``max(20.0, canvas_span / (N × 3))`` where ``canvas_span`` is the
+    dominant-axis displacement range across all affines.
+
+    Rationale: for slow-scroll sequences (canvas_span ≈ 200 px, N=10) the
+    expected inter-frame step is ~20 px, so the fixed 25 px threshold is too
+    strict.  For fast-scroll / 4K sequences (canvas_span ≈ 4000 px, N=10) a
+    25 px gap represents a near-duplicate frame that should be rejected; the
+    adaptive threshold rises to 133 px.
+
+    The floor of 20.0 px matches Retry-3's ``min_step=20.0`` so that very
+    slow-scroll sequences always pass at least that check.
+    """
+    N = len(affines)
+    if N < 2:
+        return 20.0
+    tys = np.array([float(a[1, 2]) for a in affines])
+    txs = np.array([float(a[0, 2]) for a in affines])
+    dy_span = float(tys.max() - tys.min())
+    dx_span = float(txs.max() - txs.min())
+    canvas_span = max(dy_span, dx_span)
+    if canvas_span < 1.0:
+        return 20.0
+    adaptive = canvas_span / (N * 3.0)
+    return max(20.0, adaptive)
+
+
+def _compute_adaptive_rot_scale(
+    affines: List[np.ndarray],
+) -> Tuple[float, float]:
+    """§0.5D — Adaptive rotation/scale thresholds for _validate_affines.
+
+    Returns ``(max_rotation, max_scale_dev)``.  When rotation (or scale) is
+    *consistent* across frames — i.e. all frames carry nearly the same value,
+    as happens for a physically real constant-zoom or fixed-tilt camera — the
+    frame-to-frame standard deviation is low and the dominant signal is a
+    systematic camera property rather than noisy per-frame BA drift.  In that
+    case a looser acceptance window is safe.
+
+    Decision rule (applied independently for rotation and scale)::
+
+        σ < _ROT_SCALE_CONSISTENCY_THRESH  →  use loose threshold (0.15)
+        σ ≥ _ROT_SCALE_CONSISTENCY_THRESH  →  use tight threshold (0.10)
+
+    Rationale for the 0.02 consistency threshold: BA typically introduces
+    random frame-to-frame rotation noise of ±0.01–0.03 rad.  If σ < 0.02 the
+    noise is well below the tight acceptance window and the dominant component
+    is a systematic lens/camera offset — widening to 0.15 recovers borderline
+    zoom-pan sequences (e.g. test5: max_rot ≈ 0.111, consistent across frames)
+    without admitting sequences with wild per-frame BA noise.
+    """
+    if len(affines) < 2:
+        return _ROT_TIGHT, _SC_TIGHT
+
+    rotations = np.array(
+        [max(abs(float(a[0, 1])), abs(float(a[1, 0]))) for a in affines]
+    )
+    scales = np.array(
+        [max(abs(float(a[0, 0]) - 1.0), abs(float(a[1, 1]) - 1.0)) for a in affines]
+    )
+
+    max_rot = _ROT_LOOSE if float(rotations.std()) < _ROT_SCALE_CONSISTENCY_THRESH else _ROT_TIGHT
+    max_sc = _SC_LOOSE if float(scales.std()) < _ROT_SCALE_CONSISTENCY_THRESH else _SC_TIGHT
+
+    return max_rot, max_sc
+
+
+__all__ = [
+    "AffineHealth",
+    "_validate_affines",
+    "_compute_adaptive_min_gap",
+    "_compute_adaptive_rot_scale",
+]

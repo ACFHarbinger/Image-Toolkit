@@ -1,5 +1,7 @@
 # Anime Stitch Pipeline — Issue Tracker & Per-Test Results
 
+> **⚠️ ARCHIVED BASELINE (2026-06-01)**: This document reflects the pipeline state before Sessions 6–28. The figures below (39 render-gate fallbacks, 13 affine-validation fallbacks, 44 true ASP composites) are the S0–S5 pre-improvement baseline. After S11, SCANS fallbacks were reduced from 51/96 → 4/96 genuine fallbacks. Current pipeline state is in `.agent/cache/asp_state_of_the_pipeline.md`. This document is retained for historical comparison only.
+
 **Last updated:** 2026-06-01 19:13 (96-dataset benchmark with ground truth comparison)  
 **Benchmark file:** `backend/benchmark/results/anime_stitch_20260601_191331.json`  
 **Relevant codebase:** `backend/src/anim/`  

@@ -22,14 +22,16 @@ overlap between the two adjacent frames.
 from __future__ import annotations
 
 import os
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
+from scipy.ndimage import minimum_filter1d as _min_filt1d
 
 from backend.src.constants import (
     FEATHER_MAX,
     FEATHER_MIN,
+    MULTISCALE_GAIN_SIGMA,
     SEARCH_RANGE,
     SEARCH_SLAB,
     FEATHER_TABLE,
@@ -48,6 +50,70 @@ _FG_REGISTER_ENABLED = os.environ.get("ASP_FG_REGISTER", "1") != "0"
 # (highest post_warp_diff) to keep overhead bounded.
 _TOONCRAFTER_SEAM = os.environ.get("ASP_TOONCRAFTER_SEAM", "0") != "0"
 
+# §1.6C — Gradient-domain Poisson seam blend (S21).
+# Replaces Laplacian blend with cv2.seamlessClone(NORMAL_CLONE) in a
+# ±_POISSON_BAND_PX band around the DP seam path for normal (non-single-pose)
+# seams.  Eliminates the brightness step at hard cuts without ghosting.
+# Enabled via ASP_POISSON_SEAM=1 (default OFF — adds ~1–3 s per seam on CPU).
+_POISSON_SEAM: bool = os.environ.get("ASP_POISSON_SEAM", "0") != "0"
+_POISSON_BAND_PX: int = 20
+
+# §1.4D — Multi-scale spatially-varying gain normalisation (S46).
+# When enabled, replaces the single-scalar bg gain with a Gaussian-blur-derived
+# per-pixel gain map so that non-uniform panel lighting (darker at top, lighter
+# at bottom) is corrected per-region rather than by a global scalar.
+# Enable via ASP_MULTISCALE_GAIN=1 (default OFF — scalar path is faster).
+_MULTISCALE_GAIN: bool = os.environ.get("ASP_MULTISCALE_GAIN", "0") != "0"
+
+# §1.4E — Background CDF histogram matching normalisation (S49).
+# Replaces the per-frame scalar gain with a full tonal-distribution match:
+# for each frame, a 256-entry CDF-matching LUT is derived from the background
+# pixels of the frame vs the canvas reference and applied per-channel to the
+# background region.  Handles exposure differences that a global scalar cannot
+# correct (e.g. vignetting, panel-edge brightening).
+# Enable via ASP_HISTOGRAM_MATCH=1 (default OFF; _MULTISCALE_GAIN takes priority).
+_HISTOGRAM_MATCH: bool = os.environ.get("ASP_HISTOGRAM_MATCH", "0") != "0"
+
+
+def _multiscale_gain_map(
+    frame: np.ndarray,
+    reference: np.ndarray,
+    bg_mask: np.ndarray,
+    sigma: float = MULTISCALE_GAIN_SIGMA,
+    gain_min: float = 0.5,
+    gain_max: float = 2.0,
+) -> np.ndarray:
+    """§1.4D: Spatially-varying gain map from low-frequency luminance ratio.
+
+    Computes per-pixel gain = ref_lum_low / frame_lum_low where both are
+    Gaussian-blurred with *sigma* px.  Only background pixels (``bg_mask``)
+    are used as sources; the blur propagates bg gains into fg regions so the
+    full gain map covers the entire frame.
+
+    Parameters
+    ----------
+    frame, reference : uint8 (H, W, 3) BGR arrays of equal shape.
+    bg_mask          : bool (H, W), True = background pixel.
+    sigma            : Gaussian σ in pixels.
+    gain_min, gain_max : output clamp bounds.
+
+    Returns
+    -------
+    float32 (H, W) gain map, clamped to [gain_min, gain_max].
+    """
+    frame_lum = frame.astype(np.float32).dot(LUMINANCE_WEIGHTS)
+    ref_lum = reference.astype(np.float32).dot(LUMINANCE_WEIGHTS)
+
+    # Zero-out fg so the Gaussian spreads only bg information
+    frame_bg = np.where(bg_mask, frame_lum, 0.0).astype(np.float32)
+    ref_bg = np.where(bg_mask, ref_lum, 0.0).astype(np.float32)
+
+    frame_blurred = cv2.GaussianBlur(frame_bg, (0, 0), sigma)
+    ref_blurred = cv2.GaussianBlur(ref_bg, (0, 0), sigma)
+
+    gain = np.where(frame_blurred > 1.0, ref_blurred / (frame_blurred + 1e-3), 1.0)
+    return np.clip(gain, gain_min, gain_max).astype(np.float32)
+
 
 def _diff_to_feather(diff: float) -> int:
     for threshold, feather in FEATHER_TABLE:
@@ -56,36 +122,15 @@ def _diff_to_feather(diff: float) -> int:
     return FEATHER_MIN
 
 
-def _normalize_warped_to_median(
-    warped: np.ndarray,
-    canvas: np.ndarray,
-    is_bg: Optional[np.ndarray],
-    clip_lo: float = 0.75,
-    clip_hi: float = 1.35,
-) -> np.ndarray:
+def _gain_to_min_feather(gain_diff: float) -> int:
+    """§1.6B: Minimum feather width from luminance gain difference (S22).
+
+    When adjacent frames required significantly different gain corrections the
+    normalization residual leaves a brightness step proportional to
+    |gain_A − gain_B|.  Returns a floor feather wide enough to blend it:
+    max(40, int(gain_diff × 300)), capped at 120 px.
     """
-    Scale warped to match canvas (temporal median) brightness at background pixels.
-
-    Gain is computed per-channel over background pixels that are well-lit in
-    both arrays, then clamped to [clip_lo, clip_hi].  This removes per-frame
-    exposure offsets so adjacent ownership zones end up on the same brightness
-    scale, eliminating foreground colour steps at seam boundaries.
-
-    Returns a new uint8 array; falls back to warped unchanged when there are
-    too few reliable background pixels to compute a trustworthy gain.
-    """
-    if is_bg is None:
-        return warped
-
-    bg_mask = is_bg & (warped.max(axis=2) > 10) & (canvas.max(axis=2) > 10)
-    if int(bg_mask.sum()) < 200:
-        return warped
-
-    frame_mean = warped[bg_mask].astype(np.float32).mean(axis=0)  # (3,)
-    ref_mean = canvas[bg_mask].astype(np.float32).mean(axis=0)  # (3,)
-
-    gain = np.clip(ref_mean / np.maximum(frame_mean, 1.0), clip_lo, clip_hi)
-    return np.clip(warped.astype(np.float32) * gain, 0, 255).astype(np.uint8)
+    return min(120, max(40, int(gain_diff * 300)))
 
 
 def _find_optimal_boundaries(
@@ -110,6 +155,20 @@ def _find_optimal_boundaries(
     len(order)
     optimised = initial_boundaries.copy()
     diffs = np.full(len(initial_boundaries), float("inf"))
+
+    # S17: Adaptive boundary search range.  For pure vertical-scroll sequences
+    # (horizontal tx spread < 5 px) the optimal boundary is always very close
+    # to the midpoint — a ±100 px window finds it safely and cuts 60 % of the
+    # candidate evaluations for sparse sequences.  For diagonal/2D motion the
+    # full ±SEARCH_RANGE is needed to reach the similarity minimum.
+    _effective_range = SEARCH_RANGE
+    if affines is not None and len(order) >= 2:
+        _txs = np.array(
+            [float(affines[int(order[i])][0, 2]) for i in range(len(order))],
+            dtype=np.float32,
+        )
+        if float(np.ptp(_txs)) < 5.0:
+            _effective_range = 100
 
     warped_bgs: List[Optional[np.ndarray]] = [None] * (max(order) + 1)
     if bg_masks is not None and affines is not None:
@@ -139,8 +198,8 @@ def _find_optimal_boundaries(
             else H - SEARCH_SLAB - SEARCH_SLAB
         )
 
-        y_lo = max(lo_limit, int(by) - SEARCH_RANGE)
-        y_hi = min(hi_limit, int(by) + SEARCH_RANGE)
+        y_lo = max(lo_limit, int(by) - _effective_range)
+        y_hi = min(hi_limit, int(by) + _effective_range)
 
         best_y = int(by)
         best_diff = float("inf")
@@ -237,26 +296,22 @@ def _seam_cut(
     # Transpose (h, W) → (W, h) so DP runs left→right; path[x] = y-offset
     E = energy.T.copy()
     W_e, h_e = E.shape
-    for i in range(1, W_e):
-        prev = E[i - 1]
-        left = np.empty_like(prev)
-        left[0] = np.inf
-        left[1:] = prev[:-1]
-        right = np.empty_like(prev)
-        right[-1] = np.inf
-        right[:-1] = prev[1:]
-        E[i] += np.minimum(prev, np.minimum(left, right))
 
-    path = np.zeros(W_e, np.int32)
-    j = int(np.argmin(E[W_e - 1]))
+    # §1.5A: Vectorized DP forward pass.
+    # minimum_filter1d(row, size=3) computes min(row[j-1], row[j], row[j+1])
+    # at every j with cval=inf boundaries — equivalent to the previous
+    # per-iteration left/right array allocations but runs as a compiled C kernel.
+    for i in range(1, W_e):
+        E[i] += _min_filt1d(E[i - 1], size=3, mode="constant", cval=np.inf)
+
+    # Traceback: avoid per-step Python list allocation by using slice argmin.
+    path = np.empty(W_e, dtype=np.int32)
+    j = int(E[W_e - 1].argmin())
     path[W_e - 1] = j
     for i in range(W_e - 2, -1, -1):
-        nbrs = [j]
-        if j > 0:
-            nbrs.append(j - 1)
-        if j < h_e - 1:
-            nbrs.append(j + 1)
-        j = nbrs[int(np.argmin([E[i, c] for c in nbrs]))]
+        j_lo = max(0, j - 1)
+        j_hi = min(h_e, j + 2)  # exclusive
+        j = j_lo + int(E[i, j_lo:j_hi].argmin())
         path[i] = j
     return path  # path[x] in [0, zone_h-1]
 
@@ -273,15 +328,27 @@ def _soft_seam_weight(
     bg_mask_b: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """
-    P2.5 — Spatially-adaptive seam blend weight (DSFN technique).
+    P2.5 / S17+S20 — Spatially-adaptive seam blend weight (DSFN technique).
 
     Returns (zone_h, W) float32 weight in [0, 1]:
       1.0 → fa_zone,  0.0 → fb_zone.
 
-    Background pixels (both frames agree it's background) get a wide, smooth
-    blend transition.  Foreground pixels (character) get a narrow 2-px cut so
-    that after FG pose registration the blend does not smear the two slightly
-    different character poses into a doubled edge.
+    S17: blend radius is now *per-pixel* rather than per-column-average.
+    Each pixel gets a blend ramp proportional to its own local photometric
+    similarity: background pixels (high similarity) get a wide, smooth
+    transition; foreground pixels (low similarity at character edges) get a
+    narrow cut automatically, without any separate fg-mask branch.  This is
+    strictly more adaptive than the previous per-column mean — a column
+    containing background rows at top and a character edge at the bottom row
+    now gives those rows independently-sized ramps instead of the same average.
+
+    S20: when *bg_mask_a* and *bg_mask_b* are provided, fg-vs-fg overlap pixels
+    have their diffused similarity zeroed **after** the Gaussian diffusion step.
+    This prevents background similarity from bleeding into character-vs-character
+    overlap regions through the blur kernel.  Background pixels near the fg
+    boundary still receive blended similarity from their neighbours, preserving
+    the smooth background→edge gradient; only pixels where BOTH frames classify
+    the pixel as foreground are forced to the narrow ramp (min_ramp_bg).
     """
     # Per-pixel L1 distance, mean over channels → (zone_h, W)
     diff = np.abs(fa_zone.astype(np.float32) - fb_zone.astype(np.float32)).mean(axis=2)
@@ -291,27 +358,27 @@ def _soft_seam_weight(
     sim_diffused = cv2.GaussianBlur(
         similarity, (0, 0), sigmaX=diffuse_sigma, sigmaY=diffuse_sigma
     )
-    # Blend radius per column (pixels): more similar → wider blend zone
-    # Background: ramp ∈ [10, zone_h * 0.35]
-    # Foreground: ramp = 2 px (tight cut — prevents character-edge doubling)
+    # S20: zero-out fg-vs-fg pixels *after* diffusion so that background
+    # similarity cannot diffuse into character-vs-character overlap regions.
+    # bg_mask: True = background pixel.  Only modifies pixels where BOTH frames
+    # classify the pixel as foreground; bg-side edge pixels are untouched.
+    if bg_mask_a is not None and bg_mask_b is not None:
+        both_fg = (~bg_mask_a.astype(bool)) & (~bg_mask_b.astype(bool))
+        if both_fg.any():
+            sim_diffused[both_fg] = 0.0
+
+    # S17: per-pixel blend ramp — each pixel drives its own transition width.
+    # min_ramp_bg (10px) for low-similarity pixels; zone_h * 0.35 for high.
     min_ramp_bg = 10.0
     max_ramp_bg = max(min_ramp_bg + 1.0, zone_h * 0.35)
-    col_sim = sim_diffused.mean(axis=0)  # (W,)
-    ramp_per_col = (min_ramp_bg + col_sim * (max_ramp_bg - min_ramp_bg)).astype(
+    ramp = (min_ramp_bg + sim_diffused * (max_ramp_bg - min_ramp_bg)).astype(
         np.float32
-    )
+    )  # (zone_h, W) — was (1, W) via per-column mean before S17
 
     ys = np.arange(zone_h, dtype=np.float32)[:, np.newaxis]  # (zone_h, 1)
-    seam_y = path_local[np.newaxis, :].astype(np.float32)  # (1, W)
-    dist = ys - seam_y  # (zone_h, W)
-    ramp = ramp_per_col[np.newaxis, :]  # (1, W)
+    seam_y = path_local[np.newaxis, :].astype(np.float32)    # (1, W)
+    dist = ys - seam_y                                         # (zone_h, W)
     weight = np.clip(0.5 - dist / (2.0 * ramp), 0.0, 1.0).astype(np.float32)
-
-    # bg_mask_a/b: True = background, False = foreground.
-    # No tighter ramp for fg — after FG pose registration brings poses close,
-    # the wide background-derived blend also works acceptably for fg pixels.
-    # A tighter cut at character silhouettes can create its own hard seam.
-
     return weight
 
 
@@ -322,22 +389,29 @@ def _build_seam_cost_map(
     dilate_px: int = 15,
 ) -> np.ndarray:
     """
-    P2.4 — Per-pixel seam cost map using character boundary avoidance.
+    P2.4 — Per-pixel seam cost map using character boundary avoidance (§1.6A S19).
 
     Generates high cost near foreground character edges (where BiRefNet says
     the pixel belongs to a character) so the DP seam is routed around them.
 
-    Two-tier cost structure (§2.11B):
-      Tier 1 — fg interior pixels get cost = 1.0.  With sem_weight=200 in
+    Tiered cost structure — creates a gradient that pulls the DP toward
+    background corridors (§1.6A):
+      Tier 1 — fg interior: cost = 1.0.  With sem_weight=200 in
       ``_seam_cut()``, every fg-interior pixel costs ≈ 200 energy units vs
-      background pixels at ≈ 10–50.  This forces the seam through background-
-      only corridors instead of bisecting the character body.
-      Tier 2 — dilated fg edge avoidance zone (existing).  Ensures the seam
-      doesn't graze character outlines even when passing near the boundary.
+      background pixels at ≈ 10–50.  Strongly deters the seam from
+      bisecting the character body.
+      Tier 2 — dilated fg edge buffer: cost = 0.5 (half of interior).
+      Background pixels within ``dilate_px`` of any fg edge pay 100 energy —
+      less than interior but more than clean background.  This gradient
+      steers the DP THROUGH the edge-buffer zone toward background corridors,
+      rather than treating the buffer identically to the body interior.
+
+    Before S19, Tier 2 also used cost=1.0 (same as interior), so the DP had
+    no incentive to route through the edge buffer on its way to background.
 
     If the character fills the full width and there is no all-background path,
     the DP gracefully degrades: it finds the minimum-cost path through the
-    character body at its thinnest point rather than along the widest silhouette.
+    character body at its thinnest point.
 
     Parameters
     ----------
@@ -348,7 +422,10 @@ def _build_seam_cost_map(
 
     Returns
     -------
-    cost : (H_zone, W) float32 — 0 = seam-friendly, 1 = avoid.
+    cost : (H_zone, W) float32 — 0=bg seam-friendly, 0.5=fg edge buffer,
+           1.0=fg interior, 2.0=fg-dominated column barrier (§3.15A).
+           The column barrier fires only when background-corridor columns exist;
+           when every column is fg-dominated the cost stays in {0, 0.5, 1.0}.
     """
     zone_h, zone_w = canvas_zone.shape[:2]
     cost = np.zeros((zone_h, zone_w), dtype=np.float32)
@@ -361,20 +438,341 @@ def _build_seam_cost_map(
             continue
         fg = (bm < 127).astype(np.uint8) * 255  # foreground pixels
 
-        # Tier 1 — fg interior: force seam away from character body (§2.11B).
-        # Any pixel classified as foreground in at least one frame has full cost.
-        # This prevents the DP from routing through the character's torso/limbs.
+        # Tier 1 — fg interior: cost=1.0.
         cost = np.maximum(cost, (fg > 0).astype(np.float32))
 
-        # Tier 2 — dilated fg edge avoidance zone (existing).
-        # Provides additional buffer around character silhouettes.
+        # Tier 2 — dilated fg edge buffer: cost=0.5 (§1.6A).
+        # np.maximum preserves Tier 1 at 1.0 for fg pixels; only pure-background
+        # pixels near fg edges are raised from 0 → 0.5.
         edge = cv2.morphologyEx(
             fg, cv2.MORPH_GRADIENT, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
         )
         dilated = cv2.dilate(edge, kernel)
-        cost = np.maximum(cost, (dilated > 0).astype(np.float32))
+        cost = np.maximum(cost, (dilated > 0).astype(np.float32) * 0.5)
+
+    # §3.15A SemanticStitch: column-level fg-domination barrier.
+    # Raise fg-dominated columns (>50 % fg-interior coverage) to cost=2.0 so the
+    # DP is forced into background-only corridor columns whenever they exist.
+    # Fallback: if every column is fg-dominated (no corridor), skip the filter so
+    # the DP can still find the minimum-cost path through the thinnest fg region.
+    fg_col_frac = (cost >= 1.0).mean(axis=0)  # fraction of fg-interior pixels per column
+    dominated = fg_col_frac > 0.5
+    if dominated.any() and not dominated.all():
+        cost[:, dominated] = np.maximum(cost[:, dominated], 2.0)
 
     return cost
+
+
+def _seam_color_match(
+    dom_zone: np.ndarray,
+    oth_zone: np.ndarray,
+    path_local: np.ndarray,
+    band_px: int,
+) -> np.ndarray:
+    """Shift *oth_zone* channel means to match *dom_zone* inside the seam band (S16).
+
+    Computes per-channel mean luminance of content pixels within `band_px` rows
+    of the seam path in each zone, then adds the per-channel delta to oth_zone's
+    band pixels.  Pixels outside the band are returned unchanged.
+
+    This reduces the color step at the seam centre from `post_warp_diff` lum
+    units toward zero before the S15 linear ramp blend is applied, making the
+    composite transition far less perceptible.  Safe to call even when
+    `band_px == sp_soft_px` because the blend ramp weight approaches 0 at the
+    band edge — the shift is smoothed away by the blend itself.
+
+    Returns a (zone_h, W, C) uint8 copy of oth_zone with the band shifted.
+    Unchanged copy returned when fewer than 10 content pixels exist in either
+    zone's band (degenerate zone).
+    """
+    if band_px <= 0:
+        return oth_zone.copy()
+    zone_h, W = oth_zone.shape[:2]
+    _row_idx = np.arange(zone_h, dtype=np.float32)[:, np.newaxis]
+    _path_row = path_local[np.newaxis, :].astype(np.float32)
+    _in_band = np.abs(_row_idx - _path_row) < band_px     # (zone_h, W) bool
+
+    dom_content_mask = (dom_zone.max(axis=2) > 0) & _in_band
+    oth_content_mask = (oth_zone.max(axis=2) > 0) & _in_band
+
+    if dom_content_mask.sum() < 10 or oth_content_mask.sum() < 10:
+        return oth_zone.copy()
+
+    dom_mean = dom_zone[dom_content_mask].astype(np.float32).mean(axis=0)  # (C,)
+    oth_mean = oth_zone[oth_content_mask].astype(np.float32).mean(axis=0)  # (C,)
+    delta = dom_mean - oth_mean                                              # (C,)
+
+    out = oth_zone.copy()
+    shifted = oth_zone[_in_band].astype(np.float32) + delta
+    out[_in_band] = np.clip(shifted, 0, 255).astype(np.uint8)
+    return out
+
+
+def _single_pose_soft_edge(
+    dom_zone: np.ndarray,
+    oth_zone: np.ndarray,
+    path_local: np.ndarray,
+    apply_mask: np.ndarray,
+    sp_soft_px: int,
+) -> np.ndarray:
+    """Narrow path-guided blend at a single-pose seam boundary (S15).
+
+    Applies a linear feather of half-width *sp_soft_px* centred on
+    *path_local* to smooth the hard color step between the dominant frame
+    and the fill frame.  The zone is intentionally narrow (≤ 12 px at the
+    default of 6) so pose-gap ghosts are not perceptible.
+
+    Only pixels where BOTH frames have foreground content (non-zero) AND
+    *apply_mask* is True AND distance to *path_local* < *sp_soft_px* are
+    modified.  All other pixels are returned unchanged.
+
+    Returns a (zone_h, W, C) uint8 copy of dom_zone with the blend applied.
+    """
+    zone_h, W = dom_zone.shape[:2]
+    out = dom_zone.copy()
+    if sp_soft_px <= 0:
+        return out
+    both_have = (dom_zone.max(axis=2) > 0) & (oth_zone.max(axis=2) > 0) & apply_mask
+    if not both_have.any():
+        return out
+    _row_idx = np.arange(zone_h, dtype=np.float32)[:, np.newaxis]
+    _path_row = path_local[np.newaxis, :].astype(np.float32)
+    _dist = np.abs(_row_idx - _path_row)          # (zone_h, W)
+    _in_band = (_dist < sp_soft_px) & both_have
+    if not _in_band.any():
+        return out
+    _w_oth = (np.clip(1.0 - _dist / sp_soft_px, 0.0, 1.0) * 0.5)[:, :, np.newaxis]
+    _blended = np.clip(
+        dom_zone.astype(np.float32) * (1.0 - _w_oth)
+        + oth_zone.astype(np.float32) * _w_oth,
+        0,
+        255,
+    ).astype(np.uint8)
+    out[_in_band] = _blended[_in_band]
+    return out
+
+
+def _adaptive_gain_clamp(ref_lum: float, frame_lum: float) -> float:
+    """Scalar luminance gain with §1.4B continuous adaptive clip (S24).
+
+    Clamp width linearly interpolates between ±26 % (pure-black scene) and
+    ±14 % (pure-white scene): ``clamp_width = 0.26 - 0.12 × (ref_lum / 255)``.
+    This removes the discontinuity at the S18 ref_lum=80 threshold while
+    keeping the same endpoints ([0.86, 1.14] at ref=255).  Scalar (not
+    per-channel) to avoid hue shift.
+    """
+    clamp_width = 0.26 - 0.12 * (ref_lum / 255.0)
+    lo = 1.0 - clamp_width
+    hi = 1.0 + clamp_width
+    return float(np.clip(ref_lum / max(frame_lum, 1.0), lo, hi))
+
+
+def _bg_gain_unclamped(
+    ref_lum: float,
+    frame_lum: float,
+    override_threshold: float = 0.20,
+) -> float:
+    """§1.4C — Background-only gain that lifts the clamp when needed.
+
+    When ``_adaptive_gain_clamp`` would reduce the ideal correction by more
+    than ``override_threshold`` (default 20%), return the raw ideal gain so
+    that background pixels receive the full correction.  For small deviations
+    (clamp cut ≤ 20%) the clamped value is returned unchanged.
+
+    Background pixels tolerate aggressive correction because:
+    1. They are large uniform regions — clipping is less visible.
+    2. Character skin tones (which motivated the clamp) are already excluded
+       from the bg-only application site.
+
+    Parameters
+    ----------
+    ref_lum : float
+        Reference median background luminance (scene median, [0, 255]).
+    frame_lum : float
+        This frame's median background luminance.
+    override_threshold : float
+        Fraction of the ideal correction that the clamp may cut before we
+        bypass it.  0.20 means the clamp may reduce the ideal by at most 20 %.
+    """
+    if frame_lum <= 0.0:
+        return 1.0
+    ideal = float(ref_lum) / float(frame_lum)
+    clamped = _adaptive_gain_clamp(ref_lum, frame_lum)
+    if ideal == 0.0:
+        return clamped
+    cut = abs(ideal - clamped) / abs(ideal)
+    return ideal if cut > override_threshold else clamped
+
+
+def _bg_histogram_lut(
+    src_pixels: np.ndarray,
+    ref_pixels: np.ndarray,
+) -> np.ndarray:
+    """§1.4E: Build a 256-entry CDF-matching LUT for background luminance normalisation.
+
+    Given 1-D arrays of uint8 luminance (or channel) values from the source frame
+    background and the reference background, returns a float32 LUT of shape (256,)
+    that maps source intensities to their reference-matched equivalents.
+
+    Algorithm: standard histogram specification via CDF matching —
+    ``lut[v] = argmin_u |CDF_ref(u) − CDF_src(v)|``, implemented with
+    ``np.searchsorted`` for O(256 log 256) vectorised lookup.
+
+    Falls back to the identity LUT when either input has fewer than 10 pixels
+    (degenerate background mask).
+    """
+    if len(src_pixels) < 10 or len(ref_pixels) < 10:
+        return np.arange(256, dtype=np.float32)
+
+    src_lum = src_pixels.ravel().astype(np.uint8)
+    ref_lum = ref_pixels.ravel().astype(np.uint8)
+
+    src_hist, _ = np.histogram(src_lum, bins=256, range=(0, 256))
+    ref_hist, _ = np.histogram(ref_lum, bins=256, range=(0, 256))
+
+    src_cdf = (src_hist.cumsum() / max(float(src_hist.sum()), 1.0)).astype(np.float64)
+    ref_cdf = (ref_hist.cumsum() / max(float(ref_hist.sum()), 1.0)).astype(np.float64)
+
+    # lut[v] = smallest u s.t. CDF_ref(u) >= CDF_src(v)
+    lut = np.searchsorted(ref_cdf, src_cdf, side="left").clip(0, 255).astype(np.float32)
+    return lut
+
+
+def _apply_bg_histogram_match(
+    frame: np.ndarray,
+    reference: np.ndarray,
+    bg_mask: np.ndarray,
+) -> np.ndarray:
+    """§1.4E: Apply per-channel CDF histogram matching to background pixels.
+
+    For each channel, derives a ``_bg_histogram_lut`` from the *bg_mask* region
+    of *frame* vs *reference*, then applies that LUT to the background channel
+    values.  Foreground pixels are copied unchanged.
+
+    Returns a uint8 (H, W, 3) array.
+    """
+    result = frame.copy()
+    bg_sel = bg_mask.astype(bool)
+    if not bg_sel.any():
+        return result
+
+    for ch in range(min(frame.shape[2], 3)):
+        src_ch = frame[..., ch]
+        ref_ch = reference[..., ch]
+        lut = _bg_histogram_lut(src_ch[bg_sel], ref_ch[bg_sel])
+        mapped = lut[src_ch.clip(0, 255).astype(np.uint8)]
+        result[bg_sel, ch] = np.clip(mapped[bg_sel], 0, 255).astype(np.uint8)
+
+    return result
+
+
+def _coherence_skip_mask(
+    order: np.ndarray,
+    frame_lums: "List[Optional[float]]",
+    coherence_limit: float = 20.0,
+) -> "List[bool]":
+    """Per-frame normalization-skip mask from adjacent-strip coherence check (S18).
+
+    Marks both frames in an adjacent pair as skip-normalization when their
+    background luminance differs by more than *coherence_limit*.  Only the
+    bad pair's frames are excluded — other frames proceed normally.  This
+    replaces the former global-skip approach that penalised every frame when
+    a single scene-change pair exceeded the limit.
+
+    Returns a list of bool, one entry per frame index (not per order slot).
+    """
+    N = len(order)
+    skip: "List[bool]" = [False] * N
+    lum_by_order = [frame_lums[int(order[k])] for k in range(N)]
+    for k in range(N - 1):
+        la, lb = lum_by_order[k], lum_by_order[k + 1]
+        if la is not None and lb is not None and abs(la - lb) > coherence_limit:
+            skip[int(order[k])] = True
+            skip[int(order[k + 1])] = True
+    return skip
+
+
+def _poisson_seam_blend(
+    fa_zone: np.ndarray,
+    fb_zone: np.ndarray,
+    path_local: np.ndarray,
+    apply_mask: np.ndarray,
+) -> np.ndarray:
+    """§1.6C: Gradient-domain seam blend via cv2.seamlessClone (S21).
+
+    Builds a hard-partition zone (fa above path, fb below) then applies Poisson
+    blending in ±_POISSON_BAND_PX rows around the DP seam path.  The gradient
+    solver finds intensities that match fb gradients in the band while satisfying
+    the hard-partition boundary conditions — eliminating the brightness step
+    without ghosting.
+
+    The seam band is clipped to [1, zone_h-2] × [1, W-2] so it never touches
+    the destination image border (cv2.seamlessClone requirement).
+
+    Falls back to the hard partition on cv2 errors or degenerate input.
+    """
+    zone_h, W = fa_zone.shape[:2]
+
+    # Hard partition: A pixels above seam path, B pixels below.
+    hard = fa_zone.copy()
+    for col in range(W):
+        r = min(int(path_local[col]), zone_h - 1)
+        hard[r:, col] = fb_zone[r:, col]
+
+    if not apply_mask.any():
+        return hard
+
+    # Seam band — must not touch any border pixel (cv2 Poisson requirement).
+    seam_mask = np.zeros((zone_h, W), dtype=np.uint8)
+    for col in range(1, W - 1):
+        r = min(int(path_local[col]), zone_h - 1)
+        r0 = max(1, r - _POISSON_BAND_PX)
+        r1 = min(zone_h - 1, r + _POISSON_BAND_PX + 1)
+        if r1 > r0:
+            seam_mask[r0:r1, col] = 255
+
+    if seam_mask.max() == 0:
+        return hard
+
+    ys, xs = np.argwhere(seam_mask > 0).T
+    cy = max(1, min(zone_h - 2, int(ys.mean())))
+    cx = max(1, min(W - 2, int(xs.mean())))
+
+    try:
+        cloned = cv2.seamlessClone(
+            fb_zone.copy(),
+            hard.copy(),
+            seam_mask,
+            (cx, cy),
+            cv2.NORMAL_CLONE,
+        )
+    except cv2.error:
+        return hard
+
+    out = hard.copy()
+    out[(seam_mask > 0) & apply_mask] = cloned[(seam_mask > 0) & apply_mask]
+    return out
+
+
+def _get_seam_cost_flags() -> Tuple:
+    """§1.5D: Snapshot of module-level flags that affect seam cost computation."""
+    return (_POISSON_SEAM, _TOONCRAFTER_SEAM)
+
+
+def _make_seam_cache_key(
+    frame_keys: Optional[Tuple[str, ...]],
+    k: int,
+    cost_flags: Tuple,
+) -> Optional[Tuple]:
+    """§1.5D: Hashable cache key for seam boundary *k*.
+
+    Returns *None* when *frame_keys* is None, disabling cache lookup/insertion.
+    The key encodes frame identity, boundary index, and active cost flags so
+    that changing a flag (e.g. enabling Poisson) correctly bypasses the cache.
+    """
+    if frame_keys is None:
+        return None
+    return (frame_keys, k, cost_flags)
 
 
 def _composite_foreground(
@@ -386,6 +784,8 @@ def _composite_foreground(
     frames: List[np.ndarray],
     affines: List[np.ndarray],
     bg_masks: List[Optional[np.ndarray]],
+    frame_keys: Optional[Tuple[str, ...]] = None,
+    seam_path_cache: Optional[Dict] = None,
 ) -> np.ndarray:
     """
     Deghost the temporal-median canvas by replacing animated foreground pixels
@@ -499,19 +899,15 @@ def _composite_foreground(
                 continue
         frame_lums.append(None)
 
-    # Inter-strip color coherence guard.
-    # If adjacent frame strips (sorted by canvas position) differ by more than
-    # _COHERENCE_LIMIT luminance units, partial gain correction (±7% clip) will not
-    # bridge the gap and can actually increase visible banding by setting each strip
-    # to a different absolute level.  In that case, skip normalization entirely and
-    # let the temporal median stand — it already represents the multi-frame consensus.
+    # Inter-strip color coherence guard (S18: per-pair instead of global skip).
+    # Frames in adjacent pairs whose background luminance differs by more than
+    # _COHERENCE_LIMIT are excluded from normalization; other frames proceed
+    # normally.  This avoids penalising every frame when a single scene-change
+    # pair exceeds the limit.
     _COHERENCE_LIMIT = 20.0
     valid_lums = [l for l in frame_lums if l is not None]
-    _skip_normalization = False
+    _skip_norm: List[bool] = _coherence_skip_mask(order, frame_lums, _COHERENCE_LIMIT)
     if len(valid_lums) >= 2:
-        lum_arr = np.array(valid_lums)
-        _strip_spread = float(lum_arr.max() - lum_arr.min())
-        # Also check adjacent-frame max diff (sorted by canvas row)
         lum_by_order = [frame_lums[int(order[k])] for k in range(N)]
         adj_diffs = [
             abs(lum_by_order[k + 1] - lum_by_order[k])
@@ -519,41 +915,74 @@ def _composite_foreground(
             if lum_by_order[k] is not None and lum_by_order[k + 1] is not None
         ]
         _max_adj_diff = float(max(adj_diffs)) if adj_diffs else 0.0
-        if _max_adj_diff > _COHERENCE_LIMIT:
-            _skip_normalization = True
+        _n_skipped = sum(_skip_norm)
+        if _n_skipped:
             print(
-                f"[Stitch]   Color coherence gate: max adjacent strip diff={_max_adj_diff:.1f} "
-                f"> {_COHERENCE_LIMIT} → skipping per-frame normalization to prevent "
-                f"amplifying color mismatch between animation frames."
+                f"[Stitch]   Color coherence gate (per-pair): max adj diff={_max_adj_diff:.1f}"
+                f" → skipping normalization for {_n_skipped}/{N} frames in bad pairs."
             )
         else:
             print(
                 f"[Stitch]   Color coherence OK (max adj diff={_max_adj_diff:.1f}). Applying normalization."
             )
 
+    # §1.6B: track per-frame applied gain so the feather-width pass can widen
+    # boundaries where adjacent frames needed significantly different corrections.
+    frame_gains: List[float] = [1.0] * N
     warped_norm: List[np.ndarray] = []
     for i in range(N):
         if (
-            not _skip_normalization
+            not _skip_norm[i]
             and global_ref_lum is not None
             and warped_bg[i] is not None
         ):
             bg_sel = warped_bg[i] & (warped_list[i].max(axis=2) > 10)
             bg_px = warped_list[i][bg_sel]
             if len(bg_px) >= 200 and frame_lums[i] is not None:
-                # Tight clip — Stage 4.5 already applied ±14%; residual errors are small.
-                # Applying a background-derived gain to foreground pixels amplifies natural
-                # inter-frame luminance variation into hard brightness seams at ownership
-                # boundaries.  Apply the gain to background pixels only; foreground pixels
-                # retain their raw warped values so adjacent zones stay photometrically
-                # consistent at character-outline boundaries.
-                gain = float(
-                    np.clip(global_ref_lum / max(frame_lums[i], 1.0), 0.93, 1.07)
-                )
                 f32 = warped_list[i].astype(np.float32)
-                f32[bg_sel] = np.clip(f32[bg_sel] * gain, 0, 255)
+                if _MULTISCALE_GAIN:
+                    # §1.4D: spatially-varying gain map (bg-only, fg untouched).
+                    # _multiscale_gain_map uses bg_sel as the source mask; the
+                    # Gaussian blur propagates bg gains into fg regions so the
+                    # full (H,W) map covers all pixels without fg-colour shift.
+                    gain_map = _multiscale_gain_map(
+                        warped_list[i], canvas, bg_sel
+                    )
+                    f32[bg_sel] = np.clip(
+                        f32[bg_sel] * gain_map[bg_sel, np.newaxis], 0, 255
+                    )
+                    # Representative scalar for §1.6B feather widening
+                    gain = float(np.median(gain_map[bg_sel]))
+                    print(
+                        f"[Stitch]     Frame {i}: multiscale_gain median={gain:.3f} (bg-only)"
+                    )
+                elif _HISTOGRAM_MATCH:
+                    # §1.4E: CDF histogram match — tonal distribution equalisation
+                    matched = _apply_bg_histogram_match(warped_list[i], canvas, bg_sel)
+                    f32 = matched.astype(np.float32)
+                    # Compute representative scalar for §1.6B feather widening
+                    src_lum_vals = (
+                        warped_list[i][bg_sel].astype(np.float32).dot(LUMINANCE_WEIGHTS)
+                    )
+                    out_lum_vals = (
+                        matched[bg_sel].astype(np.float32).dot(LUMINANCE_WEIGHTS)
+                    )
+                    ratios = np.where(
+                        src_lum_vals > 0.5,
+                        out_lum_vals / (src_lum_vals + 1e-3),
+                        1.0,
+                    )
+                    gain = float(np.median(ratios.clip(0.5, 2.0)))
+                    print(
+                        f"[Stitch]     Frame {i}: histogram_match median_gain={gain:.3f} (bg-only)"
+                    )
+                else:
+                    # §1.4C: scalar bg gain (default path)
+                    gain = _bg_gain_unclamped(global_ref_lum, frame_lums[i])
+                    f32[bg_sel] = np.clip(f32[bg_sel] * gain, 0, 255)
+                    print(f"[Stitch]     Frame {i}: lum_gain={gain:.3f} (bg-only)")
+                frame_gains[i] = gain
                 warped_norm.append(f32.astype(np.uint8))
-                print(f"[Stitch]     Frame {i}: lum_gain={gain:.3f} (bg-only)")
                 continue
         warped_norm.append(warped_list[i])
 
@@ -572,6 +1001,7 @@ def _composite_foreground(
 
     # Cap feathers by natural frame overlap so they never extend past real content
     n_b = len(boundaries)
+    max_feathers: List[int] = []
     for k in range(n_b):
         fi_a = int(order[k])
         fi_b = int(order[k + 1])
@@ -581,12 +1011,33 @@ def _composite_foreground(
         H_b = frames[fi_b].shape[0]
         nat_overlap = max(0, int(min(ty_a + H_a, ty_b + H_b) - max(ty_a, ty_b)))
         max_feather = max(5, min(nat_overlap // 2, FEATHER_MAX))
+        max_feathers.append(max_feather)
         if feathers[k] > max_feather:
             feathers[k] = max_feather
     print(
         "[Stitch]   Feathers (overlap-capped): "
         + " ".join(f"B{k}={int(feathers[k])}px" for k in range(n_b))
     )
+
+    # §1.6B: Minimum feather from luminance gain difference at each boundary.
+    # When adjacent frames required significantly different gain corrections, the
+    # residual step after clamping is proportional to |gain_A − gain_B|.  Widen
+    # the feather to fade = max(40, int(gain_diff × 300)), capped at 120 px.
+    # The overlap cap is re-applied so the feather never exceeds real content.
+    _feather_gain_widened = False
+    for k in range(n_b):
+        fi_a = int(order[k])
+        fi_b = int(order[k + 1])
+        gain_diff = abs(frame_gains[fi_a] - frame_gains[fi_b])
+        min_fk = _gain_to_min_feather(gain_diff)
+        if feathers[k] < min_fk:
+            feathers[k] = min(int(min_fk), max_feathers[k])
+            _feather_gain_widened = True
+    if _feather_gain_widened:
+        print(
+            "[Stitch]   Feathers (§1.6B gain-adjusted): "
+            + " ".join(f"B{k}={int(feathers[k])}px" for k in range(n_b))
+        )
 
     # ── Stage 8.5: Foreground pose registration — global reference strategy ──
     # The camera model is translation-only, so the BACKGROUND is aligned in
@@ -604,6 +1055,7 @@ def _composite_foreground(
     # Fallback (A6): when the residual exceeds max_residual, take the seam-zone
     # foreground from the dominant pose frame only — no blending.
     seam_single_pose: dict = {}
+    seam_post_diffs: dict = {}   # k → post-warp diff score (residual if fallback)
     seam_synthesized: dict = {}  # k → synthesized seam-band crop (ToonCrafter §3.6)
     if _FG_REGISTER_ENABLED and N >= 2:
         try:
@@ -738,12 +1190,48 @@ def _composite_foreground(
         except Exception as _fg_exc:
             print(f"[Stitch]   FG pose registration skipped ({_fg_exc}).")
 
+    # §S12: Adaptive feather refinement based on FG registration quality.
+    # post_warp_diff < 8  → excellent alignment: widen feather 1.5× for a
+    #                         smoother Laplacian blend (less visible step at seam).
+    # post_warp_diff > 16 → poor alignment: narrow feather 0.75× to reduce the
+    #                         blend zone where misaligned fg would create ghosting.
+    # Seams that became single-pose (post_diff > 22) are skipped — feather still
+    # governs the background blend width but fg routing is already single-pose.
+    # Re-applies the overlap cap after modification.
+    _feather_adapted = False
+    for _k, _pdiff in seam_post_diffs.items():
+        if _k in seam_single_pose:
+            continue
+        if _pdiff < 8.0:
+            feathers[_k] = min(int(feathers[_k] * 1.5), FEATHER_MAX)
+            _feather_adapted = True
+        elif _pdiff > 16.0:
+            feathers[_k] = max(int(feathers[_k] * 0.75), FEATHER_MIN)
+            _feather_adapted = True
+    if _feather_adapted:
+        # Re-apply natural overlap cap so widened feathers never exceed real content
+        for _k in range(n_b):
+            _fi_a = int(order[_k])
+            _fi_b = int(order[_k + 1])
+            _ty_a = float(affines[_fi_a][1, 2])
+            _ty_b = float(affines[_fi_b][1, 2])
+            _H_a = frames[_fi_a].shape[0]
+            _H_b = frames[_fi_b].shape[0]
+            _nat_ov = max(0, int(min(_ty_a + _H_a, _ty_b + _H_b) - max(_ty_a, _ty_b)))
+            _max_f = max(5, min(_nat_ov // 2, FEATHER_MAX))
+            if feathers[_k] > _max_f:
+                feathers[_k] = _max_f
+        print(
+            "[Stitch]   Feathers (post-FG-reg adapted): "
+            + " ".join(f"B{_k}={int(feathers[_k])}px" for _k in range(n_b))
+        )
+
     # ToonCrafter seam synthesis (§3.6 / S9): generate a canonical interpolated
     # cel at the single worst post-diff seam so the hard single-pose partition
     # is replaced by a smoothly interpolated character pose.  Only fires when
     # ASP_TOONCRAFTER_SEAM=1 and at least one seam was escalated to single-pose.
     seam_canonical_crops: dict = {}
-    if _TOONCRAFTER_SEAM_ENABLED and seam_single_pose:
+    if _TOONCRAFTER_SEAM and seam_single_pose:
         try:
             worst_k = max(seam_single_pose, key=lambda _k: seam_post_diffs.get(_k, 0.0))
             fi_a_w = int(order[worst_k])
@@ -787,6 +1275,64 @@ def _composite_foreground(
             replace = has_content
         result[y_start:y_end][replace] = src[replace]
 
+    # §S12: Pre-compute seam DP paths for all boundaries in parallel.
+    # _seam_cut() is read-only (reads warped_norm + result snapshot from hard-partition).
+    # Since result is fully populated before the blend loop starts, all seam cuts are
+    # independent — no write conflicts.  ThreadPoolExecutor releases the GIL for NumPy ops.
+    import concurrent.futures as _cf
+
+    def _seam_job(job_args):
+        _k, _fa_z, _fb_z, _sem, _W, _zh = job_args
+        _both = (_fa_z.max(axis=2) > 0) & (_fb_z.max(axis=2) > 0)
+        if int(_both.sum()) > _zh * _W // 20:
+            try:
+                return _k, _seam_cut(_fa_z, _fb_z, sem_cost=_sem)
+            except Exception:
+                pass
+        return _k, np.full(_W, _zh // 2, dtype=np.int32)
+
+    _seam_cost_flags = _get_seam_cost_flags()
+    _seam_jobs = []
+    _precomp_paths: dict = {}
+    for _k, _by in enumerate(boundaries):
+        # §1.5D: serve from cache when the same frame set + cost config was seen before
+        _ck = _make_seam_cache_key(frame_keys, _k, _seam_cost_flags)
+        if _ck is not None and seam_path_cache is not None and _ck in seam_path_cache:
+            _precomp_paths[_k] = seam_path_cache[_ck]
+            continue
+        _fi_a = int(order[_k])
+        _fi_b = int(order[_k + 1])
+        _f = int(feathers[_k])
+        _y0 = max(0, int(_by) - _f)
+        _y1 = min(H, int(_by) + _f + 1)
+        if _y1 - _y0 < 4:
+            continue
+        _fa_z = warped_norm[_fi_a][_y0:_y1].copy()
+        _fb_z = warped_norm[_fi_b][_y0:_y1].copy()
+        _bg_a_z = warped_bg[_fi_a][_y0:_y1] if warped_bg[_fi_a] is not None else None
+        _bg_b_z = warped_bg[_fi_b][_y0:_y1] if warped_bg[_fi_b] is not None else None
+        _sem = _build_seam_cost_map(
+            result[_y0:_y1].copy(),
+            ((_bg_a_z.astype(np.uint8) * 255) if _bg_a_z is not None else None),
+            ((_bg_b_z.astype(np.uint8) * 255) if _bg_b_z is not None else None),
+        )
+        _seam_jobs.append((_k, _fa_z, _fb_z, _sem, W, _y1 - _y0))
+
+    if len(_seam_jobs) > 1:
+        with _cf.ThreadPoolExecutor(max_workers=min(len(_seam_jobs), 4)) as _pool:
+            for _k, _path in _pool.map(_seam_job, _seam_jobs):
+                _precomp_paths[_k] = _path
+    elif _seam_jobs:
+        _k, _path = _seam_job(_seam_jobs[0])
+        _precomp_paths[_k] = _path
+
+    # §1.5D: populate cache with all newly computed paths
+    if frame_keys is not None and seam_path_cache is not None:
+        for _k, _path in _precomp_paths.items():
+            _ck = _make_seam_cache_key(frame_keys, _k, _seam_cost_flags)
+            if _ck not in seam_path_cache:
+                seam_path_cache[_ck] = _path
+
     # Laplacian blend at each boundary seam zone (foreground pixels only)
     for k, by in enumerate(boundaries):
         fi_a = int(order[k])
@@ -806,21 +1352,24 @@ def _composite_foreground(
         # the DP path avoids cutting through foreground outlines.
         _bg_a_zone = warped_bg[fi_a][y0_f:y1_f] if warped_bg[fi_a] is not None else None
         _bg_b_zone = warped_bg[fi_b][y0_f:y1_f] if warped_bg[fi_b] is not None else None
-        _sem_cost = _build_seam_cost_map(
-            result[y0_f:y1_f],  # current canvas in zone
-            ((_bg_a_zone.astype(np.uint8) * 255) if _bg_a_zone is not None else None),
-            ((_bg_b_zone.astype(np.uint8) * 255) if _bg_b_zone is not None else None),
-        )
 
-        # DP seam path within the zone: path[col] = row in [0, zone_h-1]
-        both = (fa_zone.max(axis=2) > 0) & (fb_zone.max(axis=2) > 0)
-        if int(both.sum()) > zone_h * W // 20:
-            try:
-                path_local = _seam_cut(fa_zone, fb_zone, sem_cost=_sem_cost)
-            except Exception:
+        # Use pre-computed seam path when available (parallel pre-computation above)
+        path_local = _precomp_paths.get(k)
+        if path_local is None:
+            # Fallback: compute inline (zone was skipped in pre-compute or < 4px)
+            _sem_cost = _build_seam_cost_map(
+                result[y0_f:y1_f],
+                ((_bg_a_zone.astype(np.uint8) * 255) if _bg_a_zone is not None else None),
+                ((_bg_b_zone.astype(np.uint8) * 255) if _bg_b_zone is not None else None),
+            )
+            both = (fa_zone.max(axis=2) > 0) & (fb_zone.max(axis=2) > 0)
+            if int(both.sum()) > zone_h * W // 20:
+                try:
+                    path_local = _seam_cut(fa_zone, fb_zone, sem_cost=_sem_cost)
+                except Exception:
+                    path_local = np.full(W, zone_h // 2, dtype=np.int32)
+            else:
                 path_local = np.full(W, zone_h // 2, dtype=np.int32)
-        else:
-            path_local = np.full(W, zone_h // 2, dtype=np.int32)
 
         # P2.5 — Soft-seam diffusion blending (DSFN technique).
         # Instead of a fixed-width linear ramp, compute a spatially-adaptive blend
@@ -911,13 +1460,31 @@ def _composite_foreground(
             take_oth = fg_apply & (~dom_has) & (oth_zone.max(axis=2) > 0)
             result[y0_f:y1_f][take_dom] = dom_zone[take_dom]
             result[y0_f:y1_f][take_oth] = oth_zone[take_oth]
+
+            # S15+S16 — color-match oth_zone to dom_zone in the seam band, then
+            # apply a narrow soft-edge blend along the seam path.
+            # _seam_color_match reduces the channel-mean delta from post_warp_diff
+            # lum-units toward zero before the ±sp_soft_px ramp is applied, making
+            # the composite transition nearly imperceptible.
+            _sp_soft_px = int(os.environ.get("ASP_SP_SOFT_PX", "6"))
+            _oth_matched = _seam_color_match(dom_zone, oth_zone, path_local, _sp_soft_px + 4)
+            _sp_zone = _single_pose_soft_edge(dom_zone, _oth_matched, path_local, fg_apply, _sp_soft_px)
+            _both_for_sp = dom_has & (oth_zone.max(axis=2) > 0) & fg_apply
+            if _both_for_sp.any():
+                result[y0_f:y1_f][_both_for_sp] = _sp_zone[_both_for_sp]
+
             print(
                 f"[Stitch]   Single-pose B{k} (frame {_single}): "
                 f"zone=[{y0_f}–{y1_f}] fg_px={int(fg_apply.sum())} "
-                f"(no blend — avoids double image)"
+                f"soft_px={_sp_soft_px}"
             )
         else:
-            # Apply Laplacian blend only where BOTH frames have actual content.
+            # §1.6C — Poisson seam blend (ASP_POISSON_SEAM=1): replace Laplacian
+            # blend with gradient-domain cv2.seamlessClone at normal seams.
+            if _POISSON_SEAM:
+                blended = _poisson_seam_blend(fa_zone, fb_zone, path_local, apply)
+
+            # Apply blend only where BOTH frames have actual content.
             # At canvas boundary positions where only one frame has content, the
             # Laplacian pyramid creates ringing at the content-vs-zero transition.
             # For single-frame positions, take that frame directly.
@@ -930,8 +1497,9 @@ def _composite_foreground(
                 result[y0_f:y1_f][only_a] = fa_zone[only_a]
             if only_b.any():
                 result[y0_f:y1_f][only_b] = fb_zone[only_b]
+            _blend_mode = "poisson" if _POISSON_SEAM else "laplacian"
             print(
-                f"[Stitch]   Blended B{k} (frames {fi_a}/{fi_b}): "
+                f"[Stitch]   Blended B{k} (frames {fi_a}/{fi_b}, {_blend_mode}): "
                 f"zone=[{y0_f}–{y1_f}] feather={feather}px "
                 f"seam=[{int(path_local.min())}–{int(path_local.max())}]"
             )
@@ -954,4 +1522,20 @@ def _composite_foreground(
     return result
 
 
-__all__ = ["_composite_foreground"]
+__all__ = [
+    "_composite_foreground",
+    "_get_seam_cost_flags",
+    "_make_seam_cache_key",
+    "_multiscale_gain_map",
+    "_poisson_seam_blend",
+    "_single_pose_soft_edge",
+    "_seam_color_match",
+    "_soft_seam_weight",
+    "_adaptive_gain_clamp",
+    "_coherence_skip_mask",
+    "_build_seam_cost_map",
+    "_gain_to_min_feather",
+    "_bg_gain_unclamped",
+    "_bg_histogram_lut",
+    "_apply_bg_histogram_match",
+]

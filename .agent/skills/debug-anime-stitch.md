@@ -23,7 +23,7 @@ Run the pipeline and examine the output image and printed log. Map the symptom t
 
 **Critical triage rule:** If the output shows ghosting (B), ALWAYS check the affines first (Category C/G). Do not debug `_render_median` until you have confirmed:
 1. max_gap/median_gap ratio < 3×
-2. min_gap > 50px (no co-located frames)
+2. min_gap > 25px (no co-located frames — threshold was lowered from 50px in S11)
 3. Off-diagonal affine elements < 0.1 (no rotation)
 
 Exception confirmed: test18 has ratio=1.1× with min_gap=327px but catastrophic ghosting from affine rotation (Category G).
@@ -58,7 +58,7 @@ Look at the printed log for the compositing run:
 ```
 
 **Red flags:**
-- LS gains outside `(0.92, 1.08)` — indicates clamping is too loose; tighten to `(0.95, 1.05)`
+- LS gains outside adaptive clamp range — `clamp_width = 0.26 − 0.12 × (ref_lum/255)`; check `_adaptive_gain_clamp` in `compositing.py`
 - `gain=[0.85, 0.83, 0.83]` style — per-zone gain correction is active and overcorrecting; set `gain_seam = np.ones(3)`
 - `Seam ramp B1 ...` lines — post-composite ramp is active inside feather zones; disable `_apply_canvas_seam_correction`
 
@@ -338,13 +338,15 @@ Before and after any fix, run the automated test suite. It covers all issue cate
 
 ```bash
 source .venv/bin/activate
-pytest backend/test/anim/ -q                       # all 105 tests (~7s)
-pytest backend/test/anim/test_filter_edges.py -v   # Category C — alignment
-pytest backend/test/anim/test_bundle_adjust.py -v  # Category C — clustering
-pytest backend/test/anim/test_canvas.py -v         # Category E — canvas/crop
-pytest backend/test/anim/test_affine_validation.py -v  # Category C/G — validate
-pytest backend/test/anim/test_compositing.py -v    # Category A — seam/gain
-pytest backend/test/anim/test_rendering.py -v      # Category B — ghosting
+pytest backend/test/anim/ -q                          # 262 tests (~7s)
+pytest backend/test/anim/test_filter_edges.py -v      # Category C — alignment
+pytest backend/test/anim/test_bundle_adjust.py -v     # Category C — clustering
+pytest backend/test/anim/test_canvas.py -v            # Category E — canvas/crop
+pytest backend/test/anim/test_affine_validation.py -v # Category C/G — validate
+pytest backend/test/anim/test_compositing.py -v       # Category A — seam/gain
+pytest backend/test/anim/test_rendering.py -v         # Category B — ghosting
+pytest backend/test/anim/test_frame_selection.py -v   # hold/near-dup filtering
+pytest backend/test/anim/test_config.py -v            # §1.8A TOML config
 ```
 
 The suite documents both correct behavior (assertions that must pass) and known bugs (assertions that document the broken state, marked in the test docstring). When you fix a documented bug, find the corresponding test and update the assertion to verify the correct behavior.
