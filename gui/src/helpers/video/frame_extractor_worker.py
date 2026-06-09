@@ -186,9 +186,9 @@ class FrameExtractionWorker(QRunnable):
             )
             for i, f in enumerate(tmp_files):
                 # Calculate approximate MS
-                # Frame N (0-indexed) at start_ms + (N * interval * 1000 / fps)
+                # Frame N (0-indexed) at start_ms + (N * interval * 1000 / self.fps)
                 current_ms = self.start_ms + int(
-                    i * self.frame_interval * (1000.0 / fps)
+                    i * self.frame_interval * (1000.0 / self.fps)
                 )
                 new_name = f"{video_name}_{current_ms}ms.png"
 

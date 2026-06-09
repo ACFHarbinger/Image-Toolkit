@@ -74,6 +74,122 @@ _MULTISCALE_GAIN: bool = os.environ.get("ASP_MULTISCALE_GAIN", "0") != "0"
 # Enable via ASP_HISTOGRAM_MATCH=1 (default OFF; _MULTISCALE_GAIN takes priority).
 _HISTOGRAM_MATCH: bool = os.environ.get("ASP_HISTOGRAM_MATCH", "0") != "0"
 
+# §1.4F — Per-frame exposure outlier rejection (S50).
+# Frames whose background median luminance deviates from the global median by
+# more than _EXPOSURE_OUTLIER_THRESH luma units are excluded from gain
+# normalisation (skipped in the same way as coherence-gate rejects).  The frame
+# still contributes warped pixel content to the canvas; only the gain correction
+# is suppressed to prevent extreme correction artefacts.
+# Default 0.0 = disabled.  Recommended starting value: 60.0.
+_EXPOSURE_OUTLIER_THRESH: float = float(
+    os.environ.get("ASP_EXPOSURE_OUTLIER_THRESH", "0.0")
+)
+_SEAM_COLOR_GATE: float = float(
+    os.environ.get("ASP_SEAM_COLOR_GATE", "0.0")
+)
+# §1.14C — Per-channel BGR Bhattacharyya seam gate (S59).
+# When enabled, _check_seam_color_gate uses per-channel (B,G,R) histograms
+# and returns min(score_B, score_G, score_R) rather than the greyscale score.
+# Catches hue-shifted banding where B/G/R differ sharply but luminance is flat.
+# Enable via ASP_SEAM_COLOR_GATE_BGR=1 (default OFF — greyscale path is faster).
+_SEAM_COLOR_GATE_BGR: bool = os.environ.get("ASP_SEAM_COLOR_GATE_BGR", "0") != "0"
+
+
+def _seam_color_similarity(
+    img: np.ndarray,
+    k: int,
+    n_strips: int,
+    band_px: int = 50,
+) -> float:
+    """§1.14B: Bhattacharyya colour similarity across seam boundary k.
+
+    Splits *img* into *n_strips* equal-height zones.  Seam k is the boundary
+    between zone k and zone k+1 (0-indexed).  Returns ``1 - HISTCMP_BHATTACHARYYA``
+    between normalised greyscale histograms of the *band_px*-row windows
+    immediately above and below the boundary: 1.0 = identical distributions,
+    0.0 = completely disjoint.  Returns 1.0 when the band is too small (<10 rows)
+    so trivially thin boundaries never trigger the gate.
+    """
+    H = img.shape[0]
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    zone_h = H / n_strips
+    boundary_y = int(round(zone_h * (k + 1)))
+    top = gray[max(0, boundary_y - band_px):boundary_y]
+    bot = gray[boundary_y:min(H, boundary_y + band_px)]
+    if top.shape[0] < 10 or bot.shape[0] < 10:
+        return 1.0
+    h_top = cv2.calcHist([top], [0], None, [256], [0, 256])
+    h_bot = cv2.calcHist([bot], [0], None, [256], [0, 256])
+    cv2.normalize(h_top, h_top)
+    cv2.normalize(h_bot, h_bot)
+    dist = float(cv2.compareHist(h_top, h_bot, cv2.HISTCMP_BHATTACHARYYA))
+    return float(np.clip(1.0 - dist, 0.0, 1.0))
+
+
+def _seam_color_similarity_bgr(
+    img: np.ndarray,
+    k: int,
+    n_strips: int,
+    band_px: int = 50,
+) -> float:
+    """§1.14C: Per-channel Bhattacharyya similarity across seam boundary k.
+
+    Like ``_seam_color_similarity`` but computes separate normalised histograms
+    for each of the B, G and R channels and returns ``min(score_B, score_G,
+    score_R)``.  Any single channel with a severe distribution mismatch drives
+    the score down even when the luminance distribution is identical — catches
+    warm-orange vs cool-blue banding that greyscale Bhattacharyya misses.
+
+    Returns 1.0 when the band is too small (<10 rows) or the input has no
+    colour channels.
+    """
+    H = img.shape[0]
+    if img.ndim < 3:
+        return _seam_color_similarity(img, k, n_strips, band_px=band_px)
+    zone_h = H / n_strips
+    boundary_y = int(round(zone_h * (k + 1)))
+    top = img[max(0, boundary_y - band_px):boundary_y]
+    bot = img[boundary_y:min(H, boundary_y + band_px)]
+    if top.shape[0] < 10 or bot.shape[0] < 10:
+        return 1.0
+    min_score = 1.0
+    for ch in range(3):
+        h_top = cv2.calcHist([top], [ch], None, [256], [0, 256])
+        h_bot = cv2.calcHist([bot], [ch], None, [256], [0, 256])
+        cv2.normalize(h_top, h_top)
+        cv2.normalize(h_bot, h_bot)
+        dist = float(cv2.compareHist(h_top, h_bot, cv2.HISTCMP_BHATTACHARYYA))
+        min_score = min(min_score, float(np.clip(1.0 - dist, 0.0, 1.0)))
+    return min_score
+
+
+def _check_seam_color_gate(
+    img: np.ndarray,
+    n_strips: int,
+    thresh: float = _SEAM_COLOR_GATE,
+    band_px: int = 50,
+    use_bgr: bool = False,
+) -> "Optional[int]":
+    """§1.14B/C: Returns index of the worst seam below *thresh*, or None.
+
+    Evaluates per-seam colour similarity for every inter-strip seam.  When
+    *use_bgr* is True uses ``_seam_color_similarity_bgr`` (per-channel B/G/R
+    minimum); otherwise uses the greyscale ``_seam_color_similarity``.
+    Returns the 0-indexed seam with the lowest score if it falls below *thresh*,
+    or ``None`` when *n_strips* ≤ 1, *thresh* ≤ 0, or all seams pass.
+    """
+    if n_strips <= 1 or thresh <= 0.0:
+        return None
+    sim_fn = _seam_color_similarity_bgr if use_bgr else _seam_color_similarity
+    worst_k: Optional[int] = None
+    worst_score = thresh
+    for k in range(n_strips - 1):
+        score = sim_fn(img, k, n_strips, band_px=band_px)
+        if score < worst_score:
+            worst_score = score
+            worst_k = k
+    return worst_k
+
 
 def _multiscale_gain_map(
     frame: np.ndarray,
@@ -666,6 +782,38 @@ def _apply_bg_histogram_match(
     return result
 
 
+def _reject_exposure_outliers(
+    frame_lums: "List[Optional[float]]",
+    max_deviation_lum: float = 60.0,
+) -> "List[bool]":
+    """§1.4F: Per-frame skip mask for absolute luminance outliers (S50).
+
+    Computes the median background luminance across all frames that have a
+    valid lum value, then returns *True* for any frame whose background lum
+    deviates from that median by more than *max_deviation_lum* luma units.
+
+    Frames with ``None`` lum (too few bg pixels to compute a value) are never
+    rejected — they are already excluded from gain normalisation by the caller's
+    ``frame_lums`` guard.
+
+    Falls back to all-False when fewer than 3 valid luminance values are
+    available; the sample median is unreliable below that count.
+    """
+    n = len(frame_lums)
+    result = [False] * n
+
+    valid = [float(l) for l in frame_lums if l is not None]
+    if len(valid) < 3:
+        return result
+
+    median_lum = float(np.median(valid))
+    for i, lum in enumerate(frame_lums):
+        if lum is not None and abs(float(lum) - median_lum) > max_deviation_lum:
+            result[i] = True
+
+    return result
+
+
 def _coherence_skip_mask(
     order: np.ndarray,
     frame_lums: "List[Optional[float]]",
@@ -907,6 +1055,16 @@ def _composite_foreground(
     _COHERENCE_LIMIT = 20.0
     valid_lums = [l for l in frame_lums if l is not None]
     _skip_norm: List[bool] = _coherence_skip_mask(order, frame_lums, _COHERENCE_LIMIT)
+    # §1.4F: OR in exposure-outlier skips (absolute lum deviation from global median)
+    if _EXPOSURE_OUTLIER_THRESH > 0.0:
+        _exp_skip = _reject_exposure_outliers(frame_lums, _EXPOSURE_OUTLIER_THRESH)
+        _n_exp_skipped = sum(_exp_skip)
+        if _n_exp_skipped:
+            print(
+                f"[Stitch]   Exposure outlier gate: {_n_exp_skipped}/{N} frames excluded"
+                f" (|lum - median| > {_EXPOSURE_OUTLIER_THRESH:.1f})."
+            )
+        _skip_norm = [a or b for a, b in zip(_skip_norm, _exp_skip)]
     if len(valid_lums) >= 2:
         lum_by_order = [frame_lums[int(order[k])] for k in range(N)]
         adj_diffs = [
@@ -1538,4 +1696,8 @@ __all__ = [
     "_bg_gain_unclamped",
     "_bg_histogram_lut",
     "_apply_bg_histogram_match",
+    "_reject_exposure_outliers",
+    "_seam_color_similarity",
+    "_seam_color_similarity_bgr",
+    "_check_seam_color_gate",
 ]

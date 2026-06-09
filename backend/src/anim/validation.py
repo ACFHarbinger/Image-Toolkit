@@ -21,10 +21,72 @@ import numpy as np
 # near-identical rotation/scale (systematic camera property); "tight" when
 # frame-to-frame variance is high (BA noise).
 _ROT_TIGHT: float = 0.10
+
+# §1.12 — Minimum |Kendall τ| for the translation-monotonicity check.
+# A value of 0.4 allows up to ~30 % discordant frame pairs before flagging
+# the solution as catastrophically disordered.  Good BA solutions typically
+# score ≥ 0.85; random permutations of N=14 score ≈ 0.27 on average.
+_MONO_TAU_MIN: float = 0.4
 _ROT_LOOSE: float = 0.15
 _SC_TIGHT: float = 0.10
 _SC_LOOSE: float = 0.15
 _ROT_SCALE_CONSISTENCY_THRESH: float = 0.02
+
+
+def _check_translation_monotonicity(
+    affines: List[np.ndarray],
+    primary_axis: int = 1,
+    min_tau_abs: float = _MONO_TAU_MIN,
+) -> Tuple[bool, float]:
+    """§1.12: Verify that frame translations are spatially ordered consistently
+    with their temporal (frame-index) order, measured by |Kendall τ|.
+
+    For a valid scrolling sequence the camera moves monotonically in the scroll
+    direction, so the frame captured at time *t_i* should be spatially ahead of
+    the frame captured at time *t_{i-1}*.  If bundle adjustment places frames in
+    a scrambled spatial order while preserving uniform spacing (ratio ≈ 1), the
+    existing ratio / min-gap checks will not catch the failure — this check does.
+
+    **Algorithm**: compute the Kendall rank-correlation coefficient τ between the
+    temporal index sequence [0, 1, …, N-1] and the primary-axis translation
+    sequence.  |τ| = 1 for perfectly monotone sequences (forward *and* backward
+    scrolling both pass), |τ| ≈ 0 for random permutations.
+
+    Parameters
+    ----------
+    affines : list of (2, 3) float32 affine matrices in **temporal** order.
+    primary_axis : 0 for horizontal scroll, 1 for vertical (default).
+    min_tau_abs : minimum acceptable |τ|.  Default 0.4 — flags sequences where
+                  more than ~30 % of frame pairs are out of spatial order.
+
+    Returns
+    -------
+    (is_monotone, tau_abs)
+        *is_monotone* is ``True`` when the ordering is acceptable.
+        *tau_abs* is the measured |Kendall τ| (0 = random, 1 = perfectly ordered).
+
+    Notes
+    -----
+    Requires at least 4 frames; shorter sequences always return ``(True, 1.0)``.
+    """
+    N = len(affines)
+    if N < 4:
+        return True, 1.0
+    vals = np.array([float(M[primary_axis, 2]) for M in affines], dtype=np.float64)
+    concordant = discordant = 0
+    for i in range(N - 1):
+        for j in range(i + 1, N):
+            d = vals[j] - vals[i]
+            if d > 0.0:
+                concordant += 1
+            elif d < 0.0:
+                discordant += 1
+    n_pairs = concordant + discordant
+    if n_pairs == 0:
+        return True, 1.0
+    tau = (concordant - discordant) / n_pairs
+    tau_abs = abs(tau)
+    return tau_abs >= min_tau_abs, tau_abs
 
 
 class AffineHealth(NamedTuple):
@@ -122,6 +184,16 @@ def _validate_affines(
     if max_sc > max_scale_dev:
         return AffineHealth(False, ratio, min_gap, max_rot, max_sc, f"scale_dev={max_sc:.3f} > {max_scale_dev}")
 
+    # §1.12: translation monotonicity — fires only for vertical/horizontal scroll
+    if scroll_axis in ("vertical", "horizontal"):
+        primary_axis_int = 0 if scroll_axis == "horizontal" else 1
+        ok_mono, tau_val = _check_translation_monotonicity(affines, primary_axis_int)
+        if not ok_mono:
+            return AffineHealth(
+                False, ratio, min_gap, max_rot, max_sc,
+                f"monotonicity={tau_val:.2f} < {_MONO_TAU_MIN}"
+            )
+
     return AffineHealth(True, ratio, min_gap, max_rot, max_sc, "ok")
 
 
@@ -199,4 +271,5 @@ __all__ = [
     "_validate_affines",
     "_compute_adaptive_min_gap",
     "_compute_adaptive_rot_scale",
+    "_check_translation_monotonicity",
 ]

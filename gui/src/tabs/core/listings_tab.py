@@ -18,7 +18,7 @@ from PySide6.QtCore import (
     QRunnable,
     QThreadPool,
 )
-from PySide6.QtGui import QPixmap, QDesktopServices, QImage, QColor
+from PySide6.QtGui import QPixmap, QDesktopServices, QImage, QColor, QIcon
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -2709,16 +2709,33 @@ class AdvancedSearchDialog(QDialog):
         ent_layout.setContentsMargins(8, 8, 8, 8)
         ent_layout.setSpacing(12)
 
+        # Helper to apply icons asynchronously
+        def _apply_icon(item, path):
+            if not path or not Path(path).exists():
+                return
+            cached = _CARD_THUMB_CACHE.get(path)
+            if cached is not None:
+                item.setIcon(QIcon(QPixmap.fromImage(cached)))
+            else:
+                def _on_ready(p, img):
+                    if p == path:
+                        item.setIcon(QIcon(QPixmap.fromImage(img)))
+                w = _ThumbWorker(path, 40)
+                w.signals.ready.connect(_on_ready)
+                QThreadPool.globalInstance().start(w)
+
         # Include Entities
         inc_ent_box = QVBoxLayout()
         inc_ent_box.addWidget(QLabel("👥 Include Entities:"))
         self.inc_ent_list = QListWidget()
+        self.inc_ent_list.setIconSize(QSize(40, 40))
         for ent in self.sorted_entities:
             item = QListWidgetItem(ent.get("name", "Unnamed"))
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             item.setCheckState(Qt.Unchecked)
             item.setData(Qt.UserRole, ent.get("id"))
             self.inc_ent_list.addItem(item)
+            _apply_icon(item, ent.get("image_path", ""))
         inc_ent_box.addWidget(self.inc_ent_list)
         ent_layout.addLayout(inc_ent_box)
 
@@ -2726,12 +2743,14 @@ class AdvancedSearchDialog(QDialog):
         exc_ent_box = QVBoxLayout()
         exc_ent_box.addWidget(QLabel("🚫 Exclude Entities:"))
         self.exc_ent_list = QListWidget()
+        self.exc_ent_list.setIconSize(QSize(40, 40))
         for ent in self.sorted_entities:
             item = QListWidgetItem(ent.get("name", "Unnamed"))
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             item.setCheckState(Qt.Unchecked)
             item.setData(Qt.UserRole, ent.get("id"))
             self.exc_ent_list.addItem(item)
+            _apply_icon(item, ent.get("image_path", ""))
         exc_ent_box.addWidget(self.exc_ent_list)
         ent_layout.addLayout(exc_ent_box)
 

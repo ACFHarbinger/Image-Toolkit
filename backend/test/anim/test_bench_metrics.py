@@ -24,6 +24,8 @@ from backend.benchmark.bench_anime_stitch import (  # noqa: E402
     _compute_aligned_ssim,
     _compute_rlhf_score,
     _compute_all_metrics,
+    _compute_per_seam_ghost_scores,
+    _seam_bhattacharyya_distances,
     _ghosting_score_v2,
     _SSIM_OK,
     _RLHF_FLAG_THRESHOLD,
@@ -286,3 +288,112 @@ class TestGhostingScoreV2:
         metrics = _compute_all_metrics(img)
         assert "ghosting_siqe" in metrics
         assert isinstance(metrics["ghosting_siqe"], float)
+
+
+# ---------------------------------------------------------------------------
+# _compute_per_seam_ghost_scores — §3.8B per-seam SIQE ghost map (S53)
+# ---------------------------------------------------------------------------
+
+
+class TestPerSeamGhostScores:
+    """
+    _compute_per_seam_ghost_scores(img, n_strips, band_px=100) divides the
+    image into n_strips zones and returns n_strips-1 float ghosting scores,
+    one per seam boundary.
+    """
+
+    def test_uniform_image_all_near_zero(self):
+        """Flat image has no gradient anywhere — all seam scores should be ≈ 0."""
+        img = _solid(300, 200, 128)
+        scores = _compute_per_seam_ghost_scores(img, n_strips=3)
+        assert len(scores) == 2
+        for s in scores:
+            assert s == pytest.approx(0.0), f"Expected ~0.0 for flat image, got {s}"
+
+    def test_n_strips_one_returns_empty(self):
+        """n_strips ≤ 1 means no boundaries — must return empty list."""
+        img = _solid(200, 200, 128)
+        assert _compute_per_seam_ghost_scores(img, n_strips=1) == []
+        assert _compute_per_seam_ghost_scores(img, n_strips=0) == []
+
+    def test_returns_n_minus_1_scores(self):
+        """Function must return exactly n_strips-1 scores for any n_strips ≥ 2."""
+        img = _solid(400, 200, 64)
+        for n in [2, 3, 5]:
+            scores = _compute_per_seam_ghost_scores(img, n_strips=n)
+            assert len(scores) == n - 1, f"n={n}: expected {n-1} scores, got {len(scores)}"
+
+    def test_band_with_sharp_luminance_step_has_high_score(self):
+        """A band containing a ghost-like repeated edge pattern must score > 5."""
+        H, W = 300, 200
+        img = np.zeros((H, W, 3), dtype=np.uint8)
+        # Two identical bright bands in the middle — simulates double-image ghost
+        img[120:135, :] = 220
+        img[165:180, :] = 220
+        # Boundary at y=150 (midpoint of 2-strip split); band covers rows 50–250
+        scores = _compute_per_seam_ghost_scores(img, n_strips=2, band_px=100)
+        assert len(scores) == 1
+        assert scores[0] > 5.0, f"Expected ghost signal in band, got {scores[0]}"
+
+    def test_band_clipped_to_image_bounds_no_error(self):
+        """Boundary bands near image edges must be clipped silently, no exception."""
+        img = _solid(40, 60, 100)  # tiny image
+        # n_strips=4 → boundaries at y≈10, 20, 30; band_px=50 would exceed bounds
+        scores = _compute_per_seam_ghost_scores(img, n_strips=4, band_px=50)
+        assert len(scores) == 3
+        for s in scores:
+            assert isinstance(s, float)
+            assert 0.0 <= s <= 100.0
+
+
+# ---------------------------------------------------------------------------
+# _seam_bhattacharyya_distances — §1.14 per-seam colour-banding metric (S55)
+# ---------------------------------------------------------------------------
+
+
+class TestSeamBhattacharyyaDistances:
+    """
+    _seam_bhattacharyya_distances(img, n_strips, band_px=50) returns
+    n_strips-1 float scores in [0,1].  1.0 = identical histograms above/below
+    seam (no colour banding); 0.0 = completely disjoint distributions.
+    """
+
+    def test_n_strips_one_returns_empty(self):
+        """n_strips ≤ 1 has no seam boundaries — must return empty list."""
+        img = _solid(200, 200, 128)
+        assert _seam_bhattacharyya_distances(img, n_strips=1) == []
+        assert _seam_bhattacharyya_distances(img, n_strips=0) == []
+
+    def test_returns_n_minus_1_scores(self):
+        """Function must return exactly n_strips-1 scores for any n_strips ≥ 2."""
+        img = _solid(300, 200, 100)
+        for n in [2, 3, 5]:
+            scores = _seam_bhattacharyya_distances(img, n_strips=n)
+            assert len(scores) == n - 1, f"n={n}: expected {n-1} scores, got {len(scores)}"
+
+    def test_identical_strips_score_near_one(self):
+        """A uniform image has identical histograms above and below every seam — score ≈ 1."""
+        img = _solid(200, 150, 128)
+        scores = _seam_bhattacharyya_distances(img, n_strips=2)
+        assert len(scores) == 1
+        assert scores[0] > 0.98, f"Uniform image should score near 1.0, got {scores[0]}"
+
+    def test_different_histograms_score_below_identical(self):
+        """Bright strip above, dark strip below — score must be lower than for uniform."""
+        uniform = _solid(200, 150, 128)
+        banded = _stacked(220, 20, H=200, W=150)
+        s_uniform = _seam_bhattacharyya_distances(uniform, n_strips=2)[0]
+        s_banded = _seam_bhattacharyya_distances(banded, n_strips=2)[0]
+        assert s_banded < s_uniform, (
+            f"Banded image ({s_banded:.3f}) should score lower than uniform ({s_uniform:.3f})"
+        )
+
+    def test_scores_in_valid_range(self):
+        """Every score must be a float in [0, 1] regardless of input content."""
+        rng = np.random.default_rng(7)
+        img = rng.integers(0, 256, (300, 200, 3), dtype=np.uint8)
+        scores = _seam_bhattacharyya_distances(img, n_strips=4)
+        assert len(scores) == 3
+        for s in scores:
+            assert isinstance(s, float)
+            assert 0.0 <= s <= 1.0, f"Score out of [0,1]: {s}"

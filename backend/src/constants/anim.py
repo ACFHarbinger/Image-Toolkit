@@ -201,6 +201,12 @@ HIGH_HOLD_RESPONSE_THRESH = 0.85  # §1.11C: phaseCorrelate response floor for p
 TEMPORAL_VAR_THRESH = 1e-3  # §1.2D: mean per-pixel variance [0,1] for static-frame rejection
 HOLD_DHASH_THRESHOLD = 4  # §3.4A: dHash Hamming-distance floor for hold detection (0=disabled)
 MULTISCALE_GAIN_SIGMA = 30.0  # §1.4D: Gaussian sigma (px) for low-freq gain map computation
+EXPOSURE_OUTLIER_THRESH = 60.0  # §1.4F: max allowed bg-lum deviation from median before skip (0=off)
+SCENE_CHANGE_LUMA_THRESH = 60.0  # §1.13: max mean-luma diff between two frames before edge rejection (0=off)
+SCENE_CHANGE_BGR_THRESH = 60.0   # §1.13B: max per-channel mean diff (BGR) before edge rejection (0=off)
+SCALE_NORM_THRESH = 0.05  # §1.3C: min max/min scale ratio deviation before normalisation is applied
+SEAM_COLOR_GATE_THRESH = 0.55  # §1.14B: min Bhattacharyya colour similarity (0–1) to pass post-composite gate (0=off)
+MST_MIN_WEIGHT = 0.35  # §1.16: minimum mean MST edge weight before pre-BA SCANS fallback (0=off)
 
 # ToonCrafter
 TOONCRAFTER_REPO = "Doubiiu/ToonCrafter"

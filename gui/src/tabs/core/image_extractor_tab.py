@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QInputDialog,
     QDialog,
+    QTabBar,
 )
 from PySide6.QtGui import QPixmap, QResizeEvent, QAction, QImage
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
@@ -131,6 +132,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         # Map to track source widgets for alphabetical updates
         self.source_path_to_widget: Dict[str, QWidget] = {}
+        self.active_videos_config: Dict[str, dict] = {}
+        self._is_switching_tabs = False
 
         # Defined resolutions corresponding to the Combo Box items
         self.available_resolutions = [
@@ -242,6 +245,19 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         # 3. Video Player Section
         self.video_container_widget = QWidget()
         video_container_layout = QVBoxLayout(self.video_container_widget)
+
+        self.active_videos_tabbar = QTabBar()
+        self.active_videos_tabbar.setTabsClosable(True)
+        self.active_videos_tabbar.currentChanged.connect(self._on_active_video_tab_changed)
+        self.active_videos_tabbar.tabCloseRequested.connect(self._on_active_video_tab_closed)
+        self.active_videos_tabbar.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.active_videos_tabbar.customContextMenuRequested.connect(self._show_tab_context_menu)
+        self.active_videos_tabbar.setStyleSheet(
+            "QTabBar::tab { background: #2c2f33; color: #888; padding: 8px 16px; border: 1px solid #4f545c; border-top-left-radius: 4px; border-top-right-radius: 4px; }"
+            "QTabBar::tab:selected { background: #23272a; color: #00bcd4; border-bottom-color: #23272a; font-weight: bold; }"
+            "QTabBar::close-button { image: url(close.png); }"
+        )
+        video_container_layout.addWidget(self.active_videos_tabbar)
 
         player_group = QGroupBox("Video Player")
         self.player_layout_container = QVBoxLayout(player_group)
@@ -1008,10 +1024,39 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     @Slot(QPoint, str)
     def show_source_context_menu(self, global_pos: QPoint, path: str):
         menu = QMenu(self)
+
+        is_open = False
+        tab_idx = -1
+        for i in range(self.active_videos_tabbar.count()):
+            if self.active_videos_tabbar.tabData(i) == path:
+                is_open = True
+                tab_idx = i
+                break
+
+        if is_open:
+            close_action = QAction("Close Video", self)
+            close_action.triggered.connect(lambda: self._on_active_video_tab_closed(tab_idx))
+            menu.addAction(close_action)
+        else:
+            open_action = QAction("Open Video", self)
+            open_action.triggered.connect(lambda: self.load_media(path))
+            menu.addAction(open_action)
+            
         view_action = QAction("View Preview", self)
         view_action.triggered.connect(lambda: self.handle_thumbnail_double_click(path))
         menu.addAction(view_action)
+        
         menu.exec(global_pos)
+
+    @Slot(QPoint)
+    def _show_tab_context_menu(self, pos: QPoint):
+        idx = self.active_videos_tabbar.tabAt(pos)
+        if idx >= 0:
+            menu = QMenu(self)
+            close_action = QAction("Close Video", self)
+            close_action.triggered.connect(lambda: self._on_active_video_tab_closed(idx))
+            menu.addAction(close_action)
+            menu.exec(self.active_videos_tabbar.mapToGlobal(pos))
 
     def _refresh_extracted_stems_cache(self):
         """Scans extraction_dir once and caches which video stems have files."""
@@ -1088,10 +1133,157 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                         "border: 2px solid #4f545c; border-radius: 4px;"
                     )
 
+    def _save_current_video_config(self):
+        if not self.video_path:
+            return
+        
+        config = {
+            "start_time_ms": getattr(self, "start_time_ms", 0),
+            "end_time_ms": getattr(self, "end_time_ms", 0),
+            "cut_start_ms": getattr(self, "cut_start_ms", 0),
+            "cut_end_ms": getattr(self, "cut_end_ms", 0),
+            "cuts_ms": copy.deepcopy(getattr(self, "cuts_ms", [])),
+            "tags_ms": copy.deepcopy(getattr(self, "tags_ms", [])),
+            "check_mute_audio": self.check_mute_audio.isChecked(),
+            "spin_gif_fps": self.spin_gif_fps.value(),
+            "combo_extract_size": self.combo_extract_size.currentText(),
+            "check_extract_vertical": self.check_extract_vertical.isChecked(),
+            "spin_interval": self.spin_interval.value(),
+            "check_smart_extract": self.check_smart_extract.isChecked(),
+            "combo_smart_method": self.combo_smart_method.currentText(),
+            "media_position": self.media_player.position() if self.media_player else 0,
+        }
+        self.active_videos_config[self.video_path] = config
+
+    def _load_video_config(self, path: str):
+        config = self.active_videos_config.get(path, {})
+        if not config:
+            self.clear_cuts()
+            self.clear_tags()
+            self.start_time_ms = 0
+            self.end_time_ms = 0
+            self.cut_start_ms = 0
+            self.cut_end_ms = 0
+            self.btn_set_start.setText("Set Start [00:00]")
+            self.btn_set_end.setText("Set End [00:00]")
+            self.btn_set_cut_start.setText("Set Cut Start [00:00]")
+            self.btn_set_cut_end.setText("Set Cut End [00:00]")
+            return
+
+        self.start_time_ms = config.get("start_time_ms", 0)
+        self.end_time_ms = config.get("end_time_ms", 0)
+        self.cut_start_ms = config.get("cut_start_ms", 0)
+        self.cut_end_ms = config.get("cut_end_ms", 0)
+
+        self.btn_set_start.setText(f"Start [{self._format_time(self.start_time_ms)}]" if self.start_time_ms else "Set Start [00:00]")
+        self.btn_set_end.setText(f"End [{self._format_time(self.end_time_ms)}]" if self.end_time_ms else "Set End [00:00]")
+        self.btn_set_cut_start.setText(f"Cut Start [{self._format_time(self.cut_start_ms)}]" if self.cut_start_ms else "Set Cut Start [00:00]")
+        self.btn_set_cut_end.setText(f"Cut End [{self._format_time(self.cut_end_ms)}]" if self.cut_end_ms else "Set Cut End [00:00]")
+
+        self.cuts_ms = config.get("cuts_ms", [])
+        self._update_cuts_label()
+        
+        self.tags_ms = config.get("tags_ms", [])
+        self._update_tags_ui()
+
+        self.check_mute_audio.setChecked(config.get("check_mute_audio", False))
+        self.spin_gif_fps.setValue(config.get("spin_gif_fps", 24))
+        if config.get("combo_extract_size"):
+            self.combo_extract_size.setCurrentText(config.get("combo_extract_size"))
+        self.check_extract_vertical.setChecked(config.get("check_extract_vertical", False))
+        self.spin_interval.setValue(config.get("spin_interval", 1))
+        self.check_smart_extract.setChecked(config.get("check_smart_extract", False))
+        if config.get("combo_smart_method"):
+            self.combo_smart_method.setCurrentText(config.get("combo_smart_method"))
+            
+        pos = config.get("media_position", 0)
+        if pos > 0 and self.media_player:
+            self.media_player.setPosition(pos)
+            self.slider.setValue(pos)
+            self.lbl_current_time.setText(self._format_time(pos))
+
+    @Slot(int)
+    def _on_active_video_tab_changed(self, index: int):
+        if self._is_switching_tabs or index < 0:
+            return
+            
+        path = self.active_videos_tabbar.tabData(index)
+        if path and path != self.video_path:
+            self.load_media(path)
+
+    @Slot(int)
+    def _on_active_video_tab_closed(self, index: int):
+        path = self.active_videos_tabbar.tabData(index)
+        
+        # Don't allow closing the last tab
+        if self.active_videos_tabbar.count() <= 1:
+            QMessageBox.information(self, "Cannot Close", "Cannot close the last active video.")
+            return
+
+        self.active_videos_tabbar.removeTab(index)
+        if path in self.active_videos_config:
+            del self.active_videos_config[path]
+            
+        # If we closed the currently active video, it will automatically switch tab and load the new one via currentChanged signal
+        if path == self.video_path:
+            new_idx = self.active_videos_tabbar.currentIndex()
+            new_path = self.active_videos_tabbar.tabData(new_idx)
+            if new_path:
+                self.load_media(new_path)
+        else:
+            # We closed an inactive tab, just update its style in the source list
+            if path in self.source_path_to_widget:
+                widget = self.source_path_to_widget[path]
+                label = widget.findChild(ClickableLabel)
+                if label:
+                    self._update_source_label_style(path, label, False)
+
     @Slot(str)
     def load_media(self, file_path: str):
         old_path = self.video_path
+        
+        if old_path == file_path:
+            return
+            
+        if old_path:
+            self._save_current_video_config()
+            
         self.video_path = file_path
+
+        ext = Path(file_path).suffix.lower()
+        if ext == ".gif":
+            self.video_container_widget.setVisible(False)
+            self.extract_group.setVisible(False)
+            self.media_player.stop()
+            self.media_player.setSource(QUrl())
+            # Update style
+            for path in [old_path, file_path]:
+                if path and path in self.source_path_to_widget:
+                    widget = self.source_path_to_widget[path]
+                    label = widget.findChild(ClickableLabel)
+                    if label:
+                        self._update_source_label_style(path, label, path == file_path)
+            return
+
+        # Check if tab exists
+        tab_idx = -1
+        for i in range(self.active_videos_tabbar.count()):
+            if self.active_videos_tabbar.tabData(i) == file_path:
+                tab_idx = i
+                break
+
+        self._is_switching_tabs = True
+        if tab_idx == -1:
+            # Add new tab
+            name = Path(file_path).name
+            idx = self.active_videos_tabbar.addTab(name)
+            self.active_videos_tabbar.setTabData(idx, file_path)
+            self.active_videos_tabbar.setCurrentIndex(idx)
+        else:
+            self.active_videos_tabbar.setCurrentIndex(tab_idx)
+        self._is_switching_tabs = False
+
+        self._load_video_config(file_path)
 
         # Update styles only for the affected widgets (old and new selection)
         for path in [old_path, file_path]:
@@ -1101,31 +1293,22 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 if label:
                     self._update_source_label_style(path, label, path == file_path)
 
-        ext = Path(file_path).suffix.lower()
+        self.video_container_widget.setVisible(True)
+        self.extract_group.setVisible(True)
 
-        if ext == ".gif":
-            self.video_container_widget.setVisible(False)
-            self.extract_group.setVisible(False)
-            self.media_player.stop()
-            self.media_player.setSource(QUrl())
-
-        else:
-            self.video_container_widget.setVisible(True)
-            self.extract_group.setVisible(True)
-
-            # --- MODIFIED: Disable snapshot until start is set ---
-            self.btn_snapshot.setEnabled(False)
+        self.btn_snapshot.setEnabled(True if getattr(self, "start_time_ms", 0) else False)
+        if not getattr(self, "start_time_ms", 0):
             self.btn_snapshot.setText("📸 Snapshot (Set Start First)")
-            # -----------------------------------------------------
+        else:
+            self.btn_snapshot.setText("📸 Snapshot Frame")
 
-            self.btn_set_start.setEnabled(True)
-            self.btn_set_end.setEnabled(True)
-            self.btn_set_cut_start.setEnabled(True)
-            self.btn_set_cut_end.setEnabled(True)
-            self.btn_add_tag.setEnabled(True)
-            self.clear_cuts()
-            self.clear_tags()
-            self._apply_player_mode()
+        self.btn_set_start.setEnabled(True)
+        self.btn_set_end.setEnabled(True)
+        self.btn_set_cut_start.setEnabled(True)
+        self.btn_set_cut_end.setEnabled(True)
+        self.btn_add_tag.setEnabled(True)
+        
+        self._apply_player_mode()
 
     @Slot()
     def browse_extraction_directory(self):

@@ -26,6 +26,7 @@ from backend.src.anim.validation import (  # noqa: E402
     _validate_affines,
     _compute_adaptive_min_gap,
     _compute_adaptive_rot_scale,
+    _check_translation_monotonicity,
 )
 from conftest import make_rotation_affine, make_translation_affine  # noqa: E402
 
@@ -378,3 +379,64 @@ class TestAdaptiveRotScale:
         max_rot, max_sc = _compute_adaptive_rot_scale(affines)
         assert max_rot == pytest.approx(0.10)
         assert max_sc == pytest.approx(0.10)
+
+
+# ---------------------------------------------------------------------------
+# TestTranslationMonotonicity — §1.12 Kendall-τ frame ordering check (S52)
+# ---------------------------------------------------------------------------
+
+
+class TestTranslationMonotonicity:
+    """
+    _check_translation_monotonicity verifies that the temporal order of frames
+    matches their spatial (scroll-axis) order via |Kendall τ| ≥ 0.4.
+
+    τ = 1.0  → perfect monotone sequence (forward or backward scroll).
+    τ = 0.0  → random permutation — catastrophic BA failure.
+    """
+
+    def _make(self, tys: list, axis: int = 1) -> list:
+        """Build affines with the given primary-axis translations."""
+        affines = []
+        for v in tys:
+            M = np.eye(2, 3, dtype=np.float32)
+            M[axis, 2] = float(v)
+            affines.append(M)
+        return affines
+
+    def test_perfectly_monotone_sequence_passes(self):
+        """Strictly increasing tys → τ=1.0 → passes."""
+        affines = self._make([0, 100, 200, 300, 400])
+        ok, tau = _check_translation_monotonicity(affines, primary_axis=1)
+        assert ok, f"Monotone sequence should pass; τ={tau:.3f}"
+        assert tau == pytest.approx(1.0, abs=1e-6)
+
+    def test_strictly_reversed_sequence_passes(self):
+        """Uniformly decreasing tys (backward scroll) → |τ|=1.0 → passes."""
+        affines = self._make([400, 300, 200, 100, 0])
+        ok, tau = _check_translation_monotonicity(affines, primary_axis=1)
+        assert ok, f"Reversed monotone sequence should pass; τ={tau:.3f}"
+        assert tau == pytest.approx(1.0, abs=1e-6)
+
+    def test_catastrophically_shuffled_fails(self):
+        """Heavily shuffled tys → |τ|≈0.2 < 0.4 → fails."""
+        # [0, 400, 100, 300, 200]: many pairs out of order (τ=0.2)
+        affines = self._make([0, 400, 100, 300, 200])
+        ok, tau = _check_translation_monotonicity(affines, primary_axis=1)
+        assert not ok, f"Shuffled sequence should fail; τ={tau:.3f}"
+        assert tau < 0.4
+
+    def test_single_out_of_order_frame_passes(self):
+        """One slightly reversed frame (99% of pairs concordant) → passes."""
+        # [0, 100, 250, 230, 300, 400]: frame 3 slightly behind frame 2
+        affines = self._make([0, 100, 250, 230, 300, 400])
+        ok, tau = _check_translation_monotonicity(affines, primary_axis=1)
+        assert ok, f"One transposed frame should pass; τ={tau:.3f}"
+        assert tau >= 0.6
+
+    def test_fewer_than_four_frames_always_passes(self):
+        """N < 4 → always returns (True, 1.0) regardless of order."""
+        affines = self._make([300, 100, 200])  # 3 frames, clearly non-monotone
+        ok, tau = _check_translation_monotonicity(affines, primary_axis=1)
+        assert ok
+        assert tau == pytest.approx(1.0)

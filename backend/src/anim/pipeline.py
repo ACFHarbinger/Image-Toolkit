@@ -39,7 +39,7 @@ from .canvas import (
     _telea_fill_gaps,
     find_optimal_sequence,
 )
-from .compositing import _composite_foreground
+from .compositing import _check_seam_color_gate, _composite_foreground
 from backend.src.constants import (
     ADAPTIVE_MIN_DISP_FRAC,
     HIGH_CONF_EDGE_THRESH,
@@ -47,6 +47,10 @@ from backend.src.constants import (
     MATCH_EDGE_CROP,
     MIN_EXPECTED_STEP,
     NEAR_DUP_LUMA_THRESH,
+    SCALE_NORM_THRESH,
+    SCENE_CHANGE_LUMA_THRESH,
+    SCENE_CHANGE_BGR_THRESH,
+    SEAM_COLOR_GATE_THRESH,
     STATIC_EDGE_MIN_DISP_PX,
 )
 from .ecc import _ecc_refine
@@ -150,6 +154,228 @@ except ImportError:
 # fallbacks reload from image_paths on demand.  Saves ~87 MB for 14-frame 1080p.
 _SCANS_RELOAD = os.environ.get("ASP_SCANS_RELOAD", "0") != "0"
 
+# §1.13 — Scene-change luma gate.  Edges between frames whose mean-luma differs
+# by more than this value are discarded before any geometric or BA processing.
+# 0.0 disables the gate entirely (default, backward-compatible).
+_SCENE_CHANGE_LUMA_THRESH: float = float(
+    os.environ.get("ASP_SCENE_CHANGE_LUMA_THRESH", "0.0")
+)
+_SCENE_CHANGE_BGR_THRESH: float = float(
+    os.environ.get("ASP_SCENE_CHANGE_BGR_THRESH", "0.0")
+)
+
+# §1.3C — Scale normalisation gate.  When inter-frame zoom produces a
+# max/min scale ratio deviation >= this value, frames are resized to the
+# reference (frame 0) scale before bundle adjustment.  0.0 disables entirely.
+_SCALE_NORM_THRESH: float = float(
+    os.environ.get("ASP_SCALE_NORM_THRESH", "0.0")
+)
+_SEAM_COLOR_GATE_THRESH: float = float(
+    os.environ.get("ASP_SEAM_COLOR_GATE", "0.0")
+)
+_SEAM_COLOR_GATE_BGR: bool = os.environ.get("ASP_SEAM_COLOR_GATE_BGR", "0") != "0"
+# §1.16 — MST weight gate (S60).
+# After edge filtering, build the maximum spanning tree and compute the mean
+# edge weight.  When < _MST_MIN_WEIGHT the overall match quality is too poor
+# for reliable BA (graph dominated by TM/PC fallback edges at weight~0.15–0.3).
+# Default 0.0 = disabled. Recommended: ASP_MST_MIN_WEIGHT=0.35.
+_MST_MIN_WEIGHT: float = float(os.environ.get("ASP_MST_MIN_WEIGHT", "0.0"))
+
+
+def _reject_scene_change_edges(
+    edges: List[Dict],
+    frames: List[np.ndarray],
+    max_luma_diff: float = 60.0,
+    use_bgr: bool = False,
+) -> List[Dict]:
+    """§1.13 / §1.13B: Discard edges where frames differ by > *max_luma_diff*.
+
+    When *use_bgr* is False (default, §1.13A): comparison uses mean grayscale
+    luminance — catches overall brightness discontinuities.
+
+    When *use_bgr* is True (§1.13B): comparison uses the per-channel (B, G, R)
+    thumbnail means; the maximum channel delta is compared against the threshold.
+    This catches chroma-shifted scene changes (e.g., warm orange sunset vs cold
+    blue interior) that have similar grayscale luma but completely different colour
+    distributions.
+
+    Comparison is done on a 64×64 thumbnail for speed.  The gate is disabled
+    when *max_luma_diff* ≤ 0 or when *frames* is empty.
+    """
+    if max_luma_diff <= 0 or not frames:
+        return edges
+
+    _THUMB = 64
+
+    def _channel_means(f: np.ndarray) -> np.ndarray:
+        t = cv2.resize(f, (_THUMB, _THUMB), interpolation=cv2.INTER_AREA)
+        return t.reshape(-1, 3).mean(axis=0).astype(np.float32)  # [B, G, R]
+
+    def _mean_luma(f: np.ndarray) -> float:
+        means = _channel_means(f)
+        return float(np.dot(means, [0.114, 0.587, 0.299]))
+
+    kept: List[Dict] = []
+    for e in edges:
+        fi, fj = e["i"], e["j"]
+        if fi < len(frames) and fj < len(frames):
+            if use_bgr:
+                means_i = _channel_means(frames[fi])
+                means_j = _channel_means(frames[fj])
+                diff = float(np.abs(means_i - means_j).max())
+                label = "bgr_max_diff"
+            else:
+                diff = abs(_mean_luma(frames[fi]) - _mean_luma(frames[fj]))
+                label = "luma_diff"
+            if diff > max_luma_diff:
+                logger.debug(
+                    "[Stitch]   Scene-change gate: edge %d→%d rejected "
+                    "(%s=%.1f > %.1f)",
+                    fi,
+                    fj,
+                    label,
+                    diff,
+                    max_luma_diff,
+                )
+                continue
+        kept.append(e)
+    return kept
+
+
+def _normalize_frame_scales(
+    frames: List[np.ndarray],
+    edges: List[Dict],
+    scale_thresh: float = SCALE_NORM_THRESH,
+) -> Tuple[List[np.ndarray], List[Dict]]:
+    """§1.3C: Scale normalisation before bundle adjustment.
+
+    When the matched affines reveal inter-frame zoom (camera zooming in or
+    out during the pan), resizing all frames to the *reference* (frame 0)
+    scale converts the zoom-pan problem into a pure-translation problem that
+    the existing BA pipeline handles correctly.
+
+    **Algorithm**
+    1. Extract per-edge scale factor ``s_ij = sqrt(a² + b²)`` from the 2×2
+       rotation-scale block of the matched affine M.
+    2. Build a maximum-weight spanning tree (greedy/Kruskal) and BFS-propagate
+       relative scales to compute an *absolute* per-frame scale ``scale[i]``
+       (frame 0 is the reference: ``scale[0] = 1.0``).
+    3. If ``max(scale) / min(scale) − 1 < scale_thresh`` the deviation is
+       negligible — return the originals unchanged (no-op).
+    4. Resize each frame *i* by the factor ``1 / scale[i]`` using Lanczos-4
+       interpolation.
+    5. Update every edge affine: reset the 2×2 rotation-scale block to identity
+       and divide the translation components by ``scale[i]`` (the reference-space
+       displacement is ``t / scale_i``).
+
+    Returns the normalised frames and updated edges.  Falls back to the
+    originals when the spanning tree cannot reach every frame (disconnected
+    graph) or ``scale_thresh ≤ 0`` (disabled).
+
+    Parameters
+    ----------
+    frames : frames in temporal order (as loaded after Stage 2).
+    edges : matched edge dicts with keys ``"i"``, ``"j"``, ``"M"``.
+    scale_thresh : minimum scale ratio deviation to trigger normalisation.
+                  Default ``SCALE_NORM_THRESH=0.05``.  Set
+                  ``ASP_SCALE_NORM_THRESH=0.05`` in the environment to
+                  enable.
+    """
+    N = len(frames)
+    if scale_thresh <= 0.0 or N < 2 or not edges:
+        return frames, edges
+
+    # ── Step 1: spanning tree (greedy, highest-weight-first) ─────────────────
+    sorted_edges = sorted(edges, key=lambda e: float(e.get("weight", 1.0)), reverse=True)
+
+    parent: List[int] = list(range(N))
+
+    def _find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    adj: Dict[int, List[Tuple[int, float]]] = {f: [] for f in range(N)}
+    n_tree = 0
+    for e in sorted_edges:
+        ei, ej = int(e["i"]), int(e["j"])
+        if not (0 <= ei < N and 0 <= ej < N):
+            continue
+        pi, pj = _find(ei), _find(ej)
+        if pi != pj:
+            parent[pi] = pj
+            M = e["M"]
+            a, b = float(M[0, 0]), float(M[0, 1])
+            s_ij = float(np.sqrt(a * a + b * b))
+            s_ij = max(s_ij, 1e-6)
+            adj[ei].append((ej, s_ij))
+            adj[ej].append((ei, 1.0 / s_ij))
+            n_tree += 1
+        if n_tree == N - 1:
+            break
+
+    # ── Step 2: BFS to propagate absolute scale factors ───────────────────────
+    scale: List[Optional[float]] = [None] * N
+    scale[0] = 1.0
+    queue: List[int] = [0]
+    visited = [False] * N
+    visited[0] = True
+    head = 0
+    while head < len(queue):
+        curr = queue[head]
+        head += 1
+        for nbr, s in adj[curr]:
+            if not visited[nbr]:
+                visited[nbr] = True
+                scale[nbr] = scale[curr] * s  # type: ignore[operator]
+                queue.append(nbr)
+
+    if any(s is None for s in scale):
+        return frames, edges  # disconnected graph
+
+    scale_vals = [float(s) for s in scale]
+    s_min = min(scale_vals)
+    s_max = max(scale_vals)
+    if s_min < 1e-9 or (s_max / s_min - 1.0) < scale_thresh:
+        return frames, edges  # deviation below threshold
+
+    # ── Step 3: resize frames ─────────────────────────────────────────────────
+    ref_scale = scale_vals[0]  # 1.0
+    new_frames: List[np.ndarray] = []
+    for i, f in enumerate(frames):
+        s_i = scale_vals[i]
+        if abs(s_i - ref_scale) < 1e-4:
+            new_frames.append(f)
+        else:
+            factor = ref_scale / s_i
+            h, w = f.shape[:2]
+            nw = max(1, int(round(w * factor)))
+            nh = max(1, int(round(h * factor)))
+            new_frames.append(cv2.resize(f, (nw, nh), interpolation=cv2.INTER_LANCZOS4))
+
+    # ── Step 4: update edge affines (reset scale, rescale translation) ────────
+    new_edges: List[Dict] = []
+    for e in edges:
+        ei = int(e["i"])
+        if not (0 <= ei < N):
+            new_edges.append(e)
+            continue
+        s_i = scale_vals[ei]
+        M = np.array(e["M"], dtype=np.float32)
+        tx, ty = float(M[0, 2]), float(M[1, 2])
+        M[0, 0] = 1.0; M[0, 1] = 0.0; M[0, 2] = tx / s_i
+        M[1, 0] = 0.0; M[1, 1] = 1.0; M[1, 2] = ty / s_i
+        new_e = dict(e)
+        new_e["M"] = M
+        new_edges.append(new_e)
+
+    logger.debug(
+        "[Stitch] §1.3C: scale normalised %d frames (scale range %.3f–%.3f → 1.0)",
+        N, s_min, s_max,
+    )
+    return new_frames, new_edges
+
 
 def _reject_static_edges(
     edges: List[Dict],
@@ -213,6 +439,98 @@ def _filter_high_conf_edges(
     fewer survive, fall through to Retry 1 unchanged — no information is lost.
     """
     return [e for e in edges if float(e.get("weight", 0.0)) >= min_weight]
+
+
+def _check_edge_graph_connectivity(
+    edges: List[Dict],
+    n_frames: int,
+) -> bool:
+    """§1.15: Return True iff all frames 0..n_frames-1 are in one connected component.
+
+    Uses iterative path-compression Union-Find (same algorithm as §1.1B spanning
+    tree) to check graph connectivity after all edge filters have run.  A
+    disconnected graph fed into bundle adjustment assigns wrong translations to
+    isolated frames — catching this before BA allows an immediate fallback rather
+    than a corrupt solve followed by a downstream validation failure.
+
+    Trivially returns True when *n_frames* ≤ 1 (nothing to connect) or when
+    *n_frames* − 1 edges already span all nodes (lower bound for connectivity).
+    """
+    if n_frames <= 1:
+        return True
+
+    parent = list(range(n_frames))
+
+    def _find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for e in edges:
+        ei, ej = int(e.get("i", -1)), int(e.get("j", -1))
+        if not (0 <= ei < n_frames and 0 <= ej < n_frames):
+            continue
+        pi, pj = _find(ei), _find(ej)
+        if pi != pj:
+            parent[pi] = pj
+
+    root = _find(0)
+    return all(_find(f) == root for f in range(n_frames))
+
+
+def _compute_mst_weight(
+    edges: List[Dict],
+    n_frames: int,
+) -> float:
+    """§1.16: Mean edge weight of the maximum spanning tree.
+
+    Builds the max-weight spanning tree (Kruskal greedy, highest-weight-first)
+    using iterative path-compression Union-Find — the same algorithm as §1.1B.
+    Returns ``total_weight / (N-1)`` where N-1 is the number of spanning-tree
+    edges needed to connect all frames.
+
+    A high mean MST weight (≥ 0.6) indicates the graph is well-anchored by
+    reliable LoFTR matches.  A low mean MST weight (< 0.35) means the spanning
+    tree is forced to use TM/PC fallback edges (weight~0.15–0.3) — BA will
+    likely produce bad affines for those frames.
+
+    Returns 0.0 when ``n_frames ≤ 1`` or there are no edges.  Returns the
+    weight of a single edge divided by ``max(1, n_frames-1)`` when only one
+    edge exists.
+    """
+    if n_frames <= 1 or not edges:
+        return 0.0
+
+    sorted_edges = sorted(edges, key=lambda e: float(e.get("weight", 0.0)), reverse=True)
+
+    parent = list(range(n_frames))
+
+    def _find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    total_weight = 0.0
+    tree_edges = 0
+    needed = n_frames - 1
+
+    for e in sorted_edges:
+        if tree_edges >= needed:
+            break
+        ei, ej = int(e.get("i", -1)), int(e.get("j", -1))
+        if not (0 <= ei < n_frames and 0 <= ej < n_frames):
+            continue
+        pi, pj = _find(ei), _find(ej)
+        if pi != pj:
+            parent[pi] = pj
+            total_weight += float(e.get("weight", 0.0))
+            tree_edges += 1
+
+    if tree_edges == 0:
+        return 0.0
+    return total_weight / max(1, needed)
 
 
 def _spatial_dedup_frames(
@@ -420,6 +738,22 @@ class AnimeStitchPipeline:
         Separated from ``run()`` so the progress-aware subclass can call it
         after its overridden ``_pairwise_match``.
         """
+        # ── §1.13: Scene-change luma gate ────────────────────────────────────
+        # Discard edges between frames with a large mean-luma difference before
+        # any geometric or BA processing.  Enabled only when env var is set > 0.
+        if _SCENE_CHANGE_LUMA_THRESH > 0:
+            edges = _reject_scene_change_edges(
+                edges, frames, _SCENE_CHANGE_LUMA_THRESH
+            )
+
+        # ── §1.13B: Scene-change BGR gate ────────────────────────────────────
+        # Per-channel max-delta comparison catches chroma-shifted scene changes
+        # (e.g., warm sunset vs cool interior) that grayscale luma misses.
+        if _SCENE_CHANGE_BGR_THRESH > 0:
+            edges = _reject_scene_change_edges(
+                edges, frames, _SCENE_CHANGE_BGR_THRESH, use_bgr=True
+            )
+
         # ── §1.2A+C: Pre-filter static edges (adaptive threshold) ───────────
         # §1.2C: derive content-adaptive threshold before §1.2A rejection so
         # that high-resolution / fast-scroll sequences apply a proportionally
@@ -1007,6 +1341,35 @@ class AnimeStitchPipeline:
             _sf = scans_frames or _reload_scans_frames(image_paths)
             return _scan_stitch_fallback(_sf, output_path)
 
+        # ── §1.15: Edge graph connectivity gate ───────────────────────────────
+        # A disconnected edge graph means BA will assign wrong translations to
+        # isolated frames.  Detect and fall back to SCANS before the bad solve.
+        if not _check_edge_graph_connectivity(edges, N):
+            logger.info(
+                "[Stitch] §1.15: Edge graph is disconnected (%d edges, %d frames) "
+                "→ SCANS fallback.",
+                len(edges),
+                N,
+            )
+            _sf = scans_frames or _reload_scans_frames(image_paths)
+            return _scan_stitch_fallback(_sf, output_path)
+
+        # ── §1.16: MST weight gate ────────────────────────────────────────────
+        # When the spanning tree is dominated by low-confidence TM/PC fallback
+        # edges, BA is unlikely to produce reliable translations.  The check is
+        # O(E log E) and free for N ≤ 40.
+        if _MST_MIN_WEIGHT > 0.0:
+            _mst_w = _compute_mst_weight(edges, N)
+            if _mst_w < _MST_MIN_WEIGHT:
+                logger.info(
+                    "[Stitch] §1.16: MST mean weight %.3f < %.3f threshold "
+                    "→ SCANS fallback (low-confidence edge graph).",
+                    _mst_w,
+                    _MST_MIN_WEIGHT,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
         # ── Stage 7: Global bundle adjustment ────────────────────────────────
         use_affine_ba = getattr(self, "motion_model", "affine") == "affine"
         affines = _bundle_adjust_affine(edges, N, use_affine=use_affine_ba)
@@ -1445,6 +1808,20 @@ class AnimeStitchPipeline:
             )
             logger.info("[Stitch] Stage 11 complete: foreground composited.")
 
+        # ── Stage 11.2: §1.14B/C seam colour-similarity gate ────────────────
+        if _SEAM_COLOR_GATE_THRESH > 0.0 and N > 1:
+            _worst_color_seam = _check_seam_color_gate(
+                canvas, N, thresh=_SEAM_COLOR_GATE_THRESH,
+                use_bgr=_SEAM_COLOR_GATE_BGR,
+            )
+            if _worst_color_seam is not None:
+                logger.info(
+                    f"[Stitch] Stage 11.2: colour gate — seam {_worst_color_seam} "
+                    f"below similarity {_SEAM_COLOR_GATE_THRESH:.2f} → SCANS fallback."
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.5).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -1837,4 +2214,8 @@ __all__ = [
     "_compute_adaptive_min_disp",
     "_filter_high_conf_edges",
     "_reload_scans_frames",
+    "_reject_scene_change_edges",
+    "_normalize_frame_scales",
+    "_check_edge_graph_connectivity",
+    "_compute_mst_weight",
 ]

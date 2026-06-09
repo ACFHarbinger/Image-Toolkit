@@ -3,6 +3,8 @@ Tests for pipeline.py module-level functions:
   §1.9A — _spatial_dedup_frames (scans_frames sync bug fix)
   §2.9C — _filter_high_conf_edges (high-confidence BA re-solve)
   §1.9C — _reload_scans_frames (on-demand SCANS frame reload)
+  §1.13 — _reject_scene_change_edges (scene-change luma gate)
+  §1.3C — _normalize_frame_scales (scale normalisation before BA)
 """
 
 import numpy as np
@@ -10,11 +12,15 @@ import pytest
 import cv2
 
 from backend.src.anim.pipeline import (
+    _check_edge_graph_connectivity,
+    _compute_mst_weight,
     _spatial_dedup_frames,
     _filter_high_conf_edges,
     _reload_scans_frames,
+    _reject_scene_change_edges,
+    _normalize_frame_scales,
 )
-from backend.src.constants.anim import HIGH_CONF_EDGE_THRESH
+from backend.src.constants.anim import HIGH_CONF_EDGE_THRESH, SCALE_NORM_THRESH, SCENE_CHANGE_LUMA_THRESH
 
 
 def _make_affine(dy: float, dx: float = 0.0) -> np.ndarray:
@@ -254,3 +260,287 @@ class TestReloadScansFrames:
         """When all paths fail to load, an empty list is returned without error."""
         result = _reload_scans_frames(["/no/such/file.png", "/another/bad.png"])
         assert result == []
+
+
+class TestRejectSceneChangeEdges:
+    """§1.13 — _reject_scene_change_edges: scene-change luma gate."""
+
+    def _bright_frame(self, val: int = 220, h: int = 16, w: int = 16) -> np.ndarray:
+        return np.full((h, w, 3), val, dtype=np.uint8)
+
+    def _dark_frame(self, val: int = 20, h: int = 16, w: int = 16) -> np.ndarray:
+        return np.full((h, w, 3), val, dtype=np.uint8)
+
+    def _edge(self, i: int, j: int) -> dict:
+        return {"i": i, "j": j, "M": _make_affine(dy=50.0)}
+
+    def test_similar_frames_not_rejected(self):
+        """Edge between two frames with nearly identical mean luma is kept."""
+        frames = [self._bright_frame(200), self._bright_frame(210)]
+        edges = [self._edge(0, 1)]
+        result = _reject_scene_change_edges(edges, frames, max_luma_diff=60.0)
+        assert len(result) == 1
+
+    def test_large_luma_diff_rejected(self):
+        """Edge between a bright frame and a dark frame exceeds threshold → dropped."""
+        frames = [self._bright_frame(220), self._dark_frame(20)]
+        edges = [self._edge(0, 1)]
+        result = _reject_scene_change_edges(edges, frames, max_luma_diff=60.0)
+        assert len(result) == 0
+
+    def test_threshold_zero_keeps_all_edges(self):
+        """max_luma_diff=0 disables the gate; all edges are returned unchanged."""
+        frames = [self._bright_frame(220), self._dark_frame(10)]
+        edges = [self._edge(0, 1)]
+        result = _reject_scene_change_edges(edges, frames, max_luma_diff=0.0)
+        assert len(result) == 1
+
+    def test_out_of_bounds_frame_index_kept(self):
+        """An edge whose frame index ≥ len(frames) is kept rather than crashing."""
+        frames = [self._bright_frame()]
+        edges = [{"i": 0, "j": 5, "M": _make_affine(dy=50.0)}]
+        result = _reject_scene_change_edges(edges, frames, max_luma_diff=60.0)
+        assert len(result) == 1
+
+    def test_selectively_filters_mixed_edges(self):
+        """Two similar-luma edges kept; one scene-change edge dropped."""
+        f_a = self._bright_frame(200)
+        f_b = self._bright_frame(210)
+        f_c = self._dark_frame(10)
+        frames = [f_a, f_b, f_c]
+        edges = [
+            self._edge(0, 1),  # similar → kept
+            self._edge(1, 2),  # scene change → dropped
+            self._edge(0, 2),  # scene change → dropped
+        ]
+        result = _reject_scene_change_edges(edges, frames, max_luma_diff=60.0)
+        assert len(result) == 1
+        assert result[0]["i"] == 0 and result[0]["j"] == 1
+
+
+# ---------------------------------------------------------------------------
+# TestNormalizeFrameScales — §1.3C scale normalisation before BA (S54)
+# ---------------------------------------------------------------------------
+
+
+def _make_scale_affine(scale: float, dy: float = 50.0) -> np.ndarray:
+    """2×3 similarity affine with given uniform scale and vertical translation."""
+    M = np.eye(2, 3, dtype=np.float32)
+    M[0, 0] = scale
+    M[1, 1] = scale
+    M[1, 2] = dy
+    return M
+
+
+class TestNormalizeFrameScales:
+    """
+    _normalize_frame_scales(frames, edges, scale_thresh) detects inter-frame
+    zoom in the edge affines and resizes all frames to the reference scale.
+    The edge affines are updated to pure-translation (scale reset to 1.0).
+    """
+
+    def _frame(self, h: int = 60, w: int = 80, val: int = 128) -> np.ndarray:
+        return np.full((h, w, 3), val, dtype=np.uint8)
+
+    def _edge(self, i: int, j: int, scale: float = 1.0, dy: float = 50.0) -> dict:
+        return {"i": i, "j": j, "M": _make_scale_affine(scale, dy), "weight": 1.0}
+
+    def test_identity_scale_returns_unchanged(self):
+        """When all edges have scale=1.0, frames and edges must be returned unchanged."""
+        frames = [self._frame() for _ in range(3)]
+        edges = [self._edge(0, 1, scale=1.0), self._edge(1, 2, scale=1.0)]
+        out_frames, out_edges = _normalize_frame_scales(frames, edges, scale_thresh=0.05)
+        assert out_frames is frames
+        assert out_edges is edges
+
+    def test_zoomed_frame_is_resized(self):
+        """Frame with scale=1.2 relative to reference must be resized to ~1/1.2 factor."""
+        frames = [self._frame(60, 80), self._frame(60, 80)]
+        # edge 0→1: scale=1.2 means frame 1 is 1.2× the reference
+        edges = [self._edge(0, 1, scale=1.2, dy=50.0)]
+        out_frames, _ = _normalize_frame_scales(frames, edges, scale_thresh=0.05)
+        h0, w0 = out_frames[0].shape[:2]
+        h1, w1 = out_frames[1].shape[:2]
+        # reference frame (i=0) unchanged
+        assert (h0, w0) == (60, 80)
+        # frame 1 should be scaled down (smaller than original)
+        assert w1 < 80 or h1 < 60, f"Expected frame 1 resized, got ({h1}, {w1})"
+
+    def test_below_threshold_returns_unchanged(self):
+        """Scale deviation below scale_thresh triggers no normalisation (no-op)."""
+        frames = [self._frame() for _ in range(2)]
+        # scale = 1.02 → deviation 2% < 5% threshold
+        edges = [self._edge(0, 1, scale=1.02, dy=50.0)]
+        out_frames, out_edges = _normalize_frame_scales(frames, edges, scale_thresh=0.05)
+        assert out_frames is frames
+        assert out_edges is edges
+
+    def test_disconnected_graph_returns_unchanged(self):
+        """A graph where frame 2 cannot be reached from frame 0 must be left unchanged."""
+        frames = [self._frame() for _ in range(3)]
+        # Only edge 0→1; frame 2 is isolated
+        edges = [self._edge(0, 1, scale=1.3, dy=50.0)]
+        out_frames, out_edges = _normalize_frame_scales(frames, edges, scale_thresh=0.05)
+        assert out_frames is frames
+        assert out_edges is edges
+
+    def test_edge_affines_reset_to_unit_scale(self):
+        """After normalisation the updated edge M must have diagonal elements ≈ 1.0."""
+        frames = [self._frame() for _ in range(2)]
+        edges = [self._edge(0, 1, scale=1.3, dy=60.0)]
+        _, out_edges = _normalize_frame_scales(frames, edges, scale_thresh=0.05)
+        M = out_edges[0]["M"]
+        assert abs(float(M[0, 0]) - 1.0) < 1e-4, f"M[0,0]={M[0,0]}, expected 1.0"
+        assert abs(float(M[1, 1]) - 1.0) < 1e-4, f"M[1,1]={M[1,1]}, expected 1.0"
+        assert abs(float(M[0, 1])) < 1e-4, f"M[0,1]={M[0,1]}, expected ~0"
+        assert abs(float(M[1, 0])) < 1e-4, f"M[1,0]={M[1,0]}, expected ~0"
+
+
+# ---------------------------------------------------------------------------
+# §1.13B — _reject_scene_change_edges with use_bgr=True
+# ---------------------------------------------------------------------------
+
+
+class TestRejectSceneChangeEdgesBgr:
+    """§1.13B — per-channel (BGR) scene-change gate in _reject_scene_change_edges."""
+
+    @staticmethod
+    def _edge(i: int, j: int) -> dict:
+        return {"i": i, "j": j, "M": np.eye(2, 3, dtype=np.float32), "weight": 1.0}
+
+    @staticmethod
+    def _uniform_frame(b: int, g: int, r: int, h: int = 64, w: int = 64) -> np.ndarray:
+        return np.full((h, w, 3), [b, g, r], dtype=np.uint8)
+
+    def test_identical_bgr_frames_not_rejected(self):
+        """Frames with identical BGR values → max channel diff = 0 → kept."""
+        frames = [self._uniform_frame(100, 150, 80)] * 2
+        edges = [self._edge(0, 1)]
+        result = _reject_scene_change_edges(edges, frames, max_luma_diff=60.0, use_bgr=True)
+        assert len(result) == 1
+
+    def test_hue_shift_same_luma_rejected_in_bgr_mode(self):
+        """Warm frame (high R) vs cool frame (high B) at similar luma → rejected in BGR, kept in luma."""
+        # Frame A: orange (B=20, G=100, R=220) → luma ≈ 20*0.114 + 100*0.587 + 220*0.299 ≈ 125
+        # Frame B: blue  (B=220, G=100, R=20)  → luma ≈ 220*0.114 + 100*0.587 + 20*0.299  ≈ 90
+        # Max channel diff = |220-20| = 200 > 60 → rejected in BGR mode
+        frame_a = self._uniform_frame(20, 100, 220)
+        frame_b = self._uniform_frame(220, 100, 20)
+        frames = [frame_a, frame_b]
+        edges = [self._edge(0, 1)]
+        bgr_result = _reject_scene_change_edges(edges, frames, max_luma_diff=60.0, use_bgr=True)
+        assert len(bgr_result) == 0, "BGR gate should reject large hue shift"
+
+    def test_luma_mode_misses_hue_shift(self):
+        """Same hue-shifted pair that BGR rejects should PASS the grayscale luma gate."""
+        # Green frame (B=10, G=200, R=10) and red frame (B=10, G=10, R=200)
+        # Luma_green ≈ 10*0.114 + 200*0.587 + 10*0.299 ≈ 121
+        # Luma_red   ≈ 10*0.114 + 10*0.587 + 200*0.299 ≈ 66
+        # Luma diff ≈ 55 < 60 → kept by grayscale gate
+        # Max channel diff = |200-10| = 190 > 60 → rejected by BGR gate
+        frame_g = self._uniform_frame(10, 200, 10)
+        frame_r = self._uniform_frame(10, 10, 200)
+        frames = [frame_g, frame_r]
+        edges = [self._edge(0, 1)]
+        luma_result = _reject_scene_change_edges(edges, frames, max_luma_diff=60.0, use_bgr=False)
+        assert len(luma_result) == 1, "Luma gate should keep this hue-shifted pair"
+
+    def test_bgr_threshold_zero_disabled(self):
+        """max_luma_diff=0 disables the gate regardless of channel mismatch."""
+        frames = [self._uniform_frame(0, 0, 0), self._uniform_frame(255, 255, 255)]
+        edges = [self._edge(0, 1)]
+        result = _reject_scene_change_edges(edges, frames, max_luma_diff=0.0, use_bgr=True)
+        assert len(result) == 1
+
+    def test_bgr_small_channel_diff_kept(self):
+        """Frames with channel diffs below threshold → kept."""
+        frame_a = self._uniform_frame(100, 100, 100)
+        frame_b = self._uniform_frame(140, 140, 140)  # diff = 40 < 60
+        frames = [frame_a, frame_b]
+        edges = [self._edge(0, 1)]
+        result = _reject_scene_change_edges(edges, frames, max_luma_diff=60.0, use_bgr=True)
+        assert len(result) == 1
+
+
+# ---------------------------------------------------------------------------
+# §1.15 — _check_edge_graph_connectivity
+# ---------------------------------------------------------------------------
+
+
+class TestCheckEdgeGraphConnectivity:
+    """§1.15 — Union-Find edge graph connectivity check before bundle adjustment."""
+
+    @staticmethod
+    def _edge(i: int, j: int) -> dict:
+        return {"i": i, "j": j, "M": np.eye(2, 3, dtype=np.float32), "weight": 1.0}
+
+    def test_chain_graph_is_connected(self):
+        """0→1→2 chain covers all 3 frames → True."""
+        edges = [self._edge(0, 1), self._edge(1, 2)]
+        assert _check_edge_graph_connectivity(edges, n_frames=3) is True
+
+    def test_isolated_frame_is_disconnected(self):
+        """N=3, edge only 0→1 → frame 2 isolated → False."""
+        edges = [self._edge(0, 1)]
+        assert _check_edge_graph_connectivity(edges, n_frames=3) is False
+
+    def test_single_frame_trivially_connected(self):
+        """N=1 → trivially connected regardless of edges."""
+        assert _check_edge_graph_connectivity([], n_frames=1) is True
+
+    def test_complete_graph_is_connected(self):
+        """All pairs connected (complete graph on N=4) → True."""
+        edges = [
+            self._edge(0, 1), self._edge(0, 2), self._edge(0, 3),
+            self._edge(1, 2), self._edge(1, 3), self._edge(2, 3),
+        ]
+        assert _check_edge_graph_connectivity(edges, n_frames=4) is True
+
+    def test_no_edges_multiple_frames_disconnected(self):
+        """N=3, empty edge list → all frames isolated → False."""
+        assert _check_edge_graph_connectivity([], n_frames=3) is False
+
+
+# ---------------------------------------------------------------------------
+# §1.16 — _compute_mst_weight (minimum spanning tree weight gate)
+# ---------------------------------------------------------------------------
+
+
+class TestComputeMstWeight:
+    """§1.16: Mean MST edge weight gate catches low-confidence edge graphs."""
+
+    @staticmethod
+    def _edge(i: int, j: int, weight: float) -> dict:
+        return {"i": i, "j": j, "weight": weight, "dx": 50.0, "dy": 0.0}
+
+    def test_no_frames_returns_zero(self):
+        """n_frames ≤ 1 → 0.0 (no spanning tree needed)."""
+        assert _compute_mst_weight([], n_frames=0) == pytest.approx(0.0)
+        assert _compute_mst_weight([], n_frames=1) == pytest.approx(0.0)
+
+    def test_empty_edges_returns_zero(self):
+        """No edges → MST cannot be built → 0.0."""
+        assert _compute_mst_weight([], n_frames=3) == pytest.approx(0.0)
+
+    def test_chain_graph_mean_weight(self):
+        """Chain 0→1 (w=0.8) and 1→2 (w=0.6) → MST both edges → mean = 0.7."""
+        edges = [self._edge(0, 1, 0.8), self._edge(1, 2, 0.6)]
+        result = _compute_mst_weight(edges, n_frames=3)
+        assert result == pytest.approx(0.7, abs=1e-6)
+
+    def test_takes_highest_weight_edges_for_mst(self):
+        """Triangle 0-1-2 with weights 0.9, 0.5, 0.3; MST picks w=0.9 and w=0.5 → mean=0.7."""
+        edges = [
+            self._edge(0, 1, 0.9),
+            self._edge(1, 2, 0.5),
+            self._edge(0, 2, 0.3),
+        ]
+        result = _compute_mst_weight(edges, n_frames=3)
+        assert result == pytest.approx(0.7, abs=1e-6)
+
+    def test_low_weight_graph_below_threshold(self):
+        """All TM/PC edges at weight=0.2 → mean MST weight 0.2 < 0.35 threshold."""
+        edges = [self._edge(i, i + 1, 0.2) for i in range(4)]
+        result = _compute_mst_weight(edges, n_frames=5)
+        assert result == pytest.approx(0.2, abs=1e-6)
+        assert result < 0.35
