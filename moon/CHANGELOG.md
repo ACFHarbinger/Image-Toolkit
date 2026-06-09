@@ -4,6 +4,233 @@
 
 ---
 
+## ASP Session 60 — §1.16 Minimum Spanning Tree Weight Gate (2026-06-08)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_compute_mst_weight(edges, n_frames) → float`** (`pipeline.py`) | §1.16: builds the max-weight spanning tree (Kruskal greedy, highest-weight-first) using iterative path-compression Union-Find and returns `total_weight / (N-1)`. Returns 0.0 when n_frames ≤ 1 or no edges. |
+| **Pre-BA MST weight gate** (`pipeline.py`) | `_MST_MIN_WEIGHT` flag (default 0.0=off, `ASP_MST_MIN_WEIGHT=0.35`). After the §1.15 connectivity check, if the mean MST weight < threshold → SCANS fallback with log message. Wired between connectivity gate and Stage 7 BA call. |
+| **`MST_MIN_WEIGHT = 0.35`** (`constants/anim.py`) | Recommended threshold: LoFTR edges weight~0.6–0.9; TM/PC fallbacks~0.15–0.3; threshold 0.35 triggers on all-TM/PC graphs. |
+| **`ASP_MST_MIN_WEIGHT` in `_CONFIG_SCHEMA`** (`config.py`) | `(float, 0.0, 1.0, "Min mean MST edge weight before pre-BA SCANS fallback (0=off)")`. |
+| **`_compute_mst_weight` in `__all__`** (`pipeline.py`) | Exported for testing and external use. |
+| **5 unit tests** (`test_pipeline.py::TestComputeMstWeight`) | no-frames-returns-zero, empty-edges-returns-zero, chain-graph-mean-weight (0→1 w=0.8, 1→2 w=0.6 → mean 0.7), takes-highest-weight-edges-for-mst (triangle: picks 0.9+0.5, mean=0.7), low-weight-graph-below-threshold (all edges w=0.2 → mean 0.2 < 0.35). **Anim suite: 407 passing.** |
+
+### Design rationale
+
+The §2.9C retry 0 (`_filter_high_conf_edges`, S37) removes bad edges and re-solves with only high-confidence LoFTR edges. But it fires *after* BA has already been attempted. The MST weight gate fires *before* BA: if the spanning tree itself is dominated by TM/PC fallback edges (all weights ≈ 0.15–0.3), even a successful BA will produce poor translations because the measurements are fundamentally noisy. Rather than consuming the full Retry 0–5 chain, the gate takes an immediate SCANS fallback. Zero overhead on success paths (disabled by default), O(E log E) sort when enabled.
+
+---
+
+## ASP Session 59 — §1.14C Per-channel BGR Bhattacharyya Seam Gate (2026-06-08)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_seam_color_similarity_bgr(img, k, n_strips, band_px=50) → float`** (`compositing.py`) | §1.14C: computes separate normalised 256-bin histograms for each of the B, G and R channels in the `band_px`-row windows immediately above and below seam k; returns `min(score_B, score_G, score_R)`. Any single channel with a severe distribution mismatch drives the score down even when luminance is unchanged. Falls back to `_seam_color_similarity` for 2-D greyscale inputs. Exported in `__all__`. |
+| **`_check_seam_color_gate(..., use_bgr=False)` extended** (`compositing.py`) | Added `use_bgr: bool = False` parameter. When True, routes to `_seam_color_similarity_bgr` instead of `_seam_color_similarity`. Gate logic unchanged: returns worst seam index below thresh or None. |
+| **`_SEAM_COLOR_GATE_BGR` flag** (`compositing.py` + `pipeline.py`) | `ASP_SEAM_COLOR_GATE_BGR=1` enables BGR mode (default OFF — greyscale path is faster). Stage 11.2 gate in `pipeline.py` passes `use_bgr=_SEAM_COLOR_GATE_BGR`. |
+| **`ASP_SEAM_COLOR_GATE_BGR` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 1, "Use per-channel BGR Bhattacharyya instead of greyscale in seam colour gate (0 or 1)")`. |
+| **5 unit tests** (`test_compositing.py::TestSeamColorSimilarityBgr`) | identical-bands-returns-one, hue-shift-same-luma-low-score (proves grey score ≈ 1.0 while BGR score < grey for equal-luma colour shift), grayscale-input-falls-back-gracefully, check-gate-use-bgr-triggers-on-hue-shift, band-too-small-returns-one. **Anim suite: 402 passing.** |
+
+### Design rationale
+
+§1.14B (`_seam_color_similarity`) operated on greyscale histograms. It cannot detect hue shifts where the luminance distribution is preserved: if both strips have the same amount of bright and dark pixels, the greyscale histogram overlap is near 1.0 regardless of the colour palette. A common failure mode is a warm-toned strip (high R) adjacent to a neutral or cool-toned strip (high B), at the same luminance level. The B channel shift (128→28) drives the BGR minimum score below 0.55 while the greyscale score remains above 0.90, allowing the gate to correctly trigger a SCANS fallback on hue-banded outputs that the §1.14B gate would pass.
+
+---
+
+## ASP Session 58 — §1.15 Edge Graph Connectivity Validation (2026-06-08)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_check_edge_graph_connectivity(edges, n_frames) → bool`** (`pipeline.py`) | §1.15: iterative path-compression Union-Find over the edge graph; returns True iff all frames 0..n_frames-1 are in one connected component. Trivially True for n_frames ≤ 1. Out-of-bounds edge indices are silently skipped. Exported in `__all__`. |
+| **Pre-BA connectivity gate** (`pipeline.py`) | Wired immediately after the existing `if not edges:` SCANS fallback in `run()`. If `_check_edge_graph_connectivity(edges, N)` returns False, logs the frame/edge count and triggers `_scan_stitch_fallback` using the `scans_frames or _reload_scans_frames(image_paths)` pattern. Runs in O(E·α(N)) — negligible overhead. |
+| **5 unit tests** (`test_pipeline.py::TestCheckEdgeGraphConnectivity`) | chain-graph-is-connected, isolated-frame-is-disconnected, single-frame-trivially-connected, complete-graph-is-connected, no-edges-multiple-frames-disconnected. **Anim suite: 397 passing (+1 pre-existing skip).** |
+
+### Design rationale
+
+The §1.13A/B scene-change gates (S51, S57) and the §1.2A/C static-edge filters (S32, S34) can, in edge cases, remove enough edges to partition the frame graph into two or more disconnected components. When this happens, bundle adjustment still runs — but frames in the isolated component receive translations derived only from their intra-component constraints. Those translations are unconstrained relative to the main component, so they can be placed anywhere on the canvas. The resulting `_validate_affines` call typically fails with a ratio error, consuming Retry 0–5 time before landing on SCANS fallback.
+
+The connectivity gate short-circuits this by catching the disconnection in O(E·α(N)) time right before the BA, saving the retry chain and producing a faster, cleaner SCANS fallback. The Union-Find uses the same path-compression algorithm as §1.1B's spanning-tree pre-filter — no new algorithmic machinery, just a different query (connectivity vs spanning-tree construction).
+
+---
+
+## ASP Session 57 — §1.13B Per-Channel (BGR) Scene-Change Gate (2026-06-08)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_reject_scene_change_edges(..., use_bgr=True)`** (`pipeline.py`) | §1.13B: extended with `use_bgr: bool = False` parameter. When True, computes per-channel (B, G, R) thumbnail means via `t.reshape(-1,3).mean(axis=0)` and takes `np.abs(means_i − means_j).max()` as the scene-change signal. Backward compatible (default `use_bgr=False` preserves §1.13A grayscale behaviour). |
+| **`_SCENE_CHANGE_BGR_THRESH` flag** (`pipeline.py`) | Default 0.0 (off). Set via `ASP_SCENE_CHANGE_BGR_THRESH=60.0` to enable. Wired as a second pass in `_filter_edges` after the existing §1.13A luma gate — the two gates are applied sequentially and are independent. |
+| **`SCENE_CHANGE_BGR_THRESH = 60.0`** (`constants/anim.py`) | §1.13B calibrated default: 60/255 ≈ 24% per-channel mean shift is sufficient to identify a hue-shifted scene cut while tolerating normal gradual lighting changes. |
+| **`ASP_SCENE_CHANGE_BGR_THRESH` in `_CONFIG_SCHEMA`** (`config.py`) | Float, range [0.0, 255.0]. Closes the TOML-config loop for §1.13B. |
+| **5 unit tests** (`test_pipeline.py::TestRejectSceneChangeEdgesBgr`) | identical-frames-not-rejected, hue-shift-same-luma-rejected-in-bgr-mode, luma-mode-misses-hue-shift, bgr-threshold-zero-disabled, bgr-small-channel-diff-kept. **Anim suite: 392 passing (+1 pre-existing skip).** |
+
+### Design rationale
+
+§1.13A (S51) catches *brightness* discontinuities by comparing mean grayscale luma. It misses a common failure pattern: warm-versus-cool lighting shifts where overall luma is similar but colour distribution is completely different. A 200-lux orange studio shot and a 200-lux blue-tinted corridor can have identical grayscale luma (≈120) while their B and R channels differ by 180 units. A LoFTR match across that scene cut would produce a valid-looking edge with a plausible displacement but would corrupt bundle adjustment by linking geometrically incompatible environments.
+
+The per-channel max-delta uses `np.abs(means_i − means_j).max()` rather than Euclidean distance (`sqrt(ΔB² + ΔG² + ΔR²)`) so the threshold stays in the same [0, 255] luminance unit as §1.13A — no threshold recalibration is needed when switching between modes. The same `max_luma_diff` parameter governs both gates at 60.0, maintaining a single tuning point per environment.
+
+---
+
+## ASP Session 56 — §1.14B Seam Colour-Similarity Pipeline Gate (2026-06-08)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_seam_color_similarity(img, k, n_strips, band_px=50) → float`** (`compositing.py`) | §1.14B: single-seam Bhattacharyya similarity scorer. Computes greyscale histograms of `band_px`-row windows above and below seam boundary k, normalises, and returns `1 − HISTCMP_BHATTACHARYYA`. Returns 1.0 for trivially narrow bands (<10 rows per side). Zero new dependencies. |
+| **`_check_seam_color_gate(img, n_strips, thresh, band_px=50) → Optional[int]`** (`compositing.py`) | §1.14B: post-composite gate. Evaluates all `n_strips−1` seams; returns the 0-indexed seam with the minimum colour similarity if that minimum is below *thresh*, else `None`. Returns `None` when `n_strips ≤ 1` or `thresh ≤ 0`. Exported in `__all__`. |
+| **`_SEAM_COLOR_GATE` flag** (`compositing.py`) | Module-level float, default 0.0 (off). Set via `ASP_SEAM_COLOR_GATE=0.55` to enable. |
+| **`SEAM_COLOR_GATE_THRESH = 0.55`** (`constants/anim.py`) | §1.14B calibrated default. Score < 0.55 indicates a significant distributional mismatch (>45% histogram divergence) across a seam boundary — a reliable indicator of colour-banded output. |
+| **Stage 11.2 gate** (`pipeline.py`) | After `_composite_foreground`, when `_SEAM_COLOR_GATE_THRESH > 0` and `N > 1`, calls `_check_seam_color_gate(canvas, N, _SEAM_COLOR_GATE_THRESH)`. On failure → `_scan_stitch_fallback` with logged seam index. Uses `scans_frames or _reload_scans_frames(image_paths)` (on-demand reload pattern from §1.9C). |
+| **`ASP_SEAM_COLOR_GATE` in `_CONFIG_SCHEMA`** (`config.py`) | Float, range [0.0, 1.0]. Schema entry closes the TOML-config loop for §1.14B. |
+| **5 unit tests** (`test_compositing.py::TestSeamColorGate`) | single-strip-returns-none, threshold-zero-disabled, identical-strips-above-threshold, mismatched-strips-below-threshold, returns-worst-seam-index. **Anim suite: 387 passing (+1 pre-existing skip).** |
+
+### Design rationale
+
+§1.14 (S55) added `_seam_bhattacharyya_distances` to the *benchmark* as a diagnostic metric, closing the measurement gap between spatial artefact detectors and distributional colour mismatch. §1.14B closes the loop by wiring the same signal directly into the pipeline as an actionable gate.
+
+The gate is post-composite (Stage 11.2) rather than pre-composite because the Bhattacharyya score is defined on the *output* image — it measures what the seam actually looks like after the Laplacian blend, not what the input frames would predict. This makes it complementary to the pre-blend signal (seam DP cost) and the pre-render signal (render gate at Stage 10.5). Stage 11.2 is the last point where a SCANS fallback is geometrically safe: the canvas has been composited but not yet cropped or super-resolved.
+
+The `_seam_color_similarity` function is kept in `compositing.py` (not imported from `bench_anime_stitch.py`) to avoid a circular dependency between the benchmark and the pipeline modules. The greyscale histogram computation is 15 lines of pure OpenCV — duplication is justified by the module boundary.
+
+---
+
+## ASP Session 55 — §1.14 Per-Seam Bhattacharyya Colour-Distance Metric (2026-06-08)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_seam_bhattacharyya_distances(img, n_strips, band_px=50) → List[float]`** (`bench_anime_stitch.py`) | §1.14: computes the Bhattacharyya histogram similarity score for each inter-strip seam boundary. For each of the `n_strips−1` seam boundaries, computes greyscale histograms of the `band_px`-row window *above* and *below* the boundary, normalises them, and returns `1 − cv2.compareHist(HISTCMP_BHATTACHARYYA)`. Score in [0,1]: 1.0 = identical distributions (no colour banding), <0.5 = severe colour mismatch. Returns `[]` when `n_strips ≤ 1`. Falls back to 0.0 when either side of a boundary is empty (image smaller than `band_px`). |
+| **`_compute_all_metrics` extended** (`bench_anime_stitch.py`) | `seam_color_scores: List[float]` (per-seam scores) and `seam_color_min: Optional[float]` added to the result dict. Both are `[]` / `None` at default `n_strips=1`. Backward compatible. |
+| **New roadmap section §1.14** (`moon/roadmaps/asp.md`) | Added as a new section with Option A (Bhattacharyya, shipped) and Option B (pipeline gate, future). |
+| **5 unit tests** (`test_bench_metrics.py::TestSeamBhattacharyyaDistances`) | n-strips-one-returns-empty, returns-n-minus-1-scores, identical-strips-score-near-one, different-histograms-score-below-identical, scores-in-valid-range. **Anim suite: 381 passing (+1 pre-existing skip).** |
+
+### Design rationale
+
+The existing per-seam diagnostics (`seam_visibility_score`, `ghost_seam_scores`) both operate in the *spatial* domain — they detect luminance jumps and repeated-edge signatures at a specific row. Neither detects the *distributional* mismatch that causes colour banding: two adjacent strips can have similar mean luminance and identical local gradients but completely different histogram shapes (e.g., one dominated by a bright background gradient, the other by a dark character body), producing a perceptible tonal shift that spatial metrics miss.
+
+Bhattacharyya coefficient is the natural measure for this: it quantifies histogram overlap as `−ln(Σ sqrt(h1[i]·h2[i]))` (Bhattacharyya distance), normalised here to `1 − distance` so higher = more similar. It is available in `cv2.compareHist` with no new dependencies. Greyscale histograms are used (not per-channel) to keep the score interpretable; per-channel extension is Option C.
+
+The `band_px=50` window is narrower than §3.8B's `band_px=100` because Bhattacharyya captures distribution shape, not periodicity — 50 rows is enough to characterise the luminance distribution in a strip zone.
+
+---
+
+## ASP Session 54 — §1.3C Scale Normalisation Before BA (2026-06-08)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_normalize_frame_scales(frames, edges, scale_thresh) → (List[np.ndarray], List[Dict])`** (`pipeline.py`) | §1.3C: detects inter-frame zoom from the 2×2 rotation-scale block of matched affines (`s_ij = sqrt(a² + b²)`), propagates absolute scale factors via a BFS spanning tree from frame 0, and resizes each frame by `1/scale[i]` so BA only sees pure translations. Edge affines are updated: 2×2 block reset to identity, tx/ty divided by `scale[i]`. Falls back to originals when scale deviation < `scale_thresh`, the spanning tree is disconnected, or `scale_thresh ≤ 0`. `SCALE_NORM_THRESH = 0.05` in `constants/anim.py`. `_SCALE_NORM_THRESH` module-level flag (default 0.0=off, `ASP_SCALE_NORM_THRESH=0.05` to enable). Exported in `__all__`. |
+| **5 unit tests** (`test_pipeline.py::TestNormalizeFrameScales`) | identity-scale-returns-unchanged, zoomed-frame-is-resized, below-threshold-returns-unchanged, disconnected-graph-returns-unchanged, edge-affines-reset-to-unit-scale. **Anim suite: 377 tests passing.** |
+
+### Design rationale
+
+The existing §1.3E (similarity-mode matching, S48) and §0.5D (adaptive rotation/scale thresholds, S47) together allow the pipeline to accept zoom-pan sequences without crashing. However, the *canvas construction* and *temporal median rendering* stages still assume translation-only displacement — so even when BA produces valid affines with scale ≈ 1.2, the frame pixels are composited at the wrong effective size, causing subtle parallax ghost artifacts.
+
+§1.3C corrects this at the source: by resizing frames to a uniform scale *before* BA, the entire downstream pipeline (canvas, rendering, compositing) operates on frames that are geometrically consistent without any code changes to those stages. The resize uses Lanczos-4 interpolation to minimise ringing on line-art. The spanning-tree BFS mirrors §1.1B's approach to ensure scale propagation is connected and deterministic.
+
+Default OFF (`ASP_SCALE_NORM_THRESH=0`, i.e., `_SCALE_NORM_THRESH=0.0`) to preserve backward compatibility. Enable with `ASP_SCALE_NORM_THRESH=0.05` for zoom-pan sequences (test5-style, scale_dev ≈ 0.12).
+
+---
+
+## ASP Session 53 — §3.8B Per-Seam SIQE Ghost Map (2026-06-08)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_compute_per_seam_ghost_scores(img, n_strips, band_px=100) → List[float]`** (`bench_anime_stitch.py`) | §3.8B: divides the output image into *n_strips* equal-height zones and evaluates `_ghosting_score_v2` in a ±*band_px* band centred at each inter-zone seam boundary. Returns `n_strips − 1` float scores (same [0–100] scale as `ghosting_siqe`). Returns `[]` when `n_strips ≤ 1`. Band clipped to image bounds when near edges — no exception on degenerate inputs. |
+| **`_compute_all_metrics` extended** (`bench_anime_stitch.py`) | Signature extended with optional `n_strips: int = 1` parameter. Result dict now includes `"ghost_seam_scores": List[float]` (per-seam scores, empty for default `n_strips=1`) and `"ghost_seam_max": Optional[float]` (`max()` of scores, or `None` for empty list). Backward compatible: default `n_strips=1` leaves existing callers unaffected. |
+| **5 unit tests** (`test_bench_metrics.py::TestPerSeamGhostScores`) | uniform-image-all-near-zero, n-strips-one-returns-empty, returns-n-minus-1-scores, band-with-sharp-luminance-step-has-high-score, band-clipped-to-image-bounds-no-error. **Anim suite: 372 tests passing.** |
+
+### Design rationale
+
+The existing `ghosting_siqe` metric runs `_ghosting_score_v2` on the entire output panorama and returns a single scalar. For a 2000-row panorama with 12 seam boundaries, a ghost on one seam contributes at most ~1/12 of the signal — the per-image score is diluted and the problem seam is unidentifiable from the metric alone.
+
+Per-seam scoring solves both problems: (1) it raises the signal by restricting the analysis window to the ±`band_px` neighbourhood of each seam boundary, where ghost artifacts actually appear; (2) it localises the worst seam (via `ghost_seam_max` and its index in `ghost_seam_scores`), enabling targeted per-seam intervention (re-composition, deeper feathering) instead of a global SCANS fallback.
+
+The `_ghosting_score_v2` function is reused without modification — the only change is the input window. Each band is extracted as a pure numpy slice (zero copy), so the overhead is N-1 FFT autocorrelations per image — typically < 5ms for N=12 at 1080px width. Fully backward compatible (default `n_strips=1` → no seam scoring, `ghost_seam_scores=[]`, `ghost_seam_max=None`).
+
+---
+
+## ASP Session 52 — §1.12 Kendall-τ Translation Monotonicity Check (2026-06-08)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_check_translation_monotonicity(affines, primary_axis, min_tau_abs) → (bool, float)`** (`validation.py`) | §1.12: computes Kendall τ between temporal frame indices [0…N-1] and primary-axis translations. |τ| = 1 for perfectly monotone sequences (forward and backward scroll both pass); |τ| ≈ 0 for random permutations. Returns `(is_monotone, tau_abs)`. Requires ≥ 4 frames; shorter sequences always return `(True, 1.0)`. Exported in `__all__`. |
+| **`_MONO_TAU_MIN = 0.4`** (`validation.py`) | Module-level minimum |τ| threshold. A value of 0.4 allows up to ~30% discordant frame pairs — catches catastrophic BA failures while tolerating the minor noise seen in real corpus sequences (typical valid sequences score ≥ 0.85). |
+| **Wired as 5th check in `_validate_affines`** | After ratio / min_gap / rotation / scale, the monotonicity check fires for `scroll_axis ∈ {"vertical", "horizontal"}`. Skipped for diagonal scrolls (dominant axis ambiguous). Failure reason: `"monotonicity={tau:.2f} < 0.4"`. A monotonicity failure falls through to Retry 1 (adjacent-only BA) — the natural recovery since skip edges are the most common source of frame misplacement. |
+| **5 unit tests** (`test_affine_validation.py::TestTranslationMonotonicity`) | perfectly-monotone-passes, reversed-monotone-passes, catastrophically-shuffled-fails, single-out-of-order-passes, fewer-than-4-always-passes. **Anim suite: 367 tests passing.** |
+
+### Design rationale
+
+The existing 4 validation checks (ratio, min_gap, rotation, scale) all operate on the *sorted spatial* order. They cannot detect the case where BA produces well-spaced, correctly-oriented frames that are **placed in the wrong temporal order** — for example, skip edges misaligning frame 3 to a position between frames 0 and 1 while preserving a uniform gap ratio. Such solutions pass all existing checks but produce catastrophic output: the temporal median averages the wrong frames together, and the seam composite bisects the wrong strips.
+
+Kendall τ directly measures the agreement between the two orderings. Forward and backward scrolling are handled symmetrically (|τ|), so no direction inference is needed. The O(N²) pair-counting loop is negligible for typical N ≤ 30. The conservative threshold (0.4) ensures no regressions on the existing 92 passing corpus tests.
+
+---
+
+## ASP Session 51 — §1.13 Scene-Change Edge Pre-Filter (2026-06-07)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_reject_scene_change_edges(edges, frames, max_luma_diff) → List[Dict]`** (`pipeline.py`) | §1.13: discards edges between frames whose mean grayscale luminance differs by more than `max_luma_diff`. Comparison is performed on a 64×64 thumbnail for speed. Gate is disabled when `max_luma_diff ≤ 0` or `frames` is empty. Out-of-bounds frame indices are kept (safe fallback). Exported in `__all__`. |
+| **`_SCENE_CHANGE_LUMA_THRESH: float`** (`pipeline.py`) | Module-level threshold, default `0.0` (disabled). Set via `ASP_SCENE_CHANGE_LUMA_THRESH=60.0`. Wired as the first step in `_filter_edges`, before the §1.2A+C static edge rejection. |
+| **`SCENE_CHANGE_LUMA_THRESH = 60.0`** (`constants/anim.py`) | Named constant for the recommended threshold. |
+| **`"ASP_SCENE_CHANGE_LUMA_THRESH"` in `_CONFIG_SCHEMA`** (`config.py`) | Schema entry `(float, 0.0, 255.0, ...)` so `validate_asp_config` catches invalid values. |
+| **5 unit tests** (`test_pipeline.py::TestRejectSceneChangeEdges`) | similar-frames-not-rejected, large-luma-diff-rejected, threshold-zero-keeps-all, out-of-bounds-index-kept, selectively-filters-mixed-edges. **Anim suite: 362 tests passing.** |
+
+### Design rationale
+
+When a source video contains a scene cut — even one that slipped past the hold detector — the two frames straddling the cut will have drastically different global brightness (e.g., a dark nighttime scene followed by a bright exterior). Any pairwise-match algorithm will attempt to produce a translation for that pair; the match will have low confidence and a spurious displacement. If that edge reaches bundle adjustment it introduces a wrong constraint that can displace all other frames.
+
+This gate rejects such edges before any geometric or BA processing. Mean-luma comparison on a 64×64 thumbnail costs <0.5 ms per edge and is more reliable than using match-confidence alone (which can be spuriously high when two dissimilar frames share a textured region).
+
+Placement at the top of `_filter_edges` ensures the §1.2A+C, Geometric Consistency, Min-step, and Direction Consensus filters only process valid same-scene edges. Disabled by default (`threshold=0`) to preserve backward compatibility; activate with `ASP_SCENE_CHANGE_LUMA_THRESH=60.0` for sequences known to contain lighting discontinuities.
+
+Distinct from `_reject_exposure_outliers` (§1.4F, `compositing.py`): that function detects per-frame luminance outliers in the *normalisation* loop; this gate detects inter-frame luminance discontinuities in the *edge set* before BA.
+
+---
+
+## ASP Session 50 — §1.4F Per-Frame Exposure Outlier Rejection (2026-06-07)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_reject_exposure_outliers(frame_lums, max_deviation_lum) → List[bool]`** (`compositing.py`) | §1.4F: per-frame skip mask for absolute luminance outliers. Computes the median background luminance across all frames with valid lum values, returns True for any frame whose lum deviates by more than `max_deviation_lum` units. Frames with `None` lum are never rejected. Falls back to all-False when fewer than 3 valid values are available (unreliable median). Exported in `__all__`. |
+| **`_EXPOSURE_OUTLIER_THRESH: float`** (`compositing.py`) | Module-level threshold, default 0.0 (disabled). Set via `ASP_EXPOSURE_OUTLIER_THRESH=60.0`. When > 0, outlier rejects are OR'd into `_skip_norm` after the coherence gate. Logs the count of excluded frames when any are skipped. |
+| **`EXPOSURE_OUTLIER_THRESH = 60.0`** (`constants/anim.py`) | Named constant for the recommended threshold value. |
+| **`elif _EXPOSURE_OUTLIER_THRESH > 0.0:` wiring** (`compositing.py`) | §1.4F applied immediately after `_coherence_skip_mask` in `_composite_foreground`. Skipped frames still contribute warped pixel content; only gain correction is suppressed. |
+| **`"ASP_EXPOSURE_OUTLIER_THRESH"` in `_CONFIG_SCHEMA`** (`config.py`) | Schema entry `(float, 0.0, 255.0, ...)` so `validate_asp_config` catches invalid values. |
+| **5 unit tests** (`test_compositing.py::TestRejectExposureOutliers`) | uniform-lums-all-false, dark-outlier-rejected, bright-outlier-rejected, below-threshold-not-rejected, insufficient-frames-all-false. **Anim suite: 357 tests passing.** |
+
+### Design rationale
+
+The existing `_coherence_skip_mask` (S18) handles *relative* exposure mismatch: it skips both frames in any adjacent pair whose luminances differ by more than 20 lum. But it cannot handle an *absolute* outlier — a single frame that is globally darker or brighter than all its neighbours due to a lighting flash, accidental double-exposure, or a scene cut that slipped past the hold detector.
+
+Such a frame drives the scalar gain toward an extreme value (e.g., gain=3.5 to bring a flash-bright frame down to reference) that causes visible over-correction of adjacent zones in the feather band. Excluding it from gain normalisation entirely allows its bg pixels to contribute to the canvas at their original values, which is visually neutral, while preventing the extreme correction from propagating to adjacent compositing zones.
+
+The threshold of 60 lum (default for `EXPOSURE_OUTLIER_THRESH`) corresponds to a 24% brightness difference at typical reference luminance (250 lum), or a 75% difference at dark-scene reference (80 lum). This catches genuine outliers (flash frames, accidental HDR blending) without triggering on legitimate inter-strip brightness variation that the §1.4A–E gain corrections are designed to handle.
+
+Complementary to §1.4C (`_bg_gain_unclamped`): that function aggressively corrects large-gain frames; §1.4F suppresses correction entirely for extreme outliers where correction would overshoot.
+
+---
+
 ## ASP Session 49 — §1.4E Background CDF Histogram Matching (2026-06-07)
 
 ### Shipped

@@ -384,8 +384,117 @@ def _seam_visibility_score(
     return round(float(np.nanmax(diffs)) if len(diffs) > 0 else 0.0, 2)
 
 
-def _compute_all_metrics(img: np.ndarray, affines: Optional[List] = None) -> Dict:
+def _compute_per_seam_ghost_scores(
+    img: np.ndarray,
+    n_strips: int,
+    band_px: int = 100,
+) -> List[float]:
+    """§3.8B: Per-seam SIQE ghost scores for a vertically-assembled panorama.
+
+    Divides the output image into *n_strips* equal-height zones and evaluates
+    ``_ghosting_score_v2`` in a ±*band_px* horizontal band centred at each of
+    the ``n_strips − 1`` inter-strip seam boundaries.  This localises ghosting
+    to specific seams rather than averaging over the whole image (as
+    ``ghosting_siqe`` does), making it actionable for per-seam quality triage.
+
+    Parameters
+    ----------
+    img : (H, W, 3) or (H, W) uint8 image.
+    n_strips : number of equal-height zones.  Must be ≥ 2 to produce any
+               scores; returns ``[]`` for *n_strips* ≤ 1.
+    band_px : half-height of the analysis window around each boundary (px).
+              Clipped to image bounds automatically.
+
+    Returns
+    -------
+    List of ``n_strips − 1`` float scores (same units as ``_ghosting_score_v2``:
+    0–100).  Empty list when *n_strips* ≤ 1.
+    """
+    if n_strips <= 1:
+        return []
+    H = img.shape[0]
+    zone_h = H / n_strips
+    scores: List[float] = []
+    for k in range(1, n_strips):
+        boundary_y = int(round(zone_h * k))
+        y0 = max(0, boundary_y - band_px)
+        y1 = min(H, boundary_y + band_px)
+        band = img[y0:y1]
+        scores.append(_ghosting_score_v2(band) if (y1 - y0) >= 20 else 0.0)
+    return scores
+
+
+def _seam_bhattacharyya_distances(
+    img: np.ndarray,
+    n_strips: int,
+    band_px: int = 50,
+) -> List[float]:
+    """§1.14: Per-seam Bhattacharyya histogram distance for colour-banding detection.
+
+    Divides the output image into *n_strips* equal-height zones and, at each of
+    the ``n_strips − 1`` inter-strip seam boundaries, compares the greyscale
+    histogram of the *band_px*-row window **above** the boundary against the
+    *band_px*-row window **below** it using the Bhattacharyya coefficient.
+
+    Score interpretation (per seam, higher = more similar):
+      ≥ 0.95 : excellent colour match (invisible seam)
+      0.80–0.95 : good match (typical clean composite)
+      0.50–0.80 : noticeable mismatch (visible colour band likely)
+      < 0.50  : severe mismatch (hard colour cut)
+
+    The score is ``1 − cv2.compareHist(HISTCMP_BHATTACHARYYA)`` so it lives in
+    [0, 1] and is zero for completely disjoint distributions, one for identical
+    ones.  This makes it directly comparable to similarity scores elsewhere in
+    the benchmark.
+
+    Complements ``_seam_visibility_score`` (which measures the *peak* luminance
+    jump at a single row) and ``ghost_seam_scores`` (which measures repeated-edge
+    periodicity).  Bhattacharyya distance captures the *distribution* mismatch —
+    two strips can have the same mean luminance but completely different histogram
+    shapes (e.g., one bimodal, one unimodal) and still produce perceptible banding.
+
+    Parameters
+    ----------
+    img : (H, W, 3) or (H, W) uint8 image.
+    n_strips : number of equal-height zones.  Returns ``[]`` when ≤ 1.
+    band_px : number of rows on each side of the boundary used for the histogram.
+              Clipped to image bounds; falls back to 0.0 when either side is empty.
+
+    Returns
+    -------
+    List of ``n_strips − 1`` float scores in [0, 1].  Empty list when
+    *n_strips* ≤ 1.
+    """
+    if n_strips <= 1:
+        return []
+    H = img.shape[0]
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    zone_h = H / n_strips
+    scores: List[float] = []
+    for k in range(1, n_strips):
+        boundary_y = int(round(zone_h * k))
+        top = gray[max(0, boundary_y - band_px):boundary_y]
+        bot = gray[boundary_y:min(H, boundary_y + band_px)]
+        if top.size == 0 or bot.size == 0:
+            scores.append(0.0)
+            continue
+        h_top = cv2.calcHist([top], [0], None, [256], [0, 256])
+        h_bot = cv2.calcHist([bot], [0], None, [256], [0, 256])
+        cv2.normalize(h_top, h_top)
+        cv2.normalize(h_bot, h_bot)
+        dist = float(cv2.compareHist(h_top, h_bot, cv2.HISTCMP_BHATTACHARYYA))
+        scores.append(round(float(np.clip(1.0 - dist, 0.0, 1.0)), 4))
+    return scores
+
+
+def _compute_all_metrics(
+    img: np.ndarray,
+    affines: Optional[List] = None,
+    n_strips: int = 1,
+) -> Dict:
     rlhf = _compute_rlhf_score(img)
+    seam_scores = _compute_per_seam_ghost_scores(img, n_strips)
+    color_scores = _seam_bhattacharyya_distances(img, n_strips)
     return {
         "sharpness": round(_sharpness(img), 2),
         "coverage": round(_coverage(img), 4),
@@ -395,6 +504,10 @@ def _compute_all_metrics(img: np.ndarray, affines: Optional[List] = None) -> Dic
         "ghosting_siqe": round(_ghosting_score_v2(img), 2),
         "seam_coherence": round(_seam_coherence(img), 2),
         "seam_visibility": round(_seam_visibility_score(img, affines), 2),
+        "ghost_seam_scores": [round(s, 2) for s in seam_scores],
+        "ghost_seam_max": round(max(seam_scores), 2) if seam_scores else None,
+        "seam_color_scores": color_scores,
+        "seam_color_min": round(min(color_scores), 4) if color_scores else None,
         "width": img.shape[1],
         "height": img.shape[0],
         "rlhf_score": round(rlhf, 4) if rlhf is not None else None,

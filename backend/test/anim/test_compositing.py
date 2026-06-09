@@ -26,7 +26,9 @@ from backend.src.anim.compositing import (  # noqa: E402
     _apply_bg_histogram_match,
     _bg_gain_unclamped,
     _bg_histogram_lut,
+    _reject_exposure_outliers,
     _build_seam_cost_map,
+    _check_seam_color_gate,
     _coherence_skip_mask,
     _composite_foreground,
     _diff_to_feather,
@@ -37,6 +39,8 @@ from backend.src.anim.compositing import (  # noqa: E402
     _poisson_seam_blend,
     _seam_cut,
     _seam_color_match,
+    _seam_color_similarity,
+    _seam_color_similarity_bgr,
     _single_pose_soft_edge,
     _soft_seam_weight,
 )
@@ -1197,3 +1201,182 @@ class TestBgHistogramLut:
         assert lut.shape == (256,)
         expected = np.arange(256, dtype=np.float32)
         np.testing.assert_array_equal(lut, expected)
+
+
+# ---------------------------------------------------------------------------
+# §1.4F — _reject_exposure_outliers (S50)
+# ---------------------------------------------------------------------------
+
+
+class TestRejectExposureOutliers:
+    """
+    _reject_exposure_outliers(frame_lums, max_deviation_lum) returns a per-frame
+    bool list marking frames whose background luminance deviates from the global
+    median by more than max_deviation_lum.
+
+    Frames with None lum are never rejected.
+    Fewer than 3 valid values → all False (unreliable median).
+    """
+
+    def test_uniform_lums_all_false(self):
+        """All frames at the same luminance → none rejected."""
+        lums = [120.0, 120.0, 120.0, 120.0, 120.0]
+        result = _reject_exposure_outliers(lums, max_deviation_lum=60.0)
+        assert result == [False, False, False, False, False]
+
+    def test_dark_outlier_above_threshold_rejected(self):
+        """One very dark frame (lum=30) with median≈120 and threshold=60 → rejected."""
+        lums = [120.0, 125.0, 30.0, 118.0, 122.0]
+        result = _reject_exposure_outliers(lums, max_deviation_lum=60.0)
+        assert result[2] is True, "Dark outlier frame should be rejected"
+        assert result[0] is False and result[1] is False and result[3] is False and result[4] is False
+
+    def test_bright_outlier_above_threshold_rejected(self):
+        """One very bright frame (lum=230) with median≈120 and threshold=60 → rejected."""
+        lums = [118.0, 120.0, 230.0, 122.0, 119.0]
+        result = _reject_exposure_outliers(lums, max_deviation_lum=60.0)
+        assert result[2] is True, "Bright outlier frame should be rejected"
+        assert all(not result[i] for i in [0, 1, 3, 4])
+
+    def test_below_threshold_deviation_not_rejected(self):
+        """Frame with deviation exactly at threshold (not exceeding) → not rejected."""
+        lums = [100.0, 100.0, 100.0, 100.0, 155.0]
+        # median=100, frame[4]=155, deviation=55, threshold=60 → not rejected
+        result = _reject_exposure_outliers(lums, max_deviation_lum=60.0)
+        assert result[4] is False, "Frame within threshold should not be rejected"
+        assert result == [False, False, False, False, False]
+
+    def test_insufficient_frames_returns_all_false(self):
+        """Fewer than 3 valid lum values → all False (unreliable median)."""
+        lums = [None, 40.0, None, 200.0, None]  # only 2 valid
+        result = _reject_exposure_outliers(lums, max_deviation_lum=10.0)
+        assert result == [False, False, False, False, False]
+
+
+# ---------------------------------------------------------------------------
+# §1.14B — _seam_color_similarity and _check_seam_color_gate
+# ---------------------------------------------------------------------------
+
+
+class TestSeamColorGate:
+    """§1.14B: Bhattacharyya colour-similarity gate for post-composite seam check."""
+
+    @staticmethod
+    def _uniform(h: int, w: int, val: int) -> np.ndarray:
+        return np.full((h, w, 3), val, dtype=np.uint8)
+
+    @staticmethod
+    def _stacked(val_top: int, val_bot: int, h: int = 200, w: int = 100) -> np.ndarray:
+        top = np.full((h // 2, w, 3), val_top, dtype=np.uint8)
+        bot = np.full((h - h // 2, w, 3), val_bot, dtype=np.uint8)
+        return np.vstack([top, bot])
+
+    def test_single_strip_gate_returns_none(self):
+        """n_strips=1 means no seams → gate always returns None."""
+        img = self._uniform(100, 100, 128)
+        assert _check_seam_color_gate(img, n_strips=1, thresh=0.55) is None
+
+    def test_threshold_zero_disabled(self):
+        """thresh=0.0 disables the gate regardless of colour mismatch."""
+        img = self._stacked(0, 255)
+        assert _check_seam_color_gate(img, n_strips=2, thresh=0.0) is None
+
+    def test_identical_strips_above_threshold(self):
+        """Uniform image → similarity=1.0 > any reasonable threshold → None."""
+        img = self._uniform(200, 100, 128)
+        assert _check_seam_color_gate(img, n_strips=2, thresh=0.55) is None
+
+    def test_mismatched_strips_below_threshold(self):
+        """White top half / black bottom half → similarity near 0 → returns seam 0."""
+        img = self._stacked(255, 0)
+        result = _check_seam_color_gate(img, n_strips=2, thresh=0.55)
+        assert result == 0, f"Expected worst seam 0, got {result}"
+
+    def test_returns_worst_seam_index(self):
+        """Three strips: middle seam (between zones 1 and 2) is worst → returns 1."""
+        h, w = 300, 100
+        # Zone 0 (rows 0-99): value 200; Zone 1 (rows 100-199): value 200 (same → good seam 0)
+        # Zone 2 (rows 200-299): value 0 (contrast with zone 1 → bad seam 1)
+        zone0 = np.full((100, w, 3), 200, dtype=np.uint8)
+        zone1 = np.full((100, w, 3), 200, dtype=np.uint8)
+        zone2 = np.full((100, w, 3), 0, dtype=np.uint8)
+        img = np.vstack([zone0, zone1, zone2])
+        result = _check_seam_color_gate(img, n_strips=3, thresh=0.55)
+        assert result == 1, f"Expected worst seam index 1, got {result}"
+
+
+# ---------------------------------------------------------------------------
+# §1.14C — _seam_color_similarity_bgr (per-channel BGR Bhattacharyya)
+# ---------------------------------------------------------------------------
+
+
+class TestSeamColorSimilarityBgr:
+    """§1.14C: Per-channel BGR Bhattacharyya catches hue-shifted banding."""
+
+    @staticmethod
+    def _bgr(h: int, w: int, b: int, g: int, r: int) -> np.ndarray:
+        """Uniform BGR image."""
+        img = np.zeros((h, w, 3), dtype=np.uint8)
+        img[:, :, 0] = b
+        img[:, :, 1] = g
+        img[:, :, 2] = r
+        return img
+
+    def test_identical_bands_returns_one(self):
+        """Same colour above and below seam → score == 1.0."""
+        img = self._bgr(200, 100, 100, 150, 200)
+        score = _seam_color_similarity_bgr(img, k=0, n_strips=2, band_px=50)
+        assert score == pytest.approx(1.0, abs=0.05)
+
+    def test_hue_shift_same_luma_low_score(self):
+        """Neutral-grey top / warm-shifted bottom with IDENTICAL luma (≈128).
+
+        Color A: B=128, G=128, R=128 → Y = 128
+        Color B: B=28,  G=128, R=166 → Y = 0.114×28 + 0.587×128 + 0.299×166 ≈ 128
+
+        Greyscale histograms for uniform bands both peak at luma=128 → grey score ≈ 1.0.
+        BGR score is driven down by the large B channel shift (128 vs 28) → BGR < grey.
+        """
+        h, w = 200, 100
+        top_grey = np.full((h // 2, w, 3), 128, dtype=np.uint8)  # B=G=R=128
+        bot_warm = np.zeros((h - h // 2, w, 3), dtype=np.uint8)
+        bot_warm[:, :, 0] = 28   # B
+        bot_warm[:, :, 1] = 128  # G
+        bot_warm[:, :, 2] = 166  # R  → same luma as 128,128,128
+        img = np.vstack([top_grey, bot_warm])
+        bgr_score = _seam_color_similarity_bgr(img, k=0, n_strips=2, band_px=50)
+        grey_score = _seam_color_similarity(img, k=0, n_strips=2, band_px=50)
+        assert grey_score > 0.90, f"Greyscale should be near 1.0, got {grey_score:.3f}"
+        assert bgr_score < grey_score, (
+            f"BGR score {bgr_score:.3f} should be below greyscale {grey_score:.3f}"
+        )
+
+    def test_grayscale_input_falls_back_gracefully(self):
+        """2-D greyscale input → falls back to _seam_color_similarity path, returns float."""
+        gray = np.full((200, 100), 128, dtype=np.uint8)
+        score = _seam_color_similarity_bgr(gray, k=0, n_strips=2, band_px=50)
+        assert 0.0 <= score <= 1.0
+
+    def test_check_gate_use_bgr_triggers_on_hue_shift(self):
+        """use_bgr=True gate fires on hue-shifted image that greyscale gate misses.
+
+        Uses identical-luma colours (Y≈128): grey gate passes (score≈1.0),
+        BGR gate fails (min channel score ≈ 0 due to large B shift).
+        """
+        h, w = 200, 100
+        top_grey = np.full((h // 2, w, 3), 128, dtype=np.uint8)
+        bot_warm = np.zeros((h - h // 2, w, 3), dtype=np.uint8)
+        bot_warm[:, :, 0] = 28   # B
+        bot_warm[:, :, 1] = 128  # G
+        bot_warm[:, :, 2] = 166  # R  → luma ≈ 128
+        img = np.vstack([top_grey, bot_warm])
+        grey_result = _check_seam_color_gate(img, n_strips=2, thresh=0.55, use_bgr=False)
+        bgr_result  = _check_seam_color_gate(img, n_strips=2, thresh=0.55, use_bgr=True)
+        assert grey_result is None, "Greyscale gate should not fire on same-luma hue shift"
+        assert bgr_result == 0, "BGR gate should return seam 0 for hue-shifted bands"
+
+    def test_band_too_small_returns_one(self):
+        """band_px too large for image height → trivially thin bands → score 1.0."""
+        img = self._bgr(10, 50, 0, 0, 255)
+        score = _seam_color_similarity_bgr(img, k=0, n_strips=2, band_px=100)
+        assert score == pytest.approx(1.0, abs=1e-6)

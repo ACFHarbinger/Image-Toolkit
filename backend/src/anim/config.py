@@ -65,6 +65,12 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_MULTISCALE_GAIN":     (int,   0,    1,     "Enable multi-scale spatial gain map (0 or 1)"),
     "ASP_SIMILARITY_MODE":     (int,   0,    1,     "Use similarity (scale+rot+tx) instead of translation-only matching (0 or 1)"),
     "ASP_HISTOGRAM_MATCH":     (int,   0,    1,     "Enable CDF histogram matching for bg normalisation (0 or 1)"),
+    "ASP_EXPOSURE_OUTLIER_THRESH": (float, 0.0, 255.0, "Max bg-lum deviation from median before norm skip (0=off)"),
+    "ASP_SCENE_CHANGE_LUMA_THRESH": (float, 0.0, 255.0, "Max mean-luma diff between frames before edge rejection (0=off)"),
+    "ASP_SCENE_CHANGE_BGR_THRESH": (float, 0.0, 255.0, "Max per-channel (BGR) mean diff between frames before edge rejection (0=off)"),
+    "ASP_SEAM_COLOR_GATE": (float, 0.0, 1.0, "Min Bhattacharyya colour similarity across seam to pass composite gate (0=off)"),
+    "ASP_SEAM_COLOR_GATE_BGR": (int, 0, 1, "Use per-channel BGR Bhattacharyya instead of greyscale in seam colour gate (0 or 1)"),
+    "ASP_MST_MIN_WEIGHT": (float, 0.0, 1.0, "Min mean MST edge weight before pre-BA SCANS fallback (0=off)"),
 }
 
 
