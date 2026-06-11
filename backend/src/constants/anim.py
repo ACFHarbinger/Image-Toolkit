@@ -207,6 +207,9 @@ SCENE_CHANGE_BGR_THRESH = 60.0   # §1.13B: max per-channel mean diff (BGR) befo
 SCALE_NORM_THRESH = 0.05  # §1.3C: min max/min scale ratio deviation before normalisation is applied
 SEAM_COLOR_GATE_THRESH = 0.55  # §1.14B: min Bhattacharyya colour similarity (0–1) to pass post-composite gate (0=off)
 MST_MIN_WEIGHT = 0.35  # §1.16: minimum mean MST edge weight before pre-BA SCANS fallback (0=off)
+GNC_C_PX = 10.0       # §1.17: Geman-McClure c parameter (px); rᵢ ≈ c → 50% weight
+GNC_MU_ANNEAL = 1.4   # §1.17: GNC μ annealing divisor per outer iteration (Yang et al. 2020)
+GNC_MAX_OUTER = 8     # §1.17: default max GNC outer continuation iterations
 
 # ToonCrafter
 TOONCRAFTER_REPO = "Doubiiu/ToonCrafter"

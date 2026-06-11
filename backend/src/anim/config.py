@@ -71,6 +71,7 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_SEAM_COLOR_GATE": (float, 0.0, 1.0, "Min Bhattacharyya colour similarity across seam to pass composite gate (0=off)"),
     "ASP_SEAM_COLOR_GATE_BGR": (int, 0, 1, "Use per-channel BGR Bhattacharyya instead of greyscale in seam colour gate (0 or 1)"),
     "ASP_MST_MIN_WEIGHT": (float, 0.0, 1.0, "Min mean MST edge weight before pre-BA SCANS fallback (0=off)"),
+    "ASP_GNC_OUTER": (int, 0, 20, "GNC-TLS outer iterations (0=Cauchy only, default 8)"),
 }
 
 

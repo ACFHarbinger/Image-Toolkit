@@ -4,6 +4,73 @@
 
 ---
 
+## ASP Session 63 — §2.3 Canvas Layout Inspector (read-only viewer) (2026-06-11)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_parse_canvas_json(path) → dict`** (`stitch_tab.py`) | §2.3: Loads `stage08_canvas_info.json` written by `_ProgressPipeline`. Returns normalised dict: `canvas_h`, `canvas_w`, `frame_h` (defaults 0 if absent), `frame_w` (defaults 0 if absent), `T_global` as `List[float]`, `affines_final` as list-of-lists-of-float. Safe for files written before the `frame_h`/`frame_w` addition. |
+| **`_canvas_frame_corners(affine_2x3, frame_h, frame_w) → List[Tuple]`** (`stitch_tab.py`) | Pure function: applies the full 2×3 affine to the 4 corners of an (H, W) frame — `(0,0)`, `(W,0)`, `(W,H)`, `(0,H)` — and returns 4 `(x, y)` canvas-space tuples. Works for translation, rotation, scale, and shear affines. |
+| **`CanvasLayoutInspectorDialog(QDialog)`** (`stitch_tab.py`) | Read-only canvas layout viewer. Left pane: `QGraphicsScene`/`QGraphicsView` (dark background) with a dim canvas-border rectangle and N frame polygons rendered as `QPainterPath` fills using an 8-colour rotating palette (cornflower-blue, green, orange, violet, gold, teal, tomato, sky-blue) at 110 alpha, edge outlines `color.darker(160)`. Frame index label (white, 230 alpha) placed at the polygon centroid. Right pane: `QTableWidget` with Frame/tx/ty per row. Stats label: "N frames · W×H canvas". "Load JSON…" toolbar button for standalone use. |
+| **`⬗ Canvas` button in Stitch action row** (`stitch_tab.py`) | Initially disabled. Enabled in `_on_stitch_finished` when `stage08_canvas_info.json` exists in `_last_stages_dir`. Calls `_inspect_canvas()` which parses the JSON and opens the dialog. Log message `"[Stitch] Canvas layout available — click '⬗ Canvas' to inspect."` emitted on enable. |
+| **`frame_h`/`frame_w` in `stage08_canvas_info.json`** (`stitch_worker.py`) | Two new fields added to the `_save_json(8, "canvas_info", ...)` dict: `"frame_h": int(H)` and `"frame_w": int(W)`, where `H, W = frames[0].shape[:2]` (already in scope at Stage 8). Required for the canvas polygon renderer to know the frame dimensions. Zero-cost — no algorithmic changes. |
+| **9 unit tests** (`test_stitch_tab.py`) | `TestParseCanvasJson`: valid fixture fields parsed correctly; missing frame_h/frame_w default to 0; affines_final values coerced to float. `TestCanvasFrameCorners`: identity affine returns raw corners exactly; pure translation shifts all corners; 90° CCW rotation affine verified against closed-form. `TestCanvasLayoutInspectorDialog`: 3-frame fixture populates table and stats; zero frame dimensions skip polygon draw but update stats; no-data instantiation leaves label at "No data loaded.". **422 tests passing.** |
+
+### Design rationale
+
+Same read-only viewer pattern as §2.2 (Session 62): `_ProgressPipeline` already writes `stage08_canvas_info.json` when `save_intermediate=True`, so the dialog consumes a static file — zero pipeline changes, zero new worker signals. The two-field extension to `stitch_worker.py` (`frame_h`/`frame_w`) is pure serialisation change to the debug dump; the `_parse_canvas_json` function defaults them to zero for backward compatibility with existing JSON files.
+
+`_canvas_frame_corners` uses the full 2×3 affine rather than just the `tx`/`ty` diagonal, so the polygons correctly show rotation and scale distortion when `ASP_SIMILARITY_MODE=1` or affine-mode BA is active.
+
+Visual render verified (2026-06-11): 3-frame synthetic fixture with correct overlap shows 3 colour-coded blocks side-by-side on a dark canvas, canvas border visible, stats "3 frames · 1850×500 canvas", table tx=10.0/620.0/1210.0 ty=50.0.
+
+---
+
+## ASP Session 62 — §2.2 Edge Graph Inspector (read-only viewer) (2026-06-11)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_parse_edge_json(path) → List[dict]`** (`stitch_tab.py`) | §2.2: Loads and normalises a `stage05_edges.json` file saved by `_ProgressPipeline`. Drops records missing `i` or `j`. Fills `dx`, `dy`, `conf`, `method` with safe defaults (0.0, 0.0, 0.0, `"?"`) when absent. Returns a clean list ready for the graph renderer. |
+| **`_edge_graph_node_positions(n, radius=150.0) → List[Tuple]`** (`stitch_tab.py`) | Pure function: places N nodes evenly on a circle of given radius, first node at 12 o'clock (−π/2 offset). Returns `[]` for n≤0, `[(0,0)]` for n=1. Used as the layout engine for the graph scene. |
+| **`EdgeGraphInspectorDialog(QDialog)`** (`stitch_tab.py`) | Read-only edge graph viewer. Left pane: `QGraphicsScene`/`QGraphicsView` with dark background — frame nodes as labelled blue circles, match edges as lines colour-coded by confidence (green ≥ 0.7, yellow ≥ 0.5, red < 0.5), line width 1+conf×4px, tooltip per edge shows i→j/conf/dx/dy/method. Right pane: `QTableWidget` sorted by conf ascending (worst-first), columns From/To/Conf/Method/dx/dy, cells coloured to match edge confidence. Stats label: "N frames · K edges · M low-conf". "Load JSON…" toolbar button for standalone use. |
+| **`⬡ Edges` button in Stitch action row** (`stitch_tab.py`) | Initially disabled. Enabled in `_on_stitch_finished` when `stage05_edges.json` is found in `_last_stages_dir`. Calls `_inspect_edges()` which parses the JSON and opens the dialog. Log message `"[Stitch] Edge graph available — click '⬡ Edges' to inspect."` emitted on enable. |
+| **`self._last_stages_dir`** (`stitch_tab.py`) | New state variable on `EditTab`. Set from `worker._intermediate_dir` at start of each run so `_on_stitch_finished` and `_inspect_edges` always reference the correct run's stages dir. |
+| **11 unit tests** (`test_stitch_tab.py`) | `TestParseEdgeJson`: valid fixture, missing optional fields → defaults, records without i/j skipped, empty array → empty list. `TestEdgeGraphNodePositions`: zero → empty, single → origin, N equidistant from centre (radius check), first node at 12 o'clock. `TestEdgeGraphInspectorDialog`: table populated + stats label, table sorted worst-first, empty edges → "No edges." message. **413 tests passing.** |
+
+### Design rationale
+
+`_ProgressPipeline` already writes `stage05_edges.json` (i, j, dx, dy, conf, method per edge) when `save_intermediate=True`. The viewer consumes this file directly — zero changes to pipeline code, zero new worker signals, no §2.7 staging architecture required. This ships the core "what did my edge graph look like?" diagnostic immediately and unblocks future sessions from adding the interactive delete/re-solve path on top.
+
+Visual check is intentionally deferred: no `asp_test*` corpus exists on this machine, so no stitch run has been made with `save_intermediate=True`. The `_parse_edge_json` / `_edge_graph_node_positions` logic is verified by the 11 unit tests; the rendered graph will be visually validated when the corpus arrives.
+
+---
+
+## ASP Session 61 — §1.17 GNC-TLS Bundle Adjustment (2026-06-11)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_gnc_weights_geman_mcclure(residuals_sq, mu, c_sq) → ndarray`** (`bundle_adjust.py`) | §1.17: Geman-McClure per-edge GNC weights `wᵢ = (μc² / (μc² + rᵢ²))²`. At large μ (initial) all weights ≈ 1 (convex quadratic regime). As μ decreases over outer iterations, edges with large residuals receive exponentially smaller weights, approximating the truncated-LS cost. Yang et al., IEEE RA-L 2020. Exported in `__all__`. |
+| **GNC-TLS outer continuation loop in `_bundle_adjust_affine`** (`bundle_adjust.py`) | `_GNC_OUTER=8` outer iterations (default ON, `ASP_GNC_OUTER=0` reverts to §1.1C Cauchy). Loop: initialise μ₀=max_sq/(2c²) so the surrogate starts convex; per-iter: compute per-edge squared translation disagreement, update GM weights, LM step with `loss='linear'` and `√w` multiplier in the `residuals()` closure, anneal μ÷=1.4; terminates on ‖Δx‖<1e-3 or μ<0.01. |
+| **`_gnc_ws` mutable closure** (`bundle_adjust.py`) | `List[float]` captured by `residuals()`; updated in-place by the GNC loop. `residuals()` multiplies each edge contribution by `_gnc_ws[idx]` (= `√wᵢ`), giving scipy LM the effective weighted cost `wᵢ·rᵢ²`. Priors and regularisers remain unweighted. |
+| **`GNC_C_PX=10.0`, `GNC_MU_ANNEAL=1.4`, `GNC_MAX_OUTER=8`** (`constants/anim.py`) | §1.17 constants. `GNC_C_PX=10px`: edges with 10px residual receive 50% weight at μ=1; `GNC_MU_ANNEAL=1.4`: 8-step schedule spans ~15× dynamic range. |
+| **`ASP_GNC_OUTER` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 20, "GNC-TLS outer iterations (0=Cauchy only, default 8)")`. |
+| **5 unit tests** (`test_bundle_adjust.py::TestGNCWeightsGemanMcclure`) | unit-weights-large-mu (μ=1e6 → all weights > 0.999), zero-residual-weight-one (rᵢ=0 → wᵢ=1.0 exactly), high-residual-suppressed (rᵢ=100px >> c=10px → wᵢ < 0.01), weights-in-valid-range (50 random residuals ∈ [0,1]), higher-residual-lower-weight (monotone decreasing). **Anim suite: 412 passing.** |
+
+### Design rationale
+
+Category B failures (test13 ratio=11.1×, test64=4.2×, etc.) occur when a single catastrophically bad LoFTR match inflates the 3×-median outlier threshold, making itself immune to the post-solve prong-1 rejection. The §1.1B spanning-tree pre-filter cannot catch a bad edge that *is* the highest-weight MST edge. The §1.1C Cauchy one-shot suppresses but cannot eliminate it once it corrupts the global median.
+
+GNC-TLS (Yang et al. 2020) solves this directly: the first outer iteration is a pure quadratic solve (μ→∞, all edges equal), giving an unbiased initial estimate. Subsequent iterations progressively down-weight the high-residual edges in closed form (no RANSAC hypothesis sampling), converging to the truncated-LS solution. Tolerates up to ~70–80% outlier edges vs. ~50% for RANSAC-style rejection. Default ON — the solver always runs the outer loop, not an opt-in gate.
+
+Post-solve outlier rejection (§1.1 prong-1 residual threshold + prong-2 dy-outlier check) remains unchanged as a backstop for moderate outliers that the μ schedule (1.4⁸ ≈ 15× dynamic range) leaves partially suppressed.
+
+---
+
 ## ASP Session 60 — §1.16 Minimum Spanning Tree Weight Gate (2026-06-08)
 
 ### Shipped

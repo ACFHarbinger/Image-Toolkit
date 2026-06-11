@@ -328,6 +328,7 @@ if _PIPELINE_OK:
                 affines[i][1, 2] += T_global[1]
             _save_json(8, "canvas_info", {
                 "canvas_h": canvas_h, "canvas_w": canvas_w,
+                "frame_h": int(H), "frame_w": int(W),
                 "T_global": list(T_global),
                 "affines_final": [a.tolist() for a in affines],
             })
