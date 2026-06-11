@@ -1,6 +1,6 @@
 # Image Toolkit — Master Roadmap
 
-*Last updated: 2026-06-05. Session 9: ToonCrafter seam synthesis wired (§3.6/ML.4, `ASP_TOONCRAFTER_SEAM=1`). Session 8: DINOv2 submodular frame selection (§3.3/ML.2), LSD collinearity in ARAP (§0.1/A3), Aligned-SSIM metric. Session 7: Stage 12.5 scroll-axis content trim (§2.6). Session 6: hold detection (§1.11/ML.1), GNC BA, SLIC SGM proxy (§3.1/ML.5). 107 tests passing. Session 5: alignment stability gate (+0.074 test08, +0.049 test25), fg pixel L1 pose metric (+0.010 test27 with pose-on), 90 unit tests. Session 4: ARAP Push (Sýkora 2009), 96-test run. Research: `reports/Image_Stitching_Research.md`, `reports/Anime Stitch Pipeline ML Research.md`.*
+*Last updated: 2026-06-11. Session 63: §2.3 Canvas Layout Inspector read-only viewer (422 tests passing). Session 62: §2.2 Edge Graph Inspector read-only viewer (413 tests passing). Session 61: GNC-TLS BA (§1.17, 412 tests passing). Session 60: MST weight gate (§1.16, 407). Session 9 (archived base): ToonCrafter seam synthesis (§3.6/ML.4). Session 8: DINOv2 frame selection (§3.3/ML.2), LSD ARAP, Aligned-SSIM. Session 6: hold detection (§1.11/ML.1), GNC BA (§1.1C), SLIC SGM proxy (§3.1/ML.5). Research: `reports/Image_Stitching_Research.md`, `reports/Anime Stitch Pipeline ML Research.md`, `reports/ASP Consolidated Research Plan.md`.*
 
 Completed items have been moved to [CHANGELOG.md](CHANGELOG.md).
 
@@ -144,7 +144,7 @@ New capabilities that expand the app's core value proposition.
 
 | # | Item | Effort | Roadmap Link |
 |---|------|--------|--------------|
-| 3.1 | **[ASP] GNC robust loss in bundle adjustment** — scipy `loss='cauchy'` swap (Option C) | ~2d | [asp.md §1.1](roadmaps/asp.md#11-bundle-adjustment-hardening) |
+| 3.1 | **[ASP] ✅ GNC robust loss in bundle adjustment** — GNC-TLS outer continuation loop shipped S61 (§1.17); Cauchy one-shot (§1.1C) available via `ASP_GNC_OUTER=0` | Done | [asp.md §1.17](roadmaps/asp.md#117-gnc-tls-bundle-adjustment-quick-win--shipped-s61) |
 | 3.2 | **[ASP] OpenCV PANORAMA fallback for scale/rotation sequences** (Option B) | ~1d | [asp.md §1.3](roadmaps/asp.md#13-scale-and-rotation-handling) |
 | 3.3 | **[ASP] Poisson blending at seam zone** — `cv2.seamlessClone` in final-output mode (Option C) | ~1d | [asp.md §1.6](roadmaps/asp.md#16-ghosting-reduction-in-composite-zone) |
 | 3.4 | **[ASP] SRStitcher inpainting for border rectangling** — when `sr_mode=True` (Option A) | ~0.5d | [asp.md §1.7](roadmaps/asp.md#17-recdiffusion-border-rectangling) |

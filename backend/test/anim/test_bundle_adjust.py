@@ -24,6 +24,7 @@ sys.path.insert(0, _repo_root)
 from backend.src.anim.bundle_adjust import (  # noqa: E402
     _bundle_adjust_affine,
     _compute_adaptive_f_scale,
+    _gnc_weights_geman_mcclure,
     _spanning_tree_inlier_filter,
 )
 from conftest import compute_ty_gaps, make_edge  # noqa: E402
@@ -481,3 +482,48 @@ class TestSpanningTreeInlierFilter:
         # The low-weight wrong 0→1 (dy=200) should be removed
         result_dy = [abs(float(e["M"][1, 2])) for e in result if e["i"] == 0 and e["j"] == 1]
         assert all(d == pytest.approx(300.0, abs=1.0) for d in result_dy)
+
+
+# ---------------------------------------------------------------------------
+# §1.17 — GNC-TLS Geman-McClure weights
+# ---------------------------------------------------------------------------
+
+
+class TestGNCWeightsGemanMcclure:
+    """Unit tests for _gnc_weights_geman_mcclure (Yang et al. 2020, §1.17)."""
+
+    def test_unit_weights_large_mu(self):
+        """At large μ (convex regime) all weights approach 1.0."""
+        r_sq = np.array([0.0, 25.0, 100.0, 10000.0], dtype=np.float64)
+        c_sq = 100.0  # c = 10px
+        mu = 1e6
+        w = _gnc_weights_geman_mcclure(r_sq, mu, c_sq)
+        assert w.shape == r_sq.shape
+        assert np.all(w > 0.999), f"weights at large μ should be ≈1, got {w}"
+
+    def test_zero_residual_weight_one(self):
+        """An edge with zero residual always receives weight exactly 1.0."""
+        r_sq = np.array([0.0], dtype=np.float64)
+        w = _gnc_weights_geman_mcclure(r_sq, mu=1.0, c_sq=100.0)
+        assert float(w[0]) == pytest.approx(1.0, abs=1e-9)
+
+    def test_high_residual_suppressed(self):
+        """Residual >> c at μ=1 yields weight << 1 (outlier suppression)."""
+        c_sq = 100.0  # c = 10px
+        r_sq = np.array([100.0 ** 2], dtype=np.float64)  # 100px >> 10px
+        w = _gnc_weights_geman_mcclure(r_sq, mu=1.0, c_sq=c_sq)
+        assert float(w[0]) < 0.01, f"outlier should be near-zero weight, got {w[0]}"
+
+    def test_weights_in_valid_range(self):
+        """All returned weights lie in [0, 1] for arbitrary residuals and μ."""
+        rng = np.random.default_rng(42)
+        r_sq = rng.uniform(0, 1e6, size=50)
+        w = _gnc_weights_geman_mcclure(r_sq, mu=2.0, c_sq=100.0)
+        assert np.all(w >= 0.0), "weights must be non-negative"
+        assert np.all(w <= 1.0 + 1e-9), f"weights must be ≤ 1, max={w.max()}"
+
+    def test_higher_residual_lower_weight(self):
+        """Weights are strictly monotone decreasing in residual magnitude."""
+        r_sq = np.array([0.0, 1.0, 25.0, 100.0, 1000.0], dtype=np.float64)
+        w = _gnc_weights_geman_mcclure(r_sq, mu=1.0, c_sq=100.0)
+        assert np.all(np.diff(w) <= 0), f"weights should decrease with residual: {w}"

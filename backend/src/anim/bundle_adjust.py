@@ -20,15 +20,41 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from scipy.optimize import least_squares
-from backend.src.constants import DY_RATIO_THRESH, DY_ABS_THRESH
+from backend.src.constants import DY_RATIO_THRESH, DY_ABS_THRESH, GNC_C_PX, GNC_MU_ANNEAL
 
 try:
     _BA_F_SCALE = float(os.environ.get("ASP_BA_F_SCALE", "10.0"))
 except ValueError:
     _BA_F_SCALE = 10.0
 
+try:
+    _GNC_OUTER: int = int(os.environ.get("ASP_GNC_OUTER", "8"))
+except ValueError:
+    _GNC_OUTER = 8
+
+_GNC_C_PX: float = GNC_C_PX
+_GNC_MU_ANNEAL: float = GNC_MU_ANNEAL
 
 _ST_INLIER_THRESHOLD = 50.0  # §1.1B: max allowed disagreement (px) vs spanning-tree reference
+
+
+def _gnc_weights_geman_mcclure(
+    residuals_sq: np.ndarray,
+    mu: float,
+    c_sq: float,
+) -> np.ndarray:
+    """§1.17: Per-edge Geman-McClure weights for the GNC-TLS outer continuation loop.
+
+    wᵢ = (μ·c² / (μ·c² + rᵢ²))²
+
+    At large μ (initial, convex regime) all weights approach 1.  As μ decreases
+    across outer iterations, edges with large residuals receive exponentially
+    smaller weights, approximating truncated-LS cost.  See Yang et al. (2020),
+    IEEE RA-L, arXiv:1909.08605.
+    """
+    mu_c_sq = mu * c_sq
+    denom = mu_c_sq + residuals_sq
+    return (mu_c_sq / np.maximum(denom, 1e-12)) ** 2
 
 
 def _spanning_tree_inlier_filter(
@@ -190,10 +216,15 @@ def _bundle_adjust_affine(
                     x0[f * 2 + 1] = x0[(f - 1) * 2 + 1] - float(M_raw[1, 2])
                 break
 
+    # Mutable GNC weight vector; updated in-place by the outer loop below.
+    # residuals() reads it at call time so scipy sees updated weights each LM step.
+    _gnc_ws: List[float] = [1.0] * len(edges)
+
     def residuals(x: np.ndarray) -> np.ndarray:
         res = []
-        for e in edges:
-            i, j, w = e["i"], e["j"], float(e.get("weight", 1.0))
+        for idx, e in enumerate(edges):
+            i, j = e["i"], e["j"]
+            w = float(e.get("weight", 1.0)) * float(_gnc_ws[idx])
             if use_affine:
                 # Frame i
                 ai, bi, txi, tyi = x[i * 4 : i * 4 + 4]
@@ -258,26 +289,6 @@ def _bundle_adjust_affine(
 
         return np.array(res, np.float64)
 
-    # GNC robust loss (§1.1C): Cauchy loss down-weights outlier edges whose
-    # residuals exceed f_scale px.  This makes the solver inherently resistant
-    # to bad LoFTR matches that corrupt the global bundle even when the post-
-    # solve residual pruning below cannot catch them (e.g., when the bad edge's
-    # residual is within 3× of the median because the median itself is inflated
-    # by multiple bad edges).  f_scale=10px means good matches (< 5px) are
-    # unaffected; outliers (50–200px) contribute ~5% of their L2 weight.
-    result = least_squares(
-        residuals,
-        x0,
-        method="trf",
-        loss="cauchy",
-        f_scale=_BA_F_SCALE,
-        ftol=1e-6,
-        xtol=1e-6,
-        gtol=1e-6,
-        max_nfev=iterations * num_frames,
-    )
-    x_opt = result.x
-
     def _extract_affines(x: np.ndarray) -> List[np.ndarray]:
         """Build affine matrices from the flat parameter vector."""
         mats: List[np.ndarray] = []
@@ -292,28 +303,95 @@ def _bundle_adjust_affine(
             mats.append(M)
         return mats
 
-    out = _extract_affines(x_opt)
+    if _GNC_OUTER > 0:
+        # §1.17: GNC-TLS outer continuation loop (S61, Yang et al. 2020).
+        # Graduated Non-Convexity with Geman-McClure surrogate: starts convex
+        # (large μ → all edge weights ≈ 1) and anneals toward the TLS cost by
+        # dividing μ by _GNC_MU_ANNEAL each iteration.  Tolerates 70–80% outlier
+        # edges.  Loss is 'linear' because weights are injected directly via the
+        # residuals closure (sqrt(w) multiplier → w×r² cost when squared by LM).
+        stride = 4 if use_affine else 2
+        tx_off = 2 if use_affine else 0
+        ty_off = 3 if use_affine else 1
+        c_sq = _GNC_C_PX ** 2
+        x_cur = x0.copy()
+        mu: Optional[float] = None
 
-    # §1.1D: Adaptive GNC f_scale re-solve (S30).
-    # If the median post-solve edge residual is significantly larger than
-    # _BA_F_SCALE, the Cauchy loss has been over-penalising legitimate edges.
-    # Re-solve once with an f_scale derived from the data so the loss treats
-    # the actual noise floor as the inlier boundary, not a hardcoded constant.
-    _adapt_scale = _compute_adaptive_f_scale(edges, out, floor=_BA_F_SCALE)
-    if _adapt_scale > _BA_F_SCALE * 1.5:
+        for _outer in range(_GNC_OUTER):
+            # Per-edge squared translation disagreement (scalar, no point unpacking)
+            edge_res_sq = np.zeros(len(edges), dtype=np.float64)
+            for idx_e, e in enumerate(edges):
+                ii, jj = int(e["i"]), int(e["j"])
+                pred_dx = x_cur[jj * stride + tx_off] - x_cur[ii * stride + tx_off]
+                pred_dy = x_cur[jj * stride + ty_off] - x_cur[ii * stride + ty_off]
+                obs_dx = -float(e["M"][0, 2])
+                obs_dy = -float(e["M"][1, 2])
+                edge_res_sq[idx_e] = (pred_dx - obs_dx) ** 2 + (pred_dy - obs_dy) ** 2
+
+            # μ₀: largest initialisation such that the surrogate is still convex
+            # (2μ₀c² ≥ max rᵢ²).
+            if mu is None:
+                max_sq = float(edge_res_sq.max()) if len(edge_res_sq) > 0 else 0.0
+                mu = (max_sq / (2.0 * c_sq)) if max_sq > 0 and c_sq > 0 else 1.0
+                mu = max(mu, 1.0)
+
+            gnc_w = _gnc_weights_geman_mcclure(edge_res_sq, mu, c_sq)
+            for idx_e in range(len(edges)):
+                _gnc_ws[idx_e] = float(np.sqrt(max(float(gnc_w[idx_e]), 1e-12)))
+
+            _result_gnc = least_squares(
+                residuals,
+                x_cur,
+                method="trf",
+                loss="linear",
+                ftol=1e-6,
+                xtol=1e-6,
+                gtol=1e-6,
+                max_nfev=iterations * num_frames,
+            )
+            x_new = _result_gnc.x
+            dx_norm = float(np.linalg.norm(x_new - x_cur))
+            x_cur = x_new
+            mu /= _GNC_MU_ANNEAL
+            if dx_norm < 1e-3 or mu < 1e-2:
+                break
+
+        # Restore unity weights so post-solve residual computations are unweighted
+        for idx_e in range(len(_gnc_ws)):
+            _gnc_ws[idx_e] = 1.0
+        x_opt = x_cur
+    else:
+        # §1.1C / §1.1D: single Cauchy solve + adaptive f_scale re-solve (S6/S30)
         result = least_squares(
             residuals,
-            x_opt,
+            x0,
             method="trf",
             loss="cauchy",
-            f_scale=_adapt_scale,
+            f_scale=_BA_F_SCALE,
             ftol=1e-6,
             xtol=1e-6,
             gtol=1e-6,
             max_nfev=iterations * num_frames,
         )
         x_opt = result.x
-        out = _extract_affines(x_opt)
+        _adapt_scale = _compute_adaptive_f_scale(
+            edges, _extract_affines(x_opt), floor=_BA_F_SCALE
+        )
+        if _adapt_scale > _BA_F_SCALE * 1.5:
+            result = least_squares(
+                residuals,
+                x_opt,
+                method="trf",
+                loss="cauchy",
+                f_scale=_adapt_scale,
+                ftol=1e-6,
+                xtol=1e-6,
+                gtol=1e-6,
+                max_nfev=iterations * num_frames,
+            )
+            x_opt = result.x
+
+    out = _extract_affines(x_opt)
 
     # ── Outlier rejection ───────────────────────────────────────────────────
     # Two-pronged approach:
@@ -437,5 +515,6 @@ def _compute_adaptive_f_scale(
 __all__ = [
     "_bundle_adjust_affine",
     "_compute_adaptive_f_scale",
+    "_gnc_weights_geman_mcclure",
     "_spanning_tree_inlier_filter",
 ]
