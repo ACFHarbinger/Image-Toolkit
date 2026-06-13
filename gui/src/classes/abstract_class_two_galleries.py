@@ -44,13 +44,13 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         self._found_pixmap_cache = LRUImageCache(maxsize=300)
 
         # --- Pagination State ---
-        self.found_page_size = 100
+        self.found_page_size = 150
         self.found_current_page = 0
-        self.selected_page_size = 100
+        self.selected_page_size = 150
         self.selected_current_page = 0
 
         # --- UI Configuration ---
-        self.thumbnail_size = 180
+        self.thumbnail_size = self._load_thumbnail_size(default=180)
         self.padding_width = 10
         self.approx_item_width = self.thumbnail_size + self.padding_width + 20
         self._current_found_cols = 1
@@ -86,6 +86,10 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
         # Flag so Ctrl+scroll zoom connections are wired once after gallery scrolls exist
         self._scroll_zoom_connected = False
+
+        # §2.13A — sort state
+        self._sort_key = "name"
+        self._sort_reverse = False
 
         # Directory navigation history (GUI/UX §2.21A)
         self._dir_back_stack: deque = deque(maxlen=20)
@@ -177,7 +181,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         """Write the currently selected file paths to a user-chosen TXT file (Ctrl+E)."""
         paths = self.selected_files or self.found_files
         if not paths:
-            QMessageBox.information(self, "Export", "No files to export.")
+            self._show_status("Nothing to export — gallery is empty.")
             return
         dest, _ = QFileDialog.getSaveFileName(
             self,
@@ -191,13 +195,14 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         try:
             with open(dest, "w", encoding="utf-8") as fh:
                 fh.write("\n".join(paths))
-            QMessageBox.information(
-                self, "Export", f"Exported {len(paths)} paths to:\n{dest}"
-            )
+            self._show_status(f"Exported {len(paths)} paths → {os.path.basename(dest)}")
         except OSError as exc:
             QMessageBox.critical(self, "Export Error", str(exc))
 
-    # --- DIRECTORY NAVIGATION HISTORY (GUI/UX §2.21A) ---
+    # --- DIRECTORY NAVIGATION (GUI/UX §2.21A/D) ---
+    def _navigate_to_dir(self, path: str) -> None:
+        """Subclasses override to load *path* as the active gallery directory."""
+
     def _push_dir_history(self, path: str) -> None:
         """Call this before loading a new directory to push the current one to history."""
         if not path:
@@ -288,6 +293,110 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             f"session/{self.__class__.__name__}/last_dir", default
         )
 
+    # --- §2.14A — filename label below thumbnail ---
+    def _add_filename_label(self, card: QWidget, path: str) -> None:
+        """Append a truncated filename QLabel at the bottom of *card*'s layout (§2.14A)."""
+        layout = card.layout()
+        if layout is None:
+            return
+        name = os.path.basename(path)
+        lbl = QLabel()
+        lbl.setObjectName("thumb_filename_lbl")
+        lbl.setAlignment(Qt.AlignCenter)
+        max_w = self.thumbnail_size + 10
+        fm = lbl.fontMetrics()
+        label_h = fm.height() + 4
+        elided = fm.elidedText(name, Qt.TextElideMode.ElideMiddle, max_w)
+        lbl.setText(elided)
+        lbl.setToolTip(name)
+        lbl.setMaximumWidth(max_w)
+        lbl.setFixedHeight(label_h)
+        lbl.setStyleSheet(
+            "color: #bbb; font-size: 8pt; padding: 0 2px; background: transparent;"
+        )
+        layout.addWidget(lbl)
+        # If the card has a fixed height already set (e.g. setFixedSize in subclass),
+        # expand it to accommodate the label. Cards using QVBoxLayout without a prior
+        # fixed height (height==0 at construction) are self-sizing — no adjustment needed.
+        fixed_h = card.maximumHeight()
+        if 0 < fixed_h < 16777215:  # 16777215 = Qt QWIDGETSIZE_MAX (no constraint)
+            card.setFixedHeight(fixed_h + label_h)
+
+    # --- §2.10C — status bar helper ---
+    def _show_status(self, message: str, timeout_ms: int = 3000) -> None:
+        """Post *message* to the main-window status bar (§2.10C)."""
+        from ..windows.main_window import show_main_status
+        show_main_status(message, timeout_ms)
+
+    # --- THUMBNAIL SIZE PERSISTENCE (GUI/UX §4.11) ---
+    def _save_thumbnail_size(self) -> None:
+        from PySide6.QtCore import QSettings
+        QSettings("ImageToolkit", "ImageToolkit").setValue(
+            f"session/{self.__class__.__name__}/thumbnail_size", self.thumbnail_size
+        )
+
+    def _load_thumbnail_size(self, default: int = 180) -> int:
+        from PySide6.QtCore import QSettings
+        val = QSettings("ImageToolkit", "ImageToolkit").value(
+            f"session/{self.__class__.__name__}/thumbnail_size", default
+        )
+        try:
+            return max(64, min(512, int(val)))
+        except (TypeError, ValueError):
+            return default
+
+    def _sync_thumb_slider(self) -> None:
+        """Push current thumbnail_size to both pagination sliders (after Ctrl+scroll)."""
+        for attr in ("found_thumb_slider", "selected_thumb_slider"):
+            slider = getattr(self, attr, None)
+            if slider is not None:
+                slider.blockSignals(True)
+                slider.setValue(self.thumbnail_size)
+                slider.blockSignals(False)
+        for attr in ("found_thumb_size_lbl", "selected_thumb_size_lbl"):
+            lbl = getattr(self, attr, None)
+            if lbl is not None:
+                lbl.setText(f"{self.thumbnail_size} px")
+
+    # --- SORT (GUI/UX §2.13A) ---
+    _SORT_KEY_MAP = {
+        "Name": "name",
+        "Date Modified": "mtime",
+        "File Size": "size",
+        "Extension": "ext",
+    }
+
+    def _sort_key_fn(self, path: str):
+        from ..utils.sort_utils import natural_sort_key
+        key = self._sort_key
+        if key == "mtime":
+            try:
+                return os.path.getmtime(path)
+            except OSError:
+                return 0.0
+        if key == "size":
+            try:
+                return os.path.getsize(path)
+            except OSError:
+                return 0
+        if key == "ext":
+            return os.path.splitext(path)[1].lower()
+        return natural_sort_key(path)
+
+    def _apply_sort(self, paths: list) -> list:
+        return sorted(paths, key=self._sort_key_fn, reverse=self._sort_reverse)
+
+    def _on_sort_combo_changed(self, label: str) -> None:
+        self._sort_key = self._SORT_KEY_MAP.get(label, "name")
+        self.master_found_files = self._apply_sort(self.master_found_files)
+        self._perform_found_search()
+
+    def _on_sort_dir_toggled(self, btn) -> None:
+        self._sort_reverse = not self._sort_reverse
+        btn.setText("↓" if self._sort_reverse else "↑")
+        self.master_found_files = self._apply_sort(self.master_found_files)
+        self._perform_found_search()
+
     # --- CTRL+SCROLL ZOOM (GUI/UX §2.2) ---
     def _connect_scroll_zoom(self) -> None:
         """Wire Ctrl+scroll zoom on gallery scroll areas (called lazily on first layout)."""
@@ -308,9 +417,9 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             return
         self.thumbnail_size = new_size
         self.approx_item_width = new_size + self.padding_width + 20
-        self._save_last_dir(self.last_browsed_dir)  # persist path on any interaction
+        self._sync_thumb_slider()
+        self._save_thumbnail_size()
         self._on_layout_change()
-        # Reload the current page so thumbnails render at the new size
         current_page = self.common_get_paginated_slice(
             self.master_found_files, self.found_current_page, self.found_page_size
         )
@@ -323,34 +432,51 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         path_hash = hashlib.md5(video_path.encode('utf-8')).hexdigest()
         return str(THUMBNAIL_CACHE_DIR / f"{path_hash}.jpg")
 
-    # --- KEYBOARD SHORTCUTS (Shared) ---
+    # --- KEYBOARD SHORTCUTS (GUI/UX §2.29 — registry-driven) ---
     def keyPressEvent(self, event: QEvent):
+        from ..utils.shortcut_manager import get_registry
+        reg = get_registry()
         key = event.key()
-        mods = event.modifiers()
 
-        # Ctrl+A — Select All
-        if key == Qt.Key.Key_A and mods & Qt.ControlModifier:
+        if reg.matches(event, "gallery.select_all"):
             self.select_all_items()
             event.accept()
-        # Ctrl+D — Deselect All
-        elif key == Qt.Key.Key_D and mods & Qt.ControlModifier:
+        elif reg.matches(event, "gallery.deselect_all"):
             self.deselect_all_items()
             event.accept()
-        # Arrow keys — gallery navigation (GUI/UX §2.3A)
-        elif key in (Qt.Key.Key_Left, Qt.Key.Key_Right, Qt.Key.Key_Up, Qt.Key.Key_Down):
-            self._navigate_gallery(key)
+        elif reg.matches(event, "gallery.nav_left"):
+            self._navigate_gallery(Qt.Key.Key_Left)
             event.accept()
-        # Enter / Space — open preview for focused item
-        elif key in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space):
+        elif reg.matches(event, "gallery.nav_right"):
+            self._navigate_gallery(Qt.Key.Key_Right)
+            event.accept()
+        elif reg.matches(event, "gallery.nav_up"):
+            self._navigate_gallery(Qt.Key.Key_Up)
+            event.accept()
+        elif reg.matches(event, "gallery.nav_down"):
+            self._navigate_gallery(Qt.Key.Key_Down)
+            event.accept()
+        elif reg.matches(event, "gallery.open_preview") or key == Qt.Key.Key_Space:
             self._preview_focused_item()
             event.accept()
-        # Ctrl+E — export selection as paths list (GUI/UX §2.19A)
-        elif key == Qt.Key.Key_E and mods & Qt.ControlModifier:
+        elif reg.matches(event, "gallery.export_paths"):
             self._export_selection_as_paths()
             event.accept()
-        # F2 — rename focused item (GUI/UX §2.26B)
-        elif key == Qt.Key.Key_F2:
+        elif reg.matches(event, "gallery.copy_to_folder"):
+            self._copy_selection_to_folder()
+            event.accept()
+        elif reg.matches(event, "gallery.rename"):
             self._rename_focused_file()
+            event.accept()
+        elif reg.matches(event, "gallery.nav_back"):
+            prev = self._dir_go_back()
+            if prev:
+                self._navigate_to_dir(prev)
+            event.accept()
+        elif reg.matches(event, "gallery.nav_forward"):
+            nxt = self._dir_go_forward()
+            if nxt:
+                self._navigate_to_dir(nxt)
             event.accept()
         else:
             super().keyPressEvent(event)
@@ -482,15 +608,38 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             lambda: self._change_page(1, is_found_gallery)
         )
 
+        # §4.11 — thumbnail slider
+        slider = controls["thumb_slider"]
+        size_lbl = controls["thumb_size_lbl"]
+        slider.setValue(self.thumbnail_size)
+        size_lbl.setText(f"{self.thumbnail_size} px")
+        slider.valueChanged.connect(
+            lambda v, f=is_found_gallery: self._on_thumb_slider_changed(v, f)
+        )
+        slider.sliderReleased.connect(self._save_thumbnail_size)
+
+        # §2.13A — sort controls (wire once on the found gallery; applies globally)
+        if is_found_gallery:
+            sc = controls["sort_combo"]
+            sd = controls["sort_dir_btn"]
+            sc.currentTextChanged.connect(self._on_sort_combo_changed)
+            sd.clicked.connect(lambda: self._on_sort_dir_toggled(sd))
+
         # Store references
         if is_found_gallery:
             self.found_page_button = controls["btn_page"]
             self.found_prev_btn = controls["btn_prev"]
             self.found_next_btn = controls["btn_next"]
+            self.found_item_range_lbl = controls["item_range_lbl"]
+            self.found_thumb_slider = slider
+            self.found_thumb_size_lbl = size_lbl
         else:
             self.selected_page_button = controls["btn_page"]
             self.selected_prev_btn = controls["btn_prev"]
             self.selected_next_btn = controls["btn_next"]
+            self.selected_item_range_lbl = controls["item_range_lbl"]
+            self.selected_thumb_slider = slider
+            self.selected_thumb_size_lbl = size_lbl
 
         return container
 
@@ -504,6 +653,24 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             self.selected_page_size = size
             self.selected_current_page = 0
             self.refresh_selected_panel()
+
+    def _on_thumb_slider_changed(self, value: int, is_found: bool) -> None:
+        """Live thumbnail resize via slider (§4.11). Snaps to nearest 16px step."""
+        snapped = max(64, min(512, (value // 16) * 16))
+        if snapped == self.thumbnail_size:
+            return
+        self.thumbnail_size = snapped
+        self.approx_item_width = snapped + self.padding_width + 20
+        # Keep both sliders in sync
+        self._sync_thumb_slider()
+        self._on_layout_change()
+        paths = self.common_get_paginated_slice(
+            self.master_found_files if is_found else self.selected_files,
+            self.found_current_page if is_found else self.selected_current_page,
+            self.found_page_size if is_found else self.selected_page_size,
+        )
+        if paths:
+            self.start_loading_gallery(paths)
 
     def _change_page(self, delta: int, is_found: bool):
         if is_found:
@@ -565,6 +732,18 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         else:
             self.selected_current_page = corrected_page
 
+        # §3.9 — update item range label
+        range_lbl = getattr(
+            self, "found_item_range_lbl" if is_found else "selected_item_range_lbl", None
+        )
+        if range_lbl is not None:
+            if total == 0:
+                range_lbl.setText("0 images")
+            else:
+                first = corrected_page * size + 1
+                last = min(first + size - 1, total)
+                range_lbl.setText(f"Items {first}–{last} of {total}")
+
         # --- FIX: Prevent memory leak and crash by deleting the old menu safely ---
         old_menu = controls["btn_page"].menu()
         if old_menu:
@@ -608,6 +787,178 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
                 self.common_reflow_layout(self.selected_gallery_layout, new_cols)
 
     # --- SELECTION LOGIC ---
+
+    # §2.4B — Shift+click range select ----------------------------------
+    @Slot(str)
+    def _on_found_card_clicked(self, path: str) -> None:
+        """Handle left-click on a found-gallery card, supporting Shift+range."""
+        from PySide6.QtWidgets import QApplication as _QApp
+        modifiers = _QApp.keyboardModifiers()
+        page_paths = self.common_get_paginated_slice(
+            self.master_found_files, self.found_current_page, self.found_page_size
+        )
+        try:
+            clicked_idx = page_paths.index(path)
+        except ValueError:
+            self.toggle_selection(path)
+            return
+
+        if modifiers & Qt.KeyboardModifier.ShiftModifier:
+            anchor = getattr(self, "_selection_anchor_idx", clicked_idx)
+            lo, hi = sorted([anchor, clicked_idx])
+            for p in page_paths[lo : hi + 1]:
+                if p not in self.selected_files:
+                    self.selected_files.append(p)
+            self._update_found_card_styles()
+            self.refresh_selected_panel()
+            self.on_selection_changed()
+        else:
+            self._selection_anchor_idx = clicked_idx
+            self.toggle_selection(path)
+
+    # §2.4C — right-click context menu on found-gallery cards -----------
+    @Slot(object, str)
+    def _on_found_card_right_clicked(self, global_pos, path: str) -> None:
+        from PySide6.QtWidgets import QMenu as _QMenu
+        from PySide6.QtGui import QAction as _QAct
+        menu = _QMenu(self)
+
+        open_act = _QAct("Open Preview", menu)
+        open_act.triggered.connect(lambda: self._open_preview_for(path))
+        menu.addAction(open_act)
+
+        menu.addSeparator()
+
+        sel_lbl = "Deselect" if path in self.selected_files else "Select"
+        sel_act = _QAct(sel_lbl, menu)
+        sel_act.triggered.connect(lambda: self.toggle_selection(path))
+        menu.addAction(sel_act)
+
+        sel_all_act = _QAct("Select All", menu)
+        sel_all_act.triggered.connect(self.select_all_items)
+        menu.addAction(sel_all_act)
+
+        desel_act = _QAct("Deselect All", menu)
+        desel_act.triggered.connect(self.deselect_all_items)
+        menu.addAction(desel_act)
+
+        menu.addSeparator()
+
+        rename_act = _QAct("Rename…  (F2)", menu)
+        rename_act.triggered.connect(self._rename_focused_file)
+        menu.addAction(rename_act)
+
+        trash_act = _QAct("Move to Trash", menu)
+        trash_act.triggered.connect(lambda: self._trash_path(path))
+        menu.addAction(trash_act)
+
+        menu.addSeparator()
+
+        export_act = _QAct("Export Paths…  (Ctrl+E)", menu)
+        export_act.triggered.connect(self._export_selection_as_paths)
+        menu.addAction(export_act)
+
+        copy_act = _QAct("Copy Selection to Folder…", menu)
+        copy_act.triggered.connect(self._copy_selection_to_folder)
+        menu.addAction(copy_act)
+
+        menu.addSeparator()
+
+        # Color label submenu (§2.18B)
+        label_menu = menu.addMenu("Color Label")
+        current_label = self._get_color_label(path)
+        for key, hex_color in self._LABEL_COLORS.items():
+            icon_txt = self._LABEL_ICONS.get(key, "")
+            lbl_act = _QAct(f"{icon_txt} {key.capitalize()}", label_menu)
+            lbl_act.setCheckable(True)
+            lbl_act.setChecked(current_label == key)
+            lbl_act.triggered.connect(
+                lambda checked=False, k=key: self._set_color_label(
+                    path, None if self._get_color_label(path) == k else k
+                )
+            )
+            label_menu.addAction(lbl_act)
+        label_menu.addSeparator()
+        clear_act = _QAct("Clear Label", label_menu)
+        clear_act.setEnabled(current_label is not None)
+        clear_act.triggered.connect(lambda: self._set_color_label(path, None))
+        label_menu.addAction(clear_act)
+
+        menu.exec(global_pos)
+
+    def _open_preview_for(self, path: str) -> None:
+        widget = self.path_to_label_map.get(path)
+        if widget and hasattr(widget, "path_double_clicked"):
+            widget.path_double_clicked.emit(path)
+
+    def _confirm_deletions_enabled(self) -> bool:
+        """Return True if the user's preference requires a confirmation dialog before deletion (§2.9D)."""
+        try:
+            main_win = self.window()
+            if main_win and hasattr(main_win, "cached_creds"):
+                return bool(main_win.cached_creds.get("preferences", {}).get("confirm_deletions", True))
+        except Exception:
+            pass
+        return True
+
+    def _trash_path(self, path: str) -> None:
+        if self._confirm_deletions_enabled():
+            answer = QMessageBox.question(
+                self,
+                "Move to Trash",
+                f'Move "{os.path.basename(path)}" to trash?',
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+        try:
+            from send2trash import send2trash
+            send2trash(path)
+        except Exception as exc:
+            QMessageBox.critical(self, "Move to Trash", str(exc))
+            return
+        for lst in (self.found_files, self.master_found_files, self.selected_files):
+            try:
+                lst.remove(path)
+            except ValueError:
+                pass
+        self.path_to_label_map.pop(path, None)
+        self._update_found_card_styles()
+        self.refresh_selected_panel()
+        self.on_selection_changed()
+        self._show_status(f"Moved to trash: {os.path.basename(path)}")
+
+    def _copy_selection_to_folder(self) -> None:
+        """Copy the current selection (or found list if no selection) to a chosen folder (§2.19C)."""
+        import shutil
+        paths = list(self.selected_files) if self.selected_files else list(self.found_files)
+        if not paths:
+            self._show_status("Nothing to copy — gallery is empty.")
+            return
+        dest_dir = QFileDialog.getExistingDirectory(
+            self,
+            "Copy Selection to Folder",
+            "",
+            QFileDialog.Option.DontUseNativeDialog,
+        )
+        if not dest_dir:
+            return
+        copied, skipped = 0, 0
+        for src in paths:
+            dst = os.path.join(dest_dir, os.path.basename(src))
+            if os.path.exists(dst):
+                skipped += 1
+                continue
+            try:
+                shutil.copy2(src, dst)
+                copied += 1
+            except OSError as exc:
+                QMessageBox.critical(self, "Copy Error", f"Failed to copy {os.path.basename(src)}:\n{exc}")
+                return
+        msg = f"Copied {copied} file(s) to {os.path.basename(dest_dir)}"
+        if skipped:
+            msg += f" ({skipped} skipped — already exist)"
+        self._show_status(msg)
 
     @Slot(str)
     def toggle_selection(self, path: str):
@@ -669,12 +1020,50 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         """Returns True if the given path is currently selected."""
         return path in self.selected_files
 
+    # --- COLOR LABELS (§2.18B+C) ---
+    _LABEL_COLORS: Dict[str, str] = {
+        "red":    "#e74c3c",
+        "orange": "#e67e22",
+        "yellow": "#f1c40f",
+        "green":  "#2ecc71",
+        "blue":   "#3498db",
+        "purple": "#9b59b6",
+    }
+    _LABEL_ICONS: Dict[str, str] = {
+        "red": "🔴", "orange": "🟠", "yellow": "🟡",
+        "green": "🟢", "blue": "🔵", "purple": "🟣",
+    }
+
+    def _get_color_label(self, path: str) -> Optional[str]:
+        """Return the color key for *path*, or None if unlabelled."""
+        from PySide6.QtCore import QSettings
+        return QSettings("ImageToolkit", "ImageToolkit").value(f"labels/{path}") or None
+
+    def _set_color_label(self, path: str, color_key: Optional[str]) -> None:
+        """Persist *color_key* (or clear it) for *path*, then refresh the card border."""
+        from PySide6.QtCore import QSettings
+        s = QSettings("ImageToolkit", "ImageToolkit")
+        key = f"labels/{path}"
+        if color_key:
+            s.setValue(key, color_key)
+        else:
+            s.remove(key)
+        card = self.path_to_label_map.get(path)
+        if card:
+            self.update_card_style(card, path in self.selected_files)
+
     def update_card_style(self, widget: QWidget, is_selected: bool):
         if hasattr(widget, "set_selected_style"):
             widget.set_selected_style(is_selected)
         else:
-            color = "#5865f2" if is_selected else "#4f545c"
-            width = "3px" if is_selected else "1px"
+            if is_selected:
+                color, width = "#5865f2", "3px"
+            else:
+                # Show color label border when not selected (§2.18C)
+                path = widget.property("gallery_path")
+                label_color = self._LABEL_COLORS.get(self._get_color_label(path) or "", "") if path else ""
+                color = label_color or "#4f545c"
+                width = "2px" if label_color else "1px"
             widget.setStyleSheet(f"border: {width} solid {color};")
 
     @Slot(str, str)
@@ -804,6 +1193,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
                             pixmap = None
 
                 card = self.create_card_widget(path, pixmap, is_selected=True)
+                self._add_filename_label(card, path)  # §2.14A
                 self.selected_card_map[path] = card
                 self.selected_gallery_layout.addWidget(
                     card, row, col, Qt.AlignLeft | Qt.AlignTop
@@ -894,7 +1284,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
     def start_loading_thumbnails(self, paths: list[str]):
         self.cancel_loading()
-        self.master_found_files = sorted(paths, key=natural_sort_key)
+        self.master_found_files = self._apply_sort(list(paths))
         # Clear cache when starting fresh with new content
         self._found_pixmap_cache.clear()
         # Apply search immediately
@@ -1131,9 +1521,14 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
 
             # Create widget
             card = self.create_card_widget(path, initial_pixmap, is_selected)
+            card.setProperty("gallery_path", path)  # used by update_card_style for color labels (§2.18C)
 
             if isinstance(card, ClickableLabel):
-                card.path_clicked.connect(self.toggle_selection)
+                card.path_clicked.connect(self._on_found_card_clicked)  # §2.4B
+                if hasattr(card, "path_right_clicked"):
+                    card.path_right_clicked.connect(self._on_found_card_right_clicked)  # §2.4C
+
+            self._add_filename_label(card, path)  # §2.14A
 
             row = i // cols
             col = i % cols

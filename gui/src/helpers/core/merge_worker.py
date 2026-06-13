@@ -10,10 +10,16 @@ class MergeWorker(QObject):
     progress = Signal(int, int)  # (current, total)
     finished = Signal(str)  # output path
     error = Signal(str)
+    cancelled = Signal()
 
     def __init__(self, config: Dict[str, Any]):
         super().__init__()
         self.config = config
+        self._should_stop = False
+
+    def cancel(self) -> None:
+        """Signal the worker to stop before the next checkpoint."""
+        self._should_stop = True
 
     def run(self):
         try:
@@ -48,6 +54,10 @@ class MergeWorker(QObject):
 
             if len(image_files) < 2:
                 self.error.emit("Need at least 2 images to merge.")
+                return
+
+            if self._should_stop:
+                self.cancelled.emit()
                 return
 
             # 2. Update progress signals (This is tricky for ImageMerger, we skip full loop)

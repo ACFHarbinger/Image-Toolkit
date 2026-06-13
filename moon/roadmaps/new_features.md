@@ -386,6 +386,57 @@ After stitching, show each boundary seam zone as a thumbnail strip. User rates e
 
 ---
 
+## 4.12 Appearance Profiles
+
+**Pain point:** Theme (dark/light), accent colour (§2.30), font scale (§2.30B), density (§2.30C), and keyboard shortcuts (§2.29) are stored separately — theme in the vault, shortcuts in `keybindings.json`, font scale in vault preferences. Users who switch between contexts (e.g., laptop with small screen vs external monitor, or different lighting environments) must manually change each setting individually. A single "profile switch" that atomically applies all appearance settings would eliminate this friction.
+
+### Options
+
+**A — Appearance profile in existing "System Preference Profiles"**
+Extend the vault's `system_preference_profiles` entries (already used for theme + tab configs) to include: `accent_color_dark`, `accent_color_light`, `font_scale`, `density`, and optionally a reference to a shortcut profile name. Applying a profile calls `set_application_theme()`, `QApplication.setFont()`, and (if shortcuts changed) rebuilds `QShortcut` objects.
+- Pros: Reuses existing profile infrastructure. No new UI sections needed.
+- Cons: Vault profiles already hold theme + tab configs; adding appearance fields makes them broader. Users may want to apply an appearance profile without changing tab configs.
+
+**B — Separate "Appearance Profiles" concept**
+A dedicated `appearance_profiles` key in the vault (or a plain `~/.image-toolkit/appearance_profiles.json`), decoupled from system preference profiles. Each profile: `{name, theme, accent_dark, accent_light, font_scale, density}`. Exposed in a dedicated "Appearance Profiles" dropdown in the Appearance settings tab.
+- Pros: Clear separation of concerns. Appearance profiles can be swapped without touching tab default configs.
+- Cons: Yet another profile concept alongside "System Preference Profiles" and "Tab Default Configurations". Three profile systems may confuse users.
+
+**C — Named workspaces (superset of profiles)**
+A full workspace concept capturing: appearance profile + layout profile (§2.32B) + session state (§2.5B). `File → Workspaces → Switch`. One click restores the entire working environment.
+- Pros: Maximum ergonomic gain for context-switching users.
+- Cons: Depends on §2.29, §2.30, §2.32B all being implemented. Long-term item.
+
+**Recommendation:** A first (minimal code, reuses the existing profile dialog). B if users find appearance and tab-config profiles becoming unwieldy to manage together. C as the long-term unified workspace concept.
+
+---
+
+## 4.13 Shortcut Macros and Custom Actions
+
+**Pain point:** Some workflows require a fixed sequence of tab switches + operations (e.g., "browse to directory X, scan, then switch to delete tab"). These multi-step sequences have no automation path — users repeat them manually every session. A lightweight macro system bound to user-defined hotkeys would eliminate repetitive navigation.
+
+### Options
+
+**A — Recorded macro playback via QEventLoop replay**
+Record a sequence of `QAction` / callable references as a named macro. Play back via the registered shortcut. Macros are stored as ordered lists of registered command IDs (from `SHORTCUT_REGISTRY` / command registry in §2.16A).
+- Example macro: `["tab:convert", "action:scan_start", "wait:5000", "action:select_all"]`.
+- Pros: No scripting language. Uses the command registry as the primitive set. Playback is just iterating callables.
+- Cons: Only covers operations that are registered commands. Cannot express conditional logic.
+
+**B — Python expression macros (power users)**
+A text field in settings where users type a Python expression (a lambda or short function body) that is `eval`-ed and bound to a shortcut. The expression receives a `ctx` object with references to all tab instances.
+- Pros: Unlimited expressiveness.
+- Cons: Security risk if shared. Must sandbox or document clearly as a developer feature.
+
+**C — Workflow templates (non-macro)**
+Instead of executable macros, provide named "workflow templates" that pre-fill all relevant tab settings (scan directory, output format, filter) with one click. Not a hotkey macro — a preset loader.
+- Pros: Safer than macro playback. Covers 80% of the use case (state setup, not operation sequencing).
+- Cons: Does not automate multi-step operation sequences.
+
+**Recommendation:** C first (workflow templates are essentially the existing Tab Default Configuration system extended to cross-tab context). A as the scripted macro layer once §2.16 (command palette + registry) is established. Skip B unless explicitly requested.
+
+---
+
 ## Anchor Index
 
 | Section | Anchor |
@@ -401,3 +452,5 @@ After stitching, show each boundary seam zone as a thumbnail strip. User rates e
 | 4.9 Safetensors Metadata Viewer | [#49-safetensors-metadata-viewer](#49-safetensors-metadata-viewer) |
 | 4.10 REST API Layer | [#410-rest-api-layer-for-remote-control](#410-rest-api-layer-for-remote-control) |
 | 4.11 RLHF Quality Feedback | [#411-asp-quality-feedback-interface-rlhf](#411-asp-quality-feedback-interface-rlhf) |
+| 4.12 Appearance Profiles | [#412-appearance-profiles](#412-appearance-profiles) |
+| 4.13 Shortcut Macros and Custom Actions | [#413-shortcut-macros-and-custom-actions](#413-shortcut-macros-and-custom-actions) |

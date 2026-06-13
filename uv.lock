@@ -1843,6 +1843,7 @@ dependencies = [
     { name = "scipy" },
     { name = "screeninfo" },
     { name = "selenium" },
+    { name = "send2trash" },
     { name = "sentencepiece" },
     { name = "simpleeval" },
     { name = "spandrel" },
@@ -1938,6 +1939,7 @@ requires-dist = [
     { name = "scipy", specifier = ">=1.16.3" },
     { name = "screeninfo", specifier = ">=0.8.1" },
     { name = "selenium", specifier = ">=4.38.0" },
+    { name = "send2trash", specifier = ">=1.8.3" },
     { name = "sentencepiece", specifier = ">=0.2.1" },
     { name = "simpleeval", specifier = ">=1.0.7" },
     { name = "spandrel", specifier = ">=0.4.2" },
@@ -5010,6 +5012,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c9/a0/60a5e7e946420786d57816f64536e21a29f0554706b36f3cba348107024c/selenium-4.38.0.tar.gz", hash = "sha256:c117af6727859d50f622d6d0785b945c5db3e28a45ec12ad85cee2e7cc84fc4c", size = 924101, upload-time = "2025-10-25T02:13:06.752Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8a/d3/76c8f4a8d99b9f1ebcf9a611b4dd992bf5ee082a6093cfc649af3d10f35b/selenium-4.38.0-py3-none-any.whl", hash = "sha256:ed47563f188130a6fd486b327ca7ba48c5b11fb900e07d6457befdde320e35fd", size = 9694571, upload-time = "2025-10-25T02:13:04.417Z" },
+]
+
+[[package]]
+name = "send2trash"
+version = "2.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c5/f0/184b4b5f8d00f2a92cf96eec8967a3d550b52cf94362dad1100df9e48d57/send2trash-2.1.0.tar.gz", hash = "sha256:1c72b39f09457db3c05ce1d19158c2cbef4c32b8bedd02c155e49282b7ea7459", size = 17255, upload-time = "2026-01-14T06:27:36.056Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1c/78/504fdd027da3b84ff1aecd9f6957e65f35134534ccc6da8628eb71e76d3f/send2trash-2.1.0-py3-none-any.whl", hash = "sha256:0da2f112e6d6bb22de6aa6daa7e144831a4febf2a87261451c4ad849fe9a873c", size = 17610, upload-time = "2026-01-14T06:27:35.218Z" },
 ]
 
 [[package]]

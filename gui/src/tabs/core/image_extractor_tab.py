@@ -1954,10 +1954,18 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def delete_selected_images(self):
         if not self.selected_paths:
             return
+
+        prefs = {}
+        main_win = self.window()
+        if main_win and hasattr(main_win, "cached_creds"):
+            prefs = main_win.cached_creds.get("preferences", {})
+        send_to_trash_enabled = prefs.get("send_to_trash", True)
+        action_name = "Trash" if send_to_trash_enabled else "Permanent Delete"
+
         confirm = QMessageBox.question(
             self,
-            "Confirm Deletion",
-            f"Are you sure you want to delete {len(self.selected_paths)} items?",
+            f"Confirm {action_name}",
+            f"Are you sure you want to move {len(self.selected_paths)} items to {action_name}?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if confirm == QMessageBox.StandardButton.Yes:
@@ -1969,7 +1977,12 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
             for path in paths_to_delete:
                 try:
-                    os.remove(path)
+                    if send_to_trash_enabled:
+                        from send2trash import send2trash
+                        send2trash(path)
+                    else:
+                        import os
+                        os.remove(path)
                     if path in self.current_extracted_paths:
                         self.current_extracted_paths.remove(path)
                     if path in self.gallery_image_paths:

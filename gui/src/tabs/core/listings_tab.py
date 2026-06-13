@@ -4249,10 +4249,17 @@ class ContentListingsSubTab(QWidget):
             self._on_entry_deleted(entry_id)
 
     def _on_card_image_remove_requested(self, entry_id: str):
+        prefs = {}
+        main_win = self.window()
+        if main_win and hasattr(main_win, "cached_creds"):
+            prefs = main_win.cached_creds.get("preferences", {})
+        send_to_trash_enabled = prefs.get("send_to_trash", True)
+        action_name = "Trash" if send_to_trash_enabled else "Permanent Delete"
+
         reply = QMessageBox.question(
             self,
-            "Confirm Delete Image",
-            "Are you sure you want to permanently delete the image for this listing?",
+            f"Confirm {action_name} Image",
+            f"Are you sure you want to move the image for this listing to {action_name}?",
             QMessageBox.Yes | QMessageBox.No,
         )
         if reply == QMessageBox.Yes:
@@ -4263,7 +4270,11 @@ class ContentListingsSubTab(QWidget):
                     try:
                         p = Path(img_path)
                         if p.exists() and p.is_file():
-                            p.unlink(missing_ok=True)
+                            if send_to_trash_enabled:
+                                from send2trash import send2trash
+                                send2trash(str(p))
+                            else:
+                                p.unlink(missing_ok=True)
                     except Exception as e:
                         print(f"Failed to delete physical image file: {e}")
                 entry["image_path"] = ""

@@ -52,11 +52,15 @@ FLOW_PATCH_SIZE = 512
 
 # Foreground pose registration (Stage 8.5 — flow-guided fg re-posing)
 # See reports/ASP_Foreground_Assembly_Research.md §5.
-FG_REG_TAPER_PX = 220        # half-width (px) over which the seam warp tapers to zero
-FG_REG_MAX_RESIDUAL = 90.0   # max per-pixel animation residual (px) to warp; above → no-warp
-FG_REG_MIN_FG_PIXELS = 150   # min foreground pixels in the seam zone to attempt registration
-FG_REG_FLOW_ENGINE = "dis"   # "dis" (OpenCV DISOpticalFlow, no extra dep) or "searaft"
-FG_REG_SMOOTH_SIGMA = 9.0    # Gaussian sigma to smooth the residual flow before warping
+FG_REG_TAPER_PX = 220  # half-width (px) over which the seam warp tapers to zero
+FG_REG_MAX_RESIDUAL = (
+    90.0  # max per-pixel animation residual (px) to warp; above → no-warp
+)
+FG_REG_MIN_FG_PIXELS = (
+    150  # min foreground pixels in the seam zone to attempt registration
+)
+FG_REG_FLOW_ENGINE = "dis"  # "dis" (OpenCV DISOpticalFlow, no extra dep) or "searaft"
+FG_REG_SMOOTH_SIGMA = 9.0  # Gaussian sigma to smooth the residual flow before warping
 
 # Rendering
 RENDERING_FADE_ROWS = 40
@@ -194,22 +198,91 @@ REWARD_MODEL_DEFAULT_PATH = (
 MIN_EXPECTED_STEP = 25
 SPATIAL_DEDUP_PX = 25
 NEAR_DUP_LUMA_THRESH = 3.0  # §1.2B: pre-stage-5 luma dedup ceiling (luma units, 0–255)
-STATIC_EDGE_MIN_DISP_PX = 50  # §1.2A: minimum per-axis displacement to keep an edge before BA
-ADAPTIVE_MIN_DISP_FRAC = 0.10  # §1.2C: adaptive threshold = max(floor, frac * expected_step)
-HIGH_CONF_EDGE_THRESH = 0.65  # §2.9C: minimum edge weight to keep on high-confidence re-solve
-HIGH_HOLD_RESPONSE_THRESH = 0.85  # §1.11C: phaseCorrelate response floor for post-hoc hold merge
-TEMPORAL_VAR_THRESH = 1e-3  # §1.2D: mean per-pixel variance [0,1] for static-frame rejection
-HOLD_DHASH_THRESHOLD = 4  # §3.4A: dHash Hamming-distance floor for hold detection (0=disabled)
-MULTISCALE_GAIN_SIGMA = 30.0  # §1.4D: Gaussian sigma (px) for low-freq gain map computation
-EXPOSURE_OUTLIER_THRESH = 60.0  # §1.4F: max allowed bg-lum deviation from median before skip (0=off)
-SCENE_CHANGE_LUMA_THRESH = 60.0  # §1.13: max mean-luma diff between two frames before edge rejection (0=off)
-SCENE_CHANGE_BGR_THRESH = 60.0   # §1.13B: max per-channel mean diff (BGR) before edge rejection (0=off)
-SCALE_NORM_THRESH = 0.05  # §1.3C: min max/min scale ratio deviation before normalisation is applied
+STATIC_EDGE_MIN_DISP_PX = (
+    50  # §1.2A: minimum per-axis displacement to keep an edge before BA
+)
+ADAPTIVE_MIN_DISP_FRAC = (
+    0.10  # §1.2C: adaptive threshold = max(floor, frac * expected_step)
+)
+HIGH_CONF_EDGE_THRESH = (
+    0.65  # §2.9C: minimum edge weight to keep on high-confidence re-solve
+)
+HIGH_HOLD_RESPONSE_THRESH = (
+    0.85  # §1.11C: phaseCorrelate response floor for post-hoc hold merge
+)
+TEMPORAL_VAR_THRESH = (
+    1e-3  # §1.2D: mean per-pixel variance [0,1] for static-frame rejection
+)
+HOLD_DHASH_THRESHOLD = (
+    4  # §3.4A: dHash Hamming-distance floor for hold detection (0=disabled)
+)
+MULTISCALE_GAIN_SIGMA = (
+    30.0  # §1.4D: Gaussian sigma (px) for low-freq gain map computation
+)
+EXPOSURE_OUTLIER_THRESH = (
+    60.0  # §1.4F: max allowed bg-lum deviation from median before skip (0=off)
+)
+SCENE_CHANGE_LUMA_THRESH = (
+    60.0  # §1.13: max mean-luma diff between two frames before edge rejection (0=off)
+)
+SCENE_CHANGE_BGR_THRESH = (
+    60.0  # §1.13B: max per-channel mean diff (BGR) before edge rejection (0=off)
+)
+SCALE_NORM_THRESH = (
+    0.05  # §1.3C: min max/min scale ratio deviation before normalisation is applied
+)
 SEAM_COLOR_GATE_THRESH = 0.55  # §1.14B: min Bhattacharyya colour similarity (0–1) to pass post-composite gate (0=off)
-MST_MIN_WEIGHT = 0.35  # §1.16: minimum mean MST edge weight before pre-BA SCANS fallback (0=off)
-GNC_C_PX = 10.0       # §1.17: Geman-McClure c parameter (px); rᵢ ≈ c → 50% weight
-GNC_MU_ANNEAL = 1.4   # §1.17: GNC μ annealing divisor per outer iteration (Yang et al. 2020)
-GNC_MAX_OUTER = 8     # §1.17: default max GNC outer continuation iterations
+MST_MIN_WEIGHT = (
+    0.35  # §1.16: minimum mean MST edge weight before pre-BA SCANS fallback (0=off)
+)
+GNC_C_PX = 10.0  # §1.17: Geman-McClure c parameter (px); rᵢ ≈ c → 50% weight
+GNC_MU_ANNEAL = (
+    1.4  # §1.17: GNC μ annealing divisor per outer iteration (Yang et al. 2020)
+)
+GNC_MAX_OUTER = 8  # §1.17: default max GNC outer continuation iterations
+CANVAS_SPAN_MIN_UTIL = 0.3  # §1.17: minimum canvas-span/expected-span ratio before post-BA SCANS fallback (0=off)
+ADAPTIVE_SP_THRESH_BASE = 22.0  # §1.18: baseline post_warp_diff threshold for single-pose escalation (lum units)
+ADAPTIVE_SP_THRESH_MIN = 12.0  # §1.18: floor threshold applied for wide feathers
+ADAPTIVE_SP_THRESH_REF = (
+    80  # §1.18: feather reference width (px) at which threshold = base
+)
+FG_FEATHER_CAP = (
+    60  # §1.19: cap feather to this px when seam zone is fg-dominated (0=off)
+)
+FG_FEATHER_THRESH = 0.60  # §1.19: fg fraction above which feather cap fires
+TIGHT_STEP_PX = 30  # §1.20: dominant-axis step below which seam is preemptively single-posed (0=off)
+SEAM_LUM_EQ_BAND_PX = 20  # §1.21: post-composite lum equalisation ramp width (rows)
+SEAM_LUM_EQ_MIN_STEP = (
+    5.0  # §1.21: minimum lum step (lum units) to trigger equalisation
+)
+SP_SOFT_BASE_PX = 6  # §1.22: baseline single-pose soft-edge half-width (px)
+SP_SOFT_MAX_PX = (
+    30  # §1.22: maximum single-pose soft-edge half-width after scaling (px)
+)
+SP_SOFT_REF_PX = (
+    80  # §1.22: feather reference width at which base_px is returned unchanged (px)
+)
+SEAM_HARD_BARRIER_COST = (
+    1e6  # §1.23: hard corridor barrier cost for fg-dominated seam columns (0=off)
+)
+SEAM_STEP_GATE_THRESH = (
+    25.0  # §1.24: max allowed luma step at seam boundary before SCANS fallback (0=off)
+)
+SEAM_SMOOTH_WINDOW = (
+    5  # §1.25: median-filter window for seam path jitter removal (0 or 1 = off)
+)
+SEAM_MARGIN = 3  # §1.26: min rows between seam path and zone top/bottom edge (0 = off)
+BG_NORM_MIN_PX = (
+    200  # §1.27: minimum background pixels for reliable normalisation gain estimate
+)
+SEAM_INSTABILITY_THRESH = (
+    20.0  # §1.28: max seam path std (rows) before single-pose escalation (0=off)
+)
+STATIC_INPUT_MAX_MAD = 2.0  # §1.29: MAD ceiling (0–255) for static-input detection gate
+ZONE_MIN_HEIGHT = 20  # §1.30: min blend-zone rows before single-pose escalation (0=off)
+SEAM_FG_PENETRATION_MAX = (
+    0.7  # §1.31: max fraction of seam columns through fg before escalation (0=off)
+)
 
 # ToonCrafter
 TOONCRAFTER_REPO = "Doubiiu/ToonCrafter"

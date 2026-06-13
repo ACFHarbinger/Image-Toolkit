@@ -50,7 +50,8 @@ class DeletionWorker(QThread):
                     return
 
                 if require_confirm:
-                    msg = f"Permanently delete the directory and all its contents: \n\n{target_path}\n\nThis cannot be undone!"
+                    action_name = "send to trash" if self.config.get("send_to_trash", True) else "permanently delete"
+                    msg = f"{action_name.capitalize()} the directory and all its contents: \n\n{target_path}\n\nThis cannot be undone!"
 
                     self.mutex.lock()
                     self.confirm_signal.emit(msg, 1)
@@ -64,13 +65,21 @@ class DeletionWorker(QThread):
                 self.progress.emit(0, 1)
 
                 # Core logic moved to FileDeleter
-                if FileDeleter.delete_path(target_path):
-                    self.finished.emit(
-                        1,
-                        f"Successfully deleted directory and its contents: {target_path}",
-                    )
+                if self.config.get("send_to_trash", True):
+                    try:
+                        from send2trash import send2trash
+                        send2trash(target_path)
+                        self.finished.emit(1, f"Successfully sent directory to trash: {target_path}")
+                    except Exception as e:
+                        self.error.emit(f"Failed to send directory to trash {target_path}: {e}")
                 else:
-                    self.error.emit(f"Failed to delete directory {target_path}.")
+                    if FileDeleter.delete_path(target_path):
+                        self.finished.emit(
+                            1,
+                            f"Successfully deleted directory and its contents: {target_path}",
+                        )
+                    else:
+                        self.error.emit(f"Failed to delete directory {target_path}.")
 
                 return
 
@@ -102,7 +111,8 @@ class DeletionWorker(QThread):
                 return
 
             if require_confirm:
-                msg = f"Permanently delete {total} file(s) matching extensions?\n\nThis cannot be undone!"
+                action_name = "send to trash" if self.config.get("send_to_trash", True) else "permanently delete"
+                msg = f"{action_name.capitalize()} {total} file(s) matching extensions?\n\nThis cannot be undone!"
 
                 self.mutex.lock()
                 self.confirm_signal.emit(msg, total)
@@ -118,8 +128,16 @@ class DeletionWorker(QThread):
                 if self.isInterruptionRequested():
                     break
                 # Core logic for single file deletion
-                if FileDeleter.delete_path(file_path):
-                    deleted += 1
+                if self.config.get("send_to_trash", True):
+                    try:
+                        from send2trash import send2trash
+                        send2trash(file_path)
+                        deleted += 1
+                    except Exception as e:
+                        pass
+                else:
+                    if FileDeleter.delete_path(file_path):
+                        deleted += 1
 
                 self.progress.emit(deleted, total)
 

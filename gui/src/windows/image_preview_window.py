@@ -143,20 +143,17 @@ class ImagePreviewWindow(QDialog):
         vbox = QVBoxLayout(self)
         vbox.addLayout(main_content_layout)
 
-        # 4. Setup Shortcuts
-        self.zoom_in_shortcut = QShortcut(QKeySequence(Qt.CTRL | Qt.Key_Plus), self)
-        self.zoom_out_shortcut = QShortcut(QKeySequence(Qt.CTRL | Qt.Key_Minus), self)
-        self.zoom_in_shortcut_eq = QShortcut(QKeySequence(Qt.CTRL | Qt.Key_Equal), self)
+        # 4. Setup Shortcuts (GUI/UX §2.29 — registry-driven)
+        from ..utils.shortcut_manager import get_registry
+        _reg = get_registry()
+        self.zoom_in_shortcut = QShortcut(_reg.get_key_sequence("preview.zoom_in"), self)
+        self.zoom_out_shortcut = QShortcut(_reg.get_key_sequence("preview.zoom_out"), self)
+        # Secondary zoom-in alias: Ctrl+Shift++ (always active, not configurable)
+        self.zoom_in_shortcut_plus = QShortcut(QKeySequence(Qt.CTRL | Qt.Key_Plus), self)
 
-        self.zoom_in_shortcut.activated.connect(
-            lambda: self.adjust_zoom(self.ZOOM_STEP)
-        )
-        self.zoom_out_shortcut.activated.connect(
-            lambda: self.adjust_zoom(-self.ZOOM_STEP)
-        )
-        self.zoom_in_shortcut_eq.activated.connect(
-            lambda: self.adjust_zoom(self.ZOOM_STEP)
-        )
+        self.zoom_in_shortcut.activated.connect(lambda: self.adjust_zoom(self.ZOOM_STEP))
+        self.zoom_out_shortcut.activated.connect(lambda: self.adjust_zoom(-self.ZOOM_STEP))
+        self.zoom_in_shortcut_plus.activated.connect(lambda: self.adjust_zoom(self.ZOOM_STEP))
 
         self._update_navigation_button_state()
 
@@ -553,39 +550,35 @@ class ImagePreviewWindow(QDialog):
 
         if target_pixmap and not target_pixmap.isNull():
             QApplication.clipboard().setPixmap(target_pixmap)
+            from .main_window import show_main_status
+            show_main_status(f"Copied to clipboard: {os.path.basename(self.image_path)}")
 
     def keyPressEvent(self, event: QKeyEvent):
-        """
-        Handles key presses: navigation (Left/Right), Close (Ctrl+W), Copy (Ctrl+C),
-        Fullscreen (F / F11), Fit-width (W), Fit-height (H), 100% (1),
-        Rotate CW (R), Rotate CCW (L).
-        """
+        """Key navigation/actions — §2.29 registry-driven (zoom via QShortcut above)."""
+        from ..utils.shortcut_manager import get_registry
+        reg = get_registry()
         key = event.key()
-        mods = event.modifiers()
-        no_mod = not mods or mods == Qt.KeyboardModifier.NoModifier
+        no_mod = not event.modifiers() or event.modifiers() == Qt.KeyboardModifier.NoModifier
 
-        if key == Qt.Key.Key_Right and no_mod:
+        if reg.matches(event, "preview.next"):
             self._navigate(1)
-        elif key == Qt.Key.Key_Left and no_mod:
+        elif reg.matches(event, "preview.prev"):
             self._navigate(-1)
-        elif key == Qt.Key.Key_W and mods & Qt.ControlModifier:
+        elif reg.matches(event, "preview.close"):
             self.close()
-        elif key == Qt.Key.Key_C and mods & Qt.ControlModifier:
+        elif reg.matches(event, "preview.copy"):
             self.copy_image_to_clipboard()
-        # §2.11A fullscreen
-        elif key in (Qt.Key.Key_F11, Qt.Key.Key_F) and no_mod:
+        elif reg.matches(event, "preview.fullscreen") or (key == Qt.Key.Key_F and no_mod):
             self._toggle_fullscreen()
-        # §2.11B zoom modes
-        elif key == Qt.Key.Key_W and no_mod:
+        elif reg.matches(event, "preview.fit_width"):
             self._fit_to_width()
-        elif key == Qt.Key.Key_H and no_mod:
+        elif reg.matches(event, "preview.fit_height"):
             self._fit_to_height()
-        elif key == Qt.Key.Key_1 and no_mod:
+        elif reg.matches(event, "preview.actual_size"):
             self._zoom_actual_pixels()
-        # §2.11D rotation
-        elif key == Qt.Key.Key_R and no_mod:
+        elif reg.matches(event, "preview.rotate_cw"):
             self._rotate(clockwise=True)
-        elif key == Qt.Key.Key_L and no_mod:
+        elif reg.matches(event, "preview.rotate_ccw"):
             self._rotate(clockwise=False)
         else:
             super().keyPressEvent(event)

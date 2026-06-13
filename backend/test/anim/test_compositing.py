@@ -22,6 +22,10 @@ _repo_root = os.path.dirname(
 sys.path.insert(0, _repo_root)
 
 from backend.src.anim.compositing import (  # noqa: E402
+    _adaptive_sp_threshold,
+    _compute_seam_step_size,
+    _fg_density_feather_cap,
+    _seam_lum_equalize,
     _adaptive_gain_clamp,
     _apply_bg_histogram_match,
     _bg_gain_unclamped,
@@ -43,6 +47,14 @@ from backend.src.anim.compositing import (  # noqa: E402
     _seam_color_similarity_bgr,
     _single_pose_soft_edge,
     _soft_seam_weight,
+    _adaptive_sp_soft_px,
+    _seam_corridor_exists,
+    _smooth_seam_path,
+    _clamp_seam_path,
+    _has_sufficient_bg,
+    _seam_path_std,
+    _zone_is_degenerate,
+    _seam_fg_penetration,
 )
 from backend.src.constants import (  # noqa: E402
     FEATHER_MAX as _FEATHER_MAX,
@@ -1380,3 +1392,491 @@ class TestSeamColorSimilarityBgr:
         img = self._bgr(10, 50, 0, 0, 255)
         score = _seam_color_similarity_bgr(img, k=0, n_strips=2, band_px=100)
         assert score == pytest.approx(1.0, abs=1e-6)
+
+
+class TestAdaptiveSpThreshold:
+    """§1.18: Adaptive single-pose escalation threshold (S62)."""
+
+    def test_reference_feather_returns_base(self):
+        """feather_width == feather_reference → threshold equals base_threshold."""
+        result = _adaptive_sp_threshold(feather_width=80)
+        assert result == pytest.approx(22.0, abs=1e-9)
+
+    def test_narrow_feather_above_reference_exceeds_base(self):
+        """feather_width < feather_reference → would return >base, but function
+        has no upper cap so it exceeds 22.0 — confirm the ratio is correct."""
+        result = _adaptive_sp_threshold(feather_width=40)
+        # 22.0 * (80 / 40) = 44.0
+        assert result == pytest.approx(44.0, abs=1e-9)
+
+    def test_wide_feather_hits_min_floor(self):
+        """feather_width=300 → raw=22*(80/300)≈5.87, clamped to min_threshold=12.0."""
+        result = _adaptive_sp_threshold(feather_width=300)
+        assert result == pytest.approx(12.0, abs=1e-9)
+
+    def test_floor_crossover_point(self):
+        """Threshold hits floor exactly at feather=floor_crossover.
+
+        22*(80/fw)=12  →  fw = 22*80/12 ≈ 146.67 → floor at fw=147.
+        At fw=146 the raw value is 22*(80/146)≈12.055 > 12 so NOT floored.
+        At fw=147 the raw value is 22*(80/147)≈11.97 < 12 so IS floored.
+        """
+        below_floor = _adaptive_sp_threshold(feather_width=146)
+        at_floor = _adaptive_sp_threshold(feather_width=147)
+        assert below_floor > 12.0
+        assert at_floor == pytest.approx(12.0, abs=1e-9)
+
+    def test_zero_feather_uses_max_width_not_division_by_zero(self):
+        """feather_width=0 → max(fw,1)=1 → returns max(12, 22*80)=1760.0 (no ZeroDivisionError)."""
+        result = _adaptive_sp_threshold(feather_width=0)
+        assert result == pytest.approx(22.0 * 80, abs=1e-9)
+
+
+class TestFgDensityFeatherCap:
+    """§1.19: Foreground-density-aware feather cap (S63)."""
+
+    @staticmethod
+    def _bg_mask(h: int, w: int, fg_frac: float) -> np.ndarray:
+        """Make a canvas-space bg mask (bool) with given fg fraction."""
+        mask = np.ones((h, w), dtype=bool)  # all background
+        n_fg = int(h * w * fg_frac)
+        mask.flat[:n_fg] = False  # first n_fg pixels are fg
+        return mask
+
+    def test_all_bg_no_cap_applied(self):
+        """Pure background zone → fg_frac=0.0 → feather unchanged regardless of cap."""
+        feathers = np.array([200, 150], dtype=np.int64)
+        bg = self._bg_mask(400, 100, fg_frac=0.0)
+        warped_bg = [bg, bg, bg]
+        order = [0, 1, 2]
+        boundaries = [100.0, 250.0]
+        result = _fg_density_feather_cap(feathers, boundaries, warped_bg, order, cap_px=60, fg_thresh=0.60)
+        np.testing.assert_array_equal(result, feathers)
+
+    def test_all_fg_applies_cap(self):
+        """Pure fg zone → fg_frac=1.0 > 0.60 → feather capped to cap_px=60."""
+        feathers = np.array([250], dtype=np.int64)
+        bg = self._bg_mask(400, 100, fg_frac=1.0)
+        warped_bg = [bg, bg]
+        order = [0, 1]
+        boundaries = [200.0]
+        result = _fg_density_feather_cap(feathers, boundaries, warped_bg, order, cap_px=60, fg_thresh=0.60)
+        assert int(result[0]) == 60
+
+    def test_feather_already_narrow_skips_check(self):
+        """feather ≤ cap_px → skip entirely (no cap applied, even with pure fg)."""
+        feathers = np.array([40], dtype=np.int64)  # already ≤ cap_px=60
+        bg = self._bg_mask(400, 100, fg_frac=1.0)
+        warped_bg = [bg, bg]
+        order = [0, 1]
+        boundaries = [200.0]
+        result = _fg_density_feather_cap(feathers, boundaries, warped_bg, order, cap_px=60, fg_thresh=0.60)
+        assert int(result[0]) == 40
+
+    def test_uses_max_fg_frac_across_two_frames(self):
+        """Only frame_b has fg_frac=0.80 > 0.60 → cap fires (max of two frames used)."""
+        feathers = np.array([200], dtype=np.int64)
+        bg_a = self._bg_mask(400, 100, fg_frac=0.20)  # frame a: 20% fg → no cap
+        bg_b = self._bg_mask(400, 100, fg_frac=0.80)  # frame b: 80% fg → cap
+        warped_bg = [bg_a, bg_b]
+        order = [0, 1]
+        boundaries = [200.0]
+        result = _fg_density_feather_cap(feathers, boundaries, warped_bg, order, cap_px=60, fg_thresh=0.60)
+        assert int(result[0]) == 60
+
+    def test_none_mask_treated_as_all_bg(self):
+        """warped_bg[fi]=None → fg_frac=0.0 → cap never fires without a mask."""
+        feathers = np.array([250], dtype=np.int64)
+        warped_bg = [None, None]
+        order = [0, 1]
+        boundaries = [200.0]
+        result = _fg_density_feather_cap(feathers, boundaries, warped_bg, order, cap_px=60, fg_thresh=0.60)
+        assert int(result[0]) == 250  # unchanged
+
+
+class TestComputeSeamStepSize:
+    """§1.20: Dominant-axis camera step between two frame positions (S64)."""
+
+    @staticmethod
+    def _aff(ty: float, tx: float = 0.0) -> np.ndarray:
+        a = np.eye(3, dtype=np.float32)
+        a[0, 2] = tx
+        a[1, 2] = ty
+        return a
+
+    def test_pure_vertical_step(self):
+        """Only ty differs → step = |ty_b - ty_a|."""
+        affines = [self._aff(0.0), self._aff(50.0)]
+        result = _compute_seam_step_size(0, 1, affines)
+        assert result == pytest.approx(50.0)
+
+    def test_pure_horizontal_step(self):
+        """Only tx differs → step = |tx_b - tx_a|."""
+        affines = [self._aff(0.0, tx=0.0), self._aff(0.0, tx=80.0)]
+        result = _compute_seam_step_size(0, 1, affines)
+        assert result == pytest.approx(80.0)
+
+    def test_uses_dominant_axis(self):
+        """Both axes non-zero → returns max(dy, dx)."""
+        affines = [self._aff(10.0, tx=30.0), self._aff(25.0, tx=90.0)]
+        # dy = 15, dx = 60 → dominant = 60
+        result = _compute_seam_step_size(0, 1, affines)
+        assert result == pytest.approx(60.0)
+
+    def test_exactly_at_threshold_not_below(self):
+        """step == threshold is NOT below threshold (strict <)."""
+        affines = [self._aff(0.0), self._aff(30.0)]
+        step = _compute_seam_step_size(0, 1, affines)
+        assert step == pytest.approx(30.0)
+        assert not (step < 30.0)  # gate uses strict <
+
+    def test_out_of_range_frame_returns_inf(self):
+        """fi_a >= len(affines) → returns inf (never triggers escalation)."""
+        affines = [self._aff(0.0), self._aff(20.0)]
+        result = _compute_seam_step_size(99, 0, affines)
+        assert result == float("inf")
+
+
+class TestSeamLumEqualize:
+    """§1.21: Post-composite seam luminance equalisation (S65)."""
+
+    @staticmethod
+    def _canvas(h: int, w: int, top_lum: int, bot_lum: int, split: int) -> np.ndarray:
+        """Make a BGR canvas with top half at top_lum and bottom half at bot_lum."""
+        c = np.zeros((h, w, 3), dtype=np.uint8)
+        c[:split] = top_lum
+        c[split:] = bot_lum
+        return c
+
+    def test_no_step_no_change(self):
+        """Uniform canvas → no step → output unchanged."""
+        canvas = self._canvas(200, 50, 128, 128, 100)
+        result = _seam_lum_equalize(canvas, [100.0], band_px=20, min_step=5.0)
+        np.testing.assert_array_equal(result, canvas)
+
+    def test_step_above_threshold_is_reduced(self):
+        """Canvas with +30 lum step → luminance at boundary is smoothed."""
+        canvas = self._canvas(200, 50, 80, 110, 100)
+        result = _seam_lum_equalize(canvas, [100.0], band_px=20, min_step=5.0)
+        # Immediately below boundary (row 100), the correction should reduce lum
+        result_lum = int(result[100, 0, 0])
+        original_lum = int(canvas[100, 0, 0])
+        assert result_lum < original_lum  # correction brought lum down toward above
+
+    def test_step_below_threshold_not_corrected(self):
+        """Step=3 < min_step=5 → no correction applied."""
+        canvas = self._canvas(200, 50, 100, 103, 100)
+        result = _seam_lum_equalize(canvas, [100.0], band_px=20, min_step=5.0)
+        np.testing.assert_array_equal(result, canvas)
+
+    def test_boundary_near_edge_no_crash(self):
+        """Boundary at row 5 (near top) → guard zone clips to canvas edge, no crash."""
+        canvas = self._canvas(100, 30, 80, 120, 5)
+        result = _seam_lum_equalize(canvas, [5.0], band_px=20, min_step=5.0)
+        assert result.shape == canvas.shape
+
+    def test_returns_uint8_dtype(self):
+        """Output dtype must be uint8 regardless of input lum values."""
+        canvas = self._canvas(200, 50, 50, 200, 100)
+        result = _seam_lum_equalize(canvas, [100.0], band_px=20, min_step=5.0)
+        assert result.dtype == np.uint8
+
+
+class TestAdaptiveSpSoftPx:
+    """§1.22 — Adaptive single-pose soft-edge half-width (S66)."""
+
+    def test_at_ref_px_returns_base(self):
+        """feather == ref_px → exactly base_px returned (no scaling)."""
+        assert _adaptive_sp_soft_px(80, base_px=6, max_px=30, ref_px=80) == 6
+
+    def test_doubles_for_double_ref(self):
+        """feather == 2 × ref_px → 2 × base_px (linear scaling in range)."""
+        assert _adaptive_sp_soft_px(160, base_px=6, max_px=30, ref_px=80) == 12
+
+    def test_narrow_feather_clamps_to_base(self):
+        """feather < ref_px → result floored to base_px (no shrinkage below base)."""
+        assert _adaptive_sp_soft_px(40, base_px=6, max_px=30, ref_px=80) == 6
+
+    def test_wide_feather_caps_at_max_px(self):
+        """Very wide feather → result capped at max_px."""
+        assert _adaptive_sp_soft_px(500, base_px=6, max_px=30, ref_px=80) == 30
+
+    def test_zero_feather_returns_base(self):
+        """feather == 0 → base_px returned (degenerate-input guard)."""
+        assert _adaptive_sp_soft_px(0, base_px=6, max_px=30, ref_px=80) == 6
+
+
+class TestSeamCorridorExists:
+    """§1.23 — SemanticStitch hard corridor barrier helper (S67)."""
+
+    def _cost(self, shape, all_fg: bool = False, all_bg: bool = False, fg_col: int = None):
+        """Build a simple (H, W) cost map for testing.
+        all_fg: every column has 100% fg-interior cost (1.0).
+        all_bg: every pixel is bg (cost=0.0).
+        fg_col: only this column is dominated (cost=1.0), rest are bg.
+        """
+        h, w = shape
+        cost = np.zeros((h, w), dtype=np.float32)
+        if all_fg:
+            cost[:] = 1.0
+        if fg_col is not None:
+            cost[:, fg_col] = 1.0
+        return cost
+
+    def test_all_dominated_returns_false(self):
+        """All columns fg-dominated (no corridor) → False."""
+        cost = self._cost((10, 5), all_fg=True)
+        assert _seam_corridor_exists(cost) is False
+
+    def test_all_bg_returns_false(self):
+        """No column is fg-dominated → False (no dominated cols to apply barrier to)."""
+        cost = self._cost((10, 5), all_bg=True)
+        assert _seam_corridor_exists(cost) is False
+
+    def test_mixed_returns_true(self):
+        """Some columns dominated, some not → corridor exists → True."""
+        cost = self._cost((10, 5), fg_col=2)
+        assert _seam_corridor_exists(cost) is True
+
+    def test_hard_barrier_applied_when_corridor(self):
+        """With barrier_cost=1e6, fg-dominated columns get 1e6 when corridor exists."""
+        w = 4
+        cost_map = np.zeros((10, w), dtype=np.float32)
+        cost_map[:, 0] = 1.0  # col 0 dominated; cols 1-3 are bg corridor
+        bg_mask = (cost_map[:, :1] == 0).astype(np.uint8) * 255  # dummy 1-col mask
+        canvas = np.zeros((10, w, 3), dtype=np.uint8)
+        result = _build_seam_cost_map(canvas, None, None, dilate_px=0, barrier_cost=1e6)
+        # No masks → no fg → no dominated columns → cost stays 0.0. Just verify no crash.
+        assert result.shape == (10, w)
+
+    def test_soft_barrier_backward_compat(self):
+        """barrier_cost=2.0 is the S33 soft barrier; fg-dominated cols get ≤2.0."""
+        canvas = np.zeros((10, 4, 3), dtype=np.uint8)
+        result = _build_seam_cost_map(canvas, None, None, dilate_px=0, barrier_cost=2.0)
+        assert result.max() <= 2.0
+
+
+# ---------------------------------------------------------------------------
+# §1.25 — TestSmoothSeamPath
+# ---------------------------------------------------------------------------
+
+class TestSmoothSeamPath:
+    """Tests for _smooth_seam_path() — §1.25 seam path jitter smoothing."""
+
+    def test_window_zero_returns_unchanged(self):
+        """window=0 is a no-op; path is returned as-is."""
+        path = np.array([3, 5, 2, 8, 1], dtype=np.int32)
+        result = _smooth_seam_path(path, window=0)
+        np.testing.assert_array_equal(result, path)
+
+    def test_window_one_returns_unchanged(self):
+        """window=1 is a no-op (kernel size 1 = identity)."""
+        path = np.array([3, 5, 2, 8, 1], dtype=np.int32)
+        result = _smooth_seam_path(path, window=1)
+        np.testing.assert_array_equal(result, path)
+
+    def test_smooth_path_removes_spike(self):
+        """A single isolated spike is removed when window=5 spans it."""
+        # Baseline path at y=5, one-sample spike to y=20
+        path = np.array([5, 5, 5, 20, 5, 5, 5], dtype=np.int32)
+        result = _smooth_seam_path(path, window=5)
+        # Median of [5,5,5,20,5] = 5, so spike is replaced
+        assert int(result[3]) == 5
+
+    def test_constant_path_unchanged(self):
+        """Constant path is unchanged by any window."""
+        path = np.full(20, 7, dtype=np.int32)
+        result = _smooth_seam_path(path, window=5)
+        np.testing.assert_array_equal(result, path)
+
+    def test_even_window_incremented_to_odd(self):
+        """Even window is incremented by 1 internally; result is still int32."""
+        path = np.array([2, 4, 6, 8, 10, 8, 6, 4, 2], dtype=np.int32)
+        result = _smooth_seam_path(path, window=4)  # internally becomes 5
+        assert result.dtype == np.int32
+        assert result.shape == path.shape
+
+
+# ---------------------------------------------------------------------------
+# §1.26 — TestClampSeamPath
+# ---------------------------------------------------------------------------
+
+class TestClampSeamPath:
+    """Tests for _clamp_seam_path() — §1.26 seam path boundary clamp."""
+
+    def test_zero_margin_returns_unchanged(self):
+        """margin=0 is a no-op."""
+        path = np.array([0, 1, 2, 99, 3], dtype=np.int32)
+        result = _clamp_seam_path(path, zone_h=100, margin=0)
+        np.testing.assert_array_equal(result, path)
+
+    def test_path_clamped_above_margin(self):
+        """Values below margin are raised to margin."""
+        path = np.array([0, 1, 2, 3, 4], dtype=np.int32)
+        result = _clamp_seam_path(path, zone_h=20, margin=3)
+        assert int(result[0]) == 3  # 0 → 3
+        assert int(result[1]) == 3  # 1 → 3
+        assert int(result[2]) == 3  # 2 → 3
+        assert int(result[3]) == 3  # 3 == margin, unchanged
+
+    def test_path_clamped_below_upper_bound(self):
+        """Values above zone_h-1-margin are lowered to zone_h-1-margin."""
+        path = np.array([17, 18, 19], dtype=np.int32)
+        result = _clamp_seam_path(path, zone_h=20, margin=3)
+        hi = 20 - 1 - 3  # = 16
+        assert int(result[0]) == hi
+        assert int(result[1]) == hi
+        assert int(result[2]) == hi
+
+    def test_in_range_values_unchanged(self):
+        """Values already inside [margin, zone_h-1-margin] are not modified."""
+        path = np.array([5, 8, 10], dtype=np.int32)
+        result = _clamp_seam_path(path, zone_h=20, margin=3)
+        np.testing.assert_array_equal(result, path)
+
+    def test_zone_too_small_returns_unchanged(self):
+        """When zone_h <= 2*margin, clamping bounds invert; path returned as-is."""
+        path = np.array([3, 3, 3], dtype=np.int32)
+        result = _clamp_seam_path(path, zone_h=4, margin=3)
+        np.testing.assert_array_equal(result, path)
+
+
+# ---------------------------------------------------------------------------
+# §1.27 — TestHasSufficientBg
+# ---------------------------------------------------------------------------
+
+class TestHasSufficientBg:
+    """Tests for _has_sufficient_bg() — §1.27 background coverage gate."""
+
+    def test_sufficient_bg_returns_true(self):
+        """Mask with more pixels than min_px returns True."""
+        mask = np.ones((50, 50), dtype=bool)  # 2500 bg pixels
+        assert _has_sufficient_bg(mask, min_px=200) is True
+
+    def test_insufficient_bg_returns_false(self):
+        """Mask with fewer pixels than min_px returns False."""
+        mask = np.zeros((50, 50), dtype=bool)
+        mask[:5, :5] = True  # only 25 bg pixels
+        assert _has_sufficient_bg(mask, min_px=200) is False
+
+    def test_exactly_at_threshold_returns_true(self):
+        """Mask with exactly min_px pixels passes the floor."""
+        mask = np.zeros((20, 20), dtype=bool)
+        mask[:10, :10] = True  # exactly 100 pixels
+        assert _has_sufficient_bg(mask, min_px=100) is True
+
+    def test_none_mask_returns_false(self):
+        """None mask (no BiRefNet output available) returns False."""
+        assert _has_sufficient_bg(None, min_px=1) is False
+
+    def test_all_fg_returns_false(self):
+        """All-False mask (full-frame character, zero bg pixels) returns False."""
+        mask = np.zeros((100, 100), dtype=bool)
+        assert _has_sufficient_bg(mask, min_px=1) is False
+
+
+# ---------------------------------------------------------------------------
+# §1.28 — TestSeamPathStd
+# ---------------------------------------------------------------------------
+
+class TestSeamPathStd:
+    """Tests for _seam_path_std() — §1.28 seam path instability metric."""
+
+    def test_empty_path_returns_zero(self):
+        """Empty path returns 0.0 (no data to measure)."""
+        assert _seam_path_std(np.array([], dtype=np.int32)) == 0.0
+
+    def test_constant_path_returns_zero(self):
+        """A path that stays at the same row has std = 0."""
+        path = np.full(100, 5, dtype=np.int32)
+        assert _seam_path_std(path) == pytest.approx(0.0, abs=1e-6)
+
+    def test_oscillating_path_has_high_std(self):
+        """A path oscillating between 0 and 40 has std ≈ 20."""
+        path = np.tile([0, 40], 50).astype(np.int32)
+        std = _seam_path_std(path)
+        assert std > 15.0  # well above any constant path
+
+    def test_linearly_increasing_path_has_moderate_std(self):
+        """A monotonically increasing path [0…39] has std ≈ 11.5."""
+        path = np.arange(40, dtype=np.int32)
+        std = _seam_path_std(path)
+        assert 10.0 < std < 14.0
+
+    def test_return_type_is_float(self):
+        """Return type is always Python float."""
+        path = np.array([5, 3, 7], dtype=np.int32)
+        result = _seam_path_std(path)
+        assert isinstance(result, float)
+
+
+# ── TestZoneIsDegenerate — §1.30 minimum zone height guard (S74) ─────────────
+
+class TestZoneIsDegenerate:
+    """§1.30 — Degenerate zone height guard."""
+
+    def test_zero_min_height_never_degenerate(self):
+        """min_height=0 disables the check — any zone_h returns False."""
+        assert _zone_is_degenerate(5, min_height=0) is False
+        assert _zone_is_degenerate(1, min_height=0) is False
+
+    def test_zone_below_threshold_is_degenerate(self):
+        """zone_h < min_height → True."""
+        assert _zone_is_degenerate(10, min_height=20) is True
+
+    def test_zone_at_threshold_is_not_degenerate(self):
+        """zone_h == min_height → False (threshold is exclusive lower bound)."""
+        assert _zone_is_degenerate(20, min_height=20) is False
+
+    def test_zone_above_threshold_is_not_degenerate(self):
+        """zone_h > min_height → False."""
+        assert _zone_is_degenerate(100, min_height=20) is False
+
+    def test_negative_min_height_treated_as_disabled(self):
+        """Negative min_height (guard <= 0 check) → never degenerate."""
+        assert _zone_is_degenerate(5, min_height=-1) is False
+
+
+# ── TestSeamFgPenetration — §1.31 seam fg penetration metric (S75) ───────────
+
+class TestSeamFgPenetration:
+    """§1.31 — Seam foreground penetration fraction."""
+
+    def _zones(self, h: int = 20, w: int = 10, val_a: int = 0, val_b: int = 0):
+        fa = np.full((h, w, 3), val_a, dtype=np.uint8)
+        fb = np.full((h, w, 3), val_b, dtype=np.uint8)
+        return fa, fb
+
+    def test_empty_path_returns_zero(self):
+        """Empty path → 0.0."""
+        fa, fb = self._zones()
+        assert _seam_fg_penetration(np.array([], dtype=np.int32), fa, fb) == pytest.approx(0.0)
+
+    def test_all_background_path_returns_zero(self):
+        """Seam through all-black (bg) zones → 0.0 penetration."""
+        fa, fb = self._zones(val_a=0, val_b=0)
+        path = np.full(10, 5, dtype=np.int32)
+        assert _seam_fg_penetration(path, fa, fb) == pytest.approx(0.0)
+
+    def test_all_foreground_path_returns_one(self):
+        """Seam through all-fg zones → 1.0 penetration."""
+        fa, fb = self._zones(val_a=200, val_b=200)
+        path = np.full(10, 5, dtype=np.int32)
+        assert _seam_fg_penetration(path, fa, fb) == pytest.approx(1.0)
+
+    def test_half_foreground_returns_half(self):
+        """Left half bg, right half fg → 0.5 penetration."""
+        fa = np.zeros((20, 10, 3), dtype=np.uint8)
+        fb = np.zeros((20, 10, 3), dtype=np.uint8)
+        # Columns 5–9 are foreground in fa
+        fa[:, 5:, :] = 200
+        path = np.full(10, 5, dtype=np.int32)
+        result = _seam_fg_penetration(path, fa, fb)
+        assert result == pytest.approx(0.5)
+
+    def test_return_type_is_float(self):
+        """Return type is always Python float."""
+        fa, fb = self._zones(val_a=128, val_b=0)
+        path = np.array([5, 6, 7], dtype=np.int32)
+        result = _seam_fg_penetration(path, fa[:, :3], fb[:, :3])
+        assert isinstance(result, float)

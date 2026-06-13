@@ -14,11 +14,14 @@ import cv2
 from backend.src.anim.pipeline import (
     _check_edge_graph_connectivity,
     _compute_mst_weight,
+    _compute_canvas_span_utilization,
     _spatial_dedup_frames,
     _filter_high_conf_edges,
     _reload_scans_frames,
     _reject_scene_change_edges,
     _normalize_frame_scales,
+    _measure_max_seam_step,
+    _detect_static_input,
 )
 from backend.src.constants.anim import HIGH_CONF_EDGE_THRESH, SCALE_NORM_THRESH, SCENE_CHANGE_LUMA_THRESH
 
@@ -544,3 +547,133 @@ class TestComputeMstWeight:
         result = _compute_mst_weight(edges, n_frames=5)
         assert result == pytest.approx(0.2, abs=1e-6)
         assert result < 0.35
+
+
+# §1.17 — _compute_canvas_span_utilization (canvas span utilisation gate)
+# Tests cover: edge cases (N<2), perfect monotone sequence, collapsed BA
+# (all frames same position), over-utilised (frames spread wider than median
+# step × (N-1)), and dominant-axis selection (horizontal vs vertical).
+
+class TestComputeCanvasSpanUtilization:
+
+    @staticmethod
+    def _aff(ty: float, tx: float = 0.0) -> np.ndarray:
+        M = np.eye(2, 3, dtype=np.float32)
+        M[0, 2] = tx
+        M[1, 2] = ty
+        return M
+
+    def test_single_frame_returns_one(self):
+        """N < 2 → always returns 1.0 (no collapse possible)."""
+        assert _compute_canvas_span_utilization([self._aff(0.0)]) == pytest.approx(1.0)
+
+    def test_two_frames_returns_one(self):
+        """N == 2: span == expected_span (median_step==span, N-1==1) → ratio == 1.0."""
+        affines = [self._aff(0.0), self._aff(100.0)]
+        assert _compute_canvas_span_utilization(affines) == pytest.approx(1.0)
+
+    def test_perfect_monotone_sequence(self):
+        """Perfectly uniform steps: span == median_step × (N-1) → ratio == 1.0."""
+        step = 80.0
+        affines = [self._aff(i * step) for i in range(6)]
+        result = _compute_canvas_span_utilization(affines)
+        assert result == pytest.approx(1.0, abs=1e-5)
+
+    def test_oscillating_ba_returns_low_ratio(self):
+        """Oscillating BA solution: frames alternate positions [0,100,0,100,0,100].
+
+        span=100, adj_steps all=100, median_step=100, expected=100×5=500 → util=0.2.
+        This models a BA converging to a back-and-forth local minimum where the
+        canvas span is far smaller than the sum of individual steps implies.
+        """
+        affines = [self._aff(0.0 if i % 2 == 0 else 100.0) for i in range(6)]
+        result = _compute_canvas_span_utilization(affines)
+        assert result == pytest.approx(0.2, abs=1e-5)
+        assert result < 0.3  # below recommended threshold
+
+    def test_dominant_axis_horizontal(self):
+        """When tx_span > ty_span, horizontal axis is used for ratio."""
+        # ty=0 for all (no vertical scroll), tx varies uniformly.
+        affines = [self._aff(0.0, tx=i * 50.0) for i in range(5)]
+        result = _compute_canvas_span_utilization(affines)
+        assert result == pytest.approx(1.0, abs=1e-5)
+
+
+class TestMeasureMaxSeamStep:
+    """§1.24 — Post-composite seam-step measurement (S68)."""
+
+    def _canvas(self, h: int, w: int, lum_top: int, lum_bottom: int, boundary: int):
+        """Solid-colour canvas with a lum jump at `boundary` row."""
+        canvas = np.zeros((h, w, 3), dtype=np.uint8)
+        canvas[:boundary] = lum_top
+        canvas[boundary:] = lum_bottom
+        return canvas
+
+    def test_single_strip_returns_zero(self):
+        """n_strips=1 → no seam boundaries → 0.0."""
+        canvas = self._canvas(200, 50, 100, 100, 100)
+        assert _measure_max_seam_step(canvas, n_strips=1) == pytest.approx(0.0)
+
+    def test_uniform_canvas_returns_near_zero(self):
+        """Uniform luminance canvas → no step → ≈ 0.0."""
+        canvas = np.full((200, 50, 3), 128, dtype=np.uint8)
+        step = _measure_max_seam_step(canvas, n_strips=2)
+        assert step == pytest.approx(0.0, abs=1.0)
+
+    def test_step_detected_at_boundary(self):
+        """Canvas with +40 lum jump at mid-height → step ≈ 40."""
+        canvas = self._canvas(200, 50, 80, 120, 100)
+        step = _measure_max_seam_step(canvas, n_strips=2, band_px=10, guard=3)
+        assert step == pytest.approx(40.0, abs=2.0)
+
+    def test_max_returned_for_multiple_seams(self):
+        """Two-strip canvas with step=20 + one-strip canvas with step=50 → max=50."""
+        h, w = 300, 50
+        canvas = np.zeros((h, w, 3), dtype=np.uint8)
+        canvas[:100] = 80
+        canvas[100:200] = 100  # step=20 at row100
+        canvas[200:] = 150     # step=50 at row200
+        step = _measure_max_seam_step(canvas, n_strips=3, band_px=10, guard=3)
+        assert step >= 45.0  # at least the large step is captured
+
+    def test_small_canvas_no_crash(self):
+        """Canvas too small for band+guard → returns 0.0, no exception."""
+        canvas = np.full((10, 4, 3), 100, dtype=np.uint8)
+        step = _measure_max_seam_step(canvas, n_strips=2, band_px=10, guard=3)
+        assert step == pytest.approx(0.0)
+
+
+# ── TestDetectStaticInput — §1.29 static input detection gate (S73) ──────────
+
+class TestDetectStaticInput:
+    """§1.29 — Static input detection gate."""
+
+    def _frame(self, h: int = 32, w: int = 32, val: int = 128) -> np.ndarray:
+        return np.full((h, w, 3), val, dtype=np.uint8)
+
+    def test_fewer_than_two_frames_returns_false(self):
+        """A single frame is never considered static input."""
+        assert _detect_static_input([self._frame()], max_mad=2.0) is False
+
+    def test_identical_frames_returns_true(self):
+        """All identical frames → MAD=0 for every pair → True."""
+        frames = [self._frame(val=100)] * 4
+        assert _detect_static_input(frames, max_mad=2.0) is True
+
+    def test_varying_frames_returns_false(self):
+        """Frames with different luminance values → MAD exceeds threshold → False."""
+        frames = [self._frame(val=v) for v in [100, 150, 80, 200]]
+        assert _detect_static_input(frames, max_mad=2.0) is False
+
+    def test_just_below_threshold_returns_true(self):
+        """Frames that differ by slightly less than max_mad on a single pixel are still static."""
+        base = self._frame(val=100)
+        slightly_different = base.copy()
+        slightly_different[0, 0] = 101  # 1/1024 ≈ 0.001 luma — well below MAD=2
+        frames = [base, slightly_different, base]
+        assert _detect_static_input(frames, max_mad=2.0) is True
+
+    def test_one_differing_pair_returns_false(self):
+        """Only one pair with high MAD is enough to classify input as non-static."""
+        frames = [self._frame(val=100)] * 3 + [self._frame(val=200)]
+        assert _detect_static_input(frames, max_mad=2.0) is False

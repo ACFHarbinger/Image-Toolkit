@@ -4,70 +4,497 @@
 
 ---
 
-## ASP Session 63 — §2.3 Canvas Layout Inspector (read-only viewer) (2026-06-11)
+## GUI Session — §2.3A Arrow-Key Nav, §2.7B MergeWorker Cancel, §2.18B+C Color Labels, §2.19A+C Export + Copy, §2.9D Confirm Deletions (2026-06-10)
 
 ### Shipped
 
 | Item | Summary |
 |------|---------|
-| **`_parse_canvas_json(path) → dict`** (`stitch_tab.py`) | §2.3: Loads `stage08_canvas_info.json` written by `_ProgressPipeline`. Returns normalised dict: `canvas_h`, `canvas_w`, `frame_h` (defaults 0 if absent), `frame_w` (defaults 0 if absent), `T_global` as `List[float]`, `affines_final` as list-of-lists-of-float. Safe for files written before the `frame_h`/`frame_w` addition. |
-| **`_canvas_frame_corners(affine_2x3, frame_h, frame_w) → List[Tuple]`** (`stitch_tab.py`) | Pure function: applies the full 2×3 affine to the 4 corners of an (H, W) frame — `(0,0)`, `(W,0)`, `(W,H)`, `(0,H)` — and returns 4 `(x, y)` canvas-space tuples. Works for translation, rotation, scale, and shear affines. |
-| **`CanvasLayoutInspectorDialog(QDialog)`** (`stitch_tab.py`) | Read-only canvas layout viewer. Left pane: `QGraphicsScene`/`QGraphicsView` (dark background) with a dim canvas-border rectangle and N frame polygons rendered as `QPainterPath` fills using an 8-colour rotating palette (cornflower-blue, green, orange, violet, gold, teal, tomato, sky-blue) at 110 alpha, edge outlines `color.darker(160)`. Frame index label (white, 230 alpha) placed at the polygon centroid. Right pane: `QTableWidget` with Frame/tx/ty per row. Stats label: "N frames · W×H canvas". "Load JSON…" toolbar button for standalone use. |
-| **`⬗ Canvas` button in Stitch action row** (`stitch_tab.py`) | Initially disabled. Enabled in `_on_stitch_finished` when `stage08_canvas_info.json` exists in `_last_stages_dir`. Calls `_inspect_canvas()` which parses the JSON and opens the dialog. Log message `"[Stitch] Canvas layout available — click '⬗ Canvas' to inspect."` emitted on enable. |
-| **`frame_h`/`frame_w` in `stage08_canvas_info.json`** (`stitch_worker.py`) | Two new fields added to the `_save_json(8, "canvas_info", ...)` dict: `"frame_h": int(H)` and `"frame_w": int(W)`, where `H, W = frames[0].shape[:2]` (already in scope at Stage 8). Required for the canvas polygon renderer to know the frame dimensions. Zero-cost — no algorithmic changes. |
-| **9 unit tests** (`test_stitch_tab.py`) | `TestParseCanvasJson`: valid fixture fields parsed correctly; missing frame_h/frame_w default to 0; affines_final values coerced to float. `TestCanvasFrameCorners`: identity affine returns raw corners exactly; pure translation shifts all corners; 90° CCW rotation affine verified against closed-form. `TestCanvasLayoutInspectorDialog`: 3-frame fixture populates table and stats; zero frame dimensions skip polygon draw but update stats; no-data instantiation leaves label at "No data loaded.". **422 tests passing.** |
+| **Arrow-key gallery navigation — §2.3A** (`abstract_class_single_gallery.py`) | `_navigate_gallery(key)`, `_highlight_focused(page_paths, idx)`, `_preview_focused_item()` added, mirroring the two-galleries implementation. `_focused_idx=-1` tracked in `__init__`. `gallery.nav_left/right/up/down` wired in `keyPressEvent`; `gallery.open_preview` + `Space` call `_preview_focused_item()`. `_highlight_focused` calls `ensureWidgetVisible` on `gallery_scroll_area`. Completes §2.3A coverage for both gallery base classes. |
+| **`MergeWorker.cancel()` + `_should_stop` — §2.7B** (`merge_worker.py`) | Standardised cancellation pattern added: `_should_stop=False` in `__init__`, `cancel()` sets the flag, `cancelled = Signal()` emitted if cancel fires before the blocking merge call. `_should_stop` checked after image-file resolution, before the single `ImageMerger` call. (The merge call itself is a single blocking Rust invocation that cannot be interrupted mid-execution — this covers the pre-start case.) |
+| **Color label context menu — §2.18B** (`abstract_class_two_galleries.py`) | "Color Label ▶" submenu in the found-gallery right-click menu. Six color options (Red/Orange/Yellow/Green/Blue/Purple) shown with emoji icons. Each action is checkable; clicking a checked color toggles it off (clear). A "Clear Label" item at the bottom of the submenu removes the label. Labels stored in `QSettings` keyed `labels/{path}`. |
+| **Color border ring on thumbnails — §2.18C** (`abstract_class_two_galleries.py`) | `update_card_style` now reads the `gallery_path` Qt property from the card widget and calls `_get_color_label(path)` to look up the label color. When unlabelled and not selected, the default border (`#4f545c`, 1px) is used. When labelled and not selected, the label color replaces the border (2px solid). Selection state takes priority over label color (selection border overrides). Card widgets get `setProperty("gallery_path", path)` at construction time to support the lookup. |
+| **`_get_color_label` / `_set_color_label` helpers** (`abstract_class_two_galleries.py`) | `_get_color_label(path)` reads `QSettings("ImageToolkit","ImageToolkit").value("labels/{path}")`. `_set_color_label(path, color_key)` writes or removes the QSettings key, then calls `update_card_style` to refresh the card immediately. Class-level `_LABEL_COLORS` dict maps key → hex; `_LABEL_ICONS` maps key → emoji. |
+| **`_copy_selection_to_folder()` — §2.19C** (both gallery base classes) | `shutil.copy2` loop to a `QFileDialog.getExistingDirectory`-chosen destination. Source is `selected_files` when non-empty, else the full visible list. Skips already-existing destinations (reports skipped count). `DontUseNativeDialog` on the directory picker. Bound to `Ctrl+Shift+C` via new `gallery.copy_to_folder` shortcut in `ShortcutRegistry`. |
+| **"Export Paths…" + "Copy to Folder…" in right-click menu** (`abstract_class_two_galleries.py`) | Both actions added after a separator following "Move to Trash". Export calls the existing `_export_selection_as_paths()`; Copy calls the new `_copy_selection_to_folder()`. Keyboard shortcuts noted in the menu labels. |
+| **`gallery.copy_to_folder` shortcut** (`shortcut_manager.py`) | Default `Ctrl+Shift+C`. Added between `gallery.export_paths` and `gallery.nav_back` in `SHORTCUT_REGISTRY`. Appears in the `Ctrl+/` shortcut discovery overlay. |
+| **`_confirm_deletions_enabled()` + confirm gate in `_trash_path` — §2.9D** (`abstract_class_two_galleries.py`) | `_confirm_deletions_enabled()` reads `preferences["confirm_deletions"]` from `main_window.cached_creds` (defaults `True`). `_trash_path` now shows a `QMessageBox.question` before `send2trash` when enabled. When `confirm_deletions=False`, trashing is instant with no dialog. |
+| **`_copy_selection_to_folder()` — §2.19C** (`abstract_class_single_gallery.py`) | Same implementation mirrored into `AbstractClassSingleGallery`. Wired to `gallery.copy_to_folder` in `keyPressEvent`. |
 
 ### Design rationale
 
-Same read-only viewer pattern as §2.2 (Session 62): `_ProgressPipeline` already writes `stage08_canvas_info.json` when `save_intermediate=True`, so the dialog consumes a static file — zero pipeline changes, zero new worker signals. The two-field extension to `stitch_worker.py` (`frame_h`/`frame_w`) is pure serialisation change to the debug dump; the `_parse_canvas_json` function defaults them to zero for backward compatibility with existing JSON files.
-
-`_canvas_frame_corners` uses the full 2×3 affine rather than just the `tx`/`ty` diagonal, so the polygons correctly show rotation and scale distortion when `ASP_SIMILARITY_MODE=1` or affine-mode BA is active.
-
-Visual render verified (2026-06-11): 3-frame synthetic fixture with correct overlap shows 3 colour-coded blocks side-by-side on a dark canvas, canvas border visible, stats "3 frames · 1850×500 canvas", table tx=10.0/620.0/1210.0 ty=50.0.
+Arrow-key navigation in `AbstractClassSingleGallery` mirrors the two-galleries version: `_current_cols` is already computed from the layout pass so step-by-row navigation works without additional column tracking. Color labels use `QSettings` (not the vault) because they are user-facing curation data, not security-sensitive credentials. The `gallery_path` property on card widgets is the bridge from `update_card_style`'s generic widget parameter back to the specific file path — without it, the function would need to maintain a reverse map. The label-to-color lookup adds one QSettings read per card refresh; since refresh only fires on explicit user action (not during scrolling), the overhead is negligible. `_copy_selection_to_folder` uses `shutil.copy2` (preserves mtime/permissions) and skips conflicts silently — skip count is reported in the status bar.
 
 ---
 
-## ASP Session 62 — §2.2 Edge Graph Inspector (read-only viewer) (2026-06-11)
+## ASP Session 75 — §1.31 Seam FG Penetration Escalation (2026-06-10)
 
 ### Shipped
 
 | Item | Summary |
 |------|---------|
-| **`_parse_edge_json(path) → List[dict]`** (`stitch_tab.py`) | §2.2: Loads and normalises a `stage05_edges.json` file saved by `_ProgressPipeline`. Drops records missing `i` or `j`. Fills `dx`, `dy`, `conf`, `method` with safe defaults (0.0, 0.0, 0.0, `"?"`) when absent. Returns a clean list ready for the graph renderer. |
-| **`_edge_graph_node_positions(n, radius=150.0) → List[Tuple]`** (`stitch_tab.py`) | Pure function: places N nodes evenly on a circle of given radius, first node at 12 o'clock (−π/2 offset). Returns `[]` for n≤0, `[(0,0)]` for n=1. Used as the layout engine for the graph scene. |
-| **`EdgeGraphInspectorDialog(QDialog)`** (`stitch_tab.py`) | Read-only edge graph viewer. Left pane: `QGraphicsScene`/`QGraphicsView` with dark background — frame nodes as labelled blue circles, match edges as lines colour-coded by confidence (green ≥ 0.7, yellow ≥ 0.5, red < 0.5), line width 1+conf×4px, tooltip per edge shows i→j/conf/dx/dy/method. Right pane: `QTableWidget` sorted by conf ascending (worst-first), columns From/To/Conf/Method/dx/dy, cells coloured to match edge confidence. Stats label: "N frames · K edges · M low-conf". "Load JSON…" toolbar button for standalone use. |
-| **`⬡ Edges` button in Stitch action row** (`stitch_tab.py`) | Initially disabled. Enabled in `_on_stitch_finished` when `stage05_edges.json` is found in `_last_stages_dir`. Calls `_inspect_edges()` which parses the JSON and opens the dialog. Log message `"[Stitch] Edge graph available — click '⬡ Edges' to inspect."` emitted on enable. |
-| **`self._last_stages_dir`** (`stitch_tab.py`) | New state variable on `EditTab`. Set from `worker._intermediate_dir` at start of each run so `_on_stitch_finished` and `_inspect_edges` always reference the correct run's stages dir. |
-| **11 unit tests** (`test_stitch_tab.py`) | `TestParseEdgeJson`: valid fixture, missing optional fields → defaults, records without i/j skipped, empty array → empty list. `TestEdgeGraphNodePositions`: zero → empty, single → origin, N equidistant from centre (radius check), first node at 12 o'clock. `TestEdgeGraphInspectorDialog`: table populated + stats label, table sorted worst-first, empty edges → "No edges." message. **413 tests passing.** |
+| **`_seam_fg_penetration(path, fa_zone, fb_zone) → float`** (`compositing.py`) | §1.31: Samples the seam pixel at each column `x` (row = `path[x]`, clamped to zone bounds). A pixel is foreground when any channel > 0. Returns the fraction of columns where the seam pixel is foreground in at least one zone. 0.0 for empty path or zero-width zone. |
+| **Penetration escalation in blend loop** (`compositing.py`) | After §1.28 instability check: if `_SEAM_FG_PENETRATION_MAX > 0.0 and k not in seam_single_pose and penetration > threshold`, escalates to single-pose (dominant by fg pixel count). Complements §1.23/§3.15 (cost barriers) and §1.28 (path stability); catches the case where the DP routes through fg because no bg corridor exists. |
+| **`_SEAM_FG_PENETRATION_MAX` flag** (`compositing.py`) | `ASP_SEAM_FG_PENETRATION_MAX=0.0` (default off). Recommend 0.7: when >70% of seam columns cut through character pixels, a hard-partition blend produces less ghosting than the DSFN ramp. |
+| **Constant** (`constants/anim.py`) | `SEAM_FG_PENETRATION_MAX=0.7`. |
+| **`ASP_SEAM_FG_PENETRATION_MAX` in `_CONFIG_SCHEMA`** (`config.py`) | `(float, 0.0, 1.0, "Max fraction of seam columns through fg before single-pose escalation")`. |
+| **`_seam_fg_penetration` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
+| **5 unit tests** (`test_compositing.py::TestSeamFgPenetration`) | empty-path-returns-zero, all-background-path-returns-zero, all-foreground-path-returns-one, half-foreground-returns-half, return-type-is-float. **Anim suite: 482 passing.** |
 
 ### Design rationale
 
-`_ProgressPipeline` already writes `stage05_edges.json` (i, j, dx, dy, conf, method per edge) when `save_intermediate=True`. The viewer consumes this file directly — zero changes to pipeline code, zero new worker signals, no §2.7 staging architecture required. This ships the core "what did my edge graph look like?" diagnostic immediately and unblocks future sessions from adding the interactive delete/re-solve path on top.
-
-Visual check is intentionally deferred: no `asp_test*` corpus exists on this machine, so no stitch run has been made with `save_intermediate=True`. The `_parse_edge_json` / `_edge_graph_node_positions` logic is verified by the 11 unit tests; the rendered graph will be visually validated when the corpus arrives.
+§1.23 and §3.15A raise the DP's cost for fg columns but cannot prevent routing through fg when every column is fg-dominated (portrait seams). §1.28 detects this indirectly via path instability, but a portrait seam routing consistently along the character midline has low std. §1.31 is the direct measure: if ≥70% of the seam pixels are on foreground, the seam bisects a character body regardless of path stability. Completes the three-layer fg-seam defence: §1.23/§3.15 (cost barriers → steer away), §1.28 (std → detect chaos), §1.31 (penetration → detect fg bisection).
 
 ---
 
-## ASP Session 61 — §1.17 GNC-TLS Bundle Adjustment (2026-06-11)
+## ASP Session 74 — §1.30 Minimum Zone Height Guard (2026-06-10)
 
 ### Shipped
 
 | Item | Summary |
 |------|---------|
-| **`_gnc_weights_geman_mcclure(residuals_sq, mu, c_sq) → ndarray`** (`bundle_adjust.py`) | §1.17: Geman-McClure per-edge GNC weights `wᵢ = (μc² / (μc² + rᵢ²))²`. At large μ (initial) all weights ≈ 1 (convex quadratic regime). As μ decreases over outer iterations, edges with large residuals receive exponentially smaller weights, approximating the truncated-LS cost. Yang et al., IEEE RA-L 2020. Exported in `__all__`. |
-| **GNC-TLS outer continuation loop in `_bundle_adjust_affine`** (`bundle_adjust.py`) | `_GNC_OUTER=8` outer iterations (default ON, `ASP_GNC_OUTER=0` reverts to §1.1C Cauchy). Loop: initialise μ₀=max_sq/(2c²) so the surrogate starts convex; per-iter: compute per-edge squared translation disagreement, update GM weights, LM step with `loss='linear'` and `√w` multiplier in the `residuals()` closure, anneal μ÷=1.4; terminates on ‖Δx‖<1e-3 or μ<0.01. |
-| **`_gnc_ws` mutable closure** (`bundle_adjust.py`) | `List[float]` captured by `residuals()`; updated in-place by the GNC loop. `residuals()` multiplies each edge contribution by `_gnc_ws[idx]` (= `√wᵢ`), giving scipy LM the effective weighted cost `wᵢ·rᵢ²`. Priors and regularisers remain unweighted. |
-| **`GNC_C_PX=10.0`, `GNC_MU_ANNEAL=1.4`, `GNC_MAX_OUTER=8`** (`constants/anim.py`) | §1.17 constants. `GNC_C_PX=10px`: edges with 10px residual receive 50% weight at μ=1; `GNC_MU_ANNEAL=1.4`: 8-step schedule spans ~15× dynamic range. |
-| **`ASP_GNC_OUTER` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 20, "GNC-TLS outer iterations (0=Cauchy only, default 8)")`. |
-| **5 unit tests** (`test_bundle_adjust.py::TestGNCWeightsGemanMcclure`) | unit-weights-large-mu (μ=1e6 → all weights > 0.999), zero-residual-weight-one (rᵢ=0 → wᵢ=1.0 exactly), high-residual-suppressed (rᵢ=100px >> c=10px → wᵢ < 0.01), weights-in-valid-range (50 random residuals ∈ [0,1]), higher-residual-lower-weight (monotone decreasing). **Anim suite: 412 passing.** |
+| **`_zone_is_degenerate(zone_h, min_height=20) → bool`** (`compositing.py`) | §1.30: Returns True when `zone_h < min_height` (and `min_height > 0`). When the blend zone is shorter than `min_height` rows, the §1.26 boundary clamp leaves at most one valid seam row, the DSFN feather has no blending headroom, and the DP produces a constant-row path regardless of content. |
+| **Wire-up in `_composite_foreground()`** (`compositing.py`) | After `fa_zone`/`fb_zone` are allocated, before DP: `if _ZONE_MIN_HEIGHT > 0 and _zone_is_degenerate(zone_h, _ZONE_MIN_HEIGHT) and k not in seam_single_pose → seam_single_pose[k] = fi_a if fg_a ≥ fg_b else fi_b`. Hard-partition blend fires at line 2001 (`_single = seam_single_pose.get(k)`). |
+| **`_ZONE_MIN_HEIGHT` flag** (`compositing.py`) | `ASP_ZONE_MIN_HEIGHT=0` (default off). Recommend 20: matches the S15/S16 soft-edge band width; zones narrower than this cannot be blended cleanly regardless of DP. |
+| **Constant** (`constants/anim.py`) | `ZONE_MIN_HEIGHT=20`. |
+| **`ASP_ZONE_MIN_HEIGHT` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 500, "Min blend-zone rows before single-pose escalation without DP (0=off, recommend 20)")`. |
+| **`_zone_is_degenerate` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
+| **5 unit tests** (`test_compositing.py::TestZoneIsDegenerate`) | zero-min-height-never-degenerate, zone-below-threshold-is-degenerate, zone-at-threshold-is-not-degenerate, zone-above-threshold-is-not-degenerate, negative-min-height-treated-as-disabled. **Anim suite: 477 passing.** |
 
 ### Design rationale
 
-Category B failures (test13 ratio=11.1×, test64=4.2×, etc.) occur when a single catastrophically bad LoFTR match inflates the 3×-median outlier threshold, making itself immune to the post-solve prong-1 rejection. The §1.1B spanning-tree pre-filter cannot catch a bad edge that *is* the highest-weight MST edge. The §1.1C Cauchy one-shot suppresses but cannot eliminate it once it corrupts the global median.
+§1.26 (`_clamp_seam_path`) clips the DP seam to `[margin, zone_h-1-margin]`. With `margin=3` and `zone_h=8`, the valid range is `[3, 4]` — two rows. The DP surface is so compressed that every path lands at the same row, the feather has no room to blend, and S15/S16 soft-edge (±6px) extends beyond the zone boundary. Escalating to single-pose for zones < 20 rows avoids all these edge cases in one gate. The 20-row threshold is equal to the S15 soft-edge band width (`2 × ASP_SP_SOFT_PX=6 + margin`), making it the natural floor for meaningful blending.
 
-GNC-TLS (Yang et al. 2020) solves this directly: the first outer iteration is a pure quadratic solve (μ→∞, all edges equal), giving an unbiased initial estimate. Subsequent iterations progressively down-weight the high-residual edges in closed form (no RANSAC hypothesis sampling), converging to the truncated-LS solution. Tolerates up to ~70–80% outlier edges vs. ~50% for RANSAC-style rejection. Default ON — the solver always runs the outer loop, not an opt-in gate.
+---
 
-Post-solve outlier rejection (§1.1 prong-1 residual threshold + prong-2 dy-outlier check) remains unchanged as a backstop for moderate outliers that the μ schedule (1.4⁸ ≈ 15× dynamic range) leaves partially suppressed.
+## ASP Session 73 — §1.29 Static Input Detection Gate (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_detect_static_input(frames, max_mad, thumb_size=64) → bool`** (`pipeline.py`) | §1.29: Resizes each frame to a 64×64 greyscale thumbnail and checks whether all consecutive pairs have mean absolute difference (MAD) < `max_mad`. Returns True only when ALL pairs are below the ceiling. Fewer than 2 frames → always False. Short-circuits on first differing pair for zero overhead on valid inputs. |
+| **Stage 1.5 gate in `run()`** (`pipeline.py`) | Pre-Stage-2 check: when `_STATIC_INPUT_MAX_MAD > 0.0` and `_detect_static_input(...)` is True, logs a warning and `cv2.imwrite(frame 0 → output_path)` early return. No exception raised — caller receives a valid (but trivial) output. |
+| **`_STATIC_INPUT_MAX_MAD` flag** (`pipeline.py`) | `ASP_STATIC_INPUT_MAX_MAD=0.0` (default off). Recommend 2.0: 2/255 ≈ 0.8% pixel noise, sufficient to tolerate MPEG compression noise while catching genuine all-static sequences. |
+| **Constant** (`constants/anim.py`) | `STATIC_INPUT_MAX_MAD=2.0`. |
+| **`ASP_STATIC_INPUT_MAX_MAD` in `_CONFIG_SCHEMA`** (`config.py`) | `(float, 0.0, 255.0, "MAD ceiling for static-input detection")`. |
+| **`_detect_static_input` in `__all__`** (`pipeline.py`) | Exported for testing and external use. |
+| **5 unit tests** (`test_pipeline.py::TestDetectStaticInput`) | fewer-than-two-frames-returns-false, identical-frames-returns-true, varying-frames-returns-false, just-below-threshold-returns-true, one-differing-pair-returns-false. **Anim suite: 472 passing.** |
+
+### Design rationale
+
+Phase Correlation is the primary displacement estimator. When every input frame is identical (or near-identical), all pair responses are near-zero and Bundle Adjustment converges to a degenerate all-zero-translation solution — the pipeline produces a single frame copy with confidence. Detecting this case before Stage 1 wastes no edge-matching budget and avoids a misleading "stitched panorama" that is just one frame repeated. MAD=2.0 comfortably absorbs H.264/MPEG quantization noise (typical MAD < 0.5 for identical-looking frames from a static source) while safely ignoring normal inter-frame motion (MAD > 5 for even 5-pixel scroll).
+
+---
+
+## ASP Session 72 — §1.28 Seam Path Instability Escalation (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_seam_path_std(path) → float`** (`compositing.py`) | §1.28: `float(np.std(path))`; 0.0 for empty paths. Measures how widely the seam path oscillates across the zone height — a stable seam routing along consistent rows has std≈0; a chaotic seam that spans the full zone has std≈zone_h/3. |
+| **Instability escalation in blend loop** (`compositing.py`) | After `path_local` is resolved: if `_SEAM_INSTABILITY_THRESH > 0 and k not in seam_single_pose and _seam_path_std(path_local) > threshold`, escalates to single-pose. Dominant frame picked by fg pixel count in zone (same logic as §1.20). |
+| **`_SEAM_INSTABILITY_THRESH` flag** (`compositing.py`) | `ASP_SEAM_INSTABILITY_THRESH=0.0` (default off). Recommend 20.0: paths with std > 20 rows are visibly unstable. |
+| **Constant** (`constants/anim.py`) | `SEAM_INSTABILITY_THRESH=20.0`. |
+| **`ASP_SEAM_INSTABILITY_THRESH` in `_CONFIG_SCHEMA`** (`config.py`) | `(float, 0.0, 500.0, "Max seam path std before single-pose escalation")`. |
+| **`_seam_path_std` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
+| **5 unit tests** (`test_compositing.py::TestSeamPathStd`) | empty-path-returns-zero, constant-path-returns-zero, oscillating-path-has-high-std, linearly-increasing-path-has-moderate-std, return-type-is-float. **Anim suite: 467 passing.** |
+
+### Design rationale
+
+§1.25 (smoothing) and §1.26 (boundary clamp) reduce the _visual_ impact of an unstable path, but do not prevent the blend from straddling two incompatible frame regions. When the DP reports no stable low-cost path (std > 20 rows), the zone contains content that fundamentally cannot be blended cleanly — typically a foreground character that moved so much between frames that the "best" seam cuts through it at different heights for every column. Escalating to single-pose in this case avoids a zigzag ghost and lets §1.15 soft-edge handle the residual step.
+
+---
+
+## ASP Session 71 — §1.27 Background Coverage Gate for Normalisation (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_has_sufficient_bg(bg_sel, min_px=200) → bool`** (`compositing.py`) | §1.27: returns True iff `np.count_nonzero(bg_sel) >= max(1, min_px)`. None input → False. Formalises the historical hardcoded `>= 200` floor in the normalisation loop as a testable, configurable helper. |
+| **Normalisation loop update** (`compositing.py`) | `len(bg_px) >= 200` replaced by `_has_sufficient_bg(bg_sel, _bg_min)` where `_bg_min = _BG_NORM_MIN_PX if _BG_NORM_MIN_PX > 0 else 200`. Default behaviour unchanged. |
+| **`_BG_NORM_MIN_PX` flag** (`compositing.py`) | `ASP_BG_NORM_MIN_PX=0` (default 0 → built-in 200-px floor). Setting to a higher value tightens the gate for sparse-bg scenes. |
+| **Constant** (`constants/anim.py`) | `BG_NORM_MIN_PX=200`. |
+| **`ASP_BG_NORM_MIN_PX` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 10000, "Min background pixels for gain normalisation (0 = use built-in 200-px floor)")`. |
+| **`_has_sufficient_bg` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
+| **5 unit tests** (`test_compositing.py::TestHasSufficientBg`) | sufficient-bg-returns-true, insufficient-bg-returns-false, exactly-at-threshold-returns-true, none-mask-returns-false, all-fg-returns-false. **Anim suite: 462 passing.** |
+
+### Design rationale
+
+The normalisation loop has always guarded against sparse background with `len(bg_px) >= 200`, but this was implicit and untestable. Extracting it to `_has_sufficient_bg()` makes the contract explicit: portrait shots where BiRefNet assigns nearly the entire frame to foreground have too few background pixels for a reliable mean-luma estimate, and applying gain correction to 10–50 background pixels produces a highly noisy multiplier. The configurable `ASP_BG_NORM_MIN_PX` allows per-dataset tuning without code changes.
+
+---
+
+## ASP Session 70 — §1.26 Seam Path Boundary Clamp (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_clamp_seam_path(path, zone_h, margin=3) → np.ndarray`** (`compositing.py`) | §1.26: clips the DP seam path to `[margin, zone_h-1-margin]`. When the seam routes to y=0 or y=zone_h-1, the feather blend has zero headroom and degenerates to a hard edge at the zone boundary. `np.clip(path, margin, zone_h-1-margin)`. No-op when margin ≤ 0 or `zone_h ≤ 2*margin` (bounds would invert). |
+| **`_SEAM_MARGIN` flag** (`compositing.py`) | `ASP_SEAM_MARGIN=3` (default 0=off). Wired at end of `_seam_cut()` after §1.25 smoothing. |
+| **Constant** (`constants/anim.py`) | `SEAM_MARGIN=3`. |
+| **`ASP_SEAM_MARGIN` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 50, "Min rows between seam path and zone top/bottom edge (0 = off, recommend 3)")`. |
+| **`_clamp_seam_path` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
+| **5 unit tests** (`test_compositing.py::TestClampSeamPath`) | zero-margin-returns-unchanged, path-clamped-above-margin, path-clamped-below-upper-bound, in-range-values-unchanged, zone-too-small-returns-unchanged. **Anim suite: 457 passing.** |
+
+### Design rationale
+
+The feather blend in `_composite_foreground` requires at least `feathers[k]` rows of valid zone content on either side of the seam centre. When `_seam_cut()` routes the path to the zone boundary (y=0 or y=zone_h-1), the blend array is sliced to a zero-height region — producing a hard cut at the zone edge that is visually distinct from the intended feather transition. `margin=3` is a conservative floor (three pixels of headroom); larger values can be set via `ASP_SEAM_MARGIN` for zones with wide feathers. The `zone_h ≤ 2*margin` guard prevents the bounds from inverting on very thin zones.
+
+---
+
+## ASP Session 69 — §1.25 Seam Path Smoothing (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_smooth_seam_path(path, window=5) → np.ndarray`** (`compositing.py`) | §1.25: applies a 1-D median filter of size *window* to the DP seam-cut path. Raw argmin traceback can produce single-pixel sideways jumps that alias into diagonal bands at the seam boundary. Formula: `scipy.ndimage.median_filter(path.astype(float32), size=window).astype(int32)`. Even window incremented to next odd. window ≤ 1 is a no-op. |
+| **`_SEAM_SMOOTH_WINDOW` flag** (`compositing.py`) | `ASP_SEAM_SMOOTH_WINDOW=5` (default 0=off). Wired at the end of `_seam_cut()` — after traceback, before return. |
+| **Constant** (`constants/anim.py`) | `SEAM_SMOOTH_WINDOW=5`. |
+| **`ASP_SEAM_SMOOTH_WINDOW` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 51, "Median-filter window for seam path jitter removal (0 or 1 = off, recommend 5)")`. |
+| **`_smooth_seam_path` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
+| **5 unit tests** (`test_compositing.py::TestSmoothSeamPath`) | window-zero-returns-unchanged, window-one-returns-unchanged, smooth-path-removes-spike, constant-path-unchanged, even-window-incremented-to-odd. **Anim suite: 452 passing.** |
+
+### Design rationale
+
+The `_seam_cut()` DP traceback selects the locally-optimal column at each step (`argmin` over a ±1 window). When adjacent columns have nearly equal energy, the traceback oscillates: column 3 → column 4 → column 3 → column 4, producing a visible zigzag band at the boundary. A 1-D median filter of window=5 removes oscillations of period ≤ 2 (single-pixel jitter) while preserving the coarser seam routing (bends of ≥ 3px extent pass through unchanged). This is analogous to path post-processing in graph-cut segmentation and is already standard in video seam-carving literature.
+
+---
+
+## ASP Session 68 — §1.24 Post-Composite Seam-Step Gate (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_measure_max_seam_step(canvas, n_strips, band_px=10, guard=3) → float`** (`pipeline.py`) | §1.24: samples mean greyscale luma in `band_px` rows above and below each inter-strip boundary (±`guard` guard rows). Returns `max(|above − below|)` across all N-1 seams. Returns 0.0 when n_strips ≤ 1 or canvas too small. |
+| **Stage 11.3 gate** (`pipeline.py`) | `_SEAM_STEP_GATE` flag (default 0.0=off, `ASP_SEAM_STEP_GATE=25.0`). After Stage 11.2 colour gate: measures `_measure_max_seam_step(canvas, N)`. If > threshold → SCANS fallback. |
+| **Constant** (`constants/anim.py`) | `SEAM_STEP_GATE_THRESH=25.0`. |
+| **`ASP_SEAM_STEP_GATE` in `_CONFIG_SCHEMA`** (`config.py`) | `(float, 0.0, 255.0, "Max luma step at seam boundary before SCANS fallback")`. |
+| **`_measure_max_seam_step` in `__all__`** (`pipeline.py`) | Exported for testing and external use. |
+| **5 unit tests** (`test_pipeline.py::TestMeasureMaxSeamStep`) | single-strip-returns-zero, uniform-canvas-returns-near-zero, step-detected-at-boundary, max-returned-for-multiple-seams, small-canvas-no-crash. **Anim suite: 447 passing.** |
+
+### Design rationale
+
+Stage 11.2 (§1.14B, S56) detects mismatched-colour seam zones in source frames before compositing. Stage 11.3 operates on the final composite output: if a luminance step >25 lum units persists at any strip boundary (≈"visible step" in the `seam_visibility_score` taxonomy from §3.8), the photometric normalisation has failed and SCANS is a better result. The guard rows (default 3) prevent sampling in the immediate artefact zone at the seam boundary itself; `band_px=10` samples the stable region just outside the transition. Complements Stage 11.2 without overlap.
+
+---
+
+## ASP Session 67 — §1.23 SemanticStitch Hard Corridor Barrier (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_seam_corridor_exists(cost, fg_thresh=0.5) → bool`** (`compositing.py`) | §1.23: returns True iff the cost map has both fg-dominated columns (>50% fg-interior) AND non-dominated columns (background corridor). False when all columns are fg-dominated (no corridor) or none are (no barrier needed). |
+| **`_build_seam_cost_map(..., barrier_cost=None)` extended** (`compositing.py`) | New `barrier_cost` parameter. When `None`: uses module-level `_SEAM_HARD_BARRIER` flag to choose between 2.0 (S33 soft) and `_SEAM_HARD_BARRIER_COST` (1e6 hard). When corridor exists, fg-dominated columns are raised to `barrier_cost` instead of hardcoded 2.0. Backward-compatible: default path is identical to S33. |
+| **`_SEAM_HARD_BARRIER` / `_SEAM_HARD_BARRIER_COST` flags** (`compositing.py`) | `ASP_SEAM_HARD_BARRIER=1` (default OFF). `ASP_SEAM_HARD_BARRIER_COST=1e6` (configurable). |
+| **Constants** (`constants/anim.py`) | `SEAM_HARD_BARRIER_COST=1e6`. |
+| **2 entries in `_CONFIG_SCHEMA`** (`config.py`) | `ASP_SEAM_HARD_BARRIER (int, 0, 1)` and `ASP_SEAM_HARD_BARRIER_COST (float, 0, None)`. |
+| **`_seam_corridor_exists` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
+| **5 unit tests** (`test_compositing.py::TestSeamCorridorExists`) | all-dominated-returns-false, all-bg-returns-false, mixed-returns-true, hard-barrier-applied-when-corridor, soft-barrier-backward-compat. **Anim suite: 442 passing.** |
+
+### Design rationale
+
+S33 (§3.15A) set fg-dominated columns to cost=2.0 — soft deterrence. With `sem_weight=200` in `_seam_cut()`, a cost-2.0 column costs 400 energy vs a cost-1.0 fg-interior column at 200. The DP is discouraged but not prevented from routing through fg columns. When a background corridor exists (detected by `_seam_corridor_exists`), setting the barrier to 1e6 makes the fg-column path 5000× more expensive than any background path — the DP is effectively forced into the corridor. The graceful fallback (no corridor → cost stays 2.0) maintains S33 behaviour when the character fills the full overlap width.
+
+---
+
+## ASP Session 66 — §1.22 Adaptive Single-Pose Soft-Edge Width (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_adaptive_sp_soft_px(feather_width, base_px=6, max_px=30, ref_px=80) → int`** (`compositing.py`) | §1.22: scales the single-pose soft-edge half-width proportionally to the original feather width that triggered escalation. Formula: `min(max_px, max(base_px, base_px * feather_width // ref_px))`. At feather=80px returns 6 (baseline unchanged); at feather=160px returns 12; at feather=300px returns 22; capped at 30px. `feather_width ≤ 0` is handled safely (returns base_px). |
+| **`_ADAPTIVE_SP_SOFT` flag** (`compositing.py`) | `ASP_ADAPTIVE_SP_SOFT=1` (default OFF). When ON, replaces the fixed `ASP_SP_SOFT_PX=6` in the single-pose branch of the blend loop with a per-seam adaptive value computed from `feathers[k]`. |
+| **Constants** (`constants/anim.py`) | `SP_SOFT_BASE_PX=6`, `SP_SOFT_MAX_PX=30`, `SP_SOFT_REF_PX=80`. |
+| **`ASP_ADAPTIVE_SP_SOFT` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 1, "Enable adaptive single-pose soft-edge width scaled by feather")`. |
+| **`_adaptive_sp_soft_px` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
+| **5 unit tests** (`test_compositing.py::TestAdaptiveSpSoftPx`) | at-ref-px-returns-base, doubles-for-double-ref, narrow-feather-clamps-to-base, wide-feather-caps-at-max-px, zero-feather-returns-base. **Anim suite: 437 passing.** |
+
+### Design rationale
+
+§1.15 (S15) always applies a fixed ±6px soft edge at single-pose seams. When §1.18 escalates a 300px feather to single-pose, the viewer expects a gentle transition over ~300px but sees a hard cut softened by only 6px — visually equivalent to a hard cut. The 6px was calibrated for the S15 baseline (feathers 80–120px). For wide feathers (160–300px), the appropriate soft edge is 12–22px: large enough to conceal the cut but narrow enough to avoid the ghost risk (double-image artefact requires ≥40px overlap to form). §1.22 derives the soft edge from the original feather width, maintaining the no-ghost guarantee while eliminating the visible step that §1.18 alone creates.
+
+---
+
+## ASP Session 65 — §1.21 Post-Composite Seam Luminance Equalisation (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_seam_lum_equalize(canvas, boundaries, band_px=20, min_step=5.0) → np.ndarray`** (`compositing.py`) | §1.21: for each boundary, samples mean greyscale luminance in band_px-row reference windows above and below (±3-row guard). When step > min_step lum units, applies a linear additive ramp over band_px rows below the boundary subtracting the step to smooth the transition. Equal BGR correction (luminance shift, chrominance preserved). Returns uint8 copy. |
+| **`_SEAM_LUM_EQ` flag** (`compositing.py`) | `ASP_SEAM_LUM_EQ=1` (default OFF). Wired just before `return result` in `_composite_foreground`. |
+| **Constants** (`constants/anim.py`) | `SEAM_LUM_EQ_BAND_PX=20`, `SEAM_LUM_EQ_MIN_STEP=5.0`. |
+| **`ASP_SEAM_LUM_EQ` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 1, "Enable post-composite seam luminance equalisation pass")`. |
+| **`_seam_lum_equalize` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
+| **5 unit tests** (`test_compositing.py::TestSeamLumEqualize`) | no-step-no-change, step-above-threshold-reduced, step-below-threshold-not-corrected, boundary-near-edge-no-crash, returns-uint8-dtype. **Anim suite: 432 passing.** |
+
+### Design rationale
+
+test27 (Class D) has SC=26.7 — visible luminance step at seam boundaries despite only 4% background gain spread. The step comes from ARAP warp residuals in the midpoint blend, not from gain mismatch. §1.16 (seam color match) and §1.4B/C (background gain) operate on intermediate compositing state. §1.21 operates on the FINAL output, correcting whatever step remains after all upstream passes. The ramp only touches band_px rows below the boundary — the upstream zone is untouched. The ±3-row guard prevents sampling the artefact region at the seam itself.
+
+---
+
+## ASP Session 64 — §1.20 Tight-Step Preemptive Single-Pose Escalation (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_compute_seam_step_size(fi_a, fi_b, affines) → float`** (`compositing.py`) | §1.20: returns `max(|ty_b−ty_a|, |tx_b−tx_a|)` — dominant-axis camera step between two frame canvas positions. Returns `float("inf")` for out-of-range frame indices. |
+| **Tight-step preemptive escalation in FG registration loop** (`compositing.py`) | `_TIGHT_STEP_PX` flag (default 0=off, `ASP_TIGHT_STEP_PX=30`). When step < threshold, skip ARAP entirely and immediately set `seam_single_pose[k]` based on which frame has more fg pixels in the ±20px boundary band. Records step size in `seam_post_diffs[k]`. |
+| **`TIGHT_STEP_PX = 30`** (`constants/anim.py`) | Recommended threshold. At 1080p with 30px step, the character occupies 97%+ of both frames' overlap zone — ARAP cannot correct the animation pose difference. |
+| **`ASP_TIGHT_STEP_PX` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 500, "Dominant-axis step (px) below which seam is preemptively single-posed (0=off)")`. |
+| **`_compute_seam_step_size` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
+| **5 unit tests** (`test_compositing.py::TestComputeSeamStepSize`) | pure-vertical-step (ty=50→50.0), pure-horizontal-step (tx=80→80.0), uses-dominant-axis (dy=15/dx=60→60.0), exactly-at-threshold-not-below (step=30, strict < means 30 is not below 30), out-of-range-frame-returns-inf (fi=99→∞). **Anim suite: 427 passing.** |
+
+### Design rationale
+
+For sequences with tiny camera steps (e.g., test57: min_gap=10.8px, spacing_ratio=3.379), the animation may have advanced significantly relative to the minimal camera motion. In those cases, frame_a and frame_b show nearly the same background position but the character is in a completely different pose. ARAP registration can warp one character pose toward another, but when the poses are related by complex non-rigid motion across the full body, the residual after warping is still large — creating a ghost. Rather than discovering this AFTER a slow ARAP pass, §1.20 detects it BEFORE registration: any seam where the camera moved < 30px gets immediately assigned to the higher-fg-count frame. The dominant-frame selection (by fg pixel count in ±20px boundary band) ensures the character-heavier frame defines the seam zone. The step threshold is tunable; at 30px the gate fires on all "dense-step" seams in irregular-speed sequences while leaving normal-speed seams (>30px) for ARAP.
+
+---
+
+## ASP Session 63 — §1.19 Foreground-Density-Aware Feather Cap (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_fg_density_feather_cap(feathers, boundaries, warped_bg, order, cap_px, fg_thresh) → np.ndarray`** (`compositing.py`) | §1.19: checks fg pixel fraction in ±feather[k] band around boundaries[k] in canvas-space warped_bg for each adjacent frame pair. When max(fg_frac_a, fg_frac_b) > fg_thresh, caps feather to cap_px. Masks of None treated as all-bg (cap never fires without a BiRefNet mask). Returns copy of feathers (input not mutated). |
+| **`_FG_FEATHER_CAP` / `_FG_FEATHER_THRESH` flags** (`compositing.py`) | `ASP_FG_FEATHER_CAP=60` (px cap value; 0=off, the default). `ASP_FG_FEATHER_THRESH=0.60` (fg fraction threshold). Wired after §1.6B gain-adjusted feathers and before Stage 8.5 FG registration. |
+| **Constants** (`constants/anim.py`) | `FG_FEATHER_CAP=60`, `FG_FEATHER_THRESH=0.60`. |
+| **`ASP_FG_FEATHER_CAP` / `ASP_FG_FEATHER_THRESH` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 300, ...)` and `(float, 0.0, 1.0, ...)`. |
+| **`_fg_density_feather_cap` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
+| **5 unit tests** (`test_compositing.py::TestFgDensityFeatherCap`) | all-bg-no-cap, all-fg-applies-cap, feather-already-narrow-skips, uses-max-of-two-frames, none-mask-treated-as-all-bg. **Anim suite: 422 passing.** |
+
+### Design rationale
+
+§1.18 fires AFTER ARAP registration using post_warp_diff as the signal. §1.19 fires BEFORE registration using the fg density of the blend zone. When the seam boundary crosses a character-heavy zone (>60% fg), any feather wider than cap_px blends two different animation poses over that distance → double-image ghost. The cap reduces the blend zone immediately. The two gates are independent: §1.18 catches high post_warp_diff after ARAP; §1.19 catches character-dominated zones before ARAP runs. `warped_bg` is in canvas space — correct for checking boundary zones.
+
+---
+
+## GUI Session — §2.23A Accessible Names on Pagination Widgets (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **Accessible names — §2.23A** (`meta_abstract_class_gallery.py`) | `setAccessibleName()` added to all interactive pagination controls: page-size `QComboBox` ("Images per page"), sort `QComboBox` ("Sort by"), sort direction button ("Toggle sort direction"), Prev/Page/Next buttons ("Previous page" / "Current page" / "Next page"), item range label ("Item range"), thumbnail slider ("Thumbnail size" + description), item range label. Applies to every gallery tab via the shared `_common_create_pagination_ui` factory. |
+
+---
+
+## GUI Session — §2.4B+C Shift+Click Range Select + Right-Click Context Menu (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **Shift+click range select — §2.4B** (`abstract_class_two_galleries.py`) | `_on_found_card_clicked(path)` replaces direct `toggle_selection` as the `path_clicked` handler for found-gallery cards. When `Shift` is held (`QApplication.keyboardModifiers()`), selects all cards from `_selection_anchor_idx` to the clicked index (inclusive, within current page). Without Shift, updates `_selection_anchor_idx` and delegates to `toggle_selection`. |
+| **Right-click context menu — §2.4C** (`abstract_class_two_galleries.py`) | `_on_found_card_right_clicked(global_pos, path)` connected to `path_right_clicked` signal on all `ClickableLabel` cards. Menu items: Open Preview, (sep), Select/Deselect, Select All, Deselect All, (sep), Rename… (F2), Move to Trash. Trash item calls `_trash_path(path)` which uses `send2trash`, removes the path from all in-memory lists, and refreshes both galleries. |
+
+### Design rationale
+
+`_selection_anchor_idx` is the Shift+click anchor — set only on non-Shift left clicks, so multiple Shift+clicks extend from the same anchor (standard file-manager behaviour). Range selection operates on `master_found_files` page slice, so it is consistent with what the user sees. The right-click context menu surfaces the three most common per-image operations (preview / rename / trash) without requiring keyboard shortcuts knowledge.
+
+---
+
+## GUI Session — §2.25A Shortcut Overlay, §2.20A QSplitter Persistence, §2.17D Log Window (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **Shortcut discovery overlay — §2.25A** (`main_window.py`) | `_open_shortcut_overlay()` — `Ctrl+/` or `F1` opens a `QDialog` (560×460) with a real-time filter `QLineEdit` and a 3-column `QTableWidget` (Scope / Action / Key). Populated from `ShortcutRegistry.get_all()` including the active binding. Filter searches all three columns. `QHeaderView.ResizeMode.Stretch` on the Action column; ResizeToContents on Scope and Key. |
+| **QSplitter persistence — §2.20A** (`splitter_persistence.py` + 5 tabs) | New `gui/src/utils/splitter_persistence.py` — `persist_splitter(splitter, key)` restores from `QSettings("splitters/{key}")` then wires `splitterMoved` to auto-save. Wired at: `StitchFeedbackTab/main`, `StitchPanel/main`, `GraphPanel/vertical`, `GraphPanel/horizontal`, `CanvasPanel/main`, `ThumbnailFilePicker/sidebar`. `listings_tab.py` already had its own inline `_persist_splitter`; all 4 of its splitters remain covered. |
+| **Log window upgrade — §2.17D** (`log_window.py`) | Already shipped in a prior session: `QPlainTextEdit` (not `QTextEdit`), colour-coded levels via `LEVEL_COLORS` (`ERROR`=red, `WARNING`=orange, `INFO`=white, `DEBUG`=grey), timestamp prefix, "Follow" auto-scroll toggle, Copy All / Save… / Clear toolbar. Now documented. |
+
+### Design rationale
+
+`persist_splitter` uses a lazy `QSettings` write on `splitterMoved` — no timer or debounce needed because Qt debounces splitter drag events natively. The key scheme `"category/widget_name"` (e.g. `"StitchPanel/main"`) is collision-free across all tabs without per-tab registration. Shortcut overlay uses the registry's `get_all()` which already merges defaults + user overrides, so it shows the effective binding including any customisations from the shortcut editor (§2.29).
+
+---
+
+## GUI Session — §2.16C Ctrl+T Tab Search Popup (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **Ctrl+T tab search — §2.16C** (`main_window.py`) | `_open_tab_search()` opens a frameless `QDialog` (popup mode, 400px wide) with a `QLineEdit` filter and `QListWidget` showing `"Tab Name  —  Category"` entries. Typing filters in real-time. `Enter` / double-click navigates: sets `command_combo` to the correct category then `_select_tab_by_name()` after a `QTimer.singleShot(0)` tick. Bound to `Ctrl+T` in `keyPressEvent`. |
+
+### Design rationale
+
+`QTimer.singleShot(0)` is required because `on_command_changed` synchronously clears and re-adds all tabs — the tab widget needs one event-loop tick before `tabText(i)` reflects the new category's tabs. Frameless popup auto-dismisses on click-outside without extra focus tracking. `WindowType.Popup` achieves this with no additional code.
+
+---
+
+## GUI Session — §2.11A+B+D Preview Enhancements, §2.12A+B+C System Tray (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **Fullscreen toggle — §2.11A** (`image_preview_window.py`) | `_toggle_fullscreen()` — `showFullScreen()` / `showMaximized()` toggle. Wired to `F11` / `F` (no modifier) and registered as `preview.fullscreen` in `ShortcutRegistry`. Context menu entry updates label dynamically ("Fullscreen" ↔ "Exit Fullscreen"). |
+| **Fit modes — §2.11B** (`image_preview_window.py`) | `_fit_to_width()`, `_fit_to_height()`, `_zoom_actual_pixels()`. Fit-to-width uses `viewport().width() / orig.width()`; fit-to-height uses height equivalent; 100% sets `current_zoom_factor=1.0`. Bound to `W`, `H`, `1`. Registered as `preview.fit_width`, `preview.fit_height`, `preview.actual_size`. Context menu shows all three. |
+| **Rotation — §2.11D** (`image_preview_window.py`) | `_rotate(clockwise: bool)` applies `(rotation_degrees ± 90) % 360` and calls `update_image_display()` (which applies `QTransform().rotate(degrees)` during scaling). Bound to `R` (CW) and `L` (CCW). Registered as `preview.rotate_cw`, `preview.rotate_ccw`. Context menu shows both. In-memory only; does not write to disk. |
+| **System tray icon — §2.12A** (`main_window.py`) | `_setup_tray_icon(app_icon)` called in `__init__` when `QSystemTrayIcon.isSystemTrayAvailable()`. Loads `assets/images/image_toolkit_icon.png`; falls back to `SP_ComputerIcon`. Context menu: Show Window, Toggle Daemon, Next Wallpaper, (sep), Quit. Double-click activates window. |
+| **Tray balloon notifications — §2.12B** (`main_window.py`) | `tray_notify(title, message, timeout_ms=4000)` instance method. Module-level `show_tray_notification()` traverses `topLevelWidgets()` for app-wide access. Uses `QSystemTrayIcon.showMessage(MessageIcon.Information)`. |
+| **Minimize to tray — §2.12C** (`main_window.py`) | `set_minimize_to_tray(enabled)` sets `_minimize_to_tray` flag. When enabled, `closeEvent` calls `event.ignore(); self.hide()` and shows a one-time tray notification instead of quitting. Opt-in; disabled by default. |
+
+### Design rationale
+
+All preview-window hotkeys are registered in `ShortcutRegistry` so they appear in the shortcut discovery overlay (§2.25) and the global keybindings editor (§2.29). `_rotate` uses `QTransform` on the cached `QPixmap` / `QMovie` frame — no disk write, clearly communicated by context-menu label. Tray availability is checked at runtime; the feature degrades silently on systems without a system tray (e.g., bare Wayland without xdg-portal). `_minimize_to_tray` is `False` by default to avoid confusing users who expect the window to close.
+
+---
+
+## GUI Session — §2.21A+D Dir History + MRU Dropdown, §2.26B Inline Rename (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **Dir navigation history — §2.21A** (`abstract_class_two_galleries.py`) | `_push_dir_history(path)`, `_dir_go_back() → Optional[str]`, `_dir_go_forward() → Optional[str]` helpers. `deque(maxlen=20)` back and forward stacks. `Alt+Left` / `Alt+Right` wired in `keyPressEvent` via `gallery.nav_back` / `gallery.nav_forward` shortcuts (added to `ShortcutRegistry`). Virtual `_navigate_to_dir(path)` hook (no-op in base, overridden in `FormatTab`). |
+| **MRU recent-dirs dropdown — §2.21D** (`convert_tab.py`) | `▼` `QToolButton` (instant-popup mode, fixed 24px wide) appended to FormatTab's input path row. `_show_recent_dirs_menu()` populates and shows the menu from `_get_recent_dirs()`. `browse_directory_and_scan()` now calls `_push_dir_history` + `_add_recent_dir` on successful browse. Also fixes missing `DontUseNativeDialog` flag on that `QFileDialog` call. |
+| **Inline rename — §2.26B** (`abstract_class_two_galleries.py`) | `_rename_focused_file()` method: opens `QInputDialog.getText` pre-filled with stem (no extension). Sanitises illegal filesystem characters. Guards against name conflict. On success: calls `os.rename`, updates `found_files`, `master_found_files`, `selected_files`, `path_to_label_map` via `_replace_path_in_lists()`. Bound to `F2` via `gallery.rename` shortcut (already in registry). |
+
+### Design rationale
+
+Virtual `_navigate_to_dir` in the base class means back/forward dispatch compiles for all tabs — only FormatTab implements it for now; the others silently no-op until they add their own override. The MRU menu is separate from the Browse dialog to avoid an extra modal round-trip for common re-visits. Rename sanitises `\/:*?"<>|` which covers FAT32, NTFS, and ext4 reserved characters.
+
+---
+
+## GUI Session — §2.10C QStatusBar, §2.14A Filename Labels (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **QStatusBar — §2.10C** (`main_window.py`) | `QStatusBar` added to the bottom of `MainWindow`'s vbox layout (height-capped 24px, size grip off). `show_status(message, timeout_ms=3000)` instance method on `MainWindow`. Module-level `show_main_status()` function traverses `topLevelWidgets()` so any tab can post a status message without holding a direct window reference. `_show_status()` helper added to both gallery base classes; wired into `_export_selection_as_paths()` and `copy_image_to_clipboard()`. |
+| **Filename labels — §2.14A** (both gallery base classes) | `_add_filename_label(card, path)` method added to `AbstractClassTwoGalleries` and `AbstractClassSingleGallery`. Appends a `QLabel` (`thumb_filename_lbl`) with elided middle-truncated filename (`fontMetrics().elidedText(ElideMiddle)`) to every thumbnail card's `QVBoxLayout`. Card height extended by `fm.height() + 4`. Called at all three card creation sites (found gallery, selected gallery, single gallery). |
+
+### Design rationale
+
+`QStatusBar` works as a standalone widget (MainWindow is a `QWidget`, not `QMainWindow`). Module-level traversal avoids direct import cycles between tab modules and the main window. Filename labels use `ElideMiddle` so the extension is always visible for long names. `_add_filename_label` is appended after `create_card_widget` — the existing `findChild(QLabel)` calls in `update_card_pixmap` still resolve to the image label (added earlier/deeper in the hierarchy).
+
+---
+
+## GUI Session — §2.13A+E Sort Toolbar + Search Operators, §2.15A Trash (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **Search operators — §2.13E** (`meta_abstract_class_gallery.py`) | `_common_filter_string_list` upgraded from a plain `in` check to a multi-token engine. Supported: `-term` (exclude), `"phrase"` (exact), `a\|b` (OR); tokens AND-combined. Placeholder updated to hint syntax. |
+| **Sort toolbar — §2.13A** (both gallery base classes) | Sort `QComboBox` (Name / Date Modified / File Size / Extension) + `↑`/`↓` button in pagination bar. `_sort_key_fn()` dispatches to `getmtime`/`getsize`/`splitext`/`natural_sort_key`. `_apply_sort()` is a pure sorted() call. Re-sort fires on combo change, direction toggle, and initial directory load. |
+| **Move to Trash — §2.15A** (`delete_tab.py`, `wallpaper_tab.py`, `search_tab.py`) | `send2trash(path)` replaces `os.remove` at all user-initiated image deletion sites. Dialogs updated ("Move to Trash"). `send2trash>=1.8.3` added to `pyproject.toml`. |
+
+### Design rationale
+
+Token parser extracts quoted phrases first (regex), then splits remainder on whitespace. OR uses `|` without spaces (matches file-manager convention). Sort in pagination bar groups with "page size" left of the stretch, not with nav arrows. `_apply_sort` is a pure function — no in-place mutation until the caller reassigns.
+
+---
+
+## GUI Session — §3.9 Item Range Label, §4.11 Thumbnail Slider (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **Default page size 100→150** (`meta_abstract_class_gallery.py`) | Combo default changed to `"150"` and `"150"` added to the item list between `"100"` and `"250"`. Both gallery base classes updated from `page_size = 100` to `150`. |
+| **Item range label — §3.9** (both gallery base classes) | `item_range_lbl` (`QLabel`, min-width 120px) added to every pagination bar between the page-size combo and the prev/next buttons. Text: `"Items 1–150 of 843"` or `"0 images"`. Updated in `_update_pagination_ui` on every pagination state change. |
+| **Thumbnail size slider — §4.11** (`meta_abstract_class_gallery.py`) | `QSlider` (range 64–512, step 16, fixed width 110px) + `thumb_size_lbl` ("180 px") added to the right end of every pagination bar. The `⊞` icon precedes the slider as a visual hint. Returns in `controls` dict as `"thumb_slider"` and `"thumb_size_lbl"`. |
+| **Per-tab thumbnail persistence** (both gallery base classes) | `_save_thumbnail_size()` — `QSettings` keyed `session/{ClassName}/thumbnail_size`. `_load_thumbnail_size(default=180)` — called at `__init__` before `approx_item_width` is set. `_sync_thumb_slider()` — updates all slider widgets without triggering signals (via `blockSignals`). |
+| **Slider wiring** (both gallery base classes) | `valueChanged` → `_on_thumb_slider_changed()` (16px snap, live gallery reload). `sliderReleased` → `_save_thumbnail_size()`. Initial slider value set from `self.thumbnail_size` in `create_pagination_controls()`. |
+| **Ctrl+scroll → slider sync** (both gallery base classes) | `_on_ctrl_wheel_zoom()` calls `_sync_thumb_slider()` after updating `thumbnail_size`, so the slider widget always reflects the current zoom level. |
+
+### Design rationale
+
+A `QSlider` in the pagination bar is always visible and requires zero discoverability — unlike Ctrl+scroll which requires prior knowledge. Snapping to 16px boundaries in `_on_thumb_slider_changed` ensures the slider moves in sensible increments even when the user drags freely. Per-tab persistence uses the class name as the `QSettings` key so `WallpaperTab` and `DeleteTab` remember independent sizes. `sliderReleased` triggers the save rather than `valueChanged` to avoid writing to `QSettings` on every drag event.
+
+---
+
+## GUI Session — §3.15 Keyboard Shortcuts, §3.16 QSS Override, §3.17 Window Geometry (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`gui/src/utils/shortcut_manager.py`** (new file) | `SHORTCUT_REGISTRY` — 21 bindable actions across Gallery (9) and Preview (12) scopes. `ShortcutRegistry` class: `load/save/reset/matches/get_key_sequence` API. `get_registry()` module-level singleton. JSON persistence to `~/.image-toolkit/keybindings.json`. |
+| **`ShortcutRegistry.matches()` PySide6 6.10 fix** | `event.key()` returns plain `int` in PySide6 6.10; `event.modifiers()` returns `KeyboardModifier` flag with `.value`. `matches()` now branches on `isinstance(raw_key, int)` and `hasattr(raw_mods, "value")` before building `QKeySequence(mods_int | key_int)`. All 8 functional assertions pass. |
+| **`keyPressEvent` in gallery base classes** | Both `AbstractClassTwoGalleries` and `AbstractClassSingleGallery` now route all shortcut checks through `get_registry().matches(event, action_id)` instead of hardcoded `Qt.Key_*` comparisons. |
+| **`keyPressEvent` + `QShortcut` in `ImagePreviewWindow`** | Zoom `QShortcut` objects use `get_registry().get_key_sequence("preview.zoom_in/zoom_out")`. All 11 preview key actions use `reg.matches()` in `keyPressEvent`. |
+| **Settings "⌨️ Shortcuts" tab** (`settings_window.py`) | New Tab 6: `QTableWidget` with one `QKeySequenceEdit` per registry entry, conflict detection on save, Save/Reset All buttons. `_save_shortcuts` / `_reset_shortcuts` helpers. |
+| **`load_user_qss_override()`** (`style.py`) | Reads `~/.image-toolkit/user_theme.qss`; returns `""` if absent. Appended last in `set_application_theme()` so user QSS wins over all theme layers. |
+| **Window geometry persistence** (`main_window.py`) | `QSettings("ImageToolkit","ImageToolkit").setValue("mainwindow/geometry", self.saveGeometry())` in `closeEvent()`. `restoreGeometry()` called in `__init__` before `showMaximized()` (skipped if no saved geometry). |
+
+### Design rationale
+
+The `ShortcutRegistry` sits between the Qt event loop and the action handlers: `keyPressEvent` dispatches to `reg.matches(event, action_id)` which reconstructs a `QKeySequence` from the raw event and compares it to the loaded binding. This means any action can be rebound from the settings UI without touching widget code. Conflict detection is purely client-side at save time (O(n²) over 21 entries — negligible). The PySide6 6.10 enum change (`event.key()` returning `int` instead of `Qt.Key`) is handled with a `isinstance(raw_key, int)` branch that will degrade gracefully on both old and new versions. User QSS override is a single file read appended last in the theme chain — no parse-time overhead, full QSS power.
+
+---
+
+## GUI Session — §2.30 Accent Colour, Font Scale, UI Density (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`load_qss_with_overrides(filename, overrides)`** (`style.py`) | Merges a runtime override dict into a copy of `THEME_VARS` before `Template.safe_substitute`, allowing per-session variable injection without touching the QSS files. |
+| **`compute_accent_vars(accent_hex, theme_prefix)`** (`style.py`) | Derives `ACCENT_COLOR`, `ACCENT_HOVER` (15% darker), and `ACCENT_PRESSED` (32% darker) from any valid hex colour using `QColor.darker()`. |
+| **`COMPACT_DENSITY_QSS` / `SPACIOUS_DENSITY_QSS`** (`style.py`) | QSS override snippets appended after the base theme. Compact reduces button/input/groupbox padding; Spacious increases it. |
+| **`set_application_theme` refactored** (`main_window.py`) | Reads `preferences["accent_color_dark/light"]`, `"ui_density"`, and `"font_scale"` from `cached_creds` at runtime. Calls `load_qss_with_overrides` instead of the static `DARK_QSS`/`LIGHT_QSS` constants; appends density QSS; applies `QApplication.setFont` for non-100% scale. |
+| **Appearance groupbox in Settings → Display and Media tab** (`settings_window.py`) | Dark accent swatch button + Reset, Light accent swatch button + Reset, Font Scale `QSpinBox` (80–150%, step 10%), UI Density `QComboBox` (Compact/Comfortable/Spacious), Preview button for live apply without saving. |
+| **`_pick_accent_color` / `_reset_accent` / `_update_swatch` / `_preview_appearance`** (`settings_window.py`) | Helper methods: `_pick_accent_color(theme)` opens `QColorDialog(DontUseNativeDialog)` and updates the swatch. `_preview_appearance` applies current accent/density/font to `main_window_ref` without persisting. |
+| **Vault persistence** (`settings_window.py`) | Four new `preferences` keys: `accent_color_dark`, `accent_color_light`, `font_scale`, `ui_density`. Loaded in `__init__` and `reload_settings`; saved in `_update_settings_logic`; reset in `reset_settings`. |
+
+### Design rationale
+
+The QSS system already uses `$DARK_ACCENT_COLOR` template variables substituted via `string.Template.safe_substitute`. Rather than baking the QSS at import time, `load_qss_with_overrides` reads the file fresh and substitutes at call time — one file read per theme apply, negligible overhead. Hover/pressed variants are computed from the chosen colour automatically so users only pick one hex value. Density is a pure QSS append — no layout code changes needed. Font scale uses `QApplication.setFont` which propagates to all widgets without requiring a QSS reload.
+
+---
+
+## ASP Session 62 — §1.18 Adaptive Single-Pose Escalation Threshold (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_adaptive_sp_threshold(feather_width, base, min, ref) → float`** (`compositing.py`) | §1.18: scales the single-pose ghost-prevention threshold down for wide feathers. Formula: `max(min_threshold, base × (feather_reference / max(feather_width, 1)))`. At feather=80px → 22.0 (baseline unchanged); at feather≥147px → 12.0 (floor). |
+| **`_ADAPTIVE_SP_THRESH` flag** (`compositing.py`) | `os.environ.get("ASP_ADAPTIVE_SP_THRESH", "0") != "0"` (default OFF). When enabled, replaces the hardcoded `_POST_DIFF_THRESHOLD = 22.0` at the single-pose escalation gate with `_adaptive_sp_threshold(int(feathers[k]))`. |
+| **Constants** (`constants/anim.py`) | `ADAPTIVE_SP_THRESH_BASE=22.0`, `ADAPTIVE_SP_THRESH_MIN=12.0`, `ADAPTIVE_SP_THRESH_REF=80` document the tuned defaults. |
+| **`ASP_ADAPTIVE_SP_THRESH` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 1, "Enable adaptive single-pose escalation threshold scaled by feather width")`. |
+| **`_adaptive_sp_threshold` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
+| **5 unit tests** (`test_compositing.py::TestAdaptiveSpThreshold`) | reference-feather-returns-base (fw=80→22.0), narrow-feather-above-reference (fw=40→44.0), wide-feather-hits-min-floor (fw=300→12.0), floor-crossover-point (fw=146>12, fw=147→12.0), zero-feather-no-division-by-zero (fw=0→1760.0). **Anim suite: 417 passing.** |
+
+### Design rationale
+
+The dominant failure mode identified in the 2026-06-10 benchmark (Class A, 4/5 test images) is: wide feather (300px adaptive widening) × moderate post_warp_diff (15–22 lum) → blend zone NOT escalated to single-pose → 600px ghost band. The hardcoded threshold `_POST_DIFF_THRESHOLD = 22.0` treats a 22 lum discrepancy the same at 80px feather (trivially short ghost, barely visible) and 300px feather (ghost span = feather×2 = 600px, visually dominant). The adaptive formula ties the risk tolerance to the blend zone width: for a 300px feather the floor (12.0) fires for any post_warp_diff ≥ 12.0 lum, which covers the 15–22 range that was slipping through. The min_threshold=12.0 preserves the existing ARAP warp attempt — the path still warps first, then escalates if residual discrepancy is large relative to the feather width.
+
+---
+
+## ASP Session 61 — §1.17 Canvas Span Utilisation Gate (2026-06-10)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_compute_canvas_span_utilization(affines) → float`** (`pipeline.py`) | §1.17: computes actual dominant-axis canvas span divided by expected span (`median_adjacent_step × (N−1)`). Dominant axis = whichever of ty/tx has the larger range. Returns 1.0 for N < 2 or zero expected span (safe fallback). |
+| **Post-BA canvas span gate** (`pipeline.py`) | `_CANVAS_SPAN_MIN_UTIL` flag (default 0.0=off, `ASP_CANVAS_SPAN_MIN_UTIL=0.3`). Wired after §3.14 scroll-axis check (Stage 9.5) before Stage 10 rendering: if utilisation ratio < threshold → SCANS fallback with log message. |
+| **`CANVAS_SPAN_MIN_UTIL = 0.3`** (`constants/anim.py`) | Recommended threshold. Catches oscillating BA solutions (frames back-and-forth between two positions) where individual step sizes look valid but total canvas is far shorter than expected. |
+| **`ASP_CANVAS_SPAN_MIN_UTIL` in `_CONFIG_SCHEMA`** (`config.py`) | `(float, 0.0, 1.0, "Min canvas-span/expected-span utilisation ratio after BA (0=off)")`. |
+| **`_compute_canvas_span_utilization` in `__all__`** (`pipeline.py`) | Exported for testing and external use. |
+| **5 unit tests** (`test_pipeline.py::TestComputeCanvasSpanUtilization`) | single-frame-returns-one, two-frames-returns-one, perfect-monotone-sequence (ratio≈1.0), oscillating-ba-returns-low-ratio (alternating [0,100,0,100…] → span=100, expected=500 → ratio=0.2 < 0.3), dominant-axis-horizontal (pure tx scroll → tx axis used, ratio=1.0). **Anim suite: 412 passing.** |
+
+### Design rationale
+
+The pre-BA gates (§1.15 connectivity, §1.16 MST weight) catch bad *graphs* before bundle adjustment runs. The post-validation gates (§0.5C min gap, §1.12 Kendall-τ) catch bad *per-adjacent-step* values. §1.17 fills a gap between them: a BA solution can pass all per-step checks yet still produce a globally collapsed canvas if the optimiser converges to an oscillating local minimum (common when there are dense cross-pairs or conflicting edge directions). In that case `median_step × (N−1)` significantly exceeds the actual span — the ratio fires where neither gate would. Distinct from the coverage gate (§0 Stage 10.5) which measures how many canvas rows have ≥ 2 frames: §1.17 fires earlier (after Stage 9, before temporal median) and detects the geometric collapse rather than the coverage consequence.
 
 ---
 

@@ -601,10 +601,17 @@ class DeleteTab(AbstractClassTwoGalleries):
         if not self.selected_files:
             return
         count = len(self.selected_files)
+        prefs = {}
+        main_win = self.window()
+        if main_win and hasattr(main_win, "cached_creds"):
+            prefs = main_win.cached_creds.get("preferences", {})
+        send_to_trash_enabled = prefs.get("send_to_trash", True)
+        action_name = "Trash" if send_to_trash_enabled else "Permanent Delete"
+
         reply = QMessageBox.question(
             self,
             "Confirm Batch Delete",
-            f"Permanently delete **{count}** selected files?",
+            f"Move **{count}** selected files to {action_name}?",
             QMessageBox.Yes | QMessageBox.No,
         )
         if reply == QMessageBox.No:
@@ -613,7 +620,11 @@ class DeleteTab(AbstractClassTwoGalleries):
         errors = []
         for path in list(self.selected_files):
             try:
-                os.remove(path)
+                if send_to_trash_enabled:
+                    from send2trash import send2trash
+                    send2trash(path)
+                else:
+                    os.remove(path)
                 deleted_count += 1
                 self.selected_files.remove(path)
                 if path in self.found_files:
@@ -632,24 +643,35 @@ class DeleteTab(AbstractClassTwoGalleries):
         self.refresh_selected_panel()
         self.on_selection_changed()
 
-        msg = f"Deleted {deleted_count} files."
+        msg = f"Moved {deleted_count} files to {action_name}."
         if errors:
             msg += "\nErrors:\n" + "\n".join(errors[:5])
-        QMessageBox.information(self, "Deletion Complete", msg)
+        QMessageBox.information(self, f"Move to {action_name} Complete", msg)
 
     def delete_single_file(self, path: str):
         filename = os.path.basename(path)
+        prefs = {}
+        main_win = self.window()
+        if main_win and hasattr(main_win, "cached_creds"):
+            prefs = main_win.cached_creds.get("preferences", {})
+        send_to_trash_enabled = prefs.get("send_to_trash", True)
+        action_name = "Trash" if send_to_trash_enabled else "Permanent Delete"
+
         reply = QMessageBox.question(
             self,
-            "Confirm Single Deletion",
-            f"Are you sure you want to PERMANENTLY delete:\n**{filename}**?",
+            "Confirm Deletion",
+            f"Move to {action_name}:\n{filename}",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
         )
         if reply == QMessageBox.No:
             return
         try:
-            os.remove(path)
+            if send_to_trash_enabled:
+                from send2trash import send2trash
+                send2trash(path)
+            else:
+                os.remove(path)
             if path in self.selected_files:
                 self.selected_files.remove(path)
             if path in self.found_files:
@@ -664,8 +686,8 @@ class DeleteTab(AbstractClassTwoGalleries):
             )
             self.refresh_selected_panel()
             self.on_selection_changed()
-            self.status_label.setText(f"File deleted: {filename}")
-            QMessageBox.information(self, "Success", f"Deleted: {filename}")
+            self.status_label.setText(f"Moved to {action_name}: {filename}")
+            QMessageBox.information(self, f"Moved to {action_name}", f"Moved to {action_name}: {filename}")
         except Exception as e:
             QMessageBox.critical(self, "Deletion Failed", f"Error: {e}")
 
@@ -903,6 +925,12 @@ class DeleteTab(AbstractClassTwoGalleries):
         elif not self.dropdown and hasattr(self, "target_extensions"):
             exts = self.join_list_str(self.target_extensions.text().strip())
 
+        prefs = {}
+        main_win = self.window()
+        if main_win and hasattr(main_win, "cached_creds"):
+            prefs = main_win.cached_creds.get("preferences", {})
+        send_to_trash_enabled = prefs.get("send_to_trash", True)
+
         return {
             "target_path": self.target_path.text().strip(),
             "mode": mode,
@@ -910,6 +938,7 @@ class DeleteTab(AbstractClassTwoGalleries):
             "scan_method": self.scan_method_combo.currentText(),
             "require_confirm": self.confirm_checkbox.isChecked(),
             "selected_files": list(self.selected_files),
+            "send_to_trash": send_to_trash_enabled,
         }
 
     @staticmethod
