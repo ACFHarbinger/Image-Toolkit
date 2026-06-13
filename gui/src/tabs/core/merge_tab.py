@@ -791,14 +791,26 @@ class MergeTab(AbstractClassTwoGalleries):
             pass
 
     def handle_delete_image(self, path: str):
+        prefs = {}
+        main_win = self.window()
+        if main_win and hasattr(main_win, "cached_creds"):
+            prefs = main_win.cached_creds.get("preferences", {})
+        send_to_trash_enabled = prefs.get("send_to_trash", True)
+        action_name = "Trash" if send_to_trash_enabled else "Permanent Delete"
+
         if (
             QMessageBox.question(
-                self, "Delete", f"Permanently delete {os.path.basename(path)}?"
+                self, f"Confirm {action_name}", f"Move {os.path.basename(path)} to {action_name}?"
             )
             == QMessageBox.Yes
         ):
             try:
-                os.remove(path)
+                if send_to_trash_enabled:
+                    from send2trash import send2trash
+                    send2trash(path)
+                else:
+                    import os
+                    os.remove(path)
                 if hasattr(self, "found_files") and path in self.found_files:
                     self.found_files.remove(path)
                 if hasattr(self, "selected_files") and path in self.selected_files:

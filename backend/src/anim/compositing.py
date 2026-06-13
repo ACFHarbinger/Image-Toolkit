@@ -94,6 +94,440 @@ _SEAM_COLOR_GATE: float = float(
 # Enable via ASP_SEAM_COLOR_GATE_BGR=1 (default OFF — greyscale path is faster).
 _SEAM_COLOR_GATE_BGR: bool = os.environ.get("ASP_SEAM_COLOR_GATE_BGR", "0") != "0"
 
+# §1.18 — Adaptive single-pose escalation threshold (S62).
+# When enabled, the single-pose ghost-prevention threshold scales DOWN for wide
+# feathers so that moderate post_warp_diff values (15–22 lum) still trigger
+# escalation when the blend zone would be ≥ 300 px wide.
+# Enable via ASP_ADAPTIVE_SP_THRESH=1 (default OFF — legacy fixed-threshold path).
+_ADAPTIVE_SP_THRESH: bool = os.environ.get("ASP_ADAPTIVE_SP_THRESH", "0") != "0"
+
+# §1.19 — Foreground-density-aware feather cap (S63).
+# When the seam blend zone (±feather band around boundary) is dominated by fg
+# pixels in either adjacent frame, a wide feather blends two different animation
+# poses → double-image ghost.  Cap the feather to cap_px when fg fraction > threshold.
+# Enable via ASP_FG_FEATHER_CAP=60 (px cap value; 0=off, the default).
+_FG_FEATHER_CAP: int = int(os.environ.get("ASP_FG_FEATHER_CAP", "0"))
+_FG_FEATHER_THRESH: float = float(os.environ.get("ASP_FG_FEATHER_THRESH", "0.60"))
+
+# §1.20 — Tight-step preemptive single-pose escalation (S64).
+# When the dominant-axis camera step between two adjacent frames is smaller than
+# this threshold (px), skip ARAP registration entirely and immediately escalate
+# to single-pose.  At tiny steps, the character occupies nearly the same rows in
+# both frames but may be in a completely different animation pose — ARAP cannot
+# reconcile that and the blend creates an unavoidable double-image.
+# Enable via ASP_TIGHT_STEP_PX=30 (0=off, the default).
+_TIGHT_STEP_PX: int = int(os.environ.get("ASP_TIGHT_STEP_PX", "0"))
+
+# §1.21 — Post-composite seam luminance equalisation (S65).
+# After all blending is complete, samples mean luminance above and below each
+# seam boundary and applies a linear additive ramp over band_px rows to smooth
+# visible luminance steps.  Targets the seam_coherence (SC) metric.
+# Enable via ASP_SEAM_LUM_EQ=1 (default OFF).
+_SEAM_LUM_EQ: bool = os.environ.get("ASP_SEAM_LUM_EQ", "0") != "0"
+
+# §1.22 — Adaptive single-pose soft-edge width (S66).
+# §1.15 (S15) always uses a fixed ±6px soft edge at single-pose seams regardless
+# of the original feather width.  When a 300px feather is escalated to single-pose
+# the jump from expected-300px-blend to 6px-soft-edge creates a visible step.
+# When enabled, the soft-edge half-width scales up with the feather width, capped
+# at max_px.  For feather ≤ ref_px the baseline 6px is returned unchanged.
+# Enable via ASP_ADAPTIVE_SP_SOFT=1 (default OFF).
+_ADAPTIVE_SP_SOFT: bool = os.environ.get("ASP_ADAPTIVE_SP_SOFT", "0") != "0"
+
+# §1.23 — SemanticStitch hard corridor barrier (S67).
+# S33 (§3.15A) raised fg-dominated columns to cost=2.0 (soft barrier).  A
+# cost-2.0 column is 2× more expensive than a cost-1.0 fg-interior column, so
+# the DP is *discouraged* but not *prevented* from routing through it.  When a
+# background corridor exists (at least one non-fg-dominated column), setting the
+# barrier to a very large finite value (default 1e6) makes the DP 1e6× more
+# expensive than a clean bg path → effectively forces background-only seams.
+# Falls back to cost=2.0 (S33 behaviour) when no corridor exists.
+# Enable via ASP_SEAM_HARD_BARRIER=1 (default OFF).
+_SEAM_HARD_BARRIER: bool = os.environ.get("ASP_SEAM_HARD_BARRIER", "0") != "0"
+_SEAM_HARD_BARRIER_COST: float = float(os.environ.get("ASP_SEAM_HARD_BARRIER_COST", "1e6"))
+
+# §1.25: Seam path smoothing — median-filter the DP traceback to remove column jitter.
+# Raw argmin traceback can produce single-pixel sideways jumps that create diagonal
+# aliasing bands at the seam boundary.  A 1-D median filter removes these without
+# altering the overall routing.  Window must be odd; 0 or 1 disables smoothing.
+# Enable via ASP_SEAM_SMOOTH_WINDOW=5 (default 0 = off).
+_SEAM_SMOOTH_WINDOW: int = int(os.environ.get("ASP_SEAM_SMOOTH_WINDOW", "0"))
+
+# §1.26: Seam path boundary clamp — keep the seam at least `margin` rows from zone
+# top/bottom edges.  When the seam is at y=0 or y=zone_h-1, the feather blend has no
+# room to ramp and creates a hard edge artefact at the zone boundary.  Clamping to
+# [margin, zone_h-1-margin] prevents this.  margin=0 disables the clamp.
+# Enable via ASP_SEAM_MARGIN=3 (default 0 = off).
+_SEAM_MARGIN: int = int(os.environ.get("ASP_SEAM_MARGIN", "0"))
+
+# §1.27: Background pixel coverage minimum for normalisation.  The normalisation loop
+# already guards with `len(bg_px) >= 200` before applying gain correction.  This flag
+# makes that 200-pixel floor configurable — useful when the character fills most of the
+# frame (sparse-bg scenes) and a tighter or looser threshold is needed.
+# Default 0 → falls back to the built-in 200-pixel floor.
+_BG_NORM_MIN_PX: int = int(os.environ.get("ASP_BG_NORM_MIN_PX", "0"))
+
+# §1.28: Seam path instability escalation.  After the DP seam path is computed, measure
+# the standard deviation of path column values.  High std indicates a chaotic path where
+# many columns have nearly equal energy — blending such a seam produces zigzag artefacts
+# even after §1.25 smoothing.  When std > threshold, escalate the boundary to single-pose.
+# Default 0.0 = off.  Recommend 20.0 (paths with 20px std are visibly unstable).
+_SEAM_INSTABILITY_THRESH: float = float(os.environ.get("ASP_SEAM_INSTABILITY_THRESH", "0.0"))
+
+# §1.31: Seam foreground-penetration escalation.  After the DP seam path is resolved,
+# sample the pixel at each column of the path.  When the fraction of columns where the
+# seam cuts through foreground (any-channel > 0 in either frame's zone) exceeds this
+# threshold, escalate to single-pose.  Complements §1.23/§3.15 (cost barriers that
+# prevent fg routing) by catching cases where the DP routes through fg anyway (e.g.,
+# when the entire overlap region is foreground and no background corridor exists).
+# Default 0.0 = off.  Recommend 0.7 (>70% fg penetration → character seam, escalate).
+_SEAM_FG_PENETRATION_MAX: float = float(os.environ.get("ASP_SEAM_FG_PENETRATION_MAX", "0.0"))
+
+# §1.30: Minimum zone height guard.  When a blend zone is shorter than this many
+# rows the boundary clamp (§1.26) leaves at most one valid seam row, the feather
+# blend has no headroom, and the DP adds ~1ms overhead for no quality benefit.
+# Setting the flag > 0 escalates the boundary directly to single-pose before the
+# DP runs.  Default 0 = off.  Recommend 20 (matches the typical S15/S16 soft-edge
+# band width; anything narrower cannot be blended cleanly regardless of DP).
+_ZONE_MIN_HEIGHT: int = int(os.environ.get("ASP_ZONE_MIN_HEIGHT", "0"))
+
+
+def _zone_is_degenerate(zone_h: int, min_height: int = 20) -> bool:
+    """§1.30: Return True when *zone_h* is too small for a meaningful DP seam cut.
+
+    Below *min_height* the §1.26 boundary clamp collapses the valid seam range to
+    a single row, the DSFN feather has no headroom, and the DP cost surface is
+    so compressed that it produces a constant-row path regardless of content.
+    Escalating to single-pose avoids the DP entirely and lets §1.15 soft-edge
+    handle the residual step.
+
+    Parameters
+    ----------
+    zone_h:
+        Height of the blend zone in pixels (rows).
+    min_height:
+        Minimum row count below which the zone is considered degenerate.
+        0 disables the check.
+
+    Returns
+    -------
+    bool
+        True iff the zone is degenerate (too short for blending).
+    """
+    if min_height <= 0:
+        return False
+    return zone_h < min_height
+
+
+def _seam_corridor_exists(cost: np.ndarray, fg_thresh: float = 0.5) -> bool:
+    """§1.23: True iff the cost map has both dominated and non-dominated columns.
+
+    A 'corridor' exists when at least one column is fg-dominated AND at least one
+    column is not — meaning the DP can be steered into the non-dominated columns
+    without becoming infeasible.  Returns False when all columns are dominated
+    (no corridor) or when no columns are dominated (no need for a barrier).
+    """
+    fg_col_frac = (cost >= 1.0).mean(axis=0)
+    dominated = fg_col_frac > fg_thresh
+    return bool(dominated.any() and not dominated.all())
+
+
+def _smooth_seam_path(path: np.ndarray, window: int = 5) -> np.ndarray:
+    """§1.25: Remove column jitter from a DP seam-cut path via 1-D median filtering.
+
+    The argmin traceback in ``_seam_cut()`` can produce single-pixel sideways
+    jumps — each step is locally optimal but consecutive steps may oscillate
+    between adjacent columns, creating a fine diagonal aliasing band at the
+    seam boundary.  A 1-D median filter of odd window *window* removes these
+    short-range oscillations without changing the long-range seam routing.
+
+    Parameters
+    ----------
+    path:
+        1-D int32 array of length W; ``path[x]`` is the y-offset for column x.
+    window:
+        Median filter half-window (total kernel size = window, must be ≥ 1).
+        Window ≤ 1 returns the path unchanged (no-op).  Even windows are
+        incremented by 1 so the kernel is always symmetric.
+
+    Returns
+    -------
+    np.ndarray
+        Smoothed path, same dtype and shape as *path*.
+    """
+    if window <= 1 or len(path) == 0:
+        return path
+    w = window if window % 2 == 1 else window + 1
+    from scipy.ndimage import median_filter as _mf
+    return _mf(path.astype(np.float32), size=w).astype(np.int32)
+
+
+def _clamp_seam_path(path: np.ndarray, zone_h: int, margin: int = 3) -> np.ndarray:
+    """§1.26: Clamp a DP seam path to stay within [margin, zone_h-1-margin].
+
+    When the seam arrives at y=0 or y=zone_h-1, the feather blend has no rows
+    left to ramp and degenerates into a hard cut at the zone boundary — a
+    different artefact from the one §1.25 targets.  Clamping keeps the seam
+    inside the zone interior so the feather always has at least *margin* rows
+    of valid blending headroom on both sides of the cut.
+
+    Parameters
+    ----------
+    path:
+        1-D int32 array of length W; ``path[x]`` is the y-offset for column x.
+    zone_h:
+        Height of the composite zone (must be > 2 * margin for clamping to
+        be meaningful).
+    margin:
+        Minimum distance (rows) between the seam and the top/bottom zone
+        boundary.  margin ≤ 0 returns the path unchanged.
+
+    Returns
+    -------
+    np.ndarray
+        Clamped path (same dtype as *path*).  When ``zone_h <= 2 * margin``
+        the path is returned unchanged to avoid inverting the clamp bounds.
+    """
+    if margin <= 0 or len(path) == 0:
+        return path
+    lo = margin
+    hi = zone_h - 1 - margin
+    if lo > hi:
+        return path
+    return np.clip(path, lo, hi).astype(path.dtype)
+
+
+def _has_sufficient_bg(
+    bg_sel: np.ndarray,
+    min_px: int = 200,
+) -> bool:
+    """§1.27: Return True iff the background mask has at least *min_px* True pixels.
+
+    The normalisation loop requires enough background pixels to compute a
+    reliable mean luminance for gain estimation.  Below *min_px* the sample
+    is too sparse and the estimated gain is noisy — particularly when the
+    character fills most of the frame (portrait shots, tight cropping).
+
+    Parameters
+    ----------
+    bg_sel:
+        Boolean or uint8 mask; True/nonzero = background pixel.
+    min_px:
+        Minimum number of background pixels required for reliable estimation.
+        Defaults to 200 (the historical hardcoded floor).
+
+    Returns
+    -------
+    bool
+        True when the background coverage is sufficient for normalisation.
+    """
+    if bg_sel is None:
+        return False
+    count = int(np.count_nonzero(bg_sel))
+    return count >= max(1, min_px)
+
+
+def _seam_path_std(path: np.ndarray) -> float:
+    """§1.28: Return the standard deviation of a seam path's column values.
+
+    A high standard deviation indicates that the DP seam oscillates widely
+    across the zone height — signalling that no stable low-cost path exists
+    and that the blend will produce visible diagonal banding.  A stable seam
+    (routing along a consistent row) has std near zero; a chaotic seam that
+    spans the full zone height has std approaching ``zone_h / 3``.
+
+    Parameters
+    ----------
+    path:
+        1-D numeric array; ``path[x]`` is the y-offset for column x.
+
+    Returns
+    -------
+    float
+        Standard deviation of the path values.  Returns 0.0 for empty paths.
+    """
+    if len(path) == 0:
+        return 0.0
+    return float(np.std(path))
+
+
+def _seam_fg_penetration(
+    path: np.ndarray,
+    fa_zone: np.ndarray,
+    fb_zone: np.ndarray,
+) -> float:
+    """§1.31: Fraction of seam columns where the path cuts through foreground.
+
+    For each column x, the seam pixel is at row ``path[x]``.  A pixel is
+    foreground if *any* channel is > 0.  The function returns the fraction
+    of columns where the seam pixel is foreground in at least one of the two
+    zones.
+
+    Parameters
+    ----------
+    path:
+        1-D int array of shape (W,); ``path[x]`` = zone row at column *x*.
+    fa_zone:
+        (zone_h, W, C) uint8 array for frame A's zone.
+    fb_zone:
+        (zone_h, W, C) uint8 array for frame B's zone.
+
+    Returns
+    -------
+    float
+        Fraction in [0, 1].  0.0 for empty path or zero-width zones.
+    """
+    if len(path) == 0 or fa_zone.shape[1] == 0:
+        return 0.0
+    W = len(path)
+    zone_h = fa_zone.shape[0]
+    cols = np.arange(W)
+    rows = np.clip(path, 0, zone_h - 1)
+    in_fg_a = fa_zone[rows, cols].max(axis=1) > 0
+    in_fg_b = fb_zone[rows, cols].max(axis=1) > 0
+    return float((in_fg_a | in_fg_b).sum()) / W
+
+
+def _adaptive_sp_soft_px(
+    feather_width: int,
+    base_px: int = 6,
+    max_px: int = 30,
+    ref_px: int = 80,
+) -> int:
+    """§1.22: Adaptive single-pose soft-edge half-width scaled by original feather.
+
+    Returns *base_px* for feathers at or below *ref_px*, scaling up linearly for
+    wider feathers and capping at *max_px*.  Ensures the feather floor (base_px)
+    is always returned for degenerate inputs (feather_width ≤ 0).
+    """
+    return min(max_px, max(base_px, base_px * max(feather_width, 0) // max(ref_px, 1)))
+
+
+def _fg_density_feather_cap(
+    feathers: np.ndarray,
+    boundaries: "List[float]",
+    warped_bg: "List[Optional[np.ndarray]]",
+    order: "List[int]",
+    cap_px: int,
+    fg_thresh: float = 0.60,
+) -> np.ndarray:
+    """§1.19: Cap feather in fg-dominated seam zones (S63).
+
+    For each boundary k, checks the fg pixel fraction in the ±feather[k] row
+    band around boundaries[k] in canvas space for both adjacent frames.  When
+    the maximum fg fraction across the two frames exceeds *fg_thresh*, the
+    feather is reduced to *cap_px*.  Masks of None (no BiRefNet mask available)
+    are treated as all-background (fg_frac=0.0) so the cap never fires without
+    a mask.
+
+    feathers is returned as a copy (input not mutated).
+    """
+    feathers = feathers.copy()
+    n_b = len(boundaries)
+    for k in range(n_b):
+        fw = int(feathers[k])
+        if fw <= cap_px:
+            continue  # already narrow — skip
+        by = int(boundaries[k])
+        fi_a = int(order[k])
+        fi_b = int(order[k + 1])
+        fg_frac = 0.0
+        for fi in (fi_a, fi_b):
+            if fi >= len(warped_bg) or warped_bg[fi] is None:
+                continue
+            H_canvas = warped_bg[fi].shape[0]
+            y0 = max(0, by - fw)
+            y1 = min(H_canvas, by + fw)
+            band = warped_bg[fi][y0:y1]
+            if band.size == 0:
+                continue
+            fg_frac = max(fg_frac, 1.0 - float(band.mean()))
+        if fg_frac > fg_thresh:
+            feathers[k] = cap_px
+    return feathers
+
+
+def _compute_seam_step_size(
+    fi_a: int,
+    fi_b: int,
+    affines: "List[np.ndarray]",
+) -> float:
+    """§1.20: Dominant-axis camera step between two frame positions (S64).
+
+    Returns ``max(|ty_b − ty_a|, |tx_b − tx_a|)`` — the dominant-axis pixel
+    displacement between the two frames' canvas positions.  Returns
+    ``float("inf")`` when either frame index is out of range.
+    """
+    if fi_a >= len(affines) or fi_b >= len(affines):
+        return float("inf")
+    dy = abs(float(affines[fi_b][1, 2]) - float(affines[fi_a][1, 2]))
+    dx = abs(float(affines[fi_b][0, 2]) - float(affines[fi_a][0, 2]))
+    return max(dy, dx)
+
+
+def _seam_lum_equalize(
+    canvas: np.ndarray,
+    boundaries: "List[float]",
+    band_px: int = 20,
+    min_step: float = 5.0,
+) -> np.ndarray:
+    """§1.21: Post-composite seam luminance equalisation (S65).
+
+    For each seam boundary, samples mean greyscale luminance in *band_px*-row
+    reference windows above and below the boundary (with a 3-row guard to
+    avoid artefacts at the seam itself).  When ``|below_mean − above_mean|``
+    exceeds *min_step* lum units, applies a linear additive ramp over
+    *band_px* rows starting at the boundary, subtracting the step from the
+    below zone so it gradually blends into the above zone.  All BGR channels
+    are shifted equally (luminance correction, chrominance unchanged).
+
+    Returns a uint8 copy of *canvas*.
+    """
+    out = canvas.astype(np.float32)
+    H = canvas.shape[0]
+    luma = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    guard = 3
+    for by_f in boundaries:
+        by = int(by_f)
+        a0 = max(0, by - band_px - guard)
+        a1 = max(0, by - guard)
+        b0 = min(H, by + guard)
+        b1 = min(H, by + band_px + guard)
+        if a1 <= a0 or b1 <= b0:
+            continue
+        above_mean = float(luma[a0:a1].mean())
+        below_mean = float(luma[b0:b1].mean())
+        step = below_mean - above_mean
+        if abs(step) < min_step:
+            continue
+        ry0, ry1 = by, min(H, by + band_px)
+        rlen = ry1 - ry0
+        if rlen <= 0:
+            continue
+        t = np.linspace(0.0, 1.0, rlen, dtype=np.float32)
+        corr = (-step * (1.0 - t)).reshape(-1, 1, 1)
+        out[ry0:ry1] = np.clip(out[ry0:ry1] + corr, 0.0, 255.0)
+    return out.astype(np.uint8)
+
+
+def _adaptive_sp_threshold(
+    feather_width: int,
+    base_threshold: float = 22.0,
+    min_threshold: float = 12.0,
+    feather_reference: int = 80,
+) -> float:
+    """§1.18: Adaptive single-pose escalation threshold (S62).
+
+    Scales the post_warp_diff escalation threshold down for wide feathers so
+    that moderate luminance discrepancies still trigger single-pose mode when
+    the blend zone would produce a long double-image ghost.
+
+    feather=80  → 22.0 (unchanged, same as hardcoded baseline)
+    feather=146 → 12.0 (floor reached)
+    feather=300 → 12.0 (floor)
+    """
+    return max(min_threshold, base_threshold * (feather_reference / max(feather_width, 1)))
+
 
 def _seam_color_similarity(
     img: np.ndarray,
@@ -429,6 +863,12 @@ def _seam_cut(
         j_hi = min(h_e, j + 2)  # exclusive
         j = j_lo + int(E[i, j_lo:j_hi].argmin())
         path[i] = j
+    # §1.25: smooth jitter when flag is enabled
+    if _SEAM_SMOOTH_WINDOW > 1:
+        path = _smooth_seam_path(path, _SEAM_SMOOTH_WINDOW)
+    # §1.26: clamp seam away from zone top/bottom edges
+    if _SEAM_MARGIN > 0:
+        path = _clamp_seam_path(path, h_e, _SEAM_MARGIN)
     return path  # path[x] in [0, zone_h-1]
 
 
@@ -503,6 +943,7 @@ def _build_seam_cost_map(
     bg_mask_a: Optional[np.ndarray],
     bg_mask_b: Optional[np.ndarray],
     dilate_px: int = 15,
+    barrier_cost: Optional[float] = None,
 ) -> np.ndarray:
     """
     P2.4 — Per-pixel seam cost map using character boundary avoidance (§1.6A S19).
@@ -535,6 +976,10 @@ def _build_seam_cost_map(
     bg_mask_a/b : uint8 (H, W) background masks (255=background) for the two frames,
                   already warped to canvas space, sliced to the zone rows.
     dilate_px   : avoidance radius in pixels around foreground edges.
+    barrier_cost: cost applied to fg-dominated columns when a background corridor
+                  exists (§1.23). *None* → uses module-level `_SEAM_HARD_BARRIER`
+                  flag to choose between 2.0 (soft, S33 default) and
+                  `_SEAM_HARD_BARRIER_COST` (1e6 hard barrier, S67).
 
     Returns
     -------
@@ -566,15 +1011,22 @@ def _build_seam_cost_map(
         dilated = cv2.dilate(edge, kernel)
         cost = np.maximum(cost, (dilated > 0).astype(np.float32) * 0.5)
 
-    # §3.15A SemanticStitch: column-level fg-domination barrier.
-    # Raise fg-dominated columns (>50 % fg-interior coverage) to cost=2.0 so the
-    # DP is forced into background-only corridor columns whenever they exist.
-    # Fallback: if every column is fg-dominated (no corridor), skip the filter so
-    # the DP can still find the minimum-cost path through the thinnest fg region.
-    fg_col_frac = (cost >= 1.0).mean(axis=0)  # fraction of fg-interior pixels per column
+    # §3.15A SemanticStitch column barrier (S33) + §1.23 hard barrier upgrade (S67).
+    # When a background corridor exists (some but not all columns are fg-dominated),
+    # raise the dominated columns to `_barrier` so the DP is steered into the
+    # corridor.  Soft mode (S33 default): 2.0 — discourages but does not block.
+    # Hard mode (§1.23, ASP_SEAM_HARD_BARRIER=1): 1e6 — forces background-only seam.
+    # Fallback: when all columns are fg-dominated there is no corridor — skip the
+    # filter so the DP finds the minimum-cost through-character path instead.
+    _barrier = (
+        barrier_cost
+        if barrier_cost is not None
+        else (_SEAM_HARD_BARRIER_COST if _SEAM_HARD_BARRIER else 2.0)
+    )
+    fg_col_frac = (cost >= 1.0).mean(axis=0)
     dominated = fg_col_frac > 0.5
     if dominated.any() and not dominated.all():
-        cost[:, dominated] = np.maximum(cost[:, dominated], 2.0)
+        cost[:, dominated] = np.maximum(cost[:, dominated], _barrier)
 
     return cost
 
@@ -1096,7 +1548,8 @@ def _composite_foreground(
         ):
             bg_sel = warped_bg[i] & (warped_list[i].max(axis=2) > 10)
             bg_px = warped_list[i][bg_sel]
-            if len(bg_px) >= 200 and frame_lums[i] is not None:
+            _bg_min = _BG_NORM_MIN_PX if _BG_NORM_MIN_PX > 0 else 200
+            if _has_sufficient_bg(bg_sel, _bg_min) and frame_lums[i] is not None:
                 f32 = warped_list[i].astype(np.float32)
                 if _MULTISCALE_GAIN:
                     # §1.4D: spatially-varying gain map (bg-only, fg untouched).
@@ -1197,6 +1650,19 @@ def _composite_foreground(
             + " ".join(f"B{k}={int(feathers[k])}px" for k in range(n_b))
         )
 
+    # §1.19: Fg-density-aware feather cap.  When the seam blend zone is dominated
+    # by fg pixels, cap the feather to prevent long double-image ghost bands.
+    if _FG_FEATHER_CAP > 0:
+        feathers = _fg_density_feather_cap(
+            feathers, boundaries, warped_bg, order,
+            cap_px=_FG_FEATHER_CAP,
+            fg_thresh=_FG_FEATHER_THRESH,
+        )
+        print(
+            "[Stitch]   Feathers (§1.19 fg-density-capped): "
+            + " ".join(f"B{k}={int(feathers[k])}px" for k in range(n_b))
+        )
+
     # ── Stage 8.5: Foreground pose registration — global reference strategy ──
     # The camera model is translation-only, so the BACKGROUND is aligned in
     # warped_norm but the animating CHARACTER lands in two different poses on
@@ -1236,6 +1702,30 @@ def _composite_foreground(
                 fg_a = ~warped_bg[fi_a]
                 fg_b = ~warped_bg[fi_b]
 
+                # §1.20: Preemptive single-pose for tiny-step seams.
+                # When the camera barely moved, the character occupies nearly
+                # the same rows in both frames but may be in a different
+                # animation pose — ARAP cannot reconcile this.
+                if _TIGHT_STEP_PX > 0:
+                    _step_sz = _compute_seam_step_size(fi_a, fi_b, affines)
+                    if _step_sz < _TIGHT_STEP_PX:
+                        _by_int = int(by)
+                        _half = min(20, int(feathers[k]))
+                        _y0 = max(0, _by_int - _half)
+                        _y1 = min(H, _by_int + _half)
+                        _fg_a_cnt = int(fg_a[_y0:_y1].sum())
+                        _fg_b_cnt = int(fg_b[_y0:_y1].sum())
+                        _dom = fi_a if _fg_a_cnt >= _fg_b_cnt else fi_b
+                        seam_single_pose[k] = _dom
+                        seam_post_diffs[k] = _step_sz
+                        n_fallback += 1
+                        print(
+                            f"[Stitch]     FG-register B{k} (frames {fi_a}/{fi_b}): "
+                            f"step={_step_sz:.1f}px < {_TIGHT_STEP_PX}px "
+                            f"→ preemptive single-pose (frame {_dom})"
+                        )
+                        continue
+
                 # Symmetric midpoint: both frames move halfway toward each other.
                 # The global-reference approach (asymmetric alpha based on
                 # distance from reference) amplifies noisy flow estimates for
@@ -1265,8 +1755,12 @@ def _composite_foreground(
                     # so the blend zone doesn't create a double-image ghost.
                     post_diff = info.get("post_warp_diff", 0.0)
                     seam_post_diffs[k] = post_diff
-                    _POST_DIFF_THRESHOLD = 22.0  # lum units; empirically tuned
-                    if post_diff > _POST_DIFF_THRESHOLD:
+                    _sp_thresh = (
+                        _adaptive_sp_threshold(int(feathers[k]))
+                        if _ADAPTIVE_SP_THRESH
+                        else 22.0
+                    )
+                    if post_diff > _sp_thresh:
                         dom = fi_a if info["dominant"] == "a" else fi_b
                         seam_single_pose[k] = dom
                         n_fallback += 1
@@ -1506,6 +2000,17 @@ def _composite_foreground(
         fa_zone = warped_norm[fi_a][y0_f:y1_f]
         fb_zone = warped_norm[fi_b][y0_f:y1_f]
 
+        # §1.30: degenerate zone guard — escalate to single-pose before DP when
+        # zone is too short for a meaningful blend (DP collapses to constant path).
+        if (
+            _ZONE_MIN_HEIGHT > 0
+            and _zone_is_degenerate(zone_h, _ZONE_MIN_HEIGHT)
+            and k not in seam_single_pose
+        ):
+            _fg_a = int((fa_zone.max(axis=2) > 0).sum())
+            _fg_b = int((fb_zone.max(axis=2) > 0).sum())
+            seam_single_pose[k] = fi_a if _fg_a >= _fg_b else fi_b
+
         # P2.4 — Semantic seam routing: build a character-boundary cost map so
         # the DP path avoids cutting through foreground outlines.
         _bg_a_zone = warped_bg[fi_a][y0_f:y1_f] if warped_bg[fi_a] is not None else None
@@ -1567,6 +2072,29 @@ def _composite_foreground(
             is_fg = None
             apply = has_any
 
+        # §1.28: Instability escalation — if the seam path has high column variance
+        # and no prior single-pose decision exists, escalate to single-pose now.
+        if (
+            _SEAM_INSTABILITY_THRESH > 0.0
+            and k not in seam_single_pose
+            and _seam_path_std(path_local) > _SEAM_INSTABILITY_THRESH
+        ):
+            _fg_a = int((fa_zone.max(axis=2) > 0).sum())
+            _fg_b = int((fb_zone.max(axis=2) > 0).sum())
+            seam_single_pose[k] = fi_a if _fg_a >= _fg_b else fi_b
+
+        # §1.31: FG penetration escalation — if the seam path cuts through
+        # foreground pixels in too many columns, the DP has routed through
+        # character bodies.  Escalate to single-pose to avoid a bisected character.
+        if (
+            _SEAM_FG_PENETRATION_MAX > 0.0
+            and k not in seam_single_pose
+            and _seam_fg_penetration(path_local, fa_zone, fb_zone) > _SEAM_FG_PENETRATION_MAX
+        ):
+            _fg_a = int((fa_zone.max(axis=2) > 0).sum())
+            _fg_b = int((fb_zone.max(axis=2) > 0).sum())
+            seam_single_pose[k] = fi_a if _fg_a >= _fg_b else fi_b
+
         # A6 — single-pose fallback: when the warp was unsafe at this seam, the
         # two frames hold the character in irreconcilable poses.  Blending them
         # produces a double image, so take the FOREGROUND from the dominant frame
@@ -1624,7 +2152,12 @@ def _composite_foreground(
             # _seam_color_match reduces the channel-mean delta from post_warp_diff
             # lum-units toward zero before the ±sp_soft_px ramp is applied, making
             # the composite transition nearly imperceptible.
-            _sp_soft_px = int(os.environ.get("ASP_SP_SOFT_PX", "6"))
+            _sp_soft_px_base = int(os.environ.get("ASP_SP_SOFT_PX", "6"))
+            _sp_soft_px = (
+                _adaptive_sp_soft_px(feather)
+                if _ADAPTIVE_SP_SOFT
+                else _sp_soft_px_base
+            )
             _oth_matched = _seam_color_match(dom_zone, oth_zone, path_local, _sp_soft_px + 4)
             _sp_zone = _single_pose_soft_edge(dom_zone, _oth_matched, path_local, fg_apply, _sp_soft_px)
             _both_for_sp = dom_has & (oth_zone.max(axis=2) > 0) & fg_apply
@@ -1677,6 +2210,10 @@ def _composite_foreground(
                 if not still_black.any():
                     break
 
+    # §1.21: Post-composite seam luminance equalisation.
+    if _SEAM_LUM_EQ and boundaries:
+        result = _seam_lum_equalize(result, boundaries)
+
     return result
 
 
@@ -1700,4 +2237,16 @@ __all__ = [
     "_seam_color_similarity",
     "_seam_color_similarity_bgr",
     "_check_seam_color_gate",
+    "_adaptive_sp_threshold",
+    "_fg_density_feather_cap",
+    "_compute_seam_step_size",
+    "_seam_lum_equalize",
+    "_adaptive_sp_soft_px",
+    "_seam_corridor_exists",
+    "_smooth_seam_path",
+    "_clamp_seam_path",
+    "_has_sufficient_bg",
+    "_seam_path_std",
+    "_zone_is_degenerate",
+    "_seam_fg_penetration",
 ]

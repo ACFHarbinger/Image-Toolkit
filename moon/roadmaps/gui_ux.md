@@ -74,7 +74,7 @@ Extend A/B so each tab remembers its own thumbnail size independently (e.g., con
 
 ---
 
-## 2.3 Keyboard Navigation
+## 2.3 Keyboard Navigation ✅ Partial (2026-06-10 — §A arrow-key navigation in both gallery base classes)
 
 **Pain point:** Common operations require mouse interaction. Power users expect keyboard shortcuts for gallery navigation, preview, and operations.
 
@@ -104,7 +104,7 @@ Optional mode toggle: press `v` to enter visual navigation mode, use hjkl for mo
 
 ---
 
-## 2.4 Bulk Selection and Operations
+## 2.4 Bulk Selection and Operations ✅ Partial (2026-06-10 — §B Shift+click range + §C right-click context menu)
 
 **Pain point:** No way to select multiple images across the gallery and apply operations (convert, delete, tag) to all at once. Every operation is per-image or per-directory.
 
@@ -199,7 +199,7 @@ Compute |ASP - SCANS| per pixel and display as a colourmap overlay (e.g., hot co
 
 ---
 
-## 2.7 Progress and Cancellation
+## 2.7 Progress and Cancellation ✅ Partial (2026-06-10 — §A stage progress + §B cancellable workers)
 
 **Pain point:** Long-running operations show minimal progress feedback and cannot be cancelled without killing the process.
 
@@ -296,8 +296,8 @@ Same loop as A: read `found_cache_maxsize`, `selected_cache_maxsize`, `initial_c
 **C — Wire startup category to MainWindow**
 `MainWindow.__init__` already calls `self.on_command_changed(self.command_combo.currentText())`. Before that, set `self.command_combo.setCurrentText(prefs.get("startup_category", "System Tools"))` after reading preferences from vault.
 
-**D — Wire confirm_deletions to deletion workflows**
-`ConvertTab`, `DeleteTab`, and `WallpaperTab` each have deletion paths. Read `preferences["confirm_deletions"]` from the vault-loaded creds in each tab's delete handler and skip the `QMessageBox.question` call if False.
+**D — Wire confirm_deletions to deletion workflows ✅ (2026-06-10)**
+`_confirm_deletions_enabled()` helper reads `preferences["confirm_deletions"]` from vault in both gallery base classes. `_trash_path` in `AbstractClassTwoGalleries` gates on this preference. `ConvertTab`, `DeleteTab`, and `WallpaperTab` standalone deletion paths still use their own dialogs (partial coverage).
 
 **E — Wire slideshow defaults to WallpaperTab**
 After `WallpaperTab` construction in `MainWindow.__init__`, set:
@@ -315,7 +315,7 @@ Requires implementing the session persistence feature (§2.5). The vault setting
 
 ---
 
-## 2.10 In-App Toast Notification System
+## 2.10 In-App Toast Notification System ✅ Partial (2026-06-10 — §C shipped)
 
 **Pain point:** Every operation result — file saved, cache cleared, duplicate found, export finished — triggers a blocking `QMessageBox` that interrupts the user's workflow. For background operations (slideshow daemon ticks, RLHF auto-score, WebDriver status) there is no non-blocking feedback path at all.
 
@@ -347,7 +347,7 @@ A collapsible side panel (right edge) accumulating all operation results as a sc
 
 ---
 
-## 2.11 Image Preview Window Enhancements
+## 2.11 Image Preview Window Enhancements ✅ Partial (2026-06-10 — §A fullscreen, §B fit modes, §D rotation shipped)
 
 **Pain point:** The `ImagePreviewWindow` already has zoom/pan (Ctrl+scroll), left/right arrow navigation, and GIF support. It is missing: fullscreen mode, fit-to-width mode, EXIF metadata panel, rotation, and the "mini-map" navigator that professional viewers show when zoomed in.
 
@@ -387,7 +387,7 @@ Already implemented for static images; verify it works for GIFs (copies current 
 
 ---
 
-## 2.12 System Tray Integration
+## 2.12 System Tray Integration ✅ Partial (2026-06-10 — §A+B+C shipped)
 
 **Pain point:** The slideshow daemon runs as a background Rust binary, but the app has no system tray icon. When the main window is minimised, there is no way to check the daemon status, trigger wallpaper rotation, or receive a notification when a long batch job completes.
 
@@ -419,7 +419,7 @@ Overlay a numeric badge on the tray icon when there are active operations (e.g.,
 
 ---
 
-## 2.13 Gallery Filtering and Sort Controls
+## 2.13 Gallery Filtering and Sort Controls ✅ Partial (2026-06-10 — §A + §E)
 
 **Pain point:** Current search is filename substring-only with no sort controls. Users cannot filter by extension, file size, date modified, image dimensions, or tags — all of which are meaningful for a large image database. The `_common_filter_string_list` in `MetaAbstractClassGallery` only does a `query in item.lower()` check.
 
@@ -455,7 +455,7 @@ Extend `_common_filter_string_list` to support: `-query` (exclude), `"exact phra
 
 ---
 
-## 2.14 Thumbnail Metadata Overlay
+## 2.14 Thumbnail Metadata Overlay ✅ Partial (2026-06-10 — §A shipped)
 
 **Pain point:** Hovering a thumbnail shows no information. To know the filename, dimensions, or file size of an image, the user must double-click to open the full preview or navigate to an external tool. The `DraggableLabel` / `ClickableLabel` components in `gui/src/components/` have no hover overlay.
 
@@ -490,7 +490,7 @@ After a 500ms hover delay, fire a background `QRunnable` to read EXIF from the f
 
 ---
 
-## 2.15 Undo/Redo for Destructive Operations
+## 2.15 Undo/Redo for Destructive Operations ✅ Partial (2026-06-10 — §A shipped)
 
 **Pain point:** File deletions across `DeleteTab`, `WallpaperTab`, `SearchTab`, and `ConvertTab` are permanent and cannot be undone. "This cannot be undone!" appears in 6+ QMessageBox dialogs but there is no recovery path. No `QUndoStack` infrastructure exists anywhere in the GUI.
 
@@ -522,7 +522,7 @@ A dedicated `RecycleBinTab` showing files moved there by the app. Each item show
 
 ---
 
-## 2.16 Command Palette / Quick Launcher
+## 2.16 Command Palette / Quick Launcher ✅ Partial (2026-06-10 — §C Ctrl+T tab search shipped)
 
 **Pain point:** Navigating between 20+ tabs requires using the "Select Category" combo and then clicking the tab. There is no way to trigger operations (scan, convert, stitch) or jump to a specific tab by typing. Power users working across multiple categories are slowed by mouse-heavy navigation.
 
@@ -553,7 +553,7 @@ Maintain a `deque` of the last 10 operations run (scan, convert, stitch, etc.) w
 
 ---
 
-## 2.17 Global Collapsible Log Panel
+## 2.17 Global Collapsible Log Panel ✅ Partial (2026-06-10 — §D shipped: LogWindow upgraded)
 
 **Pain point:** `LogWindow` exists but is instantiated per-tab and opens as a floating child window. Each tab that has logging opens a separate window. There is no unified log view across the app, and `print()` calls from the backend are never captured to any UI element.
 
@@ -583,7 +583,7 @@ Upgrade the existing `LogWindow` (`gui/src/windows/log_window.py`) in-place: rep
 
 ---
 
-## 2.18 Image Rating and Color Labels
+## 2.18 Image Rating and Color Labels ✅ Partial (2026-06-10 — §B+C shipped)
 
 **Pain point:** The database has a tag system but no first-class rating or label mechanism. Industry-standard image management apps (Lightroom, digiKam, Eagle) use star ratings (1–5) and color labels (red/yellow/green/blue/purple/grey) as the primary curation workflow. These cannot be replicated using free-text tags.
 
@@ -619,7 +619,7 @@ A row of star icons above the gallery: clicking "≥ 3 stars" filters the visibl
 
 ---
 
-## 2.19 Gallery Export and Contact Sheet
+## 2.19 Gallery Export and Contact Sheet ✅ Partial (2026-06-10 — §A+C shipped)
 
 **Pain point:** There is no way to export the current gallery selection as a list of paths or as a visual contact sheet (proof sheet). Workarounds require external tools. The `ConvertTab` handles format conversion but not gallery-selection-based export.
 
@@ -650,7 +650,7 @@ A button that pushes the current gallery selection into the `ConvertTab`'s input
 
 ---
 
-## 2.20 Resizable Sidebar Panels and QSplitter Persistence
+## 2.20 Resizable Sidebar Panels and QSplitter Persistence ✅ Partial (2026-06-10 — §A shipped)
 
 **Pain point:** Gallery tabs use a fixed vertical stack layout. A collapsible metadata/tag sidebar would allow users to see image details and assign tags without opening a separate preview window, but no `QSplitter` exists in the core gallery base classes. Additionally, the `QSplitter` instances in `listings_tab.py`, `stitch_tab.py`, and `hybrid_stitch_panel.py` do not persist their sizes across sessions — they reset to defaults on every launch.
 
@@ -682,7 +682,7 @@ Use `PyQtADS` (Python bindings for Qt Advanced Docking System) for full drag-and
 
 ---
 
-## 2.21 Directory Navigation History (Back / Forward)
+## 2.21 Directory Navigation History (Back / Forward) ✅ Partial (2026-06-10 — §A+D shipped for FormatTab)
 
 **Pain point:** Every gallery tab's "Browse" button opens a `QFileDialog` and loads the new directory, discarding the previous path. There is no back/forward navigation. Users who accidentally navigate away from a directory must re-browse manually.
 
@@ -743,7 +743,7 @@ Wire a `QCompleter` populated from `get_all_tags_from_db()` to the tag search fi
 
 ---
 
-## 2.23 Accessibility and Keyboard Tab Order
+## 2.23 Accessibility and Keyboard Tab Order ✅ Partial (2026-06-10 — §A accessible names on pagination widgets)
 
 **Pain point:** No `setAccessibleName()` calls, no explicit `setTabOrder()`, and no testing with screen readers. High-contrast mode and font scaling are not addressed. For a power-user tool managing thousands of files, keyboard-only navigation (no mouse) is both an accessibility requirement and a daily-use efficiency gain.
 
@@ -778,7 +778,7 @@ Ensure `QFocusFrame` or QSS `:focus` selectors provide a visible focus ring on a
 
 ---
 
-## 2.24 Thumbnail Hover Animations
+## 2.24 Thumbnail Hover Animations ✅ Partial (2026-06-10 — §A shipped)
 
 **Pain point:** Thumbnails are static `QLabel` / `DraggableLabel` widgets with no hover response. Modern image management apps (Eagle, Hydrus) animate thumbnails on hover (subtle scale-up, brightness lift, border highlight) to improve visual responsiveness and make the selection state feel tactile.
 
@@ -808,7 +808,7 @@ When an image is added to the selection, animate a check mark icon overlaid on t
 
 ---
 
-## 2.25 Keyboard Shortcut Discovery Overlay
+## 2.25 Keyboard Shortcut Discovery Overlay ✅ Partial (2026-06-10 — §A Ctrl+/ table shipped)
 
 **Pain point:** The app has various keyboard shortcuts scattered across tabs (`Ctrl+C` in preview, `Del` for delete, `Enter` for preview open) but there is no in-app reference for them. Users discover shortcuts accidentally. No `F1` help or `?` overlay exists.
 
@@ -838,7 +838,7 @@ Show the 3–4 most relevant shortcuts for the current tab in the status bar (§
 
 ---
 
-## 2.26 Inline Rename
+## 2.26 Inline Rename ✅ Partial (2026-06-10 — §B shipped: context-menu rename via F2)
 
 **Pain point:** Renaming a file requires the user to leave the app, open a file manager, rename, and return. No inline rename (F2) exists in any gallery tab, despite the `DraggableLabel` and `ClickableLabel` components being potential hosts for in-place `QLineEdit` editing.
 
@@ -928,6 +928,121 @@ On Linux, call `locate <query>` or `find` within scanned directories for instant
 
 ---
 
+## 2.29 Configurable Keyboard Shortcuts ✅ (2026-06-10)
+
+**Pain point:** Every keyboard shortcut in the app (`F2` rename, `Ctrl+E` export, `Del` delete, arrow navigation, etc.) is hardcoded via `QKeySequence` or string literals scattered across 6+ files. Users who prefer different bindings (e.g., Vim-style, or to avoid conflicts with their window manager) have no reconfiguration path. The feature is already referenced as the long-term plan in §2.3B and §2.25C.
+
+### Options
+
+**A — `QKeySequenceEdit` table in settings, JSON persistence [Recommended]**
+Add a "Keyboard Shortcuts" tab to `SettingsWindow`. Populate it from a `SHORTCUT_REGISTRY: list[dict]` (each entry: `id`, `description`, `default`, `scope`). Each row shows the action name, current binding, and a `QKeySequenceEdit` for remapping. On save, write to `~/.image-toolkit/keybindings.json`. On startup, `MainWindow.__init__` reads this file and applies any overrides to the corresponding `QShortcut` objects.
+- Conflict detection: highlight duplicate bindings in red before saving.
+- Reset button per row and global "Restore Defaults" button.
+- Scope column shows which tab/context the shortcut applies to.
+- Pros: Standard power-user feature. JSON file is user-auditable. `QKeySequenceEdit` is a native Qt widget — no custom code for capture.
+- Cons: All existing `QShortcut` objects must be registered into the registry at construction time. Requires one pass through all 6 files that define shortcuts.
+
+**B — Vault-stored shortcuts**
+Same as A but persist into the existing vault instead of a plain JSON file.
+- Pros: All user configuration in one encrypted store.
+- Cons: Shortcuts are not security-sensitive. Plain JSON is preferable (user-editable, survives vault reset). Vault is overkill here.
+
+**C — Per-tab QShortcut override via settings (no registry)**
+Each settings tab section shows a flat list of known shortcuts for that tab. Stored per-tab in `QSettings`. No central registry.
+- Pros: Easier per-tab scoping.
+- Cons: No global conflict detection. Discovery is per-tab only — user cannot see all shortcuts at once.
+
+**D — Application-context shortcuts only (non-configurable tab shortcuts)**
+Only make app-global shortcuts configurable (e.g., Command Palette `Ctrl+K`, global search `Ctrl+Shift+F`). Tab-internal shortcuts remain hardcoded.
+- Pros: Lower scope. Covers the most commonly conflicting shortcuts.
+- Cons: Leaves per-gallery shortcuts (F2, Ctrl+E, Del) unconfigurable — the highest-demand items.
+
+**Recommendation:** A — JSON registry approach. `QKeySequenceEdit` + `SHORTCUT_REGISTRY` is a one-time investment that covers all future shortcuts automatically once the registry discipline is established.
+
+---
+
+## 2.30 Accent Color and UI Density Customization ✅
+
+**Status:** Implemented (2026-06-10). Options A (accent colour picker), B (font scale), and C (density toggle) all shipped together.
+
+**Pain point:** The app's dark theme uses a fixed cyan accent (`#00bcd4`) and the light theme uses blue (`#007AFF`). The QSS system already uses `$DARK_ACCENT_COLOR` template variables (via `Template.safe_substitute` in `style.py`), so injecting a custom accent is a matter of overriding the variable before substitution. Users also report discomfort at the default font size on high-DPI displays, and no compact/comfortable density toggle exists.
+
+### Options
+
+**A — Accent colour picker (QColorDialog) in settings [Quick Win]**
+Add a colour picker button to the "Preferences" section of settings. On click: `QColorDialog.getColor()`. The chosen hex is stored as `preferences["accent_color_dark"]` / `preferences["accent_color_light"]` in the vault. In `set_application_theme()`, override `THEME_VARS["DARK_ACCENT_COLOR"]` (and the hover/pressed/muted variants computed automatically: hover = darken 15%, pressed = darken 25%, muted = desaturate 80%) before `Template.safe_substitute`. Zero new dependencies.
+- Pros: Already-templated QSS means this is ~30 LOC. Live preview if `set_application_theme` is called on dialog accept.
+- Cons: Hover/pressed/muted variants must be computed programmatically (`QColor.darker()`/`QColor.lighter()`).
+
+**B — Font scale slider in settings**
+A `QSlider` (80–150%, step 10%) in the "Gallery and Display" section. Applies via `QApplication.instance().setFont(QFont("", base_pt * scale))`. Stored as `preferences["font_scale"]`. Restores on startup before first paint.
+- Pros: Accessibility improvement for high-DPI users. No QSS changes needed.
+- Cons: Some fixed-width layout elements may clip at >120%. Should display a "restart required" note for safety.
+
+**C — Layout density toggle (Compact / Comfortable / Spacious)**
+Three presets that adjust `QWidget` padding/spacing in the QSS. Compact: 4px padding, 2px spacing. Comfortable (current): 10px/6px. Spacious: 16px/10px. Applied as a QSS override.
+- Pros: Useful on laptops (Compact) vs large monitors (Spacious).
+- Cons: Some layouts have hardcoded `setContentsMargins` — QSS padding may not override those. Medium effort.
+
+**D — All three (A + B + C) in a unified "Appearance" settings tab**
+Group accent colour, font scale, and density into a single "Appearance" tab in `SettingsWindow` alongside a live preview `QFrame`.
+- Pros: Cohesive UX. Avoids scattering appearance controls across multiple sections.
+- Cons: Larger change to `SettingsWindow` layout.
+
+**Recommendation:** A immediately (near-free given template infrastructure). B for accessibility. D as the unifying step once A and B are validated.
+
+---
+
+## 2.31 Custom QSS User Theme Override ✅ (2026-06-10)
+
+**Pain point:** Advanced users who want a fully custom visual style must edit `dark.qss` or `light.qss` directly and risk losing changes on update. There is no supported path for injecting personal style overrides without touching tracked files.
+
+### Options
+
+**A — User override file appended after base theme [Quick Win]**
+After loading the base dark/light QSS, check for `~/.image-toolkit/user_theme.qss`. If present, read its contents and append to the base QSS string before `QApplication.setStyleSheet`. The override file is pure QSS (no template variables); it can selectively override any widget rule. Documentation hint shown in settings.
+- Pros: Zero new dependencies. Non-destructive — base theme still applies first. Users can share override files.
+- Cons: Override file must be manually created. No in-app editor.
+
+**B — In-app QSS editor in settings**
+A `QPlainTextEdit` in a "Developer" section of settings showing the current full QSS. User can edit and press "Apply" to preview changes live. Saved to `user_theme.qss`.
+- Pros: Discoverable and usable without leaving the app.
+- Cons: A bad QSS can break the UI. Should have a "Reset to Default" button that clears `user_theme.qss`.
+
+**C — Preset colour palette swatches**
+Instead of free-form editing, offer 6–8 preset colour palettes (Dracula, Solarized Dark, Monokai, Catppuccin, etc.) as a dropdown. Each palette overrides only the `$DARK_ACCENT_COLOR` and background variables.
+- Pros: Safe — no freeform QSS. Users who don't know CSS can still personalise.
+- Cons: Fixed palette selection; no bespoke customisation.
+
+**Recommendation:** A as the power-user override path (trivial implementation). C as a quick-win discovery path for users who don't know QSS.
+
+---
+
+## 2.32 Window Layout and State Profiles ✅ Partial (2026-06-10 — geometry only)
+
+**Pain point:** `SettingsWindow` already has "System Preference Profiles" that save theme + tab configs, but they do not capture window geometry, splitter positions, or the last-used panel sizes. Every launch resets the layout even for users with established workflows. `QSplitter` persistence (§2.20A) addresses individual splitters; this section addresses the complete workspace layout as a named, switchable profile.
+
+### Options
+
+**A — Auto-save geometry and splitter state on close [Quick Win]**
+In `MainWindow.closeEvent`, call `QSettings.setValue("window/geometry", self.saveGeometry())` and save the state of all tracked `QSplitter` instances. Restore in `__init__` before `show()`. No profile concept — just last-used state.
+- Pros: One-time save/restore, zero UI. Highest-impact change with least effort. Pairs naturally with §2.20A.
+- Cons: Only one state remembered (the last session). No named profiles.
+
+**B — Named layout profiles in settings**
+Extend the existing "System Preference Profiles" to include window geometry + all splitter states. A profile name stores: `{"geometry": base64(saveGeometry()), "splitters": {"stitch_tab": base64(...), ...}}`. Profiles can be applied from the Settings window or a `File → Layout Profiles` menu.
+- Pros: Named profiles enable project-based layouts (e.g., "stitching session" vs "database review").
+- Cons: Must hook into all QSplitter instances to collect/restore their state. Medium effort.
+
+**C — Per-tab layout memory**
+Each tab class saves and restores its own internal splitter + scroll position in `QSettings` keyed by tab class name. No cross-tab coordination.
+- Pros: Scoped — each tab owns its state. Simpler than B.
+- Cons: Does not capture main window size or multi-tab interactions.
+
+**Recommendation:** A immediately (matches §2.20A and is essentially the same code path). B as the full profiles upgrade once A validates the save/restore pattern.
+
+---
+
 ## Anchor Index
 
 | Section | Anchor |
@@ -960,3 +1075,7 @@ On Linux, call `locate <query>` or `find` within scanned directories for instant
 | 2.26 Inline Rename | [#226-inline-rename](#226-inline-rename) |
 | 2.27 Multi-Image Comparison View | [#227-multi-image-comparison-view](#227-multi-image-comparison-view) |
 | 2.28 Global Cross-Tab Search | [#228-global-cross-tab-search](#228-global-cross-tab-search) |
+| 2.29 Configurable Keyboard Shortcuts | [#229-configurable-keyboard-shortcuts](#229-configurable-keyboard-shortcuts) |
+| 2.30 Accent Color and UI Density | [#230-accent-color-and-ui-density-customization](#230-accent-color-and-ui-density-customization) |
+| 2.31 Custom QSS User Theme Override | [#231-custom-qss-user-theme-override](#231-custom-qss-user-theme-override) |
+| 2.32 Window Layout and State Profiles | [#232-window-layout-and-state-profiles](#232-window-layout-and-state-profiles) |

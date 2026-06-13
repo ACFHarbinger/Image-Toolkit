@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QMenu,
     QSpinBox,
+    QToolButton,
 )
 from PySide6.QtCore import Qt, Slot, QPoint, Signal
 from PySide6.QtGui import QPixmap, QAction, QImage
@@ -71,6 +72,17 @@ class FormatTab(AbstractClassTwoGalleries):
             btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3
         )
         input_layout.addWidget(btn_browse_scan)
+
+        # §2.21D — MRU recent-dirs dropdown button
+        self._btn_recent_dirs = QToolButton()
+        self._btn_recent_dirs.setText("▼")
+        self._btn_recent_dirs.setToolTip("Recent directories")
+        self._btn_recent_dirs.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self._btn_recent_dirs.setFixedWidth(24)
+        self._recent_dirs_menu = QMenu(self._btn_recent_dirs)
+        self._btn_recent_dirs.setMenu(self._recent_dirs_menu)
+        self._btn_recent_dirs.clicked.connect(self._show_recent_dirs_menu)
+        input_layout.addWidget(self._btn_recent_dirs)
 
         v_input_group.addLayout(input_layout)
         target_layout.addRow("Input path:", v_input_group)
@@ -626,14 +638,26 @@ class FormatTab(AbstractClassTwoGalleries):
         menu.exec(global_pos)
 
     def handle_delete_image(self, path: str):
+        prefs = {}
+        main_win = self.window()
+        if main_win and hasattr(main_win, "cached_creds"):
+            prefs = main_win.cached_creds.get("preferences", {})
+        send_to_trash_enabled = prefs.get("send_to_trash", True)
+        action_name = "Trash" if send_to_trash_enabled else "Permanent Delete"
+
         if (
             QMessageBox.question(
-                self, "Delete", f"Permanently delete {os.path.basename(path)}?"
+                self, f"Confirm {action_name}", f"Move {os.path.basename(path)} to {action_name}?"
             )
             == QMessageBox.Yes
         ):
             try:
-                os.remove(path)
+                if send_to_trash_enabled:
+                    from send2trash import send2trash
+                    send2trash(path)
+                else:
+                    import os
+                    os.remove(path)
 
                 if hasattr(self, "found_files") and path in self.found_files:
                     self.found_files.remove(path)
@@ -672,12 +696,42 @@ class FormatTab(AbstractClassTwoGalleries):
             self,
             "Select input directory",
             self.last_browsed_dir,
+            QFileDialog.Option.DontUseNativeDialog,
         )
         if directory:
+            self._push_dir_history(self.last_browsed_dir)
             self.input_path.setText(directory)
             self.last_browsed_dir = directory
+            self._add_recent_dir(directory)
             self.qml_input_path_changed.emit(directory)
             self.scan_directory_visual()
+
+    def _navigate_to_dir(self, path: str) -> None:
+        """Virtual hook called by base-class back/forward navigation."""
+        if not os.path.isdir(path):
+            return
+        self.input_path.setText(path)
+        self.last_browsed_dir = path
+        self._add_recent_dir(path)
+        self.qml_input_path_changed.emit(path)
+        self.scan_directory_visual()
+
+    def _show_recent_dirs_menu(self) -> None:
+        """Populate and show the MRU recent-directories popup menu (§2.21D)."""
+        self._recent_dirs_menu.clear()
+        dirs = self._get_recent_dirs()
+        if not dirs:
+            act = self._recent_dirs_menu.addAction("(no recent directories)")
+            act.setEnabled(False)
+        else:
+            for d in dirs:
+                act = self._recent_dirs_menu.addAction(d)
+                act.triggered.connect(lambda checked=False, p=d: self._navigate_to_dir(p))
+        self._recent_dirs_menu.exec(
+            self._btn_recent_dirs.mapToGlobal(
+                self._btn_recent_dirs.rect().bottomLeft()
+            )
+        )
 
     @Slot()
     def browse_output(self):

@@ -47,31 +47,202 @@ _DEFAULT_CONFIG_NAME = "asp_config.toml"
 # Tuple: (expected_type, min_val, max_val, description)
 # min_val / max_val are None when the bound is open.
 _CONFIG_SCHEMA: Dict[str, Tuple] = {
-    "ASP_HOLD_THRESHOLD":      (float, 0.0,  1.0,   "MAD hold-detection threshold [0, 1]"),
-    "ASP_NEAR_DUP_LUMA":       (float, 0.0,  255.0, "Near-dup luma floor (luma units 0–255)"),
-    "ASP_COV_MIN_MULTI_PCT":   (float, 0.0,  1.0,   "Min multi-frame canvas coverage [0, 1]"),
-    "ASP_SP_SOFT_PX":          (int,   0,    None,  "Single-pose feather half-width (px, 0=off)"),
-    "ASP_GATE_GHOST_FLOOR":    (float, 0.0,  None,  "Ghost gate absolute floor (luma units)"),
-    "ASP_POISSON_SEAM":        (int,   0,    1,     "Enable Poisson seam blend (0 or 1)"),
-    "ASP_TOONCRAFTER_SEAM":    (int,   0,    1,     "Enable ToonCrafter seam fill (0 or 1)"),
-    "ASP_SCANS_RELOAD":        (int,   0,    1,     "Reload SCANS frames on demand (0 or 1)"),
-    "ASP_TEMPORAL_VAR_THRESH": (float, 0.0,  None,  "Temporal variance pre-filter threshold"),
-    "ASP_HIGH_HOLD_RESPONSE":  (float, 0.0,  1.0,   "Phase-corr response floor for hold merge"),
-    "ASP_BA_F_SCALE":          (float, 0.01, None,  "GNC Cauchy f_scale for bundle adjustment"),
-    "ASP_POSE_WINDOW_PX":      (int,   0,    None,  "DINOv2 pose-selection window (px, 0=off)"),
-    "ASP_SGM_PROXY":           (int,   0,    1,     "Enable SLIC SGM flow proxy (0 or 1)"),
-    "ASP_TWO_CHANNEL_SELECT":  (int,   0,    1,     "Enable BiRefNet two-channel selection (0/1)"),
-    "ASP_HOLD_DHASH_THRESH":   (int,   0,    64,    "dHash Hamming threshold for hold detection (0=off)"),
-    "ASP_MULTISCALE_GAIN":     (int,   0,    1,     "Enable multi-scale spatial gain map (0 or 1)"),
-    "ASP_SIMILARITY_MODE":     (int,   0,    1,     "Use similarity (scale+rot+tx) instead of translation-only matching (0 or 1)"),
-    "ASP_HISTOGRAM_MATCH":     (int,   0,    1,     "Enable CDF histogram matching for bg normalisation (0 or 1)"),
-    "ASP_EXPOSURE_OUTLIER_THRESH": (float, 0.0, 255.0, "Max bg-lum deviation from median before norm skip (0=off)"),
-    "ASP_SCENE_CHANGE_LUMA_THRESH": (float, 0.0, 255.0, "Max mean-luma diff between frames before edge rejection (0=off)"),
-    "ASP_SCENE_CHANGE_BGR_THRESH": (float, 0.0, 255.0, "Max per-channel (BGR) mean diff between frames before edge rejection (0=off)"),
-    "ASP_SEAM_COLOR_GATE": (float, 0.0, 1.0, "Min Bhattacharyya colour similarity across seam to pass composite gate (0=off)"),
-    "ASP_SEAM_COLOR_GATE_BGR": (int, 0, 1, "Use per-channel BGR Bhattacharyya instead of greyscale in seam colour gate (0 or 1)"),
-    "ASP_MST_MIN_WEIGHT": (float, 0.0, 1.0, "Min mean MST edge weight before pre-BA SCANS fallback (0=off)"),
-    "ASP_GNC_OUTER": (int, 0, 20, "GNC-TLS outer iterations (0=Cauchy only, default 8)"),
+    "ASP_HOLD_THRESHOLD": (float, 0.0, 1.0, "MAD hold-detection threshold [0, 1]"),
+    "ASP_NEAR_DUP_LUMA": (float, 0.0, 255.0, "Near-dup luma floor (luma units 0–255)"),
+    "ASP_COV_MIN_MULTI_PCT": (
+        float,
+        0.0,
+        1.0,
+        "Min multi-frame canvas coverage [0, 1]",
+    ),
+    "ASP_SP_SOFT_PX": (int, 0, None, "Single-pose feather half-width (px, 0=off)"),
+    "ASP_GATE_GHOST_FLOOR": (
+        float,
+        0.0,
+        None,
+        "Ghost gate absolute floor (luma units)",
+    ),
+    "ASP_POISSON_SEAM": (int, 0, 1, "Enable Poisson seam blend (0 or 1)"),
+    "ASP_TOONCRAFTER_SEAM": (int, 0, 1, "Enable ToonCrafter seam fill (0 or 1)"),
+    "ASP_SCANS_RELOAD": (int, 0, 1, "Reload SCANS frames on demand (0 or 1)"),
+    "ASP_TEMPORAL_VAR_THRESH": (
+        float,
+        0.0,
+        None,
+        "Temporal variance pre-filter threshold",
+    ),
+    "ASP_HIGH_HOLD_RESPONSE": (
+        float,
+        0.0,
+        1.0,
+        "Phase-corr response floor for hold merge",
+    ),
+    "ASP_BA_F_SCALE": (float, 0.01, None, "GNC Cauchy f_scale for bundle adjustment"),
+    "ASP_POSE_WINDOW_PX": (int, 0, None, "DINOv2 pose-selection window (px, 0=off)"),
+    "ASP_SGM_PROXY": (int, 0, 1, "Enable SLIC SGM flow proxy (0 or 1)"),
+    "ASP_TWO_CHANNEL_SELECT": (
+        int,
+        0,
+        1,
+        "Enable BiRefNet two-channel selection (0/1)",
+    ),
+    "ASP_HOLD_DHASH_THRESH": (
+        int,
+        0,
+        64,
+        "dHash Hamming threshold for hold detection (0=off)",
+    ),
+    "ASP_MULTISCALE_GAIN": (int, 0, 1, "Enable multi-scale spatial gain map (0 or 1)"),
+    "ASP_SIMILARITY_MODE": (
+        int,
+        0,
+        1,
+        "Use similarity (scale+rot+tx) instead of translation-only matching (0 or 1)",
+    ),
+    "ASP_HISTOGRAM_MATCH": (
+        int,
+        0,
+        1,
+        "Enable CDF histogram matching for bg normalisation (0 or 1)",
+    ),
+    "ASP_EXPOSURE_OUTLIER_THRESH": (
+        float,
+        0.0,
+        255.0,
+        "Max bg-lum deviation from median before norm skip (0=off)",
+    ),
+    "ASP_SCENE_CHANGE_LUMA_THRESH": (
+        float,
+        0.0,
+        255.0,
+        "Max mean-luma diff between frames before edge rejection (0=off)",
+    ),
+    "ASP_SCENE_CHANGE_BGR_THRESH": (
+        float,
+        0.0,
+        255.0,
+        "Max per-channel (BGR) mean diff between frames before edge rejection (0=off)",
+    ),
+    "ASP_SEAM_COLOR_GATE": (
+        float,
+        0.0,
+        1.0,
+        "Min Bhattacharyya colour similarity across seam to pass composite gate (0=off)",
+    ),
+    "ASP_SEAM_COLOR_GATE_BGR": (
+        int,
+        0,
+        1,
+        "Use per-channel BGR Bhattacharyya instead of greyscale in seam colour gate (0 or 1)",
+    ),
+    "ASP_MST_MIN_WEIGHT": (
+        float,
+        0.0,
+        1.0,
+        "Min mean MST edge weight before pre-BA SCANS fallback (0=off)",
+    ),
+    "ASP_CANVAS_SPAN_MIN_UTIL": (
+        float,
+        0.0,
+        1.0,
+        "Min canvas-span/expected-span utilisation ratio after BA (0=off)",
+    ),
+    "ASP_ADAPTIVE_SP_THRESH": (
+        int,
+        0,
+        1,
+        "Enable adaptive single-pose escalation threshold scaled by feather width (0 or 1)",
+    ),
+    "ASP_FG_FEATHER_CAP": (
+        int,
+        0,
+        300,
+        "Cap feather (px) in fg-dominated seam zones (0=off)",
+    ),
+    "ASP_FG_FEATHER_THRESH": (
+        float,
+        0.0,
+        1.0,
+        "Fg fraction threshold above which feather cap fires (default 0.60)",
+    ),
+    "ASP_TIGHT_STEP_PX": (
+        int,
+        0,
+        500,
+        "Dominant-axis step (px) below which seam is preemptively single-posed (0=off)",
+    ),
+    "ASP_SEAM_LUM_EQ": (
+        int,
+        0,
+        1,
+        "Enable post-composite seam luminance equalisation pass (0 or 1)",
+    ),
+    "ASP_ADAPTIVE_SP_SOFT": (
+        int,
+        0,
+        1,
+        "Enable adaptive single-pose soft-edge width scaled by feather (0 or 1)",
+    ),
+    "ASP_SEAM_HARD_BARRIER": (
+        int,
+        0,
+        1,
+        "Upgrade fg-column barrier from soft (2.0) to hard (1e6) when corridor exists (0 or 1)",
+    ),
+    "ASP_SEAM_HARD_BARRIER_COST": (
+        float,
+        0.0,
+        None,
+        "Hard barrier cost for fg-dominated seam columns (default 1e6)",
+    ),
+    "ASP_SEAM_STEP_GATE": (
+        float,
+        0.0,
+        255.0,
+        "Max luma step at seam boundary before SCANS fallback (0=off, recommend 25.0)",
+    ),
+    "ASP_SEAM_SMOOTH_WINDOW": (
+        int,
+        0,
+        51,
+        "Median-filter window for seam path jitter removal (0 or 1 = off, recommend 5)",
+    ),
+    "ASP_SEAM_MARGIN": (
+        int,
+        0,
+        50,
+        "Min rows between seam path and zone top/bottom edge (0 = off, recommend 3)",
+    ),
+    "ASP_BG_NORM_MIN_PX": (
+        int,
+        0,
+        10000,
+        "Min background pixels for gain normalisation (0 = use built-in 200-px floor)",
+    ),
+    "ASP_SEAM_INSTABILITY_THRESH": (
+        float,
+        0.0,
+        500.0,
+        "Max seam path std (rows) before single-pose escalation (0=off, recommend 20.0)",
+    ),
+    "ASP_STATIC_INPUT_MAX_MAD": (
+        float,
+        0.0,
+        255.0,
+        "MAD ceiling for static-input detection (0=off, recommend 2.0; exits early with frame-0 copy)",
+    ),
+    "ASP_ZONE_MIN_HEIGHT": (
+        int,
+        0,
+        500,
+        "Min blend-zone rows before single-pose escalation without DP (0=off, recommend 20)",
+    ),
+    "ASP_SEAM_FG_PENETRATION_MAX": (
+        float,
+        0.0,
+        1.0,
+        "Max fraction of seam columns through fg before single-pose escalation (0=off, recommend 0.7)",
+    ),
 }
 
 
@@ -131,13 +302,9 @@ def validate_asp_config(
 
         numeric_val = float(val) if expected_type is float else int(val)
         if lo is not None and numeric_val < lo:
-            violations.append(
-                f"{key}={val!r} is below minimum {lo}. Hint: {desc}"
-            )
+            violations.append(f"{key}={val!r} is below minimum {lo}. Hint: {desc}")
         if hi is not None and numeric_val > hi:
-            violations.append(
-                f"{key}={val!r} exceeds maximum {hi}. Hint: {desc}"
-            )
+            violations.append(f"{key}={val!r} exceeds maximum {hi}. Hint: {desc}")
 
     if strict and violations:
         raise ValueError(

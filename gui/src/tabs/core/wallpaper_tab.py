@@ -1296,17 +1296,28 @@ class WallpaperTab(AbstractClassSingleGallery):
             )
             return
         filename = os.path.basename(path)
+        prefs = {}
+        main_win = self.window()
+        if main_win and hasattr(main_win, "cached_creds"):
+            prefs = main_win.cached_creds.get("preferences", {})
+        send_to_trash_enabled = prefs.get("send_to_trash", True)
+        action_name = "Trash" if send_to_trash_enabled else "Permanent Delete"
+
         reply = QMessageBox.question(
             self,
-            "Confirm Deletion",
-            f"Are you sure you want to PERMANENTLY delete the file:\n\n**{filename}**\n\nThis action cannot be undone!",
+            f"Confirm {action_name}",
+            f"Move to {action_name}:\n\n{filename}",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
         )
         if reply == QMessageBox.No:
             return
         try:
-            os.remove(path)
+            if send_to_trash_enabled:
+                from send2trash import send2trash
+                send2trash(path)
+            else:
+                os.remove(path)
 
             if path in self.gallery_image_paths:
                 self.gallery_image_paths.remove(path)
@@ -1327,7 +1338,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.refresh_gallery_view()
             self.check_all_monitors_set()
             QMessageBox.information(
-                self, "Success", f"File deleted successfully: {filename}"
+                self, "Success", f"File moved to {action_name}: {filename}"
             )
         except Exception as e:
             QMessageBox.critical(

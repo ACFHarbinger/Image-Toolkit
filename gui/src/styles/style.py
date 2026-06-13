@@ -43,6 +43,59 @@ def load_qss(filename):
         return ""
 
 
+def load_qss_with_overrides(filename, overrides=None):
+    """Loads QSS with runtime variable overrides merged into THEME_VARS."""
+    path = os.path.join(os.path.dirname(__file__), "qss", filename)
+    try:
+        with open(path, "r") as f:
+            content = f.read()
+        vars_to_use = dict(THEME_VARS)
+        if overrides:
+            vars_to_use.update(overrides)
+        return Template(content).safe_substitute(vars_to_use)
+    except FileNotFoundError:
+        print(f"Warning: QSS file not found: {path}")
+        return ""
+
+
+def compute_accent_vars(accent_hex, theme_prefix="DARK"):
+    """Derive hover/pressed accent variants from a base hex colour."""
+    c = QColor(accent_hex)
+    if not c.isValid():
+        c = QColor(THEME_VARS.get(f"{theme_prefix}_ACCENT_COLOR", "#00bcd4"))
+    return {
+        f"{theme_prefix}_ACCENT_COLOR": c.name(),
+        f"{theme_prefix}_ACCENT_HOVER": c.darker(115).name(),
+        f"{theme_prefix}_ACCENT_PRESSED": c.darker(132).name(),
+    }
+
+
+def load_user_qss_override() -> str:
+    """Return contents of ~/.image-toolkit/user_theme.qss, or '' if absent."""
+    path = os.path.expanduser("~/.image-toolkit/user_theme.qss")
+    try:
+        with open(path, "r") as f:
+            return f.read()
+    except FileNotFoundError:
+        return ""
+
+
+# --- Density override snippets (appended after base theme QSS) ---
+COMPACT_DENSITY_QSS = """
+QPushButton { padding: 5px 10px; border-radius: 4px; }
+QComboBox { padding: 3px 6px; }
+QLineEdit, QSpinBox, QDoubleSpinBox { padding: 3px 5px; }
+QGroupBox { padding-top: 6px; margin-top: 4px; }
+"""
+
+SPACIOUS_DENSITY_QSS = """
+QPushButton { padding: 14px 26px; border-radius: 8px; }
+QComboBox { padding: 10px 14px; }
+QLineEdit, QSpinBox, QDoubleSpinBox { padding: 10px 8px; }
+QGroupBox { padding-top: 16px; margin-top: 8px; }
+"""
+
+
 def apply_shadow_effect(widget, color_hex="#000000", radius=10, x_offset=0, y_offset=4):
     """Creates and applies a QGraphicsDropShadowEffect to a given widget."""
     shadow = QGraphicsDropShadowEffect(widget)

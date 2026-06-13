@@ -1,7 +1,7 @@
 import os
 import sys
 
-from PySide6.QtCore import Qt, QSize, QTimer
+from PySide6.QtCore import Qt, QSize, QSettings, QTimer
 from PySide6.QtGui import QIcon, QImageReader
 from PySide6.QtWidgets import (
     QSizePolicy,
@@ -16,12 +16,45 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QApplication,
     QMessageBox,
+    QStatusBar,
+    QSystemTrayIcon,
+    QMenu,
 )
 from .settings_window import SettingsWindow
-from ..styles.style import DARK_QSS, LIGHT_QSS
+from ..styles.style import (
+    DARK_QSS,
+    LIGHT_QSS,
+    DARK_ACCENT_COLOR,
+    LIGHT_ACCENT_COLOR,
+    load_qss_with_overrides,
+    load_user_qss_override,
+    compute_accent_vars,
+    COMPACT_DENSITY_QSS,
+    SPACIOUS_DENSITY_QSS,
+)
 from ..constants import NEW_LIMIT_MB
 from ..utils.lru_image_cache import LRUImageCache
 from backend.src.core.vault_manager import VaultManager
+
+
+def show_tray_notification(title: str, message: str, timeout_ms: int = 4000) -> None:
+    """Post a tray balloon notification from anywhere in the app (§2.12B)."""
+    for w in QApplication.topLevelWidgets():
+        if hasattr(w, "tray_notify"):
+            w.tray_notify(title, message, timeout_ms)
+            return
+
+
+def show_main_status(message: str, timeout_ms: int = 3000) -> None:
+    """Post *message* to the MainWindow status bar from anywhere in the app (§2.10C).
+
+    Finds the first MainWindow in QApplication.topLevelWidgets(); silently
+    does nothing when called before the window exists (e.g. during tests).
+    """
+    for w in QApplication.topLevelWidgets():
+        if hasattr(w, "show_status"):
+            w.show_status(message, timeout_ms)
+            return
 
 
 class MainWindow(QWidget):
@@ -251,8 +284,20 @@ class MainWindow(QWidget):
 
         self.settings_button.clicked.connect(self.open_settings_window)
 
+        # §2.10C — non-blocking status bar at the bottom of the main window
+        self._status_bar = QStatusBar()
+        self._status_bar.setSizeGripEnabled(False)
+        self._status_bar.setMaximumHeight(24)
+        vbox.addWidget(self._status_bar)
+
         self.setLayout(vbox)
         self.set_application_theme(self.current_theme)
+
+        # §2.12A — System tray icon
+        self._tray_icon: QSystemTrayIcon | None = None
+        self._minimize_to_tray: bool = False
+        if QSystemTrayIcon.isSystemTrayAvailable():
+            self._setup_tray_icon(app_icon)
 
         # GUI/UX §2.8 — live OS color-scheme changes (e.g. user toggles dark mode in KDE/Windows)
         try:
@@ -268,7 +313,12 @@ class MainWindow(QWidget):
         except Exception:
             pass
 
-        self.showMaximized()
+        # §3.17 — restore saved window geometry (before showMaximized so it can override)
+        _geom = QSettings("ImageToolkit", "ImageToolkit").value("mainwindow/geometry")
+        if _geom:
+            self.restoreGeometry(_geom)
+        else:
+            self.showMaximized()
         QTimer.singleShot(0, self._restore_session_recovery)
 
     def on_command_changed(self, new_command: str):
@@ -447,25 +497,234 @@ class MainWindow(QWidget):
             )
             print(f"FATAL: os.execv failed: {e}")
 
+    # --- §2.10C — Non-blocking status bar API ---
+    def show_status(self, message: str, timeout_ms: int = 3000) -> None:
+        """Display *message* in the status bar for *timeout_ms* ms (0 = persistent)."""
+        if hasattr(self, "_status_bar"):
+            self._status_bar.showMessage(message, timeout_ms)
+
+    # --- §2.12A/B/C — System Tray ---
+    def _setup_tray_icon(self, app_icon=None) -> None:
+        icon = app_icon
+        if icon is None or not isinstance(icon, QIcon):
+            _asset = os.path.join(
+                os.path.dirname(__file__),
+                "..", "..", "..", "assets", "images", "image_toolkit_icon.png",
+            )
+            _asset = os.path.normpath(_asset)
+            if os.path.exists(_asset):
+                icon = QIcon(_asset)
+            else:
+                icon = self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
+
+        self._tray_icon = QSystemTrayIcon(icon, parent=self)
+        tray_menu = QMenu()
+
+        show_action = tray_menu.addAction("Show Window")
+        show_action.triggered.connect(self._tray_show_window)
+
+        tray_menu.addSeparator()
+
+        daemon_action = tray_menu.addAction("Toggle Daemon")
+        daemon_action.triggered.connect(self._tray_toggle_daemon)
+
+        next_wp_action = tray_menu.addAction("Next Wallpaper")
+        next_wp_action.triggered.connect(self._tray_next_wallpaper)
+
+        tray_menu.addSeparator()
+
+        quit_action = tray_menu.addAction("Quit")
+        quit_action.triggered.connect(QApplication.quit)
+
+        self._tray_icon.setContextMenu(tray_menu)
+        self._tray_icon.setToolTip("Image Toolkit")
+        self._tray_icon.activated.connect(self._on_tray_activated)
+        self._tray_icon.show()
+
+    def _tray_show_window(self) -> None:
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
+
+    def _tray_toggle_daemon(self) -> None:
+        wt = getattr(self, "wallpaper_tab", None)
+        if wt and hasattr(wt, "toggle_daemon"):
+            current = getattr(wt, "btn_daemon_toggle", None)
+            checked = current.isChecked() if current else False
+            wt.toggle_daemon(not checked)
+
+    def _tray_next_wallpaper(self) -> None:
+        wt = getattr(self, "wallpaper_tab", None)
+        if wt and hasattr(wt, "_cycle_slideshow_wallpaper"):
+            wt._cycle_slideshow_wallpaper(increment=True)
+
+    def _on_tray_activated(self, reason) -> None:
+        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            self._tray_show_window()
+
+    def tray_notify(self, title: str, message: str, timeout_ms: int = 4000) -> None:
+        """Show a tray balloon notification (§2.12B). No-op when tray is unavailable."""
+        if self._tray_icon and self._tray_icon.isVisible():
+            self._tray_icon.showMessage(
+                title, message, QSystemTrayIcon.MessageIcon.Information, timeout_ms
+            )
+
+    def set_minimize_to_tray(self, enabled: bool) -> None:
+        """Toggle minimize-to-tray behaviour (§2.12C). Controlled via settings."""
+        self._minimize_to_tray = enabled
+
+    # --- §2.16C — Ctrl+T tab search popup ---
+    def _open_tab_search(self) -> None:
+        """Show a floating tab-name filter popup (§2.16C)."""
+        from PySide6.QtWidgets import QDialog, QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout as _VBox
+
+        all_entries: list[tuple[str, str, str]] = []
+        for category, tabs_in_cat in self.all_tabs.items():
+            for tab_name in tabs_in_cat:
+                all_entries.append((category, tab_name, f"{tab_name}  —  {category}"))
+
+        dlg = QDialog(self, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
+        dlg.setWindowTitle("Go to Tab")
+        dlg.setFixedWidth(400)
+        layout = _VBox(dlg)
+        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setSpacing(4)
+
+        search_input = QLineEdit()
+        search_input.setPlaceholderText("Type to filter tabs…")
+        layout.addWidget(search_input)
+
+        list_widget = QListWidget()
+        list_widget.setMaximumHeight(260)
+        layout.addWidget(list_widget)
+
+        def _populate(text: str) -> None:
+            list_widget.clear()
+            q = text.strip().lower()
+            for category, tab_name, label in all_entries:
+                if not q or q in tab_name.lower() or q in category.lower():
+                    item = QListWidgetItem(label)
+                    item.setData(Qt.ItemDataRole.UserRole, (category, tab_name))
+                    list_widget.addItem(item)
+            if list_widget.count():
+                list_widget.setCurrentRow(0)
+
+        def _activate(item=None) -> None:
+            if item is None:
+                item = list_widget.currentItem()
+            if item is None:
+                return
+            category, tab_name = item.data(Qt.ItemDataRole.UserRole)
+            self.command_combo.setCurrentText(category)
+            QTimer.singleShot(0, lambda: self._select_tab_by_name(tab_name))
+            dlg.accept()
+
+        search_input.textChanged.connect(_populate)
+        search_input.returnPressed.connect(_activate)
+        list_widget.itemActivated.connect(_activate)
+        list_widget.itemDoubleClicked.connect(_activate)
+
+        _populate("")
+        dlg.exec()
+
+    def _select_tab_by_name(self, tab_name: str) -> None:
+        for i in range(self.tabs.count()):
+            if self.tabs.tabText(i) == tab_name:
+                self.tabs.setCurrentIndex(i)
+                return
+
+    # --- §2.25A — Keyboard shortcut discovery overlay (Ctrl+/ or F1) ---
+    def _open_shortcut_overlay(self) -> None:
+        from PySide6.QtWidgets import (
+            QDialog, QTableWidget, QTableWidgetItem,
+            QVBoxLayout as _VBox, QLineEdit, QHeaderView,
+        )
+        from PySide6.QtCore import Qt as _Qt
+        from ..utils.shortcut_manager import get_registry
+
+        reg = get_registry()
+        all_actions = reg.get_all()
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Keyboard Shortcuts  (Ctrl+/)")
+        dlg.resize(560, 460)
+        layout = _VBox(dlg)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(6)
+
+        search = QLineEdit()
+        search.setPlaceholderText("Filter shortcuts…")
+        layout.addWidget(search)
+
+        table = QTableWidget(0, 3)
+        table.setHorizontalHeaderLabels(["Scope", "Action", "Key"])
+        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        table.verticalHeader().setVisible(False)
+        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setAlternatingRowColors(True)
+        layout.addWidget(table)
+
+        def _populate(text: str = "") -> None:
+            q = text.strip().lower()
+            table.setRowCount(0)
+            for entry in all_actions:
+                if q and q not in entry["description"].lower() and q not in entry["current"].lower() and q not in entry["scope"].lower():
+                    continue
+                row = table.rowCount()
+                table.insertRow(row)
+                for col, val in enumerate([entry["scope"], entry["description"], entry["current"]]):
+                    item = QTableWidgetItem(val)
+                    item.setFlags(_Qt.ItemFlag.ItemIsEnabled | _Qt.ItemFlag.ItemIsSelectable)
+                    table.setItem(row, col, item)
+
+        search.textChanged.connect(_populate)
+        _populate()
+        dlg.exec()
+
     def set_application_theme(self, theme_name):
+        prefs = {}
+        if hasattr(self, "cached_creds") and self.cached_creds:
+            prefs = self.cached_creds.get("preferences", {})
+
+        density = prefs.get("ui_density", "Comfortable")
+
         if theme_name == "dark":
-            qss = DARK_QSS
+            accent_color = prefs.get("accent_color_dark", DARK_ACCENT_COLOR)
+            overrides = compute_accent_vars(accent_color, "DARK")
+            qss = load_qss_with_overrides("dark.qss", overrides)
             self.current_theme = "dark"
             hover_bg = "#5f646c"
-            pressed_bg = "#00bcd4"
-            accent_color = "#00bcd4"
+            pressed_bg = accent_color
             header_label_color = "white"
             header_widget_bg = "#2d2d30"
         elif theme_name == "light":
-            qss = LIGHT_QSS
+            accent_color = prefs.get("accent_color_light", LIGHT_ACCENT_COLOR)
+            overrides = compute_accent_vars(accent_color, "LIGHT")
+            qss = load_qss_with_overrides("light.qss", overrides)
             self.current_theme = "light"
             hover_bg = "#cccccc"
-            pressed_bg = "#007AFF"
-            accent_color = "#007AFF"
+            pressed_bg = accent_color
             header_label_color = "#1e1e1e"
             header_widget_bg = "#ffffff"
         else:
             return
+
+        if density == "Compact":
+            qss += COMPACT_DENSITY_QSS
+        elif density == "Spacious":
+            qss += SPACIOUS_DENSITY_QSS
+
+        font_scale = prefs.get("font_scale", 100)
+        if font_scale != 100:
+            from PySide6.QtGui import QFont
+            scaled_pt = max(7, int(10 * font_scale / 100))
+            QApplication.instance().setFont(QFont("Segoe UI", scaled_pt))
+
+        # §3.16 — append user custom QSS override if present
+        qss += load_user_qss_override()
 
         QApplication.instance().setStyleSheet(qss)
 
@@ -683,10 +942,38 @@ class MainWindow(QWidget):
             if self.vault_manager:
                 self.vault_manager.shutdown()
             QApplication.quit()
+        elif (
+            event.key() == Qt.Key.Key_T
+            and event.modifiers() == Qt.KeyboardModifier.ControlModifier
+        ):
+            self._open_tab_search()
+            event.accept()
+        elif (
+            event.key() == Qt.Key.Key_Slash
+            and event.modifiers() == Qt.KeyboardModifier.ControlModifier
+        ) or event.key() == Qt.Key.Key_F1:
+            self._open_shortcut_overlay()
+            event.accept()
         else:
             super().keyPressEvent(event)
 
     def closeEvent(self, event):
+        # §2.12C — minimize to tray instead of quitting (opt-in)
+        if getattr(self, "_minimize_to_tray", False) and self._tray_icon and self._tray_icon.isVisible():
+            event.ignore()
+            self.hide()
+            self._tray_icon.showMessage(
+                "Image Toolkit",
+                "Minimised to tray. Double-click the icon to reopen.",
+                QSystemTrayIcon.MessageIcon.Information,
+                2500,
+            )
+            return
+
+        # §3.17 — persist window geometry so next launch restores it
+        QSettings("ImageToolkit", "ImageToolkit").setValue(
+            "mainwindow/geometry", self.saveGeometry()
+        )
         self._save_session_recovery()
 
         if self.settings_window:

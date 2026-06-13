@@ -1,6 +1,6 @@
 # ASP — State of the Pipeline: What Works, What Failed, What's Next
 
-*Date: 2026-06-08. Updated through Session 60.*  
+*Date: 2026-06-10. Updated through Session 75.*  
 *Primary benchmark corpora: 96 tests (`asp_test01–96`), 55 with ground truth in `data/ground_truth/`. 5-test subset (`test04/08/09/27/57`) used for rapid iteration.*
 
 ---
@@ -799,6 +799,21 @@ Called at the very start of `_filter_edges()`, before the geometric consistency 
 | S58 | §1.15 edge graph connectivity validation | `pipeline.py` | `_check_edge_graph_connectivity(edges, n_frames) → bool` — iterative path-compression Union-Find; returns True iff all frames 0..n_frames-1 reachable from frame 0; out-of-bounds indices skipped; trivially True for n_frames ≤ 1. Pre-BA gate in `run()` after `if not edges:` guard → SCANS fallback on disconnection. Saves full Retry 0–5 chain on over-pruned edge graphs. Exported in `__all__`. +5 tests, 397 total (+1 pre-existing skip). |
 | S59 | §1.14C per-channel BGR Bhattacharyya seam gate | `compositing.py` / `pipeline.py` / `config.py` | `_seam_color_similarity_bgr(img, k, n_strips, band_px=50) → float` — per-channel (B,G,R) normalised 256-bin histograms, returns `min(score_B, score_G, score_R)`; 2-D greyscale input falls back to greyscale path. `_check_seam_color_gate` extended with `use_bgr: bool = False` — routes to BGR fn when True. `_SEAM_COLOR_GATE_BGR` flag (default OFF, `ASP_SEAM_COLOR_GATE_BGR=1`). Stage 11.2 in `pipeline.py` passes `use_bgr=_SEAM_COLOR_GATE_BGR`. `ASP_SEAM_COLOR_GATE_BGR` added to `_CONFIG_SCHEMA`. Exported in `__all__`. +5 tests, 402 total. |
 | S60 | §1.16 MST weight gate | `pipeline.py` / `constants/anim.py` / `config.py` | `_compute_mst_weight(edges, n_frames) → float` — Kruskal max-weight spanning tree via iterative path-compression Union-Find; returns `total_tree_weight/(N-1)`; 0.0 for n_frames≤1 or no edges. Pre-BA gate: `_MST_MIN_WEIGHT` flag (default 0.0=off, `ASP_MST_MIN_WEIGHT=0.35`); low-confidence all-TM/PC graphs (weight~0.15–0.3) below 0.35 → SCANS fallback before wasted retry chain. `MST_MIN_WEIGHT=0.35` in constants; `ASP_MST_MIN_WEIGHT` in `_CONFIG_SCHEMA`. Exported in `__all__`. +5 tests, 407 total. |
+| S61 | §1.17 Canvas span utilisation gate | `pipeline.py` / `constants/anim.py` / `config.py` | `_compute_canvas_span_utilization(affines) → float` — actual dominant-axis span / (median_adjacent_step × (N−1)); 1.0 for N<2 or zero expected span. Post-BA gate after §3.14 scroll-axis check: `_CANVAS_SPAN_MIN_UTIL` flag (default 0.0=off, `ASP_CANVAS_SPAN_MIN_UTIL=0.3`); oscillating BA solutions (frames alternating between two y positions) produce span≪expected → SCANS fallback. `CANVAS_SPAN_MIN_UTIL=0.3` in constants; `ASP_CANVAS_SPAN_MIN_UTIL` in `_CONFIG_SCHEMA`. Exported in `__all__`. +5 tests, 412 total. |
+| S62 | §1.18 Adaptive single-pose escalation threshold | `compositing.py` / `constants/anim.py` / `config.py` | `_adaptive_sp_threshold(feather_width, base=22.0, min=12.0, ref=80) → float` — `max(min_threshold, base×(ref/max(fw,1)))`; fw=80→22.0 (baseline), fw≥147→12.0 (floor). Replaces hardcoded `_POST_DIFF_THRESHOLD = 22.0` at compositing.py escalation gate. `_ADAPTIVE_SP_THRESH` flag (default OFF, `ASP_ADAPTIVE_SP_THRESH=1`). Addresses Class A benchmark failure: 300px feathers + post_warp_diff 15–22 lum → no escalation → 600px ghost band. With adaptive threshold floor=12.0 these cases now escalate to single-pose. `ADAPTIVE_SP_THRESH_BASE/MIN/REF` in constants; `ASP_ADAPTIVE_SP_THRESH` in `_CONFIG_SCHEMA`. Exported in `__all__`. +5 tests, 417 total. |
+| S63 | §1.19 Foreground-density-aware feather cap | `compositing.py` / `constants/anim.py` / `config.py` | `_fg_density_feather_cap(feathers, boundaries, warped_bg, order, cap_px, fg_thresh=0.60) → np.ndarray` — checks fg fraction in ±feather[k] canvas-space band around boundaries[k] for both adjacent frames; caps feather to cap_px when max fg_frac > fg_thresh. None masks → no-op. `_FG_FEATHER_CAP` flag (default 0=off, `ASP_FG_FEATHER_CAP=60`); `_FG_FEATHER_THRESH` flag (default 0.60). Wired after §1.6B gain feathers, before Stage 8.5 FG registration. Pre-registration complement to §1.18 (which fires post-registration). `FG_FEATHER_CAP=60`, `FG_FEATHER_THRESH=0.60` in constants; 2 entries in `_CONFIG_SCHEMA`. Exported in `__all__`. +5 tests, 422 total. |
+| S64 | §1.20 Tight-step preemptive single-pose escalation | `compositing.py` / `constants/anim.py` / `config.py` | `_compute_seam_step_size(fi_a, fi_b, affines) → float` — `max(|ty_b−ty_a|, |tx_b−tx_a|)`; inf for out-of-range. `_TIGHT_STEP_PX` flag (default 0=off, `ASP_TIGHT_STEP_PX=30`). Wired inside FG registration loop BEFORE `register_foreground_at_seam`: when step < threshold, skip ARAP, pick dominant by fg count in ±20px boundary band, set `seam_single_pose[k]`. Addresses Class C (test57): min_gap=10.8px seams preemptively single-posed. `TIGHT_STEP_PX=30` in constants; `ASP_TIGHT_STEP_PX` in `_CONFIG_SCHEMA`. Exported in `__all__`. +5 tests, 427 total. |
+| S75 | §1.31 Seam FG penetration escalation | `compositing.py` / `constants/anim.py` / `config.py` | `_seam_fg_penetration(path, fa_zone, fb_zone) → float` — samples `path[x]` per column; fg = any channel > 0 in either zone; returns fraction in [0,1]. Blend loop: after §1.28, if `_SEAM_FG_PENETRATION_MAX > 0 and penetration > threshold and k not in seam_single_pose` → single-pose (dom by fg px count). `_SEAM_FG_PENETRATION_MAX` flag (default 0.0=off, recommend 0.7). `SEAM_FG_PENETRATION_MAX=0.7`; schema; `__all__`. +5 tests, 482 total. |
+| S74 | §1.30 Minimum zone height guard | `compositing.py` / `constants/anim.py` / `config.py` | `_zone_is_degenerate(zone_h, min_height=20) → bool` — True when `zone_h < min_height` (min_height=0 disables). Wired in `_composite_foreground` after fa_zone/fb_zone allocation, before DP: if degenerate and no prior SP decision, escalates to single-pose (dom by fg px count). `_ZONE_MIN_HEIGHT` flag (default 0=off, recommend 20). `ZONE_MIN_HEIGHT=20` in constants; schema; `__all__`. +5 tests, 477 total. |
+| S73 | §1.29 Static input detection gate | `pipeline.py` / `constants/anim.py` / `config.py` | `_detect_static_input(frames, max_mad, thumb_size=64) → bool` — resizes each frame to 64×64 greyscale; checks all consecutive pairs have MAD < max_mad (short-circuits on first differing pair). Stage 1.5 gate in `run()`: if True, writes frame 0 to output and returns early. `_STATIC_INPUT_MAX_MAD` flag (default 0.0=off, recommend 2.0). `STATIC_INPUT_MAX_MAD=2.0` in constants; schema; `__all__`. +5 tests, 472 total. |
+| S72 | §1.28 Seam path instability escalation | `compositing.py` / `constants/anim.py` / `config.py` | `_seam_path_std(path) → float` — `float(np.std(path))`; 0.0 for empty. Blend loop: if std > `_SEAM_INSTABILITY_THRESH` and no prior SP decision, escalates to single-pose (dom by fg px count). `_SEAM_INSTABILITY_THRESH` flag (default 0.0=off, `ASP_SEAM_INSTABILITY_THRESH=20.0`). `SEAM_INSTABILITY_THRESH=20.0`; schema; `__all__`. +5 tests, 467 total. |
+| S71 | §1.27 Background coverage gate for normalisation | `compositing.py` / `constants/anim.py` / `config.py` | `_has_sufficient_bg(bg_sel, min_px=200) → bool` — `np.count_nonzero(bg_sel) >= max(1, min_px)`; None → False. Formalises hardcoded `>=200` floor in normalisation loop. `_BG_NORM_MIN_PX` flag (default 0 → built-in 200-px). `BG_NORM_MIN_PX=200` in constants; schema; `__all__`. +5 tests, 462 total. |
+| S70 | §1.26 Seam path boundary clamp | `compositing.py` / `constants/anim.py` / `config.py` | `_clamp_seam_path(path, zone_h, margin=3) → np.ndarray` — `np.clip(path, margin, zone_h-1-margin)`. Prevents seam routing to zone top/bottom where feather has no blending headroom → hard edge. No-op when margin≤0 or zone too small. `_SEAM_MARGIN` flag (default 0=off, `ASP_SEAM_MARGIN=3`). After §1.25 in `_seam_cut()`. `SEAM_MARGIN=3` in constants; schema; `__all__`. +5 tests, 457 total. |
+| S69 | §1.25 Seam path smoothing | `compositing.py` / `constants/anim.py` / `config.py` | `_smooth_seam_path(path, window=5) → np.ndarray` — 1-D `scipy.ndimage.median_filter` on DP traceback path. Removes single-pixel jitter (column oscillation → diagonal aliasing bands). window≤1 = no-op; even window → next odd. `_SEAM_SMOOTH_WINDOW` flag (default 0=off, `ASP_SEAM_SMOOTH_WINDOW=5`). Wired at end of `_seam_cut()`. `SEAM_SMOOTH_WINDOW=5` in constants; schema entry; `__all__`. +5 tests, 452 total. |
+| S68 | §1.24 Post-composite seam-step gate | `pipeline.py` / `constants/anim.py` / `config.py` | `_measure_max_seam_step(canvas, n_strips, band_px=10, guard=3) → float` — samples mean greyscale luma in band_px rows above/below each inter-strip boundary (±guard guard rows). Returns max |above−below|; 0.0 for n_strips≤1 or too-small canvas. Stage 11.3 gate: `_SEAM_STEP_GATE` flag (0.0=off, `ASP_SEAM_STEP_GATE=25.0`); SCANS fallback if max_step > threshold. `SEAM_STEP_GATE_THRESH=25.0` in constants; `ASP_SEAM_STEP_GATE` in schema; `__all__`. +5 tests, 447 total. |
+| S67 | §1.23 SemanticStitch hard corridor barrier | `compositing.py` / `constants/anim.py` / `config.py` | `_seam_corridor_exists(cost, fg_thresh=0.5) → bool` — True iff some-but-not-all columns are fg-dominated (corridor exists). `_build_seam_cost_map` extended with `barrier_cost=None` param: when corridor exists, uses 1e6 (hard, `ASP_SEAM_HARD_BARRIER=1`) or 2.0 (soft, S33 default). Graceful fallback: no corridor → 2.0 unchanged. `SEAM_HARD_BARRIER_COST=1e6` in constants; 2 schema entries; `_seam_corridor_exists` in `__all__`. +5 tests, 442 total. |
+| S66 | §1.22 Adaptive single-pose soft-edge width | `compositing.py` / `constants/anim.py` / `config.py` | `_adaptive_sp_soft_px(feather_width, base_px=6, max_px=30, ref_px=80) → int` — `min(max_px, max(base_px, base_px*feather_width//ref_px))`; feather=80→6, feather=160→12, feather=300→22, cap=30; degenerate feather≤0 → base_px. `_ADAPTIVE_SP_SOFT` flag (default OFF, `ASP_ADAPTIVE_SP_SOFT=1`). Wired in single-pose blend branch at line ~1849: `_sp_soft_px_base = ASP_SP_SOFT_PX; _sp_soft_px = _adaptive_sp_soft_px(feather) if _ADAPTIVE_SP_SOFT else _sp_soft_px_base`. Eliminates visible step when §1.18 escalates wide (160–300px) feathers. `SP_SOFT_BASE/MAX/REF_PX` in constants; `ASP_ADAPTIVE_SP_SOFT` in `_CONFIG_SCHEMA`. Exported in `__all__`. +5 tests, 437 total. |
+| S65 | §1.21 Post-composite seam luminance equalisation | `compositing.py` / `constants/anim.py` / `config.py` | `_seam_lum_equalize(canvas, boundaries, band_px=20, min_step=5.0) → np.ndarray` — samples mean greyscale luma in band_px-row reference bands above/below each boundary (±3-row guard); applies linear additive ramp over band_px rows below boundary when step > min_step. Equal BGR correction. `_SEAM_LUM_EQ` flag (default OFF, `ASP_SEAM_LUM_EQ=1`). Wired before `return result` in `_composite_foreground`. Targets Class D (test27 SC=26.7). `SEAM_LUM_EQ_BAND_PX=20/MIN_STEP=5.0` in constants; `ASP_SEAM_LUM_EQ` in `_CONFIG_SCHEMA`. Exported in `__all__`. +5 tests, 432 total. |
 
 ---
 
@@ -1385,3 +1400,89 @@ Implemented in `_arap_regularise()` with boundary-cell filter and 50% magnitude 
 | **GT-SSIM (5 tests)** | test09: 0.787 asp_better, test27: 0.709 asp_better, test57: 0.743 | Animation timing mismatch; midpoint-warp 50% residual | Pose-consistent frame selection → reduce residuals to <10px |
 | **Metrics** | SSIM + seam_coherence + aligned_ssim_vs_gt (S8) + seam_visibility (S14, no-reference) | raw SSIM penalises scale mismatch (test27 0.039 bias) | — |
 | **Tests** | 322 passing in anim suite (S43: §3.4A dHash hold detection; S22–S43 cumulatively +108 tests) | — | §1.10B Bayesian parameter search (needs calibrated reward model) |
+
+---
+
+## 4. Benchmark Results — 2026-06-10 (S61)
+
+**5-test quick-check run on asp_test04/08/09/27/57. All tests use full ASP pipeline (no SCANS fallback triggered).**
+
+### 4.1 Summary Table
+
+| Test | GT SSIM ASP | GT SSIM Sim | Align SSIM ASP | Align SSIM Sim | Verdict | Ghosting ASP | Ghosting Sim | SIQE Ghost ASP | SIQE Ghost Sim | SC ASP | SC Sim | Frames |
+|------|-------------|-------------|----------------|----------------|---------|-------------|-------------|----------------|----------------|--------|--------|--------|
+| test04 | 0.683 | 0.738 | 0.711 | 0.748 | simple_better | 37.87 | 21.42 | 18.0 | 58.31 | 26.4 | 26.4 | 25 |
+| test08 | 0.733 | 0.810 | 0.741 | 0.823 | simple_better | 56.60 | 46.01 | 24.8 | 81.21 | 17.8 | 12.5 | 14 |
+| test09 | 0.781 | 0.747 | 0.795 | 0.792 | **comparable** | 28.46 | 21.17 | 48.43 | 78.99 | 22.8 | 20.2 | 22 |
+| test27 | 0.660 | 0.680 | 0.694 | 0.753 | simple_better | 30.63 | 23.23 | 53.37 | 79.63 | 26.7 | 24.8 | 21 |
+| test57 | 0.724 | 0.755 | 0.742 | 0.800 | simple_better | 40.93 | 24.10 | 25.97 | 82.86 | 25.0 | 21.5 | 27 |
+
+*SC = seam_coherence (lower is better). Ghosting = 2nd-order vertical gradient score (higher = local double-edges). SIQE Ghost = §3.8A FFT autocorrelation double-edge score (higher = periodic strip ghost).*
+
+**Average GT SSIM gap (ASP − Simple) over 5 tests: −0.030** (vs −0.027 at S4 full-run baseline on 22 tests).
+
+### 4.2 Metric Disambiguation: ghosting_score vs ghosting_siqe
+
+A striking pattern emerged: the two ghosting metrics disagree on WHICH pipeline is worse:
+
+- **`ghosting_score` (2nd-order Sobel):** ASP is worse on ALL 5 tests (37.9 vs 21.4, 56.6 vs 46.0, etc.)
+- **`ghosting_siqe` (§3.8A FFT autocorrelation):** ASP is BETTER on ALL 5 tests (18 vs 58, 25 vs 81, etc.)
+
+**Interpretation:** The two metrics detect structurally different artifacts:
+- `ghosting_score` measures **local double-edges** — blending two animation poses creates a zone with many nearby parallel edges. ASP's Laplacian blend across pose-mismatched strips creates these. Simple stitch doesn't blend, so no local double-edges.
+- `ghosting_siqe` measures **periodic strip repetition** — simple stitch's regular hard cuts every N pixels create a periodically repeating luminance pattern. ASP's semantically-routed seams are irregular, so the autocorrelation finds no strong periodic peak.
+
+**Conclusion:** Both metrics are correct about what they measure. ASP has **local double-edge ghosts** at seam boundaries (bad). Simple stitch has **periodic strip banding** across the whole image (also bad, but at a different scale). GT SSIM favors simple stitch because the reference was created with a non-blending method — it has no local double-edges.
+
+### 4.3 Per-Test Failure Mode Analysis
+
+**test04 (25 frames, spacing_ratio=2.195):**
+- High ghosting (37.87) despite correct alignment (valid BA, no fallback)
+- Gain range [0.80, 1.17] = 47% spread — the gain normalization is working but still producing strip color variation (SC=26.4)
+- Root cause: wide feather (300px) × moderate post_warp_diff (likely 10–20 lum range) = large ghost zones at most seams
+
+**test08 (14 frames, spacing_ratio=1.785, diagonal scroll):**
+- Worst GT SSIM gap (−0.077). Ghosting_score=56.60 — highest of the 5 tests.
+- 2D diagonal scroll: the alignment health shows valid=True but the canvas is 2075×1838 — nearly square. ASP processes this as vertical strips on a near-square canvas, which is geometrically wrong for diagonal scrolling.
+- Root cause: the 2D/diagonal scroll means adjacent frames have both ty and tx displacement. The vertical-strip compositor handles ty but tx displacement means each frame's background shifts horizontally too. The temporal median becomes incoherent horizontally.
+
+**test09 (22 frames, spacing_ratio=1.229 — tightest):**
+- The one success: GT SSIM ASP=0.781 > Simple=0.747. Aligned SSIM=0.795 > 0.792.
+- This is the canonical clean vertical pan: min_gap=51.7px, max_rotation=0.0001, pure vertical scroll.
+- ghosting_score=28.46 (below 30 threshold) — moderate, not flagged as severe.
+
+**test27 (21 frames, spacing_ratio=1.875):**
+- GT SSIM 0.660 vs 0.680. Color_entropy ASP=6.72 vs Simple=7.47 — ASP output is more washed-out.
+- Gain range [1.01, 1.05] = only 4% spread — minimal gain correction needed. Yet SC is 26.7, indicating the banding isn't from gain mismatch but from ARAP warp residuals.
+- Root cause: moderate ghosting_score=30.63 (just above threshold). The warp residuals leave visible seam steps that the color_entropy measurement confirms.
+
+**test57 (27 frames, spacing_ratio=3.379 — highest ratio):**
+- spacing_ratio=3.379 is high, meaning max inter-frame step is 3.4× min step — irregular scroll speed. min_gap=10.8px is very tight.
+- This irregular spacing is the likely cause of ghosting_score=40.93: frames with small steps have a very dense temporal median but high animation residuals (character moved a lot for a small camera advance).
+
+### 4.4 Remaining Failure Modes Taxonomy
+
+| Class | Tests affected | Current handling | Gap |
+|-------|---------------|-----------------|-----|
+| **A: Local double-edge ghost at seam** | All 5 | Single-pose escalation at 22 lum; Poisson seam opt-in | 300px feather + 15–22 lum post_warp_diff = long ghost zone |
+| **B: 2D/diagonal scroll** | test08 | Alignment gate (fires at 75th-pct |dx|>50px) | Gate didn't fire here (min_gap 33.5px, ratio 1.785); canvas is wide+short but still processed as vertical strips |
+| **C: Irregular scroll speed** | test57 | Spacing ratio in validation (max ratio 3.5 allowed) | Dense-step frames have animation residual >> camera advance |
+| **D: Color entropy loss (washed-out bg)** | test27 | Background photometric normalization (gain+histogram matching) | ARAP warp residuals wash out after symmetric midpoint blend |
+| **E: GT-coupling framing mismatch** | All 5 | Aligned SSIM partially decouples framing | Still −0.030 average gap after alignment correction |
+
+### 4.5 Next Most Impactful Improvements
+
+**Priority 1 — Address Class A (local double-edge ghost):**
+The 300px feather × moderate post_warp_diff creates the ghost zone. Two approaches:
+- **§1.18 Adaptive single-pose threshold**: scale the 22-lum escalation threshold DOWN when feather_width is large. For feather=300px, use threshold=12 lum (less than half of 22). This directly cuts the ghost zone for wide-feather seams. Testable function, no new dependencies.
+- **Lower the global `_POST_DIFF_THRESHOLD` from 22 to 15**: simpler but global change, not adaptive.
+
+**Priority 2 — Address Class B (2D diagonal scroll):**
+test08's `ghosting_score=56.60` suggests a structural misfit. The alignment gate fired correctly in S5 and rescued test08 (0.736→0.809), but it seems that run used a different alignment configuration. Investigate whether the current alignment gate is still calibrated correctly for test08.
+
+**Priority 3 — AnimeInterp SGM for flat regions (§3.1A):**
+The aperture problem on flat cel-shaded regions is the root cause of poor flow on test09 despite good alignment. SGM addresses this specifically. Research prototype on test09's worst seam.
+
+**Priority 4 — StabStitch++ trajectory smoothing (§3.x):**
+For test57 (irregular scroll speed), smoothing the affine trajectory before canvas construction would regularize the frame placement and reduce the tight-step animation ghost problem.
+

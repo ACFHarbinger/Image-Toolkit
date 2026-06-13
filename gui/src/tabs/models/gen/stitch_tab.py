@@ -282,6 +282,8 @@ class _ThumbnailFilePicker(QDialog):
         splitter.addWidget(self._grid)
         splitter.setSizes([150, 800])
         splitter.setStretchFactor(1, 1)
+        from ....utils.splitter_persistence import persist_splitter as _psp
+        _psp(splitter, "ThumbnailFilePicker/sidebar")
         layout.addWidget(splitter)
 
         # Status + icon-size slider + buttons
@@ -2861,7 +2863,8 @@ class EditTab(QWidget):
         splitter.setStretchFactor(1, 1)
         splitter.setStretchFactor(2, 0)
         splitter.setSizes([180, 1200, 220])
-
+        from ....utils.splitter_persistence import persist_splitter
+        persist_splitter(splitter, "StitchPanel/main")
         root.addWidget(splitter, stretch=1)
 
         # ── BOTTOM: progress + log ────────────────────────────────────
@@ -3122,7 +3125,9 @@ class EditTab(QWidget):
         v_split.setStretchFactor(0, 1)
         v_split.setStretchFactor(1, 0)
         v_split.setSizes([1000, 300])
-
+        from ....utils.splitter_persistence import persist_splitter as _ps
+        _ps(v_split, "GraphPanel/vertical")
+        _ps(split, "GraphPanel/horizontal")
         # Connect scene selection changes to property editor
         self._node_scene.selectionChanged.connect(self._graph_on_selection_changed)
 
@@ -3547,7 +3552,8 @@ class EditTab(QWidget):
         main_splitter.addWidget(preview_widget)
         main_splitter.setStretchFactor(0, 0)
         main_splitter.setStretchFactor(1, 1)
-
+        from ....utils.splitter_persistence import persist_splitter as _ps2
+        _ps2(main_splitter, "CanvasPanel/main")
         root_layout.addWidget(main_splitter, stretch=1)
 
         # ── Bottom: action bar ─────────────────────────────────────────

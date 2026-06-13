@@ -794,10 +794,17 @@ class SearchTab(AbstractClassTwoGalleries):
             )
             return
         filename = os.path.basename(file_path)
+        prefs = {}
+        main_win = self.window()
+        if main_win and hasattr(main_win, "cached_creds"):
+            prefs = main_win.cached_creds.get("preferences", {})
+        send_to_trash_enabled = prefs.get("send_to_trash", True)
+        action_name = "Trash" if send_to_trash_enabled else "Permanent Delete"
+
         reply = QMessageBox.question(
             self,
-            "Confirm Deletion",
-            f"Are you sure you want to PERMANENTLY delete the file:\n\n**{filename}**\n\nThis action cannot be undone!",
+            f"Confirm {action_name}",
+            f"Are you sure you want to {action_name.lower()} the file:\n\n**{filename}**\n\nThis action cannot be undone!",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
         )
@@ -810,7 +817,11 @@ class SearchTab(AbstractClassTwoGalleries):
                 if window.image_path == file_path:
                     window.close()
                     break
-            os.remove(file_path)
+            if send_to_trash_enabled:
+                from send2trash import send2trash
+                send2trash(file_path)
+            else:
+                os.remove(file_path)
             if image_id is not None:
                 db.delete_image(image_id)
 
@@ -820,7 +831,7 @@ class SearchTab(AbstractClassTwoGalleries):
                 self.selected_files.remove(file_path)
 
             self.perform_search()
-            QMessageBox.information(self, "Success", f"File deleted: {filename}")
+            QMessageBox.information(self, f"Moved to {action_name}", f"Moved to {action_name}: {filename}")
         except Exception as e:
             QMessageBox.critical(
                 self, "Deletion Failed", f"Could not delete the file:\n{e}"

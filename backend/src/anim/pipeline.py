@@ -180,6 +180,105 @@ _SEAM_COLOR_GATE_BGR: bool = os.environ.get("ASP_SEAM_COLOR_GATE_BGR", "0") != "
 # for reliable BA (graph dominated by TM/PC fallback edges at weight~0.15–0.3).
 # Default 0.0 = disabled. Recommended: ASP_MST_MIN_WEIGHT=0.35.
 _MST_MIN_WEIGHT: float = float(os.environ.get("ASP_MST_MIN_WEIGHT", "0.0"))
+# §1.17 — Canvas span utilisation gate (S61).
+# After bundle adjustment and canvas construction (Stage 9), the actual
+# dominant-axis span of the solved affines is compared against the expected
+# span (median adjacent step × (N−1)).  A ratio well below 1.0 means BA has
+# collapsed frames into a compact cluster — valid-range checks (min_gap, ratio)
+# passed but the assembled canvas is far too short.
+# Default 0.0 = disabled. Recommended: ASP_CANVAS_SPAN_MIN_UTIL=0.3.
+_CANVAS_SPAN_MIN_UTIL: float = float(os.environ.get("ASP_CANVAS_SPAN_MIN_UTIL", "0.0"))
+# §1.24 — Post-composite seam-step gate (S68).
+# After compositing, measures the max luminance step across all inter-strip seam
+# boundaries.  If > threshold → SCANS fallback before the output is written.
+# Complements Stage 11.2 (colour-similarity gate, pre-composite): this gate
+# catches composites where photometric normalisation failed in the final output.
+# Default 0.0 = disabled. Recommended: ASP_SEAM_STEP_GATE=25.0.
+_SEAM_STEP_GATE: float = float(os.environ.get("ASP_SEAM_STEP_GATE", "0.0"))
+
+# §1.29 — Static input detection gate (S73).
+# Before Stage 1, check whether all consecutive input-frame thumbnail pairs have
+# mean absolute difference (MAD) below a threshold.  When all pairs are below the
+# floor the input is almost certainly a static image repeated N times — Phase
+# Correlation will report near-zero displacement for every pair, producing a
+# degenerate panorama.  Early exit: copy frame 0 directly to output_path.
+# Default 0.0 = off.  Recommend 2.0 (2/255 ≈ 0.8% pixel noise tolerance).
+_STATIC_INPUT_MAX_MAD: float = float(os.environ.get("ASP_STATIC_INPUT_MAX_MAD", "0.0"))
+
+
+def _measure_max_seam_step(
+    canvas: np.ndarray,
+    n_strips: int,
+    band_px: int = 10,
+    guard: int = 3,
+) -> float:
+    """§1.24: Measure the maximum luminance step across inter-strip seam boundaries.
+
+    For each of the N-1 inter-strip boundaries (positioned at canvas_h * k // n_strips),
+    samples mean greyscale luminance in *band_px* rows above and below (with *guard*
+    rows excluded to avoid the seam artefact itself). Returns max(|above - below|)
+    across all boundaries. Returns 0.0 when n_strips ≤ 1 or the canvas is too small.
+    """
+    H = canvas.shape[0]
+    if n_strips <= 1 or H < 2 * (band_px + guard):
+        return 0.0
+    luma = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    max_step = 0.0
+    for k in range(1, n_strips):
+        by = H * k // n_strips
+        a0 = max(0, by - band_px - guard)
+        a1 = max(0, by - guard)
+        b0 = min(H, by + guard)
+        b1 = min(H, by + band_px + guard)
+        if a1 <= a0 or b1 <= b0:
+            continue
+        above_mean = float(luma[a0:a1].mean())
+        below_mean = float(luma[b0:b1].mean())
+        max_step = max(max_step, abs(below_mean - above_mean))
+    return max_step
+
+
+def _detect_static_input(
+    frames: List[np.ndarray],
+    max_mad: float = 2.0,
+    thumb_size: int = 64,
+) -> bool:
+    """§1.29: Return True when all consecutive frame pairs are near-identical.
+
+    Resizes each frame to a *thumb_size* × *thumb_size* greyscale thumbnail and
+    computes the mean absolute difference (MAD) between each adjacent pair.  When
+    ALL pairs fall below *max_mad* (on the [0, 255] scale) the input is almost
+    certainly a static image repeated N times — Phase Correlation will report
+    near-zero displacement and the pipeline will produce a degenerate result.
+
+    Parameters
+    ----------
+    frames:
+        Input frames (BGR, uint8).  Fewer than 2 frames always returns False.
+    max_mad:
+        MAD ceiling (luma units, 0–255) below which a pair is considered static.
+        2.0 ≈ 0.8 % pixel noise, sufficient to tolerate MPEG compression noise
+        while catching genuine static sequences.
+    thumb_size:
+        Side length of the greyscale thumbnail used for comparison.
+
+    Returns
+    -------
+    bool
+        True if the entire input is static (all pairs below *max_mad*).
+    """
+    if len(frames) < 2:
+        return False
+    prev_thumb: Optional[np.ndarray] = None
+    for frame in frames:
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        thumb = cv2.resize(gray, (thumb_size, thumb_size), interpolation=cv2.INTER_AREA)
+        if prev_thumb is not None:
+            mad = float(np.abs(thumb.astype(np.float32) - prev_thumb.astype(np.float32)).mean())
+            if mad > max_mad:
+                return False
+        prev_thumb = thumb
+    return True
 
 
 def _reject_scene_change_edges(
@@ -531,6 +630,59 @@ def _compute_mst_weight(
     if tree_edges == 0:
         return 0.0
     return total_weight / max(1, needed)
+
+
+def _compute_canvas_span_utilization(affines: List[np.ndarray]) -> float:
+    """§1.17: Canvas span utilisation ratio (S61).
+
+    After bundle adjustment, computes the ratio of the *actual* dominant-axis
+    span (``max(ty) − min(ty)`` or ``max(tx) − min(tx)``, whichever is
+    larger) to the *expected* span (``median_adjacent_step × (N−1)``).
+
+    A ratio well below 1.0 indicates that the BA solution has collapsed most
+    frames into a compact cluster — the per-edge validation checks (min_gap,
+    ratio, rotation) all passed, yet the assembled canvas is far shorter than
+    physics would predict.  In that case the composite will show heavily
+    overlapping strips (low new-canvas-area coverage per frame), which makes
+    the temporal median degenerate into a blurry average of animated poses.
+
+    Returns 1.0 when N < 2 or the expected span is zero (safe fallback —
+    caller should not trigger the gate).
+
+    Parameters
+    ----------
+    affines:
+        List of N 2×3 float32 affine matrices (after global canvas offset).
+        ``affines[i][0, 2]`` = tx for frame i; ``affines[i][1, 2]`` = ty.
+
+    Returns
+    -------
+    float
+        Utilisation ratio ≥ 0.  Values > 1.0 are possible when individual
+        frames are placed non-monotonically (large BA corrections).
+    """
+    N = len(affines)
+    if N < 2:
+        return 1.0
+    ty_vals = [float(a[1, 2]) for a in affines]
+    tx_vals = [float(a[0, 2]) for a in affines]
+    ty_span = max(ty_vals) - min(ty_vals)
+    tx_span = max(tx_vals) - min(tx_vals)
+
+    # Use dominant axis (larger span) for the expected-step estimate.
+    if ty_span >= tx_span:
+        vals = ty_vals
+        span = ty_span
+    else:
+        vals = tx_vals
+        span = tx_span
+
+    adj_steps = [abs(vals[i + 1] - vals[i]) for i in range(N - 1)]
+    median_step = float(np.median(adj_steps))
+    expected_span = median_step * (N - 1)
+    if expected_span <= 0.0:
+        return 1.0
+    return span / expected_span
 
 
 def _spatial_dedup_frames(
@@ -1032,6 +1184,15 @@ class AnimeStitchPipeline:
         if N < 2:
             raise ValueError("Need at least 2 valid frames to stitch.")
         logger.info(f"[Stitch] Stage 1 complete: {N} frames loaded.")
+
+        # ── Stage 1.5: §1.29 Static input detection gate ─────────────────────
+        if _STATIC_INPUT_MAX_MAD > 0.0 and _detect_static_input(frames, _STATIC_INPUT_MAX_MAD):
+            logger.warning(
+                f"[Stitch] Stage 1.5: static-input gate — all {N} frames are near-identical "
+                f"(MAD < {_STATIC_INPUT_MAX_MAD:.1f}).  Copying frame 0 to output."
+            )
+            cv2.imwrite(str(output_path), frames[0])
+            return output_path
 
         # ── Stage 2: Width normalisation ─────────────────────────────────────
         frames = _normalise_widths(frames)
@@ -1634,6 +1795,19 @@ class AnimeStitchPipeline:
             )
             return _scan_stitch_fallback(scans_frames, output_path)
 
+        # ── §1.17: Canvas span utilisation gate ──────────────────────────────
+        if _CANVAS_SPAN_MIN_UTIL > 0.0:
+            _span_util = _compute_canvas_span_utilization(affines)
+            if _span_util < _CANVAS_SPAN_MIN_UTIL:
+                logger.info(
+                    "[Stitch] §1.17: Canvas span utilisation %.2f < %.2f threshold "
+                    "→ SCANS fallback (BA collapsed canvas).",
+                    _span_util,
+                    _CANVAS_SPAN_MIN_UTIL,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
         # P1.3 — Compute per-frame matching confidence for weighted median (W3).
         # Each frame's confidence = the maximum edge weight of its adjacent edges.
         # LoFTR edges have weight ~0.9; TM/PC fallbacks have 0.15–0.55.
@@ -1818,6 +1992,17 @@ class AnimeStitchPipeline:
                 logger.info(
                     f"[Stitch] Stage 11.2: colour gate — seam {_worst_color_seam} "
                     f"below similarity {_SEAM_COLOR_GATE_THRESH:.2f} → SCANS fallback."
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── Stage 11.3: §1.24 post-composite seam-step gate ─────────────────
+        if _SEAM_STEP_GATE > 0.0 and N > 1:
+            _max_step = _measure_max_seam_step(canvas, N)
+            if _max_step > _SEAM_STEP_GATE:
+                logger.info(
+                    f"[Stitch] Stage 11.3: seam-step gate — max step {_max_step:.1f} lum "
+                    f"> {_SEAM_STEP_GATE:.1f} → SCANS fallback."
                 )
                 _sf = scans_frames or _reload_scans_frames(image_paths)
                 return _scan_stitch_fallback(_sf, output_path)
@@ -2218,4 +2403,7 @@ __all__ = [
     "_normalize_frame_scales",
     "_check_edge_graph_connectivity",
     "_compute_mst_weight",
+    "_compute_canvas_span_utilization",
+    "_measure_max_seam_step",
+    "_detect_static_input",
 ]

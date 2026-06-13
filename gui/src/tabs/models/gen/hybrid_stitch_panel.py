@@ -479,7 +479,8 @@ class ControlPointEditor(QWidget):
         self._canvas_b.point_removed.connect(self._on_b_removed)
         right_l.addWidget(self._canvas_b)
         splitter.addWidget(right_w)
-
+        from ....utils.splitter_persistence import persist_splitter
+        persist_splitter(splitter, "HybridStitchPanel/dual_canvas")
         root.addWidget(splitter, 1)
 
         # ── Status ───────────────────────────────────────────────────

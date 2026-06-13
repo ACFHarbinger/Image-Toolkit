@@ -4,7 +4,7 @@ import shutil
 
 from pathlib import Path
 from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtGui import QColor, QDesktopServices, QKeySequence
 from PySide6.QtWidgets import (
     QCheckBox,
     QLineEdit,
@@ -30,6 +30,11 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QDialog,
     QDialogButtonBox,
+    QColorDialog,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QKeySequenceEdit,
 )
 from backend.src.constants import (
     IMAGE_TOOLKIT_DIR,
@@ -82,6 +87,7 @@ class SettingsWindow(QWidget):
         self.pref_thumbnail_size = _p.get("thumbnail_size", 180)
         self.pref_page_size = _p.get("page_size", 100)
         self.pref_confirm_deletions = _p.get("confirm_deletions", True)
+        self.pref_send_to_trash = _p.get("send_to_trash", True)
         self.pref_found_cache = _p.get("found_cache_maxsize", 300)
         self.pref_selected_cache = _p.get("selected_cache_maxsize", 200)
         self.pref_initial_cache = _p.get("initial_cache_maxsize", 300)
@@ -96,6 +102,10 @@ class SettingsWindow(QWidget):
         self.pref_extractor_seek_ms = _p.get("extractor_seek_ms", 100)
         self.pref_recent_extractions_count = _p.get("recent_extractions_count", 10)
         self.pref_session_recovery = _p.get("session_recovery_level", "None")
+        self.pref_accent_dark = _p.get("accent_color_dark", "#00bcd4")
+        self.pref_accent_light = _p.get("accent_color_light", "#007AFF")
+        self.pref_font_scale = _p.get("font_scale", 100)
+        self.pref_ui_density = _p.get("ui_density", "Comfortable")
 
         # --- Configuration Defaults State ---
         self.tab_defaults_config = self._load_tab_defaults_from_vault()
@@ -429,6 +439,74 @@ class SettingsWindow(QWidget):
         defaults_layout.addWidget(create_config_group)
 
         # ---------------------------------------------------------------------
+        # --- Appearance Section ---
+        # ---------------------------------------------------------------------
+        appearance_groupbox = QGroupBox("Appearance")
+        appearance_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        appearance_layout = QFormLayout(appearance_groupbox)
+        appearance_layout.setContentsMargins(10, 10, 10, 10)
+
+        # Dark accent colour swatch + picker
+        dark_accent_row = QHBoxLayout()
+        self.dark_accent_swatch = QPushButton()
+        self.dark_accent_swatch.setFixedSize(32, 22)
+        self.dark_accent_swatch.setToolTip("Click to pick a custom accent colour for the dark theme")
+        self._update_swatch(self.dark_accent_swatch, self.pref_accent_dark)
+        self.dark_accent_swatch.clicked.connect(lambda: self._pick_accent_color("dark"))
+        dark_accent_reset = QPushButton("Reset")
+        dark_accent_reset.setFixedWidth(55)
+        dark_accent_reset.clicked.connect(lambda: self._reset_accent("dark"))
+        dark_accent_row.addWidget(self.dark_accent_swatch)
+        dark_accent_row.addWidget(dark_accent_reset)
+        dark_accent_row.addStretch()
+        appearance_layout.addRow("Dark Theme Accent Colour:", dark_accent_row)
+
+        # Light accent colour swatch + picker
+        light_accent_row = QHBoxLayout()
+        self.light_accent_swatch = QPushButton()
+        self.light_accent_swatch.setFixedSize(32, 22)
+        self.light_accent_swatch.setToolTip("Click to pick a custom accent colour for the light theme")
+        self._update_swatch(self.light_accent_swatch, self.pref_accent_light)
+        self.light_accent_swatch.clicked.connect(lambda: self._pick_accent_color("light"))
+        light_accent_reset = QPushButton("Reset")
+        light_accent_reset.setFixedWidth(55)
+        light_accent_reset.clicked.connect(lambda: self._reset_accent("light"))
+        light_accent_row.addWidget(self.light_accent_swatch)
+        light_accent_row.addWidget(light_accent_reset)
+        light_accent_row.addStretch()
+        appearance_layout.addRow("Light Theme Accent Colour:", light_accent_row)
+
+        # Font scale
+        self.font_scale_spinbox = QSpinBox()
+        self.font_scale_spinbox.setRange(80, 150)
+        self.font_scale_spinbox.setSingleStep(10)
+        self.font_scale_spinbox.setSuffix(" %")
+        self.font_scale_spinbox.setValue(self.pref_font_scale)
+        self.font_scale_spinbox.setToolTip(
+            "Scale all UI text relative to the base 10pt size (applied on next theme reload)"
+        )
+        appearance_layout.addRow("Font Scale:", self.font_scale_spinbox)
+
+        # UI density
+        self.ui_density_combo = QComboBox()
+        self.ui_density_combo.addItems(["Compact", "Comfortable", "Spacious"])
+        self.ui_density_combo.setCurrentText(self.pref_ui_density)
+        self.ui_density_combo.setToolTip(
+            "Controls button padding and widget spacing throughout the app"
+        )
+        appearance_layout.addRow("UI Density:", self.ui_density_combo)
+
+        # Preview button — applies current accent + density live without saving
+        preview_row = QHBoxLayout()
+        btn_preview_appearance = QPushButton("Preview")
+        btn_preview_appearance.setFixedWidth(90)
+        btn_preview_appearance.setToolTip("Apply the current accent/density settings live (does not save)")
+        btn_preview_appearance.clicked.connect(self._preview_appearance)
+        preview_row.addWidget(btn_preview_appearance)
+        preview_row.addStretch()
+        appearance_layout.addRow("", preview_row)
+
+        # ---------------------------------------------------------------------
         # --- Gallery and Display Section ---
         # ---------------------------------------------------------------------
         gallery_groupbox = QGroupBox("Gallery and Display")
@@ -460,6 +538,12 @@ class SettingsWindow(QWidget):
         )
         self.confirm_deletions_check.setChecked(self.pref_confirm_deletions)
         gallery_layout.addRow(self.confirm_deletions_check)
+
+        self.send_to_trash_check = QCheckBox(
+            "Send deleted files to system trash instead of permanent removal"
+        )
+        self.send_to_trash_check.setChecked(self.pref_send_to_trash)
+        gallery_layout.addRow(self.send_to_trash_check)
 
         # ---------------------------------------------------------------------
         # --- Media Player and Extractor Section ---
@@ -877,6 +961,7 @@ class SettingsWindow(QWidget):
 
         # Tab 4: Display and Media
         scroll_display_media, layout_display_media = create_tab_scroll_area()
+        layout_display_media.addWidget(appearance_groupbox)
         layout_display_media.addWidget(gallery_groupbox)
         layout_display_media.addWidget(media_groupbox)
         layout_display_media.addWidget(slideshow_groupbox)
@@ -890,6 +975,12 @@ class SettingsWindow(QWidget):
         layout_system.addWidget(reset_groupbox)
         layout_system.addStretch(1)
         self.tab_widget.addTab(scroll_system, "⚙️ System and Logging")
+
+        # Tab 6: Keyboard Shortcuts (GUI/UX §2.29)
+        scroll_kb, layout_kb = create_tab_scroll_area()
+        layout_kb.addWidget(self._build_shortcuts_groupbox())
+        layout_kb.addStretch(1)
+        self.tab_widget.addTab(scroll_kb, "⌨️ Shortcuts")
 
         main_layout.addWidget(self.tab_widget)
 
@@ -1042,6 +1133,7 @@ class SettingsWindow(QWidget):
         self.pref_thumbnail_size = _p.get("thumbnail_size", 180)
         self.pref_page_size = _p.get("page_size", 100)
         self.pref_confirm_deletions = _p.get("confirm_deletions", True)
+        self.pref_send_to_trash = _p.get("send_to_trash", True)
         self.pref_found_cache = _p.get("found_cache_maxsize", 300)
         self.pref_selected_cache = _p.get("selected_cache_maxsize", 200)
         self.pref_initial_cache = _p.get("initial_cache_maxsize", 300)
@@ -1056,6 +1148,10 @@ class SettingsWindow(QWidget):
         self.pref_extractor_seek_ms = _p.get("extractor_seek_ms", 100)
         self.pref_recent_extractions_count = _p.get("recent_extractions_count", 10)
         self.pref_session_recovery = _p.get("session_recovery_level", "None")
+        self.pref_accent_dark = _p.get("accent_color_dark", "#00bcd4")
+        self.pref_accent_light = _p.get("accent_color_light", "#007AFF")
+        self.pref_font_scale = _p.get("font_scale", 100)
+        self.pref_ui_density = _p.get("ui_density", "Comfortable")
 
         # Reload tab defaults from vault
         self.tab_defaults_config = self._load_tab_defaults_from_vault()
@@ -1093,6 +1189,7 @@ class SettingsWindow(QWidget):
         self.thumbnail_size_spinbox.setValue(self.pref_thumbnail_size)
         self.page_size_combo.setCurrentText(str(self.pref_page_size))
         self.confirm_deletions_check.setChecked(self.pref_confirm_deletions)
+        self.send_to_trash_check.setChecked(self.pref_send_to_trash)
 
         # Repopulate Startup and Session
         items = [
@@ -1122,6 +1219,12 @@ class SettingsWindow(QWidget):
         # Repopulate Extractor
         self.extractor_seek_spinbox.setValue(self.pref_extractor_seek_ms)
         self.recent_extractions_spinbox.setValue(self.pref_recent_extractions_count)
+
+        # Repopulate Appearance
+        self._update_swatch(self.dark_accent_swatch, self.pref_accent_dark)
+        self._update_swatch(self.light_accent_swatch, self.pref_accent_light)
+        self.font_scale_spinbox.setValue(self.pref_font_scale)
+        self.ui_density_combo.setCurrentText(self.pref_ui_density)
 
         # Repopulate Profiles dropdown
         self._refresh_profile_combo()
@@ -1756,6 +1859,7 @@ class SettingsWindow(QWidget):
                 "thumbnail_size": self.thumbnail_size_spinbox.value(),
                 "page_size": int(self.page_size_combo.currentText()),
                 "confirm_deletions": self.confirm_deletions_check.isChecked(),
+                "send_to_trash": self.send_to_trash_check.isChecked(),
                 "found_cache_maxsize": self.found_cache_spinbox.value(),
                 "selected_cache_maxsize": self.selected_cache_spinbox.value(),
                 "initial_cache_maxsize": self.initial_cache_spinbox.value(),
@@ -1770,6 +1874,10 @@ class SettingsWindow(QWidget):
                 "extractor_seek_ms": self.extractor_seek_spinbox.value(),
                 "recent_extractions_count": self.recent_extractions_spinbox.value(),
                 "session_recovery_level": self.session_recovery_combo.currentText(),
+                "accent_color_dark": self.pref_accent_dark,
+                "accent_color_light": self.pref_accent_light,
+                "font_scale": self.font_scale_spinbox.value(),
+                "ui_density": self.ui_density_combo.currentText(),
             }
 
             if self._save_vault_data(user_data):
@@ -1808,6 +1916,7 @@ class SettingsWindow(QWidget):
         self.thumbnail_size_spinbox.setValue(180)
         self.page_size_combo.setCurrentText("100")
         self.confirm_deletions_check.setChecked(True)
+        self.send_to_trash_check.setChecked(True)
 
         # Reset Startup and Session
         items = [
@@ -1837,6 +1946,198 @@ class SettingsWindow(QWidget):
         # Reset Extractor
         self.extractor_seek_spinbox.setValue(100)
         self.recent_extractions_spinbox.setValue(10)
+
+        # Reset Appearance
+        self.pref_accent_dark = "#00bcd4"
+        self.pref_accent_light = "#007AFF"
+        self._update_swatch(self.dark_accent_swatch, "#00bcd4")
+        self._update_swatch(self.light_accent_swatch, "#007AFF")
+        self.font_scale_spinbox.setValue(100)
+        self.ui_density_combo.setCurrentText("Comfortable")
+
+    # ------------------------------------------------------------------
+    # --- Keyboard Shortcuts Helpers (GUI/UX §2.29) -------------------
+    # ------------------------------------------------------------------
+
+    def _build_shortcuts_groupbox(self) -> QGroupBox:
+        """Build the shortcuts table + action buttons groupbox."""
+        from ..utils.shortcut_manager import get_registry, SHORTCUT_REGISTRY
+
+        grp = QGroupBox("Keyboard Shortcuts")
+        grp.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        vbox = QVBoxLayout(grp)
+        vbox.setContentsMargins(10, 10, 10, 10)
+
+        # Info label
+        info = QLabel(
+            "Rebind any action by clicking its key cell. Changes take effect on next app launch "
+            "(preview window shortcuts apply when a new preview is opened)."
+        )
+        info.setWordWrap(True)
+        info.setStyleSheet("color: #aaa; font-size: 10px;")
+        vbox.addWidget(info)
+
+        # Also show the user_theme.qss hint here as a bonus
+        user_qss_path = str(Path.home() / ".image-toolkit" / "user_theme.qss")
+        qss_hint = QLabel(
+            f"<b>Custom QSS override (§2.31):</b> create <code>{user_qss_path}</code> "
+            "to append your own QSS rules on top of the active theme."
+        )
+        qss_hint.setWordWrap(True)
+        qss_hint.setStyleSheet("color: #aaa; font-size: 10px; margin-bottom: 6px;")
+        vbox.addWidget(qss_hint)
+
+        # Build table
+        reg = get_registry()
+        entries = reg.get_all()
+
+        self._shortcut_table = QTableWidget(len(entries), 3)
+        self._shortcut_table.setHorizontalHeaderLabels(["Scope", "Action", "Binding"])
+        self._shortcut_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self._shortcut_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self._shortcut_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self._shortcut_table.verticalHeader().setVisible(False)
+        self._shortcut_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self._shortcut_table.setSelectionMode(QTableWidget.NoSelection)
+        self._shortcut_table.setAlternatingRowColors(True)
+
+        self._shortcut_editors: dict[str, QKeySequenceEdit] = {}
+
+        for row, entry in enumerate(entries):
+            scope_item = QTableWidgetItem(entry["scope"])
+            scope_item.setFlags(Qt.ItemIsEnabled)
+            desc_item = QTableWidgetItem(entry["description"])
+            desc_item.setFlags(Qt.ItemIsEnabled)
+            self._shortcut_table.setItem(row, 0, scope_item)
+            self._shortcut_table.setItem(row, 1, desc_item)
+
+            editor = QKeySequenceEdit(QKeySequence(entry["current"]))
+            editor.setToolTip(f"Default: {entry['default']}")
+            self._shortcut_editors[entry["id"]] = editor
+            self._shortcut_table.setCellWidget(row, 2, editor)
+
+        vbox.addWidget(self._shortcut_table)
+
+        # Buttons row
+        btn_row = QHBoxLayout()
+        btn_save_kb = QPushButton("Save Shortcuts")
+        btn_save_kb.setToolTip("Write shortcut overrides to ~/.image-toolkit/keybindings.json")
+        btn_save_kb.clicked.connect(self._save_shortcuts)
+        btn_reset_kb = QPushButton("Reset All to Defaults")
+        btn_reset_kb.setToolTip("Clear all overrides and delete keybindings.json")
+        btn_reset_kb.clicked.connect(self._reset_shortcuts)
+        btn_row.addWidget(btn_save_kb)
+        btn_row.addWidget(btn_reset_kb)
+        btn_row.addStretch()
+        vbox.addLayout(btn_row)
+        return grp
+
+    def _save_shortcuts(self) -> None:
+        from ..utils.shortcut_manager import get_registry, SHORTCUT_REGISTRY
+        reg = get_registry()
+        defaults = {e["id"]: e["default"] for e in SHORTCUT_REGISTRY}
+        overrides: dict[str, str] = {}
+        conflicts: list[str] = []
+
+        for action_id, editor in self._shortcut_editors.items():
+            seq = editor.keySequence()
+            key_str = seq.toString() if not seq.isEmpty() else ""
+            if key_str and key_str != defaults.get(action_id, ""):
+                # Conflict detection: same binding as another action
+                for other_id, other_editor in self._shortcut_editors.items():
+                    if other_id == action_id:
+                        continue
+                    if other_editor.keySequence().toString() == key_str:
+                        conflicts.append(f"{action_id} ↔ {other_id} (both: {key_str})")
+            if key_str:
+                overrides[action_id] = key_str
+
+        if conflicts:
+            msg = "Conflicting shortcuts detected:\n" + "\n".join(conflicts)
+            msg += "\n\nSave anyway?"
+            reply = QMessageBox.question(self, "Shortcut Conflict", msg,
+                                         QMessageBox.Yes | QMessageBox.No)
+            if reply != QMessageBox.Yes:
+                return
+
+        reg.save(overrides)
+        QMessageBox.information(
+            self, "Saved",
+            "Shortcuts saved. Changes take effect on next app launch."
+        )
+
+    def _reset_shortcuts(self) -> None:
+        from ..utils.shortcut_manager import get_registry, SHORTCUT_REGISTRY
+        reply = QMessageBox.question(
+            self, "Reset Shortcuts",
+            "Reset all shortcuts to defaults and delete keybindings.json?",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+        get_registry().reset()
+        defaults = {e["id"]: e["default"] for e in SHORTCUT_REGISTRY}
+        for action_id, editor in self._shortcut_editors.items():
+            editor.setKeySequence(QKeySequence(defaults.get(action_id, "")))
+        QMessageBox.information(self, "Reset", "All shortcuts reset to defaults.")
+
+    # ------------------------------------------------------------------
+    # --- Appearance Helpers -------------------------------------------
+    # ------------------------------------------------------------------
+
+    def _update_swatch(self, button, hex_color):
+        """Paint a colour swatch onto a QPushButton."""
+        c = QColor(hex_color)
+        if not c.isValid():
+            c = QColor("#888888")
+        button.setStyleSheet(
+            f"QPushButton {{ background-color: {c.name()}; border: 1px solid #888; border-radius: 3px; }}"
+        )
+        button.setText("")
+
+    def _pick_accent_color(self, theme):
+        """Open QColorDialog and update the swatch + stored preference."""
+        current = self.pref_accent_dark if theme == "dark" else self.pref_accent_light
+        initial = QColor(current)
+        color = QColorDialog.getColor(
+            initial,
+            self,
+            f"Choose {theme.capitalize()} Theme Accent Colour",
+            QColorDialog.ColorDialogOption.DontUseNativeDialog,
+        )
+        if color.isValid():
+            hex_val = color.name()
+            if theme == "dark":
+                self.pref_accent_dark = hex_val
+                self._update_swatch(self.dark_accent_swatch, hex_val)
+            else:
+                self.pref_accent_light = hex_val
+                self._update_swatch(self.light_accent_swatch, hex_val)
+
+    def _reset_accent(self, theme):
+        """Reset accent colour to the built-in default."""
+        default = "#00bcd4" if theme == "dark" else "#007AFF"
+        if theme == "dark":
+            self.pref_accent_dark = default
+            self._update_swatch(self.dark_accent_swatch, default)
+        else:
+            self.pref_accent_light = default
+            self._update_swatch(self.light_accent_swatch, default)
+
+    def _preview_appearance(self):
+        """Apply current accent/density/font settings live without saving."""
+        if not self.main_window_ref:
+            return
+        if not hasattr(self.main_window_ref, "cached_creds") or not self.main_window_ref.cached_creds:
+            return
+        prefs = dict(self.main_window_ref.cached_creds.get("preferences", {}))
+        prefs["accent_color_dark"] = self.pref_accent_dark
+        prefs["accent_color_light"] = self.pref_accent_light
+        prefs["font_scale"] = self.font_scale_spinbox.value()
+        prefs["ui_density"] = self.ui_density_combo.currentText()
+        self.main_window_ref.cached_creds["preferences"] = prefs
+        theme = self.main_window_ref.current_theme
+        self.main_window_ref.set_application_theme(theme)
 
     # ------------------------------------------------------------------
     # --- Reset State Methods ------------------------------------------

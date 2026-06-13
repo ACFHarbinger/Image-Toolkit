@@ -212,6 +212,8 @@ class StitchFeedbackTab(QWidget):
         ctrl_scroll.setWidget(ctrl_container)
         splitter.addWidget(ctrl_scroll)
         splitter.setSizes([700, 330])
+        from ...utils.splitter_persistence import persist_splitter
+        persist_splitter(splitter, "StitchFeedbackTab/main")
 
         ctrl = QVBoxLayout(ctrl_container)
         ctrl.setSpacing(8)
