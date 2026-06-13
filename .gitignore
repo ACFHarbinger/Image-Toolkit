@@ -424,6 +424,7 @@ env/README.md
 /**/temp/
 /**/mods/
 data/
+test_data/
 images/
 models/
 outputs/

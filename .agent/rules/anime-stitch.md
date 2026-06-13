@@ -9,7 +9,7 @@ You are working on the anime image stitching pipeline in `backend/src/anim/`. Ap
 
 ## Iteration & Testing
 
-- **Run the unit test suite first.** Before and after any change to `backend/src/anim/`, run `pytest backend/test/anim/ -q`. The suite has 262 tests covering all issue categories with no GPU dependency (~7s). A regression here is a hard blocker.
+- **Run the unit test suite first.** Before and after any change to `backend/src/anim/`, run `pytest backend/test/anim/ -q`. The suite has 584 tests (2 skipped: pyav) covering all issue categories with no GPU dependency (~30s). A regression here is a hard blocker.
 - **Update tests when fixing documented bugs.** Tests that document broken behavior (e.g. near-zero edge clustering) have a comment saying "update this assertion after the fix". Find the test and flip the assertion to verify the corrected behavior.
 - **Always use the fast iteration loop.** Do not re-run BiRefNet or LoFTR to test compositing changes. Load pre-computed stages from `data/asp_test1/output/panorama_stages/` via `archive/run_pipeline_v2.py`. Only re-run full GPU stages when changing Stages 1–8.
 - **View the output image after every run.** Use the Read tool on the `.png` output to visually inspect the result before claiming success. Do not rely solely on printed gain/delta values.
@@ -80,6 +80,23 @@ The old `max(abs(diff(row_mean_lum)))` metric has two artifact modes: (1) it cou
 **test19 "16-unit seam" is largely a metric artifact.** Of the 16 reported units: ~12 come from the coverage change at row 1402 (frame 3's exclusive zone cols 3840–4229 appearing), and ~4 come from a genuine 5-column animation phase seam at cols 2541–2546. Only the latter is a visual artifact, and it requires phase-aware temporal rendering to fix — not a compositing change.
 
 ---
+
+## Video Ingestion (Phase 2 — Issue 9)
+
+- **New module: `backend/src/anim/video_ingestion.py`** — `VideoIngestionStream` wraps PyAV (`av.open()`). It exposes `get_frame(idx, full_res=True)`, `get_proxy_frames(stride=5)`, and `decimate_duplicates(mad_threshold=0.01)`. Do NOT use Decord (memory leaks, color deviation) or cv2.VideoCapture (unreliable seeking past GOP boundaries). Use PyAV exclusively.
+- **Proxy-first decode.** The proxy stream (I-frame-only at ¼ resolution via `av.seek + decode`) must always run before full-resolution decode. `smart_select_frames()` receives proxy frames; only selected frame indices are decoded at full resolution. This keeps memory under ~100 MB for 300-frame inputs.
+- **Hybrid `pipeline.run()` signature.** `AnimeStitchPipeline.run()` accepts `video_path: str | None` alongside `image_paths: List[str] | None`. If `video_path` is provided and `image_paths` is None, the pipeline uses `VideoIngestionStream` for ingestion. If both are provided, `image_paths` are the high-res keyframes and `video_path` is used for tracking only (Phase 9C).
+- **No blocking decode on the main thread.** `VideoIngestionStream` frame reads must happen inside `QRunnable`/`QThread` workers if triggered from the GUI. The `VideoIngestionStream` class itself is thread-safe (PyAV containers opened per-thread).
+- **Telecine-aware duplicate detection.** `decimate_duplicates()` runs on proxy frames before `smart_select_frames()`. It complements but does not replace `_detect_hold_blocks()` — hold detection operates on already-unique frames.
+
+## Multi-Modal HITL (Phase 2 — Issue 10)
+
+- **No blocking calls in HITL checkpoint dialogs.** GroundingDINO inference and SAM-2 re-propagation during click refinement must run in a `QThread` with progress indication. The dialog's event loop must remain responsive for click capture. Never call model inference from a slot handler directly.
+- **Grounding DINO wrapper lives in `backend/src/anim/grounding.py`**, not in `masking.py`. `masking.py` calls into `grounding.py` via `_compute_fg_masks_grounded_sam2(frames, text_prompt, ...)`. No model weight loading in `masking.py` directly.
+- **Click-refinement prompts are additive.** Positive clicks (`pos_clicks`) and negative clicks (`neg_clicks`) are accumulated across the session dialog's lifetime; they are all passed to SAM-2 in one `predict()` call per refinement. Do NOT restart SAM-2's state from scratch on each click.
+- **Seam exclusion masks are injected at `_build_seam_cost_map()`.** The `exclusion_masks: List[np.ndarray] | None = None` parameter receives GroundingDINO-detected exclusion regions. Each mask pixel gets `cost = 1e6` (hard barrier). The fallback (all-background columns) must still be available when no exclusion masks are provided.
+- **`COCOAnnotationBuilder` is side-effect-only.** `data_serialization.py`'s `COCOAnnotationBuilder.save()` must never raise. Write to a temp file then `os.replace()` atomically. Serialization failures must be logged as warnings, never as pipeline-blocking errors.
+- **RLHF reward model is read-only during inference.** The `StitchRewardModel.predict()` call in `bench_anime_stitch.py` must never modify model weights. Fine-tuning runs are offline-only (separate `scripts/finetune_*.py` scripts). Never call `.train()` during a benchmark or pipeline run.
 
 ## Code Quality
 

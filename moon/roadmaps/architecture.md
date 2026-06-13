@@ -1,6 +1,6 @@
 # Architecture & Infrastructure Roadmap — Quality, Reliability, and Maintainability
 
-*Last updated: 2026-06-04. ASP unit tests now at 90 (90 passing). ASP benchmark: 52/96 true composites (54.2%), alignment gate added for 2D motion. See `asp.md` for per-session tracking.*
+*Last updated: 2026-06-13. ASP unit tests now at 498 (498 passing). ASP benchmark corpus: 97 tests (asp_test01–asp_test97). Session 80 complete — SAM-2 wired, Otsu bg mask for phase correlation, background zero-coverage fill (`bg_complete.py`), `asp_config.toml` defaults. Phase 2 architecture defined: direct video ingestion (PyAV `VideoIngestionStream`, Issue 9), multi-modal HITL with Grounded SAM-2 + click refinement + NL seam routing + COCO/Label Studio annotation serialization (Issue 10). See `asp.md` for per-session tracking and Phase 2 Sprint 5–9 specs.*
 
 ---
 

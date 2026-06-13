@@ -30,11 +30,13 @@ from PySide6.QtCore import QMutex, QObject, QWaitCondition, Signal
 
 try:
     from backend.src.anim import AnimeStitchPipeline
+    from backend.src.anim.compositing import _compute_initial_boundaries
 
     _PIPELINE_OK = True
 except ImportError:
     _PIPELINE_OK = False
     AnimeStitchPipeline = None  # type: ignore[misc,assignment]
+    _compute_initial_boundaries = None  # type: ignore[assignment]
 
 try:
     from backend.src.models.loftr_wrapper import LoFTRWrapper
@@ -237,6 +239,39 @@ if _PIPELINE_OK:
 
             # ─────────────────────────────────────────────────────────────────
 
+            # Issue 10B: HITL annotation serialization (lazy, no-op if not installed)
+            try:
+                from backend.src.anim.data_serialization import create_session_serializers
+                _hitl_dir = os.path.join(
+                    os.path.expanduser("~"), ".image-toolkit", "hitl_annotations"
+                )
+                _coco_builder, _ls_exporter, _hitl_session_dir = create_session_serializers(
+                    _hitl_dir
+                )
+                _serialization_ok = True
+            except Exception as _se:
+                _serialization_ok = False
+                _coco_builder = _ls_exporter = None
+                self._log_cb(f"[HITL] Annotation serialization unavailable: {_se}")
+
+            def _save_hitl_annotations():
+                """Flush COCO + Label Studio annotations to disk (called at each checkpoint)."""
+                if not (_serialization_ok and _hitl_session_dir):
+                    return
+                try:
+                    import os as _os
+                    _os.makedirs(_hitl_session_dir, exist_ok=True)
+                    _coco_builder.save(
+                        _os.path.join(_hitl_session_dir, "annotations_coco.json")
+                    )
+                    _ls_exporter.save(
+                        _os.path.join(_hitl_session_dir, "annotations_ls.json")
+                    )
+                except Exception as _ae:
+                    self._log_cb(f"[HITL] Could not save annotations: {_ae}")
+
+            # ─────────────────────────────────────────────────────────────────
+
             def _emit(idx: int):
                 nonlocal _stage_t0
                 elapsed = round(_time.perf_counter() - _stage_t0, 3)
@@ -311,6 +346,45 @@ if _PIPELINE_OK:
                     _trace["frames_input"] = N
                     self._log_cb(f"[HITL] Frame selection updated: {N} frames.")
             del _thumbs, _diffs
+
+            # HITL checkpoint 1.5 — segmentation / mask review (Issue 10A2 / S83)
+            # Passes live SAM-2 predictor+state so MaskReviewDialog click refinement works.
+            _ov1_5 = self._hitl_pause("masks", {
+                "frames": list(frames),
+                "bg_masks": list(bg_masks),
+                "image_paths": list(image_paths),
+                "sam2_predictor": self._sam2_predictor,
+                "sam2_inference_state": self._sam2_inference_state,
+                "sam2_frame_h": self._sam2_frame_h,
+                "sam2_frame_w": self._sam2_frame_w,
+            })
+            # Free SAM-2 GPU/disk resources now that the dialog has closed
+            self._cleanup_sam2_state()
+            if "bg_masks" in _ov1_5:
+                _new_masks = _ov1_5["bg_masks"]
+                if len(_new_masks) == len(frames):
+                    bg_masks = _new_masks
+                    self._log_cb("[HITL] Segmentation masks updated by user.")
+            if "exclusion_masks" in _ov1_5:
+                _ex = _ov1_5["exclusion_masks"]
+                if _ex:
+                    self.exclusion_masks = _ex
+                    self._log_cb("[HITL] Seam exclusion masks updated by user.")
+
+            # Record confirmed masks into COCO / Label Studio annotation files
+            if _serialization_ok:
+                for _fi, (_fpath, _mask) in enumerate(zip(image_paths, bg_masks)):
+                    _fh, _fw = frames[_fi].shape[:2] if _fi < len(frames) else (0, 0)
+                    _img_id = _coco_builder.add_image(
+                        os.path.basename(_fpath), width=_fw, height=_fh, temporal_id=_fi
+                    )
+                    if _mask is not None:
+                        _coco_builder.add_segmentation_mask(_img_id, _mask)
+                    _ls_exporter.add_task(_fpath, temporal_id=_fi, model_mask=_mask)
+                _save_hitl_annotations()
+                self._log_cb(
+                    f"[HITL] Annotations saved to {_hitl_session_dir}"
+                )
 
             _emit(5)
             self._check_cancel()
@@ -486,10 +560,63 @@ if _PIPELINE_OK:
 
             _emit(11)
             self._check_cancel()
+            _preset_boundaries = None
             if self.composite_fg and self.use_birefnet:
-                canvas = self._composite_foreground(
-                    [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks
-                )
+                # HITL checkpoint 3.5 — seam boundary editor (S85)
+                if _compute_initial_boundaries is not None:
+                    _init_bnd = _compute_initial_boundaries(affines, frames)
+                    _prev_sc = min(1.0, 600 / max(canvas_h, 1))
+                    _bnd_prev = cv2.resize(
+                        canvas,
+                        (max(1, int(canvas_w * _prev_sc)), max(1, int(canvas_h * _prev_sc))),
+                        cv2.INTER_AREA,
+                    )
+                    _ov3_5 = self._hitl_pause("boundaries", {
+                        "canvas_preview": _bnd_prev,
+                        "boundaries": _init_bnd.tolist(),
+                        "canvas_h": canvas_h,
+                        "canvas_w": canvas_w,
+                        "frame_count": len(frames),
+                    })
+                    del _bnd_prev
+                    if "boundaries" in _ov3_5:
+                        _user_bnd = _ov3_5["boundaries"]
+                        if len(_user_bnd) == len(_init_bnd):
+                            _preset_boundaries = np.array(_user_bnd, dtype=np.float64)
+                            self._log_cb(
+                                f"[HITL] Seam boundaries updated by user: {len(_preset_boundaries)} boundaries."
+                            )
+                # HITL checkpoint 4.5 — post-composite seam painter (S86)
+                _paint_mask = None
+                _cp45_iter = 0
+                while True:
+                    canvas = self._composite_foreground(
+                        [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks,
+                        preset_boundaries=_preset_boundaries,
+                        paint_mask=_paint_mask,
+                    )
+                    _cp45_iter += 1
+                    _prev_sc45 = min(1.0, 600 / max(canvas_h, 1))
+                    _comp_prev = cv2.resize(
+                        canvas,
+                        (max(1, int(canvas_w * _prev_sc45)), max(1, int(canvas_h * _prev_sc45))),
+                        cv2.INTER_AREA,
+                    )
+                    _ov4_5 = self._hitl_pause("composite", {
+                        "canvas_preview": _comp_prev,
+                        "canvas_h": canvas_h,
+                        "canvas_w": canvas_w,
+                        "iteration": _cp45_iter,
+                    })
+                    del _comp_prev
+                    _new_mask = _ov4_5.get("paint_mask")
+                    if _new_mask is None:
+                        if _ov4_5.get("cancel"):
+                            raise InterruptedError("Stitch cancelled at seam-painter checkpoint.")
+                        break  # user accepted output
+                    _paint_mask = _new_mask
+                    self._log_cb(f"[HITL] Re-compositing with seam paint mask (iteration {_cp45_iter + 1})…")
+
             _save_canvas(11, "fg_composite", canvas)
 
             _emit(12)
@@ -509,6 +636,45 @@ if _PIPELINE_OK:
             if self._save_intermediate and idir:
                 self._log_cb(f"[Debug] Intermediate outputs saved to: {idir}")
             self._log_cb(f"[Stitch] Saved to '{output_path}'.")
+
+            # HITL checkpoint 5 — final output RLHF feedback (S87)
+            _prev_sc5 = min(1.0, 600 / max(canvas_h, 1))
+            _out_prev = cv2.resize(
+                canvas,
+                (max(1, int(canvas_w * _prev_sc5)), max(1, int(canvas_h * _prev_sc5))),
+                cv2.INTER_AREA,
+            )
+            _ov5 = self._hitl_pause("output", {
+                "canvas_preview": _out_prev,
+                "output_path": output_path,
+                "pipeline_config": self._pipeline_config,
+            })
+            del _out_prev
+            _fb = _ov5.get("output_feedback")
+            if _fb is not None:
+                try:
+                    from backend.src.anim.rlhf.feedback_store import (
+                        FeedbackStore,
+                        StitchAnnotation,
+                    )
+                    _store = FeedbackStore()
+                    _anns = [
+                        StitchAnnotation(**a)
+                        for a in _fb.get("annotations", [])
+                    ]
+                    _store.add_from_image(
+                        image_path=output_path,
+                        overall_rating=float(_fb.get("overall_rating", 5.0)),
+                        annotations=_anns,
+                        pipeline_config=self._pipeline_config,
+                    )
+                    self._log_cb(
+                        f"[HITL] RLHF feedback saved (rating={_fb.get('overall_rating', 5.0):.1f}/10, "
+                        f"{len(_anns)} annotation(s))."
+                    )
+                except Exception as _fb_exc:
+                    self._log_cb(f"[HITL] Could not save RLHF feedback: {_fb_exc}")
+
             _trace["success"] = True
             _write_trace()
             return out
@@ -539,10 +705,15 @@ class StitchWorker(QObject):
 
     # HITL checkpoint signals — emitted when the pipeline pauses for review.
     # Each carries a plain dict of intermediate state (numpy arrays included).
-    sig_review_frames = Signal(object)  # after Stage 4: frame selection review
-    sig_review_edges = Signal(object)   # after Stage 5: edge graph review
-    sig_review_canvas = Signal(object)  # after Stage 8: canvas layout review
-    sig_review_render = Signal(object)  # after Stage 9: render / coverage review
+    sig_review_video = Signal(object)       # checkpoint 0: video frame review (Issue 9 S84)
+    sig_review_frames = Signal(object)     # after Stage 4: frame selection review
+    sig_review_masks = Signal(object)      # after Stage 4.5: mask / segmentation review (Issue 10A2)
+    sig_review_edges = Signal(object)      # after Stage 5: edge graph review
+    sig_review_canvas = Signal(object)     # after Stage 8: canvas layout review
+    sig_review_boundaries = Signal(object) # checkpoint 3.5: seam boundary editor (S85)
+    sig_review_composite = Signal(object)  # checkpoint 4.5: post-composite seam painter (S86)
+    sig_review_render = Signal(object)     # after Stage 9: render / coverage review
+    sig_review_output = Signal(object)     # checkpoint 5: final output RLHF feedback (S87)
 
     TOTAL_STAGES = _TOTAL_STAGES
 
@@ -553,6 +724,9 @@ class StitchWorker(QObject):
         pipeline_config: dict,
         manual_affines: Optional[Dict] = None,
         hitl_mode: bool = False,
+        video_path: Optional[str] = None,
+        video_n_frames: int = 20,
+        video_mode: str = "uniform",
     ):
         import os
         super().__init__()
@@ -562,6 +736,11 @@ class StitchWorker(QObject):
         self._manual_affines = manual_affines or {}
         self._cancel_flag: list = [False]
         self._hitl_mode = hitl_mode
+
+        # Issue 9 S84: optional video source for frame extraction
+        self._video_path: Optional[str] = video_path
+        self._video_n_frames: int = video_n_frames
+        self._video_mode: str = video_mode
 
         # Derive intermediate output directory from output path if requested.
         self._save_intermediate = pipeline_config.get("save_intermediate", False)
@@ -576,6 +755,9 @@ class StitchWorker(QObject):
         self._hitl_wait = QWaitCondition()
         self._hitl_paused: bool = False
         self._hitl_override: dict = {}
+
+        # Issue 10A3: NL seam-routing exclusion masks (set via set_exclusion_masks())
+        self._exclusion_masks: Optional[List] = None
 
     def cancel(self):
         self._cancel_flag[0] = True
@@ -594,6 +776,14 @@ class StitchWorker(QObject):
         """Set frame list override (call before resume() at the frame checkpoint)."""
         self._hitl_override["frame_override"] = paths
 
+    def set_mask_override(self, masks: list) -> None:
+        """Set bg_mask list override (call before resume() at the mask checkpoint)."""
+        self._hitl_override["bg_masks"] = masks
+
+    def set_exclusion_masks(self, exclusion_masks: list) -> None:
+        """Set NL seam-routing exclusion masks (Issue 10A3). Call before resume()."""
+        self._hitl_override["exclusion_masks"] = exclusion_masks
+
     def set_edge_override(self, edges: List[dict]) -> None:
         """Set edge list override (call before resume() at the edge checkpoint)."""
         self._hitl_override["edges"] = edges
@@ -602,17 +792,36 @@ class StitchWorker(QObject):
         """Set affine matrix override (call before resume() at the canvas checkpoint)."""
         self._hitl_override["affines"] = affines
 
+    def set_boundary_override(self, boundaries: list) -> None:
+        """Set seam-boundary y-coordinate override (call before resume() at checkpoint 3.5)."""
+        self._hitl_override["boundaries"] = boundaries
+
+    def set_paint_mask(self, mask: np.ndarray) -> None:
+        """Set canvas-space paint mask for re-composite (call before resume() at checkpoint 4.5)."""
+        self._hitl_override["paint_mask"] = mask
+
     def set_render_cancel(self) -> None:
         """Signal the pipeline to abort at the render review checkpoint."""
         self._hitl_override["cancel"] = True
+
+    def set_output_feedback(self, overall_rating: float, annotations: list) -> None:
+        """Store RLHF feedback to persist after checkpoint 5 (call before resume())."""
+        self._hitl_override["output_feedback"] = {
+            "overall_rating": overall_rating,
+            "annotations": annotations,
+        }
 
     def _make_hitl_pause_cb(self) -> Callable:
         """Return a callable that emits the right signal then blocks the worker thread."""
         _signal_map = {
             "frames": self.sig_review_frames,
+            "masks": self.sig_review_masks,
             "edges": self.sig_review_edges,
             "canvas": self.sig_review_canvas,
+            "boundaries": self.sig_review_boundaries,
+            "composite": self.sig_review_composite,
             "render": self.sig_review_render,
+            "output": self.sig_review_output,
         }
 
         def _pause_cb(event: str, data: dict) -> dict:
@@ -632,6 +841,18 @@ class StitchWorker(QObject):
 
         return _pause_cb
 
+    def _hitl_video_pause(self, data: dict) -> dict:
+        """Pause StitchWorker.run() for video frame review (HITL checkpoint 0 — S84)."""
+        self.sig_review_video.emit(data)
+        self._hitl_mutex.lock()
+        self._hitl_paused = True
+        self._hitl_override = {}
+        while self._hitl_paused:
+            self._hitl_wait.wait(self._hitl_mutex)
+        override = dict(self._hitl_override)
+        self._hitl_mutex.unlock()
+        return override
+
     def run(self):
         if not _PIPELINE_OK:
             self.sig_error.emit(
@@ -648,6 +869,56 @@ class StitchWorker(QObject):
         def _log_cb(msg: str):
             self.sig_log.emit(msg)
 
+        # ── Video ingestion pre-run (Issue 9 / S84) ──────────────────────
+        import os as _os
+        import shutil as _shutil
+        image_paths = list(self._image_paths)
+        _video_tmp_dir: Optional[str] = None
+
+        if self._video_path:
+            self.sig_log.emit(f"[Video] Extracting frames from '{self._video_path}'…")
+            try:
+                from backend.src.anim.video_ingestion import ingest_video
+                import tempfile
+                _video_tmp_dir = tempfile.mkdtemp(prefix="asp_video_")
+                _vframes, image_paths = ingest_video(
+                    self._video_path,
+                    _video_tmp_dir,
+                    n_frames=self._video_n_frames,
+                    mode=self._video_mode,
+                )
+                self.sig_log.emit(f"[Video] Extracted {len(image_paths)} frames.")
+            except Exception as _ve:
+                self.sig_error.emit(f"[Video] Ingestion failed: {_ve}")
+                return
+
+            # HITL checkpoint 0: let user review and deselect video frames
+            if self._hitl_mode and image_paths:
+                _thumbs = []
+                for _f in _vframes:
+                    _fh, _fw = _f.shape[:2]
+                    _sc = min(1.0, 256 / max(_fh, _fw, 1))
+                    _thumbs.append(
+                        cv2.resize(_f, (max(1, int(_fw * _sc)), max(1, int(_fh * _sc))), cv2.INTER_AREA)
+                    )
+                _diffs = [0.0]
+                for _i in range(1, len(_vframes)):
+                    _a = cv2.resize(_vframes[_i - 1], (64, 64), cv2.INTER_AREA).astype(np.float32) / 255.0
+                    _b = cv2.resize(_vframes[_i], (64, 64), cv2.INTER_AREA).astype(np.float32) / 255.0
+                    _diffs.append(float(np.mean(np.abs(_a - _b))))
+
+                _ov0 = self._hitl_video_pause({
+                    "paths": list(image_paths),
+                    "thumbnails": _thumbs,
+                    "frame_diffs": _diffs,
+                    "video_path": self._video_path,
+                })
+                if "frame_override" in _ov0:
+                    _new_paths = _ov0["frame_override"]
+                    if len(_new_paths) >= 2:
+                        image_paths = _new_paths
+                        self.sig_log.emit(f"[HITL] Video frame selection: {len(image_paths)} frames accepted.")
+
         try:
             pipeline = _ProgressPipeline(
                 progress_cb=_progress_cb,
@@ -662,12 +933,18 @@ class StitchWorker(QObject):
                 pause_cb=self._make_hitl_pause_cb(),
                 **_build_pipeline_kwargs(cfg),
             )
-            pipeline.run(self._image_paths, self._output_path)
+            # Apply any exclusion masks set via set_exclusion_masks() before run
+            if self._exclusion_masks:
+                pipeline.exclusion_masks = self._exclusion_masks
+            pipeline.run(image_paths, self._output_path)
             self.sig_finished.emit(self._output_path)
         except InterruptedError as e:
             self.sig_error.emit(f"Cancelled: {e}")
         except Exception as e:
             self.sig_error.emit(str(e))
+        finally:
+            if _video_tmp_dir:
+                _shutil.rmtree(_video_tmp_dir, ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------

@@ -338,7 +338,7 @@ Before and after any fix, run the automated test suite. It covers all issue cate
 
 ```bash
 source .venv/bin/activate
-pytest backend/test/anim/ -q                          # 262 tests (~7s)
+pytest backend/test/anim/ -q                          # 498 tests (~30s)
 pytest backend/test/anim/test_filter_edges.py -v      # Category C — alignment
 pytest backend/test/anim/test_bundle_adjust.py -v     # Category C — clustering
 pytest backend/test/anim/test_canvas.py -v            # Category E — canvas/crop

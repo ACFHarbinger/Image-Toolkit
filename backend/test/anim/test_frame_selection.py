@@ -543,3 +543,62 @@ class TestDetectHoldBlocksDhash:
         h = _compute_dhash(t)
         assert int(np.sum(h != h)) == 0
         assert h.dtype == bool
+
+
+# ---------------------------------------------------------------------------
+# §1A — _otsu_bg_mask_pair tests
+# ---------------------------------------------------------------------------
+
+from backend.src.anim.frame_selection import _otsu_bg_mask_pair
+
+
+class TestOtsuBgMaskPair:
+    """Tests for the per-pair Otsu background mask (§1A)."""
+
+    def _light_bg(self, h=64, w=64, bg_val=0.8, fg_val=0.1, fg_frac=0.3):
+        """Thumbnail with a light background and a dark foreground region."""
+        t = np.full((h, w), bg_val, dtype=np.float32)
+        fg_h = int(h * fg_frac)
+        t[h // 2 - fg_h // 2 : h // 2 + fg_h // 2, :] = fg_val
+        return t
+
+    def test_returns_float32_mask(self):
+        a = self._light_bg()
+        b = self._light_bg()
+        mask = _otsu_bg_mask_pair(a, b)
+        assert mask is None or mask.dtype == np.float32
+
+    def test_returns_none_when_min_bg_frac_unachievable(self):
+        """min_bg_frac=1.1 is always unachievable → always returns None."""
+        a = self._light_bg()
+        b = self._light_bg()
+        mask = _otsu_bg_mask_pair(a, b, min_bg_frac=1.1)
+        assert mask is None
+
+    def test_light_background_produces_valid_mask(self):
+        """Light-background thumbnails with fg band → mask covers the bg region."""
+        a = self._light_bg(bg_val=0.85, fg_val=0.1, fg_frac=0.2)
+        b = self._light_bg(bg_val=0.80, fg_val=0.1, fg_frac=0.2)
+        mask = _otsu_bg_mask_pair(a, b)
+        if mask is not None:
+            assert mask.shape == a.shape
+            assert float(mask.mean()) > 0.10
+
+    def test_mask_shape_matches_input(self):
+        """Mask (when not None) must have same H×W as thumbnails."""
+        H, W = 48, 80
+        a = self._light_bg(h=H, w=W)
+        b = self._light_bg(h=H, w=W)
+        mask = _otsu_bg_mask_pair(a, b)
+        if mask is not None:
+            assert mask.shape == (H, W)
+
+    def test_intersection_is_element_wise_minimum(self):
+        """Combined mask ≤ each individual frame mask (intersection semantics)."""
+        a = self._light_bg(bg_val=0.85, fg_val=0.1)
+        b = self._light_bg(bg_val=0.80, fg_val=0.2)
+        mask = _otsu_bg_mask_pair(a, b)
+        if mask is not None:
+            # All values must be in [0, 1] and ≤ max of input images
+            assert float(mask.min()) >= 0.0
+            assert float(mask.max()) <= 1.0

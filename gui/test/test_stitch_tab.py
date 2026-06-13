@@ -1,7 +1,7 @@
 import json
 import os
 import math
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from gui.src.tabs.models.gen.stitch_tab import (
     EditTab,
     EdgeGraphInspectorDialog,
@@ -250,3 +250,40 @@ class TestCanvasLayoutInspectorDialog:
         dlg = CanvasLayoutInspectorDialog()
         assert dlg._table.rowCount() == 0
         assert dlg._stats_label.text() == "No data loaded."
+
+
+# ── TestStitchWorkerVideoPath ─────────────────────────────────────────────────
+
+class TestStitchWorkerVideoPath:
+    """Tests for StitchWorker video ingestion path (Issue 9, S84)."""
+
+    def test_video_path_stored(self, q_app):
+        """video_path is stored when passed to __init__."""
+        from gui.src.helpers.models.stitch_worker import StitchWorker
+        w = StitchWorker([], "out.png", {}, video_path="/tmp/test.mp4")
+        assert w._video_path == "/tmp/test.mp4"
+
+    def test_no_video_path_defaults_to_none(self, q_app):
+        """video_path is None when not provided."""
+        from gui.src.helpers.models.stitch_worker import StitchWorker
+        w = StitchWorker([], "out.png", {})
+        assert w._video_path is None
+
+    def test_sig_review_video_signal_exists(self, q_app):
+        """StitchWorker exposes sig_review_video signal for HITL checkpoint 0."""
+        from gui.src.helpers.models.stitch_worker import StitchWorker
+        w = StitchWorker([], "out.png", {})
+        assert hasattr(w, "sig_review_video")
+
+    def test_video_mode_allows_empty_image_paths(self, q_app):
+        """When video_path is set, image_paths can be empty (frames extracted by worker)."""
+        from gui.src.helpers.models.stitch_worker import StitchWorker
+        w = StitchWorker([], "out.png", {}, video_path="/tmp/video.mp4")
+        assert len(w._image_paths) == 0
+        assert w._video_path == "/tmp/video.mp4"
+
+    def test_video_n_frames_stored(self, q_app):
+        """video_n_frames is stored and accessible."""
+        from gui.src.helpers.models.stitch_worker import StitchWorker
+        w = StitchWorker([], "out.png", {}, video_path="/tmp/v.mp4", video_n_frames=42)
+        assert w._video_n_frames == 42

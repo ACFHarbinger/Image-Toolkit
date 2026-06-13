@@ -111,6 +111,7 @@ from ....dialogs import (
     CoverageHeatmapDialog,
     CanvasInspectorDialog,
     EdgeReviewDialog,
+    MaskReviewDialog,
     SelectionReviewDialog,
 )
 from .hybrid_stitch_panel import HybridStitchPanel as RealHybridStitchPanel
@@ -2556,6 +2557,41 @@ class EditTab(QWidget):
         frames_group = QGroupBox("Source Frames")
         frames_group_layout = QVBoxLayout(frames_group)
 
+        # Video mode toggle (Issue 9 S84)
+        self._cb_video_mode = QCheckBox("From Video Source")
+        self._cb_video_mode.setToolTip(
+            "Extract frames from a video file instead of loading images manually.\n"
+            "Requires: pip install av (PyAV)"
+        )
+        frames_group_layout.addWidget(self._cb_video_mode)
+
+        # Video input panel (shown only in video mode)
+        self._video_input_widget = QWidget()
+        _vl = QVBoxLayout(self._video_input_widget)
+        _vl.setContentsMargins(0, 0, 0, 0)
+        _vl.setSpacing(3)
+        self._video_path_edit = QLineEdit()
+        self._video_path_edit.setPlaceholderText("Video file path…")
+        self._video_path_edit.setToolTip("Path to the video file (MP4, MKV, AVI, etc.)")
+        _vl.addWidget(self._video_path_edit)
+        _vbrow = QHBoxLayout()
+        _btn_browse_video = QPushButton("Browse…")
+        _btn_browse_video.setToolTip("Choose a video file.")
+        _btn_browse_video.clicked.connect(self._browse_video)
+        apply_shadow_effect(_btn_browse_video, radius=4, y_offset=2)
+        self._video_n_frames_spin = QSpinBox()
+        self._video_n_frames_spin.setRange(2, 200)
+        self._video_n_frames_spin.setValue(20)
+        self._video_n_frames_spin.setToolTip("Number of frames to extract from the video.")
+        self._video_n_frames_spin.setPrefix("N: ")
+        _vbrow.addWidget(_btn_browse_video)
+        _vbrow.addWidget(self._video_n_frames_spin)
+        _vl.addLayout(_vbrow)
+        self._video_input_widget.setVisible(False)
+        frames_group_layout.addWidget(self._video_input_widget)
+
+        self._cb_video_mode.toggled.connect(self._on_video_mode_toggled)
+
         self._frame_list = QListWidget()
         self._frame_list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         self._frame_list.setDefaultDropAction(Qt.DropAction.MoveAction)
@@ -3856,6 +3892,29 @@ class EditTab(QWidget):
         if p:
             self._ckpt_path.setText(p)
 
+    def _on_video_mode_toggled(self, checked: bool):
+        """Show/hide video input panel and disable/enable the image frame list."""
+        self._video_input_widget.setVisible(checked)
+        self._frame_list.setEnabled(not checked)
+        self._btn_add.setEnabled(not checked)
+        self._btn_remove.setEnabled(not checked)
+        self._btn_up.setEnabled(not checked)
+        self._btn_down.setEnabled(not checked)
+        self._btn_auto_order.setEnabled(not checked)
+
+    def _browse_video(self):
+        """Open a file dialog to select a video file."""
+        start_dir = self._last_selected_dir or ""
+        p, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Video File",
+            start_dir,
+            "Video Files (*.mp4 *.mkv *.avi *.mov *.webm *.flv);;All Files (*)",
+            options=QFileDialog.Option.DontUseNativeDialog,
+        )
+        if p:
+            self._video_path_edit.setText(p)
+
     def _browse_output(self):
         start_dir = self._last_selected_dir or (
             os.path.dirname(self._frame_paths[-1]) if self._frame_paths else ""
@@ -3874,7 +3933,17 @@ class EditTab(QWidget):
             self._output_path.setText(p)
 
     def _start_stitch(self):
-        if len(self._frame_paths) < 2:
+        _use_video = self._cb_video_mode.isChecked()
+        _video_path = self._video_path_edit.text().strip() if _use_video else ""
+
+        if _use_video:
+            if not _video_path or not os.path.isfile(_video_path):
+                QMessageBox.warning(
+                    self, "Video not found",
+                    f"'{_video_path}' does not exist. Select a valid video file."
+                )
+                return
+        elif len(self._frame_paths) < 2:
             QMessageBox.warning(
                 self, "Not enough frames", "Add at least 2 source frames."
             )
@@ -3904,9 +3973,10 @@ class EditTab(QWidget):
         self._progress.setValue(0)
         self._log.clear()
         self._stage_label.setText("Initialising pipeline…")
-        self._log_append(
-            f"[Stitch] Starting — {len(self._frame_paths)} frames → '{out}'"
-        )
+        if _use_video:
+            self._log_append(f"[Stitch] Starting from video '{os.path.basename(_video_path)}' → '{out}'")
+        else:
+            self._log_append(f"[Stitch] Starting — {len(self._frame_paths)} frames → '{out}'")
         if self._manual_affines:
             self._log_append(
                 f"[Stitch] Manual affine overrides active for "
@@ -3933,11 +4003,13 @@ class EditTab(QWidget):
 
         _hitl = self._cb_hitl_mode.isChecked()
         self._stitch_worker = StitchWorker(
-            image_paths=list(self._frame_paths),
+            image_paths=[] if _use_video else list(self._frame_paths),
             output_path=out,
             pipeline_config=pipeline_config,
             manual_affines=dict(self._manual_affines),
             hitl_mode=_hitl,
+            video_path=_video_path or None,
+            video_n_frames=self._video_n_frames_spin.value() if _use_video else 20,
         )
         self._last_stages_dir = self._stitch_worker._intermediate_dir
         self._btn_inspect_edges.setEnabled(False)
@@ -3953,10 +4025,16 @@ class EditTab(QWidget):
         self._stitch_worker.sig_error.connect(self._stitch_thread.quit)
         self._stitch_thread.finished.connect(self._on_stitch_thread_done)
         if _hitl:
+            if _use_video:
+                self._stitch_worker.sig_review_video.connect(self._on_hitl_review_video)
             self._stitch_worker.sig_review_frames.connect(self._on_hitl_review_frames)
+            self._stitch_worker.sig_review_masks.connect(self._on_hitl_review_masks)
             self._stitch_worker.sig_review_edges.connect(self._on_hitl_review_edges)
             self._stitch_worker.sig_review_canvas.connect(self._on_hitl_review_canvas)
+            self._stitch_worker.sig_review_boundaries.connect(self._on_hitl_review_boundaries)
+            self._stitch_worker.sig_review_composite.connect(self._on_hitl_review_composite)
             self._stitch_worker.sig_review_render.connect(self._on_hitl_review_render)
+            self._stitch_worker.sig_review_output.connect(self._on_hitl_review_output)
         self._stitch_thread.start()
 
     def _cancel_stitch(self):
@@ -4004,6 +4082,26 @@ class EditTab(QWidget):
     # ── HITL checkpoint handlers ─────────────────────────────────────────
 
     @Slot(object)
+    def _on_hitl_review_video(self, data: dict):
+        """Checkpoint 0 pause: review video-extracted frames before pipeline starts (S84)."""
+        vname = os.path.basename(data.get("video_path", "video"))
+        self._stage_label.setText(f"HITL: Reviewing video frames from '{vname}'…")
+        w = self._stitch_worker
+        if w is None:
+            return
+        dlg = SelectionReviewDialog(
+            data,
+            title=f"Video Frame Review — {vname}",
+            parent=self,
+        )
+        result = dlg.exec()
+        if result == QDialog.DialogCode.Accepted:
+            w.set_frame_override(dlg.selected_paths())
+            w.resume()
+        else:
+            w.cancel()
+
+    @Slot(object)
     def _on_hitl_review_frames(self, data: dict):
         """Stage 4 pause: show frame selection review dialog."""
         self._stage_label.setText("HITL: Reviewing frame selection…")
@@ -4024,6 +4122,61 @@ class EditTab(QWidget):
             w.cancel()
             return
         w.resume()
+
+    @Slot(object)
+    def _on_hitl_review_masks(self, data: dict):
+        """Stage 4.5 pause: show mask/segmentation review dialog (Issue 10A2)."""
+        self._stage_label.setText("HITL: Reviewing segmentation masks…")
+        w = self._stitch_worker
+        if w is None:
+            return
+
+        def _refine_cb(text_prompt: str, pos_clicks, neg_clicks, frame_idx: int):
+            """Callback that runs inside _RefinementWorker's thread."""
+            from backend.src.anim.masking import (
+                _compute_fg_masks_grounded_sam2,
+                _refine_masks_with_clicks,
+            )
+            frames = data.get("frames", [])
+            orig_masks = data.get("bg_masks", [])
+
+            if text_prompt:
+                # Grounded SAM-2: re-run segmentation from text prompt
+                return _compute_fg_masks_grounded_sam2(
+                    frames,
+                    text_prompt,
+                    birefnet_wrapper=None,
+                    use_birefnet=False,
+                )
+            elif pos_clicks or neg_clicks:
+                # Click refinement via live SAM-2 predictor preserved across HITL boundary
+                predictor = data.get("sam2_predictor")
+                state = data.get("sam2_inference_state")
+                _fh = data.get("sam2_frame_h") or (frames[0].shape[0] if frames else 1080)
+                _fw = data.get("sam2_frame_w") or (frames[0].shape[1] if frames else 1920)
+                if predictor is not None and state is not None:
+                    refined = _refine_masks_with_clicks(
+                        predictor, state,
+                        pos_clicks=pos_clicks, neg_clicks=neg_clicks,
+                        frame_idx=frame_idx, frame_h=_fh, frame_w=_fw,
+                    )
+                    if refined:
+                        return refined
+                return list(orig_masks)
+            return list(orig_masks)
+
+        dlg = MaskReviewDialog(data, refine_callback=_refine_cb, parent=self)
+        dlg.sig_mask_accepted.connect(
+            lambda masks: w.set_mask_override(masks)
+        )
+        dlg.sig_exclusion_masks_accepted.connect(
+            lambda ex_masks: w.set_exclusion_masks(ex_masks) if any(m is not None for m in ex_masks) else None
+        )
+        result = dlg.exec()
+        if result == QDialog.DialogCode.Accepted:
+            w.resume()
+        else:
+            w.cancel()
 
     @Slot(object)
     def _on_hitl_review_edges(self, data: dict):
@@ -4064,6 +4217,45 @@ class EditTab(QWidget):
         w.resume()
 
     @Slot(object)
+    def _on_hitl_review_boundaries(self, data: dict):
+        """Checkpoint 3.5 pause: show seam boundary editor."""
+        self._stage_label.setText("HITL: Reviewing seam boundaries…")
+        w = self._stitch_worker
+        if w is None:
+            return
+        from gui.src.dialogs.boundary_editor_dialog import BoundaryEditorDialog
+        dlg = BoundaryEditorDialog(data=data, parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            w.set_boundary_override(dlg.adjusted_boundaries())
+        else:
+            w.cancel()
+            return
+        w.resume()
+
+    @Slot(object)
+    def _on_hitl_review_composite(self, data: dict):
+        """Checkpoint 4.5 pause: post-composite seam painter (re-composite loop)."""
+        iteration = data.get("iteration", 1)
+        self._stage_label.setText(f"HITL: Seam painter — iteration {iteration}…")
+        w = self._stitch_worker
+        if w is None:
+            return
+        from gui.src.dialogs.seam_painter_dialog import SeamPainterDialog
+        dlg = SeamPainterDialog(data=data, parent=self)
+        result = dlg.exec()
+        if result == SeamPainterDialog.RECOMPOSITE:
+            mask = dlg.full_resolution_mask()
+            if mask is not None:
+                w.set_paint_mask(mask)
+            # resume without paint_mask key → triggers another loop iteration with mask
+            w.resume()
+        elif result == QDialog.DialogCode.Accepted:
+            # accept current output, no re-composite
+            w.resume()
+        else:
+            w.cancel()
+
+    @Slot(object)
     def _on_hitl_review_render(self, data: dict):
         """Stage 9 pause: show render preview and coverage heatmap."""
         self._stage_label.setText("HITL: Reviewing render…")
@@ -4075,6 +4267,24 @@ class EditTab(QWidget):
             pass  # proceed without override
         else:
             w.set_render_cancel()
+        w.resume()
+
+    @Slot(object)
+    def _on_hitl_review_output(self, data: dict):
+        """Checkpoint 5 pause: final output RLHF quality rating (S87)."""
+        self._stage_label.setText("HITL: Rate output quality…")
+        w = self._stitch_worker
+        if w is None:
+            return
+        from gui.src.dialogs.final_output_review_dialog import FinalOutputReviewDialog
+        dlg = FinalOutputReviewDialog(data=data, parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            fb = dlg.get_feedback()
+            if fb is not None:
+                w.set_output_feedback(
+                    overall_rating=fb["overall_rating"],
+                    annotations=fb["annotations"],
+                )
         w.resume()
 
     def _inspect_edges(self):

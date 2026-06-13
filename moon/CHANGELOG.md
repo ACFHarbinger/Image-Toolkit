@@ -4,6 +4,36 @@
 
 ---
 
+## ASP Session 80 — §1A Otsu bg-only phase corr + §5A/C BG completion + §8 defaults + Issue Report marking (2026-06-13)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_otsu_bg_mask_pair()` (§1A)** (`frame_selection.py`) | Per-pair Otsu background mask for phase correlation. Computes an Otsu threshold on each float32 thumbnail, classifies pixels above the threshold as background, erodes to remove foreground-edge contamination, returns pixel-wise minimum (intersection). Falls back to plain `phaseCorrelate` when bg coverage < 10%. Enable: `ASP_OTSU_BG_CORR=1`. Zero new dependencies — faster and per-frame accurate vs the 5-probe BiRefNet intersection approach (`ASP_TWO_CHANNEL_SELECT`). |
+| **`_OTSU_BG_CORR` flag wired in phase-corr loop** (`frame_selection.py`) | New `elif _OTSU_BG_CORR:` branch after the existing `_bg_thumb_mask` branch. When enabled, computes per-pair mask; if coverage < 10%, falls back to unmasked `phaseCorrelate`. `ASP_OTSU_BG_CORR` added to `_CONFIG_SCHEMA` in `config.py`. Exported `_otsu_bg_mask_pair` in `__all__`. |
+| **`complete_background()` (§5A/C)** (`bg_complete.py`, new) | Background zero-coverage fill for canvas pixels uncovered by any frame's bg sample. `_nn_fill_zero_bg()`: column-directional nearest-neighbour propagation — for each column, `np.searchsorted` finds nearest known row above and below each gap; best (closer) is applied. `_propainter_fill()`: lazy-imports ProPainter (ICCV 2023); falls back to NN fill when unavailable. `complete_background()`: entry point — skips when zero rows < `min_rows` threshold. |
+| **Stage 10.2 wired** (`pipeline.py`) | `complete_background()` called after `_render()` when `ASP_BG_COMPLETE > 0`. `ASP_BG_COMPLETE=1` → NN fill; `=2` → ProPainter with NN fallback. `_BG_COMPLETE` module-level flag. Import added. `ASP_BG_COMPLETE` and `ASP_BG_COMPLETE_MIN_ROWS` added to `_CONFIG_SCHEMA`. |
+| **`anim/__init__.py` auto-loads `asp_config.toml`** | `_load_asp_config()` called before other package imports so TOML keys are in `os.environ` before any module-level flag constants are read. Try/except ensures no error if config missing. |
+| **`asp_config.toml` created** (§8) | Root-level TOML with 8 recommended defaults from the Issue 8 report: `ASP_ADAPTIVE_SP_SOFT=1`, `ASP_ADAPTIVE_SP_THRESH=1`, `ASP_SEAM_SMOOTH_WINDOW=5`, `ASP_SEAM_MARGIN=3`, `ASP_SEAM_FG_PENETRATION_MAX=0.7`, `ASP_ZONE_MIN_HEIGHT=20`, `ASP_SEAM_INSTABILITY_THRESH=20.0`, `ASP_STATIC_INPUT_MAX_MAD=2.0`. |
+| **SAM-2 pipeline wiring** (`pipeline.py`) | `_USE_SAM2` flag + `_compute_fg_masks_sam2` import; `AnimeStitchPipeline._compute_fg_masks()` routes through SAM-2 when `ASP_USE_SAM2=1`. (Completed from S79.) |
+| **`ASP_High_Value_Issues_Report.md` marking** | All implemented items annotated with ✅ S79/S80 session tags. Failure taxonomy table updated. Priority matrix column added with current status. Recommended implementation order updated to show Sprint 1–3 complete. |
+| **`OTSU_BG_CORR_MIN_BG_FRAC`, `BG_COMPLETE_MIN_ROWS`** (`constants/anim.py`) | Two new constants for §1A and §5A/C. |
+
+### Test results
+
+498 tests passing (+11 new: 5 `TestOtsuBgMaskPair` in `test_frame_selection.py`, 6 `TestNnFillZeroBg`/`TestCompleteBackground` in new `test_bg_complete.py`). No regressions.
+
+### Design notes
+
+**Why Otsu and not BiRefNet for §1A**: BiRefNet adds 0.3–0.8s/frame overhead; Otsu on a 256px thumbnail is ~0.2ms. The 5-probe BiRefNet intersection (`_TWO_CHANNEL_SELECT`) only samples 5 positions and takes their intersection — if the character moves between probes, the mask underestimates the character region. Per-pair Otsu adapts to each consecutive pair, catching frames where the character enters or exits the left/right edge. The threshold `> Otsu` classifies "light pixels = background" — this assumption holds for anime with light-colored backgrounds (lockers, walls) vs dark character outlines. Falls back silently when coverage < 10%.
+
+**§5A/C NN fill semantics**: Column-directional nearest-neighbour (not row-directional) because the scroll axis is dominant and background texture repeats vertically. Each unknown pixel gets the closest known pixel in the SAME column, not in the same row. This avoids horizontal smearing of character elements across the strip boundary.
+
+**auto-load ordering**: `anim/__init__.py` loads TOML before importing `.pipeline`, which triggers `.compositing`, `.bundle_adjust`, etc. — all module-level `os.environ.get(...)` calls happen AFTER `setdefault` writes the TOML values. Env vars set manually always win (setdefault never overwrites).
+
+---
+
 ## ASP Session 79 — HITL Staged Execution + AnimeInterp SGM + SAM-2 + fg-masked DINOv2 (2026-06-13)
 
 ### Shipped
