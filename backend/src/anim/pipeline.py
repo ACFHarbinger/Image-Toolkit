@@ -54,7 +54,7 @@ from backend.src.constants import (
     STATIC_EDGE_MIN_DISP_PX,
 )
 from .ecc import _ecc_refine
-from .masking import _compute_fg_masks
+from .masking import _compute_fg_masks, _compute_fg_masks_sam2
 from .matching import (
     _match_pair,
     _pairwise_match,
@@ -204,6 +204,7 @@ _SEAM_STEP_GATE: float = float(os.environ.get("ASP_SEAM_STEP_GATE", "0.0"))
 # degenerate panorama.  Early exit: copy frame 0 directly to output_path.
 # Default 0.0 = off.  Recommend 2.0 (2/255 ≈ 0.8% pixel noise tolerance).
 _STATIC_INPUT_MAX_MAD: float = float(os.environ.get("ASP_STATIC_INPUT_MAX_MAD", "0.0"))
+_USE_SAM2: bool = os.environ.get("ASP_USE_SAM2", "0") != "0"
 
 
 def _measure_max_seam_step(
@@ -2206,6 +2207,8 @@ class AnimeStitchPipeline:
     def _compute_fg_masks(self, frames: List[np.ndarray]) -> List[Optional[np.ndarray]]:
         if self.use_birefnet and self._birefnet is None:
             self._birefnet = BiRefNetWrapper()
+        if _USE_SAM2:
+            return _compute_fg_masks_sam2(frames, self._birefnet, use_birefnet=self.use_birefnet)
         return _compute_fg_masks(frames, self._birefnet, use_birefnet=self.use_birefnet)
 
     def _pairwise_match(

@@ -243,6 +243,18 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         1.0,
         "Max fraction of seam columns through fg before single-pose escalation (0=off, recommend 0.7)",
     ),
+    "ASP_GNC_OUTER": (
+        int,
+        0,
+        20,
+        "GNC-TLS outer iterations (0=Cauchy only, default 8)",
+    ),
+    "ASP_USE_SAM2": (
+        int,
+        0,
+        1,
+        "Use SAM-2 video predictor for temporally consistent fg masking (0=off, 1=on)",
+    ),
 }
 
 

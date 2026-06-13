@@ -1,7 +1,9 @@
 # ASP — State of the Pipeline: What Works, What Failed, What's Next
 
-*Date: 2026-06-10. Updated through Session 75.*  
+*Date: 2026-06-13. Updated through Session 79.*  
 *Primary benchmark corpora: 96 tests (`asp_test01–96`), 55 with ground truth in `data/ground_truth/`. 5-test subset (`test04/08/09/27/57`) used for rapid iteration.*
+
+**S79 (2026-06-13):** HITL staged execution architecture shipped: `QWaitCondition` pause/resume in `StitchWorker`; 4 checkpoint signals (frames/edges/canvas/render); 4 new dialog files in `gui/src/dialogs/` (SelectionReviewDialog, EdgeReviewDialog, CanvasInspectorDialog, CoverageHeatmapDialog); "Human-in-the-loop review" checkbox in stitch panel. Algorithm improvements: §1D fg-masked DINOv2 crop (Otsu bbox before embedding), §3.1A AnimeInterp SGM full (`_animeinterp_sgm()` in `fg_register.py`, `ASP_ANIMEINTERP_SGM=1`), §5.2 SAM-2 video masking (`_compute_fg_masks_sam2()` in `masking.py`). 487 tests passing.
 
 ---
 
