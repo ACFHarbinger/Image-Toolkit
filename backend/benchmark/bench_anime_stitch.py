@@ -361,7 +361,11 @@ def _seam_visibility_score(
     output_img : (H, W) or (H, W, 3) uint8 panorama
     affines    : unused; kept for API compatibility with _compute_all_metrics
     """
-    gray = cv2.cvtColor(output_img, cv2.COLOR_BGR2GRAY) if output_img.ndim == 3 else output_img
+    gray = (
+        cv2.cvtColor(output_img, cv2.COLOR_BGR2GRAY)
+        if output_img.ndim == 3
+        else output_img
+    )
     g = gray.astype(np.float32)
     H, W = g.shape
 
@@ -473,8 +477,8 @@ def _seam_bhattacharyya_distances(
     scores: List[float] = []
     for k in range(1, n_strips):
         boundary_y = int(round(zone_h * k))
-        top = gray[max(0, boundary_y - band_px):boundary_y]
-        bot = gray[boundary_y:min(H, boundary_y + band_px)]
+        top = gray[max(0, boundary_y - band_px) : boundary_y]
+        bot = gray[boundary_y : min(H, boundary_y + band_px)]
         if top.size == 0 or bot.size == 0:
             scores.append(0.0)
             continue
@@ -1887,12 +1891,17 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                     # (min_gap < 3px) or extreme clustering (ratio > 10x).
                     # Needed for slow-pan sequences with many fine-grained frames.
                     health_r4 = _validate_affines(
-                        _seq, min_step=3.0, max_ratio=10.0,
-                        max_rotation=0.3, max_scale_dev=0.3,
+                        _seq,
+                        min_step=3.0,
+                        max_ratio=10.0,
+                        max_rotation=0.3,
+                        max_scale_dev=0.3,
                     )
                     if health_r4.valid:
                         affines, health = _seq, health_r4
-                        print(f"  Recovery Retry 4 (permissive) succeeded: {health.reason}")
+                        print(
+                            f"  Recovery Retry 4 (permissive) succeeded: {health.reason}"
+                        )
                     else:
                         print(
                             f"  Recovery Retry 4 failed: {health_r4.reason} "
@@ -1900,12 +1909,17 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                         )
                         # Retry 5: final attempt — accept any _seq with non-zero gaps
                         health_r5 = _validate_affines(
-                            _seq, min_step=0.5, max_ratio=50.0,
-                            max_rotation=0.5, max_scale_dev=0.5,
+                            _seq,
+                            min_step=0.5,
+                            max_ratio=50.0,
+                            max_rotation=0.5,
+                            max_scale_dev=0.5,
                         )
                         if health_r5.valid:
                             affines, health = _seq, health_r5
-                            print(f"  Recovery Retry 5 (final) succeeded: {health.reason}")
+                            print(
+                                f"  Recovery Retry 5 (final) succeeded: {health.reason}"
+                            )
 
     if not health.valid:
         print("  Validation FAILED → SCANS fallback.")
@@ -2123,7 +2137,9 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 # Gate fires only when ASP ghosting is BOTH above the absolute
                 # floor and above ratio× SCANS — prevents false positives when
                 # both outputs have inherently low ghosting.
-                _ghost_limit = max(_GHOST_ABS_FLOOR, _GHOST_RATIO_LIMIT * max(_sim_ghost, 1.0))
+                _ghost_limit = max(
+                    _GHOST_ABS_FLOOR, _GHOST_RATIO_LIMIT * max(_sim_ghost, 1.0)
+                )
                 if _asp_ghost > _ghost_limit:
                     print(
                         f"  [GhostGate] FAILED "
@@ -2906,7 +2922,10 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
             ),
             ("color_entropy", "Shannon entropy of luma histogram — lower = washed out"),
             ("ghosting_score", "2nd-order vertical gradient — higher = double-edges"),
-            ("ghosting_siqe", "§3.8A autocorr double-edge score [0–100], higher = ghost"),
+            (
+                "ghosting_siqe",
+                "§3.8A autocorr double-edge score [0–100], higher = ghost",
+            ),
             ("width", "Output width (px)"),
             ("height", "Output height (px)"),
         ]
@@ -3320,7 +3339,7 @@ Examples:
     )
     parser.add_argument(
         "--data-dir",
-        default="/home/pkhunter/Repositories/Image-Toolkit/data",
+        default="/home/pkhunter/Repositories/Image-Toolkit/test_data",
         metavar="DIR",
         help="Root data directory containing asp_testXX subdirectories",
     )

@@ -284,5 +284,11 @@ SEAM_FG_PENETRATION_MAX = (
     0.7  # §1.31: max fraction of seam columns through fg before escalation (0=off)
 )
 
+# §1A: Otsu bg-only phase correlation (frame_selection.py)
+OTSU_BG_CORR_MIN_BG_FRAC = 0.10  # minimum bg fraction for valid Otsu mask
+
+# §5A/C: Background zero-coverage fill (bg_complete.py)
+BG_COMPLETE_MIN_ROWS = 20  # min zero-coverage rows before fill runs
+
 # ToonCrafter
 TOONCRAFTER_REPO = "Doubiiu/ToonCrafter"

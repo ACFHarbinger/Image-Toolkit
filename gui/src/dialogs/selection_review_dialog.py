@@ -99,9 +99,9 @@ class _ThumbnailCard(QWidget):
 
 
 class SelectionReviewDialog(QDialog):
-    def __init__(self, data: dict, parent=None):
+    def __init__(self, data: dict, title: str = "Frame Selection Review — Stage 4", parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Frame Selection Review — Stage 4")
+        self.setWindowTitle(title)
         self.resize(980, 340)
         self._paths: List[str] = list(data["paths"])
         thumbnails: List[np.ndarray] = list(data["thumbnails"])

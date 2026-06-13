@@ -255,6 +255,24 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         1,
         "Use SAM-2 video predictor for temporally consistent fg masking (0=off, 1=on)",
     ),
+    "ASP_OTSU_BG_CORR": (
+        int,
+        0,
+        1,
+        "Per-pair Otsu bg mask for phase correlation §1A (0=off, 1=on; no new deps)",
+    ),
+    "ASP_BG_COMPLETE": (
+        int,
+        0,
+        1,
+        "Background zero-coverage fill after temporal median §5A (0=off, 1=NN fill, 2=ProPainter)",
+    ),
+    "ASP_BG_COMPLETE_MIN_ROWS": (
+        int,
+        0,
+        10000,
+        "Minimum empty-pixel rows before bg completion runs (0=always, default 20)",
+    ),
 }
 
 

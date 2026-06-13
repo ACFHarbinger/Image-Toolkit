@@ -54,7 +54,13 @@ from backend.src.constants import (
     STATIC_EDGE_MIN_DISP_PX,
 )
 from .ecc import _ecc_refine
-from .masking import _compute_fg_masks, _compute_fg_masks_sam2
+from .bg_complete import complete_background
+from .masking import (
+    _cleanup_sam2_state,
+    _compute_fg_masks,
+    _compute_fg_masks_sam2,
+    _compute_fg_masks_sam2_stateful,
+)
 from .matching import (
     _match_pair,
     _pairwise_match,
@@ -205,6 +211,7 @@ _SEAM_STEP_GATE: float = float(os.environ.get("ASP_SEAM_STEP_GATE", "0.0"))
 # Default 0.0 = off.  Recommend 2.0 (2/255 ≈ 0.8% pixel noise tolerance).
 _STATIC_INPUT_MAX_MAD: float = float(os.environ.get("ASP_STATIC_INPUT_MAX_MAD", "0.0"))
 _USE_SAM2: bool = os.environ.get("ASP_USE_SAM2", "0") != "0"
+_BG_COMPLETE: int = int(os.environ.get("ASP_BG_COMPLETE", "0"))
 
 
 def _measure_max_seam_step(
@@ -862,6 +869,19 @@ class AnimeStitchPipeline:
 
         # §1.5D: seam path cache shared across run() invocations on the same frame set
         self._seam_path_cache: Dict = {}
+
+        # Issue 10A3: NL seam routing exclusion masks — set externally before run()
+        # List of per-frame uint8 (H,W) masks where >127 forces seam cost=1e6.
+        self.exclusion_masks: Optional[List[np.ndarray]] = None
+
+        # Issue 10A2 S83: live SAM-2 predictor state preserved across HITL boundary.
+        # Populated by _compute_fg_masks() when _USE_SAM2 is True; freed by
+        # _cleanup_sam2_state() after checkpoint 1.5 mask review completes.
+        self._sam2_predictor = None
+        self._sam2_inference_state = None
+        self._sam2_tmp_dir: Optional[str] = None
+        self._sam2_frame_h: int = 0
+        self._sam2_frame_w: int = 0
 
         # Lazy-loaded model instances (only allocated if the flag is True)
         self._basic: Optional["BaSiCWrapper"] = None
@@ -1878,6 +1898,16 @@ class AnimeStitchPipeline:
         )
         logger.info("[Stitch] Stage 10 complete: temporal render done.")
 
+        # ── Stage 10.2: Background zero-coverage fill (§5A/C) ────────────────
+        # Pixels where valid_mask==0 were never covered by a background sample.
+        # When ASP_BG_COMPLETE=1, fill with nearest-neighbour column propagation.
+        # When ASP_BG_COMPLETE=2, attempt ProPainter inpainting first.
+        if _BG_COMPLETE > 0:
+            canvas = complete_background(
+                canvas, valid_mask, use_propainter=(_BG_COMPLETE >= 2)
+            )
+            logger.info("[Stitch] Stage 10.2: background zero-coverage fill applied.")
+
         # ── Stage 10.5: Multi-frame canvas coverage gate (§0 item 2) ─────────
         # For each canvas row count how many frames contribute content.
         # If < ASP_COV_MIN_MULTI_PCT (default 30%) of content rows have ≥2-frame
@@ -1980,6 +2010,7 @@ class AnimeStitchPipeline:
                 [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks,
                 frame_keys=tuple(image_paths),
                 seam_path_cache=self._seam_path_cache,
+                exclusion_masks=self.exclusion_masks or None,
             )
             logger.info("[Stitch] Stage 11 complete: foreground composited.")
 
@@ -2208,8 +2239,27 @@ class AnimeStitchPipeline:
         if self.use_birefnet and self._birefnet is None:
             self._birefnet = BiRefNetWrapper()
         if _USE_SAM2:
-            return _compute_fg_masks_sam2(frames, self._birefnet, use_birefnet=self.use_birefnet)
+            masks, pred, state, tmp, fh, fw = _compute_fg_masks_sam2_stateful(
+                frames, self._birefnet, use_birefnet=self.use_birefnet
+            )
+            self._sam2_predictor = pred
+            self._sam2_inference_state = state
+            self._sam2_tmp_dir = tmp
+            self._sam2_frame_h = fh
+            self._sam2_frame_w = fw
+            return masks
         return _compute_fg_masks(frames, self._birefnet, use_birefnet=self.use_birefnet)
+
+    def _cleanup_sam2_state(self) -> None:
+        """Free the live SAM-2 predictor state stored by _compute_fg_masks."""
+        _cleanup_sam2_state(
+            self._sam2_predictor, self._sam2_inference_state, self._sam2_tmp_dir
+        )
+        self._sam2_predictor = None
+        self._sam2_inference_state = None
+        self._sam2_tmp_dir = None
+        self._sam2_frame_h = 0
+        self._sam2_frame_w = 0
 
     def _pairwise_match(
         self,
@@ -2363,11 +2413,17 @@ class AnimeStitchPipeline:
         bg_masks: List[Optional[np.ndarray]],
         frame_keys: Optional[Tuple[str, ...]] = None,
         seam_path_cache: Optional[Dict] = None,
+        exclusion_masks: Optional[List[np.ndarray]] = None,
+        preset_boundaries: Optional[np.ndarray] = None,
+        paint_mask: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         return _composite_foreground(
             warped_corr, warped_fgs, canvas, H, W, frames, affines, bg_masks,
             frame_keys=frame_keys,
             seam_path_cache=seam_path_cache,
+            exclusion_masks=exclusion_masks,
+            preset_boundaries=preset_boundaries,
+            paint_mask=paint_mask,
         )
 
     def _crop_to_valid(self, canvas: np.ndarray, valid_mask: np.ndarray) -> np.ndarray:

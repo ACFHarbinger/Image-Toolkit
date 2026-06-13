@@ -1880,3 +1880,257 @@ class TestSeamFgPenetration:
         path = np.array([5, 6, 7], dtype=np.int32)
         result = _seam_fg_penetration(path, fa[:, :3], fb[:, :3])
         assert isinstance(result, float)
+
+
+# ── TestExclusionMasks — Issue 10A3 NL seam routing ──────────────────────────
+
+class TestExclusionMasks:
+    """_build_seam_cost_map: exclusion_masks param forces cost=1e6 in masked regions."""
+
+    def _canvas(self, H=64, W=64, val=128):
+        return np.full((H, W, 3), val, dtype=np.uint8)
+
+    def _bg_mask(self, H=64, W=64):
+        m = np.zeros((H, W), dtype=np.uint8)
+        m[:, W // 4: 3 * W // 4] = 255  # centre-column bg strip
+        return m
+
+    def test_no_exclusion_baseline(self):
+        """Without exclusion_masks, cost stays in [0, 2] range."""
+        H, W = 32, 32
+        cost = _build_seam_cost_map(self._canvas(H, W), self._bg_mask(H, W), None, dilate_px=0)
+        assert cost.max() <= 2.01  # tier-2 column barrier at most 2.0
+
+    def test_exclusion_mask_raises_cost_to_barrier(self):
+        """Pixels under the exclusion mask must have cost = 1e6."""
+        H, W = 32, 32
+        em = np.zeros((H, W), dtype=np.uint8)
+        em[10:20, 8:24] = 255  # rectangle to exclude
+        cost = _build_seam_cost_map(
+            self._canvas(H, W), self._bg_mask(H, W), None,
+            dilate_px=0, exclusion_masks=[em],
+        )
+        assert cost[15, 16] == pytest.approx(1e6)
+
+    def test_non_excluded_pixels_unchanged(self):
+        """Pixels outside the exclusion mask must not be affected."""
+        H, W = 32, 32
+        em = np.zeros((H, W), dtype=np.uint8)
+        em[0:8, 0:8] = 255  # top-left corner only
+        cost = _build_seam_cost_map(
+            self._canvas(H, W), self._bg_mask(H, W), None,
+            dilate_px=0, exclusion_masks=[em],
+        )
+        # Centre of bg strip (W//4..3W//4 = 8..24), well below excluded rows
+        # Background area → cost should be low (0.0–1.0), not 1e6
+        assert cost[28, 16] < 1.5
+
+    def test_exclusion_mask_auto_resized(self):
+        """An exclusion mask with wrong shape must be resized before application."""
+        H, W = 32, 32
+        em_large = np.full((64, 64), 255, dtype=np.uint8)  # full exclusion, double size
+        cost = _build_seam_cost_map(
+            self._canvas(H, W), self._bg_mask(H, W), None,
+            dilate_px=0, exclusion_masks=[em_large],
+        )
+        assert cost.max() == pytest.approx(1e6)
+
+    def test_none_in_exclusion_list_skipped(self):
+        """A None entry in the exclusion_masks list must not raise an exception."""
+        H, W = 32, 32
+        cost = _build_seam_cost_map(
+            self._canvas(H, W), self._bg_mask(H, W), None,
+            dilate_px=0, exclusion_masks=[None, None],
+        )
+        assert cost.max() <= 2.01  # same as no-exclusion baseline
+
+    def test_multiple_exclusion_masks_combine(self):
+        """Multiple exclusion masks are cumulative — all covered pixels blocked."""
+        H, W = 32, 32
+        em1 = np.zeros((H, W), dtype=np.uint8)
+        em1[4:8, 4:28] = 255
+        em2 = np.zeros((H, W), dtype=np.uint8)
+        em2[24:28, 4:28] = 255
+        cost = _build_seam_cost_map(
+            self._canvas(H, W), self._bg_mask(H, W), None,
+            dilate_px=0, exclusion_masks=[em1, em2],
+        )
+        assert cost[6, 16] == pytest.approx(1e6)
+        assert cost[26, 16] == pytest.approx(1e6)
+
+
+# ── TestComputeInitialBoundaries ───────────────────────────────────────────────
+
+class TestComputeInitialBoundaries:
+    """Tests for _compute_initial_boundaries (S85 — HITL boundary editor helper)."""
+
+    def _affine(self, ty: float) -> np.ndarray:
+        a = np.eye(2, 3, dtype=np.float64)
+        a[1, 2] = ty
+        return a
+
+    def _frame(self, h: int = 40, w: int = 30) -> np.ndarray:
+        return np.zeros((h, w, 3), dtype=np.uint8)
+
+    def test_two_frames_single_boundary_at_midpoint(self):
+        """Two frames: single boundary at midpoint between strip centres."""
+        from backend.src.anim.compositing import _compute_initial_boundaries
+        frames = [self._frame(40), self._frame(40)]
+        affines = [self._affine(0.0), self._affine(40.0)]
+        bnd = _compute_initial_boundaries(affines, frames)
+        assert len(bnd) == 1
+        # Strip centres: 20.0 and 60.0 → midpoint = 40.0
+        assert abs(bnd[0] - 40.0) < 1e-6
+
+    def test_n_minus_one_boundaries(self):
+        """N frames produce exactly N-1 boundaries."""
+        from backend.src.anim.compositing import _compute_initial_boundaries
+        N = 5
+        frames = [self._frame() for _ in range(N)]
+        affines = [self._affine(i * 40.0) for i in range(N)]
+        bnd = _compute_initial_boundaries(affines, frames)
+        assert len(bnd) == N - 1
+
+    def test_boundaries_monotonically_increasing(self):
+        """Boundaries should be monotonically increasing for top-to-bottom scroll."""
+        from backend.src.anim.compositing import _compute_initial_boundaries
+        frames = [self._frame() for _ in range(4)]
+        affines = [self._affine(i * 50.0) for i in range(4)]
+        bnd = _compute_initial_boundaries(affines, frames)
+        for i in range(len(bnd) - 1):
+            assert bnd[i] < bnd[i + 1]
+
+    def test_preset_boundaries_accepted_by_composite_foreground(self):
+        """_composite_foreground respects preset_boundaries of correct length."""
+        from backend.src.anim.compositing import (
+            _composite_foreground,
+            _compute_initial_boundaries,
+        )
+        H, W = 40, 30
+        frames = [np.zeros((H, W, 3), dtype=np.uint8) for _ in range(2)]
+        frames[0][:, :] = 50   # gray
+        frames[1][:, :] = 100  # brighter gray
+        affines = [self._affine(0.0), self._affine(float(H))]
+        canvas_h, canvas_w = H * 2, W
+        canvas = np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8)
+        bg_masks = [None, None]
+        bnd = _compute_initial_boundaries(affines, frames)
+        # Should run without exception
+        result = _composite_foreground(
+            [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks,
+            preset_boundaries=bnd,
+        )
+        assert result.shape == (canvas_h, canvas_w, 3)
+
+    def test_wrong_length_preset_boundaries_ignored(self):
+        """preset_boundaries with wrong length falls back to midpoint computation."""
+        from backend.src.anim.compositing import _composite_foreground
+        H, W = 40, 30
+        frames = [np.zeros((H, W, 3), dtype=np.uint8) for _ in range(2)]
+        affines = [self._affine(0.0), self._affine(float(H))]
+        canvas_h, canvas_w = H * 2, W
+        canvas = np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8)
+        bg_masks = [None, None]
+        # Pass wrong-length preset_boundaries — should not crash
+        result = _composite_foreground(
+            [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks,
+            preset_boundaries=np.array([10.0, 20.0, 30.0]),  # 3 boundaries for 2 frames
+        )
+        assert result.shape == (canvas_h, canvas_w, 3)
+
+
+# ── TestPaintMask ──────────────────────────────────────────────────────────────
+
+class TestPaintMask:
+    """Tests for paint_mask param in _composite_foreground (S86 — seam painter)."""
+
+    def _frame(self, h: int = 40, w: int = 30, val: int = 80) -> np.ndarray:
+        f = np.zeros((h, w, 3), dtype=np.uint8)
+        f[:] = val
+        return f
+
+    def _affine(self, ty: float) -> np.ndarray:
+        a = np.eye(2, 3, dtype=np.float64)
+        a[1, 2] = ty
+        return a
+
+    def test_paint_mask_none_runs_without_error(self):
+        """Passing paint_mask=None is equivalent to the default (no mask)."""
+        from backend.src.anim.compositing import _composite_foreground
+        H, W = 40, 30
+        frames = [self._frame(H, W), self._frame(H, W, 100)]
+        affines = [self._affine(0.0), self._affine(float(H))]
+        canvas = np.zeros((H * 2, W, 3), dtype=np.uint8)
+        result = _composite_foreground(
+            [], [], canvas, H * 2, W, frames, affines, [None, None],
+            paint_mask=None,
+        )
+        assert result.shape == (H * 2, W, 3)
+
+    def test_paint_mask_correct_shape_accepted(self):
+        """A paint_mask matching (canvas_h, canvas_w) is accepted without error."""
+        from backend.src.anim.compositing import _composite_foreground
+        H, W = 40, 30
+        frames = [self._frame(H, W), self._frame(H, W, 100)]
+        affines = [self._affine(0.0), self._affine(float(H))]
+        canvas_h, canvas_w = H * 2, W
+        canvas = np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8)
+        mask = np.zeros((canvas_h, canvas_w), dtype=np.uint8)
+        mask[35:45, :] = 255  # paint a band around the seam
+        result = _composite_foreground(
+            [], [], canvas, canvas_h, canvas_w, frames, affines, [None, None],
+            paint_mask=mask,
+        )
+        assert result.shape == (canvas_h, canvas_w, 3)
+
+    def test_paint_mask_wrong_shape_ignored(self):
+        """A paint_mask with wrong canvas dimensions is silently ignored."""
+        from backend.src.anim.compositing import _composite_foreground
+        H, W = 40, 30
+        frames = [self._frame(H, W), self._frame(H, W)]
+        affines = [self._affine(0.0), self._affine(float(H))]
+        canvas_h, canvas_w = H * 2, W
+        canvas = np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8)
+        bad_mask = np.ones((10, 10), dtype=np.uint8) * 255  # wrong size
+        result = _composite_foreground(
+            [], [], canvas, canvas_h, canvas_w, frames, affines, [None, None],
+            paint_mask=bad_mask,
+        )
+        assert result.shape == (canvas_h, canvas_w, 3)
+
+    def test_paint_mask_combined_with_exclusion_masks(self):
+        """paint_mask + existing exclusion_masks are both applied (no conflict)."""
+        from backend.src.anim.compositing import _composite_foreground
+        H, W = 40, 30
+        frames = [self._frame(H, W, 60), self._frame(H, W, 120)]
+        affines = [self._affine(0.0), self._affine(float(H))]
+        canvas_h, canvas_w = H * 2, W
+        canvas = np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8)
+        excl = np.zeros((canvas_h, canvas_w), dtype=np.uint8)
+        excl[10:20, 5:25] = 255
+        paint = np.zeros((canvas_h, canvas_w), dtype=np.uint8)
+        paint[35:45, :] = 255
+        result = _composite_foreground(
+            [], [], canvas, canvas_h, canvas_w, frames, affines, [None, None],
+            exclusion_masks=[excl],
+            paint_mask=paint,
+        )
+        assert result.shape == (canvas_h, canvas_w, 3)
+
+    def test_paint_mask_all_black_behaves_like_no_mask(self):
+        """An all-zero paint_mask has no effect on seam routing."""
+        from backend.src.anim.compositing import _composite_foreground
+        H, W = 40, 30
+        frames = [self._frame(H, W), self._frame(H, W)]
+        affines = [self._affine(0.0), self._affine(float(H))]
+        canvas_h, canvas_w = H * 2, W
+        canvas = np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8)
+        zero_mask = np.zeros((canvas_h, canvas_w), dtype=np.uint8)
+        result_no = _composite_foreground(
+            [], [], canvas.copy(), canvas_h, canvas_w, frames, affines, [None, None],
+        )
+        result_zm = _composite_foreground(
+            [], [], canvas.copy(), canvas_h, canvas_w, frames, affines, [None, None],
+            paint_mask=zero_mask,
+        )
+        np.testing.assert_array_equal(result_no, result_zm)

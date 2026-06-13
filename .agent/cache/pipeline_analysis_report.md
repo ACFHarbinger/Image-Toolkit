@@ -1,6 +1,6 @@
 # ASP Pipeline Analysis — Session 2 (2026-06-03)
 
-> **⚠️ ARCHIVED**: This is a fixed benchmark comparison from Sessions 1–2 (2026-06-03). Current pipeline state (Sessions 1–28) is in `.agent/cache/asp_state_of_the_pipeline.md`.
+> **⚠️ ARCHIVED**: This is a fixed benchmark comparison from Sessions 1–2 (2026-06-03). **Current pipeline state (Session 80, 498 tests, 97-test corpus) is in `.agent/cache/asp_state_of_the_pipeline.md` (§1–§5).** Phase 2 architecture (Issue 9 video ingestion + Issue 10 multi-modal HITL) is in `reports/ASP_High_Value_Issues_Report.md`.
 
 **Final benchmark:** `anime_stitch_20260603_202535.json`  
 **Prev session baseline:** `anime_stitch_20260603_182046.json`  

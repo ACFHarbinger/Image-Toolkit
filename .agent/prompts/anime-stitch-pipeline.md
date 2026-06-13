@@ -52,27 +52,89 @@ Read the consolidated research reference before proposing algorithmic changes:
 
 ---
 
-## Current State (2026-06-07, Session 27)
+## Current State (2026-06-13, Session 84)
 
-The pipeline has received 22 sessions of improvements (S6–S27). SCANS fallbacks reduced from 51/96 → 4/96 genuine fallbacks. Key improvements shipped:
+The pipeline has received 87 sessions of improvements (S1–S87). 584 unit tests in `backend/test/anim/` (2 skipped: pyav); S84 added 5 GUI tests in `gui/test/test_stitch_tab.py::TestStitchWorkerVideoPath`. SCANS fallbacks reduced from 51/96 → 4/96 genuine fallbacks. Key improvements shipped across sessions:
 
-- **Hold detection** — consecutive near-identical frames handled by `_detect_hold_blocks`; within-hold pairs skip phase correlation
-- **GNC robust loss** — bundle adjustment uses `loss='cauchy'` to suppress outlier edges
-- **DINOv2 frame selection** — vision features replace pure phase correlation for content diversity
-- **Seam DP vectorization** — 5–10× speedup; parallel pre-computation with `ThreadPoolExecutor`
-- **Multi-frame canvas coverage gate** — Stage 10.5 falls back to SCANS when `pct_multi < 0.30`
-- **Adaptive feather refinement** — post-registration feather widening/narrowing based on seam diff
-- **TELEA border fill** — fallback inpainting for gap pixels at canvas borders
-- **Seam visibility metric** — `_seam_visibility_score` as a no-reference output quality signal
-- **Single-pose soft-edge + seam color matching** — ±6px ramp + band mean shift for single-pose escalations
-- **Per-pixel DSFN ramp + bg-mask-aware blur** — sim_diffused prevents background similarity from bleeding into fg-vs-fg zones
-- **Poisson seam blend (optional)** — `ASP_POISSON_SEAM=1` for near-zero brightness step (CPU: +1–3s/seam)
-- **Continuous adaptive gain clamp** — `clamp_width = 0.26 − 0.12 × (ref_lum/255)`; no binary threshold
-- **TOML config loader** — `load_asp_config()` in `backend.src.anim.config`; env vars always win
+**Frame selection & pre-processing (S6–S43):**
+- Hold detection (`_detect_hold_blocks`, `_detect_hold_blocks_dhash`), DINOv2 frame selection, temporal variance pre-filter, near-dup luma filter, dHash animation hold detection, scene-change edge rejection, response-based hold refinement
 
-**The CV sharpness metric (Laplacian variance) is inverted** — hard seam edges register as high sharpness. Use `seam_gradient < 5` and `seam_coherence` as quality proxies.
+**Bundle adjustment & matching (S6–S45):**
+- GNC-TLS robust loss (Geman-McClure continuation), adaptive GNC f_scale, spanning-tree inlier filter, adaptive min-step threshold, static edge rejection, scale normalization, high-confidence edge re-solve (Retry 0), adaptive rotation/scale thresholds, MST weight gate, edge graph connectivity check, per-channel BGR scene-change gate, Kendall-τ monotonicity check
 
-**Visually confirmed good outputs:** asp_test28, asp_test58. Only ~10–15% of the 96 tests produce genuinely better output than the simple stitch.
+**Canvas & alignment (S13–S61):**
+- Multi-frame canvas coverage gate (Stage 10.5), PANORAMA stitcher fallback, TELEA border fill, scroll-axis detection wired, canvas span utilization gate, adaptive min-gap threshold, adaptive boundary search
+
+**Compositing & seam quality (S10–S46):**
+- Seam DP vectorization (§1.5A), parallel seam pre-computation, seam path cache (§1.5D), tiered seam cost, per-pixel DSFN ramp, bg-mask-aware DSFN, Poisson seam blend, seam color match, single-pose soft-edge, per-DSFN ramp, seam color similarity gate (BGR), seam path smoothing, seam path boundary clamp, seam hard corridor barrier, adaptive SP soft-edge width, adaptive SP escalation threshold, fg-density feather cap, tight-step preemptive escalation, post-composite luma equalization, seam-step post-composite gate, zone minimum height guard, seam path instability escalation, seam FG penetration escalation, SemanticStitch column barrier, GNC-TLS compositing, multi-scale spatially-varying gain, gain-adaptive feather minimum
+
+**Photometric normalization (S18–S49):**
+- Continuous adaptive gain clamp (§1.4B), per-pair coherence gate, bg-gain unclamped override, histogram CDF matching, per-frame exposure outlier rejection, bg-only normalization coverage floor, background zero-coverage fill (`bg_complete.py`)
+
+**Masking & segmentation (S79–S83):**
+- SAM-2 wired via `_USE_SAM2` flag (S79 + S80), Grounded SAM-2 (Issue 10A1), BiRefNet two-channel selector, foreground-masked DINOv2, Otsu bg mask for phase correlation (`_otsu_bg_mask_pair`, S80)
+- S83 — `_compute_fg_masks_sam2_stateful()` + `_cleanup_sam2_state()` in `masking.py` — live SAM-2 predictor+state kept alive across HITL boundary (uses `mkdtemp`, no `reset_state`/`del`); `AnimeStitchPipeline` stores `_sam2_predictor/_sam2_inference_state/_sam2_tmp_dir/_sam2_frame_h/_sam2_frame_w`; `_cleanup_sam2_state()` method frees GPU+disk after checkpoint 1.5 dialog closes; HITL checkpoint 1.5 data dict now includes live state keys so `_refine_cb` in `stitch_tab.py` calls `_refine_masks_with_clicks` with the real predictor
+
+**Config & infra (S27–S44):**
+- TOML config loader (`asp_config.toml`, auto-loaded), config schema validation (14 `ASP_*` keys), config → env injection with `setdefault`, `_reload_scans_frames` (on-demand SCANS reload)
+
+**HITL (S79–S84):**
+- `QWaitCondition`/`QMutex` staged execution; 4 HITL signals + pause points; `SelectionReviewDialog`, `EdgeReviewDialog`, `CanvasInspectorDialog`, `CoverageHeatmapDialog`; all 4 in `gui/src/dialogs/`
+- S81 — HITL checkpoint 1.5 (mask review): `sig_review_masks` + `set_mask_override()` in `stitch_worker.py`; `MaskReviewDialog` in `gui/src/dialogs/mask_review_dialog.py` with `_ClickOverlay` (left=pos/right=neg SAM-2 prompts) + `_RefinementWorker(QThread)`
+- S81 — `backend/src/anim/grounding.py` (new): lazy GroundingDINO wrapper (`_detect_objects`, `_detect_best_box`, `_detect_exclusion_mask`); graceful ImportError fallback; `GROUNDING_DINO_CKPT`/`CFG` env vars
+- S81 — `masking.py`: `_compute_fg_masks_grounded_sam2()` (text prompt → DINO bbox → SAM-2 propagation) + `_refine_masks_with_clicks()` (pos/neg click re-propagation)
+- S81 — `backend/src/anim/data_serialization.py` (new): `COCOAnnotationBuilder` (fg segmentation, seam-exclusion, frame-selection annotations; RLE via pycocotools, polygon fallback; atomic write) + `LabelStudioExporter` (model predictions + human annotations for RLHF preference learning) + `create_session_serializers()` factory
+- S81 — `_build_seam_cost_map()` / `_composite_foreground()` gain `exclusion_masks` param — NL seam routing: cost=1e6 hard barrier where mask>127, forcing DP seam away from named objects
+- S82 — `exclusion_masks` threaded end-to-end: `AnimeStitchPipeline.exclusion_masks` instance attr → Stage 11 → `_composite_foreground`; `StitchWorker.set_exclusion_masks()` + HITL checkpoint 1.5 wiring; `MaskReviewDialog` seam-exclusion section (GroundingDINO detect button + `sig_exclusion_masks_accepted` signal); COCO+LS auto-save at checkpoint 1.5 (→ `~/.image-toolkit/hitl_annotations/`)
+- S82 — `backend/src/anim/video_ingestion.py` (new, Issue 9): `VideoIngestionStream` + `ingest_video()` — PyAV proxy-first decode at ¼ res, telecine-drop dedup, uniform/keyframe/smart selection, full-res seek-based per-frame decode; `ASP_VIDEO_PROXY_SCALE/MAX_FRAMES/TELECINE_MAD/KEYFRAMES_ONLY` env vars; graceful `pip install av` fallback
+- S83 — Live SAM-2 state preservation across HITL checkpoint boundary: `_compute_fg_masks_sam2_stateful()` stateful variant returns `(masks, predictor, state, tmp_dir, H, W)`; `AnimeStitchPipeline._compute_fg_masks()` stores tuple on `self`; checkpoint 1.5 data dict passes live state; `_refine_cb` in `stitch_tab.py` now calls `_refine_masks_with_clicks(predictor, state, ...)` for real; `_cleanup_sam2_state()` frees GPU/disk after dialog closes; 10 new tests in `test_masking.py`
+- S84 — Video ingestion HITL + "From Video" GUI mode: `sig_review_video = Signal(object)` (checkpoint 0); `_hitl_video_pause()` blocks on `_hitl_mutex`; `StitchWorker.run()` ingests video via `ingest_video()` into `mkdtemp` before pipeline, emits `sig_review_video` in HITL mode, applies `frame_override`; `SelectionReviewDialog` configurable `title` param; `stitch_tab.py` "From Video Source" checkbox + `_video_input_widget` + `_on_hitl_review_video()`; 5 new GUI tests in `TestStitchWorkerVideoPath`
+- S85 — HITL Checkpoint 3.5 seam boundary editor: `_compute_initial_boundaries(affines, frames) → np.ndarray` extracted to `compositing.py` (`__all__`); `_composite_foreground()` + `AnimeStitchPipeline._composite_foreground()` gain `preset_boundaries: Optional[np.ndarray] = None`; `StitchWorker` `sig_review_boundaries` + `set_boundary_override()` + checkpoint 3.5 block between Stage 10/11; `boundary_editor_dialog.py` (new) — `_DraggableLine(QGraphicsLineItem)` + `BoundaryEditorDialog` with draggable N-1 seam lines + "Reset to Auto" + `adjusted_boundaries()`; `stitch_tab._on_hitl_review_boundaries()`; 5 new tests `TestComputeInitialBoundaries`
+- S86 — HITL Checkpoint 4.5 post-composite seam painter: `paint_mask: Optional[np.ndarray]` param in `_composite_foreground()` appended to `_eff_exclusion` list (canvas-space uint8, zone-sliced identically to `exclusion_masks`); `AnimeStitchPipeline._composite_foreground()` wrapper updated; `StitchWorker` `sig_review_composite` + `set_paint_mask()` + re-composite while-loop at checkpoint 4.5 (breaks on accept, re-runs with new mask on `SeamPainterDialog.RECOMPOSITE=2`); `seam_painter_dialog.py` (new) — `_PaintCanvas(QLabel)` with alpha-overlay left-drag paint / right-drag erase, `paint_mask_preview()` → uint8 alpha channel, `full_resolution_mask()` upscales via `INTER_NEAREST`; `stitch_tab._on_hitl_review_composite()`; 5 new tests `TestPaintMask`; total backend/test/anim/ suite: 577 tests (2 skipped)
+- S87 — HITL Checkpoint 5 final output RLHF feedback: `StitchWorker` `sig_review_output = Signal(object)` + `set_output_feedback(overall_rating, annotations)` + `"output"` in signal map + checkpoint 5 block after Stage 13 (lazy-imports `FeedbackStore`/`StitchAnnotation`, calls `add_from_image()`, logs result); `final_output_review_dialog.py` (new) — `_AddFlawDialog` (flaw_type QComboBox from `RLHF_FLAW_TYPES` + severity QDoubleSpinBox) + `FinalOutputReviewDialog` (canvas preview + overall-quality slider 0–10 in 0.5 steps + flaw annotation QListWidget + Save/Skip); `stitch_tab._on_hitl_review_output()` wired; 7 new tests in `test_rlhf_feedback.py` (FeedbackStore add/iter/count/roundtrip/from_image/empty/malformed) → **584 tests passing**
+
+**Benchmark infra:**
+- `_compute_rlhf_score`, `_ghosting_score_v2` (autocorrelation double-edge), `seam_bhattacharyya_distances`, per-seam SIQE ghost scores, `_compute_aligned_ssim` (MOTION_EUCLIDEAN)
+
+**Current test corpus: 97 tests (asp_test01–asp_test97)**
+- asp_test97 added 2026-06-13 ("Akane wa Tsumare Somerareru - 02", 90 frames, horizontal-ish scroll, 16 frames selected)
+- asp_test07 replaced 2026-06-13 (new "Akane wa Tsumare Somerareru - 01" dataset, 182 frames, 28 frames selected)
+- Ground truth available for 55/97 tests
+
+**Benchmark results (2026-06-13, test07 + test97 only):**
+- test07: SC=23.6 (ASP) vs 43.2 (simple); verdict=comparable; sharpness 111.75 vs 38.81; ghosting_siqe 22.98 vs 91.65; 28 frames, 1593×3841 output
+- test97: SC=10.6 (ASP) vs 14.3 (simple); verdict=simple_better (coverage 86% vs 98%); ghosting_siqe 33.2 vs 61.79; 16 frames, 2505×1859 output
+
+**The CV sharpness metric (Laplacian variance) is inverted** — hard seam edges inflate sharpness. Use `seam_coherence` as primary quality proxy (≤18 good, 18–28 moderate, >28 severe). `ghosting_siqe` (§3.8A autocorrelation) is more reliable than `ghosting_score` for detecting double-edges.
+
+**Visually confirmed good outputs:** asp_test28, asp_test58.
+
+---
+
+## Phase 2 Architecture (Issue 9 & 10 — Next Generation)
+
+Issue 10 (Multi-modal HITL) is **implemented in S81–S87**. Issue 9 (Video ingestion) is implemented in S82 + S84.
+
+| Module | Location | Status |
+|--------|----------|--------|
+| `VideoIngestionStream` | `backend/src/anim/video_ingestion.py` | ✅ **S82** — proxy-first decode, telecine dedup, smart/uniform/keyframe selection |
+| `grounding.py` functions | `backend/src/anim/grounding.py` | ✅ **S81** — GroundingDINO wrapper + exclusion mask |
+| `_compute_fg_masks_grounded_sam2` | `backend/src/anim/masking.py` | ✅ **S81** — text → DINO bbox → SAM-2 propagation |
+| `_refine_masks_with_clicks` | `backend/src/anim/masking.py` | ✅ **S81** — pos/neg click SAM-2 re-propagation |
+| `_compute_fg_masks_sam2_stateful` | `backend/src/anim/masking.py` | ✅ **S83** — live predictor+state preserved across HITL |
+| `_cleanup_sam2_state` | `backend/src/anim/masking.py` | ✅ **S83** — GPU/disk cleanup after HITL dialog closes |
+| `COCOAnnotationBuilder` | `backend/src/anim/data_serialization.py` | ✅ **S81** — COCO JSON + RLE/polygon encoding |
+| `LabelStudioExporter` | `backend/src/anim/data_serialization.py` | ✅ **S81** — Label Studio tasks with RLHF delta |
+| `MaskReviewDialog` | `gui/src/dialogs/mask_review_dialog.py` | ✅ **S81** — click overlay + refinement worker |
+| `exclusion_masks` in compositing | `compositing.py` | ✅ **S81** — NL seam routing hard barrier |
+| HITL checkpoint 0 (video review) | `gui/src/helpers/models/stitch_worker.py` | ✅ **S84** — `sig_review_video` + `_hitl_video_pause()` + "From Video" GUI |
+| HITL checkpoint 3.5 (boundary editor) | `gui/src/dialogs/boundary_editor_dialog.py` | ✅ **S85** — draggable seam lines; `_compute_initial_boundaries` + `preset_boundaries` param |
+| HITL checkpoint 4.5 (seam painter) | `gui/src/dialogs/seam_painter_dialog.py` | ✅ **S86** — paint/erase seam exclusion; `paint_mask` + `_eff_exclusion`; re-composite while-loop |
+| HITL checkpoint 5 (RLHF feedback) | `gui/src/dialogs/final_output_review_dialog.py` | ✅ **S87** — quality slider + flaw annotations; `FeedbackStore.add_from_image()` after save |
+
+**S81 Known limitation resolved (S83):** Live SAM-2 state is preserved across the HITL checkpoint boundary via `_compute_fg_masks_sam2_stateful()`. The predictor is passed through the checkpoint 1.5 data dict and `_refine_cb` in `stitch_tab.py` now calls `_refine_masks_with_clicks` with the live predictor when SAM-2 is active (`ASP_USE_SAM2=1`).
+
+See `reports/ASP_High_Value_Issues_Report.md` Issues 9 & 10 and `reports/Upgrading Anime Stitch Pipeline.md` for the full spec.
 
 ---
 
@@ -106,16 +168,18 @@ Most ASP-succeeded tests now pass validation. Remaining seam quality issues:
 
 ---
 
-## Test Corpus (96 datasets, asp_test01–asp_test96)
+## Test Corpus (97 datasets, asp_test01–asp_test97)
 
 Datasets are in `data/asp_testXX/` (zero-padded). Frames are consecutive video frames (~42ms intervals) smart-selected by phase-correlation to ~18 frames/dataset (50px step target).
 
-**Numbering note:** Two new tests were added after the initial 94-test benchmark run:
-- `asp_test25` — new sequence (*Akane wa Tsumare Somerareru - 02*, ~223 frames)
-- Old `asp_test25` → `asp_test26`, …, old `asp_test94` → `asp_test95` (each +1)
-- `asp_test96` — new sequence (*Ajisai no Chiru Koro ni - 01*, ~139 frames)
+**Numbering history:**
+- Original 94-test benchmark corpus
+- `asp_test25` added (*Akane wa Tsumare Somerareru - 02*, ~223 frames); old test25–94 shifted +1
+- `asp_test96` added (*Ajisai no Chiru Koro ni - 01*, ~139 frames)
+- `asp_test07` replaced 2026-06-13 with new "Akane wa Tsumare Somerareru - 01" dataset (182 frames)
+- `asp_test97` added 2026-06-13 (*Akane wa Tsumare Somerareru - 02*, 90 frames, 16 selected)
 
-**Ground truth images:** 55 of 96 tests have a reference panorama in `data/ground_truth/asp_testXX.{png,jpg,jpeg}`. These are used by the benchmark for SSIM/PSNR comparison vs. GT — the most reliable quality signal available.
+**Ground truth images:** 55 of 97 tests have a reference panorama in `data/ground_truth/asp_testXX.{png,jpg,jpeg}`. These are used by the benchmark for SSIM/PSNR comparison vs. GT — the most reliable quality signal available.
 
 Tests WITH ground truth: 1, 2, 4, 5, 6, 8, 9, 11, 12, 14, 15, 16, 17, 20, 25, 26, 27, 31, 32, 33, 34, 37, 42, 43, 44, 45, 46, 49, 50, 52, 54, 57, 58, 59, 65, 70, 72, 74, 76, 77, 78, 79, 80, 82, 83, 84, 85, 86, 88, 89, 90, 91, 92, 95, 96
 
@@ -133,6 +197,7 @@ Tests WITH ground truth: 1, 2, 4, 5, 6, 8, 9, 11, 12, 14, 15, 16, 17, 20, 25, 26
 | `asp_test13` | 14 | 4.89 | Y | SCANS | ratio=10.6 outlier bundle |
 | `asp_test17` | 19 | 5.68 | N | Moderate | Subtle banding, mostly coherent |
 | `asp_test18` | 19 | 1.56 | N | Likely ok | Composite bypassed (horizontal scroll detect) |
+| `asp_test07` | 28 sel | SC=23.6 | N | Comparable | New dataset 2026-06-13 (182 raw frames); *Akane wa Tsumare Somerareru - 01* |
 | `asp_test25` | NEW | — | — | New test | *Akane wa Tsumare Somerareru - 02* sequence; GT available |
 | `asp_test26` | 11 | 10.35 | N | **Catastrophic** | Was old test25; extreme color break; GT available |
 | `asp_test28` | 21 | 9.89 | N | ✅ **Good** | Was old test27; proper vertical panorama; GT available |
@@ -150,6 +215,7 @@ Tests WITH ground truth: 1, 2, 4, 5, 6, 8, 9, 11, 12, 14, 15, 16, 17, 20, 25, 26
 | `asp_test89` | 22 | 4.52 | Y | SCANS | Was old test88; ratio=4.0 bundle failure; GT available |
 | `asp_test91` | 17 | 1.78 | Y | SCANS (clean) | Was old test90; very low seam — SCANS is clean; GT available |
 | `asp_test96` | NEW | — | — | New test | *Ajisai no Chiru Koro ni - 01* sequence; GT available |
+| `asp_test97` | 16 sel | SC=10.6 | N | simple_better (coverage) | New 2026-06-13; *Akane wa Tsumare Somerareru - 02* (90 raw frames); horizontal scroll; 2505×1859 output |
 
 **Seam∇ (seam_gradient)** is the best available diagnostic metric: `< 5` = likely clean or SCANS fallback; `5–8` = moderate seam; `> 8` = likely poor or catastrophic.
 
@@ -237,7 +303,7 @@ python3 archive/run_pipeline_v2.py
 
 ```bash
 source .venv/bin/activate
-pytest backend/test/anim/ -q          # 262 tests (~7s, no GPU)
+pytest backend/test/anim/ -q          # 567 tests (~30s, no GPU) — 2 skipped (pyav)
 pytest backend/test/anim/ -k "canvas" # run a specific module
 ```
 

@@ -81,6 +81,13 @@ except ValueError:
 _TWO_CHANNEL_SELECT = os.environ.get("ASP_TWO_CHANNEL_SELECT", "0") != "0"
 _PERIPH_BORDER_FRAC = 0.24
 
+# §1A: Per-pair Otsu background mask for phase correlation.
+# Faster and more accurate than the 5-probe BiRefNet intersection (_TWO_CHANNEL_SELECT)
+# because each pair gets its own mask rather than sharing a static 5-probe estimate.
+# Falls back to plain phaseCorrelate when the combined bg coverage < 10%.
+# Default OFF — enable with ASP_OTSU_BG_CORR=1 or in asp_config.toml.
+_OTSU_BG_CORR: bool = os.environ.get("ASP_OTSU_BG_CORR", "0") != "0"
+
 # Animation hold detection — FD-Means preprocessing (§1.11 / §3.4).
 # Default 0.025 corresponds to 2.5% mean absolute difference between
 # consecutive thumbnails.  Within-hold frames typically score 0.003–0.010;
@@ -476,6 +483,40 @@ def _load_thumbs_parallel(
     """Load thumbnails in parallel (I/O-bound; GIL released in cv2.imread)."""
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as ex:
         return list(ex.map(_load_thumb_gray, frames_paths))
+
+
+def _otsu_bg_mask_pair(
+    a: np.ndarray, b: np.ndarray, min_bg_frac: float = 0.10
+) -> Optional[np.ndarray]:
+    """§1A: per-pair Otsu background mask for bg-only phase correlation.
+
+    Computes an Otsu threshold on each float32 grayscale thumbnail ([0,1]),
+    treats pixels brighter than the threshold as background, then erodes
+    both masks slightly to remove foreground-edge contamination.  Returns
+    the pixel-wise minimum (intersection) so only pixels classified as
+    background in BOTH frames are used for phase correlation.
+
+    Returns None when the combined background coverage is below
+    ``min_bg_frac`` (character fills most of the frame — no reliable signal).
+
+    Parameters
+    ----------
+    a, b : (H, W) float32 thumbnails in [0, 1].
+    min_bg_frac : minimum fraction of background pixels required to proceed.
+    """
+    erode_k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    masks = []
+    for thumb in (a, b):
+        u8 = (thumb * 255.0).clip(0, 255).astype(np.uint8)
+        thr, _ = cv2.threshold(u8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        # pixels > Otsu threshold are "light" — typically background in anime
+        bg_u8 = ((u8 > thr).astype(np.uint8) * 255)
+        bg_u8 = cv2.erode(bg_u8, erode_k)
+        masks.append(bg_u8.astype(np.float32) / 255.0)
+    combined = np.minimum(masks[0], masks[1])
+    if float(combined.mean()) < min_bg_frac:
+        return None
+    return combined
 
 
 # ---------------------------------------------------------------------------
@@ -879,6 +920,18 @@ def smart_select_frames(
             (dx_t, dy_t), response = cv2.phaseCorrelate(a * _m, b * _m)
             _fg = 1.0 - _m
             frame_mads.append(float(np.sum(np.abs(b - a) * _fg) / max(_fg.sum(), 1.0)))
+        elif _OTSU_BG_CORR:
+            # §1A: per-pair Otsu bg mask — faster than BiRefNet, per-frame accurate.
+            _m = _otsu_bg_mask_pair(a, b)
+            if _m is not None and _m.shape == a.shape:
+                (dx_t, dy_t), response = cv2.phaseCorrelate(a * _m, b * _m)
+                _fg = 1.0 - _m
+                frame_mads.append(
+                    float(np.sum(np.abs(b - a) * _fg) / max(_fg.sum(), 1.0))
+                )
+            else:
+                (dx_t, dy_t), response = cv2.phaseCorrelate(a, b)
+                frame_mads.append(float(np.mean(np.abs(b - a))))
         else:
             (dx_t, dy_t), response = cv2.phaseCorrelate(a, b)
             frame_mads.append(float(np.mean(np.abs(b - a))))
@@ -1076,4 +1129,5 @@ __all__ = [
     "_compute_dinov2_features",
     "_fg_center_diff",
     "_load_thumbs_parallel",
+    "_otsu_bg_mask_pair",
 ]
