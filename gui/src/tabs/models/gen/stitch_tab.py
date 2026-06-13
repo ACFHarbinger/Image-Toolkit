@@ -107,6 +107,12 @@ from ....helpers.models.stitch_worker import (
     StitchWorker,
 )
 from ....styles.style import apply_shadow_effect
+from ....dialogs import (
+    CoverageHeatmapDialog,
+    CanvasInspectorDialog,
+    EdgeReviewDialog,
+    SelectionReviewDialog,
+)
 from .hybrid_stitch_panel import HybridStitchPanel as RealHybridStitchPanel
 from ....constants import (
     CONF_HIGH,
@@ -2854,6 +2860,17 @@ class EditTab(QWidget):
             "Useful for diagnosing misalignments, bad crops, or MFSR artefacts."
         )
         output_layout.addWidget(self._cb_save_intermediate)
+
+        self._cb_hitl_mode = QCheckBox("Human-in-the-loop review")
+        self._cb_hitl_mode.setChecked(False)
+        self._cb_hitl_mode.setToolTip(
+            "Pause the pipeline at key checkpoints for manual review:\n"
+            "  Stage 4 — Frame selection: exclude or reorder frames\n"
+            "  Stage 5 — Edge graph: toggle or disable matches\n"
+            "  Stage 8 — Canvas layout: nudge frame positions\n"
+            "  Stage 9 — Render preview: inspect coverage heatmap"
+        )
+        output_layout.addWidget(self._cb_hitl_mode)
         right_layout.addWidget(output_group)
 
         right_layout.addStretch()
@@ -3914,11 +3931,13 @@ class EditTab(QWidget):
             "save_intermediate": self._cb_save_intermediate.isChecked(),
         }
 
+        _hitl = self._cb_hitl_mode.isChecked()
         self._stitch_worker = StitchWorker(
             image_paths=list(self._frame_paths),
             output_path=out,
             pipeline_config=pipeline_config,
             manual_affines=dict(self._manual_affines),
+            hitl_mode=_hitl,
         )
         self._last_stages_dir = self._stitch_worker._intermediate_dir
         self._btn_inspect_edges.setEnabled(False)
@@ -3933,6 +3952,11 @@ class EditTab(QWidget):
         self._stitch_worker.sig_finished.connect(self._stitch_thread.quit)
         self._stitch_worker.sig_error.connect(self._stitch_thread.quit)
         self._stitch_thread.finished.connect(self._on_stitch_thread_done)
+        if _hitl:
+            self._stitch_worker.sig_review_frames.connect(self._on_hitl_review_frames)
+            self._stitch_worker.sig_review_edges.connect(self._on_hitl_review_edges)
+            self._stitch_worker.sig_review_canvas.connect(self._on_hitl_review_canvas)
+            self._stitch_worker.sig_review_render.connect(self._on_hitl_review_render)
         self._stitch_thread.start()
 
     def _cancel_stitch(self):
@@ -3976,6 +4000,82 @@ class EditTab(QWidget):
         self._stitch_thread = None
         self._progress.setValue(0)
         self._stage_label.setText("Ready.")
+
+    # ── HITL checkpoint handlers ─────────────────────────────────────────
+
+    @Slot(object)
+    def _on_hitl_review_frames(self, data: dict):
+        """Stage 4 pause: show frame selection review dialog."""
+        self._stage_label.setText("HITL: Reviewing frame selection…")
+        w = self._stitch_worker
+        if w is None:
+            return
+        dlg = SelectionReviewDialog(
+            paths=data.get("paths", []),
+            thumbnails=data.get("thumbnails", []),
+            frame_diffs=data.get("frame_diffs", []),
+            parent=self,
+        )
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            selected = dlg.selected_paths()
+            if selected:
+                w.set_frame_override(selected)
+        else:
+            w.cancel()
+            return
+        w.resume()
+
+    @Slot(object)
+    def _on_hitl_review_edges(self, data: dict):
+        """Stage 5 pause: show edge graph review dialog."""
+        self._stage_label.setText("HITL: Reviewing edge graph…")
+        w = self._stitch_worker
+        if w is None:
+            return
+        dlg = EdgeReviewDialog(
+            edges=data.get("edges", []),
+            image_paths=data.get("image_paths", []),
+            parent=self,
+        )
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            accepted = dlg.accepted_edges()
+            if accepted:
+                w.set_edge_override(accepted)
+        else:
+            w.cancel()
+            return
+        w.resume()
+
+    @Slot(object)
+    def _on_hitl_review_canvas(self, data: dict):
+        """Stage 8 pause: show canvas layout inspector with nudge."""
+        self._stage_label.setText("HITL: Reviewing canvas layout…")
+        w = self._stitch_worker
+        if w is None:
+            return
+        dlg = CanvasInspectorDialog(canvas_data=data, parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            new_affines = dlg.adjusted_affines()
+            if new_affines:
+                w.set_affine_override(new_affines)
+        else:
+            w.cancel()
+            return
+        w.resume()
+
+    @Slot(object)
+    def _on_hitl_review_render(self, data: dict):
+        """Stage 9 pause: show render preview and coverage heatmap."""
+        self._stage_label.setText("HITL: Reviewing render…")
+        w = self._stitch_worker
+        if w is None:
+            return
+        dlg = CoverageHeatmapDialog(data=data, parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            pass  # proceed without override
+        else:
+            w.set_render_cancel()
+        w.resume()
 
     def _inspect_edges(self):
         edge_json = os.path.join(self._last_stages_dir, "stage05_edges.json")

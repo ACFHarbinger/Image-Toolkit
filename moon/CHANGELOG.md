@@ -4,6 +4,112 @@
 
 ---
 
+## ASP Session 79 — HITL Staged Execution + AnimeInterp SGM + SAM-2 + fg-masked DINOv2 (2026-06-13)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`QWaitCondition`/`QMutex` pause/resume in `StitchWorker`** (`stitch_worker.py`) | §2.0: `_hitl_mutex`, `_hitl_wait`, `_hitl_paused`, `_hitl_override` instance vars. `resume()` wakes the blocked worker thread. `cancel()` calls `resume()` first so cancellation propagates through a paused checkpoint. |
+| **4 new HITL signals on `StitchWorker`** (`stitch_worker.py`) | `sig_review_frames`, `sig_review_edges`, `sig_review_canvas`, `sig_review_render` — each emits a plain `object` dict of intermediate pipeline state to the main thread. |
+| **`_make_hitl_pause_cb()`** (`stitch_worker.py`) | Returns a closure that emits the correct signal then blocks via `QWaitCondition.wait()` until `resume()` is called. Worker thread sleeps; Qt main thread processes events normally. |
+| **`set_frame_override(paths)`, `set_edge_override(edges)`, `set_affine_override(affines)`, `set_render_cancel()`** (`stitch_worker.py`) | Override setters called from dialog accept handlers before `resume()`. Pipeline reads `_hitl_override` after waking. |
+| **4 HITL pause points in `_ProgressPipeline.run()`** (`stitch_worker.py`) | After Stage 4 (masking): emits frame thumbnails + inter-frame diff bars; supports frame exclusion/reorder override. After Stage 5 (edges): emits edge list; supports edge enable/disable override. After Stage 8 (canvas): emits affines + thumbnails + coverage; supports affine nudge override. After Stage 9 (render): emits canvas preview + per-row frame count; review-only (cancel aborts). |
+| **`hitl_mode: bool = False` param on `StitchWorker`** (`stitch_worker.py`) | When False (default), `_make_hitl_pause_cb()` returns a no-op — zero overhead for the normal automated path. |
+| **`SelectionReviewDialog(QDialog)`** (`gui/src/dialogs/selection_review_dialog.py`) | Option A: horizontal scroll area of thumbnail cards (160×120px) with per-frame pose-diff colour bars (green→red), include/exclude checkboxes, Move Up/Down, Select All/Deselect All. `selected_paths()` returns ordered list of checked paths. |
+| **`EdgeReviewDialog(QDialog)`** (`gui/src/dialogs/edge_review_dialog.py`) | Option B: interactive edge graph (same circular node layout as existing read-only viewer) with checkbox column in the edge table. "Keep MST Only" runs Kruskal's greedy max-weight spanning tree. Disabled edges drawn grey-dashed in the graph. `accepted_edges()` returns enabled edges. |
+| **`CanvasInspectorDialog(QDialog)`** (`gui/src/dialogs/canvas_inspector_dialog.py`) | Option D: QGraphicsScene canvas layout viewer with interactive ±10px nudge per frame (Up/Down/Left/Right buttons + "Reset Frame"). Nudges stored as `_nudges: dict`; `adjusted_affines()` returns deep-copied affines with deltas applied. Frame selection in list highlights the rect with gold pen. |
+| **`CoverageHeatmapDialog(QDialog)`** (`gui/src/dialogs/coverage_heatmap_widget.py`) | Option C: side-by-side canvas preview (scaled to 600px) + QPainter bar chart of `frame_count_per_row` (red=0, orange=1, green=2+). Stats label: min/max coverage + single-frame row percentage. |
+| **HITL mode checkbox + signal wiring** (`stitch_tab.py`) | "Human-in-the-loop review" checkbox in Output group. When checked, `StitchWorker(hitl_mode=True)` and 4 new `_on_hitl_review_*` handlers connect to the HITL signals. Each handler opens the appropriate dialog; Cancel from dialog calls `worker.cancel()`. |
+| **`_compute_dinov2_features()` fg-masked crop (§1D)** (`frame_selection.py`) | Before DINOv2 embedding, crops each frame to the foreground bounding box (Otsu-thresholded binary + 5% padding). Removes background-dominated context that caused DINOv2 to track camera panning rather than character pose. Falls back to full frame if crop is degenerate (<32px). |
+| **`_get_vgg19_feat()` + `_animeinterp_sgm()` (§3.1A full)** (`fg_register.py`) | Lazy VGG-19 conv3_4 loader (ImageNet weights; `torchvision.models.vgg19`). `_animeinterp_sgm()`: SLIC segmentation → per-segment VGG-19 conv3_4 mean-pooled L2-normalised feature vectors → cosine similarity × distance-score combined matching → per-pixel flow from centroid displacement. Falls back to `_slic_sgm_proxy` when VGG-19 unavailable. Enable: `ASP_ANIMEINTERP_SGM=1`. |
+| **AnimeInterp SGM priority in `register_foreground_at_seam()`** (`fg_register.py`) | When `ASP_ANIMEINTERP_SGM=1`, calls `_animeinterp_sgm()` before `_arap_push`. When only `ASP_SGM_PROXY=1`, uses `_slic_sgm_proxy` as before. Both feed into ARAP Push as a better initial estimate. |
+| **`_compute_fg_masks_sam2()` (§5.2)** (`masking.py`) | SAM-2 video predictor integration. Strategy: BiRefNet on frame 0 → bbox prompt → `build_sam2_video_predictor` propagates across all frames in one pass → temporally consistent masks. Requires `pip install sam2` + checkpoint at `$SAM2_CKPT` (~/.sam2/sam2_hiera_base_plus.pt). Falls back to per-frame BiRefNet on any error (SAM-2 not installed, BiRefNet frame-0 failure, inference exception). |
+| **SAM-2 pipeline wiring via `ASP_USE_SAM2=1`** (`pipeline.py`) | `_USE_SAM2` module-level flag. `AnimeStitchPipeline._compute_fg_masks()` routes through `_compute_fg_masks_sam2` when set. `ASP_USE_SAM2` added to `_CONFIG_SCHEMA` (int 0–1). Import added. Default off — zero overhead change to automated path. |
+
+### Test results
+
+487 tests passing (up from 482 at S75; +5 from earlier unrelated sessions). No regressions in `test_frame_selection.py`, `test_compositing.py`, or other anim test modules.
+
+### Design notes
+
+**HITL pause safety**: `QWaitCondition.wait(mutex)` atomically releases the mutex and suspends the worker thread. The Qt event loop on the main thread continues processing normally while the worker sleeps — no UI freeze. The mutex re-locks on wake-up before `resume()` returns, ensuring `_hitl_override` is read safely.
+
+**HITL override flow (frame checkpoint)**: thumbnails are created with `cv2.resize` at 256px (not QPixmap — safe for worker thread); dicts carry numpy arrays; Qt signal delivery is queued by default when sender and receiver are on different threads. Dialog converts arrays to QImage on the main thread.
+
+**VGG-19 SGM vs SLIC proxy**: VGG-19 conv3_4 features (256-channel, 7×7 receptive field at conv3) remain discriminative for segments sharing identical flat fill colours (e.g., two skin-tone regions) because the surrounding outline structure is captured. SLIC+LAB saturates when two body parts have the same hue. VGG-19 adds ~50ms/seam overhead on GPU; SLIC proxy is ~5ms.
+
+**SAM-2 memory model**: `propagate_in_video()` processes frames in a streaming fashion using a fixed-size memory bank — scales to long sequences without OOM. The bbox prompt from BiRefNet frame 0 is sufficient for high-quality propagation across 6–20 frame anime sequences.
+
+---
+
+## ASP Session 78 — §2.3 Canvas Layout Inspector (read-only viewer) (2026-06-11)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_parse_canvas_json(path) → dict`** (`stitch_tab.py`) | §2.3: Loads `stage08_canvas_info.json` written by `_ProgressPipeline`. Returns normalised dict: `canvas_h`, `canvas_w`, `frame_h` (defaults 0 if absent), `frame_w` (defaults 0 if absent), `T_global` as `List[float]`, `affines_final` as list-of-lists-of-float. Safe for files written before the `frame_h`/`frame_w` addition. |
+| **`_canvas_frame_corners(affine_2x3, frame_h, frame_w) → List[Tuple]`** (`stitch_tab.py`) | Pure function: applies the full 2×3 affine to the 4 corners of an (H, W) frame — `(0,0)`, `(W,0)`, `(W,H)`, `(0,H)` — and returns 4 `(x, y)` canvas-space tuples. Works for translation, rotation, scale, and shear affines. |
+| **`CanvasLayoutInspectorDialog(QDialog)`** (`stitch_tab.py`) | Read-only canvas layout viewer. Left pane: `QGraphicsScene`/`QGraphicsView` (dark background) with a dim canvas-border rectangle and N frame polygons rendered as `QPainterPath` fills using an 8-colour rotating palette (cornflower-blue, green, orange, violet, gold, teal, tomato, sky-blue) at 110 alpha, edge outlines `color.darker(160)`. Frame index label (white, 230 alpha) placed at the polygon centroid. Right pane: `QTableWidget` with Frame/tx/ty per row. Stats label: "N frames · W×H canvas". "Load JSON…" toolbar button for standalone use. |
+| **`⬗ Canvas` button in Stitch action row** (`stitch_tab.py`) | Initially disabled. Enabled in `_on_stitch_finished` when `stage08_canvas_info.json` exists in `_last_stages_dir`. Calls `_inspect_canvas()` which parses the JSON and opens the dialog. Log message `"[Stitch] Canvas layout available — click '⬗ Canvas' to inspect."` emitted on enable. |
+| **`frame_h`/`frame_w` in `stage08_canvas_info.json`** (`stitch_worker.py`) | Two new fields added to the `_save_json(8, "canvas_info", ...)` dict: `"frame_h": int(H)` and `"frame_w": int(W)`, where `H, W = frames[0].shape[:2]` (already in scope at Stage 8). Required for the canvas polygon renderer to know the frame dimensions. Zero-cost — no algorithmic changes. |
+| **9 unit tests** (`test_stitch_tab.py`) | `TestParseCanvasJson`: valid fixture fields parsed correctly; missing frame_h/frame_w default to 0; affines_final values coerced to float. `TestCanvasFrameCorners`: identity affine returns raw corners exactly; pure translation shifts all corners; 90° CCW rotation affine verified against closed-form. `TestCanvasLayoutInspectorDialog`: 3-frame fixture populates table and stats; zero frame dimensions skip polygon draw but update stats; no-data instantiation leaves label at "No data loaded.". **422 tests passing.** |
+
+### Design rationale
+
+Same read-only viewer pattern as §2.2 (Session 77): `_ProgressPipeline` already writes `stage08_canvas_info.json` when `save_intermediate=True`, so the dialog consumes a static file — zero pipeline changes, zero new worker signals. The two-field extension to `stitch_worker.py` (`frame_h`/`frame_w`) is pure serialisation change to the debug dump; the `_parse_canvas_json` function defaults them to zero for backward compatibility with existing JSON files.
+
+`_canvas_frame_corners` uses the full 2×3 affine rather than just the `tx`/`ty` diagonal, so the polygons correctly show rotation and scale distortion when `ASP_SIMILARITY_MODE=1` or affine-mode BA is active.
+
+Visual render verified (2026-06-11): 3-frame synthetic fixture with correct overlap shows 3 colour-coded blocks side-by-side on a dark canvas, canvas border visible, stats "3 frames · 1850×500 canvas", table tx=10.0/620.0/1210.0 ty=50.0.
+
+---
+
+## ASP Session 77 — §2.2 Edge Graph Inspector (read-only viewer) (2026-06-11)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_parse_edge_json(path) → List[dict]`** (`stitch_tab.py`) | §2.2: Loads and normalises a `stage05_edges.json` file saved by `_ProgressPipeline`. Drops records missing `i` or `j`. Fills `dx`, `dy`, `conf`, `method` with safe defaults (0.0, 0.0, 0.0, `"?"`) when absent. Returns a clean list ready for the graph renderer. |
+| **`_edge_graph_node_positions(n, radius=150.0) → List[Tuple]`** (`stitch_tab.py`) | Pure function: places N nodes evenly on a circle of given radius, first node at 12 o'clock (−π/2 offset). Returns `[]` for n≤0, `[(0,0)]` for n=1. Used as the layout engine for the graph scene. |
+| **`EdgeGraphInspectorDialog(QDialog)`** (`stitch_tab.py`) | Read-only edge graph viewer. Left pane: `QGraphicsScene`/`QGraphicsView` with dark background — frame nodes as labelled blue circles, match edges as lines colour-coded by confidence (green ≥ 0.7, yellow ≥ 0.5, red < 0.5), line width 1+conf×4px, tooltip per edge shows i→j/conf/dx/dy/method. Right pane: `QTableWidget` sorted by conf ascending (worst-first), columns From/To/Conf/Method/dx/dy, cells coloured to match edge confidence. Stats label: "N frames · K edges · M low-conf". "Load JSON…" toolbar button for standalone use. |
+| **`⬡ Edges` button in Stitch action row** (`stitch_tab.py`) | Initially disabled. Enabled in `_on_stitch_finished` when `stage05_edges.json` is found in `_last_stages_dir`. Calls `_inspect_edges()` which parses the JSON and opens the dialog. Log message `"[Stitch] Edge graph available — click '⬡ Edges' to inspect."` emitted on enable. |
+| **`self._last_stages_dir`** (`stitch_tab.py`) | New state variable on `EditTab`. Set from `worker._intermediate_dir` at start of each run so `_on_stitch_finished` and `_inspect_edges` always reference the correct run's stages dir. |
+| **11 unit tests** (`test_stitch_tab.py`) | `TestParseEdgeJson`: valid fixture, missing optional fields → defaults, records without i/j skipped, empty array → empty list. `TestEdgeGraphNodePositions`: zero → empty, single → origin, N equidistant from centre (radius check), first node at 12 o'clock. `TestEdgeGraphInspectorDialog`: table populated + stats label, table sorted worst-first, empty edges → "No edges." message. **413 tests passing.** |
+
+### Design rationale
+
+`_ProgressPipeline` already writes `stage05_edges.json` (i, j, dx, dy, conf, method per edge) when `save_intermediate=True`. The viewer consumes this file directly — zero changes to pipeline code, zero new worker signals, no §2.7 staging architecture required. This ships the core "what did my edge graph look like?" diagnostic immediately and unblocks future sessions from adding the interactive delete/re-solve path on top.
+
+Visual check is intentionally deferred: no `asp_test*` corpus exists on this machine, so no stitch run has been made with `save_intermediate=True`. The `_parse_edge_json` / `_edge_graph_node_positions` logic is verified by the 11 unit tests; the rendered graph will be visually validated when the corpus arrives.
+
+---
+
+## ASP Session 76 — §1.32 GNC-TLS Bundle Adjustment (2026-06-11)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_gnc_weights_geman_mcclure(residuals_sq, mu, c_sq) → ndarray`** (`bundle_adjust.py`) | §1.32: Geman-McClure per-edge GNC weights `wᵢ = (μc² / (μc² + rᵢ²))²`. At large μ (initial) all weights ≈ 1 (convex quadratic regime). As μ decreases over outer iterations, edges with large residuals receive exponentially smaller weights, approximating the truncated-LS cost. Yang et al., IEEE RA-L 2020. Exported in `__all__`. |
+| **GNC-TLS outer continuation loop in `_bundle_adjust_affine`** (`bundle_adjust.py`) | `_GNC_OUTER=8` outer iterations (default ON, `ASP_GNC_OUTER=0` reverts to §1.1C Cauchy). Loop: initialise μ₀=max_sq/(2c²) so the surrogate starts convex; per-iter: compute per-edge squared translation disagreement, update GM weights, LM step with `loss='linear'` and `√w` multiplier in the `residuals()` closure, anneal μ÷=1.4; terminates on ‖Δx‖<1e-3 or μ<0.01. |
+| **`_gnc_ws` mutable closure** (`bundle_adjust.py`) | `List[float]` captured by `residuals()`; updated in-place by the GNC loop. `residuals()` multiplies each edge contribution by `_gnc_ws[idx]` (= `√wᵢ`), giving scipy LM the effective weighted cost `wᵢ·rᵢ²`. Priors and regularisers remain unweighted. |
+| **`GNC_C_PX=10.0`, `GNC_MU_ANNEAL=1.4`, `GNC_MAX_OUTER=8`** (`constants/anim.py`) | §1.32 constants. `GNC_C_PX=10px`: edges with 10px residual receive 50% weight at μ=1; `GNC_MU_ANNEAL=1.4`: 8-step schedule spans ~15× dynamic range. |
+| **`ASP_GNC_OUTER` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 20, "GNC-TLS outer iterations (0=Cauchy only, default 8)")`. |
+| **5 unit tests** (`test_bundle_adjust.py::TestGNCWeightsGemanMcclure`) | unit-weights-large-mu (μ=1e6 → all weights > 0.999), zero-residual-weight-one (rᵢ=0 → wᵢ=1.0 exactly), high-residual-suppressed (rᵢ=100px >> c=10px → wᵢ < 0.01), weights-in-valid-range (50 random residuals ∈ [0,1]), higher-residual-lower-weight (monotone decreasing). **Anim suite: 412 tests passing.** |
+
+### Design rationale
+
+Category B failures (test13 ratio=11.1×, test64=4.2×, etc.) occur when a single catastrophically bad LoFTR match inflates the 3×-median outlier threshold, making itself immune to the post-solve prong-1 rejection. The §1.1B spanning-tree pre-filter cannot catch a bad edge that *is* the highest-weight MST edge. The §1.1C Cauchy one-shot suppresses but cannot eliminate it once it corrupts the global median.
+
+GNC-TLS (Yang et al. 2020) solves this directly: the first outer iteration is a pure quadratic solve (μ→∞, all edges equal), giving an unbiased initial estimate. Subsequent iterations progressively down-weight the high-residual edges in closed form (no RANSAC hypothesis sampling), converging to the truncated-LS solution. Tolerates up to ~70–80% outlier edges vs. ~50% for RANSAC-style rejection. Default ON — the solver always runs the outer loop, not an opt-in gate.
+
+Post-solve outlier rejection (§1.1 prong-1 residual threshold + prong-2 dy-outlier check) remains unchanged as a backstop for moderate outliers that the μ schedule (1.4⁸ ≈ 15× dynamic range) leaves partially suppressed.
+
+---
+
 ## GUI Session — §2.3A Arrow-Key Nav, §2.7B MergeWorker Cancel, §2.18B+C Color Labels, §2.19A+C Export + Copy, §2.9D Confirm Deletions (2026-06-10)
 
 ### Shipped

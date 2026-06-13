@@ -18,11 +18,11 @@ from __future__ import annotations
 
 import torch
 
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 import cv2
 import numpy as np
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QMutex, QObject, QWaitCondition, Signal
 
 # ---------------------------------------------------------------------------
 # Optional dependencies — guarded so the tab can load even if not installed
@@ -119,6 +119,7 @@ if _PIPELINE_OK:
             mfsr_use_diffusion: bool = False,
             save_intermediate: bool = False,
             intermediate_dir: str = "",
+            pause_cb: Optional[Callable] = None,
             **kwargs,
         ):
             super().__init__(**kwargs)
@@ -131,6 +132,11 @@ if _PIPELINE_OK:
             self._mfsr_use_diffusion = mfsr_use_diffusion
             self._save_intermediate = save_intermediate
             self._intermediate_dir = intermediate_dir
+            self._pause_cb: Callable = pause_cb or (lambda event, data: {})
+
+        def _hitl_pause(self, event: str, data: dict) -> dict:
+            """Emit a HITL checkpoint event and block until the UI calls resume()."""
+            return self._pause_cb(event, data)
 
         def _check_cancel(self):
             if self._cancel_flag[0]:
@@ -276,6 +282,36 @@ if _PIPELINE_OK:
                 self._birefnet = None
                 torch.cuda.empty_cache()
 
+            # HITL checkpoint 1 — frame selection review
+            _thumbs = []
+            for _f in frames:
+                _fh, _fw = _f.shape[:2]
+                _sc = min(1.0, 256 / max(_fh, _fw, 1))
+                _thumbs.append(cv2.resize(_f, (max(1, int(_fw * _sc)), max(1, int(_fh * _sc))), cv2.INTER_AREA))
+            _diffs = [0.0]
+            for _i in range(1, N):
+                _a = cv2.resize(frames[_i - 1], (64, 64), cv2.INTER_AREA).astype(np.float32) / 255.0
+                _b = cv2.resize(frames[_i], (64, 64), cv2.INTER_AREA).astype(np.float32) / 255.0
+                _diffs.append(float(np.mean(np.abs(_a - _b))))
+            _ov1 = self._hitl_pause("frames", {
+                "paths": list(image_paths),
+                "thumbnails": _thumbs,
+                "bg_masks": list(bg_masks),
+                "frame_diffs": _diffs,
+            })
+            if "frame_override" in _ov1:
+                _new_paths = _ov1["frame_override"]
+                _path_idx = {p: i for i, p in enumerate(image_paths)}
+                _keep = [_path_idx[p] for p in _new_paths if p in _path_idx]
+                if len(_keep) >= 2:
+                    image_paths = [image_paths[i] for i in _keep]
+                    frames = [frames[i] for i in _keep]
+                    bg_masks = [bg_masks[i] for i in _keep]
+                    N = len(frames)
+                    _trace["frames_input"] = N
+                    self._log_cb(f"[HITL] Frame selection updated: {N} frames.")
+            del _thumbs, _diffs
+
             _emit(5)
             self._check_cancel()
             edges = self._pairwise_match(frames, bg_masks)
@@ -297,6 +333,27 @@ if _PIPELINE_OK:
                 torch.cuda.empty_cache()
                 gc.collect()
             _trace["edges_found"] = len(edges)
+
+            # HITL checkpoint 2 — edge graph review
+            _edge_data = [
+                {"i": e["i"], "j": e["j"],
+                 "dx": float(e["M"][0, 2]), "dy": float(e["M"][1, 2]),
+                 "conf": float(e.get("weight", 0.0)), "method": e.get("method", "?")}
+                for e in edges
+            ]
+            _ov2 = self._hitl_pause("edges", {
+                "edges": _edge_data,
+                "image_paths": list(image_paths),
+            })
+            if "edges" in _ov2:
+                _e_lookup = {(e["i"], e["j"]): e for e in edges}
+                _filtered = [_e_lookup[(ed["i"], ed["j"])] for ed in _ov2["edges"]
+                             if (ed["i"], ed["j"]) in _e_lookup]
+                if _filtered:
+                    edges = _filtered
+                    _trace["edges_found"] = len(edges)
+                    self._log_cb(f"[HITL] Edges updated: {len(edges)} edges kept.")
+
             if not edges:
                 warnings.warn("[Stitch] No valid edges — falling back to scan stitch.")
                 _trace["fallback_used"] = True
@@ -333,6 +390,36 @@ if _PIPELINE_OK:
                 "affines_final": [a.tolist() for a in affines],
             })
 
+            # HITL checkpoint 3 — canvas layout inspector (with nudge)
+            _c_thumbs = []
+            for _f in frames:
+                _fh, _fw = _f.shape[:2]
+                _sc = min(1.0, 160 / max(_fh, _fw, 1))
+                _c_thumbs.append(cv2.resize(_f, (max(1, int(_fw * _sc)), max(1, int(_fh * _sc))), cv2.INTER_AREA))
+            # Per-row frame count for coverage overlay
+            _cov = np.zeros(canvas_h, dtype=np.int32)
+            for _a in affines:
+                _ty = int(_a[1, 2])
+                _r0, _r1 = max(0, _ty), min(canvas_h, _ty + H)
+                if _r0 < _r1:
+                    _cov[_r0:_r1] += 1
+            _ov3 = self._hitl_pause("canvas", {
+                "canvas_h": canvas_h,
+                "canvas_w": canvas_w,
+                "frame_h": int(H),
+                "frame_w": int(W),
+                "affines": [a.tolist() for a in affines],
+                "image_paths": list(image_paths),
+                "thumbnails": _c_thumbs,
+                "frame_count_per_row": _cov,
+            })
+            if "affines" in _ov3:
+                _new_aff = _ov3["affines"]
+                if len(_new_aff) == N:
+                    affines = [np.array(a, dtype=np.float64) for a in _new_aff]
+                    self._log_cb("[HITL] Affines updated from canvas inspector.")
+            del _c_thumbs, _cov
+
             if torch.cuda.is_available() and _BIREFNET_OK:
                 try:
                     BiRefNetWrapper.purge_all_models()
@@ -349,6 +436,30 @@ if _PIPELINE_OK:
                 frames, affines, bg_masks, canvas_h, canvas_w
             )
             _save_canvas(9, "temporal_render", canvas)
+
+            # HITL checkpoint 4 — render review (coverage heatmap + preview)
+            _prev_sc = min(1.0, 600 / max(canvas_h, 1))
+            _canvas_prev = cv2.resize(
+                canvas,
+                (max(1, int(canvas_w * _prev_sc)), max(1, int(canvas_h * _prev_sc))),
+                cv2.INTER_AREA,
+            )
+            _cov2 = np.zeros(canvas_h, dtype=np.int32)
+            for _a in affines:
+                _ty = int(_a[1, 2])
+                _r0, _r1 = max(0, _ty), min(canvas_h, _ty + H)
+                if _r0 < _r1:
+                    _cov2[_r0:_r1] += 1
+            _ov4 = self._hitl_pause("render", {
+                "canvas_preview": _canvas_prev,
+                "frame_count_per_row": _cov2,
+                "canvas_h": canvas_h,
+                "canvas_w": canvas_w,
+            })
+            del _canvas_prev, _cov2
+            # No override at render stage — review only (user may cancel to retry)
+            if _ov4.get("cancel"):
+                raise InterruptedError("Stitch cancelled at render review.")
 
             _emit(10)
             self._check_cancel()
@@ -421,10 +532,17 @@ if _PIPELINE_OK:
 
 
 class StitchWorker(QObject):
-    sig_stage = Signal(int, int, str)  # (current_stage, total_stages, label)
+    sig_stage = Signal(int, int, str)   # (current_stage, total_stages, label)
     sig_log = Signal(str)
-    sig_finished = Signal(str)  # output_path
+    sig_finished = Signal(str)          # output_path
     sig_error = Signal(str)
+
+    # HITL checkpoint signals — emitted when the pipeline pauses for review.
+    # Each carries a plain dict of intermediate state (numpy arrays included).
+    sig_review_frames = Signal(object)  # after Stage 4: frame selection review
+    sig_review_edges = Signal(object)   # after Stage 5: edge graph review
+    sig_review_canvas = Signal(object)  # after Stage 8: canvas layout review
+    sig_review_render = Signal(object)  # after Stage 9: render / coverage review
 
     TOTAL_STAGES = _TOTAL_STAGES
 
@@ -434,6 +552,7 @@ class StitchWorker(QObject):
         output_path: str,
         pipeline_config: dict,
         manual_affines: Optional[Dict] = None,
+        hitl_mode: bool = False,
     ):
         import os
         super().__init__()
@@ -442,6 +561,7 @@ class StitchWorker(QObject):
         self._pipeline_config = pipeline_config
         self._manual_affines = manual_affines or {}
         self._cancel_flag: list = [False]
+        self._hitl_mode = hitl_mode
 
         # Derive intermediate output directory from output path if requested.
         self._save_intermediate = pipeline_config.get("save_intermediate", False)
@@ -451,8 +571,66 @@ class StitchWorker(QObject):
         else:
             self._intermediate_dir = ""
 
+        # HITL pause/resume synchronization
+        self._hitl_mutex = QMutex()
+        self._hitl_wait = QWaitCondition()
+        self._hitl_paused: bool = False
+        self._hitl_override: dict = {}
+
     def cancel(self):
         self._cancel_flag[0] = True
+        # Wake up any paused HITL checkpoint so cancel propagates immediately
+        if self._hitl_paused:
+            self.resume()
+
+    def resume(self):
+        """Call from the main thread to resume a paused pipeline checkpoint."""
+        self._hitl_mutex.lock()
+        self._hitl_paused = False
+        self._hitl_wait.wakeAll()
+        self._hitl_mutex.unlock()
+
+    def set_frame_override(self, paths: List[str]) -> None:
+        """Set frame list override (call before resume() at the frame checkpoint)."""
+        self._hitl_override["frame_override"] = paths
+
+    def set_edge_override(self, edges: List[dict]) -> None:
+        """Set edge list override (call before resume() at the edge checkpoint)."""
+        self._hitl_override["edges"] = edges
+
+    def set_affine_override(self, affines: list) -> None:
+        """Set affine matrix override (call before resume() at the canvas checkpoint)."""
+        self._hitl_override["affines"] = affines
+
+    def set_render_cancel(self) -> None:
+        """Signal the pipeline to abort at the render review checkpoint."""
+        self._hitl_override["cancel"] = True
+
+    def _make_hitl_pause_cb(self) -> Callable:
+        """Return a callable that emits the right signal then blocks the worker thread."""
+        _signal_map = {
+            "frames": self.sig_review_frames,
+            "edges": self.sig_review_edges,
+            "canvas": self.sig_review_canvas,
+            "render": self.sig_review_render,
+        }
+
+        def _pause_cb(event: str, data: dict) -> dict:
+            if not self._hitl_mode:
+                return {}
+            sig = _signal_map.get(event)
+            if sig is not None:
+                sig.emit(data)
+            self._hitl_mutex.lock()
+            self._hitl_paused = True
+            self._hitl_override = {}
+            while self._hitl_paused:
+                self._hitl_wait.wait(self._hitl_mutex)
+            override = dict(self._hitl_override)
+            self._hitl_mutex.unlock()
+            return override
+
+        return _pause_cb
 
     def run(self):
         if not _PIPELINE_OK:
@@ -481,6 +659,7 @@ class StitchWorker(QObject):
                 mfsr_use_diffusion=cfg.get("mfsr_use_diffusion", False),
                 save_intermediate=self._save_intermediate,
                 intermediate_dir=self._intermediate_dir,
+                pause_cb=self._make_hitl_pause_cb(),
                 **_build_pipeline_kwargs(cfg),
             )
             pipeline.run(self._image_paths, self._output_path)

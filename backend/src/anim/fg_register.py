@@ -89,6 +89,16 @@ _ARAP_PUSH_ENABLED = os.environ.get("ASP_ARAP_PUSH", "1") != "0"
 # foreground pixels in the seam-band crop, then ARAP Regularise smooths.
 _SGM_PROXY_ENABLED = os.environ.get("ASP_SGM_PROXY", "0") != "0"
 
+# AnimeInterp SGM (§3.1A full) — VGG-19 per-segment feature matching.
+# Requires torch + torchvision.  Enable: ASP_ANIMEINTERP_SGM=1 (default OFF).
+# When ON, replaces the SLIC LAB-colour proxy with VGG-19 conv3_4 features
+# for segment matching.  More discriminative on flat cel-shaded regions where
+# LAB colour similarity saturates (many segments share identical flat colours).
+_ANIMEINTERP_SGM_ENABLED = os.environ.get("ASP_ANIMEINTERP_SGM", "0") != "0"
+
+_VGG19_SINGLETON = None
+_VGG19_DEVICE: Optional[str] = None
+
 
 def _get_dis():
     """Lazily construct a reusable DISOpticalFlow instance (MEDIUM preset)."""
@@ -405,6 +415,195 @@ def _slic_sgm_proxy(
         best_dx = float(props_b[best_key]["cx"] - cx_a)
 
         # Assign to all foreground pixels in this A segment
+        seg_fg = (labels_a == lbl_a) & fg_bin
+        if seg_fg.any():
+            flow_out[seg_fg, 0] = best_dx
+            flow_out[seg_fg, 1] = best_dy
+            n_matched += 1
+
+    if n_matched < 3:
+        return None
+
+    return flow_out
+
+
+def _get_vgg19_feat():
+    """
+    Lazily load VGG-19 up to conv3_4 (28×28 feature map for 224-px input).
+    Returns (model_partial, device) or (None, None) if torch/torchvision missing.
+    """
+    global _VGG19_SINGLETON, _VGG19_DEVICE
+    if _VGG19_SINGLETON is not None or _VGG19_DEVICE == "FAILED":
+        return _VGG19_SINGLETON, _VGG19_DEVICE
+    try:
+        import torch
+        import torchvision.models as tvm
+        import torch.nn as nn
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        vgg = tvm.vgg19(weights=tvm.VGG19_Weights.IMAGENET1K_V1).features
+        # conv3_4 is index 18 in VGG-19 features (0-indexed, after pool2 block)
+        partial = nn.Sequential(*list(vgg.children())[:19]).to(device).eval()
+        _VGG19_SINGLETON = partial
+        _VGG19_DEVICE = device
+        return _VGG19_SINGLETON, _VGG19_DEVICE
+    except Exception as e:
+        print(f"[FGReg] VGG-19 unavailable ({e}); AnimeInterp SGM disabled")
+        _VGG19_SINGLETON = None
+        _VGG19_DEVICE = "FAILED"
+        return None, None
+
+
+def _animeinterp_sgm(
+    crop_a: np.ndarray,
+    crop_b: np.ndarray,
+    fg_mask: np.ndarray,
+    n_segments: int = 64,
+    compactness: float = 10.0,
+    max_dist_frac: float = 0.20,
+    min_match_score: float = 0.25,
+    feat_size: int = 112,
+) -> Optional[np.ndarray]:
+    """
+    AnimeInterp Segment-Guided Matching (SGM, §3.1A full implementation).
+
+    Uses VGG-19 conv3_4 features instead of LAB colour for segment matching.
+    This is the correct fix for the aperture problem on flat cel-shaded regions:
+    VGG-19 features remain discriminative even when adjacent body parts share
+    identical fill colours (e.g., two segments of flat skin tone), because the
+    network's receptive field captures surrounding outline structure.
+
+    Algorithm (AnimeInterp §3, adapted for seam-band crops):
+      1. SLIC segmentation of both crops (shared parameters with SLIC proxy).
+      2. For each foreground segment in crop_a, extract VGG-19 conv3_4 mean
+         pooled feature vector (256-d).
+      3. For each foreground segment in crop_b, extract the same.
+      4. Hungarian assignment: minimise cosine distance subject to a Euclidean
+         centroid proximity constraint (max_dist_frac × diagonal).
+      5. Per-pixel flow = centroid displacement of matched segment pairs.
+
+    Falls back to ``_slic_sgm_proxy`` (LAB colour) when VGG-19 is unavailable.
+
+    Parameters
+    ----------
+    crop_a, crop_b : (H, W, 3) uint8 — seam-band crops (canvas-aligned).
+    fg_mask : (H, W) uint8 or bool — character pixels (> 127 / True).
+    n_segments, compactness : SLIC parameters (shared with SLIC proxy).
+    max_dist_frac : centroid proximity gate (fraction of crop diagonal).
+    min_match_score : minimum cosine similarity to accept a segment pair.
+    feat_size : resize short-side of crop for VGG inference (lower = faster).
+
+    Returns
+    -------
+    (H, W, 2) float32 flow, or None if both VGG-19 and SLIC are unavailable.
+    """
+    model, device = _get_vgg19_feat()
+    if model is None:
+        # Graceful fallback to LAB-colour SLIC proxy
+        return _slic_sgm_proxy(crop_a, crop_b, fg_mask, n_segments, compactness,
+                                max_dist_frac, min_match_score)
+
+    try:
+        from skimage.segmentation import slic as _slic_fn  # type: ignore
+    except ImportError:
+        return None
+
+    import torch
+
+    H, W = crop_a.shape[:2]
+    diag = float(np.sqrt(H * H + W * W))
+    max_dist = max_dist_frac * diag
+
+    fg_bin = (fg_mask > 127) if fg_mask.dtype != bool else fg_mask
+
+    # ── VGG-19 feature maps ──────────────────────────────────────────────
+    def _extract_feat_map(img_bgr: np.ndarray) -> np.ndarray:
+        """Return (C, H', W') float32 VGG-19 conv3_4 feature map."""
+        rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+        # Resize to feat_size on short side for efficient inference
+        _h, _w = rgb.shape[:2]
+        _sc = feat_size / min(_h, _w, 1)
+        _th, _tw = max(1, int(_h * _sc)), max(1, int(_w * _sc))
+        rgb_s = cv2.resize(rgb, (_tw, _th), cv2.INTER_AREA)
+        t = torch.from_numpy(rgb_s.astype(np.float32) / 255.0).permute(2, 0, 1)
+        # ImageNet normalisation
+        mean = torch.tensor([0.485, 0.456, 0.406], dtype=torch.float32)[:, None, None]
+        std = torch.tensor([0.229, 0.224, 0.225], dtype=torch.float32)[:, None, None]
+        t = (t - mean) / std
+        with torch.no_grad():
+            feat = model(t.unsqueeze(0).to(device))[0]  # (C, H', W')
+        return feat.cpu().numpy()
+
+    feat_a = _extract_feat_map(crop_a)   # (256, H', W')
+    feat_b = _extract_feat_map(crop_b)
+    _C, _fH, _fW = feat_a.shape
+
+    # ── SLIC segmentation ────────────────────────────────────────────────
+    lab_a = cv2.cvtColor(crop_a, cv2.COLOR_BGR2LAB).astype(np.float32)
+    lab_b = cv2.cvtColor(crop_b, cv2.COLOR_BGR2LAB).astype(np.float32)
+    try:
+        labels_a = _slic_fn(lab_a / np.array([100, 128, 128], dtype=np.float32),
+                             n_segments=n_segments, compactness=compactness, start_label=0)
+        labels_b = _slic_fn(lab_b / np.array([100, 128, 128], dtype=np.float32),
+                             n_segments=n_segments, compactness=compactness, start_label=0)
+    except Exception:
+        return None
+
+    def _seg_props_vgg(labels: np.ndarray, feat_map: np.ndarray, fg: np.ndarray):
+        """Per-segment: centroid (cy, cx) + mean-pooled VGG feature vector."""
+        props = {}
+        for lbl in np.unique(labels):
+            seg = labels == lbl
+            if int((seg & fg).sum()) < 4:
+                continue
+            ys, xs = np.where(seg)
+            cy, cx = float(ys.mean()), float(xs.mean())
+            # Map pixel coords to feature map coords
+            fy = np.clip((ys * _fH / H).astype(int), 0, _fH - 1)
+            fx = np.clip((xs * _fW / W).astype(int), 0, _fW - 1)
+            vec = feat_map[:, fy, fx].mean(axis=1)   # (C,)
+            norm = float(np.linalg.norm(vec))
+            if norm > 1e-8:
+                vec = vec / norm
+            props[lbl] = {"cy": cy, "cx": cx, "feat": vec}
+        return props
+
+    props_a = _seg_props_vgg(labels_a, feat_a, fg_bin)
+    props_b = _seg_props_vgg(labels_b, feat_b, fg_bin)
+
+    if len(props_a) < 2 or len(props_b) < 2:
+        return None
+
+    b_keys = list(props_b.keys())
+    b_cy = np.array([props_b[k]["cy"] for k in b_keys], dtype=np.float32)
+    b_cx = np.array([props_b[k]["cx"] for k in b_keys], dtype=np.float32)
+    b_feats = np.stack([props_b[k]["feat"] for k in b_keys])  # (M, C)
+
+    flow_out = np.zeros((H, W, 2), dtype=np.float32)
+    n_matched = 0
+
+    for lbl_a, pa in props_a.items():
+        cy_a, cx_a = pa["cy"], pa["cx"]
+        feat_a_vec = pa["feat"]
+
+        dists = np.sqrt((b_cy - cy_a) ** 2 + (b_cx - cx_a) ** 2)
+        reachable = dists <= max_dist
+        if not reachable.any():
+            continue
+
+        # Cosine similarity (features are L2-normalised)
+        cosine_sim = (b_feats @ feat_a_vec).clip(-1.0, 1.0)
+        dist_scores = 1.0 - np.clip(dists / max_dist, 0.0, 1.0)
+        combined = cosine_sim * dist_scores * reachable.astype(np.float32)
+        best_idx = int(np.argmax(combined))
+
+        if combined[best_idx] < min_match_score:
+            continue
+
+        best_key = b_keys[best_idx]
+        best_dy = float(props_b[best_key]["cy"] - cy_a)
+        best_dx = float(props_b[best_key]["cx"] - cx_a)
+
         seg_fg = (labels_a == lbl_a) & fg_bin
         if seg_fg.any():
             flow_out[seg_fg, 0] = best_dx
@@ -967,12 +1166,21 @@ def register_foreground_at_seam(
         else:
             crop_fg = fg_union[:, x0_crop:x1_crop]
 
-        # SGM proxy (§3.1B / §3.11): SLIC superpixel centroid tracking as a
-        # coarse flow source for flat cel-shaded regions.  Replaces RAFT/DIS
-        # flow for foreground pixels when ASP_SGM_PROXY=1.  The SGM flow is
-        # then passed to ARAP Push as the initial estimate (better aperture-
-        # problem handling than RAFT/DIS in uniform-color regions).
-        if _SGM_PROXY_ENABLED:
+        # SGM (§3.1A AnimeInterp full / §3.1B SLIC proxy): segment-guided flow
+        # for flat cel-shaded regions where RAFT/DIS aperture problem yields zero
+        # or chaotic flow.  ASP_ANIMEINTERP_SGM=1 uses VGG-19 conv3_4 features
+        # (discriminative even when segment colours are identical); ASP_SGM_PROXY=1
+        # uses the faster LAB-colour SLIC proxy.  Both feed into ARAP Push.
+        if _ANIMEINTERP_SGM_ENABLED:
+            sgm_flow = _animeinterp_sgm(crop_a, crop_b, crop_fg)
+            if sgm_flow is not None:
+                fg_bin_crop = (crop_fg > 127) if crop_fg.dtype != bool else crop_fg
+                flow_crop[fg_bin_crop] = sgm_flow[fg_bin_crop]
+                if axis == 0:
+                    flow[y0_crop:y1_crop, :] = flow_crop
+                else:
+                    flow[:, x0_crop:x1_crop] = flow_crop
+        elif _SGM_PROXY_ENABLED:
             sgm_flow = _slic_sgm_proxy(crop_a, crop_b, crop_fg)
             if sgm_flow is not None:
                 fg_bin_crop = (crop_fg > 127) if crop_fg.dtype != bool else crop_fg
@@ -1108,4 +1316,6 @@ __all__ = [
     "_dense_flow",
     "_seam_taper",
     "_arap_regularise",
+    "_animeinterp_sgm",
+    "_slic_sgm_proxy",
 ]

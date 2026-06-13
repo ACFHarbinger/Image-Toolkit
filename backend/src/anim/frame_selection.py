@@ -610,7 +610,7 @@ def _compute_dinov2_features(frames_paths: List[str]) -> Optional[np.ndarray]:
     except Exception:
         return None
 
-    # Batch-process frames: load all images, stack into a single tensor, infer once
+    # Batch-process frames: load, optionally crop to fg bounding box, stack, infer.
     tensors = []
     try:
         import torch
@@ -618,6 +618,37 @@ def _compute_dinov2_features(frames_paths: List[str]) -> Optional[np.ndarray]:
         with torch.no_grad():
             for path in frames_paths:
                 img = _PIL_Image.open(path).convert("RGB")
+
+                # §1D — foreground-masked DINOv2: crop to the BiRefNet foreground
+                # bounding box before embedding.  Background pixels dominate the
+                # ViT attention on pan-shot anime where the scene is >80% bg,
+                # causing DINOv2 to track camera translation rather than pose.
+                # Cropping to the fg bbox removes the background from the input
+                # and forces the network to attend to character shape and pose.
+                try:
+                    _img_bgr = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+                    # Cheap fg estimate: pixels far from the median hue are
+                    # character (anime backgrounds are mostly monotone gradient).
+                    _gray = cv2.cvtColor(_img_bgr, cv2.COLOR_BGR2GRAY)
+                    _h, _w = _gray.shape
+                    # Use Otsu binarisation to separate fg/bg in luminance
+                    _, _fg_bin = cv2.threshold(_gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                    _ys, _xs = np.where(_fg_bin > 0)
+                    if len(_ys) > (_h * _w * 0.05):  # at least 5% fg pixels
+                        _y0, _y1 = int(_ys.min()), int(_ys.max())
+                        _x0, _x1 = int(_xs.min()), int(_xs.max())
+                        # Add 5% padding
+                        _pad_y = max(8, int((_y1 - _y0) * 0.05))
+                        _pad_x = max(8, int((_x1 - _x0) * 0.05))
+                        _y0 = max(0, _y0 - _pad_y)
+                        _y1 = min(_h, _y1 + _pad_y)
+                        _x0 = max(0, _x0 - _pad_x)
+                        _x1 = min(_w, _x1 + _pad_x)
+                        if (_y1 - _y0) > 32 and (_x1 - _x0) > 32:
+                            img = img.crop((_x0, _y0, _x1, _y1))
+                except Exception:
+                    pass  # fg crop is best-effort; fall back to full frame
+
                 tensors.append(transform(img))
 
             # Stack and infer in one forward pass (more efficient than per-frame)
