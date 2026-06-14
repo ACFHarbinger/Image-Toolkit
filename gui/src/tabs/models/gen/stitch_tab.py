@@ -2907,6 +2907,29 @@ class EditTab(QWidget):
             "  Stage 9 — Render preview: inspect coverage heatmap"
         )
         output_layout.addWidget(self._cb_hitl_mode)
+
+        # S88/S92: Session load/save controls
+        _sess_row = QHBoxLayout()
+        self._btn_load_session = QPushButton("Load Session…")
+        self._btn_load_session.setToolTip(
+            "Load a saved HITL session file to replay all prior override decisions "
+            "non-interactively (no dialogs)."
+        )
+        self._btn_load_session.clicked.connect(self._on_load_session)
+        self._btn_browse_sessions = QPushButton("Browse Sessions…")
+        self._btn_browse_sessions.setToolTip(
+            "Open the HITL Session Browser to inspect, delete, export, "
+            "or select a saved session for replay."
+        )
+        self._btn_browse_sessions.clicked.connect(self._on_browse_sessions)
+        self._session_path_label = QLabel("No session loaded")
+        self._session_path_label.setWordWrap(True)
+        _sess_row.addWidget(self._btn_load_session)
+        _sess_row.addWidget(self._btn_browse_sessions)
+        _sess_row.addWidget(self._session_path_label, stretch=1)
+        output_layout.addLayout(_sess_row)
+        self._loaded_session_path: Optional[str] = None
+
         right_layout.addWidget(output_group)
 
         right_layout.addStretch()
@@ -4010,6 +4033,7 @@ class EditTab(QWidget):
             hitl_mode=_hitl,
             video_path=_video_path or None,
             video_n_frames=self._video_n_frames_spin.value() if _use_video else 20,
+            session_path=self._loaded_session_path,
         )
         self._last_stages_dir = self._stitch_worker._intermediate_dir
         self._btn_inspect_edges.setEnabled(False)
@@ -4032,6 +4056,7 @@ class EditTab(QWidget):
             self._stitch_worker.sig_review_edges.connect(self._on_hitl_review_edges)
             self._stitch_worker.sig_review_canvas.connect(self._on_hitl_review_canvas)
             self._stitch_worker.sig_review_boundaries.connect(self._on_hitl_review_boundaries)
+            self._stitch_worker.sig_review_seams.connect(self._on_hitl_review_seams)
             self._stitch_worker.sig_review_composite.connect(self._on_hitl_review_composite)
             self._stitch_worker.sig_review_render.connect(self._on_hitl_review_render)
             self._stitch_worker.sig_review_output.connect(self._on_hitl_review_output)
@@ -4061,8 +4086,14 @@ class EditTab(QWidget):
         if os.path.isfile(canvas_json):
             self._btn_inspect_canvas.setEnabled(True)
             self._log_append("[Stitch] Canvas layout available — click '⬗ Canvas' to inspect.")
+        # S88: show autosaved session path
+        _sess_info = ""
+        if self._stitch_worker and self._stitch_worker.current_session_path:
+            _sp = self._stitch_worker.current_session_path
+            self._log_append(f"[HITL] Session autosaved: {_sp}")
+            _sess_info = f"\n\nHITL session saved to:\n{_sp}"
         QMessageBox.information(
-            self, "Stitch Complete", f"Panorama saved to:\n{output_path}"
+            self, "Stitch Complete", f"Panorama saved to:\n{output_path}{_sess_info}"
         )
 
     @Slot(str)
@@ -4185,11 +4216,7 @@ class EditTab(QWidget):
         w = self._stitch_worker
         if w is None:
             return
-        dlg = EdgeReviewDialog(
-            edges=data.get("edges", []),
-            image_paths=data.get("image_paths", []),
-            parent=self,
-        )
+        dlg = EdgeReviewDialog(data=data, parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             accepted = dlg.accepted_edges()
             if accepted:
@@ -4227,6 +4254,25 @@ class EditTab(QWidget):
         dlg = BoundaryEditorDialog(data=data, parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             w.set_boundary_override(dlg.adjusted_boundaries())
+        else:
+            w.cancel()
+            return
+        w.resume()
+
+    @Slot(object)
+    def _on_hitl_review_seams(self, data: dict):
+        """Checkpoint 4.6 pause: seam registration diagnostic inspector (§2.4A, S95)."""
+        n_seams = len(data.get("boundaries", []))
+        self._stage_label.setText(f"HITL: Seam inspector — {n_seams} seam(s)…")
+        w = self._stitch_worker
+        if w is None:
+            return
+        from gui.src.dialogs.seam_diagnostic_dialog import SeamDiagnosticDialog
+        dlg = SeamDiagnosticDialog(data=data, parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            overrides = dlg.get_overrides()
+            if overrides:
+                w.set_seam_override(overrides)
         else:
             w.cancel()
             return
@@ -4286,6 +4332,41 @@ class EditTab(QWidget):
                     annotations=fb["annotations"],
                 )
         w.resume()
+
+    def _on_load_session(self):
+        """Browse for a saved HITL session JSON and set it for the next run (S88)."""
+        from PySide6.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Load HITL Session",
+            str(
+                __import__("pathlib").Path.home()
+                / ".config" / "image-toolkit" / "hitl_sessions"
+            ),
+            "Session files (*.json);;All files (*)",
+            options=QFileDialog.Option.DontUseNativeDialog,
+        )
+        if path:
+            self._loaded_session_path = path
+            import os as _os
+            self._session_path_label.setText(_os.path.basename(path))
+            self._session_path_label.setToolTip(path)
+        else:
+            self._loaded_session_path = None
+            self._session_path_label.setText("No session loaded")
+
+    def _on_browse_sessions(self):
+        """Open the HITL Session Browser; if user selects a session, load it (S92)."""
+        from gui.src.dialogs.hitl_session_viewer_dialog import HITLSessionViewerDialog
+        from PySide6.QtWidgets import QDialog as _QDialog
+        dlg = HITLSessionViewerDialog(parent=self)
+        if dlg.exec() == _QDialog.DialogCode.Accepted:
+            path = dlg.selected_path()
+            if path:
+                self._loaded_session_path = path
+                import os as _os
+                self._session_path_label.setText(_os.path.basename(path))
+                self._session_path_label.setToolTip(path)
 
     def _inspect_edges(self):
         edge_json = os.path.join(self._last_stages_dir, "stage05_edges.json")

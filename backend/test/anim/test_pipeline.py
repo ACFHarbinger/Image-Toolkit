@@ -22,6 +22,19 @@ from backend.src.anim.pipeline import (
     _normalize_frame_scales,
     _measure_max_seam_step,
     _detect_static_input,
+    _compute_bg_coverage_fraction,
+    _compute_render_coverage,
+    _compute_adj_edge_coverage,
+    _compute_max_adjacent_gap,
+    _compute_canvas_width_ratio,
+    _compute_sign_inconsistency_rate,
+    _compute_adj_disp_cv,
+    _compute_adj_min_weight,
+    _compute_ba_max_residual,
+    _compute_min_adjacent_overlap,
+    _compute_ba_weighted_mean_residual,
+    _compute_canvas_memory_mb,
+    _compute_render_luma_std,
 )
 from backend.src.constants.anim import HIGH_CONF_EDGE_THRESH, SCALE_NORM_THRESH, SCENE_CHANGE_LUMA_THRESH
 
@@ -677,3 +690,605 @@ class TestDetectStaticInput:
         """Only one pair with high MAD is enough to classify input as non-static."""
         frames = [self._frame(val=100)] * 3 + [self._frame(val=200)]
         assert _detect_static_input(frames, max_mad=2.0) is False
+
+
+# ---------------------------------------------------------------------------
+# §S89 — _build_manual_edge
+# ---------------------------------------------------------------------------
+
+
+class TestBuildManualEdge:
+    """Tests for _build_manual_edge (§S89 manual edge entry at HITL checkpoint 2)."""
+
+    def setup_method(self):
+        from backend.src.anim.pipeline import _build_manual_edge
+        self._fn = _build_manual_edge
+
+    def test_m_is_pure_translation(self):
+        edge = self._fn(0, 1, dx=50.0, dy=100.0)
+        M = edge["M"]
+        assert M.shape == (2, 3)
+        np.testing.assert_allclose(M[:, :2], np.eye(2), atol=1e-9)
+        assert M[0, 2] == pytest.approx(50.0)
+        assert M[1, 2] == pytest.approx(100.0)
+
+    def test_indices_stored(self):
+        edge = self._fn(2, 5, dx=0.0, dy=200.0)
+        assert edge["i"] == 2
+        assert edge["j"] == 5
+
+    def test_method_is_manual(self):
+        edge = self._fn(0, 1, dx=10.0, dy=20.0)
+        assert edge["method"] == "manual"
+
+    def test_weight_clipped_to_unit_interval(self):
+        over = self._fn(0, 1, dx=0.0, dy=0.0, weight=2.5)
+        assert over["weight"] == pytest.approx(1.0)
+        under = self._fn(0, 1, dx=0.0, dy=0.0, weight=-0.5)
+        assert under["weight"] == pytest.approx(0.0)
+
+    def test_pts_shape_is_compatible_with_bundle_adjust(self):
+        edge = self._fn(0, 1, dx=30.0, dy=60.0)
+        assert edge["pts_i"].shape == (1, 2)
+        assert edge["pts_j"].shape == (1, 2)
+        np.testing.assert_allclose(edge["pts_j"] - edge["pts_i"],
+                                   [[30.0, 60.0]], atol=1e-6)
+
+
+# ---------------------------------------------------------------------------
+# §1.37 — _compute_bg_coverage_fraction (S101)
+# ---------------------------------------------------------------------------
+
+
+class TestComputeBgCoverageFraction:
+    """_compute_bg_coverage_fraction returns mean bg-pixel fraction across valid masks."""
+
+    def _mask(self, h: int = 64, w: int = 64, bg_frac: float = 1.0) -> np.ndarray:
+        """Produce a uint8 mask where *bg_frac* of pixels are 255 (background)."""
+        mask = np.zeros((h, w), dtype=np.uint8)
+        n_bg = int(round(h * w * bg_frac))
+        mask.flat[:n_bg] = 255
+        return mask
+
+    def test_all_background_masks_return_one(self):
+        """All-bg masks (every pixel > 127) → fraction = 1.0."""
+        masks = [self._mask(bg_frac=1.0)] * 4
+        assert _compute_bg_coverage_fraction(masks) == pytest.approx(1.0, abs=1e-3)
+
+    def test_all_foreground_masks_return_zero(self):
+        """All-fg masks (every pixel = 0) → fraction = 0.0."""
+        masks = [np.zeros((32, 32), dtype=np.uint8)] * 3
+        assert _compute_bg_coverage_fraction(masks) == pytest.approx(0.0, abs=1e-6)
+
+    def test_half_bg_half_fg_returns_point_five(self):
+        """Masks with 50% bg pixels → mean fraction ≈ 0.5."""
+        mask = self._mask(h=100, w=100, bg_frac=0.5)
+        result = _compute_bg_coverage_fraction([mask, mask])
+        assert result == pytest.approx(0.5, abs=1e-2)
+
+    def test_none_masks_skipped_returns_one(self):
+        """List containing only None entries → returns 1.0 (gate must not fire)."""
+        masks = [None, None, None]
+        assert _compute_bg_coverage_fraction(masks) == pytest.approx(1.0)
+
+    def test_mixed_none_and_valid_masks_ignores_none(self):
+        """None entries are skipped; only valid masks contribute to the mean."""
+        bg_mask = self._mask(bg_frac=0.8)
+        masks = [None, bg_mask, None, bg_mask]
+        result = _compute_bg_coverage_fraction(masks)
+        assert result == pytest.approx(0.8, abs=1e-2)
+
+
+# §1.39 — _compute_render_coverage (S103)
+class TestComputeRenderCoverage:
+    """_compute_render_coverage returns fraction of canvas pixels with valid_mask > 0."""
+
+    def _mask(self, h: int = 64, w: int = 64, frac: float = 1.0) -> np.ndarray:
+        mask = np.zeros((h, w), dtype=np.uint8)
+        n_covered = int(round(h * w * frac))
+        mask.flat[:n_covered] = 255
+        return mask
+
+    def test_fully_covered_canvas_returns_one(self):
+        """All pixels covered → coverage fraction = 1.0."""
+        mask = self._mask(frac=1.0)
+        assert _compute_render_coverage(mask) == pytest.approx(1.0)
+
+    def test_empty_canvas_returns_zero(self):
+        """No pixels covered (completely blank render) → coverage = 0.0."""
+        mask = np.zeros((64, 64), dtype=np.uint8)
+        assert _compute_render_coverage(mask) == pytest.approx(0.0)
+
+    def test_known_coverage_fraction(self):
+        """30% of pixels covered → returns ~0.30."""
+        mask = self._mask(h=100, w=100, frac=0.30)
+        result = _compute_render_coverage(mask)
+        assert result == pytest.approx(0.30, abs=1e-2)
+
+    def test_zero_size_mask_returns_zero(self):
+        """Empty array (size=0) returns 0.0 without ZeroDivisionError."""
+        mask = np.zeros((0, 0), dtype=np.uint8)
+        assert _compute_render_coverage(mask) == pytest.approx(0.0)
+
+    def test_half_covered_canvas(self):
+        """50% pixel coverage → returns 0.5."""
+        mask = self._mask(h=100, w=100, frac=0.50)
+        result = _compute_render_coverage(mask)
+        assert result == pytest.approx(0.50, abs=1e-2)
+
+
+# §1.43 — _compute_adj_edge_coverage (S107)
+class TestComputeAdjEdgeCoverage:
+    """_compute_adj_edge_coverage returns fraction of adjacent pairs (|i-j|=1) with ≥1 edge."""
+
+    @staticmethod
+    def _edge(i: int, j: int) -> dict:
+        return {"i": i, "j": j, "weight": 0.8, "dx": 10.0, "dy": 200.0}
+
+    def test_all_adjacent_covered(self):
+        """All 3 adjacent pairs present → 1.0."""
+        edges = [self._edge(0, 1), self._edge(1, 2), self._edge(2, 3)]
+        assert _compute_adj_edge_coverage(edges, n_frames=4) == pytest.approx(1.0)
+
+    def test_no_adjacent_edges(self):
+        """Only skip-1 edge present — no |i-j|=1 edges → 0.0."""
+        edges = [self._edge(0, 2)]
+        assert _compute_adj_edge_coverage(edges, n_frames=3) == pytest.approx(0.0)
+
+    def test_partial_coverage(self):
+        """2 out of 3 adjacent pairs covered → 2/3."""
+        edges = [self._edge(0, 1), self._edge(2, 3)]
+        result = _compute_adj_edge_coverage(edges, n_frames=4)
+        assert result == pytest.approx(2.0 / 3.0, abs=1e-6)
+
+    def test_single_frame_returns_one(self):
+        """n_frames=1 → no pairs → returns 1.0 (vacuously true)."""
+        assert _compute_adj_edge_coverage([], n_frames=1) == pytest.approx(1.0)
+
+    def test_duplicate_edges_counted_once(self):
+        """Duplicate adj edges for the same pair count as one covered pair → 1/2."""
+        edges = [self._edge(0, 1), self._edge(0, 1), self._edge(1, 0)]
+        result = _compute_adj_edge_coverage(edges, n_frames=3)
+        assert result == pytest.approx(0.5, abs=1e-6)
+
+
+# §1.44 — _compute_max_adjacent_gap (S108)
+class TestComputeMaxAdjacentGap:
+    """_compute_max_adjacent_gap returns the max inter-frame gap along the dominant scroll axis."""
+
+    @staticmethod
+    def _affine(ty: float, tx: float = 0.0) -> np.ndarray:
+        a = np.eye(2, 3, dtype=np.float32)
+        a[0, 2] = tx
+        a[1, 2] = ty
+        return a
+
+    @staticmethod
+    def _frame(h: int = 100, w: int = 80) -> np.ndarray:
+        return np.zeros((h, w, 3), dtype=np.uint8)
+
+    def test_overlapping_frames_negative_gap(self):
+        """Adjacent frames that overlap → gap is negative."""
+        frames = [self._frame(100), self._frame(100)]
+        # ty_1 = 80 < ty_0 + H_0 = 100 → overlap of 20px → gap = -20
+        affines = [self._affine(0.0), self._affine(80.0)]
+        result = _compute_max_adjacent_gap(affines, frames)
+        assert result == pytest.approx(-20.0, abs=1e-3)
+
+    def test_touching_frames_zero_gap(self):
+        """Frames placed exactly end-to-start → gap = 0."""
+        frames = [self._frame(100), self._frame(100)]
+        affines = [self._affine(0.0), self._affine(100.0)]
+        assert _compute_max_adjacent_gap(affines, frames) == pytest.approx(0.0, abs=1e-3)
+
+    def test_gap_between_frames(self):
+        """Frames separated by 50px uncovered strip → returns 50.0."""
+        frames = [self._frame(100), self._frame(100)]
+        affines = [self._affine(0.0), self._affine(150.0)]
+        assert _compute_max_adjacent_gap(affines, frames) == pytest.approx(50.0, abs=1e-3)
+
+    def test_single_frame_returns_zero(self):
+        """N=1 frame → no adjacent pairs → returns 0.0."""
+        assert _compute_max_adjacent_gap([self._affine(0.0)], [self._frame()]) == pytest.approx(0.0)
+
+    def test_max_over_multiple_pairs(self):
+        """Returns the largest gap when pairs have different gaps."""
+        frames = [self._frame(100), self._frame(100), self._frame(100)]
+        # pair 0→1: gap = 110 - 100 = 10; pair 1→2: gap = 250 - 210 = 40
+        affines = [self._affine(0.0), self._affine(110.0), self._affine(250.0)]
+        result = _compute_max_adjacent_gap(affines, frames)
+        assert result == pytest.approx(40.0, abs=1e-3)
+
+
+# §1.45 — _compute_canvas_width_ratio (S109)
+class TestComputeCanvasWidthRatio:
+    """_compute_canvas_width_ratio returns canvas_w / median_frame_w."""
+
+    @staticmethod
+    def _frame(w: int = 100, h: int = 200) -> np.ndarray:
+        return np.zeros((h, w, 3), dtype=np.uint8)
+
+    def test_canvas_equals_frame_width(self):
+        """canvas_w == frame_w → ratio 1.0."""
+        frames = [self._frame(w=100)]
+        assert _compute_canvas_width_ratio(100, frames) == pytest.approx(1.0)
+
+    def test_canvas_wider_than_frames(self):
+        """canvas_w = 3 × frame_w → ratio 3.0."""
+        frames = [self._frame(w=100)]
+        assert _compute_canvas_width_ratio(300, frames) == pytest.approx(3.0)
+
+    def test_canvas_narrower_than_frames(self):
+        """canvas_w < frame_w is unusual but should return the correct ratio."""
+        frames = [self._frame(w=200)]
+        assert _compute_canvas_width_ratio(100, frames) == pytest.approx(0.5)
+
+    def test_empty_frames_returns_one(self):
+        """Empty frame list → 1.0 (safe fallback, gate must not fire)."""
+        assert _compute_canvas_width_ratio(500, []) == pytest.approx(1.0)
+
+    def test_mixed_frame_widths_uses_median(self):
+        """Median of [80, 100, 120] = 100; canvas 150 → ratio 1.5."""
+        frames = [self._frame(w=80), self._frame(w=100), self._frame(w=120)]
+        assert _compute_canvas_width_ratio(150, frames) == pytest.approx(1.5)
+
+
+# §1.47 — _compute_sign_inconsistency_rate (S111)
+class TestComputeSignInconsistencyRate:
+    """_compute_sign_inconsistency_rate returns minority-sign fraction of adjacent edge displacements."""
+
+    @staticmethod
+    def _adj_edge(i: int, j: int, dy: float, dx: float = 0.0) -> dict:
+        M = np.array([[1, 0, dx], [0, 1, dy]], dtype=np.float32)
+        return {"i": i, "j": j, "M": M, "weight": 0.8}
+
+    def test_all_same_sign_returns_zero(self):
+        """All adjacent dy negative (downward scroll) → rate = 0.0."""
+        edges = [self._adj_edge(0, 1, dy=-100), self._adj_edge(1, 2, dy=-120), self._adj_edge(2, 3, dy=-90)]
+        assert _compute_sign_inconsistency_rate(edges) == pytest.approx(0.0)
+
+    def test_half_opposite_sign_returns_half(self):
+        """2 negative + 2 positive → minority = 2, rate = 0.5."""
+        edges = [
+            self._adj_edge(0, 1, dy=-100),
+            self._adj_edge(1, 2, dy=-100),
+            self._adj_edge(2, 3, dy=100),
+            self._adj_edge(3, 4, dy=100),
+        ]
+        assert _compute_sign_inconsistency_rate(edges) == pytest.approx(0.5)
+
+    def test_one_in_five_opposite(self):
+        """1 positive among 4 negative → minority = 1, rate = 0.2."""
+        edges = [
+            self._adj_edge(0, 1, dy=-100),
+            self._adj_edge(1, 2, dy=-100),
+            self._adj_edge(2, 3, dy=-100),
+            self._adj_edge(3, 4, dy=-100),
+            self._adj_edge(4, 5, dy=100),
+        ]
+        assert _compute_sign_inconsistency_rate(edges) == pytest.approx(0.2)
+
+    def test_skip_edges_excluded(self):
+        """Skip edges (|i-j|=2) are not counted, only |i-j|=1."""
+        adj = [self._adj_edge(0, 1, dy=-100), self._adj_edge(1, 2, dy=-100)]
+        skip = [{"i": 0, "j": 2, "M": np.array([[1, 0, 100], [0, 1, 200]], np.float32), "weight": 0.5}]
+        assert _compute_sign_inconsistency_rate(adj + skip) == pytest.approx(0.0)
+
+    def test_fewer_than_two_adjacent_returns_zero(self):
+        """Single adjacent edge → insufficient data → 0.0."""
+        edges = [self._adj_edge(0, 1, dy=-100)]
+        assert _compute_sign_inconsistency_rate(edges) == pytest.approx(0.0)
+
+
+# §1.48 — _compute_adj_disp_cv (S112)
+class TestComputeAdjDispCv:
+    """_compute_adj_disp_cv returns std/mean of adjacent-edge dominant-axis displacement magnitudes."""
+
+    @staticmethod
+    def _adj_edge(i: int, j: int, dy: float, dx: float = 0.0) -> dict:
+        M = np.array([[1, 0, dx], [0, 1, dy]], dtype=np.float32)
+        return {"i": i, "j": j, "M": M, "weight": 0.8}
+
+    def test_uniform_magnitudes_returns_zero(self):
+        """All adjacent edges with identical |dy| → std=0 → CV=0.0."""
+        edges = [self._adj_edge(i, i + 1, dy=-100) for i in range(4)]
+        assert _compute_adj_disp_cv(edges) == pytest.approx(0.0)
+
+    def test_high_cv_with_outlier(self):
+        """One outlier at 10× the typical step → CV >> 0.5."""
+        edges = [
+            self._adj_edge(0, 1, dy=-100),
+            self._adj_edge(1, 2, dy=-100),
+            self._adj_edge(2, 3, dy=-100),
+            self._adj_edge(3, 4, dy=-1000),  # 10× outlier
+        ]
+        cv = _compute_adj_disp_cv(edges)
+        assert cv > 0.5
+
+    def test_fewer_than_two_adjacent_returns_zero(self):
+        """Single adjacent edge → 0.0 (safe no-op)."""
+        edges = [self._adj_edge(0, 1, dy=-150)]
+        assert _compute_adj_disp_cv(edges) == pytest.approx(0.0)
+
+    def test_skip_edges_excluded(self):
+        """Skip edges (|i-j|=2) do not contribute to CV computation."""
+        adj = [self._adj_edge(0, 1, dy=-100), self._adj_edge(1, 2, dy=-100)]
+        skip = [{"i": 0, "j": 2, "M": np.array([[1, 0, 0], [0, 1, -5000]], np.float32), "weight": 0.5}]
+        assert _compute_adj_disp_cv(adj + skip) == pytest.approx(0.0)
+
+    def test_dominant_axis_selection_uses_dx(self):
+        """When median |dx| > median |dy|, CV is computed over dx magnitudes."""
+        # dy ≈ 0, dx varies moderately → axis = horizontal
+        edges = [
+            self._adj_edge(0, 1, dy=2.0, dx=-200),
+            self._adj_edge(1, 2, dy=1.0, dx=-200),
+            self._adj_edge(2, 3, dy=3.0, dx=-200),
+        ]
+        assert _compute_adj_disp_cv(edges) == pytest.approx(0.0)
+
+
+# §1.49 — _compute_adj_min_weight (S113)
+class TestComputeAdjMinWeight:
+    """_compute_adj_min_weight returns the minimum weight among adjacent edges."""
+
+    @staticmethod
+    def _edge(i: int, j: int, weight: float, dy: float = -100.0) -> dict:
+        M = np.array([[1, 0, 0], [0, 1, dy]], dtype=np.float32)
+        return {"i": i, "j": j, "M": M, "weight": weight}
+
+    def test_all_high_weight_returns_minimum(self):
+        """Three adjacent edges with weights 0.9, 0.8, 0.7 → min = 0.7."""
+        edges = [self._edge(0, 1, 0.9), self._edge(1, 2, 0.8), self._edge(2, 3, 0.7)]
+        assert _compute_adj_min_weight(edges) == pytest.approx(0.7)
+
+    def test_one_low_weight_edge_captured(self):
+        """One near-zero adjacent edge → min reflects that edge."""
+        edges = [self._edge(0, 1, 0.9), self._edge(1, 2, 0.05), self._edge(2, 3, 0.85)]
+        assert _compute_adj_min_weight(edges) == pytest.approx(0.05)
+
+    def test_no_adjacent_edges_returns_one(self):
+        """No adjacent edges → safe no-op sentinel 1.0."""
+        skip = [self._edge(0, 2, 0.3)]  # |i-j|=2, not adjacent
+        assert _compute_adj_min_weight(skip) == pytest.approx(1.0)
+
+    def test_empty_edges_returns_one(self):
+        """Empty edge list → 1.0."""
+        assert _compute_adj_min_weight([]) == pytest.approx(1.0)
+
+    def test_skip_edges_ignored(self):
+        """Skip edges (|i-j|=2) do not lower the minimum."""
+        adj = [self._edge(0, 1, 0.8), self._edge(1, 2, 0.75)]
+        skip = [self._edge(0, 2, 0.01)]  # very low weight but |i-j|=2
+        assert _compute_adj_min_weight(adj + skip) == pytest.approx(0.75)
+
+
+# §1.50 — _compute_ba_max_residual (S114)
+class TestComputeBaMaxResidual:
+    """_compute_ba_max_residual returns the maximum per-edge BA residual in pixels."""
+
+    @staticmethod
+    def _affine(ty: float, tx: float = 0.0) -> np.ndarray:
+        a = np.eye(2, 3, dtype=np.float32)
+        a[0, 2] = tx
+        a[1, 2] = ty
+        return a
+
+    @staticmethod
+    def _edge(i: int, j: int, dy: float, dx: float = 0.0) -> dict:
+        M = np.array([[1, 0, dx], [0, 1, dy]], dtype=np.float32)
+        return {"i": i, "j": j, "M": M, "weight": 0.8}
+
+    def test_perfect_alignment_returns_zero(self):
+        """Affines exactly consistent with edges → residual = 0."""
+        affines = [self._affine(0), self._affine(-100), self._affine(-200)]
+        edges = [self._edge(0, 1, dy=-100), self._edge(1, 2, dy=-100)]
+        assert _compute_ba_max_residual(edges, affines) == pytest.approx(0.0, abs=1e-4)
+
+    def test_outlier_edge_produces_large_residual(self):
+        """One edge with 300px wrong displacement → residual ≥ 300px."""
+        affines = [self._affine(0), self._affine(-100), self._affine(-200)]
+        edges = [self._edge(0, 1, dy=-100), self._edge(1, 2, dy=-500)]  # 2nd edge: observed -500, predicted -100
+        res = _compute_ba_max_residual(edges, affines)
+        assert res == pytest.approx(400.0, abs=1e-3)
+
+    def test_empty_edges_returns_zero(self):
+        """No edges → 0.0 (safe no-op)."""
+        affines = [self._affine(0), self._affine(-100)]
+        assert _compute_ba_max_residual([], affines) == pytest.approx(0.0)
+
+    def test_empty_affines_returns_zero(self):
+        """No affines → 0.0 (safe no-op)."""
+        edges = [self._edge(0, 1, dy=-100)]
+        assert _compute_ba_max_residual(edges, []) == pytest.approx(0.0)
+
+    def test_max_of_multiple_residuals_returned(self):
+        """Returns the maximum, not mean, across all edge residuals."""
+        affines = [self._affine(0), self._affine(-100), self._affine(-200), self._affine(-300)]
+        edges = [
+            self._edge(0, 1, dy=-100),   # residual = 0
+            self._edge(1, 2, dy=-50),    # residual = 50
+            self._edge(2, 3, dy=-250),   # residual = 150
+        ]
+        assert _compute_ba_max_residual(edges, affines) == pytest.approx(150.0, abs=1e-3)
+
+
+# §1.51 — _compute_min_adjacent_overlap (S115)
+class TestComputeMinAdjacentOverlap:
+    """_compute_min_adjacent_overlap returns the minimum canvas-space overlap between consecutive frames."""
+
+    @staticmethod
+    def _affine(ty: float, tx: float = 0.0) -> np.ndarray:
+        a = np.eye(2, 3, dtype=np.float32)
+        a[0, 2] = tx
+        a[1, 2] = ty
+        return a
+
+    @staticmethod
+    def _frame(h: int = 200, w: int = 100) -> np.ndarray:
+        return np.zeros((h, w, 3), dtype=np.uint8)
+
+    def test_normal_overlap_returns_positive(self):
+        """Frames with 100px overlap → min_overlap = 100."""
+        # frame 0 at ty=0 (h=200): trailing edge = 200
+        # frame 1 at ty=100: leading edge = 100 → overlap = 200−100 = 100
+        affines = [self._affine(0), self._affine(100)]
+        frames = [self._frame(h=200), self._frame(h=200)]
+        assert _compute_min_adjacent_overlap(affines, frames) == pytest.approx(100.0)
+
+    def test_thin_overlap_detected(self):
+        """Two pairs with overlaps 150px and 10px → min = 10."""
+        affines = [self._affine(0), self._affine(190), self._affine(380)]
+        frames = [self._frame(h=200), self._frame(h=200), self._frame(h=200)]
+        # pair(0,1): trailing=200, leading=190 → overlap=10
+        # pair(1,2): trailing=390, leading=380 → overlap=10
+        assert _compute_min_adjacent_overlap(affines, frames) == pytest.approx(10.0)
+
+    def test_gap_returns_negative(self):
+        """Gap between frames (no overlap) returns negative value."""
+        # frame 0 at ty=0 (h=200): trailing=200; frame 1 at ty=250 → gap=50 → overlap=-50
+        affines = [self._affine(0), self._affine(250)]
+        frames = [self._frame(h=200), self._frame(h=200)]
+        assert _compute_min_adjacent_overlap(affines, frames) == pytest.approx(-50.0)
+
+    def test_fewer_than_two_frames_returns_zero(self):
+        """Single frame → 0.0 (safe no-op)."""
+        assert _compute_min_adjacent_overlap([self._affine(0)], [self._frame()]) == pytest.approx(0.0)
+
+    def test_min_of_multiple_pairs_returned(self):
+        """Returns the smallest overlap across all pairs, not mean or first."""
+        affines = [self._affine(0), self._affine(180), self._affine(280)]
+        frames = [self._frame(h=200), self._frame(h=200), self._frame(h=200)]
+        # pair(0,1): trailing=200, leading=180 → overlap=20
+        # pair(1,2): trailing=380, leading=280 → overlap=100
+        assert _compute_min_adjacent_overlap(affines, frames) == pytest.approx(20.0)
+
+
+# §1.52 — _compute_ba_weighted_mean_residual (S116)
+class TestComputeBaWeightedMeanResidual:
+    """_compute_ba_weighted_mean_residual returns Σ(w_i × r_i) / Σ(w_i)."""
+
+    @staticmethod
+    def _affine(ty: float, tx: float = 0.0) -> np.ndarray:
+        a = np.eye(2, 3, dtype=np.float32)
+        a[0, 2] = tx
+        a[1, 2] = ty
+        return a
+
+    @staticmethod
+    def _edge(i: int, j: int, dy: float, dx: float = 0.0, weight: float = 0.8) -> dict:
+        M = np.array([[1, 0, dx], [0, 1, dy]], dtype=np.float32)
+        return {"i": i, "j": j, "M": M, "weight": weight}
+
+    def test_perfect_alignment_returns_zero(self):
+        """Affines consistent with edges → weighted mean residual = 0."""
+        affines = [self._affine(0), self._affine(-100), self._affine(-200)]
+        edges = [self._edge(0, 1, dy=-100), self._edge(1, 2, dy=-100)]
+        assert _compute_ba_weighted_mean_residual(edges, affines) == pytest.approx(0.0, abs=1e-4)
+
+    def test_uniform_residuals_equal_to_unweighted_mean(self):
+        """Equal weights → weighted mean equals simple mean of residuals."""
+        affines = [self._affine(0), self._affine(-100), self._affine(-200)]
+        # All edges 50px off; predicted is -100 each, observed -50 each → r=50
+        edges = [self._edge(0, 1, dy=-50, weight=1.0), self._edge(1, 2, dy=-50, weight=1.0)]
+        result = _compute_ba_weighted_mean_residual(edges, affines)
+        assert result == pytest.approx(50.0, abs=1e-3)
+
+    def test_high_weight_good_edge_lowers_mean(self):
+        """High-weight good edge pulls weighted mean below simple mean."""
+        affines = [self._affine(0), self._affine(-100), self._affine(-200)]
+        edges = [
+            self._edge(0, 1, dy=-100, weight=0.9),  # residual=0, high weight
+            self._edge(1, 2, dy=-50, weight=0.1),   # residual=50, low weight
+        ]
+        # weighted mean = (0.9×0 + 0.1×50) / (0.9+0.1) = 5.0
+        result = _compute_ba_weighted_mean_residual(edges, affines)
+        assert result == pytest.approx(5.0, abs=1e-3)
+
+    def test_empty_edges_returns_zero(self):
+        """Empty edge list → 0.0 (safe no-op)."""
+        affines = [self._affine(0), self._affine(-100)]
+        assert _compute_ba_weighted_mean_residual([], affines) == pytest.approx(0.0)
+
+    def test_zero_weight_edges_returns_zero(self):
+        """All-zero weights → total_w=0 → returns 0.0 (avoid divide-by-zero)."""
+        affines = [self._affine(0), self._affine(-100)]
+        edges = [self._edge(0, 1, dy=-50, weight=0.0)]
+        assert _compute_ba_weighted_mean_residual(edges, affines) == pytest.approx(0.0)
+
+
+# §1.53 — _compute_canvas_memory_mb (S117)
+class TestComputeCanvasMemoryMb:
+    """_compute_canvas_memory_mb returns canvas_h * canvas_w * 3 * 4 / 1024² in MB."""
+
+    def test_typical_1080p_panorama(self):
+        """1920×5000 canvas → exactly 1920*5000*12/1048576 MB."""
+        expected = 1920 * 5000 * 3 * 4 / (1024 ** 2)
+        assert _compute_canvas_memory_mb(5000, 1920) == pytest.approx(expected)
+
+    def test_giant_canvas_exceeds_threshold(self):
+        """32768×32768 canvas → ~12 GB, well above 2048 MB threshold."""
+        mb = _compute_canvas_memory_mb(32768, 32768)
+        assert mb > 2048.0
+
+    def test_zero_height_returns_zero(self):
+        """Zero canvas height → 0.0 MB (safe no-op)."""
+        assert _compute_canvas_memory_mb(0, 1920) == pytest.approx(0.0)
+
+    def test_zero_width_returns_zero(self):
+        """Zero canvas width → 0.0 MB (safe no-op)."""
+        assert _compute_canvas_memory_mb(1080, 0) == pytest.approx(0.0)
+
+    def test_borderline_canvas_within_limit(self):
+        """1920×32768 canvas → ≈720 MB; within 2048 MB limit."""
+        mb = _compute_canvas_memory_mb(32768, 1920)
+        assert mb == pytest.approx(1920 * 32768 * 3 * 4 / (1024 ** 2))
+        assert mb < 2048.0
+
+
+# §1.54 — _compute_render_luma_std (S118)
+class TestComputeRenderLumaStd:
+    """_compute_render_luma_std returns std of BGR-mean luminance for valid pixels."""
+
+    @staticmethod
+    def _canvas(h: int, w: int, fill: int = 128) -> np.ndarray:
+        return np.full((h, w, 3), fill, dtype=np.uint8)
+
+    @staticmethod
+    def _mask(h: int, w: int, fraction: float = 1.0) -> np.ndarray:
+        mask = np.zeros((h, w), dtype=np.uint8)
+        rows = int(h * fraction)
+        mask[:rows, :] = 1
+        return mask
+
+    def test_uniform_canvas_returns_zero(self):
+        """Solid-colour canvas → all pixels same luminance → std = 0."""
+        canvas = self._canvas(100, 100, fill=128)
+        mask = self._mask(100, 100)
+        assert _compute_render_luma_std(canvas, mask) == pytest.approx(0.0, abs=1e-4)
+
+    def test_varied_canvas_returns_positive(self):
+        """Canvas with varied pixel values → std > 0."""
+        rng = np.random.default_rng(42)
+        canvas = rng.integers(0, 255, (100, 100, 3), dtype=np.uint8)
+        mask = self._mask(100, 100)
+        assert _compute_render_luma_std(canvas, mask) > 0.0
+
+    def test_no_valid_pixels_returns_zero(self):
+        """Zero valid_mask → 0.0 (safe no-op)."""
+        canvas = self._canvas(100, 100)
+        mask = np.zeros((100, 100), dtype=np.uint8)
+        assert _compute_render_luma_std(canvas, mask) == pytest.approx(0.0)
+
+    def test_none_inputs_return_zero(self):
+        """None canvas or mask → 0.0."""
+        assert _compute_render_luma_std(None, None) == pytest.approx(0.0)
+
+    def test_only_valid_pixels_contribute(self):
+        """Masked-out pixels (value=0) do not lower the std."""
+        canvas = np.zeros((10, 10, 3), dtype=np.uint8)
+        canvas[:5, :] = 200   # valid region: bright
+        canvas[5:, :] = 0     # invalid region: dark (should be ignored)
+        mask = np.zeros((10, 10), dtype=np.uint8)
+        mask[:5, :] = 1       # only top half valid
+        std = _compute_render_luma_std(canvas, mask)
+        assert std == pytest.approx(0.0, abs=1e-4)  # all valid pixels are the same value

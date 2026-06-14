@@ -9,7 +9,7 @@ You are working on the anime image stitching pipeline in `backend/src/anim/`. Ap
 
 ## Iteration & Testing
 
-- **Run the unit test suite first.** Before and after any change to `backend/src/anim/`, run `pytest backend/test/anim/ -q`. The suite has 584 tests (2 skipped: pyav) covering all issue categories with no GPU dependency (~30s). A regression here is a hard blocker.
+- **Run the unit test suite first.** Before and after any change to `backend/src/anim/`, run `pytest backend/test/anim/ -q`. The suite has 728 backend tests (2 skipped: pyav) + 18 GUI tests (10 in `test_canvas_inspector_dialog.py`, 8 in `test_hitl_session_viewer_dialog.py`) covering all issue categories with no GPU dependency (~30s). A regression here is a hard blocker.
 - **Update tests when fixing documented bugs.** Tests that document broken behavior (e.g. near-zero edge clustering) have a comment saying "update this assertion after the fix". Find the test and flip the assertion to verify the corrected behavior.
 - **Always use the fast iteration loop.** Do not re-run BiRefNet or LoFTR to test compositing changes. Load pre-computed stages from `data/asp_test1/output/panorama_stages/` via `archive/run_pipeline_v2.py`. Only re-run full GPU stages when changing Stages 1–8.
 - **View the output image after every run.** Use the Read tool on the `.png` output to visually inspect the result before claiming success. Do not rely solely on printed gain/delta values.

@@ -55,11 +55,16 @@ from backend.src.anim.compositing import (  # noqa: E402
     _seam_path_std,
     _zone_is_degenerate,
     _seam_fg_penetration,
+    _seam_zone_texture_energy,
+    _fg_gradient_cost,
+    _annotate_seams,
 )
 from backend.src.constants import (  # noqa: E402
     FEATHER_MAX as _FEATHER_MAX,
     FEATHER_MIN as _FEATHER_MIN,
     FEATHER_TABLE as _FEATHER_TABLE,
+    SEAM_OVERLAY_AMBER_THRESH as _AMBER,
+    SEAM_OVERLAY_RED_THRESH as _RED,
 )
 from conftest import make_frame, make_translation_affine  # noqa: E402
 
@@ -2134,3 +2139,361 @@ class TestPaintMask:
             paint_mask=zero_mask,
         )
         np.testing.assert_array_equal(result_no, result_zm)
+
+
+# ---------------------------------------------------------------------------
+# §2.4B — _annotate_seams (S94)
+# ---------------------------------------------------------------------------
+
+class TestAnnotateSeams:
+    """§2.4B: Coloured seam diagnostic overlay drawn on composite output."""
+
+    def _make_canvas(self, H: int = 100, W: int = 80) -> np.ndarray:
+        return np.full((H, W, 3), 128, dtype=np.uint8)
+
+    def test_empty_boundaries_returns_unchanged(self):
+        canvas = self._make_canvas()
+        result = _annotate_seams(canvas, np.array([]), {}, {})
+        np.testing.assert_array_equal(result, canvas)
+
+    def test_good_seam_draws_green_line(self):
+        canvas = self._make_canvas(H=100, W=80)
+        boundaries = np.array([50.0])
+        # diff well below amber threshold → green
+        result = _annotate_seams(canvas, boundaries, {0: _AMBER - 1.0}, {})
+        # At least one pixel in row 50 must have been changed to green (G channel high)
+        row = result[50]
+        assert any(p[1] > 150 and p[0] < 50 and p[2] < 50 for p in row), (
+            "expected a green pixel at boundary row 50"
+        )
+
+    def test_moderate_seam_draws_amber_line(self):
+        canvas = self._make_canvas(H=100, W=80)
+        boundaries = np.array([40.0])
+        diff = (_AMBER + _RED) / 2.0  # between amber and red thresholds
+        result = _annotate_seams(canvas, boundaries, {0: diff}, {})
+        row = result[40]
+        # Amber in BGR: (0, 165, 255) → R channel high, G moderate, B low
+        assert any(p[2] > 200 and p[1] > 100 and p[0] < 50 for p in row), (
+            "expected an amber pixel at boundary row 40"
+        )
+
+    def test_poor_seam_draws_red_line(self):
+        canvas = self._make_canvas(H=100, W=80)
+        boundaries = np.array([60.0])
+        diff = _RED + 5.0  # above red threshold
+        result = _annotate_seams(canvas, boundaries, {0: diff}, {})
+        row = result[60]
+        # Red in BGR: (0, 0, 220) → R channel high, G and B low
+        assert any(p[2] > 150 and p[1] < 50 and p[0] < 50 for p in row), (
+            "expected a red pixel at boundary row 60"
+        )
+
+    def test_single_pose_seam_draws_red_even_with_low_diff(self):
+        canvas = self._make_canvas(H=100, W=80)
+        boundaries = np.array([30.0])
+        # diff is low (would normally be green) but seam is single-pose
+        result = _annotate_seams(canvas, boundaries, {0: 2.0}, {0: 1})
+        row = result[30]
+        # Expect red annotation regardless of diff value
+        assert any(p[2] > 150 and p[1] < 50 and p[0] < 50 for p in row), (
+            "expected a red pixel at single-pose seam row 30"
+        )
+
+
+# ── TestSeamMetaOut ─────────────────────────────────────────────────────────
+
+class TestSeamMetaOut:
+    """Tests for seam_meta_out / seam_overrides params in _composite_foreground (S95 — §2.4A)."""
+
+    def _frame(self, h: int = 40, w: int = 30, val: int = 80) -> np.ndarray:
+        f = np.zeros((h, w, 3), dtype=np.uint8)
+        f[:] = val
+        return f
+
+    def _affine(self, ty: float) -> np.ndarray:
+        a = np.eye(2, 3, dtype=np.float64)
+        a[1, 2] = ty
+        return a
+
+    def test_seam_meta_out_populated_with_boundaries(self):
+        """seam_meta_out receives boundaries, seam_post_diffs, seam_single_pose on return."""
+        from backend.src.anim.compositing import _composite_foreground
+        H, W = 40, 30
+        frames = [self._frame(H, W, 80), self._frame(H, W, 100)]
+        affines = [self._affine(0.0), self._affine(float(H))]
+        canvas = np.zeros((H * 2, W, 3), dtype=np.uint8)
+        meta: dict = {}
+        _composite_foreground(
+            [], [], canvas, H * 2, W, frames, affines, [None, None],
+            seam_meta_out=meta,
+        )
+        assert "boundaries" in meta, "seam_meta_out must contain 'boundaries'"
+        assert "seam_post_diffs" in meta, "seam_meta_out must contain 'seam_post_diffs'"
+        assert "seam_single_pose" in meta, "seam_meta_out must contain 'seam_single_pose'"
+        # Two frames produce exactly one boundary
+        assert len(meta["boundaries"]) == 1, f"expected 1 boundary, got {len(meta['boundaries'])}"
+
+    def test_seam_meta_out_single_frame_empty_boundaries(self):
+        """With only one frame no seams are created; boundaries list is empty."""
+        from backend.src.anim.compositing import _composite_foreground
+        H, W = 40, 30
+        frames = [self._frame(H, W, 80)]
+        affines = [self._affine(0.0)]
+        canvas = np.zeros((H, W, 3), dtype=np.uint8)
+        meta: dict = {}
+        _composite_foreground(
+            [], [], canvas, H, W, frames, affines, [None],
+            seam_meta_out=meta,
+        )
+        assert meta.get("boundaries", []) == [], (
+            "single-frame composite should produce no seam boundaries"
+        )
+
+    def _bg_mask(self, h: int, w: int) -> np.ndarray:
+        """All-background uint8 mask (255 = background, so wm > 127 = all-True)."""
+        return np.full((h, w), 255, dtype=np.uint8)
+
+    def test_force_single_pose_override_escalates_seam(self):
+        """force_single_pose override must result in seam k appearing in seam_single_pose."""
+        from backend.src.anim.compositing import _composite_foreground
+        H, W = 40, 30
+        frames = [self._frame(H, W, 80), self._frame(H, W, 100)]
+        affines = [self._affine(0.0), self._affine(float(H))]
+        canvas = np.zeros((H * 2, W, 3), dtype=np.uint8)
+        # Provide non-None bg_masks so warped_bg[i] is not None (avoids early continue
+        # at line 1814 that would bypass the force_single_pose code path).
+        bg_masks = [self._bg_mask(H, W), self._bg_mask(H, W)]
+        meta: dict = {}
+        overrides = {0: {"force_single_pose": True, "force_blend": False}}
+        _composite_foreground(
+            [], [], canvas, H * 2, W, frames, affines, bg_masks,
+            seam_meta_out=meta,
+            seam_overrides=overrides,
+        )
+        assert 0 in meta.get("seam_single_pose", {}), (
+            "force_single_pose override must escalate seam 0 to single-pose"
+        )
+        assert meta["seam_post_diffs"].get(0) == 99.0, (
+            "force_single_pose sentinel diff must be 99.0"
+        )
+
+    def test_force_blend_override_removes_seam_from_single_pose(self):
+        """force_blend override must remove seam k from seam_single_pose even if escalated.
+
+        Uses overlapping zero-value frames so that:
+          - zone_h > ASP_ZONE_MIN_HEIGHT (avoids degenerate-zone guard)
+          - _seam_fg_penetration = 0 (avoids ASP_SEAM_FG_PENETRATION_MAX guard)
+          - _seam_path_std = 0 (avoids ASP_SEAM_INSTABILITY_THRESH guard)
+        This ensures that force_blend's post-loop removal is the only influence
+        on whether seam 0 appears in seam_single_pose.
+        """
+        from backend.src.anim.compositing import _composite_foreground
+        H, W = 60, 30
+        # Overlap frames by 20px → max_feather ≥ 10 → zone_h ≥ 21 > ASP_ZONE_MIN_HEIGHT=20
+        ty1 = H - 20  # frame 1 starts 20px below frame 0's top → 20px overlap
+        # All-zero frames → FG penetration = 0.0 (no foreground pixels at all)
+        frames = [np.zeros((H, W, 3), dtype=np.uint8), np.zeros((H, W, 3), dtype=np.uint8)]
+        a0 = np.eye(2, 3, dtype=np.float64)
+        a1 = np.eye(2, 3, dtype=np.float64); a1[1, 2] = float(ty1)
+        affines = [a0, a1]
+        canvas_h = ty1 + H  # = 100px
+        canvas = np.zeros((canvas_h, W, 3), dtype=np.uint8)
+        # Non-None bg_masks required so the FG registration loop is entered.
+        bg_masks = [self._bg_mask(H, W), self._bg_mask(H, W)]
+        # First run: escalate via force_single_pose (even with zero frames)
+        meta1: dict = {}
+        _composite_foreground(
+            [], [], canvas.copy(), canvas_h, W, frames, affines, bg_masks,
+            seam_meta_out=meta1,
+            seam_overrides={0: {"force_single_pose": True}},
+        )
+        assert 0 in meta1.get("seam_single_pose", {}), "setup: seam 0 should be escalated"
+        # Second run: force_blend — seam 0 must NOT appear in seam_single_pose.
+        # With zero-value frames the degenerate-zone, instability, and FG-penetration
+        # blend-loop guards all remain inactive, so force_blend's removal is definitive.
+        meta2: dict = {}
+        _composite_foreground(
+            [], [], canvas.copy(), canvas_h, W, frames, affines, bg_masks,
+            seam_meta_out=meta2,
+            seam_overrides={0: {"force_blend": True}},
+        )
+        assert 0 not in meta2.get("seam_single_pose", {}), (
+            "force_blend override must remove seam 0 from seam_single_pose"
+        )
+
+    def test_seam_meta_out_none_does_not_raise(self):
+        """Passing seam_meta_out=None (the default) must not raise any error."""
+        from backend.src.anim.compositing import _composite_foreground
+        H, W = 40, 30
+        frames = [self._frame(H, W, 80), self._frame(H, W, 100)]
+        affines = [self._affine(0.0), self._affine(float(H))]
+        canvas = np.zeros((H * 2, W, 3), dtype=np.uint8)
+        result = _composite_foreground(
+            [], [], canvas, H * 2, W, frames, affines, [None, None],
+            seam_meta_out=None,
+        )
+        assert result.shape == (H * 2, W, 3), "result shape must match canvas"
+
+
+class TestSeamCropExtraction:
+    """Tests for _extract_seam_crops (S96 — §2.4C)."""
+
+    def _canvas(self, H: int = 100, W: int = 30, val: int = 128) -> np.ndarray:
+        c = np.full((H, W, 3), val, dtype=np.uint8)
+        return c
+
+    def test_crops_extracted_for_all_seams(self):
+        from backend.src.anim.compositing import _extract_seam_crops
+        canvas = self._canvas(100, 30)
+        boundaries = np.array([40, 70], dtype=np.float64)
+        crops = _extract_seam_crops(canvas, boundaries, band_px=10)
+        assert set(crops.keys()) == {0, 1}, "one crop per seam"
+
+    def test_crop_height_is_twice_band(self):
+        from backend.src.anim.compositing import _extract_seam_crops
+        canvas = self._canvas(100, 30)
+        boundaries = np.array([50.0])
+        crops = _extract_seam_crops(canvas, boundaries, band_px=15)
+        assert crops[0].shape == (30, 30, 3), "crop height = 2*band_px, full width"
+
+    def test_crop_clamped_at_top_boundary(self):
+        from backend.src.anim.compositing import _extract_seam_crops
+        canvas = self._canvas(100, 30)
+        # boundary at row 5 with band=20 → crop [0:25], height=25 (not 40)
+        boundaries = np.array([5.0])
+        crops = _extract_seam_crops(canvas, boundaries, band_px=20)
+        assert crops[0].shape[0] == 25, "top clamp gives narrower crop (5+20=25)"
+
+    def test_empty_boundaries_returns_empty_dict(self):
+        from backend.src.anim.compositing import _extract_seam_crops
+        canvas = self._canvas(100, 30)
+        crops = _extract_seam_crops(canvas, np.array([]), band_px=10)
+        assert crops == {}
+
+    def test_seam_crops_in_meta_out(self):
+        """_composite_foreground populates seam_meta_out['seam_crops']."""
+        from backend.src.anim.compositing import _composite_foreground
+        H, W = 40, 30
+        frames = [
+            np.full((H, W, 3), 80, dtype=np.uint8),
+            np.full((H, W, 3), 100, dtype=np.uint8),
+        ]
+        a0 = np.eye(2, 3, dtype=np.float64)
+        a1 = np.eye(2, 3, dtype=np.float64); a1[1, 2] = float(H)
+        affines = [a0, a1]
+        canvas = np.zeros((H * 2, W, 3), dtype=np.uint8)
+        meta: dict = {}
+        _composite_foreground([], [], canvas, H * 2, W, frames, affines, [None, None],
+                              seam_meta_out=meta)
+        assert "seam_crops" in meta, "seam_crops key must be in seam_meta_out"
+        assert isinstance(meta["seam_crops"], dict)
+        assert 0 in meta["seam_crops"], "seam 0 crop must be present"
+        crop = meta["seam_crops"][0]
+        assert crop.ndim == 3 and crop.shape[1] == W
+
+
+# ---------------------------------------------------------------------------
+# §1.34: _seam_zone_texture_energy tests (S98)
+# ---------------------------------------------------------------------------
+
+
+class TestSeamZoneTextureEnergy:
+    """_seam_zone_texture_energy returns mean Laplacian variance in the seam band."""
+
+    def _flat(self, H=80, W=60, val=128):
+        """Solid-colour BGR frame — zero Laplacian variance."""
+        return np.full((H, W, 3), val, dtype=np.uint8)
+
+    def _textured(self, H=80, W=60, seed=42):
+        """Random noise frame — high Laplacian variance."""
+        rng = np.random.RandomState(seed)
+        return rng.randint(0, 256, (H, W, 3), dtype=np.uint8)
+
+    def test_flat_frames_score_near_zero(self):
+        """Solid-colour frames have Laplacian variance ≈ 0 → score very small."""
+        fa = self._flat()
+        fb = self._flat()
+        score = _seam_zone_texture_energy(fa, fb, boundary=40, half_band=15)
+        assert score < 1.0, f"expected near-zero, got {score}"
+
+    def test_textured_frames_score_high(self):
+        """Random-noise frames have high variance → score well above typical threshold."""
+        fa = self._textured()
+        fb = self._textured(seed=7)
+        score = _seam_zone_texture_energy(fa, fb, boundary=40, half_band=15)
+        assert score > 100.0, f"expected high texture score, got {score}"
+
+    def test_boundary_outside_frame_returns_zero(self):
+        """Boundary far beyond frame height → empty band → 0.0."""
+        fa = self._flat(H=20)
+        fb = self._flat(H=20)
+        score = _seam_zone_texture_energy(fa, fb, boundary=200, half_band=5)
+        assert score == 0.0
+
+    def test_grayscale_frames_accepted(self):
+        """2-D (H, W) uint8 frames should not raise and should return a float."""
+        rng = np.random.RandomState(0)
+        fa = rng.randint(0, 256, (60, 40), dtype=np.uint8)
+        fb = rng.randint(0, 256, (60, 40), dtype=np.uint8)
+        score = _seam_zone_texture_energy(fa, fb, boundary=30, half_band=10)
+        assert isinstance(score, float) and score >= 0.0
+
+    def test_half_band_zero_returns_zero(self):
+        """half_band=0 → y0 == y1 for any boundary → empty band → 0.0."""
+        fa = self._textured()
+        fb = self._textured(seed=3)
+        score = _seam_zone_texture_energy(fa, fb, boundary=40, half_band=0)
+        assert score == 0.0
+
+
+# §1.35: _fg_gradient_cost tests (S99)
+# ---------------------------------------------------------------------------
+
+
+class TestFgGradientCost:
+    """_fg_gradient_cost returns normalized Laplacian gradient cost for seam DP."""
+
+    def _flat(self, H=60, W=80, val=128):
+        """Solid-colour BGR canvas zone — zero Laplacian."""
+        return np.full((H, W, 3), val, dtype=np.uint8)
+
+    def _with_edge(self, H=60, W=80):
+        """Zone with a sharp horizontal edge at mid-height — high Laplacian on that row."""
+        zone = np.zeros((H, W, 3), dtype=np.uint8)
+        zone[: H // 2] = 200
+        zone[H // 2 :] = 50
+        return zone
+
+    def test_flat_zone_returns_zeros(self):
+        """Solid-colour zone has near-zero Laplacian → output array is all zeros."""
+        zone = self._flat()
+        out = _fg_gradient_cost(zone, weight=1.0)
+        assert out.max() < 0.01, f"expected near-zero cost, got max={out.max()}"
+
+    def test_edge_zone_returns_nonzero_cost(self):
+        """Zone with a sharp edge has positive Laplacian → output has non-zero values."""
+        zone = self._with_edge()
+        out = _fg_gradient_cost(zone, weight=1.0)
+        assert out.max() > 0.0, "expected non-zero gradient cost for edge zone"
+
+    def test_zero_weight_returns_zeros(self):
+        """weight=0.0 → output is zero regardless of content (fast-path)."""
+        zone = self._with_edge()
+        out = _fg_gradient_cost(zone, weight=0.0)
+        assert np.all(out == 0.0)
+
+    def test_output_shape_matches_zone(self):
+        """Output shape is (H, W) matching the input canvas zone."""
+        H, W = 70, 90
+        zone = self._with_edge(H=H, W=W)
+        out = _fg_gradient_cost(zone, weight=2.0)
+        assert out.shape == (H, W)
+
+    def test_cost_bounded_by_weight(self):
+        """All output values are in [0, weight] regardless of gradient magnitude."""
+        zone = self._with_edge()
+        weight = 3.5
+        out = _fg_gradient_cost(zone, weight=weight)
+        assert out.min() >= 0.0
+        assert out.max() <= weight + 1e-6, f"max {out.max()} exceeds weight {weight}"

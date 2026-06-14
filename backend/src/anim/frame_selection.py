@@ -125,6 +125,27 @@ try:
 except ValueError:
     _TEMPORAL_VAR_THRESH = 0.0
 
+# §1.2E: Blur/artifact frame pre-rejection — Laplacian variance gate.
+# Interior frames whose 64×64 thumbnail Laplacian variance (uint8 scale) is
+# below the threshold are dropped before hold detection.  First/last always
+# kept.  Default 0.0 = disabled.  Suggested value: ASP_BLUR_REJECT_THRESH=50.0.
+try:
+    _BLUR_REJECT_THRESH = float(os.environ.get("ASP_BLUR_REJECT_THRESH", "0.0"))
+except ValueError:
+    _BLUR_REJECT_THRESH = 0.0
+
+# §1.46: Low-contrast frame pre-rejection — pixel std gate.
+# Interior frames whose grayscale thumbnail std (in [0,255] scale) is below
+# the threshold are dropped before hold detection.  Flash/whiteout/bloom frames
+# have near-zero std — LoFTR and phase correlation have no texture to anchor on.
+# Distinct from §1.2E (Laplacian blur): a sharp flash frame has high Laplacian
+# but zero matchable texture.  First/last always kept.
+# Default 0.0 = disabled.  Suggested value: ASP_CONTRAST_THRESH=15.0.
+try:
+    _CONTRAST_REJECT_THRESH = float(os.environ.get("ASP_CONTRAST_THRESH", "0.0"))
+except ValueError:
+    _CONTRAST_REJECT_THRESH = 0.0
+
 # §3.4A: dHash hold detection — integer Hamming-distance threshold.
 # 0 = disabled (use MAD-based detector).  Typical same-cel distance: 0–2;
 # cross-cel: 5–20.  Enable with ASP_HOLD_DHASH_THRESH=4.
@@ -398,6 +419,119 @@ def _temporal_variance_filter(
         w = min(a.shape[1], b.shape[1], c.shape[1])
         stack = np.stack([a[:h, :w], b[:h, :w], c[:h, :w]], axis=0)
         if float(np.mean(np.var(stack, axis=0))) < sigma_threshold:
+            keep[i] = False
+
+    n_dropped = keep.count(False)
+    return (
+        [t for t, k in zip(thumbs, keep) if k],
+        [p for p, k in zip(paths, keep) if k],
+        n_dropped,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Blur/artifact frame pre-rejection (§1.2E)
+# ---------------------------------------------------------------------------
+
+
+def _reject_blurry_frames(
+    thumbs: List[np.ndarray],
+    paths: List[str],
+    blur_threshold: float,
+    thumb_size: int = 64,
+) -> "tuple[List[np.ndarray], List[str], int]":
+    """§1.2E — Drop interior frames with Laplacian variance below blur_threshold.
+
+    Resizes each grayscale float32 thumbnail to ``thumb_size``×``thumb_size``,
+    converts to uint8, and measures the variance of the Laplacian.  Sharp frames
+    produce high Laplacian variance; blurry or severe-artifact frames have low
+    values because high-frequency edge energy is suppressed.
+
+    First and last frames are always kept to preserve canvas extent.
+
+    Parameters
+    ----------
+    thumbs:
+        Grayscale float32 thumbnails in [0, 1].  Length N.
+    paths:
+        Corresponding frame file paths.  Length N.
+    blur_threshold:
+        Laplacian variance floor (uint8 scale, 0–255²).  Interior frames below
+        this value are dropped.  0.0 = disabled (no frames dropped).
+        Suggested: 50.0 for anime key-frames.
+    thumb_size:
+        Edge size for internal resize before Laplacian (default 64).
+
+    Returns
+    -------
+    (filtered_thumbs, filtered_paths, n_dropped)
+    """
+    if blur_threshold <= 0.0 or len(thumbs) < 3:
+        return list(thumbs), list(paths), 0
+
+    keep = [True] * len(thumbs)
+    for i in range(1, len(thumbs) - 1):
+        small = cv2.resize(thumbs[i], (thumb_size, thumb_size), interpolation=cv2.INTER_AREA)
+        gray_u8 = (np.clip(small, 0.0, 1.0) * 255).astype(np.uint8)
+        lap_var = float(cv2.Laplacian(gray_u8, cv2.CV_32F).var())
+        if lap_var < blur_threshold:
+            keep[i] = False
+
+    n_dropped = keep.count(False)
+    return (
+        [t for t, k in zip(thumbs, keep) if k],
+        [p for p, k in zip(paths, keep) if k],
+        n_dropped,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Low-contrast frame pre-rejection (§1.46)
+# ---------------------------------------------------------------------------
+
+
+def _reject_low_contrast_frames(
+    thumbs: List[np.ndarray],
+    paths: List[str],
+    contrast_threshold: float,
+) -> "tuple[List[np.ndarray], List[str], int]":
+    """§1.46: Drop interior frames with pixel std below *contrast_threshold*.
+
+    Measures contrast as the standard deviation of the grayscale thumbnail in
+    the [0, 255] scale.  Near-uniform frames (flash panels, whiteout effects,
+    bloom overexposure, fade-to-white transitions) produce std ≈ 0–10 lum
+    units.  Such frames offer no reliable texture for LoFTR keypoint matching
+    or phase-correlation peaks.
+
+    This complements §1.2E (Laplacian blur): a sharp white-flash frame scores
+    high Laplacian (crisp edges wherever the flash meets non-white content) but
+    contributes zero matchable internal texture to the frame interior.
+
+    First and last frames are always kept to preserve the canvas extent.
+
+    Parameters
+    ----------
+    thumbs:
+        Grayscale float32 thumbnails in [0, 1].  Length N.
+    paths:
+        Corresponding frame file paths.  Length N.
+    contrast_threshold:
+        Pixel std floor in [0, 255] units.  Interior frames below this value
+        are dropped.  0.0 = disabled (returns inputs unchanged).
+        Suggested: 15.0 for anime (flash frame std ≈ 0–8, normal frame ≈ 30–80).
+
+    Returns
+    -------
+    (filtered_thumbs, filtered_paths, n_dropped)
+    """
+    if contrast_threshold <= 0.0 or len(thumbs) < 3:
+        return list(thumbs), list(paths), 0
+
+    keep = [True] * len(thumbs)
+    for i in range(1, len(thumbs) - 1):
+        gray_255 = np.clip(thumbs[i], 0.0, 1.0) * 255.0
+        contrast = float(np.std(gray_255))
+        if contrast < contrast_threshold:
             keep[i] = False
 
     n_dropped = keep.count(False)
@@ -772,6 +906,30 @@ def smart_select_frames(
                 f"(thresh={_TEMPORAL_VAR_THRESH:.4f}) → {N} remain"
             )
 
+    # ── 1a-b. §1.2E: Blur/artifact frame pre-rejection ────────────────────
+    if _BLUR_REJECT_THRESH > 0.0 and N > 2:
+        thumbs, frames_paths, _n_blur_drop = _reject_blurry_frames(
+            thumbs, frames_paths, _BLUR_REJECT_THRESH
+        )
+        N = len(frames_paths)
+        if verbose and _n_blur_drop > 0:
+            print(
+                f"  [BlurReject] Dropped {_n_blur_drop} blurry frames "
+                f"(thresh={_BLUR_REJECT_THRESH:.1f}) → {N} remain"
+            )
+
+    # ── 1b-a. §1.46: Low-contrast frame pre-rejection ────────────────────
+    if _CONTRAST_REJECT_THRESH > 0.0 and N > 2:
+        thumbs, frames_paths, _n_contrast_drop = _reject_low_contrast_frames(
+            thumbs, frames_paths, _CONTRAST_REJECT_THRESH
+        )
+        N = len(frames_paths)
+        if verbose and _n_contrast_drop > 0:
+            print(
+                f"  [ContrastReject] Dropped {_n_contrast_drop} low-contrast frames "
+                f"(thresh={_CONTRAST_REJECT_THRESH:.1f}) → {N} remain"
+            )
+
     # ── 1b. Hold-block detection (FD-Means preprocessing, §1.11 / §3.4) ───
     # Detect animation "on twos / on threes" hold blocks.  Each block
     # represents one unique character cel.  We record hold_ids[i] so that
@@ -1125,6 +1283,8 @@ __all__ = [
     "_compute_dhash",
     "_refine_hold_ids_by_response",
     "_temporal_variance_filter",
+    "_reject_blurry_frames",
+    "_reject_low_contrast_frames",
     "_near_dup_luma_filter",
     "_compute_dinov2_features",
     "_fg_center_diff",

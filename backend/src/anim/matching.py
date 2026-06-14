@@ -34,6 +34,20 @@ from .stateless import _highpass, _luma
 # Default OFF to preserve backward-compatible translation-only behaviour.
 _SIMILARITY_MODE: bool = os.environ.get("ASP_SIMILARITY_MODE", "0") != "0"
 
+# §1.36: LoFTR translation consensus spread filter.
+# Rejects the LoFTR translation estimate when per-match displacements have high MAD
+# (median absolute deviation) around the median — indicative of texture confusion
+# between repeated background elements, or character motion polluting matches.
+# Set to 0.0 to disable (default); recommend 30.0 for real sequences.
+_MATCH_SPREAD_CEIL: float = float(os.environ.get("ASP_MATCH_SPREAD_CEIL", "0.0"))
+
+# §1.38: LoFTR background match ratio gate.
+# Rejects the LoFTR edge when background keypoints are too small a fraction of all
+# LoFTR matches — indicates a foreground-dominated scene where the surviving bg
+# keypoints are sparse and their median displacement is noisy.
+# Set to 0.0 to disable (default); recommend 0.15 for real sequences.
+_LOFTR_BG_RATIO_MIN: float = float(os.environ.get("ASP_LOFTR_BG_RATIO_MIN", "0.0"))
+
 
 def _extract_similarity(M: np.ndarray) -> np.ndarray:
     """§1.3E — Project a full 2×3 affine to its best-fit 4-DOF similarity.
@@ -72,6 +86,57 @@ def _extract_similarity(M: np.ndarray) -> np.ndarray:
     out[0, 2] = float(M[0, 2])
     out[1, 2] = float(M[1, 2])
     return out
+
+
+def _compute_translation_spread(
+    pts_i: np.ndarray,
+    pts_j: np.ndarray,
+) -> "tuple[float, float]":
+    """§1.36: Per-axis MAD of LoFTR displacement estimates around their median.
+
+    When LoFTR finds many correspondences but they disagree on the translation
+    (e.g., bimodal distribution from foreground / background confusions), the median
+    displacement is unreliable. A high MAD flags this ambiguity before the edge is
+    committed to the graph.
+
+    Parameters
+    ----------
+    pts_i, pts_j : (N, 2) float32 — matched keypoint coordinates in frames i and j.
+
+    Returns
+    -------
+    (mad_dx, mad_dy) : pair of floats, each ≥ 0.
+        0.0 when N ≤ 1 (no spread to compute).
+    """
+    if len(pts_i) <= 1:
+        return 0.0, 0.0
+    dxs = pts_j[:, 0] - pts_i[:, 0]
+    dys = pts_j[:, 1] - pts_i[:, 1]
+    mad_dx = float(np.median(np.abs(dxs - np.median(dxs))))
+    mad_dy = float(np.median(np.abs(dys - np.median(dys))))
+    return mad_dx, mad_dy
+
+
+def _compute_bg_match_ratio(n_bg_pts: int, n_total_pts: int) -> float:
+    """§1.38: Fraction of LoFTR matches that land on background pixels.
+
+    When most LoFTR matches fall on foreground characters, the handful of
+    surviving background matches produce a noisy median displacement estimate.
+    This function quantifies how bg-clean the match set is so the caller can
+    reject the edge when the ratio is too low.
+
+    Parameters
+    ----------
+    n_bg_pts    : number of matches whose endpoints are both on background (mask > 127).
+    n_total_pts : total LoFTR matches before bg filtering.
+
+    Returns
+    -------
+    float in [0, 1].  Returns 0.0 when *n_total_pts* is 0 (avoids ZeroDivisionError).
+    """
+    if n_total_pts <= 0:
+        return 0.0
+    return float(n_bg_pts) / float(n_total_pts)
 
 
 def _template_match(
@@ -435,6 +500,7 @@ def _match_pair(
         try:
             pts1, pts2, conf = loftr_wrapper.match(match_img_i, match_img_j)
             if len(pts1) >= 30:
+                n_loftr_total = len(pts1)  # capture before bg filtering (§1.38)
                 if match_m_i is not None and match_m_j is not None:
                     y1, x1 = pts1[:, 1].astype(int), pts1[:, 0].astype(int)
                     y2, x2 = pts2[:, 1].astype(int), pts2[:, 0].astype(int)
@@ -460,6 +526,17 @@ def _match_pair(
                             conf[indices],
                         )
                 _loftr_bg_pts = len(pts1)
+                # §1.38: Reject LoFTR edge when bg matches are a small fraction of
+                # total matches — fg-dominated pairs produce noisy median displacement.
+                if _LOFTR_BG_RATIO_MIN > 0.0:
+                    _bg_ratio = _compute_bg_match_ratio(_loftr_bg_pts, n_loftr_total)
+                    if _bg_ratio < _LOFTR_BG_RATIO_MIN:
+                        logger.debug(
+                            f"[Stitch]   {i}→{j}: LoFTR rejected "
+                            f"(bg_ratio={_bg_ratio:.2f} < {_LOFTR_BG_RATIO_MIN:.2f}, "
+                            f"bg_pts={_loftr_bg_pts}/{n_loftr_total})"
+                        )
+                        pts1 = np.empty((0, 2), np.float32)
 
                 if len(pts1) >= 20:
                     if motion_model == "translation":
@@ -468,6 +545,18 @@ def _match_pair(
                         dx, dy = np.median(dxs), np.median(dys)
                         M = np.array([[1, 0, dx], [0, 1, dy]], np.float32)
                         mean_conf = float(conf.mean())
+                        # §1.36: Reject when per-match displacement spread is too high —
+                        # high MAD means LoFTR matches disagree on the translation
+                        # (foreground/background confusion, bimodal distribution).
+                        if _MATCH_SPREAD_CEIL > 0.0:
+                            _mad_dx, _mad_dy = _compute_translation_spread(pts1, pts2)
+                            if max(_mad_dx, _mad_dy) > _MATCH_SPREAD_CEIL:
+                                M = None
+                                logger.debug(
+                                    f"[Stitch]   {i}→{j}: LoFTR rejected "
+                                    f"(spread mad_dx={_mad_dx:.1f} mad_dy={_mad_dy:.1f} "
+                                    f"> {_MATCH_SPREAD_CEIL:.0f}px)"
+                                )
                     else:
                         M_raw, inliers = cv2.estimateAffine2D(
                             pts1, pts2, method=cv2.RANSAC, ransacReprojThreshold=5.0
@@ -676,4 +765,5 @@ __all__ = [
     "_match_pair",
     "_pairwise_match",
     "_extract_similarity",
+    "_compute_translation_spread",
 ]

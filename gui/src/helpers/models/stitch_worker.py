@@ -418,15 +418,35 @@ if _PIPELINE_OK:
             _ov2 = self._hitl_pause("edges", {
                 "edges": _edge_data,
                 "image_paths": list(image_paths),
+                "n_frames": N,
             })
             if "edges" in _ov2:
                 _e_lookup = {(e["i"], e["j"]): e for e in edges}
-                _filtered = [_e_lookup[(ed["i"], ed["j"])] for ed in _ov2["edges"]
-                             if (ed["i"], ed["j"]) in _e_lookup]
+                _filtered = []
+                _n_manual = 0
+                for ed in _ov2["edges"]:
+                    key = (ed["i"], ed["j"])
+                    if key in _e_lookup:
+                        _filtered.append(_e_lookup[key])
+                    elif ed.get("method") == "manual":
+                        # S89: construct a full pipeline edge for user-added edges
+                        try:
+                            from backend.src.anim.pipeline import _build_manual_edge
+                            _filtered.append(_build_manual_edge(
+                                ed["i"], ed["j"],
+                                ed["dx"], ed["dy"],
+                                weight=ed.get("conf", 0.9),
+                            ))
+                            _n_manual += 1
+                        except Exception as _me:
+                            self._log_cb(f"[HITL] Skipping manual edge: {_me}")
                 if _filtered:
                     edges = _filtered
                     _trace["edges_found"] = len(edges)
-                    self._log_cb(f"[HITL] Edges updated: {len(edges)} edges kept.")
+                    self._log_cb(
+                        f"[HITL] Edges updated: {len(edges)} kept"
+                        f"{f', {_n_manual} manual' if _n_manual else ''}."
+                    )
 
             if not edges:
                 warnings.warn("[Stitch] No valid edges — falling back to scan stitch.")
@@ -586,15 +606,57 @@ if _PIPELINE_OK:
                             self._log_cb(
                                 f"[HITL] Seam boundaries updated by user: {len(_preset_boundaries)} boundaries."
                             )
+                # HITL checkpoint 4.6 — seam diagnostic inspector (S95)
+                # Run initial composite to collect per-seam metadata, then surface
+                # it to the user before the seam-painter loop.  On non-HITL runs
+                # _hitl_pause returns {} immediately and _seam_overrides stays empty.
+                _seam_meta: dict = {}
+                _seam_overrides: dict = {}
+                canvas = self._composite_foreground(
+                    [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks,
+                    preset_boundaries=_preset_boundaries,
+                    seam_meta_out=_seam_meta,
+                )
+                _prev_sc46 = min(1.0, 600 / max(canvas_h, 1))
+                _diag_prev = cv2.resize(
+                    canvas,
+                    (max(1, int(canvas_w * _prev_sc46)), max(1, int(canvas_h * _prev_sc46))),
+                    cv2.INTER_AREA,
+                )
+                _ov4_6 = self._hitl_pause("seams", {
+                    "canvas_preview": _diag_prev,
+                    "boundaries": _seam_meta.get("boundaries", []),
+                    "seam_post_diffs": _seam_meta.get("seam_post_diffs", {}),
+                    "seam_single_pose_keys": list(_seam_meta.get("seam_single_pose", {}).keys()),
+                    "canvas_h": canvas_h,
+                    "canvas_w": canvas_w,
+                })
+                del _diag_prev
+                if _ov4_6.get("cancel"):
+                    raise InterruptedError("Stitch cancelled at seam-diagnostic checkpoint.")
+                _seam_overrides = _ov4_6.get("seam_overrides") or {}
+                if _seam_overrides:
+                    canvas = self._composite_foreground(
+                        [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks,
+                        preset_boundaries=_preset_boundaries,
+                        seam_overrides=_seam_overrides,
+                        seam_meta_out=_seam_meta,
+                    )
+                    self._log_cb(
+                        f"[HITL] Re-composited with {len(_seam_overrides)} seam override(s)."
+                    )
+
                 # HITL checkpoint 4.5 — post-composite seam painter (S86)
                 _paint_mask = None
                 _cp45_iter = 0
                 while True:
-                    canvas = self._composite_foreground(
-                        [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks,
-                        preset_boundaries=_preset_boundaries,
-                        paint_mask=_paint_mask,
-                    )
+                    if _cp45_iter > 0 or _paint_mask is not None:
+                        canvas = self._composite_foreground(
+                            [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks,
+                            preset_boundaries=_preset_boundaries,
+                            paint_mask=_paint_mask,
+                            seam_overrides=_seam_overrides,
+                        )
                     _cp45_iter += 1
                     _prev_sc45 = min(1.0, 600 / max(canvas_h, 1))
                     _comp_prev = cv2.resize(
@@ -677,6 +739,18 @@ if _PIPELINE_OK:
 
             _trace["success"] = True
             _write_trace()
+
+            # S88: autosave HITL session after successful run
+            if self._hitl_session_overrides:
+                try:
+                    from backend.src.anim.hitl_session import save_session, autosave_path
+                    _sp = autosave_path()
+                    save_session(self._hitl_session_overrides, _sp)
+                    self._current_session_path = _sp
+                    self._log_cb(f"[HITL] Session saved to '{_sp}'.")
+                except Exception as _se:
+                    self._log_cb(f"[HITL] Could not autosave session: {_se}")
+
             return out
 
         def _pairwise_match(self, frames, bg_masks):
@@ -711,6 +785,7 @@ class StitchWorker(QObject):
     sig_review_edges = Signal(object)      # after Stage 5: edge graph review
     sig_review_canvas = Signal(object)     # after Stage 8: canvas layout review
     sig_review_boundaries = Signal(object) # checkpoint 3.5: seam boundary editor (S85)
+    sig_review_seams = Signal(object)      # checkpoint 4.6: seam diagnostic inspector (S95)
     sig_review_composite = Signal(object)  # checkpoint 4.5: post-composite seam painter (S86)
     sig_review_render = Signal(object)     # after Stage 9: render / coverage review
     sig_review_output = Signal(object)     # checkpoint 5: final output RLHF feedback (S87)
@@ -727,6 +802,7 @@ class StitchWorker(QObject):
         video_path: Optional[str] = None,
         video_n_frames: int = 20,
         video_mode: str = "uniform",
+        session_path: Optional[str] = None,
     ):
         import os
         super().__init__()
@@ -758,6 +834,17 @@ class StitchWorker(QObject):
 
         # Issue 10A3: NL seam-routing exclusion masks (set via set_exclusion_masks())
         self._exclusion_masks: Optional[List] = None
+
+        # S88: session persistence — accumulated overrides + optional replay source
+        self._hitl_session_overrides: Dict[str, dict] = {}
+        self._current_session_path: Optional[str] = None
+        self._replay_session: Dict[str, dict] = {}
+        if session_path:
+            try:
+                from backend.src.anim.hitl_session import load_session
+                self._replay_session = load_session(session_path)
+            except Exception:
+                pass  # bad session file → run interactively
 
     def cancel(self):
         self._cancel_flag[0] = True
@@ -796,6 +883,15 @@ class StitchWorker(QObject):
         """Set seam-boundary y-coordinate override (call before resume() at checkpoint 3.5)."""
         self._hitl_override["boundaries"] = boundaries
 
+    def set_seam_override(self, overrides: dict) -> None:
+        """Set per-seam override dict for HITL checkpoint 4.6.
+
+        *overrides* maps seam index k (int or str) → option dict with optional
+        keys ``"force_single_pose"`` (bool) and ``"force_blend"`` (bool).
+        Call before :meth:`resume` at the seam-diagnostic checkpoint.
+        """
+        self._hitl_override["seam_overrides"] = {int(k): v for k, v in overrides.items()}
+
     def set_paint_mask(self, mask: np.ndarray) -> None:
         """Set canvas-space paint mask for re-composite (call before resume() at checkpoint 4.5)."""
         self._hitl_override["paint_mask"] = mask
@@ -811,6 +907,22 @@ class StitchWorker(QObject):
             "annotations": annotations,
         }
 
+    # S88 ----------------------------------------------------------------- #
+
+    @property
+    def current_session_path(self) -> Optional[str]:
+        """Path of the autosaved session JSON (set after a successful run)."""
+        return self._current_session_path
+
+    def save_session(self, path: str) -> None:
+        """Write accumulated checkpoint overrides to *path*."""
+        try:
+            from backend.src.anim.hitl_session import save_session
+            save_session(self._hitl_session_overrides, path)
+            self._current_session_path = path
+        except Exception:
+            pass
+
     def _make_hitl_pause_cb(self) -> Callable:
         """Return a callable that emits the right signal then blocks the worker thread."""
         _signal_map = {
@@ -819,14 +931,19 @@ class StitchWorker(QObject):
             "edges": self.sig_review_edges,
             "canvas": self.sig_review_canvas,
             "boundaries": self.sig_review_boundaries,
+            "seams": self.sig_review_seams,
             "composite": self.sig_review_composite,
             "render": self.sig_review_render,
             "output": self.sig_review_output,
         }
 
         def _pause_cb(event: str, data: dict) -> dict:
+            # Replay mode: return stored override without blocking the worker
             if not self._hitl_mode:
-                return {}
+                override = dict(self._replay_session.get(event, {}))
+                if override:
+                    self._hitl_session_overrides[event] = override
+                return override
             sig = _signal_map.get(event)
             if sig is not None:
                 sig.emit(data)
@@ -837,12 +954,21 @@ class StitchWorker(QObject):
                 self._hitl_wait.wait(self._hitl_mutex)
             override = dict(self._hitl_override)
             self._hitl_mutex.unlock()
+            # Accumulate override for session autosave (skip empty/cancel)
+            if override and not override.get("cancel"):
+                self._hitl_session_overrides[event] = override
             return override
 
         return _pause_cb
 
     def _hitl_video_pause(self, data: dict) -> dict:
         """Pause StitchWorker.run() for video frame review (HITL checkpoint 0 — S84)."""
+        # Replay mode: return stored video override without blocking
+        if not self._hitl_mode:
+            override = dict(self._replay_session.get("video", {}))
+            if override:
+                self._hitl_session_overrides["video"] = override
+            return override
         self.sig_review_video.emit(data)
         self._hitl_mutex.lock()
         self._hitl_paused = True
@@ -851,6 +977,8 @@ class StitchWorker(QObject):
             self._hitl_wait.wait(self._hitl_mutex)
         override = dict(self._hitl_override)
         self._hitl_mutex.unlock()
+        if override and not override.get("cancel"):
+            self._hitl_session_overrides["video"] = override
         return override
 
     def run(self):

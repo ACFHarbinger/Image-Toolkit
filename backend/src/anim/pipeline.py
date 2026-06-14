@@ -52,6 +52,7 @@ from backend.src.constants import (
     SCENE_CHANGE_BGR_THRESH,
     SEAM_COLOR_GATE_THRESH,
     STATIC_EDGE_MIN_DISP_PX,
+    TRI_CONSISTENCY_PENALTY,
 )
 from .ecc import _ecc_refine
 from .bg_complete import complete_background
@@ -186,6 +187,111 @@ _SEAM_COLOR_GATE_BGR: bool = os.environ.get("ASP_SEAM_COLOR_GATE_BGR", "0") != "
 # for reliable BA (graph dominated by TM/PC fallback edges at weight~0.15–0.3).
 # Default 0.0 = disabled. Recommended: ASP_MST_MIN_WEIGHT=0.35.
 _MST_MIN_WEIGHT: float = float(os.environ.get("ASP_MST_MIN_WEIGHT", "0.0"))
+# §1.43 — Adjacent edge coverage ratio gate (S107).
+# Counts what fraction of the N-1 adjacent frame pairs (|i−j|=1) have at least
+# one edge in the filtered graph.  When most adjacent pairs are missing (only
+# skip-edges connect them), BA has no local displacement constraints to work from
+# and the solution is unreliable even if the graph is still connected.
+# Distinct from §1.15 (connectivity via any path) and §1.16 (spanning tree weight):
+# those can pass with a fully skip-edge graph; this fires specifically when
+# adjacent-pair coverage is low.
+# Default 0.0 = off.  Recommend ASP_ADJ_COVERAGE_MIN=0.60.
+_ADJ_COVERAGE_MIN: float = float(os.environ.get("ASP_ADJ_COVERAGE_MIN", "0.0"))
+# §1.47 — Adjacent displacement sign consistency gate (S111).
+# Among adjacent edges (|i−j|=1), determines the dominant scroll direction
+# (majority dy sign for vertical, majority dx sign for horizontal scroll).
+# Edges whose dominant-axis displacement opposes the majority sign are
+# "wrong-direction" matches — almost certainly incorrect matches where PC/TM
+# latched onto a local peak that reversed the apparent motion direction.
+# The minority-sign fraction (rate) is compared against a threshold; high
+# rate → SCANS fallback before BA wastes time averaging contradictory edges.
+# Default 0.0 = off.  Recommend ASP_SIGN_INCONSISTENCY_MAX=0.20.
+_SIGN_INCONSISTENCY_MAX: float = float(os.environ.get("ASP_SIGN_INCONSISTENCY_MAX", "0.0"))
+# §1.48 — Adjacent displacement magnitude CV gate (S112).
+# Among adjacent edges (|i−j|=1), measures the coefficient of variation
+# (std / mean) of dominant-axis displacement magnitudes.  A high CV (e.g. >0.5)
+# indicates that one or more adjacent edges report a displacement wildly
+# different from the rest — e.g. PC locked onto the 2nd harmonic giving 2×
+# the true step, or TM jumped to non-adjacent content.  Complementary to
+# §1.47 (sign consistency): an outlier edge that agrees with the scroll
+# direction but reports 10× the typical magnitude will pass §1.47 but fail
+# §1.48.  Returns 0.0 for <2 adj edges (safe no-op).
+# Default 0.0 = off.  Recommend ASP_ADJ_DISP_CV_MAX=0.5.
+_ADJ_DISP_CV_MAX: float = float(os.environ.get("ASP_ADJ_DISP_CV_MAX", "0.0"))
+# §1.49 — Adjacent edge minimum weight gate (S113).
+# §1.16 checks the *mean* MST edge weight (average quality across the spanning
+# tree) and §1.43 checks that every adjacent pair has *at least one* edge.
+# §1.49 fills the gap between them: a pair may have an edge (passes §1.43) and
+# the MST mean may look acceptable (passes §1.16), but if that specific edge
+# has near-zero confidence (weight < floor) the compositing seam at that
+# boundary will be garbage regardless of how cleanly BA solves the rest.
+# Returns 1.0 when no adjacent edges exist (safe no-op).
+# Default 0.0 = off.  Recommend ASP_ADJ_MIN_WEIGHT=0.20.
+_ADJ_MIN_WEIGHT: float = float(os.environ.get("ASP_ADJ_MIN_WEIGHT", "0.0"))
+# §1.50 — Bundle-adjustment max residual gate (S114).
+# After Stage 7 (BA), each edge has an "observed" displacement (e["M"][:2,2])
+# and a "predicted" displacement (affines[j][:2,2] − affines[i][:2,2]).
+# The L2 distance between these is the per-edge BA residual.  For a healthy
+# solve the median residual is ≤ 5–15 px; the GNC Cauchy/TLS weighting
+# (§1.1C, §1.17) down-weights outlier edges but cannot suppress them when a
+# single high-weight wrong match corrupts the median (Category B failure).
+# Gate fires when the *maximum* per-edge residual exceeds a pixel threshold,
+# indicating that at least one edge is wildly inconsistent with the solved
+# frame placement.  Wired between Stage 7 and Stage 7b validation.
+# Default 0.0 = off.  Recommend ASP_BA_RESIDUAL_MAX=200.0.
+_BA_RESIDUAL_MAX: float = float(os.environ.get("ASP_BA_RESIDUAL_MAX", "0.0"))
+# §1.51 — Minimum adjacent frame overlap gate (S115).
+# §1.44 fires when adjacent frames are too FAR APART (gap > threshold, i.e.
+# coverage hole).  §1.51 is the complementary gate: fires when adjacent frames
+# are too CLOSE TOGETHER — the canvas-space overlap between frame i's trailing
+# edge and frame i+1's leading edge is below a pixel floor, making the
+# compositing seam zone too narrow for reliable DP cutting or feathering.
+# An overlap of 1–19 px means there are ≤ 19 rows for the seam to traverse;
+# the FEATHER_MIN=80 px feather clamp cannot be satisfied and the DP seam will
+# almost certainly pass through character pixels.
+# Returns the minimum overlap across all adjacent pairs (negative = gap).
+# Default 0.0 = off.  Recommend ASP_MIN_ADJACENT_OVERLAP_PX=20.0.
+_MIN_ADJACENT_OVERLAP_PX: float = float(os.environ.get("ASP_MIN_ADJACENT_OVERLAP_PX", "0.0"))
+# §1.52 — BA weighted mean residual gate (S116).
+# §1.50 fires when the *maximum* per-edge residual exceeds a threshold —
+# catching a single catastrophic outlier edge (Category B failure).
+# §1.52 is the complementary gate: it fires when the *confidence-weighted
+# mean* per-edge residual exceeds a lower threshold, catching systematic BA
+# drift where all (or many) edges are moderately wrong (e.g. all 40–60 px
+# off due to a biased global translation or a repeated texture that shifted
+# the phase-correlation response surface).  This scenario passes §1.50
+# (no single edge is >200 px off) but indicates the entire BA solution is
+# unreliable.  Weighted mean = Σ(w_i × r_i) / Σ(w_i) where r_i is the L2
+# residual for edge i and w_i is its match confidence weight.
+# Default 0.0 = off.  Recommend ASP_BA_WMEAN_RESIDUAL_MAX=30.0.
+_BA_WMEAN_RESIDUAL_MAX: float = float(os.environ.get("ASP_BA_WMEAN_RESIDUAL_MAX", "0.0"))
+# §1.53 — Canvas memory size gate (S117).
+# After Stage 9 canvas geometry is determined, the estimated float32 array
+# footprint (canvas_h × canvas_w × 3 channels × 4 bytes) is checked against
+# a RAM budget.  CANVAS_MAX_DIM=32768 prevents individually extreme dimensions
+# but does not bound the product: a 32768×1920 canvas costs ≈720 MB for the
+# array alone — multiply by warped-frame buffers, masks, and intermediate
+# compositing layers and a 4-GB system will OOM silently before hitting the
+# compositing step.  This gate fires early and falls back to SCANS, whose
+# simple scan-line pass has negligible peak memory.
+# Returns the estimated footprint in megabytes (float32 RGB).
+# Default 0.0 = off.  Recommend ASP_CANVAS_MAX_MEMORY_MB=2048.0 (2 GB).
+_CANVAS_MAX_MEMORY_MB: float = float(os.environ.get("ASP_CANVAS_MAX_MEMORY_MB", "0.0"))
+# §1.54 — Render luminance std gate (S118).
+# After Stage 10 temporal render, measures the pixel luminance standard
+# deviation within the *valid* (covered) canvas region.  The valid region
+# is defined by valid_mask > 0.
+# A std near zero means all covered pixels share the same luminance —
+# indicating degenerate render output from BaSiC photometric over-correction
+# (clamps all frames to the same mean luminance), silent warp failure (all
+# frames mapped to an identical region), or hold-block leakage that the
+# temporal median fused into one flat frame.  This failure mode produces no
+# visible seams and passes §1.39 (coverage) and §1.24 (seam step), but the
+# resulting panorama is a solid-colour slab.
+# Luminance is approximated as the simple BGR mean per pixel (fast; avoids
+# importing cv2.cvtColor in a pure-math helper).
+# Default 0.0 = off.  Recommend ASP_RENDER_LUMA_STD_MIN=5.0.
+_RENDER_LUMA_STD_MIN: float = float(os.environ.get("ASP_RENDER_LUMA_STD_MIN", "0.0"))
 # §1.17 — Canvas span utilisation gate (S61).
 # After bundle adjustment and canvas construction (Stage 9), the actual
 # dominant-axis span of the solved affines is compared against the expected
@@ -212,6 +318,91 @@ _SEAM_STEP_GATE: float = float(os.environ.get("ASP_SEAM_STEP_GATE", "0.0"))
 _STATIC_INPUT_MAX_MAD: float = float(os.environ.get("ASP_STATIC_INPUT_MAX_MAD", "0.0"))
 _USE_SAM2: bool = os.environ.get("ASP_USE_SAM2", "0") != "0"
 _BG_COMPLETE: int = int(os.environ.get("ASP_BG_COMPLETE", "0"))
+# §2.14 — Triangular consistency filter (S93).
+# For every triangle (i→j, j→k, i→k) in the edge graph, compute the L2
+# residual between the predicted displacement (sum of two sides) and the
+# observed displacement (hypotenuse).  When the residual exceeds this
+# threshold the weakest edge in the triangle is penalised (weight × 0.5).
+# Default 0.0 = off.  Recommended: ASP_TRI_CONSISTENCY=80.0.
+_TRI_CONSISTENCY_MAX_RESIDUAL: float = float(
+    os.environ.get("ASP_TRI_CONSISTENCY", "0.0")
+)
+# §1.37 — Background pixel coverage fraction gate (S101).
+# After Stage 4, compute the mean fraction of bg pixels across all masks.
+# When below this value, BiRefNet has classified the scene as fg-dominant and
+# the bg-based normalization (Stage 4.5), bg-masked phase correlation and
+# ba-weight pipeline will all operate on insufficient bg signal.
+# Default 0.0 = off.  Recommend ASP_MIN_BG_FRACTION=0.05.
+_MIN_BG_FRACTION: float = float(os.environ.get("ASP_MIN_BG_FRACTION", "0.0"))
+
+# §1.39 — Render canvas coverage fraction gate (S103).
+# After Stage 10 temporal render, the valid_mask (non-zero = geometrically covered)
+# tells us what fraction of canvas pixels are reached by at least one warped frame.
+# When affines are badly wrong (all frames piled in a small overlap zone, or a very
+# sparse canvas with huge untouched regions), this fraction can be very low while
+# Stage 10.5 multi-frame row coverage still passes (a single dense clump satisfies
+# the row check).  Gate fires before Stage 10.5 to catch total coverage failure first.
+# Default 0.0 = off.  Recommend ASP_RENDER_MIN_COVERAGE=0.30.
+_RENDER_MIN_COVERAGE: float = float(os.environ.get("ASP_RENDER_MIN_COVERAGE", "0.0"))
+
+# §1.44 — Maximum adjacent frame gap gate (S108).
+# After Stage 9 canvas construction, checks that no adjacent frame pair (i, i+1)
+# has been placed so far apart that there is an uncovered canvas strip between them.
+# For vertical scroll the gap = ty_{i+1} - (ty_i + H_i); for horizontal,
+# tx_{i+1} - (tx_i + W_i).  A large positive gap means BA "stretched" those frames
+# apart — the rendered canvas will have a black stripe there.  Complements §1.17
+# (total span utilization) which catches global collapse, and §1.39 (render coverage)
+# which fires after the expensive warp step; this gate is cheaper (pure affine math).
+# Default 0.0 = off.  Recommend ASP_MAX_ADJACENT_GAP_PX=100.0.
+_MAX_ADJACENT_GAP_PX: float = float(os.environ.get("ASP_MAX_ADJACENT_GAP_PX", "0.0"))
+
+# §1.45 — Canvas width ratio gate (S109).
+# After Stage 9 canvas construction, compares canvas_w to the median source-frame
+# width.  For a vertical scroll the canvas should be ≈ 1× frame width; a ratio
+# significantly above 1.0 means BA has introduced large horizontal offsets between
+# frames (tx drift), producing an oversized canvas with mostly empty black columns.
+# This is distinct from §3.14 (pure horizontal scroll, where ty_span≈0) because
+# the sequence is still dominantly vertical (ty_span >> tx_span) while frames
+# drift sideways — §3.14 does not fire; §1.45 catches the drift via canvas width.
+# Default 0.0 = off.  Recommend ASP_MAX_CANVAS_WIDTH_RATIO=1.5.
+_MAX_CANVAS_WIDTH_RATIO: float = float(os.environ.get("ASP_MAX_CANVAS_WIDTH_RATIO", "0.0"))
+
+
+def _compute_bg_coverage_fraction(
+    bg_masks: "List[Optional[np.ndarray]]",
+) -> float:
+    """§1.37: Mean fraction of bg pixels (mask > 127) across all valid masks.
+
+    Returns 1.0 when *bg_masks* is empty or contains only None entries so that
+    the gate does not fire when masking is disabled.
+    """
+    fractions: List[float] = []
+    for mask in bg_masks:
+        if mask is None:
+            continue
+        total = mask.size
+        if total == 0:
+            continue
+        fractions.append(float((mask > 127).sum()) / total)
+    if not fractions:
+        return 1.0
+    return float(np.mean(fractions))
+
+
+def _compute_render_coverage(valid_mask: np.ndarray) -> float:
+    """§1.39: Fraction of canvas pixels covered by at least one warped frame.
+
+    *valid_mask* is the uint8 mask returned by ``_render`` (255 = covered by ≥1
+    frame, 0 = no frame reaches this pixel).  Returns the fraction of non-zero
+    pixels over the total canvas area.
+
+    Returns 0.0 for an empty mask so the gate can fire; returns 1.0 when
+    *valid_mask* is all-covered (normal healthy render).
+    """
+    total = valid_mask.size
+    if total == 0:
+        return 0.0
+    return float((valid_mask > 0).sum()) / float(total)
 
 
 def _measure_max_seam_step(
@@ -548,6 +739,108 @@ def _filter_high_conf_edges(
     return [e for e in edges if float(e.get("weight", 0.0)) >= min_weight]
 
 
+def _triangular_consistency_filter(
+    edges: List[Dict],
+    max_residual_px: float,
+) -> List[Dict]:
+    """§2.14 — Penalise the weakest edge in every inconsistent triangle.
+
+    The existing geometric consistency filter (inside ``_filter_edges``) only
+    tests **skip** edges against the sum of their adjacent chain.  When an
+    **adjacent** edge (i→i+1) is wrong the skip edges it anchors are dropped
+    even though they might be correct — the wrong adjacent edge is never
+    questioned.
+
+    This filter iterates over all triangles (i→j, j→k, i→k) present in the
+    edge graph, computes the L2 residual between the predicted hypotenuse
+    displacement (sum of two shorter legs) and the observed displacement
+    (hypotenuse edge), and halves the *weight* of the weakest edge whenever the
+    residual exceeds *max_residual_px*.
+
+    Weight halving (not dropping) is intentional: bundle adjustment should still
+    receive the edge; it is just trusted less.  Systematic triangles where all
+    three edges are consistent gain no penalty.
+
+    Parameters
+    ----------
+    edges : list of edge dicts (keys: ``"i"``, ``"j"``, ``"M"``, ``"weight"``).
+    max_residual_px : L2 residual floor; triangles below are ignored.
+    """
+    if max_residual_px <= 0.0 or len(edges) < 3:
+        return edges
+
+    # Build quick lookup: (i, j) → index in edges list (j > i always)
+    edge_map: Dict[Tuple[int, int], int] = {}
+    for idx, e in enumerate(edges):
+        ei, ej = int(e["i"]), int(e["j"])
+        edge_map[(ei, ej)] = idx
+
+    # Collect all unique frame indices
+    frame_ids = sorted({int(e["i"]) for e in edges} | {int(e["j"]) for e in edges})
+
+    # Accumulate penalty multipliers; each edge starts at 1.0.
+    # Multiple inconsistent triangles can each contribute a 0.5× factor.
+    penalty: Dict[int, float] = {}  # edge index → accumulated multiplier
+
+    def _get_tx(e: Dict) -> Tuple[float, float]:
+        return float(e["M"][0, 2]), float(e["M"][1, 2])
+
+    for a_idx, fi in enumerate(frame_ids):
+        for fj in frame_ids[a_idx + 1 :]:
+            for fk in frame_ids:
+                if fk <= fj:
+                    continue
+                # Triangle vertices: fi → fj, fj → fk, fi → fk
+                ij = (fi, fj)
+                jk = (fj, fk)
+                ik = (fi, fk)
+                if ij not in edge_map or jk not in edge_map or ik not in edge_map:
+                    continue
+                idx_ij = edge_map[ij]
+                idx_jk = edge_map[jk]
+                idx_ik = edge_map[ik]
+                e_ij = edges[idx_ij]
+                e_jk = edges[idx_jk]
+                e_ik = edges[idx_ik]
+                tx_ij, ty_ij = _get_tx(e_ij)
+                tx_jk, ty_jk = _get_tx(e_jk)
+                tx_ik, ty_ik = _get_tx(e_ik)
+                # Predicted hypotenuse from the two shorter legs
+                pred_x = tx_ij + tx_jk
+                pred_y = ty_ij + ty_jk
+                residual = float(
+                    np.sqrt((tx_ik - pred_x) ** 2 + (ty_ik - pred_y) ** 2)
+                )
+                if residual <= max_residual_px:
+                    continue
+                # Penalise weakest edge
+                weights = [
+                    float(e_ij.get("weight", 0.0)),
+                    float(e_jk.get("weight", 0.0)),
+                    float(e_ik.get("weight", 0.0)),
+                ]
+                weakest_local = int(np.argmin(weights))
+                weakest_idx = [idx_ij, idx_jk, idx_ik][weakest_local]
+                penalty[weakest_idx] = penalty.get(weakest_idx, 1.0) * TRI_CONSISTENCY_PENALTY
+                logger.debug(
+                    "[Stitch]   §2.14 Triangle (%d→%d, %d→%d, %d→%d) residual=%.1f px"
+                    " — penalised edge %d→%d (weight %.3f → %.3f)",
+                    fi, fj, fj, fk, fi, fk, residual,
+                    int(edges[weakest_idx]["i"]),
+                    int(edges[weakest_idx]["j"]),
+                    weights[weakest_local],
+                    weights[weakest_local] * TRI_CONSISTENCY_PENALTY,
+                )
+
+    if not penalty:
+        return edges
+
+    result = [dict(e) for e in edges]
+    for edge_idx, mult in penalty.items():
+        result[edge_idx]["weight"] = float(result[edge_idx].get("weight", 0.0)) * mult
+    return result
+
+
 def _check_edge_graph_connectivity(
     edges: List[Dict],
     n_frames: int,
@@ -638,6 +931,419 @@ def _compute_mst_weight(
     if tree_edges == 0:
         return 0.0
     return total_weight / max(1, needed)
+
+
+def _compute_adj_edge_coverage(
+    edges: List[dict],
+    n_frames: int,
+) -> float:
+    """§1.43: Fraction of adjacent frame pairs (|i−j|=1) with at least one edge.
+
+    Bundle adjustment is most reliable when every consecutive frame pair has a
+    direct matching edge.  When large fractions of adjacent pairs are missing
+    (matching fell through for all attempts), BA has to rely on skip-edges
+    which carry inherently noisier displacement estimates.
+
+    Distinct from ``_check_edge_graph_connectivity`` (which only checks global
+    reachability, not local adjacency density) and ``_compute_mst_weight``
+    (which checks confidence quality, not structural coverage).
+
+    Parameters
+    ----------
+    edges     : list of edge dicts with 'i' and 'j' integer frame indices.
+    n_frames  : total number of frames in the sequence.
+
+    Returns
+    -------
+    float in [0, 1].  Returns 1.0 when n_frames ≤ 1 (trivially covered).
+    """
+    if n_frames <= 1:
+        return 1.0
+    n_adj = n_frames - 1
+    covered = {
+        (min(int(e["i"]), int(e["j"])), max(int(e["i"]), int(e["j"])))
+        for e in edges
+        if abs(int(e["i"]) - int(e["j"])) == 1
+    }
+    return float(len(covered)) / float(n_adj)
+
+
+def _compute_sign_inconsistency_rate(edges: "List[dict]") -> float:
+    """§1.47: Minority-sign fraction of adjacent-edge dominant-axis displacements.
+
+    For a consistent scroll all adjacent edges should report camera movement in
+    the same direction.  The dominant axis is determined by comparing
+    ``|median(dy)|`` vs ``|median(dx)|`` across adjacent edges.
+
+    *Sign inconsistency rate* = ``min(n_pos, n_neg) / n_total`` where
+    ``n_pos`` / ``n_neg`` are the counts of positive / negative displacements
+    along the dominant axis.  Zero-displacement edges are ignored.
+
+    Returns
+    -------
+    float in [0, 0.5].  0.0 means perfect sign agreement.  0.5 means the
+    graph is evenly split (maximum confusion).  Returns 0.0 when fewer than
+    2 adjacent edges have non-zero displacement.
+    """
+    adj = [e for e in edges if abs(int(e["i"]) - int(e["j"])) == 1]
+    if len(adj) < 2:
+        return 0.0
+
+    dys = [float(e["M"][1, 2]) for e in adj]
+    dxs = [float(e["M"][0, 2]) for e in adj]
+    med_dy = float(np.median([abs(d) for d in dys]))
+    med_dx = float(np.median([abs(d) for d in dxs]))
+    disps = dys if med_dy >= med_dx else dxs
+
+    nonzero = [d for d in disps if d != 0.0]
+    if len(nonzero) < 2:
+        return 0.0
+
+    n_pos = sum(1 for d in nonzero if d > 0)
+    n_neg = len(nonzero) - n_pos
+    return float(min(n_pos, n_neg)) / float(len(nonzero))
+
+
+def _compute_adj_disp_cv(edges: "List[dict]") -> float:
+    """§1.48: Coefficient of variation of adjacent-edge dominant-axis displacement magnitudes.
+
+    Filters to adjacent edges (``|i-j|=1``), selects the dominant scroll axis
+    (larger median absolute displacement), and returns ``std(|disp|)/mean(|disp|)``
+    across those magnitudes.  A high CV (e.g. >0.5) indicates one or more
+    adjacent edges with wildly different displacement from the rest — e.g. a
+    phase-correlation match locked onto the 2nd harmonic (2× true step) or a
+    template-match that jumped to non-adjacent content.
+
+    Complementary to §1.47 (sign gate): an outlier that agrees on scroll
+    *direction* but reports 10× the typical *magnitude* passes §1.47 but fails
+    this gate.
+
+    Returns
+    -------
+    float ≥ 0.  0.0 for fewer than 2 adjacent edges (safe no-op) or when
+    mean magnitude is 0.
+    """
+    adj = [e for e in edges if abs(int(e["i"]) - int(e["j"])) == 1]
+    if len(adj) < 2:
+        return 0.0
+
+    dys = [abs(float(e["M"][1, 2])) for e in adj]
+    dxs = [abs(float(e["M"][0, 2])) for e in adj]
+    mags = dys if float(np.median(dys)) >= float(np.median(dxs)) else dxs
+
+    mean_m = float(np.mean(mags))
+    if mean_m == 0.0:
+        return 0.0
+    return float(np.std(mags)) / mean_m
+
+
+def _compute_adj_min_weight(edges: "List[dict]") -> float:
+    """§1.49: Minimum match confidence weight among all adjacent edges (|i−j|=1).
+
+    §1.16 guards the *mean* MST weight; §1.43 guards *coverage* (at least one
+    edge per adjacent pair).  This function fills the gap: even when coverage
+    is complete and the mean looks acceptable, a single adjacent edge whose
+    weight is near zero guarantees an unreliable displacement for that pair —
+    the compositing seam at that boundary will be ill-placed regardless of how
+    cleanly BA solves the remaining graph.
+
+    Returns
+    -------
+    float in [0, 1].  Minimum weight among adjacent edges.  Returns 1.0 when
+    no adjacent edges exist (safe no-op — nothing to fail on).
+    """
+    adj = [e for e in edges if abs(int(e["i"]) - int(e["j"])) == 1]
+    if not adj:
+        return 1.0
+    return float(min(float(e["weight"]) for e in adj))
+
+
+def _compute_ba_max_residual(
+    edges: "List[dict]",
+    affines: "List[np.ndarray]",
+) -> float:
+    """§1.50: Maximum per-edge BA residual (L2, pixels) across all edges.
+
+    For each edge (i→j) the *observed* displacement is ``e["M"][:2, 2]`` (the
+    raw pairwise match translation vector) and the *predicted* displacement is
+    ``affines[j][:2, 2] − affines[i][:2, 2]`` (what the solved global frame
+    placement implies).  The L2 distance between the two is the edge residual.
+
+    A healthy BA solve with GNC/Cauchy weighting has a median residual of
+    ≤ 5–15 px.  A catastrophically bad match (Category B failure) that survived
+    all pre-BA gates will still produce a large residual because the solved
+    affines will be pulled *toward* but not fully to the bad edge's implied
+    position — typically 50–500 px off for a corrupted outlier.
+
+    Returns
+    -------
+    float ≥ 0.  Maximum residual across all edges.  Returns 0.0 when the edge
+    list is empty or any affine index is out of range (safe no-op).
+    """
+    if not edges or not affines:
+        return 0.0
+    n = len(affines)
+    max_res = 0.0
+    for e in edges:
+        i, j = int(e["i"]), int(e["j"])
+        if i >= n or j >= n:
+            continue
+        observed = np.array([float(e["M"][0, 2]), float(e["M"][1, 2])])
+        predicted = affines[j][:2, 2] - affines[i][:2, 2]
+        res = float(np.linalg.norm(observed - predicted))
+        if res > max_res:
+            max_res = res
+    return max_res
+
+
+def _compute_ba_weighted_mean_residual(
+    edges: "List[dict]",
+    affines: "List[np.ndarray]",
+) -> float:
+    """§1.52: Confidence-weighted mean per-edge BA residual (L2, pixels).
+
+    For each edge (i→j) the residual is::
+
+        r = ‖observed_disp − (affines[j][:2,2] − affines[i][:2,2])‖₂
+
+    The weighted mean is::
+
+        Σ(w_i × r_i) / Σ(w_i)
+
+    where ``w_i = e["weight"]`` is the match confidence score.
+
+    Complements §1.50 (max residual):
+
+    * §1.50 fires when *one* edge has a catastrophically large residual
+      (Category B single outlier).
+    * §1.52 fires when *all* or *many* edges have moderate residuals —
+      e.g., systematic BA drift from a global translation bias caused by
+      repeated background texture or phase-correlation peak shifting.
+      In this scenario no individual residual exceeds §1.50's threshold,
+      yet the entire solved frame placement is unreliable.
+
+    Returns
+    -------
+    float ≥ 0.  Weighted mean residual in pixels.  Returns 0.0 when the
+    edge list is empty, all weights are zero, or any affine index is out
+    of range (safe no-op).
+    """
+    if not edges or not affines:
+        return 0.0
+    n = len(affines)
+    total_w = 0.0
+    total_wr = 0.0
+    for e in edges:
+        i, j = int(e["i"]), int(e["j"])
+        if i >= n or j >= n:
+            continue
+        w = float(e["weight"])
+        observed = np.array([float(e["M"][0, 2]), float(e["M"][1, 2])])
+        predicted = affines[j][:2, 2] - affines[i][:2, 2]
+        r = float(np.linalg.norm(observed - predicted))
+        total_w += w
+        total_wr += w * r
+    if total_w == 0.0:
+        return 0.0
+    return total_wr / total_w
+
+
+def _compute_max_adjacent_gap(
+    affines: List[np.ndarray],
+    frames: List[np.ndarray],
+) -> float:
+    """§1.44: Maximum pixel gap between adjacent frames along the dominant scroll axis.
+
+    For each consecutive pair (i, i+1) computes the canvas-space distance
+    between the trailing edge of frame i and the leading edge of frame i+1:
+
+    * **Vertical scroll** (ty_span ≥ tx_span): gap = ty_{i+1} − (ty_i + H_i)
+    * **Horizontal scroll** (tx_span > ty_span): gap = tx_{i+1} − (tx_i + W_i)
+
+    A gap > 0 means the two frames do not overlap and there is an uncovered
+    canvas strip between them.  A gap < 0 means the frames overlap normally
+    (the expected case for a stitched panorama).
+
+    Returns the maximum gap over all N-1 adjacent pairs, or 0.0 for N < 2.
+
+    Complementary to §1.17 (global span utilisation, which catches total
+    collapse) and §1.39 (post-render coverage, expensive warp step); this gate
+    uses only affine math and fires before Stage 10.
+    """
+    if len(affines) < 2 or len(frames) < 2:
+        return 0.0
+
+    tys = [float(a[1, 2]) for a in affines]
+    txs = [float(a[0, 2]) for a in affines]
+    ty_span = max(tys) - min(tys)
+    tx_span = max(txs) - min(txs)
+    vertical = ty_span >= tx_span
+
+    max_gap = -float("inf")
+    for i in range(len(affines) - 1):
+        if vertical:
+            trailing = float(affines[i][1, 2]) + frames[i].shape[0]
+            leading = float(affines[i + 1][1, 2])
+        else:
+            trailing = float(affines[i][0, 2]) + frames[i].shape[1]
+            leading = float(affines[i + 1][0, 2])
+        max_gap = max(max_gap, leading - trailing)
+
+    return float(max_gap)
+
+
+def _compute_min_adjacent_overlap(
+    affines: "List[np.ndarray]",
+    frames: "List[np.ndarray]",
+) -> float:
+    """§1.51: Minimum canvas-space overlap between consecutive frame pairs.
+
+    For each adjacent pair (i, i+1) computes::
+
+        overlap = trailing_edge(i) − leading_edge(i+1)
+
+    where *trailing_edge* is the far edge of frame i along the dominant scroll
+    axis (``affines[i].ty + frame_height`` for vertical, ``affines[i].tx +
+    frame_width`` for horizontal) and *leading_edge* is the near edge of frame
+    i+1.  Positive overlap means frames share rows in canvas space; negative
+    overlap is a gap (caught by §1.44).
+
+    The minimum overlap across all N−1 pairs is returned.  A very small
+    positive value (e.g. 1–19 px) means the compositing seam zone for that
+    pair is too narrow for reliable DP cutting or feathering — the seam will
+    almost certainly clip through foreground character pixels, and
+    ``FEATHER_MIN=80`` cannot be satisfied.
+
+    Returns
+    -------
+    float.  Minimum overlap in pixels.  Returns 0.0 when fewer than 2 frames
+    or affines are supplied (safe no-op).
+    """
+    if len(affines) < 2 or len(frames) < 2:
+        return 0.0
+    tys = [float(a[1, 2]) for a in affines]
+    txs = [float(a[0, 2]) for a in affines]
+    ty_span = max(tys) - min(tys)
+    tx_span = max(txs) - min(txs)
+    vertical = ty_span >= tx_span
+    min_overlap = float("inf")
+    for i in range(len(affines) - 1):
+        if vertical:
+            trailing = float(affines[i][1, 2]) + frames[i].shape[0]
+            leading = float(affines[i + 1][1, 2])
+        else:
+            trailing = float(affines[i][0, 2]) + frames[i].shape[1]
+            leading = float(affines[i + 1][0, 2])
+        min_overlap = min(min_overlap, trailing - leading)
+    return float(min_overlap)
+
+
+def _compute_canvas_width_ratio(
+    canvas_w: int,
+    frames: "List[np.ndarray]",
+) -> float:
+    """§1.45: Canvas width relative to median source-frame width.
+
+    For a vertical-scroll panorama the canvas should be approximately as wide
+    as the individual source frames — frames are stacked top-to-bottom with
+    only minor horizontal offsets.  A ratio significantly above 1.0 indicates
+    that bundle adjustment introduced substantial horizontal tx drift:
+
+    * **ratio ≈ 1.0** — healthy vertical scroll; frames roughly aligned.
+    * **ratio > 1.5** — frames scattered horizontally; canvas is mostly black
+      columns on the sides; compositing will produce a thin vertical strip of
+      content in a very wide black canvas.
+
+    This is distinct from §3.14 (pure horizontal scroll, caught by
+    ``_detect_scroll_axis``) because ty_span can still dominate while the
+    per-frame tx values drift monotonically across the sequence.
+
+    Parameters
+    ----------
+    canvas_w : canvas width in pixels after Stage 9 (T_global already applied).
+    frames   : source frames (used to derive median width).
+
+    Returns
+    -------
+    float ≥ 0.  Returns 1.0 when *frames* is empty.
+    """
+    if not frames:
+        return 1.0
+    median_w = float(np.median([f.shape[1] for f in frames]))
+    if median_w <= 0.0:
+        return 1.0
+    return float(canvas_w) / median_w
+
+
+def _compute_canvas_memory_mb(canvas_h: int, canvas_w: int) -> float:
+    """§1.53: Estimated float32 RGB canvas array footprint in megabytes.
+
+    Computes ``canvas_h × canvas_w × 3 channels × 4 bytes / 1024²``.
+
+    This is a *lower-bound* estimate — in practice the compositing pipeline
+    allocates several same-sized buffers (canvas, valid_mask, warped frames,
+    foreground masks, intermediate blend zones) so the true peak RSS is
+    3–6× this value.  The gate is intended to catch pathological cases
+    (e.g. 32768 × 32768 canvas → 12 GB estimate) before the allocation
+    attempt causes an OOM kill or swap thrash.
+
+    ``CANVAS_MAX_DIM = 32768`` prevents any single dimension from being
+    extreme but does not bound the product: 32768 × 1920 = ~720 MB (float32
+    RGB) is well within CANVAS_MAX_DIM yet may exceed available RAM when
+    combined with intermediate buffers on a 4-GB system.
+
+    Returns
+    -------
+    float ≥ 0.  Estimated megabytes.  Returns 0.0 for zero or negative
+    dimensions (safe no-op).
+    """
+    if canvas_h <= 0 or canvas_w <= 0:
+        return 0.0
+    return float(canvas_h) * float(canvas_w) * 3.0 * 4.0 / (1024.0 ** 2)
+
+
+def _compute_render_luma_std(
+    canvas: np.ndarray,
+    valid_mask: np.ndarray,
+) -> float:
+    """§1.54: Pixel luminance std across valid (covered) canvas pixels.
+
+    Computes the standard deviation of per-pixel luminance for all pixels
+    where ``valid_mask > 0``.  Luminance is approximated as the simple mean of
+    BGR channels::
+
+        luma[y, x] = (B + G + R) / 3
+
+    A value near zero indicates all covered pixels share the same luminance —
+    a degenerate render caused by:
+
+    * **BaSiC over-correction**: photometric normalisation clamped every frame
+      to the same mean luminance, fusing into a flat-grey slab.
+    * **Silent warp failure**: all frames were mapped to an identical canvas
+      region whose contents cancel in the temporal median.
+    * **Hold-block leakage**: temporally static frames that slipped through
+      §1.2D / §1.11C produce a single repeated frame with no per-seam
+      luminance variation.
+
+    This failure mode produces no visible seam (§1.24 passes), adequate
+    pixel coverage (§1.39 passes), but the panorama output is essentially
+    a solid-colour image.  Distinct from §1.39 which checks *coverage
+    quantity*; §1.54 checks *luminance variety*.
+
+    Returns
+    -------
+    float ≥ 0.  Std of valid-pixel luminance in [0, 255] scale.  Returns
+    0.0 when ``canvas`` or ``valid_mask`` is None, or when no valid pixels
+    exist.
+    """
+    if canvas is None or valid_mask is None:
+        return 0.0
+    valid = valid_mask > 0
+    if not valid.any():
+        return 0.0
+    pixels = canvas[valid].astype(np.float32)
+    luma = pixels.mean(axis=1) if pixels.ndim == 2 else pixels.mean(axis=-1)
+    return float(np.std(luma))
 
 
 def _compute_canvas_span_utilization(affines: List[np.ndarray]) -> float:
@@ -933,6 +1639,14 @@ class AnimeStitchPipeline:
         # higher floor (10 % of median adjacent step, min STATIC_EDGE_MIN_DISP_PX).
         _min_disp = _compute_adaptive_min_disp(edges)
         edges = _reject_static_edges(edges, min_disp_px=_min_disp)
+
+        # ── §2.14: Triangular Consistency Filter ─────────────────────────────
+        # Runs before geometric consistency filter so that wrong adjacent edges
+        # are downweighted before bundle adjustment uses them.
+        if _TRI_CONSISTENCY_MAX_RESIDUAL > 0.0:
+            edges = _triangular_consistency_filter(
+                edges, max_residual_px=_TRI_CONSISTENCY_MAX_RESIDUAL
+            )
 
         # ── Geometric Consistency Filter ─────────────────────────────────────
         if len(edges) > 0:
@@ -1255,6 +1969,19 @@ class AnimeStitchPipeline:
             f"({'BiRefNet' if self.use_birefnet else 'None'})."
         )
 
+        # ── §1.37: Background pixel coverage fraction gate ───────────────────
+        if _MIN_BG_FRACTION > 0.0:
+            _bg_frac = _compute_bg_coverage_fraction(bg_masks)
+            if _bg_frac < _MIN_BG_FRACTION:
+                logger.info(
+                    "[Stitch] §1.37: bg coverage fraction %.3f < %.3f — "
+                    "fg-dominant scene, bg normalisation unreliable → SCANS fallback.",
+                    _bg_frac,
+                    _MIN_BG_FRACTION,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
         # ── Stage 4.5: Background-based photometric normalisation ────────────
         # Compute the per-frame mean background color (bg_mask > 127) and normalise
         # every frame to the same median background level.  This eliminates
@@ -1552,6 +2279,64 @@ class AnimeStitchPipeline:
                 _sf = scans_frames or _reload_scans_frames(image_paths)
                 return _scan_stitch_fallback(_sf, output_path)
 
+        # ── §1.43: Adjacent edge coverage ratio gate ──────────────────────────
+        if _ADJ_COVERAGE_MIN > 0.0:
+            _adj_cov = _compute_adj_edge_coverage(edges, N)
+            if _adj_cov < _ADJ_COVERAGE_MIN:
+                logger.info(
+                    "[Stitch] §1.43: adjacent edge coverage %.2f < %.2f "
+                    "(%d of %d adjacent pairs have edges) → SCANS fallback.",
+                    _adj_cov,
+                    _ADJ_COVERAGE_MIN,
+                    round(_adj_cov * max(1, N - 1)),
+                    max(1, N - 1),
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── §1.49: Adjacent edge minimum weight gate ──────────────────────────
+        if _ADJ_MIN_WEIGHT > 0.0:
+            _adj_min_w = _compute_adj_min_weight(edges)
+            if _adj_min_w < _ADJ_MIN_WEIGHT:
+                logger.info(
+                    "[Stitch] §1.49: adjacent edge min weight %.3f < %.3f "
+                    "— at least one adjacent pair has near-zero confidence "
+                    "(compositing seam would be ill-placed) → SCANS fallback.",
+                    _adj_min_w,
+                    _ADJ_MIN_WEIGHT,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── §1.47: Adjacent displacement sign consistency gate ────────────────
+        if _SIGN_INCONSISTENCY_MAX > 0.0:
+            _sign_rate = _compute_sign_inconsistency_rate(edges)
+            if _sign_rate > _SIGN_INCONSISTENCY_MAX:
+                logger.info(
+                    "[Stitch] §1.47: sign inconsistency rate %.2f > %.2f "
+                    "— %.0f%% of adjacent edges oppose the majority scroll direction "
+                    "→ SCANS fallback.",
+                    _sign_rate,
+                    _SIGN_INCONSISTENCY_MAX,
+                    _sign_rate * 100,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── §1.48: Adjacent displacement magnitude CV gate ────────────────────
+        if _ADJ_DISP_CV_MAX > 0.0:
+            _disp_cv = _compute_adj_disp_cv(edges)
+            if _disp_cv > _ADJ_DISP_CV_MAX:
+                logger.info(
+                    "[Stitch] §1.48: adjacent displacement CV %.3f > %.3f "
+                    "— dominant-axis magnitudes have high spread (possible "
+                    "wrong-harmonic or non-adjacent PC/TM match) → SCANS fallback.",
+                    _disp_cv,
+                    _ADJ_DISP_CV_MAX,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
         # ── Stage 7: Global bundle adjustment ────────────────────────────────
         use_affine_ba = getattr(self, "motion_model", "affine") == "affine"
         affines = _bundle_adjust_affine(edges, N, use_affine=use_affine_ba)
@@ -1559,6 +2344,34 @@ class AnimeStitchPipeline:
             f"[Stitch] Stage 7 complete: bundle adjustment done "
             f"(mode={'affine' if use_affine_ba else 'translation'})."
         )
+
+        # ── §1.50: BA max residual gate ───────────────────────────────────────
+        if _BA_RESIDUAL_MAX > 0.0:
+            _ba_res = _compute_ba_max_residual(edges, affines)
+            if _ba_res > _BA_RESIDUAL_MAX:
+                logger.info(
+                    "[Stitch] §1.50: BA max residual %.1f px > %.1f px threshold "
+                    "— at least one edge is wildly inconsistent with the solved "
+                    "frame placement (Category B outlier) → SCANS fallback.",
+                    _ba_res,
+                    _BA_RESIDUAL_MAX,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── §1.52: BA weighted mean residual gate ─────────────────────────────
+        if _BA_WMEAN_RESIDUAL_MAX > 0.0:
+            _ba_wmean = _compute_ba_weighted_mean_residual(edges, affines)
+            if _ba_wmean > _BA_WMEAN_RESIDUAL_MAX:
+                logger.info(
+                    "[Stitch] §1.52: BA weighted mean residual %.1f px > %.1f px threshold "
+                    "— systematic drift across all edges (biased BA solution) "
+                    "→ SCANS fallback.",
+                    _ba_wmean,
+                    _BA_WMEAN_RESIDUAL_MAX,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
 
         # ── Stage 7b: Affine validation gate ─────────────────────────────────
         # §0.5C: adaptive min_gap — scales with canvas span so fast-scroll
@@ -1804,6 +2617,18 @@ class AnimeStitchPipeline:
             f"canvas {canvas_w}×{canvas_h}."
         )
 
+        # ── §1.53: Canvas memory size gate ───────────────────────────────────
+        if _CANVAS_MAX_MEMORY_MB > 0.0:
+            _canvas_mb = _compute_canvas_memory_mb(canvas_h, canvas_w)
+            if _canvas_mb > _CANVAS_MAX_MEMORY_MB:
+                logger.info(
+                    "[Stitch] §1.53: canvas %dx%d would require ~%.0f MB (float32 RGB) "
+                    "> %.0f MB limit — pre-empting OOM → SCANS fallback.",
+                    canvas_w, canvas_h, _canvas_mb, _CANVAS_MAX_MEMORY_MB,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
         # §3.14 — Scroll axis classification (logged; horizontal → SCANS fallback).
         # Compositing assumes vertical strips; horizontal scroll produces garbled output
         # without a full horizontal-strip compositing mode (not yet implemented).
@@ -1825,6 +2650,48 @@ class AnimeStitchPipeline:
                     "→ SCANS fallback (BA collapsed canvas).",
                     _span_util,
                     _CANVAS_SPAN_MIN_UTIL,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── §1.44: Maximum adjacent frame gap gate ────────────────────────────
+        if _MAX_ADJACENT_GAP_PX > 0.0:
+            _max_adj_gap = _compute_max_adjacent_gap(affines, frames)
+            if _max_adj_gap > _MAX_ADJACENT_GAP_PX:
+                logger.info(
+                    "[Stitch] §1.44: max adjacent frame gap %.1f px > %.1f px threshold "
+                    "— BA stretched consecutive frames apart → SCANS fallback.",
+                    _max_adj_gap,
+                    _MAX_ADJACENT_GAP_PX,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── §1.51: Minimum adjacent frame overlap gate ───────────────────────
+        if _MIN_ADJACENT_OVERLAP_PX > 0.0:
+            _min_ovlp = _compute_min_adjacent_overlap(affines, frames)
+            if _min_ovlp < _MIN_ADJACENT_OVERLAP_PX:
+                logger.info(
+                    "[Stitch] §1.51: min adjacent frame overlap %.1f px < %.1f px floor "
+                    "— at least one consecutive pair has too narrow a blend zone "
+                    "for reliable DP seam cutting → SCANS fallback.",
+                    _min_ovlp,
+                    _MIN_ADJACENT_OVERLAP_PX,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── §1.45: Canvas width ratio gate ───────────────────────────────────
+        if _MAX_CANVAS_WIDTH_RATIO > 0.0:
+            _cw_ratio = _compute_canvas_width_ratio(canvas_w, frames)
+            if _cw_ratio > _MAX_CANVAS_WIDTH_RATIO:
+                logger.info(
+                    "[Stitch] §1.45: canvas width %.0fpx is %.2f× median frame width "
+                    "(threshold %.2f×) — BA tx drift produced oversized canvas "
+                    "→ SCANS fallback.",
+                    canvas_w,
+                    _cw_ratio,
+                    _MAX_CANVAS_WIDTH_RATIO,
                 )
                 _sf = scans_frames or _reload_scans_frames(image_paths)
                 return _scan_stitch_fallback(_sf, output_path)
@@ -1907,6 +2774,34 @@ class AnimeStitchPipeline:
                 canvas, valid_mask, use_propainter=(_BG_COMPLETE >= 2)
             )
             logger.info("[Stitch] Stage 10.2: background zero-coverage fill applied.")
+
+        # ── §1.39: Render canvas coverage fraction gate ───────────────────────
+        if _RENDER_MIN_COVERAGE > 0.0:
+            _render_cov = _compute_render_coverage(valid_mask)
+            if _render_cov < _RENDER_MIN_COVERAGE:
+                logger.info(
+                    "[Stitch] §1.39: render coverage %.3f < %.3f — "
+                    "affines placed frames in too small a canvas region → SCANS fallback.",
+                    _render_cov,
+                    _RENDER_MIN_COVERAGE,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── §1.54: Render luminance std gate ─────────────────────────────────
+        if _RENDER_LUMA_STD_MIN > 0.0:
+            _luma_std = _compute_render_luma_std(canvas, valid_mask)
+            if _luma_std < _RENDER_LUMA_STD_MIN:
+                logger.info(
+                    "[Stitch] §1.54: render luminance std %.2f < %.2f — "
+                    "valid pixels have near-uniform luminance (degenerate render: "
+                    "BaSiC over-correction, warp collapse, or hold-block leakage) "
+                    "→ SCANS fallback.",
+                    _luma_std,
+                    _RENDER_LUMA_STD_MIN,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
 
         # ── Stage 10.5: Multi-frame canvas coverage gate (§0 item 2) ─────────
         # For each canvas row count how many frames contribute content.
@@ -2416,6 +3311,8 @@ class AnimeStitchPipeline:
         exclusion_masks: Optional[List[np.ndarray]] = None,
         preset_boundaries: Optional[np.ndarray] = None,
         paint_mask: Optional[np.ndarray] = None,
+        seam_meta_out: Optional[dict] = None,
+        seam_overrides: Optional[dict] = None,
     ) -> np.ndarray:
         return _composite_foreground(
             warped_corr, warped_fgs, canvas, H, W, frames, affines, bg_masks,
@@ -2424,6 +3321,8 @@ class AnimeStitchPipeline:
             exclusion_masks=exclusion_masks,
             preset_boundaries=preset_boundaries,
             paint_mask=paint_mask,
+            seam_meta_out=seam_meta_out,
+            seam_overrides=seam_overrides,
         )
 
     def _crop_to_valid(self, canvas: np.ndarray, valid_mask: np.ndarray) -> np.ndarray:
@@ -2451,6 +3350,45 @@ class AnimeStitchPipeline:
         )
 
 
+def _build_manual_edge(
+    i: int,
+    j: int,
+    dx: float,
+    dy: float,
+    weight: float = 0.9,
+) -> Dict:
+    """§S89: Construct a pipeline-compatible edge dict from a user-supplied displacement.
+
+    The affine M is a pure translation: [[1, 0, dx], [0, 1, dy]].
+    pts_i / pts_j are set to a single centroid-estimate point so Bundle Adjust
+    can process the edge without matched feature points.
+
+    Args:
+        i: Source frame index.
+        j: Target frame index.
+        dx: Horizontal pixel displacement (j relative to i).
+        dy: Vertical pixel displacement (j relative to i).
+        weight: Edge confidence weight in [0, 1]; default 0.9 (high confidence
+                for manual edges since the user deliberately chose the value).
+
+    Returns:
+        Edge dict compatible with ``_bundle_adjust_affine`` and the HITL edge
+        override path in ``StitchWorker``.
+    """
+    M = np.array([[1.0, 0.0, dx], [0.0, 1.0, dy]], dtype=np.float64)
+    pts_i = np.array([[0.0, 0.0]], dtype=np.float32)
+    pts_j = np.array([[dx, dy]], dtype=np.float32)
+    return {
+        "i": i,
+        "j": j,
+        "M": M,
+        "pts_i": pts_i,
+        "pts_j": pts_j,
+        "weight": float(np.clip(weight, 0.0, 1.0)),
+        "method": "manual",
+    }
+
+
 __all__ = [
     "AnimeStitchPipeline",
     "_spatial_dedup_frames",
@@ -2465,4 +3403,19 @@ __all__ = [
     "_compute_canvas_span_utilization",
     "_measure_max_seam_step",
     "_detect_static_input",
+    "_build_manual_edge",
+    "_triangular_consistency_filter",
+    "_compute_bg_coverage_fraction",
+    "_compute_render_coverage",
+    "_compute_adj_edge_coverage",
+    "_compute_max_adjacent_gap",
+    "_compute_canvas_width_ratio",
+    "_compute_sign_inconsistency_rate",
+    "_compute_adj_disp_cv",
+    "_compute_adj_min_weight",
+    "_compute_ba_max_residual",
+    "_compute_min_adjacent_overlap",
+    "_compute_ba_weighted_mean_residual",
+    "_compute_canvas_memory_mb",
+    "_compute_render_luma_std",
 ]

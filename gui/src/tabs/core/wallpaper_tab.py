@@ -370,6 +370,10 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.btn_fetch_current.clicked.connect(self.populate_monitor_layout)
         slideshow_layout.addWidget(self.btn_fetch_current)
 
+        self.btn_skip_wallpapers = QPushButton("Skip Current Wallpapers")
+        self.btn_skip_wallpapers.clicked.connect(self.skip_current_wallpapers)
+        slideshow_layout.addWidget(self.btn_skip_wallpapers)
+
         # Check initial state
         if self._is_daemon_running_config():
             self.btn_daemon_toggle.setText("Stop Background Daemon")
@@ -994,6 +998,32 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.countdown_label.setText("Timer: --:--")
 
         self.unlock_ui_for_wallpaper()
+
+    @Slot()
+    def skip_current_wallpapers(self):
+        if self.background_type == "Solid Color":
+            return
+            
+        self._cycle_slideshow_wallpaper(increment=True)
+        
+        if self._is_daemon_running_config():
+            self._sync_daemon_config()
+            try:
+                if os.path.exists(DAEMON_CONFIG_PATH):
+                    with open(DAEMON_CONFIG_PATH, "r") as f:
+                        config = json.load(f)
+                    config["last_change_timestamp"] = int(time.time())
+                    with open(DAEMON_CONFIG_PATH, "w") as f:
+                        json.dump(config, f, indent=4)
+                    self.time_remaining_sec = self.interval_sec
+                    self.update_countdown()
+            except Exception:
+                pass
+        elif self.slideshow_timer and self.slideshow_timer.isActive():
+            self.slideshow_timer.start(self.interval_sec * 1000)
+            self.time_remaining_sec = self.interval_sec
+            if self.countdown_timer and self.countdown_timer.isActive():
+                self.update_countdown()
 
     @Slot()
     def _cycle_slideshow_wallpaper(self, increment: bool = True):

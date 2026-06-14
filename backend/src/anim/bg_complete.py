@@ -42,12 +42,22 @@ import numpy as np
 
 __all__ = [
     "_nn_fill_zero_bg",
+    "_linear_interp_zero_bg",
     "_propainter_fill",
     "complete_background",
 ]
 
 _BG_COMPLETE: int = int(os.environ.get("ASP_BG_COMPLETE", "0"))
 _BG_COMPLETE_MIN_ROWS: int = int(os.environ.get("ASP_BG_COMPLETE_MIN_ROWS", "20"))
+
+# §1.42 — Linear interpolation bg fill.
+# When enabled, replaces the hard nearest-neighbour copy in _nn_fill_zero_bg with a
+# per-channel linear blend between the known pixel above and the known pixel below
+# each gap.  Boundary gaps (only one side known) still fall back to NN copy so no
+# pixel is ever left unfilled.  Produces visually smooth transitions across large
+# zero-coverage zones (character covering many rows) at negligible extra cost.
+# Default OFF.  Enable: ASP_INTERP_BG_FILL=1.
+_INTERP_BG_FILL: bool = os.environ.get("ASP_INTERP_BG_FILL", "0") != "0"
 
 
 # ---------------------------------------------------------------------------
@@ -102,6 +112,68 @@ def _nn_fill_zero_bg(
         out[unknown_rows, col] = canvas[best, col]
 
     return out
+
+
+def _linear_interp_zero_bg(
+    canvas: np.ndarray,
+    zero_mask: np.ndarray,
+) -> np.ndarray:
+    """§1.42: Fill zero-coverage pixels with per-channel linear interpolation.
+
+    For each column, each contiguous gap of zero-coverage rows is filled by
+    linearly blending between the nearest known pixel *above* and the nearest
+    known pixel *below* the gap.  When only one boundary is available (top or
+    bottom edge gaps), falls back to the nearest-neighbour copy so every pixel
+    receives a value.
+
+    Produces smooth colour gradients across large zero-coverage zones (e.g.,
+    a character covering most rows of a column) instead of the discrete step
+    that ``_nn_fill_zero_bg`` produces at the midpoint between two different
+    background tones.
+
+    Parameters
+    ----------
+    canvas   : (H, W, 3) uint8 BGR canvas from the temporal renderer.
+    zero_mask : (H, W) bool or uint8 — True/non-zero where the pixel is
+        uncovered.
+
+    Returns
+    -------
+    (H, W, 3) uint8 filled canvas (independent copy).
+    """
+    out = canvas.copy().astype(np.float32)
+    H, W = canvas.shape[:2]
+    mask = (zero_mask > 0) if zero_mask.dtype != bool else zero_mask
+
+    for col in range(W):
+        col_mask = mask[:, col]
+        if not col_mask.any():
+            continue
+        known_rows = np.where(~col_mask)[0]
+        if len(known_rows) == 0:
+            continue
+        unknown_rows = np.where(col_mask)[0]
+
+        for r in unknown_rows:
+            # Find nearest known row above
+            above_idx = np.searchsorted(known_rows, r, side="left") - 1
+            below_idx = np.searchsorted(known_rows, r, side="right")
+
+            has_above = above_idx >= 0
+            has_below = below_idx < len(known_rows)
+
+            if has_above and has_below:
+                r_above = known_rows[above_idx]
+                r_below = known_rows[below_idx]
+                span = float(r_below - r_above)
+                t = (r - r_above) / span
+                out[r, col] = (1.0 - t) * canvas[r_above, col] + t * canvas[r_below, col]
+            elif has_above:
+                out[r, col] = canvas[known_rows[above_idx], col]
+            else:
+                out[r, col] = canvas[known_rows[below_idx], col]
+
+    return np.clip(out, 0, 255).astype(np.uint8)
 
 
 # ---------------------------------------------------------------------------
@@ -192,4 +264,6 @@ def complete_background(
 
     if use_propainter:
         return _propainter_fill(canvas, zero_mask)
+    if _INTERP_BG_FILL:
+        return _linear_interp_zero_bg(canvas, zero_mask)
     return _nn_fill_zero_bg(canvas, zero_mask)
