@@ -235,6 +235,40 @@ SEAM_COLOR_GATE_THRESH = 0.55  # §1.14B: min Bhattacharyya colour similarity (0
 MST_MIN_WEIGHT = (
     0.35  # §1.16: minimum mean MST edge weight before pre-BA SCANS fallback (0=off)
 )
+ADJ_COVERAGE_MIN = (
+    0.60  # §1.43: minimum fraction of adjacent frame pairs that must have ≥1 edge (0=off)
+)
+MAX_ADJACENT_GAP_PX = (
+    100.0  # §1.44: max pixel gap between adjacent frames before SCANS fallback (0=off)
+)
+MAX_CANVAS_WIDTH_RATIO = (
+    1.5  # §1.45: max canvas_w / median_frame_w ratio before SCANS fallback (0=off)
+)
+CONTRAST_THRESH = 15.0  # §1.46: pixel std floor (0–255 scale) for low-contrast frame rejection
+SIGN_INCONSISTENCY_MAX = (
+    0.20  # §1.47: max minority-sign fraction of adjacent displacements (0=off)
+)
+ADJ_DISP_CV_MAX = (
+    0.50  # §1.48: max coefficient of variation of adjacent displacement magnitudes (0=off)
+)
+ADJ_MIN_WEIGHT = (
+    0.20  # §1.49: minimum match confidence weight for any adjacent edge before BA (0=off)
+)
+BA_RESIDUAL_MAX = (
+    200.0  # §1.50: maximum per-edge BA residual (px) before SCANS fallback (0=off)
+)
+MIN_ADJACENT_OVERLAP_PX = (
+    20.0  # §1.51: minimum canvas-space overlap (px) between consecutive frame pairs (0=off)
+)
+BA_WMEAN_RESIDUAL_MAX = (
+    30.0  # §1.52: maximum confidence-weighted mean BA residual (px) before SCANS fallback (0=off)
+)
+CANVAS_MAX_MEMORY_MB = (
+    2048.0  # §1.53: max estimated float32 RGB canvas footprint in MB before SCANS fallback (0=off)
+)
+RENDER_LUMA_STD_MIN = (
+    5.0  # §1.54: minimum luminance std of valid canvas pixels after render (0=off)
+)
 GNC_C_PX = 10.0  # §1.17: Geman-McClure c parameter (px); rᵢ ≈ c → 50% weight
 GNC_MU_ANNEAL = (
     1.4  # §1.17: GNC μ annealing divisor per outer iteration (Yang et al. 2020)
@@ -289,6 +323,53 @@ OTSU_BG_CORR_MIN_BG_FRAC = 0.10  # minimum bg fraction for valid Otsu mask
 
 # §5A/C: Background zero-coverage fill (bg_complete.py)
 BG_COMPLETE_MIN_ROWS = 20  # min zero-coverage rows before fill runs
+
+# §2.14: Triangular consistency filter (pipeline.py)
+TRI_CONSISTENCY_MAX_RESIDUAL = (
+    80.0  # L2 residual (px) above which triangle is inconsistent; 0=off
+)
+TRI_CONSISTENCY_PENALTY = (
+    0.5  # weight multiplier applied to weakest edge in inconsistent triangle
+)
+
+# §2.4B: Seam overlay annotation thresholds (compositing.py)
+SEAM_OVERLAY_AMBER_THRESH = 10.0  # post_warp_diff below this → green annotation
+SEAM_OVERLAY_RED_THRESH = 22.0  # post_warp_diff at or above this → red annotation
+
+# §2.4C: Seam zone crop band (compositing.py _extract_seam_crops)
+SEAM_CROP_BAND_PX = 50  # rows above+below each boundary to include in crop thumbnail
+
+# §1.2E: Blur/artifact frame pre-rejection (frame_selection.py _reject_blurry_frames)
+BLUR_REJECT_THRESH = 50.0  # Laplacian variance floor (uint8 scale); 0=off
+
+# §1.34: Seam zone texture-energy pre-escalation (compositing.py _seam_zone_texture_energy)
+SEAM_LOW_TEXTURE_THRESH = 5.0  # Laplacian variance floor (uint8 scale) for flat-color pre-escalation; 0=off
+
+# §1.35: Line-art gradient penalty in seam cost map (compositing.py _fg_gradient_cost)
+LINE_GRAD_WEIGHT = 1.0  # Additive cost per fg-interior pixel, scaled by normalized Laplacian magnitude; 0=off
+
+# §1.36: LoFTR translation consensus spread filter (matching.py _compute_translation_spread)
+MATCH_SPREAD_CEIL = 30.0  # Max allowed MAD of per-match dx/dy displacements (px); 0=off
+
+# §1.37: Background pixel coverage fraction gate (pipeline.py _compute_bg_coverage_fraction)
+MIN_BG_FRACTION = 0.05  # Minimum mean bg-pixel fraction across frames; below → SCANS fallback (0=off)
+
+# §1.38: LoFTR background match ratio gate (matching.py _compute_bg_match_ratio)
+LOFTR_BG_RATIO_MIN = 0.15  # Minimum fraction of LoFTR matches that must fall on bg; below → reject LoFTR edge (0=off)
+
+# §1.39: Render canvas coverage fraction gate (pipeline.py _compute_render_coverage)
+RENDER_MIN_COVERAGE = 0.30  # Minimum fraction of canvas pixels covered by ≥1 warped frame; below → SCANS fallback (0=off)
+
+# §1.40: Adaptive gain clamp for sequential colour correction (rendering.py _adaptive_render_gain_clamp)
+# Formula: clamp_width = 0.26 - 0.12 * (ref_lum / 255) → ±26% at black, ±14% at white
+RENDER_GAIN_CLAMP_DARK = 0.26   # clamp_width at ref_lum=0 (pure black)
+RENDER_GAIN_CLAMP_BRIGHT = 0.14  # clamp_width at ref_lum=255 (pure white)
+
+# §1.41: Sequential gain chain-drift guard (rendering.py _check_gain_chain_drift)
+GAIN_DRIFT_MAX = 2.0  # Maximum cumulative gain fold-change before resetting to identity (0=off)
+
+# §1.42: Linear interpolation bg fill (bg_complete.py _linear_interp_zero_bg)
+# When ASP_INTERP_BG_FILL=1, blends between above/below known pixels instead of hard NN copy
 
 # ToonCrafter
 TOONCRAFTER_REPO = "Doubiiu/ToonCrafter"

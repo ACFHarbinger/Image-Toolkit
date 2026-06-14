@@ -15,6 +15,9 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
+    QFormLayout,
     QGraphicsScene,
     QGraphicsView,
     QHBoxLayout,
@@ -22,6 +25,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QSizePolicy,
+    QSpinBox,
     QSplitter,
     QTableWidget,
     QTableWidgetItem,
@@ -35,6 +39,61 @@ _CONF_HIGH = QColor(80, 200, 80)
 _CONF_MED = QColor(200, 200, 80)
 _CONF_LOW = QColor(220, 80, 80)
 _CONF_DIS = QColor(90, 90, 90)
+_CONF_MANUAL = QColor(160, 100, 255)  # purple — manually added edges (S89)
+
+
+class _ManualEdgeDialog(QDialog):
+    """Small dialog to capture a user-defined edge (i, j, dx, dy, weight)."""
+
+    def __init__(self, n_frames: int, parent=None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Add Manual Edge")
+        layout = QFormLayout(self)
+
+        self._i = QSpinBox()
+        self._i.setRange(0, max(0, n_frames - 1))
+        layout.addRow("From frame (i):", self._i)
+
+        self._j = QSpinBox()
+        self._j.setRange(0, max(0, n_frames - 1))
+        self._j.setValue(min(1, n_frames - 1))
+        layout.addRow("To frame (j):", self._j)
+
+        self._dx = QDoubleSpinBox()
+        self._dx.setRange(-9999.0, 9999.0)
+        self._dx.setSingleStep(1.0)
+        self._dx.setDecimals(1)
+        layout.addRow("dx (horizontal shift):", self._dx)
+
+        self._dy = QDoubleSpinBox()
+        self._dy.setRange(-9999.0, 9999.0)
+        self._dy.setSingleStep(1.0)
+        self._dy.setDecimals(1)
+        layout.addRow("dy (vertical shift):", self._dy)
+
+        self._weight = QDoubleSpinBox()
+        self._weight.setRange(0.0, 1.0)
+        self._weight.setSingleStep(0.05)
+        self._weight.setDecimals(2)
+        self._weight.setValue(0.90)
+        layout.addRow("Confidence weight:", self._weight)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+
+    def edge_dict(self) -> dict:
+        return {
+            "i": self._i.value(),
+            "j": self._j.value(),
+            "dx": self._dx.value(),
+            "dy": self._dy.value(),
+            "conf": self._weight.value(),
+            "method": "manual",
+        }
 
 
 def _conf_color(conf: float) -> QColor:
@@ -93,6 +152,11 @@ class EdgeReviewDialog(QDialog):
         self._edges: List[dict] = list(data.get("edges", []))
         self._image_paths: List[str] = list(data.get("image_paths", []))
         self._enabled: List[bool] = [True] * len(self._edges)
+        self._manual_edges: List[dict] = []   # S89: user-added edges
+        self._n_frames: int = data.get("n_frames", 0) or (
+            (max((max(e["i"], e["j"]) for e in self._edges), default=-1) + 1)
+            if self._edges else 0
+        )
         self._build_ui()
         self._populate()
 
@@ -106,6 +170,12 @@ class EdgeReviewDialog(QDialog):
         btn_mst.clicked.connect(self._apply_mst)
         btn_all = QPushButton("Enable All")
         btn_all.clicked.connect(self._enable_all)
+        btn_add = QPushButton("Add Edge…")        # S89
+        btn_add.setToolTip(
+            "Manually specify a connection between two frames.\n"
+            "Use this when LoFTR failed to match a pair you know should connect."
+        )
+        btn_add.clicked.connect(self._on_add_edge)
         self._status_label = QLabel()
         self._status_label.setStyleSheet("color: #999; font-size: 10px;")
         btn_resume = QPushButton("Resume Pipeline")
@@ -113,7 +183,7 @@ class EdgeReviewDialog(QDialog):
         btn_resume.clicked.connect(self.accept)
         btn_cancel = QPushButton("Cancel")
         btn_cancel.clicked.connect(self.reject)
-        for w in (btn_mst, btn_all):
+        for w in (btn_mst, btn_all, btn_add):
             toolbar.addWidget(w)
         toolbar.addSpacing(8)
         toolbar.addWidget(self._status_label, stretch=1)
@@ -213,11 +283,55 @@ class EdgeReviewDialog(QDialog):
                 self._table.setItem(row, col, cell)
         self._table.blockSignals(False)
 
+        # S89: render manual edges in purple above the existing graph
+        for me in self._manual_edges:
+            if me["i"] < len(positions) and me["j"] < len(positions):
+                xi, yi = positions[me["i"]]
+                xj, yj = positions[me["j"]]
+                pen = QPen(_CONF_MANUAL, 3)
+                pen.setStyle(Qt.PenStyle.DotLine)
+                item = self._scene.addLine(xi, yi, xj, yj, pen)
+                item.setToolTip(
+                    f"Manual edge {me['i']}→{me['j']}\n"
+                    f"dx={me['dx']:+.1f}  dy={me['dy']:+.1f}  conf={me['conf']:.2f}"
+                )
+
+        # Append manual edges to the table
+        n_base = len(edges)
+        total_rows = n_base + len(self._manual_edges)
+        self._table.blockSignals(True)
+        self._table.setRowCount(total_rows)
+        for row, me in enumerate(self._manual_edges, start=n_base):
+            chk = QTableWidgetItem()
+            chk.setCheckState(Qt.CheckState.Checked)
+            chk.setFlags(chk.flags() & ~Qt.ItemFlag.ItemIsUserCheckable)  # always on
+            self._table.setItem(row, 0, chk)
+            for col, val in enumerate([
+                str(me["i"]),
+                str(me["j"]),
+                f"{me['conf']:.3f}",
+                "manual",
+                f"{me['dx']:+.1f}",
+                f"{me['dy']:+.1f}",
+            ], start=1):
+                cell = QTableWidgetItem(val)
+                cell.setForeground(QBrush(_CONF_MANUAL))
+                self._table.setItem(row, col, cell)
+        self._table.blockSignals(False)
+
         n_on = sum(self._enabled)
         n_low = sum(1 for e, en in zip(edges, self._enabled) if en and e["conf"] < 0.5)
         self._status_label.setText(
-            f"{n_nodes} frames · {len(edges)} edges · {n_on} enabled · {n_low} low-conf"
+            f"{n_nodes} frames · {len(edges)} edges · {n_on} enabled"
+            f" · {n_low} low-conf · {len(self._manual_edges)} manual"
         )
+
+    def _on_add_edge(self):
+        """S89: Open ManualEdgeDialog and append the new edge."""
+        dlg = _ManualEdgeDialog(n_frames=self._n_frames, parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self._manual_edges.append(dlg.edge_dict())
+            self._populate()
 
     def _on_cell_changed(self, row: int, col: int):
         if col != 0:
@@ -239,4 +353,5 @@ class EdgeReviewDialog(QDialog):
         self._populate()
 
     def accepted_edges(self) -> List[dict]:
-        return [e for e, en in zip(self._edges, self._enabled) if en]
+        """Return enabled original edges + all manual edges (S89)."""
+        return [e for e, en in zip(self._edges, self._enabled) if en] + list(self._manual_edges)

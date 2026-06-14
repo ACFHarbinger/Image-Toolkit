@@ -11,7 +11,7 @@ Tests for bg_complete.py — §5A/C background zero-coverage fill.
 import numpy as np
 import pytest
 
-from backend.src.anim.bg_complete import _nn_fill_zero_bg, complete_background
+from backend.src.anim.bg_complete import _nn_fill_zero_bg, _linear_interp_zero_bg, complete_background
 
 
 class TestNnFillZeroBg:
@@ -99,3 +99,58 @@ class TestCompleteBackground:
         out = complete_background(canvas, valid, min_rows=5)
         # Zero rows should be filled (non-zero after fill)
         assert out[:6, :, 0].max() > 0
+
+
+class TestLinearInterpZeroBg:
+    """§1.42: Linear interpolation bg fill."""
+
+    def _canvas(self, H: int, W: int = 1) -> np.ndarray:
+        return np.zeros((H, W, 3), dtype=np.uint8)
+
+    def test_midpoint_interpolated_between_boundaries(self):
+        """Gap at row 2 between row-0 (value 0) and row-4 (value 100) → row 2 ≈ 50."""
+        H, W = 5, 1
+        canvas = self._canvas(H, W)
+        canvas[0, 0] = [0, 0, 0]
+        canvas[4, 0] = [100, 100, 100]
+        zero_mask = np.array([False, True, True, True, False]).reshape(H, W)
+        out = _linear_interp_zero_bg(canvas, zero_mask)
+        # row 2 is the midpoint (t=0.5) → expected ≈ 50
+        assert int(out[2, 0, 0]) == pytest.approx(50, abs=2)
+
+    def test_top_boundary_gap_falls_back_to_nn(self):
+        """Gap at top rows with no known pixel above → filled with nearest below."""
+        H, W = 5, 1
+        canvas = self._canvas(H, W)
+        canvas[3, 0] = [200, 200, 200]
+        canvas[4, 0] = [200, 200, 200]
+        zero_mask = np.array([True, True, True, False, False]).reshape(H, W)
+        out = _linear_interp_zero_bg(canvas, zero_mask)
+        # Rows 0–2 should all be filled with the nearest known (row 3 = 200)
+        assert int(out[0, 0, 0]) == 200
+        assert int(out[2, 0, 0]) == 200
+
+    def test_no_gap_returns_identical_canvas(self):
+        """Fully covered canvas → output equals input."""
+        canvas = np.random.randint(0, 255, (8, 4, 3), dtype=np.uint8)
+        zero_mask = np.zeros((8, 4), dtype=bool)
+        out = _linear_interp_zero_bg(canvas, zero_mask)
+        np.testing.assert_array_equal(out, canvas)
+
+    def test_all_unknown_column_left_unchanged(self):
+        """Column with no known pixels → remains black (no anchor to fill from)."""
+        canvas = self._canvas(H=6, W=1)
+        zero_mask = np.ones((6, 1), dtype=bool)
+        out = _linear_interp_zero_bg(canvas, zero_mask)
+        assert out[:, 0, 0].max() == 0
+
+    def test_interpolated_value_monotone_between_boundaries(self):
+        """Gap rows between value 0 and 200 → strictly increasing fill."""
+        H, W = 6, 1
+        canvas = self._canvas(H, W)
+        canvas[0, 0] = [0, 0, 0]
+        canvas[5, 0] = [200, 200, 200]
+        zero_mask = np.array([False, True, True, True, True, False]).reshape(H, W)
+        out = _linear_interp_zero_bg(canvas, zero_mask)
+        vals = [int(out[r, 0, 0]) for r in range(1, 5)]
+        assert vals == sorted(vals), f"fill should be monotone, got {vals}"

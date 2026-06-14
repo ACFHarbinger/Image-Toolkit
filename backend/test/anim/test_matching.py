@@ -19,7 +19,7 @@ _repo_root = os.path.dirname(
 )
 sys.path.insert(0, _repo_root)
 
-from backend.src.anim.matching import _extract_similarity  # noqa: E402
+from backend.src.anim.matching import _extract_similarity, _compute_translation_spread, _compute_bg_match_ratio  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -125,3 +125,84 @@ class TestExtractSimilarity:
             assert out[1, 1] == pytest.approx(out[0, 0], abs=1e-5), (
                 "Similarity constraint a == d violated"
             )
+
+
+# ---------------------------------------------------------------------------
+# §1.36 — _compute_translation_spread (S100)
+# ---------------------------------------------------------------------------
+
+
+class TestComputeTranslationSpread:
+    """_compute_translation_spread returns MAD of per-match dx/dy around their median."""
+
+    def _pts(self, dxs, dys):
+        """Build synthetic pts_i (all zeros) and pts_j (offsets by given dxs/dys)."""
+        n = len(dxs)
+        pts_i = np.zeros((n, 2), dtype=np.float32)
+        pts_j = np.column_stack([dxs, dys]).astype(np.float32)
+        return pts_i, pts_j
+
+    def test_identical_displacements_zero_spread(self):
+        """All matches agree on the same translation → MAD = 0."""
+        pts_i, pts_j = self._pts(np.full(20, -100.0), np.full(20, 50.0))
+        mad_dx, mad_dy = _compute_translation_spread(pts_i, pts_j)
+        assert mad_dx == pytest.approx(0.0, abs=1e-4)
+        assert mad_dy == pytest.approx(0.0, abs=1e-4)
+
+    def test_spread_matches_known_mad(self):
+        """With known displacements, MAD equals the expected value."""
+        # dxs = [0, 10, 20, 30, 40], median = 20, |dxs - 20| = [20,10,0,10,20], MAD = 10
+        dxs = np.array([0.0, 10.0, 20.0, 30.0, 40.0])
+        pts_i, pts_j = self._pts(dxs, np.zeros_like(dxs))
+        mad_dx, mad_dy = _compute_translation_spread(pts_i, pts_j)
+        assert mad_dx == pytest.approx(10.0, abs=1e-4)
+        assert mad_dy == pytest.approx(0.0, abs=1e-4)
+
+    def test_high_spread_detected(self):
+        """Bimodal distribution of displacements yields high MAD."""
+        # Half at dx=-100, half at dx=-200 → MAD = 50
+        dxs = np.concatenate([np.full(10, -100.0), np.full(10, -200.0)])
+        pts_i, pts_j = self._pts(dxs, np.zeros(20))
+        mad_dx, _ = _compute_translation_spread(pts_i, pts_j)
+        assert mad_dx > 30.0, f"expected high spread, got mad_dx={mad_dx}"
+
+    def test_single_point_returns_zero(self):
+        """N ≤ 1 → (0.0, 0.0) — no spread to compute."""
+        pts_i = np.zeros((1, 2), dtype=np.float32)
+        pts_j = np.array([[50.0, 30.0]], dtype=np.float32)
+        mad_dx, mad_dy = _compute_translation_spread(pts_i, pts_j)
+        assert mad_dx == 0.0 and mad_dy == 0.0
+
+    def test_dx_and_dy_independent(self):
+        """Spread in dx and dy are reported independently; dy spread is zero when all agree."""
+        dxs = np.array([0.0, 50.0, 100.0, 150.0, 200.0])
+        dys = np.full(5, -75.0)
+        pts_i, pts_j = self._pts(dxs, dys)
+        mad_dx, mad_dy = _compute_translation_spread(pts_i, pts_j)
+        assert mad_dx > 0.0, "expected nonzero dx spread"
+        assert mad_dy == pytest.approx(0.0, abs=1e-4), "expected zero dy spread"
+
+
+class TestComputeBgMatchRatio:
+    """§1.38: LoFTR background match ratio gate."""
+
+    def test_all_background_returns_one(self):
+        """When every LoFTR match is on background, ratio must be 1.0."""
+        assert _compute_bg_match_ratio(n_bg_pts=200, n_total_pts=200) == pytest.approx(1.0)
+
+    def test_no_background_returns_zero(self):
+        """When no LoFTR matches survive bg filtering, ratio is 0.0."""
+        assert _compute_bg_match_ratio(n_bg_pts=0, n_total_pts=150) == pytest.approx(0.0)
+
+    def test_known_ratio_computed_correctly(self):
+        """20 bg pts out of 100 total → ratio 0.20."""
+        result = _compute_bg_match_ratio(n_bg_pts=20, n_total_pts=100)
+        assert result == pytest.approx(0.20, abs=1e-6)
+
+    def test_zero_total_returns_zero_no_division_error(self):
+        """When n_total_pts is 0 (no LoFTR matches at all), returns 0.0 without raising."""
+        assert _compute_bg_match_ratio(n_bg_pts=0, n_total_pts=0) == pytest.approx(0.0)
+
+    def test_half_bg_half_fg_returns_point_five(self):
+        """Exactly half the matches on background → ratio 0.5."""
+        assert _compute_bg_match_ratio(n_bg_pts=50, n_total_pts=100) == pytest.approx(0.5, abs=1e-6)

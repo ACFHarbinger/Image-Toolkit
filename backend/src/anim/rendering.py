@@ -7,9 +7,12 @@ applicable) ``bg_masks`` as explicit arguments.
 
 from __future__ import annotations
 
+import logging
 import os
 import warnings
 from typing import List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 import cv2
 import numpy as np
@@ -31,6 +34,70 @@ from .stateless import _laplacian_blend
 # no holes appear.  Stage 11 then composites the re-posed foreground on top.
 # Set ASP_FG_EXCLUDE_MEDIAN=0 to disable (A/B comparison).
 _FG_EXCLUDE_MEDIAN = os.environ.get("ASP_FG_EXCLUDE_MEDIAN", "1") != "0"
+
+# §1.40 — Adaptive gain clamp for sequential colour correction.
+# When ON, replaces the fixed [0.88, 1.12] gain clamp in _compute_sequential_color_gains
+# with a luminance-adaptive variant using the same formula as §1.4B in compositing.py:
+#   clamp_width = 0.26 - 0.12 * (ref_lum / 255)  →  ±26% at black, ±14% at white.
+# The fixed ±12% clamp is too tight for dark-scene overlap zones (where a small
+# absolute brightness difference produces a large ratio) and too wide for bright
+# scenes where 12% corrections would overshoot.
+# Default OFF.  Enable: ASP_ADAPTIVE_RENDER_GAIN=1.
+_ADAPTIVE_RENDER_GAIN: bool = os.environ.get("ASP_ADAPTIVE_RENDER_GAIN", "0") != "0"
+
+
+def _adaptive_render_gain_clamp(ref_lum: float) -> "tuple[float, float]":
+    """§1.40: Luminance-adaptive gain-clamp bounds for sequential colour correction.
+
+    Uses the same continuous formula as §1.4B in ``compositing.py``:
+    ``clamp_width = 0.26 − 0.12 × (ref_lum / 255)``, yielding ±26 % at pure
+    black and ±14 % at pure white.  *ref_lum* is clamped to [0, 255] before use.
+
+    Returns
+    -------
+    (lo, hi) : lower and upper gain bounds, both positive floats.
+    """
+    lum = max(0.0, min(255.0, ref_lum))
+    clamp_width = max(0.14, 0.26 - 0.12 * (lum / 255.0))
+    return 1.0 - clamp_width, 1.0 + clamp_width
+
+
+# §1.41 — Sequential gain chain-drift guard.
+# After all per-pair corrections are chained, the cumulative product of gains
+# (frame 0 → frame N-1) can stray far from 1.0 if each pair nudges in the same
+# direction (e.g., each frame consistently under-exposes its successor).  When the
+# cumulative product exceeds *max_ratio* fold in any channel, the correction chain
+# is clearly wrong — reset the whole batch to identity rather than apply a
+# systematically drifted correction.
+# Default 0.0 = off.  Recommend ASP_GAIN_DRIFT_MAX=2.0.
+_GAIN_DRIFT_MAX: float = float(os.environ.get("ASP_GAIN_DRIFT_MAX", "0.0"))
+
+
+def _check_gain_chain_drift(gains: np.ndarray, max_ratio: float) -> bool:
+    """§1.41: True when the cumulative gain chain exceeds *max_ratio* in any channel.
+
+    *gains* is an (N, 3) float32 array where ``gains[0]`` is always 1.0 (the
+    anchor frame) and ``gains[i]`` corrects frame i relative to frame i-1.
+    The cumulative product ``prod(gains[:, c])`` represents the total photometric
+    shift applied from frame 0 to the last frame.  When this exceeds *max_ratio*
+    (or falls below its reciprocal), the chain has accumulated beyond a plausible
+    scene-brightness variation and something went wrong.
+
+    Parameters
+    ----------
+    gains     : (N, 3) float32 gain array from ``_compute_sequential_color_gains``.
+    max_ratio : upper bound on the cumulative fold-change (e.g., 2.0 = two-fold).
+                Values ≤ 0 are treated as "disabled" and always return False.
+
+    Returns
+    -------
+    bool — True when drift is detected and caller should reset to identity.
+    """
+    if max_ratio <= 0.0 or gains.size == 0:
+        return False
+    cum = np.prod(gains, axis=0)  # (3,) per-channel cumulative product
+    log_limit = np.log(max(max_ratio, 1.0 + 1e-9))
+    return bool(np.any(np.abs(np.log(np.maximum(cum, 1e-9))) > log_limit))
 
 
 def _compute_sequential_color_gains(
@@ -151,10 +218,25 @@ def _compute_sequential_color_gains(
             arr_p = np.array(stripe_means_p[c])
             # Use median ratio across stripes → robust to outlier stripes
             ratios = arr_p / np.maximum(arr_i, 1.0)
-            g = float(np.clip(np.median(ratios), 0.88, 1.12))
+            # §1.40: adaptive clamp scales with scene luminance; fixed ±12% otherwise
+            if _ADAPTIVE_RENDER_GAIN:
+                _g_lo, _g_hi = _adaptive_render_gain_clamp(float(np.mean(arr_i)))
+            else:
+                _g_lo, _g_hi = 0.88, 1.12
+            g = float(np.clip(np.median(ratios), _g_lo, _g_hi))
             b = float(np.clip(float(np.median(arr_p - arr_i * g)), -20.0, 20.0))
             gains[i, c] = g
             biases[i, c] = b
+
+    # §1.41: Chain-drift guard — reset to identity when cumulative gain is implausible.
+    if _GAIN_DRIFT_MAX > 0.0 and _check_gain_chain_drift(gains, _GAIN_DRIFT_MAX):
+        logger.warning(
+            "[Render] §1.41: sequential gain chain drifted beyond %.2f× — "
+            "resetting to identity gains.",
+            _GAIN_DRIFT_MAX,
+        )
+        gains = np.ones((len(gains), 3), dtype=np.float32)
+        biases = np.zeros((len(biases), 3), dtype=np.float32)
 
     return gains, biases
 

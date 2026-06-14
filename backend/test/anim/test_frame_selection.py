@@ -39,6 +39,8 @@ from backend.src.anim.frame_selection import (
     _compute_dhash,
     _refine_hold_ids_by_response,
     _temporal_variance_filter,
+    _reject_blurry_frames,
+    _reject_low_contrast_frames,
     _near_dup_luma_filter,
     _compute_dinov2_features,
     _DINOV2_CACHE,
@@ -602,3 +604,124 @@ class TestOtsuBgMaskPair:
             # All values must be in [0, 1] and ≤ max of input images
             assert float(mask.min()) >= 0.0
             assert float(mask.max()) <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# TestRejectBlurryFrames — §1.2E blur/artifact frame pre-rejection (S97)
+# ---------------------------------------------------------------------------
+
+
+class TestRejectBlurryFrames:
+    """
+    _reject_blurry_frames drops interior frames whose Laplacian variance
+    (on a 64×64 uint8 resize of the float32 thumbnail) is below blur_threshold.
+    First/last frames are always kept.  threshold=0.0 disables.  N<3 passes through.
+    """
+
+    def _flat(self, val: float = 0.5, h: int = 32, w: int = 48) -> np.ndarray:
+        """Uniform (blurry) float32 thumbnail — Laplacian variance ≈ 0."""
+        return np.full((h, w), val, dtype=np.float32)
+
+    def _sharp(self, seed: int = 0, h: int = 32, w: int = 48) -> np.ndarray:
+        """Random (sharp) float32 thumbnail — high Laplacian variance."""
+        return np.random.RandomState(seed).uniform(0.0, 1.0, (h, w)).astype(np.float32)
+
+    def test_blurry_interior_dropped(self):
+        """Uniform interior frame has near-zero Laplacian variance → dropped."""
+        thumbs = [self._sharp(0), self._flat(0.5), self._sharp(1)]
+        paths = ["a.png", "b.png", "c.png"]
+        result_t, result_p, n_drop = _reject_blurry_frames(thumbs, paths, blur_threshold=10.0)
+        assert n_drop == 1
+        assert "b.png" not in result_p
+        assert "a.png" in result_p and "c.png" in result_p
+
+    def test_sharp_frames_all_kept(self):
+        """Frames with high Laplacian variance are kept regardless of threshold."""
+        thumbs = [self._sharp(i) for i in range(4)]
+        paths = [f"{i}.png" for i in range(4)]
+        result_t, result_p, n_drop = _reject_blurry_frames(thumbs, paths, blur_threshold=10.0)
+        assert n_drop == 0
+        assert result_p == paths
+
+    def test_first_and_last_always_kept(self):
+        """Even if first/last are blurry (uniform), they are never dropped."""
+        flat = self._flat(0.3)
+        thumbs = [flat, flat, flat, flat, flat]
+        paths = [f"{i}.png" for i in range(5)]
+        result_t, result_p, n_drop = _reject_blurry_frames(thumbs, paths, blur_threshold=100.0)
+        assert result_p[0] == "0.png"
+        assert result_p[-1] == "4.png"
+
+    def test_threshold_zero_disables_filter(self):
+        """blur_threshold=0.0 → no frames dropped regardless of content."""
+        flat = self._flat(0.5)
+        thumbs = [flat, flat, flat]
+        paths = ["x.png", "y.png", "z.png"]
+        result_t, result_p, n_drop = _reject_blurry_frames(thumbs, paths, blur_threshold=0.0)
+        assert n_drop == 0
+        assert result_p == paths
+
+    def test_fewer_than_three_passes_unchanged(self):
+        """N < 3 → pass-through with zero drops (no interior frames to test)."""
+        thumbs = [self._flat(), self._flat()]
+        paths = ["p.png", "q.png"]
+        result_t, result_p, n_drop = _reject_blurry_frames(thumbs, paths, blur_threshold=50.0)
+        assert n_drop == 0
+        assert result_p == paths
+
+
+# §1.46 — _reject_low_contrast_frames (S110)
+class TestRejectLowContrastFrames:
+    """_reject_low_contrast_frames drops interior flash/whiteout frames (low pixel std)."""
+
+    @staticmethod
+    def _uniform(fill: float = 1.0) -> np.ndarray:
+        """Near-uniform thumbnail (std ≈ 0) simulating a flash frame."""
+        return np.full((64, 64), fill, dtype=np.float32)
+
+    @staticmethod
+    def _textured() -> np.ndarray:
+        """High-contrast checkerboard thumbnail (std ≈ 127)."""
+        t = np.zeros((64, 64), dtype=np.float32)
+        t[::2, ::2] = 1.0
+        t[1::2, 1::2] = 1.0
+        return t
+
+    def test_uniform_interior_dropped(self):
+        """Flash frame (std ≈ 0) as interior frame → dropped."""
+        thumbs = [self._textured(), self._uniform(), self._textured()]
+        paths = ["a.png", "flash.png", "b.png"]
+        _, result_p, n_drop = _reject_low_contrast_frames(thumbs, paths, contrast_threshold=15.0)
+        assert n_drop == 1
+        assert "flash.png" not in result_p
+
+    def test_high_contrast_interior_kept(self):
+        """High-contrast interior frame → kept."""
+        thumbs = [self._textured(), self._textured(), self._textured()]
+        paths = ["a.png", "mid.png", "b.png"]
+        _, result_p, n_drop = _reject_low_contrast_frames(thumbs, paths, contrast_threshold=15.0)
+        assert n_drop == 0
+        assert result_p == paths
+
+    def test_first_last_always_kept(self):
+        """Flash frames at first/last positions are never dropped."""
+        thumbs = [self._uniform(), self._textured(), self._uniform()]
+        paths = ["first.png", "mid.png", "last.png"]
+        _, result_p, n_drop = _reject_low_contrast_frames(thumbs, paths, contrast_threshold=15.0)
+        assert "first.png" in result_p
+        assert "last.png" in result_p
+
+    def test_threshold_zero_disables_filter(self):
+        """contrast_threshold=0.0 → pass-through, no frames dropped."""
+        thumbs = [self._uniform(), self._uniform(), self._uniform()]
+        paths = ["a.png", "b.png", "c.png"]
+        _, result_p, n_drop = _reject_low_contrast_frames(thumbs, paths, contrast_threshold=0.0)
+        assert n_drop == 0
+        assert result_p == paths
+
+    def test_returns_correct_drop_count(self):
+        """Two flash frames in interior → n_dropped == 2."""
+        thumbs = [self._textured(), self._uniform(), self._uniform(), self._textured()]
+        paths = ["a.png", "f1.png", "f2.png", "b.png"]
+        _, _, n_drop = _reject_low_contrast_frames(thumbs, paths, contrast_threshold=15.0)
+        assert n_drop == 2

@@ -22,7 +22,7 @@ _repo_root = os.path.dirname(
 )
 sys.path.insert(0, _repo_root)
 
-from backend.src.anim.rendering import _render, _render_first, _render_median  # noqa: E402
+from backend.src.anim.rendering import _render, _render_first, _render_median, _adaptive_render_gain_clamp, _check_gain_chain_drift  # noqa: E402
 from conftest import make_frame, make_rotation_affine, make_translation_affine  # noqa: E402
 
 
@@ -379,3 +379,73 @@ class TestForegroundExcludedMedian:
         val = float(canvas[50:70, 105:125].mean())
         assert val > 180, f"all-fg fallback should keep character, got {val:.0f}"
         importlib.reload(r)
+
+
+class TestAdaptiveRenderGainClamp:
+    """§1.40: Luminance-adaptive gain-clamp bounds for sequential colour correction."""
+
+    def test_pure_black_returns_widest_clamp(self):
+        """ref_lum=0 → clamp_width=0.26 → bounds (0.74, 1.26)."""
+        lo, hi = _adaptive_render_gain_clamp(0.0)
+        assert lo == pytest.approx(0.74, abs=1e-6)
+        assert hi == pytest.approx(1.26, abs=1e-6)
+
+    def test_pure_white_returns_narrowest_clamp(self):
+        """ref_lum=255 → clamp_width=0.14 → bounds (0.86, 1.14)."""
+        lo, hi = _adaptive_render_gain_clamp(255.0)
+        assert lo == pytest.approx(0.86, abs=1e-6)
+        assert hi == pytest.approx(1.14, abs=1e-6)
+
+    def test_mid_grey_interpolates_correctly(self):
+        """ref_lum=128 → clamp_width ≈ 0.26 - 0.12*(128/255) ≈ 0.200."""
+        lo, hi = _adaptive_render_gain_clamp(128.0)
+        expected_width = 0.26 - 0.12 * (128.0 / 255.0)
+        assert lo == pytest.approx(1.0 - expected_width, abs=1e-4)
+        assert hi == pytest.approx(1.0 + expected_width, abs=1e-4)
+
+    def test_dark_scene_wider_than_bright_scene(self):
+        """Darker reference → wider clamp (more correction allowed)."""
+        lo_dark, hi_dark = _adaptive_render_gain_clamp(30.0)
+        lo_bright, hi_bright = _adaptive_render_gain_clamp(220.0)
+        assert (hi_dark - lo_dark) > (hi_bright - lo_bright), "dark clamp must be wider"
+
+    def test_clamp_above_255_floored_at_bright_clamp(self):
+        """ref_lum > 255 is clamped to 255 → returns the same bounds as pure white."""
+        lo_over, hi_over = _adaptive_render_gain_clamp(500.0)
+        lo_white, hi_white = _adaptive_render_gain_clamp(255.0)
+        assert lo_over == pytest.approx(lo_white, abs=1e-6)
+        assert hi_over == pytest.approx(hi_white, abs=1e-6)
+
+
+class TestCheckGainChainDrift:
+    """§1.41: Sequential gain chain-drift guard."""
+
+    def _gains(self, values: list) -> np.ndarray:
+        """Build an (N, 3) gains array from a list of per-frame scalar gains."""
+        return np.array([[v, v, v] for v in values], dtype=np.float32)
+
+    def test_identity_gains_no_drift(self):
+        """All-ones gains → cumulative product = 1.0 → no drift."""
+        gains = self._gains([1.0] * 8)
+        assert not _check_gain_chain_drift(gains, max_ratio=2.0)
+
+    def test_large_cumulative_gain_detected(self):
+        """Eight frames each × 1.12 → cumulative ≈ 2.48 > 2.0 → drift detected."""
+        gains = self._gains([1.12] * 8)
+        assert _check_gain_chain_drift(gains, max_ratio=2.0)
+
+    def test_zero_max_ratio_always_false(self):
+        """max_ratio=0 disables the gate; always returns False."""
+        gains = self._gains([1.5] * 10)
+        assert not _check_gain_chain_drift(gains, max_ratio=0.0)
+
+    def test_single_large_gain_triggers(self):
+        """One frame with gain=0.4 → cumulative 0.4 < 1/1.5 → drift detected."""
+        gains = self._gains([1.0, 1.0, 0.4, 1.0])
+        assert _check_gain_chain_drift(gains, max_ratio=1.5)
+
+    def test_cancelling_gains_no_drift(self):
+        """Gains that cancel (1.3 × 0.77 ≈ 1.0 per pair) → no drift."""
+        gains = self._gains([1.3, 0.769, 1.3, 0.769])
+        # cumulative ≈ 1.3 * 0.769 * 1.3 * 0.769 ≈ 1.0
+        assert not _check_gain_chain_drift(gains, max_ratio=2.0)

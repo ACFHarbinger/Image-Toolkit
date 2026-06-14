@@ -36,6 +36,9 @@ from backend.src.constants import (
     SEARCH_SLAB,
     FEATHER_TABLE,
     LUMINANCE_WEIGHTS,
+    SEAM_OVERLAY_AMBER_THRESH,
+    SEAM_OVERLAY_RED_THRESH,
+    SEAM_CROP_BAND_PX,
 )
 
 # Stage 8.5 foreground pose registration toggle (see fg_register.py).
@@ -183,6 +186,14 @@ _SEAM_INSTABILITY_THRESH: float = float(os.environ.get("ASP_SEAM_INSTABILITY_THR
 # Default 0.0 = off.  Recommend 0.7 (>70% fg penetration → character seam, escalate).
 _SEAM_FG_PENETRATION_MAX: float = float(os.environ.get("ASP_SEAM_FG_PENETRATION_MAX", "0.0"))
 
+# §2.4B — Seam overlay annotation (S94).
+# When enabled, draws coloured horizontal diagnostic lines on the composite output at
+# each seam boundary position: green (post_diff < SEAM_OVERLAY_AMBER_THRESH), amber
+# (AMBER_THRESH ≤ diff < RED_THRESH), or red (diff ≥ RED_THRESH or single-pose).
+# A short text label (seam index + diff + "SP" flag) is placed at the left edge.
+# Enable via ASP_SEAM_OVERLAY=1 (default OFF — zero overhead when disabled).
+_SEAM_OVERLAY: bool = os.environ.get("ASP_SEAM_OVERLAY", "0") != "0"
+
 # §1.30: Minimum zone height guard.  When a blend zone is shorter than this many
 # rows the boundary clamp (§1.26) leaves at most one valid seam row, the feather
 # blend has no headroom, and the DP adds ~1ms overhead for no quality benefit.
@@ -190,6 +201,24 @@ _SEAM_FG_PENETRATION_MAX: float = float(os.environ.get("ASP_SEAM_FG_PENETRATION_
 # DP runs.  Default 0 = off.  Recommend 20 (matches the typical S15/S16 soft-edge
 # band width; anything narrower cannot be blended cleanly regardless of DP).
 _ZONE_MIN_HEIGHT: int = int(os.environ.get("ASP_ZONE_MIN_HEIGHT", "0"))
+
+# §1.34: Seam zone texture-energy pre-escalation.  When the ±30px band around a
+# seam boundary has very low Laplacian variance (flat colour — sky, solid fill,
+# bare background), ARAP/optical-flow has no gradient to track (aperture problem)
+# and reliably produces garbage offsets.  Pre-escalating such seams to single-pose
+# avoids the ARAP call entirely at negligible cost.
+# Set to 0.0 to disable (default); recommend 5.0 for real sequences.
+_SEAM_LOW_TEXTURE_THRESH: float = float(
+    os.environ.get("ASP_SEAM_LOW_TEXTURE_THRESH", "0.0")
+)
+
+# §1.35: Line-art gradient penalty in seam cost map.
+# Additive cost in [0, weight] applied to fg-interior pixels based on normalized
+# Laplacian magnitude — steers DP away from character outline pixels.
+# Set to 0.0 to disable (default); recommend 1.0 for anime sequences.
+_LINE_GRAD_WEIGHT: float = float(
+    os.environ.get("ASP_LINE_GRAD_WEIGHT", "0.0")
+)
 
 
 def _zone_is_degenerate(zone_h: int, min_height: int = 20) -> bool:
@@ -217,6 +246,75 @@ def _zone_is_degenerate(zone_h: int, min_height: int = 20) -> bool:
     if min_height <= 0:
         return False
     return zone_h < min_height
+
+
+def _annotate_seams(
+    canvas: np.ndarray,
+    boundaries: np.ndarray,
+    seam_post_diffs: dict,
+    seam_single_pose: dict,
+    line_thickness: int = 2,
+) -> np.ndarray:
+    """§2.4B — Draw coloured diagnostic lines on *canvas* at each seam boundary.
+
+    Each horizontal line is coloured by alignment quality:
+    - Green  (BGR 0,200,0)   : post_diff < SEAM_OVERLAY_AMBER_THRESH, not single-pose
+    - Amber  (BGR 0,165,255) : AMBER_THRESH ≤ post_diff < RED_THRESH, not single-pose
+    - Red    (BGR 0,0,220)   : post_diff ≥ RED_THRESH or seam in single-pose fallback
+
+    A short label ``S{k}:{diff:.0f}`` (plus ``SP`` for single-pose seams) is drawn
+    at the left edge so the diagnostic overlay is self-documenting.
+    """
+    if canvas.size == 0 or len(boundaries) == 0:
+        return canvas
+    out = canvas.copy()
+    H, W = out.shape[:2]
+    for k, by in enumerate(boundaries):
+        y = int(by)
+        if y < 0 or y >= H:
+            continue
+        diff = float(seam_post_diffs.get(k, 0.0))
+        is_sp = k in seam_single_pose
+        if is_sp or diff >= SEAM_OVERLAY_RED_THRESH:
+            colour = (0, 0, 220)
+        elif diff >= SEAM_OVERLAY_AMBER_THRESH:
+            colour = (0, 165, 255)
+        else:
+            colour = (0, 200, 0)
+        cv2.line(out, (0, y), (W - 1, y), colour, line_thickness)
+        label = f"S{k}:{diff:.0f}"
+        if is_sp:
+            label += " SP"
+        cv2.putText(
+            out, label,
+            (4, max(y - 3, 10)),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.4, colour, 1, cv2.LINE_AA,
+        )
+    return out
+
+
+def _extract_seam_crops(
+    canvas: np.ndarray,
+    boundaries: np.ndarray,
+    band_px: int = SEAM_CROP_BAND_PX,
+) -> Dict[int, np.ndarray]:
+    """§2.4C — Crop ±band_px rows around each seam boundary from *canvas*.
+
+    Returns a dict mapping seam index k → cropped subarray.  The crop is
+    clamped to canvas bounds so edge seams produce narrower crops rather than
+    raising an error.  Returns an empty dict when *boundaries* is empty or
+    *canvas* has zero area.
+    """
+    result: Dict[int, np.ndarray] = {}
+    if canvas.size == 0 or len(boundaries) == 0:
+        return result
+    H = canvas.shape[0]
+    for k, by in enumerate(boundaries):
+        y = int(by)
+        y0 = max(0, y - band_px)
+        y1 = min(H, y + band_px)
+        result[k] = canvas[y0:y1].copy()
+    return result
 
 
 def _seam_corridor_exists(cost: np.ndarray, fg_thresh: float = 0.5) -> bool:
@@ -386,6 +484,85 @@ def _seam_fg_penetration(
     in_fg_a = fa_zone[rows, cols].max(axis=1) > 0
     in_fg_b = fb_zone[rows, cols].max(axis=1) > 0
     return float((in_fg_a | in_fg_b).sum()) / W
+
+
+def _seam_zone_texture_energy(
+    fa: np.ndarray,
+    fb: np.ndarray,
+    boundary: int,
+    half_band: int = 30,
+) -> float:
+    """§1.34: Mean Laplacian variance in the ±half_band rows around a seam boundary.
+
+    Low values indicate flat-colour zones where optical flow / ARAP is unreliable
+    (aperture problem) — both frames lack gradient signal near the seam.
+
+    Parameters
+    ----------
+    fa, fb:
+        Full-height BGR uint8 frames (H, W, 3) or grayscale (H, W).
+    boundary:
+        Row index of the seam boundary in the full canvas.
+    half_band:
+        Half-width of the evaluation band in rows (default 30).
+
+    Returns
+    -------
+    float
+        Mean Laplacian variance across both frames (uint8 scale, ≥ 0).
+        0.0 when the band is empty or frames have no rows.
+    """
+    if fa.size == 0 or fb.size == 0:
+        return 0.0
+    H = min(fa.shape[0], fb.shape[0])
+    y0 = max(0, boundary - half_band)
+    y1 = min(H, boundary + half_band)
+    if y1 <= y0:
+        return 0.0
+    variances: list[float] = []
+    for frame in (fa, fb):
+        band = frame[y0:y1]
+        if band.ndim == 3:
+            gray = cv2.cvtColor(band, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = band
+        variances.append(float(cv2.Laplacian(gray, cv2.CV_32F).var()))
+    return float(np.mean(variances)) if variances else 0.0
+
+
+def _fg_gradient_cost(
+    canvas_zone: np.ndarray,
+    weight: float = 1.0,
+) -> np.ndarray:
+    """§1.35: Per-pixel Laplacian gradient cost for fg-interior seam penalty.
+
+    Anime character outlines are dark, thin, high-gradient lines. A DP seam that
+    cuts through an outline pixel creates a visible hairline break in the stroke.
+    This returns a (H, W) float32 cost map in [0, weight] so that fg-interior
+    pixels near character outlines are more expensive than flat fill regions,
+    pushing the seam into low-gradient body fill when no background corridor exists.
+
+    Parameters
+    ----------
+    canvas_zone : (H, W, 3) uint8 BGR slice from the blend zone canvas.
+    weight : additive cost ceiling (default 1.0). Set to 0.0 to disable.
+
+    Returns
+    -------
+    np.ndarray of shape (H, W), dtype float32, values in [0, weight].
+    """
+    if canvas_zone.size == 0 or weight <= 0.0:
+        return np.zeros(canvas_zone.shape[:2], dtype=np.float32)
+    gray = (
+        cv2.cvtColor(canvas_zone, cv2.COLOR_BGR2GRAY)
+        if canvas_zone.ndim == 3
+        else canvas_zone
+    )
+    lap = np.abs(cv2.Laplacian(gray.astype(np.float32), cv2.CV_32F))
+    lap_max = float(lap.max())
+    if lap_max < 1e-6:
+        return np.zeros(canvas_zone.shape[:2], dtype=np.float32)
+    return np.minimum(lap / lap_max, 1.0).astype(np.float32) * weight
 
 
 def _adaptive_sp_soft_px(
@@ -1046,6 +1223,14 @@ def _build_seam_cost_map(
                 em_zone = cv2.resize(em, (zone_w, zone_h), interpolation=cv2.INTER_NEAREST)
             cost[em_zone > 127] = 1e6
 
+    # §1.35: Line-art gradient penalty — fg-interior outline pixels cost more than flat fill.
+    # Adds normalized Laplacian magnitude (in [0, _LINE_GRAD_WEIGHT]) only to fg pixels
+    # (cost >= 1.0), so character outline pixels become more expensive than the body fill.
+    if _LINE_GRAD_WEIGHT > 0.0 and canvas_zone.size > 0:
+        grad = _fg_gradient_cost(canvas_zone, _LINE_GRAD_WEIGHT)
+        fg_mask = cost >= 1.0
+        cost[fg_mask] = cost[fg_mask] + grad[fg_mask]
+
     return cost
 
 
@@ -1426,6 +1611,8 @@ def _composite_foreground(
     exclusion_masks: Optional[List[np.ndarray]] = None,
     preset_boundaries: Optional[np.ndarray] = None,
     paint_mask: Optional[np.ndarray] = None,
+    seam_meta_out: Optional[dict] = None,
+    seam_overrides: Optional[dict] = None,
 ) -> np.ndarray:
     """
     Deghost the temporal-median canvas by replacing animated foreground pixels
@@ -1435,6 +1622,16 @@ def _composite_foreground(
     in HITL checkpoint 4.5.  Pixels >127 are treated as hard seam barriers
     (cost=1e6), forcing the DP to route seams around the painted region.
     Appended to *exclusion_masks* so it is sliced per-zone identically.
+
+    seam_meta_out: optional mutable dict that is populated on return with
+    ``{"boundaries": list, "seam_post_diffs": dict, "seam_single_pose": dict}``.
+    Used by HITL checkpoint 4.6 to surface per-seam diagnostic data.
+
+    seam_overrides: optional dict mapping seam index k → override options dict.
+    Supported keys: ``"force_single_pose"`` (bool) skips ARAP and immediately
+    escalates seam k to the dominant-pose frame; ``"force_blend"`` (bool) undoes
+    any single-pose escalation for seam k after the registration pass, forcing
+    the DSFN blend path regardless of post_warp_diff.
 
     Background pixels are always kept from the temporal median (photometrically
     consistent across the whole canvas).  Only foreground character pixels are
@@ -1749,6 +1946,19 @@ def _composite_foreground(
                 fg_a = ~warped_bg[fi_a]
                 fg_b = ~warped_bg[fi_b]
 
+                # §2.4A: User seam override — force single-pose for this seam.
+                _ov_k = (seam_overrides or {}).get(k, {})
+                if _ov_k.get("force_single_pose"):
+                    _by_int_sp = int(by)
+                    _half_sp = min(20, int(feathers[k]))
+                    _y0_sp = max(0, _by_int_sp - _half_sp)
+                    _y1_sp = min(H, _by_int_sp + _half_sp)
+                    _fg_a_cnt_sp = int(fg_a[_y0_sp:_y1_sp].sum())
+                    _fg_b_cnt_sp = int(fg_b[_y0_sp:_y1_sp].sum())
+                    seam_single_pose[k] = fi_a if _fg_a_cnt_sp >= _fg_b_cnt_sp else fi_b
+                    seam_post_diffs[k] = 99.0  # sentinel: user-forced single-pose
+                    continue
+
                 # §1.20: Preemptive single-pose for tiny-step seams.
                 # When the camera barely moved, the character occupies nearly
                 # the same rows in both frames but may be in a different
@@ -1770,6 +1980,32 @@ def _composite_foreground(
                             f"[Stitch]     FG-register B{k} (frames {fi_a}/{fi_b}): "
                             f"step={_step_sz:.1f}px < {_TIGHT_STEP_PX}px "
                             f"→ preemptive single-pose (frame {_dom})"
+                        )
+                        continue
+
+                # §1.34: Seam zone texture-energy pre-escalation.
+                # Skip ARAP when both frames have flat colour near the seam —
+                # optical flow has no gradient signal (aperture problem) and will
+                # produce garbage offsets that worsen the blend.
+                if _SEAM_LOW_TEXTURE_THRESH > 0.0 and k not in seam_single_pose:
+                    _tex = _seam_zone_texture_energy(
+                        warped_norm[fi_a], warped_norm[fi_b], int(by)
+                    )
+                    if _tex < _SEAM_LOW_TEXTURE_THRESH:
+                        _by_int = int(by)
+                        _half = min(20, int(feathers[k]))
+                        _y0 = max(0, _by_int - _half)
+                        _y1 = min(H, _by_int + _half)
+                        _fg_a_cnt = int(fg_a[_y0:_y1].sum())
+                        _fg_b_cnt = int(fg_b[_y0:_y1].sum())
+                        _dom = fi_a if _fg_a_cnt >= _fg_b_cnt else fi_b
+                        seam_single_pose[k] = _dom
+                        seam_post_diffs[k] = _tex
+                        n_fallback += 1
+                        print(
+                            f"[Stitch]     FG-register B{k} (frames {fi_a}/{fi_b}): "
+                            f"texture={_tex:.2f} < {_SEAM_LOW_TEXTURE_THRESH:.2f} "
+                            f"→ flat-zone single-pose (frame {_dom})"
                         )
                         continue
 
@@ -1836,6 +2072,13 @@ def _composite_foreground(
                 f"[Stitch]   FG pose registration: {n_warped}/{n_b} re-posed, "
                 f"{n_fallback}/{n_b} single-pose fallback. ref={ref_fi}"
             )
+
+            # §2.4A: Post-loop force_blend override — undo single-pose escalation
+            # for any seam the user explicitly wants to keep blended.
+            if seam_overrides:
+                for _k_fb, _opts_fb in seam_overrides.items():
+                    if _opts_fb.get("force_blend"):
+                        seam_single_pose.pop(int(_k_fb), None)
 
             # ToonCrafter seam synthesis (§3.6B) — applied to single-pose
             # escalated seams when ASP_TOONCRAFTER_SEAM=1.  Synthesizes a
@@ -2273,6 +2516,21 @@ def _composite_foreground(
     if _SEAM_LUM_EQ and boundaries:
         result = _seam_lum_equalize(result, boundaries)
 
+    # §2.4B: Seam overlay annotation — draw coloured diagnostic lines.
+    if _SEAM_OVERLAY and len(boundaries) > 0:
+        result = _annotate_seams(result, boundaries, seam_post_diffs, seam_single_pose)
+
+    # §2.4A/C: Populate seam metadata dict for HITL checkpoint 4.6.
+    if seam_meta_out is not None:
+        seam_meta_out.update({
+            "boundaries": (
+                boundaries.tolist() if hasattr(boundaries, "tolist") else list(boundaries)
+            ),
+            "seam_post_diffs": dict(seam_post_diffs),
+            "seam_single_pose": dict(seam_single_pose),
+            "seam_crops": _extract_seam_crops(result, boundaries),
+        })
+
     return result
 
 
@@ -2308,5 +2566,9 @@ __all__ = [
     "_seam_path_std",
     "_zone_is_degenerate",
     "_seam_fg_penetration",
+    "_seam_zone_texture_energy",
+    "_fg_gradient_cost",
     "_compute_initial_boundaries",
+    "_annotate_seams",
+    "_extract_seam_crops",
 ]

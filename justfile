@@ -112,6 +112,13 @@ asp-benchmark-verify:
         --tests asp_test04 asp_test08 asp_test09 asp_test27 asp_test57
     @echo "✅ Verification complete. Check .agent/cache/pipeline_analysis_report.md"
 
+# Clean ASP benchmark output directories
+asp-benchmark-clean:
+    @echo "🧹 Cleaning ASP benchmark output directories..."
+    rm -rf test_data/asp_test*/output
+    rm -rf test_data/output
+    @echo "✅ Cleanup complete!"
+
 # Run Rust type/compile checks
 check:
     @echo "🔍 Running type checks..."
