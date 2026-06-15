@@ -245,6 +245,20 @@ Load models only when first needed; hold via `weakref.ref`. Python GC reclaims w
 
 ---
 
+## Effort × Impact Matrix
+
+*Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks
+*Impact* — **Low**: marginal · **Medium**: measurable improvement for targeted workloads · **High**: significant throughput or memory gain · **Very High**: unlocks new scale or eliminates blocking bottleneck
+
+| **Effort ↓ / Impact →** | Low | Medium | High | Very High |
+|---|---|---|---|---|
+| **Low (<1d)** | — | §3.4B prepared statements · §3.5A Selenium context manager · §3.6A DynamicImage move ownership · §3.7A explicit model unload · §5.7A uv lock | §3.4D HNSW index tuning · §3.4C partial index on path | — |
+| **Medium (1d–1w)** | §3.9 SI-FID metric | §3.4A psycopg3 async pool · §3.4E materialized view · §3.7B LRU model cache | §3.3C dynamic BiRefNet batching · §3.5D Playwright migration | — |
+| **High (1–2w)** | — | §3.4F table partitioning | §3.1A two-pass streaming merger · §3.2A GPU median (PyTorch CUDA) | — |
+| **Very High (2w+)** | — | — | §5.5C Rust AES-256-GCM vault (eliminates JVM + libstdc++ conflicts) | — |
+
+---
+
 ## Anchor Index
 
 | Section | Anchor |

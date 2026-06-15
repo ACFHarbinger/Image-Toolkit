@@ -143,3 +143,17 @@ Env managed via `uv`. VRAM gating in the UI (disable features that won't fit the
 | **CG-4 (Advanced)** | 1.5 FLUX secondary · 2.3 Wan2.1/SVD foundation video · DeepSpeed full-FT | research |
 
 Dependencies: CG-1 captioning unblocks CG-2 training quality; CG-1 upscaler shared with ASP; 2.2 ToonCrafter shared with ASP ghost-fill (`anim/anim_fill.py`). The video→LoRA flow (3.x) is the highest-value differentiator and should lead CG-2.
+
+---
+
+## Effort × Impact Matrix
+
+*Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks or research prototype
+*Impact* — **Low**: marginal · **Medium**: noticeable quality/UX improvement · **High**: major capability unlock · **Very High**: differentiating feature unavailable in comparable tools
+
+| **Effort ↓ / Impact →** | Low | Medium | High | Very High |
+|---|---|---|---|---|
+| **Low (<1d)** | — | §1.6 shared anime upscaler (unifies gen + ASP upscale path) | §1.1 WD14+Florence-2 captioning · §1.4A ComfyUI control workflows (curated JSONs) | — |
+| **Medium (1d–1w)** | — | §1.5 FLUX.1 FP8 secondary support | §1.2 v-pred/zero-terminal-SNR · §1.3 LyCORIS (LoCon/LoHa/LoKr) · §2.1A AnimateDiff via ComfyUI · §2.2 ToonCrafter inbetweening | §3.x Video→LoRA guided flow (scene extract + curate + caption + train) |
+| **High (1–2w)** | — | §2.3 Wan2.1/SVD foundation video (3090 Ti only) | §1.4B native ControlNet/IP-Adapter in SDXL gen tab | §2.4 IP-Adapter + ControlNet video consistency |
+| **Very High (2w+)** | — | — | §3.6 DeepSpeed ZeRO-2 full-checkpoint FT | §3.x full video→LoRA pipeline (end-to-end trained character from 4K source) |

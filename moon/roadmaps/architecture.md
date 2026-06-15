@@ -308,6 +308,20 @@ Run `cargo audit` in CI to detect CVEs in Rust crate dependencies.
 
 ---
 
+## Effort × Impact Matrix
+
+*Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks
+*Impact* — **Low**: marginal · **Medium**: developer QoL or reliability improvement · **High**: correctness, security, or significant maintainability gain · **Very High**: eliminates a systemic failure mode or enables new capability
+
+| **Effort ↓ / Impact →** | Low | Medium | High | Very High |
+|---|---|---|---|---|
+| **Low (<1d)** | — | §5.4A `logging` module adoption · §5.7A `uv lock` · §5.7C+D pip-audit + cargo-audit | §5.1A per-stage unit tests (most stages) | — |
+| **Medium (1d–1w)** | — | §5.4B pipeline trace JSON · §5.6A remote wallpaper API · §5.6B gallery web view | §5.2A+B benchmark regression CI · §5.5A Python AES-256-GCM vault | §5.5C Rust AES-256-GCM vault (eliminates JVM/libstdc++ conflict) |
+| **High (1–2w)** | — | §5.3C Protocol-based duck typing | §5.3B abstract Matcher base class + §5.3E Compositor registry | — |
+| **Very High (2w+)** | — | — | §5.1C benchmark golden-gate diff (CI integration) | — |
+
+---
+
 ## Anchor Index
 
 | Section | Anchor |

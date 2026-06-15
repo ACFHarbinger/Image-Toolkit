@@ -437,6 +437,20 @@ Instead of executable macros, provide named "workflow templates" that pre-fill a
 
 ---
 
+## Effort × Impact Matrix
+
+*Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks or external dependency
+*Impact* — **Low**: niche · **Medium**: measurable user QoL · **High**: major capability unlock · **Very High**: differentiating feature
+
+| **Effort ↓ / Impact →** | Low | Medium | High | Very High |
+|---|---|---|---|---|
+| **Low (<1d)** | §4.2C WebP quick-share export · §4.7E image health check · §4.9A safetensors viewer [Quick Win] · §4.10A OpenAPI schema · §4.13C workflow templates | §4.2B ffmpeg scrolling video · §4.5E wallpaper mirror all monitors · §4.9D model hash verify · §4.11A inline rating panel [Quick Win] · §4.11C batch rating mode | §4.1C CLI batch stitch · §4.7A slideshow config | — |
+| **Medium (1d–1w)** | — | §4.5A KDE per-monitor wallpaper · §4.5D HydraPaper GNOME · §4.6A cross-dir phash dedup · §4.8A stitch→ComfyUI button · §4.10B trigger operations via REST · §4.12A appearance profiles | §4.4A WD14 auto-tagger · §4.6C LSH near-dedup · §4.8C drag-drop to ComfyUI · §4.8E workflow template library · §4.13A macro playback | §4.3A CLIP semantic search |
+| **High (1–2w)** | — | §4.1A GUI batch mode | §4.10C WebSocket job status · §4.11B side-by-side preference labelling · §4.11D per-seam annotation | §4.3C dual-column CLIP + Siamese search |
+| **Very High (2w+)** | — | — | §4.1B PostgreSQL job queue | §4.3B AnimeCLIP fine-tune |
+
+---
+
 ## Anchor Index
 
 | Section | Anchor |

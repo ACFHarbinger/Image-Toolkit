@@ -4,6 +4,31 @@
 
 ---
 
+## ASP Session 119 — §9C Hires Keyframes + §1.10E Benchmark JSON Import (2026-06-15)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **`_apply_hires_keyframes()` §9C** (`pipeline.py`) | Module-level helper that replaces proxy frames with full-resolution counterparts before Stage 9 canvas construction. Accepts `hires_keyframes: Dict[int, str]` mapping frame index → hires path. Scales affine tx/ty proportionally (scale_x = hires_w/proxy_w, scale_y = hires_h/proxy_h); linear 2×2 sub-matrix preserved (dimensionless rotation/shear). Non-hires frames upscaled to hires resolution via INTER_LANCZOS4; bg_masks resized with INTER_NEAREST to preserve binary values. Returns `(n_substituted, frames_hires, affines_scaled, masks_resized)`. Added `hires_keyframes: Optional[Dict[int, str]] = None` to `pipeline.run()`. Stage 8.8 injected between Stage 8 (ECC/SEA-RAFT) and Stage 9. `"_apply_hires_keyframes"` added to `__all__`. |
+| **8 new tests** (`test_pipeline.py::TestApplyHiresKeyframes`) | Covers: empty-dict no-op, 2× scale computation + frame replacement, proxy upscale fallback for non-hires frames, INTER_NEAREST bg_mask resize, None mask passthrough, invalid path graceful return, out-of-bounds index skip, linear sub-matrix preservation. |
+| **`bench_import.py` §1.10E** (`backend/src/anim/rlhf/`) | New module with `parse_bench_json(path)` (handles full suite doc, single-dataset dict, bare list), `resolve_anime_path(dataset)` (primary `anime_path` with `paths.anime_stitch` fallback), `suggested_rating(metrics_asp)` (composite CV score → 0–10 scale: `coverage×0.35 + sharpness_norm×0.25 + (1−ghosting)×0.20 + seam_coh×0.20`), `verdict_label(dataset)`. Exported from `rlhf/__init__.py`. |
+| **`StitchFeedbackTab` import group** (`stitch_feedback_tab.py`) | New "Import from Benchmark JSON" group above the image loader: "Load JSON…" button → populates `QListWidget` with verdict/fallback/rlhf-flag badges per dataset; per-dataset metrics preview panel (sharpness, coverage, ghosting, seam_coh, ssim, suggested rating); "Import Selected →" button loads the panorama image and pre-fills the rating slider from `suggested_rating()`. |
+| **21 new tests** (`test_bench_import.py`) | Covers `parse_bench_json` (5 cases), `resolve_anime_path` (4 cases), `suggested_rating` (6 cases), `verdict_label` (7 parametrised cases). |
+| **asp.md matrix updated** | Removed 23 stale "pending" entries (items shipped in Sessions 6–118 but never pruned). Added §1.10E done entry. Updated §2.1, §2.4, §2.7 headings with shipped-session tags. |
+
+### Test results
+
+877 backend tests (133 `test_pipeline.py` + 21 `test_bench_import.py` + 623 others), 2 skipped. No regressions.
+
+### Design notes
+
+**§9C affine scaling:** Only tx (`a[0,2]`) and ty (`a[1,2]`) are scaled by (hires/proxy) ratios. The 2×2 linear sub-matrix encodes rotation/shear as ratios — they are dimensionless and do not change with image scale. For the typical ASP case of pure translation affines, this is exact. For affines with small rotation (e.g. from GNC-TLS BA), the rotation angle is preserved and only the displacement is rescaled, which is the correct geometric semantics.
+
+**§1.10E rating formula:** Mirrors `_auto_verdict()` in `bench_anime_stitch.py` so the suggested rating is consistent with the automated verdict. Users are expected to adjust the slider before submitting; the suggestion is a calibration starting point, not a ground truth. The RLHF reward model will be trained on the human-adjusted ratings, so divergence between automated and human scores is the primary signal of interest for §1.10B (Bayesian param search).
+
+---
+
 ## ASP Session 80 — §1A Otsu bg-only phase corr + §5A/C BG completion + §8 defaults + Issue Report marking (2026-06-13)
 
 ### Shipped
