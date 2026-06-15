@@ -1043,6 +1043,20 @@ Each tab class saves and restores its own internal splitter + scroll position in
 
 ---
 
+## Effort × Impact Matrix
+
+*Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks
+*Impact* — **Low**: aesthetic polish · **Medium**: discoverable QoL · **High**: significant workflow improvement for most users · **Very High**: fundamental UX upgrade
+
+| **Effort ↓ / Impact →** | Low | Medium | High | Very High |
+|---|---|---|---|---|
+| **Low (<1d)** | §2.4B right-click context menu · §2.10 toast notifications · §2.14 thumbnail metadata overlay · §2.24 hover animations · §2.25 shortcut discovery overlay · §2.26 inline rename | §2.2B Ctrl+scroll zoom [Quick Win] · §2.5A session path persistence · §2.9 settings extensions · §2.12 system tray · §2.17 log panel · §2.18 image rating + labels · §2.31A QSS user override | §2.3A+C keyboard nav shortcuts · §2.7A progress bar + cancel button [Quick Win] · §2.32A auto-save geometry [Quick Win] | — |
+| **Medium (1d–1w)** | §2.19 contact sheet export | §2.2A slider control · §2.5B session restore dialog · §2.6B side-by-side before/after · §2.13 gallery filter+sort · §2.15 undo/redo deletions · §2.20A QSplitter persistence · §2.21 nav history · §2.27 multi-image compare · §2.28 global search · §2.29 configurable shortcuts · §2.30 accent colour + density | §2.4A multi-select with QItemSelectionModel · §2.8A dark/light theme toggle · §2.8B dynamic colour extraction · §2.12B+C tray preview + context ops · §2.22 tag chip compound search · §2.32B named layout profiles | §2.6A interactive zoom/pan preview · §2.16A command palette + registry |
+| **High (1–2w)** | — | §2.30C density modes (compact/comfortable/spacious) · §2.31B in-app QSS editor | §2.23 accessibility audit · §2.29B global keybinding conflict detection | §2.1A QListView virtual scroll (full refactor) |
+| **Very High (2w+)** | — | §2.4E drag-and-drop reorder | — | §4.12C named workspaces (superset of §2.29+§2.30+§2.32) |
+
+---
+
 ## Anchor Index
 
 | Section | Anchor |

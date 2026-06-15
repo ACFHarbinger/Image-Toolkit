@@ -35,6 +35,7 @@ from backend.src.anim.pipeline import (
     _compute_ba_weighted_mean_residual,
     _compute_canvas_memory_mb,
     _compute_render_luma_std,
+    _apply_hires_keyframes,
 )
 from backend.src.constants.anim import HIGH_CONF_EDGE_THRESH, SCALE_NORM_THRESH, SCENE_CHANGE_LUMA_THRESH
 
@@ -1292,3 +1293,180 @@ class TestComputeRenderLumaStd:
         mask[:5, :] = 1       # only top half valid
         std = _compute_render_luma_std(canvas, mask)
         assert std == pytest.approx(0.0, abs=1e-4)  # all valid pixels are the same value
+
+
+# §9C — _apply_hires_keyframes (Sprint 8)
+class TestApplyHiresKeyframes:
+    """_apply_hires_keyframes replaces proxy frames with hires images and scales affines/masks."""
+
+    @staticmethod
+    def _make_frame(h: int, w: int, val: int = 128) -> np.ndarray:
+        return np.full((h, w, 3), val, dtype=np.uint8)
+
+    @staticmethod
+    def _make_affine(tx: float = 0.0, ty: float = 0.0) -> np.ndarray:
+        M = np.eye(2, 3, dtype=np.float32)
+        M[0, 2] = tx
+        M[1, 2] = ty
+        return M
+
+    @staticmethod
+    def _make_mask(h: int, w: int) -> np.ndarray:
+        m = np.zeros((h, w), dtype=np.uint8)
+        m[: h // 2, :] = 1
+        return m
+
+    def test_empty_dict_is_noop(self):
+        """Empty hires_keyframes → returns original lists unchanged."""
+        frames = [self._make_frame(100, 200)]
+        affines = [self._make_affine(10.0, 5.0)]
+        masks = [self._make_mask(100, 200)]
+
+        n, f_out, a_out, m_out = _apply_hires_keyframes(frames, affines, masks, {})
+
+        assert n == 0
+        assert f_out is frames
+        assert a_out is affines
+        assert m_out is masks
+
+    def test_scale_computation_and_frame_replacement(self, tmp_path):
+        """Hires frame at 2× scale → affine tx/ty doubled, frame replaced."""
+        proxy_h, proxy_w = 50, 100
+        hires_h, hires_w = 100, 200  # 2× scale
+
+        frames = [self._make_frame(proxy_h, proxy_w, val=50)]
+        affines = [self._make_affine(tx=20.0, ty=10.0)]
+        masks = [None]
+
+        hires_img = self._make_frame(hires_h, hires_w, val=200)
+        hires_path = tmp_path / "hires_0.png"
+        cv2.imwrite(str(hires_path), hires_img)
+
+        n, f_out, a_out, m_out = _apply_hires_keyframes(
+            frames, affines, masks, {0: str(hires_path)}
+        )
+
+        assert n == 1
+        assert f_out[0].shape == (hires_h, hires_w, 3)
+        assert a_out[0][0, 2] == pytest.approx(40.0)   # tx * scale_x
+        assert a_out[0][1, 2] == pytest.approx(20.0)   # ty * scale_y
+
+    def test_proxy_upscale_fallback_for_non_hires_frames(self, tmp_path):
+        """Frames without a hires path are upscaled to match the hires resolution."""
+        proxy_h, proxy_w = 50, 100
+        hires_h, hires_w = 100, 200
+
+        frames = [
+            self._make_frame(proxy_h, proxy_w, val=10),  # gets hires replacement
+            self._make_frame(proxy_h, proxy_w, val=20),  # upscaled fallback
+        ]
+        affines = [self._make_affine(), self._make_affine()]
+        masks = [None, None]
+
+        hires_img = self._make_frame(hires_h, hires_w, val=200)
+        hires_path = tmp_path / "hires_0.png"
+        cv2.imwrite(str(hires_path), hires_img)
+
+        n, f_out, a_out, m_out = _apply_hires_keyframes(
+            frames, affines, masks, {0: str(hires_path)}
+        )
+
+        assert n == 1
+        assert f_out[0].shape == (hires_h, hires_w, 3)
+        assert f_out[1].shape == (hires_h, hires_w, 3)  # upscaled to match
+
+    def test_bg_mask_resized_with_nearest_neighbor(self, tmp_path):
+        """bg_masks are resized to hires resolution using INTER_NEAREST (binary-safe)."""
+        proxy_h, proxy_w = 4, 8
+        hires_h, hires_w = 8, 16
+
+        mask = self._make_mask(proxy_h, proxy_w)  # binary, top-half=1
+        frames = [self._make_frame(proxy_h, proxy_w)]
+        affines = [self._make_affine()]
+        masks = [mask]
+
+        hires_img = self._make_frame(hires_h, hires_w)
+        hires_path = tmp_path / "hires_0.png"
+        cv2.imwrite(str(hires_path), hires_img)
+
+        _, _, _, m_out = _apply_hires_keyframes(
+            frames, affines, masks, {0: str(hires_path)}
+        )
+
+        assert m_out[0] is not None
+        assert m_out[0].shape == (hires_h, hires_w)
+        # binary values preserved (INTER_NEAREST)
+        unique_vals = set(np.unique(m_out[0]))
+        assert unique_vals <= {0, 1}
+
+    def test_none_mask_stays_none(self, tmp_path):
+        """None bg_mask entries pass through as None after hires substitution."""
+        frames = [self._make_frame(50, 100)]
+        affines = [self._make_affine()]
+        masks = [None]
+
+        hires_img = self._make_frame(100, 200)
+        hires_path = tmp_path / "hires_0.png"
+        cv2.imwrite(str(hires_path), hires_img)
+
+        _, _, _, m_out = _apply_hires_keyframes(
+            frames, affines, masks, {0: str(hires_path)}
+        )
+
+        assert m_out[0] is None
+
+    def test_invalid_path_returns_zero_substitutions(self):
+        """All paths unreadable → n=0, original lists returned unchanged."""
+        frames = [self._make_frame(50, 100)]
+        affines = [self._make_affine()]
+        masks = [None]
+
+        n, f_out, a_out, m_out = _apply_hires_keyframes(
+            frames, affines, masks, {0: "/nonexistent/path/hires.png"}
+        )
+
+        assert n == 0
+        assert f_out is frames
+        assert a_out is affines
+        assert m_out is masks
+
+    def test_out_of_bounds_index_ignored(self, tmp_path):
+        """Index outside frame range is silently skipped."""
+        frames = [self._make_frame(50, 100)]
+        affines = [self._make_affine()]
+        masks = [None]
+
+        hires_img = self._make_frame(100, 200)
+        hires_path = tmp_path / "hires_99.png"
+        cv2.imwrite(str(hires_path), hires_img)
+
+        n, f_out, a_out, m_out = _apply_hires_keyframes(
+            frames, affines, masks, {99: str(hires_path)}
+        )
+
+        assert n == 0
+
+    def test_linear_submatrix_unchanged(self, tmp_path):
+        """Affine rotation/shear components (2×2 sub-matrix) are NOT scaled."""
+        proxy_h, proxy_w = 50, 100
+        hires_h, hires_w = 100, 200
+
+        # Affine with small rotation component
+        M = np.array([[0.99, -0.14, 30.0], [0.14, 0.99, 15.0]], dtype=np.float32)
+        frames = [self._make_frame(proxy_h, proxy_w)]
+        affines = [M]
+        masks = [None]
+
+        hires_img = self._make_frame(hires_h, hires_w)
+        hires_path = tmp_path / "hires_0.png"
+        cv2.imwrite(str(hires_path), hires_img)
+
+        _, _, a_out, _ = _apply_hires_keyframes(
+            frames, affines, masks, {0: str(hires_path)}
+        )
+
+        # Linear sub-matrix must be exactly preserved
+        np.testing.assert_array_almost_equal(a_out[0][:, :2], M[:, :2])
+        # Translation scaled by 2×
+        assert a_out[0][0, 2] == pytest.approx(60.0)
+        assert a_out[0][1, 2] == pytest.approx(30.0)

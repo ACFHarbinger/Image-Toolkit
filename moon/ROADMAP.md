@@ -228,6 +228,22 @@ Aspirational improvements requiring significant experimentation, external data, 
 
 ---
 
+## Master Effort × Impact Matrix
+
+Cross-roadmap overview. Items are the top-priority pending work from each sub-roadmap, classified by effort and expected impact.
+
+*Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks, research, or data-gated
+*Impact* — **Low**: marginal · **Medium**: noticeable targeted improvement · **High**: major capability or quality gain across multiple users/tests · **Very High**: architectural unlock or differentiating feature
+
+| **Effort ↓ / Impact →** | Low | Medium | High | Very High |
+|---|---|---|---|---|
+| **Low (<1d)** | [GUI] §2.10 toast · §2.14 overlay · [Arch] §5.7A uv lock · [Perf] §3.6A move semantics | [GUI] §2.2B ctrl+scroll · §2.7A progress bar · §2.32A geometry save · [Perf] §3.4D HNSW tune · §3.5A crawler context mgr · [Feat] §4.11A inline RLHF rating | [GUI] §2.3A+C keyboard nav · [ASP] §2.5 coverage map · §2.6 crop assistant · §3.15A SemanticStitch column filter · [CG] §1.1 WD14 captioning | [ASP] §10A2 click-based SAM-2 refinement |
+| **Medium (1d–1w)** | [Arch] §5.4B pipeline trace JSON | [Perf] §3.3C dynamic BiRefNet batch · §3.4A psycopg3 · [GUI] §2.13 gallery filter+sort · §2.8A dark/light theme · [Feat] §4.5A KDE per-monitor wallpaper | [ASP] §1.10B Bayesian param search · §2.9 BigWarp fallback · §3.3 DINOv2 submodular · §3.13 ProPainter · §3.15B OBJ-GSP mesh · §10A3 NL seam routing · §10B1 COCO serializer · [Arch] §5.5A Python crypto vault · [Feat] §4.3A CLIP semantic search · §4.4A WD14 tagger · [CG] §1.3 LyCORIS · §2.1A AnimateDiff | [ASP] §9A PyAV video ingestion · §10A1 Grounded SAM-2 |
+| **High (1–2w)** | — | [ASP] §3.12 Overmix sub-pixel · §3.16A StabStitch++ | [ASP] §2.10 SAM2Flow · §3.2 ConvGRU flow · §3.6 ToonCrafter seam · §3.14B horizontal-strip composite · [Arch] §5.3B abstract Matcher interface · [Perf] §3.2A GPU CUDA median render · [CG] §1.4B native ControlNet/IP-Adapter | [ASP] §9C Hybrid 4K/1080p composite |
+| **Very High (2w+ / data-gated)** | — | — | [ASP] §3.7 UDIS++ diffusion seam · [CG] §3.x video→LoRA full pipeline · [Arch] §5.5C Rust AES-256-GCM vault | [ASP] §10C1 SAM-2 anime fine-tune · §10C2 Pose contrastive · §10C3 PPO optimization · [CG] §2.3 Wan2.1/SVD foundation video |
+
+---
+
 ## Dependency Graph Summary
 
 ```

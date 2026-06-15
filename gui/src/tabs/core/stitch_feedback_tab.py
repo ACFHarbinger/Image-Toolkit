@@ -50,6 +50,12 @@ from backend.src.anim.rlhf.feedback_store import (
     FeedbackStore,
     StitchAnnotation,
 )
+from backend.src.anim.rlhf.bench_import import (
+    parse_bench_json,
+    resolve_anime_path,
+    suggested_rating,
+    verdict_label,
+)
 
 # ---------------------------------------------------------------------------
 # Background workers
@@ -184,6 +190,7 @@ class StitchFeedbackTab(QWidget):
         self._drl_thread: Optional[QThread] = None
         self._training_worker = None
         self._drl_worker = None
+        self._bench_datasets: List[dict] = []
 
         self._build_ui()
         self._refresh_feedback_count()
@@ -217,6 +224,37 @@ class StitchFeedbackTab(QWidget):
 
         ctrl = QVBoxLayout(ctrl_container)
         ctrl.setSpacing(8)
+
+        # ── §1.10E: Benchmark JSON import ────────────────────────────────────
+        bench_grp = QGroupBox("Import from Benchmark JSON")
+        bench_lay = QVBoxLayout(bench_grp)
+
+        bench_top = QHBoxLayout()
+        self._bench_load_btn = QPushButton("Load JSON…")
+        self._bench_load_btn.clicked.connect(self._load_benchmark_json)
+        bench_top.addWidget(self._bench_load_btn)
+        self._bench_file_label = QLabel("No file loaded")
+        self._bench_file_label.setStyleSheet("color: #888; font-size: 11px;")
+        bench_top.addWidget(self._bench_file_label, 1)
+        bench_lay.addLayout(bench_top)
+
+        self._bench_list = QListWidget()
+        self._bench_list.setMaximumHeight(100)
+        self._bench_list.currentRowChanged.connect(self._on_bench_selection_changed)
+        bench_lay.addWidget(self._bench_list)
+
+        # Read-only metrics panel
+        self._bench_metrics_label = QLabel()
+        self._bench_metrics_label.setWordWrap(True)
+        self._bench_metrics_label.setStyleSheet("color: #aaa; font-size: 10px; font-family: monospace;")
+        bench_lay.addWidget(self._bench_metrics_label)
+
+        self._bench_import_btn = QPushButton("Import Selected →")
+        self._bench_import_btn.setEnabled(False)
+        self._bench_import_btn.clicked.connect(self._import_bench_result)
+        bench_lay.addWidget(self._bench_import_btn)
+
+        ctrl.addWidget(bench_grp)
 
         # ── Image loading ────────────────────────────────────────────────────
         load_grp = QGroupBox("Stitched Image")
@@ -569,6 +607,91 @@ class StitchFeedbackTab(QWidget):
     @Slot(str)
     def _on_drl_error(self, msg: str):
         self._log_msg(f"[DRL] ERROR — {msg}")
+
+    # ----------------------------------------------------------------- §1.10E benchmark import
+
+    @Slot()
+    def _load_benchmark_json(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open Benchmark Results JSON",
+            "",
+            "JSON files (*.json)",
+            options=QFileDialog.Option.DontUseNativeDialog,
+        )
+        if not path:
+            return
+        try:
+            datasets = parse_bench_json(path)
+        except Exception as exc:
+            QMessageBox.warning(self, "Parse error", str(exc))
+            self._log_msg(f"[Bench] Failed to parse {os.path.basename(path)}: {exc}")
+            return
+
+        self._bench_datasets = datasets
+        self._bench_list.clear()
+        self._bench_metrics_label.clear()
+        self._bench_import_btn.setEnabled(False)
+        for ds in datasets:
+            flagged = (ds.get("metrics_asp") or {}).get("rlhf_flagged", False)
+            flag_str = " ⚠" if flagged else ""
+            fb = (ds.get("used_fallback") and " [fb]") or ""
+            label = f"{verdict_label(ds)}  {ds.get('name', '?')}{fb}{flag_str}"
+            self._bench_list.addItem(label)
+        self._bench_file_label.setText(os.path.basename(path))
+        self._log_msg(f"[Bench] Loaded {len(datasets)} dataset(s) from {os.path.basename(path)}")
+
+    @Slot(int)
+    def _on_bench_selection_changed(self, row: int):
+        if row < 0 or row >= len(self._bench_datasets):
+            self._bench_metrics_label.clear()
+            self._bench_import_btn.setEnabled(False)
+            return
+        ds = self._bench_datasets[row]
+        m = ds.get("metrics_asp") or {}
+        cmp = ds.get("comparison") or {}
+        lines = [
+            f"sharpness={m.get('sharpness', '?'):.1f}  coverage={m.get('coverage', '?'):.3f}",
+            f"ghosting={m.get('ghosting_score', '?'):.3f}  seam_coh={m.get('seam_coherence', '?'):.2f}",
+            f"ssim={cmp.get('ssim') or '—'}  verdict={cmp.get('verdict', '?')}",
+            f"rlhf_score={m.get('rlhf_score') or '—'}  suggested_rating={suggested_rating(m):.1f}/10",
+        ]
+        self._bench_metrics_label.setText("\n".join(lines))
+        self._bench_import_btn.setEnabled(True)
+
+    @Slot()
+    def _import_bench_result(self):
+        row = self._bench_list.currentRow()
+        if row < 0 or row >= len(self._bench_datasets):
+            return
+        ds = self._bench_datasets[row]
+        path = resolve_anime_path(ds)
+        if not path:
+            QMessageBox.warning(self, "No path", "No panorama path found in this dataset entry.")
+            return
+        if not os.path.isfile(path):
+            QMessageBox.warning(
+                self, "File not found",
+                f"Panorama not found at:\n{path}\n\nThe benchmark may have been run on a different machine."
+            )
+            return
+        # Load image
+        self._image_path = path
+        self._image_bgr = cv2.imread(path, cv2.IMREAD_COLOR)
+        pixmap = QPixmap(path)
+        self._canvas.set_image(pixmap)
+        self._canvas.clear_annotations()
+        self._ann_list.clear()
+        self._image_label.setText(os.path.basename(path))
+        self._submit_btn.setEnabled(True)
+        # Pre-fill rating from automated metrics
+        rating = suggested_rating(ds.get("metrics_asp"))
+        self._rating_slider.setValue(int(round(rating * 10)))
+        self._log_msg(
+            f"[Bench] Imported '{ds.get('name', '?')}' "
+            f"— path={os.path.basename(path)}, "
+            f"suggested_rating={rating:.1f}/10"
+        )
 
     # ----------------------------------------------------------------- helpers
 

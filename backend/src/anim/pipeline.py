@@ -1503,6 +1503,77 @@ def _compute_row_coverage(
     return row_cov, pct_multi, median_cov
 
 
+def _apply_hires_keyframes(
+    frames: List[np.ndarray],
+    affines: List[np.ndarray],
+    bg_masks: List[Optional[np.ndarray]],
+    hires_keyframes: Dict[int, str],
+) -> Tuple[int, List[np.ndarray], List[np.ndarray], List[Optional[np.ndarray]]]:
+    """
+    Replace proxy frames with hires counterparts and scale affines/masks.
+
+    Issue 9C (Sprint 8) — Hybrid 4K/1080p compositing.
+
+    All heavy computation (phases 1–8: photometric correction, masking, matching,
+    BA, ECC) ran at proxy (1080p) resolution. This function:
+    1. Loads hires frames for the indices listed in *hires_keyframes*.
+    2. Determines the (scale_y, scale_x) factor from the first successfully
+       loaded hires frame vs. its proxy counterpart.
+    3. Scales affine translation components (tx, ty) by (scale_x, scale_y).
+       The linear sub-matrix (rotation/scale/shear) is dimensionless and unchanged.
+    4. For frame indices NOT in hires_keyframes, bicubic-upscales the proxy.
+    5. Resizes all bg_masks to match the hires frame dimensions.
+
+    Returns (n_loaded, frames_hires, affines_scaled, masks_resized).
+    When n_loaded == 0 all inputs are returned unchanged.
+    """
+    hires_imgs: Dict[int, np.ndarray] = {}
+    for idx, path in hires_keyframes.items():
+        if 0 <= idx < len(frames):
+            img = cv2.imread(str(path))
+            if img is not None:
+                hires_imgs[idx] = img
+
+    if not hires_imgs:
+        return 0, frames, affines, bg_masks
+
+    ref_idx = next(iter(hires_imgs))
+    hires_h, hires_w = hires_imgs[ref_idx].shape[:2]
+    proxy_h, proxy_w = frames[ref_idx].shape[:2]
+    if proxy_h == 0 or proxy_w == 0:
+        return 0, frames, affines, bg_masks
+
+    scale_y = hires_h / proxy_h
+    scale_x = hires_w / proxy_w
+
+    affines_scaled = []
+    for a in affines:
+        a_new = a.copy().astype(np.float64)
+        a_new[0, 2] *= scale_x
+        a_new[1, 2] *= scale_y
+        affines_scaled.append(a_new)
+
+    frames_hires: List[np.ndarray] = []
+    for i, f in enumerate(frames):
+        if i in hires_imgs:
+            frames_hires.append(hires_imgs[i])
+        else:
+            frames_hires.append(
+                cv2.resize(f, (hires_w, hires_h), interpolation=cv2.INTER_LANCZOS4)
+            )
+
+    masks_resized: List[Optional[np.ndarray]] = []
+    for m in bg_masks:
+        if m is None:
+            masks_resized.append(None)
+        else:
+            masks_resized.append(
+                cv2.resize(m, (hires_w, hires_h), interpolation=cv2.INTER_NEAREST)
+            )
+
+    return len(hires_imgs), frames_hires, affines_scaled, masks_resized
+
+
 class AnimeStitchPipeline:
     """
     Multi-stage anime frame stitching pipeline.
@@ -1891,6 +1962,7 @@ class AnimeStitchPipeline:
         self,
         image_paths: List[str],
         output_path: str,
+        hires_keyframes: Optional[Dict[int, str]] = None,
     ) -> Image.Image:
         """
         Execute the full stitching pipeline.
@@ -1899,6 +1971,12 @@ class AnimeStitchPipeline:
         ----------
         image_paths : ordered list of source frame paths (first = leftmost/topmost).
         output_path : destination PNG/WEBP path.
+        hires_keyframes : optional mapping of {frame_idx: hires_path} (§9C Sprint 8).
+            When provided, all heavy computation runs at proxy (1080p) resolution;
+            after Stage 8 (ECC/SEA-RAFT refinement), the selected frames are
+            replaced by their hires counterparts and affines are scaled accordingly.
+            Frame indices not listed are bicubic-upscaled from the proxy.
+            The final panorama is rendered at the hires resolution.
 
         Returns
         -------
@@ -2586,6 +2664,25 @@ class AnimeStitchPipeline:
             logger.info("[Stitch] Stage 8 complete: ECC refinement done.")
         else:
             logger.info("[Stitch] Stage 8 skipped (use_ecc=False, use_sea_raft=False).")
+
+        # ── Stage 8.8: Hires keyframe substitution (§9C — Sprint 8) ────────
+        # All heavy computation above ran on proxy (1080p) frames. If the caller
+        # provided hires_keyframes, swap in the full-resolution images now and
+        # scale the locked affines so Stage 9 (canvas) operates at hires resolution.
+        if hires_keyframes:
+            _n_hires, frames, affines, bg_masks = _apply_hires_keyframes(
+                frames, affines, bg_masks, hires_keyframes
+            )
+            if _n_hires > 0:
+                logger.info(
+                    f"[Stitch] Stage 8.8: substituted {_n_hires} hires frame(s); "
+                    f"canvas will render at {frames[0].shape[1]}×{frames[0].shape[0]} px."
+                )
+            else:
+                logger.warning(
+                    "[Stitch] Stage 8.8: hires_keyframes provided but no valid paths "
+                    "could be loaded — continuing at proxy resolution."
+                )
 
         # ── Stage 9: Canvas construction ────────────────────────────────────
         canvas_h, canvas_w, T_global = _compute_canvas(frames, affines)
@@ -3418,4 +3515,5 @@ __all__ = [
     "_compute_ba_weighted_mean_residual",
     "_compute_canvas_memory_mb",
     "_compute_render_luma_std",
+    "_apply_hires_keyframes",
 ]
