@@ -23,25 +23,27 @@ class MergeWorker(QObject):
 
     def run(self):
         try:
-            input_paths = self.config["input_path"]
             output_path = self.config["output_path"]
             direction = self.config["direction"]
+
+            # ── Canvas composite mode ───────────────────────────────────────────
+            if direction == "canvas":
+                self._run_canvas_composite(output_path)
+                return
+
+            # ── Traditional / AI stitch modes ──────────────────────────────────
+            input_paths = self.config["input_path"]
             spacing = self.config["spacing"]
             align_mode = self.config["align_mode"]
             grid_size = self.config["grid_size"]
             formats = self.config["input_formats"] or SUPPORTED_IMG_FORMATS
 
-            # 1. Resolve all image files into a single absolute list
             image_files: List[str] = []
-
-            # The original logic handled mixed files/directories. We emulate that
-            # using FSETool to resolve paths from directories.
             for path in input_paths:
                 if os.path.isfile(path):
                     if any(path.lower().endswith(f".{fmt}") for fmt in formats):
                         image_files.append(path)
                 elif os.path.isdir(path):
-                    # Get files using FSETool for path normalization and recursion (if needed)
                     for fmt in formats:
                         image_files.extend(
                             FSETool.get_files_by_extension(path, fmt, recursive=False)
@@ -60,11 +62,8 @@ class MergeWorker(QObject):
                 self.cancelled.emit()
                 return
 
-            # 2. Update progress signals (This is tricky for ImageMerger, we skip full loop)
-            # The core merge operation is a single blocking call.
             self.progress.emit(0, len(image_files))
 
-            # 3. Perform the merge using the core class
             perfect_stitch_mode = self.config.get("perfect_stitch_mode", False)
             edge_crop_px = self.config.get("edge_crop_px", 0)
             pyramid_levels = self.config.get("pyramid_levels", 4)
@@ -101,11 +100,52 @@ class MergeWorker(QObject):
                     spacing=spacing,
                 )
 
-            # 4. Final progress update
             self.progress.emit(len(image_files), len(image_files))
-
-            # 5. Emit output path (ImageMerger saves and returns the image object)
             self.finished.emit(output_path)
 
         except Exception as e:
             self.error.emit(f"Merge failed: {str(e)}")
+
+    def _run_canvas_composite(self, output_path: str) -> None:
+        """PIL-based free-placement composite from canvas layout."""
+        try:
+            from PIL import Image as PILImage
+
+            layout: List[Dict] = self.config.get("canvas_layout", [])
+            if len(layout) < 2:
+                self.error.emit("Need at least 2 images on the canvas.")
+                return
+
+            canvas_w: int = self.config.get("canvas_width", 1920)
+            canvas_h: int = self.config.get("canvas_height", 1080)
+            bg: str = self.config.get("canvas_background", "transparent")
+
+            if bg == "white":
+                result = PILImage.new("RGBA", (canvas_w, canvas_h), (255, 255, 255, 255))
+            elif bg == "black":
+                result = PILImage.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 255))
+            else:
+                result = PILImage.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+
+            total = len(layout)
+            for i, item in enumerate(layout):
+                if self._should_stop:
+                    self.cancelled.emit()
+                    return
+
+                self.progress.emit(i, total)
+
+                img = PILImage.open(item["path"]).convert("RGBA")
+                w = max(1, item["w"])
+                h = max(1, item["h"])
+                img = img.resize((w, h), PILImage.Resampling.LANCZOS)
+                result.paste(img, (item["x"], item["y"]), img)
+
+            self.progress.emit(total, total)
+
+            os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+            result.save(output_path, "PNG")
+            self.finished.emit(output_path)
+
+        except Exception as e:
+            self.error.emit(f"Canvas merge failed: {str(e)}")

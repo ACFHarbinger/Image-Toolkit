@@ -438,7 +438,7 @@ slideshow:
 # --- AI Assistant ---
 
 # Loops the Claude Code agent on a stateful context with live-streaming reasoning steps
-loop-agent prompt="Continue upgrading the ASP, while continuing to update the ASP-related markdown files like the changelog and roadmaps.":
+loop-agent prompt="Continue upgrading the ASP, while continuing to update the ASP-related markdown files like the changelog and roadmaps. After analysing the relevant files, but before beginning the implementation, always ask questions to clarify assumptions or missing requirements, and to select which options to purse from the specific roadmap(s).":
     #!/usr/bin/env bash
     set -euo pipefail
 
