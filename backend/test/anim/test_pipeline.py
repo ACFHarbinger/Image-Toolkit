@@ -35,6 +35,8 @@ from backend.src.anim.pipeline import (
     _compute_ba_weighted_mean_residual,
     _compute_canvas_memory_mb,
     _compute_render_luma_std,
+    _compute_max_affine_rotation_deg,
+    _smooth_affine_trajectory,
     _apply_hires_keyframes,
 )
 from backend.src.constants.anim import HIGH_CONF_EDGE_THRESH, SCALE_NORM_THRESH, SCENE_CHANGE_LUMA_THRESH
@@ -1470,3 +1472,114 @@ class TestApplyHiresKeyframes:
         # Translation scaled by 2×
         assert a_out[0][0, 2] == pytest.approx(60.0)
         assert a_out[0][1, 2] == pytest.approx(30.0)
+
+
+# ---------------------------------------------------------------------------
+# §1.55 — _compute_max_affine_rotation_deg (S120)
+# ---------------------------------------------------------------------------
+
+class TestComputeMaxAffineRotationDeg:
+    """_compute_max_affine_rotation_deg returns maximum |rotation| in degrees."""
+
+    @staticmethod
+    def _rot_affine(angle_deg: float, tx: float = 0.0, ty: float = 0.0) -> np.ndarray:
+        rad = np.radians(angle_deg)
+        M = np.array(
+            [[np.cos(rad), -np.sin(rad), tx],
+             [np.sin(rad),  np.cos(rad), ty]],
+            dtype=np.float32,
+        )
+        return M
+
+    def test_empty_list_returns_zero(self):
+        assert _compute_max_affine_rotation_deg([]) == pytest.approx(0.0)
+
+    def test_identity_affines_return_zero(self):
+        affines = [np.eye(2, 3, dtype=np.float32) for _ in range(4)]
+        assert _compute_max_affine_rotation_deg(affines) == pytest.approx(0.0, abs=1e-4)
+
+    def test_single_rotated_affine_detected(self):
+        M = self._rot_affine(10.0)
+        assert _compute_max_affine_rotation_deg([M]) == pytest.approx(10.0, abs=1e-3)
+
+    def test_maximum_taken_across_multiple_affines(self):
+        affines = [
+            self._rot_affine(2.0),
+            self._rot_affine(7.5),
+            self._rot_affine(1.0),
+        ]
+        assert _compute_max_affine_rotation_deg(affines) == pytest.approx(7.5, abs=1e-3)
+
+    def test_negative_rotation_uses_absolute_value(self):
+        M = self._rot_affine(-8.0)
+        assert _compute_max_affine_rotation_deg([M]) == pytest.approx(8.0, abs=1e-3)
+
+
+# ---------------------------------------------------------------------------
+# §3.16 — _smooth_affine_trajectory (S121)
+# ---------------------------------------------------------------------------
+
+class TestSmoothAffineTrajectory:
+    """_smooth_affine_trajectory: IQR-gated Gaussian smoother on BA affine tx/ty."""
+
+    @staticmethod
+    def _trans_affine(tx: float, ty: float) -> np.ndarray:
+        M = np.eye(2, 3, dtype=np.float32)
+        M[0, 2] = tx
+        M[1, 2] = ty
+        return M
+
+    def test_fewer_than_three_affines_returns_original(self):
+        """<3 affines → was_applied=False and same object returned."""
+        affines = [self._trans_affine(0.0, 0.0), self._trans_affine(50.0, 0.0)]
+        out, applied = _smooth_affine_trajectory(affines, sigma=1.5)
+        assert not applied
+        assert out is affines
+
+    def test_zero_sigma_is_noop(self):
+        """sigma=0 → was_applied=False, original list returned unchanged."""
+        affines = [self._trans_affine(float(i * 50), 0.0) for i in range(5)]
+        out, applied = _smooth_affine_trajectory(affines, sigma=0.0)
+        assert not applied
+        assert out is affines
+
+    def test_low_iqr_linear_scroll_skipped(self):
+        """Perfectly uniform step sequence has IQR=0 → smoother skips (was_applied=False)."""
+        affines = [self._trans_affine(0.0, float(i * 100)) for i in range(8)]
+        out, applied = _smooth_affine_trajectory(affines, sigma=1.5, iqr_threshold=10.0)
+        assert not applied
+        assert out is affines
+
+    def test_jittery_sequence_is_smoothed(self):
+        """Noisy tx sequence with IQR > threshold → smoothing applied and tx values change."""
+        rng = np.random.default_rng(42)
+        base_ty = np.arange(10, dtype=np.float64) * 80.0
+        noise = rng.uniform(-30.0, 30.0, size=10)
+        affines = [self._trans_affine(float(noise[i]), float(base_ty[i])) for i in range(10)]
+
+        out, applied = _smooth_affine_trajectory(affines, sigma=1.5, iqr_threshold=5.0)
+
+        assert applied
+        assert len(out) == len(affines)
+        # Smoothed tx values differ from original noisy values
+        orig_tx = np.array([a[0, 2] for a in affines])
+        smooth_tx = np.array([a[0, 2] for a in out])
+        assert not np.allclose(orig_tx, smooth_tx)
+
+    def test_rotation_scale_components_preserved(self):
+        """After smoothing, M[:, :2] (rotation/scale) is identical to input."""
+        rad = np.radians(2.0)
+        def rotated(tx, ty):
+            M = np.array([[np.cos(rad), -np.sin(rad), tx],
+                          [np.sin(rad),  np.cos(rad), ty]], dtype=np.float32)
+            return M
+
+        rng = np.random.default_rng(7)
+        noise = rng.uniform(-40.0, 40.0, size=8)
+        affines = [rotated(float(noise[i]), float(i * 60)) for i in range(8)]
+
+        out, applied = _smooth_affine_trajectory(affines, sigma=1.5, iqr_threshold=5.0)
+
+        if applied:
+            for orig, sm in zip(affines, out):
+                np.testing.assert_array_almost_equal(orig[:, :2], sm[:, :2], decimal=5)

@@ -292,6 +292,39 @@ _CANVAS_MAX_MEMORY_MB: float = float(os.environ.get("ASP_CANVAS_MAX_MEMORY_MB", 
 # importing cv2.cvtColor in a pure-math helper).
 # Default 0.0 = off.  Recommend ASP_RENDER_LUMA_STD_MIN=5.0.
 _RENDER_LUMA_STD_MIN: float = float(os.environ.get("ASP_RENDER_LUMA_STD_MIN", "0.0"))
+# §1.55 — BA affine rotation gate (S120).
+# After Stage 7 bundle adjustment, each affine's rotation component is
+# extracted via arctan2(M[1,0], M[0,0]).  For a pure scroll-capture sequence
+# all affines should be near-identity rotations (angle ≈ 0°).  A large
+# rotation in any affine means LoFTR or phase-correlation latched onto a
+# rotationally-similar texture patch (repeated decorative border, mirrored
+# panel art, or a landscape panel in a portrait scroll).  The resulting
+# translation component is unreliable even if the BA residual is low, because
+# the solver optimises displacement not orientation.
+# Default 0.0 = off.  Recommend ASP_MAX_AFFINE_ROTATION_DEG=5.0.
+_MAX_AFFINE_ROTATION_DEG: float = float(
+    os.environ.get("ASP_MAX_AFFINE_ROTATION_DEG", "0.0")
+)
+# §3.16 — StabStitch++ simplified trajectory smoother (S121).
+# After Stage 7 bundle adjustment, the tx/ty sequences may have per-frame
+# jitter from phase-correlation noise even when pairwise translations are
+# individually correct.  This happens on sequences with non-linear scroll
+# (deceleration at a scene break) or combined tx+ty drift — the 4 confirmed
+# genuine SCANS fallbacks (tests 54, 59, 73, 89) show this pattern.
+# StabStitch++ (AAAI 2023) addresses this by fitting a bidirectional
+# midplane-smoothed trajectory.  This module implements a lightweight
+# version: scipy.ndimage.gaussian_filter1d applied independently to the
+# 1D tx and ty sequences with mode='nearest' (boundary-correct, no edge
+# attenuation).  Rotation and scale matrix components are copied unchanged.
+# The smoother is activation-gated: it fires only when the IQR of
+# adjacent-step residuals in the dominant axis exceeds ASP_TRAJ_SMOOTH_IQR
+# pixels, leaving clean linear-scroll sequences completely untouched.
+# Default sigma=0.0 = off.  Recommend ASP_TRAJ_SMOOTH_SIGMA=1.5.
+_TRAJ_SMOOTH_SIGMA: float = float(os.environ.get("ASP_TRAJ_SMOOTH_SIGMA", "0.0"))
+# Default 10.0 px.  Sequences with IQR ≤ threshold are not smoothed.
+_TRAJ_SMOOTH_IQR_THRESH: float = float(
+    os.environ.get("ASP_TRAJ_SMOOTH_IQR_THRESH", "10.0")
+)
 # §1.17 — Canvas span utilisation gate (S61).
 # After bundle adjustment and canvas construction (Stage 9), the actual
 # dominant-axis span of the solved affines is compared against the expected
@@ -1344,6 +1377,99 @@ def _compute_render_luma_std(
     pixels = canvas[valid].astype(np.float32)
     luma = pixels.mean(axis=1) if pixels.ndim == 2 else pixels.mean(axis=-1)
     return float(np.std(luma))
+
+
+def _compute_max_affine_rotation_deg(affines: "List[np.ndarray]") -> float:
+    """§1.55: Maximum per-affine rotation angle (degrees) across all BA-solved affines.
+
+    Extracts the rotation angle from each 2×3 affine matrix via
+    ``arctan2(M[1, 0], M[0, 0])`` and returns the largest absolute value in
+    degrees.  For a pure-translation scroll capture all affines should have
+    near-zero rotation (angle < 1°).  A large rotation in any affine means
+    the feature matcher latched onto a rotationally-similar texture patch,
+    producing a corrupted translation estimate even when per-edge BA residuals
+    look acceptable.
+
+    Returns
+    -------
+    float ≥ 0.  Maximum absolute rotation angle in degrees.  Returns 0.0 for
+    an empty affine list.
+    """
+    if not affines:
+        return 0.0
+    max_deg = 0.0
+    for M in affines:
+        angle_rad = float(np.arctan2(float(M[1, 0]), float(M[0, 0])))
+        deg = abs(float(np.degrees(angle_rad)))
+        if deg > max_deg:
+            max_deg = deg
+    return max_deg
+
+
+def _smooth_affine_trajectory(
+    affines: "List[np.ndarray]",
+    sigma: float,
+    iqr_threshold: float = 10.0,
+) -> "Tuple[List[np.ndarray], bool]":
+    """§3.16: Gaussian 1D trajectory smoother for BA-solved affine translations.
+
+    Applies ``scipy.ndimage.gaussian_filter1d(mode='nearest')`` independently
+    to the tx and ty sequences extracted from all affines.  The boundary
+    mode='nearest' avoids edge attenuation — corner affines do not drift
+    toward zero translation.  Rotation and scale components are copied from
+    the original affine unchanged.
+
+    The smoother is activation-gated: it fires only when the IQR of
+    absolute adjacent-step magnitudes in the dominant scroll axis exceeds
+    ``iqr_threshold`` pixels.  This ensures clean linear-scroll sequences
+    (uniform inter-frame displacement) are not modified at all.
+
+    Parameters
+    ----------
+    affines :
+        List of 2×3 float32 ndarray as returned by ``_bundle_adjust_affine``.
+    sigma :
+        Gaussian σ in frames.  Values < 3 produce gentle smoothing (~1.5 is
+        recommended); values > 5 risk over-smoothing short sequences.
+    iqr_threshold :
+        Minimum IQR of adjacent-step magnitudes (dominant axis, pixels) required
+        to trigger smoothing.  Default 10.0 px.
+
+    Returns
+    -------
+    (smoothed_affines, was_applied)
+        ``smoothed_affines`` — same-length list of 2×3 arrays with smoothed
+        tx/ty (rotation and scale unchanged).
+        ``was_applied`` — True when smoothing fired (IQR exceeded threshold).
+        When False, ``smoothed_affines is affines`` (same object, no copy).
+    """
+    from scipy.ndimage import gaussian_filter1d  # deferred — avoid import at module level
+
+    if len(affines) < 3 or sigma <= 0.0:
+        return affines, False
+
+    txs = np.array([float(a[0, 2]) for a in affines], dtype=np.float64)
+    tys = np.array([float(a[1, 2]) for a in affines], dtype=np.float64)
+
+    steps_x = np.abs(np.diff(txs))
+    steps_y = np.abs(np.diff(tys))
+    iqr_x = float(np.percentile(steps_x, 75) - np.percentile(steps_x, 25))
+    iqr_y = float(np.percentile(steps_y, 75) - np.percentile(steps_y, 25))
+
+    if max(iqr_x, iqr_y) <= iqr_threshold:
+        return affines, False
+
+    txs_smooth = gaussian_filter1d(txs, sigma=sigma, mode="nearest")
+    tys_smooth = gaussian_filter1d(tys, sigma=sigma, mode="nearest")
+
+    smoothed: List[np.ndarray] = []
+    for i, a in enumerate(affines):
+        a_new = a.copy()
+        a_new[0, 2] = float(txs_smooth[i])
+        a_new[1, 2] = float(tys_smooth[i])
+        smoothed.append(a_new)
+
+    return smoothed, True
 
 
 def _compute_canvas_span_utilization(affines: List[np.ndarray]) -> float:
@@ -2451,6 +2577,40 @@ class AnimeStitchPipeline:
                 _sf = scans_frames or _reload_scans_frames(image_paths)
                 return _scan_stitch_fallback(_sf, output_path)
 
+        # ── §1.55: BA affine rotation gate ───────────────────────────────────
+        if _MAX_AFFINE_ROTATION_DEG > 0.0:
+            _max_rot_deg = _compute_max_affine_rotation_deg(affines)
+            if _max_rot_deg > _MAX_AFFINE_ROTATION_DEG:
+                logger.info(
+                    "[Stitch] §1.55: max affine rotation %.2f° > %.2f° threshold "
+                    "— a BA-solved affine contains a significant rotation component, "
+                    "indicating the feature matcher latched onto a rotationally-"
+                    "similar texture patch → SCANS fallback.",
+                    _max_rot_deg,
+                    _MAX_AFFINE_ROTATION_DEG,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── §3.16: Trajectory smoother (StabStitch++ simplified) ─────────────
+        # Gaussian 1D smooth on tx/ty sequences to suppress phase-correlation
+        # jitter in non-linear or multi-axis scroll captures.  Fires only when
+        # the IQR of adjacent-step magnitudes exceeds _TRAJ_SMOOTH_IQR_THRESH.
+        if _TRAJ_SMOOTH_SIGMA > 0.0:
+            affines, _traj_smoothed = _smooth_affine_trajectory(
+                affines,
+                sigma=_TRAJ_SMOOTH_SIGMA,
+                iqr_threshold=_TRAJ_SMOOTH_IQR_THRESH,
+            )
+            if _traj_smoothed:
+                logger.info(
+                    "[Stitch] §3.16: trajectory smoother applied (σ=%.1f frames, "
+                    "IQR threshold=%.1f px) — tx/ty sequences Gaussian-smoothed "
+                    "to suppress phase-correlation jitter.",
+                    _TRAJ_SMOOTH_SIGMA,
+                    _TRAJ_SMOOTH_IQR_THRESH,
+                )
+
         # ── Stage 7b: Affine validation gate ─────────────────────────────────
         # §0.5C: adaptive min_gap — scales with canvas span so fast-scroll
         # (4K, >400 px/frame) applies a proportionally higher floor than the
@@ -3515,5 +3675,7 @@ __all__ = [
     "_compute_ba_weighted_mean_residual",
     "_compute_canvas_memory_mb",
     "_compute_render_luma_std",
+    "_compute_max_affine_rotation_deg",
+    "_smooth_affine_trajectory",
     "_apply_hires_keyframes",
 ]

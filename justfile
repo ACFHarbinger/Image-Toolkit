@@ -70,9 +70,9 @@ benchmark-dashboard:
     source .venv/bin/activate && streamlit run backend/ui/benchmark_dashboard.py
 
 # --- ASP (Anime Stitch Pipeline) Benchmark ---
-
 # Run the ASP benchmark on all datasets (asp_test01 … asp_test96).
 # Results written to backend/benchmark/results/anime_stitch_YYYYMMDD_HHMMSS.json
+
 # and a markdown report to data/output/benchmark_report.md.
 asp-benchmark:
     @echo "🎞️  Running ASP benchmark on all 96 datasets..."
@@ -80,6 +80,7 @@ asp-benchmark:
     @echo "✅ ASP benchmark complete. Results in backend/benchmark/results/"
 
 # Run ASP benchmark on specific named datasets.
+
 # Usage: just asp-benchmark-tests asp_test09 asp_test27 asp_test57
 asp-benchmark-tests *tests:
     @echo "🎞️  Running ASP benchmark on: {{ tests }}"
@@ -87,12 +88,14 @@ asp-benchmark-tests *tests:
 
 # Run ASP benchmark on a numeric range of datasets.
 # Usage: just asp-benchmark-range 1-10
+
 # Usage: just asp-benchmark-range 4,8,27,57
 asp-benchmark-range range:
     @echo "🎞️  Running ASP benchmark on range: {{ range }}"
     source .venv/bin/activate && python -m backend.benchmark.bench_anime_stitch --range "{{ range }}"
 
 # Run ASP benchmark on the first N datasets.
+
 # Usage: just asp-benchmark-first 5
 asp-benchmark-first n="5":
     @echo "🎞️  Running ASP benchmark on first {{ n }} datasets..."
@@ -105,6 +108,7 @@ asp-benchmark-resume:
 
 # Run ASP benchmark on the standard quality-verification test suite:
 # test09 (canonical seam-tear case), test27 (full-body portrait, asp_better),
+
 # test08 (high-motion, simple_better), test57 (comparable), test04 (gate fallback).
 asp-benchmark-verify:
     @echo "🎞️  Running ASP quality-verification suite (5 tests)..."
@@ -430,6 +434,45 @@ merge-images inputs output direction="horizontal":
 slideshow:
     @echo "🖼️ Starting slideshow daemon..."
     source .venv/bin/activate && python main.py slideshow
+
+# --- AI Assistant ---
+
+# Loops the Claude Code agent on a stateful context with live-streaming reasoning steps
+loop-agent prompt="Continue upgrading the ASP, while continuing to update the ASP-related markdown files like the changelog and roadmaps.":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # Setup an explicit, warm session instructions cache file
+    FEED_FILE="/tmp/claude_agent_feed.txt"
+    rm -f "$FEED_FILE"
+    touch "$FEED_FILE"
+
+    echo "=== Initializing Stateful Agent Memory Context ==="
+
+    # We populate the initial task parameters into our warm text feed
+    echo "{{ prompt }}" > "$FEED_FILE"
+
+    # Start an active, persistent state cycle
+    while true; do
+        # 1. Read what current objective is pending in our state feed
+        CURRENT_TASK=$(cat "$FEED_FILE")
+
+        echo -e "\n[Loop Monitor] Injecting iterative task context down stream..."
+
+        # 2. Invoke the agent in verbose non-interactive stream mode.
+        # --verbose strips away text buffers and prints the thoughts letter-by-letter as they happen.
+        # This prevents the terminal spinner from swallowing the reasoning chains.
+        claude --dangerously-skip-permissions --verbose -p "$CURRENT_TASK"
+
+        echo -e "\n[Loop Monitor] Iteration complete. Re-seeding context step..."
+
+        # 3. Maintain warm memory context across loops by appending instructions to check its own work.
+        # This keeps the agent localized within the exact same task state.
+        echo "Review the updates you just made to the ASP files, changelog, and roadmaps in the previous step. Continue optimizing the files and extending features based on your current state." > "$FEED_FILE"
+
+        # Short cooldown pause before parsing the next sequential state change
+        sleep 5
+    done
 
 # --- Legacy/Helper ---
 

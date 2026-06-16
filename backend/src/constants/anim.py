@@ -269,6 +269,15 @@ CANVAS_MAX_MEMORY_MB = (
 RENDER_LUMA_STD_MIN = (
     5.0  # §1.54: minimum luminance std of valid canvas pixels after render (0=off)
 )
+MAX_AFFINE_ROTATION_DEG = (
+    5.0  # §1.55: max absolute rotation (degrees) in any BA-solved affine before SCANS fallback (0=off)
+)
+TRAJ_SMOOTH_SIGMA = (
+    1.5  # §3.16: Gaussian σ (frames) for trajectory smoother (0=off)
+)
+TRAJ_SMOOTH_IQR_THRESH = (
+    10.0  # §3.16: IQR threshold (px) below which trajectory smoother is skipped
+)
 GNC_C_PX = 10.0  # §1.17: Geman-McClure c parameter (px); rᵢ ≈ c → 50% weight
 GNC_MU_ANNEAL = (
     1.4  # §1.17: GNC μ annealing divisor per outer iteration (Yang et al. 2020)
@@ -370,6 +379,10 @@ GAIN_DRIFT_MAX = 2.0  # Maximum cumulative gain fold-change before resetting to 
 
 # §1.42: Linear interpolation bg fill (bg_complete.py _linear_interp_zero_bg)
 # When ASP_INTERP_BG_FILL=1, blends between above/below known pixels instead of hard NN copy
+
+# §1.56: Post-composite chroma seam correction (compositing.py _seam_chroma_equalize)
+SEAM_CHROMA_EQ_BAND_PX = 20   # row-band width (above/below boundary) used for sampling and correction
+SEAM_CHROMA_EQ_MIN_SHIFT = 3.0  # min LAB ab-channel shift (units) to trigger correction
 
 # ToonCrafter
 TOONCRAFTER_REPO = "Doubiiu/ToonCrafter"

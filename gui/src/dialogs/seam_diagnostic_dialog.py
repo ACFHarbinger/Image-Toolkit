@@ -1,22 +1,29 @@
-"""§2.4A/C — Seam Registration Inspector dialog (S95–S96).
+"""§2.4A/C/§2.11B — Seam Registration Inspector dialog (S95–S96, S124).
 
 Surfaces per-seam diagnostic data from HITL checkpoint 4.6:
-- post_warp_diff coloured green/amber/red (using the same thresholds as §2.4B overlay)
+- post_warp_diff coloured green/amber/red (same thresholds as §2.4B overlay)
 - single-pose escalation badge
 - ±50px seam zone crop thumbnail (§2.4C, S96)
 - "Force single-pose" / "Force blend" checkboxes per seam (mutually exclusive)
 - "Accept" / "Cancel" buttons; "Accept" returns the user's per-seam overrides
+
+S124 adds §2.11B — interactive waypoint placement on the canvas preview.
+When "Add Waypoints" mode is active every left-click on the canvas preview
+adds a waypoint assigned to the nearest seam boundary; waypoints are stored in
+the override dict under ``seam_overrides[k]["waypoints"]`` which the backend
+(§2.11A, S123) threads through ``_seam_cut()`` to force the DP seam through
+user-designated pixels.
 """
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QImage, QPixmap
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
@@ -24,6 +31,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QScrollArea,
     QSizePolicy,
     QVBoxLayout,
@@ -33,12 +41,131 @@ from PySide6.QtWidgets import (
 from backend.src.constants import SEAM_OVERLAY_AMBER_THRESH, SEAM_OVERLAY_RED_THRESH
 
 
+# ── §2.11B: waypoint canvas ───────────────────────────────────────────────────
+
+class _WaypointCanvas(QLabel):
+    """Canvas preview with interactive waypoint placement (§2.11B, S124).
+
+    In waypoint mode (:meth:`set_active` True) a left-click on the preview
+    adds a canvas-space ``(x, y)`` waypoint assigned to the seam boundary whose
+    y-position is nearest the click's canvas-y coordinate.  Waypoints are
+    rendered as coloured dots with seam-index labels; a distinct colour is used
+    per seam index (cycling over 10 palette entries for >10 seams).
+
+    :meth:`all_waypoints` returns the current dict for :meth:`get_overrides`.
+    :meth:`clear_seam_waypoints` removes all waypoints for a single seam.
+    """
+
+    waypoint_changed: Signal = Signal()  # emitted whenever the waypoints dict changes
+
+    # Per-seam colour palette (cycles for >10 seams)
+    _PALETTE: List[str] = [
+        "#ff4444", "#44aa44", "#4488ff", "#cc8800",
+        "#aa44aa", "#008888", "#ff8844", "#8844ff",
+        "#44ff88", "#ff4488",
+    ]
+
+    def __init__(
+        self,
+        base_pixmap: QPixmap,
+        canvas_w: int,
+        canvas_h: int,
+        boundaries: List[float],
+        parent: Optional[QWidget] = None,
+    ) -> None:
+        super().__init__(parent)
+        self._base_pix: QPixmap = base_pixmap
+        self._canvas_w: int = max(1, canvas_w)
+        self._canvas_h: int = max(1, canvas_h)
+        self._boundaries: List[float] = list(boundaries)
+        pw, ph = max(1, base_pixmap.width()), max(1, base_pixmap.height())
+        self._scale_x: float = pw / self._canvas_w
+        self._scale_y: float = ph / self._canvas_h
+        self._active: bool = False
+        self._waypoints: Dict[int, List[Tuple[int, int]]] = {}
+        self._redraw()
+
+    # ── public API ───────────────────────────────────────────────────────────
+
+    def set_active(self, active: bool) -> None:
+        """Enable or disable waypoint-placement mode."""
+        self._active = active
+        cursor = Qt.CursorShape.CrossCursor if active else Qt.CursorShape.ArrowCursor
+        self.setCursor(cursor)
+
+    def clear_seam_waypoints(self, k: int) -> None:
+        """Remove all waypoints for seam *k* and redraw."""
+        if self._waypoints.pop(k, None) is not None:
+            self._redraw()
+            self.waypoint_changed.emit()
+
+    def all_waypoints(self) -> Dict[int, List[Tuple[int, int]]]:
+        """Return a shallow copy of the current waypoints dict (seam_k → list)."""
+        return {k: list(v) for k, v in self._waypoints.items() if v}
+
+    def waypoint_count(self, k: int) -> int:
+        """Number of waypoints currently set for seam *k*."""
+        return len(self._waypoints.get(k, []))
+
+    # ── Qt overrides ─────────────────────────────────────────────────────────
+
+    def mousePressEvent(self, event) -> None:  # type: ignore[override]
+        if self._active and event.button() == Qt.MouseButton.LeftButton:
+            pos = event.position()
+            cx = int(pos.x() / self._scale_x)
+            cy = int(pos.y() / self._scale_y)
+            cx = max(0, min(self._canvas_w - 1, cx))
+            cy = max(0, min(self._canvas_h - 1, cy))
+            k = self._nearest_seam(cy)
+            if k >= 0:
+                self._waypoints.setdefault(k, []).append((cx, cy))
+                self._redraw()
+                self.waypoint_changed.emit()
+        super().mousePressEvent(event)
+
+    # ── internals ────────────────────────────────────────────────────────────
+
+    def _nearest_seam(self, canvas_y: int) -> int:
+        """Return the seam index whose boundary y is closest to *canvas_y*."""
+        if not self._boundaries:
+            return -1
+        return int(min(range(len(self._boundaries)),
+                       key=lambda i: abs(canvas_y - self._boundaries[i])))
+
+    def _redraw(self) -> None:
+        """Composite base pixmap with waypoint dots and update label."""
+        pix = self._base_pix.copy()
+        if self._waypoints:
+            painter = QPainter(pix)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            font = QFont()
+            font.setPointSize(7)
+            painter.setFont(font)
+            for k, wps in self._waypoints.items():
+                colour = QColor(self._PALETTE[k % len(self._PALETTE)])
+                painter.setPen(QPen(colour, 2))
+                painter.setBrush(colour)
+                for cx, cy in wps:
+                    dx = int(cx * self._scale_x)
+                    dy = int(cy * self._scale_y)
+                    painter.drawEllipse(dx - 4, dy - 4, 8, 8)
+                    # Tiny label so the user can see which seam each dot belongs to
+                    painter.setPen(QPen(QColor("white"), 1))
+                    painter.drawText(dx + 6, dy + 4, f"S{k}")
+                    painter.setPen(QPen(colour, 2))
+            painter.end()
+        self.setPixmap(pix)
+
+
+# ── per-seam diagnostic card ──────────────────────────────────────────────────
+
 class _SeamCard(QFrame):
     """Compact per-seam diagnostic card.
 
     Displays seam index, boundary y-position, post_warp_diff (coloured),
-    single-pose status, optional ±50px crop thumbnail (§2.4C), and two
-    mutually-exclusive override checkboxes.
+    single-pose status, optional ±50px crop thumbnail (§2.4C), two
+    mutually-exclusive override checkboxes, and (§2.11B) a waypoint count
+    badge with a "Clear WPs" button.
     """
 
     def __init__(
@@ -108,6 +235,19 @@ class _SeamCard(QFrame):
 
         row.addStretch(1)
 
+        # ── §2.11B: waypoint count badge + clear button ────────────────────
+        self._wp_lbl = QLabel("0 wps")
+        self._wp_lbl.setFixedWidth(44)
+        self._wp_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._wp_lbl.setStyleSheet("color:gray; font-size:10px;")
+        row.addWidget(self._wp_lbl)
+
+        self._btn_clear_wps = QPushButton("Clear WPs")
+        self._btn_clear_wps.setFixedWidth(68)
+        self._btn_clear_wps.setToolTip(f"Remove all waypoints for seam S{k}")
+        self._btn_clear_wps.setVisible(False)
+        row.addWidget(self._btn_clear_wps)
+
         # Override checkboxes (mutually exclusive)
         self._cb_sp = QCheckBox("Force SP")
         self._cb_sp.setToolTip("Force this seam to use the dominant single-pose frame (no blend)")
@@ -126,6 +266,25 @@ class _SeamCard(QFrame):
             crop_lbl.setAlignment(Qt.AlignmentFlag.AlignHCenter)
             crop_lbl.setContentsMargins(8, 0, 8, 4)
             outer.addWidget(crop_lbl)
+
+    # ── §2.11B: waypoint count update ────────────────────────────────────────
+
+    def update_waypoint_count(self, n: int) -> None:
+        """Refresh waypoint badge.  Shows "N wps" in blue when N > 0."""
+        label = f"{n} wp{'s' if n != 1 else ''}"
+        self._wp_lbl.setText(label)
+        if n > 0:
+            self._wp_lbl.setStyleSheet(
+                "color:#3366cc; font-size:10px; font-weight:bold;"
+            )
+        else:
+            self._wp_lbl.setStyleSheet("color:gray; font-size:10px;")
+        self._btn_clear_wps.setVisible(n > 0)
+
+    @property
+    def clear_waypoints_button(self) -> QPushButton:
+        """Return the 'Clear WPs' button so the dialog can connect its signal."""
+        return self._btn_clear_wps
 
     # ── §2.4C helper ────────────────────────────────────────────────────────
 
@@ -175,13 +334,21 @@ class _SeamCard(QFrame):
         return self._cb_sp.isChecked() or self._cb_blend.isChecked()
 
 
+# ── main dialog ───────────────────────────────────────────────────────────────
+
 class SeamDiagnosticDialog(QDialog):
-    """§2.4A — Per-seam diagnostic panel with per-seam overrides.
+    """§2.4A — Per-seam diagnostic panel with per-seam overrides and waypoints.
 
     Shows a scrollable list of :class:`_SeamCard` widgets (one per seam boundary,
-    sorted worst-first by post_warp_diff) alongside a small canvas preview.
-    The user can set "Force single-pose" or "Force blend" on any seam; on Accept
-    these are returned via :meth:`get_overrides`.
+    sorted worst-first by post_warp_diff) alongside an interactive canvas preview.
+
+    §2.11B (S124): the canvas preview is a :class:`_WaypointCanvas` that
+    accepts left-clicks when "Add Waypoints" mode is active.  Each click
+    plants a waypoint on the nearest seam boundary in canvas space.  On Accept
+    the waypoints are included in the override dict returned by
+    :meth:`get_overrides` under the ``"waypoints"`` key, which the backend
+    (§2.11A, S123) threads through ``_seam_cut()`` to force the DP seam path
+    through the user-designated pixels.
     """
 
     def __init__(
@@ -200,7 +367,7 @@ class SeamDiagnosticDialog(QDialog):
             ``canvas_h`` (int), ``canvas_w`` (int).
         """
         super().__init__(parent)
-        self.setWindowTitle("Seam Registration Inspector — §2.4A")
+        self.setWindowTitle("Seam Registration Inspector — §2.4A/§2.11B")
         self.setMinimumSize(700, 450)
         self.setSizeGripEnabled(True)
 
@@ -209,22 +376,46 @@ class SeamDiagnosticDialog(QDialog):
         sp_keys: List[int] = data.get("seam_single_pose_keys", [])
         canvas_preview: Optional[np.ndarray] = data.get("canvas_preview")
         seam_crops: dict = data.get("seam_crops", {})
+        canvas_h: int = int(data.get("canvas_h", 0))
+        canvas_w: int = int(data.get("canvas_w", 0))
+
+        self._canvas: Optional[_WaypointCanvas] = None
 
         # ── Root layout ────────────────────────────────────────────────────
         root = QHBoxLayout(self)
         root.setSpacing(12)
         root.setContentsMargins(10, 10, 10, 10)
 
-        # ── Canvas preview (left) ──────────────────────────────────────────
+        # ── Left panel: waypoint canvas + mode button ──────────────────────
         if canvas_preview is not None and canvas_preview.size > 0:
+            left = QVBoxLayout()
+            left.setSpacing(4)
+            root.addLayout(left)
+
             _pix = self._np_to_pixmap(canvas_preview, max_width=260)
-            _prev_lbl = QLabel()
-            _prev_lbl.setPixmap(_pix)
-            _prev_lbl.setAlignment(Qt.AlignmentFlag.AlignTop)
-            _prev_lbl.setSizePolicy(
+            self._canvas = _WaypointCanvas(
+                _pix,
+                canvas_w=canvas_w if canvas_w > 0 else max(1, _pix.width()),
+                canvas_h=canvas_h if canvas_h > 0 else max(1, _pix.height()),
+                boundaries=boundaries,
+            )
+            self._canvas.setAlignment(Qt.AlignmentFlag.AlignTop)
+            self._canvas.setSizePolicy(
                 QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
             )
-            root.addWidget(_prev_lbl)
+            self._canvas.waypoint_changed.connect(self._on_waypoint_changed)
+            left.addWidget(self._canvas)
+
+            # §2.11B: "Add Waypoints" toggle button
+            self._btn_wps = QPushButton("📍 Add Waypoints")
+            self._btn_wps.setCheckable(True)
+            self._btn_wps.setToolTip(
+                "Click seam positions on the canvas preview to force the DP seam path\n"
+                "through those pixels (§2.11A backend already handles routing)."
+            )
+            self._btn_wps.toggled.connect(self._on_wp_mode_toggled)
+            left.addWidget(self._btn_wps)
+            left.addStretch(1)
 
         # ── Right panel: seam cards + buttons ─────────────────────────────
         right = QVBoxLayout()
@@ -257,6 +448,11 @@ class SeamDiagnosticDialog(QDialog):
         self._cards: List[_SeamCard] = []
         for k, by, diff, is_sp in seam_info:
             card = _SeamCard(k, by, diff, is_sp, crop=seam_crops.get(k))
+            if self._canvas is not None:
+                # §2.11B: wire "Clear WPs" button on each card
+                card.clear_waypoints_button.clicked.connect(
+                    lambda _checked=False, _k=k: self._canvas.clear_seam_waypoints(_k)  # type: ignore[union-attr]
+                )
             card_layout.addWidget(card)
             self._cards.append(card)
 
@@ -270,7 +466,8 @@ class SeamDiagnosticDialog(QDialog):
             "<span style='color:#007700'>■</span> good (diff&lt;10)  "
             "<span style='color:#cc7700'>■</span> moderate (10–22)  "
             "<span style='color:#cc2200'>■</span> poor / single-pose  "
-            "SP = already in single-pose fallback"
+            "SP = already in single-pose fallback  "
+            "📍 = click canvas to add seam waypoints"
             "</small>"
         )
         legend.setWordWrap(True)
@@ -284,6 +481,21 @@ class SeamDiagnosticDialog(QDialog):
         btn_box.accepted.connect(self.accept)
         btn_box.rejected.connect(self.reject)
         right.addWidget(btn_box)
+
+    # ── §2.11B: waypoint mode slots ──────────────────────────────────────────
+
+    def _on_wp_mode_toggled(self, active: bool) -> None:
+        """Enable/disable waypoint-placement mode on the canvas."""
+        if self._canvas is not None:
+            self._canvas.set_active(active)
+
+    def _on_waypoint_changed(self) -> None:
+        """Refresh waypoint count badges on all cards when canvas updates."""
+        if self._canvas is None:
+            return
+        for card in self._cards:
+            n = self._canvas.waypoint_count(card.seam_index)
+            card.update_waypoint_count(n)
 
     # ── helpers ─────────────────────────────────────────────────────────────
 
@@ -302,12 +514,34 @@ class SeamDiagnosticDialog(QDialog):
     # ── public API ───────────────────────────────────────────────────────────
 
     def get_overrides(self) -> Dict[int, dict]:
-        """Return per-seam override dict (only non-default seams included)."""
+        """Return per-seam override dict (only non-default seams included).
+
+        Each entry may contain any combination of:
+        - ``"force_single_pose"`` (bool) — skip ARAP, use dominant frame
+        - ``"force_blend"`` (bool) — force Laplacian blend regardless of diff
+        - ``"waypoints"`` (List[Tuple[int,int]]) — canvas-space (x,y) pairs
+          that ``_seam_cut()`` must route through (§2.11A)
+        """
+        all_wps: Dict[int, List[Tuple[int, int]]] = (
+            self._canvas.all_waypoints() if self._canvas is not None else {}
+        )
+        # Collect all seams with any kind of override
+        seam_keys: set = {card.seam_index for card in self._cards if card.has_override()}
+        seam_keys.update(all_wps.keys())
+
         result: Dict[int, dict] = {}
-        for card in self._cards:
-            if card.has_override():
-                result[card.seam_index] = {
-                    "force_single_pose": card.force_single_pose(),
-                    "force_blend": card.force_blend(),
-                }
+        for k in seam_keys:
+            entry: dict = {}
+            card = next((c for c in self._cards if c.seam_index == k), None)
+            if card is not None:
+                if card.force_single_pose():
+                    entry["force_single_pose"] = True
+                if card.force_blend():
+                    entry["force_blend"] = True
+            wps = all_wps.get(k, [])
+            if wps:
+                entry["waypoints"] = wps
+            if entry:
+                result[k] = entry
+
         return result

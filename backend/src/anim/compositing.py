@@ -128,6 +128,16 @@ _TIGHT_STEP_PX: int = int(os.environ.get("ASP_TIGHT_STEP_PX", "0"))
 # Enable via ASP_SEAM_LUM_EQ=1 (default OFF).
 _SEAM_LUM_EQ: bool = os.environ.get("ASP_SEAM_LUM_EQ", "0") != "0"
 
+# §1.56 — Post-composite chroma seam correction (S122).
+# Complement to §1.21: after luminance equalisation, corrects a/b chroma shift
+# across seam boundaries in LAB colour space.  Each strip pair is converted to
+# LAB; the mean difference in the 'a' (green↔red) and 'b' (blue↔yellow) channels
+# is measured in the reference bands above and below the boundary and a linear
+# additive ramp is applied over band_px rows below the boundary.  Targets
+# colour-temperature and hue banding that §1.21's luminance-only pass misses.
+# Enable via ASP_SEAM_CHROMA_EQ=1 (default OFF).
+_SEAM_CHROMA_EQ: bool = os.environ.get("ASP_SEAM_CHROMA_EQ", "0") != "0"
+
 # §1.22 — Adaptive single-pose soft-edge width (S66).
 # §1.15 (S15) always uses a fixed ±6px soft edge at single-pose seams regardless
 # of the original feather width.  When a 300px feather is escalated to single-pose
@@ -687,6 +697,83 @@ def _seam_lum_equalize(
     return out.astype(np.uint8)
 
 
+def _seam_chroma_equalize(
+    canvas: np.ndarray,
+    boundaries: "List[float]",
+    band_px: int = 20,
+    min_shift: float = 3.0,
+) -> np.ndarray:
+    """§1.56: Post-composite chroma seam correction (S122).
+
+    Complement to :func:`_seam_lum_equalize` (§1.21).  Converts strip reference
+    bands above and below each seam boundary to CIE LAB colour space and measures
+    the mean shift in the 'a' (green↔red) and 'b' (blue↔yellow) channels.  When
+    either shift exceeds *min_shift* LAB units, a linear additive ramp is applied
+    over *band_px* rows below the boundary to close the gap.  Luminance (L*) is
+    not modified here — that is handled by §1.21.
+
+    The correction targets colour-temperature and hue banding between adjacent
+    strips that equal-BGR luminance shifts (§1.21) cannot fix.
+
+    Returns a uint8 copy of *canvas*.
+    """
+    out = canvas.astype(np.float32)
+    H = canvas.shape[0]
+    guard = 3
+
+    for by_f in boundaries:
+        by = int(by_f)
+        a0 = max(0, by - band_px - guard)
+        a1 = max(0, by - guard)
+        b0 = min(H, by + guard)
+        b1 = min(H, by + band_px + guard)
+        if a1 <= a0 or b1 <= b0:
+            continue
+
+        above_bgr = canvas[a0:a1]
+        below_bgr = canvas[b0:b1]
+
+        above_lab = cv2.cvtColor(above_bgr, cv2.COLOR_BGR2LAB).astype(np.float32)
+        below_lab = cv2.cvtColor(below_bgr, cv2.COLOR_BGR2LAB).astype(np.float32)
+
+        # Mean a/b per band (L channel ignored — handled by §1.21)
+        above_a = float(above_lab[:, :, 1].mean())
+        above_b = float(above_lab[:, :, 2].mean())
+        below_a = float(below_lab[:, :, 1].mean())
+        below_b = float(below_lab[:, :, 2].mean())
+
+        shift_a = below_a - above_a
+        shift_b = below_b - above_b
+
+        if abs(shift_a) < min_shift and abs(shift_b) < min_shift:
+            continue
+
+        ry0, ry1 = by, min(H, by + band_px)
+        rlen = ry1 - ry0
+        if rlen <= 0:
+            continue
+
+        # Linear ramp: full correction at boundary, zero at band end
+        t = np.linspace(0.0, 1.0, rlen, dtype=np.float32)  # 0→1 moving away from seam
+
+        # Convert ramp zone to LAB, apply correction, convert back
+        zone_bgr = np.clip(out[ry0:ry1], 0.0, 255.0).astype(np.uint8)
+        zone_lab = cv2.cvtColor(zone_bgr, cv2.COLOR_BGR2LAB).astype(np.float32)
+
+        # Correction at row r: subtract (1-t) * shift so seam gets full correction,
+        # band end gets zero correction.
+        corr_a = (-shift_a * (1.0 - t)).reshape(-1, 1)
+        corr_b = (-shift_b * (1.0 - t)).reshape(-1, 1)
+
+        zone_lab[:, :, 1] = np.clip(zone_lab[:, :, 1] + corr_a, 0.0, 255.0)
+        zone_lab[:, :, 2] = np.clip(zone_lab[:, :, 2] + corr_b, 0.0, 255.0)
+
+        zone_corrected = cv2.cvtColor(zone_lab.astype(np.uint8), cv2.COLOR_LAB2BGR)
+        out[ry0:ry1] = zone_corrected.astype(np.float32)
+
+    return np.clip(out, 0.0, 255.0).astype(np.uint8)
+
+
 def _adaptive_sp_threshold(
     feather_width: int,
     base_threshold: float = 22.0,
@@ -995,6 +1082,7 @@ def _seam_cut(
     edge_weight: float = 15.0,
     sem_cost: Optional[np.ndarray] = None,
     sem_weight: float = 200.0,
+    waypoints: Optional[List[Tuple[int, int]]] = None,
 ) -> np.ndarray:
     """
     DP seam cut that strongly avoids outlines in *either* frame.
@@ -1004,6 +1092,12 @@ def _seam_cut(
 
     Returns path[x] = y-offset in [0, h-1] for the minimum-energy horizontal
     cut running left→right across the (h × W × 3) slices.
+
+    §2.11A: *waypoints* is an optional list of ``(x, y)`` pairs in zone-local
+    coordinates (x = column 0..W-1, y = row 0..h-1).  Each waypoint forces the
+    seam to pass through that exact pixel by setting all other rows in column x
+    to ``+inf`` before the DP forward pass.  The seam then fans out from the
+    forced pixel in subsequent columns, so 3-connectivity is preserved.
     """
     diff = cv2.absdiff(img1, img2).astype(np.float32).mean(axis=2)
     gx_d = cv2.Sobel(diff, cv2.CV_32F, 1, 0, ksize=3)
@@ -1024,6 +1118,20 @@ def _seam_cut(
     E = energy.T.copy()
     W_e, h_e = E.shape
 
+    # §2.11A: Intelligent Scissors waypoint injection.
+    # Setting all rows except y_wp to +inf in column x_wp forces the DP forward
+    # pass to route through (x_wp, y_wp): no other row can accumulate finite cost
+    # in that column, so the traceback is guaranteed to land on y_wp.  The seam
+    # fans out from the forced pixel in subsequent columns at the normal DP rate
+    # (±1 per column), preserving 3-connectivity end-to-end.
+    if waypoints:
+        for x_wp, y_wp in waypoints:
+            x_wp, y_wp = int(x_wp), int(y_wp)
+            if 0 <= x_wp < W_e and 0 <= y_wp < h_e:
+                col_mask = np.ones(h_e, dtype=bool)
+                col_mask[y_wp] = False
+                E[x_wp, col_mask] = np.inf
+
     # §1.5A: Vectorized DP forward pass.
     # minimum_filter1d(row, size=3) computes min(row[j-1], row[j], row[j+1])
     # at every j with cval=inf boundaries — equivalent to the previous
@@ -1031,14 +1139,30 @@ def _seam_cut(
     for i in range(1, W_e):
         E[i] += _min_filt1d(E[i - 1], size=3, mode="constant", cval=np.inf)
 
+    # §2.11A: build lookup for forced traceback at waypoint columns.
+    # The forward-pass inf-injection ensures the seam fans out from y_wp rightward,
+    # but the traceback (right→left) may arrive at column x_wp from a row that is
+    # outside the ±1 window of y_wp when the seam moved far between x_wp and the
+    # end column.  Forcing j = y_wp in the traceback loop at each waypoint column
+    # guarantees the path lands exactly on the waypoint regardless of arrival row.
+    _wp_force: Dict[int, int] = {}
+    if waypoints:
+        for _xw, _yw in waypoints:
+            _xw, _yw = int(_xw), int(_yw)
+            if 0 <= _xw < W_e and 0 <= _yw < h_e:
+                _wp_force[_xw] = _yw
+
     # Traceback: avoid per-step Python list allocation by using slice argmin.
     path = np.empty(W_e, dtype=np.int32)
-    j = int(E[W_e - 1].argmin())
+    j = _wp_force.get(W_e - 1, int(E[W_e - 1].argmin()))
     path[W_e - 1] = j
     for i in range(W_e - 2, -1, -1):
-        j_lo = max(0, j - 1)
-        j_hi = min(h_e, j + 2)  # exclusive
-        j = j_lo + int(E[i, j_lo:j_hi].argmin())
+        if i in _wp_force:
+            j = _wp_force[i]  # §2.11A: hard-force seam through waypoint
+        else:
+            j_lo = max(0, j - 1)
+            j_hi = min(h_e, j + 2)  # exclusive
+            j = j_lo + int(E[i, j_lo:j_hi].argmin())
         path[i] = j
     # §1.25: smooth jitter when flag is enabled
     if _SEAM_SMOOTH_WINDOW > 1:
@@ -1046,6 +1170,10 @@ def _seam_cut(
     # §1.26: clamp seam away from zone top/bottom edges
     if _SEAM_MARGIN > 0:
         path = _clamp_seam_path(path, h_e, _SEAM_MARGIN)
+    # §2.11A: re-apply waypoints after post-processing so smoothing and clamping
+    # cannot displace the user-specified seam positions.  Hard constraints win.
+    for _x_final, _y_final in _wp_force.items():
+        path[_x_final] = _y_final
     return path  # path[x] in [0, zone_h-1]
 
 
@@ -2224,11 +2352,11 @@ def _composite_foreground(
     import concurrent.futures as _cf
 
     def _seam_job(job_args):
-        _k, _fa_z, _fb_z, _sem, _W, _zh = job_args
+        _k, _fa_z, _fb_z, _sem, _W, _zh, _wps = job_args
         _both = (_fa_z.max(axis=2) > 0) & (_fb_z.max(axis=2) > 0)
         if int(_both.sum()) > _zh * _W // 20:
             try:
-                return _k, _seam_cut(_fa_z, _fb_z, sem_cost=_sem)
+                return _k, _seam_cut(_fa_z, _fb_z, sem_cost=_sem, waypoints=_wps)
             except Exception:
                 pass
         return _k, np.full(_W, _zh // 2, dtype=np.int32)
@@ -2268,7 +2396,13 @@ def _composite_foreground(
             ((_bg_b_z.astype(np.uint8) * 255) if _bg_b_z is not None else None),
             exclusion_masks=_em_zone or None,
         )
-        _seam_jobs.append((_k, _fa_z, _fb_z, _sem, W, _y1 - _y0))
+        # §2.11A: per-seam waypoints from seam_overrides (canvas-space y offset to zone-local)
+        _ov_wps_raw = (seam_overrides or {}).get(_k, {}).get("waypoints")
+        _ov_wps: Optional[List[Tuple[int, int]]] = None
+        if _ov_wps_raw:
+            _ov_wps = [(int(x), int(y) - _y0) for x, y in _ov_wps_raw
+                       if 0 <= int(y) - _y0 < _y1 - _y0]
+        _seam_jobs.append((_k, _fa_z, _fb_z, _sem, W, _y1 - _y0, _ov_wps))
 
     if len(_seam_jobs) > 1:
         with _cf.ThreadPoolExecutor(max_workers=min(len(_seam_jobs), 4)) as _pool:
@@ -2330,7 +2464,14 @@ def _composite_foreground(
             both = (fa_zone.max(axis=2) > 0) & (fb_zone.max(axis=2) > 0)
             if int(both.sum()) > zone_h * W // 20:
                 try:
-                    path_local = _seam_cut(fa_zone, fb_zone, sem_cost=_sem_cost)
+                    # §2.11A: thread waypoints into inline fallback seam cut
+                    _fb_wps_raw = (seam_overrides or {}).get(k, {}).get("waypoints")
+                    _fb_wps: Optional[List[Tuple[int, int]]] = None
+                    if _fb_wps_raw:
+                        _fb_wps = [(int(_wx), int(_wy) - y0_f)
+                                   for _wx, _wy in _fb_wps_raw
+                                   if 0 <= int(_wy) - y0_f < zone_h]
+                    path_local = _seam_cut(fa_zone, fb_zone, sem_cost=_sem_cost, waypoints=_fb_wps)
                 except Exception:
                     path_local = np.full(W, zone_h // 2, dtype=np.int32)
             else:
@@ -2516,6 +2657,10 @@ def _composite_foreground(
     if _SEAM_LUM_EQ and boundaries:
         result = _seam_lum_equalize(result, boundaries)
 
+    # §1.56: Post-composite chroma seam correction.
+    if _SEAM_CHROMA_EQ and boundaries:
+        result = _seam_chroma_equalize(result, boundaries)
+
     # §2.4B: Seam overlay annotation — draw coloured diagnostic lines.
     if _SEAM_OVERLAY and len(boundaries) > 0:
         result = _annotate_seams(result, boundaries, seam_post_diffs, seam_single_pose)
@@ -2558,6 +2703,7 @@ __all__ = [
     "_fg_density_feather_cap",
     "_compute_seam_step_size",
     "_seam_lum_equalize",
+    "_seam_chroma_equalize",
     "_adaptive_sp_soft_px",
     "_seam_corridor_exists",
     "_smooth_seam_path",
