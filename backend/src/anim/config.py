@@ -177,6 +177,12 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         1,
         "Enable post-composite seam luminance equalisation pass (0 or 1)",
     ),
+    "ASP_SEAM_CHROMA_EQ": (
+        int,
+        0,
+        1,
+        "Enable post-composite chroma seam correction in LAB colour space (0 or 1)",
+    ),
     "ASP_ADAPTIVE_SP_SOFT": (
         int,
         0,
@@ -416,6 +422,24 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         0.0,
         None,
         "§1.54: Minimum luminance std (0–255 scale, simple BGR mean per pixel) across valid canvas pixels after Stage 10 temporal render; std near zero indicates degenerate output — BaSiC over-correction fusing all frames to same mean luma, silent warp failure, or hold-block leakage; distinct from §1.39 (coverage quantity) → SCANS fallback (0=off, suggest 5.0)",
+    ),
+    "ASP_MAX_AFFINE_ROTATION_DEG": (
+        float,
+        0.0,
+        90.0,
+        "§1.55: Maximum absolute rotation angle (degrees) allowed in any BA-solved affine; any affine exceeding this threshold signals a corrupted feature match — LoFTR latched onto a rotationally-similar texture patch; fires between Stage 7 BA and Stage 7b validation → SCANS fallback (0=off, suggest 5.0)",
+    ),
+    "ASP_TRAJ_SMOOTH_SIGMA": (
+        float,
+        0.0,
+        None,
+        "§3.16: Gaussian σ (frames) for StabStitch++ simplified trajectory smoother applied to BA-solved tx/ty sequences; corrects phase-correlation jitter in non-linear or multi-axis scroll; IQR-gated (fires only when adjacent-step IQR > ASP_TRAJ_SMOOTH_IQR_THRESH); 0=off, suggest 1.5",
+    ),
+    "ASP_TRAJ_SMOOTH_IQR_THRESH": (
+        float,
+        0.0,
+        None,
+        "§3.16: IQR threshold (px) below which trajectory smoother is skipped — clean linear-scroll sequences have near-zero IQR and are not modified; default 10.0",
     ),
 }
 

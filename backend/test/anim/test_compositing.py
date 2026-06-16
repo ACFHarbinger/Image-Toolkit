@@ -58,6 +58,7 @@ from backend.src.anim.compositing import (  # noqa: E402
     _seam_zone_texture_energy,
     _fg_gradient_cost,
     _annotate_seams,
+    _seam_chroma_equalize,
 )
 from backend.src.constants import (  # noqa: E402
     FEATHER_MAX as _FEATHER_MAX,
@@ -265,6 +266,79 @@ class TestSeamCutDP:
         path = _seam_cut(fa, fb)
         diffs = np.abs(np.diff(path.astype(np.int32)))
         assert int(diffs.max()) <= 1, f"Path not 3-connected: max step={int(diffs.max())}"
+
+
+# ---------------------------------------------------------------------------
+# 3b. _seam_cut — §2.11A Intelligent Scissors waypoint injection
+# ---------------------------------------------------------------------------
+
+
+class TestSeamCutWaypoints:
+    """
+    §2.11A: waypoints force the seam to pass through specific (x, y) pixels.
+    The DP rows other than y_wp are set to +inf in column x_wp so the seam
+    is guaranteed to land there; 3-connectivity is preserved end-to-end.
+    """
+
+    def _make_zone(self, h: int, W: int, base: int, noise: int = 5) -> np.ndarray:
+        rng = np.random.default_rng(99)
+        z = np.full((h, W, 3), base, dtype=np.uint8)
+        z = np.clip(z.astype(np.int32) + rng.integers(-noise, noise + 1, z.shape), 0, 255)
+        return z.astype(np.uint8)
+
+    def test_single_waypoint_respected(self):
+        """Seam must pass through the specified (x, y) waypoint exactly."""
+        h, W = 40, 80
+        fa = self._make_zone(h, W, 100)
+        fb = self._make_zone(h, W, 150)
+        x_wp, y_wp = 40, 10  # force through top-third row at mid-column
+        path = _seam_cut(fa, fb, waypoints=[(x_wp, y_wp)])
+        assert path[x_wp] == y_wp, (
+            f"Seam did not pass through waypoint ({x_wp}, {y_wp}); got path[{x_wp}]={path[x_wp]}"
+        )
+
+    def test_multiple_waypoints_all_respected(self):
+        """All waypoints must be honoured simultaneously."""
+        h, W = 60, 100
+        fa = self._make_zone(h, W, 80)
+        fb = self._make_zone(h, W, 180)
+        waypoints = [(20, 5), (50, 30), (80, 55)]
+        path = _seam_cut(fa, fb, waypoints=waypoints)
+        for x_wp, y_wp in waypoints:
+            assert path[x_wp] == y_wp, (
+                f"Waypoint ({x_wp}, {y_wp}) not respected; path[{x_wp}]={path[x_wp]}"
+            )
+
+    def test_waypoint_preserves_3connectivity(self):
+        """Path with waypoints must still be 3-connected (|Δy| ≤ 1 per column)."""
+        h, W = 50, 90
+        fa = self._make_zone(h, W, 70)
+        fb = self._make_zone(h, W, 190)
+        waypoints = [(10, 5), (80, 40)]
+        path = _seam_cut(fa, fb, waypoints=waypoints)
+        diffs = np.abs(np.diff(path.astype(np.int32)))
+        assert int(diffs.max()) <= 1, f"3-connectivity broken with waypoints: max step={int(diffs.max())}"
+
+    def test_out_of_bounds_waypoint_ignored(self):
+        """Waypoints with coordinates outside the zone must not crash and must be silently ignored."""
+        h, W = 30, 60
+        fa = self._make_zone(h, W, 120)
+        fb = self._make_zone(h, W, 160)
+        path = _seam_cut(fa, fb, waypoints=[(-1, 5), (W + 5, 10), (10, h + 2)])
+        assert path.shape == (W,)
+        assert int(path.min()) >= 0 and int(path.max()) < h
+
+    def test_no_waypoints_matches_baseline(self):
+        """Passing waypoints=None must produce the same path as omitting the argument."""
+        h, W = 35, 70
+        rng = np.random.default_rng(1)
+        fa = rng.integers(50, 150, (h, W, 3), dtype=np.uint8)
+        fb = rng.integers(100, 200, (h, W, 3), dtype=np.uint8)
+        path_base = _seam_cut(fa, fb)
+        path_none = _seam_cut(fa, fb, waypoints=None)
+        path_empty = _seam_cut(fa, fb, waypoints=[])
+        np.testing.assert_array_equal(path_base, path_none)
+        np.testing.assert_array_equal(path_base, path_empty)
 
 
 # ---------------------------------------------------------------------------
@@ -2497,3 +2571,67 @@ class TestFgGradientCost:
         out = _fg_gradient_cost(zone, weight=weight)
         assert out.min() >= 0.0
         assert out.max() <= weight + 1e-6, f"max {out.max()} exceeds weight {weight}"
+
+
+# ---------------------------------------------------------------------------
+# TestSeamChromaEqualize (§1.56 — S122)
+# ---------------------------------------------------------------------------
+
+
+class TestSeamChromaEqualize:
+    """§1.56 post-composite chroma seam correction (S122).
+
+    _seam_chroma_equalize() measures mean a/b shift between strip reference
+    bands above/below each seam boundary (in LAB space) and applies a linear
+    additive ramp over band_px rows to close the gap.
+    """
+
+    def _make_canvas(self, H: int = 100, W: int = 60) -> np.ndarray:
+        """Neutral grey canvas (all channels equal) so LAB a=b≈128."""
+        return np.full((H, W, 3), 128, dtype=np.uint8)
+
+    def test_no_chroma_shift_returns_unchanged(self):
+        """When above/below strips have the same chroma, canvas is unchanged."""
+        canvas = self._make_canvas()
+        boundaries = [50.0]
+        out = _seam_chroma_equalize(canvas, boundaries, band_px=10, min_shift=3.0)
+        np.testing.assert_array_equal(out, canvas)
+
+    def test_chroma_shift_is_reduced_at_boundary(self):
+        """A warm/cool split across the seam should be partially corrected."""
+        H, W = 120, 60
+        # Upper half: cool blue-ish (B channel elevated)
+        canvas = np.zeros((H, W, 3), dtype=np.uint8)
+        canvas[:60, :] = [160, 128, 80]   # blue-ish top
+        canvas[60:, :] = [80, 128, 160]   # orange-ish bottom
+        boundaries = [60.0]
+        out = _seam_chroma_equalize(canvas, boundaries, band_px=15, min_shift=1.0)
+        # The output should have been modified — not identical to input
+        assert not np.array_equal(out, canvas)
+        # Output must stay in valid uint8 range
+        assert out.min() >= 0
+        assert out.max() <= 255
+
+    def test_empty_boundaries_returns_unchanged(self):
+        """Empty boundary list → no correction applied."""
+        canvas = self._make_canvas()
+        out = _seam_chroma_equalize(canvas, [], band_px=10, min_shift=1.0)
+        np.testing.assert_array_equal(out, canvas)
+
+    def test_output_same_shape_and_dtype(self):
+        """Return array must have the same shape and uint8 dtype as input."""
+        canvas = self._make_canvas(H=80, W=40)
+        out = _seam_chroma_equalize(canvas, [40.0], band_px=10, min_shift=1.0)
+        assert out.shape == canvas.shape
+        assert out.dtype == np.uint8
+
+    def test_below_min_shift_threshold_no_change(self):
+        """Shifts smaller than min_shift must not trigger any correction."""
+        H, W = 100, 60
+        # Very subtle chroma difference — LAB a/b differ by < 2
+        canvas = np.zeros((H, W, 3), dtype=np.uint8)
+        canvas[:50, :] = [130, 128, 126]   # almost neutral
+        canvas[50:, :] = [128, 130, 128]   # almost neutral
+        boundaries = [50.0]
+        out = _seam_chroma_equalize(canvas, boundaries, band_px=10, min_shift=10.0)
+        np.testing.assert_array_equal(out, canvas)
