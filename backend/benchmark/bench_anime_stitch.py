@@ -50,9 +50,10 @@ except ImportError:
     _SSIM_OK = False
 
 # ---------------------------------------------------------------------------
-# RLHF quality gate (§1.10A, S29)
+# RLHF quality gate (§1.10A, S29) + active-learning uncertainty (§1.10D, S130)
 # ---------------------------------------------------------------------------
 _RLHF_FLAG_THRESHOLD = 0.6
+_RLHF_UNCERTAINTY_THRESHOLD = 0.10  # §1.10D: MC-dropout std above this → needs review
 _reward_model = None  # lazy-loaded singleton
 
 
@@ -83,6 +84,32 @@ def _compute_rlhf_score(img_bgr: np.ndarray) -> Optional[float]:
         return None
     try:
         return float(model.predict(img_bgr))
+    except Exception:
+        return None
+
+
+def _compute_rlhf_uncertainty(
+    img_bgr: np.ndarray,
+    n_samples: int = 20,
+) -> Optional[float]:
+    """§1.10D: MC-dropout epistemic uncertainty for active-learning prioritisation.
+
+    Returns the std-dev across ``n_samples`` stochastic forward passes, or None
+    when the reward model is unavailable.  Outputs with uncertainty above
+    ``_RLHF_UNCERTAINTY_THRESHOLD`` are candidates for human review: the model
+    is near its decision boundary and additional labelling has maximum information
+    gain.  Complements ``_compute_rlhf_score`` — a low score with low uncertainty
+    is a confident bad output; a middling score with high uncertainty is where
+    human labels help most.
+    """
+    if img_bgr is None or img_bgr.size == 0:
+        return None
+    model = _get_reward_model()
+    if model is None:
+        return None
+    try:
+        _mean, std = model.predict_with_uncertainty(img_bgr, n_samples=n_samples)
+        return float(std)
     except Exception:
         return None
 
@@ -491,14 +518,151 @@ def _seam_bhattacharyya_distances(
     return scores
 
 
+def _seam_ncc_coherence(
+    img: np.ndarray,
+    n_strips: int,
+    band_px: int = 60,
+) -> List[float]:
+    """§3.17: Per-seam normalized cross-correlation (NCC) structural coherence (S123).
+
+    Measures structural continuity across each seam boundary by computing the
+    normalized cross-correlation between the *band_px*-row window immediately
+    above and the window immediately below each of the ``n_strips − 1`` inter-strip
+    seam boundaries.
+
+    NCC score per seam:
+      ``ncc = mean((A − μA) · (B − μB)) / (σA · σB + ε)``
+
+    where A and B are the grayscale band crops above and below the boundary,
+    resized to a common shape (the smaller of the two) before correlation.
+
+    Score interpretation (in [−1, 1], higher = more coherent):
+      ≥ 0.90 : excellent structural match (invisible seam)
+      0.70–0.90 : good continuity (typical clean composite)
+      0.40–0.70 : moderate mismatch (visible structure step)
+      < 0.40   : severe mismatch (hard structure cut or pose gap)
+
+    Complements ``_seam_bhattacharyya_distances`` (intensity distribution
+    similarity) by measuring *structural texture pattern* similarity — two strips
+    can have matching histograms (same color palette) but completely different
+    line-art structure (different character pose), which NCC detects while
+    Bhattacharyya misses.
+
+    Parameters
+    ----------
+    img : (H, W, 3) or (H, W) uint8 image.
+    n_strips : number of equal-height zones.  Returns ``[]`` when ≤ 1.
+    band_px : number of rows on each side of the boundary used for NCC.
+              Clipped to image bounds; returns 0.0 when either side is empty.
+
+    Returns
+    -------
+    List of ``n_strips − 1`` float scores in [−1, 1].  Empty list when
+    *n_strips* ≤ 1.
+    """
+    if n_strips <= 1:
+        return []
+    H = img.shape[0]
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    zone_h = H / n_strips
+    scores: List[float] = []
+    for k in range(1, n_strips):
+        boundary_y = int(round(zone_h * k))
+        top = gray[max(0, boundary_y - band_px) : boundary_y]
+        bot = gray[boundary_y : min(H, boundary_y + band_px)]
+        if top.size == 0 or bot.size == 0:
+            scores.append(0.0)
+            continue
+        # Resize both bands to the same row count (use the smaller one) before NCC.
+        min_rows = min(top.shape[0], bot.shape[0])
+        if min_rows < 4:
+            scores.append(0.0)
+            continue
+        if top.shape[0] != min_rows:
+            top = cv2.resize(top, (top.shape[1], min_rows), interpolation=cv2.INTER_AREA)
+        if bot.shape[0] != min_rows:
+            bot = cv2.resize(bot, (bot.shape[1], min_rows), interpolation=cv2.INTER_AREA)
+        mu_a, mu_b = float(top.mean()), float(bot.mean())
+        sig_a = float(top.std())
+        sig_b = float(bot.std())
+        if sig_a < 1e-3 or sig_b < 1e-3:
+            # One band is nearly flat — NCC is meaningless; use 1.0 (no texture = no mismatch).
+            scores.append(1.0)
+            continue
+        ncc = float(np.mean((top - mu_a) * (bot - mu_b)) / (sig_a * sig_b + 1e-8))
+        scores.append(round(float(np.clip(ncc, -1.0, 1.0)), 4))
+    return scores
+
+
+def _composite_quality_score(
+    seam_ncc_min: Optional[float],
+    seam_color_min: Optional[float],
+    ghost_seam_max: Optional[float],
+) -> float:
+    """§3.5A: Aggregate per-seam metrics into a single composite quality score (S128).
+
+    Combines three complementary no-reference seam-quality signals into a single
+    scalar in [0, 1] (higher = better quality):
+
+    * **NCC structural coherence** (``seam_ncc_min``): measures whether the
+      texture pattern above and below each seam boundary is structurally
+      continuous.  Mapped from [-1, 1] → [0, 1] via ``(v + 1) / 2``.
+    * **Bhattacharyya color similarity** (``seam_color_min``): measures whether
+      the luminance histogram above and below each seam boundary is similar.
+      Already in [0, 1] (1 = identical distributions).
+    * **Ghost score** (``ghost_seam_max``): measures doubled-edge artifacts in
+      [0, 100].  Inverted to [0, 1] via ``1 − v / 100`` (0 = severe ghost,
+      1 = no ghost).
+
+    When a component is unavailable (``None``), a neutral value of 0.5 is used
+    so the missing dimension does not bias the composite unfairly.  This
+    gracefully handles single-strip images where per-seam scores are empty
+    (``n_strips = 1`` → ``seam_ncc_min = None``).
+
+    Interpretation:
+      ≥ 0.80 : high quality — seam likely invisible
+      0.60–0.80 : acceptable — minor colour step or structure gap
+      0.40–0.60 : warning — noticeable seam; tune feather / gain
+      < 0.40   : fail — hard cut, ghost, or severe colour mismatch
+
+    Parameters
+    ----------
+    seam_ncc_min : worst-case NCC coherence across all seams, or None.
+    seam_color_min : worst-case Bhattacharyya similarity across all seams, or None.
+    ghost_seam_max : worst-case per-seam ghost score (0–100), or None.
+
+    Returns
+    -------
+    float in [0, 1], rounded to 4 decimal places.
+    """
+    ncc_term = float((seam_ncc_min + 1.0) / 2.0) if seam_ncc_min is not None else 0.5
+    color_term = float(seam_color_min) if seam_color_min is not None else 0.5
+    ghost_term = max(0.0, 1.0 - float(ghost_seam_max) / 100.0) if ghost_seam_max is not None else 0.5
+    ncc_term = float(np.clip(ncc_term, 0.0, 1.0))
+    color_term = float(np.clip(color_term, 0.0, 1.0))
+    ghost_term = float(np.clip(ghost_term, 0.0, 1.0))
+    return round((ncc_term + color_term + ghost_term) / 3.0, 4)
+
+
 def _compute_all_metrics(
     img: np.ndarray,
     affines: Optional[List] = None,
     n_strips: int = 1,
 ) -> Dict:
     rlhf = _compute_rlhf_score(img)
+    rlhf_unc = _compute_rlhf_uncertainty(img)
     seam_scores = _compute_per_seam_ghost_scores(img, n_strips)
     color_scores = _seam_bhattacharyya_distances(img, n_strips)
+    ncc_scores = _seam_ncc_coherence(img, n_strips)
+    _seam_ncc_min = round(min(ncc_scores), 4) if ncc_scores else None
+    _seam_color_min = round(min(color_scores), 4) if color_scores else None
+    _ghost_seam_max = round(max(seam_scores), 2) if seam_scores else None
+    # §1.10D: needs_review fires when the model is uncertain (std > threshold),
+    # regardless of whether the score itself triggered rlhf_flagged.  Uncertain
+    # near-boundary outputs are the highest-value samples for human annotation.
+    _rlhf_needs_review = (
+        rlhf_unc is not None and rlhf_unc > _RLHF_UNCERTAINTY_THRESHOLD
+    )
     return {
         "sharpness": round(_sharpness(img), 2),
         "coverage": round(_coverage(img), 4),
@@ -509,13 +673,18 @@ def _compute_all_metrics(
         "seam_coherence": round(_seam_coherence(img), 2),
         "seam_visibility": round(_seam_visibility_score(img, affines), 2),
         "ghost_seam_scores": [round(s, 2) for s in seam_scores],
-        "ghost_seam_max": round(max(seam_scores), 2) if seam_scores else None,
+        "ghost_seam_max": _ghost_seam_max,
         "seam_color_scores": color_scores,
-        "seam_color_min": round(min(color_scores), 4) if color_scores else None,
+        "seam_color_min": _seam_color_min,
+        "seam_ncc_scores": ncc_scores,
+        "seam_ncc_min": _seam_ncc_min,
+        "composite_quality": _composite_quality_score(_seam_ncc_min, _seam_color_min, _ghost_seam_max),
         "width": img.shape[1],
         "height": img.shape[0],
         "rlhf_score": round(rlhf, 4) if rlhf is not None else None,
         "rlhf_flagged": (rlhf is not None and rlhf < _RLHF_FLAG_THRESHOLD),
+        "rlhf_uncertainty": round(rlhf_unc, 4) if rlhf_unc is not None else None,
+        "rlhf_needs_review": _rlhf_needs_review,
     }
 
 

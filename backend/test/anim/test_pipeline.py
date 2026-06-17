@@ -34,10 +34,13 @@ from backend.src.anim.pipeline import (
     _compute_min_adjacent_overlap,
     _compute_ba_weighted_mean_residual,
     _compute_canvas_memory_mb,
+    _compute_canvas_aspect_ratio,
     _compute_render_luma_std,
     _compute_max_affine_rotation_deg,
     _smooth_affine_trajectory,
     _apply_hires_keyframes,
+    _sort_frames_by_index,
+    _check_canvas_spread,
 )
 from backend.src.constants.anim import HIGH_CONF_EDGE_THRESH, SCALE_NORM_THRESH, SCENE_CHANGE_LUMA_THRESH
 
@@ -1583,3 +1586,104 @@ class TestSmoothAffineTrajectory:
         if applied:
             for orig, sm in zip(affines, out):
                 np.testing.assert_array_almost_equal(orig[:, :2], sm[:, :2], decimal=5)
+
+
+class TestComputeCanvasAspectRatio:
+    """§1.62 (S125): Canvas height/width aspect ratio helper."""
+
+    def test_tall_canvas(self):
+        assert _compute_canvas_aspect_ratio(1200, 400) == pytest.approx(3.0)
+
+    def test_wide_canvas(self):
+        assert _compute_canvas_aspect_ratio(400, 1200) == pytest.approx(1.0 / 3.0)
+
+    def test_square_canvas(self):
+        assert _compute_canvas_aspect_ratio(500, 500) == pytest.approx(1.0)
+
+    def test_zero_dimensions_returns_zero(self):
+        assert _compute_canvas_aspect_ratio(0, 500) == 0.0
+        assert _compute_canvas_aspect_ratio(500, 0) == 0.0
+
+    def test_negative_dimensions_returns_zero(self):
+        assert _compute_canvas_aspect_ratio(-1, 500) == 0.0
+
+
+class TestSortFramesByIndex:
+    """§1.63 (S127): Numeric-suffix sort guard for frame paths."""
+
+    def test_out_of_order_paths_sorted(self):
+        paths = ["frame_003.png", "frame_001.png", "frame_002.png"]
+        result = _sort_frames_by_index(paths)
+        assert result == ["frame_001.png", "frame_002.png", "frame_003.png"]
+
+    def test_already_sorted_unchanged(self):
+        paths = ["img_01.jpg", "img_02.jpg", "img_03.jpg"]
+        result = _sort_frames_by_index(paths)
+        assert result == paths
+
+    def test_zero_padded_sorted_numerically_not_lexicographically(self):
+        paths = ["f_009.png", "f_010.png", "f_011.png"]
+        result = _sort_frames_by_index(paths)
+        assert result == ["f_009.png", "f_010.png", "f_011.png"]
+
+    def test_paths_without_suffix_placed_last(self):
+        paths = ["alpha.png", "frame_001.png", "frame_002.png"]
+        result = _sort_frames_by_index(paths)
+        assert result[0] == "frame_001.png"
+        assert result[1] == "frame_002.png"
+        assert result[2] == "alpha.png"
+
+    def test_empty_list(self):
+        assert _sort_frames_by_index([]) == []
+
+
+# ---------------------------------------------------------------------------
+# §1.67 — Frame canvas spread validation (S131)
+# ---------------------------------------------------------------------------
+
+def _make_edge(i: int, j: int, ty: float, tx: float = 0.0) -> dict:
+    return {"i": i, "j": j, "ty": ty, "tx": tx, "weight": 0.9}
+
+
+class TestCheckCanvasSpread:
+    """§1.67 (S131): _check_canvas_spread validates that selected frames cover the scroll range."""
+
+    def test_empty_edges_returns_true(self):
+        """No edges → cannot determine spread → safe pass."""
+        assert _check_canvas_spread([], 0.5) is True
+
+    def test_zero_threshold_always_passes(self):
+        """min_spread_fraction=0 → gate disabled → always True."""
+        edges = [_make_edge(0, 1, ty=10.0), _make_edge(1, 2, ty=10.0)]
+        assert _check_canvas_spread(edges, 0.0) is True
+
+    def test_well_spread_frames_pass(self):
+        """Frames uniformly spread across 10 steps → spread ≈ 1.0 → passes 0.5 threshold."""
+        edges = [_make_edge(i, i + 1, ty=100.0) for i in range(9)]
+        assert _check_canvas_spread(edges, 0.5) is True
+
+    def test_clustered_last_frame_fails_high_threshold(self):
+        """Most frames advance 100px/step but last barely moves → fails 0.8 threshold.
+
+        adj_steps = [100, 100, 100, 1]; median = 100; expected_span = 400;
+        actual_span = 301; ratio ≈ 0.75 → passes 0.5 but fails 0.8.
+        """
+        edges = [
+            _make_edge(0, 1, ty=100.0),
+            _make_edge(1, 2, ty=100.0),
+            _make_edge(2, 3, ty=100.0),
+            _make_edge(3, 4, ty=1.0),
+        ]
+        assert _check_canvas_spread(edges, 0.5) is True   # 0.75 ≥ 0.5
+        assert _check_canvas_spread(edges, 0.8) is False  # 0.75 < 0.8
+
+    def test_two_frame_sequence_always_passes(self):
+        """Only 1 edge (2 nodes) → spread is exact → should pass."""
+        edges = [_make_edge(0, 1, ty=80.0)]
+        assert _check_canvas_spread(edges, 0.5) is True
+
+    def test_horizontal_scroll_uses_tx_axis(self):
+        """When tx dominates over ty, the check should use tx axis."""
+        # Purely horizontal scroll: tx=100 per step, ty=0
+        edges = [_make_edge(i, i + 1, ty=0.0, tx=100.0) for i in range(4)]
+        assert _check_canvas_spread(edges, 0.5) is True

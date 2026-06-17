@@ -4,6 +4,39 @@
 
 ---
 
+## ASP Session 131 — §1.66 NCC Gate · §1.67 Canvas Spread · §1.8C/D Config Dump (2026-06-17)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **§1.66 `_seam_ncc_coherence` + `_check_seam_ncc_gate`** (`compositing.py`) | Per-seam normalised cross-correlation (NCC) structural coherence gate. `_seam_ncc_coherence(img, n_strips, band_px=60)` computes NCC between `band_px`-row windows above and below each inter-strip boundary; flat bands (σ < 1e-3) return 1.0. `_check_seam_ncc_gate(img, n_strips, thresh)` returns the worst-NCC seam index or None when all pass. `_SEAM_NCC_GATE` module flag (default 0.0=off, `ASP_SEAM_NCC_GATE=0.45`). Added to `_CONFIG_SCHEMA` (compositing section). Both exported in `compositing.__all__`. |
+| **Stage 11.4 NCC gate** (`pipeline.py`) | Wired between Stage 11.3 (luma-step) and Stage 11.5 (SRStitcher). Imports `_check_seam_ncc_gate` from `compositing`. Complements §1.14B (pre-composite colour histogram) and §1.24 (post-composite luma step) by detecting structural line-art / pose discontinuity. |
+| **§1.67 `_check_canvas_spread`** (`pipeline.py`) | Pre-BA frame canvas spread validation. BFS propagates pairwise translations from frame 0 to reconstruct cumulative positions; computes `actual_dom_span / (median_adj_step × (N-1))`. Returns False when ratio < `min_spread_fraction` → SCANS fallback. `_CANVAS_SPREAD_MIN` flag (default 0.0=off, `ASP_CANVAS_SPREAD_MIN=0.5`). Wired between §1.16 MST gate and §1.43 adj-coverage gate. `ASP_CANVAS_SPREAD_MIN` added to `_CONFIG_SCHEMA` (pipeline section). Exported in `__all__`. |
+| **§1.8D Typed TOML schema comments** (`config.py`) | `dump_asp_config` enhanced to emit `# type: <typename>  range: [min, max]` machine-readable annotation above each key, followed by the existing human-readable description. `getattr(typ, "__name__")` extracts type name; min/max emitted as Python values (None when unbounded). Zero breaking change — TOML key=value lines unchanged. `_CONFIG_SCHEMA` updated with `ASP_SEAM_NCC_GATE` and `ASP_CANVAS_SPREAD_MIN`. `ASP_SEAM_NCC_GATE` added to `compositing` dump section; `ASP_CANVAS_SPREAD_MIN` added to `pipeline` dump section. |
+| **5 tests** `TestSeamNccCoherenceCompositing` (`test_compositing.py`) | single-strip empty, two-strip score count, identical-halves NCC ≥ 0.9, gate passes above threshold, gate fires on mismatched strips. |
+| **5 tests** `TestCheckCanvasSpread` (`test_pipeline.py`) | empty edges → True, zero threshold → True, uniform spread → True, clustered last frame fails 0.8 threshold (passes 0.5), horizontal scroll uses tx axis. |
+| **5 tests** `TestDumpAspConfigSchemaComments` (`test_config.py`) | float type annotation present, range comment present, type annotation precedes key line, include_defaults emits type comments, int key annotated as int. |
+
+### Session S130 items (in current diff)
+
+| Item | Summary |
+|------|---------|
+| **§1.60 `_fg_zone_pose_gap` + pre-escalation** (`compositing.py`) | Measures mean absolute luminance diff between blend-zone crops restricted to shared fg pixels. `_FG_POSE_GAP_THRESH` flag (0=off, suggest 35.0). Pre-escalates to single-pose BEFORE DP when fg MAD exceeds threshold. 5 tests `TestFgZonePoseGap`. |
+| **§1.62 Canvas aspect-ratio gate** (`pipeline.py`) | `_compute_canvas_aspect_ratio()` + `_MIN_CANVAS_ASPECT` flag (0=off, suggest 0.5). Fires after canvas construction for vertical-scroll sequences when aspect ratio < floor → SCANS. 5 tests `TestComputeCanvasAspectRatio`. |
+| **§1.63 Sort frames by numeric suffix** (`pipeline.py`) | `_sort_frames_by_index()` re-sorts `image_paths` by rightmost digit run in stem at pipeline entry. Prevents OS directory-order issues. 5 tests `TestSortFramesByIndex`. |
+| **§1.64 Exact-duplicate dHash guard** (`frame_selection.py`) | `_drop_exact_dhash_duplicates()` drops consecutive pixel-identical frames (Hamming dist=0) in step 0 of `smart_select_frames`. `ASP_DHASH_EXACT_DROP=1` to enable. 5 tests `TestDropExactDhashDuplicates`. |
+| **§1.65 FG seam erosion buffer** (`compositing.py`) | `_FG_SEAM_EROSION_PX` erodes fg mask before Tier-1 cost assignment; converts outline ring from cost=1.0 to cost=0.5. `ASP_FG_SEAM_EROSION_PX=2` (suggest). 5 tests `TestFgSeamErosionBuffer`. |
+| **§1.10D MC-dropout uncertainty** (`rlhf/reward_model.py`) | `predict_with_uncertainty(img, n_samples=20) → (mean, std)`. MC-dropout by switching Dropout layers to train mode while keeping BatchNorm in eval mode. `MC_DROPOUT_UNCERTAINTY_THRESHOLD=0.10` exported. 5 tests `TestMCDropoutUncertainty`. |
+| **§1.8C dump_asp_config** (`config.py`) | `dump_asp_config(path, *, include_defaults=False)` serialises active ASP env-vars to grouped TOML. `_DUMP_SECTIONS` dict maps section names → key lists. Unrecognised ASP_* env-vars emitted under `[extra]`. Returns absolute path to written file. 5 tests `TestDumpAspConfig`. |
+| **§3.17 `_seam_ncc_coherence` + §3.5A `_composite_quality_score`** (`bench_anime_stitch.py`) | Per-seam NCC structural coherence added to `_compute_all_metrics` as `seam_ncc_scores` + `seam_ncc_min`. `_composite_quality_score(seam_ncc_min, seam_color_min, ghost_seam_max)` → scalar [0,1]. `_compute_rlhf_uncertainty` wires `predict_with_uncertainty` into bench metrics. |
+
+### Test count
+
+**822 tests passing** at end of S130. **827 tests** after S131 additions (5 NCC gate + 5 canvas spread + 5 dump schema comments). 2 skipped.
+
+---
+
 ## ASP Session 119 — §9C Hires Keyframes + §1.10E Benchmark JSON Import (2026-06-15)
 
 ### Shipped

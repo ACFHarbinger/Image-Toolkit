@@ -467,6 +467,12 @@ class MainWindow(QWidget):
                     if hasattr(tab, "_apply_new_extractions_limit") and callable(tab._apply_new_extractions_limit):
                         tab._apply_new_extractions_limit()
 
+                # Apply Extractor queue setting
+                if hasattr(tab, "extraction_queue_enabled"):
+                    tab.extraction_queue_enabled = prefs.get("enable_extraction_queue", False)
+                    if hasattr(tab, "_on_queue_toggle_changed") and callable(tab._on_queue_toggle_changed):
+                        tab._on_queue_toggle_changed()
+
         # §2.16C — startup category
         startup_cat = prefs.get("startup_category", "")
         if startup_cat and startup_cat in self.all_tabs:
@@ -787,34 +793,75 @@ class MainWindow(QWidget):
         if recovery_level == "Currrent Tab":
             recovery_level = "Current Tab"
 
-        if recovery_level == "None":
-            return
-
         username = getattr(self.vault_manager, "account_name", None)
-        if not username:
-            return
-
         recovery_data = {}
-        for recovery_dir in ("/home/pkhunter/.image-toolkit/recovery", os.path.expanduser("~/.image-toolkit/recovery")):
-            enc_file_path = os.path.join(recovery_dir, f"recovery_{username}.enc")
-            if os.path.exists(enc_file_path):
-                try:
-                    import json
-                    SecureJsonVault = self.vault_manager.SecureJsonVault
-                    secret_key = self.vault_manager.secret_key
-                    temp_file_vault = SecureJsonVault(secret_key, enc_file_path)
-                    java_string = temp_file_vault.loadData()
-                    decrypted_json = str(java_string)
-                    recovery_data = json.loads(decrypted_json)
-                    break
-                except Exception as e:
-                    print(f"Warning: Failed to decrypt recovery file {enc_file_path}: {e}")
+        if username:
+            for recovery_dir in ("/home/pkhunter/.image-toolkit/recovery", os.path.expanduser("~/.image-toolkit/recovery")):
+                enc_file_path = os.path.join(recovery_dir, f"recovery_{username}.enc")
+                if os.path.exists(enc_file_path):
+                    try:
+                        import json
+                        SecureJsonVault = self.vault_manager.SecureJsonVault
+                        secret_key = self.vault_manager.secret_key
+                        temp_file_vault = SecureJsonVault(secret_key, enc_file_path)
+                        java_string = temp_file_vault.loadData()
+                        decrypted_json = str(java_string)
+                        recovery_data = json.loads(decrypted_json)
+                        break
+                    except Exception as e:
+                        print(f"Warning: Failed to decrypt recovery file {enc_file_path}: {e}")
 
         if not recovery_data:
             # Fallback to cached_creds if no file was decrypted (backward compatibility)
-            recovery_data = self.cached_creds.get("session_recovery_data")
+            recovery_data = self.cached_creds.get("session_recovery_data") or {}
 
-        if not recovery_data:
+        active_category = recovery_data.get("active_category")
+        active_tab_name = recovery_data.get("active_tab")
+        tab_configs = recovery_data.get("tab_configs", {})
+
+        # Restore last browsed directories based on restore_last_dir preference and recovery level
+        restore_last_dir = prefs.get("restore_last_dir", True)
+        if restore_last_dir:
+            from backend.src.constants import LOCAL_SOURCE_PATH
+            default_dir = str(LOCAL_SOURCE_PATH)
+
+            # Determine target active tab instance
+            target_active_tab = None
+            if recovery_level != "None" and active_category and active_tab_name:
+                target_active_tab = self.all_tabs.get(active_category, {}).get(active_tab_name)
+            if not target_active_tab:
+                curr_cat = self.command_combo.currentText()
+                curr_tab_name = self.tabs.tabText(self.tabs.currentIndex()) if self.tabs.currentIndex() >= 0 else None
+                if curr_cat and curr_tab_name:
+                    target_active_tab = self.all_tabs.get(curr_cat, {}).get(curr_tab_name)
+
+            if recovery_level == "None":
+                # Reset all tabs
+                for cat_tabs in self.all_tabs.values():
+                    for tab in cat_tabs.values():
+                        for obj in (tab, getattr(tab, "format_tab", None)):
+                            if obj is not None:
+                                if hasattr(obj, "last_browsed_scan_dir"):
+                                    obj.last_browsed_scan_dir = default_dir
+                                if hasattr(obj, "last_browsed_dir"):
+                                    obj.last_browsed_dir = default_dir
+            elif recovery_level == "Current Tab":
+                # Reset all tabs except the active tab
+                for cat_tabs in self.all_tabs.values():
+                    for tab in cat_tabs.values():
+                        if tab is target_active_tab:
+                            continue
+                        for obj in (tab, getattr(tab, "format_tab", None)):
+                            if obj is not None:
+                                if hasattr(obj, "last_browsed_scan_dir"):
+                                    obj.last_browsed_scan_dir = default_dir
+                                if hasattr(obj, "last_browsed_dir"):
+                                    obj.last_browsed_dir = default_dir
+            elif recovery_level == "All Tabs":
+                # All directories remain restored
+                pass
+
+        if recovery_level == "None":
             return
 
         active_category = recovery_data.get("active_category")

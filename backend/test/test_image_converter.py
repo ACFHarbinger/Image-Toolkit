@@ -26,8 +26,7 @@ class ImageFormatConverterTest:
         )
 
         # Check if conversion was successful
-        assert result is not None
-        assert isinstance(result, Image.Image)
+        assert result is True
 
         # Expected output file is the output_base_name with the extension appended by the class method
         expected_output = f"{output_base_name}.jpeg"
@@ -47,8 +46,7 @@ class ImageFormatConverterTest:
             sample_image, output_base_name, "png"
         )
 
-        assert result is not None
-        assert isinstance(result, Image.Image)
+        assert result is True
 
         expected_output = f"{output_base_name}.png"
         assert os.path.exists(expected_output)
@@ -64,8 +62,7 @@ class ImageFormatConverterTest:
             sample_transparent_image, output_base_name, "jpeg"
         )
 
-        assert result is not None
-        assert isinstance(result, Image.Image)
+        assert result is True
 
         expected_output = f"{output_base_name}.jpeg"
         assert os.path.exists(expected_output)
@@ -79,8 +76,7 @@ class ImageFormatConverterTest:
         # Call the class method
         result = ImageFormatConverter.convert_single_image(sample_image, format="jpeg")
 
-        assert result is not None
-        assert isinstance(result, Image.Image)
+        assert result is True
 
         # Should create file with same name but different extension in the input directory
         input_dir = os.path.dirname(sample_image)
@@ -90,24 +86,30 @@ class ImageFormatConverterTest:
         assert os.path.exists(expected_output)
 
     def test_convert_img_format_unsupported_format(self, sample_image):
-        """Test conversion with unsupported input format (original test used AssertionError, but class raises ValueError)"""
+        """Test conversion with unsupported input format (extension) but valid content"""
         # Create a file with unsupported extension
         unsupported_path = sample_image.replace(".png", ".txt")
         os.rename(sample_image, unsupported_path)
 
-        # The class logic now raises ValueError
-        with pytest.raises(ValueError, match="Invalid input file extension"):
-            ImageFormatConverter.convert_single_image(
+        output_path = "test_output.png"
+        try:
+            # Under the Rust backend, since the content is valid, it decodes it successfully
+            result = ImageFormatConverter.convert_single_image(
                 unsupported_path, "test_output", "png"
             )
+            assert result is True
+            assert os.path.exists(output_path)
+        finally:
+            if os.path.exists(output_path):
+                os.remove(output_path)
 
     def test_convert_img_format_invalid_file(self):
         """Test conversion with non-existent file"""
-        # Call the class method
-        result = ImageFormatConverter.convert_single_image(
-            "/nonexistent/path/image.png", "output", "jpeg"
-        )
-        assert result is None
+        # Call the class method and expect ValueError
+        with pytest.raises(ValueError, match="Failed to open file"):
+            ImageFormatConverter.convert_single_image(
+                "/nonexistent/path/image.png", "output", "jpeg"
+            )
 
     @pytest.mark.parametrize("output_format", ["png", "jpeg", "webp"])
     def test_convert_img_format_multiple_formats(
@@ -124,8 +126,7 @@ class ImageFormatConverterTest:
             sample_image, output_base_name, output_format
         )
 
-        assert result is not None
-        assert isinstance(result, Image.Image)
+        assert result is True
 
         expected_output = f"{output_base_name}.{output_format}"
         assert os.path.exists(expected_output)
@@ -248,12 +249,13 @@ class ImageFormatConverterTest:
             sample_image, output_base_name, "jpeg"
         )
 
-        assert result is not None
-        assert result.size == original_img.size
+        assert result is True
 
         # Verify the converted image is readable and has content
         expected_output = f"{output_base_name}.jpeg"
         converted_img = Image.open(expected_output)
+
+        assert converted_img.size == original_img.size
 
         # Check it's not a blank image - use histogram to verify content
         histogram = converted_img.histogram()
@@ -303,7 +305,7 @@ class ImageFormatConverterTest:
                 rel_path, output_base_name, "jpeg"
             )
 
-            assert result is not None
+            assert result is True
             expected_output = f"{output_base_name}.jpeg"
             assert os.path.exists(expected_output)
         finally:
@@ -353,7 +355,7 @@ class ImageFormatConverterTest:
             test_file = matching_files[0]
             output_base_name = os.path.join(output_dir, "should_fail")
 
-            with pytest.raises(ValueError, match="Unsupported output format"):
+            with pytest.raises(ValueError, match="Unsupported.*format"):
                 # Call the class method
                 ImageFormatConverter.convert_single_image(
                     test_file, output_base_name, output_format

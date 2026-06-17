@@ -28,6 +28,8 @@ from backend.src.anim.compositing import (  # noqa: E402
     _seam_lum_equalize,
     _adaptive_gain_clamp,
     _apply_bg_histogram_match,
+    _seam_ncc_coherence,
+    _check_seam_ncc_gate,
     _bg_gain_unclamped,
     _bg_histogram_lut,
     _reject_exposure_outliers,
@@ -59,6 +61,7 @@ from backend.src.anim.compositing import (  # noqa: E402
     _fg_gradient_cost,
     _annotate_seams,
     _seam_chroma_equalize,
+    _fg_zone_pose_gap,
 )
 from backend.src.constants import (  # noqa: E402
     FEATHER_MAX as _FEATHER_MAX,
@@ -2635,3 +2638,189 @@ class TestSeamChromaEqualize:
         boundaries = [50.0]
         out = _seam_chroma_equalize(canvas, boundaries, band_px=10, min_shift=10.0)
         np.testing.assert_array_equal(out, canvas)
+
+
+class TestFgZonePoseGap:
+    """§1.60 (S124): Fg pose-gap pre-escalation helper."""
+
+    def test_identical_zones_gap_near_zero(self):
+        """Identical frames in the blend zone → pose gap ≈ 0."""
+        rng = np.random.default_rng(1)
+        zone = rng.integers(10, 245, (80, 100, 3), dtype=np.uint8)
+        gap = _fg_zone_pose_gap(zone, zone.copy())
+        assert gap < 1.0, f"Identical frames should give near-zero pose gap, got {gap:.3f}"
+
+    def test_complementary_zones_high_gap(self):
+        """Zones with opposite pixel content → large pose gap."""
+        rng = np.random.default_rng(2)
+        fa = rng.integers(200, 255, (80, 100, 3), dtype=np.uint8)
+        fb = rng.integers(0, 50, (80, 100, 3), dtype=np.uint8)
+        gap = _fg_zone_pose_gap(fa, fb)
+        assert gap > 100.0, f"Opposite-brightness zones should give large gap, got {gap:.1f}"
+
+    def test_returns_zero_when_no_shared_fg(self):
+        """Non-overlapping content (different sides are zero) → 0.0."""
+        zone = np.zeros((50, 60, 3), dtype=np.uint8)
+        fa = zone.copy()
+        fb = zone.copy()
+        fa[:, :30] = 200
+        fb[:, 30:] = 200
+        gap = _fg_zone_pose_gap(fa, fb)
+        assert gap == 0.0, f"No shared fg pixels → expected 0.0, got {gap}"
+
+    def test_returns_float(self):
+        """Return type is always float."""
+        rng = np.random.default_rng(99)
+        fa = rng.integers(0, 256, (60, 80, 3), dtype=np.uint8)
+        fb = rng.integers(0, 256, (60, 80, 3), dtype=np.uint8)
+        assert isinstance(_fg_zone_pose_gap(fa, fb), float)
+
+    def test_all_zeros_returns_zero(self):
+        """All-black zones (no fg pixels) → 0.0."""
+        z = np.zeros((40, 50, 3), dtype=np.uint8)
+        assert _fg_zone_pose_gap(z, z) == 0.0
+
+
+class TestFgSeamErosionBuffer:
+    """§1.65 (S130): Fg mask erosion buffer reduces Tier-1 cost region."""
+
+    @staticmethod
+    def _solid_bg_mask(h: int, w: int, fg_band: int) -> np.ndarray:
+        """Background mask with a central foreground band (fg_band rows, centred)."""
+        bm = np.ones((h, w), dtype=np.uint8) * 255  # all background
+        cy = h // 2
+        bm[cy - fg_band // 2 : cy + fg_band // 2, :] = 0  # fg = 0
+        return bm
+
+    @staticmethod
+    def _canvas(h: int, w: int) -> np.ndarray:
+        return np.zeros((h, w, 3), dtype=np.uint8)
+
+    def test_erosion_zero_unchanged(self):
+        """With erosion=0, behaviour is identical to the un-eroded path."""
+        import backend.src.anim.compositing as comp_mod
+        h, w, fg_band = 80, 100, 20
+        bm = self._solid_bg_mask(h, w, fg_band)
+        old_val = comp_mod._FG_SEAM_EROSION_PX
+        comp_mod._FG_SEAM_EROSION_PX = 0
+        try:
+            cost0 = _build_seam_cost_map(self._canvas(h, w), bm, None, dilate_px=3)
+        finally:
+            comp_mod._FG_SEAM_EROSION_PX = old_val
+        # Interior of the fg band must be cost=1.0
+        cy = h // 2
+        assert cost0[cy, w // 2] == pytest.approx(1.0)
+
+    def test_erosion_shrinks_tier1_region(self):
+        """With erosion=3, the outermost fg outline rows should no longer be cost=1.0."""
+        import backend.src.anim.compositing as comp_mod
+        h, w, fg_band = 80, 100, 30
+        bm = self._solid_bg_mask(h, w, fg_band)
+        old_val = comp_mod._FG_SEAM_EROSION_PX
+        comp_mod._FG_SEAM_EROSION_PX = 3
+        try:
+            cost_eroded = _build_seam_cost_map(self._canvas(h, w), bm, None, dilate_px=3)
+        finally:
+            comp_mod._FG_SEAM_EROSION_PX = old_val
+        cy = h // 2
+        fg_top = cy - fg_band // 2  # first fg row index
+        # Row at fg_top should now be cost < 1.0 (outline ring eroded away)
+        assert cost_eroded[fg_top, w // 2] < 1.0, (
+            f"Expected eroded outline row to have cost < 1.0, got {cost_eroded[fg_top, w//2]}"
+        )
+        # Interior row (deep in fg) must still be cost=1.0
+        assert cost_eroded[cy, w // 2] == pytest.approx(1.0), (
+            f"Expected fg interior to remain cost=1.0, got {cost_eroded[cy, w//2]}"
+        )
+
+    def test_erosion_no_effect_when_all_background(self):
+        """All-background mask → cost=0.0 everywhere regardless of erosion."""
+        import backend.src.anim.compositing as comp_mod
+        h, w = 60, 80
+        bm = np.ones((h, w), dtype=np.uint8) * 255  # all background
+        old_val = comp_mod._FG_SEAM_EROSION_PX
+        comp_mod._FG_SEAM_EROSION_PX = 5
+        try:
+            cost = _build_seam_cost_map(self._canvas(h, w), bm, None, dilate_px=3)
+        finally:
+            comp_mod._FG_SEAM_EROSION_PX = old_val
+        assert float(cost.max()) == pytest.approx(0.0), "All-bg → cost must be 0.0"
+
+    def test_erosion_result_dtype_float32(self):
+        """Cost map must always be float32 regardless of erosion setting."""
+        import backend.src.anim.compositing as comp_mod
+        h, w, fg_band = 60, 80, 20
+        bm = self._solid_bg_mask(h, w, fg_band)
+        old_val = comp_mod._FG_SEAM_EROSION_PX
+        comp_mod._FG_SEAM_EROSION_PX = 2
+        try:
+            cost = _build_seam_cost_map(self._canvas(h, w), bm, None, dilate_px=3)
+        finally:
+            comp_mod._FG_SEAM_EROSION_PX = old_val
+        assert cost.dtype == np.float32
+
+    def test_erosion_larger_than_fg_band_collapses_tier1(self):
+        """Erosion radius ≥ half the fg band should collapse the cost=1.0 region to zero."""
+        import backend.src.anim.compositing as comp_mod
+        h, w, fg_band = 60, 80, 8  # only 8 rows of fg
+        bm = self._solid_bg_mask(h, w, fg_band)
+        old_val = comp_mod._FG_SEAM_EROSION_PX
+        comp_mod._FG_SEAM_EROSION_PX = 5  # erode 5 px > half of 8 px band
+        try:
+            cost = _build_seam_cost_map(self._canvas(h, w), bm, None, dilate_px=3)
+        finally:
+            comp_mod._FG_SEAM_EROSION_PX = old_val
+        # With erosion wider than the fg band, no Tier-1 pixel should remain
+        assert float((cost >= 1.0).sum()) == 0.0, "Tier-1 region should collapse to zero"
+
+
+# ---------------------------------------------------------------------------
+# §1.66 — NCC structural coherence gate (S131)
+# ---------------------------------------------------------------------------
+
+class TestSeamNccCoherenceCompositing:
+    """§1.66 (S131): _seam_ncc_coherence and _check_seam_ncc_gate in compositing.py."""
+
+    @staticmethod
+    def _solid_image(h: int, w: int, val: int = 128) -> np.ndarray:
+        return np.full((h, w, 3), val, dtype=np.uint8)
+
+    def test_single_strip_returns_empty(self):
+        """n_strips=1 → empty list (no seam boundaries)."""
+        img = self._solid_image(100, 80)
+        assert _seam_ncc_coherence(img, 1) == []
+
+    def test_two_strips_returns_one_score(self):
+        """n_strips=2 → exactly one NCC score."""
+        img = self._solid_image(100, 80)
+        scores = _seam_ncc_coherence(img, 2)
+        assert len(scores) == 1
+
+    def test_identical_halves_high_ncc(self):
+        """Identical top/bottom bands → NCC ≈ 1.0 (structurally identical)."""
+        rng = np.random.default_rng(42)
+        band = rng.integers(50, 200, (40, 80, 3), dtype=np.uint8)
+        img = np.vstack([band, band])
+        scores = _seam_ncc_coherence(img, 2, band_px=20)
+        assert len(scores) == 1
+        assert scores[0] >= 0.9, f"Identical halves should give NCC≥0.9, got {scores[0]}"
+
+    def test_gate_passes_above_threshold(self):
+        """NCC score above threshold → gate returns None (all seams pass)."""
+        rng = np.random.default_rng(7)
+        band = rng.integers(50, 200, (60, 80, 3), dtype=np.uint8)
+        img = np.vstack([band, band])
+        result = _check_seam_ncc_gate(img, 2, thresh=0.3, band_px=20)
+        assert result is None, "Identical halves should pass the NCC gate"
+
+    def test_gate_fires_on_severely_mismatched_strips(self):
+        """Highly mismatched strips → gate fires (returns seam index, not None)."""
+        top = np.zeros((50, 60, 3), dtype=np.uint8)
+        bot = np.full((50, 60, 3), 200, dtype=np.uint8)
+        # Give both halves distinct spatial structure so NCC is low
+        rng = np.random.default_rng(99)
+        top[10:40, 10:50, 0] = rng.integers(10, 50, (30, 40), dtype=np.uint8)
+        bot[10:40, 10:50, 0] = rng.integers(200, 250, (30, 40), dtype=np.uint8)
+        img = np.vstack([top, bot])
+        result = _check_seam_ncc_gate(img, 2, thresh=0.8, band_px=20)
+        assert result == 0, f"Mismatched strips should fail gate at seam 0, got {result}"

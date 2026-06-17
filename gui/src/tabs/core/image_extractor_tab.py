@@ -33,11 +33,22 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QDialog,
     QTabBar,
+    QListWidget,
 )
 from PySide6.QtGui import QPixmap, QResizeEvent, QAction, QImage
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
-from PySide6.QtCore import Qt, QUrl, Slot, QThreadPool, QPoint, QEvent, Signal
+from PySide6.QtCore import (
+    Qt,
+    QUrl,
+    Slot,
+    QThreadPool,
+    QPoint,
+    QEvent,
+    Signal,
+    QRunnable,
+    QObject,
+)
 from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassSingleGallery
 from ...components import ClickableLabel, MarqueeScrollArea
@@ -55,6 +66,520 @@ from backend.src.constants import (
     SUPPORTED_VIDEO_FORMATS,
     IMAGE_TOOLKIT_DIR,
 )
+
+
+def run_extraction_in_process(config: dict) -> dict:
+    import os
+    import subprocess
+    import time
+    import re
+    from pathlib import Path
+
+    def natural_sort_key(s):
+        return [
+            int(text) if text.isdigit() else text.lower()
+            for text in re.split(r"(\d+)", s)
+        ]
+
+    t_type = config.get("type")
+    video_path = config.get("video_path")
+    start_ms = config.get("start_ms")
+    end_ms = config.get("end_ms")
+    output_dir = config.get("output_dir")
+    target_resolution = config.get("target_resolution")
+    cuts_ms = config.get("cuts_ms", [])
+    frame_interval = config.get("frame_interval", 1)
+    smart_extract = config.get("smart_extract", False)
+    smart_method = config.get("smart_method", "")
+    fps = config.get("fps", 24)
+    mute_audio = config.get("mute_audio", False)
+    use_ffmpeg = config.get("use_ffmpeg", True)
+    speed = float(config.get("speed", "1.0"))
+
+    def get_keep_regions(t_start: float, t_end: float):
+        if not cuts_ms:
+            return [(0.0, t_end - t_start)]
+        sorted_cuts = sorted(
+            [(max(t_start, c[0] / 1000.0), min(t_end, c[1] / 1000.0)) for c in cuts_ms]
+        )
+        merged_cuts = []
+        for c in sorted_cuts:
+            if c[0] >= c[1]:
+                continue
+            if not merged_cuts:
+                merged_cuts.append(c)
+            else:
+                last = merged_cuts[-1]
+                if c[0] <= last[1]:
+                    merged_cuts[-1] = (last[0], max(last[1], c[1]))
+                else:
+                    merged_cuts.append(c)
+        keep = []
+        current = t_start
+        for c_start, c_end in merged_cuts:
+            if c_start > current:
+                keep.append((current - t_start, c_start - t_start))
+            current = max(current, c_end)
+        if current < t_end:
+            keep.append((current - t_start, t_end - t_start))
+        return keep
+
+    def get_video_fps(path):
+        import cv2
+
+        cap = cv2.VideoCapture(path)
+        if not cap.isOpened():
+            return 23.976
+        f = cap.get(cv2.CAP_PROP_FPS)
+        cap.release()
+        return f if f > 0 else 23.976
+
+    try:
+        if t_type in ("range", "single"):
+            video_name = Path(video_path).stem
+            t_start = start_ms / 1000.0
+            detected_fps = get_video_fps(video_path)
+
+            if smart_extract:
+                t_end = end_ms / 1000.0
+                duration = t_end - t_start
+                cmd = ["ffmpeg", "-y", "-ss", str(t_start)]
+                if t_type == "range" and end_ms != -1:
+                    cmd.extend(["-t", str(duration)])
+                cmd.extend(["-i", video_path])
+
+                filters = []
+                keep_regions = get_keep_regions(t_start, t_end)
+                if cuts_ms and keep_regions:
+                    select_expr = "+".join(
+                        [f"between(t,{r[0]},{r[1]})" for r in keep_regions]
+                    )
+                    filters.append(f"select='{select_expr}'")
+                if frame_interval > 1:
+                    filters.append(f"select='not(mod(n,{frame_interval}))'")
+                if "mpdecimate" in smart_method:
+                    filters.append("mpdecimate")
+                elif "scene" in smart_method:
+                    match = re.search(r"\((.*?)\)", smart_method)
+                    val = match.group(1) if match else "0.4"
+                    filters.append(f"select='gt(scene,{val})'")
+                if target_resolution:
+                    w, h = target_resolution
+                    filters.append(f"scale={w}:{h}:flags=lanczos")
+                if filters:
+                    cmd.extend(["-vf", ",".join(filters)])
+                if t_type == "single":
+                    cmd.extend(["-vframes", "1"])
+                cmd.extend(
+                    [
+                        "-sws_flags",
+                        "spline+accurate_rnd+full_chroma_int",
+                        "-pix_fmt",
+                        "rgb48be",
+                        "-vsync",
+                        "vfr",
+                        "-frame_pts",
+                        "1",
+                    ]
+                )
+
+                temp_id = int(time.time() * 1000) % 100000
+                out_pattern = os.path.join(
+                    output_dir, f"{video_name}_smart_tmp_{temp_id}_%08d.png"
+                )
+                cmd.append(out_pattern)
+
+                subprocess.run(
+                    cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                )
+
+                prefix = f"{video_name}_smart_tmp_{temp_id}_"
+                tmp_files = sorted(
+                    [
+                        f
+                        for f in os.listdir(output_dir)
+                        if f.startswith(prefix) and f.endswith(".png")
+                    ],
+                    key=natural_sort_key,
+                )
+
+                saved_files = []
+                for f in tmp_files:
+                    match = re.search(r"_(\d+)\.png$", f)
+                    if not match:
+                        continue
+                    pts = int(match.group(1))
+                    current_ms = start_ms + int(pts * 1000.0 / detected_fps)
+                    new_name = f"{video_name}_smart_{current_ms}ms.png"
+                    final_path = os.path.join(output_dir, new_name)
+                    if os.path.exists(final_path):
+                        final_path = os.path.join(
+                            output_dir,
+                            f"{video_name}_smart_{current_ms}ms_{temp_id}.png",
+                        )
+                    os.rename(os.path.join(output_dir, f), final_path)
+                    saved_files.append(final_path)
+                return {"status": "success", "saved_files": saved_files}
+            else:
+                cmd = ["ffmpeg", "-y", "-ss", str(t_start)]
+                if t_type == "range" and end_ms != -1:
+                    duration = (end_ms - start_ms) / 1000.0
+                    cmd.extend(["-t", str(duration)])
+                cmd.extend(["-i", video_path])
+
+                filters = []
+                if cuts_ms:
+                    keep_regions = get_keep_regions(
+                        t_start, (end_ms / 1000.0 if end_ms != -1 else t_start + 1)
+                    )
+                    if keep_regions:
+                        select_expr = "+".join(
+                            [f"between(t,{r[0]},{r[1]})" for r in keep_regions]
+                        )
+                        filters.append(f"select='{select_expr}'")
+                if frame_interval > 1:
+                    filters.append(f"select='not(mod(n,{frame_interval}))'")
+                if target_resolution:
+                    w, h = target_resolution
+                    filters.append(f"scale={w}:{h}:flags=lanczos")
+                if filters:
+                    cmd.extend(["-vf", ",".join(filters)])
+                if t_type == "single":
+                    cmd.extend(["-vframes", "1"])
+                cmd.extend(
+                    [
+                        "-sws_flags",
+                        "spline+accurate_rnd+full_chroma_int",
+                        "-vsync",
+                        "vfr",
+                        "-q:v",
+                        "2",
+                    ]
+                )
+
+                out_pattern = os.path.join(output_dir, f"{video_name}_tmp_%05d.png")
+                cmd.append(out_pattern)
+
+                subprocess.run(
+                    cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                )
+
+                tmp_files = sorted(
+                    [
+                        f
+                        for f in os.listdir(output_dir)
+                        if f.startswith(f"{video_name}_tmp_") and f.endswith(".png")
+                    ],
+                    key=natural_sort_key,
+                )
+                saved_files = []
+                for i, f in enumerate(tmp_files):
+                    current_ms = start_ms + int(
+                        i * frame_interval * (1000.0 / detected_fps)
+                    )
+                    new_name = f"{video_name}_{current_ms}ms.png"
+                    final_path = os.path.join(output_dir, new_name)
+                    if os.path.exists(final_path):
+                        final_path = os.path.join(
+                            output_dir, f"{video_name}_{current_ms}ms_{i}.png"
+                        )
+                    os.rename(os.path.join(output_dir, f), final_path)
+                    saved_files.append(final_path)
+                return {"status": "success", "saved_files": saved_files}
+
+        elif t_type == "gif":
+            t_start = start_ms / 1000.0
+            t_end = end_ms / 1000.0
+            output_path = os.path.join(
+                output_dir,
+                f"{Path(video_path).stem}_{int(start_ms)}ms_{int(end_ms)}ms.gif",
+            )
+
+            if use_ffmpeg:
+                duration = t_end - t_start
+                cmd = [
+                    "ffmpeg",
+                    "-y",
+                    "-ss",
+                    str(t_start),
+                    "-t",
+                    str(duration),
+                    "-i",
+                    video_path,
+                ]
+
+                filter_chain = []
+                keep_regions = get_keep_regions(t_start, t_end)
+                if cuts_ms and keep_regions:
+                    select_expr = "+".join(
+                        [f"between(t,{r[0]},{r[1]})" for r in keep_regions]
+                    )
+                    filter_chain.append(f"select='{select_expr}'")
+                    filter_chain.append("setpts=N/FRAME_RATE/TB")
+                filter_chain.append(f"fps={fps}")
+                if target_resolution:
+                    w, h = target_resolution
+                    filter_chain.append(f"scale={w}:{h}:flags=lanczos")
+                if speed != 1.0:
+                    pts_mult = 1.0 / speed
+                    filter_chain.append(f"setpts={pts_mult}*PTS")
+
+                base_filters = ",".join(filter_chain)
+                complex_filter = (
+                    f"{base_filters},split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse"
+                )
+                cmd.extend(["-vf", complex_filter])
+                cmd.append(output_path)
+
+                subprocess.run(
+                    cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                )
+                return {"status": "success", "output_path": output_path}
+            else:
+                from moviepy.editor import VideoFileClip, concatenate_videoclips
+
+                base_clip = VideoFileClip(video_path).subclip(t_start, t_end)
+                keep_regions = get_keep_regions(t_start, t_end)
+                if cuts_ms and keep_regions:
+                    clips = []
+                    for start_sec, end_sec in keep_regions:
+                        if end_sec > start_sec:
+                            clips.append(base_clip.subclip(start_sec, end_sec))
+                    clip = concatenate_videoclips(clips) if clips else base_clip
+                else:
+                    clip = base_clip
+                if target_resolution:
+                    clip = clip.resize(newsize=target_resolution)
+                if speed != 1.0:
+                    clip = clip.speedx(speed)
+                clip.write_gif(output_path, fps=fps, logger=None)
+                clip.close()
+                base_clip.close()
+                return {"status": "success", "output_path": output_path}
+
+        elif t_type == "video":
+            t_start = start_ms / 1000.0
+            t_end = end_ms / 1000.0
+            output_path = os.path.join(
+                output_dir,
+                f"{Path(video_path).stem}_{int(start_ms)}ms_{int(end_ms)}ms.mp4",
+            )
+
+            if use_ffmpeg:
+                keep_regions = get_keep_regions(t_start, t_end)
+                if cuts_ms and keep_regions:
+                    kept_duration = sum(r[1] - r[0] for r in keep_regions)
+                    if kept_duration <= 0:
+                        kept_duration = t_end - t_start
+                else:
+                    kept_duration = t_end - t_start
+                duration = kept_duration / speed
+
+                cmd = [
+                    "ffmpeg",
+                    "-y",
+                    "-ss",
+                    str(t_start),
+                    "-t",
+                    str(t_end - t_start),
+                    "-i",
+                    video_path,
+                ]
+                filters = []
+                if cuts_ms and keep_regions:
+                    select_expr = "+".join(
+                        [f"between(t,{r[0]},{r[1]})" for r in keep_regions]
+                    )
+                    filters.append(f"select='{select_expr}'")
+                    filters.append("setpts=N/FRAME_RATE/TB")
+                if target_resolution:
+                    w, h = target_resolution
+                    filters.append(f"scale={w}:{h}")
+                if speed != 1.0:
+                    pts_mult = 1.0 / speed
+                    filters.append(f"setpts={pts_mult}*PTS")
+                if filters:
+                    cmd.extend(["-vf", ",".join(filters)])
+
+                cmd.extend(["-c:v", "libx264", "-movflags", "+faststart"])
+                if mute_audio:
+                    cmd.append("-an")
+                else:
+                    audio_filters = []
+                    if cuts_ms and keep_regions:
+                        aselect_expr = "+".join(
+                            [f"between(t,{r[0]},{r[1]})" for r in keep_regions]
+                        )
+                        audio_filters.append(f"aselect='{aselect_expr}'")
+                        audio_filters.append("asetpts=N/SR/TB")
+                    if speed != 1.0:
+                        s = speed
+                        while s > 2.0:
+                            audio_filters.append("atempo=2.0")
+                            s /= 2.0
+                        while s < 0.5:
+                            audio_filters.append("atempo=0.5")
+                            s /= 0.5
+                        audio_filters.append(f"atempo={s}")
+                    if audio_filters:
+                        cmd.extend(["-af", ",".join(audio_filters)])
+                    cmd.extend(["-c:a", "aac", "-b:a", "128k"])
+
+                cmd.extend(["-t", str(duration), "-shortest", output_path])
+                subprocess.run(
+                    cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                )
+                return {"status": "success", "output_path": output_path}
+            else:
+                from moviepy.editor import VideoFileClip, concatenate_videoclips
+                from moviepy.editor import AudioFileClip
+
+                base_clip = VideoFileClip(video_path)
+                original_audio_clip = None
+                if mute_audio or base_clip.audio is None:
+                    base_clip.audio = None
+                    audio_codec = None
+                else:
+                    try:
+                        original_audio_clip = AudioFileClip(video_path)
+                        base_clip.audio = original_audio_clip
+                    except:
+                        pass
+                    audio_codec = "aac"
+
+                subclipped_base = base_clip.subclip(t_start, t_end)
+                keep_regions = get_keep_regions(t_start, t_end)
+                if cuts_ms and keep_regions:
+                    clips = []
+                    for start_sec, end_sec in keep_regions:
+                        if end_sec > start_sec:
+                            clips.append(subclipped_base.subclip(start_sec, end_sec))
+                    clip = concatenate_videoclips(clips) if clips else subclipped_base
+                else:
+                    clip = subclipped_base
+
+                if target_resolution:
+                    clip = clip.resize(newsize=target_resolution)
+                if speed != 1.0:
+                    clip = clip.speedx(speed)
+                if clip.duration is not None and clip.audio is not None:
+                    clip.audio = clip.audio.set_duration(clip.duration)
+
+                ffmpeg_params = ["-movflags", "faststart"]
+                if audio_codec is not None:
+                    ffmpeg_params.extend(["-b:a", "128k"])
+
+                temp_audio_path = f"temp-audio-{int(time.time() * 1000)}.m4a"
+                clip.write_videofile(
+                    output_path,
+                    codec="libx264",
+                    audio_codec=audio_codec,
+                    temp_audiofile=temp_audio_path,
+                    remove_temp=True,
+                    ffmpeg_params=ffmpeg_params,
+                    verbose=False,
+                    logger=None,
+                )
+                if original_audio_clip:
+                    original_audio_clip.close()
+                clip.close()
+                base_clip.close()
+                if os.path.exists(temp_audio_path):
+                    try:
+                        os.remove(temp_audio_path)
+                    except OSError:
+                        pass
+                return {"status": "success", "output_path": output_path}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+class QueueWorkerSignals(QObject):
+    started = Signal()
+    progress = Signal(int)
+    item_completed = Signal(int, dict)
+    finished = Signal(list)
+    error = Signal(str)
+
+
+class QueueExecutionWorker(QRunnable):
+    def __init__(self, queue_items: list, parallel: bool = False):
+        super().__init__()
+        self.queue_items = queue_items
+        self.parallel = parallel
+        self.signals = QueueWorkerSignals()
+        self._is_cancelled = False
+
+    def cancel(self):
+        self._is_cancelled = True
+
+    def run(self):
+        self.signals.started.emit()
+        results = []
+
+        if self.parallel:
+            from multiprocessing import Pool
+            import multiprocessing
+
+            num_cores = min(multiprocessing.cpu_count(), len(self.queue_items))
+            if num_cores < 1:
+                num_cores = 1
+
+            self.signals.progress.emit(10)
+
+            try:
+                with Pool(processes=num_cores) as pool:
+                    async_results = [
+                        pool.apply_async(run_extraction_in_process, (item,))
+                        for item in self.queue_items
+                    ]
+
+                    completed = 0
+                    total = len(self.queue_items)
+
+                    while completed < total:
+                        if self._is_cancelled:
+                            pool.terminate()
+                            self.signals.error.emit(
+                                "Parallel queue extraction cancelled by user."
+                            )
+                            return
+
+                        new_completed = 0
+                        for r in async_results:
+                            if r.ready():
+                                new_completed += 1
+
+                        if new_completed > completed:
+                            completed = new_completed
+                            progress_val = int(10 + (completed / total) * 90)
+                            self.signals.progress.emit(min(99, progress_val))
+
+                        time.sleep(0.5)
+
+                    for i, r in enumerate(async_results):
+                        res = r.get()
+                        results.append(res)
+                        self.signals.item_completed.emit(i, res)
+            except Exception as e:
+                self.signals.error.emit(f"Parallel processing error: {e}")
+                return
+        else:
+            total = len(self.queue_items)
+            for i, item in enumerate(self.queue_items):
+                if self._is_cancelled:
+                    self.signals.error.emit(
+                        "Sequential queue extraction cancelled by user."
+                    )
+                    return
+
+                self.signals.progress.emit(int((i / total) * 100))
+                res = run_extraction_in_process(item)
+                results.append(res)
+                self.signals.item_completed.emit(i, res)
+
+        self.signals.progress.emit(100)
+        self.signals.finished.emit(results)
 
 
 class CutLabel(QLabel):
@@ -123,6 +648,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.active_extraction_worker: Optional[Any] = None
         self._active_metadata: Optional[dict] = None
         self.wheel_seek_ms = 100
+        self.extraction_queue_enabled = False
+        self.extraction_queue: List[dict] = []
+        self.active_queue_worker: Optional[QueueExecutionWorker] = None
 
         self.use_internal_player = True
         self.video_view: Optional[QGraphicsView] = None
@@ -248,12 +776,20 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         self.active_videos_tabbar = QTabBar()
         self.active_videos_tabbar.setTabsClosable(True)
-        self.active_videos_tabbar.currentChanged.connect(self._on_active_video_tab_changed)
-        self.active_videos_tabbar.tabCloseRequested.connect(self._on_active_video_tab_closed)
-        self.active_videos_tabbar.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.active_videos_tabbar.customContextMenuRequested.connect(self._show_tab_context_menu)
+        self.active_videos_tabbar.currentChanged.connect(
+            self._on_active_video_tab_changed
+        )
+        self.active_videos_tabbar.tabCloseRequested.connect(
+            self._on_active_video_tab_closed
+        )
+        self.active_videos_tabbar.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.CustomContextMenu
+        )
+        self.active_videos_tabbar.customContextMenuRequested.connect(
+            self._show_tab_context_menu
+        )
         self.active_videos_tabbar.setStyleSheet(
-            "QTabBar::tab { background: #2c2f33; color: #888; padding: 8px 16px; border: 1px solid #4f545c; border-top-left-radius: 4px; border-top-right-radius: 4px; }"
+            "QTabBar::tab { background: #2c2f33; color: #9b59b6; padding: 8px 16px; border: 1px solid #4f545c; border-top-left-radius: 4px; border-top-right-radius: 4px; }"
             "QTabBar::tab:selected { background: #23272a; color: #00bcd4; border-bottom-color: #23272a; font-weight: bold; }"
             "QTabBar::close-button { image: url(close.png); }"
         )
@@ -772,6 +1308,37 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self.handle_marquee_selection
         )
 
+        # Setup Queue UI Group Box
+        self.queue_group = QGroupBox("Extraction Queue")
+        queue_layout = QVBoxLayout(self.queue_group)
+        queue_layout.setContentsMargins(10, 10, 10, 10)
+
+        self.queue_list = QListWidget()
+        self.queue_list.setMaximumHeight(120)
+        queue_layout.addWidget(self.queue_list)
+
+        controls_layout = QHBoxLayout()
+        controls_layout.addWidget(QLabel("Execution Mode:"))
+        self.combo_queue_mode = QComboBox()
+        self.combo_queue_mode.addItems(["Sequentially", "Parallel (Multiprocessing)"])
+        controls_layout.addWidget(self.combo_queue_mode)
+
+        self.btn_process_queue = QPushButton("⚙️ Process Queue")
+        self.btn_process_queue.clicked.connect(self.process_queue)
+        self.btn_process_queue.setStyleSheet(
+            "QPushButton { font-weight: bold; background-color: #2ecc71; color: white; padding: 4px 8px; }"
+        )
+        controls_layout.addWidget(self.btn_process_queue)
+
+        self.btn_clear_queue = QPushButton("🗑️ Clear Queue")
+        self.btn_clear_queue.clicked.connect(self.clear_queue)
+        controls_layout.addWidget(self.btn_clear_queue)
+
+        queue_layout.addLayout(controls_layout)
+
+        self.main_layout.addWidget(self.queue_group)
+        self.queue_group.setVisible(self.extraction_queue_enabled)
+
         # Add shared search input (Lazy Search)
         self.main_layout.addWidget(self.search_input)
 
@@ -1035,17 +1602,19 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         if is_open:
             close_action = QAction("Close Video", self)
-            close_action.triggered.connect(lambda: self._on_active_video_tab_closed(tab_idx))
+            close_action.triggered.connect(
+                lambda: self._on_active_video_tab_closed(tab_idx)
+            )
             menu.addAction(close_action)
         else:
             open_action = QAction("Open Video", self)
             open_action.triggered.connect(lambda: self.load_media(path))
             menu.addAction(open_action)
-            
+
         view_action = QAction("View Preview", self)
         view_action.triggered.connect(lambda: self.handle_thumbnail_double_click(path))
         menu.addAction(view_action)
-        
+
         menu.exec(global_pos)
 
     @Slot(QPoint)
@@ -1054,7 +1623,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         if idx >= 0:
             menu = QMenu(self)
             close_action = QAction("Close Video", self)
-            close_action.triggered.connect(lambda: self._on_active_video_tab_closed(idx))
+            close_action.triggered.connect(
+                lambda: self._on_active_video_tab_closed(idx)
+            )
             menu.addAction(close_action)
             menu.exec(self.active_videos_tabbar.mapToGlobal(pos))
 
@@ -1102,9 +1673,25 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self, path: str, label: ClickableLabel, selected: bool
     ):
         has_extracted = self._has_extracted_files(path)
+        is_other_open = (
+            hasattr(self, "active_videos_config")
+            and path in self.active_videos_config
+            and path != self.video_path
+        )
 
         if selected:
             label.setStyleSheet("border: 3px solid #3498db; border-radius: 4px;")
+        elif is_other_open:
+            if label.text() == "VIDEO":
+                label.setStyleSheet(
+                    "border: 2px solid #9b59b6; color: #9b59b6; font-weight: bold; background-color: #2c2f33; border-radius: 4px;"
+                )
+            elif label.text() == "No Preview" or label.text() == "Loading...":
+                label.setStyleSheet(
+                    "border: 2px solid #9b59b6; color: #9b59b6; border-radius: 4px;"
+                )
+            else:
+                label.setStyleSheet("border: 2px solid #9b59b6; border-radius: 4px;")
         else:
             if label.text() == "VIDEO":
                 if has_extracted:
@@ -1136,7 +1723,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def _save_current_video_config(self):
         if not self.video_path:
             return
-        
+
         config = {
             "start_time_ms": getattr(self, "start_time_ms", 0),
             "end_time_ms": getattr(self, "end_time_ms", 0),
@@ -1175,14 +1762,30 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.cut_start_ms = config.get("cut_start_ms", 0)
         self.cut_end_ms = config.get("cut_end_ms", 0)
 
-        self.btn_set_start.setText(f"Start [{self._format_time(self.start_time_ms)}]" if self.start_time_ms else "Set Start [00:00]")
-        self.btn_set_end.setText(f"End [{self._format_time(self.end_time_ms)}]" if self.end_time_ms else "Set End [00:00]")
-        self.btn_set_cut_start.setText(f"Cut Start [{self._format_time(self.cut_start_ms)}]" if self.cut_start_ms else "Set Cut Start [00:00]")
-        self.btn_set_cut_end.setText(f"Cut End [{self._format_time(self.cut_end_ms)}]" if self.cut_end_ms else "Set Cut End [00:00]")
+        self.btn_set_start.setText(
+            f"Start [{self._format_time(self.start_time_ms)}]"
+            if self.start_time_ms
+            else "Set Start [00:00]"
+        )
+        self.btn_set_end.setText(
+            f"End [{self._format_time(self.end_time_ms)}]"
+            if self.end_time_ms
+            else "Set End [00:00]"
+        )
+        self.btn_set_cut_start.setText(
+            f"Cut Start [{self._format_time(self.cut_start_ms)}]"
+            if self.cut_start_ms
+            else "Set Cut Start [00:00]"
+        )
+        self.btn_set_cut_end.setText(
+            f"Cut End [{self._format_time(self.cut_end_ms)}]"
+            if self.cut_end_ms
+            else "Set Cut End [00:00]"
+        )
 
         self.cuts_ms = config.get("cuts_ms", [])
         self._update_cuts_label()
-        
+
         self.tags_ms = config.get("tags_ms", [])
         self._update_tags_ui()
 
@@ -1190,12 +1793,14 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.spin_gif_fps.setValue(config.get("spin_gif_fps", 24))
         if config.get("combo_extract_size"):
             self.combo_extract_size.setCurrentText(config.get("combo_extract_size"))
-        self.check_extract_vertical.setChecked(config.get("check_extract_vertical", False))
+        self.check_extract_vertical.setChecked(
+            config.get("check_extract_vertical", False)
+        )
         self.spin_interval.setValue(config.get("spin_interval", 1))
         self.check_smart_extract.setChecked(config.get("check_smart_extract", False))
         if config.get("combo_smart_method"):
             self.combo_smart_method.setCurrentText(config.get("combo_smart_method"))
-            
+
         pos = config.get("media_position", 0)
         if pos > 0 and self.media_player:
             self.media_player.setPosition(pos)
@@ -1206,7 +1811,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def _on_active_video_tab_changed(self, index: int):
         if self._is_switching_tabs or index < 0:
             return
-            
+
         path = self.active_videos_tabbar.tabData(index)
         if path and path != self.video_path:
             self.load_media(path)
@@ -1214,16 +1819,18 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     @Slot(int)
     def _on_active_video_tab_closed(self, index: int):
         path = self.active_videos_tabbar.tabData(index)
-        
+
         # Don't allow closing the last tab
         if self.active_videos_tabbar.count() <= 1:
-            QMessageBox.information(self, "Cannot Close", "Cannot close the last active video.")
+            QMessageBox.information(
+                self, "Cannot Close", "Cannot close the last active video."
+            )
             return
 
         self.active_videos_tabbar.removeTab(index)
         if path in self.active_videos_config:
             del self.active_videos_config[path]
-            
+
         # If we closed the currently active video, it will automatically switch tab and load the new one via currentChanged signal
         if path == self.video_path:
             new_idx = self.active_videos_tabbar.currentIndex()
@@ -1241,13 +1848,13 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     @Slot(str)
     def load_media(self, file_path: str):
         old_path = self.video_path
-        
+
         if old_path == file_path:
             return
-            
+
         if old_path:
             self._save_current_video_config()
-            
+
         self.video_path = file_path
 
         ext = Path(file_path).suffix.lower()
@@ -1296,7 +1903,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.video_container_widget.setVisible(True)
         self.extract_group.setVisible(True)
 
-        self.btn_snapshot.setEnabled(True if getattr(self, "start_time_ms", 0) else False)
+        self.btn_snapshot.setEnabled(
+            True if getattr(self, "start_time_ms", 0) else False
+        )
         if not getattr(self, "start_time_ms", 0):
             self.btn_snapshot.setText("📸 Snapshot (Set Start First)")
         else:
@@ -1307,7 +1916,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.btn_set_cut_start.setEnabled(True)
         self.btn_set_cut_end.setEnabled(True)
         self.btn_add_tag.setEnabled(True)
-        
+
         self._apply_player_mode()
 
     @Slot()
@@ -1979,9 +2588,11 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 try:
                     if send_to_trash_enabled:
                         from send2trash import send2trash
+
                         send2trash(path)
                     else:
                         import os
+
                         os.remove(path)
                     if path in self.current_extracted_paths:
                         self.current_extracted_paths.remove(path)
@@ -2543,51 +3154,78 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         )
 
         dlg = FrameSelectionDialog(self.video_path, start_ms=start_ms, parent=self)
-        if dlg.exec() == QDialog.Accepted and dlg.selected_image:
-            self.extraction_status_label.setText("Saving snapshot...")
-            self.extraction_status_label.show()
-            self.qml_extraction_status.emit("Saving snapshot...")
-
-            # Use target size logic if not "Native"
-            target_size = self._get_target_size()
-            img = dlg.selected_image
-            if target_size:
-                img = img.scaled(
-                    target_size[0],
-                    target_size[1],
-                    Qt.IgnoreAspectRatio,
-                    Qt.SmoothTransformation,
-                )
-
-            # Generate filename
+        if dlg.exec() == QDialog.Accepted:
             timestamp_ms = int(dlg.selected_frame_idx / dlg.fps * 1000)
-            filename = f"{Path(self.video_path).stem}_snap_{timestamp_ms}ms.png"
-            out_path = self.extraction_dir / filename
-
-            if img.save(str(out_path)):
-                self.extraction_status_label.setText(f"Snapshot saved: {filename}")
+            if self.extraction_queue_enabled:
+                config = {
+                    "type": "single",
+                    "video_path": self.video_path,
+                    "start_ms": timestamp_ms,
+                    "end_ms": timestamp_ms,
+                    "output_dir": str(self.extraction_dir),
+                    "target_resolution": self._get_target_size(),
+                    "cuts_ms": [],
+                    "frame_interval": 1,
+                    "smart_extract": False,
+                    "smart_method": "",
+                    "fps": getattr(dlg, "fps", 23.976),
+                    "mute_audio": False,
+                    "use_ffmpeg": True,
+                    "speed": "1.0",
+                }
+                self.extraction_queue.append(config)
+                self._update_queue_ui()
+                self.extraction_status_label.setText(
+                    f"Added snapshot to queue. Queue size: {len(self.extraction_queue)}"
+                )
                 self.extraction_status_label.show()
+                return
 
-                # Record metadata
-                metadata = self._get_current_extraction_metadata()
-                metadata["mode"] = "snapshot"
-                metadata["start_ms"] = timestamp_ms
-                metadata["end_ms"] = timestamp_ms
-                metadata["fps"] = getattr(dlg, "fps", 23.976)
-                self._record_extraction([str(out_path)], metadata)
+            if dlg.selected_image:
+                self.extraction_status_label.setText("Saving snapshot...")
+                self.extraction_status_label.show()
+                self.qml_extraction_status.emit("Saving snapshot...")
 
-                # Update cache and refresh the source label style
-                self._refresh_extracted_stems_cache()
-                if self.video_path in self.source_path_to_widget:
-                    widget = self.source_path_to_widget[self.video_path]
-                    label = widget.findChild(ClickableLabel)
-                    if label:
-                        self._update_source_label_style(self.video_path, label, True)
+                # Use target size logic if not "Native"
+                target_size = self._get_target_size()
+                img = dlg.selected_image
+                if target_size:
+                    img = img.scaled(
+                        target_size[0],
+                        target_size[1],
+                        Qt.IgnoreAspectRatio,
+                        Qt.SmoothTransformation,
+                    )
 
-                # Auto-refresh gallery if needed
-                self.scan_directory(str(self.extraction_dir))
-            else:
-                QMessageBox.critical(self, "Error", "Failed to save snapshot.")
+                filename = f"{Path(self.video_path).stem}_snap_{timestamp_ms}ms.png"
+                out_path = self.extraction_dir / filename
+
+                if img.save(str(out_path)):
+                    self.extraction_status_label.setText(f"Snapshot saved: {filename}")
+                    self.extraction_status_label.show()
+
+                    # Record metadata
+                    metadata = self._get_current_extraction_metadata()
+                    metadata["mode"] = "snapshot"
+                    metadata["start_ms"] = timestamp_ms
+                    metadata["end_ms"] = timestamp_ms
+                    metadata["fps"] = getattr(dlg, "fps", 23.976)
+                    self._record_extraction([str(out_path)], metadata)
+
+                    # Update cache and refresh the source label style
+                    self._refresh_extracted_stems_cache()
+                    if self.video_path in self.source_path_to_widget:
+                        widget = self.source_path_to_widget[self.video_path]
+                        label = widget.findChild(ClickableLabel)
+                        if label:
+                            self._update_source_label_style(
+                                self.video_path, label, True
+                            )
+
+                    # Auto-refresh gallery if needed
+                    self.scan_directory(str(self.extraction_dir))
+                else:
+                    QMessageBox.critical(self, "Error", "Failed to save snapshot.")
 
     def _set_extraction_buttons_enabled(self, enabled: bool):
         """Helper to enable/disable all extraction-related buttons."""
@@ -2680,6 +3318,31 @@ class ImageExtractorTab(AbstractClassSingleGallery):
     def _run_extraction(self, start: int, end: int, is_range: bool):
         target_size = self._get_target_size()
 
+        if self.extraction_queue_enabled:
+            config = {
+                "type": "range" if is_range else "single",
+                "video_path": self.video_path,
+                "start_ms": start,
+                "end_ms": end,
+                "output_dir": str(self.extraction_dir),
+                "target_resolution": target_size,
+                "cuts_ms": self.cuts_ms[:],
+                "frame_interval": self.spin_interval.value(),
+                "smart_extract": self.check_smart_extract.isChecked(),
+                "smart_method": self.combo_smart_method.currentText(),
+                "fps": 23.976,
+                "mute_audio": False,
+                "use_ffmpeg": True,
+                "speed": 1.0,
+            }
+            self.extraction_queue.append(config)
+            self._update_queue_ui()
+            self.extraction_status_label.setText(
+                f"Added frame range to queue. Queue size: {len(self.extraction_queue)}"
+            )
+            self.extraction_status_label.show()
+            return
+
         self._set_extraction_buttons_enabled(False)
         self.extraction_progress_bar.setValue(0)
         self.extraction_progress_bar.show()
@@ -2732,6 +3395,31 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         except ValueError:
             speed = 1.0
 
+        if self.extraction_queue_enabled:
+            config = {
+                "type": "gif",
+                "video_path": self.video_path,
+                "start_ms": start,
+                "end_ms": end,
+                "output_dir": str(self.extraction_dir),
+                "target_resolution": target_size,
+                "cuts_ms": self.cuts_ms[:],
+                "frame_interval": 1,
+                "smart_extract": False,
+                "smart_method": "",
+                "fps": fps,
+                "mute_audio": False,
+                "use_ffmpeg": (self.combo_engine.currentText() == "FFmpeg"),
+                "speed": speed,
+            }
+            self.extraction_queue.append(config)
+            self._update_queue_ui()
+            self.extraction_status_label.setText(
+                f"Added GIF extract to queue. Queue size: {len(self.extraction_queue)}"
+            )
+            self.extraction_status_label.show()
+            return
+
         self._set_extraction_buttons_enabled(False)
         self.extraction_progress_bar.setValue(0)
         self.extraction_progress_bar.show()
@@ -2774,6 +3462,31 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             speed = float(speed_str)
         except ValueError:
             speed = 1.0
+
+        if self.extraction_queue_enabled:
+            config = {
+                "type": "video",
+                "video_path": self.video_path,
+                "start_ms": start,
+                "end_ms": end,
+                "output_dir": str(self.extraction_dir),
+                "target_resolution": target_size,
+                "cuts_ms": self.cuts_ms[:],
+                "frame_interval": 1,
+                "smart_extract": False,
+                "smart_method": "",
+                "fps": 23.976,
+                "mute_audio": mute_audio,
+                "use_ffmpeg": (self.combo_engine.currentText() == "FFmpeg"),
+                "speed": speed,
+            }
+            self.extraction_queue.append(config)
+            self._update_queue_ui()
+            self.extraction_status_label.setText(
+                f"Added video extract to queue. Queue size: {len(self.extraction_queue)}"
+            )
+            self.extraction_status_label.show()
+            return
 
         self._set_extraction_buttons_enabled(False)
         self.extraction_progress_bar.setValue(0)
@@ -3169,3 +3882,123 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         )
 
         QThreadPool.globalInstance().start(worker)
+
+    @Slot()
+    def clear_queue(self):
+        self.extraction_queue.clear()
+        self._update_queue_ui()
+        self.extraction_status_label.setText("Queue cleared.")
+        self.extraction_status_label.show()
+
+    def _update_queue_ui(self):
+        self.queue_list.clear()
+        for idx, item in enumerate(self.extraction_queue):
+            v_name = Path(item["video_path"]).name
+            t_type = item["type"].upper()
+            start_fmt = time.strftime("%M:%S", time.gmtime(item["start_ms"] / 1000.0))
+            end_fmt = (
+                time.strftime("%M:%S", time.gmtime(item["end_ms"] / 1000.0))
+                if item["end_ms"] != -1
+                else "End"
+            )
+            self.queue_list.addItem(
+                f"{idx + 1}. [{t_type}] {v_name} ({start_fmt} - {end_fmt})"
+            )
+
+        enabled = len(self.extraction_queue) > 0
+        self.btn_process_queue.setEnabled(enabled)
+        self.btn_clear_queue.setEnabled(enabled)
+
+    def _on_queue_toggle_changed(self):
+        if hasattr(self, "queue_group"):
+            self.queue_group.setVisible(self.extraction_queue_enabled)
+
+    @Slot()
+    def process_queue(self):
+        if not self.extraction_queue:
+            return
+
+        mode = self.combo_queue_mode.currentText()
+        is_parallel = "Parallel" in mode
+
+        self.btn_process_queue.setEnabled(False)
+        self.btn_clear_queue.setEnabled(False)
+        self.combo_queue_mode.setEnabled(False)
+
+        self.extraction_progress_bar.setValue(0)
+        self.extraction_progress_bar.show()
+        self.extraction_status_label.setText(f"Processing queue ({mode})...")
+        self.extraction_status_label.show()
+
+        self.active_queue_worker = QueueExecutionWorker(
+            self.extraction_queue, parallel=is_parallel
+        )
+        self.active_queue_worker.signals.progress.connect(
+            self.extraction_progress_bar.setValue
+        )
+        self.active_queue_worker.signals.finished.connect(
+            self._on_queue_processing_finished
+        )
+        self.active_queue_worker.signals.error.connect(self._on_queue_processing_error)
+
+        QThreadPool.globalInstance().start(self.active_queue_worker)
+
+    def _on_queue_processing_finished(self, results):
+        self.active_queue_worker = None
+        self.extraction_progress_bar.hide()
+        self.extraction_status_label.hide()
+
+        self.btn_process_queue.setEnabled(True)
+        self.btn_clear_queue.setEnabled(True)
+        self.combo_queue_mode.setEnabled(True)
+
+        self.extraction_queue.clear()
+        self._update_queue_ui()
+
+        new_paths = []
+        errors = []
+        for res in results:
+            if res.get("status") == "success":
+                if "saved_files" in res:
+                    new_paths.extend(res["saved_files"])
+                elif "output_path" in res:
+                    new_paths.append(res["output_path"])
+            else:
+                errors.append(res.get("message", "Unknown error"))
+
+        if new_paths:
+            self._refresh_extracted_stems_cache()
+            self.start_loading_gallery(new_paths, append=True)
+            self.current_extracted_paths = self.gallery_image_paths[:]
+
+            for path, widget in self.source_path_to_widget.items():
+                label = widget.findChild(ClickableLabel)
+                if label:
+                    self._update_source_label_style(
+                        path, label, path == getattr(self, "video_path", None)
+                    )
+
+        if errors:
+            QMessageBox.warning(
+                self,
+                "Queue Extraction Completed with Errors",
+                f"Processed queue items. Errors encountered:\n" + "\n".join(errors),
+            )
+        else:
+            QMessageBox.information(
+                self,
+                "Success",
+                f"Queue execution complete! Processed all items. Extracted {len(new_paths)} items.",
+            )
+
+    def _on_queue_processing_error(self, error_msg):
+        self.active_queue_worker = None
+        self.extraction_progress_bar.hide()
+        self.extraction_status_label.hide()
+
+        self.btn_process_queue.setEnabled(True)
+        self.btn_clear_queue.setEnabled(True)
+        self.combo_queue_mode.setEnabled(True)
+
+        if "cancelled" not in error_msg.lower():
+            QMessageBox.warning(self, "Queue Processing Error", error_msg)

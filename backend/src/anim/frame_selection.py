@@ -306,6 +306,69 @@ def _detect_hold_blocks_dhash(
 
 
 # ---------------------------------------------------------------------------
+# Exact-duplicate dHash guard (§1.64)
+# ---------------------------------------------------------------------------
+
+# §1.64 — Exact-duplicate pHash guard (S129).
+# Drops consecutive frames whose dHash Hamming distance is exactly 0 — these are
+# pixel-identical at the thumbnail level and carry zero new canvas information.
+# Distinct from §3.4A hold detection (which groups them) and §1.2D temporal
+# variance filter (which operates in float space and can miss MPEG-exact duplicates
+# that upsampled to uint8 round to identical thumbnails).
+# This guard fires in step 0 of smart_select_frames, before any other filter.
+# Default OFF (ASP_DHASH_EXACT_DROP=0).  Set to 1 to enable.
+try:
+    _DHASH_EXACT_DROP: bool = os.environ.get("ASP_DHASH_EXACT_DROP", "0") != "0"
+except Exception:
+    _DHASH_EXACT_DROP = False
+
+
+def _drop_exact_dhash_duplicates(
+    thumbs: List[np.ndarray],
+    paths: List[str],
+) -> "tuple[List[np.ndarray], List[str], int]":
+    """§1.64: Drop consecutive frames that are pixel-identical at dHash scale (S129).
+
+    Uses ``_compute_dhash`` (INTER_AREA resize, 64-bit hash) to detect
+    exact duplicates: frames whose Hamming distance is **0** — every gradient
+    bit matches.  When two consecutive frames have distance 0 the second frame
+    is dropped (the first is kept as the canonical representative of that content).
+
+    This is stricter than §3.4A hold detection (threshold ≤ 4) and earlier
+    than §1.2D temporal variance — it eliminates true byte-level duplicates
+    before any heavier processing runs.
+
+    First and last frames are always retained, even if they are identical to
+    their neighbours, to preserve canvas extent.
+
+    Parameters
+    ----------
+    thumbs : list of (H, W) float32 thumbnails in [0, 1].  Length N.
+    paths  : corresponding file paths.  Length N.
+
+    Returns
+    -------
+    (filtered_thumbs, filtered_paths, n_dropped)
+    """
+    N = len(thumbs)
+    if N < 3:
+        return list(thumbs), list(paths), 0
+
+    hashes = [_compute_dhash(t) for t in thumbs]
+    keep = [True] * N
+    for i in range(1, N - 1):
+        if int(np.sum(hashes[i] != hashes[i - 1])) == 0:
+            keep[i] = False
+
+    n_dropped = keep.count(False)
+    return (
+        [t for t, k in zip(thumbs, keep) if k],
+        [p for p, k in zip(paths, keep) if k],
+        n_dropped,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Phase-correlation response hold refinement (§1.11C)
 # ---------------------------------------------------------------------------
 
@@ -891,6 +954,21 @@ def smart_select_frames(
     # ── 1. Load thumbnails ─────────────────────────────────────────────────
     thumbs = _load_thumbs_parallel(frames_paths)
 
+    # ── 0. §1.64: Exact-duplicate dHash guard ─────────────────────────────
+    # Drop consecutive frames whose 64-bit dHash is bit-for-bit identical —
+    # MPEG still frames that survived INTER_AREA downscale unchanged.  Runs
+    # before all heavier filters so they operate on a deduplicated sequence.
+    if _DHASH_EXACT_DROP and N > 2:
+        thumbs, frames_paths, _n_dedup_drop = _drop_exact_dhash_duplicates(
+            thumbs, frames_paths
+        )
+        N = len(frames_paths)
+        if verbose and _n_dedup_drop > 0:
+            print(
+                f"  [ExactDedup] §1.64: dropped {_n_dedup_drop} exact-duplicate "
+                f"frames → {N} remain"
+            )
+
     # ── 1a. §1.2D: Temporal variance pre-filter ───────────────────────────
     # Drop interior frames whose mean per-pixel variance across the (i-1,i,i+1)
     # triplet is below _TEMPORAL_VAR_THRESH.  Zero camera motion AND zero
@@ -1281,6 +1359,7 @@ __all__ = [
     "_detect_hold_blocks",
     "_detect_hold_blocks_dhash",
     "_compute_dhash",
+    "_drop_exact_dhash_duplicates",
     "_refine_hold_ids_by_response",
     "_temporal_variance_filter",
     "_reject_blurry_frames",

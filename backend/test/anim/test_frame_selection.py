@@ -37,6 +37,7 @@ from backend.src.anim.frame_selection import (
     _detect_hold_blocks,
     _detect_hold_blocks_dhash,
     _compute_dhash,
+    _drop_exact_dhash_duplicates,
     _refine_hold_ids_by_response,
     _temporal_variance_filter,
     _reject_blurry_frames,
@@ -725,3 +726,57 @@ class TestRejectLowContrastFrames:
         paths = ["a.png", "f1.png", "f2.png", "b.png"]
         _, _, n_drop = _reject_low_contrast_frames(thumbs, paths, contrast_threshold=15.0)
         assert n_drop == 2
+
+
+class TestDropExactDhashDuplicates:
+    """§1.64 (S129): Exact-duplicate dHash guard."""
+
+    @staticmethod
+    def _unique(seed: int, h: int = 64, w: int = 64) -> np.ndarray:
+        rng = np.random.default_rng(seed)
+        return rng.random((h, w)).astype(np.float32)
+
+    @staticmethod
+    def _copy_of(thumb: np.ndarray) -> np.ndarray:
+        return thumb.copy()
+
+    def test_no_duplicates_unchanged(self):
+        thumbs = [self._unique(1), self._unique(2), self._unique(3)]
+        paths = ["a.png", "b.png", "c.png"]
+        _, result_p, n_drop = _drop_exact_dhash_duplicates(thumbs, paths)
+        assert n_drop == 0
+        assert result_p == paths
+
+    def test_consecutive_duplicate_dropped(self):
+        t0 = self._unique(10)
+        t1 = self._unique(20)
+        # Frame 1 is an exact copy of frame 0 — should be dropped.
+        thumbs = [t0, self._copy_of(t0), t1]
+        paths = ["first.png", "dup.png", "last.png"]
+        _, result_p, n_drop = _drop_exact_dhash_duplicates(thumbs, paths)
+        assert n_drop == 1
+        assert "dup.png" not in result_p
+
+    def test_first_and_last_always_kept(self):
+        t = self._unique(42)
+        # All three frames are identical; only interior (index 1) may be dropped.
+        thumbs = [t, self._copy_of(t), self._copy_of(t)]
+        paths = ["first.png", "mid.png", "last.png"]
+        _, result_p, _ = _drop_exact_dhash_duplicates(thumbs, paths)
+        assert "first.png" in result_p
+        assert "last.png" in result_p
+
+    def test_short_sequence_unchanged(self):
+        thumbs = [self._unique(1), self._unique(2)]
+        paths = ["a.png", "b.png"]
+        _, result_p, n_drop = _drop_exact_dhash_duplicates(thumbs, paths)
+        assert n_drop == 0
+        assert result_p == paths
+
+    def test_returns_correct_lengths(self):
+        t = self._unique(99)
+        thumbs = [self._unique(0), self._copy_of(t), self._copy_of(t), self._unique(1)]
+        paths = ["a.png", "d1.png", "d2.png", "b.png"]
+        result_t, result_p, n_drop = _drop_exact_dhash_duplicates(thumbs, paths)
+        assert len(result_t) == len(result_p)
+        assert len(result_t) + n_drop == len(thumbs)

@@ -1355,6 +1355,41 @@ Extend Option A to compute per-channel histograms and return the minimum across 
 
 ---
 
+## 1.67 Frame Canvas Spread Validation [Quick Win] ✅ Shipped S131
+
+**Pain point:** The §1.15 connectivity gate and §1.16 MST weight gate verify *graph topology*, but neither checks whether the selected frames actually cover the full scroll range. When frames cluster near one end of the scroll (first 30% of a 600px scene), the assembled panorama will be a narrow slice — BA produces geometrically valid translations, yet coverage is fundamentally limited by the input set.
+
+**Option A — Pre-BA spread fraction check [Quick Win]** ✅ **Shipped S131**
+`_check_canvas_spread(edges, min_spread_fraction) → bool` in `pipeline.py`. BFS propagates pairwise translations from frame 0 to reconstruct each frame's cumulative position. Computes `actual_dom_span / (median_adj_step × (N-1))`. Returns `False` (trigger SCANS fallback) when ratio < min_spread_fraction. Dominant axis = whichever of ty/tx has larger cumulative span. `_CANVAS_SPREAD_MIN` flag (default 0.0=off, `ASP_CANVAS_SPREAD_MIN=0.5`). Wired before Stage 7 BA between §1.16 MST weight gate and §1.43 adj-coverage gate. `ASP_CANVAS_SPREAD_MIN` added to `_CONFIG_SCHEMA` and `_DUMP_SECTIONS`. Exported in `__all__`. 5 tests in `TestCheckCanvasSpread`. **827 tests passing.**
+- Catches clustered frame selections (all frames in first 30% of scroll) before BA wastes computation.
+- The ratio > 1.0 case (oscillating frames) is handled earlier by §1.17 (canvas span utilisation gate post-BA).
+- Safe fallback: degenerate inputs (empty edges, zero expected span) return True.
+
+---
+
+## 1.66 NCC Structural Coherence Gate [Quick Win] ✅ Shipped S131
+
+**Pain point:** §1.14B (Bhattacharyya colour gate, pre-composite) detects *colour distribution* mismatches but passes when two strips have identical colour palettes in different spatial arrangements — e.g., a character with a blue torso in the top strip and the same blue background sky in the bottom strip. §1.24 (luma step gate, post-composite) detects absolute luminance discontinuities but passes when the transition is gradual. Neither detects *structural texture pattern* mismatch: two strips whose gradient/line-art patterns are completely different, indicating a character pose jump that blending cannot smooth.
+
+**Option A — Post-composite NCC gate [Quick Win]** ✅ **Shipped S131**
+`_seam_ncc_coherence(img, n_strips, band_px=60) → List[float]` in `compositing.py`. For each inter-strip seam boundary, computes NCC between the `band_px`-row window above and below: `ncc = mean((A−μA)·(B−μB)) / (σAσB + ε)`. Flat bands (σ < 1e-3) return 1.0 (no texture = no mismatch). `_check_seam_ncc_gate(img, n_strips, thresh, band_px) → Optional[int]` returns worst-NCC seam index when any seam falls below thresh; returns None when all pass. `_SEAM_NCC_GATE` module flag (default 0.0=off, `ASP_SEAM_NCC_GATE=0.45`). Wired as Stage 11.4 in `pipeline.py` between Stage 11.3 (luma-step gate) and Stage 11.5 (SRStitcher). `ASP_SEAM_NCC_GATE` added to `_CONFIG_SCHEMA` (compositing section) and `_DUMP_SECTIONS`. Both functions exported in `compositing.__all__`. 5 tests in `TestSeamNccCoherenceCompositing`. **827 tests passing.**
+- NCC score thresholds: ≥0.90 excellent (invisible seam), 0.70–0.90 good, 0.40–0.70 moderate, <0.40 severe structure mismatch. Recommend threshold=0.45.
+- Complements §1.14B (pre-composite colour histogram) and §1.24 (post-composite luma step): detects structural line-art discontinuity that both miss.
+- Both functions (`_seam_ncc_coherence`, `_check_seam_ncc_gate`) reusable in bench diagnostics without cross-import.
+
+---
+
+## 1.8D Typed TOML Schema Annotations in dump_asp_config [Quick Win] ✅ Shipped S131
+
+**Pain point:** `dump_asp_config` (§1.8C, S126) emits a TOML file with human-readable description comments above each key. Tooling that wants to validate the file (CI scripts, TOML linters, IDE plugins) has no machine-readable type/range information — it must import the Python module to get the schema. The comment format was purely prose, making automated validation impossible without parsing.
+
+**Option A — Machine-readable type/range comment prefix [Quick Win]** ✅ **Shipped S131**
+`dump_asp_config` updated to emit two comment lines per key (when key is in `_CONFIG_SCHEMA`): (1) `# type: <typename>  range: [<min>, <max>]` — machine-readable constraint annotation extracting `_CONFIG_SCHEMA[key][0..2]`; (2) `# <description>` — existing human-readable description. `getattr(typ, "__name__", str(typ))` extracts the Python type name. Min/max are emitted as `None` when unbounded. Function docstring updated to describe §1.8D enhancement. 5 tests in `TestDumpAspConfigSchemaComments`. **827 tests passing.**
+- Zero breaking change: existing TOML consumers ignore comment lines; the key=value lines are unchanged.
+- Format is consistent with type-stub and JSON-schema conventions, making future tooling straightforward.
+
+---
+
 ## 1.56 Post-Composite Chroma Seam Correction [Quick Win] ✅ Shipped S122
 
 **Pain point:** §1.21 (`_seam_lum_equalize`) applies equal BGR additive offsets at seam boundaries — a pure luminance shift that leaves chrominance unchanged. Colour-temperature differences (warm interior strip vs cool exterior strip) and hue shifts between adjacent strips are not corrected by §1.21: they show up as persistent tonal banding even after luminance is equalized. The `seam_coherence` (SC) metric partially captures this, but the Bhattacharyya gate (§1.14B) only checks greyscale histograms, so chroma-only banding can slip through all existing gates.
@@ -1771,16 +1806,16 @@ PPO agent over the ASP compositing parameter space (feather width, seam cost wei
 *Effort scale* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks or data-gated
 *Impact scale* — **Low**: aesthetic or niche QoL · **Medium**: targeted corpus subset · **High**: pipeline-wide quality gain · **Very High**: architectural unlock or near-perfect ceiling
 
-*Items marked ✅ are fully shipped and removed from pending rows. Matrix last updated: S123 (2026-06-15).*
+*Items marked ✅ are fully shipped and removed from pending rows. Matrix last updated: S131 (2026-06-17).*
 
 | **Effort ↓ / Impact →** | Low | Medium | High | Very High |
 |---|---|---|---|---|
-| **Low (<1d)** | — | §1.10D active-learning | §2.11B GUI waypoint tool (SeamDiagnosticPanel click routing) | — |
+| **Low (<1d)** | — | — | §2.11B GUI waypoint tool (SeamDiagnosticPanel click routing) | — |
 | **Medium (1d–1w)** | §3.9 SI-FID evaluation | §3.16B StabStitch++ HITL manual route | §1.10B Bayesian param search · §2.8 HybridStitch handoff · §2.9 BigWarp fallback · §3.10 MLLM scoring · §3.13 ProPainter | — |
 | **High (1–2w)** | — | §3.12 Overmix sub-pixel · §3.16A StabStitch++ trajectory | §2.10 SAM2Flow interactive · §3.2 ConvGRU flow refinement · §3.5 CamFlow motion basis · §3.14B horizontal-strip compositing · §3.15B OBJ-GSP triangular mesh | — |
 | **Very High (2w+ / data-gated)** | — | — | §3.7 UDIS++ diffusion seam (end-to-end replacement) | §10C1 SAM-2 anime fine-tune · §10C2 Pose contrastive fine-tune · §10C3 PPO parameter optimization |
 
-*Already shipped (removed from matrix):* §3.4 FD-means ✅S6 · §3.8 SIQE ✅ · §9B telecine ✅ · §10B2 Label Studio ✅ · §2.5 Coverage map ✅S79 · §2.6 Crop ✅S7 · §3.15A SemanticStitch ✅S67 · §10A2 SAM-2 click-refine ✅ · §9A PyAV ✅ · §10A1 Grounded SAM-2 ✅ · §10B1 COCO ✅ · §9C Hybrid 4K ✅S119 · §3.3 DINOv2 ✅S8 · §3.6 ToonCrafter ✅S9 · §3.11 SAM-2 interactive ✅ · §10A3 NL seam ✅ · §2.1A SelectionReview ✅S79 · §2.2 EdgeReview ✅S79 · §2.3 CanvasInspector ✅S63 · §2.4A SeamDiag ✅S95 · §2.7 StagedExec ✅S79 · §1.10A quality-gate ✅S29 · §1.10E bench-import ✅S119 · §2.11A IS waypoints ✅S123
+*Already shipped (removed from matrix):* §3.4 FD-means ✅S6 · §3.8 SIQE ✅ · §9B telecine ✅ · §10B2 Label Studio ✅ · §2.5 Coverage map ✅S79 · §2.6 Crop ✅S7 · §3.15A SemanticStitch ✅S67 · §10A2 SAM-2 click-refine ✅ · §9A PyAV ✅ · §10A1 Grounded SAM-2 ✅ · §10B1 COCO ✅ · §9C Hybrid 4K ✅S119 · §3.3 DINOv2 ✅S8 · §3.6 ToonCrafter ✅S9 · §3.11 SAM-2 interactive ✅ · §10A3 NL seam ✅ · §2.1A SelectionReview ✅S79 · §2.2 EdgeReview ✅S79 · §2.3 CanvasInspector ✅S63 · §2.4A SeamDiag ✅S95 · §2.7 StagedExec ✅S79 · §1.10A quality-gate ✅S29 · §1.10E bench-import ✅S119 · §2.11A IS waypoints ✅S123 · §1.10D active-learning ✅S130 · §1.66 NCC gate ✅S131 · §1.67 canvas-spread ✅S131 · §1.8C/D dump-config ✅S131
 
 ---
 

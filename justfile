@@ -438,7 +438,7 @@ slideshow:
 # --- AI Assistant ---
 
 # Loops the Claude Code agent on a stateful context with live-streaming reasoning steps
-loop-agent prompt="Continue upgrading the ASP, while continuing to update the ASP-related markdown files like the changelog and roadmaps. After analysing the relevant files, but before beginning the implementation, always ask questions to clarify assumptions or missing requirements, and to select which options to purse from the specific roadmap(s).":
+loop-agent prompt="Continue upgrading the ASP, while continuing to update the ASP-related markdown files like the changelog and roadmaps. After analysing the relevant files, but before beginning the implementation, always ask questions to clarify assumptions or missing requirements, and to select which options to purse from the specific roadmap(s). DONT RUN ANY FUCKING TESTS. DONT RUN ANY FUCKING TESTS. DONT YOU EVEN DARE ABOUT THINKING ABOUT RUNNING ANY TESTS! NEVER RUN TESTS!!!!!!!!!":
     #!/usr/bin/env bash
     set -euo pipefail
 
