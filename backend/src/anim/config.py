@@ -39,7 +39,7 @@ import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-__all__ = ["load_asp_config", "validate_asp_config"]
+__all__ = ["load_asp_config", "validate_asp_config", "dump_asp_config"]
 
 _DEFAULT_CONFIG_NAME = "asp_config.toml"
 
@@ -441,6 +441,42 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         None,
         "§3.16: IQR threshold (px) below which trajectory smoother is skipped — clean linear-scroll sequences have near-zero IQR and are not modified; default 10.0",
     ),
+    "ASP_FG_POSE_GAP_THRESH": (
+        float,
+        0.0,
+        255.0,
+        "§1.60: Mean absolute fg-pixel luminance diff (luma units) between adjacent warped frames in blend zone; exceeds → single-pose escalation before DP (0=off, suggest 35.0)",
+    ),
+    "ASP_MIN_CANVAS_ASPECT": (
+        float,
+        0.0,
+        None,
+        "§1.62: Minimum canvas height/width aspect ratio for vertical-scroll sequences after Stage 9 BA; aspect below floor → SCANS fallback (0=off, suggest 0.5)",
+    ),
+    "ASP_FG_SEAM_EROSION_PX": (
+        int,
+        0,
+        20,
+        "§1.65: Erode fg mask by this many pixels before Tier-1 cost assignment; converts outline ring from cost=1.0 to cost=0.5, nudging DP seam one ring outward (0=off, suggest 2)",
+    ),
+    "ASP_DHASH_EXACT_DROP": (
+        int,
+        0,
+        1,
+        "§1.64: Drop consecutive frames whose 64-bit dHash is bit-identical before all other filters; set to 1 to enable (0=off)",
+    ),
+    "ASP_SEAM_NCC_GATE": (
+        float,
+        0.0,
+        1.0,
+        "§1.66: Post-composite NCC structural coherence gate; seams with NCC < threshold trigger SCANS fallback (0=off, suggest 0.45)",
+    ),
+    "ASP_CANVAS_SPREAD_MIN": (
+        float,
+        0.0,
+        1.0,
+        "§1.67: Minimum fraction of expected canvas range that selected frames must span before BA; catches clustered frame sets (0=off, suggest 0.5)",
+    ),
 }
 
 
@@ -571,3 +607,200 @@ def load_asp_config(
                 os.environ.setdefault(key, str(val))
 
     return flat
+
+
+# Logical section groupings for the TOML dump (§1.8C).
+# Maps section header → list of ASP env-var key prefixes belonging to it.
+_DUMP_SECTIONS: Dict[str, List[str]] = {
+    "frame_selection": [
+        "ASP_HOLD_THRESHOLD",
+        "ASP_HOLD_DHASH_THRESH",
+        "ASP_DHASH_EXACT_DROP",
+        "ASP_NEAR_DUP_LUMA",
+        "ASP_HIGH_HOLD_RESPONSE",
+        "ASP_TEMPORAL_VAR_THRESH",
+        "ASP_BLUR_REJECT_THRESH",
+        "ASP_CONTRAST_THRESH",
+        "ASP_TWO_CHANNEL_SELECT",
+        "ASP_OTSU_BG_CORR",
+        "ASP_POSE_WINDOW_PX",
+        "ASP_SGM_PROXY",
+    ],
+    "compositing": [
+        "ASP_SP_SOFT_PX",
+        "ASP_GATE_GHOST_FLOOR",
+        "ASP_POISSON_SEAM",
+        "ASP_TOONCRAFTER_SEAM",
+        "ASP_MULTISCALE_GAIN",
+        "ASP_HISTOGRAM_MATCH",
+        "ASP_EXPOSURE_OUTLIER_THRESH",
+        "ASP_SEAM_COLOR_GATE",
+        "ASP_SEAM_COLOR_GATE_BGR",
+        "ASP_ADAPTIVE_SP_THRESH",
+        "ASP_FG_FEATHER_CAP",
+        "ASP_FG_FEATHER_THRESH",
+        "ASP_TIGHT_STEP_PX",
+        "ASP_SEAM_LUM_EQ",
+        "ASP_SEAM_CHROMA_EQ",
+        "ASP_ADAPTIVE_SP_SOFT",
+        "ASP_SEAM_HARD_BARRIER",
+        "ASP_SEAM_HARD_BARRIER_COST",
+        "ASP_SEAM_SMOOTH_WINDOW",
+        "ASP_SEAM_MARGIN",
+        "ASP_BG_NORM_MIN_PX",
+        "ASP_SEAM_INSTABILITY_THRESH",
+        "ASP_ZONE_MIN_HEIGHT",
+        "ASP_SEAM_FG_PENETRATION_MAX",
+        "ASP_SEAM_OVERLAY",
+        "ASP_SEAM_LOW_TEXTURE_THRESH",
+        "ASP_LINE_GRAD_WEIGHT",
+        "ASP_FG_POSE_GAP_THRESH",
+        "ASP_FG_SEAM_EROSION_PX",
+        "ASP_SEAM_NCC_GATE",
+    ],
+    "bundle_adjust": [
+        "ASP_BA_F_SCALE",
+        "ASP_GNC_OUTER",
+        "ASP_MATCH_SPREAD_CEIL",
+        "ASP_LOFTR_BG_RATIO_MIN",
+    ],
+    "pipeline": [
+        "ASP_COV_MIN_MULTI_PCT",
+        "ASP_SCANS_RELOAD",
+        "ASP_USE_SAM2",
+        "ASP_BG_COMPLETE",
+        "ASP_BG_COMPLETE_MIN_ROWS",
+        "ASP_TRI_CONSISTENCY",
+        "ASP_MIN_BG_FRACTION",
+        "ASP_RENDER_MIN_COVERAGE",
+        "ASP_ADJ_COVERAGE_MIN",
+        "ASP_MAX_ADJACENT_GAP_PX",
+        "ASP_MAX_CANVAS_WIDTH_RATIO",
+        "ASP_MIN_CANVAS_ASPECT",
+        "ASP_MIN_ADJACENT_OVERLAP_PX",
+        "ASP_CANVAS_MAX_MEMORY_MB",
+        "ASP_RENDER_LUMA_STD_MIN",
+        "ASP_MAX_AFFINE_ROTATION_DEG",
+        "ASP_CANVAS_SPAN_MIN_UTIL",
+        "ASP_SEAM_STEP_GATE",
+        "ASP_STATIC_INPUT_MAX_MAD",
+        "ASP_SIGN_INCONSISTENCY_MAX",
+        "ASP_ADJ_DISP_CV_MAX",
+        "ASP_ADJ_MIN_WEIGHT",
+        "ASP_BA_RESIDUAL_MAX",
+        "ASP_BA_WMEAN_RESIDUAL_MAX",
+        "ASP_TRAJ_SMOOTH_SIGMA",
+        "ASP_TRAJ_SMOOTH_IQR_THRESH",
+        "ASP_SCENE_CHANGE_LUMA_THRESH",
+        "ASP_SCENE_CHANGE_BGR_THRESH",
+        "ASP_ADAPTIVE_RENDER_GAIN",
+        "ASP_GAIN_DRIFT_MAX",
+        "ASP_INTERP_BG_FILL",
+        "ASP_CANVAS_SPREAD_MIN",
+    ],
+}
+
+
+def dump_asp_config(
+    path: Optional[str] = None,
+    *,
+    include_defaults: bool = False,
+) -> str:
+    """§1.8C/D: Serialize the current ASP env-var state to a TOML file (S126/S131).
+
+    Reads all known ``ASP_*`` env-var keys from ``os.environ`` and writes them
+    to a TOML file grouped into logical sections (frame_selection, compositing,
+    bundle_adjust, pipeline).  Only keys that are currently set in the environment
+    are written by default; pass ``include_defaults=True`` to emit all schema keys
+    with their default values (``"0"`` for most flags, or the built-in default).
+
+    §1.8D enhancement (S131): each key is preceded by two comment lines:
+    *   ``# type: <typename>  range: [min, max]`` — machine-readable constraint
+        annotation (``min``/``max`` are ``None`` when unbounded).
+    *   ``# <description>`` — human-readable explanation from ``_CONFIG_SCHEMA``.
+
+    These comments survive round-trip through a TOML editor and let tools
+    validate the file against the schema without having to import the Python module.
+
+    This is the inverse of :func:`load_asp_config`: it lets you capture the
+    current tuning state of a successful run and save it as a reproducible config
+    file for future experiments.
+
+    Parameters
+    ----------
+    path:
+        Destination TOML file path.  Defaults to ``asp_config.toml`` in the
+        current working directory.  Parent directories are created if needed.
+    include_defaults:
+        When *True*, all schema keys are emitted (with ``"0"`` as the fallback
+        default for unset keys).  When *False* (default), only keys that are
+        explicitly set in the environment are written.
+
+    Returns
+    -------
+    str
+        Absolute path to the written file.
+    """
+    out_path = Path(path) if path is not None else Path(_DEFAULT_CONFIG_NAME)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    lines: List[str] = [
+        "# ASP pipeline configuration — generated by dump_asp_config()",
+        f"# Generated at: {__import__('datetime').datetime.now().isoformat(timespec='seconds')}",
+        "",
+    ]
+
+    written_keys: set = set()
+
+    for section, keys in _DUMP_SECTIONS.items():
+        section_lines: List[str] = []
+        for key in keys:
+            env_val = os.environ.get(key)
+            if env_val is None and not include_defaults:
+                continue
+            val_str = env_val if env_val is not None else "0"
+            # Preserve numeric type: if the value looks like a float with decimal
+            # point keep it; if it looks like a plain integer, omit quotes.
+            try:
+                if "." in val_str:
+                    toml_val = str(float(val_str))
+                else:
+                    toml_val = str(int(val_str))
+            except ValueError:
+                toml_val = f'"{val_str}"'
+            schema_entry = _CONFIG_SCHEMA.get(key)
+            if schema_entry is not None:
+                _typ, _lo, _hi, hint = schema_entry
+                # §1.8D: emit machine-readable type/range annotation first.
+                _type_name = getattr(_typ, "__name__", str(_typ)) if _typ is not None else "str"
+                _range_str = f"[{_lo}, {_hi}]"
+                section_lines.append(f"# type: {_type_name}  range: {_range_str}")
+                if hint:
+                    section_lines.append(f"# {hint}")
+            section_lines.append(f"{key} = {toml_val}")
+            written_keys.add(key)
+
+        if section_lines:
+            lines.append(f"[{section}]")
+            lines.extend(section_lines)
+            lines.append("")
+
+    # Emit any env-set ASP_* keys not covered by _DUMP_SECTIONS under [extra].
+    extra_lines: List[str] = []
+    for key, val in os.environ.items():
+        if key.startswith("ASP_") and key not in written_keys:
+            try:
+                if "." in val:
+                    toml_val = str(float(val))
+                else:
+                    toml_val = str(int(val))
+            except ValueError:
+                toml_val = f'"{val}"'
+            extra_lines.append(f"{key} = {toml_val}")
+    if extra_lines:
+        lines.append("[extra]")
+        lines.extend(extra_lines)
+        lines.append("")
+
+    out_path.write_text("\n".join(lines), encoding="utf-8")
+    return str(out_path.resolve())

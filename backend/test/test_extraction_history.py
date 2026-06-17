@@ -251,3 +251,28 @@ def test_export_finished_records_history(qapp, tmp_path, monkeypatch):
     assert tab.recent_runs[0]["video_path"] == "video_test.mp4"
     assert tab._active_metadata is None
     assert str(output_file) in tab.extraction_metadata
+
+
+def test_settings_window_theme_layout_and_button_width(qapp, monkeypatch):
+    # Mock QMessageBox popups
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *args, **kwargs: QMessageBox.StandardButton.Yes
+    )
+    monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
+    monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: None)
+    monkeypatch.setattr(QMessageBox, "critical", lambda *args, **kwargs: None)
+
+    settings = SettingsWindow()
+
+    # Assert minimum widths of the theme buttons
+    assert settings.dark_theme_radio.minimumWidth() >= 180
+    assert settings.light_theme_radio.minimumWidth() >= 180
+
+    # Assert theme selection buttons are in the "Appearance" groupbox
+    parent_groupbox = settings.dark_theme_radio.parentWidget()
+    while parent_groupbox and parent_groupbox.__class__.__name__ != "QGroupBox":
+        parent_groupbox = parent_groupbox.parentWidget()
+
+    assert parent_groupbox is not None
+    assert parent_groupbox.title() == "Appearance"
+

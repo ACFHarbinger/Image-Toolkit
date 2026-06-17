@@ -97,6 +97,17 @@ _SEAM_COLOR_GATE: float = float(
 # Enable via ASP_SEAM_COLOR_GATE_BGR=1 (default OFF — greyscale path is faster).
 _SEAM_COLOR_GATE_BGR: bool = os.environ.get("ASP_SEAM_COLOR_GATE_BGR", "0") != "0"
 
+# §1.66 — NCC structural coherence gate (S131).
+# After compositing, measures normalised cross-correlation (NCC) between the
+# band_px-row windows above and below each seam boundary.  A low NCC (< thresh)
+# indicates that the texture *pattern* above and below the boundary is structurally
+# discontinuous — different line-art, different character pose — even when the
+# Bhattacharyya gate (§1.14B) reports similar colour distributions.
+# Complementary to §1.14B (colour histogram) and §1.24 (absolute luma step).
+# NCC detects structure/pose mismatch that the other two gates miss.
+# Default 0.0 = off.  Recommend ASP_SEAM_NCC_GATE=0.45.
+_SEAM_NCC_GATE: float = float(os.environ.get("ASP_SEAM_NCC_GATE", "0.0"))
+
 # §1.18 — Adaptive single-pose escalation threshold (S62).
 # When enabled, the single-pose ghost-prevention threshold scales DOWN for wide
 # feathers so that moderate post_warp_diff values (15–22 lum) still trigger
@@ -229,6 +240,216 @@ _SEAM_LOW_TEXTURE_THRESH: float = float(
 _LINE_GRAD_WEIGHT: float = float(
     os.environ.get("ASP_LINE_GRAD_WEIGHT", "0.0")
 )
+
+# §1.65 — Foreground mask erosion buffer for seam cost (S130).
+# After standard fg/dilated-edge Tier-1 costs are applied, erode the fg mask
+# by FG_SEAM_EROSION_PX pixels before assigning cost=1.0.  This shrinks the
+# high-cost region by one ring of character-outline pixels, creating a
+# transition zone where the cost is 0.5 (edge buffer) instead of 1.0.
+# Effect: DP seams are nudged one ring outward from the character silhouette —
+# the seam cuts through the character's soft-edge halo rather than the hard
+# outline itself, reducing the colour step at single-pixel outline edges.
+# Complementary to §1.35 (line-art gradient penalty) which raises outline cost;
+# §1.65 lowers the border ring to make it the DP's preferred path.
+# Default 0 = off.  Recommend ASP_FG_SEAM_EROSION_PX=2 (one outline ring ≈ 2 px).
+_FG_SEAM_EROSION_PX: int = int(os.environ.get("ASP_FG_SEAM_EROSION_PX", "0"))
+
+# §1.60 — Foreground pose-gap pre-escalation (S124).
+# Before the DP seam cut, measures the mean absolute difference (MAD) between
+# the two warped frames restricted to their common foreground pixels in the
+# blend zone.  A high fg MAD indicates the character is in a substantially
+# different animation pose in the two frames — ARAP/flow registration cannot
+# bridge a large pose discontinuity, and the resulting Laplacian blend produces
+# a double-image ghost regardless of seam path quality.  Pre-escalating to
+# single-pose in these cases prevents the DP from routing a well-placed seam
+# through incoherent fg content.
+# Measured in [0, 255] luminance units.  Default 0.0 = off.
+# Recommend ASP_FG_POSE_GAP_THRESH=35.0 (visible pose step threshold).
+_FG_POSE_GAP_THRESH: float = float(os.environ.get("ASP_FG_POSE_GAP_THRESH", "0.0"))
+
+# §1.68 — Adjacent feather ratio enforcement (S132).
+# After all per-seam feather widths are computed (§1.6B, §1.19), a large
+# feather-width jump between adjacent seams creates a visible "rhythm"
+# discontinuity: one seam blends over 300 px, the next over 80 px, producing
+# an obvious tonal gradient difference.  When max_ratio > 0, iteratively clamp
+# each seam's feather so that no two adjacent seams differ by more than max_ratio
+# fold.  Two-pass (forward + backward) for chain stability.
+# Default 0.0 = off.  Recommend ASP_FEATHER_RATIO_MAX=3.0.
+_FEATHER_RATIO_MAX: float = float(os.environ.get("ASP_FEATHER_RATIO_MAX", "0.0"))
+
+# §1.69 — Seam DP background routing ratio (S132).
+# After _seam_cut() produces the DP traceback path, sample bg_mask values at
+# each (column, path[column]) position.  The fraction of columns where BOTH
+# frame masks classify the seam pixel as background measures how well the DP
+# found a genuine background corridor.  A low ratio means the seam was forced
+# through character pixels despite cost-map steering.  When ratio < threshold
+# and no prior single-pose decision exists, escalate to single-pose.
+# Default 0.0 = off.  Recommend ASP_SEAM_DP_BG_MIN=0.30.
+_SEAM_DP_BG_MIN: float = float(os.environ.get("ASP_SEAM_DP_BG_MIN", "0.0"))
+
+# §1.70 — Blend zone fg coverage pre-escalation (S132).
+# Before the DP seam cut, measure the fraction of the blend zone that is
+# foreground in EITHER frame (union of both masks).  When the entire zone is
+# fg-dominated (e.g., a standing character fills the full overlap between two
+# frames), §1.23/§3.15 cost barriers cannot route the seam into background
+# because no background exists in the zone.  Pre-escalating to single-pose
+# avoids DP on an infeasible cost landscape and prevents the seam from
+# bisecting the character at its thinnest accessible point.
+# Complementary to §1.31 (which checks fg penetration AFTER the DP runs).
+# Default 0.0 = off.  Recommend ASP_SEAM_ZONE_FG_MAX=0.85.
+_SEAM_ZONE_FG_MAX: float = float(os.environ.get("ASP_SEAM_ZONE_FG_MAX", "0.0"))
+
+
+def _fg_zone_pose_gap(fa_zone: np.ndarray, fb_zone: np.ndarray) -> float:
+    """§1.60: Mean absolute luminance difference between two blend-zone crops
+    restricted to their common foreground pixels (S124).
+
+    Returns the mean absolute difference (MAD) of the grayscale luminance
+    values at pixels where BOTH frames have non-zero content.  This is a
+    frame-level pose-gap estimator: high MAD → different animation poses;
+    low MAD → same (or very similar) pose.
+
+    Parameters
+    ----------
+    fa_zone, fb_zone : (zone_h, W, 3) uint8 crops of the two warped frames
+                       in the blend zone.
+
+    Returns
+    -------
+    float
+        MAD in [0, 255].  Returns 0.0 when fewer than 10 shared fg pixels
+        exist (degenerate case — no meaningful comparison possible).
+    """
+    both_fg = (fa_zone.max(axis=2) > 0) & (fb_zone.max(axis=2) > 0)
+    n_shared = int(both_fg.sum())
+    if n_shared < 10:
+        return 0.0
+    lum_a = fa_zone[..., 0].astype(np.float32) * 0.114 + \
+            fa_zone[..., 1].astype(np.float32) * 0.587 + \
+            fa_zone[..., 2].astype(np.float32) * 0.299
+    lum_b = fb_zone[..., 0].astype(np.float32) * 0.114 + \
+            fb_zone[..., 1].astype(np.float32) * 0.587 + \
+            fb_zone[..., 2].astype(np.float32) * 0.299
+    return float(np.mean(np.abs(lum_a[both_fg] - lum_b[both_fg])))
+
+
+def _enforce_feather_ratio(feathers: List[int], max_ratio: float = 3.0) -> List[int]:
+    """§1.68: Clamp adjacent feather-width jumps to at most *max_ratio*-fold (S132).
+
+    After §1.6B/§1.19 compute per-seam feather widths, adjacent seams can differ
+    dramatically (e.g. 80 px next to 300 px).  The 3× blend-zone size difference
+    creates a visible tonal rhythm discontinuity independent of seam quality.
+    This function enforces a maximum ratio between consecutive feathers via a
+    forward pass (left-to-right clamp) followed by a backward pass (right-to-left
+    clamp) for chain stability.
+
+    Parameters
+    ----------
+    feathers:
+        List or array of integer feather half-widths (px).
+    max_ratio:
+        Maximum fold-change between adjacent seams.  0.0 or negative → no-op.
+
+    Returns
+    -------
+    list[int]
+        Adjusted feather widths (new list; input is not modified).
+    """
+    if max_ratio <= 0.0 or len(feathers) <= 1:
+        return list(feathers)
+    result = [max(1, int(f)) for f in feathers]
+    for k in range(len(result) - 1):
+        if result[k + 1] > result[k] * max_ratio:
+            result[k + 1] = int(result[k] * max_ratio)
+    for k in range(len(result) - 2, -1, -1):
+        if result[k] > result[k + 1] * max_ratio:
+            result[k] = int(result[k + 1] * max_ratio)
+    return result
+
+
+def _seam_dp_bg_ratio(
+    path: np.ndarray,
+    bg_mask_a: Optional[np.ndarray],
+    bg_mask_b: Optional[np.ndarray],
+) -> float:
+    """§1.69: Fraction of the seam path that routes through background (S132).
+
+    Samples the background mask values at each ``(x, path[x])`` position along
+    the DP traceback.  Returns the fraction of columns where BOTH frame masks
+    classify the seam pixel as background (True).  A value near 1.0 means the
+    DP found a genuine background corridor; a value near 0.0 means the seam was
+    forced through character pixels despite §1.23/§3.15 cost-map steering.
+
+    Parameters
+    ----------
+    path:
+        1-D int32 array of length W; ``path[x]`` is the seam row for column x.
+    bg_mask_a, bg_mask_b:
+        Boolean arrays (H_zone, W), True = background pixel.  Either may be
+        *None* (treated as all-background for its contribution).
+
+    Returns
+    -------
+    float
+        Fraction in [0, 1]; 1.0 when no masks provided (safe default).
+    """
+    if len(path) == 0:
+        return 1.0
+    if bg_mask_a is None and bg_mask_b is None:
+        return 1.0
+    ref = bg_mask_a if bg_mask_a is not None else bg_mask_b
+    H = ref.shape[0]
+    W = len(path)
+    xs = np.arange(W, dtype=np.int32)
+    ys = np.clip(path.astype(np.int32), 0, H - 1)
+
+    if bg_mask_a is not None:
+        bg_a = bg_mask_a[ys, xs].astype(bool)
+    else:
+        bg_a = np.ones(W, dtype=bool)
+
+    if bg_mask_b is not None:
+        bg_b = bg_mask_b[ys, xs].astype(bool)
+    else:
+        bg_b = np.ones(W, dtype=bool)
+
+    both_bg = bg_a & bg_b
+    return round(float(both_bg.mean()), 4)
+
+
+def _fg_fraction_in_zone(
+    bg_mask_a: Optional[np.ndarray],
+    bg_mask_b: Optional[np.ndarray],
+) -> float:
+    """§1.70: Fraction of blend-zone pixels classified as fg in either frame (S132).
+
+    Computes the union foreground fraction: pixels where EITHER bg_mask_a or
+    bg_mask_b is False (foreground) count toward the result.  When the entire
+    overlap zone is character-dominated (fraction → 1.0), no background corridor
+    exists for the DP seam to route through — pre-escalating to single-pose is
+    more reliable than running the DP on an infeasible cost landscape.
+
+    Parameters
+    ----------
+    bg_mask_a, bg_mask_b:
+        Boolean arrays (H_zone, W), True = background pixel.  Either may be
+        *None* (treated as all-background for its contribution, i.e. adds zero
+        to the fg union).
+
+    Returns
+    -------
+    float
+        Fraction in [0, 1]; 0.0 when both masks are None (safe default).
+    """
+    if bg_mask_a is None and bg_mask_b is None:
+        return 0.0
+    if bg_mask_a is None:
+        fg_union = ~bg_mask_b.astype(bool)
+    elif bg_mask_b is None:
+        fg_union = ~bg_mask_a.astype(bool)
+    else:
+        fg_union = (~bg_mask_a.astype(bool)) | (~bg_mask_b.astype(bool))
+    return float(fg_union.mean())
 
 
 def _zone_is_degenerate(zone_h: int, min_height: int = 20) -> bool:
@@ -889,6 +1110,97 @@ def _check_seam_color_gate(
     return worst_k
 
 
+def _seam_ncc_coherence(
+    img: np.ndarray,
+    n_strips: int,
+    band_px: int = 60,
+) -> "List[float]":
+    """§1.66: Per-seam NCC structural coherence (S131).
+
+    Measures structural continuity across each seam boundary by computing the
+    normalised cross-correlation (NCC) between the *band_px*-row window
+    immediately above and the window immediately below each of the
+    ``n_strips − 1`` inter-strip seam boundaries.
+
+    NCC score per seam (in [−1, 1], higher = more coherent):
+
+    * ≥ 0.90 : excellent structural match (invisible seam)
+    * 0.70–0.90 : good continuity
+    * 0.40–0.70 : moderate mismatch (visible structure step)
+    * < 0.40   : severe mismatch (hard structure cut or pose gap)
+
+    Returns an empty list when *n_strips* ≤ 1.  Flat bands (σ < 1e-3)
+    return 1.0 per seam (no texture = no detectable mismatch).
+
+    Complementary to ``_seam_color_similarity`` (histogram similarity) — two
+    strips can have matching colour distributions but completely different
+    line-art pattern, which NCC detects while Bhattacharyya misses.
+    """
+    if n_strips <= 1:
+        return []
+    H = img.shape[0]
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    zone_h = H / n_strips
+    scores: List[float] = []
+    for k in range(1, n_strips):
+        boundary_y = int(round(zone_h * k))
+        top = gray[max(0, boundary_y - band_px):boundary_y]
+        bot = gray[boundary_y:min(H, boundary_y + band_px)]
+        if top.size == 0 or bot.size == 0:
+            scores.append(0.0)
+            continue
+        min_rows = min(top.shape[0], bot.shape[0])
+        if min_rows < 4:
+            scores.append(0.0)
+            continue
+        if top.shape[0] != min_rows:
+            top = cv2.resize(top, (top.shape[1], min_rows), interpolation=cv2.INTER_AREA)
+        if bot.shape[0] != min_rows:
+            bot = cv2.resize(bot, (bot.shape[1], min_rows), interpolation=cv2.INTER_AREA)
+        mu_a, mu_b = float(top.mean()), float(bot.mean())
+        sig_a = float(top.std())
+        sig_b = float(bot.std())
+        if sig_a < 1e-3 or sig_b < 1e-3:
+            scores.append(1.0)
+            continue
+        ncc = float(np.mean((top - mu_a) * (bot - mu_b)) / (sig_a * sig_b + 1e-8))
+        scores.append(round(float(np.clip(ncc, -1.0, 1.0)), 4))
+    return scores
+
+
+def _check_seam_ncc_gate(
+    img: np.ndarray,
+    n_strips: int,
+    thresh: Optional[float] = None,
+    band_px: int = 60,
+) -> Optional[int]:
+    """§1.66: Return the worst-NCC seam index, or None when all seams pass (S131).
+
+    Calls ``_seam_ncc_coherence`` and returns the index of the seam with the
+    *lowest* NCC score when that score falls below *thresh*.  Returns ``None``
+    when *n_strips* ≤ 1, *thresh* ≤ 0, or all seams pass.
+
+    Parameters
+    ----------
+    thresh : gate threshold in [−1, 1].  Seams with NCC < thresh trigger the
+             gate.  Defaults to the module-level ``_SEAM_NCC_GATE`` value.
+    """
+    if thresh is None:
+        thresh = _SEAM_NCC_GATE
+    if n_strips <= 1 or thresh <= 0.0:
+        return None
+    scores = _seam_ncc_coherence(img, n_strips, band_px=band_px)
+    if not scores:
+        return None
+    worst_k: Optional[int] = None
+    worst_score = thresh
+    for k, score in enumerate(scores):
+        if score < worst_score:
+            worst_score = score
+            worst_k = k
+    return worst_k
+
+
 def _multiscale_gain_map(
     frame: np.ndarray,
     reference: np.ndarray,
@@ -1311,8 +1623,21 @@ def _build_seam_cost_map(
             continue
         fg = (bm < 127).astype(np.uint8) * 255  # foreground pixels
 
+        # §1.65: Erode fg mask before Tier-1 assignment — shrinks the cost=1.0
+        # region by _FG_SEAM_EROSION_PX pixels, converting the outermost outline
+        # ring from Tier-1 (1.0) to Tier-2 edge-buffer (0.5).  The DP therefore
+        # prefers the halo ring over the hard interior, nudging the seam one
+        # ring outward from the character outline.
+        fg_for_tier1 = fg
+        if _FG_SEAM_EROSION_PX > 0:
+            erode_k = cv2.getStructuringElement(
+                cv2.MORPH_ELLIPSE,
+                (2 * _FG_SEAM_EROSION_PX + 1, 2 * _FG_SEAM_EROSION_PX + 1),
+            )
+            fg_for_tier1 = cv2.erode(fg, erode_k)
+
         # Tier 1 — fg interior: cost=1.0.
-        cost = np.maximum(cost, (fg > 0).astype(np.float32))
+        cost = np.maximum(cost, (fg_for_tier1 > 0).astype(np.float32))
 
         # Tier 2 — dilated fg edge buffer: cost=0.5 (§1.6A).
         # np.maximum preserves Tier 1 at 1.0 for fg pixels; only pure-background
@@ -2445,6 +2770,21 @@ def _composite_foreground(
             _fg_b = int((fb_zone.max(axis=2) > 0).sum())
             seam_single_pose[k] = fi_a if _fg_a >= _fg_b else fi_b
 
+        # §1.60: fg pose-gap pre-escalation — when the two warped frames differ
+        # significantly in their shared fg pixels, the character poses are too
+        # dissimilar for Laplacian blending to produce a ghost-free result.
+        # Escalate to single-pose before the DP seam cut fires.
+        if _FG_POSE_GAP_THRESH > 0.0 and k not in seam_single_pose:
+            _pose_gap = _fg_zone_pose_gap(fa_zone, fb_zone)
+            if _pose_gap > _FG_POSE_GAP_THRESH:
+                _fg_a2 = int((fa_zone.max(axis=2) > 0).sum())
+                _fg_b2 = int((fb_zone.max(axis=2) > 0).sum())
+                seam_single_pose[k] = fi_a if _fg_a2 >= _fg_b2 else fi_b
+                print(
+                    f"[Stitch]   §1.60 pose-gap B{k}: fg MAD={_pose_gap:.1f} "
+                    f"> {_FG_POSE_GAP_THRESH:.1f} → single-pose frame {seam_single_pose[k]}"
+                )
+
         # P2.4 — Semantic seam routing: build a character-boundary cost map so
         # the DP path avoids cutting through foreground outlines.
         _bg_a_zone = warped_bg[fi_a][y0_f:y1_f] if warped_bg[fi_a] is not None else None
@@ -2699,6 +3039,9 @@ __all__ = [
     "_seam_color_similarity",
     "_seam_color_similarity_bgr",
     "_check_seam_color_gate",
+    "_seam_ncc_coherence",
+    "_check_seam_ncc_gate",
+    "_SEAM_NCC_GATE",
     "_adaptive_sp_threshold",
     "_fg_density_feather_cap",
     "_compute_seam_step_size",
@@ -2711,6 +3054,8 @@ __all__ = [
     "_has_sufficient_bg",
     "_seam_path_std",
     "_zone_is_degenerate",
+    "_fg_zone_pose_gap",
+    "_FG_SEAM_EROSION_PX",
     "_seam_fg_penetration",
     "_seam_zone_texture_energy",
     "_fg_gradient_cost",

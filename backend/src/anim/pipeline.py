@@ -39,7 +39,7 @@ from .canvas import (
     _telea_fill_gaps,
     find_optimal_sequence,
 )
-from .compositing import _check_seam_color_gate, _composite_foreground
+from .compositing import _check_seam_color_gate, _check_seam_ncc_gate, _composite_foreground
 from backend.src.constants import (
     ADAPTIVE_MIN_DISP_FRAC,
     HIGH_CONF_EDGE_THRESH,
@@ -53,6 +53,7 @@ from backend.src.constants import (
     SEAM_COLOR_GATE_THRESH,
     STATIC_EDGE_MIN_DISP_PX,
     TRI_CONSISTENCY_PENALTY,
+    SPATIAL_DEDUP_PX,
 )
 from .ecc import _ecc_refine
 from .bg_complete import complete_background
@@ -341,6 +342,28 @@ _CANVAS_SPAN_MIN_UTIL: float = float(os.environ.get("ASP_CANVAS_SPAN_MIN_UTIL", 
 # Default 0.0 = disabled. Recommended: ASP_SEAM_STEP_GATE=25.0.
 _SEAM_STEP_GATE: float = float(os.environ.get("ASP_SEAM_STEP_GATE", "0.0"))
 
+# §1.66 — NCC structural coherence gate (S131).
+# After compositing (Stage 11), measures normalised cross-correlation between
+# the texture bands above and below each seam boundary.  NCC < thresh indicates
+# that adjacent strips are structurally discontinuous (different line-art /
+# different character pose) even when their luminance histograms are similar.
+# Gate fires on the worst-NCC seam if any seam falls below thresh → SCANS
+# fallback.  Complementary to Stage 11.2 (Bhattacharyya) and Stage 11.3 (luma
+# step): Stage 11.4 detects structural pattern mismatch the other two miss.
+# Default 0.0 = off.  Recommend ASP_SEAM_NCC_GATE=0.45.
+_SEAM_NCC_GATE: float = float(os.environ.get("ASP_SEAM_NCC_GATE", "0.0"))
+
+# §1.67 — Frame canvas spread validation (S131).
+# After phase correlation (Stage 5), checks whether the estimated camera
+# translations span at least *min_spread_fraction* of the expected full-canvas
+# range (median_step × (N-1)).  When selected frames cluster near one end of
+# the scroll (e.g., the first 30% of the scene), the resulting panorama will
+# be a narrow slice rather than the full scroll extent.  Fires before BA so
+# the retry chain is not wasted on a frame set that cannot produce good coverage.
+# Dominant axis: whichever of |Σty| / |Σtx| is larger.
+# Default 0.0 = off.  Recommend ASP_CANVAS_SPREAD_MIN=0.5.
+_CANVAS_SPREAD_MIN: float = float(os.environ.get("ASP_CANVAS_SPREAD_MIN", "0.0"))
+
 # §1.29 — Static input detection gate (S73).
 # Before Stage 1, check whether all consecutive input-frame thumbnail pairs have
 # mean absolute difference (MAD) below a threshold.  When all pairs are below the
@@ -399,6 +422,18 @@ _MAX_ADJACENT_GAP_PX: float = float(os.environ.get("ASP_MAX_ADJACENT_GAP_PX", "0
 # drift sideways — §3.14 does not fire; §1.45 catches the drift via canvas width.
 # Default 0.0 = off.  Recommend ASP_MAX_CANVAS_WIDTH_RATIO=1.5.
 _MAX_CANVAS_WIDTH_RATIO: float = float(os.environ.get("ASP_MAX_CANVAS_WIDTH_RATIO", "0.0"))
+# §1.62 — Canvas aspect-ratio sanity gate (S125).
+# For a vertical-scroll sequence the canvas must be taller than it is wide
+# (canvas_h > canvas_w).  If BA drift, diagonal scroll, or a misidentified scroll
+# axis produces a canvas that is wider than it is tall (aspect < 1.0), the
+# compositing step will produce a garbled landscape-orientation panorama instead
+# of the expected portrait manga strip.  This gate catches that failure case
+# before compositing allocates memory and wastes time on a doomed render.
+# The check is only meaningful for vertical-scroll sequences (ty_span > tx_span);
+# for horizontal scroll §3.14 fires first.  For mixed-scroll sequences the ratio
+# may legitimately exceed 1.0, so a generous floor of 0.5 is recommended.
+# Default 0.0 = off.  Recommend ASP_MIN_CANVAS_ASPECT=0.5.
+_MIN_CANVAS_ASPECT: float = float(os.environ.get("ASP_MIN_CANVAS_ASPECT", "0.0"))
 
 
 def _compute_bg_coverage_fraction(
@@ -1335,6 +1370,63 @@ def _compute_canvas_memory_mb(canvas_h: int, canvas_w: int) -> float:
     return float(canvas_h) * float(canvas_w) * 3.0 * 4.0 / (1024.0 ** 2)
 
 
+def _compute_canvas_aspect_ratio(canvas_h: int, canvas_w: int) -> float:
+    """§1.62: Canvas height-to-width aspect ratio (S125).
+
+    Returns ``canvas_h / canvas_w``.  For a vertical-scroll panorama this
+    ratio should be well above 1.0 — a typical manga strip of 14 frames at
+    150 px/step would give canvas_h ≈ 14 × 900 px ≈ 12600, canvas_w ≈ 1080,
+    so aspect ≈ 11.7.  A ratio below 1.0 means the canvas is wider than tall,
+    indicating that BA drift, a misidentified scroll axis, or a very short
+    sequence has produced a landscape-orientation result instead of the expected
+    portrait manga strip.
+
+    Returns 0.0 for non-positive dimensions (safe no-op default).
+    """
+    if canvas_h <= 0 or canvas_w <= 0:
+        return 0.0
+    return float(canvas_h) / float(canvas_w)
+
+
+def _sort_frames_by_index(paths: List[str]) -> List[str]:
+    """§1.63: Sort frame paths by numeric suffix extracted from the filename (S127).
+
+    Frame file names produced by video extraction tools (FFmpeg, OpenCV) are
+    typically ``frame_00001.png``, ``frame_00002.png``, etc.  When the caller
+    discovers frames via ``glob()`` on some file systems (e.g. ext4 with dir_index)
+    the OS-level directory order may not be numeric.  An out-of-order frame list
+    causes the pipeline to treat consecutive file-system neighbours as adjacent
+    camera positions, producing nonsensical phase-correlation displacements,
+    reversed scroll direction, and incorrect BA edge graphs.
+
+    This function re-sorts *paths* by the rightmost contiguous digit run in the
+    stem (filename without extension).  When no digit run is found for a path,
+    that path is sorted by its original index in *paths* (stable), placing it
+    after all numerically-indexed paths.  This keeps the behaviour predictable
+    for mixed-name directories while avoiding an import of ``natsort``.
+
+    Parameters
+    ----------
+    paths : list of file paths to sort.
+
+    Returns
+    -------
+    list[str]
+        New list in ascending numeric-suffix order.  If all stems lack a digit
+        suffix (e.g. user-supplied paths with descriptive names), the original
+        order is returned unchanged.
+    """
+    import re
+
+    def _key(p: str) -> tuple:
+        stem = os.path.splitext(os.path.basename(p))[0]
+        m = re.search(r"(\d+)$", stem)
+        return (0, int(m.group(1))) if m else (1, 0)
+
+    sorted_paths = sorted(paths, key=_key)
+    return sorted_paths
+
+
 def _compute_render_luma_std(
     canvas: np.ndarray,
     valid_mask: np.ndarray,
@@ -1523,6 +1615,87 @@ def _compute_canvas_span_utilization(affines: List[np.ndarray]) -> float:
     if expected_span <= 0.0:
         return 1.0
     return span / expected_span
+
+
+def _check_canvas_spread(
+    edges: "List[dict]",
+    min_spread_fraction: float,
+) -> bool:
+    """§1.67: Frame canvas spread validation (S131).
+
+    After phase correlation, verifies that the raw pairwise translations
+    span at least *min_spread_fraction* of the expected full-canvas range
+    (``median_adjacent_step × (N-1)``).
+
+    When selected frames cluster near one end of the scroll (e.g., only the
+    first 30 % of a 14-frame scroll is represented), the assembled panorama
+    will be a narrow slice.  Catching this early (before BA allocates
+    matrices and the retry chain runs) avoids wasted computation.
+
+    **Dominant axis**: whichever of the cumulative |ty_sum| / |tx_sum|
+    is larger over all edges.
+
+    Parameters
+    ----------
+    edges :
+        List of edge dicts with keys ``"i"``, ``"j"``, ``"ty"``, ``"tx"``.
+    min_spread_fraction :
+        Minimum ratio of actual dominant-axis span to expected span in (0, 1].
+        Recommended: 0.5 (flag sequences that cover < 50 % of expected range).
+
+    Returns
+    -------
+    bool
+        ``True`` when the spread is adequate (≥ min_spread_fraction) or when
+        the check cannot be performed (< 2 edges, zero expected span, etc.)
+        so that the gate never fires erroneously on degenerate inputs.
+        ``False`` when the spread is below the threshold — caller should
+        trigger SCANS fallback.
+    """
+    if not edges or min_spread_fraction <= 0.0:
+        return True
+    # Collect per-frame cumulative translations from the edge graph.
+    # Use a simple BFS from frame 0 to propagate translations.
+    node_ids: set = set()
+    for e in edges:
+        node_ids.add(e["i"])
+        node_ids.add(e["j"])
+    if len(node_ids) < 2:
+        return True
+    N_nodes = max(node_ids) + 1
+    ty_pos: List[Optional[float]] = [None] * N_nodes
+    tx_pos: List[Optional[float]] = [None] * N_nodes
+    # Sort edges by (i,j) so BFS from 0 propagates through adjacent pairs.
+    sorted_edges = sorted(edges, key=lambda e: (e["i"], e["j"]))
+    ty_pos[sorted_edges[0]["i"]] = 0.0
+    tx_pos[sorted_edges[0]["i"]] = 0.0
+    for e in sorted_edges:
+        fi, fj = e["i"], e["j"]
+        if ty_pos[fi] is not None and ty_pos[fj] is None:
+            ty_pos[fj] = ty_pos[fi] + float(e.get("ty", 0.0))
+            tx_pos[fj] = tx_pos[fi] + float(e.get("tx", 0.0))
+        elif ty_pos[fj] is not None and ty_pos[fi] is None:
+            ty_pos[fi] = ty_pos[fj] - float(e.get("ty", 0.0))
+            tx_pos[fi] = tx_pos[fj] - float(e.get("tx", 0.0))
+    ty_vals = [v for v in ty_pos if v is not None]
+    tx_vals = [v for v in tx_pos if v is not None]
+    if len(ty_vals) < 2:
+        return True
+    ty_span = max(ty_vals) - min(ty_vals)
+    tx_span = max(tx_vals) - min(tx_vals)
+    if ty_span >= tx_span:
+        dom_vals = ty_vals
+        dom_span = ty_span
+    else:
+        dom_vals = tx_vals
+        dom_span = tx_span
+    N_dom = len(dom_vals)
+    adj_steps = sorted([abs(dom_vals[i + 1] - dom_vals[i]) for i in range(N_dom - 1)])
+    median_step = float(np.median(adj_steps)) if adj_steps else 0.0
+    expected_span = median_step * (N_dom - 1)
+    if expected_span <= 0.0:
+        return True
+    return (dom_span / expected_span) >= min_spread_fraction
 
 
 def _spatial_dedup_frames(
@@ -2112,6 +2285,10 @@ class AnimeStitchPipeline:
         out_abs = os.path.abspath(output_path)
         image_paths = [p for p in image_paths if os.path.abspath(p) != out_abs]
 
+        # §1.63: Sort frame paths by numeric suffix so glob-discovered frames are
+        # always in temporal order, regardless of OS directory-entry order.
+        image_paths = _sort_frames_by_index(image_paths)
+
         logger.info(
             f"[Stitch] Starting AnimeStitchPipeline on {len(image_paths)} frames."
         )
@@ -2479,6 +2656,20 @@ class AnimeStitchPipeline:
                     "→ SCANS fallback (low-confidence edge graph).",
                     _mst_w,
                     _MST_MIN_WEIGHT,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── §1.67: Frame canvas spread validation ─────────────────────────────
+        # Verifies that the raw pairwise translations span at least
+        # _CANVAS_SPREAD_MIN of the expected full-canvas range before BA runs.
+        # Catches clustered frame sets that cannot produce good coverage.
+        if _CANVAS_SPREAD_MIN > 0.0:
+            if not _check_canvas_spread(edges, _CANVAS_SPREAD_MIN):
+                logger.info(
+                    "[Stitch] §1.67: canvas spread < %.0f%% of expected range "
+                    "— selected frames cluster at one end of scroll → SCANS fallback.",
+                    _CANVAS_SPREAD_MIN * 100,
                 )
                 _sf = scans_frames or _reload_scans_frames(image_paths)
                 return _scan_stitch_fallback(_sf, output_path)
@@ -2953,6 +3144,25 @@ class AnimeStitchPipeline:
                 _sf = scans_frames or _reload_scans_frames(image_paths)
                 return _scan_stitch_fallback(_sf, output_path)
 
+        # ── §1.62: Canvas aspect-ratio sanity gate ────────────────────────────
+        if _MIN_CANVAS_ASPECT > 0.0:
+            _aspect = _compute_canvas_aspect_ratio(canvas_h, canvas_w)
+            # Only fire for nominally vertical-scroll sequences (ty_span > tx_span)
+            # to avoid false-positives on mixed-scroll or short sequences.
+            _tys_asp = [float(affines[_i][1, 2]) for _i in range(N)]
+            _txs_asp = [float(affines[_i][0, 2]) for _i in range(N)]
+            _ty_span_asp = max(_tys_asp) - min(_tys_asp)
+            _tx_span_asp = max(_txs_asp) - min(_txs_asp)
+            if _ty_span_asp > _tx_span_asp and _aspect < _MIN_CANVAS_ASPECT:
+                logger.info(
+                    "[Stitch] §1.62: canvas aspect ratio %.2f (h=%d, w=%d) "
+                    "< %.2f floor — BA drift produced landscape-orientation canvas "
+                    "for a vertical-scroll sequence → SCANS fallback.",
+                    _aspect, canvas_h, canvas_w, _MIN_CANVAS_ASPECT,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
         # P1.3 — Compute per-frame matching confidence for weighted median (W3).
         # Each frame's confidence = the maximum edge weight of its adjacent edges.
         # LoFTR edges have weight ~0.9; TM/PC fallbacks have 0.15–0.55.
@@ -3187,6 +3397,21 @@ class AnimeStitchPipeline:
                 logger.info(
                     f"[Stitch] Stage 11.3: seam-step gate — max step {_max_step:.1f} lum "
                     f"> {_SEAM_STEP_GATE:.1f} → SCANS fallback."
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── Stage 11.4: §1.66 NCC structural coherence gate ──────────────────
+        # Measures normalised cross-correlation between texture bands above
+        # and below each seam boundary.  Low NCC = line-art / pose discontinuity
+        # that Bhattacharyya and luma-step gates cannot detect.
+        if _SEAM_NCC_GATE > 0.0 and N > 1:
+            _worst_ncc_seam = _check_seam_ncc_gate(canvas, N, thresh=_SEAM_NCC_GATE)
+            if _worst_ncc_seam is not None:
+                logger.info(
+                    "[Stitch] Stage 11.4: NCC gate — seam %d NCC < %.2f "
+                    "(structural discontinuity) → SCANS fallback.",
+                    _worst_ncc_seam, _SEAM_NCC_GATE,
                 )
                 _sf = scans_frames or _reload_scans_frames(image_paths)
                 return _scan_stitch_fallback(_sf, output_path)
@@ -3674,8 +3899,11 @@ __all__ = [
     "_compute_min_adjacent_overlap",
     "_compute_ba_weighted_mean_residual",
     "_compute_canvas_memory_mb",
+    "_compute_canvas_aspect_ratio",
     "_compute_render_luma_std",
     "_compute_max_affine_rotation_deg",
     "_smooth_affine_trajectory",
     "_apply_hires_keyframes",
+    "_sort_frames_by_index",
+    "_check_canvas_spread",
 ]

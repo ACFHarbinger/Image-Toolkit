@@ -15,7 +15,7 @@ At inference time ``predict(img_bgr)`` returns a scalar in [0, 1] where
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
@@ -176,6 +176,50 @@ class StitchRewardModel:
         with torch.no_grad():
             return float(self.net(t).item())
 
+    def predict_with_uncertainty(
+        self,
+        img_bgr: np.ndarray,
+        n_samples: int = 20,
+    ) -> Tuple[float, float]:
+        """§1.10D: MC-dropout uncertainty estimate for active learning.
+
+        Runs ``n_samples`` stochastic forward passes with dropout active and
+        returns ``(mean_score, std_dev)``.  ``std_dev`` is the epistemic
+        uncertainty proxy: high values (> 0.10) signal that the model is not
+        confident about this output and it should be prioritised for human
+        review in the active-learning labelling queue.
+
+        BatchNorm layers stay in eval mode (running statistics) while every
+        Dropout layer is switched to train mode (stochastic masking).  This
+        isolates the MC noise source to dropout only, avoiding the instability
+        of batch-norm train mode on single-image batches.
+
+        Parameters
+        ----------
+        img_bgr:
+            BGR image array as returned by ``cv2.imread``.
+        n_samples:
+            Number of stochastic forward passes.  20 is sufficient for a
+            reliable std estimate; increase to 50 for smoother calibration.
+
+        Returns
+        -------
+        (mean_score, std_dev)
+            Both are floats in [0, 1].  ``std_dev`` is typically 0.0 for a
+            freshly-initialised (random-weight) model with dropout disabled
+            at eval time, and non-zero when dropout layers are active.
+        """
+        t = _bgr_to_tensor(img_bgr).unsqueeze(0).to(self.device)
+        self.net.eval()
+        for m in self.net.modules():
+            if isinstance(m, nn.Dropout):
+                m.train()
+        scores: List[float] = []
+        with torch.no_grad():
+            for _ in range(n_samples):
+                scores.append(float(self.net(t).item()))
+        return float(np.mean(scores)), float(np.std(scores))
+
     def predict_region(
         self,
         img_bgr: np.ndarray,
@@ -262,4 +306,8 @@ class StitchRewardModel:
         self.net.load_state_dict(state)
 
 
-__all__ = ["StitchRewardModel"]
+__all__ = ["StitchRewardModel", "MC_DROPOUT_UNCERTAINTY_THRESHOLD"]
+
+# §1.10D: Default uncertainty threshold above which an output is flagged for
+# human review in the active-learning loop.
+MC_DROPOUT_UNCERTAINTY_THRESHOLD: float = 0.10

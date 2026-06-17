@@ -29,6 +29,8 @@ from backend.benchmark.bench_anime_stitch import (  # noqa: E402
     _ghosting_score_v2,
     _SSIM_OK,
     _RLHF_FLAG_THRESHOLD,
+    _seam_ncc_coherence,
+    _composite_quality_score,
 )
 
 
@@ -397,3 +399,83 @@ class TestSeamBhattacharyyaDistances:
         for s in scores:
             assert isinstance(s, float)
             assert 0.0 <= s <= 1.0, f"Score out of [0,1]: {s}"
+
+
+class TestSeamNccCoherence:
+    """§3.17 (S123): NCC structural coherence metric per seam boundary."""
+
+    def test_returns_empty_for_one_strip(self):
+        img = _solid(100, 80, 128)
+        assert _seam_ncc_coherence(img, n_strips=1) == []
+
+    def test_returns_correct_count(self):
+        rng = np.random.default_rng(42)
+        img = rng.integers(0, 256, (200, 160, 3), dtype=np.uint8)
+        for n in [2, 3, 5]:
+            scores = _seam_ncc_coherence(img, n_strips=n)
+            assert len(scores) == n - 1, f"n={n}: expected {n-1}, got {len(scores)}"
+
+    def test_uniform_image_returns_one_flat_texture(self):
+        """A flat solid image has near-zero std → returns 1.0 (no-texture sentinel)."""
+        img = _solid(200, 150, 200)
+        scores = _seam_ncc_coherence(img, n_strips=2)
+        assert len(scores) == 1
+        assert scores[0] == 1.0, f"Expected 1.0 for flat image, got {scores[0]}"
+
+    def test_matching_boundary_region_high_ncc(self):
+        """When the band above and below the seam boundary are copies of the same
+        pattern, the NCC should be close to 1."""
+        rng = np.random.default_rng(7)
+        band = rng.integers(50, 200, (60, 120, 3), dtype=np.uint8)
+        # Build an image where the 60 rows above and 60 rows below the boundary
+        # are exactly the same pattern.  The boundary is at row 60 in a H=120 image.
+        img = np.vstack([band, band])
+        scores = _seam_ncc_coherence(img, n_strips=2, band_px=60)
+        assert len(scores) == 1
+        assert scores[0] > 0.95, f"Identical boundary bands should give NCC > 0.95, got {scores[0]}"
+
+    def test_scores_in_valid_range(self):
+        """Every score must be in [−1, 1] regardless of input content."""
+        rng = np.random.default_rng(99)
+        img = rng.integers(0, 256, (300, 200, 3), dtype=np.uint8)
+        scores = _seam_ncc_coherence(img, n_strips=4)
+        assert len(scores) == 3
+        for s in scores:
+            assert isinstance(s, float)
+            assert -1.0 <= s <= 1.0, f"Score out of [-1,1]: {s}"
+
+
+class TestCompositeQualityScore:
+    """§3.5A (S128): Composite quality score aggregation."""
+
+    def test_perfect_scores_give_one(self):
+        """Perfect per-component scores should yield composite = 1.0."""
+        score = _composite_quality_score(
+            seam_ncc_min=1.0, seam_color_min=1.0, ghost_seam_max=0.0
+        )
+        assert score == pytest.approx(1.0, abs=1e-4)
+
+    def test_worst_scores_give_zero(self):
+        """Worst per-component scores should yield composite = 0.0."""
+        score = _composite_quality_score(
+            seam_ncc_min=-1.0, seam_color_min=0.0, ghost_seam_max=100.0
+        )
+        assert score == pytest.approx(0.0, abs=1e-4)
+
+    def test_all_none_gives_half(self):
+        """When all inputs are None the neutral default is 0.5."""
+        score = _composite_quality_score(None, None, None)
+        assert score == pytest.approx(0.5, abs=1e-4)
+
+    def test_result_in_unit_interval(self):
+        """Any realistic input combination must stay in [0, 1]."""
+        import itertools
+        for ncc, color, ghost in itertools.product([-1.0, 0.0, 1.0], [0.0, 0.5, 1.0], [0.0, 50.0, 100.0]):
+            s = _composite_quality_score(ncc, color, ghost)
+            assert 0.0 <= s <= 1.0, f"Out of range: ncc={ncc}, color={color}, ghost={ghost} → {s}"
+
+    def test_partial_none_uses_neutral(self):
+        """A single None component uses 0.5; the other two drive the result."""
+        # ncc=1.0 → ncc_term=1.0; color=1.0 → color_term=1.0; ghost=None → 0.5
+        score = _composite_quality_score(1.0, 1.0, None)
+        assert score == pytest.approx((1.0 + 1.0 + 0.5) / 3.0, abs=1e-4)

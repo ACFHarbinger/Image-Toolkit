@@ -12,11 +12,14 @@ from pathlib import Path
 
 import pytest
 
+import numpy as np
+
 from backend.src.anim.rlhf.feedback_store import (
     FeedbackStore,
     StitchAnnotation,
     StitchFeedback,
 )
+from backend.src.anim.rlhf.reward_model import StitchRewardModel, MC_DROPOUT_UNCERTAINTY_THRESHOLD
 
 
 # ---------------------------------------------------------------------------
@@ -112,3 +115,48 @@ class TestFeedbackStoreAdd:
         )
         store = FeedbackStore(path=str(p))
         assert store.count() == 2  # malformed line silently skipped
+
+
+# ---------------------------------------------------------------------------
+# §1.10D — MC-dropout uncertainty estimation
+# ---------------------------------------------------------------------------
+
+def _make_test_image(h: int = 64, w: int = 64) -> np.ndarray:
+    """Synthetic BGR image filled with a mid-grey value."""
+    return np.full((h, w, 3), 128, dtype=np.uint8)
+
+
+class TestMCDropoutUncertainty:
+    """§1.10D: predict_with_uncertainty returns (mean, std) via MC dropout."""
+
+    def test_returns_two_floats(self):
+        model = StitchRewardModel()
+        img = _make_test_image()
+        result = model.predict_with_uncertainty(img, n_samples=5)
+        assert isinstance(result, tuple) and len(result) == 2
+        mean_score, std_dev = result
+        assert isinstance(mean_score, float)
+        assert isinstance(std_dev, float)
+
+    def test_mean_in_unit_range(self):
+        model = StitchRewardModel()
+        img = _make_test_image()
+        mean_score, _ = model.predict_with_uncertainty(img, n_samples=5)
+        assert 0.0 <= mean_score <= 1.0
+
+    def test_std_nonnegative(self):
+        model = StitchRewardModel()
+        img = _make_test_image()
+        _, std_dev = model.predict_with_uncertainty(img, n_samples=10)
+        assert std_dev >= 0.0
+
+    def test_more_samples_does_not_raise(self):
+        model = StitchRewardModel()
+        img = _make_test_image()
+        mean_score, std_dev = model.predict_with_uncertainty(img, n_samples=30)
+        assert 0.0 <= mean_score <= 1.0
+        assert std_dev >= 0.0
+
+    def test_mc_uncertainty_threshold_exported(self):
+        assert isinstance(MC_DROPOUT_UNCERTAINTY_THRESHOLD, float)
+        assert 0.0 < MC_DROPOUT_UNCERTAINTY_THRESHOLD < 1.0

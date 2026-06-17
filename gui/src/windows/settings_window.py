@@ -101,6 +101,7 @@ class SettingsWindow(QWidget):
         self.pref_file_logging = _p.get("file_logging_enabled", False)
         self.pref_extractor_seek_ms = _p.get("extractor_seek_ms", 100)
         self.pref_recent_extractions_count = _p.get("recent_extractions_count", 10)
+        self.pref_enable_extraction_queue = _p.get("enable_extraction_queue", False)
         self.pref_session_recovery = _p.get("session_recovery_level", "None")
         self.pref_accent_dark = _p.get("accent_color_dark", "#00bcd4")
         self.pref_accent_light = _p.get("accent_color_light", "#007AFF")
@@ -199,20 +200,6 @@ class SettingsWindow(QWidget):
         prefs_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         prefs_layout = QVBoxLayout(prefs_groupbox)
         prefs_layout.setContentsMargins(10, 10, 10, 10)
-        prefs_layout.addWidget(QLabel("<b>App Theme:</b>"))
-
-        self.dark_theme_radio = QRadioButton("Dark Theme")
-        self.light_theme_radio = QRadioButton("Light Theme")
-
-        # Set the radio button based on the loaded initial theme
-        if self.initial_theme == "light":
-            self.light_theme_radio.setChecked(True)
-        else:
-            self.dark_theme_radio.setChecked(True)
-
-        prefs_layout.addWidget(self.dark_theme_radio)
-        prefs_layout.addWidget(self.light_theme_radio)
-
         # --- Active Default Configuration Selection ---
         prefs_layout.addSpacing(15)
         prefs_layout.addWidget(QLabel("<b>Startup Tab Configurations:</b>"))
@@ -446,15 +433,36 @@ class SettingsWindow(QWidget):
         appearance_layout = QFormLayout(appearance_groupbox)
         appearance_layout.setContentsMargins(10, 10, 10, 10)
 
+        # App Theme Selection
+        theme_layout = QHBoxLayout()
+        self.dark_theme_radio = QRadioButton("Dark Theme")
+        self.light_theme_radio = QRadioButton("Light Theme")
+        
+        self.dark_theme_radio.setMinimumWidth(180)
+        self.light_theme_radio.setMinimumWidth(180)
+        self.dark_theme_radio.setStyleSheet("QRadioButton { min-width: 180px; padding: 4px; }")
+        self.light_theme_radio.setStyleSheet("QRadioButton { min-width: 180px; padding: 4px; }")
+
+        # Set the radio button based on the loaded initial theme
+        if self.initial_theme == "light":
+            self.light_theme_radio.setChecked(True)
+        else:
+            self.dark_theme_radio.setChecked(True)
+
+        theme_layout.addWidget(self.dark_theme_radio)
+        theme_layout.addWidget(self.light_theme_radio)
+        theme_layout.addStretch()
+        appearance_layout.addRow("App Theme:", theme_layout)
+
         # Dark accent colour swatch + picker
         dark_accent_row = QHBoxLayout()
         self.dark_accent_swatch = QPushButton()
-        self.dark_accent_swatch.setFixedSize(32, 22)
+        self.dark_accent_swatch.setFixedSize(180, 22)
         self.dark_accent_swatch.setToolTip("Click to pick a custom accent colour for the dark theme")
         self._update_swatch(self.dark_accent_swatch, self.pref_accent_dark)
         self.dark_accent_swatch.clicked.connect(lambda: self._pick_accent_color("dark"))
         dark_accent_reset = QPushButton("Reset")
-        dark_accent_reset.setFixedWidth(55)
+        dark_accent_reset.setFixedWidth(100)
         dark_accent_reset.clicked.connect(lambda: self._reset_accent("dark"))
         dark_accent_row.addWidget(self.dark_accent_swatch)
         dark_accent_row.addWidget(dark_accent_reset)
@@ -464,12 +472,12 @@ class SettingsWindow(QWidget):
         # Light accent colour swatch + picker
         light_accent_row = QHBoxLayout()
         self.light_accent_swatch = QPushButton()
-        self.light_accent_swatch.setFixedSize(32, 22)
+        self.light_accent_swatch.setFixedSize(180, 22)
         self.light_accent_swatch.setToolTip("Click to pick a custom accent colour for the light theme")
         self._update_swatch(self.light_accent_swatch, self.pref_accent_light)
         self.light_accent_swatch.clicked.connect(lambda: self._pick_accent_color("light"))
         light_accent_reset = QPushButton("Reset")
-        light_accent_reset.setFixedWidth(55)
+        light_accent_reset.setFixedWidth(100)
         light_accent_reset.clicked.connect(lambda: self._reset_accent("light"))
         light_accent_row.addWidget(self.light_accent_swatch)
         light_accent_row.addWidget(light_accent_reset)
@@ -573,6 +581,13 @@ class SettingsWindow(QWidget):
             "Recent Extractions Limit:", self.recent_extractions_spinbox
         )
 
+        self.enable_queue_check = QCheckBox("Enable Extraction Queue")
+        self.enable_queue_check.setToolTip(
+            "Queue extraction requests sequentially instead of executing them immediately"
+        )
+        self.enable_queue_check.setChecked(self.pref_enable_extraction_queue)
+        media_layout.addRow(self.enable_queue_check)
+
         # ---------------------------------------------------------------------
         # --- Startup and Session Section ---
         # ---------------------------------------------------------------------
@@ -602,16 +617,6 @@ class SettingsWindow(QWidget):
         )
         self.restore_last_dir_check.setChecked(self.pref_restore_last_dir)
         session_layout.addRow(self.restore_last_dir_check)
-
-        self.recent_dirs_spinbox = QSpinBox()
-        self.recent_dirs_spinbox.setRange(3, 20)
-        self.recent_dirs_spinbox.setValue(self.pref_recent_dirs_count)
-        self.recent_dirs_spinbox.setToolTip(
-            "How many recently browsed directories to remember per tab"
-        )
-        session_layout.addRow(
-            "Recent Directories to Remember:", self.recent_dirs_spinbox
-        )
 
         self.session_recovery_combo = QComboBox()
         self.session_recovery_combo.addItems(["None", "Current Tab", "All Tabs"])
@@ -1147,6 +1152,7 @@ class SettingsWindow(QWidget):
         self.pref_file_logging = _p.get("file_logging_enabled", False)
         self.pref_extractor_seek_ms = _p.get("extractor_seek_ms", 100)
         self.pref_recent_extractions_count = _p.get("recent_extractions_count", 10)
+        self.pref_enable_extraction_queue = _p.get("enable_extraction_queue", False)
         self.pref_session_recovery = _p.get("session_recovery_level", "None")
         self.pref_accent_dark = _p.get("accent_color_dark", "#00bcd4")
         self.pref_accent_light = _p.get("accent_color_light", "#007AFF")
@@ -1199,7 +1205,6 @@ class SettingsWindow(QWidget):
         if self.pref_startup_category in items:
             self.startup_category_combo.setCurrentText(self.pref_startup_category)
         self.restore_last_dir_check.setChecked(self.pref_restore_last_dir)
-        self.recent_dirs_spinbox.setValue(self.pref_recent_dirs_count)
         self.session_recovery_combo.setCurrentText(self.pref_session_recovery)
 
         # Repopulate Performance and Cache
@@ -1219,6 +1224,7 @@ class SettingsWindow(QWidget):
         # Repopulate Extractor
         self.extractor_seek_spinbox.setValue(self.pref_extractor_seek_ms)
         self.recent_extractions_spinbox.setValue(self.pref_recent_extractions_count)
+        self.enable_queue_check.setChecked(self.pref_enable_extraction_queue)
 
         # Repopulate Appearance
         self._update_swatch(self.dark_accent_swatch, self.pref_accent_dark)
@@ -1864,7 +1870,7 @@ class SettingsWindow(QWidget):
                 "selected_cache_maxsize": self.selected_cache_spinbox.value(),
                 "initial_cache_maxsize": self.initial_cache_spinbox.value(),
                 "restore_last_dir": self.restore_last_dir_check.isChecked(),
-                "recent_dirs_count": self.recent_dirs_spinbox.value(),
+                "recent_dirs_count": 10,
                 "startup_category": self.startup_category_combo.currentText(),
                 "slideshow_interval_min": self.slideshow_default_min_spinbox.value(),
                 "slideshow_interval_sec": self.slideshow_default_sec_spinbox.value(),
@@ -1873,6 +1879,7 @@ class SettingsWindow(QWidget):
                 "file_logging_enabled": self.file_logging_check.isChecked(),
                 "extractor_seek_ms": self.extractor_seek_spinbox.value(),
                 "recent_extractions_count": self.recent_extractions_spinbox.value(),
+                "enable_extraction_queue": self.enable_queue_check.isChecked(),
                 "session_recovery_level": self.session_recovery_combo.currentText(),
                 "accent_color_dark": self.pref_accent_dark,
                 "accent_color_light": self.pref_accent_light,
@@ -1926,7 +1933,6 @@ class SettingsWindow(QWidget):
         if "System Tools" in items:
             self.startup_category_combo.setCurrentText("System Tools")
         self.restore_last_dir_check.setChecked(True)
-        self.recent_dirs_spinbox.setValue(10)
         self.session_recovery_combo.setCurrentText("None")
 
         # Reset Performance and Cache
@@ -1946,6 +1952,7 @@ class SettingsWindow(QWidget):
         # Reset Extractor
         self.extractor_seek_spinbox.setValue(100)
         self.recent_extractions_spinbox.setValue(10)
+        self.enable_queue_check.setChecked(False)
 
         # Reset Appearance
         self.pref_accent_dark = "#00bcd4"
@@ -2090,10 +2097,13 @@ class SettingsWindow(QWidget):
         c = QColor(hex_color)
         if not c.isValid():
             c = QColor("#888888")
+        r, g, b = c.red(), c.green(), c.blue()
+        luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
+        text_color = "black" if luminance > 0.5 else "white"
         button.setStyleSheet(
-            f"QPushButton {{ background-color: {c.name()}; border: 1px solid #888; border-radius: 3px; }}"
+            f"QPushButton {{ background-color: {c.name()}; border: 1px solid #888; border-radius: 3px; color: {text_color}; font-weight: bold; }}"
         )
-        button.setText("")
+        button.setText(hex_color.upper())
 
     def _pick_accent_color(self, theme):
         """Open QColorDialog and update the swatch + stored preference."""
