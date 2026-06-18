@@ -1,9 +1,10 @@
 import os
 import json
 import shutil
-from pathlib import Path
+import hashlib
 import backend.src.constants as udef
 
+from pathlib import Path
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QWidget,
@@ -263,10 +264,8 @@ class LoginWindow(QWidget):
 
             # 6. Re-hash and verify
             password_combined = (raw_password + stored_salt + pepper).encode("utf-8")
-            import hashlib
 
             verification_hash = hashlib.sha256(password_combined).hexdigest()
-
             if verification_hash == stored_hash:
                 # --- NEW: Preference Profile Selection ---
                 profiles = stored_data.get("system_preference_profiles", {})

@@ -1,8 +1,8 @@
 import json
 import os
 import math
-from unittest.mock import patch, MagicMock
-from gui.src.tabs.models.gen.stitch_tab import (
+from unittest.mock import patch
+from gui.src.tabs.anim.stitch_tab import (
     EditTab,
     EdgeGraphInspectorDialog,
     CanvasLayoutInspectorDialog,
@@ -12,43 +12,59 @@ from gui.src.tabs.models.gen.stitch_tab import (
     _canvas_frame_corners,
 )
 
+
 class TestStitchTabBrowseOutput:
     def test_browse_output_starts_at_last_selected_source_directory(self, q_app):
         # Create EditTab instance
         tab = EditTab()
-        
+
         # Setup mock frame paths mimicking added source frames
-        tab._frame_paths = ["/home/user/pictures/frame1.png", "/home/user/downloads/frame2.png"]
-        
+        tab._frame_paths = [
+            "/home/user/pictures/frame1.png",
+            "/home/user/downloads/frame2.png",
+        ]
+
         # Mock QFileDialog.getSaveFileName to avoid popping up UI
-        with patch("gui.src.tabs.models.gen.stitch_tab.QFileDialog.getSaveFileName") as mock_save_dialog:
-            mock_save_dialog.return_value = ("/home/user/downloads/my_panorama.png", "Images (*.png *.webp *.jpg)")
-            
+        with patch(
+            "gui.src.tabs.anim.stitch_tab.QFileDialog.getSaveFileName"
+        ) as mock_save_dialog:
+            mock_save_dialog.return_value = (
+                "/home/user/downloads/my_panorama.png",
+                "Images (*.png *.webp *.jpg)",
+            )
+
             tab._browse_output()
-            
+
             # Assert that getSaveFileName was called
             mock_save_dialog.assert_called_once()
-            
+
             # Check the third positional argument (default_file) passed to QFileDialog.getSaveFileName
             # It should start in the directory of the last frame path: "/home/user/downloads"
             args, kwargs = mock_save_dialog.call_args
             assert args[2] == os.path.normpath("/home/user/downloads/panorama.png")
-            
+
             # Verify the output path was set to the mock returned path
             assert tab._output_path.text() == "/home/user/downloads/my_panorama.png"
 
     def test_browse_output_preserves_existing_filename(self, q_app):
         tab = EditTab()
-        tab._frame_paths = ["/home/user/pictures/frame1.png", "/home/user/downloads/frame2.png"]
+        tab._frame_paths = [
+            "/home/user/pictures/frame1.png",
+            "/home/user/downloads/frame2.png",
+        ]
         tab._output_path.setText("my_custom_panorama.png")
 
-        with patch("gui.src.tabs.models.gen.stitch_tab.QFileDialog.getSaveFileName") as mock_save_dialog:
+        with patch(
+            "gui.src.tabs.anim.stitch_tab.QFileDialog.getSaveFileName"
+        ) as mock_save_dialog:
             mock_save_dialog.return_value = ("", "")
 
             tab._browse_output()
 
             args, kwargs = mock_save_dialog.call_args
-            assert args[2] == os.path.normpath("/home/user/downloads/my_custom_panorama.png")
+            assert args[2] == os.path.normpath(
+                "/home/user/downloads/my_custom_panorama.png"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -110,7 +126,7 @@ class TestEdgeGraphNodePositions:
         pos = _edge_graph_node_positions(6, radius=100.0)
         assert len(pos) == 6
         for x, y in pos:
-            dist = math.sqrt(x ** 2 + y ** 2)
+            dist = math.sqrt(x**2 + y**2)
             assert abs(dist - 100.0) < 1e-6
 
     def test_first_node_at_twelve_oclock(self):
@@ -152,8 +168,10 @@ class TestEdgeGraphInspectorDialog:
 class TestParseCanvasJson:
     def test_valid_fixture_parses_all_fields(self, tmp_path):
         data = {
-            "canvas_h": 800, "canvas_w": 2400,
-            "frame_h": 400, "frame_w": 600,
+            "canvas_h": 800,
+            "canvas_w": 2400,
+            "frame_h": 400,
+            "frame_w": 600,
             "T_global": [12.0, 5.0],
             "affines_final": [
                 [[1.0, 0.0, 12.0], [0.0, 1.0, 5.0]],
@@ -173,7 +191,8 @@ class TestParseCanvasJson:
 
     def test_missing_frame_dimensions_default_to_zero(self, tmp_path):
         data = {
-            "canvas_h": 800, "canvas_w": 2400,
+            "canvas_h": 800,
+            "canvas_w": 2400,
             "T_global": [0.0, 0.0],
             "affines_final": [],
         }
@@ -185,8 +204,10 @@ class TestParseCanvasJson:
 
     def test_affines_parsed_as_float_lists(self, tmp_path):
         data = {
-            "canvas_h": 100, "canvas_w": 100,
-            "frame_h": 50, "frame_w": 50,
+            "canvas_h": 100,
+            "canvas_w": 100,
+            "frame_h": 50,
+            "frame_w": 50,
             "T_global": [0.0, 0.0],
             "affines_final": [[[1, 0, 0], [0, 1, 0]]],
         }
@@ -212,22 +233,24 @@ class TestCanvasFrameCorners:
         # 90° CCW: [[0,-1,tx],[1,0,ty]] with tx=100, ty=0
         aff = [[0.0, -1.0, 100.0], [1.0, 0.0, 0.0]]
         corners = _canvas_frame_corners(aff, frame_h=100, frame_w=200)
-        assert corners[0] == (100.0, 0.0)    # (0,0)   → tx=100, ty=0
+        assert corners[0] == (100.0, 0.0)  # (0,0)   → tx=100, ty=0
         assert corners[1] == (100.0, 200.0)  # (W,0)   → tx, W
-        assert corners[2] == (0.0,   200.0)  # (W,H)   → tx-H, W
-        assert corners[3] == (0.0,   0.0)    # (0,H)   → tx-H, 0
+        assert corners[2] == (0.0, 200.0)  # (W,H)   → tx-H, W
+        assert corners[3] == (0.0, 0.0)  # (0,H)   → tx-H, 0
 
 
 class TestCanvasLayoutInspectorDialog:
     def test_populates_table_and_stats(self, q_app):
         data = {
-            "canvas_h": 800, "canvas_w": 1800,
-            "frame_h": 400, "frame_w": 600,
+            "canvas_h": 800,
+            "canvas_w": 1800,
+            "frame_h": 400,
+            "frame_w": 600,
             "T_global": [0.0, 0.0],
             "affines_final": [
-                [[1.0, 0.0, 0.0],   [0.0, 1.0, 0.0]],
+                [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
                 [[1.0, 0.0, 600.0], [0.0, 1.0, 0.0]],
-                [[1.0, 0.0, 1200.0],[0.0, 1.0, 0.0]],
+                [[1.0, 0.0, 1200.0], [0.0, 1.0, 0.0]],
             ],
         }
         dlg = CanvasLayoutInspectorDialog(canvas_data=data)
@@ -237,8 +260,10 @@ class TestCanvasLayoutInspectorDialog:
 
     def test_zero_frame_dimensions_skips_polygons_but_fills_stats(self, q_app):
         data = {
-            "canvas_h": 400, "canvas_w": 800,
-            "frame_h": 0, "frame_w": 0,
+            "canvas_h": 400,
+            "canvas_w": 800,
+            "frame_h": 0,
+            "frame_w": 0,
             "T_global": [0.0, 0.0],
             "affines_final": [[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]],
         }
@@ -254,36 +279,42 @@ class TestCanvasLayoutInspectorDialog:
 
 # ── TestStitchWorkerVideoPath ─────────────────────────────────────────────────
 
+
 class TestStitchWorkerVideoPath:
     """Tests for StitchWorker video ingestion path (Issue 9, S84)."""
 
     def test_video_path_stored(self, q_app):
         """video_path is stored when passed to __init__."""
-        from gui.src.helpers.models.stitch_worker import StitchWorker
+        from gui.src.helpers.anim.stitch_worker import StitchWorker
+
         w = StitchWorker([], "out.png", {}, video_path="/tmp/test.mp4")
         assert w._video_path == "/tmp/test.mp4"
 
     def test_no_video_path_defaults_to_none(self, q_app):
         """video_path is None when not provided."""
-        from gui.src.helpers.models.stitch_worker import StitchWorker
+        from gui.src.helpers.anim.stitch_worker import StitchWorker
+
         w = StitchWorker([], "out.png", {})
         assert w._video_path is None
 
     def test_sig_review_video_signal_exists(self, q_app):
         """StitchWorker exposes sig_review_video signal for HITL checkpoint 0."""
-        from gui.src.helpers.models.stitch_worker import StitchWorker
+        from gui.src.helpers.anim.stitch_worker import StitchWorker
+
         w = StitchWorker([], "out.png", {})
         assert hasattr(w, "sig_review_video")
 
     def test_video_mode_allows_empty_image_paths(self, q_app):
         """When video_path is set, image_paths can be empty (frames extracted by worker)."""
-        from gui.src.helpers.models.stitch_worker import StitchWorker
+        from gui.src.helpers.anim.stitch_worker import StitchWorker
+
         w = StitchWorker([], "out.png", {}, video_path="/tmp/video.mp4")
         assert len(w._image_paths) == 0
         assert w._video_path == "/tmp/video.mp4"
 
     def test_video_n_frames_stored(self, q_app):
         """video_n_frames is stored and accessible."""
-        from gui.src.helpers.models.stitch_worker import StitchWorker
+        from gui.src.helpers.anim.stitch_worker import StitchWorker
+
         w = StitchWorker([], "out.png", {}, video_path="/tmp/v.mp4", video_n_frames=42)
         assert w._video_n_frames == 42

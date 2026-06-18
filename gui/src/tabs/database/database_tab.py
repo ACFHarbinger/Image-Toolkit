@@ -63,7 +63,7 @@ class DatabaseTab(QWidget):
         self.db_port = QLineEdit(os.getenv("DB_PORT"))
         self.db_user = QLineEdit(os.getenv("DB_USER"))
         self.db_password = QLineEdit(os.getenv("DB_PASSWORD"))
-        self.db_password.setEchoMode(QLineEdit.Password)
+        self.db_password.setEchoMode(QLineEdit.EchoMode.Password)
         self.db_name = QLineEdit(
             os.getenv("DB_NAME"),
         )
@@ -610,11 +610,11 @@ class DatabaseTab(QWidget):
             "Confirm Destructive Action",
             "Are you absolutely sure you want to reset the database?\n\n"
             "ALL DATA (images, tags, groups, subgroups) will be PERMANENTLY DELETED.",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
         )
 
-        if confirm1 == QMessageBox.No:
+        if confirm1 == QMessageBox.StandardButton.No:
             QMessageBox.information(self, "Cancelled", "Database reset was cancelled.")
             return
 
@@ -808,7 +808,6 @@ class DatabaseTab(QWidget):
             return
 
         imported_tags = 0
-
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -840,7 +839,7 @@ class DatabaseTab(QWidget):
             progress = QProgressDialog(
                 "Importing tags...", "Cancel", 0, len(tag_list), self
             )
-            progress.setWindowModality(Qt.WindowModal)
+            progress.setWindowModality(Qt.WindowModality.WindowModal)
             progress.setMinimumDuration(0)
             progress.show()
 
@@ -852,7 +851,7 @@ class DatabaseTab(QWidget):
                     f"Importing tag {i + 1}/{len(tag_list)}: {tag_name_raw[:40]}..."
                 )
 
-                tag_name = str(tag_name_raw).strip()
+                tag_name = tag_name_raw.strip()
                 if tag_name:
                     self.db.add_tag(tag_name, tag_type if tag_type else None)
                     imported_tags += 1
@@ -996,9 +995,9 @@ class DatabaseTab(QWidget):
             "Confirm Delete",
             f"Are you sure you want to delete the group '{group_name}'?\n\n"
             f"WARNING: This will also delete ALL associated subgroups.",
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if confirm == QMessageBox.Yes:
+        if confirm == QMessageBox.StandardButton.Yes:
             try:
                 self.db.delete_group(group_name)
                 self.refresh_groups_list()
@@ -1032,9 +1031,9 @@ class DatabaseTab(QWidget):
             "Confirm Delete",
             f"Are you sure you want to delete the subgroup '{subgroup_name}' from group '{group_name}'?\n\n"
             f"(Note: This only removes the subgroup from this list. Images already using this name will not be affected.)",
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if confirm == QMessageBox.Yes:
+        if confirm == QMessageBox.StandardButton.Yes:
             try:
                 self.db.delete_subgroup(subgroup_name, group_name)
                 self.refresh_subgroups_list()
@@ -1065,9 +1064,9 @@ class DatabaseTab(QWidget):
             "Confirm Delete",
             f"Are you sure you want to delete the tag '{tag_name}'?\n\n"
             f"WARNING: This will also remove this tag from ALL images that use it.",
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if confirm == QMessageBox.Yes:
+        if confirm == QMessageBox.StandardButton.Yes:
             try:
                 self.db.delete_tag(tag_name)
                 self.refresh_tags_list()
@@ -1388,14 +1387,14 @@ class DatabaseTab(QWidget):
             "Top-level folders will be added as Groups.\n"
             "Folders inside those will be added as Subgroups.\n"
             "Existing entries will be skipped.\n\nProceed?",
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if confirm == QMessageBox.No:
+        if confirm == QMessageBox.StandardButton.No:
             return
 
         # Progress Dialog
         progress = QProgressDialog("Scanning directories...", "Cancel", 0, 0, self)
-        progress.setWindowModality(Qt.WindowModal)
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(0)
         progress.show()
 

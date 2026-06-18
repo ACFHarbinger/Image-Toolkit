@@ -28,9 +28,9 @@ class ComfyUITab(QWidget):
     Manages the ComfyUI server subprocess and opens its web UI in the system browser.
     """
 
-    _status_signal = Signal(str, str)   # (text, css-colour)
+    _status_signal = Signal(str, str)  # (text, css-colour)
     _server_ready_signal = Signal(str)  # server URL
-    _log_signal = Signal(str)           # one log line
+    _log_signal = Signal(str)  # one log line
 
     def __init__(self, enable_manager=False) -> None:
         super().__init__()
@@ -87,7 +87,7 @@ class ComfyUITab(QWidget):
 
         # --- Open-in-browser panel ---
         browser_frame = QFrame()
-        browser_frame.setFrameShape(QFrame.StyledPanel)
+        browser_frame.setFrameShape(QFrame.Shape.StyledPanel)
         browser_layout = QHBoxLayout(browser_frame)
         browser_layout.setContentsMargins(12, 8, 12, 8)
 
@@ -98,7 +98,9 @@ class ComfyUITab(QWidget):
         self._open_btn = QPushButton("Open in Browser")
         self._open_btn.setFixedWidth(140)
         self._open_btn.setEnabled(False)
-        self._open_btn.setToolTip("Open the ComfyUI interface in your default web browser")
+        self._open_btn.setToolTip(
+            "Open the ComfyUI interface in your default web browser"
+        )
         self._open_btn.clicked.connect(self._on_open_browser)
         browser_layout.addWidget(self._open_btn)
 
@@ -139,7 +141,9 @@ class ComfyUITab(QWidget):
         self._log_view.clear()
         self._status_signal.emit("Starting…", "#f0ad4e")
         port = self._port_spin.value()
-        threading.Thread(target=self._start_worker, args=(port, self.enable_manager), daemon=True).start()
+        threading.Thread(
+            target=self._start_worker, args=(port, self.enable_manager), daemon=True
+        ).start()
 
     def _on_stop_clicked(self) -> None:
         self._manager.stop()
@@ -163,16 +167,16 @@ class ComfyUITab(QWidget):
             actual_port = self._manager.start(port, enable_manager=enable_manager)
             self._log_signal.emit(f"[comfy-manager] Starting on port {actual_port}…\n")
 
-            self._log_thread = threading.Thread(
-                target=self._stream_logs, daemon=True
-            )
+            self._log_thread = threading.Thread(target=self._stream_logs, daemon=True)
             self._log_thread.start()
 
             ready = self._manager.wait_until_ready(timeout=120.0)
             if ready:
                 self._server_ready_signal.emit(self._manager.url)
             else:
-                self._status_signal.emit("Timed out — check the log for errors", "#d9534f")
+                self._status_signal.emit(
+                    "Timed out — check the log for errors", "#d9534f"
+                )
                 self._start_btn.setEnabled(True)
                 self._port_spin.setEnabled(True)
         except Exception as exc:

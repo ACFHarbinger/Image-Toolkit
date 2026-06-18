@@ -193,6 +193,7 @@ class WallpaperTab(AbstractClassSingleGallery):
     def __init__(self, db_tab_ref):
         super().__init__()
         self.db_tab_ref = db_tab_ref
+        self.qdbus: Optional[str] = None
         if os.environ.get("DESKTOP_SESSION", "").lower() in ["plasma", "kde"]:
             try:
                 if shutil.which("qdbus6"):
@@ -200,12 +201,9 @@ class WallpaperTab(AbstractClassSingleGallery):
                 elif shutil.which("qdbus"):
                     self.qdbus = "qdbus"
                 else:
-                    self.qdbus = None
                     print("Warning: qdbus not found.")
             except Exception:
-                self.qdbus = None
-        else:
-            self.qdbus = None
+                print("Warning: qdbus not found.")
 
         self.monitors: List[Monitor] = []
         self.monitor_widgets: Dict[str, MonitorDropWidget] = {}
@@ -485,7 +483,9 @@ class WallpaperTab(AbstractClassSingleGallery):
         )
 
         self.scan_thumbnail_layout = QGridLayout(self.scan_thumbnail_widget)
-        self.scan_thumbnail_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.scan_thumbnail_layout.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
         self.gallery_scroll_area.setWidget(self.scan_thumbnail_widget)
 
         content_layout.addWidget(self.search_input)
@@ -1003,9 +1003,9 @@ class WallpaperTab(AbstractClassSingleGallery):
     def skip_current_wallpapers(self):
         if self.background_type == "Solid Color":
             return
-            
+
         self._cycle_slideshow_wallpaper(increment=True)
-        
+
         if self._is_daemon_running_config():
             self._sync_daemon_config()
             try:
@@ -1269,7 +1269,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             all_paths=all_paths_list,
             start_index=start_index,
         )
-        window.setAttribute(Qt.WA_DeleteOnClose)
+        window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
 
         self.open_image_preview_windows = [
             w for w in self.open_image_preview_windows if not sip.isValid(w)
@@ -1337,14 +1337,13 @@ class WallpaperTab(AbstractClassSingleGallery):
             self,
             f"Confirm {action_name}",
             f"Move to {action_name}:\n\n{filename}",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
         )
-        if reply == QMessageBox.No:
+        if reply == QMessageBox.StandardButton.No:
             return
         try:
             if send_to_trash_enabled:
-                from send2trash import send2trash
                 send2trash(path)
             else:
                 os.remove(path)
@@ -1686,7 +1685,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             QMessageBox.warning(self, "Error", f"File not found:\n{path}")
             return
 
-        is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+        # is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
 
         # Update persistent state
         self.monitor_image_paths[monitor_id] = path
@@ -2072,7 +2071,10 @@ class WallpaperTab(AbstractClassSingleGallery):
                 col = current_count % cols
 
                 self.gallery_layout.addWidget(
-                    card, row, col, Qt.AlignLeft | Qt.AlignTop
+                    card,
+                    row,
+                    col,
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
                 )
 
             self.path_to_card_widget[path] = card
@@ -2125,10 +2127,10 @@ class WallpaperTab(AbstractClassSingleGallery):
         finally:
             self._filtering_event = False
 
-        if event.type() == QEvent.Wheel:
+        if event.type() == QEvent.Type.Wheel:
             # Note: Wheel events are typically suppressed by QDrag.exec() on many platforms.
             # This handler is kept in case the platform allows it.
-            if QApplication.mouseButtons() & Qt.LeftButton:
+            if QApplication.mouseButtons() & Qt.MouseButton.LeftButton:
                 global_pos = QCursor.pos()
                 if self.rect().contains(self.mapFromGlobal(global_pos)):
                     vbar = self.main_scroll_area.verticalScrollBar()
@@ -2137,7 +2139,7 @@ class WallpaperTab(AbstractClassSingleGallery):
                         vbar.setValue(vbar.value() - delta)
                         return True
 
-        elif event.type() in (QEvent.DragMove, QEvent.DragEnter):
+        elif event.type() in (QEvent.Type.DragMove, QEvent.Type.DragEnter):
             # Globally catch drag moves to handle autoscroll even over child widgets
             self._handle_autoscroll(QCursor.pos())
 

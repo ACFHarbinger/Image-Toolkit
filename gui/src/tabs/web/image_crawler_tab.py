@@ -121,7 +121,7 @@ class ImageCrawlTab(QWidget):
         # --- 4. Run Controls ---
         # Progress & Status
         self.status_label = QLabel("Ready.")
-        self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setStyleSheet(
             "color: #aaa; font-style: italic; padding: 8px;"
         )
@@ -144,7 +144,7 @@ class ImageCrawlTab(QWidget):
             self.run_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
         )
         self.run_button.clicked.connect(self.start_crawl)
-        
+
         # --- WebDriver Management ---
         self.webdriver_process = QProcess(self)
         self.webdriver_process.readyReadStandardOutput.connect(self.on_webdriver_stdout)
@@ -157,9 +157,11 @@ class ImageCrawlTab(QWidget):
             self.webdriver_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
         )
         self.webdriver_button.clicked.connect(self.toggle_webdriver)
-        self.button_layout.addWidget(self.webdriver_button, 0, Qt.AlignBottom)
+        self.button_layout.addWidget(
+            self.webdriver_button, 0, Qt.AlignmentFlag.AlignBottom
+        )
 
-        self.button_layout.addWidget(self.run_button, 0, Qt.AlignBottom)
+        self.button_layout.addWidget(self.run_button, 0, Qt.AlignmentFlag.AlignBottom)
 
         self.cancel_button = QPushButton("Cancel Crawl")
         self.cancel_button.setStyleSheet(self._get_cancel_btn_style())
@@ -168,7 +170,9 @@ class ImageCrawlTab(QWidget):
         )
         self.cancel_button.clicked.connect(self.cancel_crawl)
         self.cancel_button.hide()
-        self.button_layout.addWidget(self.cancel_button, 0, Qt.AlignBottom)
+        self.button_layout.addWidget(
+            self.cancel_button, 0, Qt.AlignmentFlag.AlignBottom
+        )
 
         main_layout.addWidget(self.button_container)
         main_layout.addStretch(1)
@@ -309,7 +313,9 @@ class ImageCrawlTab(QWidget):
 
         self.action_list_widget = QListWidget()
         self.action_list_widget.setMinimumHeight(150)
-        self.action_list_widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.action_list_widget.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.CustomContextMenu
+        )
         self.action_list_widget.customContextMenuRequested.connect(
             self.show_context_menu
         )
@@ -515,7 +521,7 @@ class ImageCrawlTab(QWidget):
             )
 
         if ok and new_param is not None:
-            new_param_str = str(new_param).strip()
+            new_param_str = new_param.strip()
             if new_param_str:
                 current_item.setText(f"{action_type} | Param: {new_param_str}")
                 QMessageBox.information(
@@ -712,20 +718,24 @@ class ImageCrawlTab(QWidget):
     def toggle_webdriver(self):
         if self.webdriver_process.state() == QProcess.ProcessState.NotRunning:
             self.log_window.show()
-            self.log_window.append_log("🌐 Preparing Managed WebDriver (this may take a few seconds)...")
-            
+            self.log_window.append_log(
+                "🌐 Preparing Managed WebDriver (this may take a few seconds)..."
+            )
+
             # Use the virtual environment python to run the management script
             # Assumes the app is launched from project root where .venv exists
             python_exe = os.path.abspath(".venv/bin/python3")
             script_path = os.path.abspath("scripts/manage_webdriver.py")
-            
+
             if not os.path.exists(python_exe):
                 # Fallback to system python if venv not found (though AGENTS.md says it should be there)
                 python_exe = "python3"
 
             self.webdriver_process.start(python_exe, [script_path, "start"])
             if not self.webdriver_process.waitForStarted(10000):
-                self.log_window.append_log("❌ Failed to start WebDriver manager script.")
+                self.log_window.append_log(
+                    "❌ Failed to start WebDriver manager script."
+                )
                 return
             self.webdriver_button.setText("🛑 Stop WebDriver Service")
             self.webdriver_button.setStyleSheet(self._get_cancel_btn_style())

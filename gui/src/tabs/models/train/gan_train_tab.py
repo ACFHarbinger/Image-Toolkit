@@ -100,7 +100,7 @@ class GANTrainTab(QWidget):
 
         # Preview Area
         self.lbl_preview = QLabel("Latest Training Sample")
-        self.lbl_preview.setAlignment(Qt.AlignCenter)
+        self.lbl_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_preview.setStyleSheet("border: 2px dashed #aaa; padding: 10px;")
         self.lbl_preview.setMinimumHeight(200)
         self.layout.addWidget(self.lbl_preview)
@@ -173,8 +173,8 @@ class GANTrainTab(QWidget):
                 self.lbl_preview.setPixmap(
                     pixmap.scaled(
                         self.lbl_preview.size(),
-                        Qt.KeepAspectRatio,
-                        Qt.SmoothTransformation,
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation,
                     )
                 )
 

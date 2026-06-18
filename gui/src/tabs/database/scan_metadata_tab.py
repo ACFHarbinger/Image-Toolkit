@@ -2,8 +2,9 @@ import os
 import math
 
 from pathlib import Path
+from send2trash import send2trash
 from typing import Set, Dict, Any, List, Tuple, Optional
-from PySide6.QtGui import QPixmap, QImage, QAction, QResizeEvent
+from PySide6.QtGui import QPixmap, QImage, QAction, QResizeEvent, QColor
 from PySide6.QtCore import Qt, QThread, Slot, QPoint, QTimer, QThreadPool, QEventLoop
 from PySide6.QtWidgets import (
     QWidget,
@@ -151,7 +152,9 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         self.scan_thumbnail_widget = QWidget()
         self.scan_thumbnail_widget.setStyleSheet("background-color: #2c2f33;")
         self.scan_thumbnail_layout = QGridLayout(self.scan_thumbnail_widget)
-        self.scan_thumbnail_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.scan_thumbnail_layout.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
 
         self.scan_scroll_area.setWidget(self.scan_thumbnail_widget)
         self.scan_scroll_area.selection_changed.connect(self.handle_marquee_selection)
@@ -192,7 +195,9 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         self.selected_images_widget = QWidget()
         self.selected_images_widget.setStyleSheet("background-color: #2c2f33;")
         self.selected_grid_layout = QGridLayout(self.selected_images_widget)
-        self.selected_grid_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.selected_grid_layout.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
 
         self.selected_images_area.setWidget(self.selected_images_widget)
 
@@ -310,7 +315,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         main_layout.addLayout(scan_action_layout)
         self.setLayout(main_layout)
 
-        self.setFocusPolicy(Qt.StrongFocus)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
         self.update_button_states(connected=False)
         self.populate_selected_images_gallery()
@@ -321,7 +326,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
 
         # Center alignment: Explicitly set horizontal center alignment
         if container.layout():
-            container.layout().setAlignment(Qt.AlignHCenter)
+            container.layout().setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         combo = controls["combo"]
         btn_prev = controls["btn_prev"]
@@ -332,7 +337,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         # We also set a dummy menu immediately. This forces the UI to render the
         # dropdown arrow and reserve the correct spacing/size even before data is loaded.
         try:
-            btn_page.setPopupMode(QToolButton.InstantPopup)
+            btn_page.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         except AttributeError:
             pass  # Ignore if it is a QPushButton
 
@@ -476,13 +481,19 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
     def keyPressEvent(self, event):
         """Handle keyboard shortcuts for selection."""
         # CTRL + A: Select All (Visible on Page)
-        if event.modifiers() & Qt.ControlModifier and event.key() == Qt.Key_A:
+        if (
+            event.modifiers() & Qt.KeyboardModifier.ControlModifier
+            and event.key() == Qt.Key.Key_A
+        ):
             self._select_all_images()
             event.accept()
             return
 
         # CTRL + D: Deselect All
-        if event.modifiers() & Qt.ControlModifier and event.key() == Qt.Key_D:
+        if (
+            event.modifiers() & Qt.KeyboardModifier.ControlModifier
+            and event.key() == Qt.Key.Key_D
+        ):
             self._deselect_all_images()
             event.accept()
             return
@@ -606,12 +617,12 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             row = idx // columns
             col = idx % columns
 
-            align = Qt.AlignLeft | Qt.AlignTop
+            align = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
             if isinstance(widget, QLabel) and (
                 "No supported images" in widget.text()
                 or "No scanned images" in widget.text()
             ):
-                align = Qt.AlignCenter
+                align = Qt.AlignmentFlag.AlignCenter
                 layout.addWidget(widget, 0, 0, 1, columns, align)
                 return
 
@@ -637,13 +648,16 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         card_layout.setContentsMargins(0, 0, 0, 0)
 
         img_label = QLabel()
-        img_label.setAlignment(Qt.AlignCenter)
+        img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         img_label.setFixedSize(thumb_size, thumb_size)
 
         if pixmap and not pixmap.isNull():
             if pixmap.width() > thumb_size or pixmap.height() > thumb_size:
                 scaled = pixmap.scaled(
-                    thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.FastTransformation
+                    thumb_size,
+                    thumb_size,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.FastTransformation,
                 )
                 img_label.setPixmap(scaled)
             else:
@@ -716,16 +730,14 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             None: "#c7c7c7",
         }
 
-        from PySide6.QtGui import QColor
-
         for tag_data in tags_data:
             tag_name = tag_data["name"]
             tag_type = tag_data["type"] if tag_data.get("type") else ""
 
             item = QListWidgetItem(tag_name.replace("_", " ").title())
-            item.setData(Qt.UserRole, tag_name)
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(Qt.Unchecked)
+            item.setData(Qt.ItemDataRole.UserRole, tag_name)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Unchecked)
 
             text_color = color_map.get(tag_type, color_map[""])
             item.setForeground(QColor(text_color))
@@ -813,7 +825,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
 
         if not all_selected:
             empty_label = QLabel("Select images from the scan results above.")
-            empty_label.setAlignment(Qt.AlignCenter)
+            empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             empty_label.setStyleSheet("color: #b9bbbe; padding: 50px;")
             self.selected_grid_layout.addWidget(empty_label, 0, 0, 1, columns)
             self.selected_images_widget.setUpdatesEnabled(True)
@@ -851,7 +863,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             row = i // columns
             col = i % columns
             self.selected_grid_layout.addWidget(
-                card, row, col, Qt.AlignLeft | Qt.AlignTop
+                card, row, col, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
             )
 
         self.selected_images_widget.setUpdatesEnabled(True)
@@ -942,7 +954,9 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
 
     def apply_scan_filters(self):
         """Filters the raw scan list based on settings (Show New Only) and resets to Page 1."""
-        self.scan_filtered_list = sorted(self.scan_image_list, key=natural_sort_key)  # Sort by default
+        self.scan_filtered_list = sorted(
+            self.scan_image_list, key=natural_sort_key
+        )  # Sort by default
 
         # FILTERING LOGIC
         if self.db_tab_ref.db is not None:
@@ -1026,7 +1040,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             card.path_right_clicked.connect(self.show_image_context_menu)
 
             self.scan_thumbnail_layout.addWidget(
-                card, row, col, Qt.AlignLeft | Qt.AlignTop
+                card, row, col, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
             )
             self.path_to_wrapper_map[path] = card
 
@@ -1133,8 +1147,8 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                         scaled = pixmap.scaled(
                             thumb_size,
                             thumb_size,
-                            Qt.KeepAspectRatio,
-                            Qt.FastTransformation,
+                            Qt.AspectRatioMode.KeepAspectRatio,
+                            Qt.TransformationMode.FastTransformation,
                         )
                         inner_label.setPixmap(scaled)
                     else:
@@ -1316,16 +1330,16 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
 
         if (
             QMessageBox.question(
-                self, f"Confirm {action_name}", f"Move {os.path.basename(path)} to {action_name}?"
+                self,
+                f"Confirm {action_name}",
+                f"Move {os.path.basename(path)} to {action_name}?",
             )
-            == QMessageBox.Yes
+            == QMessageBox.StandardButton.Yes
         ):
             try:
                 if send_to_trash_enabled:
-                    from send2trash import send2trash
                     send2trash(path)
                 else:
-                    import os
                     os.remove(path)
                 if path in self.scan_image_list:
                     self.scan_image_list.remove(path)
@@ -1361,7 +1375,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                 else 0
             ),
         )
-        preview.setAttribute(Qt.WA_DeleteOnClose)
+        preview.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         preview.show()
         self.open_preview_windows.append(preview)
 
@@ -1378,9 +1392,9 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             group_name = self.group_combo.currentText().strip() or None
             subgroup_name = self.subgroup_combo.currentText().strip() or None
             tags = [
-                self.tags_list_widget.item(i).data(Qt.UserRole)
+                self.tags_list_widget.item(i).data(Qt.ItemDataRole.UserRole)
                 for i in range(self.tags_list_widget.count())
-                if self.tags_list_widget.item(i).checkState() == Qt.Checked
+                if self.tags_list_widget.item(i).checkState() == Qt.CheckState.Checked
             ] or None
 
             success_count = 0
@@ -1457,7 +1471,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                 "Confirm",
                 f"Delete {len(self.selected_image_paths)} entries from DB?",
             )
-            == QMessageBox.Yes
+            == QMessageBox.StandardButton.Yes
         ):
             for path in self.selected_image_paths:
                 img = db.get_image_by_path(path)
@@ -1488,9 +1502,10 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                 "group_name": self.group_combo.currentText().strip() or "",
                 "subgroup_name": self.subgroup_combo.currentText().strip() or "",
                 "tags": [
-                    self.tags_list_widget.item(i).data(Qt.UserRole)
+                    self.tags_list_widget.item(i).data(Qt.ItemDataRole.UserRole)
                     for i in range(self.tags_list_widget.count())
-                    if self.tags_list_widget.item(i).checkState() == Qt.Checked
+                    if self.tags_list_widget.item(i).checkState()
+                    == Qt.CheckState.Checked
                 ],
             },
         }
@@ -1522,9 +1537,9 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                 for i in range(self.tags_list_widget.count()):
                     item = self.tags_list_widget.item(i)
                     item.setCheckState(
-                        Qt.Checked
-                        if item.data(Qt.UserRole) in selected_tags
-                        else Qt.Unchecked
+                        Qt.CheckState.Checked
+                        if item.data(Qt.ItemDataRole.UserRole) in selected_tags
+                        else Qt.CheckState.Unchecked
                     )
             QMessageBox.information(
                 self,

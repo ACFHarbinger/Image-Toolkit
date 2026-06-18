@@ -25,7 +25,6 @@ from PySide6.QtWidgets import (
     QApplication,
     QTabWidget,
     QListWidget,
-    QListWidgetItem,
     QFileDialog,
     QInputDialog,
     QDialog,
@@ -36,10 +35,13 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QKeySequenceEdit,
 )
+from ..utils.shortcut_manager import get_registry, SHORTCUT_REGISTRY
 from backend.src.constants import (
     IMAGE_TOOLKIT_DIR,
     DAEMON_CONFIG_PATH,
     THUMBNAIL_CACHE_DIR,
+    TEMPLATE_CRYPTO_DIR,
+    CRYPTO_DIR,
     ROOT_DIR,
     API_DIR,
 )
@@ -54,7 +56,7 @@ class SettingsWindow(QWidget):
         # Store a reference to the main window to call theme switching
         self.main_window_ref = parent
 
-        super().__init__(None, Qt.Window)
+        super().__init__(None, Qt.WindowType.Window)
 
         self.setWindowTitle("Application Settings")
         self.setMinimumSize(800, 600)  # Increased height slightly
@@ -144,7 +146,9 @@ class SettingsWindow(QWidget):
 
         # --- Login Information Section ---
         login_groupbox = QGroupBox("Login/Account Information (Master Password Reset)")
-        login_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        login_groupbox.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+        )
         login_layout = QFormLayout(login_groupbox)
         login_layout.setContentsMargins(10, 10, 10, 10)
 
@@ -161,7 +165,9 @@ class SettingsWindow(QWidget):
 
         # --- Cryptography Vault Sync/Load Section ---
         vault_sync_groupbox = QGroupBox("Cryptography Vault Sync and Load")
-        vault_sync_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        vault_sync_groupbox.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+        )
         vault_sync_layout = QVBoxLayout(vault_sync_groupbox)
         vault_sync_layout.setContentsMargins(10, 10, 10, 10)
 
@@ -198,7 +204,9 @@ class SettingsWindow(QWidget):
 
         # --- Preferences Section ---
         prefs_groupbox = QGroupBox("Preferences")
-        prefs_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        prefs_groupbox.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+        )
         prefs_layout = QVBoxLayout(prefs_groupbox)
         prefs_layout.setContentsMargins(10, 10, 10, 10)
         # --- Active Default Configuration Selection ---
@@ -258,7 +266,9 @@ class SettingsWindow(QWidget):
         # --- System Preference Profiles Section ---
         # ---------------------------------------------------------------------
         profiles_groupbox = QGroupBox("System Preference Profiles")
-        profiles_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        profiles_groupbox.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+        )
         profiles_layout = QVBoxLayout(profiles_groupbox)
 
         # Row 1: Select Profile to Load, Update, or Delete
@@ -328,7 +338,9 @@ class SettingsWindow(QWidget):
         # --- Tab Default Configuration Section ---
         # ---------------------------------------------------------------------
         defaults_groupbox = QGroupBox("Tab Default Configuration Management")
-        defaults_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        defaults_groupbox.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding
+        )
         defaults_layout = QVBoxLayout(defaults_groupbox)
 
         # 1. Tab Selection
@@ -368,7 +380,9 @@ class SettingsWindow(QWidget):
         self.btn_set_config = QPushButton("Set Selected Config")
         self.btn_set_config.clicked.connect(self._set_selected_tab_config)
         # Set policy to expand horizontally
-        self.btn_set_config.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.btn_set_config.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
         full_width_buttons_layout.addWidget(self.btn_set_config)
 
         # Existing Delete Button
@@ -376,7 +390,9 @@ class SettingsWindow(QWidget):
         self.btn_delete_config.setStyleSheet("background-color: #e74c3c; color: white;")
         self.btn_delete_config.clicked.connect(self._delete_selected_tab_config)
         # Set policy to expand horizontally
-        self.btn_delete_config.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.btn_delete_config.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
         full_width_buttons_layout.addWidget(self.btn_delete_config)
 
         # Add the config selection layout first
@@ -430,7 +446,9 @@ class SettingsWindow(QWidget):
         # --- Appearance Section ---
         # ---------------------------------------------------------------------
         appearance_groupbox = QGroupBox("Appearance")
-        appearance_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        appearance_groupbox.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+        )
         appearance_layout = QFormLayout(appearance_groupbox)
         appearance_layout.setContentsMargins(10, 10, 10, 10)
 
@@ -438,11 +456,15 @@ class SettingsWindow(QWidget):
         theme_layout = QHBoxLayout()
         self.dark_theme_radio = QRadioButton("Dark Theme")
         self.light_theme_radio = QRadioButton("Light Theme")
-        
+
         self.dark_theme_radio.setMinimumWidth(180)
         self.light_theme_radio.setMinimumWidth(180)
-        self.dark_theme_radio.setStyleSheet("QRadioButton { min-width: 180px; padding: 4px; }")
-        self.light_theme_radio.setStyleSheet("QRadioButton { min-width: 180px; padding: 4px; }")
+        self.dark_theme_radio.setStyleSheet(
+            "QRadioButton { min-width: 180px; padding: 4px; }"
+        )
+        self.light_theme_radio.setStyleSheet(
+            "QRadioButton { min-width: 180px; padding: 4px; }"
+        )
 
         # Set the radio button based on the loaded initial theme
         if self.initial_theme == "light":
@@ -459,7 +481,9 @@ class SettingsWindow(QWidget):
         dark_accent_row = QHBoxLayout()
         self.dark_accent_swatch = QPushButton()
         self.dark_accent_swatch.setFixedSize(180, 22)
-        self.dark_accent_swatch.setToolTip("Click to pick a custom accent colour for the dark theme")
+        self.dark_accent_swatch.setToolTip(
+            "Click to pick a custom accent colour for the dark theme"
+        )
         self._update_swatch(self.dark_accent_swatch, self.pref_accent_dark)
         self.dark_accent_swatch.clicked.connect(lambda: self._pick_accent_color("dark"))
         dark_accent_reset = QPushButton("Reset")
@@ -474,9 +498,13 @@ class SettingsWindow(QWidget):
         light_accent_row = QHBoxLayout()
         self.light_accent_swatch = QPushButton()
         self.light_accent_swatch.setFixedSize(180, 22)
-        self.light_accent_swatch.setToolTip("Click to pick a custom accent colour for the light theme")
+        self.light_accent_swatch.setToolTip(
+            "Click to pick a custom accent colour for the light theme"
+        )
         self._update_swatch(self.light_accent_swatch, self.pref_accent_light)
-        self.light_accent_swatch.clicked.connect(lambda: self._pick_accent_color("light"))
+        self.light_accent_swatch.clicked.connect(
+            lambda: self._pick_accent_color("light")
+        )
         light_accent_reset = QPushButton("Reset")
         light_accent_reset.setFixedWidth(100)
         light_accent_reset.clicked.connect(lambda: self._reset_accent("light"))
@@ -509,7 +537,9 @@ class SettingsWindow(QWidget):
         preview_row = QHBoxLayout()
         btn_preview_appearance = QPushButton("Preview")
         btn_preview_appearance.setFixedWidth(90)
-        btn_preview_appearance.setToolTip("Apply the current accent/density settings live (does not save)")
+        btn_preview_appearance.setToolTip(
+            "Apply the current accent/density settings live (does not save)"
+        )
         btn_preview_appearance.clicked.connect(self._preview_appearance)
         preview_row.addWidget(btn_preview_appearance)
         preview_row.addStretch()
@@ -519,7 +549,9 @@ class SettingsWindow(QWidget):
         # --- Gallery and Display Section ---
         # ---------------------------------------------------------------------
         gallery_groupbox = QGroupBox("Gallery and Display")
-        gallery_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        gallery_groupbox.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+        )
         gallery_layout = QFormLayout(gallery_groupbox)
         gallery_layout.setContentsMargins(10, 10, 10, 10)
 
@@ -558,7 +590,9 @@ class SettingsWindow(QWidget):
         # --- Media Player and Extractor Section ---
         # ---------------------------------------------------------------------
         media_groupbox = QGroupBox("Media Player and Extractor")
-        media_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        media_groupbox.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+        )
         media_layout = QFormLayout(media_groupbox)
         media_layout.setContentsMargins(10, 10, 10, 10)
 
@@ -590,18 +624,24 @@ class SettingsWindow(QWidget):
         media_layout.addRow(self.enable_queue_check)
 
         self.extractor_time_format_combo = QComboBox()
-        self.extractor_time_format_combo.addItems(["h:m:s", "m:s:ms", "microseconds", "milliseconds"])
+        self.extractor_time_format_combo.addItems(
+            ["h:m:s", "m:s:ms", "microseconds", "milliseconds"]
+        )
         self.extractor_time_format_combo.setCurrentText(self.pref_extractor_time_format)
         self.extractor_time_format_combo.setToolTip(
             "Change how the video time in the extractor tab is displayed (e.g. h:m:s, m:s:ms, microseconds)"
         )
-        media_layout.addRow("Extractor Time Display Format:", self.extractor_time_format_combo)
+        media_layout.addRow(
+            "Extractor Time Display Format:", self.extractor_time_format_combo
+        )
 
         # ---------------------------------------------------------------------
         # --- Startup and Session Section ---
         # ---------------------------------------------------------------------
         session_groupbox = QGroupBox("Startup and Session")
-        session_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        session_groupbox.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+        )
         session_layout = QFormLayout(session_groupbox)
         session_layout.setContentsMargins(10, 10, 10, 10)
 
@@ -639,7 +679,9 @@ class SettingsWindow(QWidget):
         # --- Performance and Cache Section ---
         # ---------------------------------------------------------------------
         perf_groupbox = QGroupBox("Performance and Cache")
-        perf_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        perf_groupbox.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+        )
         perf_layout = QFormLayout(perf_groupbox)
         perf_layout.setContentsMargins(10, 10, 10, 10)
 
@@ -685,7 +727,9 @@ class SettingsWindow(QWidget):
         # --- Slideshow Defaults Section ---
         # ---------------------------------------------------------------------
         slideshow_groupbox = QGroupBox("Slideshow Defaults")
-        slideshow_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        slideshow_groupbox.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+        )
         slideshow_def_layout = QFormLayout(slideshow_groupbox)
         slideshow_def_layout.setContentsMargins(10, 10, 10, 10)
 
@@ -720,7 +764,9 @@ class SettingsWindow(QWidget):
         # --- Logging Section ---
         # ---------------------------------------------------------------------
         logging_groupbox = QGroupBox("Logging")
-        logging_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        logging_groupbox.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+        )
         logging_layout = QFormLayout(logging_groupbox)
         logging_layout.setContentsMargins(10, 10, 10, 10)
 
@@ -767,7 +813,9 @@ class SettingsWindow(QWidget):
         # --- Reset State Section ---
         # ---------------------------------------------------------------------
         reset_groupbox = QGroupBox("Reset State")
-        reset_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        reset_groupbox.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+        )
         reset_state_layout = QVBoxLayout(reset_groupbox)
         reset_state_layout.setContentsMargins(10, 10, 10, 10)
         reset_state_layout.setSpacing(8)
@@ -872,7 +920,9 @@ class SettingsWindow(QWidget):
 
         # --- Credentials Management Section ---
         credentials_groupbox = QGroupBox("Manage Loaded Credentials")
-        credentials_groupbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        credentials_groupbox.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred
+        )
         credentials_layout = QVBoxLayout(credentials_groupbox)
         credentials_layout.setContentsMargins(10, 10, 10, 10)
 
@@ -893,23 +943,39 @@ class SettingsWindow(QWidget):
 
         creds_btn_layout = QHBoxLayout()
         self.btn_export_creds = QPushButton("Export to Backup 📤")
-        self.btn_export_creds.setToolTip("Export unencrypted versions of loaded credentials to the backup directory.")
-        self.btn_export_creds.setStyleSheet("background-color: #27ae60; color: white; font-weight: bold;")
+        self.btn_export_creds.setToolTip(
+            "Export unencrypted versions of loaded credentials to the backup directory."
+        )
+        self.btn_export_creds.setStyleSheet(
+            "background-color: #27ae60; color: white; font-weight: bold;"
+        )
         self.btn_export_creds.clicked.connect(self._export_credentials_to_backup)
 
         self.btn_import_cred = QPushButton("Import Credential 📥")
-        self.btn_import_cred.setToolTip("Select a new JSON credential file to encrypt and load into the vault.")
-        self.btn_import_cred.setStyleSheet("background-color: #2980b9; color: white; font-weight: bold;")
+        self.btn_import_cred.setToolTip(
+            "Select a new JSON credential file to encrypt and load into the vault."
+        )
+        self.btn_import_cred.setStyleSheet(
+            "background-color: #2980b9; color: white; font-weight: bold;"
+        )
         self.btn_import_cred.clicked.connect(self._import_credential)
 
         self.btn_edit_cred = QPushButton("Edit Credential ✏️")
-        self.btn_edit_cred.setToolTip("View and edit the JSON values of the selected credential.")
-        self.btn_edit_cred.setStyleSheet("background-color: #f39c12; color: white; font-weight: bold;")
+        self.btn_edit_cred.setToolTip(
+            "View and edit the JSON values of the selected credential."
+        )
+        self.btn_edit_cred.setStyleSheet(
+            "background-color: #f39c12; color: white; font-weight: bold;"
+        )
         self.btn_edit_cred.clicked.connect(self._edit_credential)
 
         self.btn_delete_cred = QPushButton("Delete Credential ❌")
-        self.btn_delete_cred.setToolTip("Delete the selected credential from the vault and disk.")
-        self.btn_delete_cred.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold;")
+        self.btn_delete_cred.setToolTip(
+            "Delete the selected credential from the vault and disk."
+        )
+        self.btn_delete_cred.setStyleSheet(
+            "background-color: #c0392b; color: white; font-weight: bold;"
+        )
         self.btn_delete_cred.clicked.connect(self._delete_credential)
 
         creds_btn_layout.addWidget(self.btn_export_creds)
@@ -1000,7 +1066,9 @@ class SettingsWindow(QWidget):
 
         # --- Action Buttons at the bottom (Full Width) ---
         actions_widget = QWidget()
-        actions_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        actions_widget.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
 
         actions_layout = QHBoxLayout(actions_widget)
         actions_layout.setContentsMargins(20, 10, 20, 20)
@@ -1010,7 +1078,9 @@ class SettingsWindow(QWidget):
         self.reset_button = QPushButton("Reset to default")
         self.reset_button.setObjectName("reset_button")
         self.reset_button.clicked.connect(self.reset_settings)
-        self.reset_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.reset_button.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
 
         # 1.5. Reload Button (New) 🆕
         self.reload_button = QPushButton("Reload settings")
@@ -1019,7 +1089,9 @@ class SettingsWindow(QWidget):
             "background-color: #34495e; color: white; font-weight: bold;"
         )
         self.reload_button.clicked.connect(self.reload_settings)
-        self.reload_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.reload_button.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
 
         # 2. Refresh Button (New) 🆕
         self.refresh_button = QPushButton("Refresh Application (Relaunch) 🔄")
@@ -1028,13 +1100,17 @@ class SettingsWindow(QWidget):
             "background-color: #f1c40f; color: black; font-weight: bold;"
         )
         self.refresh_button.clicked.connect(self._refresh_application)
-        self.refresh_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.refresh_button.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
 
         # 3. Update Button
         self.update_button = QPushButton("Update settings")
         self.update_button.setObjectName("update_button")
         self.update_button.clicked.connect(self.confirm_update_settings)
-        self.update_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.update_button.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
         self.update_button.setDefault(True)
 
         actions_layout.addWidget(self.reset_button)
@@ -1981,10 +2057,8 @@ class SettingsWindow(QWidget):
 
     def _build_shortcuts_groupbox(self) -> QGroupBox:
         """Build the shortcuts table + action buttons groupbox."""
-        from ..utils.shortcut_manager import get_registry, SHORTCUT_REGISTRY
-
         grp = QGroupBox("Keyboard Shortcuts")
-        grp.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        grp.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         vbox = QVBoxLayout(grp)
         vbox.setContentsMargins(10, 10, 10, 10)
 
@@ -2013,21 +2087,27 @@ class SettingsWindow(QWidget):
 
         self._shortcut_table = QTableWidget(len(entries), 3)
         self._shortcut_table.setHorizontalHeaderLabels(["Scope", "Action", "Binding"])
-        self._shortcut_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        self._shortcut_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self._shortcut_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self._shortcut_table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeMode.ResizeToContents
+        )
+        self._shortcut_table.horizontalHeader().setSectionResizeMode(
+            1, QHeaderView.ResizeMode.Stretch
+        )
+        self._shortcut_table.horizontalHeader().setSectionResizeMode(
+            2, QHeaderView.ResizeMode.ResizeToContents
+        )
         self._shortcut_table.verticalHeader().setVisible(False)
-        self._shortcut_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self._shortcut_table.setSelectionMode(QTableWidget.NoSelection)
+        self._shortcut_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._shortcut_table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
         self._shortcut_table.setAlternatingRowColors(True)
 
         self._shortcut_editors: dict[str, QKeySequenceEdit] = {}
 
         for row, entry in enumerate(entries):
             scope_item = QTableWidgetItem(entry["scope"])
-            scope_item.setFlags(Qt.ItemIsEnabled)
+            scope_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
             desc_item = QTableWidgetItem(entry["description"])
-            desc_item.setFlags(Qt.ItemIsEnabled)
+            desc_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
             self._shortcut_table.setItem(row, 0, scope_item)
             self._shortcut_table.setItem(row, 1, desc_item)
 
@@ -2041,7 +2121,9 @@ class SettingsWindow(QWidget):
         # Buttons row
         btn_row = QHBoxLayout()
         btn_save_kb = QPushButton("Save Shortcuts")
-        btn_save_kb.setToolTip("Write shortcut overrides to ~/.image-toolkit/keybindings.json")
+        btn_save_kb.setToolTip(
+            "Write shortcut overrides to ~/.image-toolkit/keybindings.json"
+        )
         btn_save_kb.clicked.connect(self._save_shortcuts)
         btn_reset_kb = QPushButton("Reset All to Defaults")
         btn_reset_kb.setToolTip("Clear all overrides and delete keybindings.json")
@@ -2053,12 +2135,10 @@ class SettingsWindow(QWidget):
         return grp
 
     def _save_shortcuts(self) -> None:
-        from ..utils.shortcut_manager import get_registry, SHORTCUT_REGISTRY
         reg = get_registry()
         defaults = {e["id"]: e["default"] for e in SHORTCUT_REGISTRY}
         overrides: dict[str, str] = {}
         conflicts: list[str] = []
-
         for action_id, editor in self._shortcut_editors.items():
             seq = editor.keySequence()
             key_str = seq.toString() if not seq.isEmpty() else ""
@@ -2075,25 +2155,28 @@ class SettingsWindow(QWidget):
         if conflicts:
             msg = "Conflicting shortcuts detected:\n" + "\n".join(conflicts)
             msg += "\n\nSave anyway?"
-            reply = QMessageBox.question(self, "Shortcut Conflict", msg,
-                                         QMessageBox.Yes | QMessageBox.No)
-            if reply != QMessageBox.Yes:
+            reply = QMessageBox.question(
+                self,
+                "Shortcut Conflict",
+                msg,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
                 return
 
         reg.save(overrides)
         QMessageBox.information(
-            self, "Saved",
-            "Shortcuts saved. Changes take effect on next app launch."
+            self, "Saved", "Shortcuts saved. Changes take effect on next app launch."
         )
 
     def _reset_shortcuts(self) -> None:
-        from ..utils.shortcut_manager import get_registry, SHORTCUT_REGISTRY
         reply = QMessageBox.question(
-            self, "Reset Shortcuts",
+            self,
+            "Reset Shortcuts",
             "Reset all shortcuts to defaults and delete keybindings.json?",
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if reply != QMessageBox.Yes:
+        if reply != QMessageBox.StandardButton.Yes:
             return
         get_registry().reset()
         defaults = {e["id"]: e["default"] for e in SHORTCUT_REGISTRY}
@@ -2151,7 +2234,10 @@ class SettingsWindow(QWidget):
         """Apply current accent/density/font settings live without saving."""
         if not self.main_window_ref:
             return
-        if not hasattr(self.main_window_ref, "cached_creds") or not self.main_window_ref.cached_creds:
+        if (
+            not hasattr(self.main_window_ref, "cached_creds")
+            or not self.main_window_ref.cached_creds
+        ):
             return
         prefs = dict(self.main_window_ref.cached_creds.get("preferences", {}))
         prefs["accent_color_dark"] = self.pref_accent_dark
@@ -2406,11 +2492,8 @@ class SettingsWindow(QWidget):
         """
         Sync active files from ~/.image-toolkit/cryptography to the assets/cryptography template directory.
         """
-        from backend.src.constants import TEMPLATE_CRYPTO_DIR, CRYPTO_DIR
-
         active_dir = Path(CRYPTO_DIR)
         template_dir = Path(TEMPLATE_CRYPTO_DIR)
-
         if not active_dir.exists():
             QMessageBox.warning(
                 self, "Sync Error", "Active cryptography directory does not exist."
@@ -2452,11 +2535,8 @@ class SettingsWindow(QWidget):
         """
         Load (overwrite) active files in ~/.image-toolkit/cryptography with ones from the assets/cryptography template directory.
         """
-        from backend.src.constants import TEMPLATE_CRYPTO_DIR, CRYPTO_DIR
-
         active_dir = Path(CRYPTO_DIR)
         template_dir = Path(TEMPLATE_CRYPTO_DIR)
-
         if not template_dir.exists():
             QMessageBox.warning(
                 self,
@@ -2522,12 +2602,19 @@ class SettingsWindow(QWidget):
     def _export_credentials_to_backup(self):
         """Exports unencrypted versions of loaded credentials to the backup directory."""
         if not self.vault_manager:
-            QMessageBox.warning(self, "Export Failed", "Vault manager is not available.")
+            QMessageBox.warning(
+                self, "Export Failed", "Vault manager is not available."
+            )
             return
 
-        if not hasattr(self.vault_manager, "api_credentials") or not self.vault_manager.api_credentials:
+        if (
+            not hasattr(self.vault_manager, "api_credentials")
+            or not self.vault_manager.api_credentials
+        ):
             QMessageBox.information(
-                self, "Export Credentials", "No credentials loaded in current vault session."
+                self,
+                "Export Credentials",
+                "No credentials loaded in current vault session.",
             )
             return
 
@@ -2554,15 +2641,19 @@ class SettingsWindow(QWidget):
             summary_msg = "Successfully exported the following credentials to backup directory:\n\n"
             summary_msg += "\n".join(f"  • {name}" for name in sorted(exported_files))
             summary_msg += f"\n\nPath: {backup_dir}"
-            
+
             QMessageBox.information(self, "Export Success", summary_msg)
         except Exception as e:
-            QMessageBox.critical(self, "Export Failed", f"Failed to export credentials: {e}")
+            QMessageBox.critical(
+                self, "Export Failed", f"Failed to export credentials: {e}"
+            )
 
     def _import_credential(self):
         """Selects a new JSON credential file to encrypt and load into the vault."""
         if not self.vault_manager or not self.vault_manager.secret_key:
-            QMessageBox.warning(self, "Import Failed", "Vault manager or security key is not available.")
+            QMessageBox.warning(
+                self, "Import Failed", "Vault manager or security key is not available."
+            )
             return
 
         # 1. Browse for JSON file
@@ -2579,7 +2670,9 @@ class SettingsWindow(QWidget):
             # Validate JSON
             api_data = json.loads(json_content)
         except Exception as e:
-            QMessageBox.critical(self, "Import Error", f"Failed to read or parse JSON file: {e}")
+            QMessageBox.critical(
+                self, "Import Error", f"Failed to read or parse JSON file: {e}"
+            )
             return
 
         # 3. Prompt user for alias/name
@@ -2617,21 +2710,29 @@ class SettingsWindow(QWidget):
             self._refresh_credentials_list()
 
             QMessageBox.information(
-                self, "Success", f"Credential '{alias}' imported and encrypted successfully."
+                self,
+                "Success",
+                f"Credential '{alias}' imported and encrypted successfully.",
             )
         except Exception as e:
-            QMessageBox.critical(self, "Import Failed", f"Failed to encrypt and save credential: {e}")
+            QMessageBox.critical(
+                self, "Import Failed", f"Failed to encrypt and save credential: {e}"
+            )
 
     def _edit_credential(self):
         """Opens a dialog to view, edit, and save the selected credential's JSON."""
         selected_items = self.credentials_list.selectedItems()
         if not selected_items:
-            QMessageBox.warning(self, "Edit Error", "Please select a credential from the list first.")
+            QMessageBox.warning(
+                self, "Edit Error", "Please select a credential from the list first."
+            )
             return
 
         alias = selected_items[0].text()
         if not self.vault_manager or alias not in self.vault_manager.api_credentials:
-            QMessageBox.warning(self, "Edit Error", f"Credential '{alias}' not found in memory.")
+            QMessageBox.warning(
+                self, "Edit Error", f"Credential '{alias}' not found in memory."
+            )
             return
 
         # Get current data
@@ -2639,43 +2740,52 @@ class SettingsWindow(QWidget):
         try:
             current_json_str = json.dumps(current_data, indent=4)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to serialize credential data: {e}")
+            QMessageBox.critical(
+                self, "Error", f"Failed to serialize credential data: {e}"
+            )
             return
 
         # Create Dialog
         dialog = QDialog(self)
         dialog.setWindowTitle(f"Edit Credential - {alias}")
         dialog.setMinimumSize(500, 400)
-        
+
         layout = QVBoxLayout(dialog)
-        
+
         info_label = QLabel(f"Editing JSON values for: <b>{alias}</b>")
         layout.addWidget(info_label)
-        
+
         editor = QTextEdit()
         editor.setPlainText(current_json_str)
         editor.setStyleSheet("font-family: monospace;")
         layout.addWidget(editor)
-        
+
         # Buttons
-        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save
+            | QDialogButtonBox.StandardButton.Cancel
+        )
         layout.addWidget(button_box)
-        
+
         button_box.accepted.connect(dialog.accept)
         button_box.rejected.connect(dialog.reject)
-        
+
         if dialog.exec() == QDialog.DialogCode.Accepted:
             new_json_str = editor.toPlainText().strip()
             if not new_json_str:
-                QMessageBox.warning(self, "Validation Error", "Credential JSON cannot be empty.")
+                QMessageBox.warning(
+                    self, "Validation Error", "Credential JSON cannot be empty."
+                )
                 return
-            
+
             try:
                 new_data = json.loads(new_json_str)
             except json.JSONDecodeError as e:
-                QMessageBox.critical(self, "JSON Error", f"Invalid JSON format. Changes not saved.\n{e}")
+                QMessageBox.critical(
+                    self, "JSON Error", f"Invalid JSON format. Changes not saved.\n{e}"
+                )
                 return
-                
+
             # Now save it back
             try:
                 api_dir_path = Path(API_DIR)
@@ -2695,16 +2805,24 @@ class SettingsWindow(QWidget):
 
                 # Update in memory
                 self.vault_manager.api_credentials[alias] = new_data
-                
-                QMessageBox.information(self, "Success", f"Credential '{alias}' updated and saved successfully.")
+
+                QMessageBox.information(
+                    self,
+                    "Success",
+                    f"Credential '{alias}' updated and saved successfully.",
+                )
             except Exception as e:
-                QMessageBox.critical(self, "Save Error", f"Failed to save credential '{alias}': {e}")
+                QMessageBox.critical(
+                    self, "Save Error", f"Failed to save credential '{alias}': {e}"
+                )
 
     def _delete_credential(self):
         """Delete the selected credential from the vault and disk."""
         selected_items = self.credentials_list.selectedItems()
         if not selected_items:
-            QMessageBox.warning(self, "Delete Error", "Please select a credential from the list first.")
+            QMessageBox.warning(
+                self, "Delete Error", "Please select a credential from the list first."
+            )
             return
 
         alias = selected_items[0].text()
@@ -2737,6 +2855,10 @@ class SettingsWindow(QWidget):
             # 3. Refresh list
             self._refresh_credentials_list()
 
-            QMessageBox.information(self, "Success", f"Credential '{alias}' deleted successfully.")
+            QMessageBox.information(
+                self, "Success", f"Credential '{alias}' deleted successfully."
+            )
         except Exception as e:
-            QMessageBox.critical(self, "Delete Failed", f"Failed to delete credential: {e}")
+            QMessageBox.critical(
+                self, "Delete Failed", f"Failed to delete credential: {e}"
+            )

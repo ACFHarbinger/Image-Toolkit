@@ -6,6 +6,8 @@ from gui.src.tabs.models.generate_tab import UnifiedGenerateTab
 from gui.src.tabs.models.train_tab import UnifiedTrainTab
 from gui.src.tabs.models.meta_clip_inference_tab import MetaCLIPInferenceTab
 from gui.src.tabs.models.r3gan_evaluate_tab import R3GANEvaluateTab
+from gui.src.tabs.models.gen.ddm_generate_tab import SD3GenerateTab
+from backend.src.models.sd3_wrapper import SD3Wrapper
 
 
 # Helper class for mocking tabs that need to be widgets
@@ -29,7 +31,6 @@ class TestUnifiedGenerateTab:
             patch("gui.src.tabs.models.generate_tab.R3GANGenerateTab") as mock_r3gan,
             patch("gui.src.tabs.models.generate_tab.GANGenerateTab") as mock_gan,
         ):
-
             # Make sure constructors return our MockTab (which is a valid QWidget)
             mock_lora.return_value = MockTab()
             mock_sd3.return_value = MockTab()
@@ -85,7 +86,6 @@ class TestUnifiedTrainTab:
             patch("gui.src.tabs.models.train_tab.R3GANTrainTab") as mock_r3gan,
             patch("gui.src.tabs.models.train_tab.GANTrainTab") as mock_gan,
         ):
-
             mock_lora.return_value = MockTab()
             mock_r3gan.return_value = MockTab()
             mock_gan.return_value = MockTab()
@@ -144,3 +144,45 @@ class TestR3GANEvaluateTab:
         assert isinstance(tab, QWidget)
         assert "network" in tab.widgets
         assert "metric_fid" in tab.widgets
+
+
+# --- SD3GenerateTab Tests ---
+
+
+class TestSD3GenerateTab:
+    def test_init(self, q_app):
+        tab = SD3GenerateTab()
+        assert isinstance(tab, QWidget)
+        assert "model" in tab.widgets
+        assert "prompt" in tab.widgets
+
+    def test_run_generation(self, q_app):
+        SD3Wrapper.is_cancelled = False
+        tab = SD3GenerateTab()
+        with patch.object(tab.sd3_wrapper, "generate_image") as mock_gen:
+            # Connect finish signal to a mock/spy
+            spy = MagicMock()
+            tab.generation_finished_signal.connect(spy)
+
+            tab.run_generation(
+                prompt="cute cat",
+                model_path="models/sd3.5_medium.safetensors",
+                output_path="test_out.png",
+                width=512,
+                height=512,
+                steps=20,
+                guidance=5.0,
+                batch_size=1,
+            )
+
+            mock_gen.assert_called_once_with(
+                prompt="cute cat",
+                model_path="models/sd3.5_medium.safetensors",
+                output_path="test_out.png",
+                width=512,
+                height=512,
+                steps=20,
+                guidance_scale=5.0,
+                batch_size=1,
+            )
+            spy.assert_called_once_with("success", "Saved to test_out.png")

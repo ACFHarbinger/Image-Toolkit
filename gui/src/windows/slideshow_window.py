@@ -57,11 +57,11 @@ class SlideshowQueueWindow(QWidget):
             "QListWidget { border: 1px solid #4f545c; border-radius: 8px; }"
         )
 
-        self.list_widget.setDragDropMode(QListWidget.InternalMove)
-        self.list_widget.setSelectionMode(QListWidget.SingleSelection)
-        self.list_widget.setDefaultDropAction(Qt.MoveAction)
+        self.list_widget.setDragDropMode(QListWidget.DragDropMode.InternalMove)
+        self.list_widget.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
+        self.list_widget.setDefaultDropAction(Qt.DropAction.MoveAction)
 
-        self.list_widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.list_widget.customContextMenuRequested.connect(self.show_context_menu)
         self.list_widget.itemDoubleClicked.connect(self.handle_list_item_action)
 
@@ -93,13 +93,13 @@ class SlideshowQueueWindow(QWidget):
             # 3. Final Fallback placeholder
             if pixmap.isNull():
                 pixmap = QPixmap(80, 60)
-                pixmap.fill(Qt.darkGray)
+                pixmap.fill(Qt.GlobalColor.darkGray)
 
             item_widget = QueueItemWidget(path, pixmap, index=idx)
 
             list_item = QListWidgetItem(self.list_widget)
             list_item.setSizeHint(item_widget.sizeHint())
-            list_item.setData(Qt.UserRole, path)
+            list_item.setData(Qt.ItemDataRole.UserRole, path)
 
             self.list_widget.addItem(list_item)
             self.list_widget.setItemWidget(list_item, item_widget)
@@ -108,7 +108,7 @@ class SlideshowQueueWindow(QWidget):
     @Slot(QListWidgetItem)
     def handle_list_item_action(self, item: QListWidgetItem):
         if item:
-            file_path = item.data(Qt.UserRole)
+            file_path = item.data(Qt.ItemDataRole.UserRole)
             if file_path:
                 self.image_preview_requested.emit(file_path)
 
@@ -125,7 +125,9 @@ class SlideshowQueueWindow(QWidget):
 
         # --- SWAP SUB-MENU ---
         swap_menu = menu.addMenu(
-            QIcon(QApplication.style().standardIcon(QStyle.SP_CommandLink)),
+            QIcon(
+                QApplication.style().standardIcon(QStyle.StandardPixmap.SP_CommandLink)
+            ),
             "Swap with...",
         )
 
@@ -137,7 +139,7 @@ class SlideshowQueueWindow(QWidget):
                 continue
             any_other_in_this = True
             other_item = self.list_widget.item(i)
-            filename = Path(other_item.data(Qt.UserRole)).name
+            filename = Path(other_item.data(Qt.ItemDataRole.UserRole)).name
             action = this_queue_menu.addAction(f"Item {i + 1}: {filename[:30]}...")
             action.triggered.connect(
                 lambda _,
@@ -177,18 +179,26 @@ class SlideshowQueueWindow(QWidget):
         menu.addSeparator()
 
         move_up_action = menu.addAction(
-            QIcon(QApplication.style().standardIcon(QStyle.SP_ArrowUp)), "Move Up"
+            QIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_ArrowUp)),
+            "Move Up",
         )
         move_down_action = menu.addAction(
-            QIcon(QApplication.style().standardIcon(QStyle.SP_ArrowDown)), "Move Down"
+            QIcon(
+                QApplication.style().standardIcon(QStyle.StandardPixmap.SP_ArrowDown)
+            ),
+            "Move Down",
         )
         view_action = menu.addAction(
-            QIcon(QApplication.style().standardIcon(QStyle.SP_FileIcon)),
+            QIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)),
             "View Full Image",
         )
         menu.addSeparator()
         remove_action = menu.addAction(
-            QIcon(QApplication.style().standardIcon(QStyle.SP_DialogCancelButton)),
+            QIcon(
+                QApplication.style().standardIcon(
+                    QStyle.StandardPixmap.SP_DialogCancelButton
+                )
+            ),
             "Remove from Queue",
         )
 
@@ -216,7 +226,7 @@ class SlideshowQueueWindow(QWidget):
     def move_item_up(self, item: QListWidgetItem):
         current_row = self.list_widget.row(item)
         if current_row > 0:
-            path = item.data(Qt.UserRole)
+            path = item.data(Qt.ItemDataRole.UserRole)
             self.list_widget.takeItem(current_row)
 
             # Recreate widget
@@ -225,11 +235,11 @@ class SlideshowQueueWindow(QWidget):
                 pixmap = QPixmap(path)
                 if pixmap.isNull():
                     pixmap = QPixmap(80, 60)
-                    pixmap.fill(Qt.darkGray)
+                    pixmap.fill(Qt.GlobalColor.darkGray)
 
             new_widget = QueueItemWidget(path, pixmap, index=current_row)
             new_item = QListWidgetItem()
-            new_item.setData(Qt.UserRole, path)
+            new_item.setData(Qt.ItemDataRole.UserRole, path)
             new_item.setSizeHint(new_widget.sizeHint())
 
             self.list_widget.insertItem(current_row - 1, new_item)
@@ -242,7 +252,7 @@ class SlideshowQueueWindow(QWidget):
     def move_item_down(self, item: QListWidgetItem):
         current_row = self.list_widget.row(item)
         if current_row < self.list_widget.count() - 1:
-            path = item.data(Qt.UserRole)
+            path = item.data(Qt.ItemDataRole.UserRole)
             self.list_widget.takeItem(current_row)
 
             # Recreate widget
@@ -251,11 +261,11 @@ class SlideshowQueueWindow(QWidget):
                 pixmap = QPixmap(path)
                 if pixmap.isNull():
                     pixmap = QPixmap(80, 60)
-                    pixmap.fill(Qt.darkGray)
+                    pixmap.fill(Qt.GlobalColor.darkGray)
 
             new_widget = QueueItemWidget(path, pixmap, index=current_row + 2)
             new_item = QListWidgetItem()
-            new_item.setData(Qt.UserRole, path)
+            new_item.setData(Qt.ItemDataRole.UserRole, path)
             new_item.setSizeHint(new_widget.sizeHint())
 
             self.list_widget.insertItem(current_row + 1, new_item)
@@ -276,7 +286,7 @@ class SlideshowQueueWindow(QWidget):
         new_queue = []
         for i in range(self.list_widget.count()):
             item = self.list_widget.item(i)
-            new_queue.append(item.data(Qt.UserRole))
+            new_queue.append(item.data(Qt.ItemDataRole.UserRole))
 
         title_label = self.findChild(QLabel)
         if title_label:

@@ -55,8 +55,8 @@ class _MiniChart(QLabel):
     def __init__(self):
         super().__init__()
         self._values: list = []
-        self.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setFixedHeight(20)
         self.setStyleSheet("font-family: monospace; font-size: 11px;")
 

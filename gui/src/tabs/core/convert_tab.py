@@ -2,7 +2,8 @@ import os
 import platform
 import subprocess
 
-from typing import Optional
+from send2trash import send2trash
+from typing import Optional, Set
 from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
@@ -22,12 +23,16 @@ from PySide6.QtWidgets import (
     QMenu,
     QSpinBox,
     QToolButton,
+    QTabWidget,
+    QDoubleSpinBox,
+    QButtonGroup,
+    QRadioButton,
 )
 from PySide6.QtCore import Qt, Slot, QPoint, Signal
 from PySide6.QtGui import QPixmap, QAction, QImage
-from ...helpers import ConversionWorker
 from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassTwoGalleries
+from ...helpers import ConversionWorker, SamplerWorker
 from ...components import OptionalField, MarqueeScrollArea, ClickableLabel
 from ...utils.sort_utils import natural_sort_key
 from ...styles.style import apply_shadow_effect, SHARED_BUTTON_STYLE
@@ -151,6 +156,7 @@ class FormatTab(AbstractClassTwoGalleries):
         settings_layout.addRow(self.output_field)
 
         # Input formats
+        self.selected_formats: Optional[Set[str]] = None
         if self.dropdown:
             self.selected_formats = set()
             formats_layout = QVBoxLayout()
@@ -192,7 +198,6 @@ class FormatTab(AbstractClassTwoGalleries):
             )
             settings_layout.addRow(self.formats_field)
         else:
-            self.selected_formats = None
             self.input_formats = QLineEdit()
             self.input_formats.setPlaceholderText("e.g. .jpg .png .gif")
             settings_layout.addRow("Input formats (optional):", self.input_formats)
@@ -285,7 +290,7 @@ class FormatTab(AbstractClassTwoGalleries):
         # Conversion Progress Bar
         self.convert_progress_bar = QProgressBar()
         self.convert_progress_bar.setTextVisible(True)
-        self.convert_progress_bar.setAlignment(Qt.AlignCenter)
+        self.convert_progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.convert_progress_bar.setStyleSheet(
             "QProgressBar { background-color: #36393f; color: white; border: 1px solid #4f545c; border-radius: 4px; padding: 2px; }"
             "QProgressBar::chunk { background-color: #5865f2; border-radius: 4px; }"
@@ -313,7 +318,9 @@ class FormatTab(AbstractClassTwoGalleries):
         self.gallery_widget = QWidget()
         self.gallery_widget.setStyleSheet("background-color: #2c2f33;")
         self.found_gallery_layout = QGridLayout(self.gallery_widget)
-        self.found_gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.found_gallery_layout.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
         self.found_gallery_scroll.setWidget(self.gallery_widget)
 
         # Connect Base logic
@@ -343,7 +350,9 @@ class FormatTab(AbstractClassTwoGalleries):
         self.selected_widget = QWidget()
         self.selected_widget.setStyleSheet("background-color: #2c2f33;")
         self.selected_gallery_layout = QGridLayout(self.selected_widget)
-        self.selected_gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.selected_gallery_layout.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
         self.selected_gallery_scroll.setWidget(self.selected_widget)
         content_layout.addWidget(self.selected_gallery_scroll, 1)
 
@@ -387,7 +396,7 @@ class FormatTab(AbstractClassTwoGalleries):
         content_layout.addWidget(button_container)
 
         self.status_label = QLabel("Ready.")
-        self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setStyleSheet(
             "color: #666; font-style: italic; padding: 8px;"
         )
@@ -463,12 +472,15 @@ class FormatTab(AbstractClassTwoGalleries):
         card_layout.setContentsMargins(0, 0, 0, 0)
 
         img_label = QLabel()
-        img_label.setAlignment(Qt.AlignCenter)
+        img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         img_label.setFixedSize(thumb_size, thumb_size)
 
         if pixmap and not pixmap.isNull():
             scaled = pixmap.scaled(
-                thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                thumb_size,
+                thumb_size,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
             )
             img_label.setPixmap(scaled)
         else:
@@ -513,7 +525,10 @@ class FormatTab(AbstractClassTwoGalleries):
 
             thumb_size = self.thumbnail_size
             scaled = pixmap.scaled(
-                thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                thumb_size,
+                thumb_size,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
             )
             img_label.setPixmap(scaled)
             img_label.setText("")  # Clear 'Loading...' text
@@ -605,7 +620,7 @@ class FormatTab(AbstractClassTwoGalleries):
             start_index=start_index,
         )
         preview.path_changed.connect(self.update_preview_highlight)
-        preview.setAttribute(Qt.WA_DeleteOnClose)
+        preview.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         preview.show()
         self.open_preview_windows.append(preview)
 
@@ -647,16 +662,16 @@ class FormatTab(AbstractClassTwoGalleries):
 
         if (
             QMessageBox.question(
-                self, f"Confirm {action_name}", f"Move {os.path.basename(path)} to {action_name}?"
+                self,
+                f"Confirm {action_name}",
+                f"Move {os.path.basename(path)} to {action_name}?",
             )
-            == QMessageBox.Yes
+            == QMessageBox.StandardButton.Yes
         ):
             try:
                 if send_to_trash_enabled:
-                    from send2trash import send2trash
                     send2trash(path)
                 else:
-                    import os
                     os.remove(path)
 
                 if hasattr(self, "found_files") and path in self.found_files:
@@ -726,11 +741,11 @@ class FormatTab(AbstractClassTwoGalleries):
         else:
             for d in dirs:
                 act = self._recent_dirs_menu.addAction(d)
-                act.triggered.connect(lambda checked=False, p=d: self._navigate_to_dir(p))
+                act.triggered.connect(
+                    lambda checked=False, p=d: self._navigate_to_dir(p)
+                )
         self._recent_dirs_menu.exec(
-            self._btn_recent_dirs.mapToGlobal(
-                self._btn_recent_dirs.rect().bottomLeft()
-            )
+            self._btn_recent_dirs.mapToGlobal(self._btn_recent_dirs.rect().bottomLeft())
         )
 
     @Slot()
@@ -1177,8 +1192,6 @@ class FormatTab(AbstractClassTwoGalleries):
 # SamplerTab
 # ---------------------------------------------------------------------------
 
-from PySide6.QtWidgets import QTabWidget, QDoubleSpinBox, QButtonGroup, QRadioButton  # noqa: E402
-
 
 class SamplerTab(AbstractClassTwoGalleries):
     """Upsample / downsample images, GIFs, and videos."""
@@ -1205,7 +1218,9 @@ class SamplerTab(AbstractClassTwoGalleries):
         self.input_path.setPlaceholderText("Directory or single file to resample…")
         btn_browse = QPushButton("Browse…")
         btn_browse.clicked.connect(self._browse_input)
-        apply_shadow_effect(btn_browse, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        apply_shadow_effect(
+            btn_browse, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        )
         input_row.addWidget(self.input_path)
         input_row.addWidget(btn_browse)
         input_form.addRow("Input path:", input_row)
@@ -1279,7 +1294,9 @@ class SamplerTab(AbstractClassTwoGalleries):
 
         # Algorithm
         self.algorithm_combo = QComboBox()
-        self.algorithm_combo.addItems(["Lanczos", "Bicubic", "Bilinear", "Nearest Neighbor"])
+        self.algorithm_combo.addItems(
+            ["Lanczos", "Bicubic", "Bilinear", "Nearest Neighbor"]
+        )
         self.algorithm_combo.setToolTip(
             "Lanczos: highest quality, slower\n"
             "Bicubic: good quality, moderate speed\n"
@@ -1324,13 +1341,17 @@ class SamplerTab(AbstractClassTwoGalleries):
         self.out_dir_edit.setPlaceholderText("Leave blank to save alongside originals")
         btn_out_browse = QPushButton("Browse…")
         btn_out_browse.clicked.connect(self._browse_output)
-        apply_shadow_effect(btn_out_browse, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        apply_shadow_effect(
+            btn_out_browse, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        )
         out_dir_row.addWidget(self.out_dir_edit)
         out_dir_row.addWidget(btn_out_browse)
         out_form.addRow("Output directory:", out_dir_row)
 
         self.prefix_edit = QLineEdit()
-        self.prefix_edit.setPlaceholderText("e.g. 'upscaled_'  (leave blank to auto-suffix)")
+        self.prefix_edit.setPlaceholderText(
+            "e.g. 'upscaled_'  (leave blank to auto-suffix)"
+        )
         out_form.addRow("Filename prefix:", self.prefix_edit)
 
         content_layout.addWidget(out_group)
@@ -1338,7 +1359,7 @@ class SamplerTab(AbstractClassTwoGalleries):
         # --- Progress bar ---
         self.progress_bar = QProgressBar()
         self.progress_bar.setTextVisible(True)
-        self.progress_bar.setAlignment(Qt.AlignCenter)
+        self.progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.progress_bar.setStyleSheet(
             "QProgressBar { background-color: #36393f; color: white; border: 1px solid #4f545c; "
             "border-radius: 4px; padding: 2px; }"
@@ -1364,15 +1385,21 @@ class SamplerTab(AbstractClassTwoGalleries):
         self.gallery_widget = QWidget()
         self.gallery_widget.setStyleSheet("background-color: #2c2f33;")
         self.found_gallery_layout = QGridLayout(self.gallery_widget)
-        self.found_gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.found_gallery_layout.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
         self.found_gallery_scroll.setWidget(self.gallery_widget)
-        self.found_gallery_scroll.selection_changed.connect(self.handle_marquee_selection)
+        self.found_gallery_scroll.selection_changed.connect(
+            self.handle_marquee_selection
+        )
 
         content_layout.addWidget(self.found_search_input)
         content_layout.addWidget(self.found_gallery_scroll, 1)
 
         if hasattr(self, "found_pagination_widget"):
-            content_layout.addWidget(self.found_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter)
+            content_layout.addWidget(
+                self.found_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
+            )
 
         # --- Selected gallery ---
         self.selected_gallery_scroll = MarqueeScrollArea()
@@ -1384,12 +1411,16 @@ class SamplerTab(AbstractClassTwoGalleries):
         self.selected_widget = QWidget()
         self.selected_widget.setStyleSheet("background-color: #2c2f33;")
         self.selected_gallery_layout = QGridLayout(self.selected_widget)
-        self.selected_gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.selected_gallery_layout.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
         self.selected_gallery_scroll.setWidget(self.selected_widget)
         content_layout.addWidget(self.selected_gallery_scroll, 1)
 
         if hasattr(self, "selected_pagination_widget"):
-            content_layout.addWidget(self.selected_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter)
+            content_layout.addWidget(
+                self.selected_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
+            )
 
         content_layout.addStretch(1)
 
@@ -1400,22 +1431,30 @@ class SamplerTab(AbstractClassTwoGalleries):
 
         self.btn_all = QPushButton("Resample All in Directory")
         self.btn_all.setStyleSheet(SHARED_BUTTON_STYLE)
-        apply_shadow_effect(self.btn_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        apply_shadow_effect(
+            self.btn_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        )
         self.btn_all.clicked.connect(lambda: self._start_worker(use_selection=False))
 
         self.btn_selected = QPushButton("Resample Selected (0)")
         self.btn_selected.setStyleSheet(SHARED_BUTTON_STYLE)
         self.btn_selected.setEnabled(False)
-        apply_shadow_effect(self.btn_selected, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        self.btn_selected.clicked.connect(lambda: self._start_worker(use_selection=True))
+        apply_shadow_effect(
+            self.btn_selected, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        )
+        self.btn_selected.clicked.connect(
+            lambda: self._start_worker(use_selection=True)
+        )
 
         btn_row.addWidget(self.btn_all)
         btn_row.addWidget(self.btn_selected)
         content_layout.addWidget(btn_container)
 
         self.status_label = QLabel("Ready.")
-        self.status_label.setAlignment(Qt.AlignCenter)
-        self.status_label.setStyleSheet("color: #666; font-style: italic; padding: 8px;")
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status_label.setStyleSheet(
+            "color: #666; font-style: italic; padding: 8px;"
+        )
         content_layout.addWidget(self.status_label)
 
         page_scroll.setWidget(content_widget)
@@ -1479,28 +1518,33 @@ class SamplerTab(AbstractClassTwoGalleries):
         return paths
 
     def _scan_and_load(self):
-        from ...utils.sort_utils import natural_sort_key as _nsk
         paths = self._collect_paths()
         if not paths:
             QMessageBox.information(self, "No Files", "No supported files found.")
             self.clear_galleries()
             return
-        self.start_loading_thumbnails(sorted(paths, key=_nsk))
+        self.start_loading_thumbnails(sorted(paths, key=natural_sort_key))
 
     # --- Gallery abstract implementations (mirrors FormatTab) ---
 
     def create_card_widget(self, path: str, pixmap, is_selected: bool) -> QWidget:
-        from ...components import ClickableLabel
         thumb_size = self.thumbnail_size
         card = ClickableLabel(path)
         card.setFixedSize(thumb_size + 10, thumb_size + 10)
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(0, 0, 0, 0)
         img_label = QLabel()
-        img_label.setAlignment(Qt.AlignCenter)
+        img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         img_label.setFixedSize(thumb_size, thumb_size)
         if pixmap and not pixmap.isNull():
-            img_label.setPixmap(pixmap.scaled(thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            img_label.setPixmap(
+                pixmap.scaled(
+                    thumb_size,
+                    thumb_size,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            )
         else:
             img_label.setText("Loading…")
             img_label.setStyleSheet("color: #999; border: 1px dashed #666;")
@@ -1513,7 +1557,6 @@ class SamplerTab(AbstractClassTwoGalleries):
         return card
 
     def update_card_pixmap(self, widget: QWidget, pixmap):
-        from ...components import ClickableLabel
         if not isinstance(widget, ClickableLabel):
             return
         img_label = widget.findChild(QLabel)
@@ -1522,7 +1565,14 @@ class SamplerTab(AbstractClassTwoGalleries):
         if pixmap and not pixmap.isNull():
             if isinstance(pixmap, QImage):
                 pixmap = QPixmap.fromImage(pixmap)
-            img_label.setPixmap(pixmap.scaled(self.thumbnail_size, self.thumbnail_size, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            img_label.setPixmap(
+                pixmap.scaled(
+                    self.thumbnail_size,
+                    self.thumbnail_size,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            )
             img_label.setText("")
         else:
             img_label.clear()
@@ -1531,9 +1581,13 @@ class SamplerTab(AbstractClassTwoGalleries):
 
     def _update_card_style(self, img_label: QLabel, is_selected: bool):
         if is_selected:
-            img_label.setStyleSheet("border: 3px solid #5865f2; background-color: #36393f;")
+            img_label.setStyleSheet(
+                "border: 3px solid #5865f2; background-color: #36393f;"
+            )
         elif img_label.pixmap() and not img_label.pixmap().isNull():
-            img_label.setStyleSheet("border: 1px solid #4f545c; background-color: #36393f;")
+            img_label.setStyleSheet(
+                "border: 1px solid #4f545c; background-color: #36393f;"
+            )
         else:
             img_label.setStyleSheet("border: 1px dashed #666; color: #999;")
 
@@ -1548,15 +1602,23 @@ class SamplerTab(AbstractClassTwoGalleries):
     def _preview_image(self, path: str):
         if not os.path.exists(path):
             return
-        from ...windows import ImagePreviewWindow
-        from ...utils.sort_utils import natural_sort_key as _nsk
-        all_paths = sorted(self.found_files, key=_nsk) if self.found_files else [path]
+        all_paths = (
+            sorted(self.found_files, key=natural_sort_key)
+            if self.found_files
+            else [path]
+        )
         try:
             idx = all_paths.index(path)
         except ValueError:
             idx = 0
-        preview = ImagePreviewWindow(image_path=path, db_tab_ref=None, parent=self, all_paths=all_paths, start_index=idx)
-        preview.setAttribute(Qt.WA_DeleteOnClose)
+        preview = ImagePreviewWindow(
+            image_path=path,
+            db_tab_ref=None,
+            parent=self,
+            all_paths=all_paths,
+            start_index=idx,
+        )
+        preview.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         preview.show()
         self.open_preview_windows.append(preview)
 
@@ -1578,15 +1640,28 @@ class SamplerTab(AbstractClassTwoGalleries):
     def _collect_config(self, use_selection: bool) -> dict:
         files = list(self.selected_files) if use_selection else self._collect_paths()
         scale_mode = "factor" if self._radio_factor.isChecked() else "dimensions"
-        algo_map = {"Lanczos": "lanczos", "Bicubic": "bicubic", "Bilinear": "bilinear", "Nearest Neighbor": "nearest"}
+        algo_map = {
+            "Lanczos": "lanczos",
+            "Bicubic": "bicubic",
+            "Bilinear": "bilinear",
+            "Nearest Neighbor": "nearest",
+        }
         fmt_text = self.out_format_combo.currentText()
-        out_fmt = None if fmt_text.startswith("Keep") or "---" in fmt_text else fmt_text.lower()
+        out_fmt = (
+            None
+            if fmt_text.startswith("Keep") or "---" in fmt_text
+            else fmt_text.lower()
+        )
         return {
             "files_to_process": files,
             "scale_mode": scale_mode,
             "scale_factor": self.scale_factor_spin.value(),
-            "target_width": self.dim_w_spin.value() if scale_mode == "dimensions" else None,
-            "target_height": self.dim_h_spin.value() if scale_mode == "dimensions" else None,
+            "target_width": self.dim_w_spin.value()
+            if scale_mode == "dimensions"
+            else None,
+            "target_height": self.dim_h_spin.value()
+            if scale_mode == "dimensions"
+            else None,
             "preserve_aspect_ratio": self.preserve_ar_cb.isChecked(),
             "algorithm": algo_map.get(self.algorithm_combo.currentText(), "lanczos"),
             "output_format": out_fmt,
@@ -1609,7 +1684,6 @@ class SamplerTab(AbstractClassTwoGalleries):
             QMessageBox.warning(self, "No Files", "No files to resample.")
             return
 
-        from ...helpers import SamplerWorker
         self.worker = SamplerWorker(config)
         self.worker.finished.connect(self._on_done)
         self.worker.error.connect(self._on_error)
@@ -1620,7 +1694,9 @@ class SamplerTab(AbstractClassTwoGalleries):
         cancel_btn = self.btn_selected if use_selection else self.btn_all
         cancel_btn.setEnabled(True)
         cancel_btn.setText("Cancel")
-        cancel_btn.setStyleSheet("QPushButton { background-color: #cc3333; color: white; font-weight: bold; }")
+        cancel_btn.setStyleSheet(
+            "QPushButton { background-color: #cc3333; color: white; font-weight: bold; }"
+        )
 
         n = len(config["files_to_process"])
         self.status_label.setText(f"Resampling {n} file(s)…")
@@ -1671,6 +1747,7 @@ class SamplerTab(AbstractClassTwoGalleries):
 # ConvertTab — thin wrapper hosting Format + Sampler subtabs
 # ---------------------------------------------------------------------------
 
+
 class ConvertTab(QWidget):
     """Outer Convert tab containing Format and Sampler subtabs."""
 
@@ -1712,8 +1789,12 @@ class ConvertTab(QWidget):
         return self.format_tab.browse_directory_and_scan_qml(current_path)
 
     @Slot(str, str, str, bool)
-    def start_conversion_worker_qml(self, input_path, output_format, output_dir, delete_original):
-        return self.format_tab.start_conversion_worker_qml(input_path, output_format, output_dir, delete_original)
+    def start_conversion_worker_qml(
+        self, input_path, output_format, output_dir, delete_original
+    ):
+        return self.format_tab.start_conversion_worker_qml(
+            input_path, output_format, output_dir, delete_original
+        )
 
     def cancel_loading(self):
         self.format_tab.cancel_loading()

@@ -2,14 +2,22 @@ import json
 import uuid
 import zipfile
 import re
+import os
+import subprocess
+import platform
+import cv2
+import shutil
+
+from send2trash import send2trash
 from pathlib import Path
 from datetime import date
 from typing import List, Dict, Any, Optional, Tuple
-
+from PySide6.QtPdf import QPdfDocument
 from PySide6.QtCore import (
     Qt,
     Signal,
     Slot,
+    QSettings,
     QUrl,
     QSize,
     QThread,
@@ -18,8 +26,9 @@ from PySide6.QtCore import (
     QRunnable,
     QThreadPool,
 )
-from PySide6.QtGui import QPixmap, QDesktopServices, QImage, QColor, QIcon
+from PySide6.QtGui import QPixmap, QDesktopServices, QImage, QColor, QIcon, QAction
 from PySide6.QtWidgets import (
+    QMenu,
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
@@ -43,7 +52,6 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QListWidget,
     QListWidgetItem,
-    QSlider,
     QCheckBox,
     QTableWidget,
     QTableWidgetItem,
@@ -52,12 +60,12 @@ from PySide6.QtWidgets import (
     QProgressDialog,
 )
 
-import os
 import base
 import backend.src.constants as udef
 from backend.src.constants import IMAGE_TOOLKIT_DIR
-from PySide6.QtCore import QSettings as _QSettings
+from ...helpers.web.mal_sync_worker import MalSyncWorker
 from backend.src.core.vault_manager import VaultManager  # noqa: F401
+from ...helpers.core.recommendation_worker import RecommendationWorker
 from ...styles.style import apply_shadow_effect, SHARED_BUTTON_STYLE
 from ...components import DoubleClickableLabel
 from ...utils.lru_image_cache import LRUImageCache
@@ -66,8 +74,8 @@ from ...components.frame_selection_dialog import (
     extract_video_frame_via_ffmpeg,
 )
 from ...constants.listings import (
-    LISTINGS_FILE,
-    ENTITIES_FILE,
+    LISTINGS_FILE,  # noqa: F401
+    ENTITIES_FILE,  # noqa: F401
     LISTING_IMAGES_DIR,
     ENTRY_TYPES,
     ENTRY_STATUS,
@@ -117,8 +125,8 @@ class _ThumbWorker(QRunnable):
             img = img.scaled(
                 self._size,
                 self._size,
-                Qt.KeepAspectRatio,
-                Qt.SmoothTransformation,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
             )
             _CARD_THUMB_CACHE[self._path] = img
             self.signals.ready.emit(self._path, img)
@@ -262,8 +270,6 @@ def _sync_images_from_backup(prefix: str):
 def open_file_location(path: str):
     if not path:
         return
-    import subprocess
-    import platform
 
     p = Path(path)
     if not p.exists():
@@ -307,23 +313,19 @@ def open_web_link(url_str: str):
 
 def _persist_splitter(splitter, key: str) -> None:
     """Wire a QSplitter to QSettings so its position survives restarts (GUI/UX §2.20A)."""
-    settings = _QSettings("ImageToolkit", "ImageToolkit")
+    settings = QSettings("ImageToolkit", "ImageToolkit")
     state = settings.value(f"splitter/{key}")
     if state:
         splitter.restoreState(state)
 
     splitter.splitterMoved.connect(
-        lambda: _QSettings("ImageToolkit", "ImageToolkit").setValue(
+        lambda: QSettings("ImageToolkit", "ImageToolkit").setValue(
             f"splitter/{key}", splitter.saveState()
         )
     )
 
 
 def generate_thumbnail_from_file(file_path: str, dest_path: str) -> bool:
-    import cv2
-    import shutil
-    from pathlib import Path
-
     p = Path(file_path)
     if not p.exists():
         return False
@@ -342,9 +344,6 @@ def generate_thumbnail_from_file(file_path: str, dest_path: str) -> bool:
     # 2. PDF format
     elif suffix == ".pdf":
         try:
-            from PySide6.QtPdf import QPdfDocument
-            from PySide6.QtCore import QSize
-
             doc = QPdfDocument()
             if doc.load(str(p.absolute())) == QPdfDocument.Status.Ready:
                 qimg = doc.render(0, QSize(600, 800))
@@ -418,15 +417,13 @@ def _parse_video_series(filename: str):
     Parse '<Series Name> - <EP_NUM> <suffix>.<ext>' into (series_name, ep_num_or_None).
     Falls back to (stem, None) for filenames that don't contain ' - '.
     """
-    import re as _re
-
     stem = Path(filename).stem
     parts = stem.split(" - ", 1)
     if len(parts) < 2:
         return stem.strip(), None
     series_name = parts[0].strip()
     ep_part = parts[1].strip()
-    m = _re.match(r"^(\d+)", ep_part)
+    m = re.match(r"^(\d+)", ep_part)
     return series_name, (int(m.group(1)) if m else None)
 
 
@@ -459,7 +456,7 @@ def _scan_video_directory(directory: str) -> "dict[str, list[tuple]]":
 # -------------------------------------------------------------------
 def _badge(text: str, color: str) -> QLabel:
     lbl = QLabel(text)
-    lbl.setAlignment(Qt.AlignCenter)
+    lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
     lbl.setStyleSheet(
         f"background:{color}; color:white; font-size:9px; font-weight:bold;"
         f"border-radius:4px; padding:1px 5px;"
@@ -541,7 +538,7 @@ class EpisodeDialog(QDialog):
         img_layout = QHBoxLayout()
         self.img_preview = DoubleClickableLabel()
         self.img_preview.setFixedSize(120, 120)
-        self.img_preview.setAlignment(Qt.AlignCenter)
+        self.img_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.img_preview.setStyleSheet("border:1px dashed #4f545c; border-radius:4px;")
         self._update_preview()
         img_layout.addWidget(self.img_preview)
@@ -596,7 +593,10 @@ class EpisodeDialog(QDialog):
         self.img_preview.set_image_path(self.image_path)
         if self.image_path and Path(self.image_path).exists():
             px = QPixmap(self.image_path).scaled(
-                120, 120, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                120,
+                120,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
             )
             self.img_preview.setPixmap(px)
         else:
@@ -629,8 +629,6 @@ class EpisodeDialog(QDialog):
 
         # Image formats - shortcut direct copy
         if suffix in (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"):
-            import shutil
-
             try:
                 shutil.copy2(file_path, dest_p)
                 self.image_path = str(dest_p.absolute())
@@ -645,7 +643,7 @@ class EpisodeDialog(QDialog):
         # Video / PDF formats - selection dialog
         if suffix in (".pdf", ".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".m4v"):
             dlg = FrameSelectionDialog(file_path, parent=self)
-            if dlg.exec() == QDialog.Accepted and dlg.selected_image:
+            if dlg.exec() == QDialog.DialogCode.Accepted and dlg.selected_image:
                 if dlg.selected_image.save(str(dest_p.absolute())):
                     self.image_path = str(dest_p.absolute())
                     self._update_preview()
@@ -734,14 +732,14 @@ class CreditDialog(QDialog):
         img_layout = QHBoxLayout()
         self.img_preview = DoubleClickableLabel()
         self.img_preview.setFixedSize(120, 120)
-        self.img_preview.setAlignment(Qt.AlignCenter)
+        self.img_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.img_preview.setStyleSheet("border:1px dashed #4f545c; border-radius:4px;")
         self._update_preview()
         img_layout.addWidget(self.img_preview)
 
         browse_btn = QPushButton("📁 Browse Image")
         browse_btn.clicked.connect(self._browse)
-        img_layout.addWidget(browse_btn, alignment=Qt.AlignTop)
+        img_layout.addWidget(browse_btn, alignment=Qt.AlignmentFlag.AlignTop)
         layout.addLayout(img_layout)
 
         # Buttons
@@ -768,7 +766,10 @@ class CreditDialog(QDialog):
         self.img_preview.set_image_path(self.image_path)
         if self.image_path and Path(self.image_path).exists():
             px = QPixmap(self.image_path).scaled(
-                120, 120, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                120,
+                120,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
             )
             self.img_preview.setPixmap(px)
         else:
@@ -835,7 +836,6 @@ class AssociatedEntitiesDialog(QDialog):
     def _populate_list(self):
         self.list_widget.clear()
         query = self.search_box.text().lower()
-
         for ent in self.all_entities:
             name = ent.get("name", "Unnamed")
             role = ent.get("role", "Other")
@@ -845,13 +845,13 @@ class AssociatedEntitiesDialog(QDialog):
                 continue
 
             item = QListWidgetItem(f"{name} ({ent_type} - {role})")
-            item.setData(Qt.UserRole, ent["id"])
+            item.setData(Qt.ItemDataRole.UserRole, ent["id"])
 
             # Checkbox state
             if ent["id"] in self.selected_ids:
-                item.setCheckState(Qt.Checked)
+                item.setCheckState(Qt.CheckState.Checked)
             else:
-                item.setCheckState(Qt.Unchecked)
+                item.setCheckState(Qt.CheckState.Unchecked)
 
             self.list_widget.addItem(item)
 
@@ -859,8 +859,8 @@ class AssociatedEntitiesDialog(QDialog):
         # We need to save the check state of currently visible items before repopulating
         for i in range(self.list_widget.count()):
             item = self.list_widget.item(i)
-            ent_id = item.data(Qt.UserRole)
-            if item.checkState() == Qt.Checked:
+            ent_id = item.data(Qt.ItemDataRole.UserRole)
+            if item.checkState() == Qt.CheckState.Checked:
                 self.selected_ids.add(ent_id)
             else:
                 self.selected_ids.discard(ent_id)
@@ -871,8 +871,8 @@ class AssociatedEntitiesDialog(QDialog):
         # Sync the final visible state
         for i in range(self.list_widget.count()):
             item = self.list_widget.item(i)
-            ent_id = item.data(Qt.UserRole)
-            if item.checkState() == Qt.Checked:
+            ent_id = item.data(Qt.ItemDataRole.UserRole)
+            if item.checkState() == Qt.CheckState.Checked:
                 self.selected_ids.add(ent_id)
             else:
                 self.selected_ids.discard(ent_id)
@@ -930,17 +930,19 @@ class AssociatedContentDialog(QDialog):
                 continue
             label = f"{title} ({etype})" if etype else title
             item = QListWidgetItem(label)
-            item.setData(Qt.UserRole, entry["id"])
+            item.setData(Qt.ItemDataRole.UserRole, entry["id"])
             item.setCheckState(
-                Qt.Checked if entry["id"] in self.selected_ids else Qt.Unchecked
+                Qt.CheckState.Checked
+                if entry["id"] in self.selected_ids
+                else Qt.CheckState.Unchecked
             )
             self.list_widget.addItem(item)
 
     def _filter_list(self):
         for i in range(self.list_widget.count()):
             item = self.list_widget.item(i)
-            eid = item.data(Qt.UserRole)
-            if item.checkState() == Qt.Checked:
+            eid = item.data(Qt.ItemDataRole.UserRole)
+            if item.checkState() == Qt.CheckState.Checked:
                 self.selected_ids.add(eid)
             else:
                 self.selected_ids.discard(eid)
@@ -949,8 +951,8 @@ class AssociatedContentDialog(QDialog):
     def get_selected_ids(self) -> List[str]:
         for i in range(self.list_widget.count()):
             item = self.list_widget.item(i)
-            eid = item.data(Qt.UserRole)
-            if item.checkState() == Qt.Checked:
+            eid = item.data(Qt.ItemDataRole.UserRole)
+            if item.checkState() == Qt.CheckState.Checked:
                 self.selected_ids.add(eid)
             else:
                 self.selected_ids.discard(eid)
@@ -971,14 +973,14 @@ class _ListingCard(QWidget):
         self.entry = entry
         self._id = entry["id"]
         self.setFixedSize(CARD_SIZE + 10, CARD_SIZE + 50)
-        self.setCursor(Qt.PointingHandCursor)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setObjectName("listing_card")
         self.setStyleSheet(
             "QWidget#listing_card{background:#2c2f33;border:2px solid #4f545c;"
             "border-radius:8px;}"
             "QWidget#listing_card:hover{border:2px solid #00bcd4;}"
         )
-        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
 
         layout = QVBoxLayout(self)
@@ -988,14 +990,14 @@ class _ListingCard(QWidget):
         # Thumbnail
         self.thumb_label = DoubleClickableLabel()
         self.thumb_label.setFixedSize(THUMB_SIZE, THUMB_SIZE)
-        self.thumb_label.setAlignment(Qt.AlignCenter)
+        self.thumb_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.thumb_label.setStyleSheet("border:none;")
         self._apply_thumbnail(entry.get("image_path", ""))
-        layout.addWidget(self.thumb_label, alignment=Qt.AlignHCenter)
+        layout.addWidget(self.thumb_label, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         # Title
         title_lbl = QLabel(entry.get("title", "Untitled"))
-        title_lbl.setAlignment(Qt.AlignCenter)
+        title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_lbl.setWordWrap(False)
         title_lbl.setStyleSheet(
             "color:#ffffff;font-weight:bold;font-size:11px;border:none;"
@@ -1003,10 +1005,14 @@ class _ListingCard(QWidget):
         title_lbl.setFixedWidth(CARD_SIZE - 4)
         fm = title_lbl.fontMetrics()
         title_lbl.setText(
-            fm.elidedText(entry.get("title", "Untitled"), Qt.ElideRight, CARD_SIZE - 10)
+            fm.elidedText(
+                entry.get("title", "Untitled"),
+                Qt.TextElideMode.ElideRight,
+                CARD_SIZE - 10,
+            )
         )
         title_lbl.setToolTip(entry.get("title", ""))
-        layout.addWidget(title_lbl, alignment=Qt.AlignHCenter)
+        layout.addWidget(title_lbl, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         # Badges row
         badge_row = QHBoxLayout()
@@ -1021,7 +1027,7 @@ class _ListingCard(QWidget):
         current_ep = entry.get("current_episode", 0)
         total_eps = entry.get("episodes", 1)
         prog_lbl = QLabel(f"Prog: {current_ep} / {total_eps}")
-        prog_lbl.setAlignment(Qt.AlignCenter)
+        prog_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         prog_lbl.setStyleSheet("color:#888; font-size:10px; border:none;")
         layout.addWidget(prog_lbl)
 
@@ -1031,14 +1037,14 @@ class _ListingCard(QWidget):
         if personal_rating:
             stars = "★" * personal_rating + "☆" * (10 - personal_rating)
             r_lbl = QLabel(stars[:10])
-            r_lbl.setAlignment(Qt.AlignCenter)
+            r_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             r_lbl.setStyleSheet("color:#f1c40f;font-size:9px;border:none;")
-            layout.addWidget(r_lbl, alignment=Qt.AlignHCenter)
+            layout.addWidget(r_lbl, alignment=Qt.AlignmentFlag.AlignHCenter)
         if community_rating:
             cr_lbl = QLabel(f"Community {community_rating:.2f}")
-            cr_lbl.setAlignment(Qt.AlignCenter)
+            cr_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             cr_lbl.setStyleSheet("color:#f1c40f;font-size:9px;border:none;")
-            layout.addWidget(cr_lbl, alignment=Qt.AlignHCenter)
+            layout.addWidget(cr_lbl, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         # Quick Actions row
         local_file_path = entry.get("local_file", "")
@@ -1047,7 +1053,7 @@ class _ListingCard(QWidget):
         if local_file_path or web_link_url:
             actions_layout = QHBoxLayout()
             actions_layout.setSpacing(6)
-            actions_layout.setAlignment(Qt.AlignCenter)
+            actions_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
             if local_file_path:
                 file_btn = QPushButton("📁 File")
@@ -1108,13 +1114,10 @@ class _ListingCard(QWidget):
             self.thumb_label.setStyleSheet("")
 
     def mousePressEvent(self, ev):
-        if ev.button() == Qt.LeftButton:
+        if ev.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit(self._id)
 
     def _show_context_menu(self, pos):
-        from PySide6.QtWidgets import QMenu
-        from PySide6.QtGui import QAction
-
         menu = QMenu(self)
         menu.setStyleSheet(
             "QMenu { background:#2c2f33; color:white; border:1px solid #4f545c; }"
@@ -1181,14 +1184,14 @@ class _EntityCard(QWidget):
         self.entity = entity
         self._id = entity["id"]
         self.setFixedSize(CARD_SIZE + 10, CARD_SIZE + 50)
-        self.setCursor(Qt.PointingHandCursor)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setObjectName("entity_card")
         self.setStyleSheet(
             "QWidget#entity_card{background:#2c2f33;border:2px solid #4f545c;"
             "border-radius:8px;}"
             "QWidget#entity_card:hover{border:2px solid #00bcd4;}"
         )
-        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
 
         layout = QVBoxLayout(self)
@@ -1198,14 +1201,14 @@ class _EntityCard(QWidget):
         # Thumbnail
         self.thumb_label = DoubleClickableLabel()
         self.thumb_label.setFixedSize(THUMB_SIZE, THUMB_SIZE)
-        self.thumb_label.setAlignment(Qt.AlignCenter)
+        self.thumb_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.thumb_label.setStyleSheet("border:none;")
         self._apply_thumbnail(entity.get("image_path", ""))
-        layout.addWidget(self.thumb_label, alignment=Qt.AlignHCenter)
+        layout.addWidget(self.thumb_label, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         # Name
         name_lbl = QLabel(entity.get("name", "Unnamed"))
-        name_lbl.setAlignment(Qt.AlignCenter)
+        name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         name_lbl.setWordWrap(False)
         name_lbl.setStyleSheet(
             "color:#ffffff;font-weight:bold;font-size:11px;border:none;"
@@ -1213,10 +1216,14 @@ class _EntityCard(QWidget):
         name_lbl.setFixedWidth(CARD_SIZE - 4)
         fm = name_lbl.fontMetrics()
         name_lbl.setText(
-            fm.elidedText(entity.get("name", "Unnamed"), Qt.ElideRight, CARD_SIZE - 10)
+            fm.elidedText(
+                entity.get("name", "Unnamed"),
+                Qt.TextElideMode.ElideRight,
+                CARD_SIZE - 10,
+            )
         )
         name_lbl.setToolTip(entity.get("name", ""))
-        layout.addWidget(name_lbl, alignment=Qt.AlignHCenter)
+        layout.addWidget(name_lbl, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         # Badges row
         badge_row = QHBoxLayout()
@@ -1240,20 +1247,22 @@ class _EntityCard(QWidget):
 
         if info_text:
             info_lbl = QLabel(info_text)
-            info_lbl.setAlignment(Qt.AlignCenter)
+            info_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             info_lbl.setStyleSheet("color:#888; font-size:10px; border:none;")
             info_lbl.setFixedWidth(CARD_SIZE - 10)
-            info_lbl.setText(fm.elidedText(info_text, Qt.ElideRight, CARD_SIZE - 10))
-            layout.addWidget(info_lbl, alignment=Qt.AlignHCenter)
+            info_lbl.setText(
+                fm.elidedText(info_text, Qt.TextElideMode.ElideRight, CARD_SIZE - 10)
+            )
+            layout.addWidget(info_lbl, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         # Rating stars
         rating = entity.get("rating", 0)
         if rating:
             stars = "★" * rating + "☆" * (10 - rating)
             r_lbl = QLabel(stars[:10])
-            r_lbl.setAlignment(Qt.AlignCenter)
+            r_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             r_lbl.setStyleSheet("color:#f1c40f;font-size:9px;border:none;")
-            layout.addWidget(r_lbl, alignment=Qt.AlignHCenter)
+            layout.addWidget(r_lbl, alignment=Qt.AlignmentFlag.AlignHCenter)
 
     def _apply_thumbnail(self, path: str) -> None:
         self.thumb_label.set_image_path(path)
@@ -1286,13 +1295,10 @@ class _EntityCard(QWidget):
             self.thumb_label.setStyleSheet("")
 
     def mousePressEvent(self, ev):
-        if ev.button() == Qt.LeftButton:
+        if ev.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit(self._id)
 
     def _show_context_menu(self, pos):
-        from PySide6.QtWidgets import QMenu
-        from PySide6.QtGui import QAction
-
         menu = QMenu(self)
         menu.setStyleSheet(
             "QMenu { background:#2c2f33; color:white; border:1px solid #4f545c; }"
@@ -1348,7 +1354,7 @@ class _DetailPanel(QWidget):
         img_row = QHBoxLayout()
         self.img_preview = DoubleClickableLabel()
         self.img_preview.setFixedSize(160, 160)
-        self.img_preview.setAlignment(Qt.AlignCenter)
+        self.img_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.img_preview.setText("No Image")
         self.img_preview.setStyleSheet(
             "border:2px dashed #4f545c;border-radius:8px;color:#888;font-size:12px;"
@@ -1357,7 +1363,7 @@ class _DetailPanel(QWidget):
 
         img_btns_layout = QVBoxLayout()
         img_btns_layout.setSpacing(6)
-        img_btns_layout.setAlignment(Qt.AlignTop)
+        img_btns_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         browse_btn = QPushButton("📁 Browse Image")
         browse_btn.clicked.connect(self._browse_image)
@@ -1738,8 +1744,6 @@ class _DetailPanel(QWidget):
 
         # Image formats - shortcut direct copy
         if suffix in (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"):
-            import shutil
-
             try:
                 shutil.copy2(file_path, dest_p)
                 self._image_path = str(dest_p.absolute())
@@ -1754,7 +1758,7 @@ class _DetailPanel(QWidget):
         # Video / PDF formats - selection dialog
         if suffix in (".pdf", ".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".m4v"):
             dlg = FrameSelectionDialog(file_path, parent=self)
-            if dlg.exec() == QDialog.Accepted and dlg.selected_image:
+            if dlg.exec() == QDialog.DialogCode.Accepted and dlg.selected_image:
                 if dlg.selected_image.save(str(dest_p.absolute())):
                     self._image_path = str(dest_p.absolute())
                     self._refresh_image()
@@ -1777,8 +1781,6 @@ class _DetailPanel(QWidget):
 
     @Slot()
     def _on_fetch_mal_clicked(self):
-        from ...helpers.web.mal_sync_worker import MalSyncWorker
-
         title = self.f_title.text().strip()
         if not title:
             QMessageBox.warning(
@@ -1898,7 +1900,7 @@ class _DetailPanel(QWidget):
         for entry in data.get("staff", []):
             _try_add(entry.get("name", ""))
 
-        if added_count:
+        if added_count > 0:
             self.assoc_entities_ids = list(current_ids)
             self._update_assoc_entities_display(all_entities)
 
@@ -1926,8 +1928,6 @@ class _DetailPanel(QWidget):
             "Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif)",
         )
         if path:
-            import shutil
-
             LISTING_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
             self._entry_id = self._entry_id or str(uuid.uuid4())
             orig_p = Path(path)
@@ -1997,14 +1997,17 @@ class _DetailPanel(QWidget):
             # Thumbnail — load off-thread to keep _refresh_episode_list fast
             t_lbl = QLabel()
             t_lbl.setFixedSize(50, 40)
-            t_lbl.setAlignment(Qt.AlignCenter)
+            t_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             t_lbl.setStyleSheet("background:#1a1c1e; border-radius:3px;")
             if img_path and Path(img_path).exists():
                 cached = _CARD_THUMB_CACHE.get(img_path)
                 if cached is not None:
                     t_lbl.setPixmap(
                         QPixmap.fromImage(cached).scaled(
-                            50, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                            50,
+                            40,
+                            Qt.AspectRatioMode.KeepAspectRatio,
+                            Qt.TransformationMode.SmoothTransformation,
                         )
                     )
                 else:
@@ -2013,7 +2016,10 @@ class _DetailPanel(QWidget):
                         if lbl and not lbl.pixmap():
                             lbl.setPixmap(
                                 QPixmap.fromImage(img).scaled(
-                                    50, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                                    50,
+                                    40,
+                                    Qt.AspectRatioMode.KeepAspectRatio,
+                                    Qt.TransformationMode.SmoothTransformation,
                                 )
                             )
 
@@ -2135,9 +2141,9 @@ class _DetailPanel(QWidget):
             self,
             "Confirm Delete",
             "Permanently remove this entry from your listings?",
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             self.deleted.emit(self._entry_id)
 
 
@@ -2165,7 +2171,7 @@ class _EntityDetailPanel(QWidget):
         img_row = QHBoxLayout()
         self.img_preview = DoubleClickableLabel()
         self.img_preview.setFixedSize(160, 160)
-        self.img_preview.setAlignment(Qt.AlignCenter)
+        self.img_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.img_preview.setText("No Image")
         self.img_preview.setStyleSheet(
             "border:2px dashed #4f545c;border-radius:8px;color:#888;font-size:12px;"
@@ -2174,7 +2180,7 @@ class _EntityDetailPanel(QWidget):
         browse_btn = QPushButton("📁 Browse Image")
         browse_btn.clicked.connect(self._browse_image)
         browse_btn.setFixedWidth(130)
-        img_row.addWidget(browse_btn, alignment=Qt.AlignTop)
+        img_row.addWidget(browse_btn, alignment=Qt.AlignmentFlag.AlignTop)
         img_row.addStretch()
         layout.addLayout(img_row)
 
@@ -2325,8 +2331,6 @@ class _EntityDetailPanel(QWidget):
             "Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif)",
         )
         if path:
-            import shutil
-
             LISTING_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
             self._entity_id = self._entity_id or str(uuid.uuid4())
             orig_p = Path(path)
@@ -2397,14 +2401,17 @@ class _EntityDetailPanel(QWidget):
             # Thumbnail — async to keep _refresh_credit_list snappy
             t_lbl = QLabel()
             t_lbl.setFixedSize(50, 40)
-            t_lbl.setAlignment(Qt.AlignCenter)
+            t_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             t_lbl.setStyleSheet("background:#1a1c1e; border-radius:3px;")
             if img_path and Path(img_path).exists():
                 cached = _CARD_THUMB_CACHE.get(img_path)
                 if cached is not None:
                     t_lbl.setPixmap(
                         QPixmap.fromImage(cached).scaled(
-                            50, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                            50,
+                            40,
+                            Qt.AspectRatioMode.KeepAspectRatio,
+                            Qt.TransformationMode.SmoothTransformation,
                         )
                     )
                 else:
@@ -2413,7 +2420,10 @@ class _EntityDetailPanel(QWidget):
                         if lbl and not lbl.pixmap():
                             lbl.setPixmap(
                                 QPixmap.fromImage(img).scaled(
-                                    50, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                                    50,
+                                    40,
+                                    Qt.AspectRatioMode.KeepAspectRatio,
+                                    Qt.TransformationMode.SmoothTransformation,
                                 )
                             )
 
@@ -2631,9 +2641,9 @@ class _EntityDetailPanel(QWidget):
             self,
             "Confirm Delete",
             "Permanently remove this entity from your listings?",
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             self.deleted.emit(self._entity_id)
 
 
@@ -2718,9 +2728,11 @@ class AdvancedSearchDialog(QDialog):
             if cached is not None:
                 item.setIcon(QIcon(QPixmap.fromImage(cached)))
             else:
+
                 def _on_ready(p, img):
                     if p == path:
                         item.setIcon(QIcon(QPixmap.fromImage(img)))
+
                 w = _ThumbWorker(path, 40)
                 w.signals.ready.connect(_on_ready)
                 QThreadPool.globalInstance().start(w)
@@ -2732,9 +2744,9 @@ class AdvancedSearchDialog(QDialog):
         self.inc_ent_list.setIconSize(QSize(40, 40))
         for ent in self.sorted_entities:
             item = QListWidgetItem(ent.get("name", "Unnamed"))
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(Qt.Unchecked)
-            item.setData(Qt.UserRole, ent.get("id"))
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Unchecked)
+            item.setData(Qt.ItemDataRole.UserRole, ent.get("id"))
             self.inc_ent_list.addItem(item)
             _apply_icon(item, ent.get("image_path", ""))
         inc_ent_box.addWidget(self.inc_ent_list)
@@ -2747,9 +2759,9 @@ class AdvancedSearchDialog(QDialog):
         self.exc_ent_list.setIconSize(QSize(40, 40))
         for ent in self.sorted_entities:
             item = QListWidgetItem(ent.get("name", "Unnamed"))
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(Qt.Unchecked)
-            item.setData(Qt.UserRole, ent.get("id"))
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Unchecked)
+            item.setData(Qt.ItemDataRole.UserRole, ent.get("id"))
             self.exc_ent_list.addItem(item)
             _apply_icon(item, ent.get("image_path", ""))
         exc_ent_box.addWidget(self.exc_ent_list)
@@ -2769,8 +2781,8 @@ class AdvancedSearchDialog(QDialog):
         self.inc_tag_list = QListWidget()
         for tag in self.sorted_tags:
             item = QListWidgetItem(tag)
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(Qt.Unchecked)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Unchecked)
             self.inc_tag_list.addItem(item)
         inc_tag_box.addWidget(self.inc_tag_list)
         tag_layout.addLayout(inc_tag_box)
@@ -2781,8 +2793,8 @@ class AdvancedSearchDialog(QDialog):
         self.exc_tag_list = QListWidget()
         for tag in self.sorted_tags:
             item = QListWidgetItem(tag)
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(Qt.Unchecked)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Unchecked)
             self.exc_tag_list.addItem(item)
         exc_tag_box.addWidget(self.exc_tag_list)
         tag_layout.addLayout(exc_tag_box)
@@ -2801,8 +2813,8 @@ class AdvancedSearchDialog(QDialog):
         self.inc_genre_list = QListWidget()
         for genre in self.sorted_genres:
             item = QListWidgetItem(genre)
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(Qt.Unchecked)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Unchecked)
             self.inc_genre_list.addItem(item)
         inc_genre_box.addWidget(self.inc_genre_list)
         genre_layout.addLayout(inc_genre_box)
@@ -2813,8 +2825,8 @@ class AdvancedSearchDialog(QDialog):
         self.exc_genre_list = QListWidget()
         for genre in self.sorted_genres:
             item = QListWidgetItem(genre)
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(Qt.Unchecked)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Unchecked)
             self.exc_genre_list.addItem(item)
         exc_genre_box.addWidget(self.exc_genre_list)
         genre_layout.addLayout(exc_genre_box)
@@ -2869,34 +2881,34 @@ class AdvancedSearchDialog(QDialog):
         # Entities
         for idx in range(self.inc_ent_list.count()):
             item = self.inc_ent_list.item(idx)
-            ent_id = item.data(Qt.UserRole)
+            ent_id = item.data(Qt.ItemDataRole.UserRole)
             if ent_id in inc_ent:
-                item.setCheckState(Qt.Checked)
+                item.setCheckState(Qt.CheckState.Checked)
         for idx in range(self.exc_ent_list.count()):
             item = self.exc_ent_list.item(idx)
-            ent_id = item.data(Qt.UserRole)
+            ent_id = item.data(Qt.ItemDataRole.UserRole)
             if ent_id in exc_ent:
-                item.setCheckState(Qt.Checked)
+                item.setCheckState(Qt.CheckState.Checked)
 
         # Tags
         for idx in range(self.inc_tag_list.count()):
             item = self.inc_tag_list.item(idx)
             if item.text() in inc_tag:
-                item.setCheckState(Qt.Checked)
+                item.setCheckState(Qt.CheckState.Checked)
         for idx in range(self.exc_tag_list.count()):
             item = self.exc_tag_list.item(idx)
             if item.text() in exc_tag:
-                item.setCheckState(Qt.Checked)
+                item.setCheckState(Qt.CheckState.Checked)
 
         # Genres
         for idx in range(self.inc_genre_list.count()):
             item = self.inc_genre_list.item(idx)
             if item.text() in inc_genre:
-                item.setCheckState(Qt.Checked)
+                item.setCheckState(Qt.CheckState.Checked)
         for idx in range(self.exc_genre_list.count()):
             item = self.exc_genre_list.item(idx)
             if item.text() in exc_genre:
-                item.setCheckState(Qt.Checked)
+                item.setCheckState(Qt.CheckState.Checked)
 
     def get_criteria(self):
         crit = {
@@ -2912,31 +2924,31 @@ class AdvancedSearchDialog(QDialog):
         # Entities
         for idx in range(self.inc_ent_list.count()):
             item = self.inc_ent_list.item(idx)
-            if item.checkState() == Qt.Checked:
-                crit["include_entities"].append(item.data(Qt.UserRole))
+            if item.checkState() == Qt.CheckState.Checked:
+                crit["include_entities"].append(item.data(Qt.ItemDataRole.UserRole))
         for idx in range(self.exc_ent_list.count()):
             item = self.exc_ent_list.item(idx)
-            if item.checkState() == Qt.Checked:
-                crit["exclude_entities"].append(item.data(Qt.UserRole))
+            if item.checkState() == Qt.CheckState.Checked:
+                crit["exclude_entities"].append(item.data(Qt.ItemDataRole.UserRole))
 
         # Tags
         for idx in range(self.inc_tag_list.count()):
             item = self.inc_tag_list.item(idx)
-            if item.checkState() == Qt.Checked:
+            if item.checkState() == Qt.CheckState.Checked:
                 crit["include_tags"].append(item.text())
         for idx in range(self.exc_tag_list.count()):
             item = self.exc_tag_list.item(idx)
-            if item.checkState() == Qt.Checked:
+            if item.checkState() == Qt.CheckState.Checked:
                 crit["exclude_tags"].append(item.text())
 
         # Genres
         for idx in range(self.inc_genre_list.count()):
             item = self.inc_genre_list.item(idx)
-            if item.checkState() == Qt.Checked:
+            if item.checkState() == Qt.CheckState.Checked:
                 crit["include_genres"].append(item.text())
         for idx in range(self.exc_genre_list.count()):
             item = self.exc_genre_list.item(idx)
-            if item.checkState() == Qt.Checked:
+            if item.checkState() == Qt.CheckState.Checked:
                 crit["exclude_genres"].append(item.text())
 
         return crit
@@ -2992,7 +3004,7 @@ class _DirectoryImportDialog(QDialog):
         root.addWidget(dir_group)
 
         # ── Middle: table left | options right ────────────────────────
-        splitter = QSplitter(Qt.Horizontal)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # Left — detected-series table
         left = QWidget()
@@ -3006,13 +3018,15 @@ class _DirectoryImportDialog(QDialog):
 
         self._table = QTableWidget(0, 4)
         self._table.setHorizontalHeaderLabels(["", "Series Name", "Episodes", "Status"])
-        self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self._table.horizontalHeader().setSectionResizeMode(
+            1, QHeaderView.ResizeMode.Stretch
+        )
         self._table.setColumnWidth(0, 32)
         self._table.setColumnWidth(2, 72)
         self._table.setColumnWidth(3, 120)
         self._table.verticalHeader().hide()
-        self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self._table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self._table.setAlternatingRowColors(True)
         self._table.setStyleSheet(
             "QTableWidget { background:#23272a; alternate-background-color:#252830;"
@@ -3164,19 +3178,19 @@ class _DirectoryImportDialog(QDialog):
             container = QWidget()
             c_lay = QHBoxLayout(container)
             c_lay.addWidget(chk)
-            c_lay.setAlignment(Qt.AlignCenter)
+            c_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
             c_lay.setContentsMargins(0, 0, 0, 0)
             self._table.setCellWidget(row, 0, container)
 
             # Col 1 – series name (store original as UserRole for retrieval)
             name_item = QTableWidgetItem(series_name)
-            name_item.setData(Qt.UserRole, series_name)
+            name_item.setData(Qt.ItemDataRole.UserRole, series_name)
             name_item.setToolTip(series_name)
             self._table.setItem(row, 1, name_item)
 
             # Col 2 – episode count
             ep_item = QTableWidgetItem(str(len(episodes)))
-            ep_item.setTextAlignment(Qt.AlignCenter)
+            ep_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self._table.setItem(row, 2, ep_item)
 
             # Col 3 – new / already-exists badge
@@ -3223,7 +3237,7 @@ class _DirectoryImportDialog(QDialog):
                 if chk and chk.isChecked():
                     item = self._table.item(row, 1)
                     if item:
-                        selected.append(item.data(Qt.UserRole))
+                        selected.append(item.data(Qt.ItemDataRole.UserRole))
         return selected
 
     def get_scan_result(self) -> dict:
@@ -3287,7 +3301,7 @@ class _EntityDirectoryImportDialog(QDialog):
         root.addWidget(dir_group)
 
         # ── Middle: table left | options right ────────────────────────
-        splitter = QSplitter(Qt.Horizontal)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # Left — detected-entities table
         left = QWidget()
@@ -3303,13 +3317,17 @@ class _EntityDirectoryImportDialog(QDialog):
         self._table.setHorizontalHeaderLabels(
             ["", "Detected Name", "Filename", "Status"]
         )
-        self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self._table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        self._table.horizontalHeader().setSectionResizeMode(
+            1, QHeaderView.ResizeMode.Stretch
+        )
+        self._table.horizontalHeader().setSectionResizeMode(
+            2, QHeaderView.ResizeMode.Stretch
+        )
         self._table.setColumnWidth(0, 32)
         self._table.setColumnWidth(3, 120)
         self._table.verticalHeader().hide()
-        self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self._table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self._table.setAlternatingRowColors(True)
         self._table.setStyleSheet(
             "QTableWidget { background:#23272a; alternate-background-color:#252830;"
@@ -3476,7 +3494,7 @@ class _EntityDirectoryImportDialog(QDialog):
             container = QWidget()
             c_lay = QHBoxLayout(container)
             c_lay.addWidget(chk)
-            c_lay.setAlignment(Qt.AlignCenter)
+            c_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
             c_lay.setContentsMargins(0, 0, 0, 0)
             self._table.setCellWidget(row, 0, container)
 
@@ -3551,6 +3569,7 @@ class _EntityDirectoryImportDialog(QDialog):
 # Vector Search Init Thread
 # -------------------------------------------------------------------
 
+
 # -------------------------------------------------------------------
 # Recommendation Dialog
 # -------------------------------------------------------------------
@@ -3601,13 +3620,13 @@ class RecommendationDialog(QDialog):
         layout.addWidget(desc)
 
         sep = QFrame()
-        sep.setFrameShape(QFrame.HLine)
+        sep.setFrameShape(QFrame.Shape.HLine)
         sep.setStyleSheet("color: #4f545c;")
         layout.addWidget(sep)
 
         # Structured filters
         form = QFormLayout()
-        form.setLabelAlignment(Qt.AlignRight)
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
         form.setSpacing(8)
         form.setContentsMargins(0, 0, 0, 0)
 
@@ -3755,7 +3774,9 @@ class SyncBackupWorker(QThread):
                 base.delete_listing_secure(db_path, password, salt, id_)
             # Report progress during deletes (up to 40%)
             percent = 30 + int(10 * (i + 1) / (total_rows if total_rows > 0 else 1))
-            self.progress.emit(percent, f"Cleaning secure database ({i+1}/{total_rows})...")
+            self.progress.emit(
+                percent, f"Cleaning secure database ({i + 1}/{total_rows})..."
+            )
 
         total_inserts = len(merged_entries)
         for i, entry in enumerate(merged_entries):
@@ -3792,8 +3813,12 @@ class SyncBackupWorker(QThread):
                     [],
                 )
             # Report progress during inserts (up to 80%)
-            percent = 40 + int(40 * (i + 1) / (total_inserts if total_inserts > 0 else 1))
-            self.progress.emit(percent, f"Writing entries to database ({i+1}/{total_inserts})...")
+            percent = 40 + int(
+                40 * (i + 1) / (total_inserts if total_inserts > 0 else 1)
+            )
+            self.progress.emit(
+                percent, f"Writing entries to database ({i + 1}/{total_inserts})..."
+            )
 
         # 4. Sync images from ZIP backup
         self.progress.emit(85, "Restoring images from backup ZIP...")
@@ -3855,7 +3880,10 @@ class SyncBackupWorker(QThread):
         total_files = len(files_to_backup)
         try:
             for i, file_path in enumerate(files_to_backup):
-                if zf.fp.tell() + file_path.stat().st_size > max_size_bytes and zf.filelist:
+                if (
+                    zf.fp.tell() + file_path.stat().st_size > max_size_bytes
+                    and zf.filelist
+                ):
                     zf.close()
                     part_idx += 1
                     current_zip_path = migrations_dir / f"{prefix}.part{part_idx}.zip"
@@ -3863,7 +3891,7 @@ class SyncBackupWorker(QThread):
                 zf.write(file_path, file_path.name)
                 # Report progress (up to 95%)
                 percent = 20 + int(75 * (i + 1) / total_files)
-                self.progress.emit(percent, f"Archiving image {i+1}/{total_files}...")
+                self.progress.emit(percent, f"Archiving image {i + 1}/{total_files}...")
         finally:
             zf.close()
 
@@ -4051,7 +4079,7 @@ class ContentListingsSubTab(QWidget):
         root.addWidget(self.stats_label)
 
         # ---- Splitter: gallery | detail ----
-        splitter = QSplitter(Qt.Horizontal)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # Gallery
         gallery_container = QWidget()
@@ -4067,7 +4095,7 @@ class ContentListingsSubTab(QWidget):
         self._grid_widget = QWidget()
         self._grid_widget.setStyleSheet("background:#23272a;")
         self._grid = QGridLayout(self._grid_widget)
-        self._grid.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self._grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         self._grid.setSpacing(10)
         self._grid.setContentsMargins(10, 10, 10, 10)
         self.gallery_scroll.setWidget(self._grid_widget)
@@ -4092,7 +4120,7 @@ class ContentListingsSubTab(QWidget):
         root.addWidget(splitter, 1)
 
         # Context Menu for Gallery background
-        self.gallery_scroll.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.gallery_scroll.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.gallery_scroll.customContextMenuRequested.connect(
             self._show_gallery_context_menu
         )
@@ -4101,7 +4129,6 @@ class ContentListingsSubTab(QWidget):
         self._load_data()
         self._rebuild_gallery()
         self._detail.clear_for_new()
-
 
         # Debounced resize — avoid rebuilding the gallery on every pixel of a drag.
         self._resize_timer = QTimer(self)
@@ -4185,13 +4212,19 @@ class ContentListingsSubTab(QWidget):
     def _filtered_entries(self) -> List[Dict[str, Any]]:
         # Recommendation mode: show results sorted by descending relevance score
         if getattr(self, "_recommendation_results", None) is not None:
+            assert self._recommendation_results is not None
             rec_map = {uid: score for uid, score in self._recommendation_results}
             result = [e for e in self._entries if e.get("id") in rec_map]
             result.sort(key=lambda e: rec_map.get(e.get("id", ""), 0.0), reverse=True)
             return result
 
         result = self._entries
-        if self._filter_type and self._filter_type not in ("All", "All Types", "None", ""):
+        if self._filter_type and self._filter_type not in (
+            "All",
+            "All Types",
+            "None",
+            "",
+        ):
             result = [e for e in result if e.get("type") == self._filter_type]
         if self._filter_status not in ("All", "All Status"):
             result = [e for e in result if e.get("status") == self._filter_status]
@@ -4353,7 +4386,7 @@ class ContentListingsSubTab(QWidget):
             placeholder = QLabel(
                 "No entries found.\nClick '＋ Add Entry' to get started."
             )
-            placeholder.setAlignment(Qt.AlignCenter)
+            placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
             placeholder.setStyleSheet("color:#555;font-size:14px;")
             self._grid.addWidget(placeholder, 0, 0)
         else:
@@ -4430,9 +4463,9 @@ class ContentListingsSubTab(QWidget):
             self,
             "Confirm Delete",
             "Permanently remove this entry from your listings?",
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             self._on_entry_deleted(entry_id)
 
     def _on_card_image_remove_requested(self, entry_id: str):
@@ -4447,9 +4480,9 @@ class ContentListingsSubTab(QWidget):
             self,
             f"Confirm {action_name} Image",
             f"Are you sure you want to move the image for this listing to {action_name}?",
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             entry = next((e for e in self._entries if e["id"] == entry_id), None)
             if entry:
                 img_path = entry.get("image_path", "")
@@ -4458,7 +4491,6 @@ class ContentListingsSubTab(QWidget):
                         p = Path(img_path)
                         if p.exists() and p.is_file():
                             if send_to_trash_enabled:
-                                from send2trash import send2trash
                                 send2trash(str(p))
                             else:
                                 p.unlink(missing_ok=True)
@@ -4471,9 +4503,6 @@ class ContentListingsSubTab(QWidget):
                     self._detail.load_entry(entry)
 
     def _show_gallery_context_menu(self, pos):
-        from PySide6.QtWidgets import QMenu
-        from PySide6.QtGui import QAction
-
         menu = QMenu(self)
         menu.setStyleSheet(
             "QMenu { background:#2c2f33; color:white; border:1px solid #4f545c; }"
@@ -4676,12 +4705,10 @@ class ContentListingsSubTab(QWidget):
             return
 
         dlg = RecommendationDialog(self)
-        if dlg.exec() == QDialog.Accepted:
+        if dlg.exec() == QDialog.DialogCode.Accepted:
             self._run_recommendation(dlg.get_inputs())
 
     def _run_recommendation(self, inputs: dict) -> None:
-        from ...helpers.core.recommendation_worker import RecommendationWorker
-
         if self._active_rec_worker and self._active_rec_worker.isRunning():
             self._active_rec_worker.terminate()
 
@@ -4737,23 +4764,31 @@ class ContentListingsSubTab(QWidget):
         db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
 
         # Create progress dialog
-        self.progress_dialog = QProgressDialog("Starting synchronization...", None, 0, 100, self)
+        self.progress_dialog = QProgressDialog(
+            "Starting synchronization...", None, 0, 100, self
+        )
         self.progress_dialog.setWindowTitle("Synchronizing Backup")
-        self.progress_dialog.setWindowModality(Qt.ApplicationModal)
+        self.progress_dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
         self.progress_dialog.setMinimumDuration(0)
         self.progress_dialog.setValue(0)
         self.progress_dialog.setAutoClose(False)
         self.progress_dialog.setAutoReset(False)
-        self.progress_dialog.setWindowFlags(self.progress_dialog.windowFlags() & ~Qt.WindowCloseButtonHint)
+        self.progress_dialog.setWindowFlags(
+            self.progress_dialog.windowFlags() & ~Qt.WindowType.WindowCloseButtonHint
+        )
         self.progress_dialog.show()
 
         # Start background thread
-        self._sync_worker = SyncBackupWorker("sync", "Content", {
-            "vault_manager": self.vault_manager,
-            "enc_file_path": enc_file_path,
-            "local_entries": self._entries,
-            "db_path": db_path,
-        })
+        self._sync_worker = SyncBackupWorker(
+            "sync",
+            "Content",
+            {
+                "vault_manager": self.vault_manager,
+                "enc_file_path": enc_file_path,
+                "local_entries": self._entries,
+                "db_path": db_path,
+            },
+        )
         self._sync_worker.progress.connect(self._on_sync_progress)
         self._sync_worker.finished.connect(self._on_sync_finished)
         self._sync_worker.start()
@@ -4786,7 +4821,9 @@ class ContentListingsSubTab(QWidget):
             )
         else:
             QMessageBox.critical(
-                self, "Sync Error", f"An error occurred during synchronization:\n{message}"
+                self,
+                "Sync Error",
+                f"An error occurred during synchronization:\n{message}",
             )
 
     @Slot()
@@ -4806,20 +4843,26 @@ class ContentListingsSubTab(QWidget):
         # Create progress dialog
         self.progress_dialog = QProgressDialog("Starting backup...", None, 0, 100, self)
         self.progress_dialog.setWindowTitle("Updating Backup")
-        self.progress_dialog.setWindowModality(Qt.ApplicationModal)
+        self.progress_dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
         self.progress_dialog.setMinimumDuration(0)
         self.progress_dialog.setValue(0)
         self.progress_dialog.setAutoClose(False)
         self.progress_dialog.setAutoReset(False)
-        self.progress_dialog.setWindowFlags(self.progress_dialog.windowFlags() & ~Qt.WindowCloseButtonHint)
+        self.progress_dialog.setWindowFlags(
+            self.progress_dialog.windowFlags() & ~Qt.WindowType.WindowCloseButtonHint
+        )
         self.progress_dialog.show()
 
         # Start background thread
-        self._backup_worker = SyncBackupWorker("backup", "Content", {
-            "vault_manager": self.vault_manager,
-            "enc_file_path": enc_file_path,
-            "entries": self._entries,
-        })
+        self._backup_worker = SyncBackupWorker(
+            "backup",
+            "Content",
+            {
+                "vault_manager": self.vault_manager,
+                "enc_file_path": enc_file_path,
+                "entries": self._entries,
+            },
+        )
         self._backup_worker.progress.connect(self._on_backup_progress)
         self._backup_worker.finished.connect(self._on_backup_finished)
         self._backup_worker.start()
@@ -4849,7 +4892,9 @@ class ContentListingsSubTab(QWidget):
             )
         else:
             QMessageBox.critical(
-                self, "Backup Error", f"An error occurred while generating backup:\n{message}"
+                self,
+                "Backup Error",
+                f"An error occurred while generating backup:\n{message}",
             )
 
     # ------------------------------------------------------------------
@@ -4858,7 +4903,7 @@ class ContentListingsSubTab(QWidget):
         """Open the directory-import wizard and create listings for new series."""
         existing_titles = {e.get("title", "").lower() for e in self._entries}
         dlg = _DirectoryImportDialog(existing_titles, parent=self)
-        if dlg.exec() != QDialog.Accepted:
+        if dlg.exec() != QDialog.DialogCode.Accepted:
             return
 
         selected_series = dlg.get_selected_series()
@@ -5060,7 +5105,7 @@ class EntityListingsSubTab(QWidget):
         root.addWidget(self.stats_label)
 
         # ---- Splitter: gallery | detail ----
-        splitter = QSplitter(Qt.Horizontal)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # Gallery
         gallery_container = QWidget()
@@ -5076,7 +5121,7 @@ class EntityListingsSubTab(QWidget):
         self._grid_widget = QWidget()
         self._grid_widget.setStyleSheet("background:#23272a;")
         self._grid = QGridLayout(self._grid_widget)
-        self._grid.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self._grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         self._grid.setSpacing(10)
         self._grid.setContentsMargins(10, 10, 10, 10)
         self.gallery_scroll.setWidget(self._grid_widget)
@@ -5101,7 +5146,7 @@ class EntityListingsSubTab(QWidget):
         root.addWidget(splitter, 1)
 
         # Context Menu for Gallery background
-        self.gallery_scroll.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.gallery_scroll.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.gallery_scroll.customContextMenuRequested.connect(
             self._show_gallery_context_menu
         )
@@ -5188,7 +5233,12 @@ class EntityListingsSubTab(QWidget):
     # ------------------------------------------------------------------
     def _filtered_entities(self) -> List[Dict[str, Any]]:
         result = self._entities
-        if self._filter_type and self._filter_type not in ("All", "All Types", "None", ""):
+        if self._filter_type and self._filter_type not in (
+            "All",
+            "All Types",
+            "None",
+            "",
+        ):
             result = [e for e in result if e.get("type") == self._filter_type]
         if self._filter_role not in ("All", "All Roles"):
             result = [e for e in result if e.get("role") == self._filter_role]
@@ -5228,7 +5278,7 @@ class EntityListingsSubTab(QWidget):
                         filtered_ents.append(e)
                         continue
                 # Search associated_entities (IDs → entity names)
-                assoc_e = e.get("associated_entities", [])
+                # assoc_e = e.get("associated_entities", [])
                 # Entity names aren't cached here — skip for now
             result = filtered_ents
 
@@ -5267,7 +5317,7 @@ class EntityListingsSubTab(QWidget):
             placeholder = QLabel(
                 "No entities found.\nClick '＋ Add Entity' to get started."
             )
-            placeholder.setAlignment(Qt.AlignCenter)
+            placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
             placeholder.setStyleSheet("color:#555;font-size:14px;")
             self._grid.addWidget(placeholder, 0, 0)
         else:
@@ -5313,15 +5363,12 @@ class EntityListingsSubTab(QWidget):
             self,
             "Confirm Delete",
             "Permanently remove this entity from your listings?",
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             self._on_entity_deleted(entity_id)
 
     def _show_gallery_context_menu(self, pos):
-        from PySide6.QtWidgets import QMenu
-        from PySide6.QtGui import QAction
-
         menu = QMenu(self)
         menu.setStyleSheet(
             "QMenu { background:#2c2f33; color:white; border:1px solid #4f545c; }"
@@ -5337,7 +5384,7 @@ class EntityListingsSubTab(QWidget):
         """Open the entity directory-import wizard and create listings for new entities."""
         existing_names = {e.get("name", "").lower() for e in self._entities}
         dlg = _EntityDirectoryImportDialog(existing_names, parent=self)
-        if dlg.exec() != QDialog.Accepted:
+        if dlg.exec() != QDialog.DialogCode.Accepted:
             return
 
         selected_entities = dlg.get_selected_entities()
@@ -5366,8 +5413,6 @@ class EntityListingsSubTab(QWidget):
             dest_img_path = LISTING_IMAGES_DIR / dest_img_name
 
             try:
-                import shutil
-
                 shutil.copy2(src_path, dest_img_path)
                 image_path = str(dest_img_path)
             except Exception as e:
@@ -5608,23 +5653,31 @@ class EntityListingsSubTab(QWidget):
         db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
 
         # Create progress dialog
-        self.progress_dialog = QProgressDialog("Starting synchronization...", None, 0, 100, self)
+        self.progress_dialog = QProgressDialog(
+            "Starting synchronization...", None, 0, 100, self
+        )
         self.progress_dialog.setWindowTitle("Synchronizing Backup")
-        self.progress_dialog.setWindowModality(Qt.ApplicationModal)
+        self.progress_dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
         self.progress_dialog.setMinimumDuration(0)
         self.progress_dialog.setValue(0)
         self.progress_dialog.setAutoClose(False)
         self.progress_dialog.setAutoReset(False)
-        self.progress_dialog.setWindowFlags(self.progress_dialog.windowFlags() & ~Qt.WindowCloseButtonHint)
+        self.progress_dialog.setWindowFlags(
+            self.progress_dialog.windowFlags() & ~Qt.WindowType.WindowCloseButtonHint
+        )
         self.progress_dialog.show()
 
         # Start background thread
-        self._sync_worker = SyncBackupWorker("sync", "Entity", {
-            "vault_manager": self.vault_manager,
-            "enc_file_path": enc_file_path,
-            "local_entries": self._entities,
-            "db_path": db_path,
-        })
+        self._sync_worker = SyncBackupWorker(
+            "sync",
+            "Entity",
+            {
+                "vault_manager": self.vault_manager,
+                "enc_file_path": enc_file_path,
+                "local_entries": self._entities,
+                "db_path": db_path,
+            },
+        )
         self._sync_worker.progress.connect(self._on_sync_progress)
         self._sync_worker.finished.connect(self._on_sync_finished)
         self._sync_worker.start()
@@ -5657,7 +5710,9 @@ class EntityListingsSubTab(QWidget):
             )
         else:
             QMessageBox.critical(
-                self, "Sync Error", f"An error occurred during synchronization:\n{message}"
+                self,
+                "Sync Error",
+                f"An error occurred during synchronization:\n{message}",
             )
 
     @Slot()
@@ -5677,20 +5732,26 @@ class EntityListingsSubTab(QWidget):
         # Create progress dialog
         self.progress_dialog = QProgressDialog("Starting backup...", None, 0, 100, self)
         self.progress_dialog.setWindowTitle("Updating Backup")
-        self.progress_dialog.setWindowModality(Qt.ApplicationModal)
+        self.progress_dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
         self.progress_dialog.setMinimumDuration(0)
         self.progress_dialog.setValue(0)
         self.progress_dialog.setAutoClose(False)
         self.progress_dialog.setAutoReset(False)
-        self.progress_dialog.setWindowFlags(self.progress_dialog.windowFlags() & ~Qt.WindowCloseButtonHint)
+        self.progress_dialog.setWindowFlags(
+            self.progress_dialog.windowFlags() & ~Qt.WindowType.WindowCloseButtonHint
+        )
         self.progress_dialog.show()
 
         # Start background thread
-        self._backup_worker = SyncBackupWorker("backup", "Entity", {
-            "vault_manager": self.vault_manager,
-            "enc_file_path": enc_file_path,
-            "entries": self._entities,
-        })
+        self._backup_worker = SyncBackupWorker(
+            "backup",
+            "Entity",
+            {
+                "vault_manager": self.vault_manager,
+                "enc_file_path": enc_file_path,
+                "entries": self._entities,
+            },
+        )
         self._backup_worker.progress.connect(self._on_backup_progress)
         self._backup_worker.finished.connect(self._on_backup_finished)
         self._backup_worker.start()
@@ -5720,7 +5781,9 @@ class EntityListingsSubTab(QWidget):
             )
         else:
             QMessageBox.critical(
-                self, "Backup Error", f"An error occurred while generating backup:\n{message}"
+                self,
+                "Backup Error",
+                f"An error occurred while generating backup:\n{message}",
             )
 
 

@@ -25,7 +25,6 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeyEvent, QKeySequence
 
 
@@ -234,8 +233,10 @@ class ShortcutRegistry:
             return False
         raw_key = event.key()
         raw_mods = event.modifiers()
-        key_int: int = raw_key if isinstance(raw_key, int) else (
-            raw_key.value if hasattr(raw_key, "value") else int(raw_key)
+        key_int: int = (
+            raw_key
+            if isinstance(raw_key, int)
+            else (raw_key.value if hasattr(raw_key, "value") else int(raw_key))
         )
         mods_int: int = raw_mods.value if hasattr(raw_mods, "value") else int(raw_mods)
         event_seq = QKeySequence(mods_int | key_int)

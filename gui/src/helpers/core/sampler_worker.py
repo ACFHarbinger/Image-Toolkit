@@ -9,7 +9,7 @@ from PySide6.QtCore import QThread, Signal
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 
 _PILLOW_FILTERS = {
-    "lanczos": None,   # resolved at runtime via Image.LANCZOS
+    "lanczos": None,  # resolved at runtime via Image.LANCZOS
     "bicubic": None,
     "bilinear": None,
     "nearest": None,
@@ -18,12 +18,13 @@ _PILLOW_FILTERS = {
 
 def _get_pil_filter(name: str):
     from PIL import Image
+
     return {
-        "lanczos": Image.LANCZOS,
-        "bicubic": Image.BICUBIC,
-        "bilinear": Image.BILINEAR,
-        "nearest": Image.NEAREST,
-    }.get(name, Image.LANCZOS)
+        "lanczos": Image.Resampling.LANCZOS,
+        "bicubic": Image.Resampling.BICUBIC,
+        "bilinear": Image.Resampling.BILINEAR,
+        "nearest": Image.Resampling.NEAREST,
+    }.get(name, Image.Resampling.LANCZOS)
 
 
 class SamplerWorker(QThread):
@@ -139,7 +140,9 @@ class SamplerWorker(QThread):
         else:
             return self._resample_image(input_path, out_path, ext)
 
-    def _build_output_path(self, input_path: str, idx: int, total: int, src_ext: str) -> Optional[str]:
+    def _build_output_path(
+        self, input_path: str, idx: int, total: int, src_ext: str
+    ) -> Optional[str]:
         fmt_override = self.config.get("output_format")
         out_ext = fmt_override if fmt_override else src_ext
 
@@ -285,16 +288,19 @@ class SamplerWorker(QThread):
 
         vf = f"scale={new_w}:{new_h}:flags={sws_flags}"
         cmd = ["ffmpeg", "-y", "-i", in_path, "-vf", vf, "-c:a", "copy", out_path]
-
+        proc = None
         try:
-            proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            proc = subprocess.Popen(
+                cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
             with self._process_lock:
                 self._active_procs.add(proc)
             proc.wait(timeout=600)
             with self._process_lock:
                 self._active_procs.discard(proc)
         except subprocess.TimeoutExpired:
-            proc.terminate()
+            if proc is not None:
+                proc.terminate()
             return False
         except FileNotFoundError:
             self.error.emit("FFmpeg not found. Install FFmpeg to resample videos.")
@@ -310,10 +316,21 @@ class SamplerWorker(QThread):
     def _probe_video_dims(path: str) -> tuple[int, int]:
         try:
             result = subprocess.run(
-                ["ffprobe", "-v", "error", "-select_streams", "v:0",
-                 "-show_entries", "stream=width,height",
-                 "-of", "csv=p=0:s=x", path],
-                capture_output=True, text=True, timeout=15,
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-select_streams",
+                    "v:0",
+                    "-show_entries",
+                    "stream=width,height",
+                    "-of",
+                    "csv=p=0:s=x",
+                    path,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=15,
             )
             if result.returncode == 0 and "x" in result.stdout:
                 w_str, h_str = result.stdout.strip().split("x", 1)

@@ -3,8 +3,8 @@ import cv2
 import shutil
 import tempfile
 
+from send2trash import send2trash
 from typing import Dict, Any, Optional, List
-
 from PySide6.QtGui import (
     QPixmap,
     QAction,
@@ -688,7 +688,9 @@ class MergeTab(AbstractClassSingleGallery):
         self.gallery_scroll_area.setWidget(gallery_inner)
 
         content_layout.addWidget(self.gallery_scroll_area, 1)
-        content_layout.addWidget(self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter)
+        content_layout.addWidget(
+            self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
+        )
 
         # === 5. Merge Canvas ===
         canvas_header_row = QHBoxLayout()
@@ -1167,8 +1169,6 @@ class MergeTab(AbstractClassSingleGallery):
         ):
             try:
                 if send_to_trash_enabled:
-                    from send2trash import send2trash
-
                     send2trash(path)
                 else:
                     os.remove(path)
