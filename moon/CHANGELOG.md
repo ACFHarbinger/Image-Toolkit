@@ -4,6 +4,35 @@
 
 ---
 
+## Analytics — Math Backbone: Rust `base/src/math/` + TypeScript `frontend/src/math/` (2026-06-18)
+
+### Shipped
+
+| Layer | Module | Key exports |
+|-------|--------|-------------|
+| Rust | `linalg` | `Matrix`, `pca_project`, `pca_2d`, `dot`, `norm`, `normalize` |
+| Rust | `stats` | `mean`, `variance`, `histogram`, `pearson_correlation`, `covariance_matrix` |
+| Rust | `information` | `shannon_entropy`, `kl_divergence`, `js_divergence`, `mutual_information_discrete`, `normalised_mutual_information` |
+| Rust | `distance` | `euclidean`, `cosine_distance`, `bhattacharyya_distance`, `pairwise_distance_matrix`, `condensed_distance_matrix` |
+| Rust | `graph` | `Graph`, `UnionFind`, `bfs`, `topological_sort`, `strongly_connected_components`, `kruskal_mst`, `kruskal_max_mst` |
+| Rust | `dim_reduce` | `mds_project` (Classical MDS via power iteration), `geodesic_distances` (Dijkstra), `tsne_affinities` |
+| TypeScript | `linalg` | `Vec2`/`Vec3`/`Mat3`/`Mat4`, `add2/sub2/scale2/dot2/norm2`, `cross3`, `dotN/normN` |
+| TypeScript | `stats` | `mean`, `median`, `variance`, `pearsonCorrelation`, `normalize01`, `histogram` |
+| TypeScript | `colormap` | `viridis`, `plasma`, `magma`, `inferno`, `coolwarm`, `applyColormap`, `applyColormapHex` |
+| TypeScript | `distance` | `euclidean`, `cosineSimilarity`, `manhattan`, `pairwiseDistances`, `condensedDistances` |
+| TypeScript | `graph` | `Graph`, `GraphNode`, `GraphEdge`, `bfs`, `topologicalSort`, `fruchtermanReingold` |
+| TypeScript | `signal` | `fft`, `ifft`, `powerSpectrum`, `autocorrelation`, `hannWindow`, `hammingWindow` |
+
+### Stats
+
+- Rust: **49 unit tests** across 6 modules — all passing (`cargo test --lib math`)
+- TypeScript: **`tsc --noEmit` clean** — zero type errors
+- Rust `mod.rs` + `lib.rs` wired; `pub use math::*` re-exports available from the `base` crate
+- MDS preserves pairwise distances to within `1e-4` for unit square (4-point test)
+- FR layout: deterministic seeded positions, 300 iterations, O(n²) force computation
+
+---
+
 ## Perf — §3.15 — Non-anim Import Isolation: image_merger + vault_manager (2026-06-18)
 
 ### Shipped
