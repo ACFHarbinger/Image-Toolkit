@@ -17,12 +17,12 @@ user-designated pixels.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QPointF, Signal
 from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -153,6 +153,99 @@ class _WaypointCanvas(QLabel):
                     painter.setPen(QPen(QColor("white"), 1))
                     painter.drawText(dx + 6, dy + 4, f"S{k}")
                     painter.setPen(QPen(colour, 2))
+            painter.end()
+        self.setPixmap(pix)
+
+
+# ── §2.10C: user-drawn flow field canvas ─────────────────────────────────────
+
+class _FlowArrowCanvas(QLabel):
+    """Canvas overlay that lets the user draw displacement arrows (§2.10C).
+
+    In draw mode the user clicks once (origin) and releases at the tip of the
+    desired displacement arrow.  Each arrow records ``(x, y, dx, dy)`` in
+    canvas-pixel space.  A "Clear" button removes all arrows.
+
+    :meth:`all_flow_arrows` returns the list for :meth:`get_overrides`.
+    """
+
+    flow_changed: Signal = Signal()
+
+    _ARROW_COLOR = QColor(255, 180, 0)
+
+    def __init__(
+        self,
+        base_pixmap: QPixmap,
+        canvas_w: int,
+        canvas_h: int,
+        parent: Optional[QWidget] = None,
+    ) -> None:
+        super().__init__(parent)
+        self._base_pix: QPixmap = base_pixmap
+        self._canvas_w: int = max(1, canvas_w)
+        self._canvas_h: int = max(1, canvas_h)
+        pw = max(1, base_pixmap.width())
+        ph = max(1, base_pixmap.height())
+        self._scale_x: float = pw / self._canvas_w
+        self._scale_y: float = ph / self._canvas_h
+        self._active: bool = False
+        self._origin: Optional[Tuple[float, float]] = None  # current drag origin (canvas px)
+        self._arrows: List[Tuple[float, float, float, float]] = []  # (x, y, dx, dy)
+        self._redraw()
+
+    def set_active(self, active: bool) -> None:
+        self._active = active
+        self.setCursor(Qt.CursorShape.CrossCursor if active else Qt.CursorShape.ArrowCursor)
+
+    def all_flow_arrows(self) -> List[Tuple[float, float, float, float]]:
+        return list(self._arrows)
+
+    def clear(self) -> None:
+        self._arrows.clear()
+        self._origin = None
+        self._redraw()
+        self.flow_changed.emit()
+
+    def mousePressEvent(self, event) -> None:
+        if self._active and event.button() == Qt.MouseButton.LeftButton:
+            pos = event.position()
+            cx = pos.x() / self._scale_x
+            cy = pos.y() / self._scale_y
+            self._origin = (cx, cy)
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:
+        if self._active and event.button() == Qt.MouseButton.LeftButton and self._origin is not None:
+            pos = event.position()
+            ex = pos.x() / self._scale_x
+            ey = pos.y() / self._scale_y
+            ox, oy = self._origin
+            self._origin = None
+            dx = ex - ox
+            dy = ey - oy
+            if abs(dx) > 2 or abs(dy) > 2:  # ignore micro-clicks
+                self._arrows.append((ox, oy, dx, dy))
+                self._redraw()
+                self.flow_changed.emit()
+        super().mouseReleaseEvent(event)
+
+    def _redraw(self) -> None:
+        pix = self._base_pix.copy()
+        if self._arrows:
+            painter = QPainter(pix)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            pen = QPen(self._ARROW_COLOR, 2)
+            painter.setPen(pen)
+            for ox, oy, dx, dy in self._arrows:
+                sx0 = int(ox * self._scale_x)
+                sy0 = int(oy * self._scale_y)
+                sx1 = int((ox + dx) * self._scale_x)
+                sy1 = int((oy + dy) * self._scale_y)
+                painter.drawLine(sx0, sy0, sx1, sy1)
+                # Arrowhead dot
+                painter.setBrush(self._ARROW_COLOR)
+                painter.drawEllipse(sx1 - 3, sy1 - 3, 6, 6)
+                painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.end()
         self.setPixmap(pix)
 
@@ -380,6 +473,7 @@ class SeamDiagnosticDialog(QDialog):
         canvas_w: int = int(data.get("canvas_w", 0))
 
         self._canvas: Optional[_WaypointCanvas] = None
+        self._flow_canvas: Optional[_FlowArrowCanvas] = None
 
         # ── Root layout ────────────────────────────────────────────────────
         root = QHBoxLayout(self)
@@ -393,10 +487,12 @@ class SeamDiagnosticDialog(QDialog):
             root.addLayout(left)
 
             _pix = self._np_to_pixmap(canvas_preview, max_width=260)
+            _cw = canvas_w if canvas_w > 0 else max(1, _pix.width())
+            _ch = canvas_h if canvas_h > 0 else max(1, _pix.height())
             self._canvas = _WaypointCanvas(
                 _pix,
-                canvas_w=canvas_w if canvas_w > 0 else max(1, _pix.width()),
-                canvas_h=canvas_h if canvas_h > 0 else max(1, _pix.height()),
+                canvas_w=_cw,
+                canvas_h=_ch,
                 boundaries=boundaries,
             )
             self._canvas.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -415,6 +511,34 @@ class SeamDiagnosticDialog(QDialog):
             )
             self._btn_wps.toggled.connect(self._on_wp_mode_toggled)
             left.addWidget(self._btn_wps)
+
+            # §2.10C: Flow Arrow canvas (shared pixmap, overlaid on canvas preview)
+            self._flow_canvas = _FlowArrowCanvas(_pix, canvas_w=_cw, canvas_h=_ch)
+            self._flow_canvas.setAlignment(Qt.AlignmentFlag.AlignTop)
+            self._flow_canvas.setSizePolicy(
+                QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
+            )
+            self._flow_canvas.flow_changed.connect(self._on_flow_changed)
+            self._flow_canvas.setVisible(False)  # shown only in draw-flow mode
+            left.addWidget(self._flow_canvas)
+
+            btn_flow_row = QHBoxLayout()
+            self._btn_flow = QPushButton("↗ Draw Flow")
+            self._btn_flow.setCheckable(True)
+            self._btn_flow.setToolTip(
+                "§2.10C  Click-drag arrows on the seam crop to define displacement vectors.\n"
+                "These override RAFT/DIS flow for the re-composite pass.\n"
+                "Stored as 'flow_arrows' in the seam override dict."
+            )
+            self._btn_flow.toggled.connect(self._on_flow_mode_toggled)
+            self._btn_flow_clear = QPushButton("Clear Flow")
+            self._btn_flow_clear.setToolTip("Remove all drawn flow arrows for this seam.")
+            self._btn_flow_clear.clicked.connect(self._on_flow_clear)
+            self._btn_flow_clear.setEnabled(False)
+            btn_flow_row.addWidget(self._btn_flow)
+            btn_flow_row.addWidget(self._btn_flow_clear)
+            left.addLayout(btn_flow_row)
+
             left.addStretch(1)
 
         # ── Right panel: seam cards + buttons ─────────────────────────────
@@ -497,6 +621,32 @@ class SeamDiagnosticDialog(QDialog):
             n = self._canvas.waypoint_count(card.seam_index)
             card.update_waypoint_count(n)
 
+    def _on_flow_mode_toggled(self, active: bool) -> None:
+        """§2.10C: Switch the left panel between waypoint canvas and flow-arrow canvas."""
+        if self._flow_canvas is None:
+            return
+        if active:
+            if self._canvas is not None:
+                self._canvas.setVisible(False)
+                if hasattr(self, "_btn_wps"):
+                    self._btn_wps.setChecked(False)
+            self._flow_canvas.setVisible(True)
+            self._flow_canvas.set_active(True)
+        else:
+            self._flow_canvas.setVisible(False)
+            self._flow_canvas.set_active(False)
+            if self._canvas is not None:
+                self._canvas.setVisible(True)
+
+    def _on_flow_changed(self) -> None:
+        """Enable/disable the clear button based on arrow count."""
+        if self._flow_canvas is not None and hasattr(self, "_btn_flow_clear"):
+            self._btn_flow_clear.setEnabled(bool(self._flow_canvas.all_flow_arrows()))
+
+    def _on_flow_clear(self) -> None:
+        if self._flow_canvas is not None:
+            self._flow_canvas.clear()
+
     # ── helpers ─────────────────────────────────────────────────────────────
 
     @staticmethod
@@ -521,13 +671,27 @@ class SeamDiagnosticDialog(QDialog):
         - ``"force_blend"`` (bool) — force Laplacian blend regardless of diff
         - ``"waypoints"`` (List[Tuple[int,int]]) — canvas-space (x,y) pairs
           that ``_seam_cut()`` must route through (§2.11A)
+        - ``"flow_arrows"`` (List[Tuple[float,float,float,float]]) — user-drawn
+          displacement arrows ``(x, y, dx, dy)`` for §2.10C flow override
         """
         all_wps: Dict[int, List[Tuple[int, int]]] = (
             self._canvas.all_waypoints() if self._canvas is not None else {}
         )
+        flow_arrows_global: List[Tuple[float, float, float, float]] = (
+            self._flow_canvas.all_flow_arrows() if self._flow_canvas is not None else []
+        )
         # Collect all seams with any kind of override
         seam_keys: set = {card.seam_index for card in self._cards if card.has_override()}
         seam_keys.update(all_wps.keys())
+        # Flow arrows apply globally (to all seams) when present — caller can
+        # decide per-seam routing; store under every seam key if any card is focused,
+        # or just attach to seam 0 when no card override exists.
+        if flow_arrows_global:
+            if seam_keys:
+                for k in set(seam_keys):
+                    pass  # each seam gets the arrows below
+            else:
+                seam_keys.add(0)
 
         result: Dict[int, dict] = {}
         for k in seam_keys:
@@ -541,6 +705,8 @@ class SeamDiagnosticDialog(QDialog):
             wps = all_wps.get(k, [])
             if wps:
                 entry["waypoints"] = wps
+            if flow_arrows_global:
+                entry["flow_arrows"] = flow_arrows_global
             if entry:
                 result[k] = entry
 

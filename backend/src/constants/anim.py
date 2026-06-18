@@ -333,6 +333,9 @@ OTSU_BG_CORR_MIN_BG_FRAC = 0.10  # minimum bg fraction for valid Otsu mask
 # §5A/C: Background zero-coverage fill (bg_complete.py)
 BG_COMPLETE_MIN_ROWS = 20  # min zero-coverage rows before fill runs
 
+# §3.13: ProPainter Stage 4.7 background completion (pipeline.py / bg_complete.py)
+PROPAINTER_DEVICE = "cpu"  # default inference device; override with ASP_PROPAINTER_DEVICE
+
 # §2.14: Triangular consistency filter (pipeline.py)
 TRI_CONSISTENCY_MAX_RESIDUAL = (
     80.0  # L2 residual (px) above which triangle is inconsistent; 0=off
@@ -383,6 +386,15 @@ GAIN_DRIFT_MAX = 2.0  # Maximum cumulative gain fold-change before resetting to 
 # §1.56: Post-composite chroma seam correction (compositing.py _seam_chroma_equalize)
 SEAM_CHROMA_EQ_BAND_PX = 20   # row-band width (above/below boundary) used for sampling and correction
 SEAM_CHROMA_EQ_MIN_SHIFT = 3.0  # min LAB ab-channel shift (units) to trigger correction
+
+# §1.83: Seam band noise-level asymmetry gate (compositing.py _seam_noise_mismatch)
+SEAM_NOISE_GATE_THRESH = 1.0  # normalised |σ_top−σ_bot| / mean(σ) asymmetry threshold (0=off)
+
+# §1.84: Seam band RMS contrast ratio gate (compositing.py _seam_rms_contrast_ratio)
+SEAM_CONTRAST_GATE_THRESH = 4.0  # max(c_top,c_bot)/min(c_top,c_bot) ratio threshold (0=off)
+
+# §1.85: Multi-gate ensemble combiner (compositing.py _check_seam_ensemble_gate)
+SEAM_ENSEMBLE_MIN_VOTES = 3  # minimum number of gate votes required to trigger fallback (0=off)
 
 # ToonCrafter
 TOONCRAFTER_REPO = "Doubiiu/ToonCrafter"

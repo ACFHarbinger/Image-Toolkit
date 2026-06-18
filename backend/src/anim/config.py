@@ -575,6 +575,36 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         1.0,
         "§1.82: Maximum allowed spatial-frequency profile mismatch (1 − Pearson-r of column-averaged FFT magnitude spectra) between bands above and below a seam; catches spectral content discontinuities (fine noise texture vs smooth gradient) invisible to all §1.76–§1.81 gates; 0=identical spectra, 1=orthogonal spectra → SCANS fallback (0=off, suggest 0.6)",
     ),
+    "ASP_SEAM_NOISE_GATE": (
+        float,
+        0.0,
+        None,
+        "§1.83: Maximum allowed normalised noise-level asymmetry |σ_top−σ_bot|/mean(σ) between bands above and below a seam (Laplacian-std estimator, Immerkær 1996); catches codec/exposure bitrate discontinuities invisible to all §1.76–§1.82 luma/chroma/spectral gates; 0=identical noise, >1=substantial mismatch → SCANS fallback (0=off, suggest 1.0)",
+    ),
+    "ASP_SEAM_CONTRAST_GATE": (
+        float,
+        0.0,
+        None,
+        "§1.84: Maximum allowed RMS contrast ratio max(c_top,c_bot)/min(c_top,c_bot) where c=std/max(1,mean) is the coefficient of variation; catches broad dynamic-range discontinuities distinct from §1.79 sharpness (fine-detail) and §1.82 spectral content; 1=identical contrast, >4=substantial mismatch → SCANS fallback (0=off, suggest 4.0)",
+    ),
+    "ASP_SEAM_ENSEMBLE_VOTES": (
+        int,
+        0,
+        None,
+        "§1.85: Minimum number of active quality gates that must simultaneously flag the same seam to trigger the multi-gate ensemble fallback; each gate uses its own threshold (0 disables the gate from voting); catches corner cases where no single gate fires but multiple metrics are simultaneously near-threshold; suggest 3 when several §1.76–§1.84 gate thresholds are enabled",
+    ),
+    "ASP_PROPAINTER": (
+        int,
+        0,
+        1,
+        "§3.13: Enable ProPainter Stage 4.7 multi-frame background completion; runs ProPainter inpainting on all selected frames after BiRefNet masking to replace foreground-occupied pixels with temporally coherent background before phase correlation and temporal median render; requires 'pip install propainter'; falls back to NN fill when unavailable (0=off, 1=on)",
+    ),
+    "ASP_PROPAINTER_DEVICE": (
+        str,
+        None,
+        None,
+        "§3.13: Torch device string for ProPainter inference (e.g. 'cpu', 'cuda', 'cuda:0'); default 'cpu'",
+    ),
 }
 
 
@@ -792,6 +822,9 @@ _DUMP_SECTIONS: Dict[str, List[str]] = {
         "ASP_SEAM_GRAD_DIR_GATE",
         "ASP_SEAM_SSIM_GATE",
         "ASP_SEAM_FREQ_GATE",
+        "ASP_SEAM_NOISE_GATE",
+        "ASP_SEAM_CONTRAST_GATE",
+        "ASP_SEAM_ENSEMBLE_VOTES",
     ],
     "bundle_adjust": [
         "ASP_BA_F_SCALE",
@@ -837,6 +870,8 @@ _DUMP_SECTIONS: Dict[str, List[str]] = {
         "ASP_CANVAS_FILL_MIN",
         "ASP_CANVAS_FILL_PIX_THRESH",
         "ASP_STRIP_VARIANCE_RATIO_MAX",
+        "ASP_PROPAINTER",
+        "ASP_PROPAINTER_DEVICE",
     ],
 }
 

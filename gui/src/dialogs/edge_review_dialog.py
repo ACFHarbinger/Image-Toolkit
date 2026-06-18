@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 from typing import List, Optional, Tuple
 
+import cv2
 import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtGui import (
@@ -23,6 +24,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QMessageBox,
     QPushButton,
     QSizePolicy,
     QSpinBox,
@@ -31,6 +33,9 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
 )
+
+from .landmark_editor_dialog import LandmarkEditorDialog
+from backend.src.anim.pipeline import _build_landmark_affine
 
 _RADIUS = 200.0
 _CENTRE = 230.0
@@ -176,6 +181,13 @@ class EdgeReviewDialog(QDialog):
             "Use this when LoFTR failed to match a pair you know should connect."
         )
         btn_add.clicked.connect(self._on_add_edge)
+        btn_landmark = QPushButton("Landmark Editor…")  # §2.9A
+        btn_landmark.setToolTip(
+            "§2.9A  Select two frames in the table, then click here to place\n"
+            "corresponding landmark points on the frame thumbnails.\n"
+            "Builds a precise affine transform from your point pairs."
+        )
+        btn_landmark.clicked.connect(self._on_landmark_edit)
         self._status_label = QLabel()
         self._status_label.setStyleSheet("color: #999; font-size: 10px;")
         btn_resume = QPushButton("Resume Pipeline")
@@ -183,7 +195,7 @@ class EdgeReviewDialog(QDialog):
         btn_resume.clicked.connect(self.accept)
         btn_cancel = QPushButton("Cancel")
         btn_cancel.clicked.connect(self.reject)
-        for w in (btn_mst, btn_all, btn_add):
+        for w in (btn_mst, btn_all, btn_add, btn_landmark):
             toolbar.addWidget(w)
         toolbar.addSpacing(8)
         toolbar.addWidget(self._status_label, stretch=1)
@@ -332,6 +344,67 @@ class EdgeReviewDialog(QDialog):
         if dlg.exec() == QDialog.DialogCode.Accepted:
             self._manual_edges.append(dlg.edge_dict())
             self._populate()
+
+    def _on_landmark_edit(self):
+        """§2.9A: Open LandmarkEditorDialog for the selected table row's frame pair."""
+        rows = {idx.row() for idx in self._table.selectedIndexes()}
+        if not rows:
+            QMessageBox.information(
+                self, "Landmark Editor",
+                "Select a row in the edge table first, then click Landmark Editor.",
+            )
+            return
+        row = sorted(rows)[0]
+        # Resolve edge at this row (base or manual)
+        n_base = len(self._edges)
+        if row < n_base:
+            edge = self._edges[row]
+        else:
+            edge = self._manual_edges[row - n_base]
+        fi, fj = edge["i"], edge["j"]
+
+        if not self._image_paths:
+            QMessageBox.warning(
+                self, "Landmark Editor",
+                "Frame image paths are not available — cannot open landmark editor.",
+            )
+            return
+        if fi >= len(self._image_paths) or fj >= len(self._image_paths):
+            QMessageBox.warning(
+                self, "Landmark Editor",
+                f"Frame indices {fi}/{fj} exceed available image paths ({len(self._image_paths)}).",
+            )
+            return
+
+        frame_i = cv2.imread(self._image_paths[fi])
+        frame_j = cv2.imread(self._image_paths[fj])
+        if frame_i is None or frame_j is None:
+            QMessageBox.warning(
+                self, "Landmark Editor",
+                "Could not load frame images from disk.",
+            )
+            return
+
+        dlg = LandmarkEditorDialog(frame_i, frame_j, i=fi, j=fj, parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            pairs = dlg.landmark_pairs()
+            if pairs:
+                new_edge = _build_landmark_affine(fi, fj, pairs)
+                # Represent as a unified edge dict compatible with the table
+                M = new_edge["M"]
+                new_edge_display = {
+                    "i": fi,
+                    "j": fj,
+                    "M": M,
+                    "pts_i": new_edge["pts_i"],
+                    "pts_j": new_edge["pts_j"],
+                    "dx": float(M[0, 2]),
+                    "dy": float(M[1, 2]),
+                    "conf": new_edge["weight"],
+                    "method": f"landmark({len(pairs)}pts)",
+                }
+                self._manual_edges.append(new_edge_display)
+                self._populate()
 
     def _on_cell_changed(self, row: int, col: int):
         if col != 0:

@@ -55,11 +55,14 @@ from .canvas import (
 from .compositing import (
     _check_seam_color_gate,
     _check_seam_entropy_gate,
+    _check_seam_ensemble_gate,
     _check_seam_freq_gate,
     _check_seam_grad_direction_gate,
     _check_seam_hue_gate,
     _check_seam_max_col_gate,
     _check_seam_ncc_gate,
+    _check_seam_noise_gate,
+    _check_seam_rms_contrast_gate,
     _check_seam_saturation_gate,
     _check_seam_sharpness_gate,
     _check_seam_ssim_gate,
@@ -81,7 +84,7 @@ from backend.src.constants import (
     SPATIAL_DEDUP_PX,
 )
 from .ecc import _ecc_refine
-from .bg_complete import complete_background
+from .bg_complete import complete_background, _propainter_complete_frames
 from .masking import (
     _cleanup_sam2_state,
     _compute_fg_masks,
@@ -445,6 +448,27 @@ _SEAM_SSIM_GATE: float = float(os.environ.get("ASP_SEAM_SSIM_GATE", "0.0"))
 # Default 0.0 = off.  Recommend ASP_SEAM_FREQ_GATE=0.6.
 _SEAM_FREQ_GATE: float = float(os.environ.get("ASP_SEAM_FREQ_GATE", "0.0"))
 
+# §1.83 — Post-composite seam noise-level asymmetry gate (S139).
+# Fires when |σ_top − σ_bot| / mean(σ) exceeds the threshold where σ is the
+# per-strip Laplacian-std noise estimate (Immerkær 1996).  Catches codec or
+# exposure bitrate discontinuities invisible to luma/chroma/spectral gates.
+# Default 0.0 = off.  Recommend ASP_SEAM_NOISE_GATE=1.0.
+_SEAM_NOISE_GATE: float = float(os.environ.get("ASP_SEAM_NOISE_GATE", "0.0"))
+
+# §1.84 — Post-composite seam RMS contrast ratio gate (S139).
+# Fires when max(c_top,c_bot)/min(c_top,c_bot) > threshold where c = std/mean
+# (coefficient of variation).  Catches broad dynamic-range discontinuities
+# distinct from §1.79 sharpness and §1.82 spectral profile.
+# Default 0.0 = off.  Recommend ASP_SEAM_CONTRAST_GATE=4.0.
+_SEAM_CONTRAST_GATE: float = float(os.environ.get("ASP_SEAM_CONTRAST_GATE", "0.0"))
+
+# §1.85 — Post-composite multi-gate ensemble combiner (S139).
+# Fires when the seam with the most gate-failure votes accumulates ≥ min_votes.
+# Each gate threshold below is used as the per-gate activation criterion; a
+# gate with threshold=0.0 contributes no votes.
+# Default 0 = off.  Recommend ASP_SEAM_ENSEMBLE_VOTES=3.
+_SEAM_ENSEMBLE_VOTES: int = int(os.environ.get("ASP_SEAM_ENSEMBLE_VOTES", "0"))
+
 # §1.67 — Frame canvas spread validation (S131).
 # After phase correlation (Stage 5), checks whether the estimated camera
 # translations span at least *min_spread_fraction* of the expected full-canvas
@@ -466,6 +490,14 @@ _CANVAS_SPREAD_MIN: float = float(os.environ.get("ASP_CANVAS_SPREAD_MIN", "0.0")
 _STATIC_INPUT_MAX_MAD: float = float(os.environ.get("ASP_STATIC_INPUT_MAX_MAD", "0.0"))
 _USE_SAM2: bool = os.environ.get("ASP_USE_SAM2", "0") != "0"
 _BG_COMPLETE: int = int(os.environ.get("ASP_BG_COMPLETE", "0"))
+# §3.13 — ProPainter Stage 4.7 background completion.
+# When enabled, runs ProPainter on all selected frames after BiRefNet masking
+# and photometric normalisation (Stage 4.7) to replace foreground-masked pixels
+# with temporally coherent background estimates before phase correlation (Stage 5)
+# and temporal median render (Stage 10).  Eliminates ghost strips from rows where
+# the character occupied >40% of pixels in every selected frame.
+# Default OFF.  Enable: ASP_PROPAINTER=1.
+_PROPAINTER: bool = os.environ.get("ASP_PROPAINTER", "0") != "0"
 # §2.14 — Triangular consistency filter (S93).
 # For every triangle (i→j, j→k, i→k) in the edge graph, compute the L2
 # residual between the predicted displacement (sum of two sides) and the
@@ -2882,6 +2914,20 @@ class AnimeStitchPipeline:
                 f"[Stitch] Stage 4.5b: per-segment photometric correction applied to {_n_seg_corrected} frames."
             )
 
+        # ── Stage 4.7: §3.13 ProPainter background completion ───────────────
+        # Replaces fg-masked pixels in every selected frame with a temporally
+        # coherent background estimate.  Completed frames give Stage 5
+        # (phase correlation) clean bg-only signal and give the Stage 10
+        # temporal median complete bg coverage in every row.
+        if _PROPAINTER:
+            logger.info(
+                "[Stitch] Stage 4.7: §3.13 ProPainter background completion — %d frames.",
+                N,
+            )
+            _pp_device = os.environ.get("ASP_PROPAINTER_DEVICE", "cpu")
+            frames = _propainter_complete_frames(frames, bg_masks, device=_pp_device)
+            logger.debug("[Stitch] Stage 4.7 complete: ProPainter background completion done.")
+
         # ── Pre-stage 5: Deduplicate near-static consecutive frames ─────────
         if N >= 3:
             _luma_cache = [
@@ -4045,6 +4091,74 @@ class AnimeStitchPipeline:
                 _sf = scans_frames or _reload_scans_frames(image_paths)
                 return _scan_stitch_fallback(_sf, output_path)
 
+        # ── Stage 11.16: §1.83 seam noise-level asymmetry gate ──────────────
+        # Complements §1.82 (spectral): two strips can have identical spectral
+        # profiles yet different per-pixel noise amplitudes — e.g., one strip
+        # from a heavily compressed panel and the adjacent strip from a cleaner
+        # encode.  The Laplacian-std estimator captures this per-pixel noise
+        # level directly.  Score = |σ_top−σ_bot| / mean(σ); fires > threshold.
+        if _SEAM_NOISE_GATE > 0.0 and N > 1:
+            _worst_noise_seam = _check_seam_noise_gate(canvas, N, thresh=_SEAM_NOISE_GATE)
+            if _worst_noise_seam is not None:
+                logger.info(
+                    "[Stitch] Stage 11.16: §1.83 noise-asymmetry gate — seam %d "
+                    "noise mismatch > %.2f → SCANS fallback.",
+                    _worst_noise_seam, _SEAM_NOISE_GATE,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── Stage 11.17: §1.84 seam RMS contrast ratio gate ─────────────────
+        # Complements §1.79 (sharpness: fine-detail Laplacian intensity) and
+        # §1.82 (spectral profile): §1.84 measures the broad-range coefficient
+        # of variation c=std/mean, catching a smooth low-dynamic-range strip
+        # abutting a high-contrast strip even when their Laplacian variance and
+        # spectral content match.  Score = max(c)/min(c); fires > threshold.
+        if _SEAM_CONTRAST_GATE > 0.0 and N > 1:
+            _worst_contrast_seam = _check_seam_rms_contrast_gate(
+                canvas, N, thresh=_SEAM_CONTRAST_GATE
+            )
+            if _worst_contrast_seam is not None:
+                logger.info(
+                    "[Stitch] Stage 11.17: §1.84 RMS-contrast-ratio gate — seam %d "
+                    "contrast ratio > %.1f → SCANS fallback.",
+                    _worst_contrast_seam, _SEAM_CONTRAST_GATE,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── Stage 11.18: §1.85 multi-gate ensemble combiner ─────────────────
+        # Fires when a seam accumulates votes from ≥ _SEAM_ENSEMBLE_VOTES active
+        # gates.  Acts as a catch-all for corner cases where no individual gate
+        # fires but multiple metrics are simultaneously near-threshold — a seam
+        # that is systematically degraded across all dimensions without being
+        # catastrophically bad in any single one.
+        if _SEAM_ENSEMBLE_VOTES > 0 and N > 1:
+            _worst_ensemble_seam = _check_seam_ensemble_gate(
+                canvas, N,
+                min_votes=_SEAM_ENSEMBLE_VOTES,
+                thresh_color=float(os.environ.get("ASP_SEAM_COLOR_GATE", "0.0")),
+                thresh_ncc=float(os.environ.get("ASP_SEAM_NCC_GATE", "0.0")),
+                thresh_entropy=float(os.environ.get("ASP_SEAM_ENTROPY_GATE", "0.0")),
+                thresh_col_step=float(os.environ.get("ASP_SEAM_MAX_COL_GATE", "0.0")),
+                thresh_sat=float(os.environ.get("ASP_SEAM_SAT_GATE", "0.0")),
+                thresh_hue=float(os.environ.get("ASP_SEAM_HUE_GATE", "0.0")),
+                thresh_sharp=float(os.environ.get("ASP_SEAM_SHARP_GATE", "0.0")),
+                thresh_grad_dir=float(os.environ.get("ASP_SEAM_GRAD_DIR_GATE", "0.0")),
+                thresh_ssim=float(os.environ.get("ASP_SEAM_SSIM_GATE", "0.0")),
+                thresh_freq=float(os.environ.get("ASP_SEAM_FREQ_GATE", "0.0")),
+                thresh_noise=_SEAM_NOISE_GATE,
+                thresh_contrast=_SEAM_CONTRAST_GATE,
+            )
+            if _worst_ensemble_seam is not None:
+                logger.info(
+                    "[Stitch] Stage 11.18: §1.85 ensemble gate — seam %d "
+                    "accumulated ≥ %d gate votes → SCANS fallback.",
+                    _worst_ensemble_seam, _SEAM_ENSEMBLE_VOTES,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -4519,6 +4633,75 @@ def _build_manual_edge(
     }
 
 
+def _build_landmark_affine(
+    i: int,
+    j: int,
+    landmark_pairs: "List[Tuple[Tuple[float, float], Tuple[float, float]]]",
+    weight: float = 0.95,
+) -> Dict:
+    """§2.9A: Build a pipeline edge dict from user-placed landmark point pairs.
+
+    Constructs a least-squares affine (or partial-affine / translation) from
+    the N landmark correspondences provided by the BigWarp landmark editor
+    dialog and returns an edge dict compatible with ``_bundle_adjust_affine``.
+
+    ``landmark_pairs`` is a list of ``((xi, yi), (xj, yj))`` tuples where
+    ``(xi, yi)`` is the point in frame i and ``(xj, yj)`` is the corresponding
+    point in frame j, both in pixel coordinates.
+
+    Estimation strategy (by point count):
+    - 1 pair  → pure translation (centroid-to-centroid displacement)
+    - 2 pairs → ``cv2.estimateAffinePartial2D`` (4-DOF: tx, ty, rotation, scale)
+    - 3+ pairs → ``cv2.estimateAffine2D`` (6-DOF general affine, LMEDS robust)
+
+    Falls back to centroid translation if cv2 estimation returns None/fails.
+
+    Args:
+        i: Source frame index.
+        j: Target frame index.
+        landmark_pairs: At least 1 ``((xi, yi), (xj, yj))`` correspondence.
+        weight: Edge confidence weight in [0, 1]; default 0.95.
+
+    Returns:
+        Edge dict compatible with ``_bundle_adjust_affine`` and the HITL edge
+        override path in ``StitchWorker``.
+    """
+    if not landmark_pairs:
+        raise ValueError("landmark_pairs must contain at least 1 point pair")
+
+    pts_i = np.array([[p[0][0], p[0][1]] for p in landmark_pairs], dtype=np.float32)
+    pts_j = np.array([[p[1][0], p[1][1]] for p in landmark_pairs], dtype=np.float32)
+
+    M: Optional[np.ndarray] = None
+    n = len(landmark_pairs)
+    if n >= 3:
+        M_est, inliers = cv2.estimateAffine2D(pts_i, pts_j, method=cv2.LMEDS)
+        if M_est is not None:
+            M = M_est.astype(np.float64)
+    elif n == 2:
+        M_est, inliers = cv2.estimateAffinePartial2D(pts_i, pts_j, method=cv2.LMEDS)
+        if M_est is not None:
+            M = M_est.astype(np.float64)
+
+    if M is None:
+        # Centroid translation fallback
+        centroid_i = pts_i.mean(axis=0)
+        centroid_j = pts_j.mean(axis=0)
+        dx = float(centroid_j[0] - centroid_i[0])
+        dy = float(centroid_j[1] - centroid_i[1])
+        M = np.array([[1.0, 0.0, dx], [0.0, 1.0, dy]], dtype=np.float64)
+
+    return {
+        "i": i,
+        "j": j,
+        "M": M,
+        "pts_i": pts_i,
+        "pts_j": pts_j,
+        "weight": float(np.clip(weight, 0.0, 1.0)),
+        "method": "landmark",
+    }
+
+
 __all__ = [
     "AnimeStitchPipeline",
     "_spatial_dedup_frames",
@@ -4558,4 +4741,5 @@ __all__ = [
     "_compute_bg_lum_monotonicity",
     "_compute_canvas_fill_ratio",
     "_compute_strip_variance_ratio",
+    "_build_landmark_affine",
 ]

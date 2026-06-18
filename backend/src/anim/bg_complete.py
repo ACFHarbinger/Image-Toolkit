@@ -55,6 +55,7 @@ __all__ = [
     "_nn_fill_zero_bg",
     "_linear_interp_zero_bg",
     "_propainter_fill",
+    "_propainter_complete_frames",
     "complete_background",
 ]
 
@@ -196,6 +197,7 @@ def _propainter_fill(
     canvas: np.ndarray,
     zero_mask: np.ndarray,
     frames: Optional[List[np.ndarray]] = None,
+    device: str = "cpu",
 ) -> np.ndarray:
     """Fill zero-coverage canvas pixels using ProPainter video inpainting.
 
@@ -212,6 +214,7 @@ def _propainter_fill(
     zero_mask : (H, W) bool/uint8 — uncovered pixels to fill.
     frames : optional list of source frames for flow guidance.  When None,
         ProPainter runs in single-frame mode (no optical flow guidance).
+    device : torch device string (default "cpu").
     """
     if ProPainterInference is None:
         return _nn_fill_zero_bg(canvas, zero_mask)
@@ -231,6 +234,73 @@ def _propainter_fill(
     except Exception as _e:
         print(f"[BgComplete] ProPainter unavailable ({_e}); using NN fill.")
     return _nn_fill_zero_bg(canvas, zero_mask)
+
+
+# ---------------------------------------------------------------------------
+# Multi-frame ProPainter completion (§3.13)
+# ---------------------------------------------------------------------------
+
+
+def _propainter_complete_frames(
+    frames: List[np.ndarray],
+    bg_masks: "List[Optional[np.ndarray]]",
+    device: str = "cpu",
+) -> List[np.ndarray]:
+    """§3.13: Background-complete all selected frames using ProPainter.
+
+    Runs ProPainter on the full sequence so that every foreground-masked pixel
+    in every frame is replaced by a temporally coherent background estimate.
+    The completed frames feed Stage 5 (phase correlation) and Stage 10
+    (temporal median) to eliminate ghost strips from character-dominated rows.
+
+    Requires ``pip install propainter``.  Falls back to per-frame NN fill when
+    ProPainter is unavailable or inference fails.
+
+    Parameters
+    ----------
+    frames : list of (H, W, 3) uint8 BGR frames (selected, normalised).
+    bg_masks : per-frame bg mask — uint8, non-zero = background.  None = all bg.
+    device : torch device string passed to ``ProPainterInference``.
+
+    Returns
+    -------
+    List of (H, W, 3) uint8 BGR frames with foreground pixels inpainted.
+    """
+    def _nn_fallback() -> List[np.ndarray]:
+        out: List[np.ndarray] = []
+        for frame, mask in zip(frames, bg_masks):
+            if mask is None:
+                out.append(frame)
+                continue
+            fg = (mask <= 127).astype(np.uint8)
+            if not fg.any():
+                out.append(frame)
+                continue
+            out.append(_nn_fill_zero_bg(frame, fg))
+        return out
+
+    if ProPainterInference is None:
+        return _nn_fallback()
+
+    try:
+        model = ProPainterInference(device=device)
+        rgb_frames = [cv2.cvtColor(f, cv2.COLOR_BGR2RGB) for f in frames]
+        h0, w0 = frames[0].shape[:2]
+        masks_uint8: List[np.ndarray] = []
+        for mask in bg_masks:
+            if mask is None:
+                masks_uint8.append(np.zeros((h0, w0), dtype=np.uint8))
+            else:
+                fg = (mask <= 127).astype(np.uint8) * 255
+                masks_uint8.append(fg)
+
+        result = model.inpaint(frames=rgb_frames, masks=masks_uint8)
+        if result and len(result) == len(frames):
+            return [cv2.cvtColor(r, cv2.COLOR_RGB2BGR) for r in result]
+    except Exception as _e:
+        print(f"[BgComplete] §3.13 ProPainter multi-frame failed ({_e}); using NN fill.")
+
+    return _nn_fallback()
 
 
 # ---------------------------------------------------------------------------

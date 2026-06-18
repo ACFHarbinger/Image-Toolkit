@@ -72,7 +72,7 @@ except ImportError:
 
 
 import os
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -239,6 +239,53 @@ def _dense_flow_searaft(
     except Exception as e:
         print(f"[FGReg] RAFT inference failed ({e}); using DIS")
         return None
+
+
+def _sparse_flow_to_dense(
+    flow_arrows: "List[Tuple[float, float, float, float]]",
+    H: int,
+    W: int,
+) -> np.ndarray:
+    """§2.10C: Interpolate a sparse set of user-drawn displacement arrows to a dense flow field.
+
+    Each arrow is ``(x, y, dx, dy)`` in canvas-pixel space (origin at top-left).
+    The sparse samples are interpolated across the whole (H, W) canvas using
+    ``scipy.ndimage.gaussian_filter``-smoothed RBF interpolation backed by a
+    nearest-neighbour fill so every pixel gets a value.
+
+    Returns an (H, W, 2) float32 flow field ``flow[y, x] = (dx, dy)``.
+
+    Raises ``ValueError`` when *flow_arrows* is empty.
+    """
+    from scipy.interpolate import RBFInterpolator  # lazy import
+
+    if not flow_arrows:
+        raise ValueError("flow_arrows must not be empty")
+
+    pts = np.array([[a[1], a[0]] for a in flow_arrows], dtype=np.float64)   # (N, 2) as (row, col)
+    vals_x = np.array([a[2] for a in flow_arrows], dtype=np.float64)
+    vals_y = np.array([a[3] for a in flow_arrows], dtype=np.float64)
+
+    # Grid of query points
+    rows, cols = np.mgrid[0:H, 0:W]
+    query = np.column_stack([rows.ravel().astype(np.float64), cols.ravel().astype(np.float64)])
+
+    try:
+        rbf_x = RBFInterpolator(pts, vals_x, kernel="thin_plate_spline", smoothing=1.0)
+        rbf_y = RBFInterpolator(pts, vals_y, kernel="thin_plate_spline", smoothing=1.0)
+        flow_x = rbf_x(query).reshape(H, W)
+        flow_y = rbf_y(query).reshape(H, W)
+    except Exception:
+        # Nearest-neighbour fallback when RBF fails (degenerate point set)
+        flow_x = np.zeros((H, W), dtype=np.float32)
+        flow_y = np.zeros((H, W), dtype=np.float32)
+        for x, y, dx, dy in flow_arrows:
+            iy = int(np.clip(round(y), 0, H - 1))
+            ix = int(np.clip(round(x), 0, W - 1))
+            flow_x[iy, ix] = dx
+            flow_y[iy, ix] = dy
+
+    return np.stack([flow_x.astype(np.float32), flow_y.astype(np.float32)], axis=2)
 
 
 def _dense_flow(prev_bgr: np.ndarray, next_bgr: np.ndarray) -> np.ndarray:
@@ -1076,6 +1123,7 @@ def register_foreground_at_seam(
     smooth_sigma: float = FG_REG_SMOOTH_SIGMA,
     alpha_a: float = 0.5,
     alpha_b: float = 0.5,
+    flow_override: Optional[np.ndarray] = None,
 ) -> Tuple[np.ndarray, np.ndarray, dict]:
     """
     Re-pose the foreground of two canvas-aligned frames toward a shared target
@@ -1111,6 +1159,13 @@ def register_foreground_at_seam(
         Global-reference strategy sets alpha proportional to temporal distance
         from the reference strip, so strips near the reference warp less and
         distant strips warp more — preventing drift accumulation.
+    flow_override : (H, W, 2) float32 array, optional
+        §2.10C: If provided, skip RAFT/DIS/ARAP flow estimation entirely and
+        use this pre-computed dense flow field directly.  Intended for the
+        HITL user-drawn flow tool where the user sketches displacement arrows
+        in the SeamDiagnosticDialog and the GUI converts them to a dense field
+        via ``_sparse_flow_to_dense()``.  The field is still tapered and
+        Gaussian-smoothed before application.
 
     Returns
     -------
@@ -1157,26 +1212,31 @@ def register_foreground_at_seam(
 
     # Dense flow a → b (camera already removed by canvas alignment ⇒ residual
     # foreground flow is the animation motion).
-    # Compute flow only on the SEAM BAND CROP (±taper_px around seam_pos) so
-    # RAFT/DIS sees the relevant region at higher relative resolution instead
-    # of being diluted across the full canvas (which can be 2000+ px tall).
-    # This also avoids VRAM pressure from full-canvas RAFT inference.
-    if axis == 0:
-        y0_crop = max(0, seam_pos - int(taper_px) - 16)
-        y1_crop = min(h, seam_pos + int(taper_px) + 16)
-        crop_a = warped_a[y0_crop:y1_crop, :]
-        crop_b = warped_b[y0_crop:y1_crop, :]
-        flow_crop = _dense_flow(crop_a, crop_b)
-        flow = np.zeros((h, w, 2), dtype=np.float32)
-        flow[y0_crop:y1_crop, :] = flow_crop
+    # §2.10C: When a user-drawn flow override is provided, skip RAFT/DIS and
+    # use it directly (still tapered and smoothed below).
+    if flow_override is not None and flow_override.shape == (h, w, 2):
+        flow = flow_override.astype(np.float32)
     else:
-        x0_crop = max(0, seam_pos - int(taper_px) - 16)
-        x1_crop = min(w, seam_pos + int(taper_px) + 16)
-        crop_a = warped_a[:, x0_crop:x1_crop]
-        crop_b = warped_b[:, x0_crop:x1_crop]
-        flow_crop = _dense_flow(crop_a, crop_b)
-        flow = np.zeros((h, w, 2), dtype=np.float32)
-        flow[:, x0_crop:x1_crop] = flow_crop
+        # Compute flow only on the SEAM BAND CROP (±taper_px around seam_pos) so
+        # RAFT/DIS sees the relevant region at higher relative resolution instead
+        # of being diluted across the full canvas (which can be 2000+ px tall).
+        # This also avoids VRAM pressure from full-canvas RAFT inference.
+        if axis == 0:
+            y0_crop = max(0, seam_pos - int(taper_px) - 16)
+            y1_crop = min(h, seam_pos + int(taper_px) + 16)
+            crop_a = warped_a[y0_crop:y1_crop, :]
+            crop_b = warped_b[y0_crop:y1_crop, :]
+            flow_crop = _dense_flow(crop_a, crop_b)
+            flow = np.zeros((h, w, 2), dtype=np.float32)
+            flow[y0_crop:y1_crop, :] = flow_crop
+        else:
+            x0_crop = max(0, seam_pos - int(taper_px) - 16)
+            x1_crop = min(w, seam_pos + int(taper_px) + 16)
+            crop_a = warped_a[:, x0_crop:x1_crop]
+            crop_b = warped_b[:, x0_crop:x1_crop]
+            flow_crop = _dense_flow(crop_a, crop_b)
+            flow = np.zeros((h, w, 2), dtype=np.float32)
+            flow[:, x0_crop:x1_crop] = flow_crop
 
     # A3 — ARAP Push + Regularise (full Sýkora 2009 algorithm).
     #

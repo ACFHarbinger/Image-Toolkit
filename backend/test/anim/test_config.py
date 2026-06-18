@@ -15,6 +15,7 @@ import warnings
 import pytest
 
 from backend.src.anim.config import load_asp_config, validate_asp_config, dump_asp_config
+from backend.src.exceptions import ConfigError
 
 
 class TestLoadAspConfig:
@@ -104,7 +105,7 @@ class TestValidateAspConfig:
             "ASP_HOLD_THRESHOLD": -0.1,   # below minimum 0.0
             "ASP_POISSON_SEAM": 2,         # exceeds maximum 1
         }
-        with pytest.raises(ValueError, match="ASP config validation failed"):
+        with pytest.raises((ValueError, ConfigError), match="ASP config validation failed"):
             validate_asp_config(config, strict=True)
 
     def test_unknown_key_warns_but_not_a_violation(self):
