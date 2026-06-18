@@ -21,17 +21,13 @@ overlap between the two adjacent frames.
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
 from scipy.ndimage import median_filter as _mf
 from skimage.metrics import structural_similarity as ssim_fn
 from .stateless import _laplacian_blend
 from .fg_register import register_foreground_at_seam
 from .anim_fill import _generate_canonical_cel
 import torch as _tc_torch
-from .anim_fill import _generate_canonical_cel
-import torch as _tc_torch
 import concurrent.futures as _cf
-# --------------------------------
 
 
 import os
@@ -2030,6 +2026,330 @@ def _check_seam_freq_gate(
     return worst_k
 
 
+# §1.83 module flag — set ASP_SEAM_NOISE_GATE=1.0 to enable.
+# Noise-level asymmetry detects a codec/exposure discontinuity that all previous
+# gates miss: two strips can have identical mean luma, saturation, sharpness, and
+# spectral content yet differ in per-pixel noise amplitude (e.g., one strip is a
+# heavily JPEG-quantised block while the adjacent strip was captured at a higher
+# bitrate).  The metric is the normalised absolute difference of Laplacian-std
+# noise estimates (Immerkær 1996): score = |σ_top − σ_bot| / mean(σ_top, σ_bot).
+# score in [0, 2]; 0 = identical noise, >1 = substantial mismatch.
+# Default 0.0 = off.  Recommend ASP_SEAM_NOISE_GATE=1.0.
+_SEAM_NOISE_GATE: float = float(os.environ.get("ASP_SEAM_NOISE_GATE", "0.0"))
+
+
+def _seam_noise_mismatch(
+    img: np.ndarray,
+    n_strips: int,
+    band_px: int = 30,
+) -> "List[float]":
+    """§1.83: Per-seam noise-level asymmetry between bands above and below each seam.
+
+    Estimates per-strip noise sigma using the Laplacian-std estimator
+    ``σ ≈ std(Laplacian(band)) / 6`` (Immerkær 1996 — standard noise-estimation
+    heuristic for natural images).  The score is the normalised absolute
+    difference:
+
+        score_k = |σ_top − σ_bot| / max(1e-4, (σ_top + σ_bot) / 2)
+
+    in [0, 2+]; 0 = identical noise levels, >1 = one strip is substantially
+    noisier.  Detects codec or exposure-mismatch discontinuities that are
+    invisible to luma/chroma/spectral metrics.
+
+    Parameters
+    ----------
+    img : BGR uint8 (H, W, 3) or greyscale uint8 (H, W) composite image.
+    n_strips : Number of composited strips.
+    band_px : Rows above/below each boundary for noise estimation.
+
+    Returns
+    -------
+    List of ``n_strips − 1`` floats ≥ 0.  Empty when n_strips ≤ 1.
+    """
+    if n_strips <= 1:
+        return []
+    H = img.shape[0]
+    if img.ndim == 3:
+        grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    else:
+        grey = img if img.dtype == np.uint8 else img.clip(0, 255).astype(np.uint8)
+
+    zone_h = H / n_strips
+    scores: "List[float]" = []
+    for k in range(1, n_strips):
+        by = int(round(zone_h * k))
+        top = grey[max(0, by - band_px):by]
+        bot = grey[by:min(H, by + band_px)]
+        if top.shape[0] < 2 or bot.shape[0] < 2:
+            scores.append(0.0)
+            continue
+        top_sigma = float(cv2.Laplacian(top, cv2.CV_32F).std()) / 6.0
+        bot_sigma = float(cv2.Laplacian(bot, cv2.CV_32F).std()) / 6.0
+        mean_sigma = (top_sigma + bot_sigma) / 2.0
+        if mean_sigma < 1e-4:
+            scores.append(0.0)
+            continue
+        scores.append(round(abs(top_sigma - bot_sigma) / mean_sigma, 4))
+    return scores
+
+
+def _check_seam_noise_gate(
+    img: np.ndarray,
+    n_strips: int,
+    thresh: "Optional[float]" = None,
+    band_px: int = 30,
+) -> "Optional[int]":
+    """§1.83: Return worst-seam index when any noise-asymmetry score ≥ thresh.
+
+    Returns the 0-based seam index whose noise-level asymmetry is largest and
+    exceeds *thresh*.  Returns ``None`` when *n_strips* ≤ 1, *thresh* ≤ 0, or
+    all seams pass.
+    """
+    if thresh is None:
+        thresh = _SEAM_NOISE_GATE
+    if thresh <= 0.0 or n_strips <= 1:
+        return None
+    scores = _seam_noise_mismatch(img, n_strips, band_px=band_px)
+    if not scores:
+        return None
+    worst_k: "Optional[int]" = None
+    worst_score = thresh
+    for k, score in enumerate(scores):
+        if score > worst_score:
+            worst_score = score
+            worst_k = k
+    return worst_k
+
+
+# §1.84 module flag — set ASP_SEAM_CONTRAST_GATE=4.0 to enable.
+# RMS contrast ratio detects broad-range contrast discontinuities invisible to
+# §1.79 (sharpness: fine-detail intensity) and §1.82 (spectral profile).
+# Two strips can have the same mean luma, saturation, Laplacian variance, and
+# frequency content yet completely different contrast range — e.g., a smooth
+# low-dynamic-range background zone adjacent to a high-contrast ink-line zone.
+# The metric is the coefficient-of-variation ratio:
+#   c = std(band) / max(1, mean(band))  →  score = max(c_top, c_bot) / min(c_top, c_bot)
+# score in [1, ∞); 1 = identical contrast, >4 = substantial mismatch.
+# Default 0.0 = off.  Recommend ASP_SEAM_CONTRAST_GATE=4.0.
+_SEAM_CONTRAST_GATE: float = float(os.environ.get("ASP_SEAM_CONTRAST_GATE", "0.0"))
+
+
+def _seam_rms_contrast_ratio(
+    img: np.ndarray,
+    n_strips: int,
+    band_px: int = 30,
+) -> "List[float]":
+    """§1.84: Per-seam RMS contrast ratio between bands above and below each seam.
+
+    RMS contrast is the coefficient of variation ``c = std / max(1, mean)``
+    of the greyscale band.  The score is the ratio of the larger to the smaller
+    per-strip contrast:
+
+        score_k = max(c_top, c_bot) / max(1e-4, min(c_top, c_bot))
+
+    in [1, ∞); 1.0 = identical contrast levels.  Distinct from §1.79 (sharpness
+    ratio of Laplacian variance): §1.79 captures fine-detail edge intensity;
+    §1.84 captures the broad dynamic range of the strip.
+
+    Parameters
+    ----------
+    img : BGR uint8 (H, W, 3) or greyscale (H, W) composite image.
+    n_strips : Number of composited strips.
+    band_px : Rows above/below each boundary for contrast estimation.
+
+    Returns
+    -------
+    List of ``n_strips − 1`` floats ≥ 1.0.  Empty when n_strips ≤ 1.
+    """
+    if n_strips <= 1:
+        return []
+    H = img.shape[0]
+    if img.ndim == 3:
+        grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    else:
+        grey = img.astype(np.float32)
+
+    zone_h = H / n_strips
+    scores: "List[float]" = []
+    for k in range(1, n_strips):
+        by = int(round(zone_h * k))
+        top = grey[max(0, by - band_px):by]
+        bot = grey[by:min(H, by + band_px)]
+        if top.size == 0 or bot.size == 0:
+            scores.append(1.0)
+            continue
+        c_top = float(top.std()) / max(1.0, float(top.mean()))
+        c_bot = float(bot.std()) / max(1.0, float(bot.mean()))
+        c_max = max(c_top, c_bot)
+        c_min = min(c_top, c_bot)
+        scores.append(round(c_max / max(1e-4, c_min), 4))
+    return scores
+
+
+def _check_seam_rms_contrast_gate(
+    img: np.ndarray,
+    n_strips: int,
+    thresh: "Optional[float]" = None,
+    band_px: int = 30,
+) -> "Optional[int]":
+    """§1.84: Return worst-seam index when any RMS contrast ratio ≥ thresh.
+
+    Returns the 0-based seam index whose RMS contrast ratio is largest and
+    exceeds *thresh*.  Returns ``None`` when *n_strips* ≤ 1, *thresh* ≤ 0, or
+    all seams pass.
+    """
+    if thresh is None:
+        thresh = _SEAM_CONTRAST_GATE
+    if thresh <= 0.0 or n_strips <= 1:
+        return None
+    scores = _seam_rms_contrast_ratio(img, n_strips, band_px=band_px)
+    if not scores:
+        return None
+    worst_k: "Optional[int]" = None
+    worst_score = thresh
+    for k, score in enumerate(scores):
+        if score > worst_score:
+            worst_score = score
+            worst_k = k
+    return worst_k
+
+
+# §1.85 module flag — set ASP_SEAM_ENSEMBLE_VOTES=3 to enable (default 0=off).
+# The multi-gate ensemble combiner fires when a seam accumulates votes from
+# ≥ min_votes active quality gates.  Individual gates have fixed thresholds
+# calibrated to fire only on clear failures; the ensemble catches corner cases
+# where a seam nearly fails 3-4 gates without exceeding any single gate's
+# threshold.  It also catches seam sequences that are systematically degraded
+# across all dimensions without being catastrophically bad in any one.
+# Each vote uses the same threshold as the individual gate (0.0 = gate excluded
+# from voting).  When min_votes=0 the combiner is disabled.
+_SEAM_ENSEMBLE_VOTES: int = int(os.environ.get("ASP_SEAM_ENSEMBLE_VOTES", "0"))
+
+
+def _seam_gate_vote_counts(
+    img: np.ndarray,
+    n_strips: int,
+    *,
+    thresh_color: float = 0.0,
+    thresh_ncc: float = 0.0,
+    thresh_entropy: float = 0.0,
+    thresh_col_step: float = 0.0,
+    thresh_sat: float = 0.0,
+    thresh_hue: float = 0.0,
+    thresh_sharp: float = 0.0,
+    thresh_grad_dir: float = 0.0,
+    thresh_ssim: float = 0.0,
+    thresh_freq: float = 0.0,
+    thresh_noise: float = 0.0,
+    thresh_contrast: float = 0.0,
+) -> "List[int]":
+    """§1.85: Per-seam vote count from all active quality gates.
+
+    Accumulates one vote per seam for every gate that flags it.  Only gates
+    with a positive threshold contribute.  The comparison direction matches
+    each gate's definition:
+
+    * *Fires below* (lower = worse): color, NCC, SSIM.
+    * *Fires above* (higher = worse): entropy, max-col-step, saturation, hue,
+      sharpness, grad-direction, frequency, noise, contrast.
+
+    Parameters
+    ----------
+    img : BGR uint8 (H, W, 3) composite image.
+    n_strips : Number of composited strips.
+    thresh_* : Per-gate thresholds.  Pass 0.0 to exclude a gate.
+
+    Returns
+    -------
+    List of ``n_strips − 1`` non-negative ints.  Empty when n_strips ≤ 1.
+    """
+    if n_strips <= 1:
+        return []
+    n_seams = n_strips - 1
+    votes = [0] * n_seams
+
+    # ── gates that fire BELOW threshold (lower = worse) ─────────────────────
+    if thresh_color > 0.0:
+        for k in range(n_seams):
+            if _seam_color_similarity(img, k, n_strips, band_px=50) < thresh_color:
+                votes[k] += 1
+
+    if thresh_ncc > 0.0:
+        for k, s in enumerate(_seam_ncc_coherence(img, n_strips, band_px=60)):
+            if s < thresh_ncc:
+                votes[k] += 1
+
+    if thresh_ssim > 0.0:
+        for k, s in enumerate(_seam_band_ssim(img, n_strips, band_px=30)):
+            if s < thresh_ssim:
+                votes[k] += 1
+
+    # ── gates that fire ABOVE threshold (higher = worse) ────────────────────
+    _above: "List[tuple]" = [
+        (thresh_entropy,  lambda: _seam_entropy_asymmetry(img, n_strips, band_px=50)),
+        (thresh_col_step, lambda: _seam_max_col_luma_step(img, n_strips)),
+        (thresh_sat,      lambda: _seam_saturation_jump(img, n_strips, band_px=30)),
+        (thresh_hue,      lambda: _seam_hue_shift(img, n_strips, band_px=30)),
+        (thresh_sharp,    lambda: _seam_sharpness_mismatch(img, n_strips, band_px=30)),
+        (thresh_grad_dir, lambda: _seam_grad_direction(img, n_strips, band_px=30)),
+        (thresh_freq,     lambda: _seam_freq_profile(img, n_strips, band_px=30)),
+        (thresh_noise,    lambda: _seam_noise_mismatch(img, n_strips, band_px=30)),
+        (thresh_contrast, lambda: _seam_rms_contrast_ratio(img, n_strips, band_px=30)),
+    ]
+    for thresh, score_fn in _above:
+        if thresh <= 0.0:
+            continue
+        for k, s in enumerate(score_fn()):
+            if s > thresh:
+                votes[k] += 1
+
+    return votes
+
+
+def _check_seam_ensemble_gate(
+    img: np.ndarray,
+    n_strips: int,
+    min_votes: "Optional[int]" = None,
+    *,
+    thresh_color: float = 0.0,
+    thresh_ncc: float = 0.0,
+    thresh_entropy: float = 0.0,
+    thresh_col_step: float = 0.0,
+    thresh_sat: float = 0.0,
+    thresh_hue: float = 0.0,
+    thresh_sharp: float = 0.0,
+    thresh_grad_dir: float = 0.0,
+    thresh_ssim: float = 0.0,
+    thresh_freq: float = 0.0,
+    thresh_noise: float = 0.0,
+    thresh_contrast: float = 0.0,
+) -> "Optional[int]":
+    """§1.85: Return worst-seam index when it accumulates ≥ min_votes gate failures.
+
+    Aggregates per-seam vote counts from all active gates (see
+    :func:`_seam_gate_vote_counts`) and returns the 0-based index of the seam
+    with the highest vote count when it meets or exceeds *min_votes*.
+    Returns ``None`` when *n_strips* ≤ 1, *min_votes* ≤ 0, or all seams pass.
+    """
+    if min_votes is None:
+        min_votes = _SEAM_ENSEMBLE_VOTES
+    if min_votes <= 0 or n_strips <= 1:
+        return None
+    votes = _seam_gate_vote_counts(
+        img, n_strips,
+        thresh_color=thresh_color, thresh_ncc=thresh_ncc,
+        thresh_entropy=thresh_entropy, thresh_col_step=thresh_col_step,
+        thresh_sat=thresh_sat, thresh_hue=thresh_hue,
+        thresh_sharp=thresh_sharp, thresh_grad_dir=thresh_grad_dir,
+        thresh_ssim=thresh_ssim, thresh_freq=thresh_freq,
+        thresh_noise=thresh_noise, thresh_contrast=thresh_contrast,
+    )
+    if not votes:
+        return None
+    worst_k = int(max(range(len(votes)), key=lambda k: votes[k]))
+    return worst_k if votes[worst_k] >= min_votes else None
+
+
 def _multiscale_gain_map(
     frame: np.ndarray,
     reference: np.ndarray,
@@ -3307,6 +3627,17 @@ def _composite_foreground(
                 alpha_a = 0.5
                 alpha_b = 0.5
 
+                # §2.10C: user-drawn flow field override
+                _flow_ov = None
+                _arrows_ov = (_ov_k or {}).get("flow_arrows")
+                if _arrows_ov:
+                    try:
+                        from .fg_register import _sparse_flow_to_dense as _s2d
+                        _H_ov, _W_ov = warped_norm[fi_a].shape[:2]
+                        _flow_ov = _s2d(_arrows_ov, _H_ov, _W_ov)
+                    except Exception as _fe:
+                        print(f"[Stitch] §2.10C: flow_arrows→dense failed ({_fe}); using RAFT/DIS.")
+
                 adj_a, adj_b, info = register_foreground_at_seam(
                     warped_norm[fi_a],
                     warped_norm[fi_b],
@@ -3316,6 +3647,7 @@ def _composite_foreground(
                     axis=reg_axis,
                     alpha_a=alpha_a,
                     alpha_b=alpha_b,
+                    flow_override=_flow_ov,
                 )
                 if info["warped"]:
                     warped_norm[fi_a] = adj_a
@@ -3932,6 +4264,15 @@ __all__ = [
     "_seam_freq_profile",
     "_check_seam_freq_gate",
     "_SEAM_FREQ_GATE",
+    "_seam_noise_mismatch",
+    "_check_seam_noise_gate",
+    "_SEAM_NOISE_GATE",
+    "_seam_rms_contrast_ratio",
+    "_check_seam_rms_contrast_gate",
+    "_SEAM_CONTRAST_GATE",
+    "_seam_gate_vote_counts",
+    "_check_seam_ensemble_gate",
+    "_SEAM_ENSEMBLE_VOTES",
     "_adaptive_sp_threshold",
     "_fg_density_feather_cap",
     "_compute_seam_step_size",

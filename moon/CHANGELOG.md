@@ -4,6 +4,56 @@
 
 ---
 
+## ASP — §3.13 ProPainter + §2.9A LandmarkEditor + §2.10C Flow Field + Test-Freeze Fix (2026-06-18, S140)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **§3.13 ProPainter Stage 4.7** (`bg_complete.py` → `_propainter_complete_frames`; `pipeline.py` → Stage 4.7) | Multi-frame background inpainting inserted between Stage 4 (BiRefNet) and Stage 5 (phase correlation). `ProPainterInference.inpaint(frames, masks)` → `cv2.COLOR_BGR↔RGB`; NN-fill fallback when ProPainter unavailable. `ASP_PROPAINTER=1` flag + `ASP_PROPAINTER_DEVICE` (default `cpu`). `PROPAINTER_DEVICE` constant in `constants/anim.py`. Schema entries added to `config.py`. 5 new tests in `TestProPainterCompleteFrames`. |
+| **§2.9A LandmarkEditorDialog** (`gui/src/dialogs/landmark_editor_dialog.py`) | ~260-line PySide6 QDialog: side-by-side frame thumbnails, alternating left/right click pattern, color-coded markers (red #1, green #2, …), undo/clear. `landmark_pairs()` returns `List[Tuple[Tuple[float,float],Tuple[float,float]]]` in image-pixel space. `_build_landmark_affine(i,j,pairs,weight=0.95)` in `pipeline.py`: 1 pair → centroid translation; 2 pairs → `estimateAffinePartial2D` (4-DOF); 3+ pairs → `estimateAffine2D` LMEDS (6-DOF). Wired into `EdgeReviewDialog` via "Landmark Editor…" toolbar button. |
+| **§2.10C User-drawn flow field** (`fg_register.py` → `_sparse_flow_to_dense`; `compositing.py` → `flow_override` wiring; `seam_diagnostic_dialog.py` → `_FlowArrowCanvas`) | `_sparse_flow_to_dense(flow_arrows, H, W)` uses `scipy.interpolate.RBFInterpolator(kernel="thin_plate_spline")`, nearest-neighbour fallback. `register_foreground_at_seam(flow_override=)` skips RAFT/DIS when a (H,W,2) override is provided. `SeamDiagnosticDialog` gains `_FlowArrowCanvas` (orange click-drag arrows), "↗ Draw Flow" toggle, "Clear Flow" button; `get_overrides()` now includes `"flow_arrows"`. |
+| **⚠ Test-suite freeze: Root Cause #1 fixed** (`anim_fill.py`, `compositing.py`) | `from diffusers import DiffusionPipeline` was unconditional at module level in `anim_fill.py` — triggered full HuggingFace ecosystem import (transformers, tokenizers Rayon pool, accelerate) at pytest collection time, consuming ~800 MB–1.5 GB RAM before any test ran. Moved to lazy import inside `_load_tooncrafter()`. `torch` import in `anim_fill.py` wrapped in `try/except`. Duplicate imports in `compositing.py` (lines 29–32) deduplicated. Root Causes #2–#5 (model singletons, ThreadPoolExecutor storm, per-test gc.collect(), no process isolation) documented in `performance.md §3.10–§3.14` as **CRITICAL** with fix options. |
+
+### Stats
+
+- `backend/src/anim/bg_complete.py`: +`_propainter_complete_frames`, updated `__all__`
+- `backend/src/anim/pipeline.py`: +Stage 4.7, +`_build_landmark_affine`, +`_PROPAINTER` flag, updated `__all__`
+- `backend/src/constants/anim.py`: +`PROPAINTER_DEVICE`
+- `backend/src/anim/config.py`: +2 schema entries (`ASP_PROPAINTER`, `ASP_PROPAINTER_DEVICE`)
+- `gui/src/dialogs/landmark_editor_dialog.py`: new file, ~260 lines
+- `gui/src/dialogs/edge_review_dialog.py`: +`_on_landmark_edit()`, "Landmark Editor…" button
+- `backend/src/anim/fg_register.py`: +`_sparse_flow_to_dense`, +`flow_override` param to `register_foreground_at_seam`
+- `backend/src/anim/compositing.py`: +`flow_arrows` → `_sparse_flow_to_dense` wiring; duplicate imports removed
+- `backend/src/anim/anim_fill.py`: lazy diffusers import (freeze fix)
+- `gui/src/dialogs/seam_diagnostic_dialog.py`: +`_FlowArrowCanvas`, "Draw Flow" controls, `flow_arrows` in `get_overrides()`
+- `backend/test/anim/test_bg_complete.py`: +5 tests → **928 backend tests total (2 skipped)**
+- `moon/roadmaps/performance.md`: +CRITICAL §3.10–§3.14 (test-suite freeze root causes + fix options)
+- 3 roadmap items marked ✅: §3.13, §2.9A, §2.10C
+
+---
+
+## ASP — §1.83/1.84/1.85 Seam Gate Completion + Ensemble Combiner (2026-06-18, S139)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **§1.83 Seam Band Noise-Level Asymmetry** (`compositing.py` → `_seam_noise_mismatch`, `_check_seam_noise_gate`) | Uses the Immerkær (1996) Laplacian-std noise estimator `σ ≈ std(Laplacian) / 6`. Score = `|σ_top − σ_bot| / mean(σ)` in [0, 2+]; catches codec/exposure bitrate discontinuities invisible to §1.76–§1.82 luma/chroma/spectral gates. `_SEAM_NOISE_GATE` flag (default 0.0=off, `ASP_SEAM_NOISE_GATE=1.0`). Stage 11.16 in `pipeline.py`. `SEAM_NOISE_GATE_THRESH=1.0` in constants. |
+| **§1.84 Seam Band RMS Contrast Ratio** (`compositing.py` → `_seam_rms_contrast_ratio`, `_check_seam_rms_contrast_gate`) | Coefficient-of-variation ratio `max(c_top,c_bot)/min(c_top,c_bot)` where `c = std/max(1,mean)`; catches broad dynamic-range discontinuities distinct from §1.79 sharpness and §1.82 spectral profile. Score in [1, ∞); 1.0=identical contrast. `_SEAM_CONTRAST_GATE` flag (`ASP_SEAM_CONTRAST_GATE=4.0`). Stage 11.17. `SEAM_CONTRAST_GATE_THRESH=4.0` in constants. |
+| **§1.85 Multi-Gate Ensemble Combiner** (`compositing.py` → `_seam_gate_vote_counts`, `_check_seam_ensemble_gate`) | Accumulates per-seam votes from all §1.56–§1.84 active gates; fires when worst seam reaches `min_votes`. Correct polarity per gate (BELOW for color/NCC/SSIM; ABOVE for all others). `_SEAM_ENSEMBLE_VOTES` int flag (`ASP_SEAM_ENSEMBLE_VOTES=3`). Stage 11.18 reads all per-gate thresholds from env vars at call time. |
+
+### Stats
+
+- `backend/src/anim/compositing.py`: +~200 lines (§1.83 + §1.84 + §1.85, updated `__all__`)
+- `backend/src/anim/pipeline.py`: +3 imports, +23 module-flag lines, +65 wiring lines (Stages 11.16–11.18)
+- `backend/src/constants/anim.py`: +3 constants (`SEAM_NOISE_GATE_THRESH`, `SEAM_CONTRAST_GATE_THRESH`, `SEAM_ENSEMBLE_MIN_VOTES`)
+- `backend/src/anim/config.py`: +3 schema entries + 3 `_DUMP_SECTIONS["compositing"]` keys
+- `backend/test/anim/test_compositing.py`: +15 tests → **928 backend tests total (2 skipped)**
+- 3 roadmap items marked ✅: §1.83, §1.84, §1.85; stale §3.16A removed from pending matrix
+
+---
+
 ## Perf — 4.8 psycopg3 connection pool (2026-06-18)
 
 ### Shipped

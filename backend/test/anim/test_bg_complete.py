@@ -10,8 +10,14 @@ Tests for bg_complete.py — §5A/C background zero-coverage fill.
 
 import numpy as np
 import pytest
+from unittest.mock import patch, MagicMock
 
-from backend.src.anim.bg_complete import _nn_fill_zero_bg, _linear_interp_zero_bg, complete_background
+from backend.src.anim.bg_complete import (
+    _nn_fill_zero_bg,
+    _linear_interp_zero_bg,
+    _propainter_complete_frames,
+    complete_background,
+)
 
 
 class TestNnFillZeroBg:
@@ -154,3 +160,77 @@ class TestLinearInterpZeroBg:
         out = _linear_interp_zero_bg(canvas, zero_mask)
         vals = [int(out[r, 0, 0]) for r in range(1, 5)]
         assert vals == sorted(vals), f"fill should be monotone, got {vals}"
+
+
+# ---------------------------------------------------------------------------
+# §3.13 TestProPainterCompleteFrames
+# ---------------------------------------------------------------------------
+
+
+class TestProPainterCompleteFrames:
+    """§3.13: _propainter_complete_frames — multi-frame ProPainter with NN fallback."""
+
+    def _frames(self, n=3, H=8, W=8):
+        return [np.full((H, W, 3), 100 + i * 10, dtype=np.uint8) for i in range(n)]
+
+    def _bg_masks(self, n=3, H=8, W=8, fg_rows=2):
+        masks = []
+        for _ in range(n):
+            m = np.ones((H, W), dtype=np.uint8) * 255
+            m[:fg_rows, :] = 0  # top rows are fg
+            masks.append(m)
+        return masks
+
+    def test_none_mask_frames_returned_unchanged(self):
+        """Frame with None mask (all-bg) is returned unchanged."""
+        frames = self._frames(n=1)
+        out = _propainter_complete_frames(frames, [None], device="cpu")
+        assert len(out) == 1
+        np.testing.assert_array_equal(out[0], frames[0])
+
+    def test_return_length_matches_input(self):
+        """Output length always equals input length."""
+        frames = self._frames(n=4)
+        masks = self._bg_masks(n=4)
+        out = _propainter_complete_frames(frames, masks, device="cpu")
+        assert len(out) == 4
+
+    def test_nn_fallback_fills_fg_pixels(self):
+        """Without ProPainter, NN fill replaces fg-masked pixels with nearby bg."""
+        frames = [np.zeros((6, 4, 3), dtype=np.uint8)]
+        frames[0][2:, :] = 180  # bg rows = value 180
+        mask = np.zeros((6, 4), dtype=np.uint8)
+        mask[2:, :] = 255  # top 2 rows are fg (0)
+        out = _propainter_complete_frames(frames, [mask], device="cpu")
+        # fg rows (0,1) should be filled with nearest bg value (≥1)
+        assert int(out[0][0, 0, 0]) >= 1
+
+    def test_propainter_used_when_available(self):
+        """When ProPainterInference is available, it's called with RGB frames and fg masks."""
+        frames = self._frames(n=2, H=4, W=4)
+        masks = self._bg_masks(n=2, H=4, W=4, fg_rows=1)
+        rgb_out = [np.full((4, 4, 3), 55, dtype=np.uint8) for _ in range(2)]
+        mock_model = MagicMock()
+        mock_model.inpaint.return_value = rgb_out
+        MockClass = MagicMock(return_value=mock_model)
+        import backend.src.anim.bg_complete as bm
+        with patch.object(bm, "ProPainterInference", MockClass):
+            result = _propainter_complete_frames(frames, masks, device="cpu")
+        assert len(result) == 2
+        mock_model.inpaint.assert_called_once()
+        call_kwargs = mock_model.inpaint.call_args
+        assert len(call_kwargs.kwargs.get("frames", call_kwargs.args[0] if call_kwargs.args else [])) == 2
+
+    def test_fallback_on_propainter_exception(self):
+        """If ProPainterInference.inpaint() raises, NN fill is used instead."""
+        frames = [np.full((4, 4, 3), 120, dtype=np.uint8)]
+        mask = np.ones((4, 4), dtype=np.uint8) * 255
+        mock_model = MagicMock()
+        mock_model.inpaint.side_effect = RuntimeError("GPU OOM")
+        MockClass = MagicMock(return_value=mock_model)
+        import backend.src.anim.bg_complete as bm
+        with patch.object(bm, "ProPainterInference", MockClass):
+            result = _propainter_complete_frames(frames, [mask], device="cpu")
+        # NN fallback: all-bg mask → frame returned unchanged
+        assert len(result) == 1
+        np.testing.assert_array_equal(result[0], frames[0])

@@ -81,6 +81,12 @@ from backend.src.anim.compositing import (  # noqa: E402
     _check_seam_ssim_gate,
     _seam_freq_profile,
     _check_seam_freq_gate,
+    _seam_noise_mismatch,
+    _check_seam_noise_gate,
+    _seam_rms_contrast_ratio,
+    _check_seam_rms_contrast_gate,
+    _seam_gate_vote_counts,
+    _check_seam_ensemble_gate,
 )
 from backend.src.constants import (  # noqa: E402
     FEATHER_MAX as _FEATHER_MAX,
@@ -3347,3 +3353,166 @@ class TestSeamFreqProfile:
         img = np.vstack([top, bot])
         result = _check_seam_freq_gate(img, 2, thresh=0.2, band_px=20)
         assert result == 0, f"Spectral mismatch should trigger gate at seam 0, got {result}"
+
+
+# ---------------------------------------------------------------------------
+# §1.83 (S139): Seam Band Noise-Level Asymmetry
+# ---------------------------------------------------------------------------
+
+
+class TestSeamNoiseMismatch:
+    """§1.83 (S139): Noise-level asymmetry gate."""
+
+    def test_single_strip_returns_empty(self):
+        """n_strips=1 → no seams → empty list."""
+        img = np.zeros((80, 60, 3), dtype=np.uint8)
+        assert _seam_noise_mismatch(img, 1) == []
+
+    def test_identical_bands_zero_asymmetry(self):
+        """Top and bottom bands from same source → identical σ → score ≈ 0."""
+        rng = np.random.default_rng(42)
+        band = rng.integers(80, 180, size=(30, 60), dtype=np.uint8)
+        grey = np.vstack([band, band])
+        img = np.stack([grey, grey, grey], axis=-1)
+        scores = _seam_noise_mismatch(img, 2, band_px=20)
+        assert len(scores) == 1
+        assert scores[0] < 0.05, f"Identical bands should give near-zero asymmetry, got {scores[0]}"
+
+    def test_clean_vs_noisy_detected(self):
+        """Flat clean strip vs heavy-noise strip → high asymmetry score."""
+        H, W = 80, 60
+        clean = np.full((H // 2, W), 128, dtype=np.uint8)
+        rng = np.random.default_rng(7)
+        noisy = rng.integers(0, 255, size=(H // 2, W), dtype=np.uint8)
+        grey = np.vstack([clean, noisy])
+        img = np.stack([grey, grey, grey], axis=-1)
+        scores = _seam_noise_mismatch(img, 2, band_px=20)
+        assert len(scores) == 1
+        assert scores[0] > 0.5, f"Clean vs noisy should give high asymmetry, got {scores[0]}"
+
+    def test_gate_passes_on_matched_noise(self):
+        """Both bands have similar noise → gate should not fire."""
+        rng = np.random.default_rng(0)
+        top = rng.integers(100, 160, size=(30, 60), dtype=np.uint8)
+        bot = rng.integers(100, 160, size=(30, 60), dtype=np.uint8)
+        grey = np.vstack([top, bot])
+        img = np.stack([grey, grey, grey], axis=-1)
+        result = _check_seam_noise_gate(img, 2, thresh=2.0, band_px=20)
+        assert result is None, f"Similar noise levels should not trigger gate, got {result}"
+
+    def test_gate_fires_on_clean_vs_noisy(self):
+        """Flat strip above, max-noise strip below → gate fires at seam 0."""
+        H, W = 80, 60
+        clean = np.full((H // 2, W), 128, dtype=np.uint8)
+        rng = np.random.default_rng(3)
+        noisy = rng.integers(0, 255, size=(H // 2, W), dtype=np.uint8)
+        grey = np.vstack([clean, noisy])
+        img = np.stack([grey, grey, grey], axis=-1)
+        result = _check_seam_noise_gate(img, 2, thresh=0.5, band_px=20)
+        assert result == 0, f"Clean vs noisy should trigger gate at seam 0, got {result}"
+
+
+# ---------------------------------------------------------------------------
+# §1.84 (S139): Seam Band RMS Contrast Ratio
+# ---------------------------------------------------------------------------
+
+
+class TestSeamRmsContrastRatio:
+    """§1.84 (S139): RMS contrast ratio gate."""
+
+    def test_single_strip_returns_empty(self):
+        """n_strips=1 → no seams → empty list."""
+        img = np.zeros((80, 60, 3), dtype=np.uint8)
+        assert _seam_rms_contrast_ratio(img, 1) == []
+
+    def test_identical_bands_ratio_one(self):
+        """Same strip above and below → c_top = c_bot → ratio = 1.0."""
+        band = np.tile(np.arange(60, dtype=np.uint8), (30, 1))
+        img = np.stack([np.vstack([band, band])] * 3, axis=-1)
+        scores = _seam_rms_contrast_ratio(img, 2, band_px=20)
+        assert len(scores) == 1
+        assert abs(scores[0] - 1.0) < 0.01, f"Identical bands should give ratio ≈ 1, got {scores[0]}"
+
+    def test_flat_vs_high_contrast_detected(self):
+        """Flat uniform strip vs high-contrast gradient → ratio > 1."""
+        H, W = 80, 60
+        flat = np.full((H // 2, W), 128, dtype=np.uint8)
+        grad = np.tile(np.linspace(0, 255, W, dtype=np.uint8), (H // 2, 1))
+        grey = np.vstack([flat, grad])
+        img = np.stack([grey, grey, grey], axis=-1)
+        scores = _seam_rms_contrast_ratio(img, 2, band_px=20)
+        assert len(scores) == 1
+        assert scores[0] > 2.0, f"Flat vs gradient should give ratio > 2, got {scores[0]}"
+
+    def test_gate_passes_on_equal_contrast(self):
+        """Both strips have similar coefficient of variation → gate should not fire."""
+        band = np.tile(np.linspace(50, 200, 60, dtype=np.uint8), (30, 1))
+        img = np.stack([np.vstack([band, band])] * 3, axis=-1)
+        result = _check_seam_rms_contrast_gate(img, 2, thresh=4.0, band_px=20)
+        assert result is None, f"Equal contrast should not trigger gate, got {result}"
+
+    def test_gate_fires_on_flat_vs_gradient(self):
+        """Flat strip above, high-contrast gradient below → gate fires at seam 0."""
+        H, W = 80, 60
+        flat = np.full((H // 2, W), 128, dtype=np.uint8)
+        grad = np.tile(np.linspace(0, 255, W, dtype=np.uint8), (H // 2, 1))
+        grey = np.vstack([flat, grad])
+        img = np.stack([grey, grey, grey], axis=-1)
+        result = _check_seam_rms_contrast_gate(img, 2, thresh=2.0, band_px=20)
+        assert result == 0, f"Flat vs gradient should trigger gate at seam 0, got {result}"
+
+
+# ---------------------------------------------------------------------------
+# §1.85 (S139): Multi-Gate Ensemble Combiner
+# ---------------------------------------------------------------------------
+
+
+class TestSeamGateEnsemble:
+    """§1.85 (S139): Multi-gate ensemble combiner."""
+
+    def test_single_strip_returns_empty_votes(self):
+        """n_strips=1 → no seams → empty vote list."""
+        img = np.zeros((80, 60, 3), dtype=np.uint8)
+        assert _seam_gate_vote_counts(img, 1) == []
+
+    def test_all_thresholds_zero_gives_zero_votes(self):
+        """All gate thresholds at 0.0 → no votes for any seam."""
+        H, W = 80, 60
+        rng = np.random.default_rng(1)
+        img = rng.integers(0, 255, size=(H, W, 3), dtype=np.uint8)
+        votes = _seam_gate_vote_counts(img, 2)  # all thresholds default 0.0
+        assert votes == [0], f"No active gates should give zero votes, got {votes}"
+
+    def test_ensemble_gate_disabled_when_min_votes_zero(self):
+        """min_votes=0 → ensemble gate always returns None."""
+        img = np.zeros((80, 60, 3), dtype=np.uint8)
+        result = _check_seam_ensemble_gate(img, 2, min_votes=0)
+        assert result is None, "min_votes=0 should disable the ensemble gate"
+
+    def test_single_gate_vote_accumulates(self):
+        """One active gate that fires on seam 0 → votes[0] >= 1."""
+        H, W = 80, 60
+        flat = np.full((H // 2, W), 128, dtype=np.uint8)
+        rng = np.random.default_rng(5)
+        noisy = rng.integers(0, 255, size=(H // 2, W), dtype=np.uint8)
+        grey = np.vstack([flat, noisy])
+        img = np.stack([grey, grey, grey], axis=-1)
+        votes = _seam_gate_vote_counts(img, 2, thresh_noise=0.5)
+        assert votes[0] >= 1, f"Noisy seam should receive ≥1 vote, got {votes[0]}"
+
+    def test_ensemble_fires_when_votes_meet_threshold(self):
+        """Seam that accumulates ≥ min_votes gate failures → ensemble fires."""
+        H, W = 80, 60
+        flat = np.full((H // 2, W), 128, dtype=np.uint8)
+        rng = np.random.default_rng(9)
+        noisy = rng.integers(0, 255, size=(H // 2, W), dtype=np.uint8)
+        grey = np.vstack([flat, noisy])
+        img = np.stack([grey, grey, grey], axis=-1)
+        # Use a generous low threshold so multiple gates fire on the noisy seam
+        result = _check_seam_ensemble_gate(
+            img, 2, min_votes=2,
+            thresh_noise=0.3,
+            thresh_contrast=1.5,
+        )
+        # Both noise and contrast gates should flag the flat-vs-noisy seam
+        assert result == 0, f"Ensemble should trigger at seam 0, got {result}"

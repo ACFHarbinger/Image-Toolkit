@@ -30,17 +30,16 @@ Called from pipeline.py Stage 10.5 (after temporal render, before fg composite):
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
-from diffusers import DiffusionPipeline
-# --------------------------------
-
-
 from typing import List, Optional
 
 import cv2
 import numpy as np
-import torch
 from PIL import Image
+
+try:
+    import torch
+except ImportError:
+    torch = None  # type: ignore[assignment]
 
 from backend.src.constants import TOONCRAFTER_REPO
 
@@ -64,15 +63,16 @@ def _load_tooncrafter(device: str = "cpu"):
         return _TC_PIPELINE
 
     try:
-        # relocated: from diffusers import DiffusionPipeline
+        from diffusers import DiffusionPipeline
 
         # ToonCrafter uses a VideoCrafter2 architecture; load via DiffusionPipeline
         # with trust_remote_code since the model config specifies custom classes.
         # If full pipeline load is unsupported, fall back to simple interpolation.
         try:
+            import torch as _torch
             pipe = DiffusionPipeline.from_pretrained(
                 TOONCRAFTER_REPO,
-                torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+                torch_dtype=_torch.float16 if device == "cuda" else _torch.float32,
                 trust_remote_code=True,
             )
             pipe = pipe.to(device)
@@ -136,17 +136,18 @@ def _generate_canonical_cel(
 
     # Full ToonCrafter interpolation
     try:
+        import torch as _torch
         h, w = frame_a.shape[:2]
         pil_a = Image.fromarray(cv2.cvtColor(frame_a, cv2.COLOR_BGR2RGB))
         pil_b = Image.fromarray(cv2.cvtColor(frame_b, cv2.COLOR_BGR2RGB))
 
-        with torch.no_grad():
+        with _torch.no_grad():
             result = pipe(
                 image=pil_a,
                 image_end=pil_b,
                 num_frames=n_frames + 2,
                 num_inference_steps=25,
-                generator=torch.manual_seed(42),
+                generator=_torch.manual_seed(42),
             )
         # Take the middle frame (index 1 = first interpolated)
         mid_frame = result.frames[0][1]

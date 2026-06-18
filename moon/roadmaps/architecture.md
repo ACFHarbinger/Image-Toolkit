@@ -201,7 +201,19 @@ Send exception tracebacks and error-level log events to Sentry. Aggregates error
 - Pros: Production-grade error tracking. Crash reports include context.
 - Cons: External service. Privacy concern — images/paths may appear in tracebacks. Must redact sensitive data.
 
-**Recommendation:** A + B immediately. C as a quality-of-life follow-on. D if log analysis at scale is needed. Skip E unless the app becomes multi-user.
+**F — OpenTelemetry structured traces + Apache Arrow / Parquet telemetry**
+Instrument the ASP pipeline with the **OpenTelemetry** SDK: each pipeline stage runs as a span with `trace_id`/`span_id`, exporting to Jaeger (traces) or Prometheus (metrics). At the end of each run, serialise per-stage telemetry to **Apache Parquet** for downstream causal discovery analysis (`gcastle`/`causal-learn`).
+- Pros: Vendor-neutral standard. Parquet emission feeds directly into Phase 4 (Causal Discovery) of the Visual Analytics roadmap. Span hierarchy exposes exact inter-stage latency distribution.
+- Cons: OpenTelemetry SDK dependency (~5 MB). Parquet requires `pyarrow`. More setup than option B.
+- See: [`moon/roadmaps/analytics_and_interpretability.md`](analytics_and_interpretability.md) — Phase 8 (Distributed Observability) and Phase 4 (Causal Discovery).
+
+**G — Rerun.io spatial + temporal telemetry logger**
+Integrate **rerun-sdk** as the primary diagnostic logger for CV-heavy stages. Logs `Transform3D`, `Points3D`, `Tensor`, and `Pinhole` archetypes with named timelines (`frame_index`, `gnc_optimization_step`). Embeds as a Wasm viewer in the React dashboard — no install required at client side.
+- Pros: Spatial-first design matches ASP needs exactly. Temporal scrubbing replaces `print()`-based replay. `.rrd` files are archivable benchmark artifacts.
+- Cons: rerun-sdk dependency. Adds ~50ms overhead per stage for log serialization. Not a replacement for standard text logging (A/D) — complementary.
+- See: [`moon/roadmaps/analytics_and_interpretability.md`](analytics_and_interpretability.md) — Phase 3 (CV Diagnostics, §3.1).
+
+**Recommendation:** A + B immediately. C as a quality-of-life follow-on. D if log analysis at scale is needed. F + G when building out the Visual Analytics dashboard (see analytics roadmap). Skip E unless the app becomes multi-user.
 
 ---
 
@@ -660,7 +672,12 @@ Wire into CI to regenerate on every merge to `main` and host via GitHub Pages.
 - Pros: Always up-to-date reference. Links between classes are clickable.
 - Cons: Requires installing `pdoc`. Docstrings must be good before this is useful (dependency on A).
 
-**Recommendation:** A + B immediately; they have zero infrastructure cost. C as a onboarding-focused one-pager. D once A is done and there is something worth generating docs from.
+**E — Live Meta-Graph dashboard (beyond static diagrams)**
+Rather than static Mermaid diagrams, generate a live, GPU-rendered force-directed graph of the codebase using **SCIP** semantic indexing + **Cosmograph** (cosmos.gl). Rust backend parses SCIP indices into Apache Arrow RecordBatches; TypeScript frontend renders 1M+ node graphs at 60fps with DuckDB-WASM SQL filtering. Supports Software Cartography (LSI+MDS semantic layout), DSM architecture compliance views, and dynamic execution trace overlays.
+- This is a full-scope project defined in detail in [`moon/roadmaps/analytics_and_interpretability.md`](analytics_and_interpretability.md) — Phase 1 (Interactive Meta-Graph), covering SCIP indexing, Cosmograph rendering, SBEB edge bundling, Dependency Structure Matrix, and CPG-based semantic code analysis.
+- Recommendation for §5.12: Options A+B cover immediate documentation needs; Option E is Phase 1 of the analytics roadmap and should be tracked there.
+
+**Recommendation:** A + B immediately; they have zero infrastructure cost. C as a onboarding-focused one-pager. D once A is done and there is something worth generating docs from. E tracked separately in the analytics roadmap.
 
 ---
 
