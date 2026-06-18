@@ -13,6 +13,85 @@ from screeninfo import Monitor
 from typing import Dict, List, Optional, Union
 from backend.src.constants import WALLPAPER_STYLES, SUPPORTED_VIDEO_FORMATS
 
+logger = logging.getLogger(__name__)
+
+# §4.7 — KDE per-monitor wallpaper via D-Bus.
+# qdbus binary names vary by Linux distro:
+#   Ubuntu/Debian: qdbus-qt6  (Qt6 KDE)  or  qdbus  (may be Qt5)
+#   Arch/Manjaro:  qdbus  (always Qt6 on current Plasma 6)
+#   OpenSUSE/Fedora: qdbus6
+# We try all known names in descending preference order.
+_QDBUS_CANDIDATES = ["qdbus6", "qdbus-qt6", "qdbus", "qdbus-qt5"]
+
+
+def find_qdbus_binary() -> Optional[str]:
+    """Return the first available ``qdbus`` binary name, or ``None``.
+
+    Tries ``qdbus6``, ``qdbus-qt6``, ``qdbus``, ``qdbus-qt5`` in that order.
+    The result is not cached — call once at startup and store the value.
+    """
+    for name in _QDBUS_CANDIDATES:
+        if shutil.which(name):
+            return name
+    return None
+
+
+def evaluate_kde_script_dbus_python(script: str) -> str:
+    """Call ``org.kde.PlasmaShell.evaluateScript`` via ``dbus-python``.
+
+    Pure-Python fallback for environments where the ``qdbus``/``qdbus6`` CLI
+    binary is unavailable.  Requires the ``dbus-python`` package (``pip install
+    dbus-python``).  Raises ``ImportError`` if ``dbus`` is not installed and
+    ``RuntimeError`` if the D-Bus call fails.
+
+    Parameters
+    ----------
+    script : Plasma scripting JS to execute.
+
+    Returns
+    -------
+    str — stdout captured from the D-Bus call.
+    """
+    import dbus  # type: ignore[import-untyped]
+
+    bus = dbus.SessionBus()
+    plasma_obj = bus.get_object("org.kde.plasmashell", "/PlasmaShell")
+    iface = dbus.Interface(plasma_obj, dbus_interface="org.kde.PlasmaShell")
+    result = iface.evaluateScript(script)
+    return str(result) if result is not None else ""
+
+
+def evaluate_kde_script_with_fallback(qdbus: Optional[str], script: str) -> str:
+    """Evaluate a Plasma JS script via qdbus CLI, falling back to dbus-python.
+
+    Chain:
+    1. If *qdbus* is a non-empty string: call ``base.evaluate_kde_script(qdbus, script)``.
+    2. If that fails (or qdbus is None): try ``evaluate_kde_script_dbus_python()``.
+    3. If both fail: re-raise the most recent exception.
+
+    Returns the script output string.
+    """
+    last_exc: Optional[Exception] = None
+    if qdbus:
+        try:
+            return base.evaluate_kde_script(qdbus, script)
+        except Exception as exc:
+            logger.debug("qdbus CLI failed (%s), trying dbus-python fallback.", exc)
+            last_exc = exc
+    try:
+        return evaluate_kde_script_dbus_python(script)
+    except ImportError:
+        if last_exc is not None:
+            raise last_exc
+        raise RuntimeError(
+            "Neither qdbus CLI nor dbus-python is available. "
+            "Install 'qdbus6'/'qdbus-qt6' or 'dbus-python' to enable KDE wallpaper support."
+        )
+    except Exception as exc:
+        if last_exc is not None:
+            raise last_exc
+        raise exc
+
 # Global Definitions for COM components
 IDESKTOPWALLPAPER_IID = "{B92B56A9-8B55-4E14-9A89-0199BBB6F93B}"
 DESKTOPWALLPAPER_CLSID = "{C2CF3110-460E-4fc1-B9D0-8A1C0C9CC4BD}"
@@ -173,14 +252,14 @@ class WallpaperManager:
         return None
 
     @staticmethod
-    def get_kde_desktops(qdbus: str) -> List[Dict[str, int]]:
+    def get_kde_desktops(qdbus: Optional[str]) -> List[Dict[str, int]]:
         script = """
         var ds = desktops();
         var output = [];
         for (var i = 0; i < ds.length; i++) {
             var d = ds[i];
             var s = d.screen;
-            if (s < 0) continue; 
+            if (s < 0) continue;
             try {
                 var rect = screenGeometry(s);
                 output.push(i + ":" + s + ":" + rect.x + ":" + rect.y);
@@ -190,7 +269,7 @@ class WallpaperManager:
         """
         desktops = []
         try:
-            result = base.evaluate_kde_script(qdbus, script)
+            result = evaluate_kde_script_with_fallback(qdbus, script)
             for line in result.strip().split("\n"):
                 if not line.strip():
                     continue
@@ -206,7 +285,7 @@ class WallpaperManager:
                     )
             return desktops
         except Exception as e:
-            logging.error(f"Failed to get KDE desktops: {e}")
+            logger.error("Failed to get KDE desktops: %s", e)
             return desktops
 
     @staticmethod
@@ -330,9 +409,9 @@ class WallpaperManager:
             return
         full_script = "".join(script_parts)
         try:
-            base.evaluate_kde_script(qdbus, full_script)
+            evaluate_kde_script_with_fallback(qdbus, full_script)
         except Exception as e:
-            raise RuntimeError(f"KDE method failed (Rust): {e}")
+            raise RuntimeError(f"KDE method failed: {e}")
 
     @staticmethod
     def _set_wallpaper_kde_plasma_apply(
@@ -490,7 +569,7 @@ class WallpaperManager:
                 d[0].reloadConfig();
                 """
                 try:
-                    base.evaluate_kde_script(qdbus, script)
+                    evaluate_kde_script_with_fallback(qdbus, script)
                 except Exception:
                     WallpaperManager._set_wallpaper_solid_color_gnome(color_hex)
             return
@@ -599,7 +678,7 @@ class WallpaperManager:
         script += '\nprint(out.join("\\n===SEP===\\n"));'
 
         try:
-            result = base.evaluate_kde_script(qdbus, script)
+            result = evaluate_kde_script_with_fallback(qdbus, script)
             for line in result.split("===SEP==="):
                 line = line.strip()
                 m = re.match(r"DESKTOP_(\d+):(.+)", line)
@@ -627,5 +706,5 @@ class WallpaperManager:
                             path_map[monitor_mid] = final_path
 
         except Exception as e:
-            print(f"[WallpaperManager] Error in get_current: {e}")
+            logger.error("[WallpaperManager] Error in get_current: %s", e)
         return path_map

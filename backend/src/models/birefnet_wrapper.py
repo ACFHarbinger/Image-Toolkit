@@ -228,15 +228,66 @@ class BiRefNetWrapper(ModelWrapper):
     ) -> List[np.ndarray]:
         """
         Process a list of frames, returning binary foreground masks.
-        Runs inference frame-by-frame (batching across variable-size frames is
-        tricky; this wrapper resizes each frame to inference_size internally).
+
+        Frames are pre-transformed to ``inference_size`` tensors and grouped into
+        VRAM-sized chunks determined by ``_compute_batch_size()``.  On CPU or when
+        VRAM estimation fails the method falls back to batch_size=1 (original
+        behaviour).
         """
-        return [
-            self.get_mask(
-                img, threshold=threshold, dilate_px=dilate_px, erode_px=erode_px
-            )
-            for img in images
-        ]
+        if not images:
+            return []
+
+        model = self._ensure_loaded()
+
+        # Pre-transform all images and record original sizes for resize-back.
+        tensors: List[torch.Tensor] = []
+        orig_sizes: List[tuple] = []
+        for img_np in images:
+            img_rgb = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
+            tensors.append(self.transform(Image.fromarray(img_rgb)))
+            orig_sizes.append((img_np.shape[0], img_np.shape[1]))
+
+        batch_size = self._compute_batch_size()
+        soft_masks: List[np.ndarray] = []
+
+        for start in range(0, len(tensors), batch_size):
+            chunk = tensors[start : start + batch_size]
+            batch = torch.stack(chunk).to(self.device)
+            with torch.no_grad():
+                preds = model(batch)[-1].sigmoid().detach().cpu().numpy()
+            del batch
+            for i, pred in enumerate(preds):
+                raw = pred.squeeze()  # (H_inf, W_inf)
+                h, w = orig_sizes[start + i]
+                raw = cv2.resize(raw, (w, h), interpolation=cv2.INTER_LINEAR)
+                soft_masks.append(raw.astype(np.float32))
+
+        results: List[np.ndarray] = []
+        for soft in soft_masks:
+            binary = (soft > threshold).astype(np.uint8) * 255
+            binary = self._dilate_erode(binary, dilate_px, erode_px)
+            results.append(binary)
+        return results
+
+    def _compute_batch_size(self) -> int:
+        """Return how many frames can safely be batched given current free VRAM.
+
+        Uses 32× the raw tensor size as a per-frame VRAM estimate (input +
+        BiRefNet Swin activations + decoder + output).  Caps at 4 regardless of
+        VRAM to avoid OOM from activation spikes.  Returns 1 on CPU or failure.
+        """
+        if self.device == "cpu" or not torch.cuda.is_available():
+            return 1
+        try:
+            free_bytes, _ = torch.cuda.mem_get_info()
+            reserve = 1 * 1024 ** 3  # 1 GB safety margin
+            usable = max(0, free_bytes - reserve)
+            h, w = self.inference_size
+            per_frame_bytes = h * w * 3 * 4 * 32  # 32× raw tensor size
+            batch_size = max(1, int(usable / per_frame_bytes))
+            return min(batch_size, 4)
+        except Exception:
+            return 1
 
     def apply_segmentation(self, img_np: np.ndarray) -> np.ndarray:
         """Backward-compat: returns image with background set to black."""

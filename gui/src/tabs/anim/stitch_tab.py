@@ -230,6 +230,35 @@ class _ThumbHub(QObject):
     loaded = Signal(str, int, object)  # path, generation, QImage
 
 
+class _MetricsSignals(QObject):
+    ready = Signal(str)  # formatted metrics string
+
+
+class _MetricsTask(QRunnable):
+    """Off-thread Laplacian sharpness + file-size metrics for the result preview overlay."""
+
+    def __init__(self, path: str, signals: _MetricsSignals):
+        super().__init__()
+        self._path = path
+        self._signals = signals
+        self.setAutoDelete(True)
+
+    def run(self) -> None:
+        try:
+            stat_size = os.stat(self._path).st_size / (1024 * 1024)
+            img_gray = cv2.imread(self._path, cv2.IMREAD_GRAYSCALE)
+            if img_gray is None:
+                self._signals.ready.emit(f"Size: {stat_size:.1f} MB")
+                return
+            h, w = img_gray.shape
+            lap_var = float(np.var(cv2.Laplacian(img_gray, cv2.CV_64F)))
+            self._signals.ready.emit(
+                f"{w}×{h}  |  {stat_size:.1f} MB  |  Sharpness: {lap_var:.0f}"
+            )
+        except Exception:
+            self._signals.ready.emit("")
+
+
 class _ThumbTask(QRunnable):
     def __init__(self, path: str, size: int, generation: int, hub: "_ThumbHub"):
         super().__init__()
@@ -1239,6 +1268,11 @@ class EditTab(QWidget):
 
         self._stitch_thread: Optional[QThread] = None
         self._stitch_worker: Optional[StitchWorker] = None
+
+        # ── Result preview state (§2.11 / 2.6B+C) ───────────────────────
+        self._result_pix: Optional[QPixmap] = None
+        self._before_pix: Optional[QPixmap] = None
+        self._metrics_signals = _MetricsSignals()
         self._match_thread: Optional[QThread] = None
         self._match_worker: Optional[MatchWorker] = None
         self._mask_thread: Optional[QThread] = None
@@ -1887,6 +1921,43 @@ class EditTab(QWidget):
         self._log.setFixedHeight(110)
         self._log.setStyleSheet("font-family: monospace; font-size: 10px;")
         bottom_layout.addWidget(self._log)
+
+        # ── Result preview (§2.11 B+C) ────────────────────────────────
+        self._result_group = QGroupBox("Stitch Result")
+        self._result_group.setVisible(False)
+        result_layout = QVBoxLayout(self._result_group)
+        result_layout.setContentsMargins(4, 4, 4, 4)
+        result_layout.setSpacing(4)
+
+        result_toolbar = QHBoxLayout()
+        self._btn_before_after = QPushButton("◀ Before")
+        self._btn_before_after.setCheckable(True)
+        self._btn_before_after.setFixedWidth(88)
+        self._btn_before_after.setToolTip(
+            "Toggle between the first source frame (Before) and the stitched result (After)."
+        )
+        self._btn_before_after.toggled.connect(self._toggle_before_after)
+        self._result_metrics_label = QLabel("")
+        self._result_metrics_label.setStyleSheet("color: #aaa; font-size: 10px;")
+        result_toolbar.addWidget(self._btn_before_after)
+        result_toolbar.addStretch()
+        result_toolbar.addWidget(self._result_metrics_label)
+        result_layout.addLayout(result_toolbar)
+
+        self._result_preview_label = QLabel()
+        self._result_preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._result_preview_label.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
+        self._result_preview_label.setMinimumHeight(100)
+        self._result_preview_label.setMaximumHeight(200)
+        self._result_preview_label.setStyleSheet(
+            "background:#1a1a1a; border:1px solid #333;"
+        )
+        result_layout.addWidget(self._result_preview_label)
+        bottom_layout.addWidget(self._result_group)
+
+        self._metrics_signals.ready.connect(self._on_metrics_ready)
 
         root.addWidget(bottom)
 
@@ -2984,6 +3055,7 @@ class EditTab(QWidget):
             _sp = self._stitch_worker.current_session_path
             self._log_append(f"[HITL] Session autosaved: {_sp}")
             _sess_info = f"\n\nHITL session saved to:\n{_sp}"
+        self._show_stitch_result(output_path)
         QMessageBox.information(
             self, "Stitch Complete", f"Panorama saved to:\n{output_path}{_sess_info}"
         )
@@ -3001,6 +3073,45 @@ class EditTab(QWidget):
         self._stitch_thread = None
         self._progress.setValue(0)
         self._stage_label.setText("Ready.")
+
+    # ── Result preview helpers (§2.11 / 2.6B+C) ─────────────────────────
+
+    def _show_stitch_result(self, output_path: str) -> None:
+        """Load result + first-frame thumbnails, show preview group, start metrics."""
+        self._result_pix = QPixmap(output_path)
+        self._before_pix = None
+        if self._frame_paths:
+            pm = QPixmap(self._frame_paths[0])
+            if not pm.isNull():
+                self._before_pix = pm
+        self._result_group.setVisible(True)
+        self._btn_before_after.setChecked(False)
+        self._btn_before_after.setText("◀ Before")
+        self._result_metrics_label.setText("Computing metrics…")
+        self._update_result_preview()
+        QThreadPool.globalInstance().start(_MetricsTask(output_path, self._metrics_signals))
+
+    def _toggle_before_after(self, checked: bool) -> None:
+        self._btn_before_after.setText("◀ Before" if checked else "After ▶")
+        self._update_result_preview()
+
+    def _update_result_preview(self) -> None:
+        pix = self._before_pix if self._btn_before_after.isChecked() else self._result_pix
+        if pix is None or pix.isNull():
+            return
+        lw = self._result_preview_label.width()
+        lh = self._result_preview_label.height()
+        scaled = pix.scaled(
+            max(1, lw),
+            max(1, lh),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        self._result_preview_label.setPixmap(scaled)
+
+    @Slot(str)
+    def _on_metrics_ready(self, metrics: str) -> None:
+        self._result_metrics_label.setText(metrics)
 
     # ── HITL checkpoint handlers ─────────────────────────────────────────
 

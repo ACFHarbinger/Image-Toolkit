@@ -29,3 +29,28 @@ DELETE FROM image_tags WHERE image_id = %s;
 
 -- name: insert_image_tag
 INSERT INTO image_tags (image_id, tag_id) VALUES (%s, %s) ON CONFLICT DO NOTHING;
+
+-- §4.6 Perceptual hash deduplication -------------------------------------------
+
+-- name: update_phash
+-- Store the 64-bit perceptual hash (signed BIGINT) for a single image.
+UPDATE images SET phash = %s WHERE id = %s;
+
+-- name: find_near_duplicates_phash
+-- Return all images whose perceptual hash is within *threshold* Hamming bits of
+-- the query hash.  Hamming distance is computed via XOR then bit_count on the
+-- 64-bit representation.  Results are ordered closest-first.
+-- Parameters: %s = query_phash BIGINT, %s = query_phash BIGINT (repeated for bit_count), %s = threshold INT, %s = limit INT
+SELECT
+    id,
+    file_path,
+    filename,
+    group_name,
+    subgroup_name,
+    phash,
+    bit_count(phash::bit(64) # (%s)::bigint::bit(64)) AS hamming_dist
+FROM images
+WHERE phash IS NOT NULL
+  AND bit_count(phash::bit(64) # (%s)::bigint::bit(64)) <= %s
+ORDER BY hamming_dist ASC
+LIMIT %s;

@@ -4,6 +4,342 @@
 
 ---
 
+## Perf — 4.8 psycopg3 connection pool (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **4.8 psycopg3 connection pool** (`backend/src/database/pooled_image_database.py`) | New `PooledPgvectorDatabase` class — a drop-in replacement for `PgvectorImageDatabase` — backed by `psycopg_pool.ConnectionPool` (psycopg3 synchronous pool, default min=2 / max=10 connections). Every public method borrows a connection for the duration of its own call via `with self._pool.connection() as conn:` and returns it automatically; no global `self.conn` state means multiple QThread workers (search, ingest, duplicate scan) can issue concurrent queries without racing on a shared connection. `psycopg[pool]>=3.2` added to `pyproject.toml`. **API changes from psycopg2 internals**: `psycopg.rows.dict_row` row_factory replaces `DictCursor`; `executemany()` replaces `execute_values()` for bulk tag inserts; transactions use `conn.transaction()` context manager instead of `autocommit` toggle; `VACUUM`/`REINDEX` use a raw `psycopg.connect(autocommit=True)` connection outside the pool (PostgreSQL requirement). Two queries that select duplicate column names (`get_all_subgroups_detailed`: `s.name, g.name`; `get_statistics`: aggregate functions) use a per-cursor `tuple_row` override to avoid silent dict key collisions. Module-level `_pools: Dict[str, ConnectionPool]` registry shares one pool across all `PooledPgvectorDatabase` instances with the same DSN. `PG_POOL_MIN` / `PG_POOL_MAX` env vars control pool bounds. 22 unit tests covering `_build_conninfo`, group/tag/image CRUD, pool lifecycle, and phash deduplication — all mocked, no live PostgreSQL required. |
+
+### Stats
+
+- 1 file created (`backend/src/database/pooled_image_database.py`)
+- 1 test file created (`backend/test/test_pooled_image_database.py`, 22 tests)
+- `pyproject.toml` updated: `psycopg[pool]>=3.2` added
+- 1 roadmap item marked ✅: 4.8
+
+---
+
+## Feat — 3.6 WD-1.4 auto-tagger via ONNX (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **3.6 WD-1.4 auto-tagger via ONNX** (`backend/src/models/wd_tagger_wrapper.py`) | New `WDTaggerWrapper(ModelWrapper)` class implementing the full `ModelWrapper` ABC contract (`load()`, `unload()`, `loaded`, `is_available()`). **Model acquisition**: `load()` uses `huggingface_hub.hf_hub_download` to download `model.onnx` + `selected_tags.csv` from the configured HuggingFace repo (default: `SmilingWolf/wd-v1-4-convnext-tagger-v2`) into a local cache dir (`~/.image-toolkit/models/wd_tagger`); both files are cached on disk so subsequent `load()` calls are instant. **ONNX inference**: session built via `onnxruntime.InferenceSession` with `["CUDAExecutionProvider", "CPUExecutionProvider"]` provider list (GPU when `self.device` contains "cuda", CPU otherwise); input name and resolution read from the session's input metadata. **Preprocessing** (`_load_and_preprocess`): opens any image format via PIL, composites RGBA onto a white background (matching training data), pads to square with white fill, resizes to the model's input resolution, converts to BGR `float32` with `NHWC` layout `(1, H, W, C)` as required by all SmilingWolf ONNX models. **Public API**: `tag(image_path, threshold=None)` → `List[Dict]` sorted by confidence descending; `tag_batch(image_paths)` → `List[List[Dict]]` with per-path error isolation; `tag_with_review(image_path, threshold, review_threshold=0.15)` → `(auto_tags, review_tags)` tuple splitting accepted vs human-review tags (§4.4 Option E). Each result dict contains `tag` (underscores replaced with spaces), `confidence` (float), `category` (`"general"` / `"character"` / `"copyright"`), and `category_id`. **Configuration**: default threshold 0.35 (`DEFAULT_THRESHOLD`); `WD_TAGGER_MODEL_REPO` env var overrides repo id; `WD_TAGGER_CACHE_DIR` env var overrides cache directory. `@lazy_load` decorator auto-calls `load()` on first inference call. 26 tests in `backend/test/models/test_wd_tagger_wrapper.py` covering label parsing, tag filtering, preprocessing shape/dtype, and all public API methods with a mocked ONNX session. All 26 passing. |
+
+### Stats
+
+- 1 file created (`backend/src/models/wd_tagger_wrapper.py`)
+- 1 test file created (`backend/test/models/test_wd_tagger_wrapper.py`, 26 tests)
+- 1 roadmap item marked ✅: 3.6
+
+---
+
+## Perf — 2.12 Rust two-pass streaming image merger (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **2.12 Two-pass streaming merger** (`base/src/core/image_merger.rs`) | All three public merge functions (`merge_images_horizontal_core`, `merge_images_vertical_core`, `merge_images_grid_core`) refactored to a two-pass streaming approach. **Pass 1**: calls `image::image_dimensions(path)` on every input path — reads only the image header (width, height) without decoding any pixel data — to compute total canvas dimensions. Canvas is then allocated once. **Pass 2**: iterates the same path list sequentially, loads one `DynamicImage` at a time, blits it to the canvas, and immediately drops it (freeing its pixel buffer). The old approach collected all images into a `Vec<DynamicImage>` before compositing, consuming N × image_size RAM simultaneously (e.g., 100 × 4K images ≈ 2–4 GB). New peak RAM = 1 decoded image (~30 MB for 4K RGBA) + output canvas (~200 MB for a 10K panorama). New helper `read_dimensions(path)` wraps `image::image_dimensions`. 4 new Rust unit tests verify streaming produces identical canvas dimensions for horizontal, vertical, and grid layouts; `test_empty_paths_returns_false` covers all three functions. 6 tests total, all passing. |
+
+### Stats
+
+- 1 file rewritten (`base/src/core/image_merger.rs`)
+- 1 roadmap item marked ✅: 2.12
+
+---
+
+## Feat — 4.12 Named layout profiles (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **4.12 Named layout profiles** (`gui/src/windows/settings_window.py`) | **Profile capture**: `_get_current_ui_preferences()` now snapshots `main_window_ref.saveGeometry()` → base64 as `layout_geometry`, and reads all `splitters/*` keys from `AppSettings` → base64 dict as `layout_splitters`. Both are included in every Save / Update profile operation alongside the existing `theme`, `active_tab_configs`, and §4.13 appearance keys. **Restore**: New `_apply_layout_from_profile(profile_data)` helper decodes `layout_geometry` (base64 → `QByteArray`) and calls `main_window_ref.restoreGeometry()` immediately; all `layout_splitters` entries are written back to `AppSettings` so each splitter picks up the new state on its next `persist_splitter()` init call. Both Load Profile and Use Profile call `_apply_layout_from_profile`. Added `import base64`, `QByteArray` from PySide6.QtCore, and `from ..utils.settings import AppSettings` to `settings_window.py`. |
+
+### Stats
+
+- 1 file modified (`gui/src/windows/settings_window.py`)
+- 1 roadmap item marked ✅: 4.12
+
+---
+
+## Feat — 3.8 Slideshow configuration (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **3.8 Slideshow configuration** (`gui/src/tabs/core/wallpaper_tab.py`, `base/src/utils/slideshow_daemon.rs`) | **UI**: New `slideshow_filter_group` widget (QLabel + `filter_dir_input` QLineEdit + Browse button) added below the existing interval/order row in the slideshow settings group; shown/hidden/enabled/disabled alongside `slideshow_group`. **Vault defaults**: `_apply_vault_slideshow_defaults()` fires once via `QTimer.singleShot(0, …)` and reads `slideshow_interval_min/sec/order` from `main_window.cached_creds["preferences"]`, only overriding widgets that still hold their hardcoded initial values so a restored tab config always wins. **Persistence**: `filter_dir` key added to `collect()`, `set_config()`, and `get_default_config()`; both `_sync_daemon_config()` and `toggle_daemon()` write `filter_directories: [filter_dir]` to `.slideshow_config.json`. **Rust daemon**: `filter_directories: Vec<String>` added to `Config` struct (`#[serde(default)]`); `matches_filter(path, filter_directories)` helper strips `file://` prefix before prefix-match; `select_next_wallpapers` builds a filtered sub-queue per monitor and falls back to the full queue when the filter matches nothing (daemon never stalls). 4 new Rust unit tests (`test_filter_directories_restricts_queue`, `test_filter_directories_empty_falls_back_to_full_queue`, `test_filter_no_match_falls_back_to_full_queue`, `test_matches_filter_strips_file_uri_prefix`); 6 tests total, all passing. |
+
+### Stats
+
+- 2 files modified (`gui/src/tabs/core/wallpaper_tab.py`, `base/src/utils/slideshow_daemon.rs`)
+- 1 roadmap item marked ✅: 3.8
+
+---
+
+## Feat — 4.13 Appearance profiles (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **4.13 Appearance profiles** (`gui/src/windows/settings_window.py`, `gui/src/windows/login_window.py`) | **Profile save**: `_get_current_ui_preferences()` now bundles four new keys — `accent_color_dark`, `accent_color_light`, `font_scale`, `ui_density` — alongside the existing `theme` and `active_tab_configs`. All profile save/update paths inherit this automatically. **Profile load/use**: New `_apply_appearance_from_profile(profile_data)` helper pushes appearance keys from the profile dict into the live UI widgets (dark/light accent swatches via `_update_swatch()` + `pref_accent_*` attrs, `font_scale_spinbox`, `ui_density_combo`). Both `_load_selected_profile()` and `_use_selected_profile()` call this helper — `_use_selected_profile` then calls `_update_settings_logic()` which saves the updated `pref_accent_*` / spinbox / combo values to vault and immediately applies the theme via `set_application_theme()`. **Login-time profile application** (`login_window.py`): when a profile is selected at login the four appearance keys are merged into `stored_data["preferences"]` alongside the existing `theme`/`active_tab_configs` update; `save_required` is set when any key differs from the current value. |
+
+### Stats
+
+- 2 files modified (`gui/src/windows/settings_window.py`, `gui/src/windows/login_window.py`)
+- 1 roadmap item marked ✅: 4.13
+
+---
+
+## Feat — 4.7 KDE per-monitor wallpaper via D-Bus (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **4.7 KDE D-Bus wallpaper fallback chain** (`backend/src/core/wallpaper.py`, `gui/src/tabs/core/wallpaper_tab.py`) | Three new module-level functions: `find_qdbus_binary()` — iterates `qdbus6`, `qdbus-qt6`, `qdbus`, `qdbus-qt5` (previously only 2 names were tried, missing distros like OpenSUSE). `evaluate_kde_script_dbus_python(script)` — pure-Python D-Bus call via `dbus-python` (`bus.get_object('org.kde.plasmashell', '/PlasmaShell').evaluateScript()`), works without any CLI binary. `evaluate_kde_script_with_fallback(qdbus, script)` — tries qdbus CLI first, falls back to dbus-python on failure, raises with actionable message if both unavailable. All three existing call-sites in `WallpaperManager` (`_set_wallpaper_kde`, `apply_wallpaper`, `get_current_system_wallpaper_path_kde`) migrated from direct `base.evaluate_kde_script()` to the fallback chain. `wallpaper_tab.py` `__init__` now uses `find_qdbus_binary()` instead of inline 2-name detection (also removed the DESKTOP_SESSION guard — `qdbus6` works on Wayland/KDE too). All three functions exported from `backend.src.core`. |
+
+### Stats
+
+- 2 files modified (`backend/src/core/wallpaper.py`, `gui/src/tabs/core/wallpaper_tab.py`)
+- 1 file modified (`backend/src/core/__init__.py` — new exports)
+- 1 roadmap item marked ✅: 4.7
+
+---
+
+## Feat — 4.6 Cross-directory phash deduplication (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **4.6 Cross-directory phash deduplication** (`backend/src/database/`, `backend/src/core/phash_deduplicator.py`) | **Schema**: `phash BIGINT` column added to `images` table via idempotent `ALTER TABLE … ADD COLUMN IF NOT EXISTS` in `schema.sql`; `idx_images_phash` B-tree index on non-null rows. Both are executed during `_create_tables()` (safe for existing deployments). **SQL**: `update_phash` (UPDATE by image id) + `find_near_duplicates_phash` (Hamming distance via `bit_count(phash::bit(64) # query::bit(64)) <= threshold`) added to `images.sql`. **DB methods**: `update_phash(image_id, phash_int)` and `find_near_duplicates_by_phash(phash_int, threshold=10, limit=50)` on `PgvectorImageDatabase`. **Module**: `compute_phash(path) → int` (imagehash 8×8 DCT phash, two's-complement BIGINT) + `PhashDeduplicator` (index_image, index_directory, find_duplicates_for, find_all_duplicate_groups) in `phash_deduplicator.py`. 10 unit tests; all passing. |
+
+### Stats
+
+- 4 files modified (`schema.sql`, `images.sql`, `image_database.py`, `core/__init__.py`)
+- 1 new file (`backend/src/core/phash_deduplicator.py`)
+- 1 new test file (`backend/test/core/test_phash_deduplicator.py`) — 10 tests
+- 1 roadmap item marked ✅: 4.6
+
+---
+
+## Feat — 4.5 OpenAPI schema for REST endpoints (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **4.5 OpenAPI schema** (`api/`, `tasks/views.py`, `pyproject.toml`) | `drf-spectacular>=0.27.2` added as runtime dependency. `drf_spectacular` registered in `INSTALLED_APPS`; `SPECTACULAR_SETTINGS` configured (title, description, version, `COMPONENT_SPLIT_REQUEST=True`). Three new routes in `api/urls.py`: `/api/schema/` (raw OpenAPI YAML/JSON), `/api/docs/` (Swagger UI), `/api/redoc/` (ReDoc). All 19 task views annotated with `@extend_schema` — each specifies `tags`, `summary`, `request=<Serializer>`, and `responses={202: TaskQueuedResponse, 400: ValidationError}`. Schema generation verified: 19 paths emitted, no warnings. |
+
+### Stats
+
+- 3 files modified (`api/settings.py`, `api/urls.py`, `tasks/views.py`)
+- 1 file modified (`pyproject.toml` — new dep)
+- 1 roadmap item marked ✅: 4.5
+
+---
+
+## ASP — 0.7 min_gap vector-magnitude for diagonal sequences (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **0.7 Diagonal canvas-span vector magnitude** (`backend/src/anim/validation.py`) | `_compute_adaptive_min_gap` now calls `_detect_scroll_axis` and uses axis-appropriate span: `dx_span` for horizontal, `dy_span` for vertical, and `sqrt(dy_span² + dx_span²)` for diagonal. The previous `max(dy_span, dx_span)` underestimated the actual path length by up to 1.41× for 45° diagonal pans, resulting in adaptive min-gap thresholds that were too low — allowing near-duplicate diagonal-pan frames to pass validation unchallenged. All 34 existing affine validation tests pass. |
+
+### Stats
+
+- 1 Python file modified (`validation.py`)
+- 1 roadmap item marked ✅: 0.7
+
+---
+
+## ASP — 0.4 Foreground-excluded temporal median (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **0.4 A5 — Foreground-excluded temporal median** (`backend/src/anim/rendering.py`) | `_render_median` now builds `bg_canvas[i]` — a per-frame boolean mask that marks warped-background pixels (BiRefNet `bg_masks[i] > 127`). Before the nanmedian, `eff_masks` is derived: pixels with ≥1 background sample use only background-marked frames; pixels with zero background samples (character always covers them) fall back to all geometrically-valid frames so no holes appear. The fade-in/fade-out ramp sections also use `eff_masks`. Flag `_FG_EXCLUDE_MEDIAN = True` by default; disable with `ASP_FG_EXCLUDE_MEDIAN=0`. All `print()` calls in the renderer migrated to `logger.info/debug`. |
+
+### Stats
+
+- 1 Python file modified (`rendering.py`)
+- 1 roadmap item marked ✅: 0.4
+
+---
+
+## ASP — 3.4 SRStitcher diffusion border fill (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **3.4 SRStitcher diffusion border fill** (`backend/src/anim/pipeline.py`) | P1.8 (border gap fill) in `run()` now branches on `self.sr_mode and _SRSTITCHER_OK`. When `sr_mode=True` and diffusers are available: calls `border_diffusion_fill(canvas, device=…)` from `sr_stitcher.py` — stable-diffusion inpainting model produces style-consistent cel-shaded fills for diagonal-pan panorama black corners. Falls back to TELEA on model failure. When `sr_mode=False` (default): existing MFSR `inpaint_gaps` → TELEA path unchanged. `border_diffusion_fill` and `_SRSTITCHER_OK` were already imported from `sr_stitcher.py` (line 183) but unused; now wired. |
+
+### Stats
+
+- 1 Python file modified (`pipeline.py`)
+- 1 roadmap item marked ✅: 3.4
+
+---
+
+## GUI — 3.10 Dark/light mode toggle button (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **3.10 QSS dark/light mode toggle** (`gui/src/windows/main_window.py`) | "☀" / "🌙" `QPushButton` added to the app header (36×36px, transparent, borderless). `_toggle_theme()` flips `current_theme` dark↔light, calls `set_application_theme()`, saves `creds["theme"]` to vault, and updates `cached_creds` so the OS auto-follow handler (`_on_os_scheme_changed`) backs off. `set_application_theme` now syncs the button icon at the end of every call so the icon is always correct (initial load, settings apply, OS switch, manual toggle). |
+
+### Stats
+
+- 1 GUI file modified (`main_window.py`)
+- 1 roadmap item marked ✅: 3.10
+
+---
+
+## Feat — 3.5 CLI batch stitching (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **3.5 CLI batch stitching** (`backend/src/utils/io/arg_parser.py`, `dispatcher.py`) | New top-level `stitch` command replaces the nested `core stitch`. **Single-sequence mode**: `python main.py stitch -i frames/ -o out.png` (or explicit file list). **Batch mode**: `python main.py stitch --batch-dir /sequences/ --resume` — iterates every sub-directory, collects sorted images, calls `AnimeStitchPipeline.run()`. Option C (`--resume`): skips sequences where output file already exists. Option E: `.stitch_progress.json` progress file written after each sequence (tracks `done`/`failed`/`skipped`), survives interruption. `--output-suffix` controls the output filename suffix (default `_stitched`). `--renderer median|first|blend` passed to pipeline. |
+
+### Stats
+
+- 2 Python files modified (`arg_parser.py`, `dispatcher.py`)
+- 1 roadmap item marked ✅: 3.5
+
+---
+
+## GUI / Arch — 2.11 StitchTab result preview · 4.3 Weekly CI (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **2.11 StitchTab before/after toggle + quality metrics overlay** (`gui/src/tabs/anim/stitch_tab.py`) | After stitch completes, `_show_stitch_result()` loads the result pixmap and the first source frame. A "◀ Before / After ▶" toggle button (`QPushButton`, checkable) swaps between them via `_toggle_before_after`. A 100–200 px result preview `QLabel` is shown in a previously hidden group box below the log. `_MetricsTask` (QRunnable) computes Laplacian variance sharpness + file size + dimensions off the main thread; result emitted via `_MetricsSignals.ready` signal into the metrics overlay label. All new code in two new classes (`_MetricsSignals`, `_MetricsTask`) and four new methods. |
+| **4.3 Weekly scheduled ASP benchmark CI** (`.github/workflows/benchmark.yml`) | Added `schedule: cron: "0 6 * * 1"` trigger (every Monday 06:00 UTC). Catches dep-induced regressions (e.g. scipy minor bump) that don't touch the codebase. Push-to-main and `workflow_dispatch` triggers retained. |
+
+### Stats
+
+- 1 GUI file modified (`stitch_tab.py`)
+- 1 CI file modified (`benchmark.yml`)
+- 2 roadmap items marked ✅: 2.11, 4.3
+
+---
+
+## Perf Tier 2 — 3.12 Dynamic BiRefNet batching (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **3.12 Dynamic BiRefNet batching** (`backend/src/models/birefnet_wrapper.py`) | `get_mask_batch` rewritten: all frames pre-transformed to `inference_size` tensors, then grouped into VRAM-sized chunks. `_compute_batch_size()` queries `torch.cuda.mem_get_info()`, subtracts a 1 GB safety reserve, estimates per-frame VRAM as 32× raw tensor size (covers Swin backbone activations + decoder + output), caps at 4 to prevent OOM from activation spikes. Each chunk is stacked into `(B,C,H,W)`, fed through the model in one forward pass, then per-frame masks are resized back to original dimensions. Falls back to `batch_size=1` on CPU, no CUDA, or any exception. For a 10-frame sequence at 1024×1024 on an 8 GB GPU: expected batch=4 → 3 forward passes instead of 10. |
+
+### Stats
+
+- 1 Python file modified (`birefnet_wrapper.py`)
+- 1 roadmap item marked ✅: 3.12
+
+---
+
+## Perf Tier 1 — 1.7 Rust move semantics · 3.11 GPU temporal median (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **1.7 Rust DynamicImage move semantics** (`base/src/core/image_converter.rs`, `image_merger.rs`) | `apply_ar_transform` and `fast_resize` now take ownership of `DynamicImage` instead of a shared reference. No-op paths (no AR transform, same-size resize) return the owned value directly — eliminating an unconditional `img.clone()` that allocated ~30 MB for 4K RGBA images. Call sites updated: `let w = img.width(); fast_resize(img, w, max_h)` binds dimensions before the move. `cargo check` verified clean. |
+| **3.11 PyTorch GPU temporal median** (`backend/src/anim/rendering.py`) | All 5 `np.nanmedian(…, axis=0)` calls in `_render_median` replaced with `_gpu_nanmedian()`. Covered: Case 2 main median (1 call), vertical fade-in/fade-out (2 calls), horizontal fade-in/fade-out (2 calls). `_gpu_nanmedian` is off by default (`ASP_GPU_MEDIAN=0`); enable with `ASP_GPU_MEDIAN=1`. Lazy CUDA detection via module-level `_cuda_available: Optional[bool] = None`; falls back to numpy on import failure, no CUDA, or any runtime error. On GPU: `np.ndarray → torch.from_numpy().cuda() → torch.nanmedian(dim=0).values.cpu().numpy()`. |
+
+### Stats
+
+- 2 Rust files modified (no new deps)
+- 1 Python file modified
+- 2 roadmap items marked ✅: 1.7, 3.11
+
+---
+
+## Arch Tier 7 — CI/CD · 1.12 uv lock · 2.15 security audit · 3.14 ASP regression gate (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **1.12 `uv lock` + frozen CI install** | `uv.lock` already committed. `.github/workflows/ci.yml` created: two jobs — `lint` (import-linter + mypy on strict modules) and `test-models` (36 model contract tests); both use `uv sync --frozen --group dev --no-install-project` so the Rust extension is never compiled in CI; uv cache keyed on `uv.lock` hash for fast reruns. `pip-audit>=2.9.0` and `numpy>=2.3.4` added to `[dependency-groups.dev]` in `pyproject.toml`; lockfile regenerated. |
+| **2.15 `pip-audit` + `cargo audit` in CI** | `.github/workflows/security.yml` created: weekly (Monday 08:00 UTC) + `workflow_dispatch`. `pip-audit` job: exports frozen requirements via `uv export`, scans with `pip-audit --requirement`, uploads JSON report as artifact, fails on any CVE. `cargo-audit` job: installs `cargo-audit` via `taiki-e/install-action`, runs `cargo audit --json` in `base/`, uploads JSON report, fails on any vulnerability. |
+| **3.14 ASP regression gate CI** | `.github/workflows/benchmark.yml` created: runs on every push to main. Executes the full `backend/test/anim/` suite (827 unit tests, <60 s total, no GPU) via `uv sync --frozen --group dev --no-install-project`. Uploads `.pytest_cache/` as CI artifact (14-day retention). Any test regression fails the build before merge. **Roadmap items 3.13 + 3.14 both complete** — the 827 unit tests covering `bundle_adjust`, `compositing`, `frame_selection`, `canvas`, `pipeline`, `matching`, `validation`, `config`, and `fg_register` now run automatically as the regression gate. |
+
+### Stats
+
+- 3 GitHub Actions workflows created (`.github/workflows/`)
+- 2 new dev deps: `numpy>=2.3.4`, `pip-audit>=2.9.0`
+- 10 roadmap items marked ✅: 1.6, 1.12, 2.1, 2.2, 2.3, 2.5, 2.15, 3.2, 3.3, 3.13, 3.14
+- 36 contract tests still passing (0 regressions)
+
+---
+
+## Phase 3 — 3.7 Safetensors Metadata Viewer (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **3.7 `read_metadata()` backend function** (`backend/src/utils/data/safetensors_metadata.py`) | New `read_metadata(path) → dict` reads a `.safetensors` file header without loading any tensor data. Uses `safe_open` + `get_slice().get_shape()` / `get_dtype()` to enumerate all tensor shapes and dtypes in O(1) per tensor (header-only). Returns `file_size_mb`, `user_meta` (dict of all user metadata strings), `tensor_count`, `param_count` (sum of all element counts), `dtype_counts` (Counter per dtype), `tensors` (per-key shape+dtype dict). Skips base64 preview blobs in display. |
+| **3.7 `SafetensorsInspectorDialog`** (`gui/src/components/safetensors_inspector.py`) | New `QDialog` (860×640, resizable). Background `_LoadWorker` (QRunnable) loads metadata off the main thread. Left panel: **Summary** tree (file name, size, tensor count, parameter count M/B, dtype breakdown) + **User Metadata** tree (all key-value pairs). Right panel: **Tensors** tree (sortable QTreeWidget; columns: name, shape as `d₀×d₁×…`, dtype). **Copy Metadata** button writes file info + user metadata to clipboard. Tested against Anything V3 text encoder: 197 tensors, 123M params (469.5 MB) loaded in <50 ms. |
+| **3.7 Wired into LoRA tabs** | "Inspect" button added inline next to LoRA Path field in `lora_generate_tab.py` — appends `.safetensors` extension if absent, validates file existence, opens dialog. "Inspect .safetensors..." button added to train/cancel row in `lora_train_tab.py` — opens `QFileDialog` (with `DontUseNativeDialog`) to select any `.safetensors` file, then opens dialog. |
+
+### Test count
+
+**36 contract tests + 3 import contracts still passing** (0 regressions).
+
+---
+
+## Arch Tier 6 — A.17 `import-linter` contracts (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **A.17 `import-linter` contracts** (`pyproject.toml`) | `import-linter>=2.0` added to `[dependency-groups.dev]`. Three enforced contracts under `[tool.importlinter]`: (1) **Backend core no GUI** — `backend.src.{models,anim,core,web,pipeline,constants,exceptions,utils}` forbidden from importing `gui.*`; scoped to exclude `backend.src.app` (intentional app launcher), `backend.benchmark`, `backend.test`. (2) **`gui.src.utils` is leaf** — lowest GUI layer forbidden from importing tabs, helpers, windows, components, or classes. (3) **`gui.src.classes` no tabs** — gallery base classes forbidden from importing `gui.src.tabs`; `ignore_imports` allows the one deferred `_show_status` call into `gui.src.windows`. All 3 contracts: 0 broken on 397 files / 752 dependencies. Run: `PYTHONPATH=. lint-imports`. |
+
+### Test count
+
+**36 contract tests still passing** (0 regressions).
+
+---
+
+## Arch Tier 5 — A.16 `AbstractGalleryBase` + real `common_*` methods (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **A.16 `AbstractGalleryBase` shared parent class** (`gui/src/classes/gallery_base.py`) | New file (574 lines). `AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery)` extracts all shared state and methods from both gallery classes. **Shared `__init__` state moved**: `thumbnail_size`/`padding_width`/`approx_item_width`, `thread_pool`/`_active_workers`, `_resize_timer` (with `connect(_on_layout_change)`), `_scroll_zoom_connected`, `_sort_key`/`_sort_reverse`, `_dir_back_stack`/`_dir_forward_stack`, `open_preview_windows`. **Duplicate methods removed** from both gallery files (~290 lines): `_add_recent_dir`, `_get_recent_dirs`, `_save_last_dir`, `_load_last_dir`, `_show_status`, `_add_filename_label`, `_save_thumbnail_size`, `_load_thumbnail_size`, `_sort_key_fn`, `_apply_sort`, `_SORT_KEY_MAP`. **9 metaclass-injected `common_*` functions** (pagination UI, column calc, layout reflow, viewport check, paginated slice, placeholder, search input, search filter, pagination state) converted to real inherited methods — IDE `Ctrl+Click` and mypy now work on all of them. **Abstract methods** added: `get_default_config`, `set_config`, `_on_layout_change` (enforces contract; both subclasses already implement all three). **`MetaAbstractClassGallery`** simplified from 397 → 18 lines — all injection code removed, now a pure metaclass-combination shim. Both gallery classes changed to `AbstractClassXxx(AbstractGalleryBase)` with no explicit metaclass. |
+
+### Stats
+
+| File | Before | After |
+|------|--------|-------|
+| `meta_abstract_class_gallery.py` | 397 lines | 18 lines |
+| `abstract_class_two_galleries.py` | 1662 lines | 1511 lines |
+| `abstract_class_single_gallery.py` | 1257 lines | 1118 lines |
+| `gallery_base.py` | *(new)* | 574 lines |
+
+**36 contract tests still passing** (0 regressions).
+
+---
+
 ## Arch Tier 4 — A.10 mypy + TypedDicts · A.11 AppSettings · A.12 `get_asp()` · A.13 Exception hierarchy (2026-06-18)
 
 ### Shipped

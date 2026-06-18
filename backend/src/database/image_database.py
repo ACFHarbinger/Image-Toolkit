@@ -82,6 +82,9 @@ class PgvectorImageDatabase:
                 cur.execute(_schema["create_index_subgroup"])
                 cur.execute(_schema["create_index_path"])
                 cur.execute(_schema["create_index_embedding"])
+                # §4.6 — phash column + index (idempotent ALTER TABLE)
+                cur.execute(_schema["add_phash_column"])
+                cur.execute(_schema["create_index_phash"])
             except Exception as e:
                 print(f"Error during table creation: {e}", file=sys.stderr)
                 raise
@@ -562,6 +565,50 @@ class PgvectorImageDatabase:
             self.conn.rollback()
             print(f"Error during database reset: {e}", file=sys.stderr)
             raise
+
+    # ── §4.6 Perceptual-hash deduplication ─────────────────────────────────────
+
+    def update_phash(self, image_id: int, phash_int: int) -> None:
+        """Store a 64-bit perceptual hash (signed BIGINT) for *image_id*."""
+        with self.conn.cursor() as cur:
+            cur.execute(_images["update_phash"], (phash_int, image_id))
+
+    def find_near_duplicates_by_phash(
+        self,
+        phash_int: int,
+        threshold: int = 10,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """Return images whose phash is within *threshold* Hamming bits of *phash_int*.
+
+        Searches across all directories (groups) in the database.  Results are
+        ordered by ascending Hamming distance.
+
+        Parameters
+        ----------
+        phash_int : signed 64-bit int produced by ``PhashDeduplicator.compute_phash()``.
+        threshold : max Hamming distance to consider as a near-duplicate (0–64).
+                    Typical values: 0 = exact hash match, ≤10 = near-duplicate.
+        limit     : maximum number of rows to return.
+        """
+        with self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                _images["find_near_duplicates_phash"],
+                (phash_int, phash_int, threshold, limit),
+            )
+            rows = cur.fetchall()
+        return [
+            {
+                "id": row["id"],
+                "file_path": row["file_path"],
+                "filename": row["filename"],
+                "group_name": row["group_name"],
+                "subgroup_name": row["subgroup_name"],
+                "phash": row["phash"],
+                "hamming_dist": row["hamming_dist"],
+            }
+            for row in rows
+        ]
 
     def close(self):
         """Close database connection."""

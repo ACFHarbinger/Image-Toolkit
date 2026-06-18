@@ -1,9 +1,10 @@
 import os
 import json
 import shutil
+import base64
 
 from pathlib import Path
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import Qt, QUrl, QByteArray
 from PySide6.QtGui import QColor, QDesktopServices, QKeySequence
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -36,6 +37,7 @@ from PySide6.QtWidgets import (
     QKeySequenceEdit,
 )
 from ..utils.shortcut_manager import get_registry, SHORTCUT_REGISTRY
+from ..utils.settings import AppSettings
 from backend.src.constants import (
     IMAGE_TOOLKIT_DIR,
     DAEMON_CONFIG_PATH,
@@ -1134,7 +1136,7 @@ class SettingsWindow(QWidget):
             self.profile_combo.addItems(sorted(self.system_profiles.keys()))
 
     def _get_current_ui_preferences(self):
-        """Helper to gather current theme and tab config selections."""
+        """Helper to gather current theme, tab config, appearance, and layout selections."""
         theme = "light" if self.light_theme_radio.isChecked() else "dark"
 
         current_tab_configs = {}
@@ -1143,7 +1145,38 @@ class SettingsWindow(QWidget):
             if selected != "None (Default)":
                 current_tab_configs[tab_name] = selected
 
-        return {"theme": theme, "active_tab_configs": current_tab_configs}
+        profile_data: dict = {
+            "theme": theme,
+            "active_tab_configs": current_tab_configs,
+            "accent_color_dark": self.pref_accent_dark,
+            "accent_color_light": self.pref_accent_light,
+            "font_scale": self.font_scale_spinbox.value(),
+            "ui_density": self.ui_density_combo.currentText(),
+        }
+
+        # §4.12 — bundle current window geometry and splitter states
+        if self.main_window_ref:
+            try:
+                geom_bytes = self.main_window_ref.saveGeometry()
+                profile_data["layout_geometry"] = base64.b64encode(
+                    bytes(geom_bytes)
+                ).decode("ascii")
+            except Exception:
+                pass
+
+        splitters_dict: dict = {}
+        for key in AppSettings.all_keys():
+            if key.startswith("splitters/"):
+                raw = AppSettings.get(key)
+                if raw:
+                    try:
+                        splitters_dict[key] = base64.b64encode(bytes(raw)).decode("ascii")
+                    except Exception:
+                        pass
+        if splitters_dict:
+            profile_data["layout_splitters"] = splitters_dict
+
+        return profile_data
 
     def _save_current_as_profile(self):
         """Saves current UI preferences as a new profile."""
@@ -1337,6 +1370,45 @@ class SettingsWindow(QWidget):
             self, "Settings Reloaded", "Settings reloaded from the vault successfully."
         )
 
+    def _apply_appearance_from_profile(self, profile_data: dict) -> None:
+        """§4.13 — Push appearance keys from a profile dict into the UI widgets."""
+        accent_dark = profile_data.get("accent_color_dark")
+        accent_light = profile_data.get("accent_color_light")
+        font_scale = profile_data.get("font_scale")
+        ui_density = profile_data.get("ui_density")
+        if accent_dark:
+            self.pref_accent_dark = accent_dark
+            self._update_swatch(self.dark_accent_swatch, accent_dark)
+        if accent_light:
+            self.pref_accent_light = accent_light
+            self._update_swatch(self.light_accent_swatch, accent_light)
+        if font_scale is not None:
+            self.font_scale_spinbox.setValue(int(font_scale))
+        if ui_density:
+            self.ui_density_combo.setCurrentText(ui_density)
+
+    def _apply_layout_from_profile(self, profile_data: dict) -> None:
+        """§4.12 — Restore window geometry and splitter states from a profile.
+
+        Geometry is applied immediately to the main window.  Splitter states are
+        written to QSettings so each splitter picks them up on its next init (or
+        the next time ``persist_splitter`` is called for that key).
+        """
+        geom_b64 = profile_data.get("layout_geometry")
+        if geom_b64 and self.main_window_ref:
+            try:
+                geom_bytes = QByteArray(base64.b64decode(geom_b64))
+                self.main_window_ref.restoreGeometry(geom_bytes)
+            except Exception:
+                pass
+
+        for key, val_b64 in profile_data.get("layout_splitters", {}).items():
+            try:
+                state_bytes = QByteArray(base64.b64decode(val_b64))
+                AppSettings.set(key, state_bytes)
+            except Exception:
+                pass
+
     def _load_selected_profile(self):
         """Loads the selected profile into the UI elements."""
         name = self.profile_combo.currentText()
@@ -1356,14 +1428,18 @@ class SettingsWindow(QWidget):
         saved_configs = profile_data.get("active_tab_configs", {})
         for tab_name, combo in self.startup_config_combos.items():
             if tab_name in saved_configs:
-                # Check if the config actually exists in the options
                 index = combo.findText(saved_configs[tab_name])
                 if index >= 0:
                     combo.setCurrentIndex(index)
                 else:
-                    combo.setCurrentIndex(0)  # Default
+                    combo.setCurrentIndex(0)
             else:
-                combo.setCurrentIndex(0)  # Default
+                combo.setCurrentIndex(0)
+
+        # §4.13 Apply Appearance
+        self._apply_appearance_from_profile(profile_data)
+        # §4.12 Apply Layout
+        self._apply_layout_from_profile(profile_data)
 
         QMessageBox.information(
             self,
@@ -1377,7 +1453,6 @@ class SettingsWindow(QWidget):
         if not name or name not in self.system_profiles:
             return
 
-        # Load it into UI fields (but skip the QMessageBox)
         profile_data = self.system_profiles[name]
 
         theme = profile_data.get("theme", "dark")
@@ -1397,7 +1472,11 @@ class SettingsWindow(QWidget):
             else:
                 combo.setCurrentIndex(0)
 
-        # Apply immediately by triggering the update logic
+        # §4.13 Apply Appearance before saving so _update_settings_logic picks them up
+        self._apply_appearance_from_profile(profile_data)
+        # §4.12 Apply Layout immediately
+        self._apply_layout_from_profile(profile_data)
+
         self._update_settings_logic()
 
     def _delete_selected_profile(self):

@@ -1,6 +1,5 @@
 import os
 import math
-from collections import deque
 
 from abc import abstractmethod
 from typing import List, Dict, Optional
@@ -12,7 +11,7 @@ from backend.src.constants import (
     SUPPORTED_VIDEO_FORMATS,
     THUMBNAIL_CACHE_DIR,
 )
-from .meta_abstract_class_gallery import MetaAbstractClassGallery
+from .gallery_base import AbstractGalleryBase
 from ..utils.lru_image_cache import LRUImageCache
 from ..components import MarqueeScrollArea, ClickableLabel
 from ..helpers import (
@@ -24,15 +23,17 @@ from ..helpers import (
 from ..utils.sort_utils import natural_sort_key
 
 
-class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
-    """
-    Abstract base class for tabs with Found/Selected galleries.
+class AbstractClassTwoGalleries(AbstractGalleryBase):
+    """Abstract base class for tabs with Found/Selected galleries.
+
     Lazy loading replaced with Sequential Loading: Images appear one by one.
     Includes Select All / Deselect All logic.
+    Shared helpers (pagination, sort, dir history) are inherited from
+    ``AbstractGalleryBase``.
     """
 
     def __init__(self):
-        super().__init__()
+        super().__init__()  # initialises shared state in AbstractGalleryBase
 
         # --- Data State ---
         self.found_files: List[str] = []
@@ -49,10 +50,7 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         self.selected_page_size = 150
         self.selected_current_page = 0
 
-        # --- UI Configuration ---
-        self.thumbnail_size = self._load_thumbnail_size(default=180)
-        self.padding_width = 10
-        self.approx_item_width = self.thumbnail_size + self.padding_width + 20
+        # --- Column counts (two-gallery-specific) ---
         self._current_found_cols = 1
         self._current_selected_cols = 1
 
@@ -62,11 +60,6 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         self.selected_gallery_scroll: Optional[MarqueeScrollArea] = None
         self.selected_gallery_layout: Optional[QGridLayout] = None
         self.status_label: Optional[QLabel] = None
-        self.open_preview_windows: List[QWidget] = []
-
-        # --- Threading ---
-        self.thread_pool = QThreadPool.globalInstance()
-        self._active_workers = set()
 
         # --- Population Timer (Sequential Loading) ---
         self._populate_found_timer = QTimer()
@@ -74,26 +67,10 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         self._populate_found_timer.timeout.connect(self._populate_found_step)
         self._populating_found_index = 0
 
-        # --- Resize Debouncing ---
-        self._resize_timer = QTimer()
-        self._resize_timer.setSingleShot(True)
-        self._resize_timer.timeout.connect(self._on_layout_change)
-
         try:
             self.last_browsed_dir = self._load_last_dir(LOCAL_SOURCE_PATH)
         except Exception:
             self.last_browsed_dir = os.getcwd()
-
-        # Flag so Ctrl+scroll zoom connections are wired once after gallery scrolls exist
-        self._scroll_zoom_connected = False
-
-        # §2.13A — sort state
-        self._sort_key = "name"
-        self._sort_reverse = False
-
-        # Directory navigation history (GUI/UX §2.21A)
-        self._dir_back_stack: deque = deque(maxlen=20)
-        self._dir_forward_stack: deque = deque(maxlen=20)
 
         # --- Search State ---
         self.master_found_files: List[str] = []
@@ -228,107 +205,18 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
         self._dir_back_stack.append(self.last_browsed_dir)
         return nxt
 
-    # --- RECENT DIRECTORIES (GUI/UX §2.10) ---
-    def _add_recent_dir(self, path: str, max_entries: int = 10) -> None:
-        """Push *path* to the front of the per-class MRU directory list."""
-        from gui.src.utils.settings import AppSettings
-        cn = self.__class__.__name__
-        dirs: list = AppSettings.session(cn, "recent_dirs", []) or []
-        if path in dirs:
-            dirs.remove(path)
-        dirs.insert(0, path)
-        AppSettings.set_session(cn, "recent_dirs", dirs[:max_entries])
+    # --- SORT (GUI/UX §2.13A) — subclass-specific part ---
 
-    def _get_recent_dirs(self) -> list:
-        """Return the MRU directory list for this tab class."""
-        main_win = self.window()
-        if not main_win:
-            from PySide6.QtWidgets import QApplication
-            for widget in QApplication.topLevelWidgets():
-                if hasattr(widget, "cached_creds"):
-                    main_win = widget
-                    break
-        if main_win and hasattr(main_win, "cached_creds"):
-            prefs = main_win.cached_creds.get("preferences", {})
-            if not prefs.get("restore_last_dir", True):
-                return []
-        from gui.src.utils.settings import AppSettings
-        return AppSettings.session(self.__class__.__name__, "recent_dirs", []) or []
+    def _on_sort_combo_changed(self, label: str) -> None:
+        self._sort_key = self._SORT_KEY_MAP.get(label, "name")
+        self.master_found_files = self._apply_sort(self.master_found_files)
+        self._perform_found_search()
 
-    # --- SESSION PERSISTENCE (GUI/UX §2.5) ---
-    def _save_last_dir(self, path: str) -> None:
-        main_win = self.window()
-        if not main_win:
-            from PySide6.QtWidgets import QApplication
-            for widget in QApplication.topLevelWidgets():
-                if hasattr(widget, "cached_creds"):
-                    main_win = widget
-                    break
-        if main_win and hasattr(main_win, "cached_creds"):
-            prefs = main_win.cached_creds.get("preferences", {})
-            if not prefs.get("restore_last_dir", True):
-                return
-        from gui.src.utils.settings import AppSettings
-        AppSettings.set_session(self.__class__.__name__, "last_dir", path)
-
-    def _load_last_dir(self, default: str = "") -> str:
-        main_win = self.window()
-        if not main_win:
-            from PySide6.QtWidgets import QApplication
-            for widget in QApplication.topLevelWidgets():
-                if hasattr(widget, "cached_creds"):
-                    main_win = widget
-                    break
-        if main_win and hasattr(main_win, "cached_creds"):
-            prefs = main_win.cached_creds.get("preferences", {})
-            if not prefs.get("restore_last_dir", True):
-                return default
-        from gui.src.utils.settings import AppSettings
-        return AppSettings.session(self.__class__.__name__, "last_dir", default)
-
-    # --- §2.14A — filename label below thumbnail ---
-    def _add_filename_label(self, card: QWidget, path: str) -> None:
-        """Append a truncated filename QLabel at the bottom of *card*'s layout (§2.14A)."""
-        layout = card.layout()
-        if layout is None:
-            return
-        name = os.path.basename(path)
-        lbl = QLabel()
-        lbl.setObjectName("thumb_filename_lbl")
-        lbl.setAlignment(Qt.AlignCenter)
-        max_w = self.thumbnail_size + 10
-        fm = lbl.fontMetrics()
-        label_h = fm.height() + 4
-        elided = fm.elidedText(name, Qt.TextElideMode.ElideMiddle, max_w)
-        lbl.setText(elided)
-        lbl.setToolTip(name)
-        lbl.setMaximumWidth(max_w)
-        lbl.setFixedHeight(label_h)
-        lbl.setStyleSheet(
-            "color: #bbb; font-size: 8pt; padding: 0 2px; background: transparent;"
-        )
-        layout.addWidget(lbl)
-        # If the card has a fixed height already set (e.g. setFixedSize in subclass),
-        # expand it to accommodate the label. Cards using QVBoxLayout without a prior
-        # fixed height (height==0 at construction) are self-sizing — no adjustment needed.
-        fixed_h = card.maximumHeight()
-        if 0 < fixed_h < 16777215:  # 16777215 = Qt QWIDGETSIZE_MAX (no constraint)
-            card.setFixedHeight(fixed_h + label_h)
-
-    # --- §2.10C — status bar helper ---
-    def _show_status(self, message: str, timeout_ms: int = 3000) -> None:
-        """Post *message* to the main-window status bar (§2.10C)."""
-        from ..windows.main_window import show_main_status
-        show_main_status(message, timeout_ms)
-
-    # --- THUMBNAIL SIZE PERSISTENCE (GUI/UX §4.11) ---
-    def _save_thumbnail_size(self) -> None:
-        from gui.src.utils.thumbnail_size import save_thumbnail_size
-        save_thumbnail_size(self.__class__.__name__, self.thumbnail_size)
-
-    def _load_thumbnail_size(self, default: int = 180) -> int:
-        from gui.src.utils.thumbnail_size import load_thumbnail_size
-        return load_thumbnail_size(self.__class__.__name__, default)
+    def _on_sort_dir_toggled(self, btn) -> None:
+        self._sort_reverse = not self._sort_reverse
+        btn.setText("↓" if self._sort_reverse else "↑")
+        self.master_found_files = self._apply_sort(self.master_found_files)
+        self._perform_found_search()
 
     def _sync_thumb_slider(self) -> None:
         """Push current thumbnail_size to both pagination sliders (after Ctrl+scroll)."""
@@ -342,45 +230,6 @@ class AbstractClassTwoGalleries(QWidget, metaclass=MetaAbstractClassGallery):
             lbl = getattr(self, attr, None)
             if lbl is not None:
                 lbl.setText(f"{self.thumbnail_size} px")
-
-    # --- SORT (GUI/UX §2.13A) ---
-    _SORT_KEY_MAP = {
-        "Name": "name",
-        "Date Modified": "mtime",
-        "File Size": "size",
-        "Extension": "ext",
-    }
-
-    def _sort_key_fn(self, path: str):
-        from ..utils.sort_utils import natural_sort_key
-        key = self._sort_key
-        if key == "mtime":
-            try:
-                return os.path.getmtime(path)
-            except OSError:
-                return 0.0
-        if key == "size":
-            try:
-                return os.path.getsize(path)
-            except OSError:
-                return 0
-        if key == "ext":
-            return os.path.splitext(path)[1].lower()
-        return natural_sort_key(path)
-
-    def _apply_sort(self, paths: list) -> list:
-        return sorted(paths, key=self._sort_key_fn, reverse=self._sort_reverse)
-
-    def _on_sort_combo_changed(self, label: str) -> None:
-        self._sort_key = self._SORT_KEY_MAP.get(label, "name")
-        self.master_found_files = self._apply_sort(self.master_found_files)
-        self._perform_found_search()
-
-    def _on_sort_dir_toggled(self, btn) -> None:
-        self._sort_reverse = not self._sort_reverse
-        btn.setText("↓" if self._sort_reverse else "↑")
-        self.master_found_files = self._apply_sort(self.master_found_files)
-        self._perform_found_search()
 
     # --- CTRL+SCROLL ZOOM (GUI/UX §2.2) ---
     def _connect_scroll_zoom(self) -> None:

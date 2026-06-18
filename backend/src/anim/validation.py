@@ -203,10 +203,16 @@ def _validate_affines(
 
 
 def _compute_adaptive_min_gap(affines: List[np.ndarray]) -> float:
-    """§0.5C — Content-adaptive minimum-gap threshold for _validate_affines.
+    """§0.5C/§0.7 — Content-adaptive minimum-gap threshold for _validate_affines.
 
-    Returns ``max(20.0, canvas_span / (N × 3))`` where ``canvas_span`` is the
-    dominant-axis displacement range across all affines.
+    Returns ``max(20.0, canvas_span / (N × 3))`` where ``canvas_span`` is:
+
+    * **vertical** scroll — ``dy_span``
+    * **horizontal** scroll — ``dx_span``
+    * **diagonal** scroll — ``sqrt(dy_span² + dx_span²)`` (§0.7: vector
+      magnitude gives the actual path length; ``max(dy, dx)`` underestimates it
+      by up to 1.41× at 45°, causing the threshold to be too loose for fast
+      diagonal pans)
 
     Rationale: for slow-scroll sequences (canvas_span ≈ 200 px, N=10) the
     expected inter-frame step is ~20 px, so the fixed 25 px threshold is too
@@ -224,7 +230,14 @@ def _compute_adaptive_min_gap(affines: List[np.ndarray]) -> float:
     txs = np.array([float(a[0, 2]) for a in affines])
     dy_span = float(tys.max() - tys.min())
     dx_span = float(txs.max() - txs.min())
-    canvas_span = max(dy_span, dx_span)
+    # §0.7: use axis-appropriate span so diagonal sequences get the correct path length.
+    scroll_axis = _detect_scroll_axis(affines)
+    if scroll_axis == "horizontal":
+        canvas_span = dx_span
+    elif scroll_axis == "diagonal":
+        canvas_span = float(np.sqrt(dy_span ** 2 + dx_span ** 2))
+    else:
+        canvas_span = dy_span
     if canvas_span < 1.0:
         return 20.0
     adaptive = canvas_span / (N * 3.0)

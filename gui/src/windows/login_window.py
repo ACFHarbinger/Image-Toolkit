@@ -298,6 +298,18 @@ class LoginWindow(QWidget):
                             stored_data["active_tab_configs"] = new_configs
                             save_required = True  # <--- SET FLAG
 
+                        # §4.13 — Merge appearance keys into preferences if present
+                        _APPEARANCE_KEYS = (
+                            "accent_color_dark", "accent_color_light",
+                            "font_scale", "ui_density",
+                        )
+                        prefs = stored_data.get("preferences", {})
+                        for _key in _APPEARANCE_KEYS:
+                            if _key in profile_data and profile_data[_key] != prefs.get(_key):
+                                prefs[_key] = profile_data[_key]
+                                save_required = True
+                        stored_data["preferences"] = prefs
+
                 # === CRITICAL MODIFICATION: Check flag before saving ===
                 if save_required:
                     # Save back to vault only if settings have changed

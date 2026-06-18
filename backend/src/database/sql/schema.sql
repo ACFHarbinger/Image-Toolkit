@@ -61,3 +61,13 @@ CREATE INDEX IF NOT EXISTS idx_images_embedding ON images
     USING hnsw (embedding vector_l2_ops)
     WITH (m = 32, ef_construction = 128)
     WHERE embedding IS NOT NULL;
+
+-- §4.6 Cross-directory phash deduplication (roadmap item 4.6).
+-- phash stores the 64-bit perceptual hash as a signed BIGINT.
+-- The ALTER TABLE form is idempotent so it is safe to run on existing deployments.
+
+-- name: add_phash_column
+ALTER TABLE images ADD COLUMN IF NOT EXISTS phash BIGINT;
+
+-- name: create_index_phash
+CREATE INDEX IF NOT EXISTS idx_images_phash ON images(phash) WHERE phash IS NOT NULL;

@@ -68,7 +68,14 @@ class LoRAGenerateTab(BaseGenerativeTab):
 
         diff_layout.addRow("Prompt:", self.prompt_edit)
         diff_layout.addRow("Negative Prompt:", self.neg_prompt_edit)
-        diff_layout.addRow("LoRA Path:", self.lora_edit)
+        lora_row = QHBoxLayout()
+        lora_row.addWidget(self.lora_edit)
+        self._lora_inspect_btn = QPushButton("Inspect")
+        self._lora_inspect_btn.setFixedWidth(68)
+        self._lora_inspect_btn.setToolTip("View metadata for this .safetensors file")
+        self._lora_inspect_btn.clicked.connect(self._inspect_lora)
+        lora_row.addWidget(self._lora_inspect_btn)
+        diff_layout.addRow("LoRA Path:", lora_row)
 
         self.steps_box = QSpinBox(minimum=1, value=25, maximum=100)
         self.guidance_box = QDoubleSpinBox()
@@ -308,3 +315,18 @@ class LoRAGenerateTab(BaseGenerativeTab):
             thread.start()
         except Exception as e:
             self.handle_generation_finished("error", str(e))
+
+    def _inspect_lora(self) -> None:
+        path = self.lora_edit.text().strip()
+        if not path:
+            QMessageBox.warning(self, "No Path", "Enter a LoRA path first.")
+            return
+        if not path.endswith(".safetensors"):
+            path = path + ".safetensors"
+        if not os.path.isfile(path):
+            QMessageBox.warning(
+                self, "File Not Found", f"Could not find:\n{path}"
+            )
+            return
+        from gui.src.components.safetensors_inspector import SafetensorsInspectorDialog
+        SafetensorsInspectorDialog(path=path, parent=self).exec()

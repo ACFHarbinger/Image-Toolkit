@@ -6,8 +6,11 @@ use pyo3::exceptions::PyValueError;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
-// Re-use logic from image_converter would be ideal, but for now I'll duplicate the simple load/resize helpers to keep modules decoupled or I could make them public in image_converters.
-// To avoid complexity, I'll inline a simple resize helper here.
+// §2.12 — Two-pass streaming merger: Pass 1 reads only image headers (width/height)
+// via image::image_dimensions() so canvas dimensions can be computed without loading
+// any pixel data.  Pass 2 loads and blits one image at a time, dropping each
+// DynamicImage immediately after the overlay.  Peak RAM = 1 image + output canvas,
+// instead of N images + output canvas.
 
 fn load_img(path: &str) -> Result<DynamicImage> {
     ImageReader::open(path)
@@ -16,14 +19,18 @@ fn load_img(path: &str) -> Result<DynamicImage> {
         .map_err(|e| anyhow!("Failed to decode: {}", e))
 }
 
-fn fast_resize(img: &DynamicImage, w: u32, h: u32) -> DynamicImage {
+/// Pass-1 helper: read (width, height) from the image header only (no pixel decode).
+fn read_dimensions(path: &str) -> Result<(u32, u32)> {
+    image::image_dimensions(path).map_err(|e| anyhow!("Failed to read dimensions of {}: {}", path, e))
+}
+
+fn fast_resize(img: DynamicImage, w: u32, h: u32) -> DynamicImage {
     let src_w = img.width();
     let src_h = img.height();
     if src_w == w && src_h == h {
-        return img.clone();
+        return img;
     }
 
-    // Convert to Rgba8
     let src_image = fr::images::Image::from_vec_u8(
         src_w,
         src_h,
@@ -49,52 +56,57 @@ pub fn merge_images_horizontal_core(
         return Ok(false);
     }
 
-    let images: Vec<DynamicImage> = image_paths
+    // Pass 1 — read headers only to compute canvas dimensions
+    let dims: Vec<(u32, u32)> = image_paths
         .iter()
-        .filter_map(|p| load_img(p).ok())
+        .filter_map(|p| read_dimensions(p).ok())
         .collect();
 
-    if images.is_empty() {
+    if dims.is_empty() {
         return Ok(false);
     }
 
-    // Calc dimensions
-    let heights: Vec<u32> = images.iter().map(|i| i.height()).collect();
-    let max_h = *heights.iter().max().unwrap();
+    let max_h = dims.iter().map(|&(_, h)| h).max().unwrap();
+    let total_width: u32 = dims.iter().map(|&(w, _)| w).sum::<u32>()
+        + (spacing * (dims.len() as u32 - 1));
 
-    let mut final_images = Vec::new();
-
-    if align_mode == "stretch" || align_mode == "squish" {
-        for img in images {
-            final_images.push(fast_resize(&img, img.width(), max_h));
-        }
-    } else {
-        final_images = images;
-    }
-
-    let total_width: u32 = final_images.iter().map(|i| i.width()).sum::<u32>()
-        + (spacing * (final_images.len() as u32 - 1));
-    let canvas_height = max_h;
-
-    let mut canvas = RgbaImage::new(total_width, canvas_height);
+    let mut canvas = RgbaImage::new(total_width, max_h);
     for p in canvas.pixels_mut() {
         *p = image::Rgba([255, 255, 255, 255]);
     }
 
-    let mut current_x = 0;
+    // Pass 2 — load, blit, drop one image at a time
+    let mut current_x: u32 = 0;
+    let mut blitted = 0usize;
 
-    for img in final_images {
-        let (w, h) = (img.width(), img.height());
-        // Align y
-        let y_offset = match align_mode {
-            "bottom" => canvas_height - h,
-            "center" => (canvas_height - h) / 2,
-            _ => 0, // Top
+    for path in image_paths {
+        let img = match load_img(path) {
+            Ok(i) => i,
+            Err(_) => continue,
         };
 
-        // Paste
+        let img = if align_mode == "stretch" || align_mode == "squish" {
+            let w = img.width();
+            fast_resize(img, w, max_h)
+        } else {
+            img
+        };
+
+        let (w, h) = (img.width(), img.height());
+        let y_offset: u32 = match align_mode {
+            "bottom" => max_h - h,
+            "center" => (max_h - h) / 2,
+            _ => 0,
+        };
+
         image::imageops::overlay(&mut canvas, &img, current_x as i64, y_offset as i64);
         current_x += w + spacing;
+        blitted += 1;
+        // img is dropped here, freeing its pixel buffer immediately
+    }
+
+    if blitted == 0 {
+        return Ok(false);
     }
 
     canvas
@@ -109,7 +121,7 @@ pub fn merge_images_horizontal(
     image_paths: Vec<String>,
     output_path: String,
     spacing: u32,
-    align_mode: String, // "center", "top", "bottom", "stretch"
+    align_mode: String,
 ) -> PyResult<bool> {
     merge_images_horizontal_core(&image_paths, &output_path, spacing, &align_mode)
         .map_err(|e| PyValueError::new_err(format!("{}", e)))
@@ -125,39 +137,50 @@ pub fn merge_images_vertical_core(
         return Ok(false);
     }
 
-    let images: Vec<DynamicImage> = image_paths
+    // Pass 1 — read headers only
+    let dims: Vec<(u32, u32)> = image_paths
         .iter()
-        .filter_map(|p| load_img(p).ok())
+        .filter_map(|p| read_dimensions(p).ok())
         .collect();
 
-    if images.is_empty() {
+    if dims.is_empty() {
         return Ok(false);
     }
 
-    let widths: Vec<u32> = images.iter().map(|i| i.width()).collect();
-    let max_w = *widths.iter().max().unwrap();
+    let max_w = dims.iter().map(|&(w, _)| w).max().unwrap();
+    let total_height: u32 = dims.iter().map(|&(_, h)| h).sum::<u32>()
+        + (spacing * (dims.len() as u32 - 1));
 
-    let total_height: u32 =
-        images.iter().map(|i| i.height()).sum::<u32>() + (spacing * (images.len() as u32 - 1));
-    let canvas_width = max_w;
-
-    let mut canvas = RgbaImage::new(canvas_width, total_height);
+    let mut canvas = RgbaImage::new(max_w, total_height);
     for p in canvas.pixels_mut() {
         *p = image::Rgba([255, 255, 255, 255]);
     }
 
-    let mut current_y = 0;
+    // Pass 2 — load, blit, drop one image at a time
+    let mut current_y: u32 = 0;
+    let mut blitted = 0usize;
 
-    for img in images {
+    for path in image_paths {
+        let img = match load_img(path) {
+            Ok(i) => i,
+            Err(_) => continue,
+        };
+
         let (w, h) = (img.width(), img.height());
-        let x_offset = match align_mode {
-            "right" => canvas_width - w,
-            "center" => (canvas_width - w) / 2,
-            _ => 0, // Left
+        let x_offset: u32 = match align_mode {
+            "right" => max_w - w,
+            "center" => (max_w - w) / 2,
+            _ => 0,
         };
 
         image::imageops::overlay(&mut canvas, &img, x_offset as i64, current_y as i64);
         current_y += h + spacing;
+        blitted += 1;
+        // img is dropped here, freeing its pixel buffer immediately
+    }
+
+    if blitted == 0 {
+        return Ok(false);
     }
 
     canvas
@@ -189,18 +212,18 @@ pub fn merge_images_grid_core(
         return Ok(false);
     }
 
-    let images: Vec<DynamicImage> = image_paths
+    // Pass 1 — read headers only to find max cell dimensions
+    let dims: Vec<(u32, u32)> = image_paths
         .iter()
-        .filter_map(|p| load_img(p).ok())
+        .filter_map(|p| read_dimensions(p).ok())
         .collect();
 
-    if images.is_empty() {
+    if dims.is_empty() {
         return Ok(false);
     }
 
-    // Find Max Cells
-    let max_w = images.iter().map(|i| i.width()).max().unwrap();
-    let max_h = images.iter().map(|i| i.height()).max().unwrap();
+    let max_w = dims.iter().map(|&(w, _)| w).max().unwrap();
+    let max_h = dims.iter().map(|&(_, h)| h).max().unwrap();
 
     let total_w = cols * max_w + (spacing * (cols - 1));
     let total_h = rows * max_h + (spacing * (rows - 1));
@@ -210,17 +233,31 @@ pub fn merge_images_grid_core(
         *p = image::Rgba([255, 255, 255, 255]);
     }
 
-    for (idx, img) in images.iter().enumerate() {
+    // Pass 2 — load, blit, drop one image at a time
+    let mut blitted = 0usize;
+
+    for (idx, path) in image_paths.iter().enumerate() {
         let row = idx as u32 / cols;
         let col = idx as u32 % cols;
         if row >= rows {
             break;
         }
 
+        let img = match load_img(path) {
+            Ok(i) => i,
+            Err(_) => continue,
+        };
+
         let x = col * (max_w + spacing) + (max_w - img.width()) / 2;
         let y = row * (max_h + spacing) + (max_h - img.height()) / 2;
 
-        image::imageops::overlay(&mut canvas, img, x as i64, y as i64);
+        image::imageops::overlay(&mut canvas, &img, x as i64, y as i64);
+        blitted += 1;
+        // img is dropped here, freeing its pixel buffer immediately
+    }
+
+    if blitted == 0 {
+        return Ok(false);
     }
 
     canvas
@@ -268,7 +305,6 @@ mod tests {
         create_test_image(p1.to_str().unwrap(), 100, 100, [255, 0, 0]);
         create_test_image(p2.to_str().unwrap(), 50, 50, [0, 255, 0]);
 
-        // horizontal merge: width should be 100+50 = 150, height max(100,50) = 100
         let paths = vec![
             p1.to_str().unwrap().to_string(),
             p2.to_str().unwrap().to_string(),
@@ -294,7 +330,6 @@ mod tests {
         create_test_image(p1.to_str().unwrap(), 100, 100, [255, 0, 0]);
         create_test_image(p2.to_str().unwrap(), 50, 50, [0, 255, 0]);
 
-        // vertical merge: width max(100,50)=100, height 100+50=150
         let paths = vec![
             p1.to_str().unwrap().to_string(),
             p2.to_str().unwrap().to_string(),
@@ -308,5 +343,72 @@ mod tests {
         let res_img = image::open(&out).unwrap();
         assert_eq!(res_img.width(), 100);
         assert_eq!(res_img.height(), 150);
+    }
+
+    #[test]
+    fn test_merge_horizontal_streaming_correct_dims() {
+        // Verify that two-pass produces the same canvas size as the old one-pass code
+        let dir = tempdir().unwrap();
+        let paths: Vec<String> = (0..5u32)
+            .map(|i| {
+                let p = dir.path().join(format!("{}.png", i));
+                create_test_image(p.to_str().unwrap(), 100 + i * 20, 80 + i * 10, [i as u8 * 50, 0, 0]);
+                p.to_str().unwrap().to_string()
+            })
+            .collect();
+        let out = dir.path().join("h_stream.png");
+        assert!(merge_images_horizontal_core(&paths, out.to_str().unwrap(), 5, "center").unwrap());
+        let img = image::open(&out).unwrap();
+        // width = sum(100,120,140,160,180) + 4*5 spacing = 700 + 20 = 720
+        assert_eq!(img.width(), 720);
+        // height = max(80,90,100,110,120) = 120
+        assert_eq!(img.height(), 120);
+    }
+
+    #[test]
+    fn test_merge_vertical_streaming_correct_dims() {
+        let dir = tempdir().unwrap();
+        let paths: Vec<String> = (0..4u32)
+            .map(|i| {
+                let p = dir.path().join(format!("{}.png", i));
+                create_test_image(p.to_str().unwrap(), 60 + i * 10, 40 + i * 15, [0, i as u8 * 60, 0]);
+                p.to_str().unwrap().to_string()
+            })
+            .collect();
+        let out = dir.path().join("v_stream.png");
+        assert!(merge_images_vertical_core(&paths, out.to_str().unwrap(), 2, "center").unwrap());
+        let img = image::open(&out).unwrap();
+        // height = sum(40,55,70,85) + 3*2 = 250 + 6 = 256
+        assert_eq!(img.height(), 256);
+        // width = max(60,70,80,90) = 90
+        assert_eq!(img.width(), 90);
+    }
+
+    #[test]
+    fn test_merge_grid_streaming_correct_dims() {
+        let dir = tempdir().unwrap();
+        let paths: Vec<String> = (0..6u32)
+            .map(|i| {
+                let p = dir.path().join(format!("{}.png", i));
+                create_test_image(p.to_str().unwrap(), 50, 50, [i as u8 * 40, 0, 0]);
+                p.to_str().unwrap().to_string()
+            })
+            .collect();
+        let out = dir.path().join("g_stream.png");
+        assert!(merge_images_grid_core(&paths, out.to_str().unwrap(), 2, 3, 10).unwrap());
+        let img = image::open(&out).unwrap();
+        // total_w = 3*50 + 2*10 = 170; total_h = 2*50 + 1*10 = 110
+        assert_eq!(img.width(), 170);
+        assert_eq!(img.height(), 110);
+    }
+
+    #[test]
+    fn test_empty_paths_returns_false() {
+        let dir = tempdir().unwrap();
+        let out = dir.path().join("empty.png");
+        let paths: Vec<String> = vec![];
+        assert!(!merge_images_horizontal_core(&paths, out.to_str().unwrap(), 0, "top").unwrap());
+        assert!(!merge_images_vertical_core(&paths, out.to_str().unwrap(), 0, "left").unwrap());
+        assert!(!merge_images_grid_core(&paths, out.to_str().unwrap(), 2, 2, 0).unwrap());
     }
 }
