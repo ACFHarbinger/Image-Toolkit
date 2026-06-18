@@ -631,11 +631,11 @@ class DriveSyncTab(QWidget):
                 "Dry Run Completed",
                 "The Dry Run finished successfully.\n\n"
                 "Do you want to apply these changes now (Execute LIVE Sync)?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
             )
 
-            if reply == QMessageBox.Yes:
+            if reply == QMessageBox.StandardButton.Yes:
                 self.log_window.append_log(
                     "\nUser confirmed application of changes. Starting LIVE run..."
                 )
@@ -667,7 +667,7 @@ class DriveSyncTab(QWidget):
         if dir_:
             self.local_path.setText(dir_)
 
-    def browse_directory(self, line_edit: QLineEdit = None):
+    def browse_directory(self, line_edit: Optional[QLineEdit] = None):
         line_edit = line_edit or self.local_path
         dir_ = QFileDialog.getExistingDirectory(
             self, "Select Folder", line_edit.text() or str(Path.home())

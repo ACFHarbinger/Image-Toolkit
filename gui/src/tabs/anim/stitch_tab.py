@@ -24,11 +24,16 @@ from backend.src.anim import AnimeStitchPipeline
 
 import os
 import re
-import tempfile
-from typing import Dict, List, Optional, Tuple
-
 import cv2
+import json
+import pathlib
+import tempfile
 import numpy as np
+
+from math import gcd
+from PIL import Image
+from sklearn.cluster import KMeans
+from typing import Dict, List, Optional, Tuple
 from PySide6.QtCore import (
     QObject,
     QPointF,
@@ -98,24 +103,59 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ....helpers.models.stitch_worker import (
+from ...helpers.anim import (
     AdjustWorker,
     CanvasWorker,
     GraphStitchWorker,
     MatchWorker,
     MaskPreviewWorker,
     StitchWorker,
+    StatsWorker,
+    AnimClusterWorker,
+    SequenceBuilderWorker,
 )
-from ....styles.style import apply_shadow_effect
-from ....dialogs import (
+from ...styles.style import apply_shadow_effect
+from ...utils.splitter_persistence import persist_splitter
+from ...helpers.anim.adjust_worker import _apply_adjustments
+from ...dialogs import (
     CoverageHeatmapDialog,
     CanvasInspectorDialog,
     EdgeReviewDialog,
     MaskReviewDialog,
     SelectionReviewDialog,
 )
-from .hybrid_stitch_panel import HybridStitchPanel as RealHybridStitchPanel
-from ....constants import (
+from backend.src.anim.masking import (
+    _compute_fg_masks_grounded_sam2,
+    _refine_masks_with_clicks,
+)
+from .edge_graph_inspector_dialog import (
+    EdgeGraphInspectorDialog,
+    _parse_edge_json,
+    _edge_graph_node_positions,
+)
+from .canvas_layout_inspector_dialog import (
+    CanvasLayoutInspectorDialog,
+    _parse_canvas_json,
+    _canvas_frame_corners,
+)
+from .panels import (
+    EditTabPanel,
+    StitchPanel,
+    GraphPanel,
+    AdjustPanel,
+    CanvasPanel,
+    StatsPanel,
+    SeqBuilderPanel,
+    HybridStitchPanel,
+    AnimClustersPanel,
+)
+
+from gui.src.dialogs.seam_painter_dialog import SeamPainterDialog
+from gui.src.dialogs.boundary_editor_dialog import BoundaryEditorDialog
+from gui.src.dialogs.seam_diagnostic_dialog import SeamDiagnosticDialog
+from gui.src.dialogs.hitl_session_viewer_dialog import HITLSessionViewerDialog
+from gui.src.dialogs.final_output_review_dialog import FinalOutputReviewDialog
+from ...constants import (
     CONF_HIGH,
     CONF_MED,
     CONF_LOW,
@@ -289,8 +329,8 @@ class _ThumbnailFilePicker(QDialog):
         splitter.addWidget(self._grid)
         splitter.setSizes([150, 800])
         splitter.setStretchFactor(1, 1)
-        from ....utils.splitter_persistence import persist_splitter as _psp
-        _psp(splitter, "ThumbnailFilePicker/sidebar")
+
+        persist_splitter(splitter, "ThumbnailFilePicker/sidebar")
         layout.addWidget(splitter)
 
         # Status + icon-size slider + buttons
@@ -1178,1168 +1218,6 @@ class _MatchView(QGraphicsView):
         self.fitInView(self.scene().sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
 
-# ---------------------------------------------------------------------------
-# Statistics worker — runs off the main thread
-# ---------------------------------------------------------------------------
-
-
-class _StatsSignals(QObject):
-    individual_done = Signal(list)  # List[dict] — one dict per image
-    pairwise_done = Signal(list)  # List[dict] — one dict per pair
-    progress = Signal(int)  # 0-100
-    error = Signal(str)
-
-
-class StatsWorker(QRunnable):
-    """
-    Computes per-image and pairwise statistics for a list of image paths.
-
-    Per-image metrics
-    -----------------
-    resolution, aspect_ratio, brightness, contrast, sharpness, saturation,
-    dominant_hue, noise_estimate, file_size_kb
-
-    Pairwise metrics (consecutive pairs + all pairs if ≤ 12 images)
-    ---------------------------------------------------------------
-    hist_correlation, ssim, orb_inliers, mean_diff
-    """
-
-    def __init__(self, paths: List[str], knn_window: int = 20):
-        super().__init__()
-        self.setAutoDelete(True)
-        self._paths = list(paths)
-        self._knn_window = max(1, knn_window)
-        self.signals = _StatsSignals()
-        self._cancelled = False
-
-    def cancel(self):
-        self._cancelled = True
-
-    def run(self):
-        try:
-            self._compute()
-        except Exception as exc:
-            self.signals.error.emit(str(exc))
-
-    # ------------------------------------------------------------------
-    def _compute(self):
-        paths = self._paths
-        n = len(paths)
-        if n == 0:
-            self.signals.individual_done.emit([])
-            self.signals.pairwise_done.emit([])
-            return
-
-        individual: List[dict] = []
-        knn = self._knn_window
-        # For large sets: consecutive pairs + K-window extended pairs
-        # For small sets (≤ 12): all pairs (already covers everything)
-        if n <= 12:
-            _n_pw_est = n * (n - 1) // 2
-        else:
-            _n_pw_est = (n - 1) + (n - 1) * min(knn - 1, n - 2)
-        total_steps = n + max(_n_pw_est, 1)
-        done = 0
-
-        # ── Per-image ──────────────────────────────────────────────────
-        bgr_cache: Dict[str, np.ndarray] = {}
-
-        for path in paths:
-            if self._cancelled:
-                return
-            row = self._image_stats(path)
-            individual.append(row)
-            bgr = cv2.imread(path)
-            if bgr is not None:
-                # Cache a small version for pairwise (saves memory)
-                h, w = bgr.shape[:2]
-                scale = min(1.0, 512 / max(h, w, 1))
-                if scale < 1.0:
-                    bgr = cv2.resize(
-                        bgr,
-                        (int(w * scale), int(h * scale)),
-                        interpolation=cv2.INTER_AREA,
-                    )
-            bgr_cache[path] = bgr
-            done += 1
-            self.signals.progress.emit(int(done / total_steps * 100))
-
-        self.signals.individual_done.emit(individual)
-
-        # ── Pairwise ───────────────────────────────────────────────────
-        # For ≤ 12 images: all pairs (covers every combination).
-        # For larger sets: consecutive pairs PLUS an extended K-window so
-        # that periodically-repeating poses (common in anime cycles) are
-        # captured.  Each row carries a "consecutive" flag so the
-        # recommendations section can distinguish direct neighbours from
-        # extended-window candidates.
-        if n <= 12:
-            pairs = [(i, j, True) for i in range(n) for j in range(i + 1, n)]
-        else:
-            seen: set = set()
-            pairs = []
-            for i in range(n - 1):
-                if (i, i + 1) not in seen:
-                    pairs.append((i, i + 1, True))
-                    seen.add((i, i + 1))
-            for i in range(n):
-                for step in range(2, knn + 1):
-                    j = i + step
-                    if j < n and (i, j) not in seen:
-                        pairs.append((i, j, False))
-                        seen.add((i, j))
-
-        pairwise: List[dict] = []
-        total_steps_pw = max(len(pairs), 1)
-        done_pw = 0
-
-        orb = cv2.ORB_create(nfeatures=500)
-
-        for i, j, is_consec in pairs:
-            if self._cancelled:
-                return
-            pa, pb = paths[i], paths[j]
-            a = bgr_cache.get(pa)
-            b = bgr_cache.get(pb)
-            row = self._pair_stats(pa, pb, a, b, i, j, orb)
-            row["consecutive"] = is_consec
-            pairwise.append(row)
-            done_pw += 1
-            # Map pairwise progress onto second half
-            pct = int((n + done_pw / total_steps_pw * (n - 1)) / total_steps * 100)
-            self.signals.progress.emit(min(pct, 99))
-
-        self.signals.pairwise_done.emit(pairwise)
-        self.signals.progress.emit(100)
-
-    # ------------------------------------------------------------------
-    @staticmethod
-    def _image_stats(path: str) -> dict:
-        import os as _os
-
-        row: dict = {"path": path, "name": _os.path.basename(path)}
-
-        try:
-            file_size_kb = round(_os.path.getsize(path) / 1024, 1)
-        except OSError:
-            file_size_kb = 0.0
-        row["file_size_kb"] = file_size_kb
-
-        bgr = cv2.imread(path)
-        if bgr is None:
-            row.update(
-                {
-                    "width": 0,
-                    "height": 0,
-                    "aspect_ratio": "—",
-                    "brightness": 0.0,
-                    "contrast": 0.0,
-                    "sharpness": 0.0,
-                    "saturation": 0.0,
-                    "dominant_hue": 0,
-                    "noise": 0.0,
-                }
-            )
-            return row
-
-        h, w = bgr.shape[:2]
-        row["width"] = w
-        row["height"] = h
-        from math import gcd
-
-        g = gcd(w, h)
-        row["aspect_ratio"] = f"{w // g}:{h // g}"
-
-        gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY).astype(np.float32)
-        row["brightness"] = round(float(gray.mean()), 2)
-        row["contrast"] = round(float(gray.std()), 2)
-
-        lap = cv2.Laplacian(gray, cv2.CV_32F)
-        row["sharpness"] = round(float(lap.var()), 2)
-
-        # Noise estimate: median absolute deviation of Laplacian
-        lap_abs = np.abs(lap - np.median(lap))
-        row["noise"] = round(float(np.median(lap_abs)), 2)
-
-        hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
-        row["saturation"] = round(float(hsv[:, :, 1].mean()), 2)
-
-        # Dominant hue: peak of hue histogram (ignore low-saturation pixels)
-        sat_mask = (hsv[:, :, 1] > 30).astype(np.uint8)
-        if sat_mask.sum() > 100:
-            hue_hist = cv2.calcHist([hsv], [0], sat_mask, [180], [0, 180])
-            row["dominant_hue"] = int(np.argmax(hue_hist))
-        else:
-            row["dominant_hue"] = -1  # achromatic
-
-        return row
-
-    # ------------------------------------------------------------------
-    @staticmethod
-    def _pair_stats(pa: str, pb: str, a, b, i: int, j: int, orb) -> dict:
-        row = {
-            "idx_a": i,
-            "idx_b": j,
-            "path_a": pa,
-            "path_b": pb,
-            "name_a": os.path.basename(pa),
-            "name_b": os.path.basename(pb),
-            "hist_corr": 0.0,
-            "ssim": 0.0,
-            "orb_inliers": 0,
-            "mean_diff": 0.0,
-        }
-
-        if a is None or b is None:
-            return row
-
-        # Resize to same shape for pixel-level metrics
-        h = min(a.shape[0], b.shape[0])
-        w = min(a.shape[1], b.shape[1])
-        ar = cv2.resize(a, (w, h), interpolation=cv2.INTER_AREA)
-        br = cv2.resize(b, (w, h), interpolation=cv2.INTER_AREA)
-
-        # Histogram correlation (per channel, averaged)
-        corrs = []
-        for c in range(3):
-            ha = cv2.calcHist([ar], [c], None, [64], [0, 256])
-            hb = cv2.calcHist([br], [c], None, [64], [0, 256])
-            corrs.append(float(cv2.compareHist(ha, hb, cv2.HISTCMP_CORREL)))
-        row["hist_corr"] = round(float(np.mean(corrs)), 4)
-
-        # SSIM (grayscale, simplified)
-        ga = cv2.cvtColor(ar, cv2.COLOR_BGR2GRAY).astype(np.float32)
-        gb = cv2.cvtColor(br, cv2.COLOR_BGR2GRAY).astype(np.float32)
-        C1, C2 = 6.5025, 58.5225
-        mu_a = cv2.GaussianBlur(ga, (11, 11), 1.5)
-        mu_b = cv2.GaussianBlur(gb, (11, 11), 1.5)
-        mu_a2, mu_b2, mu_ab = mu_a**2, mu_b**2, mu_a * mu_b
-        sig_a2 = cv2.GaussianBlur(ga * ga, (11, 11), 1.5) - mu_a2
-        sig_b2 = cv2.GaussianBlur(gb * gb, (11, 11), 1.5) - mu_b2
-        sig_ab = cv2.GaussianBlur(ga * gb, (11, 11), 1.5) - mu_ab
-        ssim_map = ((2 * mu_ab + C1) * (2 * sig_ab + C2)) / (
-            (mu_a2 + mu_b2 + C1) * (sig_a2 + sig_b2 + C2)
-        )
-        row["ssim"] = round(float(ssim_map.mean()), 4)
-
-        # Mean pixel difference
-        row["mean_diff"] = round(
-            float(np.abs(ar.astype(np.float32) - br.astype(np.float32)).mean()), 2
-        )
-
-        # ORB feature matching inliers
-        try:
-            kp_a, des_a = orb.detectAndCompute(
-                cv2.cvtColor(ar, cv2.COLOR_BGR2GRAY), None
-            )
-            kp_b, des_b = orb.detectAndCompute(
-                cv2.cvtColor(br, cv2.COLOR_BGR2GRAY), None
-            )
-            if (
-                des_a is not None
-                and des_b is not None
-                and len(kp_a) >= 4
-                and len(kp_b) >= 4
-            ):
-                bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
-                matches = bf.knnMatch(des_a, des_b, k=2)
-                good = [m for m, n in matches if m.distance < 0.75 * n.distance]
-                if len(good) >= 4:
-                    src_pts = np.float32([kp_a[m.queryIdx].pt for m in good]).reshape(
-                        -1, 1, 2
-                    )
-                    dst_pts = np.float32([kp_b[m.trainIdx].pt for m in good]).reshape(
-                        -1, 1, 2
-                    )
-                    _, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
-                    row["orb_inliers"] = (
-                        int(mask.sum()) if mask is not None else len(good)
-                    )
-                else:
-                    row["orb_inliers"] = len(good)
-        except Exception:
-            pass
-
-        return row
-
-    # ---------------------------------------------------------------------------
-    # Animation cluster worker — runs off the main thread
-    # ---------------------------------------------------------------------------
-
-    progress = Signal(int)  # 0-100
-    error = Signal(str)
-
-
-class AnimClusterWorker(QRunnable):
-    """
-    Groups a list of image paths into animation phases using per-pixel temporal
-    FFT analysis (replicating AnimeStitchPipeline._cluster_animation_phases).
-
-    Each result dict:
-        path         : str   — absolute image path
-        cluster      : int   — 0-based phase index  (-1 = unassigned)
-        cluster_name : str   — human-readable label
-        is_animated  : bool  — True if temporal animation was detected
-        ac_ratio     : float — mean AC/(DC+AC) ratio across the frame set
-    """
-
-    def __init__(
-        self,
-        paths: List[str],
-        ac_threshold: float = 0.25,
-        min_anim_pixels: int = 500,
-    ):
-        super().__init__()
-        self.setAutoDelete(True)
-        self._paths = list(paths)
-        self._ac_threshold = ac_threshold
-        self._min_anim_pixels = min_anim_pixels
-        self.signals = _AnimClusterSignals()
-        self._cancelled = False
-
-    def cancel(self):
-        self._cancelled = True
-
-    def run(self):
-        try:
-            try:
-                from sklearn.cluster import KMeans  # noqa: F401
-            except ImportError:
-                self.signals.error.emit(
-                    "scikit-learn is not installed.\n\n"
-                    "Run:  pip install scikit-learn\n\n"
-                    "Restart the application after installing."
-                )
-                return
-            self._compute()
-        except Exception as exc:
-            self.signals.error.emit(str(exc))
-
-    def _compute(self):
-        from sklearn.cluster import KMeans
-
-        paths = self._paths
-        N = len(paths)
-        if N == 0:
-            self.signals.finished.emit([])
-            return
-
-        # ── Load frames, normalise to first frame's size ─────────────────
-        frames: List[np.ndarray] = []
-        H = W = 0
-        for i, p in enumerate(paths):
-            if self._cancelled:
-                return
-            img = cv2.imread(p)
-            if img is None:
-                img = np.zeros((100, 100, 3), np.uint8)
-            if i == 0:
-                H, W = img.shape[:2]
-            elif img.shape[:2] != (H, W):
-                img = cv2.resize(img, (W, H), interpolation=cv2.INTER_AREA)
-            frames.append(img)
-            self.signals.progress.emit(int((i + 1) / N * 35))
-
-        if N < 4:
-            rows = [
-                {
-                    "path": p,
-                    "cluster": 0,
-                    "cluster_name": "Static (need ≥ 4 frames)",
-                    "is_animated": False,
-                    "ac_ratio": 0.0,
-                }
-                for p in paths
-            ]
-            self.signals.finished.emit(rows)
-            return
-
-        # ── Downsample and build small greyscale stack ────────────────────
-        target_w = 320
-        scale = target_w / max(W, 1)
-        th = max(1, int(H * scale))
-        tw = target_w
-
-        small_stack: List[np.ndarray] = []
-        for i, frame in enumerate(frames):
-            if self._cancelled:
-                return
-            M_small = np.array([[scale, 0.0, 0.0], [0.0, scale, 0.0]], np.float32)
-            warped = cv2.warpAffine(frame, M_small, (tw, th), flags=cv2.INTER_AREA)
-            gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY).astype(np.float32) / 255.0
-            small_stack.append(gray)
-            self.signals.progress.emit(35 + int((i + 1) / N * 25))
-
-        stack_arr = np.stack(small_stack, axis=0)  # (N, th, tw)
-
-        # ── Temporal FFT: detect animated pixels ─────────────────────────
-        F = np.fft.rfft(stack_arr, axis=0)
-        power = np.abs(F) ** 2
-        dc_power = power[0]
-        ac_power = power[1:].sum(axis=0)
-        ratio = ac_power / (dc_power + ac_power + 1e-8)
-        mean_ratio = float(ratio.mean())
-
-        anim_mask = (ratio > self._ac_threshold).astype(np.uint8) * 255
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        anim_mask = cv2.morphologyEx(anim_mask, cv2.MORPH_OPEN, kernel)
-        anim_mask = cv2.morphologyEx(anim_mask, cv2.MORPH_CLOSE, kernel)
-
-        n_anim_px = int(anim_mask.sum()) // 255
-        if n_anim_px < self._min_anim_pixels:
-            rows = [
-                {
-                    "path": p,
-                    "cluster": 0,
-                    "cluster_name": "Static (no animation detected)",
-                    "is_animated": False,
-                    "ac_ratio": mean_ratio,
-                }
-                for p in paths
-            ]
-            self.signals.finished.emit(rows)
-            return
-
-        # ── Cluster frames by Canny edge signature on anim pixels ─────────
-        anim_ys, anim_xs = np.where(anim_mask > 0)
-        sigs: List[np.ndarray] = []
-        for gray in small_stack:
-            edges = cv2.Canny((gray * 255).astype(np.uint8), 50, 150)
-            sigs.append(edges[anim_ys, anim_xs].astype(np.float32))
-        sig_matrix = np.stack(sigs, axis=0)  # (N, K)
-
-        n_clusters = max(2, min(8, N // 2))
-        km = KMeans(n_clusters=n_clusters, n_init=5, random_state=0)
-        labels = km.fit_predict(sig_matrix)
-
-        self.signals.progress.emit(95)
-
-        rows = []
-        for i, p in enumerate(paths):
-            c = int(labels[i])
-            rows.append(
-                {
-                    "path": p,
-                    "cluster": c,
-                    "cluster_name": f"Phase {c + 1}",
-                    "is_animated": True,
-                    "ac_ratio": mean_ratio,
-                }
-            )
-        rows.sort(key=lambda r: (r["cluster"], os.path.basename(r["path"])))
-
-        self.signals.progress.emit(100)
-        self.signals.finished.emit(rows)
-
-
-# ---------------------------------------------------------------------------
-# Sequence-builder worker
-# ---------------------------------------------------------------------------
-
-
-class _SeqBuilderSignals(QObject):
-    progress = Signal(int)  # 0-100
-    result = Signal(list)  # List[dict]: ordered chain items
-    error = Signal(str)
-
-
-class SequenceBuilderWorker(QRunnable):
-    """
-    Given an anchor image and a pool of candidates, builds the longest
-    sequential stitching chain greedily.
-
-    Scoring — stitchability, not similarity
-    ----------------------------------------
-    Two frames are good for stitching when they share overlapping content AND
-    the camera has panned enough to reveal new content.  The old approach
-    (SSIM + hist_corr + ORB inliers) measured raw similarity, so near-identical
-    consecutive frames scored highest — the opposite of what is needed.
-
-    This version scores each candidate by:
-      1. ORB feature matching + RANSAC homography against the current tail.
-      2. Extracting the translation (dx, dy) from the homography.
-      3. Rejecting near-duplicates  : |translation| < min_pan  (same view)
-      4. Rejecting non-overlapping  : |translation| > max_pan  (no shared content)
-      5. Fitness = inlier_ratio × displacement_quality(ratio)
-         where displacement_quality peaks at ~30% of frame diagonal and falls
-         off toward 0 at the min/max boundaries.
-
-    Sharpness filter
-    ----------------
-    Each candidate is compared against the anchor's Laplacian variance.
-    Candidates whose sharpness is below `blur_threshold × anchor_sharpness`
-    are excluded before the chain search begins.
-    """
-
-    def __init__(
-        self,
-        anchor: str,
-        candidates: List[str],
-        min_score: float = 0.25,
-        blur_threshold: float = 0.5,
-        min_pan_ratio: float = 0.03,
-        max_pan_ratio: float = 0.85,
-    ):
-        super().__init__()
-        self.setAutoDelete(True)
-        self._anchor = anchor
-        self._candidates = [p for p in candidates if p != anchor]
-        self._min_score = min_score
-        self._blur_threshold = blur_threshold  # sharpness relative to anchor
-        self._min_pan = min_pan_ratio  # min translation as fraction of diagonal
-        self._max_pan = max_pan_ratio  # max translation as fraction of diagonal
-        self.signals = _SeqBuilderSignals()
-        self._cancelled = False
-
-    def cancel(self):
-        self._cancelled = True
-
-    def run(self):
-        try:
-            self._build()
-        except Exception as exc:
-            self.signals.error.emit(str(exc))
-
-    # ------------------------------------------------------------------
-    def _build(self):
-        all_paths = [self._anchor] + self._candidates
-        n = len(all_paths)
-        if n < 2:
-            self.signals.result.emit(
-                [
-                    {
-                        "path": self._anchor,
-                        "name": os.path.basename(self._anchor),
-                        "score_to_prev": None,
-                    }
-                ]
-            )
-            return
-
-        orb = cv2.ORB_create(nfeatures=800)
-        bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
-
-        # ── Cache thumbnails + precompute features + sharpness ────────
-        cache: Dict[str, Optional[np.ndarray]] = {}
-        feats: Dict[str, tuple] = {}  # (kp, des)
-        sharpness: Dict[str, float] = {}
-
-        for idx, p in enumerate(all_paths):
-            if self._cancelled:
-                return
-            bgr = cv2.imread(p)
-            if bgr is not None:
-                h, w = bgr.shape[:2]
-                scale = min(1.0, 512 / max(h, w, 1))
-                if scale < 1.0:
-                    bgr = cv2.resize(
-                        bgr,
-                        (int(w * scale), int(h * scale)),
-                        interpolation=cv2.INTER_AREA,
-                    )
-                gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
-                lap = cv2.Laplacian(gray.astype(np.float32), cv2.CV_32F)
-                sharpness[p] = float(lap.var())
-                kp, des = orb.detectAndCompute(gray, None)
-                feats[p] = (kp, des)
-            else:
-                sharpness[p] = 0.0
-                feats[p] = ([], None)
-            cache[p] = bgr
-            self.signals.progress.emit(int((idx + 1) / n * 45))
-
-        anchor_sharp = max(sharpness.get(self._anchor, 1.0), 1.0)
-        sharp_thresh = anchor_sharp * self._blur_threshold
-
-        # ── Pre-filter: remove blurry candidates ─────────────────────
-        valid_candidates = [
-            p for p in self._candidates if sharpness.get(p, 0.0) >= sharp_thresh
-        ]
-        n_rejected = len(self._candidates) - len(valid_candidates)
-        if n_rejected:
-            print(
-                f"[SeqBuilder] Rejected {n_rejected} blurry candidates "
-                f"(sharpness < {sharp_thresh:.1f})."
-            )
-
-        # ── Stitch-fitness scorer ─────────────────────────────────────
-        fitness_cache: Dict[tuple, tuple] = {}  # key → (score, dx, dy)
-
-        def stitch_fitness(ref_p: str, cand_p: str) -> tuple:
-            """Returns (score, dx, dy).  score=0 means not usable."""
-            key = (min(ref_p, cand_p), max(ref_p, cand_p))
-            if key in fitness_cache:
-                return fitness_cache[key]
-
-            kp_r, des_r = feats.get(ref_p, ([], None))
-            kp_c, des_c = feats.get(cand_p, ([], None))
-            zero = (0.0, 0.0, 0.0)
-            if des_r is None or des_c is None:
-                fitness_cache[key] = zero
-                return zero
-            if len(kp_r) < 6 or len(kp_c) < 6:
-                fitness_cache[key] = zero
-                return zero
-
-            try:
-                matches = bf.knnMatch(des_r, des_c, k=2)
-            except Exception:
-                fitness_cache[key] = zero
-                return zero
-
-            good = [
-                m
-                for m, n2 in matches
-                if len((m, n2)) == 2 and m.distance < 0.75 * n2.distance
-            ]
-            if len(good) < 8:
-                fitness_cache[key] = zero
-                return zero
-
-            src_pts = np.float32([kp_r[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
-            dst_pts = np.float32([kp_c[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
-            M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
-            if M is None or mask is None:
-                fitness_cache[key] = zero
-                return zero
-
-            inliers = int(mask.sum())
-            if inliers < 8:
-                fitness_cache[key] = zero
-                return zero
-
-            dx, dy = float(M[0, 2]), float(M[1, 2])
-
-            ref_img = cache.get(ref_p)
-            if ref_img is None:
-                fitness_cache[key] = zero
-                return zero
-            fh, fw = ref_img.shape[:2]
-            diag = float(np.sqrt(fw**2 + fh**2))
-            dist = float(np.sqrt(dx**2 + dy**2))
-            ratio = dist / diag
-
-            # Reject near-duplicates and non-overlapping frames
-            if ratio < self._min_pan or ratio > self._max_pan:
-                fitness_cache[key] = zero
-                return zero
-
-            # Displacement quality: triangular, peaks at 30% of diagonal
-            peak = 0.30
-            if ratio <= peak:
-                disp_q = ratio / peak
-            else:
-                disp_q = (self._max_pan - ratio) / (self._max_pan - peak)
-            disp_q = max(0.0, disp_q)
-
-            inlier_ratio = inliers / max(len(good), 1)
-            score = round(inlier_ratio * disp_q, 4)
-
-            result = (score, dx, dy)
-            fitness_cache[key] = result
-            return result
-
-        # ── Greedy chain extension ────────────────────────────────────
-        chain: List[str] = [self._anchor]
-        used: set = {self._anchor}
-
-        def best_next(ref: str) -> tuple:
-            best_p, best_s, best_dx, best_dy = None, -1.0, 0.0, 0.0
-            for p in valid_candidates:
-                if p in used:
-                    continue
-                s, dx, dy = stitch_fitness(ref, p)
-                if s > best_s:
-                    best_s, best_p, best_dx, best_dy = s, p, dx, dy
-            return best_p, best_s, best_dx, best_dy
-
-        total = len(valid_candidates)
-        done = 0
-
-        # Extend forward
-        while True:
-            if self._cancelled:
-                return
-            nxt, s, _dx, _dy = best_next(chain[-1])
-            if nxt is None or s < self._min_score:
-                break
-            chain.append(nxt)
-            used.add(nxt)
-            done += 1
-            self.signals.progress.emit(45 + int(done / max(total, 1) * 27))
-
-        # Extend backward
-        while True:
-            if self._cancelled:
-                return
-            prv, s, _dx, _dy = best_next(chain[0])
-            if prv is None or s < self._min_score:
-                break
-            chain.insert(0, prv)
-            used.add(prv)
-            done += 1
-            self.signals.progress.emit(72 + int(done / max(total, 1) * 27))
-
-        # ── Build result with per-pair fitness scores ────────────────
-        result: List[dict] = []
-        for idx, p in enumerate(chain):
-            if idx == 0:
-                s_prev = None
-            else:
-                s_prev = stitch_fitness(chain[idx - 1], p)[0]
-            result.append(
-                {"path": p, "name": os.path.basename(p), "score_to_prev": s_prev}
-            )
-
-        self.signals.progress.emit(100)
-        self.signals.result.emit(result)
-
-
-# ---------------------------------------------------------------------------
-# §2.2 Edge Graph Inspector — read-only diagnostic viewer for stage05_edges.json
-# ---------------------------------------------------------------------------
-
-
-def _parse_edge_json(path: str) -> List[dict]:
-    """Load and normalise an ASP stage05_edges.json file.
-
-    Returns a list of dicts with keys: i, j, dx, dy, conf, method.
-    Records missing i or j are silently dropped; all other fields fall back
-    to safe defaults so callers never have to guard against KeyError.
-    """
-    import json
-
-    with open(path, "r") as fh:
-        raw = json.load(fh)
-    result = []
-    for rec in raw:
-        if not isinstance(rec, dict) or "i" not in rec or "j" not in rec:
-            continue
-        result.append(
-            {
-                "i": int(rec["i"]),
-                "j": int(rec["j"]),
-                "dx": float(rec.get("dx", 0.0)),
-                "dy": float(rec.get("dy", 0.0)),
-                "conf": float(rec.get("conf", 0.0)),
-                "method": str(rec.get("method", "?")),
-            }
-        )
-    return result
-
-
-def _edge_graph_node_positions(n: int, radius: float = 150.0) -> List[Tuple[float, float]]:
-    """Return (x, y) positions for n nodes arranged evenly on a circle.
-
-    The first node sits at 12 o'clock (top), subsequent nodes clockwise.
-    Returns an empty list for n ≤ 0; a single (0, 0) for n == 1.
-    """
-    if n <= 0:
-        return []
-    if n == 1:
-        return [(0.0, 0.0)]
-    return [
-        (
-            float(radius * np.cos(2 * np.pi * k / n - np.pi / 2)),
-            float(radius * np.sin(2 * np.pi * k / n - np.pi / 2)),
-        )
-        for k in range(n)
-    ]
-
-
-class EdgeGraphInspectorDialog(QDialog):
-    """Read-only viewer for the ASP stage-5 LoFTR edge graph.
-
-    Displays N frame nodes arranged in a circle, connected by match edges
-    colour-coded by confidence (green ≥ 0.7, yellow ≥ 0.5, red < 0.5),
-    with a sortable edge table alongside.  Accepts an explicit edge list or
-    lets the user load a stage05_edges.json file via the toolbar button.
-
-    Visual check pending first real stitch run with save_intermediate=True.
-    """
-
-    _NODE_R = 18
-
-    def __init__(
-        self,
-        edges: Optional[List[dict]] = None,
-        frame_paths: Optional[List[str]] = None,
-        parent=None,
-    ):
-        super().__init__(parent)
-        self.setWindowTitle("Edge Graph Inspector — Stage 5")
-        self.resize(920, 580)
-        self._edges: List[dict] = edges if edges is not None else []
-        self._frame_paths: List[str] = frame_paths or []
-        self._build_ui()
-        if edges is not None:
-            self._populate()
-
-    # ── UI construction ──────────────────────────────────────────────────
-
-    def _build_ui(self):
-        root = QVBoxLayout(self)
-        root.setContentsMargins(8, 8, 8, 8)
-        root.setSpacing(6)
-
-        toolbar = QHBoxLayout()
-        btn_load = QPushButton("Load JSON…")
-        btn_load.clicked.connect(self._load_file)
-        apply_shadow_effect(btn_load, radius=4, y_offset=2)
-        self._stats_label = QLabel("No data loaded.")
-        self._stats_label.setStyleSheet("color: #999; font-size: 10px;")
-        btn_close = QPushButton("Close")
-        btn_close.clicked.connect(self.accept)
-        toolbar.addWidget(btn_load)
-        toolbar.addSpacing(8)
-        toolbar.addWidget(self._stats_label, stretch=1)
-        toolbar.addWidget(btn_close)
-        root.addLayout(toolbar)
-
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-
-        self._scene = QGraphicsScene(self)
-        self._view = QGraphicsView(self._scene)
-        self._view.setRenderHint(QPainter.RenderHint.Antialiasing)
-        self._view.setBackgroundBrush(QBrush(QColor(24, 24, 32)))
-        self._view.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
-        )
-
-        self._table = QTableWidget(0, 6)
-        self._table.setHorizontalHeaderLabels(
-            ["From", "To", "Conf", "Method", "dx", "dy"]
-        )
-        self._table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Stretch
-        )
-        self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self._table.setMinimumWidth(240)
-        self._table.setMaximumWidth(340)
-
-        splitter.addWidget(self._view)
-        splitter.addWidget(self._table)
-        splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 1)
-        root.addWidget(splitter, stretch=1)
-
-    # ── Graph rendering ──────────────────────────────────────────────────
-
-    def _populate(self):
-        self._scene.clear()
-        edges = self._edges
-        if not edges:
-            self._stats_label.setText("No edges.")
-            self._table.setRowCount(0)
-            return
-
-        n_nodes = max(max(e["i"], e["j"]) for e in edges) + 1
-        n_low = sum(1 for e in edges if e["conf"] < 0.5)
-        self._stats_label.setText(
-            f"{n_nodes} frames · {len(edges)} edges · {n_low} low-conf"
-        )
-
-        positions = _edge_graph_node_positions(n_nodes)
-
-        for e in edges:
-            xi, yi = positions[e["i"]]
-            xj, yj = positions[e["j"]]
-            color = _conf_color(e["conf"])
-            pen = QPen(color, max(1, int(1 + e["conf"] * 4)))
-            item = self._scene.addLine(xi, yi, xj, yj, pen)
-            item.setToolTip(
-                f"Edge {e['i']}→{e['j']}  conf={e['conf']:.3f}\n"
-                f"dx={e['dx']:+.1f}  dy={e['dy']:+.1f}  method={e['method']}"
-            )
-
-        r = self._NODE_R
-        for k, (x, y) in enumerate(positions):
-            pen = QPen(QColor(180, 210, 255, 200), 1)
-            brush = QBrush(QColor(50, 100, 190, 200))
-            self._scene.addEllipse(x - r, y - r, 2 * r, 2 * r, pen, brush)
-            label_text = str(k)
-            if 0 <= k < len(self._frame_paths):
-                name = os.path.basename(self._frame_paths[k])
-                label_text += f"\n{name[:9] + '…' if len(name) > 10 else name}"
-            text = self._scene.addText(label_text)
-            font = QFont()
-            font.setPointSize(7)
-            text.setFont(font)
-            text.setDefaultTextColor(QColor(230, 230, 240))
-            br = text.boundingRect()
-            text.setPos(x - br.width() / 2, y - br.height() / 2)
-
-        self._view.fitInView(
-            self._scene.itemsBoundingRect().adjusted(-20, -20, 20, 20),
-            Qt.AspectRatioMode.KeepAspectRatio,
-        )
-
-        sorted_edges = sorted(edges, key=lambda e: e["conf"])
-        self._table.setRowCount(len(sorted_edges))
-        for row, e in enumerate(sorted_edges):
-            color = _conf_color(e["conf"])
-            for col, val in enumerate(
-                [
-                    str(e["i"]),
-                    str(e["j"]),
-                    f"{e['conf']:.3f}",
-                    e["method"],
-                    f"{e['dx']:+.1f}",
-                    f"{e['dy']:+.1f}",
-                ]
-            ):
-                cell = QTableWidgetItem(val)
-                cell.setForeground(QBrush(color))
-                self._table.setItem(row, col, cell)
-
-    # ── File loading ─────────────────────────────────────────────────────
-
-    def _load_file(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Load Edge Graph JSON",
-            "",
-            "JSON (*.json)",
-            options=QFileDialog.Option.DontUseNativeDialog,
-        )
-        if not path:
-            return
-        try:
-            self._edges = _parse_edge_json(path)
-            self._populate()
-        except Exception as exc:
-            QMessageBox.critical(self, "Load Error", str(exc))
-
-
-def _parse_canvas_json(path: str) -> dict:
-    import json
-    with open(path, "r") as fh:
-        raw = json.load(fh)
-    return {
-        "canvas_h": int(raw.get("canvas_h", 0)),
-        "canvas_w": int(raw.get("canvas_w", 0)),
-        "frame_h": int(raw.get("frame_h", 0)),
-        "frame_w": int(raw.get("frame_w", 0)),
-        "T_global": [float(v) for v in raw.get("T_global", [0.0, 0.0])],
-        "affines_final": [
-            [[float(v) for v in row] for row in m]
-            for m in raw.get("affines_final", [])
-        ],
-    }
-
-
-def _canvas_frame_corners(
-    affine_2x3: List[List[float]], frame_h: int, frame_w: int
-) -> List[Tuple[float, float]]:
-    a, b, tx = affine_2x3[0]
-    c, d, ty = affine_2x3[1]
-    pts = [(0, 0), (frame_w, 0), (frame_w, frame_h), (0, frame_h)]
-    return [(a * x + b * y + tx, c * x + d * y + ty) for (x, y) in pts]
-
-
-class CanvasLayoutInspectorDialog(QDialog):
-    _FRAME_COLORS = [
-        QColor(100, 149, 237, 110),
-        QColor(100, 220, 130, 110),
-        QColor(255, 165,   0, 110),
-        QColor(210, 100, 210, 110),
-        QColor(255, 215,   0, 110),
-        QColor( 32, 178, 170, 110),
-        QColor(255,  99,  71, 110),
-        QColor(173, 216, 230, 110),
-    ]
-
-    def __init__(self, canvas_data=None, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Canvas Layout Inspector")
-        self.setModal(False)
-        self._data: Optional[dict] = canvas_data
-        self._build_ui()
-        if self._data is not None:
-            self._populate()
-
-    def _build_ui(self):
-        root = QVBoxLayout(self)
-        root.setContentsMargins(8, 8, 8, 8)
-
-        toolbar = QHBoxLayout()
-        btn_load = QPushButton("Load JSON…")
-        btn_load.clicked.connect(self._load_file)
-        self._stats_label = QLabel("No data loaded.")
-        self._stats_label.setStyleSheet("color: #aaa; font-size: 11px;")
-        btn_close = QPushButton("Close")
-        btn_close.clicked.connect(self.accept)
-        toolbar.addWidget(btn_load)
-        toolbar.addSpacing(10)
-        toolbar.addWidget(self._stats_label, 1)
-        toolbar.addWidget(btn_close)
-        root.addLayout(toolbar)
-
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-
-        self._scene = QGraphicsScene()
-        self._scene.setBackgroundBrush(QColor(18, 18, 18))
-        self._view = QGraphicsView(self._scene)
-        self._view.setRenderHint(QPainter.RenderHint.Antialiasing)
-        self._view.setMinimumWidth(560)
-        self._view.setMinimumHeight(420)
-        splitter.addWidget(self._view)
-
-        self._table = QTableWidget(0, 3)
-        self._table.setHorizontalHeaderLabels(["Frame", "tx", "ty"])
-        self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self._table.horizontalHeader().setStretchLastSection(True)
-        self._table.setMinimumWidth(200)
-        splitter.addWidget(self._table)
-
-        splitter.setSizes([720, 240])
-        root.addWidget(splitter)
-        self.resize(980, 620)
-
-    def _populate(self):
-        if self._data is None:
-            return
-        self._scene.clear()
-
-        canvas_h = self._data["canvas_h"]
-        canvas_w = self._data["canvas_w"]
-        frame_h = self._data["frame_h"]
-        frame_w = self._data["frame_w"]
-        affines = self._data["affines_final"]
-        N = len(affines)
-
-        border_pen = QPen(QColor(80, 80, 80, 200))
-        border_pen.setWidth(2)
-        self._scene.addRect(0, 0, canvas_w, canvas_h, border_pen, QColor(0, 0, 0, 0))
-
-        self._table.setRowCount(0)
-
-        for idx, aff in enumerate(affines):
-            if frame_h <= 0 or frame_w <= 0:
-                continue
-            corners = _canvas_frame_corners(aff, frame_h, frame_w)
-            color = self._FRAME_COLORS[idx % len(self._FRAME_COLORS)]
-            edge_pen = QPen(color.darker(160))
-            edge_pen.setWidth(2)
-
-            path = QPainterPath()
-            path.moveTo(corners[0][0], corners[0][1])
-            for (x, y) in corners[1:]:
-                path.lineTo(x, y)
-            path.closeSubpath()
-            self._scene.addPath(path, edge_pen, QBrush(color))
-
-            cx = sum(x for (x, y) in corners) / len(corners)
-            cy = sum(y for (x, y) in corners) / len(corners)
-            lbl = self._scene.addSimpleText(str(idx))
-            lbl.setBrush(QBrush(QColor(255, 255, 255, 230)))
-            br = lbl.boundingRect()
-            lbl.setPos(cx - br.width() / 2, cy - br.height() / 2)
-
-            row = self._table.rowCount()
-            self._table.insertRow(row)
-            tx = float(aff[0][2])
-            ty = float(aff[1][2])
-            self._table.setItem(row, 0, QTableWidgetItem(str(idx)))
-            self._table.setItem(row, 1, QTableWidgetItem(f"{tx:.1f}"))
-            self._table.setItem(row, 2, QTableWidgetItem(f"{ty:.1f}"))
-
-        self._view.fitInView(
-            self._scene.itemsBoundingRect(), Qt.AspectRatioMode.KeepAspectRatio
-        )
-        self._stats_label.setText(f"{N} frames · {canvas_w}×{canvas_h} canvas")
-
-    def _load_file(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Load Canvas Info JSON",
-            "",
-            "JSON (*.json)",
-            options=QFileDialog.Option.DontUseNativeDialog,
-        )
-        if not path:
-            return
-        try:
-            self._data = _parse_canvas_json(path)
-            self._populate()
-        except Exception as exc:
-            QMessageBox.critical(self, "Load Error", str(exc))
-
-
-# ---------------------------------------------------------------------------
-
-
-class EditTabPanel:
-    """Mixin class to expose EditTab configuration methods to panel proxies."""
-
-    def __init__(self, parent_tab=None):
-        self.parent_tab = parent_tab
-
-    def collect(self) -> dict:
-        if self.parent_tab:
-            return self.parent_tab.collect()
-        return {}
-
-    def set_config(self, cfg: dict):
-        if self.parent_tab:
-            self.parent_tab.set_config(cfg)
-
-    def get_default_config(self) -> dict:
-        if self.parent_tab:
-            return self.parent_tab.get_default_config()
-        return {}
-
-
-class StitchPanel(QWidget, EditTabPanel):
-    def __init__(self, parent_tab=None):
-        QWidget.__init__(self)
-        EditTabPanel.__init__(self, parent_tab)
-
-
-class GraphPanel(QWidget, EditTabPanel):
-    def __init__(self, parent_tab=None):
-        QWidget.__init__(self)
-        EditTabPanel.__init__(self, parent_tab)
-
-
-class AdjustPanel(QWidget, EditTabPanel):
-    def __init__(self, parent_tab=None):
-        QWidget.__init__(self)
-        EditTabPanel.__init__(self, parent_tab)
-
-
-class CanvasPanel(QWidget, EditTabPanel):
-    def __init__(self, parent_tab=None):
-        QWidget.__init__(self)
-        EditTabPanel.__init__(self, parent_tab)
-
-
-class StatsPanel(QWidget, EditTabPanel):
-    def __init__(self, parent_tab=None):
-        QWidget.__init__(self)
-        EditTabPanel.__init__(self, parent_tab)
-
-
-class SeqBuilderPanel(QWidget, EditTabPanel):
-    def __init__(self, parent_tab=None):
-        QWidget.__init__(self)
-        EditTabPanel.__init__(self, parent_tab)
-
-
-class HybridStitchPanel(RealHybridStitchPanel, EditTabPanel):
-    def __init__(self, parent_tab=None):
-        RealHybridStitchPanel.__init__(self)
-        EditTabPanel.__init__(self, parent_tab)
-
-
-class AnimClustersPanel(QWidget, EditTabPanel):
-    def __init__(self, parent_tab=None):
-        QWidget.__init__(self)
-        EditTabPanel.__init__(self, parent_tab)
-
-
 class EditTab(QWidget):
     """
     Full image editing suite focused on anime wallpaper creation.
@@ -2582,7 +1460,9 @@ class EditTab(QWidget):
         self._video_n_frames_spin = QSpinBox()
         self._video_n_frames_spin.setRange(2, 200)
         self._video_n_frames_spin.setValue(20)
-        self._video_n_frames_spin.setToolTip("Number of frames to extract from the video.")
+        self._video_n_frames_spin.setToolTip(
+            "Number of frames to extract from the video."
+        )
         self._video_n_frames_spin.setPrefix("N: ")
         _vbrow.addWidget(_btn_browse_video)
         _vbrow.addWidget(self._video_n_frames_spin)
@@ -2939,7 +1819,7 @@ class EditTab(QWidget):
         splitter.setStretchFactor(1, 1)
         splitter.setStretchFactor(2, 0)
         splitter.setSizes([180, 1200, 220])
-        from ....utils.splitter_persistence import persist_splitter
+
         persist_splitter(splitter, "StitchPanel/main")
         root.addWidget(splitter, stretch=1)
 
@@ -3201,9 +2081,9 @@ class EditTab(QWidget):
         v_split.setStretchFactor(0, 1)
         v_split.setStretchFactor(1, 0)
         v_split.setSizes([1000, 300])
-        from ....utils.splitter_persistence import persist_splitter as _ps
-        _ps(v_split, "GraphPanel/vertical")
-        _ps(split, "GraphPanel/horizontal")
+
+        persist_splitter(v_split, "GraphPanel/vertical")
+        persist_splitter(split, "GraphPanel/horizontal")
         # Connect scene selection changes to property editor
         self._node_scene.selectionChanged.connect(self._graph_on_selection_changed)
 
@@ -3628,8 +2508,7 @@ class EditTab(QWidget):
         main_splitter.addWidget(preview_widget)
         main_splitter.setStretchFactor(0, 0)
         main_splitter.setStretchFactor(1, 1)
-        from ....utils.splitter_persistence import persist_splitter as _ps2
-        _ps2(main_splitter, "CanvasPanel/main")
+        persist_splitter(main_splitter, "CanvasPanel/main")
         root_layout.addWidget(main_splitter, stretch=1)
 
         # ── Bottom: action bar ─────────────────────────────────────────
@@ -3962,8 +2841,9 @@ class EditTab(QWidget):
         if _use_video:
             if not _video_path or not os.path.isfile(_video_path):
                 QMessageBox.warning(
-                    self, "Video not found",
-                    f"'{_video_path}' does not exist. Select a valid video file."
+                    self,
+                    "Video not found",
+                    f"'{_video_path}' does not exist. Select a valid video file.",
                 )
                 return
         elif len(self._frame_paths) < 2:
@@ -3997,9 +2877,13 @@ class EditTab(QWidget):
         self._log.clear()
         self._stage_label.setText("Initialising pipeline…")
         if _use_video:
-            self._log_append(f"[Stitch] Starting from video '{os.path.basename(_video_path)}' → '{out}'")
+            self._log_append(
+                f"[Stitch] Starting from video '{os.path.basename(_video_path)}' → '{out}'"
+            )
         else:
-            self._log_append(f"[Stitch] Starting — {len(self._frame_paths)} frames → '{out}'")
+            self._log_append(
+                f"[Stitch] Starting — {len(self._frame_paths)} frames → '{out}'"
+            )
         if self._manual_affines:
             self._log_append(
                 f"[Stitch] Manual affine overrides active for "
@@ -4055,9 +2939,13 @@ class EditTab(QWidget):
             self._stitch_worker.sig_review_masks.connect(self._on_hitl_review_masks)
             self._stitch_worker.sig_review_edges.connect(self._on_hitl_review_edges)
             self._stitch_worker.sig_review_canvas.connect(self._on_hitl_review_canvas)
-            self._stitch_worker.sig_review_boundaries.connect(self._on_hitl_review_boundaries)
+            self._stitch_worker.sig_review_boundaries.connect(
+                self._on_hitl_review_boundaries
+            )
             self._stitch_worker.sig_review_seams.connect(self._on_hitl_review_seams)
-            self._stitch_worker.sig_review_composite.connect(self._on_hitl_review_composite)
+            self._stitch_worker.sig_review_composite.connect(
+                self._on_hitl_review_composite
+            )
             self._stitch_worker.sig_review_render.connect(self._on_hitl_review_render)
             self._stitch_worker.sig_review_output.connect(self._on_hitl_review_output)
         self._stitch_thread.start()
@@ -4081,11 +2969,15 @@ class EditTab(QWidget):
         edge_json = os.path.join(self._last_stages_dir, "stage05_edges.json")
         if os.path.isfile(edge_json):
             self._btn_inspect_edges.setEnabled(True)
-            self._log_append("[Stitch] Edge graph available — click '⬡ Edges' to inspect.")
+            self._log_append(
+                "[Stitch] Edge graph available — click '⬡ Edges' to inspect."
+            )
         canvas_json = os.path.join(self._last_stages_dir, "stage08_canvas_info.json")
         if os.path.isfile(canvas_json):
             self._btn_inspect_canvas.setEnabled(True)
-            self._log_append("[Stitch] Canvas layout available — click '⬗ Canvas' to inspect.")
+            self._log_append(
+                "[Stitch] Canvas layout available — click '⬗ Canvas' to inspect."
+            )
         # S88: show autosaved session path
         _sess_info = ""
         if self._stitch_worker and self._stitch_worker.current_session_path:
@@ -4164,13 +3056,8 @@ class EditTab(QWidget):
 
         def _refine_cb(text_prompt: str, pos_clicks, neg_clicks, frame_idx: int):
             """Callback that runs inside _RefinementWorker's thread."""
-            from backend.src.anim.masking import (
-                _compute_fg_masks_grounded_sam2,
-                _refine_masks_with_clicks,
-            )
             frames = data.get("frames", [])
             orig_masks = data.get("bg_masks", [])
-
             if text_prompt:
                 # Grounded SAM-2: re-run segmentation from text prompt
                 return _compute_fg_masks_grounded_sam2(
@@ -4183,13 +3070,21 @@ class EditTab(QWidget):
                 # Click refinement via live SAM-2 predictor preserved across HITL boundary
                 predictor = data.get("sam2_predictor")
                 state = data.get("sam2_inference_state")
-                _fh = data.get("sam2_frame_h") or (frames[0].shape[0] if frames else 1080)
-                _fw = data.get("sam2_frame_w") or (frames[0].shape[1] if frames else 1920)
+                _fh = data.get("sam2_frame_h") or (
+                    frames[0].shape[0] if frames else 1080
+                )
+                _fw = data.get("sam2_frame_w") or (
+                    frames[0].shape[1] if frames else 1920
+                )
                 if predictor is not None and state is not None:
                     refined = _refine_masks_with_clicks(
-                        predictor, state,
-                        pos_clicks=pos_clicks, neg_clicks=neg_clicks,
-                        frame_idx=frame_idx, frame_h=_fh, frame_w=_fw,
+                        predictor,
+                        state,
+                        pos_clicks=pos_clicks,
+                        neg_clicks=neg_clicks,
+                        frame_idx=frame_idx,
+                        frame_h=_fh,
+                        frame_w=_fw,
                     )
                     if refined:
                         return refined
@@ -4197,11 +3092,11 @@ class EditTab(QWidget):
             return list(orig_masks)
 
         dlg = MaskReviewDialog(data, refine_callback=_refine_cb, parent=self)
-        dlg.sig_mask_accepted.connect(
-            lambda masks: w.set_mask_override(masks)
-        )
+        dlg.sig_mask_accepted.connect(lambda masks: w.set_mask_override(masks))
         dlg.sig_exclusion_masks_accepted.connect(
-            lambda ex_masks: w.set_exclusion_masks(ex_masks) if any(m is not None for m in ex_masks) else None
+            lambda ex_masks: w.set_exclusion_masks(ex_masks)
+            if any(m is not None for m in ex_masks)
+            else None
         )
         result = dlg.exec()
         if result == QDialog.DialogCode.Accepted:
@@ -4250,7 +3145,7 @@ class EditTab(QWidget):
         w = self._stitch_worker
         if w is None:
             return
-        from gui.src.dialogs.boundary_editor_dialog import BoundaryEditorDialog
+
         dlg = BoundaryEditorDialog(data=data, parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             w.set_boundary_override(dlg.adjusted_boundaries())
@@ -4267,7 +3162,7 @@ class EditTab(QWidget):
         w = self._stitch_worker
         if w is None:
             return
-        from gui.src.dialogs.seam_diagnostic_dialog import SeamDiagnosticDialog
+
         dlg = SeamDiagnosticDialog(data=data, parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             overrides = dlg.get_overrides()
@@ -4286,7 +3181,7 @@ class EditTab(QWidget):
         w = self._stitch_worker
         if w is None:
             return
-        from gui.src.dialogs.seam_painter_dialog import SeamPainterDialog
+
         dlg = SeamPainterDialog(data=data, parent=self)
         result = dlg.exec()
         if result == SeamPainterDialog.RECOMPOSITE:
@@ -4322,7 +3217,7 @@ class EditTab(QWidget):
         w = self._stitch_worker
         if w is None:
             return
-        from gui.src.dialogs.final_output_review_dialog import FinalOutputReviewDialog
+
         dlg = FinalOutputReviewDialog(data=data, parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             fb = dlg.get_feedback()
@@ -4335,21 +3230,21 @@ class EditTab(QWidget):
 
     def _on_load_session(self):
         """Browse for a saved HITL session JSON and set it for the next run (S88)."""
-        from PySide6.QtWidgets import QFileDialog
         path, _ = QFileDialog.getOpenFileName(
             self,
             "Load HITL Session",
             str(
                 __import__("pathlib").Path.home()
-                / ".config" / "image-toolkit" / "hitl_sessions"
+                / ".config"
+                / "image-toolkit"
+                / "hitl_sessions"
             ),
             "Session files (*.json);;All files (*)",
             options=QFileDialog.Option.DontUseNativeDialog,
         )
         if path:
             self._loaded_session_path = path
-            import os as _os
-            self._session_path_label.setText(_os.path.basename(path))
+            self._session_path_label.setText(os.path.basename(path))
             self._session_path_label.setToolTip(path)
         else:
             self._loaded_session_path = None
@@ -4357,15 +3252,13 @@ class EditTab(QWidget):
 
     def _on_browse_sessions(self):
         """Open the HITL Session Browser; if user selects a session, load it (S92)."""
-        from gui.src.dialogs.hitl_session_viewer_dialog import HITLSessionViewerDialog
-        from PySide6.QtWidgets import QDialog as _QDialog
         dlg = HITLSessionViewerDialog(parent=self)
-        if dlg.exec() == _QDialog.DialogCode.Accepted:
+        if dlg.exec() == QDialog.DialogCode.Accepted:
             path = dlg.selected_path()
             if path:
                 self._loaded_session_path = path
-                import os as _os
-                self._session_path_label.setText(_os.path.basename(path))
+
+                self._session_path_label.setText(os.path.basename(path))
                 self._session_path_label.setToolTip(path)
 
     def _inspect_edges(self):
@@ -4608,14 +3501,9 @@ class EditTab(QWidget):
         # then disable auto_wb and bake the correction into temp/tint sliders.
         # Simpler: just run a one-shot AdjustWorker with auto_wb=True and
         # save the result to a temp file, then reload it as the adjusted image.
-        import tempfile
-        from gui.src.helpers.models.stitch_worker import _apply_adjustments as _aa
-
         try:
-            from PIL import Image as _PILImage
-
-            img = _PILImage.open(self._adj_img_path)
-            result = _aa(img, {"auto_wb": True})
+            img = Image.open(self._adj_img_path)
+            result = _apply_adjustments(img, {"auto_wb": True})
             tmp = tempfile.NamedTemporaryFile(
                 suffix=os.path.splitext(self._adj_img_path)[1] or ".png",
                 delete=False,
@@ -4800,13 +3688,8 @@ class EditTab(QWidget):
         tmp = tempfile.NamedTemporaryFile(suffix=".png", prefix="adj_", delete=False)
         tmp_path = tmp.name
         tmp.close()
-
-        from ....helpers.models.stitch_worker import _apply_adjustments
-
         try:
-            from PIL import Image as _Image
-
-            img = _Image.open(self._adj_img_path)
+            img = Image.open(self._adj_img_path)
             result = _apply_adjustments(img, self._adj_collect_params())
             result.save(tmp_path)
             return tmp_path
@@ -6257,8 +5140,6 @@ class EditTab(QWidget):
     def _anim_do_run(self, paths: Optional[List[str]] = None):
         if paths is None:
             if self._anim_cluster_dir_path:
-                import pathlib
-
                 exts = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tiff", ".tif"}
                 paths = sorted(
                     str(p)
@@ -6654,8 +5535,6 @@ class EditTab(QWidget):
             return
 
         # Collect candidate paths from the directory
-        import pathlib
-
         exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
         if self._seq_dir_path and os.path.isdir(self._seq_dir_path):
             candidates = sorted(

@@ -1,8 +1,10 @@
 import os
 import sys
+import copy
+import json
 
 from PySide6.QtCore import Qt, QSize, QSettings, QTimer
-from PySide6.QtGui import QIcon, QImageReader
+from PySide6.QtGui import QIcon, QFont, QImageReader, QGuiApplication
 from PySide6.QtWidgets import (
     QSizePolicy,
     QPushButton,
@@ -19,11 +21,18 @@ from PySide6.QtWidgets import (
     QStatusBar,
     QSystemTrayIcon,
     QMenu,
+    QDialog,
+    QTableWidget,
+    QTableWidgetItem,
+    QLineEdit,
+    QHeaderView,
+    QListWidget,
+    QListWidgetItem,
 )
 from .settings_window import SettingsWindow
 from ..styles.style import (
-    DARK_QSS,
-    LIGHT_QSS,
+    DARK_QSS,  # noqa: F401
+    LIGHT_QSS,  # noqa: F401
     DARK_ACCENT_COLOR,
     LIGHT_ACCENT_COLOR,
     load_qss_with_overrides,
@@ -32,10 +41,11 @@ from ..styles.style import (
     COMPACT_DENSITY_QSS,
     SPACIOUS_DENSITY_QSS,
 )
+from ..utils.shortcut_manager import get_registry
+from backend.src.constants import LOCAL_SOURCE_PATH
 from ..constants import NEW_LIMIT_MB
 from ..utils.lru_image_cache import LRUImageCache
 from backend.src.core.vault_manager import VaultManager
-from backend.src.constants import LOCAL_SOURCE_PATH
 
 
 def show_tray_notification(title: str, message: str, timeout_ms: int = 4000) -> None:
@@ -121,11 +131,8 @@ class MainWindow(QWidget):
         # cached_creds may be empty on first launch; fall back to OS preference in that case.
         if not self.cached_creds.get("theme"):
             try:
-                from PySide6.QtCore import Qt as _Qt
-                from PySide6.QtGui import QGuiApplication as _QGA
-
-                os_scheme = _QGA.styleHints().colorScheme()
-                if os_scheme == _Qt.ColorScheme.Light:
+                os_scheme = QGuiApplication.styleHints().colorScheme()
+                if os_scheme == Qt.ColorScheme.Light:
                     initial_theme = "light"
                 else:
                     initial_theme = "dark"
@@ -303,15 +310,15 @@ class MainWindow(QWidget):
 
         # GUI/UX §2.8 — live OS color-scheme changes (e.g. user toggles dark mode in KDE/Windows)
         try:
-            from PySide6.QtCore import Qt as _Qt
-            from PySide6.QtGui import QGuiApplication as _QGA
 
             def _on_os_scheme_changed(scheme):
                 if not self.cached_creds.get("theme"):
-                    new = "light" if scheme == _Qt.ColorScheme.Light else "dark"
+                    new = "light" if scheme == Qt.ColorScheme.Light else "dark"
                     self.set_application_theme(new)
 
-            _QGA.styleHints().colorSchemeChanged.connect(_on_os_scheme_changed)
+            QGuiApplication.styleHints().colorSchemeChanged.connect(
+                _on_os_scheme_changed
+            )
         except Exception:
             pass
 
@@ -365,8 +372,6 @@ class MainWindow(QWidget):
         prefs = self.cached_creds.get("preferences", {})
         if prefs.get("restore_last_dir", True):
             return config_data
-
-        import copy
 
         sanitized = copy.deepcopy(config_data)
 
@@ -622,14 +627,6 @@ class MainWindow(QWidget):
     # --- §2.16C — Ctrl+T tab search popup ---
     def _open_tab_search(self) -> None:
         """Show a floating tab-name filter popup (§2.16C)."""
-        from PySide6.QtWidgets import (
-            QDialog,
-            QLineEdit,
-            QListWidget,
-            QListWidgetItem,
-            QVBoxLayout as _VBox,
-        )
-
         all_entries: list[tuple[str, str, str]] = []
         for category, tabs_in_cat in self.all_tabs.items():
             for tab_name in tabs_in_cat:
@@ -638,7 +635,7 @@ class MainWindow(QWidget):
         dlg = QDialog(self, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
         dlg.setWindowTitle("Go to Tab")
         dlg.setFixedWidth(400)
-        layout = _VBox(dlg)
+        layout = QVBoxLayout(dlg)
         layout.setContentsMargins(6, 6, 6, 6)
         layout.setSpacing(4)
 
@@ -687,24 +684,13 @@ class MainWindow(QWidget):
 
     # --- §2.25A — Keyboard shortcut discovery overlay (Ctrl+/ or F1) ---
     def _open_shortcut_overlay(self) -> None:
-        from PySide6.QtWidgets import (
-            QDialog,
-            QTableWidget,
-            QTableWidgetItem,
-            QVBoxLayout as _VBox,
-            QLineEdit,
-            QHeaderView,
-        )
-        from PySide6.QtCore import Qt as _Qt
-        from ..utils.shortcut_manager import get_registry
-
         reg = get_registry()
         all_actions = reg.get_all()
 
         dlg = QDialog(self)
         dlg.setWindowTitle("Keyboard Shortcuts  (Ctrl+/)")
         dlg.resize(560, 460)
-        layout = _VBox(dlg)
+        layout = QVBoxLayout(dlg)
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(6)
 
@@ -745,7 +731,7 @@ class MainWindow(QWidget):
                 ):
                     item = QTableWidgetItem(val)
                     item.setFlags(
-                        _Qt.ItemFlag.ItemIsEnabled | _Qt.ItemFlag.ItemIsSelectable
+                        Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
                     )
                     table.setItem(row, col, item)
 
@@ -788,8 +774,6 @@ class MainWindow(QWidget):
 
         font_scale = prefs.get("font_scale", 100)
         if font_scale != 100:
-            from PySide6.QtGui import QFont
-
             scaled_pt = max(7, int(10 * font_scale / 100))
             QApplication.instance().setFont(QFont("Segoe UI", scaled_pt))
 
@@ -867,8 +851,6 @@ class MainWindow(QWidget):
                 enc_file_path = os.path.join(recovery_dir, f"recovery_{username}.enc")
                 if os.path.exists(enc_file_path):
                     try:
-                        import json
-
                         SecureJsonVault = self.vault_manager.SecureJsonVault
                         secret_key = self.vault_manager.secret_key
                         temp_file_vault = SecureJsonVault(secret_key, enc_file_path)
@@ -892,9 +874,7 @@ class MainWindow(QWidget):
         # Restore last browsed directories based on restore_last_dir preference and recovery level
         restore_last_dir = prefs.get("restore_last_dir", True)
         if restore_last_dir:
-            from backend.src.constants import LOCAL_SOURCE_PATH
-
-            default_dir = str(LOCAL_SOURCE_PATH)
+            default_dir = LOCAL_SOURCE_PATH
 
             # Determine target active tab instance
             target_active_tab = None
@@ -1001,8 +981,6 @@ class MainWindow(QWidget):
             return
 
         try:
-            import json
-
             # Load current credentials/preferences from the vault
             creds = self.vault_manager.load_account_credentials()
             if not creds:
@@ -1110,7 +1088,7 @@ class MainWindow(QWidget):
             print(f"Warning: Failed to save session recovery data: {e}")
 
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key_Escape:
+        if event.key() == Qt.Key.Key_Escape:
             self._save_session_recovery()
             if self.vault_manager:
                 self.vault_manager.shutdown()

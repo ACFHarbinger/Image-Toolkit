@@ -165,7 +165,7 @@ def dispatch_model(args):
             from ...models.sd3_wrapper import SD3Wrapper
             print(f"🚀 Generating image with {model_name}: {prompt!r}")
             wrapper = SD3Wrapper()
-            result = wrapper.generate(prompt=prompt, output_path=output)
+            wrapper.generate_image(prompt=prompt, model_path=model_name, output_path=output)
             print(f"✅ Image saved to: {output}")
         except ImportError as e:
             print(f"❌ Error: Required modules not found: {e}", file=sys.stderr)

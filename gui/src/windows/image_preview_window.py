@@ -1,6 +1,6 @@
 import os
 
-from typing import List
+from typing import List, Optional
 from PySide6.QtCore import Qt, QSize, QTimer, Signal
 from PySide6.QtGui import (
     QShortcut,
@@ -24,6 +24,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QPushButton,
 )
+from .main_window import show_main_status
+from ..utils.shortcut_manager import get_registry
 
 
 class ImagePreviewWindow(QDialog):
@@ -58,7 +60,7 @@ class ImagePreviewWindow(QDialog):
         self.parent_tab = parent
 
         # State trackers for animation and scaling
-        self.current_movie: QMovie = None  # NEW: QMovie object for GIFs
+        self.current_movie: Optional[QMovie] = None  # NEW: QMovie object for GIFs
         self.original_pixmap: QPixmap = QPixmap()  # QPixmap object for static images
         self.is_animated: bool = False  # NEW: Flag if current file is a GIF
 
@@ -67,11 +69,11 @@ class ImagePreviewWindow(QDialog):
 
         self.setMinimumSize(400, 300)
         self.setWindowFlags(
-            Qt.Window
-            | Qt.WindowSystemMenuHint
-            | Qt.WindowCloseButtonHint
-            | Qt.WindowMinimizeButtonHint
-            | Qt.WindowMaximizeButtonHint
+            Qt.WindowType.Window
+            | Qt.WindowType.WindowSystemMenuHint
+            | Qt.WindowType.WindowCloseButtonHint
+            | Qt.WindowType.WindowMinimizeButtonHint
+            | Qt.WindowType.WindowMaximizeButtonHint
         )
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
 
@@ -80,7 +82,7 @@ class ImagePreviewWindow(QDialog):
         # Rotation state (GUI/UX §2.11D) — degrees clockwise, multiples of 90
         self._rotation_degrees: int = 0
         self.image_label: QLabel = QLabel()
-        self.image_label.setAlignment(Qt.AlignCenter)
+        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # --- FIX: Prevent image label from stealing focus ---
         self.image_label.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -135,30 +137,43 @@ class ImagePreviewWindow(QDialog):
         main_content_layout.setContentsMargins(0, 0, 0, 0)
 
         # Add navigation buttons and image area
-        main_content_layout.addWidget(self.btn_prev, 0, Qt.AlignVCenter)
+        main_content_layout.addWidget(self.btn_prev, 0, Qt.AlignmentFlag.AlignVCenter)
         main_content_layout.addWidget(self.scroll_area, 1)
-        main_content_layout.addWidget(self.btn_next, 0, Qt.AlignVCenter)
+        main_content_layout.addWidget(self.btn_next, 0, Qt.AlignmentFlag.AlignVCenter)
 
         # Final layout (VBox to hold everything)
         vbox = QVBoxLayout(self)
         vbox.addLayout(main_content_layout)
 
         # 4. Setup Shortcuts (GUI/UX §2.29 — registry-driven)
-        from ..utils.shortcut_manager import get_registry
         _reg = get_registry()
-        self.zoom_in_shortcut = QShortcut(_reg.get_key_sequence("preview.zoom_in"), self)
-        self.zoom_out_shortcut = QShortcut(_reg.get_key_sequence("preview.zoom_out"), self)
+        self.zoom_in_shortcut = QShortcut(
+            _reg.get_key_sequence("preview.zoom_in"), self
+        )
+        self.zoom_out_shortcut = QShortcut(
+            _reg.get_key_sequence("preview.zoom_out"), self
+        )
         # Secondary zoom-in alias: Ctrl+Shift++ (always active, not configurable)
-        self.zoom_in_shortcut_plus = QShortcut(QKeySequence(Qt.CTRL | Qt.Key_Plus), self)
+        self.zoom_in_shortcut_plus = QShortcut(
+            QKeySequence(Qt.Modifier.CTRL | Qt.Key.Key_Plus), self
+        )
 
-        self.zoom_in_shortcut.activated.connect(lambda: self.adjust_zoom(self.ZOOM_STEP))
-        self.zoom_out_shortcut.activated.connect(lambda: self.adjust_zoom(-self.ZOOM_STEP))
-        self.zoom_in_shortcut_plus.activated.connect(lambda: self.adjust_zoom(self.ZOOM_STEP))
+        self.zoom_in_shortcut.activated.connect(
+            lambda: self.adjust_zoom(self.ZOOM_STEP)
+        )
+        self.zoom_out_shortcut.activated.connect(
+            lambda: self.adjust_zoom(-self.ZOOM_STEP)
+        )
+        self.zoom_in_shortcut_plus.activated.connect(
+            lambda: self.adjust_zoom(self.ZOOM_STEP)
+        )
 
         self._update_navigation_button_state()
 
         self.showMaximized()
-        self.setFocusPolicy(Qt.StrongFocus)  # Ensure window can receive focus
+        self.setFocusPolicy(
+            Qt.FocusPolicy.StrongFocus
+        )  # Ensure window can receive focus
 
         # --- FIX: Emit the deferred signal emission for initial highlighting ---
         QTimer.singleShot(
@@ -225,7 +240,7 @@ class ImagePreviewWindow(QDialog):
         """Initializes the display size and layout structure based on the first image."""
 
         # Setup the image label
-        self.image_label.setAlignment(Qt.AlignCenter)
+        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Use QScrollArea
         self.scroll_area = QScrollArea()
@@ -359,10 +374,12 @@ class ImagePreviewWindow(QDialog):
             if self._rotation_degrees:
                 source = source.transformed(
                     QTransform().rotate(self._rotation_degrees),
-                    Qt.SmoothTransformation,
+                    Qt.TransformationMode.SmoothTransformation,
                 )
             scaled_pixmap = source.scaled(
-                new_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                new_size,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
             )
 
             self.image_label.setPixmap(scaled_pixmap)
@@ -393,7 +410,7 @@ class ImagePreviewWindow(QDialog):
         """
         Overrides the wheel event to handle zooming when the Ctrl key is pressed.
         """
-        if event.modifiers() & Qt.ControlModifier:
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             if event.angleDelta().y() > 0:
                 self.adjust_zoom(self.ZOOM_STEP)
             elif event.angleDelta().y() < 0:
@@ -466,7 +483,9 @@ class ImagePreviewWindow(QDialog):
         menu = QMenu(self)
 
         # --- View actions (§2.11) ---
-        fs_label = "Exit Fullscreen (F11)" if self.isFullScreen() else "Fullscreen (F11)"
+        fs_label = (
+            "Exit Fullscreen (F11)" if self.isFullScreen() else "Fullscreen (F11)"
+        )
         fs_action = QAction(fs_label, self)
         fs_action.triggered.connect(self._toggle_fullscreen)
         menu.addAction(fs_action)
@@ -503,7 +522,6 @@ class ImagePreviewWindow(QDialog):
         menu.addAction(close_action)
 
         if self.parent_tab and hasattr(self.parent_tab, "open_preview_windows"):
-
             other_windows_count = len(
                 [w for w in self.parent_tab.open_preview_windows if w is not self]
             )
@@ -550,15 +568,17 @@ class ImagePreviewWindow(QDialog):
 
         if target_pixmap and not target_pixmap.isNull():
             QApplication.clipboard().setPixmap(target_pixmap)
-            from .main_window import show_main_status
-            show_main_status(f"Copied to clipboard: {os.path.basename(self.image_path)}")
+            show_main_status(
+                f"Copied to clipboard: {os.path.basename(self.image_path)}"
+            )
 
     def keyPressEvent(self, event: QKeyEvent):
         """Key navigation/actions — §2.29 registry-driven (zoom via QShortcut above)."""
-        from ..utils.shortcut_manager import get_registry
         reg = get_registry()
         key = event.key()
-        no_mod = not event.modifiers() or event.modifiers() == Qt.KeyboardModifier.NoModifier
+        no_mod = (
+            not event.modifiers() or event.modifiers() == Qt.KeyboardModifier.NoModifier
+        )
 
         if reg.matches(event, "preview.next"):
             self._navigate(1)
@@ -568,7 +588,9 @@ class ImagePreviewWindow(QDialog):
             self.close()
         elif reg.matches(event, "preview.copy"):
             self.copy_image_to_clipboard()
-        elif reg.matches(event, "preview.fullscreen") or (key == Qt.Key.Key_F and no_mod):
+        elif reg.matches(event, "preview.fullscreen") or (
+            key == Qt.Key.Key_F and no_mod
+        ):
             self._toggle_fullscreen()
         elif reg.matches(event, "preview.fit_width"):
             self._fit_to_width()

@@ -19,6 +19,7 @@ class SD3GenerateTab(BaseGenerativeTab):
 
     def __init__(self):
         super().__init__()
+        self.sd3_wrapper = SD3Wrapper()
         self.init_ui()
 
     def init_ui(self):
@@ -93,7 +94,7 @@ class SD3GenerateTab(BaseGenerativeTab):
         batch_size,
     ):
         try:
-            SD3Wrapper.generate_image(
+            self.sd3_wrapper.generate_image(
                 prompt=prompt,
                 model_path=model_path,
                 output_path=output_path,

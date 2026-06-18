@@ -1,5 +1,5 @@
 from PySide6.QtCore import Qt, QDateTime
-from PySide6.QtGui import QTextCursor, QColor, QTextCharFormat, QFont
+from PySide6.QtGui import QTextCursor, QColor, QTextCharFormat, QFont, QGuiApplication
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -9,7 +9,6 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QPlainTextEdit,
 )
-
 from gui.src.constants import LEVEL_COLORS
 
 
@@ -21,7 +20,7 @@ class LogWindow(QWidget):
     """
 
     def __init__(self, tab_name: str = "Log", parent=None):
-        super().__init__(parent, Qt.Window)
+        super().__init__(parent, Qt.WindowType.Window)
         self.setWindowTitle(f"{tab_name} — Log")
         self.setMinimumSize(720, 420)
         self.setStyleSheet("background:#1e1e1e; color:#cccccc;")
@@ -94,8 +93,6 @@ class LogWindow(QWidget):
     # Toolbar slots
     # ------------------------------------------------------------------
     def _copy_all(self) -> None:
-        from PySide6.QtGui import QGuiApplication
-
         QGuiApplication.clipboard().setText(self.log_output.toPlainText())
 
     def _save_to_file(self) -> None:

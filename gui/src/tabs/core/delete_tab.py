@@ -3,6 +3,7 @@ import os
 from PIL import Image
 from pathlib import Path
 from datetime import datetime
+from send2trash import send2trash
 from typing import Dict, Any, Optional, List
 from PySide6.QtWidgets import (
     QFormLayout,
@@ -138,7 +139,9 @@ class DeleteTab(AbstractClassTwoGalleries):
         self.gallery_widget = QWidget()
         self.gallery_widget.setStyleSheet("background-color: #2c2f33;")
         self.found_gallery_layout = QGridLayout(self.gallery_widget)
-        self.found_gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.found_gallery_layout.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
         self.found_gallery_scroll.setWidget(self.gallery_widget)
         self.found_gallery_scroll.selection_changed.connect(
             self.handle_marquee_selection
@@ -166,7 +169,9 @@ class DeleteTab(AbstractClassTwoGalleries):
         self.selected_widget = QWidget()
         self.selected_widget.setStyleSheet("background-color: #2c2f33;")
         self.selected_gallery_layout = QGridLayout(self.selected_widget)
-        self.selected_gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.selected_gallery_layout.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
         self.selected_gallery_scroll.setWidget(self.selected_widget)
         content_layout.addWidget(self.selected_gallery_scroll, 1)
 
@@ -301,7 +306,7 @@ class DeleteTab(AbstractClassTwoGalleries):
 
         # --- Status ---
         self.status_label = QLabel("Ready.")
-        self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         content_layout.addWidget(self.status_label)
 
         page_scroll.setWidget(content_widget)
@@ -339,12 +344,15 @@ class DeleteTab(AbstractClassTwoGalleries):
         card_layout.setContentsMargins(0, 0, 0, 0)
 
         img_label = QLabel()
-        img_label.setAlignment(Qt.AlignCenter)
+        img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         img_label.setFixedSize(thumb_size, thumb_size)
 
         if pixmap and not pixmap.isNull():
             scaled = pixmap.scaled(
-                thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                thumb_size,
+                thumb_size,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
             )
             img_label.setPixmap(scaled)
         else:
@@ -379,7 +387,10 @@ class DeleteTab(AbstractClassTwoGalleries):
             if pixmap and not pixmap.isNull():
                 thumb_size = self.thumbnail_size
                 scaled = pixmap.scaled(
-                    thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                    thumb_size,
+                    thumb_size,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
                 )
                 img_label.setPixmap(scaled)
                 img_label.setText("")  # Clear Loading text
@@ -612,16 +623,15 @@ class DeleteTab(AbstractClassTwoGalleries):
             self,
             "Confirm Batch Delete",
             f"Move **{count}** selected files to {action_name}?",
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if reply == QMessageBox.No:
+        if reply == QMessageBox.StandardButton.No:
             return
         deleted_count = 0
         errors = []
         for path in list(self.selected_files):
             try:
                 if send_to_trash_enabled:
-                    from send2trash import send2trash
                     send2trash(path)
                 else:
                     os.remove(path)
@@ -661,14 +671,13 @@ class DeleteTab(AbstractClassTwoGalleries):
             self,
             "Confirm Deletion",
             f"Move to {action_name}:\n{filename}",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
         )
-        if reply == QMessageBox.No:
+        if reply == QMessageBox.StandardButton.No:
             return
         try:
             if send_to_trash_enabled:
-                from send2trash import send2trash
                 send2trash(path)
             else:
                 os.remove(path)
@@ -687,7 +696,9 @@ class DeleteTab(AbstractClassTwoGalleries):
             self.refresh_selected_panel()
             self.on_selection_changed()
             self.status_label.setText(f"Moved to {action_name}: {filename}")
-            QMessageBox.information(self, f"Moved to {action_name}", f"Moved to {action_name}: {filename}")
+            QMessageBox.information(
+                self, f"Moved to {action_name}", f"Moved to {action_name}: {filename}"
+            )
         except Exception as e:
             QMessageBox.critical(self, "Deletion Failed", f"Error: {e}")
 
@@ -761,9 +772,9 @@ class DeleteTab(AbstractClassTwoGalleries):
                 prop_text += f"  - **{key}:** {value}\n"
         msg = QMessageBox(self)
         msg.setWindowTitle("Image Properties")
-        msg.setTextFormat(Qt.MarkdownText)
+        msg.setTextFormat(Qt.TextFormat.MarkdownText)
         msg.setText(prop_text)
-        msg.setIcon(QMessageBox.Information)
+        msg.setIcon(QMessageBox.Icon.Information)
         msg.exec()
 
     @Slot()
@@ -779,10 +790,10 @@ class DeleteTab(AbstractClassTwoGalleries):
                 self,
                 "Large Selection",
                 f"Selected {len(selected_paths)} images. Compare first 10?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.Yes,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
             )
-            if reply == QMessageBox.Yes:
+            if reply == QMessageBox.StandardButton.Yes:
                 selected_paths = selected_paths[:10]
             else:
                 return
@@ -824,7 +835,7 @@ class DeleteTab(AbstractClassTwoGalleries):
             start_index=start_index,
         )
         preview.path_changed.connect(self.update_preview_highlight)
-        preview.setAttribute(Qt.WA_DeleteOnClose)
+        preview.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         preview.show()
         self.open_preview_windows.append(preview)
 
@@ -854,9 +865,13 @@ class DeleteTab(AbstractClassTwoGalleries):
             else "Confirm File Deletion"
         )
         reply = QMessageBox.question(
-            self, title, message, QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            self,
+            title,
+            message,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
         )
-        self.worker.set_confirmation_response(reply == QMessageBox.Yes)
+        self.worker.set_confirmation_response(reply == QMessageBox.StandardButton.Yes)
 
     def update_progress(self, deleted, total):
         self.status_label.setText(f"Deleted {deleted} of {total}...")
@@ -1057,7 +1072,7 @@ class DeleteTab(AbstractClassTwoGalleries):
         # Since logic uses self.scan_method_combo.currentText(), we should update it or pass explicit arg.
 
         # Update UI combo for consistency
-        index = self.scan_method_combo.findText(method, Qt.MatchContains)
+        index = self.scan_method_combo.findText(method, Qt.MatchFlag.MatchContains)
         if index >= 0:
             self.scan_method_combo.setCurrentIndex(index)
 

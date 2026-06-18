@@ -130,7 +130,7 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
 
         # 3. Status Bar
         self.status_label = QLabel("Ready. Please browse a folder to start.")
-        self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.root_layout.addWidget(self.status_label)
 
         # 4. Gallery Area (UPDATED STYLE TO MATCH IMAGE EXTRACTOR)
@@ -185,7 +185,9 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         self.gallery_container.setStyleSheet("QWidget { background-color: #2c2f33; }")
 
         self.gallery_layout = QGridLayout(self.gallery_container)
-        self.gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.gallery_layout.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
         self.gallery_layout.setSpacing(3)
         self.gallery_scroll_area.setWidget(self.gallery_container)
 
@@ -263,15 +265,15 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
 
         lbl = ClickableLabel(path, parent=self)
         lbl.setFixedSize(self.thumbnail_size, self.thumbnail_size)
-        lbl.setAlignment(Qt.AlignCenter)
+        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl.path = path  # Explicitly set path attribute for helper access
 
         if pixmap and not pixmap.isNull():
             scaled = pixmap.scaled(
                 self.thumbnail_size,
                 self.thumbnail_size,
-                Qt.KeepAspectRatio,
-                Qt.SmoothTransformation,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
             )
             lbl.setPixmap(scaled)
             lbl.setText("")
@@ -299,8 +301,8 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
             scaled = pixmap.scaled(
                 self.thumbnail_size,
                 self.thumbnail_size,
-                Qt.KeepAspectRatio,
-                Qt.SmoothTransformation,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
             )
             lbl.setPixmap(scaled)
             lbl.setText("")

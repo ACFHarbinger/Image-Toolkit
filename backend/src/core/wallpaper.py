@@ -86,6 +86,8 @@ class WallpaperManager:
     Uses 'base' rust extension for Linux commands.
     """
 
+    COM_AVAILABLE = COM_AVAILABLE
+
     @staticmethod
     def _set_wallpaper_solid_color_windows(color_hex: str):
         try:
@@ -333,20 +335,26 @@ class WallpaperManager:
             raise RuntimeError(f"KDE method failed (Rust): {e}")
 
     @staticmethod
-    def _set_wallpaper_kde_plasma_apply(path_map: Dict[str, str], style_name: str) -> bool:
+    def _set_wallpaper_kde_plasma_apply(
+        path_map: Dict[str, str], style_name: str
+    ) -> bool:
         cmd = shutil.which("plasma-apply-wallpaperimage")
         if not cmd:
             return False
-        
+
         path = path_map.get("0") or next(iter(path_map.values()), None)
         if not path or not os.path.exists(path):
             return False
-        
+
         fill_mode = "preserveAspectCrop"
         style_lower = style_name.lower()
         if "stretch" in style_lower:
             fill_mode = "stretch"
-        elif "keep proportions" in style_lower or "fit" in style_lower or "scalled" in style_lower:
+        elif (
+            "keep proportions" in style_lower
+            or "fit" in style_lower
+            or "scalled" in style_lower
+        ):
             fill_mode = "preserveAspectFit"
         elif "crop" in style_lower or "zoom" in style_lower or "spanned" in style_lower:
             fill_mode = "preserveAspectCrop"
@@ -354,12 +362,16 @@ class WallpaperManager:
             fill_mode = "tile"
         elif "center" in style_lower or "pad" in style_lower:
             fill_mode = "pad"
-            
+
         try:
-            subprocess.run([cmd, "--fill-mode", fill_mode, str(Path(path).resolve())], check=True)
+            subprocess.run(
+                [cmd, "--fill-mode", fill_mode, str(Path(path).resolve())], check=True
+            )
             return True
         except Exception as e:
-            logging.error(f"Failed to set wallpaper via plasma-apply-wallpaperimage: {e}")
+            logging.error(
+                f"Failed to set wallpaper via plasma-apply-wallpaperimage: {e}"
+            )
             return False
 
     @staticmethod
@@ -513,17 +525,32 @@ class WallpaperManager:
                         mapped_path_map[monitor_id_str] = path
 
                 try:
-                    WallpaperManager._set_wallpaper_kde(mapped_path_map, style_name, qdbus)
+                    WallpaperManager._set_wallpaper_kde(
+                        mapped_path_map, style_name, qdbus
+                    )
                 except Exception as e:
-                    logging.warning(f"KDE DBus wallpaper setting failed, trying fallback: {e}")
-                    if not WallpaperManager._set_wallpaper_kde_plasma_apply(path_map, style_name):
+                    logging.warning(
+                        f"KDE DBus wallpaper setting failed, trying fallback: {e}"
+                    )
+                    if not WallpaperManager._set_wallpaper_kde_plasma_apply(
+                        path_map, style_name
+                    ):
                         raise
             else:  # GNOME or Fallback
                 desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
                 session = os.environ.get("DESKTOP_SESSION", "").lower()
-                is_kde = "kde" in desktop or "plasma" in desktop or "kde" in session or "plasma" in session
-                
-                if (is_kde or shutil.which("plasma-apply-wallpaperimage")) and WallpaperManager._set_wallpaper_kde_plasma_apply(path_map, style_name):
+                is_kde = (
+                    "kde" in desktop
+                    or "plasma" in desktop
+                    or "kde" in session
+                    or "plasma" in session
+                )
+
+                if (
+                    is_kde or shutil.which("plasma-apply-wallpaperimage")
+                ) and WallpaperManager._set_wallpaper_kde_plasma_apply(
+                    path_map, style_name
+                ):
                     return
 
                 if style_name == "Spanned" and isinstance(monitors, list):

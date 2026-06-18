@@ -3,8 +3,9 @@ import time
 import platform
 import subprocess
 
+from send2trash import send2trash
 from typing import Dict, Any, List, Optional
-from PySide6.QtGui import QPixmap, QAction, QCursor
+from PySide6.QtGui import QPixmap, QAction, QCursor, QColor
 from PySide6.QtCore import Qt, Signal, QPoint, Slot, QThreadPool
 from PySide6.QtWidgets import (
     QLineEdit,
@@ -44,7 +45,7 @@ class SearchTab(AbstractClassTwoGalleries):
         self.dropdown = dropdown
 
         self.open_preview_windows = []
-        self.selected_formats = set()
+        self.selected_formats = None
         self._db_was_connected = False
 
         # Search specific worker
@@ -77,6 +78,7 @@ class SearchTab(AbstractClassTwoGalleries):
 
         # --- Input formats ---
         if self.dropdown:
+            self.selected_formats = set()
             formats_layout = QVBoxLayout()
             btn_layout = QHBoxLayout()
             self.format_buttons = {}
@@ -124,7 +126,6 @@ class SearchTab(AbstractClassTwoGalleries):
             )
             form_layout.addRow(self.formats_field)
         else:
-            self.selected_formats = None
             self.input_formats_edit = QLineEdit()
             self.input_formats_edit.setPlaceholderText("e.g. jpg png gif (optional)")
             form_layout.addRow("Input formats:", self.input_formats_edit)
@@ -221,7 +222,9 @@ class SearchTab(AbstractClassTwoGalleries):
 
         self.results_layout = QGridLayout(self.results_widget)
         self.results_layout.setSpacing(3)
-        self.results_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.results_layout.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
         self.results_scroll.setWidget(self.results_widget)
 
         # Add shared search input (Lazy Search) for Found Results
@@ -257,7 +260,9 @@ class SearchTab(AbstractClassTwoGalleries):
         )
         self.selected_layout_grid = QGridLayout(self.selected_widget_container)
         self.selected_layout_grid.setSpacing(3)
-        self.selected_layout_grid.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.selected_layout_grid.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
         self.selected_scroll.setWidget(self.selected_widget_container)
 
         # Add directly to main layout with stretch
@@ -279,7 +284,7 @@ class SearchTab(AbstractClassTwoGalleries):
         self.setLayout(layout)
 
         # Enable widget to receive keyboard events for shortcuts
-        self.setFocusPolicy(Qt.StrongFocus)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
         # Update enabled state based on DB connection
         self.update_search_button_state()
@@ -305,7 +310,9 @@ class SearchTab(AbstractClassTwoGalleries):
         image_label = DraggableLabel(
             path, self.thumbnail_size, selection_provider=lambda: self.selected_files
         )
-        image_label.setAlignment(Qt.AlignCenter)
+        image_label.setAlignment(
+            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
+        )
 
         # Helper to get pixmap for base class caching
         container.get_pixmap = lambda: image_label.pixmap()
@@ -330,8 +337,8 @@ class SearchTab(AbstractClassTwoGalleries):
                 pixmap = pixmap.scaled(
                     self.thumbnail_size,
                     self.thumbnail_size,
-                    Qt.KeepAspectRatio,
-                    Qt.SmoothTransformation,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
                 )
             image_label.setPixmap(pixmap)
         else:
@@ -361,8 +368,8 @@ class SearchTab(AbstractClassTwoGalleries):
                     pixmap = pixmap.scaled(
                         self.thumbnail_size,
                         self.thumbnail_size,
-                        Qt.KeepAspectRatio,
-                        Qt.SmoothTransformation,
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation,
                     )
                 image_label.setPixmap(pixmap)
                 image_label.setText("")
@@ -476,7 +483,7 @@ class SearchTab(AbstractClassTwoGalleries):
 
         # Uncheck all tags
         for i in range(self.tags_list_widget.count()):
-            self.tags_list_widget.item(i).setCheckState(Qt.Unchecked)
+            self.tags_list_widget.item(i).setCheckState(Qt.CheckState.Unchecked)
 
     def display_results(self, results: List[Dict[str, Any]]):
         """
@@ -567,23 +574,21 @@ class SearchTab(AbstractClassTwoGalleries):
             None: "#c7c7c7",
         }
 
-        from PySide6.QtGui import QColor
-
         for tag_data in tags_data:
             tag_name = tag_data["name"]
             tag_type = tag_data["type"] if tag_data["type"] else ""
 
             item = QListWidgetItem(tag_name.replace("_", " ").title())
-            item.setData(Qt.UserRole, tag_name)
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(Qt.Unchecked)
+            item.setData(Qt.ItemDataRole.UserRole, tag_name)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Unchecked)
 
             text_color = color_map.get(tag_type, color_map[""])
             item.setForeground(QColor(text_color))
 
             self.tags_list_widget.addItem(item)
 
-    def update_search_button_state(self, connected: bool = None):
+    def update_search_button_state(self, connected: Optional[bool] = None):
         if connected is None:
             db_connected = self.db_tab_ref.db is not None
         else:
@@ -602,9 +607,9 @@ class SearchTab(AbstractClassTwoGalleries):
 
     def get_selected_tags(self) -> List[str]:
         return [
-            self.tags_list_widget.item(i).data(Qt.UserRole)
+            self.tags_list_widget.item(i).data(Qt.ItemDataRole.UserRole)
             for i in range(self.tags_list_widget.count())
-            if self.tags_list_widget.item(i).checkState() == Qt.Checked
+            if self.tags_list_widget.item(i).checkState() == Qt.CheckState.Checked
         ]
 
     def get_selected_formats(self) -> Optional[List[str]]:
@@ -750,10 +755,10 @@ class SearchTab(AbstractClassTwoGalleries):
             self,
             "Confirm Database Removal",
             f"Are you sure you want to remove the entry for **{filename}** from the database?\n\nThe physical image file WILL NOT be deleted.",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
         )
-        if reply == QMessageBox.No:
+        if reply == QMessageBox.StandardButton.No:
             return
         try:
             image_data = db.get_image_by_path(file_path)
@@ -805,10 +810,10 @@ class SearchTab(AbstractClassTwoGalleries):
             self,
             f"Confirm {action_name}",
             f"Are you sure you want to {action_name.lower()} the file:\n\n**{filename}**\n\nThis action cannot be undone!",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
         )
-        if reply == QMessageBox.No:
+        if reply == QMessageBox.StandardButton.No:
             return
         try:
             image_data = db.get_image_by_path(file_path)
@@ -818,7 +823,6 @@ class SearchTab(AbstractClassTwoGalleries):
                     window.close()
                     break
             if send_to_trash_enabled:
-                from send2trash import send2trash
                 send2trash(file_path)
             else:
                 os.remove(file_path)
@@ -831,7 +835,9 @@ class SearchTab(AbstractClassTwoGalleries):
                 self.selected_files.remove(file_path)
 
             self.perform_search()
-            QMessageBox.information(self, f"Moved to {action_name}", f"Moved to {action_name}: {filename}")
+            QMessageBox.information(
+                self, f"Moved to {action_name}", f"Moved to {action_name}: {filename}"
+            )
         except Exception as e:
             QMessageBox.critical(
                 self, "Deletion Failed", f"Could not delete the file:\n{e}"
@@ -872,7 +878,7 @@ class SearchTab(AbstractClassTwoGalleries):
             msg = QMessageBox(self)
             msg.setWindowTitle("Image Properties")
             msg.setText(properties_text)
-            msg.setIcon(QMessageBox.Information)
+            msg.setIcon(QMessageBox.Icon.Information)
             msg.setStyleSheet("QLabel{min-width: 400px;}")
             msg.exec()
         except Exception as e:
@@ -1038,9 +1044,9 @@ class SearchTab(AbstractClassTwoGalleries):
             for i in range(self.tags_list_widget.count()):
                 item = self.tags_list_widget.item(i)
                 item.setCheckState(
-                    Qt.Checked
-                    if item.data(Qt.UserRole) in selected_tags
-                    else Qt.Unchecked
+                    Qt.CheckState.Checked
+                    if item.data(Qt.ItemDataRole.UserRole) in selected_tags
+                    else Qt.CheckState.Unchecked
                 )
             formats = config.get("input_formats", [])
             if self.dropdown:

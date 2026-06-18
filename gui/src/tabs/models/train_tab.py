@@ -25,9 +25,7 @@ class UnifiedTrainTab(BaseGenerativeTab):
         # 1. Model Selector
         self.model_selector = QComboBox()
         self.model_selector.addItem("LoRA (Diffusion and GANs)", "anything")
-        if R3GANTrainTab:
-            self.model_selector.addItem("R3GAN (NVLabs)", "r3gan")
-        # ADD BASIC GAN OPTION
+        self.model_selector.addItem("R3GAN (NVLabs)", "r3gan")
         self.model_selector.addItem("Basic GAN (Custom)", "basic_gan")
 
         selector_layout = QFormLayout()
@@ -43,11 +41,9 @@ class UnifiedTrainTab(BaseGenerativeTab):
         self.anything_tab = LoRATrainTab()
         self.stack.addWidget(self.anything_tab)
 
-        if R3GANTrainTab:
-            self.r3gan_tab = R3GANTrainTab()
-            self.stack.addWidget(self.r3gan_tab)
+        self.r3gan_tab = R3GANTrainTab()
+        self.stack.addWidget(self.r3gan_tab)
 
-        # ADD CUSTOM GAN TAB TO STACK
         self.basic_gan_tab = GANTrainTab()
         self.stack.addWidget(self.basic_gan_tab)
 

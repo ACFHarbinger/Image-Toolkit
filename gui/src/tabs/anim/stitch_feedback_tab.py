@@ -17,11 +17,13 @@ Workflow
 from __future__ import annotations
 
 import os
+import pathlib
+from pathlib import Path
 import torch
 from typing import List, Optional
 
 import cv2
-from PySide6.QtCore import QObject, QThread, Signal, Slot
+from PySide6.QtCore import QObject, QThread, Signal, Slot, Qt
 from PySide6.QtGui import QFont, QPixmap
 from PySide6.QtWidgets import (
     QComboBox,
@@ -42,7 +44,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from PySide6.QtCore import Qt
 
 from ...helpers.anim.annotation_canvas import AnnotationCanvas
 from backend.src.anim.rlhf.feedback_store import (
@@ -56,6 +57,15 @@ from backend.src.anim.rlhf.bench_import import (
     suggested_rating,
     verdict_label,
 )
+
+from backend.src.anim.rlhf import (
+    train_reward_model,
+    StitchRewardModel,
+    fine_tune_drl_agent,
+)
+from backend.src.anim.mfsr.drl_registration import RegistrationAgent
+from ...utils.splitter_persistence import persist_splitter
+from backend.src.constants import SUPPORTED_IMG_FORMATS
 
 # ---------------------------------------------------------------------------
 # Background workers
@@ -76,8 +86,6 @@ class _RewardModelTrainWorker(QObject):
     @Slot()
     def run(self):
         try:
-            from backend.src.anim.rlhf import FeedbackStore, train_reward_model
-
             store = FeedbackStore(path=self._store_path)
             n = store.count()
             if n == 0:
@@ -119,12 +127,6 @@ class _DRLFineTuneWorker(QObject):
     @Slot()
     def run(self):
         try:
-            from backend.src.anim.rlhf import (
-                StitchRewardModel,
-                fine_tune_drl_agent,
-            )
-            from backend.src.anim.mfsr.drl_registration import RegistrationAgent
-
             reward_model = StitchRewardModel(
                 model_path=self._model_path if self._model_path else None
             )
@@ -159,9 +161,7 @@ class _DRLFineTuneWorker(QObject):
 
             # Save updated agent weights
             if self._agent_path:
-                import pathlib
-
-                pathlib.Path(self._agent_path).parent.mkdir(parents=True, exist_ok=True)
+                Path(self._agent_path).parent.mkdir(parents=True, exist_ok=True)
                 torch.save(agent.online.state_dict(), self._agent_path)
 
             self.finished.emit(
@@ -202,7 +202,7 @@ class StitchFeedbackTab(QWidget):
         root.setContentsMargins(4, 4, 4, 4)
         root.setSpacing(6)
 
-        splitter = QSplitter(Qt.Horizontal)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
         root.addWidget(splitter)
 
         # ── Left: annotation canvas ──────────────────────────────────────────
@@ -219,7 +219,6 @@ class StitchFeedbackTab(QWidget):
         ctrl_scroll.setWidget(ctrl_container)
         splitter.addWidget(ctrl_scroll)
         splitter.setSizes([700, 330])
-        from ...utils.splitter_persistence import persist_splitter
         persist_splitter(splitter, "StitchFeedbackTab/main")
 
         ctrl = QVBoxLayout(ctrl_container)
@@ -246,7 +245,9 @@ class StitchFeedbackTab(QWidget):
         # Read-only metrics panel
         self._bench_metrics_label = QLabel()
         self._bench_metrics_label.setWordWrap(True)
-        self._bench_metrics_label.setStyleSheet("color: #aaa; font-size: 10px; font-family: monospace;")
+        self._bench_metrics_label.setStyleSheet(
+            "color: #aaa; font-size: 10px; font-family: monospace;"
+        )
         bench_lay.addWidget(self._bench_metrics_label)
 
         self._bench_import_btn = QPushButton("Import Selected →")
@@ -271,11 +272,11 @@ class StitchFeedbackTab(QWidget):
         # ── Overall rating ───────────────────────────────────────────────────
         rating_grp = QGroupBox("Overall Quality Rating")
         rating_lay = QVBoxLayout(rating_grp)
-        self._rating_slider = QSlider(Qt.Horizontal)
+        self._rating_slider = QSlider(Qt.Orientation.Horizontal)
         self._rating_slider.setRange(0, 100)
         self._rating_slider.setValue(80)
         self._rating_slider.setTickInterval(10)
-        self._rating_slider.setTickPosition(QSlider.TicksBelow)
+        self._rating_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
         self._rating_val_label = QLabel("8.0 / 10")
         self._rating_slider.valueChanged.connect(
             lambda v: self._rating_val_label.setText(f"{v / 10:.1f} / 10")
@@ -298,7 +299,7 @@ class StitchFeedbackTab(QWidget):
 
         sev_row = QHBoxLayout()
         sev_row.addWidget(QLabel("Severity:"))
-        self._severity_slider = QSlider(Qt.Horizontal)
+        self._severity_slider = QSlider(Qt.Orientation.Horizontal)
         self._severity_slider.setRange(0, 100)
         self._severity_slider.setValue(50)
         self._severity_val_label = QLabel("0.5")
@@ -554,8 +555,6 @@ class StitchFeedbackTab(QWidget):
             QMessageBox.warning(self, "No directory", "Select a frame directory first.")
             return
 
-        from backend.src.constants import SUPPORTED_IMG_FORMATS
-
         image_paths = sorted(
             [
                 os.path.join(frame_dir, f)
@@ -566,8 +565,6 @@ class StitchFeedbackTab(QWidget):
         if len(image_paths) < 2:
             QMessageBox.warning(self, "Too few images", "Need at least 2 images.")
             return
-
-        from pathlib import Path
 
         agent_path = str(Path.home() / ".config" / "image-toolkit" / "drl_agent.pt")
         self._drl_train_btn.setEnabled(False)
@@ -639,7 +636,9 @@ class StitchFeedbackTab(QWidget):
             label = f"{verdict_label(ds)}  {ds.get('name', '?')}{fb}{flag_str}"
             self._bench_list.addItem(label)
         self._bench_file_label.setText(os.path.basename(path))
-        self._log_msg(f"[Bench] Loaded {len(datasets)} dataset(s) from {os.path.basename(path)}")
+        self._log_msg(
+            f"[Bench] Loaded {len(datasets)} dataset(s) from {os.path.basename(path)}"
+        )
 
     @Slot(int)
     def _on_bench_selection_changed(self, row: int):
@@ -667,12 +666,15 @@ class StitchFeedbackTab(QWidget):
         ds = self._bench_datasets[row]
         path = resolve_anime_path(ds)
         if not path:
-            QMessageBox.warning(self, "No path", "No panorama path found in this dataset entry.")
+            QMessageBox.warning(
+                self, "No path", "No panorama path found in this dataset entry."
+            )
             return
         if not os.path.isfile(path):
             QMessageBox.warning(
-                self, "File not found",
-                f"Panorama not found at:\n{path}\n\nThe benchmark may have been run on a different machine."
+                self,
+                "File not found",
+                f"Panorama not found at:\n{path}\n\nThe benchmark may have been run on a different machine.",
             )
             return
         # Load image
@@ -686,7 +688,7 @@ class StitchFeedbackTab(QWidget):
         self._submit_btn.setEnabled(True)
         # Pre-fill rating from automated metrics
         rating = suggested_rating(ds.get("metrics_asp"))
-        self._rating_slider.setValue(int(round(rating * 10)))
+        self._rating_slider.setValue(round(rating * 10))
         self._log_msg(
             f"[Bench] Imported '{ds.get('name', '?')}' "
             f"— path={os.path.basename(path)}, "

@@ -1,12 +1,17 @@
 import os
+import re
 import cv2
 import time
 import json
 import copy
 import subprocess
+import multiprocessing
 
 from pathlib import Path
+from multiprocessing import Pool
+from send2trash import send2trash
 from typing import Optional, List, Set, Tuple, Any, Dict
+from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip
 from PySide6.QtWidgets import (
     QLabel,
     QComboBox,
@@ -34,6 +39,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QTabBar,
     QListWidget,
+    QSizePolicy,
 )
 from PySide6.QtGui import QPixmap, QResizeEvent, QAction, QImage
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
@@ -61,6 +67,7 @@ from ...helpers import (
     VideoExtractionWorker,
 )
 from ...helpers.video.video_scan_worker import VideoThumbnailer
+from ...constants import MAX_PREVIEW_ITEMS
 from backend.src.constants import (
     LOCAL_SOURCE_PATH,
     SUPPORTED_VIDEO_FORMATS,
@@ -69,12 +76,6 @@ from backend.src.constants import (
 
 
 def run_extraction_in_process(config: dict) -> dict:
-    import os
-    import subprocess
-    import time
-    import re
-    from pathlib import Path
-
     def natural_sort_key(s):
         return [
             int(text) if text.isdigit() else text.lower()
@@ -125,8 +126,6 @@ def run_extraction_in_process(config: dict) -> dict:
         return keep
 
     def get_video_fps(path):
-        import cv2
-
         cap = cv2.VideoCapture(path)
         if not cap.isOpened():
             return 23.976
@@ -336,8 +335,6 @@ def run_extraction_in_process(config: dict) -> dict:
                 )
                 return {"status": "success", "output_path": output_path}
             else:
-                from moviepy.editor import VideoFileClip, concatenate_videoclips
-
                 base_clip = VideoFileClip(video_path).subclip(t_start, t_end)
                 keep_regions = get_keep_regions(t_start, t_end)
                 if cuts_ms and keep_regions:
@@ -431,9 +428,6 @@ def run_extraction_in_process(config: dict) -> dict:
                 )
                 return {"status": "success", "output_path": output_path}
             else:
-                from moviepy.editor import VideoFileClip, concatenate_videoclips
-                from moviepy.editor import AudioFileClip
-
                 base_clip = VideoFileClip(video_path)
                 original_audio_clip = None
                 if mute_audio or base_clip.audio is None:
@@ -443,7 +437,7 @@ def run_extraction_in_process(config: dict) -> dict:
                     try:
                         original_audio_clip = AudioFileClip(video_path)
                         base_clip.audio = original_audio_clip
-                    except:
+                    except Exception:
                         pass
                     audio_codec = "aac"
 
@@ -518,15 +512,11 @@ class QueueExecutionWorker(QRunnable):
         results = []
 
         if self.parallel:
-            from multiprocessing import Pool
-            import multiprocessing
-
             num_cores = min(multiprocessing.cpu_count(), len(self.queue_items))
             if num_cores < 1:
                 num_cores = 1
 
             self.signals.progress.emit(10)
-
             try:
                 with Pool(processes=num_cores) as pool:
                     async_results = [
@@ -590,7 +580,7 @@ class CutLabel(QLabel):
     def __init__(self, text, index, parent=None):
         super().__init__(text, parent)
         self.index = index
-        self.setCursor(Qt.PointingHandCursor)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet(
             "color: #00BCD4; font-weight: bold; padding: 2px 6px; "
             "border: 1px solid #4f545c; border-radius: 4px; background-color: #1e1f22;"
@@ -598,7 +588,7 @@ class CutLabel(QLabel):
         self.setToolTip("Right-click to delete this cut")
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.RightButton:
+        if event.button() == Qt.MouseButton.RightButton:
             self.right_clicked.emit(event.globalPos(), self.index)
         super().mousePressEvent(event)
 
@@ -614,7 +604,7 @@ class TagLabel(QLabel):
         super().__init__(text, parent)
         self.ms = ms
         self.index = index
-        self.setCursor(Qt.PointingHandCursor)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet(
             "color: #FFC107; font-weight: bold; padding: 2px 6px; "
             "border: 1px solid #4f545c; border-radius: 4px; background-color: #1e1f22;"
@@ -622,14 +612,14 @@ class TagLabel(QLabel):
         self.setToolTip(f"Jump to {text}\nRight-click to edit/delete")
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit(self.ms)
-        elif event.button() == Qt.RightButton:
+        elif event.button() == Qt.MouseButton.RightButton:
             self.right_clicked.emit(event.globalPos(), self.index)
         super().mousePressEvent(event)
 
     def mouseDoubleClickEvent(self, event):
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self.double_clicked.emit(self.ms)
         super().mouseDoubleClickEvent(event)
 
@@ -902,7 +892,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.volume_slider.setVisible(True)
 
         self.lbl_current_time = QLabel("00:00:000")
-        self.lbl_current_time.setCursor(Qt.PointingHandCursor)
+        self.lbl_current_time.setCursor(Qt.CursorShape.PointingHandCursor)
         self.lbl_current_time.setToolTip("Click to jump to time")
         self.lbl_current_time.installEventFilter(self)
 
@@ -967,14 +957,12 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         extract_main_layout = QVBoxLayout(self.extract_group)
 
         # -- Row 0: Recent Configurations --
-        from PySide6.QtWidgets import QSizePolicy
-
         recent_layout = QHBoxLayout()
         recent_layout.addWidget(QLabel("Recent Extractions:"))
         self.combo_recent_extractions = QComboBox()
         self.combo_recent_extractions.setMinimumWidth(300)
         self.combo_recent_extractions.setSizePolicy(
-            QSizePolicy.Expanding, QSizePolicy.Fixed
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
         recent_layout.addWidget(self.combo_recent_extractions)
 
@@ -1307,7 +1295,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.gallery_container.setStyleSheet("QWidget { background-color: #2c2f33; }")
 
         self.gallery_layout = QGridLayout(self.gallery_container)
-        self.gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.gallery_layout.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
         self.gallery_layout.setSpacing(3)
         self.gallery_scroll_area.setWidget(self.gallery_container)
 
@@ -1464,8 +1454,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         # 2. Pre-populate grid with "Loading..." items in alphabetical order
         # Limit to 1000 items to avoid OOM/crash if directory is massive
-        from ...constants import MAX_PREVIEW_ITEMS
-
         video_paths_limited = video_paths[:MAX_PREVIEW_ITEMS]
 
         for i, v_path in enumerate(video_paths_limited):
@@ -2255,7 +2243,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
     def toggle_fullscreen(self):
         if self.player_container.isFullScreen():
-            self.player_container.setWindowFlags(Qt.Widget)
+            self.player_container.setWindowFlags(Qt.WindowType.Widget)
             self.player_container.showNormal()
             self.player_layout_container.addWidget(self.player_container)
             self.change_resolution(self.combo_resolution.currentIndex())
@@ -2304,7 +2292,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         clickable_label = ClickableLabel(file_path=path)
         clickable_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
-        clickable_label.setAlignment(Qt.AlignCenter)
+        clickable_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         clickable_label.path = path
 
         is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
@@ -2596,12 +2584,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             for path in paths_to_delete:
                 try:
                     if send_to_trash_enabled:
-                        from send2trash import send2trash
-
                         send2trash(path)
                     else:
-                        import os
-
                         os.remove(path)
                     if path in self.current_extracted_paths:
                         self.current_extracted_paths.remove(path)
@@ -3165,7 +3149,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         )
 
         dlg = FrameSelectionDialog(self.video_path, start_ms=start_ms, parent=self)
-        if dlg.exec() == QDialog.Accepted:
+        if dlg.exec() == QDialog.DialogCode.Accepted:
             timestamp_ms = int(dlg.selected_frame_idx / dlg.fps * 1000)
             if self.extraction_queue_enabled:
                 config = {
@@ -3204,8 +3188,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                     img = img.scaled(
                         target_size[0],
                         target_size[1],
-                        Qt.IgnoreAspectRatio,
-                        Qt.SmoothTransformation,
+                        Qt.AspectRatioMode.IgnoreAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation,
                     )
 
                 filename = f"{Path(self.video_path).stem}_snap_{timestamp_ms}ms.png"
@@ -3510,7 +3494,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self._active_metadata = self._get_current_extraction_metadata()
         self._active_metadata["mode"] = "video"
 
-        output_name = f"{Path(self.video_path).stem}_{int(start)}ms_{int(end)}ms.mp4"
+        output_name = f"{Path(self.video_path).stem}_{start}ms_{end}ms.mp4"
         output_path = str(self.extraction_dir / output_name)
 
         self.active_extraction_worker = VideoExtractionWorker(
@@ -3836,7 +3820,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             active_configs = config.get("active_videos_config", {})
             if active_configs:
                 self.active_videos_config = copy.deepcopy(active_configs)
-                
+
                 # Clear tabbar and repopulate under switching guard
                 self._is_switching_tabs = True
                 while self.active_videos_tabbar.count() > 0:
@@ -3897,16 +3881,6 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         # Use backend logic
         self.video_path = video_path  # Set current context
-        # We need a worker or direct extraction. The existing extract_single_frame uses self.media_player position.
-        # QML player is separate. We should use ffmpeg/cv2 to extract specific frame.
-
-        # Re-using FrameExtractionWorker logic but we need to pass time explicitly
-        # Existing FrameExtractionWorker takes (video_path, output_dir, start_time, end_time, fps, etc)
-        # For single frame, strict start/end or just snapshot?
-
-        # Simplified: Use cv2 for instant snapshot if possible, or trigger worker?
-        # Let's use a quick CV2 cap for responsiveness, similar to how ImageScannerWorker does it maybe?
-        # Or just spawn a quick ffmpeg command.
 
         output_dir = self.extraction_dir
         filename = f"{Path(video_path).stem}_{timestamp_ms}ms.png"
@@ -4031,7 +4005,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         item = self.extraction_queue[idx]
         v_path = item.get("video_path")
         if not v_path or not os.path.exists(v_path):
-            QMessageBox.warning(self, "File Not Found", f"The video file '{v_path}' no longer exists.")
+            QMessageBox.warning(
+                self, "File Not Found", f"The video file '{v_path}' no longer exists."
+            )
             return
 
         # Load video if not already open
@@ -4126,7 +4102,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         config["media_position"] = self.start_time_ms
         self.active_videos_config[v_path] = config
 
-        self.extraction_status_label.setText(f"Loaded configurations from queue item #{idx + 1}.")
+        self.extraction_status_label.setText(
+            f"Loaded configurations from queue item #{idx + 1}."
+        )
         self.extraction_status_label.show()
 
     def _update_queue_ui(self):

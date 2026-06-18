@@ -28,24 +28,28 @@ from PySide6.QtWidgets import QRubberBand, QSizePolicy, QWidget
 
 # Flaw type → (R, G, B, alpha 0-255) overlay colour
 _FLAW_COLORS: Dict[str, Tuple[int, int, int, int]] = {
-    "seam":          (255,  60,  60, 90),
-    "blur":          (255, 220,  40, 90),
-    "misalignment":  (255, 140,  40, 90),
-    "color_mismatch":(180,  60, 255, 90),
-    "dark_border":   (120, 120, 120, 90),
-    "compression":   ( 40, 220, 220, 90),
-    "ghosting":      ( 60,  80, 255, 90),
-    "unknown":       (200, 200, 200, 90),
+    "seam": (255, 60, 60, 90),
+    "blur": (255, 220, 40, 90),
+    "misalignment": (255, 140, 40, 90),
+    "color_mismatch": (180, 60, 255, 90),
+    "dark_border": (120, 120, 120, 90),
+    "compression": (40, 220, 220, 90),
+    "ghosting": (60, 80, 255, 90),
+    "unknown": (200, 200, 200, 90),
 }
 
 
 class _Annotation:
     """One annotation rectangle with its flaw metadata."""
+
     __slots__ = ("x", "y", "w", "h", "flaw_type", "severity", "description")
 
     def __init__(
         self,
-        x: float, y: float, w: float, h: float,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
         flaw_type: str = "seam",
         severity: float = 0.5,
         description: str = "",
@@ -69,7 +73,7 @@ class AnnotationCanvas(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMinimumSize(400, 300)
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setMouseTracking(True)
 
         self._pixmap: QPixmap | None = None
@@ -82,9 +86,9 @@ class AnnotationCanvas(QWidget):
 
         # Rubber-band drag state
         self._drag_origin: QPoint | None = None
-        self._rubber_band = QRubberBand(QRubberBand.Rectangle, self)
+        self._rubber_band = QRubberBand(QRubberBand.Shape.Rectangle, self)
 
-        self.setFocusPolicy(Qt.StrongFocus)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
     # ------------------------------------------------------------------ public
 
@@ -97,13 +101,15 @@ class AnnotationCanvas(QWidget):
 
     def set_annotation_mode(self, enabled: bool) -> None:
         self._annotation_mode = enabled
-        self.setCursor(Qt.CrossCursor if enabled else Qt.ArrowCursor)
+        self.setCursor(
+            Qt.CursorShape.CrossCursor if enabled else Qt.CursorShape.ArrowCursor
+        )
 
     def set_active_flaw_type(self, flaw_type: str) -> None:
         self._active_flaw_type = flaw_type
 
     def set_active_severity(self, severity: float) -> None:
-        self._active_severity = float(severity)
+        self._active_severity = severity
 
     def clear_annotations(self) -> None:
         self._annotations.clear()
@@ -116,7 +122,10 @@ class AnnotationCanvas(QWidget):
 
     def add_annotation(
         self,
-        x: float, y: float, w: float, h: float,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
         flaw_type: str = "seam",
         severity: float = 0.5,
         description: str = "",
@@ -158,7 +167,7 @@ class AnnotationCanvas(QWidget):
             return 0.0, 0.0
         nx = (pt.x() - r.left()) / r.width()
         ny = (pt.y() - r.top()) / r.height()
-        return float(max(0.0, min(1.0, nx))), float(max(0.0, min(1.0, ny)))
+        return max(0.0, min(1.0, nx)), max(0.0, min(1.0, ny))
 
     def _norm_to_widget(self, x: float, y: float) -> QPoint:
         r = self._image_rect()
@@ -179,10 +188,12 @@ class AnnotationCanvas(QWidget):
         self.update()
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             if self._annotation_mode and self._pixmap is not None:
                 self._drag_origin = event.pos()
-                self._rubber_band.setGeometry(QRect(self._drag_origin, self._drag_origin))
+                self._rubber_band.setGeometry(
+                    QRect(self._drag_origin, self._drag_origin)
+                )
                 self._rubber_band.show()
             else:
                 # Pan mode: store starting point for drag
@@ -202,7 +213,7 @@ class AnnotationCanvas(QWidget):
             self.update()
 
     def mouseReleaseEvent(self, event):
-        if event.button() != Qt.LeftButton or self._drag_origin is None:
+        if event.button() != Qt.MouseButton.LeftButton or self._drag_origin is None:
             return
         if self._annotation_mode:
             self._rubber_band.hide()
@@ -214,7 +225,10 @@ class AnnotationCanvas(QWidget):
                 w_n = max(0.001, x1_n - x0_n)
                 h_n = max(0.001, y1_n - y0_n)
                 ann = _Annotation(
-                    x=x0_n, y=y0_n, w=w_n, h=h_n,
+                    x=x0_n,
+                    y=y0_n,
+                    w=w_n,
+                    h=h_n,
                     flaw_type=self._active_flaw_type,
                     severity=self._active_severity,
                 )
@@ -227,14 +241,18 @@ class AnnotationCanvas(QWidget):
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.SmoothPixmapTransform)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
 
         # Background
         painter.fillRect(self.rect(), QColor(30, 30, 30))
 
         if self._pixmap is None:
             painter.setPen(QColor(140, 140, 140))
-            painter.drawText(self.rect(), Qt.AlignCenter, "Load a stitched image to begin")
+            painter.drawText(
+                self.rect(),
+                Qt.AlignmentFlag.AlignCenter,
+                "Load a stitched image to begin",
+            )
             return
 
         # Image
@@ -259,10 +277,15 @@ class AnnotationCanvas(QWidget):
 
             # Label
             label = f"{ann.flaw_type}  s={ann.severity:.1f}"
-            label_rect = QRect(ann_rect.left() + 2, ann_rect.top() + 2,
-                               ann_rect.width() - 4, 14)
+            label_rect = QRect(
+                ann_rect.left() + 2, ann_rect.top() + 2, ann_rect.width() - 4, 14
+            )
             painter.setPen(QColor(255, 255, 255, 230))
-            painter.drawText(label_rect, Qt.AlignLeft | Qt.AlignTop, label)
+            painter.drawText(
+                label_rect,
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
+                label,
+            )
 
         painter.end()
 

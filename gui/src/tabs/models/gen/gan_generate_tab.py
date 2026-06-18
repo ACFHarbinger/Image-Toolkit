@@ -102,13 +102,19 @@ class GANGenerateTab(QWidget):
                 height, width, channel = img_np.shape
                 bytes_per_line = 3 * width
                 q_img = QImage(
-                    img_np.data, width, height, bytes_per_line, QImage.Format_RGB888
+                    img_np.data,
+                    width,
+                    height,
+                    bytes_per_line,
+                    QImage.Format.Format_RGB888,
                 )
 
                 lbl = QLabel()
                 pixmap = QPixmap.fromImage(q_img)
-                lbl.setPixmap(pixmap.scaled(128, 128, Qt.KeepAspectRatio))
-                lbl.setFrameShape(QFrame.Box)
+                lbl.setPixmap(
+                    pixmap.scaled(128, 128, Qt.AspectRatioMode.KeepAspectRatio)
+                )
+                lbl.setFrameShape(QFrame.Shape.Box)
 
                 self.gen_grid.addWidget(lbl, row, col)
                 col += 1
