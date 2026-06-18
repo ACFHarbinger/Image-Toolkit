@@ -4,6 +4,126 @@
 
 ---
 
+## ASP Session 138 — §1.81 Seam Band SSIM Gate · §1.82 Seam Spatial-Frequency Profile Gate (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **§1.81 `_seam_band_ssim`/`_check_seam_ssim_gate`** (`compositing.py`) | Per-seam SSIM-based perceptual similarity gate. For each inter-strip boundary, computes the Structural Similarity Index (SSIM) between the `band_px=30`-row window immediately above and below using `skimage.metrics.structural_similarity` (float32, `data_range=1.0`). Heights are equalised when the boundary falls near the image edge. SSIM fuses luma, contrast, and structure into a single [0,1] score — a catch-all perceptual gate complementing the targeted §1.76–§1.80 single-dimension gates. Gate fires when any seam's SSIM falls *below* the threshold (inverted polarity vs §1.76–§1.80 which fire *above* theirs). `_SEAM_SSIM_GATE` flag (default 0.0=off, `ASP_SEAM_SSIM_GATE=0.85`). Stage 11.14 wired in `pipeline.py` after Stage 11.13. `ASP_SEAM_SSIM_GATE` added to `_CONFIG_SCHEMA` and `_DUMP_SECTIONS["compositing"]`. Exported in `__all__`. |
+| **§1.82 `_seam_freq_profile`/`_check_seam_freq_gate`** (`compositing.py`) | Per-seam spatial-frequency profile mismatch gate using FFT Pearson-r. For each inter-strip boundary, computes the column-averaged 1D FFT magnitude spectrum (DC excluded, positive-frequency half only, `np.fft.rfft` along rows) of each band, then measures `1 − max(0, Pearson-r)` between the two spectral vectors. Score 0=identical spectra (compatible); 1=orthogonal/anti-correlated spectra. Catches spectral content discontinuities — e.g., fine-grained noise texture above a smooth low-frequency gradient — invisible to all §1.76–§1.81 gates. When one band has near-zero AC content (flat row profiles), the inner-product denominator falls below 1e-9 and the score defaults to 0.0 (no mismatch information → safe pass). `_SEAM_FREQ_GATE` flag (default 0.0=off, `ASP_SEAM_FREQ_GATE=0.6`). Stage 11.15 wired in `pipeline.py` after Stage 11.14. `ASP_SEAM_FREQ_GATE` added to `_CONFIG_SCHEMA` and `_DUMP_SECTIONS["compositing"]`. Exported in `__all__`. |
+| **10 tests** `TestSeamBandSsim` / `TestSeamFreqProfile` | SSIM: single strip → empty; identical bands → score > 0.99; noise vs uniform → score < 0.8; gate passes identical; gate fires on noise/uniform split. Freq: single strip → empty; identical bands → score ≈ 0; flat image → score < 0.2; high-freq (2-row) vs low-freq (8-row) row stripes → score > 0.2; gate fires on stripe frequency mismatch. |
+
+### Test count
+
+**913 tests passing** after S138 (10 new). 2 skipped.
+
+---
+
+## ASP Session 137 — §1.80 Seam Gradient Direction Coherence Gate (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **§1.80 `_seam_grad_direction`/`_check_seam_grad_direction_gate`** (`compositing.py`) | Per-seam Sobel gradient-direction circular-distance coherence gate. For each inter-strip boundary, computes the mean *undirected* gradient orientation (Sobel gx/gy → `arctan2(gy, gx) mod π` → [0, π)) in a `band_px=30`-row window immediately above and below using the angle-doubling circular mean (`0.5 × arctan2(mean(sin(2θ)), mean(cos(2θ)))`). Only pixels with Sobel magnitude > `mag_thresh=10` contribute; flat regions excluded. Circular distance between the two per-band mean orientations is returned in degrees [0, 90]. A score of 45° indicates dominant edges oriented ~45° apart (perceptible texture-direction step); 90° = fully orthogonal content (horizontal vs vertical). Detects structural orientation discontinuities invisible to all colour-space gates (§1.76–§1.79): e.g., diagonal speed-lines above a horizontal cloud-layer below. `_SEAM_GRAD_DIR_GATE` flag (default 0.0=off, `ASP_SEAM_GRAD_DIR_GATE=45.0`). Stage 11.13 gate wired in `pipeline.py` after Stage 11.12. `ASP_SEAM_GRAD_DIR_GATE` added to `_CONFIG_SCHEMA` and `_DUMP_SECTIONS["compositing"]`. Also backfilled `ASP_SEAM_MAX_COL_GATE`, `ASP_SEAM_SAT_GATE`, `ASP_SEAM_HUE_GATE`, `ASP_SEAM_SHARP_GATE` into `_DUMP_SECTIONS["compositing"]` (were missing). Exported in `__all__`. |
+| **5 tests** `TestSeamGradDirection` | Single strip → empty; flat image → 0.0 (no strong gradients); same horizontal stripes both bands → low score (<20°); horizontal stripes above vs vertical stripes below → high score (>60°); gate fires on orthogonal content with thresh=45.0. |
+
+### Test count
+
+**903 tests passing** after S137 (5 new). 2 skipped.
+
+---
+
+## ASP Session 136 — §1.79 Seam Sharpness Mismatch Gate (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **§1.79 `_seam_sharpness_mismatch`/`_check_seam_sharpness_gate`** (`compositing.py`) | Per-seam Laplacian-variance log₂ ratio sharpness mismatch gate. For each inter-strip boundary, computes the Laplacian variance (via `cv2.Laplacian`) in a `band_px=30`-row window immediately above and below, returning `|log₂(var_top / var_bot)|`. Both variance values are clamped to ≥ 1.0 to prevent singularities on near-flat regions. A score of 3.0 means one strip is 8× sharper than the other — clearly perceptible as a texture discontinuity caused by different MPEG compression rates, upscaling, or frame-averaging applied to source frames. Complements colour gates (§1.76–§1.78) which are blind to sharpness. Input is converted to greyscale before Laplacian to avoid channel artefacts. `_SEAM_SHARP_GATE` flag (default 0.0=off, `ASP_SEAM_SHARP_GATE=3.0`). Stage 11.12 gate wired in `pipeline.py`. Exported in `__all__`. |
+| **5 tests** `TestSeamSharpnessMismatch` | Single strip → empty; uniform image → zero mismatch (both halves clamped to 1.0 → ratio=0); equal-noise halves → low score (<2.0); sharp checkerboard vs heavily Gaussian-blurred → large score (>2.0); gate fires on sharp/blurry split with thresh=2.0. |
+
+### Test count
+
+**898 tests passing** after S136 (5 new). 2 skipped.
+
+---
+
+## ASP Session 135 — §1.77–1.78 Seam Saturation Jump & Hue Shift Gates (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **§1.77 `_seam_saturation_jump`/`_check_seam_saturation_gate`** (`compositing.py`) | Per-seam mean HSV saturation jump gate. For each inter-strip boundary, computes the mean HSV saturation in a `band_px=30`-row window immediately above and below, returning `|sat_above − sat_below|`. Catches colour-vibrancy discontinuities — e.g., a muted pastel background abutting a vividly coloured character outfit — that luma (§1.24, §1.76), entropy (§1.72), and Bhattacharyya (§1.14) gates miss. Greyscale inputs return 0.0 per seam. `_SEAM_SAT_GATE` flag (default 0.0=off, `ASP_SEAM_SAT_GATE=40.0`). Stage 11.10 gate wired in `pipeline.py`. `ASP_SEAM_SAT_GATE` added to `_CONFIG_SCHEMA`. Exported in `__all__`. |
+| **§1.78 `_seam_hue_shift`/`_check_seam_hue_gate`** (`compositing.py`) | Per-seam circular mean hue shift gate. For each inter-strip boundary, computes the mean HSV hue in a `band_px=30`-row window above and below using circular (angular) distance on the [0, 180] OpenCV hue scale; near-achromatic pixels (sat ≤ 15) excluded to prevent grey regions biasing the mean. Returns circular distance in [0, 90]°. Catches colour-temperature discontinuities — e.g., warm orange/red background abutting cool blue/teal strip — that saturation and luma gates miss. `_SEAM_HUE_GATE` flag (default 0.0=off, `ASP_SEAM_HUE_GATE=30.0`). Stage 11.11 gate wired in `pipeline.py`. `ASP_SEAM_HUE_GATE` added to `_CONFIG_SCHEMA`. Exported in `__all__`. |
+| **10 tests** `TestSeamSaturationJump` + `TestSeamHueShift` | Saturation: single strip → empty, greyscale → zeros, uniform sat → no jump, vivid vs grey → large jump, gate fires on vivid/grey split. Hue: single strip → empty, greyscale → zeros, same hue → no shift, warm vs cool → large shift, gate fires on opposite hues. |
+
+### Test count
+
+**893 tests passing** after S135 (10 new). 2 skipped.
+
+---
+
+## ASP Session 134 — §1.76 Per-Column Luma Step Gate (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **§1.76 `_seam_max_col_luma_step`/`_check_seam_max_col_gate`** (`compositing.py`) | Per-column worst-case luma step gate. For each inter-strip seam boundary, computes per-column mean luma in a `band_px=8`-row window above and below (with `guard=2` excluded rows adjacent to the boundary) and returns the maximum absolute column difference. Unlike §1.24 which averages across the full strip width, §1.76 reports the single worst column — catching localised hot-spots (character outline or shadow edge crossing the seam at one column) that the mean dilutes away. `_check_seam_max_col_gate` returns worst seam index when any step exceeds `thresh`. `_SEAM_MAX_COL_GATE` flag (default 0.0=off, `ASP_SEAM_MAX_COL_GATE=40.0`). Stage 11.9 gate wired in `pipeline.py` after Stage 11.8. `ASP_SEAM_MAX_COL_GATE` added to `_CONFIG_SCHEMA`. Exported in `__all__`. |
+| **5 tests** `TestSeamMaxColLumaStep` | single strip → empty list, identical bands → 0 step, localised column spike → detected, uniform image → gate None, single hot-spot column → gate fires at seam 0. |
+
+### Test count
+
+**883 tests passing** after S134 (5 new). 2 skipped.
+
+---
+
+## ASP Session 133 — §1.73–1.75 Pre/Post-Composite Quality Gates (2026-06-17)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **§1.73 `_compute_bg_lum_monotonicity`** (`pipeline.py`) | Pre-composite per-frame gain monotonicity drift gate. Extracts per-frame background median luminance (same logic as §1.71) and computes the absolute Kendall-τ rank correlation between frame order and the luma sequence. `|τ| ≈ 1.0` indicates a brightness staircase (each frame steadily darker/brighter) even when the total spread is within §1.71's threshold. Stage 10.9 gate: fires when `|τ| > _BG_GAIN_MONOTONE_THRESH` → SCANS fallback. Default OFF, `ASP_BG_GAIN_MONOTONE_THRESH=0.85`. Returns 0.0 when fewer than 3 frames have sufficient background. Added to `_CONFIG_SCHEMA`, `_DUMP_SECTIONS["pipeline"]`, and `__all__`. |
+| **§1.74 `_compute_canvas_fill_ratio`** (`pipeline.py`) | Post-composite canvas fill ratio gate. Counts pixels where `max(B,G,R) > _CANVAS_FILL_PIX_THRESH` (default 10) as "filled"; returns filled/total. Pixels that remain zero after compositing are unfilled gaps from failed frame warps or geometric discontinuities — all existing seam-boundary gates miss these. Stage 11.7 gate: fires when `fill_ratio < _CANVAS_FILL_MIN` → SCANS fallback. Default OFF, `ASP_CANVAS_FILL_MIN=0.60`. Separate `ASP_CANVAS_FILL_PIX_THRESH` knob (default 10) guards dark-background anime from false positives. Both added to `_CONFIG_SCHEMA`, `_DUMP_SECTIONS["pipeline"]`, and `__all__`. |
+| **§1.75 `_compute_strip_variance_ratio`** (`pipeline.py`) | Post-composite strip Laplacian variance ratio gate. Splits the composite into N horizontal bands and computes the Laplacian variance (texture/sharpness proxy) per strip; returns `max_var / min_var`. A high ratio signals structural content incompatibility (one strip flat-colour, another richly detailed) that seam-boundary gates miss because those sample only ±50px at the boundary. Stage 11.8 gate: fires when `ratio > _STRIP_VARIANCE_RATIO_MAX` → SCANS fallback. Default OFF, `ASP_STRIP_VARIANCE_RATIO_MAX=10.0`. Returns 1.0 when any strip variance is zero (uniform canvas). Added to `_CONFIG_SCHEMA`, `_DUMP_SECTIONS["pipeline"]`, and `__all__`. |
+| **5 tests** `TestComputeBgLumMonotonicity` | < 3 frames → 0.0, ascending |τ|=1, descending |τ|=1, random order |τ|<0.7, None masks ascending → |τ|=1. |
+| **5 tests** `TestComputeCanvasFillRatio` | fully filled → 1.0, fully empty → 0.0, half-filled → 0.5, exact-threshold pixels count as empty, zero-size → 1.0. |
+| **5 tests** `TestComputeStripVarianceRatio` | 1 strip → 1.0, uniform → 1.0, balanced noise low ratio, nearly-flat vs noisy high ratio, zero-size → 1.0. |
+
+### Test count
+
+**878 tests passing** after S133 (15 new). 2 skipped.
+
+---
+
+## ASP Session 132 — §1.68–1.72 Compositing Gates + Bugfixes (2026-06-17)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **§1.68 `_enforce_feather_ratio`** (`compositing.py`) | Adjacent feather-width ratio enforcement. After all §1.6B/§1.19 per-seam feather adjustments, iterative forward+backward pass clamps each seam's feather so that no two adjacent seams differ by more than `_FEATHER_RATIO_MAX`-fold (default OFF, `ASP_FEATHER_RATIO_MAX=3.0`). Prevents visible "tonal rhythm" discontinuity from wide/narrow seam alternation. Wired after §1.19 feather cap. Added to `_CONFIG_SCHEMA` and `_DUMP_SECTIONS["compositing"]`. Exported in `__all__`. |
+| **§1.69 `_seam_dp_bg_ratio`** (`compositing.py`) | Post-DP background routing ratio check. Samples bg_mask values at each `(x, path[x])` position along the DP traceback; returns the fraction of columns where BOTH frame masks classify the seam pixel as background. When `ratio < _SEAM_DP_BG_MIN` → seam was forced through character pixels despite cost-map steering → post-DP single-pose escalation. Default OFF, `ASP_SEAM_DP_BG_MIN=0.30`. Wired in blend loop after seam path is determined. Added to `_CONFIG_SCHEMA` and exported. |
+| **§1.70 `_fg_fraction_in_zone`** (`compositing.py`) | Blend-zone fg coverage pre-escalation (was stub, now fully wired). Computes union fg fraction from both frame bg_masks; when `> _SEAM_ZONE_FG_MAX` escalates to single-pose before DP. Prevents DP from running on infeasible cost landscape (no background corridor exists). Default OFF, `ASP_SEAM_ZONE_FG_MAX=0.85`. Wired right after §1.60 pose-gap check. Added to `_CONFIG_SCHEMA`, `_DUMP_SECTIONS["compositing"]`, and `__all__`. |
+| **§1.71 `_compute_bg_lum_spread`** (`pipeline.py`) | Pre-composite background luminance spread gate. Computes `max(per-frame bg median luma) − min(per-frame bg median luma)` from raw frames and BiRefNet masks before Stage 11 compositing. Extreme spread → sequential gain normalisation requires >2× corrections → brightness staircase. Stage 10.8 gate: fires when `spread > _BG_LUM_SPREAD_MAX` → SCANS fallback. Default OFF, `ASP_BG_LUM_SPREAD_MAX=80.0`. Added to `_CONFIG_SCHEMA`, `_DUMP_SECTIONS["pipeline"]`, and `__all__`. |
+| **§1.72 `_seam_entropy_asymmetry` + `_check_seam_entropy_gate`** (`compositing.py`) | Shannon entropy asymmetry gate. Computes `|H_top − H_bot|` (bits) for each seam boundary using 50-row bands; flat-colour side (low entropy) vs rich-texture side (high entropy) produces a perceptible texture-density discontinuity that NCC and Bhattacharyya both miss. Stage 11.5 gate in `pipeline.py`. Default OFF, `ASP_SEAM_ENTROPY_GATE=1.5`. Added to `_CONFIG_SCHEMA`, `_DUMP_SECTIONS["compositing"]`, and `__all__`. |
+| **5 tests** `TestEnforceFeatherRatio` | single feather, ratio=0 no-op, forward clamp, backward clamp, already-within-ratio unchanged. |
+| **5 tests** `TestSeamDpBgRatio` | no masks → 1.0, empty path → 1.0, all-bg → 1.0, all-fg → 0.0, half-bg range check. |
+| **5 tests** `TestFgFractionInZone` | both None → 0, all-bg → 0, all-fg → 1, union covers both, one None uses other. |
+| **5 tests** `TestSeamEntropyAsymmetry` | single strip empty, identical halves near-zero, flat vs rich high asymmetry, gate passes, gate fires. |
+| **5 tests** `TestComputeBgLumSpread` | < 2 frames → 0, identical → 0, spread > 100 for lum 50 vs 200, None masks, insufficient bg pixels skipped. |
+| **Bugfixes** | §1.66 NCC `test_identical_halves_high_ncc` / `test_gate_passes_above_threshold`: band had 40/60 rows but `band_px=20` meant `top`/`bot` picked non-overlapping rows → NCC≈0; fixed to use 20-row band so `top==bot` at seam boundary. §1.67 `TestCheckCanvasSpread` helper renamed from `_make_edge` to `_make_spread_edge` (line-1644 definition shadowed line-64 definition with different `ty`/`tx` signature → 5 `TestSpatialDedupFrames` tests failed with `TypeError`). |
+
+### Test count
+
+**863 tests passing** after S132 (25 new + 7 bug-fixed). 2 skipped.
+
+---
+
 ## ASP Session 131 — §1.66 NCC Gate · §1.67 Canvas Spread · §1.8C/D Config Dump (2026-06-17)
 
 ### Shipped

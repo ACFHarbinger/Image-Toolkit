@@ -41,6 +41,10 @@ from backend.src.anim.pipeline import (
     _apply_hires_keyframes,
     _sort_frames_by_index,
     _check_canvas_spread,
+    _compute_bg_lum_spread,
+    _compute_bg_lum_monotonicity,
+    _compute_canvas_fill_ratio,
+    _compute_strip_variance_ratio,
 )
 from backend.src.constants.anim import HIGH_CONF_EDGE_THRESH, SCALE_NORM_THRESH, SCENE_CHANGE_LUMA_THRESH
 
@@ -1641,7 +1645,7 @@ class TestSortFramesByIndex:
 # §1.67 — Frame canvas spread validation (S131)
 # ---------------------------------------------------------------------------
 
-def _make_edge(i: int, j: int, ty: float, tx: float = 0.0) -> dict:
+def _make_spread_edge(i: int, j: int, ty: float, tx: float = 0.0) -> dict:
     return {"i": i, "j": j, "ty": ty, "tx": tx, "weight": 0.9}
 
 
@@ -1654,12 +1658,12 @@ class TestCheckCanvasSpread:
 
     def test_zero_threshold_always_passes(self):
         """min_spread_fraction=0 → gate disabled → always True."""
-        edges = [_make_edge(0, 1, ty=10.0), _make_edge(1, 2, ty=10.0)]
+        edges = [_make_spread_edge(0, 1, ty=10.0), _make_spread_edge(1, 2, ty=10.0)]
         assert _check_canvas_spread(edges, 0.0) is True
 
     def test_well_spread_frames_pass(self):
         """Frames uniformly spread across 10 steps → spread ≈ 1.0 → passes 0.5 threshold."""
-        edges = [_make_edge(i, i + 1, ty=100.0) for i in range(9)]
+        edges = [_make_spread_edge(i, i + 1, ty=100.0) for i in range(9)]
         assert _check_canvas_spread(edges, 0.5) is True
 
     def test_clustered_last_frame_fails_high_threshold(self):
@@ -1669,21 +1673,185 @@ class TestCheckCanvasSpread:
         actual_span = 301; ratio ≈ 0.75 → passes 0.5 but fails 0.8.
         """
         edges = [
-            _make_edge(0, 1, ty=100.0),
-            _make_edge(1, 2, ty=100.0),
-            _make_edge(2, 3, ty=100.0),
-            _make_edge(3, 4, ty=1.0),
+            _make_spread_edge(0, 1, ty=100.0),
+            _make_spread_edge(1, 2, ty=100.0),
+            _make_spread_edge(2, 3, ty=100.0),
+            _make_spread_edge(3, 4, ty=1.0),
         ]
         assert _check_canvas_spread(edges, 0.5) is True   # 0.75 ≥ 0.5
         assert _check_canvas_spread(edges, 0.8) is False  # 0.75 < 0.8
 
     def test_two_frame_sequence_always_passes(self):
         """Only 1 edge (2 nodes) → spread is exact → should pass."""
-        edges = [_make_edge(0, 1, ty=80.0)]
+        edges = [_make_spread_edge(0, 1, ty=80.0)]
         assert _check_canvas_spread(edges, 0.5) is True
 
     def test_horizontal_scroll_uses_tx_axis(self):
         """When tx dominates over ty, the check should use tx axis."""
         # Purely horizontal scroll: tx=100 per step, ty=0
-        edges = [_make_edge(i, i + 1, ty=0.0, tx=100.0) for i in range(4)]
+        edges = [_make_spread_edge(i, i + 1, ty=0.0, tx=100.0) for i in range(4)]
         assert _check_canvas_spread(edges, 0.5) is True
+
+
+class TestComputeBgLumSpread:
+    """§1.71 (S132): _compute_bg_lum_spread measures per-frame background luma range."""
+
+    # 16×16 = 256 pixels, exceeds min_bg_px default of 200.
+    def _make_frame(self, lum: int, H: int = 16, W: int = 16) -> np.ndarray:
+        return np.full((H, W, 3), lum, dtype=np.uint8)
+
+    def _make_mask(self, H: int = 16, W: int = 16, bg: bool = True) -> np.ndarray:
+        return np.full((H, W), 255 if bg else 0, dtype=np.uint8)
+
+    def test_fewer_than_two_frames_returns_zero(self):
+        """Single frame → cannot compute spread → returns 0.0."""
+        frames = [self._make_frame(100)]
+        masks = [self._make_mask()]
+        assert _compute_bg_lum_spread(frames, masks) == 0.0
+
+    def test_identical_frames_returns_zero(self):
+        """All frames same luma → spread = 0."""
+        frames = [self._make_frame(128) for _ in range(3)]
+        masks = [self._make_mask() for _ in range(3)]
+        assert _compute_bg_lum_spread(frames, masks) == 0.0
+
+    def test_spread_equals_max_minus_min(self):
+        """Frames at lum=50 and lum=200 → spread is large."""
+        frames = [self._make_frame(50), self._make_frame(200)]
+        masks = [self._make_mask() for _ in range(2)]
+        result = _compute_bg_lum_spread(frames, masks)
+        assert result > 100.0, f"Expected large spread, got {result}"
+
+    def test_none_masks_use_all_pixels(self):
+        """None masks → all pixels treated as background."""
+        frames = [self._make_frame(60), self._make_frame(180)]
+        masks = [None, None]
+        result = _compute_bg_lum_spread(frames, masks)
+        assert result > 50.0, f"Expected spread > 50 with None masks, got {result}"
+
+    def test_insufficient_bg_pixels_skipped(self):
+        """Frames with fewer than min_bg_px background pixels are skipped."""
+        big_frame = np.full((100, 100, 3), 200, dtype=np.uint8)
+        tiny_bg = np.zeros((100, 100), dtype=np.uint8)
+        tiny_bg[0, 0] = 255
+        frames = [self._make_frame(50), big_frame]
+        masks = [self._make_mask(), tiny_bg]
+        result = _compute_bg_lum_spread(frames, masks, min_bg_px=200)
+
+        assert result == 0.0, "Only one valid frame → spread = 0"
+
+
+class TestComputeBgLumMonotonicity:
+    """§1.73 (S133): _compute_bg_lum_monotonicity measures Kendall-τ of bg luma order."""
+
+    def _make_frame(self, lum: int, H: int = 16, W: int = 16) -> np.ndarray:
+        return np.full((H, W, 3), lum, dtype=np.uint8)
+
+    def _make_mask(self, H: int = 16, W: int = 16) -> np.ndarray:
+        return np.full((H, W), 255, dtype=np.uint8)
+
+    def test_fewer_than_three_frames_returns_zero(self):
+        """Two frames → cannot form meaningful monotone sequence → 0.0."""
+        frames = [self._make_frame(100), self._make_frame(150)]
+        masks = [self._make_mask(), self._make_mask()]
+        assert _compute_bg_lum_monotonicity(frames, masks) == 0.0
+
+    def test_perfectly_ascending_returns_one(self):
+        """Strictly ascending lumas → τ = +1.0 → |τ| = 1.0."""
+        frames = [self._make_frame(lum) for lum in [80, 100, 120, 140, 160]]
+        masks = [self._make_mask() for _ in range(5)]
+        result = _compute_bg_lum_monotonicity(frames, masks)
+        assert abs(result - 1.0) < 1e-9
+
+    def test_perfectly_descending_returns_one(self):
+        """Strictly descending lumas → τ = -1.0 → |τ| = 1.0 (same absolute value)."""
+        frames = [self._make_frame(lum) for lum in [160, 140, 120, 100, 80]]
+        masks = [self._make_mask() for _ in range(5)]
+        result = _compute_bg_lum_monotonicity(frames, masks)
+        assert abs(result - 1.0) < 1e-9
+
+    def test_random_order_returns_low_tau(self):
+        """Non-monotone luma sequence → |τ| << 1.0."""
+        frames = [self._make_frame(lum) for lum in [100, 80, 150, 90, 130]]
+        masks = [self._make_mask() for _ in range(5)]
+        result = _compute_bg_lum_monotonicity(frames, masks)
+        assert result < 0.7, f"Expected low |τ| for non-monotone sequence, got {result}"
+
+    def test_none_masks_treated_as_all_background(self):
+        """None masks → all pixels used → ascending sequence still gives |τ|=1."""
+        frames = [self._make_frame(lum) for lum in [50, 100, 150]]
+        masks = [None, None, None]
+        result = _compute_bg_lum_monotonicity(frames, masks)
+        assert abs(result - 1.0) < 1e-9
+
+
+class TestComputeCanvasFillRatio:
+    """§1.74 (S133): _compute_canvas_fill_ratio measures non-empty canvas fraction."""
+
+    def _solid_canvas(self, H: int, W: int, lum: int) -> np.ndarray:
+        return np.full((H, W, 3), lum, dtype=np.uint8)
+
+    def test_fully_filled_canvas_returns_one(self):
+        """All pixels above threshold → ratio = 1.0."""
+        canvas = self._solid_canvas(64, 64, 128)
+        assert _compute_canvas_fill_ratio(canvas, pix_thresh=10) == 1.0
+
+    def test_fully_empty_canvas_returns_zero(self):
+        """All pixels at 0 → ratio = 0.0."""
+        canvas = np.zeros((64, 64, 3), dtype=np.uint8)
+        assert _compute_canvas_fill_ratio(canvas, pix_thresh=10) == 0.0
+
+    def test_half_filled_canvas_returns_half(self):
+        """Top half filled, bottom half empty → ratio ≈ 0.5."""
+        canvas = np.zeros((64, 64, 3), dtype=np.uint8)
+        canvas[:32] = 128
+        result = _compute_canvas_fill_ratio(canvas, pix_thresh=10)
+        assert abs(result - 0.5) < 1e-6
+
+    def test_threshold_boundary(self):
+        """Pixels at exactly the threshold are treated as empty."""
+        canvas = self._solid_canvas(32, 32, 10)
+        result = _compute_canvas_fill_ratio(canvas, pix_thresh=10)
+        assert result == 0.0
+
+    def test_zero_size_canvas_returns_one(self):
+        """Empty array → safe default of 1.0 (no gate firing)."""
+        canvas = np.zeros((0, 0, 3), dtype=np.uint8)
+        assert _compute_canvas_fill_ratio(canvas, pix_thresh=10) == 1.0
+
+
+class TestComputeStripVarianceRatio:
+    """§1.75 (S133): _compute_strip_variance_ratio measures texture imbalance across strips."""
+
+    def test_single_strip_returns_one(self):
+        """n_strips=1 → no comparison possible → ratio = 1.0."""
+        canvas = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
+        assert _compute_strip_variance_ratio(canvas, n_strips=1) == 1.0
+
+    def test_uniform_canvas_returns_one(self):
+        """Perfectly uniform canvas → all strip variances zero → safe return 1.0."""
+        canvas = np.full((64, 64, 3), 128, dtype=np.uint8)
+        assert _compute_strip_variance_ratio(canvas, n_strips=4) == 1.0
+
+    def test_balanced_strips_near_one(self):
+        """Two strips with similar noise → ratio close to 1.0."""
+        np.random.seed(0)
+        canvas = np.random.randint(100, 200, (64, 64, 3), dtype=np.uint8)
+        ratio = _compute_strip_variance_ratio(canvas, n_strips=2)
+        assert ratio < 5.0, f"Balanced noisy strips should have low ratio, got {ratio}"
+
+    def test_flat_vs_noisy_strip_high_ratio(self):
+        """One nearly-flat strip and one noisy strip → high variance ratio."""
+        np.random.seed(42)
+        canvas = np.zeros((64, 64, 3), dtype=np.uint8)
+        # Bottom strip: nearly flat (lum in [126,129]) → very low Laplacian variance
+        canvas[:32] = np.random.randint(126, 130, (32, 64, 3), dtype=np.uint8)
+        # Top strip: highly variable (full 0-255 noise) → high Laplacian variance
+        canvas[32:] = np.random.randint(0, 255, (32, 64, 3), dtype=np.uint8)
+        ratio = _compute_strip_variance_ratio(canvas, n_strips=2)
+        assert ratio > 5.0, f"Expected high ratio for nearly-flat vs noisy, got {ratio}"
+
+    def test_zero_size_canvas_returns_one(self):
+        """Empty canvas → safe default of 1.0."""
+        canvas = np.zeros((0, 64, 3), dtype=np.uint8)
+        assert _compute_strip_variance_ratio(canvas, n_strips=2) == 1.0

@@ -607,6 +607,7 @@ class TagLabel(QLabel):
     """A small interactive label for individual tags that supports clicking to jump and right-click to edit/delete."""
 
     clicked = Signal(int)  # position_ms
+    double_clicked = Signal(int)  # position_ms
     right_clicked = Signal(QPoint, int)  # global_pos, index
 
     def __init__(self, text, ms, index, parent=None):
@@ -626,6 +627,11 @@ class TagLabel(QLabel):
         elif event.button() == Qt.RightButton:
             self.right_clicked.emit(event.globalPos(), self.index)
         super().mousePressEvent(event)
+
+    def mouseDoubleClickEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.double_clicked.emit(self.ms)
+        super().mouseDoubleClickEvent(event)
 
 
 class ImageExtractorTab(AbstractClassSingleGallery):
@@ -651,6 +657,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.extraction_queue_enabled = False
         self.extraction_queue: List[dict] = []
         self.active_queue_worker: Optional[QueueExecutionWorker] = None
+        self.time_display_format = "m:s:ms"
 
         self.use_internal_player = True
         self.video_view: Optional[QGraphicsView] = None
@@ -1315,6 +1322,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         self.queue_list = QListWidget()
         self.queue_list.setMaximumHeight(120)
+        self.queue_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.queue_list.customContextMenuRequested.connect(self.show_queue_context_menu)
         queue_layout.addWidget(self.queue_list)
 
         controls_layout = QHBoxLayout()
@@ -2908,8 +2917,9 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         current_ms = self.media_player.position()
         formatted = self._format_time(current_ms)
 
+        proposed_name = f"Tag {len(self.tags_ms) + 1}"
         label, ok = QInputDialog.getText(
-            self, "Add Tag", f"Enter label for tag at {formatted}:", text="Tag"
+            self, "Add Tag", f"Enter label for tag at {formatted}:", text=proposed_name
         )
         if ok and label:
             self.tags_ms.append((current_ms, label))
@@ -2940,6 +2950,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                 tag_display = f"{label_text} ({self._format_time(ms)})"
                 label = TagLabel(tag_display, ms, i)
                 label.clicked.connect(self.jump_to_tag_time)
+                label.double_clicked.connect(self.jump_to_tag_time)
                 label.right_clicked.connect(self.show_tag_context_menu)
                 self.tags_layout.addWidget(label)
 
@@ -3631,19 +3642,48 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         }
 
     def _format_time(self, ms: int) -> str:
-        seconds = (ms // 1000) % 60
-        minutes = (ms // 60000) % 60
-        milliseconds = ms % 1000
-        return f"{minutes:02}:{seconds:02}:{milliseconds:03}"
+        fmt = getattr(self, "time_display_format", "m:s:ms")
+        if fmt == "h:m:s":
+            hours = ms // 3600000
+            minutes = (ms // 60000) % 60
+            seconds = (ms // 1000) % 60
+            return f"{hours:02}:{minutes:02}:{seconds:02}"
+        elif fmt == "microseconds":
+            return f"{ms * 1000}"
+        elif fmt == "milliseconds":
+            return f"{ms}"
+        else:  # default "m:s:ms"
+            seconds = (ms // 1000) % 60
+            minutes = (ms // 60000) % 60
+            milliseconds = ms % 1000
+            return f"{minutes:02}:{seconds:02}:{milliseconds:03}"
 
     def _parse_time(self, time_str: str) -> Optional[int]:
-        """Parses MM:SS:mmm, MM:SS, or SS formats into milliseconds."""
+        """Parses various formats (MM:SS:mmm, HH:MM:SS, pure milliseconds, or microseconds) into milliseconds."""
         try:
+            time_str = time_str.strip()
+            # If digit only, parse as number of units based on current format
+            if time_str.isdigit():
+                val = int(time_str)
+                fmt = getattr(self, "time_display_format", "m:s:ms")
+                if fmt == "microseconds":
+                    return val // 1000
+                elif fmt == "milliseconds":
+                    return val
+                else:
+                    if val > 100000000:
+                        return val // 1000
+                    return val
+
             parts = time_str.replace(",", ".").split(":")
+            fmt = getattr(self, "time_display_format", "m:s:ms")
             if len(parts) == 3:
-                # MM:SS:mmm
-                m, s, ms = parts
-                return int(m) * 60000 + int(s) * 1000 + int(ms)
+                if fmt == "h:m:s":
+                    h, m, s = parts
+                    return int(h) * 3600000 + int(m) * 60000 + int(s) * 1000
+                else:
+                    m, s, ms = parts
+                    return int(m) * 60000 + int(s) * 1000 + int(ms)
             elif len(parts) == 2:
                 # MM:SS or SS.mmm
                 if "." in parts[1]:
@@ -3660,9 +3700,50 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                     return int(s) * 1000 + int(ms.ljust(3, "0")[:3])
                 else:
                     return int(parts[0]) * 1000
-        except (ValueError, IndexError):
+        except Exception:
             pass
         return None
+
+    def refresh_time_display(self):
+        if self.media_player:
+            pos = self.media_player.position()
+            dur = self.media_player.duration()
+            if self.lbl_current_time:
+                self.lbl_current_time.setText(self._format_time(pos))
+            if self.lbl_total_time:
+                self.lbl_total_time.setText(self._format_time(dur))
+
+        # Update start, end, cut_start, and cut_end buttons
+        if hasattr(self, "btn_set_start") and self.btn_set_start:
+            self.btn_set_start.setText(
+                f"Start [{self._format_time(self.start_time_ms)}]"
+                if self.start_time_ms
+                else "Set Start [00:00]"
+            )
+        if hasattr(self, "btn_set_end") and self.btn_set_end:
+            self.btn_set_end.setText(
+                f"End [{self._format_time(self.end_time_ms)}]"
+                if self.end_time_ms
+                else "Set End [00:00]"
+            )
+        if hasattr(self, "btn_set_cut_start") and self.btn_set_cut_start:
+            self.btn_set_cut_start.setText(
+                f"Cut Start [{self._format_time(self.cut_start_ms)}]"
+                if self.cut_start_ms
+                else "Set Cut Start [00:00]"
+            )
+        if hasattr(self, "btn_set_cut_end") and self.btn_set_cut_end:
+            self.btn_set_cut_end.setText(
+                f"Cut End [{self._format_time(self.cut_end_ms)}]"
+                if self.cut_end_ms
+                else "Set Cut End [00:00]"
+            )
+
+        # Update cuts and tags UI list
+        if hasattr(self, "_update_cuts_label"):
+            self._update_cuts_label()
+        if hasattr(self, "_update_tags_ui"):
+            self._update_tags_ui()
 
     @Slot()
     def _jump_to_edited_time(self):
@@ -3693,6 +3774,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         }
 
     def collect(self) -> Dict[str, Any]:
+        if self.video_path:
+            self._save_current_video_config()
         return {
             "source_directory": self.line_edit_dir.text(),
             "extraction_directory": self.line_edit_extract_dir.text(),
@@ -3702,6 +3785,8 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             "player_vertical": self.check_player_vertical.isChecked(),  # NEW
             "extract_vertical": self.check_extract_vertical.isChecked(),  # NEW
             "extraction_engine": self.combo_engine.currentText(),
+            "active_videos_config": copy.deepcopy(self.active_videos_config),
+            "video_path": self.video_path,
         }
 
     def set_config(self, config: Dict[str, Any]):
@@ -3746,6 +3831,27 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             engine = config.get("extraction_engine")
             if engine in ["MoviePy", "FFmpeg"]:
                 self.combo_engine.setCurrentText(engine)
+
+            # Restore active videos tab state
+            active_configs = config.get("active_videos_config", {})
+            if active_configs:
+                self.active_videos_config = copy.deepcopy(active_configs)
+                
+                # Clear tabbar and repopulate under switching guard
+                self._is_switching_tabs = True
+                while self.active_videos_tabbar.count() > 0:
+                    self.active_videos_tabbar.removeTab(0)
+                for path in self.active_videos_config.keys():
+                    if os.path.exists(path):
+                        name = Path(path).name
+                        idx = self.active_videos_tabbar.addTab(name)
+                        self.active_videos_tabbar.setTabData(idx, path)
+                self._is_switching_tabs = False
+
+            # Load the current video path
+            curr_video = config.get("video_path", "")
+            if curr_video and os.path.exists(curr_video):
+                self.load_media(curr_video)
 
             QMessageBox.information(
                 self,
@@ -3888,6 +3994,139 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.extraction_queue.clear()
         self._update_queue_ui()
         self.extraction_status_label.setText("Queue cleared.")
+        self.extraction_status_label.show()
+
+    @Slot(QPoint)
+    def show_queue_context_menu(self, pos: QPoint):
+        item = self.queue_list.itemAt(pos)
+        if not item:
+            return
+        idx = self.queue_list.row(item)
+        if idx < 0 or idx >= len(self.extraction_queue):
+            return
+
+        menu = QMenu(self)
+        menu.setStyleSheet(
+            "QMenu { background-color: #1e1f22; color: white; border: 1px solid #4f545c; }"
+        )
+        load_action = menu.addAction("✏️ Load Configurations")
+        remove_action = menu.addAction("❌ Remove")
+
+        action = menu.exec(self.queue_list.mapToGlobal(pos))
+        if action == load_action:
+            self.load_extraction_config(idx)
+        elif action == remove_action:
+            self.remove_queue_item(idx)
+
+    def remove_queue_item(self, idx: int):
+        if 0 <= idx < len(self.extraction_queue):
+            self.extraction_queue.pop(idx)
+            self._update_queue_ui()
+            self.extraction_status_label.setText("Removed item from queue.")
+            self.extraction_status_label.show()
+
+    def load_extraction_config(self, idx: int):
+        if idx < 0 or idx >= len(self.extraction_queue):
+            return
+        item = self.extraction_queue[idx]
+        v_path = item.get("video_path")
+        if not v_path or not os.path.exists(v_path):
+            QMessageBox.warning(self, "File Not Found", f"The video file '{v_path}' no longer exists.")
+            return
+
+        # Load video if not already open
+        if self.video_path != v_path:
+            self.load_media(v_path)
+
+        # Set start and end time from config
+        self.start_time_ms = item.get("start_ms", 0)
+        self.end_time_ms = item.get("end_ms", 0)
+        self.btn_set_start.setText(
+            f"Start [{self._format_time(self.start_time_ms)}]"
+            if self.start_time_ms
+            else "Set Start [00:00]"
+        )
+        self.btn_set_end.setText(
+            f"End [{self._format_time(self.end_time_ms)}]"
+            if self.end_time_ms
+            else "Set End [00:00]"
+        )
+
+        # Load cuts
+        self.cuts_ms = copy.deepcopy(item.get("cuts_ms", []))
+        self._update_cuts_label()
+
+        # Load interval/smart extract
+        self.spin_interval.setValue(item.get("frame_interval", 1))
+        self.check_smart_extract.setChecked(item.get("smart_extract", False))
+        if item.get("smart_method"):
+            self.combo_smart_method.setCurrentText(item.get("smart_method"))
+
+        # Target resolution
+        target_res = item.get("target_resolution")
+        if target_res:
+            res_str = f"{target_res[0]}x{target_res[1]}"
+            for i in range(self.combo_extract_size.count()):
+                if self.combo_extract_size.itemText(i) == res_str:
+                    self.combo_extract_size.setCurrentIndex(i)
+                    break
+        else:
+            self.combo_extract_size.setCurrentText("Native")
+
+        # Load engine
+        use_ffmpeg = item.get("use_ffmpeg", True)
+        self.combo_engine.setCurrentText("FFmpeg" if use_ffmpeg else "MoviePy")
+
+        # Load speed
+        speed = item.get("speed", 1.0)
+        if isinstance(speed, float):
+            if speed == 1.0:
+                speed_str = "1x"
+            elif speed == 0.5:
+                speed_str = "0.5x"
+            elif speed == 0.25:
+                speed_str = "0.25x"
+            elif speed == 1.5:
+                speed_str = "1.5x"
+            elif speed == 2.0:
+                speed_str = "2x"
+            elif speed == 4.0:
+                speed_str = "4x"
+            else:
+                speed_str = f"{speed:g}x"
+        else:
+            speed_str = str(speed)
+            if not speed_str.endswith("x"):
+                speed_str += "x"
+        self.combo_speed.setCurrentText(speed_str)
+
+        # Load mute audio
+        self.check_mute_audio.setChecked(item.get("mute_audio", False))
+
+        # Load fps (for gif or others)
+        self.spin_gif_fps.setValue(item.get("fps", 24))
+
+        # Jump to start_ms in media player
+        if self.start_time_ms > 0 and self.media_player:
+            self.media_player.setPosition(self.start_time_ms)
+            self.slider.setValue(self.start_time_ms)
+            self.lbl_current_time.setText(self._format_time(self.start_time_ms))
+
+        # Update active video config dictionary so switching tabs doesn't lose it
+        config = self.active_videos_config.get(v_path, {})
+        config["start_time_ms"] = self.start_time_ms
+        config["end_time_ms"] = self.end_time_ms
+        config["cuts_ms"] = copy.deepcopy(self.cuts_ms)
+        config["spin_interval"] = item.get("frame_interval", 1)
+        config["check_smart_extract"] = item.get("smart_extract", False)
+        config["combo_smart_method"] = item.get("smart_method", "")
+        config["check_mute_audio"] = item.get("mute_audio", False)
+        config["spin_gif_fps"] = item.get("fps", 24)
+        config["combo_extract_size"] = self.combo_extract_size.currentText()
+        config["media_position"] = self.start_time_ms
+        self.active_videos_config[v_path] = config
+
+        self.extraction_status_label.setText(f"Loaded configurations from queue item #{idx + 1}.")
         self.extraction_status_label.show()
 
     def _update_queue_ui(self):

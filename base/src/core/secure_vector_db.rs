@@ -97,6 +97,16 @@ pub fn open_secure_connection(
     db_path: &str,
     dek: &MemoryLockedKey,
 ) -> Result<Connection, Box<dyn std::error::Error>> {
+    // 0. Register the sqlite-vec extension statically
+    static REGISTER_VEC: std::sync::Once = std::sync::Once::new();
+    REGISTER_VEC.call_once(|| {
+        unsafe {
+            let _ = rusqlite::ffi::sqlite3_auto_extension(Some(std::mem::transmute(
+                sqlite_vec::sqlite3_vec_init as *const (),
+            )));
+        }
+    });
+
     // Open connection
     let conn = Connection::open(db_path)?;
 

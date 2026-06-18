@@ -62,6 +62,25 @@ from backend.src.anim.compositing import (  # noqa: E402
     _annotate_seams,
     _seam_chroma_equalize,
     _fg_zone_pose_gap,
+    _fg_fraction_in_zone,
+    _enforce_feather_ratio,
+    _seam_dp_bg_ratio,
+    _seam_entropy_asymmetry,
+    _check_seam_entropy_gate,
+    _seam_max_col_luma_step,
+    _check_seam_max_col_gate,
+    _seam_saturation_jump,
+    _check_seam_saturation_gate,
+    _seam_hue_shift,
+    _check_seam_hue_gate,
+    _seam_sharpness_mismatch,
+    _check_seam_sharpness_gate,
+    _seam_grad_direction,
+    _check_seam_grad_direction_gate,
+    _seam_band_ssim,
+    _check_seam_ssim_gate,
+    _seam_freq_profile,
+    _check_seam_freq_gate,
 )
 from backend.src.constants import (  # noqa: E402
     FEATHER_MAX as _FEATHER_MAX,
@@ -2797,10 +2816,15 @@ class TestSeamNccCoherenceCompositing:
         assert len(scores) == 1
 
     def test_identical_halves_high_ncc(self):
-        """Identical top/bottom bands → NCC ≈ 1.0 (structurally identical)."""
+        """Identical top/bottom bands → NCC ≈ 1.0 (structurally identical).
+
+        band_px=20 means we take 20 rows above and below the seam boundary.
+        With a 40-row image (n_strips=2 → boundary_y=20), top=band[0:20] and
+        bot=band[20:40] which are the same random rows repeated.
+        """
         rng = np.random.default_rng(42)
-        band = rng.integers(50, 200, (40, 80, 3), dtype=np.uint8)
-        img = np.vstack([band, band])
+        band = rng.integers(50, 200, (20, 80, 3), dtype=np.uint8)
+        img = np.vstack([band, band])  # 40 rows; boundary_y=20; top==bot
         scores = _seam_ncc_coherence(img, 2, band_px=20)
         assert len(scores) == 1
         assert scores[0] >= 0.9, f"Identical halves should give NCC≥0.9, got {scores[0]}"
@@ -2808,8 +2832,8 @@ class TestSeamNccCoherenceCompositing:
     def test_gate_passes_above_threshold(self):
         """NCC score above threshold → gate returns None (all seams pass)."""
         rng = np.random.default_rng(7)
-        band = rng.integers(50, 200, (60, 80, 3), dtype=np.uint8)
-        img = np.vstack([band, band])
+        band = rng.integers(50, 200, (20, 80, 3), dtype=np.uint8)
+        img = np.vstack([band, band])  # 40 rows; boundary_y=20; top==bot
         result = _check_seam_ncc_gate(img, 2, thresh=0.3, band_px=20)
         assert result is None, "Identical halves should pass the NCC gate"
 
@@ -2824,3 +2848,502 @@ class TestSeamNccCoherenceCompositing:
         img = np.vstack([top, bot])
         result = _check_seam_ncc_gate(img, 2, thresh=0.8, band_px=20)
         assert result == 0, f"Mismatched strips should fail gate at seam 0, got {result}"
+
+
+class TestEnforceFeatherRatio:
+    """§1.68 (S132): _enforce_feather_ratio clamps adjacent feather width jumps."""
+
+    def test_single_feather_unchanged(self):
+        """One feather → no adjacent pair → returned unchanged."""
+        assert _enforce_feather_ratio([100], max_ratio=3.0) == [100]
+
+    def test_no_enforcement_when_ratio_zero(self):
+        """max_ratio=0.0 → no-op; original list returned."""
+        assert _enforce_feather_ratio([80, 300], max_ratio=0.0) == [80, 300]
+
+    def test_forward_clamp_applied(self):
+        """[80, 300] with ratio=3.0 → second seam clamped to 240 (80×3)."""
+        result = _enforce_feather_ratio([80, 300], max_ratio=3.0)
+        assert result[1] <= int(result[0] * 3.0), \
+            f"Expected result[1] ≤ {result[0] * 3.0}, got {result[1]}"
+
+    def test_backward_clamp_applied(self):
+        """[300, 80] with ratio=3.0 → first seam clamped down to 240 (80×3)."""
+        result = _enforce_feather_ratio([300, 80], max_ratio=3.0)
+        assert result[0] <= int(result[1] * 3.0), \
+            f"Expected result[0] ≤ {result[1] * 3.0}, got {result[0]}"
+
+    def test_already_within_ratio_unchanged(self):
+        """[100, 200, 150] all within 2× of neighbours → unchanged."""
+        feathers = [100, 200, 150]
+        result = _enforce_feather_ratio(feathers, max_ratio=3.0)
+        assert result == feathers
+
+
+class TestSeamDpBgRatio:
+    """§1.69 (S132): _seam_dp_bg_ratio measures bg fraction of DP seam path."""
+
+    def _make_bg_mask(self, H: int, W: int, bg_rows: slice) -> np.ndarray:
+        mask = np.zeros((H, W), dtype=bool)
+        mask[bg_rows, :] = True
+        return mask
+
+    def test_no_masks_returns_one(self):
+        """No bg masks → all pixels treated as background → ratio=1.0."""
+        path = np.full(10, 5, dtype=np.int32)
+        assert _seam_dp_bg_ratio(path, None, None) == 1.0
+
+    def test_empty_path_returns_one(self):
+        """Empty path → ratio=1.0 (safe default)."""
+        assert _seam_dp_bg_ratio(np.array([], dtype=np.int32), None, None) == 1.0
+
+    def test_all_background_path(self):
+        """Seam path entirely in background rows → ratio=1.0."""
+        H, W = 20, 10
+        mask = self._make_bg_mask(H, W, slice(0, H))
+        path = np.full(W, 5, dtype=np.int32)
+        assert _seam_dp_bg_ratio(path, mask, mask) == 1.0
+
+    def test_all_foreground_path(self):
+        """Seam path entirely in fg rows → ratio=0.0."""
+        H, W = 20, 10
+        mask = np.zeros((H, W), dtype=bool)
+        path = np.full(W, 5, dtype=np.int32)
+        assert _seam_dp_bg_ratio(path, mask, mask) == 0.0
+
+    def test_half_background_half_foreground(self):
+        """Path rows alternate between bg (even) and fg (odd) → ratio ≈ 0.5."""
+        H, W = 20, 10
+        mask = np.zeros((H, W), dtype=bool)
+        mask[::2, :] = True
+        path = np.arange(W, dtype=np.int32) % H
+        result = _seam_dp_bg_ratio(path, mask, mask)
+        assert 0.0 <= result <= 1.0
+
+
+class TestFgFractionInZone:
+    """§1.70 (S132): _fg_fraction_in_zone measures union fg coverage in blend zone."""
+
+    def test_both_none_returns_zero(self):
+        """Both masks None → no fg information → 0.0."""
+        assert _fg_fraction_in_zone(None, None) == 0.0
+
+    def test_all_background_returns_zero(self):
+        """All pixels background in both masks → fg fraction = 0."""
+        mask = np.ones((10, 8), dtype=bool)
+        assert _fg_fraction_in_zone(mask, mask) == 0.0
+
+    def test_all_foreground_returns_one(self):
+        """All pixels fg in both masks → fg fraction = 1.0."""
+        mask = np.zeros((10, 8), dtype=bool)
+        assert _fg_fraction_in_zone(mask, mask) == 1.0
+
+    def test_union_uses_either_mask(self):
+        """Left half fg in mask_a only, right half fg in mask_b only → union = full fg."""
+        H, W = 10, 10
+        mask_a = np.ones((H, W), dtype=bool)
+        mask_b = np.ones((H, W), dtype=bool)
+        mask_a[:, :W // 2] = False
+        mask_b[:, W // 2:] = False
+        result = _fg_fraction_in_zone(mask_a, mask_b)
+        assert result == 1.0
+
+    def test_one_mask_none_uses_other(self):
+        """mask_b None → result is solely from mask_a's fg pixels."""
+        H, W = 10, 10
+        mask_a = np.ones((H, W), dtype=bool)
+        mask_a[:H // 2, :] = False
+        result = _fg_fraction_in_zone(mask_a, None)
+        assert abs(result - 0.5) < 0.05
+
+
+class TestSeamEntropyAsymmetry:
+    """§1.72 (S132): entropy asymmetry gate detects texture-density discontinuities."""
+
+    def test_single_strip_returns_empty(self):
+        """n_strips=1 → no seams → empty list."""
+        img = np.zeros((80, 60, 3), dtype=np.uint8)
+        assert _seam_entropy_asymmetry(img, 1) == []
+
+    def test_identical_halves_near_zero(self):
+        """Identical bands above and below seam → entropy difference ≈ 0."""
+        rng = np.random.default_rng(42)
+        band = rng.integers(0, 256, (20, 60, 3), dtype=np.uint8)
+        img = np.vstack([band, band])
+        scores = _seam_entropy_asymmetry(img, 2, band_px=20)
+        assert len(scores) == 1
+        assert scores[0] < 0.2, f"Identical bands should have near-zero asymmetry, got {scores[0]}"
+
+    def test_flat_vs_rich_texture_high_asymmetry(self):
+        """Flat top band (entropy≈0) vs random bottom band (entropy≈8) → high asymmetry."""
+        top = np.full((20, 60, 3), 128, dtype=np.uint8)
+        bot = np.random.default_rng(7).integers(0, 256, (20, 60, 3), dtype=np.uint8)
+        img = np.vstack([top, bot])
+        scores = _seam_entropy_asymmetry(img, 2, band_px=20)
+        assert len(scores) == 1
+        assert scores[0] > 2.0, f"Flat vs rich bands should have high asymmetry, got {scores[0]}"
+
+    def test_gate_passes_below_threshold(self):
+        """Symmetric bands → asymmetry below threshold → gate returns None."""
+        rng = np.random.default_rng(42)
+        band = rng.integers(0, 256, (20, 60, 3), dtype=np.uint8)
+        img = np.vstack([band, band])
+        result = _check_seam_entropy_gate(img, 2, thresh=1.5, band_px=20)
+        assert result is None
+
+    def test_gate_fires_on_asymmetric_strips(self):
+        """Flat vs rich texture asymmetry > threshold → gate returns seam index."""
+        top = np.full((20, 60, 3), 200, dtype=np.uint8)
+        bot = np.random.default_rng(3).integers(0, 256, (20, 60, 3), dtype=np.uint8)
+        img = np.vstack([top, bot])
+        result = _check_seam_entropy_gate(img, 2, thresh=1.5, band_px=20)
+        assert result == 0, f"Asymmetric strips should fire gate at seam 0, got {result}"
+
+
+class TestSeamMaxColLumaStep:
+    """§1.76 (S134): per-column worst-case luma step gate."""
+
+    def test_single_strip_returns_empty(self):
+        """n_strips=1 → no seams → empty list."""
+        img = np.zeros((80, 60, 3), dtype=np.uint8)
+        assert _seam_max_col_luma_step(img, 1) == []
+
+    def test_identical_bands_zero_step(self):
+        """When above and below bands are identical, worst-column step is 0."""
+        band = np.full((10, 60, 3), 128, dtype=np.uint8)
+        img = np.vstack([band, band])
+        steps = _seam_max_col_luma_step(img, 2, band_px=10, guard=0)
+        assert len(steps) == 1
+        assert steps[0] == pytest.approx(0.0, abs=1.0)
+
+    def test_step_change_detected_in_one_column(self):
+        """Single bright column crossing the seam → high max step, low mean step."""
+        H, W = 60, 40
+        img = np.full((H, W, 3), 100, dtype=np.uint8)
+        # One column above seam is bright, below is dark.
+        img[:H // 2, 20] = 200
+        img[H // 2:, 20] = 50
+        steps = _seam_max_col_luma_step(img, 2, band_px=5, guard=1)
+        assert len(steps) == 1
+        # Worst column step ≈ 150; the mean across 40 columns is ≈ 3.75.
+        assert steps[0] > 100, f"Localised column spike not detected, got {steps[0]}"
+
+    def test_gate_returns_none_below_threshold(self):
+        """Uniform image → no column step → gate returns None."""
+        img = np.full((80, 60, 3), 128, dtype=np.uint8)
+        assert _check_seam_max_col_gate(img, 2, thresh=40.0) is None
+
+    def test_gate_fires_on_hot_spot_column(self):
+        """Single-column brightness spike across seam → gate returns seam index 0."""
+        H, W = 60, 40
+        img = np.full((H, W, 3), 100, dtype=np.uint8)
+        img[:H // 2, 15] = 220
+        img[H // 2:, 15] = 20
+        result = _check_seam_max_col_gate(img, 2, thresh=40.0, band_px=5, guard=1)
+        assert result == 0, f"Hot-spot column should trigger gate at seam 0, got {result}"
+
+
+class TestSeamSaturationJump:
+    """§1.77 (S135): mean HSV saturation jump gate."""
+
+    def test_single_strip_returns_empty(self):
+        """n_strips=1 → no seams → empty list."""
+        img = np.zeros((80, 60, 3), dtype=np.uint8)
+        assert _seam_saturation_jump(img, 1) == []
+
+    def test_greyscale_input_returns_zeros(self):
+        """Greyscale (2-D) image → no saturation information → 0.0 per seam."""
+        img = np.full((60, 40), 128, dtype=np.uint8)
+        jumps = _seam_saturation_jump(img, 2, band_px=10)
+        assert len(jumps) == 1
+        assert jumps[0] == pytest.approx(0.0)
+
+    def test_uniform_saturation_no_jump(self):
+        """Top and bottom halves at identical saturation → jump ≈ 0."""
+        # Solid mid-green — high saturation throughout.
+        img = np.zeros((60, 40, 3), dtype=np.uint8)
+        img[:, :, 1] = 200  # Green channel → high saturation in HSV
+        jumps = _seam_saturation_jump(img, 2, band_px=10)
+        assert len(jumps) == 1
+        assert jumps[0] < 5.0, f"Uniform saturation should give near-zero jump, got {jumps[0]}"
+
+    def test_vivid_vs_grey_detected(self):
+        """Top half vivid colour, bottom half grey → large saturation jump detected."""
+        H, W = 60, 40
+        top = np.zeros((H // 2, W, 3), dtype=np.uint8)
+        top[:, :, 2] = 255  # Pure red → HSV saturation = 255
+        bot = np.full((H // 2, W, 3), 128, dtype=np.uint8)  # Grey → sat = 0
+        img = np.vstack([top, bot])
+        jumps = _seam_saturation_jump(img, 2, band_px=10)
+        assert len(jumps) == 1
+        assert jumps[0] > 40.0, f"Vivid vs grey should produce large sat jump, got {jumps[0]}"
+
+    def test_gate_fires_on_vivid_grey_split(self):
+        """Vivid top / grey bottom exceeds default threshold → gate returns seam 0."""
+        H, W = 60, 40
+        top = np.zeros((H // 2, W, 3), dtype=np.uint8)
+        top[:, :, 2] = 255
+        bot = np.full((H // 2, W, 3), 128, dtype=np.uint8)
+        img = np.vstack([top, bot])
+        result = _check_seam_saturation_gate(img, 2, thresh=40.0, band_px=10)
+        assert result == 0, f"Vivid/grey split should trigger gate at seam 0, got {result}"
+
+
+class TestSeamHueShift:
+    """§1.78 (S135): circular mean hue shift gate."""
+
+    def test_single_strip_returns_empty(self):
+        """n_strips=1 → no seams → empty list."""
+        img = np.zeros((80, 60, 3), dtype=np.uint8)
+        assert _seam_hue_shift(img, 1) == []
+
+    def test_greyscale_input_returns_zeros(self):
+        """Greyscale (2-D) image → no hue information → 0.0 per seam."""
+        img = np.full((60, 40), 100, dtype=np.uint8)
+        shifts = _seam_hue_shift(img, 2, band_px=10)
+        assert len(shifts) == 1
+        assert shifts[0] == pytest.approx(0.0)
+
+    def test_same_hue_no_shift(self):
+        """Top and bottom halves with same hue → circular shift ≈ 0."""
+        # Both halves: pure blue (BGR = [255, 0, 0] → HSV hue ≈ 120).
+        img = np.zeros((60, 40, 3), dtype=np.uint8)
+        img[:, :, 0] = 255  # Blue channel
+        shifts = _seam_hue_shift(img, 2, band_px=10)
+        assert len(shifts) == 1
+        assert shifts[0] < 5.0, f"Same-hue strips should give near-zero shift, got {shifts[0]}"
+
+    def test_warm_vs_cool_detected(self):
+        """Top half warm red, bottom half cool blue → large circular hue shift."""
+        H, W = 60, 40
+        top = np.zeros((H // 2, W, 3), dtype=np.uint8)
+        top[:, :, 2] = 255  # Red (BGR) → HSV hue ≈ 0
+        bot = np.zeros((H // 2, W, 3), dtype=np.uint8)
+        bot[:, :, 0] = 255  # Blue (BGR) → HSV hue ≈ 120
+        img = np.vstack([top, bot])
+        shifts = _seam_hue_shift(img, 2, band_px=10)
+        assert len(shifts) == 1
+        # Circular distance between hue≈0 and hue≈120 on [0,180] scale = 60°.
+        assert shifts[0] > 30.0, f"Warm/cool split should give large hue shift, got {shifts[0]}"
+
+    def test_gate_fires_on_opposite_hues(self):
+        """Red top / blue bottom exceeds threshold → gate returns seam 0."""
+        H, W = 60, 40
+        top = np.zeros((H // 2, W, 3), dtype=np.uint8)
+        top[:, :, 2] = 255  # Red
+        bot = np.zeros((H // 2, W, 3), dtype=np.uint8)
+        bot[:, :, 0] = 255  # Blue
+        img = np.vstack([top, bot])
+        result = _check_seam_hue_gate(img, 2, thresh=30.0, band_px=10)
+        assert result == 0, f"Opposite hues should trigger gate at seam 0, got {result}"
+
+
+class TestSeamSharpnessMismatch:
+    """§1.79 (S136): Laplacian-variance log₂ ratio sharpness mismatch gate."""
+
+    def test_single_strip_returns_empty(self):
+        """n_strips=1 → no seams → empty list."""
+        img = np.zeros((80, 60, 3), dtype=np.uint8)
+        assert _seam_sharpness_mismatch(img, 1) == []
+
+    def test_uniform_image_zero_mismatch(self):
+        """Flat uniform image: both halves have near-zero Laplacian → clamped to 1.0 each → ratio=0."""
+        img = np.full((60, 40, 3), 128, dtype=np.uint8)
+        scores = _seam_sharpness_mismatch(img, 2, band_px=10)
+        assert len(scores) == 1
+        assert scores[0] == pytest.approx(0.0), f"Uniform image should give zero mismatch, got {scores[0]}"
+
+    def test_equal_sharpness_low_score(self):
+        """Both halves with identical noise texture → similar Laplacian variance → low score."""
+        rng = np.random.default_rng(42)
+        img = rng.integers(0, 256, (80, 60, 3), dtype=np.uint8)
+        scores = _seam_sharpness_mismatch(img, 2, band_px=20)
+        assert len(scores) == 1
+        assert scores[0] < 2.0, f"Equal-noise halves should produce low mismatch, got {scores[0]}"
+
+    def test_sharp_vs_blurry_detected(self):
+        """Top half: sharp checkerboard; bottom half: heavily Gaussian-blurred → large log₂ ratio."""
+        H, W = 80, 60
+        checker = np.zeros((H // 2, W), dtype=np.uint8)
+        checker[::4, :] = 255
+        checker[:, ::4] = 255
+        blurry = cv2.GaussianBlur(checker, (21, 21), 10)
+        top = np.stack([checker] * 3, axis=-1)
+        bot = np.stack([blurry] * 3, axis=-1)
+        img = np.vstack([top, bot])
+        scores = _seam_sharpness_mismatch(img, 2, band_px=15)
+        assert len(scores) == 1
+        assert scores[0] > 2.0, f"Sharp/blurry split should give large mismatch, got {scores[0]}"
+
+    def test_gate_fires_on_sharp_blurry_split(self):
+        """Sharp top / blurred bottom with thresh=2.0 → gate returns seam 0."""
+        H, W = 80, 60
+        checker = np.zeros((H // 2, W), dtype=np.uint8)
+        checker[::4, :] = 255
+        checker[:, ::4] = 255
+        blurry = cv2.GaussianBlur(checker, (21, 21), 10)
+        top = np.stack([checker] * 3, axis=-1)
+        bot = np.stack([blurry] * 3, axis=-1)
+        img = np.vstack([top, bot])
+        result = _check_seam_sharpness_gate(img, 2, thresh=2.0, band_px=15)
+        assert result == 0, f"Sharp/blurry split should trigger gate at seam 0, got {result}"
+
+
+class TestSeamGradDirection:
+    """§1.80 (S137): Gradient direction coherence gate."""
+
+    def test_single_strip_returns_empty(self):
+        """n_strips=1 → no seams → empty list."""
+        img = np.zeros((80, 60, 3), dtype=np.uint8)
+        assert _seam_grad_direction(img, 1) == []
+
+    def test_flat_image_returns_zero(self):
+        """Uniform image: no strong gradients → both bands below mag_thresh → score=0.0."""
+        img = np.full((60, 40, 3), 128, dtype=np.uint8)
+        scores = _seam_grad_direction(img, 2, band_px=10, mag_thresh=5.0)
+        assert len(scores) == 1
+        assert scores[0] == pytest.approx(0.0), (
+            f"Flat image should give 0.0 (no strong gradients), got {scores[0]}"
+        )
+
+    def test_same_orientation_low_score(self):
+        """Both bands have horizontal lines → same dominant orientation → low score."""
+        H, W = 80, 60
+        # Horizontal stripes: gy dominates, gx≈0 → orientation ≈ π/2 everywhere.
+        half = np.zeros((H // 2, W), dtype=np.uint8)
+        half[::4, :] = 200  # horizontal stripes only
+        top = np.stack([half] * 3, axis=-1)
+        bot = np.stack([half] * 3, axis=-1)
+        img = np.vstack([top, bot])
+        scores = _seam_grad_direction(img, 2, band_px=15, mag_thresh=5.0)
+        assert len(scores) == 1
+        assert scores[0] < 20.0, (
+            f"Identical orientation both sides → low score, got {scores[0]}"
+        )
+
+    def test_orthogonal_orientations_high_score(self):
+        """Top: horizontal lines (gy-dominant); bot: vertical lines (gx-dominant) → ~90° score."""
+        H, W = 80, 60
+        top_grey = np.zeros((H // 2, W), dtype=np.uint8)
+        top_grey[::4, :] = 200  # horizontal stripes → vertical gradient (gy large)
+        bot_grey = np.zeros((H // 2, W), dtype=np.uint8)
+        bot_grey[:, ::4] = 200  # vertical stripes → horizontal gradient (gx large)
+        top = np.stack([top_grey] * 3, axis=-1)
+        bot = np.stack([bot_grey] * 3, axis=-1)
+        img = np.vstack([top, bot])
+        scores = _seam_grad_direction(img, 2, band_px=15, mag_thresh=5.0)
+        assert len(scores) == 1
+        assert scores[0] > 60.0, (
+            f"Orthogonal stripe orientations should give score > 60°, got {scores[0]}"
+        )
+
+    def test_gate_fires_on_orthogonal_content(self):
+        """Gate with thresh=45° returns seam 0 for orthogonal stripe content."""
+        H, W = 80, 60
+        top_grey = np.zeros((H // 2, W), dtype=np.uint8)
+        top_grey[::4, :] = 200
+        bot_grey = np.zeros((H // 2, W), dtype=np.uint8)
+        bot_grey[:, ::4] = 200
+        top = np.stack([top_grey] * 3, axis=-1)
+        bot = np.stack([bot_grey] * 3, axis=-1)
+        img = np.vstack([top, bot])
+        result = _check_seam_grad_direction_gate(img, 2, thresh=45.0, band_px=15)
+        assert result == 0, (
+            f"Orthogonal content should trigger gate at seam 0, got {result}"
+        )
+
+
+class TestSeamBandSsim:
+    """§1.81 (S138): SSIM-based perceptual seam gate."""
+
+    def test_single_strip_returns_empty(self):
+        """n_strips=1 → no seams → empty list."""
+        img = np.zeros((80, 60, 3), dtype=np.uint8)
+        assert _seam_band_ssim(img, 1) == []
+
+    def test_identical_bands_score_one(self):
+        """Identical top and bottom bands → SSIM ≈ 1.0."""
+        band = np.full((30, 60, 3), 128, dtype=np.uint8)
+        img = np.vstack([band, band])
+        scores = _seam_band_ssim(img, 2, band_px=20)
+        assert len(scores) == 1
+        assert scores[0] > 0.99, f"Identical bands should give SSIM ≈ 1.0, got {scores[0]}"
+
+    def test_dissimilar_bands_low_score(self):
+        """Random noise top vs uniform grey bottom → low SSIM score."""
+        rng = np.random.default_rng(7)
+        top = rng.integers(0, 256, (40, 60, 3), dtype=np.uint8)
+        bot = np.full((40, 60, 3), 128, dtype=np.uint8)
+        img = np.vstack([top, bot])
+        scores = _seam_band_ssim(img, 2, band_px=20)
+        assert len(scores) == 1
+        assert scores[0] < 0.8, f"Dissimilar bands should give low SSIM, got {scores[0]}"
+
+    def test_gate_passes_similar_bands(self):
+        """Bands with SSIM > 0.85 → gate returns None (no fallback)."""
+        band = np.full((40, 60, 3), 100, dtype=np.uint8)
+        img = np.vstack([band, band])
+        result = _check_seam_ssim_gate(img, 2, thresh=0.85, band_px=20)
+        assert result is None, f"Identical bands should not trigger gate, got {result}"
+
+    def test_gate_fires_on_dissimilar_bands(self):
+        """Noise top / uniform bottom → SSIM well below threshold → gate fires."""
+        rng = np.random.default_rng(42)
+        top = rng.integers(0, 256, (40, 60, 3), dtype=np.uint8)
+        bot = np.full((40, 60, 3), 180, dtype=np.uint8)
+        img = np.vstack([top, bot])
+        result = _check_seam_ssim_gate(img, 2, thresh=0.85, band_px=20)
+        assert result == 0, f"Dissimilar bands should trigger gate at seam 0, got {result}"
+
+
+class TestSeamFreqProfile:
+    """§1.82 (S138): FFT spatial-frequency profile mismatch gate."""
+
+    def test_single_strip_returns_empty(self):
+        """n_strips=1 → no seams → empty list."""
+        img = np.zeros((80, 60, 3), dtype=np.uint8)
+        assert _seam_freq_profile(img, 1) == []
+
+    def test_identical_bands_zero_mismatch(self):
+        """Identical top and bottom bands → identical spectra → score ≈ 0."""
+        band = np.full((30, 60, 3), 128, dtype=np.uint8)
+        img = np.vstack([band, band])
+        scores = _seam_freq_profile(img, 2, band_px=20)
+        assert len(scores) == 1
+        assert scores[0] < 0.05, f"Identical bands should give near-zero mismatch, got {scores[0]}"
+
+    def test_uniform_bands_zero_mismatch(self):
+        """Flat uniform image: near-zero Laplacian → near-zero spectrum → score ≈ 0."""
+        img = np.full((80, 60, 3), 128, dtype=np.uint8)
+        scores = _seam_freq_profile(img, 2, band_px=20)
+        assert len(scores) == 1
+        assert scores[0] < 0.2, f"Flat image should give low spectral mismatch, got {scores[0]}"
+
+    def test_high_vs_low_freq_detected(self):
+        """High-freq row stripes above vs low-freq row stripes below → spectral mismatch."""
+        H, W = 80, 60
+        # High-frequency: alternates every 2 rows → peak at Nyquist in row FFT.
+        hi = np.zeros((H // 2, W), dtype=np.uint8)
+        hi[::2, :] = 200
+        # Low-frequency: alternates every 8 rows → peak at 1/8 in row FFT.
+        lo = np.zeros((H // 2, W), dtype=np.uint8)
+        lo[::8, :] = 200
+        top = np.stack([hi] * 3, axis=-1)
+        bot = np.stack([lo] * 3, axis=-1)
+        img = np.vstack([top, bot])
+        scores = _seam_freq_profile(img, 2, band_px=20)
+        assert len(scores) == 1
+        assert scores[0] > 0.2, f"High vs low freq should give high mismatch, got {scores[0]}"
+
+    def test_gate_fires_on_spectral_mismatch(self):
+        """High-freq stripes above / low-freq stripes below exceeds threshold → gate fires."""
+        H, W = 80, 60
+        hi = np.zeros((H // 2, W), dtype=np.uint8)
+        hi[::2, :] = 200
+        lo = np.zeros((H // 2, W), dtype=np.uint8)
+        lo[::8, :] = 200
+        top = np.stack([hi] * 3, axis=-1)
+        bot = np.stack([lo] * 3, axis=-1)
+        img = np.vstack([top, bot])
+        result = _check_seam_freq_gate(img, 2, thresh=0.2, band_px=20)
+        assert result == 0, f"Spectral mismatch should trigger gate at seam 0, got {result}"

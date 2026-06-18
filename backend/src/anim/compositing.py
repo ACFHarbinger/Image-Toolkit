@@ -1201,6 +1201,822 @@ def _check_seam_ncc_gate(
     return worst_k
 
 
+# §1.72 module flag — set ASP_SEAM_ENTROPY_GATE=1.5 to enable.
+_SEAM_ENTROPY_GATE: float = float(os.environ.get("ASP_SEAM_ENTROPY_GATE", "0.0"))
+
+
+def _seam_entropy_asymmetry(
+    img: np.ndarray,
+    n_strips: int,
+    band_px: int = 50,
+) -> "List[float]":
+    """§1.72: Per-seam Shannon entropy asymmetry between bands above and below each seam.
+
+    Computes the greyscale Shannon entropy of the *band_px*-row window immediately
+    above and below each inter-strip seam boundary, then returns the absolute
+    difference ``|H_top − H_bot|`` for each of the ``n_strips − 1`` seams.
+
+    High asymmetry indicates that one side of the seam is flat-colour (low entropy
+    — solid-colour character clothing, blank wall) while the other has rich texture
+    (high entropy — complex background, detailed clothing).  This creates a
+    perceptible texture density discontinuity that NCC and Bhattacharyya both miss:
+    NCC measures structural coherence (pattern alignment), Bhattacharyya measures
+    distribution shape (colour matching), but neither measures the *amount* of
+    texture on each side.
+
+    Entropy in [0, log2(256)] ≈ [0, 8.0] bits; asymmetry of 0 = perfectly
+    balanced texture on both sides; > 1.5 bits ≈ one side near-flat, the other
+    complex.
+
+    Returns an empty list when *n_strips* ≤ 1.  Flat or near-flat bands (< 4
+    unique grey values) return 0.0 per seam (no measurable texture density).
+    """
+    if n_strips <= 1:
+        return []
+    H_img = img.shape[0]
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    zone_h = H_img / n_strips
+    scores: List[float] = []
+    for k in range(1, n_strips):
+        boundary_y = int(round(zone_h * k))
+        top = gray[max(0, boundary_y - band_px):boundary_y]
+        bot = gray[boundary_y:min(H_img, boundary_y + band_px)]
+        if top.size == 0 or bot.size == 0:
+            scores.append(0.0)
+            continue
+
+        def _entropy(band: np.ndarray) -> float:
+            counts = np.bincount(band.ravel(), minlength=256).astype(np.float64)
+            if (counts > 0).sum() < 4:
+                return 0.0
+            probs = counts / counts.sum()
+            probs = probs[probs > 0]
+            return float(-np.sum(probs * np.log2(probs)))
+
+        scores.append(round(abs(_entropy(top) - _entropy(bot)), 4))
+    return scores
+
+
+def _check_seam_entropy_gate(
+    img: np.ndarray,
+    n_strips: int,
+    thresh: Optional[float] = None,
+    band_px: int = 50,
+) -> Optional[int]:
+    """§1.72: Return the worst-asymmetry seam index, or None when all pass.
+
+    Calls ``_seam_entropy_asymmetry`` and returns the index of the seam with
+    the *highest* entropy asymmetry score when that score exceeds *thresh*.
+    Returns ``None`` when *n_strips* ≤ 1, *thresh* ≤ 0, or all seams pass.
+    """
+    if thresh is None:
+        thresh = _SEAM_ENTROPY_GATE
+    if thresh <= 0.0 or n_strips <= 1:
+        return None
+    scores = _seam_entropy_asymmetry(img, n_strips, band_px=band_px)
+    if not scores:
+        return None
+    worst_k: Optional[int] = None
+    worst_score = thresh
+    for k, score in enumerate(scores):
+        if score > worst_score:
+            worst_score = score
+            worst_k = k
+    return worst_k
+
+
+# §1.76 module flag — set ASP_SEAM_MAX_COL_GATE=40.0 to enable.
+# Unlike §1.24 (_measure_max_seam_step) which returns the *mean* band luma,
+# §1.76 reports the worst *individual column* step, catching localised hot-spots
+# (a single character-edge column crossing the seam) that the mean gate misses.
+_SEAM_MAX_COL_GATE: float = float(os.environ.get("ASP_SEAM_MAX_COL_GATE", "0.0"))
+
+
+def _seam_max_col_luma_step(
+    img: np.ndarray,
+    n_strips: int,
+    band_px: int = 8,
+    guard: int = 2,
+) -> "List[float]":
+    """§1.76: Per-seam maximum column-wise luma step across the seam band (S134).
+
+    For each inter-strip boundary, computes per-column mean luma in *band_px* rows
+    above and below (with *guard* rows excluded), then returns ``max_col |above −
+    below|`` for that seam.  Unlike §1.24 (mean across band width), this reports
+    the worst single-column step — catching localised hot-spots that the mean
+    smooths away.
+
+    Parameters
+    ----------
+    img : BGR uint8 composite.
+    n_strips : Number of composited strips.
+    band_px : Rows above/below boundary to average for per-column luma.
+    guard : Rows immediately adjacent to boundary excluded from averaging.
+
+    Returns
+    -------
+    List of ``n_strips − 1`` floats, each the worst-column luma step (0–255).
+    """
+    H, W = img.shape[:2]
+    if n_strips <= 1 or H < 2 * (band_px + guard) or W == 0:
+        return []
+    luma = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    steps: "List[float]" = []
+    for k in range(1, n_strips):
+        by = H * k // n_strips
+        a0 = max(0, by - band_px - guard)
+        a1 = max(0, by - guard)
+        b0 = min(H, by + guard)
+        b1 = min(H, by + band_px + guard)
+        if a1 <= a0 or b1 <= b0:
+            steps.append(0.0)
+            continue
+        above_col = luma[a0:a1].mean(axis=0)
+        below_col = luma[b0:b1].mean(axis=0)
+        steps.append(float(np.abs(below_col - above_col).max()))
+    return steps
+
+
+def _check_seam_max_col_gate(
+    img: np.ndarray,
+    n_strips: int,
+    thresh: "Optional[float]" = None,
+    band_px: int = 8,
+    guard: int = 2,
+) -> "Optional[int]":
+    """§1.76: Return worst-column seam index when any per-seam step ≥ thresh.
+
+    Parameters
+    ----------
+    thresh : Gate threshold in luma units.  Falls back to ``_SEAM_MAX_COL_GATE``.
+
+    Returns
+    -------
+    Seam index (0-based) of the worst offender, or ``None`` when all pass.
+    """
+    if thresh is None:
+        thresh = _SEAM_MAX_COL_GATE
+    if thresh <= 0.0 or n_strips <= 1:
+        return None
+    scores = _seam_max_col_luma_step(img, n_strips, band_px=band_px, guard=guard)
+    if not scores:
+        return None
+    worst_k: "Optional[int]" = None
+    worst_score = thresh
+    for k, score in enumerate(scores):
+        if score > worst_score:
+            worst_score = score
+            worst_k = k
+    return worst_k
+
+
+# §1.77 module flag — set ASP_SEAM_SAT_GATE=40.0 to enable.
+# Saturation jump detects a colour-vibrancy discontinuity that luma-based gates
+# (§1.24, §1.76) and entropy gates (§1.72) both miss: two strips can have
+# identical mean brightness and equal texture complexity but completely different
+# colour saturation — e.g., a muted pastel background abutting a vividly
+# coloured character outfit.  In HSV space the saturation channel is in [0, 255];
+# a jump of ≥ 40 at the seam boundary is clearly visible.
+_SEAM_SAT_GATE: float = float(os.environ.get("ASP_SEAM_SAT_GATE", "0.0"))
+
+
+def _seam_saturation_jump(
+    img: np.ndarray,
+    n_strips: int,
+    band_px: int = 30,
+) -> "List[float]":
+    """§1.77: Per-seam mean HSV saturation jump across the seam boundary (S135).
+
+    For each inter-strip boundary, computes the mean HSV saturation in the
+    *band_px*-row window immediately above and below, then returns
+    ``|sat_above − sat_below|`` (in [0, 255]).
+
+    High saturation jump indicates a vibrancy discontinuity — e.g., a muted
+    background strip adjacent to a vividly coloured character strip — that
+    luma, entropy, and Bhattacharyya gates do not specifically target.
+
+    Parameters
+    ----------
+    img : BGR uint8 composite image.
+    n_strips : Number of composited strips.
+    band_px : Rows above/below the boundary used for saturation estimation.
+
+    Returns
+    -------
+    List of ``n_strips − 1`` floats in [0, 255].  Empty when n_strips ≤ 1.
+    Single-channel (greyscale) inputs return 0.0 per seam.
+    """
+    if n_strips <= 1:
+        return []
+    H = img.shape[0]
+    if img.ndim == 2 or img.shape[2] == 1:
+        return [0.0] * (n_strips - 1)
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    sat = hsv[:, :, 1].astype(np.float32)
+    zone_h = H / n_strips
+    jumps: "List[float]" = []
+    for k in range(1, n_strips):
+        by = int(round(zone_h * k))
+        top = sat[max(0, by - band_px):by]
+        bot = sat[by:min(H, by + band_px)]
+        if top.size == 0 or bot.size == 0:
+            jumps.append(0.0)
+            continue
+        jumps.append(round(abs(float(top.mean()) - float(bot.mean())), 4))
+    return jumps
+
+
+def _check_seam_saturation_gate(
+    img: np.ndarray,
+    n_strips: int,
+    thresh: "Optional[float]" = None,
+    band_px: int = 30,
+) -> "Optional[int]":
+    """§1.77: Return worst saturation-jump seam index when any jump ≥ thresh.
+
+    Returns the seam index (0-based) whose ``|sat_above − sat_below|`` is the
+    largest and exceeds *thresh*.  Returns ``None`` when *n_strips* ≤ 1,
+    *thresh* ≤ 0, or all seams pass.
+    """
+    if thresh is None:
+        thresh = _SEAM_SAT_GATE
+    if thresh <= 0.0 or n_strips <= 1:
+        return None
+    scores = _seam_saturation_jump(img, n_strips, band_px=band_px)
+    if not scores:
+        return None
+    worst_k: "Optional[int]" = None
+    worst_score = thresh
+    for k, score in enumerate(scores):
+        if score > worst_score:
+            worst_score = score
+            worst_k = k
+    return worst_k
+
+
+# §1.78 module flag — set ASP_SEAM_HUE_GATE=30.0 to enable.
+# Hue shift detects a colour-temperature discontinuity that saturation and luma
+# gates miss: two strips can have equal brightness and equal saturation yet
+# completely different hues — e.g., a warm orange/red background strip abutting
+# a cool blue/teal strip.  HSV hue is circular in [0, 180] (OpenCV convention);
+# the circular distance is used so that red (hue≈0) and magenta (hue≈170) are
+# correctly treated as nearby (distance≈10), not opposite (distance≈170).
+_SEAM_HUE_GATE: float = float(os.environ.get("ASP_SEAM_HUE_GATE", "0.0"))
+
+# §1.79 module flag — set ASP_SEAM_SHARP_GATE=3.0 to enable.
+# Sharpness mismatch detects a blur/sharpness discontinuity that colour-space
+# gates (luma, saturation, hue, entropy) do not capture: two strips can have
+# identical colour profiles yet one strip is noticeably blurrier than the other
+# due to different source MPEG compression, upscaling, or frame-averaging rates.
+# The metric is the log₂ ratio of Laplacian variance in the band above vs. below
+# each seam boundary.  |log₂(sharp_top / sharp_bot)| > thresh flags a mismatch.
+# A ratio of 3.0 means one side is 8× sharper than the other — clearly visible.
+# Default 0.0 = off.  Recommend ASP_SEAM_SHARP_GATE=3.0.
+_SEAM_SHARP_GATE: float = float(os.environ.get("ASP_SEAM_SHARP_GATE", "0.0"))
+
+# §1.80 module flag — set ASP_SEAM_GRAD_DIR_GATE=45.0 to enable.
+# Gradient direction coherence detects a structural orientation discontinuity
+# that all colour-space gates (luma, saturation, hue, sharpness, entropy)
+# ignore: two strips can have identical photometric profiles yet different
+# dominant edge orientations — e.g., diagonal speed-lines above a horizontal
+# cloud-layer below.  The gradient direction is measured using Sobel gx/gy;
+# undirected orientation (mod π) circular mean is computed per band using the
+# angle-doubling trick.  The score is the circular distance in degrees [0, 90].
+# A score of 45° means one side has edges mainly at 45° to the other — clearly
+# visible as a texture orientation jump.  Default 0.0 = off.
+# Recommend ASP_SEAM_GRAD_DIR_GATE=45.0.
+_SEAM_GRAD_DIR_GATE: float = float(os.environ.get("ASP_SEAM_GRAD_DIR_GATE", "0.0"))
+
+
+def _seam_hue_shift(
+    img: np.ndarray,
+    n_strips: int,
+    band_px: int = 30,
+) -> "List[float]":
+    """§1.78: Per-seam mean circular hue shift across the seam boundary (S135).
+
+    For each inter-strip boundary, computes the mean HSV hue in the *band_px*-row
+    window immediately above and below using the circular (angular) distance to
+    handle the red-wraparound at hue=0/180.  Returns the circular distance in
+    [0, 90] degrees (OpenCV hue scale: 0–180, so max circular distance = 90).
+
+    High hue shift indicates a colour-temperature discontinuity — e.g., a warm
+    orange/sunset background strip abutting a cool blue/sky strip — that luma,
+    saturation, entropy, and Bhattacharyya gates do not capture.
+
+    Near-black or near-white pixels have undefined hue and inflate the mean; they
+    are excluded via a saturation threshold (sat > 15/255) so only chromatically
+    meaningful pixels contribute.
+
+    Parameters
+    ----------
+    img : BGR uint8 composite image.
+    n_strips : Number of composited strips.
+    band_px : Rows above/below the boundary used for hue estimation.
+
+    Returns
+    -------
+    List of ``n_strips − 1`` floats in [0, 90].  Empty when n_strips ≤ 1.
+    Greyscale inputs return 0.0 per seam (no hue information).
+    """
+    if n_strips <= 1:
+        return []
+    if img.ndim == 2 or (img.ndim == 3 and img.shape[2] == 1):
+        return [0.0] * (n_strips - 1)
+    H = img.shape[0]
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    hue = hsv[:, :, 0].astype(np.float32)
+    sat = hsv[:, :, 1].astype(np.float32)
+    zone_h = H / n_strips
+    shifts: "List[float]" = []
+    for k in range(1, n_strips):
+        by = int(round(zone_h * k))
+        top_h = hue[max(0, by - band_px):by]
+        top_s = sat[max(0, by - band_px):by]
+        bot_h = hue[by:min(H, by + band_px)]
+        bot_s = sat[by:min(H, by + band_px)]
+        if top_h.size == 0 or bot_h.size == 0:
+            shifts.append(0.0)
+            continue
+        top_mask = top_s > 15.0
+        bot_mask = bot_s > 15.0
+        if top_mask.sum() < 4 or bot_mask.sum() < 4:
+            shifts.append(0.0)
+            continue
+        mean_top = float(top_h[top_mask].mean())
+        mean_bot = float(bot_h[bot_mask].mean())
+        # Circular distance on [0, 180] scale; max = 90.
+        diff = abs(mean_top - mean_bot)
+        if diff > 90.0:
+            diff = 180.0 - diff
+        shifts.append(round(diff, 4))
+    return shifts
+
+
+def _check_seam_hue_gate(
+    img: np.ndarray,
+    n_strips: int,
+    thresh: "Optional[float]" = None,
+    band_px: int = 30,
+) -> "Optional[int]":
+    """§1.78: Return worst hue-shift seam index when any shift ≥ thresh.
+
+    Returns the seam index (0-based) whose circular hue shift is the largest and
+    exceeds *thresh*.  Returns ``None`` when *n_strips* ≤ 1, *thresh* ≤ 0, or
+    all seams pass.
+    """
+    if thresh is None:
+        thresh = _SEAM_HUE_GATE
+    if thresh <= 0.0 or n_strips <= 1:
+        return None
+    scores = _seam_hue_shift(img, n_strips, band_px=band_px)
+    if not scores:
+        return None
+    worst_k: "Optional[int]" = None
+    worst_score = thresh
+    for k, score in enumerate(scores):
+        if score > worst_score:
+            worst_score = score
+            worst_k = k
+    return worst_k
+
+
+def _seam_sharpness_mismatch(
+    img: np.ndarray,
+    n_strips: int,
+    band_px: int = 30,
+) -> "List[float]":
+    """§1.79: Per-seam log₂ sharpness ratio across the seam boundary (S136).
+
+    For each inter-strip boundary, computes the Laplacian variance in the
+    *band_px*-row window immediately above and below.  The Laplacian variance
+    (``cv2.Laplacian`` → variance of float response) is a well-established
+    blur measure: sharp regions have high variance; blurry regions have low.
+
+    The mismatch score is ``|log₂(sharp_top / sharp_bot)|``, where both values
+    are clamped to ≥ 1.0 to prevent log singularities on near-flat regions.
+    A score of 0 means equal sharpness; 1.0 means one side is 2× sharper;
+    3.0 means one side is 8× sharper — clearly perceptible as a texture jump.
+
+    Input is converted to greyscale before Laplacian to avoid channel artefacts.
+    Works on both colour (H, W, 3) and greyscale (H, W) arrays.
+
+    Parameters
+    ----------
+    img : BGR uint8 composite image.
+    n_strips : Number of composited strips.
+    band_px : Rows above/below each boundary used for sharpness estimation.
+
+    Returns
+    -------
+    List of ``n_strips − 1`` non-negative floats.  Empty when n_strips ≤ 1.
+    """
+    if n_strips <= 1:
+        return []
+    H = img.shape[0]
+    if img.ndim == 3:
+        grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    else:
+        grey = img.astype(np.float32)
+    lap = cv2.Laplacian(grey, cv2.CV_32F)
+    zone_h = H / n_strips
+    scores: "List[float]" = []
+    for k in range(1, n_strips):
+        by = int(round(zone_h * k))
+        top_lap = lap[max(0, by - band_px):by]
+        bot_lap = lap[by:min(H, by + band_px)]
+        if top_lap.size == 0 or bot_lap.size == 0:
+            scores.append(0.0)
+            continue
+        sharp_top = max(1.0, float(np.var(top_lap)))
+        sharp_bot = max(1.0, float(np.var(bot_lap)))
+        ratio = np.log2(sharp_top / sharp_bot)
+        scores.append(round(abs(ratio), 4))
+    return scores
+
+
+def _check_seam_sharpness_gate(
+    img: np.ndarray,
+    n_strips: int,
+    thresh: "Optional[float]" = None,
+    band_px: int = 30,
+) -> "Optional[int]":
+    """§1.79: Return worst sharpness-mismatch seam index when any score ≥ thresh.
+
+    Returns the seam index (0-based) with the largest |log₂(sharp_top/sharp_bot)|
+    that exceeds *thresh*.  Returns ``None`` when *n_strips* ≤ 1, *thresh* ≤ 0,
+    or all seams pass.
+    """
+    if thresh is None:
+        thresh = _SEAM_SHARP_GATE
+    if thresh <= 0.0 or n_strips <= 1:
+        return None
+    scores = _seam_sharpness_mismatch(img, n_strips, band_px=band_px)
+    if not scores:
+        return None
+    worst_k: "Optional[int]" = None
+    worst_score = thresh
+    for k, score in enumerate(scores):
+        if score > worst_score:
+            worst_score = score
+            worst_k = k
+    return worst_k
+
+
+def _seam_grad_direction(
+    img: np.ndarray,
+    n_strips: int,
+    band_px: int = 30,
+    mag_thresh: float = 10.0,
+) -> "List[float]":
+    """§1.80: Per-seam gradient direction coherence score (S137).
+
+    For each inter-strip boundary, computes the mean *undirected* gradient
+    orientation in the *band_px*-row window immediately above and below, then
+    returns the circular distance between the two means in degrees [0, 90].
+
+    Gradient orientation is measured using 3×3 Sobel operators.  The undirected
+    orientation ``θ = arctan2(gy, gx) mod π`` lies in [0, π).  Per-band
+    circular mean is derived via the angle-doubling trick:
+
+        mean_angle = 0.5 × arctan2(mean(sin(2θ)), mean(cos(2θ)))
+
+    Only pixels whose Sobel magnitude exceeds *mag_thresh* contribute, so
+    flat regions (uniform colour) do not bias the mean.  When fewer than 4
+    strong-gradient pixels exist in either band the seam score is 0.0 (no
+    information → no gate).
+
+    A score of 0° means the dominant edge direction is the same on both sides
+    of the seam (compatible structure).  A score of 45° means one side's edges
+    run perpendicular to the other — clearly perceptible as a texture jump.
+    A score of 90° is the maximum (horizontal lines above, vertical lines below).
+
+    Parameters
+    ----------
+    img : BGR uint8 (H, W, 3) or greyscale (H, W) composite image.
+    n_strips : Number of composited strips.
+    band_px : Rows above/below each boundary used for orientation estimation.
+    mag_thresh : Sobel magnitude floor; pixels below are excluded (flat regions).
+
+    Returns
+    -------
+    List of ``n_strips − 1`` floats in [0, 90].  Empty when n_strips ≤ 1.
+    """
+    if n_strips <= 1:
+        return []
+    H = img.shape[0]
+    if img.ndim == 3:
+        grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    else:
+        grey = img.astype(np.float32)
+
+    gx = cv2.Sobel(grey, cv2.CV_32F, 1, 0, ksize=3)
+    gy = cv2.Sobel(grey, cv2.CV_32F, 0, 1, ksize=3)
+    mag = np.sqrt(gx * gx + gy * gy)
+    # Undirected orientation in [0, π): arctan2 ∈ (-π, π] → mod π.
+    orientation = np.arctan2(gy, gx) % np.pi
+
+    zone_h = H / n_strips
+    scores: "List[float]" = []
+
+    for k in range(1, n_strips):
+        by = int(round(zone_h * k))
+        t_sl = slice(max(0, by - band_px), by)
+        b_sl = slice(by, min(H, by + band_px))
+
+        top_mag = mag[t_sl]
+        bot_mag = mag[b_sl]
+        if top_mag.size == 0 or bot_mag.size == 0:
+            scores.append(0.0)
+            continue
+
+        top_mask = top_mag > mag_thresh
+        bot_mask = bot_mag > mag_thresh
+        if top_mask.sum() < 4 or bot_mask.sum() < 4:
+            scores.append(0.0)
+            continue
+
+        top_a = orientation[t_sl][top_mask]
+        bot_a = orientation[b_sl][bot_mask]
+
+        # Circular mean of undirected orientations via angle-doubling trick.
+        # Double to [0, 2π), compute unit-vector mean, halve back.
+        phi_top = 2.0 * top_a
+        phi_bot = 2.0 * bot_a
+        mean_top = 0.5 * np.arctan2(
+            float(np.mean(np.sin(phi_top))), float(np.mean(np.cos(phi_top)))
+        )
+        mean_bot = 0.5 * np.arctan2(
+            float(np.mean(np.sin(phi_bot))), float(np.mean(np.cos(phi_bot)))
+        )
+
+        # Map both means to [0, π) then compute circular distance in [0, π/2].
+        mean_top_pos = mean_top % np.pi
+        mean_bot_pos = mean_bot % np.pi
+        diff = abs(mean_top_pos - mean_bot_pos)
+        if diff > np.pi / 2.0:
+            diff = np.pi - diff
+
+        scores.append(round(float(np.degrees(diff)), 4))
+
+    return scores
+
+
+def _check_seam_grad_direction_gate(
+    img: np.ndarray,
+    n_strips: int,
+    thresh: "Optional[float]" = None,
+    band_px: int = 30,
+) -> "Optional[int]":
+    """§1.80: Return worst-seam index when any gradient-direction score ≥ thresh.
+
+    Returns the 0-based seam index whose circular gradient-direction distance
+    is the largest and exceeds *thresh* degrees.  Returns ``None`` when
+    *n_strips* ≤ 1, *thresh* ≤ 0, or all seams pass.
+    """
+    if thresh is None:
+        thresh = _SEAM_GRAD_DIR_GATE
+    if thresh <= 0.0 or n_strips <= 1:
+        return None
+    scores = _seam_grad_direction(img, n_strips, band_px=band_px)
+    if not scores:
+        return None
+    worst_k: "Optional[int]" = None
+    worst_score = thresh
+    for k, score in enumerate(scores):
+        if score > worst_score:
+            worst_score = score
+            worst_k = k
+    return worst_k
+
+
+# §1.81 module flag — set ASP_SEAM_SSIM_GATE=0.85 to enable.
+# SSIM directly measures the *perceptual similarity* between the bands above
+# and below a seam boundary by jointly evaluating luminance, contrast, and
+# structure.  Luma, saturation, hue, sharpness and gradient-direction gates
+# (§1.76–§1.80) each measure one photometric dimension independently; SSIM
+# fuses all three (luma, contrast, structure) into a single [0,1] score.
+# A score of 1.0 = identical bands; 0.0 = totally unrelated content.
+# Default 0.0 = off.  Recommend ASP_SEAM_SSIM_GATE=0.85 (fire below 0.85).
+# The gate fires when ANY seam's band-SSIM is *below* the threshold (lower
+# similarity = worse seam), unlike §1.76–§1.80 which fire when a score
+# *exceeds* a threshold.  The returned value is still "worst seam index".
+_SEAM_SSIM_GATE: float = float(os.environ.get("ASP_SEAM_SSIM_GATE", "0.0"))
+
+# §1.82 module flag — set ASP_SEAM_FREQ_GATE=0.6 to enable.
+# Spatial frequency profile mismatch detects a spectral content discontinuity
+# invisible to all previous gates: two strips can have identical mean luma,
+# saturation, sharpness, and gradient orientation yet completely different
+# dominant spatial frequencies — e.g., a fine-grained noise texture above a
+# smooth gradient below.  The metric is 1 − Pearson-r between the two bands'
+# 1D column-averaged FFT magnitude spectra (DC-excluded), in [0, 1].
+# A score of 0 = identical spectra; 1 = orthogonal spectra.
+# Default 0.0 = off.  Recommend ASP_SEAM_FREQ_GATE=0.6.
+_SEAM_FREQ_GATE: float = float(os.environ.get("ASP_SEAM_FREQ_GATE", "0.0"))
+
+
+def _seam_band_ssim(
+    img: np.ndarray,
+    n_strips: int,
+    band_px: int = 30,
+) -> "List[float]":
+    """§1.81: Per-seam SSIM between bands above and below each seam boundary.
+
+    For each inter-strip boundary, computes the Structural Similarity Index
+    (SSIM) between the *band_px*-row window immediately above and below.  The
+    two band arrays are resized to the same height (``min(top_h, bot_h)``) when
+    one is taller than the other (boundary near image edge).
+
+    SSIM jointly captures luminance, contrast, and structure — it is sensitive
+    to all photometric and structural differences simultaneously, making it a
+    catch-all complement to the targeted §1.76–§1.80 single-dimension gates.
+
+    The score is in [0, 1]:
+    * 1.0 = bands are perceptually identical (seam is invisible).
+    * < 0.85 = clear perceptual discontinuity at the seam boundary.
+    * 0.0 = bands are completely unrelated.
+
+    The gate fires when a score is *below* the threshold (unlike §1.76–§1.80
+    which fire *above* their thresholds) — lower SSIM → worse seam.
+
+    Parameters
+    ----------
+    img : BGR uint8 (H, W, 3) or greyscale (H, W) composite image.
+    n_strips : Number of composited strips.
+    band_px : Rows above/below each boundary for SSIM estimation.
+
+    Returns
+    -------
+    List of ``n_strips − 1`` floats in [0, 1].  Empty when n_strips ≤ 1.
+    """
+    from skimage.metrics import structural_similarity as ssim_fn
+
+    if n_strips <= 1:
+        return []
+    H = img.shape[0]
+    multichannel = img.ndim == 3 and img.shape[2] == 3
+    if multichannel:
+        grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    else:
+        grey = img if img.ndim == 2 else img[:, :, 0]
+    grey = grey.astype(np.float32) / 255.0
+
+    zone_h = H / n_strips
+    scores: "List[float]" = []
+    for k in range(1, n_strips):
+        by = int(round(zone_h * k))
+        top = grey[max(0, by - band_px):by]
+        bot = grey[by:min(H, by + band_px)]
+        if top.size == 0 or bot.size == 0:
+            scores.append(1.0)
+            continue
+        # Equalise heights so ssim arrays match.
+        h = min(top.shape[0], bot.shape[0])
+        if h < 7:
+            scores.append(1.0)
+            continue
+        top = top[:h]
+        bot = bot[:h]
+        try:
+            val = float(ssim_fn(top, bot, data_range=1.0))
+        except Exception:
+            val = 1.0
+        scores.append(round(max(0.0, min(1.0, val)), 4))
+    return scores
+
+
+def _check_seam_ssim_gate(
+    img: np.ndarray,
+    n_strips: int,
+    thresh: "Optional[float]" = None,
+    band_px: int = 30,
+) -> "Optional[int]":
+    """§1.81: Return worst-seam index when any band-SSIM is *below* thresh.
+
+    Returns the 0-based seam index whose SSIM score is the lowest and falls
+    below *thresh*.  Returns ``None`` when *n_strips* ≤ 1, *thresh* ≤ 0, or
+    all seams pass.
+    """
+    if thresh is None:
+        thresh = _SEAM_SSIM_GATE
+    if thresh <= 0.0 or n_strips <= 1:
+        return None
+    scores = _seam_band_ssim(img, n_strips, band_px=band_px)
+    if not scores:
+        return None
+    worst_k: "Optional[int]" = None
+    worst_score = thresh
+    for k, score in enumerate(scores):
+        if score < worst_score:
+            worst_score = score
+            worst_k = k
+    return worst_k
+
+
+def _seam_freq_profile(
+    img: np.ndarray,
+    n_strips: int,
+    band_px: int = 30,
+) -> "List[float]":
+    """§1.82: Per-seam spatial-frequency profile mismatch score (1 − Pearson-r).
+
+    For each inter-strip boundary, computes the column-averaged 1D FFT magnitude
+    spectrum of the greyscale band above and below (DC bin excluded).  The
+    Pearson correlation coefficient *r* between the two spectral vectors
+    captures how similar the dominant spatial frequency content is across the
+    boundary.  The mismatch score is ``1 − max(0, r)`` in [0, 1]:
+
+    * 0.0 = identical frequency profiles (spectrally compatible strips).
+    * 1.0 = orthogonal/anti-correlated spectra (spectral discontinuity).
+
+    This catches cases where two strips look similar in colour and luma yet
+    differ in frequency content — e.g., a fine-grained noise texture above a
+    smooth low-frequency gradient below — invisible to all §1.76–§1.81 gates.
+
+    Only the positive-frequency half of the one-sided spectrum is used.
+    When a band is too narrow (< 4 rows) the score defaults to 0.0 (no info).
+
+    Parameters
+    ----------
+    img : BGR uint8 (H, W, 3) or greyscale (H, W) composite image.
+    n_strips : Number of composited strips.
+    band_px : Rows above/below each boundary for spectrum estimation.
+
+    Returns
+    -------
+    List of ``n_strips − 1`` floats in [0, 1].  Empty when n_strips ≤ 1.
+    """
+    if n_strips <= 1:
+        return []
+    H = img.shape[0]
+    if img.ndim == 3:
+        grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    else:
+        grey = img.astype(np.float32)
+
+    zone_h = H / n_strips
+    scores: "List[float]" = []
+    for k in range(1, n_strips):
+        by = int(round(zone_h * k))
+        top = grey[max(0, by - band_px):by]
+        bot = grey[by:min(H, by + band_px)]
+        if top.shape[0] < 4 or bot.shape[0] < 4:
+            scores.append(0.0)
+            continue
+        # 1D FFT per column, average magnitude across columns, exclude DC.
+        def _col_mean_spectrum(band: np.ndarray) -> np.ndarray:
+            spec = np.abs(np.fft.rfft(band, axis=0))  # (freqs, W)
+            return spec[1:].mean(axis=1)  # exclude DC, mean over columns
+
+        top_spec = _col_mean_spectrum(top)
+        bot_spec = _col_mean_spectrum(bot)
+        # Align lengths (edge bands may have different heights).
+        n = min(len(top_spec), len(bot_spec))
+        if n < 2:
+            scores.append(0.0)
+            continue
+        top_s = top_spec[:n]
+        bot_s = bot_spec[:n]
+        # Pearson-r between the two spectra.
+        top_z = top_s - top_s.mean()
+        bot_z = bot_s - bot_s.mean()
+        denom = float(np.linalg.norm(top_z) * np.linalg.norm(bot_z))
+        if denom < 1e-9:
+            scores.append(0.0)
+            continue
+        r = float(np.dot(top_z, bot_z) / denom)
+        scores.append(round(1.0 - max(0.0, r), 4))
+    return scores
+
+
+def _check_seam_freq_gate(
+    img: np.ndarray,
+    n_strips: int,
+    thresh: "Optional[float]" = None,
+    band_px: int = 30,
+) -> "Optional[int]":
+    """§1.82: Return worst-seam index when any frequency-mismatch score ≥ thresh.
+
+    Returns the 0-based seam index whose ``1 − Pearson-r`` spectrum mismatch
+    is the largest and exceeds *thresh*.  Returns ``None`` when *n_strips* ≤ 1,
+    *thresh* ≤ 0, or all seams pass.
+    """
+    if thresh is None:
+        thresh = _SEAM_FREQ_GATE
+    if thresh <= 0.0 or n_strips <= 1:
+        return None
+    scores = _seam_freq_profile(img, n_strips, band_px=band_px)
+    if not scores:
+        return None
+    worst_k: "Optional[int]" = None
+    worst_score = thresh
+    for k, score in enumerate(scores):
+        if score > worst_score:
+            worst_score = score
+            worst_k = k
+    return worst_k
+
+
 def _multiscale_gain_map(
     frame: np.ndarray,
     reference: np.ndarray,
@@ -1210,6 +2026,9 @@ def _multiscale_gain_map(
     gain_max: float = 2.0,
 ) -> np.ndarray:
     """§1.4D: Spatially-varying gain map from low-frequency luminance ratio.
+
+    Computes per-pixel gain = ref_lum_low / frame_lum_low where both are
+    Gaussian-blurred with *sigma* px.  Only background pixels (``bg_mask``)
 
     Computes per-pixel gain = ref_lum_low / frame_lum_low where both are
     Gaussian-blurred with *sigma* px.  Only background pixels (``bg_mask``)
@@ -2360,6 +3179,10 @@ def _composite_foreground(
             + " ".join(f"B{k}={int(feathers[k])}px" for k in range(n_b))
         )
 
+    # §1.68: Adjacent feather ratio enforcement — prevent rhythm discontinuity.
+    if _FEATHER_RATIO_MAX > 0.0 and n_b > 1:
+        feathers = _enforce_feather_ratio(feathers, max_ratio=_FEATHER_RATIO_MAX)
+
     # ── Stage 8.5: Foreground pose registration — global reference strategy ──
     # The camera model is translation-only, so the BACKGROUND is aligned in
     # warped_norm but the animating CHARACTER lands in two different poses on
@@ -2785,10 +3608,24 @@ def _composite_foreground(
                     f"> {_FG_POSE_GAP_THRESH:.1f} → single-pose frame {seam_single_pose[k]}"
                 )
 
-        # P2.4 — Semantic seam routing: build a character-boundary cost map so
-        # the DP path avoids cutting through foreground outlines.
+        # §1.70: blend-zone fg-coverage pre-escalation — when the entire overlap
+        # zone is fg-dominated (no background corridor for the DP seam to use),
+        # skip the DP and immediately escalate to single-pose.
         _bg_a_zone = warped_bg[fi_a][y0_f:y1_f] if warped_bg[fi_a] is not None else None
         _bg_b_zone = warped_bg[fi_b][y0_f:y1_f] if warped_bg[fi_b] is not None else None
+        if _SEAM_ZONE_FG_MAX > 0.0 and k not in seam_single_pose:
+            _zone_fg_frac = _fg_fraction_in_zone(_bg_a_zone, _bg_b_zone)
+            if _zone_fg_frac > _SEAM_ZONE_FG_MAX:
+                _fg_a3 = int((fa_zone.max(axis=2) > 0).sum())
+                _fg_b3 = int((fb_zone.max(axis=2) > 0).sum())
+                seam_single_pose[k] = fi_a if _fg_a3 >= _fg_b3 else fi_b
+                print(
+                    f"[Stitch]   §1.70 zone-fg B{k}: fg={_zone_fg_frac:.2f} "
+                    f"> {_SEAM_ZONE_FG_MAX:.2f} → single-pose frame {seam_single_pose[k]}"
+                )
+
+        # P2.4 — Semantic seam routing: build a character-boundary cost map so
+        # the DP path avoids cutting through foreground outlines.
 
         # Use pre-computed seam path when available (parallel pre-computation above)
         path_local = _precomp_paths.get(k)
@@ -2816,6 +3653,22 @@ def _composite_foreground(
                     path_local = np.full(W, zone_h // 2, dtype=np.int32)
             else:
                 path_local = np.full(W, zone_h // 2, dtype=np.int32)
+
+        # §1.69: Post-DP bg-routing ratio check — if the DP seam was forced
+        # through too many fg pixels despite cost-map steering, escalate to
+        # single-pose for this boundary before applying the blend.
+        if _SEAM_DP_BG_MIN > 0.0 and k not in seam_single_pose:
+            _bg_a_dp = warped_bg[fi_a][y0_f:y1_f] if warped_bg[fi_a] is not None else None
+            _bg_b_dp = warped_bg[fi_b][y0_f:y1_f] if warped_bg[fi_b] is not None else None
+            _dp_bg_r = _seam_dp_bg_ratio(path_local, _bg_a_dp, _bg_b_dp)
+            if _dp_bg_r < _SEAM_DP_BG_MIN:
+                _fg_a4 = int((fa_zone.max(axis=2) > 0).sum())
+                _fg_b4 = int((fb_zone.max(axis=2) > 0).sum())
+                seam_single_pose[k] = fi_a if _fg_a4 >= _fg_b4 else fi_b
+                print(
+                    f"[Stitch]   §1.69 dp-bg-ratio B{k}: bg={_dp_bg_r:.2f} "
+                    f"< {_SEAM_DP_BG_MIN:.2f} → single-pose frame {seam_single_pose[k]}"
+                )
 
         # P2.5 — Soft-seam diffusion blending (DSFN technique).
         # Instead of a fixed-width linear ramp, compute a spatially-adaptive blend
@@ -3042,6 +3895,30 @@ __all__ = [
     "_seam_ncc_coherence",
     "_check_seam_ncc_gate",
     "_SEAM_NCC_GATE",
+    "_seam_entropy_asymmetry",
+    "_check_seam_entropy_gate",
+    "_SEAM_ENTROPY_GATE",
+    "_seam_max_col_luma_step",
+    "_check_seam_max_col_gate",
+    "_SEAM_MAX_COL_GATE",
+    "_seam_saturation_jump",
+    "_check_seam_saturation_gate",
+    "_SEAM_SAT_GATE",
+    "_seam_hue_shift",
+    "_check_seam_hue_gate",
+    "_SEAM_HUE_GATE",
+    "_seam_sharpness_mismatch",
+    "_check_seam_sharpness_gate",
+    "_SEAM_SHARP_GATE",
+    "_seam_grad_direction",
+    "_check_seam_grad_direction_gate",
+    "_SEAM_GRAD_DIR_GATE",
+    "_seam_band_ssim",
+    "_check_seam_ssim_gate",
+    "_SEAM_SSIM_GATE",
+    "_seam_freq_profile",
+    "_check_seam_freq_gate",
+    "_SEAM_FREQ_GATE",
     "_adaptive_sp_threshold",
     "_fg_density_feather_cap",
     "_compute_seam_step_size",
@@ -3055,6 +3932,12 @@ __all__ = [
     "_seam_path_std",
     "_zone_is_degenerate",
     "_fg_zone_pose_gap",
+    "_fg_fraction_in_zone",
+    "_SEAM_ZONE_FG_MAX",
+    "_enforce_feather_ratio",
+    "_FEATHER_RATIO_MAX",
+    "_seam_dp_bg_ratio",
+    "_SEAM_DP_BG_MIN",
     "_FG_SEAM_EROSION_PX",
     "_seam_fg_penetration",
     "_seam_zone_texture_energy",

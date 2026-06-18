@@ -102,6 +102,7 @@ class SettingsWindow(QWidget):
         self.pref_extractor_seek_ms = _p.get("extractor_seek_ms", 100)
         self.pref_recent_extractions_count = _p.get("recent_extractions_count", 10)
         self.pref_enable_extraction_queue = _p.get("enable_extraction_queue", False)
+        self.pref_extractor_time_format = _p.get("extractor_time_format", "m:s:ms")
         self.pref_session_recovery = _p.get("session_recovery_level", "None")
         self.pref_accent_dark = _p.get("accent_color_dark", "#00bcd4")
         self.pref_accent_light = _p.get("accent_color_light", "#007AFF")
@@ -587,6 +588,14 @@ class SettingsWindow(QWidget):
         )
         self.enable_queue_check.setChecked(self.pref_enable_extraction_queue)
         media_layout.addRow(self.enable_queue_check)
+
+        self.extractor_time_format_combo = QComboBox()
+        self.extractor_time_format_combo.addItems(["h:m:s", "m:s:ms", "microseconds", "milliseconds"])
+        self.extractor_time_format_combo.setCurrentText(self.pref_extractor_time_format)
+        self.extractor_time_format_combo.setToolTip(
+            "Change how the video time in the extractor tab is displayed (e.g. h:m:s, m:s:ms, microseconds)"
+        )
+        media_layout.addRow("Extractor Time Display Format:", self.extractor_time_format_combo)
 
         # ---------------------------------------------------------------------
         # --- Startup and Session Section ---
@@ -1153,6 +1162,7 @@ class SettingsWindow(QWidget):
         self.pref_extractor_seek_ms = _p.get("extractor_seek_ms", 100)
         self.pref_recent_extractions_count = _p.get("recent_extractions_count", 10)
         self.pref_enable_extraction_queue = _p.get("enable_extraction_queue", False)
+        self.pref_extractor_time_format = _p.get("extractor_time_format", "m:s:ms")
         self.pref_session_recovery = _p.get("session_recovery_level", "None")
         self.pref_accent_dark = _p.get("accent_color_dark", "#00bcd4")
         self.pref_accent_light = _p.get("accent_color_light", "#007AFF")
@@ -1225,6 +1235,7 @@ class SettingsWindow(QWidget):
         self.extractor_seek_spinbox.setValue(self.pref_extractor_seek_ms)
         self.recent_extractions_spinbox.setValue(self.pref_recent_extractions_count)
         self.enable_queue_check.setChecked(self.pref_enable_extraction_queue)
+        self.extractor_time_format_combo.setCurrentText(self.pref_extractor_time_format)
 
         # Repopulate Appearance
         self._update_swatch(self.dark_accent_swatch, self.pref_accent_dark)
@@ -1880,6 +1891,7 @@ class SettingsWindow(QWidget):
                 "extractor_seek_ms": self.extractor_seek_spinbox.value(),
                 "recent_extractions_count": self.recent_extractions_spinbox.value(),
                 "enable_extraction_queue": self.enable_queue_check.isChecked(),
+                "extractor_time_format": self.extractor_time_format_combo.currentText(),
                 "session_recovery_level": self.session_recovery_combo.currentText(),
                 "accent_color_dark": self.pref_accent_dark,
                 "accent_color_light": self.pref_accent_light,
@@ -1953,6 +1965,7 @@ class SettingsWindow(QWidget):
         self.extractor_seek_spinbox.setValue(100)
         self.recent_extractions_spinbox.setValue(10)
         self.enable_queue_check.setChecked(False)
+        self.extractor_time_format_combo.setCurrentText("m:s:ms")
 
         # Reset Appearance
         self.pref_accent_dark = "#00bcd4"
