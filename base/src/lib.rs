@@ -1,3 +1,5 @@
+pub mod math;
+
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 #[cfg(feature = "python")]

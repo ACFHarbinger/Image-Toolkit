@@ -2,6 +2,41 @@
 
 *Targeting Codebase Topology, ML Interpretability, Pipeline Diagnostics, and Omniscient Debugging*
 
+---
+
+## Implementation Status
+
+| Layer | Status | Details |
+|-------|--------|---------|
+| **Rust math backbone** (`base/src/math/`) | ✅ Complete | 6 modules, 49 unit tests passing |
+| **TypeScript math backbone** (`frontend/src/math/`) | ✅ Complete | 7 modules, `tsc --noEmit` clean |
+| Phase 1–10 feature implementation | ⬜ Not started | Backbone provides all mathematical primitives |
+
+### Rust backbone — `base/src/math/`
+
+| Module | Contents |
+|--------|----------|
+| `linalg` | `Matrix`, PCA via power iteration, dot/norm/normalize, gram-schmidt |
+| `stats` | mean/variance/stddev/percentile/histogram/covariance matrix/pearson |
+| `information` | Shannon entropy, KL/JS divergence, mutual information (NMI), cross-entropy |
+| `distance` | Euclidean/Manhattan/Cosine/Bhattacharyya/Hellinger/pairwise/condensed matrix |
+| `graph` | `Graph`/`UnionFind`, BFS/DFS, Kahn topo sort, Tarjan SCC, Kruskal MST/max-MST |
+| `dim_reduce` | Classical MDS, geodesic distances (Dijkstra), t-SNE affinity calibration |
+
+### TypeScript backbone — `frontend/src/math/`
+
+| Module | Contents |
+|--------|----------|
+| `linalg` | Vec2/Vec3/VecN ops, Mat3/Mat4, clamp/saturate |
+| `stats` | mean/variance/percentile/pearson/normalize01/z-score/histogram |
+| `colormap` | viridis/plasma/magma/inferno/coolwarm (17-stop lookup tables + `applyColormap`) |
+| `distance` | euclidean/cosine/manhattan/hamming/pairwise/condensed |
+| `graph` | `Graph`/`GraphNode`/`GraphEdge`, BFS, topo sort, Fruchterman-Reingold layout |
+| `signal` | Cooley-Tukey FFT/IFFT, power spectrum, Hann/Hamming windows, autocorrelation |
+| `index` | Barrel re-exports for all sub-modules |
+
+---
+
 This roadmap outlines the development of a suite of interactive, highly optimized tools designed to give developers and researchers a profound understanding of the Image Toolkit codebase, specifically the Anime Stitch Pipeline (ASP) and its underlying Neural Networks.
 
 Leveraging a Rust backend for time-efficient data parsing/aggregation and a TypeScript frontend for visually stunning, GPU-accelerated dashboards, these tools will expose the hidden geometries, failure modes, and execution topologies of the system.
