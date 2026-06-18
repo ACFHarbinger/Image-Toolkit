@@ -17,8 +17,6 @@ from .video.batch_video_loader_worker import (
     BatchVideoLoaderWorker as BatchVideoLoaderWorker,
 )
 
-from .models.training_worker import TrainingWorker as TrainingWorker
-
 from .core.conversion_worker import ConversionWorker as ConversionWorker
 from .core.sampler_worker import SamplerWorker as SamplerWorker
 from .core.deletion_worker import DeletionWorker as DeletionWorker

@@ -9,7 +9,6 @@ from torchvision.utils import save_image
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
-
 class GanWrapper:
     # --- Cancellation Flag ---
     is_cancelled = False

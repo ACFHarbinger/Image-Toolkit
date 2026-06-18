@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import Qt, QTimer
-from ....helpers import TrainingWorker
+from ....helpers.models.training_worker import TrainingWorker
 
 
 class GANTrainTab(QWidget):

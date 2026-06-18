@@ -22,12 +22,6 @@ Usage
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
-import torch
-import torch
-# --------------------------------
-
-
 import csv
 import logging
 from pathlib import Path
@@ -55,7 +49,6 @@ try:
 except ImportError:
     _TRANSFORMERS_OK = False
     log.warning("transformers not installed — Florence2Captioner unavailable")
-
 
 # ---------------------------------------------------------------------------
 # WD-EVA02 tagger
@@ -122,7 +115,6 @@ class WD14Tagger:
                 character.append(name_clean)
         return rating, general, character
 
-
 # ---------------------------------------------------------------------------
 # Florence-2 natural-language captioner
 # ---------------------------------------------------------------------------
@@ -142,7 +134,6 @@ class Florence2Captioner:
     ):
         if not _TRANSFORMERS_OK:
             raise ImportError("transformers is required for Florence2Captioner")
-        # relocated: import torch
         dtype = dtype or (torch.float16 if device == "cuda" else torch.float32)
         self.proc = AutoProcessor.from_pretrained(repo, trust_remote_code=True)
         self.model = AutoModelForCausalLM.from_pretrained(
@@ -156,7 +147,6 @@ class Florence2Captioner:
 
     @property
     def _torch(self):
-        # relocated: import torch
         return torch
 
     def __call__(
@@ -181,7 +171,6 @@ class Florence2Captioner:
             text, task=task, image_size=image.size
         )[task]
 
-
 # ---------------------------------------------------------------------------
 # Hybrid captioner
 # ---------------------------------------------------------------------------
@@ -189,7 +178,6 @@ _DEFAULT_UNDESIRED = frozenset({
     "watermark", "signature", "artist name", "logo", "text",
     "copyright name", "censored", "bar censor",
 })
-
 
 class HybridCaptioner:
     """

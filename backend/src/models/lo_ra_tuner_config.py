@@ -22,13 +22,6 @@ FullFineTuner lives in backend/src/models/full_finetune.py.
 
 from __future__ import annotations
 
-
-# --- Relocated Nested Imports ---
-from peft.utils import get_peft_model_state_dict
-import safetensors.torch as sf
-# --------------------------------
-
-
 import os
 import random
 from dataclasses import dataclass, field
@@ -55,7 +48,6 @@ from transformers import CLIPTextModel, CLIPTokenizer, CLIPTextModelWithProjecti
 from huggingface_hub import hf_hub_download
 from peft import LoraConfig, get_peft_model
 from tqdm.auto import tqdm
-
 
 # ---------------------------------------------------------------------------
 # Optional dependencies
@@ -84,7 +76,6 @@ try:
 except ImportError:
     _LYCORIS_OK = False
 
-
 # ---------------------------------------------------------------------------
 # SDXL LoRA target modules
 # ---------------------------------------------------------------------------
@@ -97,9 +88,6 @@ SDXL_CONV_TARGETS = (
     "conv1", "conv2", "conv_shortcut", "conv", "time_emb_proj",
 )
 TE_ATTN_TARGETS = ("q_proj", "k_proj", "v_proj", "out_proj")
-
-
-
 
 # ===========================================================================
 # LoRA Tuner Config
@@ -166,11 +154,9 @@ class LoRATunerConfig:
     wandb_project: str = "anime-diffusion"
     use_tensorboard: bool = True
 
-
 # ===========================================================================
 # LoRATunerV2
 # ===========================================================================
-
 
 # ===========================================================================
 # DreamBoothTuner

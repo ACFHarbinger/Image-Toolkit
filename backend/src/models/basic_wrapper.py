@@ -15,11 +15,7 @@ Legacy API (backward-compatible):
     corrected_images      = basic.process_batch(images)
 """
 
-# --- Relocated Nested Imports ---
 import gc
-# --------------------------------
-
-
 import cv2
 import numpy as np
 import torch
@@ -28,7 +24,6 @@ from typing import List, Optional, Tuple
 import logging
 
 logger = logging.getLogger(__name__)
-
 
 class BaSiCWrapper:
     """
@@ -60,7 +55,6 @@ class BaSiCWrapper:
         self.baselines = None
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        # relocated: import gc
         gc.collect()
 
     # ------------------------------------------------------------------

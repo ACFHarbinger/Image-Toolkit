@@ -6,7 +6,6 @@ import torchvision.utils as vutils
 
 from backend.src.models.subnets import Generator, Discriminator
 
-
 class GAN:
     def __init__(
         self, z_dim=100, channels=3, n_filters=32, n_blocks=3, lr=0.0002, device=None
@@ -141,7 +140,6 @@ class GAN:
         self.optimizerG.load_state_dict(checkpoint["optG"])
         self.optimizerD.load_state_dict(checkpoint["optD"])
         print(f"Checkpoint loaded: {filepath}")
-
 
 # ==========================================
 # 4. Usage Example

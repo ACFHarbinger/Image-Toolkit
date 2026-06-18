@@ -40,12 +40,6 @@ Usage
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
-from transformers import AutoImageProcessor, EfficientLoFTRForKeypointMatching
-from PIL import Image as _PIL
-# --------------------------------
-
-
 import argparse
 import os
 import random
@@ -60,9 +54,7 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader, IterableDataset
 
-
 # ── Dataset ────────────────────────────────────────────────────────────────────
-
 
 class AnimeMatchingPairDataset(IterableDataset):
     """
@@ -165,9 +157,7 @@ class AnimeMatchingPairDataset(IterableDataset):
             if sample is not None:
                 yield sample
 
-
 # ── Loss ───────────────────────────────────────────────────────────────────────
-
 
 def translation_regression_loss(
     keypoints: torch.Tensor,  # (B, 2, N, 2) normalized
@@ -214,16 +204,11 @@ def translation_regression_loss(
 
     return loss / max(n_valid, 1)
 
-
 # ── Training loop ─────────────────────────────────────────────────────────────
-
 
 def train(args: argparse.Namespace) -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"[FineTune-ELoFTR] Training on {device}.")
-
-    # relocated: from transformers import AutoImageProcessor, EfficientLoFTRForKeypointMatching
-    # relocated: from PIL import Image as _PIL
 
     processor = AutoImageProcessor.from_pretrained(
         "zju-community/efficientloftr", use_fast=True
@@ -310,7 +295,6 @@ def train(args: argparse.Namespace) -> None:
         f"[FineTune-ELoFTR] To use the fine-tuned model, pass "
         f"model_id='{final_dir}' to EfficientLoFTRWrapper."
     )
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

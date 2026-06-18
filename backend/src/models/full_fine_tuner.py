@@ -51,9 +51,7 @@ try:
 except ImportError:
     _ADAFACTOR_OK = False
 
-
 @dataclass
-
 
 class FullFineTuner:
     """Full SDXL fine-tuning with selective freezing and optional EMA."""

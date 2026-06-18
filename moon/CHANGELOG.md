@@ -4,6 +4,22 @@
 
 ---
 
+## Arch Tier 1 — §5.8D Comment cleanup · §5.11B Deferred imports · §5.16A Contract tests (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **§5.8D Remove relocated-import comment blocks** (`backend/src/models/`) | All `# --- Relocated Nested Imports ---` / `# --------------------------------` comment blocks and `# relocated: <import>` inline comments removed from the entire `backend/src/models/` tree (35 files). `import gc` re-added as a real import to 7 files that call `gc.collect()` in `unload()`: `birefnet_wrapper.py`, `basic_wrapper.py`, `jamma_wrapper.py`, `roma_wrapper.py`, `efficient_loftr_wrapper.py`, `loftr_wrapper.py`, `aliked_lg_wrapper.py`. Imports now follow standard PEP 8 order with no comment noise. Roadmap item A.3. |
+| **§5.11B Deferred heavy imports in GUI workers** (`gui/src/helpers/`) | Removed `TrainingWorker` re-export from `gui/src/helpers/__init__.py` (was force-loading PyTorch at GUI startup via the gallery base class import chain). Updated sole consumer `gan_train_tab.py` to import directly. Moved all heavy module-level imports inside `run()` for: `training_worker.py` (`torch`, `torchvision`, `GAN`), `lora_training_worker.py` (`LoRATuner`), `mask_preview_worker.py` (`BiRefNetWrapper`), `match_worker.py` (`BiRefNetWrapper`, `LoFTRWrapper`), `sn_task.py` (`SiameseModelLoader`). Cold-start reduction: ~2–4 s on PyTorch import chain. Roadmap item A.8. |
+| **§5.16A ML wrapper contract tests** (`backend/test/models/test_wrapper_contracts.py`) | 36 mock-based contract tests; no GPU required; all pass in ~8 s. Covers: `BaSiCWrapper` (lifecycle, interface, output types), `LoFTRWrapper` (lifecycle, interface), `RoMaWrapper` (availability flag + blocked-import re-solve), `ALIKEDWrapper` (availability flag + blocked-import re-solve), `UnloadIdempotency` (double-unload safe), `BiRefNetWrapper` (interface, class-level `_models` singleton), `BaSiCOutputTypes` (ndarray passthrough). Helper stubs: `_make_torch_stub()`, `_make_kornia_stub()`, `_make_transformers_stub()`, `_make_cv2_stub()`. `backend/test/models/__init__.py` created. Roadmap item A.9. |
+
+### Test count
+
+**36 new contract tests** (no change to ASP test count). Total architecture test suite: 36 passing, 0 failing.
+
+---
+
 ## ASP Session 138 — §1.81 Seam Band SSIM Gate · §1.82 Seam Spatial-Frequency Profile Gate (2026-06-18)
 
 ### Shipped

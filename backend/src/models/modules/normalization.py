@@ -3,7 +3,6 @@ import torch.nn as nn
 
 from typing import Optional
 
-
 class Normalization(nn.Module):
     def __init__(
         self,

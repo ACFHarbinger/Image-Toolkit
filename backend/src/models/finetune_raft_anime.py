@@ -44,11 +44,6 @@ Usage
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
-import ptlflow
-# --------------------------------
-
-
 import argparse
 import os
 import random
@@ -63,9 +58,7 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader, IterableDataset
 
-
 # ── Data ───────────────────────────────────────────────────────────────────────
-
 
 class _AnimeSyntheticFlowDataset(IterableDataset):
     """
@@ -172,7 +165,6 @@ class _AnimeSyntheticFlowDataset(IterableDataset):
             if sample is not None:
                 yield sample
 
-
 class _LinkToAnimeDataset(IterableDataset):
     """
     Wraps the LinkTo-Anime dataset for supervised optical flow training.
@@ -245,9 +237,7 @@ class _LinkToAnimeDataset(IterableDataset):
 
             yield to_tensor(img1), to_tensor(img2), torch.from_numpy(flow)
 
-
 # ── Loss ───────────────────────────────────────────────────────────────────────
-
 
 def mixture_of_laplace_loss(
     pred_flows: List[torch.Tensor],
@@ -269,16 +259,13 @@ def mixture_of_laplace_loss(
         loss = loss + weight * diff.mean()
     return loss
 
-
 # ── Training loop ─────────────────────────────────────────────────────────────
-
 
 def train(args: argparse.Namespace) -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"[FineTune-RAFT] Training on {device}.")
 
     # Load SEA-RAFT
-    # relocated: import ptlflow
 
     model = ptlflow.get_model("sea_raft").to(device)
     model.train()
@@ -348,7 +335,6 @@ def train(args: argparse.Namespace) -> None:
     final_ckpt = os.path.join(args.output_dir, "sea_raft_anime.pth")
     torch.save({"step": step, "state_dict": model.state_dict()}, final_ckpt)
     print(f"[FineTune-RAFT] Training complete. Final ckpt: {final_ckpt}")
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

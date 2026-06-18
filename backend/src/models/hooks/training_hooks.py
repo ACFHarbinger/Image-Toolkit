@@ -16,11 +16,6 @@ grid_to_pil           — compose a list of PIL images into a contact sheet
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
-import matplotlib.pyplot as plt
-# --------------------------------
-
-
 import logging
 from typing import Callable, Optional
 
@@ -49,7 +44,6 @@ try:
 except ImportError:
     _WANDB_OK = False
     log.warning("wandb not installed — W&B logging disabled")
-
 
 # ---------------------------------------------------------------------------
 # DiagnosticsLogger
@@ -162,7 +156,6 @@ class DiagnosticsLogger:
         if self.wb:
             self.wb.finish()
 
-
 # ---------------------------------------------------------------------------
 # CrossAttnRecorder
 # ---------------------------------------------------------------------------
@@ -230,7 +223,6 @@ class CrossAttnRecorder:
             h.remove()
         self._handles.clear()
 
-
 # ---------------------------------------------------------------------------
 # LoRA SVD effective-rank analysis
 # ---------------------------------------------------------------------------
@@ -271,7 +263,6 @@ def lora_effective_rank(
             except Exception as exc:
                 log.debug("SVD failed for %s.%s: %s", n, adapter_name, exc)
     return out
-
 
 # ---------------------------------------------------------------------------
 # LoRA ΔW Frobenius-norm heatmap
@@ -315,7 +306,6 @@ def lora_delta_heatmap(peft_model: nn.Module, out_path: str):
     fig.tight_layout()
     fig.savefig(out_path, dpi=120)
     plt.close(fig)
-
 
 # ---------------------------------------------------------------------------
 # Utility: image grid

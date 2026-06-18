@@ -18,13 +18,7 @@ Key improvements over the previous version:
     fall back to the generic BiRefNet weights if ToonOut is unavailable.
 """
 
-# --- Relocated Nested Imports ---
 import gc
-import torch
-import gc
-# --------------------------------
-
-
 import cv2
 import numpy as np
 import torch
@@ -60,7 +54,6 @@ try:
 except ImportError:
     _TRANSFORMERS_OK = False
     logger.info("[BiRefNet] 'transformers' not installed — segmentation unavailable.")
-
 
 class BiRefNetWrapper:
     """
@@ -104,7 +97,6 @@ class BiRefNetWrapper:
             del model
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        # relocated: import gc
         gc.collect()
 
     def offload(self):
@@ -117,8 +109,6 @@ class BiRefNetWrapper:
     @classmethod
     def purge_all_models(cls):
         """Completely remove all models from VRAM and RAM."""
-        # relocated: import torch
-        # relocated: import gc
 
         for key in list(cls._models.keys()):
             model = cls._models.pop(key)

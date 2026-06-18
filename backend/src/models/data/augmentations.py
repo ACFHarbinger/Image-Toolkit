@@ -23,11 +23,6 @@ _MPEGBlockNoise          — simulate MPEG compression block noise
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
-import torch.nn.functional as F
-# --------------------------------
-
-
 import random
 from pathlib import Path
 from typing import Optional
@@ -36,7 +31,6 @@ import numpy as np
 import torch
 import torchvision.transforms.functional as TF
 from PIL import Image
-
 
 # ---------------------------------------------------------------------------
 # Base class
@@ -48,7 +42,6 @@ class AnimeAugmentation:
         mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         raise NotImplementedError
-
 
 # ---------------------------------------------------------------------------
 # 1. Cel-shade-preserving colour jitter
@@ -79,7 +72,6 @@ class _FgPreservingHueJitter(AnimeAugmentation):
             bg_mask = bg_mask.unsqueeze(0)
         hsv[0] = (hsv[0] + shift * bg_mask.squeeze(0)) % 1.0
         return TF.hsv_to_rgb(hsv) * 2.0 - 1.0
-
 
 # ---------------------------------------------------------------------------
 # 2. Character-aware random crop
@@ -125,7 +117,6 @@ class _CharacterAwareCrop(AnimeAugmentation):
         # Fallback
         return TF.center_crop(x, cs)
 
-
 # ---------------------------------------------------------------------------
 # 3. Background swap
 # ---------------------------------------------------------------------------
@@ -166,7 +157,6 @@ class _BackgroundSwap(AnimeAugmentation):
         if fg_mask.dim() == 2:
             fg_mask = fg_mask.unsqueeze(0)
         return x * fg_mask + bg * (1.0 - fg_mask)
-
 
 # ---------------------------------------------------------------------------
 # 4. Random erasing inside character bounding box
@@ -212,7 +202,6 @@ class _RandomErasingFg(AnimeAugmentation):
         x[:, top:top + eh, left:left + ew] = 0.0
         return x
 
-
 # ---------------------------------------------------------------------------
 # 5. Broadcast dim curve (simulate TV capture brightness artefact)
 # ---------------------------------------------------------------------------
@@ -233,7 +222,6 @@ class _BroadcastDimCurve(AnimeAugmentation):
         factor = 1.0 - random.random() * self.max_dim
         return (x * factor).clamp(-1.0, 1.0)
 
-
 # ---------------------------------------------------------------------------
 # 6. Motion blur simulation
 # ---------------------------------------------------------------------------
@@ -251,7 +239,6 @@ class _MotionBlurSim(AnimeAugmentation):
     ) -> torch.Tensor:
         if random.random() > self.p:
             return x
-        # relocated: import torch.nn.functional as F
         k = random.choice(range(3, self.max_kernel + 1, 2))
         kernel = torch.zeros(1, 1, k, k, dtype=x.dtype, device=x.device)
         if random.random() < 0.5:
@@ -263,7 +250,6 @@ class _MotionBlurSim(AnimeAugmentation):
             x.unsqueeze(0), kernel, padding=k // 2, groups=3
         ).squeeze(0)
         return blurred.clamp(-1.0, 1.0)
-
 
 # ---------------------------------------------------------------------------
 # 7. MPEG block noise
@@ -289,7 +275,6 @@ class _MPEGBlockNoise(AnimeAugmentation):
                 block_noise = (torch.rand(3, 1, 1, device=x.device) - 0.5) * self.severity
                 noise[:, r:r + 8, c:c + 8] = block_noise
         return (x + noise).clamp(-1.0, 1.0)
-
 
 # ---------------------------------------------------------------------------
 # Default augmentation stack factory

@@ -51,7 +51,6 @@ try:
 except ImportError:
     _ADAFACTOR_OK = False
 
-
 @dataclass
 class FullFTConfig:
     base_model_path: str = "Laxhar/noobai-XL-Vpred-1.0"
@@ -88,5 +87,4 @@ class FullFTConfig:
     # Output
     output_dir: str = "output_full_ft"
     save_every_n_steps: int = 1000
-
 

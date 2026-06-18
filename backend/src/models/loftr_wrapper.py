@@ -14,11 +14,7 @@ Legacy API (backward-compatible):
     H                = wrapper.get_transform(img1, img2)   # (3,3) homography
 """
 
-# --- Relocated Nested Imports ---
 import gc
-# --------------------------------
-
-
 import cv2
 import numpy as np
 import torch
@@ -36,7 +32,6 @@ torch.backends.cudnn.benchmark = False
 _LOFTR_H = 320
 _LOFTR_W = 448
 _MIN_INLIERS = 20
-
 
 class LoFTRWrapper:
     """
@@ -61,7 +56,6 @@ class LoFTRWrapper:
             self.matcher = None
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        # relocated: import gc
         gc.collect()
 
     def offload(self):
