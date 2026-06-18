@@ -2,7 +2,7 @@ from PySide6.QtCore import Signal, QObject, QRunnable
 from backend.src.web import ReverseImageSearchCrawler
 
 
-class ReverseSearchWorkerSignals(QObject):
+class _ReverseSearchWorkerSignals(QObject):
     finished = Signal(list)
     error = Signal(str)
     status = Signal(str)
@@ -29,7 +29,7 @@ class ReverseSearchWorker(QRunnable):
         self.browser = browser
         self.search_mode = search_mode
         self.keep_open = keep_open
-        self.signals = ReverseSearchWorkerSignals()
+        self.signals = _ReverseSearchWorkerSignals()
 
     def run(self):
         crawler = None

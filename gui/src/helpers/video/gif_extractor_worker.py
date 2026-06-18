@@ -5,7 +5,7 @@ from moviepy.editor import VideoFileClip
 from PySide6.QtCore import QObject, Signal, QRunnable
 
 
-class GifWorkerSignals(QObject):
+class _GifWorkerSignals(QObject):
     progress = Signal(int)
     finished = Signal(str)
     error = Signal(str)
@@ -34,7 +34,7 @@ class GifCreationWorker(QRunnable):
         self.use_ffmpeg = use_ffmpeg
         self.speed = speed
         self.cuts_ms = cuts_ms or []
-        self.signals = GifWorkerSignals()
+        self.signals = _GifWorkerSignals()
         self._is_cancelled = False
 
     def cancel(self):

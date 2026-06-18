@@ -4,16 +4,11 @@ import shutil
 import tempfile
 
 from send2trash import send2trash
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 from PySide6.QtGui import (
     QPixmap,
     QAction,
     QImage,
-    QPen,
-    QBrush,
-    QColor,
-    QPainter,
-    QImageReader,
 )
 from PySide6.QtCore import (
     Qt,
@@ -25,8 +20,6 @@ from PySide6.QtCore import (
     QMetaObject,
     Signal,
     Q_ARG,
-    QRectF,
-    QPointF,
 )
 from PySide6.QtWidgets import (
     QMenu,
@@ -46,366 +39,15 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QGridLayout,
     QScrollArea,
-    QGraphicsView,
-    QGraphicsScene,
-    QGraphicsRectItem,
-    QGraphicsObject,
 )
 
 from ...classes import AbstractClassSingleGallery
 from ...windows import ImagePreviewWindow
-from ...components import ClickableLabel, MarqueeScrollArea
+from ...components import ClickableLabel, MarqueeScrollArea, MergeCanvasItem
 from ...helpers import MergeWorker, ImageScannerWorker
 from ...styles.style import apply_shadow_effect, SHARED_BUTTON_STYLE
 from backend.src.constants import SUPPORTED_IMG_FORMATS
-
-
-# ─── Canvas Item Classes ────────────────────────────────────────────────────────
-
-
-class HandleItem(QGraphicsRectItem):
-    """Resize handle shown at the four corners of a selected MergeCanvasItem."""
-
-    _SIZE = 8
-
-    def __init__(self, parent_item: "MergeCanvasItem", corner: str):
-        half = self._SIZE // 2
-        super().__init__(-half, -half, self._SIZE, self._SIZE, parent_item)
-        self._parent = parent_item
-        self.corner = corner  # "tl", "tr", "bl", "br"
-        self.setFlags(
-            QGraphicsRectItem.GraphicsItemFlag.ItemIsMovable
-            | QGraphicsRectItem.GraphicsItemFlag.ItemSendsScenePositionChanges
-        )
-        self.setBrush(QBrush(Qt.GlobalColor.white))
-        self.setPen(QPen(QColor("#5865f2"), 1))
-        self.setZValue(10)
-
-    def mouseMoveEvent(self, event):
-        delta = event.scenePos() - event.lastScenePos()
-        self._parent.resize_by_corner(self.corner, delta)
-
-    def mouseReleaseEvent(self, event):
-        super().mouseReleaseEvent(event)
-        self._parent.reposition_handles()
-
-
-class MergeCanvasItem(QGraphicsObject):
-    """A movable, resizable image tile placed on the merge canvas."""
-
-    geometry_changed = Signal()
-
-    def __init__(self, path: str, pixmap: QPixmap, width: int, height: int):
-        super().__init__()
-        self.path = path
-        self._pixmap = pixmap
-        self._w = max(10, width)
-        self._h = max(10, height)
-
-        self.setFlags(
-            QGraphicsObject.GraphicsItemFlag.ItemIsMovable
-            | QGraphicsObject.GraphicsItemFlag.ItemIsSelectable
-            | QGraphicsObject.GraphicsItemFlag.ItemSendsGeometryChanges
-        )
-
-        self._highlighted = False
-        self._handles: Dict[str, HandleItem] = {}
-        for corner in ("tl", "tr", "bl", "br"):
-            self._handles[corner] = HandleItem(self, corner)
-        self.reposition_handles()
-        self._set_handle_visible(False)
-
-    # ── QGraphicsItem overrides ─────────────────────────────────────────────────
-
-    def boundingRect(self) -> QRectF:
-        return QRectF(0, 0, self._w, self._h)
-
-    def paint(self, painter: QPainter, option, widget=None):
-        if self._pixmap and not self._pixmap.isNull():
-            painter.drawPixmap(QRectF(0, 0, self._w, self._h).toRect(), self._pixmap)
-        else:
-            painter.fillRect(QRectF(0, 0, self._w, self._h), QColor("#3a3d42"))
-            painter.setPen(QColor("#888"))
-            painter.drawText(
-                QRectF(0, 0, self._w, self._h),
-                Qt.AlignmentFlag.AlignCenter,
-                os.path.basename(self.path),
-            )
-
-        if self.isSelected():
-            painter.setPen(QPen(QColor("#5865f2"), 2))
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.drawRect(QRectF(1, 1, self._w - 2, self._h - 2))
-
-        if self._highlighted:
-            pen = QPen(QColor("#ffaa00"), 2, Qt.PenStyle.DashLine)
-            painter.setPen(pen)
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.drawRect(QRectF(3, 3, self._w - 6, self._h - 6))
-
-    def itemChange(self, change, value):
-        if change == QGraphicsObject.GraphicsItemChange.ItemPositionHasChanged:
-            self.geometry_changed.emit()
-        if change == QGraphicsObject.GraphicsItemChange.ItemSelectedHasChanged:
-            self._set_handle_visible(bool(value))
-        return super().itemChange(change, value)
-
-    # ── Geometry ────────────────────────────────────────────────────────────────
-
-    def reposition_handles(self):
-        self._handles["tl"].setPos(0, 0)
-        self._handles["tr"].setPos(self._w, 0)
-        self._handles["bl"].setPos(0, self._h)
-        self._handles["br"].setPos(self._w, self._h)
-
-    def resize_by_corner(self, corner: str, delta: QPointF):
-        dx, dy = delta.x(), delta.y()
-        new_w = self._w
-        new_h = self._h
-
-        if "r" in corner:
-            new_w = max(10, self._w + dx)
-        elif "l" in corner:
-            candidate = max(10, self._w - dx)
-            if candidate != self._w:
-                self.setX(self.x() + (self._w - candidate))
-                new_w = candidate
-
-        if "b" in corner:
-            new_h = max(10, self._h + dy)
-        elif "t" in corner:
-            candidate = max(10, self._h - dy)
-            if candidate != self._h:
-                self.setY(self.y() + (self._h - candidate))
-                new_h = candidate
-
-        self.prepareGeometryChange()
-        self._w = new_w
-        self._h = new_h
-        self.reposition_handles()
-        self.update()
-        self.geometry_changed.emit()
-
-    def set_geometry(self, x: int, y: int, w: int, h: int):
-        self.prepareGeometryChange()
-        self._w = max(10, w)
-        self._h = max(10, h)
-        self.setPos(x, y)
-        self.reposition_handles()
-        self.update()
-
-    def get_scene_rect(self) -> QRectF:
-        return QRectF(self.x(), self.y(), self._w, self._h)
-
-    def _set_handle_visible(self, visible: bool):
-        for h in self._handles.values():
-            h.setVisible(visible)
-
-    def set_highlighted(self, val: bool):
-        if self._highlighted != val:
-            self._highlighted = val
-            self.update()
-
-
-class MergeCanvas(QGraphicsView):
-    """Interactive canvas where selected images are laid out for compositing."""
-
-    item_selected = Signal(object)  # emits MergeCanvasItem or None on selection change
-
-    def __init__(self, canvas_w: int = 1920, canvas_h: int = 1080):
-        super().__init__()
-        self._scene = QGraphicsScene(self)
-        self.setScene(self._scene)
-        self._canvas_w = canvas_w
-        self._canvas_h = canvas_h
-
-        self._bg = self._scene.addRect(
-            0,
-            0,
-            canvas_w,
-            canvas_h,
-            QPen(QColor("#5865f2"), 2),
-            QBrush(QColor("#2c2f33")),
-        )
-        self._bg.setZValue(-1)
-
-        self.setSceneRect(-50, -50, canvas_w + 100, canvas_h + 100)
-        self.setRenderHints(
-            QPainter.RenderHint.Antialiasing | QPainter.RenderHint.SmoothPixmapTransform
-        )
-        self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
-        self.setStyleSheet(
-            "QGraphicsView { border: 1px solid #4f545c; background-color: #1a1c1e; border-radius: 8px; }"
-        )
-
-        self._items: Dict[str, MergeCanvasItem] = {}
-        self._scene.selectionChanged.connect(self._on_scene_selection_changed)
-
-    def showEvent(self, event):
-        super().showEvent(event)
-        QTimer.singleShot(0, self._fit_canvas)
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._fit_canvas()
-
-    def _fit_canvas(self):
-        self.fitInView(self._bg, Qt.AspectRatioMode.KeepAspectRatioByExpanding)
-
-    # ── Public API ──────────────────────────────────────────────────────────────
-
-    def add_image(self, path: str, thumbnail: QPixmap) -> "MergeCanvasItem":
-        if path in self._items:
-            return self._items[path]
-
-        reader = QImageReader(path)
-        sz = reader.size()
-        if sz.isValid() and sz.width() > 0:
-            w, h = sz.width(), sz.height()
-        elif thumbnail and not thumbnail.isNull():
-            # rough estimate from thumbnail
-            w, h = thumbnail.width() * 4, thumbnail.height() * 4
-        else:
-            w, h = 400, 300
-
-        if w > self._canvas_w or h > self._canvas_h:
-            scale = min(self._canvas_w / w, self._canvas_h / h)
-            w, h = int(w * scale), int(h * scale)
-
-        n = len(self._items)
-        x_off = (n * 30) % max(1, self._canvas_w - w - 1)
-        y_off = (n * 20) % max(1, self._canvas_h - h - 1)
-
-        item = MergeCanvasItem(path, thumbnail, w, h)
-        item.setPos(x_off, y_off)
-        item.geometry_changed.connect(self._on_item_geometry_changed)
-        self._scene.addItem(item)
-        self._items[path] = item
-        return item
-
-    def remove_item(self, path: str):
-        item = self._items.pop(path, None)
-        if item:
-            self._scene.removeItem(item)
-
-    def remove_selected(self) -> List[str]:
-        removed = []
-        for item in list(self._scene.selectedItems()):
-            if isinstance(item, MergeCanvasItem):
-                self._items.pop(item.path, None)
-                self._scene.removeItem(item)
-                removed.append(item.path)
-        return removed
-
-    def clear_canvas(self) -> List[str]:
-        paths = list(self._items.keys())
-        for path in paths:
-            item = self._items.pop(path)
-            self._scene.removeItem(item)
-        return paths
-
-    def get_layout(self) -> List[Dict[str, Any]]:
-        return [
-            {
-                "path": path,
-                "x": int(item.x()),
-                "y": int(item.y()),
-                "w": int(item._w),
-                "h": int(item._h),
-            }
-            for path, item in self._items.items()
-        ]
-
-    def resize_canvas(self, w: int, h: int):
-        self._canvas_w = w
-        self._canvas_h = h
-        self._bg.setRect(0, 0, w, h)
-        self.setSceneRect(-50, -50, w + 100, h + 100)
-        self._fit_canvas()
-
-    def get_selected_item(self) -> Optional["MergeCanvasItem"]:
-        sel = [i for i in self._scene.selectedItems() if isinstance(i, MergeCanvasItem)]
-        return sel[0] if sel else None
-
-    # ── Private ─────────────────────────────────────────────────────────────────
-
-    def contextMenuEvent(self, event):
-        scene_pos = self.mapToScene(event.pos())
-        anchor = self._get_canvas_item_at(scene_pos)
-        if anchor is None:
-            super().contextMenuEvent(event)
-            return
-
-        others = [it for it in self._items.values() if it is not anchor]
-        if not others:
-            return
-
-        menu = QMenu(self)
-        menu.aboutToHide.connect(self._clear_highlights)
-
-        for direction, label in (
-            ("top", "Join Top"),
-            ("bottom", "Join Bottom"),
-            ("left", "Join Left"),
-            ("right", "Join Right"),
-        ):
-            submenu = menu.addMenu(label)
-            for target_item in others:
-                name = os.path.basename(target_item.path)
-                action = QAction(name, submenu)
-                action.hovered.connect(lambda ti=target_item: self._highlight_item(ti))
-                action.triggered.connect(
-                    lambda checked=False,
-                    a=anchor,
-                    t=target_item,
-                    d=direction: self._snap_items(t, a, d)
-                )
-                submenu.addAction(action)
-
-        menu.exec(event.globalPos())
-        self._clear_highlights()
-
-    def _get_canvas_item_at(self, scene_pos: QPointF) -> "Optional[MergeCanvasItem]":
-        for item in self._scene.items(scene_pos):
-            if isinstance(item, MergeCanvasItem):
-                return item
-        return None
-
-    def _highlight_item(self, item: "MergeCanvasItem"):
-        for it in self._items.values():
-            it.set_highlighted(False)
-        item.set_highlighted(True)
-
-    def _clear_highlights(self):
-        for it in self._items.values():
-            it.set_highlighted(False)
-
-    def _snap_items(
-        self, anchor: "MergeCanvasItem", target: "MergeCanvasItem", direction: str
-    ):
-        """Move `target` to touch `anchor` on the given side with 0 px gap."""
-        ax, ay, aw, ah = anchor.x(), anchor.y(), anchor._w, anchor._h
-        tw, th = target._w, target._h
-
-        if direction == "top":
-            nx, ny = ax, ay - th
-        elif direction == "bottom":
-            nx, ny = ax, ay + ah
-        elif direction == "left":
-            nx, ny = ax - tw, ay
-        else:  # "right"
-            nx, ny = ax + aw, ay
-
-        target.setPos(nx, ny)
-        self._scene.clearSelection()
-        target.setSelected(True)
-
-    def _on_scene_selection_changed(self):
-        self.item_selected.emit(self.get_selected_item())
-
-    def _on_item_geometry_changed(self):
-        item = self.get_selected_item()
-        self.item_selected.emit(item)
+from gui.src.components.merge_canvas import MergeCanvas
 
 
 # ─── Main Tab ───────────────────────────────────────────────────────────────────
@@ -873,8 +515,8 @@ class MergeTab(AbstractClassSingleGallery):
         if has_item:
             self.item_x_spin.setValue(int(item.x()))
             self.item_y_spin.setValue(int(item.y()))
-            self.item_w_spin.setValue(int(item._w))
-            self.item_h_spin.setValue(int(item._h))
+            self.item_w_spin.setValue(item._w)
+            self.item_h_spin.setValue(item._h)
         self._syncing_spinboxes = False
 
     def _on_item_spinbox_changed(self):
