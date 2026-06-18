@@ -7,6 +7,11 @@ applicable) ``bg_masks`` as explicit arguments.
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+from sklearn.cluster import KMeans
+# --------------------------------
+
+
 import logging
 import os
 import warnings
@@ -317,7 +322,7 @@ def _cluster_animation_phases(
     n_clusters = max(2, min(8, N // 2))
 
     try:
-        from sklearn.cluster import KMeans
+        # relocated: from sklearn.cluster import KMeans
 
         km = KMeans(n_clusters=n_clusters, n_init=5, random_state=0)
         labels = km.fit_predict(sig_matrix)

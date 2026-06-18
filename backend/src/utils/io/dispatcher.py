@@ -1,3 +1,12 @@
+
+# --- Relocated Nested Imports ---
+from ...core.image_merger import ImageMerger
+from ...web.image_crawler import ImageCrawler
+from ...database.image_database import PgvectorImageDatabase
+from ...models.sd3_wrapper import SD3Wrapper
+from ..slideshow_daemon import start_daemon as launch_slideshow
+# --------------------------------
+
 import os
 import sys
 import yaml
@@ -82,7 +91,7 @@ def dispatch_core(args):
             return
 
         print(f"🚀 Starting Perfect Stitch on {len(image_paths)} frames...")
-        from ...core.image_merger import ImageMerger
+        # relocated: from ...core.image_merger import ImageMerger
 
         merger = ImageMerger()
         try:
@@ -101,7 +110,7 @@ def dispatch_web(args):
     command = args.get("web_command")
     if command == "crawl":
         try:
-            from ...web.image_crawler import ImageCrawler
+            # relocated: from ...web.image_crawler import ImageCrawler
 
             config = {
                 "url": args.get("query"),
@@ -134,7 +143,7 @@ def dispatch_database(args):
         query = args.get("query", "")
         limit = args.get("limit", 50)
         try:
-            from ...database.image_database import PgvectorImageDatabase
+            # relocated: from ...database.image_database import PgvectorImageDatabase
             db = PgvectorImageDatabase()
             results = db.search_images(filename_pattern=query, limit=limit)
             if not results:
@@ -162,7 +171,7 @@ def dispatch_model(args):
         output = args.get("output", "output.png")
         model_name = args.get("model", "stable-diffusion")
         try:
-            from ...models.sd3_wrapper import SD3Wrapper
+            # relocated: from ...models.sd3_wrapper import SD3Wrapper
             print(f"🚀 Generating image with {model_name}: {prompt!r}")
             wrapper = SD3Wrapper()
             wrapper.generate_image(prompt=prompt, model_path=model_name, output_path=output)
@@ -186,7 +195,7 @@ def dispatch_command(command, args):
     elif command == "model":
         dispatch_model(args)
     elif command == "slideshow":
-        from ..slideshow_daemon import start_daemon as launch_slideshow
+        # relocated: from ..slideshow_daemon import start_daemon as launch_slideshow
 
         launch_slideshow()
     else:

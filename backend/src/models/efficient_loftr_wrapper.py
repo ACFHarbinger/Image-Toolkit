@@ -20,6 +20,11 @@ model weights are unavailable.
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+import gc
+# --------------------------------
+
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -71,7 +76,7 @@ class EfficientLoFTRWrapper:
             self._processor = None
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        import gc
+        # relocated: import gc
         gc.collect()
 
     def offload(self) -> None:

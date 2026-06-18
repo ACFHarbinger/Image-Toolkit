@@ -40,6 +40,12 @@ Usage
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+from transformers import AutoImageProcessor, EfficientLoFTRForKeypointMatching
+from PIL import Image as _PIL
+# --------------------------------
+
+
 import argparse
 import os
 import random
@@ -216,8 +222,8 @@ def train(args: argparse.Namespace) -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"[FineTune-ELoFTR] Training on {device}.")
 
-    from transformers import AutoImageProcessor, EfficientLoFTRForKeypointMatching
-    from PIL import Image as _PIL
+    # relocated: from transformers import AutoImageProcessor, EfficientLoFTRForKeypointMatching
+    # relocated: from PIL import Image as _PIL
 
     processor = AutoImageProcessor.from_pretrained(
         "zju-community/efficientloftr", use_fast=True

@@ -41,6 +41,8 @@ from backend.src.constants import (
     NUM_ACTIONS,
 )
 
+_AXIS_STEPS = DRL_AXIS_STEPS
+
 
 # ---------------------------------------------------------------------------
 # Action discretisation

@@ -1,3 +1,9 @@
+
+# --- Relocated Nested Imports ---
+from PIL import Image
+import io
+# --------------------------------
+
 import base64
 import logging
 import os
@@ -34,8 +40,8 @@ def embed_preview_image(
         if not os.path.exists(image_path):
             raise FileNotFoundError(f"Image file not found: {image_path}")
 
-        from PIL import Image
-        import io
+        # relocated: from PIL import Image
+        # relocated: import io
 
         with Image.open(image_path) as img:
             # Convert to RGB if necessary (e.g. RGBA -> RGB for JPEG compatibility)

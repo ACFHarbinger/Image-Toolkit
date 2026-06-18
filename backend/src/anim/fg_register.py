@@ -38,6 +38,39 @@ load) and has no side effects.
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+try:
+    import torch
+except ImportError:
+    torch = None
+
+try:
+    import ptlflow
+except ImportError:
+    ptlflow = None
+
+try:
+    from skimage.segmentation import slic as _slic_fn  # type: ignore
+except ImportError:
+    _slic_fn = None
+
+try:
+    import torchvision.models as tvm
+except ImportError:
+    tvm = None
+
+try:
+    import torch.nn as nn
+except ImportError:
+    nn = None
+
+try:
+    from scipy.interpolate import RegularGridInterpolator  # lazy import
+except ImportError:
+    RegularGridInterpolator = None
+# --------------------------------
+
+
 import os
 from typing import Optional, Tuple
 
@@ -126,9 +159,9 @@ def _get_searaft():
     global _SEARAFT_SINGLETON, _SEARAFT_DEVICE
     if _SEARAFT_SINGLETON is not None or _SEARAFT_DEVICE == "FAILED":
         return _SEARAFT_SINGLETON, _SEARAFT_DEVICE
+    if torch is None or ptlflow is None:
+        raise RuntimeError("torch or ptlflow not installed")
     try:
-        import torch
-        import ptlflow
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         loaded_name = None
@@ -177,7 +210,7 @@ def _dense_flow_searaft(
     if model is None:
         return None
     try:
-        import torch
+        # relocated: import torch
 
         H, W = prev_bgr.shape[:2]
         scale = min(1.0, max_side / max(H, W, 1))
@@ -317,9 +350,7 @@ def _slic_sgm_proxy(
     - Runs entirely on CPU with NumPy/OpenCV; no GPU required.
     - Runtime: ~3–8ms per seam-band crop at 640×80px (acceptable vs RAFT ~15ms).
     """
-    try:
-        from skimage.segmentation import slic as _slic_fn  # type: ignore
-    except ImportError:
+    if _slic_fn is None:
         return None
 
     H, W = crop_a.shape[:2]
@@ -435,12 +466,9 @@ def _get_vgg19_feat():
     global _VGG19_SINGLETON, _VGG19_DEVICE
     if _VGG19_SINGLETON is not None or _VGG19_DEVICE == "FAILED":
         return _VGG19_SINGLETON, _VGG19_DEVICE
+    if torch is None or tvm is None or nn is None:
+        raise RuntimeError("torch or torchvision not installed")
     try:
-        import torch
-        import torchvision.models as tvm
-        import torch.nn as nn
-
-        device = "cuda" if torch.cuda.is_available() else "cpu"
         vgg = tvm.vgg19(weights=tvm.VGG19_Weights.IMAGENET1K_V1).features
         # conv3_4 is index 18 in VGG-19 features (0-indexed, after pool2 block)
         partial = nn.Sequential(*list(vgg.children())[:19]).to(device).eval()
@@ -503,12 +531,10 @@ def _animeinterp_sgm(
         return _slic_sgm_proxy(crop_a, crop_b, fg_mask, n_segments, compactness,
                                 max_dist_frac, min_match_score)
 
-    try:
-        from skimage.segmentation import slic as _slic_fn  # type: ignore
-    except ImportError:
+    if _slic_fn is None:
         return None
 
-    import torch
+    # relocated: import torch
 
     H, W = crop_a.shape[:2]
     diag = float(np.sqrt(H * H + W * W))
@@ -900,7 +926,7 @@ def _arap_regularise(
             cx_pts = np.clip(
                 np.arange(nx, dtype=np.float32) * cell_size + cell_size / 2, 0, W - 1
             )
-            from scipy.interpolate import RegularGridInterpolator  # lazy import
+            # relocated: from scipy.interpolate import RegularGridInterpolator  # lazy import
 
             interp_x = RegularGridInterpolator(
                 (cy_pts, cx_pts),

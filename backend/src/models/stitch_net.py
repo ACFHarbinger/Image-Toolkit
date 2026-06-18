@@ -51,7 +51,7 @@ import torchvision.models as models
 # ---------------------------------------------------------------------------
 
 
-class SinusoidalPosEnc2D(nn.Module):
+class _SinusoidalPosEnc2D(nn.Module):
     """Adds 2-D sinusoidal position codes to a (B, C, H, W) feature map."""
 
     def __init__(self, channels: int):
@@ -85,7 +85,7 @@ class SinusoidalPosEnc2D(nn.Module):
 # ---------------------------------------------------------------------------
 
 
-class AnimeEncoder(nn.Module):
+class _AnimeEncoder(nn.Module):
     """
     Shared convolutional encoder.
     Input:  (B, 1, H, W) grayscale Y′ in [0, 1]
@@ -131,7 +131,7 @@ class AnimeEncoder(nn.Module):
 # ---------------------------------------------------------------------------
 
 
-class CrossAttentionLayer(nn.Module):
+class _CrossAttentionLayer(nn.Module):
     """Single cross-attention + feed-forward layer."""
 
     def __init__(self, embed_dim: int, num_heads: int = 8, dropout: float = 0.1):
@@ -166,7 +166,7 @@ class CrossAttentionLayer(nn.Module):
 # ---------------------------------------------------------------------------
 
 
-class AffineHead(nn.Module):
+class _AffineHead(nn.Module):
     """Maps a global feature vector → (dx, dy, θ, log_s)."""
 
     def __init__(
@@ -240,15 +240,15 @@ class AnimeStitchNet(nn.Module):
         pretrained: bool = True,
     ):
         super().__init__()
-        self.encoder = AnimeEncoder(out_channels=enc_channels, pretrained=pretrained)
-        self.pos_enc = SinusoidalPosEnc2D(channels=enc_channels)
+        self.encoder = _AnimeEncoder(out_channels=enc_channels, pretrained=pretrained)
+        self.pos_enc = _SinusoidalPosEnc2D(channels=enc_channels)
         self.ca_layers = nn.ModuleList(
             [
-                CrossAttentionLayer(embed_dim=enc_channels, num_heads=num_heads)
+                _CrossAttentionLayer(embed_dim=enc_channels, num_heads=num_heads)
                 for _ in range(num_ca_layers)
             ]
         )
-        self.head = AffineHead(in_features=enc_channels)
+        self.head = _AffineHead(in_features=enc_channels)
 
     # ------------------------------------------------------------------
 

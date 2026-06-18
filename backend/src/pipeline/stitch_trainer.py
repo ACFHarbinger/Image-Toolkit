@@ -31,6 +31,18 @@ Usage (from GUI, runs in a daemon thread)
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+from backend.src.models.stitch_net import AnimeStitchNet
+from backend.src.models.data.stitch_dataset import (
+SyntheticStitchDataset,
+stitch_collate_fn,
+)
+from backend.src.pipeline.stitch_losses import StitchNetLoss
+from backend.src.models.loftr_wrapper import LoFTRWrapper
+from backend.src.models.stitch_net.model import AnimeStitchNet
+# --------------------------------
+
+
 import gc
 import math
 import os
@@ -142,12 +154,12 @@ class StitchTrainer:
     # ------------------------------------------------------------------
 
     def _setup(self):
-        from backend.src.models.stitch_net import AnimeStitchNet
-        from backend.src.models.data.stitch_dataset import (
-            SyntheticStitchDataset,
-            stitch_collate_fn,
-        )
-        from backend.src.pipeline.stitch_losses import StitchNetLoss
+        # relocated: from backend.src.models.stitch_net import AnimeStitchNet
+        # relocated: from backend.src.models.data.stitch_dataset import (
+            # relocated: SyntheticStitchDataset,
+            # relocated: stitch_collate_fn,
+        # relocated: )
+        # relocated: from backend.src.pipeline.stitch_losses import StitchNetLoss
 
         cfg = self.cfg
 
@@ -237,7 +249,7 @@ class StitchTrainer:
         self.loftr = None
         if cfg.get("loftr_distill"):
             try:
-                from backend.src.models.loftr_wrapper import LoFTRWrapper
+                # relocated: from backend.src.models.loftr_wrapper import LoFTRWrapper
 
                 self.loftr = LoFTRWrapper()
                 self._log("  LoFTR distillation enabled.")
@@ -398,7 +410,7 @@ class StitchTrainer:
         target: torch.Tensor,
         is_neg: torch.Tensor,
     ) -> torch.Tensor:
-        from backend.src.models.stitch_net.model import AnimeStitchNet
+        # relocated: from backend.src.models.stitch_net.model import AnimeStitchNet
 
         w = self.cfg["distill_weight"]
         pH, pW = self.cfg["patch_hw"]

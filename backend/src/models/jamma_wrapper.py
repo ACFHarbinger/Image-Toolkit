@@ -27,6 +27,12 @@ Interface: identical to LoFTRWrapper and EfficientLoFTRWrapper:
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+import gc
+from huggingface_hub import hf_hub_download
+# --------------------------------
+
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -94,7 +100,7 @@ class JamMaWrapper:
             self._model = None
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        import gc
+        # relocated: import gc
         gc.collect()
 
     def offload(self) -> None:
@@ -109,7 +115,7 @@ class JamMaWrapper:
             return
 
         logger.info("[JamMa] Loading outdoor model from HuggingFace …")
-        from huggingface_hub import hf_hub_download
+        # relocated: from huggingface_hub import hf_hub_download
 
         ckpt_path = hf_hub_download(_HF_REPO, _CKPT_FILE)
         cfg = get_cfg_defaults()

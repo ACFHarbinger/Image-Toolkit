@@ -39,7 +39,7 @@ class ConvolutionalBlock(nn.Module):
         return self.layers(h)
 
 
-class DiscriminatorBlock(nn.Module):
+class _DiscriminatorBlock(nn.Module):
     def __init__(
         self,
         n_filters,
@@ -106,7 +106,7 @@ class Discriminator(nn.Module):
         )
         self.blocks = nn.ModuleList(
             [
-                DiscriminatorBlock(
+                _DiscriminatorBlock(
                     n_filters,
                     expansion_factor,
                     kernel_size,

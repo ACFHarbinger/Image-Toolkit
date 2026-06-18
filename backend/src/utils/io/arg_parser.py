@@ -96,14 +96,14 @@ class ConfigsParser(argparse.ArgumentParser):
         sys.exit(1)
 
 
-class LowercaseAction(argparse.Action):
+class _LowercaseAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         if values is not None:
             values = str(values).lower()
         setattr(namespace, self.dest, values)
 
 
-class StoreDictKeyPair(argparse.Action):
+class _StoreDictKeyPair(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         my_dict = {}
         for kv in values:
@@ -210,7 +210,7 @@ def add_model_args(parser):
 def add_gui_args(parser):
     parser.add_argument(
         "--app_style",
-        action=LowercaseAction,
+        action=_LowercaseAction,
         default="fusion",
         choices=APP_STYLES,
         help="GUI Style",

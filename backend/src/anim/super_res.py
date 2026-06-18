@@ -14,6 +14,12 @@ is used internally so large panoramas (5000×4000+) fit in VRAM.
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+from torchvision.transforms import functional as _tvF
+from huggingface_hub import hf_hub_download
+# --------------------------------
+
+
 import sys
 import types
 
@@ -33,7 +39,7 @@ def _ensure_basicsr() -> bool:
     """
     if "torchvision.transforms.functional_tensor" not in sys.modules:
         try:
-            from torchvision.transforms import functional as _tvF
+            # relocated: from torchvision.transforms import functional as _tvF
 
             _stub = types.ModuleType("torchvision.transforms.functional_tensor")
             _stub.rgb_to_grayscale = _tvF.rgb_to_grayscale  # type: ignore[attr-defined]
@@ -64,7 +70,7 @@ def _get_upsampler(
     if key in _MODEL_CACHE:
         return _MODEL_CACHE[key]
 
-    from huggingface_hub import hf_hub_download
+    # relocated: from huggingface_hub import hf_hub_download
 
     # anime_6B: 6 RRDB blocks — lighter and sharper on anime than the 23-block model
     model_arch = RRDBNet(

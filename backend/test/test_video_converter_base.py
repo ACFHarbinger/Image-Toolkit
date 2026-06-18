@@ -8,12 +8,12 @@ from unittest.mock import patch, MagicMock
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from src.core.video_converter import VideoFormatConverter  # noqa: E402
+from backend.src.core.video_converter import VideoFormatConverter  # noqa: E402
 
 
 # Use pytest-style class for easy fixture access
 class TestVideoFormatConverter:
-    @patch("src.core.video_converter.subprocess.run")
+    @patch("backend.src.core.video_converter.subprocess.run")
     def test_convert_with_ffmpeg_success(
         self, mock_subprocess, sample_video, output_dir
     ):
@@ -39,7 +39,7 @@ class TestVideoFormatConverter:
             text=True,
         )
 
-    @patch("src.core.video_converter.subprocess.run")
+    @patch("backend.src.core.video_converter.subprocess.run")
     def test_convert_with_ffmpeg_failure(
         self, mock_subprocess, sample_video, output_dir
     ):
@@ -59,7 +59,7 @@ class TestVideoFormatConverter:
 
         assert result is False
 
-    @patch("src.core.video_converter.VideoFileClip")
+    @patch("backend.src.core.video_converter.VideoFileClip")
     def test_convert_with_moviepy_success(
         self, mock_clip_cls, sample_video, output_dir
     ):
@@ -78,7 +78,7 @@ class TestVideoFormatConverter:
         mock_clip.write_videofile.assert_called_once()
         mock_clip.close.assert_called_once()
 
-    @patch("src.core.video_converter.VideoFileClip")
+    @patch("backend.src.core.video_converter.VideoFileClip")
     def test_convert_with_moviepy_failure(
         self, mock_clip_cls, sample_video, output_dir
     ):
@@ -95,7 +95,7 @@ class TestVideoFormatConverter:
 
         assert result is False
 
-    @patch("src.core.video_converter.subprocess.run")
+    @patch("backend.src.core.video_converter.subprocess.run")
     def test_auto_engine_ffmpeg_available(
         self, mock_subprocess, sample_video, output_dir
     ):
@@ -119,8 +119,8 @@ class TestVideoFormatConverter:
         args, _ = mock_subprocess.call_args
         assert "-i" in args[0]
 
-    @patch("src.core.video_converter.subprocess.run")
-    @patch("src.core.video_converter.VideoFileClip")
+    @patch("backend.src.core.video_converter.subprocess.run")
+    @patch("backend.src.core.video_converter.VideoFileClip")
     def test_auto_engine_ffmpeg_missing(
         self, mock_clip, mock_subprocess, sample_video, output_dir
     ):
@@ -161,8 +161,8 @@ class TestVideoFormatConverter:
 
         assert result is False
 
-    @patch("src.core.video_converter.os.remove")
-    @patch("src.core.video_converter.subprocess.run")
+    @patch("backend.src.core.video_converter.os.remove")
+    @patch("backend.src.core.video_converter.subprocess.run")
     def test_delete_original_success_ffmpeg(
         self, mock_subprocess, mock_remove, sample_video, output_dir
     ):

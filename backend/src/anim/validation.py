@@ -12,6 +12,11 @@ Issue categories covered:
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+from .canvas import _detect_scroll_axis
+# --------------------------------
+
+
 from typing import List, NamedTuple, Tuple
 
 import numpy as np
@@ -140,7 +145,7 @@ def _validate_affines(
     if N < 2:
         return AffineHealth(True, 1.0, 0.0, 0.0, 0.0, "single frame")
 
-    from .canvas import _detect_scroll_axis
+    # relocated: from .canvas import _detect_scroll_axis
     scroll_axis = _detect_scroll_axis(affines)
 
     txs = np.array([float(a[0, 2]) for a in affines])

@@ -30,6 +30,11 @@ Called from pipeline.py Stage 10.5 (after temporal render, before fg composite):
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+from diffusers import DiffusionPipeline
+# --------------------------------
+
+
 from typing import List, Optional
 
 import cv2
@@ -59,7 +64,7 @@ def _load_tooncrafter(device: str = "cpu"):
         return _TC_PIPELINE
 
     try:
-        from diffusers import DiffusionPipeline
+        # relocated: from diffusers import DiffusionPipeline
 
         # ToonCrafter uses a VideoCrafter2 architecture; load via DiffusionPipeline
         # with trust_remote_code since the model config specifies custom classes.

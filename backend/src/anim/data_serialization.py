@@ -10,6 +10,15 @@ Storage path: ~/.image-toolkit/hitl_annotations/session_{timestamp}.json (COCO)
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+try:
+    from pycocotools import mask as coco_mask  # type: ignore
+except ImportError:
+    coco_mask = None
+import uuid
+# --------------------------------
+
+
 import json
 import os
 import tempfile
@@ -42,13 +51,14 @@ def _mask_to_polygon(mask: np.ndarray) -> List[List[float]]:
 
 def _mask_to_rle(mask: np.ndarray) -> Optional[Dict]:
     """Encode mask as COCO RLE if pycocotools is available; otherwise returns None."""
+    if coco_mask is None:
+        return None
     try:
-        from pycocotools import mask as coco_mask  # type: ignore
         binary = np.asfortranarray((mask > 127).astype(np.uint8))
         rle = coco_mask.encode(binary)
         rle["counts"] = rle["counts"].decode("utf-8")
         return rle
-    except ImportError:
+    except Exception:
         return None
 
 
@@ -317,7 +327,7 @@ class LabelStudioExporter:
 
         Returns the task id (a timestamp-based UUID string).
         """
-        import uuid
+        # relocated: import uuid
         task_id = str(uuid.uuid4())[:8]
 
         def _mask_to_ls_result(mask: np.ndarray, result_id: str, source: str) -> List[Dict]:

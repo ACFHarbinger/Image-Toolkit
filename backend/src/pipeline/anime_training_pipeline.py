@@ -27,6 +27,37 @@ Or override any key:
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+from backend.src.models.data.video_frame_extractor import VideoFrameExtractor
+import cv2
+from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+from backend.src.models.basic_wrapper import BaSiCWrapper
+import numpy as np
+from PIL import Image
+from backend.src.models.data.captioner import (
+WD14Tagger,
+Florence2Captioner,
+HybridCaptioner,
+)
+from PIL import Image
+from backend.src.pipeline.data_selection import cluster_duplicates
+from backend.src.models.data.video_frame_extractor import _phash64
+from transformers import CLIPTokenizer
+from backend.src.models.data.lora_dataset import BucketSample, LoRADatasetV2
+from backend.src.models.data.augmentations import default_anime_augmentations
+from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+from backend.src.models.basic_wrapper import BaSiCWrapper
+from backend.src.models.lora_diffusion import (
+LoRATunerConfig,
+LoRATunerV2,
+DreamBoothTuner,
+)
+from backend.src.models.full_finetune import FullFTConfig, FullFineTuner
+from torch.utils.data import DataLoader
+from backend.src.models.data.lora_dataset import AspectRatioBucketSampler
+# --------------------------------
+
+
 import logging
 from pathlib import Path
 
@@ -49,7 +80,7 @@ def _resolve(cfg: DictConfig, key: str, default=None):
 
 def _run_extraction(cfg: DictConfig) -> list[Path]:
     """Stage 1: extract frames from video sources."""
-    from backend.src.models.data.video_frame_extractor import VideoFrameExtractor
+    # relocated: from backend.src.models.data.video_frame_extractor import VideoFrameExtractor
 
     video_dir = Path(_resolve(cfg, "data.video_dir", "data/videos"))
     frames_dir = Path(_resolve(cfg, "data.frames_dir", "data/frames"))
@@ -79,9 +110,7 @@ def _run_extraction(cfg: DictConfig) -> list[Path]:
 def _run_qa_pass(image_paths: list[Path], cfg: DictConfig) -> list[Path]:
     """Stage 2: quality filtering with BiRefNet + BaSiC + Laplacian."""
     try:
-        import cv2
-        from backend.src.models.birefnet_wrapper import BiRefNetWrapper
-        from backend.src.models.basic_wrapper import BaSiCWrapper
+        pass
     except ImportError as exc:
         log.warning("QA dependencies unavailable (%s) — skipping QA pass", exc)
         return image_paths
@@ -96,7 +125,7 @@ def _run_qa_pass(image_paths: list[Path], cfg: DictConfig) -> list[Path]:
     accepted = []
     for p in image_paths:
         try:
-            import numpy as np
+            # relocated: import numpy as np
 
             img = cv2.imread(str(p))
             if img is None:
@@ -107,7 +136,7 @@ def _run_qa_pass(image_paths: list[Path], cfg: DictConfig) -> list[Path]:
             if lap_var < blur_min:
                 continue
             # Foreground ratio check
-            from PIL import Image
+            # relocated: from PIL import Image
 
             with Image.open(p) as im:
                 mask = birefnet.get_soft_mask(im)
@@ -136,11 +165,11 @@ def _run_captioning(image_paths: list[Path], cfg: DictConfig):
         log.warning("WD14 ONNX model not found — skipping captioning stage")
         return
 
-    from backend.src.models.data.captioner import (
-        WD14Tagger,
-        Florence2Captioner,
-        HybridCaptioner,
-    )
+    # relocated: from backend.src.models.data.captioner import (
+        # relocated: WD14Tagger,
+        # relocated: Florence2Captioner,
+        # relocated: HybridCaptioner,
+    # relocated: )
 
     wd = WD14Tagger(
         onnx_path=onnx_path,
@@ -159,7 +188,7 @@ def _run_captioning(image_paths: list[Path], cfg: DictConfig):
         wd=wd, florence=fl, trigger=trigger or None, model_prefix=model_prefix
     )
 
-    from PIL import Image
+    # relocated: from PIL import Image
 
     for p in image_paths:
         txt = p.with_suffix(".txt")
@@ -175,14 +204,14 @@ def _run_captioning(image_paths: list[Path], cfg: DictConfig):
 
 def _run_deduplication(image_paths: list[Path], cfg: DictConfig) -> list[Path]:
     """Stage 4: pHash dedup + diversity sampling."""
-    from backend.src.pipeline.data_selection import cluster_duplicates
+    # relocated: from backend.src.pipeline.data_selection import cluster_duplicates
 
     target_k = int(cfg.get("data", {}).get("target_dataset_size", 50))
     if len(image_paths) <= target_k:
         return image_paths
 
     # Compute pHashes
-    from backend.src.models.data.video_frame_extractor import _phash64
+    # relocated: from backend.src.models.data.video_frame_extractor import _phash64
 
     phashes: dict[int, int] = {}
     paths_by_id: dict[int, Path] = {}
@@ -206,9 +235,9 @@ def _run_deduplication(image_paths: list[Path], cfg: DictConfig) -> list[Path]:
 
 def _build_dataset(image_paths: list[Path], cfg: DictConfig):
     """Stage 5: build LoRADatasetV2 with SDXL bucketing."""
-    from transformers import CLIPTokenizer
-    from backend.src.models.data.lora_dataset import BucketSample, LoRADatasetV2
-    from backend.src.models.data.augmentations import default_anime_augmentations
+    # relocated: from transformers import CLIPTokenizer
+    # relocated: from backend.src.models.data.lora_dataset import BucketSample, LoRADatasetV2
+    # relocated: from backend.src.models.data.augmentations import default_anime_augmentations
 
     model_id = str(
         cfg.get("model", {}).get("model_id", "OnomaAIResearch/Illustrious-XL-v2.0")
@@ -226,7 +255,7 @@ def _build_dataset(image_paths: list[Path], cfg: DictConfig):
     birefnet = None
     if bool(cfg.get("data", {}).get("use_birefnet", True)):
         try:
-            from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+            # relocated: from backend.src.models.birefnet_wrapper import BiRefNetWrapper
 
             birefnet = BiRefNetWrapper()
         except Exception:
@@ -235,7 +264,7 @@ def _build_dataset(image_paths: list[Path], cfg: DictConfig):
     basic = None
     if bool(cfg.get("data", {}).get("use_basic", True)):
         try:
-            from backend.src.models.basic_wrapper import BaSiCWrapper
+            # relocated: from backend.src.models.basic_wrapper import BaSiCWrapper
 
             basic = BaSiCWrapper()
         except Exception:
@@ -263,11 +292,11 @@ def _build_dataset(image_paths: list[Path], cfg: DictConfig):
 
 def _build_tuner(cfg: DictConfig):
     """Construct LoRATunerV2 / DreamBoothTuner / FullFineTuner from config."""
-    from backend.src.models.lora_diffusion import (
-        LoRATunerConfig,
-        LoRATunerV2,
-        DreamBoothTuner,
-    )
+    # relocated: from backend.src.models.lora_diffusion import (
+        # relocated: LoRATunerConfig,
+        # relocated: LoRATunerV2,
+        # relocated: DreamBoothTuner,
+    # relocated: )
 
     model_cfg = cfg.get("model", {})
     train_cfg = cfg.get("training", {})
@@ -329,7 +358,7 @@ def _build_tuner(cfg: DictConfig):
             class_prompt=str(train_cfg.get("class_prompt", "1girl")),
         )
     if stage == "full_ft":
-        from backend.src.models.full_finetune import FullFTConfig, FullFineTuner
+        # relocated: from backend.src.models.full_finetune import FullFTConfig, FullFineTuner
 
         ft_cfg = FullFTConfig(
             base_model_path=lora_cfg.base_model_path,
@@ -402,8 +431,8 @@ def main(cfg: DictConfig) -> None:
 
     # ── Stage 5: Dataset construction ────────────────────────────────────
     dataset = _build_dataset(image_paths, cfg)
-    from torch.utils.data import DataLoader
-    from backend.src.models.data.lora_dataset import AspectRatioBucketSampler
+    # relocated: from torch.utils.data import DataLoader
+    # relocated: from backend.src.models.data.lora_dataset import AspectRatioBucketSampler
 
     sampler = AspectRatioBucketSampler(
         dataset.samples,

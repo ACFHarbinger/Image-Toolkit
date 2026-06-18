@@ -8,6 +8,19 @@ runs the MFSR super-resolution pass after stage 10 when ``mfsr_mode=True``.
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+from backend.src.constants import LUMINANCE_WEIGHTS
+from backend.src.constants import LUMINANCE_WEIGHTS
+from backend.src.constants import LUMINANCE_WEIGHTS
+import re
+from scipy.ndimage import gaussian_filter1d  # deferred — avoid import at module level
+from backend.src.models.jamma_wrapper import JamMaWrapper
+from .mfsr import run_mfsr
+from .rendering import _cluster_animation_phases
+from .mfsr import inpaint_gaps
+# --------------------------------
+
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -591,7 +604,7 @@ def _compute_bg_lum_spread(
         Background luminance range in [0, 255].  Returns 0.0 when fewer
         than 2 frames have sufficient background coverage.
     """
-    from backend.src.constants import LUMINANCE_WEIGHTS
+    # relocated: from backend.src.constants import LUMINANCE_WEIGHTS
 
     lums: List[float] = []
     for frame, mask in zip(frames, bg_masks):
@@ -638,7 +651,7 @@ def _compute_bg_lum_monotonicity(
         sufficient background coverage (fewer than 3 points cannot form a
         meaningful monotone sequence).
     """
-    from backend.src.constants import LUMINANCE_WEIGHTS
+    # relocated: from backend.src.constants import LUMINANCE_WEIGHTS
 
     lums: List[float] = []
     for frame, mask in zip(frames, bg_masks):
@@ -810,7 +823,7 @@ def _compute_gain_sign_flips(
     float
         Flip rate in [0, 1].  Returns 0.0 when fewer than 3 valid frames.
     """
-    from backend.src.constants import LUMINANCE_WEIGHTS
+    # relocated: from backend.src.constants import LUMINANCE_WEIGHTS
 
     lums: "List[float]" = []
     for frame, mask in zip(frames, bg_masks):
@@ -1812,7 +1825,7 @@ def _sort_frames_by_index(paths: List[str]) -> List[str]:
         suffix (e.g. user-supplied paths with descriptive names), the original
         order is returned unchanged.
     """
-    import re
+    # relocated: import re
 
     def _key(p: str) -> tuple:
         stem = os.path.splitext(os.path.basename(p))[0]
@@ -1931,7 +1944,7 @@ def _smooth_affine_trajectory(
         ``was_applied`` — True when smoothing fired (IQR exceeded threshold).
         When False, ``smoothed_affines is affines`` (same object, no copy).
     """
-    from scipy.ndimage import gaussian_filter1d  # deferred — avoid import at module level
+    # relocated: from scipy.ndimage import gaussian_filter1d  # deferred — avoid import at module level
 
     if len(affines) < 3 or sigma <= 0.0:
         return affines, False
@@ -2909,7 +2922,7 @@ class AnimeStitchPipeline:
 
         if self.use_jamma and _is_4k:
             try:
-                from backend.src.models.jamma_wrapper import JamMaWrapper
+                # relocated: from backend.src.models.jamma_wrapper import JamMaWrapper
 
                 _jamma_inst = JamMaWrapper()
                 _jamma_inst.load_model()
@@ -3746,7 +3759,7 @@ class AnimeStitchPipeline:
 
         if _mfsr_active:
             try:
-                from .mfsr import run_mfsr
+                # relocated: from .mfsr import run_mfsr
 
                 canvas = run_mfsr(
                     frames,
@@ -3771,7 +3784,7 @@ class AnimeStitchPipeline:
         # to replace ghosted animation pixels with a ToonCrafter canonical cel.
         if self.use_tooncrafter and N >= 4:
             try:
-                from .rendering import _cluster_animation_phases
+                # relocated: from .rendering import _cluster_animation_phases
 
                 _dev_tc = "cuda" if torch.cuda.is_available() else "cpu"
                 _tc_anim_mask, _tc_phase_groups = _cluster_animation_phases(
@@ -4158,7 +4171,7 @@ class AnimeStitchPipeline:
                 f"auto-activating diffusion inpainting for black corners."
             )
             try:
-                from .mfsr import inpaint_gaps
+                # relocated: from .mfsr import inpaint_gaps
 
                 canvas = inpaint_gaps(canvas, gap_mask=_gap_mask)
                 logger.info("[Stitch]   Inpainting complete.")
