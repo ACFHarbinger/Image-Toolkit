@@ -145,15 +145,15 @@ fn stretch_image(img: &DynamicImage, target_ratio: f32) -> Result<DynamicImage> 
     resize_image(img, new_w, new_h)
 }
 
-fn apply_ar_transform(img: &DynamicImage, ratio: Option<f32>, mode: &str) -> Result<DynamicImage> {
+fn apply_ar_transform(img: DynamicImage, ratio: Option<f32>, mode: &str) -> Result<DynamicImage> {
     if let Some(r) = ratio {
         match mode {
-            "pad" => pad_image(img, r),
-            "stretch" => stretch_image(img, r),
-            _ => crop_center(img, r), // default to crop
+            "pad" => pad_image(&img, r),
+            "stretch" => stretch_image(&img, r),
+            _ => crop_center(&img, r),
         }
     } else {
-        Ok(img.clone())
+        Ok(img) // no-op: return ownership, no clone
     }
 }
 
@@ -168,7 +168,7 @@ pub fn convert_image_batch_core(
     image_pairs
         .par_iter()
         .filter_map(|(path, out_path)| {
-            match load_image(path).and_then(|img| apply_ar_transform(&img, aspect_ratio, ar_mode)) {
+            match load_image(path).and_then(|img| apply_ar_transform(img, aspect_ratio, ar_mode)) {
                 Ok(proc_img) => match save_image(&proc_img, out_path, output_format) {
                     Ok(_) => {
                         if delete_original {
@@ -198,7 +198,7 @@ pub fn convert_single_image(
     let mode = ar_mode.unwrap_or_else(|| "crop".to_string());
 
     let img = load_image(&input_path).map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let processed_img = apply_ar_transform(&img, aspect_ratio, &mode)
+    let processed_img = apply_ar_transform(img, aspect_ratio, &mode)
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
 
     save_image(&processed_img, &output_path, &output_format)

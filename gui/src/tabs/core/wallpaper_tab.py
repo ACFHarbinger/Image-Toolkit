@@ -63,6 +63,7 @@ from backend.src.constants import (
     ROOT_DIR,
 )
 from backend.src.core import WallpaperManager
+from backend.src.core.wallpaper import find_qdbus_binary
 
 
 class WallpaperTab(AbstractClassSingleGallery):
@@ -134,8 +135,49 @@ class WallpaperTab(AbstractClassSingleGallery):
             except Exception:
                 pass
 
+    def update_card_style(self, widget: QWidget, is_selected: bool):
+        """Override to add specific highlighting for images currently in monitor queues."""
+        super().update_card_style(widget, is_selected)
+        
+        label = widget.findChild(QLabel)
+        if not label:
+            return
+            
+        path = getattr(label, "file_path", getattr(label, "path", ""))
+        if not path:
+            return
+            
+        in_queue = False
+        # Check active monitors
+        for p in self.monitor_image_paths.values():
+            if path == p:
+                in_queue = True
+                break
+                
+        # Check queues
+        if not in_queue:
+            for queue in self.monitor_slideshow_queues.values():
+                if path in queue:
+                    in_queue = True
+                    break
+                    
+        if in_queue:
+            # Overwrite the style if it's in the queue
+            if is_selected:
+                # Keep the selection color but make border thicker and green
+                label.setStyleSheet("border: 3px solid #2ecc71; background-color: rgba(88, 101, 242, 0.4);")
+            else:
+                # Add a solid green border and slight green tint
+                label.setStyleSheet("border: 3px solid #2ecc71; background-color: rgba(46, 204, 113, 0.15);")
+
+    def _refresh_gallery_highlights(self):
+        """Refresh the highlighting of gallery thumbnails that are in the monitor queues."""
+        for path, widget in self.path_to_card_widget.items():
+            self.update_card_style(widget, self.is_path_selected(path))
+
     @Slot()
     def check_all_monitors_set(self):
+        self._refresh_gallery_highlights()
         if self.slideshow_timer and self.slideshow_timer.isActive():
             return
         if self.current_wallpaper_worker:
@@ -193,17 +235,10 @@ class WallpaperTab(AbstractClassSingleGallery):
     def __init__(self, db_tab_ref):
         super().__init__()
         self.db_tab_ref = db_tab_ref
-        self.qdbus: Optional[str] = None
-        if os.environ.get("DESKTOP_SESSION", "").lower() in ["plasma", "kde"]:
-            try:
-                if shutil.which("qdbus6"):
-                    self.qdbus = "qdbus6"
-                elif shutil.which("qdbus"):
-                    self.qdbus = "qdbus"
-                else:
-                    print("Warning: qdbus not found.")
-            except Exception:
-                print("Warning: qdbus not found.")
+        # §4.7 — Use shared find_qdbus_binary() that checks qdbus6/qdbus-qt6/qdbus/qdbus-qt5.
+        # Also activated when DESKTOP_SESSION is not explicitly set to plasma/kde but the
+        # binary is present (e.g. Wayland + KDE where DESKTOP_SESSION may be 'plasmawayland').
+        self.qdbus: Optional[str] = find_qdbus_binary()
 
         self.monitors: List[Monitor] = []
         self.monitor_widgets: Dict[str, MonitorDropWidget] = {}
@@ -390,6 +425,27 @@ class WallpaperTab(AbstractClassSingleGallery):
 
         settings_layout.addWidget(self.slideshow_group)
         self.slideshow_group.setVisible(False)
+
+        # §3.8 — Filter-by-directory row (shown alongside slideshow controls)
+        self.slideshow_filter_group = QWidget()
+        filter_row = QHBoxLayout(self.slideshow_filter_group)
+        filter_row.setContentsMargins(0, 0, 0, 4)
+        filter_row.addWidget(QLabel("Filter Queue:"))
+        self.filter_dir_input = QLineEdit()
+        self.filter_dir_input.setPlaceholderText(
+            "Optional: restrict slideshow to images inside this directory…"
+        )
+        self.filter_dir_input.textChanged.connect(self._on_filter_dir_changed)
+        filter_row.addWidget(self.filter_dir_input, 1)
+        btn_browse_filter = QPushButton("Browse…")
+        btn_browse_filter.setFixedWidth(72)
+        btn_browse_filter.clicked.connect(self._browse_filter_dir)
+        filter_row.addWidget(btn_browse_filter)
+        settings_layout.addWidget(self.slideshow_filter_group)
+        self.slideshow_filter_group.setVisible(False)
+
+        # Defer loading of vault slideshow defaults until window() is valid
+        QTimer.singleShot(0, self._apply_vault_slideshow_defaults)
 
         self.solid_color_widget = QWidget()
         self.solid_color_layout = QHBoxLayout(self.solid_color_widget)
@@ -583,6 +639,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             else self.wallpaper_style
         )
 
+        filter_dir = self.filter_dir_input.text().strip()
         config = {
             "running": True,
             "interval_seconds": (self.interval_min_spinbox.value() * 60)
@@ -591,6 +648,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             "monitor_queues": self.monitor_slideshow_queues,
             "current_paths": self.monitor_image_paths,
             "playback_order": self.playback_order_combo.currentText(),
+            "filter_directories": [filter_dir] if filter_dir else [],
             "monitor_geometries": {
                 str(i): {"x": m.x, "y": m.y, "width": m.width, "height": m.height}
                 for i, m in enumerate(self.monitors)
@@ -631,6 +689,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             else self.wallpaper_style
         )
 
+        filter_dir = self.filter_dir_input.text().strip()
         config = {
             "running": start,
             "interval_seconds": (self.interval_min_spinbox.value() * 60)
@@ -639,6 +698,7 @@ class WallpaperTab(AbstractClassSingleGallery):
             "monitor_queues": self.monitor_slideshow_queues,
             "current_paths": self.monitor_image_paths,
             "playback_order": self.playback_order_combo.currentText(),
+            "filter_directories": [filter_dir] if filter_dir else [],
             "monitor_geometries": {
                 str(i): {"x": m.x, "y": m.y, "width": m.width, "height": m.height}
                 for i, m in enumerate(self.monitors)
@@ -735,6 +795,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         is_video_static = type_name == "Smart Video"
 
         self.slideshow_group.setVisible(is_slideshow or is_video_slideshow)
+        self.slideshow_filter_group.setVisible(is_slideshow or is_video_slideshow)
         # Ensure daemon buttons are only visible in slideshow modes
         self.btn_daemon_toggle.setVisible(is_slideshow or is_video_slideshow)
         self.btn_view_logs.setVisible(is_slideshow or is_video_slideshow)
@@ -1838,6 +1899,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.set_wallpaper_btn.setStyleSheet(STYLE_STOP_ACTION)
         self.set_wallpaper_btn.setEnabled(True)
         self.slideshow_group.setEnabled(False)
+        self.slideshow_filter_group.setEnabled(False)
         self.gallery_scroll_area.setEnabled(False)
         self.scan_directory_path.setEnabled(False)
         self.style_combo.setEnabled(False)
@@ -1852,6 +1914,7 @@ class WallpaperTab(AbstractClassSingleGallery):
         self.set_wallpaper_btn.setText("Set Wallpaper")
         self.set_wallpaper_btn.setStyleSheet(STYLE_START_ACTION)
         self.slideshow_group.setEnabled(True)
+        self.slideshow_filter_group.setEnabled(True)
         self.gallery_scroll_area.setEnabled(True)
         self.scan_directory_path.setEnabled(True)
         self.style_combo.setEnabled(True)
@@ -1925,6 +1988,42 @@ class WallpaperTab(AbstractClassSingleGallery):
             self.last_browsed_scan_dir = directory
             self.scan_directory_path.setText(directory)
             self.populate_scan_image_gallery(directory)
+
+    def _browse_filter_dir(self):
+        """§3.8 — Browse for a slideshow filter directory."""
+        options = (
+            QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks
+        )
+        directory = QFileDialog.getExistingDirectory(
+            self, "Select filter directory", self.filter_dir_input.text() or "", options
+        )
+        if directory:
+            self.filter_dir_input.setText(directory)
+
+    def _on_filter_dir_changed(self, _text: str):
+        """§3.8 — Live-sync filter_dir to daemon config whenever text changes."""
+        self._sync_daemon_config()
+
+    def _apply_vault_slideshow_defaults(self):
+        """§3.8 — Load slideshow interval/order defaults from vault preferences.
+
+        Called once after init via QTimer.singleShot(0) so that self.window() is valid.
+        Only applies when the widgets still hold their hardcoded initial values (5/0/Sequential),
+        so a saved tab config that was already applied by set_config() wins.
+        """
+        main_win = self.window()
+        if not (main_win and hasattr(main_win, "cached_creds")):
+            return
+        prefs = main_win.cached_creds.get("preferences", {})
+        if self.interval_min_spinbox.value() == 5:
+            vault_min = prefs.get("slideshow_interval_min", 5)
+            self.interval_min_spinbox.setValue(vault_min)
+        if self.interval_sec_spinbox.value() == 0:
+            vault_sec = prefs.get("slideshow_interval_sec", 0)
+            self.interval_sec_spinbox.setValue(vault_sec)
+        if self.playback_order_combo.currentText() == "Sequential":
+            vault_order = prefs.get("slideshow_order", "Sequential")
+            self.playback_order_combo.setCurrentText(vault_order)
 
     def create_gallery_label(self, path: str, size: int) -> QLabel:
         draggable_label = DraggableLabel(
@@ -2189,13 +2288,14 @@ class WallpaperTab(AbstractClassSingleGallery):
         return {
             "scan_directory": self.scan_directory_path.text(),
             "wallpaper_style": self.wallpaper_style,
-            "video_style": self.video_style,  # Capture the new video style
+            "video_style": self.video_style,
             "slideshow_enabled": (self.background_type == "Slideshow"),
             "interval_minutes": self.interval_min_spinbox.value(),
             "interval_seconds": self.interval_sec_spinbox.value(),
             "background_type": self.background_type,
             "solid_color_hex": self.solid_color_hex,
             "playback_order": self.playback_order_combo.currentText(),
+            "filter_dir": self.filter_dir_input.text(),
             "monitor_order": monitor_order,
             "monitor_layout": monitor_layout,
             "monitor_queues": self.monitor_slideshow_queues,
@@ -2209,12 +2309,13 @@ class WallpaperTab(AbstractClassSingleGallery):
         return {
             "scan_directory": "",
             "wallpaper_style": default_style,
-            "video_style": "Scaled and Cropped",  # Default
+            "video_style": "Scaled and Cropped",
             "slideshow_enabled": False,
             "interval_minutes": 5,
             "interval_seconds": 0,
             "background_type": "Image",
             "solid_color_hex": "#000000",
+            "filter_dir": "",
             "monitor_order": [],
             "monitor_layout": [],
         }
@@ -2258,6 +2359,9 @@ class WallpaperTab(AbstractClassSingleGallery):
                 self.playback_order_combo.setCurrentText(
                     config.get("playback_order", "Sequential")
                 )
+
+            if "filter_dir" in config:
+                self.filter_dir_input.setText(config.get("filter_dir", ""))
 
             layout_restored = False
             if "monitor_layout" in config and config["monitor_layout"]:

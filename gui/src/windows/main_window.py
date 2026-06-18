@@ -161,6 +161,23 @@ class MainWindow(QWidget):
         header_layout.addWidget(self.title_label)
         header_layout.addStretch(1)
 
+        # --- Theme toggle button (§3.10 / 2.8A) ---
+        self._theme_toggle_btn = QPushButton()
+        self._theme_toggle_btn.setFixedSize(QSize(36, 36))
+        self._theme_toggle_btn.setObjectName("theme_toggle_button")
+        self._theme_toggle_btn.setToolTip("Toggle dark / light theme")
+        self._theme_toggle_btn.setStyleSheet(
+            "QPushButton#theme_toggle_button {"
+            "  background-color: transparent; border: none; padding: 5px;"
+            "  border-radius: 18px; font-size: 14px;"
+            "}"
+            "QPushButton#theme_toggle_button:hover {"
+            "  background-color: rgba(255,255,255,0.10);"
+            "}"
+        )
+        self._theme_toggle_btn.clicked.connect(self._toggle_theme)
+        header_layout.addWidget(self._theme_toggle_btn)
+
         # --- Settings button ---
         self.settings_button = QPushButton()
         if app_icon and os.path.exists(app_icon):
@@ -804,16 +821,34 @@ class MainWindow(QWidget):
                 background-color: transparent;
                 border: none;
                 padding: 5px;
-                border-radius: 18px; 
+                border-radius: 18px;
             }}
             QPushButton#settings_button:hover {{
-                background-color: {hover_bg}; 
+                background-color: {hover_bg};
             }}
             QPushButton#settings_button:pressed {{
-                background-color: {pressed_bg}; 
+                background-color: {pressed_bg};
             }}
         """
         )
+
+        # Sync theme toggle icon
+        if hasattr(self, "_theme_toggle_btn"):
+            self._theme_toggle_btn.setText("☀" if theme_name == "dark" else "🌙")
+
+    def _toggle_theme(self) -> None:
+        """Manually toggle dark↔light theme, overriding the OS preference."""
+        new_theme = "light" if self.current_theme == "dark" else "dark"
+        self.set_application_theme(new_theme)
+        # Persist the manual preference so the OS follow-OS handler backs off.
+        if self.vault_manager:
+            try:
+                creds = self.vault_manager.load_account_credentials()
+                creds["theme"] = new_theme
+                self.vault_manager.save_data(json.dumps(creds))
+                self.cached_creds = creds
+            except Exception:
+                pass
 
     def open_settings_window(self):
         if not self.settings_window:

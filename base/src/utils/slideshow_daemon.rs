@@ -32,6 +32,10 @@ pub struct Config {
     pub last_error: Option<String>,
     #[serde(default)]
     pub monitor_history: HashMap<String, Vec<String>>,
+    /// §3.8 — Optional directory filter: only paths that start with one of these
+    /// prefixes are shown.  An empty list means no filtering (show everything).
+    #[serde(default)]
+    pub filter_directories: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -108,6 +112,7 @@ impl Drop for PidGuard {
     }
 }
 
+#[allow(dead_code)]
 fn load_config(path: &Path) -> Result<Config> {
     if !path.exists() {
         return Ok(Config {
@@ -121,6 +126,7 @@ fn load_config(path: &Path) -> Result<Config> {
             last_change_timestamp: 0,
             last_error: None,
             monitor_history: HashMap::new(),
+            filter_directories: Vec::new(),
         });
     }
     let content = fs::read_to_string(path).context("Failed to read config file")?;
@@ -134,12 +140,38 @@ fn save_config(path: &Path, config: &Config) -> Result<()> {
     Ok(())
 }
 
+fn matches_filter(path: &str, filter_directories: &[String]) -> bool {
+    if filter_directories.is_empty() {
+        return true;
+    }
+    let norm = path
+        .trim_start_matches("file://")
+        .trim_start_matches("file:/");
+    filter_directories
+        .iter()
+        .any(|d| norm.starts_with(d.as_str()))
+}
+
 fn select_next_wallpapers(config: &mut Config, increment: bool) -> HashMap<String, String> {
     let mut selected = HashMap::new();
     let mut monitor_ids: Vec<&String> = config.monitor_queues.keys().collect();
     monitor_ids.sort();
     for monitor_id in monitor_ids {
-        let queue = config.monitor_queues.get(monitor_id).unwrap();
+        let full_queue = config.monitor_queues.get(monitor_id).unwrap();
+        // §3.8 — Apply directory filter; fall back to full queue when filter matches nothing
+        let filtered: Vec<String> = full_queue
+            .iter()
+            .filter(|p| matches_filter(p, &config.filter_directories))
+            .cloned()
+            .collect();
+        let queue_ref: &Vec<String> = if !filtered.is_empty() {
+            &filtered
+        } else {
+            full_queue
+        };
+        // Use a local owned copy so the borrow checker is satisfied when we
+        // mutate config.current_paths / monitor_history below.
+        let queue: Vec<String> = queue_ref.clone();
         if queue.is_empty() {
             continue;
         }
@@ -726,6 +758,7 @@ mod tests {
             playback_order: "Sequential".to_string(),
             last_error: None,
             monitor_history: HashMap::new(),
+            filter_directories: Vec::new(),
         };
 
         // Sequential: a -> b
@@ -778,5 +811,113 @@ mod tests {
         // Assert we got exactly both "b" and "c"
         assert!(selected_paths.contains(&"b".to_string()));
         assert!(selected_paths.contains(&"c".to_string()));
+    }
+
+    #[test]
+    fn test_filter_directories_restricts_queue() {
+        // Queue has paths under two different roots. Filter allows only /allowed/.
+        let mut config = Config {
+            running: true,
+            interval_seconds: 300,
+            style: "Fill".to_string(),
+            monitor_queues: HashMap::from([(
+                "0".to_string(),
+                vec![
+                    "/allowed/a.jpg".to_string(),
+                    "/other/b.jpg".to_string(),
+                    "/allowed/c.jpg".to_string(),
+                ],
+            )]),
+            current_paths: HashMap::new(),
+            monitor_geometries: HashMap::new(),
+            last_change_timestamp: 0,
+            playback_order: "Sequential".to_string(),
+            last_error: None,
+            monitor_history: HashMap::new(),
+            filter_directories: vec!["/allowed".to_string()],
+        };
+
+        // First selection from filtered queue ["/allowed/a.jpg", "/allowed/c.jpg"]
+        let sel1 = select_next_wallpapers(&mut config, false);
+        assert!(sel1.get("0").unwrap().starts_with("/allowed/"));
+
+        let sel2 = select_next_wallpapers(&mut config, true);
+        assert!(sel2.get("0").unwrap().starts_with("/allowed/"));
+
+        // b.jpg must never be selected
+        let sel3 = select_next_wallpapers(&mut config, true);
+        assert_ne!(sel3.get("0").unwrap(), "/other/b.jpg");
+    }
+
+    #[test]
+    fn test_filter_directories_empty_falls_back_to_full_queue() {
+        // Empty filter_directories → no filtering, all paths accessible
+        let mut config = Config {
+            running: true,
+            interval_seconds: 300,
+            style: "Fill".to_string(),
+            monitor_queues: HashMap::from([(
+                "0".to_string(),
+                vec!["/x/a.jpg".to_string(), "/y/b.jpg".to_string()],
+            )]),
+            current_paths: HashMap::new(),
+            monitor_geometries: HashMap::new(),
+            last_change_timestamp: 0,
+            playback_order: "Sequential".to_string(),
+            last_error: None,
+            monitor_history: HashMap::new(),
+            filter_directories: Vec::new(),
+        };
+        let sel1 = select_next_wallpapers(&mut config, false);
+        let p1 = sel1.get("0").unwrap();
+        assert!(p1 == "/x/a.jpg" || p1 == "/y/b.jpg");
+        let sel2 = select_next_wallpapers(&mut config, true);
+        let p2 = sel2.get("0").unwrap();
+        assert!(p2 == "/x/a.jpg" || p2 == "/y/b.jpg");
+        assert_ne!(p1, p2);
+    }
+
+    #[test]
+    fn test_filter_no_match_falls_back_to_full_queue() {
+        // Filter that matches nothing → fall back to full queue so slideshow keeps running
+        let mut config = Config {
+            running: true,
+            interval_seconds: 300,
+            style: "Fill".to_string(),
+            monitor_queues: HashMap::from([(
+                "0".to_string(),
+                vec!["/home/user/wallpapers/a.jpg".to_string()],
+            )]),
+            current_paths: HashMap::new(),
+            monitor_geometries: HashMap::new(),
+            last_change_timestamp: 0,
+            playback_order: "Sequential".to_string(),
+            last_error: None,
+            monitor_history: HashMap::new(),
+            filter_directories: vec!["/nonexistent/path".to_string()],
+        };
+        let sel = select_next_wallpapers(&mut config, false);
+        assert_eq!(
+            sel.get("0").unwrap(),
+            "/home/user/wallpapers/a.jpg",
+            "should fall back to full queue when filter matches nothing"
+        );
+    }
+
+    #[test]
+    fn test_matches_filter_strips_file_uri_prefix() {
+        assert!(matches_filter(
+            "file:///allowed/img.jpg",
+            &["/allowed".to_string()]
+        ));
+        assert!(!matches_filter(
+            "file:///other/img.jpg",
+            &["/allowed".to_string()]
+        ));
+        assert!(matches_filter(
+            "/allowed/img.jpg",
+            &["/allowed".to_string()]
+        ));
+        assert!(matches_filter("any/path", &[])); // empty filter passes all
     }
 }

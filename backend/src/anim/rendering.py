@@ -50,6 +50,41 @@ _FG_EXCLUDE_MEDIAN = os.environ.get("ASP_FG_EXCLUDE_MEDIAN", "1") != "0"
 # Default OFF.  Enable: ASP_ADAPTIVE_RENDER_GAIN=1.
 _ADAPTIVE_RENDER_GAIN: bool = os.environ.get("ASP_ADAPTIVE_RENDER_GAIN", "0") != "0"
 
+# §3.11A — GPU temporal median (Option A).
+# When enabled, each chunk's nanmedian is computed on the GPU via torch.nanmedian,
+# then copied back to CPU.  Falls back to numpy silently if CUDA is unavailable
+# or if torch raises an exception.  Worth enabling on RTX 3090 Ti.
+# Enable: ASP_GPU_MEDIAN=1.
+_GPU_MEDIAN: bool = os.environ.get("ASP_GPU_MEDIAN", "0") != "0"
+_cuda_available: Optional[bool] = None  # lazily initialised on first call
+
+
+def _gpu_nanmedian(arr: np.ndarray) -> np.ndarray:
+    """Compute nanmedian(arr, axis=0) on GPU when _GPU_MEDIAN is set and CUDA is present.
+
+    arr : float32 (N, P, 3) where NaN marks missing samples.
+    Returns float32 (P, 3).  Falls back to numpy on any failure.
+    """
+    global _cuda_available
+    if not _GPU_MEDIAN:
+        return np.nanmedian(arr, axis=0)
+    if _cuda_available is None:
+        try:
+            import torch as _t
+            _cuda_available = _t.cuda.is_available()
+        except ImportError:
+            _cuda_available = False
+    if not _cuda_available:
+        return np.nanmedian(arr, axis=0)
+    try:
+        import torch as _t
+        t = _t.from_numpy(arr).cuda()
+        result = _t.nanmedian(t, dim=0).values.cpu().numpy()
+        return result
+    except Exception as exc:
+        logger.debug("GPU median failed (%s), falling back to numpy", exc)
+        return np.nanmedian(arr, axis=0)
+
 
 def _adaptive_render_gain_clamp(ref_lum: float) -> "tuple[float, float]":
     """§1.40: Luminance-adaptive gain-clamp bounds for sequential colour correction.
@@ -413,12 +448,12 @@ def _render_median(
         else:
             _frame_bg_u8.append(None)
     if _exclude_fg:
-        print("[Stitch]   A5: foreground-excluded temporal median ENABLED (clean bg plate).")
+        logger.info("[Stitch]   A5: foreground-excluded temporal median ENABLED (clean bg plate).")
 
     # Determine chunk size. We want to keep stack size < 1GB
     chunk_size = max(1, min(1024, (1024 * 1024 * 1024) // (N * W * 3 + 1)))
 
-    print(f"[Stitch]   Rendering {N} frames in chunks of {chunk_size}px height...")
+    logger.info("[Stitch]   Rendering %d frames in chunks of %dpx height...", N, chunk_size)
 
     for y0 in range(0, H, chunk_size):
         y1 = min(y0 + chunk_size, H)
@@ -536,7 +571,7 @@ def _render_median(
                 s_gt1_f[~masks_gt1] = np.nan
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", category=RuntimeWarning)
-                    med = np.nanmedian(s_gt1_f, axis=0)
+                    med = _gpu_nanmedian(s_gt1_f)
 
             canvas_strip.reshape(-1, 3)[m_gt1.flatten()] = np.clip(med, 0, 255).astype(
                 np.uint8
@@ -579,8 +614,8 @@ def _render_median(
 
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore", RuntimeWarning)
-                        med_with = np.nanmedian(s_f_full, axis=0)     # (rows, W, 3)
-                        med_without = np.nanmedian(s_f_no_i, axis=0)  # (rows, W, 3)
+                        med_with = _gpu_nanmedian(s_f_full)     # (rows, W, 3)
+                        med_without = _gpu_nanmedian(s_f_no_i)  # (rows, W, 3)
 
                     canvas_ys = np.arange(y0 + local_start, y0 + local_end, dtype=np.float64)
                     if is_entry:
@@ -623,8 +658,8 @@ def _render_median(
 
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore", RuntimeWarning)
-                        med_with = np.nanmedian(s_f_full, axis=0)     # (ch, cols, 3)
-                        med_without = np.nanmedian(s_f_no_i, axis=0)  # (ch, cols, 3)
+                        med_with = _gpu_nanmedian(s_f_full)     # (ch, cols, 3)
+                        med_without = _gpu_nanmedian(s_f_no_i)  # (ch, cols, 3)
 
                     canvas_xs = np.arange(local_start, local_end, dtype=np.float64)
                     if is_entry:
@@ -651,8 +686,9 @@ def _render_median(
         else:
             anim_mask, phase_groups = _cluster_animation_phases(frames, affines, H, W)
         if anim_mask is not None and phase_groups is not None:
-            print(
-                f"[Stitch]   Animation detected: {len(phase_groups)} phases — re-rendering anim pixels..."
+            logger.info(
+                "[Stitch]   Animation detected: %d phases — re-rendering anim pixels...",
+                len(phase_groups),
             )
             majority_group = max(phase_groups, key=len)
             sub_frames = [frames[idx] for idx in majority_group]

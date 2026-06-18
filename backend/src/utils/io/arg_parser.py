@@ -207,6 +207,57 @@ def add_model_args(parser):
     return parser
 
 
+def add_stitch_args(parser):
+    """Top-level `stitch` command: single-sequence or batch-directory mode."""
+    # Single-sequence mode
+    parser.add_argument(
+        "-i",
+        "--input",
+        nargs="+",
+        metavar="PATH",
+        help="Input image files or a single directory of frames",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        metavar="PATH",
+        default="",
+        help="Output file path (single-sequence mode)",
+    )
+    # Batch mode
+    parser.add_argument(
+        "--batch-dir",
+        metavar="DIR",
+        default="",
+        help=(
+            "Batch mode: stitch each sub-directory of DIR as an independent sequence. "
+            "Mutually exclusive with -i/-o."
+        ),
+    )
+    parser.add_argument(
+        "--output-suffix",
+        metavar="SUFFIX",
+        default="_stitched",
+        help="Suffix appended to each sub-directory name to form the output filename "
+             "(default: '_stitched').  Example: 'ep01' → 'ep01_stitched.png'.",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help=(
+            "Skip sequences whose output file already exists. "
+            "Progress is also tracked in <batch-dir>/.stitch_progress.json."
+        ),
+    )
+    parser.add_argument(
+        "--renderer",
+        default="median",
+        choices=["median", "first", "blend"],
+        help="Render mode passed to AnimeStitchPipeline (default: median)",
+    )
+    return parser
+
+
 def add_gui_args(parser):
     parser.add_argument(
         "--app_style",
@@ -235,6 +286,11 @@ def get_main_parser():
     add_database_args(subparsers.add_parser("database", help="Database operations"))
     add_model_args(subparsers.add_parser("model", help="ML model operations"))
     add_gui_args(subparsers.add_parser("gui", help="Launch GUI"))
+    add_stitch_args(subparsers.add_parser(
+        "stitch",
+        help="Stitch frames into a panorama (single or batch mode). "
+             "Example: python main.py stitch --batch-dir ./sequences/ --resume",
+    ))
     subparsers.add_parser("slideshow", help="Start slideshow daemon")
 
     return parser

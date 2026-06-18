@@ -4173,24 +4173,43 @@ class AnimeStitchPipeline:
         if _coverage < 0.95 and _gap_mask.any():
             logger.debug(
                 f"[Stitch]   Coverage {_coverage * 100:.1f}% < 95%; "
-                f"auto-activating diffusion inpainting for black corners."
+                f"auto-activating border fill for black corners."
             )
-            try:
-                # relocated: from .mfsr import inpaint_gaps
-
-                canvas = inpaint_gaps(canvas, gap_mask=_gap_mask)
-                logger.info("[Stitch]   Inpainting complete.")
-            except Exception as _e:
-                logger.info(
-                    f"[Stitch]   Diffusion inpainting failed ({_e}); trying TELEA fallback."
-                )
+            if self.sr_mode and _SRSTITCHER_OK:
+                # §1.7/3.4 Option A — diffusion border fill via sr_stitcher
                 try:
-                    canvas = _telea_fill_gaps(canvas, _gap_mask)
-                    logger.info("[Stitch]   TELEA border fill complete (diffusion fallback).")
-                except Exception as _telea_e:
-                    logger.info(
-                        f"[Stitch]   TELEA fallback also failed ({_telea_e}); keeping canvas as-is."
+                    _dev_bdf = "cuda" if torch.cuda.is_available() else "cpu"
+                    canvas = border_diffusion_fill(canvas, device=_dev_bdf)
+                    logger.info("[Stitch]   sr_stitcher diffusion border fill complete.")
+                except Exception as _bdf_e:
+                    logger.warning(
+                        f"[Stitch]   Diffusion border fill failed ({_bdf_e}); TELEA fallback."
                     )
+                    try:
+                        canvas = _telea_fill_gaps(canvas, _gap_mask)
+                        logger.info("[Stitch]   TELEA border fill complete.")
+                    except Exception as _telea_e:
+                        logger.info(
+                            f"[Stitch]   TELEA fallback also failed ({_telea_e}); keeping canvas as-is."
+                        )
+            else:
+                # Default path: MFSR inpaint_gaps → TELEA
+                try:
+                    # relocated: from .mfsr import inpaint_gaps
+
+                    canvas = inpaint_gaps(canvas, gap_mask=_gap_mask)
+                    logger.info("[Stitch]   Inpainting complete.")
+                except Exception as _e:
+                    logger.info(
+                        f"[Stitch]   Diffusion inpainting failed ({_e}); trying TELEA fallback."
+                    )
+                    try:
+                        canvas = _telea_fill_gaps(canvas, _gap_mask)
+                        logger.info("[Stitch]   TELEA border fill complete (diffusion fallback).")
+                    except Exception as _telea_e:
+                        logger.info(
+                            f"[Stitch]   TELEA fallback also failed ({_telea_e}); keeping canvas as-is."
+                        )
 
         # ── Optional: Real-ESRGAN anime_6B super-resolution (P2.2) ──────────
         if self.sr_mode and _SR_OK:

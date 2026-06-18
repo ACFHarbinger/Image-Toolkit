@@ -115,6 +115,11 @@ class LoRATrainTab(BaseGenerativeTab):
         button_layout.addWidget(self.train_btn)
         button_layout.addWidget(self.cancel_btn)
 
+        inspect_btn = QPushButton("Inspect .safetensors...")
+        inspect_btn.setToolTip("Open a .safetensors file and view its metadata")
+        inspect_btn.clicked.connect(self._inspect_safetensors)
+        button_layout.addWidget(inspect_btn)
+
         layout.addRow(button_layout)
         self.cancel_btn.setEnabled(False)
         self.status_label = QLabel("Ready")
@@ -257,3 +262,16 @@ class LoRATrainTab(BaseGenerativeTab):
         finally:
             if gan is not None:
                 gan.unload()
+
+    def _inspect_safetensors(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select .safetensors File",
+            self.last_browsed_scan_dir,
+            "Safetensors models (*.safetensors)",
+            options=QFileDialog.Option.DontUseNativeDialog,
+        )
+        if not path:
+            return
+        from gui.src.components.safetensors_inspector import SafetensorsInspectorDialog
+        SafetensorsInspectorDialog(path=path, parent=self).exec()

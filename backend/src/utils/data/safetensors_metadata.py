@@ -8,14 +8,61 @@ import base64
 import logging
 import os
 import sys
+from collections import Counter
 
 from omegaconf import DictConfig
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from safetensors import safe_open
 from safetensors.torch import save_file
 
 logger = logging.getLogger(__name__)
+
+
+def read_metadata(path: str) -> Dict[str, Any]:
+    """Read metadata and tensor summary from a .safetensors file without loading tensor data.
+
+    Returns a dict with keys:
+        file_size_mb  -- file size in megabytes
+        user_meta     -- dict of user-defined metadata strings
+        tensor_count  -- total number of tensors
+        param_count   -- total parameter count (sum of all element counts)
+        dtype_counts  -- Counter mapping dtype string → number of tensors
+        tensors       -- dict mapping tensor name → {shape, dtype}
+    """
+    stat = os.stat(path)
+    result: Dict[str, Any] = {
+        "file_size_mb": stat.st_size / (1024 * 1024),
+        "user_meta": {},
+        "tensor_count": 0,
+        "param_count": 0,
+        "dtype_counts": {},
+        "tensors": {},
+    }
+    try:
+        with safe_open(path, framework="pt", device="cpu") as f:
+            result["user_meta"] = dict(f.metadata() or {})
+            keys = list(f.keys())
+            result["tensor_count"] = len(keys)
+            total_params = 0
+            dtype_ctr: Counter = Counter()
+            tensors: Dict[str, Any] = {}
+            for key in keys:
+                sl = f.get_slice(key)
+                shape = list(sl.get_shape())
+                dtype = str(sl.get_dtype())
+                n_params = 1
+                for dim in shape:
+                    n_params *= dim
+                total_params += n_params
+                dtype_ctr[dtype] += 1
+                tensors[key] = {"shape": shape, "dtype": dtype}
+            result["param_count"] = total_params
+            result["dtype_counts"] = dict(dtype_ctr)
+            result["tensors"] = tensors
+    except Exception as exc:
+        logger.warning("Failed to read safetensors metadata from %s: %s", path, exc)
+    return result
 
 
 def embed_preview_image(

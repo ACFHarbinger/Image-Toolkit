@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Third-party apps
     "rest_framework",
+    "drf_spectacular",
     # Local apps
     "tasks",
 ]
@@ -128,6 +129,23 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# --- REST FRAMEWORK + OPENAPI CONFIGURATION ---
+REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Image Toolkit API",
+    "DESCRIPTION": (
+        "REST API for the Image Toolkit desktop application. "
+        "All write endpoints enqueue a Celery task and return a `task_id`. "
+        "Poll task status via Celery's result backend."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
+}
 
 # --- CELERY CONFIGURATION ---
 # Use Redis as the message broker (ensure Redis server is running)
