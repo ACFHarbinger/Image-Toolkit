@@ -129,7 +129,21 @@ where = ["backend"]
 # "*" = ["*.ui", "*.qrc", "*.png", "*.ico"]
 
 [tool.pyright]
-typeCheckingMode = "off"
+typeCheckingMode = "basic"
+
+[tool.mypy]
+# Permissive baseline — warnings only, no CI failures yet (§5.5A).
+# Tighten incrementally: enable disallow_untyped_defs per-module once
+# annotations are added to a module.
+python_version = "3.11"
+warn_return_any = false
+warn_unused_configs = true
+ignore_missing_imports = true
+# Per-module overrides — gradually opt in to stricter checking
+[[tool.mypy.overrides]]
+module = ["backend.src.exceptions", "backend.src.models.base"]
+disallow_untyped_defs = true
+check_untyped_defs = true
 
 [tool.pytest.ini_options]
 python_files = ["test_*.py", "*_test.py"]

@@ -1,7 +1,10 @@
 import cv2
+import logging
 import numpy as np
 
 from typing import Dict, Any, List, Tuple
+
+logger = logging.getLogger(__name__)
 from PySide6.QtCore import (
     Slot,
     Signal,
@@ -395,7 +398,7 @@ class DuplicateScanWorker(QObject):
                         group.append(cand)
                         to_rem.append(cand)
                 except Exception as e:
-                    print(f"Error comparing ORB descriptors: {e}")
+                    logger.warning("Error comparing ORB descriptors: %s", e)
                     continue
 
             for r in to_rem:
@@ -444,7 +447,7 @@ class DuplicateScanWorker(QObject):
                         group.append(cand)
                         to_rem.append(cand)
                 except Exception as e:
-                    print(f"Error comparing SIFT descriptors: {e}")
+                    logger.warning("Error comparing SIFT descriptors: %s", e)
                     continue
 
             for r in to_rem:

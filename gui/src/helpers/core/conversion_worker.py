@@ -1,3 +1,4 @@
+import logging
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -5,6 +6,9 @@ from typing import Dict, Any, List, Optional
 from PySide6.QtCore import QThread, Signal
 from backend.src.core import ImageFormatConverter, VideoFormatConverter
 from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
+from gui.src.helpers.core.config_types import ConversionConfig
+
+logger = logging.getLogger(__name__)
 
 
 class ConversionWorker(QThread):
@@ -12,7 +16,7 @@ class ConversionWorker(QThread):
     error = Signal(str)
     progress_update = Signal(int)  # Signal for reporting progress (0-100)
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: ConversionConfig):
         super().__init__()
         self.config = config
         self._is_cancelled = False
@@ -203,7 +207,7 @@ class ConversionWorker(QThread):
                     os.makedirs(output_path_config, exist_ok=True)
                     out_dir = output_path_config
                 except Exception as e:
-                    print(f"Error creating directory: {e}")
+                    logger.warning("Could not create output directory %s: %s", output_path_config, e)
                     out_dir = os.path.dirname(input_file)
             else:
                 out_dir = os.path.dirname(input_file)
@@ -276,7 +280,7 @@ class ConversionWorker(QThread):
                         if is_collision:
                             os.rename(temp_output_path, final_output_path)
                     except Exception as e:
-                        print(f"Error removing original file: {e}")
+                        logger.warning("Could not remove original file %s: %s", input_file, e)
                 elif is_collision:
                     safe_name = os.path.join(
                         out_dir, f"{fname}_converted.{output_format}"
@@ -289,7 +293,7 @@ class ConversionWorker(QThread):
                     try:
                         os.remove(temp_output_path)
                     except Exception as e:
-                        print(f"Error removing temp file: {e}")
+                        logger.warning("Could not remove temp file %s: %s", temp_output_path, e)
 
         finally:
             if current_p:

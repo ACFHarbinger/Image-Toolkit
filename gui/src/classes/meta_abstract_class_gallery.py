@@ -316,10 +316,43 @@ def _common_filter_string_list(self, full_list, query):
 
 
 class MetaAbstractClassGallery(ABCMeta, type(QObject)):
-    """
-    A metaclass combining ABCMeta and Qt's metaclass.
-    Acts as a Mixin Injector: It automatically adds common logic helper methods
-    to any class that uses it, avoiding code duplication in the subclasses.
+    """Metaclass that fuses ABCMeta with Qt's Shiboken metaclass and injects shared helpers.
+
+    **Why a metaclass instead of a mixin?**
+
+    PySide6 uses a custom C++ metaclass (``Shiboken.ObjectType``) for all ``QObject``
+    subclasses.  Python does not allow a class to have two unrelated metaclasses, so
+    inheriting from both ``ABC`` and ``QWidget`` directly would raise a ``TypeError``.
+    This metaclass resolves that conflict by explicitly combining both metaclasses via
+    ``ABCMeta.__new__`` + ``type(QObject).__new__``.
+
+    **Injection rationale**
+
+    The shared helper functions (pagination widget construction, column calculation,
+    search filtering, etc.) are identical across ``AbstractClassTwoGalleries`` and
+    ``AbstractClassSingleGallery``.  Rather than duplicating them or adding another
+    inheritance level — which would trigger the Qt metaclass conflict again — they are
+    defined as standalone module-level functions and grafted into subclass ``__dict__``
+    by this metaclass at class-creation time.  The result is that every subclass gains
+    ``self.common_*`` methods with zero code duplication and no additional base classes.
+
+    **Injected methods** (see module-level ``_common_*`` functions for implementations):
+
+    - ``common_create_pagination_ui`` — builds the standardised pagination bar widget
+    - ``common_update_pagination_state`` — enables/disables prev/next buttons
+    - ``common_calculate_columns`` — computes grid columns from viewport width
+    - ``common_reflow_layout`` — re-fills a QGridLayout after a column change
+    - ``common_is_visible`` — viewport intersection check for lazy loading
+    - ``common_get_paginated_slice`` — slices a list to the current page
+    - ``common_show_placeholder`` — replaces grid content with a centred label
+    - ``common_create_search_input`` — creates a styled QLineEdit with hint text
+    - ``common_filter_string_list`` — filters filenames with ``-exclude``/``"phrase"``/``a|b``
+
+    **Thumbnail-size persistence** (``_save_thumbnail_size`` / ``_load_thumbnail_size``)
+    is *not* injected here because it needs ``self.thumbnail_size`` and
+    ``self.__class__.__name__`` at call time; it lives as regular methods in both
+    gallery base classes, backed by the shared free functions in
+    ``gui.src.utils.thumbnail_size``.
     """
 
     def __new__(mcs, name, bases, dct):

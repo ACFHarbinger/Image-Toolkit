@@ -59,12 +59,14 @@ try:
 except Exception as _e:
     _JAMMA_ERR = str(_e)
 
+from backend.src.models.base import ModelWrapper, lazy_load
+
 _HF_REPO = "leoluxxx/JamMa"
 _CKPT_FILE = "jamma_outdoor.ckpt"
 
 _MIN_INLIERS = 20
 
-class JamMaWrapper:
+class JamMaWrapper(ModelWrapper):
     """
     O(N) Mamba-based feature matcher — drop-in replacement for LoFTRWrapper.
 
@@ -82,28 +84,32 @@ class JamMaWrapper:
                 f"Build error: {_JAMMA_ERR}\n"
                 "Fix: pip install mamba-ssm causal-conv1d --no-build-isolation"
             )
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        super().__init__(device)
         self._model: Optional[JamMa] = None
+
+    @classmethod
+    def is_available(cls) -> bool:
+        return _JAMMA_OK
 
     # ---------------------------------------------------------------- lifecycle
 
     def unload(self) -> None:
-        """Delete model from VRAM/RAM and free GPU cache."""
+        """Delete model from VRAM/RAM, then flush CUDA cache."""
         if self._model is not None:
             self._model.cpu()
             del self._model
             self._model = None
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-        gc.collect()
+        super().unload()
 
     def offload(self) -> None:
         if self._model is not None:
             self._model.cpu()
+            import torch
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
-    def load_model(self) -> None:
+    def load(self) -> None:
+        """Load JamMa outdoor weights onto self.device."""
         if self._model is not None:
             self._model.to(self.device).eval()
             return
@@ -125,6 +131,9 @@ class JamMaWrapper:
         self._model = model.eval().to(self.device)
         logger.info("[JamMa] Model loaded.")
 
+    # backward-compat alias
+    load_model = load
+
     # ---------------------------------------------------------------- inference
 
     def _run(
@@ -133,7 +142,7 @@ class JamMaWrapper:
         img_j: np.ndarray,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Run JamMa matching, returns (pts1, pts2, conf) in original px coords."""
-        self.load_model()
+        self.load()
 
         h0, w0 = img_i.shape[:2]
         h1, w1 = img_j.shape[:2]
@@ -171,6 +180,7 @@ class JamMaWrapper:
 
     # ---------------------------------------------------------------- public API
 
+    @lazy_load
     def match(
         self,
         img_i: np.ndarray,

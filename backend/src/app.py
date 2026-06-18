@@ -55,6 +55,49 @@ def _setup_logging(log_level: int = logging.INFO) -> None:
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# QSettings key schema (A.5) — types for known static keys
+# Dynamic keys (session/{ClassName}/*, labels/*, splitters/*) are prefixes.
+# ---------------------------------------------------------------------------
+
+SETTINGS_SCHEMA: dict[str, type] = {
+    "mainwindow/geometry": bytes,
+}
+
+SETTINGS_PREFIX_TYPES: dict[str, type] = {
+    "session/": str,
+    "splitters/": bytes,
+    "splitter/": bytes,
+}
+
+
+def _validate_settings() -> None:
+    """Log warnings for QSettings keys whose stored type does not match SETTINGS_SCHEMA."""
+    try:
+        from PySide6.QtCore import QSettings
+        s = QSettings("ImageToolkit", "ImageToolkit")
+        stored_keys = set(s.allKeys())
+        for key, expected_type in SETTINGS_SCHEMA.items():
+            if key not in stored_keys:
+                continue
+            val = s.value(key)
+            if val is not None and not isinstance(val, expected_type):
+                logger.warning(
+                    "QSettings key %r has unexpected type %s (expected %s) — clearing",
+                    key, type(val).__name__, expected_type.__name__,
+                )
+                s.remove(key)
+        # Warn about completely unknown keys (not in schema or known prefixes)
+        known_prefixes = tuple(SETTINGS_PREFIX_TYPES)
+        for key in stored_keys:
+            if key in SETTINGS_SCHEMA:
+                continue
+            if any(key.startswith(p) for p in known_prefixes):
+                continue
+            logger.debug("QSettings: unrecognised key %r", key)
+    except Exception as exc:
+        logger.debug("QSettings validation skipped: %s", exc)
+
 
 def log_uncaught_exceptions(ex_type, ex_value, ex_traceback):
     """Forward uncaught exceptions to the root logger as CRITICAL."""
@@ -70,6 +113,7 @@ def launch_app(opts):
     sys.excepthook = log_uncaught_exceptions
 
     app = QApplication(sys.argv)
+    _validate_settings()
     try:
         app_icon = QIcon(ICON_FILE)
         app.setWindowIcon(app_icon)

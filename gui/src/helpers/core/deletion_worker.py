@@ -3,6 +3,7 @@ import os
 from PySide6.QtCore import QThread, Signal, QWaitCondition, QMutex
 from backend.src.constants import SUPPORTED_IMG_FORMATS
 from backend.src.core import FSETool, FileDeleter
+from gui.src.helpers.core.config_types import DeletionConfig
 
 
 class DeletionWorker(QThread):
@@ -12,7 +13,7 @@ class DeletionWorker(QThread):
 
     confirm_signal = Signal(str, int)
 
-    def __init__(self, config):
+    def __init__(self, config: DeletionConfig):
         super().__init__()
         self.config = config
         self.confirmation_response = False

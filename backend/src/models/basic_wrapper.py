@@ -25,7 +25,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class BaSiCWrapper:
+from backend.src.models.base import ModelWrapper
+
+class BaSiCWrapper(ModelWrapper):
     """
     Estimates and removes spatially-varying shading (flat-field) and
     per-frame broadcast-dimming from a stack of anime frames.
@@ -41,21 +43,26 @@ class BaSiCWrapper:
     """
 
     def __init__(self, device: Optional[str] = None):
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-
         # Public state (set after fit / estimate_profiles)
         self.flat_field: Optional[np.ndarray] = None  # (H, W, 3)  float32
         self.dark_field: Optional[np.ndarray] = None  # (H, W, 3)  float32
         self.baselines: Optional[np.ndarray] = None  # (N,)       float32
+        super().__init__(device)
+
+    def load(self) -> None:
+        """No-op: BaSiC has no pretrained weights; profiles are computed in fit()."""
+
+    @property
+    def loaded(self) -> bool:
+        """True once fit() has been called and flat_field is available."""
+        return self.flat_field is not None
 
     def unload(self) -> None:
-        """Release stored numpy arrays and GPU cache (BaSiC is CPU-based)."""
+        """Release stored numpy arrays, then flush CUDA cache."""
         self.flat_field = None
         self.dark_field = None
         self.baselines = None
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-        gc.collect()
+        super().unload()
 
     # ------------------------------------------------------------------
     # New public API

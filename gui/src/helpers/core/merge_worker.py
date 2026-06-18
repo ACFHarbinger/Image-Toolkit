@@ -1,9 +1,10 @@
 import os
 
-from typing import Dict, Any, List
+from typing import List
 from PySide6.QtCore import QObject, Signal
 from backend.src.core import FSETool, ImageMerger
 from backend.src.constants import SUPPORTED_IMG_FORMATS
+from gui.src.helpers.core.config_types import MergeConfig
 
 
 class MergeWorker(QObject):
@@ -12,7 +13,7 @@ class MergeWorker(QObject):
     error = Signal(str)
     cancelled = Signal()
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: MergeConfig):
         super().__init__()
         self.config = config
         self._should_stop = False

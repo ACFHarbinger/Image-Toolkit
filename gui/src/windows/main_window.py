@@ -3,7 +3,8 @@ import sys
 import copy
 import json
 
-from PySide6.QtCore import Qt, QSize, QSettings, QTimer
+from PySide6.QtCore import Qt, QSize, QTimer
+from gui.src.utils.settings import AppSettings
 from PySide6.QtGui import QIcon, QFont, QImageReader, QGuiApplication
 from PySide6.QtWidgets import (
     QSizePolicy,
@@ -323,7 +324,7 @@ class MainWindow(QWidget):
             pass
 
         # §3.17 — restore saved window geometry (before showMaximized so it can override)
-        _geom = QSettings("ImageToolkit", "ImageToolkit").value("mainwindow/geometry")
+        _geom = AppSettings.mainwindow_geometry()
         if _geom:
             self.restoreGeometry(_geom)
         else:
@@ -1126,9 +1127,7 @@ class MainWindow(QWidget):
             return
 
         # §3.17 — persist window geometry so next launch restores it
-        QSettings("ImageToolkit", "ImageToolkit").setValue(
-            "mainwindow/geometry", self.saveGeometry()
-        )
+        AppSettings.set_mainwindow_geometry(self.saveGeometry())
         self._save_session_recovery()
 
         if self.settings_window:

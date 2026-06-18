@@ -22,6 +22,7 @@ import numpy as np
 from PIL import Image
 
 from ..constants import CANVAS_MAX_DIM
+from ..exceptions import CanvasError
 from .stateless import _trim_dark_border
 
 
@@ -182,7 +183,7 @@ def _scan_stitch_fallback(
     stitcher.setRegistrationResol(0.8)
     status, pano = stitcher.stitch(frames)
     if status != cv2.Stitcher_OK:
-        raise RuntimeError(f"SCANS fallback failed (status={status}).")
+        raise CanvasError(f"SCANS fallback failed (status={status}).")
 
     # Crop to the largest fully-covered interior rectangle so no black border pixels remain.
     # _largest_valid_rect handles diagonal staircases; the simple "all-rows-valid" approach
@@ -220,7 +221,7 @@ def _panorama_stitch_fallback(
     stitcher.setRegistrationResol(0.8)
     status, pano = stitcher.stitch(frames)
     if status != cv2.Stitcher_OK:
-        raise RuntimeError(
+        raise CanvasError(
             f"PANORAMA stitcher failed (status={status}); caller should try SCANS."
         )
 

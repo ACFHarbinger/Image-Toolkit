@@ -26,6 +26,8 @@ import numpy as np
 import torch
 from typing import Optional, Tuple
 
+from backend.src.models.base import ModelWrapper, lazy_load
+
 try:
     from romatch import roma_outdoor
 
@@ -35,7 +37,7 @@ except ImportError:
 
 _MAX_DRIFT_RATIO = 0.4   # reject if |dx| > W * ratio
 
-class RoMaWrapper:
+class RoMaWrapper(ModelWrapper):
     """Wraps RoMa v2 for translation-only dense warp estimation."""
 
     def __init__(self, device: Optional[str] = None):
@@ -44,11 +46,24 @@ class RoMaWrapper:
                 "romatch is required for RoMaWrapper. "
                 "Install with: pip install git+https://github.com/Parskatt/RoMa.git"
             )
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        super().__init__(device)
         self._model = None
 
+    @classmethod
+    def is_available(cls) -> bool:
+        return _ROMA_OK
+
+    def load(self) -> None:
+        """Load the RoMa outdoor model onto self.device."""
+        if self._model is None:
+            logger.info("[RoMa] Loading RoMa outdoor model …")
+            self._model = roma_outdoor(device=self.device)
+
+    # backward-compat alias used by internal callers
+    _load = load
+
     def unload(self) -> None:
-        """Delete model from VRAM/RAM and free GPU cache."""
+        """Delete model from VRAM/RAM, then flush CUDA cache."""
         if self._model is not None:
             try:
                 self._model.to("cpu")
@@ -56,9 +71,7 @@ class RoMaWrapper:
                 pass
             del self._model
             self._model = None
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-        gc.collect()
+        super().unload()
 
     def offload(self) -> None:
         if self._model is not None:
@@ -66,14 +79,11 @@ class RoMaWrapper:
                 self._model.to("cpu")
             except Exception:
                 pass
+            import torch
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
-    def _load(self) -> None:
-        if self._model is None:
-            logger.info("[RoMa] Loading RoMa outdoor model …")
-            self._model = roma_outdoor(device=self.device)
-
+    @lazy_load
     def match_translation(
         self,
         img_i: np.ndarray,
@@ -96,8 +106,6 @@ class RoMaWrapper:
         M : (2, 3) float32 translation matrix, or None.
         conf : float confidence estimate (0.2–0.7 range).
         """
-        self._load()
-
         h, w = img_i.shape[:2]
 
         # Resize for VRAM budget
