@@ -6,7 +6,7 @@ import os
 from .video_scan_worker import VideoThumbnailer, get_video_thumbnail_cache_path
 
 
-class VideoLoaderSignals(QObject):
+class _VideoLoaderSignals(QObject):
     """
     Defines the signals for the VideoLoaderWorker.
     Must be a separate QObject because QRunnable does not inherit QObject.
@@ -28,7 +28,7 @@ class VideoLoaderWorker(QRunnable):
         super().__init__()
         self.path = path
         self.target_size = target_size
-        self.signals = VideoLoaderSignals()
+        self.signals = _VideoLoaderSignals()
         self.thumbnailer = VideoThumbnailer()
         self._is_cancelled = False
 
@@ -72,68 +72,3 @@ class VideoLoaderWorker(QRunnable):
         except RuntimeError:
             pass
 
-
-class BatchVideoLoaderWorker(QRunnable):
-    """
-    Worker task to load and scale a BATCH of video thumbnails.
-    """
-
-    def __init__(self, paths: list[str], target_size: int):
-        super().__init__()
-        self.paths = paths
-        self.target_size = target_size
-        self.signals = VideoLoaderSignals()
-        self.thumbnailer = VideoThumbnailer()
-        self._is_cancelled = False
-        self.setAutoDelete(True)
-
-    def stop(self):
-        """Signals the worker to stop."""
-        self._is_cancelled = True
-
-    @Slot()
-    def run(self):
-        if self._is_cancelled:
-            return
-        results = []
-        try:
-            for path in self.paths:
-                if self._is_cancelled:
-                    break
-                try:
-                    # 1. Check Disk Cache
-                    cache_path = get_video_thumbnail_cache_path(path)
-                    if os.path.exists(cache_path):
-                        img = QImage(cache_path)
-                        if not img.isNull():
-                            self._safe_emit(path, img)
-                            results.append((path, img))
-                            continue
-
-                    # 2. Generate New Thumbnail
-                    image = self.thumbnailer.generate(path, self.target_size)
-                    if image and not image.isNull():
-                        # 3. Save to Disk Cache
-                        image.save(cache_path, "JPG")
-                        self._safe_emit(path, image)
-                        results.append((path, image))
-                    else:
-                        self._safe_emit(path, QImage())
-                        results.append((path, QImage()))
-                except Exception:
-                    self._safe_emit(path, QImage())
-                    results.append((path, QImage()))
-
-            try:
-                self.signals.batch_result.emit(results, self.paths)
-            except RuntimeError:
-                pass
-        finally:
-            if Shiboken.isValid(self.signals):
-                self.signals.deleteLater()
-
-    def _safe_emit(self, path, image):
-        try:
-            self.signals.result.emit(path, image)
-        except RuntimeError:
-            pass

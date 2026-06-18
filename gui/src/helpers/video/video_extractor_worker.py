@@ -12,7 +12,7 @@ except ImportError:
     from moviepy.editor import AudioFileClip
 
 
-class VideoWorkerSignals(QObject):
+class _VideoWorkerSignals(QObject):
     progress = Signal(int)
     finished = Signal(str)
     error = Signal(str)
@@ -41,7 +41,7 @@ class VideoExtractionWorker(QRunnable):
         self.use_ffmpeg = use_ffmpeg
         self.speed = speed
         self.cuts_ms = cuts_ms or []
-        self.signals = VideoWorkerSignals()
+        self.signals = _VideoWorkerSignals()
         self._is_cancelled = False
 
     def cancel(self):

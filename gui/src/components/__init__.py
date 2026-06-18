@@ -15,5 +15,5 @@ from .draggable_monitor_container import (
 )
 from .double_clickable_label import (
     DoubleClickableLabel as DoubleClickableLabel,
-    FullImageViewerDialog as FullImageViewerDialog,
 )
+from .merge_canvas_item import MergeCanvasItem as MergeCanvasItem

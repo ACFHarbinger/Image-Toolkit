@@ -1,6 +1,8 @@
 from .image.image_scan_worker import ImageScannerWorker as ImageScannerWorker
 from .image.image_loader_worker import (
     ImageLoaderWorker as ImageLoaderWorker,
+)
+from .image.batch_image_loader_worker import (
     BatchImageLoaderWorker as BatchImageLoaderWorker,
 )
 
@@ -10,6 +12,8 @@ from .video.gif_extractor_worker import GifCreationWorker as GifCreationWorker
 from .video.video_extractor_worker import VideoExtractionWorker as VideoExtractionWorker
 from .video.video_loader_worker import (
     VideoLoaderWorker as VideoLoaderWorker,
+)
+from .video.batch_video_loader_worker import (
     BatchVideoLoaderWorker as BatchVideoLoaderWorker,
 )
 

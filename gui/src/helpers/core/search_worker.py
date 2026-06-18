@@ -1,7 +1,7 @@
 from PySide6.QtCore import Signal, QObject, QRunnable, Slot
 
 
-class SearchWorkerSignals(QObject):
+class _SearchWorkerSignals(QObject):
     """Defines signals available from a running worker thread."""
 
     finished = Signal(list)
@@ -16,7 +16,7 @@ class SearchWorker(QRunnable):
         super().__init__()
         self.db = db
         self.query_params = query_params
-        self.signals = SearchWorkerSignals()
+        self.signals = _SearchWorkerSignals()
         self._is_cancelled = False
 
     @Slot()

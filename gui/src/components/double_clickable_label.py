@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QPixmap
 
 
-class FullImageViewerDialog(QDialog):
+class _FullImageViewerDialog(QDialog):
     def __init__(self, image_path: str, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Full Image Preview")
@@ -95,7 +95,7 @@ class DoubleClickableLabel(QLabel):
     def mouseDoubleClickEvent(self, event):
         if event.button() == Qt.LeftButton and self._image_path:
             if Path(self._image_path).exists():
-                dlg = FullImageViewerDialog(self._image_path, self)
+                dlg = _FullImageViewerDialog(self._image_path, self)
                 dlg.exec()
         else:
             super().mouseDoubleClickEvent(event)

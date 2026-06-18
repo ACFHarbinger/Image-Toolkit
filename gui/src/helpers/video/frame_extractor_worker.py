@@ -11,7 +11,7 @@ from ...utils.sort_utils import natural_sort_key
 
 
 # --- Worker Signals ---
-class ExtractorSignals(QObject):
+class _ExtractorSignals(QObject):
     started = Signal()
     progress = Signal(int)
     finished = Signal(list)  # Returns list of saved paths
@@ -82,7 +82,7 @@ class FrameExtractionWorker(QRunnable):
         self.frame_interval = frame_interval
         self.smart_extract = smart_extract
         self.smart_method = smart_method
-        self.signals = ExtractorSignals()
+        self.signals = _ExtractorSignals()
         self._is_cancelled = False
         self.fps = 23.976  # Default/detected FPS
 

@@ -10,7 +10,7 @@ from PySide6.QtCore import QObject, Signal, QRunnable, Slot
 from backend.src.core import WallpaperManager
 
 
-class WallpaperWorkerSignals(QObject):
+class _WallpaperWorkerSignals(QObject):
     """
     Defines the signals available from a running WallpaperWorker.
     """
@@ -22,7 +22,7 @@ class WallpaperWorkerSignals(QObject):
     work_finished = Signal(bool, str)
 
 
-class InterruptedError(Exception):
+class _InterruptedError(Exception):
     """Custom exception to indicate manual cancellation."""
 
     pass
@@ -48,7 +48,7 @@ class WallpaperWorker(QRunnable):
         self.path_map = path_map
         self.monitors = monitors
         self.wallpaper_style = wallpaper_style  # Store the selected style
-        self.signals = WallpaperWorkerSignals()
+        self.signals = _WallpaperWorkerSignals()
         self.is_running = True
         # Alias so tooling that checks for the standardised pattern (2.7) works.
         self._should_stop = False
@@ -91,12 +91,12 @@ class WallpaperWorker(QRunnable):
             )
 
             if not self.is_running:
-                raise InterruptedError("Work manually cancelled.")
+                raise _InterruptedError("Work manually cancelled.")
 
             success = True
             message = "Wallpaper applied successfully."
 
-        except InterruptedError as e:
+        except _InterruptedError as e:
             success = False
             message = str(e)
             self._log(f"Warning: {message}")
