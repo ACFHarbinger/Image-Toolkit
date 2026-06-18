@@ -12,23 +12,9 @@ Selects automatically based on available GPU memory and installed packages.
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
-try:
-    from diffusers import StableDiffusionInpaintPipeline  # type: ignore
-except ImportError:
-    StableDiffusionInpaintPipeline = None
-
-from PIL import Image as _PIL
-
-try:
-    from simple_lama_inpainting import SimpleLama  # type: ignore
-except ImportError:
-    SimpleLama = None
-# --------------------------------
-
-
 import cv2
 import numpy as np
+from PIL import Image as _PIL
 
 try:
     import torch
@@ -58,8 +44,10 @@ def _try_stable_diffusion(
     """Run a HuggingFace Stable Diffusion inpaint pipeline."""
     if not _has_gpu_memory(min_gb=4.0):
         raise RuntimeError("Stable Diffusion inpaint requires >=4 GB free VRAM")
-    if StableDiffusionInpaintPipeline is None:
-        raise RuntimeError("diffusers/PIL not installed")
+    try:
+        from diffusers import StableDiffusionInpaintPipeline  # type: ignore  # §3.14 lazy
+    except ImportError:
+        raise RuntimeError("diffusers not installed")
 
     dtype = torch.float16 if _TORCH_OK and torch.cuda.is_available() else torch.float32
     # Force a more robust model and ensure no safetensors mismatch
@@ -112,7 +100,9 @@ def _try_stable_diffusion(
 
 def _try_lama(canvas: np.ndarray, mask: np.ndarray) -> np.ndarray:
     """Run the LaMa large-mask inpainter (HuggingFace simple-lama-inpainting)."""
-    if SimpleLama is None:
+    try:
+        from simple_lama_inpainting import SimpleLama  # type: ignore  # §3.14 lazy
+    except ImportError:
         raise RuntimeError("simple_lama_inpainting not installed")
 
     rgb = cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB)

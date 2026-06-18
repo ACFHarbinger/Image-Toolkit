@@ -441,14 +441,15 @@ class TestPanoramaStitchFallback:
         assert isinstance(result, PILImage.Image)
 
     def test_raises_runtime_error_on_non_ok_status(self, tmp_path):
-        """Non-OK status from stitcher → RuntimeError (caller falls through to SCANS)."""
+        """Non-OK status from stitcher → CanvasError (caller falls through to SCANS)."""
+        from backend.src.exceptions import CanvasError
         from unittest.mock import MagicMock, patch
 
         mock_stitcher = MagicMock()
         mock_stitcher.stitch.return_value = (cv2.Stitcher_ERR_NEED_MORE_IMGS, None)
 
         with patch("cv2.Stitcher_create", return_value=mock_stitcher):
-            with pytest.raises(RuntimeError, match="PANORAMA stitcher failed"):
+            with pytest.raises(CanvasError, match="PANORAMA stitcher failed"):
                 _panorama_stitch_fallback(
                     [self._solid_bgr()], str(tmp_path / "out.png")
                 )

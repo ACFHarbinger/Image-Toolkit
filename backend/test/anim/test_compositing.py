@@ -157,6 +157,7 @@ class TestDiffToFeather:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.gc_heavy
 class TestCompositeForeground:
     def _run_composite(self, n: int, H: int, W: int):
         frame_h = H // 2
@@ -374,6 +375,7 @@ class TestSeamCutWaypoints:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.gc_heavy
 class TestParallelSeamPrecompute:
     """
     With ≥ 2 seam boundaries the composite should enter the ThreadPoolExecutor

@@ -8,17 +8,10 @@ runs the MFSR super-resolution pass after stage 10 when ``mfsr_mode=True``.
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
 from backend.src.constants import LUMINANCE_WEIGHTS
-from backend.src.constants import LUMINANCE_WEIGHTS
-from backend.src.constants import LUMINANCE_WEIGHTS
-import re
-from scipy.ndimage import gaussian_filter1d  # deferred — avoid import at module level
-from backend.src.models.jamma_wrapper import JamMaWrapper
+from scipy.ndimage import gaussian_filter1d
 from .mfsr import run_mfsr
-from .rendering import _cluster_animation_phases
 from .mfsr import inpaint_gaps
-# --------------------------------
 
 
 import logging
@@ -36,8 +29,16 @@ from typing import Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
-import torch
-from PIL import Image
+
+try:
+    import torch
+except ImportError:
+    torch = None  # type: ignore[assignment]
+
+try:
+    from PIL import Image
+except ImportError:
+    Image = None  # type: ignore[assignment]
 
 from .bundle_adjust import _bundle_adjust_affine
 from .validation import _validate_affines, _compute_adaptive_min_gap, _compute_adaptive_rot_scale
@@ -113,52 +114,29 @@ from .rendering import (
     _render_median,
 )
 
-# Optional heavy dependencies — guarded imports
+# §3.14 — Heavy model wrapper imports are deferred to first use.
+# Each module-level try/except was loading kornia/transformers/torchvision at pytest
+# collection time, contributing to the test-suite freeze (S140 root causes).
+# We probe availability cheaply with importlib.util.find_spec(); the actual class
+# is imported inside the method that instantiates it.
+import importlib.util as _importlib_util_pipeline
+
+# BaSiCWrapper only uses cv2/numpy/torch — safe to import at module level.
 try:
     from backend.src.models.basic_wrapper import BaSiCWrapper
-
     _BASIC_OK = True
 except ImportError:
     _BASIC_OK = False
 
-try:
-    from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+# birefnet_wrapper → transformers; kornia wrappers → kornia+torchvision; EfficientLoFTR → transformers
+_BIREFNET_OK: bool = _importlib_util_pipeline.find_spec("transformers") is not None
+_LOFTR_OK: bool = _importlib_util_pipeline.find_spec("kornia") is not None
+_ELOFTR_OK: bool = _importlib_util_pipeline.find_spec("transformers") is not None
+_ALIKED_OK: bool = _importlib_util_pipeline.find_spec("kornia") is not None
 
-    _BIREFNET_OK = True
-except ImportError:
-    _BIREFNET_OK = False
-
-try:
-    from backend.src.models.loftr_wrapper import LoFTRWrapper
-
-    _LOFTR_OK = True
-except ImportError:
-    _LOFTR_OK = False
-
-try:
-    from backend.src.models.efficient_loftr_wrapper import EfficientLoFTRWrapper
-
-    _ELOFTR_OK = True
-except ImportError:
-    _ELOFTR_OK = False
-
-try:
-    from backend.src.models.stitch_net import AnimeStitchNet
-
-    _STITCH_NET_OK = True
-except ImportError:
-    _STITCH_NET_OK = False
-
-try:
-    from backend.src.models.aliked_lg_wrapper import ALIKEDLightGlueWrapper
-
-    _ALIKED_OK = True
-except ImportError:
-    _ALIKED_OK = False
-
+# roma_wrapper: romatch library (not typically installed)
 try:
     from backend.src.models.roma_wrapper import RoMaWrapper
-
     _ROMA_OK = True
 except ImportError:
     _ROMA_OK = False
@@ -2779,6 +2757,7 @@ class AnimeStitchPipeline:
 
         # ── Stage 4: Foreground masking ──────────────────────────────────────
         if self.use_birefnet and self._birefnet is None:
+            from backend.src.models.birefnet_wrapper import BiRefNetWrapper  # §3.14 lazy
             self._birefnet = BiRefNetWrapper()
         bg_masks = _compute_fg_masks(
             frames,
@@ -2973,8 +2952,7 @@ class AnimeStitchPipeline:
 
         if self.use_jamma and _is_4k:
             try:
-                # relocated: from backend.src.models.jamma_wrapper import JamMaWrapper
-
+                from backend.src.models.jamma_wrapper import JamMaWrapper  # §3.14 lazy
                 _jamma_inst = JamMaWrapper()
                 _jamma_inst.load_model()
                 _active_loftr = _jamma_inst
@@ -2989,6 +2967,7 @@ class AnimeStitchPipeline:
         if _active_loftr is None and self.use_efficient_loftr:
             if self._eloftr is None:
                 try:
+                    from backend.src.models.efficient_loftr_wrapper import EfficientLoFTRWrapper  # §3.14 lazy
                     self._eloftr = EfficientLoFTRWrapper()
                     self._eloftr.load_model()
                     _active_loftr = self._eloftr
@@ -3006,11 +2985,13 @@ class AnimeStitchPipeline:
                 _active_loftr = self._eloftr
         if _active_loftr is None and self.use_loftr:
             if self._loftr is None:
+                from backend.src.models.loftr_wrapper import LoFTRWrapper  # §3.14 lazy
                 self._loftr = LoFTRWrapper()
             _active_loftr = self._loftr
 
         if self.use_aliked and self._aliked is None:
             try:
+                from backend.src.models.aliked_lg_wrapper import ALIKEDLightGlueWrapper  # §3.14 lazy
                 self._aliked = ALIKEDLightGlueWrapper()
             except Exception as _e:
                 logger.info(
@@ -4376,6 +4357,7 @@ class AnimeStitchPipeline:
 
     def _compute_fg_masks(self, frames: List[np.ndarray]) -> List[Optional[np.ndarray]]:
         if self.use_birefnet and self._birefnet is None:
+            from backend.src.models.birefnet_wrapper import BiRefNetWrapper  # §3.14 lazy
             self._birefnet = BiRefNetWrapper()
         if _USE_SAM2:
             masks, pred, state, tmp, fh, fw = _compute_fg_masks_sam2_stateful(
@@ -4406,6 +4388,7 @@ class AnimeStitchPipeline:
         bg_masks: List[Optional[np.ndarray]],
     ) -> List[Dict]:
         if self.use_loftr and self._loftr is None:
+            from backend.src.models.loftr_wrapper import LoFTRWrapper  # §3.14 lazy
             self._loftr = LoFTRWrapper()
         return _pairwise_match(
             frames,

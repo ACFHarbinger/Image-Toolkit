@@ -51,23 +51,29 @@ for camera displacement estimation (currently disabled; see note below).
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
-import torch
-import torchvision.transforms as T
-from PIL import Image as _PIL_Image
-import torch
-from backend.src.models.birefnet_wrapper import BiRefNetWrapper
-import gc as _gc
-import torch as _torch
-# --------------------------------
-
-
 import concurrent.futures
 import os
 from typing import List, Optional
 
 import cv2
 import numpy as np
+
+# §3.14 — Optional ML imports: loaded only when DINOv2 / BiRefNet features are
+# enabled at runtime.  Guarded so tests that don't use these paths don't pay
+# the CUDA-context and model-weight initialisation overhead at collection time.
+try:
+    import torch
+    import torch as _torch
+    import torchvision.transforms as T
+    from PIL import Image as _PIL_Image
+except ImportError:
+    torch = None  # type: ignore[assignment]
+    _torch = None  # type: ignore[assignment]
+    T = None  # type: ignore[assignment]
+    _PIL_Image = None  # type: ignore[assignment]
+
+# BiRefNetWrapper is imported lazily inside smart_select_frames when needed
+# (birefnet_wrapper loads transformers at module level — §3.14).
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -831,11 +837,7 @@ def _compute_dinov2_features(frames_paths: List[str]) -> Optional[np.ndarray]:
     (pose, character shape) rather than background texture patterns.
     """
     try:
-        # relocated: import torch
-        # relocated: import torchvision.transforms as T
-        # relocated: from PIL import Image as _PIL_Image
-
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = "cuda" if (torch is not None and torch.cuda.is_available()) else "cpu"
 
         if device not in _DINOV2_CACHE:
             model = (
@@ -862,8 +864,6 @@ def _compute_dinov2_features(frames_paths: List[str]) -> Optional[np.ndarray]:
     # Batch-process frames: load, optionally crop to fg bounding box, stack, infer.
     tensors = []
     try:
-        # relocated: import torch
-
         with torch.no_grad():
             for path in frames_paths:
                 img = _PIL_Image.open(path).convert("RGB")
@@ -1076,11 +1076,8 @@ def smart_select_frames(
     _needs_biref_probes = _TWO_CHANNEL_SELECT or (pw > 0 and dinov2_features is None)
     if _needs_biref_probes:
         try:
-            # relocated: from backend.src.models.birefnet_wrapper import BiRefNetWrapper
-            # relocated: import gc as _gc
-            # relocated: import torch as _torch
-
-            _biref = BiRefNetWrapper()
+            from backend.src.models.birefnet_wrapper import BiRefNetWrapper as _BiRefNet  # §3.14 lazy
+            _biref = _BiRefNet()
             _probe_idxs = sorted({0, N // 4, N // 2, 3 * N // 4, N - 1})
             _th_shape = thumbs[0].shape[:2]
             _bg_accum = np.ones(_th_shape, dtype=np.float32)

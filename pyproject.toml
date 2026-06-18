@@ -155,6 +155,17 @@ python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*", "*Test"]
 python_functions = ["test_*", "*_test"]
 testpaths = "backend/test"
+markers = [
+    "gpu: test loads ML model weights into VRAM (DINOv2, RLHF, etc.)",
+    "gc_heavy: test allocates large objects; triggers gc.collect() on completion",
+    "slow: test takes more than 10 s (excluded from fast CI runs)",
+]
+# §3.12A — pytest-xdist parallel execution (opt-in).
+# Serial run (default):   pytest backend/test/anim/
+# Parallel, no GPU tests: pytest backend/test/anim/ -n auto --dist=worksteal --skip-gpu
+# Parallel, with GPU:     pytest backend/test/anim/ -n auto --dist=worksteal
+#   (GPU tests run @forked, each in its own subprocess — safe but serial)
+# addopts is intentionally empty; parallel execution is never forced.
 
 # ---------------------------------------------------------------------------
 # import-linter — layer ordering contracts (§5.11A / A.17)

@@ -37,6 +37,7 @@ class TestNdarrayCodec:
         restored = _decode_array(enc)
         np.testing.assert_array_equal(restored, arr)
 
+    @pytest.mark.gc_heavy
     def test_large_array_is_skipped(self):
         big = np.zeros((2048, 2048), dtype=np.float32)  # 16 MB > 8 MB threshold
         enc = _encode_array(big)

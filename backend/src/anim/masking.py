@@ -4,34 +4,20 @@ BiRefNet foreground / background masking for anime frames.
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
-import os
-import tempfile
-from sam2.build_sam import build_sam2_video_predictor  # type: ignore
-from backend.src.anim.grounding import _detect_best_box  # noqa: PLC0415
-import os
-import tempfile
-import torch
-from sam2.build_sam import build_sam2_video_predictor  # type: ignore
-from backend.src.constants import FOREGROUND_DILATION  # noqa: PLC0415
-from backend.src.constants import FOREGROUND_DILATION, FOREGROUND_EROSION  # noqa: PLC0415
-import os
-import tempfile
-from sam2.build_sam import build_sam2_video_predictor  # type: ignore
-import torch
-import numpy as _np
-from backend.src.constants import FOREGROUND_DILATION  # noqa: PLC0415
-import warnings
-# --------------------------------
-
-
 import gc
+import os
 import shutil
+import tempfile
+import warnings
 from typing import Any, List, Optional, Tuple
 
 import cv2
 import numpy as np
-import torch
+
+try:
+    import torch
+except ImportError:
+    torch = None  # type: ignore[assignment]
 
 from backend.src.constants import FOREGROUND_DILATION, FOREGROUND_EROSION
 
@@ -129,15 +115,13 @@ def _compute_fg_masks_sam2(
     )
 
     try:
-        # relocated: import os
-        # relocated: import tempfile
-        # relocated: from sam2.build_sam import build_sam2_video_predictor  # type: ignore
+        from sam2.build_sam import build_sam2_video_predictor  # type: ignore  # §3.14 lazy
 
         _ckpt = os.path.expanduser(
             os.environ.get("SAM2_CKPT", "~/.sam2/sam2_hiera_base_plus.pt")
         )
         _cfg = os.environ.get("SAM2_CFG", "sam2_hiera_b+.yaml")
-        _device = "cuda" if torch.cuda.is_available() else "cpu"
+        _device = "cuda" if (torch is not None and torch.cuda.is_available()) else "cpu"
 
         predictor = build_sam2_video_predictor(_cfg, _ckpt, device=_device)
         _H, _W = frames[0].shape[:2]
@@ -225,7 +209,10 @@ def _compute_fg_masks_grounded_sam2(
     if not text_prompt.strip():
         return _compute_fg_masks_sam2(frames, birefnet_wrapper, use_birefnet=use_birefnet)
 
-    # relocated: from backend.src.anim.grounding import _detect_best_box  # noqa: PLC0415
+    try:
+        from backend.src.anim.grounding import _detect_best_box  # §3.14 lazy — GroundingDINO is optional
+    except ImportError:
+        return _compute_fg_masks_sam2(frames, birefnet_wrapper, use_birefnet=use_birefnet)
 
     bbox = _detect_best_box(frames[0], text_prompt, box_threshold=box_threshold, text_threshold=text_threshold)
     if bbox is None:
@@ -236,16 +223,13 @@ def _compute_fg_masks_grounded_sam2(
 
     # Try SAM-2 with the DINO-provided bbox
     try:
-        # relocated: import os
-        # relocated: import tempfile
-        # relocated: import torch
-        # relocated: from sam2.build_sam import build_sam2_video_predictor  # type: ignore
+        from sam2.build_sam import build_sam2_video_predictor  # type: ignore  # §3.14 lazy
 
         _ckpt = os.path.expanduser(
             os.environ.get("SAM2_CKPT", "~/.sam2/sam2_hiera_base_plus.pt")
         )
         _cfg = os.environ.get("SAM2_CFG", "sam2_hiera_b+.yaml")
-        _device = "cuda" if torch.cuda.is_available() else "cpu"
+        _device = "cuda" if (torch is not None and torch.cuda.is_available()) else "cpu"
         predictor = build_sam2_video_predictor(_cfg, _ckpt, device=_device)
 
         _H, _W = frames[0].shape[:2]
@@ -267,7 +251,6 @@ def _compute_fg_masks_grounded_sam2(
                     _prob = torch.sigmoid(_logits[_li, 0]).cpu().numpy()
                     if _prob.shape != (_H, _W):
                         _prob = cv2.resize(_prob, (_W, _H), cv2.INTER_LINEAR)
-                    # relocated: from backend.src.constants import FOREGROUND_DILATION  # noqa: PLC0415
                     _fg_i = (_prob > 0.5).astype(np.uint8) * 255
                     if FOREGROUND_DILATION > 0:
                         _k = cv2.getStructuringElement(
@@ -285,7 +268,6 @@ def _compute_fg_masks_grounded_sam2(
 
         # Fill missed frames with per-frame BiRefNet
         has_new_api = birefnet_wrapper is not None and hasattr(birefnet_wrapper, "get_background_mask")
-        # relocated: from backend.src.constants import FOREGROUND_DILATION, FOREGROUND_EROSION  # noqa: PLC0415
         for _i, _m in enumerate(masks_out):
             if _m is None and birefnet_wrapper is not None:
                 try:
@@ -324,9 +306,6 @@ def _compute_fg_masks_sam2_stateful(
     - masks come from the standard per-frame BiRefNet fallback.
     - Callers must call ``_cleanup_sam2_state`` with the returned values once done.
     """
-    # relocated: import os
-    # relocated: import tempfile
-
     _H = frames[0].shape[0] if frames else 0
     _W = frames[0].shape[1] if frames else 0
 
@@ -358,13 +337,13 @@ def _compute_fg_masks_sam2_stateful(
 
     _tmp: Optional[str] = None
     try:
-        # relocated: from sam2.build_sam import build_sam2_video_predictor  # type: ignore
+        from sam2.build_sam import build_sam2_video_predictor  # type: ignore  # §3.14 lazy
 
         _ckpt = os.path.expanduser(
             os.environ.get("SAM2_CKPT", "~/.sam2/sam2_hiera_base_plus.pt")
         )
         _cfg = os.environ.get("SAM2_CFG", "sam2_hiera_b+.yaml")
-        _device = "cuda" if torch.cuda.is_available() else "cpu"
+        _device = "cuda" if (torch is not None and torch.cuda.is_available()) else "cpu"
 
         predictor = build_sam2_video_predictor(_cfg, _ckpt, device=_device)
 
@@ -478,9 +457,6 @@ def _refine_masks_with_clicks(
         return []
 
     try:
-        # relocated: import torch
-        # relocated: import numpy as _np
-
         all_pts: List[List[float]] = []
         all_labels: List[int] = []
         for (px, py) in pos_clicks:
@@ -490,8 +466,8 @@ def _refine_masks_with_clicks(
             all_pts.append([float(px), float(py)])
             all_labels.append(0)
 
-        pts_tensor = _np.array(all_pts, dtype=_np.float32)
-        lbl_tensor = _np.array(all_labels, dtype=_np.int32)
+        pts_tensor = np.array(all_pts, dtype=np.float32)
+        lbl_tensor = np.array(all_labels, dtype=np.int32)
 
         predictor.add_new_points_or_box(
             inference_state=inference_state,
@@ -501,19 +477,17 @@ def _refine_masks_with_clicks(
             labels=lbl_tensor,
         )
 
-        # relocated: from backend.src.constants import FOREGROUND_DILATION  # noqa: PLC0415
-
         n_frames = inference_state.get("num_frames", 0) or len(
             inference_state.get("images", [])
         )
-        masks_out: List[Optional[_np.ndarray]] = [None] * n_frames
+        masks_out: List[Optional[np.ndarray]] = [None] * n_frames
         for _idx, _obj_ids, _logits in predictor.propagate_in_video(inference_state):
             if 1 in _obj_ids:
                 _li = list(_obj_ids).index(1)
                 _prob = torch.sigmoid(_logits[_li, 0]).cpu().numpy()
                 if _prob.shape != (frame_h, frame_w):
                     _prob = cv2.resize(_prob, (frame_w, frame_h), cv2.INTER_LINEAR)
-                _fg_i = (_prob > 0.5).astype(_np.uint8) * 255
+                _fg_i = (_prob > 0.5).astype(np.uint8) * 255
                 if FOREGROUND_DILATION > 0:
                     _k = cv2.getStructuringElement(
                         cv2.MORPH_ELLIPSE,
@@ -525,7 +499,6 @@ def _refine_masks_with_clicks(
         return [m for m in masks_out if m is not None]
 
     except Exception as _e:
-        # relocated: import warnings
         warnings.warn(f"[ASP] _refine_masks_with_clicks failed: {_e}", RuntimeWarning, stacklevel=2)
         return []
 

@@ -17,7 +17,11 @@ from typing import Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
-import torch
+
+try:
+    import torch
+except ImportError:
+    torch = None  # type: ignore[assignment]
 
 from backend.src.constants import (
     MATCH_EDGE_CROP,
