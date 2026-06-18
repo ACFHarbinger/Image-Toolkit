@@ -1,12 +1,5 @@
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
-import numpy as np
-import cv2
-import numpy as np
-# --------------------------------
-
-
 import os
 import random
 from dataclasses import dataclass
@@ -17,7 +10,6 @@ import torch
 import torchvision.transforms.functional as TF
 from PIL import Image
 from torch.utils.data import Dataset, Sampler
-
 
 # ---------------------------------------------------------------------------
 # Legacy _LoRADataset (preserved for backward compatibility)
@@ -73,7 +65,6 @@ class _LoRADataset(Dataset):
             "input_ids": inputs.input_ids[0],
         }
 
-
 # ---------------------------------------------------------------------------
 # SDXL aspect-ratio bucket definitions (kohya canonical set at ~1 MP)
 # ---------------------------------------------------------------------------
@@ -87,7 +78,6 @@ SDXL_BUCKETS: tuple[tuple[int, int], ...] = (
     (1408, 704), (704, 1408),
 )
 
-
 def closest_bucket(w: int, h: int, buckets=SDXL_BUCKETS) -> tuple[int, int]:
     """Return the SDXL bucket whose aspect ratio is closest to w/h."""
     ar = w / max(h, 1)
@@ -95,7 +85,6 @@ def closest_bucket(w: int, h: int, buckets=SDXL_BUCKETS) -> tuple[int, int]:
         buckets,
         key=lambda b: (abs(b[0] / b[1] - ar), abs(b[0] * b[1] - 1024 * 1024)),
     )
-
 
 # ---------------------------------------------------------------------------
 # BucketSample: metadata record for one training image
@@ -136,7 +125,6 @@ class BucketSample:
             original_size=(ow, oh),
             crop_top_left=(0, 0),
         )
-
 
 # ---------------------------------------------------------------------------
 # Aspect-ratio bucket sampler
@@ -181,7 +169,6 @@ class AspectRatioBucketSampler(Sampler):
                 batch = idxs[i: i + self.batch_size]
                 if len(batch) == self.batch_size or not self.drop_last:
                     yield batch
-
 
 # ---------------------------------------------------------------------------
 # LoRADatasetV2 — SDXL bucketing + BiRefNet + BaSiC + augmentations
@@ -272,8 +259,7 @@ class LoRADatasetV2(Dataset):
 
         # BaSiC photometric normalisation
         if self.basic is not None and random.random() < self.apply_basic_prob:
-            # relocated: import numpy as np
-            # relocated: import cv2
+
             img_bgr = cv2.cvtColor(
                 (x.permute(1, 2, 0).numpy() * 255).astype("uint8"),
                 cv2.COLOR_RGB2BGR,
@@ -289,7 +275,6 @@ class LoRADatasetV2(Dataset):
             try:
                 fg_mask = self.birefnet.get_soft_mask(im)  # (H,W) float32 [0,1]
                 if not isinstance(fg_mask, torch.Tensor):
-                    # relocated: import numpy as np
                     fg_mask = torch.from_numpy(np.array(fg_mask, dtype="float32"))
                 fg_mask = fg_mask.unsqueeze(0)             # (1,H,W)
             except Exception:

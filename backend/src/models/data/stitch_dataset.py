@@ -40,24 +40,20 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-
 # ---------------------------------------------------------------------------
 # Low-level helpers
 # ---------------------------------------------------------------------------
-
 
 def _luma(bgr: np.ndarray) -> np.ndarray:
     """BGR uint8 → float32 Y′ in [0, 1]."""
     y = cv2.cvtColor(bgr, cv2.COLOR_BGR2YCrCb)[..., 0].astype(np.float32)
     return y / 255.0
 
-
 def _warp(img: np.ndarray, M: np.ndarray, out_hw: Tuple[int, int]) -> np.ndarray:
     H, W = out_hw
     return cv2.warpAffine(
         img, M, (W, H), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101
     )
-
 
 def _mpeg_noise(img: np.ndarray, strength: float = 0.03) -> np.ndarray:
     """Simulated MPEG DCT-block quantisation noise on a float32 grayscale image."""
@@ -72,15 +68,12 @@ def _mpeg_noise(img: np.ndarray, strength: float = 0.03) -> np.ndarray:
             out[y : y + block, x : x + block] = np.clip(pq + n, 0.0, 1.0)
     return out
 
-
 def _dimming(img: np.ndarray) -> np.ndarray:
     return np.clip(img * random.uniform(0.60, 1.00), 0.0, 1.0)
-
 
 # ---------------------------------------------------------------------------
 # Dataset
 # ---------------------------------------------------------------------------
-
 
 class SyntheticStitchDataset(Dataset):
     """
@@ -258,11 +251,9 @@ class SyntheticStitchDataset(Dataset):
 
         return fi, fj
 
-
 # ---------------------------------------------------------------------------
 # Collate function
 # ---------------------------------------------------------------------------
-
 
 def stitch_collate_fn(batch: list) -> dict:
     return {

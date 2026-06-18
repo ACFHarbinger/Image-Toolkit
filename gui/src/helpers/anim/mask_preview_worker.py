@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import cv2
 from PySide6.QtCore import QObject, Signal
-from backend.src.models.birefnet_wrapper import BiRefNetWrapper
 
 
 class MaskPreviewWorker(QObject):
@@ -15,6 +14,8 @@ class MaskPreviewWorker(QObject):
 
     def run(self):
         try:
+            from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+
             img = cv2.imread(self._path)
             if img is None:
                 self.sig_error.emit("Could not read image.")

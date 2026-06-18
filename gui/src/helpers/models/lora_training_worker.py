@@ -1,5 +1,4 @@
 from PySide6.QtCore import QThread, Signal
-from backend.src.models.lo_ra_tuner import LoRATuner
 
 
 class LoRATrainingWorker(QThread):
@@ -58,6 +57,8 @@ class LoRATrainingWorker(QThread):
         Executes the LoRA training loop.
         """
         try:
+            from backend.src.models.lo_ra_tuner import LoRATuner
+
             self.log_signal.emit(f"Initializing LoRATuner for {self.model_id}...")
 
             # 1. Initialize Tuner

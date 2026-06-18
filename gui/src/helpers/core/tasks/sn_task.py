@@ -1,6 +1,5 @@
 from PySide6.QtCore import QRunnable, Slot
 from .scan_signals import ScanSignals
-from backend.src.models.siamese_network import SiameseModelLoader
 
 
 class SiameseTask(QRunnable):
@@ -17,6 +16,8 @@ class SiameseTask(QRunnable):
     @Slot()
     def run(self):
         try:
+            from backend.src.models.siamese_network import SiameseModelLoader
+
             # Get the singleton instance
             loader = SiameseModelLoader()
 

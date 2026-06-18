@@ -16,10 +16,7 @@ keypoints, before falling back to template matching.
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
 import gc
-# --------------------------------
-
 
 import logging
 
@@ -39,7 +36,6 @@ except ImportError:
     _KORNIA_OK = False
 
 _MIN_INLIERS = 15
-
 
 class ALIKEDLightGlueWrapper:
     """
@@ -68,7 +64,6 @@ class ALIKEDLightGlueWrapper:
             self._matcher = None
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        # relocated: import gc
         gc.collect()
 
     def offload(self) -> None:

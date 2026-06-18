@@ -15,11 +15,7 @@ translation as a 2-DOF estimate compatible with the BA anchor format.
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
 import gc
-from PIL import Image as _PILImage
-# --------------------------------
-
 
 import logging
 
@@ -38,7 +34,6 @@ except ImportError:
     _ROMA_OK = False
 
 _MAX_DRIFT_RATIO = 0.4   # reject if |dx| > W * ratio
-
 
 class RoMaWrapper:
     """Wraps RoMa v2 for translation-only dense warp estimation."""
@@ -63,7 +58,6 @@ class RoMaWrapper:
             self._model = None
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        # relocated: import gc
         gc.collect()
 
     def offload(self) -> None:
@@ -103,8 +97,6 @@ class RoMaWrapper:
         conf : float confidence estimate (0.2–0.7 range).
         """
         self._load()
-
-        # relocated: from PIL import Image as _PILImage
 
         h, w = img_i.shape[:2]
 

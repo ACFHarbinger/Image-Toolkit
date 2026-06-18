@@ -1,9 +1,4 @@
-import torch
-
 from PySide6.QtCore import QThread, Signal
-from torchvision import datasets, transforms
-from torch.utils.data import DataLoader
-from backend.src.models.gan import GAN
 
 
 class TrainingWorker(QThread):
@@ -31,6 +26,11 @@ class TrainingWorker(QThread):
 
     def run(self):
         try:
+            import torch
+            from torchvision import datasets, transforms
+            from torch.utils.data import DataLoader
+            from backend.src.models.gan import GAN
+
             self.log_signal.emit(f"Setting up training on {self.device_name}...")
             device = torch.device(self.device_name)
 

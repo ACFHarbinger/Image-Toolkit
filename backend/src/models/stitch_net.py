@@ -45,11 +45,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models as models
 
-
 # ---------------------------------------------------------------------------
 # 2-D Sinusoidal Positional Encoding
 # ---------------------------------------------------------------------------
-
 
 class _SinusoidalPosEnc2D(nn.Module):
     """Adds 2-D sinusoidal position codes to a (B, C, H, W) feature map."""
@@ -79,11 +77,9 @@ class _SinusoidalPosEnc2D(nn.Module):
         enc = enc.permute(2, 0, 1).unsqueeze(0)  # (1, C, H, W)
         return x + enc
 
-
 # ---------------------------------------------------------------------------
 # Shared Encoder  (MobileNetV3-Small backbone)
 # ---------------------------------------------------------------------------
-
 
 class _AnimeEncoder(nn.Module):
     """
@@ -125,11 +121,9 @@ class _AnimeEncoder(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.proj(self.features(x))  # (B, C, H//16, W//16)
 
-
 # ---------------------------------------------------------------------------
 # Cross-Attention Layer
 # ---------------------------------------------------------------------------
-
 
 class _CrossAttentionLayer(nn.Module):
     """Single cross-attention + feed-forward layer."""
@@ -160,11 +154,9 @@ class _CrossAttentionLayer(nn.Module):
         q_tok = self.norm2(q_tok + self.ff(q_tok))
         return q_tok
 
-
 # ---------------------------------------------------------------------------
 # Regression Head
 # ---------------------------------------------------------------------------
-
 
 class _AffineHead(nn.Module):
     """Maps a global feature vector → (dx, dy, θ, log_s)."""
@@ -208,11 +200,9 @@ class _AffineHead(nn.Module):
             dim=1,
         )  # (B, 4)
 
-
 # ---------------------------------------------------------------------------
 # AnimeStitchNet
 # ---------------------------------------------------------------------------
-
 
 class AnimeStitchNet(nn.Module):
     """

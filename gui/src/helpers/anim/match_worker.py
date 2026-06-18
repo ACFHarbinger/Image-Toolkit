@@ -4,8 +4,6 @@ import cv2
 import numpy as np
 from typing import Optional
 from PySide6.QtCore import QObject, Signal
-from backend.src.models.loftr_wrapper import LoFTRWrapper
-from backend.src.models.birefnet_wrapper import BiRefNetWrapper
 
 
 class MatchWorker(QObject):
@@ -27,6 +25,9 @@ class MatchWorker(QObject):
 
     def run(self):
         try:
+            from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+            from backend.src.models.loftr_wrapper import LoFTRWrapper
+
             img_a = cv2.imread(self._path_a)
             img_b = cv2.imread(self._path_b)
             if img_a is None or img_b is None:

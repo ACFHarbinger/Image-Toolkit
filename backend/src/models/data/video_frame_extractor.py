@@ -17,11 +17,6 @@ Usage
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
-import hashlib
-# --------------------------------
-
-
 import json
 import logging
 import subprocess
@@ -33,7 +28,6 @@ import numpy as np
 from PIL import Image
 
 log = logging.getLogger(__name__)
-
 
 # ---------------------------------------------------------------------------
 # Try to import optional dependencies gracefully
@@ -53,7 +47,6 @@ except ImportError:
     _RUST_OK = False
     log.warning("Rust base extension unavailable — falling back to Python hashing")
 
-
 # ---------------------------------------------------------------------------
 # Pure-Python fallback hashers (used when Rust extension is absent)
 # ---------------------------------------------------------------------------
@@ -67,23 +60,18 @@ def _py_phash64(path: str) -> str:
     val = int(np.packbits(bits).view(np.uint64)[0])
     return hex(val)
 
-
 def _py_blake3(path: str) -> str:
-    # relocated: import hashlib
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
 
-
 def _blake3_file(path: str) -> str:
     return rust_base.blake3_file(path) if _RUST_OK else _py_blake3(path)
 
-
 def _phash64(path: str) -> str:
     return rust_base.phash64(path) if _RUST_OK else _py_phash64(path)
-
 
 # ---------------------------------------------------------------------------
 # Data record
@@ -98,7 +86,6 @@ class _FrameRecord:
     height: int
     phash: str
     blake3: str
-
 
 # ---------------------------------------------------------------------------
 # Main extractor

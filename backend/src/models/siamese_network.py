@@ -3,7 +3,6 @@ import torchvision.models as models
 
 from PIL import Image
 
-
 class SiameseModelLoader:
     """
     Singleton class to load the ResNet model once and share it
