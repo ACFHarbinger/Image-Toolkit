@@ -38,10 +38,12 @@ try:
 except ImportError:
     _TRANSFORMERS_OK = False
 
+from backend.src.models.base import ModelWrapper, lazy_load
+
 _HF_REPO = "zju-community/efficientloftr"
 _MIN_INLIERS = 20
 
-class EfficientLoFTRWrapper:
+class EfficientLoFTRWrapper(ModelWrapper):
     """
     Wraps HuggingFace EfficientLoFTR for dense feature matching.
 
@@ -55,14 +57,18 @@ class EfficientLoFTRWrapper:
                 "transformers >= 4.52 is required for EfficientLoFTRWrapper. "
                 "Install with: pip install transformers"
             )
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        super().__init__(device)
         self._processor = None
         self._model = None
+
+    @classmethod
+    def is_available(cls) -> bool:
+        return _TRANSFORMERS_OK
 
     # ------------------------------------------------------------------ lifecycle
 
     def unload(self) -> None:
-        """Delete model and processor from VRAM/RAM and free GPU cache."""
+        """Delete model and processor from VRAM/RAM, then flush CUDA cache."""
         if self._model is not None:
             self._model.cpu()
             del self._model
@@ -70,17 +76,17 @@ class EfficientLoFTRWrapper:
         if self._processor is not None:
             del self._processor
             self._processor = None
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-        gc.collect()
+        super().unload()
 
     def offload(self) -> None:
         if self._model is not None:
             self._model.cpu()
+            import torch
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
-    def load_model(self) -> None:
+    def load(self) -> None:
+        """Load EfficientLoFTR weights and processor from HuggingFace."""
         if self._model is None:
             logger.debug("[ELoFTR] Loading EfficientLoFTR from HuggingFace …")
             self._processor = AutoImageProcessor.from_pretrained(
@@ -93,6 +99,9 @@ class EfficientLoFTRWrapper:
             )
         else:
             self._model.to(self.device).eval()
+
+    # backward-compat alias
+    load_model = load
 
     # ------------------------------------------------------------------ inference
 
@@ -110,7 +119,7 @@ class EfficientLoFTRWrapper:
                      *original* input images (before any model resizing).
         conf       : (K,) float32 match confidence.
         """
-        self.load_model()
+        self.load()
 
         h0, w0 = img_i.shape[:2]
         h1, w1 = img_j.shape[:2]
@@ -160,6 +169,7 @@ class EfficientLoFTRWrapper:
 
     # ------------------------------------------------------------------ public API (LoFTRWrapper-compatible)
 
+    @lazy_load
     def match(
         self,
         img_i: np.ndarray,

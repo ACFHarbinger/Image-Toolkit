@@ -1,8 +1,9 @@
 """§2.20A — QSplitter state persistence via QSettings."""
 from __future__ import annotations
 
-from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QSplitter
+
+from gui.src.utils.settings import AppSettings
 
 
 def persist_splitter(splitter: QSplitter, key: str) -> None:
@@ -12,14 +13,11 @@ def persist_splitter(splitter: QSplitter, key: str) -> None:
     Call once, immediately after ``setSizes(defaults)`` so the restore overrides
     the defaults when previous state exists.
     """
-    settings = QSettings("ImageToolkit", "ImageToolkit")
-    saved = settings.value(f"splitters/{key}")
+    saved = AppSettings.splitter(key)
     if saved:
         splitter.restoreState(saved)
 
     def _save(_pos: int = 0, _idx: int = 0) -> None:
-        QSettings("ImageToolkit", "ImageToolkit").setValue(
-            f"splitters/{key}", splitter.saveState()
-        )
+        AppSettings.set_splitter(key, splitter.saveState())
 
     splitter.splitterMoved.connect(_save)

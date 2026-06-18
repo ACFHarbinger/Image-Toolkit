@@ -1,7 +1,10 @@
+import logging
 import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
+
+logger = logging.getLogger(__name__)
 
 from PIL import Image
 from torchvision import transforms
@@ -35,7 +38,7 @@ class GanWrapper:
             )
             self.netG.eval()
         except Exception as e:
-            print(f"Error loading AnimeGAN: {e}")
+            logger.error("Error loading AnimeGAN: %s", e)
             self.netG = None
 
         self.transform = transforms.Compose(

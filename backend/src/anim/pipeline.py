@@ -97,6 +97,11 @@ from .matching import (
     _template_match,
 )
 from .photometric import _apply_basic, _correct_vignetting
+from backend.src.exceptions import (
+    AlignmentFailedError,
+    CanvasError,
+    PipelineError,
+)
 from .rendering import (
     _cluster_animation_phases,
     _render,
@@ -2707,7 +2712,7 @@ class AnimeStitchPipeline:
         frames = _load_frames(image_paths)
         N = len(frames)
         if N < 2:
-            raise ValueError("Need at least 2 valid frames to stitch.")
+            raise PipelineError("Need at least 2 valid frames to stitch.")
         logger.info(f"[Stitch] Stage 1 complete: {N} frames loaded.")
 
         # ── Stage 1.5: §1.29 Static input detection gate ─────────────────────
@@ -3448,7 +3453,7 @@ class AnimeStitchPipeline:
         canvas_h, canvas_w, T_global = _compute_canvas(frames, affines)
         logger.info(f"[Stitch] Stage 9: canvas size {canvas_w}×{canvas_h}.")
         if canvas_h <= 0 or canvas_w <= 0:
-            raise RuntimeError("Computed canvas has zero size.")
+            raise CanvasError("Computed canvas has zero size.")
 
         for i in range(N):
             affines[i][0, 2] += T_global[0]

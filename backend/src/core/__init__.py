@@ -7,3 +7,15 @@ from .image_merger import ImageMerger as ImageMerger
 
 from .vault_manager import VaultManager as VaultManager
 from .wallpaper import WallpaperManager as WallpaperManager
+
+__all__ = [
+    "FSETool",
+    "FileDeleter",
+    "ImageFormatConverter",
+    "VideoFormatConverter",
+    "DuplicateFinder",
+    "SimilarityFinder",
+    "ImageMerger",
+    "VaultManager",
+    "WallpaperManager",
+]

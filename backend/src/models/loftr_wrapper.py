@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 import kornia.feature as KF
 from typing import Optional, Tuple
 
+from backend.src.models.base import ModelWrapper, lazy_load
+
 torch.backends.cudnn.benchmark = False
 
 # LoFTR optimal input size (divisible by 32, close to model sweet-spot)
@@ -33,7 +35,7 @@ _LOFTR_H = 320
 _LOFTR_W = 448
 _MIN_INLIERS = 20
 
-class LoFTRWrapper:
+class LoFTRWrapper(ModelWrapper):
     """
     Wraps kornia's LoFTR for dense feature matching between pairs of images.
     Particularly robust on anime frames with flat colours / repetitive texture
@@ -41,36 +43,42 @@ class LoFTRWrapper:
     """
 
     def __init__(self, device: Optional[str] = None):
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-        self.matcher = None
+        self.matcher = None  # set before super().__init__ so loaded property is safe
+        super().__init__(device)
+
+    @property
+    def loaded(self) -> bool:
+        return getattr(self, "matcher", None) is not None
 
     # ------------------------------------------------------------------
     # Model loading
     # ------------------------------------------------------------------
 
-    def unload(self):
-        """Delete model from VRAM/RAM and release GPU memory."""
-        if self.matcher is not None:
-            self.matcher.cpu()
-            del self.matcher
-            self.matcher = None
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-        gc.collect()
-
-    def offload(self):
-        if self.matcher is not None:
-            self.matcher.cpu()
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-
-    def load_model(self):
+    def load(self) -> None:
+        """Load the LoFTR outdoor model onto self.device."""
         if self.matcher is None:
             logger.info("[LoFTR] Loading outdoor model …")
             self.matcher = KF.LoFTR(pretrained="outdoor").to(self.device)
         else:
             self.matcher.to(self.device)
             self.matcher.eval()
+
+    # backward-compat alias used by callers and internal _run_loftr
+    load_model = load
+
+    def unload(self) -> None:
+        """Delete model from VRAM/RAM, then flush CUDA cache."""
+        if self.matcher is not None:
+            self.matcher.cpu()
+            del self.matcher
+            self.matcher = None
+        super().unload()
+
+    def offload(self) -> None:
+        if self.matcher is not None:
+            self.matcher.cpu()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
     # ------------------------------------------------------------------
     # Internal: raw LoFTR inference
@@ -85,7 +93,7 @@ class LoFTRWrapper:
         Run LoFTR on two grayscale uint8 images.
         Returns (pts1, pts2, confidence) in the original image coordinate system.
         """
-        self.load_model()
+        self.load()
         h1, w1 = gray1.shape
         h2, w2 = gray2.shape
 
@@ -120,6 +128,7 @@ class LoFTRWrapper:
     # New API
     # ------------------------------------------------------------------
 
+    @lazy_load
     def match_masked(
         self,
         img1: np.ndarray,
@@ -209,6 +218,7 @@ class LoFTRWrapper:
     # Legacy API (backward-compatible)
     # ------------------------------------------------------------------
 
+    @lazy_load
     def match(
         self,
         img1: np.ndarray,

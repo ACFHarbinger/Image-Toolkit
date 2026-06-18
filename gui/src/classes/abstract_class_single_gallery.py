@@ -247,14 +247,13 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
 
     # --- RECENT DIRECTORIES (GUI/UX §2.10) ---
     def _add_recent_dir(self, path: str, max_entries: int = 10) -> None:
-        from PySide6.QtCore import QSettings
-        s = QSettings("ImageToolkit", "ImageToolkit")
-        key = f"session/{self.__class__.__name__}/recent_dirs"
-        dirs: list = s.value(key, []) or []
+        from gui.src.utils.settings import AppSettings
+        cn = self.__class__.__name__
+        dirs: list = AppSettings.session(cn, "recent_dirs", []) or []
         if path in dirs:
             dirs.remove(path)
         dirs.insert(0, path)
-        s.setValue(key, dirs[:max_entries])
+        AppSettings.set_session(cn, "recent_dirs", dirs[:max_entries])
 
     def _get_recent_dirs(self) -> list:
         main_win = self.window()
@@ -268,10 +267,8 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
             prefs = main_win.cached_creds.get("preferences", {})
             if not prefs.get("restore_last_dir", True):
                 return []
-        from PySide6.QtCore import QSettings
-        return QSettings("ImageToolkit", "ImageToolkit").value(
-            f"session/{self.__class__.__name__}/recent_dirs", []
-        ) or []
+        from gui.src.utils.settings import AppSettings
+        return AppSettings.session(self.__class__.__name__, "recent_dirs", []) or []
 
     # --- SESSION PERSISTENCE (GUI/UX §2.5) ---
     def _save_last_dir(self, path: str) -> None:
@@ -286,10 +283,8 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
             prefs = main_win.cached_creds.get("preferences", {})
             if not prefs.get("restore_last_dir", True):
                 return
-        from PySide6.QtCore import QSettings
-        QSettings("ImageToolkit", "ImageToolkit").setValue(
-            f"session/{self.__class__.__name__}/last_dir", path
-        )
+        from gui.src.utils.settings import AppSettings
+        AppSettings.set_session(self.__class__.__name__, "last_dir", path)
 
     def _load_last_dir(self, default: str = "") -> str:
         main_win = self.window()
@@ -303,10 +298,8 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
             prefs = main_win.cached_creds.get("preferences", {})
             if not prefs.get("restore_last_dir", True):
                 return default
-        from PySide6.QtCore import QSettings
-        return QSettings("ImageToolkit", "ImageToolkit").value(
-            f"session/{self.__class__.__name__}/last_dir", default
-        )
+        from gui.src.utils.settings import AppSettings
+        return AppSettings.session(self.__class__.__name__, "last_dir", default)
 
     # --- §2.10C — status bar helper ---
     def _show_status(self, message: str, timeout_ms: int = 3000) -> None:
@@ -376,20 +369,12 @@ class AbstractClassSingleGallery(QWidget, metaclass=MetaAbstractClassGallery):
 
     # --- THUMBNAIL SIZE PERSISTENCE (GUI/UX §4.11) ---
     def _save_thumbnail_size(self) -> None:
-        from PySide6.QtCore import QSettings
-        QSettings("ImageToolkit", "ImageToolkit").setValue(
-            f"session/{self.__class__.__name__}/thumbnail_size", self.thumbnail_size
-        )
+        from gui.src.utils.thumbnail_size import save_thumbnail_size
+        save_thumbnail_size(self.__class__.__name__, self.thumbnail_size)
 
     def _load_thumbnail_size(self, default: int = 180) -> int:
-        from PySide6.QtCore import QSettings
-        val = QSettings("ImageToolkit", "ImageToolkit").value(
-            f"session/{self.__class__.__name__}/thumbnail_size", default
-        )
-        try:
-            return max(64, min(512, int(val)))
-        except (TypeError, ValueError):
-            return default
+        from gui.src.utils.thumbnail_size import load_thumbnail_size
+        return load_thumbnail_size(self.__class__.__name__, default)
 
     def _sync_thumb_slider(self) -> None:
         """Push current thumbnail_size to the pagination slider after Ctrl+scroll."""

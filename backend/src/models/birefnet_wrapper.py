@@ -55,7 +55,10 @@ except ImportError:
     _TRANSFORMERS_OK = False
     logger.info("[BiRefNet] 'transformers' not installed — segmentation unavailable.")
 
-class BiRefNetWrapper:
+from backend.src.models.base import ModelWrapper, lazy_load
+from backend.src.exceptions import ModelLoadError
+
+class BiRefNetWrapper(ModelWrapper):
     """
     Anime character foreground segmentation.
 
@@ -75,9 +78,9 @@ class BiRefNetWrapper:
         device: Optional[str] = None,
         inference_size: tuple = (1024, 1024),
     ):
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.model_name = model_name
         self.inference_size = inference_size
+        super().__init__(device)
         self.transform = transforms.Compose(
             [
                 transforms.Resize(inference_size),
@@ -86,18 +89,24 @@ class BiRefNetWrapper:
             ]
         )
 
+    @classmethod
+    def is_available(cls) -> bool:
+        return _TRANSFORMERS_OK
+
+    @property
+    def loaded(self) -> bool:
+        return (self.model_name, self.device) in BiRefNetWrapper._models
+
     # ------------------------------------------------------------------ model
 
-    def unload(self):
-        """Remove this instance's model from VRAM/RAM and free GPU cache."""
+    def unload(self) -> None:
+        """Remove this instance's model from VRAM/RAM, then flush CUDA cache."""
         key = (self.model_name, self.device)
         if key in BiRefNetWrapper._models:
             model = BiRefNetWrapper._models.pop(key)
             model.cpu()
             del model
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-        gc.collect()
+        super().unload()
 
     def offload(self):
         key = (self.model_name, self.device)
@@ -118,11 +127,16 @@ class BiRefNetWrapper:
             torch.cuda.empty_cache()
         gc.collect()
 
-    def load_model(self):
+    def load(self) -> None:
+        """Load the BiRefNet segmentation model onto self.device."""
+        self._ensure_loaded()
+
+    def _ensure_loaded(self):
+        """Load if needed and return the active model instance."""
         key = (self.model_name, self.device)
         if key not in BiRefNetWrapper._models:
             if not _TRANSFORMERS_OK:
-                raise RuntimeError("'transformers' is required for BiRefNetWrapper.")
+                raise ModelLoadError("'transformers' is required for BiRefNetWrapper.")
             logger.info(f"[BiRefNet] Loading {self.model_name} on {self.device}…")
             try:
                 model = AutoModelForImageSegmentation.from_pretrained(
@@ -143,8 +157,12 @@ class BiRefNetWrapper:
             BiRefNetWrapper._models[key].to(self.device)
         return BiRefNetWrapper._models[key]
 
+    # backward-compat alias used by external callers
+    load_model = _ensure_loaded
+
     # ------------------------------------------------------------------ masks
 
+    @lazy_load
     def get_soft_mask(self, img_np: np.ndarray) -> np.ndarray:
         """
         Soft foreground probability map.
@@ -153,7 +171,7 @@ class BiRefNetWrapper:
         -------
         float32 (H, W) array in [0, 1], where 1 = foreground character.
         """
-        model = self.load_model()
+        model = self._ensure_loaded()
         img_rgb = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
         tensor = self.transform(Image.fromarray(img_rgb)).unsqueeze(0).to(self.device)
         with torch.no_grad():

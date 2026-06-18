@@ -35,9 +35,11 @@ try:
 except ImportError:
     _KORNIA_OK = False
 
+from backend.src.models.base import ModelWrapper, lazy_load
+
 _MIN_INLIERS = 15
 
-class ALIKEDLightGlueWrapper:
+class ALIKEDLightGlueWrapper(ModelWrapper):
     """
     ALIKED keypoint detector + LightGlue matcher via kornia.
 
@@ -53,18 +55,35 @@ class ALIKEDLightGlueWrapper:
     def __init__(self, device: Optional[str] = None):
         if not _KORNIA_OK:
             raise ImportError("kornia >= 0.8 is required for ALIKEDLightGlueWrapper.")
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-        self._matcher: Optional[KF.LightGlueMatcher] = None
+        self._matcher = None  # set before super().__init__ so loaded property is safe
+        super().__init__(device)
+
+    @classmethod
+    def is_available(cls) -> bool:
+        return _KORNIA_OK
+
+    @property
+    def loaded(self) -> bool:
+        return getattr(self, "_matcher", None) is not None
+
+    def load(self) -> None:
+        """Load the ALIKED+LightGlue matcher onto self.device."""
+        if self._matcher is None:
+            logger.debug("[ALIKED+LG] Loading ALIKED+LightGlue matcher …")
+            self._matcher = KF.LightGlueMatcher("aliked").eval().to(self.device)
+        else:
+            self._matcher.to(self.device).eval()
+
+    # backward-compat alias used by internal callers
+    _load = load
 
     def unload(self) -> None:
-        """Delete matcher from VRAM/RAM and free GPU cache."""
+        """Delete matcher from VRAM/RAM, then flush CUDA cache."""
         if self._matcher is not None:
             self._matcher.cpu()
             del self._matcher
             self._matcher = None
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-        gc.collect()
+        super().unload()
 
     def offload(self) -> None:
         if self._matcher is not None:
@@ -72,13 +91,7 @@ class ALIKEDLightGlueWrapper:
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
-    def _load(self) -> None:
-        if self._matcher is None:
-            logger.debug("[ALIKED+LG] Loading ALIKED+LightGlue matcher …")
-            self._matcher = KF.LightGlueMatcher("aliked").eval().to(self.device)
-        else:
-            self._matcher.to(self.device).eval()
-
+    @lazy_load
     def match(
         self,
         img_i: np.ndarray,
@@ -101,7 +114,6 @@ class ALIKEDLightGlueWrapper:
         pts_i, pts_j : (K,2) float32 in pixel coordinates of img_i / img_j.
         conf         : (K,) float32 match confidence.
         """
-        self._load()
 
         h, w = img_i.shape[:2]
 

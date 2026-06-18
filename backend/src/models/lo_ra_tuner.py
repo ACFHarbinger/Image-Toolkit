@@ -22,7 +22,10 @@ FullFineTuner lives in backend/src/models/full_finetune.py.
 
 from __future__ import annotations
 
+import logging
 import os
+
+logger = logging.getLogger(__name__)
 from dataclasses import dataclass, field
 
 import torch
@@ -538,7 +541,7 @@ class LoRATuner:
                 )
 
         except Exception as e:
-            print(f"Error loading model: {e}")
+            logger.error("Error loading model: %s", e)
             raise e
 
         # SDXL scheduler fix usually helps

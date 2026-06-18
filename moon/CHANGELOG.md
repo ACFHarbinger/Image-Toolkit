@@ -4,6 +4,56 @@
 
 ---
 
+## Arch Tier 4 — A.10 mypy + TypedDicts · A.11 AppSettings · A.12 `get_asp()` · A.13 Exception hierarchy (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **A.10 mypy baseline + TypedDict worker configs** (`pyproject.toml`, `gui/src/helpers/core/config_types.py`) | Added `[tool.mypy]` section: permissive baseline (`warn_return_any = false`, `ignore_missing_imports = true`) with per-module opt-in strictness for `backend.src.exceptions` and `backend.src.models.base`. New `config_types.py` defines `ConversionConfig`, `DeletionConfig`, `MergeConfig`, `StitchConfig` TypedDicts. Wired into `ConversionWorker.__init__`, `DeletionWorker.__init__`, `MergeWorker.__init__`; `Dict[str, Any]` imports removed. |
+| **A.11 `AppSettings` GUI facade** (`gui/src/utils/settings.py`) | Classmethod-based singleton wrapping `QSettings("ImageToolkit","ImageToolkit")`. Typed accessors: `mainwindow_geometry/set`, `session/set_session`, `splitter/set_splitter`, `listings_splitter/set_listings_splitter`, `label/set_label/remove`. Deferred `QSettings` import inside `_q()` avoids import-time Qt init. Wired into: both abstract gallery base classes (`_add_recent_dir`, `_get_recent_dirs`, `_save/load_last_dir`, `_save/load_thumbnail_size`, `_get/set_color_label`), `main_window.py` (geometry save/restore), `splitter_persistence.py`, `listings_common.py` (splitter), `thumbnail_size.py`. Replaces 18+ inline `QSettings("ImageToolkit","ImageToolkit")` constructor calls. |
+| **A.12 `get_asp()` helper** (`backend/src/anim/config.py`) | `get_asp(key, default="")` reads `os.environ.get(key, default)` — centralised accessor for `ASP_*` env vars. `validate_asp_config(strict=True)` now raises `ConfigError` instead of bare `ValueError`. Exported in `__all__`. |
+| **A.13 Custom exception hierarchy** (`backend/src/exceptions.py`, `gui/src/helpers/base.py`) | `ImageToolkitError` root; `PipelineError` → `AlignmentFailedError`, `CanvasError`, `FallbackExhaustedError` (carries `.fallbacks: list[str]`); `ModelLoadError`; `ConfigError`. Bare `RuntimeError`/`ValueError` replaced in `anim/pipeline.py` (2 sites), `anim/canvas.py` (2 sites), `anim/config.py` (1 site), `models/birefnet_wrapper.py` (1 site). `BaseQThreadWorker._handle_exception()` three-tier handler: `AlignmentFailed`/`Canvas` → WARNING; `Pipeline`/`Model`/`Config` → ERROR; unknown → ERROR with full traceback. TYPE_CHECKING guard prevents runtime circular import. |
+
+### Test count
+
+**36 contract tests still passing** (0 regressions).
+
+---
+
+## Arch Tier 3 — A.1 Pyright · A.4 `__all__` · A.5 QSettings · A.6 `@log_call` · A.7 Metaclass (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **A.1 Pyright `basic` mode** (`pyproject.toml`) | `typeCheckingMode = "off"` → `"basic"`. Activates IDE red-squiggles for all developers at zero annotation cost. |
+| **A.4 `__all__` hygiene pass** (15 `__init__.py` files) | `backend/src/{models,web,core,pipeline,utils,controller,__init__}` and `gui/src/{utils,styles,helpers/{image,video,web,core},tabs,tabs/core/common}`. Empty namespace markers get `__all__: list = []`. Populated files get explicit symbol lists. `backend/src/models/__init__.py` now imports and re-exports all 7 model wrappers + `ModelWrapper`/`ModelRegistry`/`lazy_load`. `gui/src/utils/__init__.py` exposes `LRUImageCache`, `ShortcutRegistry`, sort/splitter/thumbnail utilities. |
+| **A.5 QSettings key validation** (`backend/src/app.py`) | `SETTINGS_SCHEMA: dict[str, type]` + `SETTINGS_PREFIX_TYPES` define the known key surface. `_validate_settings()` runs after `QApplication()` is created; clears type-mismatched static keys with a `logger.warning`; logs unrecognised keys at DEBUG level. Dynamic key patterns (`session/*`, `splitters/*`, `splitter/*`, `labels/*`) are explicitly allowed via prefix table. |
+| **A.6 `@log_call` timing decorator** (`backend/src/utils/decorators.py`) | New module. `log_call(logger=None)` returns a decorator that logs `→ qualname` on entry and `← qualname  X.Y ms` on exit at DEBUG level. Exception path logs `✗ qualname` + elapsed before re-raising. Auto-selects `__module__` logger when none is passed. Exported via `backend/src/utils/__init__.py`. |
+| **A.7 Metaclass docstring + `_load_thumbnail_size` extraction** | `MetaAbstractClassGallery` docstring extended with Qt metaclass fusion rationale, injection rationale, full injected-method list, and note on why thumbnail helpers live in the base classes rather than here. `save_thumbnail_size(class_name, size)` + `load_thumbnail_size(class_name, default=180)` extracted to new `gui/src/utils/thumbnail_size.py`; both abstract gallery base classes delegate their `_save/_load_thumbnail_size` methods to the shared functions. |
+
+---
+
+## Arch Tier 2 — §5.8A/B/C ModelWrapper ABC · §5.9A/B Worker bases · §5.15C print→logger (2026-06-18)
+
+### Shipped
+
+| Item | Summary |
+|------|---------|
+| **§5.8A `ModelWrapper` ABC** (`backend/src/models/base.py`) | New file. Abstract base class with `load()` (abstract), `unload()` (default: flushes CUDA cache + gc.collect()), `is_available()` classmethod (default True), `loaded` property (default: checks `self._model`). All 7 model wrappers migrated: `BaSiCWrapper`, `LoFTRWrapper`, `ALIKEDLightGlueWrapper`, `RoMaWrapper`, `JamMaWrapper`, `EfficientLoFTRWrapper`, `BiRefNetWrapper`. Each calls `super().__init__(device)`, overrides `loaded` when model lives outside `_model`, extends `unload()` with `super().unload()`, and renames `load_model()` / `_load()` → `load()` with a backward-compat alias. `is_available()` classmethod wired to `_ROMA_OK`, `_JAMMA_OK`, `_KORNIA_OK`, `_TRANSFORMERS_OK` flags. `BaSiCWrapper.load()` is a no-op (profiles computed in `fit()`). `BiRefNetWrapper` uses `_ensure_loaded()` internal helper (preserves return-model contract), with `load_model = _ensure_loaded` alias. Roadmap item 4.2. |
+| **§5.8B `@lazy_load` decorator** (`backend/src/models/base.py`) | Calls `self.load()` on first invocation when `self.loaded` is False. Applied to key public entry-points: `LoFTRWrapper.match/match_masked`, `ALIKEDLightGlueWrapper.match`, `RoMaWrapper.match_translation`, `JamMaWrapper.match`, `EfficientLoFTRWrapper.match`, `BiRefNetWrapper.get_soft_mask`. External callers no longer need to call `load()` manually before using wrappers. |
+| **§5.8C `ModelRegistry` singleton** (`backend/src/models/base.py`) | Tracks all `ModelWrapper` instances via `weakref.ref` (auto-registered in `ModelWrapper.__init__`). `unload_all()` unloads every live wrapper with a model in memory and prunes dead refs. `loaded_count()` returns current VRAM occupancy count. `clear()` for test isolation. Wired into `ModelWrapper.__init__` — zero call-site changes needed. |
+| **§5.9A `BaseQThreadWorker`** (`gui/src/helpers/base.py`) | New file. `QThread` base with `finished/error/progress` signals, `_cancelled` flag, `cancel()` + `stop = cancel` alias, `run()` wrapping `_execute()` in try/except → `error.emit`. Subclasses implement `_execute()`; complex workers may override `run()` directly. |
+| **§5.9B `BaseQRunnableWorker` + `_WorkerSignals`** (`gui/src/helpers/base.py`) | `_WorkerSignals(QObject)` with `finished/error/progress/cancelled` signals — one shared class replaces per-worker signal objects. `BaseQRunnableWorker(QRunnable)` with `self.signals`, `_cancelled`, `cancel()`, `run()` checking pre-cancel flag then calling `_execute()`. `SearchWorker` migrated: removed `_SearchWorkerSignals` class, now inherits from `BaseQRunnableWorker`; `run()` → `_execute()`. |
+| **§5.15C Silent print→logger** (`conversion_worker.py`, `duplicate_scan_worker.py`, `gan_wrapper.py`, `lo_ra_tuner.py`) | 7 `print(f"Error...")` calls replaced with `logger.warning/error` in 4 files. Each file gained a `logger = logging.getLogger(__name__)` module-level logger where missing. Errors now appear in the application log and are filterable by severity. |
+
+### Test count
+
+**36 contract tests still passing** (0 regressions from ABC migration). Full backend suite: pre-existing `test_fg_register` failure (ptlflow not installed) unrelated to this work.
+
+---
+
 ## Arch Tier 1 — §5.8D Comment cleanup · §5.11B Deferred imports · §5.16A Contract tests (2026-06-18)
 
 ### Shipped

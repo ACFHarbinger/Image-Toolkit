@@ -39,7 +39,9 @@ import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-__all__ = ["load_asp_config", "validate_asp_config", "dump_asp_config"]
+from backend.src.exceptions import ConfigError
+
+__all__ = ["load_asp_config", "validate_asp_config", "dump_asp_config", "get_asp"]
 
 _DEFAULT_CONFIG_NAME = "asp_config.toml"
 
@@ -637,7 +639,7 @@ def validate_asp_config(
             violations.append(f"{key}={val!r} exceeds maximum {hi}. Hint: {desc}")
 
     if strict and violations:
-        raise ValueError(
+        raise ConfigError(
             "ASP config validation failed:\n"
             + "\n".join(f"  • {v}" for v in violations)
         )
@@ -703,6 +705,32 @@ def load_asp_config(
                 os.environ.setdefault(key, str(val))
 
     return flat
+
+
+def get_asp(key: str, default: str = "") -> str:
+    """Return an ASP pipeline env-var, falling back to *default*.
+
+    Prefer this over bare ``os.environ.get("ASP_*")`` calls because it
+    guarantees the default is consistent with the schema and makes call-sites
+    greppable via a single name.
+
+    Parameters
+    ----------
+    key:
+        The ``ASP_*`` environment variable name (e.g. ``"ASP_HOLD_THRESHOLD"``).
+    default:
+        String default returned when the key is absent from the environment.
+        Callers that need a non-string type should cast the return value::
+
+            threshold = float(get_asp("ASP_HOLD_THRESHOLD", "0.025"))
+            enabled   = get_asp("ASP_POISSON_SEAM", "0") != "0"
+
+    Returns
+    -------
+    str
+        The env-var value or *default*.
+    """
+    return os.environ.get(key, default)
 
 
 # Logical section groupings for the TOML dump (§1.8C).

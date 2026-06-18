@@ -270,15 +270,13 @@ def open_web_link(url_str: str):
 
 def _persist_splitter(splitter, key: str) -> None:
     """Wire a QSplitter to QSettings so its position survives restarts (GUI/UX §2.20A)."""
-    settings = QSettings("ImageToolkit", "ImageToolkit")
-    state = settings.value(f"splitter/{key}")
+    from gui.src.utils.settings import AppSettings
+    state = AppSettings.listings_splitter(key)
     if state:
         splitter.restoreState(state)
 
     splitter.splitterMoved.connect(
-        lambda: QSettings("ImageToolkit", "ImageToolkit").setValue(
-            f"splitter/{key}", splitter.saveState()
-        )
+        lambda: AppSettings.set_listings_splitter(key, splitter.saveState())
     )
 
 
