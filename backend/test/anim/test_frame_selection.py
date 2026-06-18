@@ -248,11 +248,19 @@ class TestDetectHoldBlocks:
         )
 
 
+@pytest.mark.gpu
+@pytest.mark.forked
 class TestDINOv2Features:
     """Tests for _compute_dinov2_features() — DINOv2 submodular selection (§3.3).
 
     The current API takes a list of image file paths (session 9 upgrade).
     Tests write temp PNG files to exercise the real code path.
+
+    Marked @pytest.mark.gpu: loads ~300 MB DINOv2-ViT-S/14 into VRAM via
+    torch.hub.load(); would pollute the VRAM budget for all subsequent tests
+    in the same process.
+    Marked @pytest.mark.forked: runs in an isolated subprocess (pytest-forked)
+    so VRAM is reclaimed by the OS when the subprocess exits (§3.12B).
     """
 
     def _write_png(self, tmp_path, arr: np.ndarray) -> str:

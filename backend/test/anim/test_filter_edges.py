@@ -31,6 +31,10 @@ from backend.src.anim.pipeline import (  # noqa: E402
 from backend.src.constants.anim import STATIC_EDGE_MIN_DISP_PX  # noqa: E402
 from conftest import make_edge, make_frame  # noqa: E402
 
+# §3.13B — all tests in this module create 480×640 frame arrays (≥900 KB each);
+# the gc_heavy marker triggers gc.collect() after each test.
+pytestmark = [pytest.mark.gc_heavy]
+
 
 # ---------------------------------------------------------------------------
 # Helpers

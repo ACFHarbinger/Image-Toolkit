@@ -191,6 +191,7 @@ class TestComputeAlignedSsim:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.gpu
 class TestComputeRlhfScore:
     """
     _compute_rlhf_score: RLHF reward-model quality gate.
@@ -198,6 +199,10 @@ class TestComputeRlhfScore:
     The model is initialized with random weights in the test environment
     (no trained checkpoint). Tests verify the interface contract (return
     type, range, flag logic) without asserting on the specific score value.
+
+    Marked @pytest.mark.gpu: StitchRewardModel() places the _RewardNet onto
+    CUDA (when available) and holds it in the module-level _reward_model
+    singleton for the session (§3.12 Root Cause #2).
     """
 
     def test_returns_float_or_none_for_valid_image(self):

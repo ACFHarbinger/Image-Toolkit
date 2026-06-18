@@ -35,7 +35,10 @@ Configuration
 from __future__ import annotations
 
 # --- Relocated Nested Imports ---
-import torch  # noqa: F401
+try:
+    import torch  # noqa: F401  # required by ProPainterInference when available
+except ImportError:
+    pass
 try:
     from propainter.inference_propainter import (  # type: ignore
         ProPainterInference,

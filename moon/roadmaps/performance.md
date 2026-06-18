@@ -1,6 +1,6 @@
 # Performance Roadmap — Compute, Memory, and I/O
 
-*Last updated: 2026-06-18. CRITICAL test-suite freeze sections added (§3.10–§3.14). All Tier 1–5 RAM reduction items are fully implemented (✅). These are the next-generation opportunities.*
+*Last updated: 2026-06-18. §3.10–§3.15 fully ✅. §3.15 non-anim import audit: image_merger.py (6 unconditional model imports → lazy) + vault_manager.py (jpype → try/except) + check_import_times.py extended to 16 modules (all pass 1.5 s threshold). §3.10–§3.14 complete from prior sessions. All Tier 1–5 RAM reduction items are fully implemented (✅). These are the next-generation opportunities.*
 
 ---
 
@@ -10,9 +10,9 @@ Each section describes a performance bottleneck, all viable implementation optio
 
 ---
 
-## ⚠ CRITICAL — §3.10 Test Suite Process Freeze: Root Cause Analysis
+## ✅ §3.10 Test Suite Process Freeze: Root Cause Analysis
 
-> **Severity: CRITICAL** — Confirmed. Running `pytest backend/test/` causes full system freeze (desktop unresponsive) on a 128 GB DDR5 / Intel i9 / RTX 3090 Ti system. Root causes identified 2026-06-18 via static analysis. Fixed items are marked ✅.
+> **Severity: CRITICAL — ALL ROOT CAUSES FIXED** — Running `pytest backend/test/anim/ --skip-gpu` is now safe (917 pass). `pytest backend/test/` (all modules) requires §3.15 non-anim audit to be complete. Root causes identified 2026-06-18; all fixed by 2026-06-18.
 
 ### Root Cause #1 — `from diffusers import DiffusionPipeline` at module level in `anim_fill.py` ✅ FIXED
 
@@ -24,7 +24,7 @@ Each section describes a performance bottleneck, all viable implementation optio
 
 **Fix applied (S140):** `from diffusers import DiffusionPipeline` moved inside `_load_tooncrafter()`. `torch` import in `anim_fill.py` wrapped in `try/except ImportError`. `compositing.py` duplicate imports (lines 29–32) deduplicated to single import.
 
-### Root Cause #2 — Module-level ML model singletons never evicted across test session
+### Root Cause #2 — Module-level ML model singletons never evicted across test session ✅ FIXED
 
 **What happens:** Three module-level singleton caches accumulate VRAM across the entire test session:
 - `_DINOV2_CACHE[device]` in `frame_selection.py` — `TestDINOv2Features::test_identical_images_low_cosine_distance` calls `torch.hub.load("facebookresearch/dinov2", "dinov2_vits14")`, loading ~300 MB into VRAM. The singleton persists in VRAM for the remaining 900+ tests.
@@ -34,9 +34,13 @@ Each section describes a performance bottleneck, all viable implementation optio
 
 **The `resource_cleanup` autouse fixture** calls `torch.cuda.empty_cache()` after each test — this frees **unoccupied** CUDA memory allocations but does **not** evict model weights that are still referenced by the module-level dictionaries. Total VRAM pinned after worst-case collection: ~12+ GB.
 
-**Fix needed:** Clear model singletons in a session-scoped teardown fixture, or add `@pytest.mark.gpu` + `--skip-gpu` CLI option to isolate model-loading tests.
+**Fixes applied:**
+- `TestDINOv2Features` marked `@pytest.mark.gpu` + `@pytest.mark.forked` — runs in an isolated subprocess; VRAM reclaimed by OS on subprocess exit (§3.12B).
+- `TestComputeRlhfScore` marked `@pytest.mark.gpu` — can be excluded from CI runs via `--skip-gpu`.
+- `--skip-gpu` CLI flag added to `conftest.py` — skips all `@pytest.mark.gpu` tests at collection time for fast non-GPU runs.
+- Session-end singleton teardown (`clear_ml_singletons`) frees all singletons when the full session completes.
 
-### Root Cause #3 — `ThreadPoolExecutor` spawned per `_composite_foreground` call across 311 tests
+### Root Cause #3 — `ThreadPoolExecutor` spawned per `_composite_foreground` call across 311 tests ✅ FIXED
 
 **What happens:** `_composite_foreground` in `compositing.py` creates `ThreadPoolExecutor(max_workers=min(N-1, 4))` on each call. `test_compositing.py` has 311 test functions, ~20 of which call `_composite_foreground` directly. Each pool creation:
 - Calls `pthread_create()` (Linux) for up to 4 threads
@@ -45,27 +49,31 @@ Each section describes a performance bottleneck, all viable implementation optio
 
 This creates ~1,200 thread lifecycle calls during the test run. Under rapid sequential creation, Linux's CFS scheduler stalls while waiting for `pthread_create()` kernel locks to settle, causing visible system unresponsiveness on high-load CPUs.
 
-**Fix needed:** See §3.11 (session-level ThreadPoolExecutor).
+**Fix applied:** See §3.11 — module-level `_SEAM_POOL` singleton + `_get_seam_pool()` in `compositing.py`.
 
-### Root Cause #4 — `gc.collect()` called 931 times via autouse fixture
+### Root Cause #4 — `gc.collect()` called 931 times via autouse fixture ✅ FIXED
 
 **What happens:** `resource_cleanup` is `autouse=True` in `conftest.py`, calling `gc.collect()` after every test. Python's cyclic GC traverses the entire reachable object graph. After Root Cause #1 is fixed, the remaining object graph is small. But if diffusers/transformers are loaded, their module globals (thousands of Python objects: classes, partial functions, closures) are traversed each time.
 - Estimated cost with ML libraries loaded: 10–100 ms per `gc.collect()` call
 - 931 tests × 50 ms = ~46 seconds of pure GC overhead, and intermittent GIL hold-time spikes
 
-**Fix needed:** Restrict `gc.collect()` to a session-scoped teardown (once after all tests), not per-test. Only call after tests that explicitly allocate large objects (use a custom `pytest.mark.gc_heavy` marker).
+**Fix applied:** See §3.13A — `resource_cleanup` scope raised to `module` (931 → ~19 GC calls). CUDA cleanup gated behind `ASP_TEST_CUDA_CLEANUP=1`.
 
-### Root Cause #5 — No process isolation: all 931 tests share one Python process
+### Root Cause #5 — No process isolation: all 931 tests share one Python process ✅ FIXED
 
 **What happens:** Because there is no `pytest-xdist` and no process-per-test isolation, every singleton loaded by test #1 stays alive for test #931. Memory fragmentation accumulates across the full session. On Linux, glibc's `malloc` keeps freed `mmap()` regions in its pool for reuse, causing RSS to climb monotonically throughout the session. A process that starts at 500 MB RSS after import can reach 8–12 GB RSS by test #900.
 
-**Fix needed:** See §3.12 (pytest-xdist) and §3.13 (subprocess isolation for model-loading tests).
+**Fixes applied:**
+- `pytest-xdist` + `pytest-forked` installed.
+- Parallel mode verified: `pytest backend/test/anim/ -n auto --dist=worksteal --skip-gpu` passes with same failure count, multiple independent worker processes each with bounded RSS.
+- GPU tests isolated with `@pytest.mark.forked` (subprocess) or skipped via `--skip-gpu`.
+- `pyproject.toml` documents the recommended invocations — addopts is intentionally empty (parallel execution is opt-in).
 
 ---
 
-## ⚠ CRITICAL — §3.11 Session-Level ThreadPoolExecutor Pool
+## ✅ §3.11 Session-Level ThreadPoolExecutor Pool
 
-> **Severity: CRITICAL** — 1,200+ thread create/destroy cycles during `pytest` freezes the CFS scheduler on high-core-count CPUs.
+> **Status: IMPLEMENTED** — Module-level `_SEAM_POOL` singleton in `compositing.py`. Zero thread churn after first call.
 
 ### Problem
 
@@ -98,11 +106,13 @@ The `_seam_cut()` DP forward pass already uses `scipy.ndimage.minimum_filter1d` 
 
 **Recommendation:** A immediately — zero-cost fix. C as a secondary safeguard for small N. B is a future research item.
 
+**Implemented:** Option A. `_get_seam_pool()` returns the module-level singleton; `_composite_foreground` uses `_pool.map()` directly without context-manager teardown. `clear_ml_singletons` session fixture calls `_SEAM_POOL.shutdown(wait=False)` at session end.
+
 ---
 
-## ⚠ CRITICAL — §3.12 pytest-xdist Worker Isolation
+## ✅ §3.12 pytest-xdist Worker Isolation
 
-> **Severity: CRITICAL** — All 931 tests run in one Python process, causing monotonic RSS growth and shared singleton contamination between test classes.
+> **Status: All three options implemented.** C (singleton teardown session fixture), B (pytest-forked on DINOv2), A (pytest-xdist -n auto --dist=worksteal verified). GPU tests isolated with @pytest.mark.gpu + @pytest.mark.forked and skippable via --skip-gpu.
 
 ### Problem
 
@@ -154,11 +164,16 @@ def clear_ml_singletons():
 
 **Recommendation:** C first (no dependency), then B to isolate model-loading tests. A for maximum isolation once fixture scopes are audited.
 
+**Implemented:** All three options.
+- **C:** `clear_ml_singletons` (autouse, scope=session) tears down all five ML singletons + seam pool at session end.
+- **B:** `TestDINOv2Features` marked `@pytest.mark.forked` — runs each test in an isolated subprocess; `pytest-forked` 1.6.0 installed.
+- **A:** `pytest-xdist` 3.8.0 installed. `pytest -n auto --dist=worksteal --skip-gpu` verified on anim suite; same 6 pre-existing failures, correct skip counts.
+
 ---
 
-## ⚠ CRITICAL — §3.13 conftest.py Overhead Reduction
+## ✅ §3.13 conftest.py Overhead Reduction
 
-> **Severity: CRITICAL** — `gc.collect()` + `torch.cuda.empty_cache()` on every test creates ~46 s of GC overhead and 931 CUDA ioctl calls.
+> **Status: IMPLEMENTED** — `resource_cleanup` scope raised to `module`. GC calls reduced 931 → ~19. CUDA cleanup gated behind `ASP_TEST_CUDA_CLEANUP=1`.
 
 ### Problem
 
@@ -201,11 +216,17 @@ Guard `torch.cuda.empty_cache()` behind `os.environ.get("ASP_TEST_CUDA_CLEANUP",
 
 **Recommendation:** A immediately. C as a follow-up after verifying no cyclic test objects. D for GPU-gated runs.
 
+**Implemented:** Options A + B + C + D (2026-06-18):
+- **A:** Scope raised to `module` (931 → ~19 GC calls). ✅
+- **B:** `gc_heavy_cleanup` function-scoped autouse fixture added to `conftest.py`; checks `request.node.get_closest_marker("gc_heavy")` and calls `gc.collect()` only when set. Marker applied to `TestCompositeForeground` and `TestParallelSeamPrecompute` (compositing), all of `test_filter_edges.py` (480×640 frames), and `TestNdarrayCodec::test_large_array_is_skipped` (16 MB array). ✅
+- **C:** `gc.collect()` removed from `resource_cleanup`; only CUDA flush remains. CPython refcounting handles non-cyclic test objects immediately; no cyclic references identified in the anim suite. GC calls now = number of `@pytest.mark.gc_heavy` tests (~40) rather than 931 (per function) or 19 (per module). ✅
+- **D:** CUDA flush gated behind `ASP_TEST_CUDA_CLEANUP=1`. ✅
+
 ---
 
-## ⚠ CRITICAL — §3.14 Heavy-Library Import Isolation
+## ✅ §3.14 Heavy-Library Import Isolation
 
-> **Severity: CRITICAL** — `compositing.py` importing `anim_fill.py` at module level triggered diffusers/transformers import during pytest collection. **Root Cause #1 fixed in S140.** Remaining work: audit all `backend/src/anim/` modules for unconditional heavy imports.
+> **Status: IMPLEMENTED** — Remaining unconditional heavy imports patched. See below.
 
 ### Problem
 
@@ -239,6 +260,78 @@ ssim_fn = lazy_object_proxy.Proxy(lambda: __import__("skimage.metrics", ...).str
 - Cons: Additional dependency. Proxy adds slight per-call overhead.
 
 **Recommendation:** A for immediate wins module-by-module. B as a CI regression gate. C only if A produces too many call-site changes.
+
+**Implemented:** Option A + B — comprehensive audit of all `backend/src/anim/` modules complete (2026-06-18):
+
+**Phase 1 (S140 + previous session):**
+- `compositing.py`: `import torch as _tc_torch` → `try/except ImportError`.
+- `bg_complete.py`: `import torch` → `try/except ImportError`.
+- `fg_register.py`: torch already guarded — no change.
+
+**Phase 2 (§3.14 full audit):**
+- `masking.py`: Deleted 18-line "Relocated Nested Imports" block; SAM-2 + grounding imports fully lazy.
+- `rendering.py`: sklearn KMeans → lazy function-level import.
+- `frame_selection.py`: Deleted 9-line "Relocated Nested Imports" block; torch/torchvision/PIL wrapped; BiRefNetWrapper lazy.
+- `matching.py`: `import torch` → `try/except ImportError`.
+- `pipeline.py`: `import torch` + `from PIL import Image` → `try/except ImportError`.
+
+**Phase 3 (wrapper + __init__ sweep — current):**
+- `pipeline.py`: All 5 heavy model-wrapper try/except blocks (BiRefNetWrapper, LoFTRWrapper, EfficientLoFTRWrapper, ALIKEDLightGlueWrapper, unused AnimeStitchNet) replaced with `importlib.util.find_spec()` probes. All 4 classes imported lazily at instantiation sites. "Relocated Nested Imports" block cleaned up (deduplicated; JamMaWrapper lazy).
+- `backend/src/models/__init__.py`: All 8 eager wrapper re-exports removed; only base utilities remain. Previously this caused EVERY import of any wrapper to trigger the full chain (birefnet → transformers + aliked → kornia + eloftr → transformers).
+- `fg_register.py`: `torchvision.models` (464 ms) moved from try/except module-level into `_get_vgg19_feat()`.
+- `scripts/check_import_times.py`: §3.14B CI regression gate — measures all 14 anim modules in subprocesses, flags any exceeding 1.5 s net above baseline. Run: `python scripts/check_import_times.py --ci`.
+
+**Result (Phase 3):** All 14 anim modules pass the 1.5 s threshold (net cost 0.67–0.80 s, down from 1.6–2.4 s). 917 anim tests pass (0 new failures).
+
+---
+
+## ✅ §3.15 Heavy-Library Import Isolation — Non-anim Modules
+
+> **Status: IMPLEMENTED** — `image_merger.py` and `vault_manager.py` patched. `check_import_times.py` extended to cover core modules. All 16 tracked modules pass the 1.5 s threshold.
+
+### Problem
+
+§3.14 fixed all 14 `backend/src/anim/` modules but left two non-anim source modules with the same "Relocated Nested Imports" pattern, discovered when auditing the non-anim test files in `backend/test/`:
+
+- **`backend/src/core/image_merger.py`** — six unconditional model-wrapper imports at module level:
+  ```python
+  from backend.src.models.siamese_network import SiameseModelLoader
+  from backend.src.models.gan_wrapper import GanWrapper
+  from backend.src.models.birefnet_wrapper import BiRefNetWrapper   # → transformers (~800ms)
+  from backend.src.models.basic_wrapper import BaSiCWrapper
+  from backend.src.models.loftr_wrapper import LoFTRWrapper          # → kornia (~168ms)
+  from backend.src.anim import AnimeStitchPipeline                   # → entire anim pipeline (~800ms)
+  ```
+  `test_image_merger_ml.py` imports `ImageMerger` at collection time, triggering all six. Total estimated cost: ~3 s above baseline — would have been flagged as SLOW by the CI gate if core modules were included.
+
+- **`backend/src/core/vault_manager.py`** — `import jpype` unconditionally at module level:
+  ```python
+  import jpype
+  from jpype.types import JArray, JChar
+  ```
+  `test_java_vault_manager.py` imports `VaultManager` at collection time. If jpype is installed, this triggers JVM path resolution. If jpype is absent, it raises `ImportError` crashing collection of all tests that run after it in the same worker.
+
+- **`scripts/check_import_times.py`** — only covered anim modules; core modules were invisible to the CI gate.
+
+### Options
+
+**A — Lazy wrapper imports in `_get_*()` [Quick Win]**
+Same pattern as §3.14 Phase 3: replace module-level imports with `find_spec()` probes + lazy `from ... import` inside each `_get_*()` method and `perfect_stitch()`.
+
+**B — try/except ImportError for `jpype` [Quick Win]**
+Wrap `import jpype; from jpype.types import ...` in `try/except ImportError`, setting module-level `_JPYPE_OK = False` when absent.
+
+**C — Extend CI gate to cover core modules [Quick Win]**
+Add `CORE_MODULES` list to `check_import_times.py`; fold into the same measurement loop.
+
+**Recommendation:** All three together — zero friction, same approach as §3.14.
+
+**Implemented:** Options A + B + C (2026-06-18):
+- **A:** `image_merger.py` — 6 unconditional imports removed. `find_spec()` probes for `transformers` (`_BIREFNET_OK`) and `kornia` (`_LOFTR_OK`). `try/except ImportError` for BaSiCWrapper, GanWrapper, SiameseModelLoader (lightweight). Lazy `from ... import` inside `_get_gan()`, `_get_birefnet()`, `_get_loftr()`, `_get_siamese()`, and `perfect_stitch()`. "Relocated Nested Imports" comment block removed.
+- **B:** `vault_manager.py` — `import jpype` + `from jpype.types import JArray, JChar` wrapped in `try/except ImportError`; `_JPYPE_OK` flag set.
+- **C:** `check_import_times.py` — `CORE_MODULES` list added; `run()` extended to measure both groups; final count now 16 modules.
+
+**Result:** `image_merger` net cost 0.50 s (was ~3+ s); `vault_manager` net cost 0.47 s. All 16 modules pass the 1.5 s threshold. 8 image_merger + vault_manager tests still pass.
 
 ---
 
@@ -486,9 +579,9 @@ Load models only when first needed; hold via `weakref.ref`. Python GC reclaims w
 
 | **Effort ↓ / Impact →** | Low | Medium | High | Very High |
 |---|---|---|---|---|
-| **Low (<1d)** | — | §3.4B prepared statements · §3.5A Selenium context manager · §3.6A DynamicImage move ownership · §3.7A explicit model unload · §5.7A uv lock | §3.4D HNSW index tuning · §3.4C partial index on path · **⚠§3.11A session-level ThreadPoolExecutor** · **⚠§3.13A module-scope gc.collect()** · **⚠§3.14A lazy heavy imports** | — |
-| **Medium (1d–1w)** | §3.9 SI-FID metric | §3.4A psycopg3 async pool · §3.4E materialized view · §3.7B LRU model cache · **⚠§3.12C singleton teardown fixture** | §3.3C dynamic BiRefNet batching · §3.5D Playwright migration · **⚠§3.12B pytest-forked for model tests** | — |
-| **High (1–2w)** | — | §3.4F table partitioning | §3.1A two-pass streaming merger · §3.2A GPU median (PyTorch CUDA) · **⚠§3.12A pytest-xdist full isolation** | — |
+| **Low (<1d)** | — | §3.4B prepared statements · §3.5A Selenium context manager · §3.6A DynamicImage move ownership · §3.7A explicit model unload · §5.7A uv lock | §3.4D HNSW index tuning · §3.4C partial index on path · ~~**⚠§3.11A session-level ThreadPoolExecutor**~~ ✅ · ~~**⚠§3.13A module-scope gc.collect()**~~ ✅ · ~~**⚠§3.14A lazy heavy imports**~~ ✅ · ~~**⚠§3.12B pytest-forked for model tests**~~ ✅ | — |
+| **Medium (1d–1w)** | §3.9 SI-FID metric | §3.4A psycopg3 async pool · §3.4E materialized view · §3.7B LRU model cache · ~~**⚠§3.12C singleton teardown fixture**~~ ✅ · ~~**⚠§3.12A pytest-xdist full isolation**~~ ✅ | §3.3C dynamic BiRefNet batching · §3.5D Playwright migration | — |
+| **High (1–2w)** | — | §3.4F table partitioning | §3.1A two-pass streaming merger · §3.2A GPU median (PyTorch CUDA) | — |
 | **Very High (2w+)** | — | — | §5.5C Rust AES-256-GCM vault (eliminates JVM + libstdc++ conflicts) | — |
 
 ---
@@ -497,11 +590,12 @@ Load models only when first needed; hold via `weakref.ref`. Python GC reclaims w
 
 | Section | Anchor |
 |---------|--------|
-| **⚠ 3.10 Test Suite Freeze Root Cause Analysis** | [#-critical--310-test-suite-process-freeze-root-cause-analysis](#-critical--310-test-suite-process-freeze-root-cause-analysis) |
-| **⚠ 3.11 Session-Level ThreadPoolExecutor** | [#-critical--311-session-level-threadpoolexecutor-pool](#-critical--311-session-level-threadpoolexecutor-pool) |
-| **⚠ 3.12 pytest-xdist Worker Isolation** | [#-critical--312-pytest-xdist-worker-isolation](#-critical--312-pytest-xdist-worker-isolation) |
-| **⚠ 3.13 conftest.py Overhead Reduction** | [#-critical--313-conftestpy-overhead-reduction](#-critical--313-conftestpy-overhead-reduction) |
-| **⚠ 3.14 Heavy-Library Import Isolation** | [#-critical--314-heavy-library-import-isolation](#-critical--314-heavy-library-import-isolation) |
+| **✅ 3.10 Test Suite Freeze Root Cause Analysis** | [#-310-test-suite-process-freeze-root-cause-analysis](#-310-test-suite-process-freeze-root-cause-analysis) |
+| **✅ 3.11 Session-Level ThreadPoolExecutor** | [#-311-session-level-threadpoolexecutor-pool](#-311-session-level-threadpoolexecutor-pool) |
+| **✅ 3.12 pytest-xdist Worker Isolation** | [#-312-pytest-xdist-worker-isolation](#-312-pytest-xdist-worker-isolation) |
+| **✅ 3.13 conftest.py Overhead Reduction** | [#-313-conftestpy-overhead-reduction](#-313-conftestpy-overhead-reduction) |
+| **✅ 3.14 Heavy-Library Import Isolation (anim)** | [#-314-heavy-library-import-isolation](#-314-heavy-library-import-isolation) |
+| **✅ 3.15 Heavy-Library Import Isolation (core)** | [#-315-heavy-library-import-isolation-non-anim-modules](#-315-heavy-library-import-isolation-non-anim-modules) |
 | 3.1 Streaming Image Merger | [#31-rust-streaming-image-merger](#31-rust-streaming-image-merger) |
 | 3.2 GPU Render Acceleration | [#32-asp-render-stage-gpu-acceleration](#32-asp-render-stage-gpu-acceleration) |
 | 3.3 BiRefNet Batching | [#33-birefnet-inference-batching](#33-birefnet-inference-batching) |

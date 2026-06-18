@@ -54,10 +54,7 @@ try:
 except ImportError:
     _slic_fn = None
 
-try:
-    import torchvision.models as tvm
-except ImportError:
-    tvm = None
+tvm = None  # §3.14 lazy — imported inside _get_vgg19_feat() to avoid torchvision load at collection time
 
 try:
     import torch.nn as nn
@@ -513,9 +510,10 @@ def _get_vgg19_feat():
     global _VGG19_SINGLETON, _VGG19_DEVICE
     if _VGG19_SINGLETON is not None or _VGG19_DEVICE == "FAILED":
         return _VGG19_SINGLETON, _VGG19_DEVICE
-    if torch is None or tvm is None or nn is None:
-        raise RuntimeError("torch or torchvision not installed")
+    if torch is None or nn is None:
+        raise RuntimeError("torch not installed")
     try:
+        import torchvision.models as tvm  # §3.14 lazy
         vgg = tvm.vgg19(weights=tvm.VGG19_Weights.IMAGENET1K_V1).features
         # conv3_4 is index 18 in VGG-19 features (0-indexed, after pool2 block)
         partial = nn.Sequential(*list(vgg.children())[:19]).to(device).eval()

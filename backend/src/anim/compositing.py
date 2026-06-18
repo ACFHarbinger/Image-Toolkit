@@ -26,8 +26,25 @@ from skimage.metrics import structural_similarity as ssim_fn
 from .stateless import _laplacian_blend
 from .fg_register import register_foreground_at_seam
 from .anim_fill import _generate_canonical_cel
-import torch as _tc_torch
 import concurrent.futures as _cf
+
+try:
+    import torch as _tc_torch
+except ImportError:
+    _tc_torch = None  # type: ignore[assignment]
+
+# §3.11 — Session-level seam ThreadPoolExecutor.  Creating a new pool per
+# _composite_foreground call (311 tests × up to 4 workers) causes ~1 200
+# pthread_create/join cycles that stall the Linux CFS scheduler.  One shared
+# pool, created once on first use, eliminates all thread lifecycle overhead.
+_SEAM_POOL: Optional["_cf.ThreadPoolExecutor"] = None
+
+
+def _get_seam_pool() -> "_cf.ThreadPoolExecutor":
+    global _SEAM_POOL
+    if _SEAM_POOL is None:
+        _SEAM_POOL = _cf.ThreadPoolExecutor(max_workers=4)
+    return _SEAM_POOL
 
 
 import os
@@ -3898,9 +3915,9 @@ def _composite_foreground(
         _seam_jobs.append((_k, _fa_z, _fb_z, _sem, W, _y1 - _y0, _ov_wps))
 
     if len(_seam_jobs) > 1:
-        with _cf.ThreadPoolExecutor(max_workers=min(len(_seam_jobs), 4)) as _pool:
-            for _k, _path in _pool.map(_seam_job, _seam_jobs):
-                _precomp_paths[_k] = _path
+        _pool = _get_seam_pool()
+        for _k, _path in _pool.map(_seam_job, _seam_jobs):
+            _precomp_paths[_k] = _path
     elif _seam_jobs:
         _k, _path = _seam_job(_seam_jobs[0])
         _precomp_paths[_k] = _path

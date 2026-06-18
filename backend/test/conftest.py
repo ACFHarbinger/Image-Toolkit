@@ -46,16 +46,145 @@ import src.constants as udef  # noqa: E402
 from src.core import FSETool  # noqa: E402
 from src.web import ImageCrawler  # noqa: E402
 
-@pytest.fixture(autouse=True)
+
+# ---------------------------------------------------------------------------
+# §3.12 — CLI options and collection hooks for GPU isolation
+# ---------------------------------------------------------------------------
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Register --skip-gpu flag (§3.12 / Root Cause #2).
+
+    When passed, all @pytest.mark.gpu tests are deselected at collection time
+    so the full suite runs without loading VRAM-heavy models into the GPU.
+    Use for quick CI loops or on machines without a discrete GPU.
+    """
+    parser.addoption(
+        "--skip-gpu",
+        action="store_true",
+        default=False,
+        help="Skip all tests marked @pytest.mark.gpu (DINOv2, RLHF reward model).",
+    )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Register custom markers to suppress PytestUnknownMarkWarning."""
+    config.addinivalue_line(
+        "markers", "gpu: test loads ML model weights into VRAM (DINOv2, RLHF, etc.)"
+    )
+    config.addinivalue_line(
+        "markers", "gc_heavy: test allocates large temporary objects"
+    )
+    config.addinivalue_line(
+        "markers", "slow: test takes more than 10 s"
+    )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list) -> None:
+    """Deselect @pytest.mark.gpu tests when --skip-gpu is active."""
+    if not config.getoption("--skip-gpu", default=False):
+        return
+    skip_marker = pytest.mark.skip(reason="Skipped: --skip-gpu flag active.")
+    for item in items:
+        if item.get_closest_marker("gpu"):
+            item.add_marker(skip_marker)
+
+
+@pytest.fixture(autouse=True, scope="module")
 def resource_cleanup():
-    """Aggressively clean up memory and GPU VRAM after every test to prevent RAM exhaustion."""
+    """Flush GPU VRAM once per module (§3.13A + §3.13C).
+
+    §3.13C: gc.collect() removed — CPython's reference counting frees non-cyclic
+    objects (numpy arrays, dicts, etc.) immediately when they go out of scope.
+    The cyclic GC is not needed for the anim test suite; removing the call
+    eliminates ~19 GC traversals of the growing object graph.
+
+    CUDA flush is retained but gated behind ASP_TEST_CUDA_CLEANUP=1 to avoid
+    the ioctl kernel round-trip on CPU-only test runs.
+    """
     yield
+    if os.environ.get("ASP_TEST_CUDA_CLEANUP", "0") != "0":
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.ipc_collect()
+        except ImportError:
+            pass
+
+
+@pytest.fixture(autouse=True, scope="function")
+def gc_heavy_cleanup(request):
+    """Run gc.collect() after tests marked @pytest.mark.gc_heavy (§3.13B).
+
+    Tests that explicitly allocate large temporary objects (multi-frame canvas
+    arrays, seam DP cost maps, 16 MB probe arrays) opt in with the marker so
+    that the cyclic GC runs immediately after they finish — before the next
+    test allocates.  All other tests pay zero GC overhead.
+
+    Usage::
+
+        @pytest.mark.gc_heavy
+        class TestCompositeForeground:
+            ...
+    """
+    yield
+    if request.node.get_closest_marker("gc_heavy"):
+        gc.collect()
+
+
+@pytest.fixture(autouse=True, scope="session")
+def clear_ml_singletons():
+    """Tear down module-level ML model singletons at session end.
+
+    §3.12 (Option C): Clears DINOv2, SEA-RAFT, and VGG-19 singletons that
+    accumulate VRAM across the test session.  Running at session scope means
+    models are freed after all tests finish rather than held until process exit,
+    allowing the OS to reclaim VRAM for subsequent tool invocations.
+    """
+    yield
+    try:
+        import backend.src.anim.frame_selection as _fs
+        for _k in list(getattr(_fs, "_DINOV2_CACHE", {}).keys()):
+            _entry = _fs._DINOV2_CACHE.pop(_k, None)
+            if _entry is not None:
+                del _entry
+    except Exception:
+        pass
+    try:
+        import backend.src.anim.fg_register as _fgr
+        if getattr(_fgr, "_SEARAFT_SINGLETON", None) is not None:
+            del _fgr._SEARAFT_SINGLETON
+            _fgr._SEARAFT_SINGLETON = None
+            _fgr._SEARAFT_DEVICE = None
+        if getattr(_fgr, "_VGG19_SINGLETON", None) is not None:
+            del _fgr._VGG19_SINGLETON
+            _fgr._VGG19_SINGLETON = None
+            _fgr._VGG19_DEVICE = None
+        if getattr(_fgr, "_DIS_SINGLETON", None) is not None:
+            del _fgr._DIS_SINGLETON
+            _fgr._DIS_SINGLETON = None
+    except Exception:
+        pass
+    try:
+        import backend.src.anim.anim_fill as _af
+        if getattr(_af, "_TC_PIPELINE", None) is not None:
+            del _af._TC_PIPELINE
+            _af._TC_PIPELINE = None
+    except Exception:
+        pass
+    try:
+        import backend.src.anim.compositing as _comp
+        if getattr(_comp, "_SEAM_POOL", None) is not None:
+            _comp._SEAM_POOL.shutdown(wait=False)
+            _comp._SEAM_POOL = None
+    except Exception:
+        pass
     gc.collect()
     try:
         import torch
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-            torch.cuda.ipc_collect()
     except ImportError:
         pass
 

@@ -1,23 +1,12 @@
+# §3.14 — wrapper classes are NOT eagerly imported here.
+# All callers use the full module path (e.g. from backend.src.models.birefnet_wrapper import ...)
+# so there is no need to re-export them from this package __init__.  Eager imports
+# of aliked_lg_wrapper, birefnet_wrapper, etc. pulled in torchvision + transformers
+# at pytest collection time, causing the test-suite freeze.
 from .base import ModelWrapper, ModelRegistry, lazy_load
-from .aliked_lg_wrapper import ALIKEDLightGlueWrapper
-from .basic_wrapper import BaSiCWrapper
-from .birefnet_wrapper import BiRefNetWrapper
-from .efficient_loftr_wrapper import EfficientLoFTRWrapper
-from .gan_wrapper import GanWrapper
-from .jamma_wrapper import JamMaWrapper
-from .loftr_wrapper import LoFTRWrapper
-from .roma_wrapper import RoMaWrapper
 
 __all__ = [
     "ModelWrapper",
     "ModelRegistry",
     "lazy_load",
-    "ALIKEDLightGlueWrapper",
-    "BaSiCWrapper",
-    "BiRefNetWrapper",
-    "EfficientLoFTRWrapper",
-    "GanWrapper",
-    "JamMaWrapper",
-    "LoFTRWrapper",
-    "RoMaWrapper",
 ]

@@ -31,15 +31,17 @@ import cv2
 import numpy as np
 import torch
 
-_DIFFUSERS_OK = False
-_DIFFUSERS_ERR = ""
+import importlib.util as _importlib_util
 
-try:
-    from diffusers import StableDiffusionInpaintPipeline, AutoPipelineForInpainting  # type: ignore
-    from PIL import Image as _PILImage
-    _DIFFUSERS_OK = True
-except Exception as _e:
-    _DIFFUSERS_ERR = str(_e)
+# Fast availability probe — no import, just checks for the package on sys.path.
+# §3.14: actual `from diffusers import ...` is deferred to _ensure_diffusers().
+_DIFFUSERS_OK: bool = _importlib_util.find_spec("diffusers") is not None
+_DIFFUSERS_ERR = "" if _DIFFUSERS_OK else "diffusers not installed"
+_DIFFUSERS_LOADED = False  # True once the lazy import has completed
+# Populated lazily on first call to _ensure_diffusers()
+StableDiffusionInpaintPipeline = None
+AutoPipelineForInpainting = None
+_PILImage = None
 
 # Fallback model IDs to try in order (public, no auth required)
 _ANIME_INPAINT_MODELS = [
@@ -50,9 +52,37 @@ _ANIME_INPAINT_MODELS = [
 _PIPELINE_CACHE: dict = {}
 
 
+def _ensure_diffusers() -> bool:
+    """Lazy-load diffusers + PIL once; populate module-level sentinels.  §3.14.
+
+    Returns True if diffusers is available and successfully imported.
+    Calling this multiple times is safe (no-op after first successful load).
+    """
+    global _DIFFUSERS_OK, _DIFFUSERS_LOADED, _DIFFUSERS_ERR  # noqa: PLW0603
+    global StableDiffusionInpaintPipeline, AutoPipelineForInpainting, _PILImage  # noqa: PLW0603
+    if not _DIFFUSERS_OK:
+        return False
+    if _DIFFUSERS_LOADED:
+        return True
+    try:
+        from diffusers import (  # type: ignore
+            StableDiffusionInpaintPipeline as _SD,
+            AutoPipelineForInpainting as _AP,
+        )
+        from PIL import Image as _PI
+        StableDiffusionInpaintPipeline = _SD
+        AutoPipelineForInpainting = _AP
+        _PILImage = _PI
+        _DIFFUSERS_LOADED = True
+    except Exception as _e:
+        _DIFFUSERS_OK = False
+        _DIFFUSERS_ERR = str(_e)
+    return _DIFFUSERS_LOADED
+
+
 def _get_inpaint_pipeline(device: str = "cpu", model_id: Optional[str] = None):
     """Load and cache an inpainting pipeline."""
-    if not _DIFFUSERS_OK:
+    if not _ensure_diffusers():
         raise ImportError(f"diffusers not available: {_DIFFUSERS_ERR}")
 
     key = (model_id, device)
@@ -141,7 +171,7 @@ def _inpaint_region(
     Only tiles that overlap the mask are processed; unmasked tiles are
     returned unchanged.
     """
-    if not _DIFFUSERS_OK:
+    if not _ensure_diffusers():
         return canvas
 
     H, W = canvas.shape[:2]

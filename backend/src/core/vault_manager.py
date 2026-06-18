@@ -1,12 +1,21 @@
 import os
 import sys
 import json
-import jpype
 import hashlib
 import threading
 import backend.src.constants as udef
 
-from jpype.types import JArray, JChar
+# §3.15B — jpype triggers JVM introspection at import time; guard so test
+# collection does not start a JVM when jpype is absent or no JAR is loaded.
+try:
+    import jpype
+    from jpype.types import JArray, JChar
+    _JPYPE_OK = True
+except ImportError:
+    jpype = None  # type: ignore[assignment]
+    JArray = None  # type: ignore[assignment]
+    JChar = None  # type: ignore[assignment]
+    _JPYPE_OK = False
 
 
 class VaultManager:
