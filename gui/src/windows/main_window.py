@@ -35,6 +35,7 @@ from ..styles.style import (
 from ..constants import NEW_LIMIT_MB
 from ..utils.lru_image_cache import LRUImageCache
 from backend.src.core.vault_manager import VaultManager
+from backend.src.constants import LOCAL_SOURCE_PATH
 
 
 def show_tray_notification(title: str, message: str, timeout_ms: int = 4000) -> None:
@@ -122,6 +123,7 @@ class MainWindow(QWidget):
             try:
                 from PySide6.QtCore import Qt as _Qt
                 from PySide6.QtGui import QGuiApplication as _QGA
+
                 os_scheme = _QGA.styleHints().colorScheme()
                 if os_scheme == _Qt.ColorScheme.Light:
                     initial_theme = "light"
@@ -278,7 +280,7 @@ class MainWindow(QWidget):
 
         # GUI/UX §2.16 — wire vault preferences to runtime at startup
         self._apply_startup_preferences()
-        
+
         # Apply tab configs after global preferences so profile settings take priority
         self._apply_active_tab_configs()
 
@@ -365,18 +367,31 @@ class MainWindow(QWidget):
             return config_data
 
         import copy
+
         sanitized = copy.deepcopy(config_data)
 
         # Clear or reset fields representing local directories or paths
         keys_to_clear = [
-            "scan_directory", "source_directory", "extraction_directory",
-            "download_dir", "screenshot_dir", "local_path", "input_path",
-            "output_path", "scan_dir", "lora_path", "checkpoint_path",
-            "image_path"
+            "scan_directory",
+            "source_directory",
+            "extraction_directory",
+            "download_dir",
+            "screenshot_dir",
+            "local_path",
+            "input_path",
+            "output_path",
+            "scan_dir",
+            "lora_path",
+            "checkpoint_path",
+            "image_path",
         ]
         for key in keys_to_clear:
             if key in sanitized:
                 sanitized[key] = ""
+        if "video_path" in sanitized:
+            sanitized["video_path"] = ""
+        if "active_videos_config" in sanitized:
+            sanitized["active_videos_config"] = {}
 
         return sanitized
 
@@ -391,7 +406,7 @@ class MainWindow(QWidget):
 
                 if tab_class_name in active_configs:
                     config_name = active_configs[tab_class_name]
-                    
+
                     if (
                         tab_class_name in saved_tab_configs
                         and config_name in saved_tab_configs[tab_class_name]
@@ -404,7 +419,9 @@ class MainWindow(QWidget):
                         ):
                             try:
                                 tab_instance.set_config(config_data)
-                                print(f"Applied active config '{config_name}' to {tab_class_name}")
+                                print(
+                                    f"Applied active config '{config_name}' to {tab_class_name}"
+                                )
                             except Exception as e:
                                 print(f"Error applying config to {tab_class_name}: {e}")
 
@@ -425,11 +442,11 @@ class MainWindow(QWidget):
         # NEW: Extractor seek interval & recent extractions count
         extractor_seek_ms = int(prefs.get("extractor_seek_ms", 100))
         recent_extractions_count = int(prefs.get("recent_extractions_count", 10))
+        extractor_time_format = prefs.get("extractor_time_format", "m:s:ms")
 
         restore_last_dir = prefs.get("restore_last_dir", True)
-        from backend.src.constants import LOCAL_SOURCE_PATH
-        default_dir = str(LOCAL_SOURCE_PATH)
 
+        default_dir = LOCAL_SOURCE_PATH
         for cat_tabs in self.all_tabs.values():
             for tab in cat_tabs.values():
                 # Thumbnail & page size (§2.16A)
@@ -464,14 +481,28 @@ class MainWindow(QWidget):
                 # Apply Extractor recent limit
                 if hasattr(tab, "recent_extractions_limit"):
                     tab.recent_extractions_limit = recent_extractions_count
-                    if hasattr(tab, "_apply_new_extractions_limit") and callable(tab._apply_new_extractions_limit):
+                    if hasattr(tab, "_apply_new_extractions_limit") and callable(
+                        tab._apply_new_extractions_limit
+                    ):
                         tab._apply_new_extractions_limit()
 
                 # Apply Extractor queue setting
                 if hasattr(tab, "extraction_queue_enabled"):
-                    tab.extraction_queue_enabled = prefs.get("enable_extraction_queue", False)
-                    if hasattr(tab, "_on_queue_toggle_changed") and callable(tab._on_queue_toggle_changed):
+                    tab.extraction_queue_enabled = prefs.get(
+                        "enable_extraction_queue", False
+                    )
+                    if hasattr(tab, "_on_queue_toggle_changed") and callable(
+                        tab._on_queue_toggle_changed
+                    ):
                         tab._on_queue_toggle_changed()
+
+                # Apply Extractor time display format
+                if hasattr(tab, "time_display_format"):
+                    tab.time_display_format = extractor_time_format
+                    if hasattr(tab, "refresh_time_display") and callable(
+                        tab.refresh_time_display
+                    ):
+                        tab.refresh_time_display()
 
         # §2.16C — startup category
         startup_cat = prefs.get("startup_category", "")
@@ -482,8 +513,12 @@ class MainWindow(QWidget):
         if hasattr(self, "wallpaper_tab"):
             wt = self.wallpaper_tab
             try:
-                wt.interval_min_spinbox.setValue(int(prefs.get("slideshow_interval_min", 5)))
-                wt.interval_sec_spinbox.setValue(int(prefs.get("slideshow_interval_sec", 0)))
+                wt.interval_min_spinbox.setValue(
+                    int(prefs.get("slideshow_interval_min", 5))
+                )
+                wt.interval_sec_spinbox.setValue(
+                    int(prefs.get("slideshow_interval_sec", 0))
+                )
                 order = prefs.get("slideshow_order", "Sequential")
                 wt.playback_order_combo.setCurrentText(order)
             except Exception:
@@ -515,7 +550,12 @@ class MainWindow(QWidget):
         if icon is None or not isinstance(icon, QIcon):
             _asset = os.path.join(
                 os.path.dirname(__file__),
-                "..", "..", "..", "assets", "images", "image_toolkit_icon.png",
+                "..",
+                "..",
+                "..",
+                "assets",
+                "images",
+                "image_toolkit_icon.png",
             )
             _asset = os.path.normpath(_asset)
             if os.path.exists(_asset):
@@ -582,7 +622,13 @@ class MainWindow(QWidget):
     # --- §2.16C — Ctrl+T tab search popup ---
     def _open_tab_search(self) -> None:
         """Show a floating tab-name filter popup (§2.16C)."""
-        from PySide6.QtWidgets import QDialog, QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout as _VBox
+        from PySide6.QtWidgets import (
+            QDialog,
+            QLineEdit,
+            QListWidget,
+            QListWidgetItem,
+            QVBoxLayout as _VBox,
+        )
 
         all_entries: list[tuple[str, str, str]] = []
         for category, tabs_in_cat in self.all_tabs.items():
@@ -642,8 +688,12 @@ class MainWindow(QWidget):
     # --- §2.25A — Keyboard shortcut discovery overlay (Ctrl+/ or F1) ---
     def _open_shortcut_overlay(self) -> None:
         from PySide6.QtWidgets import (
-            QDialog, QTableWidget, QTableWidgetItem,
-            QVBoxLayout as _VBox, QLineEdit, QHeaderView,
+            QDialog,
+            QTableWidget,
+            QTableWidgetItem,
+            QVBoxLayout as _VBox,
+            QLineEdit,
+            QHeaderView,
         )
         from PySide6.QtCore import Qt as _Qt
         from ..utils.shortcut_manager import get_registry
@@ -664,9 +714,13 @@ class MainWindow(QWidget):
 
         table = QTableWidget(0, 3)
         table.setHorizontalHeaderLabels(["Scope", "Action", "Key"])
-        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeMode.ResizeToContents
+        )
         table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        table.horizontalHeader().setSectionResizeMode(
+            2, QHeaderView.ResizeMode.ResizeToContents
+        )
         table.verticalHeader().setVisible(False)
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -677,13 +731,22 @@ class MainWindow(QWidget):
             q = text.strip().lower()
             table.setRowCount(0)
             for entry in all_actions:
-                if q and q not in entry["description"].lower() and q not in entry["current"].lower() and q not in entry["scope"].lower():
+                if (
+                    q
+                    and q not in entry["description"].lower()
+                    and q not in entry["current"].lower()
+                    and q not in entry["scope"].lower()
+                ):
                     continue
                 row = table.rowCount()
                 table.insertRow(row)
-                for col, val in enumerate([entry["scope"], entry["description"], entry["current"]]):
+                for col, val in enumerate(
+                    [entry["scope"], entry["description"], entry["current"]]
+                ):
                     item = QTableWidgetItem(val)
-                    item.setFlags(_Qt.ItemFlag.ItemIsEnabled | _Qt.ItemFlag.ItemIsSelectable)
+                    item.setFlags(
+                        _Qt.ItemFlag.ItemIsEnabled | _Qt.ItemFlag.ItemIsSelectable
+                    )
                     table.setItem(row, col, item)
 
         search.textChanged.connect(_populate)
@@ -726,6 +789,7 @@ class MainWindow(QWidget):
         font_scale = prefs.get("font_scale", 100)
         if font_scale != 100:
             from PySide6.QtGui import QFont
+
             scaled_pt = max(7, int(10 * font_scale / 100))
             QApplication.instance().setFont(QFont("Segoe UI", scaled_pt))
 
@@ -796,11 +860,15 @@ class MainWindow(QWidget):
         username = getattr(self.vault_manager, "account_name", None)
         recovery_data = {}
         if username:
-            for recovery_dir in ("/home/pkhunter/.image-toolkit/recovery", os.path.expanduser("~/.image-toolkit/recovery")):
+            for recovery_dir in (
+                "/home/pkhunter/.image-toolkit/recovery",
+                os.path.expanduser("~/.image-toolkit/recovery"),
+            ):
                 enc_file_path = os.path.join(recovery_dir, f"recovery_{username}.enc")
                 if os.path.exists(enc_file_path):
                     try:
                         import json
+
                         SecureJsonVault = self.vault_manager.SecureJsonVault
                         secret_key = self.vault_manager.secret_key
                         temp_file_vault = SecureJsonVault(secret_key, enc_file_path)
@@ -809,7 +877,9 @@ class MainWindow(QWidget):
                         recovery_data = json.loads(decrypted_json)
                         break
                     except Exception as e:
-                        print(f"Warning: Failed to decrypt recovery file {enc_file_path}: {e}")
+                        print(
+                            f"Warning: Failed to decrypt recovery file {enc_file_path}: {e}"
+                        )
 
         if not recovery_data:
             # Fallback to cached_creds if no file was decrypted (backward compatibility)
@@ -823,17 +893,26 @@ class MainWindow(QWidget):
         restore_last_dir = prefs.get("restore_last_dir", True)
         if restore_last_dir:
             from backend.src.constants import LOCAL_SOURCE_PATH
+
             default_dir = str(LOCAL_SOURCE_PATH)
 
             # Determine target active tab instance
             target_active_tab = None
             if recovery_level != "None" and active_category and active_tab_name:
-                target_active_tab = self.all_tabs.get(active_category, {}).get(active_tab_name)
+                target_active_tab = self.all_tabs.get(active_category, {}).get(
+                    active_tab_name
+                )
             if not target_active_tab:
                 curr_cat = self.command_combo.currentText()
-                curr_tab_name = self.tabs.tabText(self.tabs.currentIndex()) if self.tabs.currentIndex() >= 0 else None
+                curr_tab_name = (
+                    self.tabs.tabText(self.tabs.currentIndex())
+                    if self.tabs.currentIndex() >= 0
+                    else None
+                )
                 if curr_cat and curr_tab_name:
-                    target_active_tab = self.all_tabs.get(curr_cat, {}).get(curr_tab_name)
+                    target_active_tab = self.all_tabs.get(curr_cat, {}).get(
+                        curr_tab_name
+                    )
 
             if recovery_level == "None":
                 # Reset all tabs
@@ -874,24 +953,38 @@ class MainWindow(QWidget):
                 for tab_instance in tabs_in_category.values():
                     tab_class_name = type(tab_instance).__name__
                     if tab_class_name in tab_configs:
-                        if hasattr(tab_instance, "set_config") and callable(tab_instance.set_config):
+                        if hasattr(tab_instance, "set_config") and callable(
+                            tab_instance.set_config
+                        ):
                             try:
-                                sanitized_cfg = self._sanitize_config_if_needed(tab_configs[tab_class_name])
+                                sanitized_cfg = self._sanitize_config_if_needed(
+                                    tab_configs[tab_class_name]
+                                )
                                 tab_instance.set_config(sanitized_cfg)
                             except Exception as e:
-                                print(f"Warning: Failed to restore config to {tab_class_name} during session recovery: {e}")
+                                print(
+                                    f"Warning: Failed to restore config to {tab_class_name} during session recovery: {e}"
+                                )
         elif recovery_level == "Current Tab":
             if active_category and active_tab_name:
-                tab_instance = self.all_tabs.get(active_category, {}).get(active_tab_name)
+                tab_instance = self.all_tabs.get(active_category, {}).get(
+                    active_tab_name
+                )
                 if tab_instance:
                     tab_class_name = type(tab_instance).__name__
                     if tab_class_name in tab_configs:
-                        if hasattr(tab_instance, "set_config") and callable(tab_instance.set_config):
+                        if hasattr(tab_instance, "set_config") and callable(
+                            tab_instance.set_config
+                        ):
                             try:
-                                sanitized_cfg = self._sanitize_config_if_needed(tab_configs[tab_class_name])
+                                sanitized_cfg = self._sanitize_config_if_needed(
+                                    tab_configs[tab_class_name]
+                                )
                                 tab_instance.set_config(sanitized_cfg)
                             except Exception as e:
-                                print(f"Warning: Failed to restore config to active tab {tab_class_name} during session recovery: {e}")
+                                print(
+                                    f"Warning: Failed to restore config to active tab {tab_class_name} during session recovery: {e}"
+                                )
 
         # Transfer user to the previously opened tab
         if active_category and active_category in self.all_tabs:
@@ -909,6 +1002,7 @@ class MainWindow(QWidget):
 
         try:
             import json
+
             # Load current credentials/preferences from the vault
             creds = self.vault_manager.load_account_credentials()
             if not creds:
@@ -927,52 +1021,84 @@ class MainWindow(QWidget):
             if recovery_level != "None":
                 active_category = self.command_combo.currentText()
                 active_tab_index = self.tabs.currentIndex()
-                active_tab_name = self.tabs.tabText(active_tab_index) if active_tab_index >= 0 else None
+                active_tab_name = (
+                    self.tabs.tabText(active_tab_index)
+                    if active_tab_index >= 0
+                    else None
+                )
 
                 tab_configs = {}
                 if recovery_level == "All Tabs":
                     for category, tabs_in_category in self.all_tabs.items():
                         for tab_instance in tabs_in_category.values():
-                            if hasattr(tab_instance, "collect") and callable(tab_instance.collect):
+                            if hasattr(tab_instance, "collect") and callable(
+                                tab_instance.collect
+                            ):
                                 try:
-                                    tab_configs[type(tab_instance).__name__] = tab_instance.collect()
+                                    tab_configs[type(tab_instance).__name__] = (
+                                        tab_instance.collect()
+                                    )
                                 except Exception as e:
-                                    print(f"Warning: Failed to collect config from {type(tab_instance).__name__}: {e}")
+                                    print(
+                                        f"Warning: Failed to collect config from {type(tab_instance).__name__}: {e}"
+                                    )
                 elif recovery_level == "Current Tab":
                     if active_category and active_tab_name:
-                        tab_instance = self.all_tabs.get(active_category, {}).get(active_tab_name)
-                        if tab_instance and hasattr(tab_instance, "collect") and callable(tab_instance.collect):
+                        tab_instance = self.all_tabs.get(active_category, {}).get(
+                            active_tab_name
+                        )
+                        if (
+                            tab_instance
+                            and hasattr(tab_instance, "collect")
+                            and callable(tab_instance.collect)
+                        ):
                             try:
-                                tab_configs[type(tab_instance).__name__] = tab_instance.collect()
+                                tab_configs[type(tab_instance).__name__] = (
+                                    tab_instance.collect()
+                                )
                             except Exception as e:
-                                print(f"Warning: Failed to collect config from active tab {type(tab_instance).__name__}: {e}")
+                                print(
+                                    f"Warning: Failed to collect config from active tab {type(tab_instance).__name__}: {e}"
+                                )
 
                 recovery_data = {
                     "active_category": active_category,
                     "active_tab": active_tab_name,
-                    "tab_configs": tab_configs
+                    "tab_configs": tab_configs,
                 }
 
                 # Save session recovery data to the encrypted file
-                for recovery_dir in ("/home/pkhunter/.image-toolkit/recovery", os.path.expanduser("~/.image-toolkit/recovery")):
+                for recovery_dir in (
+                    "/home/pkhunter/.image-toolkit/recovery",
+                    os.path.expanduser("~/.image-toolkit/recovery"),
+                ):
                     try:
                         os.makedirs(recovery_dir, exist_ok=True)
-                        enc_file_path = os.path.join(recovery_dir, f"recovery_{username}.enc")
+                        enc_file_path = os.path.join(
+                            recovery_dir, f"recovery_{username}.enc"
+                        )
                         SecureJsonVault = self.vault_manager.SecureJsonVault
                         secret_key = self.vault_manager.secret_key
                         temp_file_vault = SecureJsonVault(secret_key, enc_file_path)
                         temp_file_vault.saveData(json.dumps(recovery_data))
                         break
                     except Exception as e:
-                        print(f"Warning: Failed to save recovery data to {recovery_dir}: {e}")
+                        print(
+                            f"Warning: Failed to save recovery data to {recovery_dir}: {e}"
+                        )
 
                 # Keep vault backup in sync
                 creds["session_recovery_data"] = recovery_data
             else:
                 creds["session_recovery_data"] = {}
                 # Delete recovery file if recovery level is set to None
-                for recovery_dir in ("/home/pkhunter/.image-toolkit/recovery", os.path.expanduser("~/.image-toolkit/recovery")):
-                    enc_file_path = os.path.join(recovery_dir, f"recovery_{username}.enc")
+                for recovery_dir in (
+                    "/home/pkhunter/.image-toolkit/recovery",
+                    os.path.expanduser("~/.image-toolkit/recovery"),
+                ):
+                    enc_file_path = os.path.join(
+                        recovery_dir, f"recovery_{username}.enc"
+                    )
                     if os.path.exists(enc_file_path):
                         try:
                             os.remove(enc_file_path)
@@ -1006,7 +1132,11 @@ class MainWindow(QWidget):
 
     def closeEvent(self, event):
         # §2.12C — minimize to tray instead of quitting (opt-in)
-        if getattr(self, "_minimize_to_tray", False) and self._tray_icon and self._tray_icon.isVisible():
+        if (
+            getattr(self, "_minimize_to_tray", False)
+            and self._tray_icon
+            and self._tray_icon.isVisible()
+        ):
             event.ignore()
             self.hide()
             self._tray_icon.showMessage(

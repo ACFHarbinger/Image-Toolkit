@@ -39,7 +39,19 @@ from .canvas import (
     _telea_fill_gaps,
     find_optimal_sequence,
 )
-from .compositing import _check_seam_color_gate, _check_seam_ncc_gate, _composite_foreground
+from .compositing import (
+    _check_seam_color_gate,
+    _check_seam_entropy_gate,
+    _check_seam_freq_gate,
+    _check_seam_grad_direction_gate,
+    _check_seam_hue_gate,
+    _check_seam_max_col_gate,
+    _check_seam_ncc_gate,
+    _check_seam_saturation_gate,
+    _check_seam_sharpness_gate,
+    _check_seam_ssim_gate,
+    _composite_foreground,
+)
 from backend.src.constants import (
     ADAPTIVE_MIN_DISP_FRAC,
     HIGH_CONF_EDGE_THRESH,
@@ -353,6 +365,68 @@ _SEAM_STEP_GATE: float = float(os.environ.get("ASP_SEAM_STEP_GATE", "0.0"))
 # Default 0.0 = off.  Recommend ASP_SEAM_NCC_GATE=0.45.
 _SEAM_NCC_GATE: float = float(os.environ.get("ASP_SEAM_NCC_GATE", "0.0"))
 
+# §1.72 — Post-composite seam entropy asymmetry gate.
+# Fires when the Shannon entropy difference between bands above/below a seam
+# exceeds the threshold, indicating perceptible texture-density discontinuity.
+# Default 0.0 = off.  Recommend ASP_SEAM_ENTROPY_GATE=1.5.
+_SEAM_ENTROPY_GATE: float = float(os.environ.get("ASP_SEAM_ENTROPY_GATE", "0.0"))
+
+# §1.76 — Post-composite per-column luma-step gate (S134).
+# Unlike §1.24 which averages luma across the full band width, this gate reports
+# the *worst single-column* luma step — catching localised hot-spots (a character
+# outline or shadow edge crossing the seam at one column) that the mean smooths
+# away.  Default 0.0 = off.  Recommend ASP_SEAM_MAX_COL_GATE=40.0.
+_SEAM_MAX_COL_GATE: float = float(os.environ.get("ASP_SEAM_MAX_COL_GATE", "0.0"))
+
+# §1.77 — Post-composite seam saturation jump gate (S135).
+# Fires when the mean HSV saturation jump between bands above/below a seam
+# exceeds the threshold, catching vibrancy discontinuities (muted bg vs vivid
+# character colours) that luma and entropy gates miss.
+# Default 0.0 = off.  Recommend ASP_SEAM_SAT_GATE=40.0.
+_SEAM_SAT_GATE: float = float(os.environ.get("ASP_SEAM_SAT_GATE", "0.0"))
+
+# §1.78 — Post-composite seam hue shift gate (S135).
+# Fires when the circular mean hue distance between bands above/below a seam
+# exceeds the threshold, catching colour-temperature discontinuities (warm vs
+# cool strips) that saturation and luma gates miss.
+# Default 0.0 = off.  Recommend ASP_SEAM_HUE_GATE=30.0.
+_SEAM_HUE_GATE: float = float(os.environ.get("ASP_SEAM_HUE_GATE", "0.0"))
+
+# §1.79 — Post-composite seam sharpness mismatch gate (S136).
+# Fires when the |log₂(Laplacian-variance-top / Laplacian-variance-bottom)|
+# exceeds the threshold — catching blur/sharpness discontinuities caused by
+# different MPEG compression or upscaling applied to source frames.  Two strips
+# can have identical colour profiles yet one looks noticeably blurrier; colour
+# gates (luma, saturation, hue, entropy) are all blind to this.
+# Default 0.0 = off.  Recommend ASP_SEAM_SHARP_GATE=3.0.
+_SEAM_SHARP_GATE: float = float(os.environ.get("ASP_SEAM_SHARP_GATE", "0.0"))
+
+# §1.80 — Seam gradient direction coherence gate (S137).
+# Detects structural orientation discontinuities invisible to all colour-space
+# gates: two strips can have identical photometric profiles yet opposing
+# dominant edge directions (e.g., diagonal speed-lines above, horizontal
+# horizon lines below).  Uses Sobel gx/gy → undirected orientation mod π,
+# angle-doubling circular mean per band, circular distance in degrees [0, 90].
+# Only strong-gradient pixels (mag > 10) contribute; flat regions ignored.
+# Default 0.0 = off.  Recommend ASP_SEAM_GRAD_DIR_GATE=45.0.
+_SEAM_GRAD_DIR_GATE: float = float(os.environ.get("ASP_SEAM_GRAD_DIR_GATE", "0.0"))
+
+# §1.81 — Post-composite seam band SSIM gate (S138).
+# Fires when ANY seam's band-SSIM falls *below* the threshold.  SSIM jointly
+# captures luminance, contrast, and structure, making it a perceptual catch-all
+# complement to the targeted §1.76–§1.80 single-dimension gates.  A score of
+# 1.0 = bands are perceptually identical; < 0.85 = clear discontinuity.
+# Default 0.0 = off.  Recommend ASP_SEAM_SSIM_GATE=0.85.
+_SEAM_SSIM_GATE: float = float(os.environ.get("ASP_SEAM_SSIM_GATE", "0.0"))
+
+# §1.82 — Post-composite seam spatial-frequency profile mismatch gate (S138).
+# Fires when 1 − Pearson-r between the column-averaged FFT magnitude spectra
+# of the bands above and below a seam exceeds the threshold.  Catches spectral
+# content discontinuities (fine noise texture vs smooth gradient) invisible to
+# all §1.76–§1.81 gates.  0=identical spectra; 1=orthogonal.
+# Default 0.0 = off.  Recommend ASP_SEAM_FREQ_GATE=0.6.
+_SEAM_FREQ_GATE: float = float(os.environ.get("ASP_SEAM_FREQ_GATE", "0.0"))
+
 # §1.67 — Frame canvas spread validation (S131).
 # After phase correlation (Stage 5), checks whether the estimated camera
 # translations span at least *min_spread_fraction* of the expected full-canvas
@@ -434,6 +508,328 @@ _MAX_CANVAS_WIDTH_RATIO: float = float(os.environ.get("ASP_MAX_CANVAS_WIDTH_RATI
 # may legitimately exceed 1.0, so a generous floor of 0.5 is recommended.
 # Default 0.0 = off.  Recommend ASP_MIN_CANVAS_ASPECT=0.5.
 _MIN_CANVAS_ASPECT: float = float(os.environ.get("ASP_MIN_CANVAS_ASPECT", "0.0"))
+
+# §1.71 — Pre-composite background luminance spread gate.
+# Fires when the range (max−min) of per-frame background median luma exceeds
+# the threshold, indicating that sequential gain normalisation would need to
+# apply extreme corrections (≥ 2× on some frames) → SCANS fallback.
+# Default 0.0 = off.  Recommend ASP_BG_LUM_SPREAD_MAX=80.0.
+_BG_LUM_SPREAD_MAX: float = float(os.environ.get("ASP_BG_LUM_SPREAD_MAX", "0.0"))
+
+# §1.73 — Pre-composite per-frame gain monotonicity drift gate.
+# Fires when the Kendall-τ correlation between frame order and per-frame
+# background median luma exceeds the threshold in absolute value, indicating
+# a systematic brightening or darkening staircase that gain normalisation
+# cannot fully cancel (it corrects amplitude but not the monotonic sequence).
+# Distinct from §1.71 (spread): a gradual 4-luma-unit/frame drift produces
+# acceptable spread but a τ ≈ 0.95 slope that is perceptually objectionable.
+# Default 0.0 = off.  Recommend ASP_BG_GAIN_MONOTONE_THRESH=0.85.
+_BG_GAIN_MONOTONE_THRESH: float = float(
+    os.environ.get("ASP_BG_GAIN_MONOTONE_THRESH", "0.0")
+)
+
+# §1.74 — Post-composite canvas fill ratio gate.
+# Fires when the fraction of pixels with max(B,G,R) > fill_threshold is below
+# the minimum, indicating that large canvas regions are empty (zero-initialized
+# background never covered by any warped frame) → SCANS fallback.
+# Default 0.0 = off.  Recommend ASP_CANVAS_FILL_MIN=0.60.
+_CANVAS_FILL_MIN: float = float(os.environ.get("ASP_CANVAS_FILL_MIN", "0.0"))
+_CANVAS_FILL_PIX_THRESH: int = int(os.environ.get("ASP_CANVAS_FILL_PIX_THRESH", "10"))
+
+# §1.75 — Post-composite strip Laplacian variance ratio gate.
+# Fires when the ratio of the most-detailed strip's Laplacian variance to the
+# least-detailed strip's variance exceeds the threshold, indicating that one
+# strip is dramatically more textured than its neighbours (e.g., one strip is
+# pure flat-colour background while another is rich-detail scene).
+# Default 0.0 = off.  Recommend ASP_STRIP_VARIANCE_RATIO_MAX=10.0.
+_STRIP_VARIANCE_RATIO_MAX: float = float(
+    os.environ.get("ASP_STRIP_VARIANCE_RATIO_MAX", "0.0")
+)
+
+# §1.77 — Post-composite canvas edge void rate gate.
+# Fires when the fraction of outermost border pixels that are all-zero exceeds
+# the threshold, indicating frames did not cover the canvas corners (registration
+# failure or extreme parallax producing an under-filled canvas).
+# Default 0.0 = off.  Recommend ASP_CANVAS_EDGE_VOID_MAX=0.4.
+_CANVAS_EDGE_VOID_MAX: float = float(os.environ.get("ASP_CANVAS_EDGE_VOID_MAX", "0.0"))
+_CANVAS_EDGE_BORDER_PX: int = int(os.environ.get("ASP_CANVAS_EDGE_BORDER_PX", "10"))
+
+# §1.78 — Pre-composite background gain sign flip rate gate.
+# Fires when adjacent-frame bg-luma direction changes sign more often than the
+# threshold fraction of consecutive triples, indicating oscillating bg luma that
+# gain normalisation will chase as noise rather than a real scene luminance drift.
+# Default 0.0 = off.  Recommend ASP_GAIN_SIGN_FLIP_MAX=0.6.
+_GAIN_SIGN_FLIP_MAX: float = float(os.environ.get("ASP_GAIN_SIGN_FLIP_MAX", "0.0"))
+
+
+def _compute_bg_lum_spread(
+    frames: "List[np.ndarray]",
+    bg_masks: "List[Optional[np.ndarray]]",
+    min_bg_px: int = 200,
+) -> float:
+    """§1.71: Max-minus-min spread of per-frame background median luminance.
+
+    For each frame, computes the median background luminance from the raw
+    (non-warped) frame using the corresponding BiRefNet bg_mask.  Returns
+    the range ``max(lums) − min(lums)`` across all frames that have
+    sufficient background coverage.
+
+    Parameters
+    ----------
+    frames:
+        Raw BGR uint8 frames (not warped into canvas space).
+    bg_masks:
+        Per-frame background masks (uint8, non-zero = background).
+        May contain ``None`` entries (masking disabled for that frame).
+    min_bg_px:
+        Minimum number of background pixels required to include a frame
+        in the spread computation.  Default 200.
+
+    Returns
+    -------
+    float
+        Background luminance range in [0, 255].  Returns 0.0 when fewer
+        than 2 frames have sufficient background coverage.
+    """
+    from backend.src.constants import LUMINANCE_WEIGHTS
+
+    lums: List[float] = []
+    for frame, mask in zip(frames, bg_masks):
+        if mask is None:
+            bg_sel = np.ones(frame.shape[:2], dtype=bool)
+        else:
+            bg_sel = (mask > 127)
+        bg_px = frame[bg_sel]
+        if len(bg_px) < min_bg_px:
+            continue
+        lum = float(bg_px.astype(np.float32).dot(LUMINANCE_WEIGHTS).mean())
+        lums.append(lum)
+    if len(lums) < 2:
+        return 0.0
+    return float(max(lums) - min(lums))
+
+
+def _compute_bg_lum_monotonicity(
+    frames: "List[np.ndarray]",
+    bg_masks: "List[Optional[np.ndarray]]",
+    min_bg_px: int = 200,
+) -> float:
+    """§1.73: Kendall-τ correlation between frame order and bg luminance.
+
+    Extracts the background median luminance for each frame (same method as
+    :func:`_compute_bg_lum_spread`) and computes the absolute Kendall rank
+    correlation ``|τ|`` between the frame index and the luma sequence.
+
+    ``|τ| ≈ 1.0`` means the luma sequence is perfectly monotone — each
+    successive frame is brighter (or darker) than the previous.  Even when the
+    total spread is within :data:`_BG_LUM_SPREAD_MAX`, a monotone drift
+    creates a visible "brightness staircase" across the composite that gain
+    normalisation cannot fully suppress.
+
+    Parameters
+    ----------
+    frames, bg_masks, min_bg_px:
+        Same meaning as :func:`_compute_bg_lum_spread`.
+
+    Returns
+    -------
+    float
+        ``|τ|`` in [0, 1].  Returns 0.0 when fewer than 3 frames have
+        sufficient background coverage (fewer than 3 points cannot form a
+        meaningful monotone sequence).
+    """
+    from backend.src.constants import LUMINANCE_WEIGHTS
+
+    lums: List[float] = []
+    for frame, mask in zip(frames, bg_masks):
+        if mask is None:
+            bg_sel = np.ones(frame.shape[:2], dtype=bool)
+        else:
+            bg_sel = mask > 127
+        bg_px = frame[bg_sel]
+        if len(bg_px) < min_bg_px:
+            continue
+        lums.append(float(bg_px.astype(np.float32).dot(LUMINANCE_WEIGHTS).mean()))
+
+    n = len(lums)
+    if n < 3:
+        return 0.0
+    concordant = discordant = 0
+    for i in range(n - 1):
+        for j in range(i + 1, n):
+            diff = lums[j] - lums[i]
+            if diff > 0:
+                concordant += 1
+            elif diff < 0:
+                discordant += 1
+    total_pairs = n * (n - 1) // 2
+    return abs(concordant - discordant) / max(total_pairs, 1)
+
+
+def _compute_canvas_fill_ratio(
+    canvas: "np.ndarray",
+    pix_thresh: int = 10,
+) -> float:
+    """§1.74: Fraction of canvas pixels with any channel above *pix_thresh*.
+
+    The canvas is zero-initialised before compositing.  Pixels that remain
+    zero after all warped frames are composited are empty regions — either
+    geometric gaps between frames or areas never covered by any warp.
+    Returns ``filled_pixels / total_pixels`` where a pixel is considered
+    filled when ``max(B, G, R) > pix_thresh``.
+
+    Parameters
+    ----------
+    canvas:
+        BGR uint8 composite image of shape (H, W, 3).
+    pix_thresh:
+        Per-channel intensity floor; pixels at or below this value in all
+        channels are treated as empty.  Default 10 avoids counting deep
+        black content (e.g., night-sky backgrounds) as empty.
+
+    Returns
+    -------
+    float
+        Fill ratio in [0, 1].  Returns 1.0 for a zero-size canvas.
+    """
+    if canvas.size == 0:
+        return 1.0
+    total = canvas.shape[0] * canvas.shape[1]
+    filled = int((canvas.max(axis=2) > pix_thresh).sum())
+    return filled / total
+
+
+def _compute_strip_variance_ratio(
+    canvas: "np.ndarray",
+    n_strips: int,
+) -> float:
+    """§1.75: Ratio of most- to least-textured strip Laplacian variance.
+
+    Splits the composite into *n_strips* horizontal bands and computes the
+    Laplacian variance (focus/sharpness proxy) for each.  Returns
+    ``max_var / min_var``.  A high ratio indicates one strip is dramatically
+    more textured than another — e.g., one strip contains flat-colour
+    character body while the adjacent strip shows a detailed background
+    scene — signalling a structural incompatibility that blend-only fixes
+    cannot resolve.
+
+    Parameters
+    ----------
+    canvas:
+        BGR uint8 composite image.
+    n_strips:
+        Number of composited strips (= number of selected frames).
+
+    Returns
+    -------
+    float
+        Variance ratio ≥ 1.0.  Returns 1.0 when *n_strips* ≤ 1 or when
+        any strip Laplacian variance is zero (uniform image).
+    """
+    if n_strips <= 1 or canvas.size == 0:
+        return 1.0
+    gray = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
+    H = gray.shape[0]
+    variances: List[float] = []
+    for k in range(n_strips):
+        y0 = H * k // n_strips
+        y1 = H * (k + 1) // n_strips
+        strip = gray[y0:y1]
+        if strip.size == 0:
+            continue
+        v = float(cv2.Laplacian(strip, cv2.CV_64F).var())
+        variances.append(v)
+    if len(variances) < 2 or min(variances) <= 0.0:
+        return 1.0
+    return float(max(variances) / min(variances))
+
+
+def _compute_canvas_edge_void_rate(
+    canvas: "np.ndarray",
+    border_px: int = 10,
+    pix_thresh: int = 8,
+) -> float:
+    """§1.77: Fraction of canvas border pixels with max channel ≤ pix_thresh (S134).
+
+    Examines the outermost *border_px* rows and columns of the composite canvas
+    (top, bottom, left, right bands).  Returns the fraction of these border pixels
+    whose brightest channel is ≤ *pix_thresh* — i.e., effectively empty
+    (zero-initialised canvas area never covered by any warped frame).
+
+    A high void rate means frames did not reach the canvas corners, indicating a
+    registration failure or extreme parallax.  Complementary to §1.74 (fill ratio
+    which measures the *whole canvas*): §1.77 specifically flags border-region gaps
+    that interior-heavy composites can hide.
+
+    Parameters
+    ----------
+    canvas : BGR uint8 composite.
+    border_px : Width of the border band to examine on each side.
+    pix_thresh : Max-channel threshold below which a pixel is considered empty.
+
+    Returns
+    -------
+    float
+        Void fraction in [0, 1].  Returns 0.0 when the canvas is too small for
+        a distinct border (H or W ≤ 2 × border_px).
+    """
+    H, W = canvas.shape[:2]
+    if H < 2 * border_px or W < 2 * border_px:
+        return 0.0
+    top = canvas[:border_px, :, :].reshape(-1, 3)
+    bottom = canvas[-border_px:, :, :].reshape(-1, 3)
+    left = canvas[border_px:-border_px, :border_px, :].reshape(-1, 3)
+    right = canvas[border_px:-border_px, -border_px:, :].reshape(-1, 3)
+    border = np.concatenate([top, bottom, left, right], axis=0)
+    void_count = int((border.max(axis=1) <= pix_thresh).sum())
+    return void_count / len(border)
+
+
+def _compute_gain_sign_flips(
+    frames: "List[np.ndarray]",
+    bg_masks: "List[Optional[np.ndarray]]",
+    min_bg_px: int = 200,
+) -> float:
+    """§1.78: Fraction of consecutive frame triples with oscillating bg-luma direction (S134).
+
+    Computes per-frame background median luminance (same sample as §1.71/§1.73).
+    For each consecutive triple (i-1, i, i+1), records whether the luma direction
+    flips sign (bright→dark→bright or dark→bright→dark).  Returns
+    ``n_flips / (N_valid − 2)``.  A high flip rate means the bg-luma sequence
+    oscillates — gain normalisation will amplify noise rather than correct a
+    real scene-wide luminance drift.
+
+    Parameters
+    ----------
+    frames : Raw BGR uint8 frames.
+    bg_masks : Per-frame bg masks (uint8, non-zero = bg).  None = all-bg.
+    min_bg_px : Minimum bg pixels required to include a frame.
+
+    Returns
+    -------
+    float
+        Flip rate in [0, 1].  Returns 0.0 when fewer than 3 valid frames.
+    """
+    from backend.src.constants import LUMINANCE_WEIGHTS
+
+    lums: "List[float]" = []
+    for frame, mask in zip(frames, bg_masks):
+        if mask is None:
+            bg_sel = np.ones(frame.shape[:2], dtype=bool)
+        else:
+            bg_sel = (mask > 127)
+        bg_px = frame[bg_sel]
+        if len(bg_px) < min_bg_px:
+            continue
+        lums.append(float(bg_px.astype(np.float32).dot(LUMINANCE_WEIGHTS).mean()))
+    if len(lums) < 3:
+        return 0.0
+    diffs = np.diff(lums)
+    signs = np.sign(diffs)
+    flips = int(np.sum(
+        (signs[:-1] != 0) & (signs[1:] != 0) & (signs[:-1] != signs[1:])
+    ))
+    return flips / (len(lums) - 2)
 
 
 def _compute_bg_coverage_fraction(
@@ -3301,6 +3697,37 @@ class AnimeStitchPipeline:
                 )
                 return _scan_stitch_fallback(scans_frames, output_path)
 
+        # ── Stage 10.8: §1.71 pre-composite background luminance spread gate ───
+        # Fires when the per-frame background luma range is so large that the
+        # sequential gain normalisation in Stage 11 would require >2× corrections
+        # on some frames, producing a brightness staircase across the composite.
+        if _BG_LUM_SPREAD_MAX > 0.0:
+            _bg_spread = _compute_bg_lum_spread(frames, bg_masks)
+            if _bg_spread > _BG_LUM_SPREAD_MAX:
+                logger.info(
+                    "[Stitch] Stage 10.8: §1.71 bg-luma spread %.1f > %.1f "
+                    "→ gain normalisation unreliable → SCANS fallback.",
+                    _bg_spread, _BG_LUM_SPREAD_MAX,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── Stage 10.9: §1.73 bg-gain monotonicity drift gate ───────────────
+        # A gradual monotonic luma drift (every frame slightly darker/brighter
+        # than the previous) produces a brightness staircase in the composite
+        # even when the total spread is within §1.71's threshold.  Kendall-τ
+        # ≈ 1 indicates a perfectly sorted sequence — SCANS is cleaner.
+        if _BG_GAIN_MONOTONE_THRESH > 0.0:
+            _bg_mono = _compute_bg_lum_monotonicity(frames, bg_masks)
+            if _bg_mono > _BG_GAIN_MONOTONE_THRESH:
+                logger.info(
+                    "[Stitch] Stage 10.9: §1.73 bg-gain monotonicity |τ|=%.3f "
+                    "> %.2f → brightness staircase risk → SCANS fallback.",
+                    _bg_mono, _BG_GAIN_MONOTONE_THRESH,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
         # ── Optional: MFSR super-resolution pass ─────────────────────────────
         # P1.7 — Auto-activate MFSR for low-sharpness canvas (W1 fix).
         # Tests 2, 3, 19, 20 produce Laplacian variance 12–16 from inherently
@@ -3416,7 +3843,191 @@ class AnimeStitchPipeline:
                 _sf = scans_frames or _reload_scans_frames(image_paths)
                 return _scan_stitch_fallback(_sf, output_path)
 
-        # P3.4 — SRStitcher seam diffusion fusion (Stage 11.5).
+        # ── Stage 11.5: §1.72 seam entropy asymmetry gate ───────────────────
+        # Fires when one side of a seam has rich texture and the other is
+        # flat-colour — the perceptible texture density discontinuity is missed
+        # by NCC (structural coherence) and Bhattacharyya (colour distribution).
+        if _SEAM_ENTROPY_GATE > 0.0 and N > 1:
+            _worst_entropy_seam = _check_seam_entropy_gate(
+                canvas, N, thresh=_SEAM_ENTROPY_GATE
+            )
+            if _worst_entropy_seam is not None:
+                logger.info(
+                    "[Stitch] Stage 11.5: entropy asymmetry gate — seam %d "
+                    "asymmetry > %.2f bits → SCANS fallback.",
+                    _worst_entropy_seam, _SEAM_ENTROPY_GATE,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── Stage 11.7: §1.74 canvas fill ratio gate ─────────────────────────
+        # After compositing, pixels that remain zero (never covered by any
+        # warped frame) indicate geometric gaps or a catastrophic warp failure.
+        # All seam-quality gates above operate on strip boundaries and miss
+        # large empty canvas regions, which look visually defective.
+        if _CANVAS_FILL_MIN > 0.0:
+            _fill_ratio = _compute_canvas_fill_ratio(
+                canvas, pix_thresh=_CANVAS_FILL_PIX_THRESH
+            )
+            if _fill_ratio < _CANVAS_FILL_MIN:
+                logger.info(
+                    "[Stitch] Stage 11.7: §1.74 canvas fill ratio %.3f "
+                    "< %.2f → empty canvas regions → SCANS fallback.",
+                    _fill_ratio, _CANVAS_FILL_MIN,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── Stage 11.8: §1.75 strip Laplacian variance ratio gate ───────────
+        # Detects structural incompatibility between adjacent strips: when one
+        # strip is flat-colour (low Laplacian variance) and the next is richly
+        # textured (high variance), the composite shows a hard texture-level
+        # discontinuity that none of the seam-boundary gates above can catch
+        # (those gates sample only ±50px at the boundary, not the full strip).
+        if _STRIP_VARIANCE_RATIO_MAX > 0.0 and N > 1:
+            _var_ratio = _compute_strip_variance_ratio(canvas, N)
+            if _var_ratio > _STRIP_VARIANCE_RATIO_MAX:
+                logger.info(
+                    "[Stitch] Stage 11.8: §1.75 strip variance ratio %.1f× "
+                    "> %.1f× → texture incompatibility → SCANS fallback.",
+                    _var_ratio, _STRIP_VARIANCE_RATIO_MAX,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── Stage 11.9: §1.76 per-column luma-step gate ──────────────────────
+        # Complements Stage 11.3 (§1.24 mean seam step): §1.24 returns the mean
+        # luma across the full strip width; §1.76 reports the worst single column,
+        # catching localised hot-spots that the band mean smooths away.  A
+        # character edge crossing the seam at a single column produces a
+        # column-max step of 50+ lum but a band-mean step of only ~3 lum.
+        if _SEAM_MAX_COL_GATE > 0.0 and N > 1:
+            _worst_col_seam = _check_seam_max_col_gate(canvas, N, thresh=_SEAM_MAX_COL_GATE)
+            if _worst_col_seam is not None:
+                logger.info(
+                    "[Stitch] Stage 11.9: §1.76 per-column luma-step gate — seam %d "
+                    "worst-col step > %.1f lum → SCANS fallback.",
+                    _worst_col_seam, _SEAM_MAX_COL_GATE,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── Stage 11.10: §1.77 seam saturation jump gate ─────────────────────
+        # Complements Stage 11.9 (§1.76 per-column luma step): two strips can
+        # have equal brightness yet completely different colour vibrancy — e.g.,
+        # a muted pastel background abutting a vividly coloured character outfit.
+        # In HSV space, saturation captures this vibrancy; a mean jump ≥ 40 at
+        # the seam band is perceptible as a colour-saturation discontinuity.
+        if _SEAM_SAT_GATE > 0.0 and N > 1:
+            _worst_sat_seam = _check_seam_saturation_gate(canvas, N, thresh=_SEAM_SAT_GATE)
+            if _worst_sat_seam is not None:
+                logger.info(
+                    "[Stitch] Stage 11.10: §1.77 saturation jump gate — seam %d "
+                    "mean sat jump > %.1f → SCANS fallback.",
+                    _worst_sat_seam, _SEAM_SAT_GATE,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── Stage 11.11: §1.78 seam hue shift gate ───────────────────────────
+        # Complements §1.77 (saturation) and §1.24 (luma): two strips can have
+        # matching brightness and saturation but opposite colour temperatures —
+        # e.g., a warm orange sunset background abutting a cool blue sky strip.
+        # Hue is circular (0–180 OpenCV scale); circular distance > 30° is
+        # perceptible as a colour-temperature jump.  Near-achromatic pixels
+        # (sat ≤ 15) are excluded to prevent grey regions from biasing the mean.
+        if _SEAM_HUE_GATE > 0.0 and N > 1:
+            _worst_hue_seam = _check_seam_hue_gate(canvas, N, thresh=_SEAM_HUE_GATE)
+            if _worst_hue_seam is not None:
+                logger.info(
+                    "[Stitch] Stage 11.11: §1.78 hue shift gate — seam %d "
+                    "circular hue shift > %.1f° → SCANS fallback.",
+                    _worst_hue_seam, _SEAM_HUE_GATE,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── Stage 11.12: §1.79 seam sharpness mismatch gate ─────────────────
+        # Complements §1.76–§1.78 (luma, saturation, hue): two strips can have
+        # identical colour profiles yet differ visibly in sharpness/blur — e.g.,
+        # a source frame that was upscaled or MPEG-compressed at a different
+        # quality level.  Laplacian variance is the standard focus measure;
+        # |log₂(var_top / var_bot)| > 3.0 means one strip is 8× sharper than
+        # the other, which is clearly perceptible.  Near-flat regions with tiny
+        # variance are clamped to 1.0 to prevent log singularities.
+        if _SEAM_SHARP_GATE > 0.0 and N > 1:
+            _worst_sharp_seam = _check_seam_sharpness_gate(
+                canvas, N, thresh=_SEAM_SHARP_GATE
+            )
+            if _worst_sharp_seam is not None:
+                logger.info(
+                    "[Stitch] Stage 11.12: §1.79 sharpness mismatch gate — seam %d "
+                    "|log₂(var_top/var_bot)| > %.2f → SCANS fallback.",
+                    _worst_sharp_seam, _SEAM_SHARP_GATE,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── Stage 11.13: §1.80 seam gradient direction coherence gate ────────
+        # Complements §1.76–§1.79 (luma, saturation, hue, sharpness): two strips
+        # can have identical photometric profiles yet produce a visually jarring
+        # seam when their dominant edge orientations differ — e.g., diagonal
+        # speed-lines above joined to horizontal cloud-layer below.  This gate
+        # measures the circular distance between mean undirected Sobel orientations
+        # in bands above and below each seam.  A score of 45° (orthogonal content)
+        # indicates severe structural incompatibility that colour-space gates miss.
+        if _SEAM_GRAD_DIR_GATE > 0.0 and N > 1:
+            _worst_grad_seam = _check_seam_grad_direction_gate(
+                canvas, N, thresh=_SEAM_GRAD_DIR_GATE
+            )
+            if _worst_grad_seam is not None:
+                logger.info(
+                    "[Stitch] Stage 11.13: §1.80 gradient direction gate — seam %d "
+                    "orientation mismatch > %.1f° → SCANS fallback.",
+                    _worst_grad_seam, _SEAM_GRAD_DIR_GATE,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── Stage 11.14: §1.81 seam band SSIM gate ──────────────────────────
+        # Complements §1.76–§1.80 by measuring perceptual similarity holistically:
+        # SSIM jointly evaluates luminance, contrast, and structure in a single
+        # [0,1] score.  A seam between two perceptually incompatible bands will
+        # score well below 0.85 even when each individual §1.76–§1.80 gate passes
+        # (e.g., bands with matching mean-luma but different contrast and texture
+        # pattern).  Gate fires when ANY seam's SSIM score is *below* the threshold
+        # (inverted polarity vs §1.76–§1.80 which fire *above* their thresholds).
+        if _SEAM_SSIM_GATE > 0.0 and N > 1:
+            _worst_ssim_seam = _check_seam_ssim_gate(canvas, N, thresh=_SEAM_SSIM_GATE)
+            if _worst_ssim_seam is not None:
+                logger.info(
+                    "[Stitch] Stage 11.14: §1.81 band-SSIM gate — seam %d "
+                    "SSIM < %.3f → SCANS fallback.",
+                    _worst_ssim_seam, _SEAM_SSIM_GATE,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # ── Stage 11.15: §1.82 seam spatial-frequency profile gate ──────────
+        # Complements §1.79 (sharpness: blur/focus level) and §1.81 (SSIM): two
+        # strips can have identical mean sharpness and similar SSIM yet completely
+        # different dominant spatial frequencies — e.g., a high-frequency noise
+        # texture above a smooth low-frequency gradient below.  The metric is
+        # 1 − Pearson-r between the column-averaged FFT magnitude spectra of each
+        # band.  A score of 0 = spectrally identical (compatible); 1 = orthogonal
+        # spectra (severe spectral discontinuity at the seam).
+        if _SEAM_FREQ_GATE > 0.0 and N > 1:
+            _worst_freq_seam = _check_seam_freq_gate(canvas, N, thresh=_SEAM_FREQ_GATE)
+            if _worst_freq_seam is not None:
+                logger.info(
+                    "[Stitch] Stage 11.15: §1.82 frequency-profile gate — seam %d "
+                    "spectral mismatch (1−r) > %.2f → SCANS fallback.",
+                    _worst_freq_seam, _SEAM_FREQ_GATE,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
+        # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
         if self.use_srstitcher:
@@ -3906,4 +4517,8 @@ __all__ = [
     "_apply_hires_keyframes",
     "_sort_frames_by_index",
     "_check_canvas_spread",
+    "_compute_bg_lum_spread",
+    "_compute_bg_lum_monotonicity",
+    "_compute_canvas_fill_ratio",
+    "_compute_strip_variance_ratio",
 ]
