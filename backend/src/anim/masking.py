@@ -4,6 +4,27 @@ BiRefNet foreground / background masking for anime frames.
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+import os
+import tempfile
+from sam2.build_sam import build_sam2_video_predictor  # type: ignore
+from backend.src.anim.grounding import _detect_best_box  # noqa: PLC0415
+import os
+import tempfile
+import torch
+from sam2.build_sam import build_sam2_video_predictor  # type: ignore
+from backend.src.constants import FOREGROUND_DILATION  # noqa: PLC0415
+from backend.src.constants import FOREGROUND_DILATION, FOREGROUND_EROSION  # noqa: PLC0415
+import os
+import tempfile
+from sam2.build_sam import build_sam2_video_predictor  # type: ignore
+import torch
+import numpy as _np
+from backend.src.constants import FOREGROUND_DILATION  # noqa: PLC0415
+import warnings
+# --------------------------------
+
+
 import gc
 import shutil
 from typing import Any, List, Optional, Tuple
@@ -108,9 +129,9 @@ def _compute_fg_masks_sam2(
     )
 
     try:
-        import os
-        import tempfile
-        from sam2.build_sam import build_sam2_video_predictor  # type: ignore
+        # relocated: import os
+        # relocated: import tempfile
+        # relocated: from sam2.build_sam import build_sam2_video_predictor  # type: ignore
 
         _ckpt = os.path.expanduser(
             os.environ.get("SAM2_CKPT", "~/.sam2/sam2_hiera_base_plus.pt")
@@ -204,7 +225,7 @@ def _compute_fg_masks_grounded_sam2(
     if not text_prompt.strip():
         return _compute_fg_masks_sam2(frames, birefnet_wrapper, use_birefnet=use_birefnet)
 
-    from backend.src.anim.grounding import _detect_best_box  # noqa: PLC0415
+    # relocated: from backend.src.anim.grounding import _detect_best_box  # noqa: PLC0415
 
     bbox = _detect_best_box(frames[0], text_prompt, box_threshold=box_threshold, text_threshold=text_threshold)
     if bbox is None:
@@ -215,10 +236,10 @@ def _compute_fg_masks_grounded_sam2(
 
     # Try SAM-2 with the DINO-provided bbox
     try:
-        import os
-        import tempfile
-        import torch
-        from sam2.build_sam import build_sam2_video_predictor  # type: ignore
+        # relocated: import os
+        # relocated: import tempfile
+        # relocated: import torch
+        # relocated: from sam2.build_sam import build_sam2_video_predictor  # type: ignore
 
         _ckpt = os.path.expanduser(
             os.environ.get("SAM2_CKPT", "~/.sam2/sam2_hiera_base_plus.pt")
@@ -246,7 +267,7 @@ def _compute_fg_masks_grounded_sam2(
                     _prob = torch.sigmoid(_logits[_li, 0]).cpu().numpy()
                     if _prob.shape != (_H, _W):
                         _prob = cv2.resize(_prob, (_W, _H), cv2.INTER_LINEAR)
-                    from backend.src.constants import FOREGROUND_DILATION  # noqa: PLC0415
+                    # relocated: from backend.src.constants import FOREGROUND_DILATION  # noqa: PLC0415
                     _fg_i = (_prob > 0.5).astype(np.uint8) * 255
                     if FOREGROUND_DILATION > 0:
                         _k = cv2.getStructuringElement(
@@ -264,7 +285,7 @@ def _compute_fg_masks_grounded_sam2(
 
         # Fill missed frames with per-frame BiRefNet
         has_new_api = birefnet_wrapper is not None and hasattr(birefnet_wrapper, "get_background_mask")
-        from backend.src.constants import FOREGROUND_DILATION, FOREGROUND_EROSION  # noqa: PLC0415
+        # relocated: from backend.src.constants import FOREGROUND_DILATION, FOREGROUND_EROSION  # noqa: PLC0415
         for _i, _m in enumerate(masks_out):
             if _m is None and birefnet_wrapper is not None:
                 try:
@@ -303,8 +324,8 @@ def _compute_fg_masks_sam2_stateful(
     - masks come from the standard per-frame BiRefNet fallback.
     - Callers must call ``_cleanup_sam2_state`` with the returned values once done.
     """
-    import os
-    import tempfile
+    # relocated: import os
+    # relocated: import tempfile
 
     _H = frames[0].shape[0] if frames else 0
     _W = frames[0].shape[1] if frames else 0
@@ -337,7 +358,7 @@ def _compute_fg_masks_sam2_stateful(
 
     _tmp: Optional[str] = None
     try:
-        from sam2.build_sam import build_sam2_video_predictor  # type: ignore
+        # relocated: from sam2.build_sam import build_sam2_video_predictor  # type: ignore
 
         _ckpt = os.path.expanduser(
             os.environ.get("SAM2_CKPT", "~/.sam2/sam2_hiera_base_plus.pt")
@@ -457,8 +478,8 @@ def _refine_masks_with_clicks(
         return []
 
     try:
-        import torch
-        import numpy as _np
+        # relocated: import torch
+        # relocated: import numpy as _np
 
         all_pts: List[List[float]] = []
         all_labels: List[int] = []
@@ -480,7 +501,7 @@ def _refine_masks_with_clicks(
             labels=lbl_tensor,
         )
 
-        from backend.src.constants import FOREGROUND_DILATION  # noqa: PLC0415
+        # relocated: from backend.src.constants import FOREGROUND_DILATION  # noqa: PLC0415
 
         n_frames = inference_state.get("num_frames", 0) or len(
             inference_state.get("images", [])
@@ -504,7 +525,7 @@ def _refine_masks_with_clicks(
         return [m for m in masks_out if m is not None]
 
     except Exception as _e:
-        import warnings
+        # relocated: import warnings
         warnings.warn(f"[ASP] _refine_masks_with_clicks failed: {_e}", RuntimeWarning, stacklevel=2)
         return []
 

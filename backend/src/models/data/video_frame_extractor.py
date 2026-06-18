@@ -17,6 +17,11 @@ Usage
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+import hashlib
+# --------------------------------
+
+
 import json
 import logging
 import subprocess
@@ -64,7 +69,7 @@ def _py_phash64(path: str) -> str:
 
 
 def _py_blake3(path: str) -> str:
-    import hashlib
+    # relocated: import hashlib
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""):
@@ -84,7 +89,7 @@ def _phash64(path: str) -> str:
 # Data record
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
-class FrameRecord:
+class _FrameRecord:
     video_path: Path
     scene_idx: int
     pts_seconds: float
@@ -173,9 +178,9 @@ class VideoFrameExtractor:
         scenes = sm.get_scene_list()
         return [(s.get_seconds(), e.get_seconds()) for s, e in scenes]
 
-    def extract(self, video_path: Path, out_dir: Path) -> Iterator[FrameRecord]:
+    def extract(self, video_path: Path, out_dir: Path) -> Iterator[_FrameRecord]:
         """
-        Main entry point.  Yields FrameRecord for each extracted frame.
+        Main entry point.  Yields _FrameRecord for each extracted frame.
         Also inserts into `self.db` if one was provided.
         """
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -194,7 +199,7 @@ class VideoFrameExtractor:
                 with Image.open(out) as im:
                     w, h = im.size
 
-                rec = FrameRecord(
+                rec = _FrameRecord(
                     video_path=video_path,
                     scene_idx=scene_idx,
                     pts_seconds=ts,

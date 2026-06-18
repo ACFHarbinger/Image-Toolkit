@@ -5,18 +5,18 @@ Loss functions for AnimeStitchNet training.
 
 Three complementary objectives are combined:
 
-1. AffineParamLoss
+1. _AffineParamLoss
    Supervised Huber regression on the 4-DoF parameter vector.
    Negative pairs contribute zero loss (both pred and GT ≈ 0).
 
-2. PhotometricConsistencyLoss
+2. _PhotometricConsistencyLoss
    Self-supervised ZNCC photometric loss.
    Warps frame_j with the predicted params and computes zero-mean
    normalised cross-correlation with frame_i.  ZNCC is invariant to
    additive and multiplicative intensity changes (broadcast dimming).
    Gradients flow back through F.grid_sample into the network.
 
-3. SymmetricConsistencyLoss
+3. _SymmetricConsistencyLoss
    Penalises |pred_ij + pred_ji| — for small transforms, the inverse of
    the forward transform is approximately the negative, so both should sum
    to near zero.  Prevents degenerate constant-offset solutions.
@@ -104,11 +104,11 @@ def zncc_loss(
 
 
 # ---------------------------------------------------------------------------
-# 1. AffineParamLoss
+# 1. _AffineParamLoss
 # ---------------------------------------------------------------------------
 
 
-class AffineParamLoss(nn.Module):
+class _AffineParamLoss(nn.Module):
     """Supervised Huber regression on the (dx, dy, θ, log_s) vector."""
 
     def __init__(self, delta: float = 0.1):
@@ -129,11 +129,11 @@ class AffineParamLoss(nn.Module):
 
 
 # ---------------------------------------------------------------------------
-# 2. PhotometricConsistencyLoss
+# 2. _PhotometricConsistencyLoss
 # ---------------------------------------------------------------------------
 
 
-class PhotometricConsistencyLoss(nn.Module):
+class _PhotometricConsistencyLoss(nn.Module):
     """
     ZNCC photometric loss on the warped pair.
     Skipped entirely for negative pairs (they don't overlap by definition).
@@ -172,11 +172,11 @@ class PhotometricConsistencyLoss(nn.Module):
 
 
 # ---------------------------------------------------------------------------
-# 3. SymmetricConsistencyLoss
+# 3. _SymmetricConsistencyLoss
 # ---------------------------------------------------------------------------
 
 
-class SymmetricConsistencyLoss(nn.Module):
+class _SymmetricConsistencyLoss(nn.Module):
     """
     Penalises |pred_ij + pred_ji| for positive pairs.
     For small transforms, inv(T) ≈ -T, so forward + backward ≈ 0.
@@ -206,7 +206,7 @@ class StitchNetLoss(nn.Module):
 
     Parameters
     ----------
-    lambda_param  : weight for AffineParamLoss.        Default 1.0
+    lambda_param  : weight for _AffineParamLoss.        Default 1.0
     lambda_photo  : weight for PhotometricLoss.         Default 0.5
     lambda_sym    : weight for SymmetricConsistency.    Default 0.2
     huber_delta   : Huber δ for param loss.             Default 0.1
@@ -228,9 +228,9 @@ class StitchNetLoss(nn.Module):
         self.warmup_steps = warmup_steps
         self._step = 0
 
-        self.param_loss = AffineParamLoss(delta=huber_delta)
-        self.photo_loss = PhotometricConsistencyLoss()
-        self.sym_loss = SymmetricConsistencyLoss()
+        self.param_loss = _AffineParamLoss(delta=huber_delta)
+        self.photo_loss = _PhotometricConsistencyLoss()
+        self.sym_loss = _SymmetricConsistencyLoss()
 
     def step(self):
         """Advance internal step counter (call once per optimiser step)."""

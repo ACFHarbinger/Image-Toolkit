@@ -1,3 +1,10 @@
+
+# --- Relocated Nested Imports ---
+import tempfile
+import uuid
+from scipy.optimize import least_squares
+# --------------------------------
+
 import cv2
 import os
 import numpy as np
@@ -475,8 +482,8 @@ class ImageMerger:
             gan = ImageMerger._get_gan()
 
             # Temporary file paths
-            import tempfile
-            import uuid
+            # relocated: import tempfile
+            # relocated: import uuid
 
             tmp_dir = tempfile.gettempdir()
             tmp_in = os.path.join(tmp_dir, f"stitch_in_{uuid.uuid4()}.png")
@@ -595,7 +602,7 @@ class ImageMerger:
         pts_matches: List of dicts with {'i': idx1, 'j': idx2, 'pts_i': ..., 'pts_j': ...}
         initial_poses: List of (3, 3) homographies or (2, 3) affine matrices.
         """
-        from scipy.optimize import least_squares
+        # relocated: from scipy.optimize import least_squares
 
         num_tiles = len(initial_poses)
         # We optimize for (dx, dy) for each tile (simplest translation-only BA)

@@ -13,6 +13,16 @@ convergence to noisy local minima.
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+from huggingface_hub import hf_hub_download
+try:
+    from RealESRGAN import RealESRGAN  # type: ignore
+except ImportError:
+    RealESRGAN = None
+from PIL import Image as _PIL
+# --------------------------------
+
+
 import os
 import shutil
 import subprocess
@@ -33,11 +43,8 @@ def _try_real_esrgan(img: np.ndarray, scale: int, noise_level: int) -> np.ndarra
     """Run Real-ESRGAN (HuggingFace) if available."""
     if not _TORCH_OK:
         raise RuntimeError("torch unavailable")
-    try:
-        from huggingface_hub import hf_hub_download
-        from RealESRGAN import RealESRGAN  # type: ignore
-    except ImportError as e:
-        raise RuntimeError(f"Real-ESRGAN not installed: {e}")
+    if RealESRGAN is None:
+        raise RuntimeError("Real-ESRGAN not installed")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = RealESRGAN(device, scale=max(1, scale))
@@ -51,7 +58,7 @@ def _try_real_esrgan(img: np.ndarray, scale: int, noise_level: int) -> np.ndarra
         # Real-ESRGAN can download by itself.
         model.load_weights(weight_name, download=True)
 
-    from PIL import Image as _PIL
+    # relocated: from PIL import Image as _PIL
 
     pil = _PIL.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
     out = model.predict(pil)

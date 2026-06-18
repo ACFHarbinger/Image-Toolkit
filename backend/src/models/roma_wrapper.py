@@ -15,6 +15,12 @@ translation as a 2-DOF estimate compatible with the BA anchor format.
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+import gc
+from PIL import Image as _PILImage
+# --------------------------------
+
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -57,7 +63,7 @@ class RoMaWrapper:
             self._model = None
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        import gc
+        # relocated: import gc
         gc.collect()
 
     def offload(self) -> None:
@@ -98,7 +104,7 @@ class RoMaWrapper:
         """
         self._load()
 
-        from PIL import Image as _PILImage
+        # relocated: from PIL import Image as _PILImage
 
         h, w = img_i.shape[:2]
 

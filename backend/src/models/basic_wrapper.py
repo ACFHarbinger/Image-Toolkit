@@ -15,6 +15,11 @@ Legacy API (backward-compatible):
     corrected_images      = basic.process_batch(images)
 """
 
+# --- Relocated Nested Imports ---
+import gc
+# --------------------------------
+
+
 import cv2
 import numpy as np
 import torch
@@ -55,7 +60,7 @@ class BaSiCWrapper:
         self.baselines = None
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        import gc
+        # relocated: import gc
         gc.collect()
 
     # ------------------------------------------------------------------

@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch, mock_open
-from src.core.image_finder import DuplicateFinder, SimilarityFinder
+from backend.src.core.duplicate_finder import DuplicateFinder
+from backend.src.core.similarity_finder import SimilarityFinder
 
 # --- DuplicateFinder Tests ---
 
@@ -26,7 +27,7 @@ class TestDuplicateFinder:
         # /dir/img3.jpg (size 100, hash B)
         # /dir/img4.jpg (size 200)
 
-        with patch("src.core.image_finder.Path") as mock_path_cls:
+        with patch("backend.src.core.duplicate_finder.Path") as mock_path_cls:
             mock_path_obj = MagicMock()
             mock_path_cls.return_value = mock_path_obj
 
@@ -80,9 +81,9 @@ class TestDuplicateFinder:
 
 
 class TestSimilarityFinder:
-    @patch("src.core.image_finder.SimilarityFinder.get_images_list")
-    @patch("src.core.image_finder.Image.open")
-    @patch("src.core.image_finder.imagehash.average_hash")
+    @patch("backend.src.core.similarity_finder.SimilarityFinder.get_images_list")
+    @patch("backend.src.core.similarity_finder.Image.open")
+    @patch("backend.src.core.similarity_finder.imagehash.average_hash")
     def test_find_similar_phash(self, mock_phash, mock_img_open, mock_get_list):
         mock_get_list.return_value = ["img1.jpg", "img2.jpg", "img3.jpg"]
 
@@ -104,10 +105,10 @@ class TestSimilarityFinder:
         assert "group_0" in results
         assert results["group_0"] == ["img1.jpg", "img2.jpg"]
 
-    @patch("src.core.image_finder.SimilarityFinder.get_images_list")
-    @patch("src.core.image_finder.cv2.ORB_create")
-    @patch("src.core.image_finder.cv2.imread")
-    @patch("src.core.image_finder.cv2.BFMatcher")
+    @patch("backend.src.core.similarity_finder.SimilarityFinder.get_images_list")
+    @patch("backend.src.core.similarity_finder.cv2.ORB_create")
+    @patch("backend.src.core.similarity_finder.cv2.imread")
+    @patch("backend.src.core.similarity_finder.cv2.BFMatcher")
     def test_find_similar_orb(self, mock_bf, mock_imread, mock_orb, mock_get_list):
         mock_get_list.return_value = ["img1.jpg", "img2.jpg"]
 

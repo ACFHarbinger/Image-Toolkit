@@ -12,11 +12,19 @@ Stage 4: Optional active-learning logistic regressor on quality features
 
 Usage
 -----
-    selector = DataSelector(db=db, siamese=siamese_loader)
+    selector = _DataSelector(db=db, siamese=siamese_loader)
     accepted = selector.run(candidate_image_ids, target_k=50)
 """
 
 from __future__ import annotations
+
+# --- Relocated Nested Imports ---
+import torch
+import torch
+from PIL import Image
+import torchvision.transforms.functional as TF
+# --------------------------------
+
 
 import logging
 from typing import Optional
@@ -132,22 +140,22 @@ def laplacian_blur_var(img_bgr: np.ndarray) -> float:
     return float(cv2.Laplacian(gray, cv2.CV_64F).var())
 
 
-class IQAScorer:
+class _IQAScorer:
     """Wrapper around pyiqa for NIQE and BRISQUE scores."""
 
     def __init__(self, device: str = "cuda"):
         if not _PYIQA_OK:
             raise ImportError("pyiqa is required for IQA scoring (pip install pyiqa)")
-        import torch
+        # relocated: import torch
         self.device = device
         self.niqe = pyiqa.create_metric("niqe", device=torch.device(device))
         self.brisque = pyiqa.create_metric("brisque", device=torch.device(device))
 
     def score(self, img_path: str) -> tuple[float, float]:
         """Returns (niqe, brisque) — lower is better for both."""
-        import torch
-        from PIL import Image
-        import torchvision.transforms.functional as TF
+        # relocated: import torch
+        # relocated: from PIL import Image
+        # relocated: import torchvision.transforms.functional as TF
         with Image.open(img_path) as im:
             t = TF.to_tensor(im.convert("RGB")).unsqueeze(0).to(self.device)
         with torch.no_grad():
@@ -159,7 +167,7 @@ class IQAScorer:
 # ---------------------------------------------------------------------------
 # Stage 4: Active-learning quality regressor
 # ---------------------------------------------------------------------------
-class QualityRegressor:
+class _QualityRegressor:
     """
     Tiny logistic regressor trained on manually-labelled quality features.
     50–100 labelled examples typically suffice for good discrimination.
@@ -170,7 +178,7 @@ class QualityRegressor:
 
     def __init__(self, C: float = 1.0):
         if not _SKLEARN_OK:
-            raise ImportError("scikit-learn is required for QualityRegressor")
+            raise ImportError("scikit-learn is required for _QualityRegressor")
         self.clf = LogisticRegression(C=C, max_iter=500)
         self._fitted = False
 
@@ -192,15 +200,15 @@ class QualityRegressor:
 # ---------------------------------------------------------------------------
 # Orchestrator
 # ---------------------------------------------------------------------------
-class DataSelector:
+class _DataSelector:
     """
     Parameters
     ----------
     db              : PgvectorImageDatabase (for embedding & quality queries)
     blur_min        : minimum Laplacian variance to accept
     niqe_max_pct    : reject worst N% by NIQE
-    iqa_scorer      : optional IQAScorer instance
-    quality_regressor: optional fitted QualityRegressor
+    iqa_scorer      : optional _IQAScorer instance
+    quality_regressor: optional fitted _QualityRegressor
     """
 
     def __init__(
@@ -208,8 +216,8 @@ class DataSelector:
         db=None,
         blur_min: float = 80.0,
         niqe_max_pct: float = 5.0,
-        iqa_scorer: Optional[IQAScorer] = None,
-        quality_regressor: Optional[QualityRegressor] = None,
+        iqa_scorer: Optional[_IQAScorer] = None,
+        quality_regressor: Optional[_QualityRegressor] = None,
     ):
         self.db = db
         self.blur_min = blur_min
@@ -229,7 +237,7 @@ class DataSelector:
         phashes and embeddings can be supplied directly or fetched from db.
         """
         ids = list(candidate_ids)
-        log.info("DataSelector: starting with %d candidates, target=%d", len(ids), target_k)
+        log.info("_DataSelector: starting with %d candidates, target=%d", len(ids), target_k)
 
         # ── Stage 1: pHash dedup ──────────────────────────────────────────
         if phashes is None and self.db is not None:

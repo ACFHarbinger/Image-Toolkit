@@ -12,6 +12,11 @@ Two entry points:
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+from ..mfsr.drl_registration import _AXIS_STEPS, _warp
+# --------------------------------
+
+
 import random
 from typing import Callable, List, Optional, Tuple
 
@@ -121,7 +126,7 @@ def fine_tune_drl_agent(
     reward_model : trained StitchRewardModel.
     frame_pairs  : list of (ref_bgr, src_bgr) numpy arrays.
     """
-    from ..mfsr.drl_registration import _AXIS_STEPS, _warp
+    # relocated: from ..mfsr.drl_registration import _AXIS_STEPS, _warp
 
     if not frame_pairs:
         return

@@ -22,6 +22,12 @@ Usage
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+import torch
+import torch
+# --------------------------------
+
+
 import csv
 import logging
 from pathlib import Path
@@ -136,7 +142,7 @@ class Florence2Captioner:
     ):
         if not _TRANSFORMERS_OK:
             raise ImportError("transformers is required for Florence2Captioner")
-        import torch
+        # relocated: import torch
         dtype = dtype or (torch.float16 if device == "cuda" else torch.float32)
         self.proc = AutoProcessor.from_pretrained(repo, trust_remote_code=True)
         self.model = AutoModelForCausalLM.from_pretrained(
@@ -150,7 +156,7 @@ class Florence2Captioner:
 
     @property
     def _torch(self):
-        import torch
+        # relocated: import torch
         return torch
 
     def __call__(

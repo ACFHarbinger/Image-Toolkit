@@ -34,6 +34,17 @@ Configuration
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+import torch  # noqa: F401
+try:
+    from propainter.inference_propainter import (  # type: ignore
+        ProPainterInference,
+    )
+except ImportError:
+    ProPainterInference = None
+# --------------------------------
+
+
 import os
 from typing import List, Optional
 
@@ -202,13 +213,9 @@ def _propainter_fill(
     frames : optional list of source frames for flow guidance.  When None,
         ProPainter runs in single-frame mode (no optical flow guidance).
     """
+    if ProPainterInference is None:
+        return _nn_fill_zero_bg(canvas, zero_mask)
     try:
-        import torch  # noqa: F401
-        from propainter.inference_propainter import (  # type: ignore
-            ProPainterInference,
-        )
-
-        device = "cuda" if torch.cuda.is_available() else "cpu"
         model = ProPainterInference(device=device)
         mask_uint8 = (
             (zero_mask > 0).astype(np.uint8) * 255

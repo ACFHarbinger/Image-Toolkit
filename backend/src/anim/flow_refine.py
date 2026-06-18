@@ -25,6 +25,11 @@ a robust per-pair sub-pixel translation estimate.
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+import ptlflow
+# --------------------------------
+
+
 import cv2
 import numpy as np
 import torch
@@ -35,7 +40,7 @@ from backend.src.constants import FLOW_MAX_DRIFT, FLOW_PATCH_SIZE
 def _load_sea_raft(device: str = "cpu"):
     """Load SEA-RAFT from ptlflow (cached after first call)."""
     try:
-        import ptlflow
+        # relocated: import ptlflow
         model = ptlflow.get_model("sea_raft")
         model = model.eval().to(device)
         return model

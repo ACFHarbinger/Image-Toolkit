@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 )
 from ....classes.base_generative_tab import BaseGenerativeTab
 from backend.src.models.gan_wrapper import GanWrapper
-from backend.src.models.lora_diffusion import LoRATuner
+from backend.src.models.lo_ra_tuner import LoRATuner
 from backend.src.constants import LOCAL_SOURCE_PATH
 
 

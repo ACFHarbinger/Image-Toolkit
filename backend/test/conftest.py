@@ -1,8 +1,20 @@
 # Fixed conftest.py
 import os
+
+# Set environment variables to prevent thread explosion BEFORE any heavy libraries load
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
+
 import sys
 import pytest
 import tempfile
+import gc
 
 import numpy as np
 from PIL import Image
@@ -15,10 +27,37 @@ sys.path.insert(0, project_root)
 if repo_root not in sys.path:
     sys.path.insert(0, repo_root)
 
+# Limit OpenCV threads to prevent CPU thrashing
+try:
+    import cv2
+    cv2.setNumThreads(0)
+except ImportError:
+    pass
+
+# Limit PyTorch threads to prevent CPU thrashing
+try:
+    import torch
+    torch.set_num_threads(1)
+except ImportError:
+    pass
+
 import src.constants as udef  # noqa: E402
 
 from src.core import FSETool  # noqa: E402
 from src.web import ImageCrawler  # noqa: E402
+
+@pytest.fixture(autouse=True)
+def resource_cleanup():
+    """Aggressively clean up memory and GPU VRAM after every test to prevent RAM exhaustion."""
+    yield
+    gc.collect()
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
+    except ImportError:
+        pass
 
 
 # --- Mocking External Dependencies ---

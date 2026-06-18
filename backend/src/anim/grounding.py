@@ -17,6 +17,34 @@ Config:     ~/.grounding_dino/GroundingDINO_SwinT_OGC.py
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+try:
+    import groundingdino  # noqa: F401  type: ignore
+except ImportError:
+    groundingdino = None
+
+try:
+    import torch
+except ImportError:
+    torch = None
+
+try:
+    from groundingdino.util.inference import load_model  # type: ignore
+except ImportError:
+    load_model = None
+
+try:
+    from groundingdino.util.inference import predict  # type: ignore
+except ImportError:
+    predict = None
+
+try:
+    from torchvision.transforms import functional as TF  # type: ignore
+except ImportError:
+    TF = None
+# --------------------------------
+
+
 import os
 import warnings
 from typing import List, Optional, Tuple
@@ -31,11 +59,7 @@ _gdino_warned = False
 
 def _gdino_available() -> bool:
     """Return True if groundingdino can be imported."""
-    try:
-        import groundingdino  # noqa: F401  type: ignore
-        return True
-    except ImportError:
-        return False
+    return groundingdino is not None
 
 
 def _load_grounding_dino():
@@ -57,8 +81,8 @@ def _load_grounding_dino():
         return None
 
     try:
-        import torch
-        from groundingdino.util.inference import load_model  # type: ignore
+        # relocated: import torch
+        # relocated: from groundingdino.util.inference import load_model  # type: ignore
 
         ckpt = os.path.expanduser(
             os.environ.get(
@@ -131,9 +155,9 @@ def _detect_objects(
         return []
 
     try:
-        import torch
-        from groundingdino.util.inference import predict  # type: ignore
-        from torchvision.transforms import functional as TF  # type: ignore
+        # relocated: import torch
+        # relocated: from groundingdino.util.inference import predict  # type: ignore
+        # relocated: from torchvision.transforms import functional as TF  # type: ignore
 
         H, W = frame.shape[:2]
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -238,7 +262,7 @@ def reset_grounding_dino_model() -> None:
     global _gdino_model, _gdino_warned
     if _gdino_model is not None:
         try:
-            import torch
+            # relocated: import torch
             del _gdino_model
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()

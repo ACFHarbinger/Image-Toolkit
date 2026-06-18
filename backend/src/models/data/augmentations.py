@@ -12,16 +12,21 @@ identity (hair/eye colour, etc.).
 
 Augmentations
 -------------
-FgPreservingHueJitter   — hue-shift only background pixels
-CharacterAwareCrop      — reject crops that clip the character
-BackgroundSwap          — blend character over random background image
-RandomErasingFg         — erase patches inside the character bounding box
-BroadcastDimCurve       — simulate TV broadcast dimming artefact
-MotionBlurSim           — simulate camera motion blur
-MPEGBlockNoise          — simulate MPEG compression block noise
+_FgPreservingHueJitter   — hue-shift only background pixels
+_CharacterAwareCrop      — reject crops that clip the character
+_BackgroundSwap          — blend character over random background image
+_RandomErasingFg         — erase patches inside the character bounding box
+_BroadcastDimCurve       — simulate TV broadcast dimming artefact
+_MotionBlurSim           — simulate camera motion blur
+_MPEGBlockNoise          — simulate MPEG compression block noise
 """
 
 from __future__ import annotations
+
+# --- Relocated Nested Imports ---
+import torch.nn.functional as F
+# --------------------------------
+
 
 import random
 from pathlib import Path
@@ -48,7 +53,7 @@ class AnimeAugmentation:
 # ---------------------------------------------------------------------------
 # 1. Cel-shade-preserving colour jitter
 # ---------------------------------------------------------------------------
-class FgPreservingHueJitter(AnimeAugmentation):
+class _FgPreservingHueJitter(AnimeAugmentation):
     """
     Shift hue only in background pixels (mask == 0).
     Preserves character hair/eye colour identity, which is a critical
@@ -79,7 +84,7 @@ class FgPreservingHueJitter(AnimeAugmentation):
 # ---------------------------------------------------------------------------
 # 2. Character-aware random crop
 # ---------------------------------------------------------------------------
-class CharacterAwareCrop(AnimeAugmentation):
+class _CharacterAwareCrop(AnimeAugmentation):
     """
     Random crop that ensures the foreground area is ≥ min_fg_retain of its
     uncropped value.  Falls back to centre-crop after max_tries failures.
@@ -124,7 +129,7 @@ class CharacterAwareCrop(AnimeAugmentation):
 # ---------------------------------------------------------------------------
 # 3. Background swap
 # ---------------------------------------------------------------------------
-class BackgroundSwap(AnimeAugmentation):
+class _BackgroundSwap(AnimeAugmentation):
     """
     With probability `p`, composite the foreground character over a random
     background drawn from `bg_paths`.  This is the single largest diversity
@@ -166,7 +171,7 @@ class BackgroundSwap(AnimeAugmentation):
 # ---------------------------------------------------------------------------
 # 4. Random erasing inside character bounding box
 # ---------------------------------------------------------------------------
-class RandomErasingFg(AnimeAugmentation):
+class _RandomErasingFg(AnimeAugmentation):
     """
     Erase 8–24 % of image area but only inside the character bounding box.
     Teaches inpainting of the character and reduces memorization.
@@ -211,7 +216,7 @@ class RandomErasingFg(AnimeAugmentation):
 # ---------------------------------------------------------------------------
 # 5. Broadcast dim curve (simulate TV capture brightness artefact)
 # ---------------------------------------------------------------------------
-class BroadcastDimCurve(AnimeAugmentation):
+class _BroadcastDimCurve(AnimeAugmentation):
     """Simulate the non-linear brightness curve of broadcast TV captures."""
 
     def __init__(self, p: float = 0.20, max_dim: float = 0.15):
@@ -232,7 +237,7 @@ class BroadcastDimCurve(AnimeAugmentation):
 # ---------------------------------------------------------------------------
 # 6. Motion blur simulation
 # ---------------------------------------------------------------------------
-class MotionBlurSim(AnimeAugmentation):
+class _MotionBlurSim(AnimeAugmentation):
     """Simulate horizontal/vertical camera motion blur."""
 
     def __init__(self, p: float = 0.10, max_kernel: int = 7):
@@ -246,7 +251,7 @@ class MotionBlurSim(AnimeAugmentation):
     ) -> torch.Tensor:
         if random.random() > self.p:
             return x
-        import torch.nn.functional as F
+        # relocated: import torch.nn.functional as F
         k = random.choice(range(3, self.max_kernel + 1, 2))
         kernel = torch.zeros(1, 1, k, k, dtype=x.dtype, device=x.device)
         if random.random() < 0.5:
@@ -263,7 +268,7 @@ class MotionBlurSim(AnimeAugmentation):
 # ---------------------------------------------------------------------------
 # 7. MPEG block noise
 # ---------------------------------------------------------------------------
-class MPEGBlockNoise(AnimeAugmentation):
+class _MPEGBlockNoise(AnimeAugmentation):
     """Simulate MPEG compression block artefacts (8×8 pixel blocks)."""
 
     def __init__(self, p: float = 0.10, severity: float = 0.05):
@@ -298,14 +303,14 @@ def default_anime_augmentations(
     Ordering: photometric → spatial → structural.
     """
     augs: list[AnimeAugmentation] = [
-        BroadcastDimCurve(p=0.20),
-        FgPreservingHueJitter(max_shift=0.06),
-        MPEGBlockNoise(p=0.10),
-        MotionBlurSim(p=0.10),
+        _BroadcastDimCurve(p=0.20),
+        _FgPreservingHueJitter(max_shift=0.06),
+        _MPEGBlockNoise(p=0.10),
+        _MotionBlurSim(p=0.10),
     ]
     if bg_paths:
-        augs.append(BackgroundSwap(bg_paths=bg_paths, p=0.10))
+        augs.append(_BackgroundSwap(bg_paths=bg_paths, p=0.10))
     if crop_size is not None:
-        augs.append(CharacterAwareCrop(crop_size=crop_size))
-    augs.append(RandomErasingFg(p=0.15))
+        augs.append(_CharacterAwareCrop(crop_size=crop_size))
+    augs.append(_RandomErasingFg(p=0.15))
     return augs

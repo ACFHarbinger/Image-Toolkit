@@ -39,6 +39,11 @@ Environment variables
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+from backend.src.anim.frame_selection import smart_select_frames
+# --------------------------------
+
+
 import logging
 import os
 from typing import List, Optional, Tuple
@@ -309,7 +314,7 @@ class VideoIngestionStream:
 
         if self.mode == "smart":
             try:
-                from backend.src.anim.frame_selection import smart_select_frames
+                # relocated: from backend.src.anim.frame_selection import smart_select_frames
                 proxy_imgs = [self._proxy_frames[i][1] for i in proxy_subset]
                 # smart_select_frames returns list of BGR ndarrays; we need indices
                 selected_imgs = smart_select_frames(proxy_imgs, target_n=want)

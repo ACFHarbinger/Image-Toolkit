@@ -40,7 +40,7 @@ class ConvolutionalBlock(nn.Module):
         return self.layers(h)
 
 
-class GeneratorBlock(nn.Module):
+class _GeneratorBlock(nn.Module):
     def __init__(
         self,
         n_filters,
@@ -130,7 +130,7 @@ class Generator(nn.Module):
         self.norm2 = Normalization(n_filters, norm)
         self.blocks = nn.ModuleList(
             [
-                GeneratorBlock(
+                _GeneratorBlock(
                     n_filters,
                     expansion_factor,
                     kernel_size,

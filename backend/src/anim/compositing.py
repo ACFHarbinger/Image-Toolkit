@@ -21,6 +21,19 @@ overlap between the two adjacent frames.
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+from scipy.ndimage import median_filter as _mf
+from skimage.metrics import structural_similarity as ssim_fn
+from .stateless import _laplacian_blend
+from .fg_register import register_foreground_at_seam
+from .anim_fill import _generate_canonical_cel
+import torch as _tc_torch
+from .anim_fill import _generate_canonical_cel
+import torch as _tc_torch
+import concurrent.futures as _cf
+# --------------------------------
+
+
 import os
 from typing import Dict, List, Optional, Tuple
 
@@ -587,7 +600,7 @@ def _smooth_seam_path(path: np.ndarray, window: int = 5) -> np.ndarray:
     if window <= 1 or len(path) == 0:
         return path
     w = window if window % 2 == 1 else window + 1
-    from scipy.ndimage import median_filter as _mf
+    # relocated: from scipy.ndimage import median_filter as _mf
     return _mf(path.astype(np.float32), size=w).astype(np.int32)
 
 
@@ -1849,7 +1862,7 @@ def _seam_band_ssim(
     -------
     List of ``n_strips − 1`` floats in [0, 1].  Empty when n_strips ≤ 1.
     """
-    from skimage.metrics import structural_similarity as ssim_fn
+    # relocated: from skimage.metrics import structural_similarity as ssim_fn
 
     if n_strips <= 1:
         return []
@@ -2913,7 +2926,7 @@ def _composite_foreground(
     At ownership boundaries a Laplacian pyramid blend with a DP seam path is
     applied to foreground pixels only, providing a seamless character transition.
     """
-    from .stateless import _laplacian_blend
+    # relocated: from .stateless import _laplacian_blend
 
     N = len(frames)
     print("[Stitch]   Laplacian-blend composite (foreground-only deghost)...")
@@ -3203,7 +3216,7 @@ def _composite_foreground(
     seam_synthesized: dict = {}  # k → synthesized seam-band crop (ToonCrafter §3.6)
     if _FG_REGISTER_ENABLED and N >= 2:
         try:
-            from .fg_register import register_foreground_at_seam
+            # relocated: from .fg_register import register_foreground_at_seam
 
             scroll_is_h = tx_range > 0 and ty_range / max(tx_range, 1.0) < 0.1
             reg_axis = 1 if scroll_is_h else 0
@@ -3363,8 +3376,8 @@ def _composite_foreground(
             # is synthesized to keep inference overhead bounded (~24s on A100).
             if _TOONCRAFTER_SEAM and seam_single_pose:
                 try:
-                    from .anim_fill import _generate_canonical_cel
-                    import torch as _tc_torch
+                    # relocated: from .anim_fill import _generate_canonical_cel
+                    # relocated: import torch as _tc_torch
 
                     _tc_device = "cuda" if _tc_torch.cuda.is_available() else "cpu"
                     canvas_h_tc, canvas_w_tc = warped_norm[0].shape[:2]
@@ -3460,8 +3473,8 @@ def _composite_foreground(
             y1_fw = min(H, int(by_w) + feather_w + 1)
             crop_a_tc = warped_norm[fi_a_w][y0_fw:y1_fw]
             crop_b_tc = warped_norm[fi_b_w][y0_fw:y1_fw]
-            from .anim_fill import _generate_canonical_cel
-            import torch as _tc_torch
+            # relocated: from .anim_fill import _generate_canonical_cel
+            # relocated: import torch as _tc_torch
 
             _dev_tc_seam = "cuda" if _tc_torch.cuda.is_available() else "cpu"
             canonical_cel = _generate_canonical_cel(crop_a_tc, crop_b_tc, _dev_tc_seam)
@@ -3497,7 +3510,7 @@ def _composite_foreground(
     # _seam_cut() is read-only (reads warped_norm + result snapshot from hard-partition).
     # Since result is fully populated before the blend loop starts, all seam cuts are
     # independent — no write conflicts.  ThreadPoolExecutor releases the GIL for NumPy ops.
-    import concurrent.futures as _cf
+    # relocated: import concurrent.futures as _cf
 
     def _seam_job(job_args):
         _k, _fa_z, _fb_z, _sem, _W, _zh, _wps = job_args

@@ -1,5 +1,5 @@
 from PySide6.QtCore import QThread, Signal
-from backend.src.models.lora_diffusion import LoRATuner
+from backend.src.models.lo_ra_tuner import LoRATuner
 
 
 class LoRATrainingWorker(QThread):

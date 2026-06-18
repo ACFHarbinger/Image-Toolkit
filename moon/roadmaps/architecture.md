@@ -1,6 +1,6 @@
 # Architecture & Infrastructure Roadmap — Quality, Reliability, and Maintainability
 
-*Last updated: 2026-06-13. ASP unit tests now at 498 (498 passing). ASP benchmark corpus: 97 tests (asp_test01–asp_test97). Session 80 complete — SAM-2 wired, Otsu bg mask for phase correlation, background zero-coverage fill (`bg_complete.py`), `asp_config.toml` defaults. Phase 2 architecture defined: direct video ingestion (PyAV `VideoIngestionStream`, Issue 9), multi-modal HITL with Grounded SAM-2 + click refinement + NL seam routing + COCO/Label Studio annotation serialization (Issue 10). See `asp.md` for per-session tracking and Phase 2 Sprint 5–9 specs.*
+*Last updated: 2026-06-18. Added §5.5 (Gradual Static Type Safety), §5.8–§5.13 (model wrapper abstraction, worker lifecycle standardisation, gallery base class consolidation, circular import prevention, codebase documentation & diagrams, decorator library), and §5.14–§5.16 (centralised settings facade, fault isolation & error boundary protocol, contract testing for ML wrappers). ASP unit tests now at 827 (session 131). ASP benchmark corpus: 97 tests. Phase 2 architecture defined: direct video ingestion (PyAV `VideoIngestionStream`), multi-modal HITL with Grounded SAM-2. See `asp.md` for per-session tracking and Phase 2 Sprint specs.*
 
 ---
 
@@ -205,41 +205,74 @@ Send exception tracebacks and error-level log events to Sentry. Aggregates error
 
 ---
 
-## 5.5 Vault Manager Modernisation
+## 5.5 Gradual Static Type Safety Migration
 
-**Pain point:** `vault_manager.py` starts a JVM via JPype before Qt initialises. This is the root cause of the known `libstdc++` RTTI conflicts with GTK native dialogs and QtWebEngine. The JVM startup adds ~1–2s to app launch.
+**Pain point:** `pyproject.toml` lists `mypy>=1.18.2` as a dev dependency but the `[tool.mypy]` section is absent. Pyright is configured with `typeCheckingMode = "off"`. As a result neither type checker runs in CI, and the codebase accumulates type errors silently. Spot checks show: `backend/src/anim/pipeline.py` has 77 function definitions with ~72 return annotations (partial coverage); `gui/src/classes/abstract_class_two_galleries.py` has 79 function definitions with ~38 return annotations (~48% coverage). Worker `config` dictionaries are typed `Dict[str, Any]` throughout — all key accesses are unchecked. The cost of *fixing* the first type error in a fully-strict run of a 150-file codebase is prohibitive; the cost of not enforcing types is a growing silent bug surface.
+
+Informed by: JetBrains 2025 survey (type hint adoption grew from 48% to 71% in Python projects 2022–2025); mypy maintainer guidance on per-module strictness escalation; and the Dropbox engineering blog's account of migrating 4M LOC to mypy over 5 years using per-package ignore files.
 
 ### Options
 
-**A — Rewrite in Python using the `cryptography` library**
-Implement AES-256-GCM in Python using `cryptography.hazmat.primitives.ciphers.aead.AESGCM`. Eliminate the JVM dependency entirely.
-- `cryptography` is a Python package with a Rust backend — no JVM needed.
-- Requires verifying `.vault` format compatibility with the Kotlin implementation (same IV, AAD, tag structure).
-- Pros: Fastest path if `.vault` format is documented. Zero JVM overhead. Eliminates all `libstdc++` conflicts.
-- Cons: Python-side secret material handling requires care (avoid logging, secure memory zeroing).
+**A — `[tool.mypy]` baseline config with per-package ignore files [Recommended]**
+Add to `pyproject.toml`:
+```toml
+[tool.mypy]
+python_version = "3.11"
+# Global baseline — permissive, catches only hard errors
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_return_any = false
+disallow_untyped_defs = false
 
-**B — Subprocess-based vault operations**
-Keep the Kotlin implementation but call it via `subprocess` rather than JPype. Avoids JVM-in-process RTTI conflicts; small per-call overhead (~100ms) is acceptable for infrequent credential operations.
-- Pros: Minimal code change. No re-implementation of crypto logic.
-- Cons: Subprocess startup adds 100ms per vault operation. Credential bytes must be passed via stdin/stdout (not argv, which would expose them to `ps`).
+# Strict opt-in per module as they are cleaned up
+[[tool.mypy.overrides]]
+module = ["backend.src.anim.bundle_adjust", "backend.src.anim.validation"]
+disallow_untyped_defs = true
+warn_return_any = true
+```
+Migration sequence:
+1. **Week 1**: Enable baseline config (zero violations, just enables the tool). Run `mypy backend/src gui/src` in CI; failures are warnings-only.
+2. **Week 2–N**: Enable `disallow_untyped_defs = true` for each module once it is annotated. Priority order: `constants/` → `core/` → `models/` → `anim/` → `gui/src/classes/` → `gui/src/helpers/`.
+3. **End state**: All modules under strict coverage; `disallow_untyped_defs = true` globally.
+- Pros: Zero upfront disruption. Each PR that adds annotations shrinks the un-strict surface. Directly enabled by §5.9D (`WorkerConfig` TypedDict) and §5.11D (`__all__` hygiene), which are already planned.
+- Cons: Long tail — full strict coverage may take months. Requires discipline to avoid regressing annotated modules.
 
-**C — Rust AES-256-GCM via PyO3 [Recommended]**
-Implement AES-256-GCM in Rust using the `aes-gcm` crate. Compile into the existing `base` extension module.
-- `aes-gcm` is a well-audited crate (RustCrypto organisation). Supports 128-bit authentication tags.
-- Pros: Zero-overhead FFI into the existing Rust extension. No JVM. Same security guarantees as the Kotlin implementation. Memory safety from Rust.
-- Cons: Requires verifying `.vault` format compatibility. Adds `aes-gcm` crate to `base/Cargo.toml`.
+**B — Pyright `basic` mode (flip `typeCheckingMode` from `off` to `basic`)**
+Change `pyproject.toml`:
+```toml
+[tool.pyright]
+typeCheckingMode = "basic"
+```
+Pyright `basic` mode checks for name-not-found, attribute-not-found, type narrowing errors, and missing return types — all without requiring full annotations. It is already installed (configured but disabled). VS Code users with Pylance get immediate red squiggles.
+- Pros: Zero annotation work required to flip from `off` to `basic`. Immediate IDE feedback for all developers. Fastest single-line change in this document.
+- Cons: `basic` does not enforce annotation completeness. Will generate a large number of `reportUnknownVariableType` warnings on the `Dict[str, Any]` worker configs.
 
-**D — Age encryption (modern replacement)**
-Replace the custom `.vault` format with `age` (a modern encryption standard). Use `pyrage` (Python bindings for age).
-- Pros: Modern, well-audited encryption standard. Built-in key management. No JVM.
-- Cons: Breaking change to `.vault` format. All existing vaults must be migrated.
+**C — `TypedDict` for all worker config dictionaries**
+Each worker's `config: Dict[str, Any]` becomes a typed dict:
+```python
+class ConversionConfig(TypedDict, total=False):
+    files_to_convert: List[str]
+    input_path: str
+    output_format: str
+    output_path: str
+    delete_original: bool
+    use_multicore: bool
+    aspect_ratio: Optional[str]
+    aspect_ratio_mode: str
+    aspect_ratio_w: Optional[int]
+    aspect_ratio_h: Optional[int]
+```
+This is a prerequisite for §5.9D and provides the highest density of type-safety value per annotation written, since worker configs are the single largest source of unchecked `dict.get()` calls in the codebase.
+- Workers affected: `ConversionWorker`, `DeletionWorker`, `MergeWorker`, `WallpaperWorker`, `StitchWorker` (13 `config.get()` calls in `StitchWorker` alone).
+- Pros: Immediately catches `KeyError` and wrong-type access. Zero runtime overhead (`TypedDict` is erased at runtime).
+- Cons: ~15 TypedDict definitions to write. Workers that build config dicts in tabs must also be updated.
 
-**E — OS keyring integration**
-Use the OS keyring (Freedesktop Secret Service on Linux via `keyring` Python library) to store credentials instead of encrypted vault files.
-- Pros: Credentials managed by the OS. No custom vault format to maintain.
-- Cons: Requires `keyring` dependency. OS keyring may not be available in all environments (headless servers). Reduces portability.
+**D — `ty` / `pyrefly` as faster drop-in alternative**
+Astral's `ty` (2025) and Meta's `pyrefly` (2025) are Rust-based type checkers designed as faster mypy alternatives. Both support the same PEP 484/526/563 type annotation standard. `ty` in particular is designed for incremental adoption with explicit strictness gates per directory.
+- Pros: 10–50× faster than mypy on large codebases. `uv` already in the toolchain (same Astral ecosystem). First-class support for `TypedDict`, `Protocol`, and `ParamSpec`.
+- Cons: Both are newer tools with smaller community footprints. Some mypy plugins (e.g. `pydantic-mypy`) have no equivalent. Migration from mypy to `ty` requires re-tuning configuration.
 
-**Recommendation:** C is the architecturally cleanest solution — consolidates security-critical code into the already-existing Rust extension. A is the fastest path if the `.vault` format is documented. E as a long-term direction for desktop environments with reliable OS keyring support.
+**Recommendation:** B immediately — flipping Pyright from `off` to `basic` is a one-line change with zero annotation work and activates IDE feedback for all developers today. A + C in parallel over the following month. D once `ty`/`pyrefly` reach feature parity with the mypy plugins used here.
 
 ---
 
@@ -308,6 +341,644 @@ Run `cargo audit` in CI to detect CVEs in Rust crate dependencies.
 
 ---
 
+## 5.8 Model Wrapper Abstraction Layer (`backend/src/models/`)
+
+**Pain point:** Every model wrapper (`LoFTRWrapper`, `ALIKEDLightGlueWrapper`, `RoMaWrapper`, `BiRefNetWrapper`, `BaSiCWrapper`, etc.) independently reimplements the same lifecycle boilerplate: CUDA device selection in `__init__`, a `torch.cuda.empty_cache()` + `gc.collect()` `unload()` body, a `logger = logging.getLogger(__name__)` line at module level, and a `# --- Relocated Nested Imports ---` comment block. Adding a new model requires copying this scaffolding by hand.
+
+### Options
+
+**A — `ModelWrapper` abstract base class [Recommended]**
+Define `backend/src/models/base.py`:
+```python
+class ModelWrapper(ABC):
+    def __init__(self, device: Optional[str] = None) -> None:
+        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self._model: Optional[torch.nn.Module] = None
+
+    @abstractmethod
+    def load(self) -> None:
+        """Instantiate and move the model to self.device."""
+
+    def unload(self) -> None:
+        """Release VRAM/RAM. Subclasses may override to clean extra state."""
+        if self._model is not None:
+            self._model.cpu()
+            del self._model
+            self._model = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        gc.collect()
+
+    @classmethod
+    def is_available(cls) -> bool:
+        """Return False if the optional dependency for this model is missing."""
+        return True
+
+    @property
+    def loaded(self) -> bool:
+        return self._model is not None
+```
+- All existing wrappers subclass `ModelWrapper`; their `__init__` calls `super().__init__(device)`. `unload()` is inherited or extended with `super().unload()`.
+- `is_available()` replaces the current module-level `_KORNIA_OK`, `_ROMA_OK` etc. guard flags, enabling the pipeline to query capability at runtime.
+- Pros: Single source of truth for lifecycle. Static analysis catches missing `load()` implementations. `loaded` property prevents `AttributeError` when wrappers are called before `load()`.
+- Cons: Requires touching all wrapper files. Wrappers that store model state in multiple attributes (e.g. `BiRefNetWrapper` with `transform` + `model`) must adapt `unload()`.
+
+**B — `@lazy_load` decorator**
+A decorator that wraps any public method and calls `self.load()` the first time it is invoked if `self.loaded` is False:
+```python
+def lazy_load(method):
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        if not self.loaded:
+            self.load()
+        return method(self, *args, **kwargs)
+    return wrapper
+```
+- Applied to `match()`, `get_mask()`, `fit()`, etc. Removes every `if self.matcher is None: self._load_model()` guard inside methods.
+- Pros: Eliminates 5–10 lines of `if not loaded` branching per wrapper. Works orthogonally with option A.
+- Cons: Implicit behaviour — loading happens as a side effect of the first call. Must be documented clearly.
+
+**C — `ModelRegistry` singleton**
+A global registry that tracks all loaded wrappers and provides a `ModelRegistry.unload_all()` method for memory pressure events:
+```python
+class ModelRegistry:
+    _instances: List[ModelWrapper] = []
+
+    @classmethod
+    def register(cls, wrapper: ModelWrapper) -> None:
+        cls._instances.append(wrapper)
+
+    @classmethod
+    def unload_all(cls) -> None:
+        for w in cls._instances:
+            if w.loaded:
+                w.unload()
+```
+- Wired into `AnimeStitchPipeline` to bulk-unload after a pipeline run.
+- Pros: Centralised VRAM management. The GUI can call `ModelRegistry.unload_all()` when switching tabs.
+- Cons: Weak-reference handling needed to avoid keeping dead wrappers alive.
+
+**D — Remove `# --- Relocated Nested Imports ---` blocks [Quick Win]**
+These comment blocks were added when imports were moved from nested function scope to module scope to fix import ordering. The comments are now noise: they explain what was done, not why. Delete them across all wrapper files and consolidate the import section into standard PEP 8 order (stdlib → third-party → local). Apply via a single grep-and-edit pass.
+- Effort: < 1 hour.
+
+**Recommendation:** A + B immediately (they compose cleanly). C as a follow-on once A is in place. D as a standalone cleanup PR with zero functional risk.
+
+---
+
+## 5.9 Worker Thread Base Class & Lifecycle Standardisation (`gui/src/helpers/`)
+
+**Pain point:** The worker layer in `gui/src/helpers/` is split between two Qt threading paradigms — `QThread` subclasses (`ConversionWorker`, `DeletionWorker`, `StitchWorker`) and `QRunnable`/`QObject` pairs (`SearchWorker` with `_SearchWorkerSignals`, `MergeWorker`) — with no shared base. Each worker independently declares `finished`, `error`, `progress` signals, a `stop()`/`cancel()` method, and a `run()` body, leading to inconsistent naming (`stop()` vs `cancel()`, `progress` vs `progress_update`) and copy-pasted cancellation idioms.
+
+### Options
+
+**A — `BaseQThreadWorker` abstract class**
+```python
+class BaseQThreadWorker(QThread):
+    finished = Signal(object)   # subclasses narrow the type in their own Signal
+    error    = Signal(str)
+    progress = Signal(int)      # 0–100
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._cancelled = False
+
+    def cancel(self) -> None:
+        self._cancelled = True
+
+    # alias so callers that use stop() still work
+    stop = cancel
+
+    @abstractmethod
+    def _execute(self) -> None:
+        """Subclasses put their logic here instead of overriding run()."""
+
+    def run(self) -> None:
+        try:
+            self._execute()
+        except Exception as exc:
+            self.error.emit(str(exc))
+```
+- `run()` catches all exceptions and routes them to `error`, so subclasses don't repeat that try/except shell.
+- `_execute()` is the new override point; the try/except, cancellation guard, and signal dispatch live in the base.
+- Pros: Uniform `cancel()`/`stop()` API. Exception handling guaranteed for all workers. Easier to add cross-cutting behaviour (e.g. timing, logging) in one place.
+- Cons: `finished` signal type varies per worker — subclasses must re-declare `finished` with the concrete type, which shadows the base. Python allows this but it is mildly awkward.
+
+**B — `BaseQRunnableWorker` for lightweight tasks**
+```python
+class _WorkerSignals(QObject):
+    finished = Signal(object)
+    error    = Signal(str)
+    progress = Signal(int)
+    cancelled = Signal()
+
+class BaseQRunnableWorker(QRunnable):
+    def __init__(self) -> None:
+        super().__init__()
+        self.signals = _WorkerSignals()
+        self._cancelled = False
+        self.setAutoDelete(True)
+
+    def cancel(self) -> None:
+        self._cancelled = True
+
+    @abstractmethod
+    def _execute(self) -> None: ...
+
+    @Slot()
+    def run(self) -> None:
+        try:
+            if not self._cancelled:
+                self._execute()
+        except Exception as exc:
+            self.signals.error.emit(str(exc))
+```
+- Used for `SearchWorker`, `ImageLoaderWorker`, `BatchImageLoaderWorker` — short tasks that don't need a dedicated `QThread`.
+- Eliminates the per-worker `_WorkerSignals` subclass that currently pollutes every short-lived worker file.
+- Pros: Unified signal namespace (`worker.signals.finished`). Single `_WorkerSignals` class reused everywhere.
+- Cons: All callers of the old `worker.finished.connect(...)` must switch to `worker.signals.finished.connect(...)`.
+
+**C — Progress reporting protocol [Quick Win]**
+Standardise `progress` to always emit `(int, int)` — `(completed, total)` — instead of a 0–100 percentage. This lets the GUI compute both the percentage bar and the "N of M" label from a single signal, and removes the per-worker arithmetic for `int((idx/total) * 100)`.
+- Pros: Richer information per signal. The receiving slot can display "12 / 47 files" without extra state.
+- Cons: All existing progress slot handlers must be updated to unpack the tuple.
+
+**D — Standardise `config` dict keys [Quick Win]**
+Workers receive configuration as `dict[str, Any]`. The same conceptual parameter has different keys across workers (`"input_path"` vs `"target_path"`, `"delete_original"` vs `"send_to_trash"`). Define a `WorkerConfig` dataclass (or `TypedDict`) per worker so the GUI passes a typed object and the worker accesses attributes rather than dict keys, getting IDE autocompletion and `KeyError`-proof access.
+
+**Recommendation:** A + B form a clean pair — heavy `QThread` workers use A, lightweight `QRunnable` workers use B. C + D are fast wins that can be done independently.
+
+---
+
+## 5.10 Gallery Base Class Consolidation (`gui/src/classes/`)
+
+**Pain point:** `AbstractClassTwoGalleries` and `AbstractClassSingleGallery` share ~80 lines of identical `__init__` state (`thumbnail_size`, `padding_width`, `approx_item_width`, `_current_cols`, `thread_pool`, `_active_workers`, `_resize_timer`, `_load_thumbnail_size()`) but have no common parent class below `QWidget`. The `MetaAbstractClassGallery` metaclass injection pattern is non-standard — it injects free functions as methods rather than using normal inheritance, making the class hierarchy opaque to IDEs and type checkers.
+
+### Options
+
+**A — `AbstractGalleryBase` shared parent class [Recommended]**
+Extract the shared init state and common helper methods into a new `AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery)`:
+```
+AbstractGalleryBase (QWidget)
+├── AbstractClassSingleGallery   — one gallery panel
+└── AbstractClassTwoGalleries    — found + selected panels
+```
+`AbstractGalleryBase.__init__` sets `thumbnail_size`, `padding_width`, `approx_item_width`, `thread_pool`, `_active_workers`, `_resize_timer`. Both subclasses call `super().__init__()` and add only their own panel-count-specific state.
+- Pros: Eliminates ~80 lines of duplicated init. Clear lineage visible in `__mro__`. IDE "go to definition" works for all shared helpers.
+- Cons: Moderate refactor. Must ensure `super().__init__()` chains correctly through multiple inheritance with `QWidget` and `ABCMeta`.
+
+**B — Replace metaclass injection with regular class methods**
+Move the injected functions (`common_create_pagination_ui`, `common_reflow_layout`, etc.) from `MetaAbstractClassGallery.__new__` into `AbstractGalleryBase` as normal methods. The metaclass is reduced to just the `ABCMeta` + `type(QObject)` combination (still needed to satisfy Qt's metaclass requirement).
+- Why: Metaclass injection is valid Python but it bypasses the MRO, making IDE navigation fail (`Ctrl+Click` on `self.common_reflow_layout()` goes nowhere). The `if method_name not in dct` guard prevents subclasses from overriding, which is unnecessary — normal method inheritance already handles that.
+- Pros: Full IDE support. mypy can type-check the injected methods. Subclasses can naturally override specific helpers.
+- Cons: Breaks any hypothetical external class that uses `MetaAbstractClassGallery` expecting the injection — unlikely given the codebase.
+
+**C — Document the metaclass pattern [Quick Win]**
+Before any refactor, add an extended module-level docstring to `meta_abstract_class_gallery.py` explaining *why* the metaclass injection pattern was chosen (ABCMeta + Qt metaclass conflict), what each injected method does, and how to add a new injectable. This costs nothing and immediately reduces confusion for new developers reading the file.
+
+**D — `_load_thumbnail_size` extraction [Quick Win]**
+Both `AbstractClassSingleGallery` and `AbstractClassTwoGalleries` call `self._load_thumbnail_size(default=180)` but this method is currently defined identically in both files. Extract it to `AbstractGalleryBase` (or to `gui/src/utils/` as a standalone function) and delete both copies.
+
+**Recommendation:** C + D immediately (zero risk). A + B as a single refactor sprint.
+
+---
+
+## 5.11 Circular Import Prevention & Module Boundary Documentation
+
+**Pain point:** The project has no documented import rules. As the codebase grows (currently 150+ Python files across `gui/src/`, `backend/src/`, `tasks/`, `api/`), accidental circular imports become increasingly likely. The current architecture has one known dangerous pattern: GUI helpers import `backend.src.*` at module level (e.g. `from backend.src.anim import AnimeStitchPipeline` in `stitch_worker.py`), which pulls in PyTorch and heavy model weights during GUI startup even when the stitch tab is never opened.
+
+### Options
+
+**A — Enforce layered import rules via `import-linter` [Recommended]**
+Define import contracts in `pyproject.toml`:
+```toml
+[tool.importlinter]
+root_packages = ["backend", "gui"]
+
+[[tool.importlinter.contracts]]
+name = "GUI must not import from gui internals at module level in helpers"
+type = "layers"
+layers = ["gui.src.windows", "gui.src.tabs", "gui.src.helpers", "gui.src.classes", "gui.src.components", "gui.src.utils"]
+```
+A separate contract forbids `gui.*` from importing `backend.src.models.*` at module scope (only inside `run()` or `_execute()`).
+- Pros: CI-enforced. `import-linter` integrates with pre-commit. Violations shown as import-graph diffs.
+- Cons: `import-linter` is an additional dev dependency. Initial setup requires mapping the actual import graph first.
+
+**B — TYPE_CHECKING guards for heavy imports**
+Heavy backend imports in GUI helpers that are only needed for type annotations should be gated:
+```python
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from backend.src.anim import AnimeStitchPipeline
+```
+- Runtime imports of `AnimeStitchPipeline` (and other heavy models) move inside `_execute()` / `run()`.
+- Pros: Deferred import means PyTorch is not loaded until the worker actually runs. Reduces GUI cold-start time by ~2–4 s on CPU-only machines.
+- Cons: Loses autocomplete/type inference at call sites unless stubs are present.
+
+**C — Module-level dependency diagram [Quick Win]**
+Generate a dependency graph using `pydeps` or `pipdeptree` and commit the output as `docs/module_graph.svg`. Update it in CI on merges to `main`. Visible bottlenecks (nodes with 20+ dependents) become obvious candidates for decoupling.
+```bash
+pydeps backend/src --max-bacon 3 --show-deps -o docs/backend_deps.svg
+pydeps gui/src     --max-bacon 3 --show-deps -o docs/gui_deps.svg
+```
+- Effort: < 2 hours to generate; CI integration < 1 hour.
+
+**D — `__all__` hygiene pass [Quick Win]**
+Every public module in `backend/src/` and `gui/src/` should define `__all__`. Currently most `__init__.py` files use bare re-exports without `__all__`, meaning `from module import *` would leak private helpers. A single pass to add `__all__ = [...]` to every `__init__.py` also serves as living documentation of the public API surface.
+
+**Recommendation:** B immediately (zero new deps, runtime benefit). C + D as a single documentation PR. A once C reveals the actual graph.
+
+---
+
+## 5.12 Codebase Documentation & Diagrams
+
+**Pain point:** `backend/src/models/` wrapper files have good module-level docstrings explaining the ML model, but function-level docstrings are sparse or absent. `gui/src/classes/` has class-level docstrings but no parameter documentation. New developers cannot understand the tab→worker→backend call chain without reading multiple files. There is no auto-generated API reference.
+
+### Options
+
+**A — NumPy-style docstring standard for all public functions**
+Adopt the NumPy docstring convention for all public methods across `backend/src/` and `gui/src/`:
+```python
+def fit(self, images: List[np.ndarray], luma_only: bool = True) -> Tuple[...]:
+    """
+    Estimate flat-field, dark-field, and per-frame dimming baselines.
+
+    Parameters
+    ----------
+    images : list of np.ndarray
+        BGR uint8 arrays, all the same spatial size.
+    luma_only : bool, default True
+        Correct only the Y′ channel.
+
+    Returns
+    -------
+    flat_field : np.ndarray, shape (H, W, 3), float32
+    dark_field : np.ndarray, shape (H, W, 3), float32
+    baselines  : np.ndarray, shape (N,), float32
+    """
+```
+- Priority order: (1) all public methods in `backend/src/models/`, (2) all public methods in `backend/src/anim/`, (3) all abstract methods in `gui/src/classes/`.
+- The existing `basic_wrapper.py` already uses this style consistently — apply it everywhere.
+
+**B — Mermaid class diagrams in module docstrings**
+Add a `.. mermaid::` (or plain fenced Mermaid block) at the top of key `__init__.py` files showing the class hierarchy:
+```
+backend/src/models/__init__.py:
+  ModelWrapper (ABC)
+  ├── BaSiCWrapper
+  ├── BiRefNetWrapper
+  ├── LoFTRWrapper
+  ├── ALIKEDLightGlueWrapper
+  └── RoMaWrapper
+```
+And the GUI hierarchy:
+```
+gui/src/classes/__init__.py:
+  QWidget
+  └── AbstractGalleryBase (metaclass=MetaAbstractClassGallery)
+      ├── AbstractClassSingleGallery
+      └── AbstractClassTwoGalleries
+```
+- Mermaid renders in GitHub, VS Code Preview, and Sphinx/pdoc. Zero new tooling if the project is already on GitHub.
+- Effort: 2–3 hours for the three most important diagrams.
+
+**C — Tab→Worker→Backend call chain document**
+A single `docs/architecture_overview.md` (committed to the repo, not just `moon/`) that explains:
+1. How a user action in a tab (e.g. "Start Conversion") flows to a worker (`ConversionWorker`) and then to backend logic (`ImageFormatConverter`).
+2. The three threading contexts: Qt main thread (UI events), `QThread` workers (heavy I/O), `QThreadPool` runnables (short tasks).
+3. Signal/slot contract: what each worker emits, what the tab connects to it.
+- Audience: developers joining the project who need a mental model before reading code.
+- Effort: 1 day.
+
+**D — Sphinx auto-docs with pdoc fallback**
+Generate HTML API docs from docstrings using `pdoc` (simpler than Sphinx for a project without RST files):
+```bash
+pdoc backend/src gui/src --output-dir docs/api/
+```
+Wire into CI to regenerate on every merge to `main` and host via GitHub Pages.
+- Pros: Always up-to-date reference. Links between classes are clickable.
+- Cons: Requires installing `pdoc`. Docstrings must be good before this is useful (dependency on A).
+
+**Recommendation:** A + B immediately; they have zero infrastructure cost. C as a onboarding-focused one-pager. D once A is done and there is something worth generating docs from.
+
+---
+
+## 5.13 Decorator Library for Cross-Cutting Concerns (`backend/src/utils/decorators.py`)
+
+**Pain point:** Several patterns recur identically across many files but are not extracted as reusable utilities: (1) "call `self.load()` if not already loaded" appears in every wrapper method body; (2) "emit `self.error.emit(str(e))` on exception" appears in every worker `run()`; (3) "validate that this path exists before doing anything" appears in every file-operation entry point; (4) "log entry + exit with timing" is not applied anywhere but was requested in §5.4.
+
+### Options
+
+**A — `@lazy_load` — automatic model loading on first use**
+*(See §5.8B for the design.)* Eliminates the `if self._model is None: self.load()` guard from every wrapper method. Can be applied as `@lazy_load` to `match()`, `get_mask()`, `fit()`, etc.:
+```python
+@lazy_load
+def match(self, img_a: np.ndarray, img_b: np.ndarray) -> ...:
+    ...
+```
+
+**B — `@require_path(*param_names)` — early path validation**
+```python
+def require_path(*param_names):
+    def decorator(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            bound = inspect.signature(fn).bind(*args, **kwargs)
+            bound.apply_defaults()
+            for name in param_names:
+                p = bound.arguments.get(name)
+                if p and not os.path.exists(p):
+                    raise FileNotFoundError(f"{name}={p!r} does not exist")
+            return fn(*args, **kwargs)
+        return wrapper
+    return decorator
+```
+Applies to any backend entry point that receives a file path. Replaces the manual `if not os.path.exists(target_path): self.error.emit(...)` blocks in workers.
+
+**C — `@log_call(level=logging.DEBUG)` — entry/exit timing [Quick Win]**
+```python
+def log_call(level=logging.DEBUG):
+    def decorator(fn):
+        _log = logging.getLogger(fn.__module__)
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            _log.log(level, "→ %s", fn.__qualname__)
+            t0 = time.monotonic()
+            result = fn(*args, **kwargs)
+            _log.log(level, "← %s (%.3fs)", fn.__qualname__, time.monotonic() - t0)
+            return result
+        return wrapper
+    return decorator
+```
+Applied selectively to pipeline stages and model `load()`/`unload()` calls. Provides timing data compatible with §5.4B's JSON trace format without instrumenting every function body.
+
+**D — `@worker_method` — standardised exception-to-signal routing**
+For QThread workers that always want exceptions routed to `self.error.emit(str(e))`:
+```python
+def worker_method(fn):
+    @functools.wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        try:
+            return fn(self, *args, **kwargs)
+        except Exception as exc:
+            self.error.emit(str(exc))
+    return wrapper
+```
+Applied to `run()` in every `QThread` worker. Pairs with §5.9A's `BaseQThreadWorker` (which provides the same guarantee at the class level — choose one or the other, not both).
+
+**E — `backend/src/utils/decorators.py` module**
+All the above decorators live in a single module. Keeps them discoverable and importable via one path. No circular import risk since `decorators.py` only imports stdlib (`functools`, `inspect`, `os`, `time`, `logging`).
+
+**Recommendation:** E is the structure decision — do it first. Then A + C (highest leverage). B + D as follow-ons.
+
+---
+
+## 5.14 Centralised Settings Facade (`gui/src/utils/settings.py` + `backend/src/anim/config.py`)
+
+**Pain point:** Application configuration is split across at least three independent mechanisms with no unified access point:
+1. **GUI persistent state** — `QSettings("ImageToolkit", "ImageToolkit")` is called with hardcoded organisation/application strings in 20+ locations across `abstract_class_two_galleries.py`, `abstract_class_single_gallery.py`, `splitter_persistence.py`, `listings_common.py`, `main_window.py`, and `settings_window.py`. Any typo in the string creates a silently-separate settings namespace.
+2. **Backend ASP flags** — 132+ `os.environ.get("ASP_*", default)` calls scattered across `pipeline.py`, `compositing.py`, `frame_selection.py`, etc. The `config.py` module (§1.8A `load_asp_config`) exists but is not universally used — modules still read `os.environ` directly.
+3. **Application-level constants** — `backend/src/constants/` has 8 modules (`app.py`, `paths.py`, `system.py`, etc.) that mix runtime-changeable values with true compile-time constants.
+
+The consequence: there is no single place to enumerate "what settings does this application have", change a settings key, or add validation. Discovered via grep: 20 independent `QSettings("ImageToolkit", "ImageToolkit")` constructor calls, all of which would silently break if the organisation name changed.
+
+Informed by: Dynaconf's layered configuration pattern (env var → file → default); Django's `django.conf.settings` singleton design; the Twelve-Factor App principle of externalising all configuration.
+
+### Options
+
+**A — `AppSettings` singleton facade for GUI [Recommended]**
+Create `gui/src/utils/settings.py`:
+```python
+from PySide6.QtCore import QSettings
+
+_ORG  = "ImageToolkit"
+_APP  = "ImageToolkit"
+
+class AppSettings:
+    """Single access point for all QSettings keys.
+
+    Usage:
+        from gui.src.utils.settings import app_settings
+        app_settings.thumbnail_size          # read
+        app_settings.thumbnail_size = 200    # write
+    """
+    _instance: Optional["AppSettings"] = None
+
+    def __new__(cls) -> "AppSettings":
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._q = QSettings(_ORG, _APP)
+        return cls._instance
+
+    # --- typed properties, one per logical setting ---
+    @property
+    def thumbnail_size(self) -> int:
+        return int(self._q.value("gallery/thumbnail_size", 180))
+
+    @thumbnail_size.setter
+    def thumbnail_size(self, v: int) -> None:
+        self._q.setValue("gallery/thumbnail_size", v)
+
+    # ... (one property per key)
+
+app_settings = AppSettings()
+```
+- All 20+ call sites replace `QSettings("ImageToolkit", "ImageToolkit").value("key", default)` with `app_settings.key`.
+- Pros: One place to list all settings keys (living documentation). Typed access (no `int(settings.value(...))` casts at call sites). Renaming a key is a one-file change. Trivially mockable in tests.
+- Cons: Requires touching all 20 call sites. Properties must be added for every new setting.
+
+**B — Merge backend `os.environ.get()` calls into `load_asp_config()` [Recommended]**
+`backend/src/anim/config.py`'s `load_asp_config()` already reads `asp_config.toml` and writes env vars via `os.environ.setdefault`. Extend the contract: every module that currently reads `os.environ.get("ASP_*", default)` at module level should instead call `load_asp_config()` once at startup (already done in `AnimeStitchPipeline.__init__`) and then read from `os.environ` with the guarantee that defaults have been set. Add a module-level assertion `assert "ASP_HOLD_THRESHOLD" in os.environ, "load_asp_config() must be called before importing pipeline modules"` — or better, provide a `get_asp(key, default)` function in `config.py` that is always safe to call.
+- Pros: Eliminates the risk of a module reading an env var before `load_asp_config()` runs. `config.py` remains the single source of defaults.
+- Cons: Requires auditing 132 `os.environ.get()` call sites.
+
+**C — Merge GUI and backend configuration into a single `AppConfig` dataclass**
+Define a top-level `backend/src/config.py` (or `config/app_config.py`) with a `AppConfig` dataclass containing both GUI persistence keys and ASP tuning parameters. On startup, populate it from: (1) `asp_config.toml`, (2) `QSettings`, (3) environment variables (highest priority). Pass the instance down to any component that needs it.
+- Inspired by: Hydra's `DictConfig` pattern; Django's `LazySettings` singleton.
+- Pros: Single `AppConfig` object is the complete application configuration. Fully introspectable: `print(app_config)` lists all values. Enables a "Show current config" debug screen.
+- Cons: Creates a cross-cutting dependency between `gui/` and `backend/`. The PySide6 `QSettings` backend (platform-specific file) and the `tomllib` backend have incompatible persistence models.
+
+**D — Validate QSettings keys at load time [Quick Win]**
+Define a `SETTINGS_SCHEMA: dict[str, type]` mapping every valid QSettings key to its expected type. Run `_validate_settings(schema)` on app startup that logs a warning for any persisted key not in the schema (stale keys from old versions) and re-applies defaults for any missing key. Zero behaviour change; catches silent regressions from settings key renames.
+
+**Recommendation:** A + B are independent and composable — do both. D as a zero-risk Quick Win. C is architecturally ideal but the GUI/backend coupling cost is high; defer until §5.11 (import boundaries) is resolved.
+
+---
+
+## 5.15 Fault Isolation & Error Boundary Protocol
+
+**Pain point:** Errors propagate differently across the three execution contexts (Qt main thread, `QThread` workers, `QRunnable` tasks) with no uniform contract. Specific failures observed in the codebase:
+- `ConversionWorker._convert_single_file()` uses `print(f"Error creating directory: {e}")` and `print(f"Error removing original file: {e}")` instead of logging, and silently returns `False` — the GUI never shows a per-file error.
+- `DeletionWorker` has a bare `except Exception: pass` in the `send2trash` loop body, swallowing all trash errors silently.
+- `AnimeStitchPipeline` raises bare `RuntimeError` and `ValueError` with no custom exception hierarchy, making it impossible for the GUI to distinguish "expected quality failure" (trigger retry) from "unexpected crash" (show stack trace to user).
+- Pipeline stage failures within `_ProgressPipeline` fall through to the outer `except Exception as e: self.error.emit(str(e))` which sends the raw exception string to a `QMessageBox`, giving users an opaque message like `"list index out of range"`.
+
+Informed by: React's Error Boundary pattern (2016; isolate crash to subtree, not whole app); Michael Nygard's *Release It!* (2nd ed., 2018) circuit-breaker and bulkhead patterns; Netflix Hystrix/resilience4j principles applied to local application layers; Clean Architecture's rule that domain exceptions should not expose infrastructure details.
+
+### Options
+
+**A — Custom exception hierarchy for `backend/src/` [Recommended]**
+Define `backend/src/exceptions.py`:
+```python
+class ImageToolkitError(Exception):
+    """Base for all application-defined exceptions."""
+
+# --- Pipeline exceptions (expected failures, should show user-friendly message) ---
+class PipelineError(ImageToolkitError):
+    """Raised when the ASP pipeline cannot produce a valid output."""
+class InsufficientMatchesError(PipelineError):
+    """Fewer than MIN_INLIERS correspondences found between frame pair."""
+class AlignmentFailedError(PipelineError):
+    """Bundle adjustment or ECC refinement diverged."""
+class CanvasError(PipelineError):
+    """Canvas construction failed (e.g., degenerate affines)."""
+
+# --- Resource exceptions (infrastructure failures) ---
+class ModelLoadError(ImageToolkitError):
+    """Model weights could not be loaded (missing file, VRAM OOM)."""
+class DatabaseError(ImageToolkitError):
+    """PostgreSQL / pgvector operation failed."""
+
+# --- Configuration exceptions ---
+class ConfigError(ImageToolkitError):
+    """ASP config key is invalid or out of range."""
+```
+Workers catch `PipelineError` → show friendly message. Workers catch `ImageToolkitError` → log + show generic error. Workers let `Exception` propagate → log stack trace + show "unexpected error" with copy-to-clipboard.
+- Pros: GUI can give context-appropriate responses (retry prompt for `AlignmentFailedError`, "check GPU memory" for `ModelLoadError`). Searchable exception types in logs. Directly enables §5.4A's structured logging.
+- Cons: Requires touching all `raise RuntimeError(...)` call sites in `anim/`.
+
+**B — Error boundary wrapper for `QThread._execute()` bodies**
+Extend §5.9A's `BaseQThreadWorker` with a three-tier exception handler:
+```python
+def run(self) -> None:
+    try:
+        self._execute()
+    except PipelineError as e:
+        logger.warning("Pipeline failure: %s", e)
+        self.error.emit(str(e))          # user-friendly
+    except ImageToolkitError as e:
+        logger.error("Application error: %s", e, exc_info=True)
+        self.error.emit(f"Error: {e}")
+    except Exception as e:
+        logger.critical("Unexpected error in %s: %s", type(self).__name__, e, exc_info=True)
+        self.error.emit(f"Unexpected error — check the log for details.")
+```
+- Pros: Every worker benefits immediately from the three-tier handling once §5.9A's base class is in place. The stack trace is always logged at `CRITICAL` level even when the GUI only shows a one-liner.
+- Cons: Depends on A (needs the exception hierarchy to be meaningful).
+
+**C — Eliminate bare `except: pass` and silent `print()` error handling [Quick Win]**
+A grep-and-fix pass:
+```bash
+grep -rn "except Exception:\s*pass\|except.*:\s*pass\|print.*Error\|print.*error" \
+     backend/src/ gui/src/ --include="*.py"
+```
+Each hit becomes either a `logger.warning(...)` (if the failure is expected and non-fatal) or a `logger.error(..., exc_info=True)` (if it should never happen). This costs nothing architecturally and eliminates the most dangerous silent failure modes today.
+- Current confirmed instances: `DeletionWorker` (bare `pass`), `ConversionWorker` (3× `print(f"Error...")`).
+- Effort: < 2 hours.
+
+**D — Per-stage error context in pipeline trace JSON**
+Extend §5.4B's pipeline trace format with a `"failures"` array, one entry per stage that raised an exception before being caught:
+```json
+{
+  "failures": [
+    {"stage": "bundle_adjust", "exception_type": "AlignmentFailedError",
+     "message": "...", "fallback_used": "SCANS"}
+  ]
+}
+```
+This makes the difference between "pipeline succeeded via fallback" and "pipeline succeeded cleanly" visible in the trace without requiring a debugger.
+
+**Recommendation:** C immediately (Quick Win, zero dependencies). A + B as a single sprint once §5.9A is in place. D once A + §5.4B are done.
+
+---
+
+## 5.16 Contract Testing for ML Model Wrappers (`backend/src/models/`)
+
+**Pain point:** The 827-test suite covers pipeline logic (`bundle_adjust.py`, `compositing.py`, `validation.py`, `frame_selection.py`, etc.) extensively but has **zero tests for the model wrapper layer** (`backend/src/models/`). The wrappers (`LoFTRWrapper`, `ALIKEDLightGlueWrapper`, `BiRefNetWrapper`, `RoMaWrapper`, `BaSiCWrapper`, `EfficientLoFTRWrapper`, `JamMaWrapper`) are the highest-risk files in the codebase: they wrap third-party PyTorch models whose APIs change across versions, and a silent interface break (wrong tensor shape, changed output key name, removed method) will only surface when the full pipeline is run on real images.
+
+Informed by: Ploomber's ML testing taxonomy (2024) — "Code tests", "Data tests", "Model tests" are three independent concerns; Google's ML Test Score rubric (2016, Sculley et al.) which assigns points for "testing the model's input and output shapes explicitly"; Made With ML / Anyscale MLOps guide (2024) which separates *behavioral tests* (expected outputs) from *infrastructure tests* (model loads, inputs accepted, outputs shaped correctly).
+
+### Options
+
+**A — Interface contract tests (no GPU required) [Recommended]**
+Write one test class per wrapper that exercises the public interface with a tiny synthetic input and verifies the output shape and type — without loading real model weights. Use `unittest.mock.patch` to replace the heavy `kornia.feature.LoFTR(...)` constructor with a lightweight stub that returns the correct output format:
+```python
+class TestLoFTRWrapperContract:
+    def test_match_returns_three_arrays(self, monkeypatch):
+        """match() must return (pts1, pts2, conf) as float32 numpy arrays."""
+        mock_matcher = Mock()
+        mock_matcher.return_value = {"keypoints0": torch.zeros(1, 10, 2),
+                                     "keypoints1": torch.zeros(1, 10, 2),
+                                     "confidence":  torch.ones(1, 10)}
+        monkeypatch.setattr("kornia.feature.LoFTR", lambda **kw: mock_matcher)
+        wrapper = LoFTRWrapper(device="cpu")
+        h, w = 64, 64
+        img = np.zeros((h, w, 3), dtype=np.uint8)
+        pts1, pts2, conf = wrapper.match(img, img)
+        assert pts1.dtype == np.float32
+        assert pts1.shape[1] == 2
+        assert pts2.shape == pts1.shape
+        assert conf.shape[0] == pts1.shape[0]
+```
+- Covers: output shape, dtype, that `unload()` does not raise, that `is_available()` returns `bool`.
+- Pros: Runs in <1s per test (no GPU). Immediately catches API breaks when `kornia` or `transformers` updates. Composed with §5.8A's `ModelWrapper` ABC to test `loaded` property transitions.
+- Cons: Mock-based tests can drift from reality if the mock is not kept up to date. Must be reviewed when upgrading model dependencies.
+
+**B — Smoke tests with real weights on CI (GPU-gated)**
+A separate `pytest` marker `@pytest.mark.gpu` for tests that require a real CUDA device and real model weights. Run only on the weekly CI schedule (§5.2B), not on every PR.
+```python
+@pytest.mark.gpu
+class TestBiRefNetWrapperSmoke:
+    def test_get_mask_shape(self, birefnet_fixture):
+        wrapper = BiRefNetWrapper(device="cuda")
+        img = np.zeros((256, 256, 3), dtype=np.uint8)
+        mask = wrapper.get_mask(img)
+        assert mask.shape == (256, 256)
+        assert mask.dtype == np.uint8
+        assert set(np.unique(mask)).issubset({0, 255})
+```
+- Pros: Catches real weight incompatibilities. The fixture loads weights once and reuses across tests.
+- Cons: Requires a GPU runner in CI. Model weights must be cached between runs or downloaded fresh (~5 min per model).
+
+**C — `ModelWrapper` interface test mixin (composes with §5.8A)**
+Once the `ModelWrapper` ABC (§5.8A) is in place, write a single `ModelWrapperContractMixin` test mixin that any wrapper test class can inherit:
+```python
+class ModelWrapperContractMixin:
+    """Verify that a class correctly implements the ModelWrapper ABC."""
+    wrapper_class: type  # set by subclass
+    dummy_input: dict    # set by subclass
+
+    def test_loaded_initially_false(self):
+        w = self.wrapper_class.__new__(self.wrapper_class)
+        assert not w.loaded
+
+    def test_unload_is_idempotent(self, wrapper):
+        wrapper.unload()
+        wrapper.unload()  # must not raise
+
+    def test_is_available_returns_bool(self):
+        assert isinstance(self.wrapper_class.is_available(), bool)
+```
+- Each wrapper's test class inherits the mixin and sets `wrapper_class` + `dummy_input`. The mixin tests run automatically against every new wrapper without any code duplication.
+- Pros: Adding a new wrapper automatically gets full contract coverage for free.
+- Cons: Depends on §5.8A being implemented first.
+
+**D — Tensor shape regression tests using `torchtest` [Quick Win]**
+`torchtest` (GitHub: `suriyadeepan/torchtest`) provides pytest-friendly assertions for PyTorch model I/O:
+```python
+def test_birefnet_output_shape():
+    from torchtest import assert_vars_change
+    # test that forward pass produces mask-shaped output
+```
+Lightweight. Zero mocking needed for shape-only tests if model weights are small enough to load on CPU.
+- Pros: Readymade assertions for gradient flow, output shape, NaN detection.
+- Cons: `torchtest` is unmaintained (last commit 2021). Shape-only tests using plain `assert` are equally readable.
+
+**Recommendation:** A immediately — contract tests are quick to write and run with no GPU. C once §5.8A is done (the mixin then covers every wrapper for free). B on the weekly GPU runner once C is in place. Skip D (A covers the same ground with stdlib tools).
+
+---
+
 ## Effort × Impact Matrix
 
 *Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks
@@ -315,10 +986,10 @@ Run `cargo audit` in CI to detect CVEs in Rust crate dependencies.
 
 | **Effort ↓ / Impact →** | Low | Medium | High | Very High |
 |---|---|---|---|---|
-| **Low (<1d)** | — | §5.4A `logging` module adoption · §5.7A `uv lock` · §5.7C+D pip-audit + cargo-audit | §5.1A per-stage unit tests (most stages) | — |
-| **Medium (1d–1w)** | — | §5.4B pipeline trace JSON · §5.6A remote wallpaper API · §5.6B gallery web view | §5.2A+B benchmark regression CI · §5.5A Python AES-256-GCM vault | §5.5C Rust AES-256-GCM vault (eliminates JVM/libstdc++ conflict) |
-| **High (1–2w)** | — | §5.3C Protocol-based duck typing | §5.3B abstract Matcher base class + §5.3E Compositor registry | — |
-| **Very High (2w+)** | — | — | §5.1C benchmark golden-gate diff (CI integration) | — |
+| **Low (<1d)** | §5.8D remove relocated-import comments · §5.10C metaclass docstring · §5.10D `_load_thumbnail_size` extraction · §5.11C module graph · §5.11D `__all__` hygiene · §5.13C `@log_call` decorator · §5.14D QSettings key validation · §5.15C eliminate bare `except: pass` | §5.4A `logging` module adoption · §5.5B Pyright `basic` mode · §5.7A `uv lock` · §5.7C+D pip-audit + cargo-audit · §5.9C progress tuple · §5.9D `WorkerConfig` typed dicts | §5.1A per-stage unit tests (most stages) · §5.11B TYPE_CHECKING guards (deferred heavy imports) · §5.16A wrapper contract tests (mock-based) | — |
+| **Medium (1d–1w)** | — | §5.4B pipeline trace JSON · §5.5A mypy baseline + per-module opt-in · §5.5C TypedDict worker configs · §5.6A remote wallpaper API · §5.6B gallery web view · §5.12C tab→worker→backend doc · §5.13A `@lazy_load` + §5.13E `decorators.py` module · §5.14A `AppSettings` GUI facade · §5.14B merge backend `os.environ` into `load_asp_config` | §5.2A+B benchmark regression CI · §5.8A `ModelWrapper` ABC + §5.8B `@lazy_load` · §5.9A `BaseQThreadWorker` + §5.9B `BaseQRunnableWorker` · §5.12A NumPy docstrings · §5.12B Mermaid diagrams · §5.15A custom exception hierarchy · §5.15B error boundary in `BaseQThreadWorker` | §5.16C `ModelWrapperContractMixin` (after §5.8A) |
+| **High (1–2w)** | — | §5.3C Protocol-based duck typing | §5.3B abstract Matcher base class + §5.3E Compositor registry · §5.10A `AbstractGalleryBase` + §5.10B replace metaclass injection · §5.15D per-stage error context in trace JSON | §5.16B GPU smoke tests on weekly CI (after §5.2B) |
+| **Very High (2w+)** | — | — | §5.1C benchmark golden-gate diff (CI integration) · §5.11A `import-linter` enforcement · §5.12D Sphinx/pdoc auto-docs · §5.5A full strict mypy coverage (end state) | — |
 
 ---
 
@@ -330,6 +1001,14 @@ Run `cargo audit` in CI to detect CVEs in Rust crate dependencies.
 | 5.2 Benchmark Regression CI | [#52-benchmark-regression-ci](#52-benchmark-regression-ci) |
 | 5.3 Plugin System | [#53-plugin-system-for-matchers-and-compositors](#53-plugin-system-for-matchers-and-compositors) |
 | 5.4 Logging and Diagnostics | [#54-logging-and-diagnostics](#54-logging-and-diagnostics) |
-| 5.5 Vault Manager Modernisation | [#55-vault-manager-modernisation](#55-vault-manager-modernisation) |
 | 5.6 Mobile App Backlog | [#56-mobile-app-feature-parity-backlog](#56-mobile-app-feature-parity-backlog) |
 | 5.7 Dependency Audit | [#57-dependency-audit-and-pinning](#57-dependency-audit-and-pinning) |
+| 5.8 Model Wrapper Abstraction Layer | [#58-model-wrapper-abstraction-layer-backendsrcmodels](#58-model-wrapper-abstraction-layer-backendsrcmodels) |
+| 5.9 Worker Thread Base Class | [#59-worker-thread-base-class--lifecycle-standardisation-guisrchelpers](#59-worker-thread-base-class--lifecycle-standardisation-guisrchelpers) |
+| 5.10 Gallery Base Class Consolidation | [#510-gallery-base-class-consolidation-guisrcclasses](#510-gallery-base-class-consolidation-guisrcclasses) |
+| 5.11 Circular Import Prevention | [#511-circular-import-prevention--module-boundary-documentation](#511-circular-import-prevention--module-boundary-documentation) |
+| 5.12 Codebase Documentation & Diagrams | [#512-codebase-documentation--diagrams](#512-codebase-documentation--diagrams) |
+| 5.13 Decorator Library | [#513-decorator-library-for-cross-cutting-concerns-backendsrcutilsdecoratorspy](#513-decorator-library-for-cross-cutting-concerns-backendsrcutilsdecoratorspy) |
+| 5.14 Centralised Settings Facade | [#514-centralised-settings-facade-guisrcutilssettingspy--backendsrcanimconfigpy](#514-centralised-settings-facade-guisrcutilssettingspy--backendsrcanimconfigpy) |
+| 5.15 Fault Isolation & Error Boundary Protocol | [#515-fault-isolation--error-boundary-protocol](#515-fault-isolation--error-boundary-protocol) |
+| 5.16 Contract Testing for ML Wrappers | [#516-contract-testing-for-ml-model-wrappers-backendsrcmodels](#516-contract-testing-for-ml-model-wrappers-backendsrcmodels) |

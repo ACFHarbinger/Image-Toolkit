@@ -44,6 +44,11 @@ Usage
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+import ptlflow
+# --------------------------------
+
+
 import argparse
 import os
 import random
@@ -62,7 +67,7 @@ from torch.utils.data import DataLoader, IterableDataset
 # ── Data ───────────────────────────────────────────────────────────────────────
 
 
-class AnimeSyntheticFlowDataset(IterableDataset):
+class _AnimeSyntheticFlowDataset(IterableDataset):
     """
     Generates synthetic anime frame pairs with known ground-truth optical flow.
 
@@ -168,7 +173,7 @@ class AnimeSyntheticFlowDataset(IterableDataset):
                 yield sample
 
 
-class LinkToAnimeDataset(IterableDataset):
+class _LinkToAnimeDataset(IterableDataset):
     """
     Wraps the LinkTo-Anime dataset for supervised optical flow training.
 
@@ -181,7 +186,7 @@ class LinkToAnimeDataset(IterableDataset):
             ...
 
     Yields (img1, img2, flow) tuples in the same format as
-    AnimeSyntheticFlowDataset.
+    _AnimeSyntheticFlowDataset.
     """
 
     def __init__(self, lta_dir: str, crop_size: Tuple[int, int] = (256, 256)):
@@ -273,20 +278,20 @@ def train(args: argparse.Namespace) -> None:
     print(f"[FineTune-RAFT] Training on {device}.")
 
     # Load SEA-RAFT
-    import ptlflow
+    # relocated: import ptlflow
 
     model = ptlflow.get_model("sea_raft").to(device)
     model.train()
 
     # Dataset
-    synthetic_ds = AnimeSyntheticFlowDataset(
+    synthetic_ds = _AnimeSyntheticFlowDataset(
         source_dir=args.source_dir,
         linktoanime_dir=getattr(args, "linktoanime", None),
     )
     datasets = [synthetic_ds]
     if hasattr(args, "linktoanime") and args.linktoanime:
         try:
-            lta_ds = LinkToAnimeDataset(args.linktoanime)
+            lta_ds = _LinkToAnimeDataset(args.linktoanime)
             datasets.append(lta_ds)
             print(f"[FineTune-RAFT] LinkTo-Anime: {len(lta_ds._pairs)} pairs.")
         except Exception as _e:

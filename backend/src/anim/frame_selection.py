@@ -51,6 +51,17 @@ for camera displacement estimation (currently disabled; see note below).
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+import torch
+import torchvision.transforms as T
+from PIL import Image as _PIL_Image
+import torch
+from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+import gc as _gc
+import torch as _torch
+# --------------------------------
+
+
 import concurrent.futures
 import os
 from typing import List, Optional
@@ -820,9 +831,9 @@ def _compute_dinov2_features(frames_paths: List[str]) -> Optional[np.ndarray]:
     (pose, character shape) rather than background texture patterns.
     """
     try:
-        import torch
-        import torchvision.transforms as T
-        from PIL import Image as _PIL_Image
+        # relocated: import torch
+        # relocated: import torchvision.transforms as T
+        # relocated: from PIL import Image as _PIL_Image
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -851,7 +862,7 @@ def _compute_dinov2_features(frames_paths: List[str]) -> Optional[np.ndarray]:
     # Batch-process frames: load, optionally crop to fg bounding box, stack, infer.
     tensors = []
     try:
-        import torch
+        # relocated: import torch
 
         with torch.no_grad():
             for path in frames_paths:
@@ -1065,9 +1076,9 @@ def smart_select_frames(
     _needs_biref_probes = _TWO_CHANNEL_SELECT or (pw > 0 and dinov2_features is None)
     if _needs_biref_probes:
         try:
-            from backend.src.models.birefnet_wrapper import BiRefNetWrapper
-            import gc as _gc
-            import torch as _torch
+            # relocated: from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+            # relocated: import gc as _gc
+            # relocated: import torch as _torch
 
             _biref = BiRefNetWrapper()
             _probe_idxs = sorted({0, N // 4, N // 2, 3 * N // 4, N - 1})

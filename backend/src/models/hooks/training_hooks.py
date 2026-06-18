@@ -16,6 +16,11 @@ grid_to_pil           — compose a list of PIL images into a contact sheet
 
 from __future__ import annotations
 
+# --- Relocated Nested Imports ---
+import matplotlib.pyplot as plt
+# --------------------------------
+
+
 import logging
 from typing import Callable, Optional
 
@@ -277,7 +282,7 @@ def lora_delta_heatmap(peft_model: nn.Module, out_path: str):
     Lights up layers that moved the most — useful for rank-utilisation audits.
     """
     try:
-        import matplotlib.pyplot as plt
+        pass
     except ImportError:
         log.warning("matplotlib required for lora_delta_heatmap")
         return
