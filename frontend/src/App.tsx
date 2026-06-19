@@ -63,6 +63,9 @@ import { UnifiedGenerateTab } from "./tabs/models/UnifiedGenerateTab";
 import { MetaCLIPInferenceTab } from "./tabs/models/MetaCLIPInferenceTab";
 import { R3GANEvaluateTab } from "./tabs/models/R3GANEvaluateTab";
 
+// --- Analytics Tabs ---
+import { BenchmarkDashboard } from "./tabs/analytics/BenchmarkDashboard";
+
 // --- Interfaces ---
 
 type TabId =
@@ -81,7 +84,8 @@ type TabId =
   | "drive"
   | "crawler"
   | "revsearch"
-  | "webreq";
+  | "webreq"
+  | "benchmarks";
 
 interface BaseTabProps {
   showModal: (
@@ -175,6 +179,7 @@ const App: React.FC = () => {
   const CrawlerRef = useRef<any>(null);
   const RevSearchRef = useRef<any>(null);
   const WebReqRef = useRef<any>(null);
+  const BenchmarksRef = useRef<any>(null);
 
   const primaryDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -195,6 +200,7 @@ const App: React.FC = () => {
     crawler: CrawlerRef,
     revsearch: RevSearchRef,
     webreq: WebReqRef,
+    benchmarks: BenchmarksRef,
   };
 
   const showModal = (
@@ -326,6 +332,17 @@ const App: React.FC = () => {
           label: "Evaluate",
           icon: BarChart3,
           component: R3GANEvaluateTab,
+        },
+      ],
+    },
+    {
+      title: "Analytics",
+      tabs: [
+        {
+          id: "benchmarks",
+          label: "Benchmarks",
+          icon: BarChart3,
+          component: BenchmarkDashboard,
         },
       ],
     },
@@ -497,12 +514,16 @@ const App: React.FC = () => {
         </nav>
 
         {/* Tab Content */}
-        <main className="min-h-[600px] overflow-y-auto">
-          <CurrentTabComponent
-            ref={tabRefs[activeTab]}
-            {...commonProps}
-            {...conditionalProps}
-          />
+        <main className={activeTab === "benchmarks" ? "h-[78vh]" : "min-h-[600px] overflow-y-auto"}>
+          {activeTab === "benchmarks" ? (
+            <BenchmarkDashboard />
+          ) : (
+            <CurrentTabComponent
+              ref={tabRefs[activeTab]}
+              {...commonProps}
+              {...conditionalProps}
+            />
+          )}
         </main>
       </div>
 

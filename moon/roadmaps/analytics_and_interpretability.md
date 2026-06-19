@@ -9,8 +9,11 @@
 | Layer | Status | Details |
 |-------|--------|---------|
 | **Rust math backbone** (`base/src/math/`) | ✅ Complete | 6 modules, 49 unit tests passing |
-| **TypeScript math backbone** (`frontend/src/math/`) | ✅ Complete | 7 modules, `tsc --noEmit` clean |
+| **TypeScript math backbone** (`frontend/src/math/`) | ✅ Complete | 7 modules + `benchmark.ts`, `tsc --noEmit` clean |
+| **Benchmark dashboard migration** (Streamlit → Tauri/React) | ✅ Complete | Tauri commands, SVG charts, 7-page dashboard, `App.tsx` wired |
 | Phase 1–10 feature implementation | ⬜ Not started | Backbone provides all mathematical primitives |
+| **ASP Benchmark Analytics (Phase 11)** | ⬜ Not started | Per-seam diagnostics, alignment drift, photometric, edge quality, GT, regression |
+| **Benchmark Coverage Expansion (Phase 12)** | ⬜ Not started | Rust core, ASP stage isolation, GUI thumbnails, DB scale, memory lifecycle |
 
 ### Rust backbone — `base/src/math/`
 
@@ -293,3 +296,134 @@ See [`reports/Analytics and Codebase Visualization Research.md`](../../reports/A
 | **Data Generation** (Python) | PyTorch, OpenCV, PyHessian, causal-learn, rerun-sdk, OpenTelemetry | ML execution, CV transforms, Hessian trace, causal DAG, telemetry emission |
 | **Aggregation Backend** (Rust) | tokio, tree-sitter, nusy-codegraph, SCIP crate, gRPC/WebSockets | AST parsing, semantic graph construction, Arrow zero-copy aggregation, streaming |
 | **Visual Analytics** (TypeScript/React) | cosmos.gl, Three.js, Rerun Wasm, DuckDB-WASM, Perfetto UI | GPU force graphs, 3D surfaces, temporal scrubbing, SQL filtering, flame graphs |
+
+---
+
+## **Phase 11: ASP Benchmark Analytics & Visual Diagnostics**
+
+**Goal:** Transform the benchmark dashboard from a summary viewer into a root-cause analysis tool — every failure in the pipeline should be diagnosable from the dashboard without needing to rerun or inspect raw JSON files.
+
+**Priority: HIGH — directly supports ASP quality improvement loop.**
+
+### 11.1 Per-Seam Quality Strip Visualizer
+- Render ghost-score, NCC coherence, and Bhattacharyya color-similarity as per-seam bar charts (one bar per seam boundary) instead of only showing the worst-case scalar.
+- Color-code each bar: green (≥0.80), amber (0.60–0.80), red (<0.60) — maps directly to the composite quality thresholds.
+- ASP-specific: highlight the seam that drives `composite_quality` down and link it to the DP seam path cache key.
+
+### 11.2 Alignment Drift Diagnostic Chart
+- Plot per-frame `tx` and `ty` from the `alignment.affines` block as a line chart, overlaid with `dy_steps` / `dx_steps` inter-frame deltas.
+- Flag frames where the step exceeds 2× the median (outlier frames that hurt bundle adjust).
+- Show `dy_cv` / `dx_cv` coefficient of variation — high CV indicates non-uniform scroll speed (common cause of fallbacks).
+
+### 11.3 Photometric Correction Profile
+- Render per-frame background luminance (`photometric.bg_lums`) and applied gain (`photometric.applied_gains`) as a dual-axis bar+line chart.
+- Flag frames whose gain deviates from 1.0 by >15% — these are the frames most likely to introduce visible colour banding after compositing.
+- Show gain range [min, max] and number of frames corrected vs total.
+
+### 11.4 Edge Quality & Matching Breakdown
+- Pie / donut chart of matching method breakdown from `matching.methods` (LoFTR, phase-correlation, SIFT, etc.).
+- Scatter plot of `edge.weight` vs `edge.n_pts` for all filtered edges — high weight + high n_pts edges are reliable; low weight + few pts edges are noise candidates.
+- Show raw vs filtered edge count and filter efficiency ratio.
+- Flag datasets with fewer than N-1 high-confidence edges (likely cause of bundle-adjust failures).
+
+### 11.5 Ground Truth Comparison Panel
+- Table of datasets that have ground truth: `ssim_vs_gt`, `aligned_ssim_vs_gt`, `psnr_vs_gt` for both ASP and simple stitch.
+- Bar chart: ASP aligned-SSIM vs Simple SSIM for each GT dataset.
+- Regression detection: highlight GT-SSIM drops >3% relative to the previous benchmark run.
+
+### 11.6 Stage-Level Memory Profiling
+- Track RSS (resident set size) at the start/end of each pipeline stage (BiRefNet, LoFTR, render, composite) using psutil.
+- Emit `stage_memory_rss_mb: {stage_name: rss_mb}` in the benchmark JSON.
+- Dashboard: waterfall chart of memory growth across stages — identify which stage leaks.
+
+### 11.7 Frame Selection Telemetry
+- Capture and emit `frame_selection: {original_count, smart_select_count, spatial_dedup_count, final_count, selection_mode}` in the benchmark JSON.
+- Dashboard: stacked bar showing frames kept vs dropped at each stage of frame reduction.
+- Identify datasets where smart selection drops >40% of frames (indicates extreme frame redundancy or selection bugs).
+
+### 11.8 Fallback Root Cause Classifier
+- Classify each SCANS fallback by its trigger gate: `alignment_failed`, `composite_gate_sc`, `composite_gate_sb`, `ghost_gate`, `render_exception`.
+- Emit `fallback_reason` in the dataset result JSON.
+- Dashboard: aggregate fallback cause distribution across all datasets — shows which gate is causing the most fallbacks.
+
+### 11.9 Cross-Run Regression Dashboard
+- Compare metrics across consecutive benchmark runs using `detectRegressions()` already in `benchmark.ts`.
+- Highlight: composite_quality drops >5%, ghosting_siqe increases >10%, total_time increases >20%.
+- Red/green delta indicators next to each metric card in the overview.
+
+### 11.10 Comparative Seam Configuration Experiment Tracker
+- Allow tagging each benchmark run with an experiment label (e.g., "S44-seam-cache", "S45-spanning-tree") and storing it in the JSON metadata.
+- Dashboard: side-by-side comparison table of labeled runs showing which configuration changes improved which metrics.
+
+---
+
+## **Phase 12: Benchmark Coverage Expansion**
+
+**Goal:** Identify all unmonitored performance-critical and correctness-critical code paths across the Rust core, Python backend, GUI, and mobile layers, then instrument them with targeted benchmarks.
+
+**Current gap analysis:**
+
+| Module | Current Coverage | Impact of Blindspot |
+|--------|-----------------|---------------------|
+| `base/src/image_converter.rs` | ❌ None | Cannot detect Rust image conversion regressions |
+| `base/src/image_merger.rs` | ❌ None | Merge quality and speed unknown at scale |
+| `base/src/image_finder.rs` | ❌ None | File-system scan performance on large directories |
+| `base/src/file_system.rs` | ❌ None | Bulk file enumeration bottlenecks |
+| `gui/src/helpers/image/image_loader_worker.py` | ❌ None | LRU thumbnail cache RAM/throughput unknowns |
+| `backend/src/anim/compositing.py` (isolated) | ⚠️ Via ASP | Seam DP, DSFN ramp, Poisson blend not individually profiled |
+| `backend/src/anim/matching.py` (isolated) | ⚠️ Via ASP | LoFTR vs phase-correlation trade-off not quantified |
+| `backend/src/anim/bundle_adjust.py` (isolated) | ⚠️ Via ASP | Spanning-tree filter and GNC re-solve overhead unknown |
+| PostgreSQL + pgvector query latency | ⚠️ Partial | Vector similarity search at 10k/100k image scale not benchmarked |
+| App startup time | ❌ None | JVM + Qt + Rust cold-start latency unmonitored |
+| App memory (full lifecycle) | ❌ None | Gallery RAM with 100/500/1000 images not tracked |
+| Web crawlers (Selenium) | ❌ None | Crawl throughput and timeout rate not measured |
+| Mobile (Kotlin/Swift) | ❌ None | Android/iOS render and network performance untouched |
+
+### 12.1 Rust Core Image Processing Benchmarks (HIGH PRIORITY)
+- Create `backend/benchmark/bench_rust_image_processing.py` targeting:
+  - `base.convert_image` with various format pairs (PNG→WebP, JPEG→PNG, WebP→JPEG)
+  - `base.load_image_batch` with N={1, 10, 50} images at 180px thumbnail scale
+  - `base.scan_directory` on directories of N={100, 1000, 10000} files
+  - `base.merge_images` (vertical stack) with N={2, 5, 10} 1080p images
+- Emit as a General-suite JSON compatible with `load_benchmark_reports`.
+
+### 12.2 ASP Stage Isolation Benchmarks (HIGH PRIORITY)
+- Create `backend/benchmark/bench_asp_stages.py` benchmarking each ASP stage independently:
+  - `_pairwise_match(frames, bg_masks, loftr_wrapper=None)` vs LoFTR
+  - `_bundle_adjust_affine(edges, N)` with/without spanning-tree filter
+  - `_composite_foreground(...)` with/without Poisson seam blend, with/without seam cache
+  - `_ecc_refine(frames, affines, bg_masks)` at different ECC iterations
+- Goal: quantify the compute cost of each §-coded feature to guide future optimizations.
+
+### 12.3 GUI Thumbnail Loading Benchmarks (HIGH PRIORITY)
+- Create `backend/benchmark/bench_gui_thumbnails.py`:
+  - Time and memory for loading N={100, 500, 1000} images via `base.load_image_batch()`
+  - Compare LRU cache hit vs miss path
+  - Measure QImage vs QPixmap size in memory for 180px thumbnails
+- Catch LRU eviction thrashing and unbounded memory growth early.
+
+### 12.4 Database Query Profiling at Scale (MEDIUM)
+- Extend `bench_database.py`:
+  - `pgvector` ANN similarity search at 10k, 100k, 1M vectors
+  - Bulk insert with and without pgvector index
+  - Tag/group tree traversal at depth 3, 5, 10
+  - `HNSW` vs `IVFFlat` index type comparison
+
+### 12.5 App Lifecycle Memory Profiling (MEDIUM)
+- Instrument `main.py` to emit PSUtil RSS snapshots at: JVM start, Qt init, first tab render, after gallery load (100/500/1000 images).
+- Alert when any phase increases RSS by >200 MB relative to the previous measurement.
+
+### 12.6 Compositing Component Isolation (MEDIUM)
+- Micro-benchmark individual functions:
+  - `_seam_cut()` (S10 vectorized DP) — 96 seams, various canvas heights
+  - `_soft_seam_weight()` (S17 per-pixel DSFN) — canvas 500px vs 2000px vs 5000px
+  - `_poisson_seam_blend()` (S21) — band widths 10px, 20px, 40px
+  - `_build_seam_cost_map()` (S33 column barrier) — fg fraction 10% vs 50% vs 90%
+
+### 12.7 Web Crawler Telemetry (LOW-MEDIUM)
+- Add per-request timing and response-code tracking to Danbooru/Gelbooru/Sankaku crawlers.
+- Emit to General-suite benchmark JSON: pages/sec, images/sec, timeout rate, CAPTCHA hit rate.
+
+### 12.8 Mobile Performance Baselines (LONG-TERM)
+- Android: Jetpack Compose scroll FPS with N={50, 200, 500} images; Glide vs Coil thumbnail load time.
+- iOS: SwiftUI LazyVGrid frame rate; URLSession download throughput from Image-Toolkit server.
