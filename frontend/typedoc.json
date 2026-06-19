@@ -1,0 +1,21 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPointStrategy": "expand",
+  "entryPoints": ["src/math"],
+  "out": "../site/api/typescript",
+  "name": "Image Toolkit — TypeScript Math API",
+  "includeVersion": true,
+  "readme": "none",
+  "categorizeByGroup": true,
+  "categoryOrder": ["Statistics", "Distance", "Linear Algebra", "Signal", "Graph", "Colormap", "Benchmark", "*"],
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "treatWarningsAsErrors": false,
+  "validation": {
+    "notExported": true,
+    "invalidLink": true,
+    "notDocumented": false
+  },
+  "plugin": [],
+  "tsconfig": "tsconfig.json"
+}

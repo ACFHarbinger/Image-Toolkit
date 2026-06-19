@@ -6,24 +6,55 @@
 // ── Point-pair distances ─────────────────────────────────────────────────────
 
 /// Squared Euclidean distance (cheaper than Euclidean when relative ordering suffices).
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::distance::squared_euclidean;
+/// assert_eq!(squared_euclidean(&[0.0, 0.0], &[3.0, 4.0]), 25.0);
+/// assert_eq!(squared_euclidean(&[1.0], &[1.0]), 0.0);
+/// ```
 #[inline]
 pub fn squared_euclidean(a: &[f64], b: &[f64]) -> f64 {
     a.iter().zip(b).map(|(&ai, &bi)| (ai - bi).powi(2)).sum()
 }
 
 /// Euclidean (L2) distance.
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::distance::euclidean;
+/// assert!((euclidean(&[0.0, 0.0], &[3.0, 4.0]) - 5.0).abs() < 1e-10);
+/// assert_eq!(euclidean(&[1.0], &[1.0]), 0.0);
+/// ```
 #[inline]
 pub fn euclidean(a: &[f64], b: &[f64]) -> f64 {
     squared_euclidean(a, b).sqrt()
 }
 
 /// Manhattan (L1) distance.
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::distance::manhattan;
+/// assert_eq!(manhattan(&[0.0, 0.0], &[3.0, 4.0]), 7.0);
+/// assert_eq!(manhattan(&[1.0, 1.0], &[1.0, 1.0]), 0.0);
+/// ```
 #[inline]
 pub fn manhattan(a: &[f64], b: &[f64]) -> f64 {
     a.iter().zip(b).map(|(&ai, &bi)| (ai - bi).abs()).sum()
 }
 
 /// Chebyshev (L∞) distance.
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::distance::chebyshev;
+/// assert_eq!(chebyshev(&[0.0, 0.0], &[3.0, 4.0]), 4.0);
+/// ```
 #[inline]
 pub fn chebyshev(a: &[f64], b: &[f64]) -> f64 {
     a.iter().zip(b).map(|(&ai, &bi)| (ai - bi).abs()).fold(0.0f64, f64::max)
@@ -32,6 +63,20 @@ pub fn chebyshev(a: &[f64], b: &[f64]) -> f64 {
 /// Minkowski distance with exponent `p`.
 ///
 /// `p = 1` → Manhattan, `p = 2` → Euclidean, `p → ∞` → Chebyshev.
+///
+/// # Panics
+///
+/// Panics if `p < 1`.
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::distance::{minkowski, euclidean, manhattan};
+/// let a = [0.0, 0.0];
+/// let b = [3.0, 4.0];
+/// assert!((minkowski(&a, &b, 2.0) - euclidean(&a, &b)).abs() < 1e-10);
+/// assert!((minkowski(&a, &b, 1.0) - manhattan(&a, &b)).abs() < 1e-10);
+/// ```
 pub fn minkowski(a: &[f64], b: &[f64], p: f64) -> f64 {
     assert!(p >= 1.0, "Minkowski p must be ≥ 1");
     let sum: f64 = a.iter().zip(b).map(|(&ai, &bi)| (ai - bi).abs().powf(p)).sum();
@@ -41,6 +86,18 @@ pub fn minkowski(a: &[f64], b: &[f64], p: f64) -> f64 {
 // ── Cosine ───────────────────────────────────────────────────────────────────
 
 /// Cosine similarity ∈ [-1, 1].  Returns 0 for zero vectors.
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::distance::cosine_similarity;
+/// // Identical vectors → similarity = 1
+/// assert!((cosine_similarity(&[1.0, 0.0], &[1.0, 0.0]) - 1.0).abs() < 1e-10);
+/// // Orthogonal vectors → similarity = 0
+/// assert!((cosine_similarity(&[1.0, 0.0], &[0.0, 1.0])).abs() < 1e-10);
+/// // Zero vector → 0 by convention
+/// assert_eq!(cosine_similarity(&[0.0, 0.0], &[1.0, 2.0]), 0.0);
+/// ```
 pub fn cosine_similarity(a: &[f64], b: &[f64]) -> f64 {
     let dot: f64 = a.iter().zip(b).map(|(&ai, &bi)| ai * bi).sum();
     let na: f64 = a.iter().map(|&x| x * x).sum::<f64>().sqrt();
@@ -49,6 +106,14 @@ pub fn cosine_similarity(a: &[f64], b: &[f64]) -> f64 {
 }
 
 /// Cosine distance = 1 − cosine_similarity, ∈ [0, 2].
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::distance::cosine_distance;
+/// assert!((cosine_distance(&[1.0, 0.0], &[1.0, 0.0])).abs() < 1e-10);
+/// assert!((cosine_distance(&[1.0, 0.0], &[0.0, 1.0]) - 1.0).abs() < 1e-10);
+/// ```
 #[inline]
 pub fn cosine_distance(a: &[f64], b: &[f64]) -> f64 {
     1.0 - cosine_similarity(a, b)

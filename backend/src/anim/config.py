@@ -615,28 +615,25 @@ def validate_asp_config(
 ) -> List[str]:
     """§1.8B: Validate a flat ASP config dict against ``_CONFIG_SCHEMA``.
 
-    Parameters
-    ----------
-    config:
-        Flat mapping of ASP key → value (as returned by :func:`load_asp_config`).
-    strict:
-        When *True*, raises :exc:`ValueError` listing all violations instead of
-        returning them.  Use in CI/scripting contexts where a misconfigured
-        experiment should abort immediately.
+    Args:
+        config: Flat mapping of ASP key → value (as returned by `load_asp_config`).
+        strict: When True, raises `ConfigError` listing all violations instead of
+            returning them. Use in CI/scripting contexts where a misconfigured
+            experiment should abort immediately.
 
-    Returns
-    -------
-    list[str]
-        Violation messages.  Empty list means the config is valid.
+    Returns:
+        Violation messages as a list of strings. Empty list means the config is valid.
 
-    Notes
-    -----
-    *Unknown* keys (not in ``_CONFIG_SCHEMA``) emit a :class:`UserWarning` but
-    are not counted as violations — forward-compatibility is preserved so that
-    configs written for a newer pipeline version still load on an older one.
+    Note:
+        Unknown keys (not in ``_CONFIG_SCHEMA``) emit a `UserWarning` but are not
+        counted as violations — forward-compatibility is preserved so that configs
+        written for a newer pipeline version still load on an older one. TOML
+        integers are accepted where float is expected.
 
-    TOML integers are accepted where *float* is expected (TOML does not
-    distinguish ``0`` from ``0.0`` at the application level).
+    Example:
+        >>> cfg = {"ASP_HOLD_THRESHOLD": 0.03, "ASP_SP_SOFT_PX": 6}
+        >>> validate_asp_config(cfg)
+        []
     """
     violations: List[str] = []
 
@@ -686,28 +683,36 @@ def load_asp_config(
 ) -> Dict[str, Any]:
     """Load ASP pipeline configuration from a TOML file.
 
-    Parameters
-    ----------
-    path:
-        Path to the TOML file.  Defaults to ``asp_config.toml`` in the
-        current working directory.  If the file does not exist the function
-        returns an empty dict without error.
-    override_env:
-        When *True* (default), each loaded key is written to ``os.environ``
-        via ``setdefault`` so downstream modules see it.  Set to *False* to
-        load values for inspection only, without touching the environment.
-    validate:
-        When *True*, run :func:`validate_asp_config` on the loaded dict before
-        writing env vars.  Invalid keys emit warnings (or raise, if *strict*).
-    strict:
-        Passed to :func:`validate_asp_config` when *validate* is *True*.
-        Raises :exc:`ValueError` on the first batch of violations.
+    Reads ``asp_config.toml`` (or the file at *path*) and merges all sections
+    into a flat dict. Each key is written to ``os.environ`` via ``setdefault``
+    so that all downstream ``os.environ.get("ASP_*")`` calls pick it up
+    automatically. Existing environment variables always take precedence.
 
-    Returns
-    -------
-    dict
+    Args:
+        path: Path to the TOML file. Defaults to ``asp_config.toml`` in the
+            current working directory. Returns an empty dict silently if the
+            file does not exist.
+        override_env: When True (default), write each loaded key to
+            ``os.environ`` via ``setdefault``. Set to False to dry-run the
+            load without touching the environment (useful for testing).
+        validate: When True, run `validate_asp_config` on the loaded dict
+            before writing env vars. Invalid keys emit warnings (or raise if
+            *strict* is also True).
+        strict: Passed to `validate_asp_config` when *validate* is True.
+            Raises `ConfigError` on the first batch of violations.
+
+    Returns:
         Flat mapping of all keys found in the TOML file (sections merged).
-        Empty if the file is absent or contains no section data.
+        Empty dict if the file is absent or contains no section data.
+
+    Example:
+        >>> import os, tempfile, pathlib
+        >>> toml = b"[frame_selection]\\nASP_HOLD_THRESHOLD = 0.03\\n"
+        >>> with tempfile.NamedTemporaryFile(suffix='.toml', delete=False) as f:
+        ...     _ = f.write(toml); name = f.name
+        >>> cfg = load_asp_config(name, override_env=False)
+        >>> cfg['ASP_HOLD_THRESHOLD']
+        0.03
     """
     config_path = Path(path) if path is not None else Path(_DEFAULT_CONFIG_NAME)
     if not config_path.exists():
@@ -744,20 +749,15 @@ def get_asp(key: str, default: str = "") -> str:
     guarantees the default is consistent with the schema and makes call-sites
     greppable via a single name.
 
-    Parameters
-    ----------
-    key:
-        The ``ASP_*`` environment variable name (e.g. ``"ASP_HOLD_THRESHOLD"``).
-    default:
-        String default returned when the key is absent from the environment.
-        Callers that need a non-string type should cast the return value::
+    Args:
+        key: The ``ASP_*`` environment variable name (e.g. ``"ASP_HOLD_THRESHOLD"``).
+        default: String default returned when the key is absent from the environment.
+            Callers that need a non-string type should cast the return value::
 
-            threshold = float(get_asp("ASP_HOLD_THRESHOLD", "0.025"))
-            enabled   = get_asp("ASP_POISSON_SEAM", "0") != "0"
+                threshold = float(get_asp("ASP_HOLD_THRESHOLD", "0.025"))
+                enabled   = get_asp("ASP_POISSON_SEAM", "0") != "0"
 
-    Returns
-    -------
-    str
+    Returns:
         The env-var value or *default*.
     """
     return os.environ.get(key, default)
@@ -901,19 +901,14 @@ def dump_asp_config(
     current tuning state of a successful run and save it as a reproducible config
     file for future experiments.
 
-    Parameters
-    ----------
-    path:
-        Destination TOML file path.  Defaults to ``asp_config.toml`` in the
-        current working directory.  Parent directories are created if needed.
-    include_defaults:
-        When *True*, all schema keys are emitted (with ``"0"`` as the fallback
-        default for unset keys).  When *False* (default), only keys that are
-        explicitly set in the environment are written.
+    Args:
+        path: Destination TOML file path. Defaults to ``asp_config.toml`` in the
+            current working directory. Parent directories are created if needed.
+        include_defaults: When True, all schema keys are emitted (with ``"0"`` as
+            the fallback default for unset keys). When False (default), only keys
+            that are explicitly set in the environment are written.
 
-    Returns
-    -------
-    str
+    Returns:
         Absolute path to the written file.
     """
     out_path = Path(path) if path is not None else Path(_DEFAULT_CONFIG_NAME)
