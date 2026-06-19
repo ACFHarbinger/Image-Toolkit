@@ -4,6 +4,27 @@
 
 ---
 
+## Table of Contents
+
+- [How to Use This Document](#how-to-use-this-document)
+- [4.1 Batch Stitching](#41-batch-stitching)
+- [4.2 Export Stitched Panorama to Scrolling Video](#42-export-stitched-panorama-to-scrolling-video)
+- [4.3 CLIP-Based Semantic Image Search](#43-clip-based-semantic-image-search)
+- [4.4 Auto-Tagger Integration](#44-auto-tagger-integration)
+- [4.5 Multi-Monitor Wallpaper Support](#45-multi-monitor-wallpaper-support)
+- [4.6 Image Deduplication Across Directories](#46-image-deduplication-across-directories)
+- [4.7 Slideshow Improvements](#47-slideshow-improvements)
+- [4.8 ComfyUI Workflow Integration for Post-Processing](#48-comfyui-workflow-integration-for-post-processing)
+- [4.9 Safetensors Metadata Viewer](#49-safetensors-metadata-viewer)
+- [4.10 REST API Layer for Remote Control](#410-rest-api-layer-for-remote-control)
+- [4.11 ASP Quality Feedback Interface (RLHF)](#411-asp-quality-feedback-interface-rlhf)
+- [4.12 Appearance Profiles](#412-appearance-profiles)
+- [4.13 Shortcut Macros and Custom Actions](#413-shortcut-macros-and-custom-actions)
+- [Effort × Impact Matrix](#effort--impact-matrix)
+- [Anchor Index](#anchor-index)
+
+---
+
 ## How to Use This Document
 
 Each section describes a proposed feature, all viable implementation options with trade-offs, and a recommendation. Items tagged **[Quick Win]** take under a day. Items tagged **[Research]** require prototyping.

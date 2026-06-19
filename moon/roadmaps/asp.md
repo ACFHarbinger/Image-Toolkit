@@ -11,6 +11,35 @@
 
 ---
 
+## Table of Contents
+
+- [How to Use This Document](#how-to-use-this-document)
+- [§0 CRITICAL: Pipeline Fundamentally Broken for Animated Video Scenes](#0-critical-pipeline-fundamentally-broken-for-animated-video-scenes-priority-0)
+- [§0.1 Foreground Pose Registration — The Core Fix](#01-foreground-pose-registration--the-core-fix-priority-0)
+- [§0.2 Pose-Consistency-Aware Frame Selection](#02-pose-consistency-aware-frame-selection-priority-1--infrastructure-built-disabled)
+- [§0.5 min_gap Threshold Calibration](#05-min_gap-threshold-calibration-priority-2--quick-win)
+- [§1.1 Bundle Adjustment Hardening](#11-bundle-adjustment-hardening)
+- [§1.2 Near-Zero / Zero-Translation Edge Filter](#12-near-zero--zero-translation-edge-filter)
+- [§1.3 Scale and Rotation Handling](#13-scale-and-rotation-handling)
+- [§1.4 Gain Clamp Widening for Dark Scenes](#14-gain-clamp-widening-for-dark-scenes)
+- [§1.5 Stage 11 Composite Performance](#15-stage-11-composite-performance)
+- [§1.6 Ghosting Reduction in Composite Zone](#16-ghosting-reduction-in-composite-zone)
+- [§1.7 RecDiffusion Border Rectangling](#17-recdiffusion-border-rectangling)
+- [§1.8 ASP Pipeline Configuration File](#18-asp-pipeline-configuration-file)
+- [§1.9 Fallback Path Purity](#19-fallback-path-purity)
+- [§1.10 RLHF Loop Integration](#110-rlhf-loop-integration)
+- [§2.0 ASP Human-in-the-Loop Augmentation](#20-asp-human-in-the-loop-augmentation-priority-medium--unique-multiplier)
+- [§2.9 BigWarp / Fourier-Mellin Manual Registration Fallback](#29-bigwarp--fourier-mellin-manual-registration-fallback-priority-high-hitl)
+- [§2.10 SAM2Flow / FlowVid Interactive Optical Flow Kinematics](#210-sam2flow--flowvid-interactive-optical-flow-kinematics-research--hitl)
+- [§2.11 Intelligent Scissors Seam Routing](#211-intelligent-scissors-seam-routing-quick-win--replaces-dp-seam)
+- [§3.0 ML-Driven Pipeline Modernisation](#30-ml-driven-pipeline-modernisation-research-phase--from-ml-research-report)
+- [§3.11 SAM 2 — Interactive Masking Upgrade](#311-sam-2--interactive-masking-upgrade-research--hitl)
+- [§3.12 Overmix Sub-Pixel Averaging](#312-overmix-sub-pixel-averaging--maximal-frame-ingestion-philosophy-research)
+- [Phase 2 — Next Generation Upgrade](#phase-2--next-generation-upgrade-direct-video-ingestion--multi-modal-hitl)
+- [Shipped Archive (§1.11–§1.85)](#111-animation-hold-detection--preprocessing--option-a-shipped--session-6)
+- [Effort × Impact Matrix — Pending Items](#effort--impact-matrix--pending-items)
+- [Anchor Index](#anchor-index)
+
 ## How to Use This Document
 
 Each section lists the pain point, all viable implementation options with trade-offs, and a recommendation. Items tagged **[Quick Win]** take under a day. Items tagged **[Research]** require prototyping before committing. Items tagged **[Long-term]** are aspirational or depend on external data collection.

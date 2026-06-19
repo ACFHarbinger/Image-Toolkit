@@ -4,6 +4,46 @@
 
 ---
 
+## Table of Contents
+
+- [How to Use This Document](#how-to-use-this-document)
+- [2.1 Virtual Scroll Gallery](#21-virtual-scroll-gallery)
+- [2.2 Gallery Thumbnail Size Control](#22-gallery-thumbnail-size-control)
+- [2.3 Keyboard Navigation](#23-keyboard-navigation-)
+- [2.4 Bulk Selection and Operations](#24-bulk-selection-and-operations-)
+- [2.5 Session Persistence](#25-session-persistence)
+- [2.6 Stitch Tab UX — Before/After Comparison](#26-stitch-tab-ux--beforeafter-comparison)
+- [2.7 Progress and Cancellation](#27-progress-and-cancellation-)
+- [2.8 Theme Support](#28-theme-support)
+- [2.9 Settings Window Extensions](#29-settings-window-extensions)
+- [2.10 In-App Toast Notification System](#210-in-app-toast-notification-system-)
+- [2.11 Image Preview Window Enhancements](#211-image-preview-window-enhancements-)
+- [2.12 System Tray Integration](#212-system-tray-integration-)
+- [2.13 Gallery Filtering and Sort Controls](#213-gallery-filtering-and-sort-controls-)
+- [2.14 Thumbnail Metadata Overlay](#214-thumbnail-metadata-overlay-)
+- [2.15 Undo/Redo for Destructive Operations](#215-undoredo-for-destructive-operations-)
+- [2.16 Command Palette / Quick Launcher](#216-command-palette--quick-launcher-)
+- [2.17 Global Collapsible Log Panel](#217-global-collapsible-log-panel-)
+- [2.18 Image Rating and Color Labels](#218-image-rating-and-color-labels-)
+- [2.19 Gallery Export and Contact Sheet](#219-gallery-export-and-contact-sheet-)
+- [2.20 Resizable Sidebar Panels and QSplitter Persistence](#220-resizable-sidebar-panels-and-qsplitter-persistence-)
+- [2.21 Directory Navigation History](#221-directory-navigation-history-back--forward-)
+- [2.22 Tag Chip UI and Compound Tag Search](#222-tag-chip-ui-and-compound-tag-search)
+- [2.23 Accessibility and Keyboard Tab Order](#223-accessibility-and-keyboard-tab-order-)
+- [2.24 Thumbnail Hover Animations](#224-thumbnail-hover-animations-)
+- [2.25 Keyboard Shortcut Discovery Overlay](#225-keyboard-shortcut-discovery-overlay-)
+- [2.26 Inline Rename](#226-inline-rename-)
+- [2.27 Multi-Image Comparison View](#227-multi-image-comparison-view)
+- [2.28 Global Cross-Tab Search](#228-global-cross-tab-search)
+- [2.29 Configurable Keyboard Shortcuts](#229-configurable-keyboard-shortcuts-)
+- [2.30 Accent Color and UI Density Customization](#230-accent-color-and-ui-density-customization-)
+- [2.31 Custom QSS User Theme Override](#231-custom-qss-user-theme-override-)
+- [2.32 Window Layout and State Profiles](#232-window-layout-and-state-profiles-)
+- [Effort × Impact Matrix](#effort--impact-matrix)
+- [Anchor Index](#anchor-index)
+
+---
+
 ## How to Use This Document
 
 Each section describes an ergonomic pain point, all viable implementation options with trade-offs, and a recommendation. Items tagged **[Quick Win]** take under a day. Items tagged **[Research]** require prototyping.

@@ -4,6 +4,30 @@
 
 ---
 
+## Table of Contents
+
+- [How to Use This Document](#how-to-use-this-document)
+- [§5.1 ASP Pipeline Unit Test Coverage](#51-asp-pipeline-unit-test-coverage)
+- [§5.2 Benchmark Regression CI](#52-benchmark-regression-ci)
+- [§5.3 Plugin System for Matchers and Compositors](#53-plugin-system-for-matchers-and-compositors)
+- [§5.4 Logging and Diagnostics](#54-logging-and-diagnostics)
+- [§5.5 Gradual Static Type Safety Migration](#55-gradual-static-type-safety-migration)
+- [§5.6 Mobile App Feature Parity Backlog](#56-mobile-app-feature-parity-backlog)
+- [§5.7 Dependency Audit and Pinning](#57-dependency-audit-and-pinning)
+- [§5.8 Model Wrapper Abstraction Layer](#58-model-wrapper-abstraction-layer-backendsrcmodels)
+- [§5.9 Worker Thread Base Class & Lifecycle Standardisation](#59-worker-thread-base-class--lifecycle-standardisation-guisrchelpers)
+- [§5.10 Gallery Base Class Consolidation](#510-gallery-base-class-consolidation-guisrcclasses)
+- [§5.11 Circular Import Prevention & Module Boundary Documentation](#511-circular-import-prevention--module-boundary-documentation)
+- [§5.12 Codebase Documentation & Diagrams](#512-codebase-documentation--diagrams)
+- [§5.13 Decorator Library for Cross-Cutting Concerns](#513-decorator-library-for-cross-cutting-concerns-backendsrcutilsdecoratorspy)
+- [§5.14 Centralised Settings Facade](#514-centralised-settings-facade-guisrcutilssettingspy--backendsrcanimconfigpy)
+- [§5.15 Fault Isolation & Error Boundary Protocol](#515-fault-isolation--error-boundary-protocol)
+- [§5.16 Contract Testing for ML Model Wrappers](#516-contract-testing-for-ml-model-wrappers-backendsrcmodels)
+- [Effort × Impact Matrix](#effort--impact-matrix)
+- [Anchor Index](#anchor-index)
+
+---
+
 ## How to Use This Document
 
 Each section describes an architectural debt or infrastructure gap, all viable implementation options with trade-offs, and a recommendation. Items tagged **[Quick Win]** take under a day. Items tagged **[Research]** require prototyping.
