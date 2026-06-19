@@ -4,6 +4,54 @@
 
 ---
 
+## Analytics — ASP Benchmark Diagnostics Phase 11 + Coverage Expansion (2026-06-19)
+
+### Shipped
+
+**ASP benchmark enrichment (`backend/benchmark/bench_anime_stitch.py`)**
+- `_build_result` now emits `fallback_reason` (classified: `alignment_failed:*`, `composite_gate_sc/sb:*`, `ghost_gate:*`, `render_exception:*`), `frame_selection` funnel dict (original → smart_select → spatial_dedup → final, plus `selection_mode`), and `strip_banding_score` in `_compute_all_metrics`.
+
+**Rust type extension (`frontend/src-tauri/src/benchmark_commands.rs`)**
+- `AspMetrics` gains: `strip_banding_score`, `ghost_seam_scores`, `seam_color_scores`, `seam_ncc_scores`, `rlhf_needs_review`
+- `AspDataset` gains: `fallback_reason`, `alignment`, `photometric`, `affine_health`, `frame_selection`, `pipeline_config`
+- New helper structs: `AspAffineEntry`, `AspAlignment`, `AspPhotometric`, `AspAffineHealth`, `AspFrameSelection`
+
+**TypeScript analytics layer (`frontend/src/math/benchmark.ts`)**
+- New interfaces: `AspAffineEntry`, `AspAlignment`, `AspPhotometric`, `AspAffineHealth`, `AspFrameSelection`
+- `AspMetrics` and `AspDataset` updated to match Rust types
+- New analysis functions: `computeAlignmentDrift`, `computePhotometricProfile`, `computePerSeamDetail`, `computeEdgeQualityBreakdown`, `computeFrameSelectionStats`, `computeFallbackReasonDistribution`, `computeGtComparisons`
+
+**ASP Dashboard expansion (`frontend/src/tabs/analytics/BenchmarkDashboard.tsx`)**
+- ASP Pipeline page expanded from 5 tabs to 12: Overview, Timing, Seam Quality, **Per-Seam**, **Alignment Drift**, **Photometric**, **Edge Quality**, **Frame Selection**, **Fallback Root Cause**, **GT Comparison**, ASP vs Simple, Heatmap
+- Strip banding score added to Overview table
+
+**Rust image processing benchmark (`backend/benchmark/bench_rust_image_processing.py`)**
+- New General-suite benchmark covering `load_image_batch`, `scan_directory`, `convert_image`, `merge_images` at 512px / 1080p resolutions
+
+**Streamlit dashboard removed**
+- `backend/ui/benchmark_dashboard.py` deleted (976 lines); all functionality present in Tauri/React dashboard
+
+**Roadmap**
+- `moon/roadmaps/analytics_and_interpretability.md`: Phase 11 (ASP analytics, 11.1–11.10) and Phase 12 (coverage expansion, 12.1–12.8) added
+
+---
+
+## Analytics — Benchmark Dashboard Migration: Streamlit → Tauri/React (2026-06-19)
+
+### Shipped
+
+| File | Role |
+|------|------|
+| `frontend/src-tauri/src/benchmark_commands.rs` | Tauri command `load_benchmark_reports` — walks results dir, parses ASP + General JSON schemas into `BenchmarkReport` discriminated union (`kind: "Asp" \| "General"`), sorted by mtime |
+| `frontend/src/math/benchmark.ts` | Pure analytics layer: `computeEfficiency`, `computeMemoryVsTimeScatter`, `computeMemoryBreakdown`, `computeTimingBreakdown`, `computeMetricComparisons`, `computeSeamQualityHeatmap`, `verdictSummary`, `extractGeneralTrend`, `extractAspTrend`, `computeSuiteStats`, `detectRegressions` |
+| `frontend/src/tabs/analytics/charts.tsx` | SVG chart primitives (no 3rd-party deps): `BarChart` (grouped/stacked + error bars), `HBarChart`, `ScatterPlot` (bubble, log-X), `LineChart` (multi-series), `Heatmap`, `Legend` |
+| `frontend/src/tabs/analytics/BenchmarkDashboard.tsx` | 7-page React dashboard: Overview, Suite Analysis, Function Comparison, Benchmark Trends, ASP Pipeline, System Comparison, Raw Data |
+| `frontend/src/App.tsx` | Wired "Analytics → Benchmarks" tab group; BenchmarkDashboard rendered in `h-[78vh]` container |
+
+Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) to the native Tauri/React stack.
+
+---
+
 ## Analytics — Math Backbone: Rust `base/src/math/` + TypeScript `frontend/src/math/` (2026-06-18)
 
 ### Shipped

@@ -672,6 +672,7 @@ def _compute_all_metrics(
         "ghosting_siqe": round(_ghosting_score_v2(img), 2),
         "seam_coherence": round(_seam_coherence(img), 2),
         "seam_visibility": round(_seam_visibility_score(img, affines), 2),
+        "strip_banding_score": round(_strip_banding_score(img, affines), 2),
         "ghost_seam_scores": [round(s, 2) for s in seam_scores],
         "ghost_seam_max": _ghost_seam_max,
         "seam_color_scores": color_scores,
@@ -1741,10 +1742,11 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
     # selected frame but the camera is now in a different position.
     _orig_frame_count = len(frames_paths)
     frames_paths = _smart_select_frames(frames_paths)
-    if len(frames_paths) < _orig_frame_count:
+    _smart_select_count = len(frames_paths)
+    if _smart_select_count < _orig_frame_count:
         print(
-            f"  Smart selection: {_orig_frame_count} → {len(frames_paths)} frames "
-            f"({_orig_frame_count - len(frames_paths)} dropped)."
+            f"  Smart selection: {_orig_frame_count} → {_smart_select_count} frames "
+            f"({_orig_frame_count - _smart_select_count} dropped)."
         )
 
     print(f"Source frames ({len(frames_paths)}):")
@@ -1772,6 +1774,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
     frames = _normalise_widths(frames)
     H, W = frames[0].shape[:2]
     scans_frames = list(frames)  # pre-ML snapshot for SCANS fallback
+    _fallback_reason: Optional[str] = None  # set by whichever gate triggers SCANS
     for i, f in enumerate(frames):
         cv2.imwrite(os.path.join(stage_dir, f"stage02_normalised_frame{i:02d}.png"), f)
 
@@ -2091,6 +2094,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                             )
 
     if not health.valid:
+        _fallback_reason = f"alignment_failed:{health.reason}"
         print("  Validation FAILED → SCANS fallback.")
         t0 = time.perf_counter()
         _scan_stitch_fallback(scans_frames, out_path)
@@ -2126,6 +2130,10 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
             birefnet_ok=birefnet_ok,
             loftr_ok=loftr_ok,
             gt_img=gt_img,
+            fallback_reason=_fallback_reason,
+            orig_frame_count=_orig_frame_count,
+            smart_select_count=_smart_select_count,
+            spatial_dedup_count=N,
         )
 
     try:
@@ -2254,6 +2262,8 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
         )
         _render_failed = _render_sc > _sc_limit or _render_sb > _sb_limit
         if _render_failed:
+            _which = "sc" if _render_sc > _sc_limit else "sb"
+            _fallback_reason = f"composite_gate_{_which}:asp_sc={_render_sc:.1f}_limit={_sc_limit:.1f},asp_sb={_render_sb:.1f}_limit={_sb_limit:.1f}"
             print(
                 f"  [CompositeGate] FAILED "
                 f"(asp sc={_render_sc:.1f}>{_sc_limit:.1f} or "
@@ -2310,6 +2320,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                     _GHOST_ABS_FLOOR, _GHOST_RATIO_LIMIT * max(_sim_ghost, 1.0)
                 )
                 if _asp_ghost > _ghost_limit:
+                    _fallback_reason = f"ghost_gate:asp={_asp_ghost:.1f}_sim={_sim_ghost:.1f}_limit={_ghost_limit:.1f}"
                     print(
                         f"  [GhostGate] FAILED "
                         f"(asp={_asp_ghost:.1f} > limit={_ghost_limit:.1f} "
@@ -2332,6 +2343,8 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
     except Exception as _render_exc:
         gc.collect()
         print(f"  ASP render/ECC failed ({_render_exc}); falling back to SCANS.")
+        if _fallback_reason is None:
+            _fallback_reason = f"render_exception:{type(_render_exc).__name__}"
         t0 = time.perf_counter()
         _scan_stitch_fallback(scans_frames, out_path)
         timings["scans_fallback_sec"] = round(time.perf_counter() - t0, 3)
@@ -2366,6 +2379,10 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
             birefnet_ok=birefnet_ok,
             loftr_ok=loftr_ok,
             gt_img=gt_img,
+            fallback_reason=_fallback_reason,
+            orig_frame_count=_orig_frame_count,
+            smart_select_count=_smart_select_count,
+            spatial_dedup_count=N,
         )
 
     # ------------------------------------------------------------------
@@ -2444,6 +2461,10 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
         birefnet_ok=birefnet_ok,
         loftr_ok=loftr_ok,
         gt_img=gt_img,
+        fallback_reason=None,
+        orig_frame_count=_orig_frame_count,
+        smart_select_count=_smart_select_count,
+        spatial_dedup_count=N,
     )
 
 
@@ -2478,6 +2499,10 @@ def _build_result(
     birefnet_ok: bool = False,
     loftr_ok: bool = False,
     gt_img: Optional[np.ndarray] = None,
+    fallback_reason: Optional[str] = None,
+    orig_frame_count: int = 0,
+    smart_select_count: int = 0,
+    spatial_dedup_count: int = 0,
 ) -> Dict:
     asp_metrics = _compute_all_metrics(asp_img, affines) if asp_img is not None else {}
     sim_metrics = _compute_all_metrics(sim_img) if sim_img is not None else {}
@@ -2607,6 +2632,20 @@ def _build_result(
         },
         # --- status ---
         "used_fallback": used_fallback,
+        "fallback_reason": fallback_reason,
+        # --- frame selection telemetry ---
+        "frame_selection": {
+            "original_count": orig_frame_count,
+            "smart_select_count": smart_select_count,
+            "spatial_dedup_count": spatial_dedup_count,
+            "final_count": frame_count,
+            "frames_dropped_smart": max(0, orig_frame_count - smart_select_count),
+            "frames_dropped_dedup": max(0, smart_select_count - spatial_dedup_count),
+            "selection_mode": (
+                "dinov2" if os.environ.get("ASP_POSE_WINDOW_PX", "0") != "0"
+                else "phase_correlation"
+            ),
+        },
         # --- paths (for the notebook to locate files) ---
         "paths": {
             "plots_dir": plots_dir,
