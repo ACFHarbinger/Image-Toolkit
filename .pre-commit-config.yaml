@@ -1,0 +1,116 @@
+# Pre-commit hooks for Image-Toolkit.
+#
+# Install once: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+# Update hooks: pre-commit autoupdate
+#
+# Gate philosophy (see docs/DOCUMENTATION_STANDARDS.md):
+#   - Blocking: ruff, pydoclint (anim/ only), lychee, cargo fmt
+#   - Advisory: mypy (strict modules only), typedoc
+
+repos:
+  # ── General file hygiene ─────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=5000]
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  # ── Python: ruff (lint + format) ─────────────────────────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.5.0
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        types_or: [python, pyi]
+      - id: ruff-format
+        types_or: [python, pyi]
+
+  # ── Python: pydoclint — Google-style docstring completeness ───────────────
+  # Enforces docstring standards from docs/DOCUMENTATION_STANDARDS.md.
+  # Currently scoped to backend/src/anim/ (highest-traffic, most complex).
+  # Expand to full backend/src/ once existing coverage improves.
+  - repo: https://github.com/jsh9/pydoclint
+    rev: 0.5.9
+    hooks:
+      - id: pydoclint
+        args:
+          - --style=google
+          - --arg-type-hints-in-signature=true
+          - --check-return-types=false   # type annotations in signature are sufficient
+          - --require-return-when-returning-nothing=false
+        files: ^backend/src/anim/
+
+  # ── Python: mypy (strict modules) ────────────────────────────────────────
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.1
+    hooks:
+      - id: mypy
+        name: mypy (strict modules)
+        args:
+          - --ignore-missing-imports
+          - --no-error-summary
+        files: ^(backend/src/exceptions\.py|backend/src/models/base\.py)$
+        additional_dependencies:
+          - types-Pillow
+          - numpy
+
+  # ── Markdown: link checker ────────────────────────────────────────────────
+  # lychee checks all internal and external links in Markdown files.
+  # External links are cached; only internal links are checked on each run.
+  - repo: https://github.com/lycheeverse/lychee
+    rev: lychee-v0.15.1
+    hooks:
+      - id: lychee
+        name: lychee (markdown link check)
+        args:
+          - --verbose
+          - --no-progress
+          - --exclude=https://crates.io  # often rate-limits CI
+          - --exclude=https://mybinder.org
+          - --include-verbatim            # skip code blocks
+        files: \.(md|markdown)$
+        pass_filenames: true
+
+  # ── Rust: format ─────────────────────────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt
+        language: system
+        entry: bash -c 'cd base && cargo fmt -- --check'
+        files: ^base/.*\.rs$
+        pass_filenames: false
+        types: [rust]
+
+  # ── Rust: doc-tests ──────────────────────────────────────────────────────
+  # Runs `cargo test --doc` on the math modules to verify Examples blocks.
+  # Scoped to math/ — only triggered when math source files change.
+  - repo: local
+    hooks:
+      - id: cargo-doc-test
+        name: cargo test --doc (math modules)
+        language: system
+        entry: bash -c 'cd base && cargo test --doc 2>&1'
+        files: ^base/src/math/.*\.rs$
+        pass_filenames: false
+        types: [rust]
+
+  # ── TypeScript: type check ────────────────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: tsc-check
+        name: TypeScript type check (frontend/src/math)
+        language: system
+        entry: bash -c 'cd frontend && npx tsc --noEmit 2>&1'
+        files: ^frontend/src/math/.*\.ts$
+        pass_filenames: false

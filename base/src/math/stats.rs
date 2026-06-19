@@ -6,12 +6,30 @@
 // ── Core statistics ──────────────────────────────────────────────────────────
 
 /// Arithmetic mean. Returns `f64::NAN` for empty input.
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::stats::mean;
+/// assert_eq!(mean(&[1.0, 2.0, 3.0]), 2.0);
+/// assert!(mean(&[]).is_nan());
+/// ```
 pub fn mean(xs: &[f64]) -> f64 {
     if xs.is_empty() { return f64::NAN; }
     xs.iter().sum::<f64>() / xs.len() as f64
 }
 
 /// Population variance (`1/n` denominator).
+///
+/// Returns `0.0` for slices with fewer than 2 elements.
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::stats::variance;
+/// assert!((variance(&[2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0]) - 4.0).abs() < 1e-10);
+/// assert_eq!(variance(&[42.0]), 0.0);
+/// ```
 pub fn variance(xs: &[f64]) -> f64 {
     if xs.len() < 2 { return 0.0; }
     let m = mean(xs);
@@ -19,6 +37,15 @@ pub fn variance(xs: &[f64]) -> f64 {
 }
 
 /// Sample variance (`1/(n-1)` denominator).
+///
+/// Returns `0.0` for slices with fewer than 2 elements.
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::stats::sample_variance;
+/// assert!((sample_variance(&[2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0]) - 4.571428).abs() < 1e-5);
+/// ```
 pub fn sample_variance(xs: &[f64]) -> f64 {
     if xs.len() < 2 { return 0.0; }
     let m = mean(xs);
@@ -26,6 +53,13 @@ pub fn sample_variance(xs: &[f64]) -> f64 {
 }
 
 /// Population standard deviation.
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::stats::std_dev;
+/// assert!((std_dev(&[2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0]) - 2.0).abs() < 1e-10);
+/// ```
 pub fn std_dev(xs: &[f64]) -> f64 { variance(xs).sqrt() }
 
 /// Sample standard deviation.
@@ -41,6 +75,18 @@ pub fn covariance(xs: &[f64], ys: &[f64]) -> f64 {
 }
 
 /// Pearson correlation coefficient ∈ [-1, 1].
+///
+/// Returns `0.0` if either series is constant (zero standard deviation).
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::stats::pearson_correlation;
+/// // Perfect positive correlation
+/// assert!((pearson_correlation(&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]) - 1.0).abs() < 1e-10);
+/// // Perfect negative correlation
+/// assert!((pearson_correlation(&[1.0, 2.0, 3.0], &[6.0, 5.0, 4.0]) + 1.0).abs() < 1e-10);
+/// ```
 pub fn pearson_correlation(xs: &[f64], ys: &[f64]) -> f64 {
     let sx = std_dev(xs);
     let sy = std_dev(ys);
@@ -64,6 +110,18 @@ pub fn iqr(xs: &[f64]) -> f64 {
 }
 
 /// Nearest-rank percentile. `p` ∈ [0, 1].
+///
+/// Returns `f64::NAN` for empty input.
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::stats::percentile;
+/// let xs = [1.0, 2.0, 3.0, 4.0, 5.0];
+/// assert_eq!(percentile(&xs, 0.0), 1.0);
+/// assert_eq!(percentile(&xs, 1.0), 5.0);
+/// assert_eq!(percentile(&xs, 0.5), 3.0);
+/// ```
 pub fn percentile(xs: &[f64], p: f64) -> f64 {
     if xs.is_empty() { return f64::NAN; }
     let mut sorted = xs.to_vec();
@@ -73,6 +131,13 @@ pub fn percentile(xs: &[f64], p: f64) -> f64 {
 }
 
 /// Median (50th percentile).
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::stats::median;
+/// assert_eq!(median(&[3.0, 1.0, 4.0, 1.0, 5.0]), 3.0);
+/// ```
 pub fn median(xs: &[f64]) -> f64 { percentile(xs, 0.50) }
 
 // ── Normalisation ────────────────────────────────────────────────────────────

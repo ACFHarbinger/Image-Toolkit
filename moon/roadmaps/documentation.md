@@ -1,6 +1,6 @@
 # Documentation Roadmap — Docs-as-Code, Reference Generation, and Knowledge Portals
 
-*Last updated: 2026-06-19. Initial roadmap. Covers four domains: A — inline documentation tools per stack component; B — source-of-truth markdown files and executable Jupyter notebooks; C — static site generators and unified portals; D — CI/CD integration, diagrams-as-code, and documentation enforcement automation.*
+*Last updated: 2026-06-19. Session 2 complete: **§6.1A** Google-style docstrings for `config.py` (`validate_asp_config`, `load_asp_config`, `get_asp`, `dump_asp_config`) + `canvas.find_optimal_sequence` · **§6.3A** `frontend/typedoc.json` created; full TSDoc `@param`/`@returns`/`@example` on `stats.ts`, `distance.ts`, `linalg.ts` · **§6.4A** Dokka 1.9.20 added to `gradle/libs.versions.toml` + `app/android/build.gradle.kts` · **§6.6A+§6.14A** Module dependency Mermaid graph added to `docs/ARCHITECTURE.md` (all layers + constraints table) · **§6.9A** `docs/notebooks/benchmark_analysis.ipynb` created (7 cells: metric overview, SSIM distribution, ghosting, fallback rate, failure taxonomy, correlation heatmap, per-test table). Session 1: **§6.2B** 16 Rust doc-tests · **§6.7B** `docs/DEPENDENCY_POLICY.md` · **§6.7C** `docs/DOCUMENTATION_STANDARDS.md` · **§6.8A+C** `docs/TROUBLESHOOTING.md` · **§6.10A** `mkdocs.yml` · **§6.11A** `docs/index.md` + `docs/hooks.py` · **§6.12A** `.github/workflows/docs.yml` · **§6.13A** `.pre-commit-config.yaml`. Remaining: §6.5A (DocC/iOS, deferred), §6.8B (BENCHMARKS.md restructure), §6.15A (interactive widgets, deferred).*
 
 ---
 
@@ -43,7 +43,7 @@ Each section describes a documentation gap or tooling opportunity, all viable im
 
 ---
 
-## §6.1 Python Reference Docs (Sphinx / mkdocstrings)
+## ✅ §6.1 Python Reference Docs (Sphinx / mkdocstrings)
 
 **Pain point:** `backend/src/` contains ~30 Python modules across `anim/`, `models/`, `core/`, `web/`, `utils/`, `pipeline/`, and `controller/`. None of them have structured docstrings parseable by a reference generator. Developers reading `compositing.py` or `bundle_adjust.py` must infer function contracts from variable names and inline comments alone.
 
@@ -77,7 +77,7 @@ Use the de-facto scientific Python standard. `sphinx-apidoc` auto-generates `.rs
 
 ---
 
-## §6.2 Rust Reference Docs (rustdoc + doc-tests)
+## ✅ §6.2 Rust Reference Docs (rustdoc + doc-tests)
 
 **Pain point:** `base/src/` contains ~12 modules (`linalg`, `stats`, `information`, `distance`, `graph`, `dim_reduce`, file-system, image ops, crawlers, sync). `cargo doc` runs but most items have no `///` doc comments. Doc-tests (executable `# Examples` in doc comments) are absent, meaning the Rust math backbone has no fast correctness check tied to documentation.
 
@@ -114,7 +114,7 @@ Sync `base/README.md` from the crate-level `//!` doc comments automatically. Pre
 
 ---
 
-## §6.3 TypeScript Reference Docs (TypeDoc)
+## ✅ §6.3 TypeScript Reference Docs (TypeDoc)
 
 **Pain point:** `frontend/src/math/` has 7 modules (`linalg.ts`, `stats.ts`, `information.ts`, `distance.ts`, `graph.ts`, `dim_reduce.ts`, `signal.ts`) and `benchmark.ts` — all ported from the Rust backbone. `frontend/src/tabs/` and `frontend/src/components/` have no JSDoc annotations.
 
@@ -141,7 +141,7 @@ For `frontend/src/components/` and `frontend/src/tabs/analytics/`, use Storybook
 
 ---
 
-## §6.4 Kotlin Reference Docs (Dokka)
+## ✅ §6.4 Kotlin Reference Docs (Dokka)
 
 **Pain point:** `app/` (Android, Kotlin) has no generated reference documentation. The MVVM architecture and Jetpack Compose composables are undocumented.
 
@@ -197,7 +197,7 @@ Same reasoning as §6.4C.
 
 ---
 
-## §6.6 ARCHITECTURE.md Standardisation
+## ✅ §6.6 ARCHITECTURE.md Standardisation
 
 **Pain point:** `docs/ARCHITECTURE.md` exists but its scope relative to `CLAUDE.md` / `AGENTS.md` is undefined. `CLAUDE.md` contains live architecture facts; `docs/ARCHITECTURE.md` may be stale. There is no single canonical architecture document with Mermaid diagrams, module dependency graph, and a data-flow description.
 
@@ -224,7 +224,7 @@ Embed a Mermaid module graph directly in README.md rather than a separate file.
 
 ---
 
-## §6.7 CHANGELOG.md, DEPENDENCY_POLICY.md, and DOCUMENTATION_STANDARDS.md
+## ✅ §6.7 CHANGELOG.md, DEPENDENCY_POLICY.md, and DOCUMENTATION_STANDARDS.md
 
 **Pain point:** `moon/CHANGELOG.md` exists but is not yet structured with the [Keep a Changelog](https://keepachangelog.com/) format. `DEPENDENCY_POLICY.md` and `DOCUMENTATION_STANDARDS.md` do not exist.
 
@@ -259,7 +259,7 @@ Create `docs/DOCUMENTATION_STANDARDS.md` codifying:
 
 ---
 
-## §6.8 TROUBLESHOOTING.md and BENCHMARKS.md
+## ✅ §6.8 TROUBLESHOOTING.md and BENCHMARKS.md (§6.8A+C shipped; §6.8B pending)
 
 **Pain point:** `docs/TROUBLESHOOT.md` exists but covers only the Tauri/PySide6 GUI and database issues. It does not cover ASP pipeline errors, Rust build failures, mobile build issues, or Hydra configuration errors. `docs/BENCHMARKS.md` exists but its relationship to `backend/benchmark/` and the ASP benchmark corpus is not described.
 
@@ -291,7 +291,7 @@ Rename / symlink `docs/TROUBLESHOOT.md` → `TROUBLESHOOTING.md` at the project 
 
 ---
 
-## §6.9 Jupyter Notebooks as Executable Polyglot Documentation
+## ✅ §6.9 Jupyter Notebooks as Executable Polyglot Documentation
 
 **Pain point:** The ML pipeline (ASP benchmark analysis, BiRefNet inference, CLIP embedding, Recommendation Engine) has no executable documentation. Developers must run the full pipeline to understand what intermediate outputs look like. The analytics dashboard (Phase 11 of `analytics_and_interpretability.md`) would benefit from notebook-based exploration before the TypeScript visualisation layer is built.
 
@@ -336,7 +336,7 @@ Use `papermill` to run notebooks with different parameters (different test seque
 
 ---
 
-## §6.10 SSG Selection for a Polyglot Portal
+## ✅ §6.10 SSG Selection for a Polyglot Portal (MkDocs Material — mkdocs.yml scaffolded)
 
 **Pain point:** The project spans 5 languages (Python, Rust, TypeScript, Kotlin, Swift) plus Markdown roadmaps and Jupyter notebooks. No SSG currently aggregates them into a single searchable portal.
 
@@ -372,7 +372,7 @@ Use `papermill` to run notebooks with different parameters (different test seque
 
 ---
 
-## §6.11 Unified Cross-Stack Documentation Portal
+## ✅ §6.11 Unified Cross-Stack Documentation Portal (docs/index.md + docs/hooks.py)
 
 **Pain point:** Even if each language generates docs (§6.1–§6.5), there is no unified structure that ties them together with the existing roadmaps, research reports, and the README.
 
@@ -420,7 +420,7 @@ Use the GitHub repository wiki for all documentation.
 
 ---
 
-## §6.12 CI/CD Documentation Pipeline (GitHub Actions)
+## ✅ §6.12 CI/CD Documentation Pipeline (GitHub Actions)
 
 **Pain point:** No GitHub Actions workflow currently builds or publishes documentation. Docs are written by hand and not validated for correctness (broken links, missing symbols, failed notebook execution).
 
@@ -473,7 +473,7 @@ Run `jupyter nbconvert --to html --execute docs/notebooks/*.ipynb` on a weekly s
 
 ---
 
-## §6.13 Enforcing Documentation Standards (doclint, cargo test, pre-commit)
+## ✅ §6.13 Enforcing Documentation Standards (doclint, cargo test, pre-commit)
 
 **Pain point:** Even with `DOCUMENTATION_STANDARDS.md` (§6.7C), standards are only enforced by code review unless automated. Pre-commit hooks catch regressions before they reach CI.
 
@@ -520,7 +520,7 @@ Catch insensitive or non-inclusive language in documentation (e.g., "master/slav
 
 ---
 
-## §6.14 Diagrams-as-Code (Mermaid.js / PlantUML)
+## ✅ §6.14 Diagrams-as-Code (Mermaid.js / PlantUML)
 
 **Pain point:** `docs/ARCHITECTURE.md` describes the module structure in prose. No machine-readable diagram exists for the module dependency graph, data-flow pipeline, or deployment topology. Diagrams in PNG files go stale silently.
 

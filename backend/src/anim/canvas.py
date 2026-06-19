@@ -245,10 +245,28 @@ def find_optimal_sequence(
     min_inliers: int = 30,
     max_overlap: float = 0.85,
 ) -> List[str]:
-    """
-    Finds the longest coherent sequence while dropping redundant frames.
-    Prioritizes frames that extend the panorama furthest while maintaining
-    robust overlap.
+    """Find the longest coherent panorama sequence while dropping redundant frames.
+
+    Uses SIFT feature matching to build a directed overlap graph, then extracts
+    the longest non-redundant path from *ref_path* outward. Frames with overlap
+    exceeding *max_overlap* are considered redundant and pruned.
+
+    Args:
+        ref_path: Absolute path to the anchor (reference) frame. Always included
+            as the first element of the returned sequence.
+        candidates: Ordered list of candidate frame paths to evaluate. Paths that
+            cannot be read (e.g. missing files) are silently skipped.
+        min_inliers: Minimum RANSAC homography inliers required to consider two
+            frames as overlapping. Pairs below this threshold are treated as
+            non-adjacent.
+        max_overlap: Maximum allowed overlap ratio [0, 1] between consecutive
+            retained frames. Frames whose overlap with the previous kept frame
+            exceeds this value are pruned as redundant.
+
+    Returns:
+        Ordered list of frame paths forming the longest coherent sequence,
+        starting with *ref_path*. May be shorter than *candidates* if frames
+        are pruned for redundancy or insufficient overlap.
     """
     # 1. Feature Extraction (SIFT)
     sift = cv2.SIFT_create(nfeatures=1200)

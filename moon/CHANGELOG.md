@@ -4,6 +4,93 @@
 
 ---
 
+## Documentation Roadmap — Session 2 (2026-06-19)
+
+*Implements `moon/roadmaps/documentation.md` §6.1A, §6.3A, §6.4A, §6.6A, §6.9A, §6.14A.*
+
+### §6.1A — Python Google-style docstrings (`backend/src/anim/`)
+- Converted NumPy-style docstrings to Google-style in `config.py`: `validate_asp_config`, `load_asp_config`, `get_asp`, `dump_asp_config` — added `Args:`, `Returns:`, `Example:` sections with working doctests.
+- Added full Google-style docstring to `canvas.find_optimal_sequence` (was single-line summary only).
+
+### §6.3A — TypeScript Reference Docs (TypeDoc + TSDoc)
+- Created `frontend/typedoc.json` — TypeDoc config targeting `src/math/`, output to `site/api/typescript/`, with category grouping and `invalidLink` validation.
+- `frontend/src/math/stats.ts` — added `@packageDocumentation`, full `@param`/`@returns`/`@example` blocks on all 12 exports (`mean`, `variance`, `sampleVariance`, `stdDev`, `sampleStdDev`, `min`, `max`, `percentile`, `median`, `iqr`, `pearsonCorrelation`, `normalize01`, `zScoreNormalize`, `histogram`).
+- `frontend/src/math/distance.ts` — same treatment on all 8 exports (`squaredEuclidean`, `euclidean`, `manhattan`, `chebyshev`, `cosineSimilarity`, `cosineDistance`, `hammingDistance`, `pairwiseDistances`, `condensedDistances`).
+- `frontend/src/math/linalg.ts` — added `@packageDocumentation`, inline JSDoc on all Vec2/Vec3/generic N-dim and Mat3 ops.
+
+### §6.4A — Dokka (Android/Kotlin API docs)
+- Added `dokka = "1.9.20"` to `[versions]` in `gradle/libs.versions.toml`.
+- Added `dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }` to `[plugins]`.
+- Applied `alias(libs.plugins.dokka)` in `app/android/build.gradle.kts`.
+- Run: `./gradlew dokkaHtml` → output at `app/android/build/dokka/html/`.
+
+### §6.6A + §6.14A — docs/ARCHITECTURE.md module dependency graph
+- Added "Module Dependency Graph" section at the top of `docs/ARCHITECTURE.md` with a `flowchart TD` Mermaid diagram covering all layers: Entry Points, Desktop GUI, Python Backend, Rust Core, Data Layer, Cryptography, Mobile, Browser Extension.
+- Added constraints table (no blocking Qt I/O, DontUseNativeDialog, no QWebEngineView, QPixmap main-thread only, Rust cdylib, no SQLite in main app).
+
+### §6.9A — Jupyter Notebook: Benchmark Analysis
+- Created `docs/notebooks/benchmark_analysis.ipynb` — 7 cells:
+  1. Setup & load all `backend/benchmark/results/*.json` into a DataFrame
+  2. Metric overview table (ssim, aligned_ssim, ghosting_score, ghosting_siqe, seam_visibility, rlhf_score)
+  3. SSIM distribution histograms (ssim vs aligned_ssim side-by-side)
+  4. Ghosting score KDE (ghosting_score vs ghosting_siqe with flag threshold line)
+  5. ASP vs SCANS fallback rate bar chart
+  6. Failure taxonomy (ghost / hard seam / low SSIM / SCANS fallback) bar chart
+  7. Metric correlation heatmap + per-test styled summary table
+
+---
+
+## Documentation Roadmap — Session 1 (2026-06-19)
+
+*Implements `moon/roadmaps/documentation.md` §6.2B, §6.7B/C, §6.8A+C, §6.10A, §6.11A, §6.12A, §6.13A+D.*
+
+### Added
+
+**Rust doc-tests — `base/src/math/` (`§6.2B`)**
+- 16 doc-tests added across `stats.rs` (mean, variance, sample_variance, std_dev, pearson_correlation, percentile, median), `distance.rs` (squared_euclidean, euclidean, manhattan, chebyshev, minkowski, cosine_similarity, cosine_distance), `information.rs` (shannon_entropy, kl_divergence).
+- All 16 pass via `cargo test --doc`. Tests act as regression guards for the math backbone API.
+
+**`docs/DEPENDENCY_POLICY.md` (`§6.7B`)**
+- Version requirement table: Python 3.11+, Rust 1.70+, Node 18+, PostgreSQL 14+, pgvector 0.5.0+, Android API 26+, iOS 16+.
+- Pinning policy: exact pins in lockfiles (`uv.lock`, `Cargo.lock`, `package-lock.json`); compatible-release specifiers in `requirements.txt`.
+- Upgrade cadence: CVE ≥ 7.0 within 7 days, minor versions monthly, major versions with migration plan.
+- Process for introducing / removing dependencies with `pip-audit` + `cargo audit` + `npm audit` commands.
+- Per-stack notes for PyTorch CUDA pinning, PySide6 minor version sensitivity, PyO3 ABI3 target, Electron ABI, Gradle/Compose BOM alignment.
+
+**`docs/DOCUMENTATION_STANDARDS.md` (`§6.7C`)**
+- Python: Google-style docstrings, required sections (Args, Returns, Raises, Example), 88-char line limit, `pytest --doctest-modules` requirement.
+- Rust: `///` for all public items, `# Panics` required when applicable, `# Examples` required for math modules, `SAFETY:` for `unsafe` blocks.
+- TypeScript: TSDoc `@param`/`@returns`/`@example` for all exports in `frontend/src/math/`.
+- Kotlin: KDoc `@param`/`@return` for all public API.
+- Swift: DocC `- Parameters:`/`- Returns:`/`- Throws:` for all public functions.
+- Markdown: TOC for files > 100 lines, roadmap structure requirements, language-tagged code blocks, enforcement commands.
+- Inline comment philosophy: only document the *why*, never the *what*; `SAFETY:` required for `unsafe`.
+
+**`docs/TROUBLESHOOTING.md` (`§6.8A + §6.8C`)**
+- Supersedes `docs/TROUBLESHOOT.md` (40 lines → 310 lines).
+- New sections: **ASP Pipeline Errors** (inlier failure, SCANS fallback, ghosting, canvas overflow, `asp_config.toml` precedence); **Rust/PyO3 Build Failures** (`maturin develop`, ABI mismatch, link errors, rayon panics in tests); **Hydra CLI** (`HydraException`, struct mode, `config_path` resolution, ComfyUI port); **Database** (pgvector install, migration rollback); **Tauri/Frontend** (webkit2gtk, openssl-sys); **Mobile** (Android SDK path, Gradle/AGP matrix, iOS signing); **Test Suite** (freeze root causes, safe invocations).
+- Existing SIGSEGV content retained and reorganised under PySide6 / Qt Crashes.
+
+**`mkdocs.yml` (`§6.10A`)**
+- MkDocs Material theme with dark/light toggle, sticky nav tabs, code copy, mermaid superfences, MathJax.
+- `mkdocstrings[python]` with Google-style handler: filters private members, shows source, separate signature.
+- Full navigation tree: Getting Started → Reference (Python API stubs + Rust note) → Operations → Roadmaps → Reports → Changelog.
+
+**`docs/index.md` + `docs/hooks.py` (`§6.11A`)**
+- Portal home page with project-level Mermaid architecture graph (Frontend → Backend → Data layers), key entry points table, and stack version table.
+- `hooks.py`: MkDocs pre-build hook that symlinks `moon/roadmaps/*.md`, `moon/CHANGELOG.md`, `moon/ROADMAP.md`, and `reports/*.md` into the `docs/` tree without moving the source files.
+- Stub API pages created for `docs/api/python/{anim,core,models}.md` and `docs/api/rust/math.md`.
+
+**`.github/workflows/docs.yml` (`§6.12A`)**
+- 5-job pipeline: `docs-python` (MkDocs build `--strict`), `docs-rust` (`cargo test --doc` + `cargo doc --no-deps -D warnings`), `docs-links` (lychee), `docs-typescript` (TypeDoc advisory), `deploy` (GitHub Pages on main).
+- Path filters: only fires on changes to `docs/`, `moon/roadmaps/`, `reports/`, Python/Rust/TS source, or `mkdocs.yml`.
+- Concurrency group: cancels in-progress run on new push to the same branch.
+
+**`.pre-commit-config.yaml` (`§6.13A + §6.13D`)**
+- Hooks: pre-commit-hooks (trailing whitespace, EOF fixer, YAML/TOML/JSON check, large file guard), ruff (lint + format), pydoclint (Google-style, scoped to `backend/src/anim/`), mypy (strict modules only), lychee (Markdown link check, external caches, skips rate-limited hosts), cargo-fmt, cargo-doc-test (scoped to `base/src/math/`), tsc (type check `frontend/src/math/`).
+
+---
+
 ## Analytics — ASP Benchmark Diagnostics Phase 11 + Coverage Expansion (2026-06-19)
 
 ### Shipped

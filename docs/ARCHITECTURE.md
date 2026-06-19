@@ -1,5 +1,107 @@
 # Image Stitching Pipelines — Architecture Reference
 
+## Module Dependency Graph
+
+The following diagram shows the high-level inter-module dependencies for Image Toolkit.
+Edges point from consumer → provider (i.e. "depends on").
+
+```mermaid
+flowchart TD
+    subgraph Entry["Entry Points"]
+        MAIN["main.py\n(PySide6 launch)"]
+        CLI["backend/src/controller/\ndispatcher.py\n(Hydra CLI)"]
+        TAURI["frontend/src-tauri/\n(Tauri desktop)"]
+        API["api/\n(Django REST)"]
+    end
+
+    subgraph GUI["Desktop GUI  ·  gui/"]
+        TABS["Tabs\n(convert, wallpaper,\nlistings, merge…)"]
+        WORKERS["QThread Workers\n(ImageLoaderWorker,\nRecommendationWorker)"]
+        LRU["LRUImageCache\n(gui/src/utils/)"]
+    end
+
+    subgraph Backend["Python Backend  ·  backend/src/"]
+        CTRL["controller/\n(Hydra dispatcher)"]
+        ANIMMOD["anim/\n(ASP pipeline)"]
+        MODELS["models/\n(PyTorch ML)"]
+        DB["image_database.py\n(pgvector)"]
+        VAULT["vault_manager.py\n(JPype / JVM)"]
+        RECENG["Recommendation-Engine/\n(SQLite + cosine RRF)"]
+    end
+
+    subgraph RustCore["Rust Core  ·  base/"]
+        RUST["PyO3 extension\n(image_converter,\nfile_system, crawlers)"]
+        RUSTMATH["math/\n(stats, distance,\ninformation)"]
+    end
+
+    subgraph Data["Data Layer"]
+        PG[("PostgreSQL\n+ pgvector")]
+        SQLITE[("SQLite\nrec_engine.db")]
+        FS["File System\n(image library)"]
+    end
+
+    subgraph Crypto["Cryptography  ·  cryptography/"]
+        KOTLIN_CRYPTO["Kotlin AES-256-GCM\n(.vault files)"]
+    end
+
+    subgraph Mobile["Mobile  ·  app/"]
+        ANDROID["Android\n(Kotlin / Jetpack)"]
+        IOS["iOS\n(Swift / SwiftUI)"]
+    end
+
+    subgraph Ext["Browser Extension  ·  extension/"]
+        EXT["Manifest V3\nContext-menu save"]
+    end
+
+    %% Entry → GUI / Backend
+    MAIN --> TABS
+    CLI --> CTRL
+    TAURI --> Backend
+    API --> Backend
+
+    %% GUI internals
+    TABS --> WORKERS
+    WORKERS --> LRU
+    TABS --> Backend
+
+    %% Backend internals
+    CTRL --> ANIMMOD
+    CTRL --> MODELS
+    ANIMMOD --> MODELS
+    CTRL --> DB
+    DB --> PG
+    CTRL --> RECENG
+    RECENG --> SQLITE
+
+    %% Backend → Rust
+    Backend --> RUST
+    RUST --> FS
+    RUST --> RUSTMATH
+
+    %% Vault
+    CTRL --> VAULT
+    VAULT --> KOTLIN_CRYPTO
+
+    %% Mobile
+    ANDROID --> Backend
+    IOS --> Backend
+    ANDROID --> KOTLIN_CRYPTO
+    IOS --> KOTLIN_CRYPTO
+```
+
+**Key constraints enforced by this topology:**
+
+| Rule | Rationale |
+|---|---|
+| No blocking I/O on the Qt main thread | PySide6 GUI freezes if `gui/` workers do heavy work inline |
+| `QFileDialog` must use `DontUseNativeDialog` | GTK portal + JPype JVM → `__dynamic_cast` SIGSEGV on Linux |
+| No `QWebEngineView` | Chromium Vulkan/GBM init conflicts with JPype JVM RTTI |
+| `QPixmap` only on main thread; workers emit `QImage` | Qt threading contract |
+| Rust core is a `cdylib` loaded at runtime (not `staticlib`) | PyO3/Maturin constraint; `crate-type = ["cdylib", "rlib"]` in `base/Cargo.toml` |
+| No SQLite in the main app (PostgreSQL + pgvector only) | `Recommendation-Engine/` uses SQLite as a standalone sub-project |
+
+---
+
 This document provides detailed Mermaid diagrams for the two anime/scan stitching pipelines:
 
 - **`_merge_images_scan_stitch`** — lightweight OpenCV SCANS-mode baseline (10 steps)

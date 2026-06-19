@@ -13,6 +13,20 @@ const LOG2_E: f64 = std::f64::consts::LOG2_E;
 /// Treats zero probabilities as contributing 0 to the sum (0 log 0 = 0 by
 /// convention).  Input probabilities need not sum to 1 — they are normalised
 /// internally.
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::information::shannon_entropy;
+/// // Uniform distribution over 2 outcomes → 1 bit
+/// assert!((shannon_entropy(&[1.0, 1.0]) - 1.0).abs() < 1e-10);
+/// // Uniform over 4 outcomes → 2 bits
+/// assert!((shannon_entropy(&[1.0, 1.0, 1.0, 1.0]) - 2.0).abs() < 1e-10);
+/// // Degenerate distribution → 0 bits
+/// assert_eq!(shannon_entropy(&[1.0, 0.0, 0.0]), 0.0);
+/// // Zero input → 0
+/// assert_eq!(shannon_entropy(&[0.0, 0.0]), 0.0);
+/// ```
 pub fn shannon_entropy(probs: &[f64]) -> f64 {
     let total: f64 = probs.iter().sum();
     if total == 0.0 { return 0.0; }
@@ -51,6 +65,16 @@ pub fn conditional_entropy(joint_counts: &[Vec<usize>]) -> f64 {
 ///
 /// Returns `f64::INFINITY` if `Q[i] = 0` for any `i` where `P[i] > 0`.
 /// Input vectors must have the same length and will be normalised internally.
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::information::kl_divergence;
+/// // KL divergence of a distribution with itself is 0
+/// assert!(kl_divergence(&[1.0, 1.0], &[1.0, 1.0]).abs() < 1e-10);
+/// // Disjoint support → infinity
+/// assert!(kl_divergence(&[1.0, 0.0], &[0.0, 1.0]).is_infinite());
+/// ```
 pub fn kl_divergence(p: &[f64], q: &[f64]) -> f64 {
     assert_eq!(p.len(), q.len(), "P and Q must have equal length");
     let p_sum: f64 = p.iter().sum();
