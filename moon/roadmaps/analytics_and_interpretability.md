@@ -4,6 +4,25 @@
 
 ---
 
+## Table of Contents
+
+- [Implementation Status](#implementation-status)
+- [Phase 1: The Interactive Meta-Graph (Codebase Topology)](#phase-1-the-interactive-meta-graph-codebase-topology)
+- [Phase 2: ML Model & Loss Landscape Visualizer](#phase-2-ml-model--loss-landscape-visualizer)
+- [Phase 3: ASP Stage-by-Stage CV Diagnostics](#phase-3-asp-stage-by-stage-cv-diagnostics)
+- [Phase 4: Statistical & Information-Theoretic Failure Analysis](#phase-4-statistical--information-theoretic-failure-analysis)
+- [Phase 5: Resource, Latency, and Causal Profiling](#phase-5-resource-latency-and-causal-profiling)
+- [Phase 6: Semantic Code Analysis & Vulnerability Discovery](#phase-6-semantic-code-analysis--vulnerability-discovery)
+- [Phase 7: Omniscient Debugging & Deterministic Replay](#phase-7-omniscient-debugging--deterministic-replay)
+- [Phase 8: Distributed Observability & High-Cardinality Telemetry](#phase-8-distributed-observability--high-cardinality-telemetry)
+- [Phase 9: Formal Verification & State Space Visualization](#phase-9-formal-verification--state-space-visualization)
+- [Phase 10: Topological Data Analysis (TDA) of Pipeline Architecture](#phase-10-topological-data-analysis-tda-of-pipeline-architecture)
+- [Architectural Blueprint: A Zero-Copy Analytics Pipeline](#architectural-blueprint-a-zero-copy-analytics-pipeline)
+- [Phase 11: ASP Benchmark Analytics & Visual Diagnostics](#phase-11-asp-benchmark-analytics--visual-diagnostics)
+- [Phase 12: Benchmark Coverage Expansion](#phase-12-benchmark-coverage-expansion)
+
+---
+
 ## Implementation Status
 
 | Layer | Status | Details |

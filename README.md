@@ -2,6 +2,35 @@
 
 A powerful image database and editing toolkit with semantic search, batch processing, and AI-powered features.
 
+---
+
+## Table of Contents
+
+- [Quick Start](#-quick-start)
+  - [5-Minute Setup (Tauri Web App)](#5-minute-setup)
+  - [Python CLI (Hydra-driven backend)](#python-cli-hydra-driven-backend)
+  - [Python PySide6 Desktop GUI](#python-pyside6-desktop-gui)
+  - [Tauri + TypeScript Web App](#tauri--typescript-web-app)
+  - [Analytics & Interpretability Dashboard](#analytics--interpretability-dashboard)
+  - [Mobile Apps (Android / iOS)](#mobile-apps-android--ios)
+  - [Benchmarking Suite & Utility Scripts](#benchmarking-suite--utility-scripts)
+- [Features](#-features)
+- [Installation & Setup](#-installation--setup)
+- [Running the Application](#️-running-the-application)
+- [CLI Commands Reference](#-cli-commands-reference)
+- [Usage](#-usage)
+- [Build](#-build)
+- [Testing](#-testing)
+- [Troubleshooting](#-troubleshooting)
+- [Advanced Configuration](#️-advanced-configuration)
+- [Development Workflow](#-development-workflow)
+- [Documentation](#-documentation)
+- [Security Notes](#-security-notes)
+- [Project Implementation Notes](#-project-implementation-notes)
+- [Common Tasks Quick Reference](#-common-tasks-quick-reference)
+
+---
+
 ## 🚀 Quick Start
 
 ### Prerequisites Check
@@ -94,6 +123,210 @@ After login, you should see:
 - ✅ Green "DB Connected" in the header
 - Navigation tabs on the left
 - Convert tab open by default
+
+---
+
+### Python CLI (Hydra-driven backend)
+
+The Python backend exposes a Hydra-configured CLI entry point for training pipelines, embedding generation, and ComfyUI headless orchestration.
+
+**Prerequisites:** Python venv activated (see [Installation & Setup](#-installation--setup)).
+
+```bash
+source .venv/bin/activate
+
+# Run training pipeline (uses configs/base.yaml by default)
+python -m backend.src.controller.dispatcher command=train
+
+# Generate safetensors metadata embeddings
+python -m backend.src.controller.dispatcher command=embed_metadata
+
+# Launch ComfyUI headlessly with a custom port
+python -m backend.src.controller.dispatcher command=comfyui comfyui.port=8188 comfyui.listen=127.0.0.1
+
+# Override any config key from the CLI (standard Hydra syntax)
+python -m backend.src.controller.dispatcher command=train training.batch_size=16 training.epochs=50
+
+# Batch image conversion via the main CLI
+python main.py convert --output_format png --input_path /path/to/images --input_formats webp avif
+```
+
+Config files live in `backend/config/`. Override any key with `key=value` on the command line. The `asp_config.toml` in the project root configures the Anime Stitch Pipeline — see `backend/src/anim/config.py` for the schema.
+
+---
+
+### Python PySide6 Desktop GUI
+
+The legacy Qt-based desktop application provides a full feature set including the gallery, stitch tab, wallpaper manager, and crawlers.
+
+**Prerequisites:** Python venv activated, PostgreSQL running, `base` Rust module built (`cd base && maturin develop --release`).
+
+```bash
+source .venv/bin/activate
+
+# Launch the GUI
+python main.py
+
+# Or via the justfile
+just python
+```
+
+On first launch, the login dialog will appear — create an account or log in with an existing one. The header bar shows a green "DB Connected" indicator when the PostgreSQL connection is healthy.
+
+**Critical constraints (do not violate):**
+- All heavy operations run off the main thread (QThread / QRunnable). Never block the event loop.
+- Never use `QWebEngineView`. Open external URLs via `QDesktopServices.openUrl()`.
+- All `QFileDialog` calls must pass `QFileDialog.Option.DontUseNativeDialog` to avoid GTK/JVM SIGSEGV.
+
+---
+
+### Tauri + TypeScript Web App
+
+The primary cross-platform interface is built with React 19 + Tauri (Rust backend). This is the recommended environment for most users.
+
+**Prerequisites:** Node 18+, Rust 1.70+, PostgreSQL running with pgvector, `.env` configured in `frontend/src-tauri/`.
+
+```bash
+# One-command setup and launch (recommended for first run)
+./run.sh
+
+# Or with npm from the project root
+npm run setup   # first time only
+npm run dev
+
+# Or from the frontend directory
+cd frontend && npm run tauri dev
+```
+
+The first build compiles the Rust backend — expect 5–10 minutes on a cold cache. Subsequent runs are fast due to incremental compilation.
+
+**Production build:**
+```bash
+npm run build
+# Bundles to: frontend/src-tauri/target/release/bundle/
+```
+
+---
+
+### Analytics & Interpretability Dashboard
+
+The analytics dashboard is the React/TypeScript tab inside the Tauri app, implemented in `frontend/src/tabs/analytics/`. It provides SVG-based visualisations of benchmark results, ASP pipeline diagnostics, and model interpretability metrics.
+
+**Prerequisites:** Same as the Tauri web app above. The Electron mode also works for a standalone window.
+
+```bash
+# Run in Tauri dev mode (dashboard is the Analytics tab)
+npm run dev
+
+# Run in Electron mode (standalone window, faster React hot-reload)
+cd frontend
+npm run electron-dev
+
+# Build as standalone Electron app
+npm run start-electron
+```
+
+The dashboard reads benchmark JSON outputs from `backend/benchmark/results/`. Run the benchmark suite first to populate data:
+
+```bash
+source .venv/bin/activate
+python backend/benchmark/run_all.py
+```
+
+Then open the Analytics tab in the running app to see the results.
+
+---
+
+### Mobile Apps (Android / iOS)
+
+**Android (Kotlin / Jetpack Compose)**
+
+Prerequisites: Android Studio, JDK 17+, Android SDK.
+
+```bash
+cd app
+
+# Debug build (installs to connected device or emulator)
+./gradlew assembleDebug
+./gradlew installDebug
+
+# Release build
+./gradlew assembleRelease
+
+# Run unit tests
+./gradlew test
+
+# Run instrumented tests (requires connected device)
+./gradlew connectedAndroidTest
+```
+
+The app connects to the same PostgreSQL backend. Set the server URL in `app/src/main/res/values/config.xml` or via the in-app settings screen.
+
+**iOS (Swift / SwiftUI)**
+
+Prerequisites: Xcode 15+, macOS, Apple Developer account for device builds.
+
+```bash
+cd app
+
+# Build for simulator
+xcodebuild -project ImageToolkit.xcodeproj -scheme ImageToolkit -destination 'platform=iOS Simulator,name=iPhone 15' build
+
+# Run on a connected device (requires signing)
+xcodebuild -project ImageToolkit.xcodeproj -scheme ImageToolkit -destination 'generic/platform=iOS' build
+
+# Run unit tests
+xcodebuild test -project ImageToolkit.xcodeproj -scheme ImageToolkit -destination 'platform=iOS Simulator,name=iPhone 15'
+```
+
+---
+
+### Benchmarking Suite & Utility Scripts
+
+**ASP Benchmark (Anime Stitch Pipeline quality regression)**
+```bash
+source .venv/bin/activate
+
+# Run the full 97-test benchmark corpus
+python backend/benchmark/run_all.py
+
+# Run with baseline comparison (fails if metrics regress)
+python backend/benchmark/run_all.py --baseline backend/benchmark/results/baseline/
+
+# Run a single test by ID
+python backend/benchmark/run_single.py --test-id 09
+
+# Safe animation test suite (no GPU, no heavy model imports)
+pytest backend/test/anim/ --skip-gpu
+```
+
+**Rust criterion micro-benchmarks**
+```bash
+cd base
+cargo bench
+
+# Run a specific benchmark group
+cargo bench -- linalg
+```
+
+**Frontend math module benchmarks**
+```bash
+cd frontend
+npx ts-node src/math/benchmark.ts
+```
+
+**Utility scripts**
+```bash
+# Batch image conversion helper
+bash scripts/convert_images.sh
+
+# Environment setup / dependency sync
+bash scripts/setup_env.sh
+
+# Check module import times (validates <1.5s threshold for all anim modules)
+source .venv/bin/activate
+python backend/src/utils/check_import_times.py
+```
 
 ---
 

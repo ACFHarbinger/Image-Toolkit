@@ -4,6 +4,19 @@
 
 ---
 
+## Table of Contents
+
+- [How to Use This Document](#how-to-use-this-document)
+- [0. Current State](#0-current-state-what-already-exists)
+- [1. Image Generation](#1-image-generation)
+- [2. Video & GIF Generation](#2-video--gif-generation)
+- [3. Fine-Tuning Pipeline (4K video → character LoRA)](#3-fine-tuning-pipeline-4k-video--character-lora)
+- [4. Hardware-Aware Deployment](#4-hardware-aware-deployment)
+- [Phased Execution Sequence](#phased-execution-sequence)
+- [Effort × Impact Matrix](#effort--impact-matrix)
+
+---
+
 ## How to Use This Document
 
 Each section: current state in the codebase → pain point → options with trade-offs → recommendation. Tags: **[Quick Win]** (<1 day), **[Research]** (prototype first), **[Long-term]** (depends on external data/infra). Phased execution sequence is summarised at the end and mirrored into the [Master Roadmap](../ROADMAP.md).

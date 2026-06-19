@@ -4,6 +4,27 @@
 
 ---
 
+## Table of Contents
+
+- [How to Use This Document](#how-to-use-this-document)
+- [✅ §3.10 Test Suite Process Freeze — Root Cause Analysis](#-310-test-suite-process-freeze-root-cause-analysis)
+- [✅ §3.11 Session-Level ThreadPoolExecutor Pool](#-311-session-level-threadpoolexecutor-pool)
+- [✅ §3.12 pytest-xdist Worker Isolation](#-312-pytest-xdist-worker-isolation)
+- [✅ §3.13 conftest.py Overhead Reduction](#-313-conftestpy-overhead-reduction)
+- [✅ §3.14 Heavy-Library Import Isolation](#-314-heavy-library-import-isolation)
+- [✅ §3.15 Heavy-Library Import Isolation — Non-anim Modules](#-315-heavy-library-import-isolation--non-anim-modules)
+- [§3.1 Rust Streaming Image Merger](#31-rust-streaming-image-merger)
+- [§3.2 ASP Render Stage GPU Acceleration](#32-asp-render-stage-gpu-acceleration)
+- [§3.3 BiRefNet Inference Batching](#33-birefnet-inference-batching)
+- [§3.4 Database Query Optimisation](#34-database-query-optimisation)
+- [§3.5 WebDriver Lifecycle Management](#35-webdriver-lifecycle-management)
+- [§3.6 DynamicImage Move Semantics in Rust](#36-dynamicimage-move-semantics-in-rust)
+- [§3.7 Python ML Model Memory Lifecycle](#37-python-ml-model-memory-lifecycle)
+- [Effort × Impact Matrix](#effort--impact-matrix)
+- [Anchor Index](#anchor-index)
+
+---
+
 ## How to Use This Document
 
 Each section describes a performance bottleneck, all viable implementation options with trade-offs, and a recommendation. Items tagged **[Quick Win]** take under a day. Items tagged **[Research]** require prototyping. Items tagged **⚠ CRITICAL** represent confirmed system-freeze root causes that must be resolved before running the full test suite.
