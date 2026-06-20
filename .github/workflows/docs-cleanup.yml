@@ -1,0 +1,47 @@
+name: Docs Preview Cleanup
+
+# Removes the gh-pages PR preview subdirectory when a pull request is closed
+# (merged or abandoned). The preview job in docs.yml deploys to
+# gh-pages/pr-preview/{number}/ — this workflow deletes that directory.
+
+on:
+  pull_request:
+    types: [closed]
+
+# Only one cleanup should run at a time per PR to avoid git conflicts.
+concurrency:
+  group: docs-cleanup-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  cleanup:
+    name: Remove PR ${{ github.event.pull_request.number }} preview
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # push deletion commit to gh-pages branch
+
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+        continue-on-error: true
+        # continue-on-error: gh-pages branch may not exist yet
+        # (e.g., if the repo was just set up or Pages was never deployed).
+
+      - name: Remove preview directory and push
+        run: |
+          PR_DIR="pr-preview/${{ github.event.pull_request.number }}"
+
+          if [ ! -d "$PR_DIR" ]; then
+            echo "No preview directory found for PR #${{ github.event.pull_request.number }} — nothing to clean up."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git rm -rf "$PR_DIR"
+          git commit -m "chore: remove docs preview for PR #${{ github.event.pull_request.number }}"
+          git push
+        continue-on-error: true
+        # continue-on-error: harmless if the checkout above failed (no gh-pages branch).

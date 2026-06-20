@@ -27,7 +27,9 @@
     "concurrently": "^8.2.2",
     "cross-env": "^10.1.0",
     "electron": "^28.1.0",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "typedoc": "^0.26.11",
+    "typedoc-plugin-markdown": "^4.2.9"
   },
   "build": {
     "appId": "com.acfharbinger.imagetoolkit",
