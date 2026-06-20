@@ -37,23 +37,69 @@ pub fn shannon_entropy(probs: &[f64]) -> f64 {
 }
 
 /// Entropy in nats (natural log base).
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::information::{entropy_nats, shannon_entropy};
+/// // entropy_nats = shannon_entropy / log2(e)
+/// let p = [0.5, 0.25, 0.25];
+/// let ratio = shannon_entropy(&p) / entropy_nats(&p);
+/// assert!((ratio - std::f64::consts::LOG2_E).abs() < 1e-10);
+/// // Uniform binary → ln(2) nats
+/// assert!((entropy_nats(&[1.0, 1.0]) - std::f64::consts::LN_2).abs() < 1e-10);
+/// ```
 pub fn entropy_nats(probs: &[f64]) -> f64 {
     shannon_entropy(probs) / LOG2_E
 }
 
 /// Shannon entropy computed from raw event counts (normalises internally).
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::information::{empirical_entropy, shannon_entropy};
+/// // Equal counts → same as uniform probability entropy
+/// assert!((empirical_entropy(&[1, 1, 1, 1]) - 2.0).abs() < 1e-10);
+/// // Single event → 0 bits
+/// assert_eq!(empirical_entropy(&[5, 0, 0]), 0.0);
+/// ```
 pub fn empirical_entropy(counts: &[usize]) -> f64 {
     let probs: Vec<f64> = counts.iter().map(|&c| c as f64).collect();
     shannon_entropy(&probs)
 }
 
 /// Joint entropy `H(X, Y)` from a 2-D count matrix (rows = X values, cols = Y).
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::information::joint_entropy;
+/// // 2×2 perfectly uniform joint → 2 bits
+/// let joint = vec![vec![1usize, 1], vec![1, 1]];
+/// assert!((joint_entropy(&joint) - 2.0).abs() < 1e-10);
+/// // Degenerate: all mass in one cell → 0 bits
+/// let det = vec![vec![1usize, 0], vec![0, 0]];
+/// assert_eq!(joint_entropy(&det), 0.0);
+/// ```
 pub fn joint_entropy(joint_counts: &[Vec<usize>]) -> f64 {
     let flat: Vec<f64> = joint_counts.iter().flat_map(|row| row.iter().map(|&c| c as f64)).collect();
     shannon_entropy(&flat)
 }
 
 /// Conditional entropy `H(Y|X) = H(X,Y) − H(X)`.
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::information::conditional_entropy;
+/// // X = Y → H(Y|X) = 0 (knowing X tells you Y)
+/// let joint = vec![vec![50usize, 0], vec![0, 50]];
+/// assert!(conditional_entropy(&joint) < 1e-10);
+/// // X ⊥ Y → H(Y|X) = H(Y) = 1 bit for 2-outcome uniform Y
+/// let indep = vec![vec![25usize, 25], vec![25, 25]];
+/// assert!((conditional_entropy(&indep) - 1.0).abs() < 1e-10);
+/// ```
 pub fn conditional_entropy(joint_counts: &[Vec<usize>]) -> f64 {
     let marginal_x: Vec<f64> = joint_counts.iter().map(|row| row.iter().sum::<usize>() as f64).collect();
     joint_entropy(joint_counts) - shannon_entropy(&marginal_x)
@@ -91,6 +137,20 @@ pub fn kl_divergence(p: &[f64], q: &[f64]) -> f64 {
 
 /// Jensen-Shannon divergence `JSD(P ‖ Q)` ∈ [0, 1] (bits, bounded by 1 for
 /// disjoint distributions).  Symmetric and always finite.
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::information::js_divergence;
+/// // JSD is symmetric
+/// let p = [0.7, 0.3];
+/// let q = [0.2, 0.8];
+/// assert!((js_divergence(&p, &q) - js_divergence(&q, &p)).abs() < 1e-12);
+/// // JSD is bounded by 1
+/// assert!(js_divergence(&[1.0, 0.0], &[0.0, 1.0]) <= 1.0 + 1e-12);
+/// // Identical distributions → JSD = 0
+/// assert!(js_divergence(&[0.5, 0.5], &[0.5, 0.5]) < 1e-12);
+/// ```
 pub fn js_divergence(p: &[f64], q: &[f64]) -> f64 {
     let p_sum: f64 = p.iter().sum();
     let q_sum: f64 = q.iter().sum();
@@ -103,6 +163,20 @@ pub fn js_divergence(p: &[f64], q: &[f64]) -> f64 {
 }
 
 /// Total variation distance `TV(P, Q) = ½ Σ |P_i − Q_i|`.
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::information::total_variation;
+/// // Identical distributions → TV = 0
+/// assert_eq!(total_variation(&[0.5, 0.5], &[0.5, 0.5]), 0.0);
+/// // Disjoint distributions → TV = 1
+/// assert!((total_variation(&[1.0, 0.0], &[0.0, 1.0]) - 1.0).abs() < 1e-10);
+/// // Symmetric
+/// let p = [0.3, 0.7];
+/// let q = [0.6, 0.4];
+/// assert!((total_variation(&p, &q) - total_variation(&q, &p)).abs() < 1e-12);
+/// ```
 pub fn total_variation(p: &[f64], q: &[f64]) -> f64 {
     assert_eq!(p.len(), q.len());
     let p_sum: f64 = p.iter().sum();
@@ -116,6 +190,18 @@ pub fn total_variation(p: &[f64], q: &[f64]) -> f64 {
 ///
 /// The matrix has shape `[|X|][|Y|]` where `joint[i][j]` is the number of
 /// co-occurrences of event `X=i` and `Y=j`.
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::information::mutual_information_discrete;
+/// // X ⊥ Y → I(X;Y) ≈ 0
+/// let indep = vec![vec![25usize, 25], vec![25, 25]];
+/// assert!(mutual_information_discrete(&indep) < 1e-10);
+/// // X = Y → I(X;Y) = H(X) = 1 bit
+/// let dep = vec![vec![50usize, 0], vec![0, 50]];
+/// assert!((mutual_information_discrete(&dep) - 1.0).abs() < 1e-10);
+/// ```
 pub fn mutual_information_discrete(joint_counts: &[Vec<usize>]) -> f64 {
     let marginal_x: Vec<f64> = joint_counts.iter().map(|row| row.iter().sum::<usize>() as f64).collect();
     let cols = joint_counts[0].len();
@@ -131,6 +217,22 @@ pub fn mutual_information_discrete(joint_counts: &[Vec<usize>]) -> f64 {
 }
 
 /// Normalised mutual information `NMI(X;Y) = I(X;Y) / sqrt(H(X)·H(Y))` ∈ [0, 1].
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::information::normalised_mutual_information;
+/// // X ⊥ Y → NMI = 0
+/// let indep = vec![vec![25usize, 25], vec![25, 25]];
+/// assert!(normalised_mutual_information(&indep) < 1e-10);
+/// // X = Y → NMI = 1
+/// let dep = vec![vec![50usize, 0], vec![0, 50]];
+/// assert!((normalised_mutual_information(&dep) - 1.0).abs() < 1e-10);
+/// // NMI is always in [0, 1]
+/// let mixed = vec![vec![30usize, 10], vec![5, 55]];
+/// let nmi = normalised_mutual_information(&mixed);
+/// assert!(nmi >= 0.0 && nmi <= 1.0 + 1e-12);
+/// ```
 pub fn normalised_mutual_information(joint_counts: &[Vec<usize>]) -> f64 {
     let marginal_x: Vec<f64> = joint_counts.iter().map(|row| row.iter().sum::<usize>() as f64).collect();
     let cols = joint_counts[0].len();
@@ -147,6 +249,17 @@ pub fn normalised_mutual_information(joint_counts: &[Vec<usize>]) -> f64 {
 /// Cross-entropy `H(P, Q) = -Σ P_i log₂ Q_i`.
 ///
 /// Returns `f64::INFINITY` if `Q_i = 0` at any site where `P_i > 0`.
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::information::{cross_entropy, shannon_entropy};
+/// // H(P, P) = H(P) for any P
+/// let p = [0.5, 0.25, 0.125, 0.125];
+/// assert!((cross_entropy(&p, &p) - shannon_entropy(&p)).abs() < 1e-12);
+/// // Disjoint support → infinity
+/// assert!(cross_entropy(&[1.0, 0.0], &[0.0, 1.0]).is_infinite());
+/// ```
 pub fn cross_entropy(p: &[f64], q: &[f64]) -> f64 {
     assert_eq!(p.len(), q.len());
     let p_sum: f64 = p.iter().sum();

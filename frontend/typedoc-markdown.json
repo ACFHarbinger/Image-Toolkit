@@ -2,7 +2,7 @@
   "$schema": "https://typedoc.org/schema.json",
   "entryPointStrategy": "expand",
   "entryPoints": ["src/math"],
-  "out": "../site/api/typescript",
+  "out": "../docs/api/typescript",
   "name": "Image Toolkit — TypeScript Math API",
   "includeVersion": true,
   "readme": "none",
@@ -16,6 +16,6 @@
     "invalidLink": true,
     "notDocumented": false
   },
-  "plugin": [],
+  "plugin": ["typedoc-plugin-markdown"],
   "tsconfig": "tsconfig.json"
 }

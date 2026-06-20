@@ -1,10 +1,28 @@
 import SwiftUI
 
+/// A collapsible card with a title header and animated expand/collapse toggle.
+///
+/// Tapping the header row animates the content region in or out. The card uses
+/// ``AppTheme/surface`` as its background and a 2 pt drop shadow.
+///
+/// ```swift
+/// SectionCard(title: "Advanced Options", startOpen: false) {
+///     Toggle("Enable GPU", isOn: $useGpu)
+///     Stepper("Threads: \(threads)", value: $threads, in: 1...8)
+/// }
+/// ```
 struct SectionCard<Content: View>: View {
+    /// Text shown in the header row.
     let title: String
     @State private var expanded: Bool
     let content: Content
 
+    /// Creates a `SectionCard`.
+    ///
+    /// - Parameters:
+    ///   - title: Header label.
+    ///   - startOpen: Whether the card begins expanded (default `false`).
+    ///   - content: View builder for the card body.
     init(title: String, startOpen: Bool = false, @ViewBuilder content: () -> Content) {
         self.title = title
         self._expanded = State(initialValue: startOpen)

@@ -122,12 +122,29 @@ pub fn cosine_distance(a: &[f64], b: &[f64]) -> f64 {
 // ── Discrete / bitstring ─────────────────────────────────────────────────────
 
 /// Hamming distance: number of positions where values differ.
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::distance::hamming_distance;
+/// assert_eq!(hamming_distance(&[1, 0, 1, 1, 0], &[0, 0, 1, 0, 0]), 2);
+/// assert_eq!(hamming_distance(&[1, 1], &[1, 1]), 0);
+/// ```
 pub fn hamming_distance(a: &[u8], b: &[u8]) -> usize {
     assert_eq!(a.len(), b.len());
     a.iter().zip(b).filter(|(ai, bi)| ai != bi).count()
 }
 
 /// Hamming distance on boolean/0-1 float vectors (treats non-zero as 1).
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::distance::hamming_f64;
+/// // 1.0 vs 0.0 at positions 0 and 2: 2 differences
+/// assert_eq!(hamming_f64(&[1.0, 0.0, 1.0], &[0.0, 0.0, 0.0]), 2);
+/// assert_eq!(hamming_f64(&[0.0, 0.0], &[0.0, 0.0]), 0);
+/// ```
 pub fn hamming_f64(a: &[f64], b: &[f64]) -> usize {
     assert_eq!(a.len(), b.len());
     a.iter().zip(b).filter(|(&ai, &bi)| (ai != 0.0) != (bi != 0.0)).count()
@@ -138,6 +155,17 @@ pub fn hamming_f64(a: &[f64], b: &[f64]) -> usize {
 /// Bhattacharyya coefficient `BC(P, Q) = Σ sqrt(P_i · Q_i)`.
 ///
 /// Measures distributional overlap; 1 = identical, 0 = disjoint.
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::distance::bhattacharyya_coefficient;
+/// // Identical distributions → BC = 1
+/// let p = [0.2, 0.5, 0.3];
+/// assert!((bhattacharyya_coefficient(&p, &p) - 1.0).abs() < 1e-10);
+/// // Disjoint distributions → BC = 0
+/// assert_eq!(bhattacharyya_coefficient(&[1.0, 0.0], &[0.0, 1.0]), 0.0);
+/// ```
 pub fn bhattacharyya_coefficient(p: &[f64], q: &[f64]) -> f64 {
     let p_sum: f64 = p.iter().sum();
     let q_sum: f64 = q.iter().sum();
@@ -149,12 +177,34 @@ pub fn bhattacharyya_coefficient(p: &[f64], q: &[f64]) -> f64 {
 
 /// Bhattacharyya distance `D_B = -ln(BC)`.  Returns `f64::INFINITY` for
 /// completely disjoint distributions.
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::distance::bhattacharyya_distance;
+/// // Identical distributions → distance = 0
+/// let p = [0.2, 0.5, 0.3];
+/// assert!(bhattacharyya_distance(&p, &p) < 1e-10);
+/// // Disjoint → infinity
+/// assert!(bhattacharyya_distance(&[1.0, 0.0], &[0.0, 1.0]).is_infinite());
+/// ```
 pub fn bhattacharyya_distance(p: &[f64], q: &[f64]) -> f64 {
     let bc = bhattacharyya_coefficient(p, q);
     if bc == 0.0 { f64::INFINITY } else { -bc.ln() }
 }
 
 /// Hellinger distance `H(P, Q) = sqrt(1 - BC)` ∈ [0, 1].
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::distance::hellinger_distance;
+/// // Identical distributions → H = 0
+/// let p = [0.5, 0.5];
+/// assert!(hellinger_distance(&p, &p) < 1e-10);
+/// // Disjoint distributions → H = 1
+/// assert!((hellinger_distance(&[1.0, 0.0], &[0.0, 1.0]) - 1.0).abs() < 1e-10);
+/// ```
 pub fn hellinger_distance(p: &[f64], q: &[f64]) -> f64 {
     (1.0 - bhattacharyya_coefficient(p, q)).max(0.0).sqrt()
 }
@@ -165,6 +215,17 @@ pub fn hellinger_distance(p: &[f64], q: &[f64]) -> f64 {
 ///
 /// `dist_fn` must be symmetric (the matrix is filled in both triangles for
 /// O(n²/2) calls using symmetry).
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::distance::{pairwise_distance_matrix, euclidean};
+/// let pts = vec![vec![0.0, 0.0], vec![3.0, 4.0], vec![6.0, 8.0]];
+/// let mat = pairwise_distance_matrix(&pts, euclidean);
+/// assert_eq!(mat[0][0], 0.0);
+/// assert!((mat[0][1] - 5.0).abs() < 1e-10);
+/// assert!((mat[0][1] - mat[1][0]).abs() < 1e-12); // symmetry
+/// ```
 pub fn pairwise_distance_matrix(
     points: &[Vec<f64>],
     dist_fn: impl Fn(&[f64], &[f64]) -> f64,
@@ -185,6 +246,17 @@ pub fn pairwise_distance_matrix(
 ///
 /// Useful when feeding directly into Ripser / Gudhi for persistent homology
 /// (Phase 10).
+///
+/// # Examples
+///
+/// ```
+/// # use base::math::distance::{condensed_distance_matrix, euclidean};
+/// let pts: Vec<Vec<f64>> = (0..5).map(|i| vec![i as f64]).collect();
+/// let c = condensed_distance_matrix(&pts, euclidean);
+/// assert_eq!(c.len(), 5 * 4 / 2);
+/// // First entry: distance between pt 0 and pt 1
+/// assert!((c[0] - 1.0).abs() < 1e-10);
+/// ```
 pub fn condensed_distance_matrix(
     points: &[Vec<f64>],
     dist_fn: impl Fn(&[f64], &[f64]) -> f64,

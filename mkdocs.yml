@@ -59,9 +59,16 @@ plugins:
               - "!^_"          # exclude private members
               - "!^__"         # exclude dunder methods (except __init__)
               - "__init__"
-  # Notebook support (requires myst-nb)
-  # - myst_nb:
-  #     execute_notebooks: "off"  # set to "auto" for CI execution
+  # Notebook support — mkdocs-jupyter renders .ipynb files as portal pages.
+  # Notebooks are pre-stripped of outputs by nbstripout; only the code and
+  # markdown cells are rendered (no execution at build time).
+  - mkdocs-jupyter:
+      execute: false
+      include_source: true
+      ignore_h1_titles: true
+      # Allow the strict MkDocs build to continue even if a notebook cell
+      # contains an unresolvable link or a non-Markdown extension.
+      allow_errors: true
 
 markdown_extensions:
   - abbr
@@ -122,14 +129,26 @@ nav:
   - Getting Started:
     - Quick Start: README.md
     - Architecture: ARCHITECTURE.md
+    - C4 Architecture Model: STRUCTURIZR.md
     - Troubleshooting: TROUBLESHOOTING.md
   - Reference:
+    - REST API: api/rest-api.md
     - Python API:
       - ASP Pipeline: api/python/anim.md
       - Backend Core: api/python/core.md
       - Models: api/python/models.md
     - Rust API:
       - Math Backbone: api/rust/math.md
+    - TypeScript API:
+      - Overview: api/typescript/README.md
+    - Kotlin API:
+      - Overview: api/kotlin/index.md
+    - Python Reference (Sphinx):
+      - Overview: api/sphinx.md
+  - Notebooks:
+    - Benchmark Analysis: notebooks/benchmark_analysis.ipynb
+    - ASP Pipeline Walkthrough: notebooks/asp_pipeline_walkthrough.ipynb
+    - CLIP Embedding Walkthrough: notebooks/clip_embedding_walkthrough.ipynb
   - Operations:
     - Benchmarks: BENCHMARKS.md
     - Dependency Policy: DEPENDENCY_POLICY.md

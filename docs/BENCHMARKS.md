@@ -1,7 +1,18 @@
 # Image-Toolkit Backend & Base Performance Benchmarks
 
 Comprehensive benchmark suite for measuring memory usage and compute time across
-the Python backend and Rust base layers.
+the Python backend, Rust base layer, and TypeScript analytics math backbone.
+
+## Benchmark Suite Index
+
+| Suite | Runner | Location | Output | CI job |
+|---|---|---|---|---|
+| **Database** | Python `benchmark/bench_database.py` | `backend/benchmark/` | `results/benchmark_*.json` | `benchmark.yml` |
+| **ML Models** | Python `benchmark/bench_models.py` | `backend/benchmark/` | `results/benchmark_*.json` | `benchmark.yml` |
+| **Image Processing** | Python `benchmark/bench_image_ops.py` | `backend/benchmark/` | `results/benchmark_*.json` | `benchmark.yml` |
+| **Rust Core** | `cargo bench` | `base/benches/` | `base/target/criterion/` | `benchmark.yml` |
+| **ASP Corpus** | `backend/benchmark/bench_anime_stitch.py` | `backend/benchmark/` | `data/output/benchmark_report.md` | manual |
+| **Frontend Math** | `npm test` / TypeDoc | `frontend/src/math/` | Jest output | `docs.yml` (type-check) |
 
 ## Prerequisites
 
@@ -85,6 +96,33 @@ python benchmark/memory_profile.py
 - Cloud sync operations
 
 **Metrics**: Execution time, peak RAM, allocations
+
+### 5. Frontend Analytics Math (`frontend/src/math/`)
+
+The TypeScript math backbone (`stats.ts`, `distance.ts`, `linalg.ts`, `signal.ts`,
+`colormap.ts`, `graph.ts`, `benchmark.ts`) is validated by:
+
+- **Type checking**: `npx tsc --noEmit` (run by `docs.yml` CI and `tsc-check` pre-commit hook)
+- **TypeDoc generation**: `npx typedoc --entryPointStrategy expand --out site/api/typescript src/math`
+
+`benchmark.ts` is the analytics computation layer — it is consumed by the Tauri
+dashboard, not run standalone. Its key exports and what they compute:
+
+| Export | What it computes |
+|---|---|
+| `computeEfficiency(benchmarks)` | Composite efficiency score (0–100) and throughput per benchmark |
+| `computeMemoryVsTimeScatter(benchmarks)` | Memory vs time bubble chart data |
+| `computeMemoryBreakdown(benchmarks)` | Stacked baseline/delta/leaked breakdown |
+| `detectRegressions(current, baseline)` | Time and memory regression detection vs a stored baseline |
+| `computeTimingBreakdown(timing)` | ASP stage-by-stage time breakdown as % of total |
+| `computeMetricComparisons(datasets)` | ASP vs Simple per-metric deltas across all datasets |
+| `computeSeamQualityHeatmap(datasets)` | Per-dataset seam quality scores in [0,1] space |
+| `verdictSummary(datasets)` | Counts of `asp_better / simple_better / comparable / no_data` |
+| `computeAlignmentDrift(datasets)` | Coefficient of variation for dy/dx steps per dataset |
+| `computePhotometricProfile(datasets)` | Per-frame gain applied per dataset |
+| `computePerSeamDetail(datasets)` | Per-seam ghost/NCC/color scores |
+| `computeFallbackReasonDistribution(datasets)` | Fallback reason taxonomy with counts |
+| `computeGtComparisons(datasets)` | SSIM/PSNR/aligned-SSIM vs ground truth |
 
 ## Output Formats
 
@@ -250,12 +288,108 @@ criterion_main!(benches);
 
 ---
 
+## Rust Math Micro-benchmarks
+
+The `base/src/math/` modules (`stats.rs`, `distance.rs`, `information.rs`) back the
+Python ML pipeline and Recommendation Engine. Criterion benchmarks live in
+`base/benches/` and can be added as follows:
+
+```rust
+// base/benches/math_bench.rs
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use base::math::stats::mean;
+use base::math::distance::{euclidean, cosine_similarity};
+
+fn bench_mean(c: &mut Criterion) {
+    let data: Vec<f64> = (0..10_000).map(|x| x as f64).collect();
+    c.bench_function("mean_10k", |b| b.iter(|| mean(black_box(&data))));
+}
+
+fn bench_cosine(c: &mut Criterion) {
+    let a: Vec<f64> = (0..768).map(|x| x as f64 / 768.0).collect(); // BGE-M3 dim
+    let b: Vec<f64> = (0..768).map(|x| (768 - x) as f64 / 768.0).collect();
+    c.bench_function("cosine_similarity_768d", |b| {
+        b.iter(|| cosine_similarity(black_box(&a), black_box(&b)))
+    });
+}
+
+criterion_group!(benches, bench_mean, bench_cosine);
+criterion_main!(benches);
+```
+
+**`base/Cargo.toml`** (add if not present):
+
+```toml
+[[bench]]
+name = "math_bench"
+harness = false
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+```
+
+**Run**:
+
+```bash
+cd base
+cargo bench                            # all benchmarks
+cargo bench -- cosine                  # filter by name
+cargo bench --bench math_bench         # specific bench file
+# Reports: base/target/criterion/*/report/index.html
+```
+
+**Baselines** (to be established once benchmarks are added — see CI §6.12 guidance below):
+
+| Function | Input size | Expected time (Ryzen 9 5950X) |
+|---|---|---|
+| `mean` | 10k f64 | < 5 µs |
+| `euclidean` | 768-d f64 | < 2 µs |
+| `cosine_similarity` | 768-d f64 | < 3 µs |
+| `shannon_entropy` | 256 bins | < 2 µs |
+
+---
+
 ## Anime Stitch Pipeline Benchmark
 
 The anime stitch benchmark runs both the **Anime Stitch Pipeline (ASP)** and the
 **OpenCV SCANS Simple Stitch** on every `data/asp_testX/` dataset, computes CV
 metrics for each output, saves intermediate visualisations, and generates a
 structured Markdown report for human review and LLM-assisted iteration.
+
+### ASP Benchmark Corpus
+
+**Corpus size**: 97 test datasets (`data/asp_test1/` – `data/asp_test97/`).
+Each contains 4–20 source frames captured from scroll-through anime content.
+The safe test runner (no GPU, uses pre-computed fixtures) is:
+
+```bash
+pytest backend/test/anim/ --skip-gpu -q
+```
+
+**Failure taxonomy** (established across S1–S45 of ASP development):
+
+| Cluster | Detection condition | Root cause |
+|---|---|---|
+| **Ghost / double-edge** | `ghosting_siqe > 30` | Pose gap at seam + overly wide feather |
+| **Hard seam step** | `seam_visibility > 25` | Colour discontinuity at boundary (fix: S16 colour match, S21 Poisson blend) |
+| **Low structural similarity** | `ssim < 0.70` vs ground truth | Misaligned panels, incorrect bundle-adjust solution |
+| **SCANS fallback** | `method == 'scans'` | Pipeline validation failure (target: ≤ 5 genuine fallbacks) |
+
+**Baseline metric values** (after S11 fallback-elimination fixes, CPU-only):
+
+| Metric | ASP median | Simple median | Threshold | Direction |
+|---|---|---|---|---|
+| `sharpness` (Laplacian var) | > 120 | > 80 | — | higher better |
+| `coverage` | > 0.90 | > 0.85 | < 0.70 = failure | higher better |
+| `ghosting_score` (proxy gate) | < 15 | < 10 | GhostGate at `max(40, 2× sim_ghost)` | lower better |
+| `ghosting_siqe` (FFT autocorr) | < 20 | — | flag > 30 | lower better |
+| `seam_visibility` | < 12 | — | flag > 25 | lower better |
+| `aligned_ssim` vs GT | > 0.75 | > 0.65 | < 0.70 = regression | higher better |
+| SCANS fallback rate | 4/96 tests | — | target ≤ 5 | lower better |
+
+**Corpus interactive analysis**: see `docs/notebooks/benchmark_analysis.ipynb` — loads
+all `backend/benchmark/results/*.json` files and produces metric distributions, failure
+taxonomy bar charts, and a styled per-test table.
 
 ### Prerequisites
 
@@ -567,6 +701,72 @@ with the workspace root set to `data/output/`, or use the absolute path override
 # Re-generate with absolute paths (edit generate_report() if needed)
 REPORT_ABS_PATHS=1 python backend/benchmark/bench_anime_stitch.py
 ```
+
+## Registering a New Benchmark with CI
+
+### Python benchmark
+
+1. Create `backend/benchmark/bench_<name>.py` following the `BenchmarkRunner` / `@measure_memory` pattern.
+2. Import and call it from `benchmark/run_all.py`:
+
+   ```python
+   from benchmark.bench_<name> import runner as <name>_runner
+   ALL_RUNNERS.append(<name>_runner)
+   ```
+
+3. The existing `.github/workflows/benchmark.yml` discovers all runners via `run_all.py` automatically.
+   No workflow changes needed for Python benchmarks.
+
+### Rust criterion benchmark
+
+1. Add `[[bench]] name = "bench_<name>" harness = false` to `base/Cargo.toml`.
+2. Create `base/benches/bench_<name>.rs` with `criterion_group!` / `criterion_main!`.
+3. In `.github/workflows/benchmark.yml`, add a step:
+
+   ```yaml
+   - name: cargo bench bench_<name>
+     working-directory: base
+     run: cargo bench --bench bench_<name> -- --output-format bencher | tee output.txt
+   ```
+
+4. Optionally store the criterion HTML reports as a workflow artifact:
+
+   ```yaml
+   - uses: actions/upload-artifact@v4
+     with:
+       name: criterion-<name>
+       path: base/target/criterion/
+   ```
+
+### Frontend math benchmark
+
+Frontend math functions are covered by TypeDoc type-checking (see `docs.yml` Job 4).
+For performance micro-benchmarks of `stats.ts` / `distance.ts`:
+
+```ts
+// frontend/src/math/__tests__/bench_stats.test.ts
+import { mean } from '../stats';
+describe('perf: mean', () => {
+  it('10k numbers in < 1ms', () => {
+    const xs = Array.from({ length: 10000 }, (_, i) => i);
+    const t0 = performance.now();
+    mean(xs);
+    expect(performance.now() - t0).toBeLessThan(1);
+  });
+});
+```
+
+Run with `npm test` from `frontend/`. Jest is already configured in `package.json`.
+
+### Connecting to the ASP RLHF reward model (§1.10A)
+
+The `StitchRewardModel.predict()` path in `bench_anime_stitch.py` emits `rlhf_score`
+and `rlhf_flagged` for each test. Once human feedback is collected and the model is
+trained (the current weights are random), RLHF scores should track alongside the CV
+metrics above. A benchmark is considered **RLHF-flagged** when `rlhf_score > 0.6`
+(configurable via `ASP_RLHF_FLAG_THRESHOLD`).
+
+---
 
 ## License
 
