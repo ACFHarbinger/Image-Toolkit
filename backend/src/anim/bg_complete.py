@@ -57,6 +57,7 @@ import numpy as np
 __all__ = [
     "_nn_fill_zero_bg",
     "_linear_interp_zero_bg",
+    "_masked_median_bg",
     "_propainter_fill",
     "_propainter_complete_frames",
     "complete_background",
@@ -73,6 +74,62 @@ _BG_COMPLETE_MIN_ROWS: int = int(os.environ.get("ASP_BG_COMPLETE_MIN_ROWS", "20"
 # zero-coverage zones (character covering many rows) at negligible extra cost.
 # Default OFF.  Enable: ASP_INTERP_BG_FILL=1.
 _INTERP_BG_FILL: bool = os.environ.get("ASP_INTERP_BG_FILL", "0") != "0"
+
+
+# ---------------------------------------------------------------------------
+# §1.87 — Masked-Median Background Plate (Overmix AnimRender approach)
+# ---------------------------------------------------------------------------
+
+
+def _masked_median_bg(
+    stack: np.ndarray,
+    fg_stack: np.ndarray,
+    min_agree_frac: float = 0.4,
+) -> np.ndarray:
+    """Exclude fg pixels from median entirely rather than zero-filling them.
+
+    Implements the Overmix AnimRender principle: instead of zeroing foreground
+    pixels before taking the median (which pulls rows toward zero when the
+    character covers >50% of frames), we mask them out so the median is only
+    computed from background-only samples.  Where every frame has fg (all_fg),
+    falls back to a stability vote: the median across all frames ignoring the
+    fg constraint, which is better than a ghost-average of different poses.
+
+    Args:
+        stack:    (N, H, W, C) float32 [0, 255] — warped frames.
+        fg_stack: (N, H, W) bool — True = foreground pixel in that frame.
+        min_agree_frac: unused; reserved for future cross-frame stability tuning.
+
+    Returns:
+        (H, W, C) float32 background plate.
+    """
+    N, H, W, C = stack.shape
+    result = np.zeros((H, W, C), dtype=np.float32)
+
+    # Build the masked array once per channel to avoid looping over N.
+    # np.ma.median excludes masked (fg) entries; when ALL entries are masked,
+    # the result is np.ma.masked (fill_value applied → 0).
+    fg_broadcast = fg_stack[:, :, :, np.newaxis]  # (N, H, W, 1)
+    masked = np.ma.array(stack, mask=np.broadcast_to(fg_broadcast, stack.shape))
+    med = np.ma.median(masked, axis=0)  # (H, W, C) masked array
+
+    # Pixels where median is valid (at least one bg sample).
+    if hasattr(med, "mask") and med.mask is not np.ma.nomask:
+        valid = ~med.mask[:, :, 0]  # (H, W) bool — any channel tells us
+    else:
+        valid = np.ones((H, W), dtype=bool)
+
+    result[valid] = med.filled(0.0)[valid]
+
+    # Stability-vote fallback for pixels where ALL frames had fg.
+    # Use unconstrained median (fg included) — at minimum gives the dominant
+    # midpoint pose rather than a ghost average of extreme poses.
+    all_fg = ~valid  # (H, W)
+    if all_fg.any():
+        unconstrained_med = np.median(stack, axis=0)  # (H, W, C)
+        result[all_fg] = unconstrained_med[all_fg]
+
+    return result
 
 
 # ---------------------------------------------------------------------------

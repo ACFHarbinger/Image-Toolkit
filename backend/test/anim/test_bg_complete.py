@@ -15,6 +15,7 @@ from unittest.mock import patch, MagicMock
 from backend.src.anim.bg_complete import (
     _nn_fill_zero_bg,
     _linear_interp_zero_bg,
+    _masked_median_bg,
     _propainter_complete_frames,
     complete_background,
 )
@@ -234,3 +235,58 @@ class TestProPainterCompleteFrames:
         # NN fallback: all-bg mask → frame returned unchanged
         assert len(result) == 1
         np.testing.assert_array_equal(result[0], frames[0])
+
+
+class TestMaskedMedianBg:
+    def _make_stack(self, N=4, H=6, W=8, C=3):
+        rng = np.random.default_rng(0)
+        return rng.integers(0, 256, (N, H, W, C), dtype=np.uint8).astype(np.float32)
+
+    def test_all_bg_returns_plain_median(self):
+        stack = self._make_stack()
+        N, H, W, C = stack.shape
+        fg = np.zeros((N, H, W), dtype=bool)
+        result = _masked_median_bg(stack, fg)
+        expected = np.median(stack, axis=0)
+        np.testing.assert_allclose(result, expected, atol=1.0)
+
+    def test_fg_pixels_excluded_from_median(self):
+        N, H, W, C = 3, 4, 4, 3
+        stack = np.ones((N, H, W, C), dtype=np.float32) * 100.0
+        stack[0, :, :, :] = 200.0  # frame 0 has fg pixels that differ
+        fg = np.zeros((N, H, W), dtype=bool)
+        fg[0, :, :] = True  # mask frame 0 everywhere
+        result = _masked_median_bg(stack, fg)
+        # Only frames 1,2 contribute → should be 100 everywhere
+        np.testing.assert_allclose(result, 100.0, atol=0.5)
+
+    def test_all_fg_falls_back_to_unconstrained_median(self):
+        N, H, W, C = 3, 2, 2, 1
+        stack = np.array(
+            [[[50.0, 100.0], [150.0, 200.0]],
+             [[60.0, 110.0], [160.0, 210.0]],
+             [[70.0, 120.0], [170.0, 220.0]]],
+            dtype=np.float32,
+        ).reshape(N, H, W, C)
+        fg = np.ones((N, H, W), dtype=bool)  # all fg
+        result = _masked_median_bg(stack, fg)
+        expected = np.median(stack, axis=0)
+        np.testing.assert_allclose(result, expected, atol=0.5)
+
+    def test_partial_fg_mixed_coverage(self):
+        N, H, W, C = 4, 2, 4, 1
+        stack = np.zeros((N, H, W, C), dtype=np.float32)
+        stack[:, :, :2, 0] = 80.0   # left half: bg in all frames
+        stack[:, :, 2:, 0] = 200.0  # right half: will be masked as fg
+        fg = np.zeros((N, H, W), dtype=bool)
+        fg[:, :, 2:] = True  # right half all fg → unconstrained fallback
+        result = _masked_median_bg(stack, fg)
+        np.testing.assert_allclose(result[:, :2, 0], 80.0, atol=0.5)
+        np.testing.assert_allclose(result[:, 2:, 0], 200.0, atol=0.5)
+
+    def test_output_shape_matches_input(self):
+        N, H, W, C = 5, 10, 12, 3
+        stack = np.zeros((N, H, W, C), dtype=np.float32)
+        fg = np.zeros((N, H, W), dtype=bool)
+        result = _masked_median_bg(stack, fg)
+        assert result.shape == (H, W, C)

@@ -476,6 +476,14 @@ _BG_COMPLETE: int = int(os.environ.get("ASP_BG_COMPLETE", "0"))
 # the character occupied >40% of pixels in every selected frame.
 # Default OFF.  Enable: ASP_PROPAINTER=1.
 _PROPAINTER: bool = os.environ.get("ASP_PROPAINTER", "0") != "0"
+# §3.14B — Horizontal-strip compositing.
+# When enabled and scroll_axis='horizontal', allows the pipeline to continue
+# instead of falling back to SCANS.  _composite_foreground already handles
+# horizontal scroll by returning the temporal median unchanged (the overlap
+# zone per pixel is ≤2 frames, ghosting is minimal, and vertical seam cuts
+# would be misaligned).  This flag simply suppresses the hard SCANS fallback.
+# Default OFF.  Enable: ASP_HORIZONTAL_COMPOSITE=1.
+_HORIZONTAL_COMPOSITE: bool = os.environ.get("ASP_HORIZONTAL_COMPOSITE", "0") != "0"
 # §2.14 — Triangular consistency filter (S93).
 # For every triangle (i→j, j→k, i→k) in the edge graph, compute the L2
 # residual between the predicted displacement (sum of two sides) and the
@@ -3524,11 +3532,17 @@ class AnimeStitchPipeline:
         scroll_axis = _detect_scroll_axis(affines)
         logger.info(f"[Stitch] Stage 9.5: scroll axis = '{scroll_axis}'.")
         if scroll_axis == "horizontal":
-            logger.info(
-                "[Stitch] Horizontal scroll (tx_range >> ty_range) — vertical-strip "
-                "compositing not applicable; falling back to SCANS."
-            )
-            return _scan_stitch_fallback(scans_frames, output_path)
+            if _HORIZONTAL_COMPOSITE:
+                logger.info(
+                    "[Stitch] §3.14B: Horizontal scroll — horizontal-composite mode enabled; "
+                    "continuing pipeline (temporal median + canvas-return composite)."
+                )
+            else:
+                logger.info(
+                    "[Stitch] Horizontal scroll (tx_range >> ty_range) — vertical-strip "
+                    "compositing not applicable; falling back to SCANS."
+                )
+                return _scan_stitch_fallback(scans_frames, output_path)
 
         # ── §1.17: Canvas span utilisation gate ──────────────────────────────
         if _CANVAS_SPAN_MIN_UTIL > 0.0:

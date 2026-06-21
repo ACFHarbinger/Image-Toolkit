@@ -1384,6 +1384,18 @@ Extend Option A to compute per-channel histograms and return the minimum across 
 
 ---
 
+## 1.86 Zone SSIM Pre-Gate [Quick Win] ✅ Shipped S141
+
+**Pain point (links to §1.60, §1.70, §1.18):** §1.60 (fg MAD) and §1.70 (fg coverage fraction) fire before zone extraction and use crude signals (pixel L1, binary fg fraction). §1.18 (adaptive single-pose threshold) fires after ARAP has run based on luminance residual. No mechanism exists to assess — post-ARAP, pre-blend — whether the two zone crops are structurally compatible for Laplacian blending. A zone pair may pass all pre-ARAP gates but have a large structural mismatch after ARAP fails silently (ARAP converges but doesn't reconcile the pose difference). The SSIM metric captures luminance, contrast, and spatial structure simultaneously, making it a stronger structural compatibility check than any individual gate.
+
+**Option A — Post-ARAP Zone SSIM Pre-Gate [Quick Win] ✅ Shipped S141**
+`_zone_pair_ssim(fa_zone, fb_zone, small_h=64) → float` in `compositing.py`. Resizes warped zone crops to 64px height (INTER_AREA) and computes greyscale SSIM via `skimage.metrics.structural_similarity`. Returns 1.0 (no gate) for zones with < 4 rows or < 8 cols; falls back to 1.0 on exception. `_ZONE_PRE_SSIM_THRESH` flag (default 0.0=off; `ASP_ZONE_PRE_SSIM_THRESH=0.35`). Wired in blend loop after §1.70 and before the DP seam cut: when score < threshold and `k not in seam_single_pose`, escalates using dominant-fg-pixel-count rule. `ZONE_PRE_SSIM_THRESH=0.35` in `constants/anim.py`. `"ASP_ZONE_PRE_SSIM_THRESH"` in `_CONFIG_SCHEMA` (float, 0.0–1.0). `_zone_pair_ssim` and `_ZONE_PRE_SSIM_THRESH` in `__all__`. 5 tests `TestZonePairSsim`. **933 backend tests (9 skipped, 5 pre-existing failures).**
+- Threshold 0.35 corresponds to ~35% structural similarity — zones below this are structurally incompatible (character outlines in very different positions) that ARAP could not reconcile.
+- Complements §1.60 (fg MAD: pixel L1 before zone extraction) with a post-ARAP structural metric.
+- Default OFF to preserve all existing corpus results; enable per-dataset via TOML config.
+
+---
+
 ## 1.85 Multi-Gate Ensemble Combiner [Quick Win] ✅ Shipped S139
 
 **Pain point:** Individual quality gates (§1.56–§1.84) are each calibrated with fixed thresholds that fire only on clear-failure seams. A seam that nearly fails 3–4 gates without exceeding any single gate's threshold may still be problematic — it is systematically degraded across multiple dimensions without being catastrophically bad in any one. No existing mechanism combines these soft signals.
@@ -2015,18 +2027,18 @@ PPO agent over the ASP compositing parameter space (feather width, seam cost wei
 *Effort scale* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks or data-gated
 *Impact scale* — **Low**: aesthetic or niche QoL · **Medium**: targeted corpus subset · **High**: pipeline-wide quality gain · **Very High**: architectural unlock or near-perfect ceiling
 
-*Items marked ✅ are fully shipped and removed from pending rows. Matrix last updated: S140 (2026-06-18).*
+*Items marked ✅ are fully shipped and removed from pending rows. Matrix last updated: S142 (2026-06-21).*
 
 > **⚠ CRITICAL — Test Suite Freeze:** Before running `pytest backend/test/`, see `moon/roadmaps/performance.md §3.10–§3.14`. Root Cause #1 (unconditional `from diffusers import DiffusionPipeline` in `anim_fill.py`) **fixed in S140**. Root Causes #2–#5 (model singletons, ThreadPoolExecutor storm, per-test gc.collect(), no process isolation) are documented in performance.md with CRITICAL-priority fix options.
 
 | **Effort ↓ / Impact →** | Low | Medium | High | Very High |
 |---|---|---|---|---|
 | **Low (<1d)** | — | — | — | — |
-| **Medium (1d–1w)** | §3.9 SI-FID evaluation | §3.16B StabStitch++ HITL manual route | §1.10B Bayesian param search · §2.8 HybridStitch handoff · §3.10 MLLM scoring | — |
-| **High (1–2w)** | — | §3.12 Overmix sub-pixel | §2.10 SAM2Flow interactive (full) · §3.2 ConvGRU flow refinement · §3.5 CamFlow motion basis · §3.14B horizontal-strip compositing · §3.15B OBJ-GSP triangular mesh | — |
+| **Medium (1d–1w)** | §3.9 SI-FID evaluation | §3.16B StabStitch++ HITL manual route | §2.8 HybridStitch handoff · §3.10 MLLM scoring | — |
+| **High (1–2w)** | — | §3.12 Overmix sub-pixel | §2.10 SAM2Flow interactive (full) · §3.2 ConvGRU flow refinement · §3.5 CamFlow motion basis · §3.15B OBJ-GSP triangular mesh | — |
 | **Very High (2w+ / data-gated)** | — | — | §3.7 UDIS++ diffusion seam (end-to-end replacement) | §10C1 SAM-2 anime fine-tune · §10C2 Pose contrastive fine-tune · §10C3 PPO parameter optimization |
 
-*Already shipped (removed from matrix):* §2.11B GUI waypoints ✅S124 · §3.4 FD-means ✅S6 · §3.8 SIQE ✅ · §9B telecine ✅ · §10B2 Label Studio ✅ · §2.5 Coverage map ✅S79 · §2.6 Crop ✅S7 · §3.15A SemanticStitch ✅S67 · §10A2 SAM-2 click-refine ✅ · §9A PyAV ✅ · §10A1 Grounded SAM-2 ✅ · §10B1 COCO ✅ · §9C Hybrid 4K ✅S119 · §3.3 DINOv2 ✅S8 · §3.6 ToonCrafter ✅S9 · §3.11 SAM-2 interactive ✅ · §10A3 NL seam ✅ · §2.1A SelectionReview ✅S79 · §2.2 EdgeReview ✅S79 · §2.3 CanvasInspector ✅S63 · §2.4A SeamDiag ✅S95 · §2.7 StagedExec ✅S79 · §1.10A quality-gate ✅S29 · §1.10E bench-import ✅S119 · §2.11A IS waypoints ✅S123 · §1.10D active-learning ✅S130 · §1.66 NCC gate ✅S131 · §1.67 canvas-spread ✅S131 · §1.8C/D dump-config ✅S131 · §1.68 feather-ratio ✅S132 · §1.69 dp-bg-ratio ✅S132 · §1.70 zone-fg-pre-escalation ✅S132 · §1.71 bg-lum-spread ✅S132 · §1.72 entropy-asymmetry ✅S132 · §1.73 gain-monotonicity ✅S133 · §1.74 canvas-fill ✅S133 · §1.75 strip-variance-ratio ✅S133 · §1.76 per-col-luma-step ✅S134 · §1.77 sat-jump ✅S135 · §1.78 hue-shift ✅S135 · §1.79 sharpness-mismatch ✅S136 · §1.80 grad-direction ✅S137 · §1.81 band-ssim ✅S138 · §1.82 freq-profile ✅S138 · §3.16A StabStitch++ trajectory ✅S121 · §1.83 noise-asymmetry ✅S139 · §1.84 rms-contrast-ratio ✅S139 · §1.85 ensemble-combiner ✅S139 · **§3.13 ProPainter Stage 4.7** ✅S140 · **§2.9A LandmarkEditorDialog** ✅S140 · **§2.10C user-drawn flow field** ✅S140
+*Already shipped (removed from matrix):* §2.11B GUI waypoints ✅S124 · §3.4 FD-means ✅S6 · §3.8 SIQE ✅ · §9B telecine ✅ · §10B2 Label Studio ✅ · §2.5 Coverage map ✅S79 · §2.6 Crop ✅S7 · §3.15A SemanticStitch ✅S67 · §10A2 SAM-2 click-refine ✅ · §9A PyAV ✅ · §10A1 Grounded SAM-2 ✅ · §10B1 COCO ✅ · §9C Hybrid 4K ✅S119 · §3.3 DINOv2 ✅S8 · §3.6 ToonCrafter ✅S9 · §3.11 SAM-2 interactive ✅ · §10A3 NL seam ✅ · §2.1A SelectionReview ✅S79 · §2.2 EdgeReview ✅S79 · §2.3 CanvasInspector ✅S63 · §2.4A SeamDiag ✅S95 · §2.7 StagedExec ✅S79 · §1.10A quality-gate ✅S29 · §1.10E bench-import ✅S119 · §2.11A IS waypoints ✅S123 · §1.10D active-learning ✅S130 · §1.66 NCC gate ✅S131 · §1.67 canvas-spread ✅S131 · §1.8C/D dump-config ✅S131 · §1.68 feather-ratio ✅S132 · §1.69 dp-bg-ratio ✅S132 · §1.70 zone-fg-pre-escalation ✅S132 · §1.71 bg-lum-spread ✅S132 · §1.72 entropy-asymmetry ✅S132 · §1.73 gain-monotonicity ✅S133 · §1.74 canvas-fill ✅S133 · §1.75 strip-variance-ratio ✅S133 · §1.76 per-col-luma-step ✅S134 · §1.77 sat-jump ✅S135 · §1.78 hue-shift ✅S135 · §1.79 sharpness-mismatch ✅S136 · §1.80 grad-direction ✅S137 · §1.81 band-ssim ✅S138 · §1.82 freq-profile ✅S138 · §3.16A StabStitch++ trajectory ✅S121 · §1.83 noise-asymmetry ✅S139 · §1.84 rms-contrast-ratio ✅S139 · §1.85 ensemble-combiner ✅S139 · **§3.13 ProPainter Stage 4.7** ✅S140 · **§2.9A LandmarkEditorDialog** ✅S140 · **§2.10C user-drawn flow field** ✅S140 · **§1.87 masked-median bg** ✅S142 · **§3.14B horizontal-strip composite** ✅S142 · **§1.10B Bayesian param search** ✅S142
 
 ---
 

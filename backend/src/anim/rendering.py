@@ -45,6 +45,14 @@ _FG_EXCLUDE_MEDIAN = os.environ.get("ASP_FG_EXCLUDE_MEDIAN", "1") != "0"
 # Default OFF.  Enable: ASP_ADAPTIVE_RENDER_GAIN=1.
 _ADAPTIVE_RENDER_GAIN: bool = os.environ.get("ASP_ADAPTIVE_RENDER_GAIN", "0") != "0"
 
+# §1.87 — Masked-Median Background Plate.
+# When enabled, changes the A5 fg-exclusion fallback for pixels where every frame
+# has a foreground sample (all_fg): instead of averaging ALL valid samples (which
+# ghost-averages different animation poses), the per-pixel fallback is suppressed
+# so those pixels stay zero until bg_complete fills them.  Pairs with ASP_BG_COMPLETE
+# to inpaint the zero-coverage holes cleanly.  Enable: ASP_MASKED_MEDIAN=1.
+_MASKED_MEDIAN: bool = os.environ.get("ASP_MASKED_MEDIAN", "0") != "0"
+
 # §3.11A — GPU temporal median (Option A).
 # When enabled, each chunk's nanmedian is computed on the GPU via torch.nanmedian,
 # then copied back to CPU.  Falls back to numpy silently if CUDA is unavailable
@@ -513,12 +521,16 @@ def _render_median(
         geo_count = masks.sum(axis=0)  # geometric coverage (for valid_mask, fades)
 
         # A5 — effective masks for the median: prefer BACKGROUND samples; where a
-        # pixel has no background sample anywhere, fall back to all valid samples.
+        # pixel has no background sample anywhere, fall back to all valid samples
+        # (default) or leave as zero when _MASKED_MEDIAN is enabled (§1.87).
         if _exclude_fg:
             bg_count = bg_canvas.sum(axis=0)          # (ch, W)
             use_bg = bg_count >= 1                    # pixel has ≥1 background sample
-            # eff_masks[i] = bg_canvas[i] where use_bg, else masks[i]
-            eff_masks = np.where(use_bg[None, :, :], bg_canvas, masks)
+            if _MASKED_MEDIAN:
+                # §1.87: no-bg pixels stay zero — avoids ghost-averaging fg poses.
+                eff_masks = np.where(use_bg[None, :, :], bg_canvas, np.zeros_like(masks))
+            else:
+                eff_masks = np.where(use_bg[None, :, :], bg_canvas, masks)
         else:
             eff_masks = masks
 
