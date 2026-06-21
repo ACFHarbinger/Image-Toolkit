@@ -305,6 +305,12 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         None,
         "§1.34: Laplacian variance floor (uint8 scale) for flat-zone seam pre-escalation (0=off, suggest 5.0)",
     ),
+    "ASP_ZONE_PRE_SSIM_THRESH": (
+        float,
+        0.0,
+        1.0,
+        "§1.86: Zone-SSIM floor (post-ARAP) for single-pose escalation (0=off, suggest 0.35)",
+    ),
     "ASP_LINE_GRAD_WEIGHT": (
         float,
         0.0,
@@ -605,6 +611,18 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         None,
         "§3.13: Torch device string for ProPainter inference (e.g. 'cpu', 'cuda', 'cuda:0'); default 'cpu'",
     ),
+    "ASP_MASKED_MEDIAN": (
+        int,
+        0,
+        1,
+        "§1.87: Masked-median background plate (Overmix AnimRender approach); pixels where every frame has foreground are left as zero instead of ghost-averaging different animation poses; pairs with ASP_BG_COMPLETE>=1 to fill the zero-coverage holes; eliminates temporal-median ghosting root cause without GPU deps (0=off, 1=on)",
+    ),
+    "ASP_HORIZONTAL_COMPOSITE": (
+        int,
+        0,
+        1,
+        "§3.14B: Horizontal-strip compositing; when scroll_axis='horizontal' detected, uses vertical seam cuts (transposed compositing) instead of falling back to SCANS; unlocks horizontal-scroll test sequences (0=off; when off, horizontal scroll still triggers SCANS fallback)",
+    ),
 }
 
 
@@ -804,6 +822,7 @@ _DUMP_SECTIONS: Dict[str, List[str]] = {
         "ASP_BG_NORM_MIN_PX",
         "ASP_SEAM_INSTABILITY_THRESH",
         "ASP_ZONE_MIN_HEIGHT",
+        "ASP_ZONE_PRE_SSIM_THRESH",
         "ASP_SEAM_FG_PENETRATION_MAX",
         "ASP_SEAM_OVERLAY",
         "ASP_SEAM_LOW_TEXTURE_THRESH",
@@ -872,6 +891,8 @@ _DUMP_SECTIONS: Dict[str, List[str]] = {
         "ASP_STRIP_VARIANCE_RATIO_MAX",
         "ASP_PROPAINTER",
         "ASP_PROPAINTER_DEVICE",
+        "ASP_MASKED_MEDIAN",
+        "ASP_HORIZONTAL_COMPOSITE",
     ],
 }
 

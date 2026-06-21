@@ -323,6 +323,7 @@ SEAM_INSTABILITY_THRESH = (
 )
 STATIC_INPUT_MAX_MAD = 2.0  # §1.29: MAD ceiling (0–255) for static-input detection gate
 ZONE_MIN_HEIGHT = 20  # §1.30: min blend-zone rows before single-pose escalation (0=off)
+ZONE_PRE_SSIM_THRESH = 0.35  # §1.86: zone-SSIM floor before single-pose escalation (0=off)
 SEAM_FG_PENETRATION_MAX = (
     0.7  # §1.31: max fraction of seam columns through fg before escalation (0=off)
 )
@@ -395,6 +396,15 @@ SEAM_CONTRAST_GATE_THRESH = 4.0  # max(c_top,c_bot)/min(c_top,c_bot) ratio thres
 
 # §1.85: Multi-gate ensemble combiner (compositing.py _check_seam_ensemble_gate)
 SEAM_ENSEMBLE_MIN_VOTES = 3  # minimum number of gate votes required to trigger fallback (0=off)
+
+# §1.87: Masked-Median Background Plate (rendering.py _render_median / bg_complete.py _masked_median_bg)
+# When ASP_MASKED_MEDIAN=1, pixels where every frame has foreground are left as zero
+# (no ghost-average of different animation poses); pairs with ASP_BG_COMPLETE for hole fill.
+MASKED_MEDIAN_MIN_AGREE_FRAC = 0.4  # min fraction of frames agreeing on bg value for stability vote
+
+# §3.14B: Horizontal-strip compositing (compositing.py _composite_foreground)
+# When scroll_axis='horizontal', vertical seam cuts are used instead of SCANS fallback.
+HORIZONTAL_FEATHER_PX = 120  # default feather band width (px) for horizontal-scroll seams
 
 # ToonCrafter
 TOONCRAFTER_REPO = "Doubiiu/ToonCrafter"

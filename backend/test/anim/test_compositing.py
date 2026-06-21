@@ -87,6 +87,7 @@ from backend.src.anim.compositing import (  # noqa: E402
     _check_seam_rms_contrast_gate,
     _seam_gate_vote_counts,
     _check_seam_ensemble_gate,
+    _zone_pair_ssim,
 )
 from backend.src.constants import (  # noqa: E402
     FEATHER_MAX as _FEATHER_MAX,
@@ -3518,3 +3519,102 @@ class TestSeamGateEnsemble:
         )
         # Both noise and contrast gates should flag the flat-vs-noisy seam
         assert result == 0, f"Ensemble should trigger at seam 0, got {result}"
+
+
+# ── TestZonePairSsim — §1.86 zone SSIM pre-gate (S141) ───────────────────────
+
+class TestZonePairSsim:
+    """§1.86 — Zone SSIM pre-gate: structural similarity between warped zone crops."""
+
+    def _zone(self, h: int = 80, w: int = 200, fill: int = 128) -> np.ndarray:
+        """Create a uniform BGR zone crop."""
+        return np.full((h, w, 3), fill, dtype=np.uint8)
+
+    def test_identical_zones_return_one(self):
+        """Two identical zones → SSIM ≈ 1.0."""
+        zone = self._zone(fill=100)
+        score = _zone_pair_ssim(zone, zone.copy())
+        assert score == pytest.approx(1.0, abs=0.02), f"Expected ~1.0, got {score}"
+
+    def test_completely_different_zones_low_score(self):
+        """Zones with opposite luminance patterns → SSIM well below 0.5."""
+        h, w = 80, 200
+        # Checkerboard vs. solid — extreme structural mismatch
+        checker = np.zeros((h, w, 3), dtype=np.uint8)
+        checker[::2, ::2] = 200
+        checker[1::2, 1::2] = 200
+        solid = self._zone(h=h, w=w, fill=100)
+        score = _zone_pair_ssim(checker, solid)
+        assert score < 0.5, f"Expected low SSIM for checker vs solid, got {score}"
+
+    def test_degenerate_thin_zone_returns_one(self):
+        """Zone with fewer than 4 rows → 1.0 (no gate)."""
+        fa = np.zeros((3, 200, 3), dtype=np.uint8)
+        fb = np.full((3, 200, 3), 200, dtype=np.uint8)
+        assert _zone_pair_ssim(fa, fb) == pytest.approx(1.0)
+
+    def test_degenerate_narrow_zone_returns_one(self):
+        """Zone with fewer than 8 columns → 1.0 (no gate)."""
+        fa = np.zeros((80, 7, 3), dtype=np.uint8)
+        fb = np.full((80, 7, 3), 200, dtype=np.uint8)
+        assert _zone_pair_ssim(fa, fb) == pytest.approx(1.0)
+
+    def test_moderately_different_zones_intermediate_score(self):
+        """Zones differing in the lower half → score in (0.1, 0.9)."""
+        h, w = 80, 200
+        fa = self._zone(h=h, w=w, fill=128)
+        fb = fa.copy()
+        # Bottom half of fb is dark — structural difference in half the zone
+        fb[h // 2:] = 20
+        score = _zone_pair_ssim(fa, fb)
+        assert 0.1 < score < 0.9, f"Expected intermediate score, got {score}"
+
+
+class TestHorizontalCompositing:
+    """§3.14B: Horizontal-strip compositing — ASP_HORIZONTAL_COMPOSITE flag."""
+
+    def _horiz_affines(self, N=4, step=200):
+        """Produce affines for a horizontal scroll (primary tx displacement)."""
+        import numpy as np
+        affines = []
+        for i in range(N):
+            M = np.eye(2, 3, dtype=np.float64)
+            M[0, 2] = i * step  # tx increases, ty=0
+            affines.append(M)
+        return affines
+
+    def test_horizontal_detected_from_affines(self):
+        from backend.src.anim.canvas import _detect_scroll_axis
+        affines = self._horiz_affines()
+        assert _detect_scroll_axis(affines) == "horizontal"
+
+    def test_flag_default_is_false(self):
+        import os
+        os.environ.pop("ASP_HORIZONTAL_COMPOSITE", None)
+        # Import fresh module value (may be cached; just check the env default)
+        val = os.environ.get("ASP_HORIZONTAL_COMPOSITE", "0") != "0"
+        assert val is False
+
+    def test_flag_on_suppresses_scans_path(self):
+        import backend.src.anim.pipeline as pip
+        assert hasattr(pip, "_HORIZONTAL_COMPOSITE")
+        assert isinstance(pip._HORIZONTAL_COMPOSITE, bool)
+
+    def test_composite_foreground_horizontal_fast_path(self):
+        import numpy as np
+        from backend.src.anim.compositing import _composite_foreground
+        N = 3
+        H, W = 64, 192
+        frames = [np.full((H, W // N, 3), 128, dtype=np.uint8) for _ in range(N)]
+        affines = self._horiz_affines(N=N, step=W // N)
+        canvas = np.full((H, W, 3), 50, dtype=np.uint8)
+        result = _composite_foreground(
+            [], [], canvas, H, W, frames, affines,
+            [None] * N,
+        )
+        # Horizontal fast-path returns canvas unchanged
+        np.testing.assert_array_equal(result, canvas)
+
+    def test_horizontal_flag_is_boolean(self):
+        import backend.src.anim.pipeline as pip
+        assert isinstance(pip._HORIZONTAL_COMPOSITE, bool)

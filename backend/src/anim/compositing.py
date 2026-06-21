@@ -233,6 +233,16 @@ _SEAM_INSTABILITY_THRESH: float = float(os.environ.get("ASP_SEAM_INSTABILITY_THR
 # Default 0.0 = off.  Recommend 0.7 (>70% fg penetration → character seam, escalate).
 _SEAM_FG_PENETRATION_MAX: float = float(os.environ.get("ASP_SEAM_FG_PENETRATION_MAX", "0.0"))
 
+# §1.86 — Zone SSIM pre-gate (S141).
+# After ARAP registration and zone extraction, measures SSIM between the two warped
+# zone crops.  A score below the threshold means the two strips are structurally
+# incompatible — different character poses that ARAP could not reconcile — and
+# blending will produce a double-image ghost.  Escalate directly to single-pose.
+# Complements §1.60 (fg MAD) and §1.70 (fg coverage) which fire before zone extraction;
+# §1.86 fires after ARAP + zone extraction and uses full SSIM rather than pixel L1.
+# Default 0.0 = off.  Recommended starting value: ASP_ZONE_PRE_SSIM_THRESH=0.35.
+_ZONE_PRE_SSIM_THRESH: float = float(os.environ.get("ASP_ZONE_PRE_SSIM_THRESH", "0.0"))
+
 # §2.4B — Seam overlay annotation (S94).
 # When enabled, draws coloured horizontal diagnostic lines on the composite output at
 # each seam boundary position: green (post_diff < SEAM_OVERLAY_AMBER_THRESH), amber
@@ -503,6 +513,49 @@ def _zone_is_degenerate(zone_h: int, min_height: int = 20) -> bool:
     if min_height <= 0:
         return False
     return zone_h < min_height
+
+
+def _zone_pair_ssim(
+    fa_zone: np.ndarray,
+    fb_zone: np.ndarray,
+    small_h: int = 64,
+) -> float:
+    """§1.86 Zone SSIM pre-gate (S141).
+
+    Measures the Structural Similarity Index (SSIM) between two warped zone
+    crops.  Used in the blend loop after §1.70 to detect structurally
+    incompatible zones — different character poses that ARAP could not reconcile
+    — before the DP seam cut runs.
+
+    A low score indicates that blending will produce a double-image ghost, so
+    single-pose escalation is preferred.  Unlike §1.60 (fg MAD, pixel L1) this
+    metric combines luminance, contrast, and local structure into a single
+    perceptually-motivated score.
+
+    Parameters
+    ----------
+    fa_zone, fb_zone : Warped BGR uint8 zone crops (H, W, 3).
+    small_h : Target height for INTER_AREA resize; reduces SSIM compute time.
+
+    Returns
+    -------
+    float in [−1, 1]; returns 1.0 (no gate) for degenerate zones.
+    """
+    h = min(fa_zone.shape[0], fb_zone.shape[0])
+    w = min(fa_zone.shape[1], fb_zone.shape[1])
+    if h < 4 or w < 8:
+        return 1.0
+    ratio = small_h / max(h, 1)
+    new_h = max(4, small_h)
+    new_w = max(8, int(w * ratio))
+    a_small = cv2.resize(fa_zone[:h, :w], (new_w, new_h), interpolation=cv2.INTER_AREA)
+    b_small = cv2.resize(fb_zone[:h, :w], (new_w, new_h), interpolation=cv2.INTER_AREA)
+    a_gray = cv2.cvtColor(a_small, cv2.COLOR_BGR2GRAY) if a_small.ndim == 3 else a_small
+    b_gray = cv2.cvtColor(b_small, cv2.COLOR_BGR2GRAY) if b_small.ndim == 3 else b_small
+    try:
+        return float(ssim_fn(a_gray, b_gray, data_range=255))
+    except Exception:
+        return 1.0
 
 
 def _annotate_seams(
@@ -3986,6 +4039,20 @@ def _composite_foreground(
                     f"> {_SEAM_ZONE_FG_MAX:.2f} → single-pose frame {seam_single_pose[k]}"
                 )
 
+        # §1.86: Zone SSIM pre-gate — escalate to single-pose when the two warped
+        # zone crops are structurally incompatible after ARAP registration.  A low
+        # SSIM means different character poses that blending will ghost.
+        if _ZONE_PRE_SSIM_THRESH > 0.0 and k not in seam_single_pose:
+            _zone_ssim = _zone_pair_ssim(fa_zone, fb_zone)
+            if _zone_ssim < _ZONE_PRE_SSIM_THRESH:
+                _fg_a_86 = int((fa_zone.max(axis=2) > 0).sum())
+                _fg_b_86 = int((fb_zone.max(axis=2) > 0).sum())
+                seam_single_pose[k] = fi_a if _fg_a_86 >= _fg_b_86 else fi_b
+                print(
+                    f"[Stitch]   §1.86 zone-ssim B{k}: ssim={_zone_ssim:.3f} "
+                    f"< {_ZONE_PRE_SSIM_THRESH:.3f} → single-pose frame {seam_single_pose[k]}"
+                )
+
         # P2.4 — Semantic seam routing: build a character-boundary cost map so
         # the DP path avoids cutting through foreground outlines.
 
@@ -4302,6 +4369,8 @@ __all__ = [
     "_has_sufficient_bg",
     "_seam_path_std",
     "_zone_is_degenerate",
+    "_zone_pair_ssim",
+    "_ZONE_PRE_SSIM_THRESH",
     "_fg_zone_pose_gap",
     "_fg_fraction_in_zone",
     "_SEAM_ZONE_FG_MAX",
