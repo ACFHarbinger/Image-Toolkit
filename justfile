@@ -22,12 +22,12 @@ default:
 sync:
     @echo "🔄 Syncing dependencies..."
     uv sync --all-groups --all-extras
-    npm run install:all
 
 # Complete setup (install deps + types)
 setup:
     @echo "🔧 Setting up Image Toolkit..."
     npm run setup
+    uv sync --all-groups --all-extras
     @echo "✅ Setup complete!"
     @echo ""
     @echo "Next steps:"
@@ -40,6 +40,37 @@ install:
     @echo "📦 Installing dependencies..."
     npm run install:all
 
+# --- Building ---
+
+# Build production application base
+build-base:
+    @echo "🏗️  Building production application base..."
+    bash ./scripts/build_base.sh
+
+# Build production application criptography JAR
+build-jar:
+    @echo "🏗️  Building production application criptography JAR..."
+    ./gradlew build
+
+# Build production application frontend
+build-frontend:
+    @echo "🏗️  Building production application frontend..."
+    npm run build
+
+# Build C++ batch extension (pybind11, OpenCV, Eigen3, OpenMP required)
+# Install .so alongside base.so inside the Python animation package.
+build-batch:
+    @echo "🔧 Building C++ batch extension..."
+    cmake -B build/batch batch/ \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=backend/src/animation/ \
+        && cmake --build build/batch -j$(nproc) \
+        && cmake --install build/batch
+    @echo "✅ batch extension built and installed."
+
+# Build everything: Rust base + Kotlin JAR + TypeScript frontend + C++ batch
+build-all: build-base build-jar build-frontend build-batch
+
 # --- Development ---
 
 # Run Tauri app in development mode
@@ -47,12 +78,45 @@ dev:
     @echo "🚀 Starting Tauri development server..."
     npm run dev
 
-# Build production application
-build:
-    @echo "🏗️  Building production application..."
-    bash ./scripts/build_base.sh
-    ./gradlew build
-    #npm run build
+# Run Rust type/compile checks
+check:
+    @echo "🔍 Running type checks..."
+    npm run tauri:check
+
+# setup + dev
+quick-dev: setup dev
+
+# --- Testing and Benchmarks ---
+
+# Build + run native C++ batch tests via ctest (Catch2)
+# Pure C++ — no Python required.
+test-batch-cpp:
+    @echo "🔧 Building C++ batch tests..."
+    cmake -B build/batch batch/ \
+        -DCMAKE_BUILD_TYPE=Debug \
+        -DBATCH_BUILD_TESTS=ON \
+        && cmake --build build/batch --target batch_tests -j$(nproc)
+    @echo "🧪 Running native C++ batch tests..."
+    ctest --test-dir build/batch -V --output-on-failure
+    @echo "✅ Native C++ batch tests complete."
+
+# Run Python parity tests (C++ vs Python reference implementations)
+# and pybind11 import smoke tests.  Requires batch to be built first.
+test-batch-py:
+    @echo "🧪 Running Python batch parity + import tests..."
+    source .venv/bin/activate \
+    && pytest backend/test/animation/batch/ --skip-gpu -q --tb=short -m "not slow"
+    @echo "✅ Python batch parity tests complete."
+
+# Run speedup benchmarks (Python reference vs C++).  Slow — opt-in only.
+test-batch-bench:
+    @echo "⏱️  Running batch speedup benchmarks (slow)..."
+    source .venv/bin/activate \
+    && pytest backend/test/animation/batch/test_batch_benchmarks.py -v -m slow
+    @echo "✅ Batch benchmarks complete."
+
+# Run all batch tests: native C++ + Python parity (excludes slow benchmarks)
+test-cpp: test-batch-cpp test-batch-py
 
 # Run tests
 test:
@@ -132,14 +196,6 @@ asp-benchmark-clean:
     rm -rf dump/output
     @echo "✅ Cleanup complete!"
 
-# Run Rust type/compile checks
-check:
-    @echo "🔍 Running type checks..."
-    npm run tauri:check
-
-# setup + dev
-quick-dev: setup dev
-
 # --- Database ---
 
 # Setup PostgreSQL database
@@ -191,6 +247,7 @@ clean:
     rm -rf tmp/
     rm -rf target/
     rm -rf images/
+    rm -rf build/batch/
     rm -rf node_modules/
     # Remove all empty directories recursively
     find . -type d -empty -delete
@@ -424,15 +481,7 @@ lora-tensorboard dir="runs":
     @echo "Starting TensorBoard at http://localhost:6006 (Ctrl+C to stop)"
     source .venv/bin/activate && tensorboard --logdir {{ dir }} --port 6006
 
-# Embed an image icon as metadata into a safetensors file
-
-# Usage: just embed-icon path/to/model.safetensors path/to/icon.png
-embed-icon model_path image_path:
-    @echo "Embedding icon into {{ model_path }}..."
-    source .venv/bin/activate && python -m backend.dispatcher command=embed_metadata \
-        data=embed_metadata \
-        data.embed_metadata.model_path="'{{ model_path }}'" \
-        data.embed_metadata.image_path="'{{ image_path }}'"
+# --- ComfyUI ---
 
 # Start ComfyUI headlessly (without the main desktop app)
 comfyui args="":
@@ -443,6 +492,8 @@ comfyui args="":
 comfyui-stop:
     @echo "🛑 Stopping ComfyUI server..."
     -pkill -f "ComfyUI/main.py"
+
+# --- Desktop GUI ---
 
 # Start the Desktop GUI Application
 gui args="":
@@ -595,6 +646,15 @@ check-constants:
     uv run python backend/src/utils/validation/constant_checker.py
 
 # --- Legacy/Helper ---
+
+# Embed an image icon as metadata into a safetensors file
+# Usage: just embed-icon path/to/model.safetensors path/to/icon.png
+embed-icon model_path image_path:
+    @echo "Embedding icon into {{ model_path }}..."
+    source .venv/bin/activate && python -m backend.dispatcher command=embed_metadata \
+        data=embed_metadata \
+        data.embed_metadata.model_path="'{{ model_path }}'" \
+        data.embed_metadata.image_path="'{{ image_path }}'"
 
 # Legacy alias for 'gui'
 python args="":
