@@ -6,10 +6,8 @@ import copy
 import subprocess
 
 from pathlib import Path
-from multiprocessing import Pool
 from send2trash import send2trash
 from typing import Optional, List, Set, Tuple, Any, Dict
-from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip
 from PySide6.QtWidgets import (
     QLabel,
     QComboBox,
@@ -384,7 +382,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self.lbl_vol.setVisible(True)
         self.volume_slider = QSlider(Qt.Orientation.Horizontal)
         self.volume_slider.setRange(0, 100)
-        self.volume_slider.setValue(50)
+        self.volume_slider.setValue(0)
         self.volume_slider.setFixedWidth(60)
         self.volume_slider.valueChanged.connect(
             lambda v: self.audio_output.setVolume(v / 100.0)
@@ -2926,7 +2924,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self._active_metadata = self._get_current_extraction_metadata()
         self._active_metadata["mode"] = "gif"
 
-        output_name = f"{Path(self.video_path).stem}_{int(start)}ms_{int(end)}ms.gif"
+        output_name = f"{Path(self.video_path).stem}_{start}ms_{end}ms.gif"
         output_path = str(self.extraction_dir / output_name)
 
         self.active_extraction_worker = GifCreationWorker(
@@ -3701,7 +3699,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             QMessageBox.warning(
                 self,
                 "Queue Extraction Completed with Errors",
-                f"Processed queue items. Errors encountered:\n" + "\n".join(errors),
+                "Processed queue items. Errors encountered:\n" + "\n".join(errors),
             )
         else:
             QMessageBox.information(
