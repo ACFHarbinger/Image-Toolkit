@@ -1,6 +1,8 @@
 import json
 import os
 import math
+import pytest
+
 from unittest.mock import patch
 from gui.src.tabs.animation.stitch_tab import EditTab
 from gui.src.tabs.animation.edge_graph_inspector_dialog import (
@@ -13,6 +15,8 @@ from gui.src.tabs.animation.canvas_layout_inspector_dialog import (
     _parse_canvas_json,
     _canvas_frame_corners,
 )
+
+pytestmark = pytest.mark.gui
 
 
 class TestStitchTabBrowseOutput:

@@ -1,8 +1,11 @@
+import pytest
 from gui.src.components.draggable_monitor_container import (
     DraggableMonitorContainer,
     _MonitorColumn,
 )
 from gui.src.components.monitor_drop_widget import MonitorDropWidget
+
+pytestmark = pytest.mark.gui
 
 
 class MockMonitor:

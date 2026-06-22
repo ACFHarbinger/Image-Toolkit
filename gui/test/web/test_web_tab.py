@@ -7,6 +7,8 @@ from gui.src.tabs.web.image_crawler_tab import ImageCrawlTab
 from gui.src.tabs.web.reverse_search_tab import ReverseImageSearchTab
 from gui.src.tabs.web.web_requests_tab import WebRequestsTab
 
+pytestmark = pytest.mark.gui
+
 # --- DriveSyncTab Tests ---
 
 
@@ -43,7 +45,6 @@ class TestDriveSyncTab:
                 "gui.src.tabs.web.drive_sync_tab.QThreadPool.globalInstance"
             ) as mock_pool,
         ):
-
             # Ensure "Google Drive (Service Account)" is selected (default)
             tab.view_remote_map()
 

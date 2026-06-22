@@ -1,15 +1,17 @@
 """Tests for CanvasInspectorDialog drag-to-reposition (S90) and rotation/scale (S91)."""
+
 from __future__ import annotations
 
-import copy
 import math
 import pytest
+
 from PySide6.QtCore import QPointF
 
 from gui.src.dialogs.canvas_inspector_dialog import (
     CanvasInspectorDialog,
-    _DraggableFrameItem,
 )
+
+pytestmark = pytest.mark.gui
 
 
 def _make_data(n_frames: int = 3, canvas_h: int = 1000, canvas_w: int = 800) -> dict:

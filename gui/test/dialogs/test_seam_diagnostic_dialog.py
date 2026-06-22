@@ -1,16 +1,17 @@
 """Tests for SeamDiagnosticDialog waypoint click tool (§2.11B, S124)."""
-from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from PySide6.QtCore import Qt, QPointF
 from PySide6.QtGui import QPixmap
+
+pytestmark = pytest.mark.gui
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
+
 
 def _make_data(
     n_seams: int = 3,
@@ -21,7 +22,9 @@ def _make_data(
     """Minimal data dict for SeamDiagnosticDialog."""
     boundaries = [float((i + 1) * canvas_h // (n_seams + 1)) for i in range(n_seams)]
     seam_post_diffs = {k: float(k * 5) for k in range(n_seams)}
-    preview = np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8) if with_preview else None
+    preview = (
+        np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8) if with_preview else None
+    )
     return {
         "canvas_preview": preview,
         "boundaries": boundaries,
@@ -35,6 +38,7 @@ def _make_data(
 
 # ── WaypointCanvas unit tests ──────────────────────────────────────────────────
 
+
 class TestWaypointCanvas:
     """Tests for _WaypointCanvas internals (no QApplication needed for non-paint ops)."""
 
@@ -42,7 +46,9 @@ class TestWaypointCanvas:
         from gui.src.dialogs.seam_diagnostic_dialog import _WaypointCanvas
 
         pix = QPixmap(260, 400)
-        canvas = _WaypointCanvas(pix, canvas_w=260, canvas_h=900, boundaries=[200.0, 500.0, 800.0])
+        canvas = _WaypointCanvas(
+            pix, canvas_w=260, canvas_h=900, boundaries=[200.0, 500.0, 800.0]
+        )
         # y=210 → seam 0 (boundary 200) is closer than seam 1 (boundary 500)
         assert canvas._nearest_seam(210) == 0
         # y=750 → seam 2 (boundary 800) is closer than seam 1 (boundary 500)
@@ -71,7 +77,9 @@ class TestWaypointCanvas:
         from gui.src.dialogs.seam_diagnostic_dialog import _WaypointCanvas
 
         pix = QPixmap(260, 400)
-        canvas = _WaypointCanvas(pix, canvas_w=260, canvas_h=900, boundaries=[300.0, 600.0])
+        canvas = _WaypointCanvas(
+            pix, canvas_w=260, canvas_h=900, boundaries=[300.0, 600.0]
+        )
         canvas._waypoints = {0: [(10, 300), (20, 310)], 1: [(50, 600)]}
         assert canvas.waypoint_count(0) == 2
         assert canvas.waypoint_count(1) == 1
@@ -79,6 +87,7 @@ class TestWaypointCanvas:
 
 
 # ── dialog integration tests ───────────────────────────────────────────────────
+
 
 class TestSeamDiagnosticDialogWaypoints:
     """Integration tests for get_overrides() including waypoints."""
@@ -88,7 +97,9 @@ class TestSeamDiagnosticDialogWaypoints:
 
         data = _make_data(n_seams=2, canvas_h=600, canvas_w=300)
         dlg = SeamDiagnosticDialog(data=data)
-        assert dlg._canvas is not None, "canvas widget should exist when preview is provided"
+        assert dlg._canvas is not None, (
+            "canvas widget should exist when preview is provided"
+        )
 
         # Inject waypoints directly (avoids simulating mouse events)
         dlg._canvas._waypoints = {1: [(150, 400)]}

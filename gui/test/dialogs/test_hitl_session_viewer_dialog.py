@@ -1,18 +1,18 @@
 """Tests for HITLSessionViewerDialog (S92)."""
+
 from __future__ import annotations
 
 import json
-import time
-from pathlib import Path
-
 import pytest
-
+from pathlib import Path
 from gui.src.dialogs.hitl_session_viewer_dialog import (
     HITLSessionViewerDialog,
     _format_session_info,
     _list_sessions,
     _load_session_meta,
 )
+
+pytestmark = pytest.mark.gui
 
 
 def _write_session(path: Path, checkpoints: dict, ts: float = 0.0) -> None:

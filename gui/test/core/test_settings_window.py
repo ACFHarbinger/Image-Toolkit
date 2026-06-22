@@ -1,7 +1,10 @@
+import pytest
 from unittest.mock import patch
 from pathlib import Path
 from PySide6.QtWidgets import QMessageBox
 from gui.src.windows.settings_window import SettingsWindow
+
+pytestmark = pytest.mark.gui
 
 
 class TestSettingsWindowLogs:
