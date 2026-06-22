@@ -732,7 +732,7 @@ where *g* is the source patch, *f** is the target, and *∂Ω* is the seam bound
 - Authors' README: "*due to the variety of generative video prior, the success rate is not guaranteed.*"
 - **Always gate output** by LPIPS or CLIP similarity to input strips — mandatory quality check
 - Wired in ASP as `ASP_TOONCRAFTER_SEAM=1` (default OFF) for worst single-pose seam per test
-- Also serves as the ASP ghost-fill / occlusion-completion model (`anim/anim_fill.py`)
+- Also serves as the ASP ghost-fill / occlusion-completion model (`animation/anim_fill.py`)
 
 ### 12.3 OmnimatteZero — Training-Free Layer Decomposition
 
@@ -1141,7 +1141,7 @@ This model-agnostic design means any community checkpoint, LoRA, or DreamBooth m
 
 ### 19.5 ASP-Relevant Generative Capabilities
 
-**Super-resolution:** Real-ESRGAN `anime_6B` (trained on anime-specific degradations) is shared with the ASP's super-resolution stage (`anim/super_res.py`). APISR provides an alternative that inverts non-linear broadcast compression artifacts (JPEG/WebP/H.264 intra-prediction) without photoreal hallucination.
+**Super-resolution:** Real-ESRGAN `anime_6B` (trained on anime-specific degradations) is shared with the ASP's super-resolution stage (`animation/super_res.py`). APISR provides an alternative that inverts non-linear broadcast compression artifacts (JPEG/WebP/H.264 intra-prediction) without photoreal hallucination.
 
 **Inbetweening:** ToonCrafter provides generative inbetweening between two keyframes — the exact operation needed for pose-gap bridge in the ASP (§12.2). ToonComposer (DiT-based) adds simultaneous inbetweening + colorization from one colored keyframe + sparse sketches.
 

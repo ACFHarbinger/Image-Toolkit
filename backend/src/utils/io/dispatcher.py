@@ -1,4 +1,3 @@
-
 # --- Relocated Nested Imports ---
 from ...core.image_merger import ImageMerger
 from ...web.image_crawler import ImageCrawler
@@ -30,7 +29,9 @@ def dispatch_core(args):
                 output_name=output,
                 format=fmt,
             )
-            print(f"Conversion {'successful' if success else 'failed'}", file=sys.stderr)
+            print(
+                f"Conversion {'successful' if success else 'failed'}", file=sys.stderr
+            )
         else:
             # Batch conversion — multiple inputs or a directory
             for input_path in inputs:
@@ -38,7 +39,14 @@ def dispatch_core(args):
                     ImageFormatConverter.convert_batch(
                         input_dir=input_path,
                         inputs_formats=[
-                            "webp", "png", "jpg", "jpeg", "bmp", "gif", "tiff", "avif",
+                            "webp",
+                            "png",
+                            "jpg",
+                            "jpeg",
+                            "bmp",
+                            "gif",
+                            "tiff",
+                            "avif",
                         ],
                         output_dir=output,
                         output_format=fmt,
@@ -174,7 +182,9 @@ def dispatch_model(args):
             # relocated: from ...models.sd3_wrapper import SD3Wrapper
             print(f"🚀 Generating image with {model_name}: {prompt!r}")
             wrapper = SD3Wrapper()
-            wrapper.generate_image(prompt=prompt, model_path=model_name, output_path=output)
+            wrapper.generate_image(
+                prompt=prompt, model_path=model_name, output_path=output
+            )
             print(f"✅ Image saved to: {output}")
         except ImportError as e:
             print(f"❌ Error: Required modules not found: {e}", file=sys.stderr)
@@ -199,7 +209,7 @@ def _collect_image_paths(directory: str) -> list:
 
 def _run_single_stitch(image_paths: list, output: str, renderer: str) -> bool:
     """Run AnimeStitchPipeline on image_paths; return True on success."""
-    from backend.src.anim import AnimeStitchPipeline
+    from backend.src.animation import AnimeStitchPipeline
 
     pipeline = AnimeStitchPipeline(renderer=renderer)
     try:
@@ -253,7 +263,9 @@ def dispatch_stitch(args: dict) -> None:
             out_path = os.path.join(seq_dir, f"{seq_name}{suffix}.png")
 
             # Option C: resume — skip if output already exists
-            if resume and (os.path.isfile(out_path) or progress.get(seq_name) == "done"):
+            if resume and (
+                os.path.isfile(out_path) or progress.get(seq_name) == "done"
+            ):
                 print(f"  [{i}/{total}] ⏭  {seq_name}  (skipped — output exists)")
                 skipped += 1
                 continue
@@ -268,7 +280,9 @@ def dispatch_stitch(args: dict) -> None:
                 failed += 1
                 continue
 
-            print(f"  [{i}/{total}] 🚀 {seq_name}  ({len(image_paths)} frames) → {out_path}")
+            print(
+                f"  [{i}/{total}] 🚀 {seq_name}  ({len(image_paths)} frames) → {out_path}"
+            )
             success = _run_single_stitch(image_paths, out_path, renderer)
             if success:
                 print(f"  [{i}/{total}] ✅ {seq_name}")

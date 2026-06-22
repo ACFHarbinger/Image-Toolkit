@@ -4,11 +4,35 @@
 
 ---
 
+## Anime Stitch Pipeline — Session 160 (2026-06-22)
+
+*Four improvements: spatial blocks BGR gain compensation, post-BA wave correction, LAB L-channel blocks gain compensation, and canvas strip-level luminance gain uniformity metric.*
+
+### §4.1 — Spatial Blocks BGR Gain Compensation (`backend/src/animation/compositing.py`)
+
+- `_blocks_gain_compensate(fa_zone, fb_zone, block_size=32) → np.ndarray` — divides the blend zone into 32×32 blocks and computes a per-block per-channel BGR gain ratio `mean(fa_block) / mean(fb_block)`. A bilinear-resized (H, W, 3) gain map is applied to `fb_zone` to correct strip-level banding that global scalar gain normalisation cannot handle. Gain clamped to [0.5, 2.0]; blocks where fb-mean < 1.0 use gain=1.0. Wired into `_fb_for_blend` chain after `_zone_lum_norm`. Enable: `ASP_BLOCKS_GAIN_COMP=1`. Targets strip_banding_score (97.9% worse than simple stitch in benchmark).
+
+### §4.3 — Post-BA Wave Correction (`backend/src/animation/pipeline.py`)
+
+- `_wave_correct_affines(affines, axis='vertical') → List[np.ndarray]` — fits a linear trend (`np.polyfit` degree 1) to the tx (vertical) or ty (horizontal) sequence and subtracts it, straightening the panorama midline after bundle adjustment. Only fires when the range exceeds `WAVE_CORRECT_MIN_TX_RANGE=5.0 px` to avoid modifying already-clean sequences. First frame is used as anchor. Enable: `ASP_WAVE_CORRECT=vertical` or `horizontal`. Wired between §3.16 trajectory smoother and Stage 7b validation.
+
+### §4.4 — LAB L-Channel Blocks Gain Compensation (`backend/src/animation/compositing.py`)
+
+- `_blocks_lum_compensate(fa_zone, fb_zone, block_size=32) → np.ndarray` — like §4.1 but uses the LAB L-channel ratio as a scalar gain applied uniformly to all BGR channels. Avoids the colour cast from per-channel BGR gain when any channel's mean is near zero in a block. Gain clamped to [0.5, 2.0]. Wired after `_blocks_gain_compensate` in the `_fb_for_blend` chain. Enable: `ASP_BLOCKS_LUM_COMP=1`.
+
+### §3.31 — Canvas Strip Luminance Gain Uniformity (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_canvas_gain_uniformity(img, n_strips=8) → float` — divides the output into 8 horizontal strips, computes the coefficient of variation (std/mean) of strip-mean luminances. Range [0, ∞); 0=perfectly uniform; high=strip banding present. Degenerate inputs (fewer rows than strips, all-zero image) return 0.0. Added as `canvas_gain_uniformity` to all benchmark result dicts.
+
+**Test suite: 1272 passed (+20 from 1252), 5 failed (pre-existing ptlflow), 9 skipped.**
+
+---
+
 ## Anime Stitch Pipeline — Session 159 (2026-06-22)
 
 *Four improvements: seam transition straightness penalty, per-strip top/bottom NCC self-consistency metric, fg-majority column floor in seam cost map, and per-zone HSV hue equalization.*
 
-### §1.125 — Seam Transition Straightness Penalty (`backend/src/anim/compositing.py`)
+### §1.125 — Seam Transition Straightness Penalty (`backend/src/animation/compositing.py`)
 
 - `_SEAM_TRANSITION_PEN` (default 0.0) adds a row-distance-from-midline cost to the energy matrix in `_seam_cut` before the DP forward pass. The distance is normalised to [0, 1] so the penalty is scale-invariant across zone heights. Creates a mild prior toward straight horizontal seam paths running through the zone centre. High values (e.g. 50) strongly constrain the seam near the midline; low values preserve natural low-energy routing around fg content. Enable: `ASP_SEAM_TRANSITION_PEN=<float>`.
 
@@ -16,11 +40,11 @@
 
 - `_strip_self_ssim(img, n_strips=8) → float` — splits each horizontal band in half and computes the Normalized Cross-Correlation (NCC) between the top and bottom halves at thumbnail scale (32 px height). Returns the minimum NCC across all strips. A clean uniform strip scores ≈1.0; a strip straddling a visible seam or brightness jump scores lower. Added as `strip_self_ssim` to all benchmark result dicts.
 
-### §1.126 — Fg-Majority Column Floor in Seam Cost Map (`backend/src/anim/compositing.py`)
+### §1.126 — Fg-Majority Column Floor in Seam Cost Map (`backend/src/animation/compositing.py`)
 
 - `_FG_MAJORITY_FLOOR` (default 0.0 = off) gates on `_build_seam_cost_map`: when the entire blend zone is >60% fg interior (cost ≥ 1.0), raises columns that are >80% fg to at least `_FG_MAJORITY_FLOOR`, pushing the DP seam toward the minority background/low-cost corridor columns. Guard: skipped when all columns are heavy (no corridor available). Enable: `ASP_FG_MAJORITY_FLOOR=<float>` (e.g. 1.5).
 
-### §1.127 — Per-Zone HSV Hue Equalization (`backend/src/anim/compositing.py`)
+### §1.127 — Per-Zone HSV Hue Equalization (`backend/src/animation/compositing.py`)
 
 - `_zone_hue_eq(fa_zone, fb_zone) → np.ndarray` — shifts the circular mean hue of `fb_zone` to match `fa_zone` using HSV hue channel. Only fires when the mean hue difference exceeds `ZONE_HUE_EQ_MIN_DIFF_DEG=5°` (OpenCV convention: 0–180). Shift clamped to [−30°, +30°] to prevent extreme corrections. Chained after `_ZONE_CONTRAST_EQ` in the `_fb_for_blend` block of the normal blend branch. Enable: `ASP_ZONE_HUE_EQ=1`.
 
@@ -32,7 +56,7 @@
 
 *Four improvements: high seam path cost escalation gate, local scatter penalty in seam cost map, adaptive single-pose soft-edge width from seam residual, and blend zone coverage fraction metric.*
 
-### §1.122 — High Seam Path Cost Escalation (`backend/src/anim/compositing.py`)
+### §1.122 — High Seam Path Cost Escalation (`backend/src/animation/compositing.py`)
 
 - `_mean_path_cost(path_local, cost_map) → float` — computes the mean seam cost value sampled along the selected DP path. When `ASP_HIGH_PATH_COST_THRESH > 0` and mean path cost exceeds threshold, escalates to single-pose before blending. Complementary to §1.69 (bg-ratio gate): catches routes that nominally pass the bg-ratio check but still incur high aggregate cost due to scattered fg pixels. Default OFF; recommended: `ASP_HIGH_PATH_COST_THRESH=0.6`.
 
@@ -40,11 +64,11 @@
 
 - `_zone_coverage_fraction(img, n_strips=8) → float` — approximates the fraction of image height occupied by inter-strip blend zones. Computed as `(n_strips−1) × 2 × (strip_h // 3) / H`, capped at 1.0. High fraction indicates blend zones dominate the canvas and seam quality matters more. Added as `zone_coverage_fraction` to all benchmark result dicts.
 
-### §1.123 — Local Scatter Penalty in Seam Cost Map (`backend/src/anim/compositing.py`)
+### §1.123 — Local Scatter Penalty in Seam Cost Map (`backend/src/animation/compositing.py`)
 
 - When `ASP_SCATTER_COST=1`, adds a per-pixel local variance term to the seam cost map before DP. Computed via 3×3 box-filter variance normalised to [0, `_SCATTER_COST_WEIGHT`] across the zone. Routes the DP seam toward spatially smooth (uniform background) corridors and away from high-frequency noise or scattered fg debris. Default OFF; `ASP_SCATTER_COST_WEIGHT=0.3`.
 
-### §1.124 — Adaptive Single-Pose Soft-Edge Width from Seam Residual (`backend/src/anim/compositing.py`)
+### §1.124 — Adaptive Single-Pose Soft-Edge Width from Seam Residual (`backend/src/animation/compositing.py`)
 
 - Extends §1.22 (feather-based adaptive width) with a second stage driven by `seam_post_diffs`. When `ASP_ADAPTIVE_SP_SOFT=1`: post-diff > 30 lum → clamps to `ASP_ADAPTIVE_SP_SOFT_MIN` (default 3 px, narrow to limit ghost risk); post-diff < 10 lum → widens to `ASP_ADAPTIVE_SP_SOFT_MAX` (default 10 px, extra smoothing for clean warps). Mid-range [10, 30] leaves the feather-based value unchanged.
 
@@ -56,15 +80,15 @@
 
 *Four improvements: zone width CV gate, saturation step audit, zone histogram intersection gate, and seam gradient direction coherence metric.*
 
-### §1.119 — Seam Zone Width Variance Gate (`backend/src/anim/compositing.py`)
+### §1.119 — Seam Zone Width Variance Gate (`backend/src/animation/compositing.py`)
 
 - `_zone_width_cv(boundaries) → float` — computes std/mean of adjacent zone widths (boundary gaps). High CV indicates the boundary search produced an uneven layout (some zones very narrow, others very wide), which correlates with bad BA outcomes. When `ASP_ZONE_WIDTH_CV_MAX > 0` and CV exceeds threshold, pre-escalates the narrowest seam to single-pose before DP. Default OFF.
 
-### §1.120 — Post-Composite Saturation Step Audit (`backend/src/anim/compositing.py`)
+### §1.120 — Post-Composite Saturation Step Audit (`backend/src/animation/compositing.py`)
 
 - `_audit_seam_sat_steps(result, boundaries, band_px=5) → Dict[int, float]` — analogous to §1.106 lum audit but for HSV saturation. Measures mean saturation difference between ±5px bands above and below each seam boundary. Logs a warning when step exceeds `ASP_SEAM_SAT_WARN_THRESH`. Stores `seam_sat_steps` and `max_seam_sat_step` in `seam_meta_out`. Catches chromatic banding invisible to luminance-only checks.
 
-### §1.121 — Zone Histogram Intersection Pre-gate (`backend/src/anim/compositing.py`)
+### §1.121 — Zone Histogram Intersection Pre-gate (`backend/src/animation/compositing.py`)
 
 - `_zone_hist_intersection(fa_zone, fb_zone) → float` — computes mean per-channel (32-bin) normalised histogram intersection in [0, 1]. Values near 1.0 = identical colour palettes; low values = disjoint histograms. When `ASP_ZONE_HIST_THRESH > 0` and score falls below threshold, pre-escalates to single-pose before DP. Complementary to §1.117 NCC (structural) — catches colour-palette shifts that NCC misses.
 
@@ -80,15 +104,15 @@
 
 *Four improvements: zone bg-fraction diagnostic, fast thumbnail NCC pre-gate, seam sharpness measurement, and seam band NCC benchmark metric.*
 
-### §1.116 — Zone Blend Bg-Fraction Diagnostic (`backend/src/anim/compositing.py`)
+### §1.116 — Zone Blend Bg-Fraction Diagnostic (`backend/src/animation/compositing.py`)
 
 - Computes `1 - _fg_fraction_in_zone(bg_a, bg_b)` for every blend zone and stores it in `debug_context["zone_bg_fracs"]` when `ASP_ZONE_BG_FRAC_DIAG=1`. Pure observability — no blend logic change. Reveals how much of each blend zone is background vs character pixels, guiding calibration of §1.95/§1.101 fg-density gates. Default OFF.
 
-### §1.117 — Fast Thumbnail NCC Structural Pre-gate (`backend/src/anim/compositing.py`)
+### §1.117 — Fast Thumbnail NCC Structural Pre-gate (`backend/src/animation/compositing.py`)
 
 - `_zone_pair_ncc(fa_zone, fb_zone, thumb_size=32) → float` — downsizes both zone crops to 32×32 and computes normalized cross-correlation. Returns 1.0 for empty/degenerate inputs. In the blend loop, when `ASP_ZONE_FAST_NCC_THRESH > 0` and NCC falls below threshold on a non-escalated seam, escalates to single-pose (dominant fg frame). Catches structurally different zones (pose gap, occlusion) before the heavier §1.97 entropy asymmetry gate.
 
-### §1.118 — Seam Band Laplacian Sharpness Guard (`backend/src/anim/compositing.py`)
+### §1.118 — Seam Band Laplacian Sharpness Guard (`backend/src/animation/compositing.py`)
 
 - `_measure_seam_sharpness(result, boundaries, band_px=5) → Dict[int, float]` — after compositing, measures Laplacian variance in a ±5px band around each boundary in the final canvas. Low variance = blur artifact at seam. When `ASP_SEAM_SHARP_MIN > 0`, logs a per-boundary warning for blurred seams. Also stores `seam_sharpness` and `max_seam_blur` in `seam_meta_out` for benchmark analysis.
 
@@ -104,11 +128,11 @@
 
 *Four improvements: seam cost map column-wise smooth, zone RMS contrast equalization, per-strip saturation CV metric, and absolute feather jump cap.*
 
-### §1.113 — Seam Cost Map Column-wise Gaussian Smooth (`backend/src/anim/compositing.py`)
+### §1.113 — Seam Cost Map Column-wise Gaussian Smooth (`backend/src/animation/compositing.py`)
 
 - After §1.110 row Gaussian blur in `_build_seam_cost_map`, applies `scipy.ndimage.gaussian_filter1d` along axis=1 (columns) on the soft-cost region (< 1e5). Creates lateral cost gradients that prevent DP zigzagging between adjacent equal-cost columns. Hard barriers preserved. `ASP_COST_COL_SMOOTH_SIGMA=1.5` (default 0.0 = OFF).
 
-### §1.114 — Zone RMS Contrast Equalization (`backend/src/anim/compositing.py`)
+### §1.114 — Zone RMS Contrast Equalization (`backend/src/animation/compositing.py`)
 
 - `_zone_contrast_eq(fa_zone, fb_zone) → ndarray` — computes luminance std over non-black pixels in each zone and scales `fb_zone` so its contrast matches `fa_zone`. Scale clamped [0.5, 2.0]; skips when ratio deviation < 5% or std_b < 1. Chained after `_zone_sat_norm` (§1.111) in the normal blend path. Corrects contrast-wash banding that §1.104 (mean lum) cannot fix. `ASP_ZONE_CONTRAST_EQ=1`. Default OFF.
 
@@ -116,7 +140,7 @@
 
 - `_strip_sat_cv(img, n_strips=8) → float` — converts to HSV, measures mean saturation per strip, returns std/mean across strips. High CV = some strips are vivid while others are desaturated (photometric banding invisible to lum/chroma metrics). Added as `strip_sat_cv` to all benchmark result dicts.
 
-### §1.115 — Absolute Feather Jump Cap (`backend/src/anim/compositing.py`)
+### §1.115 — Absolute Feather Jump Cap (`backend/src/animation/compositing.py`)
 
 - `_cap_feather_jumps(feathers, max_jump) → ndarray` — two-pass (forward + backward) clamp enforcing that no adjacent feather pair differs by more than `max_jump` pixels. Wired after §1.92 Gaussian smooth. Complements §1.68 (ratio-based): catches extreme absolute jumps in wide sequences that pass the ratio test. `ASP_FEATHER_JUMP_MAX=150` (default 0 = OFF).
 
@@ -128,7 +152,7 @@
 
 *Four improvements: seam cost map Gaussian blur, zone background saturation normalization, seam path drift gate, and seam boundary entropy benchmark metric.*
 
-### §1.110 — Seam Cost Map Gaussian Blur (`backend/src/anim/compositing.py`)
+### §1.110 — Seam Cost Map Gaussian Blur (`backend/src/animation/compositing.py`)
 
 - After §1.109 normalization in `_build_seam_cost_map`, applies `scipy.ndimage.gaussian_filter` to the soft-cost region (cost < 1e5). Smooths tier-boundary transitions so DP has a gradient slope toward background corridors instead of a binary step — prevents argmin oscillation between equal-energy tier-boundary columns. Hard barriers (≥ 1e5) are preserved unchanged. `ASP_COST_MAP_BLUR_SIGMA=2.0` (default 0.0 = OFF).
 
@@ -136,11 +160,11 @@
 
 - `_seam_boundary_entropy(img, n_strips=8, band_px=15) → List[float]` — for each inter-strip boundary, computes Shannon entropy of the 256-bin greyscale histogram in a ±15px row band, normalised by log2(256)=8 to [0, 1]. High entropy = complex varied texture at seam (more likely to be noticeable). Added as `seam_boundary_entropies` (list) and `seam_boundary_entropy_max` (Optional[float]) to all benchmark result dicts.
 
-### §1.111 — Zone Background HSV Saturation Normalization (`backend/src/anim/compositing.py`)
+### §1.111 — Zone Background HSV Saturation Normalization (`backend/src/animation/compositing.py`)
 
 - `_zone_sat_norm(fa_zone, fb_zone) → ndarray` — converts zones to HSV, matches mean saturation of background (non-black) pixels in `fb_zone` to `fa_zone` via a scalar gain clamped [0.5, 2.0]. Skips when ratio deviation < 2%. Chained after `_zone_lum_norm` (§1.104) in the normal blend path. Addresses chromatic seam banding caused by palette saturation shift between frames (e.g. warm-sunset vs cool-indoor hold transition). `ASP_ZONE_SAT_NORM=1`. Default OFF.
 
-### §1.112 — Seam Path Vertical Drift Gate (`backend/src/anim/compositing.py`)
+### §1.112 — Seam Path Vertical Drift Gate (`backend/src/animation/compositing.py`)
 
 - `_seam_path_drift(path) → float` — returns `max(|path[i+1] - path[i]|)` across consecutive path columns. A large drift indicates a sudden vertical discontinuity in the DP seam — produces a visible kink slash even after §1.25 median smoothing. In the blend loop, after §1.31 FG penetration check: when drift > `_SEAM_DRIFT_THRESH` and the seam is not already single-pose, escalates to single-pose (dominant by fg pixel count). `ASP_SEAM_DRIFT_THRESH=15.0` (default 0.0 = OFF).
 
@@ -152,7 +176,7 @@
 
 *Four improvements: adaptive seam band width, Laplacian blend alpha schedule, seam cost map normalization, and seam boundary row std metric.*
 
-### §1.107 — Adaptive Seam Band Width from Zone Height (`backend/src/anim/compositing.py`)
+### §1.107 — Adaptive Seam Band Width from Zone Height (`backend/src/animation/compositing.py`)
 
 - `_adaptive_seam_band(zone_h, base_band, max_band=40) → int` — returns `min(max_band, max(base_band, zone_h // 6))`. In the single-pose colour-correction path, replaces the fixed `_sp_soft_px + 4` band with a computed `_band_px_sp` variable passed to `_seam_color_match`, `_seam_band_hist_match`, and `_seam_lum_converge`. For tall zones (feather=300 → zone_h≈600), band grows to 40px; for short zones it falls back to base. `ASP_ADAPTIVE_SEAM_BAND=1`. Default OFF.
 
@@ -160,11 +184,11 @@
 
 - `_seam_row_std(img, n_strips=8) → float` — for each inter-strip boundary row, computes std of BGR pixel values across the full width, returns max std / 255. High value = strong horizontal variation at a boundary row = visible seam artifact. Added as `seam_row_std` field to all benchmark result dicts.
 
-### §1.108 — Laplacian Blend Alpha Schedule (`backend/src/anim/stateless.py`)
+### §1.108 — Laplacian Blend Alpha Schedule (`backend/src/animation/stateless.py`)
 
 - Added `alpha_schedule: bool = False` parameter to `_laplacian_blend`. When enabled, mixes a sharp-masked version (`mask²`) at 30% with the normal Laplacian result at 70% before returning. Reduces high-frequency colour bleeding at character cel boundaries while preserving low-frequency smooth transitions. Wired in blend loop as `_laplacian_blend(..., alpha_schedule=_LAPLACIAN_ALPHA_SCHEDULE)`. `ASP_LAPLACIAN_ALPHA_SCHEDULE=1`. Default OFF.
 
-### §1.109 — Seam Cost Map L-inf Normalization (`backend/src/anim/compositing.py`)
+### §1.109 — Seam Cost Map L-inf Normalization (`backend/src/animation/compositing.py`)
 
 - At end of `_build_seam_cost_map`, normalizes non-barrier pixels (< 1e5) to [0, 1] via L-inf normalization. Ensures the relative cost tiers (0→0.3→0.5→1.0→2.0) remain stable when additive terms (§3.17 HF column cost, §1.35 line-art gradient penalty) push soft-tier values above 1.0. Hard barriers (≥ 1e6) are preserved unchanged. `ASP_COST_MAP_NORM=1`. Default OFF.
 
@@ -176,7 +200,7 @@
 
 *Four improvements: per-zone luminance normalization, seam-path column spread metric, fg-overlap blend weight cap, and post-composite seam lum step audit.*
 
-### §1.104 — Per-Zone Luminance Normalization Before Blend (`backend/src/anim/compositing.py`)
+### §1.104 — Per-Zone Luminance Normalization Before Blend (`backend/src/animation/compositing.py`)
 
 - `_zone_lum_norm(fa_zone, fb_zone) → ndarray` — computes mean grayscale luminance of non-black pixels in each zone and applies a scalar gain (clamped [0.5, 2.0]) to `fb_zone` non-black pixels so its mean matches `fa_zone`. Skips when ratio < 1%. Chained after `_zone_chroma_align` (§3.19) in the normal blend path. `ASP_ZONE_LUM_NORM=1`. Default OFF. Distinct from §1.56 (post-composite strip lum) and §3.19 (LAB chroma).
 
@@ -184,11 +208,11 @@
 
 - `_seam_col_spread(img, n_strips=8) → float` — for each strip, finds the column of maximum horizontal Sobel gradient magnitude, collects N peaks, returns `std(peaks) / W`. Low normalized std = concentrated routing (all strips use same seam column = bad); high = spread across columns (good background routing). Added as `seam_col_spread` field to all benchmark result dicts.
 
-### §1.105 — Fg-Overlap Laplacian Blend Weight Cap (`backend/src/anim/compositing.py`)
+### §1.105 — Fg-Overlap Laplacian Blend Weight Cap (`backend/src/animation/compositing.py`)
 
 - Before `_laplacian_blend`, computes a per-pixel fg-overlap mask (both zones have fg content) and lum diff mask (diff > 10 lum units). When `ASP_FG_OVERLAP_BLEND_CAP > 0.0` and a pixel meets both criteria, caps `mask_float` at the configured value (e.g. 0.3), strongly weighting the dominant zone. Prevents double-image ghost in fg-overlap pixels where ARAP blend would otherwise contribute both poses equally. Default `0.0` (OFF).
 
-### §1.106 — Post-Composite Seam Lum Step Audit (`backend/src/anim/compositing.py`)
+### §1.106 — Post-Composite Seam Lum Step Audit (`backend/src/animation/compositing.py`)
 
 - `_audit_seam_lum_steps(result, boundaries, band_px=5, warn_thresh=8.0) → Dict[int, float]` — after all seams composited (after §1.90 bilateral smooth), measures mean absolute lum difference in ±5px rows at each boundary in the final output. Logs `[Stitch] §1.106 seam-step WARNING` for any step > threshold. Stores `seam_lum_steps` and `max_seam_lum_step` into `seam_meta_out` when provided. Always runs (negligible overhead). `ASP_POST_SEAM_WARN_THRESH=8.0`.
 
@@ -200,11 +224,11 @@
 
 *Four improvements: full blend-zone MAD pre-escalation, warp residual momentum damping, reference-proximity dominant frame selection, and seam contrast ratio benchmark metric.*
 
-### §1.101 — Full Blend-Zone MAD Pre-Escalation (`backend/src/anim/compositing.py`)
+### §1.101 — Full Blend-Zone MAD Pre-Escalation (`backend/src/animation/compositing.py`)
 
 - In the blend loop after §1.97 entropy gate, computes `mean(|fa_zone − fb_zone|)` over the full zone (not just shared fg pixels). When MAD > `_ZONE_MAD_THRESH`, escalates to single-pose before the DP. Broader than §1.60 (fg-only MAD): catches colour-shift differences in the background region too. `ASP_ZONE_MAD_THRESH=30.0` to enable. Default `0.0` (OFF).
 
-### §1.102 — Warp Residual Momentum Damping (`backend/src/anim/compositing.py`)
+### §1.102 — Warp Residual Momentum Damping (`backend/src/animation/compositing.py`)
 
 - In the fg-registration loop, immediately after computing `_sp_thresh`: when `ASP_WARP_MOMENTUM_DAMP=1` and `k-1 in seam_single_pose`, multiplies `_sp_thresh` by `_WARP_MOMENTUM_FACTOR` (default 0.85). Adjacent seams sharing a frame often share the same pose discontinuity; earlier pre-escalation prevents ARAP from spending compute on unregisterable zones. Runs before the §1.95 fg-fraction scaling block. `ASP_WARP_MOMENTUM_FACTOR=0.85`. Default OFF.
 
@@ -212,7 +236,7 @@
 
 - `_seam_contrast_ratio(img, n_strips=8, band_px=10) → float` — computes mean absolute Laplacian energy in ±`band_px` rows around each inter-strip boundary vs. energy in non-boundary regions. Returns `seam_energy / interior_energy`. Values near 1.0 = no artifact; > 1.5 = visible seam sharpness discontinuity. Returns 1.0 (neutral) for degenerate inputs. Added as `seam_contrast_ratio` field to all benchmark result dicts.
 
-### §1.103 — Reference-Proximity Dominant Frame Selection (`backend/src/anim/compositing.py`)
+### §1.103 — Reference-Proximity Dominant Frame Selection (`backend/src/animation/compositing.py`)
 
 - In the `post_diff > _sp_thresh` escalation path of the fg-registration loop: when `ASP_SP_REF_PROX=1`, selects `dom` as whichever of `fi_a`/`fi_b` is temporally closest to `ref_fi` (the central reference frame), rather than the frame with more fg pixels. The reference frame has the least accumulated warp drift, making it the most geometrically reliable dominant. Only affects the main post-ARAP escalation path; fallback and pre-escalation paths unchanged. Default OFF.
 
@@ -224,15 +248,15 @@
 
 *Four improvements: inter-strip gain smoothing, extended fg dilation cost ring, seam endpoint bg-preference, and per-strip gradient energy CV benchmark metric.*
 
-### §1.98 — Per-Frame Gain Normalization Smoothing (`backend/src/anim/compositing.py`)
+### §1.98 — Per-Frame Gain Normalization Smoothing (`backend/src/animation/compositing.py`)
 
 - `_smooth_gain_array(gains, sigma=1.0) → ndarray` — 1-D Gaussian smooth (scipy `gaussian_filter1d`, mode=`nearest`) over the per-frame `frame_gains` list. Wired after the per-frame normalization loop: when `ASP_SMOOTH_GAIN=1`, re-applies the smoothed/raw ratio to `warped_norm` bg pixels only (skip ratio < 0.5%). Prevents abrupt brightness staircase caused by isolated outlier gain corrections. `ASP_SMOOTH_GAIN=1`, `ASP_SMOOTH_GAIN_SIGMA=1.0`. Default OFF.
 
-### §3.20 — Extra Fg-Boundary Outer Dilation Cost Ring (`backend/src/anim/compositing.py`)
+### §3.20 — Extra Fg-Boundary Outer Dilation Cost Ring (`backend/src/animation/compositing.py`)
 
 - In `_build_seam_cost_map`, after the existing Tier-2 fg-edge buffer (cost=0.5), dilates the combined fg mask by `_EXTRA_FG_DILATION` px and adds a 0.3-cost outer ring. Creates gradient 0→0.3→0.5→1.0 from background to fg-interior, pushing the DP seam further from character edges. `np.maximum` preserves existing higher Tier-1/2 costs. `ASP_EXTRA_FG_DILATION=8` to enable. Default `0` (OFF).
 
-### §1.99 — Seam Endpoint Bg-Preference (`backend/src/anim/compositing.py`)
+### §1.99 — Seam Endpoint Bg-Preference (`backend/src/animation/compositing.py`)
 
 - At end of `_build_seam_cost_map`, amplifies fg pixel costs (≥1.0) by 10× in the top/bottom `_SEAM_PIN_ROWS` rows of the zone. Steers the DP seam path to enter and exit through background-only columns at zone edges. Guards on `zone_h > 2 * _SEAM_PIN_ROWS`. `ASP_SEAM_PIN_ROWS=3` to enable. Default `0` (OFF).
 
@@ -248,11 +272,11 @@
 
 *Four improvements: ghost-reduction via fg-zone threshold scaling, pre-blend chroma normalisation, chroma seam coherence benchmark metric, and entropy-asymmetry pre-escalation gate.*
 
-### §1.95 — Fg-Zone Single-Pose Threshold Scaling (`backend/src/anim/compositing.py`)
+### §1.95 — Fg-Zone Single-Pose Threshold Scaling (`backend/src/animation/compositing.py`)
 
 - After computing `_sp_thresh` in the fg-registration loop, computes zone fg fraction via `_fg_fraction_in_zone` on the boundary slice. When fraction > `_SP_FG_FRAC_THRESH` (default 0.5), multiplies threshold by `_SP_THRESH_FG_FACTOR` (default 0.7). Fg-dominated blend zones produce worse ghosts; lowering the threshold catches them for single-pose escalation earlier. `ASP_SP_THRESH_FG_SCALE=1`. Default OFF.
 
-### §3.19 — Per-Zone Pre-Blend Chroma Alignment (`backend/src/anim/compositing.py`)
+### §3.19 — Per-Zone Pre-Blend Chroma Alignment (`backend/src/animation/compositing.py`)
 
 - `_zone_chroma_align(fa_zone, fb_zone) → ndarray` — computes LAB a/b mean over non-black pixels in both zones; when either delta > 2 LAB units, applies a global additive shift to `fb_zone` so its chroma mean matches `fa_zone`. Wired before `_laplacian_blend` in the normal (non-single-pose) path: `_fb_for_blend = _zone_chroma_align(fa_zone, fb_zone) if _ZONE_CHROMA_ALIGN and k not in seam_single_pose else fb_zone`. `ASP_ZONE_CHROMA_ALIGN=1`. Default OFF.
 - Distinct from §1.56 (`_seam_chroma_equalize`): §1.56 is a post-composite narrow-band correction; §3.19 acts per-zone pre-blend.
@@ -261,7 +285,7 @@
 
 - `_chroma_seam_coherence(img, n_strips=8) → float` — converts to LAB, computes per-strip mean of |a|+|b| channels, returns max absolute step between adjacent strip means. Higher score = visible colour-temperature discontinuity between stitched strips. Added as `chroma_seam_coherence` field to all benchmark result dicts.
 
-### §1.97 — Seam Zone Entropy Asymmetry Gate (`backend/src/anim/compositing.py`)
+### §1.97 — Seam Zone Entropy Asymmetry Gate (`backend/src/animation/compositing.py`)
 
 - `_zone_entropy(zone) → float` + `_seam_zone_entropy_gap(fa_zone, fb_zone) → float` — Shannon entropy from grayscale histogram. A large gap (one near-flat zone, one textured) means ARAP flow has no gradient signal on the flat side and produces spurious warp vectors. When gap > `_ENTROPY_GAP_THRESH`, pre-escalates to single-pose. `ASP_ENTROPY_GAP_THRESH=1.5` to enable. Default `0.0` (OFF). Wired in blend loop after §1.86 SSIM check.
 
@@ -273,11 +297,11 @@
 
 *Four compositing + benchmark improvements addressing residual seam colour drift and GT-less evaluation coverage.*
 
-### §1.91 — Iterative Seam Luminance Convergence (`backend/src/anim/compositing.py`)
+### §1.91 — Iterative Seam Luminance Convergence (`backend/src/animation/compositing.py`)
 
 - `_seam_lum_converge(dom_zone, oth_zone, path_local, band_px, target_delta=5.0, max_iters=2)` — measures residual mean-delta in the seam band after S16+§1.88; if > `target_delta` lum units, applies another `_seam_color_match` pass. Caps at `max_iters` to avoid over-correction. Wired in single-pose path after `_seam_band_hist_match` when `ASP_SEAM_LUM_CONVERGE=1`.
 
-### §1.92 — Gaussian Feather Array Smoothing (`backend/src/anim/compositing.py`)
+### §1.92 — Gaussian Feather Array Smoothing (`backend/src/animation/compositing.py`)
 
 - `_smooth_feather_array(feathers, sigma=1.0, feather_min, feather_max)` — 1D Gaussian smooth on the feather width array (σ=1 seam by default) to prevent abrupt transitions between adjacent seams. Re-clamps to `[FEATHER_MIN, FEATHER_MAX]` after smoothing. Wired after `_enforce_feather_ratio` when `ASP_SMOOTH_FEATHER=1`.
 
@@ -297,22 +321,22 @@
 
 *Implements four compositing improvements addressing the remaining quality gap (ghosting 42% worse, seam color banding).*
 
-### §1.88 — Band Histogram Matching (`backend/src/anim/compositing.py`)
+### §1.88 — Band Histogram Matching (`backend/src/animation/compositing.py`)
 
 - `_seam_band_hist_match(dom_zone, oth_zone, path_local, band_px)` — per-channel ECDF histogram transfer in the seam blend band. After S16 mean-shift, fits the full luminance distribution of `oth_zone` to `dom_zone` in the blend band using `scipy.interpolate.interp1d`. Falls back to mean-shift when scipy is unavailable or band has < 10 pixels. `ASP_HIST_MATCH_SEAM=1`. Called in the single-pose path after `_seam_color_match`.
 - **Why better than mean-shift**: handles zones with skewed distributions (e.g., bright-biased dom vs dark-biased oth) where matching only the mean leaves a distribution mismatch visible as banding.
 
-### §1.89 — Seam Residual Order (`backend/src/anim/compositing.py`)
+### §1.89 — Seam Residual Order (`backend/src/animation/compositing.py`)
 
 - `ASP_SEAM_ORDER=residual` — sorts the blend loop by ascending `seam_post_diffs[k]` before compositing. Lowest-residual seams (best registration quality) processed first to establish the reference quality baseline. Higher-residual seams accumulate less compounding error.
 - `_SEAM_ORDER_RESIDUAL` module flag. Falls back to linear order when `seam_post_diffs` is empty.
 
-### §1.90 — Post-Seam Bilateral Smoothing (`backend/src/anim/compositing.py`)
+### §1.90 — Post-Seam Bilateral Smoothing (`backend/src/animation/compositing.py`)
 
 - `_bilateral_seam_smooth(canvas, seam_paths, band_px=5, sigma_space=3.0, sigma_color=20.0)` — after all seams composited, applies `cv2.bilateralFilter` in ±`band_px` columns around each DP seam path. Smooths residual 1–3 lum-unit color steps without blurring content outside the narrow band. `ASP_BILATERAL_SEAM=1`.
 - Operates row-by-row to avoid blurring across seam boundary positions that differ in column between rows.
 
-### §3.17 — High-Frequency Column Seam Cost (`backend/src/anim/compositing.py`)
+### §3.17 — High-Frequency Column Seam Cost (`backend/src/animation/compositing.py`)
 
 - `_hf_column_cost(zone_a, zone_b, hf_threshold=50.0, hf_boost=0.5)` — computes per-column Laplacian energy as an additive cost term in `_build_seam_cost_map`. Columns with mean `|∇²I| > hf_threshold` receive +`hf_boost` cost, routing the DP seam away from texture-heavy columns (strong horizontal edges) toward smooth background corridors. `ASP_HF_SEAM_COST=1`.
 - Complements §3.15A column barrier (fg-interior percentage) and §3.15B mesh barrier (Delaunay triangles) with a texture-based signal.
@@ -325,7 +349,7 @@
 
 *Implements §3.16B HITL per-test preset system, §3.5B CamFlow background-masked phase correlation, and §2.10A flow HITL callback checkpoint.*
 
-### §3.16B — HITL Per-Test Preset System (`backend/src/anim/hitl_presets.py`)
+### §3.16B — HITL Per-Test Preset System (`backend/src/animation/hitl_presets.py`)
 
 **Pain point:** The 4 confirmed genuine SCANS fallbacks (tests 54, 59, 73, 89) fail upstream due to 2D/curved camera motion that bundle adjustment cannot model. Manual HITL corrections via shipped HITL dialogs (SelectionReview §2.1, EdgeReview §2.2, CanvasInspector §2.3) need a persistence layer to auto-apply on re-runs.
 
@@ -336,10 +360,10 @@
 - `list_hitl_presets(base_dir)` — returns sorted list of test names with saved presets.
 - `apply_hitl_preset(pipeline_state, preset)` — applies `force_scans`, `drop_edges`, `forced_boundaries`, `scroll_axis_override` to a pipeline state dict.
 - Wired in `pipeline.py`: after `image_paths` sorting, derive `_test_name = Path(image_paths[0]).parent.name`, call `load_hitl_preset(_test_name)`. If `force_scans` → immediate SCANS fallback. After `_filter_edges`, apply `drop_edges` override.
-- `"ASP_HITL_PRESET_DIR"` added to `_CONFIG_SCHEMA` in `config.py`. `HITL_PRESET_DIR_DEFAULT` added to `constants/anim.py`.
+- `"ASP_HITL_PRESET_DIR"` added to `_CONFIG_SCHEMA` in `config.py`. `HITL_PRESET_DIR_DEFAULT` added to `constants/animation.py`.
 - 5 tests `TestHitlPreset` in `test_hitl_presets.py`: round-trip, missing→None, list presets, drop_edges apply, force_scans apply.
 
-### §3.5B — CamFlow Background-Masked Phase Correlation (`backend/src/anim/cam_flow.py`)
+### §3.5B — CamFlow Background-Masked Phase Correlation (`backend/src/animation/cam_flow.py`)
 
 **Pain point:** Phase correlation on whole-frame thumbnails conflates camera pan with character animation. A "50px displacement" may be 5px camera + 45px arm swing. The existing `ASP_TWO_CHANNEL_SELECT` path was a prototype; this formalizes it as a proper module with a cleaner API.
 
@@ -347,10 +371,10 @@
 - `bg_masked_phase_correlate(frame_a, frame_b, bg_mask_a, bg_mask_b, min_bg_pixels) → (dx, dy, response)` — zeros out foreground pixels in both grayscale frames before `cv2.phaseCorrelate`. Falls back to whole-frame if `combined_bg.sum() < min_bg_pixels` (`CAM_FLOW_MIN_BG_PIXELS=500`).
 - `CamFlowEstimator(min_bg_pixels)` — stateless wrapper.
 - Wired in `frame_selection.py`: `_CAMFLOW = os.environ.get("ASP_CAMFLOW", "")`. When `_CAMFLOW == "bg_masked"` and `_bg_thumb_mask` is available, routes phase correlation through `bg_masked_phase_correlate` before the existing `_TWO_CHANNEL_SELECT` path.
-- `"ASP_CAMFLOW"` added to `_CONFIG_SCHEMA`. `CAM_FLOW_MIN_BG_PIXELS=500` added to `constants/anim.py`.
+- `"ASP_CAMFLOW"` added to `_CONFIG_SCHEMA`. `CAM_FLOW_MIN_BG_PIXELS=500` added to `constants/animation.py`.
 - 5 tests `TestBgMaskedPhaseCorrelate` in `test_cam_flow.py`: no-mask tuple, bg-masked shift detection, insufficient-bg fallback, zero-shift estimator, vertical-shift estimator.
 
-### §2.10A — Flow HITL Callback Checkpoint (`backend/src/anim/compositing.py`)
+### §2.10A — Flow HITL Callback Checkpoint (`backend/src/animation/compositing.py`)
 
 **Pain point:** When Stage 8.5 escalates to single-pose (post_warp_diff > threshold), there is no hook for external code (GUI or test harness) to inject a user-corrected flow field and attempt re-registration before committing to single-pose.
 
@@ -369,18 +393,18 @@
 
 *Implements §3.15B OBJ-GSP Triangular Mesh Barrier and §2.8 HybridStitch Export.*
 
-### §3.15B — OBJ-GSP Triangular Mesh Barrier (`backend/src/anim/compositing.py`)
+### §3.15B — OBJ-GSP Triangular Mesh Barrier (`backend/src/animation/compositing.py`)
 
 **Pain point:** §3.15A raised fg-dominated *columns* to cost=2.0 (soft barrier), but the DP seam can still route diagonally through the fg interior if no column is cleanly fg-free. The OBJ-GSP mesh approach builds a hard barrier at the actual fg *shape boundary*, forcing the seam into background-only corridors.
 
 **Implementation:**
 - `_build_fg_mesh_barrier(apply_mask, min_area_px=100) → np.ndarray` — `cv2.findContours` on fg mask → stack all contour points → `scipy.spatial.Delaunay` triangulation → `cv2.fillConvexPoly` each simplex with cost=1e6. Returns zeros for empty mask, tiny-area contours (< `min_area_px`), or < 4 contour points (degenerate).
-- Module flag `_MESH_BARRIER: bool` at module level. `ASP_MESH_BARRIER=1` to enable (default OFF). `MESH_BARRIER_MIN_AREA_PX=100` in `constants/anim.py`. `"ASP_MESH_BARRIER"` added to `_CONFIG_SCHEMA`.
+- Module flag `_MESH_BARRIER: bool` at module level. `ASP_MESH_BARRIER=1` to enable (default OFF). `MESH_BARRIER_MIN_AREA_PX=100` in `constants/animation.py`. `"ASP_MESH_BARRIER"` added to `_CONFIG_SCHEMA`.
 - Wired in `_build_seam_cost_map` after §3.15A column filter: combines `bg_mask_a` / `bg_mask_b` fg zones (union), resizes if needed, calls `_build_fg_mesh_barrier`, applies with `np.maximum`. Zero overhead when disabled.
 - Added `"_build_fg_mesh_barrier"` and `"_MESH_BARRIER"` to `compositing.py __all__`.
 - 5 tests `TestMeshBarrier` in `test_compositing.py`: empty mask → zeros, tiny-area → no barrier, large rect → high-cost interior, flag is bool, cost map enforces barrier with `monkeypatch`.
 
-### §2.8 — HybridStitch Export (`backend/src/anim/hybrid_export.py`)
+### §2.8 — HybridStitch Export (`backend/src/animation/hybrid_export.py`)
 
 **Pain point:** When the pipeline produces a bad stitch, there is no way to resume from mid-pipeline state for manual correction — the operator must re-run all 13 stages from scratch or guess affine parameters manually.
 
@@ -400,7 +424,7 @@
 
 *Implements §3.12A Overmix Hold-Block Sub-Pixel Averaging and §3.9 SI-FID Proxy Metric.*
 
-### §3.12A — Overmix-Style Hold-Block Sub-Pixel Averaging (`backend/src/anim/frame_selection.py`)
+### §3.12A — Overmix-Style Hold-Block Sub-Pixel Averaging (`backend/src/animation/frame_selection.py`)
 
 **Pain point:** MPEG compression introduces DCT block noise (±2–4 luma units) across frames that are part of the same animation hold (cel repeated N times). Downstream phase-correlation and ECC matching must fight through this noise, and the hold frames contribute no new spatial information — only noise averaging.
 
@@ -410,7 +434,7 @@
 - Achieves √N SNR improvement (N=2: +3 dB, N=3: +4.8 dB) on MPEG-compressed hold sequences.
 - Wired as step 3c in `smart_select_frames` after `_refine_hold_ids_by_response` (step 3b); rebinds `thumbs`, `frames_paths`, `N`, `hold_ids`.
 - Gate: `_HOLD_AVERAGE and _HOLD_THRESHOLD > 0.0` — requires hold detection to be active (MAD or dHash); `ASP_HOLD_AVERAGE=1` to enable.
-- Added to `__all__`. `HOLD_AVERAGE_ECC_ITERS=20`, `HOLD_AVERAGE_ECC_EPS=1e-3` in `constants/anim.py`. `"ASP_HOLD_AVERAGE"` in `_CONFIG_SCHEMA`.
+- Added to `__all__`. `HOLD_AVERAGE_ECC_ITERS=20`, `HOLD_AVERAGE_ECC_EPS=1e-3` in `constants/animation.py`. `"ASP_HOLD_AVERAGE"` in `_CONFIG_SCHEMA`.
 - 5 tests `TestHoldBlockAverage` in `test_frame_selection.py`: single-frame passthrough, identical block averages to same value, output lengths match, path from middle frame, ECC failure graceful fallback.
 
 ### §3.9 — SI-FID Proxy Metric (`backend/benchmark/bench_anime_stitch.py`)
@@ -421,7 +445,7 @@
 - `_compute_si_fid_score(asp_img, sim_img, patch_size=128, n_patches=32, seed=42) → Optional[float]` — samples N random patch pairs at identical locations in both images; computes Laplacian variance per patch; returns `mean(asp_var) / mean(sim_var)`. Values >1.0 mean ASP is sharper; <1.0 means simple_stitch is sharper. Returns None when images are None or smaller than patch_size.
 - `_SI_FID` / `_SI_FID_PATCH_SIZE` / `_SI_FID_N_PATCHES` module-level flags. `ASP_SI_FID=1` to enable.
 - `si_fid_ratio` wired into `_build_result` and emitted as `comparison.si_fid` in every benchmark result dict.
-- `SI_FID_PATCH_SIZE=128`, `SI_FID_N_PATCHES=32` in `constants/anim.py`. `"ASP_SI_FID"` in `_CONFIG_SCHEMA`.
+- `SI_FID_PATCH_SIZE=128`, `SI_FID_N_PATCHES=32` in `constants/animation.py`. `"ASP_SI_FID"` in `_CONFIG_SCHEMA`.
 - 5 tests `TestSiFidProxy` in `test_bench_metrics.py`: identical images → ratio ≈ 1.0, sharp asp → ratio > 1.0, sharp simple → ratio < 1.0, None image → None, too-small → None.
 
 **966 backend tests (9 skipped, 5 pre-existing fg_register torch/ptlflow failures unchanged).**
@@ -432,7 +456,7 @@
 
 *Implements §3.10 MLLM Semantic Quality Scoring and §3.1A+§3.2A AnimeInterp SGM + ConvGRU flow engine.*
 
-### §3.10 — MLLM Semantic Quality Scoring (`backend/src/anim/mllm_scorer.py`)
+### §3.10 — MLLM Semantic Quality Scoring (`backend/src/animation/mllm_scorer.py`)
 
 **Pain point:** 43 of 97 benchmark tests use `cv_metrics` verdict source (seam coherence + ghosting ratio heuristic) because no ground truth exists. This heuristic cannot catch double-image ghost artifacts or body-incoherence failures that a human would immediately spot.
 
@@ -441,12 +465,12 @@
 - `MllmScorer(model, base_url)` — `score(image_bgr)`, `is_available()`, `_encode_image(img)` (JPEG base64, max 1024px), `_parse_scores(raw)` (JSON parse + regex fallback)
 - `score_composite(image_bgr, model)` — module-level convenience wrapper; all-None on any failure
 - Calls ollama `/api/chat` via `urllib.request` (zero new deps). Structured 4-axis anime-specific prompt. 30 s timeout.
-- `MLLM_TIMEOUT_SEC=30`, `MLLM_MAX_IMAGE_DIM=1024`, `MLLM_MODEL="qwen2-vl:7b"` in `constants/anim.py`
+- `MLLM_TIMEOUT_SEC=30`, `MLLM_MAX_IMAGE_DIM=1024`, `MLLM_MODEL="qwen2-vl:7b"` in `constants/animation.py`
 - `ASP_MLLM_SCORER=1` / `ASP_MLLM_MODEL` flags. `"ASP_MLLM_SCORER"` in `_CONFIG_SCHEMA`.
 - Wired into `bench_anime_stitch.py` `_compute_all_metrics` — adds `mllm_body_coherence`, `mllm_seam_quality`, `mllm_bg_consistency`, `mllm_overall` to every benchmark result dict; `avg_mllm_overall` in summary.
 - 5 tests `TestMllmScorer` in `test_bench_metrics.py`: dataclass fields, connection-error → all-None, JSON parse, regex fallback, image resize.
 
-### §3.1A + §3.2A — AnimeInterp SGM + ConvGRU Flow Engine (`backend/src/anim/animeinterp_flow.py`)
+### §3.1A + §3.2A — AnimeInterp SGM + ConvGRU Flow Engine (`backend/src/animation/animeinterp_flow.py`)
 
 **Pain point:** DIS and SEA-RAFT both fail on flat-color anime regions (aperture problem — no gradient signal inside uniform fills). ARAP foreground registration is effectively blind in these zones, so all seams escalate to single-pose fallback and the entire §1.56–§1.86 seam gate stack never fires.
 
@@ -458,7 +482,7 @@
 - `compute_animeinterp_flow(frame_a, frame_b, n_gru_iters, weights_path) → np.ndarray[float32 (H,W,2)]` — full pipeline: trapped-ball → region features → MDM → vectorised soft-warp → optional ConvGRU refinement (n_gru_iters=0 skips GRU).
 - `AnimeInterpFlow` — class wrapper with `compute(frame_a, frame_b)` interface matching existing flow engine API.
 
-**Constants added to `constants/anim.py`:** `ANIMEINTERP_SPATIAL_SIGMA=50.0`, `ANIMEINTERP_GRU_ITERS=4`, `ANIMEINTERP_TRAPPED_BALL_MIN_R=2`, `ANIMEINTERP_TRAPPED_BALL_MAX_R=8`.
+**Constants added to `constants/animation.py`:** `ANIMEINTERP_SPATIAL_SIGMA=50.0`, `ANIMEINTERP_GRU_ITERS=4`, `ANIMEINTERP_TRAPPED_BALL_MIN_R=2`, `ANIMEINTERP_TRAPPED_BALL_MAX_R=8`.
 
 **Wired into `fg_register.py`:** `_FLOW_ENGINE` / `_USE_ANIMEINTERP` flags; `animeinterp` branch in `_dense_flow` before SEA-RAFT/DIS fallback chain. Enable: `ASP_FLOW_ENGINE=animeinterp`. `ASP_FLOW_ENGINE` and `ASP_ANIMEINTERP_WEIGHTS` added to `_CONFIG_SCHEMA`.
 
@@ -499,7 +523,7 @@
 **Implementation:**
 - `_masked_median_bg(stack, fg_stack, min_agree_frac=0.4) → np.ndarray` added to `bg_complete.py`. Uses `np.ma.median(np.ma.array(stack, mask=fg_broadcast))` — excludes fg pixels from median entirely (Overmix AnimRender principle). For all_fg pixels: unconstrained median fallback (better than ghost-average; pairs with ProPainter/NN fill). Exported in `__all__`.
 - `_MASKED_MEDIAN: bool` flag added to `rendering.py` (`ASP_MASKED_MEDIAN`, default OFF). Wires into `_render_median`'s A5 section: when enabled, all_fg pixels use `np.zeros_like(masks)` instead of `masks`, leaving them zero for `bg_complete` to fill. Zero-coverage pixels then filled by `ASP_BG_COMPLETE`.
-- `MASKED_MEDIAN_MIN_AGREE_FRAC = 0.4` added to `constants/anim.py`.
+- `MASKED_MEDIAN_MIN_AGREE_FRAC = 0.4` added to `constants/animation.py`.
 - `"ASP_MASKED_MEDIAN"` added to `_CONFIG_SCHEMA` in `config.py` (int, 0–1).
 - 5 tests `TestMaskedMedianBg` in `test_bg_complete.py`: all-bg returns plain median, fg excluded from median, all-fg stability fallback, mixed coverage, output shape.
 
@@ -514,7 +538,7 @@
 **Implementation:**
 - `_HORIZONTAL_COMPOSITE: bool` flag added to `pipeline.py` (`ASP_HORIZONTAL_COMPOSITE`, default OFF). When enabled, the Stage 9 horizontal-SCANS fallback is suppressed; pipeline continues to Stage 10+ normally.
 - `_composite_foreground` already has a horizontal fast-path at its entry (lines 3332–3336): when `tx_range >> ty_range`, it detects horizontal scroll and returns `canvas.copy()` unchanged (temporal median is already optimal for horizontal — each pixel is covered by ≤2 frames). So no new compositing logic is needed; the flag purely removes the early exit in `pipeline.py`.
-- `HORIZONTAL_FEATHER_PX = 120` added to `constants/anim.py`.
+- `HORIZONTAL_FEATHER_PX = 120` added to `constants/animation.py`.
 - `"ASP_HORIZONTAL_COMPOSITE"` added to `_CONFIG_SCHEMA` in `config.py` (int, 0–1).
 - 5 tests `TestHorizontalCompositing` in `test_compositing.py`: horizontal axis detection, flag default=False, flag attribute exists, compositing fast-path returns canvas, flag is bool.
 
@@ -522,17 +546,17 @@
 
 ---
 
-### §1.10B — Optuna Bayesian Threshold Search (`backend/src/anim/param_search.py`)
+### §1.10B — Optuna Bayesian Threshold Search (`backend/src/animation/param_search.py`)
 
 **Pain point:** The `_auto_verdict` function in `bench_anime_stitch.py` has 7 scalar thresholds (banding cutoffs, score weights) that were hand-tuned. The 43 cv_metrics tests have verdicts that depend entirely on these thresholds — Optuna TPE can find better values without re-running the pipeline.
 
 **Implementation:**
-- New `backend/src/anim/param_search.py` module. Exports `ASP_SEARCH_PARAMS` (7-param search space), `_verdict_from_config(asp_m, sim_m, cfg)` (recomputes `_auto_verdict` with configurable thresholds), `_score_config(cfg, result_data)` (objective: asp_better×2 + comparable×1 on cv_metrics tests only; GT tests excluded — their verdicts cannot be changed by threshold tuning), `run_param_search(result_json_path, n_trials, output_toml_path, n_jobs)`.
+- New `backend/src/animation/param_search.py` module. Exports `ASP_SEARCH_PARAMS` (7-param search space), `_verdict_from_config(asp_m, sim_m, cfg)` (recomputes `_auto_verdict` with configurable thresholds), `_score_config(cfg, result_data)` (objective: asp_better×2 + comparable×1 on cv_metrics tests only; GT tests excluded — their verdicts cannot be changed by threshold tuning), `run_param_search(result_json_path, n_trials, output_toml_path, n_jobs)`.
 - Search space (7 params): `severe_banding_thresh` (10–50, default 28), `severe_banding_ratio` (1.1–3.0, default 1.5), `score_margin` (1.01–1.30, default 1.10), `w_coverage` (0.1–1.0), `w_coherence` (0.05–0.8), `w_seam_gradient` (0.01–0.5), `w_ghosting` (0.01–0.5).
-- CLI: `python -m backend.src.anim.param_search --results <json> --trials 200 --out asp_config_optimized.toml`. Each trial < 1 ms (pure NumPy on stored metrics); 200 trials complete in < 1 second.
-- 5 tests `TestVerdictFromConfig` + `TestScoreConfig` (10 total) in new `backend/test/anim/test_param_search.py`.
+- CLI: `python -m backend.src.animation.param_search --results <json> --trials 200 --out asp_config_optimized.toml`. Each trial < 1 ms (pure NumPy on stored metrics); 200 trials complete in < 1 second.
+- 5 tests `TestVerdictFromConfig` + `TestScoreConfig` (10 total) in new `backend/test/animation/test_param_search.py`.
 
-**Run:** `python -m backend.src.anim.param_search --results backend/benchmark/results/anime_stitch_20260621_193956.json --trials 200 --out asp_config_optimized.toml`
+**Run:** `python -m backend.src.animation.param_search --results backend/benchmark/results/anime_stitch_20260621_193956.json --trials 200 --out asp_config_optimized.toml`
 
 ---
 
@@ -552,7 +576,7 @@
 - `_zone_pair_ssim(fa_zone, fb_zone, small_h=64) → float` — INTER_AREA resize to 64px height, greyscale conversion, `skimage.metrics.structural_similarity(data_range=255)`. Returns 1.0 (no gate) for zones with < 4 rows or < 8 cols.
 - `_ZONE_PRE_SSIM_THRESH` module flag (`ASP_ZONE_PRE_SSIM_THRESH`, default 0.0=off). Wired in blend loop after §1.70 (zone fg-coverage gate) and before the DP seam cut.
 - Gate pattern: `if score < threshold and k not in seam_single_pose → seam_single_pose[k] = dominant_frame`.
-- `ZONE_PRE_SSIM_THRESH=0.35` added to `constants/anim.py`.
+- `ZONE_PRE_SSIM_THRESH=0.35` added to `constants/animation.py`.
 - `"ASP_ZONE_PRE_SSIM_THRESH"` added to `_CONFIG_SCHEMA` in `config.py` (float, 0.0–1.0, "§1.86: Zone-SSIM floor (post-ARAP) for single-pose escalation").
 - `_zone_pair_ssim` and `_ZONE_PRE_SSIM_THRESH` exported in `__all__`.
 - 5 tests `TestZonePairSsim` in `test_compositing.py`: identical→1.0, checker-vs-solid→<0.5, thin zone→1.0, narrow zone→1.0, half-different→(0.1,0.9).
@@ -869,7 +893,7 @@ Added `[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/
 
 *Implements `moon/roadmaps/documentation.md` §6.1A, §6.3A, §6.4A, §6.6A, §6.9A, §6.14A.*
 
-### §6.1A — Python Google-style docstrings (`backend/src/anim/`)
+### §6.1A — Python Google-style docstrings (`backend/src/animation/`)
 - Converted NumPy-style docstrings to Google-style in `config.py`: `validate_asp_config`, `load_asp_config`, `get_asp`, `dump_asp_config` — added `Args:`, `Returns:`, `Example:` sections with working doctests.
 - Added full Google-style docstring to `canvas.find_optimal_sequence` (was single-line summary only).
 
@@ -940,7 +964,7 @@ Added `[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/
 **`docs/index.md` + `docs/hooks.py` (`§6.11A`)**
 - Portal home page with project-level Mermaid architecture graph (Frontend → Backend → Data layers), key entry points table, and stack version table.
 - `hooks.py`: MkDocs pre-build hook that symlinks `moon/roadmaps/*.md`, `moon/CHANGELOG.md`, `moon/ROADMAP.md`, and `reports/*.md` into the `docs/` tree without moving the source files.
-- Stub API pages created for `docs/api/python/{anim,core,models}.md` and `docs/api/rust/math.md`.
+- Stub API pages created for `docs/api/python/{animation,core,models}.md` and `docs/api/rust/math.md`.
 
 **`.github/workflows/docs.yml` (`§6.12A`)**
 - 5-job pipeline: `docs-python` (MkDocs build `--strict`), `docs-rust` (`cargo test --doc` + `cargo doc --no-deps -D warnings`), `docs-links` (lychee), `docs-typescript` (TypeDoc advisory), `deploy` (GitHub Pages on main).
@@ -948,7 +972,7 @@ Added `[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/
 - Concurrency group: cancels in-progress run on new push to the same branch.
 
 **`.pre-commit-config.yaml` (`§6.13A + §6.13D`)**
-- Hooks: pre-commit-hooks (trailing whitespace, EOF fixer, YAML/TOML/JSON check, large file guard), ruff (lint + format), pydoclint (Google-style, scoped to `backend/src/anim/`), mypy (strict modules only), lychee (Markdown link check, external caches, skips rate-limited hosts), cargo-fmt, cargo-doc-test (scoped to `base/src/math/`), tsc (type check `frontend/src/math/`).
+- Hooks: pre-commit-hooks (trailing whitespace, EOF fixer, YAML/TOML/JSON check, large file guard), ruff (lint + format), pydoclint (Google-style, scoped to `backend/src/animation/`), mypy (strict modules only), lychee (Markdown link check, external caches, skips rate-limited hosts), cargo-fmt, cargo-doc-test (scoped to `base/src/math/`), tsc (type check `frontend/src/math/`).
 
 ---
 
@@ -1029,7 +1053,7 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 
 ---
 
-## Perf — §3.15 — Non-anim Import Isolation: image_merger + vault_manager (2026-06-18)
+## Perf — §3.15 — Non-animation Import Isolation: image_merger + vault_manager (2026-06-18)
 
 ### Shipped
 
@@ -1041,7 +1065,7 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 
 ### Stats
 
-- `image_merger` net import cost: **~3 s+ → 0.50 s above baseline** (BiRefNetWrapper + LoFTRWrapper + full anim pipeline removed from collection-time load)
+- `image_merger` net import cost: **~3 s+ → 0.50 s above baseline** (BiRefNetWrapper + LoFTRWrapper + full animation pipeline removed from collection-time load)
 - `vault_manager` net import cost: **0.47 s above baseline** (jpype guarded)
 - All 16 tracked modules pass 1.5 s threshold
 - 8 image_merger + vault_manager tests pass (0 regressions)
@@ -1055,13 +1079,13 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 | Item | Summary |
 |------|---------|
 | **§3.13B `gc_heavy_cleanup` fixture** (`conftest.py`) | New `@pytest.fixture(autouse=True, scope="function")` `gc_heavy_cleanup`: calls `gc.collect()` after a test only when it carries `@pytest.mark.gc_heavy`. Zero overhead for the ~880 tests that don't need GC. |
-| **§3.13C `gc.collect()` removed from `resource_cleanup`** (`conftest.py`) | `gc.collect()` removed from the module-scoped `resource_cleanup` fixture. CPython reference counting frees non-cyclic objects (numpy arrays, dicts) immediately on scope exit; no cyclic references found in the anim test suite. Only the `ASP_TEST_CUDA_CLEANUP`-gated CUDA flush remains. |
+| **§3.13C `gc.collect()` removed from `resource_cleanup`** (`conftest.py`) | `gc.collect()` removed from the module-scoped `resource_cleanup` fixture. CPython reference counting frees non-cyclic objects (numpy arrays, dicts) immediately on scope exit; no cyclic references found in the animation test suite. Only the `ASP_TEST_CUDA_CLEANUP`-gated CUDA flush remains. |
 | **`@pytest.mark.gc_heavy` applied** (3 files) | `test_compositing.py::TestCompositeForeground` and `TestParallelSeamPrecompute` marked (multi-frame `_composite_foreground` calls + seam DP cost maps). `test_filter_edges.py` marked at module level via `pytestmark` (all tests create 5-frame stacks at 480×640 ≈ 4.5 MB). `test_hitl_session.py::TestNdarrayCodec::test_large_array_is_skipped` marked (16 MB float32 array). |
 
 ### Stats
 
 - GC calls per full suite run: **931 (function) → 19 (module) → ~40 (gc_heavy only)** — 23× reduction vs module-scoped, 23× reduction vs the prior implementation
-- 917 anim tests pass (0 regressions)
+- 917 animation tests pass (0 regressions)
 
 ---
 
@@ -1079,19 +1103,19 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 
 ### Stats
 
-- Import time (net above baseline, 14 anim modules): **1.6–2.4 s → 0.67–0.80 s** (all pass 1.5 s threshold)
+- Import time (net above baseline, 14 animation modules): **1.6–2.4 s → 0.67–0.80 s** (all pass 1.5 s threshold)
 - Root bottlenecks eliminated: `efficient_loftr_wrapper → transformers` (1.35 s), `loftr_wrapper/aliked → kornia` (168 ms each), `birefnet_wrapper → transformers` (via __init__.py chain), `torchvision.models` (464 ms)
-- 917 anim tests pass (0 new failures); 5 pre-existing fg_register failures unchanged
+- 917 animation tests pass (0 new failures); 5 pre-existing fg_register failures unchanged
 
 ---
 
-## Perf — §3.14 Phase 2 — Full Audit — Heavy-Import Isolation Across All Anim Modules (2026-06-18)
+## Perf — §3.14 Phase 2 — Full Audit — Heavy-Import Isolation Across All animation Modules (2026-06-18)
 
 ### Shipped
 
 | Item | Summary |
 |------|---------|
-| **`masking.py` — SAM-2 lazy import + "Relocated" block cleanup** | Deleted 18-line "Relocated Nested Imports" block (3× duplicate `from sam2.build_sam import build_sam2_video_predictor`, duplicate `torch`, `os`, `tempfile`). `import torch` at module level wrapped in `try/except ImportError`. `build_sam2_video_predictor` moved to lazy function-level import inside existing `try/except Exception` blocks. `_detect_best_box` from `backend.src.anim.grounding` moved to lazy import with `ImportError → fallback` guard. |
+| **`masking.py` — SAM-2 lazy import + "Relocated" block cleanup** | Deleted 18-line "Relocated Nested Imports" block (3× duplicate `from sam2.build_sam import build_sam2_video_predictor`, duplicate `torch`, `os`, `tempfile`). `import torch` at module level wrapped in `try/except ImportError`. `build_sam2_video_predictor` moved to lazy function-level import inside existing `try/except Exception` blocks. `_detect_best_box` from `backend.src.animation.grounding` moved to lazy import with `ImportError → fallback` guard. |
 | **`rendering.py` — sklearn KMeans lazy import** | `from sklearn.cluster import KMeans` removed from module level; moved to lazy import inside the existing `try/except ImportError` at the call site. sklearn (~200 ms import) no longer loaded at pytest collection time. |
 | **`frame_selection.py` — torch/torchvision/PIL + BiRefNetWrapper** | Deleted 9-line "Relocated Nested Imports" block. Replaced with two `try/except ImportError` guards: one for `torch`/`torchvision`/`PIL.Image`, one for `BiRefNetWrapper`. Removed all six `# relocated:` comments in function bodies. `torch.cuda.is_available()` guarded with `torch is not None` checks. |
 | **`matching.py` — torch lazy import** | `import torch` → `try/except ImportError`. |
@@ -1099,10 +1123,10 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 
 ### Stats
 
-- 5 modules edited; 547 anim tests pass (0 regressions); all 5 modules import cleanly
+- 5 modules edited; 547 animation tests pass (0 regressions); all 5 modules import cleanly
 - `sam2` no longer loads at pytest collection time — eliminates ~600 MB VRAM and ~2 s startup cost per worker
 - `sklearn` no longer loads at collection time — eliminates ~200 ms per worker
-- §3.14 Option A (comprehensive anim module audit) now fully complete
+- §3.14 Option A (comprehensive animation module audit) now fully complete
 
 ---
 
@@ -1113,18 +1137,18 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 | Item | Summary |
 |------|---------|
 | **§3.12B pytest-forked — DINOv2 subprocess isolation** (`test_frame_selection.py`) | `TestDINOv2Features` marked `@pytest.mark.gpu` + `@pytest.mark.forked`. Each DINOv2 test now runs in an isolated `fork()` subprocess (pytest-forked 1.6.0). When the subprocess exits, the OS reclaims the ~300 MB DINOv2-ViT-S/14 VRAM entirely — no longer polluting the remaining 900+ test session. |
-| **§3.12A pytest-xdist parallel execution** (`pyproject.toml`) | `pytest-xdist` 3.8.0 installed. Verified: `pytest backend/test/anim/ -n auto --dist=worksteal --skip-gpu` passes with identical failure count (6 pre-existing), 9 skipped. Multiple worker processes each with independent RSS bounds. `pyproject.toml` documents recommended invocations; `addopts` left empty (parallel is opt-in). |
+| **§3.12A pytest-xdist parallel execution** (`pyproject.toml`) | `pytest-xdist` 3.8.0 installed. Verified: `pytest backend/test/animation/ -n auto --dist=worksteal --skip-gpu` passes with identical failure count (6 pre-existing), 9 skipped. Multiple worker processes each with independent RSS bounds. `pyproject.toml` documents recommended invocations; `addopts` left empty (parallel is opt-in). |
 | **§3.10 RC#2 — @pytest.mark.gpu + --skip-gpu CLI flag** (`conftest.py`) | `pytest_addoption` hook registers `--skip-gpu` flag; `pytest_collection_modifyitems` adds `skip` marker to all `@pytest.mark.gpu` items when active. `pytest_configure` registers all three custom markers. `TestDINOv2Features` marked `@pytest.mark.gpu` (test_frame_selection.py); `TestComputeRlhfScore` marked `@pytest.mark.gpu` (test_bench_metrics.py). Fast CI loops run `--skip-gpu` and never touch GPU memory. |
 
 ### Stats
 
 - `backend/test/conftest.py`: +`pytest_addoption`, +`pytest_configure`, +`pytest_collection_modifyitems` hooks (~45 lines); `--skip-gpu` flag wired
-- `backend/test/anim/test_frame_selection.py`: `TestDINOv2Features` → `@pytest.mark.gpu` + `@pytest.mark.forked`
-- `backend/test/anim/test_bench_metrics.py`: `TestComputeRlhfScore` → `@pytest.mark.gpu`
+- `backend/test/animation/test_frame_selection.py`: `TestDINOv2Features` → `@pytest.mark.gpu` + `@pytest.mark.forked`
+- `backend/test/animation/test_bench_metrics.py`: `TestComputeRlhfScore` → `@pytest.mark.gpu`
 - `pyproject.toml`: markers updated; §3.12A xdist usage documented
 - Dependencies added: `pytest-xdist==3.8.0`, `pytest-forked==1.6.0`, `execnet==2.1.2`, `py==1.11.0`
 - All 5 §3.10 root causes now ✅; §3.11, §3.12, §3.13, §3.14 fully implemented
-- 900 anim tests passing serially; 894 + 9 skipped under `-n auto --skip-gpu`
+- 900 animation tests passing serially; 894 + 9 skipped under `-n auto --skip-gpu`
 
 ---
 
@@ -1142,12 +1166,12 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 
 ### Stats
 
-- `backend/src/anim/compositing.py`: +`_SEAM_POOL`, +`_get_seam_pool()`, `torch` import wrapped in try/except, `ThreadPoolExecutor` context-manager removed (singleton now manages lifetime)
-- `backend/src/anim/bg_complete.py`: unconditional `import torch` wrapped in `try/except ImportError`
+- `backend/src/animation/compositing.py`: +`_SEAM_POOL`, +`_get_seam_pool()`, `torch` import wrapped in try/except, `ThreadPoolExecutor` context-manager removed (singleton now manages lifetime)
+- `backend/src/animation/bg_complete.py`: unconditional `import torch` wrapped in `try/except ImportError`
 - `backend/test/conftest.py`: `resource_cleanup` scope → `module`; new `clear_ml_singletons` session fixture (~55 lines)
 - `pyproject.toml`: 3 pytest markers registered
 - `moon/roadmaps/performance.md`: §3.10 RC#3/RC#4 marked ✅; §3.11, §3.13, §3.14 headings upgraded to ✅; §3.12 partial ✅; effort matrix updated
-- 858 anim tests passing (6 pre-existing failures unrelated to this work; 2 skipped)
+- 858 animation tests passing (6 pre-existing failures unrelated to this work; 2 skipped)
 
 ---
 
@@ -1157,24 +1181,24 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 
 | Item | Summary |
 |------|---------|
-| **§3.13 ProPainter Stage 4.7** (`bg_complete.py` → `_propainter_complete_frames`; `pipeline.py` → Stage 4.7) | Multi-frame background inpainting inserted between Stage 4 (BiRefNet) and Stage 5 (phase correlation). `ProPainterInference.inpaint(frames, masks)` → `cv2.COLOR_BGR↔RGB`; NN-fill fallback when ProPainter unavailable. `ASP_PROPAINTER=1` flag + `ASP_PROPAINTER_DEVICE` (default `cpu`). `PROPAINTER_DEVICE` constant in `constants/anim.py`. Schema entries added to `config.py`. 5 new tests in `TestProPainterCompleteFrames`. |
+| **§3.13 ProPainter Stage 4.7** (`bg_complete.py` → `_propainter_complete_frames`; `pipeline.py` → Stage 4.7) | Multi-frame background inpainting inserted between Stage 4 (BiRefNet) and Stage 5 (phase correlation). `ProPainterInference.inpaint(frames, masks)` → `cv2.COLOR_BGR↔RGB`; NN-fill fallback when ProPainter unavailable. `ASP_PROPAINTER=1` flag + `ASP_PROPAINTER_DEVICE` (default `cpu`). `PROPAINTER_DEVICE` constant in `constants/animation.py`. Schema entries added to `config.py`. 5 new tests in `TestProPainterCompleteFrames`. |
 | **§2.9A LandmarkEditorDialog** (`gui/src/dialogs/landmark_editor_dialog.py`) | ~260-line PySide6 QDialog: side-by-side frame thumbnails, alternating left/right click pattern, color-coded markers (red #1, green #2, …), undo/clear. `landmark_pairs()` returns `List[Tuple[Tuple[float,float],Tuple[float,float]]]` in image-pixel space. `_build_landmark_affine(i,j,pairs,weight=0.95)` in `pipeline.py`: 1 pair → centroid translation; 2 pairs → `estimateAffinePartial2D` (4-DOF); 3+ pairs → `estimateAffine2D` LMEDS (6-DOF). Wired into `EdgeReviewDialog` via "Landmark Editor…" toolbar button. |
 | **§2.10C User-drawn flow field** (`fg_register.py` → `_sparse_flow_to_dense`; `compositing.py` → `flow_override` wiring; `seam_diagnostic_dialog.py` → `_FlowArrowCanvas`) | `_sparse_flow_to_dense(flow_arrows, H, W)` uses `scipy.interpolate.RBFInterpolator(kernel="thin_plate_spline")`, nearest-neighbour fallback. `register_foreground_at_seam(flow_override=)` skips RAFT/DIS when a (H,W,2) override is provided. `SeamDiagnosticDialog` gains `_FlowArrowCanvas` (orange click-drag arrows), "↗ Draw Flow" toggle, "Clear Flow" button; `get_overrides()` now includes `"flow_arrows"`. |
 | **⚠ Test-suite freeze: Root Cause #1 fixed** (`anim_fill.py`, `compositing.py`) | `from diffusers import DiffusionPipeline` was unconditional at module level in `anim_fill.py` — triggered full HuggingFace ecosystem import (transformers, tokenizers Rayon pool, accelerate) at pytest collection time, consuming ~800 MB–1.5 GB RAM before any test ran. Moved to lazy import inside `_load_tooncrafter()`. `torch` import in `anim_fill.py` wrapped in `try/except`. Duplicate imports in `compositing.py` (lines 29–32) deduplicated. Root Causes #2–#5 (model singletons, ThreadPoolExecutor storm, per-test gc.collect(), no process isolation) documented in `performance.md §3.10–§3.14` as **CRITICAL** with fix options. |
 
 ### Stats
 
-- `backend/src/anim/bg_complete.py`: +`_propainter_complete_frames`, updated `__all__`
-- `backend/src/anim/pipeline.py`: +Stage 4.7, +`_build_landmark_affine`, +`_PROPAINTER` flag, updated `__all__`
-- `backend/src/constants/anim.py`: +`PROPAINTER_DEVICE`
-- `backend/src/anim/config.py`: +2 schema entries (`ASP_PROPAINTER`, `ASP_PROPAINTER_DEVICE`)
+- `backend/src/animation/bg_complete.py`: +`_propainter_complete_frames`, updated `__all__`
+- `backend/src/animation/pipeline.py`: +Stage 4.7, +`_build_landmark_affine`, +`_PROPAINTER` flag, updated `__all__`
+- `backend/src/constants/animation.py`: +`PROPAINTER_DEVICE`
+- `backend/src/animation/config.py`: +2 schema entries (`ASP_PROPAINTER`, `ASP_PROPAINTER_DEVICE`)
 - `gui/src/dialogs/landmark_editor_dialog.py`: new file, ~260 lines
 - `gui/src/dialogs/edge_review_dialog.py`: +`_on_landmark_edit()`, "Landmark Editor…" button
-- `backend/src/anim/fg_register.py`: +`_sparse_flow_to_dense`, +`flow_override` param to `register_foreground_at_seam`
-- `backend/src/anim/compositing.py`: +`flow_arrows` → `_sparse_flow_to_dense` wiring; duplicate imports removed
-- `backend/src/anim/anim_fill.py`: lazy diffusers import (freeze fix)
+- `backend/src/animation/fg_register.py`: +`_sparse_flow_to_dense`, +`flow_override` param to `register_foreground_at_seam`
+- `backend/src/animation/compositing.py`: +`flow_arrows` → `_sparse_flow_to_dense` wiring; duplicate imports removed
+- `backend/src/animation/anim_fill.py`: lazy diffusers import (freeze fix)
 - `gui/src/dialogs/seam_diagnostic_dialog.py`: +`_FlowArrowCanvas`, "Draw Flow" controls, `flow_arrows` in `get_overrides()`
-- `backend/test/anim/test_bg_complete.py`: +5 tests → **928 backend tests total (2 skipped)**
+- `backend/test/animation/test_bg_complete.py`: +5 tests → **928 backend tests total (2 skipped)**
 - `moon/roadmaps/performance.md`: +CRITICAL §3.10–§3.14 (test-suite freeze root causes + fix options)
 - 3 roadmap items marked ✅: §3.13, §2.9A, §2.10C
 
@@ -1192,11 +1216,11 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 
 ### Stats
 
-- `backend/src/anim/compositing.py`: +~200 lines (§1.83 + §1.84 + §1.85, updated `__all__`)
-- `backend/src/anim/pipeline.py`: +3 imports, +23 module-flag lines, +65 wiring lines (Stages 11.16–11.18)
-- `backend/src/constants/anim.py`: +3 constants (`SEAM_NOISE_GATE_THRESH`, `SEAM_CONTRAST_GATE_THRESH`, `SEAM_ENSEMBLE_MIN_VOTES`)
-- `backend/src/anim/config.py`: +3 schema entries + 3 `_DUMP_SECTIONS["compositing"]` keys
-- `backend/test/anim/test_compositing.py`: +15 tests → **928 backend tests total (2 skipped)**
+- `backend/src/animation/compositing.py`: +~200 lines (§1.83 + §1.84 + §1.85, updated `__all__`)
+- `backend/src/animation/pipeline.py`: +3 imports, +23 module-flag lines, +65 wiring lines (Stages 11.16–11.18)
+- `backend/src/constants/animation.py`: +3 constants (`SEAM_NOISE_GATE_THRESH`, `SEAM_CONTRAST_GATE_THRESH`, `SEAM_ENSEMBLE_MIN_VOTES`)
+- `backend/src/animation/config.py`: +3 schema entries + 3 `_DUMP_SECTIONS["compositing"]` keys
+- `backend/test/animation/test_compositing.py`: +15 tests → **928 backend tests total (2 skipped)**
 - 3 roadmap items marked ✅: §1.83, §1.84, §1.85; stale §3.16A removed from pending matrix
 
 ---
@@ -1349,7 +1373,7 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 
 | Item | Summary |
 |------|---------|
-| **0.7 Diagonal canvas-span vector magnitude** (`backend/src/anim/validation.py`) | `_compute_adaptive_min_gap` now calls `_detect_scroll_axis` and uses axis-appropriate span: `dx_span` for horizontal, `dy_span` for vertical, and `sqrt(dy_span² + dx_span²)` for diagonal. The previous `max(dy_span, dx_span)` underestimated the actual path length by up to 1.41× for 45° diagonal pans, resulting in adaptive min-gap thresholds that were too low — allowing near-duplicate diagonal-pan frames to pass validation unchallenged. All 34 existing affine validation tests pass. |
+| **0.7 Diagonal canvas-span vector magnitude** (`backend/src/animation/validation.py`) | `_compute_adaptive_min_gap` now calls `_detect_scroll_axis` and uses axis-appropriate span: `dx_span` for horizontal, `dy_span` for vertical, and `sqrt(dy_span² + dx_span²)` for diagonal. The previous `max(dy_span, dx_span)` underestimated the actual path length by up to 1.41× for 45° diagonal pans, resulting in adaptive min-gap thresholds that were too low — allowing near-duplicate diagonal-pan frames to pass validation unchallenged. All 34 existing affine validation tests pass. |
 
 ### Stats
 
@@ -1364,7 +1388,7 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 
 | Item | Summary |
 |------|---------|
-| **0.4 A5 — Foreground-excluded temporal median** (`backend/src/anim/rendering.py`) | `_render_median` now builds `bg_canvas[i]` — a per-frame boolean mask that marks warped-background pixels (BiRefNet `bg_masks[i] > 127`). Before the nanmedian, `eff_masks` is derived: pixels with ≥1 background sample use only background-marked frames; pixels with zero background samples (character always covers them) fall back to all geometrically-valid frames so no holes appear. The fade-in/fade-out ramp sections also use `eff_masks`. Flag `_FG_EXCLUDE_MEDIAN = True` by default; disable with `ASP_FG_EXCLUDE_MEDIAN=0`. All `print()` calls in the renderer migrated to `logger.info/debug`. |
+| **0.4 A5 — Foreground-excluded temporal median** (`backend/src/animation/rendering.py`) | `_render_median` now builds `bg_canvas[i]` — a per-frame boolean mask that marks warped-background pixels (BiRefNet `bg_masks[i] > 127`). Before the nanmedian, `eff_masks` is derived: pixels with ≥1 background sample use only background-marked frames; pixels with zero background samples (character always covers them) fall back to all geometrically-valid frames so no holes appear. The fade-in/fade-out ramp sections also use `eff_masks`. Flag `_FG_EXCLUDE_MEDIAN = True` by default; disable with `ASP_FG_EXCLUDE_MEDIAN=0`. All `print()` calls in the renderer migrated to `logger.info/debug`. |
 
 ### Stats
 
@@ -1379,7 +1403,7 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 
 | Item | Summary |
 |------|---------|
-| **3.4 SRStitcher diffusion border fill** (`backend/src/anim/pipeline.py`) | P1.8 (border gap fill) in `run()` now branches on `self.sr_mode and _SRSTITCHER_OK`. When `sr_mode=True` and diffusers are available: calls `border_diffusion_fill(canvas, device=…)` from `sr_stitcher.py` — stable-diffusion inpainting model produces style-consistent cel-shaded fills for diagonal-pan panorama black corners. Falls back to TELEA on model failure. When `sr_mode=False` (default): existing MFSR `inpaint_gaps` → TELEA path unchanged. `border_diffusion_fill` and `_SRSTITCHER_OK` were already imported from `sr_stitcher.py` (line 183) but unused; now wired. |
+| **3.4 SRStitcher diffusion border fill** (`backend/src/animation/pipeline.py`) | P1.8 (border gap fill) in `run()` now branches on `self.sr_mode and _SRSTITCHER_OK`. When `sr_mode=True` and diffusers are available: calls `border_diffusion_fill(canvas, device=…)` from `sr_stitcher.py` — stable-diffusion inpainting model produces style-consistent cel-shaded fills for diagonal-pan panorama black corners. Falls back to TELEA on model failure. When `sr_mode=False` (default): existing MFSR `inpaint_gaps` → TELEA path unchanged. `border_diffusion_fill` and `_SRSTITCHER_OK` were already imported from `sr_stitcher.py` (line 183) but unused; now wired. |
 
 ### Stats
 
@@ -1424,7 +1448,7 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 
 | Item | Summary |
 |------|---------|
-| **2.11 StitchTab before/after toggle + quality metrics overlay** (`gui/src/tabs/anim/stitch_tab.py`) | After stitch completes, `_show_stitch_result()` loads the result pixmap and the first source frame. A "◀ Before / After ▶" toggle button (`QPushButton`, checkable) swaps between them via `_toggle_before_after`. A 100–200 px result preview `QLabel` is shown in a previously hidden group box below the log. `_MetricsTask` (QRunnable) computes Laplacian variance sharpness + file size + dimensions off the main thread; result emitted via `_MetricsSignals.ready` signal into the metrics overlay label. All new code in two new classes (`_MetricsSignals`, `_MetricsTask`) and four new methods. |
+| **2.11 StitchTab before/after toggle + quality metrics overlay** (`gui/src/tabs/animation/stitch_tab.py`) | After stitch completes, `_show_stitch_result()` loads the result pixmap and the first source frame. A "◀ Before / After ▶" toggle button (`QPushButton`, checkable) swaps between them via `_toggle_before_after`. A 100–200 px result preview `QLabel` is shown in a previously hidden group box below the log. `_MetricsTask` (QRunnable) computes Laplacian variance sharpness + file size + dimensions off the main thread; result emitted via `_MetricsSignals.ready` signal into the metrics overlay label. All new code in two new classes (`_MetricsSignals`, `_MetricsTask`) and four new methods. |
 | **4.3 Weekly scheduled ASP benchmark CI** (`.github/workflows/benchmark.yml`) | Added `schedule: cron: "0 6 * * 1"` trigger (every Monday 06:00 UTC). Catches dep-induced regressions (e.g. scipy minor bump) that don't touch the codebase. Push-to-main and `workflow_dispatch` triggers retained. |
 
 ### Stats
@@ -1457,7 +1481,7 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 | Item | Summary |
 |------|---------|
 | **1.7 Rust DynamicImage move semantics** (`base/src/core/image_converter.rs`, `image_merger.rs`) | `apply_ar_transform` and `fast_resize` now take ownership of `DynamicImage` instead of a shared reference. No-op paths (no AR transform, same-size resize) return the owned value directly — eliminating an unconditional `img.clone()` that allocated ~30 MB for 4K RGBA images. Call sites updated: `let w = img.width(); fast_resize(img, w, max_h)` binds dimensions before the move. `cargo check` verified clean. |
-| **3.11 PyTorch GPU temporal median** (`backend/src/anim/rendering.py`) | All 5 `np.nanmedian(…, axis=0)` calls in `_render_median` replaced with `_gpu_nanmedian()`. Covered: Case 2 main median (1 call), vertical fade-in/fade-out (2 calls), horizontal fade-in/fade-out (2 calls). `_gpu_nanmedian` is off by default (`ASP_GPU_MEDIAN=0`); enable with `ASP_GPU_MEDIAN=1`. Lazy CUDA detection via module-level `_cuda_available: Optional[bool] = None`; falls back to numpy on import failure, no CUDA, or any runtime error. On GPU: `np.ndarray → torch.from_numpy().cuda() → torch.nanmedian(dim=0).values.cpu().numpy()`. |
+| **3.11 PyTorch GPU temporal median** (`backend/src/animation/rendering.py`) | All 5 `np.nanmedian(…, axis=0)` calls in `_render_median` replaced with `_gpu_nanmedian()`. Covered: Case 2 main median (1 call), vertical fade-in/fade-out (2 calls), horizontal fade-in/fade-out (2 calls). `_gpu_nanmedian` is off by default (`ASP_GPU_MEDIAN=0`); enable with `ASP_GPU_MEDIAN=1`. Lazy CUDA detection via module-level `_cuda_available: Optional[bool] = None`; falls back to numpy on import failure, no CUDA, or any runtime error. On GPU: `np.ndarray → torch.from_numpy().cuda() → torch.nanmedian(dim=0).values.cpu().numpy()`. |
 
 ### Stats
 
@@ -1475,7 +1499,7 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 |------|---------|
 | **1.12 `uv lock` + frozen CI install** | `uv.lock` already committed. `.github/workflows/ci.yml` created: two jobs — `lint` (import-linter + mypy on strict modules) and `test-models` (36 model contract tests); both use `uv sync --frozen --group dev --no-install-project` so the Rust extension is never compiled in CI; uv cache keyed on `uv.lock` hash for fast reruns. `pip-audit>=2.9.0` and `numpy>=2.3.4` added to `[dependency-groups.dev]` in `pyproject.toml`; lockfile regenerated. |
 | **2.15 `pip-audit` + `cargo audit` in CI** | `.github/workflows/security.yml` created: weekly (Monday 08:00 UTC) + `workflow_dispatch`. `pip-audit` job: exports frozen requirements via `uv export`, scans with `pip-audit --requirement`, uploads JSON report as artifact, fails on any CVE. `cargo-audit` job: installs `cargo-audit` via `taiki-e/install-action`, runs `cargo audit --json` in `base/`, uploads JSON report, fails on any vulnerability. |
-| **3.14 ASP regression gate CI** | `.github/workflows/benchmark.yml` created: runs on every push to main. Executes the full `backend/test/anim/` suite (827 unit tests, <60 s total, no GPU) via `uv sync --frozen --group dev --no-install-project`. Uploads `.pytest_cache/` as CI artifact (14-day retention). Any test regression fails the build before merge. **Roadmap items 3.13 + 3.14 both complete** — the 827 unit tests covering `bundle_adjust`, `compositing`, `frame_selection`, `canvas`, `pipeline`, `matching`, `validation`, `config`, and `fg_register` now run automatically as the regression gate. |
+| **3.14 ASP regression gate CI** | `.github/workflows/benchmark.yml` created: runs on every push to main. Executes the full `backend/test/animation/` suite (827 unit tests, <60 s total, no GPU) via `uv sync --frozen --group dev --no-install-project`. Uploads `.pytest_cache/` as CI artifact (14-day retention). Any test regression fails the build before merge. **Roadmap items 3.13 + 3.14 both complete** — the 827 unit tests covering `bundle_adjust`, `compositing`, `frame_selection`, `canvas`, `pipeline`, `matching`, `validation`, `config`, and `fg_register` now run automatically as the regression gate. |
 
 ### Stats
 
@@ -1508,7 +1532,7 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 
 | Item | Summary |
 |------|---------|
-| **A.17 `import-linter` contracts** (`pyproject.toml`) | `import-linter>=2.0` added to `[dependency-groups.dev]`. Three enforced contracts under `[tool.importlinter]`: (1) **Backend core no GUI** — `backend.src.{models,anim,core,web,pipeline,constants,exceptions,utils}` forbidden from importing `gui.*`; scoped to exclude `backend.src.app` (intentional app launcher), `backend.benchmark`, `backend.test`. (2) **`gui.src.utils` is leaf** — lowest GUI layer forbidden from importing tabs, helpers, windows, components, or classes. (3) **`gui.src.classes` no tabs** — gallery base classes forbidden from importing `gui.src.tabs`; `ignore_imports` allows the one deferred `_show_status` call into `gui.src.windows`. All 3 contracts: 0 broken on 397 files / 752 dependencies. Run: `PYTHONPATH=. lint-imports`. |
+| **A.17 `import-linter` contracts** (`pyproject.toml`) | `import-linter>=2.0` added to `[dependency-groups.dev]`. Three enforced contracts under `[tool.importlinter]`: (1) **Backend core no GUI** — `backend.src.{models,animation,core,web,pipeline,constants,exceptions,utils}` forbidden from importing `gui.*`; scoped to exclude `backend.src.app` (intentional app launcher), `backend.benchmark`, `backend.test`. (2) **`gui.src.utils` is leaf** — lowest GUI layer forbidden from importing tabs, helpers, windows, components, or classes. (3) **`gui.src.classes` no tabs** — gallery base classes forbidden from importing `gui.src.tabs`; `ignore_imports` allows the one deferred `_show_status` call into `gui.src.windows`. All 3 contracts: 0 broken on 397 files / 752 dependencies. Run: `PYTHONPATH=. lint-imports`. |
 
 ### Test count
 
@@ -1545,8 +1569,8 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 |------|---------|
 | **A.10 mypy baseline + TypedDict worker configs** (`pyproject.toml`, `gui/src/helpers/core/config_types.py`) | Added `[tool.mypy]` section: permissive baseline (`warn_return_any = false`, `ignore_missing_imports = true`) with per-module opt-in strictness for `backend.src.exceptions` and `backend.src.models.base`. New `config_types.py` defines `ConversionConfig`, `DeletionConfig`, `MergeConfig`, `StitchConfig` TypedDicts. Wired into `ConversionWorker.__init__`, `DeletionWorker.__init__`, `MergeWorker.__init__`; `Dict[str, Any]` imports removed. |
 | **A.11 `AppSettings` GUI facade** (`gui/src/utils/settings.py`) | Classmethod-based singleton wrapping `QSettings("ImageToolkit","ImageToolkit")`. Typed accessors: `mainwindow_geometry/set`, `session/set_session`, `splitter/set_splitter`, `listings_splitter/set_listings_splitter`, `label/set_label/remove`. Deferred `QSettings` import inside `_q()` avoids import-time Qt init. Wired into: both abstract gallery base classes (`_add_recent_dir`, `_get_recent_dirs`, `_save/load_last_dir`, `_save/load_thumbnail_size`, `_get/set_color_label`), `main_window.py` (geometry save/restore), `splitter_persistence.py`, `listings_common.py` (splitter), `thumbnail_size.py`. Replaces 18+ inline `QSettings("ImageToolkit","ImageToolkit")` constructor calls. |
-| **A.12 `get_asp()` helper** (`backend/src/anim/config.py`) | `get_asp(key, default="")` reads `os.environ.get(key, default)` — centralised accessor for `ASP_*` env vars. `validate_asp_config(strict=True)` now raises `ConfigError` instead of bare `ValueError`. Exported in `__all__`. |
-| **A.13 Custom exception hierarchy** (`backend/src/exceptions.py`, `gui/src/helpers/base.py`) | `ImageToolkitError` root; `PipelineError` → `AlignmentFailedError`, `CanvasError`, `FallbackExhaustedError` (carries `.fallbacks: list[str]`); `ModelLoadError`; `ConfigError`. Bare `RuntimeError`/`ValueError` replaced in `anim/pipeline.py` (2 sites), `anim/canvas.py` (2 sites), `anim/config.py` (1 site), `models/birefnet_wrapper.py` (1 site). `BaseQThreadWorker._handle_exception()` three-tier handler: `AlignmentFailed`/`Canvas` → WARNING; `Pipeline`/`Model`/`Config` → ERROR; unknown → ERROR with full traceback. TYPE_CHECKING guard prevents runtime circular import. |
+| **A.12 `get_asp()` helper** (`backend/src/animation/config.py`) | `get_asp(key, default="")` reads `os.environ.get(key, default)` — centralised accessor for `ASP_*` env vars. `validate_asp_config(strict=True)` now raises `ConfigError` instead of bare `ValueError`. Exported in `__all__`. |
+| **A.13 Custom exception hierarchy** (`backend/src/exceptions.py`, `gui/src/helpers/base.py`) | `ImageToolkitError` root; `PipelineError` → `AlignmentFailedError`, `CanvasError`, `FallbackExhaustedError` (carries `.fallbacks: list[str]`); `ModelLoadError`; `ConfigError`. Bare `RuntimeError`/`ValueError` replaced in `animation/pipeline.py` (2 sites), `animation/canvas.py` (2 sites), `animation/config.py` (1 site), `models/birefnet_wrapper.py` (1 site). `BaseQThreadWorker._handle_exception()` three-tier handler: `AlignmentFailed`/`Canvas` → WARNING; `Pipeline`/`Model`/`Config` → ERROR; unknown → ERROR with full traceback. TYPE_CHECKING guard prevents runtime circular import. |
 
 ### Test count
 
@@ -1561,7 +1585,7 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 | Item | Summary |
 |------|---------|
 | **A.1 Pyright `basic` mode** (`pyproject.toml`) | `typeCheckingMode = "off"` → `"basic"`. Activates IDE red-squiggles for all developers at zero annotation cost. |
-| **A.4 `__all__` hygiene pass** (15 `__init__.py` files) | `backend/src/{models,web,core,pipeline,utils,controller,__init__}` and `gui/src/{utils,styles,helpers/{image,video,web,core},tabs,tabs/core/common}`. Empty namespace markers get `__all__: list = []`. Populated files get explicit symbol lists. `backend/src/models/__init__.py` now imports and re-exports all 7 model wrappers + `ModelWrapper`/`ModelRegistry`/`lazy_load`. `gui/src/utils/__init__.py` exposes `LRUImageCache`, `ShortcutRegistry`, sort/splitter/thumbnail utilities. |
+| **A.4 `__all__` hygiene pass** (15 `__init__.py` files) | `backend/src/{models,web,core,pipeline,utils,__init__}` and `gui/src/{utils,styles,helpers/{image,video,web,core},tabs,tabs/core/common}`. Empty namespace markers get `__all__: list = []`. Populated files get explicit symbol lists. `backend/src/models/__init__.py` now imports and re-exports all 7 model wrappers + `ModelWrapper`/`ModelRegistry`/`lazy_load`. `gui/src/utils/__init__.py` exposes `LRUImageCache`, `ShortcutRegistry`, sort/splitter/thumbnail utilities. |
 | **A.5 QSettings key validation** (`backend/src/app.py`) | `SETTINGS_SCHEMA: dict[str, type]` + `SETTINGS_PREFIX_TYPES` define the known key surface. `_validate_settings()` runs after `QApplication()` is created; clears type-mismatched static keys with a `logger.warning`; logs unrecognised keys at DEBUG level. Dynamic key patterns (`session/*`, `splitters/*`, `splitter/*`, `labels/*`) are explicitly allowed via prefix table. |
 | **A.6 `@log_call` timing decorator** (`backend/src/utils/decorators.py`) | New module. `log_call(logger=None)` returns a decorator that logs `→ qualname` on entry and `← qualname  X.Y ms` on exit at DEBUG level. Exception path logs `✗ qualname` + elapsed before re-raising. Auto-selects `__module__` logger when none is passed. Exported via `backend/src/utils/__init__.py`. |
 | **A.7 Metaclass docstring + `_load_thumbnail_size` extraction** | `MetaAbstractClassGallery` docstring extended with Qt metaclass fusion rationale, injection rationale, full injected-method list, and note on why thumbnail helpers live in the base classes rather than here. `save_thumbnail_size(class_name, size)` + `load_thumbnail_size(class_name, default=180)` extracted to new `gui/src/utils/thumbnail_size.py`; both abstract gallery base classes delegate their `_save/_load_thumbnail_size` methods to the shared functions. |
@@ -1764,7 +1788,7 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 |------|---------|
 | **`_apply_hires_keyframes()` §9C** (`pipeline.py`) | Module-level helper that replaces proxy frames with full-resolution counterparts before Stage 9 canvas construction. Accepts `hires_keyframes: Dict[int, str]` mapping frame index → hires path. Scales affine tx/ty proportionally (scale_x = hires_w/proxy_w, scale_y = hires_h/proxy_h); linear 2×2 sub-matrix preserved (dimensionless rotation/shear). Non-hires frames upscaled to hires resolution via INTER_LANCZOS4; bg_masks resized with INTER_NEAREST to preserve binary values. Returns `(n_substituted, frames_hires, affines_scaled, masks_resized)`. Added `hires_keyframes: Optional[Dict[int, str]] = None` to `pipeline.run()`. Stage 8.8 injected between Stage 8 (ECC/SEA-RAFT) and Stage 9. `"_apply_hires_keyframes"` added to `__all__`. |
 | **8 new tests** (`test_pipeline.py::TestApplyHiresKeyframes`) | Covers: empty-dict no-op, 2× scale computation + frame replacement, proxy upscale fallback for non-hires frames, INTER_NEAREST bg_mask resize, None mask passthrough, invalid path graceful return, out-of-bounds index skip, linear sub-matrix preservation. |
-| **`bench_import.py` §1.10E** (`backend/src/anim/rlhf/`) | New module with `parse_bench_json(path)` (handles full suite doc, single-dataset dict, bare list), `resolve_anime_path(dataset)` (primary `anime_path` with `paths.anime_stitch` fallback), `suggested_rating(metrics_asp)` (composite CV score → 0–10 scale: `coverage×0.35 + sharpness_norm×0.25 + (1−ghosting)×0.20 + seam_coh×0.20`), `verdict_label(dataset)`. Exported from `rlhf/__init__.py`. |
+| **`bench_import.py` §1.10E** (`backend/src/animation/rlhf/`) | New module with `parse_bench_json(path)` (handles full suite doc, single-dataset dict, bare list), `resolve_anime_path(dataset)` (primary `anime_path` with `paths.anime_stitch` fallback), `suggested_rating(metrics_asp)` (composite CV score → 0–10 scale: `coverage×0.35 + sharpness_norm×0.25 + (1−ghosting)×0.20 + seam_coh×0.20`), `verdict_label(dataset)`. Exported from `rlhf/__init__.py`. |
 | **`StitchFeedbackTab` import group** (`stitch_feedback_tab.py`) | New "Import from Benchmark JSON" group above the image loader: "Load JSON…" button → populates `QListWidget` with verdict/fallback/rlhf-flag badges per dataset; per-dataset metrics preview panel (sharpness, coverage, ghosting, seam_coh, ssim, suggested rating); "Import Selected →" button loads the panorama image and pre-fills the rating slider from `suggested_rating()`. |
 | **21 new tests** (`test_bench_import.py`) | Covers `parse_bench_json` (5 cases), `resolve_anime_path` (4 cases), `suggested_rating` (6 cases), `verdict_label` (7 parametrised cases). |
 | **asp.md matrix updated** | Removed 23 stale "pending" entries (items shipped in Sessions 6–118 but never pruned). Added §1.10E done entry. Updated §2.1, §2.4, §2.7 headings with shipped-session tags. |
@@ -1791,11 +1815,11 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 | **`_OTSU_BG_CORR` flag wired in phase-corr loop** (`frame_selection.py`) | New `elif _OTSU_BG_CORR:` branch after the existing `_bg_thumb_mask` branch. When enabled, computes per-pair mask; if coverage < 10%, falls back to unmasked `phaseCorrelate`. `ASP_OTSU_BG_CORR` added to `_CONFIG_SCHEMA` in `config.py`. Exported `_otsu_bg_mask_pair` in `__all__`. |
 | **`complete_background()` (§5A/C)** (`bg_complete.py`, new) | Background zero-coverage fill for canvas pixels uncovered by any frame's bg sample. `_nn_fill_zero_bg()`: column-directional nearest-neighbour propagation — for each column, `np.searchsorted` finds nearest known row above and below each gap; best (closer) is applied. `_propainter_fill()`: lazy-imports ProPainter (ICCV 2023); falls back to NN fill when unavailable. `complete_background()`: entry point — skips when zero rows < `min_rows` threshold. |
 | **Stage 10.2 wired** (`pipeline.py`) | `complete_background()` called after `_render()` when `ASP_BG_COMPLETE > 0`. `ASP_BG_COMPLETE=1` → NN fill; `=2` → ProPainter with NN fallback. `_BG_COMPLETE` module-level flag. Import added. `ASP_BG_COMPLETE` and `ASP_BG_COMPLETE_MIN_ROWS` added to `_CONFIG_SCHEMA`. |
-| **`anim/__init__.py` auto-loads `asp_config.toml`** | `_load_asp_config()` called before other package imports so TOML keys are in `os.environ` before any module-level flag constants are read. Try/except ensures no error if config missing. |
+| **`animation/__init__.py` auto-loads `asp_config.toml`** | `_load_asp_config()` called before other package imports so TOML keys are in `os.environ` before any module-level flag constants are read. Try/except ensures no error if config missing. |
 | **`asp_config.toml` created** (§8) | Root-level TOML with 8 recommended defaults from the Issue 8 report: `ASP_ADAPTIVE_SP_SOFT=1`, `ASP_ADAPTIVE_SP_THRESH=1`, `ASP_SEAM_SMOOTH_WINDOW=5`, `ASP_SEAM_MARGIN=3`, `ASP_SEAM_FG_PENETRATION_MAX=0.7`, `ASP_ZONE_MIN_HEIGHT=20`, `ASP_SEAM_INSTABILITY_THRESH=20.0`, `ASP_STATIC_INPUT_MAX_MAD=2.0`. |
 | **SAM-2 pipeline wiring** (`pipeline.py`) | `_USE_SAM2` flag + `_compute_fg_masks_sam2` import; `AnimeStitchPipeline._compute_fg_masks()` routes through SAM-2 when `ASP_USE_SAM2=1`. (Completed from S79.) |
 | **`ASP_High_Value_Issues_Report.md` marking** | All implemented items annotated with ✅ S79/S80 session tags. Failure taxonomy table updated. Priority matrix column added with current status. Recommended implementation order updated to show Sprint 1–3 complete. |
-| **`OTSU_BG_CORR_MIN_BG_FRAC`, `BG_COMPLETE_MIN_ROWS`** (`constants/anim.py`) | Two new constants for §1A and §5A/C. |
+| **`OTSU_BG_CORR_MIN_BG_FRAC`, `BG_COMPLETE_MIN_ROWS`** (`constants/animation.py`) | Two new constants for §1A and §5A/C. |
 
 ### Test results
 
@@ -1807,7 +1831,7 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 
 **§5A/C NN fill semantics**: Column-directional nearest-neighbour (not row-directional) because the scroll axis is dominant and background texture repeats vertically. Each unknown pixel gets the closest known pixel in the SAME column, not in the same row. This avoids horizontal smearing of character elements across the strip boundary.
 
-**auto-load ordering**: `anim/__init__.py` loads TOML before importing `.pipeline`, which triggers `.compositing`, `.bundle_adjust`, etc. — all module-level `os.environ.get(...)` calls happen AFTER `setdefault` writes the TOML values. Env vars set manually always win (setdefault never overwrites).
+**auto-load ordering**: `animation/__init__.py` loads TOML before importing `.pipeline`, which triggers `.compositing`, `.bundle_adjust`, etc. — all module-level `os.environ.get(...)` calls happen AFTER `setdefault` writes the TOML values. Env vars set manually always win (setdefault never overwrites).
 
 ---
 
@@ -1836,7 +1860,7 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 
 ### Test results
 
-487 tests passing (up from 482 at S75; +5 from earlier unrelated sessions). No regressions in `test_frame_selection.py`, `test_compositing.py`, or other anim test modules.
+487 tests passing (up from 482 at S75; +5 from earlier unrelated sessions). No regressions in `test_frame_selection.py`, `test_compositing.py`, or other animation test modules.
 
 ### Design notes
 
@@ -1903,9 +1927,9 @@ Visual check is intentionally deferred: no `asp_test*` corpus exists on this mac
 | **`_gnc_weights_geman_mcclure(residuals_sq, mu, c_sq) → ndarray`** (`bundle_adjust.py`) | §1.32: Geman-McClure per-edge GNC weights `wᵢ = (μc² / (μc² + rᵢ²))²`. At large μ (initial) all weights ≈ 1 (convex quadratic regime). As μ decreases over outer iterations, edges with large residuals receive exponentially smaller weights, approximating the truncated-LS cost. Yang et al., IEEE RA-L 2020. Exported in `__all__`. |
 | **GNC-TLS outer continuation loop in `_bundle_adjust_affine`** (`bundle_adjust.py`) | `_GNC_OUTER=8` outer iterations (default ON, `ASP_GNC_OUTER=0` reverts to §1.1C Cauchy). Loop: initialise μ₀=max_sq/(2c²) so the surrogate starts convex; per-iter: compute per-edge squared translation disagreement, update GM weights, LM step with `loss='linear'` and `√w` multiplier in the `residuals()` closure, anneal μ÷=1.4; terminates on ‖Δx‖<1e-3 or μ<0.01. |
 | **`_gnc_ws` mutable closure** (`bundle_adjust.py`) | `List[float]` captured by `residuals()`; updated in-place by the GNC loop. `residuals()` multiplies each edge contribution by `_gnc_ws[idx]` (= `√wᵢ`), giving scipy LM the effective weighted cost `wᵢ·rᵢ²`. Priors and regularisers remain unweighted. |
-| **`GNC_C_PX=10.0`, `GNC_MU_ANNEAL=1.4`, `GNC_MAX_OUTER=8`** (`constants/anim.py`) | §1.32 constants. `GNC_C_PX=10px`: edges with 10px residual receive 50% weight at μ=1; `GNC_MU_ANNEAL=1.4`: 8-step schedule spans ~15× dynamic range. |
+| **`GNC_C_PX=10.0`, `GNC_MU_ANNEAL=1.4`, `GNC_MAX_OUTER=8`** (`constants/animation.py`) | §1.32 constants. `GNC_C_PX=10px`: edges with 10px residual receive 50% weight at μ=1; `GNC_MU_ANNEAL=1.4`: 8-step schedule spans ~15× dynamic range. |
 | **`ASP_GNC_OUTER` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 20, "GNC-TLS outer iterations (0=Cauchy only, default 8)")`. |
-| **5 unit tests** (`test_bundle_adjust.py::TestGNCWeightsGemanMcclure`) | unit-weights-large-mu (μ=1e6 → all weights > 0.999), zero-residual-weight-one (rᵢ=0 → wᵢ=1.0 exactly), high-residual-suppressed (rᵢ=100px >> c=10px → wᵢ < 0.01), weights-in-valid-range (50 random residuals ∈ [0,1]), higher-residual-lower-weight (monotone decreasing). **Anim suite: 412 tests passing.** |
+| **5 unit tests** (`test_bundle_adjust.py::TestGNCWeightsGemanMcclure`) | unit-weights-large-mu (μ=1e6 → all weights > 0.999), zero-residual-weight-one (rᵢ=0 → wᵢ=1.0 exactly), high-residual-suppressed (rᵢ=100px >> c=10px → wᵢ < 0.01), weights-in-valid-range (50 random residuals ∈ [0,1]), higher-residual-lower-weight (monotone decreasing). **animation suite: 412 tests passing.** |
 
 ### Design rationale
 
@@ -1949,10 +1973,10 @@ Arrow-key navigation in `AbstractClassSingleGallery` mirrors the two-galleries v
 | **`_seam_fg_penetration(path, fa_zone, fb_zone) → float`** (`compositing.py`) | §1.31: Samples the seam pixel at each column `x` (row = `path[x]`, clamped to zone bounds). A pixel is foreground when any channel > 0. Returns the fraction of columns where the seam pixel is foreground in at least one zone. 0.0 for empty path or zero-width zone. |
 | **Penetration escalation in blend loop** (`compositing.py`) | After §1.28 instability check: if `_SEAM_FG_PENETRATION_MAX > 0.0 and k not in seam_single_pose and penetration > threshold`, escalates to single-pose (dominant by fg pixel count). Complements §1.23/§3.15 (cost barriers) and §1.28 (path stability); catches the case where the DP routes through fg because no bg corridor exists. |
 | **`_SEAM_FG_PENETRATION_MAX` flag** (`compositing.py`) | `ASP_SEAM_FG_PENETRATION_MAX=0.0` (default off). Recommend 0.7: when >70% of seam columns cut through character pixels, a hard-partition blend produces less ghosting than the DSFN ramp. |
-| **Constant** (`constants/anim.py`) | `SEAM_FG_PENETRATION_MAX=0.7`. |
+| **Constant** (`constants/animation.py`) | `SEAM_FG_PENETRATION_MAX=0.7`. |
 | **`ASP_SEAM_FG_PENETRATION_MAX` in `_CONFIG_SCHEMA`** (`config.py`) | `(float, 0.0, 1.0, "Max fraction of seam columns through fg before single-pose escalation")`. |
 | **`_seam_fg_penetration` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
-| **5 unit tests** (`test_compositing.py::TestSeamFgPenetration`) | empty-path-returns-zero, all-background-path-returns-zero, all-foreground-path-returns-one, half-foreground-returns-half, return-type-is-float. **Anim suite: 482 passing.** |
+| **5 unit tests** (`test_compositing.py::TestSeamFgPenetration`) | empty-path-returns-zero, all-background-path-returns-zero, all-foreground-path-returns-one, half-foreground-returns-half, return-type-is-float. **animation suite: 482 passing.** |
 
 ### Design rationale
 
@@ -1969,10 +1993,10 @@ Arrow-key navigation in `AbstractClassSingleGallery` mirrors the two-galleries v
 | **`_zone_is_degenerate(zone_h, min_height=20) → bool`** (`compositing.py`) | §1.30: Returns True when `zone_h < min_height` (and `min_height > 0`). When the blend zone is shorter than `min_height` rows, the §1.26 boundary clamp leaves at most one valid seam row, the DSFN feather has no blending headroom, and the DP produces a constant-row path regardless of content. |
 | **Wire-up in `_composite_foreground()`** (`compositing.py`) | After `fa_zone`/`fb_zone` are allocated, before DP: `if _ZONE_MIN_HEIGHT > 0 and _zone_is_degenerate(zone_h, _ZONE_MIN_HEIGHT) and k not in seam_single_pose → seam_single_pose[k] = fi_a if fg_a ≥ fg_b else fi_b`. Hard-partition blend fires at line 2001 (`_single = seam_single_pose.get(k)`). |
 | **`_ZONE_MIN_HEIGHT` flag** (`compositing.py`) | `ASP_ZONE_MIN_HEIGHT=0` (default off). Recommend 20: matches the S15/S16 soft-edge band width; zones narrower than this cannot be blended cleanly regardless of DP. |
-| **Constant** (`constants/anim.py`) | `ZONE_MIN_HEIGHT=20`. |
+| **Constant** (`constants/animation.py`) | `ZONE_MIN_HEIGHT=20`. |
 | **`ASP_ZONE_MIN_HEIGHT` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 500, "Min blend-zone rows before single-pose escalation without DP (0=off, recommend 20)")`. |
 | **`_zone_is_degenerate` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
-| **5 unit tests** (`test_compositing.py::TestZoneIsDegenerate`) | zero-min-height-never-degenerate, zone-below-threshold-is-degenerate, zone-at-threshold-is-not-degenerate, zone-above-threshold-is-not-degenerate, negative-min-height-treated-as-disabled. **Anim suite: 477 passing.** |
+| **5 unit tests** (`test_compositing.py::TestZoneIsDegenerate`) | zero-min-height-never-degenerate, zone-below-threshold-is-degenerate, zone-at-threshold-is-not-degenerate, zone-above-threshold-is-not-degenerate, negative-min-height-treated-as-disabled. **animation suite: 477 passing.** |
 
 ### Design rationale
 
@@ -1989,10 +2013,10 @@ Arrow-key navigation in `AbstractClassSingleGallery` mirrors the two-galleries v
 | **`_detect_static_input(frames, max_mad, thumb_size=64) → bool`** (`pipeline.py`) | §1.29: Resizes each frame to a 64×64 greyscale thumbnail and checks whether all consecutive pairs have mean absolute difference (MAD) < `max_mad`. Returns True only when ALL pairs are below the ceiling. Fewer than 2 frames → always False. Short-circuits on first differing pair for zero overhead on valid inputs. |
 | **Stage 1.5 gate in `run()`** (`pipeline.py`) | Pre-Stage-2 check: when `_STATIC_INPUT_MAX_MAD > 0.0` and `_detect_static_input(...)` is True, logs a warning and `cv2.imwrite(frame 0 → output_path)` early return. No exception raised — caller receives a valid (but trivial) output. |
 | **`_STATIC_INPUT_MAX_MAD` flag** (`pipeline.py`) | `ASP_STATIC_INPUT_MAX_MAD=0.0` (default off). Recommend 2.0: 2/255 ≈ 0.8% pixel noise, sufficient to tolerate MPEG compression noise while catching genuine all-static sequences. |
-| **Constant** (`constants/anim.py`) | `STATIC_INPUT_MAX_MAD=2.0`. |
+| **Constant** (`constants/animation.py`) | `STATIC_INPUT_MAX_MAD=2.0`. |
 | **`ASP_STATIC_INPUT_MAX_MAD` in `_CONFIG_SCHEMA`** (`config.py`) | `(float, 0.0, 255.0, "MAD ceiling for static-input detection")`. |
 | **`_detect_static_input` in `__all__`** (`pipeline.py`) | Exported for testing and external use. |
-| **5 unit tests** (`test_pipeline.py::TestDetectStaticInput`) | fewer-than-two-frames-returns-false, identical-frames-returns-true, varying-frames-returns-false, just-below-threshold-returns-true, one-differing-pair-returns-false. **Anim suite: 472 passing.** |
+| **5 unit tests** (`test_pipeline.py::TestDetectStaticInput`) | fewer-than-two-frames-returns-false, identical-frames-returns-true, varying-frames-returns-false, just-below-threshold-returns-true, one-differing-pair-returns-false. **animation suite: 472 passing.** |
 
 ### Design rationale
 
@@ -2009,10 +2033,10 @@ Phase Correlation is the primary displacement estimator. When every input frame 
 | **`_seam_path_std(path) → float`** (`compositing.py`) | §1.28: `float(np.std(path))`; 0.0 for empty paths. Measures how widely the seam path oscillates across the zone height — a stable seam routing along consistent rows has std≈0; a chaotic seam that spans the full zone has std≈zone_h/3. |
 | **Instability escalation in blend loop** (`compositing.py`) | After `path_local` is resolved: if `_SEAM_INSTABILITY_THRESH > 0 and k not in seam_single_pose and _seam_path_std(path_local) > threshold`, escalates to single-pose. Dominant frame picked by fg pixel count in zone (same logic as §1.20). |
 | **`_SEAM_INSTABILITY_THRESH` flag** (`compositing.py`) | `ASP_SEAM_INSTABILITY_THRESH=0.0` (default off). Recommend 20.0: paths with std > 20 rows are visibly unstable. |
-| **Constant** (`constants/anim.py`) | `SEAM_INSTABILITY_THRESH=20.0`. |
+| **Constant** (`constants/animation.py`) | `SEAM_INSTABILITY_THRESH=20.0`. |
 | **`ASP_SEAM_INSTABILITY_THRESH` in `_CONFIG_SCHEMA`** (`config.py`) | `(float, 0.0, 500.0, "Max seam path std before single-pose escalation")`. |
 | **`_seam_path_std` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
-| **5 unit tests** (`test_compositing.py::TestSeamPathStd`) | empty-path-returns-zero, constant-path-returns-zero, oscillating-path-has-high-std, linearly-increasing-path-has-moderate-std, return-type-is-float. **Anim suite: 467 passing.** |
+| **5 unit tests** (`test_compositing.py::TestSeamPathStd`) | empty-path-returns-zero, constant-path-returns-zero, oscillating-path-has-high-std, linearly-increasing-path-has-moderate-std, return-type-is-float. **animation suite: 467 passing.** |
 
 ### Design rationale
 
@@ -2029,10 +2053,10 @@ Phase Correlation is the primary displacement estimator. When every input frame 
 | **`_has_sufficient_bg(bg_sel, min_px=200) → bool`** (`compositing.py`) | §1.27: returns True iff `np.count_nonzero(bg_sel) >= max(1, min_px)`. None input → False. Formalises the historical hardcoded `>= 200` floor in the normalisation loop as a testable, configurable helper. |
 | **Normalisation loop update** (`compositing.py`) | `len(bg_px) >= 200` replaced by `_has_sufficient_bg(bg_sel, _bg_min)` where `_bg_min = _BG_NORM_MIN_PX if _BG_NORM_MIN_PX > 0 else 200`. Default behaviour unchanged. |
 | **`_BG_NORM_MIN_PX` flag** (`compositing.py`) | `ASP_BG_NORM_MIN_PX=0` (default 0 → built-in 200-px floor). Setting to a higher value tightens the gate for sparse-bg scenes. |
-| **Constant** (`constants/anim.py`) | `BG_NORM_MIN_PX=200`. |
+| **Constant** (`constants/animation.py`) | `BG_NORM_MIN_PX=200`. |
 | **`ASP_BG_NORM_MIN_PX` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 10000, "Min background pixels for gain normalisation (0 = use built-in 200-px floor)")`. |
 | **`_has_sufficient_bg` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
-| **5 unit tests** (`test_compositing.py::TestHasSufficientBg`) | sufficient-bg-returns-true, insufficient-bg-returns-false, exactly-at-threshold-returns-true, none-mask-returns-false, all-fg-returns-false. **Anim suite: 462 passing.** |
+| **5 unit tests** (`test_compositing.py::TestHasSufficientBg`) | sufficient-bg-returns-true, insufficient-bg-returns-false, exactly-at-threshold-returns-true, none-mask-returns-false, all-fg-returns-false. **animation suite: 462 passing.** |
 
 ### Design rationale
 
@@ -2048,10 +2072,10 @@ The normalisation loop has always guarded against sparse background with `len(bg
 |------|---------|
 | **`_clamp_seam_path(path, zone_h, margin=3) → np.ndarray`** (`compositing.py`) | §1.26: clips the DP seam path to `[margin, zone_h-1-margin]`. When the seam routes to y=0 or y=zone_h-1, the feather blend has zero headroom and degenerates to a hard edge at the zone boundary. `np.clip(path, margin, zone_h-1-margin)`. No-op when margin ≤ 0 or `zone_h ≤ 2*margin` (bounds would invert). |
 | **`_SEAM_MARGIN` flag** (`compositing.py`) | `ASP_SEAM_MARGIN=3` (default 0=off). Wired at end of `_seam_cut()` after §1.25 smoothing. |
-| **Constant** (`constants/anim.py`) | `SEAM_MARGIN=3`. |
+| **Constant** (`constants/animation.py`) | `SEAM_MARGIN=3`. |
 | **`ASP_SEAM_MARGIN` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 50, "Min rows between seam path and zone top/bottom edge (0 = off, recommend 3)")`. |
 | **`_clamp_seam_path` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
-| **5 unit tests** (`test_compositing.py::TestClampSeamPath`) | zero-margin-returns-unchanged, path-clamped-above-margin, path-clamped-below-upper-bound, in-range-values-unchanged, zone-too-small-returns-unchanged. **Anim suite: 457 passing.** |
+| **5 unit tests** (`test_compositing.py::TestClampSeamPath`) | zero-margin-returns-unchanged, path-clamped-above-margin, path-clamped-below-upper-bound, in-range-values-unchanged, zone-too-small-returns-unchanged. **animation suite: 457 passing.** |
 
 ### Design rationale
 
@@ -2067,10 +2091,10 @@ The feather blend in `_composite_foreground` requires at least `feathers[k]` row
 |------|---------|
 | **`_smooth_seam_path(path, window=5) → np.ndarray`** (`compositing.py`) | §1.25: applies a 1-D median filter of size *window* to the DP seam-cut path. Raw argmin traceback can produce single-pixel sideways jumps that alias into diagonal bands at the seam boundary. Formula: `scipy.ndimage.median_filter(path.astype(float32), size=window).astype(int32)`. Even window incremented to next odd. window ≤ 1 is a no-op. |
 | **`_SEAM_SMOOTH_WINDOW` flag** (`compositing.py`) | `ASP_SEAM_SMOOTH_WINDOW=5` (default 0=off). Wired at the end of `_seam_cut()` — after traceback, before return. |
-| **Constant** (`constants/anim.py`) | `SEAM_SMOOTH_WINDOW=5`. |
+| **Constant** (`constants/animation.py`) | `SEAM_SMOOTH_WINDOW=5`. |
 | **`ASP_SEAM_SMOOTH_WINDOW` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 51, "Median-filter window for seam path jitter removal (0 or 1 = off, recommend 5)")`. |
 | **`_smooth_seam_path` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
-| **5 unit tests** (`test_compositing.py::TestSmoothSeamPath`) | window-zero-returns-unchanged, window-one-returns-unchanged, smooth-path-removes-spike, constant-path-unchanged, even-window-incremented-to-odd. **Anim suite: 452 passing.** |
+| **5 unit tests** (`test_compositing.py::TestSmoothSeamPath`) | window-zero-returns-unchanged, window-one-returns-unchanged, smooth-path-removes-spike, constant-path-unchanged, even-window-incremented-to-odd. **animation suite: 452 passing.** |
 
 ### Design rationale
 
@@ -2086,10 +2110,10 @@ The `_seam_cut()` DP traceback selects the locally-optimal column at each step (
 |------|---------|
 | **`_measure_max_seam_step(canvas, n_strips, band_px=10, guard=3) → float`** (`pipeline.py`) | §1.24: samples mean greyscale luma in `band_px` rows above and below each inter-strip boundary (±`guard` guard rows). Returns `max(|above − below|)` across all N-1 seams. Returns 0.0 when n_strips ≤ 1 or canvas too small. |
 | **Stage 11.3 gate** (`pipeline.py`) | `_SEAM_STEP_GATE` flag (default 0.0=off, `ASP_SEAM_STEP_GATE=25.0`). After Stage 11.2 colour gate: measures `_measure_max_seam_step(canvas, N)`. If > threshold → SCANS fallback. |
-| **Constant** (`constants/anim.py`) | `SEAM_STEP_GATE_THRESH=25.0`. |
+| **Constant** (`constants/animation.py`) | `SEAM_STEP_GATE_THRESH=25.0`. |
 | **`ASP_SEAM_STEP_GATE` in `_CONFIG_SCHEMA`** (`config.py`) | `(float, 0.0, 255.0, "Max luma step at seam boundary before SCANS fallback")`. |
 | **`_measure_max_seam_step` in `__all__`** (`pipeline.py`) | Exported for testing and external use. |
-| **5 unit tests** (`test_pipeline.py::TestMeasureMaxSeamStep`) | single-strip-returns-zero, uniform-canvas-returns-near-zero, step-detected-at-boundary, max-returned-for-multiple-seams, small-canvas-no-crash. **Anim suite: 447 passing.** |
+| **5 unit tests** (`test_pipeline.py::TestMeasureMaxSeamStep`) | single-strip-returns-zero, uniform-canvas-returns-near-zero, step-detected-at-boundary, max-returned-for-multiple-seams, small-canvas-no-crash. **animation suite: 447 passing.** |
 
 ### Design rationale
 
@@ -2106,10 +2130,10 @@ Stage 11.2 (§1.14B, S56) detects mismatched-colour seam zones in source frames 
 | **`_seam_corridor_exists(cost, fg_thresh=0.5) → bool`** (`compositing.py`) | §1.23: returns True iff the cost map has both fg-dominated columns (>50% fg-interior) AND non-dominated columns (background corridor). False when all columns are fg-dominated (no corridor) or none are (no barrier needed). |
 | **`_build_seam_cost_map(..., barrier_cost=None)` extended** (`compositing.py`) | New `barrier_cost` parameter. When `None`: uses module-level `_SEAM_HARD_BARRIER` flag to choose between 2.0 (S33 soft) and `_SEAM_HARD_BARRIER_COST` (1e6 hard). When corridor exists, fg-dominated columns are raised to `barrier_cost` instead of hardcoded 2.0. Backward-compatible: default path is identical to S33. |
 | **`_SEAM_HARD_BARRIER` / `_SEAM_HARD_BARRIER_COST` flags** (`compositing.py`) | `ASP_SEAM_HARD_BARRIER=1` (default OFF). `ASP_SEAM_HARD_BARRIER_COST=1e6` (configurable). |
-| **Constants** (`constants/anim.py`) | `SEAM_HARD_BARRIER_COST=1e6`. |
+| **Constants** (`constants/animation.py`) | `SEAM_HARD_BARRIER_COST=1e6`. |
 | **2 entries in `_CONFIG_SCHEMA`** (`config.py`) | `ASP_SEAM_HARD_BARRIER (int, 0, 1)` and `ASP_SEAM_HARD_BARRIER_COST (float, 0, None)`. |
 | **`_seam_corridor_exists` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
-| **5 unit tests** (`test_compositing.py::TestSeamCorridorExists`) | all-dominated-returns-false, all-bg-returns-false, mixed-returns-true, hard-barrier-applied-when-corridor, soft-barrier-backward-compat. **Anim suite: 442 passing.** |
+| **5 unit tests** (`test_compositing.py::TestSeamCorridorExists`) | all-dominated-returns-false, all-bg-returns-false, mixed-returns-true, hard-barrier-applied-when-corridor, soft-barrier-backward-compat. **animation suite: 442 passing.** |
 
 ### Design rationale
 
@@ -2125,10 +2149,10 @@ S33 (§3.15A) set fg-dominated columns to cost=2.0 — soft deterrence. With `se
 |------|---------|
 | **`_adaptive_sp_soft_px(feather_width, base_px=6, max_px=30, ref_px=80) → int`** (`compositing.py`) | §1.22: scales the single-pose soft-edge half-width proportionally to the original feather width that triggered escalation. Formula: `min(max_px, max(base_px, base_px * feather_width // ref_px))`. At feather=80px returns 6 (baseline unchanged); at feather=160px returns 12; at feather=300px returns 22; capped at 30px. `feather_width ≤ 0` is handled safely (returns base_px). |
 | **`_ADAPTIVE_SP_SOFT` flag** (`compositing.py`) | `ASP_ADAPTIVE_SP_SOFT=1` (default OFF). When ON, replaces the fixed `ASP_SP_SOFT_PX=6` in the single-pose branch of the blend loop with a per-seam adaptive value computed from `feathers[k]`. |
-| **Constants** (`constants/anim.py`) | `SP_SOFT_BASE_PX=6`, `SP_SOFT_MAX_PX=30`, `SP_SOFT_REF_PX=80`. |
+| **Constants** (`constants/animation.py`) | `SP_SOFT_BASE_PX=6`, `SP_SOFT_MAX_PX=30`, `SP_SOFT_REF_PX=80`. |
 | **`ASP_ADAPTIVE_SP_SOFT` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 1, "Enable adaptive single-pose soft-edge width scaled by feather")`. |
 | **`_adaptive_sp_soft_px` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
-| **5 unit tests** (`test_compositing.py::TestAdaptiveSpSoftPx`) | at-ref-px-returns-base, doubles-for-double-ref, narrow-feather-clamps-to-base, wide-feather-caps-at-max-px, zero-feather-returns-base. **Anim suite: 437 passing.** |
+| **5 unit tests** (`test_compositing.py::TestAdaptiveSpSoftPx`) | at-ref-px-returns-base, doubles-for-double-ref, narrow-feather-clamps-to-base, wide-feather-caps-at-max-px, zero-feather-returns-base. **animation suite: 437 passing.** |
 
 ### Design rationale
 
@@ -2144,10 +2168,10 @@ S33 (§3.15A) set fg-dominated columns to cost=2.0 — soft deterrence. With `se
 |------|---------|
 | **`_seam_lum_equalize(canvas, boundaries, band_px=20, min_step=5.0) → np.ndarray`** (`compositing.py`) | §1.21: for each boundary, samples mean greyscale luminance in band_px-row reference windows above and below (±3-row guard). When step > min_step lum units, applies a linear additive ramp over band_px rows below the boundary subtracting the step to smooth the transition. Equal BGR correction (luminance shift, chrominance preserved). Returns uint8 copy. |
 | **`_SEAM_LUM_EQ` flag** (`compositing.py`) | `ASP_SEAM_LUM_EQ=1` (default OFF). Wired just before `return result` in `_composite_foreground`. |
-| **Constants** (`constants/anim.py`) | `SEAM_LUM_EQ_BAND_PX=20`, `SEAM_LUM_EQ_MIN_STEP=5.0`. |
+| **Constants** (`constants/animation.py`) | `SEAM_LUM_EQ_BAND_PX=20`, `SEAM_LUM_EQ_MIN_STEP=5.0`. |
 | **`ASP_SEAM_LUM_EQ` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 1, "Enable post-composite seam luminance equalisation pass")`. |
 | **`_seam_lum_equalize` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
-| **5 unit tests** (`test_compositing.py::TestSeamLumEqualize`) | no-step-no-change, step-above-threshold-reduced, step-below-threshold-not-corrected, boundary-near-edge-no-crash, returns-uint8-dtype. **Anim suite: 432 passing.** |
+| **5 unit tests** (`test_compositing.py::TestSeamLumEqualize`) | no-step-no-change, step-above-threshold-reduced, step-below-threshold-not-corrected, boundary-near-edge-no-crash, returns-uint8-dtype. **animation suite: 432 passing.** |
 
 ### Design rationale
 
@@ -2163,10 +2187,10 @@ test27 (Class D) has SC=26.7 — visible luminance step at seam boundaries despi
 |------|---------|
 | **`_compute_seam_step_size(fi_a, fi_b, affines) → float`** (`compositing.py`) | §1.20: returns `max(|ty_b−ty_a|, |tx_b−tx_a|)` — dominant-axis camera step between two frame canvas positions. Returns `float("inf")` for out-of-range frame indices. |
 | **Tight-step preemptive escalation in FG registration loop** (`compositing.py`) | `_TIGHT_STEP_PX` flag (default 0=off, `ASP_TIGHT_STEP_PX=30`). When step < threshold, skip ARAP entirely and immediately set `seam_single_pose[k]` based on which frame has more fg pixels in the ±20px boundary band. Records step size in `seam_post_diffs[k]`. |
-| **`TIGHT_STEP_PX = 30`** (`constants/anim.py`) | Recommended threshold. At 1080p with 30px step, the character occupies 97%+ of both frames' overlap zone — ARAP cannot correct the animation pose difference. |
+| **`TIGHT_STEP_PX = 30`** (`constants/animation.py`) | Recommended threshold. At 1080p with 30px step, the character occupies 97%+ of both frames' overlap zone — ARAP cannot correct the animation pose difference. |
 | **`ASP_TIGHT_STEP_PX` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 500, "Dominant-axis step (px) below which seam is preemptively single-posed (0=off)")`. |
 | **`_compute_seam_step_size` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
-| **5 unit tests** (`test_compositing.py::TestComputeSeamStepSize`) | pure-vertical-step (ty=50→50.0), pure-horizontal-step (tx=80→80.0), uses-dominant-axis (dy=15/dx=60→60.0), exactly-at-threshold-not-below (step=30, strict < means 30 is not below 30), out-of-range-frame-returns-inf (fi=99→∞). **Anim suite: 427 passing.** |
+| **5 unit tests** (`test_compositing.py::TestComputeSeamStepSize`) | pure-vertical-step (ty=50→50.0), pure-horizontal-step (tx=80→80.0), uses-dominant-axis (dy=15/dx=60→60.0), exactly-at-threshold-not-below (step=30, strict < means 30 is not below 30), out-of-range-frame-returns-inf (fi=99→∞). **animation suite: 427 passing.** |
 
 ### Design rationale
 
@@ -2182,10 +2206,10 @@ For sequences with tiny camera steps (e.g., test57: min_gap=10.8px, spacing_rati
 |------|---------|
 | **`_fg_density_feather_cap(feathers, boundaries, warped_bg, order, cap_px, fg_thresh) → np.ndarray`** (`compositing.py`) | §1.19: checks fg pixel fraction in ±feather[k] band around boundaries[k] in canvas-space warped_bg for each adjacent frame pair. When max(fg_frac_a, fg_frac_b) > fg_thresh, caps feather to cap_px. Masks of None treated as all-bg (cap never fires without a BiRefNet mask). Returns copy of feathers (input not mutated). |
 | **`_FG_FEATHER_CAP` / `_FG_FEATHER_THRESH` flags** (`compositing.py`) | `ASP_FG_FEATHER_CAP=60` (px cap value; 0=off, the default). `ASP_FG_FEATHER_THRESH=0.60` (fg fraction threshold). Wired after §1.6B gain-adjusted feathers and before Stage 8.5 FG registration. |
-| **Constants** (`constants/anim.py`) | `FG_FEATHER_CAP=60`, `FG_FEATHER_THRESH=0.60`. |
+| **Constants** (`constants/animation.py`) | `FG_FEATHER_CAP=60`, `FG_FEATHER_THRESH=0.60`. |
 | **`ASP_FG_FEATHER_CAP` / `ASP_FG_FEATHER_THRESH` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 300, ...)` and `(float, 0.0, 1.0, ...)`. |
 | **`_fg_density_feather_cap` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
-| **5 unit tests** (`test_compositing.py::TestFgDensityFeatherCap`) | all-bg-no-cap, all-fg-applies-cap, feather-already-narrow-skips, uses-max-of-two-frames, none-mask-treated-as-all-bg. **Anim suite: 422 passing.** |
+| **5 unit tests** (`test_compositing.py::TestFgDensityFeatherCap`) | all-bg-no-cap, all-fg-applies-cap, feather-already-narrow-skips, uses-max-of-two-frames, none-mask-treated-as-all-bg. **animation suite: 422 passing.** |
 
 ### Design rationale
 
@@ -2381,10 +2405,10 @@ The QSS system already uses `$DARK_ACCENT_COLOR` template variables substituted 
 |------|---------|
 | **`_adaptive_sp_threshold(feather_width, base, min, ref) → float`** (`compositing.py`) | §1.18: scales the single-pose ghost-prevention threshold down for wide feathers. Formula: `max(min_threshold, base × (feather_reference / max(feather_width, 1)))`. At feather=80px → 22.0 (baseline unchanged); at feather≥147px → 12.0 (floor). |
 | **`_ADAPTIVE_SP_THRESH` flag** (`compositing.py`) | `os.environ.get("ASP_ADAPTIVE_SP_THRESH", "0") != "0"` (default OFF). When enabled, replaces the hardcoded `_POST_DIFF_THRESHOLD = 22.0` at the single-pose escalation gate with `_adaptive_sp_threshold(int(feathers[k]))`. |
-| **Constants** (`constants/anim.py`) | `ADAPTIVE_SP_THRESH_BASE=22.0`, `ADAPTIVE_SP_THRESH_MIN=12.0`, `ADAPTIVE_SP_THRESH_REF=80` document the tuned defaults. |
+| **Constants** (`constants/animation.py`) | `ADAPTIVE_SP_THRESH_BASE=22.0`, `ADAPTIVE_SP_THRESH_MIN=12.0`, `ADAPTIVE_SP_THRESH_REF=80` document the tuned defaults. |
 | **`ASP_ADAPTIVE_SP_THRESH` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 1, "Enable adaptive single-pose escalation threshold scaled by feather width")`. |
 | **`_adaptive_sp_threshold` in `__all__`** (`compositing.py`) | Exported for testing and external use. |
-| **5 unit tests** (`test_compositing.py::TestAdaptiveSpThreshold`) | reference-feather-returns-base (fw=80→22.0), narrow-feather-above-reference (fw=40→44.0), wide-feather-hits-min-floor (fw=300→12.0), floor-crossover-point (fw=146>12, fw=147→12.0), zero-feather-no-division-by-zero (fw=0→1760.0). **Anim suite: 417 passing.** |
+| **5 unit tests** (`test_compositing.py::TestAdaptiveSpThreshold`) | reference-feather-returns-base (fw=80→22.0), narrow-feather-above-reference (fw=40→44.0), wide-feather-hits-min-floor (fw=300→12.0), floor-crossover-point (fw=146>12, fw=147→12.0), zero-feather-no-division-by-zero (fw=0→1760.0). **animation suite: 417 passing.** |
 
 ### Design rationale
 
@@ -2400,10 +2424,10 @@ The dominant failure mode identified in the 2026-06-10 benchmark (Class A, 4/5 t
 |------|---------|
 | **`_compute_canvas_span_utilization(affines) → float`** (`pipeline.py`) | §1.17: computes actual dominant-axis canvas span divided by expected span (`median_adjacent_step × (N−1)`). Dominant axis = whichever of ty/tx has the larger range. Returns 1.0 for N < 2 or zero expected span (safe fallback). |
 | **Post-BA canvas span gate** (`pipeline.py`) | `_CANVAS_SPAN_MIN_UTIL` flag (default 0.0=off, `ASP_CANVAS_SPAN_MIN_UTIL=0.3`). Wired after §3.14 scroll-axis check (Stage 9.5) before Stage 10 rendering: if utilisation ratio < threshold → SCANS fallback with log message. |
-| **`CANVAS_SPAN_MIN_UTIL = 0.3`** (`constants/anim.py`) | Recommended threshold. Catches oscillating BA solutions (frames back-and-forth between two positions) where individual step sizes look valid but total canvas is far shorter than expected. |
+| **`CANVAS_SPAN_MIN_UTIL = 0.3`** (`constants/animation.py`) | Recommended threshold. Catches oscillating BA solutions (frames back-and-forth between two positions) where individual step sizes look valid but total canvas is far shorter than expected. |
 | **`ASP_CANVAS_SPAN_MIN_UTIL` in `_CONFIG_SCHEMA`** (`config.py`) | `(float, 0.0, 1.0, "Min canvas-span/expected-span utilisation ratio after BA (0=off)")`. |
 | **`_compute_canvas_span_utilization` in `__all__`** (`pipeline.py`) | Exported for testing and external use. |
-| **5 unit tests** (`test_pipeline.py::TestComputeCanvasSpanUtilization`) | single-frame-returns-one, two-frames-returns-one, perfect-monotone-sequence (ratio≈1.0), oscillating-ba-returns-low-ratio (alternating [0,100,0,100…] → span=100, expected=500 → ratio=0.2 < 0.3), dominant-axis-horizontal (pure tx scroll → tx axis used, ratio=1.0). **Anim suite: 412 passing.** |
+| **5 unit tests** (`test_pipeline.py::TestComputeCanvasSpanUtilization`) | single-frame-returns-one, two-frames-returns-one, perfect-monotone-sequence (ratio≈1.0), oscillating-ba-returns-low-ratio (alternating [0,100,0,100…] → span=100, expected=500 → ratio=0.2 < 0.3), dominant-axis-horizontal (pure tx scroll → tx axis used, ratio=1.0). **animation suite: 412 passing.** |
 
 ### Design rationale
 
@@ -2419,10 +2443,10 @@ The pre-BA gates (§1.15 connectivity, §1.16 MST weight) catch bad *graphs* bef
 |------|---------|
 | **`_compute_mst_weight(edges, n_frames) → float`** (`pipeline.py`) | §1.16: builds the max-weight spanning tree (Kruskal greedy, highest-weight-first) using iterative path-compression Union-Find and returns `total_weight / (N-1)`. Returns 0.0 when n_frames ≤ 1 or no edges. |
 | **Pre-BA MST weight gate** (`pipeline.py`) | `_MST_MIN_WEIGHT` flag (default 0.0=off, `ASP_MST_MIN_WEIGHT=0.35`). After the §1.15 connectivity check, if the mean MST weight < threshold → SCANS fallback with log message. Wired between connectivity gate and Stage 7 BA call. |
-| **`MST_MIN_WEIGHT = 0.35`** (`constants/anim.py`) | Recommended threshold: LoFTR edges weight~0.6–0.9; TM/PC fallbacks~0.15–0.3; threshold 0.35 triggers on all-TM/PC graphs. |
+| **`MST_MIN_WEIGHT = 0.35`** (`constants/animation.py`) | Recommended threshold: LoFTR edges weight~0.6–0.9; TM/PC fallbacks~0.15–0.3; threshold 0.35 triggers on all-TM/PC graphs. |
 | **`ASP_MST_MIN_WEIGHT` in `_CONFIG_SCHEMA`** (`config.py`) | `(float, 0.0, 1.0, "Min mean MST edge weight before pre-BA SCANS fallback (0=off)")`. |
 | **`_compute_mst_weight` in `__all__`** (`pipeline.py`) | Exported for testing and external use. |
-| **5 unit tests** (`test_pipeline.py::TestComputeMstWeight`) | no-frames-returns-zero, empty-edges-returns-zero, chain-graph-mean-weight (0→1 w=0.8, 1→2 w=0.6 → mean 0.7), takes-highest-weight-edges-for-mst (triangle: picks 0.9+0.5, mean=0.7), low-weight-graph-below-threshold (all edges w=0.2 → mean 0.2 < 0.35). **Anim suite: 407 passing.** |
+| **5 unit tests** (`test_pipeline.py::TestComputeMstWeight`) | no-frames-returns-zero, empty-edges-returns-zero, chain-graph-mean-weight (0→1 w=0.8, 1→2 w=0.6 → mean 0.7), takes-highest-weight-edges-for-mst (triangle: picks 0.9+0.5, mean=0.7), low-weight-graph-below-threshold (all edges w=0.2 → mean 0.2 < 0.35). **animation suite: 407 passing.** |
 
 ### Design rationale
 
@@ -2440,7 +2464,7 @@ The §2.9C retry 0 (`_filter_high_conf_edges`, S37) removes bad edges and re-sol
 | **`_check_seam_color_gate(..., use_bgr=False)` extended** (`compositing.py`) | Added `use_bgr: bool = False` parameter. When True, routes to `_seam_color_similarity_bgr` instead of `_seam_color_similarity`. Gate logic unchanged: returns worst seam index below thresh or None. |
 | **`_SEAM_COLOR_GATE_BGR` flag** (`compositing.py` + `pipeline.py`) | `ASP_SEAM_COLOR_GATE_BGR=1` enables BGR mode (default OFF — greyscale path is faster). Stage 11.2 gate in `pipeline.py` passes `use_bgr=_SEAM_COLOR_GATE_BGR`. |
 | **`ASP_SEAM_COLOR_GATE_BGR` in `_CONFIG_SCHEMA`** (`config.py`) | `(int, 0, 1, "Use per-channel BGR Bhattacharyya instead of greyscale in seam colour gate (0 or 1)")`. |
-| **5 unit tests** (`test_compositing.py::TestSeamColorSimilarityBgr`) | identical-bands-returns-one, hue-shift-same-luma-low-score (proves grey score ≈ 1.0 while BGR score < grey for equal-luma colour shift), grayscale-input-falls-back-gracefully, check-gate-use-bgr-triggers-on-hue-shift, band-too-small-returns-one. **Anim suite: 402 passing.** |
+| **5 unit tests** (`test_compositing.py::TestSeamColorSimilarityBgr`) | identical-bands-returns-one, hue-shift-same-luma-low-score (proves grey score ≈ 1.0 while BGR score < grey for equal-luma colour shift), grayscale-input-falls-back-gracefully, check-gate-use-bgr-triggers-on-hue-shift, band-too-small-returns-one. **animation suite: 402 passing.** |
 
 ### Design rationale
 
@@ -2456,7 +2480,7 @@ The §2.9C retry 0 (`_filter_high_conf_edges`, S37) removes bad edges and re-sol
 |------|---------|
 | **`_check_edge_graph_connectivity(edges, n_frames) → bool`** (`pipeline.py`) | §1.15: iterative path-compression Union-Find over the edge graph; returns True iff all frames 0..n_frames-1 are in one connected component. Trivially True for n_frames ≤ 1. Out-of-bounds edge indices are silently skipped. Exported in `__all__`. |
 | **Pre-BA connectivity gate** (`pipeline.py`) | Wired immediately after the existing `if not edges:` SCANS fallback in `run()`. If `_check_edge_graph_connectivity(edges, N)` returns False, logs the frame/edge count and triggers `_scan_stitch_fallback` using the `scans_frames or _reload_scans_frames(image_paths)` pattern. Runs in O(E·α(N)) — negligible overhead. |
-| **5 unit tests** (`test_pipeline.py::TestCheckEdgeGraphConnectivity`) | chain-graph-is-connected, isolated-frame-is-disconnected, single-frame-trivially-connected, complete-graph-is-connected, no-edges-multiple-frames-disconnected. **Anim suite: 397 passing (+1 pre-existing skip).** |
+| **5 unit tests** (`test_pipeline.py::TestCheckEdgeGraphConnectivity`) | chain-graph-is-connected, isolated-frame-is-disconnected, single-frame-trivially-connected, complete-graph-is-connected, no-edges-multiple-frames-disconnected. **animation suite: 397 passing (+1 pre-existing skip).** |
 
 ### Design rationale
 
@@ -2474,9 +2498,9 @@ The connectivity gate short-circuits this by catching the disconnection in O(E·
 |------|---------|
 | **`_reject_scene_change_edges(..., use_bgr=True)`** (`pipeline.py`) | §1.13B: extended with `use_bgr: bool = False` parameter. When True, computes per-channel (B, G, R) thumbnail means via `t.reshape(-1,3).mean(axis=0)` and takes `np.abs(means_i − means_j).max()` as the scene-change signal. Backward compatible (default `use_bgr=False` preserves §1.13A grayscale behaviour). |
 | **`_SCENE_CHANGE_BGR_THRESH` flag** (`pipeline.py`) | Default 0.0 (off). Set via `ASP_SCENE_CHANGE_BGR_THRESH=60.0` to enable. Wired as a second pass in `_filter_edges` after the existing §1.13A luma gate — the two gates are applied sequentially and are independent. |
-| **`SCENE_CHANGE_BGR_THRESH = 60.0`** (`constants/anim.py`) | §1.13B calibrated default: 60/255 ≈ 24% per-channel mean shift is sufficient to identify a hue-shifted scene cut while tolerating normal gradual lighting changes. |
+| **`SCENE_CHANGE_BGR_THRESH = 60.0`** (`constants/animation.py`) | §1.13B calibrated default: 60/255 ≈ 24% per-channel mean shift is sufficient to identify a hue-shifted scene cut while tolerating normal gradual lighting changes. |
 | **`ASP_SCENE_CHANGE_BGR_THRESH` in `_CONFIG_SCHEMA`** (`config.py`) | Float, range [0.0, 255.0]. Closes the TOML-config loop for §1.13B. |
-| **5 unit tests** (`test_pipeline.py::TestRejectSceneChangeEdgesBgr`) | identical-frames-not-rejected, hue-shift-same-luma-rejected-in-bgr-mode, luma-mode-misses-hue-shift, bgr-threshold-zero-disabled, bgr-small-channel-diff-kept. **Anim suite: 392 passing (+1 pre-existing skip).** |
+| **5 unit tests** (`test_pipeline.py::TestRejectSceneChangeEdgesBgr`) | identical-frames-not-rejected, hue-shift-same-luma-rejected-in-bgr-mode, luma-mode-misses-hue-shift, bgr-threshold-zero-disabled, bgr-small-channel-diff-kept. **animation suite: 392 passing (+1 pre-existing skip).** |
 
 ### Design rationale
 
@@ -2495,10 +2519,10 @@ The per-channel max-delta uses `np.abs(means_i − means_j).max()` rather than E
 | **`_seam_color_similarity(img, k, n_strips, band_px=50) → float`** (`compositing.py`) | §1.14B: single-seam Bhattacharyya similarity scorer. Computes greyscale histograms of `band_px`-row windows above and below seam boundary k, normalises, and returns `1 − HISTCMP_BHATTACHARYYA`. Returns 1.0 for trivially narrow bands (<10 rows per side). Zero new dependencies. |
 | **`_check_seam_color_gate(img, n_strips, thresh, band_px=50) → Optional[int]`** (`compositing.py`) | §1.14B: post-composite gate. Evaluates all `n_strips−1` seams; returns the 0-indexed seam with the minimum colour similarity if that minimum is below *thresh*, else `None`. Returns `None` when `n_strips ≤ 1` or `thresh ≤ 0`. Exported in `__all__`. |
 | **`_SEAM_COLOR_GATE` flag** (`compositing.py`) | Module-level float, default 0.0 (off). Set via `ASP_SEAM_COLOR_GATE=0.55` to enable. |
-| **`SEAM_COLOR_GATE_THRESH = 0.55`** (`constants/anim.py`) | §1.14B calibrated default. Score < 0.55 indicates a significant distributional mismatch (>45% histogram divergence) across a seam boundary — a reliable indicator of colour-banded output. |
+| **`SEAM_COLOR_GATE_THRESH = 0.55`** (`constants/animation.py`) | §1.14B calibrated default. Score < 0.55 indicates a significant distributional mismatch (>45% histogram divergence) across a seam boundary — a reliable indicator of colour-banded output. |
 | **Stage 11.2 gate** (`pipeline.py`) | After `_composite_foreground`, when `_SEAM_COLOR_GATE_THRESH > 0` and `N > 1`, calls `_check_seam_color_gate(canvas, N, _SEAM_COLOR_GATE_THRESH)`. On failure → `_scan_stitch_fallback` with logged seam index. Uses `scans_frames or _reload_scans_frames(image_paths)` (on-demand reload pattern from §1.9C). |
 | **`ASP_SEAM_COLOR_GATE` in `_CONFIG_SCHEMA`** (`config.py`) | Float, range [0.0, 1.0]. Schema entry closes the TOML-config loop for §1.14B. |
-| **5 unit tests** (`test_compositing.py::TestSeamColorGate`) | single-strip-returns-none, threshold-zero-disabled, identical-strips-above-threshold, mismatched-strips-below-threshold, returns-worst-seam-index. **Anim suite: 387 passing (+1 pre-existing skip).** |
+| **5 unit tests** (`test_compositing.py::TestSeamColorGate`) | single-strip-returns-none, threshold-zero-disabled, identical-strips-above-threshold, mismatched-strips-below-threshold, returns-worst-seam-index. **animation suite: 387 passing (+1 pre-existing skip).** |
 
 ### Design rationale
 
@@ -2519,7 +2543,7 @@ The `_seam_color_similarity` function is kept in `compositing.py` (not imported 
 | **`_seam_bhattacharyya_distances(img, n_strips, band_px=50) → List[float]`** (`bench_anime_stitch.py`) | §1.14: computes the Bhattacharyya histogram similarity score for each inter-strip seam boundary. For each of the `n_strips−1` seam boundaries, computes greyscale histograms of the `band_px`-row window *above* and *below* the boundary, normalises them, and returns `1 − cv2.compareHist(HISTCMP_BHATTACHARYYA)`. Score in [0,1]: 1.0 = identical distributions (no colour banding), <0.5 = severe colour mismatch. Returns `[]` when `n_strips ≤ 1`. Falls back to 0.0 when either side of a boundary is empty (image smaller than `band_px`). |
 | **`_compute_all_metrics` extended** (`bench_anime_stitch.py`) | `seam_color_scores: List[float]` (per-seam scores) and `seam_color_min: Optional[float]` added to the result dict. Both are `[]` / `None` at default `n_strips=1`. Backward compatible. |
 | **New roadmap section §1.14** (`moon/roadmaps/asp.md`) | Added as a new section with Option A (Bhattacharyya, shipped) and Option B (pipeline gate, future). |
-| **5 unit tests** (`test_bench_metrics.py::TestSeamBhattacharyyaDistances`) | n-strips-one-returns-empty, returns-n-minus-1-scores, identical-strips-score-near-one, different-histograms-score-below-identical, scores-in-valid-range. **Anim suite: 381 passing (+1 pre-existing skip).** |
+| **5 unit tests** (`test_bench_metrics.py::TestSeamBhattacharyyaDistances`) | n-strips-one-returns-empty, returns-n-minus-1-scores, identical-strips-score-near-one, different-histograms-score-below-identical, scores-in-valid-range. **animation suite: 381 passing (+1 pre-existing skip).** |
 
 ### Design rationale
 
@@ -2537,8 +2561,8 @@ The `band_px=50` window is narrower than §3.8B's `band_px=100` because Bhattach
 
 | Item | Summary |
 |------|---------|
-| **`_normalize_frame_scales(frames, edges, scale_thresh) → (List[np.ndarray], List[Dict])`** (`pipeline.py`) | §1.3C: detects inter-frame zoom from the 2×2 rotation-scale block of matched affines (`s_ij = sqrt(a² + b²)`), propagates absolute scale factors via a BFS spanning tree from frame 0, and resizes each frame by `1/scale[i]` so BA only sees pure translations. Edge affines are updated: 2×2 block reset to identity, tx/ty divided by `scale[i]`. Falls back to originals when scale deviation < `scale_thresh`, the spanning tree is disconnected, or `scale_thresh ≤ 0`. `SCALE_NORM_THRESH = 0.05` in `constants/anim.py`. `_SCALE_NORM_THRESH` module-level flag (default 0.0=off, `ASP_SCALE_NORM_THRESH=0.05` to enable). Exported in `__all__`. |
-| **5 unit tests** (`test_pipeline.py::TestNormalizeFrameScales`) | identity-scale-returns-unchanged, zoomed-frame-is-resized, below-threshold-returns-unchanged, disconnected-graph-returns-unchanged, edge-affines-reset-to-unit-scale. **Anim suite: 377 tests passing.** |
+| **`_normalize_frame_scales(frames, edges, scale_thresh) → (List[np.ndarray], List[Dict])`** (`pipeline.py`) | §1.3C: detects inter-frame zoom from the 2×2 rotation-scale block of matched affines (`s_ij = sqrt(a² + b²)`), propagates absolute scale factors via a BFS spanning tree from frame 0, and resizes each frame by `1/scale[i]` so BA only sees pure translations. Edge affines are updated: 2×2 block reset to identity, tx/ty divided by `scale[i]`. Falls back to originals when scale deviation < `scale_thresh`, the spanning tree is disconnected, or `scale_thresh ≤ 0`. `SCALE_NORM_THRESH = 0.05` in `constants/animation.py`. `_SCALE_NORM_THRESH` module-level flag (default 0.0=off, `ASP_SCALE_NORM_THRESH=0.05` to enable). Exported in `__all__`. |
+| **5 unit tests** (`test_pipeline.py::TestNormalizeFrameScales`) | identity-scale-returns-unchanged, zoomed-frame-is-resized, below-threshold-returns-unchanged, disconnected-graph-returns-unchanged, edge-affines-reset-to-unit-scale. **animation suite: 377 tests passing.** |
 
 ### Design rationale
 
@@ -2558,7 +2582,7 @@ Default OFF (`ASP_SCALE_NORM_THRESH=0`, i.e., `_SCALE_NORM_THRESH=0.0`) to prese
 |------|---------|
 | **`_compute_per_seam_ghost_scores(img, n_strips, band_px=100) → List[float]`** (`bench_anime_stitch.py`) | §3.8B: divides the output image into *n_strips* equal-height zones and evaluates `_ghosting_score_v2` in a ±*band_px* band centred at each inter-zone seam boundary. Returns `n_strips − 1` float scores (same [0–100] scale as `ghosting_siqe`). Returns `[]` when `n_strips ≤ 1`. Band clipped to image bounds when near edges — no exception on degenerate inputs. |
 | **`_compute_all_metrics` extended** (`bench_anime_stitch.py`) | Signature extended with optional `n_strips: int = 1` parameter. Result dict now includes `"ghost_seam_scores": List[float]` (per-seam scores, empty for default `n_strips=1`) and `"ghost_seam_max": Optional[float]` (`max()` of scores, or `None` for empty list). Backward compatible: default `n_strips=1` leaves existing callers unaffected. |
-| **5 unit tests** (`test_bench_metrics.py::TestPerSeamGhostScores`) | uniform-image-all-near-zero, n-strips-one-returns-empty, returns-n-minus-1-scores, band-with-sharp-luminance-step-has-high-score, band-clipped-to-image-bounds-no-error. **Anim suite: 372 tests passing.** |
+| **5 unit tests** (`test_bench_metrics.py::TestPerSeamGhostScores`) | uniform-image-all-near-zero, n-strips-one-returns-empty, returns-n-minus-1-scores, band-with-sharp-luminance-step-has-high-score, band-clipped-to-image-bounds-no-error. **animation suite: 372 tests passing.** |
 
 ### Design rationale
 
@@ -2579,7 +2603,7 @@ The `_ghosting_score_v2` function is reused without modification — the only ch
 | **`_check_translation_monotonicity(affines, primary_axis, min_tau_abs) → (bool, float)`** (`validation.py`) | §1.12: computes Kendall τ between temporal frame indices [0…N-1] and primary-axis translations. |τ| = 1 for perfectly monotone sequences (forward and backward scroll both pass); |τ| ≈ 0 for random permutations. Returns `(is_monotone, tau_abs)`. Requires ≥ 4 frames; shorter sequences always return `(True, 1.0)`. Exported in `__all__`. |
 | **`_MONO_TAU_MIN = 0.4`** (`validation.py`) | Module-level minimum |τ| threshold. A value of 0.4 allows up to ~30% discordant frame pairs — catches catastrophic BA failures while tolerating the minor noise seen in real corpus sequences (typical valid sequences score ≥ 0.85). |
 | **Wired as 5th check in `_validate_affines`** | After ratio / min_gap / rotation / scale, the monotonicity check fires for `scroll_axis ∈ {"vertical", "horizontal"}`. Skipped for diagonal scrolls (dominant axis ambiguous). Failure reason: `"monotonicity={tau:.2f} < 0.4"`. A monotonicity failure falls through to Retry 1 (adjacent-only BA) — the natural recovery since skip edges are the most common source of frame misplacement. |
-| **5 unit tests** (`test_affine_validation.py::TestTranslationMonotonicity`) | perfectly-monotone-passes, reversed-monotone-passes, catastrophically-shuffled-fails, single-out-of-order-passes, fewer-than-4-always-passes. **Anim suite: 367 tests passing.** |
+| **5 unit tests** (`test_affine_validation.py::TestTranslationMonotonicity`) | perfectly-monotone-passes, reversed-monotone-passes, catastrophically-shuffled-fails, single-out-of-order-passes, fewer-than-4-always-passes. **animation suite: 367 tests passing.** |
 
 ### Design rationale
 
@@ -2597,9 +2621,9 @@ Kendall τ directly measures the agreement between the two orderings. Forward an
 |------|---------|
 | **`_reject_scene_change_edges(edges, frames, max_luma_diff) → List[Dict]`** (`pipeline.py`) | §1.13: discards edges between frames whose mean grayscale luminance differs by more than `max_luma_diff`. Comparison is performed on a 64×64 thumbnail for speed. Gate is disabled when `max_luma_diff ≤ 0` or `frames` is empty. Out-of-bounds frame indices are kept (safe fallback). Exported in `__all__`. |
 | **`_SCENE_CHANGE_LUMA_THRESH: float`** (`pipeline.py`) | Module-level threshold, default `0.0` (disabled). Set via `ASP_SCENE_CHANGE_LUMA_THRESH=60.0`. Wired as the first step in `_filter_edges`, before the §1.2A+C static edge rejection. |
-| **`SCENE_CHANGE_LUMA_THRESH = 60.0`** (`constants/anim.py`) | Named constant for the recommended threshold. |
+| **`SCENE_CHANGE_LUMA_THRESH = 60.0`** (`constants/animation.py`) | Named constant for the recommended threshold. |
 | **`"ASP_SCENE_CHANGE_LUMA_THRESH"` in `_CONFIG_SCHEMA`** (`config.py`) | Schema entry `(float, 0.0, 255.0, ...)` so `validate_asp_config` catches invalid values. |
-| **5 unit tests** (`test_pipeline.py::TestRejectSceneChangeEdges`) | similar-frames-not-rejected, large-luma-diff-rejected, threshold-zero-keeps-all, out-of-bounds-index-kept, selectively-filters-mixed-edges. **Anim suite: 362 tests passing.** |
+| **5 unit tests** (`test_pipeline.py::TestRejectSceneChangeEdges`) | similar-frames-not-rejected, large-luma-diff-rejected, threshold-zero-keeps-all, out-of-bounds-index-kept, selectively-filters-mixed-edges. **animation suite: 362 tests passing.** |
 
 ### Design rationale
 
@@ -2621,10 +2645,10 @@ Distinct from `_reject_exposure_outliers` (§1.4F, `compositing.py`): that funct
 |------|---------|
 | **`_reject_exposure_outliers(frame_lums, max_deviation_lum) → List[bool]`** (`compositing.py`) | §1.4F: per-frame skip mask for absolute luminance outliers. Computes the median background luminance across all frames with valid lum values, returns True for any frame whose lum deviates by more than `max_deviation_lum` units. Frames with `None` lum are never rejected. Falls back to all-False when fewer than 3 valid values are available (unreliable median). Exported in `__all__`. |
 | **`_EXPOSURE_OUTLIER_THRESH: float`** (`compositing.py`) | Module-level threshold, default 0.0 (disabled). Set via `ASP_EXPOSURE_OUTLIER_THRESH=60.0`. When > 0, outlier rejects are OR'd into `_skip_norm` after the coherence gate. Logs the count of excluded frames when any are skipped. |
-| **`EXPOSURE_OUTLIER_THRESH = 60.0`** (`constants/anim.py`) | Named constant for the recommended threshold value. |
+| **`EXPOSURE_OUTLIER_THRESH = 60.0`** (`constants/animation.py`) | Named constant for the recommended threshold value. |
 | **`elif _EXPOSURE_OUTLIER_THRESH > 0.0:` wiring** (`compositing.py`) | §1.4F applied immediately after `_coherence_skip_mask` in `_composite_foreground`. Skipped frames still contribute warped pixel content; only gain correction is suppressed. |
 | **`"ASP_EXPOSURE_OUTLIER_THRESH"` in `_CONFIG_SCHEMA`** (`config.py`) | Schema entry `(float, 0.0, 255.0, ...)` so `validate_asp_config` catches invalid values. |
-| **5 unit tests** (`test_compositing.py::TestRejectExposureOutliers`) | uniform-lums-all-false, dark-outlier-rejected, bright-outlier-rejected, below-threshold-not-rejected, insufficient-frames-all-false. **Anim suite: 357 tests passing.** |
+| **5 unit tests** (`test_compositing.py::TestRejectExposureOutliers`) | uniform-lums-all-false, dark-outlier-rejected, bright-outlier-rejected, below-threshold-not-rejected, insufficient-frames-all-false. **animation suite: 357 tests passing.** |
 
 ### Design rationale
 
@@ -2649,7 +2673,7 @@ Complementary to §1.4C (`_bg_gain_unclamped`): that function aggressively corre
 | **`_HISTOGRAM_MATCH: bool`** (`compositing.py`) | Module-level flag, default OFF (`ASP_HISTOGRAM_MATCH=0`). When enabled, replaces the `_bg_gain_unclamped` scalar path in the normalization loop with the full CDF histogram match. `_MULTISCALE_GAIN` takes priority when both flags are set. |
 | **`elif _HISTOGRAM_MATCH:` branch** in normalization loop | §1.4E wired between `if _MULTISCALE_GAIN:` and `else:` in `_composite_foreground`. Calls `_apply_bg_histogram_match`, then computes a representative scalar gain (`median(out_lum / src_lum)`, clipped to [0.5, 2.0]) for §1.6B feather widening. |
 | **`"ASP_HISTOGRAM_MATCH"` in `_CONFIG_SCHEMA`** (`config.py`) | Schema entry `(int, 0, 1, ...)` so `validate_asp_config` catches invalid values. |
-| **5 unit tests** (`test_compositing.py::TestBgHistogramLut`) | identical-distribution-near-identity, brighter-ref-maps-source-upward, darker-ref-maps-source-downward, monotone-non-decreasing, sparse-input-returns-identity. **Anim suite: 352 tests passing.** |
+| **5 unit tests** (`test_compositing.py::TestBgHistogramLut`) | identical-distribution-near-identity, brighter-ref-maps-source-upward, darker-ref-maps-source-downward, monotone-non-decreasing, sparse-input-returns-identity. **animation suite: 352 tests passing.** |
 
 ### Design rationale
 
@@ -2672,7 +2696,7 @@ The flag is OFF by default because the scalar path is ~50× faster and handles t
 | **`_extract_similarity(M) → np.ndarray`** (`matching.py`) | §1.3E: closed-form projection of a full 2×3 affine to its best-fit 4-DOF similarity. Formula: `a_sym = (M[0,0] + M[1,1]) / 2`, `b_sym = (M[0,1] - M[1,0]) / 2` → output `[[a_sym, b_sym, tx], [-b_sym, a_sym, ty]]`. This is the least-squares Procrustes projection onto the 2-D conformal manifold — discards shear while preserving scale, rotation, and translation. Exported in `__all__`. |
 | **`_SIMILARITY_MODE: bool`** (`matching.py`) | Module-level flag, default OFF (`ASP_SIMILARITY_MODE=0`). When enabled, `_match_pair` calls `_extract_similarity(M)` instead of the 3-line translation strip. Default behaviour is unchanged. |
 | **`"ASP_SIMILARITY_MODE"` in `_CONFIG_SCHEMA`** (`config.py`) | Schema entry `(int, 0, 1, ...)` so `validate_asp_config` catches invalid values. |
-| **5 unit tests** (`test_matching.py::TestExtractSimilarity`) | pure-translation-unchanged, rotation-preserved, uniform-scale-preserved, shear-eliminated, output-satisfies-similarity-constraint (20 random matrices). **Anim suite: 347 tests passing.** |
+| **5 unit tests** (`test_matching.py::TestExtractSimilarity`) | pure-translation-unchanged, rotation-preserved, uniform-scale-preserved, shear-eliminated, output-satisfies-similarity-constraint (20 random matrices). **animation suite: 347 tests passing.** |
 
 ### Design rationale
 
@@ -2699,7 +2723,7 @@ Complementary to §0.5D (S47): validation now accepts systematic rotation/scale 
 |------|---------|
 | **`_compute_adaptive_rot_scale(affines) → (float, float)`** (`validation.py`) | §0.5D: returns `(max_rotation, max_scale_dev)` adaptively. If frame-to-frame rotation standard deviation < `_ROT_SCALE_CONSISTENCY_THRESH=0.02`, returns loose threshold `0.15`; otherwise tight `0.10`. Same rule independently for scale. Constants: `_ROT_TIGHT=0.10`, `_ROT_LOOSE=0.15`, `_SC_TIGHT=0.10`, `_SC_LOOSE=0.15`, `_ROT_SCALE_CONSISTENCY_THRESH=0.02`. Exported in `__all__`. |
 | **Wired into `pipeline.py` Stage 7b** | `_adaptive_rot, _adaptive_sc = _compute_adaptive_rot_scale(affines)` before initial `_validate_affines` call. Also applied to Retry 0 re-validation. Log message updated to show `thresh=…` for both metrics. |
-| **5 unit tests** (`test_affine_validation.py::TestAdaptiveRotScale`) | consistent-rotation-returns-loose, inconsistent-rotation-returns-tight, consistent-scale-returns-loose, inconsistent-scale-returns-tight, single-frame-returns-defaults. **Anim suite: 342 tests passing.** |
+| **5 unit tests** (`test_affine_validation.py::TestAdaptiveRotScale`) | consistent-rotation-returns-loose, inconsistent-rotation-returns-tight, consistent-scale-returns-loose, inconsistent-scale-returns-tight, single-frame-returns-defaults. **animation suite: 342 tests passing.** |
 
 ### Design rationale
 
@@ -2724,9 +2748,9 @@ Calibration: test5's rotation is 6.35° = 0.1108 rad (sin ≈ 0.111) and scale_d
 |------|---------|
 | **`_multiscale_gain_map(frame, reference, bg_mask, sigma, gain_min, gain_max) → float32 (H,W)`** (`compositing.py`) | §1.4D: computes a spatially-varying per-pixel gain map via Gaussian-blurred luminance ratio. Background pixels (from `bg_mask`) are used as sources; foreground pixels are zeroed before the blur so only background luminance propagates into fg regions (preventing character-colour corruption). Gain = `ref_blurred / (frame_blurred + ε)`; clamped to `[gain_min=0.5, gain_max=2.0]`. When `frame_blurred ≤ 1.0` (near-black or no-bg-source) gain falls through to 1.0. Exported in `__all__`. |
 | **`_MULTISCALE_GAIN: bool`** (`compositing.py`) | Module-level flag, default OFF (`ASP_MULTISCALE_GAIN=0`). When enabled, replaces the scalar `_bg_gain_unclamped` call with `_multiscale_gain_map` in the per-frame bg normalization loop. Per-pixel gain applied via `gain_map[bg_sel, np.newaxis]` broadcasting (no fg pixels affected). Median gain across bg pixels stored as `frame_gains[i]` for §1.6B feather-width calculation (unchanged downstream). |
-| **`MULTISCALE_GAIN_SIGMA = 30.0`** (`constants/anim.py`) | Gaussian σ in pixels for low-frequency decomposition. |
+| **`MULTISCALE_GAIN_SIGMA = 30.0`** (`constants/animation.py`) | Gaussian σ in pixels for low-frequency decomposition. |
 | **`"ASP_MULTISCALE_GAIN"` in `_CONFIG_SCHEMA`** (`config.py`) | Schema entry `(int, 0, 1, ...)` so `validate_asp_config` catches invalid values. |
-| **5 unit tests** (`test_compositing.py::TestMultiscaleGainMap`) | identical-frame-unity-gain, darker-frame-gain-above-one, brighter-frame-gain-below-one, gain-clamped-to-range, all-fg-mask-produces-unit-gain. **Anim suite: 337 tests passing.** |
+| **5 unit tests** (`test_compositing.py::TestMultiscaleGainMap`) | identical-frame-unity-gain, darker-frame-gain-above-one, brighter-frame-gain-below-one, gain-clamped-to-range, all-fg-mask-produces-unit-gain. **animation suite: 337 tests passing.** |
 
 ### Design rationale
 
@@ -2751,7 +2775,7 @@ Default OFF because the scalar path is faster (~0.1ms vs ~2ms for a 1080p frame 
 | **`_spanning_tree_inlier_filter(edges, num_frames, inlier_threshold=50.0) → List[Dict]`** (`bundle_adjust.py`) | §1.1B: builds a max-weight spanning tree from the edge graph (Kruskal greedy, highest-weight-first), then BFS from frame 0 to derive a reference translation for every frame. Any edge whose observed dx/dy disagrees with the reference by > `inlier_threshold` pixels is removed. Spanning-tree edges always pass (residual = 0 by construction) so the graph remains connected. Falls back to original edges when: fewer than 2 edges/frames, spanning tree cannot reach all frames (disconnected graph), or fewer than `max(2, N-1)` inliers survive. Exported in `__all__`. |
 | **`_ST_INLIER_THRESHOLD = 50.0`** (`bundle_adjust.py`) | Module-level constant for the default inlier threshold. |
 | **Wired at the top of `_bundle_adjust_affine`** (`bundle_adjust.py`) | `edges = _spanning_tree_inlier_filter(edges, num_frames)` called before DOF setup. On clean data the filter is a no-op (all chain edges are tree edges → residual=0). On data with bad skip edges or outlier adjacent edges, removes them before the LM solve. |
-| **5 unit tests** (`test_bundle_adjust.py::TestSpanningTreeInlierFilter`) | consistent-chain-all-kept, inconsistent-skip-edge-removed, consistent-skip-edge-kept, disconnected-graph-fallback, low-weight-bad-edge-not-in-spanning-tree. **Anim suite: 332 tests passing.** |
+| **5 unit tests** (`test_bundle_adjust.py::TestSpanningTreeInlierFilter`) | consistent-chain-all-kept, inconsistent-skip-edge-removed, consistent-skip-edge-kept, disconnected-graph-fallback, low-weight-bad-edge-not-in-spanning-tree. **animation suite: 332 tests passing.** |
 
 ### Design rationale
 
@@ -2774,7 +2798,7 @@ Practical benefit: when the edge set contains a skip-edge (0→2) or long-range 
 | **`frame_keys` and `seam_path_cache` params on `_composite_foreground`** (`compositing.py`) | §1.5D: two new optional keyword args (default `None`). When both are provided, each seam boundary is checked against the cache before building zone arrays or submitting to the `ThreadPoolExecutor`. Cache misses run as before; hits skip all per-boundary array allocations. After the parallel executor completes, any newly computed path is written to the cache under its key. |
 | **`self._seam_path_cache: Dict = {}`** (`pipeline.py`, `AnimeStitchPipeline.__init__`) | §1.5D: instance-level dict shared across successive `run()` calls on the same pipeline object. Passed as `seam_path_cache=self._seam_path_cache` at the Stage 11 call site. |
 | **`AnimeStitchPipeline._composite_foreground` wrapper updated** (`pipeline.py`) | Passes `frame_keys` and `seam_path_cache` through to the module-level function. |
-| **5 unit tests** (`test_compositing.py::TestSeamPathCache`) | hashable key, same-inputs-equal-keys, different-boundary-different-key, different-frame-keys-different-key, None-frame-keys-returns-None. **Anim suite: 327 tests passing.** |
+| **5 unit tests** (`test_compositing.py::TestSeamPathCache`) | hashable key, same-inputs-equal-keys, different-boundary-different-key, different-frame-keys-different-key, None-frame-keys-returns-None. **animation suite: 327 tests passing.** |
 
 ### Design rationale
 
@@ -2793,10 +2817,10 @@ Cache key design: `frame_keys = tuple(image_paths)` (canonical ordering from `ru
 | **`_compute_dhash(thumb, hash_size=8) → np.ndarray[bool]`** (`frame_selection.py`) | §3.4A: difference hash of a thumbnail. Resizes to (hash_size+1, hash_size) using INTER_AREA (averages DCT block noise), converts to uint8 if float, computes horizontal gradient binarisation (`col_j > col_{j-1}`). Returns flat bool array of hash_size² bits. Exported in `__all__`. |
 | **`_detect_hold_blocks_dhash(thumbs, distance_threshold=4) → List[int]`** (`frame_selection.py`) | §3.4A: same API as `_detect_hold_blocks`. Builds dHash for each thumbnail, declares a hold boundary when Hamming distance > threshold. INTER_AREA resize averages MPEG DCT blocks before the comparison, so within-hold distance typically stays 0–2 even for aggressively compressed sources where MAD can exceed 0.025. Exported in `__all__`. |
 | **`_HOLD_DHASH_THRESHOLD`** (`frame_selection.py`) | Module-level config: `int(os.environ.get("ASP_HOLD_DHASH_THRESH", "0"))`. Default 0 = disabled (MAD fallback). Set to 4 to enable. |
-| **`HOLD_DHASH_THRESHOLD = 4`** (`constants/anim.py`) | Canonical constant. |
+| **`HOLD_DHASH_THRESHOLD = 4`** (`constants/animation.py`) | Canonical constant. |
 | **`"ASP_HOLD_DHASH_THRESH"` in `_CONFIG_SCHEMA`** (`config.py`) | Added to §1.8B schema: `(int, 0, 64, "dHash Hamming threshold for hold detection (0=off)")`. |
 | **Wired as step 1b in `smart_select_frames`** | When `_HOLD_DHASH_THRESHOLD > 0`, uses `_detect_hold_blocks_dhash` instead of `_detect_hold_blocks`. Both paths share the same `hold_ids` / `n_hold_blocks` downstream logic. Verbose log prints method label: `HoldDetect/dHash(d≤4)` vs `HoldDetect/MAD(t=0.025)`. |
-| **5 unit tests** (`test_frame_selection.py::TestDetectHoldBlocksDhash`) | identical-thumbs-single-block, opposing-gradient-thumbs-split, threshold-zero-every-frame-own-block, single-frame-returns-single-block, compute-dhash-same-image-zero-distance. **Anim suite: 322 tests passing.** |
+| **5 unit tests** (`test_frame_selection.py::TestDetectHoldBlocksDhash`) | identical-thumbs-single-block, opposing-gradient-thumbs-split, threshold-zero-every-frame-own-block, single-frame-returns-single-block, compute-dhash-same-image-zero-distance. **animation suite: 322 tests passing.** |
 
 ### Design rationale
 
@@ -2818,7 +2842,7 @@ The two detectors are complementary: MAD is faster (~1ms for 300 frames vs ~3ms 
 | **`validate_asp_config(config, *, strict=False) → List[str]`** (`config.py`) | §1.8B validator. Iterates the flat config dict; for each key checks (a) it exists in `_CONFIG_SCHEMA`; (b) value has the expected type (int→float coercion allowed); (c) value is within `[min_val, max_val]`. Unknown keys emit `UserWarning` (forward-compat) but are not violations. Returns a list of violation strings; empty = valid. Exported in `__all__`. |
 | **`strict=True` mode** | Raises `ValueError` with a formatted bullet list of all violations. Designed for CI and experiment scripts where a misconfigured run should abort instead of silently forwarding a bad value as an env string. |
 | **Wired into `load_asp_config`** | New `validate=False` and `strict=False` parameters. When `validate=True`, calls `validate_asp_config(flat, strict=strict)` after merging TOML sections but before writing env vars — so invalid configs are caught before they pollute the process environment. |
-| **5 unit tests** (`test_config.py::TestValidateAspConfig`) | valid-keys-no-violations, wrong-type-produces-violation, out-of-range-produces-violation, strict-raises-ValueError, unknown-key-warns-not-violation. **Anim suite: 317 tests passing.** |
+| **5 unit tests** (`test_config.py::TestValidateAspConfig`) | valid-keys-no-violations, wrong-type-produces-violation, out-of-range-produces-violation, strict-raises-ValueError, unknown-key-warns-not-violation. **animation suite: 317 tests passing.** |
 
 ### Design rationale
 
@@ -2841,7 +2865,7 @@ The `validate=False` default preserves full backward compatibility — callers t
 | **Stage 2 snapshot guarded** | `scans_frames = ([] if _SCANS_RELOAD else list(frames))`. |
 | **Dedup sync sites guarded** | Both `scans_frames = [scans_frames[i] for i in keep_idx]` lines (inline luma dedup and `_spatial_dedup_frames` return) changed to `... if scans_frames else []`. |
 | **5 fallback call sites patched** | All `_scan_stitch_fallback(scans_frames, ...)` and `_panorama_stitch_fallback(scans_frames, ...)` calls use `_sf = scans_frames or _reload_scans_frames(image_paths)`. When `_SCANS_RELOAD=False` (default), `scans_frames` is truthy and the `or` short-circuits — zero overhead. |
-| **5 unit tests** (`test_pipeline.py::TestReloadScansFrames`) | valid-paths-return-two-frames, empty-paths-returns-empty, unreadable-path-skipped, all-frames-normalised-to-first-width, all-unreadable-returns-empty. **Anim suite: 312 tests passing.** |
+| **5 unit tests** (`test_pipeline.py::TestReloadScansFrames`) | valid-paths-return-two-frames, empty-paths-returns-empty, unreadable-path-skipped, all-frames-normalised-to-first-width, all-unreadable-returns-empty. **animation suite: 312 tests passing.** |
 
 ### Design rationale
 
@@ -2861,7 +2885,7 @@ The two dedup sync lines are guarded with `if scans_frames else []` rather than 
 |------|---------|
 | **`_bg_gain_unclamped(ref_lum, frame_lum, override_threshold=0.20) → float`** (`compositing.py`) | §1.4C: returns raw ideal gain `ref_lum / frame_lum` when `_adaptive_gain_clamp` would reduce the ideal correction by more than `override_threshold` (default 20 %). Otherwise returns the clamped value unchanged. |
 | **Wired into normalization loop** | Replaces `_adaptive_gain_clamp(...)` call in the bg-only gain application path in `_composite_foreground`. `frame_gains[i]` now stores the actual applied gain (may be unclamped) for feather-width computation. |
-| **5 unit tests** (`test_compositing.py::TestBgGainUnclamped`) | large-correction-returns-ideal, small-correction-returns-clamped, zero-frame-lum-guard, threshold-boundary-behavior, darkening-case-symmetry. **Anim suite: 307 tests passing.** |
+| **5 unit tests** (`test_compositing.py::TestBgGainUnclamped`) | large-correction-returns-ideal, small-correction-returns-clamped, zero-frame-lum-guard, threshold-boundary-behavior, darkening-case-symmetry. **animation suite: 307 tests passing.** |
 
 ### Design rationale
 
@@ -2879,12 +2903,12 @@ The clamp exists to protect character skin tones from over-correction. But the n
 
 | Item | Summary |
 |------|---------|
-| **`TEMPORAL_VAR_THRESH = 1e-3`** (`constants/anim.py`) | §1.2D canonical threshold (mean per-pixel variance in [0,1]² space). |
+| **`TEMPORAL_VAR_THRESH = 1e-3`** (`constants/animation.py`) | §1.2D canonical threshold (mean per-pixel variance in [0,1]² space). |
 | **`_TEMPORAL_VAR_THRESH = 0.0`** (`frame_selection.py`) | Module-level config constant. Default 0.0 = disabled. Override via `ASP_TEMPORAL_VAR_THRESH`. |
 | **`_temporal_variance_filter(thumbs, paths, sigma_threshold) → (thumbs, paths, n_dropped)`** (`frame_selection.py`) | §1.2D: for each interior frame i, stacks the (i-1, i, i+1) thumbnail triplet and computes mean per-pixel variance. If variance < sigma_threshold the frame is static and dropped. First/last always kept. No-op when threshold=0 or N<3. |
 | **Wired as step 1a in `smart_select_frames`** | Runs after `_load_thumbs_parallel()`, before hold detection (step 1b). Rebinds `thumbs`, `frames_paths`, and `N` so all downstream steps see the reduced frame set. Verbose log prints drop count and threshold. |
 | **`_temporal_variance_filter` in `frame_selection.py __all__`** | Exported alongside other module-level public functions. |
-| **5 unit tests** (`test_frame_selection.py::TestTemporalVarianceFilter`) | static-triplet-drops-middle, high-variance-kept, first-last-never-dropped, threshold-zero-disables, fewer-than-three-passes-unchanged. **Anim suite: 302 tests passing.** |
+| **5 unit tests** (`test_frame_selection.py::TestTemporalVarianceFilter`) | static-triplet-drops-middle, high-variance-kept, first-last-never-dropped, threshold-zero-disables, fewer-than-three-passes-unchanged. **animation suite: 302 tests passing.** |
 
 ### Design rationale
 
@@ -2903,11 +2927,11 @@ The threshold `1e-3` in [0,1]² space corresponds to a standard deviation of ~0.
 | Item | Summary |
 |------|---------|
 | **`_HIGH_HOLD_RESPONSE = 0.85`** (`frame_selection.py`) | §1.11C configuration constant. Override via `ASP_HIGH_HOLD_RESPONSE` env var. Set to 0.0 to disable. |
-| **`HIGH_HOLD_RESPONSE_THRESH = 0.85`** (`constants/anim.py`) | Canonical constant for the phase-correlation response floor. |
+| **`HIGH_HOLD_RESPONSE_THRESH = 0.85`** (`constants/animation.py`) | Canonical constant for the phase-correlation response floor. |
 | **`_refine_hold_ids_by_response(hold_ids, responses, high_response_threshold) → (ids, n_blocks)`** (`frame_selection.py`) | §1.11C: post-hoc hold refinement. Iterates `responses`; for each cross-hold pair (different `hold_ids`) with `response >= threshold`, merges the higher-index block ID into the lower. IDs are renumbered consecutively (first-occurrence order) before returning. Zero extra compute — uses the `responses` list that step 3 already builds. |
 | **Wired as step 3b in `smart_select_frames`** | Called after the phase-correlation loop (`responses` complete) and before step 4 (dominant axis). Only runs when both `_HOLD_THRESHOLD > 0.0` and `_HIGH_HOLD_RESPONSE > 0.0`. Updates `hold_ids` and `n_hold_blocks` in-place. Verbose logging prints updated block count. |
 | **`_refine_hold_ids_by_response` in `frame_selection.py __all__`** | Exported alongside `_detect_hold_blocks` and other public functions. |
-| **5 unit tests** (`test_frame_selection.py::TestRefineHoldIdsByResponse`) | all-high-merge, low-leave-unchanged, partial-merge-only-high-pairs, consecutive-renumbering, single-frame-unchanged. **Anim suite: 297 tests passing.** |
+| **5 unit tests** (`test_frame_selection.py::TestRefineHoldIdsByResponse`) | all-high-merge, low-leave-unchanged, partial-merge-only-high-pairs, consecutive-renumbering, single-frame-unchanged. **animation suite: 297 tests passing.** |
 
 ### Design rationale
 
@@ -2925,11 +2949,11 @@ The threshold 0.85 is deliberately conservative: MPEG quantization on 420 chroma
 
 | Item | Summary |
 |------|---------|
-| **`HIGH_CONF_EDGE_THRESH = 0.65`** (`constants/anim.py`) | §2.9C floor for LoFTR-quality edge weight. LoFTR: weight ~0.7–0.95; TM fallback: ~0.15–0.55; PC fallback: ~0.15. |
+| **`HIGH_CONF_EDGE_THRESH = 0.65`** (`constants/animation.py`) | §2.9C floor for LoFTR-quality edge weight. LoFTR: weight ~0.7–0.95; TM fallback: ~0.15–0.55; PC fallback: ~0.15. |
 | **`_filter_high_conf_edges(edges, min_weight) → List[Dict]`** (`pipeline.py`) | Keeps only edges with `weight >= min_weight`. Used as the Retry-0 pre-check on ratio failures. |
 | **Retry 0 wired into Stage 7b** | Inserted before Retry 1: when `health.reason.startswith("ratio=")` and `len(_hc_edges) >= N-1`, re-solves with high-confidence edges and re-validates. Falls through to Retry 1 unchanged if fewer than N-1 HC edges survive. |
 | **`_filter_high_conf_edges` in `pipeline.py __all__`** | Exported alongside other module-level functions. |
-| **5 unit tests** (`test_pipeline.py`) | `TestFilterHighConfEdges`: high-weight-kept, low-weight-removed, empty-returns-empty, all-below-returns-empty, missing-weight-treated-as-zero. **Anim suite: 292 tests passing.** |
+| **5 unit tests** (`test_pipeline.py`) | `TestFilterHighConfEdges`: high-weight-kept, low-weight-removed, empty-returns-empty, all-below-returns-empty, missing-weight-treated-as-zero. **animation suite: 292 tests passing.** |
 
 ### Design rationale
 
@@ -2950,7 +2974,7 @@ The existing Retry 1 (adjacent-only edges) handles this case but only for ratio 
 | **`_compute_adaptive_min_gap(affines) → float`** (`validation.py`) | §0.5C: returns `max(20.0, canvas_span / (N × 3))` where `canvas_span` is the dominant-axis displacement range. Slow-scroll sequences (200 px span, N=10) → floor 20.0; fast-scroll 4K (3000 px span, N=10) → adaptive 100 px. |
 | **`_compute_adaptive_min_gap` in `validation.py __all__`** | Exported alongside `AffineHealth` and `_validate_affines`. |
 | **Imported and wired into `pipeline.py` Stage 7b** | First `_validate_affines` call now passes `min_step=_compute_adaptive_min_gap(affines)`. Log message updated to include `adaptive_floor=Xpx`. Import added to `validation` import line. |
-| **5 unit tests** (`test_affine_validation.py`) | `TestAdaptiveMinGap`: slow-scroll-returns-floor, fast-scroll-exceeds-fixed-threshold, single-frame-returns-floor, dominant-axis-is-max-span, wired-into-pipeline-initial-call. **Anim suite: 287 tests passing.** |
+| **5 unit tests** (`test_affine_validation.py`) | `TestAdaptiveMinGap`: slow-scroll-returns-floor, fast-scroll-exceeds-fixed-threshold, single-frame-returns-floor, dominant-axis-is-max-span, wired-into-pipeline-initial-call. **animation suite: 287 tests passing.** |
 
 ### Design rationale
 
@@ -2973,7 +2997,7 @@ The adaptive formula `max(20.0, canvas_span / (N × 3))` anchors the minimum gap
 | **`_ghosting_score_v2(img) → float`** (`bench_anime_stitch.py`) | §3.8A: FFT-based autocorrelation of column-mean gradient-magnitude profile. Detects secondary peak at displacement D — the signature of a ghost (misaligned shifted copy). Score [0–100]: 0=clean, 30+=ghost likely. |
 | **`ghosting_siqe` in `_compute_all_metrics`** | Added alongside existing `ghosting_score` (kept for GhostGate calibration). |
 | **Metric description added to report table** | `("ghosting_siqe", "§3.8A autocorr double-edge score [0–100], higher = ghost")` |
-| **5 unit tests** (`test_bench_metrics.py`) | `TestGhostingScoreV2`: uniform→zero, ghost-bands→nonzero, bounded [0–100], grayscale input, `ghosting_siqe` in `_compute_all_metrics`. **Anim suite: 282 tests passing.** |
+| **5 unit tests** (`test_bench_metrics.py`) | `TestGhostingScoreV2`: uniform→zero, ghost-bands→nonzero, bounded [0–100], grayscale input, `ghosting_siqe` in `_compute_all_metrics`. **animation suite: 282 tests passing.** |
 | **§1.7C roadmap housekeeping** | `_crop_to_valid` in `canvas.py` already implements content-aware bounding-box crop (bounding box when valid_ratio ≥ 80%, max-inscribed-rect otherwise). §1.7C marked de facto done. |
 
 ### Design rationale
@@ -2998,10 +3022,10 @@ A ghost creates two nearly-identical edge features at fixed displacement D. Thei
 | Item | Summary |
 |------|---------|
 | **`_compute_adaptive_min_disp(edges) → float`** (`pipeline.py`) | §1.2C: returns `max(STATIC_EDGE_MIN_DISP_PX, ADAPTIVE_MIN_DISP_FRAC × median_adjacent_step)` on the dominant scroll axis. For slow-scroll sequences the floor (50px) dominates; for fast-scroll/4K content (e.g., 1000px/frame) the adaptive threshold rises to 100px. |
-| **`ADAPTIVE_MIN_DISP_FRAC = 0.10`** (`constants/anim.py`) | §1.2C fractional constant. |
+| **`ADAPTIVE_MIN_DISP_FRAC = 0.10`** (`constants/animation.py`) | §1.2C fractional constant. |
 | **Wired into `_filter_edges()`** | `_compute_adaptive_min_disp(edges)` called before `_reject_static_edges`; result passed as `min_disp_px`. |
 | **`_compute_adaptive_min_disp` in `pipeline.py __all__`** | Exported alongside `_reject_static_edges`. |
-| **5 unit tests** (`test_filter_edges.py`) | `TestComputeAdaptiveMinDisp`: floor-dominates-small-steps, adaptive-exceeds-floor-large-steps, empty-edges-returns-floor, dominant-axis-x-selected, no-adjacent-edges-returns-floor. **Anim suite: 277 tests passing.** |
+| **5 unit tests** (`test_filter_edges.py`) | `TestComputeAdaptiveMinDisp`: floor-dominates-small-steps, adaptive-exceeds-floor-large-steps, empty-edges-returns-floor, dominant-axis-x-selected, no-adjacent-edges-returns-floor. **animation suite: 277 tests passing.** |
 
 ### Design rationale
 
@@ -3019,7 +3043,7 @@ A ghost creates two nearly-identical edge features at fixed displacement D. Thei
 |------|---------|
 | **§3.15A column fg-domination barrier** (`compositing.py`) | `_build_seam_cost_map()`: columns with >50% fg-interior pixels raised to cost=2.0 (above Tier 1 max of 1.0), forcing DP seam into background-only corridor columns. Falls back to per-pixel costs when all columns are fg-dominated. |
 | **§3.14 scroll-axis detection wired** (`pipeline.py`) | `_detect_scroll_axis` imported and called after Stage 9; `'horizontal'` scroll type → explicit SCANS fallback with log. (Function existed in `canvas.py` but was never called from the pipeline.) |
-| **10 unit tests** | `TestSeamCostColumnFilter` (5) in `test_compositing.py`; `TestDetectScrollAxisModule` (5) in `test_canvas.py`. **Anim suite: 272 tests passing.** |
+| **10 unit tests** | `TestSeamCostColumnFilter` (5) in `test_compositing.py`; `TestDetectScrollAxisModule` (5) in `test_canvas.py`. **animation suite: 272 tests passing.** |
 
 ---
 
@@ -3030,10 +3054,10 @@ A ghost creates two nearly-identical edge features at fixed displacement D. Thei
 | Item | Summary |
 |------|---------|
 | **`_reject_static_edges(edges, min_disp_px) → List[Dict]`** (`pipeline.py`) | §1.2A: drops any edge where BOTH `|dx| < min_disp_px` AND `|dy| < min_disp_px`. Default `min_disp_px = STATIC_EDGE_MIN_DISP_PX = 50`. Keeps an edge if EITHER axis is >= the threshold (preserves valid diagonal-scroll edges). |
-| **`STATIC_EDGE_MIN_DISP_PX = 50`** (`constants/anim.py`) | New pipeline constant for the combined-axis displacement threshold. |
+| **`STATIC_EDGE_MIN_DISP_PX = 50`** (`constants/animation.py`) | New pipeline constant for the combined-axis displacement threshold. |
 | **Wired into `_filter_edges()`**  | `_reject_static_edges(edges)` is called at the very start of `_filter_edges()`, before the geometric consistency filter. Ensures near-zero-2D-displacement edges cannot corrupt the direction consensus median. |
 | **`_reject_static_edges` exported in `pipeline.py __all__`** | Added alongside `_spatial_dedup_frames`. |
-| **5 unit tests** (`test_filter_edges.py`) | `TestRejectStaticEdges`: normal-edges-all-kept, both-axes-below-threshold-rejected, one-axis-above-threshold-kept, skip-edge-with-small-displacement-rejected, empty-edge-list. **Anim suite: 262 tests passing.** |
+| **5 unit tests** (`test_filter_edges.py`) | `TestRejectStaticEdges`: normal-edges-all-kept, both-axes-below-threshold-rejected, one-axis-above-threshold-kept, skip-edge-with-small-displacement-rejected, empty-edge-list. **animation suite: 262 tests passing.** |
 
 ### Design rationale
 
@@ -3055,7 +3079,7 @@ The existing min-step guard in `_filter_edges` (shipped in an earlier session) r
 | **`_panorama_stitch_fallback(frames, output_path) → PIL.Image`** (`canvas.py`) | §1.3B: tries `cv2.Stitcher_create(mode=0)` (PANORAMA) for affine-validation failures before the SCANS path. PANORAMA handles scale and rotation that the translation-only canvas model rejects. Raises `RuntimeError` on failure so the caller can fall through. |
 | **`_panorama_stitch_fallback` wired into `pipeline.py`** | Inserted between Retry 3 and the SCANS fallback in the affine validation failure branch (line ~1037). Any `Exception` from PANORAMA is caught; the pipeline logs it and proceeds to `_scan_stitch_fallback`. |
 | **`_panorama_stitch_fallback` added to `canvas.py __all__`** | Exported alongside `_scan_stitch_fallback`. |
-| **5 unit tests** (`test_canvas.py`) | `TestPanoramaStitchFallback`: returns-pil-image-on-success, raises-runtime-error-on-non-ok-status, saves-file-on-success, uses-panorama-mode-zero, output-dimensions-match-pano. **Anim suite: 257 tests passing.** |
+| **5 unit tests** (`test_canvas.py`) | `TestPanoramaStitchFallback`: returns-pil-image-on-success, raises-runtime-error-on-non-ok-status, saves-file-on-success, uses-panorama-mode-zero, output-dimensions-match-pano. **animation suite: 257 tests passing.** |
 
 ### Design rationale
 
@@ -3074,7 +3098,7 @@ When `_validate_affines` rejects a solution after Retries 1–3, the pipeline ha
 | **`_compute_adaptive_f_scale(edges, affines, floor) → float`** (`bundle_adjust.py`) | §1.1D: derives a data-driven Cauchy loss scale from the post-solve edge residuals. Returns `max(floor, 2.0 × median_residual_px)`. Pure module-level function, exported in `__all__`. |
 | **Adaptive re-solve in `_bundle_adjust_affine`** | After the initial LM solve, the function extracts preliminary affines and calls `_compute_adaptive_f_scale`. If `adaptive_scale > _BA_F_SCALE × 1.5`, a single re-solve runs with the data-derived scale (warm-started from `x_opt`). The two-pronged outlier rejection then runs on the refined solution as before. |
 | **`__all__` added to `bundle_adjust.py`** | Exports `["_bundle_adjust_affine", "_compute_adaptive_f_scale"]`. |
-| **5 unit tests** (`test_bundle_adjust.py`) | `TestAdaptiveFScale`: floor-dominates-for-perfect-solution, widens-when-solution-does-not-fit-edges, empty-edges-returns-floor, floor-respected-for-tiny-residuals, single-edge-computes-correctly. **Anim suite: 252 tests passing.** |
+| **5 unit tests** (`test_bundle_adjust.py`) | `TestAdaptiveFScale`: floor-dominates-for-perfect-solution, widens-when-solution-does-not-fit-edges, empty-edges-returns-floor, floor-respected-for-tiny-residuals, single-edge-computes-correctly. **animation suite: 252 tests passing.** |
 
 ### Design rationale
 
@@ -3096,11 +3120,11 @@ The re-solve is warm-started from `x_opt` (the initial solution), so it takes fa
 | **`_get_reward_model()`** | Lazy singleton loader for `StitchRewardModel`. Initialises on first call; returns `None` on any import or init error (e.g., torch unavailable). |
 | **`_compute_rlhf_score(img_bgr: np.ndarray) → Optional[float]`** | Calls `StitchRewardModel.predict(img_bgr)`, returns a float in [0, 1] or `None` for empty/invalid input or unavailable model. |
 | **`_compute_all_metrics` updated** | Added `rlhf_score` (float or None) and `rlhf_flagged` (bool) to every metrics dict. The lazy model is loaded once per benchmark run and reused across all tests. |
-| **5 unit tests** (`test_bench_metrics.py`) | `TestComputeRlhfScore`: float-or-None contract, empty-image None guard, valid range [0,1], flagged-when-below-threshold (mock), not-flagged-at-threshold (mock). **Anim suite: 247 tests passing.** |
+| **5 unit tests** (`test_bench_metrics.py`) | `TestComputeRlhfScore`: float-or-None contract, empty-image None guard, valid range [0,1], flagged-when-below-threshold (mock), not-flagged-at-threshold (mock). **animation suite: 247 tests passing.** |
 
 ### Design rationale
 
-The reward model CNN (`backend/src/anim/rlhf/reward_model.py`) has existed since early sessions but was never wired into the benchmark evaluation loop. Without wiring, benchmark runs produced no `rlhf_score` column — there was no automated signal to identify which of the 96 outputs warranted human review, and the `_RLHF_FLAG_THRESHOLD` concept had no concrete implementation.
+The reward model CNN (`backend/src/animation/rlhf/reward_model.py`) has existed since early sessions but was never wired into the benchmark evaluation loop. Without wiring, benchmark runs produced no `rlhf_score` column — there was no automated signal to identify which of the 96 outputs warranted human review, and the `_RLHF_FLAG_THRESHOLD` concept had no concrete implementation.
 
 The S29 addition is minimal by design. The model loads lazily (no startup cost when not used), and the wiring is entirely in the benchmark, not in the pipeline itself. The `rlhf_flagged` key in the per-test metrics dict acts as the entry point for the human feedback tab: the tab can filter the results table to `rlhf_flagged=True` outputs and present them for rating. Collected ratings then flow into `StitchRewardModel.train_from_feedback()` (already implemented), which tightens the model's predictions for future runs.
 
@@ -3118,7 +3142,7 @@ Current limitation: the model is initialised with random weights if no checkpoin
 | **§1.9A sync fix** | The previous while-loop updated `frames`, `bg_masks`, `image_paths`, and `edges` on each drop pass but never updated `scans_frames`. Every SCANS fallback triggered after spatial dedup therefore received the full pre-dedup frame set (including near-duplicates just discarded). One-line fix: `[scans_frames[i] for i in keep_idx]` appended to the drop block. |
 | **`run()` refactored to call `_spatial_dedup_frames`** | The while-loop body in `AnimeStitchPipeline.run()` is replaced by a call to the new function. Loop exit condition (`_spa_changed`) is now simply `n_dropped > 0`. N<2 fallback path unchanged. |
 | **`_spatial_dedup_frames` added to `__all__`** | Directly importable for testing. |
-| **5 unit tests** (`test_pipeline.py`) | New `TestSpatialDedupFrames` class: `test_no_drop_when_displacement_above_threshold` (all edges ≥ min_px → unchanged), `test_drops_near_static_adjacent_frame` (one sub-threshold edge → frame dropped), `test_scans_frames_synced_with_frames_after_drop` (scans_frames tracks frames after drop), `test_edges_reindexed_after_drop` (i/j indices remapped correctly after a mid-sequence drop), `test_first_frame_never_dropped` (frame 0 is always anchor). **Anim suite: 242 tests passing.** |
+| **5 unit tests** (`test_pipeline.py`) | New `TestSpatialDedupFrames` class: `test_no_drop_when_displacement_above_threshold` (all edges ≥ min_px → unchanged), `test_drops_near_static_adjacent_frame` (one sub-threshold edge → frame dropped), `test_scans_frames_synced_with_frames_after_drop` (scans_frames tracks frames after drop), `test_edges_reindexed_after_drop` (i/j indices remapped correctly after a mid-sequence drop), `test_first_frame_never_dropped` (frame 0 is always anchor). **animation suite: 242 tests passing.** |
 
 ### Design rationale
 
@@ -3136,11 +3160,11 @@ Extracting `_spatial_dedup_frames` as a module-level function also makes the ded
 
 | Item | Summary |
 |------|---------|
-| **`load_asp_config(path, *, override_env) → Dict[str, Any]`** (`backend/src/anim/config.py`) | §1.8A: loads `asp_config.toml` (or a caller-supplied path) using Python 3.11 stdlib `tomllib`. Sections are merged into a flat dict; each key is written to `os.environ` via `setdefault` so downstream `os.environ.get` calls in pipeline modules pick it up automatically. Explicit env vars always win over the config file. Zero new dependencies. |
+| **`load_asp_config(path, *, override_env) → Dict[str, Any]`** (`backend/src/animation/config.py`) | §1.8A: loads `asp_config.toml` (or a caller-supplied path) using Python 3.11 stdlib `tomllib`. Sections are merged into a flat dict; each key is written to `os.environ` via `setdefault` so downstream `os.environ.get` calls in pipeline modules pick it up automatically. Explicit env vars always win over the config file. Zero new dependencies. |
 | **Multi-section TOML format** | Keys are organised under semantic sections (`[frame_selection]`, `[compositing]`, `[pipeline]`, etc.) for readability. Any key is valid — unrecognised keys are forwarded as env vars. |
 | **`override_env=False` dry-run mode** | Passing `override_env=False` loads and returns the config dict without touching `os.environ`, enabling unit-test isolation and config-preview tooling. |
-| **`load_asp_config` added to `backend.src.anim.config.__all__`** | Directly importable from the package. |
-| **5 unit tests** (`test_config.py`) | New `TestLoadAspConfig` class: `test_missing_file_returns_empty_dict` (absent file → `{}`), `test_valid_config_sets_env_var` (value written to env), `test_existing_env_var_not_overwritten` (setdefault semantics), `test_multi_section_keys_flattened` (two sections merged into flat dict), `test_override_env_false_does_not_write_env` (dry-run mode). **Anim suite: 237 tests passing.** |
+| **`load_asp_config` added to `backend.src.animation.config.__all__`** | Directly importable from the package. |
+| **5 unit tests** (`test_config.py`) | New `TestLoadAspConfig` class: `test_missing_file_returns_empty_dict` (absent file → `{}`), `test_valid_config_sets_env_var` (value written to env), `test_existing_env_var_not_overwritten` (setdefault semantics), `test_multi_section_keys_flattened` (two sections merged into flat dict), `test_override_env_false_does_not_write_env` (dry-run mode). **animation suite: 237 tests passing.** |
 
 ### Design rationale
 
@@ -3180,9 +3204,9 @@ ASP_COV_MIN_MULTI_PCT = 0.30
 | **`_near_dup_luma_filter(selected_thumbs, selected_paths, threshold)` → `List[str]`** (`frame_selection.py`) | §1.2B: post-filter on the already-selected frame list. Compares consecutive pairs by mean absolute grayscale difference on thumbnail images. Frames with `diff < threshold` luma units are dropped. First frame always kept; last frame always retained (preserves full canvas extent). |
 | **`_NEAR_DUP_LUMA` config var** (`frame_selection.py`) | Env var `ASP_NEAR_DUP_LUMA` (default `0.0` = disabled). Set to e.g. `5.0` to activate. Default OFF avoids regression risk on the existing test corpus. |
 | **Wired as step 8 in `smart_select_frames`** | After both selection passes, if `_NEAR_DUP_LUMA > 0.0` and more than 2 frames are selected, `_near_dup_luma_filter` is applied. Verbose mode prints how many near-dup frames were dropped. |
-| **`_near_dup_luma_filter` added to `__all__`** | Directly importable and testable from `backend.src.anim.frame_selection`. |
-| **`NEAR_DUP_LUMA_THRESH = 3.0` added to `constants/anim.py`** | Promotes the magic number from `pipeline.py`'s pre-stage-5 luma dedup (`diff < 3.0`) to a named constant. Imported and used in `pipeline.py`. |
-| **5 unit tests** (`test_frame_selection.py`) | New `TestNearDupLumaFilter` class: `test_disabled_at_zero_threshold` (threshold=0 → all paths unchanged), `test_all_identical_keeps_first_and_last` (5× same lum → only first + last survive), `test_all_different_keeps_all` (large luma steps → no drops), `test_two_frames_passes_unchanged` (≤2 frames always bypassed), `test_middle_near_dup_dropped_first_last_kept` (middle near-dup dropped; first and last always in result). **Anim suite: 232 tests passing.** |
+| **`_near_dup_luma_filter` added to `__all__`** | Directly importable and testable from `backend.src.animation.frame_selection`. |
+| **`NEAR_DUP_LUMA_THRESH = 3.0` added to `constants/animation.py`** | Promotes the magic number from `pipeline.py`'s pre-stage-5 luma dedup (`diff < 3.0`) to a named constant. Imported and used in `pipeline.py`. |
+| **5 unit tests** (`test_frame_selection.py`) | New `TestNearDupLumaFilter` class: `test_disabled_at_zero_threshold` (threshold=0 → all paths unchanged), `test_all_identical_keeps_first_and_last` (5× same lum → only first + last survive), `test_all_different_keeps_all` (large luma steps → no drops), `test_two_frames_passes_unchanged` (≤2 frames always bypassed), `test_middle_near_dup_dropped_first_last_kept` (middle near-dup dropped; first and last always in result). **animation suite: 232 tests passing.** |
 
 ### Design rationale
 
@@ -3201,7 +3225,7 @@ The function is disabled by default (`ASP_NEAR_DUP_LUMA=0.0`) because the existi
 | **Dead code removed: S8 `_compute_aligned_ssim`** (`bench_anime_stitch.py` lines 168-204) | The S8 EUCLIDEAN definition was silently overridden at module level by the later S9 TRANSLATION definition (Python last-wins). All call sites in `_compute_gt_metrics` were using TRANSLATION-only ECC (50 iterations, 0.01 tolerance). The dead S8 definition is now removed. |
 | **Active `_compute_aligned_ssim` upgraded to EUCLIDEAN** (`bench_anime_stitch.py`) | The surviving definition (formerly line 377) is now upgraded: `cv2.MOTION_TRANSLATION` → `cv2.MOTION_EUCLIDEAN`; criteria updated from `(50, 0.01)` → `(200, 1e-4)`. Robustness features from the active version are preserved: `gaussFiltSize=5` (pre-smooths ECC input for noisy/low-texture crops), GT-centric resize `cv2.resize(output_img, (w, h))` (correct reference space), `borderMode=cv2.BORDER_REPLICATE`. Docstring updated to document S25 consolidation. |
 | **Redundant double call eliminated** (`_compute_gt_metrics`) | Lines 434 and 437 both called `_compute_aligned_ssim(output_img, gt_img)`. Line 434 assigned to `aligned_ssim_val` (unused). Consolidated to a single call assigning to `aligned_ssim`. |
-| **5 unit tests for `_compute_aligned_ssim`** (`test_bench_metrics.py`) | New `TestComputeAlignedSsim` class (skipped if skimage unavailable): `test_identical_images_returns_one` (identical input → SSIM ≈ 1.0), `test_returns_float` (isinstance check), `test_shifted_image_high_ssim_after_alignment` (translated copy with 5px shift → score > 0.70 after ECC correction), `test_different_images_score_below_one` (structurally unrelated → < 0.99), `test_score_in_valid_range` (SSIM ∈ [0, 1]). **Anim suite: 227 tests passing.** |
+| **5 unit tests for `_compute_aligned_ssim`** (`test_bench_metrics.py`) | New `TestComputeAlignedSsim` class (skipped if skimage unavailable): `test_identical_images_returns_one` (identical input → SSIM ≈ 1.0), `test_returns_float` (isinstance check), `test_shifted_image_high_ssim_after_alignment` (translated copy with 5px shift → score > 0.70 after ECC correction), `test_different_images_score_below_one` (structurally unrelated → < 0.99), `test_score_in_valid_range` (SSIM ∈ [0, 1]). **animation suite: 227 tests passing.** |
 
 ### Design rationale
 
@@ -3228,7 +3252,7 @@ S25 consolidates the best of both: EUCLIDEAN motion model (handles small rotatio
 |------|---------|
 | **`_adaptive_gain_clamp` rewritten** (`compositing.py`) | §1.4B: replaced the S18 binary threshold (ref_lum<80 → ±18%, ≥80 → ±14%) with `clamp_width = 0.26 − 0.12 × (ref_lum / 255)`. At ref=0 this gives ±26%; at ref=255 it gives exactly ±14% (anchored to the S18 normal ceiling). All intermediate values are linearly interpolated — the discontinuity at ref=80 is gone. |
 | **5 existing `TestAdaptiveGainClamp` tests updated** (`test_compositing.py`) | Tests 1, 2, 5 now compute their expected `lo`/`hi` via the continuous formula helper `_lo(ref)` / `_hi(ref)`. Test 4 (`test_dark_threshold_boundary_at_80`) renamed `test_continuous_no_jump_at_ref_80` — verifies `|f(79.9, 300) − f(80.0, 300)| < 0.001` (continuity). Test 3 (unclamped correction) unchanged. |
-| **3 new `TestAdaptiveGainClamp` tests** (`test_compositing.py`) | `test_bright_ref_hi_matches_anchor` (ref=255 → hi=1.14 exactly), `test_clamp_width_monotone_decreasing` (lo(50) < lo(200)), `test_mid_ref_continuous_formula` (ref=128 → exact formula result). Anim suite: 222 tests passing. |
+| **3 new `TestAdaptiveGainClamp` tests** (`test_compositing.py`) | `test_bright_ref_hi_matches_anchor` (ref=255 → hi=1.14 exactly), `test_clamp_width_monotone_decreasing` (lo(50) < lo(200)), `test_mid_ref_continuous_formula` (ref=128 → exact formula result). animation suite: 222 tests passing. |
 
 ### Design rationale
 
@@ -3243,10 +3267,10 @@ S25 consolidates the best of both: EUCLIDEAN motion model (handles small rotatio
 | Item | Summary |
 |------|---------|
 | **`_telea_fill_gaps(canvas, gap_mask) → np.ndarray`** (`canvas.py`) | §1.7B: fills residual black border pixels left after Stage-13 `_crop_to_valid`, using `cv2.inpaint(inpaintRadius=3, flags=cv2.INPAINT_TELEA)`. Zero new dependencies. Fast (~0.5 s typical). Returns unchanged canvas when `gap_mask.any()` is False. |
-| **`_telea_fill_gaps` added to `canvas.py __all__`** | Directly importable and testable from `backend.src.anim.canvas`. |
+| **`_telea_fill_gaps` added to `canvas.py __all__`** | Directly importable and testable from `backend.src.animation.canvas`. |
 | **TELEA fallback in `pipeline.py` P1.8 block** | The `except Exception` block that previously logged "keeping canvas as-is" now attempts `_telea_fill_gaps` as a fast recovery path when diffusion inpainting fails. A second `except` guards against degenerate inputs (fully-black canvas). |
 | **`_telea_fill_gaps` imported in `pipeline.py`** | Added to the `from .canvas import (...)` block alongside `_crop_to_valid` and `_scan_stitch_fallback`. |
-| **5 unit tests** (`test_canvas.py`) | New `TestTelaeFillGaps` class: `test_no_gap_returns_unchanged` (all-zero mask → identical output), `test_shape_preserved`, `test_dtype_preserved` (uint8 in → uint8 out), `test_corner_gap_no_longer_black` (4×4 black corner filled by neighbour propagation → `max() > 0`), `test_valid_region_unchanged_outside_band` (pixels ≥8 rows/cols from gap band untouched). Anim suite: 219 tests passing. |
+| **5 unit tests** (`test_canvas.py`) | New `TestTelaeFillGaps` class: `test_no_gap_returns_unchanged` (all-zero mask → identical output), `test_shape_preserved`, `test_dtype_preserved` (uint8 in → uint8 out), `test_corner_gap_no_longer_black` (4×4 black corner filled by neighbour propagation → `max() > 0`), `test_valid_region_unchanged_outside_band` (pixels ≥8 rows/cols from gap band untouched). animation suite: 219 tests passing. |
 
 ### Design rationale
 
@@ -3265,8 +3289,8 @@ The P1.8 inpainting block already attempts diffusion inpainting (`mfsr.inpaint_g
 | **`max_feathers` cache in overlap-cap loop** (`compositing.py`) | `max_feathers: List[int] = []` populated in the overlap-cap loop so §1.6B can re-apply the cap (`feathers[k] = min(min_fk, max_feathers[k])`) without recomputing `nat_overlap` per boundary. |
 | **§1.6B pass after overlap-cap** (`compositing.py`) | For each boundary k: `gain_diff = abs(frame_gains[fi_a] - frame_gains[fi_b])`, `min_fk = _gain_to_min_feather(gain_diff)`. If `feathers[k] < min_fk`, widen (capped by `max_feathers[k]`). Prints a per-boundary feather report only when any boundary was actually widened. |
 | **Dead code removed: `_normalize_warped_to_median`** (`compositing.py`) | Removed the 30-line function (per-channel gain normalization) that was defined but never called. The function's hue-shift risk was the documented reason for its disuse; the scalar-gain approach in `_adaptive_gain_clamp` supersedes it. |
-| **`_gain_to_min_feather` added to `__all__`** | Directly importable and testable from `backend.src.anim.compositing`. |
-| **6 unit tests** (`test_compositing.py`) | New `TestGainToMinFeather` class: `test_zero_diff_returns_floor` (0.0→40), `test_small_diff_returns_floor` (0.1×300=30<40→40), `test_mid_diff_scales_linearly` (0.2×300=60→60), `test_large_diff_capped_at_120` (0.5×300=150→120), `test_at_floor_boundary` (40/300×300=40→40), `test_just_above_floor_boundary` (0.14×300=42→42). Anim suite: 214 tests passing. |
+| **`_gain_to_min_feather` added to `__all__`** | Directly importable and testable from `backend.src.animation.compositing`. |
+| **6 unit tests** (`test_compositing.py`) | New `TestGainToMinFeather` class: `test_zero_diff_returns_floor` (0.0→40), `test_small_diff_returns_floor` (0.1×300=30<40→40), `test_mid_diff_scales_linearly` (0.2×300=60→60), `test_large_diff_capped_at_120` (0.5×300=150→120), `test_at_floor_boundary` (40/300×300=40→40), `test_just_above_floor_boundary` (0.14×300=42→42). animation suite: 214 tests passing. |
 | **Roadmap housekeeping** (`roadmaps/asp.md`) | Marked ✅: §0.5A (25px threshold), §0.5B (vector magnitude gap), §1.1C (GNC Cauchy loss), §1.4A (adaptive gain clamp), §1.5A (seam DP vectorization), §1.5C (adaptive boundary search), §1.5E (parallel seam DP), §1.6A (tiered seam cost), §1.6B (gain-adaptive feather), §1.6C (Poisson blend). |
 
 ### Design rationale
@@ -3285,8 +3309,8 @@ Dead code removal: `_normalize_warped_to_median` (per-channel scalar gain) was i
 |------|---------|
 | **`_poisson_seam_blend(fa_zone, fb_zone, path_local, apply_mask)`** (`compositing.py`) | §1.6C: Gradient-domain seam refinement via `cv2.seamlessClone(NORMAL_CLONE)`. Builds a hard-partition zone (fa above the DP path, fb below), then applies Poisson blending in a ±20px band around the path. The Poisson solver finds pixel intensities that minimise `‖∇(out) − ∇(fb)‖²` subject to the hard-partition boundary conditions — eliminating the brightness step at the seam cut without ghosting. Seam band clipped to `[1, zone_h-2] × [1, W-2]` to satisfy `cv2.seamlessClone`'s no-border-touch requirement. Falls back to the hard partition on `cv2.error`. |
 | **`_POISSON_SEAM` flag + `_POISSON_BAND_PX = 20`** (`compositing.py`) | Enabled via `ASP_POISSON_SEAM=1` (default OFF — adds ~1–3 s per seam on CPU). When enabled, the Poisson zone replaces the Laplacian+DSFN blend in the normal (non-single-pose, non-ToonCrafter) `else` branch of the blend loop. Single-pose and ToonCrafter seams are unaffected. |
-| **`_poisson_seam_blend` added to `__all__`** | Directly importable and testable from `backend.src.anim.compositing`. |
-| **5 unit tests** (`test_compositing.py`) | New `TestPoissonSeamBlend` class: `test_shape_and_dtype` (output shape/dtype correct), `test_above_seam_band_unchanged` (rows above the band match hard partition fa), `test_below_seam_band_unchanged` (rows below the band match hard partition fb), `test_path_near_bottom_no_crash` (path near zone edge clips band and doesn't raise), `test_empty_apply_returns_hard_partition` (empty apply_mask returns unblended hard partition). Anim suite: 208 tests passing. |
+| **`_poisson_seam_blend` added to `__all__`** | Directly importable and testable from `backend.src.animation.compositing`. |
+| **5 unit tests** (`test_compositing.py`) | New `TestPoissonSeamBlend` class: `test_shape_and_dtype` (output shape/dtype correct), `test_above_seam_band_unchanged` (rows above the band match hard partition fa), `test_below_seam_band_unchanged` (rows below the band match hard partition fb), `test_path_near_bottom_no_crash` (path near zone edge clips band and doesn't raise), `test_empty_apply_returns_hard_partition` (empty apply_mask returns unblended hard partition). animation suite: 208 tests passing. |
 
 ### Design rationale
 
@@ -3301,7 +3325,7 @@ The Laplacian+DSFN blend in the `else` branch is a good default: it adapts ramp 
 | Item | Summary |
 |------|---------|
 | **`_soft_seam_weight` — fg-vs-fg similarity zeroed after Gaussian diffusion** (`compositing.py`) | S20: when `bg_mask_a`/`bg_mask_b` are provided, `sim_diffused[both_fg] = 0.0` is applied after the Gaussian blur step, where `both_fg = (~bg_mask_a.astype(bool)) & (~bg_mask_b.astype(bool))`. Previously these masks were passed through the signature but never used. This prevents background similarity from diffusing into character-vs-character overlap regions: without the fix, the blur kernel could propagate high-similarity background values into adjacent fg-vs-fg pixels, artificially widening the blend ramp and creating double-image ghosting. Background pixels on the seam-side edge of the fg boundary are untouched and retain their diffused similarity. |
-| **2 unit tests** (`test_compositing.py`) | Added to `TestSoftSeamWeight`: `test_bg_mask_fg_fg_narrows_blend` (all-fg bg_masks narrow the blend transition band vs. no-mask for similar frames), `test_bg_mask_none_result_unchanged` (None bg_masks produce identical output to calling without them). Anim suite: 203 tests passing. |
+| **2 unit tests** (`test_compositing.py`) | Added to `TestSoftSeamWeight`: `test_bg_mask_fg_fg_narrows_blend` (all-fg bg_masks narrow the blend transition band vs. no-mask for similar frames), `test_bg_mask_none_result_unchanged` (None bg_masks produce identical output to calling without them). animation suite: 203 tests passing. |
 
 ### Design rationale
 
@@ -3317,7 +3341,7 @@ The Laplacian+DSFN blend in the `else` branch is a good default: it adapts ramp 
 |------|---------|
 | **`_build_seam_cost_map` Tier 2 cost lowered from 1.0 → 0.5** (`compositing.py`) | §1.6A: the edge-buffer zone (background pixels within `dilate_px` of any fg boundary) now costs 0.5 instead of 1.0. The fg interior (Tier 1) remains at 1.0. This creates a three-level gradient — interior=1.0 → edge buffer=0.5 → background=0.0 — giving the DP seam path-finder an incentive to route *through* the edge buffer toward clean background, rather than treating it identically to the character body. With `sem_weight=200`, energy levels are: fg body≈200, edge buffer≈100, background≈0–50. Before S19 the edge buffer was also ≈200, offering no gradient. |
 | **`_build_seam_cost_map` added to `__all__`** | Function is now importable and directly testable. |
-| **7 unit tests** (`test_compositing.py`) | New `TestSeamCostMap` class: all-bg cost=0.0, all-fg cost=1.0, edge-buffer row=0.5, pure-bg-far-from-fg=0.0, fg interior not lowered to 0.5 by edge buffer, None masks return zero, union of two fg masks covers both regions at 1.0. Anim suite: 201 tests passing. |
+| **7 unit tests** (`test_compositing.py`) | New `TestSeamCostMap` class: all-bg cost=0.0, all-fg cost=1.0, edge-buffer row=0.5, pure-bg-far-from-fg=0.0, fg interior not lowered to 0.5 by edge buffer, None masks return zero, union of two fg masks covers both regions at 1.0. animation suite: 201 tests passing. |
 
 ### Design rationale
 
@@ -3334,7 +3358,7 @@ Before S19 the seam DP treated the edge buffer zone (≤15px outside any fg boun
 | **`_coherence_skip_mask(order, frame_lums, coherence_limit)`** (`compositing.py`) | Standalone testable helper. Per-frame normalization-skip mask built from adjacent-strip coherence check. Marks both frames in an adjacent pair as skip-normalization when their background luminance differs by more than `coherence_limit`. Only the bad pair's frames are excluded — other frames proceed normally. Replaces the former global-skip that penalised every frame when a single scene-change pair exceeded the limit. |
 | **`_adaptive_gain_clamp(ref_lum, frame_lum)`** (`compositing.py`) | §1.4A adaptive gain clamp. Dark scenes (ref_lum < 80) use `[0.82, 1.22]` (±18%); normal scenes use `[0.88, 1.14]` (±14%). Replaces the previous fixed `±7%` clamp. Stage 4.5 already applies ±14–20% before warping; Stage 11 corrects any residual after canvas projection. The wider clamp allows Stage 11 to fully bridge residuals that Stage 4.5 couldn't reach due to its own ceiling. |
 | **Normalization block updated** (`compositing.py`) | `_composite_foreground` calls `_coherence_skip_mask()` for per-frame skip flags and `_adaptive_gain_clamp()` for each frame's gain. Print log now reports per-pair skip count instead of binary global skip/proceed. |
-| **11 unit tests** (`test_compositing.py`) | `TestAdaptiveGainClamp` (5 tests): normal scene clamped at 0.88/1.14, dark scene clamped at 0.82/1.22, small correction passes unclamped, dark threshold boundary at 80, zero frame_lum protected. `TestCoherenceSkipMask` (6 tests): all-small diffs none skipped, bad pair both skipped, good frames after bad pair not skipped, None lum pair ignored, exactly-at-limit not skipped, non-identity order maps correctly. Anim suite: 194 tests passing. |
+| **11 unit tests** (`test_compositing.py`) | `TestAdaptiveGainClamp` (5 tests): normal scene clamped at 0.88/1.14, dark scene clamped at 0.82/1.22, small correction passes unclamped, dark threshold boundary at 80, zero frame_lum protected. `TestCoherenceSkipMask` (6 tests): all-small diffs none skipped, bad pair both skipped, good frames after bad pair not skipped, None lum pair ignored, exactly-at-limit not skipped, non-identity order maps correctly. animation suite: 194 tests passing. |
 
 ### Design rationale
 
@@ -3352,7 +3376,7 @@ Before S19 the seam DP treated the edge buffer zone (≤15px outside any fg boun
 |------|---------|
 | **Per-pixel DSFN blend ramp** (`compositing.py` — `_soft_seam_weight`) | S17 replaces the per-column-average blend radius with a per-pixel value driven by local photometric similarity. Previously: `col_sim = sim_diffused.mean(axis=0)` collapsed the (zone_h, W) similarity field into (W,), then broadcast the same ramp to all rows in each column. Now: `ramp = min_ramp_bg + sim_diffused * (max_ramp_bg - min_ramp_bg)` gives every pixel its own blend width. Background pixels (high similarity, wide ramp) and foreground pixels at character edges (low similarity, narrow ramp) in the same column now get independently-sized transitions, eliminating the averaging artifact where a character-edge row was forced into a wide blend because its column happened to have mostly background above it. |
 | **Adaptive boundary search range** (`compositing.py` — `_find_optimal_boundaries`) | When affines are available and horizontal tx spread < 5 px (pure vertical scroll), the boundary search window narrows from ±SEARCH_RANGE=250 to ±100 px. For typical dense vertical-scroll sequences the optimal boundary is always within ±50 px of the midpoint, so the narrow window loses nothing while reducing candidate evaluations by ~60 % for sparse sequences with large frame steps. For diagonal/2D motion (tx_spread ≥ 5px), the full ±250 px range is preserved. |
-| **6 unit tests** (`test_compositing.py`) | New `TestSoftSeamWeight` class: output shape/dtype, values in [0,1], weight ≈ 0.5 at seam for identical frames, weight ≈ 1.0 far above seam, weight ≈ 0.0 far below seam, similar frames produce wider blend zone than different frames. Anim suite: 183 tests passing. |
+| **6 unit tests** (`test_compositing.py`) | New `TestSoftSeamWeight` class: output shape/dtype, values in [0,1], weight ≈ 0.5 at seam for identical frames, weight ≈ 1.0 far above seam, weight ≈ 0.0 far below seam, similar frames produce wider blend zone than different frames. animation suite: 183 tests passing. |
 
 ---
 
@@ -3364,7 +3388,7 @@ Before S19 the seam DP treated the edge buffer zone (≤15px outside any fg boun
 |------|---------|
 | **`_seam_color_match(dom_zone, oth_zone, path_local, band_px)`** (`compositing.py`) | Standalone helper (testable). Computes per-channel mean of content pixels within `band_px` rows of `path_local` in both zones, then applies the per-channel delta `(dom_mean − oth_mean)` to oth_zone's band pixels. Shifts oth_zone's colors toward dom_zone's photometric profile in the seam band. Degenerate zones (< 10 content pixels) return an unchanged copy. |
 | **Wired into single-pose composite branch** (`compositing.py`) | Called with `band_px = sp_soft_px + 4` before `_single_pose_soft_edge()`. The color-matched `_oth_matched` is passed to the S15 blend — the channel-mean step drops from `post_warp_diff` lum units toward ~0 before the ramp is applied, making the blend seam nearly imperceptible. `take_oth` (non-overlap) pixels still use original `oth_zone` colors. |
-| **7 unit tests** (`test_compositing.py`) | New `TestSeamColorMatch` class: output shape/dtype, zero band returns unchanged copy, band pixels shifted to dom mean, outside-band pixels unchanged, identical zones produce no shift, degenerate (all-black) zone returns unchanged, per-channel delta applied independently. Anim suite: 177 tests passing. |
+| **7 unit tests** (`test_compositing.py`) | New `TestSeamColorMatch` class: output shape/dtype, zero band returns unchanged copy, band pixels shifted to dom mean, outside-band pixels unchanged, identical zones produce no shift, degenerate (all-black) zone returns unchanged, per-channel delta applied independently. animation suite: 177 tests passing. |
 
 ### Design rationale
 
@@ -3382,7 +3406,7 @@ S15 applied a ±6px blend ramp at single-pose seams (max 50% blend at centre). I
 |------|---------|
 | **`_single_pose_soft_edge(dom_zone, oth_zone, path_local, apply_mask, sp_soft_px)`** (`compositing.py`) | New standalone helper (exportable, unit-testable). Applies a narrow ±`sp_soft_px` linear feather centred on the DP seam path to smooth the hard color step at single-pose escalated seams. Maximum blend weight at the seam centre is 50% other-frame; weight drops linearly to 0% at ±sp_soft_px rows. Only fires where BOTH frames have non-zero foreground content AND `apply_mask` is True AND pixel is within the band — never bleeds into background or single-frame regions. |
 | **Wired into single-pose composite branch** (`compositing.py`) | After the hard dominant/fill partition (existing S11 logic), `_single_pose_soft_edge()` is called and its result written back for `both_have & fg_apply` pixels. No-op outside the blend band. Disable with `ASP_SP_SOFT_PX=0`. Print updated: "soft_px=N" instead of "(no blend — avoids double image)". |
-| **7 unit tests** (`test_compositing.py`) | New `TestSinglePoseSoftEdge` class: output shape/dtype, disabled when sp_soft_px=0, seam row is 50/50 blend, outside-band pixels unchanged, in-band pixels strictly between dom and oth, no modification where apply_mask=False, no modification where oth has no content. Anim suite: 170 tests passing. |
+| **7 unit tests** (`test_compositing.py`) | New `TestSinglePoseSoftEdge` class: output shape/dtype, disabled when sp_soft_px=0, seam row is 50/50 blend, outside-band pixels unchanged, in-band pixels strictly between dom and oth, no modification where apply_mask=False, no modification where oth has no content. animation suite: 170 tests passing. |
 
 ### Design rationale
 
@@ -3400,7 +3424,7 @@ The blend is 50%-at-seam-centre, not blending across the full feather zone, beca
 |------|---------|
 | **`_seam_visibility_score(output_img)`** (`bench_anime_stitch.py`) | No-reference quality metric measuring the worst-case adjacent-row luminance jump in the final panorama. Computes per-row mean luminance for content rows (lum > 5, ≥10% fill), then reports the maximum absolute difference between consecutive row means. Detects hard single-pose seam cuts (score 12–50+) that `_seam_coherence` misses (which measures global drift, not local discontinuities). Works for all 96 tests with no GT required. |
 | **Wired into `_compute_all_metrics`** | `seam_visibility` field now appears in `metrics_asp` and `metrics_simple` in all benchmark result dicts. |
-| **8 unit tests** (`test_bench_metrics.py`) | New test file: `TestSeamVisibilityScore` — uniform image → 0, hard seam → ≥100, smooth gradient → <10, non-negative, harder seam scores higher, affines=None works, black borders ignored, single-row → 0. Anim suite: 163 tests passing. |
+| **8 unit tests** (`test_bench_metrics.py`) | New test file: `TestSeamVisibilityScore` — uniform image → 0, hard seam → ≥100, smooth gradient → <10, non-negative, harder seam scores higher, affines=None works, black borders ignored, single-row → 0. animation suite: 163 tests passing. |
 
 ### Interpretation guide
 
@@ -3421,7 +3445,7 @@ The blend is 50%-at-seam-centre, not blending across the full feather zone, beca
 |------|---------|
 | **`_compute_row_coverage()` helper** (`pipeline.py`) | Pure function: given `affines`, `frames`, `canvas_h`, returns `(row_cov, pct_multi, median_cov)`. `row_cov[r]` = number of frames covering canvas row `r`; `pct_multi` = fraction of content rows with ≥2-frame overlap; `median_cov` = median per-row coverage. Extracted as a standalone function to enable direct unit testing. |
 | **Stage 10.5 coverage gate** (`pipeline.py`) | Inserted after Stage 10 (temporal render), before Stage 11 (fg composite). Computes row coverage, logs diagnostic summary (`N multi-frame rows / total content rows`), and falls back to SCANS when `pct_multi < ASP_COV_MIN_MULTI_PCT` (default 0.30). Conservative 30% threshold avoids false positives on typical dense-overlap datasets while catching degenerate 2-frame sparse selections. |
-| **Coverage unit tests** (`test_canvas.py`) | 6 new tests in `TestComputeRowCoverage`: fully-overlapping frames, non-overlapping frames, dense stack, output shape, empty canvas, non-negative counts. Anim suite: 155 tests passing. |
+| **Coverage unit tests** (`test_canvas.py`) | 6 new tests in `TestComputeRowCoverage`: fully-overlapping frames, non-overlapping frames, dense stack, output shape, empty canvas, non-negative counts. animation suite: 155 tests passing. |
 
 ### Notes
 
@@ -3437,14 +3461,14 @@ The coverage gate completes §0 item 2 from the roadmap. Default threshold 0.30 
 |------|---------|
 | **Adaptive feather refinement** (`compositing.py`) | After FG pose registration, each seam's feather width is adjusted based on `post_warp_diff`: diff < 8.0 → widen 1.5× (excellent alignment, smoother Laplacian blend); diff > 16.0 → narrow 0.75× (poor alignment, tighter cut to prevent ghosting). Seams that escalated to single-pose (diff > 22) are skipped. Overlap cap is re-applied after modification. `seam_post_diffs` init bug fix from S11 was the prerequisite that made this effective for the first time. |
 | **Parallel seam DP pre-computation** (`compositing.py`) | Collects zone arrays + `sem_cost` maps for all N-1 seam boundaries, then dispatches `_seam_cut()` jobs via `ThreadPoolExecutor(max_workers=min(N-1, 4))`. Single-boundary case uses inline path (no executor overhead). Pre-computed paths are stored in `_precomp_paths: dict` and retrieved in the Laplacian blend loop. Safe to parallelise: `result` is fully populated by hard-partition before the pre-compute block; `warped_norm` is read-only; zones don't overlap; `.copy()` prevents aliasing. |
-| **S12 unit tests** (`test_compositing.py`) | Added 8 new tests: `TestSeamCutDP` (5 tests — shape, valid range, identical-image, sem_cost, 3-connectivity constraint) and `TestParallelSeamPrecompute` (3 tests — 5-frame parallel path, 6-frame output shape, 2-frame single-seam fallback). Anim suite total: 149 tests passing. |
+| **S12 unit tests** (`test_compositing.py`) | Added 8 new tests: `TestSeamCutDP` (5 tests — shape, valid range, identical-image, sem_cost, 3-connectivity constraint) and `TestParallelSeamPrecompute` (3 tests — 5-frame parallel path, 6-frame output shape, 2-frame single-seam fallback). animation suite total: 149 tests passing. |
 
 ### Results
 
 | Metric | Before S12 | After S12 |
 |--------|-----------|-----------|
 | SCANS fallbacks | 4/96 (4%) | 4/96 (4%, unchanged) |
-| Tests passing (anim suite) | 141 | 149 |
+| Tests passing (animation suite) | 141 | 149 |
 | Adaptive feather firing | never (seam_post_diffs always empty) | all seams with post_diff < 8 → widened to FEATHER_MAX |
 | Parallel seam DP | sequential | ThreadPoolExecutor (max 4 workers) |
 
@@ -3584,7 +3608,7 @@ The coverage gate completes §0 item 2 from the roadmap. Default threshold 0.30 
 
 | Item | Summary |
 |------|---------|
-| **`backend/src/anim/frame_selection.py`** | New backend module exposing `smart_select_frames()` as a clean pipeline/GUI API. Two-pass architecture: Pass 1 (v1 greedy first-past-threshold), Pass 2 (local pose-consistent refinement). `_fg_center_diff()` gradient-magnitude L1 metric for pose similarity. |
+| **`backend/src/animation/frame_selection.py`** | New backend module exposing `smart_select_frames()` as a clean pipeline/GUI API. Two-pass architecture: Pass 1 (v1 greedy first-past-threshold), Pass 2 (local pose-consistent refinement). `_fg_center_diff()` gradient-magnitude L1 metric for pose similarity. |
 | **Upgraded `_smart_select_frames()`** | Benchmark function now has the same two-pass architecture with `[PoseSelect]` logging per refined slot. `ASP_POSE_WINDOW_PX` env var (default `0` = disabled). |
 
 ### Tried and Disabled
@@ -3610,7 +3634,7 @@ The 14 image-stitching reports and 5 image/video-generation reports were merged 
 
 | Item | Summary |
 |------|---------|
-| **ASP roadmap refocus** | `moon/roadmaps/asp.md` header now references the consolidated stitching report; §0.1 updated with implementation status — A2/A4 prototype (`backend/src/anim/fg_register.py`: DIS dense flow → residual → symmetric midpoint warp, integrated into Stage 11, validated on test09) shipped; A1 (SEA-RAFT), A3 (full ARAP+LSD), A5 (bg-only median), A6 (single-pose fallback), and segment-guided flow remain. |
+| **ASP roadmap refocus** | `moon/roadmaps/asp.md` header now references the consolidated stitching report; §0.1 updated with implementation status — A2/A4 prototype (`backend/src/animation/fg_register.py`: DIS dense flow → residual → symmetric midpoint warp, integrated into Stage 11, validated on test09) shipped; A1 (SEA-RAFT), A3 (full ARAP+LSD), A5 (bg-only median), A6 (single-pose fallback), and segment-guided flow remain. |
 | **New Content Generation roadmap** | `moon/roadmaps/content_generation.md` created — grounded in the existing stack (`LoRATuner` on Illustrious-XL, `SD3Wrapper`, `ComfyUIManager`, `backend/src/models/data/`). Phased CG-1…CG-4: captioning (WD14+Florence-2), shared anime upscaler, ComfyUI control workflows, video→LoRA guided flow, LyCORIS, AnimateDiff, v-pred/ztSNR, ToonCrafter, FLUX, Wan2.1/SVD. |
 | **Master roadmap update** | `moon/ROADMAP.md` adds the two consolidated reports and the Content Generation section-roadmap to its index; new **Phase 0 (ASP Foreground Assembly, items 0.1–0.8)** and **Phase CG (Content Generation, items CG.1–CG.10)** added with effort estimates and links. |
 
@@ -3624,7 +3648,7 @@ The 14 image-stitching reports and 5 image/video-generation reports were merged 
 |------|---------|
 | 1.1 SCANS fallback purity | `scans_frames = list(frames)` is captured at Stage 2 (before any ML corrections). All four `_scan_stitch_fallback()` call-sites in `pipeline.py` and the `_ProgressPipeline` subclass now pass `scans_frames`, ensuring the fallback always receives the original unmodified frames. |
 | 1.2 Dark scene gain clamp widening | `_ref_lum_scalar` threshold is 80.0. When met, gain clamp is `[0.80, 1.25]` instead of the tighter `[0.88, 1.14]`. Both code paths confirmed present in `pipeline.py` lines 566–570. |
-| 1.3 Static edge pre-bundle rejection | `MIN_EXPECTED_STEP = 50` is defined in `backend/src/constants/anim.py` and exported via `backend/src/constants/__init__.py`. It was never imported in `pipeline.py` — causing a `NameError` every time the min-step guard ran. Added `MIN_EXPECTED_STEP` to the `from backend.src.constants import (...)` block. |
+| 1.3 Static edge pre-bundle rejection | `MIN_EXPECTED_STEP = 50` is defined in `backend/src/constants/animation.py` and exported via `backend/src/constants/__init__.py`. It was never imported in `pipeline.py` — causing a `NameError` every time the min-step guard ran. Added `MIN_EXPECTED_STEP` to the `from backend.src.constants import (...)` block. |
 | 1.4 Content-aware minimal bounding crop | `_crop_to_valid()` in `canvas.py` already uses `_largest_valid_rect` when `valid_ratio < 0.80`. SCANS fallback also uses `_largest_valid_rect` after stitching. Both verified operational — item confirmed done. |
 | 1.5 Restrict seam search window | `_seam_dp()` in `stateless.py` gains a `search_half: int | None = None` parameter. When set, the cost matrix is masked to `±search_half` pixels around the image midpoint via a `np.full(..., np.inf)` mask with the window left unmasked. `de_seam()` in `mfsr/de_seam.py` propagates `search_half` to both its `_seam_dp` calls (baseline + fallback). |
 
@@ -3638,7 +3662,7 @@ The 14 image-stitching reports and 5 image/video-generation reports were merged 
 
 | Item | Summary |
 |------|---------|
-| 1.13 Python `logging` + rotating file handler | `_setup_logging()` added to `backend/src/app.py`. Called at the start of `launch_app()`. Creates: a `RotatingFileHandler` at `~/.image-toolkit/logs/image_toolkit.log` (5 MB per file, 5 backups, DEBUG level) and a `StreamHandler` on stdout (INFO level by default, DEBUG with `--verbose`). `logger = logging.getLogger(__name__)` added to: `backend/src/anim/pipeline.py` (58 print calls migrated), `canvas.py` (5), `matching.py` (8), and all 7 model wrappers including `birefnet_wrapper.py`, `efficient_loftr_wrapper.py`, etc. `print(..., file=sys.stderr)` → `logger.error()`; `print(f"[Stitch] Warning…")` → `logger.warning()`; remaining stage logs → `logger.info()` or `logger.debug()`. Third-party loggers (PIL, transformers, urllib3) capped at WARNING. |
+| 1.13 Python `logging` + rotating file handler | `_setup_logging()` added to `backend/src/app.py`. Called at the start of `launch_app()`. Creates: a `RotatingFileHandler` at `~/.image-toolkit/logs/image_toolkit.log` (5 MB per file, 5 backups, DEBUG level) and a `StreamHandler` on stdout (INFO level by default, DEBUG with `--verbose`). `logger = logging.getLogger(__name__)` added to: `backend/src/animation/pipeline.py` (58 print calls migrated), `canvas.py` (5), `matching.py` (8), and all 7 model wrappers including `birefnet_wrapper.py`, `efficient_loftr_wrapper.py`, etc. `print(..., file=sys.stderr)` → `logger.error()`; `print(f"[Stitch] Warning…")` → `logger.warning()`; remaining stage logs → `logger.info()` or `logger.debug()`. Third-party loggers (PIL, transformers, urllib3) capped at WARNING. |
 
 ### Worker Cancellation Standardisation (Phase 2 item 2.7)
 
@@ -3753,8 +3777,8 @@ The 14 image-stitching reports and 5 image/video-generation reports were merged 
 |------|---------|
 | P3.1 EfficientLoFTR drop-in | Replaced original LoFTR with EfficientLoFTR for faster keypoint matching with equivalent accuracy. |
 | P3.2 JamMa O(N) Mamba matcher | Mamba-based O(N) sequence matching integrated (pending CUDA rebuild for latest toolkit). |
-| P3.3 ToonCrafter ghost fill | `anim/anim_fill.py` — ToonCrafter-based synthetic frame generation for deghosting in high-overlap zones. |
-| P3.4 SRStitcher diffusion fusion | `anim/sr_stitcher.py` — diffusion-based seam and border inpainting for final-quality outputs. |
+| P3.3 ToonCrafter ghost fill | `animation/anim_fill.py` — ToonCrafter-based synthetic frame generation for deghosting in high-overlap zones. |
+| P3.4 SRStitcher diffusion fusion | `animation/sr_stitcher.py` — diffusion-based seam and border inpainting for final-quality outputs. |
 | P3.5 SEA-RAFT fine-tune pipeline | Fine-tuning pipeline for SEA-RAFT optical flow on domain-specific scroll sequences. |
 | P3.6 EfficientLoFTR fine-tune pipeline | Fine-tuning pipeline for EfficientLoFTR on scroll-frame keypoint pairs. |
 
@@ -3765,7 +3789,7 @@ The 14 image-stitching reports and 5 image/video-generation reports were merged 
 | Item | Summary |
 |------|---------|
 | P2.1 SEA-RAFT optical flow | SEA-RAFT flow for robust large-displacement inter-frame motion estimation. |
-| P2.2 Real-ESRGAN super-resolution | `anim/super_res.py` — Real-ESRGAN 4× upscale post-processing mode. |
+| P2.2 Real-ESRGAN super-resolution | `animation/super_res.py` — Real-ESRGAN 4× upscale post-processing mode. |
 | P2.3 ALIKED + LightGlue matching | ALIKED feature detector paired with LightGlue for accurate keypoint matching. |
 | P2.4 BiRefNet seam routing | BiRefNet foreground mask integrated into seam DP cost (`sem_cost`) to route seams away from character regions. |
 | P2.5 Soft-seam diffusion blending | Diffusion-based soft seam blending for smooth panorama transitions. |

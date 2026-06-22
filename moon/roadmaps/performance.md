@@ -1,6 +1,6 @@
 # Performance Roadmap — Compute, Memory, and I/O
 
-*Last updated: 2026-06-18. §3.10–§3.15 fully ✅. §3.15 non-anim import audit: image_merger.py (6 unconditional model imports → lazy) + vault_manager.py (jpype → try/except) + check_import_times.py extended to 16 modules (all pass 1.5 s threshold). §3.10–§3.14 complete from prior sessions. All Tier 1–5 RAM reduction items are fully implemented (✅). These are the next-generation opportunities.*
+*Last updated: 2026-06-18. §3.10–§3.15 fully ✅. §3.15 non-animation import audit: image_merger.py (6 unconditional model imports → lazy) + vault_manager.py (jpype → try/except) + check_import_times.py extended to 16 modules (all pass 1.5 s threshold). §3.10–§3.14 complete from prior sessions. All Tier 1–5 RAM reduction items are fully implemented (✅). These are the next-generation opportunities.*
 
 ---
 
@@ -12,7 +12,7 @@
 - [✅ §3.12 pytest-xdist Worker Isolation](#-312-pytest-xdist-worker-isolation)
 - [✅ §3.13 conftest.py Overhead Reduction](#-313-conftestpy-overhead-reduction)
 - [✅ §3.14 Heavy-Library Import Isolation](#-314-heavy-library-import-isolation)
-- [✅ §3.15 Heavy-Library Import Isolation — Non-anim Modules](#-315-heavy-library-import-isolation--non-anim-modules)
+- [✅ §3.15 Heavy-Library Import Isolation — Non-animation Modules](#-315-heavy-library-import-isolation--non-animation-modules)
 - [§3.1 Rust Streaming Image Merger](#31-rust-streaming-image-merger)
 - [§3.2 ASP Render Stage GPU Acceleration](#32-asp-render-stage-gpu-acceleration)
 - [§3.3 BiRefNet Inference Batching](#33-birefnet-inference-batching)
@@ -33,7 +33,7 @@ Each section describes a performance bottleneck, all viable implementation optio
 
 ## ✅ §3.10 Test Suite Process Freeze: Root Cause Analysis
 
-> **Severity: CRITICAL — ALL ROOT CAUSES FIXED** — Running `pytest backend/test/anim/ --skip-gpu` is now safe (917 pass). `pytest backend/test/` (all modules) requires §3.15 non-anim audit to be complete. Root causes identified 2026-06-18; all fixed by 2026-06-18.
+> **Severity: CRITICAL — ALL ROOT CAUSES FIXED** — Running `pytest backend/test/animation/ --skip-gpu` is now safe (917 pass). `pytest backend/test/` (all modules) requires §3.15 non-animation audit to be complete. Root causes identified 2026-06-18; all fixed by 2026-06-18.
 
 ### Root Cause #1 — `from diffusers import DiffusionPipeline` at module level in `anim_fill.py` ✅ FIXED
 
@@ -86,7 +86,7 @@ This creates ~1,200 thread lifecycle calls during the test run. Under rapid sequ
 
 **Fixes applied:**
 - `pytest-xdist` + `pytest-forked` installed.
-- Parallel mode verified: `pytest backend/test/anim/ -n auto --dist=worksteal --skip-gpu` passes with same failure count, multiple independent worker processes each with bounded RSS.
+- Parallel mode verified: `pytest backend/test/animation/ -n auto --dist=worksteal --skip-gpu` passes with same failure count, multiple independent worker processes each with bounded RSS.
 - GPU tests isolated with `@pytest.mark.forked` (subprocess) or skipped via `--skip-gpu`.
 - `pyproject.toml` documents the recommended invocations — addopts is intentionally empty (parallel execution is opt-in).
 
@@ -169,8 +169,8 @@ class TestDINOv2Features: ...
 @pytest.fixture(scope="session", autouse=True)
 def clear_ml_singletons():
     yield
-    import backend.src.anim.frame_selection as fs
-    import backend.src.anim.fg_register as fgr
+    import backend.src.animation.frame_selection as fs
+    import backend.src.animation.fg_register as fgr
     for k in list(fs._DINOV2_CACHE.keys()):
         model, _ = fs._DINOV2_CACHE.pop(k)
         if model is not None:
@@ -188,7 +188,7 @@ def clear_ml_singletons():
 **Implemented:** All three options.
 - **C:** `clear_ml_singletons` (autouse, scope=session) tears down all five ML singletons + seam pool at session end.
 - **B:** `TestDINOv2Features` marked `@pytest.mark.forked` — runs each test in an isolated subprocess; `pytest-forked` 1.6.0 installed.
-- **A:** `pytest-xdist` 3.8.0 installed. `pytest -n auto --dist=worksteal --skip-gpu` verified on anim suite; same 6 pre-existing failures, correct skip counts.
+- **A:** `pytest-xdist` 3.8.0 installed. `pytest -n auto --dist=worksteal --skip-gpu` verified on animation suite; same 6 pre-existing failures, correct skip counts.
 
 ---
 
@@ -240,7 +240,7 @@ Guard `torch.cuda.empty_cache()` behind `os.environ.get("ASP_TEST_CUDA_CLEANUP",
 **Implemented:** Options A + B + C + D (2026-06-18):
 - **A:** Scope raised to `module` (931 → ~19 GC calls). ✅
 - **B:** `gc_heavy_cleanup` function-scoped autouse fixture added to `conftest.py`; checks `request.node.get_closest_marker("gc_heavy")` and calls `gc.collect()` only when set. Marker applied to `TestCompositeForeground` and `TestParallelSeamPrecompute` (compositing), all of `test_filter_edges.py` (480×640 frames), and `TestNdarrayCodec::test_large_array_is_skipped` (16 MB array). ✅
-- **C:** `gc.collect()` removed from `resource_cleanup`; only CUDA flush remains. CPython refcounting handles non-cyclic test objects immediately; no cyclic references identified in the anim suite. GC calls now = number of `@pytest.mark.gc_heavy` tests (~40) rather than 931 (per function) or 19 (per module). ✅
+- **C:** `gc.collect()` removed from `resource_cleanup`; only CUDA flush remains. CPython refcounting handles non-cyclic test objects immediately; no cyclic references identified in the animation suite. GC calls now = number of `@pytest.mark.gc_heavy` tests (~40) rather than 931 (per function) or 19 (per module). ✅
 - **D:** CUDA flush gated behind `ASP_TEST_CUDA_CLEANUP=1`. ✅
 
 ---
@@ -261,13 +261,13 @@ Remaining risk areas after S140:
 ### Options
 
 **A — Audit and lazy-ify all top-level heavy imports [Quick Win per module]**
-For each `backend/src/anim/` module, verify that any library with known heavy import cost (torch, diffusers, transformers, ptlflow, torchvision, skimage, scipy) is either:
+For each `backend/src/animation/` module, verify that any library with known heavy import cost (torch, diffusers, transformers, ptlflow, torchvision, skimage, scipy) is either:
 1. Imported inside the function that first uses it, OR
 2. Wrapped in `try/except ImportError` so that it degrades gracefully, OR
 3. Documented as a known mandatory dependency in `pyproject.toml [project.dependencies]`.
 
 **B — `importtime` profiling in CI**
-Add a CI step: `python -m pytest --collect-only backend/test/anim/` with `PYTHONPROFILEIMPORTTIME=1` (Python 3.11 startup profiling). Compare import time before/after changes.
+Add a CI step: `python -m pytest --collect-only backend/test/animation/` with `PYTHONPROFILEIMPORTTIME=1` (Python 3.11 startup profiling). Compare import time before/after changes.
 - Pros: Automated regression detection.
 - Cons: CI-only; doesn't help local development.
 
@@ -282,7 +282,7 @@ ssim_fn = lazy_object_proxy.Proxy(lambda: __import__("skimage.metrics", ...).str
 
 **Recommendation:** A for immediate wins module-by-module. B as a CI regression gate. C only if A produces too many call-site changes.
 
-**Implemented:** Option A + B — comprehensive audit of all `backend/src/anim/` modules complete (2026-06-18):
+**Implemented:** Option A + B — comprehensive audit of all `backend/src/animation/` modules complete (2026-06-18):
 
 **Phase 1 (S140 + previous session):**
 - `compositing.py`: `import torch as _tc_torch` → `try/except ImportError`.
@@ -300,19 +300,19 @@ ssim_fn = lazy_object_proxy.Proxy(lambda: __import__("skimage.metrics", ...).str
 - `pipeline.py`: All 5 heavy model-wrapper try/except blocks (BiRefNetWrapper, LoFTRWrapper, EfficientLoFTRWrapper, ALIKEDLightGlueWrapper, unused AnimeStitchNet) replaced with `importlib.util.find_spec()` probes. All 4 classes imported lazily at instantiation sites. "Relocated Nested Imports" block cleaned up (deduplicated; JamMaWrapper lazy).
 - `backend/src/models/__init__.py`: All 8 eager wrapper re-exports removed; only base utilities remain. Previously this caused EVERY import of any wrapper to trigger the full chain (birefnet → transformers + aliked → kornia + eloftr → transformers).
 - `fg_register.py`: `torchvision.models` (464 ms) moved from try/except module-level into `_get_vgg19_feat()`.
-- `scripts/check_import_times.py`: §3.14B CI regression gate — measures all 14 anim modules in subprocesses, flags any exceeding 1.5 s net above baseline. Run: `python scripts/check_import_times.py --ci`.
+- `scripts/check_import_times.py`: §3.14B CI regression gate — measures all 14 animation modules in subprocesses, flags any exceeding 1.5 s net above baseline. Run: `python scripts/check_import_times.py --ci`.
 
-**Result (Phase 3):** All 14 anim modules pass the 1.5 s threshold (net cost 0.67–0.80 s, down from 1.6–2.4 s). 917 anim tests pass (0 new failures).
+**Result (Phase 3):** All 14 animation modules pass the 1.5 s threshold (net cost 0.67–0.80 s, down from 1.6–2.4 s). 917 animation tests pass (0 new failures).
 
 ---
 
-## ✅ §3.15 Heavy-Library Import Isolation — Non-anim Modules
+## ✅ §3.15 Heavy-Library Import Isolation — Non-animation Modules
 
 > **Status: IMPLEMENTED** — `image_merger.py` and `vault_manager.py` patched. `check_import_times.py` extended to cover core modules. All 16 tracked modules pass the 1.5 s threshold.
 
 ### Problem
 
-§3.14 fixed all 14 `backend/src/anim/` modules but left two non-anim source modules with the same "Relocated Nested Imports" pattern, discovered when auditing the non-anim test files in `backend/test/`:
+§3.14 fixed all 14 `backend/src/animation/` modules but left two non-animation source modules with the same "Relocated Nested Imports" pattern, discovered when auditing the non-animation test files in `backend/test/`:
 
 - **`backend/src/core/image_merger.py`** — six unconditional model-wrapper imports at module level:
   ```python
@@ -321,7 +321,7 @@ ssim_fn = lazy_object_proxy.Proxy(lambda: __import__("skimage.metrics", ...).str
   from backend.src.models.birefnet_wrapper import BiRefNetWrapper   # → transformers (~800ms)
   from backend.src.models.basic_wrapper import BaSiCWrapper
   from backend.src.models.loftr_wrapper import LoFTRWrapper          # → kornia (~168ms)
-  from backend.src.anim import AnimeStitchPipeline                   # → entire anim pipeline (~800ms)
+  from backend.src.animation import AnimeStitchPipeline                   # → entire animation pipeline (~800ms)
   ```
   `test_image_merger_ml.py` imports `ImageMerger` at collection time, triggering all six. Total estimated cost: ~3 s above baseline — would have been flagged as SLOW by the CI gate if core modules were included.
 
@@ -332,7 +332,7 @@ ssim_fn = lazy_object_proxy.Proxy(lambda: __import__("skimage.metrics", ...).str
   ```
   `test_java_vault_manager.py` imports `VaultManager` at collection time. If jpype is installed, this triggers JVM path resolution. If jpype is absent, it raises `ImportError` crashing collection of all tests that run after it in the same worker.
 
-- **`scripts/check_import_times.py`** — only covered anim modules; core modules were invisible to the CI gate.
+- **`scripts/check_import_times.py`** — only covered animation modules; core modules were invisible to the CI gate.
 
 ### Options
 
@@ -615,8 +615,8 @@ Load models only when first needed; hold via `weakref.ref`. Python GC reclaims w
 | **✅ 3.11 Session-Level ThreadPoolExecutor** | [#-311-session-level-threadpoolexecutor-pool](#-311-session-level-threadpoolexecutor-pool) |
 | **✅ 3.12 pytest-xdist Worker Isolation** | [#-312-pytest-xdist-worker-isolation](#-312-pytest-xdist-worker-isolation) |
 | **✅ 3.13 conftest.py Overhead Reduction** | [#-313-conftestpy-overhead-reduction](#-313-conftestpy-overhead-reduction) |
-| **✅ 3.14 Heavy-Library Import Isolation (anim)** | [#-314-heavy-library-import-isolation](#-314-heavy-library-import-isolation) |
-| **✅ 3.15 Heavy-Library Import Isolation (core)** | [#-315-heavy-library-import-isolation-non-anim-modules](#-315-heavy-library-import-isolation-non-anim-modules) |
+| **✅ 3.14 Heavy-Library Import Isolation (animation)** | [#-314-heavy-library-import-isolation](#-314-heavy-library-import-isolation) |
+| **✅ 3.15 Heavy-Library Import Isolation (core)** | [#-315-heavy-library-import-isolation-non-animation-modules](#-315-heavy-library-import-isolation-non-animation-modules) |
 | 3.1 Streaming Image Merger | [#31-rust-streaming-image-merger](#31-rust-streaming-image-merger) |
 | 3.2 GPU Render Acceleration | [#32-asp-render-stage-gpu-acceleration](#32-asp-render-stage-gpu-acceleration) |
 | 3.3 BiRefNet Batching | [#33-birefnet-inference-batching](#33-birefnet-inference-batching) |

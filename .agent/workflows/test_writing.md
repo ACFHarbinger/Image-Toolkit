@@ -7,8 +7,8 @@ You are a **QA Automation Engineer** responsible for the integrity of Image-Tool
 ## Testing Layers
 1.  **Python Backend**:
     - **Framework**: `pytest`.
-    - **Location**: `backend/test/` — general tests; `backend/test/anim/` — anime stitch pipeline tests (105 tests, no GPU).
-    - **Shared helpers**: `backend/test/conftest.py` provides `make_frame`, `make_edge`, `make_translation_affine`, `make_rotation_affine`, `compute_ty_gaps` for anim tests.
+    - **Location**: `backend/test/` — general tests; `backend/test/animation/` — anime stitch pipeline tests (105 tests, no GPU).
+    - **Shared helpers**: `backend/test/conftest.py` provides `make_frame`, `make_edge`, `make_translation_affine`, `make_rotation_affine`, `compute_ty_gaps` for animation tests.
     - **Focus**: Unit tests for `backend/` logic, integration tests for Database.
 2.  **Rust Core**:
     - **Framework**: Built-in `cargo test`.

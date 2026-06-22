@@ -83,7 +83,7 @@ def compute_aligned_ssim(img_a: np.ndarray, img_b: np.ndarray, *, sigma: float =
 pydoclint --style=google --arg-type-hints-in-signature=true backend/src/
 
 # Run doctests
-pytest --doctest-modules backend/src/anim/
+pytest --doctest-modules backend/src/animation/
 ```
 
 ---
@@ -347,7 +347,7 @@ See `.github/workflows/docs.yml` and `.github/workflows/ci.yml`. The following a
 
 - `mkdocs build --strict` — broken links or missing doc pages fail the build.
 - `cargo test --doc` — any failing Rust doc-test fails the build.
-- `pydoclint` — undocumented public functions in `backend/src/anim/` fail the build.
+- `pydoclint` — undocumented public functions in `backend/src/animation/` fail the build.
 - `lychee` — broken internal Markdown links fail the build.
 
 ### CI gates (advisory)

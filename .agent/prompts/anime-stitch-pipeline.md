@@ -16,19 +16,19 @@ Frames → BaSiC photometric correction → BiRefNet foreground masking → LoFT
 
 | File | Stage | What it does |
 |------|-------|-------------|
-| `backend/src/anim/pipeline.py` | Orchestrator | Full 13-stage flow; also `_filter_edges`, coverage gate |
-| `backend/src/anim/compositing.py` | Stage 11 | Hard-partition composite — primary source of seam improvements |
-| `backend/src/anim/rendering.py` | Stage 9 | Temporal median render with per-pixel gain |
-| `backend/src/anim/bundle_adjust.py` | Stage 7 | Global bundle adjustment (LM, GNC cauchy loss) |
-| `backend/src/anim/matching.py` | Stages 5–6 | Pairwise LoFTR + TemplateMatch |
-| `backend/src/anim/canvas.py` | Stage 8 | Canvas geometry, `_compute_canvas`, `_crop_to_valid`, TELEA fill |
-| `backend/src/anim/masking.py` | Stage 4 | BiRefNet foreground masks |
-| `backend/src/anim/ecc.py` | Stage 8 | ECC sub-pixel refinement |
-| `backend/src/anim/fg_register.py` | Stage 8.5 | Flow-guided foreground pose registration (ARAP-Push) |
-| `backend/src/anim/frame_selection.py` | Pre-pipeline | Smart frame selection — hold detection, DINOv2, near-dup filter |
-| `backend/src/anim/config.py` | Config | §1.8A TOML config loader (`load_asp_config`) |
-| `backend/src/anim/validation.py` | Post-7 | Affine health check; min_gap threshold = 25px |
-| `backend/src/constants/anim.py` | Constants | Centralised pipeline constants (FEATHER_MAX, FEATHER_MIN, etc.) |
+| `backend/src/animation/pipeline.py` | Orchestrator | Full 13-stage flow; also `_filter_edges`, coverage gate |
+| `backend/src/animation/compositing.py` | Stage 11 | Hard-partition composite — primary source of seam improvements |
+| `backend/src/animation/rendering.py` | Stage 9 | Temporal median render with per-pixel gain |
+| `backend/src/animation/bundle_adjust.py` | Stage 7 | Global bundle adjustment (LM, GNC cauchy loss) |
+| `backend/src/animation/matching.py` | Stages 5–6 | Pairwise LoFTR + TemplateMatch |
+| `backend/src/animation/canvas.py` | Stage 8 | Canvas geometry, `_compute_canvas`, `_crop_to_valid`, TELEA fill |
+| `backend/src/animation/masking.py` | Stage 4 | BiRefNet foreground masks |
+| `backend/src/animation/ecc.py` | Stage 8 | ECC sub-pixel refinement |
+| `backend/src/animation/fg_register.py` | Stage 8.5 | Flow-guided foreground pose registration (ARAP-Push) |
+| `backend/src/animation/frame_selection.py` | Pre-pipeline | Smart frame selection — hold detection, DINOv2, near-dup filter |
+| `backend/src/animation/config.py` | Config | §1.8A TOML config loader (`load_asp_config`) |
+| `backend/src/animation/validation.py` | Post-7 | Affine health check; min_gap threshold = 25px |
+| `backend/src/constants/animation.py` | Constants | Centralised pipeline constants (FEATHER_MAX, FEATHER_MIN, etc.) |
 | `backend/src/core/image_merger.py` | Reference | Simple stitch (`_merge_images_scan_stitch`) — the quality target |
 
 ### Full architecture reference
@@ -54,7 +54,7 @@ Read the consolidated research reference before proposing algorithmic changes:
 
 ## Current State (2026-06-15, Session 123)
 
-The pipeline has received 123 sessions of improvements (S1–S123). 777 unit tests in `backend/test/anim/` (2 skipped: pyav); 18 GUI tests. SCANS fallbacks reduced from 51/96 → 4/96 genuine fallbacks. Key improvements shipped across sessions:
+The pipeline has received 123 sessions of improvements (S1–S123). 777 unit tests in `backend/test/animation/` (2 skipped: pyav); 18 GUI tests. SCANS fallbacks reduced from 51/96 → 4/96 genuine fallbacks. Key improvements shipped across sessions:
 
 **Frame selection & pre-processing (S6–S110):**
 - Hold detection (`_detect_hold_blocks`, `_detect_hold_blocks_dhash`), DINOv2 frame selection, temporal variance pre-filter, near-dup luma filter, dHash animation hold detection, scene-change edge rejection, response-based hold refinement
@@ -121,22 +121,22 @@ The pipeline has received 123 sessions of improvements (S1–S123). 777 unit tes
 **HITL (S79–S84):**
 - `QWaitCondition`/`QMutex` staged execution; 4 HITL signals + pause points; `SelectionReviewDialog`, `EdgeReviewDialog`, `CanvasInspectorDialog`, `CoverageHeatmapDialog`; all 4 in `gui/src/dialogs/`
 - S81 — HITL checkpoint 1.5 (mask review): `sig_review_masks` + `set_mask_override()` in `stitch_worker.py`; `MaskReviewDialog` in `gui/src/dialogs/mask_review_dialog.py` with `_ClickOverlay` (left=pos/right=neg SAM-2 prompts) + `_RefinementWorker(QThread)`
-- S81 — `backend/src/anim/grounding.py` (new): lazy GroundingDINO wrapper (`_detect_objects`, `_detect_best_box`, `_detect_exclusion_mask`); graceful ImportError fallback; `GROUNDING_DINO_CKPT`/`CFG` env vars
+- S81 — `backend/src/animation/grounding.py` (new): lazy GroundingDINO wrapper (`_detect_objects`, `_detect_best_box`, `_detect_exclusion_mask`); graceful ImportError fallback; `GROUNDING_DINO_CKPT`/`CFG` env vars
 - S81 — `masking.py`: `_compute_fg_masks_grounded_sam2()` (text prompt → DINO bbox → SAM-2 propagation) + `_refine_masks_with_clicks()` (pos/neg click re-propagation)
-- S81 — `backend/src/anim/data_serialization.py` (new): `COCOAnnotationBuilder` (fg segmentation, seam-exclusion, frame-selection annotations; RLE via pycocotools, polygon fallback; atomic write) + `LabelStudioExporter` (model predictions + human annotations for RLHF preference learning) + `create_session_serializers()` factory
+- S81 — `backend/src/animation/data_serialization.py` (new): `COCOAnnotationBuilder` (fg segmentation, seam-exclusion, frame-selection annotations; RLE via pycocotools, polygon fallback; atomic write) + `LabelStudioExporter` (model predictions + human annotations for RLHF preference learning) + `create_session_serializers()` factory
 - S81 — `_build_seam_cost_map()` / `_composite_foreground()` gain `exclusion_masks` param — NL seam routing: cost=1e6 hard barrier where mask>127, forcing DP seam away from named objects
 - S82 — `exclusion_masks` threaded end-to-end: `AnimeStitchPipeline.exclusion_masks` instance attr → Stage 11 → `_composite_foreground`; `StitchWorker.set_exclusion_masks()` + HITL checkpoint 1.5 wiring; `MaskReviewDialog` seam-exclusion section (GroundingDINO detect button + `sig_exclusion_masks_accepted` signal); COCO+LS auto-save at checkpoint 1.5 (→ `~/.image-toolkit/hitl_annotations/`)
-- S82 — `backend/src/anim/video_ingestion.py` (new, Issue 9): `VideoIngestionStream` + `ingest_video()` — PyAV proxy-first decode at ¼ res, telecine-drop dedup, uniform/keyframe/smart selection, full-res seek-based per-frame decode; `ASP_VIDEO_PROXY_SCALE/MAX_FRAMES/TELECINE_MAD/KEYFRAMES_ONLY` env vars; graceful `pip install av` fallback
+- S82 — `backend/src/animation/video_ingestion.py` (new, Issue 9): `VideoIngestionStream` + `ingest_video()` — PyAV proxy-first decode at ¼ res, telecine-drop dedup, uniform/keyframe/smart selection, full-res seek-based per-frame decode; `ASP_VIDEO_PROXY_SCALE/MAX_FRAMES/TELECINE_MAD/KEYFRAMES_ONLY` env vars; graceful `pip install av` fallback
 - S83 — Live SAM-2 state preservation across HITL checkpoint boundary: `_compute_fg_masks_sam2_stateful()` stateful variant returns `(masks, predictor, state, tmp_dir, H, W)`; `AnimeStitchPipeline._compute_fg_masks()` stores tuple on `self`; checkpoint 1.5 data dict passes live state; `_refine_cb` in `stitch_tab.py` now calls `_refine_masks_with_clicks(predictor, state, ...)` for real; `_cleanup_sam2_state()` frees GPU/disk after dialog closes; 10 new tests in `test_masking.py`
 - S84 — Video ingestion HITL + "From Video" GUI mode: `sig_review_video = Signal(object)` (checkpoint 0); `_hitl_video_pause()` blocks on `_hitl_mutex`; `StitchWorker.run()` ingests video via `ingest_video()` into `mkdtemp` before pipeline, emits `sig_review_video` in HITL mode, applies `frame_override`; `SelectionReviewDialog` configurable `title` param; `stitch_tab.py` "From Video Source" checkbox + `_video_input_widget` + `_on_hitl_review_video()`; 5 new GUI tests in `TestStitchWorkerVideoPath`
 - S85 — HITL Checkpoint 3.5 seam boundary editor: `_compute_initial_boundaries(affines, frames) → np.ndarray` extracted to `compositing.py` (`__all__`); `_composite_foreground()` + `AnimeStitchPipeline._composite_foreground()` gain `preset_boundaries: Optional[np.ndarray] = None`; `StitchWorker` `sig_review_boundaries` + `set_boundary_override()` + checkpoint 3.5 block between Stage 10/11; `boundary_editor_dialog.py` (new) — `_DraggableLine(QGraphicsLineItem)` + `BoundaryEditorDialog` with draggable N-1 seam lines + "Reset to Auto" + `adjusted_boundaries()`; `stitch_tab._on_hitl_review_boundaries()`; 5 new tests `TestComputeInitialBoundaries`
-- S86 — HITL Checkpoint 4.5 post-composite seam painter: `paint_mask: Optional[np.ndarray]` param in `_composite_foreground()` appended to `_eff_exclusion` list (canvas-space uint8, zone-sliced identically to `exclusion_masks`); `AnimeStitchPipeline._composite_foreground()` wrapper updated; `StitchWorker` `sig_review_composite` + `set_paint_mask()` + re-composite while-loop at checkpoint 4.5 (breaks on accept, re-runs with new mask on `SeamPainterDialog.RECOMPOSITE=2`); `seam_painter_dialog.py` (new) — `_PaintCanvas(QLabel)` with alpha-overlay left-drag paint / right-drag erase, `paint_mask_preview()` → uint8 alpha channel, `full_resolution_mask()` upscales via `INTER_NEAREST`; `stitch_tab._on_hitl_review_composite()`; 5 new tests `TestPaintMask`; total backend/test/anim/ suite: 577 tests (2 skipped)
+- S86 — HITL Checkpoint 4.5 post-composite seam painter: `paint_mask: Optional[np.ndarray]` param in `_composite_foreground()` appended to `_eff_exclusion` list (canvas-space uint8, zone-sliced identically to `exclusion_masks`); `AnimeStitchPipeline._composite_foreground()` wrapper updated; `StitchWorker` `sig_review_composite` + `set_paint_mask()` + re-composite while-loop at checkpoint 4.5 (breaks on accept, re-runs with new mask on `SeamPainterDialog.RECOMPOSITE=2`); `seam_painter_dialog.py` (new) — `_PaintCanvas(QLabel)` with alpha-overlay left-drag paint / right-drag erase, `paint_mask_preview()` → uint8 alpha channel, `full_resolution_mask()` upscales via `INTER_NEAREST`; `stitch_tab._on_hitl_review_composite()`; 5 new tests `TestPaintMask`; total backend/test/animation/ suite: 577 tests (2 skipped)
 - S87 — HITL Checkpoint 5 final output RLHF feedback: `StitchWorker` `sig_review_output = Signal(object)` + `set_output_feedback(overall_rating, annotations)` + `"output"` in signal map + checkpoint 5 block after Stage 13 (lazy-imports `FeedbackStore`/`StitchAnnotation`, calls `add_from_image()`, logs result); `final_output_review_dialog.py` (new) — `_AddFlawDialog` (flaw_type QComboBox from `RLHF_FLAW_TYPES` + severity QDoubleSpinBox) + `FinalOutputReviewDialog` (canvas preview + overall-quality slider 0–10 in 0.5 steps + flaw annotation QListWidget + Save/Skip); `stitch_tab._on_hitl_review_output()` wired; 7 new tests in `test_rlhf_feedback.py` (FeedbackStore add/iter/count/roundtrip/from_image/empty/malformed) → **584 tests passing**
 - S92 — HITL Session Viewer: `gui/src/dialogs/hitl_session_viewer_dialog.py` (new) — `_list_sessions()` (mtime-sorted), `_load_session_meta()` (JSON-only, no numpy decode), `_format_session_info()` (checkpoint label map `_CHECKPOINT_LABELS`); `HITLSessionViewerDialog` — QSplitter list/detail; Load-for-Replay (sets `_selected_path`, accepts); Delete (QMessageBox confirm + unlink + refresh); Export (shutil.copy2 + DontUseNativeDialog); Refresh; `selected_path()` accessor; `session_dir` param for testability; `stitch_tab.py`: "Browse Sessions…" button + `_on_browse_sessions()` handler. 8 tests `TestListSessions`/`TestFormatSessionInfo`/`TestHITLSessionViewerDialog` → **18 GUI tests** (backend 598 unchanged)
 - S91 — Canvas Inspector rotation/scale editor: `_rot_angles` + `_scale_factors` per-frame lists; `QDoubleSpinBox` for rotation (±180°, step 0.5°) and scale (0.1–3.0, step 0.01); `_update_transform_controls()` populates spinboxes on frame select; `_on_rot/scale_changed()` update list + call `setRotation/setScale()` on drag item; `setTransformOriginPoint(fw/2, fh/2)` for center-pivot; `_reset_frame()` zeroes rot/scale; `adjusted_affines()` applies `R(θ,s) @ orig_2x2` before tx/ty nudge; 5 tests `TestCanvasInspectorRotScale` → **10 GUI tests in test_canvas_inspector_dialog.py** (backend 598 unchanged)
 - S90 — Canvas Inspector drag-to-reposition: `_DraggableFrameItem(QGraphicsRectItem)` in `canvas_inspector_dialog.py` — `ItemIsMovable | ItemSendsGeometryChanges | ItemIsSelectable`; `itemChange(ItemPositionChange)` writes nudge in-place from proposed scene pos; thumbnail pixmaps as child items move with rect; `_populate_scene()` creates drag items; scene selection syncs list widget; configurable `_step_spin` (QSpinBox, 1–200, default 10) replaces hardcoded ±10px; `_nudge()` + `_reset_frame()` call `setPos()` on drag item; `gui/test/test_canvas_inspector_dialog.py` (new): 5 tests `TestCanvasInspectorDrag` → **+5 GUI tests** (backend 598 unchanged)
 - S89 — HITL Checkpoint 2 manual edge entry: `_build_manual_edge(i, j, dx, dy, weight=0.9) → dict` in `pipeline.py` (pure-translation M, single-point pts, `method="manual"`, weight clipped, exported in `__all__`); `_ManualEdgeDialog(QDialog)` in `edge_review_dialog.py` — i/j spinboxes bounded by n_frames, dx/dy QDoubleSpinBox, weight 0.9 default; `EdgeReviewDialog` gains `_manual_edges` list + `_n_frames` + "Add Edge…" toolbar button + `_on_add_edge()`; `_populate()` renders manual edges in purple dotted lines + purple table rows (always-on, uncheckable); `accepted_edges()` returns filtered originals + all manual entries; `StitchWorker` Checkpoint 2 updated to convert `method="manual"` overrides to full pipeline edges via `_build_manual_edge()`; bugfix: `_on_hitl_review_edges()` fixed to pass `data=data` to constructor; 5 tests `TestBuildManualEdge` → **598 tests passing**
-- S88 — HITL session persistence & replay: `backend/src/anim/hitl_session.py` (new) — `_encode_array`/`_decode_array` (numpy ↔ base64-JSON, 8 MB skip threshold for large arrays); `_to_json`/`_from_json` recursive converters; `save_session(overrides, path)` writes `{version, timestamp, checkpoints}` JSON; `load_session(path)` restores override dicts with numpy decoded; `autosave_path()` timestamped path under `~/.config/image-toolkit/hitl_sessions/`; `StitchWorker` gains `session_path: Optional[str]` → loads replay dict at init; `_hitl_session_overrides` dict accumulates non-cancel overrides; autosaves after Stage 13 success; `current_session_path` property; `save_session(path)` public method; `_make_hitl_pause_cb()` and `_hitl_video_pause()` now replay stored overrides without blocking when `hitl_mode=False`; `stitch_tab.py` "Load Session…" button + `_session_path_label` + `_on_load_session()` + session path shown in success dialog; 9 tests in `test_hitl_session.py` (ndarray codec ×4, save/load ×5) → **593 tests passing**
+- S88 — HITL session persistence & replay: `backend/src/animation/hitl_session.py` (new) — `_encode_array`/`_decode_array` (numpy ↔ base64-JSON, 8 MB skip threshold for large arrays); `_to_json`/`_from_json` recursive converters; `save_session(overrides, path)` writes `{version, timestamp, checkpoints}` JSON; `load_session(path)` restores override dicts with numpy decoded; `autosave_path()` timestamped path under `~/.config/image-toolkit/hitl_sessions/`; `StitchWorker` gains `session_path: Optional[str]` → loads replay dict at init; `_hitl_session_overrides` dict accumulates non-cancel overrides; autosaves after Stage 13 success; `current_session_path` property; `save_session(path)` public method; `_make_hitl_pause_cb()` and `_hitl_video_pause()` now replay stored overrides without blocking when `hitl_mode=False`; `stitch_tab.py` "Load Session…" button + `_session_path_label` + `_on_load_session()` + session path shown in success dialog; 9 tests in `test_hitl_session.py` (ndarray codec ×4, save/load ×5) → **593 tests passing**
 
 **Benchmark infra:**
 - `_compute_rlhf_score`, `_ghosting_score_v2` (autocorrelation double-edge), `seam_bhattacharyya_distances`, per-seam SIQE ghost scores, `_compute_aligned_ssim` (MOTION_EUCLIDEAN)
@@ -162,27 +162,27 @@ Issue 10 (Multi-modal HITL) is **implemented in S81–S96**. Issue 9 (Video inge
 
 | Module | Location | Status |
 |--------|----------|--------|
-| `VideoIngestionStream` | `backend/src/anim/video_ingestion.py` | ✅ **S82** — proxy-first decode, telecine dedup, smart/uniform/keyframe selection |
-| `grounding.py` functions | `backend/src/anim/grounding.py` | ✅ **S81** — GroundingDINO wrapper + exclusion mask |
-| `_compute_fg_masks_grounded_sam2` | `backend/src/anim/masking.py` | ✅ **S81** — text → DINO bbox → SAM-2 propagation |
-| `_refine_masks_with_clicks` | `backend/src/anim/masking.py` | ✅ **S81** — pos/neg click SAM-2 re-propagation |
-| `_compute_fg_masks_sam2_stateful` | `backend/src/anim/masking.py` | ✅ **S83** — live predictor+state preserved across HITL |
-| `_cleanup_sam2_state` | `backend/src/anim/masking.py` | ✅ **S83** — GPU/disk cleanup after HITL dialog closes |
-| `COCOAnnotationBuilder` | `backend/src/anim/data_serialization.py` | ✅ **S81** — COCO JSON + RLE/polygon encoding |
-| `LabelStudioExporter` | `backend/src/anim/data_serialization.py` | ✅ **S81** — Label Studio tasks with RLHF delta |
+| `VideoIngestionStream` | `backend/src/animation/video_ingestion.py` | ✅ **S82** — proxy-first decode, telecine dedup, smart/uniform/keyframe selection |
+| `grounding.py` functions | `backend/src/animation/grounding.py` | ✅ **S81** — GroundingDINO wrapper + exclusion mask |
+| `_compute_fg_masks_grounded_sam2` | `backend/src/animation/masking.py` | ✅ **S81** — text → DINO bbox → SAM-2 propagation |
+| `_refine_masks_with_clicks` | `backend/src/animation/masking.py` | ✅ **S81** — pos/neg click SAM-2 re-propagation |
+| `_compute_fg_masks_sam2_stateful` | `backend/src/animation/masking.py` | ✅ **S83** — live predictor+state preserved across HITL |
+| `_cleanup_sam2_state` | `backend/src/animation/masking.py` | ✅ **S83** — GPU/disk cleanup after HITL dialog closes |
+| `COCOAnnotationBuilder` | `backend/src/animation/data_serialization.py` | ✅ **S81** — COCO JSON + RLE/polygon encoding |
+| `LabelStudioExporter` | `backend/src/animation/data_serialization.py` | ✅ **S81** — Label Studio tasks with RLHF delta |
 | `MaskReviewDialog` | `gui/src/dialogs/mask_review_dialog.py` | ✅ **S81** — click overlay + refinement worker |
 | `exclusion_masks` in compositing | `compositing.py` | ✅ **S81** — NL seam routing hard barrier |
 | HITL checkpoint 0 (video review) | `gui/src/helpers/models/stitch_worker.py` | ✅ **S84** — `sig_review_video` + `_hitl_video_pause()` + "From Video" GUI |
 | HITL checkpoint 3.5 (boundary editor) | `gui/src/dialogs/boundary_editor_dialog.py` | ✅ **S85** — draggable seam lines; `_compute_initial_boundaries` + `preset_boundaries` param |
 | HITL checkpoint 4.5 (seam painter) | `gui/src/dialogs/seam_painter_dialog.py` | ✅ **S86** — paint/erase seam exclusion; `paint_mask` + `_eff_exclusion`; re-composite while-loop |
 | HITL checkpoint 5 (RLHF feedback) | `gui/src/dialogs/final_output_review_dialog.py` | ✅ **S87** — quality slider + flaw annotations; `FeedbackStore.add_from_image()` after save |
-| HITL session persistence & replay | `backend/src/anim/hitl_session.py` | ✅ **S88** — `save_session`/`load_session`; autosave after run; replay without blocking |
-| HITL Checkpoint 2 manual edge entry | `gui/src/dialogs/edge_review_dialog.py`, `backend/src/anim/pipeline.py` | ✅ **S89** — `_ManualEdgeDialog` + `_build_manual_edge()`; purple dotted rendering; `method="manual"` conversion at StitchWorker |
+| HITL session persistence & replay | `backend/src/animation/hitl_session.py` | ✅ **S88** — `save_session`/`load_session`; autosave after run; replay without blocking |
+| HITL Checkpoint 2 manual edge entry | `gui/src/dialogs/edge_review_dialog.py`, `backend/src/animation/pipeline.py` | ✅ **S89** — `_ManualEdgeDialog` + `_build_manual_edge()`; purple dotted rendering; `method="manual"` conversion at StitchWorker |
 | Canvas Inspector drag-to-reposition | `gui/src/dialogs/canvas_inspector_dialog.py` | ✅ **S90** — `_DraggableFrameItem` with `ItemIsMovable + ItemSendsGeometryChanges`; thumbnail children; configurable step spinbox |
 | Canvas Inspector rotation/scale editor | `gui/src/dialogs/canvas_inspector_dialog.py` | ✅ **S91** — per-frame `_rot_angles`/`_scale_factors`; `QDoubleSpinBox` controls; `R(θ,s) @ orig_2x2` in `adjusted_affines()`; center-pivot via `setTransformOriginPoint` |
 | HITL Session Viewer | `gui/src/dialogs/hitl_session_viewer_dialog.py` | ✅ **S92** — browse/inspect/delete/export sessions; `selected_path()` → load for replay; "Browse Sessions…" button in stitch_tab |
-| Triangular consistency filter | `backend/src/anim/pipeline.py` | ✅ **S93** — `_triangular_consistency_filter()`: penalise weakest edge in inconsistent triangles; `ASP_TRI_CONSISTENCY=80.0` |
-| Seam overlay diagnostic annotation | `backend/src/anim/compositing.py` | ✅ **S94** — `_annotate_seams()`: coloured lines (green/amber/red) + text labels at seam boundaries; `ASP_SEAM_OVERLAY=1` |
+| Triangular consistency filter | `backend/src/animation/pipeline.py` | ✅ **S93** — `_triangular_consistency_filter()`: penalise weakest edge in inconsistent triangles; `ASP_TRI_CONSISTENCY=80.0` |
+| Seam overlay diagnostic annotation | `backend/src/animation/compositing.py` | ✅ **S94** — `_annotate_seams()`: coloured lines (green/amber/red) + text labels at seam boundaries; `ASP_SEAM_OVERLAY=1` |
 | HITL checkpoint 4.6 (seam inspector) | `gui/src/dialogs/seam_diagnostic_dialog.py` | ✅ **S95–S96** — `SeamDiagnosticDialog`: per-seam cards (diff/SP/override checkboxes + ±50px crop thumbnail); `force_single_pose`/`force_blend` via `seam_meta_out`+`seam_overrides`; S96 adds `seam_crops` key to `seam_meta_out` |
 
 **S81 Known limitation resolved (S83):** Live SAM-2 state is preserved across the HITL checkpoint boundary via `_compute_fg_masks_sam2_stateful()`. The predictor is passed through the checkpoint 1.5 data dict and `_refine_cb` in `stitch_tab.py` now calls `_refine_masks_with_clicks` with the live predictor when SAM-2 is active (`ASP_USE_SAM2=1`).
@@ -356,8 +356,8 @@ python3 archive/run_pipeline_v2.py
 
 ```bash
 source .venv/bin/activate
-pytest backend/test/anim/ -q          # 567 tests (~30s, no GPU) — 2 skipped (pyav)
-pytest backend/test/anim/ -k "canvas" # run a specific module
+pytest backend/test/animation/ -q          # 567 tests (~30s, no GPU) — 2 skipped (pyav)
+pytest backend/test/animation/ -k "canvas" # run a specific module
 ```
 
 | File | Covers |
@@ -379,10 +379,10 @@ pytest backend/test/anim/ -k "canvas" # run a specific module
 ## Constraints
 
 - NEVER skip MFSR by default in the production pipeline — only skip it in test scripts. The GUI exposes an "enable MFSR" toggle.
-- Do NOT add `QPixmap`, Qt, or GUI imports inside any `backend/src/anim/` file.
+- Do NOT add `QPixmap`, Qt, or GUI imports inside any `backend/src/animation/` file.
 - Keep `_composite_foreground` signature unchanged — called by pipeline, GUI worker, and test scripts.
 - Gains applied in `_render_median` and `_composite_foreground` are independent — do not confuse them.
 - `has_content = src.max(axis=2) > 0` must stay at `> 0` — dark pixels with max=1–10 are real content.
 - Stage 11 uses `INTER_LINEAR`, not `INTER_LANCZOS4` — Lanczos4 produces halos at silhouette edges.
 
-My first task is: read the anime pipeline issues and analysis reports in `.agent/cache/*.md`, then read the pipeline source code in `backend/src/anim/`, then understand the current visual failures and architectural root causes, and propose or implement the fixes described in the priority list above.
+My first task is: read the anime pipeline issues and analysis reports in `.agent/cache/*.md`, then read the pipeline source code in `backend/src/animation/`, then understand the current visual failures and architectural root causes, and propose or implement the fixes described in the priority list above.

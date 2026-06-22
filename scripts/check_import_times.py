@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """§3.14B — Module import-time regression gate.
 
-Measures the wall-clock import time of every ``backend.src.anim.*`` module
+Measures the wall-clock import time of every ``backend.src.animation.*`` module
 and flags any that exceed SLOW_IMPORT_THRESHOLD seconds.
 
 Usage
@@ -17,7 +17,7 @@ CI integration (add to .github/workflows or equivalent):
 
 Why this exists (§3.14)
 -----------------------
-Unconditional heavy imports at the top of anim modules were a confirmed root
+Unconditional heavy imports at the top of animation modules were a confirmed root
 cause of the test-suite process freeze.  This script catches future regressions
 before they land — a new ``import sam2`` at module level would be flagged
 immediately rather than discovered by a dying test run.
@@ -38,24 +38,26 @@ from typing import Dict, List, Tuple
 # Configuration
 # --------------------------------------------------------------------------- #
 
-SLOW_IMPORT_THRESHOLD = 1.5  # seconds above baseline — flag module-specific import cost exceeding this
+SLOW_IMPORT_THRESHOLD = (
+    1.5  # seconds above baseline — flag module-specific import cost exceeding this
+)
 
-# All anim modules we track.  Add new modules here when they are created.
+# All animation modules we track.  Add new modules here when they are created.
 ANIM_MODULES: List[str] = [
-    "backend.src.anim.bundle_adjust",
-    "backend.src.anim.canvas",
-    "backend.src.anim.compositing",
-    "backend.src.anim.config",
-    "backend.src.anim.ecc",
-    "backend.src.anim.fg_register",
-    "backend.src.anim.frame_selection",
-    "backend.src.anim.matching",
-    "backend.src.anim.masking",
-    "backend.src.anim.pipeline",
-    "backend.src.anim.photometric",
-    "backend.src.anim.rendering",
-    "backend.src.anim.validation",
-    "backend.src.anim.bg_complete",
+    "backend.src.animation.bundle_adjust",
+    "backend.src.animation.canvas",
+    "backend.src.animation.compositing",
+    "backend.src.animation.config",
+    "backend.src.animation.ecc",
+    "backend.src.animation.fg_register",
+    "backend.src.animation.frame_selection",
+    "backend.src.animation.matching",
+    "backend.src.animation.masking",
+    "backend.src.animation.pipeline",
+    "backend.src.animation.photometric",
+    "backend.src.animation.rendering",
+    "backend.src.animation.validation",
+    "backend.src.animation.bg_complete",
 ]
 
 # §3.15C — Core modules that were audited for heavy-import isolation.
@@ -87,7 +89,7 @@ def _measure_baseline() -> float:
     """
     repo_root = str(Path(__file__).parent.parent)
     # Baseline includes torch because it is a required project dependency that
-    # is always imported when any anim module loads (torch is ~2.5 s).
+    # is always imported when any animation module loads (torch is ~2.5 s).
     # We only flag the ADDITIONAL cost beyond this mandatory baseline.
     cmd = [
         sys.executable,
@@ -163,8 +165,7 @@ def _check_forbidden_at_module_level(module_name: str) -> List[str]:
             # Only flag unconditional top-level imports (not inside try/except,
             # not inside a function/class/if block).
             if (
-                stripped.startswith("import ")
-                or stripped.startswith("from ")
+                stripped.startswith("import ") or stripped.startswith("from ")
             ) and not stripped.startswith("#"):
                 indent = len(line) - len(line.lstrip())
                 if indent == 0:  # module-level (no indentation)
@@ -188,12 +189,16 @@ def run(ci: bool = False, as_json: bool = False) -> int:
     errors: List[str] = []
     violations_map: Dict[str, List[str]] = {}
 
-    print(f"Measuring module-specific import cost (threshold above baseline: {SLOW_IMPORT_THRESHOLD:.1f}s)…")
+    print(
+        f"Measuring module-specific import cost (threshold above baseline: {SLOW_IMPORT_THRESHOLD:.1f}s)…"
+    )
     print("Measuring baseline (cv2 + numpy + scipy startup)…", end=" ", flush=True)
     baseline = _measure_baseline()
     print(f"{baseline:.3f}s\n")
 
-    all_modules = [("anim", m) for m in ANIM_MODULES] + [("core", m) for m in CORE_MODULES]
+    all_modules = [("animation", m) for m in ANIM_MODULES] + [
+        ("core", m) for m in CORE_MODULES
+    ]
 
     current_group = ""
     for group, mod in all_modules:
@@ -210,7 +215,12 @@ def run(ci: bool = False, as_json: bool = False) -> int:
         violations = _check_forbidden_at_module_level(mod)
         if violations:
             violations_map[mod] = violations
-        results[mod] = {"elapsed": round(elapsed, 4), "net_above_baseline": round(net, 4), "slow": flag, "error": err}
+        results[mod] = {
+            "elapsed": round(elapsed, 4),
+            "net_above_baseline": round(net, 4),
+            "slow": flag,
+            "error": err,
+        }
         status = "SLOW ⚠" if flag else ("ERR " if err else "ok  ")
         print(f"  {status}  {net:5.2f}s net  ({elapsed:.2f}s total)  {mod}")
 
@@ -229,12 +239,18 @@ def run(ci: bool = False, as_json: bool = False) -> int:
 
     total = len(ANIM_MODULES) + len(CORE_MODULES)
     if slow:
-        print(f"SLOW modules (net cost >{SLOW_IMPORT_THRESHOLD:.1f}s above baseline): {', '.join(slow)}")
-        print("Diagnose with: python -X importtime -c 'import sys; sys.path.insert(0,\".\"); import <module>'")
+        print(
+            f"SLOW modules (net cost >{SLOW_IMPORT_THRESHOLD:.1f}s above baseline): {', '.join(slow)}"
+        )
+        print(
+            "Diagnose with: python -X importtime -c 'import sys; sys.path.insert(0,\".\"); import <module>'"
+        )
         if ci:
             return 1
     else:
-        print(f"All {total} modules within {SLOW_IMPORT_THRESHOLD:.1f}s above baseline. ✓")
+        print(
+            f"All {total} modules within {SLOW_IMPORT_THRESHOLD:.1f}s above baseline. ✓"
+        )
 
     if as_json:
         print(json.dumps(results, indent=2))

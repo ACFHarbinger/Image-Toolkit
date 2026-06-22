@@ -2,7 +2,7 @@
 description: Diagnostic checklist for AnimeStitchPipeline failures — seam bands, Stage 9 ghosting, alignment failure, and photometric artifacts.
 ---
 
-You are diagnosing a failure in `AnimeStitchPipeline` (`backend/src/anim/`). Use this checklist to identify the root cause before making any changes.
+You are diagnosing a failure in `AnimeStitchPipeline` (`backend/src/animation/`). Use this checklist to identify the root cause before making any changes.
 
 ---
 
@@ -45,7 +45,7 @@ img.show()
 "
 ```
 
-If stage09 is clean and the band appears only in stage11 (final output), the issue is in `_composite_foreground` (`backend/src/anim/compositing.py`).
+If stage09 is clean and the band appears only in stage11 (final output), the issue is in `_composite_foreground` (`backend/src/animation/compositing.py`).
 
 ### A2 — Check gain corrections
 
@@ -133,7 +133,7 @@ If the `ty` values are not monotonically increasing with roughly equal spacing, 
 
 ### B4 — Rendering gain clamp
 
-In `backend/src/anim/rendering.py`, `_render_median` applies a per-pixel gain correction clamped to `(0.88, 1.12)`. If the scene has large natural brightness variation, this clamp may be insufficient or excessive. Check whether ghosting disappears when the clamp is widened to `(0.75, 1.35)` for diagnosis.
+In `backend/src/animation/rendering.py`, `_render_median` applies a per-pixel gain correction clamped to `(0.88, 1.12)`. If the scene has large natural brightness variation, this clamp may be insufficient or excessive. Check whether ghosting disappears when the clamp is widened to `(0.75, 1.35)` for diagnosis.
 
 ---
 
@@ -230,7 +230,7 @@ edges_clean = [e for e, r in zip(edges, residuals) if r <= 3 * median_res]
 
 **Fix:** Disable MFSR in the pipeline call. In `run_pipeline_v2.py` and test scripts, MFSR is already skipped. In the GUI, the "MFSR" toggle should default to OFF.
 
-**If MFSR must be used:** The DCT-based MFSR in `backend/src/anim/mfsr/` uses 8×8 block DCT operations. For anime cel-shading, a spatial-domain SR model (e.g., RealESRGAN from `backend/src/models/`) produces far better results.
+**If MFSR must be used:** The DCT-based MFSR in `backend/src/animation/mfsr/` uses 8×8 block DCT operations. For anime cel-shading, a spatial-domain SR model (e.g., RealESRGAN from `backend/src/models/`) produces far better results.
 
 ---
 
@@ -338,15 +338,15 @@ Before and after any fix, run the automated test suite. It covers all issue cate
 
 ```bash
 source .venv/bin/activate
-pytest backend/test/anim/ -q                          # 498 tests (~30s)
-pytest backend/test/anim/test_filter_edges.py -v      # Category C — alignment
-pytest backend/test/anim/test_bundle_adjust.py -v     # Category C — clustering
-pytest backend/test/anim/test_canvas.py -v            # Category E — canvas/crop
-pytest backend/test/anim/test_affine_validation.py -v # Category C/G — validate
-pytest backend/test/anim/test_compositing.py -v       # Category A — seam/gain
-pytest backend/test/anim/test_rendering.py -v         # Category B — ghosting
-pytest backend/test/anim/test_frame_selection.py -v   # hold/near-dup filtering
-pytest backend/test/anim/test_config.py -v            # §1.8A TOML config
+pytest backend/test/animation/ -q                          # 498 tests (~30s)
+pytest backend/test/animation/test_filter_edges.py -v      # Category C — alignment
+pytest backend/test/animation/test_bundle_adjust.py -v     # Category C — clustering
+pytest backend/test/animation/test_canvas.py -v            # Category E — canvas/crop
+pytest backend/test/animation/test_affine_validation.py -v # Category C/G — validate
+pytest backend/test/animation/test_compositing.py -v       # Category A — seam/gain
+pytest backend/test/animation/test_rendering.py -v         # Category B — ghosting
+pytest backend/test/animation/test_frame_selection.py -v   # hold/near-dup filtering
+pytest backend/test/animation/test_config.py -v            # §1.8A TOML config
 ```
 
 The suite documents both correct behavior (assertions that must pass) and known bugs (assertions that document the broken state, marked in the test docstring). When you fix a documented bug, find the corresponding test and update the assertion to verify the correct behavior.

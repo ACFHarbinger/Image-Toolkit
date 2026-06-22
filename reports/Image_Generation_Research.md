@@ -149,7 +149,7 @@ The flagship capability — it reuses Image-Toolkit's FFmpeg extraction, similar
 
 ## 8. Upscaling & Restoration
 
-- **Real-ESRGAN anime_6B** (`RealESRGAN_x4plus_anime_6B`) — trained on anime degradation (JPEG blocks, cel-gradient loss, line thinning); preserves outlines where photo-SR over-smooths; built-in tile-and-stitch. 2× sharp / 4× blurry. **Shared with the ASP super-resolution stage** (`anim/super_res.py`).
+- **Real-ESRGAN anime_6B** (`RealESRGAN_x4plus_anime_6B`) — trained on anime degradation (JPEG blocks, cel-gradient loss, line thinning); preserves outlines where photo-SR over-smooths; built-in tile-and-stitch. 2× sharp / 4× blurry. **Shared with the ASP super-resolution stage** (`animation/super_res.py`).
 - **4x-AnimeSharp** ESRGAN — alternative anime tiled upscaler.
 - **APISR** — anime-production SR replicating multi-frame compression degradation (JPEG/WebP/AVIF/H.264-H.265 intra-prediction); inverts non-linear degradation while preserving 2-D topology (no photoreal hallucination in flat regions).
 - **SUPIR / diffusion upscale** — detail-synthesising upscale when hallucinated detail is acceptable.
@@ -196,7 +196,7 @@ Adapts a pre-trained live-action image-to-video diffusion prior to cartoon inter
 2. **Dual-Reference 3-D Decoder** — standard VAE compression destroys thin line art and bleeds flat colours in anime; this decoder injects uncompressed pixel data from the input keyframes as structural "supporting pillars" during decoding, preserving crisp detail.
 3. **Sparse Sketch Guidance** — a frame-independent sketch encoder lets artists steer non-linear intermediate poses.
 
-Dual-use: ToonCrafter is also the ASP **ghost-fill / occlusion-completion** model (`anim/anim_fill.py`).
+Dual-use: ToonCrafter is also the ASP **ghost-fill / occlusion-completion** model (`animation/anim_fill.py`).
 
 ### 11.3 ToonComposer & the DiT shift
 **ToonComposer** (TencentARC) = "generative post-keyframing" — one DiT video model does **inbetweening + colourisation** simultaneously from one coloured keyframe + sparse uncoloured sketches (~70% manual-effort saving). Built on a **Video Diffusion Transformer (DiT)** that patchifies the latent video volume into tokens processed by self-attention (scales better than U-Nets, longer coherent context). **SLRA (Spatial Low-Rank Adapter):** in spatio-temporally *coupled* DiT attention, standard spatial-only LoRA is structurally impossible; SLRA adapts only spatial behaviour via two low-rank matrices applied before self-attention (residual added after), preserving the temporal prior — outperforming LoRA at comparable/lower parameter budget.

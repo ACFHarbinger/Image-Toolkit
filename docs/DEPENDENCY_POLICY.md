@@ -131,7 +131,7 @@ If a vulnerability cannot be patched within the SLA (see Upgrade Cadence), docum
 - **PyTorch:** Pin to a specific CUDA version in CI to avoid downloading multiple CUDA runtime copies. Use `torch~=2.3+cu121` for RTX 3090 Ti / 4080 builds.
 - **PySide6:** Pin to an exact minor version. PySide6 `6.x.y` and `6.x.(y+1)` can break binary compatibility on Linux. The JPype JVM bridge is sensitive to PySide6 minor releases.
 - **maturin:** Used to build the PyO3 Rust extension. Pin to the same version locally and in CI to avoid ABI mismatches between the `.so` in the lockfile and the one CI builds.
-- **Avoid at the top level of `anim/` or `compositing.py`:** `diffusers`, `transformers`, `accelerate`. These must be lazy-imported (see §3.10 in `performance.md`).
+- **Avoid at the top level of `animation/` or `compositing.py`:** `diffusers`, `transformers`, `accelerate`. These must be lazy-imported (see §3.10 in `performance.md`).
 
 ### Rust
 

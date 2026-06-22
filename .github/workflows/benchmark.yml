@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  anim-unit-tests:
+  animation-unit-tests:
     name: ASP unit tests (800+ fast tests, ~60 s)
     runs-on: ubuntu-latest
 
@@ -36,8 +36,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/uv
-          key: uv-anim-${{ runner.os }}-${{ hashFiles('uv.lock') }}
-          restore-keys: uv-anim-${{ runner.os }}-
+          key: uv-animation-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: uv-animation-${{ runner.os }}-
 
       - name: Install project dependencies (frozen, skip Rust build)
         # Full runtime install so torch/scipy/opencv are available.
@@ -48,7 +48,7 @@ jobs:
         # 800+ unit tests covering bundle_adjust, compositing, frame_selection,
         # canvas, pipeline, matching.  Each runs in <1 s without GPU.
         # Failure here means a pipeline stage regressed on push to main.
-        run: uv run pytest backend/test/anim/ -q --tb=short --no-header
+        run: uv run pytest backend/test/animation/ -q --tb=short --no-header
         env:
           PYTHONPATH: .
 
@@ -56,6 +56,6 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: anim-test-results-${{ github.sha }}
+          name: animation-test-results-${{ github.sha }}
           path: .pytest_cache/
           retention-days: 14

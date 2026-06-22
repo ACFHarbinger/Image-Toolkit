@@ -54,6 +54,7 @@ class MemoryTracker:
 
 def measure_memory(func: Callable) -> Callable:
     """Decorator to measure memory usage of a function."""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         tracker = MemoryTracker()
@@ -65,11 +66,8 @@ def measure_memory(func: Callable) -> Callable:
 
         mem_stats = tracker.stop()
 
-        return {
-            "result": result,
-            "time_sec": round(elapsed, 4),
-            "memory": mem_stats
-        }
+        return {"result": result, "time_sec": round(elapsed, 4), "memory": mem_stats}
+
     return wrapper
 
 
@@ -99,7 +97,9 @@ class BenchmarkRunner:
         if torch.cuda.is_available():
             info["gpu"] = torch.cuda.get_device_name(0)
             info["cuda_version"] = torch.version.cuda
-            info["vram_gb"] = round(torch.cuda.get_device_properties(0).total_memory / 1024**3, 1)
+            info["vram_gb"] = round(
+                torch.cuda.get_device_properties(0).total_memory / 1024**3, 1
+            )
         else:
             info["gpu"] = "None (CPU only)"
 
@@ -107,6 +107,7 @@ class BenchmarkRunner:
 
     def benchmark(self, name: str, iterations: int = 1, warmup: int = 0):
         """Decorator to register a benchmark."""
+
         def decorator(func: Callable):
             @wraps(func)
             def wrapper(*args, **kwargs):
@@ -143,9 +144,13 @@ class BenchmarkRunner:
                 min_time = min(times)
                 max_time = max(times)
 
-                avg_peak_mem = sum(m["peak_mb"] for m in memory_samples) / len(memory_samples)
+                avg_peak_mem = sum(m["peak_mb"] for m in memory_samples) / len(
+                    memory_samples
+                )
                 max_peak_mem = max(m["peak_mb"] for m in memory_samples)
-                avg_delta_mem = sum(m["delta_mb"] for m in memory_samples) / len(memory_samples)
+                avg_delta_mem = sum(m["delta_mb"] for m in memory_samples) / len(
+                    memory_samples
+                )
                 max_leaked = max(m["leaked_mb"] for m in memory_samples)
 
                 bench_result = {
@@ -162,7 +167,7 @@ class BenchmarkRunner:
                         "max_peak_mb": round(max_peak_mem, 2),
                         "avg_delta_mb": round(avg_delta_mem, 2),
                         "max_leaked_mb": round(max_leaked, 2),
-                    }
+                    },
                 }
 
                 self.results.append(bench_result)
@@ -173,15 +178,18 @@ class BenchmarkRunner:
             self._registered_benchmarks.append((name, wrapper))
 
             return wrapper
+
         return decorator
 
     def run(self):
         """Run all registered benchmarks."""
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"{self.suite_name} — Started at {self.system_info['timestamp']}")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
         print(f"System: {self.system_info['platform']}")
-        print(f"CPU: {self.system_info['cpu']} ({self.system_info['cpu_threads']} threads)")
+        print(
+            f"CPU: {self.system_info['cpu']} ({self.system_info['cpu_threads']} threads)"
+        )
         print(f"RAM: {self.system_info['ram_gb']} GB")
         print(f"GPU: {self.system_info['gpu']}\n")
 
@@ -196,13 +204,13 @@ class BenchmarkRunner:
             print("No benchmark results to display.")
             return
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("Results Summary")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         # Table header
         print(f"{'Benchmark':<40} {'Time (s)':<12} {'RAM (MB)':<12} {'Throughput':<15}")
-        print(f"{'-'*40} {'-'*12} {'-'*12} {'-'*15}")
+        print(f"{'-' * 40} {'-' * 12} {'-' * 12} {'-' * 15}")
 
         for result in self.results:
             name = result["name"][:39]
@@ -211,7 +219,9 @@ class BenchmarkRunner:
 
             # Calculate throughput if iterations > 1
             if result["iterations"] > 1:
-                throughput = f"{result['iterations'] / result['time']['total_sec']:.1f} ops/sec"
+                throughput = (
+                    f"{result['iterations'] / result['time']['total_sec']:.1f} ops/sec"
+                )
             else:
                 throughput = "—"
 
@@ -224,7 +234,7 @@ class BenchmarkRunner:
     def save_json(self, output_path: Optional[Path] = None):
         """Save results to JSON file."""
         if output_path is None:
-            output_dir = Path(__file__).parent / "results"
+            output_dir = Path(__file__).parent / "output"
             output_dir.mkdir(exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             output_path = output_dir / f"benchmark_{timestamp}.json"
@@ -244,7 +254,7 @@ class BenchmarkRunner:
     def save_detailed_report(self, output_path: Optional[Path] = None):
         """Save detailed report with comprehensive statistics and metadata."""
         if output_path is None:
-            output_dir = Path(__file__).parent / "results"
+            output_dir = Path(__file__).parent / "output"
             output_dir.mkdir(exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             suite_slug = self.suite_name.lower().replace(" ", "_")
@@ -252,9 +262,19 @@ class BenchmarkRunner:
 
         # Calculate aggregate statistics
         total_time = sum(r["time"]["total_sec"] for r in self.results)
-        avg_time = sum(r["time"]["avg_sec"] for r in self.results) / len(self.results) if self.results else 0
-        max_peak_mem = max(r["memory"]["max_peak_mb"] for r in self.results) if self.results else 0
-        total_leaked = sum(r["memory"]["max_leaked_mb"] for r in self.results) if self.results else 0
+        avg_time = (
+            sum(r["time"]["avg_sec"] for r in self.results) / len(self.results)
+            if self.results
+            else 0
+        )
+        max_peak_mem = (
+            max(r["memory"]["max_peak_mb"] for r in self.results) if self.results else 0
+        )
+        total_leaked = (
+            sum(r["memory"]["max_leaked_mb"] for r in self.results)
+            if self.results
+            else 0
+        )
 
         output = {
             "metadata": {
@@ -321,23 +341,30 @@ class BenchmarkRunner:
         # Detect potential memory leaks (leaked > 10MB)
         for result in self.results:
             if result["memory"]["max_leaked_mb"] > 10.0:
-                insights["potential_memory_leaks"].append({
-                    "name": result["name"],
-                    "leaked_mb": result["memory"]["max_leaked_mb"],
-                })
+                insights["potential_memory_leaks"].append(
+                    {
+                        "name": result["name"],
+                        "leaked_mb": result["memory"]["max_leaked_mb"],
+                    }
+                )
 
         return insights
 
-    def check_regression(self, baseline_path: Path, threshold_time: float = 0.20, threshold_mem: float = 0.15):
+    def check_regression(
+        self,
+        baseline_path: Path,
+        threshold_time: float = 0.20,
+        threshold_mem: float = 0.15,
+    ):
         """Compare results against a baseline and detect regressions."""
         with open(baseline_path, "r") as f:
             baseline = json.load(f)
 
         baseline_map = {r["name"]: r for r in baseline["results"]}
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("Regression Analysis")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         regressions = []
 
@@ -349,8 +376,12 @@ class BenchmarkRunner:
 
             base = baseline_map[name]
 
-            time_delta = (result["time"]["avg_sec"] - base["time"]["avg_sec"]) / base["time"]["avg_sec"]
-            mem_delta = (result["memory"]["avg_peak_mb"] - base["memory"]["avg_peak_mb"]) / base["memory"]["avg_peak_mb"]
+            time_delta = (result["time"]["avg_sec"] - base["time"]["avg_sec"]) / base[
+                "time"
+            ]["avg_sec"]
+            mem_delta = (
+                result["memory"]["avg_peak_mb"] - base["memory"]["avg_peak_mb"]
+            ) / base["memory"]["avg_peak_mb"]
 
             status = "✓"
             if time_delta > threshold_time:
@@ -362,7 +393,9 @@ class BenchmarkRunner:
             elif time_delta < -0.10 or mem_delta < -0.10:
                 status = "✨ IMPROVEMENT"
 
-            print(f"{status:<20} {name:<30} Time: {time_delta:+.1%}  RAM: {mem_delta:+.1%}")
+            print(
+                f"{status:<20} {name:<30} Time: {time_delta:+.1%}  RAM: {mem_delta:+.1%}"
+            )
 
         if regressions:
             print(f"\n❌ {len(regressions)} regression(s) detected!")

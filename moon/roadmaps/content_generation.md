@@ -84,7 +84,7 @@ The repository already ships a substantial generation stack — this roadmap **e
 
 **Pain point:** Generated images and stitched panoramas both want anime-aware SR.
 
-**Recommendation:** Shared `Real-ESRGAN anime_6B` / `4x-AnimeSharp` tiled upscaler module, reused by both the generation tabs and the ASP super-resolution stage (`anim/super_res.py` already exists — unify).
+**Recommendation:** Shared `Real-ESRGAN anime_6B` / `4x-AnimeSharp` tiled upscaler module, reused by both the generation tabs and the ASP super-resolution stage (`animation/super_res.py` already exists — unify).
 
 ---
 
@@ -102,7 +102,7 @@ The repository already ships a substantial generation stack — this roadmap **e
 
 **Pain point:** Generative inbetweening between two anime key-frames (large motion gap), and the dual-use ghost-fill for the ASP composite (occlusion completion).
 
-**Recommendation:** ToonCrafter wrapper (shared with ASP `anim/anim_fill.py`); GIF-from-two-keyframes tab feature. Cross-links the generation and stitching pipelines.
+**Recommendation:** ToonCrafter wrapper (shared with ASP `animation/anim_fill.py`); GIF-from-two-keyframes tab feature. Cross-links the generation and stitching pipelines.
 
 ### 2.3 Foundation video models (Wan2.1 / SVD) [Long-term]
 
@@ -155,7 +155,7 @@ Env managed via `uv`. VRAM gating in the UI (disable features that won't fit the
 | **CG-3 (Quality)** | 1.2 v-pred/ztSNR · 2.2 ToonCrafter inbetween · 1.4B native ControlNet/IP-Adapter | 1–2 wk/item |
 | **CG-4 (Advanced)** | 1.5 FLUX secondary · 2.3 Wan2.1/SVD foundation video · DeepSpeed full-FT | research |
 
-Dependencies: CG-1 captioning unblocks CG-2 training quality; CG-1 upscaler shared with ASP; 2.2 ToonCrafter shared with ASP ghost-fill (`anim/anim_fill.py`). The video→LoRA flow (3.x) is the highest-value differentiator and should lead CG-2.
+Dependencies: CG-1 captioning unblocks CG-2 training quality; CG-1 upscaler shared with ASP; 2.2 ToonCrafter shared with ASP ghost-fill (`animation/anim_fill.py`). The video→LoRA flow (3.x) is the highest-value differentiator and should lead CG-2.
 
 ---
 

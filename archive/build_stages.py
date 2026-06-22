@@ -4,39 +4,49 @@ Build panorama_stages/ from source frames.
 Uses AnimeStitchPipeline internals (including _filter_edges) to produce
 correct affines, then saves all stage files for fast compositing iteration.
 """
-import json, os, sys, glob, gc
-import cv2, numpy as np
 
-sys.path.insert(0, '/home/pkhunter/Repositories/Image-Toolkit')
+import json
+import os
+import sys
+import glob
+import gc
+import cv2
+import numpy as np
+
+sys.path.insert(0, "/home/pkhunter/Repositories/Image-Toolkit")
 os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
 
 import torch
-import warnings
-from backend.src.anim.pipeline import AnimeStitchPipeline
-from backend.src.anim.canvas import (
-    _load_frames, _normalise_widths, _compute_canvas,
+from backend.src.animation.pipeline import AnimeStitchPipeline
+from backend.src.animation.canvas import (
+    _load_frames,
+    _normalise_widths,
+    _compute_canvas,
     _crop_to_valid,
 )
-from backend.src.anim.masking import _compute_fg_masks
-from backend.src.anim.matching import _pairwise_match
-from backend.src.anim.bundle_adjust import _bundle_adjust_affine
-from backend.src.anim.ecc import _ecc_refine
-from backend.src.anim.rendering import _render_median
+from backend.src.animation.masking import _compute_fg_masks
+from backend.src.animation.matching import _pairwise_match
+from backend.src.animation.bundle_adjust import _bundle_adjust_affine
+from backend.src.animation.ecc import _ecc_refine
+from backend.src.animation.rendering import _render_median
+from PIL import Image
 
-DIR       = '/home/pkhunter/Downloads/data/new'
-STAGE_DIR = f'{DIR}/panorama_stages'
+DIR = "/home/pkhunter/Downloads/data/new"
+STAGE_DIR = f"{DIR}/panorama_stages"
 os.makedirs(STAGE_DIR, exist_ok=True)
 
 # ── Collect source frames ──────────────────────────────────────────────────────
-all_pngs = sorted(glob.glob(f'{DIR}/*.png'))
+all_pngs = sorted(glob.glob(f"{DIR}/*.png"))
 frames_paths = [
-    p for p in all_pngs
-    if 'panorama' not in os.path.basename(p)
-    and 'test_' not in os.path.basename(p)
-    and 'stage' not in os.path.basename(p)
+    p
+    for p in all_pngs
+    if "panorama" not in os.path.basename(p)
+    and "test_" not in os.path.basename(p)
+    and "stage" not in os.path.basename(p)
 ]
 print(f"Source frames ({len(frames_paths)}):")
-for p in frames_paths: print(f"  {p}")
+for p in frames_paths:
+    print(f"  {p}")
 assert len(frames_paths) >= 2
 
 # ── Stage 1-2: Load & normalise ───────────────────────────────────────────────
@@ -47,19 +57,23 @@ frames = _normalise_widths(frames)
 H, W = frames[0].shape[:2]
 print(f"  {N} frames, {W}×{H}")
 for i, f in enumerate(frames):
-    cv2.imwrite(f'{STAGE_DIR}/stage02_normalised_frame{i:02d}.png', f)
+    cv2.imwrite(f"{STAGE_DIR}/stage02_normalised_frame{i:02d}.png", f)
 
 # ── Stage 4: BiRefNet foreground masks ────────────────────────────────────────
 print("Stage 4: BiRefNet foreground masks...")
 try:
     from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+
     birefnet = BiRefNetWrapper()
     bg_masks = _compute_fg_masks(frames, birefnet)
     if torch.cuda.is_available():
-        try: birefnet.offload()
-        except Exception: pass
+        try:
+            birefnet.offload()
+        except Exception:
+            pass
     del birefnet
-    gc.collect(); torch.cuda.empty_cache()
+    gc.collect()
+    torch.cuda.empty_cache()
     print(f"  BiRefNet OK — {sum(m is not None for m in bg_masks)}/{N} masks")
 except Exception as e:
     print(f"  BiRefNet failed ({e}), using None masks")
@@ -67,7 +81,7 @@ except Exception as e:
 
 for i, m in enumerate(bg_masks):
     img = m if m is not None else np.ones((H, W), dtype=np.uint8) * 255
-    cv2.imwrite(f'{STAGE_DIR}/stage04_bgmask_frame{i:02d}.png', img)
+    cv2.imwrite(f"{STAGE_DIR}/stage04_bgmask_frame{i:02d}.png", img)
 
 # ── Stage 4.5: Background photometric normalisation (same as pipeline) ────────
 print("Stage 4.5: background photometric normalisation...")
@@ -88,7 +102,9 @@ if len(valid_means) >= 3:
             continue
         gain = np.clip(ref_mean / np.maximum(bg_frame_means[i], 1.0), 0.88, 1.14)
         if not np.allclose(gain, 1.0, atol=0.01):
-            frames[i] = np.clip(frames[i].astype(np.float32) * gain, 0, 255).astype(np.uint8)
+            frames[i] = np.clip(frames[i].astype(np.float32) * gain, 0, 255).astype(
+                np.uint8
+            )
     print(f"  Normalised {len(valid_means)}/{N} frames")
 else:
     print("  Skipped (too few frames with background)")
@@ -99,6 +115,7 @@ else:
 print("Stages 5-7: matching + filter + bundle adjust...")
 try:
     from backend.src.models.loftr_wrapper import LoFTRWrapper
+
     loftr = LoFTRWrapper()
 except Exception as e:
     print(f"  LoFTR unavailable ({e})")
@@ -108,13 +125,19 @@ edges = _pairwise_match(frames, bg_masks, loftr_wrapper=loftr)
 
 if loftr is not None:
     if torch.cuda.is_available():
-        try: loftr.offload()
-        except Exception: pass
+        try:
+            loftr.offload()
+        except Exception:
+            pass
         torch.cuda.empty_cache()
-    del loftr; gc.collect(); torch.cuda.empty_cache()
+    del loftr
+    gc.collect()
+    torch.cuda.empty_cache()
 
 # _filter_edges is a pipeline instance method — create a minimal instance
-pipe = AnimeStitchPipeline(use_basic=False, use_birefnet=False, use_loftr=False, use_ecc=False)
+pipe = AnimeStitchPipeline(
+    use_basic=False, use_birefnet=False, use_loftr=False, use_ecc=False
+)
 edges = pipe._filter_edges(edges, frames_paths, H, W, frames, bg_masks)
 print(f"  {len(edges)} edges after filtering")
 
@@ -140,30 +163,29 @@ print(f"  Frame order (top→bottom): {order}")
 print(f"  Strip centers: {[f'{strip_center_ys[i]:.0f}' for i in order]}")
 
 canvas_info = {
-    'canvas_h': canvas_h,
-    'canvas_w': canvas_w,
-    'affines_final': [a.tolist() for a in affines],
+    "canvas_h": canvas_h,
+    "canvas_w": canvas_w,
+    "affines_final": [a.tolist() for a in affines],
 }
-with open(f'{STAGE_DIR}/stage08_canvas_info.json', 'w') as fh:
+with open(f"{STAGE_DIR}/stage08_canvas_info.json", "w") as fh:
     json.dump(canvas_info, fh)
 print("  Saved stage08_canvas_info.json")
 
 # ── Stage 10: Temporal median render ──────────────────────────────────────────
 print("Stage 10: temporal median render...")
 canvas, valid_mask, _, _ = _render_median(frames, affines, bg_masks, canvas_h, canvas_w)
-cv2.imwrite(f'{STAGE_DIR}/stage09_temporal_render.png', canvas)
+cv2.imwrite(f"{STAGE_DIR}/stage09_temporal_render.png", canvas)
 print("  Saved stage09_temporal_render.png")
 
-# Also save a quick reference crop
-from backend.src.anim.canvas import _crop_to_valid
-from PIL import Image
 canvas_crop = _crop_to_valid(canvas.copy(), valid_mask)
 ec = 30
 if ec * 2 < canvas_crop.shape[0] and ec * 2 < canvas_crop.shape[1]:
     canvas_crop = canvas_crop[ec:-ec, ec:-ec]
 rgb = cv2.cvtColor(canvas_crop, cv2.COLOR_BGR2RGB)
-Image.fromarray(rgb).save(f'{DIR}/temporal_render_preview.png')
-print(f"  Saved temporal_render_preview.png ({canvas_crop.shape[1]}×{canvas_crop.shape[0]})")
+Image.fromarray(rgb).save(f"{DIR}/temporal_render_preview.png")
+print(
+    f"  Saved temporal_render_preview.png ({canvas_crop.shape[1]}×{canvas_crop.shape[0]})"
+)
 
 print(f"\nAll stages saved to {STAGE_DIR}/")
 print("Run:  python3 run_pipeline.py   (stages 9+11+12)")

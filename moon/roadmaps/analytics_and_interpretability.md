@@ -72,7 +72,7 @@ See [`reports/Analytics and Codebase Visualization Research.md`](../../reports/A
 **Goal:** Build a semantic "graph of graphs" allowing zooming from high-level architecture down to granular function execution and AST parsing.
 
 * **1.1 Rust-Powered AST & Dependency Parser:**
-  * Develop a Rust CLI/daemon utilizing **tree-sitter** to statically parse the Python (`backend/src/anim`) and Rust codebases.
+  * Develop a Rust CLI/daemon utilizing **tree-sitter** to statically parse the Python (`backend/src/animation`) and Rust codebases.
   * Extract semantic relationships: module imports, class inheritance, function calls, and data flow.
   * **Option A — SCIP Semantic Indexing:** Emit a **SCIP** (Source Code Intelligence Protocol) protobuf index via `scip-python` and `rust-analyzer`. Ingest into Rust via `nusy-codegraph` / `code-graph-cli` — produces Apache Arrow RecordBatches enabling sub-millisecond blast-radius queries (e.g., transitive impact of modifying `bundle_adjust.py`).
   * **Option B — tree-sitter-graph DSL:** Use the declarative `tree-sitter-graph` crate to write AST-to-graph mapping rules that extract pipeline-specific semantics (stage transitions, telemetry emission sites) without full SCIP indexing.
@@ -81,7 +81,7 @@ See [`reports/Analytics and Codebase Visualization Research.md`](../../reports/A
   * **Primary Option — Cosmograph (cosmos.gl):** 100% GPU-bound force-directed simulation via WebGL 2.0 compute/fragment shaders. Ingests Apache Arrow buffers directly into GPU memory; 60fps semantic zooming through 1M+ nodes. Pairs with **DuckDB-WASM** for in-browser SQL filtering of graph nodes by failure impact or algorithmic complexity.
   * **Fallback Option — sigma.js / WebGL:** Viable for graphs up to ~10k nodes; high customization for node glyphs and imagery.
   * **Simple DAG Option — react-flow:** HTML/SVG DOM rendering (~1k nodes); ideal for the explicit, user-editable pipeline DAG view.
-  * Implement **Semantic Zooming:** Zoom 0 = modules (`anim`, `rlhf`, `mfsr`); Zoom 1 = files (`compositing.py`, `bundle_adjust.py`); Zoom 2 = classes and functions; Zoom 3 = AST or call graph.
+  * Implement **Semantic Zooming:** Zoom 0 = modules (`animation`, `rlhf`, `mfsr`); Zoom 1 = files (`compositing.py`, `bundle_adjust.py`); Zoom 2 = classes and functions; Zoom 3 = AST or call graph.
   * Implement **Edge Bundling:** **Skeleton-Based Edge Bundling (SBEB)** clusters edges by directional sector and iteratively routes long-distance architectural dependencies along shared skeleton paths, preventing visual clutter without losing directional information.
 
 * **1.3 Software Cartography (Semantic Layout):**
@@ -389,9 +389,9 @@ See [`reports/Analytics and Codebase Visualization Research.md`](../../reports/A
 | `base/src/image_finder.rs` | ❌ None | File-system scan performance on large directories |
 | `base/src/file_system.rs` | ❌ None | Bulk file enumeration bottlenecks |
 | `gui/src/helpers/image/image_loader_worker.py` | ❌ None | LRU thumbnail cache RAM/throughput unknowns |
-| `backend/src/anim/compositing.py` (isolated) | ⚠️ Via ASP | Seam DP, DSFN ramp, Poisson blend not individually profiled |
-| `backend/src/anim/matching.py` (isolated) | ⚠️ Via ASP | LoFTR vs phase-correlation trade-off not quantified |
-| `backend/src/anim/bundle_adjust.py` (isolated) | ⚠️ Via ASP | Spanning-tree filter and GNC re-solve overhead unknown |
+| `backend/src/animation/compositing.py` (isolated) | ⚠️ Via ASP | Seam DP, DSFN ramp, Poisson blend not individually profiled |
+| `backend/src/animation/matching.py` (isolated) | ⚠️ Via ASP | LoFTR vs phase-correlation trade-off not quantified |
+| `backend/src/animation/bundle_adjust.py` (isolated) | ⚠️ Via ASP | Spanning-tree filter and GNC re-solve overhead unknown |
 | PostgreSQL + pgvector query latency | ⚠️ Partial | Vector similarity search at 10k/100k image scale not benchmarked |
 | App startup time | ❌ None | JVM + Qt + Rust cold-start latency unmonitored |
 | App memory (full lifecycle) | ❌ None | Gallery RAM with 100/500/1000 images not tracked |

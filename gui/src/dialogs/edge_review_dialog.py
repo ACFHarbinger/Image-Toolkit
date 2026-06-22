@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import math
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 import cv2
-import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtGui import (
     QBrush,
@@ -14,7 +13,6 @@ from PySide6.QtGui import (
     QPainter,
 )
 from PySide6.QtWidgets import (
-    QCheckBox,
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
@@ -35,7 +33,7 @@ from PySide6.QtWidgets import (
 )
 
 from .landmark_editor_dialog import LandmarkEditorDialog
-from backend.src.anim.pipeline import _build_landmark_affine
+from backend.src.animation.pipeline import _build_landmark_affine
 
 _RADIUS = 200.0
 _CENTRE = 230.0
@@ -157,10 +155,11 @@ class EdgeReviewDialog(QDialog):
         self._edges: List[dict] = list(data.get("edges", []))
         self._image_paths: List[str] = list(data.get("image_paths", []))
         self._enabled: List[bool] = [True] * len(self._edges)
-        self._manual_edges: List[dict] = []   # S89: user-added edges
+        self._manual_edges: List[dict] = []  # S89: user-added edges
         self._n_frames: int = data.get("n_frames", 0) or (
             (max((max(e["i"], e["j"]) for e in self._edges), default=-1) + 1)
-            if self._edges else 0
+            if self._edges
+            else 0
         )
         self._build_ui()
         self._populate()
@@ -175,7 +174,7 @@ class EdgeReviewDialog(QDialog):
         btn_mst.clicked.connect(self._apply_mst)
         btn_all = QPushButton("Enable All")
         btn_all.clicked.connect(self._enable_all)
-        btn_add = QPushButton("Add Edge…")        # S89
+        btn_add = QPushButton("Add Edge…")  # S89
         btn_add.setToolTip(
             "Manually specify a connection between two frames.\n"
             "Use this when LoFTR failed to match a pair you know should connect."
@@ -209,13 +208,21 @@ class EdgeReviewDialog(QDialog):
         self._view = QGraphicsView(self._scene)
         self._view.setRenderHint(QPainter.RenderHint.Antialiasing)
         self._view.setBackgroundBrush(QBrush(QColor(24, 24, 32)))
-        self._view.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._view.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         splitter.addWidget(self._view)
 
         self._table = QTableWidget(0, 7)
-        self._table.setHorizontalHeaderLabels(["On", "From", "To", "Conf", "Method", "dx", "dy"])
-        self._table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self._table.setHorizontalHeaderLabels(
+            ["On", "From", "To", "Conf", "Method", "dx", "dy"]
+        )
+        self._table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
+        self._table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeMode.ResizeToContents
+        )
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table.setMinimumWidth(260)
@@ -260,6 +267,7 @@ class EdgeReviewDialog(QDialog):
             label_text = str(k)
             if 0 <= k < len(self._image_paths):
                 import os
+
                 name = os.path.basename(self._image_paths[k])
                 label_text += f"\n{name[:9] + '…' if len(name) > 10 else name}"
             text = self._scene.addText(label_text)
@@ -280,16 +288,21 @@ class EdgeReviewDialog(QDialog):
         for row, (e, enabled) in enumerate(zip(edges, self._enabled)):
             color = _conf_color(e["conf"]) if enabled else _CONF_DIS
             chk = QTableWidgetItem()
-            chk.setCheckState(Qt.CheckState.Checked if enabled else Qt.CheckState.Unchecked)
+            chk.setCheckState(
+                Qt.CheckState.Checked if enabled else Qt.CheckState.Unchecked
+            )
             self._table.setItem(row, 0, chk)
-            for col, val in enumerate([
-                str(e["i"]),
-                str(e["j"]),
-                f"{e['conf']:.3f}",
-                e["method"],
-                f"{e['dx']:+.1f}",
-                f"{e['dy']:+.1f}",
-            ], start=1):
+            for col, val in enumerate(
+                [
+                    str(e["i"]),
+                    str(e["j"]),
+                    f"{e['conf']:.3f}",
+                    e["method"],
+                    f"{e['dx']:+.1f}",
+                    f"{e['dy']:+.1f}",
+                ],
+                start=1,
+            ):
                 cell = QTableWidgetItem(val)
                 cell.setForeground(QBrush(color))
                 self._table.setItem(row, col, cell)
@@ -318,14 +331,17 @@ class EdgeReviewDialog(QDialog):
             chk.setCheckState(Qt.CheckState.Checked)
             chk.setFlags(chk.flags() & ~Qt.ItemFlag.ItemIsUserCheckable)  # always on
             self._table.setItem(row, 0, chk)
-            for col, val in enumerate([
-                str(me["i"]),
-                str(me["j"]),
-                f"{me['conf']:.3f}",
-                "manual",
-                f"{me['dx']:+.1f}",
-                f"{me['dy']:+.1f}",
-            ], start=1):
+            for col, val in enumerate(
+                [
+                    str(me["i"]),
+                    str(me["j"]),
+                    f"{me['conf']:.3f}",
+                    "manual",
+                    f"{me['dx']:+.1f}",
+                    f"{me['dy']:+.1f}",
+                ],
+                start=1,
+            ):
                 cell = QTableWidgetItem(val)
                 cell.setForeground(QBrush(_CONF_MANUAL))
                 self._table.setItem(row, col, cell)
@@ -350,7 +366,8 @@ class EdgeReviewDialog(QDialog):
         rows = {idx.row() for idx in self._table.selectedIndexes()}
         if not rows:
             QMessageBox.information(
-                self, "Landmark Editor",
+                self,
+                "Landmark Editor",
                 "Select a row in the edge table first, then click Landmark Editor.",
             )
             return
@@ -365,13 +382,15 @@ class EdgeReviewDialog(QDialog):
 
         if not self._image_paths:
             QMessageBox.warning(
-                self, "Landmark Editor",
+                self,
+                "Landmark Editor",
                 "Frame image paths are not available — cannot open landmark editor.",
             )
             return
         if fi >= len(self._image_paths) or fj >= len(self._image_paths):
             QMessageBox.warning(
-                self, "Landmark Editor",
+                self,
+                "Landmark Editor",
                 f"Frame indices {fi}/{fj} exceed available image paths ({len(self._image_paths)}).",
             )
             return
@@ -380,7 +399,8 @@ class EdgeReviewDialog(QDialog):
         frame_j = cv2.imread(self._image_paths[fj])
         if frame_i is None or frame_j is None:
             QMessageBox.warning(
-                self, "Landmark Editor",
+                self,
+                "Landmark Editor",
                 "Could not load frame images from disk.",
             )
             return
@@ -427,4 +447,6 @@ class EdgeReviewDialog(QDialog):
 
     def accepted_edges(self) -> List[dict]:
         """Return enabled original edges + all manual edges (S89)."""
-        return [e for e, en in zip(self._edges, self._enabled) if en] + list(self._manual_edges)
+        return [e for e, en in zip(self._edges, self._enabled) if en] + list(
+            self._manual_edges
+        )

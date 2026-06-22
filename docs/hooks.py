@@ -3,6 +3,7 @@
 Called by the `hooks:` key in mkdocs.yml. Creates the docs/roadmaps/,
 docs/reports/, and stub API pages that the nav references.
 """
+
 from __future__ import annotations
 
 import shutil
@@ -16,16 +17,28 @@ def on_pre_build(config: dict) -> None:
     """Copy roadmap and report sources into the docs tree before building."""
     _sync_dir(ROOT / "moon" / "roadmaps", DOCS / "roadmaps")
     _sync_dir(ROOT / "moon", DOCS, only=["CHANGELOG.md", "ROADMAP.md"])
-    _sync_dir(ROOT / "reports", DOCS / "reports", rename={
-        "Analytics and Codebase Visualization Research.md": "analytics.md",
-        "ASP_Comprehensive_Research_Report.md": "asp_research.md",
-        "Image_Generation_Research.md": "image_generation.md",
-        "Image_Stitching_Research.md": "image_stitching.md",
-    })
-    _sync_dir(ROOT / "docs", DOCS, only=[
-        "ARCHITECTURE.md", "BENCHMARKS.md", "DEPENDENCY_POLICY.md",
-        "DOCUMENTATION_STANDARDS.md", "TROUBLESHOOTING.md", "STRUCTURIZR.md",
-    ])
+    _sync_dir(
+        ROOT / "reports",
+        DOCS / "reports",
+        rename={
+            "Analytics and Codebase Visualization Research.md": "analytics.md",
+            "ASP_Comprehensive_Research_Report.md": "asp_research.md",
+            "Image_Generation_Research.md": "image_generation.md",
+            "Image_Stitching_Research.md": "image_stitching.md",
+        },
+    )
+    _sync_dir(
+        ROOT / "docs",
+        DOCS,
+        only=[
+            "ARCHITECTURE.md",
+            "BENCHMARKS.md",
+            "DEPENDENCY_POLICY.md",
+            "DOCUMENTATION_STANDARDS.md",
+            "TROUBLESHOOTING.md",
+            "STRUCTURIZR.md",
+        ],
+    )
     _ensure_stub_api_pages()
 
 
@@ -48,12 +61,12 @@ def _sync_dir(
 def _ensure_stub_api_pages() -> None:
     """Create minimal stub pages for API sections that use mkdocstrings."""
     stubs = {
-        DOCS / "api" / "python" / "anim.md": (
+        DOCS / "api" / "python" / "animation.md": (
             "# ASP / Animation Module API\n\n"
-            "::: backend.src.anim.pipeline\n\n"
-            "::: backend.src.anim.compositing\n\n"
-            "::: backend.src.anim.frame_selection\n\n"
-            "::: backend.src.anim.bundle_adjust\n"
+            "::: backend.src.animation.pipeline\n\n"
+            "::: backend.src.animation.compositing\n\n"
+            "::: backend.src.animation.frame_selection\n\n"
+            "::: backend.src.animation.bundle_adjust\n"
         ),
         DOCS / "api" / "python" / "core.md": (
             "# Backend Core API\n\n"
@@ -61,8 +74,7 @@ def _ensure_stub_api_pages() -> None:
             "::: backend.src.core.vault_manager\n"
         ),
         DOCS / "api" / "python" / "models.md": (
-            "# ML Models API\n\n"
-            "::: backend.src.models.base\n"
+            "# ML Models API\n\n::: backend.src.models.base\n"
         ),
         DOCS / "api" / "rust" / "math.md": (
             "# Rust Math Backbone\n\n"
@@ -170,7 +182,7 @@ the **`sphinx-api-docs`** artifact (14-day retention).
 
 | Tool | Scope | Format | When to use |
 |------|-------|--------|-------------|
-| `mkdocstrings` (this portal) | Key `anim/`, `core/`, `models/` modules | Rendered inline | Quick lookup while reading roadmaps |
+| `mkdocstrings` (this portal) | Key `animation/`, `core/`, `models/` modules | Rendered inline | Quick lookup while reading roadmaps |
 | Sphinx + autoapi (separate artifact) | All of `backend/src/` | Standalone HTML site | Deep-dive reference, cross-links to NumPy/PyTorch |
 
 !!! info "Configuration"

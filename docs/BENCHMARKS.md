@@ -183,10 +183,10 @@ python benchmark/setup_test_data.py
 ```
 
 This creates:
-- `test_data/images/` — 1k synthetic images (various formats, sizes)
-- `test_data/videos/` — 10 test videos (MP4, AVI)
-- `test_data/database.sql` — 10k pre-seeded database entries
-- `test_data/embeddings.npy` — Pre-computed embeddings for vector search
+- `dump/images/` — 1k synthetic images (various formats, sizes)
+- `dump/videos/` — 10 test videos (MP4, AVI)
+- `dump/database.sql` — 10k pre-seeded database entries
+- `dump/embeddings.npy` — Pre-computed embeddings for vector search
 
 ## Continuous Benchmarking
 
@@ -363,7 +363,7 @@ Each contains 4–20 source frames captured from scroll-through anime content.
 The safe test runner (no GPU, uses pre-computed fixtures) is:
 
 ```bash
-pytest backend/test/anim/ --skip-gpu -q
+pytest backend/test/animation/ --skip-gpu -q
 ```
 
 **Failure taxonomy** (established across S1–S45 of ASP development):

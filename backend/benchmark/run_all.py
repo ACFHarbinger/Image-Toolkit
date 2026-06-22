@@ -215,7 +215,7 @@ def main():
     )
     args = parser.parse_args()
 
-    results_dir = Path(__file__).parent / "results"
+    results_dir = Path(__file__).parent / "output"
     results_dir.mkdir(exist_ok=True)
 
     python_results = {}

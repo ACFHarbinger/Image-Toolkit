@@ -18,12 +18,12 @@ Architecture: all model inference is delegated to a ``_RefinementWorker`` QThrea
 
 from __future__ import annotations
 
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 import cv2
 import numpy as np
 from PySide6.QtCore import QObject, Qt, QThread, Signal
-from PySide6.QtGui import QColor, QImage, QMouseEvent, QPainter, QPen, QPixmap
+from PySide6.QtGui import QImage, QMouseEvent, QPixmap
 from PySide6.QtWidgets import (
     QDialog,
     QFrame,
@@ -35,19 +35,19 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSizePolicy,
     QVBoxLayout,
-    QWidget,
 )
 
 # ── constants ────────────────────────────────────────────────────────────────
 
-_OVERLAY_ALPHA = 0.40          # mask overlay opacity on the frame
+_OVERLAY_ALPHA = 0.40  # mask overlay opacity on the frame
 _POSITIVE_COLOR = (0, 255, 0)  # green dots for positive clicks (BGR)
 _NEGATIVE_COLOR = (0, 0, 255)  # red dots for negative clicks (BGR)
-_CLICK_RADIUS = 6              # dot radius in display pixels
-_MAX_DISPLAY_H = 540           # max display height for the frame thumbnail
+_CLICK_RADIUS = 6  # dot radius in display pixels
+_MAX_DISPLAY_H = 540  # max display height for the frame thumbnail
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
+
 
 def _bgr_to_qimage(bgr: np.ndarray) -> QImage:
     rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
@@ -70,15 +70,21 @@ def _render_overlay(
         m = cv2.resize(mask, (w, h), interpolation=cv2.INTER_NEAREST)
         fg = m < 128
         overlay = out.copy()
-        overlay[fg] = (overlay[fg].astype(np.float32) * (1 - _OVERLAY_ALPHA) +
-                       np.array([120, 200, 60], dtype=np.float32) * _OVERLAY_ALPHA).clip(0, 255).astype(np.uint8)
+        overlay[fg] = (
+            (
+                overlay[fg].astype(np.float32) * (1 - _OVERLAY_ALPHA)
+                + np.array([120, 200, 60], dtype=np.float32) * _OVERLAY_ALPHA
+            )
+            .clip(0, 255)
+            .astype(np.uint8)
+        )
         out = overlay
 
     # Draw click dots
-    for (cx, cy) in pos_clicks:
+    for cx, cy in pos_clicks:
         cv2.circle(out, (cx, cy), _CLICK_RADIUS, _POSITIVE_COLOR, -1)
         cv2.circle(out, (cx, cy), _CLICK_RADIUS + 1, (0, 100, 0), 1)
-    for (cx, cy) in neg_clicks:
+    for cx, cy in neg_clicks:
         cv2.circle(out, (cx, cy), _CLICK_RADIUS, _NEGATIVE_COLOR, -1)
         cv2.circle(out, (cx, cy), _CLICK_RADIUS + 1, (0, 0, 100), 1)
 
@@ -87,11 +93,13 @@ def _render_overlay(
 
 # ── refinement worker ─────────────────────────────────────────────────────────
 
+
 class _RefinementWorker(QObject):
     """
     Runs mask refinement (Grounded SAM-2 or click re-propagation) off the main thread.
     """
-    sig_done = Signal(list)   # list[Optional[np.ndarray]] — refined masks
+
+    sig_done = Signal(list)  # list[Optional[np.ndarray]] — refined masks
     sig_error = Signal(str)
 
     def __init__(self, refine_fn: Callable, parent=None):
@@ -108,13 +116,14 @@ class _RefinementWorker(QObject):
 
 # ── click-capture overlay widget ──────────────────────────────────────────────
 
+
 class _ClickOverlay(QLabel):
     """
     QLabel subclass that captures mouse clicks and maps them to frame coordinates.
     Left-click → positive prompt; right-click → negative prompt.
     """
 
-    sig_pos_click = Signal(int, int)   # (frame_x, frame_y)
+    sig_pos_click = Signal(int, int)  # (frame_x, frame_y)
     sig_neg_click = Signal(int, int)
 
     def __init__(self, frame_w: int, frame_h: int, parent=None):
@@ -142,6 +151,7 @@ class _ClickOverlay(QLabel):
 
 # ── main dialog ───────────────────────────────────────────────────────────────
 
+
 class MaskReviewDialog(QDialog):
     """
     HITL mask review dialog — Issue 10A2 (click-based refinement) + 10A1 (text re-segment).
@@ -161,8 +171,10 @@ class MaskReviewDialog(QDialog):
         disabled but click-prompt refinement still records clicks for annotation export.
     """
 
-    sig_mask_accepted = Signal(object)             # list[Optional[np.ndarray]]
-    sig_exclusion_masks_accepted = Signal(object)  # list[Optional[np.ndarray]] Issue 10A3
+    sig_mask_accepted = Signal(object)  # list[Optional[np.ndarray]]
+    sig_exclusion_masks_accepted = Signal(
+        object
+    )  # list[Optional[np.ndarray]] Issue 10A3
 
     def __init__(self, data: dict, refine_callback=None, parent=None):
         super().__init__(parent)
@@ -192,7 +204,8 @@ class MaskReviewDialog(QDialog):
 
         self._frame_h, self._frame_w = (
             (self._frames[0].shape[0], self._frames[0].shape[1])
-            if self._frames else (1080, 1920)
+            if self._frames
+            else (1080, 1920)
         )
 
         self._build_ui()
@@ -283,9 +296,7 @@ class MaskReviewDialog(QDialog):
         root.addWidget(excl_hdr)
         excl_row = QHBoxLayout()
         self._excl_input = QLineEdit()
-        self._excl_input.setPlaceholderText(
-            "Region to avoid (e.g. 'right arm')…"
-        )
+        self._excl_input.setPlaceholderText("Region to avoid (e.g. 'right arm')…")
         self._btn_excl_detect = QPushButton("Detect & Exclude (GroundingDINO)")
         self._btn_excl_detect.clicked.connect(self._on_detect_exclusion)
         self._btn_excl_detect.setEnabled(self._refine_callback is not None)
@@ -342,15 +353,16 @@ class MaskReviewDialog(QDialog):
         disp_w, disp_h = max(1, int(w * scale)), max(1, int(h * scale))
 
         rendered = _render_overlay(frame, mask, self._pos_clicks, self._neg_clicks)
-        rendered_small = cv2.resize(rendered, (disp_w, disp_h), interpolation=cv2.INTER_AREA)
-
-        self._overlay_label.setPixmap(
-            QPixmap.fromImage(_bgr_to_qimage(rendered_small))
+        rendered_small = cv2.resize(
+            rendered, (disp_w, disp_h), interpolation=cv2.INTER_AREA
         )
+
+        self._overlay_label.setPixmap(QPixmap.fromImage(_bgr_to_qimage(rendered_small)))
         self._overlay_label.setFixedSize(disp_w, disp_h)
 
         path = self._paths[idx] if idx < len(self._paths) else f"frame {idx}"
         import os
+
         self._frame_label.setText(
             f"Frame {idx + 1} / {n}  —  {os.path.basename(path)}"
             f"  {'(no mask)' if mask is None else '(mask active)'}"
@@ -397,7 +409,9 @@ class MaskReviewDialog(QDialog):
         self._progress.setVisible(busy)
         self._btn_accept.setEnabled(not busy)
         self._btn_resegment.setEnabled(not busy and self._refine_callback is not None)
-        self._btn_apply_clicks.setEnabled(not busy and self._refine_callback is not None)
+        self._btn_apply_clicks.setEnabled(
+            not busy and self._refine_callback is not None
+        )
         self._btn_excl_detect.setEnabled(not busy and self._refine_callback is not None)
 
     def _on_resegment(self):
@@ -455,6 +469,7 @@ class MaskReviewDialog(QDialog):
             self._refine_thread = None
         self._set_busy(False)
         import warnings
+
         warnings.warn(f"[ASP] Mask refinement error: {msg}", RuntimeWarning)
         self._refresh_display()
 
@@ -464,7 +479,9 @@ class MaskReviewDialog(QDialog):
         """Run GroundingDINO to build per-frame exclusion masks for NL seam routing."""
         prompt = self._excl_input.text().strip()
         if not prompt:
-            self._excl_input.setPlaceholderText("Please enter a region description first…")
+            self._excl_input.setPlaceholderText(
+                "Please enter a region description first…"
+            )
             return
         if self._refine_callback is None:
             return
@@ -475,7 +492,7 @@ class MaskReviewDialog(QDialog):
 
         def _run_exclusion():
             try:
-                from backend.src.anim.grounding import _detect_exclusion_mask
+                from backend.src.animation.grounding import _detect_exclusion_mask
             except ImportError:
                 return [None] * len(frames)
             masks = []

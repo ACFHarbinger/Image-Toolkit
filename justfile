@@ -119,8 +119,8 @@ asp-benchmark-verify:
 # Clean ASP benchmark output directories
 asp-benchmark-clean:
     @echo "🧹 Cleaning ASP benchmark output directories..."
-    rm -rf test_data/asp_test*/output
-    rm -rf test_data/output
+    rm -rf dump/asp_test*/output
+    rm -rf dump/output
     @echo "✅ Cleanup complete!"
 
 # Run Rust type/compile checks
@@ -162,11 +162,28 @@ db-migrate:
 # Clean build artifacts
 clean:
     @echo "🧹 Cleaning build artifacts..."
-    rm -rf frontend/dist
-    rm -rf frontend/build
-    rm -rf frontend/src-tauri/target
-    rm -rf node_modules
-    rm -rf frontend/node_modules
+    find . -type d -name ".import_linter_cache" -exec rm -rf {} +
+    find . -type d -name ".pytest_cache" -exec rm -rf {} +
+    find . -type d -name "__pycache__" -exec rm -rf {} +
+    find . -type d -name ".ruff_cache" -exec rm -rf {} +
+    find . -type d -name ".mypy_cache" -exec rm -rf {} +
+    find . -type d -name ".hypothesis" -exec rm -rf {} +
+    find . -type f -name "coverage.json" -exec rm {} +
+    find . -type f -name "coverage.xml" -exec rm {} +
+    find . -type f -name ".coverage" -exec rm {} +
+    find . -type f -name ".gradle" -exec rm {} +
+    rm -rf backend/benchmark/output/*
+    rm -rf frontend/dist/
+    rm -rf frontend/build/
+    rm -rf frontend/node_modules/
+    rm -rf frontend/src-tauri/target/
+    rm -rf frontend/src-tauri/gen/schemas/
+    rm -rf tmp/
+    rm -rf target/
+    rm -rf images/
+    rm -rf node_modules/
+    # Remove all empty directories recursively
+    find . -type d -empty -delete
     @echo "✅ Clean complete!"
 
 # Format code (Rust + TypeScript)
@@ -221,7 +238,7 @@ lora-db-migrate:
 lora-tag images=dataset trigger=trigger florence2="true":
     @echo "Captioning images in {{ images }} with trigger '{{ trigger }}'..."
     @test -f models/wd14/model.onnx || (echo "WD14 tagger not found. Run: just lora-setup-tagger" && exit 1)
-    source .venv/bin/activate && python -m backend.src.controller.dispatcher command=train \
+    source .venv/bin/activate && python -m backend.dispatcher command=train \
         data.images_dir="{{ images }}" \
         data.trigger_word="{{ trigger }}" \
         data.captioning.wd14_onnx=models/wd14/model.onnx \
@@ -241,7 +258,7 @@ lora-tag images=dataset trigger=trigger florence2="true":
 # Usage: just lora-train data/my_character my_char_xyz model=noobai_vpred size=80 rank=32
 lora-train images=dataset trigger=trigger model=model size=size rank=rank:
     @echo "Training LoRA: trigger='{{ trigger }}' model={{ model }} rank={{ rank }} size={{ size }}"
-    source .venv/bin/activate && python -m backend.src.controller.dispatcher command=train \
+    source .venv/bin/activate && python -m backend.dispatcher command=train \
         model="{{ model }}" \
         training=lora_3090ti \
         optimizer=prodigy \
@@ -259,7 +276,7 @@ lora-train images=dataset trigger=trigger model=model size=size rank=rank:
 # Usage: just lora-train-4080 data/my_character my_char_xyz
 lora-train-4080 images=dataset trigger=trigger model=model size=size rank=rank:
     @echo "Training LoRA (4080 profile): trigger='{{ trigger }}' model={{ model }}"
-    source .venv/bin/activate && python -m backend.src.controller.dispatcher command=train \
+    source .venv/bin/activate && python -m backend.dispatcher command=train \
         model="{{ model }}" \
         training=lora_4080 \
         optimizer=adamw8bit \
@@ -277,7 +294,7 @@ lora-train-4080 images=dataset trigger=trigger model=model size=size rank=rank:
 # Usage: just lora-locon data/my_character my_char_xyz
 lora-locon images=dataset trigger=trigger model=model size=size:
     @echo "Training LyCORIS LoCon: trigger='{{ trigger }}' model={{ model }}"
-    source .venv/bin/activate && python -m backend.src.controller.dispatcher command=train \
+    source .venv/bin/activate && python -m backend.dispatcher command=train \
         model="{{ model }}" \
         training=lycoris_locon \
         optimizer=adamw8bit \
@@ -294,7 +311,7 @@ lora-locon images=dataset trigger=trigger model=model size=size:
 # Usage: just lora-train-vpred data/my_character my_char_xyz
 lora-train-vpred images=dataset trigger=trigger model=model size=size rank=rank:
     @echo "Training NoobAI V-Pred LoRA: trigger='{{ trigger }}'"
-    source .venv/bin/activate && python -m backend.src.controller.dispatcher command=train \
+    source .venv/bin/activate && python -m backend.dispatcher command=train \
         model=noobai_vpred \
         training=lora_3090ti \
         optimizer=prodigy \
@@ -312,7 +329,7 @@ lora-train-vpred images=dataset trigger=trigger model=model size=size rank=rank:
 # Usage: just lora-dreambooth data/my_character my_char_xyz
 lora-dreambooth images=dataset trigger=trigger model=model class_prompt=class_prompt:
     @echo "DreamBooth: trigger='{{ trigger }}' class='{{ class_prompt }}'"
-    source .venv/bin/activate && python -m backend.src.controller.dispatcher command=train \
+    source .venv/bin/activate && python -m backend.dispatcher command=train \
         model="{{ model }}" \
         training=dreambooth \
         optimizer=adamw8bit \
@@ -331,7 +348,7 @@ lora-dreambooth images=dataset trigger=trigger model=model class_prompt=class_pr
 lora-full-ft images=dataset trigger=trigger model=model:
     @echo "Full fine-tune: model={{ model }} trigger='{{ trigger }}'"
     @echo "This will take several hours. Ensure accelerate config has DeepSpeed ZeRO-2."
-    source .venv/bin/activate && python -m backend.src.controller.dispatcher command=train \
+    source .venv/bin/activate && python -m backend.dispatcher command=train \
         model="{{ model }}" \
         training=full_ft \
         optimizer=adamw8bit \
@@ -349,7 +366,7 @@ lora-full-ft images=dataset trigger=trigger model=model:
 lora-pipeline images=dataset trigger=trigger model=model size=size:
     @echo "=== Full pipeline: {{ trigger }} on {{ model }} ==="
     @test -f models/wd14/model.onnx || (echo "Run 'just lora-setup-tagger' first" && exit 1)
-    source .venv/bin/activate && python -m backend.src.controller.dispatcher command=train \
+    source .venv/bin/activate && python -m backend.dispatcher command=train \
         model="{{ model }}" \
         training=lora_3090ti \
         optimizer=prodigy \
@@ -384,7 +401,7 @@ lora-tensorboard dir="runs":
 # Usage: just embed-icon path/to/model.safetensors path/to/icon.png
 embed-icon model_path image_path:
     @echo "Embedding icon into {{ model_path }}..."
-    source .venv/bin/activate && python -m backend.src.controller.dispatcher command=embed_metadata \
+    source .venv/bin/activate && python -m backend.dispatcher command=embed_metadata \
         data=embed_metadata \
         data.embed_metadata.model_path="'{{ model_path }}'" \
         data.embed_metadata.image_path="'{{ image_path }}'"
@@ -392,7 +409,7 @@ embed-icon model_path image_path:
 # Start ComfyUI headlessly (without the main desktop app)
 comfyui args="":
     @echo "🎨 Starting ComfyUI server..."
-    source .venv/bin/activate && python -m backend.src.controller.dispatcher command=comfyui {{ args }}
+    source .venv/bin/activate && python -m backend.dispatcher command=comfyui {{ args }}
 
 # Stop any running ComfyUI instances
 comfyui-stop:

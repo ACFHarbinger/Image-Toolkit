@@ -273,7 +273,7 @@ class MainWindow(QWidget):
                 "Statistics": self.stitch_tab.stats_panel,
                 "Sequence Builder": self.stitch_tab.seq_builder_panel,
                 "Hybrid Stitch": self.stitch_tab.hybrid_stitch_panel,
-                "Anim Clusters": self.stitch_tab.anim_clusters_panel,
+                "Animation Clusters": self.stitch_tab.anim_clusters_panel,
                 "Stitch Feedback": self.stitch_feedback_tab,
             },
         }

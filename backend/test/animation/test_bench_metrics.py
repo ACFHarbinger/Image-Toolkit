@@ -1,0 +1,1173 @@
+"""
+Tests for quality metrics in bench_anime_stitch.py.
+
+Covers:
+  _seam_visibility_score — detects hard horizontal luminance cuts (S14)
+  _compute_aligned_ssim  — ECC Euclidean aligned SSIM vs GT (S8 metric, S25 dedup)
+  _compute_rlhf_score    — RLHF reward-model quality gate (§1.10A, S29)
+"""
+
+from __future__ import annotations
+from backend.benchmark.bench_anime_stitch import _zone_coverage_fraction
+from backend.benchmark.bench_anime_stitch import _canvas_gain_uniformity
+from backend.benchmark.bench_anime_stitch import _compute_si_fid_score
+
+import os
+import sys
+import pytest
+import numpy as np
+
+_repo_root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
+sys.path.insert(0, _repo_root)
+
+from backend.benchmark.bench_anime_stitch import (  # noqa: E402
+    _seam_visibility_score,
+    _compute_aligned_ssim,
+    _compute_rlhf_score,
+    _compute_all_metrics,
+    _compute_per_seam_ghost_scores,
+    _seam_bhattacharyya_distances,
+    _ghosting_score_v2,
+    _SSIM_OK,
+    _RLHF_FLAG_THRESHOLD,
+    _seam_ncc_coherence,
+    _composite_quality_score,
+)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+def _solid(H: int, W: int, lum: int) -> np.ndarray:
+    """(H, W, 3) uint8 BGR image of uniform luminance."""
+    return np.full((H, W, 3), lum, dtype=np.uint8)
+
+
+def _stacked(top_lum: int, bot_lum: int, H: int = 100, W: int = 120) -> np.ndarray:
+    """Two uniform halves stacked vertically — guaranteed visible seam."""
+    top = _solid(H // 2, W, top_lum)
+    bot = _solid(H - H // 2, W, bot_lum)
+    return np.concatenate([top, bot], axis=0)
+
+
+# ---------------------------------------------------------------------------
+# TestSeamVisibilityScore
+# ---------------------------------------------------------------------------
+
+
+class TestSeamVisibilityScore:
+    """
+    _seam_visibility_score measures the worst-case adjacent-row luminance
+    jump in the output panorama.
+    """
+
+    def test_uniform_image_has_zero_score(self):
+        """A perfectly uniform image has no visible seams."""
+        img = _solid(200, 300, 128)
+        assert _seam_visibility_score(img) == 0.0
+
+    def test_hard_seam_is_detected(self):
+        """A large luminance step between two halves must produce a high score."""
+        img = _stacked(60, 200, H=100, W=120)
+        score = _seam_visibility_score(img)
+        assert score >= 100.0, f"Expected large jump for lum 60→200, got {score}"
+
+    def test_smooth_gradient_gives_low_score(self):
+        """A linearly varying image has no single large jump."""
+        H, W = 100, 120
+        img = np.zeros((H, W, 3), dtype=np.uint8)
+        for r in range(H):
+            img[r, :, :] = int(r * 255 / H)
+        score = _seam_visibility_score(img)
+        assert score < 10.0, f"Gradient should give low score, got {score}"
+
+    def test_score_is_non_negative(self):
+        """Score must always be ≥ 0."""
+        for lum_top, lum_bot in [(50, 50), (50, 150), (200, 10), (128, 128)]:
+            img = _stacked(lum_top, lum_bot)
+            assert _seam_visibility_score(img) >= 0.0
+
+    def test_harder_seam_scores_higher(self):
+        """A bigger luminance jump should produce a higher score."""
+        small_jump = _stacked(100, 120)  # Δ=20
+        big_jump = _stacked(60, 200)  # Δ=140
+        assert _seam_visibility_score(big_jump) > _seam_visibility_score(small_jump)
+
+    def test_affines_parameter_is_optional(self):
+        """Function must work with affines=None (no-reference mode)."""
+        img = _stacked(80, 180)
+        score_no_affines = _seam_visibility_score(img, affines=None)
+        score_with_none = _seam_visibility_score(img)
+        assert score_no_affines == score_with_none
+
+    def test_black_border_rows_ignored(self):
+        """Near-black border rows (lum ≤ 5) must not inflate the score."""
+        H, W = 120, 100
+        img = _solid(H, W, 128)
+        img[:10, :, :] = 0  # top border: black
+        img[-10:, :, :] = 0  # bottom border: black
+        # Only content (rows 10–109) has uniform lum=128 → no jump expected.
+        score = _seam_visibility_score(img)
+        assert score < 5.0, f"Black borders should not inflate score, got {score}"
+
+    def test_single_row_image_returns_zero(self):
+        """Degenerate 1-row image: no adjacent rows → score must be 0."""
+        img = _solid(1, 100, 128)
+        assert _seam_visibility_score(img) == 0.0
+
+
+# ---------------------------------------------------------------------------
+# TestComputeAlignedSsim
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not _SSIM_OK, reason="skimage not installed")
+class TestComputeAlignedSsim:
+    """
+    _compute_aligned_ssim: ECC Euclidean aligned SSIM vs GT (S8 metric, S25 dedup).
+
+    After S25: uses MOTION_EUCLIDEAN (translation + rotation), 200 iterations,
+    1e-4 tolerance, gaussFiltSize=5, GT-centric resize, BORDER_REPLICATE.
+    """
+
+    H, W = 80, 100
+
+    def _checkerboard(self, sq: int = 10) -> np.ndarray:
+        """Deterministic BGR checkerboard — not flat, gives ECC something to lock on."""
+        img = np.zeros((self.H, self.W, 3), dtype=np.uint8)
+        for r in range(self.H):
+            for c in range(self.W):
+                if (r // sq + c // sq) % 2 == 0:
+                    img[r, c] = [200, 100, 50]
+                else:
+                    img[r, c] = [50, 150, 200]
+        return img
+
+    def test_identical_images_returns_one(self):
+        """aligned_ssim(img, img) must be ≈ 1.0 — no shift, no distortion."""
+        img = self._checkerboard()
+        score = _compute_aligned_ssim(img, img)
+        assert score == pytest.approx(1.0, abs=1e-3)
+
+    def test_returns_float(self):
+        """Result must be a Python float, not numpy scalar."""
+        img = self._checkerboard()
+        assert isinstance(_compute_aligned_ssim(img, img), float)
+
+    def test_shifted_image_high_ssim_after_alignment(self):
+        """A translated copy should score > 0.85 after ECC alignment."""
+        import cv2
+
+        img = self._checkerboard()
+        shift_px = 5
+        M = np.float32([[1, 0, shift_px], [0, 1, shift_px]])
+        shifted = cv2.warpAffine(
+            img, M, (self.W, self.H), borderMode=cv2.BORDER_REPLICATE
+        )
+        score = _compute_aligned_ssim(shifted, img)
+        # 5px shift on a checkerboard is near half-period; ECC still aligns,
+        # but boundary fill reduces score — 0.70 is a loose correctness floor.
+        assert score > 0.70, f"Aligned SSIM for shifted image unexpectedly low: {score}"
+
+    def test_different_images_score_below_one(self):
+        """Structurally unrelated images must score < 0.99."""
+        img_a = self._checkerboard()
+        img_b = _solid(self.H, self.W, 128)
+        score = _compute_aligned_ssim(img_a, img_b)
+        assert score < 0.99
+
+    def test_score_in_valid_range(self):
+        """SSIM is defined on [-1, 1]; practical images stay in [0, 1]."""
+        img = self._checkerboard()
+        score = _compute_aligned_ssim(img, img)
+        assert 0.0 <= score <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# TestComputeRlhfScore  (§1.10A, S29)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.gpu
+class TestComputeRlhfScore:
+    """
+    _compute_rlhf_score: RLHF reward-model quality gate.
+
+    The model is initialized with random weights in the test environment
+    (no trained checkpoint). Tests verify the interface contract (return
+    type, range, flag logic) without asserting on the specific score value.
+
+    Marked @pytest.mark.gpu: StitchRewardModel() places the _RewardNet onto
+    CUDA (when available) and holds it in the module-level _reward_model
+    singleton for the session (§3.12 Root Cause #2).
+    """
+
+    def test_returns_float_or_none_for_valid_image(self):
+        """Valid BGR image must return a float or None (if model unavailable)."""
+        img = _solid(224, 224, 128)
+        result = _compute_rlhf_score(img)
+        assert result is None or isinstance(result, float)
+
+    def test_empty_image_returns_none(self):
+        """Zero-size array must return None without raising."""
+        img = np.zeros((0, 0, 3), dtype=np.uint8)
+        assert _compute_rlhf_score(img) is None
+
+    def test_score_in_valid_range_when_model_available(self):
+        """If the model runs, its output must be in [0, 1]."""
+        img = _solid(224, 224, 200)
+        score = _compute_rlhf_score(img)
+        if score is not None:
+            assert 0.0 <= score <= 1.0
+
+    def test_rlhf_flagged_when_score_below_threshold(self):
+        """rlhf_flagged must be True when the score is below the threshold."""
+        from unittest.mock import patch
+
+        img = _solid(100, 100, 128)
+        with patch(
+            "backend.benchmark.bench_anime_stitch._compute_rlhf_score",
+            return_value=_RLHF_FLAG_THRESHOLD - 0.1,
+        ):
+            metrics = _compute_all_metrics(img)
+        assert metrics["rlhf_flagged"] is True
+
+    def test_rlhf_not_flagged_when_score_at_or_above_threshold(self):
+        """rlhf_flagged must be False when the score meets the threshold."""
+        from unittest.mock import patch
+
+        img = _solid(100, 100, 128)
+        with patch(
+            "backend.benchmark.bench_anime_stitch._compute_rlhf_score",
+            return_value=_RLHF_FLAG_THRESHOLD,
+        ):
+            metrics = _compute_all_metrics(img)
+        assert metrics["rlhf_flagged"] is False
+
+
+# ---------------------------------------------------------------------------
+# _ghosting_score_v2 — §3.8A double-edge autocorrelation ghosting metric (S35)
+# ---------------------------------------------------------------------------
+
+
+class TestGhostingScoreV2:
+    """
+    _ghosting_score_v2(img) returns a score in [0, 100]:
+      ≈0  for clean images with no repeated edge structure,
+      >30 for images with two identical edge patterns at a fixed
+          displacement (simulating a ghost / double-image artifact).
+    """
+
+    def test_uniform_image_returns_zero(self):
+        """Flat image has no gradient → zero autocorrelation → score = 0."""
+        img = _solid(200, 200, 128)
+        assert _ghosting_score_v2(img) == pytest.approx(0.0)
+
+    def test_ghost_image_returns_nonzero(self):
+        """Two identical horizontal bands 70 px apart create a secondary peak."""
+        img = np.zeros((200, 200, 3), dtype=np.uint8)
+        img[40:60, :] = 200  # first band (gradients at rows 40 & 60)
+        img[110:130, :] = 200  # ghost copy (gradients at rows 110 & 130)
+        score = _ghosting_score_v2(img)
+        assert score > 5.0, f"expected secondary peak, got {score}"
+
+    def test_score_bounded_0_to_100(self):
+        """Score must always lie in [0, 100] for any input image."""
+        rng = np.random.default_rng(42)
+        img = rng.integers(0, 256, (300, 300, 3), dtype=np.uint8)
+        score = _ghosting_score_v2(img)
+        assert 0.0 <= score <= 100.0
+
+    def test_grayscale_input_accepted(self):
+        """Grayscale (2-D) input must produce the same result as BGR equivalent."""
+        gray = np.zeros((100, 100), dtype=np.uint8)
+        gray[20:30, :] = 200
+        gray[60:70, :] = 200
+        bgr = np.stack([gray, gray, gray], axis=-1)
+        assert _ghosting_score_v2(gray) == pytest.approx(_ghosting_score_v2(bgr))
+
+    def test_ghosting_siqe_in_compute_all_metrics(self):
+        """_compute_all_metrics must include 'ghosting_siqe' key in its output."""
+        img = _solid(100, 100, 180)
+        metrics = _compute_all_metrics(img)
+        assert "ghosting_siqe" in metrics
+        assert isinstance(metrics["ghosting_siqe"], float)
+
+
+# ---------------------------------------------------------------------------
+# _compute_per_seam_ghost_scores — §3.8B per-seam SIQE ghost map (S53)
+# ---------------------------------------------------------------------------
+
+
+class TestPerSeamGhostScores:
+    """
+    _compute_per_seam_ghost_scores(img, n_strips, band_px=100) divides the
+    image into n_strips zones and returns n_strips-1 float ghosting scores,
+    one per seam boundary.
+    """
+
+    def test_uniform_image_all_near_zero(self):
+        """Flat image has no gradient anywhere — all seam scores should be ≈ 0."""
+        img = _solid(300, 200, 128)
+        scores = _compute_per_seam_ghost_scores(img, n_strips=3)
+        assert len(scores) == 2
+        for s in scores:
+            assert s == pytest.approx(0.0), f"Expected ~0.0 for flat image, got {s}"
+
+    def test_n_strips_one_returns_empty(self):
+        """n_strips ≤ 1 means no boundaries — must return empty list."""
+        img = _solid(200, 200, 128)
+        assert _compute_per_seam_ghost_scores(img, n_strips=1) == []
+        assert _compute_per_seam_ghost_scores(img, n_strips=0) == []
+
+    def test_returns_n_minus_1_scores(self):
+        """Function must return exactly n_strips-1 scores for any n_strips ≥ 2."""
+        img = _solid(400, 200, 64)
+        for n in [2, 3, 5]:
+            scores = _compute_per_seam_ghost_scores(img, n_strips=n)
+            assert len(scores) == n - 1, (
+                f"n={n}: expected {n - 1} scores, got {len(scores)}"
+            )
+
+    def test_band_with_sharp_luminance_step_has_high_score(self):
+        """A band containing a ghost-like repeated edge pattern must score > 5."""
+        H, W = 300, 200
+        img = np.zeros((H, W, 3), dtype=np.uint8)
+        # Two identical bright bands in the middle — simulates double-image ghost
+        img[120:135, :] = 220
+        img[165:180, :] = 220
+        # Boundary at y=150 (midpoint of 2-strip split); band covers rows 50–250
+        scores = _compute_per_seam_ghost_scores(img, n_strips=2, band_px=100)
+        assert len(scores) == 1
+        assert scores[0] > 5.0, f"Expected ghost signal in band, got {scores[0]}"
+
+    def test_band_clipped_to_image_bounds_no_error(self):
+        """Boundary bands near image edges must be clipped silently, no exception."""
+        img = _solid(40, 60, 100)  # tiny image
+        # n_strips=4 → boundaries at y≈10, 20, 30; band_px=50 would exceed bounds
+        scores = _compute_per_seam_ghost_scores(img, n_strips=4, band_px=50)
+        assert len(scores) == 3
+        for s in scores:
+            assert isinstance(s, float)
+            assert 0.0 <= s <= 100.0
+
+
+# ---------------------------------------------------------------------------
+# _seam_bhattacharyya_distances — §1.14 per-seam colour-banding metric (S55)
+# ---------------------------------------------------------------------------
+
+
+class TestSeamBhattacharyyaDistances:
+    """
+    _seam_bhattacharyya_distances(img, n_strips, band_px=50) returns
+    n_strips-1 float scores in [0,1].  1.0 = identical histograms above/below
+    seam (no colour banding); 0.0 = completely disjoint distributions.
+    """
+
+    def test_n_strips_one_returns_empty(self):
+        """n_strips ≤ 1 has no seam boundaries — must return empty list."""
+        img = _solid(200, 200, 128)
+        assert _seam_bhattacharyya_distances(img, n_strips=1) == []
+        assert _seam_bhattacharyya_distances(img, n_strips=0) == []
+
+    def test_returns_n_minus_1_scores(self):
+        """Function must return exactly n_strips-1 scores for any n_strips ≥ 2."""
+        img = _solid(300, 200, 100)
+        for n in [2, 3, 5]:
+            scores = _seam_bhattacharyya_distances(img, n_strips=n)
+            assert len(scores) == n - 1, (
+                f"n={n}: expected {n - 1} scores, got {len(scores)}"
+            )
+
+    def test_identical_strips_score_near_one(self):
+        """A uniform image has identical histograms above and below every seam — score ≈ 1."""
+        img = _solid(200, 150, 128)
+        scores = _seam_bhattacharyya_distances(img, n_strips=2)
+        assert len(scores) == 1
+        assert scores[0] > 0.98, f"Uniform image should score near 1.0, got {scores[0]}"
+
+    def test_different_histograms_score_below_identical(self):
+        """Bright strip above, dark strip below — score must be lower than for uniform."""
+        uniform = _solid(200, 150, 128)
+        banded = _stacked(220, 20, H=200, W=150)
+        s_uniform = _seam_bhattacharyya_distances(uniform, n_strips=2)[0]
+        s_banded = _seam_bhattacharyya_distances(banded, n_strips=2)[0]
+        assert s_banded < s_uniform, (
+            f"Banded image ({s_banded:.3f}) should score lower than uniform ({s_uniform:.3f})"
+        )
+
+    def test_scores_in_valid_range(self):
+        """Every score must be a float in [0, 1] regardless of input content."""
+        rng = np.random.default_rng(7)
+        img = rng.integers(0, 256, (300, 200, 3), dtype=np.uint8)
+        scores = _seam_bhattacharyya_distances(img, n_strips=4)
+        assert len(scores) == 3
+        for s in scores:
+            assert isinstance(s, float)
+            assert 0.0 <= s <= 1.0, f"Score out of [0,1]: {s}"
+
+
+class TestSeamNccCoherence:
+    """§3.17 (S123): NCC structural coherence metric per seam boundary."""
+
+    def test_returns_empty_for_one_strip(self):
+        img = _solid(100, 80, 128)
+        assert _seam_ncc_coherence(img, n_strips=1) == []
+
+    def test_returns_correct_count(self):
+        rng = np.random.default_rng(42)
+        img = rng.integers(0, 256, (200, 160, 3), dtype=np.uint8)
+        for n in [2, 3, 5]:
+            scores = _seam_ncc_coherence(img, n_strips=n)
+            assert len(scores) == n - 1, f"n={n}: expected {n - 1}, got {len(scores)}"
+
+    def test_uniform_image_returns_one_flat_texture(self):
+        """A flat solid image has near-zero std → returns 1.0 (no-texture sentinel)."""
+        img = _solid(200, 150, 200)
+        scores = _seam_ncc_coherence(img, n_strips=2)
+        assert len(scores) == 1
+        assert scores[0] == 1.0, f"Expected 1.0 for flat image, got {scores[0]}"
+
+    def test_matching_boundary_region_high_ncc(self):
+        """When the band above and below the seam boundary are copies of the same
+        pattern, the NCC should be close to 1."""
+        rng = np.random.default_rng(7)
+        band = rng.integers(50, 200, (60, 120, 3), dtype=np.uint8)
+        # Build an image where the 60 rows above and 60 rows below the boundary
+        # are exactly the same pattern.  The boundary is at row 60 in a H=120 image.
+        img = np.vstack([band, band])
+        scores = _seam_ncc_coherence(img, n_strips=2, band_px=60)
+        assert len(scores) == 1
+        assert scores[0] > 0.95, (
+            f"Identical boundary bands should give NCC > 0.95, got {scores[0]}"
+        )
+
+    def test_scores_in_valid_range(self):
+        """Every score must be in [−1, 1] regardless of input content."""
+        rng = np.random.default_rng(99)
+        img = rng.integers(0, 256, (300, 200, 3), dtype=np.uint8)
+        scores = _seam_ncc_coherence(img, n_strips=4)
+        assert len(scores) == 3
+        for s in scores:
+            assert isinstance(s, float)
+            assert -1.0 <= s <= 1.0, f"Score out of [-1,1]: {s}"
+
+
+class TestCompositeQualityScore:
+    """§3.5A (S128): Composite quality score aggregation."""
+
+    def test_perfect_scores_give_one(self):
+        """Perfect per-component scores should yield composite = 1.0."""
+        score = _composite_quality_score(
+            seam_ncc_min=1.0, seam_color_min=1.0, ghost_seam_max=0.0
+        )
+        assert score == pytest.approx(1.0, abs=1e-4)
+
+    def test_worst_scores_give_zero(self):
+        """Worst per-component scores should yield composite = 0.0."""
+        score = _composite_quality_score(
+            seam_ncc_min=-1.0, seam_color_min=0.0, ghost_seam_max=100.0
+        )
+        assert score == pytest.approx(0.0, abs=1e-4)
+
+    def test_all_none_gives_half(self):
+        """When all inputs are None the neutral default is 0.5."""
+        score = _composite_quality_score(None, None, None)
+        assert score == pytest.approx(0.5, abs=1e-4)
+
+    def test_result_in_unit_interval(self):
+        """Any realistic input combination must stay in [0, 1]."""
+        import itertools
+
+        for ncc, color, ghost in itertools.product(
+            [-1.0, 0.0, 1.0], [0.0, 0.5, 1.0], [0.0, 50.0, 100.0]
+        ):
+            s = _composite_quality_score(ncc, color, ghost)
+            assert 0.0 <= s <= 1.0, (
+                f"Out of range: ncc={ncc}, color={color}, ghost={ghost} → {s}"
+            )
+
+    def test_partial_none_uses_neutral(self):
+        """A single None component uses 0.5; the other two drive the result."""
+        # ncc=1.0 → ncc_term=1.0; color=1.0 → color_term=1.0; ghost=None → 0.5
+        score = _composite_quality_score(1.0, 1.0, None)
+        assert score == pytest.approx((1.0 + 1.0 + 0.5) / 3.0, abs=1e-4)
+
+
+class TestMllmScorer:
+    """§3.10 — MLLM scorer unit tests (offline — no ollama required)."""
+
+    def test_scores_dataclass_fields(self):
+        """MllmScores has body_coherence, seam_quality, bg_consistency, overall."""
+        from backend.src.animation.mllm_scorer import MllmScores
+
+        s = MllmScores(
+            body_coherence=8.0, seam_quality=7.5, bg_consistency=9.0, overall=8.2
+        )
+        assert s.body_coherence == 8.0
+        assert s.overall == 8.2
+        assert s.seam_quality == 7.5
+        assert s.bg_consistency == 9.0
+
+    def test_score_returns_none_on_connection_error(self):
+        """When ollama is not reachable, score() returns all-None MllmScores."""
+        from backend.src.animation.mllm_scorer import MllmScorer
+
+        scorer = MllmScorer(base_url="http://localhost:19999")  # dead port
+        img = np.zeros((64, 64, 3), dtype=np.uint8)
+        scores = scorer.score(img)
+        assert scores.body_coherence is None
+        assert scores.overall is None
+
+    def test_parse_json_response(self):
+        """_parse_scores extracts floats from a valid JSON string."""
+        from backend.src.animation.mllm_scorer import MllmScorer
+
+        scorer = MllmScorer()
+        raw = '{"body_coherence": 8.5, "seam_quality": 7.0, "bg_consistency": 9.0, "overall": 8.2}'
+        scores = scorer._parse_scores(raw)
+        assert scores.body_coherence == pytest.approx(8.5)
+        assert scores.seam_quality == pytest.approx(7.0)
+        assert scores.overall == pytest.approx(8.2)
+
+    def test_parse_fallback_regex(self):
+        """When JSON parse fails, regex fallback extracts floats from prose output."""
+        from backend.src.animation.mllm_scorer import MllmScorer
+
+        scorer = MllmScorer()
+        raw = (
+            "body_coherence: 6.5, seam_quality: 5.0, bg_consistency: 8.0, overall: 6.5"
+        )
+        scores = scorer._parse_scores(raw)
+        assert scores.body_coherence == pytest.approx(6.5, abs=0.1)
+        assert scores.overall == pytest.approx(6.5, abs=0.1)
+
+    def test_image_resize_before_encode(self):
+        """Large images are downscaled to MLLM_MAX_IMAGE_DIM before base64 encoding."""
+        import base64
+
+        import cv2 as _cv2
+
+        from backend.src.animation.mllm_scorer import MLLM_MAX_IMAGE_DIM, MllmScorer
+
+        scorer = MllmScorer()
+        large_img = np.zeros((2000, 1000, 3), dtype=np.uint8)
+        encoded = scorer._encode_image(large_img)
+        decoded = base64.b64decode(encoded)
+        buf = np.frombuffer(decoded, dtype=np.uint8)
+        img_back = _cv2.imdecode(buf, _cv2.IMREAD_COLOR)
+        assert img_back is not None
+        assert max(img_back.shape[:2]) <= MLLM_MAX_IMAGE_DIM
+
+
+# TestSiFidProxy — §3.9 SI-FID patch sharpness proxy (S144)
+class TestSiFidProxy:
+    def _solid(self, h: int = 256, w: int = 256, val: int = 128) -> np.ndarray:
+        return np.full((h, w, 3), val, dtype=np.uint8)
+
+    def _noisy(self, h: int = 256, w: int = 256) -> np.ndarray:
+        rng = np.random.default_rng(1)
+        return rng.integers(0, 256, (h, w, 3), dtype=np.uint8)
+
+    def test_identical_images_returns_one(self):
+        img = self._noisy()
+        ratio = _compute_si_fid_score(img, img, patch_size=64, n_patches=8)
+        assert ratio is not None
+        assert abs(ratio - 1.0) < 0.05
+
+    def test_sharp_asp_returns_ratio_above_one(self):
+        import cv2 as _cv2
+
+        noisy = self._noisy()
+        sim = _cv2.GaussianBlur(noisy, (21, 21), 8)
+        asp = noisy
+        ratio = _compute_si_fid_score(asp, sim, patch_size=64, n_patches=8)
+        assert ratio is not None
+        assert ratio > 1.0
+
+    def test_sharp_simple_returns_ratio_below_one(self):
+        import cv2 as _cv2
+
+        noisy = self._noisy()
+        asp = _cv2.GaussianBlur(noisy, (21, 21), 8)
+        sim = noisy
+        ratio = _compute_si_fid_score(asp, sim, patch_size=64, n_patches=8)
+        assert ratio is not None
+        assert ratio < 1.0
+
+    def test_none_image_returns_none(self):
+        img = self._noisy()
+        assert _compute_si_fid_score(None, img) is None
+        assert _compute_si_fid_score(img, None) is None
+
+    def test_too_small_returns_none(self):
+        tiny = np.zeros((10, 10, 3), dtype=np.uint8)
+        big = self._noisy()
+        result = _compute_si_fid_score(tiny, big, patch_size=64, n_patches=4)
+        assert result is None
+
+
+# ===========================================================================
+# Merged from test_bench_metrics_s149.py
+# ===========================================================================
+
+
+class TestChromaSeamCoherence:
+    def test_flat_image_low_score(self):
+        from backend.benchmark.bench_anime_stitch import _chroma_seam_coherence
+
+        img = np.full((100, 80, 3), 128, dtype=np.uint8)
+        score = _chroma_seam_coherence(img, n_strips=4)
+        assert score < 5.0
+
+    def test_banded_image_higher_score(self):
+        from backend.benchmark.bench_anime_stitch import _chroma_seam_coherence
+
+        img = np.zeros((80, 60, 3), dtype=np.uint8)
+        img[:40] = [200, 100, 50]
+        img[40:] = [50, 100, 200]
+        score = _chroma_seam_coherence(img, n_strips=2)
+        flat_score = _chroma_seam_coherence(
+            np.full((80, 60, 3), 128, dtype=np.uint8), n_strips=2
+        )
+        assert score > flat_score
+
+    def test_returns_float(self):
+        from backend.benchmark.bench_anime_stitch import _chroma_seam_coherence
+
+        img = np.random.randint(0, 256, (60, 50, 3), dtype=np.uint8)
+        score = _chroma_seam_coherence(img, n_strips=4)
+        assert isinstance(score, float)
+
+    def test_degenerate_small_image(self):
+        from backend.benchmark.bench_anime_stitch import _chroma_seam_coherence
+
+        img = np.zeros((2, 10, 3), dtype=np.uint8)
+        score = _chroma_seam_coherence(img, n_strips=4)
+        assert isinstance(score, float)
+
+    def test_single_strip_returns_zero(self):
+        from backend.benchmark.bench_anime_stitch import _chroma_seam_coherence
+
+        img = np.random.randint(0, 256, (60, 50, 3), dtype=np.uint8)
+        score = _chroma_seam_coherence(img, n_strips=1)
+        assert score == 0.0
+
+
+# ===========================================================================
+# Merged from test_bench_metrics_s150.py
+# ===========================================================================
+
+
+class TestStripGradientCv:
+    def test_uniform_image_zero_cv(self):
+        from backend.benchmark.bench_anime_stitch import _strip_gradient_cv
+
+        img = np.full((80, 60, 3), 128, dtype=np.uint8)
+        cv = _strip_gradient_cv(img, n_strips=4)
+        assert cv == pytest.approx(0.0, abs=1e-3)
+
+    def test_mixed_sharpness_high_cv(self):
+        from backend.benchmark.bench_anime_stitch import _strip_gradient_cv
+
+        img = np.full((80, 60, 3), 128, dtype=np.uint8)
+        rng = np.random.default_rng(0)
+        img[:40] = rng.integers(0, 256, (40, 60, 3), dtype=np.uint8)
+        cv = _strip_gradient_cv(img, n_strips=2)
+        flat_cv = _strip_gradient_cv(
+            np.full((80, 60, 3), 128, dtype=np.uint8), n_strips=2
+        )
+        assert cv > flat_cv
+
+    def test_returns_float(self):
+        from backend.benchmark.bench_anime_stitch import _strip_gradient_cv
+
+        img = np.random.randint(0, 256, (60, 50, 3), dtype=np.uint8)
+        result = _strip_gradient_cv(img, n_strips=4)
+        assert isinstance(result, float)
+
+    def test_degenerate_too_few_strips(self):
+        from backend.benchmark.bench_anime_stitch import _strip_gradient_cv
+
+        img = np.random.randint(0, 256, (8, 10, 3), dtype=np.uint8)
+        result = _strip_gradient_cv(img, n_strips=1)
+        assert result == 0.0
+
+    def test_small_image_degenerate(self):
+        from backend.benchmark.bench_anime_stitch import _strip_gradient_cv
+
+        img = np.zeros((3, 10, 3), dtype=np.uint8)
+        result = _strip_gradient_cv(img, n_strips=8)
+        assert isinstance(result, float)
+
+
+# ===========================================================================
+# Merged from test_bench_metrics_s151.py
+# ===========================================================================
+
+
+class TestSeamContrastRatio:
+    def test_flat_image_returns_neutral(self):
+        from backend.benchmark.bench_anime_stitch import _seam_contrast_ratio
+
+        img = np.full((80, 60, 3), 128, dtype=np.uint8)
+        ratio = _seam_contrast_ratio(img, n_strips=4, band_px=5)
+        # Flat image → all energies near zero → returns 1.0 (neutral)
+        assert isinstance(ratio, float)
+
+    def test_returns_float(self):
+        from backend.benchmark.bench_anime_stitch import _seam_contrast_ratio
+
+        img = np.random.randint(0, 256, (80, 60, 3), dtype=np.uint8)
+        ratio = _seam_contrast_ratio(img, n_strips=4, band_px=5)
+        assert isinstance(ratio, float)
+
+    def test_high_contrast_seam_above_one(self):
+        from backend.benchmark.bench_anime_stitch import _seam_contrast_ratio
+
+        img = np.full((80, 60, 3), 128, dtype=np.uint8)
+        # Add a sharp edge at strip boundary
+        img[38:42] = 255
+        img[36:38] = 0
+        ratio = _seam_contrast_ratio(img, n_strips=4, band_px=5)
+        flat_ratio = _seam_contrast_ratio(
+            np.full((80, 60, 3), 128, dtype=np.uint8), n_strips=4, band_px=5
+        )
+        # Sharp seam boundary should produce higher ratio than flat image
+        assert ratio >= flat_ratio
+
+    def test_degenerate_too_small(self):
+        from backend.benchmark.bench_anime_stitch import _seam_contrast_ratio
+
+        img = np.zeros((4, 10, 3), dtype=np.uint8)
+        ratio = _seam_contrast_ratio(img, n_strips=4, band_px=2)
+        assert isinstance(ratio, float)
+
+    def test_single_strip_returns_neutral(self):
+        from backend.benchmark.bench_anime_stitch import _seam_contrast_ratio
+
+        img = np.random.randint(0, 256, (60, 50, 3), dtype=np.uint8)
+        ratio = _seam_contrast_ratio(img, n_strips=1, band_px=5)
+        assert ratio == pytest.approx(1.0)
+
+
+# ===========================================================================
+# Merged from test_bench_metrics_s152.py
+# ===========================================================================
+
+
+class TestSeamColSpread:
+    def test_returns_float(self):
+        from backend.benchmark.bench_anime_stitch import _seam_col_spread
+
+        img = np.random.randint(0, 256, (80, 60, 3), dtype=np.uint8)
+        result = _seam_col_spread(img, n_strips=4)
+        assert isinstance(result, float)
+
+    def test_uniform_image_zero_spread(self):
+        from backend.benchmark.bench_anime_stitch import _seam_col_spread
+
+        img = np.full((80, 60, 3), 128, dtype=np.uint8)
+        result = _seam_col_spread(img, n_strips=4)
+        assert result == pytest.approx(0.0, abs=1e-6)
+
+    def test_result_is_normalized(self):
+        from backend.benchmark.bench_anime_stitch import _seam_col_spread
+
+        img = np.random.randint(0, 256, (80, 60, 3), dtype=np.uint8)
+        result = _seam_col_spread(img, n_strips=4)
+        assert result < 1.0
+
+    def test_degenerate_one_strip(self):
+        from backend.benchmark.bench_anime_stitch import _seam_col_spread
+
+        img = np.random.randint(0, 256, (80, 60, 3), dtype=np.uint8)
+        result = _seam_col_spread(img, n_strips=1)
+        assert result == 0.0
+
+    def test_degenerate_small_image(self):
+        from backend.benchmark.bench_anime_stitch import _seam_col_spread
+
+        img = np.zeros((3, 5, 3), dtype=np.uint8)
+        result = _seam_col_spread(img, n_strips=4)
+        assert isinstance(result, float)
+
+
+# ===========================================================================
+# Merged from test_bench_metrics_s153.py
+# ===========================================================================
+
+
+class TestSeamRowStd:
+    def test_returns_float(self):
+        from backend.benchmark.bench_anime_stitch import _seam_row_std
+
+        img = np.random.randint(0, 256, (80, 60, 3), dtype=np.uint8)
+        result = _seam_row_std(img, n_strips=4)
+        assert isinstance(result, float)
+
+    def test_flat_image_low_std(self):
+        from backend.benchmark.bench_anime_stitch import _seam_row_std
+
+        img = np.full((80, 60, 3), 128, dtype=np.uint8)
+        result = _seam_row_std(img, n_strips=4)
+        assert result < 0.01
+
+    def test_result_normalized_zero_to_one(self):
+        from backend.benchmark.bench_anime_stitch import _seam_row_std
+
+        img = np.random.randint(0, 256, (80, 60, 3), dtype=np.uint8)
+        result = _seam_row_std(img, n_strips=4)
+        assert 0.0 <= result <= 1.0
+
+    def test_degenerate_single_strip(self):
+        from backend.benchmark.bench_anime_stitch import _seam_row_std
+
+        img = np.random.randint(0, 256, (80, 60, 3), dtype=np.uint8)
+        result = _seam_row_std(img, n_strips=1)
+        assert result == 0.0
+
+    def test_high_contrast_boundary(self):
+        from backend.benchmark.bench_anime_stitch import _seam_row_std
+
+        img = np.zeros((80, 60, 3), dtype=np.uint8)
+        # Alternating black/white columns at boundary row
+        strip_h = 80 // 4  # = 20
+        boundary_row = strip_h  # = 20
+        img[boundary_row, ::2] = 255
+        img[boundary_row, 1::2] = 0
+        result = _seam_row_std(img, n_strips=4)
+        flat_result = _seam_row_std(
+            np.full((80, 60, 3), 128, dtype=np.uint8), n_strips=4
+        )
+        assert result > flat_result
+
+
+# ===========================================================================
+# Merged from test_bench_metrics_s154.py
+# ===========================================================================
+
+
+class TestSeamBoundaryEntropy:
+    def test_returns_list_of_correct_length(self):
+        from backend.benchmark.bench_anime_stitch import _seam_boundary_entropy
+
+        img = np.random.randint(0, 256, (80, 60, 3), dtype=np.uint8)
+        result = _seam_boundary_entropy(img, n_strips=4, band_px=5)
+        assert isinstance(result, list)
+        assert len(result) == 3  # n_strips - 1
+
+    def test_flat_image_low_entropy(self):
+        from backend.benchmark.bench_anime_stitch import _seam_boundary_entropy
+
+        img = np.full((80, 60, 3), 128, dtype=np.uint8)
+        result = _seam_boundary_entropy(img, n_strips=4, band_px=5)
+        assert all(e < 0.05 for e in result)
+
+    def test_random_image_high_entropy(self):
+        from backend.benchmark.bench_anime_stitch import _seam_boundary_entropy
+
+        rng = np.random.default_rng(1)
+        img = rng.integers(0, 256, (80, 60, 3), dtype=np.uint8)
+        result = _seam_boundary_entropy(img, n_strips=4, band_px=5)
+        assert any(e > 0.7 for e in result)
+
+    def test_values_in_zero_one(self):
+        from backend.benchmark.bench_anime_stitch import _seam_boundary_entropy
+
+        img = np.random.randint(0, 256, (80, 60, 3), dtype=np.uint8)
+        result = _seam_boundary_entropy(img, n_strips=4, band_px=5)
+        assert all(0.0 <= e <= 1.0 for e in result)
+
+    def test_degenerate_single_strip(self):
+        from backend.benchmark.bench_anime_stitch import _seam_boundary_entropy
+
+        img = np.random.randint(0, 256, (80, 60, 3), dtype=np.uint8)
+        result = _seam_boundary_entropy(img, n_strips=1)
+        assert result == []
+
+
+# ===========================================================================
+# Merged from test_bench_metrics_s155.py
+# ===========================================================================
+
+
+class TestStripSatCv:
+    def test_returns_float(self):
+        from backend.benchmark.bench_anime_stitch import _strip_sat_cv
+
+        img = np.random.randint(0, 256, (80, 60, 3), dtype=np.uint8)
+        result = _strip_sat_cv(img, n_strips=4)
+        assert isinstance(result, float)
+
+    def test_grayscale_image_zero_cv(self):
+        from backend.benchmark.bench_anime_stitch import _strip_sat_cv
+
+        img = np.full((80, 60, 3), 128, dtype=np.uint8)
+        result = _strip_sat_cv(img, n_strips=4)
+        assert result == pytest.approx(0.0, abs=1e-3)
+
+    def test_banded_sat_higher_than_flat(self):
+        from backend.benchmark.bench_anime_stitch import _strip_sat_cv
+
+        img = np.zeros((80, 60, 3), dtype=np.uint8)
+        img[:40] = [200, 50, 50]
+        img[40:] = [128, 128, 128]
+        result = _strip_sat_cv(img, n_strips=2)
+        gray_result = _strip_sat_cv(
+            np.full((80, 60, 3), 128, dtype=np.uint8), n_strips=2
+        )
+        assert result > gray_result
+
+    def test_degenerate_single_strip(self):
+        from backend.benchmark.bench_anime_stitch import _strip_sat_cv
+
+        img = np.random.randint(0, 256, (80, 60, 3), dtype=np.uint8)
+        result = _strip_sat_cv(img, n_strips=1)
+        assert result == 0.0
+
+    def test_degenerate_small_image(self):
+        from backend.benchmark.bench_anime_stitch import _strip_sat_cv
+
+        img = np.zeros((3, 10, 3), dtype=np.uint8)
+        result = _strip_sat_cv(img, n_strips=8)
+        assert isinstance(result, float)
+
+
+# ===========================================================================
+# Merged from test_bench_metrics_s156.py
+# ===========================================================================
+
+
+class TestSeamBandNcc:
+    def test_uniform_image_returns_one(self):
+        from backend.benchmark.bench_anime_stitch import _seam_band_ncc
+
+        img = np.full((80, 60, 3), 128, dtype=np.uint8)
+        result = _seam_band_ncc(img, n_strips=4, band_px=5)
+        assert result == pytest.approx(1.0, abs=1e-4)
+
+    def test_alternating_bands_low_ncc(self):
+        from backend.benchmark.bench_anime_stitch import _seam_band_ncc
+
+        rng = np.random.default_rng(13)
+        img = np.zeros((80, 60, 3), dtype=np.uint8)
+        for i in range(4):
+            y0, y1 = i * 20, (i + 1) * 20
+            # Use high-variance noise centered at 200 or 10 so bands differ clearly
+            base = 200 if i % 2 == 0 else 10
+            noise = rng.integers(-8, 9, (y1 - y0, 60, 3)).astype(np.int16)
+            img[y0:y1] = np.clip(base + noise, 0, 255).astype(np.uint8)
+        result = _seam_band_ncc(img, n_strips=4, band_px=5)
+        assert result < 0.5
+
+    def test_result_in_valid_range(self):
+        from backend.benchmark.bench_anime_stitch import _seam_band_ncc
+
+        rng = np.random.default_rng(7)
+        img = rng.integers(0, 256, (100, 80, 3), dtype=np.uint8)
+        result = _seam_band_ncc(img, n_strips=8, band_px=10)
+        assert -1.0 <= result <= 1.0
+
+    def test_too_few_strips_returns_one(self):
+        from backend.benchmark.bench_anime_stitch import _seam_band_ncc
+
+        img = np.full((20, 20, 3), 100, dtype=np.uint8)
+        result = _seam_band_ncc(img, n_strips=1, band_px=5)
+        assert result == pytest.approx(1.0)
+
+    def test_wired_into_compute_all_metrics(self):
+        from backend.benchmark.bench_anime_stitch import _compute_all_metrics
+
+        img = np.full((80, 60, 3), 128, dtype=np.uint8)
+        metrics = _compute_all_metrics(img)
+        assert "seam_band_ncc_min" in metrics
+        assert isinstance(metrics["seam_band_ncc_min"], float)
+
+
+# ===========================================================================
+# Merged from test_bench_metrics_s157.py
+# ===========================================================================
+
+
+class TestSeamRowGradCoherence:
+    def test_uniform_image_returns_low_coherence(self):
+        from backend.benchmark.bench_anime_stitch import _seam_row_grad_coherence
+
+        img = np.full((80, 60, 3), 128, dtype=np.uint8)
+        result = _seam_row_grad_coherence(img, n_strips=4, band_px=5)
+        assert 0.0 <= result <= 1.0
+
+    def test_horizontal_edge_high_coherence(self):
+        from backend.benchmark.bench_anime_stitch import _seam_row_grad_coherence
+
+        img = np.zeros((80, 60, 3), dtype=np.uint8)
+        img[:40] = 200
+        img[40:] = 0
+        result = _seam_row_grad_coherence(img, n_strips=2, band_px=5)
+        assert result > 0.0
+
+    def test_result_in_valid_range(self):
+        from backend.benchmark.bench_anime_stitch import _seam_row_grad_coherence
+
+        rng = np.random.default_rng(55)
+        img = rng.integers(0, 256, (100, 80, 3), dtype=np.uint8)
+        result = _seam_row_grad_coherence(img, n_strips=8, band_px=8)
+        assert 0.0 <= result <= 1.0
+
+    def test_degenerate_input_returns_one(self):
+        from backend.benchmark.bench_anime_stitch import _seam_row_grad_coherence
+
+        result = _seam_row_grad_coherence(None)
+        assert result == pytest.approx(1.0)
+
+    def test_wired_into_compute_all_metrics(self):
+        from backend.benchmark.bench_anime_stitch import _compute_all_metrics
+
+        img = np.full((80, 60, 3), 128, dtype=np.uint8)
+        metrics = _compute_all_metrics(img)
+        assert "seam_grad_coherence_min" in metrics
+        assert isinstance(metrics["seam_grad_coherence_min"], float)
+
+
+# ===========================================================================
+# Merged from test_bench_metrics_s158.py
+# ===========================================================================
+
+
+class TestZoneCoverageFraction:
+    """Five tests for _zone_coverage_fraction (S158)."""
+
+    def test_standard_image(self):
+        """8 strips, 800px image: 7 boundaries, each ~33px wide on each side."""
+        img = np.zeros((800, 100, 3), dtype=np.uint8)
+        frac = _zone_coverage_fraction(img, n_strips=8)
+        # strip_h = 100, approx_feather = 33, total = 7*2*33 = 462, frac = 462/800
+        expected = min(800, 7 * 2 * (100 // 3)) / 800
+        assert frac == pytest.approx(expected, abs=1e-6)
+
+    def test_fraction_in_unit_interval(self):
+        """Output is always in [0, 1]."""
+        for H in [50, 200, 800, 2000]:
+            img = np.zeros((H, 50, 3), dtype=np.uint8)
+            f = _zone_coverage_fraction(img, n_strips=8)
+            assert 0.0 <= f <= 1.0, f"H={H}: fraction {f} out of [0,1]"
+
+    def test_none_input(self):
+        """None input returns 0.0."""
+        assert _zone_coverage_fraction(None) == 0.0  # type: ignore[arg-type]
+
+    def test_too_few_strips(self):
+        """n_strips < 2 returns 0.0."""
+        img = np.zeros((100, 50, 3), dtype=np.uint8)
+        assert _zone_coverage_fraction(img, n_strips=1) == 0.0
+
+    def test_more_strips_raises_coverage(self):
+        """More strips → more boundaries → higher coverage fraction (up to cap)."""
+        img = np.zeros((800, 50, 3), dtype=np.uint8)
+        f4 = _zone_coverage_fraction(img, n_strips=4)
+        f8 = _zone_coverage_fraction(img, n_strips=8)
+        assert f8 >= f4
+
+
+# ===========================================================================
+# Merged from test_bench_metrics_s159.py
+# ===========================================================================
+
+
+class TestStripSelfSsim:
+    """§3.30: _strip_self_ssim returns NCC self-consistency per strip."""
+
+    def _solid(self, h=64, w=32, val=128):
+        return np.full((h, w, 3), val, dtype=np.uint8)
+
+    def test_uniform_image_near_one(self):
+        """A uniform image has identical halves → NCC should be close to 1."""
+        from backend.benchmark.bench_anime_stitch import _strip_self_ssim
+
+        img = self._solid()
+        score = _strip_self_ssim(img, n_strips=4)
+        assert score >= 0.95, f"Uniform image NCC={score:.4f}, expected ≥ 0.95"
+
+    def test_seam_stripe_lowers_score(self):
+        """A horizontal brightness stripe (simulating a seam) lowers the score."""
+        from backend.benchmark.bench_anime_stitch import _strip_self_ssim
+
+        rng = np.random.default_rng(1)
+        img = rng.integers(100, 160, (64, 32, 3), dtype=np.uint8)
+        # Insert a hard brightness jump at the midline of strip 0
+        img[16:18, :] = 0  # dark stripe at strip boundary
+        score_bad = _strip_self_ssim(img, n_strips=4)
+        img2 = rng.integers(100, 160, (64, 32, 3), dtype=np.uint8)
+        score_good = _strip_self_ssim(img2, n_strips=4)
+        assert score_bad < score_good or score_bad <= 1.0
+
+    def test_output_in_range(self):
+        """Score must lie in [−1, 1]."""
+        from backend.benchmark.bench_anime_stitch import _strip_self_ssim
+
+        rng = np.random.default_rng(2)
+        img = rng.integers(0, 256, (80, 40, 3), dtype=np.uint8)
+        score = _strip_self_ssim(img, n_strips=8)
+        assert -1.0 <= score <= 1.0
+
+    def test_degenerate_small_image_returns_zero(self):
+        """Image too small for the requested strips returns 0.0."""
+        from backend.benchmark.bench_anime_stitch import _strip_self_ssim
+
+        img = np.full((4, 8, 3), 100, dtype=np.uint8)
+        score = _strip_self_ssim(img, n_strips=8)
+        assert score == 0.0
+
+    def test_wired_in_compute_all_metrics(self):
+        """_compute_all_metrics must emit 'strip_self_ssim' key."""
+        from backend.benchmark.bench_anime_stitch import _compute_all_metrics
+
+        img = np.full((64, 32, 3), 128, dtype=np.uint8)
+        metrics = _compute_all_metrics(img, n_strips=4)
+        assert "strip_self_ssim" in metrics
+        assert isinstance(metrics["strip_self_ssim"], float)
+        assert -1.0 <= metrics["strip_self_ssim"] <= 1.0
+
+
+# ===========================================================================
+# Merged from test_bench_metrics_s160.py
+# ===========================================================================
+
+
+class TestCanvasGainUniformity:
+    """§3.31: Strip-level luminance CV metric."""
+
+    def test_uniform_image_returns_zero(self):
+        # Solid gray — all strips have equal mean → CV = 0
+        img = np.full((100, 100, 3), 128, dtype=np.uint8)
+        result = _canvas_gain_uniformity(img, n_strips=8)
+        assert abs(result) < 1e-6
+
+    def test_banded_image_high_cv(self):
+        # Top half bright, bottom half dark → high CV
+        img = np.zeros((100, 100, 3), dtype=np.uint8)
+        img[:50] = 200
+        img[50:] = 50
+        result = _canvas_gain_uniformity(img, n_strips=8)
+        assert result > 0.1
+
+    def test_result_nonnegative(self):
+        rng = np.random.default_rng(0)
+        img = rng.integers(0, 255, (200, 100, 3), dtype=np.uint8)
+        result = _canvas_gain_uniformity(img, n_strips=8)
+        assert result >= 0.0
+
+    def test_fewer_rows_than_strips_returns_zero(self):
+        # 4-row image, n_strips=8 → degenerate → 0.0
+        img = np.full((4, 100, 3), 128, dtype=np.uint8)
+        result = _canvas_gain_uniformity(img, n_strips=8)
+        assert result == 0.0
+
+    def test_single_strip(self):
+        # n_strips=1 → std of one value = 0 → CV = 0
+        img = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
+        result = _canvas_gain_uniformity(img, n_strips=1)
+        assert result == 0.0

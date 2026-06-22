@@ -1,4 +1,3 @@
-
 import tempfile
 import uuid
 import importlib.util as _importlib_util_merger
@@ -31,18 +30,21 @@ _BIREFNET_OK: bool = _importlib_util_merger.find_spec("transformers") is not Non
 _LOFTR_OK: bool = _importlib_util_merger.find_spec("kornia") is not None
 try:
     from backend.src.models.basic_wrapper import BaSiCWrapper
+
     _BASIC_OK = True
 except ImportError:
     _BASIC_OK = False
 
 try:
     from backend.src.models.gan_wrapper import GanWrapper as _GanWrapper_probe  # noqa: F401
+
     _GAN_OK = True
 except ImportError:
     _GAN_OK = False
 
 try:
     from backend.src.models.siamese_network import SiameseModelLoader as _Siamese_probe  # noqa: F401
+
     _SIAMESE_OK = True
 except ImportError:
     _SIAMESE_OK = False
@@ -74,13 +76,17 @@ class ImageMerger:
     def _get_gan(cls):
         if cls._gan_inst is None:
             from backend.src.models.gan_wrapper import GanWrapper  # §3.15A lazy
+
             cls._gan_inst = GanWrapper()
         return cls._gan_inst
 
     @classmethod
     def _get_birefnet(cls):
         if cls._birefnet_inst is None:
-            from backend.src.models.birefnet_wrapper import BiRefNetWrapper  # §3.15A lazy
+            from backend.src.models.birefnet_wrapper import (
+                BiRefNetWrapper,
+            )  # §3.15A lazy
+
             cls._birefnet_inst = BiRefNetWrapper()
         return cls._birefnet_inst
 
@@ -94,13 +100,17 @@ class ImageMerger:
     def _get_loftr(cls):
         if cls._loftr_inst is None:
             from backend.src.models.loftr_wrapper import LoFTRWrapper  # §3.15A lazy
+
             cls._loftr_inst = LoFTRWrapper()
         return cls._loftr_inst
 
     @classmethod
     def _get_siamese(cls):
         if cls._siamese_inst is None:
-            from backend.src.models.siamese_network import SiameseModelLoader  # §3.15A lazy
+            from backend.src.models.siamese_network import (
+                SiameseModelLoader,
+            )  # §3.15A lazy
+
             cls._siamese_inst = SiameseModelLoader()
         return cls._siamese_inst
 
@@ -855,7 +865,8 @@ class ImageMerger:
             params["renderer"] = params["compositor"]
 
         # 5. Initialize and run the pipeline with full parameter propagation
-        from backend.src.anim import AnimeStitchPipeline  # §3.15A lazy
+        from backend.src.animation import AnimeStitchPipeline  # §3.15A lazy
+
         pipeline = AnimeStitchPipeline(**params)
 
         return pipeline.run(image_paths, output_path)

@@ -13,9 +13,9 @@ You are improving `AnimeStitchPipeline` output quality. Work through the phases 
 1. Read `.agent/cache/anime_stitch_pipeline_issues.md` — full diagnostic report (honest visual assessment)
 2. Read `.agent/cache/pipeline_analysis_report.md` — root cause analysis of the compositing failure
 3. Read `docs/ARCHITECTURE.md` — complete pipeline stage diagram
-4. Read `backend/src/anim/compositing.py` — Stage 11 composite (produces color banding artifacts)
-5. Read `backend/src/anim/rendering.py` — Stage 9 temporal render (temporal averaging fails with 1 frame/row)
-6. Read `backend/src/anim/validation.py` — affine validation; **min_gap 50px rejects many borderline-valid sequences (secondary issue)**
+4. Read `backend/src/animation/compositing.py` — Stage 11 composite (produces color banding artifacts)
+5. Read `backend/src/animation/rendering.py` — Stage 9 temporal render (temporal averaging fails with 1 frame/row)
+6. Read `backend/src/animation/validation.py` — affine validation; **min_gap 50px rejects many borderline-valid sequences (secondary issue)**
 
 > **CURRENT STATE (2026-06-07, S27):** Major compositing improvements shipped across S6–S27. SCANS fallbacks reduced from 51/96 → 4/96 genuine fallbacks (S11). Seam quality significantly improved via: hold detection, GNC robust loss, DINOv2 frame selection, seam DP vectorization, multi-frame canvas coverage gate, adaptive feather refinement, parallel seam DP, TELEA border fill, per-pixel DSFN ramp, adaptive boundary search, bg-mask-aware ramp, Poisson seam blend (optional), per-pair coherence gate, continuous adaptive gain clamp, and single-pose soft-edge blending. Key open items: §1.2B near-dup dedup (done, off by default), §1.8A TOML config (done, S27). Next: §1.9A fallback path purity or §2.x diagnostics. The CV sharpness metric is inverted — use `seam_gradient < 5` and `seam_coherence` as quality proxies.
 
@@ -23,7 +23,7 @@ Run the automated test suite first to confirm no regressions from prior changes:
 
 ```bash
 source .venv/bin/activate
-pytest backend/test/anim/ -q   # should be 262 passed (S32 baseline)
+pytest backend/test/animation/ -q   # should be 262 passed (S32 baseline)
 ```
 
 Check the current state of all three test datasets:
@@ -85,7 +85,7 @@ Expected healthy output: 10 frames with `ty` values ~300–400px apart. Actual b
 
 ### 1.2 Add affine validation after bundle adjust
 
-In `backend/src/anim/canvas.py` or `pipeline.py`, add a post-bundle-adjust sanity check:
+In `backend/src/animation/canvas.py` or `pipeline.py`, add a post-bundle-adjust sanity check:
 
 ```python
 def _validate_affines(affines, N, expected_step_min=50, max_gap_ratio=5.0):
@@ -105,7 +105,7 @@ If validation fails, log the failure and fall back to `_merge_images_scan_stitch
 
 ### 1.3 Add outlier rejection to bundle_adjust
 
-In `backend/src/anim/bundle_adjust.py`, after the initial LM solve, add residual-based edge pruning:
+In `backend/src/animation/bundle_adjust.py`, after the initial LM solve, add residual-based edge pruning:
 
 ```python
 # Compute residuals for each edge
@@ -225,7 +225,7 @@ If stage09 is already ghosted, the issue is in `_render_median`. If stage09 is c
 
 ### 2.5 Fix rendering
 
-In `backend/src/anim/rendering.py`, check:
+In `backend/src/animation/rendering.py`, check:
 - The `_render_median` function correctly identifies strip ownership for 11 frames
 - The gain clamp `(0.88, 1.12)` is not over-darkening certain strips
 - The median accumulation loop handles the larger number of overlapping frames correctly
@@ -364,7 +364,7 @@ Check that:
 
 ```bash
 # Run the unit test suite (no GPU — ~7s)
-source .venv/bin/activate && pytest backend/test/anim/ -q
+source .venv/bin/activate && pytest backend/test/animation/ -q
 
 # Fast compositing iteration (asp_test1/, ~30s)
 source .venv/bin/activate && python3 archive/run_pipeline_v2.py
@@ -383,17 +383,17 @@ gaps = np.diff([ty for _, ty in tys])
 print('Gaps:', np.round(gaps).astype(int), 'max/median:', f'{gaps.max()/np.median(gaps):.1f}x')
 " /path/to/stage08_canvas_info.json
 
-# Grep compositing constants (now live in backend/src/constants/anim.py)
-grep -n "FEATHER\|GAIN\|SEAM" backend/src/constants/anim.py
+# Grep compositing constants (now live in backend/src/constants/animation.py)
+grep -n "FEATHER\|GAIN\|SEAM" backend/src/constants/animation.py
 
 # Grep env-var controlled feature flags in pipeline/compositing
-grep -n "ASP_\|os.environ" backend/src/anim/compositing.py | head -30
+grep -n "ASP_\|os.environ" backend/src/animation/compositing.py | head -30
 
 # Load asp_config.toml at startup (§1.8A)
-python3 -c "from backend.src.anim.config import load_asp_config; print(load_asp_config())"
+python3 -c "from backend.src.animation.config import load_asp_config; print(load_asp_config())"
 
 # Run linting after changes
-source .venv/bin/activate && ruff check backend/src/anim/compositing.py
+source .venv/bin/activate && ruff check backend/src/animation/compositing.py
 ```
 
 ## Appendix: Test Dataset Paths

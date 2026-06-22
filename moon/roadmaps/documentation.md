@@ -45,13 +45,13 @@ Each section describes a documentation gap or tooling opportunity, all viable im
 
 ## ✅ §6.1 Python Reference Docs (Sphinx / mkdocstrings)
 
-**Pain point:** `backend/src/` contains ~30 Python modules across `anim/`, `models/`, `core/`, `web/`, `utils/`, `pipeline/`, and `controller/`. None of them have structured docstrings parseable by a reference generator. Developers reading `compositing.py` or `bundle_adjust.py` must infer function contracts from variable names and inline comments alone.
+**Pain point:** `backend/src/` contains ~30 Python modules across `animation/`, `models/`, `core/`, `web/`, `utils/`, `pipeline/`, and `controller/`. None of them have structured docstrings parseable by a reference generator. Developers reading `compositing.py` or `bundle_adjust.py` must infer function contracts from variable names and inline comments alone.
 
 ### Options
 
 **A — mkdocstrings + Google-style docstrings [Quick Win]**
-Add `mkdocstrings[python]` to dev requirements. Annotate public functions with Google-style docstrings (Args / Returns / Raises / Example). Wire into MkDocs Material (see §6.10) via `::: backend.src.anim.compositing` directives.
-- Effort: 1–2 days for the high-traffic `anim/` modules; ongoing for the rest.
+Add `mkdocstrings[python]` to dev requirements. Annotate public functions with Google-style docstrings (Args / Returns / Raises / Example). Wire into MkDocs Material (see §6.10) via `::: backend.src.animation.compositing` directives.
+- Effort: 1–2 days for the high-traffic `animation/` modules; ongoing for the rest.
 - Pros: Zero new toolchain. Works with the existing `uv` environment. Incremental — undocumented symbols are skipped.
 - Cons: No enforcement mechanism without a linter (see §6.13). Quality depends on docstring completeness.
 - Reference: [mkdocstrings.github.io](https://mkdocstrings.github.io/)
@@ -491,7 +491,7 @@ Run `jupyter nbconvert --to html --execute docs/notebooks/*.ipynb` on a weekly s
     - id: pydoclint
       args: [--style=google, --arg-type-hints-in-signature=true]
 ```
-- Effort: < 1 hour setup; fixing existing violations: 2–4 hours for `anim/` modules.
+- Effort: < 1 hour setup; fixing existing violations: 2–4 hours for `animation/` modules.
 - Reference: [jsh9/pydoclint](https://github.com/jsh9/pydoclint)
 
 **B — `cargo test --doc` in CI for Rust doc-tests [Quick Win]**
@@ -573,7 +573,7 @@ Use `ipywidgets` in notebooks to create interactive sliders controlling algorith
 **B — Binder / JupyterHub for live notebook execution**
 Add a "Launch Binder" badge to each notebook. Users click it and get a live Jupyter session without installing anything.
 - Pros: Zero user setup. Great for demos.
-- Cons: Binder is rate-limited and slow for GPU notebooks. Not suitable for `anim/` notebooks that require the Rust `base` extension.
+- Cons: Binder is rate-limited and slow for GPU notebooks. Not suitable for `animation/` notebooks that require the Rust `base` extension.
 - Reference: [mybinder.org](https://mybinder.org/)
 
 **C — Custom TypeScript algorithm stepper in the Tauri analytics tab [Research]**
@@ -600,7 +600,7 @@ Build an algorithm visualisation page into `frontend/src/tabs/analytics/` that s
 | **Effort ↓ / Impact →** | Low | Medium | High | Very High |
 |---|---|---|---|---|
 | **Low (<1d)** | ✅ §6.7A CHANGELOG reformatting · ✅ §6.8C TROUBLESHOOTING.md rename · ✅ §6.13B `cargo test --doc` in CI · ✅ §6.13D `lychee` link checker · ✅ §6.13E `alex` inclusive language pre-commit | ✅ §6.2A `///` doc comments in Rust math modules · ✅ §6.2B doc-tests for pure functions · ✅ §6.7B DEPENDENCY_POLICY.md · ✅ §6.7C DOCUMENTATION_STANDARDS.md · ✅ §6.8A TROUBLESHOOT.md expansion · ✅ §6.13A `pydoclint` pre-commit hook · ✅ §6.13C TypeDoc strict mode · ✅ §6.14A Mermaid module graph | ✅ §6.3A TypeDoc setup for TS math modules · ✅ §6.4A Dokka setup for Android · ✅ §6.6A docs/ARCHITECTURE.md standardisation | — |
-| **Medium (1d–1w)** | — | ✅ §6.1A mkdocstrings for `anim/` · ✅ §6.3B TypeDoc → Markdown portal integration · ✅ §6.8B BENCHMARKS.md restructuring · ✅ §6.9A Jupyter notebooks for ASP + CLIP · ✅ §6.14D Mermaid CLI in CI | ✅ §6.10A MkDocs Material portal setup · ✅ §6.11A unified `docs/` structure · ✅ §6.12A `docs.yml` GitHub Actions workflow · ✅ §6.12C PR preview deployments · ✅ §6.15A Jupyter widgets in notebooks | ✅ §6.5A DocC for iOS · ✅ §6.9C mkdocs-jupyter portal integration |
+| **Medium (1d–1w)** | — | ✅ §6.1A mkdocstrings for `animation/` · ✅ §6.3B TypeDoc → Markdown portal integration · ✅ §6.8B BENCHMARKS.md restructuring · ✅ §6.9A Jupyter notebooks for ASP + CLIP · ✅ §6.14D Mermaid CLI in CI | ✅ §6.10A MkDocs Material portal setup · ✅ §6.11A unified `docs/` structure · ✅ §6.12A `docs.yml` GitHub Actions workflow · ✅ §6.12C PR preview deployments · ✅ §6.15A Jupyter widgets in notebooks | ✅ §6.5A DocC for iOS · ✅ §6.9C mkdocs-jupyter portal integration |
 | **High (1–2w)** | — | ✅ §6.12B parallel per-language doc jobs · ✅ §6.15B Binder live notebooks | ✅ §6.1B Sphinx for full Python backend · ✅ §6.12D scheduled notebook execution · ✅ §6.4B Dokka GFM portal integration | ✅ §6.11A full polyglot portal with all five languages |
 | **Very High (2w+)** | — | — | ✅ §6.14C Structurizr / C4 model architecture documentation | §6.15C TypeScript algorithm stepper in analytics tab (gated on Phase 13) · ✅ §6.15D OpenAPI playground (drf-spectacular already wired) |
 

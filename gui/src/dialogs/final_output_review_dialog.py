@@ -33,7 +33,7 @@ from PySide6.QtWidgets import (
 )
 
 try:
-    from backend.src.constants.anim import RLHF_FLAW_TYPES
+    from backend.src.constants.animation import RLHF_FLAW_TYPES
 except Exception:
     RLHF_FLAW_TYPES = ["seam", "ghosting", "misalignment", "color_mismatch", "blur"]
 
@@ -68,7 +68,10 @@ class _AddFlawDialog(QDialog):
 
     def flaw_dict(self) -> dict:
         return {
-            "x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0,
+            "x": 0.0,
+            "y": 0.0,
+            "w": 1.0,
+            "h": 1.0,
             "flaw_type": self._type_combo.currentText(),
             "severity": round(self._severity.value(), 2),
             "description": "",
@@ -114,7 +117,7 @@ class FinalOutputReviewDialog(QDialog):
 
         self._rating_slider = QSlider(Qt.Orientation.Horizontal)
         self._rating_slider.setRange(0, 20)  # 0–20 maps to 0.0–10.0 in 0.5 steps
-        self._rating_slider.setValue(14)      # default 7.0
+        self._rating_slider.setValue(14)  # default 7.0
         self._rating_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
         self._rating_slider.setTickInterval(2)
         rating_layout.addWidget(self._rating_slider, stretch=1)
