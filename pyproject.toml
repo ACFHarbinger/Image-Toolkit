@@ -119,6 +119,7 @@ build-backend = "maturin"
 
 [tool.maturin]
 manifest-path = "base/Cargo.toml"
+features = ["python"]
 
 [tool.uv]
 # This tells uv to rebuild the Rust code if any .rs files change

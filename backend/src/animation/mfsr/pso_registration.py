@@ -18,7 +18,7 @@ from typing import Optional, Tuple
 import cv2
 import numpy as np
 
-from ...constants import (
+from backend.src.constants import (
     PSO_C1,
     PSO_C2,
     PSO_INERTIA,

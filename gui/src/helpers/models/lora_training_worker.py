@@ -57,7 +57,7 @@ class LoRATrainingWorker(QThread):
         Executes the LoRA training loop.
         """
         try:
-            from backend.src.models.lo_ra_tuner import LoRATuner
+            from backend.src.models.tuning.lo_ra_tuner import LoRATuner
 
             self.log_signal.emit(f"Initializing LoRATuner for {self.model_id}...")
 

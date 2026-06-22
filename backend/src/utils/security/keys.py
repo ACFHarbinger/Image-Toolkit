@@ -24,7 +24,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from dotenv import dotenv_values, load_dotenv, set_key
 
-from logic.src.constants import ROOT_DIR
+from backend.src.constants import ROOT_DIR
 
 
 def _set_param(config, param_name, param_value=None):

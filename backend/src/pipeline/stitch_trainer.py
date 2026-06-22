@@ -32,14 +32,14 @@ Usage (from GUI, runs in a daemon thread)
 from __future__ import annotations
 
 # --- Relocated Nested Imports ---
-from backend.src.models.stitch_net import AnimeStitchNet
+from backend.src.models.core.stitch_net import AnimeStitchNet
 from backend.src.models.data.stitch_dataset import (
 SyntheticStitchDataset,
 stitch_collate_fn,
 )
 from backend.src.pipeline.stitch_losses import StitchNetLoss
-from backend.src.models.loftr_wrapper import LoFTRWrapper
-from backend.src.models.stitch_net.model import AnimeStitchNet
+from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
+from backend.src.models.core.stitch_net.model import AnimeStitchNet
 # --------------------------------
 
 
@@ -57,7 +57,7 @@ import torch.nn as nn
 from torch.cuda.amp import GradScaler, autocast
 from torch.optim import AdamW
 from torch.utils.data import DataLoader, random_split
-from backend.src.models.stitch_net import AnimeStitchNet
+from backend.src.models.core.stitch_net import AnimeStitchNet
 
 
 # ---------------------------------------------------------------------------
@@ -154,7 +154,7 @@ class StitchTrainer:
     # ------------------------------------------------------------------
 
     def _setup(self):
-        # relocated: from backend.src.models.stitch_net import AnimeStitchNet
+        # relocated: from backend.src.models.core.stitch_net import AnimeStitchNet
         # relocated: from backend.src.models.data.stitch_dataset import (
             # relocated: SyntheticStitchDataset,
             # relocated: stitch_collate_fn,
@@ -249,7 +249,7 @@ class StitchTrainer:
         self.loftr = None
         if cfg.get("loftr_distill"):
             try:
-                # relocated: from backend.src.models.loftr_wrapper import LoFTRWrapper
+                # relocated: from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
 
                 self.loftr = LoFTRWrapper()
                 self._log("  LoFTR distillation enabled.")
@@ -410,7 +410,7 @@ class StitchTrainer:
         target: torch.Tensor,
         is_neg: torch.Tensor,
     ) -> torch.Tensor:
-        # relocated: from backend.src.models.stitch_net.model import AnimeStitchNet
+        # relocated: from backend.src.models.core.stitch_net.model import AnimeStitchNet
 
         w = self.cfg["distill_weight"]
         pH, pW = self.cfg["patch_hw"]

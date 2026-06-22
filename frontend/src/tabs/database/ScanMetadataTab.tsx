@@ -24,8 +24,8 @@ import {
 } from "lucide-react";
 
 // Components
-import { ClickableLabel } from "../../components/ClickableLabel";
-import { MarqueeScrollArea } from "../../components/MarqueeScrollArea";
+import { ClickableLabel } from "../../components/common/ClickableLabel";
+import { MarqueeScrollArea } from "../../components/common/MarqueeScrollArea";
 import { useTwoGalleries } from "../../hooks/useTwoGalleries";
 import { GalleryItem } from "../../hooks/galleryItem";
 

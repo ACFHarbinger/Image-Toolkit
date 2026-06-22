@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { MonitorLayout } from "../../components/MonitorLayout";
+import { MonitorLayout } from "../../components/sublime/MonitorLayout";
 import {
   Play,
   Square,
@@ -9,7 +9,7 @@ import {
   Monitor as MonitorIcon,
   Info,
 } from "lucide-react";
-import { WallpaperGallery } from "../../components/WallpaperGallery";
+import { WallpaperGallery } from "../../components/sublime/WallpaperGallery";
 
 const WallpaperTab: React.FC = () => {
   const [monitorPaths, setMonitorPaths] = useState<Record<string, string>>({});

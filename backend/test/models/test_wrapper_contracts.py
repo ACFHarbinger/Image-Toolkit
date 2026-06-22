@@ -118,7 +118,7 @@ class TestBaSiCWrapperLifecycle:
     def _get_wrapper(self):
         torch_stub = _make_torch_stub()
         with patch.dict(sys.modules, {"torch": torch_stub}):
-            from backend.src.models.basic_wrapper import BaSiCWrapper
+            from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
             return BaSiCWrapper(device="cpu"), BaSiCWrapper
 
     def test_init_accepts_device(self):
@@ -129,14 +129,14 @@ class TestBaSiCWrapperLifecycle:
         torch_stub = _make_torch_stub()
         with patch.dict(sys.modules, {"torch": torch_stub}):
             from importlib import reload
-            import backend.src.models.basic_wrapper as _mod
+            import backend.src.models.wrappers.basic_wrapper as _mod
             w = _mod.BaSiCWrapper()
         assert isinstance(w.device, str)
 
     def test_unload_clears_all_state(self):
         torch_stub = _make_torch_stub()
         with patch.dict(sys.modules, {"torch": torch_stub}):
-            from backend.src.models.basic_wrapper import BaSiCWrapper
+            from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
             w = BaSiCWrapper(device="cpu")
             # Simulate post-fit state
             w.flat_field = np.ones((8, 8, 3), np.float32)
@@ -150,7 +150,7 @@ class TestBaSiCWrapperLifecycle:
     def test_unload_idempotent(self):
         torch_stub = _make_torch_stub()
         with patch.dict(sys.modules, {"torch": torch_stub}):
-            from backend.src.models.basic_wrapper import BaSiCWrapper
+            from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
             w = BaSiCWrapper(device="cpu")
             w.unload()
             w.unload()  # must not raise
@@ -164,7 +164,7 @@ class TestLoFTRWrapperLifecycle:
         kornia_stub = _make_kornia_stub()
         mods = {"torch": torch_stub, "kornia": kornia_stub, "kornia.feature": kornia_stub.feature}
         with patch.dict(sys.modules, mods):
-            from backend.src.models.loftr_wrapper import LoFTRWrapper
+            from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
             return LoFTRWrapper(device="cpu")
 
     def test_init_accepts_device(self):
@@ -186,7 +186,7 @@ class TestLoFTRWrapperLifecycle:
         kornia_stub = _make_kornia_stub()
         mods = {"torch": torch_stub, "kornia": kornia_stub, "kornia.feature": kornia_stub.feature}
         with patch.dict(sys.modules, mods):
-            from backend.src.models.loftr_wrapper import LoFTRWrapper
+            from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
             w = LoFTRWrapper(device="cpu")
             fake_model = MagicMock()
             fake_model.cpu = MagicMock()
@@ -205,14 +205,14 @@ class TestRoMaWrapperLifecycle:
 
     def test_availability_flag_is_bool(self):
         """_ROMA_OK must be a bool regardless of whether romatch is installed."""
-        import backend.src.models.roma_wrapper as _mod
+        import backend.src.models.wrappers.roma_wrapper as _mod
         assert isinstance(_mod._ROMA_OK, bool)
 
     def test_unavailable_when_romatch_blocked(self):
         """When romatch is blocked, _ROMA_OK must be False after reload."""
         from importlib import reload
         with patch.dict(sys.modules, {"romatch": None}):
-            import backend.src.models.roma_wrapper as _mod
+            import backend.src.models.wrappers.roma_wrapper as _mod
             reload(_mod)
             assert _mod._ROMA_OK is False
 
@@ -222,7 +222,7 @@ class TestALIKEDWrapperLifecycle:
 
     def test_availability_flag_is_bool(self):
         """_KORNIA_OK must be a bool regardless of whether kornia is installed."""
-        import backend.src.models.aliked_lg_wrapper as _mod
+        import backend.src.models.wrappers.aliked_lg_wrapper as _mod
         assert isinstance(_mod._KORNIA_OK, bool)
 
     def test_unavailable_when_kornia_blocked(self):
@@ -230,7 +230,7 @@ class TestALIKEDWrapperLifecycle:
         from importlib import reload, import_module
         torch_stub = _make_torch_stub()
         with patch.dict(sys.modules, {"torch": torch_stub, "kornia": None, "kornia.feature": None}):
-            import backend.src.models.aliked_lg_wrapper as _mod
+            import backend.src.models.wrappers.aliked_lg_wrapper as _mod
             # Force reload so the try/except runs under the blocked kornia
             reload(_mod)
             assert _mod._KORNIA_OK is False
@@ -250,7 +250,7 @@ class TestUnloadIdempotency:
     def test_basic_wrapper_double_unload(self):
         torch_stub = _make_torch_stub()
         with patch.dict(sys.modules, {"torch": torch_stub}):
-            from backend.src.models.basic_wrapper import BaSiCWrapper
+            from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
             w = BaSiCWrapper(device="cpu")
             w.unload()
             w.unload()
@@ -260,7 +260,7 @@ class TestUnloadIdempotency:
         kornia_stub = _make_kornia_stub()
         mods = {"torch": torch_stub, "kornia": kornia_stub, "kornia.feature": kornia_stub.feature}
         with patch.dict(sys.modules, mods):
-            from backend.src.models.loftr_wrapper import LoFTRWrapper
+            from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
             w = LoFTRWrapper(device="cpu")
             w.unload()
             w.unload()
@@ -286,7 +286,7 @@ class TestBaSiCWrapperInterface:
     def _get_wrapper(self):
         torch_stub = _make_torch_stub()
         with patch.dict(sys.modules, {"torch": torch_stub}):
-            from backend.src.models.basic_wrapper import BaSiCWrapper
+            from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
             return BaSiCWrapper(device="cpu")
 
     @pytest.mark.parametrize("method", REQUIRED_METHODS)
@@ -314,7 +314,7 @@ class TestLoFTRWrapperInterface:
         kornia_stub = _make_kornia_stub()
         mods = {"torch": torch_stub, "kornia": kornia_stub, "kornia.feature": kornia_stub.feature}
         with patch.dict(sys.modules, mods):
-            from backend.src.models.loftr_wrapper import LoFTRWrapper
+            from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
             return LoFTRWrapper(device="cpu")
 
     @pytest.mark.parametrize("method", REQUIRED_METHODS)
@@ -352,7 +352,7 @@ class TestBiRefNetWrapperInterface:
             "PIL.Image": pil_stub.Image,
         }
         with patch.dict(sys.modules, mods):
-            from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+            from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
             return BiRefNetWrapper(device="cpu")
 
     @pytest.mark.parametrize("method", REQUIRED_METHODS)
@@ -372,7 +372,7 @@ class TestBaSiCOutputTypes:
     def test_apply_correction_returns_ndarray(self):
         torch_stub = _make_torch_stub()
         with patch.dict(sys.modules, {"torch": torch_stub}):
-            from backend.src.models.basic_wrapper import BaSiCWrapper
+            from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
             w = BaSiCWrapper(device="cpu")
             img = np.zeros((64, 64, 3), dtype=np.uint8)
             # Before fit, flat_field is None — apply_correction returns the original
@@ -383,7 +383,7 @@ class TestBaSiCOutputTypes:
     def test_apply_correction_no_fit_returns_input(self):
         torch_stub = _make_torch_stub()
         with patch.dict(sys.modules, {"torch": torch_stub}):
-            from backend.src.models.basic_wrapper import BaSiCWrapper
+            from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
             w = BaSiCWrapper(device="cpu")
             img = np.zeros((32, 32, 3), dtype=np.uint8) + 200
             result = w.apply_correction(img)
@@ -414,7 +414,7 @@ class TestBiRefNetSingleton:
             "PIL.Image": pil_stub.Image,
         }
         with patch.dict(sys.modules, mods):
-            from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+            from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
             assert hasattr(BiRefNetWrapper, "_models")
             assert isinstance(BiRefNetWrapper._models, dict)
 
@@ -434,7 +434,7 @@ class TestBiRefNetSingleton:
             "PIL.Image": pil_stub.Image,
         }
         with patch.dict(sys.modules, mods):
-            from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+            from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
             a = BiRefNetWrapper(device="cpu")
             b = BiRefNetWrapper(device="cpu")
             assert a._models is b._models

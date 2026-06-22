@@ -1,34 +1,23 @@
-pub mod crawler;
-pub mod danbooru;
-pub mod dropbox_sync;
-pub mod file_loader;
-pub mod gelbooru;
-pub mod google_drive_sync;
-pub mod image_board_crawler;
-pub mod image_crawler;
-pub mod one_drive_sync;
-#[cfg(feature = "python")]
-pub mod reverse_image_search;
-pub mod sankaku;
+pub mod crawlers;
 pub mod sync;
-pub mod web_requests;
+pub mod clients;
 
 #[cfg(feature = "python")]
-use crate::web::danbooru::DanbooruCrawlerImpl;
+use crate::web::crawlers::danbooru::DanbooruCrawlerImpl;
 #[cfg(feature = "python")]
-use crate::web::dropbox_sync::DropboxSyncImpl;
+use crate::web::sync::dropbox_sync::DropboxSyncImpl;
 #[cfg(feature = "python")]
-use crate::web::gelbooru::GelbooruCrawlerImpl;
+use crate::web::crawlers::gelbooru::GelbooruCrawlerImpl;
 #[cfg(feature = "python")]
-use crate::web::google_drive_sync::GoogleDriveSyncImpl;
+use crate::web::sync::google_drive_sync::GoogleDriveSyncImpl;
 #[cfg(feature = "python")]
-use crate::web::image_board_crawler::BoardCrawler;
+use crate::web::crawlers::image_board_crawler::BoardCrawler;
 #[cfg(feature = "python")]
-use crate::web::one_drive_sync::OneDriveSyncImpl;
+use crate::web::sync::one_drive_sync::OneDriveSyncImpl;
 #[cfg(feature = "python")]
-use crate::web::sankaku::SankakuCrawlerImpl;
+use crate::web::crawlers::sankaku::SankakuCrawlerImpl;
 #[cfg(feature = "python")]
-use crate::web::sync::SyncRunner;
+use crate::web::sync::sync::SyncRunner;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 #[cfg(feature = "python")]
@@ -39,9 +28,9 @@ use serde_json::Value;
 use std::time::Duration;
 
 #[cfg(feature = "python")]
-pub use image_crawler::run_image_crawler;
+pub use crawlers::image_crawler::run_image_crawler;
 #[cfg(feature = "python")]
-pub use reverse_image_search::run_reverse_image_search;
+pub use crawlers::reverse_image_search::run_reverse_image_search;
 
 #[cfg(feature = "python")]
 #[pyfunction]

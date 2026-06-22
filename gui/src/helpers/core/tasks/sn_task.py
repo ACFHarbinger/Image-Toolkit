@@ -16,7 +16,7 @@ class SiameseTask(QRunnable):
     @Slot()
     def run(self):
         try:
-            from backend.src.models.siamese_network import SiameseModelLoader
+            from backend.src.models.core.siamese_network import SiameseModelLoader
 
             # Get the singleton instance
             loader = SiameseModelLoader()

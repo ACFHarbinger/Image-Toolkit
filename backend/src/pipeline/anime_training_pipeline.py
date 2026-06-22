@@ -30,8 +30,8 @@ from __future__ import annotations
 # --- Relocated Nested Imports ---
 from backend.src.models.data.video_frame_extractor import VideoFrameExtractor
 import cv2
-from backend.src.models.birefnet_wrapper import BiRefNetWrapper
-from backend.src.models.basic_wrapper import BaSiCWrapper
+from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
+from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
 import numpy as np
 from PIL import Image
 from backend.src.models.data.captioner import (
@@ -45,8 +45,8 @@ from backend.src.models.data.video_frame_extractor import _phash64
 from transformers import CLIPTokenizer
 from backend.src.models.data.lora_dataset import BucketSample, LoRADatasetV2
 from backend.src.models.data.augmentations import default_anime_augmentations
-from backend.src.models.birefnet_wrapper import BiRefNetWrapper
-from backend.src.models.basic_wrapper import BaSiCWrapper
+from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
+from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
 from backend.src.models.lora_diffusion import (
 LoRATunerConfig,
 LoRATunerV2,
@@ -255,7 +255,7 @@ def _build_dataset(image_paths: list[Path], cfg: DictConfig):
     birefnet = None
     if bool(cfg.get("data", {}).get("use_birefnet", True)):
         try:
-            # relocated: from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+            # relocated: from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
 
             birefnet = BiRefNetWrapper()
         except Exception:
@@ -264,7 +264,7 @@ def _build_dataset(image_paths: list[Path], cfg: DictConfig):
     basic = None
     if bool(cfg.get("data", {}).get("use_basic", True)):
         try:
-            # relocated: from backend.src.models.basic_wrapper import BaSiCWrapper
+            # relocated: from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
 
             basic = BaSiCWrapper()
         except Exception:

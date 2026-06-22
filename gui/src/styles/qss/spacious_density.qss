@@ -1,0 +1,4 @@
+QPushButton { padding: 14px 26px; border-radius: 8px; }
+QComboBox { padding: 10px 14px; }
+QLineEdit, QSpinBox, QDoubleSpinBox { padding: 10px 8px; }
+QGroupBox { padding-top: 16px; margin-top: 8px; }

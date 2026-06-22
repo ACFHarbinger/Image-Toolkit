@@ -19,6 +19,7 @@ import shutil
 import sys
 import time
 import datetime
+import logging
 from typing import Dict, List, Optional
 
 import cv2
@@ -28,23 +29,21 @@ import torch
 sys.path.insert(0, "/home/pkhunter/Repositories/Image-Toolkit")
 os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
 
-from backend.src.animation.pipeline import AnimeStitchPipeline
-from backend.src.animation.canvas import (
+from backend.src.animation.core.pipeline import AnimeStitchPipeline
+from backend.src.animation.alignment.canvas import (
     _load_frames,
     _normalise_widths,
     _compute_canvas,
     _crop_to_valid,
     _scan_stitch_fallback,
 )
-from backend.src.animation.validation import _validate_affines
-from backend.src.animation.masking import _compute_fg_masks
-from backend.src.animation.matching import _pairwise_match
-from backend.src.animation.bundle_adjust import _bundle_adjust_affine
-from backend.src.animation.ecc import _ecc_refine
-from backend.src.animation.rendering import _render_median
-from backend.src.animation.compositing import _composite_foreground
-
-from backend.src.utils.logging.pylogger import get_pylogger
+from backend.src.animation.core.validation import _validate_affines
+from backend.src.animation.ingestion.masking import _compute_fg_masks
+from backend.src.animation.alignment.matching import _pairwise_match
+from backend.src.animation.alignment.bundle_adjust import _bundle_adjust_affine
+from backend.src.animation.alignment.ecc import _ecc_refine
+from backend.src.animation.rendering.rendering import _render_median
+from backend.src.animation.rendering.compositing import _composite_foreground
 
 # ---------------------------------------------------------------------------
 # Lazy-import heavy plotting deps so the benchmark still runs without them
@@ -83,7 +82,7 @@ _SI_FID: bool = os.environ.get("ASP_SI_FID", "0") != "0"
 _SI_FID_PATCH_SIZE: int = int(os.environ.get("ASP_SI_FID_PATCH_SIZE", "128"))
 _SI_FID_N_PATCHES: int = int(os.environ.get("ASP_SI_FID_N_PATCHES", "32"))
 
-logger = get_pylogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def _get_reward_model():
@@ -1226,7 +1225,9 @@ def _compute_all_metrics(
     }
     if _MLLM_SCORER and img is not None:
         try:
-            from backend.src.animation.mllm_scorer import score_composite as _mllm_score
+            from backend.src.animation.hitl.mllm_scorer import (
+                score_composite as _mllm_score,
+            )
 
             _ms = _mllm_score(img, model=_MLLM_MODEL)
             metrics["mllm_body_coherence"] = _ms.body_coherence
@@ -2011,7 +2012,7 @@ def _smart_select_frames(
     )
     if _needs_biref_probes:
         try:
-            from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+            from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
             import gc as _gc
             import torch as _torch
 
@@ -2364,7 +2365,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
     t0 = time.perf_counter()
     birefnet_ok = False
     try:
-        from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+        from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
 
         birefnet = BiRefNetWrapper()
         bg_masks = _compute_fg_masks(frames, birefnet)
@@ -2444,7 +2445,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
     t0 = time.perf_counter()
     loftr_ok = False
     try:
-        from backend.src.models.loftr_wrapper import LoFTRWrapper
+        from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
 
         loftr = LoFTRWrapper()
         loftr_ok = True

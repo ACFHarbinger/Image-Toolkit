@@ -50,7 +50,7 @@ def is_type_checking_block(node: ast.stmt) -> bool:
         return False
     if isinstance(node.test, ast.Name) and node.test.id == "TYPE_CHECKING":
         return True
-    return bool(isinstance(node.test, ast.Attribute) and node.test.attr == "TYPE_CHECKING")
+    return isinstance(node.test, ast.Attribute) and node.test.attr == "TYPE_CHECKING"
 
 
 def is_import_error_try_block(node: ast.stmt) -> bool:
@@ -68,11 +68,17 @@ def is_import_error_try_block(node: ast.stmt) -> bool:
     for handler in node.handlers:
         if handler.type is None:
             continue
-        if isinstance(handler.type, ast.Name) and handler.type.id in ("ImportError", "ModuleNotFoundError"):
+        if isinstance(handler.type, ast.Name) and handler.type.id in (
+            "ImportError",
+            "ModuleNotFoundError",
+        ):
             return True
         if isinstance(handler.type, ast.Tuple):
             for elt in handler.type.elts:
-                if isinstance(elt, ast.Name) and elt.id in ("ImportError", "ModuleNotFoundError"):
+                if isinstance(elt, ast.Name) and elt.id in (
+                    "ImportError",
+                    "ModuleNotFoundError",
+                ):
                     return True
     return False
 
@@ -103,7 +109,10 @@ def is_suppress_import_error_block(node: ast.stmt) -> bool:
 
             if is_suppress:
                 for arg in item.context_expr.args:
-                    if isinstance(arg, ast.Name) and arg.id in ("ImportError", "ModuleNotFoundError"):
+                    if isinstance(arg, ast.Name) and arg.id in (
+                        "ImportError",
+                        "ModuleNotFoundError",
+                    ):
                         return True
     return False
 
@@ -118,7 +127,14 @@ def is_constant_expression(node: ast.AST) -> bool:
     Returns:
         True if the expression consists only of constants and uppercase names, False otherwise.
     """
-    if isinstance(node, (ast.Constant, getattr(ast, "Str", type(None)), getattr(ast, "Num", type(None)))):
+    if isinstance(
+        node,
+        (
+            ast.Constant,
+            getattr(ast, "Str", type(None)),
+            getattr(ast, "Num", type(None)),
+        ),
+    ):
         return True
     if isinstance(node, (ast.NameConstant, getattr(ast, "NameConstant", type(None)))):
         return True
@@ -137,7 +153,9 @@ def is_constant_expression(node: ast.AST) -> bool:
     if isinstance(node, ast.BoolOp):
         return all(is_constant_expression(v) for v in node.values)
     if isinstance(node, ast.Compare):
-        return is_constant_expression(node.left) and all(is_constant_expression(v) for v in node.comparators)
+        return is_constant_expression(node.left) and all(
+            is_constant_expression(v) for v in node.comparators
+        )
     return False
 
 
@@ -158,7 +176,10 @@ def is_header_assignment(node: ast.stmt) -> bool:
     # 1. Check for os.environ[...] = ...
     for target in node.targets:
         if isinstance(target, ast.Subscript):
-            if isinstance(target.value, ast.Attribute) and target.value.attr == "environ":
+            if (
+                isinstance(target.value, ast.Attribute)
+                and target.value.attr == "environ"
+            ):
                 return True
             if isinstance(target.value, ast.Name) and target.value.id == "environ":
                 return True
@@ -247,7 +268,10 @@ def get_factory_line_ranges(tree: ast.AST) -> List[Tuple[int, int]]:
             if hasattr(node, "end_lineno"):
                 end = node.end_lineno
             else:
-                end = max((n.lineno for n in ast.walk(node) if hasattr(n, "lineno")), default=start)
+                end = max(
+                    (n.lineno for n in ast.walk(node) if hasattr(n, "lineno")),
+                    default=start,
+                )
             ranges.append((start, end))
     return ranges  # type: ignore[return-value]
 
@@ -269,7 +293,9 @@ def extract_all_imports(node: ast.AST) -> Set[ast.AST]:
     return imports  # type: ignore[return-value]
 
 
-def analyze_file(filepath: Path, ignore_factories: bool = False) -> List[Tuple[int, str]]:
+def analyze_file(
+    filepath: Path, ignore_factories: bool = False
+) -> List[Tuple[int, str]]:
     """
     Parses a Python file and returns a list of nested imports.
 
@@ -320,7 +346,10 @@ def analyze_file(filepath: Path, ignore_factories: bool = False) -> List[Tuple[i
 
     # 2. Walk the AST to find nested imports
     for node in ast.walk(tree):  # type: ignore[assignment]
-        if isinstance(node, (ast.Import, ast.ImportFrom)) and node not in valid_top_level_imports:
+        if (
+            isinstance(node, (ast.Import, ast.ImportFrom))
+            and node not in valid_top_level_imports
+        ):
             # Check if this node is inside an ignored factory class
             if any(start <= node.lineno <= end for start, end in factory_ranges):
                 continue
@@ -331,14 +360,19 @@ def analyze_file(filepath: Path, ignore_factories: bool = False) -> List[Tuple[i
                 module = node.module or ""
                 level = node.level or 0
                 prefix = ("." * level) + module
-                names = [f"{prefix}.{alias.name}" if prefix else alias.name for alias in node.names]
+                names = [
+                    f"{prefix}.{alias.name}" if prefix else alias.name
+                    for alias in node.names
+                ]
             for name in names:
                 nested_imports.append((node.lineno, name))
 
     return sorted(nested_imports, key=lambda x: x[0])
 
 
-def print_stats_table(all_results: Dict[str, List[Tuple[int, str]]], target_root: Path) -> None:
+def print_stats_table(
+    all_results: Dict[str, List[Tuple[int, str]]], target_root: Path
+) -> None:
     """
     Print a Rich table summarising nested import counts per top-level subdirectory.
 
@@ -376,11 +410,18 @@ def print_stats_table(all_results: Dict[str, List[Tuple[int, str]]], target_root
 
 def main() -> None:
     """Main entry point for the script."""
-    parser = argparse.ArgumentParser(description="Find nested/delayed imports in Python files.")
+    parser = argparse.ArgumentParser(
+        description="Find nested/delayed imports in Python files."
+    )
     parser.add_argument("directory", type=str, help="The target directory to scan")
-    parser.add_argument("-e", "--exclude", nargs="+", default=[], help="Directories to exclude")
     parser.add_argument(
-        "-i", "--ignore_factories", action="store_true", help="Ignore nested imports inside Factory classes"
+        "-e", "--exclude", nargs="+", default=[], help="Directories to exclude"
+    )
+    parser.add_argument(
+        "-i",
+        "--ignore_factories",
+        action="store_true",
+        help="Ignore nested imports inside Factory classes",
     )
     parser.add_argument(
         "--stats",

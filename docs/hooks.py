@@ -63,10 +63,10 @@ def _ensure_stub_api_pages() -> None:
     stubs = {
         DOCS / "api" / "python" / "animation.md": (
             "# ASP / Animation Module API\n\n"
-            "::: backend.src.animation.pipeline\n\n"
-            "::: backend.src.animation.compositing\n\n"
-            "::: backend.src.animation.frame_selection\n\n"
-            "::: backend.src.animation.bundle_adjust\n"
+            "::: backend.src.animation.core.pipeline\n\n"
+            "::: backend.src.animation.rendering.compositing\n\n"
+            "::: backend.src.animation.ingestion.frame_selection\n\n"
+            "::: backend.src.animation.alignment.bundle_adjust\n"
         ),
         DOCS / "api" / "python" / "core.md": (
             "# Backend Core API\n\n"
@@ -74,7 +74,7 @@ def _ensure_stub_api_pages() -> None:
             "::: backend.src.core.vault_manager\n"
         ),
         DOCS / "api" / "python" / "models.md": (
-            "# ML Models API\n\n::: backend.src.models.base\n"
+            "# ML Models API\n\n::: backend.src.models.core.base\n"
         ),
         DOCS / "api" / "rust" / "math.md": (
             "# Rust Math Backbone\n\n"

@@ -3,6 +3,15 @@
 
 set shell := ["bash", "-c"]
 
+red := '\033[0;31m'
+green := '\033[0;32m'
+yellow := '\033[0;33m'
+blue := '\033[0;34m'
+purple := '\033[0;35m'
+cyan := '\033[0;36m'
+bold := '\033[1m'
+reset := '\033[0m'
+
 # Default target - List all available recipes
 default:
     @just --list
@@ -172,6 +181,7 @@ clean:
     find . -type f -name "coverage.xml" -exec rm {} +
     find . -type f -name ".coverage" -exec rm {} +
     find . -type f -name ".gradle" -exec rm {} +
+    rm -f hs_err_pid*.log
     rm -rf backend/benchmark/output/*
     rm -rf frontend/dist/
     rm -rf frontend/build/
@@ -192,6 +202,24 @@ format:
     cd frontend/src-tauri && cargo fmt
     cd frontend && npm run format || echo "⚠️  No format script found"
     @echo "✅ Formatting complete!"
+
+# Pyrefly type checking for backend
+pyrefly-backend:
+    @printf "{{ cyan }}╔════════════════════════════════════════════════════════════╗{{ reset }}\n"
+    @printf "{{ cyan }}║{{ reset }} {{ bold }}%-58s{{ reset }}   {{ cyan }}║{{ reset }}\n" "🔍 STARTING PYREFLY TYPE CHECKING"
+    @printf "{{ cyan }}╠════════════════════════════════════════════════════════════╣{{ reset }}\n"
+    @printf "{{ cyan }}║{{ reset }} {{ yellow }}%-15s{{ reset }} {{ purple }}%-42s{{ reset }} {{ cyan }}║{{ reset }}\n" "Target:" "Backend"
+    @printf "{{ cyan }}╚════════════════════════════════════════════════════════════╝{{ reset }}\n"
+    uv run pyrefly check backend/src --output-format min-text --min-severity warn
+
+# Pyrefly type checking for GUI
+pyrefly-gui:
+    @printf "{{ cyan }}╔════════════════════════════════════════════════════════════╗{{ reset }}\n"
+    @printf "{{ cyan }}║{{ reset }} {{ bold }}%-58s{{ reset }}   {{ cyan }}║{{ reset }}\n" "🔍 STARTING PYREFLY TYPE CHECKING"
+    @printf "{{ cyan }}╠════════════════════════════════════════════════════════════╣{{ reset }}\n"
+    @printf "{{ cyan }}║{{ reset }} {{ yellow }}%-15s{{ reset }} {{ purple }}%-42s{{ reset }} {{ cyan }}║{{ reset }}\n" "Target:" "GUI"
+    @printf "{{ cyan }}╚════════════════════════════════════════════════════════════╝{{ reset }}\n"
+    uv run pyrefly check gui/src --output-format min-text --min-severity warn
 
 # --- Web Driver & Crawler ---
 
@@ -490,6 +518,81 @@ loop-agent prompt="Continue upgrading the ASP, while continuing to update the AS
         # Short cooldown pause before parsing the next sequential state change
         sleep 5
     done
+
+# --- Codebase Validation ---
+
+# Count lines of code and comments (use --group-by-dir N to aggregate by directory depth)
+count-loc group_by="0":
+    uv run python backend/src/utils/validation/count_loc.py backend/src --group-by-dir {{ group_by }}
+
+# Tree view of lines of code and comments
+tree-loc:
+    uv run python backend/src/utils/validation/tree_loc.py backend/src
+
+# Check docstring coverage
+check-docs:
+    uv run python backend/src/utils/docs/check_docstrings.py backend/src
+    uv run python backend/src/utils/docs/check_docstrings.py gui/src
+
+# Check Google style docstrings
+check-google-docs:
+    uv run python backend/src/utils/docs/check_google_style.py backend/src
+
+# Check for multiple classes in one file
+check-multi-classes:
+    uv run python backend/src/utils/validation/check_multi_classes.py backend/src
+
+# Find all relative imports (from .module import ...) with optional stats or exclude_same_package=true
+check-relative-imports exclude_same_package="":
+    uv run python backend/src/utils/validation/check_relative_imports.py backend/src \
+        --stats \
+        {{ if exclude_same_package != "" { "--exclude-same-package" } else { "" } }}
+
+# Check for nested imports (add --stats for a per-package summary table)
+check-nested-imports:
+    uv run python backend/src/utils/validation/check_nested_imports.py backend/src --ignore_factories
+
+# Check for nested imports with a per-package summary table
+check-nested-imports-stats:
+    uv run python backend/src/utils/validation/check_nested_imports.py backend/src --ignore_factories --stats
+
+# Detect circular import chains using Tarjan's SCC algorithm
+check-circular-imports html="":
+    uv run python backend/src/utils/validation/check_circular_imports.py backend/src \
+        {{ if html != "" { "--html " + html } else { "" } }}
+
+# Check that all concrete classes fully implement their ABC/Protocol interface contracts
+check-interface-compliance:
+    uv run python backend/src/utils/validation/check_interface_compliance.py backend/src
+
+# Measure type annotation coverage per file (worst-coverage files shown first)
+check-type-coverage sort="coverage" limit="40":
+    uv run python backend/src/utils/validation/check_type_coverage.py backend/src \
+        --sort {{ sort }} --limit {{ limit }}
+
+# Generate interactive module-level import graph (opens in browser)
+# Scans from repo root so backend/gui layers are correctly distinguished.
+# Use depth=N to collapse to top-N package levels; set html= to change output path.
+module-graph html="module_graph.html" depth="10":
+    uv run python backend/src/utils/validation/visualize_module_graph.py ./backend/src \
+        --exclude .venv venv node_modules \
+        --html {{ html }} --depth {{ depth }}
+
+# Create a graph with exported and imported dependencies (function, classes, etc.)
+dependency-graph target_file="backend/src/utils/decorators.py" target_name="log_call":
+    uv run python backend/src/utils/validation/trace_dependencies.py backend/src {{ target_file }} {{ target_name }}
+
+# Check for embedded languages in the Python source code
+check-embedded-languages:
+    uv run python backend/src/utils/validation/check_embedded_languages.py backend/src
+
+# Check for unused imports in the Python source code
+check-unused-imports:
+    uv run python backend/src/utils/validation/check_unused_imports.py backend/src --ignore_factories
+
+# Check uppercase constant declarations across backend and gui directories
+check-constants:
+    uv run python backend/src/utils/validation/constant_checker.py
 
 # --- Legacy/Helper ---
 

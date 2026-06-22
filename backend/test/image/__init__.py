@@ -1,0 +1,1 @@
+# Package representing image submodules

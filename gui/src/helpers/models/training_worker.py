@@ -29,7 +29,7 @@ class TrainingWorker(QThread):
             import torch
             from torchvision import datasets, transforms
             from torch.utils.data import DataLoader
-            from backend.src.models.gan import GAN
+            from backend.src.models.core.gan import GAN
 
             self.log_signal.emit(f"Setting up training on {self.device_name}...")
             device = torch.device(self.device_name)

@@ -33,7 +33,7 @@ from PySide6.QtWidgets import (
 )
 
 from .landmark_editor_dialog import LandmarkEditorDialog
-from backend.src.animation.pipeline import _build_landmark_affine
+from backend.src.animation.core.pipeline import _build_landmark_affine
 
 _RADIUS = 200.0
 _CENTRE = 230.0

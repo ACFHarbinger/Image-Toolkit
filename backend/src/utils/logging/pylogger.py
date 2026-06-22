@@ -10,7 +10,7 @@ Attributes:
     get_pylogger: Primary utility for initializing rank-zero-only loggers.
 
 Example:
-    >>> from logic.src.tracking.logging.pylogger import get_pylogger
+    >>> from backend.src.utils.logging.pylogger import get_pylogger
     >>> logger = get_pylogger(__name__)
     >>> logger.info("This message only appears once on rank zero.")
 """
@@ -20,9 +20,12 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from lightning.fabric.utilities.rank_zero import rank_zero_only
+try:
+    from lightning.fabric.utilities.rank_zero import rank_zero_only
+except ImportError:
+    from pytorch_lightning.utilities.rank_zero import rank_zero_only
 
-from logic.src.tracking.logging.structured_logging import get_structured_logger as _get_structured
+from backend.src.utils.logging.structured_logging import get_structured_logger as _get_structured
 
 
 def get_pylogger(name: str = __name__, log_file: Optional[str] = None) -> logging.Logger:

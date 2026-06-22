@@ -17,8 +17,8 @@ import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
 // Components
-import { ClickableLabel } from "../../components/ClickableLabel";
-import { MarqueeScrollArea } from "../../components/MarqueeScrollArea";
+import { ClickableLabel } from "../../components/common/ClickableLabel";
+import { MarqueeScrollArea } from "../../components/common/MarqueeScrollArea";
 import { useTwoGalleries } from "../../hooks/useTwoGalleries";
 import { GalleryItem } from "../../hooks/galleryItem";
 

@@ -30,19 +30,19 @@ import torch
 from PySide6.QtCore import QMutex, QObject, QWaitCondition, Signal
 
 from backend.src.animation import AnimeStitchPipeline
-from backend.src.models.birefnet_wrapper import BiRefNetWrapper
-from backend.src.animation.compositing import _compute_initial_boundaries
-from backend.src.animation.bundle_adjust import _bundle_adjust_affine
-from backend.src.animation.data_serialization import create_session_serializers
-from backend.src.animation.pipeline import _build_manual_edge
+from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
+from backend.src.animation.rendering.compositing import _compute_initial_boundaries
+from backend.src.animation.alignment.bundle_adjust import _bundle_adjust_affine
+from backend.src.animation.core.data_serialization import create_session_serializers
+from backend.src.animation.core.pipeline import _build_manual_edge
 from backend.src.animation.mfsr import run_mfsr
 from backend.src.animation.rlhf.feedback_store import FeedbackStore, StitchAnnotation
-from backend.src.animation.hitl_session import (
+from backend.src.animation.hitl.hitl_session import (
     save_session as _save_session_impl,
     load_session,
     autosave_path,
 )
-from backend.src.animation.video_ingestion import ingest_video
+from backend.src.animation.ingestion.video_ingestion import ingest_video
 
 # ---------------------------------------------------------------------------
 # _ProgressPipeline — AnimeStitchPipeline subclass with progress callbacks

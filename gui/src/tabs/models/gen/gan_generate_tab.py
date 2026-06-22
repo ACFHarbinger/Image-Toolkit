@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QPixmap, QImage
-from backend.src.models.gan import GAN
+from backend.src.models.core.gan import GAN
 
 
 class GANGenerateTab(QWidget):

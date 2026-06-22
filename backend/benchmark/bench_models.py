@@ -15,8 +15,8 @@ import numpy as np
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from backend.src.models.siamese_network import SiameseModelLoader
-from backend.src.models.gan_wrapper import GanWrapper
+from backend.src.models.core.siamese_network import SiameseModelLoader
+from backend.src.models.wrappers.gan_wrapper import GanWrapper
 from .utils import BenchmarkRunner, measure_memory
 
 
