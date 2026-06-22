@@ -406,5 +406,172 @@ MASKED_MEDIAN_MIN_AGREE_FRAC = 0.4  # min fraction of frames agreeing on bg valu
 # When scroll_axis='horizontal', vertical seam cuts are used instead of SCANS fallback.
 HORIZONTAL_FEATHER_PX = 120  # default feather band width (px) for horizontal-scroll seams
 
+# §3.15B: OBJ-GSP triangular mesh seam barrier (compositing.py)
+MESH_BARRIER_MIN_AREA_PX = 100
+
+# §3.10: MLLM semantic quality scoring (mllm_scorer.py)
+MLLM_TIMEOUT_SEC = 30
+MLLM_MAX_IMAGE_DIM = 1024
+MLLM_MODEL = "qwen2-vl:7b"
+
+# §3.1A: AnimeInterp SGM + §3.2A ConvGRU flow engine (animeinterp_flow.py)
+ANIMEINTERP_SPATIAL_SIGMA = 50.0
+ANIMEINTERP_GRU_ITERS = 4
+ANIMEINTERP_TRAPPED_BALL_MIN_R = 2
+ANIMEINTERP_TRAPPED_BALL_MAX_R = 8
+
+# §3.12A: Hold-block sub-pixel averaging
+HOLD_AVERAGE_ECC_ITERS = 20
+HOLD_AVERAGE_ECC_EPS = 1e-3
+
+# §3.9: SI-FID proxy metric
+SI_FID_PATCH_SIZE = 128
+SI_FID_N_PATCHES = 32
+
 # ToonCrafter
 TOONCRAFTER_REPO = "Doubiiu/ToonCrafter"
+
+# §3.16B: HITL preset system
+HITL_PRESET_DIR_DEFAULT: str = str(Path.home() / ".image-toolkit" / "hitl_presets")
+
+# §3.5B: CamFlow background-masked phase correlation
+CAM_FLOW_MIN_BG_PIXELS: int = 500
+
+# §1.88: Seam band histogram matching
+HIST_MATCH_SEAM_BAND_PX: int = 20
+
+# §1.89: Seam processing order
+SEAM_ORDER_RESIDUAL: str = "residual"
+
+# §1.90: Post-seam bilateral smoothing
+BILATERAL_SEAM_BAND_PX: int = 5
+BILATERAL_SEAM_SIGMA_SPACE: float = 3.0
+BILATERAL_SEAM_SIGMA_COLOR: float = 20.0
+
+# §3.17: High-frequency column seam cost
+HF_SEAM_COST_THRESHOLD: float = 50.0
+HF_SEAM_COST_BOOST: float = 0.5
+
+# §1.91: Iterative seam luminance convergence
+SEAM_LUM_CONVERGE_TARGET: float = 5.0
+SEAM_LUM_CONVERGE_MAX_ITERS: int = 2
+
+# §1.92: Gaussian feather smoothing
+SMOOTH_FEATHER_SIGMA: float = 1.0
+
+# §3.18: CQAS ghosting reference (above → score=0)
+CQAS_GHOSTING_REF: float = 60.0
+# §1.94: Background consistency (per-strip row-mean lum std)
+BG_CONSISTENCY_REF: float = 10.0
+
+# §1.95: Fg-zone single-pose threshold scaling
+SP_THRESH_FG_FACTOR: float = 0.7
+SP_FG_FRAC_THRESH: float = 0.5
+
+# §3.19: Per-zone pre-blend chroma alignment min shift threshold
+ZONE_CHROMA_ALIGN_MIN_SHIFT: float = 2.0
+
+# §1.97: Seam zone entropy asymmetry gate
+ENTROPY_GAP_THRESH_DEFAULT: float = 1.5
+
+# §1.98: Per-frame gain smoothing
+SMOOTH_GAIN_SIGMA: float = 1.0
+
+# §3.20: Extra fg-boundary outer dilation ring
+EXTRA_FG_DILATION_DEFAULT: int = 8
+
+# §1.99: Seam endpoint bg-preference
+SEAM_PIN_ROWS_DEFAULT: int = 3
+
+# §1.101: Full blend-zone MAD pre-escalation
+ZONE_MAD_THRESH_DEFAULT: float = 30.0
+
+# §1.102: Warp residual momentum damping
+WARP_MOMENTUM_FACTOR: float = 0.85
+
+# §1.103: Reference-proximity dominant frame selection
+SP_REF_PROX_DEFAULT: bool = False
+
+# §1.104: Per-zone luminance normalization
+ZONE_LUM_NORM_GAIN_CLAMP: float = 2.0
+
+# §1.105: Fg-overlap blend weight cap
+FG_OVERLAP_BLEND_CAP_DEFAULT: float = 0.3
+
+# §1.106: Post-composite seam lum step audit
+POST_SEAM_WARN_THRESH: float = 8.0
+
+# §1.107: Adaptive seam band width
+ADAPTIVE_SEAM_BAND_MAX: int = 40
+
+# §1.108: Laplacian blend alpha schedule
+LAPLACIAN_ALPHA_FINE_WEIGHT: float = 0.3
+
+# §1.109: Seam cost map normalization
+COST_MAP_NORM_BARRIER: float = 1e5
+
+# §1.110: Seam cost map Gaussian blur sigma
+COST_MAP_BLUR_SIGMA: float = 2.0
+
+# §1.111: Zone background saturation normalization gain clamp
+ZONE_SAT_NORM_GAIN_CLAMP: float = 2.0
+
+# §1.112: Seam path vertical drift gate
+SEAM_DRIFT_THRESH: float = 15.0
+
+# §3.25: Seam boundary entropy band width
+SEAM_BOUNDARY_ENTROPY_BAND_PX: int = 15
+
+# §1.113: Seam cost map column-wise smooth sigma
+COST_COL_SMOOTH_SIGMA: float = 1.5
+
+# §1.114: Zone RMS contrast equalization clamp
+ZONE_CONTRAST_EQ_CLAMP: float = 2.0
+
+# §1.115: Absolute feather jump cap
+FEATHER_JUMP_MAX_DEFAULT: int = 150
+
+# §1.116: Blend zone bg-fraction diagnostic
+ZONE_BG_FRAC_DIAG_KEY: str = "zone_bg_fracs"
+
+# §1.117: Fast zone NCC pre-gate thumbnail size
+ZONE_FAST_NCC_THUMB_SIZE: int = 32
+
+# §1.118: Post-composite seam sharpness guard
+SEAM_SHARP_BAND_PX: int = 5
+
+# §1.119: Seam zone width variance gate
+ZONE_WIDTH_CV_MAX_DEFAULT: float = 0.5
+
+# §1.120: Post-composite saturation step audit
+SEAM_SAT_WARN_THRESH_DEFAULT: float = 15.0
+SEAM_SAT_BAND_PX: int = 5
+
+# §1.121: Zone histogram intersection pre-gate
+ZONE_HIST_THRESH_DEFAULT: float = 0.4
+ZONE_HIST_BINS: int = 32
+
+# §3.28: Seam boundary gradient direction coherence metric
+SEAM_GRAD_COHERENCE_BAND_PX: int = 8
+
+# §1.122: High seam path cost escalation
+HIGH_PATH_COST_THRESH_DEFAULT: float = 0.6
+
+# §1.123: Local scatter penalty in seam cost
+SCATTER_COST_WEIGHT_DEFAULT: float = 0.3
+
+# §1.124: Adaptive single-pose soft-edge width from seam residual
+ADAPTIVE_SP_SOFT_MIN: int = 3
+ADAPTIVE_SP_SOFT_MAX: int = 10
+
+# §3.29: Blend zone coverage fraction metric
+ZONE_COVERAGE_N_STRIPS: int = 8
+
+# §1.125: Seam transition straightness penalty default
+SEAM_TRANSITION_PEN_DEFAULT: float = 0.0
+
+# §1.126: Fg-majority column floor in seam cost map
+FG_MAJORITY_FLOOR_DEFAULT: float = 0.0
+
+# §1.127: Minimum hue difference (degrees) for zone hue equalization to fire
+ZONE_HUE_EQ_MIN_DIFF_DEG: float = 5.0

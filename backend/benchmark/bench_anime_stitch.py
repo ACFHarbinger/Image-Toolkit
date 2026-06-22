@@ -56,6 +56,15 @@ _RLHF_FLAG_THRESHOLD = 0.6
 _RLHF_UNCERTAINTY_THRESHOLD = 0.10  # §1.10D: MC-dropout std above this → needs review
 _reward_model = None  # lazy-loaded singleton
 
+# §3.10: MLLM semantic quality scoring via ollama
+_MLLM_SCORER: bool = os.environ.get("ASP_MLLM_SCORER", "0") != "0"
+_MLLM_MODEL: str = os.environ.get("ASP_MLLM_MODEL", "qwen2-vl:7b")
+
+# §3.9: SI-FID proxy (patch Laplacian sharpness ratio)
+_SI_FID: bool = os.environ.get("ASP_SI_FID", "0") != "0"
+_SI_FID_PATCH_SIZE: int = int(os.environ.get("ASP_SI_FID_PATCH_SIZE", "128"))
+_SI_FID_N_PATCHES: int = int(os.environ.get("ASP_SI_FID_N_PATCHES", "32"))
+
 
 def _get_reward_model():
     """Lazily load StitchRewardModel; returns None on any import / init error."""
@@ -644,6 +653,470 @@ def _composite_quality_score(
     return round((ncc_term + color_term + ghost_term) / 3.0, 4)
 
 
+def _chroma_seam_coherence(img: np.ndarray, n_strips: int = 8) -> float:
+    """§1.96: Per-strip LAB a/b variance across strip boundaries (S149).
+
+    Converts *img* to LAB and measures the per-strip mean of the 'a' and 'b'
+    channels.  Computes the max absolute step between adjacent strip-mean
+    values at the n_strips-1 inter-strip boundaries.  A high step means a
+    visible colour-temperature discontinuity between stitched strips.
+    Returns 0.0 for degenerate images (height < 4 or n_strips < 2).
+
+    Score range: 0 = no chroma step; higher = worse chroma banding.
+    """
+    if img is None or img.ndim != 3 or img.shape[0] < 4 or n_strips < 2:
+        return 0.0
+    H = img.shape[0]
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB).astype(np.float32)
+    strip_h = H // n_strips
+    if strip_h < 1:
+        return 0.0
+    strip_means = []
+    for i in range(n_strips):
+        y0 = i * strip_h
+        y1 = y0 + strip_h
+        strip = lab[y0:y1]
+        m = float(np.abs(strip[..., 1:]).mean())
+        strip_means.append(m)
+    if len(strip_means) < 2:
+        return 0.0
+    diffs = [abs(strip_means[i + 1] - strip_means[i]) for i in range(len(strip_means) - 1)]
+    return float(max(diffs))
+
+
+def _strip_gradient_cv(img: np.ndarray, n_strips: int = 8) -> float:
+    """§3.21: Coefficient of variation of per-strip Laplacian energy (S150).
+
+    Splits the image into *n_strips* equal horizontal strips and computes the
+    mean absolute Laplacian energy per strip.  Returns the coefficient of
+    variation (std / mean) across strips.  A high CV means some strips are much
+    sharper or blurrier than adjacent ones — a signature of seam-induced
+    sharpness discontinuities.  Returns 0.0 for degenerate inputs.
+    """
+    if img is None or img.ndim != 3 or img.shape[0] < n_strips or n_strips < 2:
+        return 0.0
+    H = img.shape[0]
+    strip_h = H // n_strips
+    if strip_h < 1:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    energies = []
+    for i in range(n_strips):
+        y0 = i * strip_h
+        y1 = y0 + strip_h
+        lap = cv2.Laplacian(gray[y0:y1], cv2.CV_64F)
+        energies.append(float(np.mean(np.abs(lap))))
+    mean_e = float(np.mean(energies))
+    if mean_e < 1e-6:
+        return 0.0
+    return float(np.std(energies) / mean_e)
+
+
+def _seam_contrast_ratio(img: np.ndarray, n_strips: int = 8, band_px: int = 10) -> float:
+    """§3.22: Ratio of seam-boundary gradient energy to interior gradient energy (S151).
+
+    Splits the image into *n_strips* horizontal strips.  At each inter-strip
+    boundary, measures mean absolute Laplacian energy in a ±*band_px* row band
+    (seam region) vs. the energy in the non-band pixels.  Returns the ratio
+    seam_energy / interior_energy.  Values near 1.0 indicate no seam artifact;
+    values > 1.5 indicate visible boundary sharpness discontinuities.
+    Returns 1.0 (neutral) for degenerate inputs.
+    """
+    if img is None or img.ndim != 3 or img.shape[0] < n_strips * 2 or n_strips < 2:
+        return 1.0
+    H = img.shape[0]
+    strip_h = H // n_strips
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    lap = np.abs(cv2.Laplacian(gray, cv2.CV_32F))
+
+    seam_rows = set()
+    for i in range(1, n_strips):
+        boundary = i * strip_h
+        for r in range(max(0, boundary - band_px), min(H, boundary + band_px)):
+            seam_rows.add(r)
+
+    seam_mask = np.zeros(H, dtype=bool)
+    for r in seam_rows:
+        seam_mask[r] = True
+
+    seam_energy = float(lap[seam_mask].mean()) if seam_mask.any() else 0.0
+    interior_energy = float(lap[~seam_mask].mean()) if (~seam_mask).any() else 0.0
+
+    if interior_energy < 1e-6:
+        return 1.0
+    return float(seam_energy / interior_energy)
+
+
+def _seam_col_spread(img: np.ndarray, n_strips: int = 8) -> float:
+    """§3.23: Std of per-strip horizontal gradient peak position (S152).
+
+    For each strip, finds the column of maximum horizontal gradient magnitude
+    (the most likely seam column if any exists).  Returns the std of these
+    peak columns, normalized by image width.  A low normalized std means all
+    strips pick the same seam column (concentrated routing); a high value
+    means the gradients are spread across columns (good background routing).
+    Returns 0.0 for degenerate inputs.
+    """
+    if img is None or img.ndim != 3 or img.shape[0] < n_strips or n_strips < 2:
+        return 0.0
+    H, W = img.shape[:2]
+    if W < 2:
+        return 0.0
+    strip_h = H // n_strips
+    if strip_h < 1:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    sobelx = np.abs(cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3))
+    peaks = []
+    for i in range(n_strips):
+        y0 = i * strip_h
+        y1 = y0 + strip_h
+        col_energy = sobelx[y0:y1].mean(axis=0)
+        peaks.append(int(np.argmax(col_energy)))
+    return float(np.std(peaks) / W)
+
+
+def _seam_row_std(img: np.ndarray, n_strips: int = 8) -> float:
+    """§3.24: Max per-boundary row pixel std, normalized by 255 (S153).
+
+    For each inter-strip boundary row, computes the std of BGR pixel values
+    across the width of that row.  Returns the maximum std divided by 255.
+    A high value means at least one boundary row has strong horizontal variation
+    (abrupt color transition = visible seam).  Returns 0.0 for degenerate inputs.
+    """
+    if img is None or img.ndim != 3 or img.shape[0] < n_strips or n_strips < 2:
+        return 0.0
+    H, W = img.shape[:2]
+    strip_h = H // n_strips
+    if strip_h < 1:
+        return 0.0
+    max_std = 0.0
+    for i in range(1, n_strips):
+        row_idx = i * strip_h
+        if row_idx >= H:
+            continue
+        row = img[row_idx].astype(np.float32)  # (W, 3)
+        row_std = float(row.std())
+        max_std = max(max_std, row_std)
+    return float(max_std / 255.0)
+
+
+def _strip_sat_cv(img: np.ndarray, n_strips: int = 8) -> float:
+    """§3.26: Coefficient of variation of per-strip mean HSV saturation (S155).
+
+    Converts *img* to HSV and measures mean saturation in each horizontal
+    strip.  Returns std / mean across strips.  High CV = strips have very
+    different saturation levels (photometric banding).  Returns 0.0 for
+    degenerate inputs (< 2 strips, height too small, zero mean saturation).
+    """
+    if img is None or img.ndim != 3 or img.shape[0] < n_strips or n_strips < 2:
+        return 0.0
+    H = img.shape[0]
+    strip_h = H // n_strips
+    if strip_h < 1:
+        return 0.0
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV).astype(np.float32)
+    sat = hsv[..., 1]
+    means = []
+    for i in range(n_strips):
+        y0 = i * strip_h
+        y1 = y0 + strip_h
+        means.append(float(sat[y0:y1].mean()))
+    mean_sat = float(np.mean(means))
+    if mean_sat < 1e-6:
+        return 0.0
+    return float(np.std(means) / mean_sat)
+
+
+def _seam_band_ncc(img: np.ndarray, n_strips: int = 8, band_px: int = 10) -> float:
+    """§3.27: Minimum NCC between strip boundary bands (S156).
+
+    For each inter-strip boundary, computes the normalized cross-correlation
+    between the *band_px*-row band immediately above and the band immediately
+    below.  Returns the minimum NCC across all boundaries.  Values near 1.0
+    indicate seamless transitions; values near 0 or negative indicate visible
+    discontinuities.  Returns 1.0 (neutral) for degenerate inputs.
+    """
+    if img is None or img.ndim != 3 or img.shape[0] < n_strips * 2 or n_strips < 2:
+        return 1.0
+    H = img.shape[0]
+    strip_h = H // n_strips
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    min_ncc = 1.0
+    for i in range(1, n_strips):
+        boundary = i * strip_h
+        above = gray[max(0, boundary - band_px): boundary].ravel()
+        below = gray[boundary: min(H, boundary + band_px)].ravel()
+        if len(above) < 4 or len(below) < 4:
+            continue
+        n = min(len(above), len(below))
+        a, b = above[:n], below[:n]
+        a = a - a.mean()
+        b = b - b.mean()
+        denom = float(np.linalg.norm(a) * np.linalg.norm(b))
+        if denom < 1e-6:
+            continue
+        ncc = float(np.dot(a, b) / denom)
+        min_ncc = min(min_ncc, ncc)
+    return float(min_ncc)
+
+
+def _seam_row_grad_coherence(img: np.ndarray, n_strips: int = 8, band_px: int = 8) -> float:
+    """§3.28: Mean angular coherence of Sobel gradient at seam boundary rows (S157).
+
+    For each inter-strip boundary, computes Sobel-X and Sobel-Y in a ±*band_px*
+    row band, then measures the circular mean resultant length R = |mean(exp(2jθ))|
+    where θ = atan2(Gy, Gx).  R near 1.0 means gradient directions are uniform
+    (likely a real edge); R near 0 means isotropic noise (no structural seam).
+    Returns the *minimum* R across all boundaries — a low minimum indicates a
+    seam boundary where the local texture has no dominant orientation (smooth
+    transition region that shouldn't look like a hard edge).
+    Returns 1.0 for degenerate inputs.
+    """
+    if img is None or img.ndim != 3 or img.shape[0] < n_strips * 2 or n_strips < 2:
+        return 1.0
+    H = img.shape[0]
+    strip_h = H // n_strips
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    min_r = 1.0
+    for i in range(1, n_strips):
+        boundary = i * strip_h
+        y0 = max(0, boundary - band_px)
+        y1 = min(H, boundary + band_px)
+        if y1 - y0 < 2:
+            continue
+        band = gray[y0:y1]
+        gx = cv2.Sobel(band, cv2.CV_64F, 1, 0, ksize=3).ravel()
+        gy = cv2.Sobel(band, cv2.CV_64F, 0, 1, ksize=3).ravel()
+        mag = np.sqrt(gx ** 2 + gy ** 2)
+        strong = mag > 1e-3
+        if strong.sum() < 4:
+            continue
+        angles = np.arctan2(gy[strong], gx[strong])
+        cos_m = float(np.cos(2 * angles).mean())
+        sin_m = float(np.sin(2 * angles).mean())
+        r = float(np.sqrt(cos_m ** 2 + sin_m ** 2))
+        min_r = min(min_r, r)
+    return float(min_r)
+
+
+def _seam_boundary_entropy(img: np.ndarray, n_strips: int = 8, band_px: int = 15) -> List[float]:
+    """§3.25: Normalised Shannon entropy at each seam boundary band (S154).
+
+    For each inter-strip boundary, takes a ±band_px row window and computes the
+    Shannon entropy of the 256-bin greyscale intensity histogram, normalised to
+    [0, 1] by dividing by log2(256)=8.  High entropy = complex/varied texture at
+    the seam (more likely to be visible); low entropy = uniform region (less
+    visible seam step).
+
+    Returns a list of ``n_strips - 1`` float values.  Returns [] for degenerate
+    inputs (too few strips, too small image).
+    """
+    if img is None or img.ndim < 2 or n_strips < 2:
+        return []
+    H = img.shape[0]
+    strip_h = H // n_strips
+    if strip_h < 1:
+        return []
+    gray = img if img.ndim == 2 else (
+        img.astype(np.float32).dot(np.array([0.114, 0.587, 0.299])).astype(np.uint8)
+    )
+    scores: List[float] = []
+    for i in range(1, n_strips):
+        row = i * strip_h
+        y0 = max(0, row - band_px)
+        y1 = min(H, row + band_px)
+        if y1 <= y0:
+            scores.append(0.0)
+            continue
+        band = gray[y0:y1].ravel()
+        hist, _ = np.histogram(band, bins=256, range=(0, 256))
+        hist = hist[hist > 0].astype(np.float64)
+        p = hist / hist.sum()
+        entropy = float(-np.sum(p * np.log2(p))) / 8.0
+        scores.append(float(np.clip(entropy, 0.0, 1.0)))
+    return scores
+
+
+def _zone_coverage_fraction(img: np.ndarray, n_strips: int = 8) -> float:
+    """§3.29: Fraction of image height covered by inter-strip blend zones (S158).
+
+    Approximates how much of the canvas is occupied by transition/blend regions
+    versus clean single-frame content.  High fraction → blend zones dominate the
+    output and seam quality matters more; low fraction → most rows are single-frame
+    and seam placement has smaller visual impact.
+
+    Computation: ``n_strips − 1`` seam boundaries, each with an estimated blend
+    band of strip_h // 3 rows on each side.  Total blend rows capped at H so the
+    fraction stays in [0, 1].
+
+    Returns 0.0 for degenerate inputs.
+    """
+    if img is None or img.ndim != 3 or img.shape[0] < n_strips or n_strips < 2:
+        return 0.0
+    H = img.shape[0]
+    strip_h = H // n_strips
+    if strip_h < 1:
+        return 0.0
+    approx_feather = max(1, strip_h // 3)
+    n_boundaries = n_strips - 1
+    total_blend_rows = min(H, n_boundaries * 2 * approx_feather)
+    return float(total_blend_rows / H)
+
+
+def _strip_self_ssim(img: np.ndarray, n_strips: int = 8) -> float:
+    """§3.30: Per-strip top/bottom NCC self-consistency metric (S159).
+
+    Splits each of the *n_strips* horizontal bands in half and computes the
+    Normalized Cross-Correlation (NCC) between the top and bottom halves.  A
+    clean, spatially smooth strip should score close to 1.0; a strip that
+    straddles a visible seam or has a brightness jump will score lower.
+
+    Returns the minimum NCC across all strips.  Range [−1, 1]; values near 1.0
+    indicate uniform strips.  Returns 0.0 for degenerate inputs (image too small
+    or single-channel).
+
+    NCC is computed on the grayscale version of each half-strip resized to a
+    common thumbnail height (32 px) to make the measure resolution-independent.
+    """
+    if img is None or img.ndim != 3 or img.shape[0] < n_strips * 2:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    H = gray.shape[0]
+    strip_h = H // n_strips
+    if strip_h < 2:
+        return 0.0
+    thumb_h = 32
+    scores = []
+    for i in range(n_strips):
+        y0 = i * strip_h
+        y1 = y0 + strip_h
+        half = (y1 - y0) // 2
+        if half < 1:
+            continue
+        top = gray[y0: y0 + half, :]
+        bot = gray[y0 + half: y1, :]
+        # Resize to common height so NCC isn't biased by unequal sizes
+        top_t = cv2.resize(top, (top.shape[1], thumb_h), interpolation=cv2.INTER_AREA)
+        bot_t = cv2.resize(bot, (bot.shape[1], thumb_h), interpolation=cv2.INTER_AREA)
+        top_f = top_t.ravel() - top_t.mean()
+        bot_f = bot_t.ravel() - bot_t.mean()
+        denom = (np.linalg.norm(top_f) * np.linalg.norm(bot_f))
+        if denom < 1e-6:
+            scores.append(1.0)
+        else:
+            scores.append(float(np.clip(np.dot(top_f, bot_f) / denom, -1.0, 1.0)))
+    return float(min(scores)) if scores else 0.0
+
+
+def _compute_cqas(metrics: dict) -> Optional[float]:
+    """§3.18 Composite Quality Aggregate Score — single [0,1] quality signal (S148).
+
+    Combines four complementary no-reference metrics into one scalar, useful
+    especially for the 43 GT-less tests where GT-SSIM is unavailable.
+    Higher = better quality.
+
+    Components (all normalized to [0, 1]):
+      ghosting_siqe  : 0=clean → 1.0; ≥60=ghost → 0.0  (weight 0.35)
+      seam_visibility: 0=invisible → 1.0; ≥25=hard-cut → 0.0  (weight 0.30)
+      seam_coherence : 0=coherent → 1.0; ≥50=incoherent → 0.0  (weight 0.20)
+      sharpness      : corpus ref ~100; clamped to [0, 1]  (weight 0.15)
+
+    Returns None only when all four metrics are None.
+    """
+    g = metrics.get("ghosting_siqe")
+    g_score = float(np.clip(1.0 - g / 60.0, 0.0, 1.0)) if g is not None else None
+
+    sv = metrics.get("seam_visibility")
+    sv_score = float(np.clip(1.0 - sv / 25.0, 0.0, 1.0)) if sv is not None else None
+
+    sc = metrics.get("seam_coherence")
+    sc_score = float(np.clip(1.0 - sc / 50.0, 0.0, 1.0)) if sc is not None else None
+
+    sh = metrics.get("sharpness")
+    sh_score = float(np.clip(sh / 100.0, 0.0, 1.0)) if sh is not None else None
+
+    components = [(g_score, 0.35), (sv_score, 0.30), (sc_score, 0.20), (sh_score, 0.15)]
+    available = [(s, w) for s, w in components if s is not None]
+    if not available:
+        return None
+    total_w = sum(w for _, w in available)
+    return round(sum(s * w for s, w in available) / total_w, 4)
+
+
+def _bg_consistency_score(img: np.ndarray, n_strips: int = 1) -> float:
+    """§1.94 Background plate row consistency score (S148).
+
+    Measures per-row luminance variance within each horizontal strip.
+    High variance within a strip signals a corrupted background plate
+    (inconsistent temporal median rows).  Returns mean per-row luminance
+    std across all strips, in [0, ∞); lower = more consistent background.
+    Useful for detecting §1.87 masked-median failures.
+    """
+    if img is None or img.size == 0:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img.copy()
+    H = gray.shape[0]
+    strip_h = max(1, H // max(1, n_strips))
+    stds: List[float] = []
+    for s in range(n_strips):
+        y0 = s * strip_h
+        y1 = min(H, (s + 1) * strip_h)
+        strip = gray[y0:y1]
+        if strip.shape[0] == 0:
+            continue
+        row_means = strip.mean(axis=1).astype(np.float32)
+        stds.append(float(row_means.std()))
+    return round(float(np.mean(stds)) if stds else 0.0, 2)
+
+
+def _compute_si_fid_score(
+    asp_img: np.ndarray,
+    sim_img: np.ndarray,
+    patch_size: int = 128,
+    n_patches: int = 32,
+    seed: int = 42,
+) -> Optional[float]:
+    """§3.9: SI-FID proxy — ratio of patch Laplacian sharpness (ASP / simple_stitch).
+
+    Samples ``n_patches`` random patches from each image, computes the mean
+    Laplacian variance (a reference-free sharpness proxy), and returns
+    ``asp_sharpness / sim_sharpness``.  Values > 1.0 mean ASP is sharper;
+    < 1.0 means simple_stitch is sharper.  Returns None on any error (e.g.
+    images too small, mismatched shape).
+
+    This is a zero-dep proxy for the Self-Inception FID (SI-FID) quality
+    signal: it uses the same interpretable "sharpness ratio" axis without
+    requiring an InceptionV3 forward pass.  The ratio is computed from
+    identically-sampled patch locations so spatial sampling bias cancels.
+    """
+    if asp_img is None or sim_img is None:
+        return None
+    try:
+        h = min(asp_img.shape[0], sim_img.shape[0])
+        w = min(asp_img.shape[1], sim_img.shape[1])
+        if h < patch_size or w < patch_size:
+            return None
+        rng = np.random.default_rng(seed)
+        ys = rng.integers(0, h - patch_size, size=n_patches)
+        xs = rng.integers(0, w - patch_size, size=n_patches)
+        asp_var, sim_var = [], []
+        for y, x in zip(ys, xs):
+            pa = asp_img[y : y + patch_size, x : x + patch_size]
+            ps = sim_img[y : y + patch_size, x : x + patch_size]
+            ga = cv2.cvtColor(pa, cv2.COLOR_BGR2GRAY) if pa.ndim == 3 else pa
+            gs = cv2.cvtColor(ps, cv2.COLOR_BGR2GRAY) if ps.ndim == 3 else ps
+            asp_var.append(cv2.Laplacian(ga, cv2.CV_64F).var())
+            sim_var.append(cv2.Laplacian(gs, cv2.CV_64F).var())
+        asp_mean = float(np.mean(asp_var))
+        sim_mean = float(np.mean(sim_var))
+        if sim_mean < 1e-9:
+            return None
+        return round(asp_mean / sim_mean, 4)
+    except Exception:
+        return None
+
+
 def _compute_all_metrics(
     img: np.ndarray,
     affines: Optional[List] = None,
@@ -663,7 +1136,7 @@ def _compute_all_metrics(
     _rlhf_needs_review = (
         rlhf_unc is not None and rlhf_unc > _RLHF_UNCERTAINTY_THRESHOLD
     )
-    return {
+    metrics = {
         "sharpness": round(_sharpness(img), 2),
         "coverage": round(_coverage(img), 4),
         "seam_gradient": round(_mean_seam_gradient(img, affines), 3),
@@ -686,7 +1159,47 @@ def _compute_all_metrics(
         "rlhf_flagged": (rlhf is not None and rlhf < _RLHF_FLAG_THRESHOLD),
         "rlhf_uncertainty": round(rlhf_unc, 4) if rlhf_unc is not None else None,
         "rlhf_needs_review": _rlhf_needs_review,
+        "mllm_body_coherence": None,
+        "mllm_seam_quality": None,
+        "mllm_bg_consistency": None,
+        "mllm_overall": None,
     }
+    if _MLLM_SCORER and img is not None:
+        try:
+            from backend.src.anim.mllm_scorer import score_composite as _mllm_score
+            _ms = _mllm_score(img, model=_MLLM_MODEL)
+            metrics["mllm_body_coherence"] = _ms.body_coherence
+            metrics["mllm_seam_quality"] = _ms.seam_quality
+            metrics["mllm_bg_consistency"] = _ms.bg_consistency
+            metrics["mllm_overall"] = _ms.overall
+        except Exception as _exc:
+            logger.warning("[bench] MLLM scoring failed: %s", _exc)
+    # §3.18 — CQAS aggregate quality score and §1.94 background consistency.
+    metrics["cqas"] = _compute_cqas(metrics)
+    metrics["bg_consistency_score"] = _bg_consistency_score(img, n_strips)
+    # §1.96 — Chroma seam coherence.
+    metrics["chroma_seam_coherence"] = _chroma_seam_coherence(img, n_strips=8)
+    # §3.21 — Per-strip Laplacian energy CV.
+    metrics["strip_gradient_cv"] = _strip_gradient_cv(img, n_strips=8)
+    # §3.22 — Seam boundary vs interior gradient energy ratio.
+    metrics["seam_contrast_ratio"] = _seam_contrast_ratio(img, n_strips=8, band_px=10)
+    # §3.23 — Seam-path column distribution spread.
+    metrics["seam_col_spread"] = _seam_col_spread(img, n_strips=8)
+    metrics["seam_row_std"] = _seam_row_std(img, n_strips=8)
+    metrics["strip_sat_cv"] = _strip_sat_cv(img, n_strips=8)
+    # §3.27 — Minimum NCC between strip boundary bands.
+    metrics["seam_band_ncc_min"] = _seam_band_ncc(img, n_strips=8, band_px=10)
+    # §3.28 — Seam boundary gradient direction coherence.
+    metrics["seam_grad_coherence_min"] = _seam_row_grad_coherence(img, n_strips=8, band_px=8)
+    # §3.25 — Seam boundary entropy.
+    _sbe = _seam_boundary_entropy(img, n_strips=n_strips, band_px=15)
+    metrics["seam_boundary_entropies"] = _sbe
+    metrics["seam_boundary_entropy_max"] = float(max(_sbe)) if _sbe else None
+    # §3.29 — Blend zone coverage fraction (S158).
+    metrics["zone_coverage_fraction"] = _zone_coverage_fraction(img, n_strips=8)
+    # §3.30 — Per-strip top/bottom NCC self-consistency (S159).
+    metrics["strip_self_ssim"] = round(_strip_self_ssim(img, n_strips=8), 4)
+    return metrics
 
 
 # ============================================================================
@@ -2506,6 +3019,13 @@ def _build_result(
 ) -> Dict:
     asp_metrics = _compute_all_metrics(asp_img, affines) if asp_img is not None else {}
     sim_metrics = _compute_all_metrics(sim_img) if sim_img is not None else {}
+    si_fid_ratio: Optional[float] = None
+    if _SI_FID and asp_img is not None and sim_img is not None:
+        si_fid_ratio = _compute_si_fid_score(
+            asp_img, sim_img,
+            patch_size=_SI_FID_PATCH_SIZE,
+            n_patches=_SI_FID_N_PATCHES,
+        )
 
     ssim_val = float("nan")
     psnr_val = float("nan")
@@ -2617,6 +3137,7 @@ def _build_result(
         "comparison": {
             "ssim": round(ssim_val, 4) if not math.isnan(ssim_val) else None,
             "psnr_db": round(psnr_val, 2) if not math.isnan(psnr_val) else None,
+            "si_fid": si_fid_ratio,
             # GT-based verdict when available (most reliable); CV-based otherwise
             "verdict": gt_ver
             if gt_ver is not None
@@ -2820,6 +3341,22 @@ def generate_json_results(results: List[Dict], suite_start_time: float) -> str:
                 4,
             )
             if any(r.get("ground_truth", {}).get("available") for r in results)
+            else None,
+            "avg_mllm_overall": round(
+                float(
+                    np.mean(
+                        [
+                            r["metrics_asp"]["mllm_overall"]
+                            for r in results
+                            if r.get("metrics_asp", {}).get("mllm_overall") is not None
+                        ]
+                    )
+                ),
+                4,
+            )
+            if any(
+                r.get("metrics_asp", {}).get("mllm_overall") is not None for r in results
+            )
             else None,
         },
         "datasets": results,

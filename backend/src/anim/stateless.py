@@ -72,6 +72,7 @@ def _laplacian_blend(
     b: np.ndarray,
     mask_float: np.ndarray,
     bands: int = LAPLACIAN_BANDS,
+    alpha_schedule: bool = False,
 ) -> np.ndarray:
     """
     Multi-band (Laplacian pyramid) blending.
@@ -114,6 +115,17 @@ def _laplacian_blend(
     result = blended[0]
     for k in range(1, bands):
         result = cv2.pyrUp(result, dstsize=blended[k].shape[1::-1]) + blended[k]
+
+    # §1.108: Alpha schedule — mix a sharp-masked fine-frequency version (30%)
+    # with the Laplacian result (70%) to reduce HF colour bleeding at edges.
+    if alpha_schedule:
+        sharp_mask = mask_float[:, :, np.newaxis].astype(np.float32) ** 2
+        sharp_blend = (
+            a.astype(np.float32) * sharp_mask
+            + b.astype(np.float32) * (1.0 - sharp_mask)
+        )
+        result = np.clip(0.3 * sharp_blend + 0.7 * result, 0, 255)
+
     return np.clip(result, 0, 255).astype(np.uint8)
 
 

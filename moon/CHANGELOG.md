@@ -4,6 +4,472 @@
 
 ---
 
+## Anime Stitch Pipeline — Session 159 (2026-06-22)
+
+*Four improvements: seam transition straightness penalty, per-strip top/bottom NCC self-consistency metric, fg-majority column floor in seam cost map, and per-zone HSV hue equalization.*
+
+### §1.125 — Seam Transition Straightness Penalty (`backend/src/anim/compositing.py`)
+
+- `_SEAM_TRANSITION_PEN` (default 0.0) adds a row-distance-from-midline cost to the energy matrix in `_seam_cut` before the DP forward pass. The distance is normalised to [0, 1] so the penalty is scale-invariant across zone heights. Creates a mild prior toward straight horizontal seam paths running through the zone centre. High values (e.g. 50) strongly constrain the seam near the midline; low values preserve natural low-energy routing around fg content. Enable: `ASP_SEAM_TRANSITION_PEN=<float>`.
+
+### §3.30 — Per-Strip Top/Bottom NCC Self-Consistency (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_strip_self_ssim(img, n_strips=8) → float` — splits each horizontal band in half and computes the Normalized Cross-Correlation (NCC) between the top and bottom halves at thumbnail scale (32 px height). Returns the minimum NCC across all strips. A clean uniform strip scores ≈1.0; a strip straddling a visible seam or brightness jump scores lower. Added as `strip_self_ssim` to all benchmark result dicts.
+
+### §1.126 — Fg-Majority Column Floor in Seam Cost Map (`backend/src/anim/compositing.py`)
+
+- `_FG_MAJORITY_FLOOR` (default 0.0 = off) gates on `_build_seam_cost_map`: when the entire blend zone is >60% fg interior (cost ≥ 1.0), raises columns that are >80% fg to at least `_FG_MAJORITY_FLOOR`, pushing the DP seam toward the minority background/low-cost corridor columns. Guard: skipped when all columns are heavy (no corridor available). Enable: `ASP_FG_MAJORITY_FLOOR=<float>` (e.g. 1.5).
+
+### §1.127 — Per-Zone HSV Hue Equalization (`backend/src/anim/compositing.py`)
+
+- `_zone_hue_eq(fa_zone, fb_zone) → np.ndarray` — shifts the circular mean hue of `fb_zone` to match `fa_zone` using HSV hue channel. Only fires when the mean hue difference exceeds `ZONE_HUE_EQ_MIN_DIFF_DEG=5°` (OpenCV convention: 0–180). Shift clamped to [−30°, +30°] to prevent extreme corrections. Chained after `_ZONE_CONTRAST_EQ` in the `_fb_for_blend` block of the normal blend branch. Enable: `ASP_ZONE_HUE_EQ=1`.
+
+**Test suite: 1252 passed (+20 from 1232), 5 failed (pre-existing ptlflow), 9 skipped.**
+
+---
+
+## Anime Stitch Pipeline — Session 158 (2026-06-22)
+
+*Four improvements: high seam path cost escalation gate, local scatter penalty in seam cost map, adaptive single-pose soft-edge width from seam residual, and blend zone coverage fraction metric.*
+
+### §1.122 — High Seam Path Cost Escalation (`backend/src/anim/compositing.py`)
+
+- `_mean_path_cost(path_local, cost_map) → float` — computes the mean seam cost value sampled along the selected DP path. When `ASP_HIGH_PATH_COST_THRESH > 0` and mean path cost exceeds threshold, escalates to single-pose before blending. Complementary to §1.69 (bg-ratio gate): catches routes that nominally pass the bg-ratio check but still incur high aggregate cost due to scattered fg pixels. Default OFF; recommended: `ASP_HIGH_PATH_COST_THRESH=0.6`.
+
+### §3.29 — Blend Zone Coverage Fraction (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_zone_coverage_fraction(img, n_strips=8) → float` — approximates the fraction of image height occupied by inter-strip blend zones. Computed as `(n_strips−1) × 2 × (strip_h // 3) / H`, capped at 1.0. High fraction indicates blend zones dominate the canvas and seam quality matters more. Added as `zone_coverage_fraction` to all benchmark result dicts.
+
+### §1.123 — Local Scatter Penalty in Seam Cost Map (`backend/src/anim/compositing.py`)
+
+- When `ASP_SCATTER_COST=1`, adds a per-pixel local variance term to the seam cost map before DP. Computed via 3×3 box-filter variance normalised to [0, `_SCATTER_COST_WEIGHT`] across the zone. Routes the DP seam toward spatially smooth (uniform background) corridors and away from high-frequency noise or scattered fg debris. Default OFF; `ASP_SCATTER_COST_WEIGHT=0.3`.
+
+### §1.124 — Adaptive Single-Pose Soft-Edge Width from Seam Residual (`backend/src/anim/compositing.py`)
+
+- Extends §1.22 (feather-based adaptive width) with a second stage driven by `seam_post_diffs`. When `ASP_ADAPTIVE_SP_SOFT=1`: post-diff > 30 lum → clamps to `ASP_ADAPTIVE_SP_SOFT_MIN` (default 3 px, narrow to limit ghost risk); post-diff < 10 lum → widens to `ASP_ADAPTIVE_SP_SOFT_MAX` (default 10 px, extra smoothing for clean warps). Mid-range [10, 30] leaves the feather-based value unchanged.
+
+**Test suite: 1232 passed (+20 from 1212), 5 failed (pre-existing ptlflow), 9 skipped.**
+
+---
+
+## Anime Stitch Pipeline — Session 157 (2026-06-22)
+
+*Four improvements: zone width CV gate, saturation step audit, zone histogram intersection gate, and seam gradient direction coherence metric.*
+
+### §1.119 — Seam Zone Width Variance Gate (`backend/src/anim/compositing.py`)
+
+- `_zone_width_cv(boundaries) → float` — computes std/mean of adjacent zone widths (boundary gaps). High CV indicates the boundary search produced an uneven layout (some zones very narrow, others very wide), which correlates with bad BA outcomes. When `ASP_ZONE_WIDTH_CV_MAX > 0` and CV exceeds threshold, pre-escalates the narrowest seam to single-pose before DP. Default OFF.
+
+### §1.120 — Post-Composite Saturation Step Audit (`backend/src/anim/compositing.py`)
+
+- `_audit_seam_sat_steps(result, boundaries, band_px=5) → Dict[int, float]` — analogous to §1.106 lum audit but for HSV saturation. Measures mean saturation difference between ±5px bands above and below each seam boundary. Logs a warning when step exceeds `ASP_SEAM_SAT_WARN_THRESH`. Stores `seam_sat_steps` and `max_seam_sat_step` in `seam_meta_out`. Catches chromatic banding invisible to luminance-only checks.
+
+### §1.121 — Zone Histogram Intersection Pre-gate (`backend/src/anim/compositing.py`)
+
+- `_zone_hist_intersection(fa_zone, fb_zone) → float` — computes mean per-channel (32-bin) normalised histogram intersection in [0, 1]. Values near 1.0 = identical colour palettes; low values = disjoint histograms. When `ASP_ZONE_HIST_THRESH > 0` and score falls below threshold, pre-escalates to single-pose before DP. Complementary to §1.117 NCC (structural) — catches colour-palette shifts that NCC misses.
+
+### §3.28 — Seam Boundary Gradient Direction Coherence Metric (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_seam_row_grad_coherence(img, n_strips=8, band_px=8) → float` — measures circular mean resultant length of Sobel gradient directions in ±8px row bands at each inter-strip boundary. R near 1.0 = dominant gradient orientation (likely a real edge); R near 0 = isotropic noise. Returns minimum R across all boundaries. Added as `seam_grad_coherence_min` to all benchmark result dicts.
+
+**Test suite: 1212 passed (+20 from 1192), 5 failed (pre-existing ptlflow), 9 skipped.**
+
+---
+
+## Anime Stitch Pipeline — Session 156 (2026-06-22)
+
+*Four improvements: zone bg-fraction diagnostic, fast thumbnail NCC pre-gate, seam sharpness measurement, and seam band NCC benchmark metric.*
+
+### §1.116 — Zone Blend Bg-Fraction Diagnostic (`backend/src/anim/compositing.py`)
+
+- Computes `1 - _fg_fraction_in_zone(bg_a, bg_b)` for every blend zone and stores it in `debug_context["zone_bg_fracs"]` when `ASP_ZONE_BG_FRAC_DIAG=1`. Pure observability — no blend logic change. Reveals how much of each blend zone is background vs character pixels, guiding calibration of §1.95/§1.101 fg-density gates. Default OFF.
+
+### §1.117 — Fast Thumbnail NCC Structural Pre-gate (`backend/src/anim/compositing.py`)
+
+- `_zone_pair_ncc(fa_zone, fb_zone, thumb_size=32) → float` — downsizes both zone crops to 32×32 and computes normalized cross-correlation. Returns 1.0 for empty/degenerate inputs. In the blend loop, when `ASP_ZONE_FAST_NCC_THRESH > 0` and NCC falls below threshold on a non-escalated seam, escalates to single-pose (dominant fg frame). Catches structurally different zones (pose gap, occlusion) before the heavier §1.97 entropy asymmetry gate.
+
+### §1.118 — Seam Band Laplacian Sharpness Guard (`backend/src/anim/compositing.py`)
+
+- `_measure_seam_sharpness(result, boundaries, band_px=5) → Dict[int, float]` — after compositing, measures Laplacian variance in a ±5px band around each boundary in the final canvas. Low variance = blur artifact at seam. When `ASP_SEAM_SHARP_MIN > 0`, logs a per-boundary warning for blurred seams. Also stores `seam_sharpness` and `max_seam_blur` in `seam_meta_out` for benchmark analysis.
+
+### §3.27 — Seam Band NCC Benchmark Metric (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_seam_band_ncc(img, n_strips=8, band_px=10) → float` — splits the output image into strips and computes NCC between the 10px bands immediately above and below each inter-strip boundary. Returns the minimum across all boundaries. Values near 1.0 = smooth transitions; low values = abrupt seam. Added as `seam_band_ncc_min` to all benchmark result dicts.
+
+**Test suite: 1192 passed (+20 from 1172), 5 failed (pre-existing ptlflow), 9 skipped.**
+
+---
+
+## Anime Stitch Pipeline — Session 155 (2026-06-22)
+
+*Four improvements: seam cost map column-wise smooth, zone RMS contrast equalization, per-strip saturation CV metric, and absolute feather jump cap.*
+
+### §1.113 — Seam Cost Map Column-wise Gaussian Smooth (`backend/src/anim/compositing.py`)
+
+- After §1.110 row Gaussian blur in `_build_seam_cost_map`, applies `scipy.ndimage.gaussian_filter1d` along axis=1 (columns) on the soft-cost region (< 1e5). Creates lateral cost gradients that prevent DP zigzagging between adjacent equal-cost columns. Hard barriers preserved. `ASP_COST_COL_SMOOTH_SIGMA=1.5` (default 0.0 = OFF).
+
+### §1.114 — Zone RMS Contrast Equalization (`backend/src/anim/compositing.py`)
+
+- `_zone_contrast_eq(fa_zone, fb_zone) → ndarray` — computes luminance std over non-black pixels in each zone and scales `fb_zone` so its contrast matches `fa_zone`. Scale clamped [0.5, 2.0]; skips when ratio deviation < 5% or std_b < 1. Chained after `_zone_sat_norm` (§1.111) in the normal blend path. Corrects contrast-wash banding that §1.104 (mean lum) cannot fix. `ASP_ZONE_CONTRAST_EQ=1`. Default OFF.
+
+### §3.26 — Per-strip Saturation CV Benchmark Metric (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_strip_sat_cv(img, n_strips=8) → float` — converts to HSV, measures mean saturation per strip, returns std/mean across strips. High CV = some strips are vivid while others are desaturated (photometric banding invisible to lum/chroma metrics). Added as `strip_sat_cv` to all benchmark result dicts.
+
+### §1.115 — Absolute Feather Jump Cap (`backend/src/anim/compositing.py`)
+
+- `_cap_feather_jumps(feathers, max_jump) → ndarray` — two-pass (forward + backward) clamp enforcing that no adjacent feather pair differs by more than `max_jump` pixels. Wired after §1.92 Gaussian smooth. Complements §1.68 (ratio-based): catches extreme absolute jumps in wide sequences that pass the ratio test. `ASP_FEATHER_JUMP_MAX=150` (default 0 = OFF).
+
+**Test suite: 1172 passed (+20 from 1152), 5 failed (pre-existing ptlflow), 9 skipped.**
+
+---
+
+## Anime Stitch Pipeline — Session 154 (2026-06-22)
+
+*Four improvements: seam cost map Gaussian blur, zone background saturation normalization, seam path drift gate, and seam boundary entropy benchmark metric.*
+
+### §1.110 — Seam Cost Map Gaussian Blur (`backend/src/anim/compositing.py`)
+
+- After §1.109 normalization in `_build_seam_cost_map`, applies `scipy.ndimage.gaussian_filter` to the soft-cost region (cost < 1e5). Smooths tier-boundary transitions so DP has a gradient slope toward background corridors instead of a binary step — prevents argmin oscillation between equal-energy tier-boundary columns. Hard barriers (≥ 1e5) are preserved unchanged. `ASP_COST_MAP_BLUR_SIGMA=2.0` (default 0.0 = OFF).
+
+### §3.25 — Seam Boundary Entropy Benchmark Metric (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_seam_boundary_entropy(img, n_strips=8, band_px=15) → List[float]` — for each inter-strip boundary, computes Shannon entropy of the 256-bin greyscale histogram in a ±15px row band, normalised by log2(256)=8 to [0, 1]. High entropy = complex varied texture at seam (more likely to be noticeable). Added as `seam_boundary_entropies` (list) and `seam_boundary_entropy_max` (Optional[float]) to all benchmark result dicts.
+
+### §1.111 — Zone Background HSV Saturation Normalization (`backend/src/anim/compositing.py`)
+
+- `_zone_sat_norm(fa_zone, fb_zone) → ndarray` — converts zones to HSV, matches mean saturation of background (non-black) pixels in `fb_zone` to `fa_zone` via a scalar gain clamped [0.5, 2.0]. Skips when ratio deviation < 2%. Chained after `_zone_lum_norm` (§1.104) in the normal blend path. Addresses chromatic seam banding caused by palette saturation shift between frames (e.g. warm-sunset vs cool-indoor hold transition). `ASP_ZONE_SAT_NORM=1`. Default OFF.
+
+### §1.112 — Seam Path Vertical Drift Gate (`backend/src/anim/compositing.py`)
+
+- `_seam_path_drift(path) → float` — returns `max(|path[i+1] - path[i]|)` across consecutive path columns. A large drift indicates a sudden vertical discontinuity in the DP seam — produces a visible kink slash even after §1.25 median smoothing. In the blend loop, after §1.31 FG penetration check: when drift > `_SEAM_DRIFT_THRESH` and the seam is not already single-pose, escalates to single-pose (dominant by fg pixel count). `ASP_SEAM_DRIFT_THRESH=15.0` (default 0.0 = OFF).
+
+**Test suite: 1152 passed (+21 from 1131), 5 failed (pre-existing ptlflow), 9 skipped.**
+
+---
+
+## Anime Stitch Pipeline — Session 153 (2026-06-22)
+
+*Four improvements: adaptive seam band width, Laplacian blend alpha schedule, seam cost map normalization, and seam boundary row std metric.*
+
+### §1.107 — Adaptive Seam Band Width from Zone Height (`backend/src/anim/compositing.py`)
+
+- `_adaptive_seam_band(zone_h, base_band, max_band=40) → int` — returns `min(max_band, max(base_band, zone_h // 6))`. In the single-pose colour-correction path, replaces the fixed `_sp_soft_px + 4` band with a computed `_band_px_sp` variable passed to `_seam_color_match`, `_seam_band_hist_match`, and `_seam_lum_converge`. For tall zones (feather=300 → zone_h≈600), band grows to 40px; for short zones it falls back to base. `ASP_ADAPTIVE_SEAM_BAND=1`. Default OFF.
+
+### §3.24 — Seam Boundary Row Std Benchmark Metric (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_seam_row_std(img, n_strips=8) → float` — for each inter-strip boundary row, computes std of BGR pixel values across the full width, returns max std / 255. High value = strong horizontal variation at a boundary row = visible seam artifact. Added as `seam_row_std` field to all benchmark result dicts.
+
+### §1.108 — Laplacian Blend Alpha Schedule (`backend/src/anim/stateless.py`)
+
+- Added `alpha_schedule: bool = False` parameter to `_laplacian_blend`. When enabled, mixes a sharp-masked version (`mask²`) at 30% with the normal Laplacian result at 70% before returning. Reduces high-frequency colour bleeding at character cel boundaries while preserving low-frequency smooth transitions. Wired in blend loop as `_laplacian_blend(..., alpha_schedule=_LAPLACIAN_ALPHA_SCHEDULE)`. `ASP_LAPLACIAN_ALPHA_SCHEDULE=1`. Default OFF.
+
+### §1.109 — Seam Cost Map L-inf Normalization (`backend/src/anim/compositing.py`)
+
+- At end of `_build_seam_cost_map`, normalizes non-barrier pixels (< 1e5) to [0, 1] via L-inf normalization. Ensures the relative cost tiers (0→0.3→0.5→1.0→2.0) remain stable when additive terms (§3.17 HF column cost, §1.35 line-art gradient penalty) push soft-tier values above 1.0. Hard barriers (≥ 1e6) are preserved unchanged. `ASP_COST_MAP_NORM=1`. Default OFF.
+
+**Test suite: 1131 passed (+20 from 1111), 5 failed (pre-existing ptlflow), 9 skipped.**
+
+---
+
+## Anime Stitch Pipeline — Session 152 (2026-06-22)
+
+*Four improvements: per-zone luminance normalization, seam-path column spread metric, fg-overlap blend weight cap, and post-composite seam lum step audit.*
+
+### §1.104 — Per-Zone Luminance Normalization Before Blend (`backend/src/anim/compositing.py`)
+
+- `_zone_lum_norm(fa_zone, fb_zone) → ndarray` — computes mean grayscale luminance of non-black pixels in each zone and applies a scalar gain (clamped [0.5, 2.0]) to `fb_zone` non-black pixels so its mean matches `fa_zone`. Skips when ratio < 1%. Chained after `_zone_chroma_align` (§3.19) in the normal blend path. `ASP_ZONE_LUM_NORM=1`. Default OFF. Distinct from §1.56 (post-composite strip lum) and §3.19 (LAB chroma).
+
+### §3.23 — Seam-Path Column Spread Benchmark Metric (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_seam_col_spread(img, n_strips=8) → float` — for each strip, finds the column of maximum horizontal Sobel gradient magnitude, collects N peaks, returns `std(peaks) / W`. Low normalized std = concentrated routing (all strips use same seam column = bad); high = spread across columns (good background routing). Added as `seam_col_spread` field to all benchmark result dicts.
+
+### §1.105 — Fg-Overlap Laplacian Blend Weight Cap (`backend/src/anim/compositing.py`)
+
+- Before `_laplacian_blend`, computes a per-pixel fg-overlap mask (both zones have fg content) and lum diff mask (diff > 10 lum units). When `ASP_FG_OVERLAP_BLEND_CAP > 0.0` and a pixel meets both criteria, caps `mask_float` at the configured value (e.g. 0.3), strongly weighting the dominant zone. Prevents double-image ghost in fg-overlap pixels where ARAP blend would otherwise contribute both poses equally. Default `0.0` (OFF).
+
+### §1.106 — Post-Composite Seam Lum Step Audit (`backend/src/anim/compositing.py`)
+
+- `_audit_seam_lum_steps(result, boundaries, band_px=5, warn_thresh=8.0) → Dict[int, float]` — after all seams composited (after §1.90 bilateral smooth), measures mean absolute lum difference in ±5px rows at each boundary in the final output. Logs `[Stitch] §1.106 seam-step WARNING` for any step > threshold. Stores `seam_lum_steps` and `max_seam_lum_step` into `seam_meta_out` when provided. Always runs (negligible overhead). `ASP_POST_SEAM_WARN_THRESH=8.0`.
+
+**Test suite: 1111 passed (+20 from 1091), 5 failed (pre-existing ptlflow), 9 skipped.**
+
+---
+
+## Anime Stitch Pipeline — Session 151 (2026-06-22)
+
+*Four improvements: full blend-zone MAD pre-escalation, warp residual momentum damping, reference-proximity dominant frame selection, and seam contrast ratio benchmark metric.*
+
+### §1.101 — Full Blend-Zone MAD Pre-Escalation (`backend/src/anim/compositing.py`)
+
+- In the blend loop after §1.97 entropy gate, computes `mean(|fa_zone − fb_zone|)` over the full zone (not just shared fg pixels). When MAD > `_ZONE_MAD_THRESH`, escalates to single-pose before the DP. Broader than §1.60 (fg-only MAD): catches colour-shift differences in the background region too. `ASP_ZONE_MAD_THRESH=30.0` to enable. Default `0.0` (OFF).
+
+### §1.102 — Warp Residual Momentum Damping (`backend/src/anim/compositing.py`)
+
+- In the fg-registration loop, immediately after computing `_sp_thresh`: when `ASP_WARP_MOMENTUM_DAMP=1` and `k-1 in seam_single_pose`, multiplies `_sp_thresh` by `_WARP_MOMENTUM_FACTOR` (default 0.85). Adjacent seams sharing a frame often share the same pose discontinuity; earlier pre-escalation prevents ARAP from spending compute on unregisterable zones. Runs before the §1.95 fg-fraction scaling block. `ASP_WARP_MOMENTUM_FACTOR=0.85`. Default OFF.
+
+### §3.22 — Seam Contrast Ratio Benchmark Metric (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_seam_contrast_ratio(img, n_strips=8, band_px=10) → float` — computes mean absolute Laplacian energy in ±`band_px` rows around each inter-strip boundary vs. energy in non-boundary regions. Returns `seam_energy / interior_energy`. Values near 1.0 = no artifact; > 1.5 = visible seam sharpness discontinuity. Returns 1.0 (neutral) for degenerate inputs. Added as `seam_contrast_ratio` field to all benchmark result dicts.
+
+### §1.103 — Reference-Proximity Dominant Frame Selection (`backend/src/anim/compositing.py`)
+
+- In the `post_diff > _sp_thresh` escalation path of the fg-registration loop: when `ASP_SP_REF_PROX=1`, selects `dom` as whichever of `fi_a`/`fi_b` is temporally closest to `ref_fi` (the central reference frame), rather than the frame with more fg pixels. The reference frame has the least accumulated warp drift, making it the most geometrically reliable dominant. Only affects the main post-ARAP escalation path; fallback and pre-escalation paths unchanged. Default OFF.
+
+**Test suite: 1091 passed (+20 from 1071), 5 failed (pre-existing ptlflow), 9 skipped.**
+
+---
+
+## Anime Stitch Pipeline — Session 150 (2026-06-22)
+
+*Four improvements: inter-strip gain smoothing, extended fg dilation cost ring, seam endpoint bg-preference, and per-strip gradient energy CV benchmark metric.*
+
+### §1.98 — Per-Frame Gain Normalization Smoothing (`backend/src/anim/compositing.py`)
+
+- `_smooth_gain_array(gains, sigma=1.0) → ndarray` — 1-D Gaussian smooth (scipy `gaussian_filter1d`, mode=`nearest`) over the per-frame `frame_gains` list. Wired after the per-frame normalization loop: when `ASP_SMOOTH_GAIN=1`, re-applies the smoothed/raw ratio to `warped_norm` bg pixels only (skip ratio < 0.5%). Prevents abrupt brightness staircase caused by isolated outlier gain corrections. `ASP_SMOOTH_GAIN=1`, `ASP_SMOOTH_GAIN_SIGMA=1.0`. Default OFF.
+
+### §3.20 — Extra Fg-Boundary Outer Dilation Cost Ring (`backend/src/anim/compositing.py`)
+
+- In `_build_seam_cost_map`, after the existing Tier-2 fg-edge buffer (cost=0.5), dilates the combined fg mask by `_EXTRA_FG_DILATION` px and adds a 0.3-cost outer ring. Creates gradient 0→0.3→0.5→1.0 from background to fg-interior, pushing the DP seam further from character edges. `np.maximum` preserves existing higher Tier-1/2 costs. `ASP_EXTRA_FG_DILATION=8` to enable. Default `0` (OFF).
+
+### §1.99 — Seam Endpoint Bg-Preference (`backend/src/anim/compositing.py`)
+
+- At end of `_build_seam_cost_map`, amplifies fg pixel costs (≥1.0) by 10× in the top/bottom `_SEAM_PIN_ROWS` rows of the zone. Steers the DP seam path to enter and exit through background-only columns at zone edges. Guards on `zone_h > 2 * _SEAM_PIN_ROWS`. `ASP_SEAM_PIN_ROWS=3` to enable. Default `0` (OFF).
+
+### §3.21 — Per-Strip Gradient Energy CV Benchmark Metric (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_strip_gradient_cv(img, n_strips=8) → float` — splits image into N equal strips, computes mean absolute Laplacian energy per strip, returns coefficient of variation (std/mean). High CV = some strips much sharper/blurrier than adjacent ones — signature of seam-induced sharpness discontinuities. Returns 0.0 for flat or degenerate images. Added as `strip_gradient_cv` field to all benchmark result dicts.
+
+**Test suite: 1071 passed (+20 from 1051), 5 failed (pre-existing ptlflow), 9 skipped.**
+
+---
+
+## Anime Stitch Pipeline — Session 149 (2026-06-22)
+
+*Four improvements: ghost-reduction via fg-zone threshold scaling, pre-blend chroma normalisation, chroma seam coherence benchmark metric, and entropy-asymmetry pre-escalation gate.*
+
+### §1.95 — Fg-Zone Single-Pose Threshold Scaling (`backend/src/anim/compositing.py`)
+
+- After computing `_sp_thresh` in the fg-registration loop, computes zone fg fraction via `_fg_fraction_in_zone` on the boundary slice. When fraction > `_SP_FG_FRAC_THRESH` (default 0.5), multiplies threshold by `_SP_THRESH_FG_FACTOR` (default 0.7). Fg-dominated blend zones produce worse ghosts; lowering the threshold catches them for single-pose escalation earlier. `ASP_SP_THRESH_FG_SCALE=1`. Default OFF.
+
+### §3.19 — Per-Zone Pre-Blend Chroma Alignment (`backend/src/anim/compositing.py`)
+
+- `_zone_chroma_align(fa_zone, fb_zone) → ndarray` — computes LAB a/b mean over non-black pixels in both zones; when either delta > 2 LAB units, applies a global additive shift to `fb_zone` so its chroma mean matches `fa_zone`. Wired before `_laplacian_blend` in the normal (non-single-pose) path: `_fb_for_blend = _zone_chroma_align(fa_zone, fb_zone) if _ZONE_CHROMA_ALIGN and k not in seam_single_pose else fb_zone`. `ASP_ZONE_CHROMA_ALIGN=1`. Default OFF.
+- Distinct from §1.56 (`_seam_chroma_equalize`): §1.56 is a post-composite narrow-band correction; §3.19 acts per-zone pre-blend.
+
+### §1.96 — Chroma Seam Coherence Benchmark Metric (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_chroma_seam_coherence(img, n_strips=8) → float` — converts to LAB, computes per-strip mean of |a|+|b| channels, returns max absolute step between adjacent strip means. Higher score = visible colour-temperature discontinuity between stitched strips. Added as `chroma_seam_coherence` field to all benchmark result dicts.
+
+### §1.97 — Seam Zone Entropy Asymmetry Gate (`backend/src/anim/compositing.py`)
+
+- `_zone_entropy(zone) → float` + `_seam_zone_entropy_gap(fa_zone, fb_zone) → float` — Shannon entropy from grayscale histogram. A large gap (one near-flat zone, one textured) means ARAP flow has no gradient signal on the flat side and produces spurious warp vectors. When gap > `_ENTROPY_GAP_THRESH`, pre-escalates to single-pose. `ASP_ENTROPY_GAP_THRESH=1.5` to enable. Default `0.0` (OFF). Wired in blend loop after §1.86 SSIM check.
+
+**Test suite: 1051 passed (+20 from 1031), 5 failed (pre-existing ptlflow), 9 skipped.**
+
+---
+
+## Anime Stitch Pipeline — Session 148 (2026-06-22)
+
+*Four compositing + benchmark improvements addressing residual seam colour drift and GT-less evaluation coverage.*
+
+### §1.91 — Iterative Seam Luminance Convergence (`backend/src/anim/compositing.py`)
+
+- `_seam_lum_converge(dom_zone, oth_zone, path_local, band_px, target_delta=5.0, max_iters=2)` — measures residual mean-delta in the seam band after S16+§1.88; if > `target_delta` lum units, applies another `_seam_color_match` pass. Caps at `max_iters` to avoid over-correction. Wired in single-pose path after `_seam_band_hist_match` when `ASP_SEAM_LUM_CONVERGE=1`.
+
+### §1.92 — Gaussian Feather Array Smoothing (`backend/src/anim/compositing.py`)
+
+- `_smooth_feather_array(feathers, sigma=1.0, feather_min, feather_max)` — 1D Gaussian smooth on the feather width array (σ=1 seam by default) to prevent abrupt transitions between adjacent seams. Re-clamps to `[FEATHER_MIN, FEATHER_MAX]` after smoothing. Wired after `_enforce_feather_ratio` when `ASP_SMOOTH_FEATHER=1`.
+
+### §3.18 — CQAS Composite Quality Aggregate Score (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_compute_cqas(metrics) → Optional[float]` — single [0,1] quality signal combining `ghosting_siqe` (0.35), `seam_visibility` (0.30), `seam_coherence` (0.20), `sharpness` (0.15) with heuristic normalization. Added as `cqas` field to all benchmark result dicts. Especially useful for the 43 GT-less tests where GT-SSIM is unavailable.
+
+### §1.94 — Background Plate Consistency Score (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_bg_consistency_score(img, n_strips=1) → float` — per-strip row-mean luminance std; high score signals corrupted background plate (§1.87 masked-median inconsistency). Added as `bg_consistency_score` field to all benchmark result dicts.
+
+**Test suite: 1031 passed (+20 from 1011), 5 failed (pre-existing ptlflow), 9 skipped.**
+
+---
+
+## Anime Stitch Pipeline — Session 147 (2026-06-22)
+
+*Implements four compositing improvements addressing the remaining quality gap (ghosting 42% worse, seam color banding).*
+
+### §1.88 — Band Histogram Matching (`backend/src/anim/compositing.py`)
+
+- `_seam_band_hist_match(dom_zone, oth_zone, path_local, band_px)` — per-channel ECDF histogram transfer in the seam blend band. After S16 mean-shift, fits the full luminance distribution of `oth_zone` to `dom_zone` in the blend band using `scipy.interpolate.interp1d`. Falls back to mean-shift when scipy is unavailable or band has < 10 pixels. `ASP_HIST_MATCH_SEAM=1`. Called in the single-pose path after `_seam_color_match`.
+- **Why better than mean-shift**: handles zones with skewed distributions (e.g., bright-biased dom vs dark-biased oth) where matching only the mean leaves a distribution mismatch visible as banding.
+
+### §1.89 — Seam Residual Order (`backend/src/anim/compositing.py`)
+
+- `ASP_SEAM_ORDER=residual` — sorts the blend loop by ascending `seam_post_diffs[k]` before compositing. Lowest-residual seams (best registration quality) processed first to establish the reference quality baseline. Higher-residual seams accumulate less compounding error.
+- `_SEAM_ORDER_RESIDUAL` module flag. Falls back to linear order when `seam_post_diffs` is empty.
+
+### §1.90 — Post-Seam Bilateral Smoothing (`backend/src/anim/compositing.py`)
+
+- `_bilateral_seam_smooth(canvas, seam_paths, band_px=5, sigma_space=3.0, sigma_color=20.0)` — after all seams composited, applies `cv2.bilateralFilter` in ±`band_px` columns around each DP seam path. Smooths residual 1–3 lum-unit color steps without blurring content outside the narrow band. `ASP_BILATERAL_SEAM=1`.
+- Operates row-by-row to avoid blurring across seam boundary positions that differ in column between rows.
+
+### §3.17 — High-Frequency Column Seam Cost (`backend/src/anim/compositing.py`)
+
+- `_hf_column_cost(zone_a, zone_b, hf_threshold=50.0, hf_boost=0.5)` — computes per-column Laplacian energy as an additive cost term in `_build_seam_cost_map`. Columns with mean `|∇²I| > hf_threshold` receive +`hf_boost` cost, routing the DP seam away from texture-heavy columns (strong horizontal edges) toward smooth background corridors. `ASP_HF_SEAM_COST=1`.
+- Complements §3.15A column barrier (fg-interior percentage) and §3.15B mesh barrier (Delaunay triangles) with a texture-based signal.
+
+**Test suite: 1011 passed (+20 from 991), 5 failed (pre-existing ptlflow), 9 skipped.**
+
+---
+
+## Anime Stitch Pipeline — Session 146 (2026-06-22)
+
+*Implements §3.16B HITL per-test preset system, §3.5B CamFlow background-masked phase correlation, and §2.10A flow HITL callback checkpoint.*
+
+### §3.16B — HITL Per-Test Preset System (`backend/src/anim/hitl_presets.py`)
+
+**Pain point:** The 4 confirmed genuine SCANS fallbacks (tests 54, 59, 73, 89) fail upstream due to 2D/curved camera motion that bundle adjustment cannot model. Manual HITL corrections via shipped HITL dialogs (SelectionReview §2.1, EdgeReview §2.2, CanvasInspector §2.3) need a persistence layer to auto-apply on re-runs.
+
+**Implementation:**
+- `HitlPreset` dataclass — `test_name`, `forced_frame_indices`, `drop_edges` (list of (src, dst) tuples), `forced_boundaries`, `scroll_axis_override`, `force_scans`, `notes`. `to_dict()` / `from_dict()` for JSON round-trip.
+- `save_hitl_preset(test_name, preset, base_dir)` — writes JSON to `ASP_HITL_PRESET_DIR/{test_name}.json` (default `~/.image-toolkit/hitl_presets/`).
+- `load_hitl_preset(test_name, base_dir)` — returns `HitlPreset` or `None` if missing. Warning on parse failure.
+- `list_hitl_presets(base_dir)` — returns sorted list of test names with saved presets.
+- `apply_hitl_preset(pipeline_state, preset)` — applies `force_scans`, `drop_edges`, `forced_boundaries`, `scroll_axis_override` to a pipeline state dict.
+- Wired in `pipeline.py`: after `image_paths` sorting, derive `_test_name = Path(image_paths[0]).parent.name`, call `load_hitl_preset(_test_name)`. If `force_scans` → immediate SCANS fallback. After `_filter_edges`, apply `drop_edges` override.
+- `"ASP_HITL_PRESET_DIR"` added to `_CONFIG_SCHEMA` in `config.py`. `HITL_PRESET_DIR_DEFAULT` added to `constants/anim.py`.
+- 5 tests `TestHitlPreset` in `test_hitl_presets.py`: round-trip, missing→None, list presets, drop_edges apply, force_scans apply.
+
+### §3.5B — CamFlow Background-Masked Phase Correlation (`backend/src/anim/cam_flow.py`)
+
+**Pain point:** Phase correlation on whole-frame thumbnails conflates camera pan with character animation. A "50px displacement" may be 5px camera + 45px arm swing. The existing `ASP_TWO_CHANNEL_SELECT` path was a prototype; this formalizes it as a proper module with a cleaner API.
+
+**Implementation:**
+- `bg_masked_phase_correlate(frame_a, frame_b, bg_mask_a, bg_mask_b, min_bg_pixels) → (dx, dy, response)` — zeros out foreground pixels in both grayscale frames before `cv2.phaseCorrelate`. Falls back to whole-frame if `combined_bg.sum() < min_bg_pixels` (`CAM_FLOW_MIN_BG_PIXELS=500`).
+- `CamFlowEstimator(min_bg_pixels)` — stateless wrapper.
+- Wired in `frame_selection.py`: `_CAMFLOW = os.environ.get("ASP_CAMFLOW", "")`. When `_CAMFLOW == "bg_masked"` and `_bg_thumb_mask` is available, routes phase correlation through `bg_masked_phase_correlate` before the existing `_TWO_CHANNEL_SELECT` path.
+- `"ASP_CAMFLOW"` added to `_CONFIG_SCHEMA`. `CAM_FLOW_MIN_BG_PIXELS=500` added to `constants/anim.py`.
+- 5 tests `TestBgMaskedPhaseCorrelate` in `test_cam_flow.py`: no-mask tuple, bg-masked shift detection, insufficient-bg fallback, zero-shift estimator, vertical-shift estimator.
+
+### §2.10A — Flow HITL Callback Checkpoint (`backend/src/anim/compositing.py`)
+
+**Pain point:** When Stage 8.5 escalates to single-pose (post_warp_diff > threshold), there is no hook for external code (GUI or test harness) to inject a user-corrected flow field and attempt re-registration before committing to single-pose.
+
+**Implementation:**
+- Module-level `_flow_hitl_callback: Optional[Callable[[int, dict], Optional[np.ndarray]]] = None`.
+- `set_flow_hitl_callback(cb)` — registers/clears the callback. Exported in `__all__`.
+- In `_composite_foreground`, at the single-pose escalation point (after `post_diff > _sp_thresh`): if callback is set, calls `cb(k, {"post_warp_diff": post_diff, "seam_k": k, "fi_a": fi_a, "fi_b": fi_b})`. If it returns a `(H, W, 2)` flow array, re-runs `register_foreground_at_seam` with `flow_override=`. Exception in callback is caught and logged. Normal escalation proceeds regardless.
+- `Callable` added to `typing` import in `compositing.py`.
+- 5 tests `TestFlowHitlCallback` appended to `test_compositing.py`: register/clear, identity preserved, None after clear, exported in `__all__`, callback returning None proceeds.
+
+**991 backend tests (9 skipped, 5 pre-existing fg_register torch/ptlflow failures unchanged).**
+
+---
+
+## Anime Stitch Pipeline — Session 145 (2026-06-21)
+
+*Implements §3.15B OBJ-GSP Triangular Mesh Barrier and §2.8 HybridStitch Export.*
+
+### §3.15B — OBJ-GSP Triangular Mesh Barrier (`backend/src/anim/compositing.py`)
+
+**Pain point:** §3.15A raised fg-dominated *columns* to cost=2.0 (soft barrier), but the DP seam can still route diagonally through the fg interior if no column is cleanly fg-free. The OBJ-GSP mesh approach builds a hard barrier at the actual fg *shape boundary*, forcing the seam into background-only corridors.
+
+**Implementation:**
+- `_build_fg_mesh_barrier(apply_mask, min_area_px=100) → np.ndarray` — `cv2.findContours` on fg mask → stack all contour points → `scipy.spatial.Delaunay` triangulation → `cv2.fillConvexPoly` each simplex with cost=1e6. Returns zeros for empty mask, tiny-area contours (< `min_area_px`), or < 4 contour points (degenerate).
+- Module flag `_MESH_BARRIER: bool` at module level. `ASP_MESH_BARRIER=1` to enable (default OFF). `MESH_BARRIER_MIN_AREA_PX=100` in `constants/anim.py`. `"ASP_MESH_BARRIER"` added to `_CONFIG_SCHEMA`.
+- Wired in `_build_seam_cost_map` after §3.15A column filter: combines `bg_mask_a` / `bg_mask_b` fg zones (union), resizes if needed, calls `_build_fg_mesh_barrier`, applies with `np.maximum`. Zero overhead when disabled.
+- Added `"_build_fg_mesh_barrier"` and `"_MESH_BARRIER"` to `compositing.py __all__`.
+- 5 tests `TestMeshBarrier` in `test_compositing.py`: empty mask → zeros, tiny-area → no barrier, large rect → high-cost interior, flag is bool, cost map enforces barrier with `monkeypatch`.
+
+### §2.8 — HybridStitch Export (`backend/src/anim/hybrid_export.py`)
+
+**Pain point:** When the pipeline produces a bad stitch, there is no way to resume from mid-pipeline state for manual correction — the operator must re-run all 13 stages from scratch or guess affine parameters manually.
+
+**Implementation:**
+- `HybridExportData` dataclass — `image_paths`, `affines` (flat 6-float lists), `photometric_gains`, `photometric_biases`, `canvas_w`, `canvas_h`, `seam_boundaries`, `seam_post_diffs`, `timestamp` (UTC ISO-8601), `asp_version="S145"`.
+- `build_hybrid_export(pipeline_state: dict) → HybridExportData` — handles numpy affine arrays (flattened to 6-float), numpy boundary arrays (`.tolist()`), seam_post_diffs key coercion to str.
+- `save_hybrid_export(data, path)` — `json.dumps(dataclasses.asdict(data), indent=2)`, creates parent dirs.
+- `load_hybrid_export(path) → HybridExportData` — raises `FileNotFoundError` if missing.
+- `_HYBRID_EXPORT_PATH: str` flag in `pipeline.py` (`ASP_HYBRID_EXPORT_PATH`, default empty = disabled). Wired after the final save in `AnimeStitchPipeline.run()` — try/except wrapped, failure logs warning and continues. Added to `pipeline.py __all__`. `"ASP_HYBRID_EXPORT_PATH"` added to `_CONFIG_SCHEMA`.
+- 5 tests `TestHybridExport` in `test_pipeline.py`: affine flattening, scalar fields, save+load round-trip, missing-file raises, flag is str.
+
+**976 backend tests (9 skipped, 5 pre-existing fg_register torch/ptlflow failures unchanged).**
+
+---
+
+## Anime Stitch Pipeline — Session 144 (2026-06-21)
+
+*Implements §3.12A Overmix Hold-Block Sub-Pixel Averaging and §3.9 SI-FID Proxy Metric.*
+
+### §3.12A — Overmix-Style Hold-Block Sub-Pixel Averaging (`backend/src/anim/frame_selection.py`)
+
+**Pain point:** MPEG compression introduces DCT block noise (±2–4 luma units) across frames that are part of the same animation hold (cel repeated N times). Downstream phase-correlation and ECC matching must fight through this noise, and the hold frames contribute no new spatial information — only noise averaging.
+
+**Implementation:**
+- `_hold_block_average(frames, hold_ids, paths) → Tuple[List[np.ndarray], List[str]]` — groups frames by hold block ID; for multi-frame blocks, ECC-aligns each frame to the first (`MOTION_TRANSLATION`, 20 iters, 1e-3 eps) and stack-averages with `np.mean(stack).clip(0,255)`. Single-frame blocks pass through unchanged. Path taken from the middle frame of each block.
+- `cv2.error` on ECC (e.g., uniform frames with zero gradient) → falls back to raw frame without alignment, then averages normally.
+- Achieves √N SNR improvement (N=2: +3 dB, N=3: +4.8 dB) on MPEG-compressed hold sequences.
+- Wired as step 3c in `smart_select_frames` after `_refine_hold_ids_by_response` (step 3b); rebinds `thumbs`, `frames_paths`, `N`, `hold_ids`.
+- Gate: `_HOLD_AVERAGE and _HOLD_THRESHOLD > 0.0` — requires hold detection to be active (MAD or dHash); `ASP_HOLD_AVERAGE=1` to enable.
+- Added to `__all__`. `HOLD_AVERAGE_ECC_ITERS=20`, `HOLD_AVERAGE_ECC_EPS=1e-3` in `constants/anim.py`. `"ASP_HOLD_AVERAGE"` in `_CONFIG_SCHEMA`.
+- 5 tests `TestHoldBlockAverage` in `test_frame_selection.py`: single-frame passthrough, identical block averages to same value, output lengths match, path from middle frame, ECC failure graceful fallback.
+
+### §3.9 — SI-FID Proxy Metric (`backend/benchmark/bench_anime_stitch.py`)
+
+**Pain point:** The benchmark lacks a reference-free perceptual quality metric that compares ASP and simple_stitch on the same sharpness/texture axis without requiring ground truth or a GPU InceptionV3 forward pass.
+
+**Implementation:**
+- `_compute_si_fid_score(asp_img, sim_img, patch_size=128, n_patches=32, seed=42) → Optional[float]` — samples N random patch pairs at identical locations in both images; computes Laplacian variance per patch; returns `mean(asp_var) / mean(sim_var)`. Values >1.0 mean ASP is sharper; <1.0 means simple_stitch is sharper. Returns None when images are None or smaller than patch_size.
+- `_SI_FID` / `_SI_FID_PATCH_SIZE` / `_SI_FID_N_PATCHES` module-level flags. `ASP_SI_FID=1` to enable.
+- `si_fid_ratio` wired into `_build_result` and emitted as `comparison.si_fid` in every benchmark result dict.
+- `SI_FID_PATCH_SIZE=128`, `SI_FID_N_PATCHES=32` in `constants/anim.py`. `"ASP_SI_FID"` in `_CONFIG_SCHEMA`.
+- 5 tests `TestSiFidProxy` in `test_bench_metrics.py`: identical images → ratio ≈ 1.0, sharp asp → ratio > 1.0, sharp simple → ratio < 1.0, None image → None, too-small → None.
+
+**966 backend tests (9 skipped, 5 pre-existing fg_register torch/ptlflow failures unchanged).**
+
+---
+
+## Anime Stitch Pipeline — Session 143 (2026-06-21)
+
+*Implements §3.10 MLLM Semantic Quality Scoring and §3.1A+§3.2A AnimeInterp SGM + ConvGRU flow engine.*
+
+### §3.10 — MLLM Semantic Quality Scoring (`backend/src/anim/mllm_scorer.py`)
+
+**Pain point:** 43 of 97 benchmark tests use `cv_metrics` verdict source (seam coherence + ghosting ratio heuristic) because no ground truth exists. This heuristic cannot catch double-image ghost artifacts or body-incoherence failures that a human would immediately spot.
+
+**Implementation:**
+- `MllmScores` dataclass — `body_coherence`, `seam_quality`, `bg_consistency`, `overall` (all float 0–10, None on failure), `raw_response: str`
+- `MllmScorer(model, base_url)` — `score(image_bgr)`, `is_available()`, `_encode_image(img)` (JPEG base64, max 1024px), `_parse_scores(raw)` (JSON parse + regex fallback)
+- `score_composite(image_bgr, model)` — module-level convenience wrapper; all-None on any failure
+- Calls ollama `/api/chat` via `urllib.request` (zero new deps). Structured 4-axis anime-specific prompt. 30 s timeout.
+- `MLLM_TIMEOUT_SEC=30`, `MLLM_MAX_IMAGE_DIM=1024`, `MLLM_MODEL="qwen2-vl:7b"` in `constants/anim.py`
+- `ASP_MLLM_SCORER=1` / `ASP_MLLM_MODEL` flags. `"ASP_MLLM_SCORER"` in `_CONFIG_SCHEMA`.
+- Wired into `bench_anime_stitch.py` `_compute_all_metrics` — adds `mllm_body_coherence`, `mllm_seam_quality`, `mllm_bg_consistency`, `mllm_overall` to every benchmark result dict; `avg_mllm_overall` in summary.
+- 5 tests `TestMllmScorer` in `test_bench_metrics.py`: dataclass fields, connection-error → all-None, JSON parse, regex fallback, image resize.
+
+### §3.1A + §3.2A — AnimeInterp SGM + ConvGRU Flow Engine (`backend/src/anim/animeinterp_flow.py`)
+
+**Pain point:** DIS and SEA-RAFT both fail on flat-color anime regions (aperture problem — no gradient signal inside uniform fills). ARAP foreground registration is effectively blind in these zones, so all seams escalate to single-pose fallback and the entire §1.56–§1.86 seam gate stack never fires.
+
+**Implementation (`animeinterp_flow.py`):**
+- `trapped_ball_segment(image_bgr, min_radius, max_radius, n_iter) → np.ndarray[int32]` — pure OpenCV; LAB flood-fill with randomised ball radii; distance-transform gap fill. No ML.
+- `compute_region_features(image_bgr, label_map, use_vgg) → Dict[int, np.ndarray]` — VGG-19 conv activations per-segment centroid crop (512-d) when torch available; falls back to mean LAB color (3-d). Lazy `_get_vgg19()` singleton.
+- `build_mdm(feats_a, feats_b, centroids_a, centroids_b, spatial_sigma) → np.ndarray[float32]` — (Na, Nb) Matching Degree Matrix; `MDM[i,j] = cosine_sim × exp(−dist²/2σ²)`; rows normalised to 1.
+- `ConvGRUCell(input_dim, hidden_dim, kernel_size)` — PyTorch module (defined inside try/except ImportError); reset/update/out gates + flow_head Conv2d; `forward(flow_in, h) → (refined_flow, h_new)`.
+- `compute_animeinterp_flow(frame_a, frame_b, n_gru_iters, weights_path) → np.ndarray[float32 (H,W,2)]` — full pipeline: trapped-ball → region features → MDM → vectorised soft-warp → optional ConvGRU refinement (n_gru_iters=0 skips GRU).
+- `AnimeInterpFlow` — class wrapper with `compute(frame_a, frame_b)` interface matching existing flow engine API.
+
+**Constants added to `constants/anim.py`:** `ANIMEINTERP_SPATIAL_SIGMA=50.0`, `ANIMEINTERP_GRU_ITERS=4`, `ANIMEINTERP_TRAPPED_BALL_MIN_R=2`, `ANIMEINTERP_TRAPPED_BALL_MAX_R=8`.
+
+**Wired into `fg_register.py`:** `_FLOW_ENGINE` / `_USE_ANIMEINTERP` flags; `animeinterp` branch in `_dense_flow` before SEA-RAFT/DIS fallback chain. Enable: `ASP_FLOW_ENGINE=animeinterp`. `ASP_FLOW_ENGINE` and `ASP_ANIMEINTERP_WEIGHTS` added to `_CONFIG_SCHEMA`.
+
+**Key benefit:** With `ASP_FLOW_ENGINE=animeinterp`, ARAP activates in the test env without ptlflow/RAFT. The full §1.56–§1.86 ensemble gate stack becomes active. §1.86 zone SSIM pre-gate (previously a no-op) now fires against actual ARAP output.
+
+5 tests `TestAnimeInterpFlow` in `test_fg_register.py`: trapped-ball label map, MDM rows sum to 1, region features dict, flow shape (H,W,2) float32, shift detection.
+
+**956 backend tests (9 skipped, 5 pre-existing fg_register torch/ptlflow failures unchanged).**
+
+---
+
 ## Anime Stitch Pipeline — Session 142 (2026-06-21)
 
 *Full 97-test benchmark run + three new implementations: §1.87 Masked-Median Bg Plate, §3.14B Horizontal-Strip Compositing, §1.10B Optuna Bayesian Threshold Search.*

@@ -484,3 +484,116 @@ class TestCompositeQualityScore:
         # ncc=1.0 → ncc_term=1.0; color=1.0 → color_term=1.0; ghost=None → 0.5
         score = _composite_quality_score(1.0, 1.0, None)
         assert score == pytest.approx((1.0 + 1.0 + 0.5) / 3.0, abs=1e-4)
+
+
+class TestMllmScorer:
+    """§3.10 — MLLM scorer unit tests (offline — no ollama required)."""
+
+    def test_scores_dataclass_fields(self):
+        """MllmScores has body_coherence, seam_quality, bg_consistency, overall."""
+        from backend.src.anim.mllm_scorer import MllmScores
+
+        s = MllmScores(body_coherence=8.0, seam_quality=7.5, bg_consistency=9.0, overall=8.2)
+        assert s.body_coherence == 8.0
+        assert s.overall == 8.2
+        assert s.seam_quality == 7.5
+        assert s.bg_consistency == 9.0
+
+    def test_score_returns_none_on_connection_error(self):
+        """When ollama is not reachable, score() returns all-None MllmScores."""
+        from backend.src.anim.mllm_scorer import MllmScorer
+
+        scorer = MllmScorer(base_url="http://localhost:19999")  # dead port
+        img = np.zeros((64, 64, 3), dtype=np.uint8)
+        scores = scorer.score(img)
+        assert scores.body_coherence is None
+        assert scores.overall is None
+
+    def test_parse_json_response(self):
+        """_parse_scores extracts floats from a valid JSON string."""
+        from backend.src.anim.mllm_scorer import MllmScorer
+
+        scorer = MllmScorer()
+        raw = '{"body_coherence": 8.5, "seam_quality": 7.0, "bg_consistency": 9.0, "overall": 8.2}'
+        scores = scorer._parse_scores(raw)
+        assert scores.body_coherence == pytest.approx(8.5)
+        assert scores.seam_quality == pytest.approx(7.0)
+        assert scores.overall == pytest.approx(8.2)
+
+    def test_parse_fallback_regex(self):
+        """When JSON parse fails, regex fallback extracts floats from prose output."""
+        from backend.src.anim.mllm_scorer import MllmScorer
+
+        scorer = MllmScorer()
+        raw = "body_coherence: 6.5, seam_quality: 5.0, bg_consistency: 8.0, overall: 6.5"
+        scores = scorer._parse_scores(raw)
+        assert scores.body_coherence == pytest.approx(6.5, abs=0.1)
+        assert scores.overall == pytest.approx(6.5, abs=0.1)
+
+    def test_image_resize_before_encode(self):
+        """Large images are downscaled to MLLM_MAX_IMAGE_DIM before base64 encoding."""
+        import base64
+
+        import cv2 as _cv2
+
+        from backend.src.anim.mllm_scorer import MLLM_MAX_IMAGE_DIM, MllmScorer
+
+        scorer = MllmScorer()
+        large_img = np.zeros((2000, 1000, 3), dtype=np.uint8)
+        encoded = scorer._encode_image(large_img)
+        decoded = base64.b64decode(encoded)
+        buf = np.frombuffer(decoded, dtype=np.uint8)
+        img_back = _cv2.imdecode(buf, _cv2.IMREAD_COLOR)
+        assert img_back is not None
+        assert max(img_back.shape[:2]) <= MLLM_MAX_IMAGE_DIM
+
+
+# TestSiFidProxy — §3.9 SI-FID patch sharpness proxy (S144)
+
+from backend.benchmark.bench_anime_stitch import _compute_si_fid_score
+
+
+class TestSiFidProxy:
+    def _solid(self, h: int = 256, w: int = 256, val: int = 128) -> np.ndarray:
+        return np.full((h, w, 3), val, dtype=np.uint8)
+
+    def _noisy(self, h: int = 256, w: int = 256) -> np.ndarray:
+        rng = np.random.default_rng(1)
+        return rng.integers(0, 256, (h, w, 3), dtype=np.uint8)
+
+    def test_identical_images_returns_one(self):
+        img = self._noisy()
+        ratio = _compute_si_fid_score(img, img, patch_size=64, n_patches=8)
+        assert ratio is not None
+        assert abs(ratio - 1.0) < 0.05
+
+    def test_sharp_asp_returns_ratio_above_one(self):
+        import cv2 as _cv2
+
+        noisy = self._noisy()
+        sim = _cv2.GaussianBlur(noisy, (21, 21), 8)
+        asp = noisy
+        ratio = _compute_si_fid_score(asp, sim, patch_size=64, n_patches=8)
+        assert ratio is not None
+        assert ratio > 1.0
+
+    def test_sharp_simple_returns_ratio_below_one(self):
+        import cv2 as _cv2
+
+        noisy = self._noisy()
+        asp = _cv2.GaussianBlur(noisy, (21, 21), 8)
+        sim = noisy
+        ratio = _compute_si_fid_score(asp, sim, patch_size=64, n_patches=8)
+        assert ratio is not None
+        assert ratio < 1.0
+
+    def test_none_image_returns_none(self):
+        img = self._noisy()
+        assert _compute_si_fid_score(None, img) is None
+        assert _compute_si_fid_score(img, None) is None
+
+    def test_too_small_returns_none(self):
+        tiny = np.zeros((10, 10, 3), dtype=np.uint8)
+        big = self._noisy()
+        result = _compute_si_fid_score(tiny, big, patch_size=64, n_patches=4)
+        assert result is None

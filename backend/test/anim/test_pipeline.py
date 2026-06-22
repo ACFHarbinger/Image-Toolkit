@@ -1855,3 +1855,67 @@ class TestComputeStripVarianceRatio:
         """Empty canvas → safe default of 1.0."""
         canvas = np.zeros((0, 64, 3), dtype=np.uint8)
         assert _compute_strip_variance_ratio(canvas, n_strips=2) == 1.0
+
+
+class TestHybridExport:
+    """§2.8: HybridStitch JSON export — build_hybrid_export / save / load round-trip."""
+
+    def _make_state(self):
+        import numpy as np
+        affines = [np.eye(2, 3, dtype=np.float64) for _ in range(3)]
+        affines[1][1, 2] = 100.0
+        affines[2][1, 2] = 200.0
+        return {
+            "image_paths": ["/a/1.png", "/a/2.png", "/a/3.png"],
+            "affines": affines,
+            "photometric_gains": [1.0, 1.05, 0.97],
+            "photometric_biases": [0.0, 2.0, -1.0],
+            "canvas_w": 640,
+            "canvas_h": 480,
+            "seam_boundaries": [100.0, 200.0],
+            "seam_post_diffs": {0: 5.3, 1: 12.1},
+        }
+
+    def test_build_hybrid_export_affine_flattening(self):
+        """build_hybrid_export flattens 2×3 numpy affines to flat 6-float lists."""
+        from backend.src.anim.hybrid_export import build_hybrid_export
+        state = self._make_state()
+        data = build_hybrid_export(state)
+        assert len(data.affines) == 3
+        assert len(data.affines[0]) == 6
+        assert data.affines[1][5] == 100.0
+
+    def test_build_hybrid_export_fields(self):
+        """All scalar fields are correctly transferred."""
+        from backend.src.anim.hybrid_export import build_hybrid_export
+        state = self._make_state()
+        data = build_hybrid_export(state)
+        assert data.canvas_w == 640
+        assert data.canvas_h == 480
+        assert data.image_paths == ["/a/1.png", "/a/2.png", "/a/3.png"]
+        assert data.asp_version == "S144"
+
+    def test_save_and_load_round_trip(self, tmp_path):
+        """save_hybrid_export + load_hybrid_export recovers original data."""
+        from backend.src.anim.hybrid_export import build_hybrid_export, save_hybrid_export, load_hybrid_export
+        state = self._make_state()
+        data = build_hybrid_export(state)
+        path = str(tmp_path / "export.json")
+        save_hybrid_export(data, path)
+        loaded = load_hybrid_export(path)
+        assert loaded.canvas_w == data.canvas_w
+        assert loaded.canvas_h == data.canvas_h
+        assert loaded.affines == data.affines
+        assert loaded.seam_post_diffs == data.seam_post_diffs
+
+    def test_load_missing_file_raises(self, tmp_path):
+        """load_hybrid_export raises FileNotFoundError for missing path."""
+        from backend.src.anim.hybrid_export import load_hybrid_export
+        import pytest
+        with pytest.raises(FileNotFoundError):
+            load_hybrid_export(str(tmp_path / "nonexistent.json"))
+
+    def test_hybrid_export_path_flag_is_string(self):
+        """_HYBRID_EXPORT_PATH module flag exists and is a string."""
+        import backend.src.anim.pipeline as pip
+        assert isinstance(pip._HYBRID_EXPORT_PATH, str)

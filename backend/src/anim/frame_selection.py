@@ -53,7 +53,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import os
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -104,6 +104,11 @@ _PERIPH_BORDER_FRAC = 0.24
 # Falls back to plain phaseCorrelate when the combined bg coverage < 10%.
 # Default OFF — enable with ASP_OTSU_BG_CORR=1 or in asp_config.toml.
 _OTSU_BG_CORR: bool = os.environ.get("ASP_OTSU_BG_CORR", "0") != "0"
+
+# §3.5B — CamFlow background-masked phase correlation.
+# ASP_CAMFLOW=bg_masked: use bg_masked_phase_correlate (cam_flow.py) on BiRefNet masks.
+# Decouples camera displacement from character animation without frame-timing changes.
+_CAMFLOW: str = os.environ.get("ASP_CAMFLOW", "")
 
 # Animation hold detection — FD-Means preprocessing (§1.11 / §3.4).
 # Default 0.025 corresponds to 2.5% mean absolute difference between
@@ -170,6 +175,13 @@ try:
     _HOLD_DHASH_THRESHOLD = int(os.environ.get("ASP_HOLD_DHASH_THRESH", "0"))
 except ValueError:
     _HOLD_DHASH_THRESHOLD = 0
+
+# §3.12A: Overmix hold-block sub-pixel averaging.
+# After hold detection, align and stack-average all frames within each hold
+# block using ECC (MOTION_TRANSLATION).  Produces one high-SNR representative
+# per block; MPEG DCT compression noise cancels out by √N.
+# Default OFF.  Enable with ASP_HOLD_AVERAGE=1.
+_HOLD_AVERAGE: bool = os.environ.get("ASP_HOLD_AVERAGE", "0") != "0"
 
 
 # ---------------------------------------------------------------------------
@@ -910,6 +922,63 @@ def _compute_dinov2_features(frames_paths: List[str]) -> Optional[np.ndarray]:
 
 
 # ---------------------------------------------------------------------------
+# §3.12A: Overmix hold-block averaging
+# ---------------------------------------------------------------------------
+
+def _hold_block_average(
+    frames: List[np.ndarray],
+    hold_ids: List[int],
+    paths: List[str],
+) -> Tuple[List[np.ndarray], List[str]]:
+    """Compress hold blocks into one ECC-aligned average frame each.
+
+    For MPEG-compressed sources, MPEG DCT block noise cancels out by √N when N
+    frames within the same animation hold are stack-averaged after sub-pixel ECC
+    alignment.  Singletons are returned unchanged.
+    """
+    from collections import OrderedDict
+
+    blocks: OrderedDict[int, List[int]] = OrderedDict()
+    for idx, hid in enumerate(hold_ids):
+        blocks.setdefault(hid, []).append(idx)
+
+    out_frames: List[np.ndarray] = []
+    out_paths: List[str] = []
+
+    for indices in blocks.values():
+        if len(indices) == 1:
+            out_frames.append(frames[indices[0]])
+            out_paths.append(paths[indices[0]])
+            continue
+
+        ref = frames[indices[0]].astype(np.float32)
+        ref_gray = cv2.cvtColor(frames[indices[0]], cv2.COLOR_BGR2GRAY).astype(np.float32)
+        stack = [ref]
+        criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 20, 1e-3)
+        warp_init = np.eye(2, 3, dtype=np.float32)
+
+        for i in indices[1:]:
+            src_gray = cv2.cvtColor(frames[i], cv2.COLOR_BGR2GRAY).astype(np.float32)
+            try:
+                _, warp = cv2.findTransformECC(ref_gray, src_gray, warp_init.copy(), cv2.MOTION_TRANSLATION, criteria)
+                aligned = cv2.warpAffine(
+                    frames[i].astype(np.float32), warp,
+                    (ref.shape[1], ref.shape[0]),
+                    flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP,
+                )
+                stack.append(aligned)
+            except cv2.error:
+                stack.append(frames[i].astype(np.float32))
+
+        avg = np.mean(stack, axis=0).clip(0, 255).astype(np.uint8)
+        out_frames.append(avg)
+        mid = indices[len(indices) // 2]
+        out_paths.append(paths[mid])
+
+    return out_frames, out_paths
+
+
+# ---------------------------------------------------------------------------
 # Main selector
 # ---------------------------------------------------------------------------
 
@@ -1159,7 +1228,13 @@ def smart_select_frames(
             frame_mads.append(0.0)
             continue
 
-        if _bg_thumb_mask is not None and _bg_thumb_mask.shape == a.shape:
+        if _CAMFLOW == "bg_masked" and _bg_thumb_mask is not None and _bg_thumb_mask.shape == a.shape:
+            from backend.src.anim.cam_flow import bg_masked_phase_correlate as _bgpc
+            _bg_bool = _bg_thumb_mask > 0.5
+            dx_t, dy_t, response = _bgpc(a, b, _bg_bool, _bg_bool)
+            _fg = 1.0 - _bg_thumb_mask
+            frame_mads.append(float(np.sum(np.abs(b - a) * _fg) / max(_fg.sum(), 1.0)))
+        elif _bg_thumb_mask is not None and _bg_thumb_mask.shape == a.shape:
             _m = _bg_thumb_mask
             (dx_t, dy_t), response = cv2.phaseCorrelate(a * _m, b * _m)
             _fg = 1.0 - _m
@@ -1195,6 +1270,14 @@ def smart_select_frames(
             print(
                 f"  [HoldRefine] {n_hold_blocks} hold blocks after response refinement"
             )
+
+    # ── 3c. §3.12A: Hold-block sub-pixel averaging ─────────────────────────
+    if _HOLD_AVERAGE and _HOLD_THRESHOLD > 0.0:
+        thumbs, frames_paths = _hold_block_average(thumbs, hold_ids, frames_paths)
+        N = len(thumbs)
+        hold_ids = list(range(N))
+        if verbose:
+            print(f"  [HoldAverage] compressed to {N} hold-averaged frames")
 
     # ── 4. Dominant scroll axis ────────────────────────────────────────────
     med_dy = float(np.median(raw_dy))
@@ -1377,4 +1460,5 @@ __all__ = [
     "_fg_center_diff",
     "_load_thumbs_parallel",
     "_otsu_bg_mask_pair",
+    "_hold_block_average",
 ]
