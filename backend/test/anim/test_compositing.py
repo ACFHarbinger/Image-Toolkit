@@ -3618,3 +3618,94 @@ class TestHorizontalCompositing:
     def test_horizontal_flag_is_boolean(self):
         import backend.src.anim.pipeline as pip
         assert isinstance(pip._HORIZONTAL_COMPOSITE, bool)
+
+
+class TestMeshBarrier:
+    """§3.15B: Triangular mesh barrier — _build_fg_mesh_barrier."""
+
+    def test_returns_zeros_for_empty_mask(self):
+        import numpy as np
+        from backend.src.anim.compositing import _build_fg_mesh_barrier
+        mask = np.zeros((64, 64), dtype=np.uint8)
+        barrier = _build_fg_mesh_barrier(mask)
+        assert barrier.shape == (64, 64)
+        assert barrier.max() == 0.0
+
+    def test_returns_zeros_for_tiny_area(self):
+        """Contours with total area < min_area_px produce no barrier."""
+        import numpy as np
+        from backend.src.anim.compositing import _build_fg_mesh_barrier
+        mask = np.zeros((64, 64), dtype=np.uint8)
+        mask[30:32, 30:32] = 255
+        barrier = _build_fg_mesh_barrier(mask, min_area_px=100)
+        assert barrier.max() == 0.0
+
+    def test_fills_fg_region_with_high_cost(self):
+        """Large fg region yields 1e6 barrier inside the hull."""
+        import numpy as np
+        from backend.src.anim.compositing import _build_fg_mesh_barrier
+        mask = np.zeros((128, 128), dtype=np.uint8)
+        cv2 = __import__("cv2")
+        cv2.rectangle(mask, (20, 20), (80, 80), 255, -1)
+        barrier = _build_fg_mesh_barrier(mask, min_area_px=10)
+        assert barrier.max() >= 1e5, "Expected high barrier cost inside fg hull"
+
+    def test_flag_is_boolean(self):
+        import backend.src.anim.compositing as comp
+        assert isinstance(comp._MESH_BARRIER, bool)
+
+    def test_cost_map_respects_mesh_barrier_env(self, monkeypatch):
+        """With ASP_MESH_BARRIER=1 and a large fg mask the seam cost map has 1e6 entries."""
+        import numpy as np
+        import backend.src.anim.compositing as comp
+        monkeypatch.setattr(comp, "_MESH_BARRIER", True)
+        H, W = 128, 128
+        cv2 = __import__("cv2")
+        bg_mask = np.zeros((H, W), dtype=np.uint8)
+        cv2.rectangle(bg_mask, (10, 10), (90, 90), 255, -1)
+        canvas_zone = np.zeros((H, W, 3), dtype=np.uint8)
+        cost = comp._build_seam_cost_map(
+            canvas_zone,
+            bg_mask_a=bg_mask,
+            bg_mask_b=bg_mask,
+        )
+        assert cost.max() >= 1e5, "Expected mesh barrier cost in cost map"
+
+
+class TestFlowHitlCallback:
+    """§2.10A — Flow HITL callback checkpoint infrastructure."""
+
+    def test_callback_registered_and_cleared(self):
+        import backend.src.anim.compositing as comp
+        comp.set_flow_hitl_callback(lambda k, info: None)
+        assert comp._flow_hitl_callback is not None
+        comp.set_flow_hitl_callback(None)
+        assert comp._flow_hitl_callback is None
+
+    def test_callback_identity_preserved(self):
+        import backend.src.anim.compositing as comp
+        cb = lambda k, info: None
+        comp.set_flow_hitl_callback(cb)
+        try:
+            assert comp._flow_hitl_callback is cb
+        finally:
+            comp.set_flow_hitl_callback(None)
+
+    def test_callback_none_by_default_after_clear(self):
+        import backend.src.anim.compositing as comp
+        comp.set_flow_hitl_callback(None)
+        assert comp._flow_hitl_callback is None
+
+    def test_set_flow_hitl_callback_exported(self):
+        import backend.src.anim.compositing as comp
+        assert "set_flow_hitl_callback" in comp.__all__
+
+    def test_callback_return_none_proceeds(self):
+        """Callback returning None should not inject a flow override."""
+        import backend.src.anim.compositing as comp
+        comp.set_flow_hitl_callback(lambda k, info: None)
+        try:
+            result = comp._flow_hitl_callback(0, {"post_warp_diff": 30.0, "seam_k": 0})
+            assert result is None
+        finally:
+            comp.set_flow_hitl_callback(None)

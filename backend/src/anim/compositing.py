@@ -48,7 +48,7 @@ def _get_seam_pool() -> "_cf.ThreadPoolExecutor":
 
 
 import os
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -78,6 +78,24 @@ _FG_REGISTER_ENABLED = os.environ.get("ASP_FG_REGISTER", "1") != "0"
 # When enabled, synthesis is applied only to the single worst seam per run
 # (highest post_warp_diff) to keep overhead bounded.
 _TOONCRAFTER_SEAM = os.environ.get("ASP_TOONCRAFTER_SEAM", "0") != "0"
+
+# §2.10A — Flow HITL callback checkpoint.
+# When set, called at single-pose escalation with (seam_k, seam_info).
+# If it returns an (H, W, 2) float32 flow array, that flow is used to re-register
+# the seam before the normal single-pose decision.  Returning None proceeds normally.
+_flow_hitl_callback: Optional[Callable[[int, dict], Optional[np.ndarray]]] = None
+
+
+def set_flow_hitl_callback(
+    cb: Optional[Callable[[int, dict], Optional[np.ndarray]]]
+) -> None:
+    """Register a callback invoked when a seam escalates to single-pose.
+
+    cb(seam_k, seam_info) -> Optional[np.ndarray[H,W,2 float32]] flow override.
+    Returning None lets the normal single-pose escalation proceed.
+    """
+    global _flow_hitl_callback
+    _flow_hitl_callback = cb
 
 # §1.6C — Gradient-domain Poisson seam blend (S21).
 # Replaces Laplacian blend with cv2.seamlessClone(NORMAL_CLONE) in a
@@ -289,6 +307,316 @@ _LINE_GRAD_WEIGHT: float = float(
 # §1.65 lowers the border ring to make it the DP's preferred path.
 # Default 0 = off.  Recommend ASP_FG_SEAM_EROSION_PX=2 (one outline ring ≈ 2 px).
 _FG_SEAM_EROSION_PX: int = int(os.environ.get("ASP_FG_SEAM_EROSION_PX", "0"))
+
+# §3.15B — OBJ-GSP triangular mesh seam barrier (S144).
+# Builds a Delaunay triangulation on the fg contour points and rasterises each
+# triangle as a 1e6 hard barrier, preventing the DP seam from routing inside any
+# mesh triangle that belongs to the character body.  Complementary to §3.15A
+# (column soft-barrier, 2.0) and §1.23 (hard column barrier, 1e6).
+# Default OFF.  Enable: ASP_MESH_BARRIER=1.
+_MESH_BARRIER: bool = os.environ.get("ASP_MESH_BARRIER", "0") != "0"
+
+# §1.88 — Per-channel ECDF histogram matching in seam blend band (S147).
+# More robust than S16 mean-shift: transfers the full luminance distribution
+# of oth_zone to match dom_zone inside the blend band, handling cases where
+# the two zones have different exposure curves (not just different means).
+# Default OFF.  Enable: ASP_HIST_MATCH_SEAM=1.
+_HIST_MATCH_SEAM: bool = os.environ.get("ASP_HIST_MATCH_SEAM", "0") != "0"
+
+# §1.89 — Seam processing order by ascending residual (S147).
+# Blend loop processes seams from lowest post_warp_diff to highest so that
+# the best-quality seams establish the reference quality baseline.
+# Default OFF (linear order).  Enable: ASP_SEAM_ORDER=residual.
+_SEAM_ORDER_RESIDUAL: bool = os.environ.get("ASP_SEAM_ORDER", "") == "residual"
+
+# §1.90 — Post-composite bilateral seam smoothing pass (S147).
+# After all seams are blended, applies a narrow bilateral filter in ±5px
+# columns around each seam path to smooth residual 1–3 lum-unit color steps.
+# Default OFF.  Enable: ASP_BILATERAL_SEAM=1.
+_BILATERAL_SEAM: bool = os.environ.get("ASP_BILATERAL_SEAM", "0") != "0"
+
+# §3.17 — High-frequency column seam cost (S147).
+# Adds per-column Laplacian energy as an additive cost term in _build_seam_cost_map,
+# routing the DP seam away from high-frequency texture columns.
+# Default OFF.  Enable: ASP_HF_SEAM_COST=1.
+_HF_SEAM_COST: bool = os.environ.get("ASP_HF_SEAM_COST", "0") != "0"
+_HF_SEAM_THRESHOLD: float = float(os.environ.get("ASP_HF_SEAM_THRESHOLD", "50.0"))
+_HF_SEAM_BOOST: float = float(os.environ.get("ASP_HF_SEAM_BOOST", "0.5"))
+
+# §1.91 — Iterative seam luminance convergence (S148).
+# After _seam_color_match + §1.88 histogram match, measures residual mean delta;
+# if > target applies another _seam_color_match pass (max 2 total passes).
+# Guarantees the band delta is < ASP_SEAM_LUM_CONVERGE_TARGET lum units.
+# Default OFF.  Enable: ASP_SEAM_LUM_CONVERGE=1.
+_SEAM_LUM_CONVERGE: bool = os.environ.get("ASP_SEAM_LUM_CONVERGE", "0") != "0"
+_SEAM_LUM_CONVERGE_TARGET: float = float(os.environ.get("ASP_SEAM_LUM_CONVERGE_TARGET", "5.0"))
+
+# §1.92 — Gaussian smooth on feather widths between adjacent seams (S148).
+# Applies a 1-D Gaussian smooth (σ=1 seam) after the feather computation to
+# prevent jarring width transitions between adjacent low/high-residual seams.
+# Default OFF.  Enable: ASP_SMOOTH_FEATHER=1.
+_SMOOTH_FEATHER: bool = os.environ.get("ASP_SMOOTH_FEATHER", "0") != "0"
+_SMOOTH_FEATHER_SIGMA: float = float(os.environ.get("ASP_SMOOTH_FEATHER_SIGMA", "1.0"))
+
+# §1.95 — Fg-zone single-pose threshold scaling (S149).
+# When the blend zone has a high fg fraction, lower the post-warp diff threshold
+# for single-pose escalation.  Fg-dominated zones produce worse ghosts when
+# blended; reducing the threshold escalates them to single-pose earlier.
+# Default OFF.  Enable: ASP_SP_THRESH_FG_SCALE=1.
+_SP_THRESH_FG_SCALE: bool = os.environ.get("ASP_SP_THRESH_FG_SCALE", "0") != "0"
+_SP_THRESH_FG_FACTOR: float = float(os.environ.get("ASP_SP_THRESH_FG_FACTOR", "0.7"))
+_SP_FG_FRAC_THRESH: float = float(os.environ.get("ASP_SP_FG_FRAC_THRESH", "0.5"))
+
+# §3.19 — Per-zone pre-blend chroma alignment (S149).
+# Globally shifts fb_zone's LAB a/b mean to match fa_zone before Laplacian
+# blending, reducing colour-temperature banding at seam boundaries.
+# Default OFF.  Enable: ASP_ZONE_CHROMA_ALIGN=1.
+_ZONE_CHROMA_ALIGN: bool = os.environ.get("ASP_ZONE_CHROMA_ALIGN", "0") != "0"
+
+# §1.97 — Seam zone entropy asymmetry gate (S149).
+# Pre-escalates to single-pose when entropy gap between the two zone crops
+# exceeds the threshold (bits).  One near-flat zone + one textured zone means
+# ARAP flow has no gradient signal on the flat side → spurious warp vectors.
+# Default OFF.  Set to e.g. ASP_ENTROPY_GAP_THRESH=1.5 to enable.
+_ENTROPY_GAP_THRESH: float = float(os.environ.get("ASP_ENTROPY_GAP_THRESH", "0.0"))
+
+# §1.98 — Per-frame gain normalization smoothing (S150).
+# After computing per-frame bg gain corrections, applies a 1-D Gaussian smooth
+# (σ=1 frame) over the frame_gains array and re-applies the ratio correction to
+# warped_norm, preventing abrupt inter-strip brightness jumps from isolated
+# outlier gain values.
+# Default OFF.  Enable: ASP_SMOOTH_GAIN=1.
+_SMOOTH_GAIN: bool = os.environ.get("ASP_SMOOTH_GAIN", "0") != "0"
+_SMOOTH_GAIN_SIGMA: float = float(os.environ.get("ASP_SMOOTH_GAIN_SIGMA", "1.0"))
+
+# §3.20 — Extra fg-boundary outer dilation cost ring (S150).
+# Adds a 0.3-cost outer ring around the existing Tier-2 fg-edge buffer in the
+# seam cost map.  Creates a cost gradient 0→0.3→0.5→1.0 from background to
+# fg-interior, pushing the DP seam further from character edges.
+# Default 0 (OFF).  Set: ASP_EXTRA_FG_DILATION=8 (pixels).
+_EXTRA_FG_DILATION: int = int(os.environ.get("ASP_EXTRA_FG_DILATION", "0"))
+
+# §1.99 — Seam endpoint bg-preference (S150).
+# In the top/bottom ASP_SEAM_PIN_ROWS rows of each blend zone, amplifies fg
+# pixel costs by 10× in the seam cost map, steering the DP seam path to enter
+# and exit through background-only columns.
+# Default 0 (OFF).  Set: ASP_SEAM_PIN_ROWS=3.
+_SEAM_PIN_ROWS: int = int(os.environ.get("ASP_SEAM_PIN_ROWS", "0"))
+
+# §1.101 — Blend-zone full MAD pre-escalation (S151).
+# When the mean absolute per-pixel difference between the two warped zone
+# crops exceeds ASP_ZONE_MAD_THRESH, escalates to single-pose before the DP.
+# Broader than §1.60 (fg-only MAD): catches the case where bg colour differs
+# significantly across the two frames in the blend zone.
+# Default 0.0 (OFF).  Set: ASP_ZONE_MAD_THRESH=30.0.
+_ZONE_MAD_THRESH: float = float(os.environ.get("ASP_ZONE_MAD_THRESH", "0.0"))
+
+# §1.102 — Warp residual momentum damping (S151).
+# When the previous seam (k-1) was a single-pose fallback, lower the SP
+# threshold for the current seam by ASP_WARP_MOMENTUM_FACTOR.  Adjacent seams
+# sharing a frame often share the same pose discontinuity; early pre-escalation
+# prevents ARAP from spending compute on unregisterable zones.
+# Default OFF.  Enable: ASP_WARP_MOMENTUM_DAMP=1.
+_WARP_MOMENTUM_DAMP: bool = os.environ.get("ASP_WARP_MOMENTUM_DAMP", "0") != "0"
+_WARP_MOMENTUM_FACTOR: float = float(os.environ.get("ASP_WARP_MOMENTUM_FACTOR", "0.85"))
+
+# §1.103 — Reference-proximity dominant frame selection (S151).
+# When escalating to single-pose, chooses the frame temporally closest to the
+# reference frame (ref_fi) as the dominant, rather than the frame with more fg
+# pixels.  The reference frame has the least accumulated warp drift, making it
+# the most geometrically reliable choice.
+# Default OFF.  Enable: ASP_SP_REF_PROX=1.
+_SP_REF_PROX: bool = os.environ.get("ASP_SP_REF_PROX", "0") != "0"
+
+# §1.104 — Per-zone luminance normalization before blend (S152).
+# Equalises the mean luminance of fb_zone background pixels to match fa_zone
+# before the Laplacian blend.  Distinct from §1.56 (post-composite strip lum)
+# and §3.19 (LAB chroma): targets bg-pixel lum mismatch at the zone level.
+# Default OFF.  Enable: ASP_ZONE_LUM_NORM=1.
+_ZONE_LUM_NORM: bool = os.environ.get("ASP_ZONE_LUM_NORM", "0") != "0"
+
+# §1.105 — Fg-overlap Laplacian blend weight cap (S152).
+# When both zones have foreground content at a pixel, the Laplacian blend can
+# produce a double-image ghost even with a well-placed DP seam.  This flag
+# caps mask_float at ASP_FG_OVERLAP_BLEND_CAP (0=dominant-only, 0.5=equal)
+# for pixels where both zones have fg content AND their lum differs by >10.
+# Default 0.0 (OFF — cap disabled).  Set: ASP_FG_OVERLAP_BLEND_CAP=0.3.
+_FG_OVERLAP_BLEND_CAP: float = float(os.environ.get("ASP_FG_OVERLAP_BLEND_CAP", "0.0"))
+
+# §1.106 — Post-composite seam luminance step audit (S152).
+# After all seams are composited, measures the mean absolute lum step at each
+# boundary row in the final output and logs warnings for large steps.
+# ASP_POST_SEAM_WARN_THRESH sets the warning threshold (default 8.0 lum units).
+# Always runs when boundaries are available (negligible overhead).
+_POST_SEAM_WARN_THRESH: float = float(os.environ.get("ASP_POST_SEAM_WARN_THRESH", "8.0"))
+
+# §1.107 — Adaptive seam band width from zone height (S153).
+# Replaces the fixed band_px = _sp_soft_px + 4 formula in the single-pose
+# colour correction path with a zone-height-aware value: band_px is at least
+# base_band but grows with zone height up to max_band=40px.
+# Default OFF.  Enable: ASP_ADAPTIVE_SEAM_BAND=1.
+_ADAPTIVE_SEAM_BAND: bool = os.environ.get("ASP_ADAPTIVE_SEAM_BAND", "0") != "0"
+_ADAPTIVE_SEAM_BAND_MAX: int = int(os.environ.get("ASP_ADAPTIVE_SEAM_BAND_MAX", "40"))
+
+# §1.108 — Laplacian blend alpha schedule (S153).
+# Fine Laplacian pyramid levels (high frequency) use a sharpened blend mask
+# (mask ** 2) while coarse levels use the original mask.  This reduces high-
+# frequency colour bleeding at character edges while keeping smooth transitions
+# at low frequencies.
+# Default OFF.  Enable: ASP_LAPLACIAN_ALPHA_SCHEDULE=1.
+_LAPLACIAN_ALPHA_SCHEDULE: bool = os.environ.get("ASP_LAPLACIAN_ALPHA_SCHEDULE", "0") != "0"
+
+# §1.109 — Seam cost map L-inf normalization (S153).
+# Normalizes the seam cost map (excluding hard-barrier pixels >= 1e5) to [0, 1]
+# before returning, ensuring stable relative cost tiers regardless of additive
+# HF column boosts (§3.17) or line-art gradient penalties (§1.35).
+# Default OFF.  Enable: ASP_COST_MAP_NORM=1.
+_COST_MAP_NORM: bool = os.environ.get("ASP_COST_MAP_NORM", "0") != "0"
+
+# §1.110 — Seam cost map Gaussian blur (S154).
+# After computing the seam cost map (and optional §1.109 norm), applies a
+# Gaussian blur to the soft-cost region (cost < 1e5) to smooth transitions
+# between cost tiers.  DP oscillation occurs when adjacent columns have equal
+# or near-equal costs — blurring creates a smooth gradient that guides the DP
+# seam toward low-cost background corridors.
+# sigma=0.0 → off.  Recommend ASP_COST_MAP_BLUR_SIGMA=2.0.
+_COST_MAP_BLUR_SIGMA: float = float(os.environ.get("ASP_COST_MAP_BLUR_SIGMA", "0.0"))
+
+# §1.111 — Zone background saturation normalization (S154).
+# After zone lum-norm, matches the mean HSV saturation of background pixels
+# in *fb_zone* to those in *fa_zone*.  Corrects chromatic seam banding that
+# persists after lum-norm when one frame has a more saturated background
+# (e.g. warm sunset vs cool indoor palette shift across a hold transition).
+# Default OFF.  Enable: ASP_ZONE_SAT_NORM=1.
+_ZONE_SAT_NORM: bool = os.environ.get("ASP_ZONE_SAT_NORM", "0") != "0"
+
+# §1.112 — Seam path vertical drift gate (S154).
+# Computes the maximum absolute column-to-column jump in the DP seam path
+# (``max(|path[i+1] - path[i]|)``).  A large jump indicates the seam makes
+# a sudden discontinuous vertical leap — this produces a kink artifact
+# visible as a diagonal slash even after §1.25 smoothing.  When drift exceeds
+# the threshold and the seam is not already single-pose-escalated, the blend
+# loop escalates it to single-pose (dominant frame by fg pixel count).
+# Default OFF (0).  Recommend ASP_SEAM_DRIFT_THRESH=15.
+_SEAM_DRIFT_THRESH: float = float(os.environ.get("ASP_SEAM_DRIFT_THRESH", "0.0"))
+
+# §1.113 — Seam cost map column-wise Gaussian smooth (S155).
+# Applies scipy.ndimage.gaussian_filter1d along axis=1 (horizontal) on the
+# soft-cost region after all tier computations.  Creates lateral cost gradients
+# that prevent DP zigzag between adjacent equal-cost columns.
+# Default 0.0 (OFF).  Set: ASP_COST_COL_SMOOTH_SIGMA=1.5.
+_COST_COL_SMOOTH_SIGMA: float = float(os.environ.get("ASP_COST_COL_SMOOTH_SIGMA", "0.0"))
+
+# §1.114 — Zone RMS contrast equalization before blend (S155).
+# Scales fb_zone so its luminance standard deviation over non-black pixels
+# matches fa_zone's.  Corrects contrast-wash banding that §1.104 (mean lum)
+# cannot fix — two strips may have the same mean but very different contrast.
+# Default OFF.  Enable: ASP_ZONE_CONTRAST_EQ=1.
+_ZONE_CONTRAST_EQ: bool = os.environ.get("ASP_ZONE_CONTRAST_EQ", "0") != "0"
+
+# §1.115 — Absolute feather jump cap (S155).
+# After §1.68 ratio cap, further enforces that adjacent feather values differ
+# by at most ASP_FEATHER_JUMP_MAX pixels.  Complements §1.68 (ratio-based) by
+# bounding absolute jumps for very wide sequences.
+# Default 0 (OFF).  Set: ASP_FEATHER_JUMP_MAX=150.
+_FEATHER_JUMP_MAX: int = int(os.environ.get("ASP_FEATHER_JUMP_MAX", "0"))
+
+# §1.116 — Blend zone bg-fraction diagnostic (S156).
+# Records the bg fraction of each blend zone (fraction of pixels classified
+# as background in the union of the two frame masks) and stores it in the
+# debug context as zone_bg_fracs.  Negligible overhead — warped_bg is already
+# sliced for §1.70.  Only activates when debug_context is provided.
+_ZONE_BG_FRAC_DIAG: bool = os.environ.get("ASP_ZONE_BG_FRAC_DIAG", "0") != "0"
+
+# §1.117 — Fast zone NCC structural pre-gate (S156).
+# Thumbnail-based (32×32) NCC between the two warped zone crops.  Much faster
+# than §1.86 SSIM while catching the same gross pose mismatches.  Can be used
+# standalone (§1.86 disabled) or as a fast pre-filter before expensive SSIM.
+# Default 0.0 (OFF).  Set: ASP_ZONE_FAST_NCC_THRESH=0.3.
+_ZONE_FAST_NCC_THRESH: float = float(os.environ.get("ASP_ZONE_FAST_NCC_THRESH", "0.0"))
+
+# §1.118 — Post-composite seam sharpness guard (S156).
+# After blending all seams, measures Laplacian variance in a ±5px band around
+# each boundary.  Logs a "blur warning" when sharpness drops below
+# ASP_SEAM_SHARP_MIN.  Stores seam_sharpness/max_seam_blur in debug_context.
+# Default 0.0 (OFF — log only, no correction).
+_SEAM_SHARP_MIN: float = float(os.environ.get("ASP_SEAM_SHARP_MIN", "0.0"))
+
+# §1.119 — Seam zone width variance gate (S157).
+# After boundary optimisation, measures the coefficient of variation (std/mean)
+# of adjacent zone widths (boundary[k+1] - boundary[k]).  High CV means the
+# boundary search produced an uneven layout — some zones very narrow, others
+# very wide — which often correlates with a bad BA outcome.  When CV exceeds
+# ASP_ZONE_WIDTH_CV_MAX, the worst (narrowest) seam is pre-escalated to
+# single-pose before DP.  Default 0.0 (OFF).
+_ZONE_WIDTH_CV_MAX: float = float(os.environ.get("ASP_ZONE_WIDTH_CV_MAX", "0.0"))
+
+# §1.120 — Post-composite saturation step audit (S157).
+# Analogous to §1.106 lum audit: measures mean HSV saturation difference in
+# ±5px bands at each seam boundary.  High sat-step = colour-saturation seam
+# artifact (chroma banding not caught by luminance-only checks).  Logs a warning
+# when step exceeds ASP_SEAM_SAT_WARN_THRESH.  Stores seam_sat_steps /
+# max_seam_sat_step in seam_meta_out.  Default 0.0 (OFF — no logging).
+_SEAM_SAT_WARN_THRESH: float = float(os.environ.get("ASP_SEAM_SAT_WARN_THRESH", "0.0"))
+
+# §1.121 — Zone histogram intersection pre-gate (S157).
+# Fast per-zone histogram intersection score between the two warped zone crops
+# (mean across 3 channels).  Score in [0, 1]: 1.0 = identical histograms,
+# 0.0 = completely disjoint.  When score falls below threshold and the seam is
+# not already single-pose, pre-escalates to single-pose before DP cut.
+# Complementary to §1.117 NCC (structural) — catches colour-palette shifts that
+# NCC misses.  Default 0.0 (OFF).  Set: ASP_ZONE_HIST_THRESH=0.5.
+_ZONE_HIST_THRESH: float = float(os.environ.get("ASP_ZONE_HIST_THRESH", "0.0"))
+
+# §1.122 — High seam path cost escalation (S158).
+# After the DP seam cut, computes the mean cost value along the selected path.
+# When the mean path cost exceeds the threshold (seam could not avoid fg-interior
+# pixels), escalates to single-pose before blending.  Complementary to §1.69
+# (bg-ratio gate): catches routes that are nominally in background but still
+# incur high aggregate cost (e.g. many scattered fg pixels).
+# Default 0.0 (OFF).  Recommended: ASP_HIGH_PATH_COST_THRESH=0.6.
+_HIGH_PATH_COST_THRESH: float = float(os.environ.get("ASP_HIGH_PATH_COST_THRESH", "0.0"))
+
+# §1.123 — Local scatter penalty in seam cost map (S158).
+# Adds a per-pixel local pixel-variance term to the seam cost map before DP.
+# High-variance regions (texture edges, noise, scattered fg debris) receive an
+# additive penalty proportional to their local variance relative to the zone max.
+# Routes the seam toward spatially uniform (smooth background) corridors.
+# Enable: ASP_SCATTER_COST=1.  Weight: ASP_SCATTER_COST_WEIGHT (default 0.3).
+_SCATTER_COST: bool = os.environ.get("ASP_SCATTER_COST", "0") != "0"
+_SCATTER_COST_WEIGHT: float = float(os.environ.get("ASP_SCATTER_COST_WEIGHT", "0.3"))
+
+# §1.124 — Adaptive single-pose soft-edge width from seam residual (S158).
+# After the feather-based adaptive width (§1.22), further clips the soft-edge
+# pixel count based on the post-warp diff for this seam:
+#   diff > 30 lum units (bad warp) → clamp to _ADAPTIVE_SP_SOFT_MIN (narrow)
+#   diff < 10 lum units (clean warp) → widen to _ADAPTIVE_SP_SOFT_MAX
+# Only active when ASP_ADAPTIVE_SP_SOFT=1 (umbrella flag from §1.22).
+# ASP_ADAPTIVE_SP_SOFT_MIN default 3, ASP_ADAPTIVE_SP_SOFT_MAX default 10.
+_ADAPTIVE_SP_SOFT_MIN: int = int(os.environ.get("ASP_ADAPTIVE_SP_SOFT_MIN", "3"))
+_ADAPTIVE_SP_SOFT_MAX: int = int(os.environ.get("ASP_ADAPTIVE_SP_SOFT_MAX", "10"))
+
+# §1.125 — Seam transition straightness penalty (S159).
+# Adds a row-distance-from-midline cost to the energy matrix in _seam_cut,
+# creating a mild prior toward straight horizontal seam paths.  High penalty
+# pushes the seam toward the zone midline; low penalty preserves natural
+# low-energy routing around fg content.  Default 0.0 (off).
+# Enable: ASP_SEAM_TRANSITION_PEN=<float> (e.g. 5.0).
+_SEAM_TRANSITION_PEN: float = float(os.environ.get("ASP_SEAM_TRANSITION_PEN", "0.0"))
+
+# §1.126 — Fg-majority column floor in seam cost map (S159).
+# When the entire blend zone is >60% foreground, raises columns that are >80%
+# fg to at least _FG_MAJORITY_FLOOR so the DP seam is pushed toward the
+# minority background corridor columns.  Default 0.0 (off).
+# Enable: ASP_FG_MAJORITY_FLOOR=<float> (e.g. 1.5).
+_FG_MAJORITY_FLOOR: float = float(os.environ.get("ASP_FG_MAJORITY_FLOOR", "0.0"))
+
+# §1.127 — Per-zone HSV hue equalization (S159).
+# After §1.114 contrast-eq, shifts the mean hue of fb_zone to match fa_zone
+# in the seam band.  Only fires when the mean hue difference exceeds
+# ZONE_HUE_EQ_MIN_DIFF_DEG degrees to avoid nudging naturally similar zones.
+# Default OFF.  Enable: ASP_ZONE_HUE_EQ=1.
+_ZONE_HUE_EQ: bool = os.environ.get("ASP_ZONE_HUE_EQ", "0") != "0"
 
 # §1.60 — Foreground pose-gap pre-escalation (S124).
 # Before the DP seam cut, measures the mean absolute difference (MAD) between
@@ -558,6 +886,32 @@ def _zone_pair_ssim(
         return 1.0
 
 
+def _zone_pair_ncc(fa_zone: np.ndarray, fb_zone: np.ndarray, thumb_size: int = 32) -> float:
+    """§1.117: Fast thumbnail NCC between two warped zone crops (S156).
+
+    Resizes both zones to *thumb_size*×*thumb_size* grayscale, then computes
+    normalized cross-correlation.  Returns value in [-1, 1]; 1.0 = identical,
+    near-0 or negative = structurally incompatible.  Returns 1.0 for
+    degenerate zones (too small to resize or zero-norm).
+    """
+    if fa_zone.size == 0 or fb_zone.size == 0:
+        return 1.0
+    h = min(fa_zone.shape[0], fb_zone.shape[0])
+    w = min(fa_zone.shape[1], fb_zone.shape[1])
+    if h < 4 or w < 4:
+        return 1.0
+    a_gray = cv2.cvtColor(fa_zone[:h, :w], cv2.COLOR_BGR2GRAY).astype(np.float32)
+    b_gray = cv2.cvtColor(fb_zone[:h, :w], cv2.COLOR_BGR2GRAY).astype(np.float32)
+    a_th = cv2.resize(a_gray, (thumb_size, thumb_size), interpolation=cv2.INTER_AREA).ravel()
+    b_th = cv2.resize(b_gray, (thumb_size, thumb_size), interpolation=cv2.INTER_AREA).ravel()
+    a_th = a_th - a_th.mean()
+    b_th = b_th - b_th.mean()
+    denom = float(np.linalg.norm(a_th) * np.linalg.norm(b_th))
+    if denom < 1e-6:
+        return 1.0
+    return float(np.dot(a_th, b_th) / denom)
+
+
 def _annotate_seams(
     canvas: np.ndarray,
     boundaries: np.ndarray,
@@ -759,6 +1113,29 @@ def _seam_path_std(path: np.ndarray) -> float:
     return float(np.std(path))
 
 
+def _seam_path_drift(path: np.ndarray) -> float:
+    """§1.112: Maximum consecutive column-to-column jump in a seam path (S154).
+
+    Returns ``max(|path[i+1] - path[i]|)`` for all consecutive column pairs.
+    A large drift indicates a sudden vertical discontinuity in the DP seam,
+    which produces a visible kink artefact even after §1.25 median smoothing.
+
+    Parameters
+    ----------
+    path:
+        1-D numeric array; ``path[x]`` is the y-offset for column x.
+
+    Returns
+    -------
+    float
+        Maximum consecutive absolute step.  Returns 0.0 for paths with
+        fewer than two entries.
+    """
+    if len(path) < 2:
+        return 0.0
+    return float(np.max(np.abs(np.diff(path.astype(np.float32)))))
+
+
 def _seam_fg_penetration(
     path: np.ndarray,
     fa_zone: np.ndarray,
@@ -794,6 +1171,28 @@ def _seam_fg_penetration(
     in_fg_a = fa_zone[rows, cols].max(axis=1) > 0
     in_fg_b = fb_zone[rows, cols].max(axis=1) > 0
     return float((in_fg_a | in_fg_b).sum()) / W
+
+
+def _zone_entropy(zone: np.ndarray) -> float:
+    """§1.97: Shannon entropy of a BGR zone's grayscale histogram (S149)."""
+    if zone.size == 0:
+        return 0.0
+    gray = zone.mean(axis=2).astype(np.uint8)
+    hist = np.bincount(gray.ravel(), minlength=256).astype(np.float64)
+    hist /= max(hist.sum(), 1.0)
+    nonzero = hist[hist > 0]
+    return float(-np.dot(nonzero, np.log2(nonzero)))
+
+
+def _seam_zone_entropy_gap(fa_zone: np.ndarray, fb_zone: np.ndarray) -> float:
+    """§1.97: Absolute entropy difference between the two zone crops (S149).
+
+    Returns the abs(H(fa_zone) - H(fb_zone)) in bits.  A large gap means one
+    zone is nearly flat (uniform colour, low entropy) while the other is highly
+    textured; ARAP optical flow has no signal in the flat zone and produces
+    spurious warp vectors that worsen the blend.
+    """
+    return abs(_zone_entropy(fa_zone) - _zone_entropy(fb_zone))
 
 
 def _seam_zone_texture_energy(
@@ -2648,6 +3047,16 @@ def _seam_cut(
     if sem_cost is not None and sem_cost.shape == energy.shape:
         energy += sem_weight * sem_cost
 
+    # §1.125 — Seam transition straightness penalty (S159).
+    # Adds a distance-from-midline term scaled by the zone height so the seam
+    # has a mild prior toward running horizontally through the zone centre.
+    # Row-distance is normalised to [0, 1] so the penalty is scale-invariant.
+    if _SEAM_TRANSITION_PEN > 0.0:
+        mid_row = energy.shape[0] // 2
+        row_dist = np.abs(np.arange(energy.shape[0]) - mid_row).astype(np.float32)
+        row_dist_norm = row_dist / max(float(row_dist.max()), 1.0)
+        energy = energy + row_dist_norm[:, np.newaxis] * _SEAM_TRANSITION_PEN
+
     # Transpose (h, W) → (W, h) so DP runs left→right; path[x] = y-offset
     E = energy.T.copy()
     W_e, h_e = E.shape
@@ -2777,6 +3186,38 @@ def _soft_seam_weight(
     return weight
 
 
+def _build_fg_mesh_barrier(
+    apply_mask: np.ndarray,
+    min_area_px: int = 100,
+) -> np.ndarray:
+    """§3.15B — Rasterise a Delaunay triangulation of the fg contour as a 1e6 barrier.
+
+    apply_mask : (H, W) uint8 — foreground mask (255=fg, 0=bg).
+    Returns    : (H, W) float32 — 0=background, 1e6=inside a character mesh triangle.
+    """
+    H, W = apply_mask.shape[:2]
+    barrier = np.zeros((H, W), dtype=np.float32)
+
+    contours, _ = cv2.findContours(apply_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return barrier
+
+    total_area = sum(cv2.contourArea(c) for c in contours)
+    if total_area < min_area_px:
+        return barrier
+
+    points = np.vstack([c.reshape(-1, 2) for c in contours]).astype(np.float32)
+    if len(points) < 4:
+        return barrier
+
+    from scipy.spatial import Delaunay  # lazy import
+    tri = Delaunay(points)
+    for simplex in tri.simplices:
+        pts = points[simplex].astype(np.int32)
+        cv2.fillConvexPoly(barrier, pts, 1e6)
+    return barrier
+
+
 def _build_seam_cost_map(
     canvas_zone: np.ndarray,
     bg_mask_a: Optional[np.ndarray],
@@ -2870,6 +3311,16 @@ def _build_seam_cost_map(
         dilated = cv2.dilate(edge, kernel)
         cost = np.maximum(cost, (dilated > 0).astype(np.float32) * 0.5)
 
+        # §3.20: Extra outer dilation ring — soft 0.3-cost buffer further from
+        # fg boundaries; np.maximum preserves higher Tier-1/2 costs.
+        if _EXTRA_FG_DILATION > 0:
+            _outer_kernel = cv2.getStructuringElement(
+                cv2.MORPH_ELLIPSE,
+                (2 * _EXTRA_FG_DILATION + 1, 2 * _EXTRA_FG_DILATION + 1),
+            )
+            _outer_dilated = cv2.dilate(fg, _outer_kernel)
+            cost = np.maximum(cost, (_outer_dilated > 0).astype(np.float32) * 0.3)
+
     # §3.15A SemanticStitch column barrier (S33) + §1.23 hard barrier upgrade (S67).
     # When a background corridor exists (some but not all columns are fg-dominated),
     # raise the dominated columns to `_barrier` so the DP is steered into the
@@ -2886,6 +3337,19 @@ def _build_seam_cost_map(
     dominated = fg_col_frac > 0.5
     if dominated.any() and not dominated.all():
         cost[:, dominated] = np.maximum(cost[:, dominated], _barrier)
+
+    # §3.15B — OBJ-GSP triangular mesh barrier (S144).
+    if _MESH_BARRIER:
+        combined_fg = np.zeros((zone_h, zone_w), dtype=np.uint8)
+        for bm in (bg_mask_a, bg_mask_b):
+            if bm is not None:
+                fg_bm = ((bm < 127).astype(np.uint8) * 255)
+                if fg_bm.shape != (zone_h, zone_w):
+                    fg_bm = cv2.resize(fg_bm, (zone_w, zone_h), interpolation=cv2.INTER_NEAREST)
+                combined_fg = np.maximum(combined_fg, fg_bm)
+        if combined_fg.any():
+            mesh_cost = _build_fg_mesh_barrier(combined_fg)
+            cost = np.maximum(cost, mesh_cost)
 
     # Issue 10A3 — NL seam routing: inject hard-barrier exclusion masks.
     # Each mask pixel > 127 receives cost=1e6 so the DP cannot route through it.
@@ -2905,6 +3369,70 @@ def _build_seam_cost_map(
         grad = _fg_gradient_cost(canvas_zone, _LINE_GRAD_WEIGHT)
         fg_mask = cost >= 1.0
         cost[fg_mask] = cost[fg_mask] + grad[fg_mask]
+
+    # §3.17 — high-frequency column cost: penalise texture-heavy columns.
+    if _HF_SEAM_COST:
+        cost = cost + _hf_column_cost(canvas_zone, canvas_zone, _HF_SEAM_THRESHOLD, _HF_SEAM_BOOST)
+
+    # §1.99: Amplify fg cost at seam zone top/bottom to force bg entry/exit.
+    if _SEAM_PIN_ROWS > 0 and zone_h > 2 * _SEAM_PIN_ROWS:
+        _pin = int(_SEAM_PIN_ROWS)
+        _fg_pin = cost >= 1.0
+        cost[:_pin] = np.where(_fg_pin[:_pin], cost[:_pin] * 10.0, cost[:_pin])
+        cost[-_pin:] = np.where(_fg_pin[-_pin:], cost[-_pin:] * 10.0, cost[-_pin:])
+
+    # §1.109: L-inf normalize non-barrier costs to [0, 1].
+    if _COST_MAP_NORM:
+        soft_mask = cost < 1e5
+        soft_max = float(cost[soft_mask].max()) if soft_mask.any() else 1.0
+        if soft_max > 1e-6:
+            cost = np.where(soft_mask, cost / soft_max, cost)
+
+    # §1.110: Gaussian blur soft-cost region to smooth tier transitions (S154).
+    if _COST_MAP_BLUR_SIGMA > 0.0:
+        from scipy.ndimage import gaussian_filter as _gf
+        soft_mask = cost < 1e5
+        barriers = np.where(soft_mask, 0.0, cost)
+        blurred = _gf(np.where(soft_mask, cost, 0.0).astype(np.float64),
+                      sigma=_COST_MAP_BLUR_SIGMA)
+        cost = np.where(soft_mask, blurred, barriers)
+
+    # §1.113: Column-wise Gaussian smooth on soft-cost region (S155).
+    if _COST_COL_SMOOTH_SIGMA > 0.0:
+        from scipy.ndimage import gaussian_filter1d as _gf1d_col
+        _soft_col = cost < 1e5
+        _cost_soft = np.where(_soft_col, cost, 0.0)
+        _cost_soft_smooth = _gf1d_col(
+            _cost_soft.astype(np.float64), sigma=_COST_COL_SMOOTH_SIGMA, axis=1, mode="nearest"
+        )
+        cost = np.where(_soft_col, _cost_soft_smooth.astype(np.float32), cost)
+
+    # §1.123: Local scatter penalty — per-pixel local variance additive term (S158).
+    # Penalises high-frequency noise/texture regions, steering DP toward smooth bg.
+    if _SCATTER_COST and canvas_zone.size > 0:
+        _gray_sc = cv2.cvtColor(canvas_zone, cv2.COLOR_BGR2GRAY).astype(np.float32)
+        _mean_sc = cv2.boxFilter(_gray_sc, cv2.CV_32F, (3, 3))
+        _mean_sq_sc = cv2.boxFilter((_gray_sc ** 2), cv2.CV_32F, (3, 3))
+        _var_sc = np.maximum(0.0, _mean_sq_sc - _mean_sc ** 2)
+        _soft_sc = cost < 1e5
+        _var_max = float(_var_sc[_soft_sc].max()) if _soft_sc.any() else 1.0
+        if _var_max > 1e-6:
+            _scatter = (_var_sc / _var_max) * _SCATTER_COST_WEIGHT
+            cost = np.where(_soft_sc, cost + _scatter.astype(np.float32), cost)
+
+    # §1.126 — Fg-majority column floor (S159).
+    # When the zone is >60% fg interior (cost ≥ 1.0), raises columns that are
+    # >80% fg to at least _FG_MAJORITY_FLOOR so the DP seam is guided toward
+    # the minority background/low-cost corridor columns.
+    if _FG_MAJORITY_FLOOR > 0.0:
+        _zone_fg_frac_126 = float((cost >= 1.0).mean())
+        if _zone_fg_frac_126 > 0.60:
+            _col_fg_frac = (cost >= 1.0).mean(axis=0)
+            _heavy_cols = _col_fg_frac > 0.80
+            if _heavy_cols.any() and not _heavy_cols.all():
+                cost[:, _heavy_cols] = np.maximum(
+                    cost[:, _heavy_cols], _FG_MAJORITY_FLOOR
+                )
 
     return cost
 
@@ -2951,6 +3479,592 @@ def _seam_color_match(
     out = oth_zone.copy()
     shifted = oth_zone[_in_band].astype(np.float32) + delta
     out[_in_band] = np.clip(shifted, 0, 255).astype(np.uint8)
+    return out
+
+
+def _seam_band_hist_match(
+    dom_zone: np.ndarray,
+    oth_zone: np.ndarray,
+    path_local: np.ndarray,
+    band_px: int,
+) -> np.ndarray:
+    """Per-channel ECDF histogram match of oth_zone to dom_zone in the seam blend band.
+
+    More robust than mean-shift (§1.88, S147) for zones with different luminance
+    distributions. Returns a copy of oth_zone with histogram-matched band pixels.
+    Falls back to mean-shift when scipy is unavailable or too few band pixels exist.
+    """
+    if band_px <= 0:
+        return oth_zone.copy()
+
+    zone_h, W = dom_zone.shape[:2]
+    n_channels = dom_zone.shape[2] if dom_zone.ndim == 3 else 1
+
+    # Build column-based band mask (column distance from seam path < band_px)
+    band_mask = np.zeros((zone_h, W), dtype=bool)
+    for row in range(min(len(path_local), zone_h)):
+        col = int(path_local[row])
+        lo = max(0, col - band_px)
+        hi = min(W, col + band_px + 1)
+        band_mask[row, lo:hi] = True
+
+    n_band = int(band_mask.sum())
+    if n_band < 10:
+        return oth_zone.copy()
+
+    oth_matched = oth_zone.copy().astype(np.float32)
+
+    try:
+        from scipy.interpolate import interp1d as _interp1d
+    except ImportError:
+        _interp1d = None
+
+    for c in range(n_channels):
+        if dom_zone.ndim == 3:
+            dom_ch = dom_zone[band_mask, c].astype(np.float32)
+            oth_ch = oth_zone[band_mask, c].astype(np.float32)
+        else:
+            dom_ch = dom_zone[band_mask].astype(np.float32)
+            oth_ch = oth_zone[band_mask].astype(np.float32)
+
+        if _interp1d is None or len(oth_ch) < 2:
+            # Mean-shift fallback
+            delta = dom_ch.mean() - oth_ch.mean()
+            if dom_zone.ndim == 3:
+                oth_matched[band_mask, c] = np.clip(oth_ch + delta, 0, 255)
+            else:
+                oth_matched[band_mask] = np.clip(oth_ch + delta, 0, 255)
+            continue
+
+        dom_sorted = np.sort(dom_ch)
+        oth_sorted = np.sort(oth_ch)
+
+        dom_quantiles = np.linspace(0, 1, len(dom_sorted))
+        transfer = _interp1d(
+            dom_quantiles, dom_sorted,
+            bounds_error=False,
+            fill_value=(dom_sorted[0], dom_sorted[-1]),
+        )
+
+        ranks = np.searchsorted(oth_sorted, oth_ch) / max(len(oth_sorted) - 1, 1)
+        ranks = np.clip(ranks, 0, 1)
+        mapped = transfer(ranks)
+
+        if dom_zone.ndim == 3:
+            oth_matched[band_mask, c] = np.clip(mapped, 0, 255)
+        else:
+            oth_matched[band_mask] = np.clip(mapped, 0, 255)
+
+    return oth_matched.astype(oth_zone.dtype)
+
+
+def _seam_lum_converge(
+    dom_zone: np.ndarray,
+    oth_zone: np.ndarray,
+    path_local: np.ndarray,
+    band_px: int,
+    target_delta: float = 5.0,
+    max_iters: int = 2,
+) -> np.ndarray:
+    """Iteratively call _seam_color_match until band mean-delta < target_delta (§1.91, S148).
+
+    After S16+§1.88, if a residual colour step remains above *target_delta* lum
+    units, applies another _seam_color_match pass.  Caps at *max_iters* to avoid
+    over-correction on genuinely different-exposure zones.
+    """
+    if band_px <= 0 or max_iters < 1:
+        return oth_zone.copy()
+
+    zone_h, W = oth_zone.shape[:2]
+    out = oth_zone.copy()
+
+    for _ in range(max_iters):
+        # Measure mean absolute delta in the blend band
+        band_mask = np.zeros((zone_h, W), dtype=bool)
+        for row in range(min(len(path_local), zone_h)):
+            col = int(path_local[row])
+            lo = max(0, col - band_px)
+            hi = min(W, col + band_px + 1)
+            band_mask[row, lo:hi] = True
+
+        n_pix = int(band_mask.sum())
+        if n_pix < 10:
+            break
+
+        dom_band = dom_zone[band_mask].astype(np.float32)
+        oth_band = out[band_mask].astype(np.float32)
+        delta = float(np.abs(dom_band.mean(axis=0) - oth_band.mean(axis=0)).mean())
+
+        if delta <= target_delta:
+            break
+        out = _seam_color_match(dom_zone, out, path_local, band_px)
+
+    return out
+
+
+def _smooth_feather_array(
+    feathers: np.ndarray,
+    sigma: float = 1.0,
+    feather_min: int = 0,
+    feather_max: int = 9999,
+) -> np.ndarray:
+    """1D Gaussian smooth on feather widths to prevent abrupt adjacent-seam transitions (§1.92, S148).
+
+    Prevents jarring changes between e.g. feather=80px (tight fg seam) and
+    feather=300px (wide bg seam).  feather_min/max are re-clamped after smoothing.
+    Falls back to identity for sequences of length ≤ 1.
+    """
+    if len(feathers) <= 1:
+        return feathers.copy()
+    try:
+        from scipy.ndimage import gaussian_filter1d as _gf1d
+    except ImportError:
+        return feathers.copy()
+    smoothed = _gf1d(feathers.astype(float), sigma=sigma)
+    return np.clip(np.round(smoothed), feather_min, feather_max).astype(feathers.dtype)
+
+
+def _zone_chroma_align(
+    fa_zone: np.ndarray,
+    fb_zone: np.ndarray,
+) -> np.ndarray:
+    """§3.19: Global LAB a/b shift of fb_zone to match fa_zone mean chroma (S149).
+
+    Computes the mean LAB a/b values over non-black pixels in each zone and
+    applies a global additive shift to fb_zone so its chroma mean matches
+    fa_zone.  This corrects colour-temperature drift between adjacent frames
+    before the Laplacian blend, reducing the residual visible at seam
+    boundaries that §1.56 (post-composite) otherwise must fix.
+    """
+    mask_a = fa_zone.max(axis=2) > 0
+    mask_b = fb_zone.max(axis=2) > 0
+    if not mask_a.any() or not mask_b.any():
+        return fb_zone.copy()
+
+    lab_a = cv2.cvtColor(fa_zone, cv2.COLOR_BGR2LAB).astype(np.float32)
+    lab_b = cv2.cvtColor(fb_zone, cv2.COLOR_BGR2LAB).astype(np.float32)
+
+    mean_a_ch1 = float(lab_a[mask_a, 1].mean())
+    mean_a_ch2 = float(lab_a[mask_a, 2].mean())
+    mean_b_ch1 = float(lab_b[mask_b, 1].mean())
+    mean_b_ch2 = float(lab_b[mask_b, 2].mean())
+
+    delta_ch1 = mean_a_ch1 - mean_b_ch1
+    delta_ch2 = mean_a_ch2 - mean_b_ch2
+
+    if abs(delta_ch1) < 2.0 and abs(delta_ch2) < 2.0:
+        return fb_zone.copy()
+
+    out_lab = lab_b.copy()
+    out_lab[..., 1] = np.clip(out_lab[..., 1] + delta_ch1, 0, 255)
+    out_lab[..., 2] = np.clip(out_lab[..., 2] + delta_ch2, 0, 255)
+    return cv2.cvtColor(out_lab.astype(np.uint8), cv2.COLOR_LAB2BGR)
+
+
+def _smooth_gain_array(gains: "List[float]", sigma: float = 1.0) -> np.ndarray:
+    """§1.98: Gaussian smooth over per-frame gain values (S150).
+
+    Reduces abrupt brightness jumps between adjacent strips caused by isolated
+    outlier gain corrections.  Returns a float64 array of the same length.
+    """
+    from scipy.ndimage import gaussian_filter1d
+    arr = np.array(gains, dtype=np.float64)
+    if arr.size < 2:
+        return arr
+    return gaussian_filter1d(arr, sigma=sigma, mode="nearest")
+
+
+def _zone_lum_norm(
+    fa_zone: np.ndarray,
+    fb_zone: np.ndarray,
+) -> np.ndarray:
+    """§1.104: Per-zone bg-pixel luminance normalization (S152).
+
+    Computes mean grayscale luminance of non-black pixels in *fa_zone* and
+    *fb_zone*.  When the ratio exceeds 1% deviation, applies a scalar gain
+    to *fb_zone*'s non-black pixels so its mean luminance matches *fa_zone*.
+    Returns a uint8 copy of *fb_zone* with corrected luminance.
+    """
+    mask_a = fa_zone.max(axis=2) > 0
+    mask_b = fb_zone.max(axis=2) > 0
+    if not mask_a.any() or not mask_b.any():
+        return fb_zone.copy()
+
+    lum_a = float(fa_zone[mask_a].astype(np.float32).mean())
+    lum_b = float(fb_zone[mask_b].astype(np.float32).mean())
+
+    if lum_b < 1.0 or abs(lum_a - lum_b) / max(lum_b, 1.0) < 0.01:
+        return fb_zone.copy()
+
+    gain = np.clip(lum_a / lum_b, 0.5, 2.0)
+    out = fb_zone.astype(np.float32)
+    out[mask_b] = np.clip(out[mask_b] * gain, 0, 255)
+    return out.astype(np.uint8)
+
+
+def _zone_sat_norm(
+    fa_zone: np.ndarray,
+    fb_zone: np.ndarray,
+) -> np.ndarray:
+    """§1.111: Per-zone background HSV saturation normalization (S154).
+
+    Converts both zones to HSV, computes mean saturation of background
+    (non-black) pixels in each zone, then scales *fb_zone*'s saturation
+    channel so its background mean matches *fa_zone*'s.  Fg pixels (all
+    channels == 0) are excluded from the saturation estimate and returned
+    unchanged.  A gain clamp of [0.5, 2.0] prevents over-saturation on
+    near-greyscale frames.  Returns a uint8 copy of *fb_zone*.
+    """
+    import cv2 as _cv2
+    mask_a = fa_zone.max(axis=2) > 0
+    mask_b = fb_zone.max(axis=2) > 0
+    if not mask_a.any() or not mask_b.any():
+        return fb_zone.copy()
+
+    hsv_a = _cv2.cvtColor(fa_zone, _cv2.COLOR_BGR2HSV).astype(np.float32)
+    hsv_b = _cv2.cvtColor(fb_zone, _cv2.COLOR_BGR2HSV).astype(np.float32)
+
+    sat_a = float(hsv_a[mask_a, 1].mean())
+    sat_b = float(hsv_b[mask_b, 1].mean())
+
+    if sat_b < 1.0 or abs(sat_a - sat_b) / max(sat_b, 1.0) < 0.02:
+        return fb_zone.copy()
+
+    gain = np.clip(sat_a / sat_b, 0.5, 2.0)
+    hsv_out = hsv_b.copy()
+    hsv_out[mask_b, 1] = np.clip(hsv_out[mask_b, 1] * gain, 0, 255)
+    out = _cv2.cvtColor(hsv_out.astype(np.uint8), _cv2.COLOR_HSV2BGR)
+    return out
+
+
+def _audit_seam_lum_steps(
+    result: np.ndarray,
+    boundaries: "List[float]",
+    band_px: int = 5,
+    warn_thresh: float = 8.0,
+) -> "Dict[int, float]":
+    """§1.106: Post-composite per-boundary luminance step audit (S152).
+
+    For each boundary, measures mean absolute lum difference in a ±band_px
+    row band around the boundary in *result*.  Logs a warning when any step
+    exceeds *warn_thresh*.  Returns a dict {boundary_idx: lum_step}.
+    """
+    H = result.shape[0]
+    steps: dict = {}
+    for k, by_f in enumerate(boundaries):
+        by = int(by_f)
+        above_y0 = max(0, by - band_px)
+        above_y1 = max(0, by)
+        below_y0 = min(H, by)
+        below_y1 = min(H, by + band_px)
+        if above_y1 <= above_y0 or below_y1 <= below_y0:
+            steps[k] = 0.0
+            continue
+        above_lum = float(
+            result[above_y0:above_y1].astype(np.float32).dot(
+                np.array([0.114, 0.587, 0.299], dtype=np.float32)
+            ).mean()
+        )
+        below_lum = float(
+            result[below_y0:below_y1].astype(np.float32).dot(
+                np.array([0.114, 0.587, 0.299], dtype=np.float32)
+            ).mean()
+        )
+        step = abs(above_lum - below_lum)
+        steps[k] = step
+        if step > warn_thresh:
+            print(
+                f"[Stitch] §1.106 seam-step WARNING: B{k} lum_step={step:.1f} "
+                f"> {warn_thresh:.1f} at y={by}"
+            )
+    return steps
+
+
+def _adaptive_seam_band(zone_h: int, base_band: int, max_band: int = 40) -> int:
+    """§1.107: Zone-height-aware seam band width (S153).
+
+    Returns ``min(max_band, max(base_band, zone_h // 6))``.  For tall zones
+    the band grows so colour-match corrections capture more of the transition
+    region; for short zones it falls back to *base_band*.
+    """
+    return min(max_band, max(base_band, zone_h // 6))
+
+
+def _zone_contrast_eq(
+    fa_zone: np.ndarray,
+    fb_zone: np.ndarray,
+) -> np.ndarray:
+    """§1.114: Per-zone RMS contrast (luminance std) equalization (S155).
+
+    Computes luminance standard deviation over non-black pixels in each zone
+    and scales *fb_zone* so its contrast matches *fa_zone*.  Scale factor is
+    clamped to [0.5, 2.0] to prevent extreme corrections.  Returns a uint8
+    copy of *fb_zone* with equalized contrast.
+    """
+    mask_a = fa_zone.max(axis=2) > 0
+    mask_b = fb_zone.max(axis=2) > 0
+    if not mask_a.any() or not mask_b.any():
+        return fb_zone.copy()
+
+    lum_weights = np.array([0.114, 0.587, 0.299], dtype=np.float32)
+    lum_a = fa_zone[mask_a].astype(np.float32).dot(lum_weights)
+    lum_b = fb_zone[mask_b].astype(np.float32).dot(lum_weights)
+
+    std_a = float(lum_a.std())
+    std_b = float(lum_b.std())
+
+    if std_b < 1.0 or abs(std_a - std_b) / max(std_b, 1.0) < 0.05:
+        return fb_zone.copy()
+
+    scale = float(np.clip(std_a / std_b, 0.5, 2.0))
+    mean_b = float(lum_b.mean())
+    out = fb_zone.astype(np.float32)
+    out[mask_b] = np.clip((out[mask_b] - mean_b) * scale + mean_b, 0, 255)
+    return out.astype(np.uint8)
+
+
+def _zone_hue_eq(
+    fa_zone: np.ndarray,
+    fb_zone: np.ndarray,
+) -> np.ndarray:
+    """§1.127: Per-zone HSV hue equalization (S159).
+
+    Converts both zones to HSV and computes the circular mean hue of non-black
+    pixels in each zone.  If the mean hue difference exceeds
+    ZONE_HUE_EQ_MIN_DIFF_DEG degrees, shifts *fb_zone* hue by the delta so the
+    two zones share the same mean hue.  Only hue is modified; saturation and
+    value channels are unchanged.  The shift is clamped to [−30°, +30°] to
+    prevent extreme corrections from pushing the seam further into a
+    non-matching region.  Returns a uint8 copy of fb_zone.
+    """
+    from backend.src.constants.anim import ZONE_HUE_EQ_MIN_DIFF_DEG
+
+    mask_a = fa_zone.max(axis=2) > 0
+    mask_b = fb_zone.max(axis=2) > 0
+    if not mask_a.any() or not mask_b.any():
+        return fb_zone.copy()
+
+    hsv_a = cv2.cvtColor(fa_zone, cv2.COLOR_BGR2HSV).astype(np.float32)
+    hsv_b = cv2.cvtColor(fb_zone, cv2.COLOR_BGR2HSV).astype(np.float32)
+
+    # Circular mean hue in [0, 180] (OpenCV convention)
+    def _mean_hue(hsv: np.ndarray, mask: np.ndarray) -> float:
+        h = hsv[mask, 0] * (np.pi / 90.0)  # → radians [0, 2π]
+        return float(np.arctan2(np.sin(h).mean(), np.cos(h).mean()) * (90.0 / np.pi)) % 180.0
+
+    mean_h_a = _mean_hue(hsv_a, mask_a)
+    mean_h_b = _mean_hue(hsv_b, mask_b)
+
+    # Circular difference in [−90, 90] (half the 180-degree hue wheel)
+    delta = mean_h_a - mean_h_b
+    if delta > 90.0:
+        delta -= 180.0
+    elif delta < -90.0:
+        delta += 180.0
+
+    if abs(delta) < ZONE_HUE_EQ_MIN_DIFF_DEG:
+        return fb_zone.copy()
+
+    delta = float(np.clip(delta, -30.0, 30.0))
+    out_hsv = hsv_b.copy()
+    out_hsv[mask_b, 0] = (out_hsv[mask_b, 0] + delta) % 180.0
+    return cv2.cvtColor(out_hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
+
+
+def _cap_feather_jumps(feathers: np.ndarray, max_jump: int) -> np.ndarray:
+    """§1.115: Two-pass absolute feather jump cap (S155).
+
+    Forward and backward passes: each element is clamped to within *max_jump*
+    of its left/right neighbour.  Prevents sudden large jumps between adjacent
+    seam feather widths that §1.68 ratio-cap can miss for extreme values.
+    """
+    if max_jump <= 0 or len(feathers) < 2:
+        return feathers
+    out = feathers.astype(np.float64).copy()
+    for i in range(1, len(out)):
+        out[i] = np.clip(out[i], out[i - 1] - max_jump, out[i - 1] + max_jump)
+    for i in range(len(out) - 2, -1, -1):
+        out[i] = np.clip(out[i], out[i + 1] - max_jump, out[i + 1] + max_jump)
+    return out.astype(feathers.dtype)
+
+
+def _measure_seam_sharpness(
+    result: np.ndarray,
+    boundaries: "List[float]",
+    band_px: int = 5,
+) -> "Dict[int, float]":
+    """§1.118: Per-boundary Laplacian variance sharpness measurement (S156).
+
+    For each boundary, computes the Laplacian variance of a ±*band_px* row
+    band in *result*.  Returns a dict {boundary_idx: laplacian_variance}.
+    Low variance indicates blur introduced by the seam blend.
+    """
+    H = result.shape[0]
+    gray = cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)
+    sharpness: dict = {}
+    for k, by_f in enumerate(boundaries):
+        by = int(by_f)
+        y0 = max(0, by - band_px)
+        y1 = min(H, by + band_px)
+        if y1 - y0 < 2:
+            sharpness[k] = 0.0
+            continue
+        band = gray[y0:y1]
+        lap = cv2.Laplacian(band, cv2.CV_64F)
+        sharpness[k] = float(lap.var())
+    return sharpness
+
+
+def _zone_width_cv(boundaries: "List[float]") -> float:
+    """§1.119: Coefficient of variation of seam zone widths (S157).
+
+    Returns std(widths) / mean(widths) for the N-1 inter-boundary gaps.
+    Returns 0.0 for fewer than 2 boundaries (no zone widths to measure).
+    """
+    if len(boundaries) < 2:
+        return 0.0
+    widths = [boundaries[i + 1] - boundaries[i] for i in range(len(boundaries) - 1)]
+    arr = np.array(widths, dtype=np.float64)
+    mean = float(arr.mean())
+    if mean < 1e-6:
+        return 0.0
+    return float(arr.std() / mean)
+
+
+def _audit_seam_sat_steps(
+    result: np.ndarray,
+    boundaries: "List[float]",
+    band_px: int = 5,
+    warn_thresh: float = 0.0,
+) -> "Dict[int, float]":
+    """§1.120: Per-boundary HSV saturation step audit (S157).
+
+    Measures mean HSV saturation difference in ±*band_px* row bands above and
+    below each seam boundary.  High values indicate chromatic banding not
+    captured by the luminance-only §1.106 lum audit.
+    """
+    H = result.shape[0]
+    hsv = cv2.cvtColor(result, cv2.COLOR_BGR2HSV)
+    sat = hsv[:, :, 1].astype(np.float32)
+    sat_steps: dict = {}
+    for k, by_f in enumerate(boundaries):
+        by = int(by_f)
+        guard = max(1, band_px // 2)
+        y_above_end = max(0, by - guard)
+        y_above_start = max(0, y_above_end - band_px)
+        y_below_start = min(H, by + guard)
+        y_below_end = min(H, y_below_start + band_px)
+        above = sat[y_above_start:y_above_end]
+        below = sat[y_below_start:y_below_end]
+        if above.size == 0 or below.size == 0:
+            sat_steps[k] = 0.0
+            continue
+        step = float(abs(above.mean() - below.mean()))
+        sat_steps[k] = step
+        if warn_thresh > 0.0 and step > warn_thresh:
+            print(
+                f"[Stitch] §1.120 sat-step WARNING: B{k} sat_diff={step:.2f}"
+                f" > {warn_thresh:.2f}"
+            )
+    return sat_steps
+
+
+def _zone_hist_intersection(fa_zone: np.ndarray, fb_zone: np.ndarray) -> float:
+    """§1.121: Per-channel histogram intersection between two zone crops (S157).
+
+    Returns the mean per-channel normalised histogram intersection in [0, 1].
+    1.0 = identical histograms; 0.0 = no overlap.  Fast compared to full SSIM.
+    """
+    if fa_zone.size == 0 or fb_zone.size == 0:
+        return 1.0
+    h = min(fa_zone.shape[0], fb_zone.shape[0])
+    w = min(fa_zone.shape[1], fb_zone.shape[1])
+    if h < 2 or w < 2:
+        return 1.0
+    score = 0.0
+    for c in range(3):
+        ha = cv2.calcHist([fa_zone[:h, :w]], [c], None, [32], [0, 256])
+        hb = cv2.calcHist([fb_zone[:h, :w]], [c], None, [32], [0, 256])
+        ha = ha.ravel() / (ha.sum() + 1e-6)
+        hb = hb.ravel() / (hb.sum() + 1e-6)
+        score += float(np.minimum(ha, hb).sum())
+    return score / 3.0
+
+
+def _mean_path_cost(path_local: np.ndarray, cost_map: np.ndarray) -> float:
+    """§1.122: Mean seam cost along the selected DP path (S158)."""
+    if path_local.size == 0 or cost_map.size == 0:
+        return 0.0
+    W = len(path_local)
+    cols = np.arange(W)
+    rows = np.clip(path_local, 0, cost_map.shape[0] - 1)
+    return float(cost_map[rows, cols].mean())
+
+
+def _hf_column_cost(
+    zone_a: np.ndarray,
+    zone_b: np.ndarray,
+    hf_threshold: float = 50.0,
+    hf_boost: float = 0.5,
+) -> np.ndarray:
+    """Per-column high-frequency energy additive cost for seam routing (§3.17, S147).
+
+    Columns with strong Laplacian energy (high-frequency texture) get an
+    additional cost so the DP seam prefers low-texture background corridors.
+    Returns (zone_h, W) float32 cost map additive to the existing cost map.
+    """
+    zone_h, zone_w = zone_a.shape[:2]
+
+    def _col_energy(zone: np.ndarray) -> np.ndarray:
+        gray = cv2.cvtColor(zone, cv2.COLOR_BGR2GRAY) if zone.ndim == 3 else zone.copy()
+        lap = cv2.Laplacian(gray.astype(np.float32), cv2.CV_32F, ksize=3)
+        return np.abs(lap).mean(axis=0)  # (W,)
+
+    energy_a = _col_energy(zone_a)
+    energy_b = _col_energy(zone_b)
+    col_energy = (energy_a + energy_b) / 2.0
+
+    cost_row = np.where(col_energy > hf_threshold, hf_boost, 0.0).astype(np.float32)
+    return np.tile(cost_row, (zone_h, 1))
+
+
+def _bilateral_seam_smooth(
+    canvas: np.ndarray,
+    seam_paths: Dict[int, np.ndarray],
+    band_px: int = 5,
+    sigma_space: float = 3.0,
+    sigma_color: float = 20.0,
+) -> np.ndarray:
+    """Bilateral filter in ±band_px columns around each seam path (§1.90, S147).
+
+    Smooths residual 1–3 lum-unit color steps left after compositing without
+    blurring content outside the narrow seam band.
+    """
+    out = canvas.copy()
+
+    for k, path in seam_paths.items():
+        if path is None or len(path) == 0:
+            continue
+        zone_h = min(len(path), canvas.shape[0])
+        for row in range(zone_h):
+            col = int(path[row])
+            lo = max(0, col - band_px)
+            hi = min(canvas.shape[1], col + band_px + 1)
+            if hi - lo < 3:
+                continue
+            row_lo = max(0, row - 2)
+            row_hi = min(canvas.shape[0], row + 3)
+            band_crop = out[row_lo:row_hi, lo:hi]
+            if band_crop.shape[0] < 1 or band_crop.shape[1] < 3:
+                continue
+            smoothed = cv2.bilateralFilter(
+                band_crop,
+                d=0,
+                sigmaColor=sigma_color,
+                sigmaSpace=sigma_space,
+            )
+            out[row_lo:row_hi, lo:hi] = smoothed
+
     return out
 
 
@@ -3516,6 +4630,18 @@ def _composite_foreground(
                 continue
         warped_norm.append(warped_list[i])
 
+    # §1.98: Smooth per-frame gains to prevent abrupt brightness staircase.
+    if _SMOOTH_GAIN and N > 1:
+        _smoothed_gains = _smooth_gain_array(frame_gains, sigma=_SMOOTH_GAIN_SIGMA)
+        for _sg_i in range(N):
+            _sg_ratio = float(_smoothed_gains[_sg_i]) / max(float(frame_gains[_sg_i]), 1e-6)
+            if abs(_sg_ratio - 1.0) > 0.005 and warped_bg[_sg_i] is not None:
+                _bg_sel_sg = warped_bg[_sg_i] & (warped_norm[_sg_i].max(axis=2) > 10)
+                if _bg_sel_sg.any():
+                    _f32_sg = warped_norm[_sg_i].astype(np.float32)
+                    _f32_sg[_bg_sel_sg] = np.clip(_f32_sg[_bg_sel_sg] * _sg_ratio, 0, 255)
+                    warped_norm[_sg_i] = _f32_sg.astype(np.uint8)
+
     # Single-pass boundary placement — use normalised frames for accurate diff scores
     print("[Stitch]   Optimising boundary placement...")
     boundaries, diff_scores = _find_optimal_boundaries(
@@ -3585,6 +4711,21 @@ def _composite_foreground(
     # §1.68: Adjacent feather ratio enforcement — prevent rhythm discontinuity.
     if _FEATHER_RATIO_MAX > 0.0 and n_b > 1:
         feathers = _enforce_feather_ratio(feathers, max_ratio=_FEATHER_RATIO_MAX)
+
+    # §1.92 — Gaussian smooth on feather widths to reduce abrupt transitions.
+    if _SMOOTH_FEATHER and n_b > 1:
+        feathers = _smooth_feather_array(
+            feathers, sigma=_SMOOTH_FEATHER_SIGMA,
+            feather_min=int(FEATHER_MIN), feather_max=int(FEATHER_MAX),
+        )
+        print(
+            "[Stitch]   Feathers (§1.92 Gaussian-smoothed): "
+            + " ".join(f"B{k}={int(feathers[k])}px" for k in range(n_b))
+        )
+
+    # §1.115: Absolute feather jump cap.
+    if _FEATHER_JUMP_MAX > 0 and n_b > 1:
+        feathers = _cap_feather_jumps(feathers, _FEATHER_JUMP_MAX)
 
     # ── Stage 8.5: Foreground pose registration — global reference strategy ──
     # The camera model is translation-only, so the BACKGROUND is aligned in
@@ -3734,8 +4875,53 @@ def _composite_foreground(
                         if _ADAPTIVE_SP_THRESH
                         else 22.0
                     )
+                    # §1.102: Momentum damping — lower threshold when previous seam was a fallback.
+                    if _WARP_MOMENTUM_DAMP and k > 0 and k - 1 in seam_single_pose:
+                        _sp_thresh *= _WARP_MOMENTUM_FACTOR
+                    if _SP_THRESH_FG_SCALE:
+                        _by_int_95 = int(by)
+                        _half_95 = int(feathers[k])
+                        _y0_95 = max(0, _by_int_95 - _half_95)
+                        _y1_95 = min(H, _by_int_95 + _half_95)
+                        _bg_a_95 = warped_bg[fi_a][_y0_95:_y1_95] if warped_bg[fi_a] is not None else None
+                        _bg_b_95 = warped_bg[fi_b][_y0_95:_y1_95] if warped_bg[fi_b] is not None else None
+                        _frac_95 = _fg_fraction_in_zone(_bg_a_95, _bg_b_95)
+                        if _frac_95 > _SP_FG_FRAC_THRESH:
+                            _sp_thresh *= _SP_THRESH_FG_FACTOR
                     if post_diff > _sp_thresh:
-                        dom = fi_a if info["dominant"] == "a" else fi_b
+                        # §2.10A: HITL callback — offer a flow override before committing
+                        # to single-pose escalation.
+                        if _flow_hitl_callback is not None:
+                            try:
+                                _hitl_flow = _flow_hitl_callback(
+                                    k, {"post_warp_diff": post_diff, "seam_k": k,
+                                        "fi_a": fi_a, "fi_b": fi_b}
+                                )
+                                if _hitl_flow is not None:
+                                    from .fg_register import register_foreground_at_seam
+                                    _re_adj_a, _re_adj_b, _re_info = register_foreground_at_seam(
+                                        warped_norm[fi_a],
+                                        warped_norm[fi_b],
+                                        fg_a,
+                                        fg_b,
+                                        seam_pos=int(by),
+                                        axis=reg_axis,
+                                        alpha_a=alpha_a,
+                                        alpha_b=alpha_b,
+                                        flow_override=_hitl_flow,
+                                    )
+                                    if _re_info["warped"]:
+                                        warped_norm[fi_a] = _re_adj_a
+                                        warped_norm[fi_b] = _re_adj_b
+                                        post_diff = _re_info.get("post_warp_diff", post_diff)
+                                        seam_post_diffs[k] = post_diff
+                            except Exception as _hitl_exc:
+                                print(f"[Stitch] §2.10A: HITL callback error ({_hitl_exc}); ignoring.")
+                        # §1.103: Reference-proximity dominant frame selection.
+                        if _SP_REF_PROX:
+                            dom = fi_a if abs(fi_a - ref_fi) <= abs(fi_b - ref_fi) else fi_b
+                        else:
+                            dom = fi_a if info["dominant"] == "a" else fi_b
                         seam_single_pose[k] = dom
                         n_fallback += 1
                         print(
@@ -3982,8 +5168,27 @@ def _composite_foreground(
             if _ck not in seam_path_cache:
                 seam_path_cache[_ck] = _path
 
+    # §1.119: Zone width variance gate — pre-escalate narrowest seam when
+    # boundary layout is highly uneven (indicates bad boundary optimisation).
+    if _ZONE_WIDTH_CV_MAX > 0.0 and n_b >= 2:
+        _cv119 = _zone_width_cv(list(boundaries))
+        if _cv119 > _ZONE_WIDTH_CV_MAX:
+            _widths119 = [boundaries[i + 1] - boundaries[i] for i in range(n_b - 1)]
+            _worst_k119 = int(np.argmin(_widths119))
+            if _worst_k119 not in seam_single_pose:
+                _fi_a119 = int(order[_worst_k119])
+                _fi_b119 = int(order[_worst_k119 + 1])
+                _fga119 = int((warped_norm[_fi_a119].max(axis=2) > 0).sum())
+                _fgb119 = int((warped_norm[_fi_b119].max(axis=2) > 0).sum())
+                seam_single_pose[_worst_k119] = _fi_a119 if _fga119 >= _fgb119 else _fi_b119
+
     # Laplacian blend at each boundary seam zone (foreground pixels only)
-    for k, by in enumerate(boundaries):
+    # §1.89 — process lowest-residual seams first to establish quality baseline.
+    _seam_order = list(range(n_b))
+    if _SEAM_ORDER_RESIDUAL and seam_post_diffs:
+        _seam_order = sorted(_seam_order, key=lambda _k: seam_post_diffs.get(_k, 0.0))
+    for _loop_idx in _seam_order:
+        k, by = _loop_idx, boundaries[_loop_idx]
         fi_a = int(order[k])
         fi_b = int(order[k + 1])
         feather = int(feathers[k])
@@ -4023,11 +5228,24 @@ def _composite_foreground(
                     f"> {_FG_POSE_GAP_THRESH:.1f} → single-pose frame {seam_single_pose[k]}"
                 )
 
+        # §1.121: Zone histogram intersection pre-gate (S157).
+        if _ZONE_HIST_THRESH > 0.0 and k not in seam_single_pose:
+            _hist_score = _zone_hist_intersection(fa_zone, fb_zone)
+            if _hist_score < _ZONE_HIST_THRESH:
+                _fg_a121 = int((fa_zone.max(axis=2) > 0).sum())
+                _fg_b121 = int((fb_zone.max(axis=2) > 0).sum())
+                seam_single_pose[k] = fi_a if _fg_a121 >= _fg_b121 else fi_b
+
         # §1.70: blend-zone fg-coverage pre-escalation — when the entire overlap
         # zone is fg-dominated (no background corridor for the DP seam to use),
         # skip the DP and immediately escalate to single-pose.
         _bg_a_zone = warped_bg[fi_a][y0_f:y1_f] if warped_bg[fi_a] is not None else None
         _bg_b_zone = warped_bg[fi_b][y0_f:y1_f] if warped_bg[fi_b] is not None else None
+        # §1.116: Always compute zone bg fraction for diagnostics.
+        _zone_bg_frac_116 = 1.0 - _fg_fraction_in_zone(_bg_a_zone, _bg_b_zone)
+        if _ZONE_BG_FRAC_DIAG and debug_context is not None:
+            _zone_bg_fracs_116 = debug_context.setdefault("zone_bg_fracs", {})
+            _zone_bg_fracs_116[k] = _zone_bg_frac_116
         if _SEAM_ZONE_FG_MAX > 0.0 and k not in seam_single_pose:
             _zone_fg_frac = _fg_fraction_in_zone(_bg_a_zone, _bg_b_zone)
             if _zone_fg_frac > _SEAM_ZONE_FG_MAX:
@@ -4051,6 +5269,44 @@ def _composite_foreground(
                 print(
                     f"[Stitch]   §1.86 zone-ssim B{k}: ssim={_zone_ssim:.3f} "
                     f"< {_ZONE_PRE_SSIM_THRESH:.3f} → single-pose frame {seam_single_pose[k]}"
+                )
+
+        # §1.97: Seam zone entropy asymmetry gate.
+        if _ENTROPY_GAP_THRESH > 0.0 and k not in seam_single_pose:
+            _entr_gap = _seam_zone_entropy_gap(fa_zone, fb_zone)
+            if _entr_gap > _ENTROPY_GAP_THRESH:
+                _fg_a97 = int((fa_zone.max(axis=2) > 0).sum())
+                _fg_b97 = int((fb_zone.max(axis=2) > 0).sum())
+                seam_single_pose[k] = fi_a if _fg_a97 >= _fg_b97 else fi_b
+                print(
+                    f"[Stitch]   §1.97 entropy-gap B{k}: gap={_entr_gap:.2f} "
+                    f"> {_ENTROPY_GAP_THRESH:.2f} → single-pose frame {seam_single_pose[k]}"
+                )
+
+        # §1.117: Fast thumbnail NCC structural pre-gate.
+        if _ZONE_FAST_NCC_THRESH > 0.0 and k not in seam_single_pose:
+            _fast_ncc = _zone_pair_ncc(fa_zone, fb_zone)
+            if _fast_ncc < _ZONE_FAST_NCC_THRESH:
+                _fg_a117 = int((fa_zone.max(axis=2) > 0).sum())
+                _fg_b117 = int((fb_zone.max(axis=2) > 0).sum())
+                seam_single_pose[k] = fi_a if _fg_a117 >= _fg_b117 else fi_b
+                print(
+                    f"[Stitch]   §1.117 fast-NCC B{k}: ncc={_fast_ncc:.3f} "
+                    f"< {_ZONE_FAST_NCC_THRESH:.3f} → single-pose frame {seam_single_pose[k]}"
+                )
+
+        # §1.101: Full blend-zone MAD pre-escalation.
+        if _ZONE_MAD_THRESH > 0.0 and k not in seam_single_pose:
+            _mad_101 = float(
+                np.abs(fa_zone.astype(np.float32) - fb_zone.astype(np.float32)).mean()
+            )
+            if _mad_101 > _ZONE_MAD_THRESH:
+                _fg_a101 = int((fa_zone.max(axis=2) > 0).sum())
+                _fg_b101 = int((fb_zone.max(axis=2) > 0).sum())
+                seam_single_pose[k] = fi_a if _fg_a101 >= _fg_b101 else fi_b
+                print(
+                    f"[Stitch]   §1.101 zone-MAD B{k}: mad={_mad_101:.1f} "
+                    f"> {_ZONE_MAD_THRESH:.1f} → single-pose frame {seam_single_pose[k]}"
                 )
 
         # P2.4 — Semantic seam routing: build a character-boundary cost map so
@@ -4099,6 +5355,21 @@ def _composite_foreground(
                     f"< {_SEAM_DP_BG_MIN:.2f} → single-pose frame {seam_single_pose[k]}"
                 )
 
+        # §1.122: High seam path cost escalation (S158) — mean DP path cost gate.
+        if _HIGH_PATH_COST_THRESH > 0.0 and k not in seam_single_pose and path_local is not None:
+            try:
+                _mpc = _mean_path_cost(path_local, _sem_cost)
+            except Exception:
+                _mpc = 0.0
+            if _mpc > _HIGH_PATH_COST_THRESH:
+                _fg_a122 = int((fa_zone.max(axis=2) > 0).sum())
+                _fg_b122 = int((fb_zone.max(axis=2) > 0).sum())
+                seam_single_pose[k] = fi_a if _fg_a122 >= _fg_b122 else fi_b
+                print(
+                    f"[Stitch]   §1.122 high-path-cost B{k}: mean_cost={_mpc:.3f} "
+                    f"> {_HIGH_PATH_COST_THRESH:.3f} → single-pose frame {seam_single_pose[k]}"
+                )
+
         # P2.5 — Soft-seam diffusion blending (DSFN technique).
         # Instead of a fixed-width linear ramp, compute a spatially-adaptive blend
         # weight from the photometric similarity between the two frames in the zone.
@@ -4119,7 +5390,44 @@ def _composite_foreground(
             bg_mask_b=_wbg_b,
         )
 
-        blended = _laplacian_blend(fa_zone, fb_zone, mask_float)
+        _fb_for_blend = fb_zone
+        if k not in seam_single_pose:
+            if _ZONE_CHROMA_ALIGN:
+                _fb_for_blend = _zone_chroma_align(fa_zone, _fb_for_blend)
+            if _ZONE_LUM_NORM:
+                _fb_for_blend = _zone_lum_norm(fa_zone, _fb_for_blend)
+            if _ZONE_SAT_NORM:
+                _fb_for_blend = _zone_sat_norm(fa_zone, _fb_for_blend)
+            if _ZONE_CONTRAST_EQ:
+                _fb_for_blend = _zone_contrast_eq(fa_zone, _fb_for_blend)
+            if _ZONE_HUE_EQ:
+                _fb_for_blend = _zone_hue_eq(fa_zone, _fb_for_blend)
+
+        # §1.105: Cap blend weight for fg-overlap pixels with high lum diff.
+        _mask_for_blend = mask_float
+        if _FG_OVERLAP_BLEND_CAP > 0.0 and k not in seam_single_pose:
+            _has_fg_a = fa_zone.max(axis=2) > 0
+            _has_fg_b = _fb_for_blend.max(axis=2) > 0
+            _both_fg = _has_fg_a & _has_fg_b
+            if _both_fg.any():
+                _lum_diff = np.abs(
+                    fa_zone[..., 0].astype(np.float32) * 0.114
+                    + fa_zone[..., 1].astype(np.float32) * 0.587
+                    + fa_zone[..., 2].astype(np.float32) * 0.299
+                    - (_fb_for_blend[..., 0].astype(np.float32) * 0.114
+                       + _fb_for_blend[..., 1].astype(np.float32) * 0.587
+                       + _fb_for_blend[..., 2].astype(np.float32) * 0.299)
+                )
+                _high_diff_fg = _both_fg & (_lum_diff > 10.0)
+                if _high_diff_fg.any():
+                    _mask_for_blend = mask_float.copy()
+                    _mask_for_blend[_high_diff_fg] = np.minimum(
+                        _mask_for_blend[_high_diff_fg], _FG_OVERLAP_BLEND_CAP
+                    )
+        blended = _laplacian_blend(
+            fa_zone, _fb_for_blend, _mask_for_blend,
+            alpha_schedule=_LAPLACIAN_ALPHA_SCHEDULE,
+        )
 
         # Apply blend only to FOREGROUND pixels so background stays from temporal median.
         # Where both frames agree the pixel is background, leave the temporal median value.
@@ -4155,6 +5463,17 @@ def _composite_foreground(
             _SEAM_FG_PENETRATION_MAX > 0.0
             and k not in seam_single_pose
             and _seam_fg_penetration(path_local, fa_zone, fb_zone) > _SEAM_FG_PENETRATION_MAX
+        ):
+            _fg_a = int((fa_zone.max(axis=2) > 0).sum())
+            _fg_b = int((fb_zone.max(axis=2) > 0).sum())
+            seam_single_pose[k] = fi_a if _fg_a >= _fg_b else fi_b
+
+        # §1.112: Drift escalation — if the seam path has a sudden vertical
+        # column-to-column jump, escalate to single-pose to avoid a kink artefact.
+        if (
+            _SEAM_DRIFT_THRESH > 0.0
+            and k not in seam_single_pose
+            and _seam_path_drift(path_local) > _SEAM_DRIFT_THRESH
         ):
             _fg_a = int((fa_zone.max(axis=2) > 0).sum())
             _fg_b = int((fb_zone.max(axis=2) > 0).sum())
@@ -4223,8 +5542,32 @@ def _composite_foreground(
                 if _ADAPTIVE_SP_SOFT
                 else _sp_soft_px_base
             )
-            _oth_matched = _seam_color_match(dom_zone, oth_zone, path_local, _sp_soft_px + 4)
-            _sp_zone = _single_pose_soft_edge(dom_zone, _oth_matched, path_local, fg_apply, _sp_soft_px)
+            # §1.124: Residual-based adaptive clipping of soft-edge width (S158).
+            # High post-warp diff → narrow ramp (artefact risk); low diff → allow wider.
+            _eff_sp_soft_px = _sp_soft_px
+            if _ADAPTIVE_SP_SOFT:
+                _post_d124 = seam_post_diffs.get(k, 22.0)
+                if _post_d124 > 30.0:
+                    _eff_sp_soft_px = _ADAPTIVE_SP_SOFT_MIN
+                elif _post_d124 < 10.0:
+                    _eff_sp_soft_px = _ADAPTIVE_SP_SOFT_MAX
+            # §1.107: Adaptive seam band width based on zone height.
+            _band_px_sp = (
+                _adaptive_seam_band(zone_h, _eff_sp_soft_px + 4, _ADAPTIVE_SEAM_BAND_MAX)
+                if _ADAPTIVE_SEAM_BAND
+                else _eff_sp_soft_px + 4
+            )
+            _oth_matched = _seam_color_match(dom_zone, oth_zone, path_local, _band_px_sp)
+            # §1.88 — ECDF histogram matching after mean-shift for fuller distribution alignment.
+            if _HIST_MATCH_SEAM:
+                _oth_matched = _seam_band_hist_match(dom_zone, _oth_matched, path_local, _band_px_sp)
+            # §1.91 — iterative convergence: re-apply color match if residual delta > target.
+            if _SEAM_LUM_CONVERGE:
+                _oth_matched = _seam_lum_converge(
+                    dom_zone, _oth_matched, path_local, _band_px_sp,
+                    target_delta=_SEAM_LUM_CONVERGE_TARGET,
+                )
+            _sp_zone = _single_pose_soft_edge(dom_zone, _oth_matched, path_local, fg_apply, _eff_sp_soft_px)
             _both_for_sp = dom_has & (oth_zone.max(axis=2) > 0) & fg_apply
             if _both_for_sp.any():
                 result[y0_f:y1_f][_both_for_sp] = _sp_zone[_both_for_sp]
@@ -4232,7 +5575,7 @@ def _composite_foreground(
             print(
                 f"[Stitch]   Single-pose B{k} (frame {_single}): "
                 f"zone=[{y0_f}–{y1_f}] fg_px={int(fg_apply.sum())} "
-                f"soft_px={_sp_soft_px}"
+                f"soft_px={_eff_sp_soft_px}"
             )
         else:
             # §1.6C — Poisson seam blend (ASP_POISSON_SEAM=1): replace Laplacian
@@ -4282,6 +5625,45 @@ def _composite_foreground(
     # §1.56: Post-composite chroma seam correction.
     if _SEAM_CHROMA_EQ and boundaries:
         result = _seam_chroma_equalize(result, boundaries)
+
+    # §1.90 — post-seam bilateral smoothing pass in ±5px around each seam path.
+    if _BILATERAL_SEAM and _precomp_paths:
+        result = _bilateral_seam_smooth(result, _precomp_paths)
+
+    # §1.106: Post-composite seam luminance step audit.
+    _seam_lum_steps = _audit_seam_lum_steps(
+        result, boundaries, band_px=5, warn_thresh=_POST_SEAM_WARN_THRESH
+    )
+    _max_step = max(_seam_lum_steps.values()) if _seam_lum_steps else 0.0
+    if seam_meta_out is not None:
+        seam_meta_out.update({
+            "seam_lum_steps": _seam_lum_steps,
+            "max_seam_lum_step": _max_step,
+        })
+
+    # §1.118: Post-composite seam sharpness guard.
+    _seam_sharpness = _measure_seam_sharpness(result, boundaries, band_px=5)
+    _max_blur_k = min(_seam_sharpness, key=_seam_sharpness.get) if _seam_sharpness else None
+    _max_seam_blur = _seam_sharpness.get(_max_blur_k, 0.0) if _max_blur_k is not None else 0.0
+    if _SEAM_SHARP_MIN > 0.0:
+        for _sh_k, _sh_v in _seam_sharpness.items():
+            if _sh_v < _SEAM_SHARP_MIN:
+                print(
+                    f"[Stitch] §1.118 seam-blur WARNING: B{_sh_k} lap_var={_sh_v:.2f} "
+                    f"< {_SEAM_SHARP_MIN:.2f}"
+                )
+    if seam_meta_out is not None:
+        seam_meta_out["seam_sharpness"] = _seam_sharpness
+        seam_meta_out["max_seam_blur"] = _max_seam_blur
+
+    # §1.120: Post-composite saturation step audit (S157).
+    _seam_sat_steps = _audit_seam_sat_steps(
+        result, boundaries, band_px=5, warn_thresh=_SEAM_SAT_WARN_THRESH
+    )
+    _max_sat_step = max(_seam_sat_steps.values()) if _seam_sat_steps else 0.0
+    if seam_meta_out is not None:
+        seam_meta_out["seam_sat_steps"] = _seam_sat_steps
+        seam_meta_out["max_seam_sat_step"] = _max_sat_step
 
     # §2.4B: Seam overlay annotation — draw coloured diagnostic lines.
     if _SEAM_OVERLAY and len(boundaries) > 0:
@@ -4382,7 +5764,80 @@ __all__ = [
     "_seam_fg_penetration",
     "_seam_zone_texture_energy",
     "_fg_gradient_cost",
+    "_build_fg_mesh_barrier",
+    "_MESH_BARRIER",
     "_compute_initial_boundaries",
     "_annotate_seams",
     "_extract_seam_crops",
+    "set_flow_hitl_callback",
+    "_flow_hitl_callback",
+    "_seam_band_hist_match",
+    "_hf_column_cost",
+    "_bilateral_seam_smooth",
+    "_SEAM_ORDER_RESIDUAL",
+    "_HIST_MATCH_SEAM",
+    "_BILATERAL_SEAM",
+    "_HF_SEAM_COST",
+    "_seam_lum_converge",
+    "_smooth_feather_array",
+    "_SEAM_LUM_CONVERGE",
+    "_SMOOTH_FEATHER",
+    "_SP_THRESH_FG_SCALE",
+    "_SP_THRESH_FG_FACTOR",
+    "_SP_FG_FRAC_THRESH",
+    "_zone_chroma_align",
+    "_ZONE_CHROMA_ALIGN",
+    "_zone_entropy",
+    "_seam_zone_entropy_gap",
+    "_ENTROPY_GAP_THRESH",
+    "_smooth_gain_array",
+    "_SMOOTH_GAIN",
+    "_SMOOTH_GAIN_SIGMA",
+    "_EXTRA_FG_DILATION",
+    "_SEAM_PIN_ROWS",
+    "_ZONE_MAD_THRESH",
+    "_WARP_MOMENTUM_DAMP",
+    "_WARP_MOMENTUM_FACTOR",
+    "_SP_REF_PROX",
+    "_zone_lum_norm",
+    "_ZONE_LUM_NORM",
+    "_FG_OVERLAP_BLEND_CAP",
+    "_audit_seam_lum_steps",
+    "_POST_SEAM_WARN_THRESH",
+    "_adaptive_seam_band",
+    "_ADAPTIVE_SEAM_BAND",
+    "_ADAPTIVE_SEAM_BAND_MAX",
+    "_LAPLACIAN_ALPHA_SCHEDULE",
+    "_COST_MAP_NORM",
+    "_COST_MAP_BLUR_SIGMA",
+    "_zone_sat_norm",
+    "_ZONE_SAT_NORM",
+    "_seam_path_drift",
+    "_SEAM_DRIFT_THRESH",
+    "_COST_COL_SMOOTH_SIGMA",
+    "_zone_contrast_eq",
+    "_ZONE_CONTRAST_EQ",
+    "_cap_feather_jumps",
+    "_FEATHER_JUMP_MAX",
+    "_ZONE_BG_FRAC_DIAG",
+    "_zone_pair_ncc",
+    "_ZONE_FAST_NCC_THRESH",
+    "_measure_seam_sharpness",
+    "_SEAM_SHARP_MIN",
+    "_audit_seam_sat_steps",
+    "_SEAM_SAT_WARN_THRESH",
+    "_zone_hist_intersection",
+    "_ZONE_HIST_THRESH",
+    "_zone_width_cv",
+    "_ZONE_WIDTH_CV_MAX",
+    "_mean_path_cost",
+    "_HIGH_PATH_COST_THRESH",
+    "_SCATTER_COST",
+    "_SCATTER_COST_WEIGHT",
+    "_ADAPTIVE_SP_SOFT_MIN",
+    "_ADAPTIVE_SP_SOFT_MAX",
+    "_SEAM_TRANSITION_PEN",
+    "_FG_MAJORITY_FLOOR",
+    "_zone_hue_eq",
+    "_ZONE_HUE_EQ",
 ]

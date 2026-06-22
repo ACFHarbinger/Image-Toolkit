@@ -105,7 +105,9 @@ _SEARAFT_DEVICE = None
 # that remain informative over flat cel-shaded regions where DIS's gradient-
 # based aperture problem produces chaotic / zero flow vectors.  The model is
 # loaded lazily on first call and cached for the benchmark run.
-_USE_SEARAFT = os.environ.get("ASP_FLOW_ENGINE", "searaft").lower() == "searaft"
+_FLOW_ENGINE = os.environ.get("ASP_FLOW_ENGINE", "searaft").lower()
+_USE_SEARAFT = _FLOW_ENGINE == "searaft"
+_USE_ANIMEINTERP = _FLOW_ENGINE == "animeinterp"
 
 # ARAP Push phase (Sýkora 2009 block-matching Push before the Regularise step).
 # Enable: ASP_ARAP_PUSH=1 (default ON).
@@ -299,6 +301,15 @@ def _dense_flow(prev_bgr: np.ndarray, next_bgr: np.ndarray) -> np.ndarray:
     Returns an (H, W, 2) float32 array ``flow`` where
     ``prev[y, x]`` corresponds to ``next[y + flow[y,x,1], x + flow[y,x,0]]``.
     """
+    if _USE_ANIMEINTERP:
+        try:
+            from backend.src.anim.animeinterp_flow import compute_animeinterp_flow
+            return compute_animeinterp_flow(
+                prev_bgr, next_bgr,
+                weights_path=os.environ.get("ASP_ANIMEINTERP_WEIGHTS", "") or None,
+            )
+        except Exception as e:
+            logger.debug("AnimeInterp flow failed (%s); falling back to DIS", e)
     if _USE_SEARAFT:
         # Use 1280 max-side: seam band crops are ~440px tall × 1900px wide,
         # which downscales to ≈295×1280 — good resolution without OOM.
@@ -1402,4 +1413,6 @@ __all__ = [
     "_arap_regularise",
     "_animeinterp_sgm",
     "_slic_sgm_proxy",
+    "_FLOW_ENGINE",
+    "_USE_ANIMEINTERP",
 ]

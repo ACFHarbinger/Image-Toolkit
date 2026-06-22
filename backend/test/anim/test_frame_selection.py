@@ -788,3 +788,54 @@ class TestDropExactDhashDuplicates:
         result_t, result_p, n_drop = _drop_exact_dhash_duplicates(thumbs, paths)
         assert len(result_t) == len(result_p)
         assert len(result_t) + n_drop == len(thumbs)
+
+
+# TestHoldBlockAverage — §3.12A Overmix-style hold-block sub-pixel averaging (S144)
+
+from backend.src.anim.frame_selection import _hold_block_average
+
+
+def _make_bgr(h: int = 64, w: int = 64, val: int = 128) -> np.ndarray:
+    return np.full((h, w, 3), val, dtype=np.uint8)
+
+
+class TestHoldBlockAverage:
+    def test_single_frame_per_block_passthrough(self):
+        frames = [_make_bgr(val=50), _make_bgr(val=100), _make_bgr(val=150)]
+        paths = ["a.png", "b.png", "c.png"]
+        hold_ids = [0, 1, 2]
+        out_f, out_p = _hold_block_average(frames, hold_ids, paths)
+        assert len(out_f) == 3
+        assert out_p == paths
+
+    def test_identical_hold_block_averages_to_same_value(self):
+        frame = _make_bgr(val=200)
+        frames = [frame.copy(), frame.copy(), frame.copy()]
+        paths = ["x0.png", "x1.png", "x2.png"]
+        hold_ids = [0, 0, 0]
+        out_f, out_p = _hold_block_average(frames, hold_ids, paths)
+        assert len(out_f) == 1
+        assert np.allclose(out_f[0].astype(float), 200.0, atol=2)
+
+    def test_output_lengths_match(self):
+        frames = [_make_bgr(val=v) for v in [10, 12, 14, 80, 82]]
+        paths = [f"f{i}.png" for i in range(5)]
+        hold_ids = [0, 0, 0, 1, 1]
+        out_f, out_p = _hold_block_average(frames, hold_ids, paths)
+        assert len(out_f) == len(out_p) == 2
+
+    def test_path_taken_from_middle_frame(self):
+        frames = [_make_bgr() for _ in range(3)]
+        paths = ["p0.png", "p1.png", "p2.png"]
+        hold_ids = [7, 7, 7]
+        _, out_p = _hold_block_average(frames, hold_ids, paths)
+        assert out_p[0] == "p1.png"
+
+    def test_ecc_failure_falls_back_gracefully(self):
+        rng = np.random.default_rng(42)
+        frames = [rng.integers(0, 256, (32, 32, 3), dtype=np.uint8) for _ in range(2)]
+        paths = ["noisy0.png", "noisy1.png"]
+        hold_ids = [0, 0]
+        out_f, out_p = _hold_block_average(frames, hold_ids, paths)
+        assert len(out_f) == 1
+        assert out_f[0].shape == (32, 32, 3)

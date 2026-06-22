@@ -417,3 +417,55 @@ class TestLSDCollinearity:
             f"LSD collinearity should reduce variance of flow along the line; "
             f"std={tx_std:.2f}px (expected < 5px after constraint)"
         )
+
+
+class TestAnimeInterpFlow:
+    """§3.1A+§3.2A — AnimeInterp SGM + ConvGRU flow engine."""
+
+    def test_trapped_ball_segment_returns_label_map(self):
+        from backend.src.anim.animeinterp_flow import trapped_ball_segment
+        img = np.zeros((64, 64, 3), dtype=np.uint8)
+        img[16:48, 16:48] = [200, 100, 50]
+        labels = trapped_ball_segment(img)
+        assert labels.shape == (64, 64)
+        assert labels.dtype == np.int32
+        assert len(np.unique(labels)) >= 2
+
+    def test_build_mdm_rows_sum_to_one(self):
+        from backend.src.anim.animeinterp_flow import build_mdm
+        feats_a = {0: np.array([1.0, 0.0, 0.0]), 1: np.array([0.0, 1.0, 0.0])}
+        feats_b = {0: np.array([0.9, 0.1, 0.0]), 1: np.array([0.1, 0.9, 0.0])}
+        cents_a = {0: (10, 10), 1: (50, 50)}
+        cents_b = {0: (11, 10), 1: (51, 50)}
+        mdm = build_mdm(feats_a, feats_b, cents_a, cents_b)
+        assert mdm.shape == (2, 2)
+        np.testing.assert_allclose(mdm.sum(axis=1), 1.0, atol=1e-5)
+
+    def test_compute_region_features_vgg_fallback(self):
+        from backend.src.anim.animeinterp_flow import compute_region_features
+        img = np.zeros((32, 32, 3), dtype=np.uint8)
+        labels = np.zeros((32, 32), dtype=np.int32)
+        labels[16:, :] = 1
+        feats = compute_region_features(img, labels, use_vgg=False)
+        assert isinstance(feats, dict)
+        assert 0 in feats and 1 in feats
+        assert feats[0].ndim == 1
+
+    def test_compute_animeinterp_flow_shape(self):
+        from backend.src.anim.animeinterp_flow import compute_animeinterp_flow
+        a = np.zeros((32, 64, 3), dtype=np.uint8)
+        b = np.zeros((32, 64, 3), dtype=np.uint8)
+        b[:, 4:] = a[:, :-4]
+        flow = compute_animeinterp_flow(a, b, n_gru_iters=0)
+        assert flow.shape == (32, 64, 2)
+        assert flow.dtype == np.float32
+
+    def test_compute_animeinterp_flow_detects_shift(self):
+        from backend.src.anim.animeinterp_flow import compute_animeinterp_flow
+        a = np.full((32, 32, 3), 128, dtype=np.uint8)
+        b = np.full((32, 32, 3), 128, dtype=np.uint8)
+        a[:16, :] = [100, 50, 200]
+        b[:16, 2:] = [100, 50, 200]
+        flow = compute_animeinterp_flow(a, b, n_gru_iters=0)
+        mean_dx = float(flow[:16, :, 0].mean())
+        assert mean_dx > 0, f"Expected positive dx for right-shift, got {mean_dx:.2f}"

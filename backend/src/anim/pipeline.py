@@ -86,6 +86,7 @@ from backend.src.constants import (
 )
 from .ecc import _ecc_refine
 from .bg_complete import complete_background, _propainter_complete_frames
+from .hitl_presets import load_hitl_preset, apply_hitl_preset
 from .masking import (
     _cleanup_sam2_state,
     _compute_fg_masks,
@@ -484,6 +485,8 @@ _PROPAINTER: bool = os.environ.get("ASP_PROPAINTER", "0") != "0"
 # would be misaligned).  This flag simply suppresses the hard SCANS fallback.
 # Default OFF.  Enable: ASP_HORIZONTAL_COMPOSITE=1.
 _HORIZONTAL_COMPOSITE: bool = os.environ.get("ASP_HORIZONTAL_COMPOSITE", "0") != "0"
+# §2.8 — HybridStitch export path.  Empty = disabled.
+_HYBRID_EXPORT_PATH: str = os.environ.get("ASP_HYBRID_EXPORT_PATH", "")
 # §2.14 — Triangular consistency filter (S93).
 # For every triangle (i→j, j→k, i→k) in the edge graph, compute the L2
 # residual between the predicted displacement (sum of two sides) and the
@@ -2726,6 +2729,24 @@ class AnimeStitchPipeline:
         )
         self._baselines = None
 
+        # ── §3.16B: Per-test HITL preset ─────────────────────────────────────
+        _test_name = Path(image_paths[0]).parent.name if image_paths else ""
+        _hitl_preset = load_hitl_preset(_test_name)
+        _hitl_pipeline_state: dict = {}
+        if _hitl_preset is not None:
+            _hitl_pipeline_state = apply_hitl_preset(_hitl_pipeline_state, _hitl_preset)
+            if _hitl_pipeline_state.get("force_scans"):
+                logger.info(
+                    f"[Stitch] §3.16B: HITL preset '{_test_name}' → force SCANS fallback."
+                )
+                frames_early = _load_frames(image_paths)
+                return _scan_stitch_fallback(frames_early, output_path)
+            if _hitl_pipeline_state.get("scroll_axis"):
+                logger.info(
+                    f"[Stitch] §3.16B: HITL preset '{_test_name}' → "
+                    f"scroll_axis={_hitl_pipeline_state['scroll_axis']}."
+                )
+
         # ── Stage 1: Load & trim ─────────────────────────────────────────────
         frames = _load_frames(image_paths)
         N = len(frames)
@@ -3057,6 +3078,22 @@ class AnimeStitchPipeline:
             )
 
         edges = self._filter_edges(edges, image_paths, H, W, frames, bg_masks)
+
+        # §3.16B: apply HITL drop_edges after filter
+        if _hitl_pipeline_state.get("boundaries"):
+            logger.info(
+                f"[Stitch] §3.16B: HITL preset '{_test_name}' — "
+                f"forced_boundaries={_hitl_pipeline_state['boundaries']}."
+            )
+        _preset_edges_state: dict = {}
+        if _hitl_preset is not None and _hitl_preset.drop_edges:
+            _preset_edges_state["edges"] = edges
+            apply_hitl_preset(_preset_edges_state, _hitl_preset)
+            edges = _preset_edges_state.get("edges", edges)
+            logger.info(
+                f"[Stitch] §3.16B: HITL preset '{_test_name}' — "
+                f"dropped {len(_hitl_preset.drop_edges)} edges, {len(edges)} remain."
+            )
 
         for _mdl in [self._loftr, self._eloftr, self._aliked, self._roma]:
             if _mdl is not None:
@@ -4345,6 +4382,27 @@ class AnimeStitchPipeline:
         out.save(output_path)
         gc.collect()
         logger.info(f"[Stitch] Done. Saved to '{output_path}'.")
+
+        # §2.8 — HybridStitch export
+        if _HYBRID_EXPORT_PATH:
+            try:
+                from .hybrid_export import build_hybrid_export, save_hybrid_export
+                _he_state = {
+                    "image_paths": image_paths,
+                    "affines": affines,
+                    "photometric_gains": [],
+                    "photometric_biases": [],
+                    "canvas_w": canvas.shape[1],
+                    "canvas_h": canvas.shape[0],
+                    "seam_boundaries": [],
+                    "seam_post_diffs": {},
+                }
+                _he_data = build_hybrid_export(_he_state)
+                save_hybrid_export(_he_data, _HYBRID_EXPORT_PATH)
+                logger.info(f"[Stitch] §2.8 Hybrid export saved to '{_HYBRID_EXPORT_PATH}'.")
+            except Exception as _he_e:
+                logger.warning(f"[Stitch] §2.8 Hybrid export failed ({_he_e}); continuing.")
+
         return out
 
     # ------------------------------------------------------------- thin wrappers
@@ -4739,4 +4797,5 @@ __all__ = [
     "_compute_canvas_fill_ratio",
     "_compute_strip_variance_ratio",
     "_build_landmark_affine",
+    "_HYBRID_EXPORT_PATH",
 ]
