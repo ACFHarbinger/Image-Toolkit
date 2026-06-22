@@ -5,7 +5,7 @@
 # Update hooks: pre-commit autoupdate
 #
 # Gate philosophy (see docs/DOCUMENTATION_STANDARDS.md):
-#   - Blocking: ruff, pydoclint (anim/ only), lychee, cargo fmt
+#   - Blocking: ruff, pydoclint (animation/ only), lychee, cargo fmt
 #   - Advisory: mypy (strict modules only), typedoc
 
 repos:
@@ -37,7 +37,7 @@ repos:
 
   # ── Python: pydoclint — Google-style docstring completeness ───────────────
   # Enforces docstring standards from docs/DOCUMENTATION_STANDARDS.md.
-  # Currently scoped to backend/src/anim/ (highest-traffic, most complex).
+  # Currently scoped to backend/src/animation/ (highest-traffic, most complex).
   # Expand to full backend/src/ once existing coverage improves.
   - repo: https://github.com/jsh9/pydoclint
     rev: 0.5.9
@@ -46,9 +46,9 @@ repos:
         args:
           - --style=google
           - --arg-type-hints-in-signature=true
-          - --check-return-types=false   # type annotations in signature are sufficient
+          - --check-return-types=false # type annotations in signature are sufficient
           - --require-return-when-returning-nothing=false
-        files: ^backend/src/anim/
+        files: ^backend/src/animation/
 
   # ── Python: mypy (strict modules) ────────────────────────────────────────
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -75,9 +75,9 @@ repos:
         args:
           - --verbose
           - --no-progress
-          - --exclude=https://crates.io  # often rate-limits CI
+          - --exclude=https://crates.io # often rate-limits CI
           - --exclude=https://mybinder.org
-          - --include-verbatim            # skip code blocks
+          - --include-verbatim # skip code blocks
         files: \.(md|markdown)$
         pass_filenames: true
 

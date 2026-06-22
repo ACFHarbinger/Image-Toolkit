@@ -17,7 +17,7 @@ Saved artefacts (in <output_dir>/panorama_stages/):
 Usage
 -----
     from save_stage_artifacts import instrument_pipeline
-    from backend.src.anim import AnimeStitchPipeline
+    from backend.src.animation import AnimeStitchPipeline
 
     pipeline = AnimeStitchPipeline(use_birefnet=True, use_loftr=True)
     instrument_pipeline(pipeline, output_dir="/path/to/dataset/output")
@@ -41,7 +41,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import cv2
 import numpy as np
@@ -50,6 +50,7 @@ from PIL import Image
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _affine_to_list(M: np.ndarray) -> List[float]:
     """Convert (2,3) affine to flat list [a,b,tx,c,d,ty]."""
@@ -90,6 +91,7 @@ def _edges_to_json(edges: List[Dict]) -> List[Dict]:
 # Instrumented pipeline wrapper
 # ---------------------------------------------------------------------------
 
+
 def instrument_pipeline(pipeline: Any, output_dir: str) -> None:
     """
     Monkey-patch a live AnimeStitchPipeline instance to intercept internal
@@ -105,12 +107,12 @@ def instrument_pipeline(pipeline: Any, output_dir: str) -> None:
     _orig_apply_basic = pipeline._apply_basic
     _orig_fg_masks = pipeline._compute_fg_masks
     _orig_pairwise_match = pipeline._pairwise_match
-    _orig_ba = pipeline._ecc_refine       # save post-ECC (stage 8)
+    _orig_ba = pipeline._ecc_refine  # save post-ECC (stage 8)
     _orig_render = pipeline._render
     _orig_composite = pipeline._composite_foreground
 
     # ---- Stage 2: width-normalised frames ----
-    original_run = pipeline.run
+    # original_run = pipeline.run
 
     def patched_run(image_paths: List[str], output_path: str) -> Image.Image:
         """
@@ -120,19 +122,21 @@ def instrument_pipeline(pipeline: Any, output_dir: str) -> None:
         and does not require modifying the original source.
         """
         import gc
-        import re
         import warnings
-        from backend.src.anim.bundle_adjust import _bundle_adjust_affine
-        from backend.src.anim.canvas import (
-            _compute_canvas, _crop_to_valid, _load_frames, _normalise_widths,
+        from backend.src.animation.bundle_adjust import _bundle_adjust_affine
+        from backend.src.animation.canvas import (
+            _compute_canvas,
+            _crop_to_valid,
+            _load_frames,
+            _normalise_widths,
             _scan_stitch_fallback,
         )
-        from backend.src.anim.compositing import _composite_foreground
-        from backend.src.anim.ecc import _ecc_refine
-        from backend.src.anim.masking import _compute_fg_masks
-        from backend.src.anim.matching import _pairwise_match
-        from backend.src.anim.photometric import _apply_basic, _correct_vignetting
-        from backend.src.anim.rendering import _render
+        from backend.src.animation.compositing import _composite_foreground
+        from backend.src.animation.ecc import _ecc_refine
+        from backend.src.animation.masking import _compute_fg_masks
+        from backend.src.animation.matching import _pairwise_match
+        from backend.src.animation.photometric import _apply_basic, _correct_vignetting
+        from backend.src.animation.rendering import _render
 
         import torch
 
@@ -156,9 +160,10 @@ def instrument_pipeline(pipeline: Any, output_dir: str) -> None:
         H, W = frames[0].shape[:2]
 
         # Stage 3: BaSiC
-        bg_masks_photometric: List[Optional[np.ndarray]] = [None] * N
+        # bg_masks_photometric: List[Optional[np.ndarray]] = [None] * N
         if pipeline.use_basic:
             from backend.src.models.basic_wrapper import BaSiCWrapper
+
             if pipeline._basic is None:
                 pipeline._basic = BaSiCWrapper()
             frames, baselines = _apply_basic(frames, pipeline._basic)
@@ -171,9 +176,11 @@ def instrument_pipeline(pipeline: Any, output_dir: str) -> None:
         # Stage 4: fg masks — save
         if pipeline.use_birefnet and pipeline._birefnet is None:
             from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+
             pipeline._birefnet = BiRefNetWrapper()
-        bg_masks = _compute_fg_masks(frames, pipeline._birefnet,
-                                      use_birefnet=pipeline.use_birefnet)
+        bg_masks = _compute_fg_masks(
+            frames, pipeline._birefnet, use_birefnet=pipeline.use_birefnet
+        )
         for i, m in enumerate(bg_masks):
             _save_mask_png(m, stages_dir / f"stage04_bgmask_frame{i:02d}.png")
         print(f"[SaveStages] Stage 4: saved {N} bg masks.")
@@ -202,18 +209,26 @@ def instrument_pipeline(pipeline: Any, output_dir: str) -> None:
             for _i in range(N):
                 if bg_frame_means[_i] is None:
                     continue
-                _gain = np.clip(_ref_mean / np.maximum(bg_frame_means[_i], 1.0), 0.88, 1.14)
+                _gain = np.clip(
+                    _ref_mean / np.maximum(bg_frame_means[_i], 1.0), 0.88, 1.14
+                )
                 if not np.allclose(_gain, 1.0, atol=0.01):
-                    frames[_i] = np.clip(frames[_i].astype(np.float32) * _gain, 0, 255).astype(np.uint8)
+                    frames[_i] = np.clip(
+                        frames[_i].astype(np.float32) * _gain, 0, 255
+                    ).astype(np.uint8)
 
         # Stage 5-6: pairwise matching — save edges
         if pipeline.use_loftr and pipeline._loftr is None:
             from backend.src.models.loftr_wrapper import LoFTRWrapper
+
             pipeline._loftr = LoFTRWrapper()
-        edges = _pairwise_match(frames, bg_masks,
-                                loftr_wrapper=pipeline._loftr,
-                                use_loftr=pipeline.use_loftr,
-                                motion_model=pipeline.motion_model)
+        edges = _pairwise_match(
+            frames,
+            bg_masks,
+            loftr_wrapper=pipeline._loftr,
+            use_loftr=pipeline.use_loftr,
+            motion_model=pipeline.motion_model,
+        )
         edges = pipeline._filter_edges(edges, image_paths, H, W, frames, bg_masks)
         with open(stages_dir / "stage05_edges.json", "w") as f:
             json.dump(_edges_to_json(edges), f, indent=2)
@@ -261,7 +276,11 @@ def instrument_pipeline(pipeline: Any, output_dir: str) -> None:
             "canvas_w": canvas_w,
             "T_global": T_global.tolist(),
             "frames": [
-                {"frame": i, "tx": float(affines[i][0, 2]), "ty": float(affines[i][1, 2])}
+                {
+                    "frame": i,
+                    "tx": float(affines[i][0, 2]),
+                    "ty": float(affines[i][1, 2]),
+                }
                 for i in range(N)
             ],
         }
@@ -271,8 +290,13 @@ def instrument_pipeline(pipeline: Any, output_dir: str) -> None:
 
         # Stage 9: temporal render — save
         canvas, valid_mask, warped_corr, warped_fgs = _render(
-            frames, affines, bg_masks, canvas_h, canvas_w,
-            renderer=pipeline.renderer, baselines=pipeline._baselines,
+            frames,
+            affines,
+            bg_masks,
+            canvas_h,
+            canvas_w,
+            renderer=pipeline.renderer,
+            baselines=pipeline._baselines,
         )
         _save_png(canvas, stages_dir / "stage09_temporal_render.png")
         print("[SaveStages] Stage 9: saved temporal render.")
@@ -309,6 +333,7 @@ def instrument_pipeline(pipeline: Any, output_dir: str) -> None:
 # Convenience entry point
 # ---------------------------------------------------------------------------
 
+
 def run_and_save(
     image_paths: List[str],
     output_dir: str,
@@ -325,7 +350,7 @@ def run_and_save(
 
     Returns the final PIL Image.
     """
-    from backend.src.anim import AnimeStitchPipeline
+    from backend.src.animation import AnimeStitchPipeline
 
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     output_path = str(Path(output_dir) / "panorama.png")
@@ -357,12 +382,19 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Run AnimeStitchPipeline with stage artefact saving."
     )
-    parser.add_argument("--frames-dir", required=True,
-                        help="Directory containing source frame images.")
-    parser.add_argument("--output-dir", required=True,
-                        help="Output directory for panorama.png and panorama_stages/.")
-    parser.add_argument("--pattern", default="*.png",
-                        help="Glob pattern for source frames (default: *.png).")
+    parser.add_argument(
+        "--frames-dir", required=True, help="Directory containing source frame images."
+    )
+    parser.add_argument(
+        "--output-dir",
+        required=True,
+        help="Output directory for panorama.png and panorama_stages/.",
+    )
+    parser.add_argument(
+        "--pattern",
+        default="*.png",
+        help="Glob pattern for source frames (default: *.png).",
+    )
     parser.add_argument("--no-birefnet", action="store_true")
     parser.add_argument("--no-loftr", action="store_true")
     args = parser.parse_args()

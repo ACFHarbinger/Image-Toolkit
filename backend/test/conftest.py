@@ -30,6 +30,7 @@ if repo_root not in sys.path:
 # Limit OpenCV threads to prevent CPU thrashing
 try:
     import cv2
+
     cv2.setNumThreads(0)
 except ImportError:
     pass
@@ -37,6 +38,7 @@ except ImportError:
 # Limit PyTorch threads to prevent CPU thrashing
 try:
     import torch
+
     torch.set_num_threads(1)
 except ImportError:
     pass
@@ -75,9 +77,7 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers", "gc_heavy: test allocates large temporary objects"
     )
-    config.addinivalue_line(
-        "markers", "slow: test takes more than 10 s"
-    )
+    config.addinivalue_line("markers", "slow: test takes more than 10 s")
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list) -> None:
@@ -96,7 +96,7 @@ def resource_cleanup():
 
     §3.13C: gc.collect() removed — CPython's reference counting frees non-cyclic
     objects (numpy arrays, dicts, etc.) immediately when they go out of scope.
-    The cyclic GC is not needed for the anim test suite; removing the call
+    The cyclic GC is not needed for the animation test suite; removing the call
     eliminates ~19 GC traversals of the growing object graph.
 
     CUDA flush is retained but gated behind ASP_TEST_CUDA_CLEANUP=1 to avoid
@@ -106,6 +106,7 @@ def resource_cleanup():
     if os.environ.get("ASP_TEST_CUDA_CLEANUP", "0") != "0":
         try:
             import torch
+
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
                 torch.cuda.ipc_collect()
@@ -144,7 +145,8 @@ def clear_ml_singletons():
     """
     yield
     try:
-        import backend.src.anim.frame_selection as _fs
+        import backend.src.animation.frame_selection as _fs
+
         for _k in list(getattr(_fs, "_DINOV2_CACHE", {}).keys()):
             _entry = _fs._DINOV2_CACHE.pop(_k, None)
             if _entry is not None:
@@ -152,7 +154,8 @@ def clear_ml_singletons():
     except Exception:
         pass
     try:
-        import backend.src.anim.fg_register as _fgr
+        import backend.src.animation.fg_register as _fgr
+
         if getattr(_fgr, "_SEARAFT_SINGLETON", None) is not None:
             del _fgr._SEARAFT_SINGLETON
             _fgr._SEARAFT_SINGLETON = None
@@ -167,14 +170,16 @@ def clear_ml_singletons():
     except Exception:
         pass
     try:
-        import backend.src.anim.anim_fill as _af
+        import backend.src.animation.anim_fill as _af
+
         if getattr(_af, "_TC_PIPELINE", None) is not None:
             del _af._TC_PIPELINE
             _af._TC_PIPELINE = None
     except Exception:
         pass
     try:
-        import backend.src.anim.compositing as _comp
+        import backend.src.animation.compositing as _comp
+
         if getattr(_comp, "_SEAM_POOL", None) is not None:
             _comp._SEAM_POOL.shutdown(wait=False)
             _comp._SEAM_POOL = None
@@ -183,6 +188,7 @@ def clear_ml_singletons():
     gc.collect()
     try:
         import torch
+
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
     except ImportError:
@@ -554,7 +560,7 @@ def crawler(crawler_config):
 
 # ----------------------------------------------------------------------
 # Anime stitch pipeline helpers
-# Shared builders for backend/test/anim/ tests — pure NumPy/OpenCV so
+# Shared builders for backend/test/animation/ tests — pure NumPy/OpenCV so
 # tests run without any GPU or model dependency.
 # ----------------------------------------------------------------------
 

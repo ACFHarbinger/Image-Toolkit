@@ -1,15 +1,15 @@
 ---
 trigger: anime_stitch
-description: Rules for modifying the AnimeStitchPipeline — compositing, rendering, alignment, and photometric correction code in backend/src/anim/.
+description: Rules for modifying the AnimeStitchPipeline — compositing, rendering, alignment, and photometric correction code in backend/src/animation/.
 ---
 
-You are working on the anime image stitching pipeline in `backend/src/anim/`. Apply the following rules at all times.
+You are working on the anime image stitching pipeline in `backend/src/animation/`. Apply the following rules at all times.
 
 ---
 
 ## Iteration & Testing
 
-- **Run the unit test suite first.** Before and after any change to `backend/src/anim/`, run `pytest backend/test/anim/ -q`. The suite has 772 backend tests (2 skipped: pyav) + 18 GUI tests (10 in `test_canvas_inspector_dialog.py`, 8 in `test_hitl_session_viewer_dialog.py`) covering all issue categories with no GPU dependency (~30s). A regression here is a hard blocker.
+- **Run the unit test suite first.** Before and after any change to `backend/src/animation/`, run `pytest backend/test/animation/ -q`. The suite has 772 backend tests (2 skipped: pyav) + 18 GUI tests (10 in `test_canvas_inspector_dialog.py`, 8 in `test_hitl_session_viewer_dialog.py`) covering all issue categories with no GPU dependency (~30s). A regression here is a hard blocker.
 - **Update tests when fixing documented bugs.** Tests that document broken behavior (e.g. near-zero edge clustering) have a comment saying "update this assertion after the fix". Find the test and flip the assertion to verify the corrected behavior.
 - **Always use the fast iteration loop.** Do not re-run BiRefNet or LoFTR to test compositing changes. Load pre-computed stages from `data/asp_test1/output/panorama_stages/` via `archive/run_pipeline_v2.py`. Only re-run full GPU stages when changing Stages 1–8.
 - **View the output image after every run.** Use the Read tool on the `.png` output to visually inspect the result before claiming success. Do not rely solely on printed gain/delta values.
@@ -83,7 +83,7 @@ The old `max(abs(diff(row_mean_lum)))` metric has two artifact modes: (1) it cou
 
 ## Video Ingestion (Phase 2 — Issue 9)
 
-- **New module: `backend/src/anim/video_ingestion.py`** — `VideoIngestionStream` wraps PyAV (`av.open()`). It exposes `get_frame(idx, full_res=True)`, `get_proxy_frames(stride=5)`, and `decimate_duplicates(mad_threshold=0.01)`. Do NOT use Decord (memory leaks, color deviation) or cv2.VideoCapture (unreliable seeking past GOP boundaries). Use PyAV exclusively.
+- **New module: `backend/src/animation/video_ingestion.py`** — `VideoIngestionStream` wraps PyAV (`av.open()`). It exposes `get_frame(idx, full_res=True)`, `get_proxy_frames(stride=5)`, and `decimate_duplicates(mad_threshold=0.01)`. Do NOT use Decord (memory leaks, color deviation) or cv2.VideoCapture (unreliable seeking past GOP boundaries). Use PyAV exclusively.
 - **Proxy-first decode.** The proxy stream (I-frame-only at ¼ resolution via `av.seek + decode`) must always run before full-resolution decode. `smart_select_frames()` receives proxy frames; only selected frame indices are decoded at full resolution. This keeps memory under ~100 MB for 300-frame inputs.
 - **Hybrid `pipeline.run()` signature.** `AnimeStitchPipeline.run()` accepts `video_path: str | None` alongside `image_paths: List[str] | None`. If `video_path` is provided and `image_paths` is None, the pipeline uses `VideoIngestionStream` for ingestion. If both are provided, `image_paths` are the high-res keyframes and `video_path` is used for tracking only (Phase 9C).
 - **No blocking decode on the main thread.** `VideoIngestionStream` frame reads must happen inside `QRunnable`/`QThread` workers if triggered from the GUI. The `VideoIngestionStream` class itself is thread-safe (PyAV containers opened per-thread).
@@ -92,7 +92,7 @@ The old `max(abs(diff(row_mean_lum)))` metric has two artifact modes: (1) it cou
 ## Multi-Modal HITL (Phase 2 — Issue 10)
 
 - **No blocking calls in HITL checkpoint dialogs.** GroundingDINO inference and SAM-2 re-propagation during click refinement must run in a `QThread` with progress indication. The dialog's event loop must remain responsive for click capture. Never call model inference from a slot handler directly.
-- **Grounding DINO wrapper lives in `backend/src/anim/grounding.py`**, not in `masking.py`. `masking.py` calls into `grounding.py` via `_compute_fg_masks_grounded_sam2(frames, text_prompt, ...)`. No model weight loading in `masking.py` directly.
+- **Grounding DINO wrapper lives in `backend/src/animation/grounding.py`**, not in `masking.py`. `masking.py` calls into `grounding.py` via `_compute_fg_masks_grounded_sam2(frames, text_prompt, ...)`. No model weight loading in `masking.py` directly.
 - **Click-refinement prompts are additive.** Positive clicks (`pos_clicks`) and negative clicks (`neg_clicks`) are accumulated across the session dialog's lifetime; they are all passed to SAM-2 in one `predict()` call per refinement. Do NOT restart SAM-2's state from scratch on each click.
 - **Seam exclusion masks are injected at `_build_seam_cost_map()`.** The `exclusion_masks: List[np.ndarray] | None = None` parameter receives GroundingDINO-detected exclusion regions. Each mask pixel gets `cost = 1e6` (hard barrier). The fallback (all-background columns) must still be available when no exclusion masks are provided.
 - **`COCOAnnotationBuilder` is side-effect-only.** `data_serialization.py`'s `COCOAnnotationBuilder.save()` must never raise. Write to a temp file then `os.replace()` atomically. Serialization failures must be logged as warnings, never as pipeline-blocking errors.
@@ -100,9 +100,9 @@ The old `max(abs(diff(row_mean_lum)))` metric has two artifact modes: (1) it cou
 
 ## Code Quality
 
-- **No Qt imports in `backend/src/anim/`.** These modules must be importable from headless scripts.
+- **No Qt imports in `backend/src/animation/`.** These modules must be importable from headless scripts.
 - **Do not change `_composite_foreground`'s public signature.** It is called from the pipeline, the GUI worker, and test scripts. All changes must be backward-compatible.
 - **Print diagnostic output for every meaningful decision.** The `[Stitch]` prefix print statements (boundary positions, feather sizes, LS gains, DP path ranges) are essential for diagnosing issues in logs. Do not remove or silence them.
-- **Pipeline constants live in `backend/src/constants/anim.py`**, not at the top of individual module files. Key constants: `FEATHER_MAX=300`, `FEATHER_MIN=80`, `FEATHER_TABLE`, `CANVAS_MAX_DIM`, `MIN_EXPECTED_STEP=25`, `SPATIAL_DEDUP_PX=25`, `NEAR_DUP_LUMA_THRESH=3.0`. Import them with `from backend.src.constants.anim import ...`. Do not duplicate magic numbers inline.
-- **Runtime overrides via env vars or TOML (§1.8A, S27).** Any constant controlled by an env var (e.g. `ASP_NEAR_DUP_LUMA`, `ASP_HOLD_THRESHOLD`, `ASP_SP_SOFT_PX`) can also be set via `asp_config.toml` using `load_asp_config()` from `backend.src.anim.config`. File values use `setdefault` so explicit env vars always win.
+- **Pipeline constants live in `backend/src/constants/animation.py`**, not at the top of individual module files. Key constants: `FEATHER_MAX=300`, `FEATHER_MIN=80`, `FEATHER_TABLE`, `CANVAS_MAX_DIM`, `MIN_EXPECTED_STEP=25`, `SPATIAL_DEDUP_PX=25`, `NEAR_DUP_LUMA_THRESH=3.0`. Import them with `from backend.src.constants.animation import ...`. Do not duplicate magic numbers inline.
+- **Runtime overrides via env vars or TOML (§1.8A, S27).** Any constant controlled by an env var (e.g. `ASP_NEAR_DUP_LUMA`, `ASP_HOLD_THRESHOLD`, `ASP_SP_SOFT_PX`) can also be set via `asp_config.toml` using `load_asp_config()` from `backend.src.animation.config`. File values use `setdefault` so explicit env vars always win.
 - **`scans_frames` is synced after every frame-drop pass (§1.9A, S28).** When any dedup step (pre-stage-5 luma dedup or post-stage-6 spatial dedup) drops frames from `frames`, `scans_frames` must be updated with the same `keep_idx`. This ensures all SCANS fallback paths receive the same frame subset the main pipeline has committed to. The spatial dedup now uses `_spatial_dedup_frames()` (module-level, in `pipeline.py`) which always syncs `scans_frames`.

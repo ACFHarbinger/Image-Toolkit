@@ -45,7 +45,7 @@ Frames (58–333 source, ~18 selected)
 | Best ASP score | test17=0.887 | Near-perfect case |
 | test09 ceiling | raw=0.787, aligned=0.832 | 0.045 gap = frame-timing mismatch |
 | test27 ceiling | raw=0.709, aligned=0.748 | 0.040 gap = same cause |
-| Unit test suite | **262 tests** | `pytest backend/test/anim/ -q`, ~7s, no GPU |
+| Unit test suite | **262 tests** | `pytest backend/test/animation/ -q`, ~7s, no GPU |
 
 ### Key Implemented Features (do NOT re-suggest these)
 

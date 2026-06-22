@@ -28,6 +28,24 @@ import torch
 sys.path.insert(0, "/home/pkhunter/Repositories/Image-Toolkit")
 os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
 
+from backend.src.animation.pipeline import AnimeStitchPipeline
+from backend.src.animation.canvas import (
+    _load_frames,
+    _normalise_widths,
+    _compute_canvas,
+    _crop_to_valid,
+    _scan_stitch_fallback,
+)
+from backend.src.animation.validation import _validate_affines
+from backend.src.animation.masking import _compute_fg_masks
+from backend.src.animation.matching import _pairwise_match
+from backend.src.animation.bundle_adjust import _bundle_adjust_affine
+from backend.src.animation.ecc import _ecc_refine
+from backend.src.animation.rendering import _render_median
+from backend.src.animation.compositing import _composite_foreground
+
+from backend.src.utils.logging.pylogger import get_pylogger
+
 # ---------------------------------------------------------------------------
 # Lazy-import heavy plotting deps so the benchmark still runs without them
 # ---------------------------------------------------------------------------
@@ -65,6 +83,8 @@ _SI_FID: bool = os.environ.get("ASP_SI_FID", "0") != "0"
 _SI_FID_PATCH_SIZE: int = int(os.environ.get("ASP_SI_FID_PATCH_SIZE", "128"))
 _SI_FID_N_PATCHES: int = int(os.environ.get("ASP_SI_FID_N_PATCHES", "32"))
 
+logger = get_pylogger(__name__)
+
 
 def _get_reward_model():
     """Lazily load StitchRewardModel; returns None on any import / init error."""
@@ -72,7 +92,7 @@ def _get_reward_model():
     if _reward_model is not None:
         return _reward_model
     try:
-        from backend.src.anim.rlhf.reward_model import StitchRewardModel
+        from backend.src.animation.rlhf.reward_model import StitchRewardModel
 
         _reward_model = StitchRewardModel()
     except Exception:
@@ -121,23 +141,6 @@ def _compute_rlhf_uncertainty(
         return float(std)
     except Exception:
         return None
-
-
-from backend.src.anim.pipeline import AnimeStitchPipeline
-from backend.src.anim.canvas import (
-    _load_frames,
-    _normalise_widths,
-    _compute_canvas,
-    _crop_to_valid,
-    _scan_stitch_fallback,
-)
-from backend.src.anim.validation import _validate_affines
-from backend.src.anim.masking import _compute_fg_masks
-from backend.src.anim.matching import _pairwise_match
-from backend.src.anim.bundle_adjust import _bundle_adjust_affine
-from backend.src.anim.ecc import _ecc_refine
-from backend.src.anim.rendering import _render_median
-from backend.src.anim.compositing import _composite_foreground
 
 
 # ============================================================================
@@ -369,7 +372,7 @@ def _strip_banding_score(
     diffs = [
         abs(strip_means[i + 1] - strip_means[i]) for i in range(len(strip_means) - 1)
     ]
-    return float(max(diffs))
+    return max(diffs)
 
 
 def _seam_visibility_score(
@@ -522,7 +525,7 @@ def _seam_bhattacharyya_distances(
         h_bot = cv2.calcHist([bot], [0], None, [256], [0, 256])
         cv2.normalize(h_top, h_top)
         cv2.normalize(h_bot, h_bot)
-        dist = float(cv2.compareHist(h_top, h_bot, cv2.HISTCMP_BHATTACHARYYA))
+        dist = cv2.compareHist(h_top, h_bot, cv2.HISTCMP_BHATTACHARYYA)
         scores.append(round(float(np.clip(1.0 - dist, 0.0, 1.0)), 4))
     return scores
 
@@ -572,7 +575,11 @@ def _seam_ncc_coherence(
     if n_strips <= 1:
         return []
     H = img.shape[0]
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    gray = (
+        cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
+        if img.ndim == 3
+        else img.astype(np.float32)
+    )
     zone_h = H / n_strips
     scores: List[float] = []
     for k in range(1, n_strips):
@@ -588,9 +595,13 @@ def _seam_ncc_coherence(
             scores.append(0.0)
             continue
         if top.shape[0] != min_rows:
-            top = cv2.resize(top, (top.shape[1], min_rows), interpolation=cv2.INTER_AREA)
+            top = cv2.resize(
+                top, (top.shape[1], min_rows), interpolation=cv2.INTER_AREA
+            )
         if bot.shape[0] != min_rows:
-            bot = cv2.resize(bot, (bot.shape[1], min_rows), interpolation=cv2.INTER_AREA)
+            bot = cv2.resize(
+                bot, (bot.shape[1], min_rows), interpolation=cv2.INTER_AREA
+            )
         mu_a, mu_b = float(top.mean()), float(bot.mean())
         sig_a = float(top.std())
         sig_b = float(bot.std())
@@ -644,9 +655,11 @@ def _composite_quality_score(
     -------
     float in [0, 1], rounded to 4 decimal places.
     """
-    ncc_term = float((seam_ncc_min + 1.0) / 2.0) if seam_ncc_min is not None else 0.5
-    color_term = float(seam_color_min) if seam_color_min is not None else 0.5
-    ghost_term = max(0.0, 1.0 - float(ghost_seam_max) / 100.0) if ghost_seam_max is not None else 0.5
+    ncc_term = ((seam_ncc_min + 1.0) / 2.0) if seam_ncc_min is not None else 0.5
+    color_term = seam_color_min if seam_color_min is not None else 0.5
+    ghost_term = (
+        max(0.0, 1.0 - ghost_seam_max / 100.0) if ghost_seam_max is not None else 0.5
+    )
     ncc_term = float(np.clip(ncc_term, 0.0, 1.0))
     color_term = float(np.clip(color_term, 0.0, 1.0))
     ghost_term = float(np.clip(ghost_term, 0.0, 1.0))
@@ -680,8 +693,10 @@ def _chroma_seam_coherence(img: np.ndarray, n_strips: int = 8) -> float:
         strip_means.append(m)
     if len(strip_means) < 2:
         return 0.0
-    diffs = [abs(strip_means[i + 1] - strip_means[i]) for i in range(len(strip_means) - 1)]
-    return float(max(diffs))
+    diffs = [
+        abs(strip_means[i + 1] - strip_means[i]) for i in range(len(strip_means) - 1)
+    ]
+    return max(diffs)
 
 
 def _strip_gradient_cv(img: np.ndarray, n_strips: int = 8) -> float:
@@ -712,7 +727,9 @@ def _strip_gradient_cv(img: np.ndarray, n_strips: int = 8) -> float:
     return float(np.std(energies) / mean_e)
 
 
-def _seam_contrast_ratio(img: np.ndarray, n_strips: int = 8, band_px: int = 10) -> float:
+def _seam_contrast_ratio(
+    img: np.ndarray, n_strips: int = 8, band_px: int = 10
+) -> float:
     """§3.22: Ratio of seam-boundary gradient energy to interior gradient energy (S151).
 
     Splits the image into *n_strips* horizontal strips.  At each inter-strip
@@ -744,7 +761,7 @@ def _seam_contrast_ratio(img: np.ndarray, n_strips: int = 8, band_px: int = 10) 
 
     if interior_energy < 1e-6:
         return 1.0
-    return float(seam_energy / interior_energy)
+    return seam_energy / interior_energy
 
 
 def _seam_col_spread(img: np.ndarray, n_strips: int = 8) -> float:
@@ -798,7 +815,7 @@ def _seam_row_std(img: np.ndarray, n_strips: int = 8) -> float:
         row = img[row_idx].astype(np.float32)  # (W, 3)
         row_std = float(row.std())
         max_std = max(max_std, row_std)
-    return float(max_std / 255.0)
+    return max_std / 255.0
 
 
 def _strip_sat_cv(img: np.ndarray, n_strips: int = 8) -> float:
@@ -845,8 +862,8 @@ def _seam_band_ncc(img: np.ndarray, n_strips: int = 8, band_px: int = 10) -> flo
     min_ncc = 1.0
     for i in range(1, n_strips):
         boundary = i * strip_h
-        above = gray[max(0, boundary - band_px): boundary].ravel()
-        below = gray[boundary: min(H, boundary + band_px)].ravel()
+        above = gray[max(0, boundary - band_px) : boundary].ravel()
+        below = gray[boundary : min(H, boundary + band_px)].ravel()
         if len(above) < 4 or len(below) < 4:
             continue
         n = min(len(above), len(below))
@@ -858,10 +875,12 @@ def _seam_band_ncc(img: np.ndarray, n_strips: int = 8, band_px: int = 10) -> flo
             continue
         ncc = float(np.dot(a, b) / denom)
         min_ncc = min(min_ncc, ncc)
-    return float(min_ncc)
+    return min_ncc
 
 
-def _seam_row_grad_coherence(img: np.ndarray, n_strips: int = 8, band_px: int = 8) -> float:
+def _seam_row_grad_coherence(
+    img: np.ndarray, n_strips: int = 8, band_px: int = 8
+) -> float:
     """§3.28: Mean angular coherence of Sobel gradient at seam boundary rows (S157).
 
     For each inter-strip boundary, computes Sobel-X and Sobel-Y in a ±*band_px*
@@ -888,19 +907,21 @@ def _seam_row_grad_coherence(img: np.ndarray, n_strips: int = 8, band_px: int = 
         band = gray[y0:y1]
         gx = cv2.Sobel(band, cv2.CV_64F, 1, 0, ksize=3).ravel()
         gy = cv2.Sobel(band, cv2.CV_64F, 0, 1, ksize=3).ravel()
-        mag = np.sqrt(gx ** 2 + gy ** 2)
+        mag = np.sqrt(gx**2 + gy**2)
         strong = mag > 1e-3
         if strong.sum() < 4:
             continue
         angles = np.arctan2(gy[strong], gx[strong])
         cos_m = float(np.cos(2 * angles).mean())
         sin_m = float(np.sin(2 * angles).mean())
-        r = float(np.sqrt(cos_m ** 2 + sin_m ** 2))
+        r = float(np.sqrt(cos_m**2 + sin_m**2))
         min_r = min(min_r, r)
-    return float(min_r)
+    return min_r
 
 
-def _seam_boundary_entropy(img: np.ndarray, n_strips: int = 8, band_px: int = 15) -> List[float]:
+def _seam_boundary_entropy(
+    img: np.ndarray, n_strips: int = 8, band_px: int = 15
+) -> List[float]:
     """§3.25: Normalised Shannon entropy at each seam boundary band (S154).
 
     For each inter-strip boundary, takes a ±band_px row window and computes the
@@ -918,8 +939,12 @@ def _seam_boundary_entropy(img: np.ndarray, n_strips: int = 8, band_px: int = 15
     strip_h = H // n_strips
     if strip_h < 1:
         return []
-    gray = img if img.ndim == 2 else (
-        img.astype(np.float32).dot(np.array([0.114, 0.587, 0.299])).astype(np.uint8)
+    gray = (
+        img
+        if img.ndim == 2
+        else (
+            img.astype(np.float32).dot(np.array([0.114, 0.587, 0.299])).astype(np.uint8)
+        )
     )
     scores: List[float] = []
     for i in range(1, n_strips):
@@ -994,19 +1019,54 @@ def _strip_self_ssim(img: np.ndarray, n_strips: int = 8) -> float:
         half = (y1 - y0) // 2
         if half < 1:
             continue
-        top = gray[y0: y0 + half, :]
-        bot = gray[y0 + half: y1, :]
+        top = gray[y0 : y0 + half, :]
+        bot = gray[y0 + half : y1, :]
         # Resize to common height so NCC isn't biased by unequal sizes
         top_t = cv2.resize(top, (top.shape[1], thumb_h), interpolation=cv2.INTER_AREA)
         bot_t = cv2.resize(bot, (bot.shape[1], thumb_h), interpolation=cv2.INTER_AREA)
         top_f = top_t.ravel() - top_t.mean()
         bot_f = bot_t.ravel() - bot_t.mean()
-        denom = (np.linalg.norm(top_f) * np.linalg.norm(bot_f))
+        denom = np.linalg.norm(top_f) * np.linalg.norm(bot_f)
         if denom < 1e-6:
             scores.append(1.0)
         else:
             scores.append(float(np.clip(np.dot(top_f, bot_f) / denom, -1.0, 1.0)))
-    return float(min(scores)) if scores else 0.0
+    return min(scores) if scores else 0.0
+
+
+def _canvas_gain_uniformity(img: np.ndarray, n_strips: int = 8) -> float:
+    """§3.31: Strip-level luminance gain uniformity metric (S160).
+
+    Divides the image into *n_strips* equal horizontal strips, computes the
+    mean luminance of each strip, and returns the coefficient of variation
+    (std / mean) of those strip means.  A value of 0.0 means perfectly uniform
+    luminance across strips; high values indicate strip-level banding.
+
+    Range [0, ∞).  Returns 0.0 for degenerate inputs (fewer rows than
+    n_strips, all-zero image, or single strip).
+    """
+    if img is None or n_strips < 1:
+        return 0.0
+    gray: np.ndarray
+    if img.ndim == 3:
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    else:
+        gray = img.astype(np.float32)
+    H = gray.shape[0]
+    if H < n_strips:
+        return 0.0
+    strip_h = H // n_strips
+    if strip_h < 1:
+        return 0.0
+    strip_means = []
+    for i in range(n_strips):
+        y0 = i * strip_h
+        y1 = y0 + strip_h
+        strip_means.append(float(gray[y0:y1].mean()))
+    mean_val = float(np.mean(strip_means))
+    if mean_val < 1.0:
+        return 0.0
+    return float(np.std(strip_means) / mean_val)
 
 
 def _compute_cqas(metrics: dict) -> Optional[float]:
@@ -1133,9 +1193,7 @@ def _compute_all_metrics(
     # §1.10D: needs_review fires when the model is uncertain (std > threshold),
     # regardless of whether the score itself triggered rlhf_flagged.  Uncertain
     # near-boundary outputs are the highest-value samples for human annotation.
-    _rlhf_needs_review = (
-        rlhf_unc is not None and rlhf_unc > _RLHF_UNCERTAINTY_THRESHOLD
-    )
+    _rlhf_needs_review = rlhf_unc is not None and rlhf_unc > _RLHF_UNCERTAINTY_THRESHOLD
     metrics = {
         "sharpness": round(_sharpness(img), 2),
         "coverage": round(_coverage(img), 4),
@@ -1152,7 +1210,9 @@ def _compute_all_metrics(
         "seam_color_min": _seam_color_min,
         "seam_ncc_scores": ncc_scores,
         "seam_ncc_min": _seam_ncc_min,
-        "composite_quality": _composite_quality_score(_seam_ncc_min, _seam_color_min, _ghost_seam_max),
+        "composite_quality": _composite_quality_score(
+            _seam_ncc_min, _seam_color_min, _ghost_seam_max
+        ),
         "width": img.shape[1],
         "height": img.shape[0],
         "rlhf_score": round(rlhf, 4) if rlhf is not None else None,
@@ -1166,7 +1226,8 @@ def _compute_all_metrics(
     }
     if _MLLM_SCORER and img is not None:
         try:
-            from backend.src.anim.mllm_scorer import score_composite as _mllm_score
+            from backend.src.animation.mllm_scorer import score_composite as _mllm_score
+
             _ms = _mllm_score(img, model=_MLLM_MODEL)
             metrics["mllm_body_coherence"] = _ms.body_coherence
             metrics["mllm_seam_quality"] = _ms.seam_quality
@@ -1190,15 +1251,21 @@ def _compute_all_metrics(
     # §3.27 — Minimum NCC between strip boundary bands.
     metrics["seam_band_ncc_min"] = _seam_band_ncc(img, n_strips=8, band_px=10)
     # §3.28 — Seam boundary gradient direction coherence.
-    metrics["seam_grad_coherence_min"] = _seam_row_grad_coherence(img, n_strips=8, band_px=8)
+    metrics["seam_grad_coherence_min"] = _seam_row_grad_coherence(
+        img, n_strips=8, band_px=8
+    )
     # §3.25 — Seam boundary entropy.
     _sbe = _seam_boundary_entropy(img, n_strips=n_strips, band_px=15)
     metrics["seam_boundary_entropies"] = _sbe
-    metrics["seam_boundary_entropy_max"] = float(max(_sbe)) if _sbe else None
+    metrics["seam_boundary_entropy_max"] = max(_sbe) if _sbe else None
     # §3.29 — Blend zone coverage fraction (S158).
     metrics["zone_coverage_fraction"] = _zone_coverage_fraction(img, n_strips=8)
     # §3.30 — Per-strip top/bottom NCC self-consistency (S159).
     metrics["strip_self_ssim"] = round(_strip_self_ssim(img, n_strips=8), 4)
+    # §3.31 — Canvas strip-level luminance gain uniformity (S160).
+    metrics["canvas_gain_uniformity"] = round(
+        _canvas_gain_uniformity(img, n_strips=8), 4
+    )
     return metrics
 
 
@@ -2025,9 +2092,9 @@ def _smart_select_frames(
         else:
             (dx_t, dy_t), response = cv2.phaseCorrelate(a, b)
             frame_mads.append(float(np.mean(np.abs(b - a))))
-        raw_dx.append(float(dx_t) * scale_x)
-        raw_dy.append(float(dy_t) * scale_y)
-        responses.append(float(response))
+        raw_dx.append(dx_t * scale_x)
+        raw_dy.append(dy_t * scale_y)
+        responses.append(response)
 
     # ── 2. Dominant scroll axis and direction ──────────────────────────────
     med_dy = float(np.median(raw_dy))
@@ -2341,7 +2408,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 continue
         bg_frame_lums.append(None)
 
-    valid_lums = [l for l in bg_frame_lums if l is not None]
+    valid_lums = [lum for lum in bg_frame_lums if lum is not None]
     applied_gains = [1.0] * N
     if len(valid_lums) >= 3:
         ref_lum = float(np.median(valid_lums))
@@ -3022,7 +3089,8 @@ def _build_result(
     si_fid_ratio: Optional[float] = None
     if _SI_FID and asp_img is not None and sim_img is not None:
         si_fid_ratio = _compute_si_fid_score(
-            asp_img, sim_img,
+            asp_img,
+            sim_img,
             patch_size=_SI_FID_PATCH_SIZE,
             n_patches=_SI_FID_N_PATCHES,
         )
@@ -3068,7 +3136,7 @@ def _build_result(
     )
 
     # Background luminance stats
-    valid_lums = [l for l in bg_frame_lums if l is not None]
+    valid_lums = [lum for lum in bg_frame_lums if lum is not None]
     ref_lum = round(float(np.median(valid_lums)), 2) if valid_lums else None
     non_trivial_gains = sum(1 for g in applied_gains if abs(g - 1.0) > 0.01)
 
@@ -3123,7 +3191,9 @@ def _build_result(
         # --- photometric correction ---
         "photometric": {
             "ref_lum": ref_lum,
-            "bg_lums": [round(l, 2) if l is not None else None for l in bg_frame_lums],
+            "bg_lums": [
+                round(lum, 2) if lum is not None else None for lum in bg_frame_lums
+            ],
             "applied_gains": [round(g, 4) for g in applied_gains],
             "frames_corrected": non_trivial_gains,
             "gain_range": [
@@ -3163,7 +3233,8 @@ def _build_result(
             "frames_dropped_smart": max(0, orig_frame_count - smart_select_count),
             "frames_dropped_dedup": max(0, smart_select_count - spatial_dedup_count),
             "selection_mode": (
-                "dinov2" if os.environ.get("ASP_POSE_WINDOW_PX", "0") != "0"
+                "dinov2"
+                if os.environ.get("ASP_POSE_WINDOW_PX", "0") != "0"
                 else "phase_correlation"
             ),
         },
@@ -3184,7 +3255,7 @@ def _build_result(
 
 def generate_json_results(results: List[Dict], suite_start_time: float) -> str:
     """
-    Write a structured JSON results file to backend/benchmark/results/ and
+    Write a structured JSON results file to backend/benchmark/output/ and
     return the path.  Schema mirrors the existing benchmark JSON files.
     """
     total_sec = round(time.perf_counter() - suite_start_time, 3)
@@ -3192,7 +3263,7 @@ def generate_json_results(results: List[Dict], suite_start_time: float) -> str:
     ts_str = ts.strftime("%Y%m%d_%H%M%S")
     ts_iso = ts.isoformat()
 
-    results_dir = os.path.join(os.path.dirname(__file__), "results")
+    results_dir = os.path.join(os.path.dirname(__file__), "output")
     os.makedirs(results_dir, exist_ok=True)
     out_path = os.path.join(results_dir, f"anime_stitch_{ts_str}.json")
 
@@ -3355,7 +3426,8 @@ def generate_json_results(results: List[Dict], suite_start_time: float) -> str:
                 4,
             )
             if any(
-                r.get("metrics_asp", {}).get("mllm_overall") is not None for r in results
+                r.get("metrics_asp", {}).get("mllm_overall") is not None
+                for r in results
             )
             else None,
         },
@@ -4084,7 +4156,7 @@ Examples:
     )
     parser.add_argument(
         "--data-dir",
-        default="/home/pkhunter/Repositories/Image-Toolkit/test_data",
+        default="/home/pkhunter/Repositories/Image-Toolkit/dump",
         metavar="DIR",
         help="Root data directory containing asp_testXX subdirectories",
     )

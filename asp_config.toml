@@ -1,8 +1,8 @@
 # asp_config.toml — Anime Stitch Pipeline configuration
 #
-# Loaded automatically at pipeline startup via anim/__init__.py.
+# Loaded automatically at pipeline startup via animation/__init__.py.
 # Keys written to os.environ via setdefault (env vars always win over TOML).
-# All available keys and their ranges are documented in backend/src/anim/config.py.
+# All available keys and their ranges are documented in backend/src/animation/config.py.
 #
 # Issue 8 recommended defaults (S80): flags shipped in S62–S75 that have been
 # proven safe over multiple sessions and are now enabled by default.

@@ -54,7 +54,7 @@ workspace "Image Toolkit" "Integrated image database and editing framework — b
 
             # ── Python Backend ────────────────────────────────────────────────
             pythonBackend = container "Python Backend" "Business-logic hub. Wraps the Rust core via PyO3, orchestrates ML models, manages the database, and drives web automation." "Python 3.11" {
-                aspPipeline = component "ASP Pipeline" "13-stage anime stitch pipeline: frame selection → phase-correlation → bundle adjustment → compositing (DP seam, feathering, Poisson blend) → canvas assembly. ~40 tuneable env-var flags." "backend/src/anim/ (~8 000 lines)"
+                aspPipeline = component "ASP Pipeline" "13-stage anime stitch pipeline: frame selection → phase-correlation → bundle adjustment → compositing (DP seam, feathering, Poisson blend) → canvas assembly. ~40 tuneable env-var flags." "backend/src/animation/ (~8 000 lines)"
                 imageDb = component "Image Database" "PostgreSQL + pgvector CRUD. Manages groups, subgroups, tags, and 512-d CLIP embeddings. Nearest-neighbour semantic search via pgvector." "backend/src/core/image_database.py"
                 vaultManager = component "Vault Manager" "AES-256-GCM credential encryption / decryption via JPype JVM bridge to the Kotlin crypto module. Credentials never written to disk in plaintext." "backend/src/core/vault_manager.py"
                 mlModels = component "ML Models" "BiRefNet foreground segmentation (§ matting), CLIP text+image encoding, GAN training wrapper for stylised generation, StitchRewardModel (RLHF quality gate)." "backend/src/models/"

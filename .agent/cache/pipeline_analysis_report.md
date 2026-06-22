@@ -188,7 +188,7 @@ ASP sharper in 90/96 tests (avg 108.9 vs 63.8, +71%). This is a genuine sub-pixe
 
 - **§1.87 Masked-Median Bg Plate**: `_masked_median_bg` in `bg_complete.py`; `_MASKED_MEDIAN` flag in `rendering.py`. Suppresses ghost-average fallback. Enable: `ASP_MASKED_MEDIAN=1`.
 - **§3.14B Horizontal-Strip Compositing**: `_HORIZONTAL_COMPOSITE` flag in `pipeline.py`. Suppresses SCANS fallback for horizontal scroll; `_composite_foreground` already handles horizontal via canvas-return fast path. Enable: `ASP_HORIZONTAL_COMPOSITE=1`.
-- **§1.10B Optuna Param Search**: `backend/src/anim/param_search.py`. Tunes `_auto_verdict` thresholds against the 43 cv_metrics tests without re-running inference. CLI: `python -m backend.src.anim.param_search --results <json> --trials 200 --out asp_config_optimized.toml`.
+- **§1.10B Optuna Param Search**: `backend/src/animation/param_search.py`. Tunes `_auto_verdict` thresholds against the 43 cv_metrics tests without re-running inference. CLI: `python -m backend.src.animation.param_search --results <json> --trials 200 --out asp_config_optimized.toml`.
 
 ---
 

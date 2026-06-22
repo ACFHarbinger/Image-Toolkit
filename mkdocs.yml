@@ -56,8 +56,8 @@ plugins:
             separate_signature: true
             unwrap_annotated: true
             filters:
-              - "!^_"          # exclude private members
-              - "!^__"         # exclude dunder methods (except __init__)
+              - "!^_" # exclude private members
+              - "!^__" # exclude dunder methods (except __init__)
               - "__init__"
   # Notebook support — mkdocs-jupyter renders .ipynb files as portal pages.
   # Notebooks are pre-stripped of outputs by nbstripout; only the code and
@@ -127,47 +127,47 @@ extra_javascript:
 nav:
   - Home: index.md
   - Getting Started:
-    - Quick Start: README.md
-    - Architecture: ARCHITECTURE.md
-    - C4 Architecture Model: STRUCTURIZR.md
-    - Troubleshooting: TROUBLESHOOTING.md
+      - Quick Start: README.md
+      - Architecture: ARCHITECTURE.md
+      - C4 Architecture Model: STRUCTURIZR.md
+      - Troubleshooting: TROUBLESHOOTING.md
   - Reference:
-    - REST API: api/rest-api.md
-    - Python API:
-      - ASP Pipeline: api/python/anim.md
-      - Backend Core: api/python/core.md
-      - Models: api/python/models.md
-    - Rust API:
-      - Math Backbone: api/rust/math.md
-    - TypeScript API:
-      - Overview: api/typescript/README.md
-    - Kotlin API:
-      - Overview: api/kotlin/index.md
-    - Python Reference (Sphinx):
-      - Overview: api/sphinx.md
+      - REST API: api/rest-api.md
+      - Python API:
+          - ASP Pipeline: api/python/animation.md
+          - Backend Core: api/python/core.md
+          - Models: api/python/models.md
+      - Rust API:
+          - Math Backbone: api/rust/math.md
+      - TypeScript API:
+          - Overview: api/typescript/README.md
+      - Kotlin API:
+          - Overview: api/kotlin/index.md
+      - Python Reference (Sphinx):
+          - Overview: api/sphinx.md
   - Notebooks:
-    - Benchmark Analysis: notebooks/benchmark_analysis.ipynb
-    - ASP Pipeline Walkthrough: notebooks/asp_pipeline_walkthrough.ipynb
-    - CLIP Embedding Walkthrough: notebooks/clip_embedding_walkthrough.ipynb
+      - Benchmark Analysis: notebooks/benchmark_analysis.ipynb
+      - ASP Pipeline Walkthrough: notebooks/asp_pipeline_walkthrough.ipynb
+      - CLIP Embedding Walkthrough: notebooks/clip_embedding_walkthrough.ipynb
   - Operations:
-    - Benchmarks: BENCHMARKS.md
-    - Dependency Policy: DEPENDENCY_POLICY.md
-    - Documentation Standards: DOCUMENTATION_STANDARDS.md
+      - Benchmarks: BENCHMARKS.md
+      - Dependency Policy: DEPENDENCY_POLICY.md
+      - Documentation Standards: DOCUMENTATION_STANDARDS.md
   - Roadmaps:
-    - Master Roadmap: roadmaps/ROADMAP.md
-    - Architecture: roadmaps/architecture.md
-    - Performance: roadmaps/performance.md
-    - New Features: roadmaps/new_features.md
-    - GUI / UX: roadmaps/gui_ux.md
-    - ASP Pipeline: roadmaps/asp.md
-    - Content Generation: roadmaps/content_generation.md
-    - Analytics & Interpretability: roadmaps/analytics_and_interpretability.md
-    - Documentation: roadmaps/documentation.md
+      - Master Roadmap: roadmaps/ROADMAP.md
+      - Architecture: roadmaps/architecture.md
+      - Performance: roadmaps/performance.md
+      - New Features: roadmaps/new_features.md
+      - GUI / UX: roadmaps/gui_ux.md
+      - ASP Pipeline: roadmaps/asp.md
+      - Content Generation: roadmaps/content_generation.md
+      - Analytics & Interpretability: roadmaps/analytics_and_interpretability.md
+      - Documentation: roadmaps/documentation.md
   - Reports:
-    - Analytics & Codebase Visualisation: reports/analytics.md
-    - ASP Comprehensive Research: reports/asp_research.md
-    - Image Generation Research: reports/image_generation.md
-    - Image Stitching Research: reports/image_stitching.md
+      - Analytics & Codebase Visualisation: reports/analytics.md
+      - ASP Comprehensive Research: reports/asp_research.md
+      - Image Generation Research: reports/image_generation.md
+      - Image Stitching Research: reports/image_stitching.md
   - Changelog: CHANGELOG.md
 
 # Hooks — symlink moon/ and reports/ content into docs/ at build time

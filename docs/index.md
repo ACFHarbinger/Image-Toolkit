@@ -11,7 +11,7 @@
 | [Quick Start](README.md) | 5-minute setup, environment bootstrapping, CLI reference |
 | [Architecture](ARCHITECTURE.md) | Module dependency graph, data-flow diagrams, tech stack |
 | [Troubleshooting](TROUBLESHOOTING.md) | PySide6 crashes, ASP errors, Rust builds, Hydra, mobile |
-| [Python API](api/python/anim.md) | Auto-generated reference from Google-style docstrings |
+| [Python API](api/python/animation.md) | Auto-generated reference from Google-style docstrings |
 | [Rust API](api/rust/math.md) | Math backbone: linalg, stats, distance, information, graph |
 | [Benchmarks](BENCHMARKS.md) | ASP corpus, Rust criterion, frontend math benchmarks |
 | [Dependency Policy](DEPENDENCY_POLICY.md) | Version pins, upgrade cadence, security CVE SLA |
@@ -33,10 +33,10 @@ graph TD
     end
 
     subgraph Backend["Backend Layer"]
-        PY["Python Orchestrator\nbackend/src/"]
+        PY["Python Orchestrator\nbackend/"]
         RU["Rust Core (PyO3/Rayon)\nbase/src/"]
         ML["PyTorch Models\nbackend/src/models/"]
-        HY["Hydra CLI\nbackend/src/controller/"]
+        HY["Hydra CLI\nbackend/dispatcher"]   
     end
 
     subgraph Data["Data Layer"]
@@ -67,10 +67,10 @@ npm run dev
 source .venv/bin/activate && python main.py
 
 # Hydra CLI (training, embedding, ComfyUI)
-python -m backend.src.controller.dispatcher command=train
+python -m backend.dispatcher command=train
 
 # ASP benchmark suite
-pytest backend/test/anim/ --skip-gpu
+pytest backend/test/animation/ --skip-gpu
 
 # Rust doc generation
 cd base && cargo doc --no-deps --open

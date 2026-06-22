@@ -36,7 +36,7 @@ Each section describes an architectural debt or infrastructure gap, all viable i
 
 ## 5.1 ASP Pipeline Unit Test Coverage
 
-**Pain point:** `backend/test/anim/` tests end-to-end ASP runs but has limited unit tests for individual pipeline stages. Regressions in `bundle_adjust.py` or `compositing.py` are hard to catch without running the full benchmark.
+**Pain point:** `backend/test/animation/` tests end-to-end ASP runs but has limited unit tests for individual pipeline stages. Regressions in `bundle_adjust.py` or `compositing.py` are hard to catch without running the full benchmark.
 
 ### Options
 
@@ -243,7 +243,7 @@ Integrate **rerun-sdk** as the primary diagnostic logger for CV-heavy stages. Lo
 
 ## 5.5 Gradual Static Type Safety Migration
 
-**Pain point:** `pyproject.toml` lists `mypy>=1.18.2` as a dev dependency but the `[tool.mypy]` section is absent. Pyright is configured with `typeCheckingMode = "off"`. As a result neither type checker runs in CI, and the codebase accumulates type errors silently. Spot checks show: `backend/src/anim/pipeline.py` has 77 function definitions with ~72 return annotations (partial coverage); `gui/src/classes/abstract_class_two_galleries.py` has 79 function definitions with ~38 return annotations (~48% coverage). Worker `config` dictionaries are typed `Dict[str, Any]` throughout — all key accesses are unchecked. The cost of *fixing* the first type error in a fully-strict run of a 150-file codebase is prohibitive; the cost of not enforcing types is a growing silent bug surface.
+**Pain point:** `pyproject.toml` lists `mypy>=1.18.2` as a dev dependency but the `[tool.mypy]` section is absent. Pyright is configured with `typeCheckingMode = "off"`. As a result neither type checker runs in CI, and the codebase accumulates type errors silently. Spot checks show: `backend/src/animation/pipeline.py` has 77 function definitions with ~72 return annotations (partial coverage); `gui/src/classes/abstract_class_two_galleries.py` has 79 function definitions with ~38 return annotations (~48% coverage). Worker `config` dictionaries are typed `Dict[str, Any]` throughout — all key accesses are unchecked. The cost of *fixing* the first type error in a fully-strict run of a 150-file codebase is prohibitive; the cost of not enforcing types is a growing silent bug surface.
 
 Informed by: JetBrains 2025 survey (type hint adoption grew from 48% to 71% in Python projects 2022–2025); mypy maintainer guidance on per-module strictness escalation; and the Dropbox engineering blog's account of migrating 4M LOC to mypy over 5 years using per-package ignore files.
 
@@ -262,13 +262,13 @@ disallow_untyped_defs = false
 
 # Strict opt-in per module as they are cleaned up
 [[tool.mypy.overrides]]
-module = ["backend.src.anim.bundle_adjust", "backend.src.anim.validation"]
+module = ["backend.src.animation.bundle_adjust", "backend.src.animation.validation"]
 disallow_untyped_defs = true
 warn_return_any = true
 ```
 Migration sequence:
 1. **Week 1**: Enable baseline config (zero violations, just enables the tool). Run `mypy backend/src gui/src` in CI; failures are warnings-only.
-2. **Week 2–N**: Enable `disallow_untyped_defs = true` for each module once it is annotated. Priority order: `constants/` → `core/` → `models/` → `anim/` → `gui/src/classes/` → `gui/src/helpers/`.
+2. **Week 2–N**: Enable `disallow_untyped_defs = true` for each module once it is annotated. Priority order: `constants/` → `core/` → `models/` → `animation/` → `gui/src/classes/` → `gui/src/helpers/`.
 3. **End state**: All modules under strict coverage; `disallow_untyped_defs = true` globally.
 - Pros: Zero upfront disruption. Each PR that adds annotations shrinks the un-strict surface. Directly enabled by §5.9D (`WorkerConfig` TypedDict) and §5.11D (`__all__` hygiene), which are already planned.
 - Cons: Long tail — full strict coverage may take months. Requires discipline to avoid regressing annotated modules.
@@ -581,7 +581,7 @@ Both `AbstractClassSingleGallery` and `AbstractClassTwoGalleries` call `self._lo
 
 ## 5.11 Circular Import Prevention & Module Boundary Documentation
 
-**Pain point:** The project has no documented import rules. As the codebase grows (currently 150+ Python files across `gui/src/`, `backend/src/`, `tasks/`, `api/`), accidental circular imports become increasingly likely. The current architecture has one known dangerous pattern: GUI helpers import `backend.src.*` at module level (e.g. `from backend.src.anim import AnimeStitchPipeline` in `stitch_worker.py`), which pulls in PyTorch and heavy model weights during GUI startup even when the stitch tab is never opened.
+**Pain point:** The project has no documented import rules. As the codebase grows (currently 150+ Python files across `gui/src/`, `backend/src/`, `tasks/`, `api/`), accidental circular imports become increasingly likely. The current architecture has one known dangerous pattern: GUI helpers import `backend.src.*` at module level (e.g. `from backend.src.animation import AnimeStitchPipeline` in `stitch_worker.py`), which pulls in PyTorch and heavy model weights during GUI startup even when the stitch tab is never opened.
 
 ### Options
 
@@ -606,7 +606,7 @@ Heavy backend imports in GUI helpers that are only needed for type annotations s
 from __future__ import annotations
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from backend.src.anim import AnimeStitchPipeline
+    from backend.src.animation import AnimeStitchPipeline
 ```
 - Runtime imports of `AnimeStitchPipeline` (and other heavy models) move inside `_execute()` / `run()`.
 - Pros: Deferred import means PyTorch is not loaded until the worker actually runs. Reduces GUI cold-start time by ~2–4 s on CPU-only machines.
@@ -654,7 +654,7 @@ def fit(self, images: List[np.ndarray], luma_only: bool = True) -> Tuple[...]:
     baselines  : np.ndarray, shape (N,), float32
     """
 ```
-- Priority order: (1) all public methods in `backend/src/models/`, (2) all public methods in `backend/src/anim/`, (3) all abstract methods in `gui/src/classes/`.
+- Priority order: (1) all public methods in `backend/src/models/`, (2) all public methods in `backend/src/animation/`, (3) all abstract methods in `gui/src/classes/`.
 - The existing `basic_wrapper.py` already uses this style consistently — apply it everywhere.
 
 **B — Mermaid class diagrams in module docstrings**
@@ -775,7 +775,7 @@ All the above decorators live in a single module. Keeps them discoverable and im
 
 ---
 
-## 5.14 Centralised Settings Facade (`gui/src/utils/settings.py` + `backend/src/anim/config.py`)
+## 5.14 Centralised Settings Facade (`gui/src/utils/settings.py` + `backend/src/animation/config.py`)
 
 **Pain point:** Application configuration is split across at least three independent mechanisms with no unified access point:
 1. **GUI persistent state** — `QSettings("ImageToolkit", "ImageToolkit")` is called with hardcoded organisation/application strings in 20+ locations across `abstract_class_two_galleries.py`, `abstract_class_single_gallery.py`, `splitter_persistence.py`, `listings_common.py`, `main_window.py`, and `settings_window.py`. Any typo in the string creates a silently-separate settings namespace.
@@ -830,7 +830,7 @@ app_settings = AppSettings()
 - Cons: Requires touching all 20 call sites. Properties must be added for every new setting.
 
 **B — Merge backend `os.environ.get()` calls into `load_asp_config()` [Recommended]**
-`backend/src/anim/config.py`'s `load_asp_config()` already reads `asp_config.toml` and writes env vars via `os.environ.setdefault`. Extend the contract: every module that currently reads `os.environ.get("ASP_*", default)` at module level should instead call `load_asp_config()` once at startup (already done in `AnimeStitchPipeline.__init__`) and then read from `os.environ` with the guarantee that defaults have been set. Add a module-level assertion `assert "ASP_HOLD_THRESHOLD" in os.environ, "load_asp_config() must be called before importing pipeline modules"` — or better, provide a `get_asp(key, default)` function in `config.py` that is always safe to call.
+`backend/src/animation/config.py`'s `load_asp_config()` already reads `asp_config.toml` and writes env vars via `os.environ.setdefault`. Extend the contract: every module that currently reads `os.environ.get("ASP_*", default)` at module level should instead call `load_asp_config()` once at startup (already done in `AnimeStitchPipeline.__init__`) and then read from `os.environ` with the guarantee that defaults have been set. Add a module-level assertion `assert "ASP_HOLD_THRESHOLD" in os.environ, "load_asp_config() must be called before importing pipeline modules"` — or better, provide a `get_asp(key, default)` function in `config.py` that is always safe to call.
 - Pros: Eliminates the risk of a module reading an env var before `load_asp_config()` runs. `config.py` remains the single source of defaults.
 - Cons: Requires auditing 132 `os.environ.get()` call sites.
 
@@ -887,7 +887,7 @@ class ConfigError(ImageToolkitError):
 ```
 Workers catch `PipelineError` → show friendly message. Workers catch `ImageToolkitError` → log + show generic error. Workers let `Exception` propagate → log stack trace + show "unexpected error" with copy-to-clipboard.
 - Pros: GUI can give context-appropriate responses (retry prompt for `AlignmentFailedError`, "check GPU memory" for `ModelLoadError`). Searchable exception types in logs. Directly enables §5.4A's structured logging.
-- Cons: Requires touching all `raise RuntimeError(...)` call sites in `anim/`.
+- Cons: Requires touching all `raise RuntimeError(...)` call sites in `animation/`.
 
 **B — Error boundary wrapper for `QThread._execute()` bodies**
 Extend §5.9A's `BaseQThreadWorker` with a three-tier exception handler:

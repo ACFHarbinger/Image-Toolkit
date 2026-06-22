@@ -296,7 +296,7 @@ After stitching, allow loading the output into a pre-configured ComfyUI workflow
 - Cons: Requires ComfyUI to be running. API calls are async — need status polling or WebSocket.
 
 **B — ComfyUI as ASP post-processing backend**
-Replace `anim/super_res.py` Real-ESRGAN path with a ComfyUI API call to a user-configured workflow. More flexible — any post-processing model the user has installed.
+Replace `animation/super_res.py` Real-ESRGAN path with a ComfyUI API call to a user-configured workflow. More flexible — any post-processing model the user has installed.
 - Pros: Decouples ASP from specific model implementations. Users can swap models without code changes.
 - Cons: ComfyUI must be running during ASP execution. Adds latency for the API round-trip.
 

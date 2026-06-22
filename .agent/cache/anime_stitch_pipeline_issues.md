@@ -4,7 +4,7 @@
 
 **Last updated:** 2026-06-01 19:13 (96-dataset benchmark with ground truth comparison)  
 **Benchmark file:** `backend/benchmark/results/anime_stitch_20260601_191331.json`  
-**Relevant codebase:** `backend/src/anim/`  
+**Relevant codebase:** `backend/src/animation/`  
 **Ground truth:** 55/96 tests — `data/ground_truth/asp_testXX.{png,jpg,jpeg}`
 
 ---
@@ -171,10 +171,10 @@ Among the 44 true ASP composites, 14 tests with GT are `simple_better`. Primary 
 | File | Purpose |
 |------|---------|
 | `backend/benchmark/bench_anime_stitch.py` | Full benchmark with GT comparison, selective runner, render quality gate |
-| `backend/src/anim/validation.py` | Affine validation (min_gap=25px, vector magnitude gaps) |
-| `backend/src/anim/compositing.py` | Stage 11 composite with inter-strip coherence guard |
-| `backend/src/anim/rendering.py` | Stage 9 temporal median render |
-| `backend/src/anim/pipeline.py` | Full 13-stage orchestrator |
+| `backend/src/animation/validation.py` | Affine validation (min_gap=25px, vector magnitude gaps) |
+| `backend/src/animation/compositing.py` | Stage 11 composite with inter-strip coherence guard |
+| `backend/src/animation/rendering.py` | Stage 9 temporal median render |
+| `backend/src/animation/pipeline.py` | Full 13-stage orchestrator |
 | `backend/benchmark/results/anime_stitch_20260601_191331.json` | Latest 96-test benchmark results |
 | `data/ground_truth/` | 55 reference panoramas for GT SSIM/PSNR evaluation |
 | `data/output/` | All 192 final output PNGs (96 ASP + 96 simple) |

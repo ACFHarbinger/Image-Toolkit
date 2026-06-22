@@ -424,7 +424,7 @@ env/README.md
 /**/temp/
 /**/mods/
 data/
-test_data/
+dump/
 images/
 models/
 outputs/
@@ -458,5 +458,6 @@ mcp.json
 !backend/src/models/data/
 !backend/src/utils/data
 !backend/src/utils/validation/target
+!backend/test/models/
 !gui/src/tabs/models/
 !gui/src/helpers/models/

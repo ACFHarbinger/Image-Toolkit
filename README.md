@@ -136,22 +136,22 @@ The Python backend exposes a Hydra-configured CLI entry point for training pipel
 source .venv/bin/activate
 
 # Run training pipeline (uses configs/base.yaml by default)
-python -m backend.src.controller.dispatcher command=train
+python -m backend.dispatcher command=train
 
 # Generate safetensors metadata embeddings
-python -m backend.src.controller.dispatcher command=embed_metadata
+python -m backend.dispatcher command=embed_metadata
 
 # Launch ComfyUI headlessly with a custom port
-python -m backend.src.controller.dispatcher command=comfyui comfyui.port=8188 comfyui.listen=127.0.0.1
+python -m backend.dispatcher command=comfyui comfyui.port=8188 comfyui.listen=127.0.0.1
 
 # Override any config key from the CLI (standard Hydra syntax)
-python -m backend.src.controller.dispatcher command=train training.batch_size=16 training.epochs=50
+python -m backend.dispatcher command=train training.batch_size=16 training.epochs=50
 
 # Batch image conversion via the main CLI
 python main.py convert --output_format png --input_path /path/to/images --input_formats webp avif
 ```
 
-Config files live in `backend/config/`. Override any key with `key=value` on the command line. The `asp_config.toml` in the project root configures the Anime Stitch Pipeline — see `backend/src/anim/config.py` for the schema.
+Config files live in `backend/config/`. Override any key with `key=value` on the command line. The `asp_config.toml` in the project root configures the Anime Stitch Pipeline — see `backend/src/animation/config.py` for the schema.
 
 ---
 
@@ -297,7 +297,7 @@ python backend/benchmark/run_all.py --baseline backend/benchmark/results/baselin
 python backend/benchmark/run_single.py --test-id 09
 
 # Safe animation test suite (no GPU, no heavy model imports)
-pytest backend/test/anim/ --skip-gpu
+pytest backend/test/animation/ --skip-gpu
 ```
 
 **Rust criterion micro-benchmarks**
@@ -323,7 +323,7 @@ bash scripts/convert_images.sh
 # Environment setup / dependency sync
 bash scripts/setup_env.sh
 
-# Check module import times (validates <1.5s threshold for all anim modules)
+# Check module import times (validates <1.5s threshold for all animation modules)
 source .venv/bin/activate
 python backend/src/utils/check_import_times.py
 ```

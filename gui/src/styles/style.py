@@ -6,8 +6,12 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QGraphicsDropShadowEffect
 
 
-def parse_theme_vars():
-    """Parses variables from theme.qss file."""
+def parse_theme_vars() -> dict:
+    """Parses variables from theme.qss file.
+
+    Returns:
+        dict: A dictionary containing the theme variables.
+    """
     path = os.path.join(os.path.dirname(__file__), "qss", "theme.qss")
     vars_dict = {}
     try:
@@ -30,8 +34,15 @@ def parse_theme_vars():
 THEME_VARS = parse_theme_vars()
 
 
-def load_qss(filename):
-    """Loads QSS content from a file and performs variable substitution."""
+def load_qss(filename: str) -> str:
+    """Loads QSS content from a file and performs variable substitution.
+
+    Args:
+        filename (str): The name of the QSS file to load.
+
+    Returns:
+        str: The QSS content with variables substituted.
+    """
     path = os.path.join(os.path.dirname(__file__), "qss", filename)
     try:
         with open(path, "r") as f:
@@ -43,8 +54,16 @@ def load_qss(filename):
         return ""
 
 
-def load_qss_with_overrides(filename, overrides=None):
-    """Loads QSS with runtime variable overrides merged into THEME_VARS."""
+def load_qss_with_overrides(filename: str, overrides: dict | None = None) -> str:
+    """Loads QSS with runtime variable overrides merged into THEME_VARS.
+
+    Args:
+        filename (str): The name of the QSS file to load.
+        overrides (dict, optional): A dictionary of variables to override. Defaults to None.
+
+    Returns:
+        str: The QSS content with variables substituted.
+    """
     path = os.path.join(os.path.dirname(__file__), "qss", filename)
     try:
         with open(path, "r") as f:
@@ -58,8 +77,16 @@ def load_qss_with_overrides(filename, overrides=None):
         return ""
 
 
-def compute_accent_vars(accent_hex, theme_prefix="DARK"):
-    """Derive hover/pressed accent variants from a base hex colour."""
+def compute_accent_vars(accent_hex: str, theme_prefix: str = "DARK") -> dict:
+    """Compute accent color variants for theming.
+
+    Args:
+        accent_hex (str): The hex color to use for the accent.
+        theme_prefix (str, optional): The prefix to use for the theme variables. Defaults to "DARK".
+
+    Returns:
+        dict: A dictionary containing the accent color variants.
+    """
     c = QColor(accent_hex)
     if not c.isValid():
         c = QColor(THEME_VARS.get(f"{theme_prefix}_ACCENT_COLOR", "#00bcd4"))
@@ -71,7 +98,11 @@ def compute_accent_vars(accent_hex, theme_prefix="DARK"):
 
 
 def load_user_qss_override() -> str:
-    """Return contents of ~/.image-toolkit/user_theme.qss, or '' if absent."""
+    """Return contents of ~/.image-toolkit/user_theme.qss, or '' if absent.
+
+    Returns:
+        str: The contents of the user_theme.qss file.
+    """
     path = os.path.expanduser("~/.image-toolkit/user_theme.qss")
     try:
         with open(path, "r") as f:
@@ -96,8 +127,21 @@ QGroupBox { padding-top: 16px; margin-top: 8px; }
 """
 
 
-def apply_shadow_effect(widget, color_hex="#000000", radius=10, x_offset=0, y_offset=4):
-    """Creates and applies a QGraphicsDropShadowEffect to a given widget."""
+def apply_shadow_effect(
+    widget, color_hex="#000000", radius: int = 10, x_offset: int = 0, y_offset: int = 4
+) -> QGraphicsDropShadowEffect:
+    """Creates and applies a QGraphicsDropShadowEffect to a given widget.
+
+    Args:
+        widget: The widget to apply the shadow effect to.
+        color_hex (str, optional): The hex color to use for the shadow. Defaults to "#000000".
+        radius (int, optional): The radius of the shadow. Defaults to 10.
+        x_offset (int, optional): The x offset of the shadow. Defaults to 0.
+        y_offset (int, optional): The y offset of the shadow. Defaults to 4.
+
+    Returns:
+        QGraphicsDropShadowEffect: The applied shadow effect.
+    """
     shadow = QGraphicsDropShadowEffect(widget)
     shadow.setColor(QColor(color_hex))
     shadow.setBlurRadius(radius)

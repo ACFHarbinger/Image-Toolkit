@@ -111,7 +111,7 @@ Fix: A `threading.RLock` in `VaultManager` serialises all JNI calls. If you see 
 **Diagnosis:**
 ```bash
 # Run with verbose logging
-ASP_LOG_LEVEL=DEBUG python -m backend.src.anim.pipeline <args>
+ASP_LOG_LEVEL=DEBUG python -m backend.src.animation.pipeline <args>
 
 # Check the stage trace JSON (written to output dir)
 cat output/trace.json | python -m json.tool | grep -A5 "stage_7"
@@ -136,7 +136,7 @@ cat output/trace.json | python -m json.tool | grep -A5 "stage_7"
 
 ```bash
 # Relax coverage gate
-ASP_COV_MIN_MULTI_PCT=0.15 python -m backend.src.anim.pipeline <args>
+ASP_COV_MIN_MULTI_PCT=0.15 python -m backend.src.animation.pipeline <args>
 ```
 
 Other common causes:
@@ -166,12 +166,12 @@ python backend/benchmark/run_single.py --test-id <ID> | grep ghosting
 
 ### `RuntimeError: Canvas too large` / `CANVAS_MAX_DIM exceeded`
 
-**Cause:** The computed panorama canvas exceeds `CANVAS_MAX_DIM` (set in `backend/src/constants/anim.py`).
+**Cause:** The computed panorama canvas exceeds `CANVAS_MAX_DIM` (set in `backend/src/constants/animation.py`).
 
 **Fix:** Reduce the input image resolution before stitching, or increase the constant (memory-bound):
 
 ```python
-# backend/src/constants/anim.py
+# backend/src/constants/animation.py
 CANVAS_MAX_DIM = 32768  # increase from default 16384
 ```
 
@@ -184,7 +184,7 @@ CANVAS_MAX_DIM = 32768  # increase from default 16384
 **Fix:** Unset the environment variable or use `override_env=True` in the loader:
 
 ```python
-from backend.src.anim.config import load_asp_config
+from backend.src.animation.config import load_asp_config
 load_asp_config("asp_config.toml", override_env=True)  # TOML wins over env
 ```
 
@@ -262,13 +262,13 @@ maturin develop --release
 
 ### `rayon` thread pool panic in tests
 
-**Symptom:** Tests in `backend/test/anim/` hang or panic with "cannot recursively acquire rayon global lock".
+**Symptom:** Tests in `backend/test/animation/` hang or panic with "cannot recursively acquire rayon global lock".
 
 **Cause:** Multiple rayon thread pools being initialised in parallel test workers.
 
 **Fix:** Run tests with `--skip-gpu` and the `pytest-xdist` work-steal distribution:
 ```bash
-pytest backend/test/anim/ -n auto --dist=worksteal --skip-gpu
+pytest backend/test/animation/ -n auto --dist=worksteal --skip-gpu
 ```
 
 ---
@@ -281,7 +281,7 @@ pytest backend/test/anim/ -n auto --dist=worksteal --skip-gpu
 
 **Fix:** Pass the command explicitly:
 ```bash
-python -m backend.src.controller.dispatcher command=train
+python -m backend.dispatcher command=train
 ```
 
 Or add a default in `backend/config/base.yaml`:
@@ -300,7 +300,7 @@ command: train
 
 **Fix:** Declare the key in the config schema or use `+` prefix to append:
 ```bash
-python -m backend.src.controller.dispatcher +new_key=value
+python -m backend.dispatcher +new_key=value
 ```
 
 ---
@@ -312,9 +312,9 @@ python -m backend.src.controller.dispatcher +new_key=value
 **Fix:** Always run the dispatcher from the project root, or use an absolute path:
 ```bash
 # From project root
-python -m backend.src.controller.dispatcher
+python -m backend.dispatcher
 
-# NOT: python backend/src/controller/dispatcher.py (wrong cwd)
+# NOT: python backend/dispatcher.py (wrong cwd)
 ```
 
 ---
@@ -329,12 +329,12 @@ ls ComfyUI/main.py
 **Check 2:** Port conflict:
 ```bash
 lsof -i :8188
-python -m backend.src.controller.dispatcher command=comfyui comfyui.port=8189
+python -m backend.dispatcher command=comfyui comfyui.port=8189
 ```
 
 **Check 3:** GPU not available to ComfyUI:
 ```bash
-python -m backend.src.controller.dispatcher command=comfyui comfyui.cpu=true
+python -m backend.dispatcher command=comfyui comfyui.cpu=true
 ```
 
 ---
@@ -509,13 +509,13 @@ xcodebuild test   -project app/ImageToolkit.xcodeproj -scheme ImageToolkit \
 **Safe invocation:**
 ```bash
 # Fast, no GPU — always safe
-pytest backend/test/anim/ --skip-gpu
+pytest backend/test/animation/ --skip-gpu
 
 # Parallel workers — safe after §3.12 fix
-pytest backend/test/anim/ -n auto --dist=worksteal --skip-gpu
+pytest backend/test/animation/ -n auto --dist=worksteal --skip-gpu
 
-# Full suite (all backend modules) — requires §3.15 non-anim audit
-# Only run after auditing all non-anim module imports for ML singletons
+# Full suite (all backend modules) — requires §3.15 non-animation audit
+# Only run after auditing all non-animation module imports for ML singletons
 pytest backend/test/ --skip-gpu -n auto
 ```
 
@@ -532,7 +532,7 @@ pytest backend/test/gui/      # PySide6 tests require a display; drain RAM
 **Fix:**
 ```bash
 # Find the failing import
-pytest backend/test/anim/ --collect-only 2>&1 | grep "ERROR\|ImportError"
+pytest backend/test/animation/ --collect-only 2>&1 | grep "ERROR\|ImportError"
 
 # Check import times to identify which module is slow/failing
 python backend/src/utils/check_import_times.py
@@ -553,5 +553,5 @@ pip install pytest-forked pytest-xdist
 3. **Bridge Synchronisation** — Serialise all JPype (JVM) and PyO3 (Rust) calls from worker threads using the appropriate lock.
 4. **No Native Dialogs on Linux** — Pass `QFileDialog.Option.DontUseNativeDialog` to every `QFileDialog` call while JPype is active.
 5. **No `QWebEngineView`** — Open URLs via `QDesktopServices.openUrl()`. The Chromium/Vulkan renderer conflicts with the JVM.
-6. **Lazy ML imports** — Never import `diffusers`, `transformers`, `torch`, or large ML libraries at module level in `anim/` modules. Use lazy imports inside functions.
+6. **Lazy ML imports** — Never import `diffusers`, `transformers`, `torch`, or large ML libraries at module level in `animation/` modules. Use lazy imports inside functions.
 7. **Thread-local GPU state** — Do not share CUDA tensors across thread pool workers. Each QRunnable that uses a GPU model should have its own `torch.no_grad()` context.

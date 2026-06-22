@@ -161,9 +161,9 @@ markers = [
     "slow: test takes more than 10 s (excluded from fast CI runs)",
 ]
 # §3.12A — pytest-xdist parallel execution (opt-in).
-# Serial run (default):   pytest backend/test/anim/
-# Parallel, no GPU tests: pytest backend/test/anim/ -n auto --dist=worksteal --skip-gpu
-# Parallel, with GPU:     pytest backend/test/anim/ -n auto --dist=worksteal
+# Serial run (default):   pytest backend/test/animation/
+# Parallel, no GPU tests: pytest backend/test/animation/ -n auto --dist=worksteal --skip-gpu
+# Parallel, with GPU:     pytest backend/test/animation/ -n auto --dist=worksteal
 #   (GPU tests run @forked, each in its own subprocess — safe but serial)
 # addopts is intentionally empty; parallel execution is never forced.
 
@@ -181,7 +181,7 @@ name = "Backend core must not import GUI"
 type = "forbidden"
 source_modules = [
     "backend.src.models",
-    "backend.src.anim",
+    "backend.src.animation",
     "backend.src.core",
     "backend.src.web",
     "backend.src.pipeline",
