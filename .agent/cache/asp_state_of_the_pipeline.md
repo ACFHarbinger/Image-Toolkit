@@ -1765,6 +1765,10 @@ Use `cv2.detail_BlocksChannelsCompensator(bl_width=32, bl_height=32)` instead of
 OpenCV's `detail_MultiBandBlender.feed(img, mask, tl)` accepts per-pixel confidence masks. ASP can compute confidence from: (a) distance to seam path, (b) BiRefNet bg-confidence scores, (c) ECC alignment residuals. Feeding confidence-weighted masks into the MultiBlend pyramid improves transition quality vs. binary masks. New section: **§4.6**.
 
 
+## C++ Migration Roadmap (2026-06-22)
+
+A full C++ migration roadmap has been created at `moon/roadmaps/asp_cpp_migration.md`. The plan adds a pybind11 `aspcore/` module alongside the existing PyO3 `base/` module. Python continues to orchestrate the 13-stage pipeline and retain all ML inference (BiRefNet, EfficientLoFTR, ALIKED, DINOv2, ToonCrafter, diffusion models, RLHF). C++ targets all classical CV hot paths: `_seam_cut` DP, `_build_seam_cost_map`, zone normalizations, Laplacian blend, Eigen bundle adjustment, phase correlation, BlocksGainCompensator, ARAP sparse solver, and canvas warp/median render. Six phases: Phase 1 (foundation), Phase 2 (seam+compositing — ~60% of runtime), Phase 3 (alignment), Phase 4 (GraphCut seam + MultiBandBlender), Phase 5 (canvas/SR), Phase 6 (GPU). Expected speedup on classical stages: ~20× (32s → 1.6s). Total pipeline: ~2× (ML inference dominates). Every function has a Python fallback; tests pass without building `aspcore`.
+
 ## S160 (2026-06-22) — BlocksGain, Wave Correction, LumCompensate, GainUniformity
 
 - §4.1 `_blocks_gain_compensate(fa_zone, fb_zone, block_size=32)` in `compositing.py` — 32×32 block BGR gain map; per-block `mean(fa)/mean(fb)` per channel; bilinear resize to zone size; clamp [0.5, 2.0]; `ASP_BLOCKS_GAIN_COMP=1`. Wired after `_zone_lum_norm` in `_fb_for_blend` chain. Targets strip_banding (97.9% failure vs simple stitch).
