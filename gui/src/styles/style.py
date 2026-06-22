@@ -112,19 +112,8 @@ def load_user_qss_override() -> str:
 
 
 # --- Density override snippets (appended after base theme QSS) ---
-COMPACT_DENSITY_QSS = """
-QPushButton { padding: 5px 10px; border-radius: 4px; }
-QComboBox { padding: 3px 6px; }
-QLineEdit, QSpinBox, QDoubleSpinBox { padding: 3px 5px; }
-QGroupBox { padding-top: 6px; margin-top: 4px; }
-"""
-
-SPACIOUS_DENSITY_QSS = """
-QPushButton { padding: 14px 26px; border-radius: 8px; }
-QComboBox { padding: 10px 14px; }
-QLineEdit, QSpinBox, QDoubleSpinBox { padding: 10px 8px; }
-QGroupBox { padding-top: 16px; margin-top: 8px; }
-"""
+COMPACT_DENSITY_QSS = load_qss("compact_density.qss")
+SPACIOUS_DENSITY_QSS = load_qss("spacious_density.qss")
 
 
 def apply_shadow_effect(

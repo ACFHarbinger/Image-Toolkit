@@ -23,9 +23,12 @@ from unittest.mock import MagicMock, patch
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 repo_root = os.path.dirname(project_root)
+test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
 if repo_root not in sys.path:
     sys.path.insert(0, repo_root)
+if test_dir not in sys.path:
+    sys.path.insert(0, test_dir)
 
 # Limit OpenCV threads to prevent CPU thrashing
 try:
@@ -145,7 +148,7 @@ def clear_ml_singletons():
     """
     yield
     try:
-        import backend.src.animation.frame_selection as _fs
+        import backend.src.animation.ingestion.frame_selection as _fs
 
         for _k in list(getattr(_fs, "_DINOV2_CACHE", {}).keys()):
             _entry = _fs._DINOV2_CACHE.pop(_k, None)
@@ -154,7 +157,7 @@ def clear_ml_singletons():
     except Exception:
         pass
     try:
-        import backend.src.animation.fg_register as _fgr
+        import backend.src.animation.alignment.fg_register as _fgr
 
         if getattr(_fgr, "_SEARAFT_SINGLETON", None) is not None:
             del _fgr._SEARAFT_SINGLETON
@@ -170,7 +173,7 @@ def clear_ml_singletons():
     except Exception:
         pass
     try:
-        import backend.src.animation.anim_fill as _af
+        import backend.src.animation.rendering.anim_fill as _af
 
         if getattr(_af, "_TC_PIPELINE", None) is not None:
             del _af._TC_PIPELINE
@@ -178,7 +181,7 @@ def clear_ml_singletons():
     except Exception:
         pass
     try:
-        import backend.src.animation.compositing as _comp
+        import backend.src.animation.rendering.compositing as _comp
 
         if getattr(_comp, "_SEAM_POOL", None) is not None:
             _comp._SEAM_POOL.shutdown(wait=False)

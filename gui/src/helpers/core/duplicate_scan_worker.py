@@ -180,7 +180,7 @@ class DuplicateScanWorker(QObject):
                     results = self._chunked_compare("sift", _sift_sim)
                 elif self.method == "siamese":
                     results = self._compare_siamese(self.scan_cache)
-                    from backend.src.models.siamese_network import SiameseModelLoader
+                    from backend.src.models.core.siamese_network import SiameseModelLoader
 
                     SiameseModelLoader().unload()
                 else:

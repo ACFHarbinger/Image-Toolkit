@@ -121,7 +121,7 @@ from ...dialogs import (
     MaskReviewDialog,
     SelectionReviewDialog,
 )
-from backend.src.animation.masking import (
+from backend.src.animation.ingestion.masking import (
     _compute_fg_masks_grounded_sam2,
     _refine_masks_with_clicks,
 )

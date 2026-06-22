@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import "./index.css";
 import App from "./App";
 import { AppStoreProvider } from "./store/AppStoreProvider";
-import { ErrorBoundary } from "./components/ErrorBoundary";
+import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import reportWebVitals from "./reportWebVitals";
 
 console.log("--- REACT BOOTSTRAP STARTING ---");

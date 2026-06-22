@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 from ....classes.base_generative_tab import BaseGenerativeTab
-from backend.src.models.sd3_wrapper import SD3Wrapper
+from backend.src.models.wrappers.sd3_wrapper import SD3Wrapper
 from backend.src.constants import LOCAL_SOURCE_PATH
 
 

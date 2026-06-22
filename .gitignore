@@ -429,7 +429,7 @@ images/
 models/
 outputs/
 CMakeFiles/
-backend/benchmark/results
+backend/benchmark/output/
 
 # Build directories
 /**/Image_Toolkit.egg-info

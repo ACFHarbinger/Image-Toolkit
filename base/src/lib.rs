@@ -449,7 +449,7 @@ use core::video_converter::*;
 #[cfg(feature = "python")]
 use core::wallpaper::*;
 #[cfg(feature = "python")]
-use web::web_requests::*;
+use web::clients::web_requests::*;
 #[cfg(feature = "python")]
 use web::*;
 

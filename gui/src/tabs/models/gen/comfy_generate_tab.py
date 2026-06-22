@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QFrame,
 )
 
-from backend.src.models.comfy_manager import ComfyUIManager
+from backend.src.models.core.comfy_manager import ComfyUIManager
 
 # QWebEngineView is intentionally NOT used here.
 # Chromium (QtWebEngine) loads native libstdc++ via Vulkan/GBM at first render,

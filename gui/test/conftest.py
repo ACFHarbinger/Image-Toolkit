@@ -9,20 +9,29 @@ from PySide6.QtCore import QObject, Signal, QRunnable
 
 # --- BLOCK HEAVY IMPORTS ---
 sys.modules["backend.src.models"] = MagicMock()
-sys.modules["backend.src.models.basic_wrapper"] = MagicMock()
-sys.modules["backend.src.models.birefnet_wrapper"] = MagicMock()
-sys.modules["backend.src.models.comfy_manager"] = MagicMock()
+sys.modules["backend.src.models.core"] = MagicMock()
+sys.modules["backend.src.models.tuning"] = MagicMock()
+sys.modules["backend.src.models.tuning.lo_ra_tuner"] = MagicMock()
+sys.modules["backend.src.models.wrappers"] = MagicMock()
+sys.modules["backend.src.models.wrappers.basic_wrapper"] = MagicMock()
+sys.modules["backend.src.models.wrappers.birefnet_wrapper"] = MagicMock()
+sys.modules["backend.src.models.core.comfy_manager"] = MagicMock()
 sys.modules["backend.src.models.full_finetune"] = MagicMock()
-sys.modules["backend.src.models.gan"] = MagicMock()
-sys.modules["backend.src.models.gan_wrapper"] = MagicMock()
-sys.modules["backend.src.models.loftr_wrapper"] = MagicMock()
+sys.modules["backend.src.models.core.gan"] = MagicMock()
+sys.modules["backend.src.models.wrappers.gan_wrapper"] = MagicMock()
+sys.modules["backend.src.models.wrappers.loftr_wrapper"] = MagicMock()
 sys.modules["backend.src.models.lora_diffusion"] = MagicMock()
-sys.modules["backend.src.models.sd3_wrapper"] = MagicMock()
-sys.modules["backend.src.models.siamese_network"] = MagicMock()
-sys.modules["backend.src.models.stitch_net"] = MagicMock()
+sys.modules["backend.src.models.wrappers.sd3_wrapper"] = MagicMock()
+sys.modules["backend.src.models.core.siamese_network"] = MagicMock()
+sys.modules["backend.src.models.core.stitch_net"] = MagicMock()
 sys.modules["backend.src.models.stable_diffusion"] = MagicMock()
 sys.modules["backend.src.models.gen"] = MagicMock()
-sys.modules["diffusers"] = MagicMock()
+
+import importlib.machinery
+
+diffusers_mock = MagicMock()
+diffusers_mock.__spec__ = importlib.machinery.ModuleSpec("diffusers", None)
+sys.modules["diffusers"] = diffusers_mock
 sys.modules["torch.hub"] = MagicMock()
 sys.modules["cv2"] = MagicMock()
 

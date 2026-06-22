@@ -17,18 +17,18 @@ sys.path.insert(0, "/home/pkhunter/Repositories/Image-Toolkit")
 os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
 
 import torch
-from backend.src.animation.pipeline import AnimeStitchPipeline
-from backend.src.animation.canvas import (
+from backend.src.animation.core.pipeline import AnimeStitchPipeline
+from backend.src.animation.alignment.canvas import (
     _load_frames,
     _normalise_widths,
     _compute_canvas,
     _crop_to_valid,
 )
-from backend.src.animation.masking import _compute_fg_masks
-from backend.src.animation.matching import _pairwise_match
-from backend.src.animation.bundle_adjust import _bundle_adjust_affine
-from backend.src.animation.ecc import _ecc_refine
-from backend.src.animation.rendering import _render_median
+from backend.src.animation.ingestion.masking import _compute_fg_masks
+from backend.src.animation.alignment.matching import _pairwise_match
+from backend.src.animation.alignment.bundle_adjust import _bundle_adjust_affine
+from backend.src.animation.alignment.ecc import _ecc_refine
+from backend.src.animation.rendering.rendering import _render_median
 from PIL import Image
 
 DIR = "/home/pkhunter/Downloads/data/new"
@@ -62,7 +62,7 @@ for i, f in enumerate(frames):
 # ── Stage 4: BiRefNet foreground masks ────────────────────────────────────────
 print("Stage 4: BiRefNet foreground masks...")
 try:
-    from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+    from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
 
     birefnet = BiRefNetWrapper()
     bg_masks = _compute_fg_masks(frames, birefnet)
@@ -114,7 +114,7 @@ else:
 # consistency checks that catch wrong-direction TemplateMatch results).
 print("Stages 5-7: matching + filter + bundle adjust...")
 try:
-    from backend.src.models.loftr_wrapper import LoFTRWrapper
+    from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
 
     loftr = LoFTRWrapper()
 except Exception as e:

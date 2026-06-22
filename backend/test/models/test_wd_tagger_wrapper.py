@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from backend.src.models.wd_tagger_wrapper import (
+from backend.src.models.wrappers.wd_tagger_wrapper import (
     DEFAULT_THRESHOLD,
     WDTaggerWrapper,
     _filter_tags,

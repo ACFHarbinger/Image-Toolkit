@@ -492,7 +492,7 @@ class MaskReviewDialog(QDialog):
 
         def _run_exclusion():
             try:
-                from backend.src.animation.grounding import _detect_exclusion_mask
+                from backend.src.animation.hitl.grounding import _detect_exclusion_mask
             except ImportError:
                 return [None] * len(frames)
             masks = []

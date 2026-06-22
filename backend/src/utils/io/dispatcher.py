@@ -1,8 +1,8 @@
 # --- Relocated Nested Imports ---
 from ...core.image_merger import ImageMerger
-from ...web.image_crawler import ImageCrawler
+from ...web.crawlers.image_crawler import ImageCrawler
 from ...database.image_database import PgvectorImageDatabase
-from ...models.sd3_wrapper import SD3Wrapper
+from ...models.wrappers.sd3_wrapper import SD3Wrapper
 from ..slideshow_daemon import start_daemon as launch_slideshow
 # --------------------------------
 

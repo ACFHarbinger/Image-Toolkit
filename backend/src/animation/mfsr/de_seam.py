@@ -12,8 +12,8 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from ...constants import DE_CR, DE_F, DE_MAX_GEN, DE_POP_SIZE
-from ..stateless import _seam_dp
+from backend.src.constants import DE_CR, DE_F, DE_MAX_GEN, DE_POP_SIZE
+from backend.src.animation.core.stateless import _seam_dp
 
 
 def _energy_map(img_a: np.ndarray, img_b: np.ndarray) -> np.ndarray:

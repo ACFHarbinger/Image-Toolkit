@@ -44,20 +44,20 @@ SLOW_IMPORT_THRESHOLD = (
 
 # All animation modules we track.  Add new modules here when they are created.
 ANIM_MODULES: List[str] = [
-    "backend.src.animation.bundle_adjust",
-    "backend.src.animation.canvas",
-    "backend.src.animation.compositing",
-    "backend.src.animation.config",
-    "backend.src.animation.ecc",
-    "backend.src.animation.fg_register",
-    "backend.src.animation.frame_selection",
-    "backend.src.animation.matching",
-    "backend.src.animation.masking",
-    "backend.src.animation.pipeline",
-    "backend.src.animation.photometric",
-    "backend.src.animation.rendering",
-    "backend.src.animation.validation",
-    "backend.src.animation.bg_complete",
+    "backend.src.animation.alignment.bundle_adjust",
+    "backend.src.animation.alignment.canvas",
+    "backend.src.animation.rendering.compositing",
+    "backend.src.animation.core.config",
+    "backend.src.animation.alignment.ecc",
+    "backend.src.animation.alignment.fg_register",
+    "backend.src.animation.ingestion.frame_selection",
+    "backend.src.animation.alignment.matching",
+    "backend.src.animation.ingestion.masking",
+    "backend.src.animation.core.pipeline",
+    "backend.src.animation.rendering.photometric",
+    "backend.src.animation.rendering.rendering",
+    "backend.src.animation.core.validation",
+    "backend.src.animation.ingestion.bg_complete",
 ]
 
 # §3.15C — Core modules that were audited for heavy-import isolation.

@@ -30,7 +30,7 @@ try:
 except ImportError:
     _SCIPY_OK = False
 
-from ...constants import (
+from backend.src.constants import (
     DCT_BLOCK_SIZE,
     DCT_ITERATIONS,
     DCT_QUANT_TABLE_LUMINANCE,

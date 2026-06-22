@@ -123,20 +123,20 @@ def instrument_pipeline(pipeline: Any, output_dir: str) -> None:
         """
         import gc
         import warnings
-        from backend.src.animation.bundle_adjust import _bundle_adjust_affine
-        from backend.src.animation.canvas import (
+        from backend.src.animation.alignment.bundle_adjust import _bundle_adjust_affine
+        from backend.src.animation.alignment.canvas import (
             _compute_canvas,
             _crop_to_valid,
             _load_frames,
             _normalise_widths,
             _scan_stitch_fallback,
         )
-        from backend.src.animation.compositing import _composite_foreground
-        from backend.src.animation.ecc import _ecc_refine
-        from backend.src.animation.masking import _compute_fg_masks
-        from backend.src.animation.matching import _pairwise_match
-        from backend.src.animation.photometric import _apply_basic, _correct_vignetting
-        from backend.src.animation.rendering import _render
+        from backend.src.animation.rendering.compositing import _composite_foreground
+        from backend.src.animation.alignment.ecc import _ecc_refine
+        from backend.src.animation.ingestion.masking import _compute_fg_masks
+        from backend.src.animation.alignment.matching import _pairwise_match
+        from backend.src.animation.rendering.photometric import _apply_basic, _correct_vignetting
+        from backend.src.animation.rendering.rendering import _render
 
         import torch
 
@@ -162,7 +162,7 @@ def instrument_pipeline(pipeline: Any, output_dir: str) -> None:
         # Stage 3: BaSiC
         # bg_masks_photometric: List[Optional[np.ndarray]] = [None] * N
         if pipeline.use_basic:
-            from backend.src.models.basic_wrapper import BaSiCWrapper
+            from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
 
             if pipeline._basic is None:
                 pipeline._basic = BaSiCWrapper()
@@ -175,7 +175,7 @@ def instrument_pipeline(pipeline: Any, output_dir: str) -> None:
 
         # Stage 4: fg masks — save
         if pipeline.use_birefnet and pipeline._birefnet is None:
-            from backend.src.models.birefnet_wrapper import BiRefNetWrapper
+            from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
 
             pipeline._birefnet = BiRefNetWrapper()
         bg_masks = _compute_fg_masks(
@@ -219,7 +219,7 @@ def instrument_pipeline(pipeline: Any, output_dir: str) -> None:
 
         # Stage 5-6: pairwise matching — save edges
         if pipeline.use_loftr and pipeline._loftr is None:
-            from backend.src.models.loftr_wrapper import LoFTRWrapper
+            from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
 
             pipeline._loftr = LoFTRWrapper()
         edges = _pairwise_match(

@@ -14,9 +14,9 @@ import numpy as np
 
 from PIL import Image
 
-from backend.src.animation.canvas import _crop_to_valid
-from backend.src.animation.rendering import _render_median
-from backend.src.animation.compositing import _composite_foreground
+from backend.src.animation.alignment.canvas import _crop_to_valid
+from backend.src.animation.rendering.rendering import _render_median
+from backend.src.animation.rendering.compositing import _composite_foreground
 
 sys.path.insert(0, "/home/pkhunter/Repositories/Image-Toolkit")
 os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")

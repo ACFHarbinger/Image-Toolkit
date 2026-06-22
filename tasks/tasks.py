@@ -25,7 +25,7 @@ from backend.src.web import (
     ReverseImageSearchCrawler,
     WebRequestsLogic,
 )
-from backend.src.models.gan import GAN
+from backend.src.models.core.gan import GAN
 from backend.src.database import PgvectorImageDatabase as ImageDatabase
 from backend.src.constants import LOCAL_SOURCE_PATH
 

@@ -20,7 +20,7 @@ Example:
 import os
 from typing import List, Optional, Union
 
-from logic.src.utils.io.files import extract_zip, zip_directory
+from backend.src.utils.io.files import extract_zip, zip_directory
 
 from .data import decrypt_file_data, encrypt_file_data
 

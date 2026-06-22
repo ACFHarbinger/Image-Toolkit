@@ -34,10 +34,10 @@ import {
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useAppStore } from "./store/appStore";
-import { LoginDialog } from "./components/LoginDialog";
-import { SettingsDialog } from "./components/SettingsDialog";
-import { ImagePreview } from "./components/ImagePreview";
-import { TaskProgress } from "./components/TaskProgress";
+import { LoginDialog } from "./components/dialogs/LoginDialog";
+import { SettingsDialog } from "./components/dialogs/SettingsDialog";
+import { ImagePreview } from "./components/sublime/ImagePreview";
+import { TaskProgress } from "./components/sublime/TaskProgress";
 
 // --- Core Tabs ---
 import ConvertTab from "./tabs/core/ConvertTab";
@@ -64,7 +64,7 @@ import { MetaCLIPInferenceTab } from "./tabs/models/MetaCLIPInferenceTab";
 import { R3GANEvaluateTab } from "./tabs/models/R3GANEvaluateTab";
 
 // --- Analytics Tabs ---
-import { BenchmarkDashboard } from "./tabs/analytics/BenchmarkDashboard";
+import { BenchmarkDashboard } from "./tabs/apollo/BenchmarkDashboard";
 
 // --- Interfaces ---
 
