@@ -11,7 +11,7 @@ The ASP pipeline is implemented entirely in Python, with the single exception of
 
 The deep analysis of OpenCV's stitching module (`opencv/modules/stitching/`) and Overmix (`Overmix/src/`) reveals that the same algorithmic work — seam finding, exposure compensation, bundle adjustment, blending — runs 10–50× faster in C++ due to: (1) compiled loop execution with SIMD intrinsics, (2) direct OpenCV C++ API access (which is richer than its Python bindings — `GCGraph`, `MultiBandBlender`, `BlocksGainCompensator` are all usable without the Python wrapper overhead), and (3) explicit memory control avoiding NumPy's copy-on-slice behaviour. Overmix processes 100-frame 4K composites in under 2 seconds on a mid-range CPU; ASP takes 90+ seconds on the same sequence size.
 
-The migration strategy is deliberately *hybrid*: Python continues to orchestrate the 13-stage pipeline (`core/pipeline.py` is never rewritten) and retains all ML inference stages (BiRefNet, EfficientLoFTR, ALIKED, DINOv2, ToonCrafter, AnimeInterp, diffusion inpainting, waifu2x, MLLM scorer, RLHF reward model). A new compiled extension module `aspcore/` (pybind11, C++17) replaces the compute bodies of classical CV stages — those stages' Python functions become thin wrappers that call `aspcore` when available and fall back to the existing Python implementation otherwise. This means the test suite continues to work without building `aspcore`, and the migration can be done incrementally.
+The migration strategy is deliberately *hybrid*: Python continues to orchestrate the 13-stage pipeline (`core/pipeline.py` is never rewritten) and retains all ML inference stages (BiRefNet, EfficientLoFTR, ALIKED, DINOv2, ToonCrafter, AnimeInterp, diffusion inpainting, waifu2x, MLLM scorer, RLHF reward model). A new compiled extension module `batch/` (pybind11, C++17) replaces the compute bodies of classical CV stages — those stages' Python functions become thin wrappers that call `batch` when available and fall back to the existing Python implementation otherwise. This means the test suite continues to work without building `batch`, and the migration can be done incrementally.
 
 ---
 
@@ -30,42 +30,42 @@ Python pipeline (core/pipeline.py) — orchestrates 13 stages
 │   ├── rendering/sr_stitcher.py  ← ToonCrafter (torch)
 │   └── rlhf/reward_model.py      ← PyTorch reward model
 │
-├── Classical CV stages (moved to aspcore/)
-│   ├── alignment/bundle_adjust.py → aspcore.bundle_adjust
-│   ├── alignment/canvas.py        → aspcore.canvas
-│   ├── alignment/ecc.py           → aspcore.fg_register
-│   ├── alignment/fg_register.py   → aspcore.fg_register (non-flow parts)
-│   ├── alignment/matching.py      → aspcore.matching (edge graph, phase corr)
-│   ├── core/validation.py         → aspcore.validation
-│   ├── flow/cam_flow.py           → aspcore.matching (phase correlation)
-│   ├── ingestion/frame_selection.py → aspcore.frame_selection (classical)
-│   ├── mfsr/dct_restoration.py    → aspcore.sr_classical
-│   ├── mfsr/de_seam.py            → aspcore.sr_classical
-│   ├── mfsr/pso_registration.py   → aspcore.sr_classical
-│   ├── rendering/compositing.py   → aspcore.seam + aspcore.compositing
-│   ├── rendering/photometric.py   → aspcore.exposure
-│   └── rendering/rendering.py     → aspcore.canvas (warp/render)
+├── Classical CV stages (moved to batch/)
+│   ├── alignment/bundle_adjust.py → batch.bundle_adjust
+│   ├── alignment/canvas.py        → batch.canvas
+│   ├── alignment/ecc.py           → batch.fg_register
+│   ├── alignment/fg_register.py   → batch.fg_register (non-flow parts)
+│   ├── alignment/matching.py      → batch.matching (edge graph, phase corr)
+│   ├── core/validation.py         → batch.validation
+│   ├── flow/cam_flow.py           → batch.matching (phase correlation)
+│   ├── ingestion/frame_selection.py → batch.frame_selection (classical)
+│   ├── mfsr/dct_restoration.py    → batch.sr_classical
+│   ├── mfsr/de_seam.py            → batch.sr_classical
+│   ├── mfsr/pso_registration.py   → batch.sr_classical
+│   ├── rendering/compositing.py   → batch.seam + batch.compositing
+│   ├── rendering/photometric.py   → batch.exposure
+│   └── rendering/rendering.py     → batch.canvas (warp/render)
 │
-├── aspcore/   (pybind11, C++17)    ← NEW — compiled alongside base/
-│   ├── aspcore.bundle_adjust
-│   ├── aspcore.canvas
-│   ├── aspcore.compositing
-│   ├── aspcore.exposure
-│   ├── aspcore.fg_register
-│   ├── aspcore.frame_selection
-│   ├── aspcore.matching
-│   ├── aspcore.seam
-│   ├── aspcore.sr_classical
-│   ├── aspcore.validation
-│   └── aspcore.wave_correct
+├── batch/   (pybind11, C++17)    ← NEW — compiled alongside base/
+│   ├── batch.bundle_adjust
+│   ├── batch.canvas
+│   ├── batch.compositing
+│   ├── batch.exposure
+│   ├── batch.fg_register
+│   ├── batch.frame_selection
+│   ├── batch.matching
+│   ├── batch.seam
+│   ├── batch.sr_classical
+│   ├── batch.validation
+│   └── batch.wave_correct
 │
 └── base/  (PyO3, Rust)             ← existing — thumbnail loader, math
     └── base.load_image_batch()
 ```
 
-### How aspcore/ sits alongside base/
+### How batch/ sits alongside base/
 
-`base/` uses PyO3 (Rust → Python). `aspcore/` uses pybind11 (C++ → Python). Both produce `.so` files importable from Python. They are independent compilation units with no dependency on each other. In `setup.py` / `pyproject.toml` both are listed as extension modules. `just build` compiles both.
+`base/` uses PyO3 (Rust → Python). `batch/` uses pybind11 (C++ → Python). Both produce `.so` files importable from Python. They are independent compilation units with no dependency on each other. In `setup.py` / `pyproject.toml` both are listed as extension modules. `just build` compiles both.
 
 ### Python pipeline orchestration model
 
@@ -74,15 +74,15 @@ Every function that has a C++ counterpart follows this pattern:
 ```python
 # Example: rendering/compositing.py
 try:
-    import aspcore
-    HAS_ASPCORE = True
+    import batch
+    HAS_BATCH = True
 except ImportError:
-    HAS_ASPCORE = False
+    HAS_BATCH = False
 
 def _seam_cut(fa_zone, fb_zone, *, sem_cost=None, waypoints=None,
               transition_penalty=0.0):
-    if HAS_ASPCORE:
-        return aspcore.seam.seam_cut(
+    if HAS_BATCH:
+        return batch.seam.seam_cut(
             fa_zone, fb_zone,
             sem_cost=sem_cost, waypoints=waypoints,
             transition_penalty=transition_penalty,
@@ -92,30 +92,30 @@ def _seam_cut(fa_zone, fb_zone, *, sem_cost=None, waypoints=None,
                              transition_penalty=transition_penalty)
 ```
 
-The Python fallback (`_seam_cut_python`) is the existing implementation, renamed. No behaviour change when `aspcore` is absent.
+The Python fallback (`_seam_cut_python`) is the existing implementation, renamed. No behaviour change when `batch` is absent.
 
 ---
 
 ## Migration Boundary: C++ vs Python
 
-### Moves to aspcore/ (C++)
+### Moves to batch/ (C++)
 
-| Python module | aspcore submodule | Key functions / classes | Rationale |
+| Python module | batch submodule | Key functions / classes | Rationale |
 |---|---|---|---|
-| `alignment/bundle_adjust.py` | `aspcore.bundle_adjust` | `_bundle_adjust_affine`, `_spanning_tree_inlier_filter`, `_compute_adaptive_f_scale` | Eigen LM is 20–50× faster than scipy; Jacobian is dense in pixel space |
-| `alignment/canvas.py` | `aspcore.canvas` | `_compute_canvas`, `_crop_to_valid`, `_telea_fill_gaps`, `_detect_scroll_axis`, `_panorama_stitch_fallback` | cv::warpAffine, cv::inpaint — zero NumPy copy overhead in C++ |
-| `alignment/ecc.py` | `aspcore.fg_register` | `_ecc_refine` | cv::findTransformECC — Python binding has extra Mat→ndarray copy |
-| `alignment/fg_register.py` | `aspcore.fg_register` | `_slic_sgm_proxy`, `_arap_regularise`, ARAP sparse solve, LSD collinearity | Sparse Eigen system 10–20× faster than scipy.sparse in Python |
-| `alignment/matching.py` | `aspcore.matching` | edge graph construction, weight computation, bg filtering of matches, `_filter_edges`, `_reject_static_edges`, `_compute_adaptive_min_disp`, `_spatial_dedup_frames` | Pure computation on match lists; no ML required |
-| `core/validation.py` | `aspcore.validation` | `_validate_affines`, `_compute_adaptive_min_gap`, `_compute_adaptive_rot_scale` | Tight numeric loops |
-| `flow/cam_flow.py` | `aspcore.matching` | `_phase_correlate`, `bg_masked_phase_correlate` | FFT via cv::dft or FFTW; Hanning window |
-| `ingestion/frame_selection.py` | `aspcore.frame_selection` | `_detect_hold_blocks`, `_detect_hold_blocks_dhash`, `_temporal_variance_filter`, `_near_dup_luma_filter`, `_smart_select_frames` (non-DINOv2 path), `_spatial_dedup_frames` | Thumbnail diff loops — OpenMP parallel |
-| `mfsr/dct_restoration.py` | `aspcore.sr_classical` | DCT-II deblocking | FFTW or cv::dft; much faster than scipy |
-| `mfsr/de_seam.py` | `aspcore.sr_classical` | seam de-ringing | Frequency-domain; FFTW |
-| `mfsr/pso_registration.py` | `aspcore.sr_classical` | PSO optimizer | Pure numeric loops; OpenMP for particle eval |
-| `rendering/compositing.py` | `aspcore.seam` + `aspcore.compositing` | `_seam_cut`, `_build_seam_cost_map`, `_find_optimal_boundaries`, `_zone_chroma_align`, `_zone_lum_norm`, `_zone_sat_norm`, `_zone_contrast_eq`, `_zone_hue_eq`, `_laplacian_blend`, `_smooth_gain_array`, `_blocks_gain_compensate`, `_blocks_lum_compensate`, `_single_pose_soft_edge`, `_seam_color_match`, `_poisson_seam_blend`, gain normalization loops, all single-pose escalation gates | The pipeline hot path — 80% of total runtime |
-| `rendering/photometric.py` | `aspcore.exposure` | `_apply_basic`, `_correct_vignetting`, per-block gain | Pixel loops; heavy NumPy |
-| `rendering/rendering.py` | `aspcore.canvas` | `_render_median`, `_render`, `_render_first` (warpAffine + per-pixel median) | cv::warpAffine across N frames + per-pixel nth_element |
+| `alignment/bundle_adjust.py` | `batch.bundle_adjust` | `_bundle_adjust_affine`, `_spanning_tree_inlier_filter`, `_compute_adaptive_f_scale` | Eigen LM is 20–50× faster than scipy; Jacobian is dense in pixel space |
+| `alignment/canvas.py` | `batch.canvas` | `_compute_canvas`, `_crop_to_valid`, `_telea_fill_gaps`, `_detect_scroll_axis`, `_panorama_stitch_fallback` | cv::warpAffine, cv::inpaint — zero NumPy copy overhead in C++ |
+| `alignment/ecc.py` | `batch.fg_register` | `_ecc_refine` | cv::findTransformECC — Python binding has extra Mat→ndarray copy |
+| `alignment/fg_register.py` | `batch.fg_register` | `_slic_sgm_proxy`, `_arap_regularise`, ARAP sparse solve, LSD collinearity | Sparse Eigen system 10–20× faster than scipy.sparse in Python |
+| `alignment/matching.py` | `batch.matching` | edge graph construction, weight computation, bg filtering of matches, `_filter_edges`, `_reject_static_edges`, `_compute_adaptive_min_disp`, `_spatial_dedup_frames` | Pure computation on match lists; no ML required |
+| `core/validation.py` | `batch.validation` | `_validate_affines`, `_compute_adaptive_min_gap`, `_compute_adaptive_rot_scale` | Tight numeric loops |
+| `flow/cam_flow.py` | `batch.matching` | `_phase_correlate`, `bg_masked_phase_correlate` | FFT via cv::dft or FFTW; Hanning window |
+| `ingestion/frame_selection.py` | `batch.frame_selection` | `_detect_hold_blocks`, `_detect_hold_blocks_dhash`, `_temporal_variance_filter`, `_near_dup_luma_filter`, `_smart_select_frames` (non-DINOv2 path), `_spatial_dedup_frames` | Thumbnail diff loops — OpenMP parallel |
+| `mfsr/dct_restoration.py` | `batch.sr_classical` | DCT-II deblocking | FFTW or cv::dft; much faster than scipy |
+| `mfsr/de_seam.py` | `batch.sr_classical` | seam de-ringing | Frequency-domain; FFTW |
+| `mfsr/pso_registration.py` | `batch.sr_classical` | PSO optimizer | Pure numeric loops; OpenMP for particle eval |
+| `rendering/compositing.py` | `batch.seam` + `batch.compositing` | `_seam_cut`, `_build_seam_cost_map`, `_find_optimal_boundaries`, `_zone_chroma_align`, `_zone_lum_norm`, `_zone_sat_norm`, `_zone_contrast_eq`, `_zone_hue_eq`, `_laplacian_blend`, `_smooth_gain_array`, `_blocks_gain_compensate`, `_blocks_lum_compensate`, `_single_pose_soft_edge`, `_seam_color_match`, `_poisson_seam_blend`, gain normalization loops, all single-pose escalation gates | The pipeline hot path — 80% of total runtime |
+| `rendering/photometric.py` | `batch.exposure` | `_apply_basic`, `_correct_vignetting`, per-block gain | Pixel loops; heavy NumPy |
+| `rendering/rendering.py` | `batch.canvas` | `_render_median`, `_render`, `_render_first` (warpAffine + per-pixel median) | cv::warpAffine across N frames + per-pixel nth_element |
 
 ### Stays in Python (ML inference)
 
@@ -147,17 +147,17 @@ The Python fallback (`_seam_cut_python`) is the existing implementation, renamed
 
 ---
 
-## C++ Module Design: aspcore/
+## C++ Module Design: batch/
 
 ### Module Structure
 
 ```
-aspcore/
+batch/
 ├── CMakeLists.txt
 ├── include/
-│   ├── aspcore/common.hpp          # numpy↔cv::Mat converters, error macros
-│   ├── aspcore/affine_types.hpp    # AffineParams, Edge structs
-│   └── aspcore/image_utils.hpp     # BGRA/BGR/gray conversion helpers
+│   ├── batch/common.hpp          # numpy↔cv::Mat converters, error macros
+│   ├── batch/affine_types.hpp    # AffineParams, Edge structs
+│   └── batch/image_utils.hpp     # BGRA/BGR/gray conversion helpers
 ├── src/
 │   ├── bindings.cpp                # pybind11 module root — registers all submodules
 │   ├── matching.cpp                # phase correlation, edge graph, bg filtering
@@ -172,7 +172,7 @@ aspcore/
 │   ├── fg_register.cpp             # SLIC-SGM proxy, ARAP sparse solver, ECC, LSD
 │   └── sr_classical.cpp            # DCT restoration, PSO registration, de_seam
 └── tests/
-    ├── test_matching_cpp.py        # Python tests comparing aspcore vs Python reference
+    ├── test_matching_cpp.py        # Python tests comparing batch vs Python reference
     ├── test_seam_cpp.py
     ├── test_compositing_cpp.py
     ├── test_bundle_adjust_cpp.py
@@ -183,7 +183,7 @@ aspcore/
 
 ```cmake
 cmake_minimum_required(VERSION 3.18)
-project(aspcore CXX)
+project(batch CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -205,8 +205,8 @@ if(OpenMP_FOUND)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif()
 
-# aspcore extension module
-pybind11_add_module(aspcore
+# batch extension module
+pybind11_add_module(batch
     src/bindings.cpp
     src/matching.cpp
     src/bundle_adjust.cpp
@@ -221,25 +221,25 @@ pybind11_add_module(aspcore
     src/sr_classical.cpp
 )
 
-target_include_directories(aspcore PRIVATE
+target_include_directories(batch PRIVATE
     include/
     ${OpenCV_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
 )
 
-target_link_libraries(aspcore PRIVATE
+target_link_libraries(batch PRIVATE
     ${OpenCV_LIBS}
     Eigen3::Eigen
     OpenMP::OpenMP_CXX
 )
 
 if(FFTW3_FOUND)
-    target_link_libraries(aspcore PRIVATE FFTW3::fftw3)
-    target_compile_definitions(aspcore PRIVATE HAVE_FFTW3=1)
+    target_link_libraries(batch PRIVATE FFTW3::fftw3)
+    target_compile_definitions(batch PRIVATE HAVE_FFTW3=1)
 endif()
 
 # Install alongside base.so in the Python package
-install(TARGETS aspcore DESTINATION backend/src/animation/)
+install(TARGETS batch DESTINATION backend/src/animation/)
 ```
 
 ### pybind11 module root (bindings.cpp sketch)
@@ -261,7 +261,7 @@ void register_wave_correct(py::module_& m);
 void register_fg_register(py::module_& m);
 void register_sr_classical(py::module_& m);
 
-PYBIND11_MODULE(aspcore, m) {
+PYBIND11_MODULE(batch, m) {
     m.doc() = "ASP compiled C++ extension — classical CV hot paths";
 
     auto m_matching   = m.def_submodule("matching");
@@ -290,14 +290,14 @@ PYBIND11_MODULE(aspcore, m) {
 }
 ```
 
-### Common header: numpy ↔ cv::Mat (include/aspcore/common.hpp)
+### Common header: numpy ↔ cv::Mat (include/batch/common.hpp)
 
 ```cpp
 #pragma once
 #include <pybind11/numpy.h>
 #include <opencv2/core.hpp>
 
-namespace aspcore {
+namespace batch {
 
 // Zero-copy conversion: numpy uint8 (H,W,C) → cv::Mat (shares memory)
 // IMPORTANT: mat must not outlive the numpy array.
@@ -333,12 +333,12 @@ inline pybind11::array_t<uint8_t> array_from_mat(const cv::Mat& mat) {
     return result;
 }
 
-} // namespace aspcore
+} // namespace batch
 ```
 
 ---
 
-### aspcore::matching — Phase Correlation and Feature Filtering
+### batch::matching — Phase Correlation and Feature Filtering
 
 **Replaces**: `flow/cam_flow.py::_phase_correlate`, `flow/cam_flow.py::bg_masked_phase_correlate`, `alignment/matching.py` (edge graph construction, bg filtering, post-match gates, static edge rejection, adaptive min-disp, spatial dedup).
 
@@ -363,17 +363,17 @@ inline pybind11::array_t<uint8_t> array_from_mat(const cv::Mat& mat) {
 
 **Python API**:
 ```python
-# aspcore.matching
-shift, response = aspcore.matching.phase_correlate_masked(
+# batch.matching
+shift, response = batch.matching.phase_correlate_masked(
     frame_a_gray, frame_b_gray, bg_mask_a, bg_mask_b)
-edges = aspcore.matching.build_edge_graph(raw_matches, bg_masks, N)
-edges = aspcore.matching.reject_static_edges(edges, min_disp_px=50)
-min_disp = aspcore.matching.compute_adaptive_min_disp(edges)
+edges = batch.matching.build_edge_graph(raw_matches, bg_masks, N)
+edges = batch.matching.reject_static_edges(edges, min_disp_px=50)
+min_disp = batch.matching.compute_adaptive_min_disp(edges)
 ```
 
 ---
 
-### aspcore::bundle_adjust — Affine Bundle Adjustment (LM + GNC)
+### batch::bundle_adjust — Affine Bundle Adjustment (LM + GNC)
 
 **Replaces**: `alignment/bundle_adjust.py` in full.
 
@@ -412,20 +412,20 @@ min_disp = aspcore.matching.compute_adaptive_min_disp(edges)
 
 **Python API**:
 ```python
-affines = aspcore.bundle_adjust.bundle_adjust_affine(
+affines = batch.bundle_adjust.bundle_adjust_affine(
     edges,           # List[dict] with src, dst, dx, dy, weight
     N,               # number of frames
     f_scale=10.0,
     use_gnc=True,
     adaptive_f_scale=True,
 )
-edges_filtered = aspcore.bundle_adjust.spanning_tree_inlier_filter(
+edges_filtered = batch.bundle_adjust.spanning_tree_inlier_filter(
     edges, N, inlier_threshold=50.0)
 ```
 
 ---
 
-### aspcore::validation — Affine Sequence Validation
+### batch::validation — Affine Sequence Validation
 
 **Replaces**: `core/validation.py` in full.
 
@@ -441,14 +441,14 @@ edges_filtered = aspcore.bundle_adjust.spanning_tree_inlier_filter(
 
 **Python API**:
 ```python
-ok, reason = aspcore.validation.validate_affines(
+ok, reason = batch.validation.validate_affines(
     affines, min_step=25.0, max_ratio=8.0, max_gap=500.0)
-min_gap = aspcore.validation.compute_adaptive_min_gap(affines)
+min_gap = batch.validation.compute_adaptive_min_gap(affines)
 ```
 
 ---
 
-### aspcore::canvas — Warp, Crop, Fill
+### batch::canvas — Warp, Crop, Fill
 
 **Replaces**: `alignment/canvas.py` main functions.
 
@@ -472,17 +472,17 @@ min_gap = aspcore.validation.compute_adaptive_min_gap(affines)
 
 **Python API**:
 ```python
-canvas_h, canvas_w, shift = aspcore.canvas.compute_canvas(affines, frame_shapes)
-warped = aspcore.canvas.warp_frames_to_canvas(frames, affines, canvas_h, canvas_w)
-median_canvas = aspcore.canvas.render_median(warped)
-valid_rect = aspcore.canvas.crop_to_valid(canvas)
-filled = aspcore.canvas.telea_fill_gaps(canvas, gap_mask)
-axis = aspcore.canvas.detect_scroll_axis(frames)
+canvas_h, canvas_w, shift = batch.canvas.compute_canvas(affines, frame_shapes)
+warped = batch.canvas.warp_frames_to_canvas(frames, affines, canvas_h, canvas_w)
+median_canvas = batch.canvas.render_median(warped)
+valid_rect = batch.canvas.crop_to_valid(canvas)
+filled = batch.canvas.telea_fill_gaps(canvas, gap_mask)
+axis = batch.canvas.detect_scroll_axis(frames)
 ```
 
 ---
 
-### aspcore::seam — Seam Finding (DP + GraphCut)
+### batch::seam — Seam Finding (DP + GraphCut)
 
 The seam module is the highest-impact target. The Python `_seam_cut` + `_build_seam_cost_map` account for ~40% of total pipeline time.
 
@@ -607,15 +607,15 @@ py::list graphcut_seam_find(
     std::vector<cv::UMat> imgs, masks;
     std::vector<cv::Point> pts;
     for (size_t i = 0; i < warped_frames.size(); i++) {
-        imgs.push_back(aspcore::mat_from_array(warped_frames[i]).getUMat(cv::ACCESS_READ));
-        masks.push_back(aspcore::mat_from_array(warped_masks[i]).getUMat(cv::ACCESS_READ));
+        imgs.push_back(batch::mat_from_array(warped_frames[i]).getUMat(cv::ACCESS_READ));
+        masks.push_back(batch::mat_from_array(warped_masks[i]).getUMat(cv::ACCESS_READ));
         pts.push_back({corners[i].first, corners[i].second});
     }
     finder.find(imgs, pts, masks);
     // masks are modified in-place to ownership masks
     py::list result;
     for (auto& m : masks)
-        result.append(aspcore::array_from_mat(m.getMat(cv::ACCESS_READ)));
+        result.append(batch::array_from_mat(m.getMat(cv::ACCESS_READ)));
     return result;
 }
 ```
@@ -643,15 +643,15 @@ std::vector<std::vector<int>> seam_batch(
 
 **Python API**:
 ```python
-path = aspcore.seam.seam_cut(fa_zone, fb_zone, sem_cost, waypoints, transition_penalty)
-cost_map = aspcore.seam.build_seam_cost_map(fa_zone, bg_mask_a, bg_mask_b, ...)
-ownership_masks = aspcore.seam.graphcut_seam_find(warped_frames, warped_masks, corners)
-paths = aspcore.seam.seam_batch(zone_pairs, edge_weight, transition_penalty)
+path = batch.seam.seam_cut(fa_zone, fb_zone, sem_cost, waypoints, transition_penalty)
+cost_map = batch.seam.build_seam_cost_map(fa_zone, bg_mask_a, bg_mask_b, ...)
+ownership_masks = batch.seam.graphcut_seam_find(warped_frames, warped_masks, corners)
+paths = batch.seam.seam_batch(zone_pairs, edge_weight, transition_penalty)
 ```
 
 ---
 
-### aspcore::compositing — Zone Normalization and Blending
+### batch::compositing — Zone Normalization and Blending
 
 **Replaces**: the compute bodies of `rendering/compositing.py` (zone normalization chain, blend functions, gain loops, single-pose functions).
 
@@ -745,20 +745,20 @@ The current Python loop applies per-frame scalar gains with Gaussian smoothing (
 
 **Python API**:
 ```python
-fb_aligned = aspcore.compositing.zone_chroma_align(fa_zone, fb_zone)
-fb_aligned = aspcore.compositing.zone_lum_norm(fa_zone, fb_aligned)
-fb_aligned = aspcore.compositing.zone_sat_norm(fa_zone, fb_aligned)
-fb_aligned = aspcore.compositing.zone_contrast_eq(fa_zone, fb_aligned)
-fb_aligned = aspcore.compositing.zone_hue_eq(fa_zone, fb_aligned)
-blended = aspcore.compositing.laplacian_blend(fa_zone, fb_zone, path, feather_px)
-normalized = aspcore.compositing.normalize_warped_frames(
+fb_aligned = batch.compositing.zone_chroma_align(fa_zone, fb_zone)
+fb_aligned = batch.compositing.zone_lum_norm(fa_zone, fb_aligned)
+fb_aligned = batch.compositing.zone_sat_norm(fa_zone, fb_aligned)
+fb_aligned = batch.compositing.zone_contrast_eq(fa_zone, fb_aligned)
+fb_aligned = batch.compositing.zone_hue_eq(fa_zone, fb_aligned)
+blended = batch.compositing.laplacian_blend(fa_zone, fb_zone, path, feather_px)
+normalized = batch.compositing.normalize_warped_frames(
     warped_frames, bg_masks, ref_frame_idx,
     adaptive_gain_clamp=True, coherence_limit=20.0)
 ```
 
 ---
 
-### aspcore::exposure — Block Gain Compensation
+### batch::exposure — Block Gain Compensation
 
 **Replaces**: `rendering/photometric.py`, `rendering/compositing.py::_blocks_gain_compensate`, `_blocks_lum_compensate`.
 
@@ -782,14 +782,14 @@ py::list blocks_gain_compensate(
     // Apply to each frame
     std::vector<cv::Mat> results;
     for (size_t i = 0; i < warped_frames.size(); i++) {
-        cv::Mat frame = aspcore::mat_from_array(warped_frames[i]).clone();
-        comp.apply(i, pts[i], frame, aspcore::mat_from_array(warped_masks[i]));
+        cv::Mat frame = batch::mat_from_array(warped_frames[i]).clone();
+        comp.apply(i, pts[i], frame, batch::mat_from_array(warped_masks[i]));
         results.push_back(frame);
     }
     // Convert to list of numpy arrays
     py::list out;
     for (auto& r : results)
-        out.append(aspcore::array_from_mat(r));
+        out.append(batch::array_from_mat(r));
     return out;
 }
 ```
@@ -804,17 +804,17 @@ py::list blocks_gain_compensate(
 
 **Python API**:
 ```python
-compensated = aspcore.exposure.blocks_gain_compensate(
+compensated = batch.exposure.blocks_gain_compensate(
     warped_frames, warped_masks, corners,
     bl_width=32, bl_height=32, nr_iterations=2)
-compensated = aspcore.exposure.blocks_channels_compensate(
+compensated = batch.exposure.blocks_channels_compensate(
     warped_frames, warped_masks, corners)
-corrected = aspcore.exposure.correct_vignetting(frame, vignette_map)
+corrected = batch.exposure.correct_vignetting(frame, vignette_map)
 ```
 
 ---
 
-### aspcore::frame_selection — Classical Frame Filtering
+### batch::frame_selection — Classical Frame Filtering
 
 **Replaces**: `ingestion/frame_selection.py` (non-DINOv2 paths).
 
@@ -845,19 +845,19 @@ corrected = aspcore.exposure.correct_vignetting(frame, vignette_map)
 
 **Python API**:
 ```python
-hold_ids = aspcore.frame_selection.detect_hold_blocks_mad(thumbs, threshold=0.025)
-hold_ids = aspcore.frame_selection.detect_hold_blocks_dhash(thumbs, hamming_thresh=4)
-thumbs, paths = aspcore.frame_selection.temporal_variance_filter(
+hold_ids = batch.frame_selection.detect_hold_blocks_mad(thumbs, threshold=0.025)
+hold_ids = batch.frame_selection.detect_hold_blocks_dhash(thumbs, hamming_thresh=4)
+thumbs, paths = batch.frame_selection.temporal_variance_filter(
     thumbs, paths, sigma_threshold=1e-3)
-thumbs, paths = aspcore.frame_selection.near_dup_luma_filter(
+thumbs, paths = batch.frame_selection.near_dup_luma_filter(
     thumbs, paths, threshold=3.0)
-keep_idx = aspcore.frame_selection.spatial_dedup_frames(
+keep_idx = batch.frame_selection.spatial_dedup_frames(
     frames, scans_frames, bg_masks, image_paths, edges, min_displacement_px)
 ```
 
 ---
 
-### aspcore::wave_correct — Trajectory Drift Removal
+### batch::wave_correct — Trajectory Drift Removal
 
 **Replaces**: `alignment/bundle_adjust.py::_wave_correct_affines`.
 
@@ -874,13 +874,13 @@ keep_idx = aspcore.frame_selection.spatial_dedup_frames(
 
 **Python API**:
 ```python
-corrected_affines = aspcore.wave_correct.wave_correct_affines(
+corrected_affines = batch.wave_correct.wave_correct_affines(
     affines, axis='vertical', min_range_px=5.0)
 ```
 
 ---
 
-### aspcore::fg_register — ARAP Foreground Registration (non-flow parts)
+### batch::fg_register — ARAP Foreground Registration (non-flow parts)
 
 The flow inference itself (SEA-RAFT, DISOpticalFlow) stays Python. C++ accelerates the downstream ARAP solver, LSD collinearity, and ECC refinement.
 
@@ -908,19 +908,19 @@ The flow inference itself (SEA-RAFT, DISOpticalFlow) stays Python. C++ accelerat
 
 **Python API**:
 ```python
-consensus_flow = aspcore.fg_register.slic_sgm_proxy(
+consensus_flow = batch.fg_register.slic_sgm_proxy(
     image, raw_flow, region_size=10)
-constraints = aspcore.fg_register.lsd_collinearity(
+constraints = batch.fg_register.lsd_collinearity(
     seam_band_crop, image_offset=(y0_crop, 0))
-warped_fg = aspcore.fg_register.arap_push_regularise(
+warped_fg = batch.fg_register.arap_push_regularise(
     fg_zone, flow, lsd_constraints)
-M_refined = aspcore.fg_register.ecc_refine(
+M_refined = batch.fg_register.ecc_refine(
     template, source, initial_M, mask)
 ```
 
 ---
 
-### aspcore::sr_classical — Classical Super-Resolution (non-neural)
+### batch::sr_classical — Classical Super-Resolution (non-neural)
 
 **Replaces**: `mfsr/dct_restoration.py`, `mfsr/de_seam.py`, `mfsr/pso_registration.py`.
 
@@ -950,10 +950,10 @@ M_refined = aspcore.fg_register.ecc_refine(
 
 **Python API**:
 ```python
-restored = aspcore.sr_classical.dct_restore(frame, block_size=8)
-refined_affine = aspcore.sr_classical.pso_register(
+restored = batch.sr_classical.dct_restore(frame, block_size=8)
+refined_affine = batch.sr_classical.pso_register(
     reference, source, n_particles=30, t_max=100)
-frame_sr = aspcore.sr_classical.robust_sr(
+frame_sr = batch.sr_classical.robust_sr(
     lr_frames, affines, scale=2, beta=0.01, nr_iterations=50)
 ```
 
@@ -989,7 +989,7 @@ frame_sr = aspcore.sr_classical.robust_sr(
 | `rlhf/bench_import.py` | Benchmark result import | Pure Python |
 | `rlhf/feedback_store.py` | SQLite via stdlib | Pure Python |
 
-**Special case — `rendering/compositing.py`**: The file stays but becomes a thin wrapper. Every function body is replaced with an `aspcore` call + Python fallback. The 90+ `ASP_*` env flags remain in Python (they are read at import time and passed as arguments to the C++ functions). The C++ functions do not read environment variables — flags are passed explicitly, ensuring the `_CONFIG_SCHEMA` validation and TOML loading remain in Python.
+**Special case — `rendering/compositing.py`**: The file stays but becomes a thin wrapper. Every function body is replaced with an `batch` call + Python fallback. The 90+ `ASP_*` env flags remain in Python (they are read at import time and passed as arguments to the C++ functions). The C++ functions do not read environment variables — flags are passed explicitly, ensuring the `_CONFIG_SCHEMA` validation and TOML loading remain in Python.
 
 ---
 
@@ -997,33 +997,33 @@ frame_sr = aspcore.sr_classical.robust_sr(
 
 ### Phase 1 — Foundation: Build System and Bindings (no behaviour change)
 
-**Goal**: `import aspcore` works; all existing tests pass; C++ build is opt-in.
+**Goal**: `import batch` works; all existing tests pass; C++ build is opt-in.
 
 Tasks:
-1. Create `aspcore/CMakeLists.txt` with find_package for OpenCV 4.8+, Eigen3, pybind11, OpenMP
-2. Create `aspcore/include/aspcore/common.hpp` (numpy↔cv::Mat converters)
-3. Create `aspcore/include/aspcore/affine_types.hpp` (`AffineParams`, `Edge`, `ZonePair` structs)
-4. Create `aspcore/src/bindings.cpp` with empty submodule stubs
-5. Add `aspcore` build to `justfile`: `just build-aspcore`
+1. Create `batch/CMakeLists.txt` with find_package for OpenCV 4.8+, Eigen3, pybind11, OpenMP
+2. Create `batch/include/batch/common.hpp` (numpy↔cv::Mat converters)
+3. Create `batch/include/batch/affine_types.hpp` (`AffineParams`, `Edge`, `ZonePair` structs)
+4. Create `batch/src/bindings.cpp` with empty submodule stubs
+5. Add `batch` build to `justfile`: `just build-batch`
 6. Add CI workflow: `cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j4`
-7. Add `HAS_ASPCORE` guard to each Python module that will be replaced:
+7. Add `HAS_BATCH` guard to each Python module that will be replaced:
    ```python
    try:
-       import aspcore
-       HAS_ASPCORE = True
+       import batch
+       HAS_BATCH = True
    except ImportError:
-       HAS_ASPCORE = False
+       HAS_BATCH = False
    ```
-8. Write `aspcore/tests/test_imports.py`: verify all submodules load, stub functions exist
-9. Document build in `CONTRIBUTING.md`: `pip install pybind11 && just build-aspcore`
+8. Write `batch/tests/test_imports.py`: verify all submodules load, stub functions exist
+9. Document build in `CONTRIBUTING.md`: `pip install pybind11 && just build-batch`
 
-**Success criteria**: `pytest backend/test/anim/ --skip-gpu -q` still passes without `aspcore`. `import aspcore; aspcore.seam` succeeds when `aspcore` is built.
+**Success criteria**: `pytest backend/test/anim/ --skip-gpu -q` still passes without `batch`. `import batch; batch.seam` succeeds when `batch` is built.
 
 ---
 
 ### Phase 2 — Hot Path: Seam + Compositing (highest impact, ~60% of pipeline time)
 
-**Goal**: `aspcore.seam` and `aspcore.compositing` provide verified C++ implementations that pass reference comparison tests.
+**Goal**: `batch.seam` and `batch.compositing` provide verified C++ implementations that pass reference comparison tests.
 
 Tasks:
 1. `seam.cpp`: `seam_cut`, `build_seam_cost_map` (all 6 tiers + §1.110/§1.113/§1.109/§1.123)
@@ -1033,8 +1033,8 @@ Tasks:
 5. `compositing.cpp`: `smooth_gain_array`, `normalize_warped_frames` (gain loops)
 6. `exposure.cpp`: `blocks_gain_compensate`, `blocks_lum_compensate`
 7. Wire each into Python fallback pattern in `rendering/compositing.py`
-8. Write `aspcore/tests/test_seam_cpp.py`: for each C++ function, compare pixel-by-pixel to Python reference (tolerance: max diff ≤ 2 for uint8, ≤ 0.1px for paths)
-9. Write `aspcore/tests/test_compositing_cpp.py`: same for zone functions and blend
+8. Write `batch/tests/test_seam_cpp.py`: for each C++ function, compare pixel-by-pixel to Python reference (tolerance: max diff ≤ 2 for uint8, ≤ 0.1px for paths)
+9. Write `batch/tests/test_compositing_cpp.py`: same for zone functions and blend
 
 **Expected speedup**: compositing stage 15–30s → 0.5–2s (10–30×). Primary drivers: `seam_batch` (OpenMP), zone functions (SIMD in OpenCV's convert), `render_median` (OpenMP nth_element).
 
@@ -1044,7 +1044,7 @@ Tasks:
 
 ### Phase 3 — Alignment Hot Path (bundle adjustment, phase correlation, validation)
 
-**Goal**: `aspcore.bundle_adjust`, `aspcore.matching`, `aspcore.validation`, `aspcore.wave_correct`.
+**Goal**: `batch.bundle_adjust`, `batch.matching`, `batch.validation`, `batch.wave_correct`.
 
 Tasks:
 1. `bundle_adjust.cpp`: `spanning_tree_inlier_filter` (Kruskal + Union-Find + BFS)
@@ -1126,7 +1126,7 @@ Tasks:
 
 ### CMakeLists.txt dependency matrix
 
-| aspcore module | Required | Optional |
+| batch module | Required | Optional |
 |---|---|---|
 | `matching.cpp` | OpenCV::core, OpenCV::imgproc, OpenMP | FFTW3 (for highpass FFT) |
 | `bundle_adjust.cpp` | Eigen3, OpenMP | — |
@@ -1145,42 +1145,42 @@ Tasks:
 ```makefile
 # justfile additions
 
-# Build C++ aspcore extension
-build-aspcore:
-    cmake -B build/aspcore aspcore/ \
+# Build C++ batch extension
+build-batch:
+    cmake -B build/batch batch/ \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=backend/src/animation/ \
-        && cmake --build build/aspcore -j$(nproc) \
-        && cmake --install build/aspcore
+        && cmake --build build/batch -j$(nproc) \
+        && cmake --install build/batch
 
-# Build everything (Rust base + C++ aspcore)
-build-all: build build-aspcore
+# Build everything (Rust base + C++ batch)
+build-all: build build-batch
 
-# Run tests with aspcore (C++ hot paths active)
+# Run tests with batch (C++ hot paths active)
 test-cpp:
     source .venv/bin/activate \
-    && pytest backend/test/anim/ aspcore/tests/ --skip-gpu -q --tb=short
+    && pytest backend/test/anim/ batch/tests/ --skip-gpu -q --tb=short
 ```
 
 ### Python import fallback
 
-Add to `backend/src/animation/rendering/compositing.py` (and each module that gets an aspcore counterpart):
+Add to `backend/src/animation/rendering/compositing.py` (and each module that gets an batch counterpart):
 
 ```python
 try:
-    import aspcore as _aspcore
-    _HAS_ASPCORE: bool = True
+    import batch as _batch
+    _HAS_BATCH: bool = True
 except ImportError:
-    _aspcore = None  # type: ignore[assignment]
-    _HAS_ASPCORE: bool = False
+    _batch = None  # type: ignore[assignment]
+    _HAS_BATCH: bool = False
 ```
 
 Each public function becomes:
 ```python
 def _seam_cut(fa_zone, fb_zone, *, sem_cost=None, waypoints=None,
               transition_penalty=0.0):
-    if _HAS_ASPCORE:
-        return _aspcore.seam.seam_cut(
+    if _HAS_BATCH:
+        return _batch.seam.seam_cut(
             fa_zone, fb_zone, sem_cost=sem_cost,
             waypoints=waypoints, transition_penalty=transition_penalty)
     return _seam_cut_python(fa_zone, fb_zone, sem_cost=sem_cost,
@@ -1193,9 +1193,9 @@ def _seam_cut_python(fa_zone, fb_zone, *, sem_cost=None, waypoints=None,
 ```
 
 This ensures:
-- `pytest backend/test/anim/` passes on machines without `aspcore` built
-- CI uses Python-only by default; opt-in C++ CI job builds `aspcore` and runs `test-cpp`
-- Production deployment requires `aspcore` (documented in README)
+- `pytest backend/test/anim/` passes on machines without `batch` built
+- CI uses Python-only by default; opt-in C++ CI job builds `batch` and runs `test-cpp`
+- Production deployment requires `batch` (documented in README)
 
 ---
 
@@ -1207,21 +1207,21 @@ pybind11's buffer protocol enables zero-copy transfer for contiguous C-order arr
 
 ```cpp
 // Zero-copy input (Python array must remain alive while mat is used)
-cv::Mat mat = aspcore::mat_from_array(arr);  // shares memory
+cv::Mat mat = batch::mat_from_array(arr);  // shares memory
 
 // Owned output (deep copy — safe to return to Python)
-py::array_t<uint8_t> out = aspcore::array_from_mat(mat);  // copies
+py::array_t<uint8_t> out = batch::array_from_mat(mat);  // copies
 ```
 
 Rules:
-- `aspcore` functions **never store** a `cv::Mat` referencing Python-owned memory across call boundaries
+- `batch` functions **never store** a `cv::Mat` referencing Python-owned memory across call boundaries
 - For outputs, always return an owned copy (not a view)
 - For large inputs that are only read, the zero-copy path saves 10–100ms per frame at 4K
 
 ### Affine dict ↔ C++ struct
 
 ```cpp
-// include/aspcore/affine_types.hpp
+// include/batch/affine_types.hpp
 struct AffineParams {
     float tx, ty;           // translation in pixels
     float scale = 1.0f;     // scale factor
@@ -1310,9 +1310,9 @@ def _seam_cut(fa_zone: np.ndarray, fb_zone: np.ndarray, *,
               sem_cost: Optional[np.ndarray] = None,
               waypoints: Optional[List[int]] = None,
               transition_penalty: float = 0.0) -> np.ndarray:
-    if _HAS_ASPCORE:
+    if _HAS_BATCH:
         return np.asarray(
-            _aspcore.seam.seam_cut(
+            _batch.seam.seam_cut(
                 np.ascontiguousarray(fa_zone),
                 np.ascontiguousarray(fb_zone),
                 sem_cost=sem_cost, waypoints=waypoints,
@@ -1329,40 +1329,40 @@ Note `np.ascontiguousarray()` — ensures C-order layout before passing to C++ (
 
 ### Guarantees
 
-- All `backend/test/anim/` tests pass with `HAS_ASPCORE=False` (Python-only)
-- CI default: Python-only (`aspcore` not built)
-- CI optional job: builds `aspcore`, runs `aspcore/tests/` comparison tests
+- All `backend/test/anim/` tests pass with `HAS_BATCH=False` (Python-only)
+- CI default: Python-only (`batch` not built)
+- CI optional job: builds `batch`, runs `batch/tests/` comparison tests
 - Result parity: C++ outputs must match Python outputs within tolerance (uint8: max diff ≤ 2; float: relative diff ≤ 1e-4; path: ≤ 1px shift allowed due to floating-point ordering)
 
 ---
 
 ## Testing Strategy
 
-### Reference comparison tests (aspcore/tests/)
+### Reference comparison tests (batch/tests/)
 
 Each `test_*_cpp.py` file:
 1. Generates random or synthetic inputs (numpy arrays)
 2. Calls Python reference implementation
-3. Calls C++ `aspcore` implementation with same inputs
+3. Calls C++ `batch` implementation with same inputs
 4. Asserts outputs are within tolerance
 
 ```python
-# aspcore/tests/test_seam_cpp.py
+# batch/tests/test_seam_cpp.py
 import numpy as np
 import pytest
 try:
-    import aspcore
-    HAS_ASPCORE = True
+    import batch
+    HAS_BATCH = True
 except ImportError:
-    HAS_ASPCORE = False
+    HAS_BATCH = False
 
-pytestmark = pytest.mark.skipif(not HAS_ASPCORE, reason="aspcore not built")
+pytestmark = pytest.mark.skipif(not HAS_BATCH, reason="batch not built")
 
 class TestSeamCutCpp:
     def test_path_shape(self):
         fa = np.random.randint(0, 256, (40, 60, 3), dtype=np.uint8)
         fb = np.random.randint(0, 256, (40, 60, 3), dtype=np.uint8)
-        path = aspcore.seam.seam_cut(fa, fb)
+        path = batch.seam.seam_cut(fa, fb)
         assert len(path) == 60
         assert all(0 <= p < 40 for p in path)
 
@@ -1372,7 +1372,7 @@ class TestSeamCutCpp:
         fa = rng.integers(0, 256, (40, 60, 3), dtype=np.uint8)
         fb = rng.integers(0, 256, (40, 60, 3), dtype=np.uint8)
         path_py = np.array(_seam_cut_python(fa, fb))
-        path_cpp = np.array(aspcore.seam.seam_cut(fa, fb))
+        path_cpp = np.array(batch.seam.seam_cut(fa, fb))
         # Allow ±1 pixel disagreement (floating-point ordering in DP)
         assert np.abs(path_py - path_cpp).max() <= 1
 
@@ -1380,8 +1380,8 @@ class TestSeamCutCpp:
         # With high penalty, seam should be closer to horizontal mid-line
         fa = np.random.randint(0, 256, (40, 60, 3), dtype=np.uint8)
         fb = np.random.randint(0, 256, (40, 60, 3), dtype=np.uint8)
-        path_no_pen = np.array(aspcore.seam.seam_cut(fa, fb, transition_penalty=0.0))
-        path_pen    = np.array(aspcore.seam.seam_cut(fa, fb, transition_penalty=5.0))
+        path_no_pen = np.array(batch.seam.seam_cut(fa, fb, transition_penalty=0.0))
+        path_pen    = np.array(batch.seam.seam_cut(fa, fb, transition_penalty=5.0))
         mid = fa.shape[0] // 2
         assert np.abs(path_pen - mid).mean() <= np.abs(path_no_pen - mid).mean()
 ```
@@ -1389,7 +1389,7 @@ class TestSeamCutCpp:
 ### Fuzz tests
 
 ```python
-# aspcore/tests/test_fuzz_cpp.py
+# batch/tests/test_fuzz_cpp.py
 class TestFuzzSeam:
     @pytest.mark.parametrize("seed", range(20))
     def test_no_crash_random_inputs(self, seed):
@@ -1398,14 +1398,14 @@ class TestFuzzSeam:
         W = rng.integers(5, 100)
         fa = rng.integers(0, 256, (H, W, 3), dtype=np.uint8)
         fb = rng.integers(0, 256, (H, W, 3), dtype=np.uint8)
-        path = aspcore.seam.seam_cut(fa, fb)  # must not crash
+        path = batch.seam.seam_cut(fa, fb)  # must not crash
         assert len(path) == W
 ```
 
 ### Benchmark tests (timing)
 
 ```python
-# aspcore/tests/test_benchmark_cpp.py
+# batch/tests/test_benchmark_cpp.py
 import time
 
 class TestSeamBenchmark:
@@ -1421,7 +1421,7 @@ class TestSeamBenchmark:
         # C++ implementation
         t0 = time.perf_counter()
         for _ in range(10):
-            aspcore.seam.seam_cut(fa, fb)
+            batch.seam.seam_cut(fa, fb)
         cpp_time = (time.perf_counter() - t0) / 10
         speedup = py_time / cpp_time
         print(f"seam_cut speedup: {speedup:.1f}× (py={py_time*1000:.1f}ms, cpp={cpp_time*1000:.1f}ms)")
@@ -1462,7 +1462,7 @@ Note: ML stages (BiRefNet, EfficientLoFTR, DINOv2) dominate total time and are u
 | cv::Mat thread safety (UMat sharing) | Medium | Medium | Each thread gets own `cv::Mat` copy for writes; reads are safe |
 | OpenCV version drift (API changes) | Low | Medium | Pin `opencv >= 4.8` in CMakeLists; test on multiple versions in CI |
 | Floating-point ordering differences (Python vs C++) | High | Low | Allow ±1px seam path tolerance in tests; ±2 luma tolerance for compositing |
-| Build complexity on developer machines | High | Medium | Provide `just build-aspcore` one-liner; document cmake deps in CONTRIBUTING.md |
+| Build complexity on developer machines | High | Medium | Provide `just build-batch` one-liner; document cmake deps in CONTRIBUTING.md |
 | Memory safety (dangling cv::Mat views) | Medium | High | Rule: never store cv::Mat pointing to Python-owned memory across function boundaries; enforce with ASAN in CI |
 | `cv::ximgproc` not available (SLIC) | Low | Low | Guard with `#ifdef HAVE_OPENCV_XIMGPROC`; Python fallback available |
 | Platform: macOS / Windows | Low | Low | Primary target is Linux (same as production); macOS support via Homebrew OpenCV |
@@ -1492,4 +1492,4 @@ Note: ML stages (BiRefNet, EfficientLoFTR, DINOv2) dominate total time and are u
 
 ---
 
-*Next immediate step: Phase 1 — create `aspcore/CMakeLists.txt`, `aspcore/include/aspcore/common.hpp`, `aspcore/src/bindings.cpp`, wire `HAS_ASPCORE` guards, add `just build-aspcore`.*
+*Next immediate step: Phase 1 — create `batch/CMakeLists.txt`, `batch/include/batch/common.hpp`, `batch/src/bindings.cpp`, wire `HAS_BATCH` guards, add `just build-batch`.*
