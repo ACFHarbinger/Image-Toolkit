@@ -9,6 +9,8 @@ from gui.src.tabs.models.r3gan_evaluate_tab import R3GANEvaluateTab
 from gui.src.tabs.models.gen.ddm_generate_tab import SD3GenerateTab
 from backend.src.models.wrappers.sd3_wrapper import SD3Wrapper
 
+pytestmark = pytest.mark.gui
+
 
 # Helper class for mocking tabs that need to be widgets
 class MockTab(QWidget):

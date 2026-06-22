@@ -1,5 +1,6 @@
 import sys
 import pytest
+import importlib.machinery
 
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -26,8 +27,6 @@ sys.modules["backend.src.models.core.siamese_network"] = MagicMock()
 sys.modules["backend.src.models.core.stitch_net"] = MagicMock()
 sys.modules["backend.src.models.stable_diffusion"] = MagicMock()
 sys.modules["backend.src.models.gen"] = MagicMock()
-
-import importlib.machinery
 
 diffusers_mock = MagicMock()
 diffusers_mock.__spec__ = importlib.machinery.ModuleSpec("diffusers", None)
@@ -121,3 +120,29 @@ def mock_image_loader_worker(monkeypatch):
     Fixture that replaces ImageLoaderWorker with the MockImageLoaderWorker.
     """
     return MockImageLoaderWorker
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--run-gui",
+        action="store_true",
+        default=False,
+        help="Run tests that launch/create GUI windows or tabs",
+    )
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers", "gui: Mark test as requiring/launching a GUI window or tab"
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--run-gui"):
+        # --run-gui option passed: do not skip
+        return
+
+    skip_gui = pytest.mark.skip(reason="Needs --run-gui option to run")
+    for item in items:
+        if item.get_closest_marker("gui") is not None:
+            item.add_marker(skip_gui)

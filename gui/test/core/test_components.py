@@ -17,6 +17,8 @@ from gui.src.components.queue_item_widget import QueueItemWidget
 
 from PySide6.QtTest import QTest as QTestUtils
 
+pytestmark = pytest.mark.gui
+
 
 class TestClickableLabel:
     def test_signals(self, q_app):

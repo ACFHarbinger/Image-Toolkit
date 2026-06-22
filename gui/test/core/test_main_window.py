@@ -5,6 +5,8 @@ from unittest.mock import patch
 from PySide6.QtWidgets import QApplication
 from gui.src.windows.main_window import MainWindow
 
+pytestmark = pytest.mark.gui
+
 class MockVaultManager:
     def __init__(self, credentials):
         self.creds = credentials

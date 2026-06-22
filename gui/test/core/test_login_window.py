@@ -1,7 +1,10 @@
+import pytest
 from unittest.mock import MagicMock
 from PySide6.QtCore import Qt, QEvent
 from PySide6.QtGui import QKeyEvent
 from gui.src.windows.login_window import LoginWindow
+
+pytestmark = pytest.mark.gui
 
 class TestLoginWindowKeyPress:
     def test_escape_key_closes_window(self, q_app):

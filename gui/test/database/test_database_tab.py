@@ -6,6 +6,9 @@ from gui.src.tabs.database.database_tab import DatabaseTab
 from gui.src.tabs.database.scan_metadata_tab import ScanMetadataTab
 from gui.src.tabs.database.search_tab import SearchTab
 
+pytestmark = pytest.mark.gui
+
+
 # --- DatabaseTab Tests ---
 
 

@@ -11,9 +11,10 @@ from gui.src.tabs.core.image_extractor_tab import ImageExtractorTab
 from gui.src.tabs.core.merge_tab import MergeTab
 from gui.src.tabs.core.wallpaper_tab import WallpaperTab
 
+pytestmark = pytest.mark.gui
+
+
 # --- ConvertTab Tests ---
-
-
 class TestConvertTab:
     @pytest.fixture
     def mock_worker(self):

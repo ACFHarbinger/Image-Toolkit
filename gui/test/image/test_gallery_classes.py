@@ -6,6 +6,8 @@ from gui.src.classes.abstract_class_single_gallery import AbstractClassSingleGal
 from gui.src.classes.abstract_class_two_galleries import AbstractClassTwoGalleries
 from gui.src.classes.meta_abstract_class_gallery import MetaAbstractClassGallery
 
+pytestmark = pytest.mark.gui
+
 # --- Concrete Implementations / Mocks ---
 
 

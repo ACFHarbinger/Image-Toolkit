@@ -8,6 +8,8 @@ from PySide6.QtWidgets import (
 )
 from gui.src.classes.base_generative_tab import BaseGenerativeTab
 
+pytestmark = pytest.mark.gui
+
 
 @pytest.fixture
 def gen_tab(q_app):
