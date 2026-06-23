@@ -686,7 +686,8 @@ cv::Mat multiband_blend_impl(
     const std::vector<cv::Mat>& frames,
     const std::vector<cv::Mat>& masks,
     const std::vector<cv::Point>& corners,
-    int num_bands = 5)
+    int  num_bands = 5,
+    bool try_gpu   = false)
 {
     size_t N = frames.size();
     if (N == 0) throw std::runtime_error("multiband_blend: empty frame list");
@@ -706,7 +707,7 @@ cv::Mat multiband_blend_impl(
         y1 = std::max(y1, corners[i].y + frames[i].rows);
     }
 
-    cv::detail::MultiBandBlender blender(/*try_gpu=*/false, num_bands);
+    cv::detail::MultiBandBlender blender(try_gpu ? 1 : 0, num_bands);
     blender.prepare(cv::Rect(x0, y0, x1 - x0, y1 - y0));
     for (size_t i = 0; i < N; ++i) {
         blender.feed(imgs_u[i], masks_u[i], corners[i]);
@@ -724,7 +725,8 @@ static py::array_t<uint8_t> multiband_blend(
     py::list warped_frames,
     py::list warped_masks,
     py::list corners,
-    int      num_bands = 5)
+    int      num_bands = 5,
+    bool     try_gpu   = false)
 {
     size_t N = warped_frames.size();
     if (N == 0) throw std::runtime_error("multiband_blend: empty frame list");
@@ -739,7 +741,7 @@ static py::array_t<uint8_t> multiband_blend(
         auto pt_tuple = corners[i].cast<py::tuple>();
         pts[i] = cv::Point(pt_tuple[0].cast<int>(), pt_tuple[1].cast<int>());
     }
-    return as_ndarray(multiband_blend_impl(f_mats, m_mats, pts, num_bands));
+    return as_ndarray(multiband_blend_impl(f_mats, m_mats, pts, num_bands, try_gpu));
 }
 #endif // !BATCH_TESTS
 
@@ -1155,10 +1157,12 @@ void register_compositing(py::module_& m) {
         py::arg("warped_masks"),
         py::arg("corners"),
         py::arg("num_bands") = 5,
+        py::arg("try_gpu")   = false,
         R"doc(
             cv::detail::MultiBandBlender — global multi-band canvas blend.
 
             Accepts N frames+masks with their canvas-space (x,y) corners.
+            try_gpu: pass try_gpu=1 to MultiBandBlender (CUDA blender if available).
             Returns the blended result as uint8 (H_out, W_out, 3).
 
             Gate: ASP_MULTIBAND_BLEND=1 in Python wrapper.

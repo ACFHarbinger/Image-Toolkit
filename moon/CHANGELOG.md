@@ -4,6 +4,38 @@
 
 ---
 
+## ASP C++ Migration — Phase 6: GPU Acceleration (2026-06-23) 🏁 ROADMAP CLOSED
+
+*Phase 6: adds OpenCL UMat acceleration paths and CUDA detection to the `batch/` C++ extension. All 6 phases of the ASP C++ migration are now complete. Roadmap archived to `moon/archive/asp_cpp_migration.md`.*
+
+### `batch/src/canvas.cpp` — `try_gpu` + `gpu_device_count`
+
+- `warp_frames_to_canvas(frames, affines, canvas_h, canvas_w, bool try_gpu=false)`: when `try_gpu=true`, each frame is uploaded to `cv::UMat`, `cv::warpAffine` runs via OpenCL, result downloaded. Falls back to OpenMP CPU path on any exception.
+- `render_median(warped_frames, bool try_gpu=false)`: param added for API symmetry; CPU nth_element path always used (placeholder for future CUDA nth_element kernel).
+- `gpu_device_count() -> int`: new function returning `cv::cuda::getCudaEnabledDeviceCount()` under `#ifdef HAVE_CUDA`, else 0. `<opencv2/cuda.hpp>` conditionally included.
+
+### `batch/src/seam.cpp` — `try_gpu` in `build_seam_cost_map`
+
+- `build_seam_cost_map(..., bool try_gpu=false)`: both `cv::GaussianBlur` calls (cost_map_blur and cost_col_smooth) use `cv::UMat` when `try_gpu=true`. Propagated through `build_seam_cost_map_impl`.
+
+### `batch/src/compositing.cpp` — `try_gpu` in `multiband_blend`
+
+- `multiband_blend(..., bool try_gpu=false)`: `MultiBandBlender(try_gpu ? 1 : 0, num_bands)` — enables CUDA blender when `try_gpu=true` and CUDA is available.
+
+### `backend/src/animation/rendering/rendering.py` — `_BATCH_GPU` dispatch
+
+- `_BATCH_GPU = os.environ.get("ASP_BATCH_GPU","0") != "0"` flag added.
+- All three `warp_frames_to_canvas` call sites pass `**{"try_gpu": True}` when `_BATCH_GPU` is set. Old compiled `.so` rejects unknown kwarg → TypeError → existing `except` fallback (zero regression).
+
+### `backend/test/animation/batch/test_batch_gpu.py` — 7 Phase 6 tests
+
+- `TestGpuDeviceCount` (2): returns non-negative int, stable across calls.
+- `TestWarpFramesGpu` (3): `try_gpu=False` shape, `try_gpu=True` no-crash, CPU/GPU output agreement on identity affine.
+- `TestRenderMedianGpu` (2): shape/dtype with `try_gpu=False` and `try_gpu=True`.
+- All guarded by `HAS_PHASE6 = hasattr(batch.canvas, "gpu_device_count")` — skip with stale `.so`.
+
+---
+
 ## ASP C++ Migration — Phase 5f: render_laplacian warp wiring (2026-06-23)
 
 *Phase 5f: wires `batch.canvas.warp_frames_to_canvas` into `_render_laplacian` in `rendering.py`, replacing the sequential Python `cv2.warpAffine` loop with a single C++ parallel OpenMP call. Also fixes SUBMODULE_APIS test failures caused by stale compiled batch `.so`. 5 new tests.*

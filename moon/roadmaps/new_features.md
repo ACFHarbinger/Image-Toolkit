@@ -1,7 +1,5 @@
 # New Features Roadmap — Capabilities and Integrations
 
-*Last updated: 2026-05-31.*
-
 ---
 
 ## Table of Contents
@@ -27,42 +25,56 @@
 
 ## Implementation Timeline
 
-> **Legend** — *Node fill:* ✅ complete (green) · 🔄 in-progress (amber) · ⬜ planned (light) — *Node border:* new feature (blue) · augmentation (violet) — *Edges:* `==>` critical blocking dependency · `-->` sequential dependency · `-.->` alternative approach · `---` complements
+> **Legend** — *Node fill:* new feature (blue) · augmentation (violet) · integration (pink) — *Node border:* ⬜ planned (slate, thin) — *Edges:* `==>` critical blocking dependency · `-->` sequential dependency · `-.->` alternative approach · `---` complements
 
 ```mermaid
 flowchart TD
-    classDef c_feat  fill:#16a34a,stroke:#2563eb,stroke-width:3px,color:#fff
-    classDef c_aug   fill:#16a34a,stroke:#7c3aed,stroke-width:3px,color:#fff
-    classDef p_feat  fill:#d97706,stroke:#2563eb,stroke-width:3px,color:#fff
-    classDef t_feat  fill:#e2e8f0,stroke:#2563eb,stroke-width:2px,color:#1e293b
-    classDef t_aug   fill:#e2e8f0,stroke:#7c3aed,stroke-width:2px,color:#1e293b
+    %% ── TYPE classes (node fill = element type) ─────────────────────────────
+    classDef feature     fill:#2563eb,color:#fff
+    classDef augment     fill:#7c3aed,color:#fff
+    classDef fix         fill:#dc2626,color:#fff
+    classDef infra       fill:#0891b2,color:#fff
+    classDef perf        fill:#ea580c,color:#fff
+    classDef research    fill:#475569,color:#fff
+    classDef security    fill:#7f1d1d,color:#fff
+    classDef refactor    fill:#0f766e,color:#fff
+    classDef migration   fill:#4338ca,color:#fff
+    classDef testing     fill:#a16207,color:#fff
+    classDef docs        fill:#15803d,color:#fff
+    classDef integration fill:#9d174d,color:#fff
+    %% ── STATUS classes (node border = implementation status) ─────────────────
+    classDef done        stroke:#16a34a,stroke-width:4px
+    classDef active      stroke:#d97706,stroke-width:4px
+    classDef planned     stroke:#64748b,stroke-width:2px
+    classDef blocked     stroke:#dc2626,stroke-width:3px
+    classDef hold        stroke:#9333ea,stroke-width:3px
 
     subgraph STITCH["🎞 Stitching & Export"]
-        S1["§4.1 Batch Stitching\nAutomate ASP across directories"]:::t_feat
-        S2["§4.2 Scrolling Video Export\nPanorama → scrolling MP4"]:::t_feat
-        S11["§4.11 RLHF Feedback Interface\nQuality rating loop for ASP"]:::t_feat
+        S1["§4.1 Batch Stitching\nAutomate ASP across directories"]:::feature:::planned
+        S2["§4.2 Scrolling Video Export\nPanorama → scrolling MP4"]:::feature:::planned
+        S11["§4.11 RLHF Feedback Interface\nQuality rating loop for ASP"]:::feature:::planned
     end
 
     subgraph ML["🤖 ML & Search"]
-        M3["§4.3 CLIP Semantic Search\nML-based image retrieval"]:::t_feat
-        M4["§4.4 Auto-Tagger\nWD14 / Florence-2 tagging"]:::t_feat
-        M9["§4.9 Safetensors Viewer\nModel metadata inspector"]:::t_feat
+        M3["§4.3 CLIP Semantic Search\nML-based image retrieval"]:::feature:::planned
+        M4["§4.4 Auto-Tagger\nWD14 / Florence-2 tagging"]:::integration:::planned
+        M9["§4.9 Safetensors Viewer\nModel metadata inspector"]:::feature:::planned
     end
 
     subgraph AUTOMATION["⚙ Automation & API"]
-        A8["§4.8 ComfyUI Integration\nPost-processing workflow hooks"]:::t_feat
-        A10["§4.10 REST API Layer\nRemote control & scripting"]:::t_feat
-        A13["§4.13 Shortcut Macros\nCustom action sequences"]:::t_aug
+        A8["§4.8 ComfyUI Integration\nPost-processing workflow hooks"]:::integration:::planned
+        A10["§4.10 REST API Layer\nRemote control & scripting"]:::integration:::planned
+        A13["§4.13 Shortcut Macros\nCustom action sequences"]:::augment:::planned
     end
 
     subgraph MEDIA["🖼 Media & Presentation"]
-        P5["§4.5 Multi-Monitor Wallpaper\nPer-display wallpaper support"]:::t_feat
-        P6["§4.6 Image Deduplication\nCross-directory dedup"]:::t_feat
-        P7["§4.7 Slideshow Improvements\nShuffle, fade, duration controls"]:::t_aug
+        P5["§4.5 Multi-Monitor Wallpaper\nPer-display wallpaper support"]:::augment:::planned
+        P6["§4.6 Image Deduplication\nCross-directory dedup"]:::feature:::planned
+        P7["§4.7 Slideshow Improvements\nShuffle, fade, duration controls"]:::augment:::planned
     end
 
     subgraph UX["🎨 UI Customisation"]
-        U12["§4.12 Appearance Profiles\nSave & switch theme presets"]:::t_aug
+        U12["§4.12 Appearance Profiles\nSave & switch theme presets"]:::augment:::planned
     end
 
     %% Stitching dependencies
@@ -85,7 +97,7 @@ flowchart TD
     U12 --- A13
 ```
 
-*Read the diagram: **fill colour** shows status (green = done, amber = in-progress, light = planned); **border colour** shows element type (blue stroke = new feature, violet stroke = augmentation of an existing feature); **edge style** shows relationship (`==>` blocking dependency, `-->` sequential order, `---` complements, `-.->` alternative).*
+*Read the diagram: **fill colour** shows element type (blue = new feature, violet = augmentation, pink = integration); **border colour** shows status (slate thin = planned, green thick = complete, amber thick = in-progress); **edge style** shows relationship (`==>` blocking dependency, `-->` sequential order, `---` complements, `-.->` alternative).*
 
 ---
 
@@ -553,3 +565,9 @@ Instead of executable macros, provide named "workflow templates" that pre-fill a
 | 4.11 RLHF Quality Feedback | [#411-asp-quality-feedback-interface-rlhf](#411-asp-quality-feedback-interface-rlhf) |
 | 4.12 Appearance Profiles | [#412-appearance-profiles](#412-appearance-profiles) |
 | 4.13 Shortcut Macros and Custom Actions | [#413-shortcut-macros-and-custom-actions](#413-shortcut-macros-and-custom-actions) |
+
+---
+
+## Document History
+
+*Last updated: 2026-05-31.*

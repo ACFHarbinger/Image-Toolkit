@@ -1,7 +1,5 @@
 # GUI/UX Roadmap — Desktop Interface Quality & Ergonomics
 
-*Last updated: 2026-05-31. Targets PySide6 (Qt 6.x) desktop application.*
-
 ---
 
 ## Table of Contents
@@ -46,25 +44,38 @@
 
 ## Implementation Timeline
 
-> **Legend** — *Node fill:* ✅ complete (green) · 🔄 in-progress/partial (amber) · ⬜ planned (light) — *Node border:* new feature (blue) · augmentation (violet) — *Edges:* `==>` critical prerequisite · `-->` sequential dependency · `-.->` alternative approach · `---` complements
+> **Legend** — *Node fill:* new feature (blue) · augmentation (violet) · performance (orange) — *Node border:* ✅ complete (green, thick) · 🔄 in-progress (amber, thick) · ⬜ planned (slate, thin) — *Edges:* `==>` critical prerequisite · `-->` sequential dependency · `---` complements
 
 ```mermaid
 flowchart LR
-    classDef c_feat fill:#16a34a,stroke:#2563eb,stroke-width:3px,color:#fff
-    classDef c_aug  fill:#16a34a,stroke:#7c3aed,stroke-width:3px,color:#fff
-    classDef p_feat fill:#d97706,stroke:#2563eb,stroke-width:3px,color:#fff
-    classDef p_aug  fill:#d97706,stroke:#7c3aed,stroke-width:3px,color:#fff
-    classDef t_feat fill:#e2e8f0,stroke:#2563eb,stroke-width:2px,color:#1e293b
-    classDef t_aug  fill:#e2e8f0,stroke:#7c3aed,stroke-width:2px,color:#1e293b
+    %% ── TYPE classes (node fill = element type) ─────────────────────────────
+    classDef feature     fill:#2563eb,color:#fff
+    classDef augment     fill:#7c3aed,color:#fff
+    classDef fix         fill:#dc2626,color:#fff
+    classDef infra       fill:#0891b2,color:#fff
+    classDef perf        fill:#ea580c,color:#fff
+    classDef research    fill:#475569,color:#fff
+    classDef security    fill:#7f1d1d,color:#fff
+    classDef refactor    fill:#0f766e,color:#fff
+    classDef migration   fill:#4338ca,color:#fff
+    classDef testing     fill:#a16207,color:#fff
+    classDef docs        fill:#15803d,color:#fff
+    classDef integration fill:#9d174d,color:#fff
+    %% ── STATUS classes (node border = implementation status) ─────────────────
+    classDef done        stroke:#16a34a,stroke-width:4px
+    classDef active      stroke:#d97706,stroke-width:4px
+    classDef planned     stroke:#64748b,stroke-width:2px
+    classDef blocked     stroke:#dc2626,stroke-width:3px
+    classDef hold        stroke:#9333ea,stroke-width:3px
 
     subgraph GC["🖼️ Gallery Core"]
         direction TB
-        S21["§2.1 Virtual Scroll Gallery"]:::t_feat
-        S22["§2.2 Thumbnail Size Control"]:::t_aug
-        S23["§2.3 Keyboard Navigation ✅p"]:::p_aug
-        S24["§2.4 Bulk Selection ✅p"]:::p_aug
-        S213["§2.13 Filter & Sort Controls ✅p"]:::p_aug
-        S214["§2.14 Metadata Overlay ✅p"]:::p_aug
+        S21["§2.1 Virtual Scroll Gallery"]:::perf:::planned
+        S22["§2.2 Thumbnail Size Control"]:::augment:::planned
+        S23["§2.3 Keyboard Navigation ✅p"]:::augment:::active
+        S24["§2.4 Bulk Selection ✅p"]:::feature:::active
+        S213["§2.13 Filter & Sort Controls ✅p"]:::feature:::active
+        S214["§2.14 Metadata Overlay ✅p"]:::augment:::active
         S21 ==> S22
         S21 --> S213
         S21 --> S214
@@ -73,36 +84,36 @@ flowchart LR
 
     subgraph WF["⚡ Workflow & Productivity"]
         direction TB
-        S25["§2.5 Session Persistence"]:::t_aug
-        S27["§2.7 Progress & Cancel ✅p"]:::p_aug
-        S215["§2.15 Undo/Redo ✅p"]:::p_aug
-        S216["§2.16 Command Palette ✅p"]:::p_feat
-        S221["§2.21 Dir Nav History ✅p"]:::p_aug
-        S222["§2.22 Tag Chip UI"]:::t_feat
-        S227["§2.27 Multi-Image Compare"]:::t_feat
-        S228["§2.28 Global Search"]:::t_feat
+        S25["§2.5 Session Persistence"]:::augment:::planned
+        S27["§2.7 Progress & Cancel ✅p"]:::augment:::active
+        S215["§2.15 Undo/Redo ✅p"]:::feature:::active
+        S216["§2.16 Command Palette ✅p"]:::feature:::active
+        S221["§2.21 Dir Nav History ✅p"]:::augment:::active
+        S222["§2.22 Tag Chip UI"]:::feature:::planned
+        S227["§2.27 Multi-Image Compare"]:::feature:::planned
+        S228["§2.28 Global Search"]:::feature:::planned
         S222 --> S228
         S216 --> S228
     end
 
     subgraph SYS["🔔 Notifications & System"]
         direction TB
-        S28["§2.8 Theme Support"]:::t_feat
-        S29["§2.9 Settings Window"]:::t_aug
-        S210["§2.10 Toast Notifications ✅p"]:::p_feat
-        S212["§2.12 System Tray ✅p"]:::p_feat
-        S217["§2.17 Log Panel ✅p"]:::p_feat
-        S229["§2.29 Configurable Shortcuts ✅"]:::c_aug
+        S28["§2.8 Theme Support"]:::feature:::planned
+        S29["§2.9 Settings Window"]:::augment:::planned
+        S210["§2.10 Toast Notifications ✅p"]:::feature:::active
+        S212["§2.12 System Tray ✅p"]:::feature:::active
+        S217["§2.17 Log Panel ✅p"]:::feature:::active
+        S229["§2.29 Configurable Shortcuts ✅"]:::augment:::done
         S212 --- S217
     end
 
     subgraph VIS["🎨 Visual Customisation"]
         direction TB
-        S218["§2.18 Image Rating ✅p"]:::p_feat
-        S225["§2.25 Shortcut Overlay ✅p"]:::p_feat
-        S230["§2.30 Accent Color ✅"]:::c_aug
-        S231["§2.31 Custom QSS Theme ✅"]:::c_aug
-        S232["§2.32 Layout Profiles ✅p"]:::p_aug
+        S218["§2.18 Image Rating ✅p"]:::feature:::active
+        S225["§2.25 Shortcut Overlay ✅p"]:::feature:::active
+        S230["§2.30 Accent Color ✅"]:::augment:::done
+        S231["§2.31 Custom QSS Theme ✅"]:::augment:::done
+        S232["§2.32 Layout Profiles ✅p"]:::augment:::active
         S230 --- S231
     end
 
@@ -113,7 +124,7 @@ flowchart LR
     S25 --- S232
 ```
 
-Each node's **fill colour** shows implementation status: green = complete, amber = partially shipped (marked ✅p), light = not yet started. The **border colour** shows element type: blue = new feature, violet = augmentation of existing functionality. **Edge style** encodes relationship: `==>` critical prerequisite (must land first), `-->` sequential dependency, `---` complements (parallel work).
+Each node's **fill colour** shows element type: blue = new feature, violet = augmentation, orange = performance optimisation. The **border colour** shows implementation status: thick green = complete, thick amber = partially shipped (✅p), thin slate = not yet started. **Edge style** encodes relationship: `==>` critical prerequisite (must land first), `-->` sequential dependency, `---` complements (parallel work).
 
 ---
 
@@ -1206,3 +1217,9 @@ Each tab class saves and restores its own internal splitter + scroll position in
 | 2.30 Accent Color and UI Density | [#230-accent-color-and-ui-density-customization](#230-accent-color-and-ui-density-customization) |
 | 2.31 Custom QSS User Theme Override | [#231-custom-qss-user-theme-override](#231-custom-qss-user-theme-override) |
 | 2.32 Window Layout and State Profiles | [#232-window-layout-and-state-profiles](#232-window-layout-and-state-profiles) |
+
+---
+
+## Document History
+
+*Last updated: 2026-05-31. Targets PySide6 (Qt 6.x) desktop application.*
