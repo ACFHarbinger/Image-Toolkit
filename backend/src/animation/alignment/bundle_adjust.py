@@ -276,7 +276,7 @@ def _bundle_adjust_affine(
         res = []
         for idx, e in enumerate(edges):
             i, j = e["i"], e["j"]
-            w = float(e.get("weight", 1.0)) * float(_gnc_ws[idx])
+            w = float(e.get("weight", 1.0)) * _gnc_ws[idx]
             if use_affine:
                 # Frame i
                 ai, bi, txi, tyi = x[i * 4 : i * 4 + 4]
@@ -581,7 +581,7 @@ def _compute_adaptive_f_scale(
         )
     if not res_mags:
         return floor
-    return float(max(floor, 2.0 * float(np.median(res_mags))))
+    return max(floor, 2.0 * float(np.median(res_mags)))
 
 
 __all__ = [

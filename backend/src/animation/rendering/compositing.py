@@ -2977,6 +2977,29 @@ def _find_optimal_boundaries(
 
     Returns (optimised_boundaries, diff_scores), both shape (N-1,).
     """
+    # Phase 5d: C++ fast path — GIL-released inner pixel loops, ~10–30× speedup
+    if BATCH_AVAILABLE and hasattr(batch, "compositing") and hasattr(
+        batch.compositing, "find_optimal_boundaries"
+    ):
+        try:
+            _bg = None
+            if bg_masks is not None:
+                _bg = [
+                    np.asarray(m, dtype=np.uint8) if m is not None else None
+                    for m in bg_masks
+                ]
+            _bounds, _diffs = batch.compositing.find_optimal_boundaries(
+                [np.ascontiguousarray(f) for f in warped_list],
+                np.asarray(order, dtype=np.int64),
+                np.asarray(initial_boundaries, dtype=np.float64),
+                H, W,
+                SEARCH_RANGE, SEARCH_SLAB,
+                _bg, affines,
+            )
+            return np.asarray(_bounds), np.asarray(_diffs)
+        except Exception:
+            pass
+
     len(order)
     optimised = initial_boundaries.copy()
     diffs = np.full(len(initial_boundaries), float("inf"))
@@ -4027,6 +4050,15 @@ def _blocks_gain_compensate(
     """
     if fa_zone.size == 0 or fb_zone.size == 0:
         return fb_zone.copy()
+    if BATCH_AVAILABLE and hasattr(batch, "compositing") and hasattr(
+        batch.compositing, "blocks_gain_compensate_pair"
+    ):
+        try:
+            return np.asarray(
+                batch.compositing.blocks_gain_compensate_pair(fa_zone, fb_zone, block_size)
+            )
+        except Exception:
+            pass
     H, W = fb_zone.shape[:2]
     bs = max(1, block_size)
     n_rows = max(1, (H + bs - 1) // bs)
@@ -4066,6 +4098,15 @@ def _blocks_lum_compensate(
     """
     if fa_zone.size == 0 or fb_zone.size == 0:
         return fb_zone.copy()
+    if BATCH_AVAILABLE and hasattr(batch, "compositing") and hasattr(
+        batch.compositing, "blocks_lum_compensate_pair"
+    ):
+        try:
+            return np.asarray(
+                batch.compositing.blocks_lum_compensate_pair(fa_zone, fb_zone, block_size)
+            )
+        except Exception:
+            pass
     H, W = fb_zone.shape[:2]
     fa_lab = cv2.cvtColor(fa_zone, cv2.COLOR_BGR2LAB).astype(np.float32)
     fb_lab = cv2.cvtColor(fb_zone, cv2.COLOR_BGR2LAB).astype(np.float32)
@@ -5321,6 +5362,76 @@ def _composite_foreground(
             )
         except Exception as _tc_seam_e:
             print(f"[Stitch]   ToonCrafter seam synthesis skipped ({_tc_seam_e}).")
+
+    # §4.2/§4.6: GraphCut global seam + optional MultiBand blend (Phase 4).
+    # When ASP_GRAPHCUT_SEAM=1, replaces the hard-partition + DP blend loop below
+    # with a single global cv::detail::GraphCutSeamFinder call that assigns each
+    # canvas pixel to one frame simultaneously across all N frames, eliminating
+    # pairwise DP seam conflicts.  If ASP_MULTIBAND_BLEND=1 is also set, the
+    # cv::detail::MultiBandBlender replaces the per-zone Laplacian blend.
+    if _GRAPHCUT_SEAM and BATCH_AVAILABLE and N >= 2:
+        try:
+            _gc_frames  = [np.ascontiguousarray(warped_norm[i]) for i in range(N)]
+            # Coverage mask: pixels this frame actually covers on the canvas
+            _gc_masks   = [
+                (warped_norm[i].max(axis=2) > 0).astype(np.uint8) * 255
+                for i in range(N)
+            ]
+            # Frames are full canvas-size — all corners at (0,0)
+            _gc_corners = [(0, 0)] * N
+            print(f"[Stitch]   §4.2 GraphCut seam (global, {N} frames)...")
+            _ownership = batch.seam.graphcut_seam_find(
+                _gc_frames, _gc_masks, _gc_corners
+            )
+            result = canvas.copy()
+            if _MULTIBAND_BLEND:
+                print(f"[Stitch]   §4.6 MultiBand blend ({N} frames, 5 bands)...")
+                _mb = batch.compositing.multiband_blend(
+                    _gc_frames, _ownership, _gc_corners, num_bands=5
+                )
+                rh, rw = min(_mb.shape[0], H), min(_mb.shape[1], W)
+                result[:rh, :rw] = _mb[:rh, :rw]
+                print(f"[Stitch]   MultiBand blend done ({rh}×{rw}px).")
+            else:
+                for i in range(N):
+                    own = _ownership[i] > 127
+                    src = warped_norm[i]
+                    has_content = src.max(axis=2) > 0
+                    _apply_gc = own & has_content
+                    if warped_bg[i] is not None:
+                        _apply_gc = _apply_gc & (~warped_bg[i])
+                    result[_apply_gc] = src[_apply_gc]
+            # Gap fill — same as DP path
+            _gc_black = result.max(axis=2) == 0
+            if _gc_black.any():
+                for _gcwn in warped_norm:
+                    _gc_fill = _gc_black & (_gcwn.max(axis=2) > 0)
+                    if _gc_fill.any():
+                        result[_gc_fill] = _gcwn[_gc_fill]
+                        _gc_black = result.max(axis=2) == 0
+                    if not _gc_black.any():
+                        break
+            # Seam metadata for HITL
+            if seam_meta_out is not None:
+                seam_meta_out.update(
+                    {
+                        "boundaries": (
+                            boundaries.tolist()
+                            if hasattr(boundaries, "tolist")
+                            else list(boundaries)
+                        ),
+                        "seam_post_diffs": dict(seam_post_diffs),
+                        "seam_single_pose": dict(seam_single_pose),
+                        "seam_crops": _extract_seam_crops(result, boundaries),
+                    }
+                )
+            print("[Stitch]   GraphCut composite done.")
+            return result
+        except Exception as _gc_exc:
+            print(
+                f"[Stitch]   §4.2 GraphCut seam failed ({_gc_exc}), "
+                "falling back to DP blend."
+            )
 
     # Start from temporal median canvas — background pixels stay here permanently
     result = canvas.copy()

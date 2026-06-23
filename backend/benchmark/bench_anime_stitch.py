@@ -613,6 +613,69 @@ def _seam_ncc_coherence(
     return scores
 
 
+def _seam_ownership_entropy(
+    output_img: np.ndarray,
+    affines: Optional[List[np.ndarray]] = None,
+    band_px: int = 8,
+) -> float:
+    """§4.3: Seam-boundary pixel-value entropy (Phase 4 GraphCut metric).
+
+    Measures how *contested* canvas pixels are at estimated seam boundaries.
+    For each adjacent-frame boundary (estimated from affine ty-offsets), we
+    sample a ``±band_px`` row window and compute the Shannon entropy of the
+    luminance distribution.
+
+    Interpretation:
+      ``< 3.5``: smooth blend — low pixel-value diversity, clean seam
+      ``3.5–5.0``: moderate diversity — typical single-pose seam
+      ``> 5.0``: high entropy — ghosted / doubled content at seam
+
+    When GraphCut seam finding is used (§4.2), ownership is globally optimal
+    and seam bands contain content from a single frame → lower entropy.
+    When pairwise DP blending is used, contested seam bands contain content
+    from both frames → higher entropy.
+
+    Parameters
+    ----------
+    output_img : (H, W, 3) or (H, W) uint8 panorama.
+    affines    : list of 2×3 affine matrices; ty-offsets used to estimate
+                 seam boundary rows.  Returns 0.0 when fewer than 2 affines.
+    band_px    : half-height of the analysis window around each boundary row.
+
+    Returns
+    -------
+    float — mean Shannon entropy (bits, base-2) across all estimated seam bands.
+    0.0 when no boundaries can be estimated.
+    """
+    if affines is None or len(affines) < 2:
+        return 0.0
+    H = output_img.shape[0]
+    gray = (
+        cv2.cvtColor(output_img, cv2.COLOR_BGR2GRAY)
+        if output_img.ndim == 3
+        else output_img.astype(np.uint8)
+    )
+    # Estimate seam boundary rows as midpoints between sorted ty-offsets.
+    tys = sorted(float(a[1, 2]) for a in affines)
+    boundaries = [(tys[i] + tys[i + 1]) / 2.0 for i in range(len(tys) - 1)]
+    entropies: List[float] = []
+    for by in boundaries:
+        y0 = max(0, int(by) - band_px)
+        y1 = min(H, int(by) + band_px + 1)
+        if y1 - y0 < 3:
+            continue
+        band = gray[y0:y1].ravel()
+        band = band[band > 5]  # exclude black border / padding pixels
+        if len(band) < 16:
+            continue
+        hist, _ = np.histogram(band, bins=32, range=(0, 256))
+        hist = hist.astype(np.float64) + 1e-9
+        hist /= hist.sum()
+        h = float(-np.sum(hist * np.log2(hist)))
+        entropies.append(h)
+    return round(float(np.mean(entropies)) if entropies else 0.0, 4)
+
+
 def _composite_quality_score(
     seam_ncc_min: Optional[float],
     seam_color_min: Optional[float],
@@ -1202,6 +1265,7 @@ def _compute_all_metrics(
         "ghosting_siqe": round(_ghosting_score_v2(img), 2),
         "seam_coherence": round(_seam_coherence(img), 2),
         "seam_visibility": round(_seam_visibility_score(img, affines), 2),
+        "seam_ownership_entropy": _seam_ownership_entropy(img, affines),
         "strip_banding_score": round(_strip_banding_score(img, affines), 2),
         "ghost_seam_scores": [round(s, 2) for s in seam_scores],
         "ghost_seam_max": _ghost_seam_max,

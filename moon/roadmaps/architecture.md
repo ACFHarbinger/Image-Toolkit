@@ -28,6 +28,66 @@
 
 ---
 
+## Implementation Timeline
+
+> **Legend** — *Node fill:* ✅ complete (green) · 🔄 in-progress (amber) · ⬜ planned (light) — *Node border:* infrastructure (cyan) · new feature (blue) · augmentation (violet) · bugfix (red) — *Edges:* `==>` critical blocking dependency · `-->` sequential dependency · `---` complements
+
+```mermaid
+flowchart LR
+    classDef c_infra fill:#16a34a,stroke:#0891b2,stroke-width:3px,color:#fff
+    classDef c_feat  fill:#16a34a,stroke:#2563eb,stroke-width:3px,color:#fff
+    classDef c_aug   fill:#16a34a,stroke:#7c3aed,stroke-width:3px,color:#fff
+    classDef c_fix   fill:#16a34a,stroke:#dc2626,stroke-width:3px,color:#fff
+    classDef t_feat  fill:#e2e8f0,stroke:#2563eb,stroke-width:2px,color:#1e293b
+    classDef t_aug   fill:#e2e8f0,stroke:#7c3aed,stroke-width:2px,color:#1e293b
+    classDef t_infra fill:#e2e8f0,stroke:#0891b2,stroke-width:2px,color:#1e293b
+    classDef t_fix   fill:#e2e8f0,stroke:#dc2626,stroke-width:2px,color:#1e293b
+
+    subgraph Testing ["🧪 Testing Infrastructure"]
+        direction TB
+        s51["§5.1 ASP Unit\nTest Coverage"]:::t_infra
+        s52["§5.2 Benchmark\nRegression CI"]:::t_infra
+        s516["§5.16 Contract Testing\nML Wrappers"]:::t_infra
+    end
+
+    subgraph Backend ["⚙️ Backend Architecture"]
+        direction TB
+        s53["§5.3 Plugin System\nfor Matchers/Compositors"]:::t_feat
+        s54["§5.4 Logging &\nDiagnostics"]:::t_infra
+        s57["§5.7 Dependency\nAudit & Pinning"]:::t_infra
+        s58["§5.8 Model Wrapper\nAbstraction Layer"]:::t_aug
+        s513["§5.13 Decorator\nLibrary"]:::t_aug
+        s514["§5.14 Centralised\nSettings Facade"]:::t_aug
+        s515["§5.15 Fault Isolation\n& Error Boundaries"]:::t_aug
+    end
+
+    subgraph GUI ["🖥️ GUI Architecture"]
+        direction TB
+        s56["§5.6 Mobile Feature\nParity Backlog"]:::t_feat
+        s59["§5.9 Worker Thread\nBase Class"]:::t_aug
+        s510["§5.10 Gallery Base\nConsolidation"]:::t_aug
+    end
+
+    subgraph Quality ["📐 Code Quality"]
+        direction TB
+        s55["§5.5 Gradual\nType Safety"]:::t_aug
+        s511["§5.11 Circular Import\nPrevention"]:::t_fix
+        s512["§5.12 Codebase Docs\n& Diagrams"]:::t_infra
+    end
+
+    %% Cross-group dependencies
+    s51 --> s52
+    s58 ==> s516
+    s59 --> s510
+    s514 --> s53
+    s511 --- s512
+    s54 --- s515
+```
+
+*Node fill encodes status (green = complete, amber = in-progress, light = planned). Node border encodes element type (cyan = infrastructure, blue = new feature, violet = augmentation, red = bugfix). Edge style encodes relationship (`==>` blocking dependency, `-->` sequential dependency, `---` complements). To update: change a node's `:::class` suffix when its status changes — e.g., `t_infra` → `c_infra` when shipped.*
+
+---
+
 ## How to Use This Document
 
 Each section describes an architectural debt or infrastructure gap, all viable implementation options with trade-offs, and a recommendation. Items tagged **[Quick Win]** take under a day. Items tagged **[Research]** require prototyping.

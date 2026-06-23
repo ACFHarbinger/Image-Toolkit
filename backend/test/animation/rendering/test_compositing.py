@@ -6148,3 +6148,223 @@ class TestBlocksLumCompensate:
 
     def test_schema_entry(self):
         assert "ASP_BLOCKS_LUM_COMP" in config._CONFIG_SCHEMA
+
+
+# ---------------------------------------------------------------------------
+# §4.2/§4.6: GraphCut seam + MultiBand blend wiring (Phase 4)
+# ---------------------------------------------------------------------------
+
+class TestGraphcutSeamWiring:
+    """Verify that _GRAPHCUT_SEAM and _MULTIBAND_BLEND flags exist in compositing."""
+
+    def test_graphcut_flag_defined(self):
+        assert hasattr(compositing, "_GRAPHCUT_SEAM")
+
+    def test_multiband_flag_defined(self):
+        assert hasattr(compositing, "_MULTIBAND_BLEND")
+
+    def test_graphcut_flag_off_by_default(self, monkeypatch):
+        monkeypatch.delenv("ASP_GRAPHCUT_SEAM", raising=False)
+        import importlib
+        mod = importlib.reload(compositing)
+        assert not mod._GRAPHCUT_SEAM
+
+    def test_multiband_flag_off_by_default(self, monkeypatch):
+        monkeypatch.delenv("ASP_MULTIBAND_BLEND", raising=False)
+        import importlib
+        mod = importlib.reload(compositing)
+        assert not mod._MULTIBAND_BLEND
+
+    def test_graphcut_flag_in_seam_cost_flags(self):
+        # _get_seam_cost_flags() returns a tuple that includes _GRAPHCUT_SEAM and _MULTIBAND_BLEND
+        from backend.src.animation.rendering.compositing import _get_seam_cost_flags
+        flags = _get_seam_cost_flags()
+        # Flags tuple should have 5 elements (POISSON, TOONCRAFTER, GRAPHCUT, SEAM_BATCH, MULTIBAND)
+        assert len(flags) == 5
+
+
+# ---------------------------------------------------------------------------
+# Phase 5b: blocks_gain_compensate_pair + blocks_lum_compensate_pair wiring
+# ---------------------------------------------------------------------------
+
+
+class TestBlocksGainCompensateBatchWiring:
+    """Verify _blocks_gain_compensate produces correct output without C++ batch."""
+
+    def test_identical_zones_identity(self):
+        zone = np.full((64, 80, 3), 120, dtype=np.uint8)
+        result = _blocks_gain_compensate(zone, zone.copy(), block_size=32)
+        assert result.dtype == np.uint8
+        assert result.shape == zone.shape
+        diff = np.abs(result.astype(np.int32) - zone.astype(np.int32)).max()
+        assert diff <= 2
+
+    def test_brighter_fa_increases_fb(self):
+        fa = np.full((64, 80, 3), 200, dtype=np.uint8)
+        fb = np.full((64, 80, 3), 100, dtype=np.uint8)
+        result = _blocks_gain_compensate(fa, fb, block_size=32)
+        assert float(result.mean()) > float(fb.mean())
+
+    def test_empty_zones_return_copy(self):
+        empty = np.zeros((0, 0, 3), dtype=np.uint8)
+        fb = np.full((32, 32, 3), 50, dtype=np.uint8)
+        assert _blocks_gain_compensate(empty, fb).shape == (32, 32, 3)
+
+    def test_gain_clamp_upper(self):
+        fa = np.full((32, 32, 3), 250, dtype=np.uint8)
+        fb = np.full((32, 32, 3), 10, dtype=np.uint8)
+        result = _blocks_gain_compensate(fa, fb, block_size=32)
+        assert int(result.max()) <= 22  # 10 × 2.0 clamp + rounding
+
+    def test_output_in_valid_range(self):
+        rng = np.random.default_rng(7)
+        fa = rng.integers(0, 256, (80, 64, 3), dtype=np.uint8)
+        fb = rng.integers(0, 256, (80, 64, 3), dtype=np.uint8)
+        result = _blocks_gain_compensate(fa, fb, block_size=32)
+        assert result.min() >= 0
+        assert result.max() <= 255
+
+
+class TestBlocksLumCompensateBatchWiring:
+    """Verify _blocks_lum_compensate produces correct output without C++ batch."""
+
+    def test_identical_zones_identity(self):
+        zone = np.full((64, 80, 3), 120, dtype=np.uint8)
+        result = _blocks_lum_compensate(zone, zone.copy(), block_size=32)
+        assert result.dtype == np.uint8
+        assert result.shape == zone.shape
+        diff = np.abs(result.astype(np.int32) - zone.astype(np.int32)).max()
+        assert diff <= 2
+
+    def test_brighter_fa_increases_fb(self):
+        fa = np.full((64, 80, 3), 200, dtype=np.uint8)
+        fb = np.full((64, 80, 3), 100, dtype=np.uint8)
+        result = _blocks_lum_compensate(fa, fb, block_size=32)
+        assert float(result.mean()) > float(fb.mean())
+
+    def test_empty_zones_return_copy(self):
+        empty = np.zeros((0, 0, 3), dtype=np.uint8)
+        fb = np.full((32, 32, 3), 50, dtype=np.uint8)
+        assert _blocks_lum_compensate(empty, fb).shape == (32, 32, 3)
+
+    def test_output_in_valid_range(self):
+        rng = np.random.default_rng(11)
+        fa = rng.integers(0, 256, (80, 64, 3), dtype=np.uint8)
+        fb = rng.integers(0, 256, (80, 64, 3), dtype=np.uint8)
+        result = _blocks_lum_compensate(fa, fb, block_size=32)
+        assert result.min() >= 0
+        assert result.max() <= 255
+
+    def test_lum_output_avoids_channel_cast(self):
+        # Uniform color zone: lum gain should preserve hue (all channels scaled equally)
+        fa = np.full((32, 32, 3), 160, dtype=np.uint8)
+        fb_arr = np.zeros((32, 32, 3), dtype=np.uint8)
+        fb_arr[:, :, 0] = 80   # B
+        fb_arr[:, :, 1] = 40   # G
+        fb_arr[:, :, 2] = 20   # R
+        result = _blocks_lum_compensate(fa, fb_arr, block_size=32)
+        # All channels scaled by same scalar → ratios preserved (within rounding)
+        r_b = float(result[:, :, 0].mean())
+        r_g = float(result[:, :, 1].mean())
+        r_r = float(result[:, :, 2].mean())
+        # B/G ratio ≈ 2.0 as in input
+        assert abs(r_b / max(r_g, 0.5) - 2.0) < 0.15
+
+
+# ---------------------------------------------------------------------------
+# Phase 5d: find_optimal_boundaries batch wiring
+# ---------------------------------------------------------------------------
+
+
+def _call_find_optimal_boundaries_cpp(warped_list, order, init_bounds, H, W, **kw):
+    """Call batch.compositing.find_optimal_boundaries; skip if stub or not compiled."""
+    from backend.src.animation.rendering import compositing as comp_mod
+    if not comp_mod.BATCH_AVAILABLE:
+        pytest.skip("batch not available")
+    if not hasattr(comp_mod.batch.compositing, "find_optimal_boundaries"):
+        pytest.skip("find_optimal_boundaries not in batch.compositing — rebuild needed")
+    try:
+        return comp_mod.batch.compositing.find_optimal_boundaries(
+            [np.ascontiguousarray(f) for f in warped_list],
+            np.asarray(order, dtype=np.int64),
+            np.asarray(init_bounds, dtype=np.float64),
+            H, W,
+            kw.get("search_range", 250),
+            kw.get("search_slab", 20),
+            kw.get("bg_masks", None),
+            kw.get("affines", None),
+        )
+    except RuntimeError as e:
+        if "not yet implemented" in str(e).lower() or "stub" in str(e).lower():
+            pytest.skip(f"find_optimal_boundaries is a stub — {e}")
+        raise
+
+
+def _make_canvas_frame(H, W, val, dtype=np.uint8):
+    return np.full((H, W, 3), val, dtype=dtype)
+
+
+class TestFindOptimalBoundariesBatchWiring:
+    """batch.compositing.find_optimal_boundaries — Phase 5d C++ wiring."""
+
+    def test_output_shape_matches_n_minus_1(self):
+        H, W = 200, 120
+        frames = [_make_canvas_frame(H, W, v) for v in [80, 120, 160]]
+        order = np.array([0, 1, 2], dtype=np.int64)
+        init_bounds = np.array([H // 3, 2 * H // 3], dtype=np.float64)
+        bounds, diffs = _call_find_optimal_boundaries_cpp(
+            frames, order, init_bounds, H, W
+        )
+        assert bounds.shape == (2,)
+        assert diffs.shape == (2,)
+
+    def test_boundary_stays_within_canvas(self):
+        H, W = 300, 80
+        f0 = _make_canvas_frame(H, W, 100)
+        f1 = _make_canvas_frame(H, W, 140)
+        order = np.array([0, 1], dtype=np.int64)
+        init_bounds = np.array([H // 2], dtype=np.float64)
+        bounds, _ = _call_find_optimal_boundaries_cpp(
+            [f0, f1], order, init_bounds, H, W
+        )
+        assert 0 <= float(bounds[0]) <= H
+
+    def test_identical_frames_returns_a_finite_diff(self):
+        H, W = 200, 100
+        f = _make_canvas_frame(H, W, 128)
+        order = np.array([0, 1], dtype=np.int64)
+        init_bounds = np.array([H // 2], dtype=np.float64)
+        bounds, diffs = _call_find_optimal_boundaries_cpp(
+            [f.copy(), f.copy()], order, init_bounds, H, W
+        )
+        assert np.isfinite(diffs[0])
+        assert diffs[0] == pytest.approx(0.0, abs=1.0)
+
+    def test_gradient_frames_move_boundary_toward_low_diff(self):
+        H, W = 200, 60
+        # f0: bright top half, dark bottom half; f1: dark everywhere
+        # The boundary between f0 and f1 should prefer the dark-bottom region of f0
+        f0 = np.zeros((H, W, 3), dtype=np.uint8)
+        f0[: H // 2, :] = 200
+        f0[H // 2 :, :] = 40
+        f1 = np.full((H, W, 3), 40, dtype=np.uint8)
+        order = np.array([0, 1], dtype=np.int64)
+        # Start boundary in the bright region (top third) — C++ should move it down
+        init_bounds = np.array([H // 3], dtype=np.float64)
+        bounds, diffs = _call_find_optimal_boundaries_cpp(
+            [f0, f1], order, init_bounds, H, W, search_range=250
+        )
+        # Optimal is in the dark bottom half of f0 (low diff with f1)
+        assert float(bounds[0]) > H // 3
+
+    def test_zero_search_range_returns_initial_bound(self):
+        H, W = 200, 80
+        f0 = _make_canvas_frame(H, W, 90)
+        f1 = _make_canvas_frame(H, W, 150)
+        order = np.array([0, 1], dtype=np.int64)
+        init_bounds = np.array([H // 2], dtype=np.float64)
+        bounds, _ = _call_find_optimal_boundaries_cpp(
+            [f0, f1], order, init_bounds, H, W, search_range=0
+        )
+        # With 0 search range the loop finds no candidates → returns initial position
+        assert float(bounds[0]) == pytest.approx(float(init_bounds[0]), abs=20)

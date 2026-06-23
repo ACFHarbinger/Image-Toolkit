@@ -470,3 +470,78 @@ class TestAnimeInterpFlow:
         flow = compute_animeinterp_flow(a, b, n_gru_iters=0)
         mean_dx = float(flow[:16, :, 0].mean())
         assert mean_dx > 0, f"Expected positive dx for right-shift, got {mean_dx:.2f}"
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 — batch.fg_register dispatch wiring
+# ---------------------------------------------------------------------------
+
+try:
+    import batch as _batch_fgreg_test
+    _HAS_BATCH_FGREG = True
+except ImportError:
+    _HAS_BATCH_FGREG = False
+
+_skip_no_batch = pytest.mark.skipif(not _HAS_BATCH_FGREG, reason="batch not built")
+
+
+class TestBatchFgRegisterWiring:
+    """Phase 5: verify batch.fg_register dispatch wires correctly in Python callers."""
+
+    def _small_crop(self, h=48, w=64, shifted=False):
+        rng = np.random.default_rng(1)
+        a = rng.integers(40, 200, (h, w, 3), dtype=np.uint8)
+        b = np.roll(a, 4 if shifted else 0, axis=1)
+        fg = np.zeros((h, w), dtype=np.uint8)
+        fg[h // 4 : 3 * h // 4, w // 4 : 3 * w // 4] = 255
+        return a, b, fg
+
+    @_skip_no_batch
+    def test_arap_regularise_returns_float32_same_shape(self):
+        """_arap_regularise C++ path returns float32 (H,W,2)."""
+        a, b, fg = self._small_crop()
+        flow = np.zeros((48, 64, 2), dtype=np.float32)
+        flow[:, :, 0] = 3.0
+        out = _arap_regularise(flow, fg.astype(bool))
+        assert out.shape == (48, 64, 2)
+        assert out.dtype == np.float32
+
+    @_skip_no_batch
+    def test_arap_regularise_zeros_flow_stays_zero(self):
+        """Zero flow with no fg → output still zero."""
+        flow = np.zeros((32, 40, 2), dtype=np.float32)
+        fg = np.zeros((32, 40), dtype=np.uint8)
+        out = _arap_regularise(flow, fg.astype(bool))
+        np.testing.assert_allclose(out, 0.0, atol=1e-5)
+
+    @_skip_no_batch
+    def test_arap_regularise_fg_smoothed(self):
+        """After regularisation, fg flow should be within ±1 px of original mean."""
+        a, b, fg = self._small_crop(shifted=True)
+        flow = np.zeros((48, 64, 2), dtype=np.float32)
+        flow[fg > 0, 0] = 4.0
+        out = _arap_regularise(flow, fg.astype(bool), cell_size=16, n_iter=1)
+        assert out.shape == (48, 64, 2)
+        # Regularised fg-x should be in a reasonable range
+        fg_out = out[fg > 0, 0]
+        assert float(fg_out.mean()) == pytest.approx(0.0, abs=5.0)
+
+    @_skip_no_batch
+    def test_slic_sgm_proxy_batch_path_returns_flow_or_none(self):
+        """slic_sgm_proxy C++ fallback returns (H,W,2) float32 or None."""
+        from backend.src.animation.alignment.fg_register import _slic_sgm_proxy
+        a, b, fg = self._small_crop()
+        result = _slic_sgm_proxy(a, b, fg, n_segments=16)
+        assert result is None or (
+            isinstance(result, np.ndarray)
+            and result.shape == (48, 64, 2)
+            and result.dtype == np.float32
+        )
+
+    @_skip_no_batch
+    def test_arap_regularise_with_image_no_crash(self):
+        """_arap_regularise with image kwarg (LSD path) must not crash."""
+        a, b, fg = self._small_crop()
+        flow = np.zeros((48, 64, 2), dtype=np.float32)
+        out = _arap_regularise(flow, fg.astype(bool), image=a, image_offset=(0, 0))
+        assert out.shape == (48, 64, 2)

@@ -17,6 +17,15 @@ from backend.src.constants import (
 )
 from backend.src.animation.core.stateless import _luma
 
+try:
+    from backend.src.animation import batch as _batch_ecc
+    _BATCH_ECC = hasattr(_batch_ecc, "fg_register") and hasattr(
+        _batch_ecc.fg_register, "ecc_refine"
+    )
+except ImportError:
+    _batch_ecc = None  # type: ignore[assignment]
+    _BATCH_ECC = False
+
 
 def _ecc_refine(
     frames: List[np.ndarray],
@@ -90,19 +99,24 @@ def _ecc_refine(
                     )
 
                 try:
-                    _, M_s = cv2.findTransformECC(
-                        r_s,
-                        s_s,
-                        M_s,
-                        cv2.MOTION_TRANSLATION,
-                        criteria,
-                        ecc_m_s,
-                        gaussFiltSize=5,
-                    )
+                    if _BATCH_ECC:
+                        M_s = _batch_ecc.fg_register.ecc_refine(
+                            r_s, s_s, M_s, ecc_m_s,
+                            cv2.MOTION_TRANSLATION,
+                            ECC_MAX_ITER, ECC_EPS,
+                        )
+                    else:
+                        _, M_s = cv2.findTransformECC(
+                            r_s, s_s, M_s,
+                            cv2.MOTION_TRANSLATION,
+                            criteria,
+                            ecc_m_s,
+                            gaussFiltSize=5,
+                        )
                     M_s[0, 2] *= scale
                     M_s[1, 2] *= scale
                     M_cur = M_s
-                except cv2.error:
+                except (cv2.error, RuntimeError):
                     break
 
             tx_rel_ec, ty_rel_ec = M_cur[0, 2], M_cur[1, 2]

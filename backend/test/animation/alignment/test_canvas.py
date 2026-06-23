@@ -546,3 +546,55 @@ class TestTelaeFillGaps:
         gap_mask = self._corner_gap_mask(4)
         out = _telea_fill_gaps(canvas, gap_mask)
         np.testing.assert_array_equal(out[8:, 8:], canvas[8:, 8:])
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 — batch.canvas C++ dispatch tests
+# ---------------------------------------------------------------------------
+
+
+class TestBatchCanvasWiring:
+    """Phase 5: verify batch.canvas dispatch is wired and falls back correctly."""
+
+    def _affines(self, n: int, dy: float = 100.0):
+        return [make_translation_affine(ty=float(i * dy)) for i in range(n)]
+
+    def test_compute_canvas_returns_correct_types(self):
+        """_compute_canvas returns (int, int, ndarray) regardless of batch avail."""
+        frames, affines = _make_stack(3)
+        ch, cw, T = _compute_canvas(frames, affines)
+        assert isinstance(ch, int) and isinstance(cw, int)
+        assert isinstance(T, np.ndarray) and T.shape == (2,)
+
+    def test_compute_canvas_height_covers_all_frames(self):
+        """Canvas height must accommodate N vertically-spaced frames."""
+        H, dy, N = 200, 150.0, 4
+        frames, affines = _make_stack(N, h=H, w=300, dy=dy)
+        ch, cw, _ = _compute_canvas(frames, affines)
+        assert ch >= (N - 1) * dy + H - 2
+
+    def test_detect_scroll_axis_vertical(self):
+        """Pure vertical affines → 'vertical'."""
+        affines = [make_translation_affine(ty=float(i * 300)) for i in range(5)]
+        assert _detect_scroll_axis(affines) == "vertical"
+
+    def test_detect_scroll_axis_horizontal(self):
+        """Pure horizontal affines → 'horizontal'."""
+        affines = [make_translation_affine(tx=float(i * 400), ty=0.0) for i in range(5)]
+        assert _detect_scroll_axis(affines) == "horizontal"
+
+    def test_telea_fill_gaps_no_gap_returns_unchanged(self):
+        """Zero gap mask → output identical to input."""
+        canvas = np.full((30, 40, 3), 120, dtype=np.uint8)
+        gap = np.zeros((30, 40), dtype=np.uint8)
+        out = _telea_fill_gaps(canvas, gap)
+        np.testing.assert_array_equal(out, canvas)
+
+    def test_telea_fill_gaps_shape_preserved(self):
+        """Gap-filled output must have same shape as input."""
+        canvas = np.full((30, 40, 3), 150, dtype=np.uint8)
+        canvas[:4, :4] = 0
+        gap = np.zeros((30, 40), dtype=np.uint8)
+        gap[:4, :4] = 255
+        out = _telea_fill_gaps(canvas, gap)
+        assert out.shape == canvas.shape

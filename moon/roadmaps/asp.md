@@ -40,6 +40,103 @@
 - [Effort × Impact Matrix — Pending Items](#effort--impact-matrix--pending-items)
 - [Anchor Index](#anchor-index)
 
+---
+
+## Implementation Timeline
+
+> **Legend** — *Node fill:* ✅ complete (green) · 🔄 in-progress (amber) · ⬜ planned (light) — *Node border:* new feature (blue) · augmentation/fix (violet) · bugfix (red) · research (grey) — *Edges:* `==>` critical blocking dependency · `-->` sequential dependency · `-.->` alternative approach · `---` complements
+
+```mermaid
+flowchart TD
+    classDef c_feat  fill:#16a34a,stroke:#2563eb,stroke-width:3px,color:#fff
+    classDef c_aug   fill:#16a34a,stroke:#7c3aed,stroke-width:3px,color:#fff
+    classDef c_fix   fill:#16a34a,stroke:#dc2626,stroke-width:3px,color:#fff
+    classDef p_feat  fill:#d97706,stroke:#2563eb,stroke-width:3px,color:#fff
+    classDef p_aug   fill:#d97706,stroke:#7c3aed,stroke-width:3px,color:#fff
+    classDef t_feat  fill:#e2e8f0,stroke:#2563eb,stroke-width:2px,color:#1e293b
+    classDef t_aug   fill:#e2e8f0,stroke:#7c3aed,stroke-width:2px,color:#1e293b
+    classDef t_res   fill:#e2e8f0,stroke:#6b7280,stroke-width:2px,color:#1e293b
+
+    subgraph CRITICAL["§0  Critical Fixes  (Priority 0)"]
+        S0["§0 Pipeline Broken\nfor Animated Scenes\n— Diagnosis"]:::c_fix
+        S01["§0.1 Foreground Pose\nRegistration\n— Core Fix"]:::p_aug
+        S02["§0.2 Pose-Consistent\nFrame Selection\n(infra built, disabled)"]:::p_aug
+    end
+
+    subgraph SHIPPED["§0.5 + §1  Shipped Improvements"]
+        S05["§0.5 min_gap\nThreshold\nCalibration"]:::c_aug
+        S11["§1.1 Bundle\nAdjustment\nHardening"]:::c_aug
+        S12["§1.2 Near-Zero\nEdge Filter"]:::c_aug
+        S13["§1.3 Scale &\nRotation\nHandling"]:::t_aug
+        S14["§1.4 Gain Clamp\nWidening"]:::c_aug
+        S15["§1.5 Stage 11\nComposite\nPerformance"]:::c_aug
+        S16["§1.6 Ghosting\nReduction"]:::c_aug
+        S17["§1.7 Border\nRectangling\n(partial)"]:::p_aug
+        S18["§1.8 Config\nFile"]:::c_aug
+        S19["§1.9 Fallback\nPath Purity"]:::c_aug
+        S110["§1.10 RLHF\nLoop\nIntegration"]:::c_aug
+        ARCH["§1.11–§1.86\nShipped Archive\n(75+ quick wins)"]:::c_aug
+    end
+
+    subgraph HITL["§2  HITL & Advanced Interaction"]
+        S20["§2.0 Human-in-the-\nLoop Augmentation"]:::t_feat
+        S29["§2.9 BigWarp /\nFourier-Mellin\nManual Registration"]:::t_res
+        S210["§2.10 SAM2Flow\nOptical Flow\nKinematics"]:::t_res
+        S211["§2.11 Intelligent\nScissors\nSeam Routing"]:::t_feat
+    end
+
+    subgraph ML["§3  ML-Driven Modernisation"]
+        S30["§3.0 ML-Driven\nPipeline\nModernisation"]:::t_res
+        S311["§3.11 SAM 2\nInteractive\nMasking"]:::t_res
+        S312["§3.12 Overmix\nSub-Pixel\nAveraging SR"]:::t_res
+    end
+
+    subgraph FUTURE["Phase 2+  Next Generation"]
+        PH2["Phase 2\nDirect Video Ingestion\n& Multi-Modal HITL"]:::t_feat
+        PH4["Phase 4\nOpenCV-Informed\nImprovements"]:::t_feat
+    end
+
+    %% Critical path
+    S0  ==> S01
+    S01 ==> S02
+
+    %% §0.1 unblocks shipped improvements
+    S01 --> S11
+    S01 --> S16
+    S01 --> ARCH
+
+    %% Alignment group
+    S05 --> S12
+    S11 --- S12
+    S12 --- S13
+
+    %% Compositing group
+    S14 --- S15
+    S15 --- S16
+
+    %% Robustness group
+    S17 --- S19
+    S18 --- S110
+
+    %% HITL relationships
+    S20 --> S29
+    S20 --- S210
+    S211 --- S16
+
+    %% ML relationships
+    S30 --> S311
+    S30 --> S312
+
+    %% Future phase dependencies
+    S20 --> PH2
+    S30 --> PH2
+    PH4 --- S30
+```
+
+*Read the diagram: each node represents a high-level roadmap section. Fill colour shows status (green = shipped, amber = in-progress, light = planned). Border colour shows element type (violet = augmentation of existing feature, blue = new feature, red = bugfix, grey = research). Solid arrows (`-->`) show sequential dependencies; double arrows (`==>`) show critical blocking dependencies; lines without arrowheads (`---`) show complementary relationships.*
+
+---
+
 ## How to Use This Document
 
 Each section lists the pain point, all viable implementation options with trade-offs, and a recommendation. Items tagged **[Quick Win]** take under a day. Items tagged **[Research]** require prototyping before committing. Items tagged **[Long-term]** are aspirational or depend on external data collection.

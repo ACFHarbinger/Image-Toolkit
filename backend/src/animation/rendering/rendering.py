@@ -27,6 +27,13 @@ from backend.src.animation.core.stateless import _laplacian_blend
 
 logger = logging.getLogger(__name__)
 
+try:
+    import batch as _batch_render
+    _BATCH_RENDER = True
+except ImportError:
+    _batch_render = None  # type: ignore[assignment]
+    _BATCH_RENDER = False
+
 
 # A5 — Foreground-excluded temporal median.  When enabled, foreground (character)
 # pixels are excluded from the per-pixel median so the background PLATE never
@@ -462,6 +469,164 @@ def _render_median(
             "[Stitch]   A5: foreground-excluded temporal median ENABLED (clean bg plate)."
         )
 
+    # Phase 5e: C++ fast path — parallel warpAffine + OpenMP nth_element median.
+    # Fires when: no FG exclusion, no sequential colour correction, no baselines,
+    # no confidence weighting, and full-canvas stack fits within 1 GB.
+    # Falls back to the chunked Python loop on any exception or memory limit.
+    _fast_path_mem_bytes = 2 * N * H * W * 3  # warped frames + fade stack
+    if (
+        _BATCH_RENDER
+        and not _exclude_fg
+        and not _need_color_corr
+        and _baselines is None
+        and confidence_weights is None
+        and _fast_path_mem_bytes <= 1024 * 1024 * 1024
+    ):
+        try:
+            affines_f32 = [np.ascontiguousarray(a, dtype=np.float32) for a in affines]
+            warped = _batch_render.canvas.warp_frames_to_canvas(
+                [np.ascontiguousarray(f) for f in frames],
+                affines_f32, H, W,
+            )
+            canvas = np.ascontiguousarray(_batch_render.canvas.render_median(warped))
+            for w in warped:
+                valid_mask[w.max(axis=2) > 0] = 255
+            # Fade pass — uses the full-canvas stack (no chunking needed here).
+            _warped_stack = np.stack(warped, axis=0)  # (N, H, W, 3)
+            _masks_stack = _warped_stack.max(axis=3) > 0  # (N, H, W)
+            del warped  # free list; _warped_stack holds the same data
+            if scroll_axis != "horizontal":
+                for i in range(N):
+                    for fade_start, fade_end, is_entry in [
+                        (
+                            _frame_ty[i] - LANCZOS_BLEED,
+                            _frame_ty[i] + RENDERING_FADE_ROWS,
+                            True,
+                        ),
+                        (
+                            _frame_bot[i] - RENDERING_FADE_ROWS,
+                            _frame_bot[i] + LANCZOS_BLEED,
+                            False,
+                        ),
+                    ]:
+                        local_start = max(0, int(np.floor(fade_start)))
+                        local_end = min(H, int(np.ceil(fade_end)))
+                        if local_start >= local_end:
+                            continue
+                        s_f_full = _warped_stack[:, local_start:local_end, :, :].astype(
+                            np.float32
+                        )
+                        m_full = _masks_stack[:, local_start:local_end, :]
+                        s_f_no_i = s_f_full.copy()
+                        m_no_i = m_full.copy()
+                        m_no_i[i] = False
+                        s_f_no_i[~m_no_i] = np.nan
+                        s_f_full[~m_full] = np.nan
+                        count_no_i = m_no_i.sum(axis=0)
+                        i_present = m_full[i]
+                        affected = i_present & (count_no_i >= 1)
+                        if not affected.any():
+                            continue
+                        with warnings.catch_warnings():
+                            warnings.simplefilter("ignore", RuntimeWarning)
+                            med_with = _gpu_nanmedian(s_f_full)
+                            med_without = _gpu_nanmedian(s_f_no_i)
+                        canvas_ys = np.arange(local_start, local_end, dtype=np.float64)
+                        if is_entry:
+                            alphas = np.clip(
+                                (canvas_ys - fade_start) / RENDERING_FADE_ROWS, 0.0, 1.0
+                            )
+                        else:
+                            alphas = np.clip(
+                                (fade_end - canvas_ys) / RENDERING_FADE_ROWS, 0.0, 1.0
+                            )
+                        alphas = alphas[:, np.newaxis, np.newaxis]
+                        blended = (1.0 - alphas) * med_without + alphas * med_with
+                        canvas_rows = canvas[local_start:local_end]
+                        aff3 = np.stack([affected] * 3, axis=-1)
+                        canvas_rows[aff3] = np.clip(blended[aff3], 0, 255).astype(np.uint8)
+            else:
+                for i in range(N):
+                    for fade_start, fade_end, is_entry in [
+                        (
+                            _frame_tx[i] - LANCZOS_BLEED,
+                            _frame_tx[i] + RENDERING_FADE_ROWS,
+                            True,
+                        ),
+                        (
+                            _frame_right[i] - RENDERING_FADE_ROWS,
+                            _frame_right[i] + LANCZOS_BLEED,
+                            False,
+                        ),
+                    ]:
+                        local_start = max(0, int(np.floor(fade_start)))
+                        local_end = min(W, int(np.ceil(fade_end)))
+                        if local_start >= local_end:
+                            continue
+                        s_f_full = _warped_stack[:, :, local_start:local_end, :].astype(
+                            np.float32
+                        )
+                        m_full = _masks_stack[:, :, local_start:local_end]
+                        s_f_no_i = s_f_full.copy()
+                        m_no_i = m_full.copy()
+                        m_no_i[i] = False
+                        s_f_no_i[~m_no_i] = np.nan
+                        s_f_full[~m_full] = np.nan
+                        count_no_i = m_no_i.sum(axis=0)
+                        i_present = m_full[i]
+                        affected = i_present & (count_no_i >= 1)
+                        if not affected.any():
+                            continue
+                        with warnings.catch_warnings():
+                            warnings.simplefilter("ignore", RuntimeWarning)
+                            med_with = _gpu_nanmedian(s_f_full)
+                            med_without = _gpu_nanmedian(s_f_no_i)
+                        canvas_xs = np.arange(local_start, local_end, dtype=np.float64)
+                        if is_entry:
+                            alphas = np.clip(
+                                (canvas_xs - fade_start) / RENDERING_FADE_ROWS, 0.0, 1.0
+                            )
+                        else:
+                            alphas = np.clip(
+                                (fade_end - canvas_xs) / RENDERING_FADE_ROWS, 0.0, 1.0
+                            )
+                        alphas = alphas[np.newaxis, :, np.newaxis]
+                        blended = (1.0 - alphas) * med_without + alphas * med_with
+                        canvas_cols = canvas[:, local_start:local_end]
+                        aff3 = np.stack([affected] * 3, axis=-1)
+                        canvas_cols[aff3] = np.clip(blended[aff3], 0, 255).astype(np.uint8)
+            # Animation re-render (same logic as the chunked path below).
+            if not _skip_anim and N >= 4:
+                ty_vals = [float(a[1, 2]) for a in affines]
+                ty_span = max(ty_vals) - min(ty_vals)
+                if ty_span > 0.25 * H:
+                    anim_mask, phase_groups = None, None
+                else:
+                    anim_mask, phase_groups = _cluster_animation_phases(
+                        frames, affines, H, W
+                    )
+                if anim_mask is not None and phase_groups is not None:
+                    logger.info(
+                        "[Stitch]   Animation detected: %d phases — re-rendering...",
+                        len(phase_groups),
+                    )
+                    majority_group = max(phase_groups, key=len)
+                    anim_canvas, _, _, _ = _render_median(
+                        [frames[idx] for idx in majority_group],
+                        [affines[idx] for idx in majority_group],
+                        [bg_masks[idx] for idx in majority_group],
+                        H, W,
+                        _skip_anim=True,
+                    )
+                    anim_has_content = anim_canvas.max(axis=2) > 0
+                    overwrite_px = (anim_mask > 0) & anim_has_content
+                    canvas[overwrite_px] = anim_canvas[overwrite_px]
+            return canvas, valid_mask, [], []
+        except Exception as _e:
+            logger.debug("[Stitch] render_median batch fast-path failed: %s", _e)
+            canvas = np.zeros((H, W, 3), dtype=np.uint8)
+            valid_mask = np.zeros((H, W), dtype=np.uint8)
+
     # Determine chunk size. We want to keep stack size < 1GB
     chunk_size = max(1, min(1024, (1024 * 1024 * 1024) // (N * W * 3 + 1)))
 
@@ -780,6 +945,25 @@ def _render_first(
     """Simple first-frame-wins renderer."""
     canvas = np.zeros((H, W, 3), np.uint8)
     mask = np.zeros((H, W), np.uint8)
+
+    # §Phase5: C++ parallel warpAffine — first-frame-wins compositing in reverse order
+    if _BATCH_RENDER:
+        try:
+            affines_f32 = [np.ascontiguousarray(a, dtype=np.float32) for a in affines]
+            warped = _batch_render.canvas.warp_frames_to_canvas(
+                [np.ascontiguousarray(f) for f in frames],
+                affines_f32, H, W,
+            )
+            for w in reversed(warped):
+                m = (w.max(axis=2) > 0).astype(np.uint8) * 255
+                canvas[m > 0] = w[m > 0]
+                mask |= m
+            return canvas, mask
+        except Exception as _e:
+            logger.debug(f"[Stitch] batch.canvas.warp_frames_to_canvas fallback: {_e}")
+            canvas[:] = 0
+            mask[:] = 0
+
     _frame_masks = [np.full(f.shape[:2], 255, dtype=np.uint8) for f in frames]
     for img, M, f_mask in reversed(list(zip(frames, affines, _frame_masks))):
         w = cv2.warpAffine(
@@ -815,20 +999,39 @@ def _render_laplacian(
     Perfect Seamless Blender: Sequential Laplacian with Optimal Seams.
     """
     N = len(frames)
-    warped_list = []
-    mask_list = []
-    for i, (img, M, bg) in enumerate(zip(frames, affines, bg_masks)):
-        w = cv2.warpAffine(
-            img,
-            M,
-            (W, H),
-            flags=cv2.INTER_LINEAR,
-            borderMode=cv2.BORDER_CONSTANT,
-            borderValue=0,
-        )
-        warped_list.append(w)
-        mask = (w.max(axis=2) > 0).astype(np.uint8) * 255
-        mask_list.append(mask)
+
+    # Phase 5f: C++ parallel warpAffine for the laplacian renderer warp step.
+    warped_list: List[np.ndarray] = []
+    mask_list: List[np.ndarray] = []
+    if _BATCH_RENDER:
+        try:
+            affines_f32 = [np.ascontiguousarray(a, dtype=np.float32) for a in affines]
+            warped_list = list(
+                _batch_render.canvas.warp_frames_to_canvas(
+                    [np.ascontiguousarray(f) for f in frames],
+                    affines_f32, H, W,
+                )
+            )
+            mask_list = [
+                (w.max(axis=2) > 0).astype(np.uint8) * 255 for w in warped_list
+            ]
+        except Exception as _e:
+            logger.debug("[Stitch] _render_laplacian batch warp fallback: %s", _e)
+            warped_list = []
+            mask_list = []
+
+    if not warped_list:
+        for img, M in zip(frames, affines):
+            w = cv2.warpAffine(
+                img,
+                M,
+                (W, H),
+                flags=cv2.INTER_LINEAR,
+                borderMode=cv2.BORDER_CONSTANT,
+                borderValue=0,
+            )
+            warped_list.append(w)
+            mask_list.append((w.max(axis=2) > 0).astype(np.uint8) * 255)
 
     # ── Color Matching (Sequential: each frame matched to the previous) ────
     # Chaining to the adjacent frame gives a better reference than anchoring

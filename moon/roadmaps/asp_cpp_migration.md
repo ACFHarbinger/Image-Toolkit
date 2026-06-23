@@ -1,7 +1,60 @@
 # ASP → C++ Migration Roadmap
 
-*Created: 2026-06-22. Updated: 2026-06-23. Status: Phase 3 complete. Phase 4 in progress — C++ implementations done (`graphcut_seam_find`, `multiband_blend`, `seam_batch`); Python dispatch wiring for graphcut/multiband and benchmark metric pending.*
+*Created: 2026-06-22. Updated: 2026-06-23. Status: Phases 1–5 complete + Phase 3b + Phase 5b + Phase 5c + Phase 5d + Phase 5e + Phase 5f. Phase 5f: `warp_frames_to_canvas` wired into `rendering.py::_render_laplacian` — replaces the sequential Python `cv2.warpAffine` loop with the C++ parallel OpenMP warp, falling back to Python on error; 5 new tests. Phase 6 (GPU) is next.*
 *Reference analysis: `.agent/cache/stitching_systems_deep_comparison.md`*
+
+---
+
+## Implementation Timeline
+
+> **Legend** — *Node fill:* ✅ complete (green) · ⬜ planned (light) — *Node border:* infrastructure (cyan) · new feature (blue) · augmentation (violet) — *Edges:* `==>` critical blocking dependency · `-->` sequential dependency
+
+```mermaid
+flowchart TD
+    classDef c_infra fill:#16a34a,stroke:#0891b2,stroke-width:3px,color:#fff
+    classDef c_feat  fill:#16a34a,stroke:#2563eb,stroke-width:3px,color:#fff
+    classDef c_aug   fill:#16a34a,stroke:#7c3aed,stroke-width:3px,color:#fff
+    classDef t_feat  fill:#e2e8f0,stroke:#2563eb,stroke-width:2px,color:#1e293b
+
+    P1["**Phase 1** ✅\nFoundation\npybind11 · CMake · numpy↔Mat converters\nHAS_BATCH guards · CI job"]:::c_infra
+    P2["**Phase 2** ✅\nHot Path\nSeam DP · Zone Normalizations\nLaplacian Blend · Gain loops\n~60% of pipeline time"]:::c_feat
+    P3["**Phase 3** ✅\nAlignment\nBundle Adjust · Phase Correlation\nValidation · Wave Correct"]:::c_feat
+    P4["**Phase 4** ✅\nNew Algorithms\nGraphCut SeamFinder\nMultiBandBlender"]:::c_feat
+    P3b["**Phase 3b** ✅\nMatching Hardening\nfilter_edge_graph · near_dup_luma\nspatial_dedup · 25 tests"]:::c_aug
+    P5["**Phase 5** ✅\nCanvas · FrameSelection\nFgRegister · SR Classical\n26 new functions · 26 tests"]:::c_feat
+    P5b["**Phase 5b** ✅\nECC + Pair Gain Comp\necc_refine · blocks_gain_compensate_pair\nblocks_lum_compensate_pair · 20 tests"]:::c_aug
+    P5c["**Phase 5c** ✅\nExposure Stubs Replaced\ncorrect_vignetting · blocks_gain_compensate\nblocks_channels_compensate · 11 tests"]:::c_aug
+    P5d["**Phase 5d** ✅\nBoundary Search C++\nfind_optimal_boundaries\nGIL-released pixel loop · 10 tests"]:::c_aug
+    P5e["**Phase 5e** ✅\nrender_median Fast Path\nwarp_frames_to_canvas + render_median C++\n1 GB memory guard · 5 tests"]:::c_aug
+    P5f["**Phase 5f** ✅\nrender_laplacian Warp\nParallel OpenMP warpAffine\nReplaces sequential Python loop · 5 tests"]:::c_aug
+    P6["**Phase 6** ⬜\nGPU Acceleration\nOpenCV UMat · CUDA MultiBandBlender\nWebGPU compositing loops"]:::t_feat
+
+    P1 ==> P2
+    P2 ==> P3
+    P3 ==> P4
+    P2 --> P3b
+    P3 --> P3b
+    P2 --> P5
+    P4 --> P5
+    P5 --> P5b
+    P5 --> P5c
+    P5b --> P5d
+    P5c --> P5d
+    P5d --> P5e
+    P5e --> P5f
+    P5f ==> P6
+
+    subgraph Legend
+        direction LR
+        Lc["Complete"]:::c_feat
+        Lt["Planned"]:::t_feat
+        Li["Infrastructure\nborder = cyan"]:::c_infra
+        Lf["New Feature\nborder = blue"]:::c_feat
+        La["Augmentation\nborder = violet"]:::c_aug
+    end
+```
+
+Each node's **fill colour** encodes status: green = complete, light = planned. The **border colour** encodes element type: cyan = infrastructure, blue = new feature, violet = augmentation of an existing feature. **Thick arrows (`==>`)** show critical blocking dependencies that gate the next phase; **thin arrows (`-->`)** show sequential dependencies where work flows but the downstream phase can begin in parallel with other branches. Phase 3b receives inputs from both Phase 2 and Phase 3, reflecting that it hardened matching logic that depends on the edge-graph and bundle-adjust pipelines built in those two phases.
 
 ---
 
@@ -100,50 +153,50 @@ The Python fallback (`_seam_cut_python`) is the existing implementation, renamed
 
 ### Moves to batch/ (C++)
 
-| Python module | batch submodule | Key functions / classes | Rationale |
-|---|---|---|---|
-| `alignment/bundle_adjust.py` | `batch.bundle_adjust` | `_bundle_adjust_affine`, `_spanning_tree_inlier_filter`, `_compute_adaptive_f_scale` | Eigen LM is 20–50× faster than scipy; Jacobian is dense in pixel space |
-| `alignment/canvas.py` | `batch.canvas` | `_compute_canvas`, `_crop_to_valid`, `_telea_fill_gaps`, `_detect_scroll_axis`, `_panorama_stitch_fallback` | cv::warpAffine, cv::inpaint — zero NumPy copy overhead in C++ |
-| `alignment/ecc.py` | `batch.fg_register` | `_ecc_refine` | cv::findTransformECC — Python binding has extra Mat→ndarray copy |
-| `alignment/fg_register.py` | `batch.fg_register` | `_slic_sgm_proxy`, `_arap_regularise`, ARAP sparse solve, LSD collinearity | Sparse Eigen system 10–20× faster than scipy.sparse in Python |
-| `alignment/matching.py` | `batch.matching` | edge graph construction, weight computation, bg filtering of matches, `_filter_edges`, `_reject_static_edges`, `_compute_adaptive_min_disp`, `_spatial_dedup_frames` | Pure computation on match lists; no ML required |
-| `core/validation.py` | `batch.validation` | `_validate_affines`, `_compute_adaptive_min_gap`, `_compute_adaptive_rot_scale` | Tight numeric loops |
-| `flow/cam_flow.py` | `batch.matching` | `_phase_correlate`, `bg_masked_phase_correlate` | FFT via cv::dft or FFTW; Hanning window |
-| `ingestion/frame_selection.py` | `batch.frame_selection` | `_detect_hold_blocks`, `_detect_hold_blocks_dhash`, `_temporal_variance_filter`, `_near_dup_luma_filter`, `_smart_select_frames` (non-DINOv2 path), `_spatial_dedup_frames` | Thumbnail diff loops — OpenMP parallel |
-| `mfsr/dct_restoration.py` | `batch.sr_classical` | DCT-II deblocking | FFTW or cv::dft; much faster than scipy |
-| `mfsr/de_seam.py` | `batch.sr_classical` | seam de-ringing | Frequency-domain; FFTW |
-| `mfsr/pso_registration.py` | `batch.sr_classical` | PSO optimizer | Pure numeric loops; OpenMP for particle eval |
-| `rendering/compositing.py` | `batch.seam` + `batch.compositing` | `_seam_cut`, `_build_seam_cost_map`, `_find_optimal_boundaries`, `_zone_chroma_align`, `_zone_lum_norm`, `_zone_sat_norm`, `_zone_contrast_eq`, `_zone_hue_eq`, `_laplacian_blend`, `_smooth_gain_array`, `_blocks_gain_compensate`, `_blocks_lum_compensate`, `_single_pose_soft_edge`, `_seam_color_match`, `_poisson_seam_blend`, gain normalization loops, all single-pose escalation gates | The pipeline hot path — 80% of total runtime |
-| `rendering/photometric.py` | `batch.exposure` | `_apply_basic`, `_correct_vignetting`, per-block gain | Pixel loops; heavy NumPy |
-| `rendering/rendering.py` | `batch.canvas` | `_render_median`, `_render`, `_render_first` (warpAffine + per-pixel median) | cv::warpAffine across N frames + per-pixel nth_element |
+| Python module                    | batch submodule                        | Key functions / classes                                                                                                                                                                                                                                                                                                                                                                                                       | Rationale                                                                |
+| -------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `alignment/bundle_adjust.py`   | `batch.bundle_adjust`                | `_bundle_adjust_affine`, `_spanning_tree_inlier_filter`, `_compute_adaptive_f_scale`                                                                                                                                                                                                                                                                                                                                    | Eigen LM is 20–50× faster than scipy; Jacobian is dense in pixel space |
+| `alignment/canvas.py`          | `batch.canvas`                       | `_compute_canvas`, `_crop_to_valid`, `_telea_fill_gaps`, `_detect_scroll_axis`, `_panorama_stitch_fallback`                                                                                                                                                                                                                                                                                                         | cv::warpAffine, cv::inpaint — zero NumPy copy overhead in C++           |
+| `alignment/ecc.py`             | `batch.fg_register`                  | `_ecc_refine`                                                                                                                                                                                                                                                                                                                                                                                                               | cv::findTransformECC — Python binding has extra Mat→ndarray copy       |
+| `alignment/fg_register.py`     | `batch.fg_register`                  | `_slic_sgm_proxy`, `_arap_regularise`, ARAP sparse solve, LSD collinearity                                                                                                                                                                                                                                                                                                                                                | Sparse Eigen system 10–20× faster than scipy.sparse in Python          |
+| `alignment/matching.py`        | `batch.matching`                     | edge graph construction, weight computation, bg filtering of matches,`_filter_edges`, `_reject_static_edges`, `_compute_adaptive_min_disp`, `_spatial_dedup_frames`                                                                                                                                                                                                                                                   | Pure computation on match lists; no ML required                          |
+| `core/validation.py`           | `batch.validation`                   | `_validate_affines`, `_compute_adaptive_min_gap`, `_compute_adaptive_rot_scale`                                                                                                                                                                                                                                                                                                                                         | Tight numeric loops                                                      |
+| `flow/cam_flow.py`             | `batch.matching`                     | `_phase_correlate`, `bg_masked_phase_correlate`                                                                                                                                                                                                                                                                                                                                                                           | FFT via cv::dft or FFTW; Hanning window                                  |
+| `ingestion/frame_selection.py` | `batch.frame_selection`              | `_detect_hold_blocks`, `_detect_hold_blocks_dhash`, `_temporal_variance_filter`, `_near_dup_luma_filter`, `_smart_select_frames` (non-DINOv2 path), `_spatial_dedup_frames`                                                                                                                                                                                                                                       | Thumbnail diff loops — OpenMP parallel                                  |
+| `mfsr/dct_restoration.py`      | `batch.sr_classical`                 | DCT-II deblocking                                                                                                                                                                                                                                                                                                                                                                                                             | FFTW or cv::dft; much faster than scipy                                  |
+| `mfsr/de_seam.py`              | `batch.sr_classical`                 | seam de-ringing                                                                                                                                                                                                                                                                                                                                                                                                               | Frequency-domain; FFTW                                                   |
+| `mfsr/pso_registration.py`     | `batch.sr_classical`                 | PSO optimizer                                                                                                                                                                                                                                                                                                                                                                                                                 | Pure numeric loops; OpenMP for particle eval                             |
+| `rendering/compositing.py`     | `batch.seam` + `batch.compositing` | `_seam_cut`, `_build_seam_cost_map`, `_find_optimal_boundaries`, `_zone_chroma_align`, `_zone_lum_norm`, `_zone_sat_norm`, `_zone_contrast_eq`, `_zone_hue_eq`, `_laplacian_blend`, `_smooth_gain_array`, `_blocks_gain_compensate`, `_blocks_lum_compensate`, `_single_pose_soft_edge`, `_seam_color_match`, `_poisson_seam_blend`, gain normalization loops, all single-pose escalation gates | The pipeline hot path — 80% of total runtime                            |
+| `rendering/photometric.py`     | `batch.exposure`                     | `_apply_basic`, `_correct_vignetting`, per-block gain                                                                                                                                                                                                                                                                                                                                                                     | Pixel loops; heavy NumPy                                                 |
+| `rendering/rendering.py`       | `batch.canvas`                       | `_render_median`, `_render`, `_render_first` (warpAffine + per-pixel median)                                                                                                                                                                                                                                                                                                                                            | cv::warpAffine across N frames + per-pixel nth_element                   |
 
 ### Stays in Python (ML inference)
 
-| Python module | Reason stays Python | What it calls that requires Python |
-|---|---|---|
-| `ingestion/masking.py` | BiRefNet (ViT-L transformer), MODNet, SAM2 stateful tracker | `torch`, `transformers`, `sam2` |
-| `alignment/matching.py` (feature extraction part) | EfficientLoFTR, ALIKED, LightGlue, RoMa v2, JamMa | `kornia`, `torch`, `lightglue` |
-| `flow/animeinterp_flow.py` | AnimeInterp optical flow model | `torch`, `ptlflow` |
-| `flow/flow_refine.py` | DIS / SEA-RAFT refinement | `cv2.DISOpticalFlow` (could move but low impact) |
-| `hitl/grounding.py` | GroundingDINO vision-language model | `torch`, `groundingdino` |
-| `hitl/mllm_scorer.py` | LLM/VLM API calls | HTTP + JSON |
-| `hitl/hitl_session.py` | UI orchestration | Qt signals |
-| `hitl/param_search.py` | Orchestration, logging | Pure Python control flow |
-| `hitl/hitl_presets.py` | TOML serialization | Pure Python (fast enough) |
-| `mfsr/diffusion_inpaint.py` | Diffusion model (ProPainter, LaMa) | `torch`, `diffusers` |
-| `mfsr/prior_injection.py` | Diffusion prior injection | `torch` |
-| `mfsr/super_resolution.py` | waifu2x, ESRGAN, Real-ESRGAN | `torch` |
-| `mfsr/drl_registration.py` | DRL model inference | `torch` |
-| `rendering/sr_stitcher.py` | ToonCrafter seam synthesis | `torch` |
-| `rendering/anim_fill.py` | ToonCrafter cel generation | `torch` |
-| `rendering/hybrid_export.py` | Export orchestration | Pure Python |
-| `rlhf/reward_model.py` | PyTorch reward model | `torch` |
-| `rlhf/rlhf_trainer.py` | PyTorch training loop | `torch`, `transformers` |
-| `core/pipeline.py` | Orchestrator — stays Python by design | All of the above |
-| `core/config.py` | TOML loading, env var validation | Pure Python, no speedup needed |
-| `core/data_serialization.py` | JSON / pickle I/O | Pure Python |
-| `ingestion/video_ingestion.py` | Video frame extraction | `cv2.VideoCapture` (Python sufficient) |
-| `ingestion/bg_complete.py` | ProPainter background completion | `torch` |
+| Python module                                       | Reason stays Python                                         | What it calls that requires Python                 |
+| --------------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------- |
+| `ingestion/masking.py`                            | BiRefNet (ViT-L transformer), MODNet, SAM2 stateful tracker | `torch`, `transformers`, `sam2`              |
+| `alignment/matching.py` (feature extraction part) | EfficientLoFTR, ALIKED, LightGlue, RoMa v2, JamMa           | `kornia`, `torch`, `lightglue`               |
+| `flow/animeinterp_flow.py`                        | AnimeInterp optical flow model                              | `torch`, `ptlflow`                             |
+| `flow/flow_refine.py`                             | DIS / SEA-RAFT refinement                                   | `cv2.DISOpticalFlow` (could move but low impact) |
+| `hitl/grounding.py`                               | GroundingDINO vision-language model                         | `torch`, `groundingdino`                       |
+| `hitl/mllm_scorer.py`                             | LLM/VLM API calls                                           | HTTP + JSON                                        |
+| `hitl/hitl_session.py`                            | UI orchestration                                            | Qt signals                                         |
+| `hitl/param_search.py`                            | Orchestration, logging                                      | Pure Python control flow                           |
+| `hitl/hitl_presets.py`                            | TOML serialization                                          | Pure Python (fast enough)                          |
+| `mfsr/diffusion_inpaint.py`                       | Diffusion model (ProPainter, LaMa)                          | `torch`, `diffusers`                           |
+| `mfsr/prior_injection.py`                         | Diffusion prior injection                                   | `torch`                                          |
+| `mfsr/super_resolution.py`                        | waifu2x, ESRGAN, Real-ESRGAN                                | `torch`                                          |
+| `mfsr/drl_registration.py`                        | DRL model inference                                         | `torch`                                          |
+| `rendering/sr_stitcher.py`                        | ToonCrafter seam synthesis                                  | `torch`                                          |
+| `rendering/anim_fill.py`                          | ToonCrafter cel generation                                  | `torch`                                          |
+| `rendering/hybrid_export.py`                      | Export orchestration                                        | Pure Python                                        |
+| `rlhf/reward_model.py`                            | PyTorch reward model                                        | `torch`                                          |
+| `rlhf/rlhf_trainer.py`                            | PyTorch training loop                                       | `torch`, `transformers`                        |
+| `core/pipeline.py`                                | Orchestrator — stays Python by design                      | All of the above                                   |
+| `core/config.py`                                  | TOML loading, env var validation                            | Pure Python, no speedup needed                     |
+| `core/data_serialization.py`                      | JSON / pickle I/O                                           | Pure Python                                        |
+| `ingestion/video_ingestion.py`                    | Video frame extraction                                      | `cv2.VideoCapture` (Python sufficient)           |
+| `ingestion/bg_complete.py`                        | ProPainter background completion                            | `torch`                                          |
 
 ---
 
@@ -345,6 +398,7 @@ inline pybind11::array_t<uint8_t> array_from_mat(const cv::Mat& mat) {
 **Key algorithms**:
 
 1. **Phase correlation** (`matching.cpp::phase_correlate_masked`):
+
    - Accepts two `(H,W)` uint8 luma planes + optional mask
    - Applies Hanning window: `w[y][x] = sin(π·y/H)·sin(π·x/W)` or `cv::createHanningWindow()`
    - Zero-mask background pixels: `img_masked[y][x] = (mask[y][x] > 127) ? img[y][x] : mean_bg`
@@ -352,16 +406,17 @@ inline pybind11::array_t<uint8_t> array_from_mat(const cv::Mat& mat) {
    - `cv::phaseCorrelate(a_windowed, b_windowed, hanning)` → `(Point2d shift, double response)`
    - Returns `{dx, dy, response}` as Python dict
    - C++ eliminates 3 intermediate numpy copies (mask apply, highpass, hanning multiply)
-
 2. **Edge graph construction** (`matching.cpp::build_edge_graph`):
+
    - Input: Python list of per-pair match dicts (from Python LoFTR/ALIKED)
    - Filters: `§1.36` spread MAD, `§1.38` bg-ratio, `§1.47` sign consistency, `§1.48` CV, `§1.49` adj-min, `§2.14` triangular consistency
    - Outputs: filtered `std::vector<Edge>` → pybind11 list of dicts
-
 3. **Static edge rejection** (`matching.cpp::reject_static_edges`):
+
    - `§1.2A`: drop edges where both `|dx| < STATIC_EDGE_MIN_DISP_PX` and `|dy| < STATIC_EDGE_MIN_DISP_PX`
 
 **Python API**:
+
 ```python
 # batch.matching
 shift, response = batch.matching.phase_correlate_masked(
@@ -380,12 +435,13 @@ min_disp = batch.matching.compute_adaptive_min_disp(edges)
 **Key algorithms**:
 
 1. **Spanning-tree inlier filter** (`bundle_adjust.cpp::spanning_tree_inlier_filter`):
+
    - Kruskal greedy (highest-weight-first) maximum spanning tree via Union-Find with path compression
    - BFS from frame 0 propagates `tx_ref[j] = tx_ref[curr] + dtx` along tree edges
    - Reject edges where `sqrt((pred_dx−obs_dx)²+(pred_dy−obs_dy)²) > INLIER_THRESH=50px`
    - Fallback if graph disconnected or < max(2,N-1) inliers survive → return original edges
-
 2. **GNC-TLS outer loop** (`bundle_adjust.cpp::gnc_bundle_adjust`):
+
    - 8 outer iterations. Geman-McClure weight: `w_i = (μ/(μ + r²_i))²`
    - `μ₀ = max(r²) / (2c²)` where `c` is the target inlier threshold
    - Anneal: `μ ← μ / 1.4` per iteration (drives weights toward 0/1 hard assignment)
@@ -398,19 +454,20 @@ min_disp = batch.matching.compute_adaptive_min_disp(edges)
      ```
    - Weighted normal equations: `(J^T W J) Δx = J^T W r`
    - Solved via `Eigen::LDLT<MatrixXf>` (positive semi-definite, O(N³) but N≤100)
-
 3. **Adaptive f_scale** (`bundle_adjust.cpp::compute_adaptive_f_scale`):
+
    - After initial solve: `median_residual_px = median(|r_i|)`
    - `adaptive_scale = max(FLOOR, 2.0 × median_residual_px)`
    - Re-solve warm-started if `adaptive_scale > BA_F_SCALE × 1.5`
-
 4. **Cauchy robust loss** (inner solve):
+
    - `ρ(r) = log(1 + (r/f)²)`, `ρ'(r) = 2r / (f² + r²)`
    - Equivalent to IRLS weight `w_i = 1 / (1 + (r_i/f)²)`
 
 **Reference**: OpenCV `BundleAdjusterAffinePartial` uses identical LM structure but with `CvLevMarq`. ASP's Eigen implementation is equivalent; Eigen's LDLT is ~3× faster than CvLevMarq for N < 50.
 
 **Python API**:
+
 ```python
 affines = batch.bundle_adjust.bundle_adjust_affine(
     edges,           # List[dict] with src, dst, dx, dy, weight
@@ -440,6 +497,7 @@ edges_filtered = batch.bundle_adjust.spanning_tree_inlier_filter(
 - `compute_adaptive_rot_scale(affines)`: checks rotation and scale deviation
 
 **Python API**:
+
 ```python
 ok, reason = batch.validation.validate_affines(
     affines, min_step=25.0, max_ratio=8.0, max_gap=500.0)
@@ -455,22 +513,17 @@ min_gap = batch.validation.compute_adaptive_min_gap(affines)
 **Key algorithms**:
 
 1. **`compute_canvas`**: Compute bounding box of all warped frame corners. Midplane shift via StabStitch++ bidirectional affine averaging. Gates (aspect ratio, width ratio, MB limit) checked in Python after C++ returns canvas dimensions.
-
 2. **`warp_frames_to_canvas`**: `cv::warpAffine(frame, M, canvas_size, INTER_LINEAR)` for all N frames via OpenMP parallel loop. Returns list of warped numpy arrays.
-
 3. **`render_median`**: Per-pixel `cv::sort` or `std::nth_element` across N warped frames. Fully parallel across rows via OpenMP. This is the single biggest CPU bottleneck in the current Python implementation (14 frames × 4K canvas = 3.7M pixels × `nth_element` in Python).
 
    Overmix's `StatisticsRender::MEDIAN` does exactly this — `nth_element` per pixel in C++. Our implementation follows the same approach.
-
 4. **`crop_to_valid`**: Horizontal scan for valid pixel fraction ≥ 0.8; bounding box or max-inscribed rectangle for diagonal scroll.
-
 5. **`telea_fill_gaps`**: `cv::inpaint(INPAINT_TELEA, inpaintRadius=3)` — already uses cv2 in Python; C++ wrapper eliminates Mat copy.
-
 6. **`detect_scroll_axis`**: Mean horizontal vs vertical flow from adjacent-frame diffs.
-
 7. **`panorama_stitch_fallback`**: Wraps `cv::Stitcher_create(PANORAMA)` with proper error code handling and fallback signaling.
 
 **Python API**:
+
 ```python
 canvas_h, canvas_w, shift = batch.canvas.compute_canvas(affines, frame_shapes)
 warped = batch.canvas.warp_frames_to_canvas(frames, affines, canvas_h, canvas_w)
@@ -489,6 +542,7 @@ The seam module is the highest-impact target. The Python `_seam_cut` + `_build_s
 **1. `_seam_cut` DP (`seam.cpp::seam_cut`):**
 
 Current Python logic:
+
 ```python
 # Forward pass (S10 vectorized):
 energy = cost + 0.5*|∇diff| + edge_weight*(|∇img1| + |∇img2|) + sem_cost
@@ -498,6 +552,7 @@ for col in range(W):
 ```
 
 C++ implementation:
+
 ```cpp
 // seam.cpp
 std::vector<int> seam_cut(
@@ -514,20 +569,20 @@ std::vector<int> seam_cut(
     // Per-pixel luma diff
     cv::Mat luma_diff(H, W, CV_32F);
     // ... weighted sum over channels with LUMINANCE_WEIGHTS
-    
+  
     // Gradient of diff (∇diff)
     cv::Mat grad_diff;
     cv::Sobel(luma_diff, grad_diff, CV_32F, 1, 0, 3);
     cv::absdiff(grad_diff, cv::Scalar(0), grad_diff);
-    
+  
     // Image gradients (|∇img1| + |∇img2|)
     cv::Mat g1, g2;
     // ... cv::Sobel on luma channels
-    
+  
     // Energy map: E[y][x] = diff + 0.5*|∇diff| + edge_w*(g1+g2) + sem_cost
     cv::Mat energy(H, W, CV_32F);
     // ... combine
-    
+  
     // §1.125: transition penalty — add row-distance-from-midline prior
     if (transition_penalty > 0.0f) {
         int mid_row = H / 2;
@@ -538,7 +593,7 @@ std::vector<int> seam_cut(
                 erow[x] += dist * transition_penalty;
         }
     }
-    
+  
     // DP forward pass with minimum_filter1d(size=3) equivalent
     // (min of left-neighbour, centre, right-neighbour)
     cv::Mat dp(H, W, CV_32F, cv::Scalar(std::numeric_limits<float>::infinity()));
@@ -577,6 +632,7 @@ std::vector<int> seam_cut(
 **2. `_build_seam_cost_map` (`seam.cpp::build_seam_cost_map`):**
 
 All 6 cost tiers implemented in C++ with OpenMP column loops:
+
 - Tier 0: background = 0.0
 - Tier 0.3 (§3.20 EXTRA_FG_DILATION): outer ring = 0.3
 - Tier 0.5 (§3.Tier-2 buffer): edge buffer = 0.5
@@ -586,6 +642,7 @@ All 6 cost tiers implemented in C++ with OpenMP column loops:
 - Tier 1e6 (hard barrier): pinned rows
 
 Additional modifiers in C++:
+
 - §1.110 COST_MAP_BLUR_SIGMA: `cv::GaussianBlur` on soft cost
 - §1.113 COST_COL_SMOOTH_SIGMA: 1D Gaussian on per-column mean
 - §1.109 COST_MAP_NORM: renormalize barriers after blur
@@ -642,6 +699,7 @@ std::vector<std::vector<int>> seam_batch(
 ```
 
 **Python API**:
+
 ```python
 path = batch.seam.seam_cut(fa_zone, fb_zone, sem_cost, waypoints, transition_penalty)
 cost_map = batch.seam.build_seam_cost_map(fa_zone, bg_mask_a, bg_mask_b, ...)
@@ -682,6 +740,7 @@ cv::Mat zone_hue_eq(const cv::Mat& fa, const cv::Mat& fb,
 ```
 
 All follow the same pattern:
+
 - `cv::cvtColor(fb, fb_conv, COLOR_BGR2LAB)` / `COLOR_BGR2HSV`
 - Compute channel means over non-black pixels using `cv::mean()` with mask
 - Compute scalar ratio or difference
@@ -721,6 +780,7 @@ cv::Mat laplacian_blend(
 ```
 
 **Optionally** replaces with `cv::detail::MultiBandBlender` (§4.6):
+
 ```cpp
 cv::detail::MultiBandBlender blender(/*try_gpu=*/false, /*num_bands=*/5);
 blender.prepare(canvas_rect);
@@ -729,6 +789,7 @@ blender.feed(fb_zone_full, fb_mask, fb_tl);
 cv::Mat result_bgr, result_mask;
 blender.blend(result_bgr, result_mask);
 ```
+
 The MultiBandBlender uses the distance-transform weight map (each pixel weighted by distance to the nearest seam), which is strictly better than our linear feather.
 
 **3. Single-pose soft edge** (`compositing.cpp::single_pose_soft_edge`):
@@ -744,6 +805,7 @@ Per-channel mean shift in blend band. `band_mean_dom = mean(dom_zone[band_rows])
 The current Python loop applies per-frame scalar gains with Gaussian smoothing (`§1.98 gaussian_filter1d`), coherence gate skip (`§1.18`), and per-pair clamp (`§1.4B`). In C++ this is a tight `std::for_each` with OpenMP parallel pixel loops per frame.
 
 **Python API**:
+
 ```python
 fb_aligned = batch.compositing.zone_chroma_align(fa_zone, fb_zone)
 fb_aligned = batch.compositing.zone_lum_norm(fa_zone, fb_aligned)
@@ -795,6 +857,7 @@ py::list blocks_gain_compensate(
 ```
 
 `BlocksGainCompensator` internal math (from `opencv/modules/stitching/src/exposure_compensate.cpp`):
+
 - Per 32×32 block overlap pair (i,j): build `A[i,j] += Σ pix²`, `b[i] += Σ pix_i × pix_j`
 - Solve `A × gain = b` via `A.ldlt().solve(b)` (Eigen Cholesky, positive semi-definite)
 - `nr_iterations` rounds of 5×5 Gaussian smoothing on the gain map grid
@@ -803,6 +866,7 @@ py::list blocks_gain_compensate(
 **Also add**: `cv::detail::BlocksChannelsCompensator` (per-block per-channel) for white-balance correction (§4.4, three separate gain maps — one per BGR channel).
 
 **Python API**:
+
 ```python
 compensated = batch.exposure.blocks_gain_compensate(
     warped_frames, warped_masks, corners,
@@ -819,31 +883,37 @@ corrected = batch.exposure.correct_vignetting(frame, vignette_map)
 **Replaces**: `ingestion/frame_selection.py` (non-DINOv2 paths).
 
 **1. Hold block detection** (`frame_selection.cpp::detect_hold_blocks_mad`):
+
 - Per-pair mean absolute difference (MAD) of thumbnail luma planes
 - OpenMP parallel: each pair (i, i+1) computed independently
 - Returns `List[int]` hold IDs
 
 **2. dHash hold detection** (`frame_selection.cpp::detect_hold_blocks_dhash`):
+
 - `INTER_AREA` resize to `(hash_size*2, hash_size)` — eliminates MPEG DCT block noise
 - Horizontal gradient binarisation: `hash[y][x] = (row[x+1] > row[x]) ? 1 : 0`
 - Hamming distance: `std::bitset` XOR popcount
 - Returns `List[int]` hold IDs
 
 **3. Temporal variance filter** (`frame_selection.cpp::temporal_variance_filter`):
+
 - For each interior frame i: compute mean per-pixel variance across triplet (i-1, i, i+1)
 - Drop frame if mean variance < threshold
 - OpenMP parallel per frame
 
 **4. Near-dup luma filter** (`frame_selection.cpp::near_dup_luma_filter`):
+
 - Per-pair mean abs grayscale diff at thumbnail scale
 - Drop near-duplicates (first/last always kept)
 
 **5. Spatial dedup** (`frame_selection.cpp::spatial_dedup_frames`):
+
 - Extract: translated bounding boxes from affines
 - Drop frame if translated box overlap with accepted frame > threshold
 - Returns `keep_idx` list
 
 **Python API**:
+
 ```python
 hold_ids = batch.frame_selection.detect_hold_blocks_mad(thumbs, threshold=0.025)
 hold_ids = batch.frame_selection.detect_hold_blocks_dhash(thumbs, hamming_thresh=4)
@@ -862,6 +932,7 @@ keep_idx = batch.frame_selection.spatial_dedup_frames(
 **Replaces**: `alignment/bundle_adjust.py::_wave_correct_affines`.
 
 **1. Linear drift subtraction** (`wave_correct.cpp::wave_correct_affines`):
+
 - Extract `[tx_i]` and `[ty_i]` sequences from affine matrices
 - `np.polyfit(frame_idx, tx, 1)` equivalent: least-squares linear fit via Eigen `householderQr()`
 - Subtract linear trend from tx (or ty if horizontal scroll)
@@ -869,10 +940,12 @@ keep_idx = batch.frame_selection.spatial_dedup_frames(
 - Returns corrected affines list
 
 **2. Rotation matrix wave correct** (for future Phase 4 use):
+
 - `cv::detail::waveCorrect(rmats, cv::detail::WAVE_CORRECT_HORIZ)` from OpenCV
 - SVD of `[r3_rows stacked]`, rotate sequence to align panorama midline with horizontal
 
 **Python API**:
+
 ```python
 corrected_affines = batch.wave_correct.wave_correct_affines(
     affines, axis='vertical', min_range_px=5.0)
@@ -885,12 +958,14 @@ corrected_affines = batch.wave_correct.wave_correct_affines(
 The flow inference itself (SEA-RAFT, DISOpticalFlow) stays Python. C++ accelerates the downstream ARAP solver, LSD collinearity, and ECC refinement.
 
 **1. SLIC-SGM proxy** (`fg_register.cpp::slic_sgm_proxy`):
+
 - `cv::ximgproc::createSuperpixelSLIC(image, SLICO, region_size=10, ruler=10.0)`
 - `->iterate(10)` → label map
 - SGM proxy: for each SLIC segment, compute mean flow from SEA-RAFT output
 - Returns per-pixel "consensus flow" where SLIC smooths noisy optical flow
 
 **2. LSD collinearity** (`fg_register.cpp::lsd_collinearity`):
+
 - `cv::createLineSegmentDetector(0)->detect(seam_band_crop, lines)`
 - For each detected line segment: project horizontal flow component `u_proj = u·cos(θ) + v·sin(θ)` where θ is line angle
 - Constraint: `u_proj ≈ 0` for vertical lines (collinear flow constraint)
@@ -898,15 +973,18 @@ The flow inference itself (SEA-RAFT, DISOpticalFlow) stays Python. C++ accelerat
 - `image_offset=(y0_crop, 0)` converts LSD coordinates to canvas space
 
 **3. ARAP sparse solver** (`fg_register.cpp::arap_push_regularise`):
+
 - Builds `N_cells × N_cells` sparse Eigen matrix from flow ARAP constraints + LSD collinearity
 - Solves via `Eigen::SparseLU` or `Eigen::ConjugateGradient`
 - 10–20× faster than `scipy.sparse.linalg.spsolve` for matrices under 10,000 cells
 
 **4. ECC affine refinement** (`fg_register.cpp::ecc_refine`):
+
 - `cv::findTransformECC(tmpl, src, M, MOTION_EUCLIDEAN, criteria, mask)`
 - Python wrapper eliminates Mat↔ndarray copies around the cv2 call
 
 **Python API**:
+
 ```python
 consensus_flow = batch.fg_register.slic_sgm_proxy(
     image, raw_flow, region_size=10)
@@ -925,12 +1003,14 @@ M_refined = batch.fg_register.ecc_refine(
 **Replaces**: `mfsr/dct_restoration.py`, `mfsr/de_seam.py`, `mfsr/pso_registration.py`.
 
 **1. DCT restoration** (`sr_classical.cpp::dct_restore`):
+
 - 2D DCT-II via `cv::dft` with `DFT_ROWS` flag in tile mode, or FFTW `FFTW_REDFT10` if available
 - Pattern removal (`PatternRemove` from Overmix): subtract modular periodic mean from tile grid
 - Block deblocking: regularize 8×8 block boundaries in DCT domain
 - Faster than scipy's `fft2` (OpenCV dft uses split-radix FFT)
 
 **2. PSO registration** (`sr_classical.cpp::pso_register`):
+
 - Particle swarm optimizer for sub-pixel affine alignment
 - `N_particles` (default 30) particles, each representing `[dx, dy, angle, scale]`
 - Fitness: `Difference::simpleAlpha`-style MAD (borrowed from Overmix)
@@ -938,10 +1018,12 @@ M_refined = batch.fg_register.ecc_refine(
 - OpenMP parallel particle fitness evaluation
 
 **3. De-seam** (`sr_classical.cpp::de_seam`):
+
 - Frequency-domain seam ringing suppression
 - 1D FFT along seam direction; zero notch filter at seam frequency; IFFT
 
 **4. Overmix-inspired L1 sparse SR** (`sr_classical.cpp::robust_sr`):
+
 - Port of `RobustSrRender::compute()`: build Eigen sparse DHF matrix
 - `H[pixel_hr, pixel_lr]` = bilinear interpolation weights from LR pixel s to HR pixel at `(i/scale, j/scale)`
 - L1 sub-gradient descent: `x -= β · sign(H·x − y) · H^T` for `nr_iterations`
@@ -949,6 +1031,7 @@ M_refined = batch.fg_register.ecc_refine(
 - Applied to **background regions only** (where pixel-identical averaging is valid)
 
 **Python API**:
+
 ```python
 restored = batch.sr_classical.dct_restore(frame, block_size=8)
 refined_affine = batch.sr_classical.pso_register(
@@ -961,33 +1044,33 @@ frame_sr = batch.sr_classical.robust_sr(
 
 ## Python-Stays Modules (explicit list with rationale)
 
-| Module | Why it stays Python | Key dependency |
-|---|---|---|
-| `ingestion/masking.py` | BiRefNet ViT-L transformer; SAM2 video tracker; MODNet | `torch`, `transformers`, `sam2` |
-| `alignment/matching.py` (feature inference) | EfficientLoFTR, ALIKED, LightGlue, RoMa v2, JamMa | `kornia`, `torch`, `lightglue` |
-| `flow/animeinterp_flow.py` | AnimeInterp optical flow model | `torch`, `ptlflow` |
-| `flow/flow_refine.py` | SEA-RAFT refinement | `torch`, `ptlflow` |
-| `hitl/grounding.py` | GroundingDINO vision-language model | `torch`, `groundingdino` |
-| `hitl/mllm_scorer.py` | LLM/VLM API calls | HTTP + JSON; no speedup possible |
-| `hitl/hitl_session.py` | Qt UI orchestration | PySide6 |
-| `hitl/param_search.py` | Orchestration; calls pipeline | Pure Python; no bottleneck |
-| `hitl/hitl_presets.py` | TOML serialization | Pure Python; microseconds |
-| `mfsr/diffusion_inpaint.py` | ProPainter, LaMa | `torch`, `diffusers` |
-| `mfsr/prior_injection.py` | Diffusion prior injection | `torch` |
-| `mfsr/super_resolution.py` | waifu2x, Real-ESRGAN | `torch` |
-| `mfsr/drl_registration.py` | DRL model inference | `torch` |
-| `rendering/sr_stitcher.py` | ToonCrafter seam synthesis | `torch` |
-| `rendering/anim_fill.py` | ToonCrafter cel generation | `torch` |
-| `rendering/hybrid_export.py` | Export orchestration | Pure Python |
-| `rlhf/reward_model.py` | PyTorch reward model | `torch` |
-| `rlhf/rlhf_trainer.py` | PyTorch training loop | `torch`, `transformers` |
-| `core/pipeline.py` | Orchestrator — stays Python by design | All of the above |
-| `core/config.py` | TOML loading; `validate_asp_config` | Pure Python; not a bottleneck |
-| `core/data_serialization.py` | JSON/pickle I/O | Pure Python |
-| `ingestion/video_ingestion.py` | `cv2.VideoCapture`; sequential I/O | No compute bottleneck |
-| `ingestion/bg_complete.py` | ProPainter background completion | `torch` |
-| `rlhf/bench_import.py` | Benchmark result import | Pure Python |
-| `rlhf/feedback_store.py` | SQLite via stdlib | Pure Python |
+| Module                                        | Why it stays Python                                    | Key dependency                        |
+| --------------------------------------------- | ------------------------------------------------------ | ------------------------------------- |
+| `ingestion/masking.py`                      | BiRefNet ViT-L transformer; SAM2 video tracker; MODNet | `torch`, `transformers`, `sam2` |
+| `alignment/matching.py` (feature inference) | EfficientLoFTR, ALIKED, LightGlue, RoMa v2, JamMa      | `kornia`, `torch`, `lightglue`  |
+| `flow/animeinterp_flow.py`                  | AnimeInterp optical flow model                         | `torch`, `ptlflow`                |
+| `flow/flow_refine.py`                       | SEA-RAFT refinement                                    | `torch`, `ptlflow`                |
+| `hitl/grounding.py`                         | GroundingDINO vision-language model                    | `torch`, `groundingdino`          |
+| `hitl/mllm_scorer.py`                       | LLM/VLM API calls                                      | HTTP + JSON; no speedup possible      |
+| `hitl/hitl_session.py`                      | Qt UI orchestration                                    | PySide6                               |
+| `hitl/param_search.py`                      | Orchestration; calls pipeline                          | Pure Python; no bottleneck            |
+| `hitl/hitl_presets.py`                      | TOML serialization                                     | Pure Python; microseconds             |
+| `mfsr/diffusion_inpaint.py`                 | ProPainter, LaMa                                       | `torch`, `diffusers`              |
+| `mfsr/prior_injection.py`                   | Diffusion prior injection                              | `torch`                             |
+| `mfsr/super_resolution.py`                  | waifu2x, Real-ESRGAN                                   | `torch`                             |
+| `mfsr/drl_registration.py`                  | DRL model inference                                    | `torch`                             |
+| `rendering/sr_stitcher.py`                  | ToonCrafter seam synthesis                             | `torch`                             |
+| `rendering/anim_fill.py`                    | ToonCrafter cel generation                             | `torch`                             |
+| `rendering/hybrid_export.py`                | Export orchestration                                   | Pure Python                           |
+| `rlhf/reward_model.py`                      | PyTorch reward model                                   | `torch`                             |
+| `rlhf/rlhf_trainer.py`                      | PyTorch training loop                                  | `torch`, `transformers`           |
+| `core/pipeline.py`                          | Orchestrator — stays Python by design                 | All of the above                      |
+| `core/config.py`                            | TOML loading;`validate_asp_config`                   | Pure Python; not a bottleneck         |
+| `core/data_serialization.py`                | JSON/pickle I/O                                        | Pure Python                           |
+| `ingestion/video_ingestion.py`              | `cv2.VideoCapture`; sequential I/O                   | No compute bottleneck                 |
+| `ingestion/bg_complete.py`                  | ProPainter background completion                       | `torch`                             |
+| `rlhf/bench_import.py`                      | Benchmark result import                                | Pure Python                           |
+| `rlhf/feedback_store.py`                    | SQLite via stdlib                                      | Pure Python                           |
 
 **Special case — `rendering/compositing.py`**: The file stays but becomes a thin wrapper. Every function body is replaced with an `batch` call + Python fallback. The 90+ `ASP_*` env flags remain in Python (they are read at import time and passed as arguments to the C++ functions). The C++ functions do not read environment variables — flags are passed explicitly, ensuring the `_CONFIG_SCHEMA` validation and TOML loading remain in Python.
 
@@ -1000,6 +1083,7 @@ frame_sr = batch.sr_classical.robust_sr(
 **Goal**: `import batch` works; all existing tests pass; C++ build is opt-in.
 
 Tasks:
+
 1. Create `batch/CMakeLists.txt` with find_package for OpenCV 4.8+, Eigen3, pybind11, OpenMP
 2. Create `batch/include/batch/common.hpp` (numpy↔cv::Mat converters)
 3. Create `batch/include/batch/affine_types.hpp` (`AffineParams`, `Edge`, `ZonePair` structs)
@@ -1026,16 +1110,17 @@ Tasks:
 **Goal**: `batch.seam` and `batch.compositing` provide verified C++ implementations that pass reference comparison tests.
 
 Tasks:
-- [x] 1. `seam.cpp`: `seam_cut`, `build_seam_cost_map` (all 6 tiers + §1.110/§1.113/§1.109/§1.123)
-- [x] 2. `seam.cpp`: `seam_batch` (parallel N-1 seams via OpenMP) — C++ done Phase 2; Python wiring (`ASP_SEAM_BATCH`, `batch.seam.seam_batch`) done Phase 4
-- [x] 3. `compositing.cpp`: `zone_chroma_align`, `zone_lum_norm`, `zone_sat_norm`, `zone_contrast_eq`, `zone_hue_eq`
-- [x] 4. `compositing.cpp`: `laplacian_blend`, `single_pose_soft_edge`, `seam_color_match`, `poisson_seam_blend`
-- [x] 5. `compositing.cpp`: `smooth_gain_array`, `normalize_warped_frames` (gain loops)
-- [x] 6. `exposure.cpp`: `blocks_gain_compensate`, `blocks_lum_compensate`
-- [x] 7. Wire each into Python fallback pattern in `rendering/compositing.py`
-- [x] 8. Write `batch/tests/test_seam_cpp.py`: for each C++ function, compare pixel-by-pixel to Python reference (tolerance: max diff ≤ 2 for uint8, ≤ 0.1px for paths)
-- [x] 9. Write `batch/tests/test_compositing_cpp.py`: same for zone functions and blend
-- [x] Bug fix: `seam_cut`/`seam_batch` pybind11 zero-stride array bug (`py::array_t<T>(size, ptr)` → explicit shape+stride+owned allocation)
+
+- [X] 
+- [X] 
+- [X] 
+- [X] 
+- [X] 
+- [X] 
+- [X] 
+- [X] 
+- [X] 
+- [X] Bug fix: `seam_cut`/`seam_batch` pybind11 zero-stride array bug (`py::array_t<T>(size, ptr)` → explicit shape+stride+owned allocation)
 
 **Expected speedup**: compositing stage 15–30s → 0.5–2s (10–30×). Primary drivers: `seam_batch` (OpenMP), zone functions (SIMD in OpenCV's convert), `render_median` (OpenMP nth_element).
 
@@ -1048,15 +1133,16 @@ Tasks:
 **Goal**: `batch.bundle_adjust`, `batch.matching`, `batch.validation`, `batch.wave_correct`.
 
 Tasks:
-- [x] 1. `bundle_adjust.cpp`: `spanning_tree_inlier_filter` (Kruskal + Union-Find + BFS)
-- [x] 2. `bundle_adjust.cpp`: `gnc_bundle_adjust` (GNC-TLS outer loop, Eigen LM inner, Cauchy, adaptive f_scale)
-- [x] 3. `matching.cpp`: `phase_correlate_masked` (cv::phaseCorrelate + bg masking)
-- [ ] 4. `matching.cpp`: `build_edge_graph` (all post-match gates: §1.36, §1.38, §1.47, §1.48, §1.49, §2.14) — deferred to Phase 3b
-- [x] 5. `matching.cpp`: `reject_static_edges`, `compute_adaptive_min_disp` (spatial_dedup_frames deferred to Phase 5)
-- [x] 6. `validation.cpp`: `validate_affines`, `compute_adaptive_min_gap`, `compute_adaptive_rot_scale`
-- [x] 7. `wave_correct.cpp`: `wave_correct_affines` (Eigen HouseholderQR linear polyfit)
-- [x] 8. Wire into Python fallbacks: `alignment/bundle_adjust.py` (fixed submodule paths), `flow/cam_flow.py`, `core/validation.py`, `core/pipeline.py` (_wave_correct_affines)
-- [x] 9. Tests: `test_bundle_adjust.cpp` (done), `test_matching.cpp` (enabled), `test_validation.cpp` (new), `test_wave_correct.cpp` (new)
+
+- [X] 
+- [X] 
+- [X] 
+- [X] 
+- [X] 
+- [X] 
+- [X] 
+- [X] 
+- [X] 
 
 **Expected speedup**: alignment stage 2–5s → 0.05–0.2s (10–50×). Eigen LM vs scipy is the biggest win: the N×N normal equations for N≤30 are solved in <1ms in Eigen vs ~50ms in scipy.
 
@@ -1067,23 +1153,31 @@ Tasks:
 **Goal**: Implement §4.2 (GraphCutSeamFinder) and §4.6 (MultiBandBlender) using OpenCV C++ directly. These are qualitatively better algorithms, not just faster ports.
 
 Tasks:
-- [x] 1. `seam.cpp::graphcut_seam_find`: wraps `cv::detail::GraphCutSeamFinder("COST_COLOR_GRAD")`
+
+- [X] 
+
   - Input: N warped frames in canvas space + N binary masks + N corner positions
   - Output: N updated ownership masks (per-pixel, 255=this frame owns this pixel)
-  - C++ implementation and pybind11 binding done. Gate flag `ASP_GRAPHCUT_SEAM=1` defined in `compositing.py`.
-  - [ ] Wire dispatch into `rendering/compositing.py::_composite_foreground` after Stage 10 render
+  - C++ implementation and pybind11 binding done.
 
-- [x] 2. `compositing.cpp::multiband_blend`: wraps `cv::detail::MultiBandBlender`
+  - [X] Wired into `rendering/compositing.py::_composite_foreground` — early-return path before hard-partition; gate `ASP_GRAPHCUT_SEAM=1`. Falls back to DP blend on any exception.
+- [X] 
+
   - Input: N warped frames + N ownership masks + N canvas corners + num_bands
-  - Output: blended canvas
-  - C++ implementation and pybind11 binding done. Gate flag `ASP_MULTIBAND_BLEND=1` defined in `compositing.py`.
-  - [ ] Wire dispatch into `rendering/compositing.py` blend loop
+  - Output: blended canvas (union bounding box, clipped to canvas shape)
+  - C++ implementation and pybind11 binding done.
 
-- [ ] 3. Update benchmark to measure impact:
-  - Add `seam_ownership_entropy` metric (how contested each seam pixel is)
+  - [X] Wired into `rendering/compositing.py` — combined with GraphCut path when both `ASP_GRAPHCUT_SEAM=1` and `ASP_MULTIBAND_BLEND=1`.
+- [X] 
+
+  - [X] `seam_ownership_entropy` (§4.3): Shannon entropy of luminance at estimated seam boundary bands — wired into `_compute_all_metrics`. Low = clean blend; high = contested/ghosted.
+
   - Expected: ghosting 93.8% → target <30%; seam_visibility 88.5% → target <20%
+- [X] 
 
-- [x] 4. Tests: C++ native tests for `graphcut_seam_find` and `multiband_blend` pass (`batch/tests/test_seam.cpp`, `batch/tests/test_compositing.cpp`)
+  - C++ native tests pass (`batch/tests/test_seam.cpp`, `batch/tests/test_compositing.cpp`)
+  - Python `TestGraphcutSeamWiring` (5 tests) + `TestSeamOwnershipEntropy` (5 tests) — all pass
+  - Full suite: 1318 passed, 28 skipped, 0 failed
 
 **This phase directly addresses the benchmark's two largest failure modes** (from the deep analysis: pairwise DP seams conflict in `_seam_cut`; OpenCV's `GCGraph` solves globally for all N images simultaneously eliminating conflicts).
 
@@ -1094,14 +1188,49 @@ Tasks:
 **Goal**: Complete the migration of remaining classical stages.
 
 Tasks:
-1. `canvas.cpp`: `warp_frames_to_canvas` (OpenMP parallel cv::warpAffine), `render_median` (OpenMP nth_element), `crop_to_valid`, `telea_fill_gaps`, `detect_scroll_axis`, `panorama_stitch_fallback`
-2. `fg_register.cpp`: `slic_sgm_proxy`, `lsd_collinearity`, `arap_push_regularise` (Eigen SparseLU), `ecc_refine`
-3. `frame_selection.cpp`: `detect_hold_blocks_mad`, `detect_hold_blocks_dhash`, `temporal_variance_filter`, `near_dup_luma_filter`, `spatial_dedup_frames`
-4. `sr_classical.cpp`: `dct_restore`, `de_seam`, `pso_register`, `robust_sr` (Overmix RobustSrRender port)
-5. Wire into Python fallbacks in `alignment/canvas.py`, `alignment/fg_register.py`, `ingestion/frame_selection.py`, `mfsr/`
-6. Tests for each new module
 
-**Expected speedup**: `render_median` (14 frames × 4K canvas: Python ~8s → C++ ~0.3s, 25×). `arap_push_regularise` (Eigen SparseLU vs scipy.sparse: 10–20×). PSO registration (OpenMP particle parallel: 4–8×).
+- [X] 
+- [X] 
+- [X] 
+- [X] 
+- [X] 
+- [X] 
+
+**Phase 5b — Remaining wiring (2026-06-23):**
+
+- [X] 
+- [X] 
+- [X] 
+- [X] 
+- [X] 
+
+**Phase 5c — exposure.cpp stubs replaced (2026-06-23):**
+
+- [X] 
+- [X] 
+- [X] 
+- [X] 
+- [X] 
+
+**Phase 5d — find_optimal_boundaries C++ (2026-06-23):**
+
+- [X] 
+- [X] 
+- [X] 
+- [X] 
+
+**Phase 5e — render_median C++ fast path wiring (2026-06-23):**
+
+- [X] 
+- [X] 
+
+**Phase 5f — render_laplacian warp wiring (2026-06-23):**
+
+- [X] 
+- [X] 
+- [X] 
+
+**Expected speedup**: `render_median` (14 frames × 4K canvas: Python ~8s → C++ ~0.3s, 25×). `arap_push_regularise` (Eigen SparseLU vs scipy.sparse: 10–20×). PSO registration (OpenMP particle parallel: 4–8×). `find_optimal_boundaries` (500 candidates × 20-slab × 1920px × N-1 boundaries: Python ~3–8s → C++ ~0.1–0.3s, ~30×).
 
 ---
 
@@ -1110,14 +1239,11 @@ Tasks:
 **Goal**: Accelerate compositing and seam finding on GPU where available.
 
 Tasks:
+
 1. **UMat seam cost map**: `cv::UMat` replaces `cv::Mat` in `build_seam_cost_map`. OpenCV's OpenCL backend auto-accelerates `GaussianBlur`, `boxFilter`, `threshold`. Zero code change — just pass `cv::UMat` instead of `cv::Mat`.
-
 2. **CUDA MultiBandBlender**: `cv::detail::MultiBandBlender(/*try_gpu=*/true)` — the CUDA kernel `cuda/multiband_blend.cu` already exists in OpenCV. Enable via `try_gpu=true` in the constructor.
-
 3. **OpenCL warpers**: `cv::detail::PlaneWarper` with UMat inputs; `cuda/build_warp_maps.cu` accelerates warp table construction.
-
 4. **WebGPU compositing loops** (borrowing Overmix's `GpuBuffer`/`GpuCommandBuffer` pattern): custom WGSL compute shader for the `normalize_warped_frames` gain application (currently the frame loop is CPU-only).
-
 5. **Gate**: All GPU paths guarded by `try_gpu` parameter defaulting to `false`. Auto-detect: if `cv::cuda::getCudaEnabledDeviceCount() > 0`, enable CUDA paths.
 
 **Expected speedup**: seam cost map (GPU GaussianBlur 5–10×); MultiBandBlender (CUDA 10–20×); total Phase 6 gain: 5–10× over Phase 5 C++ baseline.
@@ -1128,19 +1254,19 @@ Tasks:
 
 ### CMakeLists.txt dependency matrix
 
-| batch module | Required | Optional |
-|---|---|---|
-| `matching.cpp` | OpenCV::core, OpenCV::imgproc, OpenMP | FFTW3 (for highpass FFT) |
-| `bundle_adjust.cpp` | Eigen3, OpenMP | — |
-| `validation.cpp` | — | — |
-| `canvas.cpp` | OpenCV::core, OpenCV::imgproc, OpenCV::stitching | CUDA |
-| `seam.cpp` | OpenCV::core, OpenCV::imgproc, OpenCV::stitching, OpenMP | CUDA |
-| `compositing.cpp` | OpenCV::core, OpenCV::imgproc, OpenMP | CUDA |
-| `exposure.cpp` | OpenCV::core, OpenCV::stitching | — |
-| `frame_selection.cpp` | OpenCV::imgproc, OpenMP | — |
-| `wave_correct.cpp` | Eigen3, OpenCV::core | — |
-| `fg_register.cpp` | OpenCV::imgproc, OpenCV::video, Eigen3 | OpenCV::ximgproc (SLIC) |
-| `sr_classical.cpp` | OpenCV::core, Eigen3, OpenMP | FFTW3 |
+| batch module            | Required                                                 | Optional                 |
+| ----------------------- | -------------------------------------------------------- | ------------------------ |
+| `matching.cpp`        | OpenCV::core, OpenCV::imgproc, OpenMP                    | FFTW3 (for highpass FFT) |
+| `bundle_adjust.cpp`   | Eigen3, OpenMP                                           | —                       |
+| `validation.cpp`      | —                                                       | —                       |
+| `canvas.cpp`          | OpenCV::core, OpenCV::imgproc, OpenCV::stitching         | CUDA                     |
+| `seam.cpp`            | OpenCV::core, OpenCV::imgproc, OpenCV::stitching, OpenMP | CUDA                     |
+| `compositing.cpp`     | OpenCV::core, OpenCV::imgproc, OpenMP                    | CUDA                     |
+| `exposure.cpp`        | OpenCV::core, OpenCV::stitching                          | —                       |
+| `frame_selection.cpp` | OpenCV::imgproc, OpenMP                                  | —                       |
+| `wave_correct.cpp`    | Eigen3, OpenCV::core                                     | —                       |
+| `fg_register.cpp`     | OpenCV::imgproc, OpenCV::video, Eigen3                   | OpenCV::ximgproc (SLIC)  |
+| `sr_classical.cpp`    | OpenCV::core, Eigen3, OpenMP                             | FFTW3                    |
 
 ### Integration with justfile
 
@@ -1178,6 +1304,7 @@ except ImportError:
 ```
 
 Each public function becomes:
+
 ```python
 def _seam_cut(fa_zone, fb_zone, *, sem_cost=None, waypoints=None,
               transition_penalty=0.0):
@@ -1195,6 +1322,7 @@ def _seam_cut_python(fa_zone, fb_zone, *, sem_cost=None, waypoints=None,
 ```
 
 This ensures:
+
 - `pytest backend/test/anim/` passes on machines without `batch` built
 - CI uses Python-only by default; opt-in C++ CI job builds `batch` and runs `test-cpp`
 - Production deployment requires `batch` (documented in README)
@@ -1216,6 +1344,7 @@ py::array_t<uint8_t> out = batch::array_from_mat(mat);  // copies
 ```
 
 Rules:
+
 - `batch` functions **never store** a `cv::Mat` referencing Python-owned memory across call boundaries
 - For outputs, always return an owned copy (not a view)
 - For large inputs that are only read, the zero-copy path saves 10–100ms per frame at 4K
@@ -1240,6 +1369,7 @@ struct Edge {
 ```
 
 pybind11 conversions via `py::dict`:
+
 ```cpp
 // Convert Python dict → Edge
 Edge edge_from_dict(py::dict d) {
@@ -1281,6 +1411,7 @@ std::vector<int> path_from_array(py::array_t<int32_t> arr) {
 ### GIL management
 
 For functions that release the GIL during long computations:
+
 ```cpp
 py::list seam_batch(std::vector<ZonePair> zone_pairs, ...) {
     std::vector<std::vector<int>> paths(zone_pairs.size());
@@ -1343,6 +1474,7 @@ Note `np.ascontiguousarray()` — ensures C-order layout before passing to C++ (
 ### Reference comparison tests (batch/tests/)
 
 Each `test_*_cpp.py` file:
+
 1. Generates random or synthetic inputs (numpy arrays)
 2. Calls Python reference implementation
 3. Calls C++ `batch` implementation with same inputs
@@ -1434,23 +1566,23 @@ class TestSeamBenchmark:
 
 ## Performance Targets
 
-| Pipeline Stage | Python time (14fr 1080p) | C++ target | Speedup estimate | Phase |
-|---|---|---|---|---|
-| Frame selection (classical) | ~1.0s | ~0.05s | 20× | 5 |
-| Phase correlation (N-1 pairs) | ~1.5s | ~0.08s | 18× | 3 |
-| Bundle adjustment (GNC-TLS) | ~2.5s | ~0.1s | 25× | 3 |
-| Affine validation | ~0.1s | ~0.005s | 20× | 3 |
-| Canvas warp + median render | ~8.0s | ~0.3s | 27× | 5 |
-| Seam cost map (N-1 seams) | ~3.0s | ~0.2s | 15× | 2 |
-| Seam DP (N-1 seams) | ~4.0s | ~0.15s | 27× | 2 |
-| Zone normalizations (5 funcs × N-1) | ~6.0s | ~0.3s | 20× | 2 |
-| Laplacian blend (N-1 seams) | ~3.0s | ~0.2s | 15× | 2 |
-| Gain normalization loops | ~1.5s | ~0.05s | 30× | 2 |
-| ARAP sparse solve | ~2.0s | ~0.1s | 20× | 5 |
-| GraphCut seam (new, Phase 4) | N/A | ~0.5s | new | 4 |
-| **Total classical stages** | **~32s** | **~1.6s** | **~20×** | all |
-| ML stages (BiRefNet, LoFTR, etc.) | ~30s | ~30s | 1× (unchanged) | — |
-| **Total pipeline** | **~62s** | **~32s** | **~2×** | — |
+| Pipeline Stage                       | Python time (14fr 1080p) | C++ target      | Speedup estimate | Phase |
+| ------------------------------------ | ------------------------ | --------------- | ---------------- | ----- |
+| Frame selection (classical)          | ~1.0s                    | ~0.05s          | 20×             | 5     |
+| Phase correlation (N-1 pairs)        | ~1.5s                    | ~0.08s          | 18×             | 3     |
+| Bundle adjustment (GNC-TLS)          | ~2.5s                    | ~0.1s           | 25×             | 3     |
+| Affine validation                    | ~0.1s                    | ~0.005s         | 20×             | 3     |
+| Canvas warp + median render          | ~8.0s                    | ~0.3s           | 27×             | 5     |
+| Seam cost map (N-1 seams)            | ~3.0s                    | ~0.2s           | 15×             | 2     |
+| Seam DP (N-1 seams)                  | ~4.0s                    | ~0.15s          | 27×             | 2     |
+| Zone normalizations (5 funcs × N-1) | ~6.0s                    | ~0.3s           | 20×             | 2     |
+| Laplacian blend (N-1 seams)          | ~3.0s                    | ~0.2s           | 15×             | 2     |
+| Gain normalization loops             | ~1.5s                    | ~0.05s          | 30×             | 2     |
+| ARAP sparse solve                    | ~2.0s                    | ~0.1s           | 20×             | 5     |
+| GraphCut seam (new, Phase 4)         | N/A                      | ~0.5s           | new              | 4     |
+| **Total classical stages**     | **~32s**           | **~1.6s** | **~20×**  | all   |
+| ML stages (BiRefNet, LoFTR, etc.)    | ~30s                     | ~30s            | 1× (unchanged)  | —    |
+| **Total pipeline**             | **~62s**           | **~32s**  | **~2×**   | —    |
 
 Note: ML stages (BiRefNet, EfficientLoFTR, DINOv2) dominate total time and are unaffected. The C++ migration cuts total pipeline time approximately in half; further GPU acceleration of ML stages (which is already partially implemented via `torch.cuda`) gives the remaining gains.
 
@@ -1458,39 +1590,39 @@ Note: ML stages (BiRefNet, EfficientLoFTR, DINOv2) dominate total time and are u
 
 ## Risks and Mitigations
 
-| Risk | Likelihood | Impact | Mitigation |
-|---|---|---|---|
-| pybind11 + OpenMP GIL deadlock | Medium | High | Use `py::gil_scoped_release` correctly in all parallel sections; test with AddressSanitizer |
-| cv::Mat thread safety (UMat sharing) | Medium | Medium | Each thread gets own `cv::Mat` copy for writes; reads are safe |
-| OpenCV version drift (API changes) | Low | Medium | Pin `opencv >= 4.8` in CMakeLists; test on multiple versions in CI |
-| Floating-point ordering differences (Python vs C++) | High | Low | Allow ±1px seam path tolerance in tests; ±2 luma tolerance for compositing |
-| Build complexity on developer machines | High | Medium | Provide `just build-batch` one-liner; document cmake deps in CONTRIBUTING.md |
-| Memory safety (dangling cv::Mat views) | Medium | High | Rule: never store cv::Mat pointing to Python-owned memory across function boundaries; enforce with ASAN in CI |
-| `cv::ximgproc` not available (SLIC) | Low | Low | Guard with `#ifdef HAVE_OPENCV_XIMGPROC`; Python fallback available |
-| Platform: macOS / Windows | Low | Low | Primary target is Linux (same as production); macOS support via Homebrew OpenCV |
-| FFTW3 license (GPL) | Medium | Low | FFTW3 optional; fall back to `cv::dft` (BSD) when not available |
-| pybind11 ABI compatibility with Python 3.11 | Low | High | Use `pybind11 >= 2.11`; test with exact Python 3.11.x from `pyenv` |
+| Risk                                                | Likelihood | Impact | Mitigation                                                                                                    |
+| --------------------------------------------------- | ---------- | ------ | ------------------------------------------------------------------------------------------------------------- |
+| pybind11 + OpenMP GIL deadlock                      | Medium     | High   | Use`py::gil_scoped_release` correctly in all parallel sections; test with AddressSanitizer                  |
+| cv::Mat thread safety (UMat sharing)                | Medium     | Medium | Each thread gets own`cv::Mat` copy for writes; reads are safe                                               |
+| OpenCV version drift (API changes)                  | Low        | Medium | Pin`opencv >= 4.8` in CMakeLists; test on multiple versions in CI                                           |
+| Floating-point ordering differences (Python vs C++) | High       | Low    | Allow ±1px seam path tolerance in tests; ±2 luma tolerance for compositing                                  |
+| Build complexity on developer machines              | High       | Medium | Provide`just build-batch` one-liner; document cmake deps in CONTRIBUTING.md                                 |
+| Memory safety (dangling cv::Mat views)              | Medium     | High   | Rule: never store cv::Mat pointing to Python-owned memory across function boundaries; enforce with ASAN in CI |
+| `cv::ximgproc` not available (SLIC)               | Low        | Low    | Guard with`#ifdef HAVE_OPENCV_XIMGPROC`; Python fallback available                                          |
+| Platform: macOS / Windows                           | Low        | Low    | Primary target is Linux (same as production); macOS support via Homebrew OpenCV                               |
+| FFTW3 license (GPL)                                 | Medium     | Low    | FFTW3 optional; fall back to`cv::dft` (BSD) when not available                                              |
+| pybind11 ABI compatibility with Python 3.11         | Low        | High   | Use`pybind11 >= 2.11`; test with exact Python 3.11.x from `pyenv`                                         |
 
 ---
 
 ## Appendix: Key File References
 
-| Role | File |
-|---|---|
-| Pipeline orchestrator | `backend/src/animation/core/pipeline.py` |
-| Compositing hot path | `backend/src/animation/rendering/compositing.py` |
-| Bundle adjustment | `backend/src/animation/alignment/bundle_adjust.py` |
-| Canvas + warp | `backend/src/animation/alignment/canvas.py` |
-| FG registration | `backend/src/animation/alignment/fg_register.py` |
-| Frame selection | `backend/src/animation/ingestion/frame_selection.py` |
-| Photometric correction | `backend/src/animation/rendering/photometric.py` |
-| Existing Rust module | `base/src/lib.rs` |
-| OpenCV seam finders (C++) | `opencv/modules/stitching/src/seam_finders.cpp` |
-| OpenCV blenders (C++) | `opencv/modules/stitching/src/blenders.cpp` |
-| OpenCV exposure comp (C++) | `opencv/modules/stitching/src/exposure_compensate.cpp` |
-| OpenCV bundle adjuster (C++) | `opencv/modules/stitching/src/motion_estimators.cpp` |
-| Overmix ARAP / SR | `Overmix/src/aligners/RecursiveAligner.cpp`, `Overmix/src/renders/FloatRender.cpp` |
-| Comparative analysis | `.agent/cache/stitching_systems_deep_comparison.md` |
+| Role                         | File                                                                                   |
+| ---------------------------- | -------------------------------------------------------------------------------------- |
+| Pipeline orchestrator        | `backend/src/animation/core/pipeline.py`                                             |
+| Compositing hot path         | `backend/src/animation/rendering/compositing.py`                                     |
+| Bundle adjustment            | `backend/src/animation/alignment/bundle_adjust.py`                                   |
+| Canvas + warp                | `backend/src/animation/alignment/canvas.py`                                          |
+| FG registration              | `backend/src/animation/alignment/fg_register.py`                                     |
+| Frame selection              | `backend/src/animation/ingestion/frame_selection.py`                                 |
+| Photometric correction       | `backend/src/animation/rendering/photometric.py`                                     |
+| Existing Rust module         | `base/src/lib.rs`                                                                    |
+| OpenCV seam finders (C++)    | `opencv/modules/stitching/src/seam_finders.cpp`                                      |
+| OpenCV blenders (C++)        | `opencv/modules/stitching/src/blenders.cpp`                                          |
+| OpenCV exposure comp (C++)   | `opencv/modules/stitching/src/exposure_compensate.cpp`                               |
+| OpenCV bundle adjuster (C++) | `opencv/modules/stitching/src/motion_estimators.cpp`                                 |
+| Overmix ARAP / SR            | `Overmix/src/aligners/RecursiveAligner.cpp`, `Overmix/src/renders/FloatRender.cpp` |
+| Comparative analysis         | `.agent/cache/stitching_systems_deep_comparison.md`                                  |
 
 ---
 

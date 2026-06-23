@@ -31,6 +31,87 @@
 
 ---
 
+## Implementation Timeline
+
+> **Legend** — *Node fill:* ✅ complete (green) · 🔄 in-progress (amber) · ⬜ planned (light) — *Node border:* infrastructure (cyan) · new feature (blue) · augmentation (violet) — *Edges:* `==>` critical blocking dependency · `-->` sequential dependency · `---` complements
+
+```mermaid
+flowchart TD
+    classDef c_infra fill:#16a34a,stroke:#0891b2,stroke-width:3px,color:#fff
+    classDef c_feat  fill:#16a34a,stroke:#2563eb,stroke-width:3px,color:#fff
+    classDef c_aug   fill:#16a34a,stroke:#7c3aed,stroke-width:3px,color:#fff
+    classDef p_feat  fill:#d97706,stroke:#2563eb,stroke-width:3px,color:#fff
+    classDef t_feat  fill:#e2e8f0,stroke:#2563eb,stroke-width:2px,color:#1e293b
+    classDef t_infra fill:#e2e8f0,stroke:#0891b2,stroke-width:2px,color:#1e293b
+
+    subgraph A["🅐 Domain A — Inline Docs (Micro-Level)"]
+        direction LR
+        s61["§6.1 Python\nSphinx / mkdocstrings"]:::c_infra
+        s62["§6.2 Rust\nrustdoc + doc-tests"]:::c_infra
+        s63["§6.3 TypeScript\nTypeDoc"]:::c_infra
+        s64["§6.4 Kotlin\nDokka"]:::c_infra
+        s65["§6.5 Swift\nDocC"]:::c_infra
+        s61 --- s62
+        s62 --- s63
+        s63 --- s64
+        s64 --- s65
+    end
+
+    subgraph B["🅑 Domain B — Source of Truth (Meso-Level)"]
+        direction LR
+        s66["§6.6 ARCHITECTURE.md\nStandardisation"]:::c_infra
+        s67["§6.7 CHANGELOG +\nDEPENDENCY_POLICY"]:::c_infra
+        s68["§6.8 TROUBLESHOOTING\n+ BENCHMARKS"]:::c_infra
+        s69["§6.9 Jupyter Notebooks\nExecutable Polyglot Docs"]:::c_feat
+        s66 --- s67
+        s67 --- s68
+        s68 --- s69
+    end
+
+    subgraph C["🅒 Domain C — Static Site Portal (Macro-Level)"]
+        direction LR
+        s610["§6.10 SSG Selection\nMkDocs Material"]:::c_infra
+        s611["§6.11 Unified Portal\ndocs/index.md + hooks.py"]:::c_feat
+        s610 ==> s611
+    end
+
+    subgraph D["🅓 Domain D — Automation & Standards"]
+        direction LR
+        s612["§6.12 CI/CD Pipeline\nGitHub Actions"]:::c_infra
+        s613["§6.13 Standards\nEnforcement\ndoclint + pre-commit"]:::c_aug
+        s614["§6.14 Diagrams-as-Code\nMermaid + Structurizr C4"]:::c_feat
+        s615["§6.15 Interactive Docs\nAPI Playground + Widgets\n⚠ §6.15C gated on Phase 13"]:::p_feat
+        s612 --> s613
+        s613 --- s614
+        s614 --- s615
+    end
+
+    %% Domain A feeds the portal
+    s61 --> s611
+    s62 --> s611
+    s63 --> s611
+    s64 --> s611
+    s65 --> s611
+
+    %% Domain B feeds the portal
+    s66 --> s611
+    s67 --> s611
+    s68 --> s611
+    s69 --> s611
+
+    %% Domain D automation enforces A+B+C
+    s612 --> s611
+    s613 --> s611
+
+    %% Cross-domain complements
+    s614 --- s69
+    s614 --- s66
+```
+
+*Read the diagram: **fill colour** = implementation status (green = done, amber = partially done, light = planned). **Border colour** = element type (cyan = infrastructure, blue = new feature, violet = augmentation). **Edges**: `==>` critical blocking dependency, `-->` sequential/feeds-into, `---` complements and can run in parallel. Domain A and B sections are parallel work feeding the unified portal (§6.11); Domain D automation underpins the whole system.*
+
+---
+
 ## How to Use This Document
 
 Each section describes a documentation gap or tooling opportunity, all viable implementation options with trade-offs, and a recommendation. Items tagged **[Quick Win]** take under a day. Items tagged **[Research]** require prototyping. Sections are grouped into four domains corresponding to the three granularity levels of a docs-as-code system (micro → meso → macro) plus the automation layer that keeps all three in sync.

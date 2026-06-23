@@ -16,6 +16,15 @@ from scipy.optimize import least_squares
 
 from backend.src.animation.core.stateless import _luma
 
+try:
+    from backend.src.animation import batch as _batch_photo
+    _BATCH_PHOTO = hasattr(_batch_photo, "exposure") and hasattr(
+        _batch_photo.exposure, "correct_vignetting"
+    )
+except ImportError:
+    _batch_photo = None  # type: ignore[assignment]
+    _BATCH_PHOTO = False
+
 
 def _apply_basic(
     frames: List[np.ndarray],
@@ -121,10 +130,18 @@ def _correct_vignetting(frames: List[np.ndarray]) -> List[np.ndarray]:
 
     for img in frames:
         h, w = img.shape[:2]
-        # Resize gain_map if the frame size differs
         curr_gain = gain_map
         if (h, w) != (gm_h, gm_w):
             curr_gain = cv2.resize(gain_map, (w, h), interpolation=cv2.INTER_LINEAR)
+
+        if _BATCH_PHOTO:
+            try:
+                corrected.append(
+                    np.asarray(_batch_photo.exposure.correct_vignetting(img, curr_gain))
+                )
+                continue
+            except Exception:
+                pass
 
         img_f = img.astype(np.float32)
         for c in range(3):

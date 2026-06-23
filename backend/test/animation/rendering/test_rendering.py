@@ -20,6 +20,7 @@ import pytest
 from backend.src.animation.rendering.rendering import (
     _render,
     _render_first,
+    _render_laplacian,
     _render_median,
     _adaptive_render_gain_clamp,
     _check_gain_chain_drift,
@@ -466,3 +467,178 @@ class TestCheckGainChainDrift:
         gains = self._gains([1.3, 0.769, 1.3, 0.769])
         # cumulative ≈ 1.3 * 0.769 * 1.3 * 0.769 ≈ 1.0
         assert not _check_gain_chain_drift(gains, max_ratio=2.0)
+
+
+# ---------------------------------------------------------------------------
+# Phase 5e — render_median C++ fast path wiring
+# ---------------------------------------------------------------------------
+
+import backend.src.animation.rendering.rendering as _rendering_mod
+
+
+def _has_batch_render_median():
+    """True when batch.canvas.render_median is available."""
+    if not _rendering_mod._BATCH_RENDER:
+        return False
+    try:
+        return hasattr(_rendering_mod._batch_render.canvas, "render_median")
+    except Exception:
+        return False
+
+
+_skip_no_batch_rm = pytest.mark.skipif(
+    not _has_batch_render_median(),
+    reason="batch.canvas.render_median not compiled — rebuild needed",
+)
+
+
+class TestRenderMedianBatchFastPath:
+    """Phase 5e: C++ render_median fast path wiring (batch.canvas)."""
+
+    def _inputs_no_fg(self, n: int = 4, h: int = 80, w: int = 90, dy: float = 60.0):
+        """Build inputs where the fast path should fire (no FG masks)."""
+        frames = [make_frame(h, w, color=(120, 120, 120)) for _ in range(n)]
+        affines = [make_translation_affine(ty=i * dy) for i in range(n)]
+        canvas_h = int((n - 1) * dy + h)
+        bg_masks = [None] * n
+        return frames, affines, bg_masks, canvas_h, w
+
+    @_skip_no_batch_rm
+    def test_fast_path_output_shape(self):
+        """Fast path returns canvas of correct (H, W, 3) shape."""
+        frames, affines, bg_masks, H, W = self._inputs_no_fg()
+        canvas, valid_mask, _, _ = _render_median(frames, affines, bg_masks, H, W)
+        assert canvas.shape == (H, W, 3)
+        assert canvas.dtype == np.uint8
+
+    @_skip_no_batch_rm
+    def test_fast_path_valid_mask_covers_frames(self):
+        """valid_mask marks all rows that have at least one frame warped onto them."""
+        n, h, w, dy = 3, 60, 80, 50.0
+        frames = [make_frame(h, w, color=(100, 100, 100)) for _ in range(n)]
+        affines = [make_translation_affine(ty=i * dy) for i in range(n)]
+        H = int((n - 1) * dy + h)
+        bg_masks = [None] * n
+        _, valid_mask, _, _ = _render_median(frames, affines, bg_masks, H, w)
+        # Every row from 0 to H-1 should be covered (frames overlap completely)
+        assert valid_mask.max() == 255
+
+    @_skip_no_batch_rm
+    def test_fast_path_median_of_identical_frames(self):
+        """Median of N identical solid-colour frames equals that colour."""
+        frames, affines, bg_masks, H, W = self._inputs_no_fg(n=5)
+        canvas, _, _, _ = _render_median(frames, affines, bg_masks, H, W)
+        covered = canvas.max(axis=2) > 0
+        assert covered.any()
+        assert np.allclose(canvas[covered].mean(axis=0), 120, atol=5)
+
+    @_skip_no_batch_rm
+    def test_fast_path_matches_python_path(self, monkeypatch):
+        """Fast path and Python chunked path produce identical output."""
+        frames, affines, bg_masks, H, W = self._inputs_no_fg(n=4, h=60, w=70, dy=50.0)
+        # Reference: force Python path by disabling batch
+        monkeypatch.setattr(_rendering_mod, "_BATCH_RENDER", False)
+        ref_canvas, ref_mask, _, _ = _render_median(frames, affines, bg_masks, H, W)
+        monkeypatch.setattr(_rendering_mod, "_BATCH_RENDER", True)
+        cpp_canvas, cpp_mask, _, _ = _render_median(frames, affines, bg_masks, H, W)
+        assert np.array_equal(ref_mask, cpp_mask), "valid_mask mismatch"
+        assert np.abs(ref_canvas.astype(int) - cpp_canvas.astype(int)).max() <= 2, (
+            "canvas pixel difference > 2"
+        )
+
+    @_skip_no_batch_rm
+    def test_fast_path_skips_when_fg_excluded(self, monkeypatch):
+        """When FG masks are provided and _FG_EXCLUDE_MEDIAN=True, fast path is skipped
+        and the Python chunked path produces a valid (non-zero) canvas."""
+        frames, affines, _, H, W = self._inputs_no_fg(n=3, h=60, w=70, dy=50.0)
+        # Provide bg masks so _exclude_fg becomes True
+        bg_masks = [np.full((60, 70), 255, dtype=np.uint8) for _ in range(3)]
+        monkeypatch.setenv("ASP_FG_EXCLUDE_MEDIAN", "1")
+        canvas, valid_mask, _, _ = _render_median(frames, affines, bg_masks, H, W)
+        assert canvas.shape == (H, W, 3)
+        assert valid_mask.max() == 255
+
+
+# ---------------------------------------------------------------------------
+# Phase 5f — _render_laplacian C++ parallel warp wiring
+# ---------------------------------------------------------------------------
+
+import backend.src.animation.rendering.rendering as _rendering_mod2
+
+
+def _has_batch_laplacian_warp():
+    """True when batch.canvas.warp_frames_to_canvas is available."""
+    return _rendering_mod._BATCH_RENDER and hasattr(
+        getattr(_rendering_mod, "_batch_render", None), "canvas"
+    )
+
+
+_skip_no_batch_lap = pytest.mark.skipif(
+    not _has_batch_laplacian_warp(),
+    reason="batch.canvas not compiled — rebuild needed",
+)
+
+
+class TestRenderLaplacianBatchWarp:
+    """Phase 5f: C++ parallel warpAffine wired into _render_laplacian."""
+
+    def _inputs(self, n: int = 3, h: int = 80, w: int = 100, dy: float = 60.0):
+        frames = [make_frame(h, w, color=(100, 120, 80)) for _ in range(n)]
+        affines = [make_translation_affine(ty=i * dy) for i in range(n)]
+        H = int((n - 1) * dy + h)
+        bg_masks = [None] * n
+        return frames, affines, bg_masks, H, w
+
+    @_skip_no_batch_lap
+    def test_laplacian_output_shape(self):
+        """Laplacian renderer returns (H, W, 3) uint8 canvas."""
+        frames, affines, bg_masks, H, W = self._inputs()
+        canvas, valid_mask, _, _ = _render_laplacian(frames, affines, bg_masks, H, W)
+        assert canvas.shape == (H, W, 3)
+        assert canvas.dtype == np.uint8
+
+    @_skip_no_batch_lap
+    def test_laplacian_valid_mask_non_empty(self):
+        """valid_mask (canvas_m) covers at least the first frame's rows."""
+        frames, affines, bg_masks, H, W = self._inputs(n=3)
+        _, canvas_m, _, _ = _render_laplacian(frames, affines, bg_masks, H, W)
+        assert canvas_m.max() == 255
+
+    @_skip_no_batch_lap
+    def test_laplacian_matches_python_path(self, monkeypatch):
+        """C++ parallel warp and Python sequential warp produce identical output."""
+        frames, affines, bg_masks, H, W = self._inputs(n=3, h=60, w=80, dy=50.0)
+        monkeypatch.setattr(_rendering_mod, "_BATCH_RENDER", False)
+        ref_canvas, _, _, _ = _render_laplacian(frames, affines, bg_masks, H, W)
+        monkeypatch.setattr(_rendering_mod, "_BATCH_RENDER", True)
+        cpp_canvas, _, _, _ = _render_laplacian(frames, affines, bg_masks, H, W)
+        assert np.abs(ref_canvas.astype(int) - cpp_canvas.astype(int)).max() <= 2, (
+            "laplacian canvas pixel difference > 2 between Python and C++ warp"
+        )
+
+    @_skip_no_batch_lap
+    def test_laplacian_warped_list_nonempty(self):
+        """colour_matched list (3rd return) has N entries."""
+        frames, affines, bg_masks, H, W = self._inputs(n=4, dy=50.0)
+        _, _, colour_matched, _ = _render_laplacian(frames, affines, bg_masks, H, W)
+        assert len(colour_matched) == 4
+
+    @_skip_no_batch_lap
+    def test_laplacian_fallback_on_batch_error(self, monkeypatch):
+        """If batch warp raises, Python sequential path produces a valid canvas."""
+        import unittest.mock as mock
+
+        frames, affines, bg_masks, H, W = self._inputs(n=3)
+
+        class _BrokenCanvas:
+            def warp_frames_to_canvas(self, *a, **kw):
+                raise RuntimeError("simulated batch failure")
+
+        class _BrokenBatch:
+            canvas = _BrokenCanvas()
+
+        monkeypatch.setattr(_rendering_mod, "_batch_render", _BrokenBatch())
+        monkeypatch.setattr(_rendering_mod, "_BATCH_RENDER", True)
+        canvas, valid_mask, _, _ = _render_laplacian(frames, affines, bg_masks, H, W)
+        assert canvas.shape == (H, W, 3)
+        assert valid_mask.max() == 255

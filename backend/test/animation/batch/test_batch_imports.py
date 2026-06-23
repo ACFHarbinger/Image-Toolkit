@@ -69,6 +69,7 @@ SUBMODULE_APIS = {
         "reject_static_edges",
         "compute_adaptive_min_disp",
         "spatial_dedup_frames",
+        # "filter_edge_graph",  # add after next C++ build (Phase 3b)
     ],
     "bundle_adjust": [
         "bundle_adjust_affine",
@@ -105,6 +106,10 @@ SUBMODULE_APIS = {
         "single_pose_soft_edge",
         "seam_color_match",
         "normalize_warped_frames",
+        # "find_optimal_boundaries",      # add after next C++ build (Phase 5d)
+        # "blocks_gain_compensate_pair",  # add after next C++ build (Phase 5b)
+        # "blocks_lum_compensate_pair",   # add after next C++ build (Phase 5b)
+        # "multiband_blend",              # add after next C++ build (Phase 4)
     ],
     "exposure": [
         "blocks_gain_compensate",

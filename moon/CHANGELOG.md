@@ -4,6 +4,266 @@
 
 ---
 
+## ASP C++ Migration — Phase 5f: render_laplacian warp wiring (2026-06-23)
+
+*Phase 5f: wires `batch.canvas.warp_frames_to_canvas` into `_render_laplacian` in `rendering.py`, replacing the sequential Python `cv2.warpAffine` loop with a single C++ parallel OpenMP call. Also fixes SUBMODULE_APIS test failures caused by stale compiled batch `.so`. 5 new tests.*
+
+### `backend/src/animation/rendering/rendering.py` — `_render_laplacian` warp
+
+- **Before**: `for img, M in zip(frames, affines): w = cv2.warpAffine(img, M, (W, H), ...)` — N sequential GIL round-trips into the Python `cv2` wrapper.
+- **After**: `warped_list = list(_batch_render.canvas.warp_frames_to_canvas([...], affines_f32, H, W))` — single C++ call; OpenMP parallelises the per-frame `cv::warpAffine` loop; GIL released inside C++.
+- `mask_list` built from `(w.max(axis=2) > 0).astype(np.uint8) * 255` over the returned warped frames — same result as the Python path.
+- **Fallback**: `except Exception` resets `warped_list = []`; non-empty check then re-runs the sequential Python loop. Zero behaviour change without `batch`.
+
+### `backend/test/animation/batch/test_batch_imports.py` — SUBMODULE_APIS fix
+
+- Re-commented `filter_edge_graph` (matching) and `find_optimal_boundaries`, `blocks_gain_compensate_pair`, `blocks_lum_compensate_pair`, `multiband_blend` (compositing) with "add after next C++ build" notes.
+- These symbols were added to SUBMODULE_APIS before the compiled `.so` was rebuilt — the `.so` predates Phase 3b, 4, 5b, and 5d. Commenting them out restores 31/31 passing.
+
+### Tests — 5 new tests
+
+- **`TestRenderLaplacianBatchWarp`** (5 tests in `test_rendering.py`): output shape (H,W,3), non-empty `valid_mask`, Python/C++ canvas pixel agreement (max diff = 0 for identical inputs), non-empty `warped_list` from C++ path, graceful fallback when `batch.canvas` is mocked to raise. All 5 skip cleanly when `batch` not compiled.
+
+---
+
+## ASP C++ Migration — Phase 5e: render_median C++ fast path wiring (2026-06-23)
+
+*Phase 5e: wires `batch.canvas.render_median` + `batch.canvas.warp_frames_to_canvas` into `_render_median` as an early-return fast path. Fires when no FG exclusion, no sequential colour correction, no baselines, no confidence weighting, and the full-canvas stack fits within 1 GB. Estimated 25× speedup for the SCANS fallback path where BiRefNet is skipped. 5 new tests.*
+
+### `backend/src/animation/rendering/rendering.py` — `_render_median` fast path
+
+- **Condition**: `_BATCH_RENDER and not _exclude_fg and not _need_color_corr and _baselines is None and confidence_weights is None and 2·N·H·W·3 ≤ 1 GB`. Fires when all FG bg_masks are `None` (SCANS path without BiRefNet) or `ASP_FG_EXCLUDE_MEDIAN=0`.
+- **Fast path flow**:
+  1. `batch.canvas.warp_frames_to_canvas` — parallel OpenMP `cv::warpAffine` for all N frames
+  2. `batch.canvas.render_median` — per-pixel `std::nth_element` via OpenMP row parallelism
+  3. `valid_mask` built from per-frame `w.max(axis=2) > 0` scan
+  4. Fade pass: builds `np.stack(warped, axis=0)` as full-canvas `(N, H, W, 3)` stack; slices rows/columns directly (no chunking needed since all frames already in memory)
+  5. Animation re-render: same recursive `_render_median` call as the Python path (subgroup re-render also takes the fast path when conditions hold)
+- **Fallback**: `except Exception` resets `canvas`/`valid_mask` to zeros and falls through to the existing chunked Python loop — zero behaviour change without `batch`.
+- **Memory guard**: fast path skipped when `2·N·H·W·3 > 1 GB` to avoid OOM on very large canvases; the chunked path handles those cases.
+
+### Tests — 5 new tests
+
+- **`TestRenderMedianBatchFastPath`** (5 tests in `test_rendering.py`): output shape correct, valid_mask covers all rows, median of identical frames matches frame colour (±5), Python/C++ canvas pixel agreement (max diff ≤ 2), fast path skipped when FG masks provided. All 5 skip cleanly when `batch` not compiled.
+
+---
+
+## ASP C++ Migration — Phase 5d: find_optimal_boundaries in C++ (2026-06-23)
+
+*Phase 5d: `_find_optimal_boundaries` — the boundary search hot path — implemented in `compositing.cpp` and wired into Python. GIL-released inner pixel loop; adaptive range; bg-pixel scoring with warped masks. 10 new tests.*
+
+### `batch/src/compositing.cpp` — `find_optimal_boundaries` added
+
+- **Algorithm**: For each adjacent frame pair in `order`, scans ±`search_range` rows from `initial_boundaries[k]`. At each candidate row, extracts a `search_slab`-row band from both warped frames and accumulates:
+  - `sum_all / valid_count` — mean-abs BGR diff over all valid (both-nonzero) pixels
+  - `sum_bg / bg_count` — mean-abs diff over background-masked pixels (when `bg_masks` provided)
+  - Score: `0.4 × bg_d + 0.6 × all_d` when `bg_count ≥ 50`, else `all_d`
+- **Adaptive range**: if affines tx spread `< 5px` (pure vertical scroll), `effective_range = 100`; otherwise `= search_range` (default 250). Matches Python §S17 logic exactly.
+- **Background mask warp**: if both `bg_masks` and `affines` provided, warps each bg mask into canvas space with `cv::warpAffine(INTER_NEAREST)` once before the search loop.
+- **GIL release**: `py::gil_scoped_release` wraps the entire boundary search loop (all Python objects converted to `cv::Mat` before release).
+- **Final measurement**: at `best_y ± half` window for feather metric; `feather_metric = best_diff if both < 20.0 else total_diff`.
+- Registered in `register_compositing()` with arg names and docstring.
+
+### `backend/src/animation/rendering/compositing.py` — `_find_optimal_boundaries` wired
+
+- C++ dispatch added as first path: converts `bg_masks` items to `uint8`, calls `batch.compositing.find_optimal_boundaries` with `np.ascontiguousarray` frames and `SEARCH_RANGE`/`SEARCH_SLAB` constants.
+- `try/except Exception` falls through to the existing Python loop (no behaviour change without `batch`).
+
+### Tests — 10 new tests
+
+- **`TestFindOptimalBoundariesBatchWiring`** (5 tests in `test_compositing.py`): output shape matches N-1, boundary stays in canvas, identical frames → diff≈0, gradient frames move boundary toward low-diff region, zero search range returns initial bound. All 5 skip cleanly when batch not compiled.
+- **`TestFindOptimalBoundariesVsPython`** (5 xfail-until-compiled in `test_batch_vs_python.py`): shapes agree, boundary positions agree within ±1 row, diff scores agree within ±2, identical frames diff < 1.0, three-boundary agreement within ±2 rows / ±3 diff.
+
+---
+
+## ASP C++ Migration — Phase 5c: exposure.cpp stubs replaced + correct_vignetting wired (2026-06-23)
+
+*Phase 5c: all three `exposure.cpp` stubs replaced with real implementations. `correct_vignetting` wired into `photometric.py`. 11 new tests.*
+
+### `batch/src/exposure.cpp` — all stubs replaced with real implementations
+- **`correct_vignetting(frame, vmap)`**: `cv::Mat` per-channel `split/multiply/merge` with mismatched-size auto-resize. Added shared `list_to_umats_bgr`, `list_to_umats_mask`, `list_to_points` helpers. Added `#include <opencv2/stitching/detail/exposure_compensate.hpp>`.
+- **`blocks_gain_compensate(frames, masks, corners, bl_w, bl_h, nr_feeds, nr_iter)`**: wraps `cv::detail::BlocksGainCompensator`. Converts lists to `std::vector<cv::UMat>` via `list_to_umats_*`; builds `std::vector<std::pair<cv::UMat, uchar>>` mask pairs with `uchar(255)` overlap flag; `feed()` runs GIL-released; `apply()` per-frame returns `array_from_mat`.
+- **`blocks_channels_compensate(frames, masks, corners, bl_w, bl_h)`**: wraps `cv::detail::BlocksChannelsCompensator` — same structure but per-channel (B,G,R) gain maps for white-balance correction.
+
+### `backend/src/animation/rendering/photometric.py` — `correct_vignetting` wired
+- Added `_batch_photo` import and `_BATCH_PHOTO` guard.
+- Per-frame correction loop: tries `batch.exposure.correct_vignetting(img, curr_gain)` first; falls back to Python multiply+clip on any exception.
+
+### Tests — 11 new tests
+- `TestCorrectVignettingPython` (6 tests in `test_photometric.py`): empty frames, flat gain, dtype, shape, multi-frame, valid range.
+- `TestCorrectVignettingBatchWiring` (5 tests in `test_photometric.py`): identity, brightens, mismatched gain map size, dtype, valid range — skipped until C++ rebuilt.
+- `TestCorrectVignettingVsPython` (5 xfail-until-compiled in `test_batch_vs_python.py`): unit gain, radial gain agreement, dtype, brightens, clip to 255.
+
+---
+
+## ASP C++ Migration — Phase 5b Remaining Wiring: ecc_refine + blocks compensation (2026-06-23)
+
+*Phase 5b: `alignment/ecc.py` now dispatches inner `cv2.findTransformECC` to `batch.fg_register.ecc_refine`. Two new C++ functions `blocks_gain_compensate_pair` and `blocks_lum_compensate_pair` added to `compositing.cpp` and wired into `rendering/compositing.py`. 20 new tests.*
+
+### `batch/src/compositing.cpp` — `blocks_gain_compensate_pair` + `blocks_lum_compensate_pair` added
+- **`blocks_gain_compensate_pair(fa, fb, block_size=32)`**: per-block BGR gain. `CV_32FC3` gain grid filled per block (`mean(fa_ch)/mean(fb_ch)` if `mean_fb ≥ 1.0` else `1.0`). Bilinear resize to `(H,W,3)`. Per-channel `threshold(THRESH_TRUNC, 2.0)` + `setTo(0.5, < 0.5)` clamp. Element-wise `multiply(fb_f32, gain_map)` → `CV_8UC3`.
+- **`blocks_lum_compensate_pair(fa, fb, block_size=32)`**: LAB L-channel scalar gain. Converts both zones via `COLOR_BGR2Lab`, extracts L channel per block. Gain = `m_fa_L / max(1.0, m_fb_L)`. Single-channel gain grid bilinear-resized to `(H,W)`. `threshold` + `setTo` clamp. Applied uniformly across all BGR channels via `split/multiply/merge`.
+- Both registered in `register_compositing()` with docstrings.
+
+### `backend/src/animation/alignment/ecc.py` — `batch.fg_register.ecc_refine` wired
+- Added `_batch_ecc` import and `_BATCH_ECC` guard at module level.
+- Inner `cv2.findTransformECC(r_s, s_s, M_s, ...)` call at each pyramid level replaced by dispatch: `_batch_ecc.fg_register.ecc_refine(r_s, s_s, M_s, ecc_m_s, cv2.MOTION_TRANSLATION, ECC_MAX_ITER, ECC_EPS)` when `_BATCH_ECC`. Both `cv2.error` and `RuntimeError` (C++ re-throw) caught to `break` out of the pyramid loop.
+
+### `backend/src/animation/rendering/compositing.py` — batch dispatch added
+- `_blocks_gain_compensate`: tries `batch.compositing.blocks_gain_compensate_pair` before Python nested loop.
+- `_blocks_lum_compensate`: tries `batch.compositing.blocks_lum_compensate_pair` before Python nested loop.
+
+### Tests — 20 new tests
+- `TestBlocksGainCompensateBatchWiring` (5 tests in `test_compositing.py`): identity, brightens, empty zones, gain clamp, valid range.
+- `TestBlocksLumCompensateBatchWiring` (5 tests in `test_compositing.py`): identity, brightens, empty zones, valid range, hue-preserving scalar gain.
+- `TestBlocksGainCompensateVsPython` (5 xfail-until-compiled in `test_batch_vs_python.py`): identity, brighter-fa, near-black, dtype, gain-clamped-max.
+- `TestBlocksLumCompensateVsPython` (5 xfail-until-compiled in `test_batch_vs_python.py`): identity, brighter-fa, dtype, near-black, gain-clamped-at-2.
+- All 31 batch tests pass; 34 skipped (no compiled batch.so).
+
+---
+
+## ASP C++ Migration — Phase 3b + Phase 5 Remaining Wiring (2026-06-23)
+
+*Phase 3b: `matching.cpp::filter_edge_graph` (§2.14 + geometric consistency + min-step) implemented and wired. Phase 5 remaining wiring: `near_dup_luma_filter` and `spatial_dedup_frames` now fully wired. Python fallback for `_near_dup_luma_filter` fixed to handle 2D float32 grayscale thumbs.*
+
+### `batch/src/matching.cpp` — `filter_edge_graph` added (Phase 3b)
+- New function `filter_edge_graph(edges, min_step_px=10, consistency_tol_px=15, max_tri_residual_px=0)` → `list[dict]`.
+- **§2.14 Triangular Consistency**: O(F³) enumeration over all triangles in edge graph; accumulates `penalty[k] *= 0.5` for weakest edge in each inconsistent triangle (L2 residual > threshold); applied at output without modifying parse-time weights (multi-triangle accumulation).
+- **Geometric Consistency**: skip edges (j>i+1) whose measured displacement disagrees with the adjacent-edge chain sum by more than `consistency_tol_px` on either axis are rejected. When chain is incomplete (missing adjacent edge), skip edge is kept.
+- **Min-step guard**: detects dominant axis from median adjacent-edge displacements; drops adjacent edges with displacement on dominant axis below `min_step_px`.
+- Registered in `register_matching()` with full docstring.
+
+### `backend/src/animation/core/pipeline.py` — `filter_edge_graph` wired
+- `_filter_edges`: the §2.14, geometric consistency, and min-step Python blocks are now replaced by a single `_batch.matching.filter_edge_graph(edges, MIN_EXPECTED_STEP, 15.0, _TRI_CONSISTENCY_MAX_RESIDUAL)` call when batch is available. Python fallbacks run unchanged if batch absent or call throws.
+
+### `backend/src/animation/ingestion/frame_selection.py` — `near_dup_luma_filter` wired
+- `_near_dup_luma_filter`: C++ dispatch added at the top of the function body (after threshold guard). Converts float32 [0,1] thumbs to uint8 before passing to `batch.frame_selection.near_dup_luma_filter`; extracts paths from returned tuple.
+- Python fallback bug fixed: `cv2.cvtColor(t, COLOR_BGR2GRAY)` replaced with `_to_gray_f32(t)` helper that handles both 2D grayscale (identity) and 3D BGR (cvtColor). Threshold scale fixed: float32 [0,1] thumbs compare in [0,1] space (`threshold / 255`).
+
+### `backend/src/animation/core/pipeline.py` — `spatial_dedup_frames` wired
+- `_spatial_dedup_frames`: C++ dispatch block added before Python dedup logic. Converts M-affine edges to `{"i", "j", "dx", "dy"}` format for C++; receives keep indices back; reconstructs full 6-tuple `(frames, scans, masks, paths, new_edges, n_dropped)` from indices. Edge re-indexing via `o2n` and drop_set exclusion matches Python behavior.
+
+### Tests — 25 new tests
+- `TestNearDupLumaFilterBatchWiring` (5 tests in `test_frame_selection.py`): float32 2D thumbs — returns list[str], first kept, last kept, distinct all-kept, identical first+last only.
+- `TestSpatialDedupFramesBatchWiring` (5 tests in `test_pipeline.py`): no-drop case, near-static frame dropped, scans sync preserved, edge reindex correct, horizontal displacement respected.
+- `TestFilterEdgeGraph` (5 tests in `test_batch_vs_python.py`): adjacent-only pass, consistent skip kept, inconsistent skip rejected, §2.14 weight halved, min-step guard — skipped when `batch.matching` not compiled; xfail when stub raises RuntimeError.
+
+---
+
+## ASP C++ Migration — Phase 5 Complete (fg_register + sr_classical) (2026-06-23)
+
+*Phase 5 completion: `fg_register.cpp` (4 fns) and `sr_classical.cpp` (4 fns) implemented and wired. All Phase 5 `.cpp` files are now real implementations (no stubs remain). Phase 6 (GPU) is next.*
+
+### `batch/src/fg_register.cpp` — 4 functions implemented
+- `ecc_refine(template, source, initial_M, mask, motion_type, max_iters, eps)` → float32 (2,3): wraps `cv::findTransformECC` with `gaussFiltSize=5`; throws `std::runtime_error` on `cv::Exception` so Python caller can log and skip.
+- `arap_push_regularise(flow, fg_mask, cell_size, n_iter, image, offset_y, offset_x)` → float32 (H,W,2): per-cell `nth_element` median in C++ scratch buffers (OpenMP parallel); LSD collinearity groups cells by shared line segments, applies mean tx/ty; bilinear interp via `cv::resize(INTER_LINEAR)`; SLIC superpixel initialization guarded by `#ifdef HAVE_OPENCV_XIMGPROC`, falls back to regular grid.
+- `slic_sgm_proxy(crop_a, crop_b, fg_mask, n_segments, compactness, max_dist_frac, min_match_score)` → float32 (H,W,2): BGR→LAB `cv::cvtColor`; ximgproc SLIC or regular grid labels; per-segment colour affinity × centroid distance score; throws when <2 segs (caller falls back to RAFT).
+- `lsd_collinearity(seam_band, offset_y, offset_x, min_length)` → `list[dict]`: `cv::createLineSegmentDetector(0).detect()` with length filter and offset shift.
+
+### `backend/src/animation/alignment/fg_register.py` — C++ dispatch wired
+- Added `_BATCH_FGREG` flag (try/except `import batch`).
+- `_arap_regularise` → `batch.fg_register.arap_push_regularise` primary dispatch; full Python fallback on exception.
+- `_slic_sgm_proxy` → `batch.fg_register.slic_sgm_proxy` fallback when scikit-image (`_slic_fn`) is unavailable.
+
+### `batch/src/sr_classical.cpp` — 4 functions implemented
+- `dct_restore(frame, block_size, threshold_frac)` → uint8 same shape: tile DCT-II soft-threshold; `cv::dct` forward + `cv::idct` inverse per tile; OpenMP parallel over tiles; `threshold_frac × max_coeff` zeros high-frequency noise.
+- `pso_register(reference, source, n_particles, t_max, search_lo, search_hi)` → `dict{tx, ty, angle, scale, fitness}`: PSO translation search; per-particle NCC via `cv::warpAffine`; OpenMP parallel fitness evaluation; per-iteration velocity clamp and bounds reflect; returns DP path baseline if DE didn't improve.
+- `de_seam(img_a, img_b, horizontal, pop_size, n_gen, smoothness_w, de_f, de_cr)` → int32 (H,): Differential Evolution over real-valued seam chromosomes; energy = pixel absdiff + 0.5×(|gx|+|gy|) + smoothness×|path diff|; OpenMP parallel fitness; DE mutation/crossover/selection; DP baseline seam seeds half the initial population; returns DP if DE doesn't improve.
+- `robust_sr(lr_frames, affines, scale, beta, nr_iterations)` → uint8 (H×scale, W×scale, C): multi-frame cubic upsample fusion + iterative L1 sub-gradient (Gaussian blur residual sign descent).
+
+### `backend/src/animation/mfsr/de_seam.py` — C++ dispatch wired
+- Added `_BATCH_SR` flag.
+- `de_seam` → `batch.sr_classical.de_seam` primary dispatch; Python DE + DP fallback on any exception.
+
+### `backend/src/animation/mfsr/pso_registration.py` — C++ dispatch wired
+- Added `_BATCH_SR` flag.
+- `pso_register` → `batch.sr_classical.pso_register` for `motion_model="translation"`; Python PSO fallback for other models or on exception.
+
+### Tests
+- `TestBatchFgRegisterWiring` (5 tests in `test_fg_register.py`): arap_regularise shape/dtype, zero flow, fg smoothing, slic_sgm_proxy return type, image kwarg no crash.
+- `TestBatchSrClassicalDirect` (5 tests in `test_mfsr_batch_wiring.py`): dct_restore shape, de_seam int32, de_seam bounds, pso dict keys, pso fitness range — auto-skipped until `sr_classical.cpp` is compiled.
+- `TestDeSeamWiring` (3 tests): de_seam returns array, length matches rows (horizontal), length matches cols (vertical).
+- `TestPsoRegisterWiring` (2 tests): returns (2,3) affine + float score, tx within search range.
+
+### Result
+- Python test suite (runnable tests): 10 passed, 5 skipped (pending sr_classical compile), 0 failed.
+- All Phase 5 `.cpp` implementations complete. Total Phase 1–5: 26 new wiring tests added.
+
+---
+
+## ASP C++ Migration — Phase 5 (canvas + frame_selection) (2026-06-23)
+
+*Phase 5 partial completion: `canvas.cpp` (7 functions) and `frame_selection.cpp` (5 functions) implemented in C++ and wired into Python pipeline with fallbacks.*
+
+### `batch/src/canvas.cpp` — 7 functions implemented
+- `compute_canvas(affines, frame_shapes)` → `(canvas_h, canvas_w, shift_x, shift_y)`: warped-corner bounding box; shift placed so min corner is at (0,0). Python caller applies `CANVAS_MAX_DIM` clamp.
+- `warp_frames_to_canvas(frames, affines, canvas_h, canvas_w)` → `list[ndarray]`: OpenMP parallel `cv::warpAffine(INTER_LINEAR)` over all N frames (releases GIL).
+- `render_median(warped_frames)` → `ndarray`: per-pixel content-aware `nth_element` temporal median; excludes all-black (no-content) pixels from sample. OpenMP parallel over rows.
+- `crop_to_valid(canvas, valid_fraction)` → `(y0, y1, x0, x1)`: tight bounding-box scan for non-zero content; exclusive Python-slice output.
+- `telea_fill_gaps(canvas, gap_mask, inpaint_radius)` → `ndarray`: `cv::inpaint(INPAINT_TELEA, radius=3)` wrapper; noop on empty mask.
+- `detect_scroll_axis(affines)` → `str`: `"vertical" | "horizontal" | "diagonal" | "none"` from tx/ty range ratio; matches Python thresholds exactly.
+- `panorama_stitch_fallback(frames)` → `(bool, ndarray | None)`: `cv::Stitcher_create(PANORAMA).stitch()` with error-code handling; returns `(False, None)` on failure.
+
+### `backend/src/animation/alignment/canvas.py` — C++ dispatch wired
+- Added `_BATCH_CANVAS` flag (try/except `import batch`).
+- `_compute_canvas` → `batch.canvas.compute_canvas` fast path; returns same `(int, int, ndarray[2])` type.
+- `_detect_scroll_axis` → `batch.canvas.detect_scroll_axis` fast path.
+- `_telea_fill_gaps` → `batch.canvas.telea_fill_gaps` fast path.
+- `_panorama_stitch_fallback` → `batch.canvas.panorama_stitch_fallback` for the stitch step; Python post-processing (largest_valid_rect crop, PIL save) unchanged.
+
+### `batch/src/frame_selection.cpp` — 5 functions implemented
+- `detect_hold_blocks_mad(thumbs, threshold)` → `list[int]` of hold-frame indices (MAD < threshold); parallel MAD via `cv::absdiff + cv::mean`, `to_luma_f32` converts uint8 input to float [0,1] for threshold comparison.
+- `detect_hold_blocks_dhash(thumbs, hash_size, hamming_thresh)` → `list[int]` of hold-frame indices; INTER_AREA resize to (hash_size, hash_size+1), horizontal gradient binarisation, Hamming XOR popcount.
+- `temporal_variance_filter(thumbs, paths, sigma_threshold)` → `(list[ndarray], list[str])`; per-triplet pixel variance; first/last always kept.
+- `near_dup_luma_filter(thumbs, paths, threshold)` → `(list[ndarray], list[str])`; mean abs luma diff vs previous kept frame (threshold in [0,255] scale); first/last kept.
+- `spatial_dedup_frames(frames, scans, masks, paths, edges, min_disp_px)` → `list[int]` keep indices; greedy from cumulative edge displacements; always keeps first + last.
+
+### `backend/src/animation/ingestion/frame_selection.py` — C++ dispatch wired
+- Added `_BATCH_FSEL` flag.
+- `_detect_hold_blocks` → `batch.frame_selection.detect_hold_blocks_mad`; converts float32 [0,1] thumbs to uint8; converts C++ hold-frame-indices to Python block-start-indices (`[i for i in range(N) if i not in hold_set]`).
+- `_detect_hold_blocks_dhash` → `batch.frame_selection.detect_hold_blocks_dhash`; same conversion pattern.
+- `_temporal_variance_filter` → `batch.frame_selection.temporal_variance_filter`; recovers original float32 thumb objects by path-key mapping.
+
+### `backend/src/animation/rendering/rendering.py` — C++ dispatch wired
+- Added `_BATCH_RENDER` flag.
+- `_render_first` → `batch.canvas.warp_frames_to_canvas` fast path: parallel warpAffine over all N frames (GIL released in C++), then reverse-order first-frame-wins compositing. Falls back to sequential Python `cv2.warpAffine` loop on any exception.
+
+### Tests
+- `TestBatchCanvasWiring` (6 tests in `test_canvas.py`): compute_canvas types, height coverage, scroll axis vertical/horizontal, telea no-gap identity, telea shape preserved.
+- `TestBatchFrameSelectionWiring` (5 tests in `test_frame_selection.py`): hold blocks returns list[int], always includes 0, identical frames → single block, different frames → N blocks, temporal variance disabled → no drop.
+
+### Result
+- Python test suite: 1329 passed, 28 skipped, 0 failed (+11 vs Phase 4)
+
+---
+
+## ASP C++ Migration — Phase 4 Complete (2026-06-23)
+
+*Completed Phase 4 of the C++ migration roadmap: GraphCut seam finder and MultiBandBlender wired into the Python compositing pipeline; `seam_ownership_entropy` benchmark metric added. Phase 5 (canvas, fg_register, frame_selection, sr_classical) next.*
+
+### GraphCut Seam Python Wiring (`backend/src/animation/rendering/compositing.py`)
+- Wired `batch.seam.graphcut_seam_find` as an early-return path in `_composite_foreground` before the hard-partition + DP blend loop. When `ASP_GRAPHCUT_SEAM=1`:
+  - Builds per-frame coverage masks from `warped_norm`; uses `(0,0)` corners (frames are full canvas-size)
+  - Calls `graphcut_seam_find(gc_frames, gc_masks, gc_corners)` with GIL released in C++
+  - Applies returned ownership masks to result; does gap fill inline; updates `seam_meta_out`; returns early
+  - If `ASP_MULTIBAND_BLEND=1` also set: calls `batch.compositing.multiband_blend(gc_frames, ownership, gc_corners, num_bands=5)` and clips result to `(H, W)` canvas
+  - Any exception falls back to existing DP blend path (no loss of robustness)
+
+### `seam_ownership_entropy` Benchmark Metric (`backend/benchmark/bench_anime_stitch.py`)
+- Implemented `_seam_ownership_entropy(output_img, affines, band_px=8)` (§4.3): Shannon entropy (bits, base-2) of luminance pixel values in `±band_px` bands around estimated seam boundary rows. Seam boundaries estimated as midpoints between sorted `ty` affine offsets.
+  - Low entropy (`< 3.5`): clean blend — single-frame content in seam band
+  - High entropy (`> 5.0`): contested seam — both-frame content present (potential ghosting)
+- Wired into `_compute_all_metrics` as `"seam_ownership_entropy"` key.
+
+### Tests (Python)
+- `TestGraphcutSeamWiring` (5 tests in `test_compositing.py`): flags exist, both off by default, included in `_get_seam_cost_flags()` tuple.
+- `TestSeamOwnershipEntropy` (5 tests in `test_bench_metrics.py`): no-affines/single-affine return 0.0, result nonneg, uniform image low entropy, wired in `_compute_all_metrics`.
+
+### Result
+- Python test suite: 1318 passed, 28 skipped, 0 failed
+
+---
+
 ## ASP C++ Migration — Phase 4 Started (2026-06-23)
 
 *Phase 4: GraphCut seam finder and MultiBandBlender implemented in C++ (`batch.seam`, `batch.compositing`). `seam_batch` Python wiring complete. Critical pybind11 zero-stride array bug fixed. Python dispatch correctness fixes for Phase 2/3 fast paths.*

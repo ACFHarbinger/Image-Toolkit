@@ -25,7 +25,10 @@
 #include "batch/affine_types.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <map>
+#include <set>
 #include <stdexcept>
 #include <vector>
 
@@ -148,6 +151,164 @@ float compute_adaptive_min_disp_impl(const std::vector<batch::Edge>& edges)
 }
 
 // ---------------------------------------------------------------------------
+// filter_edge_graph_impl (pure C++)
+//
+// Phase 3b gate chain: §2.14 triangular consistency, geometric consistency,
+// min-step guard.  Operates on "M"-format edge dicts (keys: i, j, M, weight).
+//
+// Parameters
+// ----------
+// edges_py         : Python list of edge dicts
+// min_step_px      : min-step guard threshold on dominant adjacent axis
+// consistency_tol  : skip-edge chain-sum tolerance (default 15 px)
+// max_tri_residual : §2.14 L2 residual ceiling (0 = disabled)
+//
+// Returns filtered list[dict] with §2.14 weight penalties applied.
+// ---------------------------------------------------------------------------
+
+// Parse tx (M[0,2]) and ty (M[1,2]) from an edge dict.
+static std::pair<float, float> _get_m_txty(const py::dict& d)
+{
+    if (!d.contains("M")) return {0.0f, 0.0f};
+    auto M = d["M"].cast<py::array_t<float, py::array::c_style | py::array::forcecast>>();
+    auto buf = M.request();
+    if (buf.size < 6) return {0.0f, 0.0f};
+    float* ptr = static_cast<float*>(buf.ptr);
+    return {ptr[2], ptr[5]};  // M[0,2], M[1,2]
+}
+
+static py::list filter_edge_graph_impl(
+    py::list edges_py,
+    float    min_step_px,
+    float    consistency_tol_px,
+    float    max_tri_residual_px)
+{
+    struct E { int src, dst; float dx, dy, weight; };
+    size_t N = edges_py.size();
+    if (N == 0) return py::list();
+
+    std::vector<E> es;
+    es.reserve(N);
+    for (size_t k = 0; k < N; ++k) {
+        auto d = edges_py[k].cast<py::dict>();
+        auto [tx, ty] = _get_m_txty(d);
+        int src = d["i"].cast<int>();
+        int dst = d["j"].cast<int>();
+        float w = d.contains("weight") ? d["weight"].cast<float>() : 1.0f;
+        es.push_back({src, dst, tx, ty, w});
+    }
+
+    // ── §2.14 Triangular Consistency (weight halving) ─────────────────────
+    std::vector<float> penalty(N, 1.0f);
+    if (max_tri_residual_px > 0.0f && N >= 3) {
+        std::map<std::pair<int,int>, size_t> edge_map;
+        for (size_t k = 0; k < N; ++k)
+            edge_map[{es[k].src, es[k].dst}] = k;
+
+        std::set<int> ids_set;
+        for (auto& e : es) { ids_set.insert(e.src); ids_set.insert(e.dst); }
+        std::vector<int> ids(ids_set.begin(), ids_set.end());
+        size_t F = ids.size();
+
+        for (size_t ai = 0; ai < F; ++ai) {
+            int fi = ids[ai];
+            for (size_t bi = ai + 1; bi < F; ++bi) {
+                int fj = ids[bi];
+                for (size_t ci = bi + 1; ci < F; ++ci) {
+                    int fk = ids[ci];
+                    auto it_ij = edge_map.find({fi, fj});
+                    auto it_jk = edge_map.find({fj, fk});
+                    auto it_ik = edge_map.find({fi, fk});
+                    if (it_ij == edge_map.end() || it_jk == edge_map.end()
+                        || it_ik == edge_map.end()) continue;
+                    size_t idx_ij = it_ij->second;
+                    size_t idx_jk = it_jk->second;
+                    size_t idx_ik = it_ik->second;
+                    float pred_x = es[idx_ij].dx + es[idx_jk].dx;
+                    float pred_y = es[idx_ij].dy + es[idx_jk].dy;
+                    float dx = es[idx_ik].dx - pred_x;
+                    float dy = es[idx_ik].dy - pred_y;
+                    float res = std::sqrt(dx * dx + dy * dy);
+                    if (res <= max_tri_residual_px) continue;
+                    float w[3] = {es[idx_ij].weight, es[idx_jk].weight, es[idx_ik].weight};
+                    int weakest = 0;
+                    if (w[1] < w[weakest]) weakest = 1;
+                    if (w[2] < w[weakest]) weakest = 2;
+                    std::array<size_t, 3> idx_arr = {idx_ij, idx_jk, idx_ik};
+                    penalty[idx_arr[weakest]] *= 0.5f;
+                }
+            }
+        }
+    }
+
+    // ── Geometric Consistency (skip-edge vs adjacent chain sum) ──────────
+    std::map<int, std::pair<float, float>> adj_map;
+    for (size_t k = 0; k < N; ++k)
+        if (es[k].dst == es[k].src + 1)
+            adj_map[es[k].src] = {es[k].dx, es[k].dy};
+
+    std::vector<bool> keep(N, true);
+    for (size_t k = 0; k < N; ++k) {
+        int src = es[k].src, dst = es[k].dst;
+        if (dst == src + 1) continue;
+        float sum_dx = 0.0f, sum_dy = 0.0f;
+        bool can_verify = true;
+        for (int m = src; m < dst; ++m) {
+            auto it = adj_map.find(m);
+            if (it == adj_map.end()) { can_verify = false; break; }
+            sum_dx += it->second.first;
+            sum_dy += it->second.second;
+        }
+        if (can_verify) {
+            if (std::abs(es[k].dx - sum_dx) >= consistency_tol_px ||
+                std::abs(es[k].dy - sum_dy) >= consistency_tol_px)
+                keep[k] = false;
+        }
+    }
+
+    // ── Min-step guard (adjacent edges on dominant axis) ──────────────────
+    if (min_step_px > 0.0f) {
+        std::vector<float> adx_kept, ady_kept;
+        for (size_t k = 0; k < N; ++k) {
+            if (!keep[k] || es[k].dst != es[k].src + 1) continue;
+            adx_kept.push_back(std::abs(es[k].dx));
+            ady_kept.push_back(std::abs(es[k].dy));
+        }
+        if (adx_kept.size() >= 2) {
+            auto median_f = [](std::vector<float> v) -> float {
+                std::sort(v.begin(), v.end());
+                size_t n = v.size();
+                return (n % 2 == 0) ? (v[n/2-1] + v[n/2]) * 0.5f : v[n/2];
+            };
+            int primary = (median_f(adx_kept) >= median_f(ady_kept)) ? 0 : 1;
+            for (size_t k = 0; k < N; ++k) {
+                if (!keep[k] || es[k].dst != es[k].src + 1) continue;
+                float val = (primary == 0) ? std::abs(es[k].dx) : std::abs(es[k].dy);
+                if (val < min_step_px) keep[k] = false;
+            }
+        }
+    }
+
+    // ── Build output ──────────────────────────────────────────────────────
+    py::list out;
+    for (size_t k = 0; k < N; ++k) {
+        if (!keep[k]) continue;
+        if (penalty[k] == 1.0f) {
+            out.append(edges_py[k]);
+        } else {
+            py::dict old_d = edges_py[k].cast<py::dict>();
+            py::dict new_d;
+            for (auto item : old_d)
+                new_d[item.first] = item.second;
+            float w = old_d.contains("weight") ? old_d["weight"].cast<float>() : 1.0f;
+            new_d["weight"] = w * penalty[k];
+            out.append(new_d);
+        }
+    }
+    return out;
+}
+
+// ---------------------------------------------------------------------------
 // Python bindings
 // ---------------------------------------------------------------------------
 #ifndef BATCH_TESTS
@@ -211,6 +372,19 @@ static float compute_adaptive_min_disp(py::list edges_py)
 }
 
 // ---------------------------------------------------------------------------
+// filter_edge_graph — Phase 3b: classical post-match gate chain
+// ---------------------------------------------------------------------------
+static py::list filter_edge_graph(
+    py::list edges_py,
+    float    min_step_px         = 10.0f,
+    float    consistency_tol_px  = 15.0f,
+    float    max_tri_residual_px = 0.0f)
+{
+    return filter_edge_graph_impl(edges_py, min_step_px,
+                                  consistency_tol_px, max_tri_residual_px);
+}
+
+// ---------------------------------------------------------------------------
 // build_edge_graph — stub (Phase 3 in-progress; complex gate chain)
 // ---------------------------------------------------------------------------
 static py::list build_edge_graph(py::list, py::list, int)
@@ -239,6 +413,11 @@ void register_matching(py::module_& m) {
         phase_correlate_masked(frame_a, frame_b, mask_a=None, mask_b=None) -> dict
         reject_static_edges(edges, min_disp_px=50.0) -> list[dict]
         compute_adaptive_min_disp(edges) -> float
+
+        Phase 3b
+        --------
+        filter_edge_graph(edges, min_step_px, consistency_tol_px, max_tri_residual_px)
+            -> list[dict]
 
         Stubs (Phase 3 / Phase 5)
         -------------------------
@@ -288,6 +467,34 @@ void register_matching(py::module_& m) {
             and returns max(STATIC_EDGE_MIN_DISP_PX, 0.10 × expected_step).
 
             Returns float (pixels).
+        )doc");
+
+    m.def("filter_edge_graph", &filter_edge_graph,
+        py::arg("edges"),
+        py::arg("min_step_px")          = 10.0f,
+        py::arg("consistency_tol_px")   = 15.0f,
+        py::arg("max_tri_residual_px")  = 0.0f,
+        R"doc(
+            Phase 3b classical gate chain on "M"-format edge dicts.
+
+            Applies in order:
+              1. §2.14 Triangular Consistency — halves weight of weakest edge
+                 in every inconsistent triangle (L2 residual > max_tri_residual_px).
+                 Disabled when max_tri_residual_px == 0.
+              2. Geometric Consistency — rejects skip edges whose measured
+                 displacement disagrees with the adjacent-edge chain sum by more
+                 than consistency_tol_px on either axis.
+              3. Min-step guard — drops adjacent edges whose displacement on the
+                 dominant axis is below min_step_px.
+
+            Args
+            ----
+            edges                : list of edge dicts with keys "i", "j", "M", "weight"
+            min_step_px          : min-step guard threshold (default 10 px)
+            consistency_tol_px   : geometric consistency tolerance (default 15 px)
+            max_tri_residual_px  : §2.14 L2 residual ceiling; 0 = disabled (default)
+
+            Returns filtered list[dict] with weight penalties applied.
         )doc");
 
     m.def("build_edge_graph", &build_edge_graph,
